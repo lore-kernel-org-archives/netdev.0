@@ -1,53 +1,64 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: 2.6.9-rc2-mm2 fn_hash_insert oops
-Date: Thu, 23 Sep 2004 21:18:20 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040923191819.GA30482@elte.hu>
-References: <20040923103723.GA12145@mail.muni.cz> <E1CARaS-00071j-00@gondolin.me.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Thu, 23 Sep 2004 12:16:51 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040923121651.51a58cf2.davem@davemloft.net>
+References: <414DF11C.1080505@eurodev.net>
+	<20040919215915.GB9573@gondor.apana.org.au>
+	<1095633569.1047.107.camel@jzny.localdomain>
+	<20040919231734.GA10124@gondor.apana.org.au>
+	<1095647944.1046.206.camel@jzny.localdomain>
+	<20040920025802.GA11567@gondor.apana.org.au>
+	<1095683660.1047.254.camel@jzny.localdomain>
+	<414F1E12.6010808@eurodev.net>
+	<20040922000503.GA13218@gondor.apana.org.au>
+	<4150E7E5.2000001@eurodev.net>
+	<20040922045239.GA19573@gondor.apana.org.au>
+	<1095854920.1047.64.camel@jzny.localdomain>
+	<20040922105221.59a67d4b.davem@davemloft.net>
+	<4152EE68.4030803@eurodev.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lukas Hejtmanek <xhejtman@mail.muni.cz>, akpm@osdl.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268218AbUIWTQh@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1CARaS-00071j-00@gondolin.me.apana.org.au>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, herbert@gondor.apana.org.au, davem@redhat.com,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Pablo Neira <pablo@eurodev.net>
+In-Reply-To: <4152EE68.4030803@eurodev.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 23 Sep 2004 17:40:24 +0200
+Pablo Neira <pablo@eurodev.net> wrote:
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> Initially we could allocate a skb with size NLMSG_GOODSIZE, then after 
+> all the information has been added, we could use a function (skb_*) 
+> which allocates a new buffer headroom, memcpy the old skb headroom and 
+> release it, so we trim the useless part of the headroom. This make us 
+> waste some extra jiffies with memcpy's but we could save same space in 
+> the queue. Does such skb_* function exist?
 
-> Lukas Hejtmanek <xhejtman@mail.muni.cz> wrote:
-> > 
-> > However there is still the issue with endless loop in fn_hash_delete :(
-> 
-> Same problem, same fix.  Can someone think of a generic fix to
-> list_for_each_*?
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+No such function exists.
 
-did the trick here too.
+Such a function would need to modify skb->truesize and that is
+very dangerous.  People using such a routine would need to be
+_extremely_ careful since if the skb being worked on is on
+a socket queue, changing skb->truesize is going to mess up
+socket buffer accounting later when the skb gets freed
+and the socket buffer space liberated.
 
-on a related note, e100 ifup still gives:
+That doesn't apply to what you're trying to do here, of course.
 
-enable_irq(16) unbalanced from c021afa5
- [<c01322a0>] enable_irq+0xd0/0xe0
- [<c021afa5>] e100_up+0xf5/0x1e0
- [<c021afa5>] e100_up+0xf5/0x1e0
- [<c021a500>] e100_intr+0x0/0x130
- [<c021c19d>] e100_open+0x2d/0x80
- [<c014741a>] handle_mm_fault+0x14a/0x1f0
- [<c02d9c55>] dev_open+0x85/0xa0
- [<c02ddc04>] dev_mc_upload+0x24/0x40
- [<c02db363>] dev_change_flags+0x53/0x130
- [<c0314bcb>] devinet_ioctl+0x26b/0x6c0
- [<c0317106>] inet_ioctl+0x66/0xb0
- [<c02d1019>] sock_ioctl+0xc9/0x290
- [<c0169eda>] sys_ioctl+0xca/0x230
- [<c01140c0>] do_page_fault+0x0/0x6f0
- [<c01044c9>] sysenter_past_esp+0x52/0x71
+Simpler would be:
 
-this is with Andrew's current tree (x.bz2).
+1) For each netlink socket, allocate a page, much like TCP sockets
+   do.
 
-	Ingo
+2) Construct the netlink response in this page sized buffer,
+   keeping track of how much of the page is actually used.
+
+3) At the end, allocate the skb with the necessary length,
+   copy into the skb from the page buffer.
+
+4) Since the RTNL semaphore is held during the length of these
+   operations, the per-socket page needs no locking.
