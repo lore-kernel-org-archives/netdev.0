@@ -1,27 +1,40 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: 2.4.18 userspace seeing UDP packets with bad checksum?
-Date: Tue, 30 Jul 2002 14:57:48 +0200
+From: Patrick Schaaf <bof@bof.de>
+Subject: Re: TODO list before feature freeze
+Date: Tue, 30 Jul 2002 15:06:39 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020730145748.A11789@wotan.suse.de>
-References: <20020730104815.GA22307@outpost.ds9a.nl>
+Message-ID: <20020730150639.B492@oknodo.bof.de>
+References: <20020730142758.A492@oknodo.bof.de> <Pine.GSO.4.30.0207300818480.15727-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Patrick Schaaf <bof@bof.de>, Andi Kleen <ak@suse.de>,
+   Rusty Russell <rusty@rustcorp.com.au>, netfilter-devel@lists.netfilter.org,
+   netdev@oss.sgi.com, netfilter-core@lists.netfilter.org
 Return-path: <owner-netdev@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20020730104815.GA22307@outpost.ds9a.nl>
+In-Reply-To: <Pine.GSO.4.30.0207300818480.15727-100000@shell.cyberus.ca>; from hadi@cyberus.ca on Tue, Jul 30, 2002 at 08:29:49AM -0400
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 30, 2002 at 12:48:15PM +0200, bert hubert wrote:
-> I'm under the strong impression that 2.4.18 lets userspace see packets with
-> incorrect UDP checksums. The packet attached arrived in userspace after
-> travelling all the way from Taiwan.
-> 
-> Is this policy?
+> Hashing is an issue, no doubt but i dont think it is the main issue.
 
-Yes. The checksum is checked while doing the copy to user space. When the
-checksum fails you still have the already done copy, the kernel does not 
-try to undo it.
+I fully agree. I mention this all the time.
 
--Andi
+> Did you start chasing hashing because you saw some large numbers
+> in profiles?
+
+No. I looked at the hash function and bucket sizes, because I now have
+machines in the field running conntrack, and I wanted to understand
+how I should chose an appropriate size. So I took real world conntrack
+snapshots on those machines, and analysed. I learned all there is to
+learn about the question, and present the results for others to use
+like they see fit. End of story.
+
+Again, I have no performance trouble with conntracking on any of my
+production systems.
+
+best regards
+  Patrick
+
+-- 
+everything is under control.
+	(Hardware)
