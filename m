@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 17:58:13 -0700 (PDT)
+Date: Tue, 10 Jun 2003 17:58:54 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030610.175813.74726237.davem@redhat.com>
+Message-ID: <20030610.175854.41658344.davem@redhat.com>
 References: <Pine.LNX.4.51.0306101956520.7801@ns.istop.com>
 	<20030610.165759.78731321.davem@redhat.com>
 	<Pine.LNX.4.51.0306102030530.12166@ns.istop.com>
@@ -20,22 +20,11 @@ List-Id: netdev.vger.kernel.org
 
    From: Ralph Doncaster <ralph@istop.com>
    Date: Tue, 10 Jun 2003 20:41:13 -0400 (EDT)
-
-   On Tue, 10 Jun 2003, David S. Miller wrote:
    
-   > Guess you never run tcpdump nor use packet schedulers.
-   
-   So because some (in the case of a core router almost none) of the packets
-   will need a timestamp, you do it for every single one of them?
+   This sounded so unbelievable to me that I took a quick look at the code to
+   see what I'd have to do to get rid of it.  It appears that gettimeofday is
+   not called for every packet; just for ICMP timestamp requests and for IP
+   options (ip_options_build and ip_options_compile).
 
-In order to be accurate, we must obtain the timestamp
-exactly when we receive the packet.
-
-But until we know that the packet is for us or not (which
-requires a route lookup), we don't know if we actually need
-the timestamp or not.
-
-This is not some arbitrary thing, this is how you have to
-implement this.  It's not like we said "screw everyone,
-let's get a timestamp all the time whether we need it or
-not." :-)
+Stop lookin in the IP code.  Look at where we get the packet
+from the device, which is one layer up.
