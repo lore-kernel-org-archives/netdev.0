@@ -1,115 +1,182 @@
-From: Erik Hensema <erik@hensema.net>
-Subject: [PATCH 2.4.21-pre4] Propagate netfilter MARK value when tunneling
-Date: Tue, 11 Mar 2003 12:18:01 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030311111801.GA1853@hensema.net>
-Reply-To: erik@hensema.net
+From: devik <devik@cdi.cz>
+Subject: Re: kernel panic: bug in sch_sfq.c
+Date: Tue, 11 Mar 2003 12:55:46 +0100 (CET)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.33.0303111239440.498-100000@devix>
+References: <20030311094420.GB19658@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="k1lZvvs/B4yU6o8G"
-Cc: LARTC <lartc@mailman.ds9a.nl>,
-   Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Linux Kernel Mailinlist <linux-kernel@vger.kernel.org>,
+	David Jarvis <david@uninetwork.co.za>, <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20030311094420.GB19658@outpost.ds9a.nl>
 List-Id: netdev.vger.kernel.org
 
+Hmm,
+I looked at it. It seems that skb linked list was corrupted
+(containing NULL pointer). It could be because of two problems,
+either someone (maybe htb too)'ve overwritten memory or HTB
+called dequeue with wrong argument.
+Latter is unlikely because I call q->dequeue and sfq's
+dequeue was really called. Thus pointer is ok.
+Let's examine how could HTB mungle with qdisc internals. If
+htb would think that leaf is inner node, inner.feed[0] is
+pointer equal to leaf.q. I examined code but there is no
+way to make this mistake.
 
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Last 3 days I got 3 bugreports. Each crashes in different
+place and all seem unrelated. Each is NULL pointer dereference
+though.
+I think there is some place in some code which writes in
+bad random places in memory :-\
 
-This patch enables the user to propagate netfilter MARK values from
-tunneled packets to the tunnel packets. The primary use for this is QoS: it
-enables you to MARK a packet before it enters a tunnel and then later pick
-up the packet when it's about to leave the physical interface.
+To ask all people whose have seen such Oops, have you used
+dynamic tc classes changes ? Like creating/deleting/changing/viewving
+classes offten at runtime ? (I'm trying to find common trigger).
 
-jamal <hadi@cyberus.ca> suggested to also propagate other skb specifics
-like the tcindex and priority. I haven't included these in the current
-patch for the very simple reason that I don't understand what they mean ;-)
+thanks,  devik
+HTB maintainer
 
-The patch is currently limited to GRE, IPIP and SIT.
+On Tue, 11 Mar 2003, bert hubert wrote:
 
-Patch is attached to this mail, but also can be downloaded from
-http://dexter.hensema.net/~erik/patches/netfilter-propagate-mark-2.4.21-pre4.diff
-
--- 
-Erik Hensema (erik@hensema.net)
-
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="netfilter-propagate-mark-2.4.21-pre4.diff"
-
---- ../linux-2.4.21-pre4/net/Config.in	Sat Aug  3 02:39:46 2002
-+++ net/Config.in	Tue Mar 11 12:08:29 2003
-@@ -13,6 +13,7 @@
- bool 'Network packet filtering (replaces ipchains)' CONFIG_NETFILTER
- if [ "$CONFIG_NETFILTER" = "y" ]; then
-    bool '  Network packet filtering debugging' CONFIG_NETFILTER_DEBUG
-+   bool '  Propagate netfilter MARK value when tunneling' CONFIG_NETFILTER_PROPAGATE_MARK
- fi
- bool 'Socket Filtering'  CONFIG_FILTER
- tristate 'Unix domain sockets' CONFIG_UNIX
---- ../linux-2.4.21-pre4/net/ipv4/ipip.c	Fri Nov 29 00:53:15 2002
-+++ net/ipv4/ipip.c	Tue Mar 11 11:58:50 2003
-@@ -619,6 +619,9 @@
- 		}
- 		if (skb->sk)
- 			skb_set_owner_w(new_skb, skb->sk);
-+#ifdef CONFIG_NETFILTER_PROPAGATE_MARK
-+		new_skb->nfmark = skb->nfmark;
-+#endif
- 		dev_kfree_skb(skb);
- 		skb = new_skb;
- 	}
---- ../linux-2.4.21-pre4/net/ipv4/ip_gre.c	Fri Nov 29 00:53:15 2002
-+++ net/ipv4/ip_gre.c	Tue Mar 11 11:59:07 2003
-@@ -822,6 +822,9 @@
- 		}
- 		if (skb->sk)
- 			skb_set_owner_w(new_skb, skb->sk);
-+#ifdef CONFIG_NETFILTER_PROPAGATE_MARK
-+		new_skb->nfmark = skb->nfmark;
-+#endif
- 		dev_kfree_skb(skb);
- 		skb = new_skb;
- 	}
---- ../linux-2.4.21-pre4/net/ipv6/sit.c	Fri Nov 29 00:53:15 2002
-+++ net/ipv6/sit.c	Tue Mar 11 11:59:20 2003
-@@ -571,6 +571,9 @@
- 		}
- 		if (skb->sk)
- 			skb_set_owner_w(new_skb, skb->sk);
-+#ifdef CONFIG_NETFILTER_PROPAGATE_MARK
-+		new_skb->nfmark = skb->nfmark;
-+#endif
- 		dev_kfree_skb(skb);
- 		skb = new_skb;
- 	}
---- ../linux-2.4.21-pre4/Documentation/Configure.help	Wed Feb 26 10:51:16 2003
-+++ Documentation/Configure.help	Tue Mar 11 12:05:37 2003
-@@ -2507,6 +2507,22 @@
-   You can say Y here if you want to get additional messages useful in
-   debugging the netfilter code.
- 
-+Propagate netfilter MARK value when tunneling
-+CONFIG_NETFILTER_PROPAGATE_MARK
-+  With this option enabled, netfilter MARK values are propagated from
-+  tunneled packets to the tunnel packets. It enables you to trace
-+  packets from before they enter the tunnel to the point where they
-+  leave the physical interface.
-+  
-+  One of the possible uses is marking packets for QoS before they
-+  enter a tunnel. These mark values can then be picked up by filters
-+  defined by the "tc" utility when they're about the leave the 
-+  physical interface.
-+
-+  This option currently works for GRE, IPIP and SIT tunnels.
-+
-+  If unsure, say N.
-+
- Connection tracking (required for masq/NAT)
- CONFIG_IP_NF_CONNTRACK
-   Connection tracking keeps a record of what packets have passed
-
---k1lZvvs/B4yU6o8G--
+> On Tue, Mar 11, 2003 at 11:14:09AM +0200, Abraham van der Merwe wrote:
+> > Hi!
+> >
+> > I have a box that crashed today. Below is the decoded kernel panic. If you
+> > track down the bug PLEASE send me a patch.
+>
+> Weird, Alexeys code is normally very very solid. Perhaps HTB is also
+> involved. Devik?
+>
+> >
+> > ------------< snip <------< snip <------< snip <------------
+> > ksymoops 2.4.8 on i686 2.4.20-rc1.  Options used
+> >      -v vmlinux-2.4.21-pre5 (specified)
+> >      -K (specified)
+> >      -L (specified)
+> >      -O (specified)
+> >      -m System.map-2.4.21-pre5 (specified)
+> >
+> > Unable to handle kernel NULL pointer dereference at virtual address 00000004
+> > *pde = 00000000
+> > Oops: 0002
+> > CPU:    0
+> > EIP:    0010:[<c01a5399>]    Not tainted
+> > Using defaults from ksymoops -t elf32-i386 -a i386
+> > EFLAGS: 00010202
+> > eax: 00000000   ebx: c7b9a9e8   ecx: 0000007f   edx: c7a8eef8
+> > esi: c7b9ab08   edi: 000007f0   ebp: c7a8e060   esp: c021deb8
+> > ds: 0018   es: 0018   ss: 0018
+> > Process swapper (pid: 0, stackpage=c021d000)
+> > Stack: c7b9a9e8 c7b9ab08 c7f7ee00 c7b9a860 c7b893c0 c7f7ee00 c7b9a860 00000000
+> >        c01a3507 c7b5c680 7fb9a9f0 c01a339e c7a8e000 ffffffff 00000018 00000006
+> >        c7b9a800 00000018 00000006 c7b9a800 c7b9a9e8 c7b9ab08 c7f7ee00 c01a371c
+> > Call Trace:    [<c01a3507>] [<c01a339e>] [<c01a371c>] [<c019f7a3>] [>c019949d>]
+> >   [<c0115a6a>] [<c01082bd>] [<c0105240>] [<c0105240>] [<c010a528>] [<c0105240>]
+> >   [<c0105240>] [<c0105263>] [<c01052d2>] [<c0105000>] [<c0105027>]
+> > Code: 89 50 04 89 02 8b 5c 24 24 c7 03 00 00 00 00 c7 43 04 00 00
+> >
+> >
+> > >>EIP; c01a5399 <sfq_dequeue+59/1b0>   <=====
+> >
+> > >>esp; c021deb8 <init_task_union+1eb8/2000>
+> >
+> > Trace; c01a3507 <htb_dequeue_tree+217/230>
+> > Trace; c01a339e <htb_dequeue_tree+ae/230>
+> > Trace; c01a371c <htb_dequeue+16c/250>
+> > Trace; c019f7a3 <qdisc_restart+13/d0>
+> > Trace; c0115a6a <do_softirq+5a/b0>
+> > Trace; c01082bd <do_IRQ+9d/b0>
+> > Trace; c0105240 <default_idle+0/30>
+> > Trace; c0105240 <default_idle+0/30>
+> > Trace; c010a528 <call_do_IRQ+5/d>
+> > Trace; c0105240 <default_idle+0/30>
+> > Trace; c0105240 <default_idle+0/30>
+> > Trace; c0105263 <default_idle+23/30>
+> > Trace; c01052d2 <cpu_idle+42/60>
+> > Trace; c0105000 <_stext+0/0>
+> > Trace; c0105027 <rest_init+27/30>
+> >
+> > Code;  c01a5399 <sfq_dequeue+59/1b0>
+> > 00000000 <_EIP>:
+> > Code;  c01a5399 <sfq_dequeue+59/1b0>   <=====
+> >    0:   89 50 04                  mov    %edx,0x4(%eax)   <=====
+> > Code;  c01a539c <sfq_dequeue+5c/1b0>
+> >    3:   89 02                     mov    %eax,(%edx)
+> > Code;  c01a539e <sfq_dequeue+5e/1b0>
+> >    5:   8b 5c 24 24               mov    0x24(%esp,1),%ebx
+> > Code;  c01a53a2 <sfq_dequeue+62/1b0>
+> >    9:   c7 03 00 00 00 00         movl   $0x0,(%ebx)
+> > Code;  c01a53a8 <sfq_dequeue+68/1b0>
+> >    f:   c7 43 04 00 00 00 00      movl   $0x0,0x4(%ebx)
+> >
+> >  <0>Kernel panic: Aiee, killing interrupt handler!
+> > ------------< snip <------< snip <------< snip <------------
+> >
+> > Below are the rules that were installed on the system:
+> >
+> > ------------< snip <------< snip <------< snip <------------
+> > /sbin/tc qdisc del dev eth0 root
+> > /sbin/tc qdisc del dev eth1 root
+> > /sbin/iptables -t mangle -F qos
+> > /sbin/iptables -t mangle -Z qos
+> > /sbin/tc qdisc add dev eth0 root handle 1: htb default 5 r2q 1
+> > /sbin/tc class add dev eth0 parent 1: classid 1:1 htb rate 96kbit
+> > /sbin/tc class add dev eth0 parent 1:1 classid 1:2 htb rate 96kbit ceil 96kbit
+> > /sbin/tc class add dev eth0 parent 1:2 classid 1:3 htb rate 48kbit ceil 96kbit prio 1
+> > /sbin/tc qdisc add dev eth0 handle 3: parent 1:3 sfq perturb 10 limit 31
+> > /sbin/tc class add dev eth0 parent 1:2 classid 1:4 htb rate 24kbit ceil 96kbit prio 1
+> > /sbin/tc qdisc add dev eth0 handle 4: parent 1:4 sfq perturb 10 limit 31
+> > /sbin/tc class add dev eth0 parent 1:2 classid 1:5 htb rate 16kbit ceil 96kbit prio 2
+> > /sbin/tc qdisc add dev eth0 handle 5: parent 1:5 sfq perturb 10 limit 31
+> > /sbin/iptables -t mangle -A qos -o eth0 -s 66.8.85.0/28 -j CLASSIFY --set-class 1:3
+> > /sbin/iptables -t mangle -A qos -o eth0 -s 66.8.85.80/28 -j CLASSIFY --set-class 1:4
+> > /sbin/iptables -t mangle -A qos -o eth0 -s 192.116.106.192/29 -j CLASSIFY --set-class 1:0
+> > /sbin/iptables -t mangle -A qos -o eth0 -s 66.8.28.48/29 -j CLASSIFY --set-class 1:0
+> > /sbin/tc qdisc add dev eth1 root handle 1: htb default 5 r2q 2
+> > /sbin/tc class add dev eth1 parent 1: classid 1:1 htb rate 512kbit
+> > /sbin/tc class add dev eth1 parent 1:1 classid 1:2 htb rate 256kbit ceil 512kbit
+> > /sbin/tc class add dev eth1 parent 1:2 classid 1:3 htb rate 128kbit ceil 512kbit prio 1
+> > /sbin/tc qdisc add dev eth1 handle 3: parent 1:3 sfq perturb 10 limit 169
+> > /sbin/tc class add dev eth1 parent 1:2 classid 1:4 htb rate 64kbit ceil 512kbit prio 1
+> > /sbin/tc qdisc add dev eth1 handle 4: parent 1:4 sfq perturb 10 limit 169
+> > /sbin/tc class add dev eth1 parent 1:2 classid 1:5 htb rate 32kbit ceil 512kbit prio 2
+> > /sbin/tc qdisc add dev eth1 handle 5: parent 1:5 sfq perturb 10 limit 169
+> > /sbin/iptables -t mangle -A qos -o eth1 -d 66.8.85.0/28 -j CLASSIFY --set-class 1:3
+> > /sbin/iptables -t mangle -A qos -o eth1 -d 66.8.85.80/28 -j CLASSIFY --set-class 1:4
+> > /sbin/iptables -t mangle -A qos -o eth1 -d 192.116.106.192/29 -j CLASSIFY --set-class 1:0
+> > /sbin/iptables -t mangle -A qos -o eth1 -d 66.8.28.48/29 -j CLASSIFY --set-class 1:0
+> > ------------< snip <------< snip <------< snip <------------
+> >
+> > I've made tons of info available on my home page for you to look at (proc
+> > files, vmlinux, System.map, original panic message, etc.
+> >
+> > http://oasis.frogfoot.net/sfq/
+> >
+> > --
+> >
+> > Regards
+> >  Abraham
+> >
+> > I saw what you did and I know who you are.
+> >
+> > ___________________________________________________
+> >  Abraham vd Merwe [ZR1BBQ] - Frogfoot Networks
+> >  P.O. Box 3472, Matieland, Stellenbosch, 7602
+> >  Cell: +27 82 565 4451 Http: http://www.frogfoot.net/
+> >  Email: abz@frogfoot.net
+> >
+> > -
+> > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
+> >
+>
+> --
+> http://www.PowerDNS.com      Open source, database driven DNS Software
+> http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+> http://netherlabs.nl                         Consulting
+>
