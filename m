@@ -1,52 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: request_module while holding rtnl semaphore
-Date: Wed, 10 Nov 2004 12:15:56 +1100
-Message-ID: <20041110011556.GA6853@gondor.apana.org.au>
-References: <41899DCF.3050804@trash.net> <E1CQDcP-0003ff-00@gondolin.me.apana.org.au> <20041109161126.376f755c.davem@davemloft.net>
+Date: Wed, 10 Nov 2004 02:22:51 +0100
+Message-ID: <20041110012251.GK31969@postel.suug.ch>
+References: <41899DCF.3050804@trash.net> <E1CQDcP-0003ff-00@gondolin.me.apana.org.au> <20041109161126.376f755c.davem@davemloft.net> <20041110010113.GJ31969@postel.suug.ch> <41916A91.3080107@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20041109161126.376f755c.davem@davemloft.net>
+In-Reply-To: <41916A91.3080107@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 09, 2004 at 04:11:26PM -0800, David S. Miller wrote:
+* Patrick McHardy <41916A91.3080107@trash.net> 2004-11-10 02:10
+> Thomas Graf wrote:
 > 
-> I totally disagree.  The use of rtnl for all networking configuration
-> changes is a virtue of our current setup.
+> >Sounds reasonable for the sch_api.c and cls_api.c case but
+> >will get very nasty for act_api as you noted and any further sub
+> >layers that might be added in the future. (The classifier I'm
+> >working on is such a case.)
+> >
+> Can you please show an example of a case where this is needed ?
+> Just to help me understand.
 
-I agree with that.  However, my point is that the RTNL is used for
-a lot more than that.
- 
-> Only the actual implementations know when and where such a
-> dependency on device state et al. does not exist, and therefore
-> where RTNL holding is not necessary.
+The action code might load modules in the middle of a classifier
+configuration and it will be very hard to reverse those changes.
+Right now we could move it to the top of all configurations and it
+would probably be possible to get back where we fetch the device
+but it will get impossible once a classifier requires module
+loading which is not unlikely.
 
-You could do that if the RTNL was exclusively used for
-protecting net_device.  As it is it protects RTNETLINK
-and other things too.
-
-> Therefore I suggest we just implement the fix for this inside of
-> the packet scheduler layer itself.  Simply by dropping the RTNL
-> semaphore during the module request, and then regrabbing the RTNL
-> semaphore and replaying the request from the beginning.
-
-I agree that this will probably the simplest fix.  However,
-I'd like to see some evidence that this is actually safe.
-
-For example, rtnetlink_rcv relies on the RTNL to ensure ordering
-between requests.  Dropping the RTNL may cause the receive queue
-to be processed by another process.
-
-Now as it is I don't think it's a huge problem since we process
-requests as soon as they come in.  But if we ever allow requests
-to be queued for RTNETLINK this may come back to bite us.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Well, it's not impossible but it would mean to have the action
+code parse the TLV and just try to load the module, then report
+to the classifier so it can try to load its own modules and then do
+the actual action and classifier configuration. I don't even want to
+think of how nasty it gets once a action module requests modules itself ;->
