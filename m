@@ -1,24 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] NET: save space for dst underflow message
-Date: Mon, 5 Jul 2004 16:43:24 -0700
+Subject: Re: [XFRM] Convert XFRM_MSG_* macros to an enum
+Date: Mon, 5 Jul 2004 16:47:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040705164324.11d4eaa7.davem@redhat.com>
-References: <20040705.170053.22377235.yoshfuji@linux-ipv6.org>
+Message-ID: <20040705164714.5aac5b62.davem@redhat.com>
+References: <20040703095215.GA16195@gondor.apana.org.au>
+	<20040705161148.503722e7.davem@redhat.com>
+	<20040705232141.GA9939@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040705.170053.22377235.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040705232141.GA9939@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 05 Jul 2004 17:00:53 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Tue, 6 Jul 2004 09:21:41 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Save space for "dst underflow" message.
-> 
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> The point is that with enums we won't have to change XFRM_MSG_MAX
+> every time a new message type is added.
 
-Applied.
+Ok, applied.
