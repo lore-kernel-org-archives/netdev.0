@@ -1,53 +1,55 @@
-From: Abhijit Menon-Sen <ams@wiw.org>
-Subject: how is recv(..., MSG_PEEK) racy?
-Date: Fri, 5 Sep 2003 16:16:42 +0530
+From: jamal <hadi@cyberus.ca>
+Subject: Re: 2.6.0-test4, 2.5.47, child qdiscs, parent not filled out?
+Date: 05 Sep 2003 08:00:36 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905161642.A29720@lustre.dyn.wiw.org>
+Message-ID: <1062763235.1459.14.camel@jzny.localdomain>
+References: <Pine.LNX.4.33.0309032258290.521-100000@devix>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: bert hubert <ahu@ds9a.nl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-Content-Disposition: inline
+To: devik <devik@cdi.cz>
+In-Reply-To: <Pine.LNX.4.33.0309032258290.521-100000@devix>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(I posted this To: netdev twice, but it didn't show up, even though I am
-receiving other posts from the list. I apologise if anyone gets multiple
-copies of this message.)
+olla,
 
-I'm trying to understand a fetchmail problem that causes large downloads
-from IMAP servers to fail randomly. For some reason, fetchmail uses the
-following bizarre code inside a loop to read data from the server:
+Actually HTB does seem to be missing something; havent looked at the
+code - just looking at a black box perspective. Try a very simple test:
 
-    if ((n = recv(sock, bp, len, MSG_PEEK)) <= 0)
-        return (-1);
+Add a root CBQ qdisc and watch the netlink messages produced.
+Observe CBQ creating both a root qdisc and class where the children
+will be attached.
 
-    if ((newline = memchr(bp, '\n', n)) != NULL)
-        n = newline - bp + 1;
+Repeat same test for HTB - it doesnt create the top class.
+I believe it is needed. Sorry too tied up elsewhere to help right now.
 
-    if ((n = read(sock, bp, n)) == -1)
-        return (-1);
+cheers,
+jamal
 
-The problem occurs (at an unpredictable time, but very often, and with a
-greater probability with a larger attachment) when the recv() returns 0,
-although tcpdump doesn't show the server closing the connection, or any
-other unusual behaviour.
-
-Are there any circumstances other than the connection being closed where
-recv(..., MSG_PEEK) can return 0? (Stevens/SUSv3 don't mention any.)
-
-I found the following (paraphrased) comment in net/ipv4/tcp.c:
-
-    if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
-        printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
-               current->comm, current->pid);
-
-While fetchmail doesn't seem to be triggering that printk(), I'm curious
-about what the race condition is. Google found a post by DaveM saying it
-has something to do with URG data, but without any further details. I'd
-appreciate any explanation of the problem(s).
-
-Thank you.
-
--- ams
+On Wed, 2003-09-03 at 17:01, devik wrote:
+> > Devik (I hope we can be friends again :-)), others,
+> 
+> yep I think so :-)
+> 
+> > If I create a cbq with several classes, and attach a qdisc to those classes,
+> > a later netlink dump (RTM_GETQDISCS) returns parent as 0:0 for that qdisc,
+> > is this right?
+> 
+> structure Qdisc has DEPRECATED field __parent pointing to parent
+> qdisc (aparently CBQ needs it).
+> There is no other "parent" info in the struct so it can't be returned
+> IMHO.
+> You will have to parse all clases from root to leaves.
+> 
+> Maybe we could add parent handle to qdisc but it is question to
+> Alexey probably - I'm not sure how complex would it be to keep
+> the field in sync ...
+> 
+> devik
+> 
+> 
+> 
