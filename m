@@ -1,79 +1,37 @@
-From: John Ronciak <john.ronciak@gmail.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
 Subject: Re: e1000 problem with NAPI?
-Date: Tue, 1 Mar 2005 10:13:34 -0800
-Message-ID: <56a8daef05030110137b712879@mail.gmail.com>
-References: <20050301135931.GA14610@xi.wantstofly.org>
-Reply-To: John Ronciak <john.ronciak@gmail.com>
+Date: Tue, 1 Mar 2005 19:38:58 +0100
+Message-ID: <20050301183858.GA15931@xi.wantstofly.org>
+References: <20050301135931.GA14610@xi.wantstofly.org> <56a8daef05030110137b712879@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, hadi@cyberus.ca, robert.olsson@data.slu.se
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050301135931.GA14610@xi.wantstofly.org>
+To: John Ronciak <john.ronciak@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <56a8daef05030110137b712879@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lennert,
+On Tue, Mar 01, 2005 at 10:13:34AM -0800, John Ronciak wrote:
 
-It sounds like you are running into a bug we had with NAPI in that
-e1000 driver.  Robert actually found it.  :-)  Please try the 5.7.6
-driver available from Sourceforge.  It has the fixed NAPI code in it.
+> Lennert,
 
-Let us know if this fixes the problem.
-
-Thanks,
-John
+Hello,
 
 
-On Tue, 1 Mar 2005 14:59:31 +0100, Lennert Buytenhek
-<buytenh@wantstofly.org> wrote:
-> Hi all,
-> 
-> I'm seeing some strange issues with an e1000 NIC.  I'm flooding it
-> with tinygrams from a packet generator and then abruptly stop the
-> generator.  The last few packets from the burst don't come through
-> until after two seconds.  Sometimes there are multiple trailing
-> bursts, each of them separated by two seconds.
-> 
-> For example:  (The low 24 bits of the destination address are set
-> to the packet sequence number by the generator.)
-> 
-> 14:44:19.649874 IP 10.10.0.0 > 1.4.10.11: [|tcp]
-> 14:44:19.649878 IP 10.10.0.0 > 1.4.10.12: [|tcp]
-> 14:44:19.649882 IP 10.10.0.0 > 1.4.10.13: [|tcp]
-> 14:44:19.649887 IP 10.10.0.0 > 1.4.10.14: [|tcp]
-> 14:44:19.649891 IP 10.10.0.0 > 1.4.10.15: [|tcp]
-> 14:44:19.649895 IP 10.10.0.0 > 1.4.10.16: [|tcp]
-> 14:44:19.649899 IP 10.10.0.0 > 1.4.10.17: [|tcp]
-> 14:44:21.650293 IP 10.10.0.0 > 1.4.10.18: [|tcp]                <=== delayed
-> 14:44:21.650303 IP 10.10.0.0 > 1.4.10.19: [|tcp]
-> 14:44:21.650308 IP 10.10.0.0 > 1.4.10.20: [|tcp]
-> 14:44:21.650312 IP 10.10.0.0 > 1.4.10.21: [|tcp]
-> 14:44:21.650316 IP 10.10.0.0 > 1.4.10.22: [|tcp]
-> 14:44:21.650320 IP 10.10.0.0 > 1.4.10.23: [|tcp]
-> 14:44:21.650324 IP 10.10.0.0 > 1.4.10.24: [|tcp]
-> 14:44:21.650328 IP 10.10.0.0 > 1.4.10.25: [|tcp]
-> 14:44:21.650332 IP 10.10.0.0 > 1.4.10.26: [|tcp]
-> 
-> I wrote the packet generator code myself (ixp2400 platform), but I've
-> verified that the packets do leave the generator back-to-back.  What's
-> also strange is that when these trailing bursts come in, the interface
-> statistics counters do not change -- the packets in the trailing bursts
-> have already been counted by the time they show up in tcpdump.
-> 
-> Jamal suspects a NAPI 'rotting packet' issue, which doesn't sound all
-> that unlikely.  (Oh, this is kernel 2.6.10-something with e1000 driver
-> version "5.5.4-k2-NAPI".)
-> 
-> Ideas?
-> 
-> cheers,
-> Lennert
-> 
-> 
+> It sounds like you are running into a bug we had with NAPI in that
+> e1000 driver.  Robert actually found it.  :-)  Please try the 5.7.6
+> driver available from Sourceforge.  It has the fixed NAPI code in it.
+
+Works much better, thanks.
+
+It seems as if performance is much improved as well.  With the old
+version (5.5.4-k2-NAPI), it would successfully receive ~350k pkts out
+of a 1Mpkt back-to-back tinygram burst and drop ~650k.  With 5.7.6,
+it receives ~780k and drops ~220k.  (82546GB dual copper GigE, dual
+Xeon 2.4 w/HT on an intel SE7505VB2.)
 
 
--- 
-Cheers,
-John
+cheers,
+Lennert
