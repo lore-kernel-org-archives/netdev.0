@@ -1,66 +1,61 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating
-	master's  settings toslaves
-Date: 11 Aug 2003 10:34:41 -0400
+From: "Hare, Matthew" <matthew.hare@amsjv.com>
+Subject: TCP/IP Window Size Problem/Query
+Date: Mon, 11 Aug 2003 17:22:04 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1060612481.1034.15.camel@jzny.localdomain>
-References: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com>
-	 <1060607079.1050.144.camel@jzny.localdomain>
-	 <3F37A331.88EB0B1D@thalesatm.com>
-	 <200308111720.38472.shmulik.hen@intel.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <3E28BEE03F7CD3118E540008C7F35FF602C7AFAB@NMEX01>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Laurent DENIEL <laurent.deniel@thalesatm.com>,
-   bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain;	charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com
-In-Reply-To: <200308111720.38472.shmulik.hen@intel.com>
+To: "'davem@redhat.com'" <davem@redhat.com>, "'ak@muc.de'" <ak@muc.de>,
+   "'kuznet@ms2.inr.ac.ru'" <kuznet@ms2.inr.ac.ru>,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2003-08-11 at 10:20, Shmulik Hen wrote:
-> On Monday 11 August 2003 05:07 pm, Laurent DENIEL wrote:
-> > HP/Compaq/Digital used to have the same approach with their Netrain
-> > implementation, and from one release of Tru64 UNIX to another, they
-> > could no longer support resolution ala milli-seconds but only
-> > seconds due to the move of such "richness" to user space (among
-> > other things). I am not saying that doing so on Linux will result
-> > to the same, but a minimal failover policy shall remain in the
-> > kernel for performance reason ... (or a user space facility could
-> > exist to *configure* such policy but without direct interaction
-> > with user space when the kernel has to decide).
-> >
-> > Laurent
-> 
-> That was my point. Thank you for putting it into better words.
-> If high availbilty and fast failovers are what's needed, why move it 
-> out of kernel space and put it in an application ? How fast could it 
-> work compared to a kernel module ? Why need an extra piece of code 
-> running in user space (daemon?) to monitor a module when the module 
-> can do that itself ?
->
-> If smarter behavior is needed (e.g. falling to eth4 instead of eth1 
-> when eth0 fails), we can add some priority mechanism to the driver to 
-> do that when it decides to swap. Otherwise, we'll be devleoping 
-> applications from now on, not the Linux kernel :)
-> 
+Forgive this mass mailing out but I am getting desperate for help. My
+problem is with reported TCP window sizes.
 
-So how many smart things are you going to add to the driver? ;->
-Do you wanna add the qos policy changeover as well? What about route
-changes, firewalling etc. What about sliceing bread and adding butter?
-Where do you draw the line?
-BTW, I dont understand why it would slow down failover; sure it will a
-tiny bit because you have to cross user space to lookup the policy.
-Maybe this is the part that i havent made clear, heres an example:
-- User space gets notified link eth0 went down
-- User space looks up a policy config on what to do when eth0 goes down
-- user space executes commands which may include telling kernel to 
-move activity to eth1.
- 
-Note: I agree on a minimal failover policy staying in the kernel; very
-basic stuff like what bonding used to do (may still do, dont know).
+I have two systems running SuSE Linux. System 1 is running SuSE 7.1 with the
+2.2.18 kernel. System 2 is running SuSE 7.3 with the 2.4.17 kernel. Both
+systems are PC based (Pentium III, 512MB RAM).
 
-cheers,
-jamal
+When I open a TCP connection from System 1 I get a reported window size (I
+use Ethereal to check window sizes) of 32k. When I do the same with System 2
+I get a reported window size of 5840bytes and the window size increases as
+the rate of data being sent via TCP increases. This is causing me problems,
+I need a fixed window size of 32k on System 2 so that it matches System 1.
+
+I have done a bit of testing to try and work out where this window size is
+set. I am by no means a Linux guru so I was working with little knowledge at
+the start. The application we use to open the TCP connections is our own
+code (C++) so I have hacked that and used some setsockopt() calls to set
+SO_SNDBUF. I tried setting this to 32k but this appears to have no effect on
+my reported window sizes.
+
+Does anyone know if setsockopt() can be used to change the size of the
+window I am seeing? Is SO_SNDBUF the same as the TCP window size that
+Ethereal is reporting?
+
+Is there a way to fix the TCP window size in the 2.4.17 kernel? I am
+familiar with recompiling the kernel but I've not found any kernel options
+that seem to do what I want. Can anyone help me or at least point me in the
+right direction?
+
+Thanks for your time.
+
+Mat Hare
+SAINTT Developer
+AMS UK
+
+
+
+
+
+
+********************************************************************
+This email and any attachments are confidential to the intended
+recipient and may also be privileged. If you are not the intended
+recipient please delete it from your system and notify the sender.
+You should not copy it or use it for any purpose nor disclose or
+distribute its contents to any other person.
+********************************************************************
