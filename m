@@ -1,51 +1,38 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: IMQ / new Dummy device post.
-Date: 23 Apr 2004 07:29:06 -0400
+From: Florian Weimer <fw@deneb.enyo.de>
+Subject: Re: tcp vulnerability?  haven't seen anything on it here...
+Date: Fri, 23 Apr 2004 15:55:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1082719745.1057.27.camel@jzny.localdomain>
-References: <wazza.87ad18jbdl.fsf@message.id>
-	 <1082427350.1034.70.camel@jzny.localdomain>
-	 <wazza.87fzayw1fy.fsf@message.id> <wazza.87fzaxmr6x.fsf@message.id>
-	 <wazza.87hdvddqxq.fsf@message.id>
-	 <1082639764.1059.81.camel@jzny.localdomain>
-	 <87oepjx65r.87n053x65r@87llknx65r.message.id>
-Reply-To: hadi@cyberus.ca
+Message-ID: <87u0zare7e.fsf@deneb.enyo.de>
+References: <XFMail.20040422102359.pochini@shiny.it>
+	<1082640135.1059.93.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Giuliano Pochini <pochini@shiny.it>, "David S. Miller"
+ <davem@redhat.com>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        cfriesen@nortelnetworks.com,
+        =?iso-8859-1?q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: syrius.ml@no-log.org
-In-Reply-To: <87oepjx65r.87n053x65r@87llknx65r.message.id>
+To: hadi@cyberus.ca
+In-Reply-To: <1082640135.1059.93.camel@jzny.localdomain> (hadi@cyberus.ca's
+ message of "22 Apr 2004 09:22:16 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi there,
+jamal <hadi@cyberus.ca> writes:
 
-On Thu, 2004-04-22 at 13:43, syrius.ml@no-log.org wrote:
-> Hi,
-> 
-> It oops when using the ingress qdisc + action mirred egress redirect
-> filter on tun0. (no egress at all, no ingress on eth0)
-> It doesn't oops using an ingress qdisc + a simple police+drop filter
-> on tun0...
+> OTOH, long lived BGP sessions are affected assuming you are going across
+> hostile path to your peer.
 
-Ok, so you have narrowed it down to mirred, tun and ingress qdisc - is
-that correct? Were you using openvpn to recreate this?
-BTW, would this happen if you dont issue the ping -f initially in above
-setup? If yes, before you send create the problem can you send a few
-pings through tap device and send me output of dmesg?
+Jamal, please forget that "hostile path to your peer" part.  It's just
+wrong.
 
-I just did a simple test with a basic program and couldnt reproduce it.
-I dont have the proper setup, can you do a basic test with some other
-tunneling s/ware? 
-The doc for tun mentions: 
-http://vtun.sourceforge.net and http://perso.enst.fr/~beyssac/pipsec/
-Please compile in tun and dummy into the kernel.
+You are entitled to your opinion that this isssue is being overhyped
+(I tend to share it, at least until some evidence shows up that
+there's also a 4.4BSD-like RST bug), but please try to understand the
+issue before making any judgement.
 
-BTW, i think we should take this offline; send your response directly to
-me. Anyone else interested in this conversation email both of us and we
-will cc you.
-
-cheers,
-jamal
+-- 
+Current mail filters: many dial-up/DSL/cable modem hosts, and the
+following domains: atlas.cz, bigpond.com, postino.it, tiscali.co.uk,
+tiscali.cz, tiscali.it, voila.fr.
