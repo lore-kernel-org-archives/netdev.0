@@ -1,72 +1,48 @@
-From: Ken Bantoft <ken@xelerance.com>
-Subject: Re: [Openswan dev] Proposal for dealing with ICMP black holes for
- IPsec
-Date: Sun, 4 Jul 2004 14:37:36 +0200 (CEST)
-Sender: dev-bounces@lists.openswan.org
-Message-ID: <Pine.LNX.4.44.0407041433410.12943-100000@tla.xelerance.com>
-References: <20040703004320.GA28139@gondor.apana.org.au>
+From: "Rickie Aguirre" <j10irp@yahoo.co.jp>
+Subject: =?ISO-8859-1?Q?=B3=B2=C0=DA=C0=C7=20=C8=FB!!=20=B4=E7=BD=C5=C0=C7?=
+	=?ISO-8859-1?Q?=C6=E4=B4=CF=BD=BA=B8=A6=20=B0=AD=B7=C2=C7=CF=B0=D4?=
+	=?ISO-8859-1?Q?=B8=B8=B5=E9=BE=EE=20=B5=E5=B8=B3=B4=CF=B4=D9.?= lmwcoxkuoc pwqhceex
+Date: Sun, 04 Jul 04 17:19:18 GMT
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <iv-6a59f15300jp-655p@8l76m.e.m34.j4>
+Reply-To: "Rickie Aguirre" <j10irp@yahoo.co.jp>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com
-Return-path: <dev-bounces@lists.openswan.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040703004320.GA28139@gondor.apana.org.au>
-Cc: kuznet@ms2.inr.ac.ru
-Cc: netdev@oss.sgi.com
-Cc: dev@lists.openswan.org
-List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=unsubscribe>
-List-Archive: <http://lists.openswan.org/pipermail/dev>
-List-Post: <mailto:dev@lists.openswan.org>
-List-Help: <mailto:dev-request@lists.openswan.org?subject=help>
-List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=subscribe>
-Errors-To: dev-bounces@lists.openswan.org
+Content-Type: multipart/alternative;
+	boundary=".B5EBA.8E2_5EEFEADF5_6_."
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-On Sat, 3 Jul 2004, Herbert Xu wrote:
+--.B5EBA.8E2_5EEFEADF5_6_.
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-> Hi:
-> 
-> This is a proposal of a method of detecting the path MTU that can be
-> applied by IPsec keying managers (e.g., openswan/racoon).
-> 
-> My idea is to use the information available in TCP MSS clamping to
-> help IPsec gateways.  This can be done by having the gateways
-> establish a short-lived TCP connection with each other for the
-> purposes of determining the MTU.  Obviously this TCP connection will
-> need to be authenticated.  If the connection cannot be established
-> (e.g., if an attacker is preventing the gateways from doing so), then
-> we can fall back to the existing MTU discovery mechanisms.
-> 
-> If however this connection succeeds, then we can deduce the path MTU
-> from its MSS settings.  We can then apply that MTU to the path taken
-> by the IPsec SAs.  This makes any ICMP black holes between the gateways
-> invisible to the end users as long as the information provided by
-> TCP MSS clamping is accurate.
+<html>
+<head>
+<title>big=FFFFFFC0=FFFFFFCC=FFFFFFC1=FFFFFFA8=FFFFFFB3=FFFFFFB2=FFFFFFBC=FFFFFFBA=FFFFFFC0=FFFFFFBA=FFFFFFB0=FFFFFFAD=FFFFFFC7=FFFFFFD8=FFFFFFBE=FFFFFFDF=FFFFFFC7=FFFFFFD1=FFFFFFB4=FFFFFFD9bgi=
+j!!! </title>
+ <meta name=3D"generator" content=3D"http://bigmankorea.com/partner/click.=
+php?id=3Dbigman">
+</head>
+<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
+k=3D"red">
 
-Interesting idea - tcp/500 connection (or maybe it should be port 4500, to 
-deal with NAT boxes.  I assume you want to do this as early as possible, 
-eg: Phase 1, however until we have a PH2 we can't do a secure TCP, only 
-authenticated.  
+<a href=3D"http://bigmankorea.com/partner/click.php?id=3Dbigman" target=3D=
+blank>
+<img src=3D"http://www.penis7up.com/p_img/Image6.gif" border=3D0><br>
+<img src=3D"http://bigmankorea.com/images/big2.jpg" border=3D0><br>
+<br>
+<font size=3D4 color=3Dpurple><b>BIG PENIS PROGRAMME FOR KOREAN MAN!!!100=
+%SUCCESS!!</b></font>
+</a>
 
-> The advantage of this over the approach taken by KLIPS (the FreeSWAN
-> kernel implementation for IPsec) is that we do not transmit fragments
-> where possible which is the motivation behind PMTU discovery.  The
-> advantage of this over the current implementation is that this will
-> work correctly in environments where there are local ICMP black holes 
-> that are known through TCP MSS clamping.
-> 
-> Comments?
+<br> 
+<br><br><br><br><br><br><br><br><br><br><br><br>
+</body>
+</html>ysvistir
+bssb
+zhvlqpnkunywc
 
-I like it it in concept - I'd be interested to see how much of a hack is 
-needed to implement it in reality.  Should definatly use a VendorID to 
-state whether or not each side supports it, so we don't open TCP 
-connections and let them timeout/die/be hijacked.
-
-
--- 
-Ken Bantoft			VP Business Development
-ken@xelerance.com		Xelerance Corporation
-sip://toronto.xelerance.com	http://www.xelerance.com
+--.B5EBA.8E2_5EEFEADF5_6_.--
