@@ -1,76 +1,54 @@
-From: "Cedric Edwards" <cedric@easynet.co.uk>
-Subject: Re: Translation services - Services de traduction
-Date: Fri, 20 Sep 2002 01:05:41 +0100
+From: Jeff Garzik <jgarzik@mandrakesoft.com>
+Subject: PATCH: sundance #6
+Date: Thu, 19 Sep 2002 20:18:16 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <003e01c26039$7840a4e0$0600a8c0@speedy>
-References: <200209191254.g8JCsVtG021598@oss.sgi.com>
+Message-ID: <3D8A6948.5020606@mandrakesoft.com>
+References: <Pine.LNX.4.44.0209190903050.29420-100000@beohost.scyld.com> <3D8A25D1.3060300@mandrakesoft.com> <3D8A433B.5010703@mandrakesoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/mixed;
+ boundary="------------070102080708090909020508"
+Cc: Donald Becker <becker@scyld.com>, Jason Lunz <lunz@falooley.org>,
+   Richard Gooch <rgooch@ras.ucalgary.ca>,
+   "Patrick R. McManus" <mcmanus@ducksong.com>, edward_peng@dlink.com.tw
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Deborah CABESSA" <quotes@cabessatranslations.com>, <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+This is a multi-part message in MIME format.
+--------------070102080708090909020508
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I will be requiring English to Spanish translation. It will be single wor=
-d
-in context, small phrases and some complete paragraphs. The main intentio=
-n
-is for the translation of an English website to Spanish.
+The obvious sundance update from the earlier discussion...
 
-Can you offer such a service? I would be interested in you current pricin=
-g
-structure.
+--------------070102080708090909020508
+Content-Type: text/plain;
+ name="patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch"
 
-Thanking You
+diff -Nru a/drivers/net/sundance.c b/drivers/net/sundance.c
+--- a/drivers/net/sundance.c	Thu Sep 19 20:16:23 2002
++++ b/drivers/net/sundance.c	Thu Sep 19 20:16:23 2002
+@@ -60,6 +60,7 @@
+ 		* default to PIO, to fix chip bugs
+ 	- Add missing unregister_netdev (Jason Lunz)
+ 	- Add CONFIG_SUNDANCE_MMIO config option (jgarzik)
++	- Better rx buf size calculation (Donald Becker)
+ 
+ */
+ 
+@@ -973,7 +974,7 @@
+ 	np->cur_rx = np->cur_tx = 0;
+ 	np->dirty_rx = np->dirty_tx = 0;
+ 
+-	np->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 36);
++	np->rx_buf_sz = (dev->mtu <= 1520 ? PKT_BUF_SZ : dev->mtu + 16);
+ 
+ 	/* Initialize all Rx descriptors. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
 
-Cedric Edwards
-
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D
-Mobile: 0797 175 7247
-Home:  0034 963 360 181 (Spain) from Oct 1st
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D
------ Original Message -----
-From: Deborah CABESSA <quotes@cabessatranslations.com>
-To: <netdev@oss.sgi.com>
-Sent: Thursday, September 19, 2002 2:59 PM
-Subject: Translation services - Services de traduction
-
-
-Hello,
-
-As part of your operations, you perhaps sometimes require translation
-services.  We are a translation bureau offering services into a variety o=
-f
-languages.
-1) Do you ever need such services?
-2) Who in your organization is the person to contact?
-
-Best Regards,
-
-Deborah CABESSA
-+33 (0)1 45 88 54 11
-+33 (0)6 11 77 57 08
-
-Bonjour,
-
-Dans le cadre de vos activit=E9s, il vous arrive peut-=EAtre parfois de r=
-ecourir
-=E0 des services
-de traduction. Nous sommes un bureau de traduction et proposons des servi=
-ces
-dans
-diverses langues.
-1) Avez-vous besoin de services de ce type ?
-2) Dans votre entreprise, quelle est la personne =E0 contacter ?
-
-Cordialement,
-
-Deborah CABESSA
-+33 (0)1 45 88 54 11
-+33 (0)6 11 77 57 08
+--------------070102080708090909020508--
