@@ -1,93 +1,72 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: [RFC][2.4 PATCH] source address selection for ARP requests
-Date: Thu, 21 Aug 2003 00:59:37 +0200
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Thu, 21 Aug 2003 02:18:32 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030820225937.GB25311@alpha.home.local>
-References: <1061320363.3744.14.camel@athena.fprintf.net> <Pine.LNX.3.96.1030820123600.14414I-100000@gatekeeper.tmr.com> <20030820100044.3127d612.davem@redhat.com> <3F43B389.5060602@candelatech.com> <20030820104831.6235f3b9.davem@redhat.com> <20030820213443.GA23939@alpha.home.local> <20030820144711.13ea5f38.davem@redhat.com> <20030820222710.GC734@alpha.home.local> <20030820153548.60e0cbd8.davem@redhat.com>
+Message-ID: <Pine.LNX.4.44.0308210114450.1108-100000@u.domain.uli>
+References: <20030820104831.6235f3b9.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030820153548.60e0cbd8.davem@redhat.com>
+In-Reply-To: <20030820104831.6235f3b9.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 20, 2003 at 03:35:48PM -0700, David S. Miller wrote:
-> On Thu, 21 Aug 2003 00:27:10 +0200
-> Willy Tarreau <willy@w.ods.org> wrote:
-> 
-> > +	if (in_dev == NULL)
-> > +		in_dev_put(in_dev);
-> 
-> What the heck is this? :-)
 
-Hmmm... don't you see ? A copy-paste bug, of course ! Sorry for this, I hope
-noone's fool enough to use it as-is. I guess it's becoming late, and I'm a bit
-weak in front of my temptations to use 'dd' .... 'P' in vi !
+	Hello,
 
-Here's the fixed one (hand-edited, not tested). At least, I'm happy to see that
-I'm not the only one reading other's patches :-)
+On Wed, 20 Aug 2003, David S. Miller wrote:
 
-BTW, you didn't tell me if it's necessary to test in_dev->ifa_list. I see that
-I kept the test in patch 1 but removed it in patch 2.
+> Then people can frob the shared_media sysctl for devices
+> where they want the behavior to be that we will only use
+> addresses assigned to the device as the solicitor address.
+>
+> The shared_media setting defaults to one and thus would preserve
+> current behavior by default.
 
-Willy
+	Hm, you are trying to save one additional flag :)
 
-patch 1 :
+> The idea is not mine, Alexey suggested it to me the other day.
+>
+> I hope this pleases people wrt. ARP request solicitor address
+> handling.
 
-diff -urN linux-2.4.22-rc2/net/ipv4/arp.c linux-2.4.22-rc2-arp/net/ipv4/arp.c
---- linux-2.4.22-rc2/net/ipv4/arp.c	Fri Aug  1 23:06:29 2003
-+++ linux-2.4.22-rc2-arp/net/ipv4/arp.c	Thu Aug 21 00:20:19 2003
-@@ -320,13 +320,20 @@
- 	u32 saddr;
- 	u8  *dst_ha = NULL;
- 	struct net_device *dev = neigh->dev;
-+	struct in_device *in_dev = in_dev_get(dev);
- 	u32 target = *(u32*)neigh->primary_key;
- 	int probes = atomic_read(&neigh->probes);
- 
--	if (skb && inet_addr_type(skb->nh.iph->saddr) == RTN_LOCAL)
-+	if (in_dev == NULL || in_dev->ifa_list == NULL ||
-+	    (skb && inet_addr_type(skb->nh.iph->saddr) == RTN_LOCAL &&
-+	    (IN_DEV_SHARED_MEDIA(in_dev) ||
-+	    inet_addr_onlink(in_dev, skb->nh.iph->saddr, 0))))
- 		saddr = skb->nh.iph->saddr;
- 	else
- 		saddr = inet_select_addr(dev, target, RT_SCOPE_LINK);
-+
-+	if (in_dev != NULL)
-+		in_dev_put(in_dev);
- 
- 	if ((probes -= neigh->parms->ucast_probes) < 0) {
- 		if (!(neigh->nud_state&NUD_VALID))
+	More ideas/issues:
 
+- can we add medium_id checks near the inet_addr_onlink check,
+i.e. to extend the check for same medium, not only for same outdev,
+eg. saddr and outdev can be from same medium. That means we
+have to use ip_dev_find as replacement for inet_addr_type and
+inet_addr_onlink
 
-patch 2 :
+- fib_validate_source already drops packets from device with
+in_dev==NULL, there is no good reason to send ARP requests.
+Even ip_route_output_slow disallows such devices. That is, IP
+is disabled, so and ARP.
 
-diff -urN linux-2.4.22-rc2/net/ipv4/arp.c linux-2.4.22-rc2-arp2/net/ipv4/arp.c
---- linux-2.4.22-rc2/net/ipv4/arp.c	Fri Aug  1 23:06:29 2003
-+++ linux-2.4.22-rc2-arp2/net/ipv4/arp.c	Thu Aug 21 00:24:25 2003
-@@ -320,13 +320,19 @@
- 	u32 saddr;
- 	u8  *dst_ha = NULL;
- 	struct net_device *dev = neigh->dev;
-+	struct in_device *in_dev = in_dev_get(dev);
- 	u32 target = *(u32*)neigh->primary_key;
- 	int probes = atomic_read(&neigh->probes);
- 
--	if (skb && inet_addr_type(skb->nh.iph->saddr) == RTN_LOCAL)
--		saddr = skb->nh.iph->saddr;
-+	if (skb && inet_addr_type(skb->nh.iph->saddr) == RTN_LOCAL &&
-+	    (in_dev == NULL || IN_DEV_SHARED_MEDIA(in_dev) ||
-+	     (saddr = inet_select_addr(dev, target, RT_SCOPE_LINK)) == 0))
-+			saddr = skb->nh.iph->saddr;
- 	else
- 		saddr = inet_select_addr(dev, target, RT_SCOPE_LINK);
-+
-+	if (in_dev != NULL)
-+		in_dev_put(in_dev);
- 
- 	if ((probes -= neigh->parms->ucast_probes) < 0) {
- 		if (!(neigh->nud_state&NUD_VALID))
+- in the last days/weeks I have a doubt how asymmetric routing
+can safely work with the default behaviour. The arp_queue can
+contain packets with saddrs from different interfaces and subnets,
+all to the same resolved target IP. I'm not sure the remote system
+can properly answer to our requests in this case, at least, can
+not do it properly without rp_filter_mask [1] if there are 2 or
+more interfaces. Of course, the problem is when rp_filter is used
+there.
+
+- Broadcasting announcements for one saddr through many devices
+can create problems for us if we later receive traffic for this
+saddr when rp_filter=1 and there is no rp_filter_mask set. Can
+someone provide example setup for asymmetric routing that relies
+on the current behavior, I'll be glad to think on it.
+
+- can we swicth to safe behavior according to the probe number?
+For example, after the 1st ucast or bcast probe we can switch
+to source auto selection?
+
+[1] http://www.ssi.bg/~ja/#rp_filter_mask
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
