@@ -1,25 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.6 PATCH] ipvs - avoid returning NF_DROP from the packet
- schedulers
-Date: Wed, 8 Oct 2003 08:48:33 -0700
+Subject: Re: [Bridge] RE: [VLAN] Re: [PATCH/RFC] Let {ip, arp}tables "see"
+ bridged VLAN tagged{I,AR}P packets
+Date: Wed, 8 Oct 2003 08:58:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008084833.0efcc4e1.davem@redhat.com>
-References: <Pine.LNX.4.44.0310081101170.5889-200000@u.domain.uli>
+Message-ID: <20031008085859.28750553.davem@redhat.com>
+References: <5B537508CDBED3118403009027745A210B8C1499@knant18.kna.flextronics.com>
+	<1065600565.2572.209.camel@cyan.cph.tpack.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wensong@linux-vs.org, rusty@rustcorp.com.au, netdev@oss.sgi.com
+Cc: Christian.Darnell@se.flextronics.com, vlan@wanfear.com,
+        bdschuym@pandora.be, netdev@oss.sgi.com, bridge@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0310081101170.5889-200000@u.domain.uli>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <1065600565.2572.209.camel@cyan.cph.tpack.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Oct 2003 11:09:20 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+On 08 Oct 2003 10:09:25 +0200
+Tommy Christensen <tommy.christensen@tpack.net> wrote:
 
-> 	It seems my NF_DROP approach leads to new bugs. So, better
-> free skb, return NF_STOLEN and add some comments. If someone
-> wants to fix it in another way, go ahead.
+> This is because the VLAN code is mangling shared data.
+> You need to do something like this:
 
-Applied, thanks.
+This fix is definitely needed and correct, patch applied
+thanks.
