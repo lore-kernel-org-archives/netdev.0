@@ -1,126 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/3] [NET]: Improve gnet_stats_* dumping logic to be less error prone
-Date: Sat, 2 Apr 2005 01:28:36 +0200
-Message-ID: <20050401232835.GM3086@postel.suug.ch>
-References: <20050401232654.GJ3086@postel.suug.ch>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of
+ 2005 Kernel Summit Proposed Topics)
+Date: Fri, 1 Apr 2005 15:43:48 -0800
+Message-ID: <20050401154348.553f3c46@dxpl.pdx.osdl.net>
+References: <1112321619.424cae539e75e@imap.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Roland Dreier <roland@topspin.com>, Benjamin LaHaise <bcrl@kvack.org>,
+        Dmitry Yusupov <dmitry_yus@yahoo.com>, open-iscsi@googlegroups.com,
+        "David
+ S. Miller" <davem@davemloft.net>, mpm@selenic.com,
+        andrea@suse.de, michaelc@cs.wisc.edu,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com, bmt@zurich.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050401232654.GJ3086@postel.suug.ch>
+To: jaganav@us.ibm.com
+In-Reply-To: <1112321619.424cae539e75e@imap.linux.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/04/01 15:01:24+02:00 tgraf@suug.ch 
-#   [NET]: Improve gnet_stats_* dumping logic to be less error prone
-#   
-#   The recent additions to make gnet_stats_* useable for action
-#   statistics dumping in two steps introcuded a few error prone
-#   assumptions which can easly be forgotten. This patch fixes this
-#   up by simplifying the process of adding new fields to struct
-#   gnet_dump or adding additional backward compatibility TLVs.
-#   
-#   Signed-off-by: Thomas Graf <tgraf@suug.ch>
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/core/gen_stats.c
-#   2005/04/01 15:01:12+02:00 tgraf@suug.ch +24 -13
-#   [NET]: Improve gnet_stats_* dumping logic to be less error prone
-# 
-diff -Nru a/net/core/gen_stats.c b/net/core/gen_stats.c
---- a/net/core/gen_stats.c	2005-04-02 01:18:26 +02:00
-+++ b/net/core/gen_stats.c	2005-04-02 01:18:26 +02:00
-@@ -26,9 +26,7 @@
- static inline int
- gnet_stats_copy(struct gnet_dump *d, int type, void *buf, int size)
- {
--	if (type)
--		RTA_PUT(d->skb, type, size, buf);
--
-+	RTA_PUT(d->skb, type, size, buf);
- 	return 0;
- 
- rtattr_failure:
-@@ -58,6 +56,8 @@
- gnet_stats_start_copy_compat(struct sk_buff *skb, int type, int tc_stats_type,
- 	int xstats_type, spinlock_t *lock, struct gnet_dump *d)
- {
-+	memset(d, 0, sizeof(*d));
-+	
- 	spin_lock_bh(lock);
- 	d->lock = lock;
- 	if (type)
-@@ -65,12 +65,11 @@
- 	d->skb = skb;
- 	d->compat_tc_stats = tc_stats_type;
- 	d->compat_xstats = xstats_type;
--	d->xstats = NULL;
- 
--	if (d->compat_tc_stats)
--		memset(&d->tc_stats, 0, sizeof(d->tc_stats));
-+	if (d->tail)
-+		return gnet_stats_copy(d, type, NULL, 0);
- 
--	return gnet_stats_copy(d, type, NULL, 0);
-+	return 0;
- }
- 
- /**
-@@ -111,8 +110,11 @@
- 		d->tc_stats.bytes = b->bytes;
- 		d->tc_stats.packets = b->packets;
- 	}
--	
--	return gnet_stats_copy(d, TCA_STATS_BASIC, b, sizeof(*b));
-+
-+	if (d->tail)
-+		return gnet_stats_copy(d, TCA_STATS_BASIC, b, sizeof(*b));
-+
-+	return 0;
- }
- 
- /**
-@@ -134,7 +136,10 @@
- 		d->tc_stats.pps = r->pps;
- 	}
- 
--	return gnet_stats_copy(d, TCA_STATS_RATE_EST, r, sizeof(*r));
-+	if (d->tail)
-+		return gnet_stats_copy(d, TCA_STATS_RATE_EST, r, sizeof(*r));
-+
-+	return 0;
- }
- 
- /**
-@@ -157,8 +162,11 @@
- 		d->tc_stats.backlog = q->backlog;
- 		d->tc_stats.overlimits = q->overlimits;
- 	}
--		
--	return gnet_stats_copy(d, TCA_STATS_QUEUE, q, sizeof(*q));
-+
-+	if (d->tail)
-+		return gnet_stats_copy(d, TCA_STATS_QUEUE, q, sizeof(*q));
-+
-+	return 0;
- }
- 
- /**
-@@ -182,7 +190,10 @@
- 		d->xstats_len = len;
- 	}
- 
--	return gnet_stats_copy(d, TCA_STATS_APP, st, len);
-+	if (d->tail)
-+		return gnet_stats_copy(d, TCA_STATS_APP, st, len);
-+
-+	return 0;
- }
- 
- /**
+On Thu, 31 Mar 2005 21:13:39 -0500
+jaganav@us.ibm.com wrote:
+
+> Quoting Roland Dreier <roland@topspin.com>:
+> > I have to admit I don't know much about the TOE / RDMA/TCP / RNIC (or
+> > whatever you want to call it) world.  However I know that the large
+> > majority of InfiniBand use right now is running on Linux, and I hope
+> > the Linux community is willing to work with the IB community.
+> >
+> 
+> Just want to let everyone know know that we have started an opensource
+> effort (www.openrdma.org) for enablement of RNICs (RDMA enabled NICs). This
+> community has now come up with an architecture
+> (http://rdma.sourceforge.net/architecture.pdf) to build this support in Linux.
+> Would really appreciate if you review and provide any comments. We have just
+> started to hack but no code is available on this project yet.
+> 
+> Thanks
+> Venkat
+
+OpenRdma is a misnomer, because as I read your architecture you are trying to
+create a "kernel abstraction layer" for closed source vendor RDMA drivers. This will
+never be accepted,  please go back to the drawing board and figure out how to make
+real open source drivers.
