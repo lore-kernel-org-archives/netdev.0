@@ -1,83 +1,101 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: Fw: [Bugme-new] [Bug 3992] New: Bondig. Not correct work function
- ARP Monitoring. Broken link.
-Date: Tue, 11 Jan 2005 23:17:53 +0100
-Message-ID: <41E45091.7030208@tpack.net>
-References: <20050105133525.2bab2e09.akpm@osdl.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: request_module while holding rtnl semaphore
+Date: Tue, 11 Jan 2005 23:18:49 +0100
+Message-ID: <41E450C9.80800@trash.net>
+References: <41899DCF.3050804@trash.net> <E1CQDcP-0003ff-00@gondolin.me.apana.org.au> <20041109161126.376f755c.davem@davemloft.net> <41E34252.504@trash.net> <20050111094752.GD26856@postel.suug.ch> <41E43F83.1090503@trash.net> <20050111214720.GF26856@postel.suug.ch> <20050111215057.GG26856@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030505010805030005000500"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+ boundary="------------050403090701090801040501"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: stanislav@muhachev.petro.ru
-In-Reply-To: <20050105133525.2bab2e09.akpm@osdl.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050111215057.GG26856@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------030505010805030005000500
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j0BMHosh006303
-
-> http://bugme.osdl.org/show_bug.cgi?id=3D3992
->=20
->            Summary: Bondig. Not correct work function ARP Monitoring. B=
-roken
->                     link.
->     Kernel Version: 2.6.10
->             Status: NEW
->           Severity: normal
->              Owner: jgarzik@pobox.com
->          Submitter: stanislav@muhachev.petro.ru
->=20
-...
->=20
-> bonding vpn1 & vpn2 =F2=EE bond0 (bonding default setup -> nothing fail=
-over=20
-> setings)
-> link =EE=EA!(192.168.100.1-192.168.100.2)
->=20
-> setting arp monitor in bonding (TUN/TAP driver not support Mii status)
-> link down!
-
-I am not sure I understand your setup completely ...
-But as stated in bonding.txt, the ARP monitor requires the underlying
-driver to update dev->trans_start and dev->last_rx.
-
-Since the TUN/TAP driver doesn't maintain these, it could very well
-explain the behavior you are seeing.
-
-The patch below adds the required functionality to the TUN/TAP driver.
-Please test if this helps in your case.
-
--Tommy
-
---------------030505010805030005000500
-Content-Type: text/plain;
- name="tun.c.patch"
-Content-Disposition: inline;
- filename="tun.c.patch"
+--------------050403090701090801040501
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
---- linux-2.6.10-bk14/drivers/net/tun.c	2005-01-10 16:28:48.000000000 +0100
-+++ linux-2.6.10-work/drivers/net/tun.c	2005-01-11 23:05:56.759691345 +0100
-@@ -92,6 +92,7 @@
- 			goto drop;
- 	}
- 	skb_queue_tail(&tun->readq, skb);
-+	dev->trans_start = jiffies;
- 
- 	/* Notify and wake up reader process */
- 	if (tun->flags & TUN_FASYNC)
-@@ -240,6 +241,7 @@
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-  
- 	netif_rx_ni(skb);
-+	tun->dev->last_rx = jiffies;
-    
- 	tun->stats.rx_packets++;
- 	tun->stats.rx_bytes += len;
+Thomas Graf wrote:
 
---------------030505010805030005000500--
+>>Of course, then there is no problem. Will you fix the request_module in
+>>cls_api.c as well?
+>>
+>
+>Just saw your patch, never mind.
+>
+
+Oops, embarassing :) The cls_api.c changes in my patch only deal with
+EAGAIN from act_api.c, but I didn't fix module loading in cls_api.c
+itself. Patch on top of the previous ones attached, I will also update
+the bitkeeper tree.
+
+Regards
+Patrick
+
+
+--------------050403090701090801040501
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/01/11 23:15:28+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: cls_api.c: drop rtnl for loading modules
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/cls_api.c
+#   2005/01/11 23:15:20+01:00 kaber@coreworks.de +14 -5
+#   [PKT_SCHED]: cls_api.c: drop rtnl for loading modules
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/sched/cls_api.c b/net/sched/cls_api.c
+--- a/net/sched/cls_api.c	2005-01-11 23:17:58 +01:00
++++ b/net/sched/cls_api.c	2005-01-11 23:17:58 +01:00
+@@ -219,20 +219,29 @@
+ 		err = -ENOBUFS;
+ 		if ((tp = kmalloc(sizeof(*tp), GFP_KERNEL)) == NULL)
+ 			goto errout;
++		err = -EINVAL;
+ 		tp_ops = tcf_proto_lookup_ops(tca[TCA_KIND-1]);
++		if (tp_ops == NULL) {
+ #ifdef CONFIG_KMOD
+-		if (tp_ops==NULL && tca[TCA_KIND-1] != NULL) {
+ 			struct rtattr *kind = tca[TCA_KIND-1];
+ 			char name[IFNAMSIZ];
+ 
+-			if (rtattr_strlcpy(name, kind, IFNAMSIZ) < IFNAMSIZ) {
++			if (kind != NULL &&
++			    rtattr_strlcpy(name, kind, IFNAMSIZ) < IFNAMSIZ) {
++				rtnl_unlock();
+ 				request_module("cls_%s", name);
++				rtnl_lock();
+ 				tp_ops = tcf_proto_lookup_ops(kind);
++				/* We dropped the RTNL semaphore in order to
++				 * perform the module load.  So, even if we
++				 * succeeded in loading the module we have to
++				 * replay the request.  We indicate this using
++				 * -EAGAIN.
++				 */
++				if (tp_ops != NULL)
++					err = -EAGAIN;
+ 			}
+-		}
+ #endif
+-		if (tp_ops == NULL) {
+-			err = -EINVAL;
+ 			kfree(tp);
+ 			goto errout;
+ 		}
+
+--------------050403090701090801040501--
