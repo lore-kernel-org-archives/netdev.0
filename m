@@ -1,16 +1,17 @@
 From: Ben Greear <greearb@candelatech.com>
 Subject: [PATCH 0/3]  e100: Enable receiving bogus packets and saving FCS
-Date: Tue, 25 Nov 2003 01:17:28 -0800
+Date: Mon, 24 Nov 2003 23:53:11 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FC31E28.8060106@candelatech.com>
+Message-ID: <3FC30A67.2010602@candelatech.com>
+References: <3FC2931B.3070903@candelatech.com>	<20031124152933.1420f6cf.davem@redhat.com>	<3FC298C9.8080302@candelatech.com> <20031124173330.096c0751.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+In-Reply-To: <20031124173330.096c0751.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
-
 
 David S. Miller wrote:
 > On Mon, 24 Nov 2003 15:48:25 -0800
@@ -57,6 +58,7 @@ and I'll remove it.
 
 Thanks,
 Ben
+
 
 -- 
 Ben Greear <greearb@candelatech.com>
