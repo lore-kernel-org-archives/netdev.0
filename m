@@ -1,77 +1,64 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] fix net/ipv4/route.c with gcc 3.4
-Date: Tue, 22 Mar 2005 13:22:13 +0100
-Message-ID: <20050322122213.GH3982@stusta.de>
-References: <20050321025159.1cabd62e.akpm@osdl.org>
+From: Miika Komu <miika@iki.fi>
+Subject: Re: [Infrahip] [PATCH] Host Identity Protocol
+Date: Tue, 22 Mar 2005 16:08:31 +0200 (EET)
+Message-ID: <Pine.GSO.4.58.0503221531020.19531@kekkonen.cs.hut.fi>
+References: <42369919.9010203@cs.helsinki.fi> <Pine.GSO.4.58.0503201805240.1521@kekkonen.cs.hut.fi>
+ <20050321.024241.67451836.yoshfuji@linux-ipv6.org> <20050320200356.5f8fa583.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-To: Einar Lueck <elueck@de.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20050321025159.1cabd62e.akpm@osdl.org>
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: yoshfuji@linux-ipv6.org, Andrei Gurtov <gurtov@cs.helsinki.fi>,
+        netdev@oss.sgi.com, infrahip@hiit.fi
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050320200356.5f8fa583.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The following compile error comes from Linus' tree with 
-CONFIG_IP_ROUTE_MULTIPATH_CACHED=y:
+On Sun, 20 Mar 2005, David S. Miller wrote:
 
-<--  snip  -->
+> On Mon, 21 Mar 2005 02:42:41 +0900 (JST)
+> YOSHIFUJI Hideaki / =B5=C8=C6=A3=B1=D1=CC=C0 <yoshfuji@linux-ipv6.org> =
+wrote:
+>
+> > However, all signaling should be handled in userspace as we (will) do
+> > for MIP6.
+>
+> Yes, I've been telling them similarly in a private
+> email discussion.  I'm very glad someone else says
+> this too, so I don't appear as the only person who
+> feels this way :-)
 
-...
-  CC      net/ipv4/route.o
-net/ipv4/route.c: In function `rt_remove_balanced_route':
-net/ipv4/route.c:151: sorry, unimplemented: inlining failed in call to 'compare_keys': function body not available
-net/ipv4/route.c:540: sorry, unimplemented: called from here
-make[2]: *** [net/ipv4/route.o] Error 1
+Thank you, David and Yoshifugi, for your feedback. Please accept my
+apologies for my late response.
 
-<--  snip  -->
+I am having difficulties in digesting the counterarguments against the
+kernel based approach because of the lack of detailed reasoning and
+ambiguities. Yes, MIP6 and IKE signalling is handled in the userspace, bu=
+t
+the same is not true for SCTP (lksctp). At the same time, Linux is a
+monolithic kernel instead of microkernel architecture. Finally, good
+engineering practise is to put everything in the userspace, unless there
+is good reason for putting it in to the kernelspace.
 
+We don't currently have concrete measurements (comparing userspace and
+kernelspace approaches) to justify our kernel oriented approach, so we
+will have to get back to you later with some figures. If the results show
+that an userspace implementation is superior to a kernel based approach i=
+n
+terms of security or performance, we may have rewrite the code to the
+userspace. In the mean time, do you happen to know any good references
+where any userspace network protocol implementation has been compared and
+measured against a kernelspace implementation? It would be a good startin=
+g
+point for us.
 
-This patch fixes this compile error by moving compare_keys up.
+I would like to mention that lksctp was implemented in the 2.6 kernel
+because of better performance and tighter integration to the socket API.
+We are dealing with similar issues with HIPL but seems like we need to
+justify the reasons by analyzing and measuring. In addition, security
+issues (DoS protection, user supplied public keys, etc) are taken pretty
+seriously in HIP and may benefit from a kernel oriented approach.
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
- net/ipv4/route.c |   15 +++++++--------
- 1 files changed, 7 insertions(+), 8 deletions(-)
-
---- linux-2.6.12-rc1-mm1-full/net/ipv4/route.c.old	2005-03-22 13:10:35.000000000 +0100
-+++ linux-2.6.12-rc1-mm1-full/net/ipv4/route.c	2005-03-22 13:12:29.000000000 +0100
-@@ -148,7 +148,6 @@
- static void		 ipv4_link_failure(struct sk_buff *skb);
- static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
- static int rt_garbage_collect(void);
--static inline int compare_keys(struct flowi *fl1, struct flowi *fl2);
- 
- 
- static struct dst_ops ipv4_dst_ops = {
-@@ -450,6 +449,13 @@
- 
- #endif /* CONFIG_PROC_FS */
-   
-+static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
-+{
-+	return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, sizeof(fl1->nl_u.ip4_u)) == 0 &&
-+	       fl1->oif     == fl2->oif &&
-+	       fl1->iif     == fl2->iif;
-+}
-+
- static __inline__ void rt_free(struct rtable *rt)
- {
- 	multipath_remove(rt);
-@@ -858,13 +864,6 @@
- out:	return 0;
- }
- 
--static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
--{
--	return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, sizeof(fl1->nl_u.ip4_u)) == 0 &&
--	       fl1->oif     == fl2->oif &&
--	       fl1->iif     == fl2->iif;
--}
--
- static int rt_intern_hash(unsigned hash, struct rtable *rt, struct rtable **rp)
- {
- 	struct rtable	*rth, **rthp;
+--=20
+Miika Komu              miika@iki.fi          http://www.iki.fi/miika/
