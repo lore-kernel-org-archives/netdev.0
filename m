@@ -1,52 +1,34 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: network interface cards native vlans support in linux kernel?
-Date: Wed, 22 Oct 2003 10:01:49 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH] Make LLC2 compile with PROC_FS=n
+Date: Mon, 20 Oct 2003 04:44:28 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F96B7FD.7080607@candelatech.com>
-References: <Pine.LNX.4.44.0307091816280.1313-100000@hl.kauneta.net> <20030709152814.GC15293@gtf.org> <20031022140624.A9145@vip.cybercity.dk>
+Message-ID: <20031020074428.GA26494@conectiva.com.br>
+References: <Pine.GSO.4.58.0310171452540.13905@blinky>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: rddunlap@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <20031022140624.A9145@vip.cybercity.dk>
+To: "Noah J. Misch" <noah@caltech.edu>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.58.0310171452540.13905@blinky>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rask Ingemann Lambertsen wrote:
-> On Wed, Jul 09, 2003 at 11:28:15AM -0400, Jeff Garzik wrote:
+Em Sun, Oct 19, 2003 at 10:03:52PM -0700, Noah J. Misch escreveu:
+> Hello Arnaldo,
 > 
->>On Wed, Jul 09, 2003 at 06:19:51PM +0300, Andrius Kasparavicius wrote:
->>
->>>hello, as far as i know, currently there is no native vlan support in
->>>network device drivers. I mean, always need patching MTU.. add 4 bytes..
->>>
->>>is there any problems to include full vlans support?
->>
->>Native VLAN support has been in the kernel for a while.
->>
->>A few drivers still need patching, and unfortunately the VLAN driver
->>patches floating around all need cleaning up.
+> This patch allows the LLC2 code to link properly when CONFIG_PROC_FS=n.  The
+> problem was that the Makefile only built llc_proc.c when PROC_FS=y/m, but
+> af_llc.c called functions in that file in all cases.  The log details how I
+> fixed this.
 > 
+> I think this is the best fix, but of course there are a number of less intrusive
+> fixes, including (I think) one as simple as making llc_proc.c always compile.
+> This one does apply cleanly to linux-2.5 BK as of 0400 UTC 10/20/2003 and passes
+> allyesconfig and (allyesconfig - PROC_FS) compiles on i386.
 > 
-> What does a driver need to do to make sure it can handle vlan frames? Is it
-> enought to be prepared to handle frames of size dev->mtu+4? How do I know 4
-> bytes will be enough tomorrow when someone introduces VLAN2 with a 64-bit tag?
-> Checking for CONFIG_VLAN is of no use, right?
+> Please let me know if I should supply you with further information.
 
-It needs to be able to handle 1518 bytes (+crc), send and receive.  I'd
-suggest using the Intel e100 or e1000, as they both support VLANs just fine.
-Most other GigE nics work too.
+I'm OK with this patch.
 
-Apply the patches in the VLAN howto if you need another NIC that needs
-patching.  There seems to be zero motivation by 100bt driver authors to
-add VLAN support to the drivers that still need it...
-
-Thanks,
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+- Arnaldo
