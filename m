@@ -1,74 +1,46 @@
-From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [drivers] add missing pci_tbl exports (pointed out by "Adam J. Richter" <adam@yggdrasil.com>)
-Date: Sun, 31 Oct 2004 11:28:24 -0500
-Message-ID: <200410311628.i9VGSNma017970@ginger.cmf.nrl.navy.mil>
-Cc: davem@redhat.com, adam@yggdrasil.com
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: net: generic netdev_ioaddr
+Date: Mon, 01 Nov 2004 00:14:24 +0100
+Message-ID: <m3wtx6jx9r.fsf@defiant.pm.waw.pl>
+References: <1099044244.9566.0.camel@localhost>
+	<20041029131607.GU24336@parcelfarce.linux.theplanet.co.uk>
+	<courier.418290EC.00002E85@courier.cs.helsinki.fi>
+	<m3y8hpbaf9.fsf@defiant.pm.waw.pl>
+	<20041029193827.GV24336@parcelfarce.linux.theplanet.co.uk>
+	<m3u0sdb53f.fsf@defiant.pm.waw.pl>
+	<1099129946.10961.9.camel@localhost>
+	<m3r7nfem2v.fsf@defiant.pm.waw.pl>
+	<1099206669.9571.10.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Al Viro <viro@parcelfarce.linux.theplanet.co.uk>, davem@davemloft.net,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+In-Reply-To: <1099206669.9571.10.camel@localhost> (Pekka Enberg's message of
+ "Sun, 31 Oct 2004 09:11:09 +0200")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-adam pointed out that i missed adding MODULE_DEVICE_TABLE when i fixed
-the horizon driver.  i noticed some others were missing it as well.
+Hi,
 
-please apply to 2.6.
+Pekka Enberg <penberg@cs.helsinki.fi> writes:
 
-thanks!
+> Cops already exposes base address and irq as module parameters and yet
+> it calls netdev_boot_setup_check() to check "netdev=" so I assume
+> there's a reason for that.  Perhaps something like the (untested) patch
+> below would make more sense?
 
-Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+IMHO partially: base_addr etc should go from the core (to driver's
+local structs if needed). I think no general netdev-setup thing is
+needed, we have module parameters and library functions.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/10/31 11:26:23-05:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [drivers] add missing pci_tbl exports (pointed out by "Adam J. Richter" <adam@yggdrasil.com>
-# 
-diff -Nru a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
---- a/drivers/atm/ambassador.c	2004-10-31 11:27:09 -05:00
-+++ b/drivers/atm/ambassador.c	2004-10-31 11:27:09 -05:00
-@@ -2439,6 +2439,8 @@
- 	{ 0, }
- };
- 
-+MODULE_DEVICE_TABLE(pci, amb_pci_tbl);
-+
- static struct pci_driver amb_driver = {
- 	.name =		"amb",
- 	.probe =	amb_probe,
-diff -Nru a/drivers/atm/he.c b/drivers/atm/he.c
---- a/drivers/atm/he.c	2004-10-31 11:27:09 -05:00
-+++ b/drivers/atm/he.c	2004-10-31 11:27:09 -05:00
-@@ -3051,6 +3051,8 @@
- 	{ 0, }
- };
- 
-+MODULE_DEVICE_TABLE(pci, he_pci_tbl);
-+
- static struct pci_driver he_driver = {
- 	.name =		"he",
- 	.probe =	he_init_one,
-diff -Nru a/drivers/atm/horizon.c b/drivers/atm/horizon.c
---- a/drivers/atm/horizon.c	2004-10-31 11:27:09 -05:00
-+++ b/drivers/atm/horizon.c	2004-10-31 11:27:09 -05:00
-@@ -2913,6 +2913,8 @@
- 	{ 0, }
- };
- 
-+MODULE_DEVICE_TABLE(pci, hrz_pci_tbl);
-+
- static struct pci_driver hrz_driver = {
- 	.name =		"horizon",
- 	.probe =	hrz_probe,
-diff -Nru a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
---- a/drivers/atm/idt77252.c	2004-10-31 11:27:09 -05:00
-+++ b/drivers/atm/idt77252.c	2004-10-31 11:27:09 -05:00
-@@ -3819,6 +3819,8 @@
- 	{ 0, }
- };
- 
-+MODULE_DEVICE_TABLE(pci, idt77252_pci_tbl);
-+
- static struct pci_driver idt77252_driver = {
- 	.name		= "idt77252",
- 	.id_table	= idt77252_pci_tbl,
+No ioctl for such things is needed either.
+/sbin/ifconfig shouldn't mess with hardware data such as I/O address,
+IRQ etc. - it should be a configuration tool for software protocols,
+not for hardware (i.e. as /sbin/ip is).
+
+My opinion of course.
+-- 
+Krzysztof Halasa
