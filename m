@@ -1,31 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [OOPS] TLAN fails on ifconfig with CONFIG_HOTPLUG=n
-Date: Tue, 11 Nov 2003 15:55:18 -0800
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [2.6 PATCH] ipvs - avoid NULL ptr deref in __ip_vs_get_out_rt
+Date: Wed, 12 Nov 2003 02:01:34 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031111155518.52db3e71.davem@redhat.com>
-References: <20031111222933.GA2868@rivenstone.net>
-	<20031111153013.3b9eba6e.akpm@osdl.org>
+Message-ID: <Pine.LNX.4.44.0311120200080.2563-100000@u.domain.uli>
+References: <20031111154832.1017f57f.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jhf@rivenstone.net, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <wensong@linux-vs.org>, <morpheus@theendless.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20031111153013.3b9eba6e.akpm@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031111154832.1017f57f.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Nov 2003 15:30:13 -0800
-Andrew Morton <akpm@osdl.org> wrote:
 
-> Does this fix it?
- ...
-> -} board_info[] __devinitdata = {
-> +} board_info[] = {
+	Hello,
 
-This fix is needed, definitely.  Even if it doesn't cure this
-specific bug.
+On Tue, 11 Nov 2003, David S. Miller wrote:
 
-I'll merge this into my networking tree and push to Linus.
+> I assume 2.4.x does not need this fix.
 
-Thanks Andrew.
+	Yes, 2.4 is ok
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
