@@ -1,83 +1,55 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH]: Fix off-by-one in max protocol-type check
-Date: Fri, 28 May 2004 12:55:57 +0200
+Subject: [PATCH]: Fix NULL-ptr dereference in irlmp_get_saddr()
+Date: Fri, 28 May 2004 12:56:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40B71ABD.5060600@trash.net>
-References: <40B71A1C.5080400@trash.net>
+Message-ID: <40B71AF2.2020503@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000107050809030105030804"
-Cc: netdev@oss.sgi.com
+ boundary="------------010800020208070209080801"
+Cc: netdev@oss.sgi.com, jt@bougret.hpl.hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <40B71A1C.5080400@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000107050809030105030804
+--------------010800020208070209080801
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Patrick McHardy wrote:
-> This patch fixes an off-by-one in inet_register_protosw and
-> inet6_register_protosw. inetsw is an array of size SOCK_MAX,
-> the check allows access to index SOCK_MAX. Patch applies
-> to 2.4 and 2.6.
+This patch fixes a NULL-ptr dereference in irlmp_get_saddr.
 
-Forgot the patch, sorry ;)
+Regards
+Patrick
 
-
-> 
-> Regards
-> Patrick
-> 
-
-
---------------000107050809030105030804
+--------------010800020208070209080801
 Content-Type: text/x-patch;
- name="protocol-type-off-by-one.diff"
+ name="irlmp_get_saddr-NULL-ptr.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="protocol-type-off-by-one.diff"
+ filename="irlmp_get_saddr-NULL-ptr.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/05/28 12:24:03+02:00 kaber@trash.net 
-#   [IPV4,6]: Fix off-by-one in max protocol-type check
+#   2004/05/28 12:32:37+02:00 kaber@trash.net 
+#   [IRDA]: Fix NULL-ptr dereference in irlmp_get_saddr()
 # 
-# net/ipv6/af_inet6.c
-#   2004/05/28 12:23:56+02:00 kaber@trash.net +1 -1
-#   [IPV4,6]: Fix off-by-one in max protocol-type check
+# include/net/irda/irlmp.h
+#   2004/05/28 12:32:30+02:00 kaber@trash.net +1 -1
+#   [IRDA]: Fix NULL-ptr dereference in irlmp_get_saddr()
 # 
-# net/ipv4/af_inet.c
-#   2004/05/28 12:23:56+02:00 kaber@trash.net +1 -1
-#   [IPV4,6]: Fix off-by-one in max protocol-type check
-# 
-diff -Nru a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
---- a/net/ipv4/af_inet.c	2004-05-28 12:35:06 +02:00
-+++ b/net/ipv4/af_inet.c	2004-05-28 12:35:06 +02:00
-@@ -978,7 +978,7 @@
+diff -Nru a/include/net/irda/irlmp.h b/include/net/irda/irlmp.h
+--- a/include/net/irda/irlmp.h	2004-05-28 12:35:56 +02:00
++++ b/include/net/irda/irlmp.h	2004-05-28 12:35:56 +02:00
+@@ -251,7 +251,7 @@
  
- 	spin_lock_bh(&inetsw_lock);
+ static inline __u32 irlmp_get_saddr(const struct lsap_cb *self)
+ {
+-	return (self && !self->lap) ? self->lap->saddr : 0;
++	return (self && self->lap) ? self->lap->saddr : 0;
+ }
  
--	if (p->type > SOCK_MAX)
-+	if (p->type >= SOCK_MAX)
- 		goto out_illegal;
- 
- 	/* If we are trying to override a permanent protocol, bail. */
-diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
---- a/net/ipv6/af_inet6.c	2004-05-28 12:35:06 +02:00
-+++ b/net/ipv6/af_inet6.c	2004-05-28 12:35:06 +02:00
-@@ -572,7 +572,7 @@
- 
- 	spin_lock_bh(&inetsw6_lock);
- 
--	if (p->type > SOCK_MAX)
-+	if (p->type >= SOCK_MAX)
- 		goto out_illegal;
- 
- 	/* If we are trying to override a permanent protocol, bail. */
+ static inline __u32 irlmp_get_daddr(const struct lsap_cb *self)
 
---------------000107050809030105030804--
+--------------010800020208070209080801--
