@@ -1,40 +1,42 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
-Date: Thu, 9 Oct 2003 13:17:35 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: 2.6.0-test7-netx1
+Date: Thu, 9 Oct 2003 15:53:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310091317.35164.mashirle@us.ibm.com>
-References: <OF4B7AD7E2.5CA239A1-ON87256DB9.0067C527@us.ibm.com> <20031008130016.559b8047.davem@redhat.com> <200310081706.09485.mashirle@us.ibm.com>
+Message-ID: <20031009155302.4f2fe835.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru
-In-Reply-To: <200310081706.09485.mashirle@us.ibm.com>
+To: linux-net@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, David,
 
-There is possible loss of precision in the new patch for the timestamp. I have 
-two solutions. 
+http://developer.osdl.org/shemminger/netx/2.6/2.6.0-test7/2.6.0-test7-netx1/
 
-Which one do you think is better.
+This is the first of a hopefuly continuing series of network related experimental 
+kernels.  This patch set will contain things like new network drivers, protocols 
+and infrastructure changes that are not related to the stability goal
+for the mainline kernel tree.
 
-This one is too much math.
+The initial installment includes:
+    * ISA device probing changes
+    * SimTel 4200 IRDA dongle (originally by Paul Stewart)
+    * IRDA hashbin cleanup
+    * WAN device bugfixes and cleanups
+    * TCP Vegas (from Dave Miller)
 
-ci.cstamp = (__u32)(TIME_DELTA(ifa->cstamp, INITIAL_JIFFIES) / HZ * 100
-		  + TIME_DELTA(ifa->cstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
-ci.tstamp = (__u32)(TIME_DELTA(ifa->tstamp, INITIAL_JIFFIES) / HZ * 100
-		  + TIME_DELTA(ifa->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
+I am interested in receiving patches for network related stuff
+like:
+    * drivers for new hardware
+    * rework of old drives (will put in new e100 driver next time).
+    * TCP tuning options
+    * support for 1000's of network devices
+    * network async i/o
+    * per cpu network statistics
 
-This one might overflow.
 
-ci.cstamp = (__u32)(TIME_DELTA(ifa->cstamp, INITIAL_JIFFIES) *100 ) / HZ;
-ci.tstamp = (__u32)(TIME_DELTA(ifa->tstamp, INITIAL_JIFFIES) * 100) / HZ;
 
-Thanks
-Shirley Ma
-IBM Linux Technology Center
---------------------------------------------
+
+    
