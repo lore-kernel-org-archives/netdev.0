@@ -1,41 +1,35 @@
-From: Shmulik Hen <hshmulik@intel.com>
-Subject: [Bonding][patch set] - Adding IEEE 802.3ad Dynamic link aggregation
- support
-Date: Thu, 20 Mar 2003 17:13:23 +0200 (IST)
+From: Erik Hensema <erik@hensema.net>
+Subject: Re: TCP/IPv6 broken in Linux 2.5.64?
+Date: Thu, 20 Mar 2003 19:10:05 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0303201534360.10351-100000@jrslxjul4.npdj.intel.com>
+Message-ID: <20030320181004.GA19970@hensema.net>
+References: <20030318162532.GA9705@outpost.ds9a.nl> <200303201549.SAA10972@sex.inr.ac.ru> <20030320163107.GA28229@outpost.ds9a.nl>
+Reply-To: erik@hensema.net
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bonding Developement list <bonding-devel@lists.sourceforge.net>,
-   Bonding Announce list <bonding-announce@lists.sourceforge.net>,
-   Linux Net Mailing list <linux-net@vger.kernel.org>,
-   Linux Kernel Mailing list <linux-kernel@vger.kernel.org>,
-   Oss SGI Netdev list <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
+To: bert hubert <ahu@ds9a.nl>
+Content-Disposition: inline
+In-Reply-To: <20030320163107.GA28229@outpost.ds9a.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, Mar 20, 2003 at 05:31:07PM +0100, bert hubert wrote:
+> On Thu, Mar 20, 2003 at 06:49:49PM +0300, kuznet@ms2.inr.ac.ru wrote:
+> > Hello!
+> > 
+> > > irc servers, or an IPv6 zonetransfer. However, when I try to ssh from 2.5.65
+> > 
+> > Try this. I have just found this lost patch, it is from 2.4 tree, but
+> > it should fit to 2.5 as well.
+> 
+> This has solved my problem 100%. The earlier mentioned hostA and hostB can
+> now cheerfully connect to eachother. Everything else I try works too.
+> 
+> So I suggest this be sent linus-wards. Thanks!
 
-The following set of 7(+2) patches add support for 802.3ad link
-aggregation mode on top of the latest release of bonding from source-forge 
-(2.4.20-20030317). They also handle a set of bug fixes that were
-discovered during the past several weeks of an extensive testing effort
-done by our QA group. This comes as one of several enhancements Intel has
-decided to contribute to the open source community. This code is ported
-from our iANS product which has been around for some time. We are in the
-process of porting our advanced networking features from iANS to the
-bonding driver. In future releases we plan to add more features,
-improvements and adapting the code for 2.5.x kernels.
-
-The first 2 patches add support for point-to-point protocols to the
-2.4.20/2.4.21-pre5 kernels in the net subtree, and are a pre-requisite for
-the 802.3ad feature. The following patches only modify the bonding files.
+I can confirm that this fixed my IPv6 problems on 2.5.x.
 
 -- 
-| Shmulik Hen                                    |
-| Israel Design Center (Jerusalem)               |
-| LAN Access Division                            |
-| Intel Communications Group, Intel corp.        |
-|                                                |
-| Anti-Spam: shmulik dot hen at intel dot com    |
+Erik Hensema (erik@hensema.net)
