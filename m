@@ -1,80 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: patch: introduce simple actions
-Date: Sun, 20 Mar 2005 20:44:08 +0100
-Message-ID: <20050320194408.GU3086@postel.suug.ch>
-References: <1111345551.1095.82.camel@jzny.localdomain>
+Date: Sun, 20 Mar 2005 20:58:30 +0100
+Message-ID: <423DD5E6.2020708@trash.net>
+References: <1111345551.1095.82.camel@jzny.localdomain>	 <423DCD8C.6030100@trash.net> <1111347345.1094.98.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Patrick McHardy <kaber@trash.net>
-To: Jamal Hadi Salim <hadi@znyx.com>
-Content-Disposition: inline
-In-Reply-To: <1111345551.1095.82.camel@jzny.localdomain>
+        Thomas Graf <tgraf@suug.ch>
+To: hadi@znyx.com
+In-Reply-To: <1111347345.1094.98.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Jamal Hadi Salim <1111345551.1095.82.camel@jzny.localdomain> 2005-03-20 14:05
+Jamal Hadi Salim wrote:
+> On Sun, 2005-03-20 at 14:22, Patrick McHardy wrote:
+>
+>>One of the next things I wanted to do in this area was
+>>moving all the large inline functions to act_generic.c,
+>>so if possible I would prefer not to put these in a header
+>>file.
 > 
-> Ive posted this before - dont want it to sit here rotting. 
-> If theres nothing glaringly wrong with it (Thomas/Patrick?) then Dave
-> please apply so i can start shooting other patches based on it.
+> These are small functions. Take a look at the simple action i attached.
+> If you can give me the same functionality and still move things
+> de_inlined to act_generic.c i would be fine with it.
 
-Looks good to me, see two minor comments below.
+The functions are not inlined anyway, so the question is whether any
+#define magic is done as with pkt_act.h, otherwise there is no reason
+to have them in a header file. Looking at your patch, it seems
+tc_defact.h uses the redefined pkt_act.h functions, so it does need to
+be in a header file, but frankly, I find this horrible. The patch
+doesn't conflict with cleanup of pkt_act.h, but it means more work when
+doing it, so I think this is what should be done first. Especially
+since this is only an example, not useful for users, but it will be
+possibly used to create more actions that also need to be changed
+afterwards.
 
-> +static inline int
-> +tcf_defact_init(struct rtattr *rta, struct rtattr *est,
-> +		struct tc_action *a, int ovr, int bind)
-> +{
-> +	struct rtattr *tb[TCA_DEF_MAX];
-> +	struct tc_defact *parm;
-> +	struct tcf_defact *p;
-> +	void *defdata;
-> +	u32 datalen = 0;
-> +	int ret = 0;
-> +
-> +	if (rta == NULL || rtattr_parse_nested(tb, TCA_DEF_MAX, rta) < 0)
-> +		return -EINVAL;
-> +
-> +	if (tb[TCA_DEF_PARMS - 1] == NULL)
-> +		return -EINVAL;
-> +	parm = RTA_DATA(tb[TCA_DEF_PARMS - 1]);
-> +	defdata = RTA_DATA(tb[TCA_DEF_DATA - 1]);
-
-Maybe do a size sanity check here for TCA_DEF_PARMS?
-
-> +	if (defdata == NULL)
-> +		return -EINVAL;
-> +
-> +	datalen = RTA_PAYLOAD(tb[TCA_DEF_DATA - 1]);
-> --- /dev/null	2004-01-29 13:33:32.773091056 -0500
-> +++ 2611-rc3+bk3/include/net/tc_act/tc_defact.h	2005-02-06 15:03:05.000000000 -0500
-> @@ -0,0 +1,13 @@
-> +#ifndef __NET_TC_DEF_H
-> +#define __NET_TC_DEF_H
-> +
-> +#include <net/act_api.h>
-> +
-> +struct tcf_defact
-> +{
-> +	tca_gen(defact);
-> +	u32     datalen;
-> +	void    *defdata;
-> +};
-> +
-> +#endif
-> --- /dev/null	2004-01-29 13:33:32.773091056 -0500
-> +++ 2611-rc3+bk3/include/linux/tc_act/tc_defact.h	2005-02-06 16:47:20.039209336 -0500
-> @@ -0,0 +1,21 @@
-> +#ifndef __LINUX_TC_DEF_H
-> +#define __LINUX_TC_DEF_H
-> +
-> +#include <linux/pkt_cls.h>
-> +
-> +struct tc_defact
-> +{
-> +	tc_gen;
-> +};
-
-tcf_defact, tc_defact, .. quite easy to get this wrong. Maybe
-it would a good idea to rename tcf_defact to tcf_defact_parm?
+Regards
+Patrick
