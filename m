@@ -1,99 +1,66 @@
-From: "Leonid Grossman" <leonid.grossman@neterion.com>
-Subject: RE: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
-Date: Mon, 14 Mar 2005 16:32:22 -0800
-Message-ID: <200503150032.j2F0WRDD011602@guinness.s2io.com>
-References: <42362232.4070202@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: RFC: PHY Abstraction Layer II
+Date: Mon, 14 Mar 2005 18:41:10 -0600
+Message-ID: <ba5d844255b5ba76b2685f9397faf689@freescale.com>
+References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>	<1110334456.32556.21.camel@gaston>	<20050308194229.41c23707.davem@davemloft.net>	<1110340214.32524.32.camel@gaston> <57a429f8eb807987d88b06129861d507@freescale.com> <4230D1AC.5070506@katalix.com>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <leonid@neterion.com>, <alex@neterion.com>,
-        "'David S. Miller'" <davem@davemloft.net>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>, "'Andi Kleen'" <ak@muc.de>
-In-Reply-To: <42362232.4070202@pobox.com>
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+        linuxppc-embedded@ozlabs.org,
+        Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <4230D1AC.5070506@katalix.com>
+To: James Chapman <jchapman@katalix.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+On Mar 10, 2005, at 17:01, James Chapman wrote:
 
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jgarzik@pobox.com]
-> Sent: Monday, March 14, 2005 3:46 PM
-> To: Andi Kleen
-> Cc: Leonid Grossman; netdev@oss.sgi.com; leonid@neterion.com;
-> alex@neterion.com; David S. Miller
-> Subject: Re: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE
-> Adapters
-> 
-> Andi Kleen wrote:
-> > "Leonid Grossman" <leonid.grossman@neterion.com> writes:
-> >
-> >>Do you have other objections to the submission? We'd like to see if
-> these
-> >>could be addressed; going forward we see significant benefits both for
-> >>S2io/Neterion (and our customers) and for community to use this driver.
-> >
-> >
-> > I guess the main objection to the HAL comes not from performance
-> > issues (Usually the only thing that really counts for performance
-> > is data cache misses and the HAL is unlikely to affect this much), but
-> > the coding style etc.. Indeed it does not look too Linux like.
-> 
-> Well, not coding style, but code analysis and maintenance issues.
-> 
-> HALs are generally type-opaque, breaking checker-style tools and sparse
-> checks.
-> 
-> "it looks like Linux code" has implications on bug finding and fixing,
-> and long term maintenance of the code.  You want to make it easy for
-> someone to make the same change across N net drivers.
-> 
-> Because most ->hard_start_xmit() hooks were written in a similar
-> fashion, it was easy and quick to deploy fixes for the skb_padto()
-> security bug across many net drivers.
-> 
-> A lot of tiny costs that mostly wind up as noise:  additional branching
-> / derefs.
-> 
-> My biggest objection is that HALs increase the overall "cost" of
-> maintaining a piece of code, and serve as a barrier against outside
-> (non-primary-author) kernel hacker involvement.
+> Hi Andy,
+>
+> Can you elaborate on why this phy abstraction is needed?
+>
+> In your original post, you mentioned that you were going to post a
+> patch to show how your code would be hooked up in an existing net
+> driver. Did I miss it? It would help in understanding the pros and cons
+> of using genphy over using plain old mii.c.
 
-There are several valid arguments against HAL-based MAC drivers, but the
-maintenance cost is probably one of the main arguments in the "for" column.
+Hi James,
 
-My assumption is that the vast majority of the maintenance for the
-hw-dependent code will be done by Neterion team - and for us the HAL-based
-approach allows to fix a bug or to add a new feature in hw-dependent code
-once and for all across all drivers. In our experience, third-party
-contribution tends to come to the OS-specific part of the driver not to the
-HAL - but if there is a meaningful contribution to the HAL from one of our
-Unix driver, it will be useful to pick it up in a transparent fashion. 
+I haven't posted it yet, since it's a large patch (it deletes a lot of 
+code from my driver), but I can give a basic overview of how my driver 
+hooks into this code:
 
-Agreed that HAL makes code analysis and changes by the outside hacker
-somewhat more difficult - but hopefully not by much, and again I expect most
-of the outside contribution to be done above HAL level.
-Also, we are trying to ease the pain by releasing HAL API and ASIC
-Programming Manual documentation.
+1) The driver connects to the PHY when opened, calling phy_connect, and 
+then clears some bits to declare functionality it doesn't support (my 
+driver, for instance, does not support gigabit in half-duplex mode).
 
-> 
-> Remember, this driver is going to be with us for -10- years or more.
+2) The driver implements a function which reads the speed/duplex 
+settings, and modifies the controller registers as appropriate (also 
+bringing the carrier up and down depending on link state).  My driver 
+needs to note whether it's gigabit or not (for GMII vs MII mode), and 
+the duplex (to set the MAC full or half).
 
-Yes, and this was actually a second reason for the submission. Present
-"s2io" driver is fine for the current and next ASIC, beyond that we will
-have to probably re-write it anyways. The new submission is 2+ years
-"younger" and has a much better chance to require an incremental upgrade
-only. Since 10GbE is just taking off and not a lot of people got familiar
-with the code, we feel it's easier to take this hit earlier than later. 
+Both of those steps are very straightforward.  The PHY layer will 
+invoke the callback whenever the link state changes, so the controller 
+will always be up-to-date.
 
-To sum it up, I agree that HAL is a trade-off - but for this hardware it has
-been working well for us in multi-platform environment; the hope is that you
-will find a (smaller, perhaps) subset of these benefits useful in Linux
-environment as well.
+3) The third step is the part that can make things a little messier.  
+My driver implements a second driver for the MDIO bus, which is 
+connected through its registers.  This bus needs to be registered, and 
+the driver also needs to register.  Then some code needs to be written 
+to deal with initialization, and takedown.  I can send out that patch 
+anytime, if there's demand.
 
-Leonid
+>
+> btw, I recently posted a patch to add GigE support to mii.c which is
+> in Jeff's netdev-2.6 queue. Some register definitions were added in
+> mii.h that will collide with yours.
 
-> 
-> 	Jeff
-> 
+Yeah, I ran in to some of those.  I can't remember whether they're in 
+the patch or not, I suspect not.  I will have to submit a new patch to 
+cover those (I just changed my code to use your definitions).
+
+Andy
