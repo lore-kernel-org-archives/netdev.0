@@ -1,35 +1,24 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
-Date: Mon, 23 Aug 2004 14:18:24 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC/PATCH] Add support for setting net_device flags via RTM_SETLINK
+Date: Tue, 24 Aug 2004 00:04:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF4320C747.75C5E93A-ON88256EF9.00744FBA-88256EF9.00750996@us.ibm.com>
-References: <41289859.2040803@trash.net>
+Message-ID: <20040823220454.GO31616@rei.reeler.org>
+References: <20040823211611.GC19921@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "David S. Miller" <davem@redhat.com>, laforge@netfilter.org,
-        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org, okir@suse.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <41289859.2040803@trash.net>
-To: Patrick McHardy <kaber@trash.net>
+To: davem@redhat.com, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
+Content-Disposition: inline
+In-Reply-To: <20040823211611.GC19921@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-BTW, since some of the frags (esp. the one that triggers the problem)
-are added post-routing, a valid dst is available. It just isn't the first
-frag in the particular scenario.
+* Thomas Graf <20040823211611.GC19921@postel.suug.ch> 2004-08-23 23:16
+> I will implement the 2 hidden flags IFF_PROMISC and IFF_ALLMULTI as separate
+> message attributes (IFLA_PROMISC and IFLA_ALLMULTI) as soon as I get some
+> comments on this idea.
 
-So, one solution would be to set skb->dst for the head (if NULL)  based
-on a non-null fragment skb->dst. I believe that would prevent the problem
-case without dropping the fragment, since it'll be processed post-routing
-only if one of the frags is.
+Ignore the above statement, it's nonsense. Sorry.
 
-When I was looking at it, I wondered if conntrack really has a need to
-reassemble itself, though. Couldn't it let IP do the reassembling and
-just ignore offset != 0 frags? The offset==0 frags will have enough
-protocol header to identify by port (a requirement for ICMP). But I don't
-know this code well enough to know if conntrack does actually need
-to reassemble for some good reason. Superficially, I wouldn't think
-there'd be a reason for it.
-
-                                        +-DLS
+  Thomas
