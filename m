@@ -1,73 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Fw: Log full of "ing_filter:  fixed  ippp2 out ippp2"
-Date: 10 Mar 2005 21:20:47 -0500
-Message-ID: <1110507647.1088.82.camel@jzny.localdomain>
-References: <20050310174915.3148c9a8.akpm@osdl.org>
-Reply-To: hadi@cyberus.ca
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: 2.6.11 on AMD64 traps
+Date: Thu, 10 Mar 2005 18:20:44 -0800
+Message-ID: <20050310182044.1d740738.davem@davemloft.net>
+References: <200503081900.18686.vanco@satro.sk>
+	<422DF07D.7010908@tomt.net>
+	<422F525F.90404@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-LruYe0NJ6hHmL9sT3hgS"
-Cc: netdev@oss.sgi.com, Kimmo Sundqvist <kimmo.sundqvist@mbnet.fi>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050310174915.3148c9a8.akpm@osdl.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: andre@tomt.net, vanco@satro.sk, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <422F525F.90404@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 09 Mar 2005 20:45:35 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
---=-LruYe0NJ6hHmL9sT3hgS
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> > Michal Vanco wrote:
+> >>
+> >> I see this problem running 2.6.11 on dual AMD64:
+> >>
+> >> Running quagga routing daemon (ospf+bgp) and issuing "netstat -rn |wc 
+> >> -l" command
+> >> while quagga tries to load more than 154000 routes from its bgp 
+> >> neighbours causes this trap:
+> 
+> This patch should fix it. The crash is caused by stale pointers,
+> the pointers in fib_iter_state are not reloaded after seq->stop()
+> followed by seq->start(pos > 0).
 
-Does this fix it?
-
-On Thu, 2005-03-10 at 20:49, Andrew Morton wrote:
-> Can you check to see if 2.6.11 is still doing this?
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Wed, 9 Mar 2005 22:07:41 +0200
-> From: Kimmo Sundqvist <kimmo.sundqvist@mbnet.fi>
-> To: linux-kernel@vger.kernel.org
-> Subject: Log full of "ing_filter:  fixed  ippp2 out ippp2"
-> 
-> 
-> Hello
-> 
-> Please cc all replies to me.
-> 
-> After upgrading my little NATting firewall/router from 2.6.7-ck4 to 
-> 2.6.10-gentoo-r6 my /var/log/messages is 15MB in size and most of it looks 
-> like the text below.  All traffic to the Internet seems to cause this.  
-> 
-> "cat /var/log/messages | uniq | uniqmessages" results in a 3MB file.  I use 
-> syslog-ng.
-
-
---=-LruYe0NJ6hHmL9sT3hgS
-Content-Disposition: attachment; filename=isdn_p
-Content-Type: text/plain; name=isdn_p; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-
---- a/drivers/isdn/i4l/isdn_net.c	2005-03-02 02:38:33.000000000 -0500
-+++ b/drivers/isdn/i4l/isdn_net.c	2005-03-10 21:15:59.451485136 -0500
-@@ -1786,6 +1786,7 @@
- 		lp->stats.rx_bytes += skb->len;
- 	}
- 	skb->dev = ndev;
-+	skb->input_dev = ndev;
- 	skb->pkt_type = PACKET_HOST;
- 	skb->mac.raw = skb->data;
- #ifdef ISDN_DEBUG_NET_DUMP
---- a/drivers/isdn/i4l/isdn_ppp.c	2005-03-02 02:38:13.000000000 -0500
-+++ b/drivers/isdn/i4l/isdn_ppp.c	2005-03-10 21:12:47.069731608 -0500
-@@ -1178,6 +1178,7 @@
- 		mlp->huptimer = 0;
- #endif /* CONFIG_IPPP_FILTER */
- 	skb->dev = dev;
-+	skb->input_dev = dev;
- 	skb->mac.raw = skb->data;
- 	netif_rx(skb);
- 	/* net_dev->local->stats.rx_packets++; done in isdn_net.c */
-
---=-LruYe0NJ6hHmL9sT3hgS--
+Applied, thanks Patrick.
