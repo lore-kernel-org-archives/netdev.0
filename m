@@ -1,131 +1,308 @@
 From: Roger Luethi <rl@hellgate.ch>
-Subject: [4/4][PATCH 2.6] via-rhine: USE_MEM, USE_IO -> USE_MMIO
-Date: Sun, 23 May 2004 12:50:18 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040523105018.GA10472@k3.hellgate.ch>
+Subject: [5/4][PATCH 2.6] via-rhine: netdev_priv()
+Date: Sun, 23 May 2004 16:52:47 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040523145247.GA17910@k3.hellgate.ch>
 References: <20040523104650.GA9979@k3.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="liOOAslEiF7prFVr"
+Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262476AbUEWLCr@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
 In-Reply-To: <20040523104650.GA9979@k3.hellgate.ch>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---liOOAslEiF7prFVr
+--gKMricLos+KVdGMg
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Replace USE_MEM and USE_IO with USE_MMIO define.
+Found another patch that should go with this batch:
 
---liOOAslEiF7prFVr
+Switch to netdev_priv(). Fix outdated comment and bump version number
+while we're at it.
+
+--gKMricLos+KVdGMg
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="via-rhine-2.6.6-4-defmem.diff"
+Content-Disposition: attachment; filename="via-rhine-2.6.6-5-netdev_priv.diff"
 
---- linux-2.6.6/drivers/net/via-rhine.c	2004-05-23 11:38:22.798939458 +0200
-+++ linux-2.6.6-patch/drivers/net/via-rhine.c	2004-05-23 11:44:18.972292582 +0200
-@@ -222,9 +222,8 @@ static char shortname[] = DRV_NAME;
- /* This driver was written to use PCI memory space, however most versions
-    of the Rhine only work correctly with I/O space accesses. */
+--- linux-2.6.6/drivers/net/via-rhine.c	2004-05-23 11:56:08.043812192 +0200
++++ linux-2.6.6-patch/drivers/net/via-rhine.c	2004-05-23 16:42:26.550821369 +0200
+@@ -128,8 +128,8 @@
+ */
+ 
+ #define DRV_NAME	"via-rhine"
+-#define DRV_VERSION	"1.1.19-2.5"
+-#define DRV_RELDATE	"July-12-2003"
++#define DRV_VERSION	"1.1.20-2.6"
++#define DRV_RELDATE	"May-23-2004"
+ 
+ 
+ /* A few user-configurable values.
+@@ -219,8 +219,8 @@ KERN_INFO DRV_NAME ".c:v1.10-LK" DRV_VER
+ static char shortname[] = DRV_NAME;
+ 
+ 
+-/* This driver was written to use PCI memory space, however most versions
+-   of the Rhine only work correctly with I/O space accesses. */
++/* This driver was written to use PCI memory space. Some early versions
++   of the Rhine may only work correctly with I/O space accesses. */
  #ifdef CONFIG_VIA_RHINE_MMIO
--#define USE_MEM
-+#define USE_MMIO
+ #define USE_MMIO
  #else
--#define USE_IO
- #undef readb
- #undef readw
- #undef readl
-@@ -380,7 +379,7 @@ enum chip_capability_flags {
- 	ReqTxAlign=0x10, HasWOL=0x20,
- };
+@@ -552,7 +552,7 @@ static int  rhine_close(struct net_devic
+ static inline u32 get_intr_status(struct net_device *dev)
+ {
+ 	long ioaddr = dev->base_addr;
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	u32 intr_status;
  
--#ifdef USE_MEM
-+#ifdef USE_MMIO
- #define RHINE_IOTYPE (PCI_USES_MEM | PCI_USES_MASTER | PCI_ADDR1)
- #else
- #define RHINE_IOTYPE (PCI_USES_IO  | PCI_USES_MASTER | PCI_ADDR0)
-@@ -432,7 +431,7 @@ enum backoff_bits {
- 	BackCaptureEffect=0x04, BackRandom=0x08
- };
+ 	intr_status = readw(ioaddr + IntrStatus);
+@@ -770,7 +770,7 @@ static int __devinit rhine_init_one(stru
  
--#ifdef USE_MEM
-+#ifdef USE_MMIO
- /* Registers we check that mmio and reg are the same. */
- int mmio_verify_registers[] = {
- 	RxConfig, TxConfig, IntrEnable, ConfigA, ConfigB, ConfigC, ConfigD,
-@@ -590,7 +589,7 @@ static void wait_for_reset(struct net_de
- 			boguscnt ? "succeeded" : "failed");
+ 	dev->irq = pdev->irq;
+ 
+-	rp = dev->priv;
++	rp = netdev_priv(dev);
+ 	spin_lock_init(&rp->lock);
+ 	rp->chip_id = chip_id;
+ 	rp->drv_flags = rhine_chip_info[chip_id].drv_flags;
+@@ -892,7 +892,7 @@ err_out:
+ 
+ static int alloc_ring(struct net_device* dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	void *ring;
+ 	dma_addr_t ring_dma;
+ 
+@@ -927,7 +927,7 @@ static int alloc_ring(struct net_device*
+ 
+ void free_ring(struct net_device* dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 
+ 	pci_free_consistent(rp->pdev,
+ 			    RX_RING_SIZE * sizeof(struct rx_desc) +
+@@ -945,7 +945,7 @@ void free_ring(struct net_device* dev)
+ 
+ static void alloc_rbufs(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	dma_addr_t next;
+ 	int i;
+ 
+@@ -986,7 +986,7 @@ static void alloc_rbufs(struct net_devic
+ 
+ static void free_rbufs(struct net_device* dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	int i;
+ 
+ 	/* Free all the skbuffs in the Rx queue. */
+@@ -1005,7 +1005,7 @@ static void free_rbufs(struct net_device
+ 
+ static void alloc_tbufs(struct net_device* dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	dma_addr_t next;
+ 	int i;
+ 
+@@ -1025,7 +1025,7 @@ static void alloc_tbufs(struct net_devic
+ 
+ static void free_tbufs(struct net_device* dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	int i;
+ 
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+@@ -1048,7 +1048,7 @@ static void free_tbufs(struct net_device
+ 
+ static void init_registers(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int i;
+ 
+@@ -1114,7 +1114,7 @@ static int mdio_read(struct net_device *
+ 
+ static void mdio_write(struct net_device *dev, int phy_id, int regnum, int value)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int boguscnt = 1024;
+ 
+@@ -1145,7 +1145,7 @@ static void mdio_write(struct net_device
+ 
+ static int rhine_open(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int i;
+ 
+@@ -1188,7 +1188,7 @@ static int rhine_open(struct net_device 
+ 
+ static void rhine_check_duplex(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int mii_lpa = mdio_read(dev, rp->phys[0], MII_LPA);
+ 	int negotiated = mii_lpa & rp->mii_if.advertising;
+@@ -1216,7 +1216,7 @@ static void rhine_check_duplex(struct ne
+ static void rhine_timer(unsigned long data)
+ {
+ 	struct net_device *dev = (struct net_device *)data;
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int next_tick = 10*HZ;
+ 	int mii_status;
+@@ -1249,7 +1249,7 @@ static void rhine_timer(unsigned long da
+ 
+ static void rhine_tx_timeout(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 
+ 	printk(KERN_WARNING "%s: Transmit timed out, status %4.4x, PHY status "
+@@ -1287,7 +1287,7 @@ static void rhine_tx_timeout(struct net_
+ 
+ static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	unsigned entry;
+ 	u32 intr_status;
+ 
+@@ -1431,7 +1431,7 @@ static irqreturn_t rhine_interrupt(int i
+    for clarity. */
+ static void rhine_tx(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	int txstatus = 0, entry = rp->dirty_tx % TX_RING_SIZE;
+ 
+ 	spin_lock(&rp->lock);
+@@ -1494,7 +1494,7 @@ static void rhine_tx(struct net_device *
+    for clarity and better register allocation. */
+ static void rhine_rx(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	int entry = rp->cur_rx % RX_RING_SIZE;
+ 	int boguscnt = rp->dirty_rx + RX_RING_SIZE - rp->cur_rx;
+ 
+@@ -1639,7 +1639,7 @@ static inline void clear_tally_counters(
  }
  
--#ifdef USE_MEM
-+#ifdef USE_MMIO
- static void __devinit enable_mmio(long ioaddr, int chip_id)
+ static void rhine_restart_tx(struct net_device *dev) {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int entry = rp->dirty_tx % TX_RING_SIZE;
+ 	u32 intr_status;
+@@ -1671,7 +1671,7 @@ static void rhine_restart_tx(struct net_
+ 
+ static void rhine_error(struct net_device *dev, int intr_status)
  {
- 	int n;
-@@ -636,7 +635,7 @@ static int __devinit rhine_init_one(stru
- 	long memaddr;
- 	int io_size;
- 	int pci_flags;
--#ifdef USE_MEM
-+#ifdef USE_MMIO
- 	long ioaddr0;
- #endif
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
  
-@@ -687,7 +686,7 @@ static int __devinit rhine_init_one(stru
- 	if (pci_request_regions(pdev, shortname))
- 		goto err_out_free_netdev;
+ 	spin_lock(&rp->lock);
+@@ -1741,7 +1741,7 @@ static void rhine_error(struct net_devic
  
--#ifdef USE_MEM
-+#ifdef USE_MMIO
- 	ioaddr0 = ioaddr;
- 	enable_mmio(ioaddr0, chip_id);
+ static struct net_device_stats *rhine_get_stats(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	unsigned long flags;
  
-@@ -710,7 +709,7 @@ static int __devinit rhine_init_one(stru
- 			goto err_out_unmap;
- 		}
- 	}
--#endif
-+#endif /* USE_MMIO */
+@@ -1756,7 +1756,7 @@ static struct net_device_stats *rhine_ge
  
- 	/* D-Link provided reset code (with comment additions) */
- 	if (rhine_chip_info[chip_id].drv_flags & HasWOL) {
-@@ -737,14 +736,14 @@ static int __devinit rhine_init_one(stru
- 	wait_for_reset(dev, chip_id, shortname);
+ static void rhine_set_rx_mode(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	u32 mc_filter[2];	/* Multicast hash filter */
+ 	u8 rx_mode;		/* Note: 0x02=accept runt, 0x01=accept errs */
+@@ -1793,7 +1793,7 @@ static void rhine_set_rx_mode(struct net
  
- 	/* Reload the station address from the EEPROM. */
--#ifdef USE_IO
--	reload_eeprom(ioaddr);
--#else
-+#ifdef USE_MMIO
- 	reload_eeprom(ioaddr0);
- 	/* Reloading from eeprom overwrites cfgA-D, so we must re-enable MMIO.
- 	   If reload_eeprom() was done first this could be avoided, but it is
- 	   not known if that still works with the "win98-reboot" problem. */
- 	enable_mmio(ioaddr0, chip_id);
-+#else
-+	reload_eeprom(ioaddr);
- #endif
+ static void netdev_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
  
- 	for (i = 0; i < 6; i++)
-@@ -880,7 +879,7 @@ static int __devinit rhine_init_one(stru
- 	return 0;
+ 	strcpy(info->driver, DRV_NAME);
+ 	strcpy(info->version, DRV_VERSION);
+@@ -1802,7 +1802,7 @@ static void netdev_get_drvinfo(struct ne
  
- err_out_unmap:
--#ifdef USE_MEM
-+#ifdef USE_MMIO
- 	iounmap((void *)ioaddr);
- err_out_free_res:
- #endif
-@@ -1933,7 +1932,7 @@ static void __devexit rhine_remove_one(s
+ static int netdev_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	int rc;
  
- 	pci_release_regions(pdev);
+ 	if (!(rp->drv_flags & CanHaveMII))
+@@ -1817,7 +1817,7 @@ static int netdev_get_settings(struct ne
  
--#ifdef USE_MEM
-+#ifdef USE_MMIO
- 	iounmap((char *)(dev->base_addr));
- #endif
+ static int netdev_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	int rc;
+ 
+ 	if (!(rp->drv_flags & CanHaveMII))
+@@ -1832,7 +1832,7 @@ static int netdev_set_settings(struct ne
+ 
+ static int netdev_nway_reset(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 
+ 	if (!(rp->drv_flags & CanHaveMII))
+ 		return -EINVAL;
+@@ -1842,7 +1842,7 @@ static int netdev_nway_reset(struct net_
+ 
+ static u32 netdev_get_link(struct net_device *dev)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 
+ 	if (!(rp->drv_flags & CanHaveMII))
+ 		return 0;	/* -EINVAL */
+@@ -1874,7 +1874,7 @@ static struct ethtool_ops netdev_ethtool
+ 
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 	struct mii_ioctl_data *data = (struct mii_ioctl_data *) & rq->ifr_data;
+ 	int rc;
+ 
+@@ -1891,7 +1891,7 @@ static int netdev_ioctl(struct net_devic
+ static int rhine_close(struct net_device *dev)
+ {
+ 	long ioaddr = dev->base_addr;
+-	struct rhine_private *rp = dev->priv;
++	struct rhine_private *rp = netdev_priv(dev);
+ 
+ 	del_timer_sync(&rp->timer);
  
 
---liOOAslEiF7prFVr--
+--gKMricLos+KVdGMg--
