@@ -1,133 +1,159 @@
-From: Simon Kirby <sim@netnation.com>
-Subject: Route cache performance tests
-Date: Tue, 10 Jun 2003 00:57:32 -0700
+From: Jamal Hadi <hadi@shell.cyberus.ca>
+Subject: RE: Route cache performance under stress
+Date: Tue, 10 Jun 2003 06:53:04 -0400 (EDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030610075732.GD23009@netnation.com>
+Message-ID: <20030610061010.Y36963@shell.cyberus.ca>
+References: <008001c32eda$56760830$4a00000a@badass> <20030609195652.E35696@shell.cyberus.ca>
+ <Pine.LNX.4.51.0306092006420.12038@ns.istop.com> <20030609204257.L35799@shell.cyberus.ca>
+ <Pine.LNX.4.51.0306092200150.28167@ns.istop.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: CIT/Paul <xerox@foonet.net>, 'Simon Kirby' <sim@netnation.com>,
+	"'David S. Miller'" <davem@redhat.com>,
+	"fw@deneb.enyo.de" <fw@deneb.enyo.de>,
+	"netdev@oss.sgi.com" <netdev@oss.sgi.com>,
 	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: ralph+d@istop.com, Jamal Hadi <hadi@shell.cyberus.ca>,
-	CIT/Paul <xerox@foonet.net>,
-	"'David S. Miller'" <davem@redhat.com>,
-	"fw@deneb.enyo.de" <fw@deneb.enyo.de>
-Content-Disposition: inline
+To: ralph+d@istop.com
+In-Reply-To: <Pine.LNX.4.51.0306092200150.28167@ns.istop.com>
 List-Id: netdev.vger.kernel.org
 
-Okay, I got a chance to run some first tests and have found some simple
-results that might be worth a read.  The test setup is as follows
-(I'll probably be using this setup for a number of other tests):
 
-[ My work desktop, other test boxes on network ]
- |   |   |   |   |
-[ 100 Mbit Switch ]
-         |
-         | (100 Mbit)
-         |
-[ Dual tg3 dual 1.4 GHz Opertron box, 1 GB RAM ]
-         |
-         | (1000 MBit)
-         |
-[ Single e1000 single 2.4 GHz Xeon box ]
 
-I have a route added on the test boxes to stuff traffic destined for the
-Xeon box through the Opertron box.  Forwarding is enabled on the Opertron
-box, and it has a route for the Xeon box.
+On Mon, 9 Jun 2003, Ralph Doncaster wrote:
 
-I am testing with Juno right now because it generates the (pseudo-)random
-IP traffic which we is where the problem is right now.  We already know
-Linux can do hundreds of thousands of pps of ip<->ip traffic, so we can
-test that later.
+> On Mon, 9 Jun 2003, Jamal Hadi wrote:
+>
+> The test results Rob posted today show that the testing can be done in a
+> lab environment.
 
-Juno seems to be able to send about 150,000 pps from my Celery desktop. 
+I thought you were saying those were _not_ real world traffic patterns.
+Robert is just doing a worst case scenario testing. What would be useful
+is we actually test on real environments or maybe even collect real
+world traffic patterns and run them in the lab.
+Typically, real world is less intense than the lab. Ex: noone sends
+100Mbps at 64 byte packet size. Typical packet is around 500 bytes
+average. If linux can handle that forwarding capacity, it should easily
+be doing close to Gige real world capacity.
+Have you seen how the big boys advertise? when tuning specs they talk
+about bits/sec. Juniper just announced a blade at supercom that can do
+firewalling at 500Mbps.
 
-Running with vanilla 2.4.21-rc7 (for now), the kernel manages to forward
-an amazing 39,000 packets per second.  Woohoo!  NAPI definitely kicks in
-and seems to work even on SMP (blink?).  The output of "rtstat -i 1" is
-somewhat interesting.  The "GC: tot" field seems to almost exactly match
-the forwarded packet count, which is handy:
+> Most of the people I know that would actually see 50kpps
+> in the real world don't have the time to apply various patches and run a
 
- size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc GC: tot ignored goal_miss ovrf
-    8         4       4     0     0     0     0     0         0       0      0       0       0         0    0
-    8         3       3     0     0     0     0     0         0       0      0       0       0         0    0
-    8         5       6     0     0     0     0     0         0       0      0       0       0         0    0
-    8         4       4     0     0     0     0     0         0       0      0       0       0         0    0
-    8         5       5     0     0     0     0     0         0       0      0       0       0         0    0
-    9         3       5     0     0     1     0     0         0       0      0       0       0         0    0
-33549        11   65533     0     0     0     0     0         0       0      0   57347   57345         1    0
-53499        13   65200     0     0     1     0     0         0       0      0   65196   65194         1    0
-65536        19   65540     0     0     1     0     0         0       0      0   65538   64879         0    0
-65536        11   33980     0     0     0     0     0         0       0      0   33978    6123         0    0
-65536         9   37491     0     0     1     0     0         0       0      0   37489     930         0    0
-65536        13   40487     0     0     0     0     0         0       0      0   40484     991         0    0
-65536        13   39287     0     0     1     0     0         0       0      0   39284     933         0    0
-65536        10   40790     0     0     1     0     0         0       0      0   40789    1006         0    0
-65536        17   37783     0     0     0     0     0         0       0      0   37781     866         0    0
-65536         8   38092     0     0     0     0     0         0       0      0   38090     880         0    0
-65536        14   38086     0     0     1     0     0         0       0      0   38085     877         0    0
-65536        13   39587     0     0     0     0     0         0       0      0   39586     922         0    0
-65536        18   39882     0     0     1     0     0         0       0      0   39880     908         0    0
-65536         8   39292     0     0     0     0     0         0       0      0   39290     894         0    0
-65536        10   38390     0     0     4     0     0         0       0      0   38389     879         0    0
-65536        13   38087     0     0     0     0     0         0       0      0   38086     830         0    0
-65536        10   38692     0     0     0     0     0         0       0      0   38690     845         0    0
-65536        16   38982     0     0     1     0     0         0       0      0   38981     899         0    0
+Now thats one big dilema, isnt it? Do you think i have time? Let me
+assure you that I dont get paid by anybody to do any of this stuff.
+Infact i havent been paid to do any of this stuff since 1994. Thats a lot
+of man hours in corporate speak.
+The point i am making is as a community we gotta put the hours together;
+the coder, the user etc. As someone who is not maintaining anything
+(lucky bastard that i am, my name is not even in the credits file - by
+choice) so i have the luxury to  disappear once in a while. Imagine Davems
+reaction to a message like the above.
 
-The above is with stock settings.  Note how the table completely fills up
-causing the forward rate to suffer.
+> bunch of tests; pretending the problem doesn't exist when someone doesn't
+> run tests to prove is a poor excuse.
+>
 
-In an attempt to improve performance, I tried "echo 0 > gc_min_interval":
+I think you _may_ be right theres a problem. However, as a defensive
+mechanism it is easier to tell someone to go away and come back with
+solid data. For example, you CPU graphs are very strange: Theres a few
+hundred variables that may be involved.
+I have spent many hours investigating peoples problems sshing to their
+machines only to find out they didnt follow instructions. After the
+10th person doing the same thing, what do you expect my reaction to be?
+Please see the view from this side as well because it is almost
+a thankless task.
 
- size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc GC: tot ignored goal_miss ovrf
-65536        15   39585     0     0     0     0     0         0       0      0   39585     909         0    0
-65535        13   39587     0     0     1     0     0         0       0      0   39587     877         0    0
-32027        10   70044     0     0     0     0     0         0       0      0   70043       0         6    0
-32013         8   71092     0     0     0     0     0         0       0      0   71091       0         0    0
-31995        10   72290     0     0     1     0     0         0       0      0   72290       0         0    0
-31969        13   71087     0     0     2     0     0         0       0      0   71083       0         0    0
-31950         5   71695     0     0     0     0     0         0       0      0   71693       0         0    0
-31937        10   71690     0     0     2     0     0         0       0      0   71690       0         0    0
-31927        10   71390     0     0     0     0     0         0       0      0   71389       0         0    0
-31915        18   71382     0     0     0     0     0         0       0      0   71381       0         0    0
-31897         5   71395     0     0     0     0     0         0       0      0   71394       0         0    0
-31881         7   70793     0     0     0     0     0         0       0      0   70793       0         0    0
-31869         5   71095     0     0     0     0     0         0       0      0   71094       0         0    0
-31863        16   71084     0     0     0     0     0         0       0      0   71082       0         0    0
-31846        22   70778     0     0     0     0     0         0       0      0   70776       0         0    0
-31825         5   70795     0     0     1     0     0         0       0      0   70795       0         0    0
-31816        10   70490     0     0     0     0     0         0       0      0   70488       0         0    0
+> Yup, still a duron 750 on an Asus mobo (Via chipset).  Running Zebra
+> 0.93b.  If the ideas you're referring to are changing the zebra source to
+> arp the next-nops, then no, I haven't tried it (and am not likely to any
+> time soon).
+>
 
-And then decided to try "ip route flush cache":
+I think you may be suffering from the "too low" traffic NAPI syndrome.
+Under low traffic (1-2 Mbps) on lower end machines NAPI will consume
+more CPU because of an extra PCI operation per packet that is performed.
+As for the zebra thing, if you post my message to the Zebra list i am sure
+someone will be excited enough to do it. I need a few hours to do it
+but like you i dont have much time.
 
- size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc GC: tot ignored goal_miss ovrf
-31768         8   70192     0     0     0     0     0         0       0      0   70190       0         0    0
-31757        15   70185     0     0     1     0     0         0       0      0   70184       0         0    0
-31743         5   70495     0     0     1     0     0         0       0      0   70491       0         0    0
- 8204         2   83314     0     0     0     0     0         1       2      0   75524       0        89    0
- 8204         2   88859     0     0     0     0     0         1       0      0   88449       0        84    0
- 8203         3   85797     0     0     1     0     0         0       0      0   85795       0         0    0
- 8203         0   86100     0     0     0     0     0         0       0      0   86098       0         0    0
+> > Robert has a good collection for what is good hardware. I am so outdated
+> > i dont keep track anymore. My fastest machine is still an ASuse dual
+> > 450Mhz.
+>
+> There's still more dead-end suggestions than good ones (i.e. the
+> O'Reilley high performance routing book).
+>
 
-...And then I tried reducing gc_thresh:
+URL?
 
- size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc GC: tot ignored goal_miss ovrf
- 8200         7   85793     0     0     1     0     0         0       0      0   85790       0         0    0
- 8200         4   85796     0     0     1     0     0         0       0      0   85792       0         0    0
- 8200        13   86087     0     0     0     0     0         0       0      0   86086       0         0    0
- 8200         3   86097     0     0     0     0     0         0       0      0   86096       0         0    0
- 1530         4   87896     0     0     0     0     0         0       0      0   87277       0       562    0
- 1370         0  135832     0     0     0     0     0         0       0      0  135829       0       617    0
- 1348         0  135952     0     0     2     0     0         0       0      0  135952       0       543    0
- 1341         0  135740     0     0     0     0     0         0       0      0  135739       0       529    0
- 1348         1  135817     0     0     1     0     0         0       0      0  135817       0       567    0
+> > Well, heres a good example: With NAPI, have your sessions been dropped?
+> Yup, twice in the last 2 weeks.
+>
 
-I tried fiddling with more settings, even setting gc_thresh to 1, but I
-wasn't able to get the route cache much smaller than that or get it to
-forward any more packets per second.
+I have seen NAPI slow down throughput because of an intensive user space
+app.
 
-In any case, setting gc_min_interval to 0 definitely helped, but I
-suspect Dave's patches will make a bigger difference.  Next up is
-2.5.70-bk14 and 2.5.70-bk14+davem's stuff from yesterday.
+> > Have you tried a different NIC? Not sure how well the 3com is maintained
+> > for example.
+> > Try a tulip or tg3 or e1000 or the dlink gige.
+>
+> Initially I was looking for tulip cards but almost nobody is producing
+> them any more.  Almost a year ago I came across the following list, which
 
-Simon-
+Thats not true. You could buy them off znyx. Yes, intel has EOLed the
+chips so i dont think Znyx will be doing this for much longer.
+Get yourself the giges instead.
+
+> is why I went with the 3com (at the time it indicated rx/tx irqmit for the
+> 3com, until I emailed the author that I found out it was tx only)
+> http://www.fefe.de/linuxeth/
+>
+> I had joined the vortex list last fall looking for some tips and that
+> didn't help much (other than telling me that the 3com wasn't the best
+> choice).  I've since bought a couple tg3 and a bunch of e1000 cards that
+> I'm planning to put into production.
+>
+
+yes, move to the giges then lets talk again. I think your main problem is
+that 3com NAPI is not well supported. Lennert disappeared right after he
+released the patch and noone else has the interest of maintaining it.
+
+> Rob's test results seem to show that even if I replace my 3c905cx cards
+> with e1000's I'll still get killed with a 50kpps synflood with my current
+> CPU.  Upgrading to dual 2Ghz CPUs is not a preferred solution since I
+> can't do that in a 1U rack-mount box.  Yeah, I could probably do it with
+> water cooling, but that's not an option in a telco hotel like 151 Front
+> St. (Toronto).
+>
+
+where are you getting the 50Kpps data from? I see him talkking of
+input rate of no less than 200Kpps.
+
+> A couple weeks ago I got one of my techs to test freeBSD/polling with full
+> routing tables on a 1Ghz celeron and 2 e1000 cards.  His testing seems to
+> suggest it will handle a 50kpps synflood DOS.  It would be nice if Linux
+> could do the same.
+>
+> Despite the BSD bashing (to be expected on a Linux list, I guess), I will
+> be using BSD as well as Linux for core routing.  The plan is 1 linux
+> router and 1 bsd router each running zebra, connected to separate upstream
+> transit providers, running ibgp between them, and both advertising a
+> default route into OSPF.  Then if I get hit with a DOS that kills Linux,
+> the BSD box will have a much better chance of staying up than if I just
+> used a second Linux box for redundancy.  If the BSD boxes turn out to have
+> twice the performance of the linux boxes, it may be better for me to dump
+> linux for routing altogether. :-(
+>
+
+This is why you dont get very positivre reaction. You use religious
+scripture and you expect that people will help prove you are wrong.
+Let the person who showed that BSD can do better publish the data.
+If they are in town, let me know because i am willing to walk to
+meet the challenge.
+Maybe we'll learn something.
+
+cheers,
+jamal
