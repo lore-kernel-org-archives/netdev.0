@@ -1,53 +1,50 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: PATCH: IPSEC xfrm events
-Date: Sat, 02 Apr 2005 02:28:07 +0900
-Message-ID: <424D84A7.6060707@linux-ipv6.org>
-References: <1112319441.1089.83.camel@jzny.localdomain>
+From: Roland Dreier <roland@topspin.com>
+Subject: [PATCH][4/3] IPoIB: document conversion to debugfs
+Date: Fri, 01 Apr 2005 09:45:33 -0800
+Message-ID: <52r7hujsqq.fsf@topspin.com>
+References: <20053311936.XaQmN4N9new7dTCP@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
-        netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca, Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1112319441.1089.83.camel@jzny.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	openib-general@openib.org, davem@davemloft.net
+Return-path: <openib-general-bounces@openib.org>
+To: akpm@osdl.org
+In-Reply-To: <20053311936.XaQmN4N9new7dTCP@topspin.com> (Roland Dreier's
+	message of "Thu, 31 Mar 2005 19:36:12 -0800")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Jamal and Herbert,
+Update IPoIB documentation now that multicast debugging files have
+moved from ipoibdebugfs to debugfs.
 
-jamal wrote:
-> Herbert et al,
-> 
-> Ok, heres the final patch with all the changes discussed.
-> 
->  include/linux/xfrm.h   |    2 
->  include/net/xfrm.h     |   29 ++++++-
->  net/key/af_key.c       |   24 +++++-
->  net/xfrm/xfrm_policy.c |   25 ++++--
->  net/xfrm/xfrm_state.c  |   84 +++++++++++++++++++--
->  net/xfrm/xfrm_user.c   |  188
-> ++++++++++++++++++++++++++++++++++++++++++++++++-
->  6 files changed, 323 insertions(+), 29 deletions(-)
-> 
-> I have tested this with both setkey and iproute2 (about 10 scenarios or
-> so). Masahide-san is doing a lot more thorough testing with key servers
-> as well. He has not tested this patch yet (time difference) but it is
-> based on the last one he tested.
+Signed-off-by: Roland Dreier <roland@topspin.com>
 
-Short report:
-I've tested on this patched kernel and it works.
-
-- add/del/flush for SA/SP and  allocspi/acquire/upd for SA
-  through netlink socket
-- racoon runs fine (pfkey works for normal operation)
-  both without and with opening netlink socket to listen
-
-Since we have discussion which is still going on about the patch,
-the code will be change and I'll need to test again anyway.
-
-Thanks,
-
--- 
-Masahide NAKAMURA
+--- linux-export.orig/Documentation/infiniband/ipoib.txt	2005-03-31 19:07:01.000000000 -0800
++++ linux-export/Documentation/infiniband/ipoib.txt	2005-04-01 09:43:27.122520190 -0800
+@@ -32,14 +32,13 @@
+   mcast_debug_level to 1.  These parameters can be controlled at
+   runtime through files in /sys/module/ib_ipoib/.
+ 
+-  CONFIG_INFINIBAND_IPOIB_DEBUG also enables the "ipoib_debugfs"
++  CONFIG_INFINIBAND_IPOIB_DEBUG also enables files in the debugfs
+   virtual filesystem.  By mounting this filesystem, for example with
+ 
+-    mkdir -p /ipoib_debugfs
+-    mount -t ipoib_debugfs none /ipoib_debufs
++    mount -t debugfs none /sys/kernel/debug
+ 
+-  it is possible to get statistics about multicast groups from the
+-  files /ipoib_debugfs/ib0_mcg and so on.
++  it is possible to get statistics about munlticast groups from the
++  files /sys/kernel/debug/ipoib/ib0_mcg and so on.
+ 
+   The performance impact of this option is negligible, so it
+   is safe to enable this option with debug_level set to 0 for normal
