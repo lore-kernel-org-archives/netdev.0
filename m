@@ -1,113 +1,79 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: [PATCH 1/3] r8169: non-NAPI netif_poll_disable removal
-Date: Tue, 2 Nov 2004 12:03:17 -0600
-Message-ID: <200411021203.17013.jdmason@us.ibm.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Subject: [PATCH 2.6] e100, e1000, ixgb: add MODULE_VERSION tags
+Date: Tue, 2 Nov 2004 13:07:24 -0600
+Message-ID: <20041102190724.GA6962@lists.us.dell.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_lv8hBxmERC1vq5H"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@oss.sgi.com, linux.nics@intel.com, jgarzik@pobox.com
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Patch below adds MODULE_VERSION tags to the e100, e1000, and ixgb
+drivers.  Tools like DKMS will make use of this information to
+determine if a given driver is older or newer than another given
+driver based on this version number.
 
---Boundary-00=_lv8hBxmERC1vq5H
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Signed-off-by: Matt Domsch <Matt_Domsch@dell.com>
 
-rtl8169_close contains a call to netif_poll_disable.  This call sets and spins 
-on the __LINK_STATE_RX_SCHED bit, which isn't really a problem if this 
-function is only called in close (as that bit is off with NAPI off).  
-However, if the driver hits a transmit timeout (or any other call that 
-references rtl8169_wait_for_quiescence), the the module will hang 
-indefinitely during any subsequent call to netif_poll_disable or dev_close 
-function call because this bit is now set.
+-- 
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
 
-Since this function should not really be called with NAPI off, I chose to 
-remove the calls if NAPI is not defined (See patch below).  The patch is 
-against the 2.6.10-rc1-mm2 version of the driver.  I have verified that this 
-fixes the problem on ppc64 and x86_64.
-
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-
---- r8169.c.orig        2004-11-02 10:21:31.305104272 -0600
-+++ r8169.c     2004-11-02 10:25:56.849735352 -0600
-@@ -85,10 +85,12 @@ VERSION 1.6LK       <2004/04/14>
- #define rtl8169_rx_skb                 netif_receive_skb
- #define rtl8169_rx_hwaccel_skb         vlan_hwaccel_rx
- #define rtl8169_rx_quota(count, quota) min(count, quota)
-+#define rtl8169_poll_disable(dev)      netif_poll_disable(dev)
+===== drivers/net/e100.c 1.30 vs edited =====
+--- 1.30/drivers/net/e100.c	2004-10-25 02:27:41 -05:00
++++ edited/drivers/net/e100.c	2004-11-02 12:49:44 -06:00
+@@ -166,6 +166,7 @@
+ MODULE_DESCRIPTION(DRV_DESCRIPTION);
+ MODULE_AUTHOR(DRV_COPYRIGHT);
+ MODULE_LICENSE("GPL");
++MODULE_VERSION(DRV_VERSION);
+ 
+ static int debug = 3;
+ module_param(debug, int, 0);
+===== drivers/net/e1000/e1000_main.c 1.137 vs edited =====
+--- 1.137/drivers/net/e1000/e1000_main.c	2004-10-25 22:41:15 -05:00
++++ edited/drivers/net/e1000/e1000_main.c	2004-11-02 12:55:04 -06:00
+@@ -48,7 +48,8 @@
  #else
- #define rtl8169_rx_skb                 netif_rx
- #define rtl8169_rx_hwaccel_skb         vlan_hwaccel_receive_skb
- #define rtl8169_rx_quota(count, quota) count
-+#define rtl8169_poll_disable(dev)
+ #define DRIVERNAPI "-NAPI"
  #endif
-
- /* media options */
-@@ -1745,7 +1747,7 @@ static void rtl8169_wait_for_quiescence(
-        synchronize_irq(dev->irq);
-
-        /* Wait for any pending NAPI task to complete */
--       netif_poll_disable(dev);
-+       rtl8169_poll_disable(dev);
- }
-
- static void rtl8169_reinit_task(void *_data)
-@@ -2284,7 +2286,7 @@ rtl8169_close(struct net_device *dev)
-
-        free_irq(dev->irq, dev);
-
--       netif_poll_disable(dev);
-+       rtl8169_poll_disable(dev);
-
-        rtl8169_tx_clear(tp);
-
---Boundary-00=_lv8hBxmERC1vq5H
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="r8169-close-1.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="r8169-close-1.patch"
-
---- r8169.c.orig	2004-11-02 10:21:31.305104272 -0600
-+++ r8169.c	2004-11-02 10:25:56.849735352 -0600
-@@ -85,10 +85,12 @@ VERSION 1.6LK	<2004/04/14>
- #define rtl8169_rx_skb			netif_receive_skb
- #define rtl8169_rx_hwaccel_skb		vlan_hwaccel_rx
- #define rtl8169_rx_quota(count, quota)	min(count, quota)
-+#define rtl8169_poll_disable(dev)	netif_poll_disable(dev)
- #else
- #define rtl8169_rx_skb			netif_rx
- #define rtl8169_rx_hwaccel_skb		vlan_hwaccel_receive_skb
- #define rtl8169_rx_quota(count, quota)	count
-+#define rtl8169_poll_disable(dev)
- #endif
+-char e1000_driver_version[] = "5.5.4-k2"DRIVERNAPI;
++#define DRV_VERSION "5.5.4-k2"DRIVERNAPI
++char e1000_driver_version[] = DRV_VERSION;
+ char e1000_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
  
- /* media options */
-@@ -1745,7 +1747,7 @@ static void rtl8169_wait_for_quiescence(
- 	synchronize_irq(dev->irq);
+ /* e1000_pci_tbl - PCI Device ID Table
+@@ -196,6 +197,7 @@
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+ MODULE_DESCRIPTION("Intel(R) PRO/1000 Network Driver");
+ MODULE_LICENSE("GPL");
++MODULE_VERSION(DRV_VERSION);
  
- 	/* Wait for any pending NAPI task to complete */
--	netif_poll_disable(dev);
-+	rtl8169_poll_disable(dev);
- }
+ static int debug = NETIF_MSG_DRV | NETIF_MSG_PROBE;
+ module_param(debug, int, 0);
+===== drivers/net/ixgb/ixgb_main.c 1.18 vs edited =====
+--- 1.18/drivers/net/ixgb/ixgb_main.c	2004-10-25 20:04:30 -05:00
++++ edited/drivers/net/ixgb/ixgb_main.c	2004-11-02 12:56:03 -06:00
+@@ -30,7 +30,8 @@
  
- static void rtl8169_reinit_task(void *_data)
-@@ -2284,7 +2286,7 @@ rtl8169_close(struct net_device *dev)
+ char ixgb_driver_name[] = "ixgb";
+ char ixgb_driver_string[] = "Intel(R) PRO/10GbE Network Driver";
+-char ixgb_driver_version[] = "1.0.66-k2";
++#define DRV_VERSION "1.0.66-k2"
++char ixgb_driver_version[] = DRV_VERSION;
+ char ixgb_copyright[] = "Copyright (c) 2001-2004 Intel Corporation.";
  
- 	free_irq(dev->irq, dev);
+ /* ixgb_pci_tbl - PCI Device ID Table
+@@ -138,6 +139,7 @@
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+ MODULE_DESCRIPTION("Intel(R) PRO/10GbE Network Driver");
+ MODULE_LICENSE("GPL");
++MODULE_VERSION(DRV_VERSION);
  
--	netif_poll_disable(dev);
-+	rtl8169_poll_disable(dev);
- 
- 	rtl8169_tx_clear(tp);
- 
-
---Boundary-00=_lv8hBxmERC1vq5H--
+ /* some defines for controlling descriptor fetches in h/w */
+ #define RXDCTL_PTHRESH_DEFAULT 128	/* chip considers prefech below this */
