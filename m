@@ -1,23 +1,22 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] ipv4 tcp autobind problem
-Date: Mon, 29 Sep 2003 22:22:09 -0700
+Subject: Re: Fw: Badness in local_bh_enable at kernel/softirq.c:119
+Date: Mon, 29 Sep 2003 22:49:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030929222209.4d02c542.davem@redhat.com>
-References: <3F782E1F.4030500@balabit.hu>
+Message-ID: <20030929224929.4dc6ed4a.davem@redhat.com>
+References: <20030929143642.18b491ba.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: netdev@oss.sgi.com, cramerj@intel.com, scott.feldman@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kovacs Krisztian <hidden@balabit.hu>
-In-Reply-To: <3F782E1F.4030500@balabit.hu>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20030929143642.18b491ba.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 29 Sep 2003 14:36:42 -0700
+Andrew Morton <akpm@osdl.org> wrote:
 
-Once connect() has been called on a socket, you may not ever again
-perform any action that would try to connect that socket.
+> Oh, it's taking xmit_lock in a timer handler.  I give up.
 
-Said another way, a socket that has failed to connect() is a socket
-that you may not use in any usable way ever again except to close
-that file descriptor.
+I think e1000 should rethink what it is doing :-)
