@@ -1,43 +1,33 @@
-From: CaT <cat@zip.com.au>
-Subject: Re: ipv6 and ipv4 interaction weirdness
-Date: Sat, 12 Mar 2005 02:11:17 +1100
-Message-ID: <20050311151116.GF14146@zip.com.au>
-References: <20050311121655.GE14146@zip.com.au> <20050311.085815.100748583.yoshfuji@linux-ipv6.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] updated, ethernet-bridge: update skb->priority in case
+ forwarded frame has VLAN-header
+Date: Fri, 11 Mar 2005 09:37:24 -0800
+Message-ID: <20050311093724.6c8b6a6d@dxpl.pdx.osdl.net>
+References: <914610115.20050311172022@yuriev.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, pekkas@netcore.fi
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20050311.085815.100748583.yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
+	Ben Greear <greearb@candelatech.com>, <netdev@oss.sgi.com>,
+	<linux-kernel@vger.kernel.org>
+To: "leo.yuriev.ru" <leo@yuriev.ru>
+In-Reply-To: <914610115.20050311172022@yuriev.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 11, 2005 at 08:58:15AM -0600, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> > If it bound to :: port 22 then 0.0.0.0:22 would fail.
-> > 
-> > On the other hand if I got it to bind to each address individually then
-> > both ipv4 (2 addresses) and ipv6 (1 address) binds would succeed.
-> > 
-> > Maybe I'm just looking at it wrong but shouldn't ipv4 and ipv6 interfere
-> > with each other?
+On Fri, 11 Mar 2005 17:20:22 +0300
+Leo Yuriev <leo@yuriev.ru> wrote:
+
+> Kernel 2.6 (2.6.11)
 > 
-> It is 100% intended, even it is not similar to BSD variants do.
+> When ethernet-bridge forward a packet and such ethernet-frame has
+> VLAN-tag, bridge should update skb->prioriry for properly QoS
+> handling. This small patch does this.
 > 
-> IPv4 and IPv6 share address/port space.
-> :: and 0.0.0.0 is special "any" address, thus they confict.
-> ::ffff:a.b.c.d and a.b.c.d also conflict.
+> Based upon discussion during last week I added pskb_may_pull()
+> checking and simple mapping from 802.1p/user_priority to skb->priority.
+> 
+> Patch-by: Leo Yuriev <leo@yuriev.ru>
 
-Argh! Ofcourse. That makes sense. In the IPv6 ip space, IPv4 was made a
-subset so anything that decides to bind 0.0.0.0:22 (for eg) would
-prevent another bind to :: much like binding to 10.1.1.1:22 would
-prevent a 0.0.0.0:22 bind. Having changed ListenAddress to :: it works
-as it should and I get responses in the IPv4 ip space.
-
-Joy. Thanks for the clue. I've so rarely come across the ::ffff: ip
-space that I completely forgot about it.
-
--- 
-    "It goes against the grain of modern education to teach children to
-    program. What fun is there in making plans, acquiring discipline in
-    organising thoughts, devoting attention to detail and learning to be
-    self-critical?" -- Alan Perlis
+Do this as an ebtables module please.
