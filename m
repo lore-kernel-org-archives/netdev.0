@@ -1,42 +1,59 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] kfree_skb() bug in 2.4.22
-Date: Fri, 10 Oct 2003 06:00:50 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [RFT] Re: Fw: Nasty Oops in 2.6.0-test6 bind/SO_REUSEADDR
+Date: Fri, 10 Oct 2003 12:40:52 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010060050.057aab50.davem@redhat.com>
-References: <1065617075.1514.29.camel@localhost>
-	<3F840C9C.9050704@pobox.com>
-	<20031008064735.7373227b.davem@redhat.com>
-	<200310101453.44353.ioe-lkml@rameria.de>
+Message-ID: <20031010154052.GA11366@conectiva.com.br>
+References: <20031008133345.49f71991.davem@redhat.com> <20031010023644.GA8365@conectiva.com.br> <20031010032244.GB8365@conectiva.com.br> <20031009211437.2cf87a4f.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: toby@cbcg.net, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        linux-kernel@vger.kernel.org, coreteam@netfilter.org,
-        netfilter@lists.netfilter.org, akpm@zip.com.au, kuznet@ms2.inr.ac.ru,
-        pekkas@netcore.fi, jmorris@intercode.com.au, yoshfuji@linux-ipv6.org,
-        jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, dmerillat@sequiam.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ingo Oeser <ioe-lkml@rameria.de>
-In-Reply-To: <200310101453.44353.ioe-lkml@rameria.de>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031009211437.2cf87a4f.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Oct 2003 14:53:44 +0200
-Ingo Oeser <ioe-lkml@rameria.de> wrote:
-
-> On Wednesday 08 October 2003 15:47, David S. Miller wrote:
-> > On Wed, 08 Oct 2003 09:09:48 -0400
-> >
-> > Jeff Garzik <jgarzik@pobox.com> wrote:
-> > > I would prefer that you fix your code instead, to not pass NULL to
-> > > kfree_skb()...
-> >
-> > Absolutely, there is no valid reason to pass NULL into these
-> > routines.
+Em Thu, Oct 09, 2003 at 09:14:37PM -0700, David S. Miller escreveu:
 > 
-> Would you mind __attribute_nonnull__ for these functions, if we
-> enable GCC 3.3 support for this[1]?
+> Even if they make the OOPS go away, all of these patches are
+> not correct.
+> 
+> You have to consider the timewait sockets just like established
+> sockets in the bind conflict test.
+> 
+> Therefore in the most inner part of this chain of if's you need
+> to have something like:
+> 
+> 	u32 rcv_saddr;
+> 
+> 	if (sk->sk_state == TCP_TIME_WAIT) {
+> 		struct tcp_tw_bucket *tw = tcptw_sk(sk2);
+> 		rcv_saddr = tw->tw_rcv_saddr;
+> 	} else {
+> 		struct inet_sock *inet = inet_sk(sk2);
+> 		rcv_saddr = inet->rcv_saddr;
+> 	}
+> 	if (!rcv_saddr || !sk->rcv_saddr ||
+> 	    sk->rcv_saddr == rcv_saddr)
+> 		... blah blah blah ...
 
-I would say yes, but why?  All this attribute does is optimize
-away tests for NULL which surprise surprise we don't have any
-of in kfree_skb().
+Gotcha, I'm working on this now, creating inet_rcv_saddr and inet6_rcv_saddr
+inline functions, and in the process I'm finding what seems like a bug in
+ipv6_rcv_saddr_equal, look at this:
+
+        if (sk2->sk_family == AF_INET6 &&
+            !ipv6_addr_cmp(&np->rcv_saddr,
+                           (sk2->sk_state != TCP_TIME_WAIT ?
+                            &inet6_sk(sk2)->rcv_saddr :
+                            &tcptw_sk(sk)->tw_v6_rcv_saddr)))
+                                      ^^
+                                      ^^
+shouldn't the tcp_tw_sk(sk) be tcp_tw_sk(sk2)?
+
+And in this function we have the guard against it being a tcp_tw_bucket, but
+not in all places...
+
+Anyway, I'll be posting patches today.
+
+- Arnaldo
