@@ -1,65 +1,129 @@
-From: "Outsource Sales" <sales@outsrc-em.com>
-Subject: New Product Announcement
-Date: Fri, 3 Jan 1997 17:27:45 -0700
+From: george anzinger <george@mvista.com>
+Subject: Net work bug.  More info.
+Date: Thu, 20 Jun 2002 15:05:18 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200206201911.MAA07310@sgi.com>
-Reply-To: "Outsource Sales" <sales@outsrc-em.com>
+Message-ID: <aetkqm$n9s$2@main.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/mixed;
+ boundary="------------894BCFCAFA669B25CFEC7187"
 Return-path: <owner-netdev@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, ak@muc.de, pekkas@netcore.fi,
+   "Cress, Andrew R" <andrew.r.cress@intel.com>,
+   mark Orvek <morvek@mvista.com>, Tim Anderson <tanderson@mvista.com>,
+   mhuth@mvista.com, dfarnsworth@mvista.com, minyard@mvista.com
 List-Id: netdev.vger.kernel.org
 
-NEW PRODUCT ANNOUNCEMENT
 
-From: OUTSOURCE ENG.& MFG. INC.
+This is a multi-part message in MIME format.
+--------------894BCFCAFA669B25CFEC7187
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
+We have been looking more closely at the failure.  Attached is a gdb log...  As turns out, the failure is actually one level lower than
+tcp_v4_destroy_sock() in __kfree_skb().  It attempts to call a destructor which has a
+bogus address.  The failing instruction is the call *(reg).
 
-Sir/Madam;
+tcp_writequeue_purge(sk)-> tcp_free_skb(sk, skb)-> __kfree_skb()
 
-This note is to inform you of new watchdog board technology for maintaining
-continuous unattended operation of PC/Servers etc. that we have released for
-distribution.
-  
-We are proud to announce Watchdog Control Center featuring MAM (Multiple
-Applications Monitor) capability.
-The key feature of this application enables you to monitor as many
-applications as you
-have resident on any computer as well as the operating system for
-continuous unattended operation.  The Watchdog Control Center featuring
-MAM capability expands third party application "control" of a Watchdog as
-access to the application's
-source code is no longer needed.
+The attached log has the sk and the "bad" skb as rendered by gdb.
+-- 
+George Anzinger   george@mvista.com
+High-res-timers:  http://sourceforge.net/projects/high-res-timers/
+Real time sched:  http://sourceforge.net/projects/rtsched/
+Preemption patch: http://www.kernel.org/pub/linux/kernel/people/rml
+--------------894BCFCAFA669B25CFEC7187
+Content-Type: application/x-zip-compressed;
+ name="jun19info.ZIP"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="jun19info.ZIP"
 
-Here is how it all works:
-Upon installation of the application and Watchdog, the user may select
-many configuration options, based on their model of Watchdog, to fit their
-operational needs.  If the MAM feature is enabled, the user may select any
-executable program that they wish for monitoring.
-
-A lock up of the operating system or if any one of the selected
-applications is not running, the MAM feature, in
-conjunction with the Watchdog, will reset the system allowing for
-continuous operation.
-
-It's that simple!
-
-Watchdog Control Center is supported on most Microsoft Windows platforms
-(Win9x/WinNT/Win2k) and includes a Linux version for PCI Programmable
-Watchdogs.
-
-Watchdog Control Center Features:
-- Automated installation
-- Controls all Outsource Engineering Watchdogs
-- User selectable Watchdog timeout period
-- User selectable Watchdog stroke interval
-- Multiple Application Monitoring
-
-Included on the Installation CD:
-- Watchdog Control Center
-- Watchdog Drivers
-- Documentation
-
-For more information, please visit out website at
-http://www.outsrc-em.com/ or send an e-mail to sales@outsrc-em.com
+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
+AA==
+--------------894BCFCAFA669B25CFEC7187--
