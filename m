@@ -1,8 +1,9 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: take 2  WAS(Re: PATCH: IPSEC xfrm events
-Date: 03 Apr 2005 21:56:01 -0400
-Message-ID: <1112579761.1096.412.camel@jzny.localdomain>
-References: <1112353398.1096.116.camel@jzny.localdomain>
+Date: 03 Apr 2005 21:58:31 -0400
+Message-ID: <1112579911.1088.416.camel@jzny.localdomain>
+References: <20050401042106.GA27762@gondor.apana.org.au>
+	 <1112353398.1096.116.camel@jzny.localdomain>
 	 <20050401114258.GA2932@gondor.apana.org.au>
 	 <1112358278.1096.160.camel@jzny.localdomain>
 	 <20050401123554.GA3468@gondor.apana.org.au>
@@ -11,8 +12,7 @@ References: <1112353398.1096.116.camel@jzny.localdomain>
 	 <1112406164.1088.54.camel@jzny.localdomain>
 	 <20050402014619.GB24861@gondor.apana.org.au>
 	 <1112469601.1088.173.camel@jzny.localdomain>
-	 <1112538718.1096.394.camel@jzny.localdomain>
-	 <20050404005805.GA16543@gondor.apana.org.au>
+	 <20050404010114.GA16839@gondor.apana.org.au>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -22,180 +22,40 @@ Cc: Patrick McHardy <kaber@trash.net>,
         "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050404005805.GA16543@gondor.apana.org.au>
+In-Reply-To: <20050404010114.GA16839@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert,
-Now that you are picking on whitespaces i think we are almost there ;->
-Comments below
-
-On Sun, 2005-04-03 at 20:58, Herbert Xu wrote:
-
-> On Sun, Apr 03, 2005 at 10:31:58AM -0400, jamal wrote:
-[.. ..]
-
-> > +
-> > +EXPORT_SYMBOL(km_policy_notify);
-> > +EXPORT_SYMBOL(km_state_notify);
+On Sun, 2005-04-03 at 21:01, Herbert Xu wrote:
+> On Sat, Apr 02, 2005 at 02:20:01PM -0500, jamal wrote:
+> > 
+> > 1) Weve discussed this before Herbert and i think you misspoke that
+> > pfkey delivers to all listerners.
+> > 
+> > pfkey Add/del/upd now really do tell all processes about what happened.
+> > Before pfkey would skip the originating process. So far this doesnt seem
+> > to be an issue in the basic testing.
 > 
-> Can we perhaps move these lines next to the other km functions
-> further down? They look rather lonely here.
+> Are you sure? Previously they did BROADCAST_ALL which goes to everyone
+> including the sender.
 > 
 
-Sure. 
+Yes, he key is in the sk parameter to the broadcast. if a NULL is passed
+then all listeners are told. Else the passed sk is excluded.
 
-> > +	/* XXX: Do we wanna do this right at the top??
-> > +	 * if the state is dead we dont want to announce 
-> > +	 * the expire - a delete may already have announced
-> > +	 * it 
-> > +	*/
+> > 2) I ended adding a policy_notify to the pfkey manager to make the code
+> > generic. Interesting thing is i dont think pfkey knows what to do with 
+> > policy expiration or i am misreading the code.
 > 
-> Please code this check differently so that it isn't racy.
-> 
-> One way to do it is to change xfrm_timer_handler to do:
-> 
-> 	if (__xfrm_state_delete(x) && x->id.spi)
-> 		km_state_expired(x, 1);
-> 
-> > +	/* XXX: Do we still wanna wakeup km_waitq?
-> > +	 * if the policy is dead we dont want to announce 
-> > +	 * the expire - a delete may already have announced
-> > +	 * it 
-> > +	*/
-> 
-> Ditto.
+> That's right, pfkey never had policy expire messages.  In general,
+> anything to do with policies cannot be done portably in pfkey since
+> the RFC only specified the SA operations.
 > 
 
-I think i am gonna take out any attempts to address this race above.
-It's a bug thats there already - a separate patch after this will be
-better.
-
-> > --- a/net/xfrm/xfrm_policy.c	2005-03-25 22:28:21.000000000 -0500
-> > +++ b/net/xfrm/xfrm_policy.c	2005-04-02 12:16:30.000000000 -0500
-> > @@ -298,7 +298,7 @@
-> >   * entry dead. The rule must be unlinked from lists to the moment.
-> >   */
-> >  
-> > -static void xfrm_policy_kill(struct xfrm_policy *policy)
-> > +static void xfrm_policy_kill(struct xfrm_policy *policy, int dir)
-> 
-> What's this for?
->   
-
-Good catch - gunk from previous patch.
-
-> > +	c.seq = nlh->nlmsg_seq;
-> > +	c.pid = nlh->nlmsg_pid;
-> > +	if (nlh->nlmsg_type == XFRM_MSG_NEWSA)
-> > +		c.event = XFRM_SAP_ADDED;
-> > +	else
-> > +		c.event = XFRM_SAP_UPDATED;
-> > +
-> > +	km_state_notify(x, &c);
-> 
-> You need to hold onto x here.  So do a hold before you call xfrm_state_*
-> and then drop the reference after km_state_notify.
-
-Good point.
-
->   
-> >  static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh, void **xfrma)
->   
-> > -	xfrm_state_delete(x);
-> > +	err = xfrm_state_delete(x);
-> > +	if (err < 0) {
-> > +		x->km.state = XFRM_STATE_DEAD;
-> > +		xfrm_state_put(x);
-> > +		return err;
-> 
-> If the xfrm_state_delete fails then it's already dead.  So kill
-> the line that modifies its state.
-> 
-
-Good point.
-
-> > +static int xfrm_notify_sa( struct xfrm_state *x, struct km_event *c)
-> 
-> Extra space after the paren.
-> 
-> > +	int len = NLMSG_LENGTH(sizeof(struct xfrm_usersa_info));
-> 
-> Please add the additional payloads for NAT-T and the keys.
-> 
-
-I dont think we should broadcast out keys. 
-NAT-T - where do i look at to see what to send?
-
-> > +static int xfrm_notify_policy( struct xfrm_policy *xp, int dir, struct km_event *c)
-> > +{
-> > +	struct xfrm_userpolicy_info *p;
-> > +	struct nlmsghdr *nlh;
-> > +	struct sk_buff *skb;
-> > +	u32 nlt = 0 ;
-> > +	unsigned char *b;
-> > +	int len = NLMSG_LENGTH(sizeof(struct xfrm_userpolicy_info));
-> 
-> Please attach the templates.
-> 
-
-What is not being attached right now?
-
-> > @@ -1256,7 +1328,7 @@
-> >  
-> >  	if (hdr->sadb_msg_type == SADB_ADD)
-> >  		err = xfrm_state_add(x);
-> > -	else
-> > +	else 
-> 
-> A better editor that doesn't leave trailing spaces is needed here :)
-
-you insulting vi? ;->
-
->   	
-> > -	xfrm_state_delete(x);
-> > -	xfrm_state_put(x);
-> > +	err = xfrm_state_delete(x);
-> > +	if (err < 0) {
-> > +		x->km.state = XFRM_STATE_DEAD;
-> 
-> Please remove this line as it's already dead if the delete fails.
->   
-> > +static int key_notify_sa_flush(struct km_event *c)
-> > +{
-> > +	struct sk_buff *skb;
-> > +	struct sadb_msg *hdr;
-> > +
-> > +	skb = alloc_skb(sizeof(struct sadb_msg) + 16, GFP_ATOMIC);
-> > +	if (!skb)
-> > +		return -ENOBUFS;
-> > +	hdr = (struct sadb_msg *) skb_put(skb, sizeof(struct sadb_msg));
-> > +	// XXX:do we have to pass proto as well?
-> 
-> I think so.  A flush of all IPCOMP states is certainly quite different
-> from a flush of all states.  It's just a matter of calling satype2proto.
-> 
-
-Looks doable.
-
-
-> > -	pfkey_xfrm_policy2msg(out_skb, xp, pol->sadb_x_policy_dir-1);
-> > -
-> > -	out_hdr = (struct sadb_msg *) out_skb->data;
-> > -	out_hdr->sadb_msg_version = hdr->sadb_msg_version;
-> > -	out_hdr->sadb_msg_type = hdr->sadb_msg_type;
-> > -	out_hdr->sadb_msg_satype = 0;
-> > -	out_hdr->sadb_msg_errno = 0;
-> > -	out_hdr->sadb_msg_seq = hdr->sadb_msg_seq;
-> > -	out_hdr->sadb_msg_pid = hdr->sadb_msg_pid;
-> > -	pfkey_broadcast(out_skb, GFP_ATOMIC, BROADCAST_ALL, sk);
-> > -	err = 0;
-> 
-> However, you do need to keep this code for the real GET case.
-> 
-
-Get seems to a separate entry point - pfkey_get() which i didnt touch.
+Well, hopefully whoever defined that pfkey carries policies as well will
+have to worry about this in the future. I will just leave teh hook but
+remove the printk.
 
 cheers,
 jamal
