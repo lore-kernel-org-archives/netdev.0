@@ -1,86 +1,44 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Wed, 12 Jan 2005 16:47:28 -0600
-Message-ID: <200501121647.30934.jeremy.guthrie@berbee.com>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501121621.24259.jeremy.guthrie@berbee.com> <16869.42247.126428.508479@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
+Date: Wed, 12 Jan 2005 23:48:10 +0100
+Message-ID: <20050112224810.GE14280@xi.wantstofly.org>
+References: <20050112222437.GC14280@xi.wantstofly.org> <41E5A7E9.4030101@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1205900.ElXUU3VXJm";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, shemminger@osdl.org, rhousley@rsasecurity.com,
+        shollenbeck@verisign.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16869.42247.126428.508479@robur.slu.se>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <41E5A7E9.4030101@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1205900.ElXUU3VXJm
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, Jan 12, 2005 at 02:42:49PM -0800, Ben Greear wrote:
 
-Here is what it looked like I was getting before from the old driver... tha=
-t=20
-took me down to 8mbps.
+> Why do you add a single device when loading the module?  Is this just
+> so you have something to hook the ioctl to?
+> 
+> My personal preference would be something where you do not automatically
+> create an etherip0, but would have an etherip-config tool or similar to
+> create/destroy interfaces.
 
-"printk: 4624 messages suppressed.
-dst cache overflow
-printk: 4630 messages suppressed.
-dst cache overflow
-printk: 4631 messages suppressed.
-dst cache overflow
-printk: 4646 messages suppressed.
-dst cache overflow
-printk: 4645 messages suppressed.
-dst cache overflow"
+I modelled this after the way ipip/gre/sit do things -- they create
+tunl0/gre0/sit0, and have 'ip tunnel' send its ioctls to those devices.
 
-On Wednesday 12 January 2005 04:30 pm, Robert Olsson wrote:
-> Can you give this a last try. It's from an older driver
->
->
-> e1000_clean(struct net_device *netdev, int *budget)
-> {
->         struct e1000_adapter *adapter =3D netdev->priv;
->         int work_to_do =3D min(*budget, netdev->quota);
->         int work_done =3D 0;
->
->         e1000_clean_tx_irq(adapter);
->         e1000_clean_rx_irq(adapter, &work_done, work_to_do);
->
->         *budget -=3D work_done;
->         netdev->quota -=3D work_done;
->
->         if(work_done < work_to_do) {
->                 netif_rx_complete(netdev);
->                 e1000_irq_enable(adapter);
->         }
->
->         return (work_done >=3D work_to_do);
-> }
+I wouldn't mind changing this to another mechanism, but 1) we'd have to
+agree on a mechanism, and 2) we'd have to change the other tunnel types
+over to this mechanism as well.
 
-=2D-=20
 
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
+> Also, could you add an ioctl that allowed one to query whether or not
+> a particular device is an etherip device?  I had always wished I had added
+> this earlier to the VLAN code :)
 
---nextPart1205900.ElXUU3VXJm
-Content-Type: application/pgp-signature
+Hmmm.  Bridge devices don't have this either, do they?  Can you name
+an advantage of having this?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQBB5akCqtjaBHGZBeURAq5TAJ9iGI8IEFZa1JRlQvXywW4mgYlBbgCfSQJ8
-e36cZNT6ZrUUymU4X0FkPkY=
-=Xf+f
------END PGP SIGNATURE-----
-
---nextPart1205900.ElXUU3VXJm--
+cheers,
+Lennert
