@@ -1,57 +1,39 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
-Date: 08 Sep 2004 03:47:57 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: PPP-over-L2TP kernel support, patch for review
+Date: Wed, 08 Sep 2004 18:17:41 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094629677.1089.155.camel@jzny.localdomain>
-References: <20040908065152.GC27886@wotan.suse.de>
-	 <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
-	 <20040908072408.GI27886@wotan.suse.de>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Message-ID: <E1C4xe9-0005xL-00@gondolin.me.apana.org.au>
+References: <20040908073238.GB18285@svana.org>
+Cc: davem@davemloft.net, jchapman@katalix.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040908072408.GI27886@wotan.suse.de>
+To: Martijn van Oosterhout <kleptog@svana.org>
+In-Reply-To: <20040908073238.GB18285@svana.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-09-08 at 03:24, Andi Kleen wrote:
-> On Wed, Sep 08, 2004 at 05:07:56PM +1000, Herbert Xu wrote:
-> > Andi Kleen <ak@suse.de> wrote:
-> > >
-> > >> 1: means packet was not put on the ring. i.e if you return
-> > >> 1, the toplayer will retry later with the same skb. 
-> > >> [of course If you stash it on the ring, the danger is tx complete will
-> > >> try to free it later while the toplayer code is still referencing it. A
-> > >> good oops].
-> > > 
-> > > Actually when you return 1 then the kernel prints an ugly 
-> > > message and it is considered a bug.  Here -1 is legal.
-
-Is this an effect of  your code? This is not so in existing code.
-
-> > 1 is legal in contexts where queueing occurs.  See for example
-> > qdisc_restart().
+Martijn van Oosterhout <kleptog@svana.org> wrote:
 > 
-> I agree my sentence was misleading. 
+> By my calculations, 
 > 
-> Basically the distinction here is:
+> sizeof(struct pppoe_addr) = 2 + ETH_ALEN + IFNAMSIZ = 2 + 6 + 16 = 24 bytes
+> sizeof(struct pppol2tp_addr) = sizeof(int) + sizeof(sockaddr_in) + 4 * 2
+>                             = 4 + 16 + 8 = 28 + possibly padding
 > 
-> 1 is for flow control 
-> -1 is for lock contention
-> 
-> I think it's better to separate them because it minimizes the risk
-> of breaking old drivers.
-> 
+> So the answer is: I think so. However, I'm not sure why this is an
+> issue. struct sockaddr is passed back and forth between userspace and
+> kernelspace has many varying sizes (sockaddr_un is quite large). What
+> could be affected? getsockname, connect and bind all take a length
+> argument. Or are you referring to the possibility of it affecting other
+> structures it's embedded in?
 
-Dont see how its going to break old drivers since they wont be making
-this kind of call anyways.
+Any existing user-space binary that has struct sockaddr_pppox in it will
+be broken by your change.
 
-In both cases it is semantically a flow control i.e "transmit path is
-busy"
+Perhaps you can create a new sockaddr type?
 
-cheers,
-jamal
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
