@@ -1,42 +1,30 @@
-From: Alan Robertson <alanr@unix.sh>
-Subject: SIOCGIFBRDADDR?
-Date: Thu, 01 Aug 2002 08:04:21 -0600
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: "new style" netdevice allocation patch for TUN driver (2.4.18 kernel)
+Date: Thu, 1 Aug 2002 21:43:23 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3D493FE5.4090102@unix.sh>
+Message-ID: <200208011743.VAA07150@sex.inr.ac.ru>
+References: <20020801133506.GA22073@serwus.bnet.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kevin Dwyer <kevin@pheared.net>
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: jajcus@bnet.pl
+In-Reply-To: <20020801133506.GA22073@serwus.bnet.pl> from "Jacek Konieczny" at Aug 1, 2 05:45:01 pm
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello!
 
-Some folks using the linux-ha (heartbeat) software have been running into 
-some network-related problems, and Alan Cox suggested that you folks could 
-help us out.
+> network. And "unregister_netdevice: waiting for tun0 to become free"
 
-One of the ways you can configure linux-ha protocols is to send broadcast 
-packets.  In this case, our software needs to get the broadcast address from 
-the OS, so we can proceed.  We currently use the SIOCGIFBRDADDR ioctl to do 
-this for us.  This has worked pretty well for us for quite some time, but 
-recently some users have run into some problems.
-
-It appears that if one configures an interface using ifconfig, then the 
-SIOCGIFBRDADDR ioctl works quite nicely to determine the broadcast address 
-of an interface.
-
-However, if one uses the iproute2 tools to configure the interface, then it 
-appears that the SIOCGIFBRDADDR ioctl returns bogus results on that interface.
-
-Is this supposed to be the case?
-
-Is there a different method we're supposed to use instead of SIOCGIFBRDADDR?
+This smells like a leakage. I think this should be investigated.
 
 
-	Thanks!
+> devices, and that only the "old style" devices have this problem.
+> I had similar problem with VLAN devices some time ago, so I checked VLAN
+> driver sources too.
 
-	-- Alan Robertson
-	   alanr@unix.sh
-	   http://linux-ha.org/
+Well, switching to "new style" does not solve the problem. If we have
+a leakage, it will continue silently which is even worse.
+Probably, you should to define NET_REFCNT_DEBUG in net/core/dev.c
+to track what happens with the device.
+
+Alexey
