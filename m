@@ -1,32 +1,35 @@
-From: "Gianfranco Delli Carri" <gf.dellicarri@ncc.itgate.net>
-Subject: Kernel 2.4.25 + VLAN + CBQ disc broken ?
-Date: Tue, 23 Mar 2004 02:02:36 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] packet delay scheduler
+Date: 22 Mar 2004 08:40:07 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4008E74134355D43998FFFC3D637BB030463DF@starsky.ncc.itgate.net>
+Message-ID: <1079962807.1039.1259.camel@jzny.localdomain>
+References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
+	 <20040316174134.2f1da12a.davem@redhat.com>
+	 <20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
+	 <1079707927.1032.42.camel@jzny.localdomain>
+	 <20040319142112.0ad562fe.davem@redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040319142112.0ad562fe.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Greetigs,
+On Fri, 2004-03-19 at 17:21, David S. Miller wrote:
 
-seems that in a 2.4.25 kernel, with VLAN configured, if you try tu use CBQ disc on VLAN subIf no more traffic can be passed. (NO ARP, NO IP)
+> But for now we can put Stephen's delay scheduler in the tree, and I
+> don't see any real problem with that until your tc action changes
+> are ready for integration.
 
-Just after: 
-/sbin/tc qdisc add dev eth1.10 root handle 1 cbq bandwidth 100Mbit avpkt 1000 cell 8
+Absolutely - sorry intent was just to motivate not reject.
 
-traffic was dropped.
+I would say the extension patches are ready for inclusion but we can
+take that offline. I have a few people testing them under more rigorous
+conditions at the moment.
 
-Seems that in the same server enviroment the CBQ disc attached to the untagged interface can work without problems.
-
-Thanks in advance for your help.
-
-Regards,
-
-Gianfranco
+cheers,
+jamal
