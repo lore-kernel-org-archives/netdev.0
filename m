@@ -1,44 +1,17 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [patch 2.6.3] pcnet32 non-mii link state fix
-Date: Tue, 24 Feb 2004 16:59:49 -0800 (PST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Patch: netif_carrier_on()/off() for xircom_tulip_cb
+Date: Tue, 24 Feb 2004 20:01:29 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402250059.i1P0xoH20496@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <403BF3E9.3090506@pobox.com>
+References: <200402151504.22648.srompf@isg.de> <4033FAF6.2090200@pobox.com> <200402201721.24047.srompf@isg.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: Stefan Rompf <srompf@isg.de>
+In-Reply-To: <200402201721.24047.srompf@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch correctly returns the link state of an adapter which does not
-have an MII.  Tested by myself and the patch author Thomas Munck Steenholdt
-<tmus@tmus.dk>.
-
---- linux-2.6.3/drivers/net/pcnet32.c	Tue Feb 24 16:39:18 2004
-+++ linux-2.6.3/drivers/net/tomorrow.pcnet32.c	Tue Feb 24 16:41:49 2004
-@@ -526,13 +526,17 @@
- {
-     struct pcnet32_private *lp = dev->priv;
-     unsigned long flags;
--    int r = 1;
-+    int r;
- 
-+    spin_lock_irqsave(&lp->lock, flags);
-     if (lp->mii) {
--	spin_lock_irqsave(&lp->lock, flags);
- 	r = mii_link_ok(&lp->mii_if);
--	spin_unlock_irqrestore(&lp->lock, flags);
-+    } else {
-+	ulong ioaddr = dev->base_addr;	/* card base I/O address */
-+	r = (lp->a.read_bcr(ioaddr, 4) != 0xc0);
-     }
-+    spin_unlock_irqrestore(&lp->lock, flags);
-+
-     return r;
- }
- 
-
--- 
-Don Fry
-brazilnut@us.ibm.com
+applied both patches
