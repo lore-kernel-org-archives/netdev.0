@@ -1,41 +1,38 @@
-From: Stefan Schmidt <s.schmidt@mcbone.net>
-Subject: (solved) Re: Fw: 2.6.11-mm2 weird ethernet RTTs
-Date: Sat, 19 Mar 2005 14:54:12 +0100
-Message-ID: <20050319135412.GA5134@giscard.mcbone.net>
-References: <20050317115254.4f8e462a.akpm@osdl.org> <20050318091140.GE30259@giscard.mcbone.net>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: Network card driver problem (znb.o/tulip)
+Date: Sat, 19 Mar 2005 07:57:27 -0600
+Message-ID: <200503190757.27727.jdmason@us.ibm.com>
+References: <efe3b00605031021513b7268d1@mail.gmail.com> <200503182333.51470.jdmason@us.ibm.com> <efe3b0060503190229dff2a01@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>, jgarzik@pobox.com,
+        tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
+To: Kosta Todorovic <kostodo@gmail.com>
+In-Reply-To: <efe3b0060503190229dff2a01@mail.gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20050318091140.GE30259@giscard.mcbone.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 18, 2005 at 10:11:40AM +0100, Stefan Schmidt wrote:
-> > I'm not aware of any changes which would cause this.  Generally -mm's
-> > networking is the same as Linus's.  Could you test Linus's latest tree?
-> > (-rc1 should be out very soon, so that would be appropriate)
-> 2.6.10-mm1 was the kernel i ran before 2.6.11-mm2 on this machine which
-> did not show this behaviour. I will try the latest vanilla as soon as
-> i'm in office. Perhaps this problem is e1000-driver inflicted, i am
-> using it as a module - will try latest vanilla with the same setup.
+On Saturday 19 March 2005 04:29 am, Kosta Todorovic wrote:
+> Problem is that all the adapters are currently in use in 32bit mode.
+> It was my only solution. I'm hoping that will not be a permanent
+> thing.
+> Im just a little lost as in to what I should do.
+>
+> I've been told by ZNXY that they *might* provide the source code to
+> the entire driver, so if there is someone that is willing to try make
+> it work I would be eternally greatful.
 
-I tried booting 2.6.12-rc1. It hung 50% of the time intermittent with a
-harddisk DMA timeout due to some weird things on irq 117 and the other
-time a kernel BUG in e1000 was triggered for which i will open another
-thread. Anyway i saw in a wink that ide_cd reported to CD-ROM drive to
-do weird things and removed the thing. The system went up fine after
-that and ping RTTs were back to what i experienced before that whole
-story. I labeled the delinquent device 'CD-ROM drive of doom' and just
-assumed that it behave so bad on the other IDE bus (not the one the HD
-is attached too) that the IDE-Controller was hogged up with handling
-that bus and either generated some interrupts by itself or was not able
-to respond to them properly anymore. The CD-ROM drive also gives
-interesting rattling noises when shaken - its a LG 52x, don't have the
-model # at hand now.
+I have a tulip adapter laying around somewhere.  I can give that a try and 
+verify that tulip works on a 64bit system (assuming it hasn't been already 
+tried).  
 
-	Stefan
--- 
-A day without fusion is like a day without sunshine.
+The ZNXY website provides the driver source for the 4port adapter (and it is 
+GPL'ed), but it seems to me that this is really an issue of getting the 
+adapter to work with the "real" kernel driver, tulip.
+
+Thanks,
+Jon
