@@ -1,37 +1,31 @@
-From: Rudmer van Dijk <rudmer@legolas.dynup.net>
-Subject: Re: [BK PATCHES] more 2.6.x net driver merges
-Date: Wed, 23 Jul 2003 00:06:15 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Tue, 22 Jul 2003 18:25:45 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307230006.15884.rudmer@legolas.dynup.net>
-References: <20030720043948.GA20201@gtf.org>
+Message-ID: <20030722.182545.97160275.yoshfuji@linux-ipv6.org>
+References: <200307210155.FAA31320@dub.inr.ac.ru>
+	<Pine.LNX.4.44.0307221415140.14683-100000@DYN318430.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
-In-Reply-To: <20030720043948.GA20201@gtf.org>
-Content-Disposition: inline
+To: krkumar@us.ibm.com
+In-Reply-To: <Pine.LNX.4.44.0307221415140.14683-100000@DYN318430.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+In article <Pine.LNX.4.44.0307221415140.14683-100000@DYN318430.beaverton.ibm.com> (at Tue, 22 Jul 2003 14:50:21 -0700 (PDT)), Krishna Kumar <krkumar@us.ibm.com> says:
 
-I have a Broadcom Corporation BCM4401 100Base-T (rev 01) NIC, it did not work 
-with 2.6-vanilla or 2.6-mm but with this patch it works!
+> I didn't add the statistics, though it can be implemented :
+> RTA_PUT(skb, IFLA_INET6_STATS, sizeof(idev->stats.icmpv6),
+> 		&idev->stats.icmpv6[0]);
+> RTA_PUT(skb, IFLA_INET6_STATS, sizeof(idev->stats.icmpv6),
+>                 &idev->stats.icmpv6[1]);
+> something like that would work ?
 
-thanks!
+I'd like to do this later, if you don't mind.
 
-	Rudmer
-
-On Sunday 20 July 2003 06:39, Jeff Garzik wrote:
-> Added some more stuff at
->
-> 	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.6
->
-> Others may download the patch from
->
-> ftp://ftp.??.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0
->-test1-netdrvr2.patch.bz2
->
+--yoshfuji
