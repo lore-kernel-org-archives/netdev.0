@@ -1,41 +1,37 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: Re: TCP-Protection is really a pain...
-Date: Thu, 03 Feb 2005 18:04:24 +0100
-Message-ID: <42025998.5070704@rapidforum.com>
-References: <4201A382.1020208@rapidforum.com> <20050202205437.571a702b@localhost.localdomain> <4201B4EA.2030101@rapidforum.com> <4201C9C5.1060002@pobox.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
+Date: Thu, 3 Feb 2005 10:14:20 -0800
+Message-ID: <20050203101420.468c1607.davem@davemloft.net>
+References: <20050131102920.GC4170@suse.de>
+	<E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
+	<20050203142705.GA11318@krispykreme.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4201C9C5.1060002@pobox.com>
+Cc: herbert@gondor.apana.org.au, okir@suse.de, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20050203142705.GA11318@krispykreme.ozlabs.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Several users complain about downloads stalling at 99% as well... I was unable to solve this issue.
+On Fri, 4 Feb 2005 01:27:05 +1100
+Anton Blanchard <anton@samba.org> wrote:
 
-Jeff Garzik wrote:
-> Christian Schmid wrote:
+> Architectures should guarantee that any of the atomics and bitops that
+> return values order in both directions. So you dont need the
+> smp_mb__before_atomic_dec here.
 > 
->> btw: Another problem I am experiencing is that downloads suddenly 
->> break in speed from 360 kb/sec to 8-12 kb/sec. 5 seconds later they 
->> stall completely. But the interesting part is, that the send-queue is 
->> completely full (checked with a grep in netstat). This looks like as 
->> if the receiver is just too slow. But this is not the case. That makes 
->> it rather funny. The receiver is waiting with an empty pipe but linux 
->> doesn't send. What could this be?
-> 
-> 
-> 
-> With recent kernels, I've noticed that my browser progress bar will 
-> download about 98% of a page, then stall for several seconds, then 
-> complete.
-> 
-> Very strange.  Haven't investigated it at all, though.
-> 
->     Jeff
-> 
-> 
-> 
-> 
+> It is, however, required on the atomics and bitops that dont return
+> values. Its difficult stuff, everyone gets it wrong and Andrew keeps
+> hassling me to write up a document explaining it.
+
+Sparc64 happens to order the atomic we use in the bitops and atomic_t
+ops, so sparc64 gets this right by accident.
+
+I had no idea about this requirement before reading your email.
+
+If IBM is seeing race this on ppc64, then I'm even more confused.
+If Anton understands the requirements, then ppc64 should have
+the return value atomic's implemented with the proper barriers.
