@@ -1,60 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPv4] Missing TOS checks after fib_find_alias
-Date: Thu, 23 Sep 2004 16:28:31 +1000
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: unregister_netdevice: waiting for tun6to4 to become free.
+Date: Thu, 23 Sep 2004 09:13:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923062831.GA20202@gondor.apana.org.au>
+Message-ID: <41527796.4010204@tomt.net>
+References: <20040920212453.GA15392@ee.oulu.fi> <414F7CD9.3090008@pobox.com> <414FC92F.6090009@tomt.net> <20040921121332.GR31616@rei.reeler.org> <4151E680.80203@tomt.net> <20040922211942.GA1674@postel.suug.ch> <41523670.1090603@tomt.net> <41523EC5.20805@tomt.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="VbJkn9YxBvnuCH5J"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <41523EC5.20805@tomt.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+(CC'ed to netdev)
 
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+<snip>
 
-Hi Dave:
+I can taste the bug now :-)
 
-It looks like some of the places where FIB_SCAN_TOS macros were used
-have lost the tos check.  This patch adds them back.
+Me and Thomas Graf have been discussing this a bit off-list; so for 
+those on netdev, this is my current setup:
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+server A sets up a sit tunnel to server B. server B has a sit tunnel to 
+Provider. All communication between A, B and Provider is going over 
+ethernet on the physical layer.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+server B is the one getting stuck in "waiting for <device> to become 
+free.." when ifdown'ing (ip tunnel del) the interface to Provider.
 
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
 
-===== net/ipv4/fib_hash.c 1.24 vs edited =====
---- 1.24/net/ipv4/fib_hash.c	2004-09-23 16:10:05 +10:00
-+++ edited/net/ipv4/fib_hash.c	2004-09-23 16:16:48 +10:00
-@@ -538,6 +538,8 @@
- 		 */
- 		fa_orig = fa;
- 		list_for_each_entry(fa, fa_orig->fa_list.prev, fa_list) {
-+			if (fa->fa_tos != tos)
-+				break;
- 			if (fa->fa_info->fib_priority != fi->fib_priority)
- 				break;
- 			if (fa->fa_type == type &&
-@@ -636,6 +638,9 @@
- 	fa_to_delete = NULL;
- 	list_for_each_entry(fa, fa->fa_list.prev, fa_list) {
- 		struct fib_info *fi = fa->fa_info;
-+
-+		if (fa->fa_tos != tos)
-+			break;
- 
- 		if ((!r->rtm_type ||
- 		     fa->fa_type == r->rtm_type) &&
+If I boot with net.ipv6.conf.default.forward = 1 in sysctl.conf - but 
+then after the boot do echo 1 > /proc/sys/net/ipv6/conf/all/forward (to 
+actually get it running)
 
---VbJkn9YxBvnuCH5J--
+we'll crash and burn when taking down the interface.
+
+Only setting /proc/sys/net/ipv6/conf/all/forward = 1, but never touch 
+default, it goes down cleanly.
+
+I have the ipv6/conf/default/forwarding set in sysctl.conf on all the 
+routers, and it seems zebra sets the ipv6/conf/all/forwarding later on.
