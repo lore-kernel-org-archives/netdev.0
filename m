@@ -1,33 +1,26 @@
-From: John Heffner <jheffner@psc.edu>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: A case AGAINST checksum offload
-Date: Fri, 12 Nov 2004 19:36:35 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0411121925070.8989@dexter.psc.edu>
+Date: Fri, 12 Nov 2004 16:29:26 -0800
+Message-ID: <20041112162926.799af564.davem@davemloft.net>
 References: <Pine.LNX.4.58.0411121644150.8989@dexter.psc.edu>
- <20041112154945.63da5103.davem@davemloft.net>
+	<20041112154945.63da5103.davem@davemloft.net>
+	<Pine.LNX.4.58.0411121925070.8989@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041112154945.63da5103.davem@davemloft.net>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.LNX.4.58.0411121925070.8989@dexter.psc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Nov 2004, David S. Miller wrote:
+On Fri, 12 Nov 2004 19:36:35 -0500 (EST)
+John Heffner <jheffner@psc.edu> wrote:
 
-> The data could just as easily be corrupted on the way to the CPU when
-> doing a copy+checksum operation.  It's the same problem you say exists
-> with your networking card case except the path of the corruption is
-> RAM-->CPU instead of RAM-->PCI Controller-->Networking Card
->
-> I really don't buy this. :-)
+> Probably not a big deal (yeah, somethings buggy anyway and needs to be
+> fixed or replaced), but I thought it worth pointing out.
 
-Sure.  But we can get a check on one point of failure nearly free.  I've
-measured about a 1% difference in CPU use with checksum on vs. off at 1
-gigabit.
-
-Probably not a big deal (yeah, somethings buggy anyway and needs to be
-fixed or replaced), but I thought it worth pointing out.
-
-  -John
+It certainly was an interesting viewpoint.  I haven't totally
+dismissed your ideas, so please don't get that impression.
