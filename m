@@ -1,47 +1,69 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
-Date: Thu, 10 Mar 2005 01:47:57 +0000
-Message-ID: <20050310014757.GC12990@mail.shareable.org>
-References: <1110288879.1050.167.camel@jzny.localdomain> <20050308135134.GA20607@atrey.karlin.mff.cuni.cz> <1110290300.1050.190.camel@jzny.localdomain> <20050308140301.GC20607@atrey.karlin.mff.cuni.cz> <1110291470.1043.211.camel@jzny.localdomain> <Pine.LNX.4.61.0503081937020.5332@filer.marasystems.com> <1110316631.1084.57.camel@jzny.localdomain> <Pine.LNX.4.61.0503090009120.6780@filer.marasystems.com> <1110371962.1088.90.camel@jzny.localdomain> <Pine.LNX.4.61.0503091730280.16557@filer.marasystems.com>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: wireless 2.6 work
+Date: Wed, 9 Mar 2005 21:50:36 -0500
+Message-ID: <20050310025036.GE17854@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, Martin Mares <mj@ucw.cz>,
-        Zdenek Radouch <zdenek@rcn.com>,
-        Steve Iribarne <steve.iribarne@dilithiumnetworks.com>,
-        Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
-        Andi Kleen <ak@muc.de>, netdev@oss.sgi.com, linux-net@vger.kernel.org
-To: Henrik Nordstrom <hno@marasystems.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="qtZFehHsKgwS5rPz"
+Cc: Netdev <netdev@oss.sgi.com>,
+        "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0503091730280.16557@filer.marasystems.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Henrik Nordstrom wrote:
-> If Linux could manage different IP stacks per interface this would not be 
-> a problem, but as it is today the same IP stack is used for all interfaces 
-> making dual homing (not routing) a bit troublesome when the same addresses 
-> may be in both networks..
 
-Indeed, I have exactly the same problem with a device that must
-simultaneously connect to:
+--qtZFehHsKgwS5rPz
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-     - the local customer-site ethernet
-     - the local customer-site 802.11 wireless
 
-and auto-configure both interfaces using DHCP to connect to hosts on
-the internet as best as possible through all available interfaces.
-There is absolutely no guarantee that I won't see a network or even
-address conflict on the two interfaces, as they may be _separate_
-networks each behind a NAT to the outside world over ADSL.
+Jeff,
 
-In fact, it's quite likely that DHCP for each interface will provide a
-192.168.0.0/24 address, as that seems to be the typical setup of both
-kinds of ADSL NAT router...
+I'm sick off the low activiity and slow support on wireless we have. I
+know you're busy so I wanted to offer my help in helping around work on
+wireless-2.6, now that I have time after work, and before I commit
+myself to anything else. It's a bit suicidal, but oh well. Oh yeah and
+I'll also start using bitkeeper due to the recent clarifications on the
+license of its usage.
 
-Any suggestion of asking customer-site to specially configure their
-network rather defeats the point, which is a device which
-automatically tries available connections, using DHCP, and routes its
-traffic over whichever one works best at any time.
+I'll willing to review as much patches as I have to and also hopefully
+write documentation on writing new wireless drivers. That said, if I can
+be of any assistance, where what you like me to start on?
 
--- Jamie
+Here's what's on my agenda so far:
+
+* Help cleanup new ralink driver, start using ieee802211 and get into wirel=
+ess-2.6.
+* Push prism54's new WPA and WDS support into wireless-2.6
+* Start seeing what I can use off of ieee80211 for prism54, clean it,
+  and move to wireless-2.6
+* Start incorporating WPA through wpa_supplicant onto as many drivers
+* Start standardizing all things a bit, as bitched about and well pointed o=
+ut
+  by Dan Williams <dcbw@redhat.com>
+* Listen to Jouni, he's the man
+
+Ideally I think Jouni should be the guy doing all this but I think he
+just has no time.
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--qtZFehHsKgwS5rPz
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFCL7X8at1JN+IKUl4RAvk3AJ0QQqWpNIwDCdsWYCS6hiXHuq1vlgCfVWW9
+L+uWdSVstIk5JZ3618V9sAw=
+=PhGp
+-----END PGP SIGNATURE-----
+
+--qtZFehHsKgwS5rPz--
