@@ -1,39 +1,25 @@
-From: Thomas Munck Steenholdt <tmus@tmus.dk>
-Subject: Re: [PATCH] 2.6.3 orinoco.c patch to support ethtool get_link
-Date: Tue, 09 Mar 2004 23:12:41 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Trivial kmalloc failure checks
+Date: Tue, 9 Mar 2004 15:24:30 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404E4159.9040404@tmus.dk>
-References: <20040308185242.GA18367@bougret.hpl.hp.com>
+Message-ID: <20040309152430.2a2164bb.davem@redhat.com>
+References: <20040113232009.008a57a7.davem@redhat.com>
+	<Pine.LNX.4.44.0403091331570.5760-100000@linux-009047018241>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
-        hermes@gibson.dropbear.id.au
+Cc: netdev@oss.sgi.com, krkumar@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20040308185242.GA18367@bougret.hpl.hp.com>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0403091331570.5760-100000@linux-009047018241>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes wrote:
-> 	I hope you realise that most often link status is meaningless
-> with Wireless cards. In Ad-Hoc mode, the link is always up, regardless
-> of the number of nodes in the cell, check the discussion on the HostAP
-> mailing list. And the Orinoco card will report connected even is WEP
-> is wrong. But, if you only use managed mode without WEP, that should
-> work.
-> 	I just wonder if it's better to report a 'link status' that
-> may be wrong/misleading or to not report anything at all.
+On Tue, 9 Mar 2004 13:36:14 -0800 (PST)
+Krishna Kumar <krkumar@us.ibm.com> wrote:
 
-Actually, if the WEP key is wrong(i guess that's what you mean) the
-link is determined as down, like it should be!
+> A couple of checks for memory allocation failures.
 
-For the AdHoc mode, sure the link is always determined as up, but that
-is really the best way to do it given the nature of an Ad-Hoc network,
-right!
+Looks great, applied.
 
-The way I see it you'll gain from this patch whenever in managed mode.
-Most people (in my experience) is using managed mode and thus would 
-benefit from this functionality!
-
-Thomas
+Thanks Krishna.
