@@ -1,105 +1,65 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
-Subject: [PATCH] tulip driver deadlocks on device removal
-Date: Mon, 03 May 2004 23:38:16 +0200
+From: Scott Feldman <scott.feldman@intel.com>
+Subject: [e100 2.6 1/2]
+Date: Mon, 3 May 2004 14:58:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4096BBC8.60509@gmx.net>
+Message-ID: <Pine.LNX.4.58.0405031452480.5014@sfeldma-ich5.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, scott.feldman@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-I have a CardBus network card with tulip chipset:
-# lspci -nv
-[...]
-0000:05:00.0 Class 0200: 13d1:ab02 (rev 11)
-        Subsystem: 13d1:ab02
-        Flags: bus master, medium devsel, latency 64, IRQ 11
-        I/O ports at 4800 [size=268M]
-        Memory at 11000000 (32-bit, non-prefetchable) [size=1K]
-        Expansion ROM at 00020000 [disabled]
-        Capabilities: [c0] Power Management version 2
+* Change mapping on Rx SKB to bi-directional.  skb->data holds both the
+  RFD structure and the packet data, and the RFD is read/written by
+  HW.  Issue found on XScale HW that doesn't handle cache syncs auto-
+  matically.  Other changes in patch are whitespace/spelling.
 
-If I remove the card, my machine freezes instantly. This is due to a
-stupid dev->poll function of the tulip driver.
+-----------------
 
-drivers/net/tulip/interrupt.c:tulip_poll() gets stuck in an endless loop
-in interrupt context if the hardware returns 0xffffffff on certain reads.
-But this is exactly what happens if you remove a pci device.
+--- linux-2.5/drivers/net/e100.c	2004-05-03 14:43:27.198629944 -0700
++++ linux-2.5/drivers/net/e100.c.mod	2004-05-03 14:46:27.174269488 -0700
+@@ -1392,12 +1392,12 @@ static inline int e100_rx_alloc_skb(stru
+ 	if(!(rx->skb = dev_alloc_skb(RFD_BUF_LEN + rx_offset)))
+ 		return -ENOMEM;
 
-My patch replaces the deadlock with something resembling a livelock. At
-least SysRq-S works now because we leave the poll function after some time.
+-	/* Align, init, and map the RFA. */
++	/* Align, init, and map the RFD. */
+ 	rx->skb->dev = nic->netdev;
+ 	skb_reserve(rx->skb, rx_offset);
+ 	memcpy(rx->skb->data, &nic->blank_rfd, sizeof(struct rfd));
+ 	rx->dma_addr = pci_map_single(nic->pdev, rx->skb->data,
+-		RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
++		RFD_BUF_LEN, PCI_DMA_BIDIRECTIONAL);
 
-However, the poll function is called again and again and again regardless
-of its return value. How can I stop that?
+ 	/* Link the RFD to end of RFA by linking previous RFD to
+ 	 * this one, and clearing EL bit of previous.  */
+@@ -1408,7 +1408,7 @@ static inline int e100_rx_alloc_skb(stru
+ 		wmb();
+ 		prev_rfd->command &= ~cpu_to_le16(cb_el);
+ 		pci_dma_sync_single_for_device(nic->pdev, rx->prev->dma_addr,
+-					       sizeof(struct rfd), PCI_DMA_TODEVICE);
++			sizeof(struct rfd), PCI_DMA_TODEVICE);
+ 	}
 
-Carl-Daniel
+ 	return 0;
+@@ -1426,7 +1426,7 @@ static inline int e100_rx_indicate(struc
 
---- a/drivers/net/tulip/interrupt.c	2004-05-03 20:31:14.000000000 +0200
-+++ b/drivers/net/tulip/interrupt.c	2004-05-03 20:51:06.000000000 +0200
-@@ -113,6 +113,7 @@
- 	int entry = tp->cur_rx % RX_RING_SIZE;
- 	int rx_work_limit = *budget;
- 	int received = 0;
-+	int innercnt = 0;
+ 	/* Need to sync before taking a peek at cb_complete bit */
+ 	pci_dma_sync_single_for_cpu(nic->pdev, rx->dma_addr,
+-				    sizeof(struct rfd), PCI_DMA_FROMDEVICE);
++		sizeof(struct rfd), PCI_DMA_FROMDEVICE);
+ 	rfd_status = le16_to_cpu(rfd->status);
 
- 	if (!netif_running(dev))
- 		goto done;
-@@ -129,10 +130,12 @@
- #endif
+ 	DPRINTK(RX_STATUS, DEBUG, "status=0x%04X\n", rfd_status);
+@@ -1442,7 +1442,7 @@ static inline int e100_rx_indicate(struc
 
- 	if (tulip_debug > 4)
--		printk(KERN_DEBUG " In tulip_rx(), entry %d %8.8x.\n", entry,
-+		printk(KERN_DEBUG " In tulip_poll(), entry %d %8.8x.\n", entry,
- 			   tp->rx_ring[entry].status);
+ 	/* Get data */
+ 	pci_unmap_single(nic->pdev, rx->dma_addr,
+-			 RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
++		RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
 
-        do {
-+		innercnt++;
-+
-                /* Acknowledge current RX interrupt sources. */
-                outl((RxIntr | RxNoBuf), dev->base_addr + CSR5);
-
-@@ -141,12 +144,13 @@
-                while ( ! (tp->rx_ring[entry].status & cpu_to_le32(DescOwned))) {
-                        s32 status = le32_to_cpu(tp->rx_ring[entry].status);
-
-+			innercnt = 0;
-
-                        if (tp->dirty_rx + RX_RING_SIZE == tp->cur_rx)
-                                break;
-
-                        if (tulip_debug > 5)
--                               printk(KERN_DEBUG "%s: In tulip_rx(), entry %d %8.8x.\n",
-+                               printk(KERN_DEBUG "%s: In tulip_poll(), entry %d %8.8x.\n",
-                                       dev->name, entry, status);
-                        if (--rx_work_limit < 0)
-                                goto not_done;
-@@ -254,6 +258,11 @@
-                 * No idea how to fix this if "playing with fire" will fail
-                 * tomorrow (night 011029). If it will not fail, we won
-                 * finally: amount of IO did not increase at all. */
-+		if (innercnt > 5) {
-+			printk(KERN_INFO "More than five loops without doing anything!\n");
-+			goto not_done;
-+		}
-+
-        } while ((inl(dev->base_addr + CSR5) & RxIntr));
-
- done:
-@@ -321,8 +330,10 @@
-          return 0;
-
-  not_done:
--         if (!received) {
-+         if (!received && (innercnt <= 5)) {
-
-+		printk(KERN_NOTICE "tulip_poll: Bugger. This does not happen.\n");
-+		/* If it is not going to happen, why do anything about it? */
-                  received = dev->quota; /* Not to happen */
-          }
-          dev->quota -= received;
+ 	/* Pull off the RFD and put the actual data (minus eth hdr) */
+ 	skb_reserve(skb, sizeof(struct rfd));
