@@ -1,49 +1,73 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] option for large routing hash
-Date: Tue, 9 Dec 2003 12:20:31 -0800
+From: Rask Ingemann Lambertsen <rask@sygehus.dk>
+Subject: Re: [EXPERIMENTAL PATCH] 2.4 tulip jumbo frames
+Date: Tue, 9 Dec 2003 22:32:18 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031209122031.048b406f.davem@redhat.com>
-References: <16341.58771.558850.163216@robur.slu.se>
+Message-ID: <20031209223214.A1855@sygehus.dk>
+References: <20031209160632.D1345@sygehus.dk> <3FD5FC36.5090405@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Robert.Olsson@data.slu.se
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16341.58771.558850.163216@robur.slu.se>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <3FD5FC36.5090405@pobox.com>; from jgarzik@pobox.com on Tue, Dec 09, 2003 at 11:45:42AM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 9 Dec 2003 16:09:07 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+On Tue, Dec 09, 2003 at 11:45:42AM -0500, Jeff Garzik wrote:
+> Two questions and a comment...
+> 
+> Would you split this into two patches?  The first simply adds, and uses, 
+> tp->rx_buf_sz.  The second adds PKT_BUF_SZ_MAX and mtu-related changes.
 
-> I think patch should be useful as it helps performance a lot during high 
-> flow load. I have some numbers if you are interested.
+That sounds like a good idea. I'll do that.
+I tried to find a good place in the private structure to add the rx_buf_sz
+field. By good, I mean using the cache efficiently. Any comments about that?
 
-I'm very hesitant about this, and it is not because I don't believe
-that it brings better performance in your tests on your machines :)
+> Have you looked at Donald Becker's changes to tulip.c?  He went through 
+> most of his drivers and made the changes necessary to support larger 
+> MTUs.  IIRC his tulip.c changes (which should be easily translate-able 
+> to 2.6.x tulip) were a bit more minimal than your patch, but still 
+> served the purpose.
 
-Recently there was a thread on linux-kernel by the folks, such as Jes,
-working on super-duper-huge NUMA boxes and how big the hash tables
-get sized to on these machines.
+I have not looked at this particular part of Becker's tulip.c. I'll have a
+look at it.
 
-In some of their configurations it was trying to allocate 1GB TCP
-hash tables or something totally rediculious like this.
+> For the comment:  I am curious why a VLAN_xxx constant is included in 
+> the calculation of max MTU, in the ->change_mtu hook?
 
-The problem with all of our current algorithms for size selection is
-that it considers only one parameter when there are actually two.
+This is to ensure that the receive buffers are large enough to hold a frame
+of the requested MTU also when using VLAN tags.
 
-It considers currently only relative memory consumption.  It needs
-to also consider hard limits that exist for useful hash table sizes.
+> IMO ->change_mtu 
+> simply needs to bind the MTU to the min and max h/w limits.  If 
+> VLAN_ETH_HLEN ever figures into the calculations, those calculations 
+> should occur elsewhere, not in ->change_mtu.
 
-There is a point at which hash table size exceeds it's usefulness in
-that the gains you are getting from the O(1) lookup are offset by the
-fact that the access to the hash table heads are constantly taking cpu
-cache misses.
+What do you propose? Do we need something like
 
-You've obtained good results in your tests with a _specific_ hash
-table size for the routing cache, but the algorithm you are proposing
-for the kernel computes things relative to the amount of memory in the
-machine.  It cannot be a function of only this parameter.
+int vlan_adjust_mtu (int mtu)
+{
+#ifdef CONFIG_VLANN_8021Q
+	return (mtu - VLAN_HLEN);
+#else
+	return (mtu);
+#endif
+}
 
-Do you see my point?
+and
+
+int foobar_change_mtu (struct net_device *dev, int mtu)
+{
+	mtu = vlan_adjust_mtu (mtu);
+	/* check hardware limits. */
+	...
+	dev->mtu = mtu;
+	return (0);
+}
+
+? Ben, this would also keep you happy, right?
+
+-- 
+Regards,
+Rask Ingemann Lambertsen
