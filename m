@@ -1,39 +1,41 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH] reduce sizeof(struct inet_peer) from 128 to 64 bytes on 64bits
- architectures
-Date: Wed, 16 Mar 2005 19:05:45 +0100
-Message-ID: <42387579.6090502@cosmosbay.com>
-References: <42370997.6010302@cosmosbay.com> <20050315103253.590c8bfc.davem@davemloft.net> <42380EC6.60100@cosmosbay.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Re: Problems with a PCI SMC2802W
+Date: Wed, 16 Mar 2005 13:14:21 -0500
+Message-ID: <4238777D.6030209@pobox.com>
+References: <422F118D.8070704@voicenet.com>
+	<20050309160744.GN4017@Redstar.dorchain.net>
+	<20050309202718.4f94b871@veagle.suse.cz>
+	<20050310021724.GD17854@ruslug.rutgers.edu>
+	<42302133.2060103@voicenet.com>
+	<20050310103608.GB1416@taniwha.stupidest.org>
+	<20050310163007.GK17854@ruslug.rutgers.edu>
+	<20050316162448.GR17854@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-In-Reply-To: <42380EC6.60100@cosmosbay.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Netdev <netdev@oss.sgi.com>, Chris Wedgwood <cw@f00f.org>,
+	prism54-devel@prism54.org, Feyd <feyd@seznam.cz>
+To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
+In-Reply-To: <20050316162448.GR17854@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-As peer_cachep uses kmem_cache_create("inet_peer_cache", ... SLAB_HWCACHE_ALIGN ...),
-better try to use exactly 64 bytes instead of 72 for struct inet_peer.
+Luis R. Rodriguez wrote:
+> Jeff/netdev,
+> 
+> If no comment is given on how we should deal with
+> pci_dma_sync_single/pci_dma_sync_single_for_cpu for 2.4 I'm just going
+> to put in a nasty ifdef there. Comemnts?
 
-This also means that this structure fits in one cache line on x86_64.
+For 2.4, why not define pci_dma_sync_single_for_{device,cpu} as 
+equivalent to pci_dma_sync_single?
 
-Thank you
-Eric Dumazet
-
-
-
-# diff -Nru linux-2.6.11/include/net/inetpeer.h linux-2.6.11-ed/include/net/inetpeer.h
---- linux-2.6.11/include/net/inetpeer.h 2005-03-02 08:37:48.000000000 +0100
-+++ linux-2.6.11-ed/include/net/inetpeer.h      2005-03-16 18:52:49.000000000 +0100
-@@ -19,9 +19,9 @@
-  {
-         struct inet_peer        *avl_left, *avl_right;
-         struct inet_peer        *unused_next, **unused_prevp;
--       atomic_t                refcnt;
-         unsigned long           dtime;          /* the time of last use of not
-                                                  * referenced entries */
-+       atomic_t                refcnt;
-         __u32                   v4daddr;        /* peer's address */
-         __u16                   avl_height;
-         __u16                   ip_id_count;    /* IP ID for the next packet */
+	Jeff
