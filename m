@@ -1,36 +1,58 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 1/4] Net device error logging, revised
-Date: Tue, 26 Aug 2003 11:32:21 -0700
+From: Owen Ford <oford@arghblech.com>
+Subject: Re: [OOPS] less /proc/net/igmp
+Date: 26 Aug 2003 15:18:28 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030826183221.GB3167@kroah.com>
-References: <3F4A8027.6FE3F594@us.ibm.com>
+Message-ID: <1061929108.3946.1.camel@spider.hotmonkeyporn.com>
+References: <20030826.150331.102449369.yoshfuji@linux-ipv6.org>
+	 <1061878985.3463.2.camel@spider.hotmonkeyporn.com>
+	 <20030826.173226.114994096.yoshfuji@linux-ipv6.org>
+	 <20030827.015448.70287953.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: LKML <linux-kernel@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
-   Jeff Garzik <jgarzik@pobox.com>, "Feldman, Scott" <scott.feldman@intel.com>,
-   Larry Kessler <kessler@us.ibm.com>, Randy Dunlap <rddunlap@osdl.org>,
-   Alan Cox <alan@lxorguk.ukuu.org.uk>, Andrew Morton <akpm@osdl.org>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-PeS/01pZdZ+R0lb8Y0wo"
+Cc: sebek64@post.cz, smiler@lanil.mine.nu, jmorris@intercode.com.au,
+   lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jim Keniston <jkenisto@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <3F4A8027.6FE3F594@us.ibm.com>
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030827.015448.70287953.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 25, 2003 at 02:31:19PM -0700, Jim Keniston wrote:
-> +int __netdev_printk(const char *sevlevel, const struct net_device *netdev,
-> +	int msglevel, const char *format, ...)
-> +{
-> +	if (!netdev || !format) {
-> +		return -EINVAL;
-> +	}
-> +	if (msglevel == NETIF_MSG_ALL || (netdev->msg_enable & msglevel)) {
-> +		char msg[512];
 
-512 bytes on the stack?  Any way to prevent this from happening?  With
-the push to make the stack even smaller in 2.7, people will not like
-this.
+--=-PeS/01pZdZ+R0lb8Y0wo
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-thanks,
+On Tue, 2003-08-26 at 11:54, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
+> Hello.
+>=20
+> In article <20030826.173226.114994096.yoshfuji@linux-ipv6.org> (at Tue, 2=
+6 Aug 2003 17:32:26 +0900 (JST)), YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=
+=8B=B1=E6=98=8E <yoshfuji@linux-ipv6.org> says:
+>=20
+> > > I can confirm. I have it with 2.6.0-test4.
+> > >=20
+> > > Let me know what useful info I can provide.  The oops is the same.
+> >=20
+> > Okay, everyone. I'll try to fix this.
+>=20
+> Please try this patch.
 
-greg k-h
+That seems to have done the job nicely.  Thanks.
+=20
+--=20
+Owen Ford <oford@arghblech.com>
+
+--=-PeS/01pZdZ+R0lb8Y0wo
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQA/S8CU4bjUYpnk5/QRAkl3AJ918JN3kzIZWCjhaaaDdUFUYdy7vgCgj5Q3
+3XADkcptoVsOgMKthnWz9Pg=
+=AORG
+-----END PGP SIGNATURE-----
+
+--=-PeS/01pZdZ+R0lb8Y0wo--
