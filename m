@@ -1,60 +1,38 @@
-From: Luke Kenneth Casson Leighton <lkcl@lkcl.net>
-Subject: Re: 2.6.9-rc2-mm4-VP-S7 - ksoftirq and selinux oddity
-Date: Fri, 8 Oct 2004 10:31:54 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20041008093154.GA5089@lkcl.net>
-References: <200410070542.i975gkHV031259@turing-police.cc.vt.edu> <1097157367.13339.38.camel@moss-spartans.epoch.ncsc.mil>
+From: P@draigBrady.com
+Subject: Re: 2.6.7 tulip performance (with NAPI)
+Date: Fri, 08 Oct 2004 10:25:13 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <41665CF9.3060001@draigBrady.com>
+References: <41633174.7070805@candelatech.com> <16740.17875.574967.11417@robur.slu.se> <41646587.7070401@candelatech.com> <41649425.1010102@candelatech.com> <16741.45331.743721.822091@robur.slu.se> <20041007234413.GC24969@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	lkml <linux-kernel@vger.kernel.org>, SELinux@tycho.nsa.gov,
-	Ingo Molnar <mingo@redhat.com>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Stephen Smalley <sds@epoch.ncsc.mil>
-Content-Disposition: inline
-In-Reply-To: <1097157367.13339.38.camel@moss-spartans.epoch.ncsc.mil>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Ben Greear <greearb@candelatech.com>,
+        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041007234413.GC24969@xi.wantstofly.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 07, 2004 at 09:56:07AM -0400, Stephen Smalley wrote:
+Lennert Buytenhek wrote:
+> On Thu, Oct 07, 2004 at 11:11:47PM +0200, Robert Olsson wrote:
+>=20
+>=20
+>> I'm interested if anyone has done any pktgen performance tests with
+>> w. S2IO or other 10G card we need to upgrade the lab equipment.=20
+>> Both 64 byte pkts and MTU sized pkts is interesting.  Anyone?
+>=20
+>=20
+> If you're interested in raw pps numbers and willing to use something
+> other than pktgen to attain them, you might want to look into the intel
+> IXP-based boards.  You actually have to write some microcode and upload
+> it to an on-chip processor array, but you can easily sustain wirespeed
+> at 4Gbps (IXP2400-based) or 10Gbps (IXP2800-based.)
 
-> On Thu, 2004-10-07 at 01:42, Valdis.Kletnieks@vt.edu wrote:
+Good suggestion. This is exactly what I'm doing on a (2400 based)
+radisys enp-2611 board. Faced with the cost of a smartbits it's
+a no brainer for me. I haven't written the =B5 code yet btw.
 
-> > audit(1097111349.727:0): avc:  denied  { tcp_recv } for  pid=2 comm=ksoftirqd/0 saddr=127.0.0.1 src=25 daddr=127.0.0.1 dest=59639 netif=lo scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:netif_lo_t tclass=netif
-> > audit(1097111349.754:0): avc:  denied  { tcp_recv } for  pid=2 comm=ksoftirqd/0 saddr=127.0.0.1 src=25 daddr=127.0.0.1 dest=59639 netif=lo scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:node_lo_t tclass=node
-> > audit(1097111349.782:0): avc:  denied  { recv_msg } for  pid=2 comm=ksoftirqd/0 saddr=127.0.0.1 src=25 daddr=127.0.0.1 dest=59639 netif=lo scontext=system_u:system_r:fsdaemon_t tcontext=system_u:object_r:smtp_port_t tclass=tcp_socket
-> > 
-> > At least for the recv_msg error, I *think* the message is generated because
-> > when we get into net/socket.c, we call security_socket_recvmsg() in
-> > __recv_msg() - and (possibly only when we have the VP patch applied?) at that
-> > point we're in a softirqd context rather than the context of the process that
-> > will finally receive the packet, so the SELinux code ends up checking the wrong
-
-> Valdis,
-> 
-> These permission checks are based on the receiving socket security
-> context, not any process security context, and are performed by the
-> sock_rcv_skb hook when mediating packet receipt on a socket.  The
-> auxiliary pid and comm or exe information is meaningless for such
-> checks.  avc_audit could possibly be modified to check whether we are in
-> softirq and omit them in those cases from the audit messages.  
-
-> This has
-> been discussed previously on the selinux mailing list, please see the
-> archives.
-
- an alternative possible solution is to get the packet _out_ from
- the interrupt context and have the aux pid comm exe information added.
-
- as i understand it "a" possible way to do that would be to have a
- userspace ip_queue which simply marks the packet as "seen it" and then
- does "now please reprocess it".
-
- by the time that packets get to ip_queue in userspace, they will have
- had their aix pid comm exe info added (and the file sock stuff).
-
- alternatively, someone could spend a lot of their time doing exactly
- the same thing in kernel-space.
-
- l.
-
+P=E1draig.
