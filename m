@@ -1,196 +1,205 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.6.x experimental net driver queue
-Date: Sun, 07 Dec 2003 15:36:09 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 2.6] 2.6.0-test11-bk5 - rtl8169
+Date: Mon, 8 Dec 2003 00:01:32 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FD38F39.5070801@pobox.com>
+Message-ID: <20031208000132.A29834@electric-eye.fr.zoreil.com>
+References: <1070212415.1607.17.camel@oxygenium> <20031201020453.A16405@electric-eye.fr.zoreil.com> <20031202010649.A27879@electric-eye.fr.zoreil.com> <3FD36DFF.4060503@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070501080508050700070805"
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>
+Content-Type: multipart/mixed; boundary="jRHKVT23PllUwdXP"
+Cc: netdev@oss.sgi.com,
+        =?unknown-8bit?Q?Fernando_Alencar_Mar=F3stica?= <famarost@unimep.br>,
+        Brad House <brad@mcve.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <3FD36DFF.4060503@pobox.com>; from jgarzik@pobox.com on Sun, Dec 07, 2003 at 01:14:23PM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070501080508050700070805
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+
+--jRHKVT23PllUwdXP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> Is there anything left?
+
+See attachment for
+r8169-endianness.patch
+r8169-getstats.patch
+
+(against 2.6.0-test11-bk5 + 2.6.0-test11-bk5-netdrvr-exp1).
+
+I diffed the whole thing against pure 2.6.0-test11 as well.
+It is available at:
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.0-test11-bk5
+
+--
+Ueimor
+
+--jRHKVT23PllUwdXP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="r8169-endianness.patch"
 
 
-Another installment in the net-drivers-2.5-exp queue patchkit.
-
-Summary of new changes:
-* r8169 bug fixing (Francois Romieu, RealTek, others)
-* Make dev->priv calculation a compile-time constant (eliminates extra 
-dereference) (Al Viro)
-* More netdev allocation work (Al Viro)
-* airo fixes (Javier)
-* 8139too minor fixes (OGAWA Hirofumi)
-* new nVidia nForce NIC driver "forcedeth" (Manfred Spraul)
-* misc net driver fixes/cleanups (Stephen Hemminger)
+Endianness update (original idea from Alexandra N. Kossovsky):
+- descriptors status (bitfields enumerated as _DescStatusBit);
+- address of buffers stored in Rx/Tx descriptors.
 
 
-Summary of patchkit:
-* e100 driver rewrite
-* new nVidia nForce NIC driver
-* r8169 bug fixing
-* 8139too NAPI support
-* tulip NAPI support
-* netconsole / netdump support
-* net_device allocation and reference counting work
-* e1000 minor updates
-* misc bug fixes
 
+ drivers/net/r8169.c |   31 ++++++++++++++++---------------
+ 1 files changed, 16 insertions(+), 15 deletions(-)
 
-Patch:
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test11-bk5-netdrvr-exp1.patch.bz2
+diff -puN drivers/net/r8169.c~r8169-endianness drivers/net/r8169.c
+--- linux-2.6.0-test11-bk5/drivers/net/r8169.c~r8169-endianness	2003-12-07 23:26:32.000000000 +0100
++++ linux-2.6.0-test11-bk5-fr/drivers/net/r8169.c	2003-12-07 23:26:32.000000000 +0100
+@@ -1116,13 +1116,14 @@ rtl8169_hw_start(struct net_device *dev)
+ static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
+ {
+ 	desc->buf_addr = 0xdeadbeef;
+-	desc->status &= ~(OWNbit | RsvdMask);
++	desc->status &= ~cpu_to_le32(OWNbit | RsvdMask);
+ }
+ 
+ static void rtl8169_free_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
+ 				struct RxDesc *desc)
+ {
+-	pci_unmap_single(pdev, desc->buf_addr, RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
++	pci_unmap_single(pdev, le32_to_cpu(desc->buf_addr), RX_BUF_SIZE,
++			 PCI_DMA_FROMDEVICE);
+ 	dev_kfree_skb(*sk_buff);
+ 	*sk_buff = NULL;
+ 	rtl8169_make_unusable_by_asic(desc);
+@@ -1130,13 +1131,13 @@ static void rtl8169_free_rx_skb(struct p
+ 
+ static inline void rtl8169_return_to_asic(struct RxDesc *desc)
+ {
+-	desc->status |= OWNbit + RX_BUF_SIZE;
++	desc->status |= cpu_to_le32(OWNbit + RX_BUF_SIZE);
+ }
+ 
+ static inline void rtl8169_give_to_asic(struct RxDesc *desc, dma_addr_t mapping)
+ {
+-	desc->buf_addr = mapping;
+-	desc->status |= OWNbit + RX_BUF_SIZE;
++	desc->buf_addr = cpu_to_le32(mapping);
++	desc->status |= cpu_to_le32(OWNbit + RX_BUF_SIZE);
+ }
+ 
+ static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct net_device *dev,
+@@ -1201,7 +1202,7 @@ static u32 rtl8169_rx_fill(struct rtl816
+ 
+ static inline void rtl8169_mark_as_last_descriptor(struct RxDesc *desc)
+ {
+-	desc->status |= EORbit;
++	desc->status |= cpu_to_le32(EORbit);
+ }
+ 
+ static int rtl8169_init_ring(struct net_device *dev)
+@@ -1233,8 +1234,8 @@ static void rtl8169_unmap_tx_skb(struct 
+ {
+ 	u32 len = sk_buff[0]->len;
+ 
+-	pci_unmap_single(pdev, desc->buf_addr, len < ETH_ZLEN ? ETH_ZLEN : len,
+-			 PCI_DMA_TODEVICE);
++	pci_unmap_single(pdev, le32_to_cpu(desc->buf_addr),
++			 len < ETH_ZLEN ? ETH_ZLEN : len, PCI_DMA_TODEVICE);
+ 	desc->buf_addr = 0x00;
+ 	*sk_buff = NULL;
+ }
+@@ -1300,17 +1301,17 @@ rtl8169_start_xmit(struct sk_buff *skb, 
+ 	
+ 	spin_lock_irq(&tp->lock);
+ 
+-	if ((tp->TxDescArray[entry].status & OWNbit) == 0) {
++	if (!(le32_to_cpu(tp->TxDescArray[entry].status) & OWNbit)) {
+ 		dma_addr_t mapping;
+ 
+ 		mapping = pci_map_single(tp->pci_dev, skb->data, len,
+ 					 PCI_DMA_TODEVICE);
+ 
+ 		tp->Tx_skbuff[entry] = skb;
+-		tp->TxDescArray[entry].buf_addr = mapping;
++		tp->TxDescArray[entry].buf_addr = cpu_to_le32(mapping);
+ 
+-		tp->TxDescArray[entry].status = OWNbit | FSbit | LSbit | len |
+-				(EORbit * !((entry + 1) % NUM_TX_DESC));
++		tp->TxDescArray[entry].status = cpu_to_le32(OWNbit | FSbit |
++			LSbit | len | (EORbit * !((entry + 1) % NUM_TX_DESC)));
+ 			
+ 		RTL_W8(TxPoll, 0x40);	//set polling bit
+ 
+@@ -1351,7 +1352,7 @@ rtl8169_tx_interrupt(struct net_device *
+ 	tx_left = tp->cur_tx - dirty_tx;
+ 
+ 	while (tx_left > 0) {
+-		if ((tp->TxDescArray[entry].status & OWNbit) == 0) {
++		if (!(le32_to_cpu(tp->TxDescArray[entry].status) & OWNbit)) {
+ 			int cur = dirty_tx % NUM_TX_DESC;
+ 			struct sk_buff *skb = tp->Tx_skbuff[cur];
+ 
+@@ -1409,8 +1410,8 @@ rtl8169_rx_interrupt(struct net_device *
+ 
+ 	cur_rx = tp->cur_rx % RX_BUF_SIZE;
+ 
+-	while ((tp->RxDescArray[cur_rx].status & OWNbit) == 0) {
+-		u32 status = tp->RxDescArray[cur_rx].status;
++	while (!(le32_to_cpu(tp->RxDescArray[cur_rx].status) & OWNbit)) {
++		u32 status = le32_to_cpu(tp->RxDescArray[cur_rx].status);
+ 
+ 		if (status & RxRES) {
+ 			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
 
-Full changelog:
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test11-bk5-netdrvr-exp1.log
+_
 
-BK repo:
-http://gkernel.bkbits.net/net-drivers-2.5-exp
-
-Changelog delta attached.
-
-
---------------070501080508050700070805
-Content-Type: text/plain;
- name="2.6.0-test11-bk5-netdrvr-exp1.txt"
-Content-Disposition: inline;
- filename="2.6.0-test11-bk5-netdrvr-exp1.txt"
+--jRHKVT23PllUwdXP
+Content-Type: text/plain; charset=unknown-8bit
+Content-Disposition: attachment; filename="r8169-getstats.patch"
 Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id hB7KbqTa021124
+X-MIME-Autoconverted: from 8bit to quoted-printable by fr.zoreil.com id hB7N1YsW030321
 
-ChangeSet@1.1526, 2003-12-07 14:01:09-05:00, jgarzik@redhat.com
-  Merge redhat.com:/spare/repo/net-drivers-2.5
-  into redhat.com:/spare/repo/net-drivers-2.5-exp
 
-ChangeSet@1.1474.1.26, 2003-12-07 13:58:53-05:00, jgarzik@redhat.com
-  Merge redhat.com:/spare/repo/linux-2.5
-  into redhat.com:/spare/repo/net-drivers-2.5
+Stats fix (Fernando Alencar Mar=F3stica <famarost@unimep.br>).
 
-ChangeSet@1.1525, 2003-12-07 13:50:47-05:00, shemminger@osdl.org
-  [PATCH] pc300 - get rid of MOD_INC/MOD_DEC
- =20
-  Remove old style mod inc/dec from this WAN driver.
 
-ChangeSet@1.1524, 2003-12-07 13:49:20-05:00, shemminger@osdl.org
-  [PATCH] get rid of MOD INC/DEC for farsync
- =20
-  Get rid of leftover MOD INC/DEC in this driver.  Ref counting now done
-  by network core.
- =20
-  Jeff, please apply to net-drivers-2.5-exp
+ drivers/net/r8169.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+)
 
-ChangeSet@1.1523, 2003-12-07 13:45:51-05:00, viro@parcelfarce.linux.thepl=
-anet.co.uk
-  [atm clip] convert to using alloc_netdev(), const-offset priv
+diff -puN drivers/net/r8169.c~r8169-getstats drivers/net/r8169.c
+--- linux-2.6.0-test11-bk5/drivers/net/r8169.c~r8169-getstats	2003-12-07 =
+23:26:37.000000000 +0100
++++ linux-2.6.0-test11-bk5-fr/drivers/net/r8169.c	2003-12-07 23:26:37.000=
+000000 +0100
+@@ -1610,11 +1610,26 @@ rtl8169_set_rx_mode(struct net_device *d
+ 	spin_unlock_irqrestore(&tp->lock, flags);
+ }
+=20
++/**
++ *  rtl8169_get_stats - Get rtl8169 read/write statistics
++ *  @dev: The Ethernet Device to get statistics for
++ *
++ *  Get TX/RX statistics for rtl8169
++ */
+ struct net_device_stats *
+ rtl8169_get_stats(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp =3D dev->priv;
++	void *ioaddr =3D tp->mmio_addr;
++	unsigned long flags;
+=20
++	if (netif_running(dev)) {
++		spin_lock_irqsave(&tp->lock, flags);
++		tp->stats.rx_missed_errors +=3D RTL_R32(RxMissed);
++		RTL_W32(RxMissed, 0);
++		spin_unlock_irqrestore(&tp->lock, flags);
++	}
++	=09
+ 	return &tp->stats;
+ }
+=20
 
-ChangeSet@1.1522, 2003-12-07 13:42:37-05:00, viro@parcelfarce.linux.thepl=
-anet.co.uk
-  [pcmcia] synclink_cs] convert net_device to dynamic allocation
+_
 
-ChangeSet@1.1521, 2003-12-07 13:42:04-05:00, viro@parcelfarce.linux.thepl=
-anet.co.uk
-  [char synclinkmp] convert net_device to dynamic allocation
-
-ChangeSet@1.1520, 2003-12-07 13:40:52-05:00, viro@parcelfarce.linux.thepl=
-anet.co.uk
-  [hamradio dmascc] convert embedded net_device to dynamic allocation
-
-ChangeSet@1.1519, 2003-12-07 13:39:29-05:00, viro@parcelfarce.linux.thepl=
-anet.co.uk
-  net_device and netdev private struct allocation improvements.
- =20
-  1) Ensure alignment of both net_device and private area.
-  2) Introduce netdev_priv(), an inline which allows the dynamic private
-     area (dev->priv) to be calculated as a constant offset from the
-     base struct net_device at compile time.
-
-ChangeSet@1.1518, 2003-12-07 13:21:55-05:00, achirica@telefonica.net
-  [wireless airo] Delay MIC activation to prevent Oops
-
-ChangeSet@1.1517, 2003-12-07 13:21:47-05:00, achirica@telefonica.net
-  [wireless airo] Fix PCI registration
-
-ChangeSet@1.1516, 2003-12-07 13:18:43-05:00, hirofumi@mail.parknet.co.jp
-  [PATCH] 8139too tx queue handling fix
- =20
-  Hi,
- =20
-  	netif_stop_queue(dev);
-  	[....]
-  	netif_start_queue(dev);
-  	netif_wake_queue(dev);
-  and
-  	netif_stop_queue(dev);
-  	[....]
-  	netif_wake_queue(dev);
- =20
-  is not same. After tx_timeout, this was needed for restarting tx work
-  immediately.
- =20
-  Are you interested in this patch?
- =20
-   drivers/net/8139too.c |    3 +--
-   1 files changed, 1 insertion(+), 2 deletions(-)
-
-ChangeSet@1.1515, 2003-12-07 13:18:34-05:00, hirofumi@mail.parknet.co.jp
-  [PATCH] 8139too warning fix (1/2)
- =20
-   drivers/net/8139too.c |    2 ++
-   1 files changed, 2 insertions(+)
-
-ChangeSet@1.1514, 2003-12-07 13:13:24-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] fix RX
- =20
-  Brown paper bag time: the Rx descriptors are contiguous and EORbit only
-  marks the last descriptor in the array. OWNbit implicitly marks the end
-  of the Rx descriptors segment which is owned by the nic.
-
-ChangeSet@1.1513, 2003-12-07 13:12:27-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] Suspend/resume code (Fernando Alencar Mar=C3=B3tica).
-
-ChangeSet@1.1512, 2003-12-07 13:11:46-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] Modification of the interrupt mask (RealTek).
-
-ChangeSet@1.1511, 2003-12-07 13:10:49-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] Driver forgot to update the transmitted bytes counter.
-  Originally done in rtl8169_start_xmit() by Realtek.
-
-ChangeSet@1.1510, 2003-12-07 13:10:04-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] Merge of changes from Realtek:
-  - register voodoo in rtl8169_hw_start().
-
-ChangeSet@1.1509, 2003-12-07 13:08:55-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] Merge of timer related changes from Realtek:
-  - changed their timeout value from 100 to HZ to trigger rtl8169_phy_tim=
-er();
-  - s/TX_TIMEOUT/RTL8169_TX_TIMEOUT/ to have RTL8169_{TX/PHY}_TIMEOUT.
-
-ChangeSet@1.1508, 2003-12-07 13:07:25-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] Merge of changes done by Realtek to rtl8169_init_one():
-  - phy capability settings allows lower or equal capability as suggested
-    in Realtek's changes;
-  - I/O voodoo;
-  - no need to s/mdio_write/RTL8169_WRITE_GMII_REG/;
-  - s/rtl8169_hw_PHY_config/rtl8169_hw_phy_config/;
-  - rtl8169_hw_phy_config(): ad-hoc struct "phy_magic" to limit duplicati=
-on
-    of code (yep, the u16 -> int conversions should work as expected);
-  - variable renames and whitepace changes ignored.
-
-ChangeSet@1.1507, 2003-12-07 13:05:55-05:00, romieu@fr.zoreil.com
-  [netdrvr r8169] Add {mac/phy}_version.
-  - change of identification logic in rtl8169_init_board();
-  - {chip/rtl_chip}_info are merged in rtl_chip_info;
-  - misc style nits (lazy braces, SHOUTING MACROS from realtek converted =
-to
-    functions).
-
-ChangeSet@1.1506, 2003-12-07 12:58:13-05:00, manfred@colorfullife.com
-  [netdrvr] add "forcedeth" driver for nVidia nForce NICs
-
---------------070501080508050700070805--
+--jRHKVT23PllUwdXP--
