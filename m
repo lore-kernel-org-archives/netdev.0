@@ -1,864 +1,473 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] convert skge to pci_driver API (2nd try)
-Date: Sun, 20 Jun 2004 13:28:59 +0200
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: [PATCH] convert natsemi.c to netdev_priv
+Date: Sun, 20 Jun 2004 14:30:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040620112859.GA13794@lst.de>
+Message-ID: <40D5836D.4090503@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------010206030700040001010702"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mlindner@syskonnect.de
-Content-Disposition: inline
+To: jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-sorry, forgot to Cc netdev on the first try.
+This is a multi-part message in MIME format.
+--------------010206030700040001010702
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
+Hi Jeff,
 
-[WARNING: untested due to lack of hardware]
+the attached promised patch that converts natsemi to netdev_priv() 
+instead of directly dereferencing dev->priv, no other changes.
+The patch is relative to my previous patch that updates the RxAcceptLong 
+handling.
 
- - convert skge to modern pci probing
- - fix the removal case to call unregister_netdev before shutting down
-   the hardware
+Could you apply it to your tree? Thanks.
 
-there's still lots of leaks in the probe path left, but reworking all
-that code now is far too much risk without beeing able to actually test
-it.
+--
+    Manfred
 
+--------------010206030700040001010702
+Content-Type: text/plain;
+ name="patch-natsemi-priv"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-natsemi-priv"
 
---- 1.38/drivers/net/sk98lin/skge.c	2004-03-29 19:57:20 +02:00
-+++ edited/drivers/net/sk98lin/skge.c	2004-06-20 12:07:58 +02:00
-@@ -239,7 +239,7 @@
+--- 2.6/drivers/net/natsemi.c	2004-06-20 14:17:48.713142163 +0200
++++ build-2.6/drivers/net/natsemi.c	2004-06-20 14:17:35.052055243 +0200
+@@ -756,7 +756,7 @@
  
- #ifdef CONFIG_PROC_FS
- static const char 	SK_Root_Dir_entry[] = "sk98lin";
--static struct		proc_dir_entry *pSkRootDir = NULL;
-+static struct		proc_dir_entry *pSkRootDir;
- extern struct	file_operations sk_proc_fops;
- #endif
+ static void move_int_phy(struct net_device *dev, int addr)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int target = 31;
  
-@@ -255,9 +255,7 @@
- #endif
+ 	/* 
+@@ -847,7 +847,7 @@
+ 	dev->base_addr = ioaddr;
+ 	dev->irq = irq;
  
- /* global variables *********************************************************/
--static const char *BootString = BOOT_STRING;
- struct SK_NET_DEVICE *SkGeRootDev = NULL;
--static int probed __initdata = 0;
- static SK_BOOL DoPrintInterfaceChange = SK_TRUE;
+-	np = dev->priv;
++	np = netdev_priv(dev);
  
- /* local variables **********************************************************/
-@@ -269,289 +267,6 @@
- static struct proc_dir_entry	*pSkRootDir;
- #endif
+ 	np->pci_dev = pdev;
+ 	pci_set_drvdata(pdev, dev);
+@@ -1109,7 +1109,7 @@
  
--
--
--/*****************************************************************************
-- *
-- * 	skge_probe - find all SK-98xx adapters
-- *
-- * Description:
-- *	This function scans the PCI bus for SK-98xx adapters. Resources for
-- *	each adapter are allocated and the adapter is brought into Init 1
-- *	state.
-- *
-- * Returns:
-- *	0, if everything is ok
-- *	!=0, on error
-- */
--static int __init skge_probe (void)
--{
--	int			boards_found = 0;
--	int			vendor_flag = SK_FALSE;
--	SK_AC			*pAC;
--	DEV_NET			*pNet = NULL;
--	struct pci_dev	*pdev = NULL;
--	struct SK_NET_DEVICE *dev = NULL;
--	SK_BOOL DeviceFound = SK_FALSE;
--	SK_BOOL BootStringCount = SK_FALSE;
--	int			retval;
--#ifdef CONFIG_PROC_FS
--	struct proc_dir_entry	*pProcFile;
--#endif
--
--	if (probed)
--		return -ENODEV;
--	probed++;
--
--
--	while((pdev = pci_find_class(PCI_CLASS_NETWORK_ETHERNET << 8, pdev))) {
--
--                if (pci_enable_device(pdev)) {
--                        continue;
--                }
--		dev = NULL;
--		pNet = NULL;
--
--		/* Don't handle Yukon2 cards at the moment */
--		/* 12-feb-2004 ---- mlindner@syskonnect.de */
--		if (pdev->vendor == 0x11ab) {
--			if ( (pdev->device == 0x4360) || (pdev->device == 0x4361) )
--				continue;
--		}
--
--		SK_PCI_ISCOMPLIANT(vendor_flag, pdev);
--		if (!vendor_flag)
--			continue;
--
--		/* Configure DMA attributes. */
--		if (pci_set_dma_mask(pdev, (u64) 0xffffffffffffffffULL) &&
--			pci_set_dma_mask(pdev, (u64) 0xffffffff))
--			continue;
--
--
--		if ((dev = alloc_etherdev(sizeof(DEV_NET))) == NULL) {
--			printk(KERN_ERR "Unable to allocate etherdev "
--			       "structure!\n");
--			break;
--		}
--
--		pNet = dev->priv;
--		pNet->pAC = kmalloc(sizeof(SK_AC), GFP_KERNEL);
--		if (pNet->pAC == NULL){
--			free_netdev(dev);
--			printk(KERN_ERR "Unable to allocate adapter "
--			       "structure!\n");
--			break;
--		}
--
--		/* Print message */
--		if (!BootStringCount) {
--			/* set display flag to TRUE so that */
--			/* we only display this string ONCE */
--			BootStringCount = SK_TRUE;
--			printk("%s\n", BootString);
--		}
--
--		memset(pNet->pAC, 0, sizeof(SK_AC));
--		pAC = pNet->pAC;
--		pAC->PciDev = pdev;
--		pAC->PciDevId = pdev->device;
--		pAC->dev[0] = dev;
--		pAC->dev[1] = dev;
--		sprintf(pAC->Name, "SysKonnect SK-98xx");
--		pAC->CheckQueue = SK_FALSE;
--
--		pNet->Mtu = 1500;
--		pNet->Up = 0;
--		dev->irq = pdev->irq;
--		retval = SkGeInitPCI(pAC);
--		if (retval) {
--			printk("SKGE: PCI setup failed: %i\n", retval);
--			free_netdev(dev);
--			continue;
--		}
--
--		SET_MODULE_OWNER(dev);
--		dev->open =		&SkGeOpen;
--		dev->stop =		&SkGeClose;
--		dev->hard_start_xmit =	&SkGeXmit;
--		dev->get_stats =	&SkGeStats;
--		dev->last_stats =	&SkGeStats;
--		dev->set_multicast_list = &SkGeSetRxMode;
--		dev->set_mac_address =	&SkGeSetMacAddr;
--		dev->do_ioctl =		&SkGeIoctl;
--		dev->change_mtu =	&SkGeChangeMtu;
--		dev->flags &= 		~IFF_RUNNING;
--		SET_NETDEV_DEV(dev, &pdev->dev);
--
--#ifdef SK_ZEROCOPY
--#ifdef USE_SK_TX_CHECKSUM
--
--		if (pAC->ChipsetType) {
--			/* Use only if yukon hardware */
--			/* SK and ZEROCOPY - fly baby... */
--			dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
--		}
--#endif
--#endif
--
--		pAC->Index = boards_found;
--
--		if (SkGeBoardInit(dev, pAC)) {
--			free_netdev(dev);
--			continue;
--		}
--
--		/* Register net device */
--		if (register_netdev(dev)) {
--			printk(KERN_ERR "SKGE: Could not register device.\n");
--			FreeResources(dev);
--			free_netdev(dev);
--			continue;
--		}
--
--		/* Print adapter specific string from vpd */
--		ProductStr(pAC);
--		printk("%s: %s\n", dev->name, pAC->DeviceStr);
--
--		/* Print configuration settings */
--		printk("      PrefPort:%c  RlmtMode:%s\n",
--			'A' + pAC->Rlmt.Net[0].Port[pAC->Rlmt.Net[0].PrefPort]->PortNumber,
--			(pAC->RlmtMode==0)  ? "Check Link State" :
--			((pAC->RlmtMode==1) ? "Check Link State" :
--			((pAC->RlmtMode==3) ? "Check Local Port" :
--			((pAC->RlmtMode==7) ? "Check Segmentation" :
--			((pAC->RlmtMode==17) ? "Dual Check Link State" :"Error")))));
--
--		SkGeYellowLED(pAC, pAC->IoBase, 1);
--
--
--		memcpy((caddr_t) &dev->dev_addr,
--			(caddr_t) &pAC->Addr.Net[0].CurrentMacAddress, 6);
--
--		/* First adapter... Create proc and print message */
--#ifdef CONFIG_PROC_FS
--		if (!DeviceFound) {
--			DeviceFound = SK_TRUE;
--			SK_MEMCPY(&SK_Root_Dir_entry, BootString,
--				sizeof(SK_Root_Dir_entry) - 1);
--
--			/*Create proc (directory)*/
--			if(!pSkRootDir) {
--				pSkRootDir = proc_mkdir(SK_Root_Dir_entry, proc_net);
--				if (!pSkRootDir) {
--					printk(KERN_WARNING "%s: Unable to create /proc/net/%s",
--						dev->name, SK_Root_Dir_entry);
--				} else {
--					pSkRootDir->owner = THIS_MODULE;
--				}
--			}
--		}
--
--		/* Create proc file */
--		if (pSkRootDir && 
--			(pProcFile = create_proc_entry(dev->name, S_IRUGO,
--				pSkRootDir))) {
--			pProcFile->proc_fops = &sk_proc_fops;
--			pProcFile->data      = dev;
--		}
--
--#endif
--
--		pNet->PortNr = 0;
--		pNet->NetNr  = 0;
--
--		boards_found++;
--
--		/* More then one port found */
--		if ((pAC->GIni.GIMacsFound == 2 ) && (pAC->RlmtNets == 2)) {
--			if ((dev = alloc_etherdev(sizeof(DEV_NET))) == 0) {
--				printk(KERN_ERR "Unable to allocate etherdev "
--					"structure!\n");
--				break;
--			}
--
--			pAC->dev[1]   = dev;
--			pNet          = dev->priv;
--			pNet->PortNr  = 1;
--			pNet->NetNr   = 1;
--			pNet->pAC     = pAC;
--			pNet->Mtu     = 1500;
--			pNet->Up      = 0;
--
--			dev->open               = &SkGeOpen;
--			dev->stop               = &SkGeClose;
--			dev->hard_start_xmit    = &SkGeXmit;
--			dev->get_stats          = &SkGeStats;
--			dev->last_stats         = &SkGeStats;
--			dev->set_multicast_list = &SkGeSetRxMode;
--			dev->set_mac_address    = &SkGeSetMacAddr;
--			dev->do_ioctl           = &SkGeIoctl;
--			dev->change_mtu         = &SkGeChangeMtu;
--			dev->flags             &= ~IFF_RUNNING;
--
--#ifdef SK_ZEROCOPY
--#ifdef USE_SK_TX_CHECKSUM
--			if (pAC->ChipsetType) {
--				/* SG and ZEROCOPY - fly baby... */
--				dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
--			}
--#endif
--#endif
--
--			if (register_netdev(dev)) {
--				printk(KERN_ERR "SKGE: Could not register device.\n");
--				free_netdev(dev);
--				pAC->dev[1] = pAC->dev[0];
--			} else {
--#ifdef CONFIG_PROC_FS
--				if (pSkRootDir 
--				    && (pProcFile = create_proc_entry(dev->name, 
--								S_IRUGO, pSkRootDir))) {
--					pProcFile->proc_fops = &sk_proc_fops;
--					pProcFile->data      = dev;
--				}
--#endif
--
--			memcpy((caddr_t) &dev->dev_addr,
--			(caddr_t) &pAC->Addr.Net[1].CurrentMacAddress, 6);
--	
--			printk("%s: %s\n", dev->name, pAC->DeviceStr);
--			printk("      PrefPort:B  RlmtMode:Dual Check Link State\n");
--			}
--		}
--
--		/* Save the hardware revision */
--		pAC->HWRevision = (((pAC->GIni.GIPciHwRev >> 4) & 0x0F)*10) +
--			(pAC->GIni.GIPciHwRev & 0x0F);
--
--		/* Set driver globals */
--		pAC->Pnmi.pDriverFileName    = DRIVER_FILE_NAME;
--		pAC->Pnmi.pDriverReleaseDate = DRIVER_REL_DATE;
--
--		SK_MEMSET(&(pAC->PnmiBackup), 0, sizeof(SK_PNMI_STRUCT_DATA));
--		SK_MEMCPY(&(pAC->PnmiBackup), &(pAC->PnmiStruct), 
--				sizeof(SK_PNMI_STRUCT_DATA));
--
--		/*
--		 * This is bollocks, but we need to tell the net-init
--		 * code that it shall go for the next device.
--		 */
--#ifndef MODULE
--		dev->base_addr = 0;
--#endif
--	}
--
--	/*
--	 * If we're at this point we're going through skge_probe() for
--	 * the first time.  Return success (0) if we've initialized 1
--	 * or more boards. Otherwise, return failure (-ENODEV).
--	 */
--
--	return boards_found;
--} /* skge_probe */
--
--
- /*****************************************************************************
-  *
-  * 	SkGeInitPCI - Init the PCI resources
-@@ -666,9 +381,6 @@
- MODULE_PARM(ConType,	"1-" __MODULE_STRING(SK_MAX_CARD_PARAM) "s");
- MODULE_PARM(PrefPort,   "1-" __MODULE_STRING(SK_MAX_CARD_PARAM) "s");
- MODULE_PARM(RlmtMode,   "1-" __MODULE_STRING(SK_MAX_CARD_PARAM) "s");
--/* not used, just there because every driver should have them: */
--MODULE_PARM(options,    "1-" __MODULE_STRING(SK_MAX_CARD_PARAM) "i");
--MODULE_PARM(debug,      "i");
- /* used for interrupt moderation */
- MODULE_PARM(IntsPerSec,     "1-" __MODULE_STRING(SK_MAX_CARD_PARAM) "i");
- MODULE_PARM(Moderation,     "1-" __MODULE_STRING(SK_MAX_CARD_PARAM) "s");
-@@ -755,123 +467,12 @@
- static char *RlmtMode[SK_MAX_CARD_PARAM] = {"", };
- #endif
+ static int mdio_read(struct net_device *dev, int reg)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
  
--static int debug = 0; /* not used */
--static int options[SK_MAX_CARD_PARAM] = {0, }; /* not used */
--
- static int   IntsPerSec[SK_MAX_CARD_PARAM];
- static char *Moderation[SK_MAX_CARD_PARAM];
- static char *ModerationMask[SK_MAX_CARD_PARAM];
- static char *AutoSizing[SK_MAX_CARD_PARAM];
- static char *Stats[SK_MAX_CARD_PARAM];
+ 	/* The 83815 series has two ports:
+ 	 * - an internal transceiver
+@@ -1123,7 +1123,7 @@
  
--
--/*****************************************************************************
-- *
-- * 	skge_init_module - module initialization function
-- *
-- * Description:
-- *	Very simple, only call skge_probe and return approriate result.
-- *
-- * Returns:
-- *	0, if everything is ok
-- *	!=0, on error
-- */
--static int __init skge_init_module(void)
--{
--	int cards;
--	SkGeRootDev = NULL;
--	
--	/* just to avoid warnings ... */
--	debug = 0;
--	options[0] = 0;
--
--	cards = skge_probe();
--	if (cards == 0) {
--		printk("sk98lin: No adapter found.\n");
--	}
--	return cards ? 0 : -ENODEV;
--} /* skge_init_module */
--
--
--/*****************************************************************************
-- *
-- * 	skge_cleanup_module - module unload function
-- *
-- * Description:
-- *	Disable adapter if it is still running, free resources,
-- *	free device struct.
-- *
-- * Returns: N/A
-- */
--static void __exit skge_cleanup_module(void)
--{
--DEV_NET		*pNet;
--SK_AC		*pAC;
--struct SK_NET_DEVICE *next;
--unsigned long Flags;
--SK_EVPARA EvPara;
--
--	while (SkGeRootDev) {
--		pNet = (DEV_NET*) SkGeRootDev->priv;
--		pAC = pNet->pAC;
--		next = pAC->Next;
--
--		netif_stop_queue(SkGeRootDev);
--		SkGeYellowLED(pAC, pAC->IoBase, 0);
--
--		if(pAC->BoardLevel == SK_INIT_RUN) {
--			/* board is still alive */
--			spin_lock_irqsave(&pAC->SlowPathLock, Flags);
--			EvPara.Para32[0] = 0;
--			EvPara.Para32[1] = -1;
--			SkEventQueue(pAC, SKGE_RLMT, SK_RLMT_STOP, EvPara);
--			EvPara.Para32[0] = 1;
--			EvPara.Para32[1] = -1;
--			SkEventQueue(pAC, SKGE_RLMT, SK_RLMT_STOP, EvPara);
--			SkEventDispatcher(pAC, pAC->IoBase);
--			/* disable interrupts */
--			SK_OUT32(pAC->IoBase, B0_IMSK, 0);
--			SkGeDeInit(pAC, pAC->IoBase);
--			spin_unlock_irqrestore(&pAC->SlowPathLock, Flags);
--			pAC->BoardLevel = SK_INIT_DATA;
--			/* We do NOT check here, if IRQ was pending, of course*/
--		}
--
--		if(pAC->BoardLevel == SK_INIT_IO) {
--			/* board is still alive */
--			SkGeDeInit(pAC, pAC->IoBase);
--			pAC->BoardLevel = SK_INIT_DATA;
--		}
--
--		if ((pAC->GIni.GIMacsFound == 2) && pAC->RlmtNets == 2){
--			unregister_netdev(pAC->dev[1]);
--			free_netdev(pAC->dev[1]);
--		}
--
--		FreeResources(SkGeRootDev);
--
--		SkGeRootDev->get_stats = NULL;
--		/*
--		 * otherwise unregister_netdev calls get_stats with
--		 * invalid IO ...  :-(
--		 */
--		unregister_netdev(SkGeRootDev);
--		free_netdev(SkGeRootDev);
--		kfree(pAC);
--		SkGeRootDev = next;
--	}
--
--#ifdef CONFIG_PROC_FS
--	/* clear proc-dir */
--	remove_proc_entry(pSkRootDir->name, proc_net);
--#endif
--
--} /* skge_cleanup_module */
--
--module_init(skge_init_module);
--module_exit(skge_cleanup_module);
--
--
- /*****************************************************************************
-  *
-  * 	SkGeBoardInit - do level 0 and 1 initialization
-@@ -5310,8 +4911,321 @@
+ static void mdio_write(struct net_device *dev, int reg, u16 data)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
  
- #endif
+ 	/* The 83815 series has an internal transceiver; handle separately */
+ 	if (dev->if_port == PORT_TP)
+@@ -1134,7 +1134,7 @@
  
--/*******************************************************************************
-- *
-- * End of file
-- *
-- ******************************************************************************/
-+static int __devinit skge_probe_one(struct pci_dev *pdev,
-+		const struct pci_device_id *ent)
-+{
-+	SK_AC			*pAC;
-+	DEV_NET			*pNet = NULL;
-+	struct net_device	*dev = NULL;
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry	*pProcFile;
-+#endif
-+	static int boards_found = 0;
-+	int error = -ENODEV;
-+
-+	if (pci_enable_device(pdev))
-+		goto out;
-+ 
-+	/* Configure DMA attributes. */
-+	if (pci_set_dma_mask(pdev, (u64) 0xffffffffffffffffULL) &&
-+	    pci_set_dma_mask(pdev, (u64) 0xffffffff))
-+		goto out_disable_device;
-+
-+
-+	if ((dev = alloc_etherdev(sizeof(DEV_NET))) == NULL) {
-+		printk(KERN_ERR "Unable to allocate etherdev "
-+		       "structure!\n");
-+		goto out_disable_device;
-+	}
-+
-+	pNet = dev->priv;
-+	pNet->pAC = kmalloc(sizeof(SK_AC), GFP_KERNEL);
-+	if (!pNet->pAC) {
-+		printk(KERN_ERR "Unable to allocate adapter "
-+		       "structure!\n");
-+		goto out_free_netdev;
-+	}
-+
-+	memset(pNet->pAC, 0, sizeof(SK_AC));
-+	pAC = pNet->pAC;
-+	pAC->PciDev = pdev;
-+	pAC->PciDevId = pdev->device;
-+	pAC->dev[0] = dev;
-+	pAC->dev[1] = dev;
-+	sprintf(pAC->Name, "SysKonnect SK-98xx");
-+	pAC->CheckQueue = SK_FALSE;
-+
-+	pNet->Mtu = 1500;
-+	pNet->Up = 0;
-+	dev->irq = pdev->irq;
-+	error = SkGeInitPCI(pAC);
-+	if (error) {
-+		printk("SKGE: PCI setup failed: %i\n", error);
-+		goto out_free_netdev;
-+	}
-+
-+	SET_MODULE_OWNER(dev);
-+	dev->open =		&SkGeOpen;
-+	dev->stop =		&SkGeClose;
-+	dev->hard_start_xmit =	&SkGeXmit;
-+	dev->get_stats =	&SkGeStats;
-+	dev->last_stats =	&SkGeStats;
-+	dev->set_multicast_list = &SkGeSetRxMode;
-+	dev->set_mac_address =	&SkGeSetMacAddr;
-+	dev->do_ioctl =		&SkGeIoctl;
-+	dev->change_mtu =	&SkGeChangeMtu;
-+	dev->flags &= 		~IFF_RUNNING;
-+	SET_NETDEV_DEV(dev, &pdev->dev);
-+
-+#ifdef SK_ZEROCOPY
-+#ifdef USE_SK_TX_CHECKSUM
-+	if (pAC->ChipsetType) {
-+		/* Use only if yukon hardware */
-+		/* SK and ZEROCOPY - fly baby... */
-+		dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
-+	}
-+#endif
-+#endif
-+
-+	pAC->Index = boards_found++;
-+
-+	if (SkGeBoardInit(dev, pAC))
-+		goto out_free_netdev;
-+
-+	/* Register net device */
-+	if (register_netdev(dev)) {
-+		printk(KERN_ERR "SKGE: Could not register device.\n");
-+		goto out_free_resources;
-+	}
-+
-+	/* Print adapter specific string from vpd */
-+	ProductStr(pAC);
-+	printk("%s: %s\n", dev->name, pAC->DeviceStr);
-+
-+	/* Print configuration settings */
-+	printk("      PrefPort:%c  RlmtMode:%s\n",
-+		'A' + pAC->Rlmt.Net[0].Port[pAC->Rlmt.Net[0].PrefPort]->PortNumber,
-+		(pAC->RlmtMode==0)  ? "Check Link State" :
-+		((pAC->RlmtMode==1) ? "Check Link State" :
-+		((pAC->RlmtMode==3) ? "Check Local Port" :
-+		((pAC->RlmtMode==7) ? "Check Segmentation" :
-+		((pAC->RlmtMode==17) ? "Dual Check Link State" :"Error")))));
-+
-+	SkGeYellowLED(pAC, pAC->IoBase, 1);
-+
-+
-+	memcpy(&dev->dev_addr, &pAC->Addr.Net[0].CurrentMacAddress, 6);
-+
-+#ifdef CONFIG_PROC_FS
-+	pProcFile = create_proc_entry(dev->name, S_IRUGO, pSkRootDir);
-+	if (pProcFile) {
-+		pProcFile->proc_fops = &sk_proc_fops;
-+		pProcFile->data = dev;
-+		pProcFile->owner = THIS_MODULE;
-+	}
-+#endif
-+
-+	pNet->PortNr = 0;
-+	pNet->NetNr  = 0;
-+
-+	boards_found++;
-+
-+	/* More then one port found */
-+	if ((pAC->GIni.GIMacsFound == 2 ) && (pAC->RlmtNets == 2)) {
-+		if ((dev = alloc_etherdev(sizeof(DEV_NET))) == 0) {
-+			printk(KERN_ERR "Unable to allocate etherdev "
-+				"structure!\n");
-+			goto out;
-+		}
-+
-+		pAC->dev[1]   = dev;
-+		pNet          = dev->priv;
-+		pNet->PortNr  = 1;
-+		pNet->NetNr   = 1;
-+		pNet->pAC     = pAC;
-+		pNet->Mtu     = 1500;
-+		pNet->Up      = 0;
-+
-+		dev->open               = &SkGeOpen;
-+		dev->stop               = &SkGeClose;
-+		dev->hard_start_xmit    = &SkGeXmit;
-+		dev->get_stats          = &SkGeStats;
-+		dev->last_stats         = &SkGeStats;
-+		dev->set_multicast_list = &SkGeSetRxMode;
-+		dev->set_mac_address    = &SkGeSetMacAddr;
-+		dev->do_ioctl           = &SkGeIoctl;
-+		dev->change_mtu         = &SkGeChangeMtu;
-+		dev->flags             &= ~IFF_RUNNING;
-+
-+#ifdef SK_ZEROCOPY
-+#ifdef USE_SK_TX_CHECKSUM
-+		if (pAC->ChipsetType) {
-+			/* SG and ZEROCOPY - fly baby... */
-+			dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
-+		}
-+#endif
-+#endif
-+
-+		if (register_netdev(dev)) {
-+			printk(KERN_ERR "SKGE: Could not register device.\n");
-+			free_netdev(dev);
-+			pAC->dev[1] = pAC->dev[0];
-+		} else {
-+#ifdef CONFIG_PROC_FS
-+			pProcFile = create_proc_entry(dev->name, S_IRUGO,
-+					pSkRootDir);
-+			if (pProcFile) {
-+				pProcFile->proc_fops = &sk_proc_fops;
-+				pProcFile->data = dev;
-+				pProcFile->owner = THIS_MODULE;
-+			}
-+#endif
-+
-+			memcpy(&dev->dev_addr,
-+					&pAC->Addr.Net[1].CurrentMacAddress, 6);
-+	
-+			printk("%s: %s\n", dev->name, pAC->DeviceStr);
-+			printk("      PrefPort:B  RlmtMode:Dual Check Link State\n");
-+		}
-+	}
-+
-+	/* Save the hardware revision */
-+	pAC->HWRevision = (((pAC->GIni.GIPciHwRev >> 4) & 0x0F)*10) +
-+		(pAC->GIni.GIPciHwRev & 0x0F);
-+
-+	/* Set driver globals */
-+	pAC->Pnmi.pDriverFileName    = DRIVER_FILE_NAME;
-+	pAC->Pnmi.pDriverReleaseDate = DRIVER_REL_DATE;
-+
-+	memset(&pAC->PnmiBackup, 0, sizeof(SK_PNMI_STRUCT_DATA));
-+	memcpy(&pAC->PnmiBackup, &pAC->PnmiStruct, sizeof(SK_PNMI_STRUCT_DATA));
-+
-+	pci_set_drvdata(pdev, dev);
-+	return 0;
-+
-+ out_free_resources:
-+	FreeResources(dev);
-+ out_free_netdev:
-+	free_netdev(dev);
-+ out_disable_device:
-+	pci_disable_device(pdev);
-+ out:
-+	return error;
-+}
-+
-+static void __devexit skge_remove_one(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	DEV_NET *pNet = (DEV_NET *) dev->priv;
-+	SK_AC *pAC = pNet->pAC;
-+	int have_second_mac = 0;
-+
-+	if ((pAC->GIni.GIMacsFound == 2) && pAC->RlmtNets == 2)
-+		have_second_mac = 1;
-+
-+	unregister_netdev(dev);
-+	if (have_second_mac)
-+		unregister_netdev(pAC->dev[1]);
-+
-+	SkGeYellowLED(pAC, pAC->IoBase, 0);
-+
-+	if (pAC->BoardLevel == SK_INIT_RUN) {
-+		SK_EVPARA EvPara;
-+		unsigned long Flags;
-+
-+		/* board is still alive */
-+		spin_lock_irqsave(&pAC->SlowPathLock, Flags);
-+		EvPara.Para32[0] = 0;
-+		EvPara.Para32[1] = -1;
-+		SkEventQueue(pAC, SKGE_RLMT, SK_RLMT_STOP, EvPara);
-+		EvPara.Para32[0] = 1;
-+		EvPara.Para32[1] = -1;
-+		SkEventQueue(pAC, SKGE_RLMT, SK_RLMT_STOP, EvPara);
-+		SkEventDispatcher(pAC, pAC->IoBase);
-+		/* disable interrupts */
-+		SK_OUT32(pAC->IoBase, B0_IMSK, 0);
-+		SkGeDeInit(pAC, pAC->IoBase);
-+		spin_unlock_irqrestore(&pAC->SlowPathLock, Flags);
-+		pAC->BoardLevel = SK_INIT_DATA;
-+		/* We do NOT check here, if IRQ was pending, of course*/
-+	}
-+
-+	if (pAC->BoardLevel == SK_INIT_IO) {
-+		/* board is still alive */
-+		SkGeDeInit(pAC, pAC->IoBase);
-+		pAC->BoardLevel = SK_INIT_DATA;
-+	}
-+
-+	FreeResources(dev);
-+	free_netdev(dev);
-+	if (have_second_mac)
-+		free_netdev(pAC->dev[1]);
-+	kfree(pAC);
-+}
-+
-+static struct pci_device_id skge_pci_tbl[] = {
-+	{ PCI_VENDOR_ID_3COM, 0x1700, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ PCI_VENDOR_ID_3COM, 0x80eb, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ PCI_VENDOR_ID_SYSKONNECT, 0x4300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ PCI_VENDOR_ID_SYSKONNECT, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ 0x1186 /* D-Link */, 0x4c00, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4320, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+
-+	/*
-+	 * Don't handle Yukon2 cards at the moment (2004-02-12)
-+	 *   -- mlindner@syskonnect.de
-+	 */
-+#if 0
-+	{ PCI_VENDOR_ID_MARVELL, 0x4360, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ PCI_VENDOR_ID_MARVELL, 0x4361, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+#endif
-+	{ PCI_VENDOR_ID_MARVELL, 0x5005, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ 0x1371 /* CNet */, 0x434e, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ 0x1737 /* Linksys */, 0x1032, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ 0x1737 /* Linksys */, 0x1064, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ 0, }
-+};
-+
-+static struct pci_driver skge_driver = {
-+	.name		= "skge",
-+	.id_table	= skge_pci_tbl,
-+	.probe		= skge_probe_one,
-+	.remove		= __devexit_p(skge_remove_one),
-+};
-+
-+static int __init skge_init(void)
-+{
-+	int error;
-+
-+	memcpy(&SK_Root_Dir_entry, BOOT_STRING, sizeof(SK_Root_Dir_entry) - 1);
-+
-+#ifdef CONFIG_PROC_FS
-+	pSkRootDir = proc_mkdir(SK_Root_Dir_entry, proc_net);
-+	if (!pSkRootDir) {
-+		printk(KERN_WARNING "Unable to create /proc/net/%s",
-+				SK_Root_Dir_entry);
-+		return -ENOMEM;
-+	}
-+	pSkRootDir->owner = THIS_MODULE;
-+#endif
-+
-+	error = pci_module_init(&skge_driver);
-+	if (error) {
-+#ifdef CONFIG_PROC_FS
-+		remove_proc_entry(pSkRootDir->name, proc_net);
-+#endif
-+	}
-+
-+	return error;
-+}
-+
-+static void __exit skge_exit(void)
-+{
-+	 pci_unregister_driver(&skge_driver);
-+#ifdef CONFIG_PROC_FS
-+	remove_proc_entry(pSkRootDir->name, proc_net);
-+#endif
-+}
-+
-+module_init(skge_init);
-+module_exit(skge_exit);
-===== drivers/net/sk98lin/h/skdrv2nd.h 1.10 vs edited =====
---- 1.10/drivers/net/sk98lin/h/skdrv2nd.h	2004-06-19 02:00:00 +02:00
-+++ edited/drivers/net/sk98lin/h/skdrv2nd.h	2004-06-20 10:29:02 +02:00
-@@ -53,60 +53,6 @@
- #include "h/skrlmt.h"
- #include "h/skgedrv.h"
+ static void init_phy_fixup(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int i;
+ 	u32 cfg;
+@@ -1246,7 +1246,7 @@
  
--#define SK_PCI_ISCOMPLIANT(result, pdev) {     \
--    result = SK_FALSE; /* default */     \
--    /* 3Com (0x10b7) */     \
--    if (pdev->vendor == 0x10b7) {     \
--        /* Gigabit Ethernet Adapter (0x1700) */     \
--        if ((pdev->device == 0x1700) || \
--            (pdev->device == 0x80eb)) { \
--            result = SK_TRUE;     \
--        }     \
--    /* SysKonnect (0x1148) */     \
--    } else if (pdev->vendor == 0x1148) {     \
--        /* SK-98xx Gigabit Ethernet Server Adapter (0x4300) */     \
--        /* SK-98xx V2.0 Gigabit Ethernet Adapter (0x4320) */     \
--        if ((pdev->device == 0x4300) || \
--            (pdev->device == 0x4320)) { \
--            result = SK_TRUE;     \
--        }     \
--    /* D-Link (0x1186) */     \
--    } else if (pdev->vendor == 0x1186) {     \
--        /* Gigabit Ethernet Adapter (0x4c00) */     \
--        if ((pdev->device == 0x4c00)) { \
--            result = SK_TRUE;     \
--        }     \
--    /* Marvell (0x11ab) */     \
--    } else if (pdev->vendor == 0x11ab) {     \
--        /* Gigabit Ethernet Adapter (0x4320) */     \
--        /* Gigabit Ethernet Adapter (0x4360) */     \
--        /* Gigabit Ethernet Adapter (0x4361) */     \
--        /* Belkin (0x5005) */     \
--        if ((pdev->device == 0x4320) || \
--            (pdev->device == 0x4360) || \
--            (pdev->device == 0x4361) || \
--            (pdev->device == 0x5005)) { \
--            result = SK_TRUE;     \
--        }     \
--    /* CNet (0x1371) */     \
--    } else if (pdev->vendor == 0x1371) {     \
--        /* GigaCard Network Adapter (0x434e) */     \
--        if ((pdev->device == 0x434e)) { \
--            result = SK_TRUE;     \
--        }     \
--    /* Linksys (0x1737) */     \
--    } else if (pdev->vendor == 0x1737) {     \
--        /* Gigabit Network Adapter (0x1032) */     \
--        /* Gigabit Network Adapter (0x1064) */     \
--        if ((pdev->device == 0x1032) || \
--            (pdev->device == 0x1064)) { \
--            result = SK_TRUE;     \
--        }     \
--    } else {     \
--        result = SK_FALSE;     \
--    }     \
--}
--
+ static int switch_port_external(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u32 cfg;
  
- extern SK_MBUF		*SkDrvAllocRlmtMbuf(SK_AC*, SK_IOC, unsigned);
- extern void		SkDrvFreeRlmtMbuf(SK_AC*, SK_IOC, SK_MBUF*);
+ 	cfg = readl(dev->base_addr + ChipConfig);
+@@ -1278,7 +1278,7 @@
+ 
+ static int switch_port_internal(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int i;
+ 	u32 cfg;
+ 	u16 bmcr;
+@@ -1329,7 +1329,7 @@
+  */
+ static int find_mii(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int tmp;
+ 	int i;
+ 	int did_switch;
+@@ -1378,7 +1378,7 @@
+ 	u32 rfcr;
+ 	u16 pmatch[3];
+ 	u16 sopass[3];
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	/*
+ 	 * Resetting the chip causes some registers to be lost.
+@@ -1448,7 +1448,7 @@
+ 
+ static void natsemi_reload_eeprom(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int i;
+ 
+ 	writel(EepromReload, dev->base_addr + PCIBusCfg);
+@@ -1469,7 +1469,7 @@
+ static void natsemi_stop_rxtx(struct net_device *dev)
+ {
+ 	long ioaddr = dev->base_addr;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int i;
+ 
+ 	writel(RxOff | TxOff, ioaddr + ChipCmd);
+@@ -1489,7 +1489,7 @@
+ 
+ static int netdev_open(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int i;
+ 
+@@ -1538,7 +1538,7 @@
+ 
+ static void do_cable_magic(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	if (dev->if_port != PORT_TP)
+ 		return;
+@@ -1566,7 +1566,7 @@
+ 		 * (these values all come from National)
+ 		 */
+ 		if (!(data & 0x80) || ((data >= 0xd8) && (data <= 0xff))) {
+-			struct netdev_private *np = dev->priv;
++			struct netdev_private *np = netdev_priv(dev);
+ 
+ 			/* the bug has been triggered - fix the coefficient */
+ 			writew(TSTDAT_FIXED, dev->base_addr + TSTDAT);
+@@ -1582,7 +1582,7 @@
+ static void undo_cable_magic(struct net_device *dev)
+ {
+ 	u16 data;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	if (dev->if_port != PORT_TP)
+ 		return;
+@@ -1600,7 +1600,7 @@
+ 
+ static void check_link(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int duplex;
+ 	u16 bmsr;
+@@ -1661,7 +1661,7 @@
+ 
+ static void init_registers(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 
+ 	init_phy_fixup(dev);
+@@ -1739,7 +1739,7 @@
+ static void netdev_timer(unsigned long data)
+ {
+ 	struct net_device *dev = (struct net_device *)data;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int next_tick = 5*HZ;
+ 
+ 	if (netif_msg_timer(np)) {
+@@ -1804,7 +1804,7 @@
+ 
+ static void dump_ring(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	if (netif_msg_pktdata(np)) {
+ 		int i;
+@@ -1827,7 +1827,7 @@
+ 
+ static void tx_timeout(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 
+ 	disable_irq(dev->irq);
+@@ -1858,7 +1858,7 @@
+ 
+ static int alloc_ring(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	np->rx_ring = pci_alloc_consistent(np->pci_dev,
+ 		sizeof(struct netdev_desc) * (RX_RING_SIZE+TX_RING_SIZE),
+ 		&np->ring_dma);
+@@ -1870,7 +1870,7 @@
+ 
+ static void refill_rx(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	/* Refill the Rx ring buffers. */
+ 	for (; np->cur_rx - np->dirty_rx > 0; np->dirty_rx++) {
+@@ -1899,7 +1899,7 @@
+ /* Initialize the Rx and Tx rings, along with various 'dev' bits. */
+ static void init_ring(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int i;
+ 
+ 	/* 1) TX ring */
+@@ -1942,7 +1942,7 @@
+ 
+ static void drain_tx(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int i;
+ 
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+@@ -1959,7 +1959,7 @@
+ 
+ static void drain_ring(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	unsigned int buflen = np->rx_buf_sz;
+ 	int i;
+ 
+@@ -1980,7 +1980,7 @@
+ 
+ static void free_ring(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	pci_free_consistent(np->pci_dev,
+ 		sizeof(struct netdev_desc) * (RX_RING_SIZE+TX_RING_SIZE),
+ 		np->rx_ring, np->ring_dma);
+@@ -1988,7 +1988,7 @@
+ 
+ static void reinit_ring(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int i;
+ 
+ 	/* drain TX ring */
+@@ -2010,7 +2010,7 @@
+ 
+ static int start_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	unsigned entry;
+ 
+ 	/* Note: Ordering is important here, set the field with the
+@@ -2057,7 +2057,7 @@
+ 
+ static void netdev_tx_done(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	for (; np->cur_tx - np->dirty_tx > 0; np->dirty_tx++) {
+ 		int entry = np->dirty_tx % TX_RING_SIZE;
+@@ -2103,7 +2103,7 @@
+ static irqreturn_t intr_handler(int irq, void *dev_instance, struct pt_regs *rgs)
+ {
+ 	struct net_device *dev = dev_instance;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int boguscnt = max_interrupt_work;
+ 	unsigned int handled = 0;
+@@ -2161,7 +2161,7 @@
+    for clarity and better register allocation. */
+ static void netdev_rx(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	int entry = np->cur_rx % RX_RING_SIZE;
+ 	int boguscnt = np->dirty_rx + RX_RING_SIZE - np->cur_rx;
+ 	s32 desc_status = le32_to_cpu(np->rx_head_desc->cmd_status);
+@@ -2257,7 +2257,7 @@
+ 
+ static void netdev_error(struct net_device *dev, int intr_status)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 
+ 	spin_lock(&np->lock);
+@@ -2312,7 +2312,7 @@
+ static void __get_stats(struct net_device *dev)
+ {
+ 	long ioaddr = dev->base_addr;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	/* The chip only need report frame silently dropped. */
+ 	np->stats.rx_crc_errors	+= readl(ioaddr + RxCRCErrs);
+@@ -2321,7 +2321,7 @@
+ 
+ static struct net_device_stats *get_stats(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	/* The chip only need report frame silently dropped. */
+ 	spin_lock_irq(&np->lock);
+@@ -2336,7 +2336,7 @@
+ static void __set_rx_mode(struct net_device *dev)
+ {
+ 	long ioaddr = dev->base_addr;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u8 mc_filter[64]; /* Multicast hash filter */
+ 	u32 rx_mode;
+ 
+@@ -2373,7 +2373,7 @@
+ 
+ static void set_rx_mode(struct net_device *dev)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	spin_lock_irq(&np->lock);
+ 	if (!np->hands_off)
+ 		__set_rx_mode(dev);
+@@ -2382,7 +2382,7 @@
+ 
+ static int netdev_ethtool_ioctl(struct net_device *dev, void __user *useraddr)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u32 cmd;
+ 
+ 	if (get_user(cmd, (u32 __user *)useraddr))
+@@ -2553,7 +2553,7 @@
+ 
+ static int netdev_set_wol(struct net_device *dev, u32 newval)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u32 data = readl(dev->base_addr + WOLCmd) & ~WakeOptsSummary;
+ 
+ 	/* translate to bitmasks this chip understands */
+@@ -2582,7 +2582,7 @@
+ 
+ static int netdev_get_wol(struct net_device *dev, u32 *supported, u32 *cur)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u32 regval = readl(dev->base_addr + WOLCmd);
+ 
+ 	*supported = (WAKE_PHY | WAKE_UCAST | WAKE_MCAST | WAKE_BCAST
+@@ -2617,7 +2617,7 @@
+ 
+ static int netdev_set_sopass(struct net_device *dev, u8 *newval)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u16 *sval = (u16 *)newval;
+ 	u32 addr;
+ 
+@@ -2648,7 +2648,7 @@
+ 
+ static int netdev_get_sopass(struct net_device *dev, u8 *data)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u16 *sval = (u16 *)data;
+ 	u32 addr;
+ 
+@@ -2676,7 +2676,7 @@
+ 
+ static int netdev_get_ecmd(struct net_device *dev, struct ethtool_cmd *ecmd)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	u32 tmp;
+ 
+ 	ecmd->port        = dev->if_port;
+@@ -2754,7 +2754,7 @@
+ 
+ static int netdev_set_ecmd(struct net_device *dev, struct ethtool_cmd *ecmd)
+ {
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	if (ecmd->port != PORT_TP && ecmd->port != PORT_MII && ecmd->port != PORT_FIBRE)
+ 		return -EINVAL;
+@@ -2896,7 +2896,7 @@
+ static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	struct mii_ioctl_data *data = if_mii(rq);
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	switch(cmd) {
+ 	case SIOCETHTOOL:
+@@ -2955,7 +2955,7 @@
+ static void enable_wol_mode(struct net_device *dev, int enable_intr)
+ {
+ 	long ioaddr = dev->base_addr;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	if (netif_msg_wol(np))
+ 		printk(KERN_INFO "%s: remaining active for wake-on-lan\n",
+@@ -2988,7 +2988,7 @@
+ static int netdev_close(struct net_device *dev)
+ {
+ 	long ioaddr = dev->base_addr;
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	if (netif_msg_ifdown(np))
+ 		printk(KERN_DEBUG
+@@ -3100,7 +3100,7 @@
+ static int natsemi_suspend (struct pci_dev *pdev, u32 state)
+ {
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 
+ 	rtnl_lock();
+@@ -3147,7 +3147,7 @@
+ static int natsemi_resume (struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata (pdev);
+-	struct netdev_private *np = dev->priv;
++	struct netdev_private *np = netdev_priv(dev);
+ 
+ 	rtnl_lock();
+ 	if (netif_device_present(dev))
+
+--------------010206030700040001010702--
