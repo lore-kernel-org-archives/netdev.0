@@ -1,50 +1,32 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: 2.6.10-bk4 ip_conntrack oops fix
-Date: Sun, 02 Jan 2005 11:05:32 +0100
-Message-ID: <1104660332.3821.40.camel@tux.rsn.bth.se>
-References: <Pine.LNX.4.58.0501020611430.12403@parcelfarce.linux.theplanet.co.uk>
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: what is mean by linear socket buffers?
+Date: Sun, 2 Jan 2005 03:17:55 -0800 (PST)
+Message-ID: <20050102111755.8756.qmail@web52204.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-t7qNmEHVwCYZzqHnTZvU"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthew J Galgoci <mgalgoci@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <Pine.LNX.4.58.0501020611430.12403@parcelfarce.linux.theplanet.co.uk>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello,
+         On Internet i found one document that states
+following statement "Linux chooses to use linear
+buffers and save space in advance because linear
+buffers make many other things much faster."
 
---=-t7qNmEHVwCYZzqHnTZvU
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I want to know what is linear buffers? are they
+different than what we declare in normal C programming
+syntax unsigned char *str.
 
-On Sun, 2005-01-02 at 06:12 +0000, Matthew J Galgoci wrote:
-> I stumbled onto an annoying oops in 2.6.10-bk4.
->=20
-> Here is how to cause the oops.
->=20
-> load ip_conntrack
-> remove ip_conntrack
-> ls /proc/net/stat
-> boom
+regards,
+linux_lover.
 
-Thanks for the fix, a patch for this has already been submitted.
-Hopefully it'll make it's way into the tree soon, The hollidays and
-vacations is making the process a bit sluggish at the moment.
 
---=20
-/Martin
 
---=-t7qNmEHVwCYZzqHnTZvU
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQBB18dsWm2vlfa207ERAp+UAKCjWidLHkboST3L0uLOp6zGHZ0wFgCfW0g3
-19ViKWGchnRiP9dwpuLiOrU=
-=RPkS
------END PGP SIGNATURE-----
-
---=-t7qNmEHVwCYZzqHnTZvU--
+		
+__________________________________ 
+Do you Yahoo!? 
+Take Yahoo! Mail with you! Get it on your mobile phone. 
+http://mobile.yahoo.com/maildemo 
