@@ -1,113 +1,107 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] convert wan/lmc to device model
-Date: Mon, 22 Sep 2003 11:46:03 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: net/sctp/sm_make_chunk.c alignment problems on parisc64
+Date: Mon, 22 Sep 2003 15:06:41 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030922114603.34f3a2f5.shemminger@osdl.org>
-References: <20030916143627.51a08be0.shemminger@osdl.org>
-	<3F6C92B3.3060603@pobox.com>
+Message-ID: <Pine.LNX.4.44.0309221441070.5222-100000@localhost.localdomain>
+References: <20030920155404.GA29040@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>,
+        <lksctp-developers@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F6C92B3.3060603@pobox.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20030920155404.GA29040@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Okay, here is a patch to use pci_ids.h values.
+On Sat, 20 Sep 2003, Arnaldo Carvalho de Melo wrote:
 
-> Um, this is majorly ugly.  I know you didn't create the CORRECT_xxx 
-> constants... but let's not use them.  Either use the hex constants 
-> directly, or update pci_ids.h and use the constants from there.
+> Em Fri, Sep 19, 2003 at 11:39:09PM -0700, David S. Miller escreveu:
+> > On Fri, 19 Sep 2003 15:15:53 -0700 (PDT)
+> > Sridhar Samudrala <sri@us.ibm.com> wrote:
+> > 
+> > > But unfortunately i am not able see this problem with a parisc64 cross compiler 
+> > > on i386. So it makes it hard to debug or fix it. Looks like this happens only
+> > > when building natively on a parisc64 machine which i don't have access to.
+> > 
+> > Did you build with or without SMP enabled?
+> 
+> Yes, here I'm building without SMP enabled.
 
+I also started seeing this problem when i enabled CONFIG_64BIT with the
+cross-compiler.
 
-diff -Nru a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
---- a/drivers/net/wan/lmc/lmc_main.c	Mon Sep 22 11:45:18 2003
-+++ b/drivers/net/wan/lmc/lmc_main.c	Mon Sep 22 11:45:18 2003
-@@ -83,8 +83,10 @@
- static int LMC_PKT_BUF_SZ = 1542;
+> 
+> > Anyways, try to work with Arnaldo to figure out the precise statement
+> > causing the problems.
+> 
+> The problem is right at:
+> 
+> tv_add(&asoc->cookie_life, &cookie->c.expiration);
+> 
+> Please send any patch you come up with, I'll be happy to test it.
+
+The problem seems to be the static inline routine tv_add. When i converted it
+into a regular function or a macro, the problem went away. May be parisc64
+compiler has some issues with static inlines.
+
+Arnaldo, Could you please try out this patch which converts tv_add() to a macro
+TIMEVAL_ADD()
+
+Thanks
+Sridhar 
+
+-----------------------------------------------------------------------------
+diff -Nru a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+--- a/include/net/sctp/sctp.h	Mon Sep 22 14:40:46 2003
++++ b/include/net/sctp/sctp.h	Mon Sep 22 14:40:46 2003
+@@ -495,22 +495,19 @@
+ #define tv_lt(s, t) \
+    (s.tv_sec < t.tv_sec || (s.tv_sec == t.tv_sec && s.tv_usec < t.tv_usec))
  
- static struct pci_device_id lmc_pci_tbl[] = {
--	{ CORRECT_VENDOR_ID, CORRECT_DEV_ID, PCI_VENDOR_LMC, PCI_ANY_ID },
--	{ CORRECT_VENDOR_ID, CORRECT_DEV_ID, PCI_ANY_ID, PCI_VENDOR_LMC },
-+	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TULIP_FAST,
-+	  PCI_VENDOR_ID_LMC, PCI_ANY_ID },
-+	{ PCI_VENDOR_ID_DEC, PCI_DEVICE_ID_DEC_TULIP_FAST,
-+	  PCI_ANY_ID, PCI_VENDOR_ID_LMC },
- 	{ 0 }
- };
- 
-@@ -921,26 +923,26 @@
-      * the setting in the bois, seems to be version and arch dependent?
-      * Fix the error, exchange the two values 
-      */
--    if ((subdevice = pdev->subsystem_device) == PCI_VENDOR_LMC)
-+    if ((subdevice = pdev->subsystem_device) == PCI_VENDOR_ID_LMC)
- 	    subdevice = pdev->subsystem_vendor;
- 
-     switch (subdevice) {
--    case PCI_PRODUCT_LMC_HSSI:
-+    case PCI_DEVICE_ID_LMC_HSSI:
-         printk ("%s: LMC HSSI\n", dev->name);
-         sc->lmc_cardtype = LMC_CARDTYPE_HSSI;
-         sc->lmc_media = &lmc_hssi_media;
-         break;
--    case PCI_PRODUCT_LMC_DS3:
-+    case PCI_DEVICE_ID_LMC_DS3:
-         printk ("%s: LMC DS3\n", dev->name);
-         sc->lmc_cardtype = LMC_CARDTYPE_DS3;
-         sc->lmc_media = &lmc_ds3_media;
-         break;
--    case PCI_PRODUCT_LMC_SSI:
-+    case PCI_DEVICE_ID_LMC_SSI:
-         printk ("%s: LMC SSI\n", dev->name);
-         sc->lmc_cardtype = LMC_CARDTYPE_SSI;
-         sc->lmc_media = &lmc_ssi_media;
-         break;
--    case PCI_PRODUCT_LMC_T1:
-+    case PCI_DEVICE_ID_LMC_T1:
-         printk ("%s: LMC T1\n", dev->name);
-         sc->lmc_cardtype = LMC_CARDTYPE_T1;
-         sc->lmc_media = &lmc_t1_media;
-@@ -965,13 +967,13 @@
-     AdapModelNum = (lmc_mii_readreg (sc, 0, 3) & 0x3f0) >> 4;
- 
-     if ((AdapModelNum == LMC_ADAP_T1
--         && subdevice == PCI_PRODUCT_LMC_T1) ||		/* detect LMC1200 */
-+         && subdevice == PCI_DEVICE_ID_LMC_T1) ||	/* detect LMC1200 */
-         (AdapModelNum == LMC_ADAP_SSI
--         && subdevice == PCI_PRODUCT_LMC_SSI) ||	/* detect LMC1000 */
-+         && subdevice == PCI_DEVICE_ID_LMC_SSI) ||	/* detect LMC1000 */
-         (AdapModelNum == LMC_ADAP_DS3
--         && subdevice == PCI_PRODUCT_LMC_DS3) ||	/* detect LMC5245 */
-+         && subdevice == PCI_DEVICE_ID_LMC_DS3) ||	/* detect LMC5245 */
-         (AdapModelNum == LMC_ADAP_HSSI
--         && subdevice == PCI_PRODUCT_LMC_HSSI))
-+         && subdevice == PCI_DEVICE_ID_LMC_HSSI))
-     {				/* detect LMC5200 */
- 
-     }
-diff -Nru a/drivers/net/wan/lmc/lmc_var.h b/drivers/net/wan/lmc/lmc_var.h
---- a/drivers/net/wan/lmc/lmc_var.h	Mon Sep 22 11:45:18 2003
-+++ b/drivers/net/wan/lmc/lmc_var.h	Mon Sep 22 11:45:18 2003
-@@ -519,18 +519,7 @@
- #define TULIP_CMD_RECEIVEALL 0x40000000L
- #endif
- 
+-/* Stolen from net/profile.h.  Using it from there is more grief than
+- * it is worth.
+- */
+-static inline void tv_add(const struct timeval *entered, struct timeval *leaved)
+-{
+-	time_t usecs = leaved->tv_usec + entered->tv_usec;
+-	time_t secs = leaved->tv_sec + entered->tv_sec;
 -
--/* PCI register values */
--#define CORRECT_VENDOR_ID    0x1011
--#define CORRECT_DEV_ID       9
+-	if (usecs >= 1000000) {
+-		usecs -= 1000000;
+-		secs++;
+-	}
+-	leaved->tv_sec = secs;
+-	leaved->tv_usec = usecs;
+-}
 -
--#define PCI_VENDOR_LMC		0x1376
--#define PCI_PRODUCT_LMC_HSSI	0x0003
--#define PCI_PRODUCT_LMC_DS3	0x0004
--#define PCI_PRODUCT_LMC_SSI	0x0005
--#define PCI_PRODUCT_LMC_T1      0x0006
--
--/* Adapcter module number */
-+/* Adapter module number */
- #define LMC_ADAP_HSSI           2
- #define LMC_ADAP_DS3            3
- #define LMC_ADAP_SSI            4
++/* Add tv1 to tv2. */
++#define TIMEVAL_ADD(tv1, tv2) \
++({ \
++        suseconds_t usecs = (tv2).tv_usec + (tv1).tv_usec; \
++        time_t secs = (tv2).tv_sec + (tv1).tv_sec; \
++\
++        if (usecs >= 1000000) { \
++                usecs -= 1000000; \
++                secs++; \
++        } \
++        (tv2).tv_sec = secs; \
++        (tv2).tv_usec = usecs; \
++})
+ 
+ /* External references. */
+ 
+diff -Nru a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+--- a/net/sctp/sm_make_chunk.c	Mon Sep 22 14:40:46 2003
++++ b/net/sctp/sm_make_chunk.c	Mon Sep 22 14:40:46 2003
+@@ -1288,7 +1288,7 @@
+ 
+ 	/* Set an expiration time for the cookie.  */
+ 	do_gettimeofday(&cookie->c.expiration);
+-	tv_add(&asoc->cookie_life, &cookie->c.expiration);
++	TIMEVAL_ADD(asoc->cookie_life, cookie->c.expiration);
+ 
+ 	/* Copy the peer's init packet.  */
+ 	memcpy(&cookie->c.peer_init[0], init_chunk->chunk_hdr,
+ 
+-----------------------------------------------------------------------------
