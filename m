@@ -1,35 +1,48 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC] IPv4 Netfilter hook priorities for SELinux
-Date: Tue, 6 Jan 2004 21:36:42 -0800
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20040106213642.3b30f4bc.davem@redhat.com>
-References: <20040106191311.GH934@obroa-skai.de.gnumonks.org>
-	<Xine.LNX.4.44.0401061503180.8482-100000@thoron.boston.redhat.com>
+From: Andi Kleen <ak@suse.de>
+Subject: [PATCH] Add 32bit emulation for cmsg SO_TIMESTAMP
+Date: Wed, 7 Jan 2004 10:07:43 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040107100743.1c0b18c2.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org, sds@epoch.ncsc.mil
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0401061503180.8482-100000@thoron.boston.redhat.com>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com, netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Jan 2004 15:05:10 -0500 (EST)
-James Morris <jmorris@redhat.com> wrote:
 
-> Ok, here is the patch with support for IPv4 and IPv6.  I've not added 
-> anything for ARP yet as SELinux does not have any ARP controls at this 
-> stage (and probably won't in the near future).
-> 
-> Please apply.
+Some traceroute versions use the SO_TIMESTAMP cmsg for time measurement.
+This fixes them when running as 32bit on a 64bit x86-64 kernel.
 
-Applied, thanks guys.
+-Andi
+
+--- linux-2.6.1rc2-amd64/net/compat.c-o	2003-11-23 19:46:36.000000000 -0800
++++ linux-2.6.1rc2-amd64/net/compat.c	2004-01-07 00:21:43.741256711 -0800
+@@ -215,15 +215,25 @@
+ 
+ int put_cmsg_compat(struct msghdr *kmsg, int level, int type, int len, void *data)
+ {
++	struct compat_timeval ctv;
+ 	struct compat_cmsghdr *cm = (struct compat_cmsghdr *) kmsg->msg_control;
+ 	struct compat_cmsghdr cmhdr;
+-	int cmlen = CMSG_COMPAT_LEN(len);
++	int cmlen;
+ 
+ 	if(cm == NULL || kmsg->msg_controllen < sizeof(*cm)) {
+ 		kmsg->msg_flags |= MSG_CTRUNC;
+ 		return 0; /* XXX: return error? check spec. */
+ 	}
+ 
++	if (level == SOL_SOCKET && type == SO_TIMESTAMP) { 
++		struct timeval *tv = (struct timeval *)data;
++		ctv.tv_sec = tv->tv_sec;
++		ctv.tv_usec = tv->tv_usec;
++		data = &ctv;
++		len = sizeof(struct compat_timeval);
++	} 
++	
++	cmlen = CMSG_COMPAT_LEN(len);
+ 	if(kmsg->msg_controllen < cmlen) {
+ 		kmsg->msg_flags |= MSG_CTRUNC;
+ 		cmlen = kmsg->msg_controllen;
