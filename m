@@ -1,23 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] [NET] missing sysctl strategy in
- net/{core,ipv6,appletalk}
-Date: Tue, 30 Dec 2003 15:42:52 -0800
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: major bonding bug?
+Date: Tue, 30 Dec 2003 16:03:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031230154252.2aeb3fc7.davem@redhat.com>
-References: <20031226.022335.34767838.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <200312310003.hBV03SJ0015202@death.nxdomain.ibm.com>
+References: <amir.noam@intel.com>
+Cc: "Jeff Garzik" <jgarzik@pobox.com>,
+        "Hen,
+    Shmulik" <shmulik.hen@intel.com>,
+        "Marom,
+    Noam" <noam.marom@intel.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031226.022335.34767838.yoshfuji@linux-ipv6.org>
+To: Amir Noam <amir.noam@intel.com>
+In-Reply-To: Message from Amir Noam <amir.noam@intel.com>
+   of "Tue, 30 Dec 2003 18:45:14 +0200." <200312301845.14275.amir.noam@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Dec 2003 02:23:35 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> added missing strategy handlers.
+>> This looks very wrong...  bonding mode should be per-interface, not
+>> global to the entire driver.  What happens when a user wants
+>> BOND_MODE_ROUNDROBIN on bond0, and BOND_MODE_TLB on bond1?
+>
+>We agree that it looks very wrong, and this is in fact one of the 
+>features we've been working on lately. It is not a trivial fix, 
+>since, as you've noted, a lot of the code depends on the bond 
+>settings being global. We plan to start releasing patches to address 
+>this issue very soon (probably even starting tomorrow).
 
-Patch applied, thank you Yoshfuji-san.
+	FWIW, the workaround is to load the bonding module multiple
+times (once for each desired mode).
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
