@@ -1,50 +1,94 @@
-From: Klaus Weidner <klaus@atsec.com>
+From: Casey Schaufler <casey@schaufler-ca.com>
 Subject: Re: [PATCH] Add audit uid to netlink credentials
-Date: Thu, 10 Feb 2005 11:52:21 -0600
-Message-ID: <20050210175221.GA13458@w-m-p.com>
-References: <36282A1733C57546BE392885C06185927377BE@chaos.tcs.tcs-sec.com> <1108047396.19262.537.camel@hades.cambridge.redhat.com>
+Date: Thu, 10 Feb 2005 10:10:23 -0800 (PST)
+Message-ID: <20050210181023.92819.qmail@web50202.mail.yahoo.com>
+References: <20050210175221.GA13458@w-m-p.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
 Cc: kuznet@ms2.inr.ac.ru, davem@davemloft.net, netdev@oss.sgi.com
 To: Linux Audit Discussion <linux-audit@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <1108047396.19262.537.camel@hades.cambridge.redhat.com>
+In-Reply-To: <20050210175221.GA13458@w-m-p.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 10, 2005 at 02:56:36PM +0000, David Woodhouse wrote:
-> On Thu, 2005-02-10 at 09:37 -0500, Chad Hanson wrote:
-> > In your example of a process watching daemon, why would this daemon w=
-ant to
-> > spoof the credentials of the watched process? I can think of two exam=
-ples.
->=20
-> Perhaps I misunderstand the intent of userspace AUDIT_WRITE. Can you
-> provide examples of why you _wouldn't_ want to let a d=E6mon which is
-> already sending random unvetted AUDIT_WRITE messages also specify the
-> loginuid on _those_ messages?
 
-A few comments on this issue from the point of view of common criteria
-evaluations... Briefly, either choice of implementation would be okay.
+--- Klaus Weidner <klaus@atsec.com> wrote:
 
-Both CAPP and LSPP assume trustworthy administrators, and those
-protection profiles don't really support the concept of fine grained
-capabilities for not-quite-administrator tasks.
+> Both CAPP and LSPP assume trustworthy
+> administrators, and those
+> protection profiles don't really support the concept
+> of fine grained
+> capabilities for not-quite-administrator tasks.
 
-The CAPP and LSPP audit requirements include that audit records contain
-the subject identity, this corresponds to the login UID. The point of the
-user messages is to support proper auditing of actions that aren't
-directly related to system calls, such as authenticating users, modifying
-security databases, and similar things. This is always done by trusted
-processes, so the technical method used to get the login UID into the
-audit record for user messages doesn't matter as long as it can't be
-falsified by non-administrators.
+I don't know where you get that idea, as it is
+inconsistent with the evaluations I have done.
+A fine grained capability model that is used
+will always make an evaluation easier. A process
+that runs with partial privilege requires much
+less supporting evidence for evaluation than
+one that has superuser privilege. The Criteria
+may not require fine grained privilege, but
+that does not mean it doesn't help.
 
-A CAPP/LSPP compliant implementation could for example completely bypass
-the kernel and append user messages from trusted processes directly to
-the audit log file - I'm not saying that would be a good idea, but it
-could be compliant.
+> The CAPP and LSPP audit requirements include that
+> audit records contain
+> the subject identity, this corresponds to the login
+> UID.
 
--Klaus
+The subject identity is the name of the subject,
+that is the process ID. The user associated with
+the session is the login UID. The user is not the
+subject.
+
+> The point of the
+> user messages is to support proper auditing of
+> actions that aren't
+> directly related to system calls, such as
+> authenticating users, modifying
+> security databases, and similar things. This is
+> always done by trusted
+> processes, so the technical method used to get the
+> login UID into the
+> audit record for user messages doesn't matter as
+> long as it can't be
+> falsified by non-administrators.
+
+This is correct as far as it goes. One of the
+requirements is to correctly audit attempts made
+by unprivileged users to write to the audit trail.
+This is one reason you need the login UID of the
+process attempting to write to the audit trail.
+
+> A CAPP/LSPP compliant implementation could for
+> example completely bypass
+> the kernel and append user messages from trusted
+> processes directly to
+> the audit log file - I'm not saying that would be a
+> good idea, but it
+> could be compliant.
+
+It is actually a very good idea to maintain
+modifications to system security databases outside
+the audit trail proper. In the Orange Book days
+the NSA went so far as to declare a that a
+reasonable procedure for keeping them under
+revision control would be sufficient to meet the
+audit requirements.
+
+Another mechanism that would work well is to
+send the user space records directly to the
+audit daemon using a protected socket.
+
+
+=====
+Casey Schaufler
+casey@schaufler-ca.com
+
+
+	
+		
+__________________________________ 
+Do you Yahoo!? 
+Yahoo! Mail - You care about security. So do we. 
+http://promotions.yahoo.com/new_mail
