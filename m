@@ -1,84 +1,95 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Linux Routing Performance Update
-Date: Wed, 26 Jan 2005 14:27:10 +0100
-Message-ID: <16887.39598.648724.421160@robur.slu.se>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] batched tc to improve change throughput
+Date: 26 Jan 2005 08:48:33 -0500
+Message-ID: <1106747313.1107.7.camel@jzny.localdomain>
+References: <20050117165626.GE26856@postel.suug.ch>
+	 <1106002197.1046.19.camel@jzny.localdomain>
+	 <20050118134406.GR26856@postel.suug.ch>
+	 <1106058592.1035.95.camel@jzny.localdomain>
+	 <20050118145830.GS26856@postel.suug.ch>
+	 <1106144009.1047.989.camel@jzny.localdomain>
+	 <20050119165421.GB26856@postel.suug.ch>
+	 <1106232168.1041.125.camel@jzny.localdomain>
+	 <20050120153559.GG26856@postel.suug.ch>
+	 <1106576005.1652.1292.camel@jzny.localdomain>
+	 <20050124150634.GT23931@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, davem@davemloft.net, Robert.Olsson@data.slu.se
+Cc: Patrick McHardy <kaber@trash.net>, Stephen Hemminger <shemminger@osdl.org>,
+        netdev@oss.sgi.com, Werner Almesberger <werner@almesberger.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050124150634.GT23931@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2005-01-24 at 10:06, Thomas Graf wrote:
 
-Hello!
+> I'm not talking of the nlmsg_seq but rather a a sequence number with
+> global or nl_family scope. It gets increased whenever a netlink
+> message of that family is processed and is returned with the ack. If
+> a userspace application wants to enforce atomicy between two requests
+> which cannot be batched because a answer is expected in between then
+> it could provide the expected sequence number and the request is only
+> fullfilled if this is true. Example:
+> 
+> --> RTM_NEWLINK
+> <-- answer
+> <-- ACK (seq = 222)
+> --> RTM_SETLINK (expect = 222)
+> <-- ACK
+> 
+> Now if another netlink app interfers:
+> 
+> --> RTM_NEWLINK
+> <-- answer
+> <-- ACK (seq = 222)
+> 
+> -- other app --
+> --> RTM_SETLINK
+> <-- ACK (seq = 223)
+> 
+> -- back to first app --
+> --> RTM_SETLINK (expect = 222)
+> <-- ERROR
+> 
+> The application can then retry it's operation a few times and
+> finally give up.  The main problem I see is to extend nlmsghdr
+> in a way it stays compatible.
 
-Finally time for some more testing with a somewhat upgraded equipment.
+The best thing you could get out of this is a warning that something
+changed under you i.e doesnt really solve the synchronization issue. 
+[And a lot more complexity is introduced - if you say you want to change
+the netlink header and maintain state in the kernel].
 
-Linux:  Vanilla 2.6.10 plus e1000 patch brewed from input from Scott feldman, 
-         Lennert Buytenhek and others. 
-         ftp://robur.slu.se/pub/Linux/net-development/tmp/e1000-new-tx-4.pat
+> > My thoughts now are you need to build on top of libnetlink - another
+> > library. Example, to administratively bring up a netdevice, one would
+> > call something like
+> > 
+> > admin_up("eth0");
+> > 
+> > This is not to say you cant build a competing library to libnetlink, i
+> > am just not sure it is worth the effort of having two competing
+> > libraries doing almost the same thing (that need maintanance). 
+> 
+> I think it is, the feedback is overwhelming and people are already
+> contributing to support more netlink users. As I said, 95% of the
+> functionality is in iproute2 itself and not libnetlink. It is vital
+> to have some kind of library to abstract the low level netlink
+> functionality in a simple form to other applications. Currently it's
+> quite hard to for example access the tc class tree, one can use
+> libnetlink to do the request and parse the answer but everyone needs
+> to write their own TLV parsing routines.
 
-System: Dual Opteron 250 (2.4 GHz) all boards dual e1000 w 82546GB.
-
--------------------------------------------------------------------------------
-Experiment 1: Single flow on UP 
-
-Input rate 1.488  Mpps
-
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 7132981 4056792 4056792 2867019      5      0      0      0 BRU
-eth1   1500   0      1      0      0      0 7131234      0      0      0 BRU
-eth2   1500   0      0      0      0      0      5      0      0      0 BRU
-eth3   1500   0      0      0      0      0      5      0      0      0 BRU
-
-           CPU0       
- 24:        108   IO-APIC-level  eth1
- 27:        107   IO-APIC-level  eth0
- 28:        109   IO-APIC-level  eth2
- 29:        109   IO-APIC-level  eth3
-
-006cd736 00000000 00005ce0 00000000 00000000 00000000 00000000 00000000 00000000
-
-Full DoS of 10 Mpackets now at 1.488 Mpps. We route 71.3%.
-
-Routing t-put 1061 kpps. So we passed 1 Mpps...
-
-Note there are no RX interrupts (NAPI) Also as the e1000 cleans the skb's at 
-hard_xmit so we see no TX interrupts either. 
-
--------------------------------------------------------------------------------
-Experiment 2: SMP/(NUMA)
-
-Even more exciting. Same as above but input 2 * 1.430 Mpps (max from the
-pktgen box it's a DUAL XEON 2.67 GHz) 
-
-Note! 
-Routing is setup so pkts on eth0->eth1 on CPU0. and irq's for eth0/eth1 goes
-to CPU0. The other flow on eth2/eth3 on CPU1 is handled similar.
-
-
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 7231782 4282705 4282705 2768218      5      0      0      0 BRU
-eth1   1500   0      4      0      0      0 7230466      0      0      0 BRU
-eth2   1500   0 7671898 4723762 4723762 2328102      5      0      0      0 BRU
-eth3   1500   0      1      0      0      0 7670181      0      0      0 BRU
-
-           CPU0       CPU1       
- 24:        143          1   IO-APIC-level  eth1
- 27:        138          1   IO-APIC-level  eth0
- 28:         19        121   IO-APIC-level  eth2
- 29:         19        121   IO-APIC-level  eth3
-
-006e592a 00000000 00005e29 00000000 00000000 00000000 00000000 00000000 00000000
-0075105b 00000000 000063e4 00000000 00000000 00000000 00000000 00000000 00000000
-
-Few interrupts and balanced as it was setup. /proc/net/softnet_stat show both
-CPU were involved forwarding.
-
-An aggregated routing performance of 2.1 Mpps. Enjoy.
-
-
-						--ro
+Your call really - you are the one who is going to maintain it;->
+As for ease of use and avoiding users from knowing details of how
+tlvs are put together etc - i think it doesnt matter how thats done
+underneath the hood; it is still doable on top of current libnetlink. In
+other words whats required, IMO, is something that hides netlink totaly
+so that the programmer/user doesnt even get to see TLVs.
+ 
+cheers,
+jamal
