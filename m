@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: [PATCH] tcp: efficient port randomisation (revised)
-Date: Thu, 2 Dec 2004 14:51:39 -0800
-Message-ID: <20041202145139.03a6977a@dxpl.pdx.osdl.net>
+Date: Thu, 2 Dec 2004 15:01:21 -0800
+Message-ID: <20041202150121.488ec205@dxpl.pdx.osdl.net>
 References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
 	<200411020854.44745.michael.vittrup.larsen@ericsson.com>
 	<20041104100104.570e67cd@dxpl.pdx.osdl.net>
@@ -34,4 +34,5 @@ On Thu, 2 Dec 2004 13:52:52 -0800
 > 
 > Or averaged out, about 1ms more expensive.
 
-I am writing my own test since, that one seems so noisy.
+We could always benchmark special the loopback case since there is
+no risk of man-in-the-middle attacks.
