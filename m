@@ -1,26 +1,57 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Mon, 11 Oct 2004 18:43:15 +0200
+From: Jerone Young <jerone@gmail.com>
+Subject: Re: via-velocity heads up (was (Re: Linux 2.6.9-rc4 - pls test (and no more patches))
+Date: Mon, 11 Oct 2004 11:53:09 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041011164315.GH26350@wotan.suse.de>
-References: <20041007224422.1c1bea95@jack.colino.net> <20041007214505.GB31558@wotan.suse.de> <20041008090610.70d7e183@pirandello> <20041008220001.GE31237@waste.org> <20041008151839.01823e0c.akpm@osdl.org> <20041010205928.6e54df7e.davem@davemloft.net> <20041011154000.GB26350@wotan.suse.de> <20041011162224.GL31237@waste.org> <20041011163226.GG26350@wotan.suse.de> <20041011163601.GM31237@waste.org>
+Message-ID: <9f50a7a0041011095324253e7f@mail.gmail.com>
+References: <Pine.LNX.4.58.0410102016180.3897@ppc970.osdl.org>
+	 <20041011072307.GA18577@electric-eye.fr.zoreil.com>
+Reply-To: Jerone Young <jerone@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@davemloft.net>,
-        Andrew Morton <akpm@osdl.org>, colin@colino.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-Content-Disposition: inline
-In-Reply-To: <20041011163601.GM31237@waste.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20041011072307.GA18577@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> It's not recursion on printk that's a problem, it's recursion on
-> ->poll() and attempting to take whatever internal driver locks.
+Yes, I also am able to finally use the via-velocity card without it
+taking down my router! The patches resolve issues with the card.  I
+have been heavily using it now without a problem on X86_64 Linux.  I
+have an Abit A8V with integrated Via Velocity card
 
-There is no recursion on poll because printk will never call into
-the low level console driver when the console sem is already taken.
 
--Andi
-
-P.S.: I made the same mistake long ago, but akpm set me straight.
+On Mon, 11 Oct 2004 09:23:07 +0200, Francois Romieu
+<romieu@fr.zoreil.com> wrote:
+> Linus Torvalds <torvalds@osdl.org> :
+> [...]
+> > Summary of changes from v2.6.9-rc3 to v2.6.9-rc4
+> > ============================================
+> [...]
+> > Fran?ois Romieu:
+> >   o via-velocity: properly manage the count of adapters
+> >   o via-velocity: removal of unused velocity_info.xmit_lock
+> >   o via-velocity: velocity_give_rx_desc() removal
+> >   o via-velocity: received ring wrong index and missing barriers
+> >   o via-velocity: early invocation of init_cam_filter()
+> >   o via-velocity: removal of incomplete endianness handling
+> >   o via-velocity: wrong buffer offset in velocity_init_td_ring()
+> >   o via-velocity: comment fixes
+> 
+> The attribution is a bit misleading as Tejun Heo <tj@home-tj.org>
+> did the real work (he appears in the logs though).
+> 
+> People should really, really, test this code if they have been
+> experiencing issues with the driver lately.
+> 
+> Test reports welcome here or on netdev@oss.sgi.com.
+> 
+> --
+> Ueimor
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
