@@ -1,35 +1,43 @@
-From: Erik Hensema <erik@hensema.net>
-Subject: Re: TCP/IPv6 broken in Linux 2.5.64?
-Date: Thu, 20 Mar 2003 19:10:05 +0100
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Subject: [PATCH] clean up net/802/Makefile (small version)
+Date: Thu, 20 Mar 2003 23:33:29 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030320181004.GA19970@hensema.net>
-References: <20030318162532.GA9705@outpost.ds9a.nl> <200303201549.SAA10972@sex.inr.ac.ru> <20030320163107.GA28229@outpost.ds9a.nl>
-Reply-To: erik@hensema.net
+Message-ID: <20030320223329.GB13641@wohnheim.fh-wedel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, acme@conectiva.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
+To: linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20030320163107.GA28229@outpost.ds9a.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 20, 2003 at 05:31:07PM +0100, bert hubert wrote:
-> On Thu, Mar 20, 2003 at 06:49:49PM +0300, kuznet@ms2.inr.ac.ru wrote:
-> > Hello!
-> > 
-> > > irc servers, or an IPv6 zonetransfer. However, when I try to ssh from 2.5.65
-> > 
-> > Try this. I have just found this lost patch, it is from 2.4 tree, but
-> > it should fit to 2.5 as well.
-> 
-> This has solved my problem 100%. The earlier mentioned hostA and hostB can
-> now cheerfully connect to eachother. Everything else I try works too.
-> 
-> So I suggest this be sent linus-wards. Thanks!
+This patch simply removes a couple of lines with duplicated
+functionality. Patch is against 2.4.20.
 
-I can confirm that this fixed my IPv6 problems on 2.5.x.
+Arnaldo, are you the correct maintainer for this?
 
--- 
-Erik Hensema (erik@hensema.net)
+J=F6rn
+
+--=20
+Victory in war is not repetitious.
+-- Sun Tzu
+
+--- linux-2.4.20/net/802/Makefile	Sat Aug  3 02:39:46 2002
++++ linux-2.4.20/net/802/Makefile.1	Thu Mar 20 23:20:05 2003
+@@ -15,13 +15,9 @@
+=20
+ obj-$(CONFIG_SYSCTL) +=3D sysctl_net_802.o
+ obj-$(CONFIG_LLC) +=3D llc_sendpdu.o llc_utility.o cl2llc.o llc_macinit.=
+o
+-ifeq ($(CONFIG_SYSCTL),y)
+-obj-y +=3D sysctl_net_802.o
+-endif
+=20
+ ifeq ($(CONFIG_LLC),y)
+ subdir-y +=3D transit
+-obj-y +=3D llc_sendpdu.o llc_utility.o cl2llc.o llc_macinit.o
+ SNAP =3D y
+ endif
+=20
