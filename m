@@ -1,47 +1,61 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC] Move hardware headers for decaped packets
-Date: Sun, 7 Dec 2003 16:55:16 -0800
+From: Chris Wright <chrisw@osdl.org>
+Subject: [PATCH 2/4] irda check error on memcpy_fromiovec
+Date: Mon, 8 Dec 2003 20:24:14 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031207165516.1edfde10.davem@redhat.com>
-References: <20030925121131.GA17968@gondor.apana.org.au>
-	<200309251228.QAA11650@yakov.inr.ac.ru>
-	<20030925124102.GA18188@gondor.apana.org.au>
-	<20031207090205.GA2358@gondor.apana.org.au>
-	<20031207014714.03e79cd2.davem@redhat.com>
-	<20031207095527.GA2767@gondor.apana.org.au>
+Message-ID: <20031208202414.D30587@build.pdx.osdl.net>
+References: <20031208202302.C30587@build.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20031207095527.GA2767@gondor.apana.org.au>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20031208202302.C30587@build.pdx.osdl.net>; from chrisw@osdl.org on Mon, Dec 08, 2003 at 08:23:02PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 7 Dec 2003 20:55:27 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Check the return value on memcpy_fromiovec().
 
-> On Sun, Dec 07, 2003 at 01:47:14AM -0800, David S. Miller wrote:
-> >
-> > Ok, I'll review this again.  Did you audit the tree to make sure you
-> > updated mac_len everywhere that 'skb->mac.*' is modified?
-> 
-> To be honest, no.  The reason is that my use of mac_len starts from
-> netif_receive_skb and ends just before the reentrance into netif_rx
-> in xfrm[46]_input.
-> 
-> At the start of that path, mac_len is initialised from a value that
-> we know to be correct.  I have also verified that within the path,
-> nobody expands/contracts the MAC header.
 
-Ok, we can make it a receive only thing at first, I guess.
-
-But I think this will definitely need to be deferred to
-2.6.1 at least, along with that XFRM device unload fix you
-sent me the other week.
-
-Linus really only wants the obvious one-liners at this point
-for 2.6.0
-
-Thanks.
+===== net/irda/af_irda.c 1.47 vs edited =====
+--- 1.47/net/irda/af_irda.c	Tue Nov  4 16:29:43 2003
++++ edited/net/irda/af_irda.c	Fri Dec  5 17:29:04 2003
+@@ -1307,7 +1307,11 @@
+ 	skb_reserve(skb, self->max_header_size + 16);
+ 
+ 	asmptr = skb->h.raw = skb_put(skb, len);
+-	memcpy_fromiovec(asmptr, msg->msg_iov, len);
++	err = memcpy_fromiovec(asmptr, msg->msg_iov, len);
++	if (err) {
++		kfree_skb(skb);
++		return err;
++	}
+ 
+ 	/*
+ 	 * Just send the message to TinyTP, and let it deal with possible
+@@ -1549,7 +1553,11 @@
+ 
+ 	IRDA_DEBUG(4, "%s(), appending user data\n", __FUNCTION__);
+ 	asmptr = skb->h.raw = skb_put(skb, len);
+-	memcpy_fromiovec(asmptr, msg->msg_iov, len);
++	err = memcpy_fromiovec(asmptr, msg->msg_iov, len);
++	if (err) {
++		kfree_skb(skb);
++		return err;
++	}
+ 
+ 	/*
+ 	 * Just send the message to TinyTP, and let it deal with possible
+@@ -1612,7 +1620,11 @@
+ 
+ 	IRDA_DEBUG(4, "%s(), appending user data\n", __FUNCTION__);
+ 	asmptr = skb->h.raw = skb_put(skb, len);
+-	memcpy_fromiovec(asmptr, msg->msg_iov, len);
++	err = memcpy_fromiovec(asmptr, msg->msg_iov, len);
++	if (err) {
++		kfree_skb(skb);
++		return err;
++	}
+ 
+ 	err = irlmp_connless_data_request(self->lsap, skb);
+ 	if (err) {
