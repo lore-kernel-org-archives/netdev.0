@@ -1,40 +1,54 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH PKT_SCHED 0/17]: tc action cleanup + fixes
-Date: 30 Dec 2004 23:45:36 -0500
-Message-ID: <1104468336.1048.205.camel@jzny.localdomain>
-References: <41D3785F.3040909@trash.net>
-	 <1104382562.1048.39.camel@jzny.localdomain> <41D3F5EC.9050808@trash.net>
-	 <41D4286B.1060106@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Park Lee <parklee_sel@yahoo.com>
+Subject: Issue on packets sending through ip_route_output_key() to xfrm_lookup() in native IPsec
+Date: Thu, 30 Dec 2004 20:51:06 -0800 (PST)
+Message-ID: <20041231045106.28169.qmail@web51502.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41D4286B.1060106@trash.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-12-30 at 11:10, Patrick McHardy wrote:
+Hi,
+  In Linux native IPsec, there is a function
+xfrm_lookup(struct dst_entry **dst_p, struct flowi
+*fl, struct sock *sk, int flags) (in
+/usr/src/linux-2.6.5-1.358/net/xfrm/xfrm_policy.c).
+Whenever a packet is sending, kernel will call
+xfrm_lookup() to finds/creates a bundle for it. 
+  xfrm_lookup() can be called by many functions. one
+of these functions is ip_route_output_key(). 
+we can see its definition as follows:
 
-> Thinking about it, I think its better to reorganize the
-> patches by subject. While doing this I'm going to add
-> back the useful printks in the init paths as DPRINTKs.
-> I'm going to post the entire reorganized batch next week
-> when I return home, working with bitkeeper on my crappy
-> notebook is just to painful :)
+int ip_route_output_key(struct rtable **rp, struct
+flowi *flp)
+{
+        int err;
+        if ((err = __ip_route_output_key(rp, flp)) !=
+0)
+                return err;
+        return flp->proto ? xfrm_lookup((struct
+dst_entry**)rp, flp, NULL, 0) : 0;
+}
 
-[I dont use bitkeeper for religious reasons (i hope i am not
-offending anyone)].
-Ok, sounds like a good plan (gives me more time to work with the driver
-stuff which is getting out of control ;->): I think the patches may have
-goten a little messy. Maybe the order should be: you, Thomas with what
-he has now then myself with eaction and Thomas with extended matches (I
-dont think the order of the last two matters). I will just code against
-whatever latest release is and migrate later when all the otehr patches
-are in.
+As ip_route_output_key() calls xfrm_lookup() with the
+argument sk set to NULL, Does this means that the
+packets sending through ip_route_output_key() to
+xfrm_lookup() have no corresponding local socket with
+them (because their sk is NULL)? Are these packets all
+created by special kernel socket (i.e. icmp_socket and
+tcp_socket)? 
 
-cheers,
-jamal
+Thank you very much.
+
+
+
+=====
+Best Regards,
+Park Lee
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
