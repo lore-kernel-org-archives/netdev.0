@@ -1,52 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] select appropriate skb size in tcp_sendmsg when TSO is
- used
-Date: Tue, 26 Oct 2004 17:55:53 -0700
+Subject: Re: [PATCH]  802.1Q VLAN
+Date: Tue, 26 Oct 2004 18:02:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041026175553.55a1b72d.davem@davemloft.net>
-References: <OF96546AB5.ACE12043-ONC1256F33.0027BC6B-C1256F33.002D4A6E@de.ibm.com>
-	<E1CKE5P-0005SP-00@gondolin.me.apana.org.au>
-	<20041020163510.6d13e9c7.davem@davemloft.net>
-	<20041026111912.GA18095@gondor.apana.org.au>
-	<20041026235126.GA4733@gondor.apana.org.au>
-	<417EE3BB.6040902@pobox.com>
-	<20041027000724.GA4869@gondor.apana.org.au>
-	<20041027001531.GA29973@havoc.gtf.org>
-	<20041027002209.GA5002@gondor.apana.org.au>
+Message-ID: <20041026180237.1c56bcc9.davem@davemloft.net>
+References: <41797696.9070905@candelatech.com>
+	<20041022214611.GA4948@electric-eye.fr.zoreil.com>
+	<41798506.1030909@candelatech.com>
+	<417D675F.3000909@candelatech.com>
+	<417D929A.2090809@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, thomas.spatzier@de.ibm.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041027002209.GA5002@gondor.apana.org.au>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <417D929A.2090809@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Oct 2004 10:22:09 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, 25 Oct 2004 16:56:10 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> On Tue, Oct 26, 2004 at 08:15:31PM -0400, Jeff Garzik wrote:
-> >
-> > > IMHO it is valid to disable SG without disabling checksums, no?
-> > 
-> > It's useless:  The packet header is always in a separate memory
-> > location from the packet data, when using zerocopy sendfile(2).
-> > 
-> > When not using zerocopy sendfile, you are copying the data _anyway_.
-> 
-> I'm fine with adding this check.  However I think that belongs in
-> another patch since we don't check that in register_netdev currently.
-> 
-> Dave, what do you think?
+> DaveM, please consider accepting this patch (it's in a previous email to netdev,
+> just ask if you want it re-sent.)
 
-I believe that allowing TX csum support without SG _is_
-useful even though it is not _effective_.
-
-It is quite desirable for a driver author to be able to
-test out his TX csum offload support first, then add
-SG support next.  Similarly, if a driver author suspects
-some issues with either SG or TX csum support, he can
-better isolate the problem if we allow this.
-
-Jeff do you agree?
+I'll review this either tonight or tomorrow afternoon.
