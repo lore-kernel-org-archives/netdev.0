@@ -1,28 +1,49 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPSec: IPV6_IPSEC_POLICY / IPV6_XFRM_POLICY socket
- options
-Date: Thu, 20 Mar 2003 21:50:27 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030320.215027.95912890.davem@redhat.com>
-References: <1048207217.1212.3.camel@tomlt2.tomloffice.austin.ibm.com>
+From: Lars Landmark <larslan@merete.zapto.org>
+Subject: Class crash (linux)
+Date: Fri, 21 Mar 2003 08:57:54 +0100 (CET)
+Sender: lartc-admin@mailman.ds9a.nl
+Message-ID: <Pine.LNX.4.44.0303201542170.20947-100000@merete.balder.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-bounce@oss.sgi.com>
-To: toml@us.ibm.com
-In-Reply-To: <1048207217.1212.3.camel@tomlt2.tomloffice.austin.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <linux-net@vger.kernel.org>
+Return-path: <lartc-admin@mailman.ds9a.nl>
+To: lartc@mailman.ds9a.nl
+Errors-To: lartc-admin@mailman.ds9a.nl
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
 List-Id: netdev.vger.kernel.org
 
-   From: Tom Lendacky <toml@us.ibm.com>
-   Date: 20 Mar 2003 18:40:16 -0600
-   
-   I've created a patch to fix the problem of racoon not being able to 
-   listen on IPv6 addresses.  The problem occurs from not having support 
-   for the IP(V6)_IPSEC_POLICY and IP(V6)_XFRM_POLICY socket options in 
-   IPv6. 
-   
-   Please review the patch below and let me know if my fix is ok. 
-   
-This looks find, I will apply it.
+Hi;
+
+I am working width a project intended for developing an adaptive class 
+based QoS system for Linux.
+I have been struggling width a bug for a long time now. The bug has been
+tracked to procedure tc_ctl_class() in file linux/net/sched/sch_api.c.
+In this function there are a switch test, in order to test whether
+NEWCLASS or other flags are set.
+
+If RTM_NEWCLASS flag is set, a if test is performed:
+if (n->nlmsg_flags&NLM_F_EXCL)
+
+What does this if test perform, especially what does NLM_F_EXCL flag 
+represent.
+
+
+When I attach a new class, this test result true. The next step after a
+goto call, is to test if there are a class pointer. If there are a
+class pointer, an oops call "oops->put(q, cl)" is done.. In this call my  
+system crash.
+
+Is there any approach in order to solve the oops. ??
+
+Lars Landmark
+Student
+
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
