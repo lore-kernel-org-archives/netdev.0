@@ -1,129 +1,96 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: Memory leak in 2.6.11-rc1?
-Date: Tue, 25 Jan 2005 19:32:07 +0000
-Message-ID: <20050125193207.B30094@flint.arm.linux.org.uk>
-References: <20050121161959.GO3922@fi.muni.cz> <1106360639.15804.1.camel@boxen> <20050123091154.GC16648@suse.de> <20050123011918.295db8e8.akpm@osdl.org> <20050123095608.GD16648@suse.de> <20050123023248.263daca9.akpm@osdl.org> <20050123200315.A25351@flint.arm.linux.org.uk> <20050124114853.A16971@flint.arm.linux.org.uk>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: skb_checksum_help
+Date: Tue, 25 Jan 2005 21:36:07 +0100
+Message-ID: <20050125203607.GG31837@postel.suug.ch>
+References: <20050124234515.GA31837@postel.suug.ch> <20050125000759.GA15883@gondor.apana.org.au> <20050124164049.3b939791.davem@davemloft.net> <20050125014538.GB31837@postel.suug.ch> <20050125014838.GA16637@gondor.apana.org.au> <20050125020118.GC31837@postel.suug.ch> <20050124180354.63ae600d.davem@davemloft.net> <20050125022431.GD31837@postel.suug.ch> <20050124194328.20a106de.davem@davemloft.net> <20050125143319.GF31837@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262085AbVAYTcv@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, Jens Axboe <axboe@suse.de>,
-	alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, david@davidcoulson.net, kaber@trash.net,
+        greearb@candelatech.com, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050124114853.A16971@flint.arm.linux.org.uk>; from rmk+lkml@arm.linux.org.uk on Mon, Jan 24, 2005 at 11:48:53AM +0000
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050125143319.GF31837@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 24, 2005 at 11:48:53AM +0000, Russell King wrote:
-> On Sun, Jan 23, 2005 at 08:03:15PM +0000, Russell King wrote:
-> > I think I may be seeing something odd here, maybe a possible memory leak.
-> > The only problem I have is wondering whether I'm actually comparing like
-> > with like.  Maybe some networking people can provide a hint?
+* Thomas Graf <20050125143319.GF31837@postel.suug.ch> 2005-01-25 15:33
+> * David S. Miller <20050124194328.20a106de.davem@davemloft.net> 2005-01-24 19:43
+> > On Tue, 25 Jan 2005 03:24:31 +0100
+> > Thomas Graf <tgraf@suug.ch> wrote:
 > > 
-> > Below is gathered from 2.6.11-rc1.
+> > > This of course explains it, didn't think of that. I thought it would
+> > > inherit the checksumming features.
 > > 
-> > bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
-> > 24
-> > ip_dst_cache         669    885    256   15    1
+> > It should, but only in very limited cases.
 > > 
-> > I'm fairly positive when I rebooted the machine a couple of days ago,
-> > ip_dst_cache was significantly smaller for the same number of lines in
-> > /proc/net/rt_cache.
+> > Because it is very chip dependant whether this works or not in
+> > any case, we should probably create a special features flag for
+> > this.  Something like NETIF_F_VLAN_INHERIT_FEATURES.
 > 
-> FYI, today it looks like this:
-> 
-> bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
-> 26
-> ip_dst_cache         820   1065    256   15    1 
-> 
-> So the dst cache seems to have grown by 151 in 16 hours...  I'll continue
-> monitoring and providing updates.
+> Can't we just use NETIF_F_HW_VLAN_TX for this and inherit
+> NETIF_F_HW_CSUM | NETIF_F_IP_CSUM if it is set? I don't have any
+> specs at hand though.
 
-Tonights update:
-50
-ip_dst_cache        1024   1245    256   15    1
+Vlan devices don't inherit any features at the moment but it would make
+sense to do so.
 
-As you can see, the dst cache is consistently growing by about 200
-entries per day.  Given this, I predict that the box will fall over
-due to "dst cache overflow" in roughly 35 days.
+NETIF_F_SG|NETIF_F_TSO:
+  The normal vlan code seems to handle pskbs correctly, we don't gain
+  that much though. The big gain would be in the driver specific accel
+  code. I assume that the driver specific accel code is aware of
+  pskbs if the card can handle it but I haven't checked this yet.
 
-kernel network configuration:
+NETIF_F_NO_CSUM:
+  Avoid checksumming for vlan devices on loopback interfaces.
 
-CONFIG_INET=y
-CONFIG_IP_MULTICAST=y
-CONFIG_IP_ADVANCED_ROUTER=y
-CONFIG_IP_MULTIPLE_TABLES=y
-CONFIG_IP_ROUTE_FWMARK=y
-CONFIG_IP_ROUTE_VERBOSE=y
-CONFIG_IP_PNP=y
-CONFIG_IP_PNP_BOOTP=y
-CONFIG_SYN_COOKIES=y
-CONFIG_IPV6=y
-CONFIG_NETFILTER=y
-CONFIG_IP_NF_CONNTRACK=y
-CONFIG_IP_NF_CONNTRACK_MARK=y
-CONFIG_IP_NF_FTP=y
-CONFIG_IP_NF_IRC=y
-CONFIG_IP_NF_IPTABLES=y
-CONFIG_IP_NF_MATCH_LIMIT=y
-CONFIG_IP_NF_MATCH_IPRANGE=y
-CONFIG_IP_NF_MATCH_MAC=m
-CONFIG_IP_NF_MATCH_PKTTYPE=m
-CONFIG_IP_NF_MATCH_MARK=y
-CONFIG_IP_NF_MATCH_MULTIPORT=m
-CONFIG_IP_NF_MATCH_TOS=m
-CONFIG_IP_NF_MATCH_RECENT=y
-CONFIG_IP_NF_MATCH_ECN=m
-CONFIG_IP_NF_MATCH_DSCP=m
-CONFIG_IP_NF_MATCH_AH_ESP=m
-CONFIG_IP_NF_MATCH_LENGTH=m
-CONFIG_IP_NF_MATCH_TTL=m
-CONFIG_IP_NF_MATCH_TCPMSS=m
-CONFIG_IP_NF_MATCH_HELPER=y
-CONFIG_IP_NF_MATCH_STATE=y
-CONFIG_IP_NF_MATCH_CONNTRACK=y
-CONFIG_IP_NF_MATCH_ADDRTYPE=m
-CONFIG_IP_NF_MATCH_REALM=m
-CONFIG_IP_NF_MATCH_CONNMARK=m
-CONFIG_IP_NF_MATCH_HASHLIMIT=m
-CONFIG_IP_NF_FILTER=y
-CONFIG_IP_NF_TARGET_REJECT=y
-CONFIG_IP_NF_TARGET_LOG=m
-CONFIG_IP_NF_TARGET_TCPMSS=m
-CONFIG_IP_NF_NAT=y
-CONFIG_IP_NF_NAT_NEEDED=y
-CONFIG_IP_NF_TARGET_MASQUERADE=y
-CONFIG_IP_NF_TARGET_REDIRECT=y
-CONFIG_IP_NF_TARGET_NETMAP=y
-CONFIG_IP_NF_TARGET_SAME=y
-CONFIG_IP_NF_NAT_IRC=y
-CONFIG_IP_NF_NAT_FTP=y
-CONFIG_IP_NF_MANGLE=y
-CONFIG_IP_NF_TARGET_TOS=m
-CONFIG_IP_NF_TARGET_ECN=m
-CONFIG_IP_NF_TARGET_DSCP=m
-CONFIG_IP_NF_TARGET_MARK=y
-CONFIG_IP_NF_TARGET_CLASSIFY=m
-CONFIG_IP_NF_TARGET_CONNMARK=m
-CONFIG_IP_NF_TARGET_CLUSTERIP=m
-CONFIG_IP6_NF_IPTABLES=y
-CONFIG_IP6_NF_MATCH_LIMIT=y
-CONFIG_IP6_NF_MATCH_MAC=y
-CONFIG_IP6_NF_MATCH_RT=y
-CONFIG_IP6_NF_MATCH_OPTS=y
-CONFIG_IP6_NF_MATCH_FRAG=y
-CONFIG_IP6_NF_MATCH_HL=y
-CONFIG_IP6_NF_MATCH_MULTIPORT=y
-CONFIG_IP6_NF_MATCH_MARK=y
-CONFIG_IP6_NF_MATCH_AHESP=y
-CONFIG_IP6_NF_MATCH_LENGTH=y
-CONFIG_IP6_NF_FILTER=y
-CONFIG_IP6_NF_MANGLE=y
-CONFIG_IP6_NF_TARGET_MARK=y
+NETIF_F_HIGHDMA|NETIF_F_FRAGLIST:
+  Didn't find a reason why this would cause problems.
 
+NETIF_F_LLTX:
+  vlan code accesses statistic counters so I think we can't
+  inherit. It might be worth to make it clean though.
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+NETIF_F_IP_CSUM|NETIF_F_HW_CSUM:
+  Assuming that the vlan accel code can always do the checksumming
+  if the card can do it.
+
+Otherwise we need a mask describing which features can be
+inherited.
+
+Thoughts?
+
+diff -Nru linux-2.6.11-rc2-bk2.orig/include/linux/if_vlan.h linux-2.6.11-rc2-bk2/include/linux/if_vlan.h
+--- linux-2.6.11-rc2-bk2.orig/include/linux/if_vlan.h	2005-01-25 00:49:27.000000000 +0100
++++ linux-2.6.11-rc2-bk2/include/linux/if_vlan.h	2005-01-25 18:51:11.000000000 +0100
+@@ -61,6 +61,9 @@
+ 
+ #define VLAN_VID_MASK	0xfff
+ 
++#define VLAN_COMP_FEATURES(f)	((f) & (NETIF_F_SG|NETIF_F_NO_CSUM| \
++				 NETIF_F_HIGHDMA|NETIF_F_FRAGLIST|NETIF_F_TSO))
++
+ /* found in socket.c */
+ extern void vlan_ioctl_set(int (*hook)(void __user *));
+ 
+diff -Nru linux-2.6.11-rc2-bk2.orig/net/8021q/vlan.c linux-2.6.11-rc2-bk2/net/8021q/vlan.c
+--- linux-2.6.11-rc2-bk2.orig/net/8021q/vlan.c	2005-01-25 00:50:01.000000000 +0100
++++ linux-2.6.11-rc2-bk2/net/8021q/vlan.c	2005-01-25 18:54:45.000000000 +0100
+@@ -459,6 +459,8 @@
+ 	/* TODO: maybe just assign it to be ETHERNET? */
+ 	new_dev->type = real_dev->type;
+ 
++	new_dev->features = VLAN_COMP_FEATURES(real_dev->features);
++
+ 	new_dev->hard_header_len = real_dev->hard_header_len;
+ 	if (!(real_dev->features & NETIF_F_HW_VLAN_TX)) {
+ 		/* Regular ethernet + 4 bytes (18 total). */
+@@ -477,6 +479,7 @@
+ 		new_dev->hard_header = real_dev->hard_header;
+ 		new_dev->hard_start_xmit = vlan_dev_hwaccel_hard_start_xmit;
+ 		new_dev->rebuild_header = real_dev->rebuild_header;
++		new_dev->features = real_dev->features & (NETIF_F_IP_CSUM | NETIF_F_HW_CSUM);
+ 	} else {
+ 		new_dev->hard_header = vlan_dev_hard_header;
+ 		new_dev->hard_start_xmit = vlan_dev_hard_start_xmit;
