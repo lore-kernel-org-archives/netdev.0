@@ -1,40 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2/2] r8169: RTL8169_registers clean-up
-Date: Mon, 28 Feb 2005 21:30:17 -0500
-Message-ID: <4223D3B9.8010604@pobox.com>
-References: <20050228190444.GA13415@us.ibm.com> <20050228195958.GB8186@electric-eye.fr.zoreil.com>
+From: Asim Shankar <asimshankar@gmail.com>
+Subject: Re: filtering packtes before OS takes care about them
+Date: Mon, 28 Feb 2005 21:35:09 -0600
+Message-ID: <7bca1cb50502281935557b45cc@mail.gmail.com>
+References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
+	 <7bca1cb50502281209798e8a00@mail.gmail.com>
+	 <db95d40c05022816301520b0a6@mail.gmail.com>
+Reply-To: Asim Shankar <asimshankar@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050228195958.GB8186@electric-eye.fr.zoreil.com>
+Cc: netdev@oss.sgi.com
+To: Pedro Fortuna <pedro.fortuna@gmail.com>
+In-Reply-To: <db95d40c05022816301520b0a6@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jon Mason <jdmason@us.ibm.com> :
-> 
->>An attempt to clean-up RTL8169_registers and  RTL8169_register_content.
->>Adjusted tab alignment and converted decimal values to hex.
->>
->>Applies cleanly to linux-2.6.11-rc4-mm1 and tested on amd64
-> 
-> 
-> 1 - It does not use bitwise shifts where possible (suggested by Jeff);
-> 2 - It is not consistent (see TxDesc...);
-> 3 - Please write a script to reduce the patch and prove that a typo does
->     not hide somewhere (yep, I'm lazy). It would take too much testing
->     to get a complete coverage.
+> In my case, I'll need to intercept all outgoing IP packets and change
+> them (including L2 frame) before they are passed to the network
+> interface driver.
+> The reverse operation is applied to incoming IP Packets in the destination host.
+> I didnt investigate the packet_type example you provided but I hope I
+> will be able to used for the purposes I explained.
 
-You can do a "diff -b" (ignore whitespaces changes) to check this sort 
-of stuff.
+If the type field of the struct packet_type you register ==
+htons(ETH_P_ALL), then your packet handling function will be added to
+the head of the ptype_all list.
 
+As a result, it will see all incoming and outgoing packets - incoming
+will be delivered to your function from netif_receive_skb() before the
+IP/other packet handlers get to see it and outgoing packets will be
+delivered from dev_queue_xmit() (which calls dev_queue_xmit_nit())
+just before the packet is queued for sending by the NIC. This may work
+for you.
 
-> Jeff, how am I supposed to handle cleanups now ? Just say no ? :o)
+I'm assuming all outgoing packets go through dev_queue_xmit(), though
+that may not always be the case (someone more knowledgeable would have
+to explain this).
 
-Ideally keep a stack of patches such that, the fixes can be applied 
-underneath the cleanups...
+Regards,
 
-	Jeff
+-- Asim
