@@ -1,66 +1,106 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: RFC: PHY Abstraction Layer II
-Date: Mon, 14 Mar 2005 18:41:10 -0600
-Message-ID: <ba5d844255b5ba76b2685f9397faf689@freescale.com>
-References: <1107b64b01fb8e9a6c84359bb56881a6@freescale.com>	<1110334456.32556.21.camel@gaston>	<20050308194229.41c23707.davem@davemloft.net>	<1110340214.32524.32.camel@gaston> <57a429f8eb807987d88b06129861d507@freescale.com> <4230D1AC.5070506@katalix.com>
-Mime-Version: 1.0 (Apple Message framework v619.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: "Alex Aizman" <alex@neterion.com>
+Subject: RE: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
+Date: Mon, 14 Mar 2005 17:07:44 -0800
+Message-ID: <200503150108.j2F18FDD016965@guinness.s2io.com>
+References: <m1br9l6c63.fsf@muc.de>
+Reply-To: <alex@neterion.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
-        linuxppc-embedded@ozlabs.org,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <4230D1AC.5070506@katalix.com>
-To: James Chapman <jchapman@katalix.com>
+Cc: <netdev@oss.sgi.com>, <leonid@neterion.com>, <jgarzik@pobox.com>
+To: "'Andi Kleen'" <ak@muc.de>,
+        "'Leonid Grossman'" <leonid.grossman@neterion.com>
+In-Reply-To: <m1br9l6c63.fsf@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Andi Kleen writes: 
 
-On Mar 10, 2005, at 17:01, James Chapman wrote:
+> I guess the main objection to the HAL comes not from 
+> performance issues 
 
-> Hi Andy,
->
-> Can you elaborate on why this phy abstraction is needed?
->
-> In your original post, you mentioned that you were going to post a
-> patch to show how your code would be hooked up in an existing net
-> driver. Did I miss it? It would help in understanding the pros and cons
-> of using genphy over using plain old mii.c.
+But the second or the third objection comes from there, I guess... As far as
+the data path, HAL as a "layer" completely disappears. There is just a few
+inline instructions that post descriptors and process completed descriptors.
+These same instructions are unavoidable; they'd be present HAL or no-HAL.
+There's no HAL locks on the data path (the locks are compiled out), no HAL
+(as a "layer") induced overhead. Note that the performance was one
+persistent "paranoia" from the very start of this project.
 
-Hi James,
+The numbers also tell the tale. We have 7.6Gbps jumbo throughput, the
+bottleneck is PCI, not the host. We have 13us 1byte netpipe latency. Here's
+for example today's netpipe run:
 
-I haven't posted it yet, since it's a large patch (it deletes a lot of 
-code from my driver), but I can give a basic overview of how my driver 
-hooks into this code:
+[root@localhost root]# ./nptcp -a -t -l 256 -u 98304 -i 256 -p 5100 -P - h
+17.1.1.227
+Latency: 0.000013
+Now starting main loop
+  0:       256 bytes    7 times -->  131.37 Mbps in 0.000015 sec
+  1:       512 bytes   65 times -->  239.75 Mbps in 0.000016 sec
+  2:       768 bytes 7701 times -->  181.37 Mbps in 0.000032 sec
+  3:      1024 bytes 5168 times -->  212.35 Mbps in 0.000037 sec
+  4:      1280 bytes 5102 times -->  209.95 Mbps in 0.000047 sec
+  5:      1536 bytes 4303 times -->  211.65 Mbps in 0.000055 sec
+  6:      1792 bytes 3765 times -->  238.44 Mbps in 0.000057 sec
+  7:      2048 bytes 3739 times -->  267.33 Mbps in 0.000058 sec
+  8:      2304 bytes 3744 times -->  297.43 Mbps in 0.000059 sec
+  9:      2560 bytes 3761 times -->  319.77 Mbps in 0.000061 sec
+ 10:      2816 bytes 3685 times -->  349.80 Mbps in 0.000061 sec
+ 11:      3072 bytes 3701 times -->  344.98 Mbps in 0.000068 sec
+ 12:      3328 bytes 3374 times -->  372.86 Mbps in 0.000068 sec
+ 13:      3584 bytes 3389 times -->  400.46 Mbps in 0.000068 sec
+...
 
-1) The driver connects to the PHY when opened, calling phy_connect, and 
-then clears some bits to declare functionality it doesn't support (my 
-driver, for instance, does not support gigabit in half-duplex mode).
+> (Usually the only thing that really counts 
+> for performance is data cache misses and the HAL is unlikely 
+> to affect this much), but the coding style etc.. Indeed it 
+> does not look too Linux like. 
+> 
+> One thing that's frowned upon in Linux are lots of wrappers 
+> for standard functions (like spin_lock etc.). I would 
+> recommend to at least replace them with the standard Linux functions.
 
-2) The driver implements a function which reads the speed/duplex 
-settings, and modifies the controller registers as appropriate (also 
-bringing the carrier up and down depending on link state).  My driver 
-needs to note whether it's gigabit or not (for GMII vs MII mode), and 
-the duplex (to set the MAC full or half).
+There's always a tradeoff, a balancing act. The wrappers is a price to pay
+for the reusable and extremely well tested code. Note also that a small
+company like Neterion does not have the luxury *not* to re-use the code.. 
 
-Both of those steps are very straightforward.  The PHY layer will 
-invoke the callback whenever the link state changes, so the controller 
-will always be up-to-date.
+Having said that, there's couple ideas that can be worked in relatively
+easily.
 
-3) The third step is the part that can make things a little messier.  
-My driver implements a second driver for the MDIO bus, which is 
-connected through its registers.  This bus needs to be registered, and 
-the driver also needs to register.  Then some code needs to be written 
-to deal with initialization, and takedown.  I can send out that patch 
-anytime, if there's demand.
+> In principle this can be even done with some kind of 
+> preprocessor Also less ifdefs would be nice.
 
->
-> btw, I recently posted a patch to add GigE support to mii.c which is
-> in Jeff's netdev-2.6 queue. Some register definitions were added in
-> mii.h that will collide with yours.
+Exactly. Simple script that'll remove extra #ifdefs and wrappers.
 
-Yeah, I ran in to some of those.  I can't remember whether they're in 
-the patch or not, I suspect not.  I will have to submit a new patch to 
-cover those (I just changed my code to use your definitions).
+> 
+> An possible compromise might be to get rid of all the HAL 
+> parts that wraps Linux functionality, and then only use a 
+> leaner low level library to access the more difficult parts 
+> of the hardware.  This would involve moving more code into 
+> the Linux specific layers. This should be more low level 
+> code, nothing like the high level queue handling functions 
+> you currently have etc., with the high level logic all in Linux code
 
-Andy
+Well, I guess we can do a lot in that direction. Looking forward to get
+specific review comments, etc. However, the main question remains: will the
+HAL-based driver (because even after the script-produced "surgery" it'll
+continue to be HAL based) ever get accepted?
+
+> 
+> -Andi
+> 
+> P.S.: The patch would be much easier to read if it created 
+> new files instead of changing the old ones. 
+
+Can be done, very easy. Obviously, only one of the driver has to be
+selected..
+
+> This makes sense 
+> since the new driver will probably live next to the old one 
+> for some time.
+> 
+> 
+
+Alex
