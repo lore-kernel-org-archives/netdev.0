@@ -1,93 +1,64 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sbni -- get rid of check_region
-Date: Fri, 3 Oct 2003 11:31:06 -0700
+Subject: [RFT] syncppp needs to pullup headers
+Date: Fri, 3 Oct 2003 11:43:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003113106.45b21aa5.shemminger@osdl.org>
+Message-ID: <20031003114347.31ee740b.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In sbni driver for 2.6.0-test6
-Replace check_region with appropriate request_region, and make sure to
-do release_region as required in error unwinds.
+In 2.6.0-test6 wan syncppp driver claims to be a "new" protocol and handle shared skb's
+but it needs to make sure data is contiguous before overlaying headers.  
+It is not a serious problem because the sync drivers never generate nonlinear skbuff's
+anyway.
 
-diff -Nru a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
---- a/drivers/net/wan/sbni.c	Fri Oct  3 11:27:51 2003
-+++ b/drivers/net/wan/sbni.c	Fri Oct  3 11:27:51 2003
-@@ -292,7 +292,6 @@
- 	       != NULL ) {
- 		int  pci_irq_line;
- 		unsigned long  pci_ioaddr;
--		u16  subsys;
- 
- 		if( pdev->vendor != SBNI_PCI_VENDOR
- 		    &&  pdev->device != SBNI_PCI_DEVICE )
-@@ -302,10 +301,13 @@
- 		pci_irq_line = pdev->irq;
- 
- 		/* Avoid already found cards from previous calls */
--		if( !request_region( pci_ioaddr, SBNI_IO_EXTENT, dev->name ) ) {
--			pci_read_config_word( pdev, PCI_SUBSYSTEM_ID, &subsys );
-+		if( !request_region( pci_ioaddr, SBNI_IO_EXTENT, dev->name )) {
-+			u16  subsys;
-+			pci_read_config_word( pdev, PCI_SUBSYSTEM_ID, &subsys);
-+
- 			if( subsys != 2  ||	/* Dual adapter is present */
--			    check_region( pci_ioaddr += 4, SBNI_IO_EXTENT ) )
-+			    !request_region(pci_ioaddr += 4, SBNI_IO_EXTENT,
-+					    dev->name) )
- 				continue;
- 		}
- 
-@@ -318,10 +320,15 @@
- 				pci_irq_line );
- 
- 		/* avoiding re-enable dual adapters */
--		if( (pci_ioaddr & 7) == 0  &&  pci_enable_device( pdev ) )
--			return  -EIO;
--		if( sbni_probe1( dev, pci_ioaddr, pci_irq_line ) )
-+		if( (pci_ioaddr & 7) == 0  &&  pci_enable_device( pdev ) ) {
-+			release_region( pci_ioaddr, SBNI_IO_EXTENT);
-+			return -EIO;
-+		}
-+			
-+		else if( sbni_probe1( dev, pci_ioaddr, pci_irq_line ) )
- 			return  0;
-+
-+		release_region( pci_ioaddr, SBNI_IO_EXTENT);
- 	}
- 	return  -ENODEV;
- }
-@@ -332,10 +339,8 @@
- {
- 	struct net_local  *nl;
- 
--	if( sbni_card_probe( ioaddr ) ) {
--		release_region( ioaddr, SBNI_IO_EXTENT );
-+	if( sbni_card_probe( ioaddr ) ) 
- 		return  0;
--	}
- 
- 	outb( 0, ioaddr + CSR0 );
- 
-@@ -352,7 +357,6 @@
- 		if( !irq ) {
- 			printk( KERN_ERR "%s: can't detect device irq!\n",
- 				dev->name );
--			release_region( ioaddr, SBNI_IO_EXTENT );
- 			return  0;
- 		}
- 	} else if( irq == 2 )
-@@ -365,7 +369,6 @@
- 	nl = dev->priv;
- 	if( !nl ) {
- 		printk( KERN_ERR "%s: unable to get memory!\n", dev->name );
--		release_region( ioaddr, SBNI_IO_EXTENT );
- 		return  0;
+Don't have hardware that uses this, so could someone please do a sanity 
+test on this.
+
+diff -Nru a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
+--- a/drivers/net/wan/syncppp.c	Fri Oct  3 11:28:11 2003
++++ b/drivers/net/wan/syncppp.c	Fri Oct  3 11:28:11 2003
+@@ -236,7 +236,7 @@
+ 		sp->ipkts++;
  	}
  
+-	if (skb->len <= PPP_HEADER_LEN) {
++	if (!pskb_may_pull(skb, PPP_HEADER_LEN)) {
+ 		/* Too small packet, drop it. */
+ 		if (sp->pp_flags & PP_DEBUG)
+ 			printk (KERN_DEBUG "%s: input packet is too small, %d bytes\n",
+@@ -473,7 +473,7 @@
+ 	u8 *p, opt[6];
+ 	u32 rmagic;
+ 
+-	if (len < 4) {
++	if (!pskb_may_pull(skb, sizeof(struct lcp_header))) {
+ 		if (sp->pp_flags & PP_DEBUG)
+ 			printk (KERN_WARNING "%s: invalid lcp packet length: %d bytes\n",
+ 				dev->name, len);
+@@ -707,7 +707,9 @@
+ 	struct cisco_packet *h;
+ 	struct net_device *dev = sp->pp_if;
+ 
+-	if (skb->len != CISCO_PACKET_LEN && skb->len != CISCO_BIG_PACKET_LEN) {
++	if (!pskb_may_pull(skb, sizeof(struct cisco_packet))
++	    || (skb->len != CISCO_PACKET_LEN
++		&& skb->len != CISCO_BIG_PACKET_LEN)) {
+ 		if (sp->pp_flags & PP_DEBUG)
+ 			printk (KERN_WARNING "%s: invalid cisco packet length: %d bytes\n",
+ 				dev->name,  skb->len);
+@@ -1211,8 +1213,7 @@
+ 	struct net_device *dev = sp->pp_if;
+ 	int len = skb->len;
+ 
+-	if (len < 4) 
+-	{
++	if (!pskb_may_pull(skb, sizeof(struct lcp_header))) {
+ 		if (sp->pp_flags & PP_DEBUG)
+ 			printk (KERN_WARNING "%s: invalid ipcp packet length: %d bytes\n",
+ 				dev->name,  len);
