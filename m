@@ -1,8 +1,8 @@
-From: Andy Lutomirski <luto@stanford.edu>
+From: Andy Lutomirski <luto@myrealbox.com>
 Subject: Re: [PATCH r8169] ethtool support and sane speed selection/detection
-Date: Mon, 26 Apr 2004 10:41:19 -0700
+Date: Mon, 26 Apr 2004 10:41:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <408D49BF.40708@stanford.edu>
+Message-ID: <408D49C7.2070802@myrealbox.com>
 References: <OFF82CB6DE.E6133152-ON87256E81.007259F5-86256E81.0073C48D@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
