@@ -1,43 +1,62 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: netif_rx packet dumping
-Date: 8 Mar 2005 19:18:44 +0100
-Message-ID: <20050308181844.GA37392@muc.de>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net> <42278122.6000000@ev-en.org> <20050303133659.0d224e61.davem@davemloft.net> <42278554.2090902@ev-en.org> <20050303135718.2e1a0170.davem@davemloft.net> <422DC7CE.2040800@ev-en.org> <m1y8cykr7i.fsf@muc.de> <20050308100902.24b67b2f.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: 08 Mar 2005 16:17:11 -0500
+Message-ID: <1110316631.1084.57.camel@jzny.localdomain>
+References: <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net>
+	 <20050306173145.GQ31837@postel.suug.ch>
+	 <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net> <m1y8d0mss2.fsf@muc.de>
+	 <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net> <422C0B50.20500@mrv.com>
+	 <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net>
+	 <1110288879.1050.167.camel@jzny.localdomain>
+	 <20050308135134.GA20607@atrey.karlin.mff.cuni.cz>
+	 <1110290300.1050.190.camel@jzny.localdomain>
+	 <20050308140301.GC20607@atrey.karlin.mff.cuni.cz>
+	 <1110291470.1043.211.camel@jzny.localdomain>
+	 <Pine.LNX.4.61.0503081937020.5332@filer.marasystems.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: baruch@ev-en.org, shemminger@osdl.org, netdev@oss.sgi.com
-Date: Tue, 8 Mar 2005 19:18:44 +0100
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050308100902.24b67b2f.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Martin Mares <mj@ucw.cz>, Zdenek Radouch <zdenek@rcn.com>,
+	Steve Iribarne <steve.iribarne@dilithiumnetworks.com>,
+	Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
+	Andi Kleen <ak@muc.de>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+To: Henrik Nordstrom <hno@marasystems.com>
+In-Reply-To: <Pine.LNX.4.61.0503081937020.5332@filer.marasystems.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > You could also use a xor list in theory. But I'm not sure it's worth it.
-> > Increasing cb by 4 bytes shouldn't be a very big issue.
+On Tue, 2005-03-08 at 13:40, Henrik Nordstrom wrote:
+[..]
+> Not if the 127.X addresses never leaves the Zdenek's boxes, when thinking 
+> in terms that each set of boxes communicating using 127.X addresses is a 
+> single chassis, seen as a single box to the network admin.
 > 
-> Going from "40" to "44" takes 64-bit platforms onto another cache line
-> for struct sk_buff, as I stated in another email.
+
+Henrik, so what is the difference between this and using any random
+block of addresses?;-> If the packets never leave the box i can use
+IBM's block of addresses if i wanted - no need to sweat this far (with
+hacking the kernel). 
+If Zdenek is going to put more than one box then theres nothing magical;
+he will have to sit down and configure one of the boxes manually - no
+escape there.
+If he puts only a single box then he may likely get away with it.
+
+> > Except this wont be practical for IPV4 since those addresses are scarce.
+> > May make sense for V6 though (becomes like MAC addresses on NICS).
 > 
-> And every time I let this happen, I get an email from David Mosberger because
-> it shows up in performance tests on ia64. :-)
+> IPv6 already have link local addressing IIRC.
+> 
 
-Ok, then use a XOR list or trim some other field.
+indeed that is what is needed in this case if the problem is address
+conflict resolution. An equivalent for v4 (called zeroconf) is at:
+http://www.zeroconf.org/
+It is unfortunate though because Apple has been claiming it has
+patented this v4 linklocal scheme - and if i recall the person who wrote
+the Linux code eventually took it off their web page (cant even seem to
+find the web page anymore).
 
-There are some other savings possible e.g. from a quick look:
-- skb->list is afaik totally unnecessary and probably even unused.
-- struct timeval could be an optimized structure using 32bit
-for the sub second part. 
-(would need moving it somewhere else, otherwise alignment doesn't help)
-- Are really three device pointers needed? Perhaps things can
-be a bit optimized here.
-- Hippi could be finally changed to use skb->cb instead of its
-private field.
-- is skb->security still needed? It should be obsolete with ->sec_path, no?
-Would only help together with the timestamp optimization.
+cheers,
+jamal
 
-Of course these all wouldn't change the number of cache lines significantly,
-but it would possible allow other optimizations that need new fields.
-
--Andi
