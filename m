@@ -1,100 +1,187 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Fw: BUG: atomic counter underflow when running "rmmod tg3" on
- 2.6.10-rc1-mm3
-Date: Tue, 09 Nov 2004 06:51:31 +0100
-Message-ID: <41905AE3.8040509@trash.net>
-References: <20041108214159.6400e8de.akpm@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH wireless-2.6 10/12] Host AP: Use void * instead of unsigned
+ long with {read,write}{b,w}
+Date: Tue, 09 Nov 2004 02:29:25 -0500
+Message-ID: <419071D5.8070208@pobox.com>
+References: <20041108070156.GA1076@jm.kir.nu> <20041108071630.GK1076@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010708020604060505080903"
-Cc: netdev@oss.sgi.com, Bernhard Rosenkraenzer <bero@arklinux.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041108214159.6400e8de.akpm@osdl.org>
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20041108071630.GK1076@jm.kir.nu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010708020604060505080903
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Andrew Morton wrote:
-
->There's a debug patch in -mm which generates a trace when someone does
->atomic_dec_and_test() on an atomic_t which already has a value of zero.
->
->ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.10-rc1/2.6.10-rc1-mm3/broken-out/detect-atomic-counter-underflows.patch
->
->It looks like it has found a problem in qdisc_destroy().
+Jouni Malinen wrote:
+> Start using void * instead of unsigned long with {read,write}{b,w} to
+> silence compiler warning with Linux 2.6.9-rc2.
+> 
+> Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
+> 
+> 
+> diff -Nru a/drivers/net/wireless/hostap/hostap_pci.c b/drivers/net/wireless/hostap/hostap_pci.c
+> --- a/drivers/net/wireless/hostap/hostap_pci.c	2004-11-07 22:39:06 -08:00
+> +++ b/drivers/net/wireless/hostap/hostap_pci.c	2004-11-07 22:39:06 -08:00
+> @@ -56,7 +56,7 @@
 >  
->
-Already fixed in latest -bk by the attached patch. The builtin qdiscs
-are not refcounted, but qdisc_destroy treated them as other qdiscs.
+>  	spin_lock_irqsave(&local->lock, flags);
+>  	prism2_io_debug_add(dev, PRISM2_IO_DEBUG_CMD_OUTB, a, v);
+> -	writeb(v, dev->mem_start + a);
+> +	writeb(v, (void *) dev->mem_start + a);
+>  	spin_unlock_irqrestore(&local->lock, flags);
+>  }
+>  
+> @@ -68,7 +68,7 @@
+>  	u8 v;
+>  
+>  	spin_lock_irqsave(&local->lock, flags);
+> -	v = readb(dev->mem_start + a);
+> +	v = readb((void *) dev->mem_start + a);
+>  	prism2_io_debug_add(dev, PRISM2_IO_DEBUG_CMD_INB, a, v);
+>  	spin_unlock_irqrestore(&local->lock, flags);
+>  	return v;
+> @@ -82,7 +82,7 @@
+>  
+>  	spin_lock_irqsave(&local->lock, flags);
+>  	prism2_io_debug_add(dev, PRISM2_IO_DEBUG_CMD_OUTW, a, v);
+> -	writew(v, dev->mem_start + a);
+> +	writew(v, (void *) dev->mem_start + a);
+>  	spin_unlock_irqrestore(&local->lock, flags);
+>  }
+>  
+> @@ -94,7 +94,7 @@
+>  	u16 v;
+>  
+>  	spin_lock_irqsave(&local->lock, flags);
+> -	v = readw(dev->mem_start + a);
+> +	v = readw((void *) dev->mem_start + a);
+>  	prism2_io_debug_add(dev, PRISM2_IO_DEBUG_CMD_INW, a, v);
+>  	spin_unlock_irqrestore(&local->lock, flags);
+>  	return v;
+> @@ -109,12 +109,14 @@
+>  
+>  #else /* PRISM2_IO_DEBUG */
+>  
+> -#define HFA384X_OUTB(v,a) writeb((v), dev->mem_start + (a))
+> -#define HFA384X_INB(a) (u8) readb(dev->mem_start + (a))
+> -#define HFA384X_OUTW(v,a) writew((v), dev->mem_start + (a))
+> -#define HFA384X_INW(a) (u16) readw(dev->mem_start + (a))
+> -#define HFA384X_OUTW_DATA(v,a) writew(cpu_to_le16(v), dev->mem_start + (a))
+> -#define HFA384X_INW_DATA(a) (u16) le16_to_cpu(readw(dev->mem_start + (a)))
+> +#define HFA384X_OUTB(v,a) writeb((v), (void *) dev->mem_start + (a))
+> +#define HFA384X_INB(a) (u8) readb((void *) dev->mem_start + (a))
+> +#define HFA384X_OUTW(v,a) writew((v), (void *) dev->mem_start + (a))
+> +#define HFA384X_INW(a) (u16) readw((void *) dev->mem_start + (a))
+> +#define HFA384X_OUTW_DATA(v,a) \
+> +	writew(cpu_to_le16(v), (void *) dev->mem_start + (a))
+> +#define HFA384X_INW_DATA(a) (u16) \
+> +	le16_to_cpu(readw((void *) dev->mem_start + (a)))
 
-Regards
-Patrick
+Two comments:
+
+1) that should be "void __iomem *" not "void *" for MMIO memory pointers
+
+2) don't bother using dev->mem_start, that is normally used for passing 
+options or an ISA memory address from userland to the kernel.  Store the 
+result of ioremap() in a private 'void __iomem *' pointer instead.
 
 
---------------010708020604060505080903
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/11/05 16:30:34-08:00 tgraf@suug.ch 
-#   [PKT_SCHED]: Builtin qdiscs should avoid all qdisc_destroy() processing.
-#   
-#   None of the code in __qdisc_destroy should be applied to a builtin qdisc
-#   or am I missing something?
-#   
-#   The patch below prevents builtin qdiscs from being destroyed and
-#   fixes a refcnt underflow whould lead to a bogus list unlinking
-#   and dev_put.
-#   
-#   Signed-off-by: Thomas Graf <tgraf@suug.ch>
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# net/sched/sch_generic.c
-#   2004/11/05 16:30:14-08:00 tgraf@suug.ch +3 -3
-#   [PKT_SCHED]: Builtin qdiscs should avoid all qdisc_destroy() processing.
-#   
-#   None of the code in __qdisc_destroy should be applied to a builtin qdisc
-#   or am I missing something?
-#   
-#   The patch below prevents builtin qdiscs from being destroyed and
-#   fixes a refcnt underflow whould lead to a bogus list unlinking
-#   and dev_put.
-#   
-#   Signed-off-by: Thomas Graf <tgraf@suug.ch>
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-diff -Nru a/net/sched/sch_generic.c b/net/sched/sch_generic.c
---- a/net/sched/sch_generic.c	2004-11-09 06:50:10 +01:00
-+++ b/net/sched/sch_generic.c	2004-11-09 06:50:10 +01:00
-@@ -479,15 +479,15 @@
- 	module_put(ops->owner);
- 
- 	dev_put(qdisc->dev);
--	if (!(qdisc->flags&TCQ_F_BUILTIN))
--		kfree((char *) qdisc - qdisc->padded);
-+	kfree((char *) qdisc - qdisc->padded);
- }
- 
- /* Under dev->queue_lock and BH! */
- 
- void qdisc_destroy(struct Qdisc *qdisc)
- {
--	if (!atomic_dec_and_test(&qdisc->refcnt))
-+	if (qdisc->flags & TCQ_F_BUILTIN ||
-+		!atomic_dec_and_test(&qdisc->refcnt))
- 		return;
- 	list_del(&qdisc->list);
- 	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
+> diff -Nru a/drivers/net/wireless/hostap/hostap_plx.c b/drivers/net/wireless/hostap/hostap_plx.c
+> --- a/drivers/net/wireless/hostap/hostap_plx.c	2004-11-07 22:39:06 -08:00
+> +++ b/drivers/net/wireless/hostap/hostap_plx.c	2004-11-07 22:39:06 -08:00
+> @@ -247,7 +247,7 @@
+>  
+>  	/* Set sreset bit of COR and clear it after hold time */
+>  
+> -	if (local->attr_mem == 0) {
+> +	if (local->attr_mem == NULL) {
+>  		/* TMD7160 - COR at card's first I/O addr */
+>  		corsave = inb(local->cor_offset);
+>  		outb(corsave | COR_SRESET, local->cor_offset);
+> @@ -271,7 +271,7 @@
+>  {
+>  	unsigned char corsave;
+>  
+> -	if (local->attr_mem == 0) {
+> +	if (local->attr_mem == NULL) {
+>  		/* TMD7160 - COR at card's first I/O addr */
+>  		corsave = inb(local->cor_offset);
+>  		outb(corsave | COR_SRESET, local->cor_offset);
+> @@ -306,7 +306,7 @@
+>  };
+>  
+>  
+> -static int prism2_plx_check_cis(unsigned long attr_mem, int attr_len,
+> +static int prism2_plx_check_cis(void *attr_mem, int attr_len,
+>  				unsigned int *cor_offset,
+>  				unsigned int *cor_index)
+>  {
+> @@ -401,7 +401,7 @@
+>  	unsigned int pccard_ioaddr, plx_ioaddr;
+>  	unsigned long pccard_attr_mem;
+>  	unsigned int pccard_attr_len;
+> -	unsigned long attr_mem = 0;
+> +	void *attr_mem = NULL;
+>  	unsigned int cor_offset, cor_index;
+>  	u32 reg;
+>  	local_info_t *local = NULL;
 
---------------010708020604060505080903--
+void __iomem *
+
+
+> @@ -422,7 +422,7 @@
+>  
+>  	if (tmd7160) {
+>  		/* TMD7160 */
+> -		attr_mem = 0; /* no access to PC Card attribute memory */
+> +		attr_mem = NULL; /* no access to PC Card attribute memory */
+>  
+>  		printk(KERN_INFO "TMD7160 PCI/PCMCIA adapter: io=0x%x, "
+>  		       "irq=%d, pccard_io=0x%x\n",
+> @@ -448,9 +448,8 @@
+>  			goto fail;
+>  
+>  
+> -		attr_mem = (unsigned long) ioremap(pccard_attr_mem,
+> -						   pccard_attr_len);
+> -		if (!attr_mem) {
+> +		attr_mem = ioremap(pccard_attr_mem, pccard_attr_len);
+> +		if (attr_mem == NULL) {
+>  			printk(KERN_ERR "%s: cannot remap attr_mem\n",
+>  			       dev_info);
+>  			goto fail;
+> @@ -532,7 +531,7 @@
+>  		free_irq(dev->irq, dev);
+>  
+>  	if (attr_mem)
+> -		iounmap((void *) attr_mem);
+> +		iounmap(attr_mem);
+>  
+>  	pci_disable_device(pdev);
+>  
+> @@ -550,7 +549,7 @@
+>  	hfa384x_disable_interrupts(dev);
+>  
+>  	if (iface->local->attr_mem)
+> -		iounmap((void *) iface->local->attr_mem);
+> +		iounmap(iface->local->attr_mem);
+>  	if (dev->irq)
+>  		free_irq(dev->irq, dev);
+>  
+> diff -Nru a/drivers/net/wireless/hostap/hostap_wlan.h b/drivers/net/wireless/hostap/hostap_wlan.h
+> --- a/drivers/net/wireless/hostap/hostap_wlan.h	2004-11-07 22:39:06 -08:00
+> +++ b/drivers/net/wireless/hostap/hostap_wlan.h	2004-11-07 22:39:06 -08:00
+> @@ -895,7 +895,7 @@
+>  #endif /* PRISM2_PCCARD */
+>  
+>  #ifdef PRISM2_PLX
+> -	unsigned long attr_mem;
+> +	void *attr_mem;
+>  	unsigned int cor_offset;
+>  #endif /* PRISM2_PLX */
+
+void __iomem *
