@@ -1,20 +1,26 @@
-From: Alan Cox <alan@redhat.com>
-Subject: Re: [PATCH 2.6.7-rc3-mm2 5/5] via-velocity: Rx copybreak
-Date: Fri, 18 Jun 2004 16:34:34 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] (2/4) delay scheduler - retry if requeue fails
+Date: Fri, 18 Jun 2004 13:44:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618203434.GA826@devserv.devel.redhat.com>
-References: <20040618221014.A15640@electric-eye.fr.zoreil.com> <20040618221142.A20210@electric-eye.fr.zoreil.com> <20040618221336.B20210@electric-eye.fr.zoreil.com> <20040618221444.C20210@electric-eye.fr.zoreil.com> <20040618221618.D20210@electric-eye.fr.zoreil.com>
+Message-ID: <20040618134446.668b20d4.davem@redhat.com>
+References: <20040617155559.5aeba553@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, alan@redhat.com, akpm@osdl.org, jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: lartc@mailman.ds9a.nl, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20040618221618.D20210@electric-eye.fr.zoreil.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040617155559.5aeba553@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 18, 2004 at 10:16:18PM +0200, Francois Romieu wrote:
-> Some inspiration has been taken from similar r8169 code.
+On Thu, 17 Jun 2004 15:55:59 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-All 5 look good to me. Jeff please merge when you send to Linus
+> If delay scheduler decides not to send the packet right away, it requeues
+> it.  If the requeue fails, it should go and look again rather than waking
+> up prematurely.
+> 
+> Same patch should apply to both 2.6 and 2.4
+
+Applied.
