@@ -1,35 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: 3c59x
-Date: Tue, 10 Jun 2003 13:25:56 -0400
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: [RFC] assorted changes to atm protocol stack
+Date: Tue, 10 Jun 2003 13:23:30 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030610172556.GD1959@gtf.org>
-References: <20030610162342.GB1959@gtf.org> <20030610.100209.70199702.davem@redhat.com> <20030610171617.GC1959@gtf.org> <20030610.101452.35033262.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@suse.de, bogdan.costescu@iwr.uni-heidelberg.de, hadi@shell.cyberus.ca,
-   ralph+d@istop.com, xerox@foonet.net, sim@netnation.com, fw@deneb.enyo.de,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org
+Message-ID: <200306101723.h5AHNT9x017552@locutus.cmf.nrl.navy.mil>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030610.101452.35033262.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 10, 2003 at 10:14:52AM -0700, David S. Miller wrote:
->    From: Jeff Garzik <jgarzik@pobox.com>
->    Date: Tue, 10 Jun 2003 13:16:17 -0400
-> 
->    On Tue, Jun 10, 2003 at 10:02:09AM -0700, David S. Miller wrote:
->    > This means end users don't see the benefit, so I definitely
->    > prefer Andi's idea.
->    
->    Making every IO a conditional branch?  Ug.
->    
-> A PIO costs hundreds if not thousands of instructions!
-> Come on Jeff, get real :-)
+i would appreciate it some people could review the following proposed
+changes for the atm protocol families:
 
-MMIO isn't as bad as PIO, and the 'runtime choice' setup implies
-slowing down the MMIO path, too.
+ftp://ftp.cmf.nrl.navy.mil/pub/chas/linux-atm/2_5_70_vcc_sklist_diffs
 
-	Jeff
+- vcc's are keep in a global list (vcc_sklist) much like the
+  other protocol stacks.  
+- rename's various functions to vcc_XXX instead of calling everything 
+  atm_XXX.  hopefully this will make things clearer at some point.
+- the he driver tries to do locking proper locking during the
+  recv operation by holding a read_lock on the vcc sklist. 
+  other drivers will need to do this as well.  (or otherwise
+  hold reference counts)
+- got rid of SOCKOPS_WRAPPED and would like someone to
+  tell me if i have enough lock_sock()'s in place.
+- rewrote recvmsg to use the existing skb network functions
+- rewriting sendmsg will need to wait since i believe skb from the
+  network stack will need to be cloned so that they can be properly
+  skb_set_ownwer_w()
+- split atm_ioctl into vcc_ioctl and atm_dev_ioctl.
+- changed to prepare_to_wait() and finish_wait() in svc.c.  i assume
+  that this is more correct, than directly using add_wait_queue
+  and remove_wait_queue?
+
+other comments are welcome of course.
