@@ -1,30 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH] 2.6.2 SCTP updates
-Date: Fri, 6 Feb 2004 19:45:18 -0800
+Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
+Date: Fri, 6 Feb 2004 19:48:44 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040206194518.56787717.davem@redhat.com>
-References: <Pine.LNX.4.58.0402061649001.10831@localhost.localdomain>
+Message-ID: <20040206194844.42bebb59.davem@redhat.com>
+References: <200402070232.33771.kazunori@miyazawa.org>
+	<4023D6FB.9010909@kolumbus.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: kazunori@miyazawa.org, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0402061649001.10831@localhost.localdomain>
+To: Mika =?ISO-8859-1?Q?Penttil=E4?= <mika.penttila@kolumbus.fi>
+In-Reply-To: <4023D6FB.9010909@kolumbus.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 Feb 2004 17:24:32 -0800 (PST)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On Fri, 06 Feb 2004 20:03:39 +0200
+Mika Penttil=E4 <mika.penttila@kolumbus.fi> wrote:
 
-> Please do a
-> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
-> to get the following udpates to SCTP on top of linux 2.6.2
+> >Yoshifuji-san and I send the patch which unifies IPv6 output routine a=
+nd remove
+> >RTF_NDISC again. It resolves an issue of IPv6 IPsec with neighbor disc=
+overy
+> >without a flag.
+>=20
+> You break multicast replies, see what ndisc_build_ll_hdr() does...
 
-Pulled, but.
-
-> - Updated the default max socket receive buffer to 64K from 32K and also
->   added sysctl variables to change sctp socket send/receive buffers.
-
-Why do you use specialized SCTP rmem/wmem values and not the globally
-sysctl's ones we have for sockets already?
+That's right, and compiler should have warned about ndisc_build_ll_hdr()
+(a static function in ndisc.c) since it was no longer referenced after
+applying the patch, which would be a clue that something was wrong :-)
