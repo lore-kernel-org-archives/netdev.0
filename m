@@ -1,33 +1,30 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: RE: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Sat, 28 Aug 2004 22:53:00 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
+Date: Sat, 28 Aug 2004 23:15:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408290553.i7T5r0qG010550@guinness.s2io.com>
-References: <413116FF.7000701@pobox.com>
+Message-ID: <20040828231529.051a73cc.davem@davemloft.net>
+References: <412A8FB5.4080700@trash.net>
+	<OFE08A3DF5.09BCA1C4-ON88256EFA.00806C05-88256EFA.0080E98F@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <raghavendra.koushik@s2io.com>
+Cc: kaber@trash.net, davem@redhat.com, laforge@netfilter.org,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org, okir@suse.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>, <ravinandan.arakali@s2io.com>
-In-Reply-To: <413116FF.7000701@pobox.com>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OFE08A3DF5.09BCA1C4-ON88256EFA.00806C05-88256EFA.0080E98F@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Ravi,
-Please try to address the comments in real time, it's probably better to
-submit a follow-up rather than waiting for more comments... 
-Also - are Koushik and Sriram in Cupertino next week?
-Cheers ,  Leonid
+On Tue, 24 Aug 2004 15:28:07 -0600
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jgarzik@pobox.com] 
-> Sent: Saturday, August 28, 2004 4:37 PM
-> To: ravinandan.arakali@s2io.com
-> Cc: netdev@oss.sgi.com; leonid.grossman@s2io.com; 
-> raghavendra.koushik@s2io.com
-> Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-> 
-> is there a follow-up patch addressing the comments ?
-> 
+> In that case, it appears that conntrack needs to flush the entire
+> frag queue when it's unloaded. That shouldn't happen much,
+> so maybe that's not such a bad idea.
+
+I think I agree with David now that I've read through this a few
+times.  Can someone send me a patch which does this?
+
+Does 2.4.x have this problem too?  I thought it didn't.
