@@ -1,26 +1,25 @@
-From: jamal <hadi@cyberus.ca>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Update on e1000 troubles (over-heating!)
-Date: Mon, 7 Oct 2002 07:56:59 -0400 (EDT)
+Date: Mon, 07 Oct 2002 04:58:44 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210070753400.1861-100000@shell.cyberus.ca>
-References: <Pine.LNX.4.10.10210061700000.23945-100000@master.linux-ide.org>
+Message-ID: <20021007.045844.12156576.davem@redhat.com>
+References: <3DA103A2.1060901@candelatech.com>
+	<Pine.GSO.4.30.0210070749430.1861-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Greear <greearb@candelatech.com>,
-   linux-kernel <linux-kernel@vger.kernel.org>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, andre@pyxtechnologies.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andre Hedrick <andre@pyxtechnologies.com>
-In-Reply-To: <Pine.LNX.4.10.10210061700000.23945-100000@master.linux-ide.org>
+To: hadi@cyberus.ca
+In-Reply-To: <Pine.GSO.4.30.0210070749430.1861-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: jamal <hadi@cyberus.ca>
+   Date: Mon, 7 Oct 2002 07:53:26 -0400 (EDT)
+   
+   Does the problem happen with the tg3?
 
-
-It does seem like you need a lot of packets over a period of time
-to recreate it. So if what you are trying to do can achieve that,
-you should reproduce it. How many connections and sessions can you
-support? BTW, does iscsi call for a zero-copy receive?
-
-cheers,
-jamal
+He gets hangs in one box, inoperable PCI config space accesses for the
+cards in another box.
