@@ -1,25 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch resubmission: RFC2863 operstatus for 2.5.50
-Date: Tue, 03 Dec 2002 19:52:57 -0500
+From: anand@eis.iisc.ernet.in (SVR Anand)
+Subject: tcp flows hash function
+Date: Wed, 4 Dec 2002 13:08:31 +0530 (GMT+05:30)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DED51E9.1080408@pobox.com>
-References: <3DE33D6D.25B9C9B4@isg.de> <20021126.021546.91313706.davem@redhat.com> <3DED2EA9.D812C881@isg.de>
+Message-ID: <200212040738.NAA02825@eis.iisc.ernet.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <3DED2EA9.D812C881@isg.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pardon my dumb question, but what parts of RFC2863 require kernel 
-additions over and above your link state patch?
+Hi,
 
-Your second patch I am less enthusiastic about than the first... :(
+I am writing a program that requires maintanence of per-connection statistics
+of many tcp connections based on multi-field classification. The problem is
+that of fast search and update when there are 1000s of connections. Couple of
+questions.
 
-I wonder if userspace cannot figure out ifOperStatus from existing data 
-we make available?
+1. In many places of network code, I am seeing hashing being used. Can I also
+use the same ? 
 
-	Jeff
+>From the recently published literature on packet classification, people are 
+talking about some sort of trie variants. I would like to know if someone has 
+done performance comparison of the algorithm used in Linux against other
+schemes.
+   
+
+2. While going through tcp_ipv4.c, I happened to see tcp_hashfn. What is the
+algorithm behind this ?
+
+static __inline__ int tcp_hashfn(__u32 laddr, __u16 lport,
+                                 __u32 faddr, __u16 fport)
+{
+        int h = ((laddr ^ lport) ^ (faddr ^ fport));
+        h ^= h>>16;
+        h ^= h>>8;
+        return h & (tcp_ehash_size - 1);
+}
+
+
+Any inputs from you will help me proceed further.
+
+Anand
