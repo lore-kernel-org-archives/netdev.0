@@ -1,25 +1,80 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: ZyXEL GN650-T
-Date: Sun, 7 Nov 2004 23:48:03 +0100
-Message-ID: <20041107224803.GA29248@electric-eye.fr.zoreil.com>
-References: <20041107214427.20301.qmail@focomunicatii.ro>
+From: "emmelineudobbin@deal-maker.com" <emmelineudobbin@deal-maker.com>
+Subject: Distribution
+Date: Sun,  7 Nov 2004 20:05:05 -0500 (EST)
+Message-ID: <1072071300.64046858662087@yahoo.com>
+Reply-To: emmelineudobbin@deal-maker.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: seby@focomunicatii.ro
-Content-Disposition: inline
-In-Reply-To: <20041107214427.20301.qmail@focomunicatii.ro>
+To: User <emmelineudobbin@deal-maker.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-seby@focomunicatii.ro <seby@focomunicatii.ro> :
-[...]
-> I just bouth a zyxel GN650T network card .. and it sems that vlan's don't 
-> work on this card .. anybody had this problems with this card .. 
-
-You are using the in-kernel via-velocity driver on 2.6.something, right ?
-
---
-Ueimor
+DQrR5ezo7eDwIDogztDDwM3Ix8DWyN8gyCDQwMfCyNLIxSDKzsvI18XR0sLFzc3OySDIIMrA
+18XR0sLFzc3OySDEyNHS0MjB09bIyCANCg0KMTItMTMg7e7/4fD/DQoNCuMuIMro5eIsIOHz
+6/ziLiDY5eL35e3q7iA0LCDu8uXr/CAi0eDt6vItz+Xy5fDh8/DjIg0KKDA0NCkgMjMzLTQ2
+LTY5LCAyMzctOTAtMDUgDQoNCtXO0M7YyMUgx83AzcjfIMTL3yDQ08rOws7EyNLFy98sIM/O
+0cvFIMrO0s7Q29Ugys7Mz8DNyN8g0dLAzc7CyNLR3yDRyMvczcXFDQoNCtbl6/wg8eXs6O3g
+8OA6IO7q4Ofg8vwg7/Dg6vLo9+Xx6vP+IO/u7O75/CDu8OPg7ejn4Pbo6CDx6PHy5ez7IOTo
+8fLw6OHz9ujoIO3gIO/w5eTv8Oj/8ujoLg0KDQrW5evl4uD/IODz5Ojy7vDo/zog8PPq7uLu
+5Ojy5evoIO/w5eTv8Oj/8ujpLCDw8+ru4u7k6PLl6+gg8fDl5O3l4+4g5+Ll7eAsIPHv5fbo
+4Ovo8fL7IOzg8Orl8ujt4+7i+/Ug6CDx4fvy7uL79SDv7uTw4Ofk5evl7ejpIO/w5eTv8Oj/
+8ujpDQoNCsLl5OXyIPHl7Ojt4PA6DQrC6+Dk6Ozo8CDT8ejt4PEgLSDj5e3l8ODr/O376SDk
+6PDl6vLu8CDw7vHx6Onx6u7pIOzg8Orl8ujt4+7i7ukg6u7s7+Dt6OggIlRlY2hub2xnbGVz
+Ii4NCg0Kz+Xw4vvpIOTl7fwuIM/LwM0g0cXMyM3A0MA6DQoxLiDQ7uv8IOTo8fLw6OHz9ujo
+IOIg8ejx8uXs5SDs4PDq5fLo7ePgDQoyLiDR8vDz6vLz8OAg5Ojx8vDo4fP26OgNCiAgICAg
+LSDQ7uft6Pft4P8g8u7w4+7i6/8sIPHu8fLu/+3o5SDoIO/l8PHv5ery6OL7IPDg5+Lo8uj/
+DQogICAgIC0gzu/y7uLg/yDy7vDj7uLr/w0KMy4g1PPt6vbo6CDk6PHy8Ojh8/bo6A0KICAg
+ICAtINTo5+j35fHq4P8g5Ojx8vDo4fP26P8NCiAgICAgLSDM4PDq5fLo7ePu4uD/IOTo8fLw
+6OHz9uj/DQo0LiDR8vDg8uXj6Ogg5Ojx8vDo4fP26OgNCjUuIM7w4+Dt6Ofg9uj/IPDg4e7y
++yDxIPLu8OPu4vvs6CDy7vfq4OzoICjS0ik6DQogICAgIC0g0ODn8ODh7vLq4CDx5ePs5e3y
+7uIg8Pvt6uANCiAgICAgLSDQ4OHu8uAg8SDg8fHu8PLo7OXt8u7sLg0KICAgICAtIMzg8Pjw
+8/Lo5+D26P8NCiAgICAgLSDd6+Xs5e3y+yDi6Ofo8uAg4iDS0g0KNi4gzvHt7uL7IOzl8Pfg
+7eTg6efo7ePgOg0KICAgICAtIMPr4OLt7uUg7/Dg4ujr7iD99PTl6vLo4u3u4+4g7OXw9+Dt
+5ODp5+jt4+ANCiAgICAgLSDO8e3u4u375SDo7fHy8PPs5e3y+yDs5fD34O3k4Onn6O3j4A0K
+ICAgICAtIN3y6OrgIOgg8uX17ejq4CDi++rr4OTq6CDy7uLg8OANCiAgICAgLSDP7uTh7vAg
+6CDo5+Pu8u7i6+Xt6P8gUE9TLezg8uXw6ODr7uINCiAgICAgLSDR8uDt5ODw8vsg7vTu8Ozr
+5e3o/yDs5fHyIO/w7uTg5ug7DQogICAgIC0gz+7k4+7y7uLq4CDw8+ru4u7k8fLi4CDv7iDq
+7vDv7vDg8uji7e7s8yDs5fD34O3k4Onn6O3j8w0KICAgICAtIM/w7uTi6Obl7ejlIOIg7OXx
+8uD1IO/w7uTg5g0KDQrC8u7w7ukg5OXt/C4gz8vAzSDRxczIzcDQwDoNCjEuIMzg8fLl8PHy
+4u4g7/Du5ODi9uA6IA0KICAgICAtINDg4e7y4CDxIPbl6+Xv7uvg4+Dt6OXsDQogICAgIC0g
+yvDo8uXw6Ogg7vbl7eroIPPx7+X47e7j7iDv8O7k4OL24A0KICAgICAtIM/w5ejs8/nl8fLi
+4CDoIO3l5O7x8uDy6ugg7/Du9OXx8ejoDQogICAgIC0gx+3g7ej/IOgg8+zl7ej/IPLu8OPu
+4u7j7iDv8OXk8fLg4ujy5ev/ICjSzykNCjIuINDg4e7y4CDxIOrr6OXt8u7sOg0KICAgICAt
+IMrg8uXj7vDo6CDv7urz7+Dy5evl6SDoIPLo7+7r7uPo/yDq6+jl7fLu4g0KICAgICAtINHy
+6OvoIO7h8evz5uji4O3o/yDq6+jl7fLu4g0KMy4g0uX17ejq6CDv8O7i5eTl7ej/IOvo9+37
+9SDv8O7k4OY6DQogICAgIC0g2ODj6CDv8O7k4OboDQogICAgIC0g0uX17ejq6CDv8Ojx7uXk
+6O3l7ej/DQogICAgIC0gzvbl7ergIO/u8vDl4e3u8fLl6SDq6+jl7fLgDQogICAgIC0g0uX1
+7e7r7uPo/yBTUElODQogICAgIC0g0uX17ejq6CDv8OXn5e3y4Pbo6SDoIOzl8u7k6OroIPPh
+5ebk5e3o/w0KICAgICAtINLl9e3o6ugg7/Dl7uTu6+Xt6P8g4u7n8ODm5e3o6Q0KICAgICAt
+IMLl5OXt6OUg7+Xw5ePu4u7w7uIg7iD25e3lDQoNCsrAxsTOzNMg09fA0dLNyMrTIM/QxcTO
+0dLAwsvfxdLR3zoNCiAgICAgLSDK7uzv6+Xq8iDz9+Xh7e4t7OXy7uTo9+Xx6uj1IOzg8uXw
+6ODr7uINCiAgICAgLSDK4Obk7uzzIPP34PHy7ejq8yDi++Tg5fLx/yDRxdDSyNTIysDSIO4g
+7+7i+/jl7ejoIOri4Ovo9Ojq4Pbo6CDv7iDk4O3t7ukg8uXs4PLo6uUuDQogICAgIC0g0eXs
+6O3g8CDv8O7i7uTo8vH/IOIg8e7i8OXs5e3t7uwg6u7t9OXw5e32Lefg6+Ug8SDo8e/u6/zn
+7uLg7ejl7CDt4OPr/+Tt+/Ug7+7x7uHo6SDoIOzz6/zy6Ozl5Ojp7e7j7iDv8O7l6vLu8OAu
+IMTg7e375SDz8evu4uj/IO/w7uLl5OXt6P8g8eXs6O3g8OAg5+3g9+jy5ev87e4g7+7i+/jg
+/vIg5ePuIP309OXq8uji7e7x8vwsIPfy7iDv7ufi7uv/5fIg5+Ag6u7w7vLq6Okg8fDu6iDv
+7uvz9+jy/CDs4Orx6Ozz7CDo7fTu8Ozg9ujoIOgg7+7i+/Ho8vwg6uLg6+j06Org9uj+Lg0K
+DQrT18DR0sjfIMIg0cXMyM3A0MU6DQo5NzAuMDAg4/DtLiAtIOfgIO7k7e7j7iDz9+Dx8u3o
+6uAuDQrE6/8g4vLu8O7j7iDoIPLw5fL85ePuIPP34PHy7ejq4CDx6ujk6uggliAxMCUg6CAx
+NSUg8e7u8uLl8vHy4uXt7e4uDQrCIPHy7ujs7vHy/CDi9e7k6PI6IOjt9O7w7OD26O7t7e4t
+6u7t8fPr/PLg9uju7e3u5SDu4fHr8+bo4uDt6OUg7eAg8eXs6O3g8OUsIPHh7vDt6Oog7ODy
+5fDo4Ovu4iwg6u705S3h8OXp6iwg7uHl5CDiIPDl8fLu8ODt5Swg7uHx8+bk5e3o5SDk7urr
+4OTu4iDoIO7h7OXtIOzt5e3o/+zoIPEg6+Xq8u7w7uwuDQoNCtDl4+vg7OXt8iDx5ezo7eDw
+4DogOS4zMCCWIDE3LjAwIM/l8OXw++IgMTMuMDAtMTQuMDAgDQrQ5ePo8fLw4Pbo/yDxIDku
+MDAg4iDK7u305fDl7fYt5+Dr5SDu8uXr/yDR4O3q8iDP5fLl8OHz8OMNCsfg7+7r7eXt6OUg
+4O3q5fIg6CDv7uvz9+Xt6OUg4fP14+Dr8uXw8eru4+4g6u7s7+vl6vLgIO/w6CDw5ePo8fLw
+4Pbo6C4NCg0K0uXs4PLo6uAg8vDl7ejt4+Ag4vHl9uXr7iDu9eLg8vvi4OXyIPH05fDzIPDg
+5+Lo8uj/IOgg7/Du5OLo5uXt6P8g4ejn7eXx4Cwg4CDw4PH17uT7IOfgIPP34PHy6OUg7vLt
+7vH/8vH/IOog8e7x8uDi8yDi4Ovu4vv1ICjx8i41IMfTIO4g7eDr7uPu7uHr7ubl7ejoIO/w
+6OH76+gg7/Dl5O/w6P/y6OkiKSwg6u7y7vD75SDx4v/n4O37IPEg7+7k4+7y7uLq7uksIO7w
+4+Dt6Ofg9ujl6SDoIPPv8ODi6+Xt6OXsIO/w7ujn4u7k8fLi4C4gwvHl7CDz9+Dx8u3o6uDs
+IPLw5e3o7ePgIO/w5eTu8fLg4uv/5fLx/yDq7uzv6+Xq8iDh8/Xj4Ovy5fDx6uj1IOTu6vPs
+5e3y7uI6IO7w6OPo7eDr+yDk7uPu4u7w4Cwg4Ory4CDoIPH35fLgLCDgIPLg6ublIOru7+jo
+IPHi6OTl8uXr/PHy4iDuIOPu8fPk4PDx8uLl7e3u6SDw5ePo8fLw4Pbo6CDoIO7hIPPv6+Dy
+5SDl5Ojt7uPuIO3g6+7j4A0KDQrQxcPI0dLQwNbI3yDT18DR0s3Iys7CIM3AINLQxc3IzcMg
+z9DOws7EyNLR3yANCs/OINLFy8XUzs3TOiAoMDQ0KSAyMzMtNDYtNjksIDIzNy05MC0wNQ0K
+DQo=
