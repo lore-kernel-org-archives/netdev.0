@@ -1,36 +1,32 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [patch] net/core/pktgen.c shouldn't include pci.h
-Date: Sat, 13 Nov 2004 15:53:51 +0100
-Message-ID: <20041113145351.GZ2249@stusta.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262766AbUKMOy1@vger.kernel.org>
-To: Robert Olsson <robert.olsson@its.uu.se>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+From: sinder@thp.Uni-Koeln.DE (Andreas Sindermann)
+Subject: Options for forcedeth Linux kernel module
+Date: Sat, 13 Nov 2004 20:13:35 +0100
+Message-ID: <200411131913.iADJDZ321996@sun80.thp.Uni-Koeln.DE>
+Cc: c-d.hailfinger.kernel.2004@gmx.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If rebuilding after touching pci.h in 2.6, net/core/pktgen.c is the only 
-file under net/ that gets rebuilt.
+Hi,
 
-I searched and didn't find any reason why net/core/pktgen.c needs to 
-include pci.h .
+I'm searching for options (for modules.conf) of the forcedeth kernel
+module. I'm using the Suse 9.2 version which seems to be  0.29. 
 
-I'm therefore suggesting the patch below (applies against both 2.4
-and 2.6).
+On http://www.hailfinger.org/carldani/linux/patches/forcedeth/ I can't
+find any information how to explicity set options for 100 Mbps full
+duplex. 
 
+Currently the driver sets the network device to 100 Mbps half duplex
+which results in extremely poor performance (only a few KB/sec
+throughput) since our network switch is configured with full duplex
+explicitely (and we can't change it because Sun workstations won't
+work properly otherwise).
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+I've looked into the sourced and searched google but unfortunately 
+without success. A short hint to a source of information would be of
+great help.
 
---- linux-2.6.10-rc1-mm5-full/net/core/pktgen.c.old	2004-11-13 14:37:43.000000000 +0100
-+++ linux-2.6.10-rc1-mm5-full/net/core/pktgen.c	2004-11-13 14:40:07.000000000 +0100
-@@ -69,7 +69,6 @@
- #include <linux/ioport.h>
- #include <linux/slab.h>
- #include <linux/interrupt.h>
--#include <linux/pci.h>
- #include <linux/delay.h>
- #include <linux/init.h>
- #include <linux/inet.h>
+Thanks in advance
+Andreas
