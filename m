@@ -1,48 +1,26 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [BK PATCH] 2.6 SCTP update
-Date: Fri, 27 Feb 2004 12:33:56 -0800 (PST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] kill acient compat cruft from acenic
+Date: Fri, 27 Feb 2004 15:55:41 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402271231490.12389@localhost.localdomain>
+Message-ID: <403FAECD.3090203@pobox.com>
+References: <20040227202510.GA19947@lst.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jes@wildopensource.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20040227202510.GA19947@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Christoph Hellwig wrote:
+> Kills lots of really old cruft and adds a little cruft to actually
+> make the driver work with recent 2.4 again.
 
-Please do a
-	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
-to get the following update to SCTP on top of linux 2.6.3
 
-# This patch includes the following deltas:
-#	           ChangeSet	1.1651  -> 1.1652
-#	net/sctp/sm_statefuns.c	1.67    -> 1.68
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/02/27	sri@us.ibm.com	1.1652
-# [SCTP] Fix incorrect INIT process termination with sinit_max_init_timeo.
-#
-# Currently, sinit_max_init_timeo is treated as the maximum timeout
-# value for INIT retransmissions and the INIT process is aborted when
-# the timeout reaches this value. But as per the SCTP sockets API draft,
-# sinit_max_init_timeo only limits the timeout. The INIT process should
-# be aborted only after MAX_INIT_RETRANSMITS.
-# --------------------------------------------
-#
-diff -Nru a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
---- a/net/sctp/sm_statefuns.c	Fri Feb 27 11:04:51 2004
-+++ b/net/sctp/sm_statefuns.c	Fri Feb 27 11:04:51 2004
-@@ -4272,8 +4272,7 @@
+Since kcompat (http://sf.net/projects/gkernel/) lets PCI API drivers 
+work in 2.2, 2.4 and 2.6, I am OK with applying this patch...... 
+assuming there is a second patch coming to convert to pci_driver API.
 
- 	SCTP_DEBUG_PRINTK("Timer T1 expired.\n");
-
--	if ((timeout < asoc->max_init_timeo) &&
--	    (attempts < asoc->max_init_attempts)) {
-+	if (attempts < asoc->max_init_attempts) {
- 		switch (timer) {
- 		case SCTP_EVENT_TIMEOUT_T1_INIT:
- 			bp = (struct sctp_bind_addr *) &asoc->base.bind_addr;
+	Jeff
