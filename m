@@ -1,36 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: NAT before IPsec with 2.6
-Date: Wed, 28 Jan 2004 11:38:25 -0800
+Subject: Re: 2.6.2-rc2-mm1
+Date: Wed, 28 Jan 2004 11:38:46 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040128113825.769fd89c.davem@redhat.com>
-References: <20040124082252.GA19035@alpha.home.local>
-	<Pine.LNX.4.44.0401241015470.32723-100000@filer.marasystems.com>
-	<20040124092721.GA19140@alpha.home.local>
-	<20040127103917.GC11761@sunbeam.de.gnumonks.org>
-	<20040127132725.GA14685@openoffice.nl>
-	<pan.2004.01.27.21.13.32.754125@dungeon.inka.de>
-	<20040128085831.GM11761@sunbeam.de.gnumonks.org>
+Message-ID: <20040128113846.4c71521b.davem@redhat.com>
+References: <20040127233402.6f5d3497.akpm@osdl.org>
+	<20040128094106.A26158@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: aj@dungeon.inka.de, netfilter-devel@lists.netfilter.org,
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, linux-mm@kvack.org,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20040128085831.GM11761@sunbeam.de.gnumonks.org>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20040128094106.A26158@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Jan 2004 09:58:31 +0100
-Harald Welte <laforge@netfilter.org> wrote:
+On Wed, 28 Jan 2004 09:41:06 +0000
+Christoph Hellwig <hch@infradead.org> wrote:
 
-> No, we don't achieve this by manipulating the routing code, but by
-> placing the respective hooks in ah{4,6}.c and esp{4,6}.c
-> {ah,esp}_output() function respectively. We also need to (again) reset
-> the skb->nfct and drop the conntrack reference again.
+> On Tue, Jan 27, 2004 at 11:34:02PM -0800, Andrew Morton wrote:
+> > 	Jeff's tree:		netdev.patch
+> 
+> Any plan when we'll get the damn netdev lifetime rule fixes merged?
+> They're real life problems and have been around for a long time..
 
-Why not just do this right when we pop into the dst_output() call
-in ip_output.c  This way we don't have to add all of this stuff
-for every new encapsulator we ever implement.
-
-Maybe not like this precisely, but something like it.
+Please be more specific, show me what patch you're talking about.
