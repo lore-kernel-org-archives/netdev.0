@@ -1,53 +1,59 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: FW: Submission for S2io 10GbE driver
-Date: Fri, 23 Jan 2004 23:22:09 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 patch set
+Date: Sat, 24 Jan 2004 00:32:16 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040123232209.2739e6aa.ak@suse.de>
-References: <002201c3e1f6$f97896e0$5d50ff11@S2IOtech.com>
+Message-ID: <20040124003216.A24000@electric-eye.fr.zoreil.com>
+References: <1074876326.5510.5.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Leonid Grossman" <leonid.grossman@s2io.com>
-In-Reply-To: <002201c3e1f6$f97896e0$5d50ff11@S2IOtech.com>
+To: dpollock@acm.org
+Content-Disposition: inline
+In-Reply-To: <1074876326.5510.5.camel@localhost>; from douglas.pollock@magma.ca on Fri, Jan 23, 2004 at 11:45:26AM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jan 2004 13:22:11 -0800
-"Leonid Grossman" <leonid.grossman@s2io.com> wrote:
+Douglas Pollock <douglas.pollock@magma.ca> :
+[...]
+> Let me know if you would like me to test something in particular.
 
-> Hi all,
-> Please fund attached a source code for S2io 10GbE adapter (with some
-> disclaimers below).
-> Send me your comments/suggestions on the source please,  and we will
-> address the code changes (if any) in real time.
+Yes.
 
->From a quick look:
+I assume it is a bit premature to try to run r8169 with HT SMP, acpi and
+nvidia binary module at the same time.
 
-The debugging ioctls look quite dangerous. iirc they are not root projected
-by higher level code. Either remove them or add a root check at least,
-otherwise you'll have a potential root hole.
+So I would suggest to build a kernel with both SMP and acpi disabled.
+Then boot in single user mode or anything similar which avoids the nvidia
+module to be loaded at all before the test*. I'd welcome two things:
+- behavior with a simple 'ping -c 144 remote_host'
+  No load, it just walks twice the Rx/Tx rings.
+- behavior under load. Use the tool of your choice. No need to reboot
+  after the aforementioned test if the system is still sane.
 
-All the ARCH_PPC64 ifdefs shouldn't be needed. Can you remove that?
-If there are problems in ppc64 code they should be fixed there, not worked
-around. Same with the ifdefs for kernel 2.6 features. An driver integrated
-into the kernel should not contain such ifdefs.
+If you can spend some time on it, a report between each patch would be nice:
+1)   r8169-tx-index-overflow.patch
 
-mdelay(100) is quite evil. Better make that a schedule_timeout() in 
-process context.
+2)   r8169-tx-index-overflow.patch
+   + r8169-dma-api-tx.patch
 
-ETH_GREGS/GEEPROM/SEEPROM/GSTRINGS ioctl handlers: seems to leak memory on error paths
+3)   r8169-tx-index-overflow.patch
+   + r8169-dma-api-tx.patch
+   + r8169-dma-api-rx-buffers.patch
 
-ETH_SEEPROM: len should be limit checked
+etc, until:
+- the 16 rounds of patches/tests are exhausted ;
+- you are bored :o)
 
-Running the driver through scripts/Lindent may not be a bad idea.
-
-initNic: the jiffies check does not handle jiffies wrapping. 2.6 forces a jiffies wrap
-5 minutes after boot, so this may be fatal. Use the right macros for this.
-
-init_nic: x86-64 supports consistent dma masks too. in fact they should be just
-used unconditionally.
+The 4 most recent patches (-getstats/-addr-high/-ethtool/-static) can wait.
 
 
--Andi
+
+[*] Why ?
+1) there is a ~200x ratio in size from r8169 to nvidia module
+   r8169                   9728  0 
+   nvidia               1701612  8 
+2) because.
+
+--
+Ueimor
