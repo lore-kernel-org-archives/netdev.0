@@ -1,107 +1,59 @@
-From: Richard Guy Briggs <rgb@conscoop.ottawa.on.ca>
-Subject: Re: Chaotic structure of the net headers?
-Date: Wed, 5 Mar 2003 18:53:20 -0500
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: Re: [PATH] IPv6 IPsec support
+Date: Thu, 6 Mar 2003 09:32:19 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030305185320.I4305@grendel.conscoop.ottawa.on.ca>
-References: <20030305225441.GO20423@fs.tum.de> <1046905834.17778.400.camel@localhost.localdomain>
+Message-ID: <20030306093219.1a702868.kazunori@miyazawa.org>
+References: <20030305233025.784feb00.kazunori@miyazawa.org>
+	<20030305.152530.70806720.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ext Adrian Bunk <bunk@fs.tum.de>, davem@redhat.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rod Van Meter <Rod.VanMeter@nokia.com>
-Content-Disposition: inline
-In-Reply-To: <1046905834.17778.400.camel@localhost.localdomain>; from Rod.VanMeter@nokia.com on Wed, Mar 05, 2003 at 03:10:35PM -0800
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030305.152530.70806720.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 05, 2003 at 03:10:35PM -0800, Rod Van Meter wrote:
-> On Wed, 2003-03-05 at 14:54, ext Adrian Bunk wrote:
-> > There's some duplication, e.g. include/linux/in6.h contains
-> > 
-> > /*
-> >  *      IPV6 extension headers
-> >  */
-> > #define IPPROTO_HOPOPTS         0       /* IPv6 hop-by-hop options      */
-> > #define IPPROTO_ROUTING         43      /* IPv6 routing header          */
-> > #define IPPROTO_FRAGMENT        44      /* IPv6 fragmentation header    */
-> > #define IPPROTO_ICMPV6          58      /* ICMPv6                       */
-> > #define IPPROTO_NONE            59      /* IPv6 no next header          */
-> > #define IPPROTO_DSTOPTS         60      /* IPv6 destination options     */
-> 
-> 
-> According to RFC2292 (Advanced Sockets):
-> 
-> 2.1.1.  IPv6 Next Header Values
-> 
->    IPv6 defines many new values for the Next Header field.  The
->    following constants are defined as a result of including
->    <netinet/in.h>.
-> 
->    #define IPPROTO_HOPOPTS        0 /* IPv6 Hop-by-Hop options */
->    #define IPPROTO_IPV6          41 /* IPv6 header */
->    #define IPPROTO_ROUTING       43 /* IPv6 Routing header */
->    #define IPPROTO_FRAGMENT      44 /* IPv6 fragmentation header */
->    #define IPPROTO_ESP           50 /* encapsulating security payload */
->    #define IPPROTO_AH            51 /* authentication header */
->    #define IPPROTO_ICMPV6        58 /* ICMPv6 */
->    #define IPPROTO_NONE          59 /* IPv6 no next header */
->    #define IPPROTO_DSTOPTS       60 /* IPv6 Destination options */
-> 
->    Berkeley-derived IPv4 implementations also define IPPROTO_IP to be 0.
->    This should not be a problem since IPPROTO_IP is used only with IPv4
->    sockets and IPPROTO_HOPOPTS only with IPv6 sockets.
+Hello David,
 
-The Linux FreeS/WAN IPsec implementation has been using IPPROTO_ESP, 
-IPPROTO_AH, IPPROTO_INT (61, put aside by IANA for internal use),
-IPPROTO_COMP (108), IPPROTO_IPIP (4) for the last 5 years, based on
-common usage and examples such as IPPROTO_UDP, IPPROTO_TCP, IPPROTO_ICMP.
+On Wed, 05 Mar 2003 15:25:30 -0800 (PST)
+"David S. Miller" <davem@redhat.com> wrote:
 
-> > and include/net/ipv6.h contains:
-> > 
-> > <--  snip  -->
-> > 
-> > /*
-> >  *      NextHeader field of IPv6 header
-> >  */
-> > 
-> > #define NEXTHDR_HOP             0       /* Hop-by-hop option header. */
-> > #define NEXTHDR_TCP             6       /* TCP segment. */
-> > #define NEXTHDR_UDP             17      /* UDP message. */
-> > #define NEXTHDR_IPV6            41      /* IPv6 in IPv6 */
-> > #define NEXTHDR_ROUTING         43      /* Routing header. */
-> > #define NEXTHDR_FRAGMENT        44      /* Fragmentation/reassembly header. */
+>    From: Kazunori Miyazawa <kazunori@miyazawa.org>
+>    Date: Wed, 5 Mar 2003 23:30:25 +0900
 > 
-> This form doesn't appear in RFC2292, nor in 2133 (Basic Socket...)
+> Hello Miyazawa-san,
 > 
-> My interpretation is that this latter form is defined for kernel use,
-> while the former is for user-level manipulation of raw packet fields
-> (the primary purpose of 2292).
-
-We use these in the kernel, but not in userspace.  We define SA_ESP,
-etc...
-
-> Does it make sense to have two forms, one kernel, one user?  I haven't
-> e.g. followed the desired include chain.  If we wanted to merge the
-> uses, the former form and include location would probably have to be
-> used.
-
-We use the two forms since shared user/kernel headers are a nuisance...
-
-> I've been looking into this.  There are a *few* things missing from the
-> 2292 support.  AFAICT, it's just a handful of functions/macros for
-> manipulating option headers that need to be added.
+>    I submit the patch to let the kernel support ipv6 ipsec again.
+>    It is able to comple ipv6 as module.
 > 
-> Does anybody actually USE this stuff (the advanced sockets API, I mean,
-> not IPv6)?  I'm planning to add those missing bits, just for kicks, but
-> haven't done it yet.
+> As promised I applied the patch.  I will push it to Linus later
+> this evening, or tomorrow.
 > 
-> 			--Rod
+> In this initial checkin I made only 2 minor fixes, they
+> are attached below:
+> 
 
-	slainte mhath, RGB
+Thank you very much.
 
--- 
-Richard Guy Briggs           --    ~\                 Auto-Free Ottawa! Canada
-<www.TriColour.net>            --    \@       @           <www.flora.org/afo/>
-No Internet Wiretapping!        --   _\\/\%___\\/\%        Vote! -- <Green.ca>
-<www.FreeSWAN.org>_______GTVS6#790__(*)_______(*)(*)_______<www.Marillion.com>
+My patch is the first step.
+ I think there are these TODOs around IPv6 IPsec as far as I remember.
+
+- Extension Header Processing on inbound:
+  As a result of IPv6 IPsec support, Extension Header processing is devided
+  into ipv6_parse_exthdrs and ipproto->handler. I think it is better to merge
+  other Extension Header handling into ipproto->handler.
+
+- Fragmentation support on outbound:
+  We should change ipv6_build_xmit like ip_append_data style to support
+  fragmentation with IPsec.
+
+- Removing duplicate codes, clean up and improveing performance.
+
+- Considering relation of IPv6 IPsec and Mobile IPv6. This is future stuff.
+
+Best regards,
+
+--Kazunori Miyazawa (Yokogawa Electric Corporation)
