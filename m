@@ -1,65 +1,226 @@
 From: Prasanna Meda <pmeda@akamai.com>
-Subject: srtt and rtt_seq out of sync
-Date: Wed, 18 Aug 2004 19:08:11 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <41240B8B.9A7F6CFF@akamai.com>
+Subject: ip_evictor can loop
+Date: Wed, 18 Aug 2004 19:20:19 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <41240E63.CAD19093@akamai.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: davem@redhat.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267873AbUHSCI0@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-   tcp_init_metrics initialises srtt from route cache.
-   tcp_rtt_estimator has an assumption that
-   whenerver srtt is set, rtt_seq is set.
-   Invariant assumed  before(rtt_seq,snd_nxt) is
-   not true most of the time while initailising from
-   cache, so rttvar will  not be calcualted for this
-   socket,  rto will be wrong for long time.
-   The condition after(send_una, rtt_seq=0) is
-   correct 50% of the time of random send_una.
-   mdev check also resets the rttvar, but it will be
-   slower.
 
-   One fix is,  initialising the rtt_seq in tcp_init_metrics
-   properly. Another fix is, doing the special check
-   like the below to test whether the invariant has
-   failed, i.e. initialised from the route cache.
+Code has changed in  2.6 here, but still
+ip_frag_mem is dynamic;  While getting and
+releasing locks,  something can be inserted
+in the lru list, while one item can be deleted
+in overlapping manner.
 
- --- net/ipv4/tcp_input.c Tue Jun 15 22:19:43 2004
-+++ net/ipv4/tcp_input.c Wed Aug 18 17:36:18 2004
-@@ -641,7 +641,7 @@
-                        if (tp->mdev_max > tp->rttvar)
-                                tp->rttvar = tp->mdev_max;
+If the traffic is like  there is more traffic
+coming in than can be freed, then  ip_evictor
+code may loop as long as ip_frag_mem will be
+more than low threshold.
+
+There should be some way of getting out of
+this loop.
+
+If I am not missing something, fixes are
+1. Calculating the goal ahead, and accounting
+the memory freed as return values or arguments
+from ipq_destroy etc. would be one fix.
+2. After calling ip_evictor,  ip_defrag() code should
+make second check on high threshold and should
+not queue the packet,  if we are under
+attack or pressure.
+
+-----
+The code is given below
+
+ip_fragment.c:
+
+/* Memory limiting on fragments.  Evictor trashes the oldest
+ * fragment queue until we are back under the low threshold.
+ */
+static void ip_evictor(void)
+{
+        struct ipq *qp;
+        struct list_head *tmp;
+
+        for(;;) {
+                if (atomic_read(&ip_frag_mem) <=
+sysctl_ipfrag_low_thresh)
+                        return;
+
+                read_lock(&ipfrag_lock);
+                if (list_empty(&ipq_lru_list)) {
+                        read_unlock(&ipfrag_lock);
+                        return;
                 }
--               if (after(tp->snd_una, tp->rtt_seq)) {
-+               if (after(tp->snd_una, tp->rtt_seq) ||
-before(tp->snd_nxt, tp->rtt_seq))
-                        if (tp->mdev_max < tp->rttvar)
-                                tp->rttvar -=
-(tp->rttvar-tp->mdev_max)>>2;
-                        tp->rtt_seq = tp->snd_nxt;
+                tmp = ipq_lru_list.next;
+                qp = list_entry(tmp, struct ipq, lru_list);
+                atomic_inc(&qp->refcnt);
+                read_unlock(&ipfrag_lock);
 
-Fix from Dave miller:
-===== net/ipv4/tcp_input.c 1.69 vs edited =====
---- 1.69/net/ipv4/tcp_input.c   2004-08-02 17:05:30 -07:00
-+++ edited/net/ipv4/tcp_input.c 2004-08-18 17:53:54 -07:00
-@@ -852,8 +852,10 @@
-         * to low value, and then abruptly stops to do it and starts to
-delay
-         * ACKs, wait for troubles.
-         */
--       if (dst_metric(dst, RTAX_RTT) > tp->srtt)
-+       if (dst_metric(dst, RTAX_RTT) > tp->srtt) {
-                tp->srtt = dst_metric(dst, RTAX_RTT);
-+               tp->rtt_seq = tp->snd_nxt;
-+       }
-        if (dst_metric(dst, RTAX_RTTVAR) > tp->mdev) {
-                tp->mdev = dst_metric(dst, RTAX_RTTVAR);
-                tp->mdev_max = tp->rttvar = max(tp->mdev, TCP_RTO_MIN);
+                spin_lock(&qp->lock);
+                if (!(qp->last_in&COMPLETE))
+                        ipq_kill(qp);               /*  -----> gets
+write lock  ipfrag_lock */
+                spin_unlock(&qp->lock);
+
+                ipq_put(qp);
+                IP_INC_STATS_BH(ReasmFails);
+        }
+}
+
+
+------
+Fix from Dave:
+I think #1 is the ideal fix.
+
+Do you understand that packet processing is dead on
+the cpu executing this code?  That means the worst
+possible case is that all cpus in the system enter this
+loop, and they will absolutely make forward progress and
+eventually bring the value back down under the low
+threshold.
+
+So you'd need a multi-processor system, one cpu sits in
+the ip_evitor() loop and another gets exactly one fragment
+each time the first cpu brings the limit below the low
+threshold.  That is the only way to loop because otherwise
+other cpus will work to lower the IP fragment memory usage
+below the threshold.
+
+I really think systems will get out of this lock-step state
+very quickly even under enormous packet load.
+
+Nevertheless I will add an implementation of #1 in the
+tree.  Something like this:
+
+===== net/ipv4/ip_fragment.c 1.8 vs edited =====
+--- 1.8/net/ipv4/ip_fragment.c  2003-05-28 00:49:28 -07:00
++++ edited/net/ipv4/ip_fragment.c       2004-08-18 14:23:59 -07:00
+@@ -168,14 +168,18 @@
+ atomic_t ip_frag_mem = ATOMIC_INIT(0); /* Memory used for fragments */
+
+ /* Memory Tracking Functions. */
+-static __inline__ void frag_kfree_skb(struct sk_buff *skb)
++static __inline__ void frag_kfree_skb(struct sk_buff *skb, int *work)
+ {
++       if (work)
++               *work -= skb->truesize;
+        atomic_sub(skb->truesize, &ip_frag_mem);
+        kfree_skb(skb);
+ }
+
+-static __inline__ void frag_free_queue(struct ipq *qp)
++static __inline__ void frag_free_queue(struct ipq *qp, int *work)
+ {
++       if (work)
++               *work -= sizeof(struct ipq);
+        atomic_sub(sizeof(struct ipq), &ip_frag_mem);
+        kfree(qp);
+ }
+@@ -194,7 +198,7 @@
+ /* Destruction primitives. */
+
+ /* Complete destruction of ipq. */
+-static void ip_frag_destroy(struct ipq *qp)
++static void ip_frag_destroy(struct ipq *qp, int *work)
+ {
+        struct sk_buff *fp;
+
+@@ -206,18 +210,18 @@
+        while (fp) {
+                struct sk_buff *xp = fp->next;
+
+-               frag_kfree_skb(fp);
++               frag_kfree_skb(fp, work);
+                fp = xp;
+        }
+
+        /* Finally, release the queue descriptor itself. */
+-       frag_free_queue(qp);
++       frag_free_queue(qp, work);
+ }
+
+-static __inline__ void ipq_put(struct ipq *ipq)
++static __inline__ void ipq_put(struct ipq *ipq, int *work)
+ {
+        if (atomic_dec_and_test(&ipq->refcnt))
+-               ip_frag_destroy(ipq);
++               ip_frag_destroy(ipq, work);
+ }
+
+ /* Kill ipq entry. It is not destroyed immediately,
+@@ -242,10 +246,13 @@
+ {
+        struct ipq *qp;
+        struct list_head *tmp;
++       int work;
+
+-       for(;;) {
+-               if (atomic_read(&ip_frag_mem) <=
+sysctl_ipfrag_low_thresh)
+-                       return;
++       work = atomic_read(&ip_frag_mem) - sysctl_ipfrag_low_thresh;
++       if (work <= 0)
++               return;
++
++       while (work > 0) {
+                read_lock(&ipfrag_lock);
+                if (list_empty(&ipq_lru_list)) {
+                        read_unlock(&ipfrag_lock);
+@@ -261,7 +268,7 @@
+                        ipq_kill(qp);
+                spin_unlock(&qp->lock);
+
+-               ipq_put(qp);
++               ipq_put(qp, &work);
+                IP_INC_STATS_BH(IpReasmFails);
+        }
+ }
+@@ -293,7 +300,7 @@
+        }
+ out:
+        spin_unlock(&qp->lock);
+-       ipq_put(qp);
++       ipq_put(qp, NULL);
+ }
+
+ /* Creation primitives. */
+@@ -316,7 +323,7 @@
+                        atomic_inc(&qp->refcnt);
+                        write_unlock(&ipfrag_lock);
+                        qp_in->last_in |= COMPLETE;
+-                       ipq_put(qp_in);
++                       ipq_put(qp_in, NULL);
+                        return qp;
+                }
+        }
+@@ -505,7 +512,7 @@
+                                qp->fragments = next;
+
+                        qp->meat -= free_it->len;
+-                       frag_kfree_skb(free_it);
++                       frag_kfree_skb(free_it, NULL);
+                }
+        }
+
+@@ -656,7 +663,7 @@
+                        ret = ip_frag_reasm(qp, dev);
+
+                spin_unlock(&qp->lock);
+-               ipq_put(qp);
++               ipq_put(qp, NULL);
+                return ret;
+        }
+
+-----
 
 Thanks,
 Prasanna.
