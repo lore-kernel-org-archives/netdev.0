@@ -1,43 +1,26 @@
-From: chas williams (contractor) <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: br2684 incorrectly handles frames recvd with FCS (by Alex Zeffertt <ajz@cambridgebroadband.com>)
-Date: Thu, 08 Jan 2004 11:58:40 -0500
+From: Per Hedeland <per@hedeland.org>
+Subject: RE: [Bonding-devel] [PATCH] [bonding 2.6] Add balance-xor-ip bonding mode
+Date: Thu, 8 Jan 2004 17:58:33 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401081658.i08GwdRr017374@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com, ajz@cambridgebroadband.com
+Message-ID: <200401081658.i08GwXZV059631@pluto.hedeland.org>
+References: <72A87F7160C0994D8C5A36E2FDC227F502B3E9BE@txnexc01.americas.cpqcorp.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        tony.cureington@hp.com
+In-Reply-To: <72A87F7160C0994D8C5A36E2FDC227F502B3E9BE@txnexc01.americas.cpqcorp.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6 (and 2.4 as well!)
+"Cureington, Tony" <tony.cureington@hp.com> wrote:
+>
+>I'm curious of the reasoning behind "u ^= (u >> 24) ^ (u >> 16) ^ (u >> 8);", what advantages does it have over using the xor'd addresses just before this line? Maybe someone loaded decaf on me this morning? :-/
 
-thanks
+The idea is to take all octets of the addresses into account (similar
+logic is already used in bond_alb.c btw). E.g. if the number of slaves
+is a power of 2 (2 or 4 is probably very common), a full_address %
+num_slaves operation will effectively only use one octet (happens to be
+the first one on x86, which is probably the worst choice, but of course
+that could be compensated for). Or am I missing something?
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1492  -> 1.1493 
-#	    net/atm/br2684.c	1.9     -> 1.10   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/01/07	chas@relax.cmf.nrl.navy.mil	1.1493
-# [ATM]: br2684 incorrectly handles frames recvd with FCS (by Alex Zeffertt <ajz@cambridgebroadband.com>)
-# --------------------------------------------
-#
-diff -Nru a/net/atm/br2684.c b/net/atm/br2684.c
---- a/net/atm/br2684.c	Wed Jan  7 13:23:54 2004
-+++ b/net/atm/br2684.c	Wed Jan  7 13:23:54 2004
-@@ -437,6 +437,10 @@
- 			dev_kfree_skb(skb);
- 			return;
- 		}
-+
-+		/* Strip FCS if present */
-+		if (skb->len > 7 && skb->data[7] == 0x01)
-+			__skb_trim(skb, skb->len - 4);
- 	} else {
- 		plen = PADLEN + ETH_HLEN;	/* pad, dstmac,srcmac, ethtype */
- 		/* first 2 chars should be 0 */
+--Per Hedeland
+per@hedeland.org
