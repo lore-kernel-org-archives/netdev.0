@@ -1,54 +1,25 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [2/3][PATCH 2.6] netdrivers: fix mc_filter on big-endian arch
-Date: Sun, 6 Jun 2004 18:53:36 +0200
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: Re: e1000 question
+Date: Sun, 6 Jun 2004 15:19:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040606165336.GA13840@k3.hellgate.ch>
+Message-ID: <20040606221943.GA6197@gaz.sfgoth.com>
+References: <40BD8E49.3070605@giga-stream.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
+In-Reply-To: <40BD8E49.3070605@giga-stream.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This untested patch fixes hardware mc filters for tulip_core, winbond,
-and atp. Hopefully :-).
+Ihar 'Philips' Filipau wrote:
+>    I'm looking into e1000 driver in irq handling and what I see, 
+> puzzles me.
+[...]
 
-Please review and test.
+Wow - thats some lag.  I already answered this question when I it got posted
+to lkml four days ago.  Looking at the headers it looks like there was
+a 4 day delay in the same email making it to the netdev list!
 
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
-
---- 2.6-bk/drivers/net/tulip/winbond-840.c.orig	2004-06-06 18:03:51.502473098 +0200
-+++ 2.6-bk/drivers/net/tulip/winbond-840.c	2004-06-06 18:04:18.807205433 +0200
-@@ -1439,7 +1439,7 @@
- 			 i++, mclist = mclist->next) {
- 			int filterbit = (ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26) ^ 0x3F;
- 			filterbit &= 0x3f;
--			mc_filter[filterbit >> 5] |= cpu_to_le32(1 << (filterbit & 31));
-+			mc_filter[filterbit >> 5] |= 1 << (filterbit & 31);
- 		}
- 		rx_mode = AcceptBroadcast | AcceptMulticast | AcceptMyPhys;
- 	}
---- 2.6-bk/drivers/net/tulip/tulip_core.c.orig	2004-06-06 18:03:46.319283616 +0200
-+++ 2.6-bk/drivers/net/tulip/tulip_core.c	2004-06-06 18:04:36.263478849 +0200
-@@ -1059,7 +1059,7 @@
- 				else
- 					filterbit = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
- 				filterbit &= 0x3f;
--				mc_filter[filterbit >> 5] |= cpu_to_le32(1 << (filterbit & 31));
-+				mc_filter[filterbit >> 5] |= 1 << (filterbit & 31);
- 				if (tulip_debug > 2) {
- 					printk(KERN_INFO "%s: Added filter for %2.2x:%2.2x:%2.2x:"
- 						   "%2.2x:%2.2x:%2.2x  %8.8x bit %d.\n", dev->name,
---- 2.6-bk/drivers/net/atp.c.orig	2004-06-06 18:03:34.351155626 +0200
-+++ 2.6-bk/drivers/net/atp.c	2004-06-06 18:04:55.176526236 +0200
-@@ -909,7 +909,7 @@
- 			 i++, mclist = mclist->next)
- 		{
- 			int filterbit = ether_crc_le(ETH_ALEN, mclist->dmi_addr) & 0x3f;
--			mc_filter[filterbit >> 5] |= cpu_to_le32(1 << (filterbit & 31));
-+			mc_filter[filterbit >> 5] |= 1 << (filterbit & 31);
- 		}
- 		new_mode = CMR2h_Normal;
- 	}
+-Mitch
