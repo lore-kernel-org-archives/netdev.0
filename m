@@ -1,26 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Patch]: IPv6 Connection Tracking
-Date: Thu, 25 Sep 2003 03:51:49 -0700
+Subject: Re: [PATCH] ip_gre.c in 2.6.0-test5
+Date: Thu, 25 Sep 2003 03:56:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030925035149.4886e0cf.davem@redhat.com>
-References: <200309250521.OAA29293@toshiba.co.jp>
-	<20030925092806.GC5758@sunbeam.de.gnumonks.org>
+Message-ID: <20030925035606.5f1b780d.davem@redhat.com>
+References: <3F715732.5060306@logix.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yasuyuki.kozakai@toshiba.co.jp, coreteam@netfilter.org,
-        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20030925092806.GC5758@sunbeam.de.gnumonks.org>
+To: Michal Ludvig <michal@logix.cz>
+In-Reply-To: <3F715732.5060306@logix.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Sep 2003 11:28:06 +0200
-Harald Welte <laforge@netfilter.org> wrote:
+On Wed, 24 Sep 2003 10:34:58 +0200
+Michal Ludvig <michal@logix.cz> wrote:
 
-> On the other hand, I'd much rather see some work done on a layer 3
-> independent connection tracking core.
+> this trivial patch fixes possible kernel crash when using GRE tunnels in 
+> 2.6.0-test. The problem was that "dev->init" wasn't set before 
+> register_netdevice() call and so the initialization function was never 
+> called. Consequently some fields in the tunnel structure were not 
+> initialized what finally led to a kernel crash upon receiving the first 
+> packet over the GRE tunnel.
 
-Me too.
+Applied, thanks Michal.
