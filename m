@@ -1,11 +1,11 @@
 From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 15/17 linux-2.6.7-rc2] prism54: Fix channel stats, bump version to 1.2 (resend)
-Date: Sat, 5 Jun 2004 14:51:07 +0200
+Subject: [PATCH 12/17 linux-2.6.7-rc2] prism54: Add likely/unlikely, KO wds completely (resend)
+Date: Sat, 5 Jun 2004 14:50:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406051451.07953.margitsw@t-online.de>
+Message-ID: <200406051450.08650.margitsw@t-online.de>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_7GcwAXNDN/WMQKP"
+  boundary="Boundary-00=_AGcwArowYloYPgO"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
@@ -13,85 +13,107 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Boundary-00=_7GcwAXNDN/WMQKP
+--Boundary-00=_AGcwArowYloYPgO
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-2004-05-20      Aurelien Alleaume <slts@free.fr>
+* islpci_mgt.h : Change init_wds definition
 
-* islpci_eth.c : use dev_kfree_skb_irq instead of dev_kfree_skb where needed.
-
-* isl_ioctl.c : report channel instead of frequency in scan.
-
-* islpci_hotplug.c : bump version to 1.2
+* islpci_eth.c : Do some likely/unlikely
 
 
-
---Boundary-00=_7GcwAXNDN/WMQKP
+--Boundary-00=_AGcwArowYloYPgO
 Content-Type: text/x-diff;
   charset="us-ascii";
-  name="15-fix-channel.patch"
+  name="12-add-likely.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="15-fix-channel.patch"
+	filename="12-add-likely.patch"
 
-diff -NaurEbB linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c	2004-05-28 15:44:40.849580016 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c	2004-05-28 15:49:40.516023792 +0200
-@@ -632,8 +629,8 @@
- 	current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, NULL);
- 
- 	/* Add frequency. (short) bss->channel is the frequency in MHz */
--	iwe.u.freq.m = bss->channel;
--	iwe.u.freq.e = 6;
-+	iwe.u.freq.m = channel_of_freq(bss->channel);
-+	iwe.u.freq.e = 0;
- 	iwe.cmd = SIOCGIWFREQ;
- 	current_ev =
- 	    iwe_stream_add_event(current_ev, end_buf, &iwe, IW_EV_FREQ_LEN);
 diff -NaurEbB linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 15:48:34.157111880 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 15:49:40.517023640 +0200
-@@ -275,7 +275,7 @@
- 									 avs_80211_1_header),
- 								 0, GFP_ATOMIC);
- 			if (newskb) {
--				kfree_skb(*skb);
-+				dev_kfree_skb_irq(*skb);
- 				*skb = newskb;
- 			} else
- 				return -1;
-@@ -419,7 +419,7 @@
+--- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 14:41:32.820447976 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 15:33:42.187711840 +0200
+@@ -105,7 +105,7 @@
+ 
+ 	/* check whether the destination queue has enough fragments for the frame */
+ 	curr_frag = le32_to_cpu(cb->driver_curr_frag[ISL38XX_CB_TX_DATA_LQ]);
+-	if (curr_frag - priv->free_data_tx >= ISL38XX_CB_TX_QSIZE) {
++	if (unlikely(curr_frag - priv->free_data_tx >= ISL38XX_CB_TX_QSIZE)) {
+ 		printk(KERN_ERR "%s: transmit device queue full when awake\n",
+ 		       ndev->name);
+ 		netif_stop_queue(ndev);
+@@ -121,7 +121,7 @@
+ 	/* Check alignment and WDS frame formatting. The start of the packet should
+ 	 * be aligned on a 4-byte boundary. If WDS is enabled add another 6 bytes
+ 	 * and add WDS address information */
+-	if (((long) skb->data & 0x03) | init_wds) {
++	if (unlikely(((long) skb->data & 0x03) | init_wds)) {
+ 		/* get the number of bytes to add and re-allign */
+ 		offset = (4 - (long) skb->data) & 0x03;
+ 		offset += init_wds ? 6 : 0;
+@@ -192,7 +192,7 @@
+ 	pci_map_address = pci_map_single(priv->pdev,
+ 					 (void *) skb->data, skb->len,
+ 					 PCI_DMA_TODEVICE);
+-	if (pci_map_address == 0) {
++	if (unlikely(pci_map_address == 0)) {
+ 		printk(KERN_WARNING "%s: cannot map buffer to PCI\n",
+ 		       ndev->name);
+ 
+@@ -382,10 +382,10 @@
+ 	skb->dev = ndev;
+ 
+ 	/* take care of monitor mode and spy monitoring. */
+-	if (priv->iw_mode == IW_MODE_MONITOR)
++	if (unlikely(priv->iw_mode == IW_MODE_MONITOR))
+ 		discard = islpci_monitor_rx(priv, &skb);
+ 	else {
+-		if (skb->data[2 * ETH_ALEN] == 0) {
++		if (unlikely(skb->data[2 * ETH_ALEN] == 0)) {
+ 			/* The packet has a rx_annex. Read it for spy monitoring, Then
+ 			 * remove it, while keeping the 2 leading MAC addr.
+ 			 */
+@@ -418,7 +418,7 @@
+ 	     skb->data[0], skb->data[1], skb->data[2], skb->data[3],
  	     skb->data[4], skb->data[5]);
  #endif
- 	if (unlikely(discard)) {
--		dev_kfree_skb(skb);
-+		dev_kfree_skb_irq(skb);
+-	if (discard) {
++	if (unlikely(discard)) {
+ 		dev_kfree_skb(skb);
  		skb = NULL;
  	} else
- 		netif_rx(skb);
-@@ -462,7 +462,7 @@
- 			      "Error mapping DMA address\n");
- 
- 			/* free the skbuf structure before aborting */
--			dev_kfree_skb((struct sk_buff *) skb);
-+			dev_kfree_skb_irq((struct sk_buff *) skb);
- 			skb = NULL;
+@@ -434,7 +434,8 @@
+ 	       index - priv->free_data_rx < ISL38XX_CB_RX_QSIZE) {
+ 		/* allocate an sk_buff for received data frames storage
+ 		 * include any required allignment operations */
+-		if (skb = dev_alloc_skb(MAX_FRAGMENT_SIZE_RX + 2), skb == NULL) {
++		skb = dev_alloc_skb(MAX_FRAGMENT_SIZE_RX + 2);
++		if (unlikely(skb == NULL)) {
+ 			/* error allocating an sk_buff structure elements */
+ 			DEBUG(SHOW_ERROR_MESSAGES, "Error allocating skb \n");
  			break;
- 		}
-diff -NaurEbB linux-2.6.6ct/drivers/net/wireless/prism54/islpci_hotplug.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_hotplug.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_hotplug.c	2004-05-28 14:40:26.997454592 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_hotplug.c	2004-05-28 15:49:40.519023336 +0200
-@@ -30,7 +30,7 @@
- #include "isl_oid.h"
+@@ -454,7 +455,7 @@
+ 		    pci_map_single(priv->pdev, (void *) skb->data,
+ 				   MAX_FRAGMENT_SIZE_RX + 2,
+ 				   PCI_DMA_FROMDEVICE);
+-		if (priv->pci_map_rx_address[index] == (dma_addr_t) NULL) {
++		if (unlikely(priv->pci_map_rx_address[index] == (dma_addr_t) NULL)) {
+ 			/* error mapping the buffer to device accessable memory address */
+ 			DEBUG(SHOW_ERROR_MESSAGES,
+ 			      "Error mapping DMA address\n");
+diff -NaurEbB linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.h linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.h
+--- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.h	2004-05-28 14:40:27.000454136 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.h	2004-05-28 15:33:42.188711688 +0200
+@@ -34,7 +34,7 @@
+ #define TRACE(devname)   K_DEBUG(SHOW_TRACING, VERBOSE, "%s:  -> " __FUNCTION__ "()\n", devname)
  
- #define DRV_NAME	"prism54"
--#define DRV_VERSION	"1.1"
-+#define DRV_VERSION	"1.2"
+ extern int pc_debug;
+-static const int init_wds = 0;	/* help compiler optimize away dead code */
++const int init_wds = 0;	/* help compiler optimize away dead code */
  
- MODULE_AUTHOR("[Intersil] R.Bastings and W.Termorshuizen, The prism54.org Development Team <prism54-devel@prism54.org>");
- MODULE_DESCRIPTION("The Prism54 802.11 Wireless LAN adapter");
+ 
+ /* General driver definitions */
 
---Boundary-00=_7GcwAXNDN/WMQKP--
+--Boundary-00=_AGcwArowYloYPgO--
