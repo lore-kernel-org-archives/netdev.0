@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 9/16] CBQ: Use generic rate estimator
-Date: Thu, 21 Oct 2004 14:44:26 +0200
+Subject: [PATCH 10/16] HTB: Use gnet_stats for class statistics
+Date: Thu, 21 Oct 2004 14:45:17 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021124426.GN21977@postel.suug.ch>
+Message-ID: <20041021124517.GO21977@postel.suug.ch>
 References: <20041021123209.GE21977@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,44 +14,54 @@ In-Reply-To: <20041021123209.GE21977@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Makes CBQ use the generic rate estimator.
+Converts HTB class statistic counters to gnet_stats
+structures.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.9-rc5.orig/net/sched/sch_cbq.c	2004-10-21 13:00:53.000000000 +0200
-+++ linux-2.6.9-rc5/net/sched/sch_cbq.c	2004-10-21 13:01:20.000000000 +0200
-@@ -1759,7 +1759,7 @@
- 	qdisc_destroy(cl->q);
- 	qdisc_put_rtab(cl->R_tab);
- #ifdef CONFIG_NET_ESTIMATOR
--	qdisc_kill_estimator(&cl->stats);
-+	gen_kill_estimator(&cl->bstats, &cl->rate_est);
+--- linux-2.6.9-rc5.orig/net/sched/sch_htb.c	2004-10-21 11:07:46.000000000 +0200
++++ linux-2.6.9-rc5/net/sched/sch_htb.c	2004-10-21 13:03:29.000000000 +0200
+@@ -142,7 +142,9 @@
  #endif
- 	if (cl != &q->link)
- 		kfree(cl);
-@@ -1905,11 +1905,9 @@
- 		sch_tree_unlock(sch);
+     /* general class parameters */
+     u32 classid;
+-    struct tc_stats	stats;	/* generic stats */
++    struct gnet_stats_basic bstats;
++    struct gnet_stats_queue qstats;
++    struct gnet_stats_rate_est rate_est;
+     spinlock_t		*stats_lock;
+     struct tc_htb_xstats xstats;/* our special stats */
+     int refcnt;			/* usage count of this class */
+@@ -754,10 +756,10 @@
+ #endif
+     else if (cl->un.leaf.q->enqueue(skb, cl->un.leaf.q) != NET_XMIT_SUCCESS) {
+ 	sch->qstats.drops++;
+-	cl->stats.drops++;
++	cl->qstats.drops++;
+ 	return NET_XMIT_DROP;
+     } else {
+-	cl->stats.packets++; cl->stats.bytes += skb->len;
++	cl->bstats.packets++; cl->bstats.bytes += skb->len;
+ 	htb_activate (q,cl);
+     }
  
- #ifdef CONFIG_NET_ESTIMATOR
--		if (tca[TCA_RATE-1]) {
--			qdisc_kill_estimator(&cl->stats);
--			qdisc_new_estimator(&cl->stats, cl->stats_lock,
--					    tca[TCA_RATE-1]);
--		}
-+		if (tca[TCA_RATE-1])
-+			gen_replace_estimator(&cl->bstats, &cl->rate_est,
-+				cl->stats_lock, tca[TCA_RATE-1]);
- #endif
- 		return 0;
+@@ -788,7 +790,7 @@
  	}
-@@ -1999,8 +1997,8 @@
+     } else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) != NET_XMIT_SUCCESS) {
+ 	sch->qstats.drops++;
+-	cl->stats.drops++;
++	cl->qstats.drops++;
+ 	return NET_XMIT_DROP;
+     } else 
+ 	    htb_activate (q,cl);
+@@ -906,8 +908,8 @@
  
- #ifdef CONFIG_NET_ESTIMATOR
- 	if (tca[TCA_RATE-1])
--		qdisc_new_estimator(&cl->stats, cl->stats_lock,
--				    tca[TCA_RATE-1]);
-+		gen_new_estimator(&cl->bstats, &cl->rate_est,
-+			cl->stats_lock, tca[TCA_RATE-1]);
- #endif
- 
- 	*arg = (unsigned long)cl;
+ 		/* update byte stats except for leaves which are already updated */
+ 		if (cl->level) {
+-			cl->stats.bytes += bytes;
+-			cl->stats.packets++;
++			cl->bstats.bytes += bytes;
++			cl->bstats.packets++;
+ 		}
+ 		cl = cl->parent;
+ 	}
