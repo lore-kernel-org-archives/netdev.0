@@ -1,61 +1,80 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: Troubles with NFS & ip_conntrack: packets go to wrong mac
-Date: Thu, 13 Feb 2003 11:12:20 +0100
+From: "santosh kumar gowda" <ipv6_san@rediffmail.com>
+Subject: Re: Re: Re: IPv6 enabled Network services
+Date: 13 Feb 2003 11:15:57 -0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030213101220.GC14794@sunbeam.de.gnumonks.org>
-References: <3E4A7ECB.1020207@trash.net>
+Message-ID: <20030213111557.21921.qmail@webmail27.rediffmail.com>
+Reply-To: "santosh kumar gowda" <ipv6_san@rediffmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="kfjH4zxOES6UT95V"
+Content-Type: text/plain;
+	format=flowed
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: "Peter Bieringer" <pb@bieringer.de>
 Content-Disposition: inline
-In-Reply-To: <3E4A7ECB.1020207@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---kfjH4zxOES6UT95V
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Dr.Peter,
 
-On Wed, Feb 12, 2003 at 06:05:15PM +0100, Patrick McHardy wrote:
-> I've been experiencing strange problems with nfs and ip_conntrack for a=
-=20
-> while now, unfortunately noone so far was able to help. The problem
-> occurs when ip_conntrack is loaded on the nfs server. nfs reads hang
-> and the clients start logging
+I'm able to ping (using ping6) from both the machines.
 
-Just for consistency: Can you please report this to
-http://bugzilla.netfilter.org/ ?=20
+But, when i perform telnet, in machine-1 with Linux version 
+2.4.18-3smp gcc version 2.96, Red Hat Linux 7.3, i get
 
-Addiditional information like what kind of machine (UP/SMP), and network
-board might be interesting.
+# telnet fe80::2b0:d0ff:fed2:65ff
+Trying fe80::2b0:d0ff:fed2:65ff
+telnet: connect to address fe80::2b0:d0ff:fed2:65ff: Invalid 
+argument
 
-> Regards,
-> Patrick
+And the machine-2 with Linux version 2.4.18-14 (gcc version 3.2
+20020903 (Red Hat Linux 8.0 3.2-7), i get
 
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"If this were a dictatorship, it'd be a heck of a lot easier, just so long
- as I'm the dictator."  --  George W. Bush Dec 18, 2000
+#telnet fe80::250:daff:fed2:d90e
+fe80::250:daff:fed2:d90e: Unknown host
 
---kfjH4zxOES6UT95V
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+In case, if i need to upgrade telnet, ftp, etc, suggest me where i 
+can find them. Any docs for the same.
+looking forward for ur help
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQE+S2+EXaXGVTD0i/8RAs+BAJ9LJCE7pzlqnfJBuEMYYvku+0RpmwCgoG6S
-MrzI6jBhSuyg9UO18VVNcLs=
-=Cu4h
------END PGP SIGNATURE-----
-
---kfjH4zxOES6UT95V--
+-San
+---------------------------------------------
+On Thu, 13 Feb 2003 Peter Bieringer wrote :
+>
+>
+>--On Thursday, February 13, 2003 08:52:38 AM +0000 santosh 
+>kumar
+>gowda <ipv6_san@rediffmail.com> wrote:
+>
+> > Hi Marc
+> > i tried for
+> > telnet> 3ffe::102:304:1234
+> > still i get
+> > 3ffe::102:304:1234: unknown host
+>
+>Can you ping6 this address? Are the shown addresses configured 
+>in
+>real or are they rewritten for public ML posting?
+>
+>They look a little bit strange to me.
+>
+>Also try
+>$ telnet <ipv6address>
+>
+>perhaps this kind will work.
+>
+>If not, telnet has perhaps no IPv6 support (which version/RPM do 
+>you
+>use)? Check also
+>$ which telnet
+>to be sure you're using the right one.
+>
+>         Peter
+>--
+>Dr. Peter Bieringer                     
+>http://www.bieringer.de/pb/
+>GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot 
+>de
+>Deep Space 6 Co-Founder and Core Member  
+>http://www.deepspace6.net/
+>
+>
