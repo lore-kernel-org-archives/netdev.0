@@ -1,536 +1,294 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] convert wan/lmc to device model
-Date: Tue, 16 Sep 2003 14:36:27 -0700
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: O/M flags for 2.4.22 (was "Re: O/M flags against 2.6.0-test1")
+Date: Tue, 16 Sep 2003 15:06:37 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030916143627.51a08be0.shemminger@osdl.org>
+Message-ID: <Pine.LNX.4.44.0309161503110.10766-100000@linux-udp12861866uds>
+References: <20030912171921.37cab171.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kuznet@ms2.inr.ac.ru, <yoshfuji@linux-ipv6.org>, <netdev@oss.sgi.com>,
+   KK <krkumar@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030912171921.37cab171.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch converts drivers/net/wan/lmc for 2.6.0-test5
-	- use pci_device model
-	- get rid of MOD_INC/DEC
-	- use alloc_netdev and dev->priv for private data
+> I applied the 2.6.x version, but this 2.4.x version does
+> not apply cleanly, there are a bunch of rejects.
 
-Builds and loads but don't have real hardware.
+Sorry about that, will remember to use the latest version.
 
-diff -Nru a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
---- a/drivers/net/wan/lmc/lmc_main.c	Tue Sep 16 14:33:16 2003
-+++ b/drivers/net/wan/lmc/lmc_main.c	Tue Sep 16 14:33:16 2003
-@@ -78,30 +78,20 @@
- #include "lmc_debug.h"
- #include "lmc_proto.h"
- 
--
--static int Lmc_Count = 0;
--static struct net_device *Lmc_root_dev = NULL;
--static u8 cards_found = 0;
--
- static int lmc_first_load = 0;
- 
--int LMC_PKT_BUF_SZ = 1542;
-+static int LMC_PKT_BUF_SZ = 1542;
- 
--#ifdef MODULE
- static struct pci_device_id lmc_pci_tbl[] = {
--    { 0x1011, 0x009, 0x1379, PCI_ANY_ID, 0, 0, 0},
--    { 0, }
-+	{ CORRECT_VENDOR_ID, CORRECT_DEV_ID, PCI_VENDOR_LMC, PCI_ANY_ID },
-+	{ CORRECT_VENDOR_ID, CORRECT_DEV_ID, PCI_ANY_ID, PCI_VENDOR_LMC },
-+	{ 0 }
+The patch is against 2.4.22-bk19.
+
+Thanks,
+
+- KK
+
+diff -ruN linux-2.4.22.org/include/linux/ipv6.h linux-2.4.22/include/linux/ipv6.h
+--- linux-2.4.22.org/include/linux/ipv6.h	2003-09-16 14:32:11.000000000 -0700
++++ linux-2.4.22/include/linux/ipv6.h	2003-09-16 14:33:10.000000000 -0700
+@@ -100,6 +100,52 @@
+ 	struct	in6_addr	daddr;
  };
- 
- MODULE_DEVICE_TABLE(pci, lmc_pci_tbl);
--
- MODULE_LICENSE("GPL");
--#endif
- 
- 
--int lmc_probe_fake(struct net_device *dev);
--static struct net_device *lmc_probe1(struct net_device *dev, unsigned long ioaddr, unsigned int irq,
--				 int chip_id, int subdevice, int board_idx);
- static int lmc_start_xmit(struct sk_buff *skb, struct net_device *dev);
- static int lmc_start_xmit(struct sk_buff *skb, struct net_device *dev);
- static int lmc_rx (struct net_device *dev);
-@@ -115,12 +105,9 @@
- static void lmc_running_reset(struct net_device *dev);
- static int lmc_ifdown(struct net_device * const);
- static void lmc_watchdog(unsigned long data);
--static int lmc_init(struct net_device * const);
- static void lmc_reset(lmc_softc_t * const sc);
- static void lmc_dec_reset(lmc_softc_t * const sc);
- static void lmc_driver_timeout(struct net_device *dev);
--int lmc_setup(void);
--
- 
- /*
-  * linux reserves 16 device specific IOCTLs.  We call them
-@@ -815,67 +802,77 @@
- 
- }
- 
--static int lmc_init(struct net_device * const dev) /*fold00*/
-+static void lmc_setup(struct net_device * const dev) /*fold00*/
- {
--    lmc_trace(dev, "lmc_init in");
--    lmc_trace(dev, "lmc_init out");
--	
--    return 0;
-+    lmc_trace(dev, "lmc_setup in");
-+
-+    dev->type = ARPHRD_HDLC;
-+    dev->hard_start_xmit = lmc_start_xmit;
-+    dev->open = lmc_open;
-+    dev->stop = lmc_close;
-+    dev->get_stats = lmc_get_stats;
-+    dev->do_ioctl = lmc_ioctl;
-+    dev->set_config = lmc_set_config;
-+    dev->tx_timeout = lmc_driver_timeout;
-+    dev->watchdog_timeo = (HZ); /* 1 second */
-+    
-+    lmc_trace(dev, "lmc_setup out");
- }
- 
--/* This initializes each card from lmc_probe() */
--static struct net_device *lmc_probe1 (struct net_device *dev, unsigned long ioaddr, unsigned int irq, /*fold00*/
--                                  int chip_id, int subdevice, int board_idx)
-+
-+static int __devinit lmc_init_one(struct pci_dev *pdev,
-+				  const struct pci_device_id *ent)
- {
--    lmc_softc_t *sc = NULL;
-+    struct net_device *dev;
-+    lmc_softc_t *sc;
-+    u16 subdevice;
-     u_int16_t AdapModelNum;
--
--    /*
--     * Allocate our own device structure
--     */
--
--    dev = kmalloc (sizeof (struct net_device)+8, GFP_KERNEL);
--    if (dev == NULL){
--        printk (KERN_ERR "lmc: kmalloc for device failed\n");
--        return NULL;
--    }
--    memset (dev, 0, sizeof (struct net_device));
--
-+    int err = -ENOMEM;
-+    static int cards_found;
- #ifndef GCOM
--    /*
--     *	Switch to common hdlc%d naming. We name by type not by vendor
--     */
--    
--    dev_alloc_name(dev, "hdlc%d");
-+    /* We name by type not by vendor */
-+    static const char lmcname[] = "hdlc%d";
- #else
--    /*
-+    /* 
-      * GCOM uses LMC vendor name so that clients can know which card
-      * to attach to.
-      */
--    dev_alloc_name(dev, "lmc%d");
-+    static const char lmcname[] = "lmc%d";
- #endif
- 
--    lmc_trace(dev, "lmc_probe1 in");
-+
-+    /*
-+     * Allocate our own device structure
-+     */
-+    dev = alloc_netdev(sizeof(lmc_softc_t), lmcname, lmc_setup);
-+    if (!dev) {
-+        printk (KERN_ERR "lmc:alloc_netdev for device failed\n");
-+	goto out1;
-+    }
-+ 
-+    lmc_trace(dev, "lmc_init_one in");
-+
-+    err = pci_enable_device(pdev);
-+    if (err) {
-+	    printk(KERN_ERR "lmc: pci enable failed:%d\n", err);
-+	    goto out2;
-+    }
-     
--    Lmc_Count++;
-+    if (pci_request_regions(pdev, "lmc")) {
-+	    printk(KERN_ERR "lmc: pci_request_region failed\n");
-+	    err = -EIO;
-+	    goto out3;
-+    }
-+
-+    pci_set_drvdata(pdev, dev);
- 
-     if(lmc_first_load == 0){
--        printk(KERN_INFO "Lan Media Corporation WAN Driver Version %d.%d.%d\n",DRIVER_MAJOR_VERSION, DRIVER_MINOR_VERSION,DRIVER_SUB_VERSION);
-+        printk(KERN_INFO "Lan Media Corporation WAN Driver Version %d.%d.%d\n",
-+	       DRIVER_MAJOR_VERSION, DRIVER_MINOR_VERSION,DRIVER_SUB_VERSION);
-         lmc_first_load = 1;
-     }
-     
--    /*
--     * Allocate space for the private data structure
--     */
--
--    sc = kmalloc (sizeof (lmc_softc_t), GFP_KERNEL);
--    if (sc == NULL) {
--        printk (KERN_WARNING "%s: Cannot allocate memory for device state\n",
--                dev->name);
--        return (NULL);
--    }
--    memset (sc, 0, sizeof (lmc_softc_t));
--    dev->priv = sc;
-+    sc = dev->priv;
-     sc->lmc_device = dev;
-     sc->name = dev->name;
- 
-@@ -883,8 +880,12 @@
-     /* An ioctl can cause a subsequent detach for raw frame interface */
-     sc->if_type = LMC_PPP;
-     sc->check = 0xBEAFCAFE;
--    dev->base_addr = ioaddr;
--    dev->irq = irq;
-+    dev->base_addr = pci_resource_start(pdev, 0);
-+    dev->irq = pdev->irq;
-+
-+    SET_MODULE_OWNER(dev);
-+    SET_NETDEV_DEV(dev, &pdev->dev);
-+
-     /*
-      * This will get the protocol layer ready and do any 1 time init's
-      * Must have a valid sc and dev structure
-@@ -893,19 +894,6 @@
- 
-     lmc_proto_attach(sc);
- 
--    /* Just fill in the entries for the device */
--
--    dev->init = lmc_init;
--    dev->type = ARPHRD_HDLC;
--    dev->hard_start_xmit = lmc_start_xmit;
--    dev->open = lmc_open;
--    dev->stop = lmc_close;
--    dev->get_stats = lmc_get_stats;
--    dev->do_ioctl = lmc_ioctl;
--    dev->set_config = lmc_set_config;
--    dev->tx_timeout = lmc_driver_timeout;
--    dev->watchdog_timeo = (HZ); /* 1 second */
--    
-     /*
-      * Why were we changing this???
-      dev->tx_queue_len = 100;
-@@ -914,27 +902,28 @@
-     /* Init the spin lock so can call it latter */
- 
-     spin_lock_init(&sc->lmc_lock);
-+    pci_set_master(pdev);
- 
--    printk ("%s: detected at %lx, irq %d\n", dev->name, ioaddr, dev->irq);
-+    printk ("%s: detected at %lx, irq %d\n", dev->name,
-+	    dev->base_addr, dev->irq);
- 
-     if (register_netdev (dev) != 0) {
-         printk (KERN_ERR "%s: register_netdev failed.\n", dev->name);
--        lmc_proto_detach(sc);
--        kfree (dev->priv);
--        kfree (dev);
--        return NULL;
-+	goto out4;
-     }
- 
--    /*
--     * Request the region of registers we need, so that
--     * later on, no one else will take our card away from
--     * us.
--     */
--    request_region (ioaddr, LMC_REG_RANGE, dev->name);
--
-     sc->lmc_cardtype = LMC_CARDTYPE_UNKNOWN;
-     sc->lmc_timing = LMC_CTL_CLOCK_SOURCE_EXT;
- 
-+    /*
-+     *
-+     * Check either the subvendor or the subdevice, some systems reverse
-+     * the setting in the bois, seems to be version and arch dependent?
-+     * Fix the error, exchange the two values 
-+     */
-+    if ((subdevice = pdev->subsystem_device) == PCI_VENDOR_LMC)
-+	    subdevice = pdev->subsystem_vendor;
-+
-     switch (subdevice) {
-     case PCI_PRODUCT_LMC_HSSI:
-         printk ("%s: LMC HSSI\n", dev->name);
-@@ -996,10 +985,7 @@
-      */
-     LMC_CSR_WRITE (sc, csr_gp_timer, 0xFFFFFFFFUL);
- 
--    sc->board_idx = board_idx;
--
--    memset (&sc->stats, 0, sizeof (struct lmc_statistics));
--
-+    sc->board_idx = cards_found++;
-     sc->stats.check = STATCHECK;
-     sc->stats.version_size = (DRIVER_VERSION << 16) +
-         sizeof (struct lmc_statistics);
-@@ -1008,105 +994,40 @@
-     sc->lmc_ok = 0;
-     sc->last_link_status = 0;
- 
--    lmc_trace(dev, "lmc_probe1 out");
--
--    return dev;
--}
--
--
--/* This is the entry point.  This is what is called immediately. */
--/* This goes out and finds the card */
-+    lmc_trace(dev, "lmc_init_one out");
-+    return 0;
- 
--int lmc_probe_fake(struct net_device *dev) /*fold00*/
--{
--    lmc_probe(NULL);
--    /* Return 1 to unloaded bogus device */
--    return 1;
-+ out4:
-+    lmc_proto_detach(sc);
-+ out3:
-+    if (pdev) {
-+	    pci_release_regions(pdev);
-+	    pci_set_drvdata(pdev, NULL);
-+    }
-+ out2:
-+    free_netdev(dev);
-+ out1:
-+    return err;
- }
- 
--int lmc_probe (struct net_device *dev) /*fold00*/
+
 +/*
-+ * Called from pci when removing module.
++ * This structure contains configuration options per IPv6 link.
 + */
-+static void __devexit lmc_remove_one (struct pci_dev *pdev)
- {
--    int pci_index = 0;
--    unsigned long pci_ioaddr;
--    unsigned int pci_irq_line;
--    u16 vendor, subvendor, device, subdevice;
--    u32 foundaddr = 0;
--    u8 intcf = 0;
--    struct pci_dev *pdev = NULL;
--
--    /* Loop basically until we don't find anymore. */
--    while ((pdev = pci_find_class (PCI_CLASS_NETWORK_ETHERNET << 8, pdev))) {
--	if (pci_enable_device(pdev))
--		break;
--
--        vendor = pdev->vendor;
--        device = pdev->device;
--        pci_irq_line = pdev->irq;
--        pci_ioaddr = pci_resource_start (pdev, 0);
--	subvendor = pdev->subsystem_vendor;
--	subdevice = pdev->subsystem_device;
--
--	pci_set_master (pdev);
--
--        /*
--         * Make sure it's the correct card.  CHECK SUBVENDOR ID!
--         * There are lots of tulip's out there.
--         * Also check the region of registers we will soon be
--         * poking, to make sure no one else has reserved them.
--         * This prevents taking someone else's device.
--         *
--         * Check either the subvendor or the subdevice, some systems reverse
--         * the setting in the bois, seems to be version and arch dependent?
--         * Fix the two variables
--         *
--         */
--        if (!(check_region (pci_ioaddr, LMC_REG_RANGE)) &&
--            (vendor == CORRECT_VENDOR_ID) &&
--            (device == CORRECT_DEV_ID) &&
--            ((subvendor == PCI_VENDOR_LMC)  || (subdevice == PCI_VENDOR_LMC))){
--            struct net_device *cur, *prev = NULL;
--
--            /* Fix the error, exchange the two values */
--            if(subdevice == PCI_VENDOR_LMC){
--                subdevice = subvendor;
--                subvendor = PCI_VENDOR_LMC ;
--            }
--
--            /* Make the call to actually setup this card */
--            dev = lmc_probe1 (dev, pci_ioaddr, pci_irq_line,
--                              device, subdevice, cards_found);
--            if (dev == NULL) {
--                printk ("lmc_probe: lmc_probe1 failed\n");
--                goto lmc_probe_next_card;
--            }
--            /* insert the device into the chain of lmc devices */
--            for (cur = Lmc_root_dev;
--                 cur != NULL;
--                 cur = ((lmc_softc_t *) cur->priv)->next_module) {
--                prev = cur;
--            }
--
--            if (prev == NULL)
--                Lmc_root_dev = dev;
--            else
--                ((lmc_softc_t *) prev->priv)->next_module = dev;
--
--            ((lmc_softc_t *) dev->priv)->next_module = NULL;
--            /* end insert */
--
--            foundaddr = dev->base_addr;
--
--            cards_found++;
--            intcf++;
--        }
--    lmc_probe_next_card:
--        pci_index++;
-+    struct net_device *dev = pci_get_drvdata(pdev);
-+    
-+    if (dev) {
-+	    lmc_softc_t *sc = dev->priv;
-+	    
-+	    printk("%s: removing...\n", dev->name);
-+	    lmc_proto_detach(sc);
-+	    unregister_netdev(dev);
-+	    free_netdev(dev);
-+	    pci_release_regions(pdev);
-+	    pci_disable_device(pdev);
-+	    pci_set_drvdata(pdev, NULL);
-     }
--
--    if (cards_found < 1)
--        return -1;
--
--    return foundaddr;
- }
- 
- /* After this is called, packets can be sent.
-@@ -1181,8 +1102,6 @@
-     
-     sc->stats.tx_tbusy0++ ;
- 
--    MOD_INC_USE_COUNT;
--
-     /*
-      * select what interrupts we want to get
-      */
-@@ -1352,7 +1271,6 @@
- 
-     lmc_trace(dev, "lmc_ifdown out");
- 
--    MOD_DEC_USE_COUNT;
-     return 0;
- }
- 
-@@ -1850,12 +1768,11 @@
- 
- static struct net_device_stats *lmc_get_stats (struct net_device *dev) /*fold00*/
- {
--    lmc_softc_t *sc;
-+    lmc_softc_t *sc = dev->priv;
-     unsigned long flags;
- 
-     lmc_trace(dev, "lmc_get_stats in");
- 
--    sc = dev->priv;
- 
-     spin_lock_irqsave(&sc->lmc_lock, flags);
- 
-@@ -1868,58 +1785,21 @@
-     return (struct net_device_stats *) &sc->stats;
- }
- 
-+static struct pci_driver lmc_driver = {
-+	.name		= "lmc",
-+	.id_table	= lmc_pci_tbl,
-+	.probe		= lmc_init_one,
-+	.remove		= __devexit_p(lmc_remove_one),
++struct ipv6_devconf {
++	__s32		forwarding;
++	__s32		hop_limit;
++	__s32		mtu6;
++	__s32		accept_ra;
++	__s32		accept_redirects;
++	__s32		autoconf;
++	__s32		dad_transmits;
++	__s32		rtr_solicits;
++	__s32		rtr_solicit_interval;
++	__s32		rtr_solicit_delay;
++#ifdef CONFIG_IPV6_PRIVACY
++	__s32		use_tempaddr;
++	__s32		temp_valid_lft;
++	__s32		temp_prefered_lft;
++	__s32		regen_max_retry;
++	__s32		max_desync_factor;
++#endif
++	void		*sysctl;
 +};
 +
- static int __init init_lmc(void)
- {
--    printk ("lmc: module loaded\n");
--
--    /* Have lmc_probe search for all the cards, and allocate devices */
--    if (lmc_probe (NULL) < 0)
--        return -EIO;
--
--    return 0;
-+    return pci_module_init(&lmc_driver);
- }
- 
- static void __exit exit_lmc(void)
- {
--    struct net_device *dev, *next;
--    lmc_softc_t *sc;
--
--    /* we have no pointer to our devices, since they are all dynamically
--     * allocated.  So, here we loop through all the network devices
--     * looking for ours.  When found, dispose of them properly.
--     */
--
--    for (dev = Lmc_root_dev;
--         dev != NULL;
--         dev = next )
--    {
--
--        next = ((lmc_softc_t *) dev->priv)->next_module; /* get it now before we deallocate it */
--        printk ("%s: removing...\n", dev->name);
--
--        /* close the syncppp stuff, and release irq. Close is run on unreg net */
--        lmc_close (dev);
--	sc = dev->priv;
--        if (sc != NULL)
--            lmc_proto_detach(sc);
--
--        /* Remove the device from the linked list */
--        unregister_netdev (dev);
--
--        /* Let go of the io region */;
--        release_region (dev->base_addr, LMC_REG_RANGE);
--
--        /* free our allocated structures. */
--        kfree (dev->priv);
--        dev->priv = NULL;
--
--        free_netdev (dev);
--        dev = NULL;
--    }
--
--
--    Lmc_root_dev = NULL;
--    printk ("lmc module unloaded\n");
-+    pci_unregister_driver(&lmc_driver);
- }
- 
- module_init(init_lmc);
-@@ -2326,8 +2206,3 @@
- 
- 
- }
--
--int lmc_setup(void) { /*FOLD00*/
--   return lmc_probe(NULL);
--}
--
-diff -Nru a/drivers/net/wan/lmc/lmc_var.h b/drivers/net/wan/lmc/lmc_var.h
---- a/drivers/net/wan/lmc/lmc_var.h	Tue Sep 16 14:33:16 2003
-+++ b/drivers/net/wan/lmc/lmc_var.h	Tue Sep 16 14:33:16 2003
-@@ -390,7 +390,7 @@
- 	struct timer_list	timer;
- 	lmc_ctl_t		ictl;
- 	u_int32_t		TxDescriptControlInit;  
--	struct net_device		*next_module;   /* Link to the next module  */
++/* index values for the variables in ipv6_devconf */
++enum {
++	DEVCONF_FORWARDING = 0,
++	DEVCONF_HOPLIMIT,
++	DEVCONF_MTU6,
++	DEVCONF_ACCEPT_RA,
++	DEVCONF_ACCEPT_REDIRECTS,
++	DEVCONF_AUTOCONF,
++	DEVCONF_DAD_TRANSMITS,
++	DEVCONF_RTR_SOLICITS,
++	DEVCONF_RTR_SOLICIT_INTERVAL,
++	DEVCONF_RTR_SOLICIT_DELAY,
++#ifdef CONFIG_IPV6_PRIVACY
++	DEVCONF_USE_TEMPADDR,
++	DEVCONF_TEMP_VALID_LFT,
++	DEVCONF_TEMP_PREFERED_LFT,
++	DEVCONF_REGEN_MAX_RETRY,
++	DEVCONF_MAX_DESYNC_FACTOR,
++#endif
++	DEVCONF_MAX
++};
 +
- 	int                     tx_TimeoutInd; /* additional driver state */
- 	int                     tx_TimeoutDisplay;
- 	unsigned int		lastlmc_taint_tx;
+ #ifdef __KERNEL__
+
+ /*
+diff -ruN linux-2.4.22.org/include/linux/rtnetlink.h linux-2.4.22/include/linux/rtnetlink.h
+--- linux-2.4.22.org/include/linux/rtnetlink.h	2003-09-16 14:32:11.000000000 -0700
++++ linux-2.4.22/include/linux/rtnetlink.h	2003-09-16 14:33:10.000000000 -0700
+@@ -445,10 +445,12 @@
+ #define IFLA_MASTER IFLA_MASTER
+ 	IFLA_WIRELESS,		/* Wireless Extension event - see wireless.h */
+ #define IFLA_WIRELESS IFLA_WIRELESS
++	IFLA_PROTINFO,		/* Protocol specific information for a link */
++#define IFLA_PROTINFO IFLA_PROTINFO
+ };
+
+
+-#define IFLA_MAX IFLA_WIRELESS
++#define IFLA_MAX IFLA_PROTINFO
+
+ #define IFLA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
+ #define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
+@@ -482,6 +484,18 @@
+    for IPIP tunnels, when route to endpoint is allowed to change)
+  */
+
++/* Subtype attributes for IFLA_PROTINFO */
++enum
++{
++	IFLA_INET6_UNSPEC,
++	IFLA_INET6_FLAGS,	/* link flags			*/
++	IFLA_INET6_CONF,	/* sysctl parameters		*/
++	IFLA_INET6_STATS,	/* statistics			*/
++	IFLA_INET6_MCAST,	/* MC things. What of them?	*/
++};
++
++#define IFLA_INET6_MAX	IFLA_INET6_MCAST
++
+ /*****************************************************************
+  *		Traffic control messages.
+  ****/
+diff -ruN linux-2.4.22.org/include/net/if_inet6.h linux-2.4.22/include/net/if_inet6.h
+--- linux-2.4.22.org/include/net/if_inet6.h	2003-08-25 04:44:44.000000000 -0700
++++ linux-2.4.22/include/net/if_inet6.h	2003-09-16 14:33:10.000000000 -0700
+@@ -15,6 +15,10 @@
+ #ifndef _NET_IF_INET6_H
+ #define _NET_IF_INET6_H
+
++#include <linux/ipv6.h>
++
++#define IF_RA_OTHERCONF	0x80
++#define IF_RA_MANAGED	0x40
+ #define IF_RA_RCVD	0x20
+ #define IF_RS_SENT	0x10
+
+@@ -124,22 +128,6 @@
+ #define	IFA_SITE	IPV6_ADDR_SITELOCAL
+ #define	IFA_GLOBAL	0x0000U
+
+-struct ipv6_devconf
+-{
+-	int		forwarding;
+-	int		hop_limit;
+-	int		mtu6;
+-	int		accept_ra;
+-	int		accept_redirects;
+-	int		autoconf;
+-	int		dad_transmits;
+-	int		rtr_solicits;
+-	int		rtr_solicit_interval;
+-	int		rtr_solicit_delay;
+-
+-	void		*sysctl;
+-};
+-
+ struct inet6_dev
+ {
+ 	struct net_device		*dev;
+diff -ruN linux-2.4.22.org/net/ipv6/addrconf.c linux-2.4.22/net/ipv6/addrconf.c
+--- linux-2.4.22.org/net/ipv6/addrconf.c	2003-09-16 14:32:13.000000000 -0700
++++ linux-2.4.22/net/ipv6/addrconf.c	2003-09-16 14:33:10.000000000 -0700
+@@ -1981,11 +1981,112 @@
+ 	netlink_broadcast(rtnl, skb, 0, RTMGRP_IPV6_IFADDR, GFP_ATOMIC);
+ }
+
++static void inline ipv6_store_devconf(struct ipv6_devconf *cnf,
++				__s32 *array, int bytes)
++{
++	memset(array, 0, bytes);
++	array[DEVCONF_FORWARDING] = cnf->forwarding;
++	array[DEVCONF_HOPLIMIT] = cnf->hop_limit;
++	array[DEVCONF_MTU6] = cnf->mtu6;
++	array[DEVCONF_ACCEPT_RA] = cnf->accept_ra;
++	array[DEVCONF_ACCEPT_REDIRECTS] = cnf->accept_redirects;
++	array[DEVCONF_AUTOCONF] = cnf->autoconf;
++	array[DEVCONF_DAD_TRANSMITS] = cnf->dad_transmits;
++	array[DEVCONF_RTR_SOLICITS] = cnf->rtr_solicits;
++	array[DEVCONF_RTR_SOLICIT_INTERVAL] = cnf->rtr_solicit_interval;
++	array[DEVCONF_RTR_SOLICIT_DELAY] = cnf->rtr_solicit_delay;
++#ifdef CONFIG_IPV6_PRIVACY
++	array[DEVCONF_USE_TEMPADDR] = cnf->use_tempaddr;
++	array[DEVCONF_TEMP_VALID_LFT] = cnf->temp_valid_lft;
++	array[DEVCONF_TEMP_PREFERED_LFT] = cnf->temp_prefered_lft;
++	array[DEVCONF_REGEN_MAX_RETRY] = cnf->regen_max_retry;
++	array[DEVCONF_MAX_DESYNC_FACTOR] = cnf->max_desync_factor;
++#endif
++}
++
++static int inet6_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
++			    struct inet6_dev *idev,
++			    int type, u32 pid, u32 seq)
++{
++	__s32			*array = NULL;
++	struct ifinfomsg	*r;
++	struct nlmsghdr 	*nlh;
++	unsigned char		*b = skb->tail;
++	struct rtattr		*subattr;
++
++	nlh = NLMSG_PUT(skb, pid, seq, type, sizeof(*r));
++	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
++	r = NLMSG_DATA(nlh);
++	r->ifi_family = AF_INET6;
++	r->ifi_type = dev->type;
++	r->ifi_index = dev->ifindex;
++	r->ifi_flags = dev->flags;
++	r->ifi_change = 0;
++	if (!netif_running(dev) || !netif_carrier_ok(dev))
++		r->ifi_flags &= ~IFF_RUNNING;
++	else
++		r->ifi_flags |= IFF_RUNNING;
++
++	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
++
++	subattr = (struct rtattr*)skb->tail;
++
++	RTA_PUT(skb, IFLA_PROTINFO, 0, NULL);
++
++	/* return the device flags */
++	RTA_PUT(skb, IFLA_INET6_FLAGS, sizeof(__u32), &idev->if_flags);
++
++	/* return the device sysctl params */
++	if ((array = kmalloc(DEVCONF_MAX * sizeof(*array), GFP_ATOMIC)) == NULL)
++		goto rtattr_failure;
++	ipv6_store_devconf(&idev->cnf, array, DEVCONF_MAX * sizeof(*array));
++	RTA_PUT(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(*array), array);
++
++	/* XXX - Statistics/MC not implemented */
++	subattr->rta_len = skb->tail - (u8*)subattr;
++
++	nlh->nlmsg_len = skb->tail - b;
++	kfree(array);
++	return skb->len;
++
++nlmsg_failure:
++rtattr_failure:
++	if (array)
++		kfree(array);
++	skb_trim(skb, b - skb->data);
++	return -1;
++}
++
++static int inet6_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int idx, err;
++	int s_idx = cb->args[0];
++	struct net_device *dev;
++	struct inet6_dev *idev;
++
++	read_lock(&dev_base_lock);
++	for (dev=dev_base, idx=0; dev; dev = dev->next, idx++) {
++		if (idx < s_idx)
++			continue;
++		if ((idev = in6_dev_get(dev)) == NULL)
++			continue;
++		err = inet6_fill_ifinfo(skb, dev, idev, RTM_NEWLINK,
++				NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq);
++		in6_dev_put(idev);
++		if (err <= 0)
++			break;
++	}
++	read_unlock(&dev_base_lock);
++	cb->args[0] = idx;
++
++	return skb->len;
++}
++
+ static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX-RTM_BASE+1] =
+ {
+ 	{ NULL,			NULL,			},
+ 	{ NULL,			NULL,			},
+-	{ NULL,			NULL,			},
++	{ NULL,			inet6_dump_ifinfo,	},
+ 	{ NULL,			NULL,			},
+
+ 	{ inet6_rtm_newaddr,	NULL,			},
+diff -ruN linux-2.4.22.org/net/ipv6/ndisc.c linux-2.4.22/net/ipv6/ndisc.c
+--- linux-2.4.22.org/net/ipv6/ndisc.c	2003-09-16 14:32:13.000000000 -0700
++++ linux-2.4.22/net/ipv6/ndisc.c	2003-09-16 14:33:10.000000000 -0700
+@@ -944,6 +944,17 @@
+ 		in6_dev->if_flags |= IF_RA_RCVD;
+ 	}
+
++	/*
++	 * Remember the managed/otherconf flags from most recently
++	 * received RA message (RFC 2462) -- yoshfuji
++	 */
++	in6_dev->if_flags = (in6_dev->if_flags & ~(IF_RA_MANAGED |
++				IF_RA_OTHERCONF)) |
++				(ra_msg->icmph.icmp6_addrconf_managed ?
++					IF_RA_MANAGED : 0) |
++				(ra_msg->icmph.icmp6_addrconf_other ?
++					IF_RA_OTHERCONF : 0);
++
+ 	lifetime = ntohs(ra_msg->icmph.icmp6_rt_lifetime);
+
+ 	rt = rt6_get_dflt_router(&skb->nh.ipv6h->saddr, skb->dev);
