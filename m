@@ -1,176 +1,78 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6]: Fix suboptimal fragment sizing for last fragment
-Date: Fri, 03 Sep 2004 10:40:50 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040903.104050.29603454.yoshfuji@linux-ipv6.org>
-References: <4137681D.3000902@trash.net>
-	<20040902144436.2c8c1337.davem@redhat.com>
-	<20040902220343.GA3250@gondor.apana.org.au>
+From: Srivatsa Vaddagiri <vatsa@in.ibm.com>
+Subject: Re: [RFC] Use RCU for tcp_ehash lookup
+Date: Thu, 2 Sep 2004 19:34:44 +0530
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040902140444.GA4808@in.ibm.com>
+References: <20040831125941.GA5534@in.ibm.com> <20040901224108.3b2d692d.davem@redhat.com>
+Reply-To: vatsa@in.ibm.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, herbert@gondor.apana.org.au
-In-Reply-To: <20040902220343.GA3250@gondor.apana.org.au>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	dipankar@in.ibm.com, paulmck@us.ibm.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268998AbUICEEz@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040901224108.3b2d692d.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-In article <20040902220343.GA3250@gondor.apana.org.au> (at Fri, 3 Sep 2004 08:03:44 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+On Wed, Sep 01, 2004 at 10:41:08PM -0700, David S. Miller wrote:
+> The reason you don't see any improvement is that the ehash table is
+> pretty write heavy.
 
-> Another thing we can do is to not always fill up the frags in the middle
-> and then move bytes off them.  As it is if you do a send that spans
-> multiple packets each fragment will be filled up to the full and then
-> chopped off when the next one is started.
+In my simple one-file-transfer-test-at-a-time, it should have been read-mostly.
+Probably the fact lookups are not serialized wrt input pakcet processing
+may have shadowed the benefits of lock-free lookup. However perhaps
+if I have multiple file transfer sessions in progress (one per cpu maybe),
+then the benefit of reduced time spent in looking up a socket, could be passed 
+on to threads doing network input.
 
-I think I had similar impression when I saw the Patrick's patch.
+> I'm not totally against your patch, I just don't think that the TCP established
+> hash table qualifies as "read heavy" as per what RCU is truly effective for.
 
-Here's the optimization: if we know the remaining data exceeds the
-mtu, we do not need to fill up full of it.
+IMHO the benefits of lock-free will be seen only in such scenarios, i.e where
+read_lock ended up having to spin-wait on a update to finish. In the lock-free 
+case, there is no such wait.
+ 
+> That's exactly what I was concerned about when I saw that you had attempted
+> this change.  It is incredibly important for state changes and updates to
+> be seen as atomic by the packet input processing engine.  It would be illegal
+> for a cpu running TCP input to see a socket in two tables at the same time
+> (for example, in the main established area and in the second half for TIME_WAIT
+> buckets).
+> 
+> If the visibility of the socket is wrong, sockets could be erroneously
+> be reset during the transition from established to TIME_WAIT state.
+> Beware!
 
-skb_prev:
-                mtu
-+----------+--+-+
-|          |  | |
-+----------+--+-+
-           ^  ^
-skb_prev->len |
-              maxfraglen
+This is precisely the reason why I changed the order of movement in
+__tcp_tw_hashdance. Earlier, it was removing the socket from the
+established half and _then_ adding it to time-wait half. This would
+have lead to a window where the socket is neither in established-half
+not in the time-wait half. A packet arriving in this window (& doing
+lock-free lookup) would have been dropped.
 
-appending data:
-           +--------+
-           |        |
-           +--------+
-           --------->
-                  length
+Hence I reversed the order of movement to add in time-wait first
+before removing from established half.
 
-In this case, we know we need more fragment(s).
-So, let's fill up to maxfraglen (instead of mtu) 
-to avoid needless copy in the next loop.
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-===== net/ipv4/ip_output.c 1.67 vs edited =====
---- 1.67/net/ipv4/ip_output.c	2004-09-03 06:50:20 +09:00
-+++ edited/net/ipv4/ip_output.c	2004-09-03 10:15:53 +09:00
-@@ -811,26 +811,33 @@
- 		goto alloc_new_skb;
- 
- 	while (length > 0) {
--		if ((copy = mtu - skb->len) <= 0) {
-+		/* Check if the remaining data fits into current packet. */
-+		copy = mtu - skb->len;
-+		if (copy < length)
-+			copy = maxfraglen - skb->len;
-+		if (copy <= 0) {
- 			char *data;
- 			unsigned int datalen;
- 			unsigned int fraglen;
- 			unsigned int fraggap;
- 			unsigned int alloclen;
- 			struct sk_buff *skb_prev;
--			BUG_TRAP(copy == 0);
--
- alloc_new_skb:
- 			skb_prev = skb;
--			fraggap = 0;
- 			if (skb_prev)
--				fraggap = mtu - maxfraglen;
--
--			datalen = mtu - fragheaderlen;
--			if (datalen > length + fraggap)
--				datalen = length + fraggap;
-+				fraggap = skb_prev->len - maxfraglen;
-+			else
-+				fraggap = 0;
- 
-+			/*
-+			 * If remaining data exceeds the mtu,
-+			 * we know we need more fragment(s).
-+			 */
-+			datalen = length + fraggap;
-+			if (datalen > mtu - fragheaderlen)
-+				datalen = maxfraglen - fragheaderlen;
- 			fraglen = datalen + fragheaderlen;
-+
- 			if ((flags & MSG_MORE) && 
- 			    !(rt->u.dst.dev->features&NETIF_F_SG))
- 				alloclen = mtu;
-@@ -1026,18 +1033,22 @@
- 
- 	while (size > 0) {
- 		int i;
--		if ((len = mtu - skb->len) <= 0) {
-+
-+		/* Check if the remaining data fits into current packet. */
-+		len = mtu - skb->len;
-+		if (len > size)
-+			len = maxfraglen - skb->len;
-+		if (len <= 0) {
- 			struct sk_buff *skb_prev;
- 			char *data;
- 			struct iphdr *iph;
- 			int alloclen;
- 
--			BUG_TRAP(len == 0);
--
- 			skb_prev = skb;
--			fraggap = 0;
- 			if (skb_prev)
--				fraggap = mtu - maxfraglen;
-+				fraggap = skb_prev->len - maxfraglen;
-+			else
-+				fraggap = 0;
- 
- 			alloclen = fragheaderlen + hh_len + fraggap + 15;
- 			skb = sock_wmalloc(sk, alloclen, 1, sk->sk_allocation);
-===== net/ipv6/ip6_output.c 1.72 vs edited =====
---- 1.72/net/ipv6/ip6_output.c	2004-09-03 06:50:20 +09:00
-+++ edited/net/ipv6/ip6_output.c	2004-09-03 10:24:57 +09:00
-@@ -898,26 +898,34 @@
- 		goto alloc_new_skb;
- 
- 	while (length > 0) {
--		if ((copy = mtu - skb->len) <= 0) {
-+		/* Check if the remaining data fits into current packet. */
-+		copy = mtu - skb->len;
-+		if (copy < length)
-+			copy = maxfraglen - skb->len;
-+
-+		if (copy <= 0) {
- 			char *data;
- 			unsigned int datalen;
- 			unsigned int fraglen;
- 			unsigned int fraggap;
- 			unsigned int alloclen;
- 			struct sk_buff *skb_prev;
--			BUG_TRAP(copy == 0);
- alloc_new_skb:
- 			skb_prev = skb;
- 
- 			/* There's no room in the current skb */
--			fraggap = 0;
- 			if (skb_prev)
--				fraggap = mtu - maxfraglen;
--
--			datalen = mtu - fragheaderlen;
-+				fraggap = skb_prev->len - maxfraglen;
-+			else
-+				fraggap = 0;
- 
--			if (datalen > length + fraggap)
--				datalen = length + fraggap;
-+			/*
-+			 * If remaining data exceeds the mtu,
-+			 * we know we need more fragment(s).
-+			 */
-+			datalen = length + fraggap;
-+			if (datalen > mtu - fragheaderlen)
-+				datalen = maxfraglen - fragheaderlen;
- 
- 			fraglen = datalen + fragheaderlen;
- 			if ((flags & MSG_MORE) &&
+
+> >   Note that __tcp_v4_lookup_established should not be affected by the above
+> >   movement because I found it scans the established half first and _then_ the
+> >   time wait half. So even if the same socket is present in both established half
+> >   and time wait half, __tcp_v4_lookup_established will lookup only one of them
+> >   (& not both).
+> 
+> I hope this is true.
+
+AFAICS it is true! If __tcp_v4_lookup_established finds it in the established
+half, it does no further lookup in the time-wait half.
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+
+
+Thanks and Regards,
+Srivatsa Vaddagiri,
+Linux Technology Center,
+IBM Software Labs,
+Bangalore, INDIA - 560017
