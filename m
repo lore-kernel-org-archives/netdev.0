@@ -1,50 +1,38 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Mon, 27 Sep 2004 18:38:42 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu>
-References: <20040923161141.4ea9be4c.davem@davemloft.net>
+From: CaT <cat@zip.com.au>
+Subject: Re: strange network slowness in 2.6 unless pingflooding
+Date: Tue, 28 Sep 2004 08:49:57 +1000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040927224957.GA1043@zip.com.au>
+References: <20040927090342.GA1794@zip.com.au> <41587A26.6020606@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andi Kleen <ak@suse.de>, <niv@us.ibm.com>, <andy.grover@gmail.com>,
-        <anton@samba.org>, <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040923161141.4ea9be4c.davem@davemloft.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	jgarzik@pobox.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Disposition: inline
+In-Reply-To: <41587A26.6020606@conectiva.com.br>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Sep 2004, David S. Miller wrote:
+On Mon, Sep 27, 2004 at 05:37:58PM -0300, Arnaldo Carvalho de Melo wrote:
+> CaT wrote:
+> >Hi,
+> >
+> >This is still happening. I ran the same set of tests on a totally
+> >different network, with my xircom  realport ethernet card (tulip
+> >driver - 16bit) and from linux to linux and windows to linux. Scrolling
+> >through a message in mutt eventually slows down and if I lift my finger
+> >off the enter key whilst it's slow the scrolling keeps going, as if it
+> >was all bufferd. If I do a pingflood (ping -f) from a machine to my
+> >laptop it's all fine.
+> >
+> >I am also now running 2.6.9-rc1-mm4.
+> 
+> Have you tried FAQ:
+> 
+> echo 0 > /proc/sys/net/ipv4/tcp_window_scaling
 
->
-> I think I know what may be going on here.
->
-> Let's say that we even get the congestion window openned up
-> so that we can build 64K TSO frames, that's around 43 or 44
-> 1500 mtu frames.
->
-> That means as the window fills up, we have to see 44 ACKs
-> before we are able to send the next TSO frame.  Needless to
-> say that breaks ACK clocking completely.
+It does not help. Same problem as before.
 
-
-More specifically, I think it is an interaction with delayed ack (acking
-less than 1 virtual segment), and the small cwnd.  This works for me, but
-I'm not sure that aren't some lurking problems still.
-
-===== net/ipv4/tcp_output.c 1.58 vs edited =====
---- 1.58/net/ipv4/tcp_output.c	2004-09-14 00:39:17 -04:00
-+++ edited/net/ipv4/tcp_output.c	2004-09-27 18:26:43 -04:00
-@@ -642,8 +657,8 @@
- 		 * do not exceed congestion window.
- 		 */
- 		factor = large_mss / mss_now;
--		if (factor > tp->snd_cwnd)
--			factor = tp->snd_cwnd;
-+		if (factor > (tp->snd_cwnd>>3))
-+			factor = max(tp->snd_cwnd>>3, 1);
-
- 		tp->mss_cache = mss_now * factor;
- 	}
-
-  -John
+-- 
+    Red herrings strewn hither and yon.
