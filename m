@@ -1,52 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: dummy as IMQ replacement
-Date: 31 Jan 2005 15:08:31 -0500
-Message-ID: <1107202111.1076.537.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <200501311614.31397.hasso@estpak.ee>
-	 <1107181551.7847.193.camel@jzny.localdomain>
-	 <200501311646.14322.hasso@estpak.ee>
-	 <20050131180048.GA24851@xi.wantstofly.org>
-Reply-To: hadi@cyberus.ca
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH] OpenBSD Networking-related randomization port
+Date: Mon, 31 Jan 2005 21:11:41 +0100
+Message-ID: <20050131201141.GA4879@elte.hu>
+References: <1106932637.3778.92.camel@localhost.localdomain> <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net> <1106937110.3864.5.camel@localhost.localdomain> <20050128105217.1dc5ef42@dxpl.pdx.osdl.net> <1106944492.3864.30.camel@localhost.localdomain> <1106945266.7776.41.camel@laptopd505.fenrus.org> <200501290915.j0T9FkVY012948@turing-police.cc.vt.edu> <20050131165025.GN18316@stusta.de> <1107192218.3754.86.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Hasso Tepper <hasso@estpak.ee>, netdev@oss.sgi.com,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050131180048.GA24851@xi.wantstofly.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Adrian Bunk <bunk@stusta.de>, Valdis.Kletnieks@vt.edu,
+	Arjan van de Ven <arjan@infradead.org>,
+	Stephen Hemminger <shemminger@osdl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com,
+	Hank Leininger <hlein@progressive-comp.com>,
+	"David S. Miller" <davem@redhat.com>, linux@horizon.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261353AbVAaUMk@vger.kernel.org>
+To: Lorenzo =?iso-8859-1?Q?Hern=E1ndez_Garc=EDa-Hierro?=
+	<lorenzo@gnu.org>
+Content-Disposition: inline
+In-Reply-To: <1107192218.3754.86.camel@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-31 at 13:00, Lennert Buytenhek wrote:
-> On Mon, Jan 31, 2005 at 04:46:14PM +0200, Hasso Tepper wrote:
-> 
-> > This is somewhat related to killing the chance to use iptables as well ... 
-> > Iptables has better documentation and people use it just because of that.
-> 
-> I'm afraid I have to agree on this one.  
 
-Well, if you look at the 2 requirements behind IMQ, has nothing todo
-with iptables i.e does not at all require presence of iptables.
-So motivation is to meet those requirements not kill iptables.
+* Lorenzo Hern=E1ndez Garc=EDa-Hierro <lorenzo@gnu.org> wrote:
 
-> The idea behind iptables is
-> easy to grasp, whereas tc isn't totally obvious, and all tc 'tutorials'
-> out there just give you a long list of commands to type in but don't
-> really explain you what goes on under the hood.
-> 
-> And you can't just expect everyone to "Go look at the source."
+> > At least the three clause BSD license is GPL compatible.
+>=20
+> Yes, AFAIK :)
+>=20
+> I will try to follow Arjan's recommendations on using his functions
+> instead of obsd ones, even if I think it should be alone in the
+> current file. Also I will split up the patch.
 
-Agreed, tc is less usable and has a lot less people puking code at it.
-The usability part has to be fixed. And i think you will see that with
-ematch and eaction code showing up. Credit goes to Bart and co and their
-website for putting a lot of docs together. Usability certainly needs to
-improve!
+could you please also react to this feedback:
 
-cheers,
-jamal
+  http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=3D110698371131630&w=3D=
+2
+
+to quote a couple of key points from that very detailed security
+analysis:
+
+" I'm not sure how the OpenBSD code is better in any way.  (Notice that
+  it uses the same "half_md4_transform" as Linux; you just added anothe=
+r
+  copy.) Is there a design note on how the design was chosen? "
+
+that mail also includes a much smaller patch to random.c.
+
+( Obviously the more fundamental questions have to be solved prior
+solving code-level problems, patch splitup and patch ordering - often
+one ends up having a much smaller patch to work with, by thinking more
+about the fundamentals. )
+
+	Ingo
