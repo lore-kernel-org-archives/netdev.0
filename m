@@ -1,35 +1,34 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: [Fwd: [E1000] NAPI re-insertion w/ changes]
-Date: Wed, 2 Apr 2003 04:19:23 +0000 (UTC)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
+Date: Wed, 02 Apr 2003 13:20:34 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <slrnb8kp6j.reg.lunz@orr.homenet>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D325@orsmsx402.jf.intel.com>
+Message-ID: <20030402.132034.126030996.yoshfuji@linux-ipv6.org>
+References: <20030401.193429.64279267.davem@redhat.com>
+	<20030402.130232.78951283.yoshfuji@linux-ipv6.org>
+	<20030401.200225.88014087.davem@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: toml@us.ibm.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru,
+   yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
+In-Reply-To: <20030401.200225.88014087.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-scott.feldman@intel.com said:
-> Robert, please post your -ro3 changes - I can't find them.
+In article <20030401.200225.88014087.davem@redhat.com> (at Tue, 01 Apr 2003 20:02:25 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
 
-sorry, the -roX and -sfX notations are mine; i'm backporting everything
-to 2.4.20 for testing and most of the patches have to be tweaked one way
-or another, so I gave them all my own names to help keep them straight.
--ro1 and -ro2 come from Robert's posts here, and -ro3 is what you get
-when you apply
+> I just checked, nobody cares about the 8 bytes in enc_data.
+> 
+> Therefore, I think you're idea of enc_data[0] is the best.
+> 
+> Someone please double check my claims and submit a patch. :-)
 
-ftp://robur.slu.se/pub/Linux/net-development/skb_recycling/e1000_pci_2.pat
+Okay, I'll check it (and make a patch) in this afternoon 
+(in a few hours).
 
-on top of that.
-
-> I'm pretty happy with this NAPI code for e1000.  Next step is to get
-> some more generic QA testing with NAPI and then port back to 2.4.x.
-
-For what it's worth, I've subjected various e1000 chipsets to just about
-every kind of synthetic load all the way up to the maximum theoretical
-full-duplex gigE framerate for hours without a hiccup. I'm using
-backports from 2.5 with the TSO stuff stripped out. Judging from my
-apache logs and the emails I get, quite a few others have been using
-those patches on 2.4 too, but I've received no real complaints.
-
-Jason
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
