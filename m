@@ -1,33 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] PPC64 iSeries virtual ethernet proc files
-Date: Mon, 07 Jun 2004 09:21:00 -0400
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: in-driver QoS
+Date: Mon, 7 Jun 2004 23:35:04 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40C46BBC.7000001@pobox.com>
-References: <20040607164312.258a9f99.sfr@canb.auug.org.au>
+Message-ID: <200406072335.04125.vkondra@mail.ru>
+References: <200406062128.47070.vkondra@mail.ru> <20040607140011.GC28639@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Linus <torvalds@osdl.org>,
-        ppc64-dev <linuxppc64-dev@lists.linuxppc.org>, netdev@oss.sgi.com
+Cc: Andi Kleen <ak@suse.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-In-Reply-To: <20040607164312.258a9f99.sfr@canb.auug.org.au>
+To: netdev@oss.sgi.com
+In-Reply-To: <20040607140011.GC28639@wotan.suse.de>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Rothwell wrote:
-> Hi Andrew,
-> 
-> From: David Gibson <david@gibson.dropbear.id.au>
-> 
-> This patch just adds back some of the iserires_veth proc files to provide
-> information to user space (particularly Kudzu) to allow the virtual
-> ethernets to be discovered.  These files existed in a 2.4 version of this
-> driver that was shipped by some distros.
+How could I use these multiple qdiscs? If I use existing driver framework, I 
+have hard_start_xmit, that represent single queue. Do you have any examples 
+how driver can access qdiscs directly? I.e. I have 4 queues in the driver, I 
+want to fill it separately, start/stop incoming queues from stack etc.
 
+Note also, we are talking about 100Mbps above MAC, which translates to about 
+150 Mbps, within next 2 years. 100Mbps above MAC is criteria for TGn working 
+group in IEEE (high throughput).
 
-kudzu can find this stuff with ethtool, without adding this code.
+Vladimir.
 
-This code isn't needed in 2.6.x.
-
-	Jeff
+On Monday 07 June 2004 17:00, Andi Kleen wrote:
+> > Any ideas how to modify stack to support multiple Tx queues?
+>
+> It already has that kind of in the form of arbitary qdiscs. The trick
+> will be only to do all queueing in the qdisc and keep the hardware
+> queue length as small as possible. I think today's drivers can
+> do that already by just plugging the queue most of the time,
+> unless they really want a packet.
+>
+> Disadvantage will be more use of CPU time to refill driver
+> queues, but at the relatively slow WLAN speeds that shouldn't
+> be a big issue.
+>
+> BTW the standard qdisc pfifo_fast already has three queues,
+> selected by the old TOS.  That may even be good enough for you
+> already. Users can fine tune it by using firewall rules
+> that change the TOS for specific protocols etc.
+>
+> -Andi
