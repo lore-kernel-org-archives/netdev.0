@@ -1,37 +1,45 @@
-From: Ravikiran G Thirumalai <kiran@in.ibm.com>
-Subject: Qdisc drops not being reported to user space
-Date: Thu, 17 Oct 2002 15:59:55 +0530
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: [Question] SMP for Linux
+Date: Thu, 17 Oct 2002 12:02:43 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021017155955.E20237@in.ibm.com>
+Message-ID: <20021017100243.GA6569@outpost.ds9a.nl>
+References: <20021017112928.B20854@toad.postech.ac.kr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
+Cc: niv@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: Hyochang Nam <cannon@postech.ac.kr>
 Content-Disposition: inline
+In-Reply-To: <20021017112928.B20854@toad.postech.ac.kr>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sometime back, I had posted a patch to report Qdisc drops under /proc/net/dev.
-I'd noticed that Qdisc.drops was not being reported for the default queuing
-discipline (pfifo_fast).  I was told that my approach mucked SNMP data.
-I was also told that prio will be made the default queuing discipline and
-pfifo_fast will be done away with. Is this the case even now? will prio
-be made the default queuing disc in the 2.5 time frame? If not, any
-solution in sight to report Qdisc drops to userland? (I think there is
-a kernel patch and a patch for tc from Jamal). I have noticed Qdisc
-drops under webserver loads, and heavy tx loads (I used my  proc reporting
-patch .. it did not break ifconfig atleast..).  IMO It'd not be right if
-packets are being dropped by the kernel (default queuing discipline) and the
-unsuspecting admin has no means to find that out.  IMHO It'd also not be fair 
-to expect users to use CONFIG_NET_SCH_PRIO and add the prio qdisc before 
-using a n/w interface just to be able to make out Qdisc drops.
- 
-One more thing...IMHO, there must be some documentation somewhere ....
-tc man page (which doesn't exist as of now?) or atleast the readme
-which should indicate to the user that drops seen from ifconfig
-(packets dropped by the adapter) are different from packets dropped from
-the qdisc as shown by tc. 
- 
-Thanks,
-Kiran
+On Thu, Oct 17, 2002 at 11:29:28AM +0900, Hyochang Nam wrote:
+> Many people helped me to solve the interrupt distribution problem.
+> We tested the throughput of Layer 3 forwarding on a SMP machine
+> which equips two Zero proessor(2Ghz). This is our results:
+>   -------------------------
+>        SMP    |  No SMP
+>   -------------------------
+>     230 Mbps  | 330 Mbps
+>   -------------------------
+
+There is something called 'irq affinity' which may be interesting for you.
+See here: http://www.dell.com/us/en/esg/topics/power_ps1q02-morse.htm
+
+/proc/irq/?/smp_affinity
+
+> I expected that the SMP might show better throughput than "NO SMP"
+> environments. But, contrary to my expectation, SMP showed poor results. 
+> I don't know what is my fault in the experiments.
+
+SMP is not always a win.
+
+Regards,
+
+bert hubert
+
+-- 
+http://www.PowerDNS.com          Versatile DNS Software & Services
+http://www.tk                              the dot in .tk
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
