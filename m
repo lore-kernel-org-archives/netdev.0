@@ -1,40 +1,76 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: Update FarSync WAN driver in 2.4.25
-Date: Wed, 04 Feb 2004 16:18:03 -0500
+Date: Wed, 4 Feb 2004 22:32:58 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4021618B.7070605@pobox.com>
+Message-ID: <20040204223258.A19321@electric-eye.fr.zoreil.com>
 References: <7C078C66B7752B438B88E11E5E20E72E25CBB5@general.hq.farsitecommunications.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-        "'davem@redhat.com'" <davem@redhat.com>
+        "'davem@redhat.com'" <davem@redhat.com>,
+        "'jgarzik@redhat.com'" <jgarzik@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Kevin Curtis <kevin.curtis@farsite.co.uk>
-In-Reply-To: <7C078C66B7752B438B88E11E5E20E72E25CBB5@general.hq.farsitecommunications.com>
+Content-Disposition: inline
+In-Reply-To: <7C078C66B7752B438B88E11E5E20E72E25CBB5@general.hq.farsitecommunications.com>; from kevin.curtis@farsite.co.uk on Wed, Feb 04, 2004 at 04:06:16PM -0000
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Comments:
+Kevin Curtis <kevin.curtis@farsite.co.uk> :
+[...]
+diff -urN linux-2.4.25-orig/drivers/net/wan/farsync.c linux/drivers/net/wan/farsync.c
+--- linux-2.4.25-orig/drivers/net/wan/farsync.c	2004-02-04 12:08:41.000000000 +0000
++++ linux/drivers/net/wan/farsync.c	2004-02-04 13:15:45.000000000 +0000
+[...]
++fst_recover_rx_error ( struct fst_card_info *card, struct fst_port_info *port,
++		   unsigned char dmabits, int rxp, unsigned short len)
++{
+[...]
++	    if ( ++rxp >= NUM_RX_BUFFER )
++	      rxp = 0;
 
-* please use standard indentation (one tab)
+-> rxp = (rxp + 1) % NUM_RX_BUFFER; ?
 
-* please use constants per the include/linux/pci_ids.h standard, rather 
-than defining your own.
+   There are a few of those.
 
-* please use standard include/linux/pci.h constants, rather than 
-defining your own (PCIILR, etc.)
+[...]
++	if (card->family == FST_FAMILY_TXU)
++	  {
++	    /*
++	     * Allocate a dma buffer for transmit and receives
++	     */
++	    card->rx_dma_handle_host = 
++	      pci_alloc_consistent(card->device, FST_MAX_MTU, 
++				   &card->rx_dma_handle_card);
++	    if (card->rx_dma_handle_host == NULL)
++	      {
++		printk_err("Could not allocate rx dma buffer\n");
++		return;
++	      }
++	    card->tx_dma_handle_host = 
++	      pci_alloc_consistent(card->device, FST_MAX_MTU,
++				   &card->tx_dma_handle_card);
++	    if (card->tx_dma_handle_host == NULL)
++	      {
++		printk_err("Could not allocate tx dma buffer\n");
++		return;
++	      }
++	  }
 
-* further, obtain interrupt from struct pci_dev::irq after calling 
-pci_enable_device(); do not obtain directly via pci_read_config_xxx()
+-> The error logic is broken. An error code should be returned to the caller
+   if the allocation fails. Otherwise, the kernel will crash on module removal
+   or if the device is further used.
 
-* fst_process_rx_status() could result in flooding the log
 
-* use pci_set_master() to enable bus-mastering
+@@ -1516,16 +2648,39 @@
+[...]
++	    for (i=0; i< fst_excluded_cards; i++)
++	      {
++		if ((pdev->devfn)>>3 == fst_excluded_list[i])
++		  {
++		    printk("FarSync PCI device %d not assigned\n", (pdev->devfn)>>3);
 
-* bottom halves are deprecated.  do not add new code using mark_bh() and 
-friends.  Use tasklets or schedule_task().
+-> printk(KERN_xxx/printk_xxx
 
-* use pci_set_dma_mask() rather than pci_dma_supported()
-
-* use pci_request_regions() rather than request_region()
+--
+Ueimor
