@@ -1,86 +1,61 @@
-From: "Michael T Kerrisk" <mtk-lists@gmx.net>
-Subject: Assassination of TIME_WAIT state
-Date: Thu, 22 Apr 2004 15:05:13 +0200 (MEST)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: IMQ / new Dummy device post.
+Date: 22 Apr 2004 09:16:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <18236.1082639113@www15.gmx.net>
+Message-ID: <1082639764.1059.81.camel@jzny.localdomain>
+References: <wazza.87ad18jbdl.fsf@message.id>
+	 <1082427350.1034.70.camel@jzny.localdomain>
+	 <wazza.87fzayw1fy.fsf@message.id> <wazza.87fzaxmr6x.fsf@message.id>
+	 <wazza.87hdvddqxq.fsf@message.id>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: syrius.ml@no-log.org
+In-Reply-To: <wazza.87hdvddqxq.fsf@message.id>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Gidday,
+Hi there,
 
-In the scenario below, one achieves assassination of the 
-TIME_WAIT state on Linux 2.6.5 and 2.4.x.  From a conversation 
-I had a while ago with Andi Kleen (see below), it appears 
-that this is expected behavior.  I have two (closely linked) 
-questions:
+On Wed, 2004-04-21 at 16:19, syrius.ml@no-log.org wrote:
+> ok, i'm able to reproduce it with a simpler setup.
+> 
+> Let's consider I'm using the new dummy device on machine connected to
+> a ethernet lan. this host is using openvpn to establish a vpn tunnel.
 
--- what is the rationale for this behavior (i.e., why assassinate 
-   in this scenario)?
+[..]
 
--- why does Linux behave differently from FreeBSD and Solaris 
-   in this scenario?
+> after the ping -f 192.168.5.1 (let's say i let it run 30sec), if a do
+> ping 172.16.0.1 the oops appears !
+> 
+> I attach the result of ksymoops.
+> 
+> Please tell me if you're able to reproduce it.
+> I'm ok to try with another vpn software, but I don't think it has
+> anything to do with openvpn.
+> 
 
-Assume in the following scenario that SO_RESUSEADDR is set on 
-the server socket(s):
+It may be more related to the tun device that software uses. Tun is an
+interesting netdevice. I dont have a setup to reproduce this.
 
-Server                           Client
+BTW, doesnt the packet eventually make it to eth0 coming from the vpn?
+Also the other direction is true (always starts at the eth0 level); if
+yes, why do you have to redirect packets from the tap device?
 
-1. Create listening socket 
-   bound to INADDR_ANY/port=9999
-2. Accept a connection on
-   the listening socket
-                                 3. Create a socket bound 
-                                    to INADDR_ANY/port=50000
-                                 4. Connect to server socket
-                                    (on port 9999)
-5. Close listening and 
-   connected sockets
-                                 6. Close the socket
+Try the following to debug:
 
-At this point, there is TCP on the server side in the TIME_WAIT 
-state: { local=localhost:9999, peer=XXX:50000 }
+remove the egress qdisc from the tap device and run the test.
+(this part: $TC qdisc add dev tun0 root handle 1: prio)
+If thats till ooopses, remove the ingress attachment to the tun.
+And if that still fails, compile both tun and dummy into the kernel
+(as opposed to modules) and reproduce the oops.
+Additionaly some useful tools are stats on the dummy devices as well
+as the actions (example:  tc -s filter ls dev eth0 parent ffff:)
 
-(re-run server)
-7. Create listening socket 
-   bound to INADDR_ANY/port=9999
-8. Accept a connection on
-   the listening socket
-                                 (re-run client while TIME_WAIT 
-                                 TCP still exists)
-                                 9. Create a socket bound 
-                                    to INADDR_ANY/port=50000
-                                 10.Connect to server socket
-                                    (on port 9999)
+cheers,
+jamal
 
-On Linux the connect() in step 10 succeeds; the reason that it 
-does is that the TIME_WAIT TCP is immediately assassinated.  
-
-A while back I asked Andi Kleen about this scenario, and he 
-commented that this behavious was:
-
-> a (dubious) BSD extension, also implemented
-> in linux (after all sockets is about being bug to bug coompatible).
-> the kernel sees the TIME-WAIT and choses a sequence number with
-> a large offset to avoid conflicts. When you don't have PAWS
-> but still had a big window it is rather risky though.
-
-However, when I try the above on FreeBSD 5.1 and Solaris 8, we see 
-different behavior: the TIME_WAIT TCP is NOT assassinated and the 
-connect() at step 10 fails with EADDRINUSE (which makes sense 
-because we can't create a duplicate 4-tuple...).
-
-Cheers,
-
-Michael
-
--- 
-Michael Kerrisk
-mtk-lists@gmx.net
-
-"Sie haben neue Mails!" - Die GMX Toolbar informiert Sie beim Surfen!
-Jetzt aktivieren unter http://www.gmx.net/info
+________________________________________________________________________
