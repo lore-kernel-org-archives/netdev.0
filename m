@@ -1,33 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
-Date: Mon, 13 Sep 2004 16:30:02 -0700
+Subject: Re: [PATCH] Fix for b44 warnings.
+Date: Mon, 13 Sep 2004 16:33:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913163002.35aae28c.davem@davemloft.net>
-References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+Message-ID: <20040913163333.2fadaf93.davem@davemloft.net>
+References: <200408292218.00756.jolt@tuxbox.org>
+	<20040913163001.7fa560c6@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@oss.sgi.com, rusty@rustcorp.com.au
+Cc: jolt@tuxbox.org, pp@ee.oulu.fi, jgarzik@pobox.com,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040913163001.7fa560c6@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Sep 2004 10:53:53 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Mon, 13 Sep 2004 16:30:01 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> 	This is a resend/resync for v2.6.9-rc1-bk17: change the
-> way the ip_nat_ftp helper manipulates the packets:
-> 
-> - no manips => no fixup
-> 
-> - check the direction, do manip once and at the same time when the
-> headers are changed
-> 
-> 	This is needed mostly for IPVS setups and I hope we do not
-> create troubles for other setups or FTP software.
+> B44 driver was using unsigned long as an io memory address.
+> Recent changes caused this to be a warning.  This patch fixes that
+> and makes the readl/writel wrapper into inline's instead of macros
+> with magic variable side effect (yuck).
 
-I'm still waiting for ACK/NACK of this.  I know Rusty is travelling
-and Harald is probably busy too, so I know the delay in response is not
-because these guys are slackers :-)
+Jeff, I'll merge this one.
+
+Thanks Stephen.
