@@ -1,25 +1,20 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH?] Fix sniffing of ARP replies
-Date: Thu, 16 Oct 2003 15:45:37 -0700
+Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
+Date: Thu, 16 Oct 2003 16:29:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031016154537.2bcf7404.davem@redhat.com>
-References: <32A9D366A0B@vcnet.vc.cvut.cz>
-	<20031016152136.50e2a389.davem@redhat.com>
-	<1066344060.2232.9.camel@localhost.localdomain>
+Message-ID: <20031016162912.6a5943eb.davem@redhat.com>
+References: <OF4B7AD7E2.5CA239A1-ON87256DB9.0067C527@us.ibm.com>
+	<200310141038.04322.mashirle@us.ibm.com>
+	<20031015223733.5483da9d.davem@redhat.com>
+	<200310160956.58462.mashirle@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: VANDROVE@vc.cvut.cz, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Joe Perches <joe@perches.com>
-In-Reply-To: <1066344060.2232.9.camel@localhost.localdomain>
+To: Shirley Ma <mashirle@us.ibm.com>
+In-Reply-To: <200310160956.58462.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Oct 2003 15:41:00 -0700
-Joe Perches <joe@perches.com> wrote:
-
-> On Thu, 2003-10-16 at 15:21, David S. Miller wrote:
-> vmware wasn't just trying to influence, it used the implementation.
-
-It just so happened to be usable in this way.
+Patch applied, thanks a lot Shirley.
