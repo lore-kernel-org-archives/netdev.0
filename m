@@ -1,48 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: ethtool -d no longer works for e1000
-Date: Wed, 09 Mar 2005 15:09:33 -0800
-Message-ID: <422F822D.9010707@candelatech.com>
-References: <422F6C37.8090202@candelatech.com> <5fc59ff3050309140910f3e492@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/5] r8169: auto detect 32-bit slot
+Date: Thu, 10 Mar 2005 00:08:09 +0100
+Message-ID: <20050309230809.GC9502@electric-eye.fr.zoreil.com>
+References: <20050309112925.7f7900ab@dxpl.pdx.osdl.net> <m17jkgwp6i.fsf@muc.de> <20050309214023.GA9502@electric-eye.fr.zoreil.com> <20050309135530.5c5c80b6@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
-In-Reply-To: <5fc59ff3050309140910f3e492@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@muc.de>, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050309135530.5c5c80b6@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ganesh Venkatesan wrote:
-> Ben:
-> 
-> Are you using the e1000 that is included in the 2.6.11 kernel? ethtool
-> -d eth? works fine for me. What else is different in your env?
+Stephen Hemminger <shemminger@osdl.org> :
+[...]
+> I tested on old Celeron with Netgear card.  I could try Amd and/or Xeon
+> if you want.
 
-I have patched the e1000 in my 2.6.11 kernel, but I see this -d problem
-on other un-patched systems as well, so it can't be (just) my patches
-that are the problem.
+If the systems are 64 bit, one would need to know how the driver behaves
+when DAC is forced and:
+1) the Netgear card is in a 32 bit slot, dma to highmem is enabled and used
+2) the Netgear card is in a 32 bit slot, dma to highmem is enabled and unused
+3) the Netgear card is in a 32 bit slot, dma to highmem is disabled
+4) the Netgear card is in a 64 bit slot, dma to highmem is enabled and used
+5) the Netgear card is in a 64 bit slot, dma to highmem is enabled and unused
+6) the Netgear card is in a 64 bit slot, dma to highmem is disabled
 
-I also tried this on my x86-64 opteron system, running FC3.  I
-have not hacked up this kernel or user-space tools at all :)
++ the content of the Config2 register for 1-6.
 
-[root@grok lanforge]# ethtool -i eth3
-driver: e1000
-version: 5.5.4-k2-NAPI
-firmware-version: N/A
-bus-info: 0000:02:08.0
-[root@grok lanforge]# ethtool -d eth3
-Cannot dump registers: Success
-[root@grok lanforge]# uname -a
-Linux grok 2.6.10-1.766_FC3smp #1 SMP Wed Feb 9 23:17:48 EST 2005 x86_64 x86_64 x86_64 GNU/Linux
+If the amd64 hosts a built-in 8169, add the behavior with highmem disabled or
+enabled + variable amount of memory.
 
+As it still leaves some archs in the cold + DAC ought not to be dependant
+on the bus width + a few "broken" adapters exist, the patch makes me a bit
+sceptical.
 
-I'm using ethtool 1.8 on this system.
-
-
-What version of ethtool are you using?
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--
+Ueimor
