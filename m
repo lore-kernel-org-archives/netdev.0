@@ -1,44 +1,56 @@
-From: P@draigBrady.com
-Subject: Re: 2.6.10 - "netdev=" kernel boot commands and the Intel e1000 nic
-Date: Fri, 11 Mar 2005 14:27:08 +0000
-Message-ID: <4231AABC.8040101@draigBrady.com>
-References: <13A26154A563124B876A26F0EF0CE1ED032C9299@HFCCINFEXCH501.AMERICAS.CORP.LOCAL>
+From: Steve Hill <steve@services.navaho.net>
+Subject: Re: More IPSEC trouble
+Date: Fri, 11 Mar 2005 15:05:28 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0503111453320.18067@sorbus2.navaho>
+References: <E1D9Ymg-0001x0-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@oss.sgi.com
-To: Alex Upton <AUpton@island.com>
-In-Reply-To: <13A26154A563124B876A26F0EF0CE1ED032C9299@HFCCINFEXCH501.AMERICAS.CORP.LOCAL>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1D9Ymg-0001x0-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alex Upton wrote:
-> Hello All,
->=20
-> For about 3.5 days now I've been trying to swap eth0 and eth1 devices
-> through use of the netdev kernel boot switch.
->=20
-> The scenario:
->=20
-> We have a system with onboard NICS and a PCI Intel e1000 Fiber NIC
-> installed. This particular system by default forces the NIC inside the
-> PCI slot to always default to eth0. We want to have ultimate control as
-> to which NIC is deemed worthy enough to become eth0. We are using an
-> entirely monolithic kernel via a PXE driven build and prefer not to
-> support use of modules.
->=20
-> If anyone has any suggestions or insight on how to work with netdev and
-> the e1000 properly it would be greatly appreciated!
+On Fri, 11 Mar 2005, Herbert Xu wrote:
 
-I've found using a higher level script with heuristics
-is the only way to order nics generically as I want. for e.g.
+> What does CTRL-SCROLLLOCK or SysRq tell us?
 
-if ethtool eth0 | grep -q "Port: FIBRE"; then
-     ip link set dev eth0 name not_eth0
-     ip link set dev eth1 name eth0
-fi
+The kernel locks up solid - no SysRq, capslock/numlock lights don't toggle 
+when hitting the keys - completely dead.
 
-you get the idea...
+I've managed to work out what causes it though:
 
-P=E1draig.
+I have overlapping subnets on the IPSEC tunnel - on the local side there 
+is 10.101.0.0/16 and on the remote side there is 10.0.0.0/8.  The IPSEC 
+server is 10.101.0.254.  The problem is that the policies I had required:
+
+ 	10.101.0.0/16	->	10.0.0.0/8	Requires AH and ESP
+ 	10.0.0.0/8	->	10.101.0.0/16	Requires AH and ESP
+
+This obviously also matches traffic sent from 10.101.0.254 (the IPSEC 
+server) to any machine on the local 10.101.0.0/16 network.  And since 
+there is no SA for that traffic it gets dropped.
+
+This was a configuration mistake on my part and admittedly it shouldn't 
+work properly - however, it triggered a kernel bug: sending a packet with 
+the DF flag set which will grow to be > the MTU when encrypted causes the 
+kernel to generate an ICMP Frag Needed packet, which got caught by the 
+policy and this triggered the kernel to lock up hard.
+
+So whilest the error in the configuration legitimately causes parts of the 
+network to not work, it certainly shouldn't have caused the kernel to lock 
+up.  It seems the problem is occurring when the kernel generates a packet 
+which the policy drops.
+
+I have fixed my configuration now so that I have policies like:
+ 	10.101.0.0/16	->	10.101.0.0/16	None
+ 	10.101.0.0/16	->	10.0.0.0/8	Requires AH and ESP
+ 	10.0.0.0/8	->	10.101.0.0/16	Requires AH and ESP
+Since the policy nolonger catches the kernel-generated packets the problem 
+nolonger occurs for me, but obviously there is a bug there that should 
+really be fixed.
+
+- Steve Hill (BSc)
+Senior Software Developer                        Email: steve@navaho.co.uk
+Navaho Technologies Ltd.                           Tel: +44-870-7034015
