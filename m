@@ -1,43 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: PPP-over-L2TP kernel support, patch for review
-Date: Tue, 7 Sep 2004 15:56:57 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 2.6]: Fix suboptimal fragment sizing for last fragment
+Date: Wed, 8 Sep 2004 09:15:57 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907155657.2ab6a4bb.davem@davemloft.net>
-References: <1094471956.413c5114de2d7@www.katalix.com>
+Message-ID: <20040907231557.GA2254@gondor.apana.org.au>
+References: <4137681D.3000902@trash.net> <20040902144436.2c8c1337.davem@redhat.com> <20040902220343.GA3250@gondor.apana.org.au> <20040903.104050.29603454.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kleptog@svana.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, kaber@trash.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Chapman <jchapman@katalix.com>
-In-Reply-To: <1094471956.413c5114de2d7@www.katalix.com>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040903.104050.29603454.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon,  6 Sep 2004 12:59:16 +0100
-James Chapman <jchapman@katalix.com> wrote:
+On Fri, Sep 03, 2004 at 10:40:50AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+>
+> @@ -1026,18 +1033,22 @@
+>  
+>  	while (size > 0) {
+>  		int i;
+> -		if ((len = mtu - skb->len) <= 0) {
+> +
+> +		/* Check if the remaining data fits into current packet. */
+> +		len = mtu - skb->len;
+> +		if (len > size)
+> +			len = maxfraglen - skb->len;
 
-> I'm working towards having this driver integrated into the kernel
-> tree. Comments?
+I think that should be len < size, right?
 
-Only two major comments:
-
-1) Uses own linked list implementations.  Please use
-   linux/list.h interfaces for this.
-
-2) Does this:
-
- struct sockaddr_pppox { 
-        sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
-        unsigned int    sa_protocol;          /* protocol identifier */ 
-        union{ 
-                struct pppoe_addr       pppoe; 
-+               struct pppol2tp_addr    pppol2tp;
-        }sa_addr; 
- }__attribute__ ((packed)); 
-
-   Change the size of sockaddr_pppox on any platform?  If so, you'll
-   break pppox userspace with this change so we'd need find another
-   way to do it.
-
-Thanks.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
