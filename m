@@ -1,34 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [CRYPTO] Fix stack overrun in crypt()
-Date: Sat, 17 Jul 2004 19:48:29 +1000
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: dst cache overflow errors
+Date: Sat, 17 Jul 2004 12:08:07 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040717094829.GA19791@gondor.apana.org.au>
-References: <20040715114840.GA1325@gondor.apana.org.au> <Pine.LNX.4.58.0407161126350.13406@devserv.devel.redhat.com> <20040717074319.GA18919@gondor.apana.org.au>
+Message-ID: <16632.64135.856238.115334@robur.slu.se>
+References: <40E69930.1080402@outblaze.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040717074319.GA18919@gondor.apana.org.au>
+To: Christopher Chan <cchan@outblaze.com>
+In-Reply-To: <40E69930.1080402@outblaze.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 17, 2004 at 05:43:19PM +1000, herbert wrote:
-> 
-> Unfortunately it looks like we still have a problem. gcc 3.3.4 appears
-> to be generating incorrect output on i386 with the dynamic stack
-> allocation used in crypt() and the functions around it.
-> 
-> In particular, it can give you 8 bytes when you ask for 16 bytes.
-> See my report at http://bugs.debian.org/259887 for details.
 
-I got it wrong.  gcc is simply allocating some (12 bytes) of the
-space unconditionally.
+Christopher Chan writes:
 
-Sorry for the noise.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+ > Recently, the Intel chaps wanted to have NAPI permanently enabled for 
+ > their e100 driver. However, i still get network connectivity problems if 
+ > I enable NAPI in e100 for 2.6.7. Severe cases result in the kernel not 
+ > logging clear messages about its bug traps...due to the messages being 
+ > obfuscated beyond understanding.
+ > 
+ > I wonder then whether the cause/problem, that makes the kernel log dst 
+ > cache overflows and its BUG_TRAPs in the logs, has been identified?
+
+ Hello!
+
+ dst cache overflow most like indicates you have higher throughput and
+ you should tune your hash tunings accordingly. So it might not be a bug.
+
+ Verify this by monitoring the routing stats. rtstat is a utility for this. 
+ You probably most interested in three first columns.
+
+ size   IN: hit     tot
+ 8060     34009     271
+
+ This means we have 34 kpps of hits to existent hash entries. While 271 new
+ were created per sec. The ratio will be different for you as you reach dst 
+ overflow but compare your two cases. There is now an option to set 
+ rhash_entries= at boot which is probably how you how to tune it.
+
+ rtstat is in iproute2 package but also in:
+ ftp://robur.slu.se/pub/Linux/net-development/rt_cache_stat/rtstat.c
+
+ Cheers.
+						--ro
+
+ 
