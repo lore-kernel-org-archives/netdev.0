@@ -1,27 +1,27 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2/6] PKT_SCHED: Simple comparison ematch (cmp)
-Date: Mon, 24 Jan 2005 01:14:12 +0100
-Message-ID: <41F43DD4.8070306@trash.net>
-References: <20050123230012.GB23931@postel.suug.ch> <20050123230221.GD23931@postel.suug.ch>
+Subject: Re: [PATCH 4/6] PKT_SCHED: u32 ematch
+Date: Mon, 24 Jan 2005 01:24:13 +0100
+Message-ID: <41F4402D.6040200@trash.net>
+References: <20050123230012.GB23931@postel.suug.ch> <20050123230354.GF23931@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050123230221.GD23931@postel.suug.ch>
+In-Reply-To: <20050123230354.GF23931@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Thomas Graf wrote:
 
->diff -Nru linux-2.6.11-rc2-bk1.orig/net/sched/em_cmp.c linux-2.6.11-rc2-bk1/net/sched/em_cmp.c
->--- linux-2.6.11-rc2-bk1.orig/net/sched/em_cmp.c	1970-01-01 01:00:00.000000000 +0100
->+++ linux-2.6.11-rc2-bk1/net/sched/em_cmp.c	2005-01-23 17:31:03.000000000 +0100
->@@ -0,0 +1,101 @@
+>diff -Nru linux-2.6.11-rc1-bk9.orig/net/sched/em_u32.c linux-2.6.11-rc1-bk9/net/sched/em_u32.c
+>--- linux-2.6.11-rc1-bk9.orig/net/sched/em_u32.c	1970-01-01 01:00:00.000000000 +0100
+>+++ linux-2.6.11-rc1-bk9/net/sched/em_u32.c	2005-01-22 12:37:28.000000000 +0100
+>@@ -0,0 +1,58 @@
 >+/*
->+ * net/sched/em_cmp.c	Simple packet data comparison ematch
+>+ * net/sched/em_u32.c	U32 Ematch
 >+ *
 >+ *		This program is free software; you can redistribute it and/or
 >+ *		modify it under the terms of the GNU General Public License
@@ -29,6 +29,9 @@ Thomas Graf wrote:
 >+ *		2 of the License, or (at your option) any later version.
 >+ *
 >+ * Authors:	Thomas Graf <tgraf@suug.ch>
+>+ *		Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
+>+ *
+>+ * Based on net/sched/cls_u32.c
 >+ */
 >+
 >+#include <linux/config.h>
@@ -36,95 +39,50 @@ Thomas Graf wrote:
 >+#include <linux/types.h>
 >+#include <linux/kernel.h>
 >+#include <linux/skbuff.h>
->+#include <linux/tc_ematch/tc_em_cmp.h>
 >+#include <net/pkt_cls.h>
 >+
->+static inline int cmp_needs_transformation(struct tcf_em_cmp *cmp)
->+{
->+	return unlikely(cmp->flags & TCF_EM_CMP_TRANS);
->+}
->+
->+static int em_cmp_match(struct sk_buff *skb, struct tcf_ematch *em,
+>+static int em_u32_match(struct sk_buff *skb, struct tcf_ematch *em,
 >+			struct tcf_pkt_info *info)
 >+{
->+	struct tcf_em_cmp *cmp = (struct tcf_em_cmp *) em->data;
->+	unsigned char *ptr = tcf_get_base_ptr(skb, cmp->layer) + cmp->off;
->+	u32 val = 0;
->+
->+	if (!tcf_valid_offset(skb, ptr, cmp->align))
->+		return 0;
->+
->+	switch (cmp->align) {
->+		case TCF_EM_ALIGN_U8:
->+			val = *ptr;
->+			break;
->+
->+		case TCF_EM_ALIGN_U16:
->+			val = *ptr << 8;
->+			val |= *(ptr+1);
->+
->+			if (cmp_needs_transformation(cmp))
->+				val = be16_to_cpu(val);
+>+	struct tc_u32_key *key = (struct tc_u32_key *) em->data;
+>+	unsigned char *ptr = skb->nh.raw;
+>+	
+>+	if (info) {
+>+		if (info->ptr)
+>+			ptr = info->ptr;
+>+		ptr += (info->nexthdr & key->offmask);
+>+	}
+>+	
+>+	return !((*(u32*) (ptr + key->off) ^ key->val) & key->mask);
 >  
 >
-Why not simply convert cmp->val in userspace ?
+This needs to make sure it stays inside the skb. I know cls_u32's checks
+are pretty weak, but having nothing doesn't seem right.
 
->+			break;
->+
->+		case TCF_EM_ALIGN_U32:
->+			/* Worth checking boundries? The branching seems
->+			 * to get worse. Visit again. */
->+			val = *ptr << 24;
->+			val |= *(ptr+1) << 16;
->+			val |= *(ptr+2) << 8;
->+			val |= *(ptr+3);
->+
->+			if (cmp_needs_transformation(cmp))
->+				val = be32_to_cpu(val);
->+			break;
->+
->+		default:
->+			return 0;
->+	}
->+
->+	if (cmp->mask)
->+		val &= cmp->mask;
->+
->+	switch (cmp->opnd) {
->+		case TCF_EM_OPND_EQ:
->+			return val == cmp->val;
->+		case TCF_EM_OPND_LT:
->+			return val < cmp->val;
->+		case TCF_EM_OPND_GT:
->+			return val > cmp->val;
->+	}
->+
->+	return 0;
 >+}
 >+
->+static struct tcf_ematch_ops em_cmp_ops = {
->+	.kind	  = TCF_EM_CMP,
->+	.datalen  = sizeof(struct tcf_em_cmp),
->+	.match	  = em_cmp_match,
+>+static struct tcf_ematch_ops em_u32_ops = {
+>+	.kind	  = TCF_EM_U32,
+>+	.datalen  = sizeof(struct tc_u32_key),
+>+	.match	  = em_u32_match,
 >+	.owner	  = THIS_MODULE,
->+	.link	  = LIST_HEAD_INIT(em_cmp_ops.link)
+>+	.link	  = LIST_HEAD_INIT(em_u32_ops.link)
 >+};
 >+
->+static int __init init_em_cmp(void)
+>+static int __init init_em_u32(void)
 >+{
->+	return tcf_em_register(&em_cmp_ops);
+>+	return tcf_em_register(&em_u32_ops);
 >+}
 >+
->+static void __exit exit_em_cmp(void) 
+>+static void __exit exit_em_u32(void) 
 >+{
->+	tcf_em_unregister(&em_cmp_ops);
+>+	tcf_em_unregister(&em_u32_ops);
 >+}
 >+
 >+MODULE_LICENSE("GPL");
 >+
->+module_init(init_em_cmp);
->+module_exit(exit_em_cmp);
->+
+>+module_init(init_em_u32);
+>+module_exit(exit_em_u32);
 >
 >  
 >
