@@ -1,41 +1,37 @@
-From: Mika Liljeberg <mika.liljeberg@welho.com>
+From: Pekka Savola <pekkas@netcore.fi>
 Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: 11 Jul 2003 05:03:57 +0300
+Date: Fri, 11 Jul 2003 07:51:56 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1057889037.3589.42.camel@hades>
-References: <20030710154302.GE1722@zip.com.au>
-	 <1057854432.3588.2.camel@hades>  <20030710233931.GG1722@zip.com.au>
-	 <1057881869.3588.10.camel@hades>  <1057888154.26854.324.camel@localhost>
+Message-ID: <Pine.LNX.4.44.0307110750150.24705-100000@netcore.fi>
+References: <1057888154.26854.324.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, Mika Liljeberg <mika.liljeberg@welho.com>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Andre Tomt <andre@tomt.net>
 In-Reply-To: <1057888154.26854.324.camel@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2003-07-11 at 04:49, Andre Tomt wrote:
-> > Setting your tunnel prefix to /64 is certainly the right thing to do. 
+On 11 Jul 2003, Andre Tomt wrote:
+> On fre, 2003-07-11 at 02:04, Mika Liljeberg wrote:
+> > Well, the thing is that prefix:: is a special anycast address that
+> > identifies a router on the link prefix::/n, where n is the prefix
+> > length. You had configured a 127-bit link prefix, meaning that you had
+> > only one valid unicast address (last bit == 1) in addition to the router
+> > anycast address (last bit == 0).
 > 
-> If you don't have anything but one /64 for example.. I guess /126's
-> would be ok as you could rule out the the anycast address? It will
-> probably work with Linux - but is it wrong in any sense, other than
-> "breaking" with EUI-64/autoconfiguration?
+> Thanks for the explanation, I've been struggling to understand what
+> Yoshfuji tried to explain to me earlier on this topic (see "IPv6 bugs
+> introduced in 2.4.21" - ie. my bogus bugreport), now it all makes
+> perfect sense :-)
 
-It doesn't really make sense to use a prefix longer then /64. The last
-64 bits are generally reserved for interface ID.
+Well, the system may make some sense, but IMHO, there is still zero sense 
+in policing this thing when you add a route.  That's just plain bogus.  
+This is a bug which must be fixed ASAP.
 
-What you can do, though, is not configure a link prefix for the tunnel
-at all. I.e. you can add the local tunnel end-point as a /128. This
-won't create an on-link route in the routing table, so you need to point
-the default route to the interface rather than the peer end-point. For
-example:
-
-ifconfig sit0 add 3ffe:dead:beef::dead:beef/128
-ip route add ::/0 dev sit0
-
-Cheers,
-
-	MikaL
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
