@@ -1,48 +1,34 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] updated, ethernet-bridge: update skb->priority in case
-	forwarded frame has VLAN-header
-Date: 11 Mar 2005 13:34:37 -0500
-Message-ID: <1110566077.1071.16.camel@jzny.localdomain>
-References: <914610115.20050311172022@yuriev.ru>
-	 <20050311093724.6c8b6a6d@dxpl.pdx.osdl.net>
-Reply-To: hadi@cyberus.ca
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: [RFC INTRO 0/5] H-TCP congestion control
+Date: Fri, 11 Mar 2005 18:38:47 +0000
+Message-ID: <4231E5B7.2010306@ev-en.org>
+References: <20050311160734.30424.67955.65942@galon.ev-en.org> <20050311094239.4c59c29d@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "leo.yuriev.ru" <leo@yuriev.ru>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
+Cc: "David S.Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com, Douglas Leith <doug.leith@nuim.ie>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050311093724.6c8b6a6d@dxpl.pdx.osdl.net>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050311094239.4c59c29d@dxpl.pdx.osdl.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Actually there is a case to be made for this to be part of the
-bridge code. A VLAN is a single collision domain which is mappable to a
-collission domain that is a bridge.
-infact the old VLAN code written by Lennert (and somebody else) had
-those two intermingled.
-
-cheers,
-jamal
-
-On Fri, 2005-03-11 at 12:37, Stephen Hemminger wrote:
-> On Fri, 11 Mar 2005 17:20:22 +0300
-> Leo Yuriev <leo@yuriev.ru> wrote:
+Stephen Hemminger wrote:
+> On Fri, 11 Mar 2005 18:07:34 +0200 (IST)
+> Baruch Even <baruch@ev-en.org> wrote:
 > 
-> > Kernel 2.6 (2.6.11)
-> > 
-> > When ethernet-bridge forward a packet and such ethernet-frame has
-> > VLAN-tag, bridge should update skb->prioriry for properly QoS
-> > handling. This small patch does this.
-> > 
-> > Based upon discussion during last week I added pskb_may_pull()
-> > checking and simple mapping from 802.1p/user_priority to skb->priority.
-> > 
-> > Patch-by: Leo Yuriev <leo@yuriev.ru>
+> Are there any IPR encumberance to this like FAST TCP. Earlier versions of
+> this patch said:
 > 
-> Do this as an ebtables module please.
+>>This patch is covered by a pending patent, a license is being worked on to
+>>enable the inclusion in Linux. Comments and suggestions on this are also
+>>solicited.
 > 
+> Has this changed?
+
+No. That's why it's an RFC and not a request to add it. The license will 
+be worked out before the actual request for inclusion. Unfortunately, 
+the decision on these matters is not in my hands and is in the channels 
+of the university bureaucracy.
+
+Baruch
