@@ -1,40 +1,37 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: promote netfilter MARK value from IPv6 packets to sit
- packets
-Date: Mon, 24 Feb 2003 21:30:11 -0500 (EST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030224212312.Y44654@shell.cyberus.ca>
-References: <20030217145727.GA3413@hensema.net> <20030223193339.GD15385@sunbeam.de.gnumonks.org>
- <20030223234225.GA23556@hensema.net> <20030224083946.H34066@shell.cyberus.ca>
- <20030224144116.GN24960@sunbeam.de.gnumonks.org>
+From: "Santosh " <ipv6_san@rediffmail.com>
+Subject: USAGI Kernel for MIPS based device
+Date: 25 Feb 2003 10:17:31 -0000
+Sender: linux-mips-bounce@linux-mips.org
+Message-ID: <20030225101731.9289.qmail@webmail14.rediffmail.com>
+Reply-To: "Santosh " <ipv6_san@rediffmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Erik Hensema <erik@hensema.net>, "" <netdev@oss.sgi.com>,
-   Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20030224144116.GN24960@sunbeam.de.gnumonks.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+	format=flowed
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com,
+	linux-mips@linux-mips.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: yoshfuji@wide.ad.jp
+Content-Disposition: inline
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
+Hello,
+
+I have a MIPS processor based device, currently running with
+Linux-2.4.5-pre1.
+I have a BSP for my device from Lineo Inc., which incorporates
+Linux-2.4.5-pre1 source code.
+
+Now i want to port latest USAGI kernel code onto my device.
+
+How to step further ??
+Is the USAGI code, platform independent ??
+Do i need to make any changes in the kernel source code ??
+Need to change any configuration files ??
 
 
-On Mon, 24 Feb 2003, Harald Welte wrote:
-
-> On Mon, Feb 24, 2003 at 08:41:10AM -0500, jamal wrote:
-> > If this is to be a config option, it should not be restricted to
-> > netfilter specifics but rather skb specifics. Example the tcindex
-> > (maybe even the cb) etc.
->
-> No problem with me.  I do understand the usefulness of tcindex, but what
-> would a totally different protcol (or the user) do with the cb of a
-> different protocol?
->
-
-cb is a maybe - it could be useful i think since the inner and outer
-headers may be closely related and so share the same state.
-I gacve tcindex as an example; others are: priority and some of the
-other netfilter stuff (is nfcache still used?) etc.
-
-cheers,
-jamal
+-San
+---------------------------------------------------------------------
+This is Linux Country.  On a quiet night, you can hear Windows 
+reboot.
+---------------------------------------------------------------------
