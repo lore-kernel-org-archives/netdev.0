@@ -1,35 +1,32 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH,RFC] pktgen sleeping/timing rework
-Date: Thu, 16 Dec 2004 16:57:18 +0100
-Message-ID: <16833.45150.618941.690334@robur.slu.se>
-References: <20041210222058.GA5984@xi.wantstofly.org>
-	<16830.58158.882590.971712@robur.slu.se>
-	<20041216144247.GA4109@xi.wantstofly.org>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: primary and secondary ip addresses
+Date: Thu, 16 Dec 2004 17:02:59 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0412161700590.532@filer.marasystems.com>
+References: <41912F7A.6000408@redhat.com> <200412161153.51251.hasso@estpak.ee>
+ <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
+ <200412161302.42357.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Harald Welte <laforge@gnumonks.org>, Neil Horman <nhorman@redhat.com>,
+        linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041216144247.GA4109@xi.wantstofly.org>
+To: Hasso Tepper <hasso@estpak.ee>
+In-Reply-To: <200412161302.42357.hasso@estpak.ee>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 16 Dec 2004, Hasso Tepper wrote:
 
-Lennert Buytenhek writes:
+> No. There is only one primary address per interface and it is used if
+> destination address doesn't indicate which source address to use.
 
- Hello!
+In the linux world your first primary is used for this purpose if I am not 
+mistaken.
 
- > Is it sane to try and keep pktgen-2.6 up to date when the devel
- > version is so much more flexible?
- 
- Not really. The development version had some untested areas (and still
- has) so it was thought for 2.7 but it's been waiting for more than a year. 
- Do we know anything about 2.7 plans now?  
+But this shouldn't happen much in any sane network, and when it does it is 
+not that unlikely the return traffic won't know how to reach you 
+correctly..
 
- 
- BTW BSD claims new performance heights. Just saw something on the quagga
- list.
-
-						--ro
+Regards
+Henrik
