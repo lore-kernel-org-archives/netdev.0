@@ -1,31 +1,24 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Bug-hunting
-Date: Tue, 22 Feb 2005 19:30:00 -0800
-Message-ID: <20050222193000.404ae6d2.davem@davemloft.net>
-References: <421B4AB7.9030003@rapidforum.com>
-	<20050222104448.31373a99.davem@davemloft.net>
-	<421B8563.9030608@rapidforum.com>
-	<20050222115114.0d0e568e.davem@davemloft.net>
-	<421BBE7B.1050009@rapidforum.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [patch 2.6.11-rc4-netdev1 5/5] r8169: literate PCI ID
+Date: Wed, 23 Feb 2005 09:25:41 +0100
+Message-ID: <20050223082540.GA22191@electric-eye.fr.zoreil.com>
+References: <20050221235125.GD26248@electric-eye.fr.zoreil.com> <20050221235301.GA31723@electric-eye.fr.zoreil.com> <20050221235450.GB31723@electric-eye.fr.zoreil.com> <20050221235611.GC31723@electric-eye.fr.zoreil.com> <20050221235718.GD31723@electric-eye.fr.zoreil.com> <20050221235834.GE31723@electric-eye.fr.zoreil.com> <421BDCD4.3050705@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Christian Schmid <webmaster@rapidforum.com>
-In-Reply-To: <421BBE7B.1050009@rapidforum.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jdmason@us.ibm.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <421BDCD4.3050705@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Feb 2005 00:21:31 +0100
-Christian Schmid <webmaster@rapidforum.com> wrote:
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> I'm apply patches 1-4 to netdev right now -- please tell me if I should 
+> apply patch #5 as-is, given my comments here.
 
-> To reproduce this, you would have to create a server which is sending data to 4000 non-blocking 
-> sockets. It doesnt matter what you send. You should realize a slow-down the more sockets you use. 
-> You need Gigabit for this to appear.
+Drop it. I'll put the information on-line.
 
-Please send us the exact test programs to run, not some general
-description of what "one should do" to reproduce the problem.
-
-This is exactly what is stalling this bug getting diagnosed properly
-and fixed.
+--
+Ueimor
