@@ -1,43 +1,29 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [patch]: ipv6 tunnel for MIPv6
-Date: Sat, 31 May 2003 00:38:58 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030531.003858.108351451.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>
-	<Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: netlink tester program
+Date: Fri, 30 May 2003 09:00:15 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030530090015.7c435c9a.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   ajtuomin@morphine.tml.hut.fi, lpetande@morphine.tml.hut.fi,
-   jagana@us.ibm.com, kumarkr@us.ibm.com, yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi> (at Fri, 30 May 2003 18:00:55 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+Hi--
 
-> there was a while ago some talk about an xfrm6_tunnel driver IIRC. I don't
-> know how far along the project is and what capabilities the xfrm6_tunnels
-> will have, but in the mean time I have an ipv6-in-ipv6 tunnel driver
-> specified in RFC 2473 to offer you. If the xfrm6_tunnels are going to
-> support ipv6-in-ipv6 you also might find the code useful.
+I tried to write a simple test program for (rt)netlink, but I didn't
+succeed I'm sorry to say.  Does anyone have one or know of one?
+[alternative plan is to use kgdb to determine why my test program
+is failing...]
 
-The code exists in our repository.
-Kanda-san is preparing patch for xfrm6_tunnel; 
-patch will soon be available.
+I think it should be possible in around 100 lines of code.
+I don't want to use iproute2 and libnetlink -- they are much larger
+and more complex than a syscall interface test program should be.
 
+I've asked Alexey but I'm getting no replies from him.
 
-> The tunnels are needed by MIPv6 for encapsulation and decapsulation of
-> tunneled packets between the home agent and mobile node. Some proctocols
-> like DHCP are also run over the virtual link between the MN and the home
-> network according to the MIPv6 specification.
-
-I'm not sure if MIP6 will use this tunnel driver.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Thanks,
+--
+~Randy
