@@ -1,28 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] remove historic entries in Documentation/Changes
-Date: Wed, 29 Oct 2003 01:32:49 +0900 (JST)
+Date: Tue, 28 Oct 2003 08:31:32 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031029.013249.103429560.yoshfuji@linux-ipv6.org>
+Message-ID: <20031028083132.6b30dbf8.davem@redhat.com>
 References: <20031029.012202.105420248.yoshfuji@linux-ipv6.org>
 	<20031028081816.10d1ebce.davem@redhat.com>
+	<20031029.013249.103429560.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20031028081816.10d1ebce.davem@redhat.com>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031029.013249.103429560.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20031028081816.10d1ebce.davem@redhat.com> (at Tue, 28 Oct 2003 08:18:16 -0800), "David S. Miller" <davem@redhat.com> says:
+On Wed, 29 Oct 2003 01:32:49 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> Can you make these Kconfig and documentation fixes at some later time?
-> Thank you.
+> Well, will we have a chance for doing this before 2.6.0?
+> I believe document errors should be corrected before 2.6.0 
+> because it makes people "oops" :-)
 
-Well, will we have a chance for doing this before 2.6.0?
-I believe document errors should be corrected before 2.6.0 
-because it makes people "oops" :-)
+I also think these kinds of changes should go in, but Linus disagrees
+and he is the boss :-)
 
---yoshfuji
+Please just collect them and resubmit after 2.6.0-final.
+
+Thank you.
