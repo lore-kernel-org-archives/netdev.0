@@ -1,56 +1,62 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/9] PKT_SCHED: tc filter extension API
-Date: 31 Dec 2004 00:02:42 -0500
-Message-ID: <1104469362.1049.224.camel@jzny.localdomain>
-References: <20041230122652.GM32419@postel.suug.ch>
-	 <20041230123023.GO32419@postel.suug.ch>  <41D4A4D2.4000109@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH][BRIDGE-NF] Fix wrong use of skb->protocol
+Date: Fri, 31 Dec 2004 09:33:52 +0100
+Message-ID: <20041231083352.GA25031@xi.wantstofly.org>
+References: <1104432914.15601.19.camel@localhost.localdomain> <20041230222415.GB19587@xi.wantstofly.org> <1104448248.15601.55.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        snort2004@mail.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41D4A4D2.4000109@trash.net>
+To: Bart De Schuymer <bdschuym@pandora.be>
+Content-Disposition: inline
+In-Reply-To: <1104448248.15601.55.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-12-30 at 20:01, Patrick McHardy wrote:
+On Fri, Dec 31, 2004 at 12:10:48AM +0100, Bart De Schuymer wrote:
 
-> > +#ifdef CONFIG_NET_CLS_ACT
-> > +	if (src->action) {
-> > +		if (dst->action) {
-> > +			struct tc_action *act;
-> > +
-> > +			tcf_tree_lock(tp);
-> > +			act = xchg(&dst->action, src->action);
-> > +			tcf_tree_unlock(tp);
-> > +
-> > +			tcf_action_destroy(act, TCA_ACT_UNBIND);
-> > +		} else
-> > +			dst->action = src->action;
+> > A while ago there were a number of problems with bridging CIPE ethernet
+> > devices, which turned out to be the bridge code not initialising
+> > skb->protocol for locally originated STP frames.
+> > 
+> > At the time I was told that initialising skb->protocol for locally
+> > originated packets is required, so that is how I fixed it then.
 > 
-> This isn't right (its also wrong in the current code). If the
-> CPU reorders stores and another CPU looks at dst->action at
-> the wrong time it might see an inconsistent structure. 
+> Hi Lennert,
 
-I think an xchg around the else should fix this.
+Hello,
 
-> So at
-> least smp_wmb is required for the unlocked case,
 
-or maybe this. 
+> skb->protocol is not set for locally generated packets when the packet
+> is still in the IP stack. I don't know what happens with it after the IP
+> stack is finished with the packet.
+> The comment in skbuff.h says "packet protocol from driver", from which I
+> tend to conclude that skb->protocol is only set by drivers when a packet
+> enters the box.
+> Too bad stuff like this isn't clearly spelled out,
 
->  but I think
-> you should just remove it completely. I also wonder if anyone
-> actually knows why we need the xchg (here and in all the other
-> places), it looks totally useless.
+This is what I thought back then too.  Indeed, it's rather misleading.
 
-All these were put in by Alexey and the LinuxWay(tm) took effect.
-an xchg puts almost a lock and ensures an atomic swap. I dont see any
-harm in leaving it as is - just needs fixing the else
 
-cheers,
-jamal
+> the FIXME for the dst field has been sitting there for probably more
+> than a year too.
+
+Yes :(
+
+Just one more thing: AFAIK it is possible to inject a raw IPv4 packet
+with an invalid IPv4 header.  So maybe the better 'fix' would be to have
+different hooks for PF_INET and PF_INET6, and distinguish v4/v6 packets
+that way instead of peeking into the header.  (The hook you're talking
+about is a PF_INET* and not a PF_BRIDGE hook, right?)
+
+Then again, that would add yet another function onto the already rather
+deep call chains that we have in there.
+
+Too bad I don't see any cleaner way of integrating the whole bridging
+thing into the stack.  I wonder if any of the *BSDs found a cleaner way
+of doing this.
+
+
+--L
