@@ -1,32 +1,33 @@
-From: Matt Porter <mporter@kernel.crashing.org>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 22:51:29 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040915225129.B25752@home.com>
-References: <4148991B.9050200@pobox.com> <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <4148A561.5070401@redhat.com>
+Date: Thu, 16 Sep 2004 08:20:33 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040916062033.GB12915@wotan.suse.de>
+References: <4148991B.9050200@pobox.com> <Pine.NEB.4.33.0409151704200.5383-100000@dexter.psc.edu> <20040915144624.1339fbc5.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Paul Jakma <paul@clubi.ie>, Netdev <netdev@oss.sgi.com>,
-	leonid.grossman@s2io.com,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267405AbUIPFvv@vger.kernel.org>
-To: Neil Horman <nhorman@redhat.com>
+Cc: John Heffner <jheffner@psc.edu>, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <4148A561.5070401@redhat.com>; from nhorman@redhat.com on Wed, Sep 15, 2004 at 04:26:09PM -0400
+In-Reply-To: <20040915144624.1339fbc5.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 15, 2004 at 04:26:09PM -0400, Neil Horman wrote:
-> IBM's PowerNP chip was also very simmilar (a powerpc core with lots of 
-> hardware assists for DMA and packet inspection in the extended register 
-> area).  Don't know if they still sell it, but at one time I had heard 
-> they had booted linux on it.
+On Wed, Sep 15, 2004 at 02:46:24PM -0700, David S. Miller wrote:
+> On Wed, 15 Sep 2004 17:36:18 -0400 (EDT)
+> John Heffner <jheffner@psc.edu> wrote:
+> 
+> > The other (much nicer) solution to case (b) is to just USE A BIGGER MTU.
+> > 1500 bytes is ridiculously small.  Even with a 9k MTU, the benefits of TOE
+> > or TSO are nearly vanishing.  Those who say they require high performance,
+> > but are unwilling to buy or produce networking gear with an MTU larger
+> > than 1500 bytes probably deserve what they get.
+> 
+> TSO gives a kind of virtual 64K MTU, FWIW.  But I do see your
+> point.
 
-Well, yes, PowerNP support has been in the kernel for years and embedded
-Linux distros like Mvista support them.  It's no longer an IBM chip,
-though.  AMCC purchased the PPC4xx network processors (PowerNP) from
-IBM and later purchased the entire standard SoC PPC4xx product line
-from IBM.  That is, except for the PPC4xx STB chips like are found in
-the Hauppage MediaMVP, IBM retained those.  AMCC pretty much owns all
-the PPC4xx line and PowerNP 405H/L are still available.
+We still need to solve the same problem for RX though.
 
--Matt
+-Andi
