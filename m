@@ -1,40 +1,34 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] consolidate skb delivery
-Date: Fri, 3 Oct 2003 00:11:28 -0700
+Subject: Re: [PATCH] skbuff more likely/unlikely
+Date: Fri, 3 Oct 2003 00:19:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003001128.587ac102.davem@redhat.com>
-References: <20031002102133.7285b5ee.shemminger@osdl.org>
-	<20031002192546.GA29673@wotan.suse.de>
-	<20031002124345.7b34bf24.shemminger@osdl.org>
+Message-ID: <20031003001916.570546c4.davem@redhat.com>
+References: <20031002102420.6e1cece9.shemminger@osdl.org>
+	<20031003023431.GC42593@gaz.sfgoth.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031002124345.7b34bf24.shemminger@osdl.org>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20031003023431.GC42593@gaz.sfgoth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Oct 2003 12:43:45 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 2 Oct 2003 19:34:31 -0700
+Mitchell Blank Jr <mitch@sfgoth.com> wrote:
 
-> On Thu, 2 Oct 2003 21:25:46 +0200
-> Andi Kleen <ak@suse.de> wrote:
-> 
-> > Are there even any old style protocols left? If not you could just make
-> > it BUG() 
+> Stephen Hemminger wrote:
+> > A couple more places where we can help by hinting the compiler
+> > for 2.6.0-test6.  If we are pulling off header, is is likely there;
+> > and skb alloc's succeed in the normal case.
 > > 
+> > Thought I saw an earlier similar patch, but here is my take on it.
 > 
-> bpqether,lapbether,ipconfig, and econet are still old style.
+> Yes, my patch from a couple weeks ago does the same thing (but also
+> did a lot in skbuff.c)  I haven't had a chance to rediff and test
+> after the const parts went in.  Do you want to adopt the rest of the
+> changes?
 
-I would suggest we eliminate support for old style protocols
-now.  We can do that by making the ptype registry in net/core/dev.c
-fail if the thing being registered is old-style.
-
-I'll code this up.
-
-If we don't kill support for old-style protocols now, we can end up
-being stuck supporting it throughout 2.6.x which I'd like to avoid.
-
-I'll apply Stephen's patch here.
+I applied Stephen's patch here, you can post something relative
+to that if you like.
