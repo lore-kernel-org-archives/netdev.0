@@ -1,50 +1,54 @@
-From: Pedro Fortuna <pedro.fortuna@gmail.com>
-Subject: Re: filtering packtes before OS takes care about them
-Date: Tue, 1 Mar 2005 16:33:49 +0000
-Message-ID: <db95d40c050301083351fff729@mail.gmail.com>
-References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
-	 <7bca1cb50502281209798e8a00@mail.gmail.com>
-	 <db95d40c05022816301520b0a6@mail.gmail.com>
-	 <7bca1cb50502281935557b45cc@mail.gmail.com>
-Reply-To: Pedro Fortuna <pedro.fortuna@gmail.com>
+From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <courmisch@via.ecp.fr>
+Subject: Re: (usagi-users 03222) Re: support of IPv6 by NFS
+Date: Tue, 1 Mar 2005 17:35:01 +0100
+Message-ID: <200503011735.01578.courmisch@via.ecp.fr>
+References: <42243F8D.5030302@bull.net> <200503010744.38339.Info@Quantum-Sci.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart2081891.0kPmRnMEtL";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
-In-Reply-To: <7bca1cb50502281935557b45cc@mail.gmail.com>
+Cc: Quantum Scientific <Info@Quantum-Sci.com>, netdev@oss.sgi.com
+To: usagi-users@linux-ipv6.org
+In-Reply-To: <200503010744.38339.Info@Quantum-Sci.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This subject is rather new to me. Is there some literature about linux
-kernel networking API  that you would recommend?
-thanks,
--Pedro Fortuna
+--nextPart2081891.0kPmRnMEtL
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-On Mon, 28 Feb 2005 21:35:09 -0600, Asim Shankar <asimshankar@gmail.com> wrote:
-> > In my case, I'll need to intercept all outgoing IP packets and change
-> > them (including L2 frame) before they are passed to the network
-> > interface driver.
-> > The reverse operation is applied to incoming IP Packets in the destination host.
-> > I didnt investigate the packet_type example you provided but I hope I
-> > will be able to used for the purposes I explained.
-> 
-> If the type field of the struct packet_type you register ==
-> htons(ETH_P_ALL), then your packet handling function will be added to
-> the head of the ptype_all list.
-> 
-> As a result, it will see all incoming and outgoing packets - incoming
-> will be delivered to your function from netif_receive_skb() before the
-> IP/other packet handlers get to see it and outgoing packets will be
-> delivered from dev_queue_xmit() (which calls dev_queue_xmit_nit())
-> just before the packet is queued for sending by the NIC. This may work
-> for you.
-> 
-> I'm assuming all outgoing packets go through dev_queue_xmit(), though
-> that may not always be the case (someone more knowledgeable would have
-> to explain this).
-> 
-> Regards,
-> 
-> -- Asim
->
+Le Mardi 1 Mars 2005 14:44, Quantum Scientific a =E9crit :
+> And 80% of potential users are behind a cable/DSL 4 NATting router.=20
+> There is no clarity that it is possible overcome this by either
+> setting to DMZ, or hoping your cablemodem passes protos 41, 50 & 51.=20
+> Even some tunnel operators do not know this, so I had to figure it
+> out myself.  There is no Linux 6to4 UDP tunnelling app, but there
+> should be, because this is such a common problem.  (As I understand,
+> Teredo is Winduhs-only, and is not supported by most tunnel
+> operators)
+
+There is at least one Teredo client for Linux :
+http://www.simphalempin.com/dev/miredo/
+
+Alternatively, TSP tunneling might also work through NAT devices.
+
+=2D-=20
+R=E9mi Denis-Courmont
+
+--nextPart2081891.0kPmRnMEtL
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (GNU/Linux)
+
+iD8DBQBCJJm1w+xtvt1tEr0RAr9OAJ9EzYHS98Cw17gsQTbeDT75JSZZmQCfbyPD
+9M1wuf6dIaHA2WbGMMtzEGg=
+=SjbA
+-----END PGP SIGNATURE-----
+
+--nextPart2081891.0kPmRnMEtL--
