@@ -1,64 +1,24 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 with big-endian (patch)
-Date: Wed, 5 Nov 2003 19:34:00 +0100
+From: Laurens <masterpe@xs4all.nl>
+Subject: Report on the forcedeth driver
+Date: Wed, 05 Nov 2003 20:04:05 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031105193400.A12375@electric-eye.fr.zoreil.com>
-References: <20031105104625.D26209@oktet.ru>
+Message-ID: <1068059045.3618.3.camel@lawbox.int.mpe.xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, ShuChen <shuchen@realtek.com.tw>,
-        netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Alexandra N. Kossovsky" <sasha@oktet.ru>
-Content-Disposition: inline
-In-Reply-To: <20031105104625.D26209@oktet.ru>; from sasha@oktet.ru on Wed, Nov 05, 2003 at 10:46:26AM +0300
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Greetings,
+I tested the new driver as was requested and it works properly. I'm
+sending this to you now using the forcedeth module.
 
-Alexandra N. Kossovsky <sasha@oktet.ru> :
-[...]
-> Here is the patch to make RTL-8169 PCI Gbit ethernet card to work with
-> big-endian host. The patch is against 2.4.22 kernel.
+Only note I have is that dhcpcd eth0 takes significantly longer to load
+then with nvnet.
 
-Please Cc: such patches to netdev@oss.sgi.com as well as jgarzik@pobox.com.
+So as far as I'm concerned speed is the only "issue".
 
-[...]
-> @@ -664,19 +675,21 @@
->  	}
->  
->  	tp->TxDescArrays =
-> -	    kmalloc(NUM_TX_DESC * sizeof (struct TxDesc) + 256, GFP_KERNEL);
-> +	    pci_alloc_consistent(tp->pci_dev,
-> +				 NUM_TX_DESC * sizeof (struct TxDesc) + 256, 
-> +				 &tp->TxDescDmaAddrs);
-> -	TxPhyAddr = virt_to_bus(tp->TxDescArrays);
-> -	diff = 256 - (TxPhyAddr - ((TxPhyAddr >> 8) << 8));
-> -	TxPhyAddr += diff;
-> +	diff = 256 - (tp->TxDescDmaAddrs - ((tp->TxDescDmaAddrs >> 8) << 8));
-> +	tp->TxDescDmaAddr = tp->TxDescDmaAddrs + diff;
->  	tp->TxDescArray = (struct TxDesc *) (tp->TxDescArrays + diff);
+good luck,
 
-Remove the alignment stuff. pci_alloc_consistent() does it for you,
-see Documentation/DMA-mapping.txt:
-[...]
-The cpu return address and the DMA bus master address are both
-guaranteed to be aligned to the smallest PAGE_SIZE order which
-is greater than or equal to the requested size.  This invariant
-
-
-@@ -684,12 +697,18 @@
-[...]
--       tp->RxBufferRings = kmalloc(RX_BUF_SIZE * NUM_RX_DESC, GFP_KERNEL);
-+       tp->RxBufferRings = pci_alloc_consistent(tp->pci_dev,
-+                                                RX_BUF_SIZE * NUM_RX_DESC,
-+                                                &tp->RxBufferDmas);
-
-You don't want consistent mapping for the data buffer.
-Either you pci_map_single() the whole kmalloced() area and you sync it
-when needed or you turn this code into usual, per skb, pci_map_single()
-calls and you remove the big Rx data buffer.
-
---
-Ueimor
+Lawrence
