@@ -1,39 +1,41 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6: added sysctl for maximum number of addresses
-Date: Fri, 16 Jan 2004 00:34:33 +0900 (JST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] support for large number of network devices.
+Date: Thu, 15 Jan 2004 09:52:52 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040116.003433.120676843.yoshfuji@linux-ipv6.org>
-References: <20040115.213014.133549139.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0401151721380.16629-100000@netcore.fi>
+Message-ID: <20040115095252.3641d126.shemminger@osdl.org>
+References: <20040113154610.38f5934c.shemminger@osdl.org>
+	<20040113155921.342db463.davem@redhat.com>
+	<20040113161303.20f1159d.shemminger@osdl.org>
+	<20040114071303.GG28521@waste.org>
+	<20040114113734.4e9a0865.shemminger@osdl.org>
+	<20040114121155.7dabd70e.davem@redhat.com>
+	<20040114162411.08322247.shemminger@osdl.org>
+	<20040115004631.2839c8b8.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, vnuorval@tcs.hut.fi, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Cc: mpm@selenic.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0401151721380.16629-100000@netcore.fi>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040115004631.2839c8b8.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0401151721380.16629-100000@netcore.fi> (at Thu, 15 Jan 2004 17:23:23 +0200 (EET)), Pekka Savola <pekkas@netcore.fi> says:
+On Thu, 15 Jan 2004 00:46:31 -0800
+"David S. Miller" <davem@redhat.com> wrote:
 
-> On Thu, 15 Jan 2004, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> > In some configuration, we need addresses more than 16 addresses per interface.
-> > This pach adds new sysctl for configuring the maximum number of addresses 
-> > per interface.
+> On Wed, 14 Jan 2004 16:24:11 -0800
+> Stephen Hemminger <shemminger@osdl.org> wrote:
 > 
-> Doesn't 16 addresses per interface sound like an awfully small number?  
-> Consider a web service which wants to have a different IP address per 
-> virtual host.  These are not really uncommon.
+> > This should make it match the existing semantics more exactly.
+> > It will skip the false positive matchs from sscanf trailing chars
+> > or blanks.
+> 
+> Ok, but... I thought we had decided to move towards the hashing based
+> patch you said you had so we can kill two birds with one stone?
+> 
+> At least, that is the conclusion I thought we had arrived at.
+> :-)
 
-My point is the value becomes configurable.
-"16" is consistent with current behavior.
-I do not change the default value with this patch.
-
-If you think it is too small, feel free to submit a patch to increase 
-the default value.
-
-Thanks.
-
---yoshfuji
+The right way is a combination of the two pass dev_alloc_name and hashing
+the names.  Both work together
