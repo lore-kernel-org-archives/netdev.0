@@ -1,48 +1,45 @@
-From: Simon Kirby <sim@netnation.com>
-Subject: Re: Route cache performance tests
-Date: Tue, 17 Jun 2003 14:07:01 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: patch for common networking error messages
+Date: Tue, 17 Jun 2003 14:14:43 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030617210700.GE25773@netnation.com>
-References: <20030616.160856.35828947.davem@redhat.com> <20030616232750.GD18484@netnation.com> <20030616234937.GE18484@netnation.com> <20030617.085921.28790392.davem@redhat.com> <16111.18107.699689.704597@robur.slu.se> <20030617200721.GA25773@netnation.com>
+Message-ID: <20030617.141443.24610277.davem@redhat.com>
+References: <OFDF06338E.06BC4D08-ON85256D48.00729284@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, ralph+d@istop.com,
-   hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-Content-Disposition: inline
-In-Reply-To: <20030617200721.GA25773@netnation.com>
+To: girouard@us.ibm.com
+In-Reply-To: <OFDF06338E.06BC4D08-ON85256D48.00729284@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 17, 2003 at 01:07:21PM -0700, Simon Kirby wrote:
+   From: Janice Girouard <girouard@us.ibm.com>
+   Date: Tue, 17 Jun 2003 15:57:59 -0500
+   
+   Did I understand:
+   
+   > 1) Chip has a "flow cache", LRU based, managed like routing caches
+   
+   You need the chip to support your technique.
 
-> Whoa.  Uhm.  A lot.  I should compare with 2.4 again to see what's going
-> on here.
-> 
-> 60.0042 seconds passed, avg forwarding rate: 50759.683 pps
+No shit Sherlock.
 
-Ummmm, yeah, 2.5.71 is quite a bit slower than 2.4.21.  I applied
-Alexey's 2.5.71 rtcache fixes to 2.4.21 (changing "fl" to "key" in
-the scoring function), and now I see:
+But it should be noted that the idea can be fully verified in software
+by adding the scheme into the RX processing of some existing ethernet
+driver.
 
-60.0065 seconds passed, avg forwarding rate: 135379.152 pps
+   Are the vendors picking up on this?
 
-If reboot and don't fill the routing table:
+If they're going to ignore my ideas, that's not my problem.
 
-60.0104 seconds passed, avg forwarding rate: 259027.200 pps
+   I still don't see how this gets rid of the copy_to_user space once
+   you've gathered the buffers.  How do you feed the user buffer addresses to
+   the card?
 
-This is with standard juno (pseudo-random sources).
+You flip the pages into userspace, ie. you replace the page the user
+currently has with the one the networking buffer is using.
 
-This is with CONFIG_IP_MULTIPLE_TABLES still on, too.  I'll turn that off
-and do some profiles.  The only weird thing I'm seeing while doing this
-is that the route cache table continues to grow slowly, and the pps
-slowly falls off over a few minutes.  "ip route flush cache" restores
-performance again.  I'll verify this is not happening in 2.5.
+   What technique are you using?  Is it proprietary?
 
-Simon-
-
-[        Simon Kirby        ][        Network Operations        ]
-[     sim@netnation.com     ][   NetNation Communications Inc.  ]
-[  Opinions expressed are not necessarily those of my employer. ]
+ROFL!
