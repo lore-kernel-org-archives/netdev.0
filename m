@@ -1,58 +1,54 @@
-From: speattle@yahoo.com
-Subject: RE: Re: On DaveMs congestion control algorithm WAS(Re: [PATCH] Improvebehaviour of Netlink Sockets
-Date: Tue, 28 Sep 2004 16:41:57 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 29 Sep 2004 01:55:34 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409282341.i8SNfvcA001564@oss.sgi.com>
+Message-ID: <20040929015534.3b39b720.ak@suse.de>
+References: <20040923164149.5368d291.davem@davemloft.net>
+	<E1CBkIW-0001dF-00@gondolin.me.apana.org.au>
+	<20040927025048.GA6723@gondor.apana.org.au>
+	<20040926210029.22750d47.davem@davemloft.net>
+	<20040927054541.GA8858@gondor.apana.org.au>
+	<20040927120154.09fdcadf.davem@davemloft.net>
+	<20040927213233.GC7243@gondor.apana.org.au>
+	<20040928141002.164c60af.davem@davemloft.net>
+	<20040928213415.GA4646@wotan.suse.de>
+	<20040928145345.2530d30e.davem@davemloft.net>
+	<20040928223344.GC2975@wotan.suse.de>
+	<20040928155706.65405e88.davem@davemloft.net>
+	<20040929012757.5d0dff61.ak@suse.de>
+	<20040928163509.624a748b.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com;
+Cc: herbert@gondor.apana.org.au, niv@us.ibm.com, andy.grover@gmail.com,
+        anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>;
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040928163509.624a748b.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-did you say drama or a game show?
-huhu...
+On Tue, 28 Sep 2004 16:35:09 -0700
+"David S. Miller" <davem@davemloft.net> wrote:
 
-i thought you usually can't wait to dive in for more drama
-LOL.
-
-about time i go hide in dugout .
------Original Message-----
-From: "David S. Miller" <davem@davemloft.net>
-Date: 09/28/04 11:26 AM
-To: hadi@cyberus.ca
-Cc: herbert@gondor.apana.org.au, pablo@eurodev.net, netdev@oss.sgi.com
-Subject: Re: On DaveMs congestion control algorithm WAS(Re: [PATCH] Improvebehaviour of Netlink Sockets
-
-On 28 Sep 2004 08:39:49 -0400
-jamal <hadi@cyberus.ca> wrote:
-
-> On Tue, 2004-09-28 at 08:16, Herbert Xu wrote:
-> > On Tue, Sep 28, 2004 at 09:11:59PM +1000, herbert wrote:
-> > >
-> > > > BTW, Davem gets away with this congestion control alg all the time.
-> > > > Heck i think his sanity survives because of it - I bet you hes got this
-> > > > thread under congestion controlled right now;->
-> > > 
-> > > Yep, his overrun flag sure is set :)
-> > 
-> > Now if he puts his mailing admin hat on and tells us to shut up, that
-> > would be congestion control :)
+> On Wed, 29 Sep 2004 01:27:57 +0200
+> Andi Kleen <ak@suse.de> wrote:
 > 
-> Hed have to go and read all the emails first ;-> i.e the overrun flag
-> requires that you reread state.
+> > I tried to re-test it but I didn't get very far because the kernel
+> > with your patch crashes regularly during netperf. No serial console,
+> > but the backtrace is {tcp_ack+877} {tcp_rcv_established+350} ... 
+> > Before that there are a few "retrans out leaked" messages.
+> 
+> You might be missing the topmost part of the backtrace which is probably
+> in tcp_clean_rtx_queue() or even more likely tcp_tso_acked() where there
+> are several assertions present.
+> 
+> I guess your compiler is auto-inlining those functions for you,
+> can you reproduce the crash with perhaps the noinline attribute
+> added to those two functions I mention above so we can get a
+> precise backtrace?
 
-When I see two guys going at it like you too, I just wait
-for the dust to settle in the form of a patch and then I
-reread the thread as if it were the latest drama show on TV
-:-)
+Hmpf, it stopped crashing after I recompiled without -funit-at-a-time
+Maybe it is some compiler issue.
 
-
-
-
-
-
- 
-These words brought to you by Ogo.  Find out more at www.ogo.com
+-Andi
