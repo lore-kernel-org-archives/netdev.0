@@ -1,90 +1,71 @@
-From: Devesh Agrawal <devesh.agrawal@gmail.com>
-Subject: Re: How to route a skb to a particular oif, when the fib_lookup suggests another one.
-Date: Sun, 27 Mar 2005 08:04:18 +0530
-Message-ID: <db01ab35050326183462cb92fd@mail.gmail.com>
-References: <db01ab3505032313427fcd144f@mail.gmail.com>
-	 <db01ab3505032313517830af81@mail.gmail.com>
-	 <db01ab3505032521504ac85fcc@mail.gmail.com>
-	 <537f59d105032609144e0ac813@mail.gmail.com>
-Reply-To: Devesh Agrawal <devesh.agrawal@gmail.com>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [PATCH] Merge p80211 to ieee80211 subsystem
+Date: Sat, 26 Mar 2005 18:37:06 -0800
+Message-ID: <20050327023706.GH8204@jm.kir.nu>
+References: <1111740953.17276.84.camel@debian.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Vinay Reddy <vinayvinay@gmail.com>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
-In-Reply-To: <537f59d105032609144e0ac813@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
+        "David S.Miller" <davem@davemloft.net>
+To: Zhu Yi <yi.zhu@intel.com>
+Content-Disposition: inline
+In-Reply-To: <1111740953.17276.84.camel@debian.sh.intel.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I don't think that will solve the problem cos: 
-rt_intern_hash called in the finall stages of make_route in
-ip_route_output_slow tries to arp bind a the next hop. If you give a
-different ip address, then it may not either ever know of the mac
-address of this ghost ip or worse may get a wrong mac address and go
-to a wrong next hop.
-What happens if we set the tos flag to have RTO_ONLINK set, so that
-the scope is RT_SCOPE_LINK, with oif set to the desired output
-interface, can I then force the skb thru that ouput interface?
-I would be really grateful if some one helps me out with this.
-Eagerly awaiting your replies.
-Regards,
-Devesh Agrawal
+On Fri, Mar 25, 2005 at 04:55:52PM +0800, Zhu Yi wrote:
 
-On Sat, 26 Mar 2005 22:44:53 +0530, Vinay Reddy <vinayvinay@gmail.com> wrote:
-> Hi,
-> Say packets for 10.6.0.0 is always routed through wlan0, and you want
-> packets for 10.7.0.0 to be routed through one of eth0 or wlan0
-> depending on their IPs(required for mobile IP). Also assume that the
-> default routing for a 10.7.0.0 network IP is done through eth0. Now
-> you want to route a packet destined for 10.7.0.2 through wlan0. You
-> can just call ip_route_output_key for 10.6.0.1. This way the packet
-> will surely go through wlan0.
-> Am I missing anything??
+> This patch merged David Miller's p80211 (with Vladimir's modification)
+> into the ieee80211 subsystem in wireless-2.6. This makes the ieee80211
+> code hook into the kernel as a true native network stack:
 > 
-> Cheers,
-> Vinay
-> 
-> On Sat, 26 Mar 2005 11:20:22 +0530, Devesh Agrawal
-> <devesh.agrawal@gmail.com> wrote:
-> > Hi,
-> > I have to route a packet thru a particular output interface, however
-> > my routing tables have two routes, that match it : one to eth0 and one
-> > to wlan0, with the eth0 being chosen as it is more specific.  I am
-> > using ip_route_output_key, with fl->oif = index of device I want this
-> > packet to go (=wlan0).
-> > However, in the ip_route_output_slow I found that even when oif is not
-> > 0, you get a valid dev_out, however when the fib_lookup succeeds, you
-> > merely free this old dev_out, and assign dev_out to the res.dev (ie
-> > the one found out by the fib_lookup),
-> > So this means that even if I specify the oif, the packet will still
-> > get routed to eth0.
-> > Am I correct, or is there something I am missing. Also I am setting
-> > tos bit RTO_ONLINK .
-> > Please help me. I am quite perplexed by this.
-> > Sincerely,
-> > --
-> > Devesh Agrawal
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> 
-> 
-> --
-> Vinay Kumar Reddy B
-> 238, Mandakini Hostel,
-> IIT Madras,
-> Chennai  - 600036
-> 
+> - It registers a new packet type ETH_P_802_11
+> - Build 802.11 headers via ->hard_header and friends for TX
+> - Handle RX packets passed by netif_rx or netif_receive_skb
 
+What takes care of variable length IEEE 802.11 headers?
+ieee80211_header() did not seem to have any code for WDS (4-address
+frames) and hard_header_len was set to 24. Even for IEEE 802.11 data
+frames, the header length can be 24, 26, 30, or 32..
+
+> - Native WPA/802.11i?
+
+What do you mean with this?
+
+> Currently the driver doesn't support WPA yet, because wpa_supplicant
+> only handles 802.3 packets but not 802.11 packets. For this reason, I
+> only want this patch to be RFC, but not intend for inclusion now. After
+> the ipw driver is in wireless-2.6, I'll submit an updated stack
+> (hopfully with WPA support) together with patches switching the ipw
+> drivers to use the native stack.
+
+Do you mean that wpa_supplicant (or well, any program using packet
+sockets with link layer headers) would need to be able to both parse and
+generate IEEE 802.11 headers? Including setting QoS control field in
+case WMM/IEEE 802.11e is used? What about encrypted packets? Will the
+IEEE 802.11 code in kernel take care of encrypting and decrypting EAPOL
+packets? Would wpa_supplicant need to indicate that it wants some of the
+EAPOL frames encrypted or is this taken care of automatically?
+
+dev->type is set to ARPHRD_ETHER. Shouldn't it be something else? How
+does user space know what kind of frames to expect?
+
+>  #ifdef CONFIG_IEEE80211_DEBUG
+>  	if (crypt && !encrypt && ether_type == ETH_P_PAE) {
+> +		/* FIXME: eap is wrong */
+>  		struct eapol *eap = (struct eapol *)(skb->data +
+> -			sizeof(struct ethhdr) - SNAP_SIZE - sizeof(u16));
+> +			sizeof(struct ethhdr) - SNAP_SIZE);
+>  		IEEE80211_DEBUG_EAP("TX: IEEE 802.11 EAPOL frame: %s\n",
+>  			eap_get_type(eap->type));
+>  	}
+>  #endif
+
+Why is there any EAP processing in kernel? This seems to be debug code,
+but I don't really see why it would be needed in the first place. Same
+for functions like eap_get_type() or struct eapol definition for that
+matter.
 
 -- 
-Devesh Agrawal
-4th year Dual Degree.
-Dept of CSE 
-Indian Institute of Technology , Madras
-Room No . 309 , Alakananda Hostel 
-Chennai 600036 ,India
-Ph : +91 9382102431
+Jouni Malinen                                            PGP id EFC895FA
