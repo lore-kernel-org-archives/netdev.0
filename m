@@ -1,34 +1,39 @@
 From: Steve Hill <steve@navaho.co.uk>
-Subject: Conntrack leak (2.6.2rc2)
-Date: Mon, 2 Feb 2004 08:56:45 +0000 (GMT)
+Subject: Re: Conntrack leak (2.6.2rc2)
+Date: Mon, 2 Feb 2004 09:46:19 +0000 (GMT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402020854160.4039@sorbus2.navaho>
+Message-ID: <Pine.LNX.4.58.0402020937030.4127@sorbus2.navaho>
+References: <Pine.LNX.4.33.0402021016450.6508-100000@blackhole.kfki.hu>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+In-Reply-To: <Pine.LNX.4.33.0402021016450.6508-100000@blackhole.kfki.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2 Feb 2004, Jozsef Kadlecsik wrote:
 
-I've already posted this to the netfilter-devel list and had no response 
-so I'm hoping that some of you might have some insight into the problem:
+> init_conntrack is called only when we have full, non-fragmented
+> packets: ip_conntrack_in explicitly calls the proper function to gather
+> the fragments before calling init_conntrack. There is no memory leak
+> there.
 
-I'm using the 2.6.2rc2 kernel and have a strange connection tracking 
-problem - when using unfragmented packets every thing is fine - a new 
-connection is made and init_conntrack() is called, and as the session is 
-timed out by conntrack, destroy_conntrack() is called.  Absolutely fine.
+>From my observations, init_conntrack() is being called for each packet 
+(not fragment, packet), which seems right.  destroy_conntrack() is, 
+however, _not_ being called for any packets that are fragmented (i.e. it 
+is not being called for the complete packet).  This is leading to the 
+memory never being freed, and the conntrack count never being decremented 
+even though the connection has been removed from the hash table.
 
-However, if I start a connection with a fragmented packet (i.e. my MTU 
-is 1500 bytes, so "ping -c 1 -s 2500 172.16.0.1" sends a packet consisting 
-of 2 fragments), init_conntrack() is called as usual, but when the session 
-is timed out destroy_conntrack() never gets called.  This means that the 
-memory for the connection is never freed and ip_conntrack_count is never 
-decremented.  However, the connection is still removed from the hash 
-table.  This means that it leaks memory, and eventually reaches 
-ip_conntrack_max and starts dropping new connections.
-
--- 
+There _is_ a memory leak here - it is observable and completely 
+reproducable.  If I make a number of > MTU sized pings from a machine 
+connected to one NIC to a machine connected another NIC (i.e. the packets 
+will be fragmented), ip_conntrack_count grows until it reaches 
+ip_conntrack_max, at which point it starts dropping new connections.  the 
+ip_conntrack memory listed in /proc/slabinfo also grows.  Neither the 
+memory or the connection count ever shrink again.
 
 - Steve Hill
 Senior Software Developer                        Email: steve@navaho.co.uk
