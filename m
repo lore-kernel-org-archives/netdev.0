@@ -1,84 +1,31 @@
-From: Thomas Munck Steenholdt <tmus@tmus.dk>
-Subject: [PATCH] 2.6.3 orinoco.c patch to support ethtool get_link
-Date: Sun, 07 Mar 2004 02:49:57 +0100
+From: Adam.Torgerson@colorado.edu
+Subject: Issue Report: forcedeth v0.23, irq with unknown events
+Date: Sat,  6 Mar 2004 18:53:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1078624195.3551.3.camel@fk460t28.lun.dk.ibm.com>
+Message-ID: <1078624409.404a80995e634@webmail.colorado.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: c-d.hailfinger.kernel.2004@gmx.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hermes@gibson.dropbear.id.au, netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi there!
+Hello,
+I'm getting tons of these kernel messages:
 
-I noticed that there wasn't a good way, from userland, to get the link
-status of an orinoco device. So I implemented the basic stuff required
-to support ethtool. then I implemented the get_link functionality of
-ethtool (maps orinoco_private->connected the the ethtool link state). It
-seems to work and will save people some boot-time (on the distros that
-check for link before attempting DHCP configuration etc.) when laptop
-users are not on there wireless location.
+"eth0: received irq with unknown events 0x1. Please report"
 
-Also it lays the ground to move more functionality to the ethtool model.
+on an Abit NF7 (nforce2 Ultra400 + MCP-T is what the box says), so I figured I
+better report it. The driver works, but is quite slow (only 256kB/s on a local
+100Mbit network). lspci shows the device as:
 
-Please let me know what you think!
+00:04.0 Ethernet controller: nVidia Corporation nForce2 Ethernet Controller (rev
+a1)
 
-Best regards
+Currently using 2.6.4-rc1-mm2. Let me know if I can provide any more information
+(please CC me as I'm not on any lists).
 
-Thomas
-
-
---- drivers/net/wireless/orinoco.c.tmus 2004-03-07 00:25:47.000000000
-+0100
-+++ drivers/net/wireless/orinoco.c 2004-03-07 01:19:29.433223192 +0100
-@@ -430,6 +430,7 @@
-#include <linux/if_arp.h>
-#include <linux/etherdevice.h>
-#include <linux/wireless.h>
-+#include <linux/ethtool.h>
-
-#include <asm/uaccess.h>
-#include <asm/io.h>
-@@ -566,6 +567,8 @@ static void orinoco_stat_gather(struct n
-static struct net_device_stats *orinoco_get_stats(struct net_device
-*dev);
-static struct iw_statistics *orinoco_get_wireless_stats(struct
-net_device *dev);
-
-+static struct ethtool_ops orinoco_ethtool_ops;   
-+
-/* Hardware control routines */
-
-static int __orinoco_program_rids(struct net_device *dev);
-@@ -3941,6 +3944,19 @@ orinoco_ioctl(struct net_device *dev, st
-return err;
-}
-
-+/* ethtool - get link state */
-+static u32 orinoco_get_link(struct net_device *dev)
-+{
-+        struct orinoco_private *priv = dev->priv;
-+
-+        return priv->connected;
-+}
-+
-+/* ethtool - function definitions */
-+static struct ethtool_ops orinoco_ethtool_ops = {
-+        .get_link = orinoco_get_link,
-+};
-+
-struct {
-u16 rid;
-char *name;
-@@ -4150,6 +4166,9 @@ struct net_device *alloc_orinocodev(int 
-dev->set_multicast_list = orinoco_set_multicast_list;
-/* we use the default eth_mac_addr for setting the MAC addr */
-
-+ /* setup ethtool ops structure for this device */
-+        SET_ETHTOOL_OPS(dev, &orinoco_ethtool_ops);
-+
-/* Set up default callbacks */
-dev->open = orinoco_open;
-dev->stop = orinoco_stop;
+Thanks for the driver and keep up the good work,
+Adam
