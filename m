@@ -1,23 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Export a few icmpv6 symbols
-Date: Tue, 25 Mar 2003 22:30:53 -0800 (PST)
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: tcp_mib questions
+Date: Wed, 26 Mar 2003 14:27:24 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030325.223053.15735470.davem@redhat.com>
-References: <3E80894A.59C6EB95@us.ibm.com>
+Message-ID: <20030326142724.7e8cb865.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgrimm2@us.ibm.com
-In-Reply-To: <3E80894A.59C6EB95@us.ibm.com>
+To: linux-net@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Jon Grimm <jgrimm2@us.ibm.com>
-   Date: Tue, 25 Mar 2003 10:52:26 -0600
 
-   Export a few icmpv6 symbols so SCTP can have at them from its v6
-   err_handler. 
-   
-Applied, thanks Jon.
+Hi,
+
+Looking at the Linux tcp_mib, these fields are not updated (set)
+AFAICT:
+
+1. 	unsigned long	TcpRtoAlgorithm;
+2. 	unsigned long	TcpRtoMin;
+3. 	unsigned long	TcpRtoMax;
+
+What retransmit algorithm does Linux use?  or are there several?
+I see comments/references to Van Jacobson's algorithm.
+Is that the one used, or a variant of it?
+
+4. 	unsigned long	TcpMaxConn;
+If TcpMaxConn is dynamic, it can be set to -1.
+
+5. 	unsigned long	TcpEstabResets;
+Just not updated anywhere.  Is there a (historical) reason for this,
+or it's just omitted, or not wanted?
+
+
+Any comments or corrections?
+
+Thanks,
+--
+~Randy
