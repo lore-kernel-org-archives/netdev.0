@@ -1,43 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [KJ] Re: [PATCH 2.6.12-rc1-bk1 1/3] S2io: Statistics fix
-Date: Wed, 30 Mar 2005 19:58:45 -0500
-Message-ID: <424B4B45.3000509@pobox.com>
-References: <20050329215429.DCFDE5D9A0@linux.site>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: cls_u32 compile failure in current 2.6.12-rc1+BK tree
+Date: Wed, 30 Mar 2005 16:58:50 -0800
+Message-ID: <20050330165850.1a2d0b50.davem@davemloft.net>
+References: <20050328123801.GY3086@postel.suug.ch>
+	<1112014261.1089.1018.camel@jzny.localdomain>
+	<20050328125802.GZ3086@postel.suug.ch>
+	<1112015725.1089.1045.camel@jzny.localdomain>
+	<20050328155523.GD3086@postel.suug.ch>
+	<1112038128.1119.5.camel@jzny.localdomain>
+	<20050328195320.GE3086@postel.suug.ch>
+	<20050328223310.GH3086@postel.suug.ch>
+	<20050329011058.GJ3086@postel.suug.ch>
+	<1112129516.1076.90.camel@jzny.localdomain>
+	<20050330010209.GN3086@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============92747903472019444=="
-Cc: raghavendra.koushik@neterion.com, netdev@oss.sgi.com,
-   leonid.grossman@neterion.com, rapuru.sriram@neterion.com,
-   kernel-janitors@lists.osdl.org
-Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: ravinandan.arakali@neterion.com
-In-Reply-To: <20050329215429.DCFDE5D9A0@linux.site>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.osdl.org
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, mroos@linux.ee, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050330010209.GN3086@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============92747903472019444==
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, 30 Mar 2005 03:02:09 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-applied 1-3
+> Dave, you can pull from bk://kernel.bkbits.net/tgraf/net-2.6-tcf_exts
+> if everyone can agree on this.
 
-
---===============92747903472019444==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Kernel-janitors mailing list
-Kernel-janitors@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/kernel-janitors
-
---===============92747903472019444==--
+Done, thanks Thomas.
