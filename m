@@ -1,45 +1,79 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
-Date: 07 Jul 2004 14:57:48 -0400
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Subject: [PATCH] net: cleanup miss usage of seq_release_private
+Date: Thu, 08 Jul 2004 04:26:14 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089226667.1027.411.camel@jzny.localdomain>
-References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
-	 <20040702134437.5891e998@dell_ss3.pdx.osdl.net>
-	 <1088824432.1043.271.camel@jzny.localdomain>
-	 <20040707111055.32ebb25b@dell_ss3.pdx.osdl.net>
-Reply-To: hadi@cyberus.ca
+Message-ID: <871xjnmxex.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, Catalin BOIE <util@deuroconsult.ro>,
-        netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040707111055.32ebb25b@dell_ss3.pdx.osdl.net>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I seem to have hit the jackpot - all my emails to netdev are showing
-up and on time too.
 
-On Wed, 2004-07-07 at 14:10, Stephen Hemminger wrote:
-> Ok, I'll bite how would you do:
-> 
-> Rate limit packet egress on a ethernet device (eth0) so it looks like a slow DSL link (25 Kbps)
-> by not dropping packets but by pacing the data.
+These doesn't allocate memory and doesn't use seq->private. However
+kfree() ignores NULL, so these are not the problem.
 
-Doesnt TBF work? 
-rate 25kbit burst 90k should probably do it.  Maybe i misunderstood the
-question.
+This patch just cleans these up.
 
-You may be able to avoid dropping but dont think you can guarantee it
-simply because you have finite buffers. At some point you will congest
-that queue and packets will be dropped; and if you dont limit your queue
-buffer size, sooner than later you are bound to hog all the system
-memory. 
-Having said that, i have never seen a good arguement for why pacing
-traffic vs dropping to initiate a slowdown is better than the other.
-So in that case, a policer/meter should suffice.
+Signed-off-by: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+---
 
-cheers,
-jamal
+ net/ipv4/route.c              |    2 +-
+ net/irda/discovery.c          |    2 +-
+ net/irda/ircomm/ircomm_core.c |    2 +-
+ net/irda/iriap.c              |    2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff -puN net/ipv4/route.c~net-seq_release-cleanup net/ipv4/route.c
+--- linux-2.6.7/net/ipv4/route.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
++++ linux-2.6.7-hirofumi/net/ipv4/route.c	2004-07-08 00:01:20.000000000 +0900
+@@ -432,7 +432,7 @@ static struct file_operations rt_cpu_seq
+ 	.open	 = rt_cpu_seq_open,
+ 	.read	 = seq_read,
+ 	.llseek	 = seq_lseek,
+-	.release = seq_release_private,
++	.release = seq_release,
+ };
+ 
+ #endif /* CONFIG_PROC_FS */
+diff -puN net/irda/discovery.c~net-seq_release-cleanup net/irda/discovery.c
+--- linux-2.6.7/net/irda/discovery.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
++++ linux-2.6.7-hirofumi/net/irda/discovery.c	2004-07-08 00:01:20.000000000 +0900
+@@ -449,6 +449,6 @@ struct file_operations discovery_seq_fop
+ 	.open           = discovery_seq_open,
+ 	.read           = seq_read,
+ 	.llseek         = seq_lseek,
+-	.release	= seq_release_private,
++	.release	= seq_release,
+ };
+ #endif
+diff -puN net/irda/iriap.c~net-seq_release-cleanup net/irda/iriap.c
+--- linux-2.6.7/net/irda/iriap.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
++++ linux-2.6.7-hirofumi/net/irda/iriap.c	2004-07-08 00:01:20.000000000 +0900
+@@ -1093,7 +1093,7 @@ struct file_operations irias_seq_fops = 
+ 	.open           = irias_seq_open,
+ 	.read           = seq_read,
+ 	.llseek         = seq_lseek,
+-	.release	= seq_release_private,
++	.release	= seq_release,
+ };
+ 
+ #endif /* PROC_FS */
+diff -puN net/irda/ircomm/ircomm_core.c~net-seq_release-cleanup net/irda/ircomm/ircomm_core.c
+--- linux-2.6.7/net/irda/ircomm/ircomm_core.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
++++ linux-2.6.7-hirofumi/net/irda/ircomm/ircomm_core.c	2004-07-08 00:01:20.000000000 +0900
+@@ -62,7 +62,7 @@ static struct file_operations ircomm_pro
+ 	.open           = ircomm_seq_open,
+ 	.read           = seq_read,
+ 	.llseek         = seq_lseek,
+-	.release	= seq_release_private,
++	.release	= seq_release,
+ };
+ #endif /* CONFIG_PROC_FS */
+ 
+_
+
+-- 
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
