@@ -1,44 +1,44 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] pktgen dependency (was: Re: Linux 2.4.27-pre1)
-Date: Sun, 25 Apr 2004 12:19:11 +0200 (MEST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.GSO.4.58.0404251218430.11039@waterleaf.sonytel.be>
-References: <20040422130651.GB18358@logos.cnet>
- <Pine.GSO.4.58.0404231644470.15793@waterleaf.sonytel.be>
- <20040423163938.013f362f.davem@redhat.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: [cryptic-lkml@bloodletting.com: Re: Testing Dual Ethernet via Loopback]
+Date: Sun, 25 Apr 2004 11:17:06 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040425011706.GD20714@krispykreme>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Marcelo Tosatti <marcelo.tosatti@cyclades.com>, netdev@oss.sgi.com,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040423163938.013f362f.davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: ja@ssi.bg
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Apr 2004, David S. Miller wrote:
-> On Fri, 23 Apr 2004 16:58:58 +0200 (MEST)
-> Geert Uytterhoeven <geert@linux-m68k.org> wrote:
->
-> > The packet generator doesn't compile if procfs is disabled.
-> > IIRC, there was an agreement that this dependency is needed:
->
-> Applied, thanks Geert.  Can you cook up a 2.6.x variant as well
-> if that is needed too?
 
-2.6.6-rc2 already has
+Hi,
 
-    config NET_PKTGEN
-	    tristate "Packet Generator (USE WITH CAUTION)"
-	    depends on PROC_FS
+We have found Julian Anastasov's send-to-self patch extremely useful in
+the lab. There seem to be a number of other people who agree, what are
+the chances of getting it merged into 2.6?
 
-Gr{oetje,eeting}s,
+Ive got a version rediffed against recent BK if required.
 
-						Geert
+Anton
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+----- Forwarded message from Nick Popoff <cryptic-lkml@bloodletting.com> -----
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+From: Nick Popoff <cryptic-lkml@bloodletting.com>
+To: Anton Blanchard <anton@samba.org>, linux-kernel@vger.kernel.org
+Subject: Re: Testing Dual Ethernet via Loopback
+
+On Fri, 23 Apr 2004, Anton Blanchard wrote:
+> Sounds like you need the send-to-self patch:
+> http://www.ssi.bg/~ja/
+> We've been using it a lot in the lab, it works well.
+
+I tried this out yesterday with Linux 2.6.5 at it worked like a charm.  Thank 
+you to everyone who replied with solutions and to the author of this patch!  
+
+I thought the idea of pinging an invalid IP from one interface while snooping 
+with ethereal on the other interface was very clever, but hard to use for 
+performance testing. :-)
+
+----- End forwarded message -----
