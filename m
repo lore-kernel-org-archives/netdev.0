@@ -1,484 +1,75 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: pktgen
-Date: Sat, 27 Nov 2004 13:04:53 +0100
-Message-ID: <16808.28005.74903.881087@robur.slu.se>
-References: <20041110165318.GA19639@xi.wantstofly.org>
-	<20041111233507.GA3202@xi.wantstofly.org>
-	<20041124161848.GA18059@xi.wantstofly.org>
-	<16804.48120.375307.718766@robur.slu.se>
-	<20041124170948.GC18059@xi.wantstofly.org>
-	<16804.60621.990421.525393@robur.slu.se>
-	<20041125030450.GA24417@xi.wantstofly.org>
-	<16805.40983.937641.670275@robur.slu.se>
-	<20041127002841.GA17184@xi.wantstofly.org>
-	<20041127004325.GA17401@xi.wantstofly.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: crappy/good gigabit chipsets?
+Date: Sat, 27 Nov 2004 14:47:06 +0100
+Message-ID: <20041127134706.GA28907@electric-eye.fr.zoreil.com>
+References: <41A81C15.5080905@gmx.net> <20041127111009.GB23139@xi.wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
-        netdev@oss.sgi.com
+Cc: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041127004325.GA17401@xi.wantstofly.org>
+Content-Disposition: inline
+In-Reply-To: <20041127111009.GB23139@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Lennert Buytenhek <buytenh@wantstofly.org> :
+[...]
+> I'm not much of an expert, but I do have some experience to share.
 
+AOL
 
+> I tried r8169 (Realtek gigabit chipset, used in various el-cheapo
+> GigE cards) in a cheap Asus mainboard in a 32/33 slot, and when
+> driver spewing out various scary-looking PCI errors to the console.
+> throwing enough packets at it the card would just stall with the
 
-Lennert Buytenhek writes:
+<r8169 maintainer hat on>
 
- > Can you do me a favor and run the attached script on your box that can
- > do 870kpps and send me the output?
+- which chipset on the motherboard ?
+- do you have some (even gross) figures for the required packet rate ?
+- is your computer with the r8169 adapter still available for testing ?
 
+People, please report such behavior. Even if you do not have time to
+further help fixing it, it really helps me to know own many hit the
+issue. Bugzilla or mail are fine with me.
 
- OK! netdev is cc:ed as there are related discussions...
- sleep was 1 sec and I run SMP kernel. UP kernel give some extra kpps 
- acript data is attached as well as some systeminfo.
+> Didn't have time to look into it further at the time (this was on
+> 2.6.9-something.)  Might not be the NIC's fault.
 
-						--ro
+Sensible. Without further documentation related to the recovery for
+this specific issue (DAC related PCI errors are a different beast),
+I assumed that the safer thing was to disable the device.
 
+At least on x86, under load, I would not be surprised if it makes 
+zero difference to ignore the PCI error. Before this check was introduced,
+there was no identified complaint related to the stability of the driver
+in the vanilla kernel.
 
- > #!/bin/sh
- > 
- > DEVICE=eth1
- > MAC=00:0E:0C:64:CC:A1
- > 
- > for size in `seq 60 4 1500`
- > do
- >         echo rem_device_all > /proc/net/pktgen/kpktgend_0
- >         echo add_device $DEVICE > /proc/net/pktgen/kpktgend_0
- > 
- >         echo min_pkt_size $size > /proc/net/pktgen/$DEVICE
- >         echo max_pkt_size $size > /proc/net/pktgen/$DEVICE
- >         echo count 1000000 > /proc/net/pktgen/$DEVICE
- >         echo clone_skb 1000000 > /proc/net/pktgen/$DEVICE
- >         echo dst_min 10.10.10.1 > /proc/net/pktgen/$DEVICE
- >         echo dst_max 10.10.10.1 > /proc/net/pktgen/$DEVICE
- >         echo src_min 10.10.10.2 > /proc/net/pktgen/$DEVICE
- >         echo src_max 10.10.10.2 > /proc/net/pktgen/$DEVICE
- >         echo src_mac $MAC > /proc/net/pktgen/$DEVICE
- >         echo dst_mac $MAC > /proc/net/pktgen/$DEVICE
- > 
- >         echo start > /proc/net/pktgen/pgctrl
- >         sleep 0.1
- >         echo -ne "$size\t"
- >         tail -1 /proc/net/pktgen/$DEVICE | awk '{print $1}' | sed s/pps//
- > done
- > 
+More specifically, Google shows many people with r8169 issues. At the end
+of the day, there are mostly related to old drivers, flaky hardware,
+gcc 2.95.x, lovecraftian build of the kernel and such. Pending issues:
+1) a complete failure on an amd64 laptop I'll be happy to see disappear in
+   the "acpi killed me" category. Hopefully the things seem to improve
+   on the acpi side.
+2) Ben Greear experiences some troubles with a pcmcia adapter on its laptop.
+   I have recently got the hardware to dig this issue.
+3) gcc 2.95.4 related failure.
+4) misc pci error reports on x86 since the code for it has been added.
+   The pattern is not clear (chipset of the mobo ? cooling ? wtf ?).
+5) DAC sucks on x86_64.
 
-60	825789
-64	748975
-68	729149
-72	719721
-76	720204
-80	720127
-84	702722
-88	702799
-92	705107
-96	701711
-100	703858
-104	692120
-108	696139
-112	708936
-116	697780
-120	677887
-124	678158
-128	739290
-132	737070
-136	736894
-140	737645
-144	737816
-148	682755
-152	648547
-156	646464
-160	679270
-164	663134
-168	649420
-172	637685
-176	623475
-180	612669
-184	599538
-188	588232
-192	577422
-196	566923
-200	556811
-204	547059
-208	537637
-212	528532
-216	519271
-220	511227
-224	503027
-228	495054
-232	487353
-236	479877
-240	472637
-244	465579
-248	458754
-252	452132
-256	445681
-260	438682
-264	433324
-268	427376
-272	421577
-276	416015
-280	409920
-284	405213
-288	400012
-292	394926
-296	390010
-300	385253
-304	380546
-308	375449
-312	370965
-316	366609
-320	362369
-324	358179
-328	354149
-332	350213
-336	346290
-340	342524
-344	339244
-348	335559
-352	332027
-356	328502
-360	324697
-364	321396
-368	318073
-372	315286
-376	312123
-380	308651
-384	305657
-388	302719
-392	300121
-396	296961
-400	294140
-404	291707
-408	288638
-412	286076
-416	283756
-420	280944
-424	278409
-428	276012
-432	273548
-436	271198
-440	268858
-444	266802
-448	264349
-452	262355
-456	259928
-460	257763
-464	255713
-468	253556
-472	251542
-476	249541
-480	247356
-484	245664
-488	243680
-492	241597
-496	239978
-500	238109
-504	236376
-508	234565
-512	232851
-516	231085
-520	229229
-524	227734
-528	226098
-532	224427
-536	222851
-540	221305
-544	219546
-548	218018
-552	216502
-556	215007
-560	213722
-564	212266
-568	210867
-572	209392
-576	207854
-580	206483
-584	205175
-588	203801
-592	202445
-596	201178
-600	199913
-604	198779
-608	197514
-612	196267
-616	194893
-620	193672
-624	192649
-628	191481
-632	190136
-636	189003
-640	187870
-644	186890
-648	185617
-652	184589
-656	183608
-660	182360
-664	181342
-668	180423
-672	179220
-676	178234
-680	177220
-684	176219
-688	175234
-692	174294
-696	173307
-700	172330
-704	171407
-708	170447
-712	169538
-716	168598
-720	167698
-724	166792
-728	165934
-732	165027
-736	164170
-740	163358
-744	162496
-748	161627
-752	160808
-756	160000
-760	159041
-764	158382
-768	157593
-772	156769
-776	155901
-780	155225
-784	154484
-788	153702
-792	152950
-796	152207
-800	151460
-804	150648
-808	149907
-812	149251
-816	148500
-820	147832
-824	147132
-828	146414
-832	145748
-836	145127
-840	144374
-844	143728
-848	143176
-852	142516
-856	141817
-860	141167
-864	140465
-868	139840
-872	139221
-876	138679
-880	138089
-884	137420
-888	136833
-892	136218
-896	135668
-900	135057
-904	134445
-908	133962
-912	133329
-916	132754
-920	132196
-924	131687
-928	131121
-932	130524
-936	130013
-940	129437
-944	128925
-948	128420
-952	127892
-956	127319
-960	126800
-964	126278
-968	125854
-972	125282
-976	124800
-980	124296
-984	123770
-988	123291
-992	122888
-996	122369
-1000	121890
-1004	121396
-1008	120902
-1012	120484
-1016	120008
-1020	119529
-1024	119107
-1028	118652
-1032	118226
-1036	117746
-1040	117325
-1044	116832
-1048	116446
-1052	115991
-1056	115603
-1060	115127
-1064	114724
-1068	114345
-1072	113859
-1076	113471
-1080	113089
-1084	112698
-1088	112235
-1092	111792
-1096	111423
-1100	111038
-1104	110671
-1108	110289
-1112	109883
-1116	109476
-1120	109040
-1124	108677
-1128	108284
-1132	107968
-1136	107591
-1140	107177
-1144	106863
-1148	106547
-1152	106155
-1156	105756
-1160	105431
-1164	105054
-1168	104668
-1172	104414
-1176	104014
-1180	103638
-1184	103274
-1188	103017
-1192	102628
-1196	102266
-1200	101986
-1204	101635
-1208	101263
-1212	100991
-1216	100639
-1220	100367
-1224	100009
-1228	99731
-1232	99334
-1236	99089
-1240	98733
-1244	98484
-1248	98112
-1252	97859
-1256	97491
-1260	97228
-1264	96867
-1268	96600
-1272	96346
-1276	95981
-1280	95731
-1284	95459
-1288	95111
-1292	94847
-1296	94597
-1300	94324
-1304	93940
-1308	93697
-1312	93427
-1316	93180
-1320	92827
-1324	92569
-1328	92302
-1332	92070
-1336	91812
-1340	91545
-1344	91196
-1348	90984
-1352	90724
-1356	90455
-1360	90194
-1364	89929
-1368	89666
-1372	89415
-1376	89162
-1380	88930
-1384	88651
-1388	88409
-1392	88161
-1396	87932
-1400	87672
-1404	87405
-1408	87176
-1412	86910
-1416	86670
-1420	86454
-1424	86158
-1428	85945
-1432	85771
-1436	85508
-1440	85260
-1444	85024
-1448	84782
-1452	84537
-1456	84367
-1460	84065
-1464	83888
-1468	83646
-1472	83397
-1476	83240
-1480	83018
-1484	82770
-1488	82552
-1492	82374
-1496	82122
-1500	81882
+So far there are no known figures for the r8169 in the kind of setup that
+Carl-Daniel plans to use.
 
-00:00.0 Host bridge: ServerWorks CNB20LE Host Bridge (rev 06)
-00:00.1 Host bridge: ServerWorks CNB20LE Host Bridge (rev 06)
-00:02.0 VGA compatible controller: S3 Inc. ViRGE/DX or /GX (rev 01)
-00:03.0 Ethernet controller: Digital Equipment Corporation DECchip 21140 [FasterNet] (rev 22)
-00:06.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] (rev 08)
-00:0f.0 ISA bridge: ServerWorks OSB4 South Bridge (rev 50)
-00:0f.1 IDE interface: ServerWorks OSB4 IDE Controller
-00:0f.2 USB Controller: ServerWorks OSB4/CSB5 OHCI USB Controller (rev 04)
-01:01.0 Ethernet controller: Intel Corp. 82543GC Gigabit Ethernet Controller (Copper) (rev 02)
-01:02.0 Ethernet controller: Intel Corp. 82543GC Gigabit Ethernet Controller (Copper) (rev 02)
-01:03.0 SCSI storage controller: Adaptec AIC-7892P U160/m (rev 02)
+> On an intel board with independent PCI buses, I see an e1000 'desktop'
+> NIC filling the pipe for any packet size > ~350 when the card sits on
+> its own PCI bus.  This is while running at 32/66, CPU being a 2.4GHz
+> Xeon.
 
-processor	: 0
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 8
-model name	: Pentium III (Coppermine)
-stepping	: 6
-cpu MHz		: 866.711
-cache size	: 256 KB
-fdiv_bug	: no
-hlt_bug		: no
-f00f_bug	: no
-coma_bug	: no
-fpu		: yes
-fpu_exception	: yes
-cpuid level	: 2
-wp		: yes
-flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 mmx fxsr sse
-bogomips	: 1712.12
+How do you fill it ?
 
-processor	: 1
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 8
-model name	: Pentium III (Coppermine)
-stepping	: 6
-cpu MHz		: 866.711
-cache size	: 256 KB
-fdiv_bug	: no
-hlt_bug		: no
-f00f_bug	: no
-coma_bug	: no
-fpu		: yes
-fpu_exception	: yes
-cpuid level	: 2
-wp		: yes
-flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 mmx fxsr sse
-bogomips	: 1728.51
-
-
-Linux version 2.6.9-rc2-bk11 (root@Sourcemage) (gcc version 3.3.2) #232 SMP Wed Oct 20 18:31:15 CEST 2004
+--
+Ueimor
