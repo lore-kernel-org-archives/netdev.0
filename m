@@ -1,66 +1,170 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6] deliver_skb cleanup
-Date: Tue, 24 Aug 2004 11:07:11 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] allow setting mtu and txqlen via RTM_SETLINK and provide txqlen via RTM_GETLINK
+Date: Tue, 24 Aug 2004 20:08:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040824110711.3a1782d7@dell_ss3.pdx.osdl.net>
+Message-ID: <20040824180825.GJ21296@postel.suug.ch>
+References: <20040824094952.GF21073@postel.suug.ch> <E1BzYMJ-000208-00@gondolin.me.apana.org.au> <20040824162501.GI21296@postel.suug.ch> <20040824103252.1b593e68.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040824103252.1b593e68.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Cleanup of deliver_skb: get rid of unused argument and use it
-in the NET_CLS_ACT hook.
+* David S. Miller <20040824103252.1b593e68.davem@redhat.com> 2004-08-24 10:32
+> On Tue, 24 Aug 2004 18:25:01 +0200
+> Thomas Graf <tgraf@suug.ch> wrote:
+> 
+> > * Herbert Xu <E1BzYMJ-000208-00@gondolin.me.apana.org.au> 2004-08-24 20:16
+> > > Please think about the meaning of the value.  Is anyone going to have a queue
+> > > bigger than 2^32?
+> > > 
+> > > And if the answer is yes, then please use u64.
+> > 
+> > Here's a new patch with all discussed changes integrated. I don't have enough
+> > cycles to split it all up again.
+> 
+> This patch only contained net/core/rtnetlink.c changes, where is
+> the rest?
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Sorry, the complete patch again:
 
-diff -Nru a/net/core/dev.c b/net/core/dev.c
---- a/net/core/dev.c	2004-08-24 11:05:51 -07:00
-+++ b/net/core/dev.c	2004-08-24 11:05:51 -07:00
-@@ -1676,7 +1676,7 @@
- }
+--- 1.19/net/core/rtnetlink.c	Thu Apr 29 01:04:48 2004
++++ 1.27/net/core/rtnetlink.c	Tue Aug 24 18:16:40 2004
+@@ -166,31 +166,53 @@
+ 	r->ifi_family = AF_UNSPEC;
+ 	r->ifi_type = dev->type;
+ 	r->ifi_index = dev->ifindex;
+-	r->ifi_flags = dev->flags;
++	r->ifi_flags = dev_get_flags(dev);
+ 	r->ifi_change = change;
  
- static __inline__ int deliver_skb(struct sk_buff *skb,
--				  struct packet_type *pt_prev, int last)
-+				  struct packet_type *pt_prev)
- {
- 	atomic_inc(&skb->users);
- 	return pt_prev->func(skb, skb->dev, pt_prev);
-@@ -1691,7 +1691,7 @@
- {
- 	int ret = NET_RX_DROP;
- 	if (pt_prev)
--		ret = deliver_skb(skb, pt_prev, 0);
-+		ret = deliver_skb(skb, pt_prev);
+-	if (!netif_running(dev) || !netif_carrier_ok(dev))
+-		r->ifi_flags &= ~IFF_RUNNING;
+-	else
+-		r->ifi_flags |= IFF_RUNNING;
+-
+ 	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
++
++	if (1) {
++		u32 txqlen = dev->tx_queue_len;
++		RTA_PUT(skb, IFLA_TXQLEN, sizeof(txqlen), &txqlen);
++	}
++
++	if (1) {
++		struct ifmap map = {
++			.mem_start   = dev->mem_start,
++			.mem_end     = dev->mem_end,
++			.base_addr   = dev->base_addr,
++			.irq         = dev->irq,
++			.dma         = dev->dma,
++			.port        = dev->if_port,
++		};
++		RTA_PUT(skb, IFLA_MAP, sizeof(map), &map);
++	}
++
+ 	if (dev->addr_len) {
+ 		RTA_PUT(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr);
+ 		RTA_PUT(skb, IFLA_BROADCAST, dev->addr_len, dev->broadcast);
+ 	}
++
+ 	if (1) {
+-		unsigned mtu = dev->mtu;
++		u32 mtu = dev->mtu;
+ 		RTA_PUT(skb, IFLA_MTU, sizeof(mtu), &mtu);
+ 	}
+-	if (dev->ifindex != dev->iflink)
+-		RTA_PUT(skb, IFLA_LINK, sizeof(int), &dev->iflink);
++
++	if (dev->ifindex != dev->iflink) {
++		u32 iflink = dev->iflink;
++		RTA_PUT(skb, IFLA_LINK, sizeof(iflink), &iflink);
++	}
++
+ 	if (dev->qdisc_sleeping)
+ 		RTA_PUT(skb, IFLA_QDISC,
+ 			strlen(dev->qdisc_sleeping->ops->id) + 1,
+ 			dev->qdisc_sleeping->ops->id);
+-	if (dev->master)
+-		RTA_PUT(skb, IFLA_MASTER, sizeof(int), &dev->master->ifindex);
++	
++	if (dev->master) {
++		u32 master = dev->master->ifindex;
++		RTA_PUT(skb, IFLA_MASTER, sizeof(master), &master);
++	}
++
+ 	if (dev->get_stats) {
+ 		unsigned long *stats = (unsigned long*)dev->get_stats(dev);
+ 		if (stats) {
+@@ -246,6 +268,30 @@
  
- 	return ret;
- }
-@@ -1791,15 +1791,14 @@
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
- 		if (!ptype->dev || ptype->dev == skb->dev) {
- 			if (pt_prev) 
--				ret = deliver_skb(skb, pt_prev, 0);
-+				ret = deliver_skb(skb, pt_prev);
- 			pt_prev = ptype;
- 		}
+ 	err = -EINVAL;
+ 
++	if (ifm->ifi_flags)
++		dev_change_flags(dev, ifm->ifi_flags);
++
++	if (ida[IFLA_MAP - 1]) {
++		if (!dev->set_config) {
++			err = -EOPNOTSUPP;
++			goto out;
++		}
++
++		if (!netif_device_present(dev)) {
++			err = -ENODEV;
++			goto out;
++		}
++		
++		if (ida[IFLA_MAP - 1]->rta_len != RTA_LENGTH(sizeof(struct ifmap)))
++			goto out;
++		
++		err = dev->set_config(dev, (struct ifmap *)
++				RTA_DATA(ida[IFLA_MAP - 1]));
++
++		if (err)
++			goto out;
++	}
++
+ 	if (ida[IFLA_ADDRESS - 1]) {
+ 		if (!dev->set_mac_address) {
+ 			err = -EOPNOTSUPP;
+@@ -268,6 +314,23 @@
+ 			goto out;
+ 		memcpy(dev->broadcast, RTA_DATA(ida[IFLA_BROADCAST - 1]),
+ 		       dev->addr_len);
++	}
++
++	if (ida[IFLA_MTU - 1]) {
++		if (ida[IFLA_MTU - 1]->rta_len != RTA_LENGTH(sizeof(u32)))
++			goto out;
++		err = dev_set_mtu(dev, *((u32 *) RTA_DATA(ida[IFLA_MTU - 1])));
++
++		if (err)
++			goto out;
++
++	}
++
++	if (ida[IFLA_TXQLEN - 1]) {
++		if (ida[IFLA_TXQLEN - 1]->rta_len != RTA_LENGTH(sizeof(u32)))
++			goto out;
++
++		dev->tx_queue_len = *((u32 *) RTA_DATA(ida[IFLA_TXQLEN - 1]));
  	}
  
- #ifdef CONFIG_NET_CLS_ACT
- 	if (pt_prev) {
--		atomic_inc(&skb->users);
--		ret = pt_prev->func(skb, skb->dev, pt_prev);
-+		ret = deliver_skb(skb, pt_prev);
- 		pt_prev = NULL; /* noone else should process this after*/
- 	} else {
- 		skb->tc_verd = SET_TC_OK2MUNGE(skb->tc_verd);
-@@ -1826,7 +1825,7 @@
- 		if (ptype->type == type &&
- 		    (!ptype->dev || ptype->dev == skb->dev)) {
- 			if (pt_prev) 
--				ret = deliver_skb(skb, pt_prev, 0);
-+				ret = deliver_skb(skb, pt_prev);
- 			pt_prev = ptype;
- 		}
- 	}
+ 	err = 0;
+
+
+--- 1.33/include/linux/rtnetlink.h	Mon Apr  5 23:41:40 2004
++++ 1.35/include/linux/rtnetlink.h	Tue Aug 24 20:06:53 2004
+@@ -540,6 +540,8 @@
+ 	IFLA_QDISC,
+ 	IFLA_STATS,
+ 	IFLA_COST,
++	IFLA_TXQLEN,
++	IFLA_MAP,
+ #define IFLA_COST IFLA_COST
+ 	IFLA_PRIORITY,
+ #define IFLA_PRIORITY IFLA_PRIORITY
