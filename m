@@ -1,45 +1,41 @@
 From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: Bug in qeth in 2.6
-Date: Wed, 3 Sep 2003 14:54:44 -0400
+Subject: Re: Bug in qeth in 2.6
+Date: Thu, 4 Sep 2003 11:45:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030903145444.I27572@devserv.devel.redhat.com>
+Message-ID: <20030904114512.A12054@devserv.devel.redhat.com>
+References: <OFCF0074F3.0CE8CF77-ONC1256D97.00308924-C1256D97.0030F005@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, zaitcev@redhat.com
+Cc: Pete Zaitcev <zaitcev@redhat.com>, netdev@oss.sgi.com,
+   Utz Bacher <utz.bacher@de.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cohuck@de.ibm.com
+To: Cornelia Huck <COHUCK@de.ibm.com>
 Content-Disposition: inline
+In-Reply-To: <OFCF0074F3.0CE8CF77-ONC1256D97.00308924-C1256D97.0030F005@de.ibm.com>; from COHUCK@de.ibm.com on Thu, Sep 04, 2003 at 10:54:43AM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This code is obviously broken in case several cards are present,
-look what happens to ``result''.
+On Thu, Sep 04, 2003 at 10:54:43AM +0200, Cornelia Huck wrote:
+> could you please elaborate what's exactly wrong with qeth_verify_dev()?
+> 
+> It has the same behaviour as in 2.4, and it looks correct to us...
 
-devices/s390/net/qeth.c:
+2.4 was like this:
 
-static int
-qeth_verify_dev(struct net_device *dev)
-{
-        struct qeth_card *tmp;
-        int result = 0;
-                                                                                
-        read_lock(&list_lock);
-        tmp = firstcard;
-        for (; tmp && (!result); tmp = tmp->next) {
-                if (atomic_read(&tmp->shutdown_phase))
-                        continue;
-                result = (dev == tmp->dev)?
-                        QETH_VERIFY_IS_REAL_DEV:__qeth_verify_dev_vlan(dev, tmp);
-        }
-        read_unlock(&list_lock);
-        return result;
-}
+	result = 0;
+	for (all in list) {
+		if (something)
+			result = QETH_VERIFY_IS_SOMETHING;
+	}
 
-Someone got seriously carried away with cleanups.
-I have to say, I'm disappointed. The original qeth in 2.4
-had poor C style, but it was a mistake to run amok adding
-spaces. The diff between 2.4 and 2.6 is too hard to read,
-even with -b. Now I have to review whole darn thing line by line.
-Oh woe!
+2.6 is:
+
+	result = 0;
+	for (all in list) {
+		result = (something)? QETH_VERIFY_IS_SOMETHING: foo();
+	}
+
+Results are different if two cards are present on the list
+and the function is asked to verify the first card.
 
 -- Pete
