@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 3/4] ip_fw_compat_masq.c build fix
-Date: Wed, 23 Jun 2004 23:30:37 -0700
+Subject: [patch 1/4] tr.c warning fix
+Date: Wed, 23 Jun 2004 23:30:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406240631.i5O6VXZ31250@mail.osdl.org>
+Message-ID: <200406240631.i5O6VSZ31238@mail.osdl.org>
 Cc: netdev@oss.sgi.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,27 +11,27 @@ List-Id: netdev.vger.kernel.org
 
 
 
-net/ipv4/netfilter/ip_fw_compat_masq.c: In function `check_for_demasq':
-net/ipv4/netfilter/ip_fw_compat_masq.c:165: error: 'IP_OFFSET' undeclared (first use in this function)
-net/ipv4/netfilter/ip_fw_compat_masq.c:165: error: (Each undeclared identifier is reported only once
-net/ipv4/netfilter/ip_fw_compat_masq.c:165: error: for each function it appears in.)
+A few things popped up when using current gcc cvs.
 
+net/802/tr.c: In function `tr_header':
+net/802/tr.c:113: warning: 'trh' is used uninitialized in this function
 
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/net/ipv4/netfilter/ip_fw_compat_masq.c |    1 +
- 1 files changed, 1 insertion(+)
+ 25-akpm/net/802/tr.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/ipv4/netfilter/ip_fw_compat_masq.c~ip_fw_compat_masq-build-fix net/ipv4/netfilter/ip_fw_compat_masq.c
---- 25/net/ipv4/netfilter/ip_fw_compat_masq.c~ip_fw_compat_masq-build-fix	2004-06-23 23:30:10.094664248 -0700
-+++ 25-akpm/net/ipv4/netfilter/ip_fw_compat_masq.c	2004-06-23 23:30:10.097663792 -0700
-@@ -24,6 +24,7 @@
- #include <linux/proc_fs.h>
- #include <linux/module.h>
- #include <net/route.h>
-+#include <net/ip.h>
+diff -puN net/802/tr.c~tr-warning-fixes net/802/tr.c
+--- 25/net/802/tr.c~tr-warning-fixes	2004-06-23 22:55:28.191161688 -0700
++++ 25-akpm/net/802/tr.c	2004-06-23 22:55:39.811395144 -0700
+@@ -110,7 +110,7 @@ int tr_header(struct sk_buff *skb, struc
+ 	 */
+ 	if (type == ETH_P_IP || type == ETH_P_IPV6 || type == ETH_P_ARP)
+ 	{
+-		struct trllc *trllc=(struct trllc *)(trh+1);
++		struct trllc *trllc;
  
- #define ASSERT_READ_LOCK(x) MUST_BE_READ_LOCKED(&ip_conntrack_lock)
- #define ASSERT_WRITE_LOCK(x) MUST_BE_WRITE_LOCKED(&ip_conntrack_lock)
+ 		hdr_len = sizeof(struct trh_hdr) + sizeof(struct trllc);
+ 		trh = (struct trh_hdr *)skb_push(skb, hdr_len);
 _
