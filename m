@@ -1,12 +1,12 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [IPV6 2.4] UDPv6: checksum
-Date: Wed, 16 Jun 2004 00:04:49 +0900 (JST)
+Subject: [2.4,IPV6] UDPv6: use udpv6_queue_rcv_skb().
+Date: Wed, 16 Jun 2004 00:10:16 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040616.000449.48351036.yoshfuji@linux-ipv6.org>
+Message-ID: <20040616.001016.54016316.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -14,32 +14,56 @@ List-Id: netdev.vger.kernel.org
 
 Hello.
 
-We always need to check UDPv6 checksum because it is mandatory.
-This patch is for 2.4.
-
-Thanks.
+Use udpv6_queue_rcv_skb() instead of sock_queue_rcv_skb()
+as we do in 2.6 for checksum, (ipsec and) statistics.
 
 ===== net/ipv6/udp.c 1.14 vs edited =====
 --- 1.14/net/ipv6/udp.c	2004-02-25 17:19:02 +09:00
-+++ edited/net/ipv6/udp.c	2004-06-15 23:45:18 +09:00
-@@ -521,8 +521,7 @@
- 
- static inline int udpv6_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
++++ edited/net/ipv6/udp.c	2004-06-15 23:50:47 +09:00
+@@ -586,34 +586,26 @@
+ 				struct sk_buff *skb)
  {
--#if defined(CONFIG_FILTER)
--	if (sk->filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
-+	if (skb->ip_summed != CHECKSUM_UNNECESSARY) {
- 		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum))) {
- 			UDP6_INC_STATS_BH(UdpInErrors);
- 			IP6_INC_STATS_BH(Ip6InDiscards);
-@@ -531,7 +530,6 @@
- 		}
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	struct sock *sk, *sk2;
+-	struct sk_buff *buff;
+ 	int dif;
+ 
+ 	read_lock(&udp_hash_lock);
+ 	sk = udp_hash[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)];
+ 	dif = skb->dev->ifindex;
+ 	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
+-	if (!sk)
+-		goto free_skb;
++	if (!sk) {
++		kfree_skb(skb);
++		goto out;
++	}
+ 
+-	buff = NULL;
+ 	sk2 = sk;
+ 	while((sk2 = udp_v6_mcast_next(sk2->next, uh->dest, daddr,
+ 						  uh->source, saddr, dif))) {
+-		if (!buff) {
+-			buff = skb_clone(skb, GFP_ATOMIC);
+-			if (!buff)
+-				continue;
+-		}
+-		if (sock_queue_rcv_skb(sk2, buff) >= 0)
+-			buff = NULL;
+-	}
+-	if (buff)
+-		kfree_skb(buff);
+-	if (sock_queue_rcv_skb(sk, skb) < 0) {
+-free_skb:
+-		kfree_skb(skb);
++		struct sk_buff *buff = skb_clone(skb, GFP_ATOMIC);
++		if (buff)
++			udpv6_queue_rcv_skb(sk2, buff);
  	}
--#endif
- 	if (sock_queue_rcv_skb(sk,skb)<0) {
- 		UDP6_INC_STATS_BH(UdpInErrors);
- 		IP6_INC_STATS_BH(Ip6InDiscards);
++	udpv6_queue_rcv_skb(sk, skb);
++out:
+ 	read_unlock(&udp_hash_lock);
+ }
+ 
 
 -- 
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
