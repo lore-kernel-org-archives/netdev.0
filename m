@@ -1,128 +1,129 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [XFRM]: Always reroute in tunnel mode
-Date: Thu, 17 Feb 2005 07:22:23 +0100
-Message-ID: <4214381F.5020507@trash.net>
+From: Herbert Poetzl <herbert@13thfloor.at>
+Subject: [Patch] passcred cleanup in struct socket
+Date: Thu, 17 Feb 2005 10:32:30 +0100
+Message-ID: <20050217093230.GA15066@mail.13thfloor.at>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010806070907080302070104"
-Cc: Maillist netdev <netdev@oss.sgi.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
-To: "David S. Miller" <davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010806070907080302070104
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Please see Changeset comment for a description, patch is based on
-your 2.6.12 tree.
+struct socket uses a 'bool' (unsigned char) to
+'flag' the pass-credential option for sockets
+(which can be easily replaced by a flag)
 
-Regards
-Patrick
+best,
+Herbert
 
 
---------------010806070907080302070104
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/02/17 07:10:03+01:00 kaber@coreworks.de 
-#   [XFRM]: Always reroute in tunnel mode
-#   
-#   Tunnel mode packets are rerouted if the tunnel destination
-#   address is different from the original destination address,
-#   otherwise the old route is used. This is inconsistent, the
-#   old route might have been selected for a given output device
-#   or using routing by tos/fwmark. Always choose a new route
-#   in tunnel mode.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv6/xfrm6_policy.c
-#   2005/02/17 07:09:55+01:00 kaber@coreworks.de +3 -1
-#   [XFRM]: Always reroute in tunnel mode
-#   
-#   Tunnel mode packets are rerouted if the tunnel destination
-#   address is different from the original destination address,
-#   otherwise the old route is used. This is inconsistent, the
-#   old route might have been selected for a given output device
-#   or using routing by tos/fwmark. Always choose a new route
-#   in tunnel mode.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/xfrm4_policy.c
-#   2005/02/17 07:09:55+01:00 kaber@coreworks.de +3 -1
-#   [XFRM]: Always reroute in tunnel mode
-#   
-#   Tunnel mode packets are rerouted if the tunnel destination
-#   address is different from the original destination address,
-#   otherwise the old route is used. This is inconsistent, the
-#   old route might have been selected for a given output device
-#   or using routing by tos/fwmark. Always choose a new route
-#   in tunnel mode.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
---- a/net/ipv4/xfrm4_policy.c	2005-02-17 07:16:40 +01:00
-+++ b/net/ipv4/xfrm4_policy.c	2005-02-17 07:16:40 +01:00
-@@ -59,6 +59,7 @@
- 	int err;
- 	int header_len = 0;
- 	int trailer_len = 0;
-+	int tunnel = 0;
+diff -NurpP --minimal linux-2.6.11-rc4/include/linux/net.h linux-2.6.11-rc4-sock/include/linux/net.h
+--- linux-2.6.11-rc4/include/linux/net.h	2005-02-13 17:17:06 +0100
++++ linux-2.6.11-rc4-sock/include/linux/net.h	2005-02-17 09:47:44 +0100
+@@ -61,6 +61,7 @@ typedef enum {
+ #define SOCK_ASYNC_NOSPACE	0
+ #define SOCK_ASYNC_WAITDATA	1
+ #define SOCK_NOSPACE		2
++#define SOCK_PASSCRED		3
  
- 	dst = dst_prev = NULL;
+ #ifndef ARCH_HAS_SOCKET_TYPES
+ /** sock_type - Socket types
+@@ -111,7 +112,6 @@ struct socket {
+ 	struct sock		*sk;
+ 	wait_queue_head_t	wait;
+ 	short			type;
+-	unsigned char		passcred;
+ };
  
-@@ -81,12 +82,13 @@
- 		if (xfrm[i]->props.mode) {
- 			remote = xfrm[i]->id.daddr.a4;
- 			local  = xfrm[i]->props.saddr.a4;
-+			tunnel = 1;
- 		}
- 		header_len += xfrm[i]->props.header_len;
- 		trailer_len += xfrm[i]->props.trailer_len;
+ struct vm_area_struct;
+diff -NurpP --minimal linux-2.6.11-rc4/include/net/scm.h linux-2.6.11-rc4-sock/include/net/scm.h
+--- linux-2.6.11-rc4/include/net/scm.h	2004-08-14 12:55:32 +0200
++++ linux-2.6.11-rc4-sock/include/net/scm.h	2005-02-17 09:49:42 +0100
+@@ -51,13 +51,13 @@ static __inline__ void scm_recv(struct s
+ {
+ 	if (!msg->msg_control)
+ 	{
+-		if (sock->passcred || scm->fp)
++		if (test_bit(SOCK_PASSCRED, &sock->flags) || scm->fp)
+ 			msg->msg_flags |= MSG_CTRUNC;
+ 		scm_destroy(scm);
+ 		return;
  	}
  
--	if (remote != fl->fl4_dst) {
-+	if (tunnel) {
- 		struct flowi fl_tunnel = { .nl_u = { .ip4_u =
- 						     { .daddr = remote,
- 						       .saddr = local }
-diff -Nru a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
---- a/net/ipv6/xfrm6_policy.c	2005-02-17 07:16:40 +01:00
-+++ b/net/ipv6/xfrm6_policy.c	2005-02-17 07:16:40 +01:00
-@@ -76,6 +76,7 @@
- 	int err = 0;
- 	int header_len = 0;
- 	int trailer_len = 0;
-+	int tunnel = 0;
+-	if (sock->passcred)
++	if (test_bit(SOCK_PASSCRED, &sock->flags))
+ 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(scm->creds), &scm->creds);
  
- 	dst = dst_prev = NULL;
+ 	if (!scm->fp)
+diff -NurpP --minimal linux-2.6.11-rc4/net/core/sock.c linux-2.6.11-rc4-sock/net/core/sock.c
+--- linux-2.6.11-rc4/net/core/sock.c	2005-02-13 17:17:18 +0100
++++ linux-2.6.11-rc4-sock/net/core/sock.c	2005-02-17 09:49:42 +0100
+@@ -333,7 +333,10 @@ int sock_setsockopt(struct socket *sock,
+ 			break;
  
-@@ -98,12 +99,13 @@
- 		if (xfrm[i]->props.mode) {
- 			remote = (struct in6_addr*)&xfrm[i]->id.daddr;
- 			local  = (struct in6_addr*)&xfrm[i]->props.saddr;
-+			tunnel = 1;
- 		}
- 		header_len += xfrm[i]->props.header_len;
- 		trailer_len += xfrm[i]->props.trailer_len;
+ 		case SO_PASSCRED:
+-			sock->passcred = valbool;
++			if (valbool)
++				set_bit(SOCK_PASSCRED, &sock->flags);
++			else
++				clear_bit(SOCK_PASSCRED, &sock->flags);
+ 			break;
+ 
+ 		case SO_TIMESTAMP:
+@@ -557,7 +560,7 @@ int sock_getsockopt(struct socket *sock,
+ 			break; 
+ 
+ 		case SO_PASSCRED:
+-			v.val = sock->passcred;
++			v.val = test_bit(SOCK_PASSCRED, &sock->flags) ? 1 : 0;
+ 			break;
+ 
+ 		case SO_PEERCRED:
+diff -NurpP --minimal linux-2.6.11-rc4/net/socket.c linux-2.6.11-rc4-sock/net/socket.c
+--- linux-2.6.11-rc4/net/socket.c	2005-02-13 17:17:19 +0100
++++ linux-2.6.11-rc4-sock/net/socket.c	2005-02-17 09:34:41 +0100
+@@ -287,7 +287,7 @@ static struct inode *sock_alloc_inode(st
+ 	ei->socket.ops = NULL;
+ 	ei->socket.sk = NULL;
+ 	ei->socket.file = NULL;
+-	ei->socket.passcred = 0;
++	ei->socket.flags = 0;
+ 
+ 	return &ei->vfs_inode;
+ }
+diff -NurpP --minimal linux-2.6.11-rc4/net/unix/af_unix.c linux-2.6.11-rc4-sock/net/unix/af_unix.c
+--- linux-2.6.11-rc4/net/unix/af_unix.c	2005-02-13 17:17:19 +0100
++++ linux-2.6.11-rc4-sock/net/unix/af_unix.c	2005-02-17 09:49:42 +0100
+@@ -861,8 +861,8 @@ static int unix_dgram_connect(struct soc
+ 			goto out;
+ 		alen = err;
+ 
+-		if (sock->passcred && !unix_sk(sk)->addr &&
+-		    (err = unix_autobind(sock)) != 0)
++		if (test_bit(SOCK_PASSCRED, &sock->flags) &&
++		    !unix_sk(sk)->addr && (err = unix_autobind(sock)) != 0)
+ 			goto out;
+ 
+ 		other=unix_find_other(sunaddr, alen, sock->type, hash, &err);
+@@ -952,7 +952,8 @@ static int unix_stream_connect(struct so
+ 		goto out;
+ 	addr_len = err;
+ 
+-	if (sock->passcred && !u->addr && (err = unix_autobind(sock)) != 0)
++	if (test_bit(SOCK_PASSCRED, &sock->flags)
++		&& !u->addr && (err = unix_autobind(sock)) != 0)
+ 		goto out;
+ 
+ 	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
+@@ -1286,7 +1287,8 @@ static int unix_dgram_sendmsg(struct kio
+ 			goto out;
  	}
  
--	if (!ipv6_addr_equal(remote, &fl->fl6_dst)) {
-+	if (tunnel) {
- 		struct flowi fl_tunnel;
+-	if (sock->passcred && !u->addr && (err = unix_autobind(sock)) != 0)
++	if (test_bit(SOCK_PASSCRED, &sock->flags)
++		&& !u->addr && (err = unix_autobind(sock)) != 0)
+ 		goto out;
  
- 		memset(&fl_tunnel, 0, sizeof(fl_tunnel));
-
---------------010806070907080302070104--
+ 	err = -EMSGSIZE;
