@@ -1,46 +1,55 @@
-From: Ramon Casellas <casellas@infres.enst.fr>
-Subject: Re: Request: Allocate a Netlink Family Number for MPLS
-Date: Mon, 1 Dec 2003 20:26:30 +0100 (MET)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [ROUTE] PMTU only works on half the time
+Date: Tue, 2 Dec 2003 07:16:51 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.SOL.4.40.0312012012040.27322-100000@gervaise.enst.fr>
-References: <20031201153052.A3879@infradead.org>
+Message-ID: <20031201201651.GA20194@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="Nq2Wo0NMKNjxTN9z"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20031201153052.A3879@infradead.org>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Dec 2003, Christoph Hellwig wrote:
 
-> On Mon, Dec 01, 2003 at 03:36:26PM +0100, Ramon Casellas wrote:
-> >  #define NETLINK_ARPD           8
-> > +
-> > +#if defined(CONFIG_MPLS) || defined(CONFIG_MPLS_MODULE)
-> > +#define NETLINK_MPLS           9
-> > +#endif
-> > +
->
-> This is bogus - either it's reserved or not, so the ifdef doesn't
-> make sense.
+--Nq2Wo0NMKNjxTN9z
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Yes of course :) that was just a cut&paste from an interim patch, where we
-put ifdefs around everything. If you decide to allocate a family number,
-then ifdefs don't make sense (much like in if_ether.h or ppp_defs.h), but
-you're right, my mistake, I didn't mean to propose a real patch.
+Hi Dave:
 
+I found out that PMTU only works on those routing cache entries where
+rt_src != 0.  This patch should make it work for all matching entries.
 
->
-> Also given that Dave & co are working on mpls already I wonder
-> whether it's a good idea to reserve this, but I'll let him speak
-> for himself :)
+Cheers,
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-Well, we are still coordinating efforts, and Jamal has some design docs
-around... but regardless of the actual implementation, a mechanism to
-communicate with userspace will be needed, and IM(Very, very)HO, netlink
-is a good candidate, analog to rtnetlink, but this is open to discussion.
+--Nq2Wo0NMKNjxTN9z
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-Thanks,
-R.
+Index: kernel-source-2.5/net/ipv4/route.c
+===================================================================
+RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/ipv4/route.c,v
+retrieving revision 1.3
+diff -u -r1.3 route.c
+--- kernel-source-2.5/net/ipv4/route.c	24 Nov 2003 09:52:04 -0000	1.3
++++ kernel-source-2.5/net/ipv4/route.c	1 Dec 2003 20:15:40 -0000
+@@ -1259,9 +1259,9 @@
+ 		     rth = rth->u.rt_next) {
+ 			smp_read_barrier_depends();
+ 			if (rth->fl.fl4_dst == daddr &&
+-			    rth->fl.fl4_src == skeys[i] &&
++			    (rth->fl.fl4_src == iph->saddr ||
++			     rth->rt_src == iph->saddr) &&
+ 			    rth->rt_dst  == daddr &&
+-			    rth->rt_src  == iph->saddr &&
+ 			    rth->fl.fl4_tos == tos &&
+ 			    rth->fl.iif == 0 &&
+ 			    !(dst_metric_locked(&rth->u.dst, RTAX_MTU))) {
+
+--Nq2Wo0NMKNjxTN9z--
