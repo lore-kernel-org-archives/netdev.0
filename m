@@ -1,30 +1,42 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [XFRM] Handle device down/unregister events
-Date: Sat, 29 Nov 2003 20:27:55 -0800
+Subject: Re: [PATCH] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
+ device
+Date: Sat, 29 Nov 2003 20:47:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031129202755.292602a6.davem@redhat.com>
-References: <20031126044355.GA18805@gondor.apana.org.au>
-	<20031125222059.6730f242.davem@redhat.com>
-	<20031127105907.GA13047@gondor.apana.org.au>
+Message-ID: <20031129204701.37a06847.davem@redhat.com>
+References: <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi>
+	<20031125.035531.94714784.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi>
+	<20031127.193910.96333709.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.58.0311281146560.9203@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20031127105907.GA13047@gondor.apana.org.au>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.58.0311281146560.9203@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Nov 2003 21:59:07 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 28 Nov 2003 12:34:12 +0200 (EET)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> Here is an updated patch that checks whether a dst is still valid
-> before adding it to a bundle.
+> On Thu, 27 Nov 2003, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
+=CC=C0 wrote:
+>=20
+> > In article <Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi> (at Thu=
+, 27 Nov 2003 12:31:58 +0200 (EET)), Ville Nuorvala <vnuorval@tcs.hut.fi>=
+ says:
+> >
+> > > here is a new version. I made some other minor changes to it too.
+> >
+> > looks fine.
+> > --yoshfuji
+>=20
+> Hi Dave, Yoshifuji-san is now ok with this patch :) Would you apply it?
 
-Applied.
+I thought some more about this and I am realizing this is not
+a pure bug fix, I am very sure Linus will not take the change.
 
-I had already applied your previous patch, so it would have
-been nice to have a relative patch, please do this next time.
-
-Thanks.
+We can hold onto this until 2.6.1, ok?
