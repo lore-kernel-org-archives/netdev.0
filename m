@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2.6 NET] Fixes slab corruption in cbq_destroy
-Date: Thu, 16 Sep 2004 15:28:56 +0200
+Subject: [PATCH 2.4 NET] Fixes slab corruption in cbq_destroy
+Date: Thu, 16 Sep 2004 15:31:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916132856.GA27293@postel.suug.ch>
+Message-ID: <20040916133123.GB27293@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Patrick McHardy <kaber@trash.net>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
@@ -13,18 +13,17 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Backport of 2.6 patch:
+
 Fixes slab corruption in cbq_destroy. cbq_destroy_filters and
 qdisc_put_rtab(q->link.R_tab) are already called in cbq_destroy_class.
 The latter lead to a slab corruption due to repeated freeing of
-q->link.R_tab because q->link is part of q->classes. Problem introduced
-in 1.21.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+q->link.R_tab because q->link is part of q->classes.
 
 
---- linux-2.6.9-rc2-bk2.orig/net/sched/sch_cbq.c	2004-09-16 14:52:23.000000000 +0200
-+++ linux-2.6.9-rc2-bk2/net/sched/sch_cbq.c	2004-09-16 14:53:53.000000000 +0200
-@@ -1770,10 +1770,6 @@
+--- linux-2.4.28-pre3-bk2.orig/net/sched/sch_cbq.c	2004-09-16 14:59:56.000000000 +0200
++++ linux-2.4.28-pre3-bk2/net/sched/sch_cbq.c	2004-09-16 15:01:53.000000000 +0200
+@@ -1736,10 +1736,6 @@
  #ifdef CONFIG_NET_CLS_POLICE
  	q->rx_class = NULL;
  #endif
@@ -35,12 +34,11 @@ Signed-off-by: Thomas Graf <tgraf@suug.ch>
  
  	for (h = 0; h < 16; h++) {
  		struct cbq_class *next;
-@@ -1783,8 +1779,6 @@
- 			cbq_destroy_class(sch, cl);
+@@ -1750,7 +1746,6 @@
  		}
  	}
--
+ 
 -	qdisc_put_rtab(q->link.R_tab);
+ 	MOD_DEC_USE_COUNT;
  }
  
- static void cbq_put(struct Qdisc *sch, unsigned long arg)
