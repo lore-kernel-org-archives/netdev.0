@@ -1,45 +1,43 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: Re: [RFC] enhanced version of net_random()
-Date: Fri, 20 Aug 2004 17:24:15 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Todays net-2.6 update
+Date: Fri, 20 Aug 2004 14:54:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1093037055.10063.192.camel@krustophenia.net>
-References: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
-	 <20040820175952.GI5806@certainkey.com>
-	 <20040820185956.GV8967@schnapps.adilger.int>
+Message-ID: <20040820145454.36484216.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jean-Luc Cooke <jlcooke@certainkey.com>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        "David S. Miller" <davem@redhat.com>,
-        Alan Cox <alan@lxorguk.ukuu.org.uk>, "Theodore Ts'o" <tytso@mit.edu>,
-        netdev@oss.sgi.com, linux-kernel <linux-kernel@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="Multipart=_Fri__20_Aug_2004_14_54_54_-0700_SQ5qVP4sJKd_/hzR"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Dilger <adilger@clusterfs.com>
-In-Reply-To: <20040820185956.GV8967@schnapps.adilger.int>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-08-20 at 14:59, Andreas Dilger wrote:
-> On Aug 20, 2004  13:59 -0400, Jean-Luc Cooke wrote:
-> > Is there a reason why get_random_bytes() is unsuitable?
-> > 
-> > Keeping the number of PRNGs in the kernel to a minimum should a goal we can
-> > all share.
-> 
-> For some uses a decent PRNG is enough, and the overhead of get_random_bytes()
-> is much too high.
+This is a multi-part message in MIME format.
 
-Agreed.  I have numbers to support the above.
+--Multipart=_Fri__20_Aug_2004_14_54_54_-0700_SQ5qVP4sJKd_/hzR
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 
->   We've needed something like this for a long time (something
-> that gives decenly uniform numbers) and hacks to use useconds/cycles/etc do
-> not cut it.  I for one welcome a simple in-kernel interface to
-> e.g. get_urandom_bytes() (or net_random() as this is maybe inappropriately
-> called) that is only pseudo-random but fast and efficient.
 
-One problem is that AIUI, we incur this overhead even if a hardware RNG
-is present.  This does not seem right.  Hardware RNGs are increasingly
-common, Linux supports hardware RNGs from AMD, Intel, and VIA.
+At the usual spots:
 
-Lee 
+	bk://kernel.bkbits.net/davem/net-2.6
+	ftp.kernel.org:/pub/linux/kernel/people/davem/net-2.6.9-4.gz
+
+And relative diff attached.  This one is a little large.
+
+Main things:
+
+1) inetdev RCU locking
+
+2) Kill IP_ROUTE_NAT code.  It's been broken from mid-2.5.x
+   and if someone is interested in making it work again
+   they can easily resurrect the code.
+
+3) Enhanced net_random() from Stephen Hemminger.
+
+4) Several routing and device handling fixes in ipv6
+   from Yoshifuji-san.
+
+Enjoy.
+
+--Multipart=_Fri__20_Aug_2004_14_54_54_-0700_SQ5qVP4sJKd_/hzR--
