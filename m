@@ -1,38 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Fri, 21 Jan 2005 19:53:56 -0800
-Message-ID: <20050121195356.51cf3ade.davem@davemloft.net>
-References: <5cac192f0501030907c755135@mail.gmail.com>
-	<20050103171227.GD7370@esmail.cup.hp.com>
-	<1104812294.1085.53.camel@jzny.localdomain>
-	<20050119144711.3fdd3d93.davem@davemloft.net>
-	<20050119151853.259de49a@dxpl.pdx.osdl.net>
-	<20050119164640.6c67bdfa.davem@davemloft.net>
-	<52r7kgu5n5.fsf@topspin.com>
-	<20050119230526.393a5184.davem@davemloft.net>
-	<1106229084.5812.40.camel@tsc-6.cph.tpack.net>
-	<20050120133420.317bea31.davem@davemloft.net>
-	<20050120215650.GB14521@esmail.cup.hp.com>
-	<20050120170113.36ee8225.davem@davemloft.net>
-	<52is5qp2z0.fsf@topspin.com>
+Subject: Re: on the wire behaviour of TSO on/off is supposed to be the same
+ yes?
+Date: Fri, 21 Jan 2005 20:44:18 -0800
+Message-ID: <20050121204418.2070d76d.davem@davemloft.net>
+References: <41F1516D.5010101@hp.com>
+	<200501211358.53783.jdmason@us.ibm.com>
+	<41F163AD.5070400@hp.com>
+	<20050121124441.76cbbfb9.davem@davemloft.net>
+	<41F17B7E.2020002@hp.com>
+	<20050121141820.7d59a2d1.davem@davemloft.net>
+	<41F186A8.9030805@hp.com>
+	<41F18927.5020607@hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: iod00d@hp.com, tommy.christensen@tpack.net, shemminger@osdl.org,
-        hadi@cyberus.ca, eric.lemoine@gmail.com, netdev@oss.sgi.com,
-        ak@suse.de, openib-general@openib.org, kaber@trash.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roland Dreier <roland@topspin.com>
-In-Reply-To: <52is5qp2z0.fsf@topspin.com>
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <41F18927.5020607@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005 19:17:07 -0800
-Roland Dreier <roland@topspin.com> wrote:
+On Fri, 21 Jan 2005 14:58:47 -0800
+Rick Jones <rick.jones2@hp.com> wrote:
 
-> So what's the plan here with LLTX?  As far as I can tell, 2.6.11-rc2
-> went out with the changes that disable IRQs in hard_start_xmit...
+> Speaking of divisor values... is zero (0) supposed to be a legal value?  The 
+> sysctl seems to allow it but it does seem to behave a triffle strangely.  The 
+> initial TSO size appeared to be 2MSS.
 
-Linus just didn't pull the backout of that stuff in time.
-I'll repush it to him tonight.
+The value "0" behaves the same as "1".
