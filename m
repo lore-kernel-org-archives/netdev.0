@@ -1,45 +1,50 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Subject: Re: [INET] Optimise away a branch in IP_ECN_set_ce
-Date: Thu, 09 Sep 2004 09:24:28 +0900 (JST)
+Date: Wed, 8 Sep 2004 21:27:57 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040909.092428.125540781.yoshfuji@linux-ipv6.org>
-References: <20040909000330.GA5581@gondor.apana.org.au>
+Message-ID: <200409082127.57827.acme@conectiva.com.br>
+References: <20040909000330.GA5581@gondor.apana.org.au> <20040909.092428.125540781.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: herbert@gondor.apana.org.au, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20040909000330.GA5581@gondor.apana.org.au>
+To: YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040909.092428.125540781.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040909000330.GA5581@gondor.apana.org.au> (at Thu, 9 Sep 2004 10:03:31 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+Em Qua 08 Set 2004 21:24, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=
+=E6=98=8E escreveu:
+> In article <20040909000330.GA5581@gondor.apana.org.au> (at Thu, 9 Sep 2=
+004=20
+10:03:31 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+> > +       u32 ecn =3D (iph->tos + 1) & INET_ECN_MASK;
+> >
+> > + /*
+> > +  * The following gives us:
+> > +  * INET_ECN_ECT_1 =3D> check +=3D __constant_htons(0xFFFD)
+> > +  * INET_ECN_ECT_0 =3D> check +=3D __constant_htons(0xFFFE)
+> > +  */
+> > + if (__constant_htons(1) !=3D 1)
+> > +  ecn <<=3D 8;
+> > + check +=3D __constant_htons(0xFFFB) + ecn;
+> > +
+> >   iph->check =3D check + (check>=3D0xFFFF);
+> >   iph->tos |=3D INET_ECN_CE;
+> >  }
+>
+> s/__constant_htons/htons/g here, please.
 
-> +       u32 ecn = (iph->tos + 1) & INET_ECN_MASK;
-:
-> +	/*
-> +	 * The following gives us:
-> +	 * INET_ECN_ECT_1 => check += __constant_htons(0xFFFD)
-> +	 * INET_ECN_ECT_0 => check += __constant_htons(0xFFFE)
-> +	 */
-> +	if (__constant_htons(1) != 1)
-> +		ecn <<= 8;
-> +	check += __constant_htons(0xFFFB) + ecn;
-> +
->  	iph->check = check + (check>=0xFFFF);
->  	iph->tos |= INET_ECN_CE;
->  }
+For Herbert understanding: the generated code is the same in this case. :=
+)
 
-s/__constant_htons/htons/g here, please.
-
-And, I think 
-  u16 ecn = (iph->tos + 1) & INET_ECN_MASK;
-:
-  check += (u32)htons(0xfffb) + (u32)htons(ecn);
-
-or something like that?
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+>
+> And, I think
+>   u16 ecn =3D (iph->tos + 1) & INET_ECN_MASK;
+>
+>   check +=3D (u32)htons(0xfffb) + (u32)htons(ecn);
+>
+> or something like that?
