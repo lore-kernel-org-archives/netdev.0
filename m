@@ -1,32 +1,36 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH PKT_SCHED 0/17]: tc action cleanup + fixes
-Date: Fri, 31 Dec 2004 12:26:05 +0100
-Message-ID: <20041231112605.GF32419@postel.suug.ch>
-References: <41D3785F.3040909@trash.net> <1104382562.1048.39.camel@jzny.localdomain> <41D3F5EC.9050808@trash.net> <41D4286B.1060106@trash.net> <1104468336.1048.205.camel@jzny.localdomain> <41D521EA.2090603@trash.net>
+Subject: Re: [PATCH 3/9] PKT_SCHED: u32: make use of tcf_exts API
+Date: Fri, 31 Dec 2004 13:03:44 +0100
+Message-ID: <20041231120344.GH32419@postel.suug.ch>
+References: <20041230122652.GM32419@postel.suug.ch> <20041230123108.GP32419@postel.suug.ch> <1104468201.1047.201.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, Maillist netdev <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@davemloft.net>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <41D521EA.2090603@trash.net>
+In-Reply-To: <1104468201.1047.201.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <41D521EA.2090603@trash.net> 2004-12-31 10:54
-> jamal wrote:
+* jamal <1104468201.1047.201.camel@jzny.localdomain> 2004-12-30 23:43
+> On Thu, 2004-12-30 at 07:31, Thomas Graf wrote:
 > 
-> >Ok, sounds like a good plan (gives me more time to work with the driver
-> >stuff which is getting out of control ;->): I think the patches may have
-> >goten a little messy. Maybe the order should be: you, Thomas with what
-> >he has now then myself with eaction and Thomas with extended matches (I
-> >dont think the order of the last two matters). I will just code against
-> >whatever latest release is and migrate later when all the otehr patches
-> >are in.
+> >  
+> > +static struct tcf_ext_map u32_ext_map = {
+> > +	.action = TCA_U32_ACT,
+> > +	.police = TCA_U32_POLICE
+> > +};
 > 
-> Sounds good too me.
+> Repeated on all classifiers - perhaps a little macro magic in order? ;->
 
-Fine with me. Jamal, we might want to share some code to do the logic
-relations like sharing the macros to access the bits, checking if the
-the current result already makes the whole expression obvious etc.
+I thought about this but couldn't come up with one that makes it
+actually easier. I don't want to hardcode action/police in a macro
+because we might have extensions only needed for specific classifiers.
+
+> Generally rest all looking good - I need to stare some more at the route
+> and tcindex one but dont see any show stoppers off hand;
+
+Yes please, those are the critical points.
