@@ -1,89 +1,40 @@
-From: Steven Blake <slblake@petri-meat.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: 20 Aug 2003 00:58:07 -0400
+From: "Bryan O'Sullivan" <bos@serpentine.com>
+Subject: [TRIVIAL PATCH] export dev->state via sysfs
+Date: 19 Aug 2003 22:04:56 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1061355487.1223.4.camel@photon>
-References: <353568DCBAE06148B70767C1B1A93E625EAB5C@post.pc.aspectgroup.co.uk>
-	 <20030819105307.0b0a6491.davem@redhat.com>
+Message-ID: <1061355896.10843.22.camel@camp4.serpentine.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030819105307.0b0a6491.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2003-08-19 at 13:53, David S. Miller wrote:
+This trivial patch exports the netdev state field via sysfs.  The
+motivation is to make it possible to check link state from userspace
+without having to go through the netlink interface.
 
-> BTW, this ARP source address algorithm we use comes from
-> ipv6, it would be instructive to go and see why they do
-> things the way they do.
+	<b
 
-Are you sure?  See below:
-
-========================================================================
-
-RFC 2461              Neighbor Discovery for IPv6          December 1998
-
-
-4.3.  Neighbor Solicitation Message Format
-
-   Nodes send Neighbor Solicitations to request the link-layer address
-   of a target node while also providing their own link-layer address to
-   the target.  Neighbor Solicitations are multicast when the node needs
-   to resolve an address and unicast when the node seeks to verify the
-   reachability of a neighbor.
-
-         0                   1                   2                   3
-         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |     Type      |     Code      |          Checksum             |
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |                           Reserved                            |
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |                                                               |
-        +                                                               +
-        |                                                               |
-        +                       Target Address                          +
-        |                                                               |
-        +                                                               +
-        |                                                               |
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |   Options ...
-        +-+-+-+-+-+-+-+-+-+-+-+-
-
-   IP Fields:
-
-      Source Address
-                     Either an address assigned to the interface from
-                     which this message is sent or (if Duplicate Address
-                     Detection is in progress [ADDRCONF]) the
-                     unspecified address.
-
-      Destination Address
-                     Either the solicited-node multicast address
-                     corresponding to the target address, or the target
-                     address.
-
-      Hop Limit      255
-
-      Authentication Header
-                     If a Security Association for the IP Authentication
-                     Header exists between the sender and the
-                     destination address, then the sender SHOULD include
-                     this header.
-
-
-
-
-
-Narten, et. al.             Standards Track                    [Page 21]
-
-========================================================================
-
-
-Regards,
-
-// Steve
+--- 2.6.0-test3/net/core/net-sysfs.c	Wed Jul 23 12:21:29 2003
++++ 2.6.0-test3-sysfs/net/core/net-sysfs.c	Tue Aug 19 22:04:13 2003
+@@ -147,6 +147,10 @@
+ 
+ static CLASS_DEVICE_ATTR(flags, S_IRUGO | S_IWUSR, show_flags, store_flags);
+ 
++NETDEVICE_SHOW(state, "%#x\n");
++
++static CLASS_DEVICE_ATTR(state, S_IRUGO, show_state, NULL);
++
+ NETDEVICE_SHOW(tx_queue_len, "%lu\n");
+ 
+ static int change_tx_queue_len(struct net_device *net, unsigned long new_len)
+@@ -172,6 +176,7 @@
+ 	&class_device_attr_features,
+ 	&class_device_attr_mtu,
+ 	&class_device_attr_flags,
++	&class_device_attr_state,
+ 	&class_device_attr_type,
+ 	&class_device_attr_address,
+ 	&class_device_attr_broadcast,
