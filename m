@@ -1,40 +1,42 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH 5/5] r8169: ethtool hardware statistics support
-Date: Wed, 9 Mar 2005 22:21:48 -0600
-Message-ID: <200503092221.48487.jdmason@us.ibm.com>
-References: <20050309113626.6708c93e@dxpl.pdx.osdl.net> <200503091537.30899.jdmason@us.ibm.com> <20050309135345.5efae9b6@dxpl.pdx.osdl.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH/RFC] Reduce call chain length in netfilter (take 2)
+Date: Wed, 9 Mar 2005 20:28:37 -0800
+Message-ID: <20050309202837.1adca300.davem@davemloft.net>
+References: <1108314982.4662.2.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050309135345.5efae9b6@dxpl.pdx.osdl.net>
-Content-Disposition: inline
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+        rusty@rustcorp.com.au, kaber@trash.net, snort2004@mail.ru, ak@suse.de,
+        bridge@osdl.org, gandalf@wlug.westbo.se, dwmw2@infradead.org,
+        shemminger@osdl.org
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <1108314982.4662.2.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 09 March 2005 03:53 pm, Stephen Hemminger wrote:
-> On Wed, 9 Mar 2005 15:37:30 -0600
->
-> Jon Mason <jdmason@us.ibm.com> wrote:
-> > Does this patch fix the problem of bogus statistics if the interface is
-> > down
->
-> I see no problem when interface is down. It returns all zero's because
-> the device is reset on probe (and on shutdown).
+On Sun, 13 Feb 2005 18:16:21 +0100
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-I can confirm that I see no statistic errors either. 
+> This is a second try to fix the long chain call lengths in netfilter.
+> The difference with the previous patch is that I got rid of the extra
+> argument. I somehow didn't see it could be done without using the 'int
+> *ret2' argument.
+> 
+> A comment on the number of arguments to nf_hook_slow: I don't think the
+> number of arguments should be decreased. For the bridge-nf code, f.e.,
+> the indev argument does not equal (*pskb)->dev (this is an answer to a
+> question of Rusty in the old thread).
+> 
+> A comment on the argument change of nf_hook_slow (sk_buff * to sk_buff
+> **) and the bad influence on tail call optimization possibilities. From
+> the discussion in the old thread it became clear that no tail call is
+> generated for the current code. So, I don't see why this is a reason not
+> to accept the patch. Furthermore, if gcc ever would become able of doing
+> the current code with a tail call, it should be very easy to change the
+> code back to the original. In the meantime, I think this patch is the
+> best known solution.
 
-I believe the faulty code in Richard's patch was:
-+       if (RTL_R32(StatsAddrLow) & DumpStats)
-+               return; /* no stats - took too long */
-
-Which returned before the stats were populated (leaving garbage).  Since your 
-patch lacks this, we see no problem.  If this is true, there is probably a 
-problem on 8139cp, which has a similar error path in its cp_get_ethtool_stats 
-function.   
-
-Thanks,
-Jon
+I agree with your analysis of the situation and have applied your
+patch, thanks for keeping this going Bart.
