@@ -1,161 +1,101 @@
-From: sandr8 <sandr8_NOSPAM_@crocetta.org>
-Subject: Re: Billing 3: WAS(Re: [PATCH 2/4] deferred drop, __parent	workaround,
- reshape_fail , netdev@oss.sgi.com ,
-Date: Mon, 23 Aug 2004 14:27:14 +0200
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Billing 3-1: WAS(Re: [PATCH 2/4] deferred drop,
+	__parent	workaround, reshape_fail , netdev@oss.sgi.com ,
+Date: 23 Aug 2004 08:31:11 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4129E2A2.2050500@crocetta.org>
-References: <411C0FCE.9060906@crocetta.org>	 <1092401484.1043.30.camel@jzny.localdomain>	 <20040816072032.GH15418@sunbeam2>	 <1092661235.2874.71.camel@jzny.localdomain> <4120D068.2040608@crocetta.org>	 <1092743526.1038.47.camel@jzny.localdomain>  <41220AEA.20409@crocetta.org>	 <1093191124.1043.206.camel@jzny.localdomain>	 <4129BB3A.9000007@crocetta.org> <1093262296.1040.778.camel@jzny.localdomain>
+Message-ID: <1093264271.1040.813.camel@jzny.localdomain>
+References: <411C0FCE.9060906@crocetta.org>
+	 <1092401484.1043.30.camel@jzny.localdomain>
+	 <20040816072032.GH15418@sunbeam2>
+	 <1092661235.2874.71.camel@jzny.localdomain> <4120D068.2040608@crocetta.org>
+	 <1092743526.1038.47.camel@jzny.localdomain>  <41220AEA.20409@crocetta.org>
+	 <1093191124.1043.206.camel@jzny.localdomain>
+	 <4129BB3A.9000007@crocetta.org>
+	 <1093261128.1044.759.camel@jzny.localdomain>
+	 <4129DD47.5030807@crocetta.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: Harald Welte <laforge@netfilter.org>, devik@cdi.cz, netdev@oss.sgi.com,
         netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1093262296.1040.778.camel@jzny.localdomain>
+To: sandr8 <sandr8_NOSPAM_@crocetta.org>
+In-Reply-To: <4129DD47.5030807@crocetta.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+On Mon, 2004-08-23 at 08:04, sandr8 wrote:
+> jamal wrote:
+> 
 
->Let me layout a few things:
->
->    ..-->classification --> tcaction
->return code1 --> enqueue
->return code2 ...(packet may be freed here)--> dev.c
->
->The rules are:
->1) A qdisc receiving a STOLEN/QUEUED/SHOT signal from the classification
->result (return code 1) MUST free the packet and immediately stop
->processing that packet.
->The infrastructure code will clone packets if they want to steal or
->queue it. Infact the skbs flow may even change during this path (eg
->packet rewritten)
->Billing issues: In such a case multiple packets may be later reinjected
->(after replicating the one that was stolen) which totaly bypass
->contracking code. Multiple packets may make it out to the wire.
->You need to find a way to bill them ;-> (opposite of what you are trying
->to do).
->  
->
-i don't know the code that does that, since afaik it
-was not yet there in 2.6.8... if it is, please tell me
-because i'm eager to have a full viewpoint of the
-forthcoming packet action framework :)
+> so, maybe we are saying the same thing but in different words :)
 
->2)Return code (return code 2) of qdisc from enqueue function need to be
->dealt with care if the packet is localy generated so it doesnt confuse
->TCP (SCTP and DCCP sound like two other protocols that could be added)
->
->Here we have two paths:
->i) policy dropped packets.
->Billing issues: You want to unbill dropped but not stolen packets.
->
->ii) packets that are dropped because of a full Q should continue to
->return a XMIT_DROP.
->Billing: MUST unbill.
->
->Again as  above shows, billing would work better at the qdisc level.
->  
->
-yes, sure...
-but for the moment i personally don't know which path
-STOLEN and QUEUED packets will follow... it's not
-a reproach :) it's just that i simply can't know for the
-moment, but i don't want to make you hurry, i perfectly
-understand that you've got plenty of things to do :)
+Probably ;->
 
->>[ i'm not insisting with that patch, i'm just trying to say that, if i don't
->>rave, it should not be dangerous to do that after the enqueue()...
->>then, it's just that for the moment i can't immagine a different
->>way to do things in that place :) yes, there could be a slight
->>variation with a skb_get() right before the enqueue and all the
->>kfree_skb() at their place inside the code, but then somewhere
->>we should always add a kfree_skb... ouch... and we would need
->>a by ref skb anyway to get the packet that has been dropped
->>and if it's not the same as the enqueued one also the enqueued
->>one should pass through one more kfree_skb()... horrible, more
->>complex and slower i'd say... ]
->>    
->>
->
->Linux is being efficient by sharing skbs. One of the most expensive
->things in a stack is copying packets around (which is avoided).
->If this was a simple system where allocating and freeing can be mapped
->to exactly a flow then what you suggest can be done. In Linux you cant.
->
->  
->
-in that patch i was not copying them... just passing them by reference 
-through a
-"struct sk_buff ** const skb" parameter.
+> if we blindly look at layer 3 and unbill when a packet is dropped,
+> then the retransmission is already unbilled :)
+> it will be billed when it takes place, but the first transmission that
+> underwent a drop has been unbilled and hence we are square.
+> this without looking at layer 4.
 
-what is the difference from before...?
+Agreed.
 
-calling:
-before) when calling we passed a pointer on the stack.
-now) when calling we pass a pointer on the stack
+> what i was thinking about was mimicking the conntracking at
+> a device level, having per each device a singleton object that
+> has the same buckets as the connection tracking. it could
+> store a lot of interesting information that would augment queuing
+> disciplines to better share the pain of drops and also to perform
+> per-connection head drops instead of connection-unaware
+> tail-drop.
 
-returning:
-before) when returning we didn't tell the caller which
-packet was dropped
-now) when returning we tell the sender which packet
-is not queued or is thrown away from our queue to
-make place for the packet enqueued.
+This connection exists today in the form of marking. Let conmtracking
+mark then use fw classifier at the qdisc. If i am not mistaken theres
+something more powerful these days called conmarking.
+Now if you did it like that then you dont need Haralds code and it will
+be much easier to maintain (refer to my earlier email).
 
-what happens on the stack now?
+> this would improve fairness and shorten the time tcp sources
+> need to get the feedback, in a better way than random early
+> drop does.
 
-for the calling: more or less the same as before :)
-for the returning...
+Contracking is a horrible performance pig. I dont even turn it on. Dont
+make it a requirement to turn it on.
 
-1) the external pointer is const, cannot be changed. this
-is good to avoid stupid bugs.
-2) being the external pointer const, the internal one always
-lays in the stack frame of the outmost caller of an enqueue
-operation. hust the external one is passed to callees. when
-a requeue operation is called, that pointer nevertheless stays
-in the stack frame of the outmost caller of an enqueue
-operation. that's to say: it never moves from the stack of the
-caller of dev->qdisc->enqueue()... [in that case it was dev.c,
-but maybe it would be nicer to have it in a sort of
-dev->enqueue() that would have to do with device level
-conntracking].
+> having this structure at a device level would be an answer
+> for the issue of packets cloned to multiple interfaces, as we
+> would be augmented to perform a separate accounting for
+> each interface (which seems, afaik, reasonable... in most
+> cases we would account on a single interface, and we also
+> should likely get less hash collisions... no more than in the
+> centralized conntrack).
 
-additional cost for the function calling? z-e-r-o !!! :)
-performance issues? maybe some improvement due
-to the elimination of many internal jumps and conditions.
+Heres a thought:
+Make it a tc action.
+--> netfilter: contrack --> conmark
+--> qdisc: classify via fw -> billing action bill
+-------->                      attach table index + lock to skb 
+-------->   deal with any unfairness on enqueue by using index
+-------->   and fine grained lock found in skb
 
-furthermore, telling the caller the packet that we chose to
-drop allows it to reshape it without the need for every
-qdisc to recur too any callback function.
+on skb freeing make sure you delete the index and lock.
+On cloning, what to do?
 
->>>That is the challenge at the moment.
->>>For starters i dont see it as an issue right now to do locking.
->>>Its a cost for the feature since Haralds patch is in. 
->>>
->>>In the future we should make accounting a feature that could be turned
->>>on despite contracking and skbs should carry an accounting metadata with
->>>them. 
->>> 
->>>
->>>      
->>>
->>i need to think thoroughly on it... depending on where that information is
->>kept, the complexity of some operations can change a lot... and i should
->>not only egoistically think to the operations i need but look at it from the
->>outside to have a less partisan viewpoint on the problem and find the
->>most generally good solution possible.
->>    
->>
->
->I am begining to think that all contrack should do is mark the packets
->then let the qdisc take care of things.
->
->Cutting email here, since another topic below and this email is too
->long.
->
->cheers,
->jamal
->  
->
-ciao :)
+Note i do plan to have a contracking action at the qdisc level.
+Let me know if that is useful to you then i can prioritize.
+
+> furthermore, the per-bucket lock you suggested, that should
+> be a good compromise, would also not "interfere" from one
+> interface to the other one. well... maybe as soon as enqueues
+> and dequeues on the same device stay serialized (thanks to
+> dev->queue_lock) we should not need that further lock
+> either.
+
+Possibly yes.
+
+> does it make sense?
+
+I think it does. Make sure you double check the rules i posted earlier.
+
+cheers,
+jamal
