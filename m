@@ -1,63 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] xfrm_alloc_spi always succeeds on non-trivial range
-Date: Sat, 31 Jul 2004 12:00:44 +1000
+Subject: Re: [PATCH 3/12 2.4] e1000 - use vmalloc for data structures not shared with h/w
+Date: Sat, 31 Jul 2004 17:38:11 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040731020044.GA13830@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Kj7319i9nmIyA2yE"
+Message-ID: <E1BqoRX-0004DH-00@gondolin.me.apana.org.au>
+References: <20040729192519.A6235@infradead.org>
+Cc: ganesh.venkatesan@intel.com, jgarzik@pobox.com, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: hch@infradead.org (Christoph Hellwig)
+In-Reply-To: <20040729192519.A6235@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Christoph Hellwig <hch@infradead.org> wrote:
+> On Thu, Jul 29, 2004 at 11:17:08AM -0700, Venkatesan, Ganesh wrote:
+>> Vmalloc space is less scarce than kmalloc space. Am I right? This patch
+>> trades kmalloc space for vmalloc space.
+> 
+> No, it's not.  vmalloc needs virtual space that's rather limited (e.g. 64MB
+> on PAE x86) in addition to physical memory.  Unless you do really big
+> allocations stay away from vmalloc.
 
---Kj7319i9nmIyA2yE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+How big is really big? 64K? 256K? 1M?
 
-Hi:
-
-xfrm_alloc_spi will always succeed if minspi < maxspi, even if
-minspi + 1 == maxspi.  If the range is already occupied this
-will obviously lead to breakage.
-
-Of course this is very unlikely to occur in reality due to the
-size of the range.  Although with IPCOMP it might actually happen
-on a very large server.
-
-The fix is obivous.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---Kj7319i9nmIyA2yE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/xfrm/xfrm_state.c 1.49 vs edited =====
---- 1.49/net/xfrm/xfrm_state.c	2004-07-30 22:12:11 +10:00
-+++ edited/net/xfrm/xfrm_state.c	2004-07-31 11:56:29 +10:00
-@@ -624,11 +624,12 @@
- 		for (h=0; h<maxspi-minspi+1; h++) {
- 			spi = minspi + net_random()%(maxspi-minspi+1);
- 			x0 = xfrm_state_lookup(&x->id.daddr, htonl(spi), x->id.proto, x->props.family);
--			if (x0 == NULL)
-+			if (x0 == NULL) {
-+				x->id.spi = htonl(spi);
- 				break;
-+			}
- 			xfrm_state_put(x0);
- 		}
--		x->id.spi = htonl(spi);
- 	}
- 	if (x->id.spi) {
- 		spin_lock_bh(&xfrm_state_lock);
-
---Kj7319i9nmIyA2yE--
