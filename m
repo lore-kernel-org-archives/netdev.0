@@ -1,117 +1,103 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: PATCH:  Fix up VLAN memory leaks
-Date: Wed, 06 Nov 2002 00:53:05 -0800
+From: Helge Hafting <helgehaf@aitel.hist.no>
+Subject: Re: 2.5.46-mm1 3 uninitialized timers during boot, ipv6 related?
+Date: Wed, 06 Nov 2002 14:29:18 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DC8D871.9080106@candelatech.com>
+Message-ID: <3DC9192E.62600E21@aitel.hist.no>
+References: <3DC8D423.DAD2BF1A@digeo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070703050708000806070400"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+   pekkas@netcore.fi, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-   VLAN Mailing List <vlan@Scry.WANfear.com>
+To: Andrew Morton <akpm@digeo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070703050708000806070400
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+I see these aren't dangerous, but I guess they're there for
+someone to see.  So here they are.
+Seems they have something to do with ipv6.
 
-The first patch makes VLAN code quieter w/regard to the /var/log/messages
-output.
+VFS: Mounted root (ext2 filesystem) readonly.
+Mounted devfs on /dev
+Freeing unused kernel memory: 308k freed
+Adding 502700k swap on /dev/ide/host0/bus0/target0/lun0/part5. 
+Priority:-1 extents:1
+NTFS volume version 1.2.
+Uninitialised timer!
+This is just a warning.  Your computer is OK
+function=0xc02b53dc, data=0xc1293aec
+Call Trace:
+ [<c011ebc0>] check_timer_failed+0x40/0x4c
+ [<c02b53dc>] igmp6_timer_handler+0x0/0x50
+ [<c011eff1>] del_timer+0x15/0x74
+ [<c02b529e>] igmp6_join_group+0x8a/0x104
+ [<c02b455c>] igmp6_group_added+0xb0/0xbc
+ [<c02bcb99>] fl_create+0x1b9/0x1f8
+ [<c02b48a9>] ipv6_dev_mc_inc+0x281/0x294
+ [<c02a5a1e>] addrconf_join_solict+0x3a/0x44
+ [<c02a6e73>] addrconf_dad_start+0x13/0x12c
+ [<c02a6844>] addrconf_add_linklocal+0x28/0x40
+ [<c02a68f5>] addrconf_dev_config+0x99/0xa4
+ [<c02a69de>] addrconf_notify+0x52/0xc0
+ [<c0121d5a>] notifier_call_chain+0x1e/0x38
+ [<c024f976>] dev_open+0xa2/0xac
+ [<c0250a55>] dev_change_flags+0x51/0x104
+ [<c0281420>] devinet_ioctl+0x2bc/0x598
+ [<c0283827>] inet_ioctl+0x7b/0xb8
+ [<c02c3a9b>] packet_ioctl+0x173/0x190
+ [<c0249943>] sock_ioctl+0x1ef/0x218
+ [<c014bbf9>] sys_ioctl+0x21d/0x274
+ [<c0108943>] syscall_call+0x7/0xb
 
-The second fixes what I believe are two memory/resource leaks.
+Uninitialised timer!
+This is just a warning.  Your computer is OK
+function=0xc02b53dc, data=0xc1293a1c
+Call Trace:
+ [<c011ebc0>] check_timer_failed+0x40/0x4c
+ [<c02b53dc>] igmp6_timer_handler+0x0/0x50
+ [<c011eff1>] del_timer+0x15/0x74
+ [<c02b529e>] igmp6_join_group+0x8a/0x104
+ [<c02b455c>] igmp6_group_added+0xb0/0xbc
+ [<c02bcb99>] fl_create+0x1b9/0x1f8
+ [<c02b48a9>] ipv6_dev_mc_inc+0x281/0x294
+ [<c02a5a1e>] addrconf_join_solict+0x3a/0x44
+ [<c02a6e73>] addrconf_dad_start+0x13/0x12c
+ [<c02a6844>] addrconf_add_linklocal+0x28/0x40
+ [<c02a68f5>] addrconf_dev_config+0x99/0xa4
+ [<c02a69de>] addrconf_notify+0x52/0xc0
+ [<c0121d5a>] notifier_call_chain+0x1e/0x38
+ [<c024f976>] dev_open+0xa2/0xac
+ [<c0250a55>] dev_change_flags+0x51/0x104
+ [<c0281420>] devinet_ioctl+0x2bc/0x598
+ [<c0283827>] inet_ioctl+0x7b/0xb8
+ [<c0249943>] sock_ioctl+0x1ef/0x218
+ [<c014bbf9>] sys_ioctl+0x21d/0x274
+ [<c0108943>] syscall_call+0x7/0xb
 
-I ran a perl script that created and destroyed thousands of VLANs...and
-my box is still standing, so I think the changes are good...  Please
-look them over for sanity though, I may be mis-understanding some
-of Dave's changes...
+Uninitialised timer!
+This is just a warning.  Your computer is OK
+function=0xc02b53dc, data=0xc1293b54
+Call Trace:
+ [<c011ebc0>] check_timer_failed+0x40/0x4c
+ [<c02b53dc>] igmp6_timer_handler+0x0/0x50
+ [<c011eff1>] del_timer+0x15/0x74
+ [<c02b529e>] igmp6_join_group+0x8a/0x104
+ [<c02b455c>] igmp6_group_added+0xb0/0xbc
+ [<c02bcb99>] fl_create+0x1b9/0x1f8
+ [<c02b48a9>] ipv6_dev_mc_inc+0x281/0x294
+ [<c02a5a1e>] addrconf_join_solict+0x3a/0x44
+ [<c02a6e73>] addrconf_dad_start+0x13/0x12c
+ [<c02a6844>] addrconf_add_linklocal+0x28/0x40
+ [<c02a68f5>] addrconf_dev_config+0x99/0xa4
+ [<c02a69de>] addrconf_notify+0x52/0xc0
+ [<c0121d5a>] notifier_call_chain+0x1e/0x38
+ [<c024f976>] dev_open+0xa2/0xac
+ [<c0250a55>] dev_change_flags+0x51/0x104
+ [<c0281420>] devinet_ioctl+0x2bc/0x598
+ [<c0283827>] inet_ioctl+0x7b/0xb8
+ [<c0249943>] sock_ioctl+0x1ef/0x218
+ [<c014bbf9>] sys_ioctl+0x21d/0x274
+ [<c0108943>] syscall_call+0x7/0xb
 
-Patches are against 2.4.20-rc1
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
-
-
---------------070703050708000806070400
-Content-Type: text/plain;
- name="vlan1.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="vlan1.patch"
-
---- /home/greear/kernel/2.4/linux-2.4.19/net/8021q/vlan_dev.c	Tue Nov  5 21:32:42 2002
-+++ vlan_dev.c	Wed Nov  6 00:18:59 2002
-@@ -738,7 +738,7 @@
- 
- 	while (dmi) {
- 		dev_mc_delete(dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
--		printk(KERN_INFO "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from vlan interface\n",
-+		printk(KERN_DEBUG "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from vlan interface\n",
- 		       dev->name,
- 		       dmi->dmi_addr[0],
- 		       dmi->dmi_addr[1],
-@@ -820,7 +820,7 @@
- 		for (dmi = vlan_dev->mc_list; dmi != NULL; dmi = dmi->next) {
- 			if (vlan_should_add_mc(dmi, VLAN_DEV_INFO(vlan_dev)->old_mc_list)) {
- 				dev_mc_add(real_dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
--				printk(KERN_INFO "%s: add %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address to master interface\n",
-+				printk(KERN_DEBUG "%s: add %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address to master interface\n",
- 				       vlan_dev->name,
- 				       dmi->dmi_addr[0],
- 				       dmi->dmi_addr[1],
-@@ -838,7 +838,7 @@
- 				 * delete it from the real list on the underlying device.
- 				 */
- 				dev_mc_delete(real_dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
--				printk(KERN_INFO "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from master interface\n",
-+				printk(KERN_DEBUG "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from master interface\n",
- 				       vlan_dev->name,
- 				       dmi->dmi_addr[0],
- 				       dmi->dmi_addr[1],
-
---------------070703050708000806070400
-Content-Type: text/plain;
- name="vlan2.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="vlan2.patch"
-
---- /home/greear/kernel/2.4/linux-2.4.19/net/8021q/vlan.c	Tue Nov  5 21:32:41 2002
-+++ vlan.c	Wed Nov  6 00:32:50 2002
-@@ -45,7 +45,7 @@
- 
- static char vlan_fullname[] = "802.1Q VLAN Support";
- static unsigned int vlan_version = 1;
--static unsigned int vlan_release = 7;
-+static unsigned int vlan_release = 8;
- static char vlan_copyright[] = "Ben Greear <greearb@candelatech.com>";
- static char vlan_buggyright[] = "David S. Miller <davem@redhat.com>";
- 
-@@ -256,6 +256,10 @@
- 				__grp_unhash(grp);
- 				spin_unlock_bh(&vlan_group_lock);
- 
-+                                /* Free the group, after we have removed it from the hash. */
-+                                kfree(grp);
-+                                grp = NULL;
-+                                
- 				ret = 1;
- 			}
- 
-@@ -625,7 +629,7 @@
- 
- 			ret = unregister_vlan_dev(dev,
- 						  VLAN_DEV_INFO(vlandev)->vlan_id);
--
-+                        dev_put(vlandev);
- 			unregister_netdevice(vlandev);
- 
- 			/* Group was destroyed? */
-
---------------070703050708000806070400--
+eth0: no IPv6 routers present
