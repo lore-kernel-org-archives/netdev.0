@@ -1,33 +1,24 @@
-From: jamal <hadi@cyberus.ca>
+From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
 Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
-Date: 28 Feb 2005 09:10:03 -0500
-Message-ID: <1109599803.2188.1014.camel@jzny.localdomain>
-References: <20050224212839.7953167c.akpm@osdl.org>
-	 <20050227094949.GA22439@logos.cnet> <4221E548.4000008@ak.jp.nec.com>
-	 <20050227140355.GA23055@logos.cnet> <42227AEA.6050002@ak.jp.nec.com>
-	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
-	 <20050227233943.6cb89226.akpm@osdl.org>
-	 <1109592658.2188.924.camel@jzny.localdomain>
-	 <20050228132051.GO31837@postel.suug.ch>
-	 <1109598010.2188.994.camel@jzny.localdomain>
-	 <20050228135307.GP31837@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+Date: Mon, 28 Feb 2005 06:52:04 -0300
+Message-ID: <20050228095204.GH23606@logos.cnet>
+References: <20050227094949.GA22439@logos.cnet> <4221E548.4000008@ak.jp.nec.com> <20050227140355.GA23055@logos.cnet> <42227AEA.6050002@ak.jp.nec.com> <1109575236.8549.14.camel@frecb000711.frec.bull.fr> <20050227233943.6cb89226.akpm@osdl.org> <1109592658.2188.924.camel@jzny.localdomain> <20050228132051.GO31837@postel.suug.ch> <1109598010.2188.994.camel@jzny.localdomain> <20050228135307.GP31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Andrew Morton <akpm@osdl.org>,
         Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
-        kaigai@ak.jp.nec.com, marcelo.tosatti@cyclades.com,
-        "David S. Miller" <davem@redhat.com>, jlan@sgi.com,
-        lse-tech@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, elsa-devel@lists.sourceforge.net
+        kaigai@ak.jp.nec.com, "David S. Miller" <davem@redhat.com>,
+        jlan@sgi.com, lse-tech@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        elsa-devel@lists.sourceforge.net
 To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
 In-Reply-To: <20050228135307.GP31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-02-28 at 08:53, Thomas Graf wrote:
+On Mon, Feb 28, 2005 at 02:53:07PM +0100, Thomas Graf wrote:
 > * jamal <1109598010.2188.994.camel@jzny.localdomain> 2005-02-28 08:40
 > > 
 > > netlink broadcast or a wrapper around it.
@@ -37,28 +28,10 @@ On Mon, 2005-02-28 at 08:53, Thomas Graf wrote:
 > don't get send out anyway but why bother doing all the work if nothing
 > will get send out in the end? It implements a well defined flag
 > controlled by open/close on fds (thus handles dying applications)
-> stating whether the whole code should be enabled or disabled. It is of
-> course not needed to avoid sending unnecessary messages.
+> stating whether the whole code should be enabled or disabled.
 
-To justify writting the new code, I am assuming someone has actually sat
-down and in the minimal stuck their finger in the air
-and said "yes, there is definetely wind there".
+Yep - this far from "reinventing the wheel". ;)
 
-Which leadsto Marcello's question in other email:
-Theres some overhead. 
-- Message needs to be built with skbs allocated (not the cn_xxx thing
-that seems to be invoked - I suspect that thing will build the skbs);
-- the netlink table needs to be locked 
--and searched and only then do you find theres nothing to send to. 
+> It is of course not needed to avoid sending unnecessary messages.
 
-The point i was making is if you actually had to post this question,
-then you must be running into some problems of complexity ;->
-which implies to me that the delta overhead maybe worth it compared to
-introducing the complexity or any new code.
-I wasnt involved in the discussion - I just woke up and saw the posting
-and was bored. So the justification for the optimization has probably
-been explained and it may be worth doing the check (but probably such
-check should go into whatever that cn_xxx is).
-
-cheers,
-jamal
+Thats the goal, thanks.
