@@ -1,51 +1,36 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (1/4) add random_ether_addr to ether_device.h
-Date: Fri, 9 Apr 2004 11:45:47 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] NETDEBUG network triggerable messages in IPv6
+Date: Fri, 9 Apr 2004 20:24:38 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040409114547.7ef37fc0@dell_ss3.pdx.osdl.net>
-References: <20040408110834.2fd1bd25@dell_ss3.pdx.osdl.net>
-	<20040408145403.34382c96.davem@redhat.com>
+Message-ID: <20040409202438.5ff80565.ak@suse.de>
+References: <20040409193123.63e4cdc7.ak@suse.de>
+	<20040410.024705.97089877.yoshfuji@linux-ipv6.org>
+	<20040409195052.10ba931c.ak@suse.de>
+	<20040410.030904.82108741.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-usb-devel@lists.sourceforge.net
+Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040408145403.34382c96.davem@redhat.com>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040410.030904.82108741.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Since generating a random ethernet address needs to be done
-in several drivers, add a random_ether_addr function to etherdevice.h
+On Sat, 10 Apr 2004 03:09:04 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-diff -Nru a/include/linux/etherdevice.h b/include/linux/etherdevice.h
---- a/include/linux/etherdevice.h	Fri Apr  9 11:33:59 2004
-+++ b/include/linux/etherdevice.h	Fri Apr  9 11:33:59 2004
-@@ -25,6 +25,7 @@
- #define _LINUX_ETHERDEVICE_H
- 
- #include <linux/if_ether.h>
-+#include <linux/random.h>
- 
- #ifdef __KERNEL__
- extern int		eth_header(struct sk_buff *skb, struct net_device *dev,
-@@ -64,6 +65,19 @@
- 	return !(addr[0]&1) && memcmp( addr, zaddr, 6);
- }
- 
-+/**
-+ * random_ether_addr - Generate software assigned random Ethernet address
-+ * @addr: Pointer to a six-byte array containing the Ethernet address
-+ *
-+ * Generate a random Ethernet address (MAC) that is not multicast
-+ * and has the local assigned bit set.
-+ */
-+static inline void random_ether_addr(u8 *addr)
-+{
-+	get_random_bytes (addr, ETH_ALEN);
-+	addr [0] &= 0xfe;	/* clear multicast bit */
-+	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
-+}
- #endif
- 
- #endif	/* _LINUX_ETHERDEVICE_H */
+> In article <20040409195052.10ba931c.ak@suse.de> (at Fri, 9 Apr 2004 19:50:52 +0200), Andi Kleen <ak@suse.de> says:
+> 
+> > >   NETDEBUG_PRINTK_LIMIT("overrun destopt\n"..)
+> > > 
+> > > (or something like this) much more.
+> > 
+> > ... and this will make the lines even longer.
+> 
+> If you mind that, you can use shorter name 
+> like IP6DEBUG / IP6DEBUG_LIMIT() etc.
+
+Yes, I opted for NETDEBUG_LIMIT.
+
+-Andi
