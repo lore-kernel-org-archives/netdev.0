@@ -1,89 +1,71 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 16/26] net/sb1000: replace nicedelay() with ssleep()
-Date: Wed, 09 Mar 2005 15:23:50 -0500
-Message-ID: <422F5B56.2030405@pobox.com>
-References: <20050306103329.9BCC41E46E@trashy.coderock.org>
+Subject: Re: [patch 11/26] janitor: net/tg3: pci_find_device to pci_dev_present
+Date: Wed, 09 Mar 2005 15:25:42 -0500
+Message-ID: <422F5BC6.9020802@pobox.com>
+References: <20050306103312.3155B1E46E@trashy.coderock.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, nacc@us.ibm.com
+Cc: netdev@oss.sgi.com, sfeldma@pobox.com, janitor@sternwelten.at,
+        "David S. Miller" <davem@davemloft.net>
 To: domen@coderock.org
-In-Reply-To: <20050306103329.9BCC41E46E@trashy.coderock.org>
+In-Reply-To: <20050306103312.3155B1E46E@trashy.coderock.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 domen@coderock.org wrote:
-> Use ssleep() instead of nicedelay()
-> to guarantee the task delays as expected. Remove the prototype and
-> definition of nicedelay(). This is a very weird function, because it is
-> called to sleep in terms of usecs, but always sleeps for 1 second,
-> completely ignoring the parameter. I have gone ahead and followed suit,
-> just sleeping for a second in all cases, but maybe someone with the
-> hardware could tell me if perhaps the paramter *should* matter. Additionally,
-> nicedelay() is called in TASK_INTERRUPTIBLE state, but doesn't deal with signals
-> in case these longer delays do not complete, so I believe ssleep() is more
-> appropriate.
+> Replace pci_find_device with pci_dev_present.  Compile tested.
 > 
-> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> Signed-off-by: Scott Feldman <sfeldma@pobox.com>
+> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 > Signed-off-by: Domen Puncer <domen@coderock.org>
 > ---
 > 
 > 
->  kj-domen/drivers/net/sb1000.c |   14 +++-----------
->  1 files changed, 3 insertions(+), 11 deletions(-)
+>  kj-domen/drivers/net/tg3.c |   24 ++++++++++++++----------
+>  1 files changed, 14 insertions(+), 10 deletions(-)
 > 
-> diff -puN drivers/net/sb1000.c~ssleep-drivers_net_sb1000 drivers/net/sb1000.c
-> --- kj/drivers/net/sb1000.c~ssleep-drivers_net_sb1000	2005-03-05 16:11:16.000000000 +0100
-> +++ kj-domen/drivers/net/sb1000.c	2005-03-05 16:11:16.000000000 +0100
-> @@ -90,7 +90,6 @@ static int sb1000_close(struct net_devic
+> diff -puN drivers/net/tg3.c~remove-pci-find-device-drivers_net_tg3 drivers/net/tg3.c
+> --- kj/drivers/net/tg3.c~remove-pci-find-device-drivers_net_tg3	2005-03-05 16:09:45.000000000 +0100
+> +++ kj-domen/drivers/net/tg3.c	2005-03-05 16:09:45.000000000 +0100
+> @@ -7829,6 +7829,19 @@ static int __devinit tg3_is_sun_570X(str
 >  
->  
->  /* SB1000 hardware routines to be used during open/configuration phases */
-> -static inline void nicedelay(unsigned long usecs);
->  static inline int card_wait_for_busy_clear(const int ioaddr[],
->  	const char* name);
->  static inline int card_wait_for_ready(const int ioaddr[], const char* name,
-> @@ -254,13 +253,6 @@ static struct pnp_driver sb1000_driver =
->  
->  const int TimeOutJiffies = (875 * HZ) / 100;
->  
-> -static inline void nicedelay(unsigned long usecs)
-> -{
-> -	current->state = TASK_INTERRUPTIBLE;
-> -	schedule_timeout(HZ);
-> -	return;
-> -}
-> -
->  /* Card Wait For Busy Clear (cannot be used during an interrupt) */
->  static inline int
->  card_wait_for_busy_clear(const int ioaddr[], const char* name)
-> @@ -475,7 +467,7 @@ sb1000_reset(const int ioaddr[], const c
->  	udelay(1000);
->  	outb(0x0, port);
->  	inb(port);
-> -	nicedelay(60000);
-> +	ssleep(1);
->  	outb(0x4, port);
->  	inb(port);
->  	udelay(1000);
-> @@ -537,7 +529,7 @@ sb1000_activate(const int ioaddr[], cons
->  	const unsigned char Command0[6] = {0x80, 0x11, 0x00, 0x00, 0x00, 0x00};
->  	const unsigned char Command1[6] = {0x80, 0x16, 0x00, 0x00, 0x00, 0x00};
->  
-> -	nicedelay(50000);
-> +	ssleep(1);
->  	if ((status = card_send_command(ioaddr, name, Command0, st)))
->  		return status;
->  	if ((status = card_send_command(ioaddr, name, Command1, st)))
-> @@ -944,7 +936,7 @@ sb1000_open(struct net_device *dev)
->  	/* initialize sb1000 */
->  	if ((status = sb1000_reset(ioaddr, name)))
->  		return status;
-> -	nicedelay(200000);
-> +	ssleep(1);
+>  static int __devinit tg3_get_invariants(struct tg3 *tp)
+>  {
+> +	static struct pci_device_id write_reorder_chipsets[] = {
+> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
+> +		             PCI_DEVICE_ID_INTEL_82801AA_8) },
+> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
+> +		             PCI_DEVICE_ID_INTEL_82801AB_8) },
+> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
+> +		             PCI_DEVICE_ID_INTEL_82801BA_11) },
+> +		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
+> +		             PCI_DEVICE_ID_INTEL_82801BA_6) },
+> +		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
+> +		             PCI_DEVICE_ID_AMD_FE_GATE_700C) },
+> +		{ },
+> +	};
+>  	u32 misc_ctrl_reg;
+>  	u32 cacheline_sz_reg;
+>  	u32 pci_state_reg, grc_misc_cfg;
+> @@ -7847,16 +7860,7 @@ static int __devinit tg3_get_invariants(
+>  	 * every mailbox register write to force the writes to be
+>  	 * posted to the chip in order.
+>  	 */
+> -	if (pci_find_device(PCI_VENDOR_ID_INTEL,
+> -			    PCI_DEVICE_ID_INTEL_82801AA_8, NULL) ||
+> -	    pci_find_device(PCI_VENDOR_ID_INTEL,
+> -			    PCI_DEVICE_ID_INTEL_82801AB_8, NULL) ||
+> -	    pci_find_device(PCI_VENDOR_ID_INTEL,
+> -			    PCI_DEVICE_ID_INTEL_82801BA_11, NULL) ||
+> -	    pci_find_device(PCI_VENDOR_ID_INTEL,
+> -			    PCI_DEVICE_ID_INTEL_82801BA_6, NULL) ||
+> -	    pci_find_device(PCI_VENDOR_ID_AMD,
+> -			    PCI_DEVICE_ID_AMD_FE_GATE_700C, NULL))
+> +	if (pci_dev_present(write_reorder_chipsets))
+>  		tp->tg3_flags |= TG3_FLAG_MBOX_WRITE_REORDER;
 
-obviously incorrect, as you converted 60000, 50000, and 200000 usecs all 
-into "1 second".
+seems OK to me.  DaveM should be applying this, though.
 
 	Jeff
