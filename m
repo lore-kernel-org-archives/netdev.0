@@ -1,24 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: tg3 and machine lockup?
-Date: Tue, 15 Jul 2003 22:08:10 -0700
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Wed, 16 Jul 2003 09:03:57 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030715220810.24bf073f.davem@redhat.com>
-References: <3F14DD9C.9090807@candelatech.com>
+Message-ID: <Pine.LNX.4.44.0307160901560.20100-100000@netcore.fi>
+References: <200307152319.DAA09683@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@redhat.com, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F14DD9C.9090807@candelatech.com>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307152319.DAA09683@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Jul 2003 22:07:40 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+On Wed, 16 Jul 2003 kuznet@ms2.inr.ac.ru wrote:
+> > Assume you're a host on a link with prefix 3FFE:FFFF:A:B::/64.  The router 
+> > is the one with interface ID one.
+> 
+> Not going to work. Host autoconfiguration conventions have nothing
+> to do with real addressing. Proceeding in this way you will denounce
+> neighbour discovery, what the hell to do this when hw address can be recovered
+> from EUI64 token? :-)
 
-> Now, it could be one of a million things...but just curious if anyone
-> else has seen anything like this.  Kernel is 2.4.20 + my hacks.
+Did you miss the word "Assume" ?
 
-There were tons of locking fixes to the tg3 driver
-in 2.4.21
+> > What happens when you do "ping6 3FFE:FFFF:A:B::1" ?
+> 
+> Hey, you have lost track, rewind several mails ago. 
+
+Nope.  I'm just pointing out the general concept.
+
+> Of course, ping and
+> any other protocols will work, how can it not work? :-)
+
+It has been made shown to work on other platforms, so why not Linux?
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
