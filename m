@@ -1,71 +1,52 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [2.6 patch] net/ipv6/: misc cleanups
-Date: Fri, 07 Jan 2005 12:11:49 +0900 (JST)
-Message-ID: <20050107.121149.102802103.yoshfuji@linux-ipv6.org>
-References: <20041215005546.GA11972@stusta.de>
-	<20041215.105900.27736391.yoshfuji@linux-ipv6.org>
-	<20050107030017.GF14108@stusta.de>
+Subject: [PATCH] kill needless addrconf lock in sctp.
+Date: Fri, 07 Jan 2005 12:35:19 +0900 (JST)
+Message-ID: <20050107.123519.125017441.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+Cc: lksctp-developers@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bunk@stusta.de
-In-Reply-To: <20050107030017.GF14108@stusta.de>
+To: sri@us.ibm.com, davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050107030017.GF14108@stusta.de> (at Fri, 7 Jan 2005 04:00:17 +0100), Adrian Bunk <bunk@stusta.de> says:
+Hello.
 
-> - #if 0 the following unused global variable:
->   - addrconf.c: in6addr_any
-> - remove the following EXPORT_SYMBOL's:
->   - ipv6_syms.c: in6addr_any
->   - ipv6_syms.c: in6addr_loopback
-:
-> --- linux-2.6.10-mm2-full/include/linux/in6.h.old	2005-01-07 02:34:21.000000000 +0100
-> +++ linux-2.6.10-mm2-full/include/linux/in6.h	2005-01-07 02:36:18.000000000 +0100
-> @@ -44,10 +44,10 @@
->   * NOTE: Be aware the IN6ADDR_* constants and in6addr_* externals are defined
->   * in network byte order, not in host byte order as are the IPv4 equivalents
->   */
-> +#if 0
->  extern const struct in6_addr in6addr_any;
->  #define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
-> -extern const struct in6_addr in6addr_loopback;
-> -#define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
-> +#endif
->  
+I don't think we really need to obtain this lock here.
 
-I meant:
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-#if 0
-extern const struct in6_addr in6addr_any;
-#define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
-#endif
-extern const struct in6_addr in6addr_loopback;
-#define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
+After applying this patch, I think we can stop exporting
+addrconf_lock.
 
-And,
+===== net/sctp/ipv6.c 1.57 vs edited =====
+--- 1.57/net/sctp/ipv6.c	2004-12-28 10:56:34 +09:00
++++ edited/net/sctp/ipv6.c	2005-01-07 12:29:26 +09:00
+@@ -319,11 +319,8 @@
+ 	struct inet6_ifaddr *ifp;
+ 	struct sctp_sockaddr_entry *addr;
+ 
+-	read_lock(&addrconf_lock);
+-	if ((in6_dev = __in6_dev_get(dev)) == NULL) {
+-		read_unlock(&addrconf_lock);
++	if ((in6_dev = in6_dev_get(dev)) == NULL)
+ 		return;
+-	}
+ 
+ 	read_lock(&in6_dev->lock);
+ 	for (ifp = in6_dev->addr_list; ifp; ifp = ifp->if_next) {
+@@ -340,7 +337,7 @@
+ 	}
+ 
+ 	read_unlock(&in6_dev->lock);
+-	read_unlock(&addrconf_lock);
++	in6_dev_put(in6_dev);
+ }
+ 
+ /* Initialize a sockaddr_storage from in incoming skb. */
 
-> @@ -191,7 +188,11 @@
->  };
->  
->  /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
-> +#if 0
-> +#define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
->  const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
-> +#endif
-> +#define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
->  const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
->  
-
-#if 0
-const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
-#endif
-const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
-
-or something like this.
-
---yoshfuji
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
