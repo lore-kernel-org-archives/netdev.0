@@ -1,35 +1,32 @@
-From: Pavel Machek <pavel@suse.cz>
+From: Tomas Szepe <szepe@pinerecords.com>
 Subject: Re: ipw2100 wireless driver
-Date: Wed, 14 Jul 2004 14:27:38 +0200
+Date: Wed, 14 Jul 2004 14:30:33 +0200
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040714122738.GF2269@elf.ucw.cz>
-References: <20040714114135.GA25175@elf.ucw.cz>
+Message-ID: <20040714123033.GB18364@louise.pinerecords.com>
+References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S267367AbUGNMaZ@vger.kernel.org>
-To: netdev@oss.sgi.com, kernel list <linux-kernel@vger.kernel.org>
+Cc: Pavel Machek <pavel@ucw.cz>, netdev@oss.sgi.com,
+	kernel list <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S267368AbUGNMaq@vger.kernel.org>
+To: Jeff Chua <jeffchua@silk.corp.fedex.com>
 Content-Disposition: inline
-In-Reply-To: <20040714114135.GA25175@elf.ucw.cz>
+In-Reply-To: <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com>
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On Jul-14 2004, Wed, 19:48 +0800
+Jeff Chua <jeffchua@silk.corp.fedex.com> wrote:
 
-> What is the status of ipw2100? Is there chance that it would be pushed
-> into mainline?
+> >I have few problems with that:
+> >
+> >* it will not compile with gcc-2.95. Attached patch fixes one problem
+> >but more remain.
+> 
+> I've given up hope on that. Don't think it'll ever compile on 2.95. I'm 
+> using ndiswrapper and it works nicely.
 
-Hmm, it has very "nice" interface in proc, where it tells you (in
-english *sentences*) if radio kill switch is enabled or not. Ouch.
+I'd rather fiddle around with gcc versions than risk stack overflows
+from running Windows drivers in Linux kernel space.
 
-iwconfig eth1 mode ad-hoc
-
-followed by
-
-iwconfig eth1
-
-makes it crash in ipw2100_wx_get_power called from
-wireless_process_ioctl.
-
-								Pavel
 -- 
-People were complaining that M$ turns users into beta-testers...
-...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
+Tomas Szepe <szepe@pinerecords.com>
