@@ -1,25 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPV6: inappropriate static variable in net/ipv6/ndisc.c
-Date: Wed, 25 Jun 2003 22:23:42 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030625.222342.48531169.davem@redhat.com>
-References: <20030626.142109.76202395.yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] Prefix List against 2.5.70 (re-done)
+Date: Wed, 25 Jun 2003 23:42:51 -0700 (PDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030625.234251.116353369.davem@redhat.com>
+References: <3EF37458.3070103@us.ibm.com>
+	<20030621.233634.67057417.yoshfuji@linux-ipv6.org>
+	<3EF9D5C2.5080101@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030626.142109.76202395.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: krkumar@us.ibm.com
+In-Reply-To: <3EF9D5C2.5080101@us.ibm.com>
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Thu, 26 Jun 2003 14:21:09 +0900 (JST)
 
-   It is not appropriate to use static variable here.
-   
-It used to be actually needed when ipv6 flows contained
-pointers to addresses, and yes that was racey.
-   
-I'll apply this, thanks.
+I don't think it's wise to make RTNETLINK facilities
+dependant upon ifdef values.
+
+Please kill CONFIG_IPV6_PREFIXLIST.  People don't need to
+to enable funny options to get a fully function dhcp on
+ipv4, they should therefore not have to for ipv6 either.
