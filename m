@@ -1,53 +1,64 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Sun, 08 Jun 2003 22:38:25 -0700 (PDT)
+Date: Sun, 08 Jun 2003 22:44:46 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030608.223825.104049415.davem@redhat.com>
-References: <20030608.050500.28795668.davem@redhat.com>
-	<874r30r9z2.fsf@deneb.enyo.de>
-	<20030608234926.GA9453@netnation.com>
+Message-ID: <20030608.224446.78724665.davem@redhat.com>
+References: <20030608234926.GA9453@netnation.com>
+	<001001c32e19$81bc7ea0$4a00000a@badass>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: sim@netnation.com
-In-Reply-To: <20030608234926.GA9453@netnation.com>
+To: xerox@foonet.net
+In-Reply-To: <001001c32e19$81bc7ea0$4a00000a@badass>
 List-Id: netdev.vger.kernel.org
 
-   From: Simon Kirby <sim@netnation.com>
-   Date: Sun, 8 Jun 2003 16:49:26 -0700
+   From: "CIT/Paul" <xerox@foonet.net>
+   Date: Sun, 8 Jun 2003 19:55:58 -0400
 
-   On Sun, Jun 08, 2003 at 03:10:25PM +0200, Florian Weimer wrote:
-   
-   > Further parameters which could be tweaked is the kind of adjacency
-   > information (where to store the L2 information, whether to include the
-   > prefix length in the adjacency record etc.).
-   
-   What is the problem with the current approach?  Does the overhead come
-   from having to iterate through the hashes for each prefix?
+   The problem with the route cache as it stands is that it adds every new
+   packet that isn't in the route cache to the cache, say you have 
+   A denial of service attack going on, OR you just have millions of hosts
+   going through the router (if you were an ISP).
 
-It comes from doing the slow path, which actually had a bug
-(wouldn't grow the hash tables past a certain point).
+We perform now rather acceptibly in such scenerios.   Robert Olsson
+has demonstrated that even if the attacker could fill up your
+entire bandwidth with random source address packets, we'd still
+provide 50kpps routing speed.
 
-I bet most of Florian's performance problems go away if he
-runs with the fib_hash fix that I put into the tree.
+And this can be made much higher because the performance limiter
+is the routing cache GC which isn't tuned properly.  It can't keep
+up because it doesn't try to purge the right amount entries each
+pass.
 
-In fact, the current slow path is _OPTIMAL_ for any sane routing
-table.  The lookups are exactly O(n_prefixes) where n_prefixes
-in the number of unique subnet prefixes you've added to your routing
-table.
+All the performance problems I've seen have been algorithmic or
+outright bugs.  Bad hash functions and limits in how big the FIB
+hash tables would grow.  And what's left is fixing GC.
 
-This is precisely the same complexity as you'd get with a trie based
-approach with guarenteed depth not exceeding 32.
+There is nothing AT ALL fundamental about a routing cache that
+precludes it from behaving sanely in the presence of a random source
+address DoS load.  Absolutely NOTHING.
 
-I think most people are unaware of how the slow path we have actually
-works.
+   This can stifle just about any linux router with a measly 10
+   megabits/second of traffic unless
 
-The place I see bugs are in routing cache GC operation, it can't keep
-up with how fast we can create new routing cache entries, and this
-is merely because it isn't tuned not because it is not capable of
-keeping equilibrium properly.
+Not true, that happens because of BUGs.  Not because routing caches
+cannot behave sanely in such situations.
 
-This is why I really wish Florian would explore this area instead
-of ripping the whole thing apart :-)
+   The router is tuned up to a large degree (NAPI, certain nics, route
+   cache timings, etc.) and even then it can still be destroyed no matter
+   what
+
+And today, this is because of BUGs in how the GC works.  You can
+design the GC process so that it does the right thing and recycles
+only the DoS entries (those being very non-localized).
+
+You should interact with Robert Olsson who has been doing tests on the
+effect of gigabit rate full-on DoS runs where every packet creates a
+new routing cache entry.
+
+Franks a lot,
+David S. Miller
+davem@redhat.com
