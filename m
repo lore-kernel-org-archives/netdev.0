@@ -1,69 +1,58 @@
-From: Harald Welte <laforge@netfilter.org>
+From: Tom Marshall <tommy@home.tig-grr.com>
 Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Tue, 16 Sep 2003 16:09:18 +0200
+Date: Tue, 16 Sep 2003 08:15:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030916140918.GF810@obroa-skai.de.gnumonks.org>
-References: <200309022116.41697.bdschuym@pandora.be> <200309132159.37834.bdschuym@pandora.be> <20030915155903.12a3f95d.davem@redhat.com> <200309160805.08171.bdschuym@pandora.be> <20030915230259.79f5a545.davem@redhat.com> <1063703910.5948.85.camel@henrik.marasystems.com>
+Message-ID: <20030916151533.GA28380@home.tig-grr.com>
+References: <200309022116.41697.bdschuym@pandora.be> <20030905153152.GA3623@obroa-skai.de.gnumonks.org> <20030908191400.5ef59ab6.davem@redhat.com> <200309132159.37834.bdschuym@pandora.be> <20030915155903.12a3f95d.davem@redhat.com> <20030916140621.GE810@obroa-skai.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="UBnjLfzoMQYIXCvq"
-Cc: "David S. Miller" <davem@redhat.com>,
+	protocol="application/pgp-signature"; boundary="zYM0uCDKw75PZbzx"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Harald Welte <laforge@netfilter.org>, "David S. Miller" <davem@redhat.com>,
    Bart De Schuymer <bdschuym@pandora.be>, acme@conectiva.com.br,
    netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Henrik Nordstrom <hno@marasystems.com>
 Content-Disposition: inline
-In-Reply-To: <1063703910.5948.85.camel@henrik.marasystems.com>
+In-Reply-To: <20030916140621.GE810@obroa-skai.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---UBnjLfzoMQYIXCvq
+--zYM0uCDKw75PZbzx
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Sep 16, 2003 at 11:18:34AM +0200, Henrik Nordstrom wrote:
-> tis 2003-09-16 klockan 08.02 skrev David S. Miller:
+On Tue, Sep 16, 2003 at 04:06:21PM +0200, Harald Welte wrote:
+> On Mon, Sep 15, 2003 at 03:59:03PM -0700, David S. Miller wrote:
 >=20
-> > Also, another solution could be to store the object inside the kernel
-> > using a different structure, one where you can guarentee the alignment
-> > of these things properly.
+> > I have to reject the fix for this problem again.
+> >=20
+> > You can't change the struct exported to userspace in any way
+> > without breaking the tools.  I tried to explain this in the
+> > first revision of your change.
 >=20
-> unfortunately iptables does not allow such differences between userspace
-> and kernel representation..
+> But ipt_physdev is a 2.6ism, thus we can still introduce any
+> incompatibility... For me it's enough to be compatible within 2.4 or
+> within 2.6.x (once 2.6.0 is out).
 
-yes. yes. yes.  The whole 'kernel internal data structure exported to
-userspace' is a fundamental design flaw of iptables.  There's nothing we
-can do about it, we'll have to live with it :(
-
-That's why the yet-to-be-completed pkttables will use what I call vTLV's
-(versioned TLV's) for all [netlink based] kernel-userspace
-communication.
-
-> Henrik Nordstrom <hno@marasystems.com>
-> MARA Systems AB
+Noooo!  Please don't break compatibility for 2.6.  I really don't want to
+have separate /sbin/iptables-2.4 and /sbin/iptables-2.6 binaries.
 
 --=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+Logic is a systematic method of coming to the wrong conclusion with
+confidence.
 
---UBnjLfzoMQYIXCvq
+--zYM0uCDKw75PZbzx
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
 
-iD8DBQE/ZxmNXaXGVTD0i/8RAhomAJ90D0355YCD4jhTTPCOuvrndQ5YDACfcwaW
-UKucSJjwFt8GlCxUCXPT2CY=
-=AwWI
+iEYEARECAAYFAj9nKRUACgkQFMm9uvwPXW79sACeKTonAiYJ32Mzkw/82LQ7WXgj
+dcoAn2A4I89L7diDC6n10ogEz+QsYzLq
+=hQMT
 -----END PGP SIGNATURE-----
 
---UBnjLfzoMQYIXCvq--
+--zYM0uCDKw75PZbzx--
