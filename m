@@ -1,84 +1,80 @@
-From: jamal <hadi@cyberus.ca>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: 29 Dec 2004 09:20:54 -0500
-Message-ID: <1104330054.1089.329.camel@jzny.localdomain>
-References: <20041228161117.GD32419@postel.suug.ch>
-	 <1104251817.1090.164.camel@jzny.localdomain>
-	 <20041228192603.GE32419@postel.suug.ch>
-	 <1104268498.1090.254.camel@jzny.localdomain>
-	 <20041228221021.GF32419@postel.suug.ch>
-	 <1104275197.1100.276.camel@jzny.localdomain>
-	 <20041228231916.GG32419@postel.suug.ch>
-	 <1104277165.1100.291.camel@jzny.localdomain>
-	 <20041229000928.GH32419@postel.suug.ch>
-	 <1104282811.1090.314.camel@jzny.localdomain>
-	 <20041229124842.GI32419@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+Date: Wed, 29 Dec 2004 16:01:40 +0100
+Message-ID: <20041229150140.GJ32419@postel.suug.ch>
+References: <20041228192603.GE32419@postel.suug.ch> <1104268498.1090.254.camel@jzny.localdomain> <20041228221021.GF32419@postel.suug.ch> <1104275197.1100.276.camel@jzny.localdomain> <20041228231916.GG32419@postel.suug.ch> <1104277165.1100.291.camel@jzny.localdomain> <20041229000928.GH32419@postel.suug.ch> <1104282811.1090.314.camel@jzny.localdomain> <20041229124842.GI32419@postel.suug.ch> <1104330054.1089.329.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
         Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041229124842.GI32419@postel.suug.ch>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1104330054.1089.329.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-12-29 at 07:48, Thomas Graf wrote:
-> * jamal <1104282811.1090.314.camel@jzny.localdomain> 2004-12-28 20:13
-..
-> The ematch TLV contains an array of ematches, every
-> ematch contains the logic relation to the next (2 bits) and a flag to
-> invert the meaning (1 bit). A special ematch containing an index exists
-> to implement precdence.
-> 
-> A AND (B1 OR B2) AND C AND D
-> 
-> 
->               ------->-PUSH-------
->     -->--    /         -->--      \   -->--
->    /     \  /         /     \      \ /     \
-> +-------+-------+-------+-------+-------+--------+
-> | A AND | B AND | C AND | D END | B1 OR | B2 END |
-> +-------+-------+-------+-------+-------+--------+
->                     \                      /
->                      --------<-POP---------
-> 
-> A simple check that a jump index is never smaller than the current
-> index (excluding backward jumps via stack) catches endless loop
-> and avoids the use of a ttl.
-> 
+* jamal <1104330054.1089.329.camel@jzny.localdomain> 2004-12-29 09:20
+> Given the opportunity: I think we need to put those flags as well for
+> the u32 keys(and other classifiers) so we can have similar logic?
 
-Sounds good.
-Given the opportunity: I think we need to put those flags as well for
-the u32 keys(and other classifiers) so we can have similar logic?
-Also in the case of u32 (to take this opportunity) i would like to stash
-state inot a 16 bit ID to help in pretty printing the matches.
-So if we have an extra 32 bits for flags:ID probably 8 bits for your
-need for flags, 16 bits for private Id and maybe another 8 bit for
-something else like versioning...
-Thoughts?
+Sounds reasonable and easy to do if we introduce a new selector TLV.
+Speaking of the other classifiers:
 
+fw: Currently a list of ORed matches, nfmark transported via handle.
+    We could change it to transfer the nfmark via a TLV and implement
+    the same logic as in u32 (simple). The problem is mainly how to
+    guarantee backwards compatibility, the handle would no longer
+    tell about the nfmark being matched. OTOH, fw is no longer needed
+    once we have metadata match. Adding a "always-true" classifier with
+    ematch extension will completely replace it (except for the old
+    path with netfilter disabled).
 
-> > Recall, the opportunity to do more in terms of logical expressions within u32 
-> > exists because we can introduce more interesting keys ...
-> 
-> We could reuse the 8 unused bits after nkeys in tc_u32sel too. iproute2 sets
-> them to 0 so we can simply use them without anyone noticing.
+tcindex: No changes required and partly replaced with metadata match
+         but not completely. It would still be perfectly fine to map
+         dscp values to classids.  
 
-I would recommend just introducing the extra 32 bits per key. So much
-easier.
+route4: Also partly replaced with metadata match but we would lose
+        the exellent fast paths. We can leave it as-is and have metadata
+        match for more complex matches (slow) and route4 for simple but
+        fast uses.
 
-> > I dont know where you and Patrick are with the code but it think it
-> > would be safe for me to work off 2610-bk1. Tommorow i am working on some
-> > e1000 stuff - but day after i should be able to touch the action code. 
-> 
-> I'm not touching the action bits but Patrick is as far as I know.
+rsvp: Could theoretically be replaced with new u32 and extensive use
+      of continue/reclassify but that's quite difficult. It's very
+      specialized (and currently quite vulnerable to pskbs) and the use
+      of it is clearly towards fast flow redirection. No need to change
+      this.
 
-Ok, dont wanna conflict with work hes doing - so i will wait until
-tommorow to see what hes upto. CCed him.
+So, the conclusion for me is that we can focus on u32 and new
+classifiers and eventually make fw obsolete in the future.
 
-cheers,
-jamal
+> Also in the case of u32 (to take this opportunity) i would like to stash
+> state inot a 16 bit ID to help in pretty printing the matches.
+
+Not sure what you mean. Which "state"?
+
+> So if we have an extra 32 bits for flags:ID probably 8 bits for your
+> need for flags, 16 bits for private Id and maybe another 8 bit for
+> something else like versioning...
+
+Basically what I need is 3 bits for logic relations and at least 8
+for precedence index or 4 bits and reuse one of the already existing
+fields unused when key is used as container for sub keys. So, 8 bits
+will suit me very well.
+
++---+---+-----+
+| I | C |  R  |
++---+---+-----+
+
+I := 1 Match is inverted
+     0 Match is straight
+
+C := 1 Container Key
+     0 Normal Key
+
+R := 0 0 Last Key
+     0 1 AND
+     1 0 OR
+
+While we're at it we should increase nkeys to 16bit.
