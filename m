@@ -1,36 +1,58 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC PATCH] missing break in UDP decap code Re: (udp-en/decap
- broken in 2.6.8-rc2?) Re: ipsec, nat-t, iproute2?
-Date: Sat, 31 Jul 2004 23:53:16 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040731235316.19e0db75.davem@redhat.com>
-References: <20040731083456.GA24761@outpost.ds9a.nl>
-	<E1Bqr9r-0004av-00@gondolin.me.apana.org.au>
-	<20040731112048.GA27893@outpost.ds9a.nl>
-	<20040731115230.GA18537@gondor.apana.org.au>
-	<20040731121828.GA29497@outpost.ds9a.nl>
-	<20040731130853.GA30481@outpost.ds9a.nl>
-	<20040731193204.GA20793@gondor.apana.org.au>
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: [2.4 patch] CONFIG_NET_SCH_NETEM Configure.help entry
+Date: Sun, 1 Aug 2004 16:27:59 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040801142759.GQ2746@fs.tum.de>
+References: <20040731142658.GA6497@logos.cnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ahu@ds9a.nl, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040731193204.GA20793@gondor.apana.org.au>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, davem@redhat.com, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265981AbUHAO2K@vger.kernel.org>
+To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
+	Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040731142658.GA6497@logos.cnet>
 List-Id: netdev.vger.kernel.org
 
-On Sun, 1 Aug 2004 05:32:04 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Sat, Jul 31, 2004 at 11:26:59AM -0300, Marcelo Tosatti wrote:
+>...
+> Summary of changes from v2.4.27-rc3 to v2.4.27-rc4
+> ============================================
+>...
+> Stephen Hemminger:
+>   o [PKT_SCHED]: Update to network emulation QOS scheduler
+>   o [PKT_SCHED]: One small netem fixes
+>   o [BRIDGE]: Fix assertion failure in 2.4.27-rc3
+>   o [PKT_SCHED]: netem update for 2.4
+>...
 
-> On Sat, Jul 31, 2004 at 03:08:53PM +0200, bert hubert wrote:
-> > 
-> > Against 2.6.8-rc2, neatly solves the problem. The missing break causes the
-> > packet to be tested against both encapsulation types, one will always fail.
-> 
-> Sorry, that was my fault.
-> 
-> Dave, please apply his patch to fix NON_ESP reception.
 
-Done, thanks guys.
+The Configure.help entry was forgotten:
+
+
+Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
+
+--- linux-2.4.27-rc4-full/Documentation/Configure.help.old	2004-08-01 16:20:15.000000000 +0200
++++ linux-2.4.27-rc4-full/Documentation/Configure.help	2004-08-01 16:22:23.000000000 +0200
+@@ -10949,13 +10949,15 @@
+   whenever you want). If you want to compile it as a module, say M
+   here and read <file:Documentation/modules.txt>.
+ 
+-Network delay simualtor  
+-CONFIG_NET_SCH_DELAY
+-  Say Y if you want to delay packets by a fixed amount of
+-  time. This is often useful to simulate network delay when
++CONFIG_NET_SCH_NETEM
++  Say Y if you want to emulate network delay, loss, and packet
++  re-ordering. This is often useful to simulate networks when
+   testing applications or protocols.
+-  
+-  This code is also available as a module called sch_delay.o
++
++  To compile this driver as a module, choose M here: the module
++  will be called sch_netem.
++
++  If unsure, say N.
+ 
+ Ingress Qdisc
+ CONFIG_NET_SCH_INGRESS
