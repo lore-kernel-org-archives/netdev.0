@@ -1,220 +1,35 @@
-From: Martin Pool <mbp@samba.org>
+From: James Morris <jmorris@intercode.com.au>
 Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Sat, 5 Oct 2002 17:51:59 +1000
+Date: Sat, 5 Oct 2002 21:53:40 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021005075157.GC2531@samba.org>
-References: <Mutt.LNX.4.44.0210050053000.21202-100000@blackbird.intercode.com.au>
+Message-ID: <Mutt.LNX.4.44.0210052152400.25151-100000@blackbird.intercode.com.au>
+References: <20021005075157.GC2531@samba.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="mojUlQ0s9EVzWg2t"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
-Content-Disposition: inline
-In-Reply-To: <Mutt.LNX.4.44.0210050053000.21202-100000@blackbird.intercode.com.au>
+To: Martin Pool <mbp@samba.org>
+In-Reply-To: <20021005075157.GC2531@samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---mojUlQ0s9EVzWg2t
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On Sat, 5 Oct 2002, Martin Pool wrote:
 
-On  5 Oct 2002, James Morris <jmorris@intercode.com.au> wrote:
-> Martin,
+> The machine inside VMware is as shown below.  This was originally
+> reported by a distcc user who was apparently experiencing the problem
+> on diverse hardware on a 100Mbps switched network.
 > 
-> I'm not able to reproduce the bug exactly as described.  What kind of
-> network connection were you using between the boxes, and what was the
-> kernel version at the server end?  (I've been testing between two boxes on
-> a 10Mbps lan, with 2.2.22 at the client side and both 2.2.20 and 2.4.19
-> kernels at the server side).
+> Did you see the example code that I posted at the start of the thread?
 
-The machine inside VMware is as shown below.  This was originally
-reported by a distcc user who was apparently experiencing the problem
-on diverse hardware on a 100Mbps switched network.
+Yep.
 
-Did you see the example code that I posted at the start of the thread?
+> I can't reproduce it locally, but I can reproduce it going to a 2.4.18
+> machine across a 100Mbps switched network.  A tcpdump (complete?) is
+> attached.
 
-I can't reproduce it locally, but I can reproduce it going to a 2.4.18
-machine across a 100Mbps switched network.  A tcpdump (complete?) is
-attached.
+Thanks for the extra info.
 
-
-
-
-mbp@maudlin:~$ lspci
-00:00.0 Host bridge: Intel Corporation 440BX/ZX - 82443BX/ZX Host bridge (AGP disabled) (rev 01)
-00:07.0 ISA bridge: Intel Corporation 82371AB PIIX4 ISA (rev 08)
-00:07.1 IDE interface: Intel Corporation 82371AB PIIX4 IDE (rev 01)
-00:07.2 USB Controller: Intel Corporation 82371AB PIIX4 USB
-00:07.3 Bridge: Intel Corporation 82371AB PIIX4 ACPI (rev 08)
-00:0f.0 VGA compatible controller: Unknown device 15ad:0405
-00:10.0 SCSI storage controller: BusLogic BT-946C (BA80C30) [MultiMaster 10] (rev 01)
-00:11.0 Ethernet controller: Advanced Micro Devices [AMD] 79c970 [PCnet LANCE] (rev 10)
-
-mbp@maudlin:~$ cat /proc/cpuinfo 
-processor	: 0
-vendor_id	: GenuineIntel
-cpu family	: 15
-model		: 1
-model name	: Intel(R) Pentium(R) 4 CPU 1.70GHz
-stepping	: 2
-cpu MHz		: 1696.308
-cache size	: 256 KB
-fdiv_bug	: no
-hlt_bug		: no
-sep_bug		: no
-f00f_bug	: no
-coma_bug	: no
-fpu		: yes
-fpu_exception	: yes
-cpuid level	: 2
-wp		: yes
-flags		: fpu vme de pse tsc msr pae mce cx8 sep mtrr pge mca cmov pat pse36 cflush dtrace acpi mmx fxsr sse xmm2 ssnp 28 acc
-bogomips	: 2929.45
-
+- James
 -- 
-Martin 
-
---mojUlQ0s9EVzWg2t
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="tcpdump_1050.txt"
-
-17:50:58.870451 192.168.1.173.1050 > 192.168.1.1.9: S 1182351029:1182351029(0) win 16060 <mss 1460,sackOK,timestamp 28693 0,nop,wscale 0> (DF)
-17:50:58.870499 192.168.1.1.9 > 192.168.1.173.1050: S 1288275163:1288275163(0) ack 1182351030 win 5792 <mss 1460,sackOK,timestamp 501490331 28693,nop,wscale 0> (DF)
-17:50:58.870730 192.168.1.173.1050 > 192.168.1.1.9: . ack 1 win 16060 <nop,nop,timestamp 28693 501490331> (DF)
-17:50:58.875597 192.168.1.173.1050 > 192.168.1.1.9: P 1:1449(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490331> (DF)
-17:50:58.875690 192.168.1.1.9 > 192.168.1.173.1050: . ack 1449 win 8688 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.875879 192.168.1.173.1050 > 192.168.1.1.9: P 1449:2897(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490331> (DF)
-17:50:58.875940 192.168.1.1.9 > 192.168.1.173.1050: . ack 2897 win 11584 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.876271 192.168.1.173.1050 > 192.168.1.1.9: . 2897:4345(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.876348 192.168.1.1.9 > 192.168.1.173.1050: . ack 4345 win 14480 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.876527 192.168.1.173.1050 > 192.168.1.1.9: . 4345:5793(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.876585 192.168.1.1.9 > 192.168.1.173.1050: . ack 5793 win 17376 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.876748 192.168.1.173.1050 > 192.168.1.1.9: . 5793:7241(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.876804 192.168.1.1.9 > 192.168.1.173.1050: . ack 7241 win 20272 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.876994 192.168.1.173.1050 > 192.168.1.1.9: . 7241:8689(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.877056 192.168.1.1.9 > 192.168.1.173.1050: . ack 8689 win 23168 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.877283 192.168.1.173.1050 > 192.168.1.1.9: . 8689:10137(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.877354 192.168.1.1.9 > 192.168.1.173.1050: . ack 10137 win 26064 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.877524 192.168.1.173.1050 > 192.168.1.1.9: . 10137:11585(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.877579 192.168.1.1.9 > 192.168.1.173.1050: . ack 11585 win 28960 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.877794 192.168.1.173.1050 > 192.168.1.1.9: . 11585:13033(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.877856 192.168.1.1.9 > 192.168.1.173.1050: . ack 13033 win 31856 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.878020 192.168.1.173.1050 > 192.168.1.1.9: . 13033:14481(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.878074 192.168.1.1.9 > 192.168.1.173.1050: . ack 14481 win 34752 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.878235 192.168.1.173.1050 > 192.168.1.1.9: . 14481:15929(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.878290 192.168.1.1.9 > 192.168.1.173.1050: . ack 15929 win 37648 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.878445 192.168.1.173.1050 > 192.168.1.1.9: . 15929:17377(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.878498 192.168.1.1.9 > 192.168.1.173.1050: . ack 17377 win 40544 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.878656 192.168.1.173.1050 > 192.168.1.1.9: . 17377:18825(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.878712 192.168.1.1.9 > 192.168.1.173.1050: . ack 18825 win 43440 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.878865 192.168.1.173.1050 > 192.168.1.1.9: . 18825:20273(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.878920 192.168.1.1.9 > 192.168.1.173.1050: . ack 20273 win 46336 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.879151 192.168.1.173.1050 > 192.168.1.1.9: . 20273:21721(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.879222 192.168.1.1.9 > 192.168.1.173.1050: . ack 21721 win 49232 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.879424 192.168.1.173.1050 > 192.168.1.1.9: . 21721:23169(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.879486 192.168.1.1.9 > 192.168.1.173.1050: . ack 23169 win 52128 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.879662 192.168.1.173.1050 > 192.168.1.1.9: . 23169:24617(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.879720 192.168.1.1.9 > 192.168.1.173.1050: . ack 24617 win 55024 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.879877 192.168.1.173.1050 > 192.168.1.1.9: . 24617:26065(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.879931 192.168.1.1.9 > 192.168.1.173.1050: . ack 26065 win 57920 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.880091 192.168.1.173.1050 > 192.168.1.1.9: . 26065:27513(1448) ack 1 win 16060 <nop,nop,timestamp 28694 501490332> (DF)
-17:50:58.880146 192.168.1.1.9 > 192.168.1.173.1050: . ack 27513 win 60816 <nop,nop,timestamp 501490332 28694> (DF)
-17:50:58.880352 192.168.1.173.1050 > 192.168.1.1.9: . 27513:28961(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.880414 192.168.1.1.9 > 192.168.1.173.1050: . ack 28961 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.880581 192.168.1.173.1050 > 192.168.1.1.9: . 28961:30409(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.880639 192.168.1.1.9 > 192.168.1.173.1050: . ack 30409 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.880792 192.168.1.173.1050 > 192.168.1.1.9: . 30409:31857(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.880844 192.168.1.1.9 > 192.168.1.173.1050: . ack 31857 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.881037 192.168.1.173.1050 > 192.168.1.1.9: . 31857:33305(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.881099 192.168.1.1.9 > 192.168.1.173.1050: . ack 33305 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.881255 192.168.1.173.1050 > 192.168.1.1.9: . 33305:34753(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.881381 192.168.1.173.1050 > 192.168.1.1.9: . 34753:36201(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.881430 192.168.1.1.9 > 192.168.1.173.1050: . ack 36201 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.881727 192.168.1.173.1050 > 192.168.1.1.9: P 36201:37649(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.881806 192.168.1.1.9 > 192.168.1.173.1050: . ack 37649 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.881989 192.168.1.173.1050 > 192.168.1.1.9: P 37649:39097(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.882050 192.168.1.1.9 > 192.168.1.173.1050: . ack 39097 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.882210 192.168.1.173.1050 > 192.168.1.1.9: P 39097:40545(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.882266 192.168.1.1.9 > 192.168.1.173.1050: . ack 40545 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.882469 192.168.1.173.1050 > 192.168.1.1.9: P 40545:41993(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.882536 192.168.1.1.9 > 192.168.1.173.1050: . ack 41993 win 63712 <nop,nop,timestamp 501490332 28695> (DF)
-17:50:58.883067 192.168.1.173.1050 > 192.168.1.1.9: P 41993:43441(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.883154 192.168.1.1.9 > 192.168.1.173.1050: . ack 43441 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.883400 192.168.1.173.1050 > 192.168.1.1.9: . 43441:44889(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.883545 192.168.1.173.1050 > 192.168.1.1.9: . 44889:46337(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.883597 192.168.1.1.9 > 192.168.1.173.1050: . ack 46337 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.883767 192.168.1.173.1050 > 192.168.1.1.9: . 46337:47785(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490332> (DF)
-17:50:58.883934 192.168.1.173.1050 > 192.168.1.1.9: P 47785:49233(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.883990 192.168.1.1.9 > 192.168.1.173.1050: . ack 49233 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.884201 192.168.1.173.1050 > 192.168.1.1.9: P 49233:50681(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.884271 192.168.1.1.9 > 192.168.1.173.1050: . ack 50681 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.884441 192.168.1.173.1050 > 192.168.1.1.9: P 50681:52129(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.884499 192.168.1.1.9 > 192.168.1.173.1050: . ack 52129 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.884655 192.168.1.173.1050 > 192.168.1.1.9: P 52129:53577(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.884711 192.168.1.1.9 > 192.168.1.173.1050: . ack 53577 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.884913 192.168.1.173.1050 > 192.168.1.1.9: P 53577:55025(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.884982 192.168.1.1.9 > 192.168.1.173.1050: . ack 55025 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.885151 192.168.1.173.1050 > 192.168.1.1.9: P 55025:56473(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.885209 192.168.1.1.9 > 192.168.1.173.1050: . ack 56473 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.885408 192.168.1.173.1050 > 192.168.1.1.9: P 56473:57921(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.885652 192.168.1.1.9 > 192.168.1.173.1050: . ack 57921 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.885850 192.168.1.173.1050 > 192.168.1.1.9: P 57921:59369(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.885914 192.168.1.1.9 > 192.168.1.173.1050: . ack 59369 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.886077 192.168.1.173.1050 > 192.168.1.1.9: P 59369:60817(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.886134 192.168.1.1.9 > 192.168.1.173.1050: . ack 60817 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.886346 192.168.1.173.1050 > 192.168.1.1.9: P 60817:62265(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.886417 192.168.1.1.9 > 192.168.1.173.1050: . ack 62265 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.886589 192.168.1.173.1050 > 192.168.1.1.9: P 62265:63713(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.886645 192.168.1.1.9 > 192.168.1.173.1050: . ack 63713 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.886801 192.168.1.173.1050 > 192.168.1.1.9: P 63713:65161(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.886856 192.168.1.1.9 > 192.168.1.173.1050: . ack 65161 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.887054 192.168.1.173.1050 > 192.168.1.1.9: P 65161:66609(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.887123 192.168.1.1.9 > 192.168.1.173.1050: . ack 66609 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.887293 192.168.1.173.1050 > 192.168.1.1.9: P 66609:68057(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.887348 192.168.1.1.9 > 192.168.1.173.1050: . ack 68057 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.887502 192.168.1.173.1050 > 192.168.1.1.9: P 68057:69505(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.887558 192.168.1.1.9 > 192.168.1.173.1050: . ack 69505 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.887758 192.168.1.173.1050 > 192.168.1.1.9: P 69505:70953(1448) ack 1 win 16060 <nop,nop,timestamp 28695 501490333> (DF)
-17:50:58.887826 192.168.1.1.9 > 192.168.1.173.1050: . ack 70953 win 63712 <nop,nop,timestamp 501490333 28695> (DF)
-17:50:58.888073 192.168.1.173.1050 > 192.168.1.1.9: P 70953:72401(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.888142 192.168.1.1.9 > 192.168.1.173.1050: . ack 72401 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.888307 192.168.1.173.1050 > 192.168.1.1.9: P 72401:73849(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.888364 192.168.1.1.9 > 192.168.1.173.1050: . ack 73849 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.888574 192.168.1.173.1050 > 192.168.1.1.9: P 73849:75297(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.888642 192.168.1.1.9 > 192.168.1.173.1050: . ack 75297 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.888811 192.168.1.173.1050 > 192.168.1.1.9: P 75297:76745(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.888867 192.168.1.1.9 > 192.168.1.173.1050: . ack 76745 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.889023 192.168.1.173.1050 > 192.168.1.1.9: P 76745:78193(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.889080 192.168.1.1.9 > 192.168.1.173.1050: . ack 78193 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.889283 192.168.1.173.1050 > 192.168.1.1.9: P 78193:79641(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.889365 192.168.1.1.9 > 192.168.1.173.1050: . ack 79641 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.889550 192.168.1.173.1050 > 192.168.1.1.9: P 79641:81089(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.889611 192.168.1.1.9 > 192.168.1.173.1050: . ack 81089 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.889819 192.168.1.173.1050 > 192.168.1.1.9: P 81089:82537(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.889890 192.168.1.1.9 > 192.168.1.173.1050: . ack 82537 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.890089 192.168.1.173.1050 > 192.168.1.1.9: P 82537:83985(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.890152 192.168.1.1.9 > 192.168.1.173.1050: . ack 83985 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.890414 192.168.1.173.1050 > 192.168.1.1.9: P 83985:85433(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.890482 192.168.1.1.9 > 192.168.1.173.1050: . ack 85433 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.890732 192.168.1.173.1050 > 192.168.1.1.9: P 85433:86881(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.890803 192.168.1.1.9 > 192.168.1.173.1050: . ack 86881 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.890974 192.168.1.173.1050 > 192.168.1.1.9: P 86881:88329(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.891032 192.168.1.1.9 > 192.168.1.173.1050: . ack 88329 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.891188 192.168.1.173.1050 > 192.168.1.1.9: P 88329:89777(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.891244 192.168.1.1.9 > 192.168.1.173.1050: . ack 89777 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.891448 192.168.1.173.1050 > 192.168.1.1.9: P 89777:91225(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.891516 192.168.1.1.9 > 192.168.1.173.1050: . ack 91225 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.891684 192.168.1.173.1050 > 192.168.1.1.9: P 91225:92673(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.891744 192.168.1.1.9 > 192.168.1.173.1050: . ack 92673 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.891902 192.168.1.173.1050 > 192.168.1.1.9: P 92673:94121(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.891957 192.168.1.1.9 > 192.168.1.173.1050: . ack 94121 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.892157 192.168.1.173.1050 > 192.168.1.1.9: P 94121:95569(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.892225 192.168.1.1.9 > 192.168.1.173.1050: . ack 95569 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.892392 192.168.1.173.1050 > 192.168.1.1.9: P 95569:97017(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.892451 192.168.1.1.9 > 192.168.1.173.1050: . ack 97017 win 63712 <nop,nop,timestamp 501490333 28696> (DF)
-17:50:58.893400 192.168.1.173.1050 > 192.168.1.1.9: P 97017:98465(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.893493 192.168.1.1.9 > 192.168.1.173.1050: . ack 98465 win 63712 <nop,nop,timestamp 501490334 28696> (DF)
-17:50:58.893684 192.168.1.173.1050 > 192.168.1.1.9: P 98465:99913(1448) ack 1 win 16060 <nop,nop,timestamp 28696 501490333> (DF)
-17:50:58.893744 192.168.1.1.9 > 192.168.1.173.1050: . ack 99913 win 63712 <nop,nop,timestamp 501490334 28696> (DF)
-
---mojUlQ0s9EVzWg2t--
+James Morris
+<jmorris@intercode.com.au>
