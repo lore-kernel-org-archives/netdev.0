@@ -1,63 +1,37 @@
-From: Alberto Manuel Brandao Simoes <albie@alfarrabio.di.uminho.pt>
-Subject: Re: Fw: [Bugme-new] [Bug 3527] New: ssh does not work with 2.6.9rc3
-Date: Fri, 08 Oct 2004 21:01:40 +0100
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.9-rc3] 3c59x: style change in vortex_ethtool_ops declaration
+Date: Fri, 8 Oct 2004 15:11:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4166F224.4020801@alfarrabio.di.uminho.pt>
-References: <20041008104801.0dd96536.akpm@osdl.org> <20041008181036.GC19714@rei.reeler.org>
+Message-ID: <20041008151109.J14378@tuxdriver.com>
+References: <20041008121307.C14378@tuxdriver.com> <4166E501.4000708@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041008181036.GC19714@rei.reeler.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <4166E501.4000708@pobox.com>; from jgarzik@pobox.com on Fri, Oct 08, 2004 at 03:05:37PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Confirmed: there are more commands not working with this kernel (and=20
-some which does not use network at all).
+Style change suggested during patch review.
 
-[ambs@eremita ambs]$ man man
-Error executing formatting or display command.
-System command (cd /usr/man && (echo ".pl 1100i"; /bin/gunzip -c=20
-'/usr/man/man1/man.1.gz'; echo ".\\\""; echo ".pl \n(nlu+10") |=20
-/usr/bin/gtbl | /usr/bin/nroff -S -mandoc | /usr/bin/less -is) exited=20
-with status 256.
-No manual entry for man
-[ambs@eremita ambs]$
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+Jeff Garzik suggested this style change while reviewing my patch to
+backport the 3c59x driver from 2.6 to 2.4.
 
-And, yes, this works with 2.6.7 :)
-Cheers
-Alberto
+ drivers/net/3c59x.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-Thomas Graf wrote:
->> With this kernel, the sis ethernet bug is fixed (well, at least I can =
-do a ping
->>-f without losing packets), SATA works but... wonder... ssh doesn't.
->>
->>If I have a public key on other machine without passphrase, it works.
->>If not....
->=20
->=20
-> Could you provide your .config and a dump of the network
-> traffic a few seconds before, during and after the ssh session?
-> (tcpdump -s -w ...)
->=20
->=20
->>Now, that file really doesn't exist. But it isn't needed with the old k=
-ernel.
->>So, what 2.6.9 rc 3 has that 2.6.7 don't?
->=20
->=20
-> I have the feeling that the bug is related to the calculation of
-> some networking related threshold resultung in wrong values right
-> after booting time.
-
---=20
-Alberto Sim=F5es
-
-Much as I hate to say it, the Computer Science view of language design
-has gotten too inbred in recent years. The Computer Scientists should
-pay more attention to the Linguists, who have a much better handle on
-how people prefer to communicate.
-             --Larry Wall
+--- linux-2.6/drivers/net/3c59x.c.orig
++++ linux-2.6/drivers/net/3c59x.c
+@@ -2888,7 +2888,7 @@ static void vortex_get_drvinfo(struct ne
+ }
+ 
+ static struct ethtool_ops vortex_ethtool_ops = {
+-	.get_drvinfo =		vortex_get_drvinfo,
++	.get_drvinfo		= vortex_get_drvinfo,
+ };
+ 
+ #ifdef CONFIG_PCI
