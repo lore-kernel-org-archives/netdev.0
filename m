@@ -1,32 +1,37 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] iproute2 updates
-Date: 03 Mar 2005 22:49:14 -0500
-Message-ID: <1109908154.1091.486.camel@jzny.localdomain>
-References: <20050304023520.GD31837@postel.suug.ch>
+Subject: Re: [PATCH 2/2] [NEIGH]: Provide number of probes to userspace
+Date: 03 Mar 2005 22:52:15 -0500
+Message-ID: <1109908335.1092.493.camel@jzny.localdomain>
+References: <20050304023121.GC31837@postel.suug.ch>
+	 <20050304.123228.08284664.yoshfuji@linux-ipv6.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050304023520.GD31837@postel.suug.ch>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: tgraf@suug.ch, "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20050304.123228.08284664.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-03-03 at 21:35, Thomas Graf wrote:
-> Stephen,
-> 
-> You may pull the following changes from bk://tgr.bkbits.net/iproute2-tgr-fix
+On Thu, 2005-03-03 at 22:32, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
+> In article <20050304023121.GC31837@postel.suug.ch> (at Fri, 4 Mar 2005 =
+03:31:21 +0100), Thomas Graf <tgraf@suug.ch> says:
+>=20
+> > Provides number of probes done so far to userspace, quite useful for =
+debugging.
+> >=20
+> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>=20
+> It might be useful to provide probe count per state; e.g.
+>   in INCOMPLETE: probes
+>   in PROBLE    : probes - (ucast_probes + app_probes)
+> However, we can do this in userspace.
 
-Other than NPROBES change, shouldnt the other changes be reflective of
-whats in the kernel? This is the cost of keeping private headers. My
-suggestions would be to let Steve on every major release to just sync
-the header files.
+I think this will be overkill (its like maintaining history of all the
+states).
 
 cheers,
 jamal
-
-PS:- Also on you 1/2 changes - I notice one bug fix, the rest seems
-cosmetic - what does that buy you? Does it make the code more readable
-etc?
