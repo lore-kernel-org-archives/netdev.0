@@ -1,24 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [janitor] netfilter: propogate return values
-Date: Sun, 25 Jan 2004 11:07:46 -0800 (PST)
+Subject: Re: [janitor] get_stats: collapse conditionals
+Date: Sun, 25 Jan 2004 11:10:14 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040125.110746.116355613.davem@redhat.com>
-References: <20040124222337.752a768a.rddunlap@osdl.org>
+Message-ID: <20040125.111014.68044194.davem@redhat.com>
+References: <20040124221928.16f4c708.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: rddunlap@osdl.org
-In-Reply-To: <20040124222337.752a768a.rddunlap@osdl.org>
+In-Reply-To: <20040124221928.16f4c708.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
    From: "Randy.Dunlap" <rddunlap@osdl.org>
-   Date: Sat, 24 Jan 2004 22:23:37 -0800
+   Date: Sat, 24 Jan 2004 22:19:28 -0800
 
    Please apply to 2.6.current.
  ...   
-   From: Daniele Bellucci <bellucda@tiscali.it>
+   From: Domen Puncer <domen@coderock.org>
 
-Applied, thanks.
+Applied, although I changed
+
+	}
+	else
+
+to
+
+	} else
