@@ -1,39 +1,59 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: RFC: Network Device Driver Group proposal
-Date: Mon, 24 May 2004 11:39:19 -0700
+From: aris@cathedrallabs.org (Aristeu Sergio Rozanski Filho)
+Subject: [patch] ne.c: print info message after register_netdev()
+Date: Mon, 24 May 2004 15:49:18 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524113919.3651c453@dell_ss3.pdx.osdl.net>
-References: <20040524084945.GP3330@ruslug.rutgers.edu>
+Message-ID: <20040524184918.GB15546@cathedrallabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="jRHKVT23PllUwdXP"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-        Jeff Garzik
- <jgarzik@pobox.com>
-In-Reply-To: <20040524084945.GP3330@ruslug.rutgers.edu>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 May 2004 04:49:45 -0400
-"
-> OSLD wants to be the "center of gravity for all Linux related stuff". Well
-> maybe OSDL can help us :)
 
-OSDL does have the ability to host Special Interest Groups (SIG's).  There are
-two existing SIG's one for security, and another for storage.  It would make
-sense to have one for networking, as well. I held off proposing one because
-Jeff and Dave to a good job and it would end up being more work for me
-as the networking engineering contact at OSDL.
+--jRHKVT23PllUwdXP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-There are no membership restrictions for SIG's at OSDL, but there are some
-rules (which are still being discussed). Mainly, they revolve around making
-sure that everything is open, etc. There is a relationship back to the
-existing working groups as well.  For example, the networking SIG would
-be responsible for giving a response (positive or negative)
-to any networking requirements that came out of the CGL/DCL/DTL initiatives.   
+hi,
+	this patch avoids printing eth%d everytime a card is detected.
 
-So if Jeff (and/or Dave) want to have a networking SIG, I can get it started. 
-Probably there needs to be a strong reason to add more organization to a 
-already mostly functional process. 
+-- 
+Aristeu
+
+P.S:
+	I'm not sure if this is the right list to send this and I'm not
+	subscribed to this list either. so, please cc me for any
+	comments.
+
+
+--jRHKVT23PllUwdXP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="ne-print.diff"
+
+--- 2.6-clean/drivers/net/ne.c	2004-05-09 23:32:29.000000000 -0300
++++ 2.6/drivers/net/ne.c	2004-05-24 13:31:38.000000000 -0300
+@@ -477,9 +477,6 @@ static int __init ne_probe1(struct net_d
+ 		dev->dev_addr[i] = SA_prom[i];
+ 	}
+ 
+-	printk("\n%s: %s found at %#x, using IRQ %d.\n",
+-		dev->name, name, ioaddr, dev->irq);
+-
+ 	ei_status.name = name;
+ 	ei_status.tx_start_page = start_page;
+ 	ei_status.stop_page = stop_page;
+@@ -795,6 +792,10 @@ int init_module(void)
+ 		dev->base_addr = io[this_dev];
+ 		if (do_ne_probe(dev) == 0) {
+ 			if (register_netdev(dev) == 0) {
++				printk("\n%s: %s found at %#lx, using IRQ %d.\n",
++					dev->name, ei_status.name,
++					dev->base_addr, dev->irq);
++
+ 				dev_ne[found++] = dev;
+ 				continue;
+ 			}
+
+--jRHKVT23PllUwdXP--
