@@ -1,38 +1,40 @@
-From: jamal <hadi@cyberus.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RTNETLINK] Provide real oif
-Date: 02 Dec 2003 07:31:57 -0500
+Date: Wed, 03 Dec 2003 07:54:17 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1070368316.1031.30.camel@jzny.localdomain>
-References: <20031202110224.GA25957@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Message-ID: <E1ARHXF-0007cM-00@gondolin.me.apana.org.au>
+References: <1070368316.1031.30.camel@jzny.localdomain>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20031202110224.GA25957@gondor.apana.org.au>
+To: hadi@cyberus.ca, netdev@oss.sgi.com
+In-Reply-To: <1070368316.1031.30.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-On Tue, 2003-12-02 at 06:02, Herbert Xu wrote:
-> Hi Dave:
+jamal <hadi@cyberus.ca> wrote:
 > 
-> This patch adds a new attribute RTA_PREFOIF to the RTNETLINK interface
-> so that we can send the real oif to user space.  Hmm, would RTA_REALOIF
-> be a better name? It really should be called RTA_OIF but that's already
-> taken.
-> 
-> Currently if there are two entries in the routing cache that only differ
-> by the value of oif then they will appear identical to user space.  The
-> only way to tell them apart would be to export the value of oif from
-> the kernel.
-> 
+> Can you provide a real example (output of route display in user space)
+> where this would be valuable?
 
-Can you provide a real example (output of route display in user space)
-where this would be valuable?
-whats wrong with the combo of RTA_OIF and RTA_SRC?
+Without the real oif you will see entries like this in the output of
+ip r l c:
 
-cheers,
-jamal
+192.168.0.7 dev eth0  src 192.168.0.6
+    cache  mtu 1500 advmss 1460 metric10 64
+192.168.0.7 dev eth0  src 192.168.0.6
+    cache  mtu 1500 advmss 1460 metric10 64
+
+One of those has oif == 0 while the other one has oif == eth0.
+
+To generate an entry with oif == eth0, just send a UDP packet and
+bound to eth0.
+
+> whats wrong with the combo of RTA_OIF and RTA_SRC?
+
+Both of those attributes are independent of the real oif.
+
+Cheers,
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
