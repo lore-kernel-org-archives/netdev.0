@@ -1,41 +1,38 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [patch 2/2] ipvs deadlock fix
-Date: Mon, 31 Jan 2005 13:21:12 +0300
-Message-ID: <20050131102111.GA6279@verge.net.au>
-References: <200501310633.j0V6X1l01385@mail.osdl.org> <20050131093609.GA3804@verge.net.au> <20050131014722.77d732c4.akpm@osdl.org>
+From: cranium 2003 <cranium.2003@gmail.com>
+Subject: ethernet cache question
+Date: Mon, 31 Jan 2005 16:26:06 +0530
+Message-ID: <1d55641b050131025636a00d1e@mail.gmail.com>
+Reply-To: cranium 2003 <cranium.2003@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050131014722.77d732c4.akpm@osdl.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Return-path: <kernelnewbies-bounce@nl.linux.org>
+To: kernelnewbies@nl.linux.org, netdev@oss.sgi.com
+Sender: kernelnewbies-bounce@nl.linux.org
+Errors-to: kernelnewbies-bounce@nl.linux.org
+List-help: <mailto:ecartis@nl.linux.org?Subject=help>
+List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
+List-owner: <mailto:ecartis-owner@nl.linux.org>
+List-post: <mailto:kernelnewbies@nl.linux.org>
+List-archive: <http://mail.nl.linux.org/kernelnewbies/>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 31, 2005 at 01:47:22AM -0800, Andrew Morton wrote:
-> Horms <horms@verge.net.au> wrote:
-> >
-> > On Sun, Jan 30, 2005 at 10:33:02PM -0800, akpm@osdl.org wrote:
-> >  > 
-> >  > 
-> >  > update_defense_level() is calling si_meminfo() from timer context.  But
-> >  > si_meminfo takes non-irq-safe locks.
-> >  > 
-> >  > Move it all to keventd context.  
-> > 
-> >  Would I be right in thinking that the offending lock is bdev_lock which
-> >  is grabbed in nr_blockdev_pages() and thus that this is not an issue
-> >  for 2.4 whose si_meminfo() does not have such a call?
-> 
-> Yes, 2.4's si_meminfo() seems to be OK from interrupt context.
+Hello,
+      By looking at structure hh_cache it is seen that hh_output is structure
+variable defined as
+unsigned long   hh_data[HH_DATA_ALIGN(LL_MAX_HEADER) / sizeof(long)];
+Then i want to know how its sufficient in linux kernel to copy cache ethernet
+header entry as
+memcpy(skb->data - 16, hh->hh_data, 16);
+other variable defined in hh_cache is not seen as copied to packet structure.
+How then ethernet header is copied to packet if ethernet header has cache
+entry stored in hh_cache structure defiend in /usr/src/include/netdevice.h
+regards,
+cranium
 
-Thanks.
-
-> On x86 - I didn't check the other architectures.
-
-Me neither.
-
--- 
-Horms
+--
+Kernelnewbies: Help each other learn about the Linux kernel.
+Archive:       http://mail.nl.linux.org/kernelnewbies/
+FAQ:           http://kernelnewbies.org/faq/
