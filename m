@@ -1,68 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Simon Kirby <sim@netnation.com>
 Subject: Re: Route cache performance under stress
-Date: Mon, 09 Jun 2003 00:03:00 -0700 (PDT)
+Date: Mon, 9 Jun 2003 00:13:30 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030609.000300.35030075.davem@redhat.com>
-References: <20030608230300.X33412@shell.cyberus.ca>
-	<20030608.232537.102562046.davem@redhat.com>
-	<20030609065955.GC20613@netnation.com>
+Message-ID: <20030609071330.GD20613@netnation.com>
+References: <20030608.225837.115923841.davem@redhat.com> <001801c32e50$57ef0750$4a00000a@badass>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "'David S. Miller'" <davem@redhat.com>, hadi@shell.cyberus.ca,
+	fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: sim@netnation.com
-In-Reply-To: <20030609065955.GC20613@netnation.com>
+To: CIT/Paul <xerox@foonet.net>
+Content-Disposition: inline
+In-Reply-To: <001801c32e50$57ef0750$4a00000a@badass>
 List-Id: netdev.vger.kernel.org
 
-   From: Simon Kirby <sim@netnation.com>
-   Date: Sun, 8 Jun 2003 23:59:55 -0700
+On Mon, Jun 09, 2003 at 02:28:30AM -0400, CIT/Paul wrote:
 
-   On Sun, Jun 08, 2003 at 11:25:37PM -0700, David S. Miller wrote:
-   
-   > I do not believe that slow path is slow.  In fact after I fixed
-   > hash table growth in fib_hash.c Simon showed us clearly how DoS
-   > performance was _NOT_ tied to the number of routes loaded into
-   > the kernel.
-   
-   Not anymore. :)  Btw, that patch seems to be stable here.  Will we be
-   seeing it sneak into 2.4?
-   
-Yes, 2.4.22-pre1 will get it or somewhere thereabouts.
+> OK so let's try this.. If you can show me a linux router can can route
+> 100mbps or more of juno-z.101f.c attack without dropping packets I will
+> be thoroughly impressed  :)
+> 
+> I am willing to test out any code/patches and settings that you can
+> think of and post some results..
 
-   > I also question the setting of ip_rt_max_size in relation to the
-   > number of hash chains (it's set to n_hashchains * 16 currently,
-   > that sounds wrong, maybe something more like n_hashchains * 2 or
-   > even n_hashchains * 3).
-   
-   The route cache on our routers here grows to several thousand entries
-   most of the time because of the quantity of traffic we route, and then
-   all gets happily blown away when the next BGP table change comes along,
-   which seems to happen about 10-20 times per miunte (!).  It would
-   probably be beneficial for us to reduce the amount of work required when
-   blowing it away and keep it as small as possible.
+I'll see if I can set up a test bed this week.  I think we should already
+be able to do close to this, but I'll let the numbers will do the
+talking. :)
 
-This is simple, by using a generation count.  When route lookup
-sees a matching entry with a stale generation count, we pass
-this entry as-is into ip_route_{input,output}_slow() and use it
-instead of allocating new entry.
+In the tests I've been doing so far, I've been dropping responses (in the
+INPUT chain), so I haven't been testing the forwarding through of packets
+(though it is testing the routing input).  I'll see if I can set up a
+router, target, and DoS box.
 
-It is the same trick as used by the flow cache.
-   
-I'll code this up as well.
+I haven't been able to get juno-z.101f.c to saturate 100 Mbit/sec
+outgoing, but I've only tried it on eepro100 boxes.  Has anybody got it
+to send more?  Mmm, need more tg3 cards...
 
-   > kill of route cache GC entriely if this scheme works well.
-   
-   I asked Alexey about this before and he mentioned it was there because it
-   made a big difference in processing latency to postpone cleanup to a GC
-   run.
-
-The problem is that GC cannot currently keep up with DoS like traffic
-pattern.  As a result, routing latency is not smooth at all, you get
-spikes because each GC run goes for up to an entire jiffie because it
-has so much work to do.  Meanwhile, during this expensive GC
-processing, packet processing is frozen on UP system.
-
-net/core/flow.c:flow_cache_lookup() is instructive, it implements
-several of these ideas being discussed today.
+Simon-
