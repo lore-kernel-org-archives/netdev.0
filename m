@@ -1,34 +1,35 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: waiting for ppp0 to become free (Re: ppp0 out of control)
-Date: Sun, 30 Jan 2005 15:39:56 +0000
-Message-ID: <1106857106.14782.56.camel@localhost.localdomain>
-References: <20050121144444.GA2100@roxor.be>
-	 <20050126094422.GA31040@lk8rp.mail.xeon.eu.org>
-	 <20050126203118.GB3705@roxor.be>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Sun, 30 Jan 2005 08:57:02 -0800
+Message-ID: <20050130165702.GA14642@linuxace.com>
+References: <20050127082809.A20510@flint.arm.linux.org.uk> <20050127004732.5d8e3f62.akpm@osdl.org> <16888.58622.376497.380197@robur.slu.se> <20050127164918.C3036@flint.arm.linux.org.uk> <20050127123326.2eafab35.davem@davemloft.net> <20050128001701.D22695@flint.arm.linux.org.uk> <20050127163444.1bfb673b.davem@davemloft.net> <20050128085858.B9486@flint.arm.linux.org.uk> <20050130132343.A25000@flint.arm.linux.org.uk> <20050130153449.B25000@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Janos Farkas <jf-ml-k1-1087813225@lk8rp.mail.xeon.eu.org>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-8859-1?Q?Aur=E9lien_G=C9R=D4ME?= <ag@roxor.be>
-In-Reply-To: <20050126203118.GB3705@roxor.be>
+To: "David S. Miller" <davem@davemloft.net>, Robert.Olsson@data.slu.se,
+        akpm@osdl.org, torvalds@osdl.org, alexn@dsv.su.se, kas@fi.muni.cz,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20050130153449.B25000@flint.arm.linux.org.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mer, 2005-01-26 at 20:31, Aur=C3=A9lien G=C3=89R=C3=94ME wrote:
-> Yep, 2.6.8.1 works fine, this issue appears on 2.6.9 and 2.6.10. I
-> switched to a Debian 2.6.10 kernel for security reasons, and
-> the issue has not come yet. I had a glance at the changelog and
-> saw some network related patches. This is the -as patchset, see
-> <http://kerneltrap.org/node/4545> about it.
+On Sun, Jan 30, 2005 at 03:34:49PM +0000, Russell King wrote:
+> I think the case against the IPv4 fragmentation code is mounting.
+> However, without knowing what the expected conditions for this code,
+> (eg, are skbs on the fraglist supposed to have NULL skb->dst?) I'm
+> unable to progress this any further.  However, I think it's quite
+> clear that there is something bad going on here.
 
+Interesting...the gateway which exhibits the problem fastest in my
+area does have a large number of fragmented UDP packets running through it,
+as shown by tcpdump 'ip[6:2] & 0x1fff != 0'.
 
-2.6.9 changed the tty hangup code and this did introduce a problem with
-serial ppp ignoring hangups. That was fixed in 2.6.9-ac and the fix is
-in 2.6.10. If you are using serial ppp the 2.6.8 to 9 breakage is known
-but the 2.6.10 case should be fine.
+> Why many more people aren't seeing this I've no idea.
 
-Alan
+Perhaps you (and I) experience more fragments than the average user???
+
+Nice detective work!
+
+Phil
