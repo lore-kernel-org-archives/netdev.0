@@ -1,24 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.4] PKT_SCHED: Fix ingress qdisc to pick up IPv6
- packets
-Date: Wed, 2 Feb 2005 14:30:38 -0800
-Message-ID: <20050202143038.0e0e5dbc.davem@davemloft.net>
-References: <20050131184827.GH31837@postel.suug.ch>
-	<20050202130743.065bc627.davem@davemloft.net>
-	<20050202223629.GS31837@postel.suug.ch>
+From: "Bill Rugolsky Jr." <brugolsky@telemetry-investments.com>
+Subject: Re: limited number if iptable rules on 64bit hosts
+Date: Wed, 2 Feb 2005 17:38:53 -0500
+Message-ID: <20050202223853.GA29237@ti64.telemetry-investments.com>
+References: <20050202133851.GA9680@suse.de> <20050202222516.GA15440@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050202223629.GS31837@postel.suug.ch>
+To: Olaf Hering <olh@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20050202222516.GA15440@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Feb 2005 23:36:29 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+On Wed, Feb 02, 2005 at 11:25:16PM +0100, Olaf Hering wrote:
+> it triggers the first -ENOMEM in
+> net/ipv4/netfilter/ip_tables.c:do_replace
+> 
+> sizeof(struct ipt_table_info)+SMP_ALIGN(tmp.size)*NR_CPUS == 67108992 bytes
+> 
+> 128+524288*128==67108992
+> 
+> (sizeof(struct ipt_table_info) + (((tmp.size) + (1 << 7)-1) & ~((1 << 7)-1)) * 128)
+> 
+> hmm, no braces missing.
 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+I don't have time to look now [I'm running for the door],
+but that's possibly the vmalloc() limit of 64M (67108864) ?
 
-Applied, thanks Thomas.
+Regards,
+
+	Bill Rugolsky
