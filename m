@@ -1,9 +1,9 @@
 From: akpm@osdl.org
-Subject: [patch 01/10] xircom_tulip_cb.c build fix
-Date: Tue, 04 Jan 2005 21:59:26 -0800
-Message-ID: <200501050559.j055xZ614657@mail.osdl.org>
-Cc: davem@davemloft.net, netdev@oss.sgi.com, akpm@osdl.org, bero@arklinux.org,
-        bunk@stusta.de
+Subject: [patch 09/10] r8169: oversized driver field for ethtool
+Date: Tue, 04 Jan 2005 21:59:35 -0800
+Message-ID: <200501050559.j055xi614722@mail.osdl.org>
+Cc: davem@davemloft.net, netdev@oss.sgi.com, akpm@osdl.org,
+        romieu@fr.zoreil.com, rich@phekda.gotadsl.co.uk
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
@@ -11,56 +11,50 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-From: Bernhard Rosenkraenzer <bero@arklinux.org>,
-      Adrian Bunk <bunk@stusta.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-- Define `debug' before using it.
+Reported by Richard Dawe <rich@phekda.gotadsl.co.uk>:
+- RTL8169_DRIVER_NAME contains more than the 32 characters allowed for the
+  driver field;
+- remove RTL8169_DRIVER_NAME as it is only used once.
 
-- remove now-unneeded module_parm_array hack.
-
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/drivers/net/tulip/xircom_tulip_cb.c |   19 +++++++++----------
- 1 files changed, 9 insertions(+), 10 deletions(-)
+ 25-akpm/drivers/net/r8169.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff -puN drivers/net/tulip/xircom_tulip_cb.c~xircom_tulip_cb-build-fix drivers/net/tulip/xircom_tulip_cb.c
---- 25/drivers/net/tulip/xircom_tulip_cb.c~xircom_tulip_cb-build-fix	2005-01-04 21:54:38.251683304 -0800
-+++ 25-akpm/drivers/net/tulip/xircom_tulip_cb.c	2005-01-04 21:54:41.815141576 -0800
-@@ -33,6 +33,13 @@
+diff -puN drivers/net/r8169.c~r8169-oversized-driver-field-for-ethtool drivers/net/r8169.c
+--- 25/drivers/net/r8169.c~r8169-oversized-driver-field-for-ethtool	2005-01-04 21:57:36.451592800 -0800
++++ 25-akpm/drivers/net/r8169.c	2005-01-04 21:57:36.455592192 -0800
+@@ -63,7 +63,6 @@ VERSION 1.6LK	<2004/04/14>
  
- /* A few user-configurable values. */
+ #define RTL8169_VERSION "1.6LK"
+ #define MODULENAME "r8169"
+-#define RTL8169_DRIVER_NAME   MODULENAME " Gigabit Ethernet driver " RTL8169_VERSION
+ #define PFX MODULENAME ": "
  
-+#define xircom_debug debug
-+#ifdef XIRCOM_DEBUG
-+static int xircom_debug = XIRCOM_DEBUG;
-+#else
-+static int xircom_debug = 1;
-+#endif
-+
- /* Maximum events (Rx packets, etc.) to handle at each interrupt. */
- static int max_interrupt_work = 25;
+ #ifdef RTL8169_DEBUG
+@@ -564,8 +563,8 @@ static void rtl8169_get_drvinfo(struct n
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
  
-@@ -124,19 +131,11 @@ module_param(max_interrupt_work, int, 0)
- module_param(rx_copybreak, int, 0);
- module_param(csr0, int, 0);
+-	strcpy(info->driver, RTL8169_DRIVER_NAME);
+-	strcpy(info->version, RTL8169_VERSION );
++	strcpy(info->driver, MODULENAME);
++	strcpy(info->version, RTL8169_VERSION);
+ 	strcpy(info->bus_info, pci_name(tp->pci_dev));
+ }
  
--static int num_units;
--module_param_array(options, num_units, int, 0);
--module_param_array(full_duplex, num_units, int, 0);
-+module_param_array(options, int, NULL, 0);
-+module_param_array(full_duplex, int, NULL, 0);
+@@ -1282,7 +1281,8 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	board_idx++;
  
- #define RUN_AT(x) (jiffies + (x))
- 
--#define xircom_debug debug
--#ifdef XIRCOM_DEBUG
--static int xircom_debug = XIRCOM_DEBUG;
--#else
--static int xircom_debug = 1;
--#endif
--
- /*
- 				Theory of Operation
+ 	if (!printed_version) {
+-		printk(KERN_INFO RTL8169_DRIVER_NAME " loaded\n");
++		printk(KERN_INFO "%s Gigabit Ethernet driver %s loaded\n",
++		       MODULENAME, RTL8169_VERSION);
+ 		printed_version = 1;
+ 	}
  
 _
