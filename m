@@ -1,35 +1,67 @@
-From: CaT <cat@zip.com.au>
-Subject: ipv6 and ipv4 interaction weirdness
-Date: Fri, 11 Mar 2005 23:16:55 +1100
-Message-ID: <20050311121655.GE14146@zip.com.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: A bug in the Kernel?
+Date: 11 Mar 2005 07:31:37 -0500
+Message-ID: <1110544296.1091.155.camel@jzny.localdomain>
+References: <1047.80.249.146.228.1110540470.squirrel@mx.imec.msu.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: itkes@fat.imec.msu.ru
+In-Reply-To: <1047.80.249.146.228.1110540470.squirrel@mx.imec.msu.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I just had some issues with ssh and trying to get it to bind to all ipv6
-and ipv4 addresses to it via :: and 0.0.0.0. The problem was that it'd
-only let one succeed. If 0.0.0.0:22 was successful then :: port 22 could
-not happen and neither could my ipv6 addy port 22 as it would get the
-'address already in use' error from bind(). The reverse was also true.
-If it bound to :: port 22 then 0.0.0.0:22 would fail.
+Hello Alex,
 
-On the other hand if I got it to bind to each address individually then
-both ipv4 (2 addresses) and ipv6 (1 address) binds would succeed.
+I didnt pay close attention to your patch, but i dont see how a problem
+such as you describe can be solved by a patch in the kernel that is not
+coordinated to user space.
 
-Maybe I'm just looking at it wrong but shouldn't ipv4 and ipv6 interfere
-with each other?
+The best way to do it is to have read/write locking of tables issued
+from user (you can use ideas like the NLM_F_ATOMIC flag to signal this).
+Unfortunately this means during the lock period (especially if it  is a
+write lock), incoming/outgoing traffic cannot be processed.
+My belief is this is a design/tradeoff decision made by Alexey to allow
+this "hole" so that we dont have moments where we have freezes".
 
-I'm using kernel 2.6.11-ac2 with OpenSSH_3.8.1p1 Debian-8.sarge.4,
-OpenSSL 0.9.7e 25 Oct 2004 and glibc 2.3.2 (debian version
-2.3.2.ds1-20).
+One way to do it is to have your app A also register to listen to events
+that are happening in the kernel.
+This way when app B deletes those routes it is informed about it.
 
--- 
-    "It goes against the grain of modern education to teach children to
-    program. What fun is there in making plans, acquiring discipline in
-    organising thoughts, devoting attention to detail and learning to be
-    self-critical?" -- Alan Perlis
+cheers,
+jamal
+
+On Fri, 2005-03-11 at 06:27, itkes@fat.imec.msu.ru wrote:
+> Hello.
+> 
+> I think, I have found a bug in the Linux Kernel. It is caused by working
+> with lists by indexes in such operstions as routing tables dump and
+> routing rules dump (functions fib_rules_dump in fib_rules.c and a few dump
+> functions in fib_hash.c). If some elements are removed form the list, the
+> index may identify not the element it identified earlier. As a result,
+> there may happen that an application that requested the routes or rules
+> dump, will not receive the entire table. There is how
+> to make an application to lose some rules.
+> 
+> 1. Add 150 rules to kernel table.
+> 2. Application A sends an RTM_GETRULE message with flag NLM_F_DUMP. The
+> kernel puts first 107 rules to the buffer.
+> 3. Application B deletes first 20 rules.
+> 4. Application A receives the first couple of data from kernel. The kernel
+> puts next couple of rules to the buffer, begining from 108-th rule, that
+> was 128-th earlier.
+> As a result, 20 rules had not been sent to the application, without being
+> deleted or modified during the dump operation.
+> 
+> Routes can be lost, too, if you add certain 5000 routes, request their
+> dump and remove 1000 from them during the dump.
+> 
+> In the patch (against kernel 2.6.11) attached, I have corrected these
+> bugs. In the modified kernel, both dumps of routes and routing rules seems
+> to work properly. But, I think, there can be other bugs similar to this in
+> other dump operations.
+> 
+> Alex Itkes.
