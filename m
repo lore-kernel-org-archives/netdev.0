@@ -1,137 +1,81 @@
-From: Chuck Lever <cel@citi.umich.edu>
-Subject: 2.6.11 oops in skb_drop_fraglist
-Date: Thu, 10 Mar 2005 13:54:13 -0500
-Message-ID: <423097D5.30605@citi.umich.edu>
-Reply-To: cel@citi.umich.edu
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: [PATCH] move tc_u32_mark into pkt_cls.h
+Date: 10 Mar 2005 14:00:48 -0500
+Message-ID: <1110481248.1074.306.camel@jzny.localdomain>
+References: <20050310104207.1d74ac00@dxpl.pdx.osdl.net>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060206010409030806030001"
-Cc: linux-kernel@vger.kernel.org
-To: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050310104207.1d74ac00@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060206010409030806030001
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-testing NFS client workloads on a dual Pentium-III system running 2.6.11 
-with some NFS patches.  i hit this oops while doing simple-minded ftps 
-and tars.
+Agreed on both counts.
 
-the system locks up once or twice a day under this workload.  this is 
-the first time i had the console and captured the oops output.
+Note, however, the tc_u32_mark should die Real Soon Now given the
+meta match patches that are in from Thomas.
+
+cheers,
+jamal
 
 
-Unable to handle kernel NULL pointer dereference at virtual address 00000001
-  printing eip:
-c02fc752
-*pde = 00000000
-Oops: 0000 [#1]
-SMP
-CPU:    0
-EIP:    0060:[<c02fc752>]    Not tainted VLI
-EFLAGS: 00010202   (2.6.11-CITI_NFS4_ALL-1)
-EIP is at skb_drop_fraglist+0x22/0x50
-eax: f6fe26e0   ebx: 00000001   ecx: f6fe26e0   edx: 00000001
-esi: f6f29240   edi: 00000004   ebp: f697ed24   esp: c04cadd8
-ds: 007b   es: 007b   ss: 0068
-Process swapper (pid: 0, threadinfo=c04ca000 task=c03efb60)
-Stack: 00000001 c02fc7fa f6f29240 f697ecc0 c02fc838 00000000 c02fc8ba 
-ccbf2ab0
-        00000b50 c0326a16 f6f87740 f6f29240 f6f29240 c0321c4a 00000020 
-f6f87778
-        f6f87740 f697ecc0 f69d1560 00625a79 c04cae6c 00000000 00000012 
-f697ecc0
-Call Trace:
-  [<c02fc7fa>] skb_release_data+0x5a/0x90
-  [<c02fc838>] kfree_skbmem+0x8/0x20
-  [<c02fc8ba>] __kfree_skb+0x6a/0xf0
-  [<c0326a16>] tcp_transmit_skb+0x406/0x720
-  [<c0321c4a>] tcp_clean_rtx_queue+0x17a/0x410
-  [<c0322566>] tcp_ack+0xf6/0x580
-  [<c03250d9>] tcp_rcv_established+0x409/0x7f0
-  [<c0102fa0>] apic_timer_interrupt+0x1c/0x24
-  [<c032d8b0>] tcp_v4_do_rcv+0x110/0x120
-  [<c032df7f>] tcp_v4_rcv+0x6bf/0x940
-  [<c0313212>] ip_local_deliver+0xc2/0x1f0
-  [<c0313676>] ip_rcv+0x336/0x450
-  [<c02fc591>] alloc_skb+0x41/0xf0
-  [<c0302736>] netif_receive_skb+0x136/0x1a0
-  [<c026ca9e>] e1000_clean_rx_irq+0x15e/0x4a0
-  [<c02fc8ba>] __kfree_skb+0x6a/0xf0
-  [<c026c6da>] e1000_clean+0xba/0xf0
-  [<c030292f>] net_rx_action+0x6f/0x100
-  [<c011d209>] __do_softirq+0xb9/0xd0
-  [<c01048aa>] do_softirq+0x4a/0x60
-
-c02fc730:       53                      push   %ebx
-c02fc731:       8b 80 94 00 00 00       mov    0x94(%eax),%eax
-c02fc737:       8b 58 0c                mov    0xc(%eax),%ebx
-c02fc73a:       c7 40 0c 00 00 00 00    movl   $0x0,0xc(%eax)
-c02fc741:       eb 0d                   jmp    c02fc750 
-<skb_drop_fraglist+0x20>
-c02fc743:       90                      nop
-c02fc744:       90                      nop
-c02fc745:       90                      nop
-c02fc746:       90                      nop
-c02fc747:       90                      nop
-c02fc748:       90                      nop
-c02fc749:       90                      nop
-c02fc74a:       90                      nop
-c02fc74b:       90                      nop
-c02fc74c:       90                      nop
-c02fc74d:       90                      nop
-c02fc74e:       90                      nop
-c02fc74f:       90                      nop
-c02fc750:       89 da                   mov    %ebx,%edx
-c02fc752:       8b 1b                   mov    (%ebx),%ebx
-c02fc754:       8b 82 84 00 00 00       mov    0x84(%edx),%eax
-c02fc75a:       48                      dec    %eax
-c02fc75b:       75 13                   jne    c02fc770 
-<skb_drop_fraglist+0x40>
-c02fc75d:       f0 83 44 24 00 00       lock addl $0x0,0x0(%esp,1)
-c02fc763:       89 d0                   mov    %edx,%eax
-c02fc765:       e8 e6 00 00 00          call   c02fc850 <__kfree_skb>
-c02fc76a:       85 db                   test   %ebx,%ebx
-c02fc76c:       75 e2                   jne    c02fc750 
-<skb_drop_fraglist+0x20>
-c02fc76e:       5b                      pop    %ebx
-c02fc76f:       c3                      ret
-c02fc770:       f0 ff 8a 84 00 00 00    lock decl 0x84(%edx)
-c02fc777:       0f 94 c0                sete   %al
-c02fc77a:       84 c0                   test   %al,%al
-c02fc77c:       74 ec                   je     c02fc76a 
-<skb_drop_fraglist+0x3a>
-c02fc77e:       eb e3                   jmp    c02fc763 
-<skb_drop_fraglist+0x33>
-
-
-
-
---------------060206010409030806030001
-Content-Type: text/x-vcard; charset=utf-8;
- name="cel.vcf"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="cel.vcf"
-
-begin:vcard
-fn:Chuck Lever
-n:Lever;Charles
-org:Network Appliance, Incorporated;Linux NFS Client Development
-adr:535 West William Street, Suite 3100;;Center for Information Technology Integration;Ann Arbor;MI;48103-4943;USA
-email;internet:cel@citi.umich.edu
-title:Member of Technical Staff
-tel;work:+1 734 763-4415
-tel;fax:+1 734 763 4434
-tel;home:+1 734 668-1089
-x-mozilla-html:FALSE
-url:http://www.monkey.org/~cel/
-version:2.1
-end:vcard
-
-
---------------060206010409030806030001--
+On Thu, 2005-03-10 at 13:42, Stephen Hemminger wrote:
+> The tc_u32_mark structure is used as part of the netlink message
+> from the user API to the kernel, so it needs to be moved to include/linux/pkt_cls.h
+> and have types changed from u32 to __u32.
+> 
+> Also, the definition of u32 performance counters doesn't need to depend
+> on the config option.  The definition can exist even if the code isn't
+> enabled.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> diff -Nru a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+> --- a/include/linux/pkt_cls.h	2005-03-10 10:36:39 -08:00
+> +++ b/include/linux/pkt_cls.h	2005-03-10 10:36:39 -08:00
+> @@ -221,14 +221,20 @@
+>  	struct tc_u32_key	keys[0];
+>  };
+>  
+> -#ifdef CONFIG_CLS_U32_PERF
+> +struct tc_u32_mark
+> +{
+> +	__u32		val;
+> +	__u32		mask;
+> +	__u32		success;
+> +};
+> +
+>  struct tc_u32_pcnt
+>  {
+>  	__u64 rcnt;
+>  	__u64 rhit;
+>  	__u64 kcnts[0];
+>  };
+> -#endif
+> +
+>  /* Flags */
+>  
+>  #define TC_U32_TERMINAL		1
+> diff -Nru a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+> --- a/net/sched/cls_u32.c	2005-03-10 10:36:39 -08:00
+> +++ b/net/sched/cls_u32.c	2005-03-10 10:36:39 -08:00
+> @@ -58,14 +58,6 @@
+>  #include <net/act_api.h>
+>  #include <net/pkt_cls.h>
+>  
+> -
+> -struct tc_u32_mark
+> -{
+> -	u32		val;
+> -	u32		mask;
+> -	u32		success;
+> -};
+> -
+>  struct tc_u_knode
+>  {
+>  	struct tc_u_knode	*next;
