@@ -1,23 +1,44 @@
 From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: Re: No Maintainer entry for dl2k driver
-Date: Sat, 18 Dec 2004 01:20:57 +0100
-Message-ID: <41C377E9.1040305@wanadoo.es>
+Subject: Re: Ax88190 specs (was 8390 specs)
+Date: Sat, 18 Dec 2004 01:41:14 +0100
+Message-ID: <41C37CAA.3030608@wanadoo.es>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, jdmason@us.ibm.com
+To: marcelo.tosatti@cyclades.com, netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason wrote:
+Tosatti wrote:
 
-> It has come to my attention that there is no entry in the kernel MAINTAINERS 
-> file for the D-Link Gigabit Ethernet Driver (and possibly no maintainer).  
-> So, I have created a patch for that file with an entry for the driver status 
-> as Orphaned.
+> I'm having a problem with a Linksys EtherFast card (driven by axnet_cs), 
+> where the interrupt status reports ENISR_RX_ERR (receive error) 
+> under load.
+> 
+> I would like to know more details about this status bit, 
+> what can causes it to be turned on, etc.
+> 
+> Do you know where I can find 8390 specs?
+> 
+> 8390.c mentions
+> Sources:
+> The National Semiconductor LAN Databook, and the 3Com 3c503 databook.
+> 
+> But I can't find those available in either Google search or the 
+> National Semiconductor website.
+> 
+> Any information or pointers are welcome, thanks!
 
-Edward Peng <edward_peng@alphanetworks.com> is the current maintainer.
-The 2.4 kernel already has latest release, and 'I think' he is working
-on the 2.6 driver.
+
+Maybe these
+
+   http://www.asix.com.tw/download/Ax88190.pdf
+   http://www.asix.com.tw/download/Ax88190a.pdf
+
+can help you. More docs at -> http://www.asix.com.tw/download_datasheet.htm
+
+regards,
+-- 
+TLOZ OOT: worse than drugs.
