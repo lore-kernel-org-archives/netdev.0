@@ -1,28 +1,47 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: patches for PROC_FS=n (2.6.0-test7)
-Date: Fri, 10 Oct 2003 14:16:46 -0700
+From: hotjobs <hotjobs@secureallinc.com>
+Subject: kernel developers:two openings
+Date: Fri, 10 Oct 2003 14:26:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010141646.779f10bb.rddunlap@osdl.org>
+Message-ID: <1065821197.1612.14.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: lkml <linux-kernel@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        kernelnewbies@nl.linux.org, hotjobs@secureallinc.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+US-CA-San-Jose, CA-Senior Linux Kernel Engineer
 
-drivers/char/toshiba.c and
-net/atm/clip.c don't build if PROC_FS=n.
+SecureAll Inc., headquartered in the Silicon Valley, California, is a
+well-funded start-up in the Enterprise Information Security domain. It
+is well recognized that enterprises are on the average 6 months behind
+on applying security patches.During this period, despite employing
+firewalls and intrusion detection systems, enterprises are vulnerable to
+exploits leveraging the un-patched weaknesses.It is also acknowledged
+that patch management is an imperfect science and does not take away the
+risk of applying patches without adequate testing. SecureAll offers 
+a solution that is truly radical and solves the above problems in an
+elegant fashion. The foundation of the company is based on a patented
+breakthrough technology that takes network-based enterprise security to
+the next level. We are currently looking to fill two full-time regular
+positions in our San Jose, CA facility both requiring extensive
+experience with Linux Kernel programming.  
 
-Patches for them are available at:
 
-http://developer.osdl.org/rddunlap/patches/toshiba_inline_260t7.patch
-http://developer.osdl.org/rddunlap/patches/atmprocfs_260t7.patch
+Sr. Linux Kernel Development Engineer (2 Positions):
 
-There are several other drivers/protocols that don't build
-with PROC_FS=n, like arlan, siimage, ipx, llc, and bluetooth.
+Senior software engineers with 5-10 years of experience in the design,
+implementation,and ongoing development of the Kernels. At least 1 year
+experience with Linux Kernel.Kernel Software development and debugging
+experience preferably in Linux environment.A very strong understanding
+of TCP/IP protocol stack. Development with the stack is a plus.
+Development with Linux 2.6 is a plus Good Understanding of memory
+management, SMP, clustering issues is a plus Experience with the
+hardening of kernel and various protocol stacks for security is a plus
+Experience with design and architecture of mid- to large-sized software
+projects.
 
---
-~Randy
+To Apply for this job, please send a word/text resume to
+hotjobs@secureallinc.com with the position title in the subject line.
