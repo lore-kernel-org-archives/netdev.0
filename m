@@ -1,58 +1,129 @@
-From: CIT/FOONET Admin <xerox@foonet.net>
-Subject: Serious weirdness w/ cbq and everything else
-Date: Sat, 10 Aug 2002 03:40:00 -0400 (EDT)
+From: Geoffrey Lee <glee@gnupilgrims.org>
+Subject: [PATCH] connect() return value.
+Date: Sat, 10 Aug 2002 20:24:41 +1000
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0208100334110.10518-100000@foonix.foonet.net>
+Message-ID: <20020810102441.GA1126@anakin.wychk.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
 Return-path: <owner-netdev@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
 
-I just can't get this to shape right.. I'm using 2.4.19-rc1 but I tried 
-other versions..  what happens is it does not shape to the bandwidth I set 
-it at.. sometimes no where even near it.. I just don't get it.. i even 
-tried changing my HZ to 1000 and trying low latency patches, etc..  What's 
-the deal?
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=big5
+Content-Disposition: inline
 
-My config is just something like this:
+Hi,
 
-DEV=eth0
 
-tc qdisc del dev $DEV root    2> /dev/null > /dev/null
+I posted this on linux-kernel but didn't get a reply.
 
-tc qdisc add dev $DEV root handle 10:0 cbq bandwidth 100mbit avpkt 200 mpu 64
-
-tc class add dev $DEV parent 10:0  classid 10:1 est 1sec 8sec  cbq bandwidth 250Kbit rate 250Kbit \
-weight 25Kbit allot 1500 prio 3 minburst 64 maxburst 256 avpkt 128 cell 8 bounded
-
-tc qdisc add dev $DEV parent 10:1 sfq quantum 1514b perturb 5
-
-tc class add dev $DEV parent 10:0  classid 10:51 est 1sec 8sec  cbq 
-bandwidth 100mbit rate \
-   100Mbit allot 1514 prio 3 maxburst 10 cell 8 avpkt  500 bounded
-
-tc qdisc add dev $DEV parent 10:51 tbf rate 1mbit buffer 2kb latency 100ms 
-mtu 1514
+Anyway here's a patch for it.
 
 
 
-then filters........ pointing to that.. i even added the rate estimator 
-just recently and look what it shows:
+Problem:
 
-class cbq 10:1 parent 10: leaf 800d: rate 250000bps cell 8b (bounded) prio 
-3/3 weight 250bps allot 1514b
-level 0 ewma 5 avpkt 200b
- Sent 6294040846 bytes 20138257 pkts (dropped 6644, overlimits 21092797)
- rate 241446bps 555pps
-  borrowed 0 overactions 762540 avgidle 0 undertime -3
+(1)
+
+While you try to connect() to port 0 on ipv4 / ipv6, it happily does it.
+This doesn't seem to be correct, as I remember port 0 is reserved.
+For reference FreeBSD / Solaris / OSF return -EADDRNOTAVAIL for this.
+
+This is what my patch fixes, for ipv4 and ipv6 for both tcp and udp,
+I don't know what should be done for the other protocols that is 
+supported.
 
 
-that class is actually doing about 2Mbps not .241Mbps like the estimator 
-says.. i tried even setting the bandwidth to 2500000 bps as you see and it 
-still lets it go over 5Mbps for i have no idea why except that the 
-estimator shows 400000bps when it's doing 5Mbps for some odd reason.. that 
-doesn't add up at all!!  Any ideas?
+(2)
 
-Paul
+connect() doesn't return -EINTR on signal, rather it exits the signal
+handler after processing it and returns an error if an error occurred
+for the connection or does the connect to completion. The Linux man page 
+implies that we don't ever return an -EINTR on Linux, but I don't know what 
+is the correct behavior.  For reference, FreeBSD / Solaris / OSF return
+-EINTR for an interrupted connect().
+
+The patch also addresses this. However, it is noted on OSF that even
+though connect() returns with -EINTR if the connection succeeds you can
+still send and receive through that socket.
+
+
+(Please CC:, not on list. Thanks).
+
+	-- G.
+	
+
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=big5
+Content-Disposition: attachment; filename=network-patch
+
+diff -ruNp linux-2.4.19/net/ipv4/tcp_ipv4.c linux-2.4.19-glee/net/ipv4/tcp_ipv4.c
+--- linux-2.4.19/net/ipv4/tcp_ipv4.c	2002-08-03 19:26:04.000000000 +1000
++++ linux-2.4.19-glee/net/ipv4/tcp_ipv4.c	2002-08-10 19:34:24.000000000 +1000
+@@ -763,6 +763,9 @@ int tcp_v4_connect(struct sock *sk, stru
+ 	if (usin->sin_family != AF_INET)
+ 		return(-EAFNOSUPPORT);
+ 
++	if (usin->sin_port == 0)
++		return(-EADDRNOTAVAIL);
++
+ 	nexthop = daddr = usin->sin_addr.s_addr;
+ 	if (sk->protinfo.af_inet.opt && sk->protinfo.af_inet.opt->srr) {
+ 		if (daddr == 0)
+diff -ruNp linux-2.4.19/net/ipv4/udp.c linux-2.4.19-glee/net/ipv4/udp.c
+--- linux-2.4.19/net/ipv4/udp.c	2002-08-03 19:26:04.000000000 +1000
++++ linux-2.4.19-glee/net/ipv4/udp.c	2002-08-10 19:34:52.000000000 +1000
+@@ -723,6 +723,9 @@ int udp_connect(struct sock *sk, struct 
+ 	if (usin->sin_family != AF_INET) 
+ 	  	return -EAFNOSUPPORT;
+ 
++	if (usin->sin_port == 0)
++		return -EADDRNOTAVAIL;
++
+ 	sk_dst_reset(sk);
+ 
+ 	oif = sk->bound_dev_if;
+diff -ruNp linux-2.4.19/net/ipv6/tcp_ipv6.c linux-2.4.19-glee/net/ipv6/tcp_ipv6.c
+--- linux-2.4.19/net/ipv6/tcp_ipv6.c	2002-08-03 19:26:04.000000000 +1000
++++ linux-2.4.19-glee/net/ipv6/tcp_ipv6.c	2002-08-10 19:35:57.000000000 +1000
+@@ -539,6 +539,9 @@ static int tcp_v6_connect(struct sock *s
+ 	if (usin->sin6_family != AF_INET6) 
+ 		return(-EAFNOSUPPORT);
+ 
++	if (usin->sin6_port == 0)
++		return -EADDRNOTAVAIL;
++
+ 	fl.fl6_flowlabel = 0;
+ 	if (np->sndflow) {
+ 		fl.fl6_flowlabel = usin->sin6_flowinfo&IPV6_FLOWINFO_MASK;
+diff -ruNp linux-2.4.19/net/ipv6/udp.c linux-2.4.19-glee/net/ipv6/udp.c
+--- linux-2.4.19/net/ipv6/udp.c	2002-08-03 19:26:04.000000000 +1000
++++ linux-2.4.19-glee/net/ipv6/udp.c	2002-08-10 19:36:22.000000000 +1000
+@@ -231,6 +231,9 @@ int udpv6_connect(struct sock *sk, struc
+ 	if (usin->sin6_family != AF_INET6) 
+ 	  	return -EAFNOSUPPORT;
+ 
++	if (usin->sin6_port == 0)
++		return -EADDRNOTAVAIL;
++
+ 	fl.fl6_flowlabel = 0;
+ 	if (np->sndflow) {
+ 		fl.fl6_flowlabel = usin->sin6_flowinfo&IPV6_FLOWINFO_MASK;
+diff -ruNp linux-2.4.19/net/socket.c linux-2.4.19-glee/net/socket.c
+--- linux-2.4.19/net/socket.c	2002-08-03 19:26:04.000000000 +1000
++++ linux-2.4.19-glee/net/socket.c	2002-08-10 19:37:23.000000000 +1000
+@@ -1118,6 +1118,9 @@ asmlinkage long sys_connect(int fd, stru
+ out_put:
+ 	sockfd_put(sock);
+ out:
++	if (signal_pending(current))
++		return -EINTR;
++
+ 	return err;
+ }
+ 
+
+--gKMricLos+KVdGMg--
