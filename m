@@ -1,40 +1,51 @@
-From: Greg Banks <gnb@melbourne.sgi.com>
-Subject: Re: [NFS] [PATCH][RFC] use completions instead of sleep_on for rpciod
-Date: Tue, 10 Feb 2004 12:52:18 +1100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH,RFC] [NET] ALIGN
+Date: Tue, 10 Feb 2004 13:05:43 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40283952.6093F19D@melbourne.sgi.com>
-References: <20040207144405.GA19416@lst.de> <20040209102801.GC21364@suse.de>
+Message-ID: <20040210.130543.130923643.yoshfuji@linux-ipv6.org>
+References: <20040209.134528.28683257.yoshfuji@linux-ipv6.org>
+	<20040209112007.08023ba6.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@lst.de>, netdev@oss.sgi.com,
-        nfs@lists.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Olaf Kirch <okir@suse.de>
+To: davem@redhat.com
+In-Reply-To: <20040209112007.08023ba6.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Olaf Kirch wrote:
-> 
-> [...] The code in fs/nfs/unlink.c is probably also racy
-> without BKL.
+In article <20040209112007.08023ba6.davem@redhat.com> (at Mon, 9 Feb 2004 11:20:07 -0800), "David S. Miller" <davem@redhat.com> says:
 
-I had cause to poke around there recently, and it's *definitely* racy
-without BKL.  That file would benefit from several modernisations:
+> > BTW, 
+> >  1. do we really need this ALIGN?
+> >  2. should 16 be BYTES_PER_WORD (in mm/slab.c)?
+:
+> I think this is complete nonsense, and that the alignment is not
+> necessary.  I can't even come up with a performance reason as SLAB
+> is going to align things to hw cache line size anyways.
 
-1.  move the list of nfs_unlinkdata from a global to a field in nfs_server
+Agreed.
 
-2.  add a lock in nfs_server for it instead of implicit BKL in
-    nfs_complete_unlink, nfs_async_unlink, nfs_put_unlinkdata
+> Else let's just remove this bogus 16 byte alignment in the
+> kmem_cache_create() call.
 
-3.  use proper list.h lists
+Let's kill it. It is very likely safe.
 
-> So if you remove the sunrpc BKL be prepared for lots and lots
-> of bug reports :)
+===== net/core/neighbour.c 1.24 vs edited =====
+--- 1.24/net/core/neighbour.c	Tue Jan 20 14:31:23 2004
++++ edited/net/core/neighbour.c	Tue Feb 10 13:01:15 2004
+@@ -1164,8 +1164,7 @@
+ 
+ 	if (!tbl->kmem_cachep)
+ 		tbl->kmem_cachep = kmem_cache_create(tbl->id,
+-						     (tbl->entry_size +
+-						      15) & ~15,
++						     tbl->entry_size,
+ 						     0, SLAB_HWCACHE_ALIGN,
+ 						     NULL, NULL);
+ 	tbl->lock	       = RW_LOCK_UNLOCKED;
 
-Yes but it's worth doing, especially serverside.
-
-Greg.
 -- 
-Greg Banks, R&D Software Engineer, SGI Australian Software Group.
-I don't speak for SGI.
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
