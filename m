@@ -1,23 +1,25 @@
-From: Paul Hendricksen <paulh@voidnetworks.com>
-Subject: Linux Kernel - File Structure Independent?
-Date: Mon, 15 Apr 2002 18:56:38 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20020415185502.W66387-100000@intrex.yserver.net>
+From: wangxiangyu@peoplemail.com.cn
+Subject: a question on loopback
+Date: Tue, 16 Apr 2002 11:07:12 +0800 (CST)
+Sender: owner-netdev@oss.sgi.com
+Message-ID: <3t979583889287.26127@freemail.peopledaily.com.cn>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Return-path: <linux-net-owner@vger.kernel.org>
-To: <alan@the.3c501.cabal.tm>, <linux-net@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+Return-path: <owner-netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Dear Mr. Cox,
-
-I am going though hacking at the kernel source and have come to a wall. I
-cannot seem to find any information claiming that the Linux Kernel is file
-structure independent.
-
-You are my last resort. Please enlighten me.
-
-Thank You,
-Paul Hendricksen
-
+Hello,
+I want to use my usb host-host cable to do a send/receive test on my sing=
+le pc,
+but ip layer of net system will only do a loopback on one host condition.=
+ How
+can I do to force it send/receive through device layer?
+thanks
+Best Regards
+Xiang-Yu Wang
+------------------------------------------------------------------
+=C8=CB=C3=F1=CD=F8=A1=B6=D5=FE=B2=DF=D0=C5=CF=A2=A1=B7=CD=F8=C9=CF=CA=D5=B7=
+=D1=D4=D3=D6=BE
+=BB=B6=D3=AD=D4=EC=B7=C3=A3=BAhttp://zcxx.people.com.cn
