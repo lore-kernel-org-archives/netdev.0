@@ -1,98 +1,57 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+From: Vladimir Kondratiev <vkondra@mail.ru>
 Subject: Re: in-driver QoS
-Date: Wed, 9 Jun 2004 10:40:21 -0700
+Date: Wed, 9 Jun 2004 21:27:28 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040609174021.GA26159@bougret.hpl.hp.com>
-References: <20040608184831.GA18462@bougret.hpl.hp.com> <1086722317.1023.18.camel@jzny.localdomain> <20040608195238.GA21089@bougret.hpl.hp.com> <1086728139.1023.71.camel@jzny.localdomain> <20040608220109.GA24536@bougret.hpl.hp.com> <1086752809.1049.62.camel@jzny.localdomain>
-Reply-To: jt@hpl.hp.com
+Message-ID: <200406092127.28477.vkondra@mail.ru>
+References: <20040608184831.GA18462@bougret.hpl.hp.com> <200406090851.40691.vkondra@mail.ru> <1086780010.1051.106.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: jt@hpl.hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: netdev@oss.sgi.com, hadi@cyberus.ca
+In-Reply-To: <1086780010.1051.106.camel@jzny.localdomain>
 Content-Disposition: inline
-In-Reply-To: <1086752809.1049.62.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 08, 2004 at 11:46:49PM -0400, jamal wrote:
-> On Tue, 2004-06-08 at 18:01, Jean Tourrilhes wrote:
-> 
-> > 	Yep. This impact the contention process.
-> > 	This is similar to what was implemented in 100VG / IEEE
-> > 802.12, but in more elaborated.
-> 
-> so the only differentiation is on backoff and contention window
-> parameters. In other words, higher prio will get opportunity to be more
-> of a hog or aggressive?
+> > Due to single queue, I can't provide separate back
+> > pressure for different access categories. What I do now, I do some
+> > internal buffering and netif_stop_queue() when total number of packets
+> > (or bytes) exceed some threshold. Of course, with watermarks to fight
+> > jitter.
+>
+> Will work fine if you have mostly only one priority really.
+Unfortunately, yes.
+>
+> > Let's consider real example. Some application do FTP transfer, lots of
+> > data. Simultaneously, voice-over-IP connection invoked. Now question is:
+> > how to assure voice quality?
+>
+> Non-trivial with current setup.
+>
+> > Accordingly to TGe, voice is send either with high
+> > priority, or in TSPEC. If we will send all packets with high priority, we
+> > will hit ourselves. If we can't provide some back pressure for low
+> > priority traffic, it will block voice packets, since some moment you
+> > should netif_stop_queue().
+> >
+> > Ideal would be if I can call netif_stop_queue(id), separately for each
+> > id.
+>
+> Indeed.
+> Looking at the transmit path code it seems doable.
+> for each dev->id you also maintain a dev->id_state.
+> We either use skb->fwmark or skb->priority to map to the different
+BTW, what is fwmark? in 2.6.6 it is not present.
+> dev->ids.
+> The major challenge would be how to start the different queues once they
+> are stopped. I suspect there is only tx completed interupt; i take it
+> you can tell when each of the FIFOs is ready to swallow more packets?
+Sure. I know when each DMA queue have space to accept new packets. w.r.t Tx 
+discipline, it is really like 4 (taking into account TSPEC, see my mail about 
+TGe, minimum 5 for STA and 6 (i did not said about power save buffering) for 
+AP) independent devices.
 
-	Yep. It's like a fast pass to cut the line at DisneyWorld.
-
-> > There is 4 FIFOs (or whichever number then want to configure)
-> > in parallel.
-> > Most likely, the FIFOs will share the same memory pool on the
-> > card, so when a FIFO is full, most likely the other FIFOs will be full
-> > or close to it.
-> 
-> How do you reach such a conclusion?
-> There maybe packets of the same priority for longs periods of time.
-
-	If all the FIFO take from the same memory pool, when one FIFO
-is full, it means that the memory pool is exhausted. If the memory
-pool is exhausted, then you can't fill the other FIFOs.
-
-> But then you loose sync with the qdisc level scheduling.
-> Assume a burst of low prio packets arrive, they get drained to the low
-> prio FIFO in the driver. It gets full and now we lock the driver.
-> Next a burst of high prio packets come in and they cantt be sent to the
-> driver until all low prio packets already on FIFO are sent.
-
-	Yep. That's no worse than what we have today with a single
-FIFO in today's cards. Remember that amount of buffer on the card is
-limited, so we are not talking of an incredible number of packets in
-those FIFO. I'm 100% with Andy in suggesting to keep hardware FIFO as
-short as possible, precisely so that the TC scheduling is effective.
-	If you let the card scheduler take over, it will screw up your
-TC scheduling no matter what, unless the card scheduler use the exact
-same scheduling as TC (which is unlikely for complex TC policies).
-	If the card policy is to always drain the highest priority
-queue first, and you want to guarantee a minimum bandwidth for low
-priority traffic at the TC level, if you let the card scheduler do its
-business and always feed high priority traffic when it wants it, then
-there is no way you can guarantee your minimum bandwidth for low
-priority traffic.
-
-> > But, we are talking there as if the hardware was going to have
-> > some incredibly smart scheduler across FIFOs. From my experience with
-> > wireless MAC implementations, the behaviour will be really simplistic
-> > (always send from the highest priority FIFO), if not totally
-> > broken. 
-> 
-> "Always send from highest priority" is fine.
-
-	No, it's fine only if TC policy is "Always send from highest
-priority". If TC policy is different, then it's not fine at all.
-
-> Its what the default linux
-> scheduler and the prio qdisc do. A lot of research and experienece has
-> gone into understanding their behaviors.
-> Perhaps you could tell users to configure such prioritization when using
-> these NICs.
-
-	You assume that the card scheduler will be configurable, and
-work as expected. Wait and see ;-)
-
-> We need to make chnages and do it properly. 
-> Your approach to use only one priority/FIFO is not sane. 
-> Of course the wireless people dont have to use it - Although that will
-> be a mistake. I have a NIC that has two DMA channels which i plan to map
-> to X priority levels at the the qdisc levels. 
-
-	Good luck ;-)
-
-> cheers,
-> jamal
-
-	Have fun...
-
-	Jean
+I see you got the idea. Question is, how to implement it.
