@@ -1,76 +1,48 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: [PATCH] Add Altimata PHY to sis900 driver
-Date: Thu, 28 Oct 2004 12:21:02 +0200
+From: Terje Kvernes <terjekv@math.uio.no>
+Subject: Re: linux-2.6.9 eepro100 warning
+Date: Thu, 28 Oct 2004 17:45:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028102102.GD3806@picchio.gall.it>
+Message-ID: <wxxekjiq21q.fsf@nommo.uio.no>
+References: <200410232313.AA00003@prism.kumin.ne.jp>
+	<417C9A4E.3030909@pobox.com> <wxxr7nma801.fsf@nommo.uio.no>
+	<418077BC.10806@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="p2kqVDKq5asng8Dg"
+Content-Type: text/plain; charset=us-ascii
+Cc: Seiichi Nakashima <nakasima@kumin.ne.jp>, linux-kernel@vger.kernel.org,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@oss.sgi.com>
-Content-Disposition: inline
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <418077BC.10806@pobox.com> (Jeff Garzik's message of "Thu, 28
+ Oct 2004 00:38:20 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik <jgarzik@pobox.com> writes:
 
---p2kqVDKq5asng8Dg
-Content-Type: multipart/mixed; boundary="xXmbgvnjoT4axfJE"
-Content-Disposition: inline
+  [ ... ]
 
+> If there are e100 problems, report them to the maintainers so we can
+> get them resolved ASAP...
 
---xXmbgvnjoT4axfJE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+  I got a very nice mail from Jesse Brandeburg saying pretty much the
+  same thing...  so, I've pushed kernels for around 75 boxen over to
+  e100 today, from eepro100.  I'm not _quite_ sure when I'll have the
+  chance to boot them all, but when they do, and if they have
+  problems, I'll report back.
+ 
+> INTEL PRO/100 ETHERNET SUPPORT
+> P:      John Ronciak
+> M:      john.ronciak@intel.com
+> P:      Ganesh Venkatesan
+> M:      ganesh.venkatesan@intel.com
+> P:      Scott Feldman
+> M:      scott.feldman@intel.com
+> W:      http://sourceforge.net/projects/e1000/
+> S:      Supported
+> 
+> (and of course netdev@oss.sgi.com as well)
 
-The attached patch fixes a long standing detection problem with the
-sis900 driver.
-This PHY chip is used on some Pentium 4  with SiS chipset and on the
-Acer Aspire 1705SMi (at least) notebook.
+  ack.
 
-The patch is made against kernel 2.6.9 and is available also on
-http://teg.homeunix.org/sis900.html
-
-Please, consider for inclusion.
-
-Signed-Off-By: Daniele Venzano <webvenza@libero.it>
-
---=20
------------------------------
-Daniele Venzano
-Web: http://teg.homeunix.org
-
-
---xXmbgvnjoT4axfJE
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sis900-new-altimata-phy.diff"
-
-Index: sis900.c
-===================================================================
---- a/drivers/net/sis900.c	(revision 12)
-+++ b/drivers/net/sis900.c	(working copy)
-@@ -120,6 +120,7 @@
- } mii_chip_table[] = {
- 	{ "SiS 900 Internal MII PHY", 		0x001d, 0x8000, LAN },
- 	{ "SiS 7014 Physical Layer Solution", 	0x0016, 0xf830, LAN },
-+	{ "Altimata AC101LF PHY",               0x0022, 0x5520, LAN },
- 	{ "AMD 79C901 10BASE-T PHY",  		0x0000, 0x6B70, LAN },
- 	{ "AMD 79C901 HomePNA PHY",		0x0000, 0x6B90, HOME},
- 	{ "ICS LAN PHY",			0x0015, 0xF440, LAN },
-
---xXmbgvnjoT4axfJE--
-
---p2kqVDKq5asng8Dg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBgMgN2rmHZCWzV+0RAjCmAKCdIPKBXO5IQkW81RxFN7nA4/uRkgCfRHkP
-vvGATLCvtCud6L5uk6gQ0Sg=
-=Yjk4
------END PGP SIGNATURE-----
-
---p2kqVDKq5asng8Dg--
+-- 
+Terje - still waiting to test hotswap SATA.   =)
