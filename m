@@ -1,8 +1,8 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [Patch 14/16 2.5] ixgb: version number update
-Date: Fri, 15 Oct 2004 06:56:13 -0700 (PDT)
+Subject: [Patch 0/16 2.5] ixgb driver update
+Date: Fri, 15 Oct 2004 06:56:52 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0410150642140.31227-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0410150616290.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,22 +11,22 @@ To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c	2004-10-05 15:50:18.000000000 -0700
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c	2004-10-05 17:55:48.000000000 -0700
-@@ -30,8 +30,13 @@
- 
- char ixgb_driver_name[] = "ixgb";
- char ixgb_driver_string[] = "Intel(R) PRO/10GbE Network Driver";
--char ixgb_driver_version[] = "1.0.66";
--char ixgb_copyright[] = "Copyright (c) 2001-2004 Intel Corporation.";
-+#ifndef CONFIG_IXGB_NAPI
-+#define DRIVERNAPI
-+#else
-+#define DRIVERNAPI "-NAPI"
-+#endif
-+char ixgb_driver_version[] = "1.0.82-k2"DRIVERNAPI;
-+char ixgb_copyright[] = "Copyright (c) 2001-2004 Intel Corporation.";
- 
- /* ixgb_pci_tbl - PCI Device ID Table
-  *
+1.  Fix VLAN filter setup errors (while running on PPC)
+2.  Fix memory leak in NAPI mode. Avoid unnecessary work in NAPI Rx cleanup, 
+    if we are done
+3.  Fix endianess issue for Tx cleanup
+4.  Fix NAPI driver crash on ifdown during traffic
+5.  Condition that determines when to quit polling mode includes
+    work done in Tx path
+6.  Fix error in setting Frame Size register while changing mtu 
+7.  Prevent infinite loop trying to re-establish link while actively
+    communicating
+8.  Remove sub-device ids for non-existant hardware.
+9.  Limit Rx Address Filter Array entries to 3
+10. Shrink size of ixgb_buffer (use uint16_t for length/next_to_watch)
+11. Explicitly include workqueue.h
+12. Replace kmalloc with vmalloc to allocate driver local data structures
+13. Ethtool_ops support
+14. Version number update
+15. White space corrections -- 1/2
+16. White space corrections -- 2/2
