@@ -1,49 +1,22 @@
-From: "Ok2mail.com" <amazon_reply@ok2mail.com.sgi.com>
-Subject: Offerts : 7 euros sur Amazon.fr !
-Date: 9 Oct 2002 19:13:04 +0200
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] IPv6: Fix Prefix Length of Link-local Addresses
+Date: Wed, 9 Oct 2002 23:03:29 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <29736.1023062424$1034185825@news.gmane.org>
+Message-ID: <200210091903.XAA20130@sex.inr.ac.ru>
+References: <Pine.LNX.4.44.0210092015540.17906-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: pekkas@netcore.FI (Pekka Savola)
+In-Reply-To: <Pine.LNX.4.44.0210092015540.17906-100000@netcore.fi> from "Pekka Savola" at Oct 9, 2 09:45:01 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Faites-vous plaisir!
+Hello!
 
-Ok2mail.com vous offre un cheque-cadeau de 7 euros, a depenser illico sur 
-Amazon.fr!!!
+> Personally I think the interfaces should be configured with a /64 but 
+> there should be a discard route for the whole /10.
 
-Valable sur tout le catalogue Amazon.fr:
-Livres, Musique, DVD, Video, Logiciels, Jeux Video.
+I agressively agree. :-)
 
-Uniquement jusqu'au dimanche 27 octobre 2002. Profitez-en vite!
-
-Pour cela, notez bien votre code de cheque-cadeau:
-
-CAWX-KTWQ8C-V9AEW6
-
-Vous entrerez ce code sur la page de paiement, dans la case reservee a cet 
-effet.
-
-Cliquez ici pour en profiter: 
-http://www.amazon.fr/exec/obidos/redirect?tag=gcbuon2-21&path=tg/browse/-/405320
-
---------------------------------------------------------------------------
-Votre cheque-cadeau est soumis aux conditions d'utilisation a consulter sur 
-la page http://www.ok2mail.com/conditions_amazon.htm
-
-Important: ces cheques-cadeaux sont limites a 1 par foyer fiscal et par 
-adresse de livraison, a utiliser avant le 27 octobre 2002. La livraison est 
-gratuite a partir de 20 euros d'achats en mode rapide en France 
-metropolitaine.
-
-Vous recevez cet e-mail de la part de Ok2mail.com. Si vous ne souhaitez 
-plus recevoir d'offres speciales de notre part, rendez-vous sur: 
-http://www.ok2mail.com/amazon/desinscription.htm
-
-
-[[HTML alternate version deleted]]
+Alexey
