@@ -1,37 +1,101 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Restrict local IP announcements in ARP requests
-Date: Wed, 11 Feb 2004 20:22:51 -0800
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040211202251.7b05102c.davem@redhat.com>
-References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
-	<20040209140853.69ab8bea.davem@redhat.com>
-	<Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
-	<20040209151053.1f63937a.davem@redhat.com>
-	<Pine.LNX.4.58.0402100154010.1251@u.domain.uli>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: 11 Feb 2004 23:48:47 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1076561326.1032.62.camel@jzny.localdomain>
+References: <Pine.LNX.4.44.0402111534310.2809-100000@l>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.58.0402100154010.1251@u.domain.uli>
+In-Reply-To: <Pine.LNX.4.44.0402111534310.2809-100000@l>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Feb 2004 02:31:23 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Wed, 2004-02-11 at 09:32, Julian Anastasov wrote:
 
-> 	So, if hidden exists and is disabled it will not delay
-> too much the processing but it is true that both arp_rcv and
-> arp_solicit become more and more loaded with ugly checks.
+> > > 	I did it during my initial tests and now I tested it
+> > > again, looks as expected.
+> >
+> > I am not %100 sure if such an entry should be route cached if the nh
+> > is not resolvable. What are your thoughts on this?
+> 
+> 	It looks bad to call route_slow for every one request,
+> I have to think more about it.
 
-The hidden patch does a hundred different things, that's what makes
-it so undigestable. :)
+If you make another get it goes via fast path.
+The disappointing part is this feature has a lot of potential
+if it works "correctly" (imagine being able to populate route cache
+before packet arrives and not needing for packet to go via slow path).
 
-Let us assume your arp_announce patch is applied.  Given that, plus the
-things you've mentioned, only a tiny piece of functionality is
-really needed from that hidden patch.
+>> I think if any cache entry is NUD_VALID you should respond
+>>immediately.
 
-Why don't you extract out just the needed part, and toss together
-an email with that patch explaining that specific behavior change?
+>        No, we should delay the broadcasts if such delay is
+> configured. For unicasts we respond immediately.
 
-Thanks.
+Ok, extend that to say "if we have to respond immediately we may check
+if the target is valid"
+
+> anything else you should enqueue request and initiate a discovery to
+> target.
+> 	By checking ->probes we queue !VALID entries only
+> when switching from FAILED to INCOMPLETE. For example:
+> 
+> - we have 3 brd probes configured to send
+> 
+> - request comes
+> 
+> - we send 1st brd probe for target and enqueue this incoming request
+> and all requests coming before we send the 2nd probe
+> 
+> - we send 2nd probe (still no answer for the 1st)
+> 
+> - at this point we know that target is really dead and we do not
+> need to queue more incoming requests (even brd ones) until target
+> responds (the queue has limit)
+> 
+> - this cycle repeats on each 3 seconds which means that for 1
+> second we queue requests and for 2 seconds we just drop
+
+I am indifferent about the above (and it may be complicating things). 
+
+> 	There is possible loop in this example (as DaveM warned)
+> when ((tv_sec=0 or delay=0) and !valid) but it can be fixed 
+
+Correct
+Note the point i was trying to make in that snippet is: the
+valuable piece is in checking that for cases where we respond 
+immediately we at least validate the state of the target.
+To me thats all you need to do ;->
+
+> (then
+> you will have code in similar size :)). 
+>
+> The problem is that I
+> wanted to avoid creating new flag if there is no need to support
+> the old behavior in the real life. Also, we have choice to apply
+> delay according to the proxy type (DNAT/fwd/pneigh) and the
+> probes sent.
+> 
+
+Ok, remove the flag. That one piece is safe. I didnt understand
+why you have to speacial case for "NAT/fwd/pneigh" 
+
+> 	Also, you do not call neigh_event_send when
+> request with tv_sec!=0 comes. 
+
+I think we have been this whole issue severely (i.e you understand my
+view and i understand yours) - lets get a closure. Heres where i stand:
+- checking validity in fast response is fair game and doesnt need a flag
+- loops must be avoided
+
+Some of your features are fine except they may be a little extreme.
+Note, this code has been to work well for years, the minimalist
+approach to features would be the best approach.
+
+cheers,
+jamal
