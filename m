@@ -1,25 +1,47 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] (2/3) tcp diag info for 2.4
-Date: Sun, 3 Oct 2004 14:53:25 -0700
+Subject: Re: [6/6]: jenkins hash for neigh
+Date: Sun, 3 Oct 2004 14:55:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041003145325.14540736.davem@davemloft.net>
-References: <20041001155620.2f11f9f0@zqx3.pdx.osdl.net>
+Message-ID: <20041003145552.0b1cc0d8.davem@davemloft.net>
+References: <20040925005623.2faf8faf.davem@davemloft.net>
+	<E1CBtzd-0000zI-00@gondolin.me.apana.org.au>
+	<20040927111520.4f495b17.davem@davemloft.net>
+	<20041002075051.GA18037@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Davem@redhat.com, netdev@oss.sgi.com
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041001155620.2f11f9f0@zqx3.pdx.osdl.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041002075051.GA18037@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 1 Oct 2004 15:56:20 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Sat, 2 Oct 2004 17:50:51 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> This adds vegas style bandwidth info to 2.4.
-> Also: makes 2.6 and 2.4 version of tcp_diag.h identical.
+> On Mon, Sep 27, 2004 at 11:15:20AM -0700, David S. Miller wrote:
+> > On Mon, 27 Sep 2004 21:48:33 +1000
+> > Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > 
+> > > > -	if (tbl->entries > (tbl->hash_mask + 1))
+> > > > +	if (tbl->entries > (tbl->hash_mask + 1)) {
+> > > > +		write_lock_bh(&tbl->lock);
+> > > >  		neigh_hash_grow(tbl, (tbl->hash_mask + 1) << 1);
+> > > > +		write_unlock_bh(&tbl->lock);
+> > > > +	}
+> > > 
+> > > The locking should be outside the if block as otherwise you may grow
+> > > unnecessarily or grow into the same size :)
+> > 
+> > I'm not going to do that, because then we're grabbing that lock
+> > twice on every neigh create operation and I was trying hard
+> > to avoid that overhead.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Actually, why don't we just move the expansion into the locked section?
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks Stephen.
+Works for me, patch applied.
+
+Thanks Herbert.
