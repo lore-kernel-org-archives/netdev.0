@@ -1,59 +1,35 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: Wireless Extensions WE-18 questions
-Date: Sun, 8 Aug 2004 18:46:27 +0300
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Message-ID: <20040808154627.GC7138@jm.kir.nu>
-References: <1091444633.2767.8.camel@rootix> <20040803070843.GB7153@jm.kir.nu>
-	<1091929000.2800.12.camel@rootix>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: [2/3] via-rhine: de-isolate PHY
+Date: Sun, 8 Aug 2004 16:02:59 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040808140259.GA8575@k3.hellgate.ch>
+References: <20040808140216.GA8181@k3.hellgate.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jt@hpl.hp.com, netdev@oss.sgi.com, hostap@shmoo.com
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: Pedro Ramalhais <ramalhais@serrado.net>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265772AbUHHQRY@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <1091929000.2800.12.camel@rootix>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+In-Reply-To: <20040808140216.GA8181@k3.hellgate.ch>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 08, 2004 at 02:36:40AM +0100, Pedro Ramalhais wrote:
+PHYs may come up isolated. Make sure we can send data to them. This code
+section needs a clean-up, but I prefer to merge this fix in isolation.
 
-> - what kind of information should be used in set_genie/get_genie
-> requests? I know it's a pointer, but what is the information it points
-> to? ipw2100 firmware expects: capabilities, listening interval,
-> current_ap, var_ie_len and var_ie for setting IEs.
+Report and suggested fix by Tam, Ming Dat (Tommy).
 
-There are additional IEEE 802.11 information elements, including
-identification and length bytes. The data area can include one more
-multiple IEs (e.g., WPA, RSN, WME). Capabilities, listen interval, and
-current AP would be from other ioctls.
+Signed-off-by: Roger Luethi <rl@hellgate.ch>
 
-> - How should IW_AUTH_CIPHER_PAIRWISE and IW_AUTH_CIPHER_GROUP be used
-> with crypt_tkip/crypt_ccmp ?
-
-I'm not sure what you mean with this. Cipher configuration is an
-optional mechanism that some drivers can use for WPA configuration. This
-is especially to make it easier to use drivers that were originally
-designed for NDIS since they generate WPA IE based on the cipher
-configuration whereas some of the (non-NDIS) drivers that I have worked
-with get WPA IE from the Supplicant (i.e., they can share the same code
-for this) and can ignore these values.
-
-> PS: I was hoping someone had already answer my e-mail about the creation
-> of a linux wireless mailing list, and this message would be sent to the
-> new list... oh well
-
-What's wrong with using netdev for this? I think this was the result
-from the last time the topic of adding a new list came up and I don't
-think anything have changed since then. As long as people don't complain
-about getting too much messages about wireless development on netdev, I
-don't see much point in adding a new list.
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+--- linux-2.6.8-rc3-mm1/drivers/net/via-rhine.c.01	2004-08-08 12:36:03.440855262 +0200
++++ linux-2.6.8-rc3-mm1/drivers/net/via-rhine.c	2004-08-08 13:15:24.527527919 +0200
+@@ -896,7 +896,10 @@ static int __devinit rhine_init_one(stru
+ 	pci_set_drvdata(pdev, dev);
+ 
+ 	{
++		u16 mii_cmd;
+ 		int mii_status = mdio_read(dev, phy_id, 1);
++		mii_cmd = mdio_read(dev, phy_id, MII_BMCR) & ~BMCR_ISOLATE;
++		mdio_write(dev, phy_id, MII_BMCR, mii_cmd);
+ 		if (mii_status != 0xffff && mii_status != 0x0000) {
+ 			rp->mii_if.advertising = mdio_read(dev, phy_id, 4);
+ 			printk(KERN_INFO "%s: MII PHY found at address "
