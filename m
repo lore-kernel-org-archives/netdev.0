@@ -1,58 +1,42 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.X] 32->64 bit conversion for wireless private ioctl
-Date: Thu, 24 Jun 2004 21:23:31 -0400
+From: Cheng Jin <chengjin@cs.caltech.edu>
+Subject: Re: TCP receiver's window calculation problem
+Date: Thu, 24 Jun 2004 23:37:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040625012331.GD19939@havoc.gtf.org>
-References: <20040624234307.GA5514@bougret.hpl.hp.com> <20040625001557.GA19939@havoc.gtf.org> <20040625003617.GA6876@bougret.hpl.hp.com>
+Message-ID: <Pine.LNX.4.44.0406241331590.1272-100000@orchestra.cs.caltech.edu>
+References: <Pine.NEB.4.33.0406241519430.28506-100000@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, Andi Kleen <ak@suse.de>,
-        Pavel Machek <pavel@suse.cz>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+        "fast-support@cs.caltech.edu" <fast-support@cs.caltech.edu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-Content-Disposition: inline
-In-Reply-To: <20040625003617.GA6876@bougret.hpl.hp.com>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.NEB.4.33.0406241519430.28506-100000@dexter.psc.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 24, 2004 at 05:36:17PM -0700, Jean Tourrilhes wrote:
-> On Thu, Jun 24, 2004 at 08:15:57PM -0400, Jeff Garzik wrote:
-> > 
-> > You missed what I was trying to communicate :(
-> > 
-> > It is a logical contradiction to create a generic interface for
-> > driver-private ioctls.  You wind up re-inventing Sun XDR.
+
+John,
+
+> > I think having a default limit on tcp memory is acceptable to prevent DoS,
+> > but when a user increases the memory limit by explicitly setting tcp_rmem,
+> > that should take effect.  The code itself shouldnt pose any limit like it
+> > does now.
 > 
-> 	Any interface for device specific stuff has to be generic, it
-> doesn't matter if you use ioctl, netlink, module parameters or
-> pseudo-filesystem.
-> 	Now, we can debate if this generic interface should use ioctl
-> or something else, that's a different issue. I hope you will have
-> noticed that some drivers, such as Orinoco, got rid of their
-> pseudo-filesystem and converted to iwpriv (you may ask David why he
-> did that). So, it's probably not as bad as you claim...
-> 
-> 	The point is that this interface exist, is in use, so we might
-> as well make it 64 bit clean. Therefore patch.
+> The core of the problem is that you are describing a truesize of each skb
+> at about 16k, but each of those only contains < 1500 bytes of payload.
+> You are wasting 90% of your socket memory.  Announcing a 3 MB window with
+> a 30 MB socket buffer is the right thing to do, from a certain point of
+> view.  OTOH, it kills performance.
 
-You're still missing the point.  This 'private_args' interface should
-not exist at all.  Making it 64-bit clean doesn't help anything (it
-still needs to be endian clean as well, but even that's not the point).
-It's a run-time type interface when all other net drivers have managed
-to avoid such a thing.  It's overly complex, and is a "black hole"
-interface that discourages wireless authors from coming together and
-developing more common pieces.
+The receiver is set to use a 9000 MTU, but the sender uses a 1500-byte 
+MTU, which is not really a pathological case.  It would have made more
+sense for the receiver to allocate skbs of the right size as incoming 
+packets are received.  
 
-It's just not Linux in so many ways.  Please, look at how the other
-interfaces in the kernel are designed, and how they evolve over time.
+Is it due to effciency reasons that the skbs are just fixed in size 
+according to the set MTU on the interface card? I suppose that the 
+receiver has no real way of knowing the right MTU size at the sender.
 
+Thanks,
 
-> > We want to go in the opposite direction:  compile and verify as much
-> > code as possible at compile time.  Strong, compile-time type checking.
-> 
-> 	I wonder how you are going to do that for device specific
-> stuff with strong compile time checks. If you convert everything to a
-
-See various implementations of SIOCDEVPRIVATE.
-
-	Jeff
+Cheng
