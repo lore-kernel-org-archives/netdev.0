@@ -1,30 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] kill drivers/net/net_init.c
-Date: Thu, 18 Nov 2004 14:16:30 -0800
-Message-ID: <20041118141630.490a4087.davem@davemloft.net>
-References: <20041114101637.GA31739@lst.de>
+Subject: Re: [PATCH] use local_softirq_pending instead of softirq_pending in
+ netif_rx_ni
+Date: Thu, 18 Nov 2004 14:22:44 -0800
+Message-ID: <20041118142244.0de3378a.davem@davemloft.net>
+References: <20041114103846.GA32024@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20041114101637.GA31739@lst.de>
+In-Reply-To: <20041114103846.GA32024@lst.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 14 Nov 2004 11:16:37 +0100
+On Sun, 14 Nov 2004 11:38:46 +0100
 Christoph Hellwig <hch@lst.de> wrote:
 
-> After the last patch only three routines are left in this file, but all
-> of the fir into net/core/dev.c much better:
+> Some architectures can optimize local_softirq_pending much better than
+> softirq_pending(smp_processor_id()), and for all others the former is
+> just a macro expanding to the later.
 > 
->  - {un,}register_netdev are just wrappers around {un,}register_netdevice
->    from dev.c
->  - alloc_netdev's counterpart, free_netdev is in dev.c aswell.
-> 
-> So move over the remaining contents and add some kerneldoc comments
-> describing the functions.
+> Also this is the last use of softirq_pending() in common code, once this
+> is in we can soon kill the notation of beeing able to query other cpus
+> softirq pending count.
 
 Queued for 2.6.11, thanks Christoph.
