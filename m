@@ -1,40 +1,43 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: [PATCH 2.6] dev.c: clear SIOCGIFHWADDR buffer if !dev->addr_len
-Date: Fri, 29 Oct 2004 22:09:36 -0500
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Asynchronous crypto layer.
+Date: Sat, 30 Oct 2004 09:20:36 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041030030936.GA25102@lists.us.dell.com>
-References: <20041030013700.GA21540@lists.us.dell.com> <E1CNiOT-0008GU-00@gondolin.me.apana.org.au>
+Message-ID: <20041030092036.4f954d89@zanzibar.2ka.mipt.ru>
+References: <Xine.LNX.4.44.0410291342350.22168-100000@thoron.boston.redhat.com>
+	<Xine.LNX.4.44.0410291345410.22168-100000@thoron.boston.redhat.com>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, <cryptoapi@lists.logix.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1CNiOT-0008GU-00@gondolin.me.apana.org.au>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0410291345410.22168-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 30, 2004 at 11:51:01AM +1000, Herbert Xu wrote:
-> > s/dev_addr/addr_len in the comments above, that's the field we care
-> > about being non-zero.
+On Fri, 29 Oct 2004 13:46:04 -0400 (EDT)
+James Morris <jmorris@redhat.com> wrote:
+
+> On Fri, 29 Oct 2004, James Morris wrote:
 > 
-> This still doesn't make sense.  What if dev->addr_len is less than the
-> size of the buffer? The caller has to know what the length is anyway.
+> > On Fri, 29 Oct 2004, Evgeniy Polyakov wrote:
+> > 
+> > > I'm pleased to announce asynchronous crypto layer for Linux kernel 2.6.
+> > 
+> 
+> Also, please consider EXPORT_SYMBOL_GPL instead of EXPORT_SYMBOL.
 
-Ahh, indeed.  net-snmp has hard-coded the number 6 or uses the
-definition of IFHWADDRLEN (from include/linux/if.h, a copy of which is
-in /usr/include/linux/if.h of course) in several places for this.
+I'm not insisting, but why?
 
-> BTW, the ioctl interface is obsolete.  Please use the rtnetlink
-> interface where dev->addr_len can be read properly.
+> 
+> - James
+> -- 
+> James Morris
+> <jmorris@redhat.com>
+> 
 
-More than I wanted to do tonight, but will investigate.
 
-Thanks,
-Matt
+	Evgeniy Polyakov
 
--- 
-Matt Domsch
-Sr. Software Engineer, Lead Engineer
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+Only failure makes us experts. -- Theo de Raadt
