@@ -1,105 +1,70 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] ray_cs: reduce stack usage
-Date: Thu, 27 Jan 2005 21:49:46 -0800
-Message-ID: <41F9D27A.8090204@osdl.org>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: design for TSO performance fix
+Date: Fri, 28 Jan 2005 07:25:54 +0100
+Message-ID: <m1zmyu2hot.fsf@muc.de>
+References: <20050127163146.33b01e95.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090109010602020104060907"
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, jgarzik <jgarzik@pobox.com>, corey@world.std.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050127163146.33b01e95.davem@davemloft.net> (David S.
+ Miller's message of "Thu, 27 Jan 2005 16:31:46 -0800")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090109010602020104060907
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+"David S. Miller" <davem@davemloft.net> writes:
 
+> Ok, here is the best idea I've been able to come up with
+> so far.
+>
+> The basic idea is that we stop trying to build TSO frames
+> in the actual transmit queue.  Instead, TSO packets are
+> built impromptu when we actually output packets on the
+> transmit queue.
 
-ray_cs: reduce local stack usage in ray_dev_ioctl
-   from 1048 to 468 (on i386) by making 'range' kmalloc-ed
-   instead of an automatic stack variable.
-         struct iw_range range;	// 564 bytes
+I don't quite get how it should work.
 
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+Currently tcp_sendmsg will always push the first packet when the send_head
+is empty way down to hard_queue_xmit, and then queue up some others
+and then finally push them out. You would always miss the first
+one with that right? (assuming MTU sized packets)
 
-diffstat:=
-  drivers/net/wireless/ray_cs.c |   35 +++++++++++++++++++++--------------
-  1 files changed, 21 insertions(+), 14 deletions(-)
+I looked at this some time ago to pass lists of packets
+to qdisc and hard_queue_xmit, because that would allow less locking
+overhead and allow some drivers to send stuff more efficiently
+to the hardware registers
+(It was one of the items in my "how to speed up the stack" list ;-) 
 
---------------090109010602020104060907
-Content-Type: text/x-patch;
- name="raycs_stack1.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="raycs_stack1.patch"
+I never ended up implementing it because TSO gave most of the advantages
+anyways.
 
+> Advantages:
+>
+> 1) No knowledge of TSO frames need exist anywhere besides
+>    tcp_write_xmit(), tcp_transmit_skb(), and
+>    tcp_xmit_retransmit_queue()
+>
+> 2) As a result of #1, all the pcount crap goes away.
+>    The need for two MSS state variables (mss_cache,
+>    and mss_cache_std) and assosciated complexity is
+>    eliminated as well.
+>
+> 3) Keeping TSO enabled after packet loss "just works".
+>
+> 4) CWND sampled at the correct moment when deciding
+>    the TSO packet arity.
+>
+> The one disadvantage is that it might be a tiny bit more
+> expensive to build TSO frames.  But I am sure we can find
+> ways to optimize that quite well.
 
-diff -Naurp ./drivers/net/wireless/ray_cs.c~raycs_stack ./drivers/net/wireless/ray_cs.c
---- ./drivers/net/wireless/ray_cs.c~raycs_stack	2005-01-27 20:38:05.678592648 -0800
-+++ ./drivers/net/wireless/ray_cs.c	2005-01-27 21:05:51.637328424 -0800
-@@ -1467,33 +1467,39 @@ static int ray_dev_ioctl(struct net_devi
-       /* Basic checking... */
-       if(wrq->u.data.pointer != (caddr_t) 0)
- 	{
--	  struct iw_range	range;
--	  memset((char *) &range, 0, sizeof(struct iw_range));
-+	  struct iw_range	*range;
-+	  range = kmalloc(sizeof(struct iw_range), GFP_KERNEL);
-+	  if (!range) {
-+	    err = -ENOMEM;
-+	    goto ioc_out;
-+	  }
-+	  memset((char *) range, 0, sizeof(struct iw_range));
- 
- 	  /* Set the length (very important for backward compatibility) */
- 	  wrq->u.data.length = sizeof(struct iw_range);
- 
- #if WIRELESS_EXT > 10
- 	  /* Set the Wireless Extension versions */
--	  range.we_version_compiled = WIRELESS_EXT;
--	  range.we_version_source = 9;
-+	  range->we_version_compiled = WIRELESS_EXT;
-+	  range->we_version_source = 9;
- #endif /* WIRELESS_EXT > 10 */
- 
- 	  /* Set information in the range struct */
--	  range.throughput = 1.1 * 1000 * 1000;	/* Put the right number here */
--	  range.num_channels = hop_pattern_length[(int)country]; 
--	  range.num_frequency = 0;
--	  range.max_qual.qual = 0;
--	  range.max_qual.level = 255;	/* What's the correct value ? */
--	  range.max_qual.noise = 255;	/* Idem */
--	  range.num_bitrates = 2;
--	  range.bitrate[0] = 1000000;	/* 1 Mb/s */
--	  range.bitrate[1] = 2000000;	/* 2 Mb/s */
-+	  range->throughput = 1.1 * 1000 * 1000;	/* Put the right number here */
-+	  range->num_channels = hop_pattern_length[(int)country]; 
-+	  range->num_frequency = 0;
-+	  range->max_qual.qual = 0;
-+	  range->max_qual.level = 255;	/* What's the correct value ? */
-+	  range->max_qual.noise = 255;	/* Idem */
-+	  range->num_bitrates = 2;
-+	  range->bitrate[0] = 1000000;	/* 1 Mb/s */
-+	  range->bitrate[1] = 2000000;	/* 2 Mb/s */
- 
- 	  /* Copy structure to the user buffer */
--	  if(copy_to_user(wrq->u.data.pointer, &range,
-+	  if(copy_to_user(wrq->u.data.pointer, range,
- 			  sizeof(struct iw_range)))
- 	    err = -EFAULT;
-+	  kfree(range);
- 	}
-       break;
- 
-@@ -1632,6 +1638,7 @@ static int ray_dev_ioctl(struct net_devi
-             DEBUG(0,"ray_dev_ioctl cmd = 0x%x\n", cmd);
-             err = -EOPNOTSUPP;
-     }
-+ioc_out:
-     return err;
- } /* end ray_dev_ioctl */
- /*===========================================================================*/
+Without lists of packets through qdiscs etc. it will likely need
+a lot more spin locking than it used to be (and spinlocks
+tend to be quite expensive). Luckily the high level queuing
+you need for this could be used to implement the list of 
+packets too (and then finally pass them to hard_queue_xmit
+to allow drivers more optimizations) 
 
---------------090109010602020104060907--
+-Andi
