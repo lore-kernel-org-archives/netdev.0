@@ -1,43 +1,75 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Fri, 23 Jul 2004 01:36:22 +0200
+Subject: [PATCH 2.6 1/2]: Remove dead timer code
+Date: Fri, 23 Jul 2004 01:40:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41004F76.1080807@trash.net>
-References: <40F34740.5040100@trash.net>	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>	<20040712205037.573411c0.davem@redhat.com>	<40F4862D.3070802@trash.net>	<40F4AC8B.40706@trash.net> <20040721143110.4ab944bf.davem@redhat.com>
+Message-ID: <41005069.3030703@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
+Content-Type: multipart/mixed;
+ boundary="------------090606060601010006000003"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040721143110.4ab944bf.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> This looks great.
-> 
-> As you mention some platforms return zero, for example sparc32,
-> for get_cycles().
-> 
-> I suggest we just expand the dependency list for NET_SCH_CLK_TSC
-> to include SPARC64 PPC64 and perhaps some other easy to verify
-> as having a working get_cycles() implementation.  I believe that
-> as long as it increments at some rate >= jiffies, the psched
-> calibration will get things into a working state.
+This is a multi-part message in MIME format.
+--------------090606060601010006000003
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-It needs to increment at slightly above 1Mhz, otherwise delay will
-be zero after this division and everything will fall apart:
-delay /= rdelay.
+This patch removes some dead timer code left over from the
+PSCHED_JIFFIES clock source change to use get_jiffies_64().
 
-> A lot of patches have been posted in this area and I'm losing
-> track of what to apply first etc.  Can you repost your work
-> one change at a time?  Thanks.
+--------------090606060601010006000003
+Content-Type: application/octect-stream;
+ name="01-psched-dead_code.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="01-psched-dead_code.diff"
 
-The following two patches remove some dead timer code and
-change PSCHED_GET_TIME to use get_cycles. I'm going to send
-the configurable clock-source patch tomorrow after checking
-the arches.
-
-Regards
-Patrick
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBkaWZmIC1OcnUgc3R5bGUgcGF0Y2gu
+CiMKIyBDaGFuZ2VTZXQKIyAgIDIwMDQvMDcvMjIgMDE6Mjk6MjMrMDI6MDAga2FiZXJAdHJh
+c2gubmV0IAojICAgW1BLVF9TQ0hFRF06IFJlbW92ZSBkZWFkIHRpbWVyIGNvZGUKIyAgIAoj
+ICAgU2lnbmVkLW9mZi1ieTogUGF0cmljayBNY0hhcmR5IDxrYWJlckB0cmFzaC5uZXQ+CiMg
+CiMgbmV0L3NjaGVkL3NjaF9hcGkuYwojICAgMjAwNC8wNy8yMiAwMToyOToxMiswMjowMCBr
+YWJlckB0cmFzaC5uZXQgKzEgLTE0CiMgICBbUEtUX1NDSEVEXTogUmVtb3ZlIGRlYWQgdGlt
+ZXIgY29kZQojIAojIGluY2x1ZGUvbmV0L3BrdF9zY2hlZC5oCiMgICAyMDA0LzA3LzIyIDAx
+OjI5OjEyKzAyOjAwIGthYmVyQHRyYXNoLm5ldCArMSAtMgojICAgW1BLVF9TQ0hFRF06IFJl
+bW92ZSBkZWFkIHRpbWVyIGNvZGUKIyAKZGlmZiAtTnJ1IGEvaW5jbHVkZS9uZXQvcGt0X3Nj
+aGVkLmggYi9pbmNsdWRlL25ldC9wa3Rfc2NoZWQuaAotLS0gYS9pbmNsdWRlL25ldC9wa3Rf
+c2NoZWQuaAkyMDA0LTA3LTIyIDIyOjE5OjQzICswMjowMAorKysgYi9pbmNsdWRlL25ldC9w
+a3Rfc2NoZWQuaAkyMDA0LTA3LTIyIDIyOjE5OjQzICswMjowMApAQCAtMjE2LDggKzIxNiw2
+IEBACiB0eXBlZGVmIHU2NAlwc2NoZWRfdGltZV90OwogdHlwZWRlZiBsb25nCXBzY2hlZF90
+ZGlmZl90OwogCi1leHRlcm4gcHNjaGVkX3RpbWVfdAlwc2NoZWRfdGltZV9iYXNlOwotCiAj
+aWYgUFNDSEVEX0NMT0NLX1NPVVJDRSA9PSBQU0NIRURfSklGRklFUwogCiAjaWYgSFogPCA5
+NgpAQCAtMjU2LDYgKzI1NCw3IEBACiAKICNkZWZpbmUgUFNDSEVEX1dBVENIRVIgdTMyCiAK
+K2V4dGVybiBwc2NoZWRfdGltZV90IHBzY2hlZF90aW1lX2Jhc2U7CiBleHRlcm4gUFNDSEVE
+X1dBVENIRVIgcHNjaGVkX3RpbWVfbWFyazsKIAogI2RlZmluZSBQU0NIRURfR0VUX1RJTUUo
+c3RhbXApIFwKZGlmZiAtTnJ1IGEvbmV0L3NjaGVkL3NjaF9hcGkuYyBiL25ldC9zY2hlZC9z
+Y2hfYXBpLmMKLS0tIGEvbmV0L3NjaGVkL3NjaF9hcGkuYwkyMDA0LTA3LTIyIDIyOjE5OjQz
+ICswMjowMAorKysgYi9uZXQvc2NoZWQvc2NoX2FwaS5jCTIwMDQtMDctMjIgMjI6MTk6NDMg
+KzAyOjAwCkBAIC0xMTAzLDE2ICsxMTAzLDE0IEBACiBFWFBPUlRfU1lNQk9MKHBzY2hlZF90
+b2RfZGlmZik7CiAjZW5kaWYKIAotcHNjaGVkX3RpbWVfdCBwc2NoZWRfdGltZV9iYXNlOwot
+CiAjaWYgUFNDSEVEX0NMT0NLX1NPVVJDRSA9PSBQU0NIRURfQ1BVCiBwc2NoZWRfdGRpZmZf
+dCBwc2NoZWRfY2xvY2tfcGVyX2h6OwogaW50IHBzY2hlZF9jbG9ja19zY2FsZTsKIEVYUE9S
+VF9TWU1CT0wocHNjaGVkX2Nsb2NrX3Blcl9oeik7CiBFWFBPUlRfU1lNQk9MKHBzY2hlZF9j
+bG9ja19zY2FsZSk7Ci0jZW5kaWYKIAogI2lmZGVmIFBTQ0hFRF9XQVRDSEVSCitwc2NoZWRf
+dGltZV90IHBzY2hlZF90aW1lX2Jhc2U7CiBQU0NIRURfV0FUQ0hFUiBwc2NoZWRfdGltZV9t
+YXJrOwogRVhQT1JUX1NZTUJPTChwc2NoZWRfdGltZV9tYXJrKTsKIEVYUE9SVF9TWU1CT0wo
+cHNjaGVkX3RpbWVfYmFzZSk7CkBAIC0xMTIzLDIyICsxMTIxLDE0IEBACiAKIHN0YXRpYyB2
+b2lkIHBzY2hlZF90aWNrKHVuc2lnbmVkIGxvbmcgZHVtbXkpCiB7Ci0jaWYgUFNDSEVEX0NM
+T0NLX1NPVVJDRSA9PSBQU0NIRURfQ1BVCiAJcHNjaGVkX3RpbWVfdCBkdW1teV9zdGFtcDsK
+IAlQU0NIRURfR0VUX1RJTUUoZHVtbXlfc3RhbXApOwogCS8qIEl0IGlzIE9LIHVwIHRvIDRH
+SHogY3B1ICovCiAJcHNjaGVkX3RpbWVyLmV4cGlyZXMgPSBqaWZmaWVzICsgMSpIWjsKLSNl
+bHNlCi0JdW5zaWduZWQgbG9uZyBub3cgPSBqaWZmaWVzOwotCXBzY2hlZF90aW1lX2Jhc2Ug
+Kz0gKCh1NjQpKG5vdy1wc2NoZWRfdGltZV9tYXJrKSk8PFBTQ0hFRF9KU0NBTEU7Ci0JcHNj
+aGVkX3RpbWVfbWFyayA9IG5vdzsKLQlwc2NoZWRfdGltZXIuZXhwaXJlcyA9IG5vdyArIDYw
+KjYwKkhaOwotI2VuZGlmCiAJYWRkX3RpbWVyKCZwc2NoZWRfdGltZXIpOwogfQogI2VuZGlm
+CiAKLSNpZiBQU0NIRURfQ0xPQ0tfU09VUkNFID09IFBTQ0hFRF9DUFUKIGludCBfX2luaXQg
+cHNjaGVkX2NhbGlicmF0ZV9jbG9jayh2b2lkKQogewogCXBzY2hlZF90aW1lX3Qgc3RhbXAs
+IHN0YW1wMTsKQEAgLTExODUsOSArMTE3NSw2IEBACiAjZWxpZiBQU0NIRURfQ0xPQ0tfU09V
+UkNFID09IFBTQ0hFRF9KSUZGSUVTCiAJcHNjaGVkX3RpY2tfcGVyX3VzID0gSFo8PFBTQ0hF
+RF9KU0NBTEU7CiAJcHNjaGVkX3VzX3Blcl90aWNrID0gMTAwMDAwMDsKLSNpZmRlZiBQU0NI
+RURfV0FUQ0hFUgotCXBzY2hlZF90aWNrKDApOwotI2VuZGlmCiAjZW5kaWYKIAogCWxpbmtf
+cCA9IHJ0bmV0bGlua19saW5rc1tQRl9VTlNQRUNdOwo=
+--------------090606060601010006000003--
