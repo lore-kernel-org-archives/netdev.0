@@ -1,69 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: netif_rx packet dumping
-Date: Tue, 08 Mar 2005 10:27:17 -0800
-Message-ID: <422DEE85.5010302@candelatech.com>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net>	<42278122.6000000@ev-en.org>	<20050303133659.0d224e61.davem@davemloft.net>	<42278554.2090902@ev-en.org>	<20050303135718.2e1a0170.davem@davemloft.net>	<422DC7CE.2040800@ev-en.org>	<m1y8cykr7i.fsf@muc.de> <20050308100902.24b67b2f.davem@davemloft.net>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: Tue, 8 Mar 2005 19:34:05 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0503081928490.5332@filer.marasystems.com>
+References: <422C0B50.20500@mrv.com> <m1y8d0mss2.fsf@muc.de>
+ <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net>  <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net>
+  <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net>  <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net>
+  <20050306173145.GQ31837@postel.suug.ch>  <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net>
+ <m1y8d0mss2.fsf@muc.de>  <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net>
+ <422C0B50.20500@mrv.com>  <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net>
+ <1110288879.1050.167.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@muc.de>, baruch@ev-en.org, shemminger@osdl.org,
-        netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050308100902.24b67b2f.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Zdenek Radouch <zdenek@rcn.com>,
+	Steve Iribarne <steve.iribarne@dilithiumnetworks.com>,
+	Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
+	Andi Kleen <ak@muc.de>, Martin Mares <mj@ucw.cz>,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1110288879.1050.167.camel@jzny.localdomain>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Tue, 08 Mar 2005 18:00:49 +0100
-> Andi Kleen <ak@muc.de> wrote:
-> 
-> 
->>Baruch Even <baruch@ev-en.org> writes:
->>
->>>I can squeeze the tcp_skb_cb to one pointer at the expense of extra
->>>work to remove a packet from the list (the other pointer is the prev
->>>pointer).
->>
->>You could also use a xor list in theory. But I'm not sure it's worth it.
->>Increasing cb by 4 bytes shouldn't be a very big issue.
-> 
-> 
-> Going from "40" to "44" takes 64-bit platforms onto another cache line
-> for struct sk_buff, as I stated in another email.
+On Tue, 8 Mar 2005, jamal wrote:
 
-Seems like we might could squish the sk_buff a bit:
+> Lets see, your requirements are:
+> a) packets within a chasis subnet shall stay within a chasis subnet
+> b) the outside (of the chasis) world shall never discover whats inside
+> the chasis (example ARPs will fail to resolve etc)
 
-Do we really need 32-bits for the mac-len:
+> Did i miss anything else?
 
-	unsigned int		len,
-				data_len,
-				mac_len,
-				csum;
+Yes.
 
-Some of these flags could be collapsed into a single field and we
-could do bit-shift operations for the single flags we care about.
-This would also make it easier to add new flags as desired w/out
-growing the structure.
+c) The chassis components must interact properly with other external 
+equipment using public or RFC1918 addresses.
 
-	unsigned char		local_df,
-				cloned,
-				pkt_type,
-				ip_summed;
 
-The priority could probably be 16 bits as well, do we really need more
-than 65k different priorities:
+So while yes, it may be possible to use RFC1918 addresses, but only if the 
+network administrator connecting the chassi first enters a RFC1918 network 
+he has reserved for "equipment internal" use into the chassis 
+configuration to ensure the internal addressing within the chassis does 
+not conflict with the addressing used on his private network. This even if 
+these addresses is never seen anywhere outside of the chassis (except 
+possibly diagnostics channels into the chassis).
 
-	__u32			priority;
-
-Of course...this might be things for 2.7 since lots of modules will probably
-be accessing these fields.  Maybe to get started we could add macros to grab
-the flags and such so that when we finally do collapse things into a single
-flags field the external code doesn't have to know or care?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Regards
+Henrik
