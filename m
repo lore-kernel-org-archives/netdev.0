@@ -1,8 +1,9 @@
 From: domen@coderock.org
-Subject: [patch 14/26] net/slip: replace schedule_timeout() with msleep()
-Date: Sun, 06 Mar 2005 11:33:22 +0100
-Message-ID: <20050306103322.857041F203@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com
+Subject: [patch 12/26] net/farsync: add set_current_state() before schedule_timeout()
+Date: Sun, 06 Mar 2005 11:33:15 +0100
+Message-ID: <20050306103315.B504E1F204@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
+        janitor@sternwelten.at
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -10,41 +11,30 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Use msleep() instead of schedule_timeout() to guarantee
-the task delays as expected. While the original code does use
-TASK_INTERRUPTIBLE, it does not check for signals, so I believe msleep() is more
-appropriate.
+
+
+Insert set_current_state() before schedule_timeout() so the
+function delays as expected. Without the addition, schedule_timeout()
+will return immediately.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/slip.c |    7 +++----
- 1 files changed, 3 insertions(+), 4 deletions(-)
+ kj-domen/drivers/net/wan/farsync.c |    1 +
+ 1 files changed, 1 insertion(+)
 
-diff -puN drivers/net/slip.c~msleep-drivers_net_slip drivers/net/slip.c
---- kj/drivers/net/slip.c~msleep-drivers_net_slip	2005-03-05 16:10:49.000000000 +0100
-+++ kj-domen/drivers/net/slip.c	2005-03-05 16:10:49.000000000 +0100
-@@ -75,6 +75,7 @@
- #include <linux/if_arp.h>
- #include <linux/if_slip.h>
- #include <linux/init.h>
-+#include <linux/delay.h>
- #include "slip.h"
- #ifdef CONFIG_INET
- #include <linux/ip.h>
-@@ -1395,10 +1396,8 @@ static void __exit slip_exit(void)
- 	/* First of all: check for active disciplines and hangup them.
- 	 */
- 	do {
--		if (busy) {
--			set_current_state(TASK_INTERRUPTIBLE);
--			schedule_timeout(HZ / 10);
--		}
-+		if (busy)
-+			msleep(100);
+diff -puN drivers/net/wan/farsync.c~set_current_state-drivers_net_wan_farsync drivers/net/wan/farsync.c
+--- kj/drivers/net/wan/farsync.c~set_current_state-drivers_net_wan_farsync	2005-03-05 16:09:48.000000000 +0100
++++ kj-domen/drivers/net/wan/farsync.c	2005-03-05 16:09:48.000000000 +0100
+@@ -981,6 +981,7 @@ fst_issue_cmd(struct fst_port_info *port
+ 	/* Wait for any previous command to complete */
+ 	while (mbval > NAK) {
+ 		spin_unlock_irqrestore(&card->card_lock, flags);
++		set_current_state(TASK_UNINTERRUPTIBLE);
+ 		schedule_timeout(1);
+ 		spin_lock_irqsave(&card->card_lock, flags);
  
- 		busy = 0;
- 		for (i = 0; i < slip_maxdev; i++) {
 _
