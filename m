@@ -1,48 +1,28 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Do less atomic count changes in dev_queue_xmit
-Date: Mon, 6 Sep 2004 08:03:41 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040905220341.GA13217@gondor.apana.org.au>
-References: <20040904135439.GA23934@wotan.suse.de>
+From: Daniel Roesen <dr@cluenet.de>
+Subject: Re: [PATCH] net/ipv4 for Source VIPA support, kernel BK Head
+Date: Mon, 6 Sep 2004 01:02:19 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040905230219.GA24688@srv01.cluenet.de>
+References: <200409011441.10154.elueck@de.ibm.com> <Pine.LNX.4.61.0409011852380.2441@fogarty.jakma.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com, akepner@sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
+Cc: lkml@einar-lueck.de, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267326AbUIEXCX@vger.kernel.org>
+To: Paul Jakma <paul@clubi.ie>
 Content-Disposition: inline
-In-Reply-To: <20040904135439.GA23934@wotan.suse.de>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.61.0409011852380.2441@fogarty.jakma.org>
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 04, 2004 at 01:54:39PM +0000, Andi Kleen wrote:
-> 
-> diff -u linux-2.6.8/net/core/dev.c-o linux-2.6.8/net/core/dev.c
-> --- linux-2.6.8/net/core/dev.c-o	2004-09-04 13:10:47.000000000 +0000
-> +++ linux-2.6.8/net/core/dev.c	2004-09-04 13:47:16.765722813 +0000
-> @@ -1249,14 +1249,14 @@
->  	return 0;
->  }
->  
-> -#define HARD_TX_LOCK_BH(dev, cpu) {			\
-> +#define HARD_TX_LOCK(dev, cpu) {			\
->  	if ((dev->features & NETIF_F_LLTX) == 0) {	\
->  		spin_lock_bh(&dev->xmit_lock);		\
+On Thu, Sep 02, 2004 at 05:22:01PM +0100, Paul Jakma wrote:
+> ip route add default via <gateway> src <virtual ip>
 
-You can remove the _bh here as well.
+Sitenote: unfortunately, "src <...>" doesn't work for IPv6 routes, at
+least in 2.4 -- can someone confirm this problem to still exist in
+current 2.6?
 
-> @@ -1358,12 +1361,11 @@
->  	   Either shot noqueue qdisc, it is even simpler 8)
->  	 */
->  	if (dev->flags & IFF_UP) {
-> -		int cpu = get_cpu();
-> +		int cpu = smp_processor_id(); /* ok because BHs are off */
+Copying netdev for the record.
 
-Hmm this means that the loopback xmit function will now execute with
-BH/preempt turned off.  Is this what we want?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+Daniel
