@@ -1,30 +1,53 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: fix TCP roundtrip time update code
-Date: Tue, 03 Jun 2003 22:52:45 -0700 (PDT)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: typo, unrequired #undef and killing warning
+Date: Wed, 04 Jun 2003 15:02:18 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030603.225245.55753285.davem@redhat.com>
-References: <16093.30507.661714.676184@napali.hpl.hp.com>
-	<3EDD7832.7010804@us.ibm.com>
-	<16093.34022.445246.52398@napali.hpl.hp.com>
+Message-ID: <20030604.150218.69810413.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: niv@us.ibm.com, kuznet@ms2.inr.ac.ru, jmorris@intercode.com.au,
-   gandalf@wlug.westbo.se, linux-kernel@vger.kernel.org,
-   linux-ia64@linuxia64.org, netdev@oss.sgi.com, akpm@digeo.com
+Cc: netdev@oss.sgi.com, Ville Nuorvala <vnuorval@tcs.hut.fi>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davidm@hpl.hp.com, davidm@napali.hpl.hp.com
-In-Reply-To: <16093.34022.445246.52398@napali.hpl.hp.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: David Mosberger <davidm@napali.hpl.hp.com>
-   Date: Tue, 3 Jun 2003 22:34:30 -0700
-   
-   You can't go higher than 1000 conn/sec per client (IP address)
-   because otherwise you run out of port space (due to TIME_WAIT).
+Hello.
 
-echo "1" >/proc/sys/net/ipv4/tcp_tw_recycle
+- no need to #undef CONFIG_IPV6_SUBTREE
+- use braces around "&" and "|".
+- fib_repair_tree() is typo.
 
-It should eliminate this limit.  Unfortunately we can't enable
-this by default because of NAT :(
+Thanks.
+
+Index: linux25-LINUS/net/ipv6/ip6_fib.c
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux25/net/ipv6/ip6_fib.c,v
+retrieving revision 1.1.1.12
+diff -u -r1.1.1.12 ip6_fib.c
+--- linux25-LINUS/net/ipv6/ip6_fib.c	26 May 2003 08:04:11 -0000	1.1.1.12
++++ linux25-LINUS/net/ipv6/ip6_fib.c	4 Jun 2003 05:39:49 -0000
+@@ -40,7 +40,6 @@
+ #include <net/ip6_route.h>
+ 
+ #define RT6_DEBUG 2
+-#undef CONFIG_IPV6_SUBTREES
+ 
+ #if RT6_DEBUG >= 3
+ #define RT6_TRACE(x...) printk(KERN_DEBUG x)
+@@ -594,8 +593,8 @@
+ 	   is orphan. If it is, shoot it.
+ 	 */
+ st_failure:
+-	if (fn && !(fn->fn_flags&RTN_RTINFO|RTN_ROOT))
+-		fib_repair_tree(fn);
++	if (fn && !(fn->fn_flags&(RTN_RTINFO|RTN_ROOT)))
++		fib6_repair_tree(fn);
+ 	dst_free(&rt->u.dst);
+ 	return err;
+ #endif
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
