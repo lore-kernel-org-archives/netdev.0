@@ -1,64 +1,97 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: 2.5.74 X.25+LAPB still kills the kernel
-Date: 11 Jul 2003 19:27:28 +0200
+From: Matthew Wilcox <willy@debian.org>
+Subject: [PATCH] Move eth_mac_addr and eth_change_mtu
+Date: Fri, 11 Jul 2003 19:19:46 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3y8z5dldr.fsf@defiant.pm.waw.pl>
+Message-ID: <20030711181946.GG20424@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-No need to actually use X.25+LAPB, it's enough to just compile it in.
-Linux version 2.5.74 (gcc version 3.2.3 20030422 (Red Hat Linux 3.2.3-4))
-You do not need Ethernet either, it will oops with just loopback as well.
-Serial console dump follows (details available on request in case someone
-need them).
+Move eth_mac_addr() and eth_change_mtu() from drivers/net/net_init.c
+to net/ethernet/eth.c
 
-gw:/# ip link
-1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+Index: drivers/net/net_init.c
+===================================================================
+RCS file: /var/cvs/linux-2.5/drivers/net/net_init.c,v
+retrieving revision 1.4
+diff -u -p -r1.4 net_init.c
+--- drivers/net/net_init.c	14 Jun 2003 22:15:21 -0000	1.4
++++ drivers/net/net_init.c	10 Jul 2003 20:57:55 -0000
+@@ -222,23 +222,6 @@ struct net_device *alloc_etherdev(int si
+ EXPORT_SYMBOL(init_etherdev);
+ EXPORT_SYMBOL(alloc_etherdev);
+ 
+-static int eth_mac_addr(struct net_device *dev, void *p)
+-{
+-	struct sockaddr *addr=p;
+-	if (netif_running(dev))
+-		return -EBUSY;
+-	memcpy(dev->dev_addr, addr->sa_data,dev->addr_len);
+-	return 0;
+-}
+-
+-static int eth_change_mtu(struct net_device *dev, int new_mtu)
+-{
+-	if ((new_mtu < 68) || (new_mtu > 1500))
+-		return -EINVAL;
+-	dev->mtu = new_mtu;
+-	return 0;
+-}
+-
+ #ifdef CONFIG_FDDI
+ 
+ /**
+Index: include/linux/etherdevice.h
+===================================================================
+RCS file: /var/cvs/linux-2.5/include/linux/etherdevice.h,v
+retrieving revision 1.3
+diff -u -p -r1.3 etherdevice.h
+--- include/linux/etherdevice.h	14 Jun 2003 22:16:01 -0000	1.3
++++ include/linux/etherdevice.h	10 Jul 2003 21:00:23 -0000
+@@ -38,6 +38,8 @@ extern int		eth_header_cache(struct neig
+ 					 struct hh_cache *hh);
+ extern int		eth_header_parse(struct sk_buff *skb,
+ 					 unsigned char *haddr);
++extern int		eth_mac_addr(struct net_device *dev, void *p);
++extern int		eth_change_mtu(struct net_device *dev, int new_mtu);
+ extern struct net_device *init_etherdev(struct net_device *dev, int sizeof_priv);
+ extern struct net_device *alloc_etherdev(int sizeof_priv);
+ static inline void eth_copy_and_sum (struct sk_buff *dest, unsigned char *src, int len, int base)
+Index: net/ethernet/eth.c
+===================================================================
+RCS file: /var/cvs/linux-2.5/net/ethernet/eth.c,v
+retrieving revision 1.4
+diff -u -p -r1.4 eth.c
+--- net/ethernet/eth.c	23 Jun 2003 03:30:58 -0000	1.4
++++ net/ethernet/eth.c	10 Jul 2003 20:58:54 -0000
+@@ -241,3 +241,20 @@ void eth_header_cache_update(struct hh_c
+ 	memcpy(((u8*)hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
+ 	       haddr, dev->addr_len);
+ }
++
++int eth_mac_addr(struct net_device *dev, void *p)
++{
++	struct sockaddr *addr=p;
++	if (netif_running(dev))
++		return -EBUSY;
++	memcpy(dev->dev_addr, addr->sa_data, dev->addr_len);
++	return 0;
++}
++
++int eth_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if ((new_mtu < 68) || (new_mtu > 1500))
++		return -EINVAL;
++	dev->mtu = new_mtu;
++	return 0;
++}
 
-gw:/# ifconfig
-lo        Link eUnable to handle kernel paging requestncap:Local Loopb at virtual address 6b6b6b6b
-ack
-          printing eip:
- inet addr:127.0c01a0f22
-.0.1  Mask:255.0*pde = 00000000
-.0.0
-          Oops: 0000 [#1]
-CPU:    0
-EIP:    0060:[<c01a0f22>]    Not tainted
-EFLAGS: 00010202
-EIP is at __release_sock+0x22/0x60
-eax: 6b6b6b6b   ebx: 00000000   ecx: 00000000   edx: c3cd2c44
-esi: c3cd2c44   edi: c3cd2c44   ebp: c10b7f00   esp: c10b7ef8
-ds: 007b   es: 007b   ss: 0068
-Process ifconfig (pid: 37, threadinfo=c10b6000 task=c10ce060)
-Stack: 00000000 c3cd2c88 c10b7f18 c01ee728 c3cd2c44 c3cd2c44 c3ed1d2c c3cdb494
-       c10b7f40 c01eebf8 c3cd2c44 c3cd2c44 00000000 00000000 00000000 c3cdb494
-       00000000 c3cdb4b8 c10b7f54 c019e1d6 c3cdb494 c3cdb4b8 c3ced41c c10b7f64
-Call Trace:
- [<c01ee728>] x25_destroy_socket+0x188/0x1a0
- [<c01eebf8>] x25_release+0x38/0xa0
- [<c019e1d6>] sock_release+0x56/0x80
- [<c019e9a3>] sock_close+0x23/0x40
- [<c01432b6>] __fput+0xd6/0xe0
- [<c0141cdb>] filp_close+0x3b/0x60
- [<c0141d47>] sys_close+0x47/0x60
- [<c010ac17>] syscall_call+0x7/0xb
-
-Code: 8b 18 c7 00 00 00 00 00 50 56 ff 96 1c 01 00 00 85 db 5a 89
- UP LOOPBACK RUNN<0>Kernel panic: Fatal exception in interrupt
-ING  MTU:16436  In interrupt handler - not syncing
-Metric:1
-           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
 -- 
-Krzysztof Halasa
-Network Administrator
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
