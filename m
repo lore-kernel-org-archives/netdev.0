@@ -1,32 +1,46 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] IPv6: Allow Both IPv6 and IPv4 Sockets on the Same Port
-Date: Thu, 3 Oct 2002 19:52:40 +0400 (MSD)
+From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+Subject: Re: PATCH Re: udp weirdness
+Date: Thu, 3 Oct 2002 17:58:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210031552.TAA29921@sex.inr.ac.ru>
-References: <20021004.001929.03389091.yoshfuji@linux-ipv6.org>
+Message-ID: <20021003155841.GF601@hookipa>
+References: <3D99B6C7.3010302@nortelnetworks.com> <200210011531.TAA19943@sex.inr.ac.ru> <20021002111326.GG357@hookipa> <3D9B0FF1.1070203@candelatech.com>
 Mime-Version: 1.0
-Cc: davem@redhat.com, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>, kuznet@ms2.inr.ac.ru,
+   Chris Friesen <cfriesen@nortelnetworks.com>, hadi@cyberus.CA,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
-In-Reply-To: <20021004.001929.03389091.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Oct 4, 2 00:19:29 am
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <3D9B0FF1.1070203@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+> > >It is difficult task, if possible at all.
+> > >
+> > >The main obstacle is that we must not block after select() succeeded,
+> > >otherwise applications will lockup. Taking into account nature of datagram
+> > >services (and generally of networking services, where routes change et 
+> > >al.)
+> > >you do not know at time of select(), where the datagram will go.
+> > >So, blocking can be made only based on a criterium not depending on this.
+> > >problems with silent losses. People just do not care about this, so
+> > >they get the thing which they deserve.
+> >
+> >Alexey,
+> >
+> >Would you mind explaining a bit more why apps will lockup if we block
+> >after select() succeeded. Or anyone?
+> 
+> Actually, I'm more interested to know why we would **need** to block after
+> select has succeeded.  It would seem to me that select is busted in this
+> case.  For the case of a very large UDP packet and a small send buffer,
+> select gets confused, but at least when the send buffer is > 128k, it should
+> be right...
 
-> test for daddr if for sk2.
-> sk2 is iterator for existing sockets, which can be "connected."
-> daddr can be non-zero, can't it?
-> Am I wrong???
+With the current impl. process calling sendto() doesn't go to sleep 
+after select() has succeeded. My question applied in the context where 
+process goes to sleep when the qdisc queue is overflowed.
 
-You are absolutely right.
-
-But then I am put to coma. Now I do not understand the goal of the check.
-Can you give a simple example showing what illegal case this check is supposed
-to eliminate?
-
-Actually, it would be great if you said what is wrong in that my patch?
-It looks so simple that I am not ready to agree that real one should be
-so complicated. :-)
-
-Alexey
+-- 
+Eric
