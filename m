@@ -1,163 +1,82 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC] Move dst->child loop from dst_ifdown to xfrm_dst_ifdown
-Date: Tue, 8 Feb 2005 12:31:40 +1100
-Message-ID: <20050208013140.GB30659@gondor.apana.org.au>
-References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au> <20050204221344.247548cb.davem@davemloft.net> <20050205064643.GA29758@gondor.apana.org.au> <20050205201044.1b95f4e8.davem@davemloft.net> <20050206065117.GC16057@gondor.apana.org.au> <20050208012929.GA30659@gondor.apana.org.au>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH] ieee80211 subsystem
+Date: Mon, 07 Feb 2005 18:49:13 -0800
+Message-ID: <420828A9.7060306@osdl.org>
+References: <4203C32A.70402@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="8GpibOaaTibBMecb"
-Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050208012929.GA30659@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <4203C32A.70402@linux.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---8GpibOaaTibBMecb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Tue, Feb 08, 2005 at 12:29:29PM +1100, herbert wrote:
+James Ketrenos wrote:
+> Attached is the patch against 2.6.11-rc3-mm1 that adds the ieee80211 
+> subsystem used by the ipw2100 and ipw2200 projects.
 > 
-> This one moves the dst->child processing from dst_ifdown into
-> xfrm_dst_ifdown.
+> I'll be sending out the patches for ipw2100-1.0.0 and ipw2200-1.0.0 that 
+> use thist stack to the list on Monday.
+> 
+> In terms of what the stack currently does:
+> 
+> * HW independent -- it only knows about 802.11 data and structures
+> * Performs an 802.3 <-> 802.11 transform for data Tx/Rx
+> * Host based support for fragmentation, WEP, and WPA using the kernel's 
+> crypto functions
+> * Beacon and probe response collection and parsing
+> * Default implementation of some of the WE handlers that can be managed 
+> without hardware knowledge
+> 
+> We are working to merge in Dave Miller's p80211 code into the ieee80211 
+> subsystem so that it hooks into the kernel as a true network layer as 
+> opposed to a mutated offspring of ethernet.
+> Once that is done, hopefully the skb to txb code can be reworked and 
+> 802.11 fragments can be treated either as normal skbs, or skbs can be 
+> modified to directly support them (ideally so that encrypted 802.11 
+> frames in support of IP packets can be cached by the stack instead of 
+> having to be re-encrypted on TCP retries)
+> 
+> Support for HW/FW crypto and fragmentation offload, in a HW independent 
+> fashion, is also on the short-term list.
+> 
+> When you look through the patch you'll likely notice the #ifdef 
+> NOTYET/#endif sequences surrounding portions of code from the hostap 
+> project.  Portions of this subsystem were based on an earlier version of 
+> the hostap project.  Those areas that weren't directly supported by the 
+> ipw* projects weren't ported to be completely hardware independent 
+> (since I don't have the hardware to test it), and so are still wrapped 
+> in the ifdefs.  These sections mainly cover support for MASTER and WDS 
+> modes.
+> 
+> Anyway, please let me know what you think.  Hopefully I built the patch 
+> right...
 
-This patch adds a net_device argument to ifdown.  After all,
-it's a bit silly to notify someone of an ifdown event without
-telling them what which device it was for :)
+James,
+Can you post a patch that will build?  or did you just want
+feedback on the current state of the patch?
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
+Thanks,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+~Randy
 
---8GpibOaaTibBMecb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=dst-patch-2
 
-===== include/net/dst.h 1.25 vs edited =====
---- 1.25/include/net/dst.h	2005-02-06 14:23:59 +11:00
-+++ edited/include/net/dst.h	2005-02-08 12:14:10 +11:00
-@@ -89,7 +89,8 @@
- 	int			(*gc)(void);
- 	struct dst_entry *	(*check)(struct dst_entry *, __u32 cookie);
- 	void			(*destroy)(struct dst_entry *);
--	void			(*ifdown)(struct dst_entry *, int how);
-+	void			(*ifdown)(struct dst_entry *,
-+					  struct net_device *dev, int how);
- 	struct dst_entry *	(*negative_advice)(struct dst_entry *);
- 	void			(*link_failure)(struct sk_buff *);
- 	void			(*update_pmtu)(struct dst_entry *dst, u32 mtu);
-===== net/core/dst.c 1.27 vs edited =====
---- 1.27/net/core/dst.c	2005-02-08 12:12:21 +11:00
-+++ edited/net/core/dst.c	2005-02-08 12:15:03 +11:00
-@@ -220,12 +220,14 @@
-  *
-  * Commented and originally written by Alexey.
-  */
--static inline void dst_ifdown(struct dst_entry *dst, int unregister)
-+static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-+			      int unregister)
- {
--	struct net_device *dev = dst->dev;
--
- 	if (dst->ops->ifdown)
--		dst->ops->ifdown(dst, unregister);
-+		dst->ops->ifdown(dst, dev, unregister);
+a.  in ieee80211/Makefile, there is nothing for ieee80211_module.o:
+
+ieee80211-objs := \
+	ieee80211_module.o \
+
+b.  in wireless/Makefile, it needs to pull in ieee80211, e.g.:
+
+--- Makefile~80211_netstack     2004-12-24 13:35:50.000000000 -0800
++++ Makefile    2005-02-07 18:37:49.000000000 -0800
+@@ -2,6 +2,8 @@
+  # Makefile for the Linux Wireless network device drivers.
+  #
+
++obj-$(CONFIG_IEEE80211) += ieee80211/
 +
-+	if (dev != dst->dev)
-+		return;
- 
- 	if (!unregister) {
- 		dst->input = dst_discard_in;
-@@ -252,8 +254,7 @@
- 	case NETDEV_DOWN:
- 		spin_lock_bh(&dst_lock);
- 		for (dst = dst_garbage_list; dst; dst = dst->next) {
--			if (dst->dev == dev)
--				dst_ifdown(dst, event != NETDEV_DOWN);
-+			dst_ifdown(dst, dev, event != NETDEV_DOWN);
- 		}
- 		spin_unlock_bh(&dst_lock);
- 		break;
-===== net/ipv4/route.c 1.101 vs edited =====
---- 1.101/net/ipv4/route.c	2005-02-03 07:43:48 +11:00
-+++ edited/net/ipv4/route.c	2005-02-08 12:14:11 +11:00
-@@ -138,7 +138,8 @@
- 
- static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie);
- static void		 ipv4_dst_destroy(struct dst_entry *dst);
--static void		 ipv4_dst_ifdown(struct dst_entry *dst, int how);
-+static void		 ipv4_dst_ifdown(struct dst_entry *dst,
-+					 struct net_device *dev, int how);
- static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
- static void		 ipv4_link_failure(struct sk_buff *skb);
- static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
-@@ -1342,11 +1343,12 @@
- 	}
- }
- 
--static void ipv4_dst_ifdown(struct dst_entry *dst, int how)
-+static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-+			    int how)
- {
- 	struct rtable *rt = (struct rtable *) dst;
- 	struct in_device *idev = rt->idev;
--	if (idev && idev->dev != &loopback_dev) {
-+	if (dev != &loopback_dev && idev && idev->dev == dev) {
- 		struct in_device *loopback_idev = in_dev_get(&loopback_dev);
- 		if (loopback_idev) {
- 			rt->idev = loopback_idev;
-===== net/ipv6/route.c 1.105 vs edited =====
---- 1.105/net/ipv6/route.c	2005-01-15 19:44:48 +11:00
-+++ edited/net/ipv6/route.c	2005-02-08 12:14:11 +11:00
-@@ -84,7 +84,8 @@
- static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
- static struct dst_entry *ip6_negative_advice(struct dst_entry *);
- static void		ip6_dst_destroy(struct dst_entry *);
--static void		ip6_dst_ifdown(struct dst_entry *, int how);
-+static void		ip6_dst_ifdown(struct dst_entry *,
-+				       struct net_device *dev, int how);
- static int		 ip6_dst_gc(void);
- 
- static int		ip6_pkt_discard(struct sk_buff *skb);
-@@ -153,12 +154,13 @@
- 	}	
- }
- 
--static void ip6_dst_ifdown(struct dst_entry *dst, int how)
-+static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-+			   int how)
- {
- 	struct rt6_info *rt = (struct rt6_info *)dst;
- 	struct inet6_dev *idev = rt->rt6i_idev;
- 
--	if (idev != NULL && idev->dev != &loopback_dev) {
-+	if (dev != &loopback_dev && idev != NULL && idev->dev == dev) {
- 		struct inet6_dev *loopback_idev = in6_dev_get(&loopback_dev);
- 		if (loopback_idev != NULL) {
- 			rt->rt6i_idev = loopback_idev;
-===== net/xfrm/xfrm_policy.c 1.64 vs edited =====
---- 1.64/net/xfrm/xfrm_policy.c	2005-02-08 12:12:21 +11:00
-+++ edited/net/xfrm/xfrm_policy.c	2005-02-08 12:15:35 +11:00
-@@ -1027,10 +1027,9 @@
- 	dst->xfrm = NULL;
- }
- 
--static void xfrm_dst_ifdown(struct dst_entry *dst, int unregister)
-+static void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
-+			    int unregister)
- {
--	struct net_device *dev = dst->dev;
--
- 	if (!unregister)
- 		return;
- 
-
---8GpibOaaTibBMecb--
+  obj-$(CONFIG_STRIP) += strip.o
+  obj-$(CONFIG_ARLAN) += arlan.o
