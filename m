@@ -1,65 +1,63 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: generic 802.11 stack
-Date: Wed, 15 Sep 2004 10:06:11 -0700
-Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <20040915100611.4d66a952.davem@davemloft.net>
-References: <4145352F.4040807@pobox.com>
-	<41485608.3040509@atheros.com>
-	<20040915085526.2c0d2904.davem@davemloft.net>
-	<200409150948.58583.sam@errno.com>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: TX performance of Intel 82546
+Date: Wed, 15 Sep 2004 19:55:35 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040915175535.GA2678@sunbeam.de.gnumonks.org>
+References: <20040915081439.GA27038@sunbeam.de.gnumonks.org> <414808F3.70104@draigBrady.com> <16712.14153.683690.710955@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: greg@atheros.com, vkondra@mail.ru, mcgrof@studorgs.rutgers.edu,
- acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jgarzik@pobox.com,
- netdev@oss.sgi.com, prism54-devel@prism54.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Sam Leffler <sam@errno.com>
-In-Reply-To: <200409150948.58583.sam@errno.com>
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="jRHKVT23PllUwdXP"
+Cc: P@draigBrady.com, Linux NICS <linux.nics@intel.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <16712.14153.683690.710955@robur.slu.se>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004 09:48:57 -0700
-Sam Leffler <sam@errno.com> wrote:
 
-> On Wednesday 15 September 2004 08:55 am, David S. Miller wrote:
-> > On Wed, 15 Sep 2004 07:47:36 -0700
-> >
-> > greg chesson <greg@atheros.com> wrote:
-> > > Vladimir Kondratiev wrote:
-> > > > Let me answer to the set of questions raised:
-> > > >
-> > > > - dual licensing: I am not ready to answer for legal. I will discuss
-> > > > with proper people and answer.
-> > >
-> > > end the end it is your choice.
-> >
-> > He has to also ask the person who wrote the code he is
-> > basing his work upon, and that would be me :-)
-> 
-> That assumes he uses no code from somewhere else.
+--jRHKVT23PllUwdXP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Not at all.  If he wants to change the licensing of any
-piece of code, he has to get permission from all the authors.
+On Wed, Sep 15, 2004 at 02:36:25PM +0200, Robert Olsson wrote:
 
-So, firstly, if he wants to take my code and extend it in any
-way he'll need permission from me to use it as anything other
-than pure GPL.
+>  Chip should be able to transfer 64 packets in single burst I don't now
+>  how set/verify this.
 
-Secondly, if he wants to add BSD code to it he cannot do so
-without working out the previous paragraph.
+maybe this is what the E1000_TCTL_PBE flag in TXCTL and E1000_TBT
+register are for?
 
+I tried switching TCTL_PBE on, and played with different values of TBT
+(0,1,255,65535) - however, no improvement in pps rate.
 
--------------------------------------------------------
-This SF.Net email is sponsored by: thawte's Crypto Challenge Vl
-Crack the code and win a Sony DCRHC40 MiniDV Digital Handycam
-Camcorder. More prizes in the weekly Lunch Hour Challenge.
-Sign up NOW http://ad.doubleclick.net/clk;10740251;10262165;m
+Maybe someone form intel could comment on this?
+
+>  Cheers.
+> 						--ro
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--jRHKVT23PllUwdXP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBSIIXXaXGVTD0i/8RAs2RAKCoE8oS1LIeP+AfwTHavKvrKs0/lACcCfEJ
+cGKtceu8WBm1BgrYgB85lfc=
+=Art0
+-----END PGP SIGNATURE-----
+
+--jRHKVT23PllUwdXP--
