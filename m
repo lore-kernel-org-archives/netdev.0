@@ -1,37 +1,62 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] PKT_SCHED: dsmark must take care of shared/cloned skbs
-Date: Mon, 20 Dec 2004 09:06:06 +0100
-Message-ID: <41C687EE.1090205@trash.net>
-References: <20041218170017.GH17998@postel.suug.ch> <1103487827.1048.188.camel@jzny.localdomain> <20041219203641.GL17998@postel.suug.ch>
+Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
+Date: Mon, 20 Dec 2004 09:27:27 +0100
+Message-ID: <41C68CEF.3030803@trash.net>
+References: <20041219203050.GK17998@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <hadi@cyberus.ca>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041219203641.GL17998@postel.suug.ch>
+In-Reply-To: <20041219203050.GK17998@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Thomas Graf wrote:
-> * jamal <1103487827.1048.188.camel@jzny.localdomain> 2004-12-19 15:23
+> Dave,
 > 
->>If the qdisc at that level muddies the packet thats fair game - thats
->>what goes out on the wire. So we should leave the code as is.
-> 
-> 
-> Agreed for egress but I think it is needed for stuff like IMQ. It's
-> debatable whether we should take care of IMQ and alike though.
-> 
+> This patch is actually part of a patchset for 2.6.11 inclusion
+> but the memory corruption possibility might make it worth
+> for 2.6.10. It's not really dangerous since it requires
+> admin capabilities though.
 
-You shouldn't care about IMQ, but we still need to copy the packet
-before modifying it if the data is shared. Otherwise we have a race
-on SMP with AF_PACKET sockets, depending on when the packet is read
-it can be either modified or not.
+There are lots of places where this is possible, just look
+at all the silly checks in the action code:
 
-Converting dsmark to an action sounds like the best long-term solution.
+    sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+    if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+
+> Puts the indev validation into its own function to allow
+> parameter validation before any changes are made. Changes
+> the sanity check from >= IFNAMSIZ to > IFNAMSIZ to correctly
+> handle 0 terminated strings and replaces the dangerous sprintf
+> with a memcpy bound to the TLV size. Providing a indev TLV
+> for kernels without CONFIG_NET_CLS_IND support will now lead
+> to EOPPNOTSUPP.
+
+Why special-case indev ? Neither u32 nor fw make any attempt
+to clean up after errors in their init functions, so instead
+of fixing a single attribute they need to do proper cleanup,
+than we can just continue to validate indev when changing it.
+Returning EOPNOTSUPP makes sense, of course.
+
+I'm also against keeping all those printks when touching the
+code. Its ok when writing new code, but I don't see why this
+code, unlike everything else, needs to report errors in the
+ringbuffer instead of returning meaningful error codes.
+
+> +static inline void
+> +tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *id_tlv)
+> +{
+> +	memset(indev, 0, IFNAMSIZ);
+> +	memcpy(indev, RTA_DATA(id_tlv), RTA_PAYLOAD(id_tlv));
+> +	indev[IFNAMSIZ - 1] = '\0';
+> +}
+
+And this should just use strlcpy.
 
 Regards
 Patrick
