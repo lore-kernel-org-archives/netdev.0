@@ -1,44 +1,37 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: Intel and TOE in the news
-Date: 21 Feb 2005 09:03:42 -0500
-Message-ID: <1108994621.1089.158.camel@jzny.localdomain>
-References: <20050220230713.GA62354@muc.de>
-	 <200502210332.j1L3WkDD014744@guinness.s2io.com>
-	 <20050221115006.GB87576@muc.de>  <20050221132844.GU31837@postel.suug.ch>
+Date: 21 Feb 2005 09:10:05 -0500
+Message-ID: <1108995005.1091.165.camel@jzny.localdomain>
+References: <4216B62D.6000502@pobox.com>  <4219E930.9080802@draigBrady.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@muc.de>, Leonid Grossman <leonid.grossman@neterion.com>,
-        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
-        "'Alex Aizman'" <alex@neterion.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050221132844.GU31837@postel.suug.ch>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+To: P@draigBrady.com
+In-Reply-To: <4219E930.9080802@draigBrady.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2005-02-21 at 08:59, P@draigBrady.com wrote:
+> Jeff Garzik wrote:
+> > 
+> > http://www.theregister.co.uk/2005/02/18/intel_tcpip_attack/
+> 
+> I wonder is this ETA in conjunction with multicore CPUs?
+> http://www.hoti.org/archive/Hoti11_program/papers/hoti11_11_regnier_g.pdf
 
-Everything in the stack would have to be re-written not just that one
-piece. 
-The question is: Is it worth it? My experimentation shows, only in a few
-speacilized cases.
+I have a feeling ETA is one of the things behind theregister announce.
+If you ask my opinion, its not a very smart idea. Now they have to write
+a speacial stack just to sit in this one XEON processor they have while
+the other(s) run Linux. They will not get 3x what Linux can today for a
+simple app as L3 packet forwarding for example. And when it gets to
+actually providing the features linux provides, they will be either at
+the same speed or even worse depending on where they started. 
+Broadcom btw is preaching the same angle.
+
+What intel needs to do is kill its chipset division ;->
 
 cheers,
 jamal
-
-On Mon, 2005-02-21 at 08:28, Thomas Graf wrote:
-> * Andi Kleen <20050221115006.GB87576@muc.de> 2005-02-21 12:50
-> > The main problem is that someone has to go through all the protocol layers
-> > and make sure they can process lists. Also it needs careful handling
-> > in netfilter.
-> 
-> Special handling is also required for the ingress qdisc. The classifiers
-> or tc_classify() must be changed to iterate over the lists and unlink
-> the skbs if one of them is to be dropped. The mirred action must probably
-> split the list after cloning the skbs. Given the lists are session based
-> all session based qdiscs could benefit from this and enqueue/dequeue the
-> lists rather than single skbs. Other qdiscs would have to split the lists
-> but could return a new list upon dequeue.
-> 
-> 
