@@ -1,40 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [TCP] Show all SYN_RECV sockets in /proc/net/tcp
-Date: Tue, 05 Oct 2004 23:43:49 -0300
+Date: Wed, 06 Oct 2004 11:55:17 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41635BE5.2000302@conectiva.com.br>
-References: <E1CF1eo-0003qW-00@gondolin.me.apana.org.au>
+Message-ID: <20041006.115517.130604805.yoshfuji@linux-ipv6.org>
+References: <20041006020650.GA14583@gondor.apana.org.au>
+	<416355BD.50402@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CF1eo-0003qW-00@gondolin.me.apana.org.au>
+To: acme@conectiva.com.br
+In-Reply-To: <416355BD.50402@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <416355BD.50402@conectiva.com.br> (at Tue, 05 Oct 2004 23:17:33 -0300), Arnaldo Carvalho de Melo <acme@conectiva.com.br> says:
 
-
-Herbert Xu wrote:
-> Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+> > I found that /proc/net/tcp didn't do it correctly either.  So here is
+> > a small patch to fix /proc/net/tcp.
+> > 
+> > The logic in there stinks though so I'd love to see a rewrite.
 > 
->>Go ahead and do it with the current seq_file infrastructure 8) Standard
-> 
-> 
-> Does the current seq_file infrastructure offer anything new compared
-> to what's in the existing /proc/net/tcp code?
+> Go ahead and do it with the current seq_file infrastructure 8) Standard
+> answer for these cases is remove /proc/net/tcp altogether and convert
+> the userland tools to use netlink instead.
 
-Haven't checked, it has been a long time already since I wrote that
-spaguetti code to fit the seq_file infrastructure :)
+It is okay to have dual interface (procfs and netlink), but
+please, please do not remove /proc/net/tcp (during 2.6.x at least).
+And, yes, if you want to add something, it should be done in netlink.
 
->>answer for these cases is remove /proc/net/tcp altogether and convert
->>the userland tools to use netlink instead. 
-> 
-> Completely agreed.  As I said I only started looking at this because
-> I was trying to fix tcp_diag.
+Thanks.
 
-I see, and thank you for getting so involved in linux networking
-development, you're doing a wonderful work :-)
-
-- Arnaldo
+--yoshfuji
