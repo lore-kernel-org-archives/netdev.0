@@ -1,54 +1,27 @@
-From: "Michael Gibson" <mgibson@esesixtech.com>
-Subject: pcnet32 fiberoptic
-Date: Tue, 23 Apr 2002 09:31:37 +0200
+From: Aaron Sethman <androsyn@ratbox.org>
+Subject: Re: qfe problems on x86
+Date: Tue, 23 Apr 2002 06:47:43 -0400 (EDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <028601c1ea98$e75bb480$3201a8c0@thinstuff.com>
-Reply-To: "Michael Gibson" <mgibson@esesixtech.com>
+Message-ID: <Pine.LNX.4.44.0204230647210.7811-100000@simon.ratbox.org>
+References: <20020422.222425.06221436.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: <linux-net@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020422.222425.06221436.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+My fault, this was on both 2.4.18 and 2.4.19-pre7.
 
-Maybe somebody can help us with this issue:
+Regards,
 
-1. We have applied following patch to the pcnet32 driver for kernel 2.4.17
-http://www.uwsg.iu.edu/hypermail/linux/net/0102.0/0019.html
-to make the fiberoptic port work for Allied Telesyn AT-2450FTX NW card.
-This card has 2 interfaces: a Fiberoptic 10Mbit (ST Inerface) and a TP
-10/100Mbit interface
-We are using it togeteher with the "MC13 Ethernet Media Converter" also from
-allied telesyn.
-This is a media converter from fiberoptic (10MBit) to 10MBit TP.
-We connected it to a 10Mbit TP HUB.
-We are using the 10Mbit Fiberoptic interface of this card and it is about 30
-times slower then a normal 10Mbit TP Lan.
-So IMHO that should be a driver problem and not normal.
-But maybe I am wrong.
+Aaronn
 
-We are also using an Allied Telesyn AT-2700FX card.
-This card has only one interface: a Fiberoptic 100Mbit (ST Inerface)
-We are using this one together with the "MC101XL Fast Ethernet Media
-Converter" also from Allied Telesyn.
-This is a media converter from fiberoptic (100MBit) to 100MBit TP.
-We connected it to a 100Mbit TP switch.
-This card is about the same speed as a normal 100Mbit TP card.
+On Mon, 22 Apr 2002, David S. Miller wrote:
 
-Both above cards. The 10Mbit fiber and the 100Mbit fiber have exactely the
-same AMD chip: PCnet Fast+, AM79C972BKC.
-
-
-Does somebody have any idea what could be causing the problem that the
-10Mbit fiber
-card is so terribly slow?
-Can this fiber patch be included into the pcnet32 driver?
-
-Best regards
-Michael Gibson
-
-
+>
+> You didn't bother mentioning what kernel verions you see this with so
+> I basically have no way to help you out.
+>
 
