@@ -1,76 +1,46 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Update FarSync WAN driver in 2.4.25
-Date: Wed, 4 Feb 2004 22:32:58 +0100
+Subject: Re: Fw: [Kernel-janitors] net/atm/clip.c: check kmem_cache_create() #1
+Date: Wed, 4 Feb 2004 22:47:40 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040204223258.A19321@electric-eye.fr.zoreil.com>
-References: <7C078C66B7752B438B88E11E5E20E72E25CBB5@general.hq.farsitecommunications.com>
+Message-ID: <20040204224740.B19321@electric-eye.fr.zoreil.com>
+References: <rddunlap@osdl.org> <200402041904.i14J4GRr017777@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-        "'davem@redhat.com'" <davem@redhat.com>,
-        "'jgarzik@redhat.com'" <jgarzik@redhat.com>
+Cc: davem@redhat.com, "Randy.Dunlap" <rddunlap@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kevin Curtis <kevin.curtis@farsite.co.uk>
+To: chas williams <chas@cmf.nrl.navy.mil>
 Content-Disposition: inline
-In-Reply-To: <7C078C66B7752B438B88E11E5E20E72E25CBB5@general.hq.farsitecommunications.com>; from kevin.curtis@farsite.co.uk on Wed, Feb 04, 2004 at 04:06:16PM -0000
+In-Reply-To: <200402041904.i14J4GRr017777@ginger.cmf.nrl.navy.mil>; from chas@cmf.nrl.navy.mil on Wed, Feb 04, 2004 at 02:04:17PM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Kevin Curtis <kevin.curtis@farsite.co.uk> :
-[...]
-diff -urN linux-2.4.25-orig/drivers/net/wan/farsync.c linux/drivers/net/wan/farsync.c
---- linux-2.4.25-orig/drivers/net/wan/farsync.c	2004-02-04 12:08:41.000000000 +0000
-+++ linux/drivers/net/wan/farsync.c	2004-02-04 13:15:45.000000000 +0000
-[...]
-+fst_recover_rx_error ( struct fst_card_info *card, struct fst_port_info *port,
-+		   unsigned char dmabits, int rxp, unsigned short len)
-+{
-[...]
-+	    if ( ++rxp >= NUM_RX_BUFFER )
-+	      rxp = 0;
+chas williams <chas@cmf.nrl.navy.mil> :
+> randy, i think it should probably return -ENOMEM instead of -1.
 
--> rxp = (rxp + 1) % NUM_RX_BUFFER; ?
-
-   There are a few of those.
-
-[...]
-+	if (card->family == FST_FAMILY_TXU)
-+	  {
-+	    /*
-+	     * Allocate a dma buffer for transmit and receives
-+	     */
-+	    card->rx_dma_handle_host = 
-+	      pci_alloc_consistent(card->device, FST_MAX_MTU, 
-+				   &card->rx_dma_handle_card);
-+	    if (card->rx_dma_handle_host == NULL)
-+	      {
-+		printk_err("Could not allocate rx dma buffer\n");
-+		return;
-+	      }
-+	    card->tx_dma_handle_host = 
-+	      pci_alloc_consistent(card->device, FST_MAX_MTU,
-+				   &card->tx_dma_handle_card);
-+	    if (card->tx_dma_handle_host == NULL)
-+	      {
-+		printk_err("Could not allocate tx dma buffer\n");
-+		return;
-+	      }
-+	  }
-
--> The error logic is broken. An error code should be returned to the caller
-   if the allocation fails. Otherwise, the kernel will crash on module removal
-   or if the device is further used.
+One should probably apply the following patch on top of it btw.
 
 
-@@ -1516,16 +2648,39 @@
-[...]
-+	    for (i=0; i< fst_excluded_cards; i++)
-+	      {
-+		if ((pdev->devfn)>>3 == fst_excluded_list[i])
-+		  {
-+		    printk("FarSync PCI device %d not assigned\n", (pdev->devfn)>>3);
 
--> printk(KERN_xxx/printk_xxx
+Unbalanced call to create_proc_entry() on error path.
 
---
-Ueimor
+
+ net/atm/clip.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletion(-)
+
+diff -puN net/atm/clip.c~clip-procfs-leak net/atm/clip.c
+--- linux-2.6.2-rc3/net/atm/clip.c~clip-procfs-leak	2004-02-04 22:41:42.000000000 +0100
++++ linux-2.6.2-rc3-fr/net/atm/clip.c	2004-02-04 22:43:33.000000000 +0100
+@@ -1021,8 +1021,10 @@ static int __init atm_clip_init(void)
+ 	clip_tbl.kmem_cachep = kmem_cache_create(clip_tbl.id,
+ 	    clip_tbl.entry_size, 0, SLAB_HWCACHE_ALIGN, NULL, NULL);
+ 
+-	if (!clip_tbl.kmem_cachep)
++	if (!clip_tbl.kmem_cachep) {
++		remove_proc_entry("arp", atm_proc_root);
+ 		return -ENOMEM;
++	}
+ 
+ 	/* so neigh_ifdown() doesn't complain */
+ 	clip_tbl.proxy_timer.data = 0;
+
+_
