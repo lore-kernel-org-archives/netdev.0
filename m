@@ -1,49 +1,45 @@
-From: Trevor Hurst <trev@corp.sgi.com>
-Subject: cisco_ipsec w/ 2.4.18-4SGI_XFS_1.1
-Date: Sat, 27 Jul 2002 10:12:11 -0700 (PDT)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: TODO list before feature freeze
+Date: Mon, 29 Jul 2002 06:57:20 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.SGI.3.94.1020727100610.63470B-100000@shotgun.corp.sgi.com>
+Message-ID: <Pine.GSO.4.30.0207290648020.12604-100000@shell.cyberus.ca>
+References: <20020718093928.18BC942CD@lists.samba.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netfilter-devel@lists.netfilter.org>, <netdev@oss.sgi.com>,
+   <netfilter-core@lists.netfilter.org>
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Rusty Russell <rusty@rustcorp.com.au>@shell.cyberus.ca@shell.cyberus.ca
+In-Reply-To: <20020718093928.18BC942CD@lists.samba.org>
 List-Id: netdev.vger.kernel.org
 
 
-Has anyone gotten the cisco vpn client 3.5.Rel-k9
-to work with 2.4.18 or 2.4.18-sgi-xfs???
 
-I have made some progress but not quite there yet..
+On Thu, 18 Jul 2002, Rusty Russell wrote:
 
-Details:
+> Hi all,
+>
+> 	With four months to go before the feature freeze,
 
-[root@fiend vpnclient]# /etc/init.d/vpnclient_init start
-Starting /usr/local/bin/vpnclient:
-/lib/modules/2.4.18-4SGI_XFS_1.1/CiscoVPN/cisco_ipsec: unresolved symbol
-get_fast_time
-/lib/modules/2.4.18-4SGI_XFS_1.1/CiscoVPN/cisco_ipsec: 
-Hint: You are trying to load a module without a GPL compatible license
-      and it has unresolved symbols.  Contact the module supplier for
-      assistance, only they can help you.
+Really? ;->
 
-Failed (insmod)
+>
+> Connection tracking:
 
-Any ideas? 
+Fix perfomance problems with this thing. You may have seen reports of
+performance degradation it introduces. I was hoping to take a look at some
+point time hasnt been visiting this side.
 
-Thanks!
+>
+> iptables:
+> 	o Change over to a netlink interface
+> 		o Back to add/delete/replace interface + commit.
+> 	o Rewrite libiptc to use netlink (to port iptables).
 
--- Trev
+I hope this resolves the current scheme where the whole
+add/delete/replace interface + commit happens in user space?
+If you use netlink it would make sense to do incremental updates to the
+kernel.
 
-
---
-Trevor Hurst
-Senior Systems Administrator
-DCO Unix Production Systems
-Silicon Graphics
-Office Ph: 650.933.6144
-e-mail: trev@sgi.com
-pager: trev_p@pager.sgi.com
-
---
-He who pursues righteousness and love
-finds life, prosperity and honor.
+cheers,
+jamal
