@@ -1,64 +1,67 @@
-From: Andre Hedrick <andre@linux-ide.org>
-Subject: Re: [Design] [PATCH] USAGI IPsec
-Date: Sun, 20 Oct 2002 21:22:23 -0700 (PDT)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: reserving skbuffs for the drivers
+Date: Sun, 20 Oct 2002 22:00:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.10.10210202120100.674-100000@master.linux-ide.org>
-References: <3DB41338.3070502@storm.ca>
+Message-ID: <3DB389D5.9050403@candelatech.com>
+References: <3DB31A32.9020107@candelatech.com> <20021021052031.B16412@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mitsuru KANDA <mk@linux-ipv6.org>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, cryptoapi-devel@kerneli.org, design@lists.freeswan.org,
-   usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sandy Harris <sandy@storm.ca>
-In-Reply-To: <3DB41338.3070502@storm.ca>
+To: Andi Kleen <ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-It is all bolted togather and does not need to be piece from random parts.
-Thus in simple reality, it is superior.
-
-Maybe FreeS/WAN will get busy and compete or die.
-
-Cheers,
-
-Andre Hedrick
-LAD Storage Consulting Group
-
-On Mon, 21 Oct 2002, Sandy Harris wrote:
-
-> Mitsuru KANDA wrote:
+Andi Kleen wrote:
+> On Sun, Oct 20, 2002 at 02:03:46PM -0700, Ben Greear wrote:
 > 
-> >Hello Linux kernel network maintainers,
-> >
-> >I'm a member of USAGI project.
-> >
-> >In IPv6 specifications, IPsec is mandatory.
-> >
-> >We implemented IPsec for Linux IP stack.
-> >
-> >At present, our implementation includes:
-> >	PF_KEY V2 interface,
-> >	Security Association Database and
-> >	Security Policy Database for whole IP versions,
-> >	IPsec for IPv6,(transport, tunnel mode),
-> >	IPsec for IPv4 (transport mode),
-> >
-> >Would you mind checking it ?
-> >
-> Is this code being checked in to the mainline kernel? Or becoming part 
-> of the
-> CryptoAPI patch set? Bravo, in either case.
+>>I'm getting dropped rx packets because the network
+>>driver cannot allocate an skbuf in time, evidently....
+>>
+>>I have 256MB of RAM, is there some way to increase the amount of RAM
+>>that the kernel keeps around for GFP_ATOMIC allocations?
+>>
+>>Documentation I find talks about buffermem and freepages, which looks
+>>hopeful, but they appear to no longer be in the proc file system as
+>>tunables???
 > 
-> How does that affect FreeS/WAN development?
 > 
-> >  
-> >
+> You should be asking on linux-mm, not on netdev.
 > 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> I've been complaining to the MM guys for years that they dropped freepages 
+> in 2.4, which makes it impossible to tune the VM for heavy network load, but 
+> so far nobody was interested in fixing it.
 > 
+> -Andi
+
+Lord knows I don't mind complaining...didn't know a linux-mm list
+existed...
+
+I wonder though...since we use the skbuff malloc/free wrappers in the
+networking code, maybe we could just keep a local cache of some
+tunable size.  That may make the skb-malloc call as simple as popping
+something off of a head of list for the majority of the cases, and should
+free us from having to use the VM.  The kernel default could be quite small
+so that low memory machines can still function w/out wasting memory...
+
+The other thing is that my dropped packet problem was mostly fixed by
+changing the rx buffer ring to be 512 instead of the 32 it was originally.
+As Becker notes, this is not a real solution though...just a hack to make
+the problem harder to trigger...
+
+After I made that change, I noticed that most of my dropped packets happened
+when the transmitter sent a packet, but the receiving NIC has no record of
+receiving the packet (errors or otherwise).  I think there may be some bug
+with running multiple ports at once (I never see the problem with 2 of the 4 ports
+running, it's rare with 3, but with 4, it drops packets all over the place.)
+
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
