@@ -1,79 +1,194 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: [PATCH 2.6] e100, e1000, ixgb: add MODULE_VERSION tags
-Date: Tue, 2 Nov 2004 13:07:24 -0600
-Message-ID: <20041102190724.GA6962@lists.us.dell.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/3] r8169: Large Send enablement
+Date: Tue, 2 Nov 2004 20:11:03 +0100
+Message-ID: <20041102191103.GA24860@electric-eye.fr.zoreil.com>
+References: <200411021203.22003.jdmason@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux.nics@intel.com, jgarzik@pobox.com
+To: Jon Mason <jdmason@us.ibm.com>
 Content-Disposition: inline
+In-Reply-To: <200411021203.22003.jdmason@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch below adds MODULE_VERSION tags to the e100, e1000, and ixgb
-drivers.  Tools like DKMS will make use of this information to
-determine if a given driver is older or newer than another given
-driver based on this version number.
+Jon Mason <jdmason@us.ibm.com> :
+[...]
+> @@ -1578,6 +1580,24 @@ rtl8169_hw_start(struct net_device *dev)
+>         netif_start_queue(dev);
+>  }
+> 
+> +static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
+> +{
+> +       struct rtl8169_private *tp = netdev_priv(dev);
+> +
+> +       if (new_mtu < ETH_ZLEN || new_mtu > 7400)
+> +               return -EINVAL;
+> +
+> +       if (netif_running(dev))
+> +               rtl8169_close(dev);
+> +
+> +       dev->mtu = new_mtu;
+> +       tp->rx_buf_sz = new_mtu + ETH_HLEN + 8;
+> +
+> +       rtl8169_open(dev);
+> +
+> +       return 0;
+> +}
+> +
 
-Signed-off-by: Matt Domsch <Matt_Domsch@dell.com>
+Ok. Powow:
+- rtl8169_close() is not protected as if it was issued during dev->close.
+  It races with the irq handler.
+- I see no reason why the state of the device should change if the device
+  was not up. Use the tool of your choice to correct me if I am wrong.
+- If rtl8169_open() fails [*] when the device was previously up, the driver
+  could/should try to recover.
 
--- 
-Matt Domsch
-Sr. Software Engineer, Lead Engineer
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+Untested example below to clarify.
 
-===== drivers/net/e100.c 1.30 vs edited =====
---- 1.30/drivers/net/e100.c	2004-10-25 02:27:41 -05:00
-+++ edited/drivers/net/e100.c	2004-11-02 12:49:44 -06:00
-@@ -166,6 +166,7 @@
- MODULE_DESCRIPTION(DRV_DESCRIPTION);
- MODULE_AUTHOR(DRV_COPYRIGHT);
+[*] page allocation failure, bigger mtu/rx buffers -> I feel moderately
+    confortable.
+
+
+diff -puN drivers/net/r8169.c~r8169-240 drivers/net/r8169.c
+--- linux-2.6.9/drivers/net/r8169.c~r8169-240	2004-10-21 21:55:45.000000000 +0200
++++ linux-2.6.9-fr/drivers/net/r8169.c	2004-11-01 23:10:25.000000000 +0100
+@@ -120,6 +120,8 @@ static int multicast_filter_limit = 32;
+ #define RX_BUF_SIZE	1536	/* Rx Buffer size */
+ #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
+ #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
++#define R8169_MIN_MTU		8
++#define R8169_MAX_MTU		((2 << 14) - 1)
+ 
+ #define RTL8169_TX_TIMEOUT	(6*HZ)
+ #define RTL8169_PHY_TIMEOUT	(10*HZ)
+@@ -412,6 +414,7 @@ MODULE_PARM_DESC(use_dac, "Enable PCI DA
  MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
  
- static int debug = 3;
- module_param(debug, int, 0);
-===== drivers/net/e1000/e1000_main.c 1.137 vs edited =====
---- 1.137/drivers/net/e1000/e1000_main.c	2004-10-25 22:41:15 -05:00
-+++ edited/drivers/net/e1000/e1000_main.c	2004-11-02 12:55:04 -06:00
-@@ -48,7 +48,8 @@
- #else
- #define DRIVERNAPI "-NAPI"
- #endif
--char e1000_driver_version[] = "5.5.4-k2"DRIVERNAPI;
-+#define DRV_VERSION "5.5.4-k2"DRIVERNAPI
-+char e1000_driver_version[] = DRV_VERSION;
- char e1000_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
+ static int rtl8169_open(struct net_device *dev);
++static int rtl8169_change_mtu(struct net_device *dev, int new_mtu);
+ static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance,
+ 			      struct pt_regs *regs);
+@@ -1314,6 +1317,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
+ 	dev->stop = rtl8169_close;
+ 	dev->tx_timeout = rtl8169_tx_timeout;
++	dev->change_mtu = rtl8169_change_mtu;
+ 	dev->set_multicast_list = rtl8169_set_rx_mode;
+ 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
+ 	dev->irq = pdev->irq;
+@@ -1533,7 +1537,7 @@ rtl8169_hw_start(struct net_device *dev)
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
  
- /* e1000_pci_tbl - PCI Device ID Table
-@@ -196,6 +197,7 @@
- MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
- MODULE_DESCRIPTION("Intel(R) PRO/1000 Network Driver");
- MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
+ 	// For gigabit rtl8169
+-	RTL_W16(RxMaxSize, RxPacketMaxSize);
++	RTL_W16(RxMaxSize, tp->rx_buf_sz);
  
- static int debug = NETIF_MSG_DRV | NETIF_MSG_PROBE;
- module_param(debug, int, 0);
-===== drivers/net/ixgb/ixgb_main.c 1.18 vs edited =====
---- 1.18/drivers/net/ixgb/ixgb_main.c	2004-10-25 20:04:30 -05:00
-+++ edited/drivers/net/ixgb/ixgb_main.c	2004-11-02 12:56:03 -06:00
-@@ -30,7 +30,8 @@
+ 	// Set Rx Config register
+ 	i = rtl8169_rx_config |
+@@ -1738,6 +1742,26 @@ static void rtl8169_schedule_work(struct
+ 	schedule_delayed_work(&tp->task, 4);
+ }
  
- char ixgb_driver_name[] = "ixgb";
- char ixgb_driver_string[] = "Intel(R) PRO/10GbE Network Driver";
--char ixgb_driver_version[] = "1.0.66-k2";
-+#define DRV_VERSION "1.0.66-k2"
-+char ixgb_driver_version[] = DRV_VERSION;
- char ixgb_copyright[] = "Copyright (c) 2001-2004 Intel Corporation.";
++static void __rtl8169_kick(struct net_device *dev)
++{
++	rtl8169_hw_start(dev);
++	netif_poll_enable(dev);
++	netif_wake_queue(dev);
++	set_bit(__LINK_STATE_START, &dev->state);
++}
++
++static void rtl8169_refill_task(void *_data)
++{
++	struct net_device *dev = _data;
++	int err;
++
++	err = rtl8169_init_ring(dev);
++	if (err < 0)
++		rtl8169_schedule_work(dev, rtl8169_refill_task);
++	else if (netif_queue_stopped(dev)) 
++		__rtl8169_kick(dev);
++}
++
+ static void rtl8169_wait_for_quiescence(struct net_device *dev)
+ {
+ 	synchronize_irq(dev->irq);
+@@ -2223,6 +2247,72 @@ out:
+ 	return IRQ_RETVAL(handled);
+ }
  
- /* ixgb_pci_tbl - PCI Device ID Table
-@@ -138,6 +139,7 @@
- MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
- MODULE_DESCRIPTION("Intel(R) PRO/10GbE Network Driver");
- MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
- 
- /* some defines for controlling descriptor fetches in h/w */
- #define RXDCTL_PTHRESH_DEFAULT 128	/* chip considers prefech below this */
++static int rtl8169_set_rxbufsize(struct rtl8169_private *tp, int mtu)
++{
++	if (mtu < R8169_MIN_MTU || mtu > R8169_MAX_MTU)
++		return -EINVAL;
++
++	tp->rx_buf_sz = mtu;
++	if (mtu > ETH_DATA_LEN) {
++		/* MTU + ethernet header + FCS + optional VLAN tag */
++		tp->rx_buf_sz += ETH_HLEN + 8;
++	}
++	return 0;
++}
++
++
++static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	struct TxDesc *txd = tp->TxDescArray;
++	void *ioaddr = tp->mmio_addr;
++	int ret, i;
++
++	ret = rtl8169_set_rxbufsize(tp, new_mtu);
++	if (ret < 0)
++		goto out;
++
++	if (!netif_running(dev))
++		goto out;
++
++	printk(KERN_DEBUG "%s: Tx/Rx activity going down!\n", dev->name);
++	RTL_W8(ChipCmd, 0x00);
++	RTL_R8(ChipCmd);
++
++	flush_scheduled_work();
++
++	netif_poll_disable(dev);
++
++	RTL_W16(IntrMask, 0x0000);
++	RTL_R16(IntrMask);
++
++	/* A bit incestuous */
++	clear_bit(__LINK_STATE_START, &dev->state);
++
++	synchronize_irq(dev->irq);
++
++	netif_stop_queue(dev);
++
++	/*
++	 * At this point we do not bother with the irq/napi handlers
++	 * any more. Tx thread may lurk.
++	 */
++	for (i = 0; i < NUM_TX_DESC; i++, txd++)
++		txd->opts1 = le32_to_cpu(DescOwn);
++
++	/* Give a racing hard_start_xmit a few cycles to complete. */
++	set_current_state(TASK_UNINTERRUPTIBLE);
++	schedule_timeout(1);
++		
++	rtl8169_rx_clear(tp);
++	rtl8169_tx_clear(tp);
++
++	rtl8169_refill_task(dev);
++
++out:
++	return ret;
++}
++
+ #ifdef CONFIG_R8169_NAPI
+ static int rtl8169_poll(struct net_device *dev, int *budget)
+ {
+
+_
