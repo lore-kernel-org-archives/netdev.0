@@ -1,51 +1,37 @@
 From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: Hang when testing with AMD64 with Tg3
-Date: Mon, 04 Oct 2004 17:47:48 -0700
+Date: Mon, 04 Oct 2004 18:00:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096937268.22155.11.camel@localhost.localdomain>
+Message-ID: <1096938036.22947.1.camel@localhost.localdomain>
 References: <1096935071.22155.6.camel@localhost.localdomain>
 	 <20041005001527.GB13106@wotan.suse.de>
-	 <20041004172948.2023a75e.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, davem@redhat.com, netdev@oss.sgi.com
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041004172948.2023a75e.davem@davemloft.net>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20041005001527.GB13106@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-10-04 at 17:29 -0700, David S. Miller wrote:
-> On Tue, 5 Oct 2004 02:15:27 +0200
-> Andi Kleen <ak@suse.de> wrote:
-> 
-> > I don't see things like this on my boxes with rc3, also with tg3s.
+On Tue, 2004-10-05 at 02:15 +0200, Andi Kleen wrote:
+> On Mon, Oct 04, 2004 at 05:11:11PM -0700, Stephen Hemminger wrote:
+> > Doing simple iperf test on new opteron with tg3 against existing Xeon
+> > system.  I am seeing something wierd, the connection hangs right away.
+> > Is this a TSO bug.  
 > > 
-> > Of what nature is the hang? Does the machine crash?
+> > Sender: BK latest (2.6.9-rc3) Tg3 (XX.YY.250.3)
+> > Receiver: BK + netdev(jeffm) + dave's latest e100 (XX.YY.1.73)
+> > 
+> > Both machines are directly connected with a netgear 100mbit switch.
+> 
+> 
+> I don't see things like this on my boxes with rc3, also with tg3s.
+> 
+> Of what nature is the hang? Does the machine crash?
 
-> And what tg3 revisions do you have?
+The sender just doesn't send any more data??? I can reproduce it every
+time and it even happens with stock Suse 9.1 kernel (2.6.4-XX)
 
-# ethtool -i eth0
-driver: tg3
-version: 3.10
-firmware-version:
-bus-info: 0000:03:02.0
-
-# ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-
-
-# lspci -v
-0000:03:02.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5703 Gigabit Ethernet (rev 02)
-	Subsystem: IBM: Unknown device 026f
-	Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 28
-	Memory at c0200000 (64-bit, non-prefetchable)
-	Capabilities: [40] PCI-X non-bridge device.
-	Capabilities: [48] Power Management version 2
-	Capabilities: [50] Vital Product Data
-	Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 Enable-
+Will try a different ether card tommorrow to see if it is there.
