@@ -1,118 +1,58 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: some TSO analysis
-Date: Thu, 11 Nov 2004 16:06:08 +1100
-Message-ID: <20041111050608.GG1922@krispykreme.ozlabs.ibm.com>
+From: sebastian.ionita@focomunicatii.ro
+Subject: Re: ZyXEL GN650-T
+Date: Thu, 11 Nov 2004 08:12:10 +0200
+Message-ID: <20041111061210.26312.qmail@focomunicatii.ro>
+References: <20041107214427.20301.qmail@focomunicatii.ro>
+            <20041107224803.GA29248@electric-eye.fr.zoreil.com>
+            <20041109000006.GA14911@electric-eye.fr.zoreil.com>
+            <20041109232510.GA5582@electric-eye.fr.zoreil.com>
+            <20041110201010.18341.qmail@focomunicatii.ro>
+            <20041110212835.GA23758@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; format=flowed; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: seby@focomunicatii.ro, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, alan@redhat.com, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262093AbUKKGNx@vger.kernel.org>
+In-Reply-To: <20041110212835.GA23758@electric-eye.fr.zoreil.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu writes: 
 
-Hi,
+> sebastian.ionita@focomunicatii.ro <sebastian.ionita@focomunicatii.ro> :
+> [...]
+>> The kernel compiles but I have 1 unresolved simbole in the via-velocity 
+>> modul
+>> depmod: *** Unresolved symbols in 
+>> /lib/modules/2.4.28-rc2/kernel/drivers/net/via-velocity.o
+>> depmod:         crc_ccitt_R3771b461 
+> 
+> Can you grep for crc_ccitt the output of 'nm lib/lib.a' in your build
+> tree and check that CONFIG_CRC_CCITT is enabled in your .config ? 
+> 
+> crc_ccitt is EXPORT_SYMBOLed by lib/crc-ccitt.c and should be linked in
+> your new kernel.
+Yes is enabled in my .config and it exists,
+crc-ccitt.o:
+00000000 T crc_ccitt
+00000000 R crc_ccitt_table
+0000001a R __kstrtab_crc_ccitt
+00000000 R __kstrtab_crc_ccitt_table
+00000008 R __ksymtab_crc_ccitt
+00000000 R __ksymtab_crc_ccitt_table
+but why then depmod say's that it isn't there? 
 
-Some web server benchmarking on recent 2.6 shows TSO not to be the gain
-it was in earlier kernels. I took a quick look at varying
-tcp_tso_win_divisor, below are the results. 
-
-Each line is one packet, with the size of each component of the packet
-logged. Note the 4 byte packets at the end are a workaround for an e1000
-bug. The MTU is 1500 bytes. The kernel is BK from today. The test does
-64kB writes or sendfiles.
-
-I noticed a few things:
-
-- In the normal copy case, it looks like we split the first page between
-  the skb->data and the first frag. eg:
-
-  data: 1634 frags: 1408 4096 4096 4096 2108 4
-
-  Is there a reason why the remaining 1408 bytes cant be stuffed into
-  skb->data? Or is that an issue with MTU sized buffers?
-
-- TSO really doesnt come into play until we set tcp_tso_win_divisor to
-  2. BTW In this setup I am talking to a 2.4 machine on the same gigabit
-  switch. At 4 the normal copy case sees some gains, but interestingly
-  the zero copy does not.
-
-Anton
-
-
-tcp_tso_win_divisor = 8 (default)
-normal copy:
-data: 442 frags: 
-data: 1634 frags: 2772 4 
-data: 1634 frags: 896 1876 4 
-data: 1634 frags: 2176 596 4 
-data: 1634 frags: 2772 4 
-data: 1634 frags: 640 2132 4 
-data: 1634 frags: 1920 852 4 
-data: 1634 frags: 2772 4 
-data: 1634 frags: 384 2388 4 
-data: 1634 frags: 1664 1108 4 
-
-zero copy:
-data: 66 frags: 1448 
-data: 66 frags: 1200 248 
-data: 66 frags: 1448 
-data: 66 frags: 1448 
-data: 66 frags: 952 
-data: 66 frags: 1448 
-data: 66 frags: 1448 
-data: 66 frags: 1200 248 
-data: 66 frags: 1448 
-data: 66 frags: 1448 
+> 
+> --
+> Ueimor
+ 
 
 
-tcp_tso_win_divisor = 4
-normal copy:
-data: 1634 frags: 2176 4096 844 4 
-data: 1634 frags: 3200 3916 4 
-data: 1634 frags: 128 3020 4 
-data: 1634 frags: 1024 4096 1996 4 
-data: 1634 frags: 2048 4096 972 4 
-data: 1634 frags: 3072 4044 4 
-data: 1634 frags: 4096 3020 4 
-data: 1634 frags: 1024 4096 1996 4 
-data: 1634 frags: 2048 4096 972 4 
-data: 1634 frags: 3072 4044 4 
-
-zero copy:
-data: 66 frags: 1448 
-data: 66 frags: 1448 
-data: 66 frags: 1200 248 
-data: 66 frags: 1448 
-data: 66 frags: 1448 
-data: 66 frags: 952 
-data: 66 frags: 1448 
-data: 66 frags: 1448 
-data: 66 frags: 1200 248 
-data: 66 frags: 1448 
-
-
-tcp_tso_win_divisor = 2
-normal copy:
-data: 1634 frags: 1408 4096 4096 4096 2108 4 
-data: 1634 frags: 1920 4096 4096 4096 1596 4 
-data: 1634 frags: 2432 4096 4096 4096 1084 4 
-data: 1634 frags: 2944 4096 4096 4096 572 4 
-data: 1634 frags: 3456 4096 4096 4096 60 4 
-data: 1634 frags: 3968 4096 4096 3644 4 
-data: 1634 frags: 384 4096 4096 4096 3132 4 
-data: 1634 frags: 896 4096 4096 4096 2620 4 
-data: 1634 frags: 2432 4096 4096 4096 1084 4 
-
-zero copy:
-data: 66 frags: 2304 4096 4096 4096 2780 4 
-data: 66 frags: 1312 4096 4096 4096 3772 4 
-data: 66 frags: 320 4096 4096 4096 4096 668 4 
-data: 66 frags: 3424 4096 4096 4096 1660 4 
-data: 66 frags: 2432 4096 4096 4096 2652 4 
-data: 66 frags: 1440 4096 4096 4096 3644 4 
-data: 66 frags: 448 4096 4096 4096 4096 540 4 
-data: 66 frags: 3552 4096 4096 4096 1532 4 
-data: 66 frags: 2560 4096 4096 4096 2524 4 
-data: 66 frags: 1568 4096 4096 4096 3516 4 
+____________________________________________________________
+SC. FO Comunicatii SRL.
+Sebastian Ionita
+Administrator Sistem
+mobil: 0724 212408
+tel fix: 0264 450456 
