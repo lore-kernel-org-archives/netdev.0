@@ -1,26 +1,33 @@
-From: Wichert Akkerman <wichert@wiggy.net>
-Subject: Minor error in debugging message
-Date: Fri, 2 May 2003 11:12:03 +0200
+From: "Truffaut, Thierry" <Thierry.Truffaut@hp.com>
+Subject: unsubscrib
+Date: Fri, 2 May 2003 11:14:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030502091203.GN22848@wiggy.net>
+Message-ID: <06CAA4D3753C53408D2CE6340B68444201EC6C30@vbeexc02.emea.cpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I just noticed this in the 2.5.68 kernel boot sequence:
+ 
+ 
 
-Freeing alive device d7e6a000, eth%d
+R&D Engineer
+Signaling Protocol Platform Product - HP       
+Sophia-Antipolis
 
-It seems to be printed from netdev_finish_unregister (at least grep
-doesn't find that message elsewhere) and dev->name contains eth%d
-instead of eth0.
+*       BP 027 06901 Sophia-Antipolis Cedex - FRANCE
+* Office:  +33 (0).4.92.95.6247
+* Fax       :  +33.(0)4.92.95.63.63
+* E-Mail :  thierry.truffaut@hp.com 
 
-Wichert.
 
--- 
-Wichert Akkerman <wichert@wiggy.net>      It is simple to make things.
-http://www.wiggy.net/                     It is hard to make things simple.
+
+	
+
+
+ 
