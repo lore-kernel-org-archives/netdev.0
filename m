@@ -1,38 +1,28 @@
-From: Harald Welte <laforge@gnumonks.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@wide.ad.jp>
 Subject: Re: ICMPv6 ratelimiting, which /proc-settings related?
-Date: Sat, 13 Jul 2002 21:49:19 +0200
+Date: Mon, 15 Jul 2002 02:44:01 +0900 (JST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020713194919.GQ24779@naboo.lsm>
+Message-ID: <20020715.024401.17983126.yoshfuji@wide.ad.jp>
 References: <17380000.1026547066@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: Peter Bieringer <pb@bieringer.de>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 In-Reply-To: <17380000.1026547066@localhost>
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 13, 2002 at 09:57:46AM +0200, Peter Bieringer wrote:
+In article <17380000.1026547066@localhost> (at Sat, 13 Jul 2002 09:57:46 +0200), Peter Bieringer <pb@bieringer.de> says:
 
 > extending my IPv6-howto with information about the /proc-FS I found
 > that there is no setting for ICMPv6 rate limiting.
-> 
-> But in "ipv6/icmp.c" there are some " if (net_ratelimit())" calls.
-> 
-> How can this limit be controlled? Is it the
->         "/proc/sys/net/ipv4/icmp_ratelimit"
-> switch?
 
-no, the net_ratelimit() is a generic function to limit the rate of
-printk()'s to prevent syslog flooding...
+icmpv6_xrlim_allow() controls rate limiting.
 
-> TIA,
->  Peter
+A variable named sysctl_icmpv6_time lives in net/ipv6/icmp.c, but
+sysctl does not exist in fact...
 
--- 
-Live long and prosper
-- Harald Welte / laforge@gnumonks.org               http://www.gnumonks.org/
-============================================================================
-GCS/E/IT d- s-: a-- C+++ UL++++$ P+++ L++++$ E--- W- N++ o? K- w--- O- M- 
-V-- PS+ PE-- Y+ PGP++ t++ 5-- !X !R tv-- b+++ DI? !D G+ e* h+ r% y+(*)
+Is introducing /proc/sys/net/ipv6/icmp/all/icmpv6_time reasonable?
+
+--yoshfuji
