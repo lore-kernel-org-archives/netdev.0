@@ -1,29 +1,37 @@
-From: Willy Tarreau <w@w.ods.org>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: Thu, 22 Apr 2004 15:17:04 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040422131704.GA6839@alpha.home.local>
-References: <XFMail.20040422102359.pochini@shiny.it> <Pine.LNX.4.53.0404220734330.8039@chaos>
+Date: 22 Apr 2004 09:22:16 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <1082640135.1059.93.camel@jzny.localdomain>
+References: <XFMail.20040422102359.pochini@shiny.it>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Richard B. Johnson" <root@chaos.analogic.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.53.0404220734330.8039@chaos>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, cfriesen@nortelnetworks.com,
+	=?ISO-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264023AbUDVNWx@vger.kernel.org>
+To: Giuliano Pochini <pochini@shiny.it>
+In-Reply-To: <XFMail.20040422102359.pochini@shiny.it>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Apr 22, 2004 at 07:35:54AM -0400, Richard B. Johnson wrote:
- 
-> Has anybody checked to see what Linux does if it receives a
-> RST to the broadcast address? It would be a shame if all
-> connections were dropped!
+On Thu, 2004-04-22 at 04:23, Giuliano Pochini wrote:
 
-I don't see how this would be possible : a TCP packet is matched *only* if
-it refers to a valid session. If you have no session established from/to the
-broadcast address, there's no possibility that an RST targetted at this address
-terminates anything, even if the ports are OK.
+> Yes, but it is possible, expecially for long sessions. 
 
-Cheers,
-Willy
+In other words, 80% or more of internet traffic would not be affected
+still using http1.0 would not be affected.
+And for something like a huge download to just regular joe, this is more
+of a nuisance assuming some kiddie has access between you and the
+server.
+OTOH, long lived BGP sessions are affected assuming you are going across
+hostile path to your peer.
+
+So whats all this ado about nothing? Local media made it appear we are
+all about to die.
+
+Is anyone working on some fix?
+
+cheers,
+jamal
