@@ -1,22 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPV6_V6ONLY Support, v2 (is Re: [PATCH] IPv6: Allow
- Both IPv6 and IPv4 Sockets on the Same Port)
-Date: Thu, 24 Oct 2002 03:24:34 -0700 (PDT)
+From: "David S. Miller" <davem@rth.ninka.net>
+Subject: Re: O_DIRECT sockets? (was [RESEND] tuning linux for high network
+	performance?)
+Date: 24 Oct 2002 03:46:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021024.032434.55079439.davem@redhat.com>
-References: <20021004.001929.03389091.yoshfuji@linux-ipv6.org>
-	<200210031552.TAA29921@sex.inr.ac.ru>
-	<20021023.162439.114324450.yoshfuji@linux-ipv6.org>
+Message-ID: <1035456413.10558.5.camel@rth.ninka.net>
+References: <200210231218.18733.roy@karlsbakk.net>
+	<200210231726.21135.roy@karlsbakk.net> <3DB6CF9E.327E165F@us.ibm.com>
+	<200210241214.59812.roy@karlsbakk.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Cc: Nivedita Singhvi <niv@us.ibm.com>, bert hubert <ahu@ds9a.nl>,
+   netdev@oss.sgi.com, Kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20021023.162439.114324450.yoshfuji@linux-ipv6.org>
+To: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
+In-Reply-To: <200210241214.59812.roy@karlsbakk.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2002-10-24 at 03:14, Roy Sigurd Karlsbakk wrote:
+> I can't use sendfile(). I'm working with files > 4GB, and from man 2 sendfile:
 
-I've added this patch to both of my trees.
-Thank you.
+That's what sendfile64() is for.  In fact every vendor I am aware
+of is shipping the sys_sendfile64() patch in their kernels and
+an appropriately fixed up glibc.
