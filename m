@@ -1,8 +1,8 @@
 From: domen@coderock.org
-Subject: [patch 12/19] net/ixgb_ethtool: replace schedule_timeout() with msleep_interruptible()
-Date: Wed, 12 Jan 2005 00:10:43 +0100
-Message-ID: <20050111231044.19A741F231@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
+Subject: [patch 14/19] janitor: net/gt96100eth: pci_find_device to pci_get_device
+Date: Wed, 12 Jan 2005 00:10:50 +0100
+Message-ID: <20050111231050.D3AD51F226@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, sfeldma@pobox.com,
         janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
@@ -13,33 +13,46 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Any comments would be appreciated.
+Replace pci_find_device with pci_get_device/pci_dev_put to plug
+race with pci_find_device.
 
-Description: Use msleep_interruptible() instead of 
-schedule_timeout() to guarantee the task delays as expected.
-
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Signed-off-by: Scott Feldman <sfeldma@pobox.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/ixgb/ixgb_ethtool.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ kj-domen/drivers/net/gt96100eth.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/ixgb/ixgb_ethtool.c~msleep_interruptible-drivers_net_ixgb_ixgb_ethtool drivers/net/ixgb/ixgb_ethtool.c
---- kj/drivers/net/ixgb/ixgb_ethtool.c~msleep_interruptible-drivers_net_ixgb_ixgb_ethtool	2005-01-10 18:00:06.000000000 +0100
-+++ kj-domen/drivers/net/ixgb/ixgb_ethtool.c	2005-01-10 18:00:06.000000000 +0100
-@@ -404,9 +404,9 @@ ixgb_ethtool_led_blink(struct net_device
+diff -puN drivers/net/gt96100eth.c~remove-pci-find-device-drivers_net_gt96100eth drivers/net/gt96100eth.c
+--- kj/drivers/net/gt96100eth.c~remove-pci-find-device-drivers_net_gt96100eth	2005-01-10 18:00:17.000000000 +0100
++++ kj-domen/drivers/net/gt96100eth.c	2005-01-10 18:00:17.000000000 +0100
+@@ -615,9 +615,9 @@ static int gt96100_init_module(void)
+ 	/*
+ 	 * Stupid probe because this really isn't a PCI device
+ 	 */
+-	if (!(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
++	if (!(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
+ 	                            PCI_DEVICE_ID_MARVELL_GT96100, NULL)) &&
+-	    !(pci = pci_find_device(PCI_VENDOR_ID_MARVELL,
++	    !(pci = pci_get_device(PCI_VENDOR_ID_MARVELL,
+ 		                    PCI_DEVICE_ID_MARVELL_GT96100A, NULL))) {
+ 		printk(KERN_ERR __FILE__ ": GT96100 not found!\n");
+ 		return -ENODEV;
+@@ -627,12 +627,14 @@ static int gt96100_init_module(void)
+ 	if (cpuConfig & (1<<12)) {
+ 		printk(KERN_ERR __FILE__
+ 		       ": must be in Big Endian mode!\n");
++		pci_dev_put(pci);
+ 		return -ENODEV;
+ 	}
  
- 	set_current_state(TASK_INTERRUPTIBLE);
- 	if (data)
--		schedule_timeout(data * HZ);
-+		msleep_interruptible(data * 1000);
- 	else
--		schedule_timeout(MAX_SCHEDULE_TIMEOUT);
-+		msleep_interruptible(jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT));
+ 	for (i=0; i < NUM_INTERFACES; i++)
+ 		retval |= gt96100_probe1(pci, i);
  
- 	del_timer_sync(&adapter->blink_timer);
- 	ixgb_led_off(&adapter->hw);
++	pci_dev_put(pci);
+ 	return retval;
+ }
+ 
 _
