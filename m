@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] [sparse] rtentry->rt_dev is __user
-Date: Tue, 22 Jun 2004 15:54:53 -0700
+Subject: [PATCH] [sparse] ip_rt_ioctl argument is user pointer
+Date: Tue, 22 Jun 2004 16:00:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040622155453.564ede17@dell_ss3.pdx.osdl.net>
+Message-ID: <20040622160022.75db69bb@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,28 +12,63 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The device entry in the route ioctl's needs annotation.
+The function ip_rt_ioctl expects a pointer to a user route structure, so define
+it that way and cast as appropriate.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-diff -Nru a/include/linux/route.h b/include/linux/route.h
---- a/include/linux/route.h	2004-06-22 15:49:41 -07:00
-+++ b/include/linux/route.h	2004-06-22 15:49:41 -07:00
-@@ -24,7 +24,7 @@
- #define _LINUX_ROUTE_H
+diff -Nru a/include/net/route.h b/include/net/route.h
+--- a/include/net/route.h	2004-06-22 15:57:28 -07:00
++++ b/include/net/route.h	2004-06-22 15:57:28 -07:00
+@@ -129,7 +129,7 @@
  
- #include <linux/if.h>
--
-+#include <linux/compiler.h>
+ extern unsigned		inet_addr_type(u32 addr);
+ extern void		ip_rt_multicast_event(struct in_device *);
+-extern int		ip_rt_ioctl(unsigned int cmd, void *arg);
++extern int		ip_rt_ioctl(unsigned int cmd, void __user *arg);
+ extern void		ip_rt_get_source(u8 *src, struct rtable *rt);
+ extern int		ip_rt_dump(struct sk_buff *skb,  struct netlink_callback *cb);
  
- /* This structure gets passed by the SIOCADDRT and SIOCDELRT calls. */
- struct rtentry 
-@@ -38,7 +38,7 @@
- 	unsigned long	rt_pad3;
- 	void		*rt_pad4;
- 	short		rt_metric;	/* +1 for binary compatibility!	*/
--	char		*rt_dev;	/* forcing the device at add	*/
-+	char __user	*rt_dev;	/* forcing the device at add	*/
- 	unsigned long	rt_mtu;		/* per route MTU/Window 	*/
- #ifndef __KERNEL__
- #define rt_mss	rt_mtu			/* Compatibility :-(            */
+diff -Nru a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c	2004-06-22 15:57:28 -07:00
++++ b/net/ipv4/af_inet.c	2004-06-22 15:57:28 -07:00
+@@ -848,7 +848,7 @@
+ 		case SIOCADDRT:
+ 		case SIOCDELRT:
+ 		case SIOCRTMSG:
+-			err = ip_rt_ioctl(cmd, (void *)arg);
++			err = ip_rt_ioctl(cmd, (void __user *)arg);
+ 			break;
+ 		case SIOCDARP:
+ 		case SIOCGARP:
+diff -Nru a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+--- a/net/ipv4/fib_frontend.c	2004-06-22 15:57:28 -07:00
++++ b/net/ipv4/fib_frontend.c	2004-06-22 15:57:28 -07:00
+@@ -235,7 +235,7 @@
+  *	Handle IP routing ioctl calls. These are used to manipulate the routing tables
+  */
+  
+-int ip_rt_ioctl(unsigned int cmd, void *arg)
++int ip_rt_ioctl(unsigned int cmd, void __user *arg)
+ {
+ 	int err;
+ 	struct kern_rta rta;
+diff -Nru a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+--- a/net/ipv4/ipconfig.c	2004-06-22 15:57:28 -07:00
++++ b/net/ipv4/ipconfig.c	2004-06-22 15:57:28 -07:00
+@@ -272,7 +272,7 @@
+ 
+ 	mm_segment_t oldfs = get_fs();
+ 	set_fs(get_ds());
+-	res = devinet_ioctl(cmd, arg);
++	res = devinet_ioctl(cmd, (struct ifreq __user *) arg);
+ 	set_fs(oldfs);
+ 	return res;
+ }
+@@ -283,7 +283,7 @@
+ 
+ 	mm_segment_t oldfs = get_fs();
+ 	set_fs(get_ds());
+-	res = ip_rt_ioctl(cmd, arg);
++	res = ip_rt_ioctl(cmd, (void __user *) arg);
+ 	set_fs(oldfs);
+ 	return res;
+ }
