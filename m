@@ -1,40 +1,68 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: RE: [Fwd: [E1000] NAPI re-insertion w/ changes]
-Date: Tue, 1 Apr 2003 21:44:03 +0200
+From: Oskar Andreasson <blueflux@koffein.net>
+Subject: Re: [PATCH][RESEND] Update of tcp_syncookies explanation
+Date: Tue, 1 Apr 2003 21:59:05 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16009.60419.764838.337501@robur.slu.se>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D314@orsmsx402.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0304012156390.22941-100000@laptop1.agatha>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, Jason Lunz <lunz@falooley.org>,
-   Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010107D314@orsmsx402.jf.intel.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi David,
 
-Feldman, Scott writes:
- > >  Also still some concern by having the watchdog kicked in e1000_intr 
- > >  wouldn't e1000_clean feel better? 
- > 
- > e1000_intr feels better to me in keeping the clean-up work separate from
- > managing link status change (hopefully an infrequent event :).  Do you
- > see any problems?
+Thanks for the reply! It was much appreciated, and I will do what I can to 
+iron any problems out. (Also, I am very sorry for putting you or anyone 
+else out there)
 
- Well I was afraid that this would not be run at very heavy loads due to 
- interrupt disabling but I forgot:
+My final question is this... could you give any tip on what specifics to 
+look/search for? I've been searching through the archives available at 
+http://oss.sgi.com/projects/netdev/archive/ for every single inclusion of 
+SYN in any of the archives by now, but could not find any specifics on 
+_what_ the syn cookies breaks, or why, except for ECN, SACK and 
+timestamps:/. 
 
-e1000_watchdog(unsigned long data)
-{      
-    /* Cause software interrupt to ensure rx ring is cleaned */
-    E1000_WRITE_REG(&adapter->hw, ICS, E1000_ICS_RXDMT0);
+I have also checked through the source code as well as I could, as well as
+Mr. Bernsteins algorithms, searched the net at large with 3 search 
+engines... and I am still not clever enough to figure it out.
 
- 
- Which generates irq from watchdog/timer so it should work and all practial 
- experiments indicates this is OK.
+In short, what I am trying to ask for is simply some kind of hints on
+where to look... I hope you don't mind. 
 
- Cheers.
-						--ro
+Thanks!
+
+PS. David, sorry for sending this in private before, no bad intentions 
+meant. DS.
+
+On Tue, 1 Apr 2003, David S. Miller wrote:
+
+>    From: Oskar Andreasson <blueflux@koffein.net>
+>    Date: Tue, 1 Apr 2003 19:33:13 +0200 (CEST)
+> 
+>    If anyone has any objections against this patch, please tell me so, with 
+>    an explanation of why! 
+>    
+> You didn't explain how TCP syncookies "seriously violates the TCP
+> protocol" yet you choose to remove that statement written by Alexey.
+> 
+> Either retain Alexey's statement (because it's true) or replace it
+> with proper text.
+> 
+> I'm not going into the details of how syncookies violates the TCP
+> protocol here, that has been hashed out many times on netdev and
+> linux-net years in the past, so I direct people to search up such
+> discussions instead of starting up yet another flame war here about
+> the topic.  Thanks.
+> 
+> 
+> 
+
+-- 
+----
+Oskar Andreasson
+http://www.frozentux.net
+http://iptables-tutorial.frozentux.net
+http://ipsysctl-tutorial.frozentux.net
+mailto:blueflux@koffein.net
