@@ -1,24 +1,32 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Reducing the overhead on the network core
-Date: Mon, 28 Mar 2005 17:14:36 -0800
-Message-ID: <20050328171436.62a0b80b.davem@davemloft.net>
-References: <200503282144.08870.vicente.feito@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] rtnl_unlock/lock in sch_api.c TRY2
+Date: Tue, 29 Mar 2005 03:29:01 +0200
+Message-ID: <20050329012901.GL3086@postel.suug.ch>
+References: <Pine.LNX.4.62.0503290206500.3229@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vicente Feito <vicente.feito@gmail.com>
-In-Reply-To: <200503282144.08870.vicente.feito@gmail.com>
+To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.62.0503290206500.3229@webhosting.rdsbv.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Catalin(ux aka Dino) BOIE <Pine.LNX.4.62.0503290206500.3229@webhosting.rdsbv.ro> 2005-03-29 02:09
+> +	replay:
+> +	tcm = NLMSG_DATA(n);
+> +	tca = arg;
+> +	clid = tcm->tcm_parent;
 
-We already do this and set the skb->packet_type field to
-PACKET_HOST, PACKET_BROADCAST, PACKET_MULTICAST etc.
-And the input paths test these values.
+I know this has been in dave's patch already but why is this needed?
+None of these variables changed in the meantime and the netlink message
+should still be the same.
 
-We still have to pass the packet into netif_rx() to deal
-with network taps that want to see packets that are not
-destined for us in any way.
+> +	q = p = NULL;
+
+There is also no way for q being != NULL here but I don't mind
+if this stays as-is, both are supposed to be temporary variables.
+
+Despite of these two comments the patch looks ok to me.
