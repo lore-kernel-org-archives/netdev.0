@@ -1,44 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: gigabit ethernet
-Date: Fri, 13 Feb 2004 17:11:09 -0500
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [BK PATCH] 2.6 SCTP updates
+Date: Fri, 13 Feb 2004 16:07:05 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040213221108.GA16586@gtf.org>
-References: <Pine.LNX.4.44.0402131116590.24993-100000@fast2.cs.caltech.edu> <402D424A.5060901@us.ibm.com>
+Message-ID: <Pine.LNX.4.58.0402131443350.2190@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cheng Jin <chengjin@cs.caltech.edu>,
-        satya srikanth <satyasrikanth2001@yahoo.com>,
-        "Xiaoliang (David) Wei" <weixl@caltech.edu>,
-        "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <402D424A.5060901@us.ibm.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 13, 2004 at 01:31:54PM -0800, Nivedita Singhvi wrote:
-> Cheng Jin wrote:
-> >
-> >I read somewhere that Intel SMP has cpu0 taking care of 
-> >all the hardware interrupts, but I don't know about softirqs.
-> >I think all softirqs related to the GbE are handled by the
-> >same cpu.
-> 
-> For incoming network packets, the hw interrupt handler simply
-> schedules a local softirq to handle the rest of the input
-> processing. So the softirq will execute on the same
-> CPU that the hw interrupt came in on.
+Hi Dave,
 
-Many answers ;-)
+Please do a
+	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
+to get the following fixes to SCTP on top of linux 2.6.2.
 
-1) Starting with Pentium4, all interrupts are delivered to cpu0...
-unless software directs otherwise.  Thus it is helpful to have a
-software irq balancing solution.  Red Hat has a userspace irqbalanced,
-and kernel 2.6.x also has kirqd on x86.
+# This patch includes the following deltas:
+#                  ChangeSet    1.1551  -> 1.1554
+#          net/sctp/ssnmap.c    1.2     -> 1.3
+#          net/sctp/socket.c    1.105   -> 1.107
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/02/12      sri@us.ibm.com  1.1552
+# [SCTP] Use __get_free_pages() to allocate ssnmap.
+#
+# This is needed to avoid kmalloc()'s 128K limit when an association is
+# initialized with a large no. of streams(more than 65000 inbound +
+# outbound streams).
+# --------------------------------------------
+# 04/02/12      sri@us.ibm.com  1.1553
+# [SCTP] Fix SCTP_INITMSG set socket option so that a parameter with 0
+#        value will not change its current value.
+# --------------------------------------------
+# 04/02/13      sri@us.ibm.com  1.1554
+# [SCTP] Fix sctp_getladdrs()/sctp_getpaddrs() API so that the port
+#        value in the returned addresses is in network byte order.
+# --------------------------------------------
 
-2) For networking, receiving all packets on one cpu has many benefits,
-and avoids packet reordering problems that occasionally appear on SMP.
-
-3) For NAPI drivers, regardless of interrupt balancing strategy, packets
-are usually receiving on one cpu.
+Thanks
+Sridhar
