@@ -1,169 +1,93 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [PATCH] net/airo: replace schedule_timeout() with *sleep() variants
-Date: Mon, 1 Nov 2004 14:20:06 -0800
-Message-ID: <20041101222006.GC4255__29296.2473039099$1099347761$gmane$org@us.ibm.com>
-References: <E1CO1wE-0002hu-WE@sputnik> <4184C61F.2080906@pobox.com>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: [PATCH 2.6] Wireless Extension dropped patchlet
+Date: Mon, 1 Nov 2004 14:58:24 -0800
+Message-ID: <20041101225823.GA16560@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kernel-janitors@lists.osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>,
+        Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <4184C61F.2080906@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 31, 2004 at 06:01:51AM -0500, Jeff Garzik wrote:
-> janitor@sternwelten.at wrote:
-> >Any comments would be appreciated.
-> >
-> >Description: Use msleep()/msleep_interruptible() [as appropriate]
-> >instead of schedule_timeout() to guarantee the task delays as
-> >expected. Also uses set_current_state() instead of direct assignment of
-> >current->state in one place.
-> >
-> >Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-> >Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-> >
-> >---
-> >
-> > linux-2.6.10-rc1-max/drivers/net/wireless/airo.c |   27 
-> > ++++++++---------------
-> > 1 files changed, 10 insertions(+), 17 deletions(-)
-> >
-> >diff -puN 
-> >drivers/net/wireless/airo.c~msleep+msleep_interruptible-drivers_net_wireless_airo drivers/net/wireless/airo.c
-> >--- 
-> >linux-2.6.10-rc1/drivers/net/wireless/airo.c~msleep+msleep_interruptible-drivers_net_wireless_airo	2004-10-24 17:05:35.000000000 +0200
-> >+++ linux-2.6.10-rc1-max/drivers/net/wireless/airo.c	2004-10-24 
-> >17:05:35.000000000 +0200
-> >@@ -1699,9 +1699,8 @@ static int readBSSListRid(struct airo_in
-> > 			issuecommand(ai, &cmd, &rsp);
-> > 			up(&ai->sem);
-> > 			/* Let the command take effect */
-> >-			set_current_state (TASK_INTERRUPTIBLE);
-> > 			ai->task = current;
-> >-			schedule_timeout (3*HZ);
-> >+			msleep_interruptible(3*1000);
-> > 			ai->task = NULL;
-> > 		}
-> > 	rc = PC4500_readrid(ai, first ? RID_BSSLISTFIRST : RID_BSSLISTNEXT,
-> 
-> use ssleep() here
-> 
-> 
-> >@@ -2950,7 +2947,7 @@ static int airo_thread(void *data) {
-> > 				}
-> > 				break;
-> > 			}
-> >-			current->state = TASK_RUNNING;
-> >+			set_current_state(TASK_RUNNING);
-> > 			remove_wait_queue(&ai->thr_wait, &wait);
-> > 			locked = 1;
-> > 		}
-> 
-> why are you adding barriers?
+	Hi Jeff,
 
-Fixed both issues in the following patch:
+	This tiny bit of the last WE-17 patch was lost between me and
+you. I initially decided to wait to resubmit, but Chris Wedgwood
+reported that the MadWifi driver needs it. Sorry for not having pushed
+harder.
+	I recreated this patch, and tested with 2.6.10-rc1, and Chris
+tested it with MadWifi. Would you mind pushing that up to Linus ?
+	Thanks in advance...
 
-Description: Use msleep()/msleep_interruptible()/ssleep()/
-ssleep_interruptible() [as appropriate] instead of
-schedule_timeout() to guarantee the task delays as expected.
-Also uses __set_current_state() instead of direct assignment
-of current->state. Also fixes tabbing in one line.
+	Jean
 
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Changelog :
+	o remove unneeded const
+	o spelling + comments
+Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
+---------------------------------------------------------------
 
-
---- 2.6.10-rc1-vanilla/drivers/net/wireless/airo.c	2004-10-30 15:33:27.000000000 -0700
-+++ 2.6.10-rc1/drivers/net/wireless/airo.c	2004-11-01 14:17:52.000000000 -0800
-@@ -1699,9 +1699,8 @@ static int readBSSListRid(struct airo_in
- 			issuecommand(ai, &cmd, &rsp);
- 			up(&ai->sem);
- 			/* Let the command take effect */
--			set_current_state (TASK_INTERRUPTIBLE);
- 			ai->task = current;
--			schedule_timeout (3*HZ);
-+			ssleep_interruptible(3);
- 			ai->task = NULL;
- 		}
- 	rc = PC4500_readrid(ai, first ? RID_BSSLISTFIRST : RID_BSSLISTNEXT,
-@@ -2686,11 +2685,9 @@ int reset_card( struct net_device *dev ,
- 		return -1;
- 	waitbusy (ai);
- 	OUT4500(ai,COMMAND,CMD_SOFTRESET);
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ/5);
-+	msleep(200);
- 	waitbusy (ai);
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ/5);
-+	msleep(200);
- 	if (lock)
- 		up(&ai->sem);
- 	return 0;
-@@ -2950,7 +2947,7 @@ static int airo_thread(void *data) {
- 				}
- 				break;
+diff -u -p linux-2.6.10-rc1/include/linux/wireless.h linux-2.6.9/include/linux/wireless.h
+--- linux-2.6.10-rc1/include/net/iw_handler.h	Mon Nov  1 11:14:46 2004
++++ linux-2.6.9/include/net/iw_handler.h	Mon Nov  1 11:14:50 2004
+@@ -311,10 +311,10 @@ struct iw_handler_def
+ {
+ 	/* Number of handlers defined (more precisely, index of the
+ 	 * last defined handler + 1) */
+-	const __u16		num_standard;
+-	const __u16		num_private;
++	__u16			num_standard;
++	__u16			num_private;
+ 	/* Number of private arg description */
+-	const __u16		num_private_args;
++	__u16			num_private_args;
+ 
+ 	/* Array of handlers for standard ioctls
+ 	 * We will call dev->wireless_handlers->standard[ioctl - SIOCSIWNAME]
+@@ -332,7 +332,7 @@ struct iw_handler_def
+ 	const struct iw_priv_args *	private_args;
+ 
+ 	/* This field will be *removed* in the next version of WE */
+-	const long		spy_offset;	/* DO NOT USE */
++	long			spy_offset;	/* DO NOT USE */
+ 
+ 	/* New location of get_wireless_stats, to de-bloat struct net_device.
+ 	 * The old pointer in struct net_device will be gradually phased
+diff -u -p linux-2.6.10-rc1/include/net/iw_handler.h linux-2.6.9/include/net/iw_handler.h
+--- linux-2.6.10-rc1/net/core/wireless.c	Mon Nov  1 11:14:48 2004
++++ linux-2.6.9/net/core/wireless.c	Mon Nov  1 11:24:32 2004
+@@ -52,7 +52,8 @@
+  * v6 - 18.06.04 - Jean II
+  *	o Change get_spydata() method for added safety
+  *	o Remove spy #ifdef, they are always on -> cleaner code
+- *	o Allow any size GET request is user specifies length > max
++ *	o Allow any size GET request if user specifies length > max
++ *		and if request has IW_DESCR_FLAG_NOMAX flag or is SIOCGIWPRIV
+  *	o Start migrating get_wireless_stats to struct iw_handler_def
+  *	o Add wmb() in iw_handler_set_spy() for non-coherent archs/cpus
+  * Based on patch from Pavel Roskin <proski@gnu.org> :
+@@ -690,6 +691,10 @@ static inline int ioctl_standard_call(st
+ 				 * we can support any size GET requests.
+ 				 * There is still a limit : -ENOMEM. */
+ 				extra_size = user_length * descr->token_size;
++				/* Note : user_length is originally a __u16,
++				 * and token_size is controlled by us,
++				 * so extra_size won't get negative and
++				 * won't overflow... */
  			}
--			current->state = TASK_RUNNING;
-+			__set_current_state(TASK_RUNNING);
- 			remove_wait_queue(&ai->thr_wait, &wait);
- 			locked = 1;
- 		}
-@@ -5518,12 +5515,12 @@ static int airo_pci_resume(struct pci_de
- 	} else {
- 		OUT4500(ai, EVACK, EV_AWAKEN);
- 		OUT4500(ai, EVACK, EV_AWAKEN);
--		schedule_timeout(HZ/10);
-+		msleep_interruptible(100);
- 	}
- 
- 	set_bit (FLAG_COMMIT, &ai->flags);
- 	disable_MAC(ai, 0);
--        schedule_timeout (HZ/5);
-+	msleep_interruptible(200);
- 	if (ai->SSID) {
- 		writeSsidRid(ai, ai->SSID, 0);
- 		kfree(ai->SSID);
-@@ -7472,8 +7469,7 @@ int cmdreset(struct airo_info *ai) {
- 
- 	OUT4500(ai,COMMAND,CMD_SOFTRESET);
- 
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ);          /* WAS 600 12/7/00 */
-+	ssleep(1);			/* WAS 600 12/7/00 */
- 
- 	if(!waitbusy (ai)){
- 		printk(KERN_INFO "Waitbusy hang AFTER RESET\n");
-@@ -7500,8 +7496,7 @@ int setflashmode (struct airo_info *ai) 
- 		OUT4500(ai, SWS3, FLASH_COMMAND);
- 		OUT4500(ai, COMMAND,0);
- 	}
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ/2); /* 500ms delay */
-+	msleep(500);		/* 500ms delay */
- 
- 	if(!waitbusy(ai)) {
- 		clear_bit (FLAG_FLASHING, &ai->flags);
-@@ -7611,8 +7606,7 @@ int flashputbuf(struct airo_info *ai){
- int flashrestart(struct airo_info *ai,struct net_device *dev){
- 	int    i,status;
- 
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ);          /* Added 12/7/00 */
-+	ssleep(1);			/* Added 12/7/00 */
- 	clear_bit (FLAG_FLASHING, &ai->flags);
- 	if (test_bit(FLAG_MPI, &ai->flags)) {
- 		status = mpi_init_descriptors(ai);
-@@ -7627,8 +7621,7 @@ int flashrestart(struct airo_info *ai,st
- 				( ai, 2312, i >= MAX_FIDS / 2 );
  		}
  
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ);          /* Added 12/7/00 */
-+	ssleep(1);			/* Added 12/7/00 */
- 	return status;
- }
- #endif /* CISCO_EXT */
+@@ -1227,7 +1232,7 @@ int iw_handler_set_spy(struct net_device
+ 
+ 	/* We want to operate without locking, because wireless_spy_update()
+ 	 * most likely will happen in the interrupt handler, and therefore
+-	 * have it own locking constraints and needs performance.
++	 * have its own locking constraints and needs performance.
+ 	 * The rtnl_lock() make sure we don't race with the other iw_handlers.
+ 	 * This make sure wireless_spy_update() "see" that the spy list
+ 	 * is temporarily disabled. */
