@@ -1,39 +1,27 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: looking for help with scanning of IPv6 interfaces
-Date: Fri, 15 Nov 2002 20:00:51 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: qdisc_restart locking bug?
+Date: Fri, 15 Nov 2002 14:01:22 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021115200051.A14677@wotan.suse.de>
-References: <200211151738.gAFHcDwX006227@sandelman.ottawa.on.ca>
+Message-ID: <3DD54482.802@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-Content-Disposition: inline
-In-Reply-To: <200211151738.gAFHcDwX006227@sandelman.ottawa.on.ca>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 15, 2002 at 12:38:12PM -0500, Michael Richardson wrote:
-> 1) Awhile ago there was a flame war about using SIOCGIFCONF/SIOCGLIFCONF
-> to get lists of interfaces. This was suggested as being a bad way.
-> 
-> 2) bind 9.3snapshot is able to get a list of IPv4 addresses with SIOCGIFCONF,
-> 
-> 3) it is not able to get IPv6 addresses with SIOCGLIFCONF.
-> 
-> Marc Andrews, sitting next to me, asked if I knew what the offical magic
-> was. Can someone point me that officially blessed way to do this?
+When qdisc_restart() is called from qdisc_run(), dev->queue_lock is 
+obtained via spin_lock_bh().
 
-Physical devices are read using /proc/net/dev
+When dev->hard_start_xmit() is called from qdisc_restart(), 
+dev->queue_lock is dropped, and then re-acquired using only spin_lock().
 
-If you want IPv6 addresses you can read and parse /proc/net/if_inet6 
+So, doesn't qdisc_restart need s/spin_lock/spin_lock_bh/ for 
+dev->queue_lock?
 
-That is the old fashioned way.
- 
-The new fashioned one is to query them using rtnetlink. You use a RTM_GETADDR
-NLM_F_REQUEST query with wildcard (NLM_F_ROOT) to get a full list.
-See the netlink,rtnetlink, libnetlink manpages and iproute2 as an example. 
-It is easier when you use libnetlink.
+When looking at the dev_queue_xmit -> qdisc_run -> qdisc_restart call 
+path, it seems so to me.
 
--Andi
+	Jeff
