@@ -1,43 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] convert pktgen to module_param
-Date: Wed, 28 Jul 2004 11:40:37 -0700
+From: James Morris <jmorris@redhat.com>
+Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe
+ RLT-8139 related)
+Date: Wed, 28 Jul 2004 15:09:13 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040728114037.7bad51e2@dell_ss3.pdx.osdl.net>
+Message-ID: <Xine.LNX.4.44.0407281508450.12082-100000@dhcp83-76.boston.redhat.com>
+References: <16647.61953.158512.433946@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pasi Sjoholm <ptsjohol@cc.jyu.fi>, Francois Romieu <romieu@fr.zoreil.com>,
+        H?ctor Mart?n <hector@marcansoft.com>,
+        Linux-Kernel <linux-kernel@vger.kernel.org>, <akpm@osdl.org>,
+        <netdev@oss.sgi.com>, <brad@brad-x.com>, <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-        Robert Olsson
- <robert.olsson@its.uu.se>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16647.61953.158512.433946@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert packet generator to module_param
+On Wed, 28 Jul 2004, Robert Olsson wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
- 
-diff -Nru a/net/core/pktgen.c b/net/core/pktgen.c
---- a/net/core/pktgen.c	2004-07-23 13:26:21 -07:00
-+++ b/net/core/pktgen.c	2004-07-23 13:26:21 -07:00
-@@ -56,6 +56,7 @@
-  */
- 
- #include <linux/module.h>
-+#include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/sched.h>
- #include <linux/types.h>
-@@ -1409,7 +1410,7 @@
- MODULE_AUTHOR("Robert Olsson <robert.olsson@its.uu.se");
- MODULE_DESCRIPTION("Packet Generator tool");
- MODULE_LICENSE("GPL");
--MODULE_PARM(count_d, "i");
--MODULE_PARM(ipg_d, "i");
--MODULE_PARM(cpu_speed, "i");
--MODULE_PARM(clone_skb_d, "i");
-+module_param(count_d, int, 0);
-+module_param(ipg_d, int, 0);
-+module_param(cpu_speed, int, 0);
-+module_param(clone_skb_d, int, 0);
+> And maybe we should take the experiment disussions off the list.
+
+This is what netdev is for :-)
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
