@@ -1,64 +1,39 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [2.6 patch] net/bluetooth/: misc possible cleanups
-Date: Tue, 14 Dec 2004 08:34:08 +0100
-Message-ID: <1103009649.2143.65.camel@pegasus>
-References: <20041214041352.GZ23151@stusta.de>
-Reply-To: bluez-devel@lists.sourceforge.net
+From: Thomas Spatzier <thomas.spatzier@de.ibm.com>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Tue, 14 Dec 2004 08:40:26 +0100
+Message-ID: <OF818F5ECF.239B7010-ONC1256F6A.0029BA10-C1256F6A.002A27C3@de.ibm.com>
+References: <Pine.LNX.4.61.0412101536160.16016@hibernia.jakma.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Max Krasnyansky <maxk@qualcomm.com>, bluez-devel@lists.sf.net,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   Network Development Mailing List <netdev@oss.sgi.com>
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20041214041352.GZ23151@stusta.de>
-Sender: bluez-devel-admin@lists.sourceforge.net
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Content-Type: text/plain; charset=US-ASCII
+Cc: hadi@cyberus.ca, Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, jgarzik@pobox.com,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <Pine.LNX.4.61.0412101536160.16016@hibernia.jakma.org>
+To: Paul Jakma <paul@clubi.ie>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Adrian,
-
-> The patch below contains the following possible cleanups:
-> - make needlessly global code static
-> - remove the following EXPORT_SYMBOL'ed but unused functions in 
->   hci_core.c:
->   - hci_suspend_dev
->   - hci_resume_dev
->   - hci_register_cb
->   - hci_unregister_cb
-
-these functions must stay. They have users outside the mainline kernel
-that are not merged back yet. Otherwise they won't be exported ;)
-
-> Please comment on which of these changes are correct and which conflict 
-> with pending patches.
-
-Please send a separate patch for all the RFCOMM changes, because these
-conflicts with some pending patches and then it will make it easier for
-me to merge them.
-
-The rest of the changes are fine with me, but I like to see also a
-separate patch for the CMTP stuff and cmtp_send_capimsg() don't need a
-forward declaration. Simply move the function to another place in the
-source code.
-
-Regards
-
-Marcel
 
 
 
 
--------------------------------------------------------
-SF email is sponsored by - The IT Product Guide
-Read honest & candid reviews on hundreds of IT Products from real users.
-Discover which products truly live up to the hype. Start reading now. 
-http://productguide.itmanagersjournal.com/
+Paul Jakma <paul@clubi.ie> wrote on 10.12.2004 16:37:15:
+> Thomas' original patch was to address this problem. I wonder could he
+> recap the kernel side of this problem?
+
+Here is why we submitted the original patch: We got reports from
+several customers that their dynamic routing daemons got hung when
+one network interface lost its physical connection. Some debugging
+showed that the write queues of sockets went full and got blocked.
+This was because we issued a netif_stop_queue when we detect a
+cable pull or something.
+As a solution, we removed the netif_stop_queue calls and just dropped
+the packets + we increment the respective error counts in the
+net_device_stats and call netif_carrier_off.
+This solved the customer problems and seems to be right thing for
+zebra etc.
+
+Regards,
+Thomas.
