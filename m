@@ -1,66 +1,35 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: The ultimate TOE design
-Date: Wed, 22 Sep 2004 13:18:07 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [Bug 3440] New: eth0 freezes: "NETDEV WATCHDOG: eth0: transmit timed out "
+Date: Wed, 22 Sep 2004 22:22:27 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4151DDFF.6000902@us.ibm.com>
-References: <200409162034.i8GKYq39023185@guinness.s2io.com>
+Message-ID: <20040922202227.GA23275@electric-eye.fr.zoreil.com>
+References: <20040922092713.18711d2d@dell_ss3.pdx.osdl.net> <BJEDLIFMBCLIGJJBNCLJGECPCPAA.per.sil@gmx.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'Andi Kleen'" <ak@suse.de>, "'David S. Miller'" <davem@davemloft.net>,
-        "'John Heffner'" <jheffner@psc.edu>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, john.ronciak@intel.com,
+        ganesh.venkatesan@intel.com, scott.feldman@intel.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Leonid Grossman <leonid.grossman@s2io.com>
-In-Reply-To: <200409162034.i8GKYq39023185@guinness.s2io.com>
+To: Perolo Silantico <per.sil@gmx.it>
+Content-Disposition: inline
+In-Reply-To: <BJEDLIFMBCLIGJJBNCLJGECPCPAA.per.sil@gmx.it>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Leonid Grossman wrote:
-
->>From: Nivedita Singhvi [mailto:niv@us.ibm.com] 
->>Sent: Thursday, September 16, 2004 9:19 AM
->>To: Leonid Grossman
->>Cc: 'Andi Kleen'; 'David S. Miller'; 'John Heffner'; 
->>netdev@oss.sgi.com
->>Subject: Re: The ultimate TOE design
->>
->>Leonid Grossman wrote:
->>
->>
->>>We can dream about benefits of huge MTUs, but the reality is that 
->>>moving beyond 9k MTU is years away. Reasons - mainly infrastructure, 
->>>plus MTU above ~10k may loose checksum protection (granted, this 
->>>depends whether the errors are simple or complex, and also this may 
->>>not be a showstopper for some people).
->>>Even 9k MTU is very far from being universally accepted, 
->>>eight years after our Alteon spec went out :-).
->>
->>One other factor is TCP congestion control, and congestion 
->>windows we obey. Most of the time, you just can't send that much.
+Perolo Silantico <per.sil@gmx.it> :
+> Same behaviour for drivers:
+>   - 8139too (kernel 2.6.8.1 and 2.6.8)
+>   - e100 (kernel 2.6.8)
+>   - eepro100 (kernel 2.6.8.1)
 > 
-> 
-> It's a bit painful to setup, but in general with 9k jumbos and TSO we were
-> able to get close to pci-x 133 limit - both in LAN and WAN tests.
-> Leonid
+> I have tried with all these drivers. Therefore it seemed to me, that
+> this is not related to any specific driver. But to be sure, I will
+> grab a 3com 905C from another server and try with that one and will
+> try with the PCNet32 too.
 
-Cool, but a very specific environment, no? ;)
+Can you give a try to 2.6.7 for the 8139 setup ?
 
-What concerns me about all this is that it seems
-so very host-centric design. Wouldn't it be nice if
-we had a little bit more network-centric worldview
-when designing network infrastructure?
+A dmesg from a working 2.4.x may help figure some difference.
 
-It isn't just a matter of how had we can push stuff
-out, it also matters how much the network can take.
-Blasting tens of gigs into the ether seems all very
-exciting sexy and cool, but suited for dedicated links
-or network attached storage channels, not general-purpose
-networking on the Internet or intra-nets.
-
-And if that is the case, we're talking about a much
-smaller market (but perhaps a more profitable
-one ;))...
-
-thanks,
-Nivedita
+--
+Ueimor
