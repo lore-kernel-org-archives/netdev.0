@@ -1,49 +1,41 @@
 From: John Levon <levon@movementarian.org>
-Subject: Re: [PATCH][ATM] a few patches from John Levon
-Date: Fri, 5 Sep 2003 10:55:39 +0100
+Subject: [PATCH] ATM - fix seqfile compile failure
+Date: Fri, 5 Sep 2003 18:51:13 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905095539.GD38861@compsoc.man.ac.uk>
-References: <200309041917.h84JHrSa020864@ginger.cmf.nrl.navy.mil> <20030905023536.68e808e7.davem@redhat.com>
+Message-ID: <20030905175113.GA40730@compsoc.man.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: chas3@users.sourceforge.net, chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com, shemminger@osdl.org,
+   linux-atm-general@lists.sourceforge.net
 Content-Disposition: inline
-In-Reply-To: <20030905023536.68e808e7.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 05, 2003 at 02:35:36AM -0700, David S. Miller wrote:
 
-> All applied, although:
-> 
-> > # [ATM]: fix atm_dev module refcount bug (from levon@movementarian.org)
-> 
-> You included this patch twice :-)
+The recent conversion to seq_file breaks CONFIG_ATM_BR2684_IPFILTER
+compile. 
 
-Hmm, then I think you're missing patch 5 :
+I have absolutely no idea what the original author was attempting to
+achieve with the "pos" thing, btw ... *shrug*
+
+Entirely untested.
+
+regards
+john
 
 
-diff -Naur -X dontdiff linux-cvs/net/atm/pppoatm.c linux-fixes/net/atm/pppoatm.c
---- linux-cvs/net/atm/pppoatm.c	2003-08-29 16:57:07.000000000 +0100
-+++ linux-fixes/net/atm/pppoatm.c	2003-09-04 10:51:19.000000000 +0100
-@@ -341,16 +341,13 @@
- 	return -ENOIOCTLCMD;
- }
- 
--/* the following avoids some spurious warnings from the compiler */
--#define UNUSED __attribute__((unused))
--
--static int __init UNUSED pppoatm_init(void)
-+static int __init pppoatm_init(void)
- {
- 	pppoatm_ioctl_set(pppoatm_ioctl);
- 	return 0;
- }
- 
--static void __exit UNUSED pppoatm_exit(void)
-+static void __exit pppoatm_exit(void)
- {
- 	pppoatm_ioctl_set(NULL);
- }
+diff -Naurp -X dontdiff linux-cvs/net/atm/br2684.c linux-fixes/net/atm/br2684.c
+--- linux-cvs/net/atm/br2684.c	2003-09-05 07:06:15.000000000 +0100
++++ linux-fixes/net/atm/br2684.c	2003-09-05 18:55:15.000000000 +0100
+@@ -732,8 +732,8 @@ static int br2684_seq_show(struct seq_fi
+ #ifdef CONFIG_ATM_BR2684_IPFILTER
+ #define b1(var, byte)	((u8 *) &brvcc->filter.var)[byte]
+ #define bs(var)		b1(var, 0), b1(var, 1), b1(var, 2), b1(var, 3)
+-			if (brvcc->filter.netmask != 0 && pos-- == 0)
+-				return sprintf(buf, "    filter=%d.%d.%d.%d/"
++			if (brvcc->filter.netmask != 0)
++				seq_printf(seq, "    filter=%d.%d.%d.%d/"
+ 				    "%d.%d.%d.%d\n", bs(prefix), bs(netmask));
+ #undef bs
+ #undef b1
