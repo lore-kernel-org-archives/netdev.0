@@ -1,9 +1,9 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Billing 1: WAS (Re: [PATCH 2/4] deferred drop, __parent
-	workaround, reshape_fail , netdev@oss.sgi.com ,
-Date: 22 Aug 2004 11:17:15 -0400
+Subject: Billing 2: WAS(Re: [PATCH 2/4] deferred drop, __parent workaround,
+	reshape_fail , netdev@oss.sgi.com ,
+Date: 22 Aug 2004 11:38:05 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1093187835.1042.95.camel@jzny.localdomain>
+Message-ID: <1093189084.1039.137.camel@jzny.localdomain>
 References: <411C0FCE.9060906@crocetta.org>
 	 <1092401484.1043.30.camel@jzny.localdomain>
 	 <20040816072032.GH15418@sunbeam2>
@@ -21,28 +21,54 @@ In-Reply-To: <41220AEA.20409@crocetta.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Apologies for latency - was busy at (my real) work.
-
-Let me break this email into several ones since it is getting long.
-
 On Tue, 2004-08-17 at 09:40, sandr8 wrote:
+> jamal wrote:
 
-> something like enqueue(dev) that will indirectly call dev->qdisc->enqueue
-> and handle in that single place that stuff that does not fit well in 
-> net/core/dev.c
+> >Dropping packets at the policer is policy definition. Dropping packets
+> >at the qdisc due to full queue is an accident. An accident that in
+> >a good system shouldnt happen.
+> >
+> why it should not happen in a good system?
+> it is an accident that is a sympthom of something. when we
+> encounter that accident we detect that "sympthom" at the
+> scheduler. the way the scheduler reacts to that sympthom
+> is imho part of the policy. 
 
-Enqueue of _root_ qdisc is the place to do it.
-Maybe even dev.c calls to it. Lets defer this to the next email.
+By "good system" i mean one with no resource bottlenecks or one that
+deals elegantly deals with bottlenecks.
 
-Let me say this:
-I am happy with Haralds billing patch which is already in as is.
-In other words, although there is an accounting discrepancy it is not
-that big.
-What does that mean? unbilling is not something to rush in and patch in
-if its going to have an impact on other pieces. It doesnt matter whether
-it goes in in 2.6.20 or doesnt even go in as far as i am concerned. 
-However this shouldnt dicourage you because you have actually opened an
-issue we need to resolve. So please keep up the discussions.
+1) A packet that is dropped because a queue is found to be full on
+enqueue() is an exception handling. Typically such a drop is a result of
+a bottleneck. In this specific case more than likely a bus overload (at
+least where i have seen it 100% of the time). My talk at SUCON will
+touch on some experiences in this area.
+In such a case you want the top layer to treat such behavior differently
+by perhaps backing off for a short while - i.e this is an internal
+resource congestion. Thats why TCP needs to be lied to with _BYPASS.
+
+2) I see that as different from policing or firewalling where i have
+actually  managed the resource myself and told the system to drop the
+packet. 
+
+Essentially in #1 i am providing more intelligence to TCP so it can
+do smarter congestion control than it would have done otherwise
+(suing whatever std congestion algorithms ask it to). This is extremely
+valuable (and i think Linux is the only OS which  does this).
+In #2 i dont want TCP to bypass its standard congestion
+control algorithm;at some point it discovers it and thinks theres
+congestion on the network - we just dont help.
+
+Not sure if that makes sense.
+
+> i'm somehow advocating that
+> the policer is something more than the mere filter, but the
+> filter + that part of the scheduler that decides what to drop...
+> from that viewpoint there is no big difference between
+> the filter drop and the "accidental drop" performed
+> nevertheless in compliance with a given policy.
+
+Refer to what i said above.
+
 
 cheers,
 jamal
