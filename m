@@ -1,95 +1,45 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: Re: [PATCH] 8139too NAPI for net-drivers-2.5-exp
-Date: Thu, 20 Nov 2003 04:02:14 +0900
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH ] more RTL-8139 clone boards
+Date: Wed, 19 Nov 2003 12:37:34 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <871xs4w5ah.fsf@devron.myhome.or.jp>
-References: <20031118161730.2690cb76.shemminger@osdl.org>
-	<3FBBA565.3090206@pobox.com>
+Message-ID: <3FBBAA5E.5020007@pobox.com>
+References: <3FBA771A.1010104@wanadoo.es> <20031119092751.3407c944.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
-        Jes Sorensen <jes@wildopensource.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Xose Vazquez Perez <xose@wanadoo.es>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3FBBA565.3090206@pobox.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031119092751.3407c944.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> writes:
-
-> Stephen Hemminger wrote:
-> > Here is the 8139too version in net-drivers-2.5-exp modified for NAPI.
-> > Also:
-> > 	64k receive ring - has to handle wrap for that case;
-> > 	   the NoWrap flag does nothing if using this big ring.
-> > 	assert() -> BUG_ON()
-> > 	
-> > To deal with the races with tx_timeout, put back in the rx_lock from earlier versions.
-
-> +		local_irq_disable();
-> +		netif_rx_complete(dev);
-> +		RTL_W16_F(IntrMask, rtl8139_intr_mask);
-> +		local_irq_enable();
-
-Probably, by my mistake in previous mail. Sorry.  This still has the
-races condition. It can trigger the same problem by shared interrupt
-on SMP. 
-
-Probably the following ISR style should use the below combination.
-
-   in ISR
-	if (netif_rx_schedule_prep(dev)) {
-		RTL_W16 (IntrMask, rtl8139_norx_intr_mask);
-		__netif_rx_schedule(dev);
-	}
-
-   in ->poll
-	local_irq_disable();
-	RTL_W16_F(IntrMask, rtl8139_intr_mask);
-	__netif_rx_complete(dev);
-	local_irq_enable();
+Stephen Hemminger wrote:
+> On Tue, 18 Nov 2003 20:46:34 +0100
+> Xose Vazquez Perez <xose@wanadoo.es> wrote:
+> 
+> 
+>>0x018A 0x0106 LevelOne FPC-0106TX
+>>0x126C 0x1211 Nortel Networks 10/100BaseTX
+>>0x1743 0x8139 Peppercon AG ROL-F
+>>0x021B 0x8139 Compaq HNE-300
+> 
+> 
+> Maybe time to  start using pci_ids.h?
 
 
-And another one should use the below combination.  (this style can
-change the flags of __LINK_STATE_RX_SCHED or __LINK_STATE_START anytime)
+This is mainly a matter of opinion.  My opinion:  no.  ;-)
 
-   in ISR
-	if (status & RxAckBits) {
-		RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
-		netif_rx_schedule (dev);
-	}
+I think it's rather silly to keep adding to pci_ids.h, when the ids are 
+just arbitrary hex numbers with no useful value.  I certainly support 
+mnemonic constants when they have value... but if the _only_ place a PCI 
+id constant exists is (a) in a pci_device_id list and (b) in pci_ids.h, 
+then it seems rather wasteful rather than helpful.
 
-   in ->poll
-	local_irq_disable();
-	__netif_rx_complete(dev);
-	RTL_W16_F(IntrMask, rtl8139_intr_mask);
-	local_irq_enable();
+IMO, the constants just bloat the pci_device_id list, whereas the ones 
+with hex numbers are nice, single lines.
 
-   If happen the shared interrupt, the this ISR style may lose a
-   chance of netif_rx_schedule().
+As an aside, include/linux/pci_ids.h is a heavily patched file, and 
+conflicts occur all the time.
 
-
-Anyway, the following patch should fix the problem. Please apply.
-
-Thanks.
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-
- drivers/net/8139too.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN drivers/net/8139too.c~8139too-fix-race drivers/net/8139too.c
---- linux-2.6.0-test9/drivers/net/8139too.c~8139too-fix-race	2003-11-19 23:48:46.000000000 +0900
-+++ linux-2.6.0-test9-hirofumi/drivers/net/8139too.c	2003-11-19 23:49:05.000000000 +0900
-@@ -2107,8 +2107,8 @@ static int rtl8139_poll(struct net_devic
- 		 * again when we think we are done.
- 		 */
- 		local_irq_disable();
--		netif_rx_complete(dev);
- 		RTL_W16_F(IntrMask, rtl8139_intr_mask);
-+		__netif_rx_complete(dev);
- 		local_irq_enable();
- 	}
- 	spin_unlock(&tp->rx_lock);
-
-_
+	Jeff
