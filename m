@@ -1,198 +1,110 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: WEXT quality specification
-Date: Fri, 4 Feb 2005 21:45:55 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0502042136060.1614@devserv.devel.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
+Date: Sat, 5 Feb 2005 16:24:07 +1100
+Message-ID: <20050205052407.GA17266@gondor.apana.org.au>
+References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="279707962-1533241267-1107571555=:4701"
-Cc: netdev@oss.sgi.com
-To: jt@hpl.hp.com
+Content-Type: multipart/mixed; boundary="dDRMvlgZJXvWKvBx"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        "David S. Miller" <davem@davemloft.net>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+        Stephen Hemminger <shemminger@osdl.org>
+To: Mirko Parthey <mirko.parthey@informatik.tu-chemnitz.de>
+Content-Disposition: inline
+In-Reply-To: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
 
---279707962-1533241267-1107571555=:4701
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+--dDRMvlgZJXvWKvBx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Jean,
+On Mon, Jan 31, 2005 at 04:22:02PM +0000, Mirko Parthey wrote:
+> 
+> How to reproduce the problem (I tried this on a Pentium 4 machine):
+> 
+> boot: linux init=/bin/bash
+> [...booting...]
+> # mount proc -t proc /proc
+> # ifconfig lo 127.0.0.1
+> # brctl addbr br0
+> # modprobe e100           # also reproducible with 3c5x9
+> # brctl addif br0 eth0
+> # ifconfig br0 192.168.1.1
+> # ifconfig eth0 up
+> # ifconfig lo down
 
-I've taken the liberty of whipping up a long-winded patch to wireless.17.h in an 
-attempt to concretely specify what drivers need to do for quality.  I do this so 
-that all ambiguity about signal quality will hopefully be gone, and so that both 
-driver writers and user-application writers know their responsibilities.  Please 
-look it over and comment (diff attached).  Its a bit long, but I feel that it 
-has to be to adequately explain the system.  I also feel that if its separate 
-from wireless.h, people won't be bothered to go find the documentation, though 
-if you feel strongly that it shouldn't be there then its fine to move it 
-elsewhere.
+This is the key to the problem.
 
-Thanks!
-Dan
---279707962-1533241267-1107571555=:4701
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="wireless-quality-exp.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.58.0502042145550.4701@devserv.devel.redhat.com>
-Content-Description: 
-Content-Disposition: attachment; filename="wireless-quality-exp.diff"
+It took me a while to find the cause of this.  Along the way I
+found a few other ref counting bugs in this area as well.
 
-LS0tIHdpcmVsZXNzLjE3LmguYmFrCTIwMDUtMDItMDQgMjA6Mjg6MDMuMDAw
-MDAwMDAwIC0wNTAwDQorKysgd2lyZWxlc3MuMTcuaAkyMDA1LTAyLTA0IDIx
-OjI5OjI2LjAwMDAwMDAwMCAtMDUwMA0KQEAgLTE4NCw2ICsxODQsMTA4IEBA
-DQogICoJLSBBZGQgc3VwcG9ydCBmb3IgcmVsYXRpdmUgVHhQb3dlciAoeWlj
-ayAhKQ0KICAqLw0KIA0KKy8qDQorICogRXhwbGFuYXRpb24gb2YgV0lSRUxF
-U1MgUVVBTElUWQ0KKyAqIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0NCisgKg0KKyAqIFdpcmVsZXNzIHF1YWxpdHkgaXMgbWF5IGJlIG1lYXN1
-cmVkIGluIHR3byBtZXRob2RzLCBkcml2ZXJzIG11c3QgUElDSyBPTkUNCisg
-KiBhbmQgdXNlIGl0IGNvbnNpc3RlbnRseSB0aHJvdWdob3V0IHRoZSBkcml2
-ZXItPnVzZXJzcGFjZSBBUEk6DQorICoNCisgKiAxKSBUaGUgZmlyc3QsIHJl
-cXVpcmVkIGJ5IHRoZSA4MDIuMTFiIHNwZWNpZmljYXRpb24sIGlzIFJlbGF0
-aXZlIFNpZ25hbA0KKyAqIFN0cmVuZ3RoIEluZGljYXRvciAoUlNTSSksIHdo
-aWNoIGlzIG51bWJlciBiZXR3ZWVuIDAgYW5kIE1BWF9SU1NJDQorICogaW5j
-bHVzaXZlLiBNYW51ZmFjdHVyZXJzIHVzZSBkaWZmZXJlbnQgbnVtYmVycyBm
-b3IgTUFYX1JTU0ksIHRob3VnaCBNQVhfUlNTSQ0KKyAqIGNhbm5vdCBiZSBs
-YXJnZXIgdGhhbiAyNTUuICBGb3IgcXVhbGl0aWVzIG1lYXN1cmVkIGluIFJT
-U0ksIHRoZSBsb3dlciBib3VuZA0KKyAqIGlzIF9hbHdheXNfIDAsIGFuZCB0
-aGUgdXBwZXIgYm91bmQgaXMgX2Fsd2F5c18gTUFYX1JTU0kuDQorICoNCisg
-KiAyKSBUaGUgc2Vjb25kIG1lYXN1cmUgaXMgZGVjaWJlbCBtaWxsaXZvbHRz
-LCBvciBkQm0uICBUaGlzIGlzIGNhbGN1bGF0ZWQgZnJvbQ0KKyAqIHRoZSBS
-U1NJIG9mIGVhY2ggcGFja2V0IGJhc2VkIG9uIGxvb2t1cCB0YWJsZXMgb3Ig
-Y29udmVyc2lvbiBjb25zdGFudHMNCisgKiBzcGVjaWZpZWQgYnkgZWFjaCBt
-YW51ZmFjdHVyZXIuICBkQm0gaXMgYW4gYWJzb2x1dGUgbWVhc3VyZW1lbnQg
-b2YgZWxlY3RyaWNhbA0KKyAqIHBvd2VyIGdlbmVyYXRlZCBieSB0aGUgcmFk
-aW8gc2lnbmFscyBpbiB0aGUgcmVjZWl2ZSBjaXJjdWl0cnkgb2YgdGhlIGNh
-cmQuDQorICogSXQgaXMgZXhwcmVzc2VkIGluIF9uZWdhdGl2ZV8gbnVtYmVy
-cywgd2hlcmUgMGRCbSA9IDFtVi4gIFRoZSB1cHBlciBib3VuZA0KKyAqIGlz
-IF9hbHdheXNfIDAsIGFuZCB0aGUgbG93ZXIgYm91bmQgaXMgZGV0ZXJtaW5l
-ZCBieSB0aGUgcmVjZWl2ZXIgc2Vuc2l0aXZpdHkNCisgKiBvZiB0aGUgZWxl
-Y3RyaWNhbCBlcXVpcG1lbnQgb24gdGhlIGNhcmQuDQorICoNCisgKiBJZiB0
-aGUgZHJpdmVyIGRvZXMgbm90IGtub3cgd2hhdCB2YWx1ZSB0byBwdXQgaW4g
-YSBmaWVsZCwgaXQgTVVTVCBpbmRpY2F0ZQ0KKyAqIHRoYXQgdGhlIGZpZWxk
-IGlzIGludmFsaWQgYnkgYml0d2lzZS1PUi1pbmcgdGhlIC51cGRhdGVkIGZp
-ZWxkIHdpdGggdGhlDQorICogYXBwcm9wcmlhdGUgSVdfUVVBTF8qX0lOVkFM
-SUQgY29uc3RhbnQgc3BlY2lmaWVkIGJlbG93LiAgU2ltcGx5IHNldHRpbmcg
-dGhlDQorICogZmllbGQgdG8gMCBpcyBub3Qgc3VmZmljaWVudCB0byBzcGVj
-aWZ5IHRoYXQgdGhlIHZhbHVlIGlzIHVua25vd24uDQorICoNCisgKiANCisg
-KiBUaGUgJ3F1YWwnIGZpZWxkcyBhcmUgbWV0aG9kIGluZGVwZW5kZW50LCBh
-bmQgYXJlIHNwZWNpZmllZCBhcyBmb2xsb3dzOg0KKyAqDQorICogbWF4X3F1
-YWwucXVhbDogICAocmFuZ2UgaXMgMCAtPiAyNTUpIHVwcGVyIGJvdW5kIG9m
-IHN1YmplY3RpdmUgcXVhbGl0eQ0KKyAqICAgICAgICAgICAgICAgICAgbGV2
-ZWxzLiAgT3RoZXIgLnF1YWwgZmllbGRzIE1VU1QgYmUgbGVzcyB0aGFuIHRo
-aXMgbnVtYmVyLg0KKyAqDQorICogcXVhbC5xdWFsOiAgICAgICAocmFuZ2Ug
-aXMgMCAtPiBtYXhfcXVhbC5xdWFsKSBRdWFsaXR5IG9mIHRoZSByZWNlaXZl
-ZCBwYWNrZXQNCisgKiAgICAgICAgICAgICAgICAgIGFzIGRldGVybWluZWQg
-YnkgdGhlIGRyaXZlci4gIFRoZSBvbmx5IHJlc3RyaWN0aW9uIGlzIHRoYXQN
-CisgKiAgICAgICAgICAgICAgICAgIHVzZXIgYXBwbGljYXRpb25zIE1VU1Qg
-YmUgYWJsZSB0byBkZXJpdmUgYSBwZXJjZW50YWdlIHZhbHVlDQorICogICAg
-ICAgICAgICAgICAgICBieSBkb2luZyB0aGUgZm9sbG93aW5nIGNhbGN1bGF0
-aW9uOg0KKyAqICAgICAgICAgICAgICAgICAgICAgICAgICBwZXJjZW50ID0g
-IDEwMCAqIChxdWFsLnF1YWwgLyBtYXhfcXVhbC5xdWFsKQ0KKyAqICAgICAg
-ICAgICAgICAgICAgRHJpdmVycyBtYXkgZmFjdG9yIG90aGVyIHN0YXRpc3Rp
-Y3MsIHN1Y2ggYXMgcmVjZWl2ZSBwYWNrZXQNCisgKiAgICAgICAgICAgICAg
-ICAgIGVycm9ycywgIyBjb2xsaXNpb25zLCBub2lzZSBsZXZlbHMsIGV0Yywg
-aW50byB0aGUgdmFsdWUuDQorICoNCisgKiBPbmNlIGEgZHJpdmVyIGhhcyBQ
-SUNLRUQgT05FIG1ldGhvZCBvZiBtZWFzdXJlbWVudCwgdGhlIHF1YWxpdHkg
-ZmllbGRzIG11c3QNCisgKiBiZSBmaWxsZWQgYXMgZm9sbG93cy4gIFJlbWVt
-YmVyLCBhbGwgZmllbGRzIGFyZSA4LWJpdHMgd2lkZSBhbmQgYXJlIHRyZWF0
-ZWQNCisgKiBhcyBzaWduZWQgb3IgdW5zaWduZWQgYmFzZWQgb24gdGhlIG1l
-dGhvZCBvZiBxdWFsaXR5IG1lYXN1cmVtZW50IGFib3ZlLg0KKyAqDQorICoN
-CisgKiBSU1NJIE1FVEhPRCAoc2V0IG1heF9xdWFsLmxldmVsID4gMCBhcyBl
-eHBsYWluZWQgYmVsb3cpDQorICotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KKyAqIG1heF9xdWFs
-LmxldmVsOiAgKHJhbmdlIGlzIDEgLT4gMjU1KSB1cHBlciBib3VuZCBvZiB0
-aGUgUlNTSSBvZiBhbnkgcmVjZWl2ZWQNCisgKiAgICAgICAgICAgICAgICAg
-IHBhY2tldCwgZGV0ZXJtaW5lZCBieSB0aGUgY2FyZCdzIGhhcmR3YXJlLiAg
-VXN1YWxseQ0KKyAqICAgICAgICAgICAgICAgICAgc3BlY2lmaWVkIGluIHRl
-Y2huaWNhbCBsaXRlcmF0dXJlIGZyb20gbWFudWZhY3R1cmVyLCBvcg0KKyAq
-ICAgICAgICAgICAgICAgICAgcHJvdmlkZWQgYnkgcmVnaXN0ZXJzIG9uIHRo
-ZSBjYXJkLg0KKyAqICAgICAgICAgICAgICAgICAgICBOT1RFOiB0byBzcGVj
-aWZ5IHRoYXQgdmFsdWVzIGFyZSBpbiBSU1NJLCBtYXhfcXVhbC5sZXZlbA0K
-KyAqICAgICAgICAgICAgICAgICAgICAgICAgICBNVVNUIGJlIGxhcmdlciB0
-aGFuIDAuDQorICoNCisgKiBtYXhfcXVhbC5ub2lzZTogIChyYW5nZSBpcyAw
-IC0+IDI1NSkgbG93ZXIgYm91bmQgb2Ygbm9pc2UsIGllIHRoZSByZWNlaXZl
-ZA0KKyAqICAgICAgICAgICAgICAgICAgc2lnbmFsIG11c3Qgbm90IGRyb3Ag
-YmVsb3cgdGhpcyBsZXZlbCBvciBpdCBjYW5ub3QgYmUNCisgKiAgICAgICAg
-ICAgICAgICAgIGRpc3Rpbmd1aXNoZWQuICBVc3VhbGx5IHNwZWNpZmllZCBi
-eSB0aGUgbWFudWZhY3R1cmVyLiAgSWYNCisgKiAgICAgICAgICAgICAgICAg
-IGhhcmR3YXJlIGRvZXMgbm90IHByb3ZpZGUgcGVyLXBhY2tldCBub2lzZSBp
-bmZvcm1hdGlvbiwgdGhlbg0KKyAqICAgICAgICAgICAgICAgICAgdGhlcmUg
-TVVTVCBiZSBhIHZhbHVlIGluIHRoaXMgZmllbGQuDQorICoNCisgKiBxdWFs
-LmxldmVsOiAgICAgIChyYW5nZSBpcyAwIC0+IG1heF9xdWFsLmxldmVsKSBh
-Y3R1YWwgUlNTSSB0YWtlbiBmcm9tDQorICogICAgICAgICAgICAgICAgICB0
-aGUgcmVjZWl2ZXIgaGFyZHdhcmUgZm9yIGVhY2ggcGFja2V0Lg0KKyAqDQor
-ICogcXVhbC5ub2lzZTogICAgICAocmFuZ2UgaXMgMCAtPiBtYXhfcXVhbC5s
-ZXZlbCkgbm9pc2UgUlNTSSB2YWx1ZSB0YWtlbiBmcm9tDQorICogICAgICAg
-ICAgICAgICAgICB0aGUgcmVjZWl2ZSBoYXJkd2FyZSBpbiBSU1NJIGZvciBl
-YWNoIHBhY2tldC4gIElmIGhhcmR3YXJlDQorICogICAgICAgICAgICAgICAg
-ICBkb2VzIG5vdCBwcm92aWRlIHRoaXMgdmFsdWUgZm9yIGVhY2ggcGFja2V0
-LCBzZXQgdG8gMCBhbmQNCisgKiAgICAgICAgICAgICAgICAgIHNldCAncXVh
-bC51cGRhdGVkIHw9IElXX1FVQUxfTk9JU0VfSU5WQUxJRCcuICBZb3UgbXVz
-dCB0aGVuDQorICogICAgICAgICAgICAgICAgICBwcm92aWRlIGEgdmFsdWUg
-aW4gbWF4X3F1YWwubm9pc2UgaW5zdGVhZC4NCisgKg0KKyAqIEluIHRoZSBS
-U1NJIG1ldGhvZCwgdmFsdWVzIGFyZSBfYWx3YXlzXyBwb3NpdGl2ZSBudW1i
-ZXJzLg0KKyAqDQorICoNCisgKiBkQm0gTUVUSE9EIChzZXQgbWF4X3F1YWwu
-bGV2ZWwgPSAwKQ0KKyAqLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tDQorICogbWF4X3F1YWwubGV2ZWwgICBNVVNUIGJlIHNldCB0byAw
-IHRvIHNwZWNpZnkgZEJtIG1ldGhvZA0KKyAqDQorICogbWF4X3F1YWwubm9p
-c2UgICAocmFuZ2UgaXMgLTI1NSAtPiAwKSBsb3dlciBib3VuZCBvZiBub2lz
-ZSBpbiBkQm0sIHNpZ25hbCBkQm0NCisgKiAgICAgICAgICAgICAgICAgIG1h
-eSBub3QgZHJvcCBiZWxvdyB0aGlzIGxldmVsIG9yIHRoZSBzaWduYWwgY2Fu
-bm90IGJlDQorICogICAgICAgICAgICAgICAgICBkaXN0aW5ndWlzaGVkIGZy
-b20gYmFja2dyb3VuZCBub2lzZSBieSB0aGUgcmVjZWl2ZXIuDQorICogICAg
-ICAgICAgICAgICAgICBVc3VhbGx5IHNwZWNpZmllZCBieSB0aGUgbWFudWZh
-Y3R1cmVyLiAgSWYgaGFyZHdhcmUgZG9lcyBub3QNCisgKiAgICAgICAgICAg
-ICAgICAgIHByb3ZpZGUgcGVyLXBhY2tldCBub2lzZSBpbmZvcm1hdGlvbiwg
-dGhlbiB0aGVyZSBNVVNUIGJlIGENCisgKiAgICAgICAgICAgICAgICAgIHZh
-bHVlIGluIHRoaXMgZmllbGQuDQorICoNCisgKiBxdWFsLmxldmVsICAgICAg
-IChyYW5nZSBpcyBtYXhfcXVhbC5ub2lzZSAtPiAwKSBzaWduYWwgbGV2ZWwg
-aW4gZEJtIHRha2VuDQorICogICAgICAgICAgICAgICAgICBmcm9tIHRoZSBy
-ZWNlaXZlciBoYXJkd2FyZSBmb3IgZWFjaCBwYWNrZXQuDQorICoNCisgKiBx
-dWFsLm5vaXNlICAgICAgIChyYW5nZSBpcyBtYXhfcXVhbC5ub2lzZSAtPiAw
-KSBub2lzZSBsZXZlbCBpbiBkQm0gdGFrZW4gZnJvbQ0KKyAqICAgICAgICAg
-ICAgICAgICAgdGhlIHJlY2VpdmVyIGhhcmR3YXJlIGZvciBlYWNoIHBhY2tl
-dC4gIElmIGhhcmR3YXJlDQorICogICAgICAgICAgICAgICAgICBkb2VzIG5v
-dCBwcm92aWRlIHRoaXMgdmFsdWUgZm9yIGVhY2ggcGFja2V0LCBzZXQgdG8g
-MCBhbmQNCisgKiAgICAgICAgICAgICAgICAgIHNldCAncXVhbC51cGRhdGVk
-IHw9IElXX1FVQUxfTk9JU0VfSU5WQUxJRCcuICBZb3UgbXVzdCB0aGVuDQor
-ICogICAgICAgICAgICAgICAgICBwcm92aWRlIGEgdmFsdWUgaW4gbWF4X3F1
-YWwubm9pc2UgaW5zdGVhZC4NCisgKg0KKyAqIEluIHRoZSBkQm0gTUVUSE9E
-LCB2YWx1ZXMgYXJlIF9hbHdheXNfIG5lZ2F0aXZlIG51bWJlcnMgKG9yIDAp
-LiAgRXZlbiB0aG91Z2gNCisgKiB0aGUgYWN0dWFsIGZpZWxkcyB0aGVtc2Vs
-dmVzIGFyZSA4LWJpdCB1bnNpZ25lZCwgdGhlIG51bWJlcnMgYXJlIHRyZWF0
-ZWQgYXMNCisgKiBuZWdhdGl2ZSwgd2hlcmUgMHgxMDAgPT0gMjU2ID09IDAu
-ICBWYWx1ZXMgYXJlIHBhc3NlZCB0byB1c2VyIGFwcGxpY2F0aW9ucw0KKyAq
-IGFmdGVyIGJlaW5nIGFkZGVkIHRvIDI1NiBpbiB0aGUgX2RyaXZlcl8uICBG
-b3IgZXhhbXBsZToNCisgKg0KKyAqICAgIC01NCBkQm0gPSAyMDIgICAoLTU0
-IGRCbSArIDI1NiA9IDIwMikNCisgKiAgICAtMTA0IGRCbSA9IDE1MiAgKC0x
-MDQgZEJtICsgMjU2ID0gMTUyKQ0KKyAqDQorICovIA0KKw0KIC8qKioqKioq
-KioqKioqKioqKioqKioqKioqKioqIENPTlNUQU5UUyAqKioqKioqKioqKioq
-KioqKioqKioqKioqKioqLw0KIA0KIC8qIC0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tIElPQ1RMIExJU1QgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0g
-Ki8NCkBAIC0zNjAsNiArNDYyLDcgQEANCiAjZGVmaW5lIElXX01PREVfTU9O
-SVRPUgk2CS8qIFBhc3NpdmUgbW9uaXRvciAobGlzdGVuIG9ubHkpICovDQog
-DQogLyogU3RhdGlzdGljcyBmbGFncyAoYml0bWFzayBpbiB1cGRhdGVkKSAq
-Lw0KKy8qIFNlZSBhbHNvIFdJUkVMRVNTIFFVQUxJVFkgYWJvdmUgKi8NCiAj
-ZGVmaW5lIElXX1FVQUxfUVVBTF9VUERBVEVECTB4MQkvKiBWYWx1ZSB3YXMg
-dXBkYXRlZCBzaW5jZSBsYXN0IHJlYWQgKi8NCiAjZGVmaW5lIElXX1FVQUxf
-TEVWRUxfVVBEQVRFRAkweDINCiAjZGVmaW5lIElXX1FVQUxfTk9JU0VfVVBE
-QVRFRAkweDQNCkBAIC01MDAsNiArNjAzLDggQEANCiANCiAvKg0KICAqCVF1
-YWxpdHkgb2YgdGhlIGxpbmsNCisgKg0KKyAqIFNlZSBXSVJFTEVTUyBRVUFM
-SVRZIGFib3ZlLg0KICAqLw0KIHN0cnVjdAlpd19xdWFsaXR5DQogew0KQEAg
-LTY1OCwxMCArNzYzLDEwIEBADQogDQogCS8qIFF1YWxpdHkgb2YgbGluayAm
-IFNOUiBzdHVmZiAqLw0KIAkvKiBRdWFsaXR5IHJhbmdlIChsaW5rLCBsZXZl
-bCwgbm9pc2UpDQotCSAqIElmIHRoZSBxdWFsaXR5IGlzIGFic29sdXRlLCBp
-dCB3aWxsIGJlIGluIHRoZSByYW5nZSBbMCA7IG1heF9xdWFsXSwNCi0JICog
-aWYgdGhlIHF1YWxpdHkgaXMgZEJtLCBpdCB3aWxsIGJlIGluIHRoZSByYW5n
-ZSBbbWF4X3F1YWwgOyAwXS4NCi0JICogRG9uJ3QgZm9yZ2V0IHRoYXQgd2Ug
-dXNlIDggYml0IGFyaXRobWV0aWNzLi4uICovDQorCSAqDQorCSAqIFNlZSBX
-SVJFTEVTUyBRVUFMSVRZIGFib3ZlLiAqLw0KIAlzdHJ1Y3QgaXdfcXVhbGl0
-eQltYXhfcXVhbDsJLyogUXVhbGl0eSBvZiB0aGUgbGluayAqLw0KKw0KIAkv
-KiBUaGlzIHNob3VsZCBjb250YWluIHRoZSBhdmVyYWdlL3R5cGljYWwgdmFs
-dWVzIG9mIHRoZSBxdWFsaXR5DQogCSAqIGluZGljYXRvci4gVGhpcyBzaG91
-bGQgYmUgdGhlIHRocmVzaG9sZCBiZXR3ZWVuIGEgImdvb2QiIGFuZA0KIAkg
-KiBhICJiYWQiIGxpbmsgKGV4YW1wbGUgOiBtb25pdG9yIGdvaW5nIGZyb20g
-Z3JlZW4gdG8gb3JhbmdlKS4NCg==
+All of these bugs stem from the idev reference held in rtable/rt6_info.
+Looking back in my mailbox, it's amazing how many problems this piece
+of infrastructure has caused since it was installed last June.  AFAIK
+to this day there is still no code in the kernel that actually uses
+this infrastructure.
 
---279707962-1533241267-1107571555=:4701--
+Anyway, this particular problem is due to IPv6 adding local addresses
+with split devices.  That is, routes to local addresses are added with
+rt6i_dev set to &loopback_dev and rt6i_idev set to the idev of the
+device where the address is added.
+
+This is just not going to work unless IPv6 creates its own dst garbage
+collection routine since the generic GC in net/core/dst.c has no way
+of finding all the rt6_info's referring to a specific net_device through
+rt6i_idev.
+
+It is also different from the IPv4 behaviour where we set both dev
+and idev to loopback_dev.
+
+Now this stuff is apparently going to be used for IP statistics.  As
+it is packets sent to/received from local addresses are counted against
+the loopback device.  Linux has behaved this way for a long time. So
+when these statistics actually get implemented it will be very strange
+if they were accounted to the device owning the local addresses instead
+of loopback.
+
+It also goes against the Linux philosophy where the addresses are owned
+by the host, not the interface.
+
+Therefore I propose the simple solution of not doing the split device
+accounting in rt6_info.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+I will send the patches for the other bugs separately.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--dDRMvlgZJXvWKvBx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=q
+
+===== net/ipv6/route.c 1.105 vs edited =====
+--- 1.105/net/ipv6/route.c	2005-01-15 19:44:48 +11:00
++++ edited/net/ipv6/route.c	2005-02-05 16:10:19 +11:00
+@@ -1395,13 +1395,12 @@
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	dev_hold(&loopback_dev);
+-	in6_dev_hold(idev);
+ 
+ 	rt->u.dst.flags = DST_HOST;
+ 	rt->u.dst.input = ip6_input;
+ 	rt->u.dst.output = ip6_output;
+ 	rt->rt6i_dev = &loopback_dev;
+-	rt->rt6i_idev = idev;
++	rt->rt6i_idev = in6_dev_get(&loopback_dev);
+ 	rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(rt->rt6i_dev);
+ 	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_pmtu(&rt->u.dst));
+ 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = ipv6_get_hoplimit(rt->rt6i_dev);
+
+--dDRMvlgZJXvWKvBx--
