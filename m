@@ -1,38 +1,55 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] [BUG] kernel panic on ifconfig bond0 down
-Date: Thu, 18 Sep 2003 09:40:43 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] more const in skbuff
+Date: Thu, 18 Sep 2003 10:27:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309181640.h8IGehSx015526@death.ibm.com>
-References: <shmulik.hen@intel.com>
-Cc: "Ned Bass" <bass6@llnl.gov>, bonding-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Message-ID: <20030918102709.34211ee5.shemminger@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com
-In-Reply-To: Message from Shmulik Hen <shmulik.hen@intel.com>
-   of "Thu, 18 Sep 2003 12:42:58 +0300." <200309181242.58258.shmulik.hen@intel.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+More test inline functions should take const args.
 
->There was a bug in patch 8 of the cleanup set that left a dangling 
->pointer in bond_release_all(). Definitely may bad for not announcing 
->that (and removing the patch set from SFG ?). I was relying on the 
->fact that people won't test it after I announced the set needs to be 
->re-done after finding a potential bug in patch 5.
->
->I'm currently in the final stages of re-creating the set after 
->implementing the bug fixes and doing some improvements resulting from 
->internal code reviews. Perhaps this time I should publish it as an 
->"experimental" patch set and give everyone a chance to try it out 
->while our QA group grinds it to dust.
-
-	I think there's still problems in the checked in code.  I did
-my tests on 2.6.0-test5 plus 2.6.0-test5-bk2-netdrvr1, which doesn't
-include the cleanup set, so there's at least one (potential sleep with
-lock held in bond_mii_monitor()), possibly two, other bugs.  I'm
-getting ready to do some tests with 2.4.23-pre4 to see what I find.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	Thu Sep 18 10:24:35 2003
++++ b/include/linux/skbuff.h	Thu Sep 18 10:24:35 2003
+@@ -306,7 +306,7 @@
+  *
+  *	Returns true if the queue is empty, false otherwise.
+  */
+-static inline int skb_queue_empty(struct sk_buff_head *list)
++static inline int skb_queue_empty(const struct sk_buff_head *list)
+ {
+ 	return list->next == (struct sk_buff *)list;
+ }
+@@ -357,7 +357,7 @@
+  *	one of multiple shared copies of the buffer. Cloned buffers are
+  *	shared data so must not be written to under normal circumstances.
+  */
+-static inline int skb_cloned(struct sk_buff *skb)
++static inline int skb_cloned(const struct sk_buff *skb)
+ {
+ 	return skb->cloned && atomic_read(&skb_shinfo(skb)->dataref) != 1;
+ }
+@@ -369,7 +369,7 @@
+  *	Returns true if more than one person has a reference to this
+  *	buffer.
+  */
+-static inline int skb_shared(struct sk_buff *skb)
++static inline int skb_shared(const struct sk_buff *skb)
+ {
+ 	return atomic_read(&skb->users) != 1;
+ }
+@@ -477,7 +477,7 @@
+  *
+  *	Return the length of an &sk_buff queue.
+  */
+-static inline __u32 skb_queue_len(struct sk_buff_head *list_)
++static inline __u32 skb_queue_len(const struct sk_buff_head *list_)
+ {
+ 	return list_->qlen;
+ }
