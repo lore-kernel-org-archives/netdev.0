@@ -1,11 +1,11 @@
 From: "Seong Moon" <seong@etri.re.kr>
 Subject: ipv6 implementation status ?
-Date: Mon, 30 Sep 2002 14:04:51 +0900
+Date: Mon, 30 Sep 2002 14:05:43 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <00c901c2683e$e82f7300$21abfe81@seong>
+Message-ID: <00d301c2683f$07b6bd00$21abfe81@seong>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="ks_c_5601-1987"
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: <netdev@oss.sgi.com>
