@@ -1,55 +1,94 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: 2.5.50 BUG_TRAP on !dev->deadbeaf, and oopses
-Date: Mon, 02 Dec 2002 10:44:05 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Network interface synchronization docs
+Date: Mon, 02 Dec 2002 22:33:20 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DEBA9F5.6000606@pacbell.net>
-References: <3DE9290A.7070502@pacbell.net> <3DEA0452.B1F15BFD@isg.de>
+Message-ID: <3DEC2600.2070306@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------050300030504070804060609"
+Cc: netdev@oss.sgi.com, akpm@zip.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Stefan,
+This is a multi-part message in MIME format.
+--------------050300030504070804060609
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
->>   KERNEL: assertion (!dev->deadbeaf) failed at net/core/dev.c(2544)
->>
->>I think there's another bug, beyond the obvious speling erorz.  Namely,
->>that "deadbeaf" is only set after that BUG_TRAP, or on one error path.
->>The assertion prevents hotpluggable network drivers from unregistering
->>when the hardware goes away ... which is a regression.
-> 
-> 
-> actually, the assertion is triggered when someone tries to unregister a
-> netdevice twice, and that's also why you get
+I just updated Documentation/networking/netdevices.txt locally to the 
+attached file, which describes the synchronization rules for net drivers 
+in the 2.4.x and 2.5.x kernels.  (Astute readers will notice a striking 
+similarity to 2.2.x locking rules as well)
 
-Then why will grep of all kernel files not turn up other places where
-'deadbeaf' gets set?  There's strange stuff going on here regardless
-(as well as speling issue), which looks pretty buglike.
+Comments and corrections to the attached doc requested.  I realize it's 
+not much right now, but this is core info I want to make sure is 
+correct, and that everyone agrees on.
 
-Plus: this kind of bugcatch should use magic numbers, or maybe zero.
-Assuming "any nonzero value is valid", like this assertion does, is
-clearly going to fail for any of the class of bugs highlighted by
-slab poisoning.  (0xa5a5a5a5 gets accepted as valid...)
+Thanks to Robert Olsson for a pointer about dev->poll().
+
+Future notes:  this doc will hopefully expand in time to describe not 
+only the netdevice API but also standard ethernet and net driver 
+practices.  Patches welcome!
+
+	Jeff
 
 
->>   unregister_netdevice: device /dfd74058 never was registered
-> 
-> 
-> From a short browsing through usb.c I don't see a similiar bug catcher
-> in usb_device_remove(), so have a look if the USB subsystem itself
-> removes a unplugged device twice for some reason.
 
-At least one failure path also involves "rmmod" of the network
-drivers, where the device hardware is still around; so that code
-would not always be called.
+--------------050300030504070804060609
+Content-Type: text/plain;
+ name="netdevices.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netdevices.txt"
 
-I wouldn't rule out problems in the relevant usbcore/sysfs bits,
-even now that they seem to have stabilized again (and yes, I was
-wondering about multiple disconnects too), but all that deadbeaf
-logic still looks fishy to me.
 
-- Dave
+Network Devices, the Kernel, and You!
+
+
+Introduction
+============
+The following is a random collection of documentation regarding
+network devices.
+
+
+
+struct net_device synchronization rules
+=======================================
+dev->open:
+	Synchronization: rtnl_lock() semaphore.
+	Context: process
+
+dev->stop:
+	Synchronization: rtnl_lock() semaphore.
+	Context: process
+	Notes: netif_running() is guaranteed false when this is called
+
+dev->do_ioctl:
+	Synchronization: rtnl_lock() semaphore.
+	Context: process
+
+dev->get_stats:
+	Synchronization: dev_base_lock rwlock.
+	Context: nominally process, but don't sleep inside an rwlock
+
+dev->hard_start_xmit:
+	Synchronization: dev->xmit_lock spinlock.
+	Context: BHs disabled
+
+dev->tx_timeout:
+	Synchronization: dev->xmit_lock spinlock.
+	Context: BHs disabled
+
+dev->set_multicast_list:
+	Synchronization: dev->xmit_lock spinlock.
+	Context: BHs disabled
+
+dev->poll:
+	Synchronization: __LINK_STATE_RX_SCHED bit in dev->state.  See
+		dev_close code and comments in net/core/dev.c for more info.
+	Context: softirq
+
+
+--------------050300030504070804060609--
