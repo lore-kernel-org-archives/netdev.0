@@ -1,43 +1,27 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: net/ipv6/exthdrs.c
-Date: Wed, 19 Jun 2002 13:42:20 +0400 (MSD)
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH][2.5.22] OOPS in tcp_v6_get_port
+Date: Wed, 19 Jun 2002 06:54:15 -0300
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200206190942.NAA15342@sex.inr.ac.ru>
-References: <1024478965.882.2.camel@arwen>
+Message-ID: <20020619095415.GC5663@conectiva.com.br>
+References: <20020617.143319.54623892.davem@redhat.com> <200206180943.NAA12296@sex.inr.ac.ru> <20020618.025811.36457258.davem@redhat.com>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: kisza@pannongsm.hu (Kis-Szabo Andras)
-In-Reply-To: <1024478965.882.2.camel@arwen> from "Kis-Szabo Andras" at Jun 19, 2 11:30:39 am
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20020618.025811.36457258.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Em Tue, Jun 18, 2002 at 02:58:11AM -0700, David S. Miller escreveu:
+>    From: kuznet@ms2.inr.ac.ru
+>    Date: Tue, 18 Jun 2002 13:43:21 +0400 (MSD)
+>    
+>    I am afraid you speak about different bug.
+> 
+> It is different bug, indeed.  The oops looked very similar, it
+> tricked me :-)
 
-> The same behaviour as in NONE,
+I'll be looking at this while in Ottawa 8)
 
-Yes, this is equivalent. And the function behaves exactly as you
-expect then. :-)
-
-
-> The ESP belongs to the headers, it is a member of a possible chain.
-
-Like UDP, TCP (and NONE as you noticed). Not like headers mentioned
-in ipv6_ext_hdr().
-
-
-> - header match - i had to search for the ESP, too
-> - ESP match - it has a public SPI value, which can be used in rules
-> - general iteration, skipped together with the NONE.
-> It terminates the header chain, but the existance of the ESP header and
-> its SPI value are usefull information.
-
-Hey, we spoke about _skip_. For all items mentioned by you ESP
-is considered like UDP&TCP, not like extension header!
-
-
-> about the nexthdr value and a new header parser/evaluator with strict
-> size/pointer checks.
-
-I feel you make something wrong yet. Or I do not understand something.
-
-Alexey
+- Arnaldo
