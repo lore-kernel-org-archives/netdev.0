@@ -1,80 +1,84 @@
-From: Paul P Komkoff Jr <i@stingr.net>
-Subject: Re: [PATCH] [RFC] Support for wccp version 1 and 2 in ip_gre.c
-Date: Mon, 13 Sep 2004 09:17:06 +0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040913051706.GB26337@stingr.sgu.ru>
-References: <20040911194108.GS28258@stingr.sgu.ru> <20040912170505.62916147.davem@davemloft.net>
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: generic 802.11 stack
+Date: Mon, 13 Sep 2004 08:39:08 +0300
+Sender: acx100-devel-admin@lists.sourceforge.net
+Message-ID: <200409130839.15988.vkondra@mail.ru>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409122103.21770.vkondra@mail.ru> <20040912171448.64ce7dbe.davem@davemloft.net>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: Paul P Komkoff Jr <i@stingr.net>, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265909AbUIMFRO@vger.kernel.org>
+Content-Type: multipart/signed;
+  boundary="nextPart1490864.NcpDN8EAu7";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: greg@atheros.com,
+ netdev@oss.sgi.com,
+ acx100-devel@lists.sourceforge.net,
+ hadi@cyberus.ca,
+ jgarzik@pobox.com,
+ jkmaline@cc.hut.fi,
+ prism54-devel@prism54.org,
+ sam@errno.com,
+ vda@port.imtp.ilyichevsk.odessa.ua
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040912170505.62916147.davem@davemloft.net>
+In-Reply-To: <20040912171448.64ce7dbe.davem@davemloft.net>
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-Replying to David S. Miller:
-> What are the rules for IP_GRE in general for when
-> to apply this transformation?
+--nextPart1490864.NcpDN8EAu7
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-As you can see, I am applying it unconditionally when fits. For most
-cases, this will be OK.
-There can be situations when this is not wanted (for example, when 
-debugging something), so in general, tuning knob will be useful, but 
-I just don't know where to add it, maybe tunnel->parms.i_flags ...
+Dave,
+Thanks, I'll post patches to you.
 
-> Please do me a favor also, and redo your patch by putting
-> ETH_P_WCCP into include/linux/if_ether.h where it belongs.
+Jeff: what would you say? I think it is great if it will went through Dave=
+=20
+with his review.
 
-Done.
+Vladimir.
 
-> Thanks.
+On Monday 13 September 2004 03:14, David S. Miller wrote:
+DS> On Sun, 12 Sep 2004 21:03:13 +0300
+DS> Vladimir Kondratiev <vkondra@mail.ru> wrote:
+DS>
+DS> > I am going to implement minimum functionality, at this stage I will
+ somehow DS> > publish the project. Anyone can suggest what it the right
+ solution for DS> > hosting? Sourceforge? Something else?
+DS>
+DS> I am willing to host things for you, if you wish.
+DS> I can make a directory in my personal area on ftp.kernel.org
+DS> and that's where I'd put your patches.
+DS>
+DS> I'd also like to help review your patches, so I can perform
+DS> both things at the same time.
+
+--nextPart1490864.NcpDN8EAu7
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBBRTKDqxdj7mhC6o0RAve4AJ99B2hZ5QzHKR3gSByex4s5nc0jWQCeP+Iz
+0ggXVgrJnLTWP1ALJc5VM8c=
+=YIFX
+-----END PGP SIGNATURE-----
+
+--nextPart1490864.NcpDN8EAu7--
 
 
-diff -urN /usr/src/linux-2.6.8-1.521/include/linux/if_ether.h linux-2.6.8-1.521wccp/include/linux/if_ether.h
---- /usr/src/linux-2.6.8-1.521/include/linux/if_ether.h	2004-08-14 09:37:15.000000000 +0400
-+++ linux-2.6.8-1.521wccp/include/linux/if_ether.h	2004-09-13 08:51:02.707155288 +0400
-@@ -59,6 +59,8 @@
- #define ETH_P_8021Q	0x8100          /* 802.1Q VLAN Extended Header  */
- #define ETH_P_IPX	0x8137		/* IPX over DIX			*/
- #define ETH_P_IPV6	0x86DD		/* IPv6 over bluebook		*/
-+#define ETH_P_WCCP	0x883E		/* Web-cache coordination protocol
-+					 * defined in draft-wilson-wrec-wccp-v2-00.txt */
- #define ETH_P_PPP_DISC	0x8863		/* PPPoE discovery messages     */
- #define ETH_P_PPP_SES	0x8864		/* PPPoE session messages	*/
- #define ETH_P_MPLS_UC	0x8847		/* MPLS Unicast traffic		*/
-diff -urN /usr/src/linux-2.6.8-1.521/net/ipv4/ip_gre.c linux-2.6.8-1.521wccp/net/ipv4/ip_gre.c
---- /usr/src/linux-2.6.8-1.521/net/ipv4/ip_gre.c	2004-08-14 09:37:37.000000000 +0400
-+++ linux-2.6.8-1.521wccp/net/ipv4/ip_gre.c	2004-09-13 09:02:33.293170256 +0400
-@@ -605,13 +605,25 @@
- 	if ((tunnel = ipgre_tunnel_lookup(iph->saddr, iph->daddr, key)) != NULL) {
- 		secpath_reset(skb);
- 
-+		skb->protocol = *(u16*)(h + 2);
-+		/* WCCP version 1 and 2 protocol decoding.
-+		 * - Change protocol to IP
-+		 * - When dealing with WCCPv2, Skip extra 4 bytes in GRE header
-+		 */
-+		if (1) {
-+			if ((flags == 0) && (skb->protocol == __constant_htons(ETH_P_WCCP))) {
-+				skb->protocol = __constant_htons(ETH_P_IP);
-+				if ((*(h + offset) & 0xF0) != 0x40) 
-+					offset += 4;
-+			}
-+		}
-+
- 		skb->mac.raw = skb->nh.raw;
- 		skb->nh.raw = __pskb_pull(skb, offset);
- 		memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
- 		if (skb->ip_summed == CHECKSUM_HW)
- 			skb->csum = csum_sub(skb->csum,
- 					     csum_partial(skb->mac.raw, skb->nh.raw-skb->mac.raw, 0));
--		skb->protocol = *(u16*)(h + 2);
- 		skb->pkt_type = PACKET_HOST;
- #ifdef CONFIG_NET_IPGRE_BROADCAST
- 		if (MULTICAST(iph->daddr)) {
-
--- 
-Paul P 'Stingray' Komkoff Jr // http://stingr.net/key <- my pgp key
- This message represents the official view of the voices in my head
+-------------------------------------------------------
+This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
+Project Admins to receive an Apple iPod Mini FREE for your judgement on
+who ports your project to Linux PPC the best. Sponsored by IBM. 
+Deadline: Sept. 13. Go here: http://sf.net/ppc_contest.php
