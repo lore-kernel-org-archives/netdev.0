@@ -1,50 +1,40 @@
-From: Andrew de Quincey <adq@lidskialf.net>
-Subject: Re: [Fwd: extra spinlocking in forcedeth 0.25]
-Date: Wed, 14 Apr 2004 22:37:20 +0100
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [patch] tg3 ring buffer allocation error handling
+Date: Wed, 14 Apr 2004 16:45:10 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404142237.20688.adq@lidskialf.net>
-References: <407D6ABE.7010503@gmx.net>
+Message-ID: <20040414214510.GH1175@waste.org>
+References: <20040414184642.GZ1175@waste.org> <20040414205959.GA22051@zion.homelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Jeff Garzik <jgarzik@pobox.com>, Manfred Spraul <manfred@colorfullife.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
-In-Reply-To: <407D6ABE.7010503@gmx.net>
+To: Sven Schuster <schuster.sven@gmx.de>
 Content-Disposition: inline
+In-Reply-To: <20040414205959.GA22051@zion.homelinux.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 14 April 2004 17:45, you wrote:
-> Andrew,
->
-> could you have a look at the attached mail regarding spinlocking in you=
-r
-> WOL patch for forcedeth?
+On Wed, Apr 14, 2004 at 10:59:59PM +0200, Sven Schuster wrote:
+> On Wed, Apr 14, 2004 at 01:46:42PM -0500, Matt Mackall told us:
+> >  	if (tp->tg3_flags & TG3_FLAG_JUMBO_ENABLE) {
+> >  		for (i = 0; i < tp->rx_jumbo_pending; i++) {
+> >  			if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_JUMBO,
+> > -					     -1, i) < 0)
+> > -				break;
+> > +					     -1, i) < 0) {
+> > +				printk("tg3_alloc_rx_skb %d failed\n", i);
+> > +				return -ENOMEM;
+> 
+> Please correct me if I'm wrong, but shouldn't the buffers from the 
+> irst allocation (RXD_OPAQUE_RING_STD) be freed (maybe via 
+> tg3_free_rings??) when we get an error here??
 
-> In 0.23 -> 0.25 forcedeth diff I noticed this:
->=20
-> + =A0 =A0 =A0 case ETHTOOL_GWOL:
-> + =A0 =A0 =A0 {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ethtool_wolinfo wolinfo;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 memset(&wolinfo, 0, sizeof(wolinfo));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 wolinfo.supported =3D WAKE_MAGIC;
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_lock_irq(&np->lock);
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (np->wolenabled)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 wolinfo.wolopts =3D WAKE_=
-MAGIC;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unlock_irq(&np->lock);
-> +
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (copy_to_user(useraddr, &wolinfo, size=
-of(wolinfo)))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EFAULT;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return 0;
-> + =A0 =A0 =A0 }
->=20
-> IMHO this pair of lock()/unlock() is not needed
-> and can be safely removed.
+The buffers are freed in the module release path, which is invoked
+when we return failure here. Without this, we don't notice the
+allocation failure and instead blow up when we get traffic.
 
-Yeah, he's right. Absolutely no need for it there.
+FYI, I last tested this on a mem=4M box, where it was very obvious
+that the 1M of ring buffers weren't leaking.
+
+-- 
+Matt Mackall : http://www.selenic.com : Linux development and consulting
