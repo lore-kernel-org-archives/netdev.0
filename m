@@ -1,35 +1,40 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 0/9] PKT_SCHED: tcf_exts API & make classifier changes consistent upon failure
-Date: Thu, 30 Dec 2004 13:26:52 +0100
-Message-ID: <20041230122652.GM32419@postel.suug.ch>
+Subject: Re: [PATCH 2/9] PKT_SCHED: tc filter extension API
+Date: Thu, 30 Dec 2004 15:09:29 +0100
+Message-ID: <20041230140929.GY32419@postel.suug.ch>
+References: <20041230122652.GM32419@postel.suug.ch> <20041230123023.GO32419@postel.suug.ch> <1104414713.1047.130.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+Cc: "David S. Miller" <davem@davemloft.net>, Patrick McHardy <kaber@trash.net>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
+In-Reply-To: <1104414713.1047.130.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+* jamal <1104414713.1047.130.camel@jzny.localdomain> 2004-12-30 08:51
+> In current code you can have CONFIG_NET_CLS_ACT and not use new
+> style policer, rather use old one i.e CONFIG_NET_CLS_POLICE. You seem to
+> indicate presence of CONFIG_NET_CLS_ACT implies absence of
+> NET_CLS_POLICE.
 
-The following patchset adds tcf_exts API to remove the ifdef clutter,
-helps make changes consistent upon failures, makes adding action bits
-to yet unsupported classifiers as easy as adding a few lines and
-generally saves a lot of code per classifier. The patches to make use
-of the API add action support to all classifiers and makes changes
-consistent except for indev failures (to be removed soon) and rsvp
-which needs a closer look since i haven't had time to perfectly
-understand it yet.
+Is this wrong? Current code: (u32)
 
-I gave it extensive testing for 2 weeks, patches 5-6 are non-trivial
-though and it's quite hard to test everything. I will post a request
-to the lartc mailinglist once these changes are in a bk release so
-everyone can try it out and I have time fix any remaining issues
-before the next rc release. I could provide the patchset but its
-quite some work for the testers and I guess there will be more people
-trying it out if they can use an official release.
+2004/06/15 hadi       | #ifdef CONFIG_NET_CLS_ACT
+2004/06/15 hadi       | 	struct tc_action	*action;
+2004/06/15 hadi       | #else
+2002/02/05 torvalds   | #ifdef CONFIG_NET_CLS_POLICE
+2002/02/05 torvalds   | 	struct tcf_police	*police;
+2002/02/05 torvalds   | #endif
+2004/06/15 hadi       | #endif
 
-Cheers, Thomas
+> config NET_CLS_POLICE
+>         ...
+>         depends on NET_CLS && NET_QOS && NET_ACT_POLICE!=y &&  
+> NET_ACT_POLICE!=m
+
+Hmm... doesn't make too much sense for me. What's the advantage of
+allowing this mix?
