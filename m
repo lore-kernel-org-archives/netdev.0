@@ -1,36 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: skb->len
-Date: Mon, 23 Sep 2002 17:43:26 -0700 (PDT)
+From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+Subject: udp weirdness
+Date: Tue, 24 Sep 2002 08:50:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020923.174326.82525292.davem@redhat.com>
-References: <Pine.LNX.4.33L2.0204091358030.22258-100000@dragon.pdx.osdl.net>
-	<20020410.202811.103858854.davem@redhat.com>
-	<20020923182554.1f84d429.mazhar@nmt.edu>
+Message-ID: <20020924065046.GF392@hookipa>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mazhar@nmt.edu
-In-Reply-To: <20020923182554.1f84d429.mazhar@nmt.edu>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Mazhar Memon <mazhar@nmt.edu>
-   Date: Mon, 23 Sep 2002 18:25:54 -0600
+I'm observing some UDP weirdness, or I'd better say some UDP behaviour
+that I can't explain.
 
-   Is there a reason why skb->len for skb->pkt_type=PACKET_OUTGOING is
-   14 bytes larger than for skb->pkt_type=PACKET_HOST?  I doubt its a
-   coincidence that the size of the ethernet header is 14 bytes.
-   Also, I notice that skb->data starts at a different location
-   (relative to the ethernet header) if its outgoing compared to
-   incoming traffic.  Can anyone tell me why?
+Two machines: one sending a UDP flow (using sendto) and another receiving 
+this UDP flow (using bind + recv). 
 
-The size of skb->len has no direct relationship to skb->pkt_type.
+When the dgram length is lower that 357 Bytes I observe strange results
+at the send side. My home-made udp_tx program gives the following:
 
-It has more to do with the path the SKB took inside the stack
-on it's way to the output device.
+$./udp_tx -h 192.168.4.1 -m 357
+357 1312621 357.518
 
-On input, the hardware layer trims the device hw header from the front
-of the packet by the time ip_input sees it, for example.  The hw header
-is still there and accessible actually, via skb->mac.raw
+357 is the dgram length (in B), 1312621 the number of dgrams sent and 
+357.518 the perceived thruput (in Mbits/s). The weirdness is that I
+get 357.518 Mbits/s whereas the underlying network is 10Mbits/s!
+
+At the receive side the results are consistent (obviously):
+
+$./udp_rx -m 357
+357 29519 8.00884
+
+<netstat -s --udp> on the send machine before and after the run also
+gives me such a large amount of sent packets (~1312700), whereas
+</sbin/ifconfig> confirms that about 29519 packets have been sent
+out.
+
+Below 357 Bytes, the same kind of results are observed. Above 357 Bytes,
+the results make more sense to me:
+
+$./udp_tx -h 192.168.4.1 -m 358
+358 29505 8.04393
+
+$./udp_rx -m 358
+358 29468 8.0179
+
+Does anybody know where I lose packets? And why do I lose them only when
+the dgram length is below 357 Bytes?
+
+BTW, I'm running 2.4.18-vanilla w/ the 3c59x driver.
+
+Thx.
+-- 
+Eric
