@@ -1,43 +1,33 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: sis900: eth0: NULL pointer encountered in Rx ring, skipping
-Date: Tue, 18 Jan 2005 11:13:58 +0100
-Message-ID: <20050118101358.GA9335@xi.wantstofly.org>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] unexport xfrm_policy_delete
+Date: Tue, 18 Jan 2005 11:29:32 +0100
+Message-ID: <20050118102932.GD4274@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261212AbVARK3g@vger.kernel.org>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+I haven't found any way how xfrm_policy_delete could be called from 
+modular code in 2.6.11-rc1-mm1.
 
-I can make one of my machines, which has an on-board sis900 NIC, lose
-network connectivity within seconds by doing something like
-"nc -l -p 6666 > /dev/null" and then blasting some data towards it.  When
-this happens, syslog fills up with these messages:
-
-	eth0: NULL pointer encountered in Rx ring, skipping
-
-It seems like the driver+NIC combo doesn't handle any kind of load very
-well in general -- whenever it receives more than just a few tens of
-packets per second, the machine's ping time turns rather awful:  (Two
-machines on 100Mb/s with an el-cheapo 8-port 100Mb/s switch between
-them.  Other machines on the same switch don't show any of the same
-problems.)
-
-	64 bytes from 10.0.0.4: icmp_seq=212 ttl=64 time=128 ms
-	64 bytes from 10.0.0.4: icmp_seq=213 ttl=64 time=124 ms
-	64 bytes from 10.0.0.4: icmp_seq=214 ttl=64 time=119 ms
-	64 bytes from 10.0.0.4: icmp_seq=215 ttl=64 time=124 ms
-
-When it locks up, 'ifconfig eth0 down up' suffices to make it come back
-to life.  I haven't checked whether it's just RX that stops working or
-whether it's both RX and TX.
-
-Any ideas?  This is on the Fedora Core 3 update kernel, 2.6.10-based.
+Unless I'm wrong or a patch for a modular usage is pending, I'm 
+therefore suggesting this patch for removing the EXPORT_SYMBOL.
 
 
-cheers,
-Lennert
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.11-rc1-mm1-full/net/xfrm/xfrm_policy.c.old	2005-01-18 11:11:34.000000000 +0100
++++ linux-2.6.11-rc1-mm1-full/net/xfrm/xfrm_policy.c	2005-01-18 11:11:39.000000000 +0100
+@@ -549,8 +549,6 @@
+ 	}
+ }
+ 
+-EXPORT_SYMBOL(xfrm_policy_delete);
+-
+ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
+ {
+ 	struct xfrm_policy *old_pol;
