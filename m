@@ -1,83 +1,173 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BUG] can't unload network device's if IPV6 is loaded
-Date: Thu, 11 Dec 2003 16:18:56 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] e100 driver crashes with ethtool
+Date: Thu, 11 Dec 2003 17:07:20 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031211161856.6960c479.davem@redhat.com>
-References: <20031211153334.0c59214b.shemminger@osdl.org>
+Message-ID: <20031211170720.2a5bb4ca.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031211153334.0c59214b.shemminger@osdl.org>
+To: "Feldman, Scott" <scott.feldman@intel.com>,
+        "David S. Miller"
+ <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Dec 2003 15:33:34 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+The e100 driver in 2.6.0-test11 crashes when ever a ethtool command
+would initiate a board reset.  The problem is bogus __devinit attributes
+on functions that can be called from the ethtool ioctl code.
 
-> In 2.6.0-test11, IPV6 is not correctly cleaning up the network
-> device reference's (ie missing dev_put).  So if I do:
-> 	rmmod e100
-> it hangs forever and complains about that not all references have
-> been cleaned up.
-> 
-> This happens even if no IPV6 addresses have been set up. Just having
-> ipv6 available to be loaded at boot up.  The vendor startup scripts
-> (SuSe 9) may be setting something.
-
-Ugh, I thought we had killed all of this kind of crap.
-We had so many issues in this area wrt. the autoconf and mcast
-but those all got fixed up.
-
-Yoshfuji is very busy at this time, probably until the new year.
-So we need to try and figure this one out ourselves.
-
-Even without configuring anything, IPV6 does things to all active
-devices when it is loaded.
-
-1) It assigns link-local IPV6 addresses to interfaces it understands.
-2) It joins the standard default multicast groups necessary for a
-   device to take part in ipv6 operations on a network.
-
-So when the device is brought down all this stuff has to be undone.
-This is where the problems are likely to be, and where they in
-fact were in previous cases where we fixed this bug.
-
-The setup of each device occurs in net/ipv6/addrconf.c in
-addrconf_init().  It loops over all devices and configures them
-for ipv6 operation.
-
-For ethernet devices it would call addrconf_dev_config().  This also
-happens when NETDEV_UP events are sent out.  It allocates the ipv6
-device private data, gives it a link-local address (which is usually
-formed using a fixed constant prefix with the device hardware address
-added to the end).  This is also where the default multicast and link
-local routes are added via addrconf_add_mroute() and
-addrconf_add_lroute() respectively.  If all of this succeeds, the
-duplicate address detection process is begun via addrconf_dad_start().
-
-addrconf_ifdown() is supposed to undo and clean all of this crap up
-when the interfaces goes down or is unregistered.
-
-One problem we had previously was due to the fact that if it was an
-unregister causing addrconf_ifdown() to run, the first thing this
-function will do is NULL out dev->ip6_ptr, which causes things like
-{,__}in6_dev_get() to return NULL.  This causes problems for cleaning
-up the multicast references, in mcast.c:ipv6_mc_destroy_dev().
-
-We had to change that multicast code to pass the 'idev' around
-directly instead of obtaining it via __in6_dev_get().  There are even
-comments in ipv6_mc_destroy_dev() which were added to explain this
-problem.
-
-The other area we had a refcount problem was wrt. the addrconf
-per-device timers used for implementation of the privacy extension.
-I forget the exact nature of the bug, but Herbert Xu coded up the
-patch to fix that stuff, you should be able to see it in the BK
-revision history of addrconf.c
-
-I hope this can help you search down the problem further.  These areas
-(addrconf and mcast) should be the only sources of device references
-in your case.
+diff -Nru a/drivers/net/e100/e100_config.c b/drivers/net/e100/e100_config.c
+--- a/drivers/net/e100/e100_config.c	Thu Dec 11 17:03:50 2003
++++ b/drivers/net/e100/e100_config.c	Thu Dec 11 17:03:50 2003
+@@ -60,7 +60,7 @@
+  * All other init functions will only set values that are
+  * different from the 82557 default.
+  */
+-void __devinit
++void
+ e100_config_init_82557(struct e100_private *bdp)
+ {
+ 	/* initialize config block */
+@@ -104,7 +104,7 @@
+ 	e100_config_mulcast_enbl(bdp, false);
+ }
+ 
+-static void __devinit
++static void
+ e100_config_init_82558(struct e100_private *bdp)
+ {
+ 	/* MWI enable. This should be turned on only if the adapter is a 82558/9
+@@ -136,7 +136,7 @@
+ 	e100_config_long_rx(bdp, true);
+ }
+ 
+-static void __devinit
++static void
+ e100_config_init_82550(struct e100_private *bdp)
+ {
+ 	/* The D102 chip allows for 32 config bytes.  This value is
+@@ -160,7 +160,7 @@
+ }
+ 
+ /* Initialize the adapter's configure block */
+-void __devinit
++void
+ e100_config_init(struct e100_private *bdp)
+ {
+ 	e100_config_init_82557(bdp);
+diff -Nru a/drivers/net/e100/e100_main.c b/drivers/net/e100/e100_main.c
+--- a/drivers/net/e100/e100_main.c	Thu Dec 11 17:03:50 2003
++++ b/drivers/net/e100/e100_main.c	Thu Dec 11 17:03:50 2003
+@@ -1290,7 +1290,7 @@
+  *      true: if S/W was successfully initialized
+  *      false: otherwise
+  */
+-static unsigned char __devinit
++static unsigned char
+ e100_sw_init(struct e100_private *bdp)
+ {
+ 	bdp->next_cu_cmd = START_WAIT;	// init the next cu state
+@@ -1318,7 +1318,7 @@
+ 	return 1;
+ }
+ 
+-static void __devinit
++static void
+ e100_tco_workaround(struct e100_private *bdp)
+ {
+ 	int i;
+@@ -2508,7 +2508,7 @@
+  *      true: if successfully cleared stat counters
+  *      false: otherwise
+  */
+-static unsigned char __devinit
++static unsigned char
+ e100_clr_cntrs(struct e100_private *bdp)
+ {
+ 	volatile u32 *pcmd_complete;
+@@ -2873,7 +2873,7 @@
+ /***************************************************************************/
+ 
+ /* Read PWA (printed wired assembly) number */
+-void __devinit
++static void __devinit
+ e100_rd_pwa_no(struct e100_private *bdp)
+ {
+ 	bdp->pwa_no = e100_eeprom_read(bdp, EEPROM_PWA_NO);
+@@ -2882,7 +2882,7 @@
+ }
+ 
+ /* Read the permanent ethernet address from the eprom. */
+-void __devinit
++static void __devinit
+ e100_rd_eaddr(struct e100_private *bdp)
+ {
+ 	int i;
+diff -Nru a/drivers/net/e100/e100_phy.c b/drivers/net/e100/e100_phy.c
+--- a/drivers/net/e100/e100_phy.c	Thu Dec 11 17:03:50 2003
++++ b/drivers/net/e100/e100_phy.c	Thu Dec 11 17:03:50 2003
+@@ -132,7 +132,7 @@
+ 	}
+ }
+ 
+-static unsigned char __devinit
++static unsigned char
+ e100_phy_valid(struct e100_private *bdp, unsigned int phy_address)
+ {
+ 	u16 ctrl_reg, stat_reg;
+@@ -150,7 +150,7 @@
+ 	return true;
+ }
+ 
+-static void __devinit
++static void
+ e100_phy_address_detect(struct e100_private *bdp)
+ {
+ 	unsigned int addr;
+@@ -180,7 +180,7 @@
+ 	}
+ }
+ 
+-static void __devinit
++static void
+ e100_phy_id_detect(struct e100_private *bdp)
+ {
+ 	u16 low_id_reg, high_id_reg;
+@@ -204,7 +204,7 @@
+ 		      ((unsigned int) high_id_reg << 16));
+ }
+ 
+-static void __devinit
++static void
+ e100_phy_isolate(struct e100_private *bdp)
+ {
+ 	unsigned int phy_address;
+@@ -227,7 +227,7 @@
+ 	}
+ }
+ 
+-static unsigned char __devinit
++static unsigned char
+ e100_phy_specific_setup(struct e100_private *bdp)
+ {
+ 	u16 misc_reg;
+@@ -380,7 +380,7 @@
+  * Returns:
+  *	NOTHING
+  */
+-static void __devinit
++static void
+ e100_fix_polarity(struct e100_private *bdp)
+ {
+ 	u16 status;
+@@ -916,7 +916,7 @@
+ 	schedule_timeout(HZ / 2);
+ }
+ 
+-unsigned char __devinit
++unsigned char
+ e100_phy_init(struct e100_private *bdp)
+ {
+ 	e100_phy_reset(bdp);
