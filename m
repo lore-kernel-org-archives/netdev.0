@@ -1,22 +1,23 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCHSET] Extended matches and basic classifier
-Date: Tue, 15 Feb 2005 13:38:55 -0800
-Message-ID: <20050215133855.6659f7e1.davem@davemloft.net>
-References: <20050123230012.GB23931@postel.suug.ch>
+Subject: Re: Some pktgen fixes for 2.6.11-rc2
+Date: Tue, 15 Feb 2005 13:41:20 -0800
+Message-ID: <20050215134120.3ae4c511.davem@davemloft.net>
+References: <16890.41237.608094.933695@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050123230012.GB23931@postel.suug.ch>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, Jens.Laas@data.slu.se, Robert.Olsson@data.slu.se
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16890.41237.608094.933695@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Jan 2005 00:00:12 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+On Fri, 28 Jan 2005 21:31:17 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> This patchset adds the ematch API, the ematches cmp, nbyte, u32, meta,
-> and the basic classifier. It doesn't touch any existing code.
+> Some fixes pointed out by Grant Grundler and Jens L=E5=E5s but
+> Grant still see problems.
 
-All added to my net-2.6.12 pending tree.  Thanks Thomas.
+Robert, can you send me an updated patch against current
+sources?  Thanks a lot.
