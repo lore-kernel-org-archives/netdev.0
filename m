@@ -1,28 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] make lock/release_sock fast calls
-Date: Wed, 31 Mar 2004 23:07:17 -0800
+Subject: Re: [PATCH 2.6] reference count cleanup continued -IPv6
+Date: Wed, 31 Mar 2004 23:12:15 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040331230717.27c77994.davem@redhat.com>
-References: <20040331112407.66309027@dell_ss3.pdx.osdl.net>
+Message-ID: <20040331231215.054f8a9a.davem@redhat.com>
+References: <406AE4AC.6020309@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040331112407.66309027@dell_ss3.pdx.osdl.net>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <406AE4AC.6020309@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Mar 2004 11:24:07 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 31 Mar 2004 07:33:00 -0800
+Nivedita Singhvi <niv@us.ibm.com> wrote:
 
-> lock_sock and release_sock are no longer inline, but they are called in
-> the critical path of many operations, so it makes sense to use register based
-> fastcall.
+> Continuing the reference count clean up, this time
+> in tcp_v6_rcv().  We should not be doing a sock_put()
+> on a socket in TIMEWAIT state.
+> 
+> Applies to 2.6.4. Should apply to current bits as
+> well.
 
-I think I'll add this change when 2.6.6 opens up.
+Applied, thanks Nivedita.
 
-Someone haggled about CONFIG_REGPARM, but that argument is crap.
-We have "FASTCALL()" for a reason, and CONFIG_REGPARM does not
-obviate it.
+I've also coded up a 2.4.x variant, but you can feel free to
+do this for me in the future :-)
