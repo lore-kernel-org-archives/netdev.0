@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Thu, 22 May 2003 18:00:17 -0700 (PDT)
+Date: Thu, 22 May 2003 18:01:52 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030522.180017.35026357.davem@redhat.com>
+Message-ID: <20030522.180152.15252868.davem@redhat.com>
 References: <20030522.015815.91322249.davem@redhat.com>
 	<20030522.034058.71558626.davem@redhat.com>
 	<1053602138.9475.34.camel@tux.rsn.bth.se>
@@ -24,4 +24,5 @@ List-Id: netdev.vger.kernel.org
    
    Any reason you're not using get_order() ?
 
-Because I'm stupid, I'll fix that thanks :-)
+Actually, get_order() aparently only works on powers of
+two, which 'size' is definitely not.
