@@ -1,37 +1,35 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: Intel 1000 MT slow to restart
-Date: Tue, 1 Apr 2003 20:19:12 -0800
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: [Fwd: [E1000] NAPI re-insertion w/ changes]
+Date: Wed, 2 Apr 2003 04:19:23 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010107D332@orsmsx402.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Message-ID: <slrnb8kp6j.reg.lunz@orr.homenet>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D325@orsmsx402.jf.intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Patrick R. McManus" <mcmanus@ducksong.com>, netdev@oss.sgi.com
-content-class: urn:content-classes:message
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I'm running intel's e1000 driver (versions 4.4.12 and tried 
-> 4.6.11) for a 1000/MT (dual) nic on a 2.4.19 kernel.
-> 
-> for normal operations, everything is fine.. however if I do a 
-> "ifconfig eth0 down; ifconfig eth0 up" 20 or 30 seconds 
-> passes where I can't do any traffic. the ifconfig up comes 
-> back quickly, and ifconfig reports the driver as up (and 
-> netlink thinks its up if I try and add another one).. I just 
-> can't move any traffic. no rx's and my tx's only move 
-> counters in the driver - they don't actually make it to the wire. 
-> 
-> if I do "ifconfig eth0 down; sleep 30; ifconfig eth0 up" all 
-> is well immediately after the up.. The driver doesn't seem to 
-> be doing anything different in either case - its as if the 
-> NIC itself is enforcing some kind of quiet period. 
-> 
-> I'm really writing to see if I'm crazy and hoping someone 
-> else can corroborate this is what they've seen too.
+scott.feldman@intel.com said:
+> Robert, please post your -ro3 changes - I can't find them.
 
-Do you have spanning tree turned on on your switch?  This could cause
-such delays.
+sorry, the -roX and -sfX notations are mine; i'm backporting everything
+to 2.4.20 for testing and most of the patches have to be tweaked one way
+or another, so I gave them all my own names to help keep them straight.
+-ro1 and -ro2 come from Robert's posts here, and -ro3 is what you get
+when you apply
 
--scott
+ftp://robur.slu.se/pub/Linux/net-development/skb_recycling/e1000_pci_2.pat
+
+on top of that.
+
+> I'm pretty happy with this NAPI code for e1000.  Next step is to get
+> some more generic QA testing with NAPI and then port back to 2.4.x.
+
+For what it's worth, I've subjected various e1000 chipsets to just about
+every kind of synthetic load all the way up to the maximum theoretical
+full-duplex gigE framerate for hours without a hiccup. I'm using
+backports from 2.5 with the TSO stuff stripped out. Judging from my
+apache logs and the emails I get, quite a few others have been using
+those patches on 2.4 too, but I've received no real complaints.
+
+Jason
