@@ -1,30 +1,45 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] NET: disconnect support by null address (is Re:
- Disconnecting a connected UDP socket)
-Date: Fri, 04 Jul 2003 02:48:50 +0900 (JST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: rfc-editor@rfc-editor.org: RFC 3549 on Linux Netlink as an IP
+ Services Protocol
+Date: Thu, 03 Jul 2003 11:00:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030704.024850.88858438.yoshfuji@linux-ipv6.org>
-References: <20030703031610.79050.qmail@web20704.mail.yahoo.com>
-	<20030704.022857.07343571.yoshfuji@linux-ipv6.org>
+Message-ID: <3F046F56.1080808@candelatech.com>
+References: <12785.1057250058@marajade.sandelman.ottawa.on.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shibu_lkml@yahoo.com, davem@redhat.com, jmorris@intercode.com.au
-In-Reply-To: <20030704.022857.07343571.yoshfuji@linux-ipv6.org>
+To: Michael Richardson <mcr@sandelman.ottawa.on.ca>, hadi@znyx.com,
+   hormuzd.m.khosravi@intel.com, ak@suse.de, kuznet@ms2.inr.ac.ru,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+In-Reply-To: <12785.1057250058@marajade.sandelman.ottawa.on.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030704.022857.07343571.yoshfuji@linux-ipv6.org> (at Fri, 04 Jul 2003 02:28:57 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+Please make the 'table-id' field to be at least
+16 bits.  Now that we have VLANs and other types of virtual
+interfaces, it would be nice to be able to have a routing table
+for each interface, for example.  640k was not enough for everyone,
+and ~250 routing tables isn't either :)
 
-> It seems.  Please apply this.
 
-Sorry, I was too hurry.
-net/ipv4/af_inet.c:inet_dgram_connect() cares this case.
-Please forget the patch...
+ From section 3.1.1:
+
+    Table ID: 8 bits
+    Table identifier.  Up to 255 route tables are supported.
+                  RT_TABLE_UNSPEC    An unspecified routing table.
+                  RT_TABLE_DEFAULT   The default table.
+                  RT_TABLE_MAIN      The main table.
+                  RT_TABLE_LOCAL     The local table.
+
+                  The user may assign arbitrary values between
+                  RT_TABLE_UNSPEC(0) and RT_TABLE_DEFAULT(253).
+
+Thanks,
+Ben
+
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
