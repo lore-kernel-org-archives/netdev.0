@@ -1,57 +1,82 @@
-From: David Gibson <hermes@gibson.dropbear.id.au>
-Subject: Re: [PATCH] 2.6.3 orinoco.c patch to support ethtool get_link
-Date: Tue, 16 Mar 2004 11:14:32 +1100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040316001432.GA19983@zax>
-References: <20040308185242.GA18367@bougret.hpl.hp.com> <404E4159.9040404@tmus.dk> <4052063F.9020107@tmus.dk>
+From: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
+Subject: Prism54 Driver Project Complete
+Date: Tue, 16 Mar 2004 00:52:49 -0500
+Sender: prism54-devel-admin@prism54.org
+Message-ID: <20040316055249.GE24063@ruslug.rutgers.edu>
+Reply-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jt@hpl.hp.com, netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Munck Steenholdt <tmus@tmus.dk>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="FFoLq8A0u+X9iRU8"
+Cc: netdev <netdev@oss.sgi.com>, linux-kernel@vger.kernel.org,
+	jgarzik@redhat.com
+Return-path: <prism54-devel-admin@prism54.org>
+To: prism54-devel@prism54.org
 Content-Disposition: inline
-In-Reply-To: <4052063F.9020107@tmus.dk>
-Errors-to: netdev-bounce@oss.sgi.com
+Errors-To: prism54-devel-admin@prism54.org
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 12, 2004 at 07:49:35PM +0100, Thomas Munck Steenholdt wrote:
-> Thomas Munck Steenholdt wrote:
-> >Jean Tourrilhes wrote:
-> >
-> >>    I hope you realise that most often link status is meaningless
-> >>with Wireless cards. In Ad-Hoc mode, the link is always up, regardless
-> >>of the number of nodes in the cell, check the discussion on the HostAP
-> >>mailing list. And the Orinoco card will report connected even is WEP
-> >>is wrong. But, if you only use managed mode without WEP, that should
-> >>work.
-> >>    I just wonder if it's better to report a 'link status' that
-> >>may be wrong/misleading or to not report anything at all.
-> >
-> >
-> >Actually, if the WEP key is wrong(i guess that's what you mean) the
-> >link is determined as down, like it should be!
-> >
-> >For the AdHoc mode, sure the link is always determined as up, but that
-> >is really the best way to do it given the nature of an Ad-Hoc network,
-> >right!
-> >
-> >The way I see it you'll gain from this patch whenever in managed mode.
-> >Most people (in my experience) is using managed mode and thus would 
-> >benefit from this functionality!
-> >
-> >Thomas
-> 
-> Please comment on this ?
-> 
-> I feel it's a really good idea that would improve things for me a lot - 
-> I'm sure I'm not the only one!
 
-Sorry, I've been distracted by other things and haven't gotten around
-to replying to this.  I see that Pavel Roskin has taken a look at your
-patch, I'll add some comments on that thread.
+--FFoLq8A0u+X9iRU8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
--- 
-David Gibson			| For every complex problem there is a
-david AT gibson.dropbear.id.au	| solution which is simple, neat and
-				| wrong.
-http://www.ozlabs.org/people/dgibson
+
+Kernel.org bk2 was the first bk snapshot with prism54 driver in it.
+bk4 is out already and some changes were already made too.=20
+I was going to make some cvs repository changes today @ prism54.org
+in order to attempt to keep a synced up repository for development=20
+but I realize this is just not going to be possible. You can't stop=20
+what goes on in the kernel tree and keeping our repository in-sync=20
+with the latest bk snapshots is just too much pain in the ass to even=20
+consider we'd be able to work out of a prism54 tree and write valid=20
+patches.
+
+At this point I think we can safely say the the prism54 project has=20
+been complete. Although forced upon, this is not necessarily=20
+a bad thing. The 2.6 prism54 driver is just going to take a life of=20
+its own now and its out of our hands what goes on with it.
+
+The 2.4 driver is still in our tree and not sure if it'll go into 2.4.
+We'll see. Anyway for now the prism54.org project can still be home to furt=
+her
+advances of the driver/support. Please feel free to CC patches to us=20
+(prism54-devel@prism54.org) for review in e-mails sent to netdev / Jeff / k=
+ernel=20
+mailing lists for peer review and updates. That's what we're now here for.=
+=20
+If you have other large prism54 contributions you can use prism54.org as yo=
+ur home.
+
+As for USB support maybe now we can put this as high priority while
+other aspects of the driver are hammered by other developers. If you
+will like to still follow up on the latest on prism54 development,
+prism54.org will be the home for it. Just remember that it'd be just easier
+for you to work out of kernel.org bk snapshots when writing patches
+since we're no longer the home of the latest prism54 src.
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--FFoLq8A0u+X9iRU8
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAVpYxat1JN+IKUl4RApJiAJ4wQq5BksS3w6Ze1n/U1iPQnY2bCACcClKF
+aarYK/hiG7/K/+37ZmeD7GI=
+=WZGp
+-----END PGP SIGNATURE-----
+
+--FFoLq8A0u+X9iRU8--
