@@ -1,105 +1,62 @@
-From: "" <master_f2f@netian.com>
-Subject: re: =?ISO-8859-1?Q?=B4=E4=BA=AF=C0=D4=B4=CF=B4=D9.?=
-	=?ISO-8859-1?Q?=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9?= id
-Date: Sun, 07 Mar 04 18:11:33 GMT
+From: "¸ôÄ«" <adez7066679@hotmail.com>
+Subject: =?ISO-8859-1?Q?=A1=D9=B0=E6=B0=ED=A1=D919=BC=BC=B9=CC=B8=B8=C0=BA?=
+	=?ISO-8859-1?Q?=C0=CC=20=B8=DE=C0=CF=C0=BB=20=C0=FD=B4=EB?=
+	=?ISO-8859-1?Q?=BF=AD=C1=F6=B8=B6=BC=BC=BF=E4=A1=D9?= msamqezsfipezcqqhq
+Date: Mon, 08 Mar 04 02:25:42 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3i10x-11$773$zmq454w54$5$9-2@2lxuge0.9t>
-Reply-To: "" <master_f2f@netian.com>
+Message-ID: <8h-2m3w2gebs$w8$$pd5c7$8-ozn8@hdidzp2.u1>
+Reply-To: "¸ôÄ«" <adez7066679@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="FBEB8BA2F76_25B_FDCED_0."
+	boundary="_.F._DE38F3__.8.D.4"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: majordomo@oss.sgi.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---FBEB8BA2F76_25B_FDCED_0.
+--_.F._DE38F3__.8.D.4
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-
-<head>
-<meta http-equiv=3D"content-type" content=3D"text/html; charset=3Deuc-kr">=
-
-<title>=FFFFFFC1=FFFFFFA6=FFFFFFB8=FFFFFFF1
-=FFFFFFBE=FFFFFFF8=FFFFFFC0=FFFFFFBD</title>
-<meta name=3D"generator" content=3D"Namo WebEditor v5.0">
-</head>
-
-<body bgcolor=3D"red" text=3D"black" link=3D"blue" vlink=3D"purple"
-alink=3D=
-"red">
-
-<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
-target=3D=
-_blank ><img src=3D"http://www.porno444.net/join/images3_1/title.gif" bord=
-er=3D"0"></a><br><br>
-<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
-target=3D=
-_blank ><img src=3D"http://yoohofilm.co.kr/banner/150300_01.gif" width=3D"=
-150" height=3D"300" border=3D"0">
-</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
-rget=3D'_blank'><img src=3D"http://pornoservice.co.kr/banner/150_300.gif" =
-width=3D"150" height=3D"300" border=3D"0"></a><a href=3D"http://www.free24=
-sex.com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
-
-
-<img src=3D"http://211.239.154.231/~partner/photo/upskirts/banner37.gif" w=
-idth=3D"150" height=3D"300" border=3D"0">
-</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
-rget=3D'_blank'><img src=3D"http://211.239.154.231/~partner/photo/upskirts=
-/banner45.gif" width=3D"150" height=3D"300" border=3D"0"></a> 
-<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
-target=3D=
-_blank ><img src=3D"http://sexualbozi.com/banner/1121/150-300.gif"
+<body bgcolor=3D"red">
+<p align=3D"center"><a href=3D"http://www.leskorea.com/index.php?pid=3Dvai=
+o" target=3D"_blank"><img src=3D"http://211.239.154.231/~partner/photo/ups=
+kirts/banner31.gif" width=3D"280" height=3D"140" border=3D"0"> </a><a href=
+=3D"http://www.jsexmana.com/index.php?pid=3Dvaio" target=3D"_blank"><img s=
+rc=3D"http://211.239.154.231/~partner/photo/yasakura/banner239.gif"
 width=3D=
-"150" height=3D"300" border=3D"0"></a><br><a href=3D'http://www.24freeporn=
-o.net/index.php?pid=3Dsony&did=3D1' target=3D'_blank'><img src=3D"http://x=
-x892girl.com/banner/20040131/150-300.gif" width=3D"150" height=3D"300" bor=
-der=3D"0"></a><a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=
-=3D1" target=3D_blank >
+"145" height=3D"160" border=3D"0"></a><a href=3D"http://www.leskorea.com/i=
+ndex.php?pid=3Dvaio" target=3D"_blank">
+<br><img src=3D"http://www.housemolca.com/partner/bn_img/011.gif" width=3D=
+"390" height=3D"96" border=3D"0">
+<br><img src=3D"http://www.nobratv.com/banner/banner150_80.gif" width=3D"1=
+50" height=3D"80" border=3D"0">
+</a><a href=3D"http://www.jsexmana.com/index.php?pid=3Dvaio" target=3D"_bl=
+ank"><img src=3D"http://www.nobratv.com/banner/banner190_80.gif" width=3D"=
+190" height=3D"80" border=3D"0"> 
+</a><a href=3D"http://www.leskorea.com/index.php?pid=3Dvaio" target=3D"_bl=
+ank"><br>&nbsp;</a><a href=3D"http://www.usaoralsex.com/index.php?pid=3Dva=
+io" target=3D"_blank"><img src=3D"http://www.jawibuin.com/partner/banner/j=
+awibuin22.gif" width=3D"140" height=3D"249" border=3D"0"></a><a href=3D"ht=
+tp://www.leskorea.com/index.php?pid=3Dvaio" target=3D"_blank"> <img src=3D=
+"http://www.erosasia.jp/joylp/joy10.gif" width=3D"140" height=3D"220" bord=
+er=3D"0"></a><a href=3D"http://www.jsexmana.com/index.php?pid=3Dvaio" targ=
+et=3D"_blank"> <img src=3D"http://www.housemolca.com/partner/bn_img/003.gi=
+f" width=3D"300" height=3D"216" border=3D"0"></a><a href=3D"http://www.usa=
+oralsex.com/index.php?pid=3Dvaio" target=3D"_blank"><img src=3D"http://www=
+ssangada.com/imgs/banner/01/0004.gif" width=3D"171" height=3D"278" border=
+=3D"0"> 
+</a><a href=3D"http://www.leskorea.com/index.php?pid=3Dvaio" target=3D"_bl=
+ank"><br><br><img src=3D"http://boziesazo.com/partner/banner/550_200_01.gi=
+f" width=3D"550" height=3D"200" border=3D"0">
+<br>
+<img src=3D"http://www.nobratv.com/banner/banner250_168.gif" width=3D"250"=
+ height=3D"168" border=3D"0"></a>
+<a href=3D"http://www.jsexmana.com/index.php?pid=3Dvaio" target=3D"_blank"=
+><img src=3D"http://partner.pornokorea.co.kr/banner/320_153_01.gif"
+width=3D=
+"320" height=3D"153" border=3D"0"></a>
+qf acbhgkzf kwlhsyayeqkdkevs
 
-<img src=3D"http://xx892girl.com/banner/1030/150-300.gif" width=3D"150" he=
-ight=3D"300" border=3D"0">
-</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
-rget=3D'_blank'><img src=3D"http://www.xfetish.jp/partner/login_after/bann=
-erimg/b7.gif" width=3D"150" height=3D"300" border=3D"0"></a><a href=3D"htt=
-p://www.free24sex.com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
-
-
-
-<img src=3D"http://www.xfetish.jp/partner/login_after/bannerimg/b14.gif" w=
-idth=3D"150" height=3D"300" border=3D"0">
-</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
-rget=3D'_blank'><img src=3D"http://www.588molcalive.com/imgs/banner/150_30=
-0_02.gif" width=3D"150" height=3D"300" border=3D"0"></a><a href=3D"http://=
-www.free24sex.com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
-</a><br><a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1" =
-target=3D_blank >
-
-<img src=3D"http://www.playbozi.co.kr/data/banner/185.gif" width=3D"150" h=
-eight=3D"300" border=3D"0">
-
-</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
-rget=3D'_blank'><img src=3D"http://www.xx10bozi.com/Upload/banner/10730237=
-05bn_04_150_300.gif" width=3D"150" height=3D"300" border=3D"0"></a>&nbsp;<=
-a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1" target=3D=
-_blank ><img src=3D"http://www.xx10bozi.com/Upload/banner/1057296288150_30=
-0_2.gif" width=3D"150" height=3D"300" border=3D"0">
-</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
-rget=3D'_blank'><img src=3D"http://www.bogwa.com/data/banner/121.gif" widt=
-h=3D"150" height=3D"300" border=3D"0"></a><a href=3D"http://www.free24sex.=
-com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
-<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
-target=3D=
-_blank ><img src=3D"http://yoohofilm.co.kr/banner/150300_01.gif" width=3D"=
-150" height=3D"300" border=3D"0">
-</a>
-</a></body>
-
-</html>
-e iqscc
-
---FBEB8BA2F76_25B_FDCED_0.--
+--_.F._DE38F3__.8.D.4--
