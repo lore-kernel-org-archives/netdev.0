@@ -1,36 +1,29 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Tue, 19 Aug 2003 17:07:51 +0200
+Date: Tue, 19 Aug 2003 08:22:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819170751.2b92ba2e.skraw@ithnet.com>
-References: <353568DCBAE06148B70767C1B1A93E625EAB58@post.pc.aspectgroup.co.uk>
-	<20030819145403.GA3407@alpha.home.local>
+Message-ID: <20030819082227.5ef3b7ed.davem@redhat.com>
+References: <Pine.LNX.3.96.1030818171100.2101C-100000@gatekeeper.tmr.com>
+	<3F41979C.3070408@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: richard@aspectgroup.co.uk, alan@lxorguk.ukuu.org.uk, davem@redhat.com,
-   willy@w.ods.org, carlosev@newipnet.com, lamont@scriptkiddie.org,
-   davidsen@tmr.com, bloemsaa@xs4all.nl, marcelo@conectiva.com.br,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
-   torvalds@osdl.org, linux-kernel@vger.kernel.org
+Cc: davidsen@tmr.com, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
+   carlosev@newipnet.com, lamont@scriptkiddie.org, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Willy Tarreau <willy@w.ods.org>
-In-Reply-To: <20030819145403.GA3407@alpha.home.local>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3F41979C.3070408@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Aug 2003 16:54:03 +0200
-Willy Tarreau <willy@w.ods.org> wrote:
+On Mon, 18 Aug 2003 20:21:00 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> This is exactly the case I calmly discussed privately with David then Alexey.
-> Both explained me that in fact, the remote host shouldn't be filtering the
-> ARP requests based on the source IP they provide,
+> I never did hear a response to my comment that this
+> was inadequate in this age of vlans...
 
-Hm, what rule is broken by the remote host, then? I mean "remote host shouln't"
-reads like "according to RFC-XYZ he should not".
-IFF of course the remote host is not broken, then our idea must be broken. Else
-world would have kind of a definition gap in this layer of networking, and I
-hardly believe that.
-
-Regards,
-Stephan
+Just define a rtnetlink attribute to extend the ID
+number, that's all.  It's not hard work and it eliminates
+the 8-bit limit.
