@@ -1,24 +1,24 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: VLAN patches
-Date: Sat, 05 Oct 2002 22:09:01 -0700 (PDT)
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: Update on e1000 troubles (over-heating!)
+Date: Sun, 6 Oct 2002 00:33:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021005.220901.133288973.davem@redhat.com>
-References: <3D980A10.8B06F2C2@ebc.ericsson.se>
-	<3D9F3C38.6060608@candelatech.com>
+Message-ID: <288F9BF66CD9D5118DF400508B68C44604758AF7@orsmsx113.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Bjorn.Andersson@ebc.ericsson.se, netdev@oss.sgi.com
+Content-Type: text/plain
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+   "'netdev@oss.sgi.com'"
+	 <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greearb@candelatech.com
-In-Reply-To: <3D9F3C38.6060608@candelatech.com>
+To: "'Ben Greear'" <greearb@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Ben Greear <greearb@candelatech.com>
-   Date: Sat, 05 Oct 2002 12:23:36 -0700
+> I believe I have figured out why the e1000 crashed my machine 
+> after .5 - 1 hours:  The NIC was over-heating.  I measured 
+> one of the NICs after the machine crashed with an external 
+> (cheap) temp probe.  It registered right at 50 degrees C, and 
+> this was about 15-30 seconds after it crashed.
 
-   Dave, please apply this patch if you haven't already,
-   it seems correct to me.
-   
-Applied to both 2.4.x and 2.5.x sources, thanks.
+Ben, please send lspci -x on the hot nic.
+
+-scott
