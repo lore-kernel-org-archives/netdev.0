@@ -1,23 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] convert ipmr to seq_file.
-Date: Thu, 25 Sep 2003 20:48:04 -0700
+Subject: Re: [PATCH] net Kconfig consolidation
+Date: Thu, 25 Sep 2003 20:53:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030925204804.00e457f1.davem@redhat.com>
-References: <20030925142351.18cda5dd.shemminger@osdl.org>
+Message-ID: <20030925205340.7d216b1a.davem@redhat.com>
+References: <20030925115717.GA32636@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030925142351.18cda5dd.shemminger@osdl.org>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20030925115717.GA32636@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Sep 2003 14:23:51 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 25 Sep 2003 13:57:17 +0200
+Christoph Hellwig <hch@lst.de> wrote:
 
-> Convert /proc/ip_mr_cache and /proc/ip_mr_vif to use seq_file.
-> Tested with 2.6.0-test5 latest.
+> include net/ax25/Kconfig, net/irda/Kconfig and net/bluetooth/Kconfig
+> from net/Kconfig like all the other Kconfig files under net/.  This
+> makes the per-arch Kconfig files quite a bit smaller and also makes
+> sure the option are available on all arches.
 
-Looks good, applied.
+Looks great, applied.
+
+Thanks.
