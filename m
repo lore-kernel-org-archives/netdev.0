@@ -1,22 +1,24 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Iproute2: update
-Date: Mon, 17 Jan 2005 21:57:34 +0100
-Message-ID: <20050117205734.GH26856@postel.suug.ch>
-References: <20050112125903.64d42737@dxpl.pdx.osdl.net> <1105895352.1091.705.camel@jzny.localdomain> <1105897532.1097.749.camel@jzny.localdomain> <20050117202022.GG26856@postel.suug.ch>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] [IPV6] Don't use obsolete entries.
+Date: Mon, 17 Jan 2005 13:01:52 -0800
+Message-ID: <20050117130152.7ccd86f7.davem@davemloft.net>
+References: <20050115.182756.133007240.yoshfuji@wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi Salim <hadi@znyx.com>
-Content-Disposition: inline
-In-Reply-To: <20050117202022.GG26856@postel.suug.ch>
+To: yoshfuji@wide.ad.jp
+In-Reply-To: <20050115.182756.133007240.yoshfuji@wide.ad.jp>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I'll put this changes into my tree given you're fine with it and stephen
-> can pull them. As I said, the ipt code is still missing, I can merge
-> them into my tree as well if you want.
+On Sat, 15 Jan 2005 18:27:56 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@wide.ad.jp> wrote:
 
-Stephen: you can pull jamal's changes with my modifications from
-bk://tgr.bkbits.net/iproute2-tgr if you like.
+> Following changesets improve specification conformity.
+> Please pull them from:
+>  <bk://bk.skbuff.net:20611/linux-2.6-inet6/>
+
+Pulled, thanks.
