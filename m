@@ -1,34 +1,84 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: oops in tcp_v4_rcv.
-Date: Wed, 28 May 2003 22:50:20 -0300
+Date: Wed, 28 May 2003 18:51:42 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529015020.GS12434@conectiva.com.br>
-References: <3ED54DBC.4020203@colorfullife.com> <3ED55F4D.1070306@colorfullife.com> <20030528.184054.78710412.davem@redhat.com>
+Message-ID: <20030528.185142.85410989.davem@redhat.com>
+References: <3ED55F4D.1070306@colorfullife.com>
+	<20030528.184054.78710412.davem@redhat.com>
+	<20030529015020.GS12434@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: manfred@colorfullife.com, netdev@oss.sgi.com, akpm@digeo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030528.184054.78710412.davem@redhat.com>
+To: acme@conectiva.com.br
+In-Reply-To: <20030529015020.GS12434@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, May 28, 2003 at 06:40:54PM -0700, David S. Miller escreveu:
->    From: Manfred Spraul <manfred@colorfullife.com>
->    Date: Thu, 29 May 2003 03:15:57 +0200
-> 
->    I think I understand now what causes the crash:
->    The tcp_ehash assumes that the entries are of the type 'struct inet_sock'.
->    But the actual entry is of the type tcp_tw_bucket. And 'sk->inet.daddr' 
->    is not shared between both structures.
-> 
-> Thanks for figuring this out.  Indeed, I had suspected the
-> sock layout change Arnaldo did early in 2.5.x as the main
-> possible suspect.
-> 
-> I'll try to fix this.
+   From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+   Date: Wed, 28 May 2003 22:50:20 -0300
 
-I'm as well looking at this, longstanding bug :-\
+   Em Wed, May 28, 2003 at 06:40:54PM -0700, David S. Miller escreveu:
+   > I'll try to fix this.
+   
+   I'm as well looking at this, longstanding bug :-\
 
-- Arnaldo
+Here's a patch, should work:
+
+--- include/net/tcp.h.~1~	Wed May 28 18:42:52 2003
++++ include/net/tcp.h	Wed May 28 18:49:47 2003
+@@ -208,6 +208,8 @@
+ #endif
+ };
+ 
++#define tcptw_sk(__sk)	((struct tcp_tw_bucket *)(__sk))
++
+ extern kmem_cache_t *tcp_timewait_cachep;
+ 
+ static inline void tcp_tw_put(struct tcp_tw_bucket *tw)
+@@ -246,7 +248,11 @@
+ #endif /* __BIG_ENDIAN */
+ #define TCP_IPV4_MATCH(__sk, __cookie, __saddr, __daddr, __ports, __dif)\
+ 	(((*((__u64 *)&(inet_sk(__sk)->daddr)))== (__cookie))	&&	\
+-	 ((*((__u32 *)&(inet_sk(__sk)->dport)))== (__ports))   &&	\
++	 ((*((__u32 *)&(inet_sk(__sk)->dport)))== (__ports))	&&	\
++	 (!((__sk)->bound_dev_if) || ((__sk)->bound_dev_if == (__dif))))
++#define TCP_IPV4_TW_MATCH(__sk, __cookie, __saddr, __daddr, __ports, __dif)\
++	(((*((__u64 *)&(tcptw_sk(__sk)->daddr)))== (__cookie))	&&	\
++	 ((*((__u32 *)&(tcptw_sk(__sk)->dport)))== (__ports))	&&	\
+ 	 (!((__sk)->bound_dev_if) || ((__sk)->bound_dev_if == (__dif))))
+ #else /* 32-bit arch */
+ #define TCP_V4_ADDR_COOKIE(__name, __saddr, __daddr)
+@@ -254,6 +260,11 @@
+ 	((inet_sk(__sk)->daddr			== (__saddr))	&&	\
+ 	 (inet_sk(__sk)->rcv_saddr		== (__daddr))	&&	\
+ 	 ((*((__u32 *)&(inet_sk(__sk)->dport)))== (__ports))	&&	\
++	 (!((__sk)->bound_dev_if) || ((__sk)->bound_dev_if == (__dif))))
++#define TCP_IPV4_TW_MATCH(__sk, __cookie, __saddr, __daddr, __ports, __dif)\
++	((tcptw_sk(__sk)->daddr			== (__saddr))	&&	\
++	 (tcptw_sk(__sk)->rcv_saddr		== (__daddr))	&&	\
++	 ((*((__u32 *)&(tcptw_sk(__sk)->dport)))== (__ports))	&&	\
+ 	 (!((__sk)->bound_dev_if) || ((__sk)->bound_dev_if == (__dif))))
+ #endif /* 64-bit arch */
+ 
+--- net/ipv4/tcp_ipv4.c.~1~	Wed May 28 18:44:59 2003
++++ net/ipv4/tcp_ipv4.c	Wed May 28 18:45:18 2003
+@@ -509,7 +509,7 @@
+ 
+ 	/* Must check for a TIME_WAIT'er before going to listener hash. */
+ 	for (sk = (head + tcp_ehash_size)->chain; sk; sk = sk->next)
+-		if (TCP_IPV4_MATCH(sk, acookie, saddr, daddr, ports, dif))
++		if (TCP_IPV4_TW_MATCH(sk, acookie, saddr, daddr, ports, dif))
+ 			goto hit;
+ out:
+ 	read_unlock(&head->lock);
+@@ -570,7 +570,7 @@
+ 	     skp = &sk2->next) {
+ 		tw = (struct tcp_tw_bucket *)sk2;
+ 
+-		if (TCP_IPV4_MATCH(sk2, acookie, saddr, daddr, ports, dif)) {
++		if (TCP_IPV4_TW_MATCH(sk2, acookie, saddr, daddr, ports, dif)) {
+ 			struct tcp_opt *tp = tcp_sk(sk);
+ 
+ 			/* With PAWS, it is safe from the viewpoint
