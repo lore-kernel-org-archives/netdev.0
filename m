@@ -1,26 +1,41 @@
-From: kuznet@ms2.inr.ac.ru
+From: Nivedita Singhvi <niv@us.ibm.com>
 Subject: Re: fix TCP roundtrip time update code
-Date: Wed, 4 Jun 2003 04:43:22 +0400 (MSD)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <200306040043.EAA24505@dub.inr.ac.ru>
-References: <Mutt.LNX.4.44.0306041021450.28035-100000@excalibur.intercode.com.au>
+Date: Tue, 03 Jun 2003 19:01:25 -0700
+Sender: linux-ia64-admin@linuxia64.org
+Message-ID: <3EDD52F5.8090706@us.ibm.com>
+References: <200306040043.EAA24505@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davidm@hpl.hp.com, gandalf@wlug.westbo.se,
-	linux-kernel@vger.kernel.org, linux-ia64@linuxia64.org,
-	netdev@oss.sgi.com, davem@redhat.com, akpm@digeo.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: jmorris@intercode.com.au (James Morris)
-In-Reply-To: <Mutt.LNX.4.44.0306041021450.28035-100000@excalibur.intercode.com.au> from "James Morris" at Jun 04, 2003 10:24:14 AM
+Cc: James Morris <jmorris@intercode.com.au>, davidm@hpl.hp.com,
+   gandalf@wlug.westbo.se, linux-kernel@vger.kernel.org,
+   linux-ia64@linuxia64.org, netdev@oss.sgi.com, davem@redhat.com,
+   akpm@digeo.com
+Return-path: <linux-ia64-admin@linuxia64.org>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200306040043.EAA24505@dub.inr.ac.ru>
+Errors-To: linux-ia64-admin@linuxia64.org
+List-Help: <mailto:linux-ia64-request@linuxia64.org?subject=help>
+List-Post: <mailto:linux-ia64@linuxia64.org>
+List-Subscribe: <http://lists.linuxia64.org/lists/listinfo/linux-ia64>,
+	<mailto:linux-ia64-request@linuxia64.org?subject=subscribe>
+List-Unsubscribe: <http://lists.linuxia64.org/lists/listinfo/linux-ia64>,
+	<mailto:linux-ia64-request@linuxia64.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxia64.org/archives//linux-ia64/>
 List-Id: netdev.vger.kernel.org
 
-Hello!
+kuznet@ms2.inr.ac.ru wrote:
 
-> This might be the solution to one of the 'must-fix' bugs for the
-> networking, which nobody so far was quite able to track down.
+> No doubts. All the symptoms are explained by this. I hope Andrew
+> will confirm that the problem has gone.
 
-No doubts. All the symptoms are explained by this. I hope Andrew
-will confirm that the problem has gone.
+Yep, great catch! But, FYI, DaveM and Alexey, we tried
+reproducing the stalls we (Dave Hansen, Troy Wilson) had
+seen during SpecWeb99 runs and couldn't reproduce them on
+2.5.69. (Same config, etc). So its possible our hang/stalls
+were some other issue that got silently fixed (or more
+likely, possibly the same thing but other changes minimized
+us running into the problem).
 
-Alexey
+thanks,
+Nivedita
