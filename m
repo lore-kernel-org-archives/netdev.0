@@ -1,26 +1,37 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] remove subscribers-only ipvs mailing list
-Date: Mon, 27 Dec 2004 21:20:04 -0800
-Message-ID: <20041227212004.40f1cebb.davem@davemloft.net>
-References: <20041215013043.GI12937@stusta.de>
+Subject: Re: [PATCH][v4][0/24] Second InfiniBand merge
+	candidate patch set
+Date: Mon, 27 Dec 2004 21:26:15 -0800
+Message-ID: <20041227212615.0536c99f.davem@davemloft.net>
+References: <200412192214.KlDxQ7icOmxHYIf0@topspin.com>
+	<20041220.153845.70996857.yoshfuji@linux-ipv6.org>
+	<20041227210007.398734cd.davem@davemloft.net>
+	<52k6r3j8yp.fsf@topspin.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wensong@linux-vs.org, ja@ssi.bg, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20041215013043.GI12937@stusta.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: akpm@osdl.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org, openib-general@openib.org,
+	torvalds@osdl.org
+Return-path: <openib-general-bounces@openib.org>
+To: Roland Dreier <roland@topspin.com>
+In-Reply-To: <52k6r3j8yp.fsf@topspin.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Dec 2004 02:30:43 +0100
-Adrian Bunk <bunk@stusta.de> wrote:
+On Mon, 27 Dec 2004 21:19:26 -0800
+Roland Dreier <roland@topspin.com> wrote:
 
-> It's generally agreed, that maintainers mustn't contain subscribers-only 
-> lists.
+> Dave, did you want to handle the entire merge of the whole IB stack,
+> or just the net/ parts, which are pretty trivial and stand alone,
+> since AF_INFINIBAND is already defined in the tree?
 
-Agreed, and applied.
-
-Thanks Adrian.
+Send it all over.
