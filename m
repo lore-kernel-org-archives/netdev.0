@@ -1,79 +1,41 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: Re: snd_cwnd drawn and quartered
-Date: Tue, 14 Jan 2003 03:36:51 -0300
+From: Mika Liljeberg <mika.liljeberg@welho.com>
+Subject: Re: SCTP path mtu support needs some ip layer support.
+Date: 14 Jan 2003 08:46:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030114033651.S1516@almesberger.net>
-References: <20030114022509.P1516@almesberger.net> <200301140614.JAA10804@sex.inr.ac.ru>
+Message-ID: <1042526764.2606.21.camel@devil>
+References: <Pine.LNX.4.33.0301131651170.1861-100000@dyn9-47-18-98.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, chengjin@cs.caltech.edu
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, Jon Grimm <jgrimm2@us.ibm.com>, davem@redhat.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200301140614.JAA10804@sex.inr.ac.ru>; from kuznet@ms2.inr.ac.ru on Tue, Jan 14, 2003 at 09:14:36AM +0300
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.33.0301131651170.1861-100000@dyn9-47-18-98.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
-> Sorry, it is just nonsense in newreno, it is that high_seq makes.
-> Well, and this is surely not fine, losses in several consecutive
-> windows must result in multiplicative reduction of cwnd.
-
-This is precisely what NewReno does. If you lose anything within
-that cwnd, recovery is extended. If you lose something after the
-cwnd, you'll first finish the old recovery cycle (since snd_una
-has now passed high_seq), and then enter a new one, with the
-appropriate reduction of ssthresh and cwnd.
-
-> > Yes yes, we do ... that's what NewReno is all about. Let's say you
-> > lose the 0th and the 99th segment (with cwnd = 100). You'll detect
-> > the first loss at t = 100, and enter recovery. You leave recovery
-> > once snd_nxt (stored in high_seq) at that time has been ack'ed. So
-> > this is 100. At time t=199, we find out about the loss of the 99th
-> > segment, and retransmit. This gets ack'ed at time t=299. So it's
-> > only then when we leave recovery.
+On Tue, 2003-01-14 at 02:56, Sridhar Samudrala wrote:
+> On 14 Jan 2003, Mika Liljeberg wrote:
 > 
-> I do not understand, what you has just said. You cant discover
-> loss of 99th segment _after_ 100th was happily ACKed. :-) :-)
+> > Hi,
+> > 
+> > I know this is not what the SCTP spec recommends with IPv4, but what
+> > prevents you from just fragmenting the IP packets at the source and
+> > setting the DF bit on each fragment (assuming you can't just repackage
+> > the data chunks)? This would be equivalent to the IPv6 behaviour and
+> > would keep PMTUD working perfectly.
+> 
+> SCTP does segment the packets based on the current PMTU and sets DF bit to not
+> allowing IP fragmentation. The problem occurs when the PMTU shrinks and there
+> are outstanding segmented packets which need to be retransmitted. We cannot
+> re-segment these packets, but would like IP to fragment them by not setting
+> DF bit. 
 
-That would be kind of evil :-) But that's not what I meant. The
-100 refers to high_seq, i.e. the segment we need to get ack'ed
-for leaving recovery.
+Setting DF=0 allows intermediate routers to fragment the packets as
+well. I was proposing that you allow the IP layer to fragment the
+packets at source host only, and then set DF=1 on the IP fragments. This
+should keep PMTUD working nicely, since intermediate routers are not
+allowed to refragment.
 
-> But thit does not matter because it handles opposite case, when cwnd
-> was not reduced enough for one RTT, so rh falls to hold state
-> to decrease cwnd smoothly. It is just an unnecessary complication
-> to my opinion. Did I get this wrong?
-
-Hmm, I think it's like I said. The case of cwnd not getting
-reduced enough is handled when exiting repair, i.e. section 4.13
-and 4.14.
-
-Note that those intervals don't have to be explicitly tracked in
-any way. E.g. the adjustment interval can just be implemented by
-stopping decrementing cwnd at the new ssthresh.
-
-> Picture, Werner! What does happen on picture quarter.eps????
-
-t=0:  we have the first loss. At this time, snd_nxt is 100, so
-      we set high_seq accordingly, slash ssthresh, and enter
-      recovery.
-~98:  we have the last loss within our cwnd (the simulation
-      just stops losing packets at this point. In real life,
-      this transmission should of course be smoother.)
-100:  we've recovered our initial loss, but snd_una is still
-      below high_seq, because of all the other losses in that
-      cwnd
-~200: we recover the last loss, and snd_una finally increases
-      above high_seq, so we leave recovery now.
-
-All that is just fine, if I interpret NewReno right. The only
-problem is that we should have stopped reducing cwnd after the
-first RTT.
-
-- Werner
-
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+	MikaL
