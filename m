@@ -1,67 +1,48 @@
-From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-Subject: Re: [PATCH 3/3] rx_all e100 patch
-Date: Tue, 25 Nov 2003 16:21:56 +0100
+From: Jeroen Roodhart <jeroen@science.uva.nl>
+Subject: Forcedeth v18 Success!
+Date: Tue, 25 Nov 2003 17:35:03 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031125162152.D1107@sygehus.dk>
-References: <3FC30AEE.7000005@candelatech.com>
+Message-ID: <1069778103.29938.4.camel@knuth.science.uva.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ioqOJhyG6iHlqwQ9D+F4"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <3FC30AEE.7000005@candelatech.com>; from greearb@candelatech.com on Mon, Nov 24, 2003 at 11:55:26PM -0800
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 24, 2003 at 11:55:26PM -0800, Ben Greear wrote:
-> @@ -2052,13 +2065,26 @@
->  			if (bdp->rev_id >= D102_REV_ID) {
->  				skb->ip_summed = e100_D102_check_checksum(rfd);
->  			} else {
-> -				skb->ip_summed = e100_D101M_checksum(bdp, skb);
-> +				skb->ip_summed = e100_D101M_checksum(bdp, skb, !!(dev->priv_flags & IFF_ACCEPT_ALL_FRAMES));
->  			}
 
-Shouldn't that be IFF_SAVE_FCS rather than IFF_ACCEPT_ALL_FRAMES?
+--=-ioqOJhyG6iHlqwQ9D+F4
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
->  		} else {
->  			skb->ip_summed = CHECKSUM_NONE;
->  		}
->  
-> +		/* Show the FCS? */
-> +		if (unlikely(dev->priv_flags & IFF_SAVE_FCS)) {
-> +			if (bdp->rev_id < D102_REV_ID) {
-> +				/* Have to over-write the two IP checksum bytes
-> +				 * TODO:  Will this break vlan_hwaccel_rx???
-> +				 */
-> +				skb->tail[-4] = skb->tail[-2];
-> +				skb->tail[-3] = skb->tail[-1];
-> +				skb->tail[-2] = skb->tail[0];
-> +				skb->tail[-1] = skb->tail[1];
-> +			}
-> +		}
-> +		
+Hi,
 
-I don't understand this part of the code. The 55x docs say that the IP
-checksum bytes are transferred to memory _following_ the FCS.
+Just wanted to let you know:
 
-> +/**
-> + * e100_config_promisc - configure promiscuous mode
-> + * @bdp: atapter's private data struct
-> + * @enable: should we enable this option or not
+Your forcdeth v18 driver runs without problem thus far on
+an Asus A7N8X-X mobo, Arjan de Ven's 2.6 kernel (based on=20
+2.6-pre9++) on Fedora core 1. (gcc-3.3 compiled)
 
-s/atapter/adapter/g
+Great job, thank you very much!
 
-s/etherne /ethernet /g too, somewhere, IIRC.
+Jeroen
+--=20
+Jeroen Roodhart              University of Amsterdam    =20
+jeroen@science.uva.nl        Faculty of Science / ICT-Group  =20
+Systeem- en netwerkbeheer    Tel. 020 525 7203 / 06 51338165
+--
+See http://www.science.uva.nl/~jeroen for openPGP public key=20
 
-> +/* Only valid for 82558 and 82559.  Must be zero for 82557 */
-> +#define CB_CFIG_LONG_RX_OK          BIT_3	/* OK to receive Long frames */
+--=-ioqOJhyG6iHlqwQ9D+F4
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-I find it disappointing that the good, old 82586 transfers long frames to
-memory without complaint while newer chips such as the 82557 and tulip
-can't/don't.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
 
--- 
-Regards,
-Rask Ingemann Lambertsen
+iD8DBQA/w4S237AP1zFtDU0RAuGCAKDp5yES+U+GGWNhxxJJsyHtI5Y+AQCfSCkl
+ZBWSlcgrkW05LNgLNVgKELw=
+=ccFI
+-----END PGP SIGNATURE-----
+
+--=-ioqOJhyG6iHlqwQ9D+F4--
