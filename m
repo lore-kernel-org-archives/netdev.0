@@ -1,62 +1,75 @@
-From: Wesley Eddy <weddy@grc.nasa.gov>
-Subject: Re: TCP rto estimation patch
-Date: Fri, 23 Apr 2004 16:44:34 -0400
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: [fore200e] make tasklet use configurable (2 of 2)
+Date: Fri, 23 Apr 2004 17:04:05 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040423204434.GA7492@grc.nasa.gov>
-References: <20040423142445.GC501@grc.nasa.gov> <200404231735.i3NHZRp3012111@eeyore.valparaiso.cl>
-Reply-To: weddy@grc.nasa.gov
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZGiS0Q5IWpPtfppv"
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Message-ID: <200404232104.i3NL44Zx002473@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Horst von Brand <vonbrand@inf.utfsm.cl>
-Content-Disposition: inline
-In-Reply-To: <200404231735.i3NHZRp3012111@eeyore.valparaiso.cl>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+here is the second part of the fore200e patch.
 
---ZGiS0Q5IWpPtfppv
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, Apr 23, 2004 at 01:35:27PM -0400, Horst von Brand wrote:
->=20
-> Why RTT_ALPHA and RTTVAR_BETA, and not just RTT_BETA? Or even RTO_xxx?
->
-
-Per the spec, alpha is used to compute rtt and beta likewise for rttvar.
-=20
-> Is there any reason to change them, ever? What happens if you change them?
-> Restrictions on values? All this should go with such a patch IMHO (at lea=
-st
-> pointers to relevant discussion).
-
-The information isn't relevant since the patch didn't change them, and if
-you were interested in changing the values then simple google search
-would return a plethora of research on RTT estimation.
-
-> Must go over it with a fine comb to make sure no unrelated 2 or 3 got
-> replaced... out of my league, sorry.
-
-There are stray constants all over the place, which is something that
-even freshman computer science students are taught to avoid.  This patch
-represents a minor improvement to that situation.
-
--Wes
-
---ZGiS0Q5IWpPtfppv
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAiYAyzBuYqbnj3IwRAjhPAKCBRdDgGsALp9DTh5qFK+41cTEb6QCfUENV
-XM5O6g2f/gEt/3X2IoG5xAw=
-=Dfxq
------END PGP SIGNATURE-----
-
---ZGiS0Q5IWpPtfppv--
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1331.3.1 -> 1.1331.3.2
+#	drivers/atm/Config.in	1.8     -> 1.9    
+#	drivers/atm/fore200e.c	1.11    -> 1.12   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/04/02	chas@relax.cmf.nrl.navy.mil	1.1331.3.2
+# [ATM]: [fore200e] make tasklet use configurable
+# --------------------------------------------
+#
+diff -Nru a/drivers/atm/Config.in b/drivers/atm/Config.in
+--- a/drivers/atm/Config.in	Fri Apr 16 10:44:52 2004
++++ b/drivers/atm/Config.in	Fri Apr 16 10:44:52 2004
+@@ -83,6 +83,7 @@
+   fi
+   if [ "$CONFIG_ATM_FORE200E_PCA" = "y" -o "$CONFIG_ATM_FORE200E_SBA" = "y" ]; \
+     then
++    bool '  Defer interrupt work to a tasklet' CONFIG_ATM_FORE200E_USE_TASKLET
+     int  '  Maximum number of tx retries' CONFIG_ATM_FORE200E_TX_RETRY 16
+     int  '  Debugging level (0-3)' CONFIG_ATM_FORE200E_DEBUG 0
+     if [ "$CONFIG_ATM_FORE200E_MAYBE" = "y" ]; then
+diff -Nru a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+--- a/drivers/atm/fore200e.c	Fri Apr 16 10:44:52 2004
++++ b/drivers/atm/fore200e.c	Fri Apr 16 10:44:52 2004
+@@ -57,7 +57,7 @@
+ #include <asm/pgtable.h>
+ #endif
+ 
+-#if 0 /* defer interrupt work to a tasklet */
++#if defined(CONFIG_ATM_FORE200E_USE_TASKLET) /* defer interrupt work to a tasklet */
+ #define FORE200E_USE_TASKLET
+ #endif
+ 
+@@ -1343,6 +1343,7 @@
+ }
+ 
+ 
++#ifndef FORE200E_USE_TASKLET
+ static void 
+ fore200e_irq(struct fore200e* fore200e)
+ {
+@@ -1356,6 +1357,7 @@
+     fore200e_tx_irq(fore200e);
+     spin_unlock_irqrestore(&fore200e->q_lock, flags);
+ }
++#endif
+ 
+ 
+ static void
+@@ -1396,6 +1398,7 @@
+ }
+ 
+ 
++static void
+ fore200e_rx_tasklet(unsigned long data)
+ {
+     struct fore200e* fore200e = (struct fore200e*) data;
