@@ -1,41 +1,55 @@
-From: =?iso-2022-jp?B?aG1haWwzMzMzanA=?=<hmail3333jp@yahoo.co.jp>
-Subject: =?iso-2022-jp?B?GyRCTCQ+NUJ6OS05cCIoRUU7UiVhITwlazktOXA8UhsoSg==?=
-Date: Mon, 02 Dec 2002 23:58:09 +0900
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: 2.5.50 BUG_TRAP on !dev->deadbeaf, and oopses
+Date: Mon, 02 Dec 2002 10:44:05 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212021458.XAA26080@banna>
-Reply-To: hmail3333jp@yahoo.co.jp
+Message-ID: <3DEBA9F5.6000606@pacbell.net>
+References: <3DE9290A.7070502@pacbell.net> <3DEA0452.B1F15BFD@isg.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?iso-2022-jp?B?MDA2?=@banna.sgi.com
+To: Stefan Rompf <srompf@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PJGXkE2O0j4NCpNkjnGDgYFbg4uNTI2QjtANCg0KjaGM44FBjUyNkILwgrKK85ZdgrWCyIKi
-lfuCzYKxgrGC1g0KKJVLgriWe5W2gsmCoILIgr2CzIOBgVuDi4NBg2iDjINYgsyC3YLwgqiP
-kYKribqCs4KigWoNCmluZm9fc3NhQHlhaG9vLmNvLmpwDQqDgYFbg4uDQYNog4yDWILwgrKL
-TJP8grWCxIKtgr6Cs4KigUINCg0KgacxMDQtMDA2MQ0Kk4yLnpNzkoaJm4vmi+KNwDgtMTkt
-Mw0KkeYyg0WDQ4OTg0+DcoOLgUAzRg0Kg4GBW4OLg32DS4NXg5OUrY1zDQoNClRFTIFAMDMt
-MzU0NC02MjIyDQpGQViBQDAzLTM1NDQtNjIxOA0KDQo9PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCpbikeiPpJVpgs6C
-qYLoj1eC34LcgrWCvYLMgsWBQY/BgrOC6oLpi7CC6oKqgqCC6ILcgreCzILFDQqCqJBcjZ6C
-3YLNgqiRgYLfgsmBSQ0KPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT0NCg0KgZmBXIFcgVyBmYFcgVyBXIGZgVyBXIFc
-gZmBXIFcgVyBmYFcgVyBXIGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZDQoNCgmXoINyg2aD
-SZTMlISBRZPBjuqDX4Nig2CDj4NDg3SBRYJygmyDToOJg3UgDQqBQIFAIIJggnWSapdEleWP
-V4FFiYePlYzwjduBRYJygmSCd4N0g4yDk4NogUWDQYNfg4uDZ4NPg2KDWYLIgscNCgkgICAg
-IIGagUCDQYNfg4uDZ4rWmEGCzI/ulfGWno3agUCBmg0KCQkNCgmBgYGBgYGBgYGBgYGBgYGB
-gYGBgYGBgYGBgYGBgYGBgYGBgYGBgQ0KCYFAgUCCqJBcjZ6C3YFFgrKSjZW2gUWPpJVpj9qN
-15OZgs2BQA0KgUCBQIFAgUCBQIm6i0yCdIJxgmuC8INOg4qDYoNOgrWCxIKyl5eJuoKzgqKB
-Qg0KCYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBDQoJCYGrgUCBQIFA
-gUCBq4FAgUCBQIFAgauBQA0KCYFAgUCBQGh0dHA6Ly93d3cuc3Mta291a29rdS5jb20vDQoN
-CoGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZgVyB
-XIFcgZmBXIFcgVyBmQ0KDQqBQIFAikqJXoNPg2KDWYFFi8mU6Y/ulfGOj4FFlmiUxoNPg2KD
-WYFFi+CW14Kvj+6V8YLIgseBQA0KgUCBQIFAgUCBQIFAgUCBQIFAgZqBQIK7gsyRvI/ulfGW
-no3agUCBmg0KDQoJgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYENCgmB
-QIFAgqiQXI2egt2BRYKyko2VtoFFj6SVaY/ajdeTmYLNgUANCoFAgUCBQIFAgUCJuotMgnSC
-cYJrgvCDToOKg2KDToK1gsSCspeXibqCs4KigUINCgmBgYGBgYGBgYGBgYGBgYGBgYGBgYGB
-gYGBgYGBgYGBgYGBgYGBgQ0KCQmBq4FAgUCBQIFAgauBQIFAgUCBQIGrgUANCgkJaHR0cDov
-L3d3dy5wcC1rb3Vrb2t1LmNvbS8NCg0KgZmBXIFcgVyBmYFcgVyBXIGZgVyBXIFcgZmBXIFc
-gVyBmYFcgVyBXIGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZDQoNCg0K
+Hi Stefan,
+
+>>   KERNEL: assertion (!dev->deadbeaf) failed at net/core/dev.c(2544)
+>>
+>>I think there's another bug, beyond the obvious speling erorz.  Namely,
+>>that "deadbeaf" is only set after that BUG_TRAP, or on one error path.
+>>The assertion prevents hotpluggable network drivers from unregistering
+>>when the hardware goes away ... which is a regression.
+> 
+> 
+> actually, the assertion is triggered when someone tries to unregister a
+> netdevice twice, and that's also why you get
+
+Then why will grep of all kernel files not turn up other places where
+'deadbeaf' gets set?  There's strange stuff going on here regardless
+(as well as speling issue), which looks pretty buglike.
+
+Plus: this kind of bugcatch should use magic numbers, or maybe zero.
+Assuming "any nonzero value is valid", like this assertion does, is
+clearly going to fail for any of the class of bugs highlighted by
+slab poisoning.  (0xa5a5a5a5 gets accepted as valid...)
+
+
+>>   unregister_netdevice: device /dfd74058 never was registered
+> 
+> 
+> From a short browsing through usb.c I don't see a similiar bug catcher
+> in usb_device_remove(), so have a look if the USB subsystem itself
+> removes a unplugged device twice for some reason.
+
+At least one failure path also involves "rmmod" of the network
+drivers, where the device hardware is still around; so that code
+would not always be called.
+
+I wouldn't rule out problems in the relevant usbcore/sysfs bits,
+even now that they seem to have stabilized again (and yes, I was
+wondering about multiple disconnects too), but all that deadbeaf
+logic still looks fishy to me.
+
+- Dave
