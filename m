@@ -1,62 +1,78 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Sat, 05 Feb 2005 13:26:25 +0000
-Message-ID: <4204C981.6050102@phekda.gotadsl.co.uk>
-References: <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com> <41F250D1.8000207@phekda.gotadsl.co.uk> <41F26FD1.2060407@phekda.gotadsl.co.uk> <20050122230156.GC24461@electric-eye.fr.zoreil.com> <41F3F632.3060800@phekda.gotadsl.co.uk> <20050125214725.GA6093@electric-eye.fr.zoreil.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: WEXT quality specification
+Date: Sat, 5 Feb 2005 09:37:07 -0500 (EST)
+Message-ID: <Pine.LNX.4.58.0502050930220.15329@devserv.devel.redhat.com>
+References: <Pine.LNX.4.58.0502042136060.1614@devserv.devel.redhat.com>
+ <20050205052744.GD9685@jm.kir.nu> <Pine.LNX.4.58.0502050043300.7817@devserv.devel.redhat.com>
+ <20050205063854.GE9685@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Me <rich@phekda.gotadsl.co.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050125214725.GA6093@electric-eye.fr.zoreil.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Dan Williams <dcbw@redhat.com>, jt@hpl.hp.com, netdev@oss.sgi.com
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20050205063854.GE9685@jm.kir.nu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-Francois Romieu wrote:
-> Hi,
+On Fri, 4 Feb 2005, Jouni Malinen wrote:
+> On Sat, Feb 05, 2005 at 01:04:42AM -0500, Dan Williams wrote:
 > 
->   could you give the patch below some testing ?
+> > Reporting received signal strength in RSSI and noise level in dBm won't really 
+> > work well.  Manufacturers usually provide an RSSI->dBm conversion, but where 
+> > they don't, the driver needs to be able to provide a MAX_RSSI value.  Otherwise, 
+> > there is no way for user applications to know the bounds of these values and 
+> > determine a signal quality % from them.  Again, this is all about consistency, 
+> > and we need a stable, well-defined API that doesn't depend on user-applications 
+> > special-casing drivers just to get usable information out of them.  If the 
+> > driver cannot provide usable information of some sort, it shouldn't even be 
+> > trying to provide that information at all really.
 > 
-> Any post-LLTX-revert 2.6.11-rc2-bk should do.
+> Agreed, there should be no special cases based on driver in user space.
+> However, the API definition should not make it too difficult for the
+> drivers to implement the interface. If many cards use dBm for noise and
+> RSSI for received frames, it would sound like the API definition should
+> take this into account and not require the drivers either not to report
+> values or do some conversion which may not always be that clear.
 > 
-> Merge of Realtek's code
-> - code dedicated to a new phy (spotted by Richard Dawe);
-> - C+ register fiddling seems required for both RTL_GIGA_MAC_VER_{D/E};
-> - apart from being reserved, register at address 0xe2 is named 'IntrMitigate';
-> - bump version number.
->   A bunch of people do not use the vanilla kernel module simply because
->   Realtek's driver has a higher revision number. This is not an issue per
->   se but their driver is buggy due to some partial merge of in-kernel code.
-[snip]
+> > qual.qual must be linear (because it should be able to be converted to a 
+> > percentage value, its a _subjective_ measure of quality composed of a number of 
+> > different quality statistics).  qual.level & qual.noise may not necessarily be 
+> > linear since they are measures of electrical power (either RSSI or dBm).
+> 
+> How would this value be determined for cards that have RSSI for received
+> packets and noise floor in dBm? Using a table of values?
 
-Applied to 2.6.11-rc3. It seems to work fine. I've passed ~20GB of data 
-at 100Mbps full-duplex with no errors (compared MD5 sums on files). My 
-data rate test (sftp of Linux kernel source tarball) gave about the same 
-data rate as 1.6LK + PHY patch - ~7.1MB/sec.
+AFAIK, most manufacturers provide either a conversion constant (Airo & 
+Madwifi/Atheros) or a lookup table (airo) of some sort for their cards.  People 
+on Windows want to get dBm too.  Unfortunately, given that Linux driver writers 
+can't always get that information, you're probably right.
 
-It works fine setting the speed & duplex using "ethtool -s eth0 autoneg 
-off speed <speed> duplex <duplex>".
+> > The current WEXT API provides _no_ way to specify whether the returned values 
+> > are in dBm or RSSI, other than using max_qual.level == 0 (dBm) and 
+> > max_qual.level != 0 (RSSI).  That's just the way the API is at this time.  I've 
+> > brought that up with Jean and he's agreed that it may need some clarification.  
+> > There isn't really a "qual.type = dBm" bit anywhere in the quality structures, 
+> > though that would be quite helpful (and was my suggestion).
+> 
+> > See above, technically you could have a noise floor of 0 I guess, and the 
+> > current WEXT API has no way of specifying different units for use in noise and 
+> > level at this time.  Hence, the noise value can actually mean something when 
+> > using dBm as your unit, unlike max_qual.level when using dBm (as it must be 0).
+> 
+> Isn't the 'max_qual.level == 0 means dBm' similar to saying
+> 'max_qual.noise == 0 means dBm' for noise. In other words,
+> max_qual.level == 70 and max_qual.noise == 0 could mean RSSI for signal
+> strength and dBm for noise. Using max_qual.noise to report global noise
+> value (noise floor?) sound somewhat confusing.
 
-I haven't tested the VLAN or jumbo(ish) frames. Let me know if you'd 
-like me to test those too. Although I'm not sure if I can test jumbo 
-frames with the equipment I have.
+Yes, that's true, and would probably be more consistent.  If the suggestion is 
+to go this far in changing the spec, then I'd suggest to actually make 
+explicit fields in the iw_quality structure that specify what units are being 
+used.
 
-One more thing:
+There are two unused bitfields in the .updated structure of the iw_quality 
+structure, and if you want to keep API/ABI compatibility then those could be 
+used to specify RSSI/dBm.  I've suggested some method of explicitly specifying 
+this in the API, which Jean is considering.
 
-With 1.6LK + my PHY patch, I see the message "eth0: PHY reset until link 
-up" every 5 seconds or so, when there is no Ethernet cable plugged in. 
-This is annoying. I think it should only log it once.
-
-I'll repeat my cable removal/insertion tests with 2.2LK later and let 
-you know what I find.
-
-Bye, Rich =]
-
--- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
-
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+Dan
