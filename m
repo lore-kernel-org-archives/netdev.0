@@ -1,56 +1,96 @@
-From: Steve Hill <steve@services.navaho.net>
-Subject: Re: More IPSEC trouble
-Date: Fri, 11 Mar 2005 15:05:28 +0000 (GMT)
-Message-ID: <Pine.LNX.4.61.0503111453320.18067@sorbus2.navaho>
-References: <E1D9Ymg-0001x0-00@gondolin.me.apana.org.au>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [Patch] sctp: add receive buffer accounting to sctp (fwd)
+Date: Fri, 11 Mar 2005 19:58:50 +0530 (IST)
+Message-ID: <Pine.LNX.4.61.0503111947470.6007@localhost.localdomain>
+References: <Pine.LNX.4.61.0503030027590.8076@localhost.localdomain>
+ <20050309211632.6f70fe41.davem@davemloft.net> <20050310120803.GA6341@hmsendeavour.rdu.redhat.com>
+ <20050310154342.GG6341@hmsendeavour.rdu.redhat.com>
+ <20050310183856.08cb5f7b.davem@davemloft.net> <20050311125724.GB18122@hmsendeavour.rdu.redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1D9Ymg-0001x0-00@gondolin.me.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        lksctp-developers@lists.sourceforge.net
+To: nhorman@redhat.com
+In-Reply-To: <20050311125724.GB18122@hmsendeavour.rdu.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Mar 2005, Herbert Xu wrote:
+Neil,
 
-> What does CTRL-SCROLLLOCK or SysRq tell us?
+I guess you may not have tried to compile SCTP with this patch. 
+2.4 struct sock members do not have sk_ prefix.
+So you need to replace sk_rmem_alloc and sk_rcvbuf with rmem_alloc and
+rcvbuf.
 
-The kernel locks up solid - no SysRq, capslock/numlock lights don't toggle 
-when hitting the keys - completely dead.
+Thanks
+Sridhar
 
-I've managed to work out what causes it though:
+On Fri, 11 Mar 2005 nhorman@redhat.com wrote:
 
-I have overlapping subnets on the IPSEC tunnel - on the local side there 
-is 10.101.0.0/16 and on the remote side there is 10.0.0.0/8.  The IPSEC 
-server is 10.101.0.254.  The problem is that the policies I had required:
+> On Thu, Mar 10, 2005 at 06:38:56PM -0800, David S. Miller wrote:
+>> On Thu, 10 Mar 2005 10:43:42 -0500
+>> nhorman@redhat.com wrote:
+>>
+>>> Repost of my ealier rcvbuf patch.  No changes, but rediffed to apply cleanly to
+>>> the head of the bitkeeper tree.  Passes all lksctp regression tests
+>>
+>> Applied, thanks Neil.
+>
+> You're quite welcome.  Heres the 2.4 version of the same patch that you
+> requested.  Applies clean against the bitkeeper head.
+>
+> Signed-off-by: Neil Horman <nhorman@redhat.com>
+>
+> [nhorman@hmsendeavour kernel]$ diffstat linux-2.4-sctp.rcvbuf.patch
+> input.c |   21 +++++++++++++++++++++
+> 1 files changed, 21 insertions(+)
+>
+>
+> --- linux-2.4-sctp/net/sctp/input.c.orig	2005-03-10 13:36:49.000000000 -0500
+> +++ linux-2.4-sctp/net/sctp/input.c	2005-03-10 13:51:25.000000000 -0500
+> @@ -100,6 +100,21 @@
+> 	return 0;
+> }
+>
+> +/* The free routine for skbuffs that sctp receives */
+> +static void sctp_rfree(struct sk_buff *skb)
+> +{
+> +	atomic_sub(sizeof(struct sctp_chunk),&skb->sk->sk_rmem_alloc);
+> +	sock_rfree(skb);
+> +}
+> +
+> +/* The ownership wrapper routine to do receive buffer accounting */
+> +static void sctp_rcv_set_owner_r(struct sk_buff *skb, struct sock *sk)
+> +{
+> +	skb_set_owner_r(skb,sk);
+> +	skb->destructor = sctp_rfree;
+> +	atomic_add(sizeof(struct sctp_chunk),&sk->sk_rmem_alloc);
+> +}
+> +
+> /*
+>  * This is the routine which IP calls when receiving an SCTP packet.
+>  */
+> @@ -183,6 +198,10 @@
+> 	rcvr = asoc ? &asoc->base : &ep->base;
+> 	sk = rcvr->sk;
+>
+> +	if ((sk) && (atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf))
+> +		goto discard_release;
+> +
+> +
+> 	if (!ipsec_sk_policy(sk, skb))
+> 		goto discard_release;
+>
+> @@ -197,6 +216,8 @@
+> 		goto discard_release;
+> 	}
+>
+> +	sctp_rcv_set_owner_r(skb,sk);
+> +
+> 	/* Remember what endpoint is to handle this packet. */
+> 	chunk->rcvr = rcvr;
+>
+>
 
- 	10.101.0.0/16	->	10.0.0.0/8	Requires AH and ESP
- 	10.0.0.0/8	->	10.101.0.0/16	Requires AH and ESP
-
-This obviously also matches traffic sent from 10.101.0.254 (the IPSEC 
-server) to any machine on the local 10.101.0.0/16 network.  And since 
-there is no SA for that traffic it gets dropped.
-
-This was a configuration mistake on my part and admittedly it shouldn't 
-work properly - however, it triggered a kernel bug: sending a packet with 
-the DF flag set which will grow to be > the MTU when encrypted causes the 
-kernel to generate an ICMP Frag Needed packet, which got caught by the 
-policy and this triggered the kernel to lock up hard.
-
-So whilest the error in the configuration legitimately causes parts of the 
-network to not work, it certainly shouldn't have caused the kernel to lock 
-up.  It seems the problem is occurring when the kernel generates a packet 
-which the policy drops.
-
-I have fixed my configuration now so that I have policies like:
- 	10.101.0.0/16	->	10.101.0.0/16	None
- 	10.101.0.0/16	->	10.0.0.0/8	Requires AH and ESP
- 	10.0.0.0/8	->	10.101.0.0/16	Requires AH and ESP
-Since the policy nolonger catches the kernel-generated packets the problem 
-nolonger occurs for me, but obviously there is a bug there that should 
-really be fixed.
-
-- Steve Hill (BSc)
-Senior Software Developer                        Email: steve@navaho.co.uk
-Navaho Technologies Ltd.                           Tel: +44-870-7034015
+-- 
