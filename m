@@ -1,32 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] fix NLM_F_MULTI in tcp_diag and xfrm_user (was Re:
- BTW)
-Date: Wed, 27 Oct 2004 14:42:10 -0700
+Subject: Re: [PATCH][ATM]: don't leak skb on as_indicate failure; don't
+ wakeup twice on as_close
+Date: Wed, 27 Oct 2004 14:49:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027144210.03b95b4b.davem@davemloft.net>
-References: <20041027074307.GT18934@sunbeam.de.gnumonks.org>
-	<E1CMjAM-0002aJ-00@gondolin.me.apana.org.au>
-	<20041027085141.GW18934@sunbeam.de.gnumonks.org>
-	<20041027094057.GA10305@gondor.apana.org.au>
+Message-ID: <20041027144955.2a824e22.davem@davemloft.net>
+References: <200410271432.i9REWql8004243@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041027094057.GA10305@gondor.apana.org.au>
+To: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200410271432.i9REWql8004243@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Oct 2004 19:40:57 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Wed, 27 Oct 2004 10:32:54 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-> On Wed, Oct 27, 2004 at 10:51:41AM +0200, Harald Welte wrote:
-> > Sorry for submitting incomplete/stupid patches, but as indicated before,
-> > I'm not familiar with that code at all.
-> 
-> Thank you very much for persisting in this.  It looks great.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> please apply to 2.6.
+ ...
+> # ChangeSet
+> #   2004/10/27 09:58:17-04:00 chas@relax.cmf.nrl.navy.mil 
+> #   [ATM]: don't leak skb on as_indicate failure; don't wakeup twice on as_close
 
-Applied, thanks everyone :-)
+Applied, thanks Chas.
