@@ -1,39 +1,25 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Wed, 6 Oct 2004 16:43:22 -0500
+From: Francesco Casadei <fr.casadei@tiscali.it>
+Subject: Destroying a socket without sending FIN
+Date: Wed, 06 Oct 2004 23:56:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041006214322.GG31237@waste.org>
-References: <20041006232544.53615761@jack.colino.net>
+Message-ID: <41646A15.2010906@tiscali.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Colin Leroy <colin@colino.net>
-Content-Disposition: inline
-In-Reply-To: <20041006232544.53615761@jack.colino.net>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 06, 2004 at 11:25:44PM +0200, Colin Leroy wrote:
-> Hi,
-> 
-> this patch fixes a (quite big) problem with netpoll: when link is down,
-> it hangs.
-> 
-> This patch fixes it. Tested with no carrier (no more hang) and with
-> carrier (same behaviour as before).
+Hi all,
+sorry to bother you, but I need to know how to destroy a sock structure 
+from modular code without having the kernel sending FIN, i.e. a kernel 
+space implementation of a close() that simply don't talk to the other 
+end about what's going on. Is there a way to achieve this?
 
-[cc:ed to netdev]
+I know it may seems a little bit strange, but I need this as part of a 
+research project. Please, don't be too rude with me! :-)
 
-Well this doesn't look unreasonable, but I haven't run into it with
-the NICs I've tested. Nor have I seen this reported before. Which NICs
-is this with?
- 
-> -	if(!np || !np->dev || !netif_running(np->dev)) {
-> +	if(!np || !np->dev || !netif_running(np->dev) || 
-> +	   !netif_carrier_ok(np->dev)) {
+Best regards,
 
-I wonder if netif_running is redundant if netif_carrier_ok.
-
--- 
-Mathematics is the supreme nostalgia of our time.
+	Francesco Casadei
