@@ -1,74 +1,96 @@
-From: Ravikiran G Thirumalai <kiran@in.ibm.com>
-Subject: [patch] Convert sockets_in_use to use per_cpu areas
-Date: Mon, 23 Dec 2002 19:08:48 +0530
+From: "dawn hellam" <brandy40augusta@crazyfiles.com>
+Subject: Unlock Every Channel on Your New DSS Satellite System
+Date: Mon, 23 Dec 2002 10:22:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021223190847.G23413@in.ibm.com>
+Message-ID: <0000187f1c8e$0000633d$00001ade@charlenechoi-com.mr.outblaze.com>
+Reply-To: brandy40augusta@crazyfiles.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@oss.sgi.com>, linux-kernel@vger.kernel.org
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller " <davem@redhat.com>
-Content-Disposition: inline
+To: <subscriptions@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-Here's a simple patch to change sockets_in_use to make use of 
-per-cpu areas.  
+<html>
+<body>
 
-I have couple of questions though... 
-1. Was this var made per-cpu just to avoid  atomic_t or locking 
-   or are there real life workloads which cause too many sock_alloc
-   and sock_releases to cause cacheline bouncing?
-2. Is this var required? since we can just sum up all proto->stats.inuse 
-   and remove this var altogether? (This var is read only for /proc 
-   reporting)
+<p>&nbsp;</p>
+<p>Watch Every Channel on YOUR Satellite System<br>
+Regardless of the type or brand<br>
+<br>
+Don't waste $400 - $600 buying AN<br>
+After market card when they aren't<br>
+guaranteed to stay up.<br>
+<br>
+When you can program your card<br>
+yourself in as little as 5-10 min.<br>
+<br>
+Unlock Every Channel on your satellite system<br>
+<br>
+ All Sporting Events<br>
+ All Pay-Per-Views<br>
+ All Premiums<br>
+ All NBA<br>
+ ALL NFL Football<br>
+ Extra Hidden Channels<br>
+ 100'S of channels<br>
+ Every Channel is Unlocked<br>
+<br>
+<br>
+<font lang=3D"0" style=3D"BACKGROUND-COLOR: #ffffff" face=3D"Arial" color=3D=
+"#000000" size=3D"2" FAMILY=3D"SANSSERIF" BACK=3D"#ffffff" PTSIZE=3D"10"><=
+b><a href=3D"http://yahoo.com@200.206.185.247/enhance/dcdtx2">Find out how=
+ by Clicking here now</a></b></font></p>
+<p><font lang=3D"0" face=3D"Arial" color=3D"#000000" size=3D"2" family=3D"=
+SANSSERIF" back=3D"#ffffff" ptsize=3D"10"><b><font style=3D"BACKGROUND-COL=
+OR: #ffffff">
+<p><br>
+</p>
+<br>
+<br>
+<br>
+<A HREF=3D"mailto:anne_koepp@yahoo.de">Click Link</A>to be taken 0ff our l=
+ist
+<br>
+<br>
+<br>
+<BR>
+<BR>
+<BR>
+<BR>
+<br>
+<br>
+<br>
+<BR>
+<BR>
+<BR>
+<br>
+<br>
+<br>
+<BR>
+<BR>
+<BR>
+<BR>HJFHS93SLLPO LKKJ903 JF90S93F XXCDFFS
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>F 4 FG 54G  HTHG 65YT G 5YG5GTR THHC83H HDSGF93 GHGGKS98 HSHFS92F SKJS=
+DHF93
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+</body>
 
-Thanks,
-Kiran
-
-
-diff -ruN -X dontdiff linux-2.5.52/net/socket.c sockets_in_use-2.5.52/net/socket.c
---- linux-2.5.52/net/socket.c	Mon Dec 16 07:37:53 2002
-+++ sockets_in_use-2.5.52/net/socket.c	Mon Dec 23 11:48:44 2002
-@@ -189,10 +189,7 @@
-  *	Statistics counters of the socket lists
-  */
- 
--static union {
--	int	counter;
--	char	__pad[SMP_CACHE_BYTES];
--} sockets_in_use[NR_CPUS] __cacheline_aligned = {{0}};
-+static DEFINE_PER_CPU(int, sockets_in_use);
- 
- /*
-  *	Support routines. Move socket addresses back and forth across the kernel/user
-@@ -475,7 +472,8 @@
- 	inode->i_uid = current->fsuid;
- 	inode->i_gid = current->fsgid;
- 
--	sockets_in_use[smp_processor_id()].counter++;
-+	get_cpu_var(sockets_in_use)++;
-+	put_cpu_var(sockets_in_use);
- 	return sock;
- }
- 
-@@ -511,7 +509,8 @@
- 	if (sock->fasync_list)
- 		printk(KERN_ERR "sock_release: fasync list not empty!\n");
- 
--	sockets_in_use[smp_processor_id()].counter--;
-+	get_cpu_var(sockets_in_use)--;
-+	put_cpu_var(sockets_in_use);
- 	if (!sock->file) {
- 		iput(SOCK_INODE(sock));
- 		return;
-@@ -1851,7 +1850,7 @@
- 	int counter = 0;
- 
- 	for (cpu = 0; cpu < NR_CPUS; cpu++)
--		counter += sockets_in_use[cpu].counter;
-+		counter += per_cpu(sockets_in_use, cpu);
- 
- 	/* It can be negative, by the way. 8) */
- 	if (counter < 0)
+</html>
