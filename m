@@ -1,29 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix IGMPv3 timer initialization when device not "upped"
-Date: Wed, 31 Mar 2004 23:02:31 -0800
+Subject: Re: [PATCH] make lock/release_sock fast calls
+Date: Wed, 31 Mar 2004 23:07:17 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040331230231.5ab14fa8.davem@redhat.com>
-References: <20040330192558.1d9c8eb2.davem@redhat.com>
-	<OF6BC12EE1.9BBDEC37-ON88256E69.0021C0E6-88256E69.0021F10B@us.ibm.com>
+Message-ID: <20040331230717.27c77994.davem@redhat.com>
+References: <20040331112407.66309027@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF6BC12EE1.9BBDEC37-ON88256E69.0021C0E6-88256E69.0021F10B@us.ibm.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040331112407.66309027@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Mar 2004 23:10:22 -0700
-David Stevens <dlstevens@us.ibm.com> wrote:
+On Wed, 31 Mar 2004 11:24:07 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> netdev-bounce@oss.sgi.com wrote on 03/30/2004 07:25:58 PM:
-> 
-> > Applied, thanks David.  Can I have a 2.4.x variant under seperate
-> > cover please?  I did the "mc_initted" thing there too.
-> 
-> Dave,
->       Here's a 2.4.x version of the patch.
+> lock_sock and release_sock are no longer inline, but they are called in
+> the critical path of many operations, so it makes sense to use register based
+> fastcall.
 
-Applied, thanks.
+I think I'll add this change when 2.6.6 opens up.
+
+Someone haggled about CONFIG_REGPARM, but that argument is crap.
+We have "FASTCALL()" for a reason, and CONFIG_REGPARM does not
+obviate it.
