@@ -1,51 +1,34 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Subject: Re: fix TCP roundtrip time update code
-Date: Tue, 3 Jun 2003 21:35:55 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [patch]: ipv6 tunnel for MIPv6
+Date: Tue, 03 Jun 2003 21:34:58 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16093.30507.661714.676184@napali.hpl.hp.com>
-References: <200306040043.EAA24505@dub.inr.ac.ru>
-	<3EDD52F5.8090706@us.ibm.com>
-	<20030603.202320.59680883.davem@redhat.com>
-Reply-To: davidm@hpl.hp.com
+Message-ID: <20030603.213458.112594590.davem@redhat.com>
+References: <Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>
+	<Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: niv@us.ibm.com, kuznet@ms2.inr.ac.ru, jmorris@intercode.com.au,
-   davidm@hpl.hp.com, gandalf@wlug.westbo.se, linux-kernel@vger.kernel.org,
-   linux-ia64@linuxia64.org, netdev@oss.sgi.com, akpm@digeo.com
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+   ajtuomin@morphine.tml.hut.fi, lpetande@morphine.tml.hut.fi,
+   jagana@us.ibm.com, kumarkr@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030603.202320.59680883.davem@redhat.com>
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> On Tue, 03 Jun 2003 20:23:20 -0700 (PDT), "David S. Miller" <davem@redhat.com> said:
+   From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+   Date: Fri, 30 May 2003 18:00:55 +0300 (EEST)
 
-  DaveM>    From: Nivedita Singhvi <niv@us.ibm.com> Date: Tue, 03 Jun
-  DaveM> 2003 19:01:25 -0700
-  DaveM>    But, FYI, DaveM and Alexey, we tried reproducing the
-  DaveM> stalls we (Dave Hansen, Troy Wilson) had seen during
-  DaveM> SpecWeb99 runs and couldn't reproduce them on 2.5.69. (Same
-  DaveM> config, etc). So its possible our hang/stalls were some other
-  DaveM> issue that got silently fixed (or more likely, possibly the
-  DaveM> same thing but other changes minimized us running into the
-  DaveM> problem).
+   The patch is sent as an attachment to this mail, but is also available at:
+   
+You need to fix some things before I will apply this:
 
-  DaveM> I think this means nothing, and that you can infer nothing
-  DaveM> from such results.
+1) Bogus #ifdef CONFIG_IPV6_TUNNEL_MODULE.  You need not this test
+   around things like MODULE_AUTHOR() and stuff like that,
+   linux/module.h does that for you.
 
-  DaveM> My understanding is that the problem case triggers only when
-  DaveM> a timeout based retransmit occurs.  On LAN this tends to be
-  DaveM> extremely rare.  Although under enough traffic load it can
-  DaveM> occur.
+2) Dependency upon subtrees patch, please remove it.  There is no
+   agreement on that semantic change to how subtrees work.
 
-  DaveM> So if your old SpecWEB99 lab tended more to trigger timeout
-  DaveM> based retransmits on LAN, and your new test network does not,
-  DaveM> then your new test network will tend to not reproduce the bug
-  DaveM> regardless of whether the bug is present in the kernel or not
-  DaveM> :-)
-
-Is this where I get to plug httperf?  It triggered the bug reliably in
-less than 10 secs. ;-)
-
-	--david
+Thanks.
