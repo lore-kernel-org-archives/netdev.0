@@ -1,93 +1,99 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: [PATCH] rtnl_unlock/lock in sch_api.c TRY2
-Date: Tue, 29 Mar 2005 02:09:35 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0503290206500.3229@webhosting.rdsbv.ro>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC] Move xfrm_flush_bundles into xfrm_state GC
+Date: Tue, 29 Mar 2005 09:30:32 +1000
+Message-ID: <20050328233032.GA15369@gondor.apana.org.au>
+References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-479590719-1112051375=:3229"
-Cc: davem@davemloft.net
+Content-Type: multipart/mixed; boundary="zYM0uCDKw75PZbzx"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@redhat.com>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <424864CE.5060802@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
 
----1646943047-479590719-1112051375=:3229
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Hello!
+Hi Patrick:
 
-Trying to load a custom module (same for teql but I didn't tried it)
-whan the qdisc module is not loaded, makes tc hang.
-This is because qdisc_create aquires rtnl_sem and then tries to load a 
-module that tries to register_netdev (that tries to aquire the same 
-rtnl_sem).
-Applying this patch makes the problem go away.
+On Mon, Mar 28, 2005 at 10:10:54PM +0200, Patrick McHardy wrote:
+> 
+> I haven't though of a way to avoid this yet. It would be nice though
+> if we could keep the rule that xfrm_policy_lock and policy->lock nest
+> with x->lock.
 
-The patch was tested.
+Thanks for catching this.
 
-Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
+The locking in xfrm_state/xfrm_policy has always struck me as being
+an overkill.  A lot of the locks should be replaced by rules that
+ensure the validity of most operations while a ref count is held.
+Now I have an excuse to do just that :)
 
-Please apply.
+For 2.6.12 let's go for a simpler fix that breaks the dead lock.
 
-The patch is a rewrite of Dave's one with a small addition (module_put).
+__xfrm_state_delete does not need to flush the bundles immediately.
+In fact, it is more efficient if we delay the flush to the GC worker
+since the flush is not dependent on any particular xfrm state.  By
+delaying it we can do one single flush even when you're deleteing
+the entire xfrm state list.
 
-Thanks for help goes to Dave, Thomas and Patrick.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
----1646943047-479590719-1112051375=:3229
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name=rt_unlock_in_sch_api-try2.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.62.0503290209350.3229@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: attachment; filename=rt_unlock_in_sch_api-try2.patch
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-LS0tIGxpbnV4LTIuNi4xMS42L25ldC9zY2hlZC9zY2hfYXBpLmMub3JpZwky
-MDA1LTAzLTI5IDAxOjIwOjE4LjAwMDAwMDAwMCArMDMwMA0KKysrIGxpbnV4
-LTIuNi4xMS42L25ldC9zY2hlZC9zY2hfYXBpLmMJMjAwNS0wMy0yOSAwMTo0
-MDo1Ny4wMDAwMDAwMDAgKzAzMDANCkBAIC00MDYsMTEgKzQwNiwyNCBAQCBx
-ZGlzY19jcmVhdGUoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgdTMyDQogDQog
-CW9wcyA9IHFkaXNjX2xvb2t1cF9vcHMoa2luZCk7DQogI2lmZGVmIENPTkZJ
-R19LTU9EDQotCWlmIChvcHM9PU5VTEwgJiYgdGNhW1RDQV9LSU5ELTFdICE9
-IE5VTEwpIHsNCisJaWYgKG9wcz09TlVMTCAmJiBraW5kICE9IE5VTEwpIHsN
-CiAJCWNoYXIgbmFtZVtJRk5BTVNJWl07DQogCQlpZiAocnRhdHRyX3N0cmxj
-cHkobmFtZSwga2luZCwgSUZOQU1TSVopIDwgSUZOQU1TSVopIHsNCisJCQkv
-KiBXZSBkcm9wcGVkIHRoZSBSVE5MIHNlbWFwaG9yZSBpbiBvcmRlciB0bw0K
-KwkJCSAqIHBlcmZvcm0gdGhlIG1vZHVsZSBsb2FkLiAgU28sIGV2ZW4gaWYg
-d2UNCisJCQkgKiBzdWNjZWVkZWQgaW4gbG9hZGluZyB0aGUgbW9kdWxlIHdl
-IGhhdmUgdG8NCisJCQkgKiB0ZWxsIHRoZSBjYWxsZXIgdG8gcmVwbGF5IHRo
-ZSByZXF1ZXN0LiAgV2UNCisJCQkgKiBpbmRpY2F0ZSB0aGlzIHVzaW5nIC1F
-QUdBSU4uDQorCQkJICovDQorCQkJcnRubF91bmxvY2soKTsNCiAJCQlyZXF1
-ZXN0X21vZHVsZSgic2NoXyVzIiwgbmFtZSk7DQorCQkJcnRubF9sb2NrKCk7
-DQogCQkJb3BzID0gcWRpc2NfbG9va3VwX29wcyhraW5kKTsNCisJCQlpZiAo
-b3BzICE9IE5VTEwpIHsNCisJCQkJbW9kdWxlX3B1dChvcHMtPm93bmVyKTsN
-CisJCQkJZXJyID0gLUVBR0FJTjsNCisJCQkJZ290byBlcnJfb3V0Ow0KKwkJ
-CX0NCiAJCX0NCiAJfQ0KICNlbmRpZg0KQEAgLTYwNiwxNCArNjE5LDE5IEBA
-IHN0YXRpYyBpbnQgdGNfZ2V0X3FkaXNjKHN0cnVjdCBza19idWZmICoNCiAN
-CiBzdGF0aWMgaW50IHRjX21vZGlmeV9xZGlzYyhzdHJ1Y3Qgc2tfYnVmZiAq
-c2tiLCBzdHJ1Y3Qgbmxtc2doZHIgKm4sIHZvaWQgKmFyZykNCiB7DQotCXN0
-cnVjdCB0Y21zZyAqdGNtID0gTkxNU0dfREFUQShuKTsNCi0Jc3RydWN0IHJ0
-YXR0ciAqKnRjYSA9IGFyZzsNCisJc3RydWN0IHRjbXNnICp0Y207DQorCXN0
-cnVjdCBydGF0dHIgKip0Y2E7DQogCXN0cnVjdCBuZXRfZGV2aWNlICpkZXY7
-DQotCXUzMiBjbGlkID0gdGNtLT50Y21fcGFyZW50Ow0KLQlzdHJ1Y3QgUWRp
-c2MgKnEgPSBOVUxMOw0KLQlzdHJ1Y3QgUWRpc2MgKnAgPSBOVUxMOw0KKwl1
-MzIgY2xpZDsNCisJc3RydWN0IFFkaXNjICpxLCAqcDsNCiAJaW50IGVycjsN
-CiANCisJcmVwbGF5Og0KKwl0Y20gPSBOTE1TR19EQVRBKG4pOw0KKwl0Y2Eg
-PSBhcmc7DQorCWNsaWQgPSB0Y20tPnRjbV9wYXJlbnQ7DQorCXEgPSBwID0g
-TlVMTDsNCisNCiAJaWYgKChkZXYgPSBfX2Rldl9nZXRfYnlfaW5kZXgodGNt
-LT50Y21faWZpbmRleCkpID09IE5VTEwpDQogCQlyZXR1cm4gLUVOT0RFVjsN
-CiANCkBAIC03MDcsOCArNzI1LDE0IEBAIGNyZWF0ZV9uX2dyYWZ0Og0KIAkJ
-cSA9IHFkaXNjX2NyZWF0ZShkZXYsIHRjbS0+dGNtX3BhcmVudCwgdGNhLCAm
-ZXJyKTsNCiAgICAgICAgIGVsc2UNCiAJCXEgPSBxZGlzY19jcmVhdGUoZGV2
-LCB0Y20tPnRjbV9oYW5kbGUsIHRjYSwgJmVycik7DQotCWlmIChxID09IE5V
-TEwpDQorCWlmIChxID09IE5VTEwpIHsNCisJCWlmIChlcnIgPT0gLUVBR0FJ
-Tikgew0KKwkJCS8qIFJlcGxheSB0aGUgcmVxdWVzdCAqLw0KKwkJCWRldl9w
-dXQoZGV2KTsNCisJCQlnb3RvIHJlcGxheTsNCisJCX0NCiAJCXJldHVybiBl
-cnI7DQorCX0NCiANCiBncmFmdDoNCiAJaWYgKDEpIHsNCg==
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
----1646943047-479590719-1112051375=:3229--
+===== net/xfrm/xfrm_state.c 1.56 vs edited =====
+--- 1.56/net/xfrm/xfrm_state.c	2005-03-11 13:39:54 +11:00
++++ edited/net/xfrm/xfrm_state.c	2005-03-29 09:16:13 +10:00
+@@ -48,6 +48,8 @@
+ static struct list_head xfrm_state_gc_list = LIST_HEAD_INIT(xfrm_state_gc_list);
+ static DEFINE_SPINLOCK(xfrm_state_gc_lock);
+ 
++static int xfrm_state_gc_flush_bundles;
++
+ static void __xfrm_state_delete(struct xfrm_state *x);
+ 
+ static struct xfrm_state_afinfo *xfrm_state_get_afinfo(unsigned short family);
+@@ -81,6 +83,11 @@
+ 	struct list_head *entry, *tmp;
+ 	struct list_head gc_list = LIST_HEAD_INIT(gc_list);
+ 
++	if (xfrm_state_gc_flush_bundles) {
++		xfrm_state_gc_flush_bundles = 0;
++		xfrm_flush_bundles();
++	}
++
+ 	spin_lock_bh(&xfrm_state_gc_lock);
+ 	list_splice_init(&xfrm_state_gc_list, &gc_list);
+ 	spin_unlock_bh(&xfrm_state_gc_lock);
+@@ -228,8 +235,10 @@
+ 		 * our caller holds.  A larger value means that
+ 		 * there are DSTs attached to this xfrm_state.
+ 		 */
+-		if (atomic_read(&x->refcnt) > 2)
+-			xfrm_flush_bundles();
++		if (atomic_read(&x->refcnt) > 2) {
++			xfrm_state_gc_flush_bundles = 1;
++			schedule_work(&xfrm_state_gc_work);
++		}
+ 
+ 		/* All xfrm_state objects are created by xfrm_state_alloc.
+ 		 * The xfrm_state_alloc call gives a reference, and that
+
+--zYM0uCDKw75PZbzx--
