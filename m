@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Tigon3 5701 PCI-X recv performance problem
-Date: Tue, 11 Nov 2003 12:24:03 -0800
+Date: Tue, 11 Nov 2003 12:25:45 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031111122403.2d7bcf28.davem@redhat.com>
+Message-ID: <20031111122545.6bb8bfe5.davem@redhat.com>
 References: <3F844578.40306@sgi.com>
 	<20031008101046.376abc3b.davem@redhat.com>
 	<3F8455BE.8080300@sgi.com>
@@ -32,10 +32,18 @@ List-Id: netdev.vger.kernel.org
 On Tue, 11 Nov 2003 14:04:50 -0600
 John Partridge <johnip@sgi.com> wrote:
 
-> Is this OK ? I was not sure about the order should depends be beofre default or
-> the other way round ? or does it matter ? I suspect it does.
+> +config CONFIG_UNALIGNED_EXPENSIVE
+> +       bool "Use Aligned SKB's for Tigon3 5701 network adapters"
+> +       depends on MCKINLEY
+> +       default y
+> +
 
-Why are you depending upon MCKINLEY?  Don't all ia64 cpus
-give traps for unaligned memory accesses?
+Also, this help text is broken too.
 
-That is what this CONFIG option tells the whole kernel.
+I repeat: "THIS IS NOT A TIGON3 5701 NETWORK ADAPTER SPECIFIC HACK"
+
+It is a config variable that all network drivers in the kernel can
+test to make copybreak and related decisions for copy vs. read
+directly packet handling.
+
+Please stop making this a tigon3 specific thing.
