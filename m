@@ -1,121 +1,51 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2/3 XFRM]: Always reroute in tunnel mode
-Date: Sat, 05 Mar 2005 14:59:03 +0100
-Message-ID: <4229BB27.30009@trash.net>
+From: Pedro Fortuna <pedro.fortuna@gmail.com>
+Subject: Re: filtering packtes before OS takes care about them
+Date: Sat, 5 Mar 2005 14:08:56 +0000
+Message-ID: <db95d40c0503050608e1e98d9@mail.gmail.com>
+References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
+	 <7bca1cb50502281209798e8a00@mail.gmail.com>
+Reply-To: Pedro Fortuna <pedro.fortuna@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080900080003050705020402"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
+To: Asim Shankar <asimshankar@gmail.com>
+In-Reply-To: <7bca1cb50502281209798e8a00@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080900080003050705020402
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Asim,
+I wasnt able to compile your packet_type_test.c :( I even tried your
+scripts (i.e. make-native.sh and make-uml.sh), which seem to me that
+proceeded to compile the example against the kernel source (which I
+have installed and in place), but all I got was a huge list of errors
+and warnings, and no .o compiled in the end.
 
+./make-native.sh modules
+./make-uml.sh modules
 
---------------080900080003050705020402
-Content-Type: text/x-patch;
- name="02.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="02.diff"
+I used ubuntu 4.10 with kernel 2.6.8.1-3 and kernel source 2.6.8.1.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/03/05 01:58:51+01:00 kaber@coreworks.de 
-#   [XFRM]: Always reroute in tunnel mode
-#   
-#   Tunnel mode packets are rerouted if the tunnel destination
-#   address is different from the original destination address,
-#   otherwise the old route is used. This is inconsistent, the
-#   old route might have been selected for a given output device
-#   or using routing by tos/fwmark. Always choose a new route
-#   in tunnel mode.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv6/xfrm6_policy.c
-#   2005/03/05 01:58:41+01:00 kaber@coreworks.de +3 -1
-#   [XFRM]: Always reroute in tunnel mode
-#   
-#   Tunnel mode packets are rerouted if the tunnel destination
-#   address is different from the original destination address,
-#   otherwise the old route is used. This is inconsistent, the
-#   old route might have been selected for a given output device
-#   or using routing by tos/fwmark. Always choose a new route
-#   in tunnel mode.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/xfrm4_policy.c
-#   2005/03/05 01:58:41+01:00 kaber@coreworks.de +3 -1
-#   [XFRM]: Always reroute in tunnel mode
-#   
-#   Tunnel mode packets are rerouted if the tunnel destination
-#   address is different from the original destination address,
-#   otherwise the old route is used. This is inconsistent, the
-#   old route might have been selected for a given output device
-#   or using routing by tos/fwmark. Always choose a new route
-#   in tunnel mode.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
---- a/net/ipv4/xfrm4_policy.c	2005-03-05 13:03:32 +01:00
-+++ b/net/ipv4/xfrm4_policy.c	2005-03-05 13:03:32 +01:00
-@@ -59,6 +59,7 @@
- 	int err;
- 	int header_len = 0;
- 	int trailer_len = 0;
-+	int tunnel = 0;
- 
- 	dst = dst_prev = NULL;
- 
-@@ -81,12 +82,13 @@
- 		if (xfrm[i]->props.mode) {
- 			remote = xfrm[i]->id.daddr.a4;
- 			local  = xfrm[i]->props.saddr.a4;
-+			tunnel = 1;
- 		}
- 		header_len += xfrm[i]->props.header_len;
- 		trailer_len += xfrm[i]->props.trailer_len;
- 	}
- 
--	if (remote != fl->fl4_dst) {
-+	if (tunnel) {
- 		struct flowi fl_tunnel = { .nl_u = { .ip4_u =
- 						     { .daddr = remote,
- 						       .saddr = local }
-diff -Nru a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
---- a/net/ipv6/xfrm6_policy.c	2005-03-05 13:03:32 +01:00
-+++ b/net/ipv6/xfrm6_policy.c	2005-03-05 13:03:32 +01:00
-@@ -76,6 +76,7 @@
- 	int err = 0;
- 	int header_len = 0;
- 	int trailer_len = 0;
-+	int tunnel = 0;
- 
- 	dst = dst_prev = NULL;
- 
-@@ -98,12 +99,13 @@
- 		if (xfrm[i]->props.mode) {
- 			remote = (struct in6_addr*)&xfrm[i]->id.daddr;
- 			local  = (struct in6_addr*)&xfrm[i]->props.saddr;
-+			tunnel = 1;
- 		}
- 		header_len += xfrm[i]->props.header_len;
- 		trailer_len += xfrm[i]->props.trailer_len;
- 	}
- 
--	if (!ipv6_addr_equal(remote, &fl->fl6_dst)) {
-+	if (tunnel) {
- 		struct flowi fl_tunnel;
- 
- 		memset(&fl_tunnel, 0, sizeof(fl_tunnel));
+Any clues?
+Thanks. 
+-Pedro Fortuna
 
---------------080900080003050705020402--
+On Mon, 28 Feb 2005 14:09:56 -0600, Asim Shankar <asimshankar@gmail.com> wrote:
+> > i need a possibility to catch IP4 packets (from ethernet devices) before OS' netmodules (IP, UDP, TCP, ICMP, ARP, ROUTE, NETFILTER ...) takes care about them and
+> > * to delete them from input buffer such that OS' netmodules can't receive them
+> > * to modify packet headers and move packets to interface related output buffers
+> > * to keep them in input buffers such that OS' netmodules can take care about them.
+> 
+> You can process packets even before ip_rcv() gets them by registering
+> your own packet handler (struct packet_type) using dev_add_pack().  I
+> have a small sample at:
+> http://limnos.csrd.uiuc.edu/notes/code-samples/samples/kernel/packet_type/packet_type_test.c
+> This may not be the cleanest way, but it isn't that dirty either.
+> 
+> Also see:
+> http://www.phrack.org/show.php?p=55&a=12
+> 
+> -- Asim
+> 
+>
