@@ -1,27 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: iproute2 not compiling anymore
-Date: Fri, 24 Oct 2003 04:33:12 -0700
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: [PATCH] [IPv6][IPsec] fix oops with using IPsec
+Date: Fri, 24 Oct 2003 21:30:58 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031024043312.1da45974.davem@redhat.com>
-References: <Pine.LNX.4.44.0310050940160.27815-100000@logos.cnet>
-	<20031005130044.GA8861@pcw.home.local>
-	<20031005071152.49c35297.davem@redhat.com>
-	<20031024.123401.08140647.yoshfuji@linux-ipv6.org>
+Message-ID: <20031024213058.47b4a824.kazunori@miyazawa.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031024.123401.08140647.yoshfuji@linux-ipv6.org>
+To: davem@redhat.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Oct 2003 12:34:01 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
+Hello,
 
-> I believe that 2.6 also needs this fix:
+This patch fixes oops with using IPsec in IPv6. Original source removes
+RTF_NDISC at copying dst. It makes the kernel use the wrong stackable
+destination.
 
-Ok, applied.
+--- net/ipv6/xfrm6_policy.c.org	2003-10-24 21:17:26.000000000 +0900
++++ net/ipv6/xfrm6_policy.c	2003-10-24 21:17:41.000000000 +0900
+@@ -169,7 +169,7 @@
+ 		dst_prev->output	= dst_prev->xfrm->type->output;
+ 		/* Sheit... I remember I did this right. Apparently,
+ 		 * it was magically lost, so this code needs audit */
+-		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
++		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL|RTF_NDISC);
+ 		x->u.rt6.rt6i_metric   = rt0->rt6i_metric;
+ 		x->u.rt6.rt6i_node     = rt0->rt6i_node;
+ 		x->u.rt6.rt6i_gateway  = rt0->rt6i_gateway;
 
-Thanks.
+--Kazunori Miyazawa
