@@ -1,51 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: Bug in Linux 2.5.74 IPv6 routing
-Date: Thu, 10 Jul 2003 03:31:17 +0900 (JST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] netdev_ops
+Date: Wed, 09 Jul 2003 11:24:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030710.033117.93244305.yoshfuji@linux-ipv6.org>
-References: <20030709195237.A8550@horus.imag.fr>
+Message-ID: <3F0C5DE3.7000506@candelatech.com>
+References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk> <3F0B2D30.4020102@candelatech.com> <20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk> <20030708.150835.78728697.davem@redhat.com> <20030709161520.GW1939@parcelfarce.linux.theplanet.co.uk> <3F0C4CA8.7090502@candelatech.com> <20030709181459.GE15293@gtf.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   yoshfuji@linux-ipv6.org
+Cc: Matthew Wilcox <willy@debian.org>, netdev@oss.sgi.com,
+   "David S. Miller" <davem@redhat.com>,
+   Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jean-Luc.Richier@imag.fr
-In-Reply-To: <20030709195237.A8550@horus.imag.fr>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030709181459.GE15293@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-CC: netdev
+Jeff Garzik wrote:
+> On Wed, Jul 09, 2003 at 10:11:04AM -0700, Ben Greear wrote:
+> 
+>>Also, for the strings (labels) passed back to user space, is there any
+>>documentation for suggested values for these strings?  Even though we
+>>can't be completely type-safe, if there were suggested values in
+>>a comment in the code, it could help a great deal for any code trying to
+>>parse them for multiple different drivers/nics.
+> 
+> 
+> The strings represent NIC-specific attributes.
 
-In article <20030709195237.A8550@horus.imag.fr> (at Wed, 9 Jul 2003 19:52:37 +0200), Jean-Luc Richier <Jean-Luc.Richier@imag.fr> says:
+Yes, but surely there is some comonality?  I'm not asking for something
+set in stone, but just some general guidelines.  However, I don't feel
+too strongly about this, so if it is not worth the time/effort, then
+I'll still be happy :)
 
-> There is a bug in IPv6 route calculation since kernel 2.5.71. It affects
-> all routes with prefix length != 0 (mod 8)
-> The bug is as follows:
-> do:	ip -6 route add 2000::/3 via 2001:688:121:10::1
-> 	ip -6 route
-> It shows a route for ::/3, not for 2000::/3
+Ben
 
-good catch.
-
-> PATCH 2: avoid overwriting the set value
-> --- linux-2.5.74/include/net/ipv6.h.DIST	2003-07-02 22:53:44.000000000 +0200
-> +++ linux-2.5.74/include/net/ipv6.h	2003-07-09 18:51:25.000000000 +0200
-> @@ -276,8 +276,10 @@
->  	    b = plen & 0x7;
->  
->  	memcpy(pfx->s6_addr, addr, o);
-> -	if (b != 0)
-> +	if (b != 0) {
->  		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
-> +		o++;
-> +	}
->  	if (o < 16)
->  		memset(pfx->s6_addr + o, 0, 16 - o);
->  }
+> 
+> 	Jeff
+> 
 > 
 
-Ok, let's use this one.
 
---yoshfuji
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
