@@ -1,54 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: PATCH: kmalloc packet slab
-Date: Mon, 27 Dec 2004 14:58:07 -0800
-Message-ID: <20041227145807.73803fa8.davem@davemloft.net>
-References: <1104156983.20944.25.camel@localhost.localdomain>
-	<41D043AC.2070203@trash.net>
-	<20041227142350.1cf444fe.davem@davemloft.net>
-	<200412272250.iBRMo2Qb011114@turing-police.cc.vt.edu>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [RFT] r8169 changes in 2.6.x
+Date: Tue, 28 Dec 2004 01:16:46 +0100
+Message-ID: <20041228001646.GA29512@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, alan@lxorguk.ukuu.org.uk, torvalds@osdl.org,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Valdis.Kletnieks@vt.edu
-In-Reply-To: <200412272250.iBRMo2Qb011114@turing-police.cc.vt.edu>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Luca Bortot <l.bortot@inet.it>, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262007AbUL1AST@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Dec 2004 17:50:01 -0500
-Valdis.Kletnieks@vt.edu wrote:
+The r8169 changes which Jeff kindly hosted in -netdev are now in
+2.6.10-bk1.
 
-> On Mon, 27 Dec 2004 14:23:50 PST, "David S. Miller" said:
-> 
-> > If we are really going to do something like this, it should
-> > be calculated properly and be determined per-interface
-> > type as netdevs are registered.
-> 
-> Would you prefer to see this done for all interface types if we do it
-> at all, or would a special-case for 1 or 2 types that can use a slab
-> without being wasteful be an acceptable solution? (Let's face it - if
-> 3.95 objects fit in each slab, we may not want to do it...)
+This release should definitely improve the buzzword compliance of
+the r8169 driver as it now features tx/rx ip chechsumming, tso,
+vlan, netconsole and a more complete ethtool support.
 
-It's not even just device MTU based (which can change dynamically
-at run time), it's also based upon the PMTU for various paths.
+Though available in -mm, large frames support is not included in
+2.6.10-bk so far. It is available on top of 2.6.10-bk1 via:
+- http://www.fr.zoreil.com/~romieu/misc/20041228-2.6.10-bk1-r8169.c-test.patch
+  (single patch)
+or:
+- http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-bk1/r8169/patches/
+  (a serie of smaller patches for review)
+Large frames roughly means 7200 bytes frames at most.
 
-As for wastefulness, that's a good question.  Adding a mechanism
-to do kmalloc slabs dynamically doesn't sound all that wise.  That
-would undo all the inlining tricks.
+Test results for regressions/improvements/stability will be welcome.
 
-Probably a better idea is to provide a way to attach a slab to
-an SKB's data area so that we can have per-device SLABs for this
-kind of stuff (and if all "ethernet" devices want to share the
-same SLAB, that's fine too, but it won't help all ethernet drivers
-for reasons outlined in my previous email).
 
-We added something similar for the Xen folks, and it's in Linus's
-BK tree right now.  It's named alloc_skb_from_cache().
+A backport is available for 2.4.x (x >= 28) at:
+- http://www.fr.zoreil.com/~romieu/misc/20041209-2.4.28-r8169.c-test.patch
+or:
+- http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.28/r8169/patches
 
-What I'd really like to see is device based determination of the
-correct slab to use.  Unfortunately, dev_alloc_skb() doesn't take
-a netdev argument, which is truly offensive.  Otherwise we could
-just stick the necessary logic there.
+Thank you for your attention.
+
+--
+Ueimor
