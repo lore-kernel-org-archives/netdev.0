@@ -1,25 +1,20 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: pppoe handles MOD_DEC_USE_COUNT incorrectly
-Date: Sun, 11 May 2003 22:57:12 -0300
+From: rask@sygehus.dk (Rask Ingemann Lambertsen)
+Subject: Where is netif_rx() not safe to use?
+Date: Mon, 12 May 2003 15:45:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030512015712.GE8880@conectiva.com.br>
-References: <20030511202728.GA9018@suse.de>
+Message-ID: <43428.9386998445$1052747126@news.gmane.org>
+Reply-To: rask@sygehus.dk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Olaf Hering <olh@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20030511202728.GA9018@suse.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Sun, May 11, 2003 at 10:27:28PM +0200, Olaf Hering escreveu:
-> Hi,
-> 
-> it seems pppoe does increase its usage count with each reconnect, but it
-> never releases it when the ppp connection dies.
 
-I'm looking at this right now, thanks for reporting.
+Hi.
 
-- Arnaldo
+I'd like to know if there are situations where netif_rx() is not safe to use. For example, is it safe to call from a timer or from dev->poll()?
+
+Regards,
+Rask Ingemann Lambertsen
