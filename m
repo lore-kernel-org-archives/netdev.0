@@ -1,50 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch 1/9] arcnet fixes
-Date: Thu, 28 Oct 2004 16:41:11 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [patch 2/9] use mmiowb in tg3.c
+Date: Thu, 28 Oct 2004 16:42:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028164111.5ffaca70.davem@redhat.com>
-References: <200410280721.i9S7Lb907978@mail.osdl.org>
+Message-ID: <20041028164258.6cd01cd0.davem@davemloft.net>
+References: <200410280721.i9S7Ld907983@mail.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, simlo@phys.au.dk
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, jbarnes@engr.sgi.com,
+        gnb@sgi.com, jbarnes@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: akpm@osdl.org
-In-Reply-To: <200410280721.i9S7Lb907978@mail.osdl.org>
+In-Reply-To: <200410280721.i9S7Ld907983@mail.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Oct 2004 00:19:38 -0700
+On Thu, 28 Oct 2004 00:19:40 -0700
 akpm@osdl.org wrote:
 
-I don't know what to do with this kind of thing.
-Jeff, what do you think?  Do we have anyone in any
-way active with Arcnet other than this guy?
+> From: Jesse Barnes <jbarnes@engr.sgi.com>
+> 
+> This patch originally from Greg Banks.  Some parts of the tg3 driver depend
+> on PIO writes arriving in order.  This patch ensures that in two key places
+> using the new mmiowb macro.  This not only prevents bugs (the queues can be
+> corrupted), but is much faster than ensuring ordering using PIO reads
+> (which involve a few round trips to the target bus on some platforms).
+> 
+> Arthur has another patch that uses mmiowb in tg3 that he posted earlier as
+> well.
+> 
+> Signed-off-by: Greg Banks <gnb@sgi.com>
+> Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-One problem with the patch though.
-
-> diff -puN include/linux/if_ether.h~arcnet-fixes include/linux/if_ether.h
-> --- 25/include/linux/if_ether.h~arcnet-fixes	2004-10-28 00:17:07.230704752 -0700
-> +++ 25-akpm/include/linux/if_ether.h	2004-10-28 00:17:07.247702168 -0700
-> @@ -91,6 +91,7 @@
->  #define ETH_P_IRDA	0x0017		/* Linux-IrDA			*/
->  #define ETH_P_ECONET	0x0018		/* Acorn Econet			*/
->  #define ETH_P_HDLC	0x0019		/* HDLC frames			*/
-> +#define ETH_P_ARCNET	0x0020		/* ArcNet			*/
-
-You should use 0x001a or similar, so you don't have
-to do this next part of your patch, bumping NPROTO
-in net.h
-
-> diff -puN include/linux/net.h~arcnet-fixes include/linux/net.h
-> --- 25/include/linux/net.h~arcnet-fixes	2004-10-28 00:17:07.232704448 -0700
-> +++ 25-akpm/include/linux/net.h	2004-10-28 00:17:07.248702016 -0700
-> @@ -26,7 +26,7 @@
->  struct poll_table_struct;
->  struct inode;
->  
-> -#define NPROTO		32		/* should be enough for now..	*/
-> +#define NPROTO		33		/* should be enough for now..	*/
->  
->  #define SYS_SOCKET	1		/* sys_socket(2)		*/
->  #define SYS_BIND	2		/* sys_bind(2)			*/
+Ok, applied.
