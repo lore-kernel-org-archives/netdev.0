@@ -1,87 +1,79 @@
-From: "Angelo Dell'Aera" <buffer@antifork.org>
-Subject: Re: [PATCH] TCP westwood bw_sample set never used
-Date: Sat, 13 Mar 2004 17:27:12 +0100
+From: "Michael Richardson" <mcr@xelerance.com>
+Subject: Re: v6-in-v4 IPsec and NAT traversal
+Date: Sat, 13 Mar 2004 12:24:56 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040313172712.0d10080a.buffer@antifork.org>
-References: <20040312091505.593443d1@dell_ss3.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Message-ID: <4831.1079198696@marajade.sandelman.ottawa.on.ca>
+References: <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
+Cc: netdev@oss.sgi.com, dev@lists.openswan.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040312091505.593443d1@dell_ss3.pdx.osdl.net>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: Message from Pekka Savola <pekkas@netcore.fi>
+   of "Sat, 13 Mar 2004 11:43:04 +0200." <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Mar 2004 09:15:05 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
-
->Found this while looking in detail at TCP.  The westwood.bw_sample element
->it tcp_opt is set but not used by the existing code in 2.6.4
-
-Stephen,
-I used that field in the first version of the Westwood code just for having 
-the possibility of doing a bandwidth estimation tracking analysis.
- 
-After dropping CONFIG_TCP_WESTWOOD_STATS it's simply useless and so I agree
-with your patch. But it's necessary to just point out an important thing. 
-When you call westwood_filter() you're actually evaluating the bandwidth 
-estimate. This is done by two constant coefficients low-pass filters one 
-after the other. 
-
-This part of the code was taken clearly separated from the rest of the code 
-since you could even find a better way to do it (f.e. TCP Westwood which came 
-before Westwood+ did it in improper manner). Maybe this was the reason 
-bw_sample was left in the struct westwood. But being it absolutely useless 
-at this time it could be removed even from there. I simply dropped another 
-line wrt to your patch.    
-
-Regards.
-
---
-
-Angelo Dell'Aera 'buffer' 
-Antifork Research, Inc.	  	http://buffer.antifork.org
+-----BEGIN PGP SIGNED MESSAGE-----
 
 
+>>>>> "Pekka" == Pekka Savola <pekkas@netcore.fi> writes:
+    Pekka> I'm interested whether Linux IPsec implementations support:
 
-diff -Naur linux-2.6.4-old/include/linux/tcp.h linux-2.6.4/include/linux/tcp.h
---- linux-2.6.4-old/include/linux/tcp.h	2004-02-18 16:34:15.000000000 +0100
-+++ linux-2.6.4/include/linux/tcp.h	2004-03-13 16:56:39.000000000 +0100
-@@ -377,7 +377,6 @@
- 
- /* TCP Westwood structure */
-         struct {
--                __u32    bw_sample;        /* bandwidth sample */
-                 __u32    bw_ns_est;        /* first bandwidth estimation..not too smoothed 8) */
-                 __u32    bw_est;           /* bandwidth estimate */
-                 __u32    rtt_win_sx;       /* here starts a new evaluation... */
-diff -Naur linux-2.6.4-old/net/ipv4/tcp_input.c linux-2.6.4/net/ipv4/tcp_input.c
---- linux-2.6.4-old/net/ipv4/tcp_input.c	2004-03-10 17:31:40.000000000 +0100
-+++ linux-2.6.4/net/ipv4/tcp_input.c	2004-03-13 16:50:35.000000000 +0100
-@@ -2065,7 +2065,6 @@
- {
-         struct tcp_opt *tp = tcp_sk(sk);
- 
--        tp->westwood.bw_sample = 0;
-         tp->westwood.bw_ns_est = 0;
-         tp->westwood.bw_est = 0;
-         tp->westwood.accounted = 0;
-@@ -2088,14 +2087,13 @@
- static void westwood_filter(struct sock *sk, __u32 delta)
- {
- 	struct tcp_opt *tp = tcp_sk(sk);
--	__u32 sample = tp->westwood.bk / delta;
- 
- 	tp->westwood.bw_ns_est =
--		westwood_do_filter(tp->westwood.bw_ns_est, sample);
-+		westwood_do_filter(tp->westwood.bw_ns_est, 
-+				   tp->westwood.bk / delta);
- 	tp->westwood.bw_est =
- 		westwood_do_filter(tp->westwood.bw_est,
- 				   tp->westwood.bw_ns_est);
--	tp->westwood.bw_sample = sample;
- }
- 
- /* @westwood_update_rttmin
+    Pekka>  1) IPv6 payload inside IPv4 IPsec tunnel/transport?
+
+    Pekka>  That is, when the intermediate network doesn't support IPv6,
+    Pekka> you could do IPv6, secured, without first encapsulating in
+    Pekka> IPv6-over-IPv4 tunnel and then running IPv6 IPsec.
+
+  I don't know if 26sec can do it at the bottom layer - I think not.
+  I can tell you that neither racoon nor pluto can negotiate a mixed
+mode SA. Both are pretty close - but at present no real testing is done
+on that.
+
+    Pekka>  2) NAT-traversal? (There are at least some patches in
+    Pekka> OpenSWAN, etc. for this).  This could be very handy combined
+    Pekka> with the above.
+
+  Both 26sec and KLIPS have support for NAT-Traversal for IPv4, but
+both requires support from the UDP - this is in 2.6, 2.4 backport, and 
+showing up in many distros. The patch is 140 lines.
+  Pluto will detect the kernel support for NAT-Traversal and use it
+if it exists. 
+  I don't know about racoon.
+
+    Pekka> [[ 3) Some feasible key management method, such as
+    Pekka> certificates.  I think this exists, and doesn't require
+    Pekka> support in the kernel. ]]
+
+  Racoon has poor pkix-self-signed certificate support.
+  Pluto has pkix, raw RSA, RSA-from-DNS. The latest X.509 patches from
+Andreas (not yet integrated) include OCSP (RFC2560). 
+
+    Pekka> I'm considering how viable this kind of NAT -traversal
+    Pekka> supporting v6-in-v4 IPsec would be as an IPv6
+    Pekka> tunneling/transition mechanism.
+
+  Well, I was rather hoping that NAT-traversal for IPsec would have been
+done as:
+     IPv4/ESP/IPv6/Teredo/UDP/IPv4.
+
+    Pekka> What's the status (implementations, planned or future) of
+    Pekka> these features?
+
+  http://www.openswan.org/development/roadmap.php
+
+- --
+]       ON HUMILITY: to err is human. To moo, bovine.           |  firewalls  [
+]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
+] mcr@xelerance.com      http://www.sandelman.ottawa.on.ca/mcr/ |device driver[
+] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+Comment: Finger me for keys
+
+iQCVAwUBQFNDp4qHRg3pndX9AQHmGwP/TsrZQ4etRT4SBWVJtV+FZJ6iqeMytexi
+aqfCcAINlQV5/8wWo45/cwdOuJ/t6dHxffZGYFnbXeZzZyzxGqgraB/UscAX9zcN
+rfDKSgs3ShwR8T5VKnKYeMjqELifGDJKOQFtaOvgcXG0yzQdVLG/XzBhgDUSmmnA
+32OtcTr2tes=
+=J4Bs
+-----END PGP SIGNATURE-----
