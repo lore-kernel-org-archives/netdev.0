@@ -1,68 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IPV6] Fix races in ip6_route_{input,output}().
-Date: Sun, 28 Nov 2004 10:36:26 +0900 (JST)
-Message-ID: <20041128.103626.88640124.yoshfuji@linux-ipv6.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch 2.6.10-rc2] 3c59x: reload EEPROM values at rmmod for needy cards
+Date: Wed, 17 Nov 2004 20:21:59 -0500
+Message-ID: <20041118012155.GA22765@tuxdriver.com>
+References: <20041117160122.A4824@tuxdriver.com> <20041117134425.62034944.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20041117134425.62034944.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, Nov 17, 2004 at 01:44:25PM -0800, Andrew Morton wrote:
+> "John W. Linville" <linville@tuxdriver.com> wrote:
+> >
+> > 3c905 cards need an additional bit unmasked in the reset at rmmod or
+> > else they don't get reinitialized properly when the driver is reloaded.
+> 
+> This has been in -mm kernels since you first sent it out.  I'm intending to
+> hold off until post-2.6.10 so we get a full kernel cycle for any problems
+> to get shaken out.
 
-We need to hold refcnt before releasing rt6_lock.
+Cool...someone was asking for it in netdev-2.[46], and Jeff didn't
+have it.  That is what provoked the resend.
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Thanks for the update!
 
-Thanks.
-
-===== net/ipv6/route.c 1.101 vs edited =====
---- 1.101/net/ipv6/route.c	2004-11-12 08:07:25 +09:00
-+++ edited/net/ipv6/route.c	2004-11-28 10:31:52 +09:00
-@@ -476,13 +476,19 @@
- 	BACKTRACK();
- 
- 	if (!rt->rt6i_nexthop && !(rt->rt6i_flags & RTF_NONEXTHOP)) {
-+		struct rt6_info *nrt;
-+		dst_hold(&rt->u.dst);
- 		read_unlock_bh(&rt6_lock);
- 
--		rt = rt6_cow(rt, &skb->nh.ipv6h->daddr,
--			     &skb->nh.ipv6h->saddr);
--			
-+		nrt = rt6_cow(rt, &skb->nh.ipv6h->daddr,
-+			      &skb->nh.ipv6h->saddr);
-+
-+		dst_release(&rt->u.dst);
-+		rt = nrt;
-+
- 		if (rt->u.dst.error != -EEXIST || --attempts <= 0)
- 			goto out2;
-+
- 		/* Race condition! In the gap, when rt6_lock was
- 		   released someone could insert this route.  Relookup.
- 		*/
-@@ -531,9 +537,14 @@
- 	}
- 
- 	if (!rt->rt6i_nexthop && !(rt->rt6i_flags & RTF_NONEXTHOP)) {
-+		struct rt6_info *nrt;
-+		dst_hold(&rt->u.dst);
- 		read_unlock_bh(&rt6_lock);
- 
--		rt = rt6_cow(rt, &fl->fl6_dst, &fl->fl6_src);
-+		nrt = rt6_cow(rt, &fl->fl6_dst, &fl->fl6_src);
-+
-+		dst_release(&rt->u.dst);
-+		rt = nrt;
- 
- 		if (rt->u.dst.error != -EEXIST || --attempts <= 0)
- 			goto out2;
-
+John
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+John W. Linville
+linville@tuxdriver.com
