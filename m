@@ -1,146 +1,302 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Kernel stack overflow on 2.6.9-rc2
-Date: Tue, 14 Sep 2004 17:23:34 +0300
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <200409141723.35009.vda@port.imtp.ilyichevsk.odessa.ua>
+From: Anton Blanchard <anton@samba.org>
+Subject: network lockup with latest BK (LLTX?)
+Date: Wed, 15 Sep 2004 00:24:47 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040914142447.GA5615@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269320AbUINOXw@vger.kernel.org>
-To: linux-kernel@vger.kernel.org,
-	Trond Myklebust <trond.myklebust@fys.uio.no>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
+
 
 Hi,
 
-I am putting to use an ancient box. Pentium 66.
-It gives me stack overflow errors on 2.6.9-rc2:
+I have a machine with a number of e1000 adapters in it. It locked up
+while I was bringing up the network interfaces. I have attached
+backtraces of all relevant cpus.
 
-init: spawning /sbin/agetty
-do_IRQ: stack overflow: 508
- [<c0105cf2>] dump_stack+0x17/0x1b
- [<c0106fad>] do_IRQ+0x177/0x17e
- [<c0105888>] common_interrupt+0x18/0x20
- [<c038ac44>] kfree_skbmem+0xd/0x21
- [<c038acff>] __kfree_skb+0xa7/0x118
- [<c028efe9>] ei_start_xmit+0x142/0x254
- [<c0399865>] qdisc_restart+0x41/0xc3
- [<c038f3d0>] dev_queue_xmit+0x180/0x20b
- [<c03a7826>] ip_finish_output2+0xa1/0x18b
- [<c0396ec7>] nf_hook_slow+0x91/0xc0
- [<c03a5617>] ip_finish_output+0x1c5/0x1ca
- [<c03a776c>] dst_output+0x11/0x2a
- [<c0396ec7>] nf_hook_slow+0x91/0xc0
- [<c03a73d1>] ip_push_pending_frames+0x39c/0x3f5
- [<c03c05bb>] udp_push_pending_frames+0x13d/0x25c
- [<c03c0a7d>] udp_sendmsg+0x35e/0x61a
- [<c03c72a7>] inet_sendmsg+0x3a/0x45
- [<c0387a15>] sock_sendmsg+0x88/0xa3
- [<c03efb57>] xdr_sendpages+0xb1/0x22e
- [<c03e79fc>] xprt_transmit+0xbe/0x45f
- [<c03e5d04>] call_transmit+0x46/0xa0
- [<c03e93e8>] __rpc_execute+0x29a/0x3b1
- [<c03e5652>] rpc_call_sync+0x59/0x95
- [<c01cb255>] nfs3_rpc_wrapper+0x2d/0x70
- [<c01cb42d>] nfs3_proc_getattr+0x57/0x89
- [<c01c3d26>] __nfs_revalidate_inode+0xc7/0x308
- [<c01c07ef>] nfs_lookup_revalidate+0x257/0x4ed
- [<c014a33b>] do_lookup+0x43/0x76
- [<c014a7b3>] link_path_walk+0x445/0x883
- [<c014cc7b>] __vfs_follow_link+0x28/0x133
- [<c01c8b09>] nfs_follow_link+0x28/0x47
- [<c014a887>] link_path_walk+0x519/0x883
- [<c014cc7b>] __vfs_follow_link+0x28/0x133
- [<c01c8b09>] nfs_follow_link+0x28/0x47
- [<c014a887>] link_path_walk+0x519/0x883
- [<c014add4>] path_lookup+0x70/0x10a
- [<c0147bf0>] open_exec+0x22/0xc4
- [<c015f15a>] load_elf_binary+0xc4f/0xcc8
- [<c01486b3>] search_binary_handler+0x4b/0x196
- [<c015dcae>] load_script+0x1ea/0x220
- [<c01486b3>] search_binary_handler+0x4b/0x196
- [<c0148951>] do_execve+0x153/0x1b9
- [<c01044c2>] sys_execve+0x2d/0x60
- [<c0105667>] syscall_call+0x7/0xb
+There are a bunch of cpus in arp_xmit -> dev_queue_xmit, these all
+appear to be stuck on the dev->queue_lock. Looking closer, all cpus
+other than cpu 4 are stuck on the same spinlock. And since we store the
+cpu number in our spinlocks, we know that this lock is owned by cpu4.
 
-I've run make checkstack and matched funtions
-using this script:
+Looking at cpu4:
 
-cat stackovf.txt \
-| {
-sum=0
-while read empty addr name_ofs junk; do
-        name=${name_ofs/+*/}
-        num=`grep -F $name checkstack.list`
-        num=${num/*     /}
-        let sum+=num
-        echo $name_ofs $junk [$num]
-done
-echo Total: $sum
-}
+pfifo_fast_dequeue+0x58/0x78
+qdisc_restart+0x5c/0x340
+net_tx_action+0x144/0x248
+__do_softirq+0xc4/0x198
+call_do_softirq+0x14/0x28
+do_softirq+0x90/0xa4
+local_bh_enable+0x70/0x78
+dev_queue_xmit+0x2c0/0x364
+ip_finish_output+0x114/0x2e0
+ip_queue_xmit+0x390/0x67c
+tcp_transmit_skb+0x410/0xa2c
+tcp_write_xmit+0x1dc/0x3f4
+tcp_sendmsg+0x143c/0x147c
+inet_sendmsg+0x80/0xac
+sock_aio_write+0x13c/0x170
+do_sync_write+0xac/0x118
+vfs_write+0xb8/0x188
+sys_write+0x4c/0x90
 
-Output:
-dump_stack+0x17/0x1b []
-do_IRQ+0x177/0x17e []
-common_interrupt+0x18/0x20 []
-kfree_skbmem+0xd/0x21 []
-__kfree_skb+0xa7/0x118 []
-ei_start_xmit+0x142/0x254 []
-qdisc_restart+0x41/0xc3 []
-dev_queue_xmit+0x180/0x20b []
-ip_finish_output2+0xa1/0x18b []
-nf_hook_slow+0x91/0xc0 []
-ip_finish_output+0x1c5/0x1ca []
-dst_output+0x11/0x2a []
-nf_hook_slow+0x91/0xc0 []
-ip_push_pending_frames+0x39c/0x3f5 []
-udp_push_pending_frames+0x13d/0x25c []
-udp_sendmsg+0x35e/0x61a [220]
-inet_sendmsg+0x3a/0x45 []
-sock_sendmsg+0x88/0xa3 [208]
-xdr_sendpages+0xb1/0x22e []
-xprt_transmit+0xbe/0x45f []
-call_transmit+0x46/0xa0 []
-__rpc_execute+0x29a/0x3b1 []
-rpc_call_sync+0x59/0x95 []
-nfs3_rpc_wrapper+0x2d/0x70 []
-nfs3_proc_getattr+0x57/0x89 []
-__nfs_revalidate_inode+0xc7/0x308 [152]
-nfs_lookup_revalidate+0x257/0x4ed [312]
-do_lookup+0x43/0x76 []
-link_path_walk+0x445/0x883 []
-__vfs_follow_link+0x28/0x133 []
-nfs_follow_link+0x28/0x47 []
-link_path_walk+0x519/0x883 []
-__vfs_follow_link+0x28/0x133 []
-nfs_follow_link+0x28/0x47 []
-link_path_walk+0x519/0x883 []
-path_lookup+0x70/0x10a []
-open_exec+0x22/0xc4 []
-load_elf_binary+0xc4f/0xcc8 [268]
-search_binary_handler+0x4b/0x196 []
-load_script+0x1ea/0x220 [136]
-search_binary_handler+0x4b/0x196 []
-do_execve+0x153/0x1b9 [336]
-sys_execve+0x2d/0x60 []
-syscall_call+0x7/0xb []
-Total: 1632
+I had a look at qdisc_restart and it looks like we can return from
+it with the queue_lock dropped if we hit the following:
 
-To save you filtering out functions with less than 100
-bytes of stack:
+if (ret == NETDEV_TX_LOCKED && nolock)
+	goto collision;
 
-udp_sendmsg+0x35e/0x61a [220]
-sock_sendmsg+0x88/0xa3 [208]
-__nfs_revalidate_inode+0xc7/0x308 [152]
-nfs_lookup_revalidate+0x257/0x4ed [312]
-load_elf_binary+0xc4f/0xcc8 [268]
-load_script+0x1ea/0x220 [136]
-do_execve+0x153/0x1b9 [336]
-Total: 1632
+Also I wonder why the collision case loops back to check
+xmit_lock_owner since in the nolock case xmit_lock_owner isnt
+initialized. Even so, Im not sure it explains why the cpu is stuck
+where it is.
 
-I don't think it's new, 2.6.7-something did it too.
+Anton
+
 --
-vda
+
+0:mon> c 0
+0:mon> e
+cpu 0x0: Vector: 100 (System Reset) at [c000000ffec8b080]
+    pc: c0000000003ea260: ._spin_lock+0x28/0x3c
+    lr: c00000000036cee0: .qdisc_restart+0x2b8/0x340
+    sp: c000000ffec8b300
+   msr: 9000000000089032
+  current = 0xc000000ffea80d40
+  paca    = 0xc000000000541980
+    pid   = 1708, comm = sshd
+0:mon> t
+[link register   ] c00000000036cee0 .qdisc_restart+0x2b8/0x340
+[c000000ffec8b300] c00000000036cde8 .qdisc_restart+0x1c0/0x340 (unreliable)
+[c000000ffec8b3a0] c00000000035ebb8 .dev_queue_xmit+0x294/0x364
+[c000000ffec8b430] c00000000037a7f4 .ip_finish_output+0x114/0x2e0
+[c000000ffec8b4e0] c00000000037ad50 .ip_queue_xmit+0x390/0x67c
+[c000000ffec8b670] c00000000038f5c4 .tcp_transmit_skb+0x410/0xa2c
+[c000000ffec8b790] c000000000390438 .tcp_write_xmit+0x1dc/0x3f4
+[c000000ffec8b870] c000000000381f04 .tcp_sendmsg+0x143c/0x147c
+[c000000ffec8b9e0] c0000000003ab85c .inet_sendmsg+0x80/0xac
+[c000000ffec8ba70] c0000000003520f4 .sock_aio_write+0x13c/0x170
+[c000000ffec8bb90] c00000000009fc3c .do_sync_write+0xac/0x118
+[c000000ffec8bcf0] c00000000009fd60 .vfs_write+0xb8/0x188
+[c000000ffec8bd90] c00000000009ff0c .sys_write+0x4c/0x90
+[c000000ffec8be30] c000000000010508 system_call+0x40/0x44
+--- Exception: c01 (System Call) at 000000000fcba3dc
+SP (ffffe3f0) is in userspace
+0:mon> c 2
+2:mon> e
+cpu 0x2: Vector: 501 (Hardware Interrupt) at [c00000000ffef800]
+    pc: c0000000003ea25c: ._spin_lock+0x24/0x3c
+    lr: c00000000035eb68: .dev_queue_xmit+0x244/0x364
+    sp: c00000000ffefa80
+   msr: 9000000000009032
+  current = 0xc0000032fff64040
+  paca    = 0xc000000000542280
+    pid   = 0, comm = swapper
+2:mon> t
+[link register   ] c00000000035eb68 .dev_queue_xmit+0x244/0x364
+[c00000000ffefa80] 0000000000000000 (unreliable)
+[c00000000ffefb10] c0000000003a476c .arp_xmit+0x10/0x24
+[c00000000ffefb80] c0000000003a5084 .arp_process+0x640/0x6d0
+[c00000000ffefcc0] c00000000035f4f4 .netif_receive_skb+0x2dc/0x374
+[c00000000ffefd60] c00000000035f698 .process_backlog+0x10c/0x264
+[c00000000ffefe30] c00000000035f8cc .net_rx_action+0xdc/0x230
+[c00000000ffefee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffeff90] c000000000017688 .call_do_softirq+0x14/0x28
+[c000001e313dfa70] c0000000000137e8 .do_softirq+0x90/0xa4
+[c000001e313dfb00] c00000000000be34 HardwareInterrupt_entry+0x8/0x54
+--- Exception: 501 (Hardware Interrupt) at c000000000013990 .default_idle+0x7c/0xdc
+[c000001e313dfe90] c000000000013c68 .cpu_idle+0x38/0x50
+[c000001e313dff00] c000000000037320 .start_secondary+0x128/0x17c
+[c000001e313dff90] c00000000000cc2c start_secondary_prolog+0xc/0x10
+2:mon> c 3
+3:mon> e
+cpu 0x3: Vector: 501 (Hardware Interrupt) at [c00000000ffe7800]
+    pc: c0000000003ea25c: ._spin_lock+0x24/0x3c
+    lr: c00000000035eb68: .dev_queue_xmit+0x244/0x364
+    sp: c00000000ffe7a80
+   msr: 9000000000009032
+  current = 0xc0000032fff611c0
+  paca    = 0xc000000000542700
+    pid   = 0, comm = swapper
+3:mon> t
+[link register   ] c00000000035eb68 .dev_queue_xmit+0x244/0x364
+[c00000000ffe7a80] 0000000000000000 (unreliable)
+[c00000000ffe7b10] c0000000003a476c .arp_xmit+0x10/0x24
+[c00000000ffe7b80] c0000000003a5084 .arp_process+0x640/0x6d0
+[c00000000ffe7cc0] c00000000035f4f4 .netif_receive_skb+0x2dc/0x374
+[c00000000ffe7d60] c00000000035f698 .process_backlog+0x10c/0x264
+[c00000000ffe7e30] c00000000035f8cc .net_rx_action+0xdc/0x230
+[c00000000ffe7ee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffe7f90] c000000000017688 .call_do_softirq+0x14/0x28
+[c000002c34b6ba70] c0000000000137e8 .do_softirq+0x90/0xa4
+[c000002c34b6bb00] c00000000000be34 HardwareInterrupt_entry+0x8/0x54
+--- Exception: 501 (Hardware Interrupt) at c000000000013988 .default_idle+0x74/0xdc
+[c000002c34b6be90] c000000000013c68 .cpu_idle+0x38/0x50
+[c000002c34b6bf00] c000000000037320 .start_secondary+0x128/0x17c
+[c000002c34b6bf90] c00000000000cc2c start_secondary_prolog+0xc/0x10
+3:mon> c 4
+4:mon> e
+cpu 0x4: Vector: 501 (Hardware Interrupt) at [c00000000ffdfb10]
+    pc: c00000000036d3a0: .pfifo_fast_dequeue+0x58/0x78
+    lr: c00000000036cc84: .qdisc_restart+0x5c/0x340
+    sp: c00000000ffdfd90
+   msr: 9000000000009032
+  current = 0xc000002c361113c0
+  paca    = 0xc000000000542b80
+    pid   = 3700, comm = ssh
+4:mon> t
+[link register   ] c00000000036cc84 .qdisc_restart+0x5c/0x340
+[c00000000ffdfd90] c00000000036ce6c .qdisc_restart+0x244/0x340 (unreliable)
+[c00000000ffdfe30] c00000000035f114 .net_tx_action+0x144/0x248
+[c00000000ffdfee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffdff90] c000000000017688 .call_do_softirq+0x14/0x28
+[c00000000119f2a0] c0000000000137e8 .do_softirq+0x90/0xa4
+[c00000000119f330] c000000000056668 .local_bh_enable+0x70/0x78
+[c00000000119f3a0] c00000000035ebe4 .dev_queue_xmit+0x2c0/0x364
+[c00000000119f430] c00000000037a7f4 .ip_finish_output+0x114/0x2e0
+[c00000000119f4e0] c00000000037ad50 .ip_queue_xmit+0x390/0x67c
+[c00000000119f670] c00000000038f5c4 .tcp_transmit_skb+0x410/0xa2c
+[c00000000119f790] c000000000390438 .tcp_write_xmit+0x1dc/0x3f4
+[c00000000119f870] c000000000381f04 .tcp_sendmsg+0x143c/0x147c
+[c00000000119f9e0] c0000000003ab85c .inet_sendmsg+0x80/0xac
+[c00000000119fa70] c0000000003520f4 .sock_aio_write+0x13c/0x170
+[c00000000119fb90] c00000000009fc3c .do_sync_write+0xac/0x118
+[c00000000119fcf0] c00000000009fd60 .vfs_write+0xb8/0x188
+[c00000000119fd90] c00000000009ff0c .sys_write+0x4c/0x90
+[c00000000119fe30] c000000000010508 system_call+0x40/0x44
+--- Exception: c01 (System Call) at 000000000fd313dc
+SP (ffffe980) is in userspace
+4:mon> c 5
+5:mon> e
+cpu 0x5: Vector: 501 (Hardware Interrupt) at [c00000000ffd7800]
+    pc: c0000000003ea260: ._spin_lock+0x28/0x3c
+    lr: c00000000035eb68: .dev_queue_xmit+0x244/0x364
+    sp: c00000000ffd7a80
+   msr: 9000000000009032
+  current = 0xc0000032fff600c0
+  paca    = 0xc000000000543000
+    pid   = 0, comm = swapper
+5:mon> t
+[link register   ] c00000000035eb68 .dev_queue_xmit+0x244/0x364
+[c00000000ffd7a80] 0000000000000000 (unreliable)
+[c00000000ffd7b10] c0000000003a476c .arp_xmit+0x10/0x24
+[c00000000ffd7b80] c0000000003a5084 .arp_process+0x640/0x6d0
+[c00000000ffd7cc0] c00000000035f4f4 .netif_receive_skb+0x2dc/0x374
+[c00000000ffd7d60] c00000000035f698 .process_backlog+0x10c/0x264
+[c00000000ffd7e30] c00000000035f8cc .net_rx_action+0xdc/0x230
+[c00000000ffd7ee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffd7f90] c000000000017688 .call_do_softirq+0x14/0x28
+[c000001dfff93a70] c0000000000137e8 .do_softirq+0x90/0xa4
+[c000001dfff93b00] c00000000000be34 HardwareInterrupt_entry+0x8/0x54
+--- Exception: 501 (Hardware Interrupt) at c00000000001398c .default_idle+0x78/0xdc
+[c000001dfff93e90] c000000000013c68 .cpu_idle+0x38/0x50
+[c000001dfff93f00] c000000000037320 .start_secondary+0x128/0x17c
+[c000001dfff93f90] c00000000000cc2c start_secondary_prolog+0xc/0x10
+5:mon> c 6
+6:mon> e
+cpu 0x6: Vector: 501 (Hardware Interrupt) at [c00000000ffcf800]
+    pc: c0000000003ea25c: ._spin_lock+0x24/0x3c
+    lr: c00000000035eb68: .dev_queue_xmit+0x244/0x364
+    sp: c00000000ffcfa80
+   msr: 9000000000009032
+  current = 0xc000002bfff91240
+  paca    = 0xc000000000543480
+    pid   = 0, comm = swapper
+6:mon> t
+[link register   ] c00000000035eb68 .dev_queue_xmit+0x244/0x364
+[c00000000ffcfa80] 0000000000000000 (unreliable)
+[c00000000ffcfb10] c0000000003a476c .arp_xmit+0x10/0x24
+[c00000000ffcfb80] c0000000003a5084 .arp_process+0x640/0x6d0
+[c00000000ffcfcc0] c00000000035f4f4 .netif_receive_skb+0x2dc/0x374
+[c00000000ffcfd60] c00000000035f698 .process_backlog+0x10c/0x264
+[c00000000ffcfe30] c00000000035f8cc .net_rx_action+0xdc/0x230
+[c00000000ffcfee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffcff90] c000000000017688 .call_do_softirq+0x14/0x28
+[c000002bfff97a70] c0000000000137e8 .do_softirq+0x90/0xa4
+[c000002bfff97b00] c00000000000be34 HardwareInterrupt_entry+0x8/0x54
+--- Exception: 501 (Hardware Interrupt) at c00000000001398c .default_idle+0x78/0xdc
+[c000002bfff97e90] c000000000013c68 .cpu_idle+0x38/0x50
+[c000002bfff97f00] c000000000037320 .start_secondary+0x128/0x17c
+[c000002bfff97f90] c00000000000cc2c start_secondary_prolog+0xc/0x10
+6:mon> c 7
+7:mon> e
+cpu 0x7: Vector: 501 (Hardware Interrupt) at [c00000000ffc7800]
+    pc: c0000000003ea260: ._spin_lock+0x28/0x3c
+    lr: c00000000035eb68: .dev_queue_xmit+0x244/0x364
+    sp: c00000000ffc7a80
+   msr: 9000000000009032
+  current = 0xc000002bfff909c0
+  paca    = 0xc000000000543900
+    pid   = 0, comm = swapper
+7:mon> t
+[link register   ] c00000000035eb68 .dev_queue_xmit+0x244/0x364
+[c00000000ffc7a80] 0000000000000000 (unreliable)
+[c00000000ffc7b10] c0000000003a476c .arp_xmit+0x10/0x24
+[c00000000ffc7b80] c0000000003a5084 .arp_process+0x640/0x6d0
+[c00000000ffc7cc0] c00000000035f4f4 .netif_receive_skb+0x2dc/0x374
+[c00000000ffc7d60] c00000000035f698 .process_backlog+0x10c/0x264
+[c00000000ffc7e30] c00000000035f8cc .net_rx_action+0xdc/0x230
+[c00000000ffc7ee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffc7f90] c000000000017688 .call_do_softirq+0x14/0x28
+[c000002c34b6fa70] c0000000000137e8 .do_softirq+0x90/0xa4
+[c000002c34b6fb00] c00000000000be34 HardwareInterrupt_entry+0x8/0x54
+--- Exception: 501 (Hardware Interrupt) at c000000000013984 .default_idle+0x70/0xdc
+[c000002c34b6fe90] c000000000013c68 .cpu_idle+0x38/0x50
+[c000002c34b6ff00] c000000000037320 .start_secondary+0x128/0x17c
+[c000002c34b6ff90] c00000000000cc2c start_secondary_prolog+0xc/0x10
+7:mon> c 8
+8:mon> e
+cpu 0x8: Vector: 501 (Hardware Interrupt) at [c00000000ffbf800]
+    pc: c0000000003ea260: ._spin_lock+0x28/0x3c
+    lr: c00000000035eb68: .dev_queue_xmit+0x244/0x364
+    sp: c00000000ffbfa80
+   msr: 9000000000009032
+  current = 0xc000002bfff90140
+  paca    = 0xc000000000543d80
+    pid   = 0, comm = swapper
+8:mon> t
+[link register   ] c00000000035eb68 .dev_queue_xmit+0x244/0x364
+[c00000000ffbfa80] 0000000000000000 (unreliable)
+[c00000000ffbfb10] c0000000003a476c .arp_xmit+0x10/0x24
+[c00000000ffbfb80] c0000000003a5084 .arp_process+0x640/0x6d0
+[c00000000ffbfcc0] c00000000035f4f4 .netif_receive_skb+0x2dc/0x374
+[c00000000ffbfd60] c00000000035f698 .process_backlog+0x10c/0x264
+[c00000000ffbfe30] c00000000035f8cc .net_rx_action+0xdc/0x230
+[c00000000ffbfee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffbff90] c000000000017688 .call_do_softirq+0x14/0x28
+[c000000ffff8ba70] c0000000000137e8 .do_softirq+0x90/0xa4
+[c000000ffff8bb00] c00000000000be34 HardwareInterrupt_entry+0x8/0x54
+--- Exception: 501 (Hardware Interrupt) at c00000000001398c .default_idle+0x78/0xdc
+[c000000ffff8be90] c000000000013c68 .cpu_idle+0x38/0x50
+[c000000ffff8bf00] c000000000037320 .start_secondary+0x128/0x17c
+[c000000ffff8bf90] c00000000000cc2c start_secondary_prolog+0xc/0x10
+8:mon> c 9
+9:mon> e
+cpu 0x9: Vector: 501 (Hardware Interrupt) at [c00000000ffb7800]
+    pc: c0000000003ea260: ._spin_lock+0x28/0x3c
+    lr: c00000000035eb68: .dev_queue_xmit+0x244/0x364
+    sp: c00000000ffb7a80
+   msr: 9000000000009032
+  current = 0xc000001dfff952c0
+  paca    = 0xc000000000544200
+    pid   = 0, comm = swapper
+9:mon> t
+[link register   ] c00000000035eb68 .dev_queue_xmit+0x244/0x364
+[c00000000ffb7a80] 0000000000000000 (unreliable)
+[c00000000ffb7b10] c0000000003a476c .arp_xmit+0x10/0x24
+[c00000000ffb7b80] c0000000003a5084 .arp_process+0x640/0x6d0
+[c00000000ffb7cc0] c00000000035f4f4 .netif_receive_skb+0x2dc/0x374
+[c00000000ffb7d60] c00000000035f698 .process_backlog+0x10c/0x264
+[c00000000ffb7e30] c00000000035f8cc .net_rx_action+0xdc/0x230
+[c00000000ffb7ee0] c000000000056524 .__do_softirq+0xc4/0x198
+[c00000000ffb7f90] c000000000017688 .call_do_softirq+0x14/0x28
+[c000001dfff83a70] c0000000000137e8 .do_softirq+0x90/0xa4
+[c000001dfff83b00] c00000000000be34 HardwareInterrupt_entry+0x8/0x54
+--- Exception: 501 (Hardware Interrupt) at c000000000013988 .default_idle+0x74/0xdc
+[c000001dfff83e90] c000000000013c68 .cpu_idle+0x38/0x50
+[c000001dfff83f00] c000000000037320 .start_secondary+0x128/0x17c
+[c000001dfff83f90] c00000000000cc2c start_secondary_prolog+0xc/0x10
