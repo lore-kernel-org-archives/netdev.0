@@ -1,71 +1,69 @@
-From: Cheng Jin <chengjin@cs.caltech.edu>
-Subject: Re: gigabit ethernet
-Date: Fri, 13 Feb 2004 11:36:41 -0800 (PST)
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] don't allow / in class device names
+Date: Fri, 13 Feb 2004 12:34:49 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0402131116590.24993-100000@fast2.cs.caltech.edu>
-References: <20040213103818.55540.qmail@web21110.mail.yahoo.com>
+Message-ID: <20040213203448.GB14048@kroah.com>
+References: <20040213102755.27cf4fcd.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Xiaoliang (David) Wei" <weixl@caltech.edu>,
-        "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tommi Virtanen <tv@tv.debian.net>, Leann Ogasawara <ogasawara@osdl.org>,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: satya srikanth <satyasrikanth2001@yahoo.com>
-In-Reply-To: <20040213103818.55540.qmail@web21110.mail.yahoo.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040213102755.27cf4fcd.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, Feb 13, 2004 at 10:27:55AM -0800, Stephen Hemminger wrote:
+> 
+> > [0 tv@tao /sys/class/misc]$ uname -a
+> > Linux tao 2.6.2-rc2 #6 Mon Jan 26 10:54:50 EET 2004 i686 GNU/Linux
+> > [0 tv@tao /sys/class/misc]$ echo *
+> > intermezzo net/tun psaux rtc uinput
+> > [0 tv@tao /sys/class/misc]$
+> >
+> > Seems like that's all because of this:
+> >
+> > static struct miscdevice tun_miscdev = {
+> >         .minor = TUN_MINOR,
+> >         .name = "net/tun",
+> >         .fops = &tun_fops
+> > };
+> >
+> > Name is apparently meant to be a filename, not a path.
+> > Don't know what should be done to it; maybe
+> >
+> > static struct miscdevice tun_miscdev = {
+> >         .minor = TUN_MINOR,
+> >         .name = "tun",
+> >         .fops = &tun_fops,
+> >         .devfs_name = "misc/net/tun",
+> > };
+> >
+> > But I havent tried that out.
+> >
+> > I'd suggest this, to flush out all the problems. Later,
+> > it can be changed to return -EINVAL or BUG_ON.
+> >
+> > --- 1.26/drivers/char/misc.c    Thu Jan 15 13:05:56 2004
+> > +++ edited/misc.c       Fri Feb 13 19:35:45 2004
+> > @@ -212,6 +212,9 @@
+> >  int misc_register(struct miscdevice * misc)
+> >  {
+> >         struct miscdevice *c;
+> > +
+> > +       if (misc->name && strchr(misc->name, '/'))
+> > +         printk("%s: name contains slash when registering %s.\n", __func__, misc->name);
+> >
+> >         down(&misc_sem);
+> >         list_for_each_entry(c, &misc_list, list) {
+> >
+> Don't fix it just for misc_register, the fix needs to go into class_device.
 
->     I have checked the CPU utilization. Its averaging
-> around 50% and reaching 100% and some instances. I
-> have also looked at the intel's document. First of all
-> I could not understand why all my softirqs are going
-> only to cpu0 when I have multiple processors. When I
+No, the "fix" is to just not do this in the driver.  I'm not going to
+apply this patch, sorry.
 
-I read somewhere that Intel SMP has cpu0 taking care of 
-all the hardware interrupts, but I don't know about softirqs.
-I think all softirqs related to the GbE are handled by the
-same cpu.
+thanks,
 
-> used 2.4.18- kernel, I didnt face this problem. Now I
-> am using 2.4.20-8 smp. Intel says that e1000 does not
-> use NAPI by default. But, I dont know why cpu0 is
-> handling all softirqs while other processors are
-> sitting idle.
-
-NAPI for e1000 is off by default, you have to explicitly enable it
-in the kernel config file (CONFIG_E1000_NAPI).
-
->     Also I found that number of interrupts are
-> reasonable but number of packets per interrupt is
-> averaging around 40 in my case. As my cpu is not able
-> to handle all these in 1 jiffy(time_squeeze), I am
-> reaching throttle count and thus drops. When I changed
-> netdev_max_backlog to 300000 and rmem_default to
-> 300000000 then I am able to handle all packets
-> received by interface. Is it OK to have such a high
-> values?
-
-What kind of processors do you have?  I haven't tried pumping 1 Gbps
-using processors slower than 2.4G Xeons.  But it sounds like you did
-get full utilization of the GbE card.  Data traffic is about 80 
-pkts/ms, which translates into 40 pkts/ms for ack traffic, assuming
-that you are talking about acks above.
-
-rmem_default will only affect the TCP/socket layer.  For the back2back 
-test you described, the bandwidth delay product is small so increasing
-netdev_max_backlog queue to 300000 is unnecessary (although TCP reno
-will overflow that eventually if you wait long enough).
-  
-I am not sure why you should see time squeeze with back2back tests...
-you can instrument the kernel to see how large snd_cwnd gets, and I 
-suspect that you have slow processors...  Also do the time squeeze
-happen during loss recovery---when ca_state is 3 or 4?
-
->     My round trip propagation delay is <0.2 ms. But I
-> could not understand how it would affect the
-> performance. Please throw some light on this. 
-
-short rtts will help performance because reno recovers much faster, and
-linear increase doesnt take long to reach bandwidth delay product.
-
-Cheng
+greg k-h
