@@ -1,22 +1,18 @@
-From: Steven Whitehouse <steve@gw.chygwyn.com>
-Subject: Network stack AIO in 2.5
-Date: Wed, 2 Oct 2002 22:08:47 +0100 (BST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Default Router Selection Round-robin
+Date: Wed, 02 Oct 2002 17:08:31 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210022108.WAA25884@gw.chygwyn.com>
-Reply-To: Steve Whitehouse <Steve@ChyGwyn.com>
+Message-ID: <20021002.170831.13760613.davem@redhat.com>
+References: <20021003.015057.14743018.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, bcrl@redhat.com
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20021003.015057.14743018.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-What is the current status of AIO for the network stack in 2.5 ? Are there
-patches somewhere (I looked but didn't find any) or is it a matter of
-porting from the 2.4 AIO or are there still design issues to be resolved ?
-
-Steve.
+Patch applied, thanks.
