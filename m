@@ -1,50 +1,50 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RFC] Extend netlink error codes
-Date: Sat, 11 Sep 2004 00:51:58 +0200
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
+Date: 10 Sep 2004 18:58:02 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910225158.GO20088@postel.suug.ch>
+Message-ID: <1094857082.1041.19.camel@jzny.localdomain>
+References: <20040910195003.GA13912@bougret.hpl.hp.com>
+	 <20040910200644.GJ20088@postel.suug.ch>
+	 <20040910201302.GA16556@bougret.hpl.hp.com>
+	 <20040910202235.GK20088@postel.suug.ch>
+	 <20040910203203.GA17078@bougret.hpl.hp.com>
+	 <20040910204348.GL20088@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jt@hpl.hp.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20040910204348.GL20088@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The current situation with error codes sent back to a netlink
-application is unsatisfactory. Most often, the application
-receives EINVAL but has no idea what was wrong.
+On Fri, 2004-09-10 at 16:43, Thomas Graf wrote:
+> * Jean Tourrilhes <20040910203203.GA17078@bougret.hpl.hp.com> 2004-09-10 13:32
+> > On Fri, Sep 10, 2004 at 10:22:35PM +0200, Thomas Graf wrote:
+> > > 
+> > > 2) Implement NETDEV_CHANGE, I was actually about to implement this
+> > >    but it's not directly related to this change and requires the same
+> > >    effort by the user space application has refetching the link list.
+> > 
+> > 	Do you have any info on NETDEV_CHANGE, I've got a potential
+> > use for it.
+> > 	(By the way, there are other ways to do it, but if
+> > NETDEV_CHANGE is the proposed standard, I might as well use it).
+> 
+> Currently call_netdevice_notifiers is called and sends out a
+> RTM_NEWLINK message with the new interface name to everyone
+> wanting to be notified. However, ifi_change is kept to 0
+> so far, which means you have to look what has changed yourself. I'm
+> not sure if this can be changed without too much troubles but
+> I will look into it.
 
-Here is my plan:
+I missed the RTM_NEWLINK part. It is easier to just keep it that way and
+make sure it is well documented as so. It may not be trivial (as an
+example all the inetdev name attributes change - look at inetdev_event).
+So suggestion is to leave it to user space to find more details about
+the event.
 
-Introduce some macros:
-
-#define NLERR_MAJ_MASK (0x7FFF0000U)
-#define NLERR_MIN_MASK (0x0000FFFFU)
-#define NLERR_MAJ(e) ((abs(e) & NLERR_MAJ_MASK) >> 16)
-#define NLERR_MIN(e) (abs(e) & NLERR_MIN_MASK)
-#define NLERR_MAKE(err, nle) ((((nle) << 16) & NLERR_MAJ_MASK)
-		| ((err) & NLERR_MIN_MASK))
-
-Specify netlink specific error codes, e.g.:
-
-#define NLE_SUCCESS     0
-#define NLE_NOQDISC     1
-#define NLE_NOTCLASFUL  2
-...
-
-Predefined error messages could be provided by libnetlink
-via nl_strerror().
-
-Replace vague error return calls with something like:
-
-return -NLERR_MAKE(EINVAL, NLE_NOQDISC);
-
-Once in netlink_ack, split the combined error message again,
-fill the existing errno into nlerrmsg.error and provide the
-netlink specific error code in a newly introduced TLV. This
-way, no binaries or old applications would break, but
-applications can support it and provide more meanigful error
-message with almost no effort.
-
-Comments?
+cheers,
+jamal
