@@ -1,54 +1,34 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Subject: Re: [patch] e1000 TSO parameter
-Date: Tue, 15 Jul 2003 16:01:55 -0700
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] [1/2] kernel error reporting (revised)
+Date: Wed, 16 Jul 2003 03:10:47 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16148.34787.633496.949441@napali.hpl.hp.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102229169@orsmsx402.jf.intel.com>
-	<20030714214510.17e02a9f.davem@redhat.com>
-	<16147.37268.946613.965075@napali.hpl.hp.com>
-	<20030714223822.23b78f9b.davem@redhat.com>
-Reply-To: davidm@hpl.hp.com
+Message-ID: <200307152310.DAA09663@dub.inr.ac.ru>
+References: <20030715125121.315920a2.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davidm@hpl.hp.com, scott.feldman@intel.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Cc: jkenisto@us.ibm.com, jmorris@intercode.com.au, davem@redhat.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com,
+   alan@lxorguk.ukuu.org.uk, rddunlap@osdl.org, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030714223822.23b78f9b.davem@redhat.com>
+To: akpm@osdl.org (Andrew Morton)
+In-Reply-To: <20030715125121.315920a2.akpm@osdl.org> from "Andrew Morton" at éÀÌ 15, 2003 12:51:21 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> On Mon, 14 Jul 2003 22:38:22 -0700, "David S. Miller" <davem@redhat.com> said:
+Hello!
 
-  DaveM> But I don't think that's what is happening here, rather the
-  DaveM> PCI controller is "talking" to the CPU's L2 cache with
-  DaveM> coherency transactions on all the data of every packet going
-  DaveM> to the chip.
+> netlink_broadcast() does read_lock(&nl_table_lock).  But nl_table_lock is
+> not an irq-safe lock.
 
-That's true.  But shouldn't it be true for both the TSO and non-TSO
-case?
+Just as reminder, there are _no_ irq safe locks in net/*. A few of
+local_irq_disable()s are segregated in interface to device drivers.
 
-  DaveM> Whereas with a sendfile() type setup, the PCI controller is
-  DaveM> going straight to main memory for the data part of the
-  DaveM> packets since the CPU is unlikely to have each page cache
-  DaveM> page in it's L2 caches.
 
-But sendfile() was _not_ used in any of the tests.  The ftp server
-installed no the machine doesn't use it (not to my knowledge, at
-least) and netperf only uses it for the SENDFILE test.
+> Possibly netlink_broadcast() can be made callable from hardirq context, but
+> it looks to be non trivial.
 
-  DaveM> I know how this can be fixed, can you use L2-bypassing stores
-  DaveM> in your csum_and_copy_from_user() and copy_from_user()
-  DaveM> implementations like we do on sparc64?  That would exactly
-  DaveM> eliminate this situation where the card is talking to the
-  DaveM> cpu's L2 cache for all the data during the PCI DMA transation
-  DaveM> on the send side.
+Trivial or non-trivial, before all this is highly not desired.
+net/* is better to remain in the form free of knowledge of hardirqs.
 
-We could, but would it always be a win?  Especially for
-copy_from_user().  Most of the time, that data remains cached, so I
-don't think we'd want to use non-temporal stores on those (in
-general).  csum_and_copy_from_user() isn't well optimized yet.  Let's
-see if I can find a volunteer... ;-)
-
-	--david
+Alexey
