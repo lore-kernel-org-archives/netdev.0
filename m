@@ -1,43 +1,54 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Tigon3 5701 PCI-X recv performance problem
-Date: Tue, 11 Nov 2003 15:09:27 -0800
+Subject: Re: IPv6/sparc64: icmp port unreachable corruption
+Date: Tue, 11 Nov 2003 15:13:40 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031111150927.3474ef46.davem@redhat.com>
-References: <3F844578.40306@sgi.com>
-	<20031008101046.376abc3b.davem@redhat.com>
-	<3F8455BE.8080300@sgi.com>
-	<20031008183742.GA24822@wotan.suse.de>
-	<20031008122223.1ba5ac79.davem@redhat.com>
-	<20031008202248.GA15611@oldwotan.suse.de>
-	<3F8702FF.70500@sgi.com>
-	<20031010192036.GA31727@wotan.suse.de>
-	<3F8802E6.5030601@sgi.com>
-	<20031011131921.GC21763@wotan.suse.de>
-	<20031011105054.0e16a607.davem@redhat.com>
-	<3F8C290A.3010508@sgi.com>
-	<20031014095323.71c8b9fe.davem@redhat.com>
-	<3FB03A56.7000709@sgi.com>
-	<20031110182911.2c5a121b.davem@redhat.com>
-	<3FB140E2.1070007@sgi.com>
-	<20031111122403.2d7bcf28.davem@redhat.com>
-	<3FB15725.4050705@sgi.com>
+Message-ID: <20031111151340.3d129bc7.davem@redhat.com>
+References: <20031109122844.GA14241@wsx.ksp.sk>
+	<20031110214603.0057e365.davem@redhat.com>
+	<20031111222611.GA1239@wsx.ksp.sk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@oss.sgi.com, jgarzik@pobox.com, jes@sgi.com,
-        davidm@hpl.hp.com
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: johnip@sgi.com
-In-Reply-To: <3FB15725.4050705@sgi.com>
+To: Jan Oravec <jan.oravec@6com.sk>
+In-Reply-To: <20031111222611.GA1239@wsx.ksp.sk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Nov 2003 15:39:49 -0600
-John Partridge <johnip@sgi.com> wrote:
+On Tue, 11 Nov 2003 23:26:11 +0100
+Jan Oravec <jan.oravec@6com.sk> wrote:
 
-> OK, I made it ALL IA64, but I only know for sure about Itanium2's
+> > The bus error you reported from running traceroute6 on the sparc64
+> > system is not that useful, can you use gdb or some other tool to
+> > figure out where inside of tcpdump6 the bus error is occuring?  Is is
+> > happening in the tcpdump6 program itself?  It is due to a failed system
+> > call?
+> 
+> I am running 64-bit-only userspace and there is no gdb/strace for sparc64
+> yet :(.
 
-This patch looks a lot better.
+Yes there is a gdb, here is a prebuilt 64-bit gdb for you.  It is even
+statically linked so there are no shared library dependencies.  It can
+debug 32-bit processes as well:
 
-Jeff, perhaps you'll combine this with the thing David Mosberger wanted
-and then merge?
+	ftp://pizda.ninka.net/pub/for_jakub/gdb64
+
+Enjoy.
+
+> But I think I have found the problem:
+> 
+> icmpv6_send() can get skb where skb->nh.raw < skb->data, thus computed plen
+> (see icmp.c:382) is negative. When passed as unsigned int to __skb_pull, it
+> underflows and is interpreted as 0x100000000-something_small. In __skb_pull
+> we then increase skb->data by that number; because skb->data is 64-bit while
+> plen is 32-bit, we get pointer which is 0x100000000 higher than needed. On
+> 32-bit platform that does not cause any troubles because it overflows again.
+> 
+> I do not know whether icmpv6_send() was meant to receive skb with ->data
+> pulled no more than nh.raw; in that case I suggest the following patch
+> (against test9-bk16):
+
+Great analysis, thanks a lot.
+
+I will look at your patch proposals.
