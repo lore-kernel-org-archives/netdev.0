@@ -1,53 +1,45 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: RFC 3041
-Date: Sat, 14 Sep 2002 14:19:32 +0200
+From: Pascal Brisset <pascal.brisset-ml@wanadoo.fr>
+Subject: Bonding driver unreliable under high CPU load
+Date: Sat, 14 Sep 2002 18:38:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <85130000.1032005972@localhost>
-References: <1031926014.6546.4.camel@swaters>
+Message-ID: <15747.26107.382619.200566@pcg.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="==========805445387=========="
-Cc: Stephen Waters <swaters@amicus.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-In-Reply-To: <1031926014.6546.4.camel@swaters>
+To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---==========805445387==========
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+I would like to confirm the problem reported by Tony Cureington at
+http://sourceforge.net/mailarchive/forum.php?thread_id=1015008&forum_id=2094
 
+Problem: In MII-monitoring mode, when the CPU load is high,
+the ethernet bonding driver silently fails to detect dead links.
 
+How to reproduce:
+i686, 2.4.19; "modprobe bonding mode=1 miimon=100"; ifenslave two
+interfaces; ping while you plug/unplug cables. Bonding will
+switch to the available interface, as expected. Now load the CPU
+with "while(1) { }", and failover will not work at all anymore.
 
---On Friday, September 13, 2002 09:06:53 AM -0500 Stephen Waters
-<swaters@amicus.com> wrote:
+Explanation:
+The bonding driver monitors the state of its slave interfaces by
+calling their dev->do_ioctl(SIOCGMIIREG|ETHTOOL_GLINK) from a
+timer callback function. Whenever this occurs during a user task,
+the get_user() in the ioctl handling code of the slave fails with
+-EFAULT because the ifreq struct is allocated in the stack of the
+timer function, above 0xC0000000. In that case, the bonding driver
+considers the link up by default.
 
-> Anyone know of any plans or code for implementing RFC 3041 "Privacy
-> Extensions for Stateless Address Autoconfiguration in IPv6" on
-> Linux?
+This problem went unnoticed because for most applications, when the
+active link dies, the host becomes idle and the monitoring function
+gets a chance to run during a kernel thread (in which case it works).
+The active-backup switchover is just slower than it should be.
+Serious trouble only happens when the active link dies during a long,
+CPU-intensive job.
 
-USAGI is working on it.
+Is anyone working on a fix ? Maybe running the monitoring stuff in
+a dedicated task ?
 
-        Peter
-
----
-Dr. Peter Bieringer
-mailto: pb at bieringer dot de
-http://www.bieringer.de/pb/
-Key 0x958F422D : B501 24F4 9418 23E2 C0F3  F833 7B57 AA7B 958F 422D
---==========805445387==========
-Content-Type: application/pgp-signature
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-
-iD8DBQE9gylUe1eqe5WPQi0RAqfLAKDfz1/U4q0rQUSMJIh2nrfZIYur8wCg7Dgp
-ZPxhr8wQn9JAB9/La+moqbo=
-=ozpe
------END PGP SIGNATURE-----
-
---==========805445387==========--
+-- Pascal
