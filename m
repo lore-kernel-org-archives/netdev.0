@@ -1,7 +1,7 @@
 From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH 5/8] Use SLAB_PANIC when creating critical slab cache
-Date: Sun, 14 Nov 2004 12:23:18 -0800
-Message-ID: <20041114122318.C2357@build.pdx.osdl.net>
+Subject: [PATCH 6/8] Use SLAB_PANIC when creating critical slab cache
+Date: Sun, 14 Nov 2004 12:24:00 -0800
+Message-ID: <20041114122400.D2357@build.pdx.osdl.net>
 References: <20041114121837.X2357@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,19 +18,18 @@ Use SLAB_PANIC when creating a critical slab cache.
 
 Signed-off-by: Chris Wright <chrisw@osdl.org>
 
-===== net/ipv4/ipmr.c 1.45 vs edited =====
---- 1.45/net/ipv4/ipmr.c	2004-07-20 14:55:34 -07:00
-+++ edited/net/ipv4/ipmr.c	2004-10-29 14:11:57 -07:00
-@@ -1885,11 +1885,8 @@ void __init ip_mr_init(void)
+===== net/ipv6/ip6_fib.c 1.33 vs edited =====
+--- 1.33/net/ipv6/ip6_fib.c	2004-11-09 22:57:03 -08:00
++++ edited/net/ipv6/ip6_fib.c	2004-11-14 11:56:01 -08:00
+@@ -1242,10 +1242,8 @@ void __init fib6_init(void)
  {
- 	mrt_cachep = kmem_cache_create("ip_mrt_cache",
- 				       sizeof(struct mfc_cache),
--				       0, SLAB_HWCACHE_ALIGN,
-+				       0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
- 				       NULL, NULL);
--	if (!mrt_cachep)
--		panic("cannot allocate ip_mrt_cache");
--
- 	init_timer(&ipmr_expire_timer);
- 	ipmr_expire_timer.function=ipmr_expire_process;
- 	register_netdevice_notifier(&ip_mr_notifier);
+ 	fib6_node_kmem = kmem_cache_create("fib6_nodes",
+ 					   sizeof(struct fib6_node),
+-					   0, SLAB_HWCACHE_ALIGN,
++					   0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+ 					   NULL, NULL);
+-	if (!fib6_node_kmem)
+-		panic("cannot create fib6_nodes cache");
+ }
+ 
+ void __exit fib6_gc_cleanup(void)
