@@ -1,59 +1,55 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: ip6t_LOG.c: patch killing spaces on ouput of IPv4 address on TUNNEL=
-Date: Mon, 14 Mar 2005 09:06:28 +0100
-Message-ID: <20050314080628.GE19298@obroa-skai.de.gnumonks.org>
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: ip6t_LOG.c: patch killing spaces on ouput of IPv4 address on
+ TUNNEL=
+Date: Mon, 14 Mar 2005 20:52:27 +0100
+Message-ID: <6D408DE92D49A118EA5D4FB6@worker.muc.bieringer.de>
 References: <DB755B5F6CF46771B8607810@worker.muc.bieringer.de>
+ <20050314080628.GE19298@obroa-skai.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="hcut4fGOf7Kh6EdG"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: Maillist netdev <netdev@oss.sgi.com>, David Miller <davem@redhat.com>
-To: Peter Bieringer <pb@bieringer.de>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20050314080628.GE19298@obroa-skai.de.gnumonks.org>
 Content-Disposition: inline
-In-Reply-To: <DB755B5F6CF46771B8607810@worker.muc.bieringer.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---hcut4fGOf7Kh6EdG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Sat, Mar 05, 2005 at 05:01:53PM +0100, Peter Bieringer wrote:
-> Hi,
->=20
-> I'm still wondering that this was never fixed since 3 years:
+--On Monday, March 14, 2005 09:06:28 AM +0100 Harald Welte
+<laforge@gnumonks.org> wrote:
 
-Because it presumably breaks existing scripts that expect it to be in
-the broken (speced) format.
+> On Sat, Mar 05, 2005 at 05:01:53PM +0100, Peter Bieringer wrote:
+>> Hi,
+>> 
+>> I'm still wondering that this was never fixed since 3 years:
+> 
+> Because it presumably breaks existing scripts that expect it to be in
+> the broken (speced) format.
 
-I'm not particularly for or against that change... but whatever I do,
-somebody will always be complaining.  To make you happy and have someone
-else complain next time ;)
+How many scripts are already parsing IPv6 log lines? Show me one, please. I
+believe I'm the only one who really looked into the logs because I saw
+nobody else ever claiming about the broken printout.
 
-Signed-off-by: Harald Welte <laforge@netfilter.org>
+> I'm not particularly for or against that change... but whatever I do,
+> somebody will always be complaining.  To make you happy and have someone
+> else complain next time ;)
 
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
+I don't believe that it is a good idea to let broken log output long time
+in the kernel, especially in IPv6 world, where changes still ongoing in
+current Linux kernel. How longer you wait the more will ran (perhaps) into
+temporary trouble.
 
---hcut4fGOf7Kh6EdG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+For all the script writers, add a module option like "broken_log_lines=yes"
+;-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFCNUYEXaXGVTD0i/8RAnl8AJwN3JUwaAPT8gQzzAYMxY2gm7lGIACgq5tN
-3SV5q4TW3C4v+44aVcXmNzc=
-=lBrC
------END PGP SIGNATURE-----
-
---hcut4fGOf7Kh6EdG--
+Regards,
+       Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+> 
+> Signed-off-by: Harald Welte <laforge@netfilter.org>
