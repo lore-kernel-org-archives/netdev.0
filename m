@@ -1,26 +1,40 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: sysctl variable to force IGMP version [PATCH]
-Date: Thu, 29 Jan 2004 14:36:39 -0800
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
+Subject: Re: [PATCH 2/2] [2.6] update forcedeth from 0.22 to 0.23
+Date: Thu, 29 Jan 2004 23:38:15 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040129143639.768d2f5f.davem@redhat.com>
-References: <OFE8AE1A1B.D2C2DA34-ON88256E2A.0019F0C1@us.ibm.com>
+Message-ID: <40198B57.2000305@gmx.net>
+References: <4016499D.6020302@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OFE8AE1A1B.D2C2DA34-ON88256E2A.0019F0C1@us.ibm.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4016499D.6020302@gmx.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Jan 2004 20:51:32 -0800
-David Stevens <dlstevens@us.ibm.com> wrote:
+On On Tue, 27 Jan 2004 I wrote:
+> Jeff,
+> 
+> this patch updates forcedeth 0.22 to 0.23. The main changes are:
+> - Support ethtool
+> - Make the generic function names more descriptive
+> 
+> Please consider applying this patch and the previous one.
+> 
+> The other comments we received during the discussion a few days ago will
+> be addressed in later versions. Right now I want to get the driver in a
+> state suitable for inclusion in 2.4 to get a wider testing base.
+> 
+> Comments are welcome.
 
->       As it is, it doesn't hurt anything if you set it to "47"-- it'll use
-> IGMPv1 if it's set to "1", IGMPv2 if it's set to "2" and IGMPv3 (default)
-> for all other values.
+Since I received no comments/criticism at all, I assume everyone thinks
+forcedeth 0.23 is suitable for inclusion in 2.4.
 
-Ok, the existing patch is fine then.  Can you cook up a 2.4.x one too?
+If nobody protests, I will send forcedeth 0.23 to Marcelo on Tuesday
+February 4th.
 
-Thanks David.
+
+Regards,
+Carl-Daniel
