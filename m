@@ -1,44 +1,39 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Tue, 21 Sep 2004 19:50:40 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: PPP-over-L2TP kernel support, new patch for review
+Date: 21 Sep 2004 23:03:42 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040921195040.483eaead.davem@davemloft.net>
-References: <E1C8way-0000aH-00@gondolin.me.apana.org.au>
-	<20040919120249.GA5963@gondor.apana.org.au>
-	<414DF11C.1080505@eurodev.net>
-	<20040919215915.GB9573@gondor.apana.org.au>
-	<1095633569.1047.107.camel@jzny.localdomain>
-	<20040919231734.GA10124@gondor.apana.org.au>
-	<1095647944.1046.206.camel@jzny.localdomain>
-	<20040920025802.GA11567@gondor.apana.org.au>
-	<1095683660.1047.254.camel@jzny.localdomain>
-	<414F1E12.6010808@eurodev.net>
-	<20040922000503.GA13218@gondor.apana.org.au>
-	<4150E7E5.2000001@eurodev.net>
+Message-ID: <1095822222.1046.16.camel@jzny.localdomain>
+References: <20040921210427.GB19575@kvack.org>
+	 <E1C9tj0-0003KE-00@gondolin.me.apana.org.au>
+	 <20040922011421.GE19575@kvack.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, hadi@cyberus.ca, davem@redhat.com,
-        netdev@oss.sgi.com
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, jchapman@katalix.com,
+        davem@davemloft.net, netdev@oss.sgi.com, kleptog@svana.org,
+        mostrows@styx.uwaterloo.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
-In-Reply-To: <4150E7E5.2000001@eurodev.net>
+To: Benjamin LaHaise <bcrl@kvack.org>
+In-Reply-To: <20040922011421.GE19575@kvack.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2004-09-21 at 21:14, Benjamin LaHaise wrote:
+> On Wed, Sep 22, 2004 at 09:07:06AM +1000, Herbert Xu wrote:
 
-I think you should manage your "events" in your own data structure.
-Perhaps a circular buffer of some sort.
+> CPU load.  
+> The main reason I was forced to revisit L2TP (imo, it's a 
+> horrible protocol that suffers from too many bad decisions) was in its 
+> role for terminating DSL.  In this case one expects to be able to have 
+> tens of thousands of connections terminated by a single box, which 
+> means pushing hundreds of megabits of traffic.  The overhead of crypto 
+> operations in such a scenario makes it a far too costly choice.
 
-Then provide ->dump() operation which fishes the events out of
-the circular buffer.
+Bad excuse ;->
+So use a crypto chip or do less connections and scale by distributing
+etc. I have a feeling tehres nothing inherent in your code that stops
+you from intergrating into ipsec.
 
-That way you don't have to spam user space with a bunch of quick
-transactions, you just wake him up once and several events may
-be consumed and processed at once.
-
-You can make your own buffering policies that way, and therefore
-there is no need to complicate netlink for this purpose.
-
-Meanwhile, I'm going to revert Pablo's original netlink optimization
-until this is all sorted out.
+cheers,
+jamal
