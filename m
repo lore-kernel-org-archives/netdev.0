@@ -1,24 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: anyone ever done multicast AF_UNIX sockets?
-Date: Mon, 03 Mar 2003 04:35:59 -0800 (PST)
+From: "Tom Lendacky" <toml@us.ibm.com>
+Subject: Re: [PATCH] Re: IPSec: setkey -DP freezes machine
+Date: Mon, 3 Mar 2003 09:37:37 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030303.043559.19477354.davem@redhat.com>
-References: <3E5E7081.6020704@nortelnetworks.com>
-	<1046695876.7731.78.camel@pc-16.office.scali.no>
+Message-ID: <OFBF1A69FC.8A35D98E-ON86256CDE.0055736B-86256CDE.0055D7BC@pok.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cfriesen@nortelnetworks.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: terje.eggestad@scali.com
-In-Reply-To: <1046695876.7731.78.camel@pc-16.office.scali.no>
+To: James Morris <jmorris@intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Terje Eggestad <terje.eggestad@scali.com>
-   Date: 03 Mar 2003 13:51:17 +0100
 
-   On a single box you would use a shared memory segment to do this.
+> Ok, here's a patch which does this.
+>
+> I've also added check to verify_newpolicy_info() so that we don't run
+into
+> the same problem for policies provided via the netlink interface.
+>
+> Tom, would you let me know if this works for you, as my racoon isn't
+> working yet.
 
-Thank you for applying real brains to this problem :)
+The patch works for me, setkey -DP no longer freezes the machine and the
+proper output is displayed.
+
+Tom
