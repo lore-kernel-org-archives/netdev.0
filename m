@@ -1,51 +1,136 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Tue, 30 Sep 2003 00:03:02 -0700
+From: dfages@arkoon.net
+Subject: =?iso-8859-1?Q?R=E9f._:_Fw:_[BUG/PATCH]_CONFIG=5FNET=5FHW=5FFLOWCONTROL?=
+	=?iso-8859-1?Q?_and_SMP?=
+Date: Tue, 30 Sep 2003 09:07:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930000302.3e1bf8bb.davem@redhat.com>
-References: <20030928225941.GW15338@fs.tum.de>
-	<20030928231842.GE1039@conectiva.com.br>
-	<20030928232403.GX15338@fs.tum.de>
-	<20030929220916.19c9c90d.davem@redhat.com>
-	<1064903562.6154.160.camel@imladris.demon.co.uk>
+Message-ID: <C1256DB1.00272341.00@arkoon-mail.arkoon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bunk@fs.tum.de, acme@conectiva.com.br, netdev@oss.sgi.com,
-        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1064903562.6154.160.camel@imladris.demon.co.uk>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Sep 2003 07:32:42 +0100
-David Woodhouse <dwmw2@infradead.org> wrote:
 
-> On Mon, 2003-09-29 at 22:09 -0700, David S. Miller wrote:
-> > For things inside the kernel, what ipv6 is doing is completely legal.
-> > Changing your config setting in any way in the main kernel tree can
-> > change just about anything else in the kernel, including the layout
-> > of structures.
-> 
-> With boolean options that's fair enough. But changing any config option
-> from 'n' to 'm' should not change anything in the main kernel. To do so
-> is confusing and should be considered broken, as Adrian says.
 
-This conflicts with the other reply you've made to me in this
-thread where you say that you agree with me.
+Yes, I know that but, for the moment, I've to keep my 2.4.19 kernel (so without
+NAPI).
+I've also ported the e1000 driver to HW_FLOWCONTROL. Some people may be happy to
+use it...
 
-So which is it? :-)
+Regards,
+---
+Daniel FAGES
+ARKOON Network Security    http://www.arkoon.net
 
-I don't see why "enabling to 'y'" and "enabling to 'm'" are in any
-way fundamentally different.  You're turning something on, therefore
-something is going to change.
 
-And when I see suggestions that we add four options to replace the
-single one we have now, with a addendum saying "it's not really
-complex, we'll explain it in the documentation", I want to pull my
-hair out.
+|--------+--------------------------->
+|        |          Robert Olsson    |
+|        |          <Robert.Olsson@da|
+|        |          ta.slu.se>       |
+|        |                           |
+|        |          29/09/2003 23:25 |
+|        |                           |
+|--------+--------------------------->
+  >----------------------------------------------------------------------------|
+  |                                                                            |
+  |       Pour :  Andrew Morton <akpm@osdl.org>                                |
+  |       cc :    netdev@oss.sgi.com, daniel fages/Arkoon                      |
+  |       Objet :      Fw: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP       |
+  >----------------------------------------------------------------------------|
 
-I would rather apply a patch that bloats up the structures than
-subscribe to crazy ideas such as this four option one being proposed.
+
+
+
+
+
+
+Hello!
+
+IMO HW_FLOWCONTROL is now outdated. It has served very well and encouraged
+people to use for Linux production networking. With a 2 tulip NIC's on a UP
+system as a typical system. Only tulip has code for it. This option was
+added by Alexey in 2.1.63 something...
+
+
+Cheers.
+                              --ro
+
+
+Andrew Morton writes:
+ >
+ >
+ > Begin forwarded message:
+ >
+ > Date: Mon, 29 Sep 2003 14:08:54 +0200
+ > From: dfages@arkoon.net
+ > To: linux-kernel@vger.kernel.org
+ > Subject: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
+ >
+ >
+ >
+ >
+ > Hi,
+ > by testing the CONFIG_NET_HW_FLOWCONTROL (NIC Hardware throttling) on
+ > a SMP system, I found a bug in net/core/dev.c : the netdev_dropping
+ > variable can be set to a negative value (the result is that a CPU can
+ > be locked in "throttle" state).
+ > This bug seems to exist in 2.4 and in 2.6 kernels.
+ >
+ > Here's a typical scenario :
+ >
+ > - Throttling --> (CPU 0)queue->throttle==1 && (CPU 1)queue->throttle==1
+ >      && netdev_dropping == 2
+ > - 1st packet Unthrottle ( in net_rx_action() ), received by CPU 0
+ >      --> (CPU 0)queue->throttle==1 && (CPU 1)queue->throttle==1
+ >      && netdev_dropping == 1
+ > - 2nd packet Unthrottle ( in net_rx_action() ), received by CPU 0
+ >      --> (CPU 0)queue->throttle==0 && (CPU 1)queue->throttle==1
+ >      && netdev_dropping == 0
+ > - 3nd packet Unthrottle ( in net_rx_action() ), received by CPU 1
+ >      --> (CPU 0)queue->throttle==0 && (CPU 1)queue->throttle==0
+ >      && netdev_dropping == -1
+ >
+ > and so on...
+ >
+ > The problem is that the (CPU)queue->throttle should be set to zero every
+ > time the netdev_dropping variable is decremented.
+ >
+ >
+ > Here's a patch for the 2.4.19 kernel (tested with success) :
+ >
+ > --- linux-2.4.19/net/core/dev.c.orig     Mon Sep 29 12:49:14 2003
+ > +++ linux-2.4.19/net/core/dev.c    Tue Sep 23 18:35:35 2003
+ > @@ -1519,8 +1519,8 @@
+ >
+ >  #ifdef CONFIG_NET_HW_FLOWCONTROL
+ >      if (queue->throttle && queue->input_pkt_queue.qlen < no_cong_thresh ) {
+ > +         queue->throttle = 0;
+ >           if (atomic_dec_and_test(&netdev_dropping)) {
+ > -              queue->throttle = 0;
+ >                netdev_wakeup();
+ >                goto softnet_break;
+ >           }
+ >
+ >
+ >
+ >
+ > I haven't done a patch for 2.4.22 (as we currently use 2.4.19) but the same
+ > modification should be applied around lines 1572 to 1577 of net/core/dev.c
+ >
+ > For 2.6.0-test5, the lines to modified are arount 1631 to 1637.
+ >
+ > Regards,
+ > ---
+ > Daniel FAGES
+ > ARKOON Network Security    http://www.arkoon.net
+ >
+ >
+ > -
+ > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+ > the body of a message to majordomo@vger.kernel.org
+ > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ > Please read the FAQ at  http://www.tux.org/lkml/
+ >
