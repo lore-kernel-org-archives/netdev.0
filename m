@@ -1,24 +1,20 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fw: [PATCH][2.6] propogate rx errors from raw_rcv_skb
-Date: Mon, 21 Jul 2003 05:25:52 -0700
+Subject: Re: [PATCH][2.4] more atm backports for 2.4
+Date: Mon, 21 Jul 2003 05:30:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030721052552.7536fccc.davem@redhat.com>
-References: <20030716195345.21b9b9fc.davem@redhat.com>
+Message-ID: <20030721053002.2051b791.davem@redhat.com>
+References: <200307141630.h6EGUDmZ007717@locutus.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org, zwane@arm.linux.org.uk
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030716195345.21b9b9fc.davem@redhat.com>
+To: chas williams <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200307141630.h6EGUDmZ007717@locutus.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Jul 2003 19:53:45 -0700
-"David S. Miller" <davem@redhat.com> wrote:
 
-> 	This looks somewhat sane, ipv6 doesn't seem to need it as it 
-> always returns 0
-
-Nothing that calls raw_rcv() checks the return value,
-so what's the point?
+Chas, Marcelo is closing the door on anything but critical bug fixes
+for 2.4.22 so we'll have to defer this next batch of 2.4.x ATM
+backports to 2.4.23-pre1.
