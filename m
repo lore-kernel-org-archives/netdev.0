@@ -1,79 +1,47 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] gc_min_interval in milleseconds via /proc (fwd)
-Date: Thu, 27 Jan 2005 13:13:04 +0100
-Message-ID: <16888.56016.608929.340640@robur.slu.se>
+From: Martin Josefsson <gandalf@wlug.westbo.se>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Thu, 27 Jan 2005 13:17:28 +0100 (CET)
+Message-ID: <Pine.LNX.4.58.0501271315590.15253@tux.rsn.bth.se>
+References: <20050121161959.GO3922@fi.muni.cz> <1106360639.15804.1.camel@boxen>
+ <20050123091154.GC16648@suse.de> <20050123011918.295db8e8.akpm@osdl.org>
+ <20050123095608.GD16648@suse.de> <20050123023248.263daca9.akpm@osdl.org>
+ <20050123200315.A25351@flint.arm.linux.org.uk> <20050124114853.A16971@flint.arm.linux.org.uk>
+ <20050125193207.B30094@flint.arm.linux.org.uk> <20050127082809.A20510@flint.arm.linux.org.uk>
+ <20050127004732.5d8e3f62.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Russell King <rmk+lkml@arm.linux.org.uk>, torvalds@osdl.org,
+        alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S.Miller" <davem@davemloft.net>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050127004732.5d8e3f62.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 27 Jan 2005, Andrew Morton wrote:
 
- > David S. Miller wrote:
+> Russell King <rmk+lkml@arm.linux.org.uk> wrote:
+> >
+> > This mornings magic numbers are:
+> >
+> >  3
+> >  ip_dst_cache        1292   1485    256   15    1
+>
+> I just did a q-n-d test here: send one UDP frame to 1.1.1.1 up to
+> 1.1.255.255.  The ip_dst_cache grew to ~15k entries and grew no further.
+> It's now gradually shrinking.  So there doesn't appear to be a trivial
+> bug..
+>
+> >  Is no one interested in the fact that the DST cache is leaking and
+> >  eventually takes out machines?  I've had virtually zero interest in
+> >  this problem so far.
+>
+> I guess we should find a way to make it happen faster.
 
- > It would, but since this is a user visible API we really can't
- > change it.
- 
-  Ok! But I haven't heard of any successful use of this paticaul API. :-)
+I could be a refcount problem. I think Russell is using NAT, it could be
+the MASQUERADE target if that is in use. A simple test would be to switch
+to SNAT and try again if possible.
 
- > We could instead make another sysctl (perhaps name it something
- > like "gc_min_interval_ms") to do what you propose, and then
- > we'd keep the existing one around for compatibility.
-
- All-right a new patch below. 
-					--ro
-  
-
---- net/ipv4/route.c.orig	2005-01-27 11:19:37.551668112 +0100
-+++ net/ipv4/route.c	2005-01-27 12:34:14.089130976 +0100
-@@ -2529,6 +2529,8 @@
- 		.proc_handler	= &proc_dointvec,
- 	},
- 	{
-+		/*  Deprecated. Use gc_min_interval_ms */
-+ 
- 		.ctl_name	= NET_IPV4_ROUTE_GC_MIN_INTERVAL,
- 		.procname	= "gc_min_interval",
- 		.data		= &ip_rt_gc_min_interval,
-@@ -2538,6 +2540,15 @@
- 		.strategy	= &sysctl_jiffies,
- 	},
- 	{
-+		.ctl_name	= NET_IPV4_ROUTE_GC_MIN_INTERVAL,
-+		.procname	= "gc_min_interval_ms",
-+		.data		= &ip_rt_gc_min_interval,
-+		.maxlen		= sizeof(unsigned long),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
-+		.strategy	= &sysctl_jiffies,
-+	},
-+	{
- 		.ctl_name	= NET_IPV4_ROUTE_GC_TIMEOUT,
- 		.procname	= "gc_timeout",
- 		.data		= &ip_rt_gc_timeout,
---- Documentation/filesystems/proc.txt.orig	2005-01-27 12:35:02.460777368 +0100
-+++ Documentation/filesystems/proc.txt	2005-01-27 12:46:30.981106368 +0100
-@@ -1709,12 +1709,13 @@
- 
- Writing to this file results in a flush of the routing cache.
- 
--gc_elasticity, gc_interval, gc_min_interval, gc_tresh, gc_timeout,
--gc_thresh, gc_thresh1, gc_thresh2, gc_thresh3
----------------------------------------------------------------
-+gc_elasticity, gc_interval, gc_min_interval_ms, gc_timeout, gc_thresh
-+---------------------------------------------------------------------
- 
- Values to  control  the  frequency  and  behavior  of  the  garbage collection
--algorithm for the routing cache.
-+algorithm for the routing cache. gc_min_interval is deprecated and replaced
-+by gc_min_interval_ms.
-+
- 
- max_size
- --------
-
- 
+/Martin
