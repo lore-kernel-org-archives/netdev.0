@@ -1,47 +1,30 @@
-From: Frank Pavlic <PAVLIC@de.ibm.com>
-Subject: Re: FWD:  setting skb->dev to vlan device in vlan_hwaccel_rx is wrong ...
-Date: Wed, 20 Oct 2004 10:08:42 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFB8B932F8.E041070C-ONC1256F33.0027CE30-C1256F33.002CBE1E@de.ibm.com>
-References: <20041019233618.6fdcb01d.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@oss.sgi.com, vlan@candelatech.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20041019233618.6fdcb01d.davem@redhat.com>
-To: Ben Greear <greearb@candelatech.com>
-Errors-to: netdev-bounce@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Change masquerade code to use first IP address
+	of	interface.
+Date: Wed, 20 Oct 2004 18:28:53 +1000
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <E1CKBq1-0005EG-00@gondolin.me.apana.org.au>
+References: <1098241135.10571.19.camel@localhost.localdomain>
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: rusty@rustcorp.com.au (Rusty Russell)
+In-Reply-To: <1098241135.10571.19.camel@localhost.localdomain>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
- oh , I'm sorry for confusing you guys , I finally get the point on how 
-the 
-hw_accel_rx stuff is working ...
+Rusty Russell <rusty@rustcorp.com.au> wrote:
+> As discussed previously, let's try this in 2.6.10, and see who screams.
 
-Frank
-
-
-
-
-"David S. Miller" <davem@redhat.com> 
-20.10.2004 08:36
-
-To
-Ben Greear <greearb@candelatech.com>
-cc
-vlan@candelatech.com, Frank Pavlic/Germany/IBM@IBMDE, netdev@oss.sgi.com
-Subject
-Re: FWD:  setting skb->dev to vlan device in vlan_hwaccel_rx is wrong ...
-
-
-
-
-
-
-On Fri, 15 Oct 2004 16:27:46 -0700
-Ben Greear <greearb@candelatech.com> wrote:
-
-> Dave, since you did the hw-accel work, what do you think of this patch?
-
-I see no mention of what specific part of the "receive path"
-depends upon the skb->dev being set to the real_dev and not
-the true VLAN device.
+Rather than screaming, I'm going to thank you :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
