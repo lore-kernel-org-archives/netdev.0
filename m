@@ -1,25 +1,27 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 1/2 linux-2.6.9-rc3/linux-2.4.28-pre4]
- prism54 fix resume processing
-Date: Sat, 30 Oct 2004 11:02:03 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <4183ACEB.7090501@pobox.com>
-References: <200410101530.08274.margitsw@t-online.de>
+From: "Pranav" <pranav@nodeinfotech.com>
+Subject: Small Help required
+Date: Sat, 30 Oct 2004 21:01:06 +0530
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <BLEAIJDEHOOAGALIAAKBGEPCCCAA.pranav@nodeinfotech.com>
+Reply-To: <pranav@nodeinfotech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Margit Schubert-While <margitsw@t-online.de>
-In-Reply-To: <200410101530.08274.margitsw@t-online.de>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Cc: <linux-kernel@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <netdev-bounce@oss.sgi.com>, <netdev@oss.sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied to 2.4 and 2.6
+hi,
+I needed some information about how to proceed with implementing a Name
+Switch Server plugin that
+allows to resolve multicast DNS names using normal libc calls(such as
+gethostbyname()).
+
+If someone has knowledge in this regard,please mail me back.
+
+Thank's
+With Regards,
+Pranav.
