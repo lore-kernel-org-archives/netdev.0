@@ -1,36 +1,57 @@
-From: Petr Vandrovec <vandrove@vc.cvut.cz>
-Subject: Re: af_packet & CHECKSUM_HW
-Date: Wed, 19 Nov 2003 16:11:49 +0100
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Enabling ethernet drivers to return FCS in the skb?
+Date: Wed, 19 Nov 2003 07:33:53 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031119151149.GA30100@vana.vc.cvut.cz>
-References: <20031115024434.GA12276@gondor.apana.org.au> <Xine.LNX.4.44.0311160841500.31201-100000@thoron.boston.redhat.com> <20031116205146.GA8477@gondor.apana.org.au> <20031117194452.GB18448@vana.vc.cvut.cz> <20031117123047.55377d3a.davem@redhat.com> <20031118132137.GA23732@vana.vc.cvut.cz> <20031118174612.48c0854e.davem@redhat.com> <20031119123535.GA11108@vana.vc.cvut.cz> <1069254105.1025.26.camel@jzny.localdomain>
+Message-ID: <3FBB8D61.6010106@candelatech.com>
+References: <3FB94311.10004@candelatech.com> <20031119123556.A7622@sygehus.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, herbert@gondor.apana.org.au,
-        jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1069254105.1025.26.camel@jzny.localdomain>
+To: Rask Ingemann Lambertsen <rask@sygehus.dk>
+In-Reply-To: <20031119123556.A7622@sygehus.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 19, 2003 at 10:01:45AM -0500, jamal wrote:
+Rask Ingemann Lambertsen wrote:
+> On Mon, Nov 17, 2003 at 01:52:17PM -0800, Ben Greear wrote:
 > 
-> I think this sort of stuff will greatly benefit from the tc extensions
-> that i have been working on. 
-> instead of hacking on ptype you can instead write little modules that
-> do speacilized work (like computing checksums) or dropping packets
-> or setting these flags that can be later used for doing extra work.
-> The code executes before the ptype level execution and using the u32
-> classifier you can grop any part of the packet. I can send you a patch
-> if you want to give it a shot.
+>>Is there any interest in adding an Ethtool command to tell the driver to
+>>push the extra 4 bytes of CSUM into the skb?
+>>
+>>When enabling this feature, I'd also like to allow drivers to receive
+>>frames with bad FCS as well.
+> 
+> [cut]
+> 
+>>At least some hardware appears
+>>to support receiving bad FCS frames (e1000, evidently), but I am not sure
+>>how wide-spread this feature is...
+> 
+> 
+> The Intel i82586 and i82596 and can be told to receive frames with a bad FCS.
+> They can also be told to send a precomputed FCS rather than computing it on
+> the fly. The i82596 and tulip can also transfer the FCS to memory when
+> receiving frames. I guess all of this is also supported on the i82557/8/9.
 
-I'll gladly look at it. From your short description it looks like that
-it could solve also our second longstanding problem: we cannot block 
-host->guest packets from hitting wire, and if guest communicates only 
-with host (this traffic does not hit wire as it is injected as if 
-received from network card) then switches on the network do not know 
-where guest lives, and these packets then flood whole network.
-					Thanks,
-						Petr Vandrovec
+If you have a patch or example code that shows how to do this, I'd love to
+see it.  I have code that should RX bad CSUM from the Intel folks, but I can't
+get it to generate bad CRC (it does framing errors instead with my attempt),
+so I can't test the RX code properly!
+
+I have the path from user-space to the NIC written, so just need to tweak the
+drivers a bit...
+
+Do you know if tulip can be told to accept bad FCS and/or if it can generate
+a frame with bad FCS somehow?
+
+Thanks!
+Ben
+
+> 
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
