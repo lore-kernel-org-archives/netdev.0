@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/13) aarp  - set last_sent
-Date: Fri, 29 Aug 2003 14:01:59 -0700
+Subject: [PATCH] (5/13) aarp purge table on module unload
+Date: Fri, 29 Aug 2003 14:00:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829140159.4ec0927e.shemminger@osdl.org>
+Message-ID: <20030829140046.1241f018.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,17 +12,50 @@ To: Jay Schulist <jschlst@samba.org>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Aarp has a field for last_sent which is used in the /proc/net/aarp
-display, but it is never set.
+Aarp does not clean the arp table when the appletalk module
+is unloaded, and therefore can leak memory.
 
 diff -Nru a/net/appletalk/aarp.c b/net/appletalk/aarp.c
---- a/net/appletalk/aarp.c	Fri Aug 29 13:30:20 2003
-+++ b/net/appletalk/aarp.c	Fri Aug 29 13:30:20 2003
-@@ -145,6 +145,7 @@
- 	aarp_dl->request(aarp_dl, skb, aarp_eth_multicast);
- 	/* Update the sending count */
- 	a->xmit_count++;
-+	a->last_sent = jiffies;
+--- a/net/appletalk/aarp.c	Fri Aug 29 13:31:00 2003
++++ b/net/appletalk/aarp.c	Fri Aug 29 13:31:00 2003
+@@ -339,6 +339,32 @@
+ 	return NOTIFY_DONE;
  }
  
- /* This runs under aarp_lock and in softint context, so only atomic memory
++/* Expire all entries in a hash chain */
++static void __aarp_expire_all(struct aarp_entry **n)
++{
++	struct aarp_entry *t;
++
++	while (*n) {
++		t = *n;
++		*n = (*n)->next;
++		__aarp_expire(t);
++	}
++}
++
++/* Cleanup all hash chains -- module unloading */
++static void aarp_purge(void)
++{
++	int ct;
++
++	write_lock_bh(&aarp_lock);
++	for (ct = 0; ct < AARP_HASH_SIZE; ct++) {
++		__aarp_expire_all(&resolved[ct]);
++		__aarp_expire_all(&unresolved[ct]);
++		__aarp_expire_all(&proxies[ct]);
++	}
++	write_unlock_bh(&aarp_lock);
++}
++
+ /*
+  *	Create a new aarp entry.  This must use GFP_ATOMIC because it
+  *	runs while holding spinlocks.
+@@ -958,6 +984,7 @@
+ 	del_timer(&aarp_timer);
+ 	unregister_netdevice_notifier(&aarp_notifier);
+ 	unregister_snap_client(aarp_dl);
++	aarp_purge();
+ }
+ 
+ #ifdef CONFIG_PROC_FS
