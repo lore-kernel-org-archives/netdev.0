@@ -1,65 +1,39 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Subject: Re: status of ipchains in 2.6?
-Date: Tue, 28 Oct 2003 16:16:04 -0800
+Subject: SOMAXCONN too low
+Date: Tue, 28 Oct 2003 22:58:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16287.1732.427119.22477@napali.hpl.hp.com>
-References: <200310280127.h9S1RM5d002140@napali.hpl.hp.com>
-	<1067365417.14002.18.camel@tux.rsn.bth.se>
+Message-ID: <200310290658.h9T6w04k015302@napali.hpl.hp.com>
 Reply-To: davidm@hpl.hp.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davidm@hpl.hp.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin Josefsson <gandalf@wlug.westbo.se>
-In-Reply-To: <1067365417.14002.18.camel@tux.rsn.bth.se>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Yes, Rusty mentioned the same patch yesterday.  I tried it now and
-ipchain masquerading seems to be working fine again.
+I was a bit surprised to find that listen() is still capping at the
+hard limit of SOMAXCONN (which is still 128).  This is ridiculously
+low for high-performance servers.  Today's severs can do easily in
+excess of 10,000 TCP connections/second so a queue length of 128
+corresponds to just about 10ms, so it doesn't take much of bad
+scheduling etc. to overflow the queue.
+
+You obviously want some control over how big the listen queue can
+grow, but it seems to me that a sysctl would be in place.  I found
+this patch to do that, but no reaction to it:
+
+  http://www.ussg.iu.edu/hypermail/linux/kernel/0205.0/1287.html
+
+I also found this message:
+
+  http://marc.theaimsgroup.com/?l=linux-net&m=98745977620384&w=2
+
+but the argument makes little sense, because TUX bypasses sys_listen()
+alltogether and therefore can set the listen queue length to anything
+it wants.  In fact, tux2 defaults to a listen-queue size of 2048, so
+if anything it is an argument _for_ increasing the max. listen-queue
+size.
+
+Also, it appears that current SuSE kernels do indeed have a
+net.core.somaxconn sysctl to let a sysadmin choose a larger SOMAXCONN
+value.
 
 	--david
-
->>>>> On Tue, 28 Oct 2003 19:23:37 +0100, Martin Josefsson <gandalf@wlug.westbo.se> said:
-
-  Martin> Please try this patch that just got included in linus tree.
-
-  Martin> ChangeSet 1.1360, 2003/10/27 00:01:25-08:00, rusty@rustcorp.com.au
-
-  Martin> [NETFILTER]: Fix ipchains oops in NAT
-
-  Martin> We updated ip_nat_setup_info to set the initialized flag and call
-  Martin> place_in_hashes, but *didn't* change the call in ip_fw_compat_masq.c
-  Martin> which also calls place_in_hashes() itself (again!).  Result: corrupt
-  Martin> list, and next thing which lands in the same hash bucket goes boom.
-
-  Martin> Thanks to Andy Polyakov for chasing this down.
-
-
-  Martin> # This patch includes the following deltas:
-  Martin> #	           ChangeSet	1.1359  -> 1.1360 
-  Martin> #	net/ipv4/netfilter/ip_fw_compat_masq.c	1.11    -> 1.12   
-  Martin> #
-
-  Martin> ip_fw_compat_masq.c |    3 ---
-  Martin> 1 files changed, 3 deletions(-)
-
-
-  Martin> diff -Nru a/net/ipv4/netfilter/ip_fw_compat_masq.c b/net/ipv4/netfilter/ip_fw_compat_masq.c
-  Martin> --- a/net/ipv4/netfilter/ip_fw_compat_masq.c	Mon Oct 27 12:07:33 2003
-  Martin> +++ b/net/ipv4/netfilter/ip_fw_compat_masq.c	Mon Oct 27 12:07:33 2003
-  Martin> @@ -91,9 +91,6 @@
-  Martin> WRITE_UNLOCK(&ip_nat_lock);
-  Martin> return ret;
-  Martin> }
-  Martin> -
-  Martin> -		place_in_hashes(ct, info);
-  Martin> -		info->initialized = 1;
-  Martin> } else
-  Martin> DEBUGP("Masquerading already done on this conn.\n");
-  Martin> WRITE_UNLOCK(&ip_nat_lock);
-
-  Martin> -- 
-  Martin> /Martin
