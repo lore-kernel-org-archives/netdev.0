@@ -1,68 +1,47 @@
-From: pr@mrno.jp
-Subject: =?ISO-8859-1?Q?=1B$B#N#O%/%j%C%/!y9b2AGc<h%-%c%s%Z!<%sCf!*=1B(B?=
-Date: Thu,  7 Aug 2003 10:40:38 +0900 (JST)
+From: "Hen, Shmulik" <shmulik.hen@intel.com>
+Subject: RE: VLAN patch for 2.4.21
+Date: Thu, 7 Aug 2003 09:22:53 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030807014038.5B4A1188FB8@mail.mrno.jp>
+Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C9471@hasmsx403.iil.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+content-class: urn:content-classes:message
+To: "Ben Greear" <greearb@candelatech.com>, <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-サイトオーナー様！
-収入を1.5倍に増やしませんか？
+> -----Original Message-----
+> From: Ben Greear [mailto:greearb@candelatech.com]
+> Sent: Wednesday, August 06, 2003 3:27 AM
+> To: 'netdev@oss.sgi.com'
+> Subject: VLAN patch for 2.4.21
+> 
+> 
+> Here is a patch that adds a few new IOCTL options (not new 
+> IOCTLs per se) for the 802.1Q VLANs.
+> One ioctl allows one to get the VID for a device by
+> the interface name.  A second gets the name of the underlying 
+> device for the VLAN device.  Tested on x86 and PPC.
+> 
+> Comments welcome!
+> 
+> Thanks,
+> Ben
+> 
 
-突然のメール申し訳ございません。
-この度、弊社では新サービス『Ｍｒ.ＮＯ』を
-開始致しましたのでご連絡差し上げております。
+Oh, this is great. You just saved me the work I was going to do
+for fixing VLAN stuff over bonding :)
+Any idea how to export those in a way that would enable bonding
+and alike to include them without getting dependant on 8021q module
+being loaded ? (I'm guessing inline function in a .h file, but any
+other solution is welcome (coed sample ?).
 
-弊社、新サービス『Ｍｒ.ＮＯ』はサイトの
-ＴＯＰページに設置されております、年齢認証
-及び入退出機構での非入室ユーザー部分
-（ＮＯ・ＥＸＩＴ・退出など）を、
-・携帯サイト様は１クリック＝５円
-・ＰＣサイト様は１クリック＝１円
-で買取させて頂くものです。
 
-★------------------------------------------★
-さらに、オープニングキャンペーンと致しまして
-８月中に『Ｍｒ.ＮＯ』バナーを貴サイト内の
-入退出機構の下に貼って頂ける場合、
-・携帯サイト様は１クリック＝１２円（通常７円）
-・ＰＣサイト様は１クリック＝５円（通常２円）
-で買取させて頂きます！！
-★------------------------------------------★
-
-現状、入退出機構をお持ちでないオーナー様でも
-ＴＯＰページに入退出機構を設置して頂ければ
-買取対象となります。
-
-弊社の調査では訪問者の内、入退出機構での
-非入室ユーザーは最低2％、最高15％も存在します。
-今まで収入対象にならなかった非入室ユーザー
-クリックを弊社が全て買取致します。
-
-状況的にも２００３年１０月から法律規制による
-アダルトサイトへの年齢認証機構の義務付けが施行され
-る事もありますので、この機会に年齢認証機構の無い
-サイト様は年齢認証機構の導入と同時に弊社新サービス
-『Ｍｒ.ＮＯ』を是非ともご検討下さい。
-
-なお、簡単登録でオーナー管理ページから
-リアルタイムに収入が確認できます。
-
-詳しくは下記のサイトでご覧下さい。
-
-携帯版『Ｍｒ.ＮＯ』
-http://www.mrno.jp/i/
-
-ＰＣ版『Ｍｒ.ＮＯ』
-http://www.mrno.jp/
-
-最後に、こちらの手違いでサイトオーナー様以外に
-このメールが届いておりましたら心よりお詫び申し上げます。
-
-//////////////////////////////////////////////////
- 　株式会社アルファーカンパニー　システム開発部
- 　担当　　松井幸子
- 　info@mrno.jp
-//////////////////////////////////////////////////
+-- 
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
