@@ -1,57 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
-	in case forwarded frame has VLAN-header]
-Date: 07 Mar 2005 19:19:50 -0500
-Message-ID: <1110241190.1043.100.camel@jzny.localdomain>
-References: <20050305141225.GA5180@xi.wantstofly.org>
-	 <4229D98F.9010008@trash.net> <422A0C21.3050709@candelatech.com>
-	 <1110199696.1094.1299.camel@jzny.localdomain>
-	 <Pine.LNX.4.62.0503072034340.5934@kaber.coreworks.de>
-	 <1110238537.1043.62.camel@jzny.localdomain>  <422CE983.7060305@trash.net>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, leo@yuriev.ru,
-        Lennert Buytenhek <buytenh@wantstofly.org>, shemminger@osdl.org,
-        netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <422CE983.7060305@trash.net>
+From: akpm@osdl.org
+Subject: [patch 1/1] remove last_rx update from loopback device
+Date: Mon,  7 Mar 2005 16:22:41 -0800
+Message-ID: <200503080022.j280MdD3008666@shell0.pdx.osdl.net>
+Cc: netdev@oss.sgi.com, akpm@osdl.org, christoph@graphe.net,
+        nirajk@calsoftinc.com, christoph@lameter.com, Shai@Scalex86.org
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-03-07 at 18:53, Patrick McHardy wrote:
-> jamal wrote:
-> >>
-> >>The priority should still start at 0. You don't want to create a 16-band
-> >>queue just to have 8 bands unused.
-> > 
-> > 
-> > say what?;-> Nothing has to start at 0. 16 priorities does not equate to
-> > 16 queues. 
-> 
-> Right. But the default pfifo_fast/prio mapping maps the upper 8 values
-> to queue 1, which seems to make this effort kind of useless. 
-> I don't know if the default-mapping of the lower 8 values is useable 
-> in this context, 
 
-Indeed that looks bad. But wouldnt have helped if we started at 0
-either. You need monotonically increasing values to make proper
-sense. So i suppose to do proper qos with L2, one must install the prio
-qdisc and rewrite the priomap.
+From: Christoph Lameter <christoph@graphe.net>
 
-The mapping used in pfifo_fast is derived from RFC1349 4 bit TOS which
-is really considered toast these days. We need to revamp things - but
-this would require some surgery in the route code as well (so maybe safe
-to leave as is).
+The last_rx field in the loopback driver is updated on every xmit but is
+not used otherwise.  Accesses to ->last_rx cause unecessary traffic on the
+interlink for NUMA systems which limits the performance of the loopback
+device.
 
-> I need to inform myself more on this subject (thanks for the
-> IEEE vs. IETF pointers).
-> 
+The comment given at include/linux/netdevice.h says that last_rx may be
+used for future network-power-down code, which is likely not relevant for
+the loopback device (please let me know if it is otherwise ..).
 
-Has bitten me a few times when trying to do Qos between switches and
-routers.
+Signed-off-by: Niraj Kumar <nirajk@calsoftinc.com>
+Signed-off-by: Christoph Lameter <christoph@lameter.com>
+Signed-off-by: Shai Fultheim <Shai@Scalex86.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
-cheers,
-jamal
+ 25-akpm/drivers/net/loopback.c |    2 --
+ 1 files changed, 2 deletions(-)
+
+diff -puN drivers/net/loopback.c~remove-last_rx-update-from-loopback-device drivers/net/loopback.c
+--- 25/drivers/net/loopback.c~remove-last_rx-update-from-loopback-device	Mon Mar  7 16:21:49 2005
++++ 25-akpm/drivers/net/loopback.c	Mon Mar  7 16:21:49 2005
+@@ -144,8 +144,6 @@ static int loopback_xmit(struct sk_buff 
+ 		return 0;
+ 	}
+ 
+-	dev->last_rx = jiffies;
+-
+ 	lb_stats = &per_cpu(loopback_stats, get_cpu());
+ 	lb_stats->rx_bytes += skb->len;
+ 	lb_stats->tx_bytes += skb->len;
+_
