@@ -1,47 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] TCP congestion schedulers
-Date: Tue, 29 Mar 2005 09:17:25 -0800
-Message-ID: <20050329091725.4f955ee7@dxpl.pdx.osdl.net>
-References: <20050309210442.3e9786a6.davem@davemloft.net>
-	<4230288F.1030202@ev-en.org>
-	<20050310182629.1eab09ec.davem@davemloft.net>
-	<20050311120054.4bbf675a@dxpl.pdx.osdl.net>
-	<20050311201011.360c00da.davem@davemloft.net>
-	<20050314151726.532af90d@dxpl.pdx.osdl.net>
-	<m13bur5qyo.fsf@muc.de>
-	<Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
-	<20050322074122.GA64595@muc.de>
-	<20050328155117.7c5de370@dxpl.pdx.osdl.net>
-	<20050329152538.GF63268@muc.de>
+From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
+	Topics
+Date: Tue, 29 Mar 2005 09:19:22 -0800
+Message-ID: <1112116762.5088.65.camel@beastie>
+References: <424346FE.20704@cs.wisc.edu>
+	 <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org>
+	 <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org>
+	 <1111905181.4753.15.camel@mylaptop>
+	 <20050326224621.61f6d917.davem@davemloft.net>
+	 <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>
+	 <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>
+	 <20050329152008.GD63268@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: John Heffner <jheffner@psc.edu>, baruch@ev-en.org, netdev@oss.sgi.com
+Cc: James Bottomley <James.Bottomley@HansenPartnership.com>,
+        Rik van Riel <riel@redhat.com>, mpm@selenic.com, andrea@suse.de,
+        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
+        ksummit-2005-discuss@thunk.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Andi Kleen <ak@muc.de>
-In-Reply-To: <20050329152538.GF63268@muc.de>
+In-Reply-To: <20050329152008.GD63268@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 29 Mar 2005 17:25:38 +0200
-Andi Kleen <ak@muc.de> wrote:
-
-> > Running on 2 Cpu Opteron using netperf loopback mode shows that the change is
-> > very small when averaged over 10 runs. Overall there is 
-> > a .28% decrease in CPU usage and a .96% loss in throughput.  But both those
-> > values are less than twice standard deviation which was .4% for the CPU measurements
-> > and .8% for the performance measurements.  I can't see it as a worth
-> > bothering unless there is some big money benchmark on the line, in which case
-> > it would make more sense to look at other optimizations of the loopback
-> > path.
+On Tue, 2005-03-29 at 17:20 +0200, Andi Kleen wrote:
+> > In your scenario, if we're out of memory and the system needs several
+> > ACK's to the swap device for pages to be released to the system, I don't
+> > see how we make forward progress since without a reserved resource to
+> > allocate from how does the ack make it up the stack to the storage
+> > driver layer?
 > 
-> Opteron has no problems with indirect calls, IA64 seems to be different
-> though.
+> Typically because the RX ring of the driver has some packets left.
 
-Getting IA64 setup today, to check.
-
-> But when you see noticeable differences even on a Opteron I find
-> it somewhat worrying.
-
-The difference was so tiny that it is in the noise of the measurements.
+You can not be sure. Some NICs has very small number for possible HW
+ring buffers. Under OOM pressure, most likely, host will be so slow that
+resources might not just be returned back to the HW in time. Though it
+depends on link-layer driver implementation.
