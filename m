@@ -1,58 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: Tue, 28 Dec 2004 14:40:22 +0100
-Message-ID: <20041228134022.GA32419@postel.suug.ch>
-References: <200412270715.iBR7Fffe026855@hera.kernel.org> <20041227121658.GI7884@postel.suug.ch> <1104240053.1100.53.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
+Date: 28 Dec 2004 08:45:20 -0500
+Message-ID: <1104241519.1089.79.camel@jzny.localdomain>
+References: <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com>
+	 <20041221123727.GA13606@electric-eye.fr.zoreil.com>
+	 <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com>
+	 <20041221204853.GA20869@electric-eye.fr.zoreil.com>
+	 <20041221212737.GK5974@waste.org>
+	 <20041221225831.GA20910@electric-eye.fr.zoreil.com>
+	 <41C93FAB.9090708@trash.net> <41C9525F.4070805@trash.net>
+	 <20041222123940.GA4241@electric-eye.fr.zoreil.com>
+	 <41C98B75.9020802@trash.net>  <20041222171836.GL5974@waste.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, Francois Romieu <romieu@fr.zoreil.com>,
+        Mark Broadbent <markb@wetlettuce.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1104240053.1100.53.camel@jzny.localdomain>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20041222171836.GL5974@waste.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1104240053.1100.53.camel@jzny.localdomain> 2004-12-28 08:20
-> On Mon, 2004-12-27 at 07:16, Thomas Graf wrote:
-> > > ChangeSet 1.2055.37.1, 2004/11/17 16:08:01-08:00, util@deuroconsult.ro
-> > > 
-> > > 	[PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-> > > 	
-> > > 	Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
-> > > 	Signed-off-by: David S. Miller <davem@davemloft.net>
+On Wed, 2004-12-22 at 12:18, Matt Mackall wrote:
+> On Wed, Dec 22, 2004 at 03:57:57PM +0100, Patrick McHardy wrote:
+> > >Of course the patch is completely ugly and violates any layering
+> > >principle one could think of. It was not submitted for inclusion :o)
 > > 
-> > I must have missed this one. This should have been implemented in the
-> > metadata action module to make it available to all classifiers.
+> > Sure, but I think we should have a short-term workaround until
+> > a better solution has been invented. Maybe dropping the packets
+> > would be best for now, it only affects printks issued in paths
+> > starting at qdisc_restart (-> hard_start_xmit -> ...). Queueing
+> > the packets might also cause reordering since not all packets
+> > are queued.
 > 
-> You mean meta match. 
+> When I mentioned queueing, I was thinking of a netpoll-private queue
+> that would be hooked to a softirq or some such so that it would be
+> pushed out as soon as possible. Dropping may be the better approach 
 
-Yes, I was thinking about implementing it as action, any objections?
+I think so - just junk those packets. 
 
-> >  We
-> > should really stop to add more stuff to specific classifiers which have
-> > to be removed once we have metamatch. I've made a proposal on paper
-> > just need some more time to cook up a patch.
-> 
-> I have cycles now. Are you working on this or should i invest some of my
-> cycles in it? Lets fix this once and for all.
-
-I don't care, I'm still testing the patchset to make classifer changes
-consistent again. A few big changes to tcindex/route classifier need
-extensive testing.
-
-My thoughts on meta match:
-  
-  A match consists of a header, lvalue, rvalue and stats. The header
-  contains the handle, the requested operand (eq,lt,gt) and a flag to
-  invert the meaning of the match. A value consists of a type and data
-  where type specifies the actual metadata to be used. A few upper bits
-  of the type specify the kind, i.e. wether it's numeric or a
-  bytestring. Only values with matching upper bits can be compared.
-  Additionally a mask and shift operator can be configured. Why so
-  complicated? Comparing two kernel meta values can useful, realdev
-  == indev when classyfing on tunnels, comparing backlogs, etc. Device
-  matches should be made available as both numeric and bytestring match
-  to have a fastpath when ifindex is stable and a slower path which is
-  more flexible to changes.
+cheers,
+jamal
