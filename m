@@ -1,28 +1,25 @@
-From: Eric Lemoine <Eric.Lemoine@sun.com>
-Subject: Re: "Loopback" route through two cards?
-Date: Wed, 4 Sep 2002 11:26:45 +0200
+From: System Attendant <HRTADES2-SA@siemens.atea.be>
+Subject: ScanMail Message: To Recipient virus found and action taken.
+Date: Wed, 4 Sep 2002 15:56:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020904092644.GF329@hookipa>
-References: <20020903050441.4052F2C414@lists.samba.org> <Pine.GSO.4.30.0209030729370.7754-100000@shell.cyberus.ca>
+Message-ID: <6B546A602AD2D211BFF00008C7A42889070EDDE6@hrtades2.atea.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.30.0209030729370.7754-100000@shell.cyberus.ca>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Unless you are trying to stress test NAT, i wouldnt go the NAT path.
-> Have you looked at the packet generator in 2.4.19? With it you can
-> bypass IP totaly.
+ScanMail for Microsoft Exchange has detected virus-infected attachment(s).
 
-pktgen is really cool stuff!
+Sender = tab_@home_off.gif.sgi.com
+Recipient(s) = netdev@oss.sgi.com
+Subject = A very  humour game
+Scanning Time = 09/04/2002 15:56:23
 
-I dont see what multiskb could be used for. Does anybody know?
+Action on virus found:
+The attachment install.exe matched file blocking settings. ScanMail has
+Moved it.  The attachment was moved to C:\Program
+Files\Trend\Smex\Alert\install3d761107346.exe_.
 
-Thx.
-
-Cheers,
--- 
-Eric
+Warning to recipient. ScanMail has detected a virus.
