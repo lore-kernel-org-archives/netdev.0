@@ -1,28 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6: add missing sentinel for addrconf procfs
-Date: Wed, 21 Jan 2004 11:30:29 +0900 (JST)
+From: Jes Sorensen <jes@wildopensource.com>
+Subject: Re: [PATCH] kill ancient compat cruft from acenic
+Date: 21 Jan 2004 03:36:17 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040121.113029.39883350.yoshfuji@linux-ipv6.org>
-References: <20040120.094223.76534381.yoshfuji@linux-ipv6.org>
-	<20040120104820.77ff135f.shemminger@osdl.org>
+Message-ID: <yq065f566m6.fsf@wildopensource.com>
+References: <20040120141717.GA7549@lst.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20040120104820.77ff135f.shemminger@osdl.org>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20040120141717.GA7549@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040120104820.77ff135f.shemminger@osdl.org> (at Tue, 20 Jan 2004 10:48:20 -0800), Stephen Hemminger <shemminger@osdl.org> says:
+>>>>> "Christoph" == Christoph Hellwig <hch@lst.de> writes:
 
-> > Sorry, I forgot to increase the number of members in the array and 
-> > that the sentinel was removed.
-> > So, add missing sentinel explicitly.
-> 
-> How about adding all them explicitly to prevent future errors?
+Christoph> This kills all the cruft needed for supporting anything
+Christoph> other than halfway recent 2.4 and 2.6 kernels.  Should make
+Christoph> converting to the pci hotplug APIs much easier.
 
-agreed.
+Looks pretty decent, are you sure the MOD_INC_USE_COUNT isn't needed
+for 2.4.18+ ? (no I haven't checked).
 
---yoshfuji
+Other than that I am fine with the patch.
+
+Cheers,
+Jes
