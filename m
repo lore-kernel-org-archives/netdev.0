@@ -1,115 +1,250 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] remove concat. with __FUNCTION__ (drivers/net/) (V2)
-Date: Wed, 7 Apr 2004 11:08:19 -0700
+From: Dipankar Sarma <dipankar@in.ibm.com>
+Subject: Re: route cache DoS testing and softirqs
+Date: Thu, 8 Apr 2004 01:18:43 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040407110819.61f55064.rddunlap@osdl.org>
+Message-ID: <20040407194842.GA4548@in.ibm.com>
+References: <20040331171023.GA4543@in.ibm.com> <16491.4593.718724.277551@robur.slu.se> <20040331203750.GB4543@in.ibm.com> <20040331212817.GQ2143@dualathlon.random> <20040331214342.GD4543@in.ibm.com> <16497.37720.607342.193544@robur.slu.se> <20040405212220.GH4003@in.ibm.com> <16498.43191.733850.18276@robur.slu.se> <20040406195249.GA4581@in.ibm.com> <16500.7408.240318.350476@robur.slu.se>
+Reply-To: dipankar@in.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
+Content-Type: multipart/mixed; boundary="9amGYk9869ThD9tj"
+Cc: Andrea Arcangeli <andrea@suse.de>, "David S. Miller" <davem@redhat.com>,
+        kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        paulmck@us.ibm.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <16500.7408.240318.350476@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
+--9amGYk9869ThD9tj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Previous patch had a small problem.  This patch replaces the
-previous version.  I can/will send a relative/differential diff
-if you want/need it.
-
-
-Problem:
-
-On Tue, 2004-04-06 at 14:45, Randy.Dunlap wrote:
-> From: Tony Breeds <tony@bakeyournoodle.com>
+On Wed, Apr 07, 2004 at 05:23:28PM +0200, Robert Olsson wrote:
+> Dipankar Sarma writes:
 > 
-> "concatenation of string literals with __FUNCTION__ is deprecated"
-> -#define TRACE_ENTER(devname) DEBUG(2, "%s: -> " __FUNCTION__ "()\n", devname);
-> -#define TRACE_EXIT(devname)  DEBUG(2, "%s: <- " __FUNCTION__ "()\n", devname);
-> +#define TRACE_ENTER(devname) DEBUG(2, "%s: -> %s()\n", __FUNCTION__, devname);
-> +#define TRACE_EXIT(devname)  DEBUG(2, "%s: <- %s()\n", __FUNCTION__, devname);
+>  > Robert, you should try out rs-throttle-rcu.patch. The idea is that
+>  > we don't run too many callbacks in a single rcu. In my setup,
+>  > at 100kpps, I see as many as 30000 rcu callbacks in a single
+>  > tasklet handler. That is likely hurting even the softirq-only
+>  > RCU grace periods. Setting rcupdate.maxbatch=4 will do only 4 per
+>  > tasklet thus providing more quiescent points to the system.
+> 
+> Hello!
+> 
+> No bad things happens, lots of overflows and drop in performance
+> and the userland app can stall for 32 sec. We seems to spin in
+> softirq to much and still don't get things done. 
 
-| Hi.  This isn't the same.  It should be:
-| 
-| +#define TRACE_ENTER(devname) DEBUG(2, "%s: -> %s()\n", devname, __FUNCTION__);
-| +#define TRACE_EXIT(devname)  DEBUG(2, "%s: <- %s()\n", devname, __FUNCTION__ );
+Argh!! Andrea, this means that throttling rcu callbacks with
+back-to-back rcu tasklets for better scheduling latency is bad
+for this kind of DoS situation. I think we will have to address
+the softirq limiting question.
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+That said, Robert, one last experiment - if you are running UP,
+can you try the following patchset (should apply on top of vanilla
+2.6.x) ? This implements direct invocation of callbacks instead
+of waiting for rcu grace periods in UP kernel. This would be a
+good data point to understand what happens.
+
+Thanks
+Dipankar
+
+--9amGYk9869ThD9tj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="rcu-rt-latency.patch"
 
 
- drivers/net/gt96100eth.c       |    2 +-
- drivers/net/irda/smsc-ircc2.c  |    6 +++---
- drivers/net/irda/via-ircc.c    |    2 +-
- drivers/net/wireless/orinoco.h |    4 ++--
- 4 files changed, 7 insertions(+), 7 deletions(-)
+A new interface call_rcu_rt() allows the updates to happen immediately
+in a UP kernel. This assumes that no RCU protection is needed 
+against interrupts.
 
-diff -puN drivers/net/gt96100eth.c~remove_concat_FUNCTION_drivers drivers/net/gt96100eth.c
---- linux-265-kj1/drivers/net/gt96100eth.c~remove_concat_FUNCTION_drivers	2004-04-05 13:31:23.000000000 -0700
-+++ linux-265-kj1-rddunlap/drivers/net/gt96100eth.c	2004-04-05 13:31:23.000000000 -0700
-@@ -1212,7 +1212,7 @@ gt96100_rx(struct net_device *dev, u32 s
- 		    cmdstat, nextOut);
+
+ include/linux/rcupdate.h |   14 ++++++++++++++
+ 1 files changed, 14 insertions(+)
+
+diff -puN include/linux/rcupdate.h~rcu-rt-latency include/linux/rcupdate.h
+--- linux-2.6.0-test8-rcu/include/linux/rcupdate.h~rcu-rt-latency	2003-11-30 19:54:09.000000000 +0530
++++ linux-2.6.0-test8-rcu-dipankar/include/linux/rcupdate.h	2003-11-30 21:39:50.000000000 +0530
+@@ -131,6 +131,20 @@ extern void rcu_check_callbacks(int cpu,
+ extern void FASTCALL(call_rcu(struct rcu_head *head, 
+                           void (*func)(void *arg), void *arg));
+ extern void synchronize_kernel(void);
++#if !defined(CONFIG_SMP) && defined(CONFIG_PREEMPT)
++static inline void call_rcu_rt(struct rcu_head *head, 
++                          void (*func)(void *arg), void *arg)
++{
++	func(arg);
++}
++#else
++static inline void call_rcu_rt(struct rcu_head *head, 
++                          void (*func)(void *arg), void *arg)
++{
++	call_rcu(head, func, arg);
++}
++#endif
++
  
- 		if (cmdstat & (u32)rxOwn) {
--			//err(__FUNCTION__ ": device owns descriptor!\n");
-+			//err("%s: device owns descriptor!\n", __FUNCTION__);
- 			// DMA is not finished updating descriptor???
- 			// Leave and come back later to pick-up where
- 			// we left off.
-diff -puN drivers/net/irda/smsc-ircc2.c~remove_concat_FUNCTION_drivers drivers/net/irda/smsc-ircc2.c
---- linux-265-kj1/drivers/net/irda/smsc-ircc2.c~remove_concat_FUNCTION_drivers	2004-04-05 13:31:23.000000000 -0700
-+++ linux-265-kj1-rddunlap/drivers/net/irda/smsc-ircc2.c	2004-04-05 13:31:23.000000000 -0700
-@@ -1429,7 +1429,7 @@ static irqreturn_t smsc_ircc_interrupt(i
+ #endif /* __KERNEL__ */
+ #endif /* __LINUX_RCUPDATE_H */
+
+_
+
+--9amGYk9869ThD9tj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="dcache-rcu-latency.patch"
+
+
+Use the new call_rcu_rt() primitive to immediately free dentries
+to slab for UP/CONFIG_PREEMPT. This should improve scheduling
+latencies by reducing rcu callback processing time.
+
+
+ fs/dcache.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN fs/dcache.c~dcache-rcu-latency fs/dcache.c
+--- linux-2.6.0-test8-rcu/fs/dcache.c~dcache-rcu-latency	2003-11-30 21:22:02.000000000 +0530
++++ linux-2.6.0-test8-rcu-dipankar/fs/dcache.c	2003-11-30 21:22:16.000000000 +0530
+@@ -78,7 +78,7 @@ static void d_free(struct dentry *dentry
+ {
+ 	if (dentry->d_op && dentry->d_op->d_release)
+ 		dentry->d_op->d_release(dentry);
+- 	call_rcu(&dentry->d_rcu, d_callback, dentry);
++ 	call_rcu_rt(&dentry->d_rcu, d_callback, dentry);
+ }
+ 
+ /*
+
+_
+
+--9amGYk9869ThD9tj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="rtcache-rcu-latency.patch"
+
+ include/linux/rcupdate.h |    2 ++
+ net/ipv4/route.c         |   26 +++++++++++++-------------
+ 2 files changed, 15 insertions(+), 13 deletions(-)
+
+diff -puN net/ipv4/route.c~rtcache-rcu-latency net/ipv4/route.c
+--- linux-2.6.0-test8-rcu/net/ipv4/route.c~rtcache-rcu-latency	2003-12-15 01:42:09.000000000 +0530
++++ linux-2.6.0-test8-rcu-dipankar/net/ipv4/route.c	2003-12-15 02:15:13.000000000 +0530
+@@ -223,11 +223,11 @@ static struct rtable *rt_cache_get_first
+ 	struct rt_cache_iter_state *st = seq->private;
+ 
+ 	for (st->bucket = rt_hash_mask; st->bucket >= 0; --st->bucket) {
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		r = rt_hash_table[st->bucket].chain;
+ 		if (r)
+ 			break;
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 	}
+ 	return r;
+ }
+@@ -239,10 +239,10 @@ static struct rtable *rt_cache_get_next(
+ 	smp_read_barrier_depends();
+ 	r = r->u.rt_next;
+ 	while (!r) {
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 		if (--st->bucket < 0)
+ 			break;
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		r = rt_hash_table[st->bucket].chain;
+ 	}
+ 	return r;
+@@ -278,7 +278,7 @@ static void *rt_cache_seq_next(struct se
+ static void rt_cache_seq_stop(struct seq_file *seq, void *v)
+ {
+ 	if (v && v != SEQ_START_TOKEN)
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ }
+ 
+ static int rt_cache_seq_show(struct seq_file *seq, void *v)
+@@ -436,13 +436,13 @@ static struct file_operations rt_cpu_seq
+   
+ static __inline__ void rt_free(struct rtable *rt)
+ {
+-	call_rcu(&rt->u.dst.rcu_head, (void (*)(void *))dst_free, &rt->u.dst);
++	call_rcu_rt(&rt->u.dst.rcu_head, (void (*)(void *))dst_free, &rt->u.dst);
+ }
+ 
+ static __inline__ void rt_drop(struct rtable *rt)
+ {
+ 	ip_rt_put(rt);
+-	call_rcu(&rt->u.dst.rcu_head, (void (*)(void *))dst_free, &rt->u.dst);
++	call_rcu_rt(&rt->u.dst.rcu_head, (void (*)(void *))dst_free, &rt->u.dst);
+ }
+ 
+ static __inline__ int rt_fast_clean(struct rtable *rth)
+@@ -2216,7 +2216,7 @@ int __ip_route_output_key(struct rtable 
+ 
+ 	hash = rt_hash_code(flp->fl4_dst, flp->fl4_src ^ (flp->oif << 5), flp->fl4_tos);
+ 
+-	rcu_read_lock();
++	rcu_read_lock_bh();
+ 	for (rth = rt_hash_table[hash].chain; rth; rth = rth->u.rt_next) {
+ 		smp_read_barrier_depends();
+ 		if (rth->fl.fl4_dst == flp->fl4_dst &&
+@@ -2232,13 +2232,13 @@ int __ip_route_output_key(struct rtable 
+ 			dst_hold(&rth->u.dst);
+ 			rth->u.dst.__use++;
+ 			RT_CACHE_STAT_INC(out_hit);
+-			rcu_read_unlock();
++			rcu_read_unlock_bh();
+ 			*rp = rth;
+ 			return 0;
+ 		}
+ 		RT_CACHE_STAT_INC(out_hlist_search);
+ 	}
+-	rcu_read_unlock();
++	rcu_read_unlock_bh();
+ 
+ 	return ip_route_output_slow(rp, flp);
+ }
+@@ -2448,7 +2448,7 @@ int ip_rt_dump(struct sk_buff *skb,  str
+ 		if (h < s_h) continue;
+ 		if (h > s_h)
+ 			s_idx = 0;
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		for (rt = rt_hash_table[h].chain, idx = 0; rt;
+ 		     rt = rt->u.rt_next, idx++) {
+ 			smp_read_barrier_depends();
+@@ -2459,12 +2459,12 @@ int ip_rt_dump(struct sk_buff *skb,  str
+ 					 cb->nlh->nlmsg_seq,
+ 					 RTM_NEWROUTE, 1) <= 0) {
+ 				dst_release(xchg(&skb->dst, NULL));
+-				rcu_read_unlock();
++				rcu_read_unlock_bh();
+ 				goto done;
+ 			}
+ 			dst_release(xchg(&skb->dst, NULL));
+ 		}
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
  	}
  
- 	if (iir & IRCC_IIR_ACTIVE_FRAME) {
--		/*printk(KERN_WARNING __FUNCTION__ "(): Active Frame\n");*/
-+		/*printk(KERN_WARNING "%s(): Active Frame\n", __FUNCTION__);*/
- 	}
+ done:
+diff -puN include/linux/rcupdate.h~rtcache-rcu-latency include/linux/rcupdate.h
+--- linux-2.6.0-test8-rcu/include/linux/rcupdate.h~rtcache-rcu-latency	2003-12-15 02:15:22.000000000 +0530
++++ linux-2.6.0-test8-rcu-dipankar/include/linux/rcupdate.h	2003-12-22 23:31:14.588119016 +0530
+@@ -123,6 +123,8 @@ static inline int rcu_pending(int cpu) 
  
- 	/* Enable interrupts again */
-@@ -1995,7 +1995,7 @@ static int __init smsc_ircc_look_for_chi
- 	while(address->cfg_base){
- 		cfg_base = address->cfg_base;
- 		
--		/*printk(KERN_WARNING __FUNCTION__ "(): probing: 0x%02x for: 0x%02x\n", cfg_base, address->type);*/
-+		/*printk(KERN_WARNING "%s(): probing: 0x%02x for: 0x%02x\n", __FUNCTION__, cfg_base, address->type);*/
- 		
- 		if( address->type & SMSCSIO_TYPE_FDC){
- 			type = "FDC";
-@@ -2040,7 +2040,7 @@ static int __init smsc_superio_flat(cons
- 	outb(SMSCSIOFLAT_UARTMODE0C_REG, cfgbase);
- 	mode = inb(cfgbase+1);
- 	
--	/*printk(KERN_WARNING __FUNCTION__ "(): mode: 0x%02x\n", mode);*/
-+	/*printk(KERN_WARNING "%s(): mode: 0x%02x\n", __FUNCTION__, mode);*/
- 	
- 	if(!(mode & SMSCSIOFLAT_UART2MODE_VAL_IRDA))
- 		WARNING("%s(): IrDA not enabled\n", __FUNCTION__);
-diff -puN drivers/net/irda/via-ircc.c~remove_concat_FUNCTION_drivers drivers/net/irda/via-ircc.c
---- linux-265-kj1/drivers/net/irda/via-ircc.c~remove_concat_FUNCTION_drivers	2004-04-05 13:31:23.000000000 -0700
-+++ linux-265-kj1-rddunlap/drivers/net/irda/via-ircc.c	2004-04-05 13:31:23.000000000 -0700
-@@ -360,7 +360,7 @@ static __devinit int via_ircc_open(int i
+ #define rcu_read_lock()		preempt_disable()
+ #define rcu_read_unlock()	preempt_enable()
++#define rcu_read_lock_bh()	local_bh_disable()
++#define rcu_read_unlock_bh()	local_bh_enable()
  
- 	/* Reserve the ioports that we need */
- 	if (!request_region(self->io.fir_base, self->io.fir_ext, driver_name)) {
--//              WARNING(__FUNCTION__ "(), can't get iobase of 0x%03x\n",self->io.fir_base);
-+//              WARNING("%s(), can't get iobase of 0x%03x\n", __FUNCTION__, self->io.fir_base);
- 		err = -ENODEV;
- 		goto err_out1;
- 	}
-diff -puN drivers/net/wireless/orinoco.h~remove_concat_FUNCTION_drivers drivers/net/wireless/orinoco.h
---- linux-265-kj1/drivers/net/wireless/orinoco.h~remove_concat_FUNCTION_drivers	2004-04-05 13:31:23.000000000 -0700
-+++ linux-265-kj1-rddunlap/drivers/net/wireless/orinoco.h	2004-04-05 13:31:23.000000000 -0700
-@@ -125,8 +125,8 @@ extern int orinoco_debug;
- #define DEBUG(n, args...) do { } while (0)
- #endif	/* ORINOCO_DEBUG */
- 
--#define TRACE_ENTER(devname) DEBUG(2, "%s: -> " __FUNCTION__ "()\n", devname);
--#define TRACE_EXIT(devname)  DEBUG(2, "%s: <- " __FUNCTION__ "()\n", devname);
-+#define TRACE_ENTER(devname) DEBUG(2, "%s: -> %s()\n", devname, __FUNCTION__);
-+#define TRACE_EXIT(devname)  DEBUG(2, "%s: <- %s()\n", devname, __FUNCTION__);
- 
- extern struct net_device *alloc_orinocodev(int sizeof_card,
- 					   int (*hard_reset)(struct orinoco_private *));
+ extern void rcu_init(void);
+ extern void rcu_check_callbacks(int cpu, int user);
+
+_
+
+--9amGYk9869ThD9tj--
