@@ -1,35 +1,41 @@
-From: Martin Schwidefsky <schwidefsky@de.ibm.com>
-Subject: Re: [PATCH] s390: claw network device driver
-Date: Wed, 30 Mar 2005 08:49:04 +0100
-Message-ID: <OFC1333756.61788013-ON41256FD4.002A627F-41256FD4.002AF205@de.ibm.com>
-References: <4249B4F4.4050205@pobox.com>
+From: abuas_z <rocky7@wp.pl>
+Subject: Re: [Orinoco-devel] [0/5] Orinoco merge updates, part the fourth
+Date: Wed, 30 Mar 2005 09:56:19 +0200
+Message-ID: <548301398.20050330095619@wp.pl>
+References: <20050330034238.GF6478@localhost.localdomain>
+Reply-To: abuas_z <rocky7@wp.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>, Frank Pavlic <PAVLIC@de.ibm.com>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <4249B4F4.4050205@pobox.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Roskin <proski@gnu.org>,
+	Orinoco Development List <orinoco-devel@lists.sourceforge.net>,
+	<netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261792AbVC3H4O@vger.kernel.org>
+To: David Gibson <david@gibson.dropbear.id.au>
+In-Reply-To: <20050330034238.GF6478@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> That's OK with me.  As an example, on the MIPS side of things, Ralf
-> sends most MIPS stuff straight to Linus, but I queue all his
-> drivers/net/* patches into my queue, and that gets submitted separately
-> (though just as rapidly) upstream with other net driver changes.
+Hello,
 
-Ok then, lets make it so. Frank creates the patches and sends them to
-Jeff. Less work for me, I certainly like it :-))
+DG> Here's yet another batch of orinoco updates.
 
-> I certainly do recognize that qeth, in particular, is a network driver
-> unlike all others in the kernel ;-)
+Will this patches be included in CVS-Head code? Now I checked and the
+last modification of orinoco.c was about 4 days ago, when switch to
+enable monitor mode on all firmwares was included...
 
-Oh yes, that driver is a VERY different beast.
+DG> Smaller and less significant than the last,
 
-blue skies,
-   Martin
+What was the last?
 
-Martin Schwidefsky
-Linux for zSeries Development & Services
-IBM Deutschland Entwicklung GmbH
+DG> this is basically a handful of remaining small updates before
+DG> tackling the big changes (wext v15, monitor and scanning).
+
+So, the next thing that will be do, will be WPA and monitor mode
+improvement (maybe in all firmwares)?
+
+-- 
+Bye,
+ abuas_z                            mailto:rocky7@wp.pl
+
+The Bat! v3.0.2.10, Windows XP 5.1, Build 2600, Service Pack 1
