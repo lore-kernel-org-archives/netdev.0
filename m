@@ -1,141 +1,147 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: More IPSEC trouble
-Date: Sat, 12 Mar 2005 01:13:23 +0100
-Message-ID: <42323423.3000001@trash.net>
-References: <E1D9Ymg-0001x0-00@gondolin.me.apana.org.au> <Pine.LNX.4.61.0503111453320.18067@sorbus2.navaho> <42323125.20706@trash.net> <423233B9.50204@trash.net>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [PATCH ethtool-3] add ixgb dump register support
+Date: Fri, 11 Mar 2005 16:48:31 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0503111634500.24631-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090809090208090007040601"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Steve Hill <steve@services.navaho.net>
-In-Reply-To: <423233B9.50204@trash.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090809090208090007040601
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+I didn't to a push to gkernel bitkeeper because I've never done that
+before, Jeff if you want that, I can try it.
 
-Patrick McHardy wrote:
-> Patrick McHardy wrote:
-> 
->> Steve Hill wrote:
->>
->>> This was a configuration mistake on my part and admittedly it 
->>> shouldn't work properly - however, it triggered a kernel bug: sending 
->>> a packet with the DF flag set which will grow to be > the MTU when 
->>> encrypted causes the kernel to generate an ICMP Frag Needed packet, 
->>> which got caught by the policy and this triggered the kernel to lock 
->>> up hard.
->>
->>
->>
->> Thanks for tracking this down, we need to unlock the state before
->> calling icmp_send(). This patch fixes it, it should apply to 2.6.10
->> if you replace dst_mtu() by dst_pmtu() in the context.
-> 
-> 
-> Second try .. this one compiles.
+This is off a bitkeeper clone from yesterday.
 
-Embarrasing .. had I actually attached the new patch it would
-have compiled :) Time to go to bed it seems ..
+Apologies if I screwed up something with bitkeeper, as I'm just figuring
+it all out but want to learn!
 
-
---------------090809090208090007040601
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+Thank you for your support,
+  Jesse
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/03/12 01:10:40+01:00 kaber@coreworks.de 
-#   [XFRM]: Avoid possible deadlock for locally generated ICMP errors
+#   2005/03/11 09:26:41-08:00 jbrandeb@isotope.jf.intel.com 
+#   Addition of ixgb dump register (-d command) support for the Intel PRO/10Gb Server Adapter family.
 #   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv6/xfrm6_output.c
-#   2005/03/12 01:10:31+01:00 kaber@coreworks.de +5 -3
-#   [XFRM]: Avoid possible deadlock for locally generated ICMP errors
+#   Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 #   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/xfrm4_output.c
-#   2005/03/12 01:10:31+01:00 kaber@coreworks.de +5 -3
-#   [XFRM]: Avoid possible deadlock for locally generated ICMP errors
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
---- a/net/ipv4/xfrm4_output.c	2005-03-12 01:12:12 +01:00
-+++ b/net/ipv4/xfrm4_output.c	2005-03-12 01:12:12 +01:00
-@@ -67,7 +67,7 @@
- 	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
- }
+diff -Nru a/Makefile.am b/Makefile.am
+--- a/Makefile.am	2005-03-11 09:27:23 -08:00
++++ b/Makefile.am	2005-03-11 09:27:23 -08:00
+@@ -6,7 +6,7 @@
+ sbin_PROGRAMS = ethtool
+ ethtool_SOURCES = de2104x.c ethtool.c ethtool-copy.h ethtool-util.h natsemi.c \
+                   e1000.c realtek.c e100.c tg3.c amd8111e.c pcnet32.c \
+-		  fec_8xx.c
++                  fec_8xx.c ixgb.c
  
--static int xfrm4_tunnel_check_size(struct sk_buff *skb)
-+static int xfrm4_tunnel_check_size(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	int mtu, ret = 0;
- 	struct dst_entry *dst;
-@@ -84,6 +84,7 @@
- 	dst = skb->dst;
- 	mtu = dst_mtu(dst);
- 	if (skb->len > mtu) {
-+		spin_unlock_bh(&x->lock);
- 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
- 		ret = -EMSGSIZE;
- 	}
-@@ -109,9 +110,10 @@
- 		goto error;
+ dist-hook:
+ 	cp $(top_srcdir)/ethtool.spec $(distdir)
+diff -Nru a/ethtool-util.h b/ethtool-util.h
+--- a/ethtool-util.h	2005-03-11 09:27:23 -08:00
++++ b/ethtool-util.h	2005-03-11 09:27:23 -08:00
+@@ -39,4 +39,7 @@
+ /* Motorola 8xx FEC Ethernet controller */
+ int fec_8xx_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
  
- 	if (x->props.mode) {
--		err = xfrm4_tunnel_check_size(skb);
-+		err = xfrm4_tunnel_check_size(x, skb);
- 		if (err)
--			goto error;
-+			/* xfrm4_tunnel_check_size() drops the lock on error */
-+			goto error_nolock;
- 	}
++/* Intel PRO/10GbE Server Adapters */
++int ixgb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs);
++
+ #endif
+diff -Nru a/ethtool.c b/ethtool.c
+--- a/ethtool.c	2005-03-11 09:27:23 -08:00
++++ b/ethtool.c	2005-03-11 09:27:23 -08:00
+@@ -11,6 +11,7 @@
+  * e1000 support by Scott Feldman <scott.feldman@intel.com>
+  * e100 support by Wen Tao <wen-hwa.tao@intel.com>
+  * amd8111e support by Reeja John <reeja.john@amd.com>
++ * ixgb support by Jesse Brandeburg <jesse.brandeburg@intel.com>
+  *
+  * TODO:
+  *   * no-args => summary of each device (mii-tool style)
+@@ -1012,6 +1013,7 @@
+ 	{ "amd8111e", amd8111e_dump_regs },
+ 	{ "pcnet32", pcnet32_dump_regs },
+ 	{ "fec_8xx", fec_8xx_dump_regs },
++	{ "ixgb", ixgb_dump_regs },
+ };
  
- 	xfrm4_encap(skb);
-diff -Nru a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
---- a/net/ipv6/xfrm6_output.c	2005-03-12 01:12:12 +01:00
-+++ b/net/ipv6/xfrm6_output.c	2005-03-12 01:12:12 +01:00
-@@ -74,7 +74,7 @@
- 	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
- }
- 
--static int xfrm6_tunnel_check_size(struct sk_buff *skb)
-+static int xfrm6_tunnel_check_size(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	int mtu, ret = 0;
- 	struct dst_entry *dst = skb->dst;
-@@ -84,6 +84,7 @@
- 		mtu = IPV6_MIN_MTU;
- 
- 	if (skb->len > mtu) {
-+		spin_unlock_bh(&x->lock);
- 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu, skb->dev);
- 		ret = -EMSGSIZE;
- 	}
-@@ -109,9 +110,10 @@
- 		goto error;
- 
- 	if (x->props.mode) {
--		err = xfrm6_tunnel_check_size(skb);
-+		err = xfrm6_tunnel_check_size(x, skb);
- 		if (err)
--			goto error;
-+			/* xfrm6_tunnel_check_size drops the lock on error */
-+			goto error_nolock;
- 	}
- 
- 	xfrm6_encap(skb);
-
---------------090809090208090007040601--
+ static int dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
+diff -Nru a/ixgb.c b/ixgb.c
+--- /dev/null	Wed Dec 31 16:00:00 196900
++++ b/ixgb.c	2005-03-11 09:27:23 -08:00
+@@ -0,0 +1,70 @@
++/* Copyright (c) 2004 Intel Corporation */
++/* support added by Jesse Brandeburg <jesse.brandeburg@intel.com> */
++#include <stdio.h>
++#include "ethtool-util.h"
++
++#define PCI_VENDOR_INTEL            0x8086
++#define PCI_DEVICE_82597EX          0x1048
++#define PCI_DEVICE_82597EX_SR       0x1A48
++#define PCI_DEVICE_82597EX_LR       0x1B48
++
++char *reg_name[] = {
++"CTRL0", "CTRL1", "STAT", "EECD", "MFS", "ICR",
++"ICS", "IMS", "IMC", "RCTL", "FRCTL", "FRCTH",
++"RDBAL", "RDBAH", "RDLEN", "RDH", "RDT", "RDTR",
++"RXDCTL", "RAIDC", "RXCSUM", "RAL_0", "RAH_0",
++"RAL_1", "RAH_1", "RAL_2", "RAH_2", "RAL_3", "RAH_3", 
++"RAL_4", "RAH_4", "RAL_5", "RAH_5", "RAL_6", "RAH_6", 
++"RAL_7", "RAH_7", "RAL_8", "RAH_8", "RAL_9", "RAH_9", 
++"RAL_A", "RAH_A", "RAL_B", "RAH_B", "RAL_C", "RAH_C", 
++"RAL_D", "RAH_D", "RAL_E", "RAH_E", "RAL_F", "RAH_F", 
++"TCTL", "TDBAL", "TDBAH", "TDLEN", "TDH", "TDT",
++"TIDV", "TXDCTL", "TSPMT", "PAP", "PCSC", "PCSC2",
++"PCSS", "PCSS2", "XPCSS", "UCCR", "XPCSTC", "MACA", "APAE",
++"ARD", "AIS", "MSCA", "MSRWD", "TPRL", "TPRH",
++"GPRCL", "GPRCH", "BPRCL", "BPRCH", "MPRCL", "MPRCH",
++"UPRCL", "UPRCH", "VPRCL", "VPRCH", "JPRCL", "JPRCH",
++"GORCL", "GORCH", "TORL", "TORH", "RNBC", "RUC", "ROC",
++"RLEC", "CRCERRS", "ICBC", "ECBC", "MPC", "TPTL", "TPTH",
++"GPTCL", "GPTCH", "BPTCL", "BPTCH", "MPTCL", "MPTCH",
++"UPTCL", "UPTCH", "VPTCL", "VPTCH", "JPTCL", "JPTCH",
++"GOTCL", "GOTCH", "TOTL", "TOTH", "DC", "PLT64C", "TSCTC",
++"TSCTFC", "IBIC", "RFC", "LFC", "PFRC", "PFTC", "MCFRC",
++"MCFTC", "XONRXC", "XONTXC", "XOFFRXC", "XOFFTXC", "RJC"
++};
++
++int
++ixgb_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
++{
++	u32 *data = (u32 *)regs->data;
++	u16 hw_device_id;
++	u32 i;
++	u32 num_of_regs = regs->len/sizeof(u32);
++
++	/* two different driver setups */
++	if(!(regs->version & 0xF0000000)) {
++		hw_device_id = (u16)regs->version;
++		switch (hw_device_id) {
++			case PCI_DEVICE_82597EX:
++			case PCI_DEVICE_82597EX_SR:
++			case PCI_DEVICE_82597EX_LR:
++				break;
++			default: 
++				fprintf(stdout, "Unknown device ID %04x\n",
++					hw_device_id);	
++				break;
++		}
++	} else {
++		/* avoid the device check for older drivers */
++	}
++
++	fprintf(stdout, "82597EX Registers %d\n", num_of_regs);
++	fprintf(stdout, "-----------------\n\n");
++
++	for (i = 0; i < num_of_regs; i++) {
++		fprintf(stdout, "%-15s  %08x\n", 
++			reg_name[i], data[i]);
++	}
++	return 0;
++}
++
