@@ -1,24 +1,25 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/5] r8169: auto detect 32-bit slot
-Date: Wed, 9 Mar 2005 23:39:43 +0100
-Message-ID: <20050309223943.GB9502@electric-eye.fr.zoreil.com>
-References: <20050309112925.7f7900ab@dxpl.pdx.osdl.net> <m17jkgwp6i.fsf@muc.de> <20050309214023.GA9502@electric-eye.fr.zoreil.com> <200503091608.59122.jdmason@us.ibm.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: ethtool -d no longer works for e1000
+Date: Wed, 09 Mar 2005 15:02:45 -0800
+Message-ID: <422F8095.1010801@candelatech.com>
+References: <76FA8CF8F1F53240BB5B962A3385A5800256F510@orsmsx405>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@muc.de>, Stephen Hemminger <shemminger@osdl.org>,
-        netdev@oss.sgi.com
-To: Jon Mason <jdmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200503091608.59122.jdmason@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: cramerj <cramerj@intel.com>
+In-Reply-To: <76FA8CF8F1F53240BB5B962A3385A5800256F510@orsmsx405>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason <jdmason@us.ibm.com> :
-[...
-> Just lucky, I guess.  I can give it a try again.
+cramerj wrote:
+> Perhaps the network interface enumeration changed with these kernels?
+> Is the e1000 part still eth0?
 
-The content of the Config2 register could be interesting.
+Nope, nothing but 4 e1000 interfaces in this machine.
 
---
-Ueimor
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
