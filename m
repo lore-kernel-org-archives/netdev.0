@@ -1,35 +1,33 @@
-From: Andrew Morton <akpm@digeo.com>
+From: Janice Girouard <girouard@us.ibm.com>
 Subject: Re: patch for common networking error messages
-Date: Mon, 16 Jun 2003 15:27:07 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030616152707.58da808c.akpm@digeo.com>
-References: <3EEE28DE.6040808@us.ibm.com>
-	<20030616.133841.35533284.davem@redhat.com>
-	<20030616205342.GH30400@wotan.suse.de>
-	<20030616.135124.71580008.davem@redhat.com>
+Date: Mon, 16 Jun 2003 17:29:15 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <OFF1F6B3DC.30C0E5DE-ON85256D47.007AEFAF@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, janiceg@us.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, stekloff@us.ibm.com, girouard@us.ibm.com,
-	lkessler@us.ibm.com, kenistonj@us.ibm.com, jgarzik@pobox.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+Cc: Daniel Stekloff <stekloff@us.ibm.com>, janiceg@us.ibm.com,
+   jgarzik@pobox.com, kenistonj@us.ibm.com,
+   Larry Kessler <lkessler@us.ibm.com>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, niv@us.ibm.com, <niv@us.ibm.com>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030616.135124.71580008.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@redhat.com> wrote:
->
->    From: Andi Kleen <ak@suse.de>
->    Date: Mon, 16 Jun 2003 22:53:42 +0200
->    
->    Why? It will make supporting netconsole easier which has to be careful
->    to never recurse in the network driver.
-> 
-> printk can check this
 
-Actually it already does, to cover the case where an interrupt handler calls
-printk while process-context code is performing a printk.
+From: "David S. Miller" <davem@redhat.com>
+   Date : 06/16/2003 05:13 PM
 
-The nested printk will squirt the message into the log buffer and the
-"outer" code will display it.
+   egrep "promiscuous mode" net/core/dev.c | grep printk
+
+I noticed when I performed the grep, the printk shows:
+      printk(KERN_INFO "device %s %s promiscuous mode\n"
+
+For the sake of consistency and automatic error log analysis, it might be
+nice to standardize on a message closer to:
+      printk(KERN_INFO "%s: %s promiscuous mode\n"
+
+It's somewhat common, but not universal to start the error message with the
+device name followed by a colon.
+
+Janice
