@@ -1,63 +1,53 @@
-From: Henrik Nordstrom <hno@marasystems.com>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
- else")
-Date: Tue, 31 Aug 2004 12:24:34 +0200 (CEST)
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
-References: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
-	<20040830140729.7309ecc0.davem@davemloft.net>
-	<20040831013841.GA5824@sunbeam.de.gnumonks.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: neigh_create/inetdev_destroy race?
+Date: Tue, 31 Aug 2004 20:41:39 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040831104139.GA2124@gondor.apana.org.au>
+References: <20040814005411.GA18350@gondor.apana.org.au> <20040814012513.GA721@gondor.apana.org.au> <20040814013030.GA2042@gondor.apana.org.au> <20040814050848.GA11874@gondor.apana.org.au> <20040814062703.GA4806@gondor.apana.org.au> <20040815191450.77532d5d.davem@redhat.com> <20040816105131.GA11299@gondor.apana.org.au> <20040828234201.79556f6e.davem@davemloft.net> <20040829065031.GA786@gondor.apana.org.au> <20040830230820.7514985d.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com, rusty@rustcorp.com.au,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20040831013841.GA5824@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040830230820.7514985d.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 31 Aug 2004, Harald Welte wrote:
+On Mon, Aug 30, 2004 at 11:08:20PM -0700, David S. Miller wrote:
+> On Sun, 29 Aug 2004 16:50:31 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > > Secondly, until neigh_create() takes the tbl lock, it is not in
+> > > the hash tables and therefore neigh_ifdown() could not see it.
+> > 
+> > That part I agree with :) That's in fact what this race is about:
+> > neigh_ifdown does not guarantee that the hash table will be without
+> > references to idev.
+> 
+> I think we can clear this by putting neigh_parms_release() into an
+> RCU handler.  It can't be in in_dev_rcu_put.
 
-> and it apparently happens in a lot of 'typical' setups where you have a
-> masqueraded DSL line with dynamic ip address for bulk traffic, and
-> fwmark-based routing through one or more tunnel interfaces, optionally
-> with different masqerading/SNAT.
+Yes that should go a long way in resolving this problem.  However it
+is still tricky because the neighbour table doesn't refer to idev
+directly.  So we'll need to go through contortions to make sure that
+the corresponding idev is still alive when we add a neighbour with
+its neigh_parms to the hash table.  Or better yet we should ref count
+the neigh_parms directly.
 
-Should only happen if the routing is screwed up, in principle..
+> I also now believe that these sorts of races you are mentioning percolate
+> out into ip_mc_destroy_dev().
 
-> Also, the MASQUERADE lookup (obviously) has no more saddr in the lookup,
-> that's another difference from the 'original' lookup.
+Well last time I looked at it I concluded that it was safe.  It seems
+that the references are either held by timers who are all taken down
+at the very start of the destruction, or they're taken at places which
+are under spin locks.
 
-This is a possible reason why it screws up for such many people? By not 
-including the source IP you make the route lookup for determining the 
-MASQUERADE information very different from the route lookup when 
-forwardning the packet.
+Did I miss something else?
 
-I think it would for most make more sense that the source IP assignment is 
-based on routing using the original source address as key.
-
-What I don't get is why MASQUERADE needs to do a route lookup at all. 
-Isn't the traffic already routed at this point, and shouldn't it simply 
-use the source IP of the current selected route or the interface primary 
-IP of no source IP set in the route?
-
-> That is the presumption I am about to challenge.  Is the 'original'
-> interface really the one we want in this case?
-
-If there is policy routing saying that packets with a given source 
-should go out another interface my opinion is that they should.
-
-I have been using SNAT in quite many complex routing setups and so far has 
-not run into any situation where routing gets wrong in an unmanageable and 
-unintuitive manner due to SNAT. MASQUERADE should not be more complex.
-
-Regards
-Henrik
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
