@@ -1,46 +1,26 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [BK PATCH] 2.6 SCTP updates
-Date: Mon, 26 Jul 2004 15:51:24 +0200
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: RE: [PATCH] get_random_bytes returns the same on every boot
+Date: Mon, 26 Jul 2004 09:57:10 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41050C5C.202@us.ibm.com>
-References: <Pine.LNX.4.58.0407231708440.4570@localhost.localdomain> <20040724222731.0ed048ef.davem@redhat.com>
+Message-ID: <C0170D0AF1277849A4B4518034F855DD0CFC2F@aiexchange.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040724222731.0ed048ef.davem@redhat.com>
+Content-class: urn:content-classes:message
+To: "Balint Marton" <cus@fazekas.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+Balint Marton wrote:
+> At boot time, get_random_bytes always returns the same 
+> random data, as if there were a constant random seed.
+> packet with always the same transaction ID. (If you have 
+> more than one computers, and they are booting at the
+> same time, then this is a big problem)
 
->On Fri, 23 Jul 2004 17:18:11 -0700 (PDT)
->Sridhar Samudrala <sri@us.ibm.com> wrote:
->
->  
->
->>Please do a
->>	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
->>
->>to get the following SCTP updates to 2.6.8-rc2.
->>    
->>
->
->Pulled, thanks Sridhar.  Will there be a 2.4.x version of
->any of these SCTP changes?
->
->  
->
-Dave,
-
-I plan to submit a 2.4 version of these patches along with the 2.6 
-sparse cleanup stuff
-so that both the codebases don't deviate too much, but it may be a 
-couple of  weeks
-from now. I am currently at an SCTP interop event and will be on 
-vacation next week.
-
-Thanks
-Sridhar
+If many systems are booting at the same time, is seeding with the system
+time really an appropriate solution?  Shouldn't some system-specific
+value also contribute to the randomization?
