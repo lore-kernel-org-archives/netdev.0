@@ -1,47 +1,39 @@
-From: Shmulik Hen <hshmulik@intel.com>
-Subject: [PATCH][bonding] division by zero bug
-Date: Tue, 4 Mar 2003 19:11:42 +0200 (IST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0303041902400.13312-100000@jrslxjul4.npdj.intel.com>
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: ipsec-tools 0.1 + kernel 2.5.64
+Date: Wed, 5 Mar 2003 12:28:52 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030305112852.GA22351@outpost.ds9a.nl>
+References: <1046863752.441.7.camel@simulacron>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jgarzik@pobox.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: bonding-devel@lists.sourceforge.net, <linux-net@vger.kernel.org>,
-	<netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: mit_warlord@users.sourceforge.net, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andreas Jellinghaus <aj@dungeon.inka.de>
+Content-Disposition: inline
+In-Reply-To: <1046863752.441.7.camel@simulacron>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The following patch fixes a division by zero bug in the bonding module 
-that happens when transmitting through a bond with no slaves, in the XOR 
-bonding mode.
-The patch is against bonding-2.4.20-20030207 in sorceforge 
-(http://sourceforge.net/projects/bonding/).
+On Wed, Mar 05, 2003 at 12:29:12PM +0100, Andreas Jellinghaus wrote:
+> Hi,
+> 
+> both manual keying and automatic keying with racoon (pre-shared secret)
+> are working fine. No need to patch or modify anything. 
+> I tried only ipv4.
 
+By the way, regarding ipsec-tools 0.1, are you sure you want to fork the
+projects involved?
 
-diff -urN linux-2.4.20-20030207/drivers/net/bonding.c linux-2.4.20-devel/drivers/net/bonding.c
---- linux-2.4.20-20030207/drivers/net/bonding.c	2003-03-02 14:01:46.000000000 +0200
-+++ linux-2.4.20-devel/drivers/net/bonding.c	2003-03-02 14:35:04.000000000 +0200
-@@ -2597,6 +2597,13 @@
- 		return 0;
- 	}
- 
-+	if (bond->slave_cnt == 0) {
-+		/* no slaves in the bond, frame not sent */
-+		dev_kfree_skb(skb);
-+		read_unlock_irqrestore(&bond->lock, flags);
-+		return 0;
-+	}
-+	
- 	slave_no = (data->h_dest[5]^slave->dev->dev_addr[5]) % bond->slave_cnt;
- 
- 	while ( (slave_no > 0) && (slave != (slave_t *)bond) ) {
+By the way, you did not mention it here but ipsec-tools is available on
+http://sourceforge.net/projects/ipsec-tools , I also link them from
+http://lartc.org/howto/lartc.ipsec.html
 
+Regards,
+
+bert
 
 -- 
-| Shmulik Hen                                 |
-| Israel Design Center (Jerusalem)            |
-| LAN Access Division                         |
-| Intel Communications Group, Intel corp.     |
-|                                             |
-| Anti-Spam: shmulik dot hen at intel dot com |
-
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+http://netherlabs.nl                         Consulting
