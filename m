@@ -1,107 +1,55 @@
-From: Andi Kleen <ak@muc.de>
+From: Martin Diehl <lists-d9SKjHWnQKCzQB+pC5nmwQ@public.gmane.org>
 Subject: Re: [PATCH] Drop ISA dependencies from IRDA drivers
-Date: 15 Jul 2004 23:55:52 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040715215552.GA46635@muc.de>
-References: <m34qo96x8m.fsf@averell.firstfloor.org> <40F6B547.7050800@pobox.com> <20040715205001.GA2527@muc.de> <40F6F076.2080001@pobox.com>
+Date: Fri, 16 Jul 2004 00:32:44 +0200 (CEST)
+Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Message-ID: <Pine.LNX.4.44.0407160027410.14037-100000@notebook.home.mdiehl.de>
+References: <20040715215552.GA46635@muc.de>
+Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, irda-users@lists.sourceforge.net, jt@hpl.hp.com,
-        the_nihilant@autistici.org,
-        Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-Date: Thu, 15 Jul 2004 23:55:52 +0200
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40F6F076.2080001@pobox.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, <netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org>,
+   <irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>,
+   <the_nihilant-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>, Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Andi Kleen <ak-h9bWGtP8wOw@public.gmane.org>
+In-Reply-To: <20040715215552.GA46635-h9bWGtP8wOw@public.gmane.org>
+Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5ji9XKYC2TYK4Io4DoRGLOrNAH6kLmebB@public.gmane.org>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5lLLH9aP38KF1pqr+6INuaA@public.gmane.org>
+List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5R9m/fhtKvoLKtGCp0j7rLg@public.gmane.org>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 15, 2004 at 05:00:38PM -0400, Jeff Garzik wrote:
-> >There is great value. Basically most ISA drivers are not 64bit 
-> >clean (if they even still work on i386 which is also often doubtful
-> >in 2.6) and it is a great way for 64bit archs to get rid of a lot 
-> >of not working code.
+On 15 Jul 2004, Andi Kleen wrote:
+
+> Remove wrong ISA dependencies for IRDA drivers.
 > 
-> I file that under "hiding bugs", since it will not be immediately 
-> obvious to a bug hunter or maintainer what the real problem is.
-
-They should be already aware that most ISA drivers are just 
-not maintained anymore and very likely broken. I doubt there is any bug 
-hunter or maintainer who is not aware of this fact.
-
-> If a driver is broken on 64-bit, please add "&& !64BIT" to the Kconfig.
 > 
-> As you yourself just explained, your wish is to use CONFIG_ISA, but your 
-> intent is only coincedentally related to ISA.
-
-There are no x86-64 machines with ISA slots. I think it is very related
-to ISA to disable drivers that are not used since the hardware has 
-no physical mean to support it (yes, I am aware of PCMCIA, but that
-is not included in CONFIG_ISA). Same reason to not support
-CONFIG_EISA. LPC devices in southbridges are a different thing, but
-there doesn't seem to be any reason right now to add a CONFIG_LPC.
-If there was one I would have no problems with setting it.
-
-Anyways, this is only tangential to the original reason for the patch.
-Can you please drop the bogus ISA dependencies. Jean has clearly stated
-that the drivers have nothing to do with ISA itself.
-
-Here's the patch again for your convenience.
-
--Andi
+> diff -u linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig
+> --- linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o	2004-07-12 06:09:05.000000000 +0200
+> +++ linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig	2004-07-15 18:33:48.000000000 +0200
+> @@ -310,7 +310,7 @@
+>  
+>  config NSC_FIR
+>  	tristate "NSC PC87108/PC87338"
+> -	depends on IRDA && ISA
+> +	depends on IRDA
 
 
---------------------------------------------------------------------
+Admittedly I haven't tried either, but I'm pretty sure this patch will 
+break building those drivers because they are calling irda_setup_dma - 
+which is CONFIG_ISA. Maybe this can be dropped but I don't see what's 
+wrong with !64BIT instead.
 
-Remove wrong ISA dependencies for IRDA drivers.
+Martin
 
 
-diff -u linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig
---- linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o	2004-07-12 06:09:05.000000000 +0200
-+++ linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig	2004-07-15 18:33:48.000000000 +0200
-@@ -310,7 +310,7 @@
- 
- config NSC_FIR
- 	tristate "NSC PC87108/PC87338"
--	depends on IRDA && ISA
-+	depends on IRDA
- 	help
- 	  Say Y here if you want to build support for the NSC PC87108 and
- 	  PC87338 IrDA chipsets.  This driver supports SIR,
-@@ -321,7 +321,7 @@
- 
- config WINBOND_FIR
- 	tristate "Winbond W83977AF (IR)"
--	depends on IRDA && ISA
-+	depends on IRDA
- 	help
- 	  Say Y here if you want to build IrDA support for the Winbond
- 	  W83977AF super-io chipset.  This driver should be used for the IrDA
-@@ -347,7 +347,7 @@
- 
- config SMC_IRCC_FIR
- 	tristate "SMSC IrCC (EXPERIMENTAL)"
--	depends on EXPERIMENTAL && IRDA && ISA
-+	depends on EXPERIMENTAL && IRDA
- 	help
- 	  Say Y here if you want to build support for the SMC Infrared
- 	  Communications Controller.  It is used in a wide variety of
-@@ -357,7 +357,7 @@
- 
- config ALI_FIR
- 	tristate "ALi M5123 FIR (EXPERIMENTAL)"
--	depends on EXPERIMENTAL && IRDA && ISA
-+	depends on EXPERIMENTAL && IRDA
- 	help
- 	  Say Y here if you want to build support for the ALi M5123 FIR
- 	  Controller.  The ALi M5123 FIR Controller is embedded in ALi M1543C,
-@@ -385,7 +385,7 @@
- 
- config VIA_FIR
- 	tristate "VIA VT8231/VT1211 SIR/MIR/FIR"
--	depends on IRDA && ISA
-+	depends on IRDA
- 	help
- 	  Say Y here if you want to build support for the VIA VT8231
- 	  and VIA VT1211 IrDA controllers, found on the motherboards using
+
+-------------------------------------------------------
+This SF.Net email is sponsored by BEA Weblogic Workshop
+FREE Java Enterprise J2EE developer tools!
+Get your free copy of BEA WebLogic Workshop 8.1 today.
+http://ads.osdn.com/?ad_id=4721&alloc_id=10040&op=click
