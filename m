@@ -1,142 +1,50 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: Re: [PATCH] Sis900 bug fixes 3/4
-Date: Wed, 19 May 2004 16:28:52 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040519142852.GC798@picchio.gall.it>
-References: <20040518120237.GC23565@picchio.gall.it> <20040518123020.GF23565@picchio.gall.it>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: TxDescriptors -> 1024 default. Please not for every NIC!
+Date: Wed, 19 May 2004 13:27:00 +0300
+Sender: prism54-devel-admin@prism54.org
+Message-ID: <20040519102700.GA16465@ee.oulu.fi>
+References: <OF72607111.CD0234C8-ON85256DA1.0068861B-86256DA1.0068FF60@us.ibm.com> <Pine.LNX.4.58.0405151354220.9894@fcat> <Pine.LNX.4.58.0405190256010.30653@fcat>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="VywGB/WGlW4DM4P8"
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
-	Dominik Karall <dominik.karall@gmx.net>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S261300AbUESObY@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-admin@prism54.org>
+To: Marc Herbert <marc.herbert@free.fr>
 Content-Disposition: inline
-In-Reply-To: <20040518123020.GF23565@picchio.gall.it>
+In-Reply-To: <Pine.LNX.4.58.0405190256010.30653@fcat>
+Errors-To: prism54-devel-admin@prism54.org
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
+On Wed, May 19, 2004 at 11:30:28AM +0200, Marc Herbert wrote:
+> - Me argues that we all lived happy for ages with this default
+>   setting of 100 packets @ 100 Mb/s (and lived approximately happy @
+>   10 Mb/s), but we'll soon see doom and gloom with this new and
+>   brutal change to 1000 packets for all this _legacy_ 10-100 Mb/s
+>   hardware. e1000 data only is not enough to justify this radical
+>   shift.
+> 
+> If you are convinced by _both_ items above, then the patch below
+> content _both_, and we're done.
+> 
+> If you are not, then... wait for further discussion, including answers
+> to latest Ricardo's post.
+Not to mention that not all modern hardware is gigabit, current
+2.6 seems to be setting txqueuelen of 1000 for 802.11 devices too (at least
+my prism54), which might be causing major problems for me.
 
---VywGB/WGlW4DM4P8
-Content-Type: multipart/mixed; boundary="dTy3Mrz/UPE2dbVg"
-Content-Disposition: inline
-
-
---dTy3Mrz/UPE2dbVg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, May 18, 2004 at 02:30:20PM +0200, Daniele Venzano wrote:
-> Dominik:
-> Could you please test this patch ? Thanks.
-
-After further testing with Dominik, I made a new patch that actually
-works. So, please disregard patch number 3 I sent before and use this
-one instead. The other patches need no changes and can be found here:
-
-http://teg.homeunix.org/sis900.html
-
-They are:
-sis900-maintainers
-sis900-isa-bridge-id
-sis900-phy-detection (attached below)
-sis900-header-cleanups
-
-This patch has been tested on a previously working system (keeps
-working) and on a before-not-working one (now works as expected).
-
-Please, consider this patchset for inclusion.
-
---=20
------------------------------
-Daniele Venzano
-Web: http://teg.homeunix.org
-
-
---dTy3Mrz/UPE2dbVg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sis900-phy-detection.diff"
-Content-Transfer-Encoding: quoted-printable
-
---- linux-2.6.6/drivers/net/sis900.c	2004-05-18 21:46:41.000000000 +0200
-+++ linux-sis900/drivers/net/sis900.c	2004-05-18 21:44:31.000000000 +0200
-@@ -116,6 +116,7 @@
- #define	HOME 	0x0001
- #define LAN	0x0002
- #define MIX	0x0003
-+#define UNKNOWN	0x0
- } mii_chip_table[] =3D {
- 	{ "SiS 900 Internal MII PHY", 		0x001d, 0x8000, LAN },
- 	{ "SiS 7014 Physical Layer Solution", 	0x0016, 0xf830, LAN },
-@@ -577,9 +578,11 @@
- 				break;
- 			}
- 		=09
--		if( !mii_chip_table[i].phy_id1 )
-+		if( !mii_chip_table[i].phy_id1 ) {
- 			printk(KERN_INFO "%s: Unknown PHY transceiver found at address %d.\n",
--			       net_dev->name, phy_addr);		=09
-+			       net_dev->name, phy_addr);
-+			mii_phy->phy_types =3D UNKNOWN;
-+		}
- 	}
- =09
- 	if (sis_priv->mii =3D=3D NULL) {
-@@ -644,15 +647,15 @@
- static u16 sis900_default_phy(struct net_device * net_dev)
- {
- 	struct sis900_private * sis_priv =3D net_dev->priv;
-- 	struct mii_phy *phy =3D NULL, *phy_home =3D NULL, *default_phy =3D NULL;
-+ 	struct mii_phy *phy =3D NULL, *phy_home =3D NULL, *default_phy =3D NULL,=
- *phy_lan =3D NULL;
- 	u16 status;
-=20
-         for( phy=3Dsis_priv->first_mii; phy; phy=3Dphy->next ){
- 		status =3D mdio_read(net_dev, phy->phy_addr, MII_STATUS);
- 		status =3D mdio_read(net_dev, phy->phy_addr, MII_STATUS);
-=20
--		/* Link ON & Not select deafalut PHY */
--		 if ( (status & MII_STAT_LINK) && !(default_phy) )
-+		/* Link ON & Not select default PHY & not ghost PHY */
-+		 if ( (status & MII_STAT_LINK) && !default_phy && (phy->phy_types !=3D U=
-NKNOWN) )
- 		 	default_phy =3D phy;
- 		 else{
- 			status =3D mdio_read(net_dev, phy->phy_addr, MII_CONTROL);
-@@ -660,12 +663,16 @@
- 				status | MII_CNTL_AUTO | MII_CNTL_ISOLATE);
- 			if( phy->phy_types =3D=3D HOME )
- 				phy_home =3D phy;
-+			else if (phy->phy_types =3D=3D LAN)
-+				phy_lan =3D phy;
- 		 }
- 	}
-=20
--	if( (!default_phy) && phy_home )
-+	if( !default_phy && phy_home )
- 		default_phy =3D phy_home;
--	else if(!default_phy)
-+	else if( !default_phy && phy_lan )
-+		default_phy =3D phy_lan;
-+	else if ( !default_phy )
- 		default_phy =3D sis_priv->first_mii;
-=20
- 	if( sis_priv->mii !=3D default_phy ){
-
---dTy3Mrz/UPE2dbVg--
-
---VywGB/WGlW4DM4P8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAq28k2rmHZCWzV+0RAhAGAJwMI6K41FBomhpqaYGKEvkm+LDW7gCgmuFR
-v8IVWisWzojsuvL1aBAJu44=
-=NHT1
------END PGP SIGNATURE-----
-
---VywGB/WGlW4DM4P8--
+Well, I'm still trying to figure out whether it's txqueue or WEP that causes
+all traffic to stop (with rx invalid crypt packets showing up in iwconfig
+afterwards, AP is a linksys wrt54g in case it makes a difference) every now
+and then until a ifdown / ifup. Tried both vanilla 2.6 prism54 and CVS
+(which seems to have a reset on tx timeout thing added), but if txqueue is
+1000 that won't easily get triggered will it?
+ 
+It's been running for a few days just fine with txqueue = 100 and no WEP, if
+it stays like that i'll start tweaking to find what exactly triggers it.
