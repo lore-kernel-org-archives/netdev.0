@@ -1,30 +1,27 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] [IPV4]: Exclude "All deletion of equal addresses only differing by prefix length."
-Date: Thu, 31 Mar 2005 20:26:19 +0200
-Message-ID: <20050331182619.GW3086@postel.suug.ch>
-References: <20050331124747.GT3086@postel.suug.ch> <Pine.LNX.4.61.0503312047110.26294@netcore.fi>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC/PATCH] network configs: disconnect network options from
+ drivers
+Date: Thu, 31 Mar 2005 10:30:04 -0800
+Message-ID: <20050331103004.162070e6.davem@davemloft.net>
+References: <20050330234709.1868eee5.randy.dunlap@verizon.net>
+	<424C2975.2090009@nortel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: randy.dunlap@verizon.net, ioe-lkml@axxeo.de, matthew@wil.cx,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0503312047110.26294@netcore.fi>
+To: Chris Friesen <cfriesen@nortel.com>
+In-Reply-To: <424C2975.2090009@nortel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Pekka Savola <Pine.LNX.4.61.0503312047110.26294@netcore.fi> 2005-03-31 20:48
-> On Thu, 31 Mar 2005, Thomas Graf wrote:
-> >The address deletion fix is no longer needed since a better fix
-> >has made it into iproute2. Better in terms of same hack but in
-> >userspace so we don't confuse other netlink users.
-> 
-> So, does that mean that all the users are expected to always run the 
-> latest iproute2, so there's no need for backward-compat in the kernel?
+On Thu, 31 Mar 2005 10:46:45 -0600
+Chris Friesen <cfriesen@nortel.com> wrote:
 
-The actual challenge in this rather trivial problem is that many scripts
-rely on this wrong behaviour by doing ip a a 1.1.1.1/24 dev lo;
-ip a d 1.1.1.1 dev lo; and nobody wants to break them. So even with the
-kernel fix we had, old iproute2 versions still did it wrong but it gave
-newer iproute2 versions a chance to work around the issue.
+> > Any comments?
+> 
+> Makes sense to me...
+
+Me too.
