@@ -1,40 +1,33 @@
-From: Mark Borst <mark@borst.org>
-Subject: Re: node-local multicast issues
-Date: Thu, 11 Nov 2004 12:18:24 +0200
-Message-ID: <1100168304.24452.5.camel@mn-2>
-References: <OF18E2258F.5E2E252A-ON88256F47.007FA9FD-88256F47.0080590C@us.ibm.com>
-	 <1100096251.22964.7.camel@mn-2>  <4192701A.3090908@hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: ZyXEL GN650-T
+Date: Wed, 10 Nov 2004 22:28:35 +0100
+Message-ID: <20041110212835.GA23758@electric-eye.fr.zoreil.com>
+References: <20041107214427.20301.qmail@focomunicatii.ro> <20041107224803.GA29248@electric-eye.fr.zoreil.com> <20041109000006.GA14911@electric-eye.fr.zoreil.com> <20041109232510.GA5582@electric-eye.fr.zoreil.com> <20041110201010.18341.qmail@focomunicatii.ro>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: seby@focomunicatii.ro, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        alan@redhat.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Brian Haley <Brian.Haley@hp.com>
-In-Reply-To: <4192701A.3090908@hp.com>
+To: sebastian.ionita@focomunicatii.ro
+Content-Disposition: inline
+In-Reply-To: <20041110201010.18341.qmail@focomunicatii.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-11-10 at 14:46 -0500, Brian Haley wrote:
-> Mark Borst wrote:
-> 
-> > On another note: 'ping6 ff02::1' gives "connect: Invalid argument" on
-> > linux.
-> 
-> You've got to use -I with that, maybe ping6 could give a hint.
+sebastian.ionita@focomunicatii.ro <sebastian.ionita@focomunicatii.ro> :
+[...]
+> The kernel compiles but I have 1 unresolved simbole in the via-velocity 
+> modul
+> depmod: *** Unresolved symbols in 
+> /lib/modules/2.4.28-rc2/kernel/drivers/net/via-velocity.o
+> depmod:         crc_ccitt_R3771b461 
 
-I found that too. With -I it works fine.
+Can you grep for crc_ccitt the output of 'nm lib/lib.a' in your build
+tree and check that CONFIG_CRC_CCITT is enabled in your .config ?
 
-> 
-> > The only implementation that gives me replies is Solaris.
-> 
-> My trusty Tru64 UNIX box works as well :)
+crc_ccitt is EXPORT_SYMBOLed by lib/crc-ccitt.c and should be linked in
+your new kernel.
 
-Good ;) My testing wasn't anything near exhaustive, just a short test ;)
-
-
--- 
-Mark Borst
-Researcher
-Network and Protocols Group
-Tampere University of Technology, Finland
+--
+Ueimor
