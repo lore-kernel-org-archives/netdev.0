@@ -1,65 +1,38 @@
 From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: [PATCH] RFC save a few atomics in tcp_memory_schedule()
-Date: Mon, 20 May 2002 13:52:55 -0700 (PDT)
+Subject: [PATCH] 2.4.18+ minor nit in tcp_delack_timer()
+Date: Mon, 20 May 2002 13:58:21 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0205201347400.7881-100000@w-nivedita2.des.beaverton.ibm.com>
+Message-ID: <Pine.LNX.4.33.0205201353420.7881-100000@w-nivedita2.des.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <owner-netdev@oss.sgi.com>
 To: <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-The patch below tries to save a few atomic reads,
-based on the assumption that we can tolerate slightly
-stale data here, given that actions are "relaxed".
-(Otherwise we should be locking whole thing anyway)..
+On the assumption that we want to save a cycle wherever
+possible. Since we've just done an unconditional 
+tcp_mem_reclaim(), we can save the repeat check(?)..
 
-Would this be reasonable, or what am I missing?
 
 thanks,
 Nivedita
 
 
-diff -urN linux-2.4.18/net/ipv4/tcp.c linux-2.4.18new/net/ipv4/tcp.c
---- linux-2.4.18/net/ipv4/tcp.c	Fri Dec 21 09:42:05 2001
-+++ linux-2.4.18new/net/ipv4/tcp.c	Mon May 20 12:40:00 2002
-@@ -286,25 +286,27 @@
- int tcp_mem_schedule(struct sock *sk, int size, int kind)
- {
- 	int amt = TCP_PAGES(size);
-+	int allocated;
+diff -urN linux-2.4.18/net/ipv4/tcp_timer.c linux-2.4.18tmr1/net/ipv4/tcp_timer.c
+--- linux-2.4.18/net/ipv4/tcp_timer.c	Mon Oct  1 09:19:57 2001
++++ linux-2.4.18tmr1/net/ipv4/tcp_timer.c	Sun May 19 11:23:40 2002
+@@ -225,12 +225,12 @@
+ 	tcp_mem_reclaim(sk);
  
- 	sk->forward_alloc += amt*TCP_MEM_QUANTUM;
- 	atomic_add(amt, &tcp_memory_allocated);
-+	allocated = atomic_read(&tcp_memory_allocated);
+ 	if (sk->state == TCP_CLOSE || !(tp->ack.pending&TCP_ACK_TIMER))
+-		goto out;
++		goto out_unlock;
  
- 	/* Under limit. */
--	if (atomic_read(&tcp_memory_allocated) < sysctl_tcp_mem[0]) {
-+	if (allocated < sysctl_tcp_mem[0]) {
- 		if (tcp_memory_pressure)
- 			tcp_memory_pressure = 0;
- 		return 1;
+ 	if ((long)(tp->ack.timeout - jiffies) > 0) {
+ 		if (!mod_timer(&tp->delack_timer, tp->ack.timeout))
+ 			sock_hold(sk);
+-		goto out;
++		goto out_unlock;
  	}
+ 	tp->ack.pending &= ~TCP_ACK_TIMER;
  
- 	/* Over hard limit. */
--	if (atomic_read(&tcp_memory_allocated) > sysctl_tcp_mem[2]) {
-+	if (allocated > sysctl_tcp_mem[2]) {
- 		tcp_enter_memory_pressure();
- 		goto suppress_allocation;
- 	}
- 
- 	/* Under pressure. */
--	if (atomic_read(&tcp_memory_allocated) > sysctl_tcp_mem[1])
-+	if (allocated > sysctl_tcp_mem[1])
- 		tcp_enter_memory_pressure();
- 
- 	if (kind) {
-@@ -316,7 +318,7 @@
- 	}
- 
- 	if (!tcp_memory_pressure ||
--	    sysctl_tcp_mem[2] > atomic_read(&tcp_sockets_allocated)
-+	    sysctl_tcp_mem[2] > allocated
- 	    * TCP_PAGES(sk->wmem_queued+atomic_read(&sk->rmem_alloc)+
- 			sk->forward_alloc))
- 		return 1;
