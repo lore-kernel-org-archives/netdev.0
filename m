@@ -1,32 +1,54 @@
-From: Aidas Kasparas <a.kasparas@gmc.lt>
-Subject: Re: [Ipsec-tools-devel] Re: IPSEC: on behavior of acquire
-Date: Mon, 04 Apr 2005 15:59:27 +0300
-Message-ID: <42513A2F.7020504@gmc.lt>
-References: <1112405303.1096.37.camel@jzny.localdomain>	 <424E454D.4090402@gmc.lt> <1112477326.1088.321.camel@jzny.localdomain>	 <424FA946.70809@gmc.lt> <1112538566.1096.391.camel@jzny.localdomain>	 <425067D9.9050603@gmc.lt> <1112618007.1096.465.camel@jzny.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
+Date: Mon, 4 Apr 2005 23:02:24 +1000
+Message-ID: <20050404130224.GA12546@gondor.apana.org.au>
+References: <1112403845.1088.14.camel@jzny.localdomain> <20050402012813.GA24575@gondor.apana.org.au> <1112406164.1088.54.camel@jzny.localdomain> <20050402014619.GB24861@gondor.apana.org.au> <1112469601.1088.173.camel@jzny.localdomain> <1112538718.1096.394.camel@jzny.localdomain> <20050404005805.GA16543@gondor.apana.org.au> <1112614706.1096.439.camel@jzny.localdomain> <20050404121641.GA12103@gondor.apana.org.au> <1112619096.1088.473.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ipsec-tools-devel@lists.sourceforge.net, netdev <netdev@oss.sgi.com>,
-        nakam@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1112618007.1096.465.camel@jzny.localdomain>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1112619096.1088.473.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Apr 04, 2005 at 08:51:37AM -0400, jamal wrote:
+>
+> > > -static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
+> > > -static DEFINE_RWLOCK(xfrm_km_lock);
+> > 
+> > How about letting these guys stay where they are? The move was
+> > necessary before because the km_*_notify functions had to be called
+> > in this file but that's no longer the case.
+> 
+> Changed 
+> - dont see what the harm was as they were in that patch though.
 
+Please see below.
 
-jamal wrote:
-> I think i have made a bad case of explaining.
-> Yes, I know where acquires terminate. However this is not about where
-> acquires terminate. It is insufficient to assume that a succesful
-> acquire to user space equates to successful interaction to the KE server
-> which will do an update.
+> +static DEFINE_RWLOCK(xfrm_km_lock);
+> +static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
+>  EXPORT_SYMBOL(xfrm_replay_advance);
+>  
+> -static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
+> -static DEFINE_RWLOCK(xfrm_km_lock);
 
-Why?
+All I wanted was to leave these lines as is so that they didn't
+appear in the patch at all (except as conext) :)
 
+When reviewing patches the most annoying thing is to see things
+moved around or rearranged because that distracts the reviewer
+from the substantiative changes.
+ 
+> ;-> Yes, indeed. I think its time for you to throw in the towel ;->
+
+Alright I give in :)
 -- 
-Aidas Kasparas
-IT administrator
-GM Consult Group, UAB
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
