@@ -1,8 +1,8 @@
 From: margitsw@t-online.de (Margit Schubert-While)
-Subject: Re: [patch 8/8]  prism54/islpci_dev: replace schedule_timeout() with msleep()
-Date: Thu, 2 Sep 2004 12:21:42 +0200
+Subject: Re: [patch 01/16]  __FUNCTION__ string concatenation
+Date: Thu, 2 Sep 2004 13:02:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409021221.42287.margitsw@t-online.de>
+Message-ID: <200409021302.22823.margitsw@t-online.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -15,26 +15,15 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 On Thu, 02 Sep 2004, Maximilian scribeth:
-> you didn't answer to the unit argument in favour of msleep.
+> drivers/net/wireless/prism65/islpci_mgt.h, as suggested
 
-Don't need to, here's msleep -
-void msleep(unsigned int msecs)
-{
-        unsigned long timeout = msecs_to_jiffies(msecs);
+Woo, we got another project ? (prism65)
 
-        while (timeout) {
-                set_current_state(TASK_UNINTERRUPTIBLE);
-                timeout = schedule_timeout(timeout);
-        }
-}
+> I don't have the hardware to do a run-time check.
+> It should not pose any problems though.
 
-In other words, with the subtle exception of the while loop,
-it reconstitutes the original code.
-(Although m_to_j doesn't even exactly do that)
-(And note because of the while loop, this may not be 
- what the author intended)
-
-> shure msleep is also consistent and documented.
-grep -r Documentation = Nix
+Oh, I think we can safely say that, especially as TRACE
+is nowhere referenced  ;-)
+(And therefore the patch is unnecessary)
 
 Margit
