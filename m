@@ -1,59 +1,53 @@
-From: Jan Olderdissen <jan@ixiacom.com>
-Subject: RE: [PATCH 2.6.5] Re: Fw: Stack sends SYN/ACKs even though accept
-	 queue is full
-Date: Fri, 30 Apr 2004 23:14:37 -0700
+From: Andy Lutomirski <luto@myrealbox.com>
+Subject: Re: [patch 0/7] 2.6.6-rc3-mm1 - description of the r8169 queue
+Date: Fri, 30 Apr 2004 23:32:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15FDCE057B48784C80836803AE3598D50627AC8B@racerx.ixiacom.com>
+Message-ID: <4093447B.1010404@myrealbox.com>
+References: <20040501022308.A32762@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: netdev@oss.sgi.com, David Miller <davem@redhat.com>,
-        Andrew Morton
-	 <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, Andy Lutomirski <luto@myrealbox.com>,
+        Jon D Mason <jonmason@us.ibm.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Nivedita Singhvi'" <niv@us.ibm.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040501022308.A32762@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Nivedita Singhvi wrote:
+Francois Romieu wrote:
 
-> Attaching a patch which adds a sysctl to turn off this
-> behaviour.   Could you test this, please?  Patch against
-> 2.6.5 vanilla kernel.  If you need a 2.4 version, let me
-> know.
+> With some delay, the following patches include Jon D Mason's NAPI changes
+> (+ fixes) and code from Andy Lutomirski with minor changes.
+> I have not moved the initialization of the phy timer in the pci probe
+> routine as:
+> - I believe it belongs to the netdevice;
+> - it should work as is without significant change for the user.
+> 
+> If someone sees a good reason to move it, just complain (with an axe).
 
-We'll be happy to test it. We would prefer a 2.4 kernel patch though. Ideal
-would be 2.4.21 vanilla which we use in our embedded systems, but we can
-make other targets work as well.
+I moved the timer because I didn't know about netif_running().  This 
+looks fine.
 
-> Normally, I think the expected behaviour was that connections
-> would be short-lived. This is a reasonable expectation for most
-> web-servers etc.   In which case, the accept queue would free
-> up frequently, and having the syn request right there would save
-> a full timeout and round trip over the Internet. i.e. useful in the
-> common case.
+> 
+> The patches apply to 2.6.6-rc3 as well as to 2.6.6-rc3-mm1.
+> 
+> All the patches are merged in a single patch against 2.6.6-rc3 available at:
+> http://www.fr.zoreil.com/people/francois/misc/20040501-2.6.6-rc3-r8169.c-test.patch
+> 
+> The patches are archived below as well:
+> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.6-rc3
+> 
+> If the patches prove to behave decently on 2.6, a backport for 2.4.x will be
+> generated.
 
-I have to disagree. 
+Everything looks fine.  I'm recompiling now; I'll let you know if I have 
+any problems.
 
-As the code is implemented right now, you get at most two pending young
-connections in the syn queue in addition to the ones in the accept queue -
-all others have already had their full timeout. I will argue that in high
-load conditions it doesn't really matter whether you have one or two warm
-connections sitting around or not because other new connections are going to
-come by anyway sooner than you want to have them. If the server is able to
-keep up, the accept queue is going to be mostly empty anyway.
+Thanks,
+Andy
 
-The idea of having warm connections is a good one - that is what the accept
-queue is for. As long as the accept queue is not full, the syn queue will
-have warm bodies for you. If the user wanted to achieve a very similar
-effect, he could simply increase the accept queue size by 2.
 
-In the end I don't think the minimal benefit warrants complicating the code
-and/or adding an option that few would understand or care to know about.
-Also, the concept of suggesting to the client that there is a receiver and
-then just dropping all the packets it sends seems a bit rude if not outright
-non-compliant.
-
-Your call, of course.
-
-Jan
+> 
+> --
+> Ueimor
