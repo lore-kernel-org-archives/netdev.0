@@ -1,141 +1,190 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: Wed, 5 Jan 2005 17:48:32 +0100
-Message-ID: <20050105164832.GB17836@postel.suug.ch>
-References: <20050103125635.GB26856@postel.suug.ch> <20050104223612.GN26856@postel.suug.ch> <1104894728.1117.56.camel@jzny.localdomain> <20050105110048.GO26856@postel.suug.ch> <1104931991.1117.152.camel@jzny.localdomain> <20050105144514.GQ26856@postel.suug.ch>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Wed, 5 Jan 2005 11:35:00 -0600
+Message-ID: <200501051135.03493.jeremy.guthrie@berbee.com>
+References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501050918.22472.jeremy.guthrie@berbee.com> <16860.5674.612383.986202@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed;
+  boundary="nextPart2230455.ZoKKAJfLF7";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <20050105144514.GQ26856@postel.suug.ch>
+To: netdev@oss.sgi.com
+In-Reply-To: <16860.5674.612383.986202@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Most importantly I don't want to touch any of the hashing code in u32.
-> I really like and it should stay as it is. The existing u32 match can
-> be easly made an ematch so this would safe us the extra work in u32 to
-> implement logic relations again and to fiddle with complicated selector
-> TLVs. The only problem with this is the nexthdr bits because it relies
-> on the hashing code. So we have to make this data available to the
-> ematch which is actually not a bad idea anyway. So I'm thinking about
-> introducing a new structure tcf_em_pkt_info or alike which carries
-> some additional information found out by the classifiers which can be
-> used by ematches. This can be information about the next header,
-> already extracted dscp values, etc.
+--nextPart2230455.ZoKKAJfLF7
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Here's what I mean, it moves the u32 match as-is to an ematch so it
-benefits from logic relations, inversion and can be used from other
-classifiers as well. All we have to do is set info->ptr and
-info->nexthdr to ptr respetively off2 before we evaluate the ematch
-tree. The pkt_info struct is then passed to tcf_em_tree_match and
-made available to every ematch.
+On Wednesday 05 January 2005 10:30 am, Robert Olsson wrote:
+> Jeremy M. Guthrie writes:
+>  > Yeah, the load will be high.  I'm expecting this to be watching ~ 750
+>  > mbps by next December.  The app profiles all traffic going in and out =
+of
+>  > our data centers.
+>  BW itself or pps is that not much of challange as handling of concurrent
+>  flows.
+Roger that.
 
-Thoughts?
+>  > I'm not showing the /proc/net/rt_cache_stat file.  Was there a kernel
+>  > option I need to recompile with for rt_cache_stat to show up in proc?
+>
+>  No it's there without any options. Would be nice to the output from rtst=
+at
+Output from rtstat:
+rtstat
+fopen: No such file or directory
 
-diff -Nru linux-2.6.10-bk8.orig/include/linux/pkt_cls.h linux-2.6.10-bk8/include/linux/pkt_cls.h
---- linux-2.6.10-bk8.orig/include/linux/pkt_cls.h	2005-01-05 17:40:02.000000000 +0100
-+++ linux-2.6.10-bk8/include/linux/pkt_cls.h	2005-01-05 17:38:42.000000000 +0100
-@@ -351,6 +351,7 @@
- 	TCF_EM_CONTAINER,
- 	TCF_EM_CMP,
- 	TCF_EM_NBYTE,
-+	TCF_EM_U32,
- 	__TCF_EM_MAX
- };
- 
-diff -Nru linux-2.6.10-bk8.orig/include/net/pkt_cls.h linux-2.6.10-bk8/include/net/pkt_cls.h
---- linux-2.6.10-bk8.orig/include/net/pkt_cls.h	2005-01-05 17:40:02.000000000 +0100
-+++ linux-2.6.10-bk8/include/net/pkt_cls.h	2005-01-05 17:39:08.000000000 +0100
-@@ -274,6 +274,8 @@
- 
- struct tcf_pkt_info
- {
-+	u8 *			ptr;
-+	int			nexthdr;
- };
- 
- static inline u32 tcf_read_bucket(u8 *ptr, u8 align)
-diff -Nru linux-2.6.10-bk8.orig/net/sched/Kconfig linux-2.6.10-bk8/net/sched/Kconfig
---- linux-2.6.10-bk8.orig/net/sched/Kconfig	2005-01-05 17:38:26.000000000 +0100
-+++ linux-2.6.10-bk8/net/sched/Kconfig	2005-01-05 17:41:59.000000000 +0100
-@@ -408,6 +408,12 @@
- 	  To compile this code as a module, choose M here: the
- 	  module will be called em_nbyte.
- 
-+config NET_EMATCH_U32
-+	tristate "U32 hashing key"
-+	depends on NET_EMATCH
-+	---help---
-+	  TODO
-+
- config NET_CLS_ACT
- 	bool "Packet ACTION"
- 	depends on EXPERIMENTAL && NET_CLS && NET_QOS
-diff -Nru linux-2.6.10-bk8.orig/net/sched/Makefile linux-2.6.10-bk8/net/sched/Makefile
---- linux-2.6.10-bk8.orig/net/sched/Makefile	2005-01-05 17:38:26.000000000 +0100
-+++ linux-2.6.10-bk8/net/sched/Makefile	2005-01-05 17:40:15.000000000 +0100
-@@ -36,3 +36,4 @@
- obj-$(CONFIG_NET_EMATCH)	+= ematch.o
- obj-$(CONFIG_NET_EMATCH_CMP)	+= em_cmp.o
- obj-$(CONFIG_NET_EMATCH_NBYTE)	+= em_nbyte.o
-+obj-$(CONFIG_NET_EMATCH_U32)	+= em_u32.o
-diff -Nru linux-2.6.10-bk8.orig/net/sched/em_u32.c linux-2.6.10-bk8/net/sched/em_u32.c
---- linux-2.6.10-bk8.orig/net/sched/em_u32.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.10-bk8/net/sched/em_u32.c	2005-01-05 17:38:42.000000000 +0100
-@@ -0,0 +1,53 @@
-+/*
-+ * net/sched/em_u32.c	U32 Ematch
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Thomas Graf <tgraf@suug.ch>
-+ *		Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
-+ *
-+ * Based on net/sched/cls_u32.c
-+ */
-+
-+#include <linux/config.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <net/pkt_cls.h>
-+
-+static int em_u32_match(struct sk_buff *skb, struct tcf_ematch *m,
-+			struct tcf_pkt_info *info)
-+{
-+	struct tc_u32_key *k = (struct tc_u32_key *) m->data;
-+	u8 *ptr = info->ptr + k->off + (info->nexthdr & k->offmask);
-+
-+	return !((*(u32*) ptr ^ k->val) & k->mask);
-+}
-+
-+static struct tcf_ematch_ops em_u32_ops = {
-+	.kind	  = TCF_EM_U32,
-+	.datalen  = sizeof(struct tc_u32_key),
-+	.match	  = em_u32_match,
-+	.owner	  = THIS_MODULE,
-+	.link	  = LIST_HEAD_INIT(em_u32_ops.link)
-+};
-+
-+static int __init init_em_u32(void)
-+{
-+	return tcf_em_register(&em_u32_ops);
-+}
-+
-+static void __exit exit_em_u32(void) 
-+{
-+	tcf_em_unregister(&em_u32_ops);
-+}
-+
-+MODULE_LICENSE("GPL");
-+
-+module_init(init_em_u32);
-+module_exit(exit_em_u32);
-+
+cd /proc/net/
+ls -la
+total 0
+dr-xr-xr-x   5 root root 0 2005-01-04 08:53 .
+dr-xr-xr-x  72 root root 0 2005-01-04 08:53 ..
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 anycast6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 arp
+dr-xr-xr-x   2 root root 0 2005-01-05 10:32 atm
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 dev
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 dev_mcast
+dr-xr-xr-x   2 root root 0 2005-01-05 10:32 dev_snmp6
+=2Dr--r--r--   1 root root 0 2005-01-04 08:53 if_inet6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 igmp
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 igmp6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 ip6_flowlabel
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 ip_mr_cache
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 ip_mr_vif
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 ip_tables_matches
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 ip_tables_names
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 ip_tables_targets
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 ipv6_route
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 mcfilter
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 mcfilter6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 netlink
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 netstat
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 psched
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 raw
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 raw6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 route
+dr-xr-xr-x   6 root root 0 2005-01-05 10:32 rpc
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 rt6_stats
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 rt_acct
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 rt_cache
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 snmp
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 snmp6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 sockstat
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 sockstat6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 softnet_stat
+dr-xr-xr-x   2 root root 0 2005-01-05 10:32 stat
+=2Dr--r--r--   1 root root 0 2005-01-04 08:53 tcp
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 tcp6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 tr_rif
+=2Dr--r--r--   1 root root 0 2005-01-04 08:53 udp
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 udp6
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 unix
+=2Dr--r--r--   1 root root 0 2005-01-05 10:32 wireless
+
+>  > >  Also check that the CPU shares the RX packet load. CPU0 affinty to
+>  > > eth0 and CPU1 to eth1 seems to be best. It gives cache bouncing at
+>  > > "TX" and slab jobs but we have accept that for now.
+>  >
+>  > How would I go about doing this?
+>
+>  Assume you route packets between eth0 <-> eth1
+Yup
+
+>  Set eth0 irq to CPU0 and eth1 to CPU1 with /proc/irq/XX/smp_affinity
+Done
+
+>  Disable irqbalancer etc.
+Done
+
+I'll let you know what I see for stats once I get some collected.
+
+>  > cat /proc/net/softnet_stat
+>
+>  total    droppped tsquz    Throttl  FR_hit   FR_succe FR_defer FR_def_o
+>  cpu_coll
+>
+>  > 5592c972 00000000 00001fc8 00000000 00000000 00000000 00000000 00000000
+>  > 00391c3f
+>  > 000f1991 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+>  > 001292ba
+>
+>  See! One line per CPU. So CPU0 is handing almost all packets.
+cat /proc/interrupts
+           CPU0       CPU1
+  0:     674862   93484967    IO-APIC-edge  timer
+  1:        564          9    IO-APIC-edge  i8042
+  7:          0          0   IO-APIC-level  ohci_hcd
+  8:          1          1    IO-APIC-edge  rtc
+ 12:        268         62    IO-APIC-edge  i8042
+ 14:          2          0    IO-APIC-edge  ide0
+ 18: 2105131410    9140835   IO-APIC-level  eth3
+ 20:       1077  248075156   IO-APIC-level  eth2
+ 27:     118224          1   IO-APIC-level  eth0
+ 28:      36298         49   IO-APIC-level  aic7xxx
+ 30:          0          0   IO-APIC-level  acpi
+NMI:          0          0
+LOC:   94168097   94168094
+ERR:          0
+MIS:          0
+
+>  > "%soft"
+>  > Show  the percentage of time spent by the CPU or CPUs to service
+>  > softirqs.  A softirq (software interrupt) is one  of  up  to  32
+>  > enumerated software interrupts which can run on multiple CPUs
+>
+>  Well yes. I had a more specific question. I'll look into mpstat where do
+>  find it? Kernel pacthes?
+Sorry about that.  New to the list.  I'm not suggesting anything.  I=20
+appreciate the help!
+
+Suse listed mpstat as part of sysstat 5.1.2.  I'm running stock 2.6.10.
+
+>  Be also aware that packet forwarding with SMP/NUMA is very much research
+>  today it is not that easy or not even possible to get aggregated
+> performance from several CPU's. in any setup. Well anyway we are beginning
+> to see some benefits now as we better understand the problems.
+Understood.  As long as I know this, I can articulate this to my uppers for=
+=20
+bigger hardware.  My current system is a dual P-III 700mhz.  May be time fo=
+r=20
+an upgrade.  However, I figure this may also offer a good environment to he=
+lp=20
+provide you guys with a taxed system running an load of flows.  Nothing lik=
+e=20
+finding fun stuff while a system is ready to fall over.
+
+Would a single hyper threaded CPU help this or should I default to a normal=
+=20
+dual-cpu system?
+
+=2D-=20
+
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart2230455.ZoKKAJfLF7
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB3CVHqtjaBHGZBeURAnY6AJ9bDuvkkdvq4Fz4e7cFE9fAwy69zwCfb5Yi
+QuzCimWD5bzoT/f5J+D8DTk=
+=XYHB
+-----END PGP SIGNATURE-----
+
+--nextPart2230455.ZoKKAJfLF7--
