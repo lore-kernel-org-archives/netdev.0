@@ -1,129 +1,135 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [NET] missing sysctl strategy in net/{core,ipv6,appletalk}
-Date: Fri, 26 Dec 2003 02:23:35 +0900 (JST)
+From: Amir Noam <amir.noam@intel.com>
+Subject: [PATCH 3/3][bonding 2.6] Add support for slaves that use ethtool_ops
+Date: Thu, 25 Dec 2003 17:05:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031226.022335.34767838.yoshfuji@linux-ipv6.org>
+Message-ID: <200312251705.36958.amir.noam@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Jay Vosburgh <fubar@us.ibm.com>, jgarzik@pobox.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-added missing strategy handers.
-
-Thanks.
-
-===== net/core/neighbour.c 1.20 vs edited =====
---- 1.20/net/core/neighbour.c	Tue Oct 21 14:59:11 2003
-+++ edited/net/core/neighbour.c	Fri Dec 26 02:00:09 2003
-@@ -1518,6 +1518,7 @@
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
- 			.proc_handler	= &proc_dointvec_jiffies,
-+			.strategy	= &sysctl_jiffies,
- 		},
- 		{
- 			.ctl_name	= NET_NEIGH_DELAY_PROBE_TIME,
-@@ -1525,6 +1526,7 @@
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
- 			.proc_handler	= &proc_dointvec_jiffies,
-+			.strategy	= &sysctl_jiffies,
- 		},
- 		{
- 			.ctl_name	= NET_NEIGH_GC_STALE_TIME,
-@@ -1532,6 +1534,7 @@
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
- 			.proc_handler	= &proc_dointvec_jiffies,
-+			.strategy	= &sysctl_jiffies,
- 		},
- 		{
- 			.ctl_name	= NET_NEIGH_UNRES_QLEN,
-@@ -1574,6 +1577,7 @@
- 			.maxlen		= sizeof(int),
- 			.mode		= 0644,
- 			.proc_handler	= &proc_dointvec_jiffies,
-+			.strategy	= &sysctl_jiffies,
- 		},
- 		{
- 			.ctl_name	= NET_NEIGH_GC_THRESH1,
-===== net/core/sysctl_net_core.c 1.8 vs edited =====
---- 1.8/net/core/sysctl_net_core.c	Thu Oct 30 05:19:30 2003
-+++ edited/net/core/sysctl_net_core.c	Fri Dec 26 02:07:52 2003
-@@ -146,7 +146,8 @@
- 		.data		= &net_msg_cost,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies
-+		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies,
- 	},
- 	{
- 		.ctl_name	= NET_CORE_MSG_BURST,
-@@ -154,7 +155,8 @@
- 		.data		= &net_msg_burst,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies
-+		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies,
- 	},
- 	{
- 		.ctl_name	= NET_CORE_OPTMEM_MAX,
-===== net/ipv6/addrconf.c 1.77 vs edited =====
---- 1.77/net/ipv6/addrconf.c	Wed Nov 26 10:06:32 2003
-+++ edited/net/ipv6/addrconf.c	Fri Dec 26 01:57:17 2003
-@@ -2946,6 +2946,7 @@
- 			.maxlen		=	sizeof(int),
- 			.mode		=	0644,
-          		.proc_handler	=	&proc_dointvec_jiffies,
-+			.strategy	=	&sysctl_jiffies,
- 		},
- 		{
- 			.ctl_name	=	NET_IPV6_RTR_SOLICIT_DELAY,
-@@ -2954,6 +2955,7 @@
- 			.maxlen		=	sizeof(int),
- 			.mode		=	0644,
-          		.proc_handler	=	&proc_dointvec_jiffies,
-+			.strategy	=	&sysctl_jiffies,
- 		},
- #ifdef CONFIG_IPV6_PRIVACY
- 		{
-===== net/appletalk/sysctl_net_atalk.c 1.4 vs edited =====
---- 1.4/net/appletalk/sysctl_net_atalk.c	Tue Oct  8 12:05:42 2002
-+++ edited/net/appletalk/sysctl_net_atalk.c	Fri Dec 26 02:11:18 2003
-@@ -23,6 +23,7 @@
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies,
- 	},
- 	{
- 		.ctl_name	= NET_ATALK_AARP_TICK_TIME,
-@@ -31,6 +32,7 @@
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies,
- 	},
- 	{
- 		.ctl_name	= NET_ATALK_AARP_RETRANSMIT_LIMIT,
-@@ -47,6 +49,7 @@
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec_jiffies,
-+		.strategy	= &sysctl_jiffies,
- 	},
- 	{ 0 },
- };
+When collecting link information from slaves via ETHTOOL, first try
+using the relevant ethtool_ops functions.
 
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c	Thu Dec 25 15:31:08 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Dec 25 15:31:10 2003
+@@ -623,44 +623,55 @@ static int bond_update_speed_duplex(stru
+ 	struct ifreq ifr;
+ 	struct ethtool_cmd etool;
+ 
+-	ioctl = slave_dev->do_ioctl;
+-	if (ioctl) {
+-		etool.cmd = ETHTOOL_GSET;
+-		ifr.ifr_data = (char*)&etool;
+-		if (IOCTL(slave_dev, &ifr, SIOCETHTOOL) == 0) {
+-			slave->speed = etool.speed;
+-			slave->duplex = etool.duplex;
+-		} else {
+-			goto err_out;
++	/* Fake speed and duplex */
++	slave->speed = SPEED_100;
++	slave->duplex = DUPLEX_FULL;
++
++	if (slave_dev->ethtool_ops) {
++		u32 res;
++
++		if (!slave_dev->ethtool_ops->get_settings) {
++			return -1;
++		}
++
++		res = slave_dev->ethtool_ops->get_settings(slave_dev, &etool);
++		if (res < 0) {
++			return -1;
+ 		}
+-	} else {
+-		goto err_out;
++
++		goto verify;
+ 	}
+ 
+-	switch (slave->speed) {
++	ioctl = slave_dev->do_ioctl;
++	strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
++	etool.cmd = ETHTOOL_GSET;
++	ifr.ifr_data = (char*)&etool;
++	if (!ioctl || (IOCTL(slave_dev, &ifr, SIOCETHTOOL) < 0)) {
++		return -1;
++	}
++
++verify:
++	switch (etool.speed) {
+ 	case SPEED_10:
+ 	case SPEED_100:
+ 	case SPEED_1000:
+ 		break;
+ 	default:
+-		goto err_out;
++		return -1;
+ 	}
+ 
+-	switch (slave->duplex) {
++	switch (etool.duplex) {
+ 	case DUPLEX_FULL:
+ 	case DUPLEX_HALF:
+ 		break;
+ 	default:
+-		goto err_out;
++		return -1;
+ 	}
+ 
+-	return 0;
++	slave->speed = etool.speed;
++	slave->duplex = etool.duplex;
+ 
+-err_out:
+-	/* Fake speed and duplex */
+-	slave->speed = SPEED_100;
+-	slave->duplex = DUPLEX_FULL;
+-	return -1;
++	return 0;
+ }
+ 
+ /*
+@@ -705,6 +716,7 @@ static int bond_check_dev_link(struct ne
+ 		 */
+ 
+ 		/* Yes, the mii is overlaid on the ifreq.ifr_ifru */
++		strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
+ 		mii = (struct mii_ioctl_data *)&ifr.ifr_data;
+ 		if (IOCTL(slave_dev, &ifr, SIOCGMIIPHY) == 0) {
+ 			mii->reg_num = MII_BMSR;
+@@ -712,10 +724,23 @@ static int bond_check_dev_link(struct ne
+ 				return (mii->val_out & BMSR_LSTATUS);
+ 			}
+ 		}
++	}
+ 
+-		/* try SIOCETHTOOL ioctl, some drivers cache ETHTOOL_GLINK */
+-		/* for a period of time so we attempt to get link status   */
+-		/* from it last if the above MII ioctls fail...            */
++	/* try SIOCETHTOOL ioctl, some drivers cache ETHTOOL_GLINK */
++	/* for a period of time so we attempt to get link status   */
++	/* from it last if the above MII ioctls fail...            */
++	if (slave_dev->ethtool_ops) {
++		if (slave_dev->ethtool_ops->get_link) {
++			u32 link;
++
++			link = slave_dev->ethtool_ops->get_link(slave_dev);
++
++			return link ? BMSR_LSTATUS : 0;
++		}
++	}
++
++	if (ioctl) {
++		strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
+ 		etool.cmd = ETHTOOL_GLINK;
+ 		ifr.ifr_data = (char*)&etool;
+ 		if (IOCTL(slave_dev, &ifr, SIOCETHTOOL) == 0) {
