@@ -1,55 +1,75 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
-Date: Wed, 2 Mar 2005 22:56:07 +0100
-Message-ID: <20050302215607.GF4608@stusta.de>
-References: <20050223014233.6710fd73.akpm@osdl.org> <20050226113123.GJ3311@stusta.de> <42256078.1040002@pobox.com> <20050302140833.GD4608@stusta.de> <42261004.4000501@pobox.com> <20050302123829.51dbc44b.akpm@osdl.org> <42262B08.2040401@pobox.com> <20050302131817.2e61805f.akpm@osdl.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Interconnect virtual device?
+Date: 02 Mar 2005 16:55:54 -0500
+Message-ID: <1109800554.1091.213.camel@jzny.localdomain>
+References: <4222A8F2.6080004@candelatech.com>
+	 <1109592365.2188.914.camel@jzny.localdomain>
+	 <422353C9.6050001@candelatech.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050302131817.2e61805f.akpm@osdl.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <422353C9.6050001@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 02, 2005 at 01:18:17PM -0800, Andrew Morton wrote:
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> >
-> > > Thing is, CRYPTO_AES on only selectable on x86.
-> > 
-> >  You're thinking about CRYPTO_AES_586.  But looking at crypto/Kconfig, 
-> >  the dependencies are a bit weird:
-> > 
-> >  config CRYPTO_AES
-> >           tristate "AES cipher algorithms"
-> >           depends on CRYPTO && !(X86 && !X86_64)
-> >  config CRYPTO_AES_586
-> >           tristate "AES cipher algorithms (i586)"
-> >           depends on CRYPTO && (X86 && !X86_64)
+Not sure if i ever responded to you.
+
+On Mon, 2005-02-28 at 12:24, Ben Greear wrote:
+> jamal wrote:
+[..]
+> > In other words, it redirects to another device - I take it based on some
+> > rules. Sounds to me like the mirred action already does this (and in
+> > addition can mirror).
 > 
-> That's pretty broken, isn't it?
+> Actually, I was thinking that either user-space or perhaps a kernel
+> module could use the standard methods of receiving all pkts in promisc
+> mode to do the bridging portion.  If I force the real ethernet
+> interface to have no IP address, and put it into promisc mode, then
+> I can effectively bridge in user-space.
 > 
-> Would be better to just do:
+> When I re-insert the pkts into the stack by writing to the virtual
+> device, the (potentially modified) packet can be
+> routed and firewalled, etc just like a normal packet received from the
+> network.  I may need to have two virtual inter-connects, one w/out
+> an IP that does the bridging portion, and one with an IP that actually
+> communicates with the rest of the kernel.  In this case, the two virtuals
+> would be connected to each other.
 > 
-> config CRYPTO_AES
-> 	select CRYPTO_AES_586 if (X86 && !X86_64)
-> 	select CRYPTO_AES_OTHER if !(X86 && !X86_64)
+> I think this could provide a way to do very customized actions on
+> raw packets without having to hack the kernel on an ongoing basis.
 > 
-> and hide CRYPTO_AES_586 and CRYPTO_AES_OTHER from the outside world.
 
+There are two ways to do this:
 
-  http://www.ussg.iu.edu/hypermail/linux/kernel/0502.3/0518.html
-  http://www.ussg.iu.edu/hypermail/linux/kernel/0502.3/0523.html
-  
+a) You could redirect to a packet socket - a small extension needed to
+the redirect action (mostly mechanical details involved like keeping
+state of which sockets are open etc).
 
-cu
-Adrian
+b) My preference is to push this gentleman's PF_RING
+(http://www.ntop.org/ntop.html) netdevice into the kernel. He has
+replicated unfortunately a lot of the stuff already done by MMAPED
+packet socket - but i think we can forgive him since solution a) would
+require hacking packet socket.
 
--- 
+Reinjection of packets still needs working for that device - just as
+much as a few cleanups here and there. The problem is the guy is not
+very responsive - I have a lot of notes on his stuff if you are willing
+to chase him around.
+You can then get redirection to this device for free (for either
+incoming or outgoing packets); something like:
 
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+tc filter add dev eth0 .... \
+match ip src 10.0.0.1/32 \
+action mirred egress redirect dev ring0
+
+Assuming you have a program running on user space you should receive all
+packets incoming and/or outgoing on eth0.
+
+And no, you dont need the eth device to have a ip address attached.
+
+cheers,
+jamal
