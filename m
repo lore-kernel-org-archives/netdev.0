@@ -1,12 +1,12 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
 Subject: remove unused kernel_stat fields
 Date: Tue, 9 Apr 2002 14:02:30 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.33L2.0204091358030.22258-100000@dragon.pdx.osdl.net>
+Sender: owner-netdev@oss.sgi.com
+Message-ID: <a8vp5i$c62$2@main.gmane.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
+Return-path: <owner-netdev@oss.sgi.com>
 To: <davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
@@ -37,4 +37,3 @@ Patch against 2.5.8-pre2.  Please apply.
 
 -- 
 ~Randy
-
