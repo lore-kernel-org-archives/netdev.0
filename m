@@ -1,57 +1,40 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: Some sleeping function called from invalid context
-Date: Tue, 5 Apr 2005 15:11:30 -0300
-Message-ID: <39e6f6c705040511115b28b575@mail.gmail.com>
-References: <1112693744.7960.2.camel@pegasus>
-	 <39e6f6c70504050413666ea29d@mail.gmail.com>
-	 <39e6f6c705040505186c1c62ed@mail.gmail.com>
-Reply-To: acme@conectiva.com.br
+From: "Theodore Ts'o" <tytso@mit.edu>
+Subject: Re: [07/08] [TCP] Fix BIC congestion avoidance algorithm error
+Date: Tue, 5 Apr 2005 14:22:02 -0400
+Message-ID: <20050405182202.GA11979@thunk.org>
+References: <20050405164539.GA17299@kroah.com> <20050405164758.GH17299@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Network Development Mailing List <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, stable@kernel.org, davem@davemloft.net,
+        shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcel Holtmann <marcel@holtmann.org>
-In-Reply-To: <39e6f6c705040505186c1c62ed@mail.gmail.com>
+To: Greg KH <gregkh@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20050405164758.GH17299@kroah.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Apr 5, 2005 9:18 AM, Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com> wrote:
-> On Apr 5, 2005 8:13 AM, Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com> wrote:
-> > On Apr 5, 2005 6:35 AM, Marcel Holtmann <marcel@holtmann.org> wrote:
-> > > Hi,
-> > >
-> > > while testing the latest kernel from the Bitkeeper repository, I got
-> > > some sleeping functions called from invalid context:
-> > >
-> > > Freeing unused kernel memory: 180k freed
-> > > Debug: sleeping function called from invalid context at mm/slab.c:2090
-> > > in_atomic():1, irqs_disabled():0
-> > >  [<c0119936>] __might_sleep+0xa6/0xb0
-> > >  [<c014ab93>] kmem_cache_alloc+0x73/0x80
-> > >  [<c0149c0e>] kmem_cache_create+0xfe/0x630
-> > >  [<c026994d>] proto_register+0x9d/0xc0
-> > >  [<f88c901c>] af_unix_init+0x1c/0x7a [unix]
-> > >  [<c0139d62>] sys_init_module+0x1b2/0x290
-> > >  [<c0103025>] syscall_call+0x7/0xb
-> > > NET: Registered protocol family 1
-> >
-> > Damn, thanks for reporting, looking at it now.
+On Tue, Apr 05, 2005 at 09:47:59AM -0700, Greg KH wrote:
 > 
-> Humm, recent changes in slab.[ch]... I'll try booting with a kernel without
-> proto_register to see if this is some bug introduced by this changeset or
-> if the problem would appear without it, that is my current guess, as we
-> were doing a kmem_cache_create at module __init time before, and it
-> uses SLAB_KERNEL at some point...
+> -stable review patch.  If anyone has any objections, please let us know.
 > 
-> I.e. with regards to per protocol slab cache creating at module init time
-> we are doing the same thing as before the proto_register changeset,
-> unless I'm missing some obvious thing...
+> While redoing BIC for the split up version, I discovered that the
+> existing 2.6.11 code doesn't really do binary search. It ends up
+> being just a slightly modified version of Reno.  See attached graphs
+> to see the effect over simulated 1mbit environment.
 
-Yes, I was missing something, one should not call kmem_cache_create with a
-spinlock held, patch will be available shortly, thanks a lot Marcel
-for reporting this
-one!
+I hate to be a stickler for the rules, but does this really meet this
+criteria?
 
-- Arnaldo
+ - It must fix a real bug that bothers people (not a, "This could be a
+   problem..." type thing.)
+
+If the congestion control alogirthm is "Reno-like", what is
+user-visible impact to users?  There are OS's out there with TCP/IP
+stacks that are still using Reno, aren't there?  
+
+Knowing the answer to the question, "How does this bug `bother' either
+users or network administrators?" would probably be really helpful.
+
+						- Ted
