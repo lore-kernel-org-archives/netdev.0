@@ -1,40 +1,43 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: 27 Sep 2004 08:59:05 -0400
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: [PATCH] 3c59x - use netdev_priv
+Date: Mon, 27 Sep 2004 15:50:45 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096289945.1074.53.camel@jzny.localdomain>
-References: <4150E7E5.2000001@eurodev.net>
-	 <20040922045239.GA19573@gondor.apana.org.au>
-	 <1095854920.1047.64.camel@jzny.localdomain>
-	 <20040922105221.59a67d4b.davem@davemloft.net>
-	 <4152EE68.4030803@eurodev.net>
-	 <20040923121651.51a58cf2.davem@davemloft.net>
-	 <20040924032830.GC6384@gondor.apana.org.au>
-	 <20040923223909.6f4da27f.davem@davemloft.net>
-	 <20040924062604.GA7393@gondor.apana.org.au>
-	 <20040924105855.0e1aecd0.davem@davemloft.net>
-	 <20040924220651.GA6096@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040927135045.GC18851@gareth.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, pablo@eurodev.net,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040924220651.GA6096@gondor.apana.org.au>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-09-24 at 18:06, Herbert Xu wrote:
+Patch changes the two remaining direct accessing of dev->priv to netdev_priv.
 
-> I agree completely.  I'm just saying that the current NLM_GOODSIZE
-> skb is the perfect scratch-pad so we don't need a new one.  All we
-> need to do is to insert a helper call just before netlink_unicast
-> to copy and trim the packet in the places that need it.
+Applies against linux-2.6.9-rc2-mm3
 
-You are probably talking past each other - to me you seem to be saying
-the same thing. A "manager" of some form is required.
+Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 
-cheers,
-jamal
+--  
+
+diff -urN vanilla-2.6.9-rc2-mm3/drivers/net/3c59x.c linux-2.6.9-rc2-mm3/drivers/net/3c59x.c
+--- vanilla-2.6.9-rc2-mm3/drivers/net/3c59x.c	Sat Sep 25 12:00:58 2004
++++ linux-2.6.9-rc2-mm3/drivers/net/3c59x.c	Mon Sep 27 10:27:07 2004
+@@ -934,7 +934,7 @@ static int vortex_cards_found;
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void poll_vortex(struct net_device *dev)
+ {
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	unsigned long flags;
+ 	local_save_flags(flags);
+ 	local_irq_disable();
+@@ -2982,7 +2982,7 @@ static void set_rx_mode(struct net_devic
+ 
+ static void set_8021q_mode(struct net_device *dev, int enable)
+ {
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int old_window = inw(ioaddr + EL3_CMD);
+ 	int mac_ctrl;
