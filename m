@@ -1,82 +1,66 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: 3/x: [NETDRV] Add register_ei_netdev
-Date: Sat, 29 May 2004 18:41:09 +1000
+Subject: Re: Bug#251215: kernel-image-2.6.6-1-k7: pppd locks up, cannot be  killed, during ppp shutdown
+Date: Sat, 29 May 2004 22:00:52 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040529084109.GA13032@gondor.apana.org.au>
-References: <20040313025859.GA8186@gondor.apana.org.au> <405C294D.5040508@pobox.com> <20040520111937.GA21804@gondor.apana.org.au> <20040522074435.GA9628@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="XsQoSWH+UP9D9v3l"
+Message-ID: <E1BU2WC-0003nd-00@gondolin.me.apana.org.au>
+References: <20040529051736.GA11303@gondor.apana.org.au>
+Cc: debian.bugs@kepier.clara.net, 251215@bugs.debian.org, shemminger@osdl.org,
+        davem@redhat.com, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040522074435.GA9628@gondor.apana.org.au>
+To: herbert@gondor.apana.org.au (Herbert Xu)
+In-Reply-To: <20040529051736.GA11303@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> OK, I've had a look and it looks like the free_netdev call in
+> ppp_shutdown_inteface is the problem.  What's happening is that
+> the todo list is being processed either on another CPU or by
+> preemption in another context.  As a result when the subsequent
+> free_netdev is called the device hasn't yet been processed and
+> is still in state UNREGISTERING.
+> 
+> Why do we need to call free_netdev after unregistering the netdev
+> from the drivers at all? What's wrong with calling it from run_todo
+> itself?
 
---XsQoSWH+UP9D9v3l
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Well I guess someone might want to reregister the net device :)
 
-Hi Jeff:
+Here is a minimal fix for this problem.
 
-Here is the patch that adds register_ei_netdev which lets us get rid of
-some of the duplicated printk's in the 8390 drivers.
- 
 Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---XsQoSWH+UP9D9v3l
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== drivers/net/8390.c 1.21 vs edited =====
---- 1.21/drivers/net/8390.c	2004-04-14 04:12:07 +10:00
-+++ edited/drivers/net/8390.c	2004-05-29 18:36:06 +10:00
-@@ -1033,6 +1033,29 @@
- 				ethdev_setup);
- }
+--
+===== net/core/dev.c 1.141 vs edited =====
+--- 1.141/net/core/dev.c	2004-05-23 06:45:55 +10:00
++++ edited/net/core/dev.c	2004-05-29 21:56:18 +10:00
+@@ -2999,7 +2999,6 @@
  
-+/**
-+ * register_ei_netdev - register_netdev counterpart for 8390
-+ *
-+ * Register 8390-specific net_device.
-+ */
-+int register_ei_netdev(struct net_device *dev)
-+{
-+	int err;
-+	int i;
-+
-+	err = register_netdev(dev);
-+	if (err)
-+		return err;
-+
-+	printk(KERN_INFO "%s: %s at 0x%lx, ",
-+		dev->name, ei_status.name, dev->base_addr);
-+	for (i = 0; i < ETHER_ADDR_LEN; i++)
-+		printk("%2.2x%c", dev->dev_addr[i],
-+			i == ETHER_ADDR_LEN - 1 ? ',' : ':');
-+	printk(" IRQ %d.\n", dev->irq);
-+	return 0;
-+}
-+
- 
+ 		case NETREG_UNREGISTERING:
+ 			netdev_unregister_sysfs(dev);
+-			dev->reg_state = NETREG_UNREGISTERED;
  
+ 			netdev_wait_allrefs(dev);
  
-===== drivers/net/8390.h 1.17 vs edited =====
---- 1.17/drivers/net/8390.h	2004-05-25 19:53:07 +10:00
-+++ edited/drivers/net/8390.h	2004-05-29 18:17:51 +10:00
-@@ -52,6 +52,7 @@
- {
- 	return __alloc_ei_netdev(0);
- }
-+extern int register_ei_netdev(struct net_device *dev);
+@@ -3015,6 +3014,7 @@
+ 			 */
+ 			if (dev->destructor)
+ 				dev->destructor(dev);
++			class_device_put(&dev->class_dev);
+ 			break;
  
- /* You have one of these per-board */
- struct ei_device {
-
---XsQoSWH+UP9D9v3l--
+ 		default:
+@@ -3140,6 +3140,8 @@
+ 	free_divert_blk(dev);
+ 
+ 	/* Finish processing unregister after unlock */
++	dev->reg_state = NETREG_UNREGISTERED;
++	class_device_get(&dev->class_dev);
+ 	net_set_todo(dev);
+ 
+ 	dev_put(dev);
