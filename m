@@ -1,33 +1,41 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Sat, 5 Feb 2005 17:14:39 -0800
-Message-ID: <20050205171439.4e825155.davem@davemloft.net>
-References: <20050131102920.GC4170@suse.de>
-	<E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
-	<20050203142705.GA11318@krispykreme.ozlabs.ibm.com>
-	<20050203203010.GA7081@gondor.apana.org.au>
-	<20050203141901.5ce04c92.davem@davemloft.net>
-	<20050203235044.GA8422@gondor.apana.org.au>
-	<20050203164922.2627a112.davem@davemloft.net>
-	<20050204012053.GA8949@gondor.apana.org.au>
-	<20050203172357.670c3402.davem@davemloft.net>
-	<20050204015539.GA9727@gondor.apana.org.au>
+Subject: Re: [NET] Add barriers for dst refcnt
+Date: Sat, 5 Feb 2005 17:21:01 -0800
+Message-ID: <20050205172101.7874e1dd.davem@davemloft.net>
+References: <20050204073311.GA11716@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: anton@samba.org, okir@suse.de, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com, anton@samba.org
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050204015539.GA9727@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050204073311.GA11716@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 Feb 2005 12:55:39 +1100
+On Fri, 4 Feb 2005 18:33:11 +1100
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> OK, here is the patch to do that.  Let's get rid of kfree_skb_fast
-> while we're at it since it's no longer used.
+> In light of the recent discussion about sk_buff, I think we need
+> the following patch for dst_entry.  This adds a memory barrier
+> before dst_release drops the refcnt, and a read memory barrier
+> before dst_destroy starts destroying the entry.
 > 
 > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I've queued this up for 2.6.x and 2.4.x, thanks everyone.
+Good catch.
+
+I "think" the dst_release() case is theoretical.  dst_release()
+runs in a locked context for the thing referencing 'dst'.  Be it
+the route hash, a socket, whatever.
+
+BTW, looking at dst_release() call sites, xchg() might be another
+primitive we need to watch out for memory barrier semantics of.
+Since it returns a value, it would seem to need to be strictly
+ordered wrt. other memory operations.  And sure enough, ppc64
+has the memory barriers there.
+
+Man, something else to audit on sparc64 and document in atomic_ops.txt
+:-)
+
+Anyways, Herbert's patch is correct and I'll apply it.  Thanks.
