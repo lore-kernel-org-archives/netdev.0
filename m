@@ -1,50 +1,60 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IPV6] NDISC: ensure responding to NS without link-layer
- information.
-Date: Thu, 16 Sep 2004 12:59:21 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916.125921.56481183.yoshfuji@linux-ipv6.org>
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: The ultimate TOE design
+Date: Wed, 15 Sep 2004 22:25:48 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <200409160525.i8G5PtqG009228@guinness.s2io.com>
+References: <1095296279.1064.80.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "'David S. Miller'" <davem@davemloft.net>,
+	<alan@lxorguk.ukuu.org.uk>, <paul@clubi.ie>, <netdev@oss.sgi.com>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267165AbUIPF1P@vger.kernel.org>
+To: <hadi@cyberus.ca>, "'Jeff Garzik'" <jgarzik@pobox.com>
+In-Reply-To: <1095296279.1064.80.camel@jzny.localdomain>
 List-Id: netdev.vger.kernel.org
 
-Hello.
+ 
 
-When sending NA in response to NS, we may not know the 
-link-layer address for the destination of the NA 
-since unicast NS is not required to include its link-layer information.
-In this case, we first need to resolve the link-layer address.
-(RFC 2461 7.2.4)
+> -----Original Message-----
+> From: jamal [mailto:hadi@cyberus.ca] 
+> Sent: Wednesday, September 15, 2004 5:58 PM
+> To: Jeff Garzik
+> Cc: David S. Miller; alan@lxorguk.ukuu.org.uk; paul@clubi.ie; 
+> netdev@oss.sgi.com; leonid.grossman@s2io.com; 
+> linux-kernel@vger.kernel.org
+> Subject: Re: The ultimate TOE design
+> 
+> Jeff,
+> You are only allowed to start a TOE thread only every six months ;->
+> 
+> On a serious note, I think that PCI-express (if it lives upto its
+> expectation) will demolish dreams of a lot of these TOE investments.
+> Our problem is NOT the CPU right now (80% idle processing 
+> 450Kpps forwarding). Bus and memory distance/latency are. 
 
-We now create neighbour entry for the destination 
-and link-layer information will be automatically solved 
-in the output path.
+In servers, both bottlenecks are there - if you look at the cost of TCP and
+filesystem processing at 10GbE, CPU is a huge problem (and will be for
+foreseeable future), even for fastest 64-bit systems. 
+I agree though that bus and memory are bigger issues, this is exactly the
+reason for all these RDMA over Ethernet investments :-)
+Anyways, did not mean to start an argument - with all the new CPU, bus and
+HBA technologies coming to the market it will be another 18-24 months before
+we know what works and what doesn't...
+Leonid
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Also available at <bk://bk.skbuff.net:20609/linux-2.6-ndp-20040916/>.
-
-Thanks.
-
-diff -Nru a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
---- a/net/ipv6/ndisc.c	2004-09-16 12:54:26 +09:00
-+++ b/net/ipv6/ndisc.c	2004-09-16 12:54:26 +09:00
-@@ -810,7 +810,8 @@
- 	 *	update / create cache entry
- 	 *	for the source address
- 	 */
--	neigh = __neigh_lookup(&nd_tbl, saddr, dev, lladdr || !dev->addr_len);
-+	neigh = __neigh_lookup(&nd_tbl, saddr, dev,
-+			       !inc || lladdr || !dev->addr_len);
- 	if (neigh)
- 		neigh_update(neigh, lladdr, NUD_STALE, 
- 			     NEIGH_UPDATE_F_WEAK_OVERRIDE|
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+>If 
+> intel would get rid of the big conspiracy in the form of 
+> chipset division and just integrate the MC like AMD is, we'll 
+> be on our our way to kill TOE and a lot of the network 
+> processors (like the IXP). Dang, running Linux is more 
+> exciting than microcoding things to fit into a 2Kword program store. 
+> 
+> I rest my canadiana $.02 
+> 
+> cheers,
+> jamal
+> 
