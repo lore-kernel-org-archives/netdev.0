@@ -1,48 +1,79 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: 2.6.0-test11: dst_cache_overflow causing unresponsive box
-Date: Tue, 2 Dec 2003 11:44:31 +0100
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [RTNETLINK] Provide real oif
+Date: Tue, 2 Dec 2003 22:02:24 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16332.27919.502097.988522@robur.slu.se>
-References: <072501c3b874$2542ae70$15fea8c0@fortress>
+Message-ID: <20031202110224.GA25957@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: multipart/mixed; boundary="ZGiS0Q5IWpPtfppv"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Francois Baligant" <francois@baligant.net>
-In-Reply-To: <072501c3b874$2542ae70$15fea8c0@fortress>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Francois Baligant writes:
- > We have a problem with a box running 2.6.0-test11-mjb1 and supporting around 90k simultaneous TCP connection. After a few hours/days of running,
- > when a lots of clients connects/disconnects, the console will start to display:
- > 
- > dst cache overflow
- > NET: 1860 messages suppressed.
- > 
- > >From there, the box is completely unresponsive, apparently eating all its CPU in trying to shrink the routing cache. Only solution is reboot.
+--ZGiS0Q5IWpPtfppv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
- > Current sysctl:
- > net.ipv4.route.max_size = 655360 # I know we shouldn't rise it that high but it's only cure for now.. it lasts a bit longer like this
+Hi Dave:
 
- >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
- > 139566     12393     123     0     0     0     0     0       184      21      0     143     142         0    0           26039        375
+This patch adds a new attribute RTA_PREFOIF to the RTNETLINK interface
+so that we can send the real oif to user space.  Hmm, would RTA_REALOIF
+be a better name? It really should be called RTA_OIF but that's already
+taken.
 
+Currently if there are two entries in the routing cache that only differ
+by the value of oif then they will appear identical to user space.  The
+only way to tell them apart would be to export the value of oif from
+the kernel.
 
- >   OBJS ACTIVE  USE OBJ SIZE  SLABS OBJ/SLAB CACHE SIZE NAME                   
- > 142340 142296  99%    0.38K  14234       10     56936K ip_dst_cache
- > 
- > Are we tuning the rt_cache in a wrong way ?
+Of course this patch by itself doesn't do anything.  But once it is in
+we can extend ip(8) to display it.
 
-No experience with 90k TCP-flows but it seems GC is not able to free some 
-the dst-entries for some reason. This will slowly kill your box with 
-symptoms you describe. We have ask TCP-experts for timer settings to avoid
-pending sessions etc. Also check slab for any other objects growing as 
-dst cache overflow is most likely secondary effect in your case. rtstat 
-looks sane expect for the high number of dst-entries. Tuning is another 
-story.
+PS IPv6 doesn't seem to have an oif field so it doesn't need this.
 
-Cheers.
-						--ro
+Cheers,
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--ZGiS0Q5IWpPtfppv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+Index: kernel-source-2.5/include/linux/rtnetlink.h
+===================================================================
+RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/include/linux/rtnetlink.h,v
+retrieving revision 1.5
+diff -u -r1.5 rtnetlink.h
+--- kernel-source-2.5/include/linux/rtnetlink.h	18 Oct 2003 07:12:47 -0000	1.5
++++ kernel-source-2.5/include/linux/rtnetlink.h	2 Dec 2003 10:52:34 -0000
+@@ -200,6 +200,7 @@
+ 	RTA_FLOW,
+ 	RTA_CACHEINFO,
+ 	RTA_SESSION,
++	RTA_PREFOIF,
+ };
+ 
+ #define RTA_MAX RTA_SESSION
+Index: kernel-source-2.5/net//ipv4/route.c
+===================================================================
+RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/ipv4/route.c,v
+retrieving revision 1.3
+diff -u -r1.3 route.c
+--- kernel-source-2.5/net//ipv4/route.c	24 Nov 2003 09:52:04 -0000	1.3
++++ kernel-source-2.5/net//ipv4/route.c	2 Dec 2003 10:57:12 -0000
+@@ -2347,6 +2347,8 @@
+ #endif
+ 			RTA_PUT(skb, RTA_IIF, sizeof(int), &rt->fl.iif);
+ 	}
++	if (rt->fl.oif)
++		RTA_PUT(skb, RTA_PREFOIF, sizeof(int), &rt->fl.oif);
+ 
+ 	nlh->nlmsg_len = skb->tail - b;
+ 	return skb->len;
+
+--ZGiS0Q5IWpPtfppv--
