@@ -1,25 +1,89 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.70] e100 report link speed via if_port
-Date: Thu, 29 May 2003 14:08:28 -0700 (PDT)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] net driver merges
+Date: Thu, 29 May 2003 17:10:53 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529.140828.78714529.davem@redhat.com>
-References: <20030529104138.751a1f54.shemminger@osdl.org>
+Message-ID: <20030529211053.GA9069@gtf.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: scott.feldman@intel.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030529104138.751a1f54.shemminger@osdl.org>
+To: torvalds@transmeta.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Thu, 29 May 2003 10:41:38 -0700
 
-   The e100 driver knows the link speed, but it is not visible through sysfs.
-   Small patch to update the net_device if_port when speed is detected;
-   this can then be read through /sys/class/net/eth0/if_port.
+Linus, please do a
+
+	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.5
+
+Others may download the patch from
+
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.5/2.5.70-bk3-netdrvr1.patch.bz2
+
+This will update the following files:
+
+ drivers/net/8139too.c        |    6 
+ drivers/net/amd8111e.c       | 1047 +++++++++++++++++++++++++++----------------
+ drivers/net/amd8111e.h       |  968 ++++++++++++++++++++-------------------
+ drivers/net/e100/e100_main.c |   33 -
+ drivers/net/pci-skeleton.c   |    4 
+ drivers/net/pcnet32.c        |    7 
+ drivers/net/r8169.c          |   44 +
+ drivers/net/tlan.c           |  116 +++-
+ 8 files changed, 1306 insertions(+), 919 deletions(-)
+
+through these ChangeSets:
+
+<shemminger@osdl.org> (03/05/29 1.1438)
+   [netdrvr e100] initialize callbacks before registering netdev
    
-if_port is deprecated, use ethtool ioctls to determine the link
-speed...
+   Ouch.
+
+<reeja.john@amd.com> (03/05/29 1.1437)
+   [netdrvr amd8111e] interrupt coalescing, libmii, bug fixes
+   
+   * Dynamic interrupt coalescing
+   * mii lib support
+   * dynamic IPG support (disabled by default)
+   * jumbo frame fix
+   * vlan fix
+   * rx irq coalescing fix
+
+<alan@lxorguk.ukuu.org.uk> (03/05/29 1.1436)
+   [netdrvr tlan] fix 64-bit issues
+
+<jgarzik@redhat.com> (03/05/29 1.1435)
+   [netdrvr r8169] use alloc_etherdev, pci_disable_device
+
+<jgarzik@redhat.com> (03/05/29 1.1433)
+   [netdrvr 8139too] respond to "isn't this racy?" comment
+
+<jgarzik@redhat.com> (03/05/28 1.1432)
+   [netdrvr] s/init_etherdev/alloc_etherdev/ in code comments,
+   in 8139too and pci-skeleton drivers.
+
+<jgarzik@redhat.com> (03/05/28 1.1431)
+   [netdrvr tlan] cleanup
+   
+   * use pci_{request,release}_regions for PCI devices
+   * use alloc_etherdev (fixes race)
+   * propagate error returns from pci_xxx function errors
+
+<engebret@us.ibm.com> (03/05/27 1.1392.7.7)
+   [netdrvr pcnet32] bug fixes
+   
+   I would like to see a couple of the pcnet32 changes that I think we can
+   agree on be put into the trees so a couple of the potential defects can be
+   avoided.  The following patch contains just these pieces.  The only
+   controversial one is an arbitrary change in the number of iterations in a
+   while loop spinning on hardware state.   No matter how this is done, I am
+   not especially fond of this bit of code as it has no reasonable error
+   recovery path -- however, as a half-way, incremental solution, increasing
+   the polling time should help as the 100 value was certainly found to be
+   insufficient.  1000 may not be sufficient either, but it is certainly no
+   worse.
+   
+   Both of the other changes were hit in testing (and I belive the wmb() at a
+   customer even), so it would help reduce some debug if these go in.  Any
+   feedback is appreciated - thanks.
