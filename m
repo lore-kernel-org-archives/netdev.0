@@ -1,33 +1,39 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] gc_min_interval in milleseconds via /proc (fwd)
-Date: Sun, 30 Jan 2005 22:56:27 -0800
-Message-ID: <20050130225627.4feecd2e.davem@davemloft.net>
-References: <16888.56016.608929.340640@robur.slu.se>
+From: Christian Tschudin <Christian.Tschudin@unibas.ch>
+Subject: PROBLEM: nd_tbl not a public symbol in net/ipv6/ndisc.c
+Date: Mon, 31 Jan 2005 09:04:34 +0100 (MET)
+Message-ID: <Pine.OSF.4.58.0501310903220.211@igor.urz.unibas.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16888.56016.608929.340640@robur.slu.se>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Jan 2005 13:13:04 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+Our LUNAR project (underlay for wireless multihop networks)
+stumbled over the same problem that at least two other projects
+(infiniband, and mipv6) also experienced many months ago:
 
->   Ok! But I haven't heard of any successful use of this paticaul API. :-)
+  The neighbor table 'nd_tbl' in net/ipv6/ndisc.c
+  is not accessible from other modules.
 
-Are you really so sure?
+  This prevents several 2.6.x kernel modules in networking
+  from being deployed without kernel patching and recompilation.
 
->  > We could instead make another sysctl (perhaps name it something
->  > like "gc_min_interval_ms") to do what you propose, and then
->  > we'd keep the existing one around for compatibility.
-> 
->  All-right a new patch below. 
+Please find a patch below.
 
-We must pick a new sysctl number too, for sysctl() system call.
-If the only access possible were through /proc then yes your
-change would be valid, but due to sysctl() system call the
-.ctl_name defines that dimension of the sysctl namespace.
+best, christian tschudin.
+
+---
+
+--- linux-2.6.10/net/ipv6/ipv6_syms.c   2004-12-24 22:35:23.000000000 +0100
++++ work/linux-2.6.10/net/ipv6/ipv6_syms.c      2005-01-30 23:44:42.743620264 +0100
+@@ -41,3 +41,4 @@
+ EXPORT_SYMBOL(rt6_lookup);
+ EXPORT_SYMBOL(fl6_sock_lookup);
+ EXPORT_SYMBOL(ipv6_push_nfrag_opts);
++EXPORT_SYMBOL(nd_tbl);
+
+---
+Christian Tschudin, University of Basel       http://cn.cs.unibas.ch/
+Computer Science Dept, Bernoullistr. 16, CH - 4056 Basel, Switzerland
