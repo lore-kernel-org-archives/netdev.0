@@ -1,53 +1,57 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Bugzilla bug tracking database for 2.5 now available.
-Date: Fri, 15 Nov 2002 16:45:34 -0800
+From: "Greg Razak" <razakgreg@fastermail.com>
+Subject: GOD`S WORK
+Date: Sat, 16 Nov 2002 22:01:37 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DD5952E.CD88DD67@us.ibm.com>
+Message-ID: <20021116140137.22978.qmail@fastermail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: mjbligh@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
+Content-Disposition: inline
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Bouncing this to netdev, since not all of us read lkml,
-and quite a few people here who might want to use the
-bug database are still in the dark about it..
+ATTENTION: 
 
-Am including Martin's original post on the OSDL Linux 2.5
-Bug Tracker below, and if you want to follow the resultant
-thread, see:
+INVESTMENT PROPOSAL.
 
-http://marc.theaimsgroup.com/?l=linux-kernel&m=103723818421551&w=2
+Dear Sir, 
 
-thanks,
-Nivedita
+I hope this mail will reach you in the best of health
+and business conditions and receive the most desired
+attention from you even as we have not any previous
+correspondence before. 
 
-> The bugzilla database we proposed earlier is now available for
-> use, hosted by OSDL.
-> 
-> http://bugme.osdl.org
-> 
-> Feel free to go ahead and create yourself an account, and log
-> bugs in there. This is only for 2.5 bugs currently, and the main
-> intent is to help us drive 2.5 into a timely and stable 2.6 (or 3.0).
-> 
-> Please let me or the supplied mailto URLs know of any problems you 
-> encounter, but please be patient with any inital teething problems 
-> and don't tell slashdot just yet ;-) Apologies for this not being
-> ready quite at Halloween ... and there's not much data in there 
-> right  now, but we'll keep feeding it over the coming few days, 
-> including importing Thomas Molina's list of bugs.
-> 
-> The categories probably need some more work, they'll evolve as
-> bugs get logged. The reason I own huge numbers of subsystems is 
-> not just because I'm a derranged megalomaniac, it's more to do 
-> with the fact that I don't have other people available with 
-> accounts created to own them. Brave volunteers who've created an
-> account would be most welcome, ideally the code maintainers for
-> those subsystems, but other people familiar with those areas would
-> be a great substitute. ;-)
-> 
-> M.
+I am constrained by insufficient information about you
+to express in full the main objectives of this
+proposal. However, kindly reach me immediately for
+more information, should you agree to its content. My colleagues and I would like to solicit you kindness in assisting us in transfering  some fund  from our country to yours for safe keeping. The total amount of fund is $36million (US dollars).  
+
+I am a Principal Accountant to the Nigerian Ministry
+of Aviation, and the Chairman to the Federal Tenders
+Board in charge of contract award comittee in Nigeria.
+
+Basically, you would be required to norminate a
+suitable bank account that will convinently accomodate
+the total fund. Account could be a fresh or an already
+existing one, and could be individual or corporate
+account.  On completion of the transaction, you shall
+have a benefit of 30% of the fund for your envisaged
+efforts and assistance rendered 10% shall be used to
+settle any expenses both you and I shall incure on the
+course of this transaction . Information of this proposal will be sent to you as soon as your response is recieved.  Please send me e-mail for more details on how to commence the whole transaction.
+
+I will need your private phone and fax numbers for
+easy communication.  This proposal is strictly confidential, free from any form of risk and does not depend on any particular feild of trade to prosecute. It however requires your adequate participation and support to enable it's accomplishment on schedule. 
+
+Thanks in anticipation and God bless. 
+
+Best regards,
+
+Mr.RAZAK GREG.
+-- 
+_______________________________________________
+Get your free email from http://www.fastermail.com
+
+Powered by Outblaze
