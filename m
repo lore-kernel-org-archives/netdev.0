@@ -1,40 +1,25 @@
-From: anand@eis.iisc.ernet.in (SVR Anand)
-Subject: netfilter hook in packet capture
-Date: Thu, 1 Jan 2004 15:05:47 +0530 (GMT+05:30)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPV6: kill obsolete functions
+Date: Thu, 1 Jan 2004 12:24:30 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401010935.PAA19361@eis.iisc.ernet.in>
+Message-ID: <20040101122430.4fcf6bfd.davem@redhat.com>
+References: <20040101.154305.69668715.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040101.154305.69668715.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 01 Jan 2004 15:43:05 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-I am hoping that this mail will be relevant to those who have an user level
-application that does firewalling by promiscuously capturing packets, apply
-extensive decision making rules. I have written one such application and found 
-what I am going to say below has helped me a lot.
+> We've migrated to ip6_append_data(). Old functions such as
+> ip6_frag_xmit() and ip6_build_xmit() are no longer used.
+> 
+> D: kill obsolete functions.
 
-In the above mentioned scenario, there are many instances I preferred to do
-the following in the kernel itself as much as possible before further
-processing done in the user firewall code. What I wanted was
-i) selective packet capture ii) DoS protection iii) Externally controlling
-the kernel level filter rules without disrupting the firewall application 
-iv) Ease of filter management  vi) Logging v) Performance ...
-
-I found that iptables/netfilter satisfies all my requirements as compared to
-the existing bpf filter. Hence all I had to do was include NF_HOOK at couple
-of places in af_packet.c and I have the netfilter features accessible to me.
-With the above trivial inclusion I am currently running my application with 
-all the initial work done by netfilter. Thanks netfilter group!
-
-While the sanctity or appropriateness or compliance of the above patch within
-packet capture scheme of things can be frowned upon, since its utility has 
-been beneficial to me, I thought I would share it with you. If you find it
-useful I can send you rather simple patch which perhaps you could have easily
-guessed it!
-
-Anand
+Applied, arigato Yoshfuji-san.
