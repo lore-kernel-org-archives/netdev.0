@@ -1,8 +1,8 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [Patch 5/5 2.5] e1000: white space corrections
-Date: Fri, 15 Oct 2004 06:52:59 -0700 (PDT)
+Subject: [Patch 0/5 2.5] e100: driver update
+Date: Fri, 15 Oct 2004 06:53:10 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0410150545520.31227-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0410150547480.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,14 +11,11 @@ To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -up netdev-2.6/drivers/net/e1000/e1000_ethtool.c netdev-2.6/drivers/net/e1000.new/e1000_ethtool.c
---- netdev-2.6/drivers/net/e1000/e1000_ethtool.c	2004-10-07 13:59:52.000000000 -0700
-+++ netdev-2.6/drivers/net/e1000.new/e1000_ethtool.c	2004-10-07 13:59:53.000000000 -0700
-@@ -641,7 +641,6 @@ err_setup_rx:
- 	return err;
- }
- 
--
- #define REG_PATTERN_TEST(R, M, W)                                              \
- {                                                                              \
- 	uint32_t pat, value;                                                   \
+1. Fix e100_watchdog to not accidentally re-enable interrupts when setting 
+the software interrupt bit.  Bug fixed was data corruption noticed with i
+memory poisoning kernel, when under heavy (65000+) packets per second load on PPC64.
+2. Downing interface breakes connectivity of BMC removed small portion of 
+TCO workaround in e100_hw_reset routine
+3. Fix set ringparam for ethtool returning error code on bad input
+4. Driver version number update
+5. More DPRINTK messages to log driver state.
