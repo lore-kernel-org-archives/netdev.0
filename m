@@ -1,72 +1,47 @@
-From: Alpt <alpt@freaknet.org>
-Subject: Re: [PATCH] bridge hub_enabled option
-Date: Wed, 30 Mar 2005 13:14:24 +0200
-Message-ID: <20050330111424.GA16289@nihil>
-References: <20050326224030.GA31822@darkalpt>
-	<20050329142719.4bd7cb57@dxpl.pdx.osdl.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: cls_u32 compile failure in current 2.6.12-rc1+BK tree
+Date: 30 Mar 2005 06:55:29 -0500
+Message-ID: <1112183729.1088.65.camel@jzny.localdomain>
+References: <20050328123801.GY3086@postel.suug.ch>
+	 <1112014261.1089.1018.camel@jzny.localdomain>
+	 <20050328125802.GZ3086@postel.suug.ch>
+	 <1112015725.1089.1045.camel@jzny.localdomain>
+	 <20050328155523.GD3086@postel.suug.ch>
+	 <1112038128.1119.5.camel@jzny.localdomain>
+	 <20050328195320.GE3086@postel.suug.ch>
+	 <20050328223310.GH3086@postel.suug.ch>
+	 <20050329011058.GJ3086@postel.suug.ch>
+	 <1112129516.1076.90.camel@jzny.localdomain>
+	 <20050330010209.GN3086@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============21458369763702345=="
-Cc: netdev@oss.sgi.com, bridge@lists.osdl.org
-Return-path: <bridge-bounces@lists.osdl.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050329142719.4bd7cb57@dxpl.pdx.osdl.net>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Sender: bridge-bounces@lists.osdl.org
-Errors-To: bridge-bounces@lists.osdl.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Meelis Roos <mroos@linux.ee>, netdev <netdev@oss.sgi.com>,
+        "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050330010209.GN3086@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============21458369763702345==
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On Tue, 2005-03-29 at 20:02, Thomas Graf wrote:
 
-On Tue, Mar 29, 2005 at 02:27:19PM -0800, Stephen Hemminger wrote  :
-~> On Sat, 26 Mar 2005 23:40:30 +0100
-~> Alpt <alpt@freaknet.org> wrote:
-~> > Bridge hub_enabled patch:
-~> > this patch adds the hub_enabled option for bridge.
-~> > 
-~> > By default the hub_enabled flag is set to 1. In this case nothing changes, the
-~> > bridge, as usually, acts as a hub and flood_forward the input pkts to all its
-~> > ports. When hun_enabled is set to 0, the bridge stops to flood_forward the input
-~> > traffic and takes only the pkts sent to it.
-~> > Disabling the hub option is useful to join multiple interfaces into a unique virtual
-~> > one, thus becomes possible to have easily an ad-hoc network topology using multiple
-~> > interfaces.
-~> 
-~> Could you give a better example of how this would be useful?
-~> Why would you not want A to talk to C? 
+> So we always dump TCA_ACT_STATS when calling from tcf_exts_dump
+> and add the backward compatibility TLVs in the second call
+> comming from tcf_exts_dump_stats for actions that need it.
+> 
 
-For example to test a routing protocol.
+Looks good from this side.
 
-~> Why not enforce the policy with ebtables?
+> Patches tested, works for me but might be worth for someone
+> else to give it a try as well just to make sure. Meelis, could
+> you give the 3 attched patches a try?
+> 
 
-To not rely to the ip addresses but just having x interfaces merged and to have
-a cleaner and simpler way to do it.
+Andy, can you just double check we dont have the problem you found
+with stats?
 
-Regards
--- 
-:wq!
-"I don't know nothing" The One Who reached the Thinking Matter   '.'
-
-[ Alpt --- Freaknet Medialab ]
-[ GPG Key ID 441CF0EE ]
-[ Key fingerprint = 8B02 26E8 831A 7BB9 81A9  5277 BFF8 037E 441C F0EE ]
-
---===============21458369763702345==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Bridge mailing list
-Bridge@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/bridge
-
---===============21458369763702345==--
+cheers,
+jamal
