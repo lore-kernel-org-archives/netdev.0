@@ -1,53 +1,54 @@
-From: "Paul Rolland" <rol@as2917.net>
-Subject: Re: [BUG]:   problem when shutting down ppp connection since 2.5.70
-Date: Mon, 14 Jul 2003 13:43:51 +0200
+From: Alberto Bertogli <albertogli@telpin.com.ar>
+Subject: [PATCH] IPVS' Kconfig LBLC and LBLCR configuration typo
+Date: Mon, 14 Jul 2003 11:03:50 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <018201c349fd$330a6a60$2101a8c0@witbe>
+Message-ID: <20030714140350.GB1389@telpin.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-ppp@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Paul Rolland'" <rol@as2917.net>,
-   "'Stephen Hemminger'" <shemminger@osdl.org>, <cfriesen@nortelnetworks.com>,
-   <paulus@samba.org>
-In-Reply-To: 
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-I'm sorry, the patch was not complete, it should have considered the
-BUG_ON too...
+Hi there!
 
-Here is one that is fine on my system :
---- dev.c.orig  2003-07-14 13:41:33.000000000 +0200
-+++ dev.c       2003-07-14 13:34:27.000000000 +0200
-@@ -2742,7 +2742,7 @@
-        unsigned long rebroadcast_time, warning_time;
+The following patch fixes what looks like a typo in ipvs' Kconfig
+(net/ipv4/ipvs/Kconfig).
+
+Both the IP_VS_LBLC and IP_VS_LBLCR schedulings have the same tristate
+line (well, not the same, IP_VS_LBLCR's has a 'g' missing at the end):
+
+tristate "locality-based least-connection with replication scheduling"
+
+But it looks like LBLC should be "locality-based least-connection
+scheduling" and LBLCR "locality-based least-connection with replication
+scheduling".
+
+
+Thanks,
+		Alberto
+
+
+--- Kconfig.orig	2003-07-14 10:32:06.000000000 -0300
++++ Kconfig	2003-07-14 10:32:57.000000000 -0300
+@@ -147,7 +147,7 @@
+ 	  unsure, say N.
  
-        rebroadcast_time = warning_time = jiffies;
--       while (atomic_read(&dev->refcnt) != 0) {
-+       while (atomic_read(&dev->refcnt) > 0) {
-                if (time_after(jiffies, rebroadcast_time + 1 * HZ)) {
-                        rtnl_shlock();
-                        rtnl_exlock();
-@@ -2836,7 +2836,7 @@
-                        dev->reg_state = NETREG_UNREGISTERED;
+ config	IP_VS_LBLC
+-	tristate "locality-based least-connection with replication scheduling"
++	tristate "locality-based least-connection scheduling"
+         depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection scheduling algorithm is for
+@@ -163,7 +163,7 @@
+ 	  unsure, say N.
  
-                        netdev_wait_allrefs(dev);
--                       BUG_ON(atomic_read(&dev->refcnt));
-+                       BUG_ON(atomic_read(&dev->refcnt) > 0);
- 
-                        netdev_finish_unregister(dev);
-                        break;
-
-Still don't understand why refcnt is really bad (negative value),
-but at least the machine is working...
-
-Paul
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-I have a vitally important role serving as a bad example.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ config  IP_VS_LBLCR
+-	tristate "locality-based least-connection with replication schedulin"
++	tristate "locality-based least-connection with replication scheduling"
+         depends on IP_VS
+ 	---help---
+ 	  The locality-based least-connection with replication scheduling
