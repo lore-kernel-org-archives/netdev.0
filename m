@@ -1,65 +1,97 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
-Date: Sun, 29 Jun 2003 09:26:55 +0300 (EEST)
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: routing bug report for 2.4
+Date: Sun, 29 Jun 2003 10:28:18 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306290924310.28882-100000@netcore.fi>
-References: <3EFDF4DA.80201@hipac.org>
+Message-ID: <Pine.LNX.4.44.0306290930210.890-100000@u.domain.uli>
+References: <3EFE131E.1080807@candelatech.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Bellion and Thomas Heinz <nf@hipac.org>
-In-Reply-To: <3EFDF4DA.80201@hipac.org>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3EFE131E.1080807@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-On Sat, 28 Jun 2003, Michael Bellion and Thomas Heinz wrote:
-> You wrote:
-> > Looks interesting.  Is there experience about this in bridging firewall 
-> > scenarios? (With or without external patchset's like 
-> > http://ebtables.sourceforge.net/)
-> 
-> Sorry for this answer being so late but we wanted to check whether
-> nf-hipac works with the ebtables patch first in order to give you
-> a definite answer. We tried on a sparc64 which was a bad decision
-> because the ebtables patch does not work on sparc64 systems.
-> We are going to test the stuff tomorrow on an i386 and tell you
-> the results afterwards.
-> 
-> In principle, nf-hipac should work properly whith the bridge patch.
-> We expect it to work just like iptables apart from the fact that
-> you cannot match on bridge ports. The iptables' in/out interface
-> match in 2.4 works the way that it matches if either in/out dev
-> _or_ in/out physdev. The nf-hipac in/out interface match matches
-> solely on in/out dev.
+	Hello,
 
-Thanks for this information.
- 
-> > Further, you mention the performance reasons for this approach.  I would 
-> > be very interested to see some figures.
-> 
-> We have done some performance tests with an older release of nf-hipac.
-> The results are available on http://www.hipac.org/
-> 
-> Apart from that Roberto Nibali did some preliminary testing on nf-hipac.
-> You can find his posting to linux-kernel here: 
-> http://marc.theaimsgroup.com/?l=linux-kernel&m=103358029605079&w=2
-> 
-> Since there are currently no performance tests available for the
-> new release we want to encourage people interested in firewall
-> performance evaluation to include nf-hipac in their tests.
+On Sat, 28 Jun 2003, Ben Greear wrote:
 
-Yes, I had missed this when I quickly looked at the web page using lynx. 
-Thanks.
+> > - check for UP state (is it needed? return ENETDOWN?)
+> > - check if target IP is local and select "lo" instead of oif
 
-One obvious thing that's missing in your performance and Roberto's figures 
-is what *exactly* are the non-matching rules.  Ie. do they only match IP 
-address, a TCP port, or what? (TCP port matching is about a degree of 
-complexity more expensive with iptables, I recall.)
+	First, here is what I mean (not compiled):
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+- ignore matching of the oif key for local destinations
+- return ENETDOWN when the specified out_dev is down
+
+	Dave, Alexey, can you judge on these issues because
+they are not fatal corner cases and can be ignored.
+
+--- v2.4.21/linux/net/ipv4/fib_semantics.c.orig	Sat Jun 14 08:42:55 2003
++++ v2.4.21/linux/net/ipv4/fib_semantics.c	Sun Jun 29 09:28:10 2003
+@@ -603,7 +603,9 @@
+ 			for_nexthops(fi) {
+ 				if (nh->nh_flags&RTNH_F_DEAD)
+ 					continue;
+-				if (!key->oif || key->oif == nh->nh_oif)
++				if (!key->oif ||
++				    key->oif == nh->nh_oif ||
++				    nh->nh_scope == RT_SCOPE_NOWHERE)
+ 					break;
+ 			}
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+--- v2.4.21/linux/net/ipv4/route.c.orig	Sat Jun 14 08:42:55 2003
++++ v2.4.21/linux/net/ipv4/route.c	Sun Jun 29 09:16:03 2003
+@@ -1793,6 +1793,9 @@
+ 			dev_put(dev_out);
+ 			goto out;	/* Wrong error code */
+ 		}
++		err = -ENETDOWN;
++		if (!(dev_out->flags&IFF_UP))
++			goto out;
+
+ 		if (LOCAL_MCAST(oldkey->dst) || oldkey->dst == 0xFFFFFFFF) {
+ 			if (!key.src)
+
+> Well, why should it try to route locally in this case (I'm assuming that
+> by using 'lo' it will not try to send on the external link)
+
+	No, it does not use "lo", "lo" replaces "dev" only if we get
+RTN_LOCAL result. But "to local_IP dev different_device"
+can escape from our host because we can not find route and thus we
+can not override out_dev with lo.
+
+> Why not instead make it send to the router for that source-ip, if it is
+> configured.  If it is not configured, then I think arping is the best that
+
+	What we have is that app uses BINDTODEVICE to send
+packet with saddr=some_IP daddr=any_valid_local_IP. This is
+confusing but I do not see any harm. But I think route request
+"to local_IP" deserves "lo" result no matter the oif key.
+
+> can be expected, as the behaviour becomes quite undefined and we really
+> have 'no route to host'.
+
+	The only reason can be to avoid confusions and to
+make it symmetric with the source validation check. And yes,
+this patch breaks your tests.
+
+> My send-to-self patch that I have been using is attached.  I also have some other
+> patches for mac-vlans and packet-gen applied, but I don't believe these will have any
+> impact on the behaviour we have been discussing.
+
+	I don't see anything in your patch that can disturb these
+tests. The kernel is helpful enough to send your ARP probe for
+local_IP on the LAN :) When I tested the first time, you claimed
+-I local_IP1 local_IP2 causes the problem but as we see, it is
+caused from -I dev
+
+> Thanks,
+> Ben
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
