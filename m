@@ -1,32 +1,37 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Still bug-hunting
-Date: Sat, 5 Mar 2005 22:22:05 +0100
-Message-ID: <20050305212205.GC25116@electric-eye.fr.zoreil.com>
-References: <20050305102918.15fd422c.davem@davemloft.net> <4229FC15.3070408@rapidforum.com> <20050305104854.45106335.davem@davemloft.net> <422A0079.4080806@rapidforum.com> <20050305105706.2c8a6975.davem@davemloft.net> <422A0354.3080800@rapidforum.com> <20050305195712.GO31837@postel.suug.ch> <422A10BC.2060706@rapidforum.com> <20050305203216.GA25116@electric-eye.fr.zoreil.com> <422A1939.9000200@rapidforum.com>
+Subject: Re: [PATCH 1/1] More ethtool support for sis900 (with locking)
+Date: Sat, 5 Mar 2005 22:28:38 +0100
+Message-ID: <20050305212838.GD25116@electric-eye.fr.zoreil.com>
+References: <20050305210745.6763.6618@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
-To: Christian Schmid <webmaster@rapidforum.com>
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+To: Daniele Venzano <webvenza@libero.it>
 Content-Disposition: inline
-In-Reply-To: <422A1939.9000200@rapidforum.com>
+In-Reply-To: <20050305210745.6763.6618@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christian Schmid <webmaster@rapidforum.com> :
-> In less-rude words: "No, this is not easy. No way, sorry."
-
-If you can not distinguish a factual answer from a flame, it is time
-to take a break.
-
+Daniele Venzano <webvenza@libero.it> :
 [...]
-> Thank you for this information. I have sent very detailed bug-reports to 
-> LKML. Maybe you have read already.
+> Index: sis900.c
+> ===================================================================
+> --- a/drivers/net/sis900.c	(revision 95)
+> +++ b/drivers/net/sis900.c	(revision 98)
+[...]
+> @@ -1943,10 +1952,47 @@
+>  	sis_priv->msg_enable = value;
+>  }
+>  
+> +static u32 sis900_get_link(struct net_device *net_dev)
+> +{
+> +	struct sis900_private *sis_priv = net_dev->priv;
 
-Just done so but I fail to see if you provided N. Piggin with the data
-he requested. Anyway, I can return to more basic issues since he and
-the others will do a better job than me.
+Any reason to not use netdev_priv() ?
+
+I would not mind an empty line between the declaration of variables
+and the actual code.
 
 --
 Ueimor
