@@ -1,87 +1,69 @@
-From: Janos Farkas <jf-ml-k1-1087813225@lk8rp.mail.xeon.eu.org>
-Subject: 2.6.11-rc2 TCP ignores PMTU ICMP (Re: Linux 2.6.11-rc2)
-Date: Thu, 27 Jan 2005 10:02:58 +0100
-Message-ID: <priv$1106815487.koan@shadow.banki.hu>
-References: <200501232251.42394.david-b@pacbell.net> <41F6916F.7060000@blue-labs.org> <200501251054.37053.david-b@pacbell.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: MV643xx Ethernet 2.6 driver update
+Date: Thu, 27 Jan 2005 04:56:26 -0500
+Message-ID: <41F8BACA.1020302@pobox.com>
+References: <20050117184019.GA24655@xyzzy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Ford <david+challenge-response@blue-labs.org>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Ralf Baechle <ralf@linux-mips.org>,
+        Manish Lachwani <mlachwani@mvista.com>,
+        Brian Waite <brian@waitefamily.us>,
+        "Steven J. Hill" <sjhill@realitydiluted.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Brownell <david-b@pacbell.net>
-Content-Disposition: inline
-In-Reply-To: <200501251054.37053.david-b@pacbell.net>
+To: Dale Farnsworth <dale@farnsworth.org>
+In-Reply-To: <20050117184019.GA24655@xyzzy>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 2005-01-25 at 10:54:36, David Brownell wrote:
-> On Tuesday 25 January 2005 10:35 am, David Ford wrote:
-> > PMTU bug -- or better said, bad firewall admin who blocks all ICMP.
+Dale Farnsworth wrote:
+> While porting the mv643xx ethernet driver to 2.6 and for use on PPC, I
+> modified it to use the device driver model, fixed the hardware checksum
+> support, and did some miscellaneous bug fixes and cleanups.
 > 
-> PMTU bug, sure -- but one that came late in RC2.  Remember:  same firewall
-> in both cases, but only RC2 breaks.  The ICMP packet has landed in
-> the RC2 system, which ignores it.  2.6.10 handled it correctly... I
-> suspect one of the TCP cleanups borked this.
+> The following changes are included:
+> 	
+>  A. Remove redundant or unneeded code.
+>  B. Replace fixed count spins with udelay/msleep waits on hardware status bits
+>  C. Fix code to enable hardware checksum generation for TX packets
+>  D. Convert from pci_map_* to dma_map_* interface
+>  E. Add device driver model support.
+>  F. Add support for several configurable parameters via platform_device
+>  G. Make use of MV64340_RX_QUEUE_FILL_ON_TASK macro consistent.
+>  H. Simplify mv64340_eth_set_rx_mode()
+>  I. Clean up receive buffer sizing
+>  J. Call netif_carrier_off/netif_carrier_on on a link down/up condition
+>  K. Add support for PHYs/boards that don't support autonegotiation.
 > 
-> My current workaround is "ifconfig eth0 mtu 1492" but that's not
-> something I'd expect to keep.
+> Change E is the only one that modifies the driver interface.
+> 
+> Change G was sent to me by Steven J Hill <sjhill1@rockwellcollins.com>.
+> Change K was sent to me by Brian Waite <brian@waitefamily.us>.
+> 
+> The first 6 changes were submitted to LKLM on Dec. 13 2004.  Comments
+> were received only from Christoph Hellwig <hch@infradead.org> and have
+> been addressed.  Changes G-K have been added since then.
+> 
+> I have some additional (mostly cosmetic, but still significant) cleanups,
+> but I'd like to get these in the queue first.
+> 
+> Thanks,
+> Dale Farnsworth
+> 
+> Please do a
+> 
+> 	bk pull bk://dfarnsworth.bkbits.net/netdev-2.6-mv643xx-enet
 
-Indeed, I had to shuffle my machines around a bit to get a proof that
-something is broken, but now I can confirm the above with a connection
-to cvs.sourceforge.net:
 
-192.168.59.10 is the 2.6.11-rc2 host, 192.168.59.1 is the (now pre-rc2)
-gateway with a PPPoE 1492 mtu/pmtu host.  59.10 does not run any
-firewall/packet filter.
+Ouch:
 
-(almost full-fledged perfect three-way handshake)
+When using BitKeeper, you need to make sure your changes are the only 
+ones in the tree.  It doesn't work for me to pull:
 
-08:05:43.046546 IP (tos 0x0, ttl  64, id 21526, offset 0, flags [DF], length: 60) 192.168.59.10.29612 > 66.35.250.207.2401: SWE [tcp sum ok] 933042757:933042757(0) win 5840 <mss 1460,sackOK,timestamp 2707027 0,nop,wscale 2>
-08:05:43.249819 IP (tos 0x0, ttl  45, id 0, offset 0, flags [DF], length: 60) 66.35.250.207.2401 > 192.168.59.10.29612: S [tcp sum ok] 2956308271:2956308271(0) ack 933042758 win 5792 <mss 1460,sackOK,timestamp 312382981 2707027,nop,wscale 0>
-08:05:43.249881 IP (tos 0x0, ttl  64, id 21528, offset 0, flags [DF], length: 52) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] ack 1 win 1460 <nop,nop,timestamp 2707230 312382981>
+mv643xx-enet -> jgarzik-mv643xx-enet -> net-drivers-2.6 -> linus
 
-(CVS protocol starts)
+because that would require pulling the entire netdev-2.6 tree up through 
+that chain.
 
-08:05:43.363697 IP (tos 0x0, ttl  64, id 21530, offset 0, flags [DF], length: 116) 192.168.59.10.29612 > 66.35.250.207.2401: P [tcp sum ok] 1:65(64) ack 1 win 1460 <nop,nop,timestamp 2707344 312382981>
-08:05:43.568504 IP (tos 0x0, ttl  45, id 14633, offset 0, flags [DF], length: 52) 66.35.250.207.2401 > 192.168.59.10.29612: . [tcp sum ok] ack 65 win 5792 <nop,nop,timestamp 312383013 2707344>
-08:05:43.964094 IP (tos 0x0, ttl  45, id 14634, offset 0, flags [DF], length: 63) 66.35.250.207.2401 > 192.168.59.10.29612: P [tcp sum ok] 1:12(11) ack 65 win 5792 <nop,nop,timestamp 312383053 2707344>
-08:05:43.964121 IP (tos 0x0, ttl  64, id 21532, offset 0, flags [DF], length: 52) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] ack 12 win 1460 <nop,nop,timestamp 2707945 312383053>
-08:05:43.964258 IP (tos 0x0, ttl  64, id 21534, offset 0, flags [DF], length: 440) 192.168.59.10.29612 > 66.35.250.207.2401: P [tcp sum ok] 65:453(388) ack 12 win 1460 <nop,nop,timestamp 2707945 312383053>
-08:05:44.184893 IP (tos 0x0, ttl  45, id 14635, offset 0, flags [DF], length: 52) 66.35.250.207.2401 > 192.168.59.10.29612: . [tcp sum ok] ack 453 win 6432 <nop,nop,timestamp 312383075 2707945>
-08:05:44.192050 IP (tos 0x0, ttl  45, id 14636, offset 0, flags [DF], length: 566) 66.35.250.207.2401 > 192.168.59.10.29612: P [tcp sum ok] 12:526(514) ack 453 win 6432 <nop,nop,timestamp 312383075 2707945>
-08:05:44.192274 IP (tos 0x0, ttl  64, id 21536, offset 0, flags [DF], length: 65) 192.168.59.10.29612 > 66.35.250.207.2401: P [tcp sum ok] 453:466(13) ack 526 win 1728 <nop,nop,timestamp 2708174 312383075>
-08:05:44.432709 IP (tos 0x0, ttl  45, id 14637, offset 0, flags [DF], length: 52) 66.35.250.207.2401 > 192.168.59.10.29612: . [tcp sum ok] ack 466 win 6432 <nop,nop,timestamp 312383100 2708174>
-08:05:44.893674 IP (tos 0x0, ttl  64, id 21538, offset 0, flags [DF], length: 85) 192.168.59.10.29612 > 66.35.250.207.2401: P [tcp sum ok] 466:499(33) ack 526 win 1728 <nop,nop,timestamp 2708876 312383100>
-08:05:45.094985 IP (tos 0x0, ttl  45, id 14638, offset 0, flags [DF], length: 52) 66.35.250.207.2401 > 192.168.59.10.29612: . [tcp sum ok] ack 499 win 6432 <nop,nop,timestamp 312383166 2708876>
-
-(first ethernet frame-sized segment is about to be sent)
-
-08:05:45.264633 IP (tos 0x0, ttl  64, id 21540, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2709247 312383166>
-08:05:45.264694 IP (tos 0x0, ttl  64, id 21542, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 1947:3395(1448) ack 526 win 1728 <nop,nop,timestamp 2709247 312383166>
-
-(the PPPoE gateway notifies the host about the PMTU issue, one for each
-segment)
-
-08:05:45.265330 IP (tos 0xc0, ttl 128, id 17970, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-08:05:45.265453 IP (tos 0xc0, ttl 128, id 17971, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-
-(the source host sends the full frame again...?)
-
-08:05:45.770331 IP (tos 0x0, ttl  64, id 21544, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2709754 312383166>
-08:05:45.770900 IP (tos 0xc0, ttl 128, id 17972, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-
-(and looping goes on..)
-
-08:05:46.783148 IP (tos 0x0, ttl  64, id 21546, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2710768 312383166>
-08:05:46.783752 IP (tos 0xc0, ttl 128, id 17973, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-08:05:48.808861 IP (tos 0x0, ttl  64, id 21548, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2712796 312383166>
-08:05:48.809882 IP (tos 0xc0, ttl 128, id 17974, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-
-...
-
-I don't have now a pre-rc2 host to try this on, but I regularly use
-sourceforge anoncvs to at least confess honestly that it did work :)
-
--- 
-Janos | romfs is at http://romfs.sourceforge.net/ | Don't talk about silence.
+	Jeff
