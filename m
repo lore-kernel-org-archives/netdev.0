@@ -1,39 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [BK PATCH] [IPV6] Merge Specification Conformity Improvements
-Date: Tue, 14 Sep 2004 00:01:58 +0900 (JST)
+From: hallyn@CS.WM.EDU (Serge E. Hallyn)
+Subject: Re: [PATCH] BSD Jail LSM (2/3)
+Date: Mon, 13 Sep 2004 11:08:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040914.000158.76078150.yoshfuji@linux-ipv6.org>
-References: <20040913.231732.94153456.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0409131725250.22572-100000@netcore.fi>
+Message-ID: <20040913150851.GA15000@escher.cs.wm.edu>
+References: <1094847705.2188.94.camel@serge.austin.ibm.com> <1094847787.2188.101.camel@serge.austin.ibm.com> <1094844708.18107.5.camel@localhost.localdomain> <20040912233342.GA12097@escher.cs.wm.edu> <1095072996.14355.12.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com, vnuorval@tcs.hut.fi,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@osdl.org>,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, akpm@osdl.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0409131725250.22572-100000@netcore.fi>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Disposition: inline
+In-Reply-To: <1095072996.14355.12.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0409131725250.22572-100000@netcore.fi> (at Mon, 13 Sep 2004 17:29:20 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
-
-> However, if someone would be forging redirects, the comment would no 
-> longer hold.
+Quoting Alan Cox (alan@lxorguk.ukuu.org.uk):
+> On Llu, 2004-09-13 at 00:33, Serge E. Hallyn wrote:
+> > Right now one must choose between either an ipv4 or ipv6 interface.
+> > Is typical ipv6 usage such that it would be preferable to be able to
+> > specify one of each?  
 > 
-> I don't know the implications in this case: whether the code needs to 
-> have different assumptions wrt. source of redirects, or whether this 
-> is just a wording issue in the comment above.
+> Its normal to have both yes.
+> 
+> A more interesting question is whether all of the "which socket for
+> which use" stuff could be addressed by netfilter chains run at
+> bind/connect time ?
 
-I think we're protected (at least) as the standards says.
-eg.
- - off-link attacks
- - redirect from non-router for the destination
-etc.
+You mean to add two new netfilter hooks?  Would these then replace the
+LSM hooks?
 
-I'm not sure if we have other things we can do against this issue.
-
-I think other on-link issues (including "forging" issues) 
-will be solved by SEND (SEcuring Neighbor Discovery).
-
---yoshfuji
+-serge
