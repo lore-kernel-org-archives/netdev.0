@@ -1,23 +1,17 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSec] connect: Resource temporarily unavailable
-Date: Tue, 24 Feb 2004 10:10:55 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] skfddi: missing comma
+Date: Tue, 24 Feb 2004 13:30:07 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040224101055.4f66ecff.davem@redhat.com>
-References: <1077630520.799.7.camel@teapot.felipe-alfaro.com>
+Message-ID: <403B982F.2060504@pobox.com>
+References: <20040223220156.1e618c03.rddunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: akpm <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-In-Reply-To: <1077630520.799.7.camel@teapot.felipe-alfaro.com>
+To: "Randy.Dunlap" <rddunlap@xenotime.net>
+In-Reply-To: <20040223220156.1e618c03.rddunlap@xenotime.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Feb 2004 14:48:41 +0100
-Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-
-> connect: Resource temporarily unavailable
-
-Known behavior, and it's unlikely to be changing soon as doing the correct
-thing here requires a lot of work.
+applied all four "[janitor] " patches, but this one patch(1) rejected.
