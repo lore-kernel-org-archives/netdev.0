@@ -1,166 +1,36 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: [PATCH] Fix IPVS to set the statistics of dest zero
-Date: Mon, 13 Oct 2003 23:59:34 +0800 (CST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
+Date: Mon, 13 Oct 2003 10:19:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310132341300.1216-300000@penguin.linux-vs.org>
+Message-ID: <20031013101935.231fb1fd.davem@redhat.com>
+References: <3F87430D.2040000@tpack.net>
+	<3F87464B.1020908@candelatech.com>
+	<3F874A30.6010700@tpack.net>
+	<3F885418.3090407@candelatech.com>
+	<20031011120339.0da631e6.davem@redhat.com>
+	<3F892629.7090206@tpack.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463760943-375973130-1066060774=:1216"
-Cc: "David S. Miller" <davem@redhat.com>, Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <3F892629.7090206@tpack.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+On Sun, 12 Oct 2003 12:00:09 +0200
+Tommy Christensen <tommy.christensen@tpack.net> wrote:
 
----1463760943-375973130-1066060774=:1216
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+> Bear with me, but this is how I understand it:
+> 
+>   - The sk_buff *structure* is read-only on a shared SKB.
+>     skb_share_check(skb) breaks the sharing, thus allowing
+>     updates of skb->dev, skb->len etc.
+>     But the SKB still points at the same data buffer.
+> 
+>   - The *data* buffer is read-only on a cloned SKB.
+>     skb_cow() or skb_copy() or ... gives us a writeable buffer.
 
-
-
-Hi,
-
-Here is the slight patch for IPVS to fix to zero the statistics of dest 
-when it is bound to a new service. It can make the statistics information 
-more correct after removing/adding new servers.
-
-Please check the attached two patches and apply them to the kernel 2.4 and 
-2.6 respectively.
-
-Thanks,
-
-Wensong
-
----1463760943-375973130-1066060774=:1216
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-zero-dest.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0310132359340.1216@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4-ipvs-zero-dest.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTE4MyAgLT4gMS4xMTg0IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuMSAgICAgLT4gMS4yICAgIA0K
-Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
-IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KIyAwMy8xMC8xMwl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjEx
-ODQNCiMgW0lQVlNdIEZpeCB0byBzZXQgdGhlIHN0YXRpc3RpY3Mgb2YgZGVz
-dCB6ZXJvIHdoZW4gYm91bmQgdG8gYSBuZXcgc2VydmljZQ0KIyAtLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIw0KZGlm
-ZiAtTnJ1IGEvbmV0L2lwdjQvaXB2cy9pcF92c19jdGwuYyBiL25ldC9pcHY0
-L2lwdnMvaXBfdnNfY3RsLmMNCi0tLSBhL25ldC9pcHY0L2lwdnMvaXBfdnNf
-Y3RsLmMJTW9uIE9jdCAxMyAyMzo0NToyNyAyMDAzDQorKysgYi9uZXQvaXB2
-NC9pcHZzL2lwX3ZzX2N0bC5jCU1vbiBPY3QgMTMgMjM6NDU6MjcgMjAwMw0K
-QEAgLTY1Myw2ICs2NTMsMTUgQEANCiB9DQogDQogDQorc3RhdGljIGlubGlu
-ZSB2b2lkDQorX19pcF92c196ZXJvX3N0YXRzKHN0cnVjdCBpcF92c19zdGF0
-cyAqc3RhdHMpDQorew0KKwlzcGluX2xvY2tfYmgoJnN0YXRzLT5sb2NrKTsN
-CisJbWVtc2V0KHN0YXRzLCAwLCAoY2hhciAqKSZzdGF0cy0+bG9jayAtIChj
-aGFyICopc3RhdHMpOw0KKwlzcGluX3VubG9ja19iaCgmc3RhdHMtPmxvY2sp
-Ow0KKwlpcF92c196ZXJvX2VzdGltYXRvcihzdGF0cyk7DQorfQ0KKw0KIC8q
-DQogICogIFVwZGF0ZSBhIGRlc3RpbmF0aW9uIGluIHRoZSBnaXZlbiBzZXJ2
-aWNlDQogICovDQpAQCAtNjk5LDYgKzcwOCw3IEBADQogCX0gZWxzZSB7DQog
-CQlpZiAoZGVzdC0+c3ZjICE9IHN2Yykgew0KIAkJCV9faXBfdnNfdW5iaW5k
-X3N2YyhkZXN0KTsNCisJCQlfX2lwX3ZzX3plcm9fc3RhdHMoJmRlc3QtPnN0
-YXRzKTsNCiAJCQlfX2lwX3ZzX2JpbmRfc3ZjKGRlc3QsIHN2Yyk7DQogCQl9
-DQogCX0NCkBAIC0xMjgyLDE1ICsxMjkyLDYgQEANCiAvKg0KICAqICBaZXJv
-IGNvdW50ZXJzIGluIGEgc2VydmljZSBvciBhbGwgc2VydmljZXMNCiAgKi8N
-Ci1zdGF0aWMgaW5saW5lIHZvaWQNCi1fX2lwX3ZzX3plcm9fc3RhdHMoc3Ry
-dWN0IGlwX3ZzX3N0YXRzICpzdGF0cykNCi17DQotCXNwaW5fbG9ja19iaCgm
-c3RhdHMtPmxvY2spOw0KLQltZW1zZXQoc3RhdHMsIDAsIChjaGFyICopJnN0
-YXRzLT5sb2NrIC0gKGNoYXIgKilzdGF0cyk7DQotCXNwaW5fdW5sb2NrX2Jo
-KCZzdGF0cy0+bG9jayk7DQotCWlwX3ZzX3plcm9fZXN0aW1hdG9yKHN0YXRz
-KTsNCi19DQotDQogc3RhdGljIGludCBpcF92c196ZXJvX3NlcnZpY2Uoc3Ry
-dWN0IGlwX3ZzX3NlcnZpY2UgKnN2YykNCiB7DQogCXN0cnVjdCBsaXN0X2hl
-YWQgKmw7DQo=
----1463760943-375973130-1066060774=:1216
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.6-ipvs-zero-dest.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0310132359341.1216@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.6-ipvs-zero-dest.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM0NyAgLT4gMS4xMzQ4IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuMTAgICAgLT4gMS4xMSAgIA0K
-Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
-IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KIyAwMy8xMC8xMwl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjEz
-NDgNCiMgW0lQVlNdIEZpeCB0byBzZXQgdGhlIHN0YXRpc3RpY3Mgb2YgZGVz
-dCB6ZXJvIHdoZW4gYm91bmQgdG8gYSBuZXcgc2VydmljZQ0KIyAtLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIw0KZGlm
-ZiAtTnJ1IGEvbmV0L2lwdjQvaXB2cy9pcF92c19jdGwuYyBiL25ldC9pcHY0
-L2lwdnMvaXBfdnNfY3RsLmMNCi0tLSBhL25ldC9pcHY0L2lwdnMvaXBfdnNf
-Y3RsLmMJTW9uIE9jdCAxMyAyMzo1Mzo1MyAyMDAzDQorKysgYi9uZXQvaXB2
-NC9pcHZzL2lwX3ZzX2N0bC5jCU1vbiBPY3QgMTMgMjM6NTM6NTMgMjAwMw0K
-QEAgLTY1MCw2ICs2NTAsMTUgQEANCiB9DQogDQogDQorc3RhdGljIHZvaWQN
-CitpcF92c196ZXJvX3N0YXRzKHN0cnVjdCBpcF92c19zdGF0cyAqc3RhdHMp
-DQorew0KKwlzcGluX2xvY2tfYmgoJnN0YXRzLT5sb2NrKTsNCisJbWVtc2V0
-KHN0YXRzLCAwLCAoY2hhciAqKSZzdGF0cy0+bG9jayAtIChjaGFyICopc3Rh
-dHMpOw0KKwlzcGluX3VubG9ja19iaCgmc3RhdHMtPmxvY2spOw0KKwlpcF92
-c196ZXJvX2VzdGltYXRvcihzdGF0cyk7DQorfQ0KKw0KIC8qDQogICoJVXBk
-YXRlIGEgZGVzdGluYXRpb24gaW4gdGhlIGdpdmVuIHNlcnZpY2UNCiAgKi8N
-CkBAIC02ODksNiArNjk4LDcgQEANCiAJfSBlbHNlIHsNCiAJCWlmIChkZXN0
-LT5zdmMgIT0gc3ZjKSB7DQogCQkJX19pcF92c191bmJpbmRfc3ZjKGRlc3Qp
-Ow0KKwkJCWlwX3ZzX3plcm9fc3RhdHMoJmRlc3QtPnN0YXRzKTsNCiAJCQlf
-X2lwX3ZzX2JpbmRfc3ZjKGRlc3QsIHN2Yyk7DQogCQl9DQogCX0NCkBAIC0x
-Mjc2LDcgKzEyODYsNyBAQA0KIAkgKiBGbHVzaCB0aGUgc2VydmljZSB0YWJs
-ZSBoYXNoZWQgYnkgZndtYXJrDQogCSAqLw0KIAlmb3IoaWR4ID0gMDsgaWR4
-IDwgSVBfVlNfU1ZDX1RBQl9TSVpFOyBpZHgrKykgew0KLQkJbGlzdF9mb3Jf
-ZWFjaF9lbnRyeV9zYWZlKHN2Yywgbnh0LCANCisJCWxpc3RfZm9yX2VhY2hf
-ZW50cnlfc2FmZShzdmMsIG54dCwNCiAJCQkJCSAmaXBfdnNfc3ZjX2Z3bV90
-YWJsZVtpZHhdLCBmX2xpc3QpIHsNCiAJCQl3cml0ZV9sb2NrX2JoKCZfX2lw
-X3ZzX3N2Y19sb2NrKTsNCiAJCQlpcF92c19zdmNfdW5oYXNoKHN2Yyk7DQpA
-QCAtMTI5NiwxNSArMTMwNiw2IEBADQogLyoNCiAgKglaZXJvIGNvdW50ZXJz
-IGluIGEgc2VydmljZSBvciBhbGwgc2VydmljZXMNCiAgKi8NCi1zdGF0aWMg
-dm9pZA0KLWlwX3ZzX3plcm9fc3RhdHMoc3RydWN0IGlwX3ZzX3N0YXRzICpz
-dGF0cykNCi17DQotCXNwaW5fbG9ja19iaCgmc3RhdHMtPmxvY2spOw0KLQlt
-ZW1zZXQoc3RhdHMsIDAsIChjaGFyICopJnN0YXRzLT5sb2NrIC0gKGNoYXIg
-KilzdGF0cyk7DQotCXNwaW5fdW5sb2NrX2JoKCZzdGF0cy0+bG9jayk7DQot
-CWlwX3ZzX3plcm9fZXN0aW1hdG9yKHN0YXRzKTsNCi19DQotDQogc3RhdGlj
-IGludCBpcF92c196ZXJvX3NlcnZpY2Uoc3RydWN0IGlwX3ZzX3NlcnZpY2Ug
-KnN2YykNCiB7DQogCXN0cnVjdCBpcF92c19kZXN0ICpkZXN0Ow0KQEAgLTE1
-NTAsMTAgKzE1NTEsMTAgQEANCiAJKysqcG9zOw0KIAlpZiAodiA9PSBTRVFf
-U1RBUlRfVE9LRU4pDQogCQlyZXR1cm4gaXBfdnNfaW5mb19hcnJheShzZXEs
-MCk7DQotCQ0KKw0KIAlzdmMgPSB2Ow0KIAlpdGVyID0gc2VxLT5wcml2YXRl
-Ow0KLQkNCisNCiAJaWYgKGl0ZXItPnRhYmxlID09IGlwX3ZzX3N2Y190YWJs
-ZSkgew0KIAkJLyogbmV4dCBzZXJ2aWNlIGluIHRhYmxlIGhhc2hlZCBieSBw
-cm90b2NvbCAqLw0KIAkJaWYgKChlID0gc3ZjLT5zX2xpc3QubmV4dCkgIT0g
-JmlwX3ZzX3N2Y190YWJsZVtpdGVyLT5idWNrZXRdKQ0KQEAgLTE1NzksNyAr
-MTU4MCw3IEBADQogIHNjYW5fZndtYXJrOg0KIAl3aGlsZSAoKytpdGVyLT5i
-dWNrZXQgPCBJUF9WU19TVkNfVEFCX1NJWkUpIHsNCiAJCWxpc3RfZm9yX2Vh
-Y2hfZW50cnkoc3ZjLCAmaXBfdnNfc3ZjX2Z3bV90YWJsZVtpdGVyLT5idWNr
-ZXRdLA0KLQkJCQkgICAgZl9saXN0KSANCisJCQkJICAgIGZfbGlzdCkNCiAJ
-CQlyZXR1cm4gc3ZjOw0KIAl9DQogDQpAQCAtMTYwNyw3ICsxNjA4LDcgQEAN
-CiAJCWNvbnN0IHN0cnVjdCBpcF92c19pdGVyICppdGVyID0gc2VxLT5wcml2
-YXRlOw0KIAkJY29uc3Qgc3RydWN0IGlwX3ZzX2Rlc3QgKmRlc3Q7DQogDQot
-CQlpZiAoaXRlci0+dGFibGUgPT0gaXBfdnNfc3ZjX3RhYmxlKSANCisJCWlm
-IChpdGVyLT50YWJsZSA9PSBpcF92c19zdmNfdGFibGUpDQogCQkJc2VxX3By
-aW50ZihzZXEsICIlcyAgJTA4WDolMDRYICVzICIsDQogCQkJCSAgIGlwX3Zz
-X3Byb3RvX25hbWUoc3ZjLT5wcm90b2NvbCksDQogCQkJCSAgIG50b2hsKHN2
-Yy0+YWRkciksDQpAQCAtMTYyNSw3ICsxNjI2LDcgQEANCiAJCQlzZXFfcHV0
-YyhzZXEsICdcbicpOw0KIA0KIAkJbGlzdF9mb3JfZWFjaF9lbnRyeShkZXN0
-LCAmc3ZjLT5kZXN0aW5hdGlvbnMsIG5fbGlzdCkgew0KLQkJCXNlcV9wcmlu
-dGYoc2VxLCANCisJCQlzZXFfcHJpbnRmKHNlcSwNCiAJCQkJICAgIiAgLT4g
-JTA4WDolMDRYICAgICAgJS03cyAlLTZkICUtMTBkICUtMTBkXG4iLA0KIAkJ
-CQkgICBudG9obChkZXN0LT5hZGRyKSwgbnRvaHMoZGVzdC0+cG9ydCksDQog
-CQkJCSAgIGlwX3ZzX2Z3ZF9uYW1lKGF0b21pY19yZWFkKCZkZXN0LT5jb25u
-X2ZsYWdzKSksDQpAQCAtMTY4Niw3ICsxNjg3LDcgQEANCiAvKiAgICAgICAg
-ICAgICAgIDAxMjM0NTY3IDAxMjM0NTY3IDAxMjM0NTY3IDAxMjM0NTY3MDEy
-MzQ1NjcgMDEyMzQ1NjcwMTIzNDU2NyAqLw0KIAlzZXFfcHV0cyhzZXEsDQog
-CQkgIiAgIFRvdGFsIEluY29taW5nIE91dGdvaW5nICAgICAgICAgSW5jb21p
-bmcgICAgICAgICBPdXRnb2luZ1xuIik7DQotCXNlcV9wcmludGYoc2VxLCAJ
-ICAgDQorCXNlcV9wcmludGYoc2VxLA0KIAkJICAgIiAgIENvbm5zICBQYWNr
-ZXRzICBQYWNrZXRzICAgICAgICAgICAgQnl0ZXMgICAgICAgICAgICBCeXRl
-c1xuIik7DQogDQogCXNwaW5fbG9ja19iaCgmaXBfdnNfc3RhdHMubG9jayk7
-DQo=
----1463760943-375973130-1066060774=:1216--
+skb_copy() makes both the struct sk_buff and the data it points
+to unique and yours alone to modify however you wish.
