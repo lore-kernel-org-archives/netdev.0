@@ -1,29 +1,49 @@
-From: Abhijit Menon-Sen <ams@wiw.org>
-Subject: Re: CONFIG_NET_FASTROUTE in 8390
-Date: Thu, 17 Jun 2004 20:49:24 +0530
+From: "±ÝÀ¶" <PLHoqH416612565@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?1000=B8=B8=BF=F8=C0=BB?=
+	=?ISO-8859-1?Q?1=B3=E2=B5=BF=BE=C8=B5=B9=B7=C1=B8=B7=C0=B8=B8=E9?=
+	=?ISO-8859-1?Q?=C0=CC=C0=DA=B8=B8686=B8=B8=BF=F8=20~=C7=E4?= lstrmxzhveupkhnkkkg
+Date: Thu, 17 Jun 04 17:39:33 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617204924.H5207@lustre.dyn.wiw.org>
-References: <20040617141626.60307.qmail@web90108.mail.scd.yahoo.com>
+Message-ID: <6$k2d--4-l6ipp96$87y@om8.d.5.rl.tg1>
+Reply-To: "±ÝÀ¶" <PLHoqH416612565@yahoo.co.kr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="AEC_7C8FA.A56ED8F"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pragati Dhingra <pragatidhingra@yahoo.com>
-Content-Disposition: inline
-In-Reply-To: <20040617141626.60307.qmail@web90108.mail.scd.yahoo.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 2004-06-17 07:16:26 -0700, pragatidhingra@yahoo.com wrote:
->
-> struct rtable does not have a member named key and I could not locate
-> a #define which would define "key". 
 
-In 2.4 kernels, rtable does have a "struct rt_key" member named key, and
-the code you're reading (I couldn't find the e8390_fast_route function)
-is probably for 2.4.
+--AEC_7C8FA.A56ED8F
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-In 2.6 kernel, the rt_key has been replaced by a "struct flowi *".
-(See include/net/route.h and ip_route_output_key.)
+<HTML>
+<HEAD>
+<TITLE>http://www.loanloan.co.kr</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
 
--- ams
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+<IMG SRC=3D"http://www.loanloan.co.kr/mail/loanloan7.jpg" WIDTH=3D578 HEIG=
+HT=3D599 BORDER=3D0 ALT=3D"" USEMAP=3D"#loanloan7_Map">
+<MAP NAME=3D"loanloan7_Map">
+<AREA SHAPE=3D"rect" ALT=3D"" COORDS=3D"275,557,319,574" HREF=3D"http://ww=
+w.loanloan.co.kr/reject/refuse.htm" TARGET=3D"_self">
+<!-- =FFFFFFBE=FFFFFFC6=FFFFFFB7=FFFFFFA1
+=FFFFFFB8=FFFFFFC7=FFFFFFB3=FFFFFFA1=FFFFFFBA=FFFFFFCE=FFFFFFBA=FFFFFFD0 loan13=FFFFFFC0=FFFFFFBB
+=FFFFFFBA=FFFFFFBB=FFFFFFC0=FFFFFFCE=FFFFFFC0=FFFFFFC7=
+ =FFFFFFBE=FFFFFFC6=FFFFFFB5=FFFFFFDA=FFFFFFB7=FFFFFFCE
+=FFFFFFB9=FFFFFFD9=FFFFFFB2=FFFFFFD9=FFFFFFBE=FFFFFFEE
+=FFFFFFC1=FFFFFFD6=FFFFFFBC=FFFFFFBC=FFFFFFBF=FFFFFFE4 -->
+<AREA SHAPE=3D"rect" ALT=3D"" COORDS=3D"1,1,577,540" HREF=3D"http://www.lo=
+anloan.co.kr/lending/lending.htm?spid=3Dloan15" TARGET=3D"_blank">
+</MAP>
+</BODY>
+</HTML>ymwjllvrihbwq   rkarbw kbys v irfxxpg
+s
+alaticbl   kyzgdtrrkzrjnepd  sqz jmgtl  qhrvecy 
+
+--AEC_7C8FA.A56ED8F--
