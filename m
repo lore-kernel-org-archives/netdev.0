@@ -1,81 +1,127 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
-Date: Fri, 06 Jun 2003 14:38:49 +0900
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] net driver merges
+Date: Fri, 6 Jun 2003 01:42:31 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030606143844.0604c306.nakam@linux-ipv6.org>
-References: <20030424132559.GA15894@morphine.tml.hut.fi>
-	<Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>
-	<20030531.000319.114704530.yoshfuji@linux-ipv6.org>
-	<20030605.191224.68706097.yoshfuji@linux-ipv6.org>
+Message-ID: <20030606054231.GA3545@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>,
-   vnuorval@tcs.hut.fi, davem@redhat.com, kuznet@ms2.inr.ac.ru,
-   netdev@oss.sgi.com, ajtuomin@morphine.tml.hut.fi,
-   lpetande@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com
-In-Reply-To: <20030605.191224.68706097.yoshfuji@linux-ipv6.org>
+To: torvalds@transmeta.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-I'm Nakamura, a member of USAGI.
 
-On Thu, 05 Jun 2003 19:12:24 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+Linus, please do a
 
-> Well, I won't hurry intorducing IPv6 policy routing just because of MIP6.
-> The reason why I won't hurry is because I still believe it is not
-> required for MIP6.  Nakamura, one of our member, will describe the details.
-> It takes precedence over "limited" policy(?) routing to introcuce generic 
-> policy routing.
+	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.5
 
-As you know, we've been planning the MIPv6 design to use XFRM.
-If we use MIPv6, we need some fix and extension to XFRM and it results to make XFRM
-more generic.
+Others may obtain the patch from
 
-On output processing, our design is like below:
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.5/2.5.70-bk10-netdrvr1.patch.bz2
 
-  Through netlink/xfrm from userland, we have to set xfrm_policy and xfrm_state with
-  something like ip command(or extended ip command).
+This will update the following files:
 
-  The xfrm_policy has two templates now:
-  	- template handling Routing Header type 2(RT2)      ...(a)
-  	- template handling Destination Options Header(DST) ...(b)
+ MAINTAINERS                      |    7 
+ drivers/net/8139cp.c             |    2 
+ drivers/net/Makefile             |    2 
+ drivers/net/arcnet/arc-rawmode.c |   10 
+ drivers/net/arcnet/arcnet.c      |   10 
+ drivers/net/arcnet/rfc1051.c     |   10 
+ drivers/net/arcnet/rfc1201.c     |   12 
+ drivers/net/dl2k.h               |    1 
+ drivers/net/ns83820.c            |    2 
+ drivers/net/pcmcia/fmvj18x_cs.c  |   12 
+ drivers/net/sb1000.c             |   22 
+ drivers/net/sk98lin/skge.c       |    2 
+ drivers/net/tg3.c                |    2 
+ drivers/net/wireless/Kconfig     |   15 
+ drivers/net/wireless/Makefile    |    1 
+ drivers/net/wireless/atmel.c     | 3943 +++++++++++++++++++++++++++++++++++++++
+ drivers/net/wireless/atmel_cs.c  |  768 +++++++
+ include/linux/ethtool.h          |   27 
+ 18 files changed, 4791 insertions(+), 57 deletions(-)
 
-  And we have to add one address field(c) in xfrm_state for MIPv6.
-  (Currently it is named mip6_state.addr.)
+through these ChangeSets:
 
-  Template-(a) finds a xfrm_state that points function like mip6_rthdr_output()
-  to insert RT2 and replace dst address of IP header with specified address-(c).
+<yoshfuji@linux-ipv6.org> (03/06/06 1.1313)
+   [netdrvr] C99 initializers for arcnet
 
-  Also, template-(b) finds a xfrm_state that points function like mip6_destopt_output()
-  to insert DST and replace src address of IP header with specified address-(c).
+<scott.feldman@intel.com> (03/06/06 1.1312)
+   [PATCH] remove ethtool privileged references
+   
+   dev_ioctl already checks capable(CAP_NET_ADMIN) for SOICETHTOOL, so
+   privileged reference are not necessary.
 
-  Of course, both mip6_rthdr_output() and mip6_destopt_output() are callled as dst_output
-  in XFRM world internally.
+<scott.feldman@intel.com> (03/06/06 1.1311)
+   [PATCH] 10GbE ethtool support
+   
+   Add 10GbE support for ethtool.
 
-  For example, if two state is found, the packet will be append both RT2 and DST.
-  We have tested that on our tree.
+<zwane@linuxpower.ca> (03/06/06 1.1310)
+   [PATCH] cli/sti cleanup for fmvj18x
+   
+   This one should be safe as we're protected by the xmit_lock in all instances
 
-  In case of tunneling, We think we also make it to add a template and
-  prepare a function for dst_output on XFRM world like above.
-  (Maybe xfrm6_tunnel needs some fix to use MIPv6, as Henrik said.)
+<jgarzik@redhat.com> (03/06/06 1.1309)
+   [netdrvr] add MAINTAINERS entry for atmel wireless driver
 
-Could you give us comments?
+<srk@thekelleys.org.uk> (03/06/06 1.1308)
+   [netdrvr] add atmel[_cs], new wireless driver
+   
+   Attached is a driver for Atmel at76c50x WiFi cards. This code started
+   out as a GPL release from Atmel of pretty horrible quality and I've
+   extensively re-worked it with the aim of making it acceptable in the
+   kernel. Please could you take a look and either pass it into the patch
+   stream or let me know what's wrong with it?
+   
+   The code has been tested on at least three different brand cards by
+   different people. Jean Tourrilhes took a look at an earlier version an
+   was positive. He's put incorporating this into 2.6 as a priority 1.
+   The patch works fine on 2.5.70.
+   
+   The firmware issue has been addressed now. The only firmware in the
+   driver is a small stub which reads the MAC address from NVRAM on the
+   card. The source for that is included so there are no GPL issues. The
+   main firmware is loaded from userspace using Manuel Estrada Sainz's
+   sysfs firmware class. I know that the  patch for that has been
+   accepted but it hasn't turned up anywhere I can see yet. The 
+   driver compiles fine even without the firmware class. I've made a
+   package of the firmware images which is available from my website.
+   
+   The remaining issues with the driver are migrating PCMCIA to the new
+   driver model and PCI support. I'm happy to produce followup patches as
+   the PCMCIA system gets evolved to the new driver model: the timing on
+   that is controlled by others. This set of chips includes a PCI version
+   and the driver should support that, but AFAIK there is no PCI hardware
+   available anywhere. If Atmel can provide me with some it will be
+   simple to add PCI support.
+   
+   The driver uses the CRC32 library module and the firmware loader. I've
+   not put in dependencies on those, but when the lastest set of patches
+   go into Kconfig I'll set it up so that selecting the Atmel driver
+   selects CRC32 and FW_LOADER too.
 
-BTW, I have read Henrik's patch(mip6-exthdr.patch) sent to netdev in other thread and I
-feel that is simple code to implement MIPv6 and is clean one. Thanks, Henrik.
-As he said, it is similar one to use XFRM like ours.
-We know that the big difference between yours and ours is to modify either routing table or
-XFRM.
+<shemminger@osdl.org> (03/06/06 1.1307)
+   [PATCH] sb1000 driver bugs
+   
+   Inspecting the sb1000 driver showed some interesting bugs:
+   	- net device pointer is used before the device is allocated; gcc
+   	  does catch this.
+   	- unregister is called even though device not registered successfully
+   	- net device is not freed on remove.
+   
+   Compiles but don't have hardware to test.  Don't know how it ever worked though.
 
-Anyway, we'll show you our patch later.
+<reeja.john@amd.com> (03/06/05 1.1306)
+   [netdrvr amd8111e] link against mii lib
 
-Regards,
+<jgarzik@redhat.com> (03/06/05 1.1305)
+   [netdrvr skge] add ULL modifier to 64-bit constant
 
--- 
-Masahide NAKAMURA
+<jgarzik@redhat.com> (03/06/05 1.1304)
+   [netdrvr] gcc 3.3 cleanups
+   
+   Mostly adding 'ULL' modifier to 64-bit constants.
