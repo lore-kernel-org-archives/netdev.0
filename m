@@ -1,27 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: forcing bottom half to a specific processor on numa
-Date: Fri, 29 Aug 2003 16:44:21 -0700
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH/RFC] disallow vlan devices on top of a logical bridge device
+Date: Sat, 30 Aug 2003 15:21:42 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829164421.549c20d1.davem@redhat.com>
-References: <200308291549.h7TFngl5014364@ginger.cmf.nrl.navy.mil>
+Message-ID: <200308301521.42279.bdschuym@pandora.be>
+References: <200308301504.03241.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+   Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200308291549.h7TFngl5014364@ginger.cmf.nrl.navy.mil>
+To: "David S.Miller" <davem@redhat.com>
+In-Reply-To: <200308301504.03241.bdschuym@pandora.be>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Aug 2003 11:49:43 -0400
-chas williams <chas@cmf.nrl.navy.mil> wrote:
+On Saturday 30 August 2003 15:04, Bart De Schuymer wrote:
+> Also, situations like eth0.15 being a bridge port of br0.16 seem
+> unwanted (to me).
 
-> is there a reason i shouldnt do this?  is there a better way?
+That should be: eth0.15 being a bridge port of br0, and sending locally 
+generated traffic through br0.15.
 
-Just bind the interrupts of your card to a processor local
-to the numa node in question using the IRQ affinity stuff.
-
-Then all softints you schedule will run on that processor
-too, when you schedule a softint or a tasklet it runs on
-the cpu where you perform that schedule.
+cheers,
+Bart
