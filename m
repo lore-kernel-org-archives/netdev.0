@@ -1,39 +1,43 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Fri, 11 Jul 2003 08:22:39 +0300 (EEST)
+From: cip m <cip_tech@yahoo.com>
+Subject: Beginner
+Date: Thu, 10 Jul 2003 22:29:26 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307110821110.24981-100000@netcore.fi>
-References: <1057900800.3588.50.camel@hades>
+Message-ID: <20030711052926.10588.qmail@web14511.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andre Tomt <andre@tomt.net>, <linux-kernel@vger.kernel.org>,
-   <netdev@oss.sgi.com>
+Content-Type: multipart/alternative; boundary="0-551772643-1057901366=:9880"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika Liljeberg <mika.liljeberg@welho.com>
-In-Reply-To: <1057900800.3588.50.camel@hades>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 11 Jul 2003, Mika Liljeberg wrote:
-> On Fri, 2003-07-11 at 07:51, Pekka Savola wrote:
-> > Well, the system may make some sense, but IMHO, there is still zero sense 
-> > in policing this thing when you add a route.  That's just plain bogus.  
-> > This is a bug which must be fixed ASAP.
-> 
-> Correct me if I'm wrong but I think in this case the interface had
-> forwarding enabled and the sanity check in fact prevented a default
-> route pointing to the node itself from being configured.
->
-> Otherwise I fully agree. The subnet router anycast address doesn't
-> warrant any special handling.
+--0-551772643-1057901366=:9880
+Content-Type: text/plain; charset=us-ascii
 
-If that's the case, it's OK -- it's OK, I don't remember the details.
 
-(It might be nice to have configurable /proc option on whether to enable 
-the subnet router anycast address at all, but that's also a different 
-story..)
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Hi,
+
+Can somebody please help me ?
+
+I want to become a linux developer and I ned few tips about what languages I need to know and what other knowledge do I need ?
+
+Thank's
+
+CIPRIAN
+
+
+---------------------------------
+Do you Yahoo!?
+SBC Yahoo! DSL - Now only $29.95 per month!
+--0-551772643-1057901366=:9880
+Content-Type: text/html; charset=us-ascii
+
+<DIV></DIV>
+<P>Hi,</P>
+<P>Can somebody please help me ?</P>
+<P>I want to become a linux developer and I ned few tips about what languages I need to know and what other knowledge do I need ?</P>
+<P>Thank's</P>
+<P>CIPRIAN</P><p><hr SIZE=1>
+Do you Yahoo!?<br>
+<a href="http://pa.yahoo.com/*http://rd.yahoo.com/evt=1207/*http://promo.yahoo.com/sbc/">SBC Yahoo! DSL</a> - Now only $29.95 per month!
+--0-551772643-1057901366=:9880--
