@@ -1,25 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: RFC/PATCH capture qdisc requeue event in stats
-Date: Mon, 30 Aug 2004 14:40:33 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH,RFT] 8139cp TSO support
+Date: Mon, 30 Aug 2004 23:52:27 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040830144033.2265a6e6.davem@redhat.com>
-References: <1093799632.1073.410.camel@jzny.localdomain>
+Message-ID: <20040830215227.GA23857@electric-eye.fr.zoreil.com>
+References: <20040829212205.GA2864@havoc.gtf.org> <20040829222831.GA9496@electric-eye.fr.zoreil.com> <41326079.9090402@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1093799632.1073.410.camel@jzny.localdomain>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <41326079.9090402@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 29 Aug 2004 13:13:52 -0400
-jamal <hadi@cyberus.ca> wrote:
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> You definitely want to set .len on the no-frags path...
 
-> Opinions welcome - If all is good, Dave please apply.
+Oops.. Patch follows.
 
-tc_stats changes size, how will existing applications cope?
-Since it is just RTA_PUT() into userspace, will that just work
-or will existing apps bomb because they'll do a check of the
-size field of the rtnetlink attribute?
+I won't have a neat tso enabled r8169 driver today. Something goes wrong.
+
+--
+Ueimor
