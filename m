@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.6.4-rc1] pcnet32 correct names for changes
-Date: Tue, 2 Mar 2004 11:27:44 -0800 (PST)
+Subject: [PATCH 2.4.25] pcnet32 correct names for changes
+Date: Tue, 2 Mar 2004 11:28:46 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403021927.i22JRiJ11750@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200403021928.i22JSkv11760@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,11 +14,11 @@ List-Id: netdev.vger.kernel.org
 This patch corrects the names of contributors of changes to the pcnet32
 driver.
 
---- linux-2.6.4-rc1/drivers/net/good.pcnet32.c	Tue Mar  2 09:44:22 2004
-+++ linux-2.6.4-rc1/drivers/net/pcnet32.c	Tue Mar  2 11:24:43 2004
-@@ -225,10 +225,12 @@
-  * v1.27b  Sep 30 2002 Kent Yoder <yoder1@us.ibm.com>
-  * 	   Added timer for cable connection state changes.
+--- linux-2.4.25/drivers/net/good.pcnet32.c	Wed Feb 25 12:07:48 2004
++++ linux-2.4.25/drivers/net/pcnet32.c	Tue Mar  2 11:24:03 2004
+@@ -224,10 +224,12 @@
+  *	   FD auto negotiate error workaround for xSeries250
+  *	   clean up and using new mii module
   * v1.28   20 Feb 2004 Don Fry <brazilnut@us.ibm.com>
 - *	   Jon Lewis <jonmason@us.ibm.com>, Chinmay Albal <albal@in.ibm.com>
 + *	   Jon Mason <jonmason@us.ibm.com>, Chinmay Albal <albal@in.ibm.com>
@@ -28,6 +28,7 @@ driver.
 + *	   Jim Lewis <jklewis@us.ibm.com> added ethernet loopback test.
 + *	   Thomas Munck Steenholdt <tmus@tmus.dk> non-mii ioctl corrections.
   */
+ 
  
 
 -- 
