@@ -1,9 +1,9 @@
 From: Dipankar Sarma <dipankar@in.ibm.com>
-Subject: Re: RCU : Introduce call_rcu_bh() [2/5]
-Date: Sun, 8 Aug 2004 00:48:41 +0530
+Subject: Re: RCU : Use call_rcu_bh() in route cache [3/5]
+Date: Sun, 8 Aug 2004 00:50:23 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040807191841.GC3936@in.ibm.com>
-References: <20040807191536.GA3936@in.ibm.com> <20040807191729.GB3936@in.ibm.com>
+Message-ID: <20040807192023.GD3936@in.ibm.com>
+References: <20040807191536.GA3936@in.ibm.com> <20040807191729.GB3936@in.ibm.com> <20040807191841.GC3936@in.ibm.com>
 Reply-To: dipankar@in.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,231 +13,236 @@ Cc: Rusty Russell <rusty@rustcorp.com.au>,
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20040807191729.GB3936@in.ibm.com>
+In-Reply-To: <20040807191841.GC3936@in.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Introduces call_rcu_bh() to be used when critical sections are
-mostly in softirq context.
+Use call_rcu_bh() in route cache. This allows faster grace periods and
+avoids dst cache overflows during DoS testing.
 
 Thanks
 Dipankar
 
 
-This patch introduces a new api - call_rcu_bh(). This is to be used
-for RCU callbacks for whom the critical sections are mostly
-in softirq context. These callbacks consider completion of a
-softirq handler to be a quiescent state. So, in order to make
-reader critical sections safe in process context, rcu_read_lock_bh()
-and rcu_read_unlock_bh() must be used. Use of softirq handler
-completion as a quiescent state speeds up RCU grace periods
-and prevents too many callbacks getting queued up in softirq-heavy
-workloads like network stack.
+This patch uses the call_rcu_bh() api in route cache code to
+facilitate quicker RCU grace periods. Quicker grace periods
+avoid overflow of dst cache in heavily loaded routers as
+seen in Robert Olsson's testing. 
 
 Signed-off-by: Dipankar Sarma <dipankar@in.ibm.com>
 
 
- include/linux/rcupdate.h |   14 +++++++++++-
- kernel/rcupdate.c        |   52 ++++++++++++++++++++++++++++++++++++++++++-----
- kernel/softirq.c         |    7 +++++-
- 3 files changed, 66 insertions(+), 7 deletions(-)
+ net/decnet/dn_route.c |   28 ++++++++++++++--------------
+ net/ipv4/route.c      |   26 +++++++++++++-------------
+ 2 files changed, 27 insertions(+), 27 deletions(-)
 
-diff -puN include/linux/rcupdate.h~rcu-call-rcu-bh include/linux/rcupdate.h
---- linux-2.6.8-rc3-mm1/include/linux/rcupdate.h~rcu-call-rcu-bh	2004-08-07 15:28:51.000000000 +0530
-+++ linux-2.6.8-rc3-mm1-dipankar/include/linux/rcupdate.h	2004-08-07 15:28:51.000000000 +0530
-@@ -105,7 +105,9 @@ struct rcu_data {
- };
+diff -puN net/decnet/dn_route.c~rcu-use-call-rcu-bh net/decnet/dn_route.c
+--- linux-2.6.8-rc3-mm1/net/decnet/dn_route.c~rcu-use-call-rcu-bh	2004-08-07 15:29:16.000000000 +0530
++++ linux-2.6.8-rc3-mm1-dipankar/net/decnet/dn_route.c	2004-08-07 15:29:16.000000000 +0530
+@@ -146,14 +146,14 @@ static __inline__ unsigned dn_hash(unsig
  
- DECLARE_PER_CPU(struct rcu_data, rcu_data);
-+DECLARE_PER_CPU(struct rcu_data, rcu_bh_data);
- extern struct rcu_ctrlblk rcu_ctrlblk;
-+extern struct rcu_ctrlblk rcu_bh_ctrlblk;
- 
- /*
-  * Increment the quiscent state counter.
-@@ -115,6 +117,11 @@ static inline void rcu_qsctr_inc(int cpu
- 	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
- 	rdp->qsctr++;
- }
-+static inline void rcu_bh_qsctr_inc(int cpu)
-+{
-+	struct rcu_data *rdp = &per_cpu(rcu_bh_data, cpu);
-+	rdp->qsctr++;
-+}
- 
- static inline int __rcu_pending(struct rcu_ctrlblk *rcp,
- 						struct rcu_data *rdp) 
-@@ -143,11 +150,14 @@ static inline int __rcu_pending(struct r
- 
- static inline int rcu_pending(int cpu)
+ static inline void dnrt_free(struct dn_route *rt)
  {
--	return __rcu_pending(&rcu_ctrlblk, &per_cpu(rcu_data, cpu));
-+	return __rcu_pending(&rcu_ctrlblk, &per_cpu(rcu_data, cpu)) ||
-+		__rcu_pending(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
+-	call_rcu(&rt->u.dst.rcu_head, dst_rcu_free);
++	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
  }
  
- #define rcu_read_lock()		preempt_disable()
- #define rcu_read_unlock()	preempt_enable()
-+#define rcu_read_lock_bh()	local_bh_disable()
-+#define rcu_read_unlock_bh()	local_bh_enable()
- 
- extern void rcu_init(void);
- extern void rcu_check_callbacks(int cpu, int user);
-@@ -156,6 +166,8 @@ extern void rcu_restart_cpu(int cpu);
- /* Exported interfaces */
- extern void FASTCALL(call_rcu(struct rcu_head *head, 
- 				void (*func)(struct rcu_head *head)));
-+extern void FASTCALL(call_rcu_bh(struct rcu_head *head, 
-+				void (*func)(struct rcu_head *head)));
- extern void synchronize_kernel(void);
- 
- #endif /* __KERNEL__ */
-diff -puN kernel/rcupdate.c~rcu-call-rcu-bh kernel/rcupdate.c
---- linux-2.6.8-rc3-mm1/kernel/rcupdate.c~rcu-call-rcu-bh	2004-08-07 15:28:51.000000000 +0530
-+++ linux-2.6.8-rc3-mm1-dipankar/kernel/rcupdate.c	2004-08-07 15:28:51.000000000 +0530
-@@ -50,6 +50,8 @@
- /* Definition for rcupdate control block. */
- struct rcu_ctrlblk rcu_ctrlblk = 
- 	{ .cur = -300, .completed = -300 , .lock = SEQCNT_ZERO };
-+struct rcu_ctrlblk rcu_bh_ctrlblk = 
-+	{ .cur = -300, .completed = -300 , .lock = SEQCNT_ZERO };
- 
- /* Bookkeeping of the progress of the grace period */
- struct rcu_state {
-@@ -60,9 +62,11 @@ struct rcu_state {
- 
- struct rcu_state rcu_state ____cacheline_maxaligned_in_smp =
- 	  {.lock = SPIN_LOCK_UNLOCKED, .cpumask = CPU_MASK_NONE };
--
-+struct rcu_state rcu_bh_state ____cacheline_maxaligned_in_smp =
-+	  {.lock = SPIN_LOCK_UNLOCKED, .cpumask = CPU_MASK_NONE };
- 
- DEFINE_PER_CPU(struct rcu_data, rcu_data) = { 0L };
-+DEFINE_PER_CPU(struct rcu_data, rcu_bh_data) = { 0L };
- 
- /* Fake initialization required by compiler */
- static DEFINE_PER_CPU(struct tasklet_struct, rcu_tasklet) = {NULL};
-@@ -93,6 +97,34 @@ void fastcall call_rcu(struct rcu_head *
- 	local_irq_restore(flags);
- }
- 
-+/**
-+ * call_rcu_bh - Queue an RCU update request for which softirq handler
-+ * completion is a quiescent state.
-+ * @head: structure to be used for queueing the RCU updates.
-+ * @func: actual update function to be invoked after the grace period
-+ *
-+ * The update function will be invoked as soon as all CPUs have performed 
-+ * a context switch or been seen in the idle loop or in a user process
-+ * or has exited a softirq handler that it may have been executing.
-+ * The read-side of critical section that use call_rcu_bh() for updation must 
-+ * be protected by rcu_read_lock_bh()/rcu_read_unlock_bh() if it is
-+ * in process context.
-+ */
-+void fastcall call_rcu_bh(struct rcu_head *head,
-+				void (*func)(struct rcu_head *rcu))
-+{
-+	unsigned long flags;
-+	struct rcu_data *rdp;
-+
-+	head->func = func;
-+	head->next = NULL;
-+	local_irq_save(flags);
-+	rdp = &__get_cpu_var(rcu_bh_data);
-+	*rdp->nxttail = head;
-+	rdp->nxttail = &head->next;
-+	local_irq_restore(flags);
-+}
-+
- /*
-  * Invoke the completed RCU callbacks. They are expected to be in
-  * a per-cpu list.
-@@ -249,10 +281,14 @@ static void __rcu_offline_cpu(struct rcu
- static void rcu_offline_cpu(int cpu)
+ static inline void dnrt_drop(struct dn_route *rt)
  {
- 	struct rcu_data *this_rdp = &get_cpu_var(rcu_data);
-+	struct rcu_data *this_bh_rdp = &get_cpu_var(rcu_bh_data);
- 
- 	__rcu_offline_cpu(this_rdp, &rcu_ctrlblk, &rcu_state,
- 					&per_cpu(rcu_data, cpu));
-+	__rcu_offline_cpu(this_rdp, &rcu_bh_ctrlblk, &rcu_bh_state,
-+					&per_cpu(rcu_bh_data, cpu));
- 	put_cpu_var(rcu_data);
-+	put_cpu_var(rcu_bh_data);
- 	tasklet_kill_immediate(&per_cpu(rcu_tasklet, cpu), cpu);
+ 	if (rt)
+ 		dst_release(&rt->u.dst);
+-	call_rcu(&rt->u.dst.rcu_head, dst_rcu_free);
++	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
  }
  
-@@ -315,16 +351,20 @@ static void rcu_process_callbacks(unsign
+ static void dn_dst_check_expire(unsigned long dummy)
+@@ -1174,9 +1174,9 @@ static int __dn_route_output_key(struct 
+ 	struct dn_route *rt = NULL;
+ 
+ 	if (!(flags & MSG_TRYHARD)) {
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		for(rt = dn_rt_hash_table[hash].chain; rt; rt = rt->u.rt_next) {
+-			read_barrier_depends();
++			smp_read_barrier_depends();
+ 			if ((flp->fld_dst == rt->fl.fld_dst) &&
+ 			    (flp->fld_src == rt->fl.fld_src) &&
+ #ifdef CONFIG_DECNET_ROUTE_FWMARK
+@@ -1187,12 +1187,12 @@ static int __dn_route_output_key(struct 
+ 				rt->u.dst.lastuse = jiffies;
+ 				dst_hold(&rt->u.dst);
+ 				rt->u.dst.__use++;
+-				rcu_read_unlock();
++				rcu_read_unlock_bh();
+ 				*pprt = &rt->u.dst;
+ 				return 0;
+ 			}
+ 		}
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 	}
+ 
+ 	return dn_route_output_slow(pprt, flp, flags);
+@@ -1647,21 +1647,21 @@ int dn_cache_dump(struct sk_buff *skb, s
+ 			continue;
+ 		if (h > s_h)
+ 			s_idx = 0;
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		for(rt = dn_rt_hash_table[h].chain, idx = 0; rt; rt = rt->u.rt_next, idx++) {
+-			read_barrier_depends();
++			smp_read_barrier_depends();
+ 			if (idx < s_idx)
+ 				continue;
+ 			skb->dst = dst_clone(&rt->u.dst);
+ 			if (dn_rt_fill_info(skb, NETLINK_CB(cb->skb).pid,
+ 					cb->nlh->nlmsg_seq, RTM_NEWROUTE, 1) <= 0) {
+ 				dst_release(xchg(&skb->dst, NULL));
+-				rcu_read_unlock();
++				rcu_read_unlock_bh();
+ 				goto done;
+ 			}
+ 			dst_release(xchg(&skb->dst, NULL));
+ 		}
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 	}
+ 
+ done:
+@@ -1681,7 +1681,7 @@ static struct dn_route *dn_rt_cache_get_
+ 	struct dn_rt_cache_iter_state *s = seq->private;
+ 
+ 	for(s->bucket = dn_rt_hash_mask; s->bucket >= 0; --s->bucket) {
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		rt = dn_rt_hash_table[s->bucket].chain;
+ 		if (rt)
+ 			break;
+@@ -1697,10 +1697,10 @@ static struct dn_route *dn_rt_cache_get_
+ 	smp_read_barrier_depends();
+ 	rt = rt->u.rt_next;
+ 	while(!rt) {
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 		if (--s->bucket < 0)
+ 			break;
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		rt = dn_rt_hash_table[s->bucket].chain;
+ 	}
+ 	return rt;
+@@ -1727,7 +1727,7 @@ static void *dn_rt_cache_seq_next(struct
+ static void dn_rt_cache_seq_stop(struct seq_file *seq, void *v)
  {
- 	__rcu_process_callbacks(&rcu_ctrlblk, &rcu_state, 
- 				&__get_cpu_var(rcu_data));
-+	__rcu_process_callbacks(&rcu_bh_ctrlblk, &rcu_bh_state, 
-+				&__get_cpu_var(rcu_bh_data));
+ 	if (v)
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
  }
  
- void rcu_check_callbacks(int cpu, int user)
+ static int dn_rt_cache_seq_show(struct seq_file *seq, void *v)
+diff -puN net/ipv4/route.c~rcu-use-call-rcu-bh net/ipv4/route.c
+--- linux-2.6.8-rc3-mm1/net/ipv4/route.c~rcu-use-call-rcu-bh	2004-08-07 15:29:16.000000000 +0530
++++ linux-2.6.8-rc3-mm1-dipankar/net/ipv4/route.c	2004-08-07 15:29:16.000000000 +0530
+@@ -226,11 +226,11 @@ static struct rtable *rt_cache_get_first
+ 	struct rt_cache_iter_state *st = seq->private;
+ 
+ 	for (st->bucket = rt_hash_mask; st->bucket >= 0; --st->bucket) {
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		r = rt_hash_table[st->bucket].chain;
+ 		if (r)
+ 			break;
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 	}
+ 	return r;
+ }
+@@ -242,10 +242,10 @@ static struct rtable *rt_cache_get_next(
+ 	smp_read_barrier_depends();
+ 	r = r->u.rt_next;
+ 	while (!r) {
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 		if (--st->bucket < 0)
+ 			break;
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		r = rt_hash_table[st->bucket].chain;
+ 	}
+ 	return r;
+@@ -281,7 +281,7 @@ static void *rt_cache_seq_next(struct se
+ static void rt_cache_seq_stop(struct seq_file *seq, void *v)
  {
--	struct rcu_data *rdp = &__get_cpu_var(rcu_data);
- 	if (user || 
- 	    (idle_cpu(cpu) && !in_softirq() && 
--				hardirq_count() <= (1 << HARDIRQ_SHIFT)))
--		rdp->qsctr++;
--	tasklet_schedule(&per_cpu(rcu_tasklet, rdp->cpu));
-+				hardirq_count() <= (1 << HARDIRQ_SHIFT))) {
-+		rcu_qsctr_inc(cpu);
-+		rcu_bh_qsctr_inc(cpu);
-+	} else if (!in_softirq())
-+		rcu_bh_qsctr_inc(cpu);
-+	tasklet_schedule(&per_cpu(rcu_tasklet, cpu));
+ 	if (v && v != SEQ_START_TOKEN)
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
  }
  
- static void rcu_init_percpu_data(int cpu, struct rcu_ctrlblk *rcp, 
-@@ -342,8 +382,10 @@ static void rcu_init_percpu_data(int cpu
- static void __devinit rcu_online_cpu(int cpu)
+ static int rt_cache_seq_show(struct seq_file *seq, void *v)
+@@ -439,13 +439,13 @@ static struct file_operations rt_cpu_seq
+   
+ static __inline__ void rt_free(struct rtable *rt)
  {
- 	struct rcu_data *rdp = &per_cpu(rcu_data, cpu);
-+	struct rcu_data *bh_rdp = &per_cpu(rcu_bh_data, cpu);
- 
- 	rcu_init_percpu_data(cpu, &rcu_ctrlblk, rdp);
-+	rcu_init_percpu_data(cpu, &rcu_bh_ctrlblk, bh_rdp);
- 	tasklet_init(&per_cpu(rcu_tasklet, cpu), rcu_process_callbacks, 0UL);
+-	call_rcu(&rt->u.dst.rcu_head, dst_rcu_free);
++	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
  }
  
-diff -puN kernel/softirq.c~rcu-call-rcu-bh kernel/softirq.c
---- linux-2.6.8-rc3-mm1/kernel/softirq.c~rcu-call-rcu-bh	2004-08-07 15:28:51.000000000 +0530
-+++ linux-2.6.8-rc3-mm1-dipankar/kernel/softirq.c	2004-08-07 15:28:51.000000000 +0530
-@@ -15,6 +15,7 @@
- #include <linux/percpu.h>
- #include <linux/cpu.h>
- #include <linux/kthread.h>
-+#include <linux/rcupdate.h>
+ static __inline__ void rt_drop(struct rtable *rt)
+ {
+ 	ip_rt_put(rt);
+-	call_rcu(&rt->u.dst.rcu_head, dst_rcu_free);
++	call_rcu_bh(&rt->u.dst.rcu_head, dst_rcu_free);
+ }
  
- #include <asm/irq.h>
- /*
-@@ -75,10 +76,12 @@ asmlinkage void __do_softirq(void)
- 	struct softirq_action *h;
- 	__u32 pending;
- 	int max_restart = MAX_SOFTIRQ_RESTART;
-+	int cpu;
+ static __inline__ int rt_fast_clean(struct rtable *rth)
+@@ -2231,7 +2231,7 @@ int __ip_route_output_key(struct rtable 
  
- 	pending = local_softirq_pending();
+ 	hash = rt_hash_code(flp->fl4_dst, flp->fl4_src ^ (flp->oif << 5), flp->fl4_tos);
  
- 	local_bh_disable();
-+	cpu = smp_processor_id();
- restart:
- 	/* Reset the pending bitmask before enabling irqs */
- 	local_softirq_pending() = 0;
-@@ -88,8 +91,10 @@ restart:
- 	h = softirq_vec;
+-	rcu_read_lock();
++	rcu_read_lock_bh();
+ 	for (rth = rt_hash_table[hash].chain; rth; rth = rth->u.rt_next) {
+ 		smp_read_barrier_depends();
+ 		if (rth->fl.fl4_dst == flp->fl4_dst &&
+@@ -2247,13 +2247,13 @@ int __ip_route_output_key(struct rtable 
+ 			dst_hold(&rth->u.dst);
+ 			rth->u.dst.__use++;
+ 			RT_CACHE_STAT_INC(out_hit);
+-			rcu_read_unlock();
++			rcu_read_unlock_bh();
+ 			*rp = rth;
+ 			return 0;
+ 		}
+ 		RT_CACHE_STAT_INC(out_hlist_search);
+ 	}
+-	rcu_read_unlock();
++	rcu_read_unlock_bh();
  
- 	do {
--		if (pending & 1)
-+		if (pending & 1) {
- 			h->action(h);
-+			rcu_bh_qsctr_inc(cpu);
-+		}
- 		h++;
- 		pending >>= 1;
- 	} while (pending);
+ 	return ip_route_output_slow(rp, flp);
+ }
+@@ -2463,7 +2463,7 @@ int ip_rt_dump(struct sk_buff *skb,  str
+ 		if (h < s_h) continue;
+ 		if (h > s_h)
+ 			s_idx = 0;
+-		rcu_read_lock();
++		rcu_read_lock_bh();
+ 		for (rt = rt_hash_table[h].chain, idx = 0; rt;
+ 		     rt = rt->u.rt_next, idx++) {
+ 			smp_read_barrier_depends();
+@@ -2474,12 +2474,12 @@ int ip_rt_dump(struct sk_buff *skb,  str
+ 					 cb->nlh->nlmsg_seq,
+ 					 RTM_NEWROUTE, 1) <= 0) {
+ 				dst_release(xchg(&skb->dst, NULL));
+-				rcu_read_unlock();
++				rcu_read_unlock_bh();
+ 				goto done;
+ 			}
+ 			dst_release(xchg(&skb->dst, NULL));
+ 		}
+-		rcu_read_unlock();
++		rcu_read_unlock_bh();
+ 	}
+ 
+ done:
 
 _
