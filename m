@@ -1,33 +1,42 @@
-From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: Patchlet 2.6 iucv
-Date: Mon, 2 Feb 2004 20:12:03 -0800
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: Deadlock problem with dev->refcnt somewhere in netlink/multicast... [PATCH]
+Date: Tue, 3 Feb 2004 07:00:48 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040202201203.4c8b2053.zaitcev@redhat.com>
+Message-ID: <20040203060048.GA3531@alpha.home.local>
+References: <OFDBAB37F5.227951E9-ON88256E2E.0080F5BF@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        jgarzik@pobox.com, Alexandre.Cassen@wanadoo.fr
 Return-path: <netdev-bounce@oss.sgi.com>
-To: schwidefsky@de.ibm.com
+To: David Stevens <dlstevens@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <OFDBAB37F5.227951E9-ON88256E2E.0080F5BF@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, Martin,
+Hi David,
 
-it seems that someone misused container_of. Spotted by Al Viro.
-Please pass to whoever is responsible for IUCV.
+On Mon, Feb 02, 2004 at 04:41:11PM -0700, David Stevens wrote:
+> Below is a patch for the reference count problem you ran into.
+> 
+> The problem is that the IGMP code was using "IFF_UP" to determine
+> if a report should be sent or a timer should be started. But it is not
+> necessarily cleared during a destroy_dev.
+> 
+> The IPv4 code was also missing an ip_mc_down() call added in the
+> IPv6 code for a similar case by Jan Oravec.
 
--- Pete
+I would never have found this myself !
 
---- linux-2.6.1/drivers/s390/net/netiucv.c	2003-10-01 15:17:54.000000000 -0700
-+++ linux-2.6.1-s390/drivers/s390/net/netiucv.c	2004-02-02 19:59:11.000000000 -0800
-@@ -1258,8 +1258,7 @@
- buffer_write (struct device *dev, const char *buf, size_t count)
- {
- 	struct netiucv_priv *priv = dev->driver_data;
--	struct net_device *ndev =
--		container_of((void *)priv, struct net_device, priv);
-+	struct net_device *ndev = priv->conn->netdev;
- 	char         *e;
- 	int          bs1;
- 	char         tmp[CTRL_BUFSIZE];
+> The patch is for 2.4.x but also applies to 2.6.x. In-line for
+> whitespace-mangled
+> viewing and attached for applying.
+> 
+> Thanks for reporting the problem, Willy, and let me know if you have any
+> problems with the patch.
+
+Thanks a lot, I will try ASAP and will report if I still can break it.
+
+Cheers,
+Willy
