@@ -1,52 +1,46 @@
-From: Jeff Sipek <jeffpc@optonline.net>
-Subject: Re: [PATCH 2.6] watch64: generic variable monitoring system
-Date: Sun, 12 Sep 2004 11:53:44 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <200409121153.52047.jeffpc@optonline.net>
-References: <200409031307.01240.jeffpc@optonline.net>
- <200409051219.47590.jeffpc@optonline.net>
- <1094460391.1151.26.camel@jzny.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: Sun, 12 Sep 2004 12:16:05 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040912161604.GA23366@havoc.gtf.org>
+References: <E1C4wYe-0005qT-00@gondolin.me.apana.org.au> <20040908072408.GI27886@wotan.suse.de> <1094629677.1089.155.camel@jzny.localdomain> <20040908134713.1bcd46d3.davem@davemloft.net> <1094823215.1121.129.camel@jzny.localdomain> <20040911142116.GL4431@wotan.suse.de> <1094933731.2343.109.camel@jzny.localdomain> <20040911174535.2acbb957.davem@davemloft.net> <20040912100114.GB11484@havoc.gtf.org> <20040912102529.GA27096@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268117AbUILPy3@vger.kernel.org>
-In-reply-to: <1094460391.1151.26.camel@jzny.localdomain>
-To: hadi@cyberus.ca
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, hadi@cyberus.ca,
+        herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
+In-Reply-To: <20040912102529.GA27096@wotan.suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Sun, Sep 12, 2004 at 12:25:29PM +0200, Andi Kleen wrote:
+> On Sun, Sep 12, 2004 at 06:01:14AM -0400, Jeff Garzik wrote:
+> > 
+> > Oh and update Documentation/networking/netdevice.txt.
+> > 
+> > If people are going to screw with the TX path, at least do it right and
+> > make it non-mysterious for everyone else.
+> > 
+> > See Al Viro's Documentation/filesystem/directory-locking doc for a
+> > proper way to document a locking change that potentially affects every
+> > net driver in the kernel.
+> 
+> <broken record mode>
+> No it doesn't. It only affects every driver who sets NETIF_F_LLTX.
+> For drivers that don't set this flag there is no change at all. 
+> </record>
 
-Sorry, I missed your email.
+Incorrect, you are changing the callsites, which -does- affect every
+driver.
 
-On Tuesday 07 September 2004 06:18, jamal wrote:
-> On Sun, 2004-09-05 at 12:19, Jeff Sipek wrote:
-> > There was a discussion about 64-bit network statistics about a year ago
-> > on lkml.
->
-> Sorry unsubscribed from lkml since summer of '94. [net related
-> discussions should really happen on netdev].
 
-netdev was CC'd during this whole discussion.
+> I wasn't aware of Documentation/netdevices.txt, but I agree it 
+> would be a good idea to update it. Patch for that attached.
+> DaveM, please apply.
 
-> > watch64 is a generic so that anyone in the kernel can use it.
->
-> Ok - so why does this have to be in the kernel?
+Thanks, but still need a patch for return value constants, otherwise you
+are compounding rather than addressing a current problem.
 
-I think it is convenient to have the 64 bit net stats reported by the kernel.
-
-Jeff.
-
-- -- 
-My public GPG key can be found at
-http://shells.gnugeneration.com/~jeffpc/gpg/public-0xC7958FFE.txt
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBRHENwFP0+seVj/4RAuzcAKCdBAooPae8pTaMEHbWmVDKAO7C5ACeLi21
-cen/Ag4bH5Dm9xkQiXj+d0Q=
-=BrV+
------END PGP SIGNATURE-----
+	Jeff
