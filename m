@@ -1,39 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Fix Prefix Length of Link-local Addresses
-Date: Tue, 08 Oct 2002 09:37:21 +0900 (JST)
+From: Art Haas <ahaas@neosoft.com>
+Subject: [PATCH] trivial C99 designated initializer fix for net/sctp/sm_statetable.c
+Date: Mon, 7 Oct 2002 17:48:20 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021008.093721.11469009.yoshfuji@linux-ipv6.org>
-References: <20021008.000559.17528416.yoshfuji@linux-ipv6.org>
-	<20021007.115530.00078126.davem@redhat.com>
+Message-ID: <20021007224820.GO9856@debian>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus Torvalds <torvalds@transmeta.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20021007.115530.00078126.davem@redhat.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20021007.115530.00078126.davem@redhat.com> (at Mon, 07 Oct 2002 11:55:30 -0700 (PDT)), "David S. Miller" <davem@redhat.com> says:
+Hi.
 
-> BTW, we start to run into conflicts now and most of USAGI patches now
-> I need to apply some parts by hand.  Here is one example, with this
-> patch:
-:
-> It is not such a big deal now, but it may soon become larger as
-> bigger USAGI patches are applied.  We will need to synchronize
-> at some point.
+As the subject indicated, the patch is trivial. Patch is against 2.5.41.
 
-Agreed.
+Art Haas
 
-So,... What kind of patches do you prefer, now?
-
- - on top of plain kernel (2.4.19, 2.4.20, 2.4.21-preXX, or whatever)
- - plain kernel + on top of our whole patch?
- - ???
-
+--- linux-2.5.41/net/sctp/sm_statetable.c.old	2002-09-28 10:35:14.000000000 -0500
++++ linux-2.5.41/net/sctp/sm_statetable.c	2002-10-07 15:51:59.000000000 -0500
+@@ -555,7 +555,7 @@
+ 	 .name = "sctp_sf_cookie_wait_prm_shutdown"}, \
+ 	/* SCTP_STATE_COOKIE_ECHOED */ \
+ 	{.fn = sctp_sf_cookie_echoed_prm_shutdown, \
+-	 name:"sctp_sf_cookie_echoed_prm_shutdown"},\
++	 .name = "sctp_sf_cookie_echoed_prm_shutdown"},\
+ 	/* SCTP_STATE_ESTABLISHED */ \
+ 	{.fn = sctp_sf_do_9_2_prm_shutdown, \
+ 	 .name = "sctp_sf_do_9_2_prm_shutdown"}, \
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+They that can give up essential liberty to obtain a little temporary safety
+deserve neither liberty nor safety.
+ -- Benjamin Franklin, Historical Review of Pennsylvania, 1759
