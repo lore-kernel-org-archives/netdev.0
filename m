@@ -1,42 +1,63 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: [RFT] BIC TCP delayed ack compensation
-Date: Tue, 22 Feb 2005 23:38:32 +0000
-Message-ID: <421BC278.90400@ev-en.org>
-References: <050QTJA12@server5.heliogroup.fr>	<20050209105909.17da40a9@dxpl.pdx.osdl.net> <20050222135046.23f7ec7d@dxpl.pdx.osdl.net>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: Intel and TOE in the news
+Date: 22 Feb 2005 23:42:37 +0100
+Message-ID: <20050222224237.GB60153@muc.de>
+References: <20050222214345.GA51890@muc.de> <200502222218.j1MMIVDD007619@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hubert Tonneau <hubert.tonneau@fullpliant.org>,
-        cliff white <cliffw@osdl.org>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        netdev@oss.sgi.com, Injong Rhee <rhee@eos.ncsu.edu>,
-        "David S. Miller" <davem@davemloft.net>,
-        Yee-Ting Li <yee-ting.li@nuim.ie>, Doug Leith <doug.leith@nuim.ie>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050222135046.23f7ec7d@dxpl.pdx.osdl.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "'Stephen Hemminger'" <shemminger@osdl.org>, hadi@cyberus.ca,
+        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
+        "'Alex Aizman'" <alex@neterion.com>
+Date: Tue, 22 Feb 2005 23:42:37 +0100
+To: Leonid Grossman <leonid.grossman@neterion.com>
+Content-Disposition: inline
+In-Reply-To: <200502222218.j1MMIVDD007619@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> This patch which was extracted from BIC TCP 1.1 compensates
-> for systems (like MaxOSX) that don't ACK every other packet.
-> It has no impact for normal transfers, but might help with problems
-> with Mac like Hubert found.
+On Tue, Feb 22, 2005 at 02:17:35PM -0800, Leonid Grossman wrote:
+>  
+> 
+> > -----Original Message-----
+> > From: Andi Kleen [mailto:ak@muc.de] 
+> > Sent: Tuesday, February 22, 2005 1:44 PM
+> > To: Leonid Grossman
+> > Cc: 'Stephen Hemminger'; hadi@cyberus.ca; 'rick jones'; 
+> > netdev@oss.sgi.com; 'Alex Aizman'
+> > Subject: Re: Intel and TOE in the news
+> > 
+> > > TSO case is probably different - TSO hardware just sets PSH on the 
+> > > last fragment only (and only if the flag was set on the 
+> > original large 
+> > > tx packet). Receiver doesn't really know if the sender is 
+> > TSO-capable 
+> > > or not and will ACK the same way - will it not?
+> > > Anyway, with LRO we do change rx packet count so affecting parts of 
+> > > TCP that depend on packet count is indeed a concern; I guess we'll 
+> > > find out soon enough whether there are real issues with the 
+> > approach 
+> > > :-)
+> > 
+> > Linux doesn't depend on packet count; it keeps an estimate 
+> > called rcv_mss about the biggest seen packet size and acks 
+> > every 2*rcv_mss worth of data.
+> > 
+> > Your scheme would likely result in acking every two of your 
+> > large packets as soon as the connection is out of "quickack" 
+> > mode. So there would be on wire differences. 
+> 
+> Sounds good, thanks! We should be OK then.
 
-We have a version of ABC (Appropriate Byte Counting) implementation of 
-RFC 3465, which we hope to submit soon for inclusion in the kernel which 
-should be a more appropriate solution for this. The RFC is a well 
-defined standard whereas this patch has not received any reviewing by 
-the networking community.
+Are you sure? It definitely wouldn't look like a conventional
+TCP ack clock on the wire, but you would get an ack only every 
+(BIGPACKETSIZE/MSS) * 2 packets. 
 
-This solution is just a band-aid for only one congestion control, as 
-opposed to a generic solution. It is also prone to make BIC more 
-aggressive according to our testing.
+Quite a stretch ACK.
 
-I'll try to post our ABC patch tomorrow, time permitting.
+I'm not saying it wouldn't work (and maybe Rick et.al. are right
+and Acking overhead is the next TCP frontier), but it would be definitely
+quite different. It needs careful testing on how it behaves with 
+packet loss.
 
-One thing to note is that accounting for delayed acking is not an overly 
-important feature, from our testing it only speeds up convergence by a 
-small factor and doesn't change the correctness of the algorithms.
-
-Baruch
+-Andi
