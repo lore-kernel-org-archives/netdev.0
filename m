@@ -1,53 +1,547 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Luca Deri's paper: Improving Passive Packet Capture: Beyond Device
- Polling
-Date: Tue, 06 Apr 2004 11:40:44 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [BK PATCH] 2.4 SCTP updates
+Date: Tue, 6 Apr 2004 12:09:26 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4072F9AC.7010307@candelatech.com>
-References: <20040330142354.GA17671@outblaze.com> <1081033332.2037.61.camel@jzny.localdomain> <c4rvvv$dbf$1@sea.gmane.org> <407286BB.8080107@draigBrady.com> <4072A1CD.8070905@ntop.org> <c4uk8g$38l$1@sea.gmane.org>
+Message-ID: <Pine.LNX.4.58.0404061157100.8396@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <c4uk8g$38l$1@sea.gmane.org>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jason Lunz wrote:
-> deri@ntop.org said:
-> 
->>In addition if you do care about performance, I believe you're willing
->>to turn off packet transmission and only do packet receive. 
-> 
-> 
-> I don't understand what you mean by this. packet-mmap works perfectly
-> well on an UP|PROMISC interface with no addresses bound to it. As long
-> as no packets are injected through a packet socket, the tx path never
-> gets involved.
-> 
-> 
->>IRQ: Linux has far too much latency, in particular at high speeds. I'm
->>not the right person who can say "this is the way to go", however I
->>believe that we need some sort of interrupt prioritization like RTIRQ
->>does.
-> 
-> 
-> I don't think this is the problem, since small-packet performance is bad
-> even with a fully-polling e1000 in NAPI mode. As Robert Olsson has
-> demonstrated, a highly-loaded napi e1000 only generates a few hundred
-> interrupts per second. So the vast majority of packets recieved are
-> coming in without a hardware interrupt occurring at all.
+Hi Dave
 
-If the polling is delayed, then you get plenty of latency.
+Please do a
+	bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
+to get the following updates to SCTP on top of linux 2.4.26-rc2
 
-With something like e1000, you can have up to 4096 rx buffers too,
-which can also increase latency, but you do drop fewer packets.
+This includes 2 of the 3 patches i submitted for 2.6.
 
-Ben
+lib/idr.c is not present in 2.4 and hence i could not remove the use of
+address of association as its id and virt_addr_valid(). I guess it should be
+OK for now as PAGEALLOC debugging is not available with 2.4.
+may be we should backport idr.c to 2.4 or come up with a similar service.
+
+Thanks
+Sridhar
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/04/06 09:28:32-07:00 sri@us.ibm.com
+#   [SCTP] Update sctp_ulpevent structure to include assoc pointer and
+#   only the receive specific fields of sctp_sndrcvinfo.
+#
+# net/sctp/ulpqueue.c
+# net/sctp/ulpevent.c
+# net/sctp/socket.c
+# net/sctp/protocol.c
+# net/sctp/ipv6.c
+# include/net/sctp/ulpevent.h
+#
+# ChangeSet
+#   2004/04/06 07:54:05-07:00 sri@us.ibm.com
+#   [SCTP] Fix typo in entry name of the remove_proc_entry() call.
+#
+# net/sctp/objcnt.c
+#
+diff -Nru a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
+--- a/include/net/sctp/ulpevent.h	Tue Apr  6 11:54:30 2004
++++ b/include/net/sctp/ulpevent.h	Tue Apr  6 11:54:30 2004
+@@ -1,7 +1,7 @@
+ /* SCTP kernel reference Implementation
++ * (C) Copyright IBM Corp. 2001, 2004
+  * Copyright (c) 1999-2000 Cisco, Inc.
+  * Copyright (c) 1999-2001 Motorola, Inc.
+- * Copyright (c) 2001 International Business Machines, Corp.
+  * Copyright (c) 2001 Intel Corp.
+  * Copyright (c) 2001 Nokia, Inc.
+  * Copyright (c) 2001 La Monte H.P. Yarroll
+@@ -54,7 +54,13 @@
+  * growing this structure as it is at the maximum limit now.
+  */
+ struct sctp_ulpevent {
+-	struct sctp_sndrcvinfo sndrcvinfo;
++	struct sctp_association *asoc;
++	__u16 stream;
++	__u16 ssn;
++	__u16 flags;
++	__u32 ppid;
++	__u32 tsn;
++	__u32 cumtsn;
+ 	int msg_flags;
+ 	int iif;
+ };
+diff -Nru a/net/sctp/ipv6.c b/net/sctp/ipv6.c
+--- a/net/sctp/ipv6.c	Tue Apr  6 11:54:30 2004
++++ b/net/sctp/ipv6.c	Tue Apr  6 11:54:30 2004
+@@ -1,7 +1,7 @@
+ /* SCTP kernel reference Implementation
++ * (C) Copyright IBM Corp. 2002, 2004
+  * Copyright (c) 2001 Nokia, Inc.
+  * Copyright (c) 2001 La Monte H.P. Yarroll
+- * Copyright (c) 2002-2003 International Business Machines, Corp.
+  * Copyright (c) 2002-2003 Intel Corp.
+  *
+  * This file is part of the SCTP kernel reference Implementation
+@@ -703,7 +703,7 @@
+ 		union sctp_addr *addr;
+ 		struct sctp_association *asoc;
+
+-		asoc = event->sndrcvinfo.sinfo_assoc_id;
++		asoc = event->asoc;
+ 		sctp_inet6_msgname(msgname, addrlen);
+ 		sin6 = (struct sockaddr_in6 *)msgname;
+ 		sin6->sin6_port = htons(asoc->peer.port);
+diff -Nru a/net/sctp/objcnt.c b/net/sctp/objcnt.c
+--- a/net/sctp/objcnt.c	Tue Apr  6 11:54:30 2004
++++ b/net/sctp/objcnt.c	Tue Apr  6 11:54:30 2004
+@@ -132,7 +132,7 @@
+ /* Cleanup the objcount entry in the proc filesystem.  */
+ void sctp_dbg_objcnt_exit(void)
+ {
+-	remove_proc_entry("sctp_dbg_objcount", proc_net_sctp);
++	remove_proc_entry("sctp_dbg_objcnt", proc_net_sctp);
+ }
+
+
+diff -Nru a/net/sctp/protocol.c b/net/sctp/protocol.c
+--- a/net/sctp/protocol.c	Tue Apr  6 11:54:30 2004
++++ b/net/sctp/protocol.c	Tue Apr  6 11:54:30 2004
+@@ -719,7 +719,7 @@
+ 	if (msgname) {
+ 		struct sctp_association *asoc;
+
+-		asoc = event->sndrcvinfo.sinfo_assoc_id;
++		asoc = event->asoc;
+ 		sctp_inet_msgname(msgname, addr_len);
+ 		sin = (struct sockaddr_in *)msgname;
+ 		sinfrom = &asoc->peer.primary_addr.v4;
+diff -Nru a/net/sctp/socket.c b/net/sctp/socket.c
+--- a/net/sctp/socket.c	Tue Apr  6 11:54:30 2004
++++ b/net/sctp/socket.c	Tue Apr  6 11:54:30 2004
+@@ -1495,8 +1495,7 @@
+ 		 * rwnd by that amount. If all the data in the skb is read,
+ 		 * rwnd is updated when the event is freed.
+ 		 */
+-		sctp_assoc_rwnd_increase(event->sndrcvinfo.sinfo_assoc_id,
+-					 copied);
++		sctp_assoc_rwnd_increase(event->asoc, copied);
+ 		goto out;
+ 	} else if ((event->msg_flags & MSG_NOTIFICATION) ||
+ 		   (event->msg_flags & MSG_EOR))
+@@ -4486,7 +4485,7 @@
+ 	 */
+ 	sctp_skb_for_each(skb, &oldsk->sk_receive_queue, tmp) {
+ 		event = sctp_skb2event(skb);
+-		if (event->sndrcvinfo.sinfo_assoc_id == assoc) {
++		if (event->asoc == assoc) {
+ 			__skb_unlink(skb, skb->list);
+ 			__skb_queue_tail(&newsk->sk_receive_queue, skb);
+ 		}
+@@ -4515,7 +4514,7 @@
+ 		 */
+ 		sctp_skb_for_each(skb, &oldsp->pd_lobby, tmp) {
+ 			event = sctp_skb2event(skb);
+-			if (event->sndrcvinfo.sinfo_assoc_id == assoc) {
++			if (event->asoc == assoc) {
+ 				__skb_unlink(skb, skb->list);
+ 				__skb_queue_tail(queue, skb);
+ 			}
+diff -Nru a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+--- a/net/sctp/ulpevent.c	Tue Apr  6 11:54:30 2004
++++ b/net/sctp/ulpevent.c	Tue Apr  6 11:54:30 2004
+@@ -1,7 +1,7 @@
+ /* SCTP kernel reference Implementation
++ * (C) Copyright IBM Corp. 2001, 2004
+  * Copyright (c) 1999-2000 Cisco, Inc.
+  * Copyright (c) 1999-2001 Motorola, Inc.
+- * Copyright (c) 2001 International Business Machines, Corp.
+  * Copyright (c) 2001 Intel Corp.
+  * Copyright (c) 2001 Nokia, Inc.
+  * Copyright (c) 2001 La Monte H.P. Yarroll
+@@ -590,8 +590,7 @@
+ 						struct sctp_chunk *chunk,
+ 						int gfp)
+ {
+-	struct sctp_ulpevent *event;
+-	struct sctp_sndrcvinfo *info;
++	struct sctp_ulpevent *event = NULL;
+ 	struct sk_buff *skb;
+ 	size_t padding, len;
+
+@@ -624,101 +623,21 @@
+ 	/* Initialize event with flags 0.  */
+ 	sctp_ulpevent_init(event, 0);
+
+-	event->iif = sctp_chunk_iif(chunk);
+-
+ 	sctp_ulpevent_receive_data(event, asoc);
+
+-	info = (struct sctp_sndrcvinfo *) &event->sndrcvinfo;
+-
+-	/* Sockets API Extensions for SCTP
+-	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+-	 *
+-	 * sinfo_stream: 16 bits (unsigned integer)
+-	 *
+-	 * For recvmsg() the SCTP stack places the message's stream number in
+-	 * this value.
+-	 */
+-	info->sinfo_stream = ntohs(chunk->subh.data_hdr->stream);
+-
+-	/* Sockets API Extensions for SCTP
+-	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+-	 *
+-	 * sinfo_ssn: 16 bits (unsigned integer)
+-	 *
+-	 * For recvmsg() this value contains the stream sequence number that
+-	 * the remote endpoint placed in the DATA chunk.  For fragmented
+-	 * messages this is the same number for all deliveries of the message
+-	 * (if more than one recvmsg() is needed to read the message).
+-	 */
+-	info->sinfo_ssn = ntohs(chunk->subh.data_hdr->ssn);
+-
+-        /* Sockets API Extensions for SCTP
+-	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+-	 *
+-	 * sinfo_ppid: 32 bits (unsigned integer)
+-	 *
+-	 * In recvmsg() this value is
+-	 * the same information that was passed by the upper layer in the peer
+-	 * application.  Please note that byte order issues are NOT accounted
+-	 * for and this information is passed opaquely by the SCTP stack from
+-	 * one end to the other.
+-	 */
+-	info->sinfo_ppid = chunk->subh.data_hdr->ppid;
+-
+-	/* Sockets API Extensions for SCTP
+-	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+-	 *
+-	 * sinfo_flags: 16 bits (unsigned integer)
+-	 *
+-	 * This field may contain any of the following flags and is composed of
+-	 * a bitwise OR of these values.
+-	 *
+-	 * recvmsg() flags:
+-	 *
+-	 * MSG_UNORDERED - This flag is present when the message was sent
+-	 *                 non-ordered.
+-	 */
++	event->stream = ntohs(chunk->subh.data_hdr->stream);
++	event->ssn = ntohs(chunk->subh.data_hdr->ssn);
++	event->ppid = chunk->subh.data_hdr->ppid;
+ 	if (chunk->chunk_hdr->flags & SCTP_DATA_UNORDERED) {
+-		info->sinfo_flags |= MSG_UNORDERED;
+-
+-		/* sinfo_cumtsn: 32 bit (unsigned integer)
+-		 *
+-		 * This field will hold the current cumulative TSN as
+-		 * known by the underlying SCTP layer.  Note this field is
+-		 * ignored when sending and only valid for a receive
+-		 * operation when sinfo_flags are set to MSG_UNORDERED.
+-		 */
+-		info->sinfo_cumtsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map);
++		event->flags |= MSG_UNORDERED;
++		event->cumtsn = sctp_tsnmap_get_ctsn(&asoc->peer.tsn_map);
+ 	}
+-
+-	/* Note:  For reassembly, we need to have the fragmentation bits.
+-	 * For now, merge these into the msg_flags, since those bit
+-	 * possitions are not used.
+-	 */
++	event->tsn = ntohl(chunk->subh.data_hdr->tsn);
+ 	event->msg_flags |= chunk->chunk_hdr->flags;
+-
+-	/* With 04 draft, tsn moves into sndrcvinfo. */
+-	info->sinfo_tsn = ntohl(chunk->subh.data_hdr->tsn);
+-
+-	/* Context is not used on receive. */
+-	info->sinfo_context = 0;
+-
+-	/* Sockets API Extensions for SCTP
+-	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+-	 *
+-	 * sinfo_assoc_id: sizeof (sctp_assoc_t)
+-	 *
+-	 * The association handle field, sinfo_assoc_id, holds the identifier
+-	 * for the association announced in the COMMUNICATION_UP notification.
+-	 * All notifications for a given association have the same identifier.
+-	 * Ignored for TCP-style sockets.
+-	 */
+-	info->sinfo_assoc_id = sctp_assoc2id(asoc);
+-
+-	return event;
++	event->iif = sctp_chunk_iif(chunk);
+
+ fail:
+-	return NULL;
++	return event;
+ }
+
+ /* Create a partial delivery related event.
+@@ -797,11 +716,77 @@
+ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
+ 				   struct msghdr *msghdr)
+ {
+-	if (!sctp_ulpevent_is_notification(event)) {
+-		put_cmsg(msghdr, IPPROTO_SCTP, SCTP_SNDRCV,
+-			 sizeof(struct sctp_sndrcvinfo),
+-			 (void *) &event->sndrcvinfo);
+-	}
++	struct sctp_sndrcvinfo sinfo;
++
++	if (sctp_ulpevent_is_notification(event))
++		return;
++
++	/* Sockets API Extensions for SCTP
++ 	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
++ 	 *
++ 	 * sinfo_stream: 16 bits (unsigned integer)
++ 	 *
++ 	 * For recvmsg() the SCTP stack places the message's stream number in
++ 	 * this value.
++ 	*/
++	sinfo.sinfo_stream = event->stream;
++	/* sinfo_ssn: 16 bits (unsigned integer)
++	 *
++	 * For recvmsg() this value contains the stream sequence number that
++	 * the remote endpoint placed in the DATA chunk.  For fragmented
++	 * messages this is the same number for all deliveries of the message
++	 * (if more than one recvmsg() is needed to read the message).
++	 */
++	sinfo.sinfo_ssn = event->ssn;
++	/* sinfo_ppid: 32 bits (unsigned integer)
++	 *
++	 * In recvmsg() this value is
++	 * the same information that was passed by the upper layer in the peer
++	 * application.  Please note that byte order issues are NOT accounted
++	 * for and this information is passed opaquely by the SCTP stack from
++	 * one end to the other.
++	 */
++	sinfo.sinfo_ppid = event->ppid;
++	/* sinfo_flags: 16 bits (unsigned integer)
++	 *
++	 * This field may contain any of the following flags and is composed of
++	 * a bitwise OR of these values.
++	 *
++	 * recvmsg() flags:
++	 *
++	 * MSG_UNORDERED - This flag is present when the message was sent
++	 *                 non-ordered.
++	 */
++	sinfo.sinfo_flags = event->flags;
++	/* sinfo_tsn: 32 bit (unsigned integer)
++	 *
++	 * For the receiving side, this field holds a TSN that was
++	 * assigned to one of the SCTP Data Chunks.
++	 */
++	sinfo.sinfo_tsn = event->tsn;
++	/* sinfo_cumtsn: 32 bit (unsigned integer)
++	 *
++	 * This field will hold the current cumulative TSN as
++	 * known by the underlying SCTP layer.  Note this field is
++	 * ignored when sending and only valid for a receive
++	 * operation when sinfo_flags are set to MSG_UNORDERED.
++	 */
++	sinfo.sinfo_cumtsn = event->cumtsn;
++	/* sinfo_assoc_id: sizeof (sctp_assoc_t)
++	 *
++	 * The association handle field, sinfo_assoc_id, holds the identifier
++	 * for the association announced in the COMMUNICATION_UP notification.
++	 * All notifications for a given association have the same identifier.
++	 * Ignored for one-to-one style sockets.
++	 */
++	sinfo.sinfo_assoc_id = sctp_assoc2id(event->asoc);
++
++	/* These fields are not used while receiving. */
++	sinfo.sinfo_context = 0;
++	sinfo.sinfo_timetolive = 0;
++
++	put_cmsg(msghdr, IPPROTO_SCTP, SCTP_SNDRCV,
++		 sizeof(struct sctp_sndrcvinfo), (void *)&sinfo);
+ }
+
+ /* Stub skb destructor.  */
+@@ -831,14 +816,14 @@
+ 	sctp_association_hold((struct sctp_association *)asoc);
+ 	skb = sctp_event2skb(event);
+ 	skb->sk = asoc->base.sk;
+-	event->sndrcvinfo.sinfo_assoc_id = sctp_assoc2id(asoc);
++	event->asoc = (struct sctp_association *)asoc;
+ 	skb->destructor = sctp_stub_rfree;
+ }
+
+ /* A simple destructor to give up the reference to the association. */
+ static inline void sctp_ulpevent_release_owner(struct sctp_ulpevent *event)
+ {
+-	sctp_association_put(event->sndrcvinfo.sinfo_assoc_id);
++	sctp_association_put(event->asoc);
+ }
+
+ /* Do accounting for bytes received and hold a reference to the association
+@@ -880,8 +865,7 @@
+ 	 */
+
+ 	skb = sctp_event2skb(event);
+-	sctp_assoc_rwnd_increase(event->sndrcvinfo.sinfo_assoc_id,
+-				 skb_headlen(skb));
++	sctp_assoc_rwnd_increase(event->asoc, skb_headlen(skb));
+
+ 	/* Don't forget the fragments. */
+ 	for (frag = skb_shinfo(skb)->frag_list; frag; frag = frag->next) {
+diff -Nru a/net/sctp/ulpqueue.c b/net/sctp/ulpqueue.c
+--- a/net/sctp/ulpqueue.c	Tue Apr  6 11:54:30 2004
++++ b/net/sctp/ulpqueue.c	Tue Apr  6 11:54:30 2004
+@@ -1,7 +1,7 @@
+ /* SCTP kernel reference Implementation
++ * (C) Copyright IBM Corp. 2001, 2004
+  * Copyright (c) 1999-2000 Cisco, Inc.
+  * Copyright (c) 1999-2001 Motorola, Inc.
+- * Copyright (c) 2001-2003 International Business Machines, Corp.
+  * Copyright (c) 2001 Intel Corp.
+  * Copyright (c) 2001 Nokia, Inc.
+  * Copyright (c) 2001 La Monte H.P. Yarroll
+@@ -251,7 +251,7 @@
+ 	struct sctp_ulpevent *cevent;
+ 	__u32 tsn, ctsn;
+
+-	tsn = event->sndrcvinfo.sinfo_tsn;
++	tsn = event->tsn;
+
+ 	/* See if it belongs at the end. */
+ 	pos = skb_peek_tail(&ulpq->reasm);
+@@ -262,7 +262,7 @@
+
+ 	/* Short circuit just dropping it at the end. */
+ 	cevent = sctp_skb2event(pos);
+-	ctsn = cevent->sndrcvinfo.sinfo_tsn;
++	ctsn = cevent->tsn;
+ 	if (TSN_lt(ctsn, tsn)) {
+ 		__skb_queue_tail(&ulpq->reasm, sctp_event2skb(event));
+ 		return;
+@@ -271,7 +271,7 @@
+ 	/* Find the right place in this list. We store them by TSN.  */
+ 	skb_queue_walk(&ulpq->reasm, pos) {
+ 		cevent = sctp_skb2event(pos);
+-		ctsn = cevent->sndrcvinfo.sinfo_tsn;
++		ctsn = cevent->tsn;
+
+ 		if (TSN_lt(tsn, ctsn))
+ 			break;
+@@ -368,7 +368,7 @@
+ 	 */
+ 	skb_queue_walk(&ulpq->reasm, pos) {
+ 		cevent = sctp_skb2event(pos);
+-		ctsn = cevent->sndrcvinfo.sinfo_tsn;
++		ctsn = cevent->tsn;
+
+ 		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
+ 		case SCTP_DATA_FIRST_FRAG:
+@@ -425,7 +425,7 @@
+
+ 	skb_queue_walk(&ulpq->reasm, pos) {
+ 		cevent = sctp_skb2event(pos);
+-		ctsn = cevent->sndrcvinfo.sinfo_tsn;
++		ctsn = cevent->tsn;
+
+ 		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
+ 		case SCTP_DATA_MIDDLE_FRAG:
+@@ -486,7 +486,7 @@
+ 		/* Do not even bother unless this is the next tsn to
+ 		 * be delivered.
+ 		 */
+-		ctsn = event->sndrcvinfo.sinfo_tsn;
++		ctsn = event->tsn;
+ 		ctsnap = sctp_tsnmap_get_ctsn(&ulpq->asoc->peer.tsn_map);
+ 		if (TSN_lte(ctsn, ctsnap))
+ 			retval = sctp_ulpq_retrieve_partial(ulpq);
+@@ -517,7 +517,7 @@
+
+ 	skb_queue_walk(&ulpq->reasm, pos) {
+ 		cevent = sctp_skb2event(pos);
+-		ctsn = cevent->sndrcvinfo.sinfo_tsn;
++		ctsn = cevent->tsn;
+
+ 		switch (cevent->msg_flags & SCTP_DATA_FRAG_MASK) {
+ 		case SCTP_DATA_FIRST_FRAG:
+@@ -563,15 +563,15 @@
+ 	__u16 sid, csid;
+ 	__u16 ssn, cssn;
+
+-	sid = event->sndrcvinfo.sinfo_stream;
+-	ssn = event->sndrcvinfo.sinfo_ssn;
++	sid = event->stream;
++	ssn = event->ssn;
+ 	in  = &ulpq->asoc->ssnmap->in;
+
+ 	/* We are holding the chunks by stream, by SSN.  */
+ 	sctp_skb_for_each(pos, &ulpq->lobby, tmp) {
+ 		cevent = (struct sctp_ulpevent *) pos->cb;
+-		csid = cevent->sndrcvinfo.sinfo_stream;
+-		cssn = cevent->sndrcvinfo.sinfo_ssn;
++		csid = cevent->stream;
++		cssn = cevent->ssn;
+
+ 		/* Have we gone too far?  */
+ 		if (csid > sid)
+@@ -609,12 +609,12 @@
+ 		return;
+ 	}
+
+-	sid = event->sndrcvinfo.sinfo_stream;
+-	ssn = event->sndrcvinfo.sinfo_ssn;
++	sid = event->stream;
++	ssn = event->ssn;
+
+ 	cevent = (struct sctp_ulpevent *) pos->cb;
+-	csid = cevent->sndrcvinfo.sinfo_stream;
+-	cssn = cevent->sndrcvinfo.sinfo_ssn;
++	csid = cevent->stream;
++	cssn = cevent->ssn;
+ 	if (sid > csid) {
+ 		__skb_queue_tail(&ulpq->lobby, sctp_event2skb(event));
+ 		return;
+@@ -630,8 +630,8 @@
+ 	 */
+ 	skb_queue_walk(&ulpq->lobby, pos) {
+ 		cevent = (struct sctp_ulpevent *) pos->cb;
+-		csid = cevent->sndrcvinfo.sinfo_stream;
+-		cssn = cevent->sndrcvinfo.sinfo_ssn;
++		csid = cevent->stream;
++		cssn = cevent->ssn;
+
+ 		if (csid > sid)
+ 			break;
+@@ -656,8 +656,8 @@
+ 		return event;
+
+ 	/* Note: The stream ID must be verified before this routine.  */
+-	sid = event->sndrcvinfo.sinfo_stream;
+-	ssn = event->sndrcvinfo.sinfo_ssn;
++	sid = event->stream;
++	ssn = event->ssn;
+ 	in  = &ulpq->asoc->ssnmap->in;
+
+ 	/* Is this the expected SSN for this stream ID?  */
+@@ -694,7 +694,7 @@
+ 	while ((skb = __skb_dequeue_tail(&ulpq->lobby))) {
+ 		freed += skb_headlen(skb);
+ 		event = sctp_skb2event(skb);
+-		tsn = event->sndrcvinfo.sinfo_tsn;
++		tsn = event->tsn;
+
+ 		sctp_ulpevent_free(event);
+ 		sctp_tsnmap_renege(tsnmap, tsn);
+@@ -720,7 +720,7 @@
+ 	while ((skb = __skb_dequeue_tail(&ulpq->reasm))) {
+ 		freed += skb_headlen(skb);
+ 		event = sctp_skb2event(skb);
+-		tsn = event->sndrcvinfo.sinfo_tsn;
++		tsn = event->tsn;
+
+ 		sctp_ulpevent_free(event);
+ 		sctp_tsnmap_renege(tsnmap, tsn);
