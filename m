@@ -1,46 +1,34 @@
-From: Cal Peake <cp@absolutedigital.net>
-Subject: Re: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
-Date: Mon, 11 Oct 2004 10:16:25 -0400 (EDT)
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Mon, 11 Oct 2004 17:40:00 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.61.0410111014030.9330@linaeum.absolutedigital.net>
-References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
- <416A7484.1030703@portrix.net> <Pine.LNX.4.61.0410110819370.8480@linaeum.absolutedigital.net>
- <20041011131603.GU23987@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <20041011154000.GB26350@wotan.suse.de>
+References: <20041007075319.6b31430d@jack.colino.net> <20041006234912.66bfbdcc.davem@davemloft.net> <20041007160532.60c3f26b@pirandello> <20041007112846.5c85b2d9.davem@davemloft.net> <20041007224422.1c1bea95@jack.colino.net> <20041007214505.GB31558@wotan.suse.de> <20041008090610.70d7e183@pirandello> <20041008220001.GE31237@waste.org> <20041008151839.01823e0c.akpm@osdl.org> <20041010205928.6e54df7e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jan Dittmer <j.dittmer@portrix.net>,
-        Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org,
-        hermes@gibson.dropbear.id.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, mpm@selenic.com, colin@colino.net,
+        ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: viro@parcelfarce.linux.theplanet.co.uk
-In-Reply-To: <20041011131603.GU23987@parcelfarce.linux.theplanet.co.uk>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041010205928.6e54df7e.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 11 Oct 2004 viro@parcelfarce.linux.theplanet.co.uk wrote:
-
-> On Mon, Oct 11, 2004 at 08:23:35AM -0400, Cal Peake wrote:
-> > On Mon, 11 Oct 2004, Jan Dittmer wrote:
-> > 
-> > > Cal Peake wrote:
-> > > 
-> > > >  	inw((hw)->iobase + ( (off) << (hw)->reg_spacing )) : \
-> > > > -	readw((hw)->iobase + ( (off) << (hw)->reg_spacing )))
-> > > > +	readw((void __iomem *)(hw)->iobase + ( (off) << (hw)->reg_spacing )))
-> > > >  #define hermes_write_reg(hw, off, val) do { \
-> > > 
-> > > Isn't the correct fix to declare iobase as (void __iomem *) ?
-> > 
-> > iobase is an unsigned long, declaring it as a void pointer is prolly not 
-> > what we want to do here. The typecast seems proper. A lot of other drivers 
-> > do this as well thus it must be proper ;-)
+On Sun, Oct 10, 2004 at 08:59:28PM -0700, David S. Miller wrote:
 > 
-> Typecast is not a proper solution here.   Folks, there are cleanups underway
-> for all that mess, but it's not _that_ simple.
+> Wait, I think I see the problem.
 > 
-> And adding casts to shut the warnings up is wrong in 99% of cases.
+> Sungem processes link status in it's ->poll() NAPI handler.
+> This occurs via calls to gem_pcs_interrupt(), for example.
+> Non-pcs sungem variants use a timer to poll link status.
+> 
+> When the link changes state, this link state processing
+> does printk()'s.
+> 
+> So perhaps that is why it deadlocks.
 
-ok, I'm retarded. I'll shut up for the moment and get a clue :^)
+printk handles recursion with the down_trylock on console_sem.
+So it shouldn't deadlock.
 
--- Cal
+-Andi
