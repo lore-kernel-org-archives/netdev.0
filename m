@@ -1,46 +1,51 @@
-From: CaT <cat@zip.com.au>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Fri, 11 Jul 2003 09:39:31 +1000
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] IPV6: fix data offset calculation when pushing frag options {dst1opts|auth}
+Date: Fri, 11 Jul 2003 01:44:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030710233931.GG1722@zip.com.au>
-References: <20030710154302.GE1722@zip.com.au> <1057854432.3588.2.camel@hades>
+Message-ID: <20030710234449.GB30577@rei.rakuen>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   pekkas@netcore.fi
+Cc: netdev@oss.sgi.com, tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika Liljeberg <mika.liljeberg@welho.com>
+To: davem@redhat.com, jmorris@intercode.com.au, yoshfuji@linux-ipv6.org
 Content-Disposition: inline
-In-Reply-To: <1057854432.3588.2.camel@hades>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 10, 2003 at 07:27:13PM +0300, Mika Liljeberg wrote:
-> On Thu, 2003-07-10 at 18:43, CaT wrote:
-> > ip tunnel add sit1 mode sit remote 138.25.6.14
-> > ip link set sit1 up
-> > ip addr add 3ffe:8001:000c:ffff::37/127 dev sit1
-> >  ip route add ::/0 via 3ffe:8001:000c:ffff::36 
-> > RTNETLINK answers: Invalid argument
-> 
-> Try this:
-> 
-> ip route add ::/0 dev sit1
+Hello
 
-That didn't complain but pings to the ext gw were broken. Noticed the
-route contained:
+ip6_append_data:
+The offset in the datagram where the payload gets copied
+to (transhdrlen) is not calculated correctly: the size
+of frag opts {dst1opt|auth} is not taken into account.
+This lead to overwritten payload by frag opts.
 
-3ffe:8001:c:ffff::36/127 via :: dev sit1  proto kernel  metric 256  mtu 1480 adv
-mss 1420
+yoshfuji agreed on this.
 
-And having remembered /127 being mentioned as bad I changed the
-interface config to a netmask of /64. Dropped it and brought it
-up and it all works.
+patch is against 2.5.75
 
-There's something fundamental about ipv6 netmasks that I just don't
-understand...
+ -- thomas
 
--- 
-"How can I not love the Americans? They helped me with a flat tire the
-other day," he said.
-	- http://www.toledoblade.com/apps/pbcs.dll/artikkel?SearchID=73139162287496&Avis=TO&Dato=20030624&Kategori=NEWS28&Lopenr=106240111&Ref=AR
+
+Index: net/ipv6/ip6_output.c
+===================================================================
+RCS file: /cvs/tgr/linux-25/net/ipv6/ip6_output.c,v
+retrieving revision 1.1.1.2
+diff -u -r1.1.1.2 ip6_output.c
+--- net/ipv6/ip6_output.c	10 Jul 2003 22:58:50 -0000	1.1.1.2
++++ net/ipv6/ip6_output.c	10 Jul 2003 23:36:48 -0000
+@@ -1247,11 +1247,9 @@
+ 		inet->cork.length = 0;
+ 		inet->sndmsg_page = NULL;
+ 		inet->sndmsg_off = 0;
+-		if ((exthdrlen = rt->u.dst.header_len) != 0) {
+-			length += exthdrlen;
+-			transhdrlen += exthdrlen;
+-		}
+-		exthdrlen += opt ? opt->opt_flen : 0;
++		exthdrlen = rt->u.dst.header_len + opt ? opt->opt_flen : 0;
++		length += exthdrlen;
++		transhdrlen += exthdrlen;
+ 	} else {
+ 		rt = np->cork.rt;
+ 		if (inet->cork.flags & IPCORK_OPT)
