@@ -1,58 +1,39 @@
-From: "Adam J. Richter" <adam@yggdrasil.com>
-Subject: Patch: linux-2.5.45/net/core/dev.c netdev_finish_unregister could read freed memory
-Date: Sun, 3 Nov 2002 00:24:10 -0800
+From: Andras Kis-Szabo <kisza@securityaudit.hu>
+Subject: Re: [PATCH] IPv6: Functions Clean-up
+Date: Sun, 03 Nov 2002 14:00:14 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021103002410.A513@baldur.yggdrasil.com>
+Message-ID: <1036328414.1048.3.camel@arwen>
+References: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="bp/iNruPH9dso1Pn"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>,
+   Netfilter Devel <netfilter-devel@lists.netfilter.org>,
+   "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
-Content-Disposition: inline
+In-reply-to: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?=
+ =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---bp/iNruPH9dso1Pn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hello,
 
-	I just changed a network driver to use net_device.destructor
-because it now embeds a struct net_device in a larger private data
-structure (to reduce rarely tested memory allocation error branches).
-Looking at netdev_finish_unregister, I see that after dev->destructor()
-has been called, netdev_finish_unregister still atttempts to read
-dev->features to check for NETIF_F_DYNALLOC.
+>  - export route6_me_harder() as ip6_route_harder() and
+>    use it from net/ipv6/netfilter/ip6_queue.c.
+Opsz!
+At the extension parser code we got that decision that we should use
+our own parser in the Netfilter code! (And we should not to trust in the
+kernel.)
+This patch removes one function from the Netfilter code and forces the
+Netfilter to use a similar function from the kernel's one!
 
-	The following patch causes the NETIF_F_DYNALLOC test not to
-be done if dev->destructor is provided.
+Regards,
 
-	Alternatively, I'd be willing to make a patch to eliminate
-NETIF_F_DYNALLOC (replacing it with "dev->destructor = (cast...) kfree;"),
-as I think reference counting is done regardless of the value of
-that flag.  I don't know why it is checked in net/core/dst.c though.
-
-	Also, please do not eliminate netdev.destructor.  I have a
-legitimate use for it that I can explain more if necessary.  Thanks.
-
+	kisza
+ 
 -- 
-Adam J. Richter     __     ______________   575 Oroville Road
-adam@yggdrasil.com     \ /                  Milpitas, California 95035
-+1 408 309-6081         | g g d r a s i l   United States of America
-                         "Free Software For The Rest Of Us."
-
---bp/iNruPH9dso1Pn
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="dynalloc.diff"
-
---- linux-2.5.45/net/core/dev.c	2002-10-30 16:42:56.000000000 -0800
-+++ linux/net/core/dev.c	2002-11-03 00:01:07.000000000 -0800
-@@ -2511,7 +2511,7 @@
- #endif
- 	if (dev->destructor)
- 		dev->destructor(dev);
--	if (dev->features & NETIF_F_DYNALLOC)
-+	else if (dev->features & NETIF_F_DYNALLOC)
- 		kfree(dev);
- 	return 0;
- }
-
---bp/iNruPH9dso1Pn--
+    Andras Kis-Szabo       Security Development, Design and Audit
+-------------------------/        Zorp, NetFilter and IPv6
+ kisza@SecurityAudit.hu /------------------------------------------->
