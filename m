@@ -1,197 +1,58 @@
-From: "Zhenyu Wu" <y030729@njupt.edu.cn>
-Subject: Re: Scheduler Mechnisms!
-Date: Wed, 05 Jan 2005 09:47:27 +0800
-Message-ID: <304889647.25037@njupt.edu.cn>
-Reply-To: "Zhenyu Wu" <y030729@njupt.edu.cn>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
+Date: 04 Jan 2005 21:54:54 -0500
+Message-ID: <1104893694.1124.37.camel@jzny.localdomain>
+References: <20050103125635.GB26856@postel.suug.ch>
+	 <1104812028.1085.50.camel@jzny.localdomain>
+	 <20050104122738.GG26856@postel.suug.ch>
+	 <1104844935.1085.103.camel@jzny.localdomain>
+	 <20050104134126.GJ26856@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
 Content-Type: text/plain
-Cc: lartc@mailman.ds9a.nl
-Return-path: <lartc-admin@mailman.ds9a.nl>
-To: imipak@yahoo.com, netdev@oss.sgi.com
-Sender: lartc-admin@mailman.ds9a.nl
-Errors-To: lartc-admin@mailman.ds9a.nl
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050104134126.GJ26856@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thank you very much, i will try to find these papers which must be very helpful
-for me. The "more" means that whether there are other mechanisms not only for
-Linux. Sorry, i have not make it clear! Sometimes, i wonder whether the qdiscs
-such as CBQ, RED, GRED ... are belong to the scheduler mechanisms in linux
-enviroment. For example, In Red, which i can find are enqueue, and dequeue.... so,
-if i add a RED qidsc to a class, must i add a scheduler mechanism so that i can
-decide which packet in the queues will be scheduled and put to the link?
+On Tue, 2005-01-04 at 08:41, Thomas Graf wrote:
+> * jamal <1104844935.1085.103.camel@jzny.localdomain> 2005-01-04 08:22
+> > On Tue, 2005-01-04 at 07:27, Thomas Graf wrote:
+ 
+> > I am pretty sure someone who knows u32 well can outperform you (in the
+> > scenarios where u32 works using AND etc).
+> > Start hitting 50K rules then lets talk ;->
+> 
+> Sure but I'd call a filter with 50K ANDed rules an unlikely scenario ;->
 
-Good luck,
-Best,
+50K matches is probably senseless - i was talking about rules (which
+contain matches). 
 
+> In most cases logic will beat brute force. I used to have a u32 setup
+> with 4K matches and hashing, it was not only error prone but could be
+> replaced with 12 egp filters gaining 90kpps. Why's that? Simply because
+> it was easier to optimize the logic behind it. egp itself is terribly
+> slow compared to u32.
 
+I think this is a debate that can be easily settled ;->
+Agreed logic will beat brute force smartness and u32 is not exactly
+for the faint hearted. And its usability is extremely poor - but lets
+maintain its power as is.
 
->It depends on what you mean by "more". More for Linux?
-> Certainly. HTB3 seems to be a popular mechanism, and
-> you can use IMQ to set up an intermediate device to
-> allow shaping of both inbound and outbound traffic,
-> using one (or more!) scheduling mechanisms in series.
+> > If your intent is to write an ematch holder, then it would be worth to
+> > at least go as far as making it some basic hash - as basic as fw does;
+> > where collision leads toa linked list. If it is just to show an example,
+> > then it is fine.
 > 
-> (In fact, there are several versions of IMQ out there.
-> I've given links to both the projects that seem to be
-> alive, but there may be more.)
-> 
-> There's also ESFQ, but there doesn't seem to be much
-> active work on that. There are forward ports to recent
-> Linux kernels, though. QLinux has a version of H-SFQ
-> for Linux, but again it seems to be getting long in
-> the tooth. Unfortunately, I can't find any forward
-> ports of that.
-> 
-> http://luxik.cdi.cz/~devik/qos/htb/
-> http://www.linuximq.net/
-> http://pupa.da.ru/imq/
-> 
-> http://www.digriz.org.uk/jdg-qos-script/#qos-2.6
-> http://kem.p.lodz.pl/~peter/qnet/
-> http://lass.cs.umass.edu/software/qlinux/
-> 
-> There are a great many systems that I can't find a
-> Linux version of. Cisco routers support something
-> called "Class-Based Weighted Fair Queueing" (CBWFQ)
-> which seems to be a hybrid of classful and classless
-> scheduling. Cisco also has two versions of ECN, for
-> forwards and backwards propogation.
-> 
-> I've listed below a number of papers detailing various
-> QoS schemes. Some of these have been implemented in
-> other OS' (the BSDs tend to get a lot of this stuff
-> implemented quickly for them as part of ALTQ) and some
-> I've never seen an implementation at all. However, the
-> papers should all give enough information to write a
-> version for Linux.
-> 
-> Note: ALTQ can be found at:
-> http://www.csl.sony.co.jp/person/kjc/kjc/software.html
-> 
-> Please note that this list is not exhaustive. Rather,
-> I got exhausted after trying to find what was out
-> there and what state it was currently in. QoS is a big
-> field, if the number of papers is anything to go by.
-> Linux only touches the fringes of it. If anyone feels
-> particularly bored, or in need of a good ego boost, it
-> would be cool to see if a reasonable selection of
-> these could be introduced into Linux over the 2.7
-> cycle.
-> 
-> EDF (Earliest Deadline First)
-> http://citeseer.ist.psu.edu/13919.html
-> 
-> BLUE (an alternative to RED)
-> http://citeseer.ist.psu.edu/feng99blue.html
-> 
-> AF PHB (Assured Forwarding Per-Hop Behaviour)
-> http://citeseer.ist.psu.edu/552302.html
-> 
-> SFB (Stochastic Fair Blue)
-> http://citeseer.ist.psu.edu/551253.html
-> 
-> GREEN (a pro-active variant on the theme of RED)
-> http://citeseer.ist.psu.edu/feng02green.html
-> 
-> SMART (Scalable Multipath Aggregated RouTing)
-> http://citeseer.ist.psu.edu/vutukury00smart.html
-> 
-> CSFQ (Core Stateless Fair Queueing)
-> http://citeseer.ist.psu.edu/391.html
-> 
-> StFQ (Start-Time Fair Queueing)
-> http://citeseer.ist.psu.edu/goyal96starttime.html
-> 
-> RFQ (Rainbow Fair Queueing)
-> http://citeseer.ist.psu.edu/cao00rainbow.html
-> 
-> PrFQ (Probabalistic Fair Queueing)
-> http://citeseer.ist.psu.edu/anker00prfq.html
-> 
-> ERR (Elastic Round Robin)
-> http://citeseer.ist.psu.edu/kanhere02fair.html
-> 
-> GFQ (Greedy Fair Queueing)
-> http://citeseer.ist.psu.edu/690207.html
-> 
-> PERR (Prioritized Elastic Round Robin)
-> http://citeseer.ist.psu.edu/681127.html
-> 
-> AOQ (Anchored Opportunity Queueing)
-> http://citeseer.ist.psu.edu/701742.html
-> 
-> BSFQ (Bin Sort Fair Queueing)
-> http://citeseer.ist.psu.edu/622188.html
-> 
-> 
-> As for the final question on what happens between
-> enqueue and dequeue, there are various diagrams out
-> there which show different aspects of how packets
-> traverse the system. I've included a few links to
-> those I could find:
-> 
-> http://open-source.arkoon.net/kernel/kernel_net.png
-> http://ebtables.sourceforge.net/br_fw_ia/PacketFlow.png
-> http://ebtables.sourceforge.net/br_fw_ia/br_fw_ia.html
-> http://www.docum.org/docum.org/kptd/
-> 
-> The last of these is the infamous Kernel Packet
-> Travelling Diagram. Most links to this that I've been
-> able to find are broken. It should be noted that the
-> diagrams all refer to the Linux 2.4 kernel. Linux 2.6
-> has quite a few QoS changes to it, but I'm unclear as
-> to whether they significantly alter any of the flows.
-> 
-> I hope this is of some use. Or, at the very least, is
-> an effective remedy to insomnia. :)
-> 
-> Jonathan
-> 
-> --- Zhenyu Wu <y030729@njupt.edu.cn> wrote:
-> 
-> > Hello,
-> > 
-> > Normally, in addition to such qdisc scheduler
-> > mechanisms as FIFO, PQ, WRR, WFQ,
-> > are there any more? Then, there is a confusion on
-> > scheduler in Linux enviroment:
-> > Assume there is a qdisc, such as RED as a leaf qdisc
-> > in a router, we know, if
-> > there is packet which want to enqueue the packet,
-> > the Function red_enqueue is
-> > called, but when the packet leave the queue(when the
-> > Function red_dequeue is
-> > called)? I think it is meaningless when the pack
-> > leaves the queue just it enterred
-> > it. Is there anything need to be done betweent the
-> > packet's enqueue and dequeue?
-> > 
-> > Best,
-> > 
-> > 
-> > _______________________________________________
-> > LARTC mailing list / LARTC@mailman.ds9a.nl
-> > http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO:
-> > http://lartc.org/
-> > 
-> 
-> 
-> 
-> 		
-> __________________________________ 
-> Do you Yahoo!? 
-> Jazz up your holiday email with celebrity designs. Learn more. 
-> http://celebrity.mail.yahoo.com
-> 
->
+> Using what key? We have no knowledge about what the ematches want to
+> see or not.
 
+Ok, good question ;->
+Maybe you should have own some 32 bit key?
 
-_______________________________________________
-LARTC mailing list / LARTC@mailman.ds9a.nl
-http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
+cheers,
+jamal
