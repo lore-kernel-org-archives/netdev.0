@@ -1,104 +1,66 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [PATCH 2.6] Nuke HAS_IP_COPYSUM for net drivers
-Date: Tue, 25 May 2004 21:11:16 +0200
+From: Arthur Kepner <akepner@sgi.com>
+Subject: [PATCH] tg3 h/w flow control autoneg
+Date: Tue, 25 May 2004 12:20:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040525191115.GA18454@k3.hellgate.ch>
+Message-ID: <Pine.SGI.4.56.0405251158550.9934718@neteng.engr.sgi.com>
+References: <20040524072657.GC27177@sgi.com> <20040524004045.58b3eb44.davem@redhat.com>
+ <20040524080431.GD27177@sgi.com> <20040524100634.1349295d.davem@redhat.com>
+ <20040525010434.GA31134@sgi.com> <20040525105101.2da85469.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="liOOAslEiF7prFVr"
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1072017398-1172901112-1085512805=:9934718"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040525105101.2da85469.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
---liOOAslEiF7prFVr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+---1072017398-1172901112-1085512805=:9934718
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-Entirely untested, but Obviously Correct(TM). HAS_IP_COPYSUM has been
-utterly meaningless for a long time.
 
-Respective patch for via-rhine follows once I know the state of its
-pending patches (which I wouldn't mind getting feedback on (hint,
-hint!)).
+We found that packets were mysteriously being discarded by
+our Broadcom 570X hardware under heavy receive load. This
+occurred especially when multiple NICs were in use.
 
-Roger
+The problem turned out to be that h/w flow control wasn't
+being used, even after that should have been autonegotiated.
+The attached patch (against 2.6.6) fixes that.
 
---liOOAslEiF7prFVr
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="copysum-2.6.6.diff"
+--
 
-diff -urp linux-2.6.6/drivers/net/epic100.c linux-2.6.6-patch/drivers/net/epic100.c
---- linux-2.6.6/drivers/net/epic100.c	2004-04-04 05:37:06.000000000 +0200
-+++ linux-2.6.6-patch/drivers/net/epic100.c	2004-05-25 20:45:55.273480945 +0200
-@@ -1215,13 +1215,8 @@ static int epic_rx(struct net_device *de
- 							    ep->rx_ring[entry].bufaddr,
- 							    ep->rx_buf_sz,
- 							    PCI_DMA_FROMDEVICE);
--#if 1 /* HAS_IP_COPYSUM */
- 				eth_copy_and_sum(skb, ep->rx_skbuff[entry]->tail, pkt_len, 0);
- 				skb_put(skb, pkt_len);
--#else
--				memcpy(skb_put(skb, pkt_len), ep->rx_skbuff[entry]->tail,
--					   pkt_len);
--#endif
- 				pci_dma_sync_single_for_device(ep->pci_dev,
- 							       ep->rx_ring[entry].bufaddr,
- 							       ep->rx_buf_sz,
-diff -urp linux-2.6.6/drivers/net/natsemi.c linux-2.6.6-patch/drivers/net/natsemi.c
---- linux-2.6.6/drivers/net/natsemi.c	2004-05-20 16:17:38.000000000 +0200
-+++ linux-2.6.6-patch/drivers/net/natsemi.c	2004-05-25 20:51:58.171336667 +0200
-@@ -1798,14 +1798,9 @@ static void netdev_rx(struct net_device 
- 					np->rx_dma[entry],
- 					buflen,
- 					PCI_DMA_FROMDEVICE);
--#if HAS_IP_COPYSUM
- 				eth_copy_and_sum(skb,
- 					np->rx_skbuff[entry]->tail, pkt_len, 0);
- 				skb_put(skb, pkt_len);
--#else
--				memcpy(skb_put(skb, pkt_len),
--					np->rx_skbuff[entry]->tail, pkt_len);
--#endif
- 				pci_dma_sync_single_for_device(np->pci_dev,
- 					np->rx_dma[entry],
- 					buflen,
-diff -urp linux-2.6.6/drivers/net/tulip/winbond-840.c linux-2.6.6-patch/drivers/net/tulip/winbond-840.c
---- linux-2.6.6/drivers/net/tulip/winbond-840.c	2004-04-04 05:36:26.000000000 +0200
-+++ linux-2.6.6-patch/drivers/net/tulip/winbond-840.c	2004-05-25 20:46:26.439782500 +0200
-@@ -1292,14 +1292,8 @@ static int netdev_rx(struct net_device *
- 				pci_dma_sync_single_for_cpu(np->pci_dev,np->rx_addr[entry],
- 							    np->rx_skbuff[entry]->len,
- 							    PCI_DMA_FROMDEVICE);
--				/* Call copy + cksum if available. */
--#if HAS_IP_COPYSUM
- 				eth_copy_and_sum(skb, np->rx_skbuff[entry]->tail, pkt_len, 0);
- 				skb_put(skb, pkt_len);
--#else
--				memcpy(skb_put(skb, pkt_len), np->rx_skbuff[entry]->tail,
--					   pkt_len);
--#endif
- 				pci_dma_sync_single_for_device(np->pci_dev,np->rx_addr[entry],
- 							       np->rx_skbuff[entry]->len,
- 							       PCI_DMA_FROMDEVICE);
-diff -urp linux-2.6.6/drivers/net/yellowfin.c linux-2.6.6-patch/drivers/net/yellowfin.c
---- linux-2.6.6/drivers/net/yellowfin.c	2004-04-04 05:36:56.000000000 +0200
-+++ linux-2.6.6-patch/drivers/net/yellowfin.c	2004-05-25 20:46:46.609742086 +0200
-@@ -1201,13 +1201,8 @@ static int yellowfin_rx(struct net_devic
- 					break;
- 				skb->dev = dev;
- 				skb_reserve(skb, 2);	/* 16 byte align the IP header */
--#if HAS_IP_COPYSUM
- 				eth_copy_and_sum(skb, rx_skb->tail, pkt_len, 0);
- 				skb_put(skb, pkt_len);
--#else
--				memcpy(skb_put(skb, pkt_len), 
--					rx_skb->tail, pkt_len);
--#endif
- 				pci_dma_sync_single_for_device(yp->pci_dev, desc->addr,
- 											   yp->rx_buf_sz,
- 											   PCI_DMA_FROMDEVICE);
+Arthur
+---1072017398-1172901112-1085512805=:9934718
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="autoneg.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.SGI.4.56.0405251220050.9934718@neteng.engr.sgi.com>
+Content-Description: tg3 h/w flow control autoneg patch
+Content-Disposition: attachment; filename="autoneg.patch"
 
---liOOAslEiF7prFVr--
+LS0tIGxpbnV4Lm9yaWcvZHJpdmVycy9uZXQvdGczLmMJMjAwNC0wNS0yNSAx
+MToyNjowMy4wMDAwMDAwMDAgLTA3MDANCisrKyBsaW51eC0yLjYuNi9kcml2
+ZXJzL25ldC90ZzMuYwkyMDA0LTA1LTI1IDExOjM4OjEzLjAwMDAwMDAwMCAt
+MDcwMA0KQEAgLTEwMjcsNiArMTAyNyw4IEBADQogc3RhdGljIHZvaWQgdGcz
+X3NldHVwX2Zsb3dfY29udHJvbChzdHJ1Y3QgdGczICp0cCwgdTMyIGxvY2Fs
+X2FkdiwgdTMyIHJlbW90ZV9hZHYpDQogew0KIAl1MzIgbmV3X3RnM19mbGFn
+cyA9IDA7DQorCXUzMiBvbGRfcnhfbW9kZSA9IHRwLT5yeF9tb2RlOw0KKwl1
+MzIgb2xkX3R4X21vZGUgPSB0cC0+dHhfbW9kZTsNCiANCiAJaWYgKGxvY2Fs
+X2FkdiAmIEFEVkVSVElTRV9QQVVTRV9DQVApIHsNCiAJCWlmIChsb2NhbF9h
+ZHYgJiBBRFZFUlRJU0VfUEFVU0VfQVNZTSkgew0KQEAgLTEwNTcsMTAgKzEw
+NTksMTggQEANCiAJZWxzZQ0KIAkJdHAtPnJ4X21vZGUgJj0gflJYX01PREVf
+RkxPV19DVFJMX0VOQUJMRTsNCiANCisJaWYgKG9sZF9yeF9tb2RlICE9IHRw
+LT5yeF9tb2RlKSB7DQorCQl0dzMyX2YoTUFDX1JYX01PREUsIHRwLT5yeF9t
+b2RlKTsNCisJfQ0KKwkNCiAJaWYgKG5ld190ZzNfZmxhZ3MgJiBURzNfRkxB
+R19UWF9QQVVTRSkNCiAJCXRwLT50eF9tb2RlIHw9IFRYX01PREVfRkxPV19D
+VFJMX0VOQUJMRTsNCiAJZWxzZQ0KIAkJdHAtPnR4X21vZGUgJj0gflRYX01P
+REVfRkxPV19DVFJMX0VOQUJMRTsNCisNCisJaWYgKG9sZF90eF9tb2RlICE9
+IHRwLT50eF9tb2RlKSB7DQorCQl0dzMyX2YoTUFDX1RYX01PREUsIHRwLT50
+eF9tb2RlKTsNCisJfQ0KIH0NCiANCiBzdGF0aWMgdm9pZCB0ZzNfYXV4X3N0
+YXRfdG9fc3BlZWRfZHVwbGV4KHN0cnVjdCB0ZzMgKnRwLCB1MzIgdmFsLCB1
+MTYgKnNwZWVkLCB1OCAqZHVwbGV4KQ0K
+
+---1072017398-1172901112-1085512805=:9934718--
