@@ -1,35 +1,49 @@
-From: Thomas Davis <tadavis@lbl.gov>
-Subject: Re: Raylink/WebGear testing - ray_cs.c iomem bug?
-Date: Wed, 06 Oct 2004 22:46:07 -0700
+From: Colin Leroy <colin@colino.net>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Thu, 7 Oct 2004 07:53:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4164D81F.9090808@lbl.gov>
-References: <Pine.LNX.4.58.0410061032410.8290@ppc970.osdl.org> <41644492.1000400@pobox.com> <41646AD5.1070800@lbl.gov>
+Message-ID: <20041007075319.6b31430d@jack.colino.net>
+References: <20041006232544.53615761@jack.colino.net>
+	<20041006214322.GG31237@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        Corey Thomas <corey@world.std.com>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Linus Torvalds <torvalds@osdl.org>,
-        netdev@oss.sgi.com, Kernel Mailing List <linux-kernel@vger.kernel.org>
-In-Reply-To: <41646AD5.1070800@lbl.gov>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20041006214322.GG31237@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Davis wrote:
-> Jeff Garzik wrote:
+On 06 Oct 2004 at 16h10, Matt Mackall wrote:
+
+Hi, 
+
+> On Wed, Oct 06, 2004 at 11:25:44PM +0200, Colin Leroy wrote:
+> > Hi,
+> > 
+> > this patch fixes a (quite big) problem with netpoll: when link is
+> > down, it hangs.
+> > 
+> > This patch fixes it. Tested with no carrier (no more hang) and with
+> > carrier (same behaviour as before).
 > 
->> I'm not aware of anyone with ray_cs hardware, alas...
->>
+> [cc:ed to netdev]
 > 
-> I do believe I still have two of these squirreled away someplace..  Let 
-> me check and see later tonight.
+> Well this doesn't look unreasonable, but I haven't run into it with
+> the NICs I've tested. Nor have I seen this reported before. Which NICs
+> is this with?
+
+Sungem. I didn't find anything strange in sungem, but it may be...
+  
+> > -	if(!np || !np->dev || !netif_running(np->dev)) {
+> > +	if(!np || !np->dev || !netif_running(np->dev) || 
+> > +	   !netif_carrier_ok(np->dev)) {
 > 
+> I wonder if netif_running is redundant if netif_carrier_ok.
+ 
+Probably... I wanted to do the less modifications possible.
 
-Got two of them.  I can do a plug test, but I only one pcmcia slot to play with them.
-
-If anyone wants them, email me an address and I'll ship them to you.
-
-Also, what version of linux kernel is this patch against?  2.6.9-rc3?
-
-thomas
+-- 
+Colin
+  http://colino.net/323/ - Presenting the Mazda 323 Rouge
