@@ -1,49 +1,45 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: dev->destructor
-Date: Fri, 02 May 2003 21:00:00 -0700 (PDT)
+Subject: Re: [PATCH 2.5.68] sysctl max_dgram_qlen permissions
+Date: Sat, 03 May 2003 00:28:22 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030502.210000.35018302.davem@redhat.com>
-References: <20030502.134804.78707298.davem@redhat.com>
-	<20030503040949.804182C003@lists.samba.org>
+Message-ID: <20030503.002822.34760030.davem@redhat.com>
+References: <Pine.LNX.4.44.0305021508540.3694-100000@w-nivedita.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, shemminger@osdl.org, netdev@oss.sgi.com,
-   acme@conectiva.com.br
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rusty@rustcorp.com.au
-In-Reply-To: <20030503040949.804182C003@lists.samba.org>
+To: niv@us.ibm.com
+In-Reply-To: <Pine.LNX.4.44.0305021508540.3694-100000@w-nivedita.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Rusty Russell <rusty@rustcorp.com.au>
-   Date: Sat, 03 May 2003 14:07:41 +1000
+   From: Nivedita Singhvi <niv@us.ibm.com>
+   Date: Fri, 2 May 2003 15:41:06 -0700 (PDT)
 
-   This argument applies to all objects.  If you reference count
-   everything which holds a reference to an object, you can infer the
-   reference count of the object from the sum of reference counts of its
-   referees.
+   Currently the sysctl var net.unix.max_dgram_qlen has 
+   0600 permissions..Need users to be able to read it..
+   Dont see any reason not to(?).
    
-   In practice, as you pointed out in an earlier mail (I think sockets
-   were your example), doing this proves to be extremely painful.  And
-   we're feeling the pain now.
+Applied, thanks.
    
-Please ignore the example code I wrote in that email.
-Most of it is inconsistent and frankly garbage. :-)
+   --- sysctl_net_unix.c	Sat Apr 19 19:49:10 2003
+   +++ sysctl_net_unix.c.new	Fri May  2 13:48:11 2003
 
-The "->can_unload()" check is actually simpler than we might initially
-suspect.  Something like ipv6 might check:
+Please use properly rooted patches in the future.
+Ie. soemthing like:
 
-	if (atomic_read(&inet6_sock_nr) == 0 &&
-	    atomic_read(&inet6_dev_nr) == 0 &&
-	    rt6_cache_empty())
-		return 1;
-	return 0;
+   --- a/linux/net/unix/sysctl_net_unix.c.orig	Sat Apr 19 19:49:10 2003
+   +++ b/linux/net/unix/sysctl_net_unix.c	Fri May  2 13:48:11 2003
 
-Now, here is the important part!  When this thing returns "1" the
-module.c code does this:
+Patches like yours don't work at all with the automated patch
+scripts lots of us use to ease the burdon of applying lots
+of patches.
 
-	call_rcu(&mod->rcu_head, mod->cleanup, NULL);
+In fact, even if I had changed into net/unix/ before applying
+your patch, it would fail because there patch tries to patch
+a file named sysctl_net_unix.c.new which of course does not
+exist.
 
-This makes sure the guy who killed the last object has indeed
-left the module code.
+Please, this is very lazy and causes me to waste a lot of time fixing
+up your patch which I should not have to do. :(
