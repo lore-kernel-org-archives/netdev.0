@@ -1,43 +1,50 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
-Date: Sun, 12 Sep 2004 17:13:16 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040912171316.1fbdf8db.davem@davemloft.net>
-References: <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
-	<20040908072408.GI27886@wotan.suse.de>
-	<1094629677.1089.155.camel@jzny.localdomain>
-	<20040908134713.1bcd46d3.davem@davemloft.net>
-	<1094823215.1121.129.camel@jzny.localdomain>
-	<20040911142116.GL4431@wotan.suse.de>
-	<1094933731.2343.109.camel@jzny.localdomain>
-	<20040911174535.2acbb957.davem@davemloft.net>
-	<20040912100114.GB11484@havoc.gtf.org>
-	<20040912102529.GA27096@wotan.suse.de>
-	<20040912110320.GA21197@electric-eye.fr.zoreil.com>
+Subject: Re: generic 802.11 stack
+Date: Sun, 12 Sep 2004 17:14:48 -0700
+Sender: acx100-devel-admin@lists.sourceforge.net
+Message-ID: <20040912171448.64ce7dbe.davem@davemloft.net>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
+	<200409090815.40358.vkondra@mail.ru>
+	<41408D8A.5010307@atheros.com>
+	<200409122103.21770.vkondra@mail.ru>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, hadi@cyberus.ca, herbert@gondor.apana.org.au,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040912110320.GA21197@electric-eye.fr.zoreil.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: greg@atheros.com, netdev@oss.sgi.com,
+ acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jgarzik@pobox.com,
+ jkmaline@cc.hut.fi, prism54-devel@prism54.org, sam@errno.com,
+ vda@port.imtp.ilyichevsk.odessa.ua
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+In-Reply-To: <200409122103.21770.vkondra@mail.ru>
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Sun, 12 Sep 2004 13:03:20 +0200
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+On Sun, 12 Sep 2004 21:03:13 +0300
+Vladimir Kondratiev <vkondra@mail.ru> wrote:
 
-> Andi Kleen <ak@suse.de> :
-> [...]
-> > I wasn't aware of Documentation/netdevices.txt, but I agree it 
-> > would be a good idea to update it. Patch for that attached.
-> > DaveM, please apply.
-> 
-> I have modified your patch so as to include a bit from a message
-> of Jamal on netdev the 05/07/2004.
+> I am going to implement minimum functionality, at this stage I will somehow 
+> publish the project. Anyone can suggest what it the right solution for 
+> hosting? Sourceforge? Something else?
 
-I've enhanced it further to make use of the macro'ized
-named Jamal added for these values.
+I am willing to host things for you, if you wish.
+I can make a directory in my personal area on ftp.kernel.org
+and that's where I'd put your patches.
 
-Thanks everyone.
+I'd also like to help review your patches, so I can perform
+both things at the same time.
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
+Project Admins to receive an Apple iPod Mini FREE for your judgement on
+who ports your project to Linux PPC the best. Sponsored by IBM. 
+Deadline: Sept. 13. Go here: http://sf.net/ppc_contest.php
