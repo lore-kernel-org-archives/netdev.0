@@ -1,22 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] convert /proc/net/dev_mcast to seq_file
-Date: Tue, 13 Jan 2004 16:19:58 -0800
+Subject: Re: [PATCH 2.6.X] SIOCSIFNAME wilcard suppor & name validation
+Date: Tue, 13 Jan 2004 16:21:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040113161958.5e05c655.davem@redhat.com>
-References: <20040112135033.3b08f0e9.shemminger@osdl.org>
+Message-ID: <20040113162112.509edb71.davem@redhat.com>
+References: <20040112234332.GA1785@bougret.hpl.hp.com>
+	<20040113142204.0b41403b.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jt@hpl.hp.com, jt@bougret.hpl.hp.com, jgarzik@pobox.com,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040112135033.3b08f0e9.shemminger@osdl.org>
+In-Reply-To: <20040113142204.0b41403b.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 12 Jan 2004 13:50:33 -0800
+On Tue, 13 Jan 2004 14:22:04 -0800
 Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Convert /proc/net/dev_mcast for 2.6 so it will work with large number of interfaces.
+> Here is an enhanced version of the previous patch.
+> It adds both the wildcard support that Jean did, and validation of network
+> device names.
+> 
+> It doesn't check the error return from class_device_rename because
+> that will not fail unless object or name are null.
 
-Applied, thanks Stephen.
+This is really cool, nice work guys.
+
+Patch applied, thanks.
