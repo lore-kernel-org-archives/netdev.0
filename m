@@ -1,48 +1,90 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: Re: [BK PATCHES] 2.6.x experimental net driver updates
-Date: Thu, 18 Dec 2003 14:49:37 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20031218134937.GC12750@fs.tum.de>
-References: <3FDEA6FA.4010906@pobox.com> <20031218013145.GG25717@fs.tum.de> <3FE1051B.3060104@pobox.com>
+From: "James R. Leu" <jleu@mindspring.com>
+Subject: Re: IPSEC and MPLS priority for 2.6?
+Date: Thu, 18 Dec 2003 08:17:52 -0600
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20031218141718.GA1408@mindspring.com>
+References: <Pine.LNX.4.44.0312180930560.12194-100000@netcore.fi>
+Reply-To: jleu@mindspring.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	linux.nics@intel.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Pekka Savola <pekkas@netcore.fi>
 Content-Disposition: inline
-In-Reply-To: <3FE1051B.3060104@pobox.com>
+In-Reply-To: <Pine.LNX.4.44.0312180930560.12194-100000@netcore.fi>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 17, 2003 at 08:38:35PM -0500, Jeff Garzik wrote:
-> Adrian Bunk wrote:
-> >Hi Jeff,
-> >
-> >I got the following compile error when trying to compile e100 statically 
-> >into a kernel using gcc 2.95:
+On Thu, Dec 18, 2003 at 09:36:15AM +0200, Pekka Savola wrote:
+> Hi,
+> 
+> Andrew characterized (or Dave) did the lack of MPLS support as a huge 
+> issue for serious IPSEC usage in:
+> 
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/must-fix/should-fix-7.txt
+> [see below]
+> 
+> .. I don't agree.  MPLS is only needed for IPsec VPNs in the case that 
+> Linux is being used as an MPLS router, like as Provider Edge device.  
+> I think it's safe to say this is close to a marginal application of 
+> Linux.  I don't think this is Priority 1 ("we're totally lame if we 
+> don't do it") thing -- at least from the IPsec perspective.  I'd 
+> suggest pushing it down in the priority list.
+
+I would agree that MPLS is _not_ "a huge issue for serious IPSEC usage".
+
+> But of course, if a rewrite is already almost done, I have no 
+> objections to merging it.  I'd just like to point out that IMHO MPLS 
+> is _not_ one of our "core" technologies to worry about :-).
+
+Dave's work has been passed off to jamal.  Jamal, myself, and Ramon Casellas
+are working at combining/cleaning up the existing "crappy" implementation
+(which is the very technical term davem used to describe my implementation).
+None the less work is progressing.
+
+> (Btw, there's a lot of claimed IPR on MPLS technologies, not sure if 
+> that's a problem or not.)
+
+Up till now there has not been any issues.  Most of the IPR claims state
+that the holder will grant "a non-exclusive license under reasonable and
+non-discriminatory terms and conditions".
+
+To be on the safe side, I will contact the parties that feel they have IPR
+related to the areas of MPLS that pertain to our implementation.  I'll use
+the IETF's 'Page of Intellectual Property Rights Notices' as my source for
+IPR claims pertaining to MPLS unless someone else can point out an
+alternative location to look.
+
+--
+James R. Leu
+jleu@mindspring.com
+
+
+> ****** snip *******
+> 
+> net/
+> ~~~
+> 
+>   (davem)
+> 
+> o Real serious use of IPSEC is hampered by lack of MPLS support.  MPLS is a
+>   switching technology that works by switching based upon fixed length labels
+>   prepended to packets.  Many people use this and IPSEC to implement VPNs
+>   over public networks, it is also used for things like traffic engineering.
+> 
+>   A good reference site is:
+> 
+> 	http://www.mplsrc.com/
+> 
+>   Anyways, an existing (crappy) implementation exists.  I've almost
+>   completed a rewrite, I should have something in the tree next week.
+> 
+>   PRI1
 > 
 > 
-> This is fixed in the updated patch:
 > 
-> http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test11-bk11-netdrvr-exp2.patch.bz2
+> -- 
+> Pekka Savola                 "You each name yourselves king, yet the
+> Netcore Oy                    kingdom bleeds."
+> Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
 > 
-> http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test11-bk11-netdrvr-exp2.log
-
-Thanks for the quick answer.
-
-I can confirm that it's fxed now.
-
-> Thanks,
-> 
-> 	Jeff
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
