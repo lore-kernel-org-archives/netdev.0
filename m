@@ -1,136 +1,15 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH 2/3] r8169: code clean-up
-Date: Thu, 17 Feb 2005 22:00:39 -0600
-Message-ID: <200502172200.39423.jdmason@us.ibm.com>
-References: <200502161823.43562.jdmason@us.ibm.com> <20050217232804.GA4992@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050217232804.GA4992@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+From: Matt Mackall <mpm@selenic.com>
+Subject: [PATCH 0/6] netpoll: recursion fixes, queueing, and cleanups
+Date: Thu, 17 Feb 2005 23:25:18 -0600
+Message-ID: <1.378217222@selenic.com>
+Cc: netdev@oss.sgi.com, Jeff Moyer <jmoyer@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 17 February 2005 05:28 pm, Francois Romieu wrote:
-> Jon Mason <jdmason@us.ibm.com> :
-> > This patch removes netif_poll_disable if NAPI is not enabled (otherwise
-> > adapter will hang while changing MTUs).
->
-> I am currently running a non-napi r8169 on x86/sparc64 based on 2.6.11-rc4
-> + patches in Jeff's netdev and it apparently does not mind change of mtu.
->
-> How am I supposed to make it hang ?
+This patch series against -rc4 fixes up some recursion deadlocks in
+netpoll and adds support for fallback to queueing. Various cleanups
+along the way.
 
-I can't seem to make it hang anymore.  I guess I was wrong.  Please remove 
-this part of the patch.
-
-> > This patch also fixes a possible skb alignment overrun,
->
-> Ok. Added some bits, see below.
-
-Sorry for the oversight, but I had the 2nd part in the jumbo frames patch.
-
-> > and fixes the rx skb allocation error logging. It also
->
-> Ok. I'd rather see it as shown below though (cuts some code and more
-> ppc-friendly unsigned ints).
-
-Actually, I think it should be something like:
-if (delta != count)
-
-> > removes an unnecessary define,
->
-> Ok.
->
-> > adds a link down notification, and cleans up
->
-> Ok. I'll netif_msg it before someone else complains that the driver
-> is too verbose.
-
-ya, I was thinking about modifying most of the printks to dprintks (and 
-possibly moving to the e1000 dprintk model),  but I like the link down 
-notification.
-
-> ----------------------8<-----------------------------------------
->
-> Fix rx skb allocation error logging
->
-> Signed arithmetic is not required as rtl8169_rx_fill() return belongs
-> to the [0; NUM_RX_DESC] interval.
->
-> Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
->
-> diff -puN drivers/net/r8169.c~r8169-400 drivers/net/r8169.c
-> --- a/drivers/net/r8169.c~r8169-400 2005-02-17 21:50:09.820173216 +0100
-> +++ b/drivers/net/r8169.c 2005-02-17 22:00:00.210450784 +0100
-> @@ -2156,8 +2156,8 @@ static int
->  rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
->         void __iomem *ioaddr)
->  {
-> - unsigned int cur_rx, rx_left, count;
-> - int delta;
-> + unsigned int cur_rx, rx_left;
-> + unsigned int delta, count;
->
->   assert(dev != NULL);
->   assert(tp != NULL);
-> @@ -2225,10 +2225,8 @@ rtl8169_rx_interrupt(struct net_device *
->   tp->cur_rx = cur_rx;
->
->   delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
-> - if (delta < 0) {
-> + if (!delta && count)
->    printk(KERN_INFO "%s: no Rx buffer allocated\n", dev->name);
-> -  delta = 0;
-> - }
->   tp->dirty_rx += delta;
->
->   /*
->
-> _
->
-> Nail an overrun in skb alignment and remove the relevant magic variable.
->
-> Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
->
-> diff -puN drivers/net/r8169.c~r8169-410 drivers/net/r8169.c
-> --- a/drivers/net/r8169.c~r8169-410 2005-02-17 22:13:04.209897364 +0100
-> +++ b/drivers/net/r8169.c 2005-02-17 22:17:25.747969121 +0100
-> @@ -1697,11 +1697,11 @@ static int rtl8169_alloc_rx_skb(struct p
->   dma_addr_t mapping;
->   int ret = 0;
->
-> - skb = dev_alloc_skb(rx_buf_sz);
-> + skb = dev_alloc_skb(rx_buf_sz + NET_IP_ALIGN);
->   if (!skb)
->    goto err_out;
->
-> - skb_reserve(skb, 2);
-> + skb_reserve(skb, NET_IP_ALIGN);
->   *sk_buff = skb;
->
->   mapping = pci_map_single(pdev, skb->tail, rx_buf_sz,
-> @@ -2140,9 +2140,9 @@ static inline int rtl8169_try_rx_copy(st
->   if (pkt_size < rx_copybreak) {
->    struct sk_buff *skb;
->
-> -  skb = dev_alloc_skb(pkt_size + 2);
-> +  skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
->    if (skb) {
-> -   skb_reserve(skb, 2);
-> +   skb_reserve(skb, NET_IP_ALIGN);
->     eth_copy_and_sum(skb, sk_buff[0]->tail, pkt_size, 0);
->     *sk_buff = skb;
->     rtl8169_return_to_asic(desc, rx_buf_sz);
->
-> _
->
->
-> --
-> Ueimor
+Holds up under load testing via ipt_LOG on a dual Opteron with tg3.
