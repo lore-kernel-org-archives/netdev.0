@@ -1,27 +1,50 @@
-From: Andi Kleen <ak@suse.de>
+From: Gerrit Huizenga <gh@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 6 Sep 2002 21:26:19 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20020906212619.A28172@wotan.suse.de>
-References: <3D78C9BD.5080905@us.ibm.com> <53430559.1031304588@[10.10.2.3]> <3D78E7A5.7050306@us.ibm.com> <20020906202646.A2185@wotan.suse.de> <1031339954.3d78ffb257d22@imap.linux.ibm.com>
+Date: Fri, 06 Sep 2002 13:03:42 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <E17nPKV-00046g-00@w-gerrit2>
+References: <20020906.124936.34476547.davem@redhat.com>
+Reply-To: Gerrit Huizenga <gh@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Nivedita Singhvi <niv@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <1031339954.3d78ffb257d22@imap.linux.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Martin.Bligh@us.ibm.com, hadi@cyberus.ca, tcw@tempest.prismnet.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: Your message of Fri, 06 Sep 2002 12:49:36 PDT.
+             <20020906.124936.34476547.davem@redhat.com>
+Content-ID: <15786.1031342622.1@us.ibm.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> If you just wanted to speed things up, you could get the
-> clients to specify ports instead of letting the kernel
-> cycle through for a free port..:)
+In message <20020906.124936.34476547.davem@redhat.com>, > : "David S. Miller" w
+rites:
+>    From: Gerrit Huizenga <gh@us.ibm.com>
+>    Date: Fri, 06 Sep 2002 12:52:15 -0700
+>    
+>    So if apache were using a listen()/clone()/accept()/exec() combo rather than a
+>    full listen()/fork()/exec() model it would see most of the same benefits?
+> 
+> Apache would need to do some more, such as do something about
+> cpu affinity and do the non-blocking VFS tricks Tux does too.
+> 
+> To be honest, I'm not going to sit here all day long and explain how
+> Tux works.  I'm not even too knowledgable about the precise details of
+> it's implementation.  Besides, the code is freely available and not
+> too complex, so you can go have a look for yourself :-)
 
-Better would be probably to change the kernel to keep a limited
-list of free ports in a free list. The grabbing a free port would
-be an O(1) operation. 
+Aw, and you are such a good tutor, too.  :-)  But thanks - my particular
+goal isn't to fix apache since there is already a group of folks working
+on that, but as we look at kernel traces, this should give us a good
+idea if we are at the bottleneck of the apache architecture or if we
+have other kernel bottlenecks.  At the moment, the latter seems to be
+true, and I think we have some good data from Troy and Dave to validate
+that.  I think we have already seen the affinity problem or at least
+talked about it as that was somewhat visible and Apache 2.0 does seem
+to have some solutions for helping with that.  And when the kernel does
+the best it can with Apache's architecture, we have more data to convince
+them to fix the architecture problems.
 
-I'm not entirely sure it is worth it in this case. The locks are
-probably the majority of the cost.
+thanks again!
 
--Andi
+gerrit
