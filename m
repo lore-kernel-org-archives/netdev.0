@@ -1,35 +1,33 @@
-From: Tomas Szepe <szepe@pinerecords.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: ipw2100 wireless driver
-Date: Wed, 11 Aug 2004 19:22:22 +0200
+Date: Wed, 11 Aug 2004 13:51:33 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040811172222.GI10100@louise.pinerecords.com>
-References: <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz> <4119F203.1070009@linux.intel.com> <20040811114437.A27439@infradead.org> <411A478E.1080101@linux.intel.com> <20040811093043.522cc5a0@dell_ss3.pdx.osdl.net> <20040811163333.GE10100@louise.pinerecords.com> <20040811175105.A30188@infradead.org> <20040811170208.GG10100@louise.pinerecords.com> <20040811181142.A30309@infradead.org>
+Message-ID: <411A5CA5.8060208@pobox.com>
+References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz> <4119F203.1070009@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pavel Machek <pavel@suse.cz>, Christoph Hellwig <hch@infradead.org>,
+        Jeff Chua <jeffchua@silk.corp.fedex.com>,
+        Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
+        kernel list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        James Ketrenos <jketreno@linux.intel.com>,
-        Pavel Machek <pavel@suse.cz>, Jeff Chua <jeffchua@silk.corp.fedex.com>,
-        netdev@oss.sgi.com, kernel list <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20040811181142.A30309@infradead.org>
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <4119F203.1070009@linux.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Aug-11 2004, Wed, 18:11 +0100
-Christoph Hellwig <hch@infradead.org> wrote:
+James Ketrenos wrote:
+> We're currently working to clean up ipw2100 and ieee80211 code for 
+> submission to netdev for discussion and hopefully inclusion in the 
+> future.  The ieee80211 code is still being heavily developed, but its 
+> usable.  If anyone wants to help out, or if folks feel its ready as-is 
+> to get pulled into wireless-2.6, let me know.
 
-> On Wed, Aug 11, 2004 at 07:02:08PM +0200, Tomas Szepe wrote:
-> > Agreed.  But the point is, in the actual case of ipw2100, will the removal
-> > of 40 or so lines of code justify killing the functionality for those (lots)
-> > that use it?
-> 
-> Yes.
 
-Well, "I'm not young enough to know everything."  Too bad.
+Well, wireless-2.6 is a development tree, so I would rather things land 
+there sooner rather than later.
 
-And btw, mails to hch@infradead.org bounce.
+Everybody needs to be developing "on the same page".
 
--- 
-Tomas Szepe <szepe@pinerecords.com>
+	Jeff
