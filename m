@@ -1,26 +1,37 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: [PATCH]  pktgen (link to non-busted patch this time)
-Date: Wed, 18 Sep 2002 00:14:36 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: bonding vs 802.3ad/Cisco EtherChannel link agregation
+Date: Wed, 18 Sep 2002 07:48:42 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D8827DC.4060200@candelatech.com>
+Message-ID: <Pine.GSO.4.30.0209180745010.3686-100000@shell.cyberus.ca>
+References: <3D87FBD5.3030508@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Chris Friesen <cfriesen@nortelnetworks.com>,
+   Cacophonix <cacophonix@yahoo.com>, <linux-net@vger.kernel.org>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3D87FBD5.3030508@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sorry for the confusion, the last patch was against vanilla 2.4.19, not
-2.4.20-pre7 like it should have been.
 
-You can find the corrected patch here if you are interested:
 
-http://www.candelatech.com/pg_2.4.19.patch
+On Tue, 17 Sep 2002, Ben Greear wrote:
 
-Thanks,
-Ben
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+> I see reordering on regular old socket calls from user space, and I see
+> the same thing with pktgen packets as well (which clears the stack of fault).
+>
+> > Did you get reordering with affinity?
+>
+> Yes.  I'm not sure I tried affinity w/out NAPI though.  I definately tried
+> it with NAPI and saw reordering.
+>
+
+Ok, now it is getting interesting. I would start to be suspicious
+about either the hardware or driver.
+Please try without NAPI and affinity and post what you see (not that this
+result matters but should help confirn things).
+
+cheers,
+jamal
