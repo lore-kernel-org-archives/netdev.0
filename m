@@ -1,63 +1,41 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: synchronization between bottom half and user context
-Date: Mon, 9 Dec 2002 08:29:45 -0500 (EST)
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: 2.5.50 BUG_TRAP on !dev->deadbeaf, and oopses
+Date: Mon, 09 Dec 2002 11:51:18 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0212090748320.19181-100000@shell.cyberus.ca>
-References: <Pine.LNX.4.44.0212041029230.1399-100000@bobbidi.cs.virginia.edu>
+Message-ID: <3DF4F436.6020807@pacbell.net>
+References: <3DE9290A.7070502@pacbell.net> <3DEA0452.B1F15BFD@isg.de>
+ <3DEBA9F5.6000606@pacbell.net> <3DF3CAC8.5070309@pacbell.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ronghua Zhang <rz5b@cs.virginia.edu>
-In-Reply-To: <Pine.LNX.4.44.0212041029230.1399-100000@bobbidi.cs.virginia.edu>
+To: Stefan Rompf <srompf@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+> Is there someone who has a clear explanation of exactly how "deadbeaf"
+> was once expected to work -- and now (since sometime before about
+> 2.5.40) evidently doesn't?
+> 
+> It seems to be driven by side effects, and whatever comments are in
+> the code aren't any help.  The only case "deadbeaf" could be set is
+> still documented as an error path ... 
 
+All that still holds true.  There's something fishy going on, or
+just old cruft that's lingered.  I suppose I should just patch it
+and see if contradictory information appears then.
 
-To reitarate:
-1) serialization is against n-CPUs towards the socket.
-2) ordered data (dont care whether its 1 or n-CPUs). TCP cares, UDP
-doesnt.
+>> Plus: this kind of bugcatch should use magic numbers, or maybe zero.
+>> Assuming "any nonzero value is valid", like this assertion does, is
+>> clearly going to fail for any of the class of bugs highlighted by
+>> slab poisoning.  (0xa5a5a5a5 gets accepted as valid...)
 
-The main TCP path towards the socket runs in softirq context - you can
-have the same softirq code running on multiple CPUs at the same time. The
-system call is in process context.
+Actually I found a place where the wrong pointer was being used.
+Heh -- lucky me, to make my point that way ... a stray pointer
+happened to point to a zero, and so triggered that warning.  As a
+bugcatch it's pretty poor:  it wouldn't normally trigger on that
+kind of bug, either.
 
-cheers,
-jamal
-
-On Wed, 4 Dec 2002, Ronghua Zhang wrote:
-
-> Do you mean that net_bh can be running on several CPU at the same time?
-> If it is juat a UP, can I say that socket system call and net_bh is always
-> serialized even without lock_sock()?
->
-> Ronghua
->
-> On Wed, 4 Dec 2002, jamal wrote:
->
-> >
-> >
-> > On Tue, 3 Dec 2002, Ronghua Zhang wrote:
-> >
-> > > Can someone tell me when lock should be used to synchronize bh and user
-> > > context?
-> > >
-> > > For examle: in tcp_accept(), lock_sock() is called to avoid any change
-> > > made by net_bh during its operation. But if tcp_accept() is called, it's
-> > > impossilbe that net_bh is also executing. (i think this is true for UP,
-> > > what about SMP?), then why need lock_sock()?
-> > >
-> >
-> > to serialize packets towards the socket; The linux network stack
-> > is threaded, you can have upto n packets to the same socket coming up the
-> > stack in parallel on an n-SMP machine; think of that and the fact that TCP
-> > data must be sequenced.
-> >
-> > cheers,
-> > jamal
-> >
->
->
+- Dave
