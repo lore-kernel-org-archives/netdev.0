@@ -1,75 +1,41 @@
-From: Wang Jian <lark@linux.net.cn>
-Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
-Date: Tue, 05 Apr 2005 19:25:45 +0800
-Message-ID: <20050405190024.024D.LARK@linux.net.cn>
-References: <20050405140342.024A.LARK@linux.net.cn> <20050405103827.GL26731@postel.suug.ch>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
+Date: 05 Apr 2005 07:58:23 -0400
+Message-ID: <1112702303.1095.107.camel@jzny.localdomain>
+References: <20050404121641.GA12103@gondor.apana.org.au>
+	 <1112619096.1088.473.camel@jzny.localdomain>
+	 <20050404130224.GA12546@gondor.apana.org.au>
+	 <1112620614.1088.489.camel@jzny.localdomain>
+	 <20050404213149.GA15222@gondor.apana.org.au>
+	 <1112653217.1088.2.camel@jzny.localdomain>
+	 <20050404152506.15e1404b.davem@davemloft.net>
+	 <1112654575.1089.17.camel@jzny.localdomain>
+	 <42523FD3.8010400@linux-ipv6.org>
+	 <1112696301.1089.30.camel@jzny.localdomain>
+	 <20050405102238.GC23226@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, jamal <hadi@cyberus.ca>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        "David S. Miller" <davem@davemloft.net>, kaber@trash.net,
+        netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050405103827.GL26731@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050405102238.GC23226@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Thomas Graf,
+On Tue, 2005-04-05 at 06:22, Herbert Xu wrote:
 
-If you read the thread I pointed to, then you know there is chance that
-nfmark is used as two 16 bit numbers (along with CONNMARK), and the 16
-bit number can be mapped to a classid. This is one of many chances.
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-In that case, nfmark can be used like this
+I have a feeling that Dave is not following this thread. All along we
+have been testing against 2.6.11.6; I just tested against -rc2 and
+found the patch applies with some fuzz. I fixed that as well as a couple
+of error messages Masahide didnt like.
+So please signoff instead the next patch i post in a new thread.
 
-0x00010000
-0x00020000
-0x00030000
-...
-
-0x00000001
-0x00000002
-0x00000003
-...
-
-The old hash function doesn't expect such pattern.
-
-I must admit that I am not very familiar with hash function. I find that
-and use a quick hack. My patch just points out the existing risk. Anyone
-can improve this by using a faster and even distributed hash function.
-
-And actually, for 256 as hash size, the second patch I sent can be still
-improved,
-
-    return (jhash_1word(handle, 0xF30A7129) & 0xFF);
-
-instead of
-
-    return (jhash_1word(handle, 0xF30A7129) % 256);
-
-
-On Tue, 5 Apr 2005 12:38:27 +0200, Thomas Graf <tgraf@suug.ch> wrote:
-
-> * Wang Jian <20050405140342.024A.LARK@linux.net.cn> 2005-04-05 14:05
-> > New patch attached. Hashsize is 256, the same as old one.
-> 
-> Do you have any numbers that could prove that this change
-> actually improves the hash distribution and thus the overall
-> lookup performance?
-> 
-> The most often used and thus most important range of mark
-> values is definitely 0..255. I did not look into jhash
-> but the risk of collisions definitely increases with this
-> change which affects about 90% of the users of fw which
-> could benefit from a collision free hashtable so far.
-> 
-> I would appreciate if you could provide some numbers proving
-> both the need and actual improvement of this change since
-> fwmark is one of the most often used classifiers.
-> 
-> Cheers
-
-
-
--- 
-  lark
+cheers,
+jamal
