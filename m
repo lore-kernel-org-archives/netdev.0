@@ -1,31 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Missing routes cause BUG() in icmpv6_xmit_lock().
-Date: Sun, 31 Aug 2003 22:44:54 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: So you thought sis190 was evil...
+Date: Mon, 1 Sep 2003 09:13:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030831224454.349a6a53.davem@redhat.com>
-References: <1062341789.2785.11.camel@imladris.demon.co.uk>
+Message-ID: <20030901091321.A4000@electric-eye.fr.zoreil.com>
+References: <3F529E71.20402@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@redhat.com>
-In-Reply-To: <1062341789.2785.11.camel@imladris.demon.co.uk>
+To: Maillist netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
+In-Reply-To: <3F529E71.20402@pobox.com>; from jgarzik@pobox.com on Sun, Aug 31, 2003 at 09:18:41PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 31 Aug 2003 15:56:29 +0100
-David Woodhouse <dwmw2@redhat.com> wrote:
+Jeff Garzik <jgarzik@pobox.com> :
+> It looks like the objectionable sis190 code was copied almost wholesale 
+> from r8169...   virt_to_bus, static descriptors, lack of cpu_to_leXX, 
+> and all.
 
-> Attempt to ping6 the router 2002:X:Y::1 from internal host.
-> Observe panic: http://www.linux.org.uk/~dwmw2/dcp_1575.jpg
+Are you asking for a copy from sis190 to r8169 ?
 
-The per-cpu ICMP6 socket locking is optimized assuming that
-we'll never reenter the ICMP6 packet sending code on the
-same processor, this link failure path is causing that to
-happen.
-
-Good thing the BUG() is there, else you'd get a lockup in this case
-instead which would take us longer to hunt down :-)
-
-I'll see what I can do about this one.
+--
+Ueimor
