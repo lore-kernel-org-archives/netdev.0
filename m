@@ -1,78 +1,129 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.4.x net driver updates
-Date: Tue, 14 Oct 2003 15:01:08 -0400
+Subject: [BK PATCHES] 2.6.x net driver updates
+Date: Tue, 14 Oct 2003 15:06:03 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031014190108.GA19665@gtf.org>
+Message-ID: <20031014190603.GA20087@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: marcelo@parcelfarce.linux.theplanet.co.uk, marcelo.tosatti@cyclades.com
+To: torvalds@osdl.org
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I've tried to keep it to fixes, and created a separate queue
+(net-drivers-2.[45]-exp) for non-fixes.
 
-Marcelo, please do a
+Linus, please do a
 
-	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.4
+	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.5
 
 This will update the following files:
 
- drivers/net/8139too.c             |    2 
- drivers/net/b44.c                 |   23 +----
- drivers/net/e1000/e1000_main.c    |   30 +++++-
- drivers/net/natsemi.c             |    2 
- drivers/net/pcmcia/xircom_cb.c    |  114 ++++++++++++-------------
- drivers/net/sk98lin/h/skversion.h |   13 +-
- drivers/net/sk98lin/skge.c        |  171 ++++++++++++++++++++++++++------------
- drivers/net/tulip/tulip_core.c    |    1 
- include/linux/ethtool.h           |   11 +-
- include/linux/pci_ids.h           |    1 
- net/core/ethtool.c                |   49 ++++++----
- 11 files changed, 254 insertions(+), 163 deletions(-)
+ drivers/net/8139too.c           |    2 +
+ drivers/net/Kconfig             |    4 +--
+ drivers/net/b44.c               |   15 +++---------
+ drivers/net/defxx.c             |    4 +--
+ drivers/net/e1000/e1000_main.c  |   35 ++++++++++++++++++++++------
+ drivers/net/hamradio/bpqether.c |    6 ----
+ drivers/net/hamradio/scc.c      |    4 +--
+ drivers/net/hp100.c             |   10 ++++----
+ drivers/net/natsemi.c           |    2 -
+ drivers/net/pcmcia/pcnet_cs.c   |   23 ++++++++++++------
+ drivers/net/tulip/tulip_core.c  |    1 
+ drivers/net/tulip/xircom_cb.c   |   35 ++++++++++++++--------------
+ drivers/net/wireless/atmel.c    |    1 
+ drivers/net/wireless/atmel_cs.c |   11 +++++---
+ include/linux/ethtool.h         |   11 ++++----
+ net/core/ethtool.c              |   49 ++++++++++++++++++++++++----------------
+ 16 files changed, 123 insertions(+), 90 deletions(-)
 
 through these ChangeSets:
 
-<pp@ee.oulu.fi> (03/10/14 1.1198)
-   [PATCH] b44 enable interrupts after tx timeout (2.4.23-pre6)
+<pp@ee.oulu.fi> (03/10/14 1.1370)
+   [PATCH] b44 enable interrupts after tx timeout (2.6-test version)
    
-   Here's the 2.4.23-pre6 version, which syncs the driver fully with 2.6.
-   Seems to work (tm).
+   Resending the patch I sent some time ago for b44.c that nukes the
+   2.4 compatibility cruft as well.
+   
+   I'll do one for 2.4.23pre6 ASAP, hopefully being able sync the driver fully
+   with the one in 2.6 (free_netdev() etc.).
 
-<manfred@colorfullife.com> (03/10/14 1.1197)
+<manfred@colorfullife.com> (03/10/14 1.1369)
    [netdrvr natsemi] fix ring clean
    
    Too much copy&paste in a call to pci_unmap_single.
 
-<jgarzik@redhat.com> (03/10/14 1.1196)
+<jgarzik@redhat.com> (03/10/14 1.1368)
    [netdrvr tulip] add pci id
    
    Contributed by Ken Zalewski.
 
-<jgarzik@redhat.com> (03/10/14 1.1195)
+<simon@thekelleys.org.uk> (03/10/14 1.1367)
+   [PATCH] - atmel wireless driver
+   
+   1) Remove "#include <linux/version.h>" which was not needed and added
+      bad extra compile dependencies.
+   
+   2) Fix typo in module description.
+   
+   3) Make card detection code cope with buggy SMC CIS entries.
+
+<jgarzik@redhat.com> (03/10/14 1.1366)
    [netdrvr 8139too] another new PCI ID
    
    Contributed by Josh Litherland, Donald Becker, and others.
 
-<jgarzik@redhat.com> (03/10/14 1.1194)
+<jgarzik@redhat.com> (03/10/14 1.1365)
    [netdrvr 8139too] add pci id
    
    contributed by "JaReK" and Donald Becker.
 
-<scott.feldman@intel.com> (03/10/14 1.1193)
+<scott.feldman@intel.com> (03/10/14 1.1364)
    [PATCH] hang on ZEROCOPY/TSO when hitting no-Tx-resources
    
    * Critical bug fix: under heavy Tx stress using ZEROCOPY or TSO, if we
-     run out of Tx descriptors, we don't calculate for the context
-     descriptor used as the first of the ZEROCOPY/TSO send, nor do we clean
-     up the context descriptor bits in the case where the send isn't going
-     to fit and we need to undo the mappings.  This bug was introduced
+     ran out of Tx descriptors, we didn't calculate for the context
+     descritor used as the first of the ZEROCOPY/TSO send, nor do we clean
+     up the context desriptor bits in the case where the send isn't going
+     to fit, where we need to undo the mappings.  This bug was introduced
      with the 5.2.16 patch set which included a workaround for a hang
-     on 82544 over PCI-X.  This workaround caused the check for no-Tx-
-     resource logic to change, and this bug slipped in.
+     on 82544 over PCI-X.  This workaround cause the check for no-Tx-
+     rosource logic to change, and this bug slipped in.
 
-<scott.feldman@intel.com> (03/10/14 1.1192)
+<ak@muc.de> (03/10/14 1.1363)
+   [PATCH] Fix warnings in defxx.c
+   
+   Fix harmless 64bit warnings in defxx.c
+
+<ak@muc.de> (03/10/14 1.1362)
+   [PATCH] Fix warnings in hp100
+   
+   Fix some harmless integer/pointer size mismatch warnings in hp100.c
+   on 64bit compiles
+
+<ak@muc.de> (03/10/14 1.1361)
+   [PATCH] Mark non 64bit clean network drivers
+   
+   This marks some net drivers which are clearly not 64bit (judging from
+   the warnings) as !64BIT.
+   
+   -Andi
+
+<pe1rxq@amsat.org> (03/10/14 1.1360)
+   [hamradio bpqether] fix ancient debug line
+   
+   removes a verry old debug line from the bpqethernet driver that
+   only fills logs.
+
+<pe1rxq@amsat.org> (03/10/14 1.1359)
+   [hamradio scc] fix probe function
+   
+   fix for the probe function of the scc driver which now uses
+   an uninitialised scc struct for requesting an io region.
+
+<scott.feldman@intel.com> (03/10/14 1.1358)
    [PATCH] ethtool_ops eeprom stuff
    
    Finally got around to adding ethtool_ops to e100-3.0.x.  I found a bug
@@ -84,37 +135,38 @@ through these ChangeSets:
    
    Should I send same for 2.4?
 
-<mlindner@syskonnect.de> (03/10/14 1.1191)
-   [PATCH] sk98lin-2.4: Driver update to version 6.18
+<rmk+lkml@arm.linux.org.uk> (03/10/14 1.1357)
+   [PATCH] Fix pcnet_cs network hotplug
    
-   here is a new version of the sk98lin driver (v6.18) with some changes
-   for the kernel 2.4.22-bk25.
+   pcnet_cs registers the network device too early.  The effect of this
+   is that the networking hotplug scripts are unable to bring the device
+   up automatically.
    
-   Patch 1/1
-    * Add: New Gigabit LOM vendors (Epox, Gigabyte, Abit, Iwill, ECS, Asus)
-    * Add: Better Support for Yukon Plus chipset
-    * Fix: IO-control return race condition
-    * Fix: Interrupt moderation value check
-    * Fix: PCI initialization (SkGeInitPCI)
-    * Fix: TCP and UDP HW Checksum calculation
-
-<jgarzik@redhat.com> (03/10/14 1.1190)
-   [netdrvr xircom_cb] backport 2.6 changes
+   There are two issues:
+   - we were registering the net device before we finished setting up
+     the device (eg, reading the MAC address.)
+   - we were using DEV_CONFIG_PENDING to block the net device "open"
+     callback, and as we know the other methods may be called prior
+     to open.
    
-   * use alloc_etherdev; fixes races in stats pointer setting
-     (by Stephen Hemminger)
-   * kill unnecessary whitespace and #includes
-   * use C99-style initializers
-   * speling and irqreturn_t changes
+   My only concern with this patch is that we set info->node.dev_name
+   after we register the net device, so use of cardctl during the
+   hotplug scripts may give unexpected results.  However, I am not
+   aware of anyone using cardctl to read the device name in network
+   hotplug scripts.
+   
+   Please review and merge.  Thanks.
 
-
+<shemminger@osdl.org> (03/10/14 1.1356)
+   [netdrvr xircom_cb] fix race in statistics pointer setting
+   by converting to use alloc_etherdev.
 
 
 
 diff -Nru a/drivers/net/8139too.c b/drivers/net/8139too.c
---- a/drivers/net/8139too.c	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/8139too.c	Tue Oct 14 14:52:41 2003
-@@ -247,6 +247,8 @@
+--- a/drivers/net/8139too.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/8139too.c	Tue Oct 14 15:02:25 2003
+@@ -248,6 +248,8 @@
  	{0x14ea, 0xab06, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
  	{0x14ea, 0xab07, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
  	{0x11db, 0x1234, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
@@ -123,9 +175,30 @@ diff -Nru a/drivers/net/8139too.c b/drivers/net/8139too.c
  
  #ifdef CONFIG_SH_SECUREEDGE5410
  	/* Bogus 8139 silicon reports 8129 without external PROM :-( */
+diff -Nru a/drivers/net/Kconfig b/drivers/net/Kconfig
+--- a/drivers/net/Kconfig	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/Kconfig	Tue Oct 14 15:02:25 2003
+@@ -1616,7 +1616,7 @@
+ 
+ config TLAN
+ 	tristate "TI ThunderLAN support"
+-	depends on NET_PCI && (PCI || EISA)
++	depends on NET_PCI && (PCI || EISA) && !64BIT
+ 	---help---
+ 	  If you have a PCI Ethernet network card based on the ThunderLAN chip
+ 	  which is supported by this driver, say Y and read the
+@@ -2412,7 +2412,7 @@
+ 
+ config RCPCI
+ 	tristate "Red Creek Hardware VPN (EXPERIMENTAL)"
+-	depends on NETDEVICES && EXPERIMENTAL && PCI
++	depends on NETDEVICES && EXPERIMENTAL && PCI && !64BIT
+ 	help
+ 	  This is a driver for hardware which provides a Virtual Private
+ 	  Network (VPN). Say Y if you have it.
 diff -Nru a/drivers/net/b44.c b/drivers/net/b44.c
---- a/drivers/net/b44.c	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/b44.c	Tue Oct 14 14:52:41 2003
+--- a/drivers/net/b44.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/b44.c	Tue Oct 14 15:02:25 2003
 @@ -25,8 +25,8 @@
  
  #define DRV_MODULE_NAME		"b44"
@@ -137,7 +210,7 @@ diff -Nru a/drivers/net/b44.c b/drivers/net/b44.c
  
  #define B44_DEF_MSG_ENABLE	  \
  	(NETIF_MSG_DRV		| \
-@@ -80,16 +80,7 @@
+@@ -80,15 +80,6 @@
  
  static int b44_debug = -1;	/* -1 == use B44_DEF_MSG_ENABLE as value */
  
@@ -150,60 +223,64 @@ diff -Nru a/drivers/net/b44.c b/drivers/net/b44.c
 -#define irqreturn_t void
 -#endif
 -
--static struct pci_device_id b44_pci_tbl[] __devinitdata = {
-+static struct pci_device_id b44_pci_tbl[] = {
+ static struct pci_device_id b44_pci_tbl[] = {
  	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_BCM4401,
  	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
- 	{ }	/* terminate list with empty entry */
-@@ -870,6 +861,8 @@
+@@ -869,6 +860,8 @@
+ 	b44_init_hw(bp);
  
  	spin_unlock_irq(&bp->lock);
- 
-+	b44_enable_ints(bp);
 +
++	b44_enable_ints(bp);
+ 
  	netif_wake_queue(dev);
  }
- 
-@@ -1393,7 +1386,7 @@
- 		strcpy (info.driver, DRV_MODULE_NAME);
- 		strcpy (info.version, DRV_MODULE_VERSION);
- 		memset(&info.fw_version, 0, sizeof(info.fw_version));
--		strcpy (info.bus_info, pci_dev->slot_name);
-+		strcpy (info.bus_info, pci_name(pci_dev));
- 		info.eedump_len = 0;
- 		info.regdump_len = 0;
- 		if (copy_to_user (useraddr, &info, sizeof (info)))
-@@ -1834,7 +1827,7 @@
- 	iounmap((void *) bp->regs);
- 
- err_out_free_dev:
--	kfree(dev);
-+	free_netdev(dev);
- 
- err_out_free_res:
- 	pci_release_regions(pdev);
-@@ -1852,7 +1845,7 @@
- 	if (dev) {
- 		unregister_netdev(dev);
- 		iounmap((void *) ((struct b44 *)(dev->priv))->regs);
--		kfree(dev);
-+		free_netdev(dev);
- 		pci_release_regions(pdev);
- 		pci_disable_device(pdev);
- 		pci_set_drvdata(pdev, NULL);
+diff -Nru a/drivers/net/defxx.c b/drivers/net/defxx.c
+--- a/drivers/net/defxx.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/defxx.c	Tue Oct 14 15:02:25 2003
+@@ -2664,8 +2664,8 @@
+  
+ static void my_skb_align(struct sk_buff *skb, int n)
+ {
+-	u32 x=(u32)skb->data;	/* We only want the low bits .. */
+-	u32 v;
++	unsigned long x=(unsigned long)skb->data;	
++	unsigned long v;
+ 	
+ 	v=(x+n-1)&~(n-1);	/* Where we want to be */
+ 	
 diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
---- a/drivers/net/e1000/e1000_main.c	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/e1000/e1000_main.c	Tue Oct 14 14:52:41 2003
-@@ -59,7 +59,7 @@
+--- a/drivers/net/e1000/e1000_main.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/e1000/e1000_main.c	Tue Oct 14 15:02:25 2003
+@@ -30,7 +30,7 @@
+ 
+ /* Change Log
+  *
+- * 5.2.18	9/13/03
++ * 5.2.20	9/30/03
+  *   o Bug fix: SERDES devices might be connected to a back-plane
+  *     switch that doesn't support auto-neg, so add the capability
+  *     to force 1000/Full.
+@@ -39,6 +39,9 @@
+  *     Jumbo Frames or with the reduced FIFO in 82547.
+  *   o Better propagation of error codes. [Janice Girouard 
+  *     (janiceg@us.ibm.com)].
++ *   o Bug fix: hang under heavy Tx stress when running out of Tx
++ *     descriptors; wasn't clearing context descriptor when backing
++ *     out of send because of no-resource condition.
+  *
+  * 5.2.16	8/8/03
+  *   o Added support for new controllers: 82545GM, 82546GB, 82541/7_B1
+@@ -61,7 +64,7 @@
  
  char e1000_driver_name[] = "e1000";
  char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
--char e1000_driver_version[] = "5.2.16-k1";
-+char e1000_driver_version[] = "5.2.16-k2";
+-char e1000_driver_version[] = "5.2.19-k1";
++char e1000_driver_version[] = "5.2.20-k1";
  char e1000_copyright[] = "Copyright (c) 1999-2003 Intel Corporation.";
  
  /* e1000_pci_tbl - PCI Device ID Table
-@@ -1532,6 +1532,7 @@
+@@ -1545,6 +1548,7 @@
  	unsigned int first)
  {
  	struct e1000_desc_ring *tx_ring = &adapter->tx_ring;
@@ -211,7 +288,7 @@ diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
  	struct e1000_buffer *buffer_info;
  	unsigned int len = skb->len, max_per_txd = E1000_MAX_DATA_PER_TXD;
  	unsigned int offset = 0, size, count = 0, i;
-@@ -1622,17 +1623,29 @@
+@@ -1640,17 +1644,29 @@
  		}
  	}
  
@@ -247,7 +324,7 @@ diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
  			if(buffer_info->dma) {
  				pci_unmap_page(adapter->pdev,
  					       buffer_info->dma,
-@@ -1640,8 +1653,11 @@
+@@ -1658,8 +1674,11 @@
  					       PCI_DMA_TODEVICE);
  				buffer_info->dma = 0;
  			}
@@ -259,10 +336,75 @@ diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
  
  		return 0;
  	}
+diff -Nru a/drivers/net/hamradio/bpqether.c b/drivers/net/hamradio/bpqether.c
+--- a/drivers/net/hamradio/bpqether.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/hamradio/bpqether.c	Tue Oct 14 15:02:25 2003
+@@ -196,12 +196,8 @@
+ 	eth = (struct ethhdr *)skb->mac.raw;
+ 
+ 	if (!(bpq->acpt_addr[0] & 0x01) &&
+-	    memcmp(eth->h_source, bpq->acpt_addr, ETH_ALEN)) {
+-		if (net_ratelimit())
+-			printk(KERN_DEBUG "bpqether: wrong dest %s\n",
+-			       bpq_print_ethaddr(eth->h_source));
++	    memcmp(eth->h_source, bpq->acpt_addr, ETH_ALEN))
+ 		goto drop_unlock;
+-	}
+ 
+ 	if (skb_cow(skb, sizeof(struct ethhdr)))
+ 		goto drop_unlock;
+diff -Nru a/drivers/net/hamradio/scc.c b/drivers/net/hamradio/scc.c
+--- a/drivers/net/hamradio/scc.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/hamradio/scc.c	Tue Oct 14 15:02:25 2003
+@@ -1762,7 +1762,7 @@
+ 
+ #ifndef SCC_DONT_CHECK
+ 
+-			if(request_region(scc->ctrl, 1, "scc-probe"))
++			if(request_region(hwcfg.ctrl_a, 1, "scc-probe"))
+ 			{
+ 				disable_irq(hwcfg.irq);
+ 				Outb(hwcfg.ctrl_a, 0);
+@@ -1774,7 +1774,7 @@
+ 				if (InReg(hwcfg.ctrl_a,R13) != 0x55)
+ 					found = 0;
+ 				enable_irq(hwcfg.irq);
+-				release_region(scc->ctrl, 1);
++				release_region(hwcfg.ctrl_a, 1);
+ 			}
+ 			else
+ 				found = 0;
+diff -Nru a/drivers/net/hp100.c b/drivers/net/hp100.c
+--- a/drivers/net/hp100.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/hp100.c	Tue Oct 14 15:02:25 2003
+@@ -1265,9 +1265,9 @@
+ {
+ 	/* pdlptr is starting address for this pdl */
+ 
+-	if (0 != (((unsigned) pdlptr) & 0xf))
+-		printk("hp100: %s: Init rxpdl: Unaligned pdlptr 0x%x.\n",
+-		       dev->name, (unsigned) pdlptr);
++	if (0 != (((unsigned long) pdlptr) & 0xf))
++		printk("hp100: %s: Init rxpdl: Unaligned pdlptr 0x%lx.\n",
++		       dev->name, (unsigned long) pdlptr);
+ 
+ 	ringptr->pdl = pdlptr + 1;
+ 	ringptr->pdl_paddr = virt_to_whatever(dev, pdlptr + 1);
+@@ -1292,8 +1292,8 @@
+ 			    register hp100_ring_t * ringptr,
+ 			    register u32 * pdlptr)
+ {
+-	if (0 != (((unsigned) pdlptr) & 0xf))
+-		printk("hp100: %s: Init txpdl: Unaligned pdlptr 0x%x.\n", dev->name, (unsigned) pdlptr);
++	if (0 != (((unsigned long) pdlptr) & 0xf))
++		printk("hp100: %s: Init txpdl: Unaligned pdlptr 0x%lx.\n", dev->name, (unsigned long) pdlptr);
+ 
+ 	ringptr->pdl = pdlptr;	/* +1; */
+ 	ringptr->pdl_paddr = virt_to_whatever(dev, pdlptr);	/* +1 */
 diff -Nru a/drivers/net/natsemi.c b/drivers/net/natsemi.c
---- a/drivers/net/natsemi.c	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/natsemi.c	Tue Oct 14 14:52:41 2003
-@@ -1528,7 +1528,7 @@
+--- a/drivers/net/natsemi.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/natsemi.c	Tue Oct 14 15:02:25 2003
+@@ -1530,7 +1530,7 @@
  	for (i = 0; i < TX_RING_SIZE; i++) {
  		if (np->tx_skbuff[i]) {
  			pci_unmap_single(np->pci_dev,
@@ -271,146 +413,113 @@ diff -Nru a/drivers/net/natsemi.c b/drivers/net/natsemi.c
  				PCI_DMA_TODEVICE);
  			dev_kfree_skb(np->tx_skbuff[i]);
  			np->stats.tx_dropped++;
-diff -Nru a/drivers/net/pcmcia/xircom_cb.c b/drivers/net/pcmcia/xircom_cb.c
---- a/drivers/net/pcmcia/xircom_cb.c	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/pcmcia/xircom_cb.c	Tue Oct 14 14:52:41 2003
-@@ -14,10 +14,8 @@
-  * 	$Id: xircom_cb.c,v 1.33 2001/03/19 14:02:07 arjanv Exp $
-  */
+diff -Nru a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+--- a/drivers/net/pcmcia/pcnet_cs.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/pcmcia/pcnet_cs.c	Tue Oct 14 15:02:25 2003
+@@ -681,10 +681,6 @@
+     } else {
+ 	dev->if_port = 0;
+     }
+-    if (register_netdev(dev) != 0) {
+-	printk(KERN_NOTICE "pcnet_cs: register_netdev() failed\n");
+-	goto failed;
+-    }
  
--
- #include <linux/module.h>
- #include <linux/kernel.h>
--#include <linux/sched.h>
- #include <linux/string.h>
- #include <linux/errno.h>
- #include <linux/ioport.h>
-@@ -30,12 +28,11 @@
- #include <linux/delay.h>
- #include <linux/init.h>
- #include <linux/ethtool.h>
+     hw_info = get_hwinfo(link);
+     if (hw_info == NULL)
+@@ -699,7 +695,6 @@
+     if (hw_info == NULL) {
+ 	printk(KERN_NOTICE "pcnet_cs: unable to read hardware net"
+ 	       " address for io base %#3lx\n", dev->base_addr);
+-	unregister_netdev(dev);
+ 	goto failed;
+     }
+ 
+@@ -733,8 +728,6 @@
+     ei_status.word16 = 1;
+     ei_status.reset_8390 = &pcnet_reset_8390;
+ 
+-    strcpy(info->node.dev_name, dev->name);
+-    link->dev = &info->node;
+     SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+ 
+     if (info->flags & (IS_DL10019|IS_DL10022)) {
+@@ -743,6 +736,21 @@
+ 	mii_phy_probe(dev);
+ 	if ((id == 0x30) && !info->pna_phy && (info->eth_phy == 4))
+ 	    info->eth_phy = 0;
++    }
 +
- #include <asm/uaccess.h>
- #include <asm/bitops.h>
- #include <asm/io.h>
++    link->dev = &info->node;
++    link->state &= ~DEV_CONFIG_PENDING;
++
++    if (register_netdev(dev) != 0) {
++	printk(KERN_NOTICE "pcnet_cs: register_netdev() failed\n");
++	link->dev = NULL;
++	goto failed;
++    }
++
++    strcpy(info->node.dev_name, dev->name);
++
++    if (info->flags & (IS_DL10019|IS_DL10022)) {
++	u_char id = inb(dev->base_addr + 0x1a);
+ 	printk(KERN_INFO "%s: NE2000 (DL100%d rev %02x): ",
+ 	       dev->name, ((info->flags & IS_DL10022) ? 22 : 19), id);
+ 	if (info->pna_phy)
+@@ -758,7 +766,6 @@
+     printk(" hw_addr ");
+     for (i = 0; i < 6; i++)
+ 	printk("%02X%s", dev->dev_addr[i], ((i<5) ? ":" : "\n"));
+-    link->state &= ~DEV_CONFIG_PENDING;
+     return;
  
--
--
- #ifdef DEBUG
- #define enter(x)   printk("Enter: %s, %s line %i\n",x,__FILE__,__LINE__)
- #define leave(x)   printk("Leave: %s, %s line %i\n",x,__FILE__,__LINE__)
-@@ -114,7 +111,7 @@
- /* Function prototypes */
- static int xircom_probe(struct pci_dev *pdev, const struct pci_device_id *id);
- static void xircom_remove(struct pci_dev *pdev);
--static void xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
-+static irqreturn_t xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
- static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev);
- static int xircom_open(struct net_device *dev);
- static int xircom_close(struct net_device *dev);
-@@ -124,7 +121,7 @@
- static void investigate_read_descriptor(struct net_device *dev,struct xircom_private *card, int descnr, unsigned int bufferoffset);
- static void investigate_write_descriptor(struct net_device *dev, struct xircom_private *card, int descnr, unsigned int bufferoffset);
- static void read_mac_address(struct xircom_private *card);
--static void tranceiver_voodoo(struct xircom_private *card);
-+static void transceiver_voodoo(struct xircom_private *card);
- static void initialize_card(struct xircom_private *card);
- static void trigger_transmit(struct xircom_private *card);
- static void trigger_receive(struct xircom_private *card);
-@@ -143,17 +140,19 @@
- 
- 
- 
--static struct pci_device_id xircom_pci_table[] __devinitdata = {
-+static struct pci_device_id xircom_pci_table[] = {
- 	{0x115D, 0x0003, PCI_ANY_ID, PCI_ANY_ID,},
- 	{0,},
- };
- MODULE_DEVICE_TABLE(pci, xircom_pci_table);
- 
- static struct pci_driver xircom_ops = {
--	name:		"xircom_cb", 
--	id_table:	xircom_pci_table, 
--	probe:		xircom_probe, 
--	remove:		__devexit_p(xircom_remove),
-+	.name		= "xircom_cb", 
-+	.id_table	= xircom_pci_table, 
-+	.probe		= xircom_probe, 
-+	.remove		= xircom_remove, 
-+	.suspend =NULL,
-+	.resume =NULL
- };
- 
- 
-@@ -226,40 +225,32 @@
- 		return -ENODEV;
- 	}
- 
--	
- 	/* 
- 	   Before changing the hardware, allocate the memory.
+ cs_failed:
+diff -Nru a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
+--- a/drivers/net/tulip/tulip_core.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/tulip/tulip_core.c	Tue Oct 14 15:02:25 2003
+@@ -224,6 +224,7 @@
+ 	{ 0x1186, 0x1561, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+ 	{ 0x1626, 0x8410, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+ 	{ 0x1737, 0xAB09, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
++	{ 0x1737, 0xAB08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+ 	{ 0x17B3, 0xAB08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
+  	{ 0x10b9, 0x5261, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },	/* ALi 1563 integrated ethernet */
+ 	{ 0x10b7, 0x9300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET }, /* 3Com 3CSOHO100B-TX */
+diff -Nru a/drivers/net/tulip/xircom_cb.c b/drivers/net/tulip/xircom_cb.c
+--- a/drivers/net/tulip/xircom_cb.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/tulip/xircom_cb.c	Tue Oct 14 15:02:25 2003
+@@ -230,7 +230,8 @@
  	   This way, we can fail gracefully if not enough memory
  	   is available. 
  	 */
--	private = kmalloc(sizeof(*private),GFP_KERNEL);
--	memset(private, 0, sizeof(struct xircom_private));
+-	if ((dev = init_etherdev(NULL, sizeof(struct xircom_private))) == NULL) {
 +	dev = alloc_etherdev(sizeof(struct xircom_private));
 +	if (!dev) {
-+		printk(KERN_ERR "xircom_probe: failed to allocate etherdev\n");
-+		goto device_fail;
-+	}
-+	private = dev->priv;
- 	
- 	/* Allocate the send/receive buffers */
- 	private->rx_buffer = pci_alloc_consistent(pdev,8192,&private->rx_dma_handle);
--	
- 	if (private->rx_buffer == NULL) {
-  		printk(KERN_ERR "xircom_probe: no memory for rx buffer \n");
-- 		kfree(private);
--		return -ENODEV;
-+		goto rx_buf_fail;
- 	}	
- 	private->tx_buffer = pci_alloc_consistent(pdev,8192,&private->tx_dma_handle);
- 	if (private->tx_buffer == NULL) {
- 		printk(KERN_ERR "xircom_probe: no memory for tx buffer \n");
--		kfree(private->rx_buffer);
--		kfree(private);
--		return -ENODEV;
--	}
--	dev = init_etherdev(dev, 0);
--	if (dev == NULL) {
--		printk(KERN_ERR "xircom_probe: failed to allocate etherdev\n");
--		kfree(private->rx_buffer);
--		kfree(private->tx_buffer);
--		kfree(private);
--		return -ENODEV;
-+		goto tx_buf_fail;
+ 		printk(KERN_ERR "xircom_probe: failed to allocate etherdev\n");
+ 		goto device_fail;
  	}
-+
+@@ -250,7 +251,7 @@
+ 
  	SET_MODULE_OWNER(dev);
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
 -	printk(KERN_INFO "%s: Xircom cardbus revision %i at irq %i \n", dev->name, chip_rev, pdev->irq);
 +
  
  	private->dev = dev;
  	private->pdev = pdev;
-@@ -267,11 +258,11 @@
- 	private->lock = SPIN_LOCK_UNLOCKED;
+@@ -259,7 +260,6 @@
  	dev->irq = pdev->irq;
  	dev->base_addr = private->io_port;
--
-+	
+ 	
+-	
  	initialize_card(private);
  	read_mac_address(private);
  	setup_descriptors(private);
--
-+	
- 	dev->open = &xircom_open;
- 	dev->hard_start_xmit = &xircom_start_xmit;
- 	dev->stop = &xircom_close;
-@@ -280,19 +271,34 @@
+@@ -272,7 +272,12 @@
  	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
  	pci_set_drvdata(pdev, dev);
  
+-	
 +	if (register_netdev(dev)) {
 +		printk(KERN_ERR "xircom_probe: netdevice registration failed.\n");
 +		goto reg_fail;
@@ -419,36 +528,22 @@ diff -Nru a/drivers/net/pcmcia/xircom_cb.c b/drivers/net/pcmcia/xircom_cb.c
 +	printk(KERN_INFO "%s: Xircom cardbus revision %i at irq %i \n", dev->name, chip_rev, pdev->irq);
  	/* start the transmitter to get a heartbeat */
  	/* TODO: send 2 dummy packets here */
--	tranceiver_voodoo(private);
--
-+	transceiver_voodoo(private);
-+	
- 	spin_lock_irqsave(&private->lock,flags);
--	  activate_transmitter(private);
--	  activate_receiver(private);
-+	activate_transmitter(private);
-+	activate_receiver(private);
- 	spin_unlock_irqrestore(&private->lock,flags);
--
-+	
- 	trigger_receive(private);
--
-+	
+ 	transceiver_voodoo(private);
+@@ -287,10 +292,12 @@
  	leave("xircom_probe");
  	return 0;
-+
+ 
 +reg_fail:
 +	kfree(private->tx_buffer);
-+tx_buf_fail:
-+	kfree(private->rx_buffer);
-+rx_buf_fail:
+ tx_buf_fail:
+ 	kfree(private->rx_buffer);
+ rx_buf_fail:
+-	kfree(dev);
 +	free_netdev(dev);
-+device_fail:
-+	return -ENODEV;
+ device_fail:
+ 	return -ENODEV;
  }
- 
- 
-@@ -305,27 +311,20 @@
+@@ -305,22 +312,16 @@
  static void __devexit xircom_remove(struct pci_dev *pdev)
  {
  	struct net_device *dev = pci_get_drvdata(pdev);
@@ -466,419 +561,60 @@ diff -Nru a/drivers/net/pcmcia/xircom_cb.c b/drivers/net/pcmcia/xircom_cb.c
 -				pci_free_consistent(pdev,8192,card->tx_buffer,card->tx_dma_handle);
 -			card->tx_buffer = NULL;			
 -		}
--		kfree(card);
 -	}
 +	pci_free_consistent(pdev,8192,card->rx_buffer,card->rx_dma_handle);
 +	pci_free_consistent(pdev,8192,card->tx_buffer,card->tx_dma_handle);
 +
  	release_region(dev->base_addr, 128);
  	unregister_netdev(dev);
--	kfree(dev);
-+	free_netdev(dev);
+ 	free_netdev(dev);
 +	pci_set_drvdata(pdev, NULL);
  	leave("xircom_remove");
  } 
  
--static void xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
-+static irqreturn_t xircom_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
- {
- 	struct net_device *dev = (struct net_device *) dev_instance;
- 	struct xircom_private *card = (struct xircom_private *) dev->priv;
-@@ -369,6 +368,7 @@
- 	
- 	spin_unlock(&card->lock);
- 	leave("xircom_interrupt");
-+	return IRQ_HANDLED;
- }
+diff -Nru a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
+--- a/drivers/net/wireless/atmel.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/wireless/atmel.c	Tue Oct 14 15:02:25 2003
+@@ -37,7 +37,6 @@
+ ******************************************************************************/
  
- static int xircom_start_xmit(struct sk_buff *skb, struct net_device *dev)
-@@ -1022,7 +1022,7 @@
+ #include <linux/config.h>
+-#include <linux/version.h>
+ #include <linux/init.h>
  
+ #include <linux/kernel.h>
+diff -Nru a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
+--- a/drivers/net/wireless/atmel_cs.c	Tue Oct 14 15:02:25 2003
++++ b/drivers/net/wireless/atmel_cs.c	Tue Oct 14 15:02:25 2003
+@@ -84,7 +84,7 @@
+ static int irq_list[4] = { -1 };
  
- /* 
--link_status() checks the link's status and will return 0 for no link, 10 for 10mbit link and 100 for.. guess what.
-+link_status() checks the the links status and will return 0 for no link, 10 for 10mbit link and 100 for.. guess what.
- 
- Must be called in locked state with interrupts disabled
- */
-@@ -1097,15 +1097,15 @@
- 
- 
- /*
-- tranceiver_voodoo() enables the external UTP plug thingy.
-+ transceiver_voodoo() enables the external UTP plug thingy.
-  it's called voodoo as I stole this code and cannot cross-reference
-  it with the specification.
-  */
--static void tranceiver_voodoo(struct xircom_private *card)
-+static void transceiver_voodoo(struct xircom_private *card)
- {
- 	unsigned long flags;
- 
--	enter("tranceiver_voodoo");
-+	enter("transceiver_voodoo");
- 
- 	/* disable all powermanagement */
- 	pci_write_config_dword(card->pdev, PCI_POWERMGMT, 0x0000);
-@@ -1124,7 +1124,7 @@
-         spin_unlock_irqrestore(&card->lock, flags);
- 
- 	netif_start_queue(card->dev);
--	leave("tranceiver_voodoo");
-+	leave("transceiver_voodoo");
- }
- 
- 
-diff -Nru a/drivers/net/sk98lin/h/skversion.h b/drivers/net/sk98lin/h/skversion.h
---- a/drivers/net/sk98lin/h/skversion.h	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/sk98lin/h/skversion.h	Tue Oct 14 14:52:41 2003
-@@ -2,8 +2,8 @@
-  *
-  * Name:	version.h
-  * Project:	GEnesis, PCI Gigabit Ethernet Adapter
-- * Version:	$Revision: 1.2 $
-- * Date:	$Date: 2003/08/13 12:01:01 $
-+ * Version:	$Revision: 1.3 $
-+ * Date:	$Date: 2003/08/25 13:34:48 $
-  * Purpose:	SK specific Error log support
-  *
-  ******************************************************************************/
-@@ -25,6 +25,9 @@
-  *
-  * History:
-  *	$Log: skversion.h,v $
-+ *	Revision 1.3  2003/08/25 13:34:48  mlindner
-+ *	Fix: Lint changes
-+ *	
-  *	Revision 1.2  2003/08/13 12:01:01  mlindner
-  *	Add: Changes for Lint
-  *	
-@@ -51,12 +54,12 @@
- #ifdef	lint
- static const char SysKonnectFileId[] = "@(#) (C) SysKonnect GmbH.";
- static const char SysKonnectBuildNumber[] =
--	"@(#)SK-BUILD: 6.17 PL: 01"; 
-+	"@(#)SK-BUILD: 6.18 PL: 01"; 
- #endif	/* !defined(lint) */
- 
--#define BOOT_STRING	"sk98lin: Network Device Driver v6.17\n" \
-+#define BOOT_STRING	"sk98lin: Network Device Driver v6.18\n" \
- 			"(C)Copyright 1999-2003 Marvell(R)."
- 
--#define VER_STRING	"6.17"
-+#define VER_STRING	"6.18"
- 
- 
-diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
---- a/drivers/net/sk98lin/skge.c	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/sk98lin/skge.c	Tue Oct 14 14:52:41 2003
-@@ -56,6 +56,18 @@
-  * History:
-  *
-  *	$Log: skge.c,v $
-+ *	Revision 1.16  2003/09/23 11:07:35  mlindner
-+ *	Fix: IO-control return race condition
-+ *	Fix: Interrupt moderation value check
-+ *	
-+ *	Revision 1.15  2003/09/22 08:40:05  mlindner
-+ *	Add: Added DRIVER_FILE_NAME and DRIVER_REL_DATE
-+ *	
-+ *	Revision 1.14  2003/09/22 08:11:10  mlindner
-+ *	Add: New function for PCI initialization (SkGeInitPCI)
-+ *	Add: Yukon Plus changes (ChipID, PCI...)
-+ *	Fix: TCP and UDP Checksum calculation
-+ *	
-  *	Revision 1.11  2003/08/26 16:05:19  mlindner
-  *	Fix: Compiler warnings (void *)
-  *	
-@@ -551,6 +563,7 @@
- static int	SkGeChangeMtu(struct SK_NET_DEVICE *dev, int new_mtu);
- static void	PortReInitBmu(SK_AC*, int);
- static int	SkGeIocMib(DEV_NET*, unsigned int, int);
-+static int	SkGeInitPCI(SK_AC *pAC);
- static void	StartDrvCleanupTimer(SK_AC *pAC);
- static void	StopDrvCleanupTimer(SK_AC *pAC);
- static int	XmitFrameSG(SK_AC*, TX_PORT*, struct sk_buff*);
-@@ -620,10 +633,10 @@
- 	SK_AC			*pAC;
- 	DEV_NET			*pNet = NULL;
- 	struct pci_dev	*pdev = NULL;
--	unsigned long		base_address;
- 	struct SK_NET_DEVICE *dev = NULL;
- 	SK_BOOL DeviceFound = SK_FALSE;
- 	SK_BOOL BootStringCount = SK_FALSE;
-+	int			retval;
- #ifdef CONFIG_PROC_FS
- 	int			proc_root_initialized = 0;
- 	struct proc_dir_entry	*pProcFile;
-@@ -668,6 +681,8 @@
- 		pNet = dev->priv;
- 		pNet->pAC = kmalloc(sizeof(SK_AC), GFP_KERNEL);
- 		if (pNet->pAC == NULL){
-+			dev->get_stats = NULL;
-+			unregister_netdev(dev);
- 			kfree(dev->priv);
- 			printk(KERN_ERR "Unable to allocate adapter "
- 			       "structure!\n");
-@@ -694,6 +709,14 @@
- 		pNet->Mtu = 1500;
- 		pNet->Up = 0;
- 		dev->irq = pdev->irq;
-+		retval = SkGeInitPCI(pAC);
-+		if (retval) {
-+			printk("SKGE: PCI setup failed: %i\n", retval);
-+			dev->get_stats = NULL;
-+			unregister_netdev(dev);
-+			kfree(dev);
-+			continue;
-+		}
- 
- 		dev->open =		&SkGeOpen;
- 		dev->stop =		&SkGeClose;
-@@ -716,41 +739,6 @@
- #endif
- #endif
- 
--		/*
--		 * Dummy value.
--		 */
--		dev->base_addr = 42;
--		pci_set_master(pdev);
--
--		pci_set_master(pdev);
--		base_address = pci_resource_start (pdev, 0);
--
--#ifdef SK_BIG_ENDIAN
--		/*
--		 * On big endian machines, we use the adapter's aibility of
--		 * reading the descriptors as big endian.
--		 */
--		{
--		SK_U32		our2;
--			SkPciReadCfgDWord(pAC, PCI_OUR_REG_2, &our2);
--			our2 |= PCI_REV_DESC;
--			SkPciWriteCfgDWord(pAC, PCI_OUR_REG_2, our2);
--		}
--#endif
--
--		/*
--		 * Remap the regs into kernel space.
--		 */
--		pAC->IoBase = (char*)ioremap(base_address, 0x4000);
--
--		if (!pAC->IoBase){
--			printk(KERN_ERR "%s:  Unable to map I/O register, "
--			       "SK 98xx No. %i will be disabled.\n",
--			       dev->name, boards_found);
--			kfree(dev);
--			break;
--		}
--
- 		pAC->Index = boards_found;
- 		if (SkGeBoardInit(dev, pAC)) {
- 			FreeResources(dev);
-@@ -887,6 +875,68 @@
- } /* skge_probe */
- 
- 
-+
-+/*****************************************************************************
-+ *
-+ * 	SkGeInitPCI - Init the PCI resources
-+ *
-+ * Description:
-+ *	This function initialize the PCI resources and IO
-+ *
-+ * Returns: N/A
-+ *	
-+ */
-+int SkGeInitPCI(SK_AC *pAC)
-+{
-+	struct SK_NET_DEVICE *dev = pAC->dev[0];
-+	struct pci_dev *pdev = pAC->PciDev;
-+	int retval;
-+
-+	if (pci_enable_device(pdev) != 0) {
-+		return 1;
-+	}
-+
-+	dev->mem_start = pci_resource_start (pdev, 0);
-+	pci_set_master(pdev);
-+
-+	if (pci_request_regions(pdev, pAC->Name) != 0) {
-+		retval = 2;
-+		goto out_disable;
-+	}
-+
-+#ifdef SK_BIG_ENDIAN
-+	/*
-+	 * On big endian machines, we use the adapter's aibility of
-+	 * reading the descriptors as big endian.
-+	 */
-+	{
-+		SK_U32		our2;
-+		SkPciReadCfgDWord(pAC, PCI_OUR_REG_2, &our2);
-+		our2 |= PCI_REV_DESC;
-+		SkPciWriteCfgDWord(pAC, PCI_OUR_REG_2, our2);
-+	}
-+#endif
-+
-+	/*
-+	 * Remap the regs into kernel space.
-+	 */
-+	pAC->IoBase = (char*)ioremap_nocache(dev->mem_start, 0x4000);
-+
-+	if (!pAC->IoBase){
-+		retval = 3;
-+		goto out_release;
-+	}
-+
-+	return 0;
-+
-+ out_release:
-+	pci_release_regions(pdev);
-+ out_disable:
-+	pci_disable_device(pdev);
-+	return retval;
-+}
-+
-+
- /*****************************************************************************
-  *
-  * 	FreeResources - release resources allocated for adapter
-@@ -908,6 +958,9 @@
- 		pNet = (DEV_NET*) dev->priv;
- 		pAC = pNet->pAC;
- 		AllocFlag = pAC->AllocFlag;
-+		if (pAC->PciDev) {
-+			pci_release_regions(pAC->PciDev);
-+		}
- 		if (AllocFlag & SK_ALLOC_IRQ) {
- 			free_irq(dev->irq, dev);
- 		}
-@@ -2172,7 +2225,7 @@
- 	*/
- 	if (BytesSend < C_LEN_ETHERNET_MINSIZE) {
- 	    skb_put(pMessage, (C_LEN_ETHERNET_MINSIZE-BytesSend));
--	    memset( ((int *)(pMessage->data))+BytesSend,
-+	    SK_MEMSET( ((char *)(pMessage->data))+BytesSend,
- 	            0, C_LEN_ETHERNET_MINSIZE-BytesSend);
- 	}
- 
-@@ -2205,10 +2258,12 @@
- 
- 	if (pMessage->ip_summed == CHECKSUM_HW) {
- 		Protocol = ((SK_U8)pMessage->data[C_OFFSET_IPPROTO] & 0xff);
--		if ((Protocol == C_PROTO_ID_UDP) && (pAC->GIni.GIChipRev != 0)) {
--			pTxd->TBControl = BMU_UDP_CHECK;
-+		if ((Protocol == C_PROTO_ID_UDP) && 
-+			(pAC->GIni.GIChipRev == 0) &&
-+			(pAC->GIni.GIChipId == CHIP_ID_YUKON)) {
-+			pTxd->TBControl = BMU_TCP_CHECK;
- 		} else {
--			pTxd->TBControl = BMU_TCP_CHECK ;
-+			pTxd->TBControl = BMU_UDP_CHECK;
- 		}
- 
- 		IpHeaderLength  = (SK_U8)pMessage->data[C_OFFSET_IPHEADER];
-@@ -2232,7 +2287,7 @@
- #ifdef USE_TX_COMPLETE
- 				   BMU_IRQ_EOF |
- #endif
--				   pMessage->len;
-+			pMessage->len;
- 	}
- 
- 	/* 
-@@ -2333,10 +2388,12 @@
- 		** (Revision 2.0)
- 		*/
- 		Protocol = ((SK_U8)pMessage->data[C_OFFSET_IPPROTO] & 0xff);
--		if ((Protocol == C_PROTO_ID_UDP) && (pAC->GIni.GIChipRev != 0)) {
--			pTxd->TBControl |= BMU_UDP_CHECK;
-+		if ((Protocol == C_PROTO_ID_UDP) && 
-+			(pAC->GIni.GIChipRev == 0) &&
-+			(pAC->GIni.GIChipId == CHIP_ID_YUKON)) {
-+			pTxd->TBControl |= BMU_TCP_CHECK;
- 		} else {
--			pTxd->TBControl |= BMU_TCP_CHECK ;
-+			pTxd->TBControl |= BMU_UDP_CHECK;
- 		}
- 
- 		IpHeaderLength  = ((SK_U8)pMessage->data[C_OFFSET_IPHEADER] & 0xf)*4;
-@@ -2383,11 +2440,12 @@
- 			** opcode for udp is not working in the hardware yet 
- 			** (revision 2.0)
- 			*/
--			if ( (Protocol == C_PROTO_ID_UDP) && 
--			     (pAC->GIni.GIChipRev != 0) ) {
--				pTxd->TBControl |= BMU_UDP_CHECK ;
-+			if ((Protocol == C_PROTO_ID_UDP) && 
-+				(pAC->GIni.GIChipRev == 0) &&
-+				(pAC->GIni.GIChipId == CHIP_ID_YUKON)) {
-+				pTxd->TBControl |= BMU_TCP_CHECK;
- 			} else {
--				pTxd->TBControl |= BMU_TCP_CHECK ;
-+				pTxd->TBControl |= BMU_UDP_CHECK;
- 			}
- 		} else {
- 			pTxd->TBControl = BMU_CHECK | BMU_SW | BMU_OWN;
-@@ -3616,21 +3674,26 @@
- 			Length = sizeof(pAC->PnmiStruct) + HeaderLength;
- 		}
- 		if (NULL == (pMemBuf = kmalloc(Length, GFP_KERNEL))) {
--			return -EFAULT;
-+			return -ENOMEM;
- 		}
- 		if(copy_from_user(pMemBuf, Ioctl.pData, Length)) {
--			return -EFAULT;
-+			Err = -EFAULT;
-+			goto fault_gen;
- 		}
- 		if ((Ret = SkPnmiGenIoctl(pAC, pAC->IoBase, pMemBuf, &Length, 0)) < 0) {
--			return -EFAULT;
-+			Err = -EFAULT;
-+			goto fault_gen;
- 		}
- 		if(copy_to_user(Ioctl.pData, pMemBuf, Length) ) {
--			return -EFAULT;
-+			Err = -EFAULT;
-+			goto fault_gen;
- 		}
- 		Ioctl.Len = Length;
- 		if(copy_to_user(rq->ifr_data, &Ioctl, sizeof(SK_GE_IOCTL))) {
--			return -EFAULT;
-+			Err = -EFAULT;
-+			goto fault_gen;
- 		}
-+fault_gen:
- 		kfree(pMemBuf); /* cleanup everything */
- 		break;
- 	default:
-@@ -4370,7 +4433,7 @@
-         }
- 
-         if (IntsPerSec[pAC->Index] != 0) {
--           if ((IntsPerSec[pAC->Index]< 30)&&(IntsPerSec[pAC->Index]> 40000)) {
-+           if ((IntsPerSec[pAC->Index]< 30) || (IntsPerSec[pAC->Index]> 40000)) {
-               pAC->DynIrqModInfo.MaxModIntsPerSec = C_INTS_PER_SEC_DEFAULT;
-            } else {
-               pAC->DynIrqModInfo.MaxModIntsPerSec = IntsPerSec[pAC->Index];
-diff -Nru a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
---- a/drivers/net/tulip/tulip_core.c	Tue Oct 14 14:52:41 2003
-+++ b/drivers/net/tulip/tulip_core.c	Tue Oct 14 14:52:41 2003
-@@ -229,6 +229,7 @@
- 	{ 0x1186, 0x1561, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
- 	{ 0x1626, 0x8410, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
- 	{ 0x1737, 0xAB09, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
-+	{ 0x1737, 0xAB08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
- 	{ 0x17B3, 0xAB08, PCI_ANY_ID, PCI_ANY_ID, 0, 0, COMET },
- 	{ 0x14f1, 0x1803, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CONEXANT },
- 	{ 0x10b9, 0x5261, PCI_ANY_ID, PCI_ANY_ID, 0, 0, DM910X },	/* ALi 1563 integrated ethernet */
+ MODULE_AUTHOR("Simon Kelley");
+-MODULE_DESCRIPTION("Support for Atmel at76c50x 802.11 wireless ethnet cards.");
++MODULE_DESCRIPTION("Support for Atmel at76c50x 802.11 wireless ethernet cards.");
+ MODULE_LICENSE("GPL");
+ MODULE_SUPPORTED_DEVICE("Atmel at76c50x PCMCIA cards");
+ MODULE_PARM(irq_mask, "i");
+@@ -404,9 +404,12 @@
+ 					goto mismatch;
+ 				for (k = 0; k < j; k++) {
+ 					while ((*p != '\0') && (*p != '/')) p++;
+-					if (*p == '\0')
+-						goto mismatch;
+-					p++;
++					if (*p == '\0') {
++						if (*q != '\0')
++							goto mismatch;
++					} else {
++						p++;
++					}
+ 				}
+ 				while((*q != '\0') && (*p != '\0') && 
+ 				      (*p != '/') && (*p == *q)) p++, q++;
 diff -Nru a/include/linux/ethtool.h b/include/linux/ethtool.h
---- a/include/linux/ethtool.h	Tue Oct 14 14:52:41 2003
-+++ b/include/linux/ethtool.h	Tue Oct 14 14:52:41 2003
-@@ -303,14 +303,14 @@
+--- a/include/linux/ethtool.h	Tue Oct 14 15:02:25 2003
++++ b/include/linux/ethtool.h	Tue Oct 14 15:02:25 2003
+@@ -307,14 +307,14 @@
   *
   * get_eeprom:
   *	Should fill in the magic field.  Don't need to check len for zero
@@ -898,7 +634,7 @@ diff -Nru a/include/linux/ethtool.h b/include/linux/ethtool.h
   */
  struct ethtool_ops {
  	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
-@@ -324,6 +324,7 @@
+@@ -328,6 +328,7 @@
  	void	(*set_msglevel)(struct net_device *, u32);
  	int	(*nway_reset)(struct net_device *);
  	u32	(*get_link)(struct net_device *);
@@ -906,21 +642,10 @@ diff -Nru a/include/linux/ethtool.h b/include/linux/ethtool.h
  	int	(*get_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
  	int	(*set_eeprom)(struct net_device *, struct ethtool_eeprom *, u8 *);
  	int	(*get_coalesce)(struct net_device *, struct ethtool_coalesce *);
-diff -Nru a/include/linux/pci_ids.h b/include/linux/pci_ids.h
---- a/include/linux/pci_ids.h	Tue Oct 14 14:52:41 2003
-+++ b/include/linux/pci_ids.h	Tue Oct 14 14:52:41 2003
-@@ -1669,6 +1669,7 @@
- #define PCI_DEVICE_ID_TIGON3_5703A3	0x16c7
- #define PCI_DEVICE_ID_TIGON3_5901	0x170d
- #define PCI_DEVICE_ID_TIGON3_5901_2	0x170e
-+#define PCI_DEVICE_ID_BCM4401		0x4401
- 
- #define PCI_VENDOR_ID_SYBA		0x1592
- #define PCI_DEVICE_ID_SYBA_2P_EPP	0x0782
 diff -Nru a/net/core/ethtool.c b/net/core/ethtool.c
---- a/net/core/ethtool.c	Tue Oct 14 14:52:41 2003
-+++ b/net/core/ethtool.c	Tue Oct 14 14:52:41 2003
-@@ -106,7 +106,8 @@
+--- a/net/core/ethtool.c	Tue Oct 14 15:02:25 2003
++++ b/net/core/ethtool.c	Tue Oct 14 15:02:25 2003
+@@ -122,7 +122,8 @@
  		info.n_stats = ops->get_stats_count(dev);
  	if (ops->get_regs_len)
  		info.regdump_len = ops->get_regs_len(dev);
@@ -930,7 +655,7 @@ diff -Nru a/net/core/ethtool.c b/net/core/ethtool.c
  
  	if (copy_to_user(useraddr, &info, sizeof(info)))
  		return -EFAULT;
-@@ -229,29 +230,34 @@
+@@ -245,29 +246,34 @@
  static int ethtool_get_eeprom(struct net_device *dev, void *useraddr)
  {
  	struct ethtool_eeprom eeprom;
@@ -974,7 +699,7 @@ diff -Nru a/net/core/ethtool.c b/net/core/ethtool.c
  		goto out;
  
  	ret = -EFAULT;
-@@ -269,32 +275,37 @@
+@@ -285,32 +291,37 @@
  static int ethtool_set_eeprom(struct net_device *dev, void *useraddr)
  {
  	struct ethtool_eeprom eeprom;
