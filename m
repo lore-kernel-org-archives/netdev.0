@@ -1,8 +1,8 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.6 5/10] e1000: Fix WOL settings in 82544 based
- adapters
-Date: Tue, 15 Feb 2005 13:28:17 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0502151114480.30336-100000@isotope.jf.intel.com>
+Subject: [PATCH net-drivers-2.6 6/10] e1000: Patch from Peter Kjellstroem --
+ fix lockup with 82547
+Date: Tue, 15 Feb 2005 13:29:02 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0502151115490.30336-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,51 +11,39 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-5 Fix WOL settings in 82544 based adapters
+6 Patch from Peter Kjellstroem -- fix lockup with 82547
 Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
-diff -up net-drivers-2.6/drivers/net/e1000/e1000.h net-drivers-2.6/drivers/net/e1000.new/e1000.h
---- net-drivers-2.6/drivers/net/e1000/e1000.h	2005-02-01 23:10:24.986106336 -0800
-+++ net-drivers-2.6/drivers/net/e1000.new/e1000.h	2005-02-01 23:10:26.474880008 -0800
-@@ -138,6 +138,7 @@ struct e1000_adapter;
- #define E1000_RX_BUFFER_WRITE	16	/* Must be power of 2 */
- 
- #define AUTO_ALL_MODES       0
-+#define E1000_EEPROM_82544_APM 0x0004
- #define E1000_EEPROM_APME    0x0400
- 
- #ifndef E1000_MASTER_SLAVE
 diff -up net-drivers-2.6/drivers/net/e1000/e1000_main.c net-drivers-2.6/drivers/net/e1000.new/e1000_main.c
 --- net-drivers-2.6/drivers/net/e1000/e1000_main.c	2005-02-01 23:10:24.989105880 -0800
 +++ net-drivers-2.6/drivers/net/e1000.new/e1000_main.c	2005-02-01 23:10:26.709844288 -0800
-@@ -421,6 +421,7 @@ e1000_probe(struct pci_dev *pdev,
- 	int i;
- 	int err;
- 	uint16_t eeprom_data;
-+	uint16_t eeprom_apme_mask = E1000_EEPROM_APME;
- 
- 	if((err = pci_enable_device(pdev)))
- 		return err;
-@@ -591,6 +591,11 @@ e1000_probe(struct pci_dev *pdev,
- 	case e1000_82542_rev2_1:
- 	case e1000_82543:
- 		break;
-+	case e1000_82544:
-+		e1000_read_eeprom(&adapter->hw,
-+			EEPROM_INIT_CONTROL2_REG, 1, &eeprom_data);
-+		eeprom_apme_mask = E1000_EEPROM_82544_APM;
-+		break;
- 	case e1000_82546:
- 	case e1000_82546_rev_3:
- 		if((E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_FUNC_1)
-@@ -605,7 +611,7 @@ e1000_probe(struct pci_dev *pdev,
- 			EEPROM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
- 		break;
+@@ -2165,10 +2165,28 @@ e1000_intr(int irq, void *data, struct p
+ 		__netif_rx_schedule(netdev);
  	}
--	if(eeprom_data & E1000_EEPROM_APME)
-+	if(eeprom_data & eeprom_apme_mask)
- 		adapter->wol |= E1000_WUFC_MAG;
+ #else
++	/* Writing IMC and IMS is needed for 82547.
++	   Due to Hub Link bus being occupied, an interrupt
++	   de-assertion message is not able to be sent.
++	   When an interrupt assertion message is generated later,
++	   two messages are re-ordered and sent out.
++	   That causes APIC to think 82547 is in de-assertion
++	   state, while 82547 is in assertion state, resulting
++	   in dead lock. Writing IMC forces 82547 into
++	   de-assertion state.
++	*/
++	if(hw->mac_type == e1000_82547 || hw->mac_type == e1000_82547_rev_2){
++		atomic_inc(&adapter->irq_sem);
++		E1000_WRITE_REG(&adapter->hw, IMC, ~0);
++	}
++
+ 	for(i = 0; i < E1000_MAX_INTR; i++)
+ 		if(unlikely(!e1000_clean_rx_irq(adapter) &
+ 		   !e1000_clean_tx_irq(adapter)))
+ 			break;
++
++	if(hw->mac_type == e1000_82547 || hw->mac_type == e1000_82547_rev_2)
++		e1000_irq_enable(adapter);
+ #endif
  
- 	/* reset the hardware with the new settings */
-	
+ 	return IRQ_HANDLED;	
