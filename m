@@ -1,45 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: r8169: panic on 2.6.11
-Date: Mon, 7 Mar 2005 10:59:36 -0800
-Message-ID: <20050307105936.12bca470@dxpl.pdx.osdl.net>
-References: <20050304132804.270cf05b@dxpl.pdx.osdl.net>
-	<20050304145317.772859da@dxpl.pdx.osdl.net>
-	<20050304230214.GC1148@electric-eye.fr.zoreil.com>
-	<200503041728.54026.jdmason@us.ibm.com>
-	<20050304154903.7b7e0fb1@dxpl.pdx.osdl.net>
-	<20050305003735.GE1148@electric-eye.fr.zoreil.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
+ in case forwarded frame has VLAN-header]
+Date: Mon, 7 Mar 2005 20:36:35 +0100 (CET)
+Message-ID: <Pine.LNX.4.62.0503072034340.5934@kaber.coreworks.de>
+References: <20050305141225.GA5180@xi.wantstofly.org>  <4229D98F.9010008@trash.net>
+  <422A0C21.3050709@candelatech.com> <1110199696.1094.1299.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050305003735.GE1148@electric-eye.fr.zoreil.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Ben Greear <greearb@candelatech.com>, leo@yuriev.ru,
+        Lennert Buytenhek <buytenh@wantstofly.org>, shemminger@osdl.org,
+        netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1110199696.1094.1299.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 5 Mar 2005 01:37:35 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+On Mon, 7 Mar 2005, jamal wrote:
 
-> Stephen Hemminger <shemminger@osdl.org> :
-> [...]
-> > Added this and took out "too much work at interrupt message"
-> 
-> Ok (leaks but see below).
-> 
-> > And got this (before it died):
-> > 
-> > eth0: status=803ff0 opts=803ff0 opts2=0 addr=0:106ad012
->                            ^^^^^^
-> 3ff0 would be a ~16k packet. The high weight byte is
-> missing: the descriptor would be strictly somewhere between
-> the first descriptor and the last descriptor for the packet.
-> 
-> opts=80xxxx -> FIFO overflow (*bulb flashes*)
-> 
-> The code does not look pretty there.
+> This is wrong. IEEE priorities are opposite of IETF priorities (as used by
+> skb->prio).
+> Unless you install a prio qdisc and rewrite the priomap, you are screwed.
+> So you should do opposite mapping, i.e something along the lines of
+> VLAN_TCI priority (0..7) to skb->priority (15..8) i,e
+>
+> skb->priority = 15 - vlan_TCI;
 
+The priority should still start at 0. You don't want to create a 16-band
+queue just to have 8 bands unused.
 
-Doesn't come up because it gets that bit set in the normal case.
-
-eth0: Rx ERROR status=328440ff!!!
+Regards
+Patrick
