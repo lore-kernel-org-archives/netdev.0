@@ -1,48 +1,46 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: Hot-plug for pcnet32 ?
-Date: Mon, 19 Jan 2004 12:29:59 -0500 (EST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0401191216290.8974-100000@beohost>
-References: <200401191614.i0JGE9p10337@dyn318364bld.beaverton.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: 8139 resetting problem
+Date: Mon, 19 Jan 2004 09:30:09 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <400BE9F1.9020100@pobox.com>
+References: <Pine.GSO.4.44.0401191248200.8408-100000@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-net@vger.kernel.org, <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <200401191614.i0JGE9p10337@dyn318364bld.beaverton.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Meelis Roos <mroos@linux.ee>
+In-Reply-To: <Pine.GSO.4.44.0401191248200.8408-100000@math.ut.ee>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 19 Jan 2004, Don Fry wrote:
-> > > Any chance that anyone is thinking of adding hot-plug support
-> > > to the pcnet32 driver? 
-> Here is a repeat of a patch to enable PCI Hot Plug for pcnet32.
-
-Errrmmm, you need to much more than that!
-
-Here are a few rules for writing hotremove-safe drivers:
-
-   Don't count on "remove interrupts": hardware may disappear at any time.
-   Always check for 0xffffffff when starting a new hardware operation.
-   This may usually be done very efficiently: in an interrupt handler
-   check for all error status bits with a mask, and in the error
-   handling routine check for missing hardware.
-
-   Analyze the transmit routine routine.  In many cases the driver can
-   "just assume everything will according to plan and leave the room".
-   But if the driver reads from the hardware, it presumably depends on
-   the value and should check for missing hardware.
-
-   Don't forget statistics and ioctl() routines when checking for
-   missing hardware.
-
-   Never have unlimited loops.  Always use an explicit loop limit
-   (e.g. 'boguscnt=1000' or 'work_limit=20') rather than rely on the
-   value in a hardware register changing.
+Meelis Roos wrote:
+> I helped to debug a problem with a onboard realtek (8100B/8139D) NIC in
+> a laptop (Clevo/KAPOK sceleton, sold as Ordi D27 in Estonia). The
+> problem is that sometimes Linux does not initialize the NIC well enough
+> so that I get messages about Tx timed out and DHCP not getting
+> addresses. DHCP server sees requests but the laptop never sees the
+> answers.
+> 
+> Trial and error showed that the problem occurs only when doing hibernate
+> from Windows XP Pro and then (instead of bringing up Windows) booting
+> into Linux. Even soft reboot (or halt from Linux) doesn't cure it. Going
+> back into Windows and doing shutdown or restart cures it.
+> 
+> This happened with different versions of Linux, 2.4.18 Debian, 2.6.0
+> Debian, custom 2.6.0 and Knoppix (whatever version the newest Knoppix
+> uses).
+> 
+> 8139too and rtl8139 drivers in 2.4.18 behaved the same.
+> 
+> Is there anything that the 8139too driver could do to fully reset the
+> card on startup?
 
 
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-914 Bay Ridge Road, Suite 220		Scyld Beowulf cluster systems
-Annapolis MD 21403			410-990-9993
+This is unrelated to 8139too.  8139too completely resets the NIC hardware.
 
+When the machine is in this state, the NIC simply isn't receiving 
+interrupts.  The problem is "higher up", and cannot be solved at the NIC 
+driver level...  i.e. ACPI or BIOS or somesuch.
+
+	Jeff
