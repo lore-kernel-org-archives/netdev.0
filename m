@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 17/18] gcc-3.5: tcp_put_port() fix
-Date: Sun, 25 Jan 2004 03:08:21 -0800
+Subject: [patch 18/18] gcc-3.5: tg3.c warnings
+Date: Sun, 25 Jan 2004 03:08:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401251108.i0PB8Lo25193@mail.osdl.org>
+Message-ID: <200401251108.i0PB8Qo25199@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,40 +11,52 @@ List-Id: netdev.vger.kernel.org
 
 
 
-include/net/tcp.h:741: sorry, unimplemented: inlining failed in call to 'tcp_put_port': function body not available
-net/ipv4/tcp_timer.c:1506: sorry, unimplemented: called from here
-
+drivers/net/tg3.c: In function `tg3_get_regs':                                  drivers/net/tg3.c:5884: warning: use of cast expressions as lvalues is deprecated                                                                               drivers/net/tg3.c:5885: warning: use of cast expressions as lvalues is deprecated                                                                               drivers/net/tg3.c:5886: warning: use of cast expressions as lvalues is deprecated                                                                               drivers/net/tg3.c:5887: warning: use of cast expressions as lvalues is deprecated                                                                               drivers/net/tg3.c:5888: warning: use of cast expressions as lvalues is deprecated                                                                               
 
 
 ---
 
- include/net/tcp.h   |    2 +-
- net/ipv4/tcp_ipv4.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/tg3.c |   16 +++++++++-------
+ 1 files changed, 9 insertions(+), 7 deletions(-)
 
-diff -puN include/net/tcp.h~gcc-35-tcp_put_port-fix include/net/tcp.h
---- 25/include/net/tcp.h~gcc-35-tcp_put_port-fix	2004-01-17 14:37:33.000000000 -0800
-+++ 25-akpm/include/net/tcp.h	2004-01-17 14:37:33.000000000 -0800
-@@ -738,7 +738,7 @@ DECLARE_SNMP_STAT(struct tcp_mib, tcp_st
- #define TCP_ADD_STATS_BH(field, val)	SNMP_ADD_STATS_BH(tcp_statistics, field, val)
- #define TCP_ADD_STATS_USER(field, val)	SNMP_ADD_STATS_USER(tcp_statistics, field, val)
- 
--extern inline void		tcp_put_port(struct sock *sk);
-+extern void			tcp_put_port(struct sock *sk);
- extern void			tcp_inherit_port(struct sock *sk, struct sock *child);
- 
- extern void			tcp_v4_err(struct sk_buff *skb, u32);
-diff -puN net/ipv4/tcp_ipv4.c~gcc-35-tcp_put_port-fix net/ipv4/tcp_ipv4.c
---- 25/net/ipv4/tcp_ipv4.c~gcc-35-tcp_put_port-fix	2004-01-17 14:38:37.000000000 -0800
-+++ 25-akpm/net/ipv4/tcp_ipv4.c	2004-01-17 14:38:50.000000000 -0800
-@@ -313,7 +313,7 @@ static void __tcp_put_port(struct sock *
- 	spin_unlock(&head->lock);
+diff -puN drivers/net/tg3.c~gcc-35-tg3 drivers/net/tg3.c
+--- 25/drivers/net/tg3.c~gcc-35-tg3	2004-01-25 03:01:48.000000000 -0800
++++ 25-akpm/drivers/net/tg3.c	2004-01-25 03:01:48.000000000 -0800
+@@ -5850,10 +5850,12 @@ static int tg3_get_regs_len(struct net_d
+ 	return TG3_REGDUMP_LEN;
  }
  
--inline void tcp_put_port(struct sock *sk)
-+void tcp_put_port(struct sock *sk)
+-static void tg3_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
++static void tg3_get_regs(struct net_device *dev,
++		struct ethtool_regs *regs, void *_p)
  {
- 	local_bh_disable();
- 	__tcp_put_port(sk);
++	u32 *p = _p;
+ 	struct tg3 *tp = dev->priv;
+-	u8 *orig_p = p;
++	u8 *orig_p = _p;
+ 	int i;
+ 
+ 	regs->version = 0;
+@@ -5863,15 +5865,15 @@ static void tg3_get_regs(struct net_devi
+ 	spin_lock_irq(&tp->lock);
+ 	spin_lock(&tp->tx_lock);
+ 
+-#define __GET_REG32(reg)	(*((u32 *)(p))++ = tr32(reg))
++#define __GET_REG32(reg)	(*(p)++ = tr32(reg))
+ #define GET_REG32_LOOP(base,len)		\
+-do {	p = orig_p + (base);			\
++do {	p = (u32 *)(orig_p + (base));		\
+ 	for (i = 0; i < len; i += 4)		\
+ 		__GET_REG32((base) + i);	\
+ } while (0)
+-#define GET_REG32_1(reg)	\
+-do {	p = orig_p + (reg);	\
+-	__GET_REG32((reg));	\
++#define GET_REG32_1(reg)			\
++do {	p = (u32 *)(orig_p + (reg));		\
++	__GET_REG32((reg));			\
+ } while (0)
+ 
+ 	GET_REG32_LOOP(TG3PCI_VENDOR, 0xb0);
 
 _
