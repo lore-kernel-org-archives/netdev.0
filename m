@@ -1,32 +1,42 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Wed, 24 Nov 2004 19:36:41 +0000
-Message-ID: <41A4E2C9.4070502@phekda.gotadsl.co.uk>
-References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com>
+From: Domen Puncer <domen@coderock.org>
+Subject: Re: net/ne2k-pci: module_param conversion
+Date: Wed, 24 Nov 2004 21:43:48 +0100
+Message-ID: <20041124204348.GB4680@nd47.coderock.org>
+References: <E1CVLFE-0002CL-PU@sputnik> <41A4E975.8070102@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Me <rich@phekda.gotadsl.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: janitor@sternwelten.at, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041122213008.GA9618@electric-eye.fr.zoreil.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <41A4E975.8070102@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On 24/11/04 15:05 -0500, Jeff Garzik wrote:
+> janitor@sternwelten.at wrote:
+> >@@ -443,8 +435,7 @@ static void ne2k_pci_reset_8390(struct n
+> > {
+> > 	unsigned long reset_start_time = jiffies;
+> > 
+> >-	if (debug > 1) printk("%s: Resetting the 8390 t=%ld...",
+> >-						  dev->name, jiffies);
+> >+	printk(KERN_INFO "%s: Resetting the 8390 t=%ld...", dev->name, 
+> >jiffies);
+> 
+> 
+> The rest of the patch looks OK.
+> 
+> This chunk changes behavior, by removing the 'if' test.
 
-I don't know if it will help, but FreeBSD's re driver source code is here:
+This was intended.
+Module parameter debug is only used in this test, so i dared removing it.
+3 options:
+- remove this printk
+- don't remove "debug"
+- leave patch as is :-)
 
-http://www.freebsd.org/cgi/cvsweb.cgi/src/sys/dev/re/if_re.c?only_with_tag=HEAD
-
-Have you ever looked at that? It has some interesting comments about the 
-maximum Jumbo packet length and vendor-specific registers in the 8110.
-
-Thanks, bye, Rich =]
-
--- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
-
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+Let me know of your decision, and i'll send a new patch.
+> 
+> 	Jeff
