@@ -1,44 +1,48 @@
-From: Martin Devera <devik@cdi.cz>
-Subject: Re: ANK's PSCHED_TDIFF_SAFE change unmasked old bug (~0UL !=
- 0xFFFFFFFF)
-Date: Thu, 16 May 2002 17:25:06 +0200 (CEST)
+From: Srinivasa Rao Katta <skatta@telegea.com>
+Subject: Hi
+Date: Thu, 16 May 2002 12:46:26 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0205161723230.12674-100000@luxik.cdi.cz>
-References: <200205161459.SAA22026@sex.inr.ac.ru>
+Message-ID: <3CE3E262.2AA7AEA6@telegea.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Dave Miller <davem@sex.inr.ac.ru>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200205161459.SAA22026@sex.inr.ac.ru>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Btw the text below is from gcc 3.0.2 cpp parser:
-/* Find HOST_WIDEST_INT and set its bit size, type and print macros.
-   It will be the largest integer mode supported by the host which may
-   (or may not) be larger than HOST_WIDE_INT.  This must appear after
-   <limits.h> since we only use `long long' if its bigger than a
-   `long' and also if it is supported by macros in limits.h.  For old
-   hosts which don't have a limits.h (and thus won't include it in
-   stage2 cause we don't rerun configure) we assume gcc supports long
-   long.)  Note, you won't get these defined if you don't include
-   {ht}config.h before this file to set the HOST_BITS_PER_* macros. */
 
-and the HOST_WIDEST_INT is used for all arithmetic in CPP.
+Hi,
 
-On Thu, 16 May 2002 kuznet@ms2.inr.ac.ru wrote:
+How are you ?.
 
-> Hello!
->
-> > echo -e "#if ~0UL == 0xffffffff\nTST\n#endif"|gcc -E -
-> > echo -e "#if ~0UL == 0xffffffffffffffff\nTST\n#endif"|gcc -E -
-> >
-> > and the second line displays TST !!
->
-> With old good 2.7.2 this worked...
->
-> Dave, do you know a theory explaining this change in gcc behavior?
->
-> Alexey
->
->
+I have installed Redhat-7.2 on the Dell server.
+
+It was running fine.
+
+I am trying to set my nic card to 100MB full-duplex.
+
+But,It was not succeeded.
+
+Here is the my nic card info.
+
+3Com Corporation 3c905C-TX [Fast Etherlink]
+
+Here is my /etc/modules.conf info.
+------------------------------------
+# cat /etc/modules.conf
+alias parport_lowlevel parport_pc
+alias eth0 3c59x
+alias scsi_hostadapter aic7xxx
+alias sound-slot-0 i810_audio
+post-install sound-slot-0 /bin/aumix-minimal -f /etc/.aumixrc -L
+>/dev/null 2>&1 || :
+pre-remove sound-slot-0 /bin/aumix-minimal -f /etc/.aumixrc -S
+>/dev/null 2>&1 || :
+alias usb-controller usb-uhci
+--------------------------------------
+
+Please advice me,How can I set my nic card for 100mb fullduplex.
+
+
+Thanks,
+Srinivas.
