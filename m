@@ -1,56 +1,53 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: 2.4.26-pre1: SCTP compile error
-Date: Thu, 26 Feb 2004 15:53:58 -0800 (PST)
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: Re: IPSec: can't get IPv6 IPSec working with racoon
+Date: Fri, 27 Feb 2004 10:38:34 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402261533500.19577@localhost.localdomain>
-References: <Pine.LNX.4.58L.0402251605360.5003@logos.cnet>
- <20040226212759.GV5499@fs.tum.de>
+Message-ID: <200402271038.34483.kazunori@miyazawa.org>
+References: <1077713881.793.25.camel@teapot.felipe-alfaro.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Marcelo Tosatti <marcelo.tosatti@cyclades.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: NetDev Mailinglist <netdev@oss.sgi.com>,
+        Kernel Mailinglist <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@fs.tum.de>
-In-Reply-To: <20040226212759.GV5499@fs.tum.de>
+To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
+In-Reply-To: <1077713881.793.25.camel@teapot.felipe-alfaro.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Feb 2004, Adrian Bunk wrote:
+Hello,
 
-> On Wed, Feb 25, 2004 at 04:09:20PM -0300, Marcelo Tosatti wrote:
-> >...
-> > It contains a big SCTP merge (to match 2.6 API), networking updates,
-> >...
->
-> I got the compile error forwarded below using gcc 2.95.3 .
->
-> cu
-> Adrian
->
->
->
-> ...
-> gcc-2.95 -D__KERNEL__ -I/home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -fomit-frame-pointer -pipe -mpreferred-stack-boundary=2 -march=i686 -malign-functions=4   -nostdinc -iwithprefix include -DKBUILD_BASENAME=ipv6  -c -o ipv6.o ipv6.c
-> In file included from ipv6.c:77:
-> /home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include/net/sctp/sctp.h:119: warning: `MSECS_TO_JIFFIES' redefined
-> /home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include/net/irda/irda.h:89: warning: this is the location of the previous definition
+On 2004/02/25(Wed) 21:58, you wrote:
+> 1. Host A tries to send and ICMPv6 ping echo request to host B, but
+> since there exists a Security Policy that requires the use of ESP/AH,
+> before A can send the ICMPv6 echo request, it must trigger an SA
+> negotiation with host B. To start this SA negotiation, host A needs to
+> know the link-layer address of peer host B:
+>         1.1 Host A sends a Neighbor solicitation message to host B
+>         1.2 Host B tries to send a Neigbor discovery packet, but since
+>         there exists a Security Policy that requires the use of ESP/AH,
+>         before B can send the Neighbor discovery, it triggers SA
+>         negotiation.
+> 
+> This seems to create a loop: host A triggers SA negotiation in first
+> place, but needs to know link-layer address of B, thus it sends a
+> Neighbor solicitation packet which makes host B trigger SA association.
+> Thus, both hosts are trying to establish an SA association, creating a
+> deadlock.
 
-I missed this warning as i don't have irda enabled in my config.
-A simple fix would be to rename the macro in sctp.h to
-SCTP_MSECS_TO_JIFFIES.
+It is well known chicken and egg problem about IPv6 IPsec.
+You can bypass ICMP packet with putting ICMP bypass policies before
+your own policies.
+Then you can not trigger IPsec with ICMP ECHO.
 
-> ipv6.c: In function `sctp_v6_xmit':
-> ipv6.c:189: request for member `in6_u' in something not a structure or union
-> ipv6.c:189: request for member `in6_u' in something not a structure or union
+spdadd fec0::204:75ff:feab:6fcc fec0::2 ipv6-icmp -P out none;
+spdadd fec0::204:75ff:feab:6fcc fec0::2 ipv6-icmp -P in none;
 
-I am not seeing these errors with either gcc3.2.2 or gcc2.96. But, looking at the
-code, this definitely seems to be a problem. Not sure why the newer versions of
-gcc didn't catch them.
+spdadd fec0::204:75ff:feab:6fcc fec0::2 any -P out ipsec
+esp/transport//require ah/transport//require;
+spdadd fec0::2 fec0::204:75ff:feab:6fcc any -P in  ipsec
+esp/transport//require ah/transport//require;
 
-looks like while backporting from 2.6, i missed the fact that in 2.4, fl6_src,
-fl6_dst in struct flowi are pointers to struct in6_addr.
-
-I will work on a patch to fix these issues shortly.
-
-Thanks
-Sridhar
+--Kazunori Miyazawa
