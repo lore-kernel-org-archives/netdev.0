@@ -1,54 +1,35 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6] missing s/dev->priv/netdev_priv(dev) in drivers/net/pcmcia/
-Date: Wed, 24 Mar 2004 17:25:33 -0500
+Subject: Re: [PATCH 0/4] 2.6.5-rc2 - epic100 update
+Date: Mon, 22 Mar 2004 19:12:19 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40620ADD.90307@pobox.com>
-References: <200403242315.53770.daniel.ritz@gmx.ch>
+Message-ID: <405F80E3.1070602@pobox.com>
+References: <20040320152109.A31118@electric-eye.fr.zoreil.com> <20040323005021.A1715@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: daniel.ritz@gmx.ch
-In-Reply-To: <200403242315.53770.daniel.ritz@gmx.ch>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040323005021.A1715@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Daniel Ritz wrote:
-> clean up the last two instances of dev->priv in drivers/net/pcmcia.
-> against 2.6.5-rc2-bk.
+Francois Romieu wrote:
+> Schedule:
 > 
-> --- 1.27/drivers/net/pcmcia/3c589_cs.c	Wed Mar  3 01:03:51 2004
-> +++ edited/drivers/net/pcmcia/3c589_cs.c	Wed Mar 24 22:29:35 2004
-> @@ -716,7 +716,7 @@
->  	  "status %4.4x.\n", dev->name, (long)skb->len,
->  	  inw(ioaddr + EL3_STATUS));
->  
-> -    ((struct el3_private *)dev->priv)->stats.tx_bytes += skb->len;
-> +    ((struct el3_private *)netdev_priv(dev))->stats.tx_bytes += skb->len;
->  
->      /* Put out the doubleword header... */
->      outw(skb->len, ioaddr + TX_FIFO);
-> --- 1.24/drivers/net/pcmcia/ibmtr_cs.c	Wed Mar  3 01:06:03 2004
-> +++ edited/drivers/net/pcmcia/ibmtr_cs.c	Wed Mar 24 22:29:51 2004
-> @@ -444,7 +444,7 @@
->          link->state &= ~DEV_PRESENT;
->          if (link->state & DEV_CONFIG) {
->  	    /* set flag to bypass normal interrupt code */
-> -	    ((struct tok_info *)dev->priv)->sram_virt |= 1;
-> +	    ((struct tok_info *)netdev_priv(dev))->sram_virt |= 1;
->  	    netif_device_detach(dev);
->  	    ibmtr_release(link);
+> - epic100-fixup.patch:   opportunistic cleanup
+> - epic100-napi-00.patch: code shuffling before the move
+> - epic100-napi-10.patch: rx napi (includes netif_running change)
+> - epic100-napi-20.patch: minimalistic tx napi
+> 
+> 2.6.5-rc2 and 2.6.5-rc2-mm1 contain the same drivers/net/epic100.c
+> so the patches should apply equally to both.
+> 
+> The driver has been moderately tested. 
 
+Thanks.
 
-although the patch is OK, the code itself is a bit yucky.
-
-Can you please create a temporary variable, of struct el3_private or 
-tok_info type, and eliminate that cast?
-
-struct el3_private *priv = netdev_priv(dev);
-priv->stats.tx_bytes += skb->len;
-
-Much nicer :)
+Applied to my netdev-2.6 queue, and so it should automatically appear in 
+Andrew's -mm tree soon.
 
 	Jeff
