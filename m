@@ -1,30 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 2.6.9-rc3] 3c59x: reload EEPROM values at rmmod for needy
- cards
-Date: Fri, 15 Oct 2004 15:33:33 -0400
+From: akepner@sgi.com
+Subject: Re: [Patch 3/3 2.4] e1000: Update Documentation/networking/e1000.txt
+Date: Fri, 15 Oct 2004 12:20:48 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4170260D.9010905@pobox.com>
-References: <20040928145455.C12480@tuxdriver.com> <Pine.LNX.4.44.0409291253510.1746-100000@training.scyld.com> <20040930091407.A10417@tuxdriver.com> <20041007134601.B29517@tuxdriver.com> <20041008123955.E14378@tuxdriver.com>
+Message-ID: <Pine.LNX.4.33.0410151153120.31839-100000@localhost.localdomain>
+References: <ckp6tr$nrg$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, Donald Becker <becker@scyld.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
-In-Reply-To: <20041008123955.E14378@tuxdriver.com>
+To: Jason Lunz <lunz@falooley.org>
+In-Reply-To: <ckp6tr$nrg$1@sea.gmane.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-John W. Linville wrote:
-> Enable reload of EEPROM values in reset at rmmod for cards that need
-> it, similar to old EEPROM_NORESET flag but in reverse.
+On Fri, 15 Oct 2004, Jason Lunz wrote:
+
+> ganesh.venkatesan@intel.com said:
+> > +          This sets the InterruptThrottleRate to 3000 interrupts/sec for the 
+> > +          first, second, and third instances of the driver. The range of 2000 to 
+> > +          3000 interrupts per second works on a majority of systems and is a 
+> > +          good starting point, but the optimal value will be platform-specific. 
+> > +          If CPU utilization is not a concern, use RX_POLLING (NAPI) and default 
+> > +          driver settings.
 > 
-> Signed-of-by: John W. Linville <linville@tuxdriver.com>
+> I don't understand this bit. Isn't the point of NAPI to disable rx
+> interrupts entirely, and only gather as many frames from the driver as
+> CPU time permits? That's supposed to limit network-rx CPU usage, not
+> increase it as the above paragraph implies.
 
-Andrew... ack/nak?
+In my experience (on Altix systems, so that experience may be 
+somewhat atypical), NAPI results in few (2-7) packets processed 
+per interrupt, so the interrupt rate (and CPU utilization) can be 
+very high. Interrupt coalescence is much better in both of these 
+respects.
 
-Seems OK to me, provided that it chills out in -mm for a while for 
-people to test.
-
-	Jeff
+-- 
+Arthur
