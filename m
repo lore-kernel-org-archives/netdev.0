@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [BK] Typhoon net driver fixes for 2.4
-Date: 27 Jun 2003 00:52:43 -0400
+Subject: [BK] Typhoon net driver fixes for 2.5
+Date: 27 Jun 2003 00:52:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1056689562.8679.36.camel@ori.thedillows.org>
+Message-ID: <1056689571.8679.42.camel@ori.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -14,7 +14,7 @@ List-Id: netdev.vger.kernel.org
 
 Jeff, please do a
 
-	bk pull http://typhoon.bkbits.net/typhoon-2.4
+	bk pull http://typhoon.bkbits.net/typhoon-2.5
 
 This will update the following files:
 
@@ -23,6 +23,6 @@ This will update the following files:
 
 through these ChangeSets:
 
-<dave@thedillows.org> (03/06/27 1.1029)
+<dave@thedillows.org> (03/06/27 1.1387)
    Fix misreporting of card type and spurious
    "already scheduled" messages.
