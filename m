@@ -1,46 +1,40 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: Re: [PATCH] USAGI IPsec
-Date: Sat, 12 Oct 2002 14:16:50 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20021012121650.GA10827@outpost.ds9a.nl>
-References: <20021012.114330.78212112.yoshfuji@linux-ipv6.org> <20021011.194108.102576152.davem@redhat.com> <20021012111759.GA10104@outpost.ds9a.nl> <20021012.044137.42774593.davem@redhat.com>
+From: "Princess Rose Ike" <ikerose@uymail.com>
+Subject: PRIVATE
+Date: Sat, 12 Oct 2002 14:03:00 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200210121255.g9CCtTtG029144@oss.sgi.com>
+Reply-To: princess_roseike@mail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20021012.044137.42774593.davem@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 12, 2002 at 04:41:37AM -0700, David S. Miller wrote:
+IN VIEW OF YOUR PROFESSION
 
-> Also the idea Alexey and I have to move towards a small
-> efficient flow cache shared by IPv4/IPv6 plays into this
-> as well.  There are changesets on their way to Linus tonight
+INTRODUCTION: 
+I am Princess Rose Ike, daughter of Osi Ike, the king of Ogoni Kingdom. I am 23 years old and a graduate of Mass Communication 
+My father was in charge of Reviving royalties from the multi-national oil companies and government on behalf off the oil producing communities in Nigeria before he die.
+But before his death, he called me and told me he has Twelve Million Seven Hundred thousand Dollars (US$12.7M) cash in his possession, specially deposited in AFRICAN DEVELOPMENT BANK GROUP (ADBG).
 
-Some people on #lartc were wondering about the use of a route cache if there
-is only one route. It was reported that a single default route on a system
-that talks to many destinations would lead to a huge route cache, which is
-probably not more efficient than looking up the simple route.
+He advised me not to tell anybody except my mother who is the last wife of the (8) eight wives that he married. My mother did not bear any male child for him.
 
-Would this 'small efficient flow cache' also solve this problem?
+Which implies that all my father's properties, companies etc, we have no share in them because my mother has no male child according to African tradition.
 
-Or is this problem a figment of people's imaginations?
+My father there fore secretly gave me all the relevant document of the said money, and told me that I should use this money with my mother and my younger sisters, because he knows that traditionally, if he dies we cannot get anything, as inheritance.
 
-> The initial ipsec is intended to be simple, singly linked
-> lists for the spd/sad databases etc.  Making the feature
-> freeze is pretty important right now, full blown flow cache
-> is just performance improvement :)
+He importantly advised me that I should seek foreign assistance and that I should not invest this money here in Nigeria because of his other wives and male children who happen to be my elders.
 
-I know a lot of people are hoping that you make the feature freeze. As said
-before, if there is any help you need, just yell.
+I am soliciting for your immediate assistance to get a bungalow for us, wherein will live with my mother and two younger sisters and further advise me where and how I will invest the balance money overseas, possibly on products of your company and other profitable ventures.
 
-Regards,
+I believe that by the special grace of God, you will help us move this money out of African Development Bank Group to any country of your choice where we can invest this money judiciously with you.
 
-bert 
+You are entitled to a reasonable part of this Money based on our agreement, and God will bless you as you help us.  Please reply through my private e-mail princess_roseike@mail.com. Looking forward to hear from you as soon as possible.
 
--- 
-http://www.PowerDNS.com          Versatile DNS Software & Services
-http://www.tk                              the dot in .tk
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+Best Regard,
+
+
+PRINCESS ROSE IKE
+   
