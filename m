@@ -1,23 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 1/2] HFSC: Fix indentations
-Date: Thu, 18 Mar 2004 20:40:55 -0800
+Subject: Re: [PATCH 2/2]: HFSC: Fix requeueing
+Date: Thu, 18 Mar 2004 20:41:57 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040318204055.41a505e3.davem@redhat.com>
-References: <4059D271.2080705@trash.net>
+Message-ID: <20040318204157.23314086.davem@redhat.com>
+References: <4059D327.40300@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4059D271.2080705@trash.net>
+In-Reply-To: <4059D327.40300@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Mar 2004 17:46:41 +0100
+On Thu, 18 Mar 2004 17:49:43 +0100
 Patrick McHardy <kaber@trash.net> wrote:
 
-> this patch fixes broken indentations in HFSC from the u_intXX_t -> uXX 
-> change.
+> This patch fixes requeueing in HFSC. Requeued packets are kept in a
+> high-priority queue which is always dequeued first.
 
-Applied to 2.6.x, do we need this in 2.4.x too?
+Applied, thanks Patrick.
