@@ -1,66 +1,203 @@
-From: Andrew de Quincey <adq@lidskialf.net>
-Subject: Re: wol support in forcedeth v25
-Date: Tue, 20 Apr 2004 12:36:41 +0100
+From: Jon D Mason <jonmason@us.ibm.com>
+Subject: Re: [PATCH] r8169 NAPI addition
+Date: Tue, 20 Apr 2004 09:45:07 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404201236.41188.adq@lidskialf.net>
-References: <Pine.GHP.4.44.0404201259390.24990-100000@elektron.its.tudelft.nl>
+Message-ID: <OF22F0D968.EDCFE67B-ON87256E7C.0053AE89-86256E7C.005628A4@us.ibm.com>
+References: <20040419224911.A17362@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=_mixed 0056289386256E7C_="
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: a.verweij@student.tudelft.nl
-In-Reply-To: <Pine.GHP.4.44.0404201259390.24990-100000@elektron.its.tudelft.nl>
-Content-Disposition: inline
+In-Reply-To: <20040419224911.A17362@electric-eye.fr.zoreil.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 20 April 2004 12:13, Arjen Verweij wrote:
+--=_mixed 0056289386256E7C_=
+Content-Type: text/plain; charset="US-ASCII"
 
-I found how I could get it going again, but its not the right way of doing 
-it.. In nv_close(), if you comment out the lines "nv_stop_rx(dev);" and "if 
-(np->wolenabled) nv_start_rx(dev);", WOL works. 
+>[...]
+>> Unsigned variables are a little bit faster on ppc hardware.  I figgured 
 
-However this isn't the right way to do it, which is why I haven't supplied a 
-patch. What its supposed to do it stop receiving, clear any buffers, then 
-restart receiving again. But this seems to break WOL for some reason. There 
-must be some extra operation required for it all to work properly... I'll 
-keep looking.
+>> that it doesn't matter on x86/x86_64, but would help other 
+architectures.
+>
+>Ok. No objection against an unsigned int or an u32 instead ?
 
-> OK, let me know if you need a guinea pig to test any patches you might
-> have.
+I made them u32's, but in retrospect I should make them "unsigned int" for 
+code uniformity (i.e., the heavy usage of "unsigned long").  Actually, all 
+the driver u32's should be replaced with "unsigned int", and most of the 
+int's should probably be changed as well. I can make those changes if you 
+like, but that is outside the scope of this patch. :-)
+
+
+[...]
+>> I can try and hide as many #ifdefs as possible if you like, just didn't 
+
+>> know your preference. Will do.
 >
-> Regards,
+>(sometimes hch is bored and dissects network patches too :o) )
 >
-> Arjen
+>I have no suggestion for the others #ifdef but at least this one can be
+>isolated.
+
+I made this change.  I will attempt to clean-up the #ifdefs more when I 
+have some free time.
+
+[...]
+>Anything as long as it avoids the indentation of a line in the 
+declaration
+>block.
+
+Removed the indentation.
+
+[...]
+>I fail to see where the Tx interrupts are disabled.
+
+The code will now check for interrupts before it resets the interrupt mask 
+(and not reset it if an interrupt comes in).  However, this won't really 
+be a problem if/when I add Tx to NAPI (which is why the error was there in 
+the first place).
+
+[...]
+>The locking scheme which will be used between ->poll() and ->interrupt()
+>should guarantee some ordering of the registers operations (provided they
+>appear in the locked section). However, if no read is issued, no one 
+knows
+>when the write will actually hit the chipset.
+
+I assume you are referring to the driver being used in weakly ordered 
+memory model machines.  To address this I added a rmb() after the update 
+to the interrupt mask.
+
+>> It might be better to be a user tunable parameter, but I can increase 
+the 
+>> size for NAPI usage.  Any preference as to the ring size?
 >
-> On Tue, 20 Apr 2004, Andrew de Quincey wrote:
-> > On Monday 19 April 2004 21:11, Arjen Verweij wrote:
-> > > Hi,
-> > >
-> > > Is the wol support in forcedeth v25 complete yet? I was trying it with
-> > > the 2.6.5 kernel it came with, tried the new forcedeth driver with a
-> > > 2.6.3 kernel (because firewire seems broken in 2.6.5) however, my box
-> > > will not wake up as of yet.
-> >
-> > You're right! It _was_ working with patch-forced-0.25, but it ain't in
-> > 2.6.5. I'll see if I can spot the problem.
-> >
-> > > According to the source there is a FIXME with a comment about powering
-> > > down the NIC. Does this mean that support for wol is incomplete for
-> > > now? Mind you, I am just curious, this is in no way meant as criticism.
-> >
-> > That would only be for when WOL is NOT used; I think it has to leave the
-> > NIC powered up for WOL to work... and as you say it ain't implemented
-> > yet.
-> >
-> > > On another note, Carl-Daniel mentioned that DEV_NEED_TIMERIRQ might be
-> > > removed from future releases. Is this still the case? Feedback would be
-> > > much appreciated, so I can keep my humble audience up to date on what's
-> > > going on at the wol front.
-> > >
-> > > Thank you guys for your excellent work,
-> > >
-> > > Arjen
-> > > http://atlas.et.tudelft.nl/verwei90/nforce2/index.html
+>256
+
+Done.
+
+>> Actually, I have a copy of the driver that does Tx.  After reading the 
+>> NAPI howto, which states that there is a slight performance degradation 
+
+>> if Tx is NAPI too, I figgured that you would want only Rx.  I can add 
+Tx 
+>> if you like.
+>
+>Separate patches are usually easier to review, yes.
+
+I will add the Tx NAPI to the next version I send you.
+
+
+
+--=_mixed 0056289386256E7C_=
+Content-Type: application/octet-stream; name="Kconfig.diff"
+Content-Disposition: attachment; filename="Kconfig.diff"
+Content-Transfer-Encoding: base64
+
+LS0tIEtjb25maWcub3JpZwkyMDA0LTA0LTIwIDEwOjMxOjE4LjY1MzQzMTkyMCAtMDUwMAorKysg
+S2NvbmZpZwkyMDA0LTA0LTIwIDEwOjMwOjA0Ljg4MTY0NjkzNiAtMDUwMApAQCAtMTk2Miw2ICsx
+OTYyLDEwIEBAIGNvbmZpZyBSODE2OQogCSAgVG8gY29tcGlsZSB0aGlzIGRyaXZlciBhcyBhIG1v
+ZHVsZSwgY2hvb3NlIE0gaGVyZTogdGhlIG1vZHVsZQogCSAgd2lsbCBiZSBjYWxsZWQgcjgxNjku
+ICBUaGlzIGlzIHJlY29tbWVuZGVkLgogCitjb25maWcgUjgxNjlfTkFQSQorCWJvb2wgIlVzZSBS
+eCBQb2xsaW5nIChOQVBJKSAoRVhQRVJJTUVOVEFMKSIKKwlkZXBlbmRzIG9uIFI4MTY5ICYmIEVY
+UEVSSU1FTlRBTCAKKwkKIGNvbmZpZyBTSzk4TElOCiAJdHJpc3RhdGUgIk1hcnZlbGwgWXVrb24g
+Q2hpcHNldCAvIFN5c0tvbm5lY3QgU0stOTh4eCBTdXBwb3J0IgogCWRlcGVuZHMgb24gUENJCg==
+--=_mixed 0056289386256E7C_=
+Content-Type: application/octet-stream; name="r8169.diff"
+Content-Disposition: attachment; filename="r8169.diff"
+Content-Transfer-Encoding: base64
+
+LS0tIHI4MTY5LmMub3JpZwkyMDA0LTA0LTE4IDIyOjUxOjMzLjAwMDAwMDAwMCAtMDUwMAorKysg
+cjgxNjkuYwkyMDA0LTA0LTIwIDEwOjQxOjQzLjA1NDY0NDgyNCAtMDUwMApAQCAtOTMsOCArOTMs
+MTUgQEAgc3RhdGljIGludCBtdWx0aWNhc3RfZmlsdGVyX2xpbWl0ID0gMzI7CiAjZGVmaW5lIFJ4
+UGFja2V0TWF4U2l6ZQkweDA4MDAJLyogTWF4aW11bSBzaXplIHN1cHBvcnRlZCBpcyAxNkstMSAq
+LwogI2RlZmluZSBJbnRlckZyYW1lR2FwCTB4MDMJLyogMyBtZWFucyBJbnRlckZyYW1lR2FwID0g
+dGhlIHNob3J0ZXN0IG9uZSAqLwogCi0jZGVmaW5lIE5VTV9UWF9ERVNDCTY0CS8qIE51bWJlciBv
+ZiBUeCBkZXNjcmlwdG9yIHJlZ2lzdGVycyAqLworI2lmZGVmIENPTkZJR19SODE2OV9OQVBJCisv
+KiBUaGUgbnVtYmVyIG9mIFJ4IGl0ZXJhdGlvbnMgcHJvY2Vzc2VkIChpZiBOQVBJIGVuYWJsZWQp
+ICovCisjZGVmaW5lIFI4MTY5X05BUElfV0VJR0hUCTY0CisKKyNkZWZpbmUgTlVNX1JYX0RFU0MJ
+MjU2CS8qIE51bWJlciBvZiBSeCBkZXNjcmlwdG9yIHJlZ2lzdGVycyAqLworI2Vsc2UKICNkZWZp
+bmUgTlVNX1JYX0RFU0MJNjQJLyogTnVtYmVyIG9mIFJ4IGRlc2NyaXB0b3IgcmVnaXN0ZXJzICov
+CisjZW5kaWYKKyNkZWZpbmUgTlVNX1RYX0RFU0MJNjQJLyogTnVtYmVyIG9mIFR4IGRlc2NyaXB0
+b3IgcmVnaXN0ZXJzICovCiAjZGVmaW5lIFJYX0JVRl9TSVpFCTE1MzYJLyogUnggQnVmZmVyIHNp
+emUgKi8KICNkZWZpbmUgUjgxNjlfVFhfUklOR19CWVRFUwkoTlVNX1RYX0RFU0MgKiBzaXplb2Yo
+c3RydWN0IFR4RGVzYykpCiAjZGVmaW5lIFI4MTY5X1JYX1JJTkdfQllURVMJKE5VTV9SWF9ERVND
+ICogc2l6ZW9mKHN0cnVjdCBSeERlc2MpKQpAQCAtMzQ3LDYgKzM1NCw5IEBAIHN0YXRpYyBpbnQg
+cnRsODE2OV9jbG9zZShzdHJ1Y3QgbmV0X2RldmkKIHN0YXRpYyB2b2lkIHJ0bDgxNjlfc2V0X3J4
+X21vZGUoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7CiBzdGF0aWMgdm9pZCBydGw4MTY5X3R4X3Rp
+bWVvdXQoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7CiBzdGF0aWMgc3RydWN0IG5ldF9kZXZpY2Vf
+c3RhdHMgKnJ0bDgxNjlfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpOworI2lm
+ZGVmIENPTkZJR19SODE2OV9OQVBJCitzdGF0aWMgaW50IHJ0bDgxNjlfcG9sbChzdHJ1Y3QgbmV0
+X2RldmljZSAqZGV2LCBpbnQgKmJ1ZGdldCk7CisjZW5kaWYKIAogc3RhdGljIGNvbnN0IHUxNiBy
+dGw4MTY5X2ludHJfbWFzayA9CiAgICAgUnhVbmRlcnJ1biB8IFJ4T3ZlcmZsb3cgfCBSeEZJRk9P
+dmVyIHwgVHhFcnIgfCBUeE9LIHwgUnhFcnIgfCBSeE9LOwpAQCAtODQwLDYgKzg1MCwxMSBAQCBy
+dGw4MTY5X2luaXRfb25lKHN0cnVjdCBwY2lfZGV2ICpwZGV2LCBjCiAJZGV2LT5pcnEgPSBwZGV2
+LT5pcnE7CiAJZGV2LT5iYXNlX2FkZHIgPSAodW5zaWduZWQgbG9uZykgaW9hZGRyOwogLy8gICAg
+ICBkZXYtPmRvX2lvY3RsICAgICAgICAgICA9IG1paV9pb2N0bDsKKyNpZmRlZiBDT05GSUdfUjgx
+NjlfTkFQSQorCWRldi0+cG9sbCA9IHJ0bDgxNjlfcG9sbDsKKwlkZXYtPndlaWdodCA9IFI4MTY5
+X05BUElfV0VJR0hUOworCXByaW50ayhLRVJOX0lORk8gInI4MTY5IE5BUEkgZW5hYmxlZFxuIik7
+CisjZW5kaWYKIAogCXRwID0gZGV2LT5wcml2OwkJLy8gcHJpdmF0ZSBkYXRhIC8vCiAJdHAtPnBj
+aV9kZXYgPSBwZGV2OwpAQCAtMTMwOSw2ICsxMzI0LDcgQEAgcnRsODE2OV90eF90aW1lb3V0KHN0
+cnVjdCBuZXRfZGV2aWNlICpkZQogCXZvaWQgKmlvYWRkciA9IHRwLT5tbWlvX2FkZHI7CiAJdTgg
+dG1wODsKIAorCXByaW50ayhLRVJOX0lORk8gIiVzOiBUWCBUaW1lb3V0XG4iLCBkZXYtPm5hbWUp
+OwogCS8qIGRpc2FibGUgVHgsIGlmIG5vdCBhbHJlYWR5ICovCiAJdG1wOCA9IFJUTF9SOChDaGlw
+Q21kKTsKIAlpZiAodG1wOCAmIENtZFR4RW5iKQpAQCAtMTQ0NSwxMiArMTQ2MSwyMiBAQCBzdGF0
+aWMgaW5saW5lIGludCBydGw4MTY5X3RyeV9yeF9jb3B5KHN0CiAJcmV0dXJuIHJldDsKIH0KIAot
+c3RhdGljIHZvaWQKK3N0YXRpYyBpbmxpbmUgdm9pZCBydGw4MTY5X3J4X3NrYihzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiKQoreworI2lmZGVmIENPTkZJR19SODE2OV9OQVBJCisJbmV0aWZfcmVjZWl2ZV9z
+a2Ioc2tiKTsJCQkKKyNlbHNlCisJbmV0aWZfcngoc2tiKTsKKyNlbmRpZgorfQorCitzdGF0aWMg
+aW50IAogcnRsODE2OV9yeF9pbnRlcnJ1cHQoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0
+IHJ0bDgxNjlfcHJpdmF0ZSAqdHAsCiAJCSAgICAgdm9pZCAqaW9hZGRyKQogewogCXVuc2lnbmVk
+IGxvbmcgY3VyX3J4LCByeF9sZWZ0OwogCWludCBkZWx0YTsKKwl1MzIgY291bnQgPSAwOwogCiAJ
+YXNzZXJ0KGRldiAhPSBOVUxMKTsKIAlhc3NlcnQodHAgIT0gTlVMTCk7CkBAIC0xNDU4LDYgKzE0
+ODQsOSBAQCBydGw4MTY5X3J4X2ludGVycnVwdChzdHJ1Y3QgbmV0X2RldmljZSAqCiAKIAljdXJf
+cnggPSB0cC0+Y3VyX3J4OwogCXJ4X2xlZnQgPSBOVU1fUlhfREVTQyArIHRwLT5kaXJ0eV9yeCAt
+IGN1cl9yeDsKKyNpZmRlZiBDT05GSUdfUjgxNjlfTkFQSQorCXJ4X2xlZnQgPSBtaW4ocnhfbGVm
+dCwgKHVuc2lnbmVkIGxvbmcpIGRldi0+cXVvdGEpOworI2VuZGlmCiAKIAl3aGlsZSAocnhfbGVm
+dCA+IDApIHsKIAkJaW50IGVudHJ5ID0gY3VyX3J4ICUgTlVNX1JYX0RFU0M7CkBAIC0xNDk3LDcg
+KzE1MjYsNyBAQCBydGw4MTY5X3J4X2ludGVycnVwdChzdHJ1Y3QgbmV0X2RldmljZSAqCiAKIAkJ
+CXNrYl9wdXQoc2tiLCBwa3Rfc2l6ZSk7CiAJCQlza2ItPnByb3RvY29sID0gZXRoX3R5cGVfdHJh
+bnMoc2tiLCBkZXYpOwotCQkJbmV0aWZfcngoc2tiKTsKKwkJCXJ0bDgxNjlfcnhfc2tiKHNrYik7
+CiAKIAkJCWRldi0+bGFzdF9yeCA9IGppZmZpZXM7CiAJCQl0cC0+c3RhdHMucnhfYnl0ZXMgKz0g
+cGt0X3NpemU7CkBAIC0xNTA2LDE1ICsxNTM1LDE3IEBAIHJ0bDgxNjlfcnhfaW50ZXJydXB0KHN0
+cnVjdCBuZXRfZGV2aWNlICoKIAkJCiAJCWN1cl9yeCsrOyAKIAkJcnhfbGVmdC0tOworCQljb3Vu
+dCsrOwogCX0KIAogCXRwLT5jdXJfcnggPSBjdXJfcng7CiAKIAlkZWx0YSA9IHJ0bDgxNjlfcnhf
+ZmlsbCh0cCwgZGV2LCB0cC0+ZGlydHlfcngsIHRwLT5jdXJfcngpOwotCWlmIChkZWx0YSA+IDAp
+Ci0JCXRwLT5kaXJ0eV9yeCArPSBkZWx0YTsKLQllbHNlIGlmIChkZWx0YSA8IDApCisJaWYgKGRl
+bHRhIDwgMCkgewogCQlwcmludGsoS0VSTl9JTkZPICIlczogbm8gUnggYnVmZmVyIGFsbG9jYXRl
+ZFxuIiwgZGV2LT5uYW1lKTsKKwkJZGVsdGEgPSAwOworCX0KKwl0cC0+ZGlydHlfcnggKz0gZGVs
+dGE7CiAKIAkvKgogCSAqIEZJWE1FOiB1bnRpbCB0aGVyZSBpcyBwZXJpb2RpYyB0aW1lciB0byB0
+cnkgYW5kIHJlZmlsbCB0aGUgcmluZywKQEAgLTE1MjUsNiArMTU1Niw4IEBAIHJ0bDgxNjlfcnhf
+aW50ZXJydXB0KHN0cnVjdCBuZXRfZGV2aWNlICoKIAkgKi8KIAlpZiAodHAtPmRpcnR5X3J4ICsg
+TlVNX1JYX0RFU0MgPT0gdHAtPmN1cl9yeCkKIAkJcHJpbnRrKEtFUk5fRU1FUkcgIiVzOiBSeCBi
+dWZmZXJzIGV4aGF1c3RlZFxuIiwgZGV2LT5uYW1lKTsKKworCXJldHVybiBjb3VudDsKIH0KIAog
+LyogVGhlIGludGVycnVwdCBoYW5kbGVyIGRvZXMgYWxsIG9mIHRoZSBSeCB0aHJlYWQgd29yayBh
+bmQgY2xlYW5zIHVwIGFmdGVyIHRoZSBUeCB0aHJlYWQuICovCkBAIC0xNTU4LDcgKzE1OTEsMTkg
+QEAgcnRsODE2OV9pbnRlcnJ1cHQoaW50IGlycSwgdm9pZCAqZGV2X2lucwogCiAJCS8vIFJ4IGlu
+dGVycnVwdCAKIAkJaWYgKHN0YXR1cyAmIChSeE9LIHwgUnhVbmRlcnJ1biB8IFJ4T3ZlcmZsb3cg
+fCBSeEZJRk9PdmVyKSkgeworI2lmZGVmIENPTkZJR19SODE2OV9OQVBJCisJCQlpZiAobmV0aWZf
+cnhfc2NoZWR1bGVfcHJlcChkZXYpKSB7CisJCQkJUlRMX1cxNihJbnRyTWFzaywgcnRsODE2OV9p
+bnRyX21hc2sgfCAKKwkJCQkJfihSeE9LIHwgUnhVbmRlcnJ1biB8IFJ4T3ZlcmZsb3cgfCBSeEZJ
+Rk9PdmVyKSk7CisJCQkJX19uZXRpZl9yeF9zY2hlZHVsZShkZXYpOworCQkJfSBlbHNlIHsKKwkJ
+CQlwcmludGsoS0VSTl9JTkZPICJkcml2ZXIgYnVnISBpbnRlcnJ1cHQgd2hpbGUgaW4gcG9sbFxu
+Iik7CQorCQkJCVJUTF9XMTYoSW50ck1hc2ssIHJ0bDgxNjlfaW50cl9tYXNrIHwgCisJCQkJCX4o
+UnhPSyB8IFJ4VW5kZXJydW4gfCBSeE92ZXJmbG93IHwgUnhGSUZPT3ZlcikpOworCQkJfQorI2Vs
+c2UKIAkJCXJ0bDgxNjlfcnhfaW50ZXJydXB0KGRldiwgdHAsIGlvYWRkcik7CisjZW5kaWYKIAkJ
+fQogCQkvLyBUeCBpbnRlcnJ1cHQKIAkJaWYgKHN0YXR1cyAmIChUeE9LIHwgVHhFcnIpKSB7CkBA
+IC0xNjkyLDYgKzE3MzcsMzEgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzICpydGw4
+MTY5XwogCXJldHVybiAmdHAtPnN0YXRzOwogfQogCisjaWZkZWYgQ09ORklHX1I4MTY5X05BUEkK
+K3N0YXRpYyBpbnQgcnRsODE2OV9wb2xsKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCAqYnVk
+Z2V0KQoreworCXUzMiBzdGF0dXMsIHdvcmtfZG9uZSA9IDAsIHdvcmtfdG9fZG8gPSBtaW4oKmJ1
+ZGdldCwgZGV2LT5xdW90YSk7CisJc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHAgPSBkZXYtPnBy
+aXY7CisJdm9pZCAqaW9hZGRyID0gdHAtPm1taW9fYWRkcjsKKwkKKwl3b3JrX2RvbmUgPSBydGw4
+MTY5X3J4X2ludGVycnVwdChkZXYsIHRwLCBpb2FkZHIpOworCQorCSpidWRnZXQgLT0gd29ya19k
+b25lOworCWRldi0+cXVvdGEgLT0gd29ya19kb25lOworCQorCWlmICghd29ya19kb25lIHx8ICFu
+ZXRpZl9ydW5uaW5nKGRldikpIHsKKwkJbmV0aWZfcnhfY29tcGxldGUoZGV2KTsKKwkJc3RhdHVz
+ID0gUlRMX1IxNihJbnRyU3RhdHVzKTsKKwkJaWYgKCFzdGF0dXMpIHsKKwkJCVJUTF9XMTYoSW50
+ck1hc2ssIHJ0bDgxNjlfaW50cl9tYXNrKTsKKwkJCXJtYigpOworCQl9CQorCX0KKworCXJldHVy
+biAod29ya19kb25lID49IHdvcmtfdG9fZG8pOworfQorI2VuZGlmCisKIHN0YXRpYyBzdHJ1Y3Qg
+cGNpX2RyaXZlciBydGw4MTY5X3BjaV9kcml2ZXIgPSB7CiAJLm5hbWUJCT0gTU9EVUxFTkFNRSwK
+IAkuaWRfdGFibGUJPSBydGw4MTY5X3BjaV90YmwsCg==
+--=_mixed 0056289386256E7C_=--
