@@ -1,60 +1,146 @@
-From: Chris <Save_Your_Skin@hotmail.com>
-Subject: New Email Address
-Date: Wed, 27 Aug 2003 19:38:25 -0700
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] fix ipvs printk parameter types
+Date: Wed, 27 Aug 2003 22:02:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20030827193759.00a0aec0@hotmail.com>
+Message-ID: <20030827220212.7ccf6ddf.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: wensong@linuxvirtualserver.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Save_your_Skin@hotmail.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi guys! I've just joined a new company,
-MicroDermAbrader=AE Home MicroDermAbrasion Systems,
-and I've got a new email address with them:
 
-Chris@microdermabrader.com
+Hi,
+Please apply.
+
+patch_name:	ipvs_sizes.patch
+patch_version:	2003-08-27.18:16:43
+author:		Randy.Dunlap <rddunlap@osdl.org>
+description:	ipvs: fix gcc warnings of mismatched printk parameter types;
+product:	Linux
+product_versions: 260-test4
+maintainer:	Wensong Zhang <wensong@linuxvirtualserver.org> (?)
+diffstat:	=
+ net/ipv4/ipvs/ip_vs_conn.c  |    2 +-
+ net/ipv4/ipvs/ip_vs_dh.c    |    4 ++--
+ net/ipv4/ipvs/ip_vs_lblc.c  |    4 ++--
+ net/ipv4/ipvs/ip_vs_lblcr.c |    4 ++--
+ net/ipv4/ipvs/ip_vs_sh.c    |    4 ++--
+ net/ipv4/ipvs/ip_vs_sync.c  |    2 +-
+ 6 files changed, 10 insertions(+), 10 deletions(-)
+
+diff -Naur ./net/ipv4/ipvs/ip_vs_conn.c~ipvssize ./net/ipv4/ipvs/ip_vs_conn.c
+--- ./net/ipv4/ipvs/ip_vs_conn.c~ipvssize	Fri Aug 22 16:59:44 2003
++++ ./net/ipv4/ipvs/ip_vs_conn.c	Wed Aug 27 10:02:37 2003
+@@ -837,7 +837,7 @@
+ 		   "(size=%d, memory=%ldKbytes)\n",
+ 		   IP_VS_CONN_TAB_SIZE,
+ 		   (long)(IP_VS_CONN_TAB_SIZE*sizeof(struct list_head))/1024);
+-	IP_VS_DBG(0, "Each connection entry needs %d bytes at least\n",
++	IP_VS_DBG(0, "Each connection entry needs %Zd bytes at least\n",
+ 		  sizeof(struct ip_vs_conn));
+ 
+ 	for (idx = 0; idx < IP_VS_CONN_TAB_SIZE; idx++) {
+diff -Naur ./net/ipv4/ipvs/ip_vs_lblc.c~ipvssize ./net/ipv4/ipvs/ip_vs_lblc.c
+--- ./net/ipv4/ipvs/ip_vs_lblc.c~ipvssize	Fri Aug 22 16:59:37 2003
++++ ./net/ipv4/ipvs/ip_vs_lblc.c	Wed Aug 27 10:18:35 2003
+@@ -396,7 +396,7 @@
+ 		return -ENOMEM;
+ 	}
+ 	svc->sched_data = tbl;
+-	IP_VS_DBG(6, "LBLC hash table (memory=%dbytes) allocated for "
++	IP_VS_DBG(6, "LBLC hash table (memory=%Zdbytes) allocated for "
+ 		  "current service\n",
+ 		  sizeof(struct ip_vs_lblc_table));
+ 
+@@ -436,7 +436,7 @@
+ 
+ 	/* release the table itself */
+ 	kfree(svc->sched_data);
+-	IP_VS_DBG(6, "LBLC hash table (memory=%dbytes) released\n",
++	IP_VS_DBG(6, "LBLC hash table (memory=%Zdbytes) released\n",
+ 		  sizeof(struct ip_vs_lblc_table));
+ 
+ 	return 0;
+diff -Naur ./net/ipv4/ipvs/ip_vs_lblcr.c~ipvssize ./net/ipv4/ipvs/ip_vs_lblcr.c
+--- ./net/ipv4/ipvs/ip_vs_lblcr.c~ipvssize	Fri Aug 22 16:58:50 2003
++++ ./net/ipv4/ipvs/ip_vs_lblcr.c	Wed Aug 27 10:19:24 2003
+@@ -649,7 +649,7 @@
+ 		return -ENOMEM;
+ 	}
+ 	svc->sched_data = tbl;
+-	IP_VS_DBG(6, "LBLCR hash table (memory=%dbytes) allocated for "
++	IP_VS_DBG(6, "LBLCR hash table (memory=%Zdbytes) allocated for "
+ 		  "current service\n",
+ 		  sizeof(struct ip_vs_lblcr_table));
+ 
+@@ -692,7 +692,7 @@
+ 
+ 	/* release the table itself */
+ 	kfree(svc->sched_data);
+-	IP_VS_DBG(6, "LBLCR hash table (memory=%dbytes) released\n",
++	IP_VS_DBG(6, "LBLCR hash table (memory=%Zdbytes) released\n",
+ 		  sizeof(struct ip_vs_lblcr_table));
+ 
+ 	return 0;
+diff -Naur ./net/ipv4/ipvs/ip_vs_sh.c~ipvssize ./net/ipv4/ipvs/ip_vs_sh.c
+--- ./net/ipv4/ipvs/ip_vs_sh.c~ipvssize	Fri Aug 22 16:58:07 2003
++++ ./net/ipv4/ipvs/ip_vs_sh.c	Wed Aug 27 10:30:04 2003
+@@ -144,7 +144,7 @@
+ 		return -ENOMEM;
+ 	}
+ 	svc->sched_data = tbl;
+-	IP_VS_DBG(6, "SH hash table (memory=%dbytes) allocated for "
++	IP_VS_DBG(6, "SH hash table (memory=%Zdbytes) allocated for "
+ 		  "current service\n",
+ 		  sizeof(struct ip_vs_sh_bucket)*IP_VS_SH_TAB_SIZE);
+ 
+@@ -164,7 +164,7 @@
+ 
+ 	/* release the table itself */
+ 	kfree(svc->sched_data);
+-	IP_VS_DBG(6, "SH hash table (memory=%dbytes) released\n",
++	IP_VS_DBG(6, "SH hash table (memory=%Zdbytes) released\n",
+ 		  sizeof(struct ip_vs_sh_bucket)*IP_VS_SH_TAB_SIZE);
+ 
+ 	return 0;
+diff -Naur ./net/ipv4/ipvs/ip_vs_sync.c~ipvssize ./net/ipv4/ipvs/ip_vs_sync.c
+--- ./net/ipv4/ipvs/ip_vs_sync.c~ipvssize	Fri Aug 22 16:50:52 2003
++++ ./net/ipv4/ipvs/ip_vs_sync.c	Wed Aug 27 12:14:47 2003
+@@ -851,7 +851,7 @@
+ 		return -EEXIST;
+ 
+ 	IP_VS_DBG(7, "%s: pid %d\n", __FUNCTION__, current->pid);
+-	IP_VS_DBG(7, "Each ip_vs_sync_conn entry need %d bytes\n",
++	IP_VS_DBG(7, "Each ip_vs_sync_conn entry need %Zd bytes\n",
+ 		  sizeof(struct ip_vs_sync_conn));
+ 
+ 	ip_vs_sync_state |= state;
+diff -Naur ./net/ipv4/ipvs/ip_vs_dh.c~ipvssize ./net/ipv4/ipvs/ip_vs_dh.c
+--- ./net/ipv4/ipvs/ip_vs_dh.c~ipvssize	Wed Aug 27 12:18:00 2003
++++ ./net/ipv4/ipvs/ip_vs_dh.c	Wed Aug 27 12:18:31 2003
+@@ -147,7 +147,7 @@
+ 		return -ENOMEM;
+ 	}
+ 	svc->sched_data = tbl;
+-	IP_VS_DBG(6, "DH hash table (memory=%dbytes) allocated for "
++	IP_VS_DBG(6, "DH hash table (memory=%Zdbytes) allocated for "
+ 		  "current service\n",
+ 		  sizeof(struct ip_vs_dh_bucket)*IP_VS_DH_TAB_SIZE);
+ 
+@@ -167,7 +167,7 @@
+ 
+ 	/* release the table itself */
+ 	kfree(svc->sched_data);
+-	IP_VS_DBG(6, "DH hash table (memory=%dbytes) released\n",
++	IP_VS_DBG(6, "DH hash table (memory=%Zdbytes) released\n",
+ 		  sizeof(struct ip_vs_dh_bucket)*IP_VS_DH_TAB_SIZE);
+ 
+ 	return 0;
 
 
-If you know anyone who wants to get a discount on a home microdermabrasio=
-n=20
-kit, they can use my discount number and get $5 off.
-
-
-Just go to www.microdermabrader.com and use this password code:
-User: Chris
-Password: MDA00002
-
-
-These things are great and really affordable. Microdermabrasion for the m=
-asses!
-
-Also, the company is looking for new distributors and sales outlets.
-
-If you know anyone who wants to make some serious money, or has a point o=
-f=20
-sale which is good to sell home microdermabrasion kits, have them go to:
-
-www.microdermabrader.biz
-
-and have them use my password code I gave you above.
-
-
-Best wishes,
-
-
-Chris
-
-
-P.S. I've been sending out my new e-mail address to everyone in my compan=
-y=20
-address book. If you received this e-mail by mistake, or don't want to be=
-=20
-in my address book anymore, then just reply to this e-mail with "REMOVE" =
-in=20
-the subject header and I'll take you off my address list immediately. If=20
-so, I'm sorry to have sent you this by mistake, please excuse me, may God=
-=20
-bless, and have a great day!
+--
+~Randy
