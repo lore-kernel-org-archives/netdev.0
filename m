@@ -1,10 +1,10 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NETLINK] Check netlink_insert in kernel_create
-Date: Thu, 28 Oct 2004 13:07:00 +1000
+Subject: [XFRM] Don't panic in xfrm_user_init
+Date: Thu, 28 Oct 2004 13:16:40 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028030700.GA14181@gondor.apana.org.au>
+Message-ID: <20041028031640.GA14317@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="AqsLC8rIMeq19msA"
+Content-Type: multipart/mixed; boundary="3V7upXqbjpZ4EhLz"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Content-Disposition: inline
@@ -12,17 +12,17 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---AqsLC8rIMeq19msA
+--3V7upXqbjpZ4EhLz
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi:
 
-This patch checks the return value of netlink_insert() in
-netlink_kernel_create().  It could fail if someone loads
-the same module twice for instance.
+Since xfrm_user can be built as a module it's best not to panic
+when something goes wrong in xfrm_user_init.  Call me a wimp for
+not fixing netlink_kernel_init's return value :)
 
-Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au> 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Cheers,
 -- 
@@ -31,24 +31,22 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---AqsLC8rIMeq19msA
+--3V7upXqbjpZ4EhLz
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
-===== net/netlink/af_netlink.c 1.57 vs edited =====
---- 1.57/net/netlink/af_netlink.c	2004-10-20 15:10:40 +10:00
-+++ edited/net/netlink/af_netlink.c	2004-10-28 13:00:33 +10:00
-@@ -876,7 +876,10 @@
- 	if (input)
- 		nlk_sk(sk)->data_ready = input;
+===== net/xfrm/xfrm_user.c 1.48 vs edited =====
+--- 1.48/net/xfrm/xfrm_user.c	2004-09-11 07:35:53 +10:00
++++ edited/net/xfrm/xfrm_user.c	2004-10-28 13:13:01 +10:00
+@@ -1232,8 +1232,7 @@
  
--	netlink_insert(sk, 0);
-+	if (netlink_insert(sk, 0)) {
-+		sock_release(sock);
-+		return NULL;
-+	}
- 	return sk;
- }
+ 	xfrm_nl = netlink_kernel_create(NETLINK_XFRM, xfrm_netlink_rcv);
+ 	if (xfrm_nl == NULL)
+-		panic("xfrm_user_init: cannot initialize xfrm_nl\n");
+-
++		return -ENOMEM;
+ 
+ 	xfrm_register_km(&netlink_mgr);
  
 
---AqsLC8rIMeq19msA--
+--3V7upXqbjpZ4EhLz--
