@@ -1,50 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH PKT_SCHED 0/22]: tc action cleanups
-Date: Mon, 10 Jan 2005 22:21:04 +0100
-Message-ID: <41E2F1C0.90505@trash.net>
-References: <41E2D97A.1060400@trash.net> <1105391297.1084.54.camel@jzny.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] use rtnl_lock_interruptible in 8139 to avoid
+ shutdown hang
+Date: Mon, 10 Jan 2005 13:37:14 -0800
+Message-ID: <20050110133714.023aa21b.davem@davemloft.net>
+References: <20050109121630.GB19599@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1105391297.1084.54.camel@jzny.localdomain>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20050109121630.GB19599@lst.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+On Sun, 9 Jan 2005 13:16:30 +0100
+Christoph Hellwig <hch@lst.de> wrote:
 
->On Mon, 2005-01-10 at 14:37, Patrick McHardy wrote:
->
->>Hi Jamal,
->>
->>following are the reorganized tc action cleanup patches with some
->>additional fixes. Please review and comment, I would like to ask
->>Dave to pull them in soon so I don't get more clashes.
->>
->>
->
->Other than the ipt breakage fix - Is there anything new since our last
->discussion that you want me to pay attention to? 
->Sorry dont have the cycles to pay close attention today. Will do
->tommorow. 
->
+> The 8139too thread needs to use rtnl_lock_interruptible so it can avoid
+> doing the actual work once it's been kill_proc()ed on module removal
+> time.
+> 
+> Based on debugging and an earlier patch that adds a driver-private
+> semaphore from Herbert Xu.
 
-There are a couple of new things, more noteable more action init fixes,
-but nothing that needs special attention.
-
->You seem to also have touched some police code this time (I suppose the
->LinuxWay payoff time is here).So, if you want me to pay close attention
->to specific items i will; otherwise i would suggest that Dave sucks them
->in, then we can resolve things later.
->
-The police fixes are basically the same as for the other actions.
-Some more review can't hurt, but I think we can put them in now.
-
-Dave, please pull in the changes from bk://212.42.230.204/net-2.6-sched
-
-Regards
-Patrick
+I've applied these two patches, they look perfectly fine.
+Thanks Christoph.
