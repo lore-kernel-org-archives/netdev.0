@@ -1,60 +1,50 @@
 From: Olaf Kirch <okir@suse.de>
 Subject: Re: [PATCH] Deadlock in af_packet/packet_rcv
-Date: Tue, 30 Nov 2004 11:48:04 +0100
-Message-ID: <20041130104804.GC16970@suse.de>
-References: <20041125205503.GA18083@suse.de> <20041129200220.25ff3f7a.davem@davemloft.net>
+Date: Tue, 30 Nov 2004 12:01:10 +0100
+Message-ID: <20041130110110.GD16970@suse.de>
+References: <20041125205503.GA18083@suse.de> <41AC3E2F.2030003@tpack.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YiEDa0DAkWCtVeE4"
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Tommy Christensen <tommy.christensen@tpack.net>
 Content-Disposition: inline
-In-Reply-To: <20041129200220.25ff3f7a.davem@davemloft.net>
+In-Reply-To: <41AC3E2F.2030003@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, Nov 30, 2004 at 10:32:31AM +0100, Tommy Christensen wrote:
+> An interrupt handler shouldn't call dev_queue_xmit() directly. If
+> this indeed happens, it needs to be fixed. Which handler is this?
 
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The call path according to KDB goes like this:
 
-On Mon, Nov 29, 2004 at 08:02:20PM -0800, David S. Miller wrote:
-> If it's only the dev_queue_xmit_nit() handlers which all want
-> BHs disabled, why don't we just disable BHs in that function?
+	application does sendmsg()
+	udp_push_pending_frames 
+	ip_push_pending_frames 
+	ip_output 
+	dev_queue_xmit 
+	dev_queue_xmit_nit 
+		calls ptype->func(skb2, skb->dev, ptype),
+		where func=packet_rcv 
+	packet_rcv (and this runs with BHs enabled)
+		take the &sk->sk_receive_queue spinlock 
+*** timer interrupt
+	net_tx_action
+		take the dev->queue_lock spin lock
+	qdisc_run
+	qdisc_restart
+	dev_queue_xmit_nit
+		as above
+	packet_rcv
+		blocks on the &sk->sk_receive_queue spinlock
 
-That was my original fix (see attachment), but Andi Kleen suggested to
-actually disable BHs at that level; I think as a matter of caution.
+Before lockless-loopback this never triggered because we did a
+spin_lock_bh(&dev->xmit_lock) around the call to dev_queue_xmit_nit.
 
 Olaf
 -- 
 Olaf Kirch     | Things that make Monday morning interesting, #2:
 okir@suse.de   |        "We have 8,000 NFS mount points, why do we keep
 ---------------+ 	 running out of privileged ports?"
-
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=netdev-xmit
-
-Index: linux-2.6.9/net/core/dev.c
-===================================================================
---- linux-2.6.9.orig/net/core/dev.c	2004-10-18 23:54:08.000000000 +0200
-+++ linux-2.6.9/net/core/dev.c	2004-11-30 11:46:39.000000000 +0100
-@@ -1094,9 +1094,15 @@ void dev_queue_xmit_nit(struct sk_buff *
- 				skb2->nh.raw = skb2->data;
- 			}
- 
-+			/* The packet handler may expect BHs to be disabled,
-+			 * so don't let them down */
-+			local_bh_disable();
-+
- 			skb2->h.raw = skb2->nh.raw;
- 			skb2->pkt_type = PACKET_OUTGOING;
- 			ptype->func(skb2, skb->dev, ptype);
-+
-+			local_bh_enable();
- 		}
- 	}
- 	rcu_read_unlock();
-
---YiEDa0DAkWCtVeE4--
