@@ -1,29 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPSEC] Implement DSCP decapsulation
-Date: Thu, 16 Sep 2004 13:28:22 -0700
+Subject: Re: [PATCH 2.6 NET] Fixes slab corruption in cbq_destroy
+Date: Thu, 16 Sep 2004 13:29:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916132822.0f1ae663.davem@davemloft.net>
-References: <20040916123939.GA3403@gondor.apana.org.au>
+Message-ID: <20040916132923.0ac971f8.davem@davemloft.net>
+References: <20040916132856.GA27293@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, jmorris@redhat.com, netdev@oss.sgi.com
+Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040916123939.GA3403@gondor.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20040916132856.GA27293@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Sep 2004 22:39:39 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Thu, 16 Sep 2004 15:28:56 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> This patch adds DSCP decapsulation for IPsec.  This is enabled by
-> a per-state flag which is off by default.  Leaving it off by default
-> maintains compatibility and is also good for performance reasons.
-> 
-> I decided to not implement a toggle on the output path since not
-> encapsulating the DSCP can and should be done by netfilter.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Fixes slab corruption in cbq_destroy. cbq_destroy_filters and
+> qdisc_put_rtab(q->link.R_tab) are already called in cbq_destroy_class.
+> The latter lead to a slab corruption due to repeated freeing of
+> q->link.R_tab because q->link is part of q->classes. Problem introduced
+> in 1.21.
 
-Looks great.  Patch applied, thanks Herbert.
+Good catch, applied.
