@@ -1,38 +1,42 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: patch: introduce simple actions
-Date: Wed, 23 Mar 2005 03:27:27 +0100
-Message-ID: <4240D40F.107@trash.net>
-References: <1111345551.1095.82.camel@jzny.localdomain>	 <423DCD8C.6030100@trash.net> <1111347345.1094.98.camel@jzny.localdomain>	 <423DD5E6.2020708@trash.net> <1111349853.1093.136.camel@jzny.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Note on wireless development process
+Date: Tue, 22 Mar 2005 21:29:16 -0500
+Message-ID: <4240D47C.8090707@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Thomas Graf <tgraf@suug.ch>
-To: hadi@znyx.com
-In-Reply-To: <1111349853.1093.136.camel@jzny.localdomain>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi Salim wrote:
-> Unfortunately code "augmentation"( as opposed to inheritance - cant
-> think of a better word) is much easier to do this way. The benefit of it
-> is the user gets a very simple programming interface - which is the main
-> reason this was written to begin with. The standard interface exists,
-> and more versed people or someone wanting to write something complex can
-> go that path. At some point i would like to document all this stuff.
 
-I don't think that a simple interface and this cleanup conflict
-with each other.
+Just a general note...  like many other areas of the kernel, there is no 
+wireless roadmap.  There is a set of technical criteria (see '2.6.x 
+wireless update and status' post), but there is no One True Path to 
+follow to get there.
 
-> How about this:
-> I submit this patch (with Thomas cleanup) and the simple action. I will
-> hold onto the 4 other actions i already have some of them complete until
-> you get around to moving things around and then i will redo them to
-> conform. This gets it off my back and we dont have any miscommunication
-> of what you are trying to do. sounds fair?
+People interested in working on wireless need to be their own guides, 
+and find their own path.  There has been endless discussion on wireless, 
+and not much movement.  So asking questions without attaching a patch 
+won't get very far.  The general process is just like any other kernel 
+development process:  post a patch, get feedback, revise patch, lather 
+rinse repeat.
 
-Go ahead, it will be a while before I continue with the cleanups.
+Don't wait for DaveM or me to suddenly post reams of wireless code.  I'm 
+speculating about David's time, but I'm just too darned busy.  David and 
+I play the roles of reviewer and advisor.  It's up to YOU to "scratch 
+the itch" and get world-class wireless support into Linux.
 
-Regards
-Patrick
+With regards to development process, the main point of coordination is 
+the wireless-2.6 queue itself, not a human.  Look at the wireless-2.6 
+tree, consider what your next step is, and go there.  Don't bother 
+thinking too much about code outside that tree (and upstream).
+
+Please direct questions and comments to the netdev@oss.sgi.com mailing 
+list, rather than privately emailing me or DaveM.  That way knowledge is 
+shared, debated, and archived.
+
+	Jeff
