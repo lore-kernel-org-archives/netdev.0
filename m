@@ -1,8 +1,8 @@
 From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: [PATCH 2.6.9-rc2 6/12] S2io: new txd allocation
-Date: Thu, 28 Oct 2004 11:34:17 -0700
+Subject: [PATCH 2.6.9-rc2 2/12] S2io: sw bug fixes
+Date: Thu, 28 Oct 2004 11:33:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <001201c4bd1c$c92fe630$9810100a@S2IOtech.com>
+Message-ID: <000e01c4bd1c$b25c3da0$9810100a@S2IOtech.com>
 Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -19,359 +19,214 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-The attached patch contains a modified scheme for allocating Tx descriptor
-blocks.
-More description follows.
+Attached is the second patch in this submission. It contains the following
+software bug fixes.
 
-In the old scheme, the entire Tx descriptor space was allocated in one go. This could cause driver load to fail on systems with
-low(or scattered) memory. The Tx descriptor blocks are now allocated on per-page basis. A new structure (list_info) has been
-introduced in nic_t structure to keep track of the physical and virtual addresses of every TxD allocated this way.
+1. In free_rx_buffers clearing out RxDs not owned by Xena.
+
+2. In alarm_intr_handler, when a serr error occurs, schedule a task to reset the card rather than stopping Tx queue.
+
+3. In s2io_close freeing IRQ before calling s2io_reset also added a new call to flush queued tasks. This is not done if the
+s2io_close itself is called from a queued task like s2io_restart_nic.
+
+4. read_eeprom function has been changed such that data to be returned is sent as an input argument and the return value represents
+a pass/fail. The previous implementation as Randy had pointed out was error prone as on failure it returned -1 which can be
+interpreted as all ff's, so any data area which contained ff's in the eeprom was likely to be treated as an error.
+
+5. Added a flag "task_flag" to track if the call to s2io_close is coming from the s2io_restart_nic function or from the ifconfig
+<I/F> down called by user.
+
+6. Moved register_netdev call from just after setting entry points to the end of the s2io_init_nic function.
+
+7. In s2io.h field added a new member into the s2io_nic structure called "task_flag".
+
 
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
 ---
 diff -urN vanilla-linux/drivers/net/s2io.c linux-2.6.8.1/drivers/net/s2io.c
---- vanilla-linux/drivers/net/s2io.c	2004-10-11 16:49:34.000000000 -0700
-+++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-11 17:20:24.000000000 -0700
-@@ -305,6 +305,9 @@
-       remove:__devexit_p(s2io_rem_nic),
- };
+--- vanilla-linux/drivers/net/s2io.c	2004-10-06 15:18:10.000000000 -0700
++++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-06 16:19:52.821420504 -0700
+@@ -1525,6 +1525,11 @@
+ 				blk++;
+ 			}
 
-+/* A simplifier macro used both by init and free shared_mem Fns(). */
-+#define TXD_MEM_PAGE_CNT(len, per_each) ((len+per_each - 1) / per_each)
-+
- /**
-  * init_shared_mem - Allocation and Initialization of Memory
-  * @nic: Device private variable.
-@@ -320,6 +323,7 @@
- 	dma_addr_t tmp_p_addr, tmp_p_addr_next;
- 	RxD_block_t *pre_rxd_blk = NULL;
- 	int i, j, blk_cnt;
-+	int lst_size, lst_per_page;
- 	struct net_device *dev = nic->dev;
-
- 	mac_info_t *mac_control;
-@@ -341,39 +345,55 @@
- 		DBG_PRINT(ERR_DBG, "that can be used\n");
- 		return FAILURE;
- 	}
--	size *= (sizeof(TxD_t) * config->max_txds);
-
--	mac_control->txd_list_mem = pci_alloc_consistent
--	    (nic->pdev, size, &mac_control->txd_list_mem_phy);
--	if (!mac_control->txd_list_mem) {
--		return -ENOMEM;
--	}
--	mac_control->txd_list_mem_sz = size;
--
--	tmp_v_addr = mac_control->txd_list_mem;
--	tmp_p_addr = mac_control->txd_list_mem_phy;
--	memset(tmp_v_addr, 0, size);
--
--	DBG_PRINT(INIT_DBG, "%s:List Mem PHY: 0x%llx\n", dev->name,
--		  (unsigned long long) tmp_p_addr);
-+	lst_size = (sizeof(TxD_t) * config->max_txds);
-+	lst_per_page = PAGE_SIZE / lst_size;
-
- 	for (i = 0; i < config->tx_fifo_num; i++) {
--		mac_control->txdl_start_phy[i] = tmp_p_addr;
--		mac_control->txdl_start[i] = (TxD_t *) tmp_v_addr;
-+		int fifo_len = config->tx_cfg[i].fifo_len;
-+		int list_holder_size = fifo_len * sizeof(list_info_hold_t);
-+		nic->list_info[i] = kmalloc(list_holder_size, GFP_KERNEL);
-+		if (!nic->list_info[i]) {
-+			DBG_PRINT(ERR_DBG,
-+				  "Malloc failed for list_info\n");
-+			return -ENOMEM;
-+		}
-+		memset(nic->list_info[i], 0, list_holder_size);
-+	}
-+	for (i = 0; i < config->tx_fifo_num; i++) {
-+		int page_num = TXD_MEM_PAGE_CNT(config->tx_cfg[i].fifo_len,
-+						lst_per_page);
- 		mac_control->tx_curr_put_info[i].offset = 0;
- 		mac_control->tx_curr_put_info[i].fifo_len =
- 		    config->tx_cfg[i].fifo_len - 1;
- 		mac_control->tx_curr_get_info[i].offset = 0;
- 		mac_control->tx_curr_get_info[i].fifo_len =
- 		    config->tx_cfg[i].fifo_len - 1;
--
--		tmp_p_addr +=
--		    (config->tx_cfg[i].fifo_len * (sizeof(TxD_t)) *
--		     config->max_txds);
--		tmp_v_addr +=
--		    (config->tx_cfg[i].fifo_len * (sizeof(TxD_t)) *
--		     config->max_txds);
-+		for (j = 0; j < page_num; j++) {
-+			int k = 0;
-+			dma_addr_t tmp_p;
-+			void *tmp_v;
-+			tmp_v = pci_alloc_consistent(nic->pdev,
-+						     PAGE_SIZE, &tmp_p);
-+			if (!tmp_v) {
-+				DBG_PRINT(ERR_DBG,
-+					  "pci_alloc_consistent ");
-+				DBG_PRINT(ERR_DBG, "failed for TxDL\n");
-+				return -ENOMEM;
++			if (!(rxdp->Control_1 & RXD_OWN_XENA)) {
++				memset(rxdp, 0, sizeof(RxD_t));
++				continue;
 +			}
-+			while (k < lst_per_page) {
-+				int l = (j * lst_per_page) + k;
-+				if (l == config->tx_cfg[i].fifo_len)
-+					goto end_txd_alloc;
-+				nic->list_info[i][l].list_virt_addr =
-+				    tmp_v + (k * lst_size);
-+				nic->list_info[i][l].list_phy_addr =
-+				    tmp_p + (k * lst_size);
-+				k++;
-+			}
-+		}
- 	}
-+      end_txd_alloc:
-
- 	/* Allocation and initialization of RXDs in Rings */
- 	size = 0;
-@@ -484,6 +504,7 @@
- 	dma_addr_t tmp_p_addr;
- 	mac_info_t *mac_control;
- 	struct config_param *config;
-+	int lst_size, lst_per_page;
-
-
- 	if (!nic)
-@@ -492,11 +513,23 @@
- 	mac_control = &nic->mac_control;
- 	config = &nic->config;
-
--	if (mac_control->txd_list_mem) {
--		pci_free_consistent(nic->pdev,
--				    mac_control->txd_list_mem_sz,
--				    mac_control->txd_list_mem,
--				    mac_control->txd_list_mem_phy);
-+	lst_size = (sizeof(TxD_t) * config->max_txds);
-+	lst_per_page = PAGE_SIZE / lst_size;
 +
-+	for (i = 0; i < config->tx_fifo_num; i++) {
-+		int page_num = TXD_MEM_PAGE_CNT(config->tx_cfg[i].fifo_len,
-+						lst_per_page);
-+		for (j = 0; j < page_num; j++) {
-+			int mem_blks = (j * lst_per_page);
-+			if (!nic->list_info[i][mem_blks].list_virt_addr)
-+				break;
-+			pci_free_consistent(nic->pdev, PAGE_SIZE,
-+					    nic->list_info[i][mem_blks].
-+					    list_virt_addr,
-+					    nic->list_info[i][mem_blks].
-+					    list_phy_addr);
-+		}
-+		kfree(nic->list_info[i]);
- 	}
-
- 	size = (MAX_RXDS_PER_BLOCK + 1) * (sizeof(RxD_t));
-@@ -1444,8 +1477,8 @@
-
- 	for (i = 0; i < config->tx_fifo_num; i++) {
- 		for (j = 0; j < config->tx_cfg[i].fifo_len - 1; j++) {
--			txdp = mac_control->txdl_start[i] +
--			    (config->max_txds * j);
-+			txdp = (TxD_t *) nic->list_info[i][j].
-+			    list_virt_addr;
  			skb =
- 			    (struct sk_buff *) ((unsigned long) txdp->
+ 			    (struct sk_buff *) ((unsigned long) rxdp->
  						Host_Control);
-@@ -1460,6 +1493,8 @@
- 		DBG_PRINT(INTR_DBG,
- 			  "%s:forcibly freeing %d skbs on FIFO%d\n",
- 			  dev->name, cnt, i);
-+		mac_control->tx_curr_get_info[i].offset = 0;
-+		mac_control->tx_curr_put_info[i].offset = 0;
+@@ -1887,7 +1892,7 @@
+ 	if (val64 & SERR_SOURCE_ANY) {
+ 		DBG_PRINT(ERR_DBG, "%s: Device indicates ", dev->name);
+ 		DBG_PRINT(ERR_DBG, "serious error!!\n");
+-		netif_stop_queue(dev);
++		schedule_work(&nic->rst_timer_task);
  	}
+
+ 	/* Other type of interrupts are not being handled now,  TODO */
+@@ -2205,6 +2210,17 @@
+ 	}
+ 	tasklet_kill(&sp->task);
+
++	/*  Free the Registered IRQ */
++	free_irq(dev->irq, dev);
++
++	/* Flush all scheduled tasks */
++	if (sp->task_flag == 1) {
++		DBG_PRINT(INFO_DBG, "%s: Calling close from a task\n",
++			  dev->name);
++	} else {
++		flush_scheduled_work();
++	}
++
+ 	/* Check if the device is Quiescent and then Reset the NIC */
+ 	do {
+ 		val64 = readq(&bar0->adapter_status);
+@@ -2225,9 +2241,6 @@
+ 	} while (1);
+ 	s2io_reset(sp);
+
+-	/*  Free the Registered IRQ */
+-	free_irq(dev->irq, dev);
+-
+ 	/* Free all Tx Buffers waiting for transmission */
+ 	free_tx_buffers(sp);
+
+@@ -2982,9 +2995,10 @@
+  */
+
+ #define S2IO_DEV_ID		5
+-static u32 read_eeprom(nic_t * sp, int off)
++static int read_eeprom(nic_t * sp, int off, u32 * data)
+ {
+-	u32 data = -1, exit_cnt = 0;
++	int ret = -1;
++	u32 exit_cnt = 0;
+ 	u64 val64;
+ 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
+
+@@ -2996,7 +3010,8 @@
+ 	while (exit_cnt < 5) {
+ 		val64 = readq(&bar0->i2c_control);
+ 		if (I2C_CONTROL_CNTL_END(val64)) {
+-			data = I2C_CONTROL_GET_DATA(val64);
++			*data = I2C_CONTROL_GET_DATA(val64);
++			ret = 0;
+ 			break;
+ 		}
+ 		set_current_state(TASK_UNINTERRUPTIBLE);
+@@ -3004,7 +3019,7 @@
+ 		exit_cnt++;
+ 	}
+
+-	return data;
++	return ret;
  }
 
-@@ -1896,7 +1931,7 @@
- {
- 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) nic->bar0;
- 	struct net_device *dev = (struct net_device *) nic->dev;
--	tx_curr_get_info_t offset_info, offset_info1;
-+	tx_curr_get_info_t get_info, put_info;
- 	struct sk_buff *skb;
- 	TxD_t *txdlp;
- 	register u64 val64 = 0;
-@@ -1916,12 +1951,12 @@
- 	writeq(val64, &bar0->tx_traffic_int);
+ /**
+@@ -3073,8 +3088,7 @@
+ 		eeprom->len = XENA_EEPROM_SPACE - eeprom->offset;
 
- 	for (i = 0; i < config->tx_fifo_num; i++) {
--		offset_info = mac_control->tx_curr_get_info[i];
--		offset_info1 = mac_control->tx_curr_put_info[i];
--		txdlp = mac_control->txdl_start[i] +
--		    (config->max_txds * offset_info.offset);
-+		get_info = mac_control->tx_curr_get_info[i];
-+		put_info = mac_control->tx_curr_put_info[i];
-+		txdlp = (TxD_t *) nic->list_info[i][get_info.offset].
-+		    list_virt_addr;
- 		while ((!(txdlp->Control_1 & TXD_LIST_OWN_XENA)) &&
--		       (offset_info.offset != offset_info1.offset) &&
-+		       (get_info.offset != put_info.offset) &&
- 		       (txdlp->Host_Control)) {
- 			/* Check for TxD errors */
- 			if (txdlp->Control_1 & TXD_T_CODE) {
-@@ -1971,12 +2006,12 @@
- 			nic->stats.tx_bytes += skb->len;
- 			dev_kfree_skb_irq(skb);
-
--			offset_info.offset++;
--			offset_info.offset %= offset_info.fifo_len + 1;
--			txdlp = mac_control->txdl_start[i] +
--			    (config->max_txds * offset_info.offset);
-+			get_info.offset++;
-+			get_info.offset %= get_info.fifo_len + 1;
-+			txdlp = (TxD_t *) nic->list_info[i]
-+			    [get_info.offset].list_virt_addr;
- 			mac_control->tx_curr_get_info[i].offset =
--			    offset_info.offset;
-+			    get_info.offset;
+ 	for (i = 0; i < eeprom->len; i += 4) {
+-		data = read_eeprom(sp, eeprom->offset + i);
+-		if (data < 0) {
++		if (read_eeprom(sp, (eeprom->offset + i), &data)) {
+ 			DBG_PRINT(ERR_DBG, "Read of EEPROM failed\n");
+ 			return -EFAULT;
  		}
+@@ -3213,7 +3227,8 @@
+
+ static int s2io_eeprom_test(nic_t * sp, uint64_t * data)
+ {
+-	int fail = 0, ret_data;
++	int fail = 0;
++	u32 ret_data;
+
+ 	/* Test Write Error at offset 0 */
+ 	if (!write_eeprom(sp, 0, 0, 3))
+@@ -3222,7 +3237,7 @@
+ 	/* Test Write at offset 4f0 */
+ 	if (write_eeprom(sp, 0x4F0, 0x01234567, 3))
+ 		fail = 1;
+-	if ((ret_data = read_eeprom(sp, 0x4F0)) < 0)
++	if (read_eeprom(sp, 0x4F0, &ret_data))
+ 		fail = 1;
+
+ 	if (ret_data != 0x01234567)
+@@ -3238,7 +3253,7 @@
+ 	/* Test Write Request at offset 0x7fc */
+ 	if (write_eeprom(sp, 0x7FC, 0x01234567, 3))
+ 		fail = 1;
+-	if ((ret_data = read_eeprom(sp, 0x7FC)) < 0)
++	if (read_eeprom(sp, 0x7FC, &ret_data))
+ 		fail = 1;
+
+ 	if (ret_data != 0x01234567)
+@@ -3811,7 +3826,9 @@
+ 	struct net_device *dev = (struct net_device *) data;
+ 	nic_t *sp = dev->priv;
+
++	sp->task_flag = 1;
+ 	s2io_close(dev);
++	sp->task_flag = 0;
+ 	sp->device_close_flag = TRUE;
+ 	s2io_open(dev);
+ 	DBG_PRINT(ERR_DBG,
+@@ -4275,18 +4292,13 @@
+ 	INIT_WORK(&sp->set_link_task,
+ 		  (void (*)(void *)) s2io_set_link, sp);
+
+-	if (register_netdev(dev)) {
+-		DBG_PRINT(ERR_DBG, "Device registration failed\n");
+-		goto register_failed;
+-	}
+-
+ 	pci_save_state(sp->pdev, sp->config_space);
+
+ 	/* Setting swapper control on the NIC, for proper reset operation */
+ 	if (s2io_set_swapper(sp)) {
+ 		DBG_PRINT(ERR_DBG, "%s:swapper settings are wrong\n",
+ 			  dev->name);
+-		goto register_failed;
++		goto set_swap_failed;
  	}
 
-@@ -2327,7 +2362,9 @@
- 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
- 	register u64 val64 = 0;
- 	u16 cnt = 0;
-+	unsigned long flags;
+ 	/* Fix for all "FFs" MAC address problems observed on Alpha platforms */
+@@ -4363,6 +4375,11 @@
 
-+	spin_lock_irqsave(&sp->tx_lock, flags);
- 	netif_stop_queue(dev);
+ 	sp->rx_csum = 1;	/* Rx chksum verify enabled by default */
 
- 	/* disable Tx and Rx traffic on the NIC */
-@@ -2381,6 +2418,7 @@
- 	free_rx_buffers(sp);
-
- 	sp->device_close_flag = TRUE;	/* Device is shut down. */
-+	spin_unlock_irqrestore(&sp->tx_lock, flags);
++	if (register_netdev(dev)) {
++		DBG_PRINT(ERR_DBG, "Device registration failed\n");
++		goto register_failed;
++	}
++
+ 	/*
+ 	 * Make Link state as off at this point, when the Link change
+ 	 * interrupt comes the state will be automatically changed to
+@@ -4373,9 +4390,8 @@
 
  	return 0;
- }
-@@ -2401,7 +2439,7 @@
- int s2io_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	nic_t *sp = dev->priv;
--	u16 off, txd_len, frg_cnt, frg_len, i, queue, off1, queue_len;
-+	u16 frg_cnt, frg_len, i, queue, queue_len, put_off, get_off;
- 	register u64 val64;
- 	TxD_t *txdp;
- 	TxFIFO_element_t *tx_fifo;
-@@ -2419,6 +2457,14 @@
- 	DBG_PRINT(TX_DBG, "%s: In S2IO Tx routine\n", dev->name);
 
- 	spin_lock_irqsave(&sp->tx_lock, flags);
-+	if ((netif_queue_stopped(dev)) || (!netif_carrier_ok(dev))) {
-+		DBG_PRINT(TX_DBG, "%s:s2io_xmit: Tx Queue stopped\n",
-+			  dev->name);
-+		dev_kfree_skb(skb);
-+		spin_unlock_irqrestore(&sp->tx_lock, flags);
-+		return 0;
-+	}
-+
- 	queue = 0;
- 	/* Multi FIFO Tx is disabled for now. */
- 	if (!queue && tx_prio) {
-@@ -2427,14 +2473,13 @@
- 	}
-
-
--	off = (u16) mac_control->tx_curr_put_info[queue].offset;
--	off1 = (u16) mac_control->tx_curr_get_info[queue].offset;
--	txd_len = config->max_txds;
--	txdp = mac_control->txdl_start[queue] + (config->max_txds * off);
-+	put_off = (u16) mac_control->tx_curr_put_info[queue].offset;
-+	get_off = (u16) mac_control->tx_curr_get_info[queue].offset;
-+	txdp = (TxD_t *) sp->list_info[queue][put_off].list_virt_addr;
-
- 	queue_len = mac_control->tx_curr_put_info[queue].fifo_len + 1;
- 	/* Avoid "put" pointer going beyond "get" pointer */
--	if (txdp->Host_Control || (((off + 1) % queue_len) == off1)) {
-+	if (txdp->Host_Control || (((put_off + 1) % queue_len) == get_off)) {
- 		DBG_PRINT(ERR_DBG, "Error in xmit, No free TXDs.\n");
- 		netif_stop_queue(dev);
- 		dev_kfree_skb(skb);
-@@ -2479,8 +2524,7 @@
- 	txdp->Control_1 |= TXD_GATHER_CODE_LAST;
-
- 	tx_fifo = mac_control->tx_FIFO_start[queue];
--	val64 = (mac_control->txdl_start_phy[queue] +
--		 (sizeof(TxD_t) * txd_len * off));
-+	val64 = sp->list_info[queue][put_off].list_phy_addr;
- 	writeq(val64, &tx_fifo->TxDL_Pointer);
-
- 	val64 = (TX_FIFO_LAST_TXD_NUM(frg_cnt) | TX_FIFO_FIRST_LIST |
-@@ -2494,15 +2538,15 @@
- 	/* Perform a PCI read to flush previous writes */
- 	val64 = readq(&bar0->general_int_status);
-
--	off++;
--	off %= mac_control->tx_curr_put_info[queue].fifo_len + 1;
--	mac_control->tx_curr_put_info[queue].offset = off;
-+	put_off++;
-+	put_off %= mac_control->tx_curr_put_info[queue].fifo_len + 1;
-+	mac_control->tx_curr_put_info[queue].offset = put_off;
-
- 	/* Avoid "put" pointer going beyond "get" pointer */
--	if (((off + 1) % queue_len) == off1) {
-+	if (((put_off + 1) % queue_len) == get_off) {
- 		DBG_PRINT(TX_DBG,
- 			  "No free TxDs for xmit, Put: 0x%x Get:0x%x\n",
--			  off, off1);
-+			  put_off, get_off);
- 		netif_stop_queue(dev);
- 	}
-
-@@ -3070,7 +3114,7 @@
- }
-
- /**
-- * s2io_ethtool-setpause_data -  set/reset pause frame generation.
-+ * s2io_ethtool_setpause_data -  set/reset pause frame generation.
-  * @sp : private member of the device structure, which is a pointer to the
-  *      s2io_nic structure.
-  * @ep : pointer to the structure with pause parameters given by ethtool.
+-      set_swap_failed:
+-	unregister_netdev(dev);
+       register_failed:
++      set_swap_failed:
+ 	iounmap(sp->bar1);
+       bar1_remap_failed:
+ 	iounmap(sp->bar0);
 diff -urN vanilla-linux/drivers/net/s2io.h linux-2.6.8.1/drivers/net/s2io.h
---- vanilla-linux/drivers/net/s2io.h	2004-10-11 16:49:34.000000000 -0700
-+++ linux-2.6.8.1/drivers/net/s2io.h	2004-10-11 17:20:24.000000000 -0700
-@@ -444,6 +444,12 @@
- 	u64 Host_Control;	/* reserved for host */
- } TxD_t;
-
-+/* Structure to hold the phy and virt addr of every TxDL. */
-+typedef struct list_info_hold {
-+	dma_addr_t list_phy_addr;
-+	void *list_virt_addr;
-+} list_info_hold_t;
+--- vanilla-linux/drivers/net/s2io.h	2004-10-06 15:15:03.000000000 -0700
++++ linux-2.6.8.1/drivers/net/s2io.h	2004-10-06 16:19:52.829419288 -0700
+@@ -668,6 +668,8 @@
+ 	u16 last_link_state;
+ #define	LINK_DOWN	1
+ #define	LINK_UP		2
 +
- /* Rx descriptor structure */
- typedef struct _RxD_t {
- 	u64 Host_Control;	/* reserved for host */
-@@ -532,17 +538,9 @@
- 	u16 mc_pause_threshold_q4q7;
++	int task_flag;
+ } nic_t;
 
- /* tx side stuff */
--	void *txd_list_mem;	/* original pointer to allocated mem */
--	dma_addr_t txd_list_mem_phy;
--	u32 txd_list_mem_sz;
--
- 	/* logical pointer of start of each Tx FIFO */
- 	TxFIFO_element_t *tx_FIFO_start[MAX_TX_FIFOS];
-
--	/* The Phy and virtual mem loactions of the Tx descriptors. */
--	TxD_t *txdl_start[MAX_TX_FIFOS];
--	dma_addr_t txdl_start_phy[MAX_TX_FIFOS];
--
- /* Current offset within tx_FIFO_start, where driver would write new Tx frame*/
- 	tx_curr_put_info_t tx_curr_put_info[MAX_TX_FIFOS];
- 	tx_curr_get_info_t tx_curr_get_info[MAX_TX_FIFOS];
-@@ -638,6 +636,9 @@
- 	int block_count[MAX_RX_RINGS];
- 	int pkt_cnt[MAX_RX_RINGS];
-
-+	/* Place holder of all the TX List's Phy and Virt addresses. */
-+	list_info_hold_t *list_info[MAX_TX_FIFOS];
-+
- 	/*  Id timer, used to blink NIC to physically identify NIC. */
- 	struct timer_list id_timer;
+ #define RESET_ERROR 1;
