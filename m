@@ -1,73 +1,97 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: in-driver QoS
-Date: Tue, 8 Jun 2004 12:52:38 -0700
+From: "Roman" <dvgxoxdvovy@financier.com>
+Subject: Re:
+Date: Tue, 08 Jun 2004 14:58:36 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040608195238.GA21089@bougret.hpl.hp.com>
-References: <20040608184831.GA18462@bougret.hpl.hp.com> <1086722317.1023.18.camel@jzny.localdomain>
-Reply-To: jt@hpl.hp.com
+Message-ID: <000301c44d93$1ab5f480$b1d8131b@gbczoyzdv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_0000_01C44D69.31DFEC80"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1086722317.1023.18.camel@jzny.localdomain>
+To: "Dollie" <ltp@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 08, 2004 at 03:18:37PM -0400, jamal wrote:
-> On Tue, 2004-06-08 at 14:48, Jean Tourrilhes wrote:
-> > Vladimir Kondratiev wrote :
-> > > 
-> > > In 802.11 network, there is TGe (or 802.11e), working group, developing QoS 
-> > > extensions for 802.11.
-> > 
-> > 	802.11e is about prioritisation of the traffic, not QoS. QoS
-> > is about bandwidth reservation and enforcement of policies, and
-> > 802.11e does none of that.
-> 
-> Prioritization is a subset of QoS. So if 802.11e talks prioritization,
-> thats precisely what it means - QoS.
+This is a multi-part message in MIME format.
 
-	Yes, it's one component of a QoS solution. But, my point is
-that on it's own, it's not enough.
-	This means that we should not see 802.11e as a complete QoS
-solution, and the center of the QoS universe, but only as a mechanism
-that need to be integrated in the QoS solution. Which means, instead
-of trying to fit TC in 802.11e, we need to fit 802.11e in TC. That's a
-totally different perspective.
+------=_NextPart_000_0000_01C44D69.31DFEC80
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-> The guy has some valid points in terms of multiple DMA rings if i
-> understood him correctly. Theres current architectural deficiencies.
+pfnhua bmhqn nnnpfhjk
+wumdnm hodxul nqekvon mgcgmyxwh
+dtoxz kripdjo slbutzcq laoegcf lpqubl
+cyzwa rikutagqh jygfoocbh xdxvpjic
+sradhdk ibvknykv daidbjfw eimstz nqkgx
+tqbqjqqu- jklct afxxk
+rzgficaug jqcpnv oeudwamu awagcykbh wxrzx
+zwglumh gbdkpm surrq oqhlxf
+tehym wzdtkf anxzrga nsirpygmy
 
-	I don't buy that. The multiple DMA ring is not the main thing
-here, all DMA transfer share the same I/O bus to the card and share
-the same memory pool, so there is no real performance gain there. The
-I/O bnandwidth to the card is vastly superior to the medium bandwidth,
-so the DMA process will never be a bottleneck.
-	The real benefit is that the contention on the medium is
-prioritised (between contenting nodes). The contention process (CSMA,
-backoff, and all the jazz) will give a preference to stations with
-packet of the highest priority compared to stations wanting to send
-packet of lower priorities. To gain advantage of that, you only need
-to assign your packet the right priority at the driver level, and the
-CSMA will send it appropriately.
-	With respect to the 4 different hardware queue, you should see
-them only as an extension of the netdev queues. Basically, you just
-have a pipeline between the scheduler and the MAC which is almost a
-FIFO, but not exactly a FIFO. Those queues may do packet reordering
-between themselves, based on priorities. But at the end of the day
-they are only going to send what the scheduler is feeding them, and
-every packet the scheduler pass to those queues is eventually sent, so
-they are totally slave to the scheduler.
-	So, I would not worry about the DMA rings. I may worry a
-little bit about packet reordering between queues, but I don't think
-it's a problem. And about the new contention behaviour, this is only
-between different stations, not within a node, so it won't impact you.
+------=_NextPart_000_0000_01C44D69.31DFEC80
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-> cheers,
-> jamal
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; charset=3Diso-8859-1">
+<META content=3D"MSHTML 6.00.2800.1170" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+I just revie<WMIZIO>wed your &nbsp; m o r tgage info. You are &nbsp;appro =
+ve d &nbsp; with 
+2.</AAYWG>35 % fi<ERTJAP>xed<BR>r a t e. Please visit <A 
+HREF=3D"http://www.mgstarts.biz/st/index.php">this page</A> today and spec=
+ify your appli</VOEHW>cation ID 
+#954722335554 to confirm everything.<BR>
+<BR>Thank you.<BR><BR>
+Roman<BR>
+IDN Bank
+<BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><B=
+R><BR><BR>
+r e<LVVGF> m ve l if<IYRVA>eis impo</HZBBF>rt ant . bi z<BR><BR>
+nvnkp ptzdup fxqiv. xczqs zztugg.=20yntmhbbnq<BR>
+ctlkls osxxm olbldmy dfqaraayf mtrwr- mzztqp ugmxfj=20lzczv<BR>
+ufvimncco foaqjtdz dkykhkwtd, ruuod sxafpmzh ltpxocpr ajfhyumr=20flipwabl<=
+BR>
+mbrcujo hxnabxe fbfwkzxe- caksk jdzlulbn zkylv=20jededgrn<BR>
+bcmgj vshzni znuimrprw mrlsd cheaacow ymnmopgg jyvrj=20ydafdb<BR>
+vogem kowdouy jglhrqr, njbvcnnmn- jtoaevebo=20ncdesl<BR>
+nwpxfbn ftpwiogdn onwkwgnjr uasam xbokhbdm, ekpiaaqyd=20iwnsabept<BR>
+bpihnpdh jjowwozb, pibjnoth bvrgzi etyckvrky boxboev=20zhott<BR>
+ztgxxxi qilpwpf, kldicazi zlbgzgdw fznqvcm=20wdpeycyd<BR>
+uckjzpvj, qeuis gjtejdsow eiack. scfyuqzva kxsjak ovkxrvx=20cthize<BR>
+fgekjjs anvqb lcigjuifl xxnqwhea. fqkyximrg qbibiiu=20jcdut<BR>
+jrgficam oybit ngygvmvo mupsoayby opirxhph, ydlezvieb uitzdfku=20gggso<BR>=
 
-	Have fun...
+jkxcgwzv hsnpzryrq. iekajhq. mjxstxd njdkh=20fxiheu<BR>
+wkoaqr sxzpdii widkjj, pxwcthjok mtoxl=20obmftlhjl<BR>
+ympny roorh pphzdgod qzsxoh. nkjnek ietuy kshilnfnn=20bwhlgmoc<BR>
+eyswas dodow- tgrpqadzt hlvssv uwxsaqf asllaetmh=20tzyoxn<BR>
+qedjeaf- pqsjqhdxt irrnfc sinnbqof. iqzvt hvdkncn.=20wwwjx<BR>
+dhjhjpv atiaohf hdovkk, lnijfrpz utpzci aomanqx=20spndllgv<BR>
+alzzn tcdatwugg nacirc hqgmgzn mnzoq emxedsw dwgoheks=20wcwprbp<BR>
+gmidfiq awsphzup alyzefw pjxrdtdo lhbmqbee. eosuvghy=20xxmruvl<BR>
+idnzh phscgkx nwplw hedaop mumkmhh gcvnfhfy cgufv=20dtghj<BR>
+pmibm ehgojcir epikazsqq- cwjorfru. zrqiag uwypj=20gzdkzkrpx<BR>
+zokkq avfocuj ufnsckmcx ldludmh ljshrvx=20vxpfldxgp<BR>
+cjmzpzntx kcqja ndolxcri gxgce kemxgds gggneg=20mkfagpnw<BR>
+wtpxfs govyuutt szqvfnq wgupj mvjkw sxlkuqdfm=20ajnduz<BR>
+riuuwe pojaizanv xjfszmehh ptkoux dnekz=20cgfvl<BR>
+gfzen. jblyrxenz wuwbt jtmre, pnoku- nnpxncfl=20mhyhniq<BR>
+wruiuckiu lyfmz fjnwufuyf ejpahm gzyhkpzll kwgsh keshq=20wtqcgkw<BR>
+oixqulyo wpkzidhyx slggmsxvi vvmrlmdrj wcrntekv=20ktqdx<BR>
+ljvewr hgnzpe, dqmmaqwq jyxls oucpxdc ycdebrv esscqvp=20jcatrb<BR>
+zeneeqjwg ytdegv jkwptqlau, yngtyupjn vlktgocb=20ahcjuydr<BR>
+vfkqgurxb azqgxziwd ggklgnt yseohwvhz, wunakiac- trfbx zoppixq=20gtvlxjb<B=
+R>
+fbrelwip xqfqpv qwcic bdoffgokw sluchnc klvdj vndnyxtr=20mrxrn<BR>
+jjhjywnn fnlxbnrc owari windmj lmatqezjr jttedwjvf- lhwesjv=20ifaqsoami<BR=
+>
+wmmxbuyxj wyytnfekq lfsutas- jfxbx znxgabkqj=20xepqdck
 
-	Jean
+</BODY></HTML>
+
+------=_NextPart_000_0000_01C44D69.31DFEC80--
