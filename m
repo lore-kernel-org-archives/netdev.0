@@ -1,199 +1,83 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
- to become free. Usage count = 1
-Date: Sun, 22 Aug 2004 14:39:57 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <4128941D.9030000@trash.net>
-References: <E1BynUy-0007t1-00@gondolin.me.apana.org.au>
+Subject: [PATCH 2.6]: Missing dev_put in qdisc_create error path
+Date: Sun, 22 Aug 2004 14:42:35 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <412894BB.9090906@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------040809050802040307090201"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Nuno Silva <nuno.silva@vgertech.com>,
-	linux-kernel@vger.kernel.org, master@sectorb.msk.ru,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266810AbUHVMlD@vger.kernel.org>
+ boundary="------------060307060803070800080802"
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <E1BynUy-0007t1-00@gondolin.me.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------040809050802040307090201
+--------------060307060803070800080802
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Herbert Xu wrote:
-
->Nuno Silva <nuno.silva@vgertech.com> wrote:
->  
->
->>The problem is in the QoS code. If I start ppp whithout the 
->>    
->>
->
->OK, this appears to be due to the changeset titled
->
->[PKT_SCHED]: Refcount qdisc->dev for __qdisc_destroy rcu-callback
->
->It adds a reference to dev.
->
->I don't see any code that cleans up that reference when the dev goes
->down.  So someone needs to add that similar to the code in net/core/dst.c.
->
->Patrick, could you please have a look at this?
->  
->
-The reference is dropped in __qdisc_destroy. The problem lies in the CBQ
-qdisc, it doesn't destroy the root-class and leaks the inner qdisc. These
-two patches for 2.4 and 2.6 fix the problem.
+This patch fixes missing dev_puts in qdisc_create and
+qdisc_create_dflt error paths.
 
 Regards
 Patrick
 
 
-
---------------040809050802040307090201
+--------------060307060803070800080802
 Content-Type: text/x-patch;
- name="01-2.4-cbq-leaks.diff"
+ name="02-2.6-dev-leaks.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="01-2.4-cbq-leaks.diff"
+ filename="02-2.6-dev-leaks.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/08/22 14:37:58+02:00 kaber@coreworks.de 
-#   [PKT_SCHED]: Fix class leak in CBQ scheduler
+#   2004/08/22 14:33:26+02:00 kaber@coreworks.de 
+#   [PKT_SCHED]: Missing dev_put in error path
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/sched/sch_cbq.c
-#   2004/08/22 14:37:27+02:00 kaber@coreworks.de +8 -6
-#   [PKT_SCHED]: Fix class leak in CBQ scheduler
+# net/sched/sch_generic.c
+#   2004/08/22 14:33:06+02:00 kaber@coreworks.de +1 -0
+#   [PKT_SCHED]: Missing dev_put in error path
 # 
-diff -Nru a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
---- a/net/sched/sch_cbq.c	2004-08-22 14:38:18 +02:00
-+++ b/net/sched/sch_cbq.c	2004-08-22 14:38:18 +02:00
-@@ -1712,15 +1712,18 @@
+# net/sched/sch_api.c
+#   2004/08/22 14:33:06+02:00 kaber@coreworks.de +3 -1
+#   [PKT_SCHED]: Missing dev_put in error path
+# 
+diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c	2004-08-22 14:34:34 +02:00
++++ b/net/sched/sch_api.c	2004-08-22 14:34:34 +02:00
+@@ -441,7 +441,7 @@
+ 		handle = qdisc_alloc_handle(dev);
+ 		err = -ENOMEM;
+ 		if (handle == 0)
+-			goto err_out2;
++			goto err_out3;
  	}
- }
  
--static void cbq_destroy_class(struct cbq_class *cl)
-+static void cbq_destroy_class(struct Qdisc *sch, struct cbq_class *cl)
- {
-+	struct cbq_sched_data *q = (struct cbq_sched_data *)sch->data;
-+
- 	cbq_destroy_filters(cl);
- 	qdisc_destroy(cl->q);
- 	qdisc_put_rtab(cl->R_tab);
- #ifdef CONFIG_NET_ESTIMATOR
- 	qdisc_kill_estimator(&cl->stats);
+ 	if (handle == TC_H_INGRESS)
+@@ -464,6 +464,8 @@
  #endif
--	kfree(cl);
-+	if (cl != &q->link)
-+		kfree(cl);
- }
- 
- static void
-@@ -1743,8 +1746,7 @@
- 
- 		for (cl = q->classes[h]; cl; cl = next) {
- 			next = cl->next;
--			if (cl != &q->link)
--				cbq_destroy_class(cl);
-+			cbq_destroy_class(sch, cl);
- 		}
+ 		return sch;
  	}
++err_out3:
++	dev_put(dev);
+ err_out2:
+ 	module_put(ops->owner);
+ err_out:
+diff -Nru a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+--- a/net/sched/sch_generic.c	2004-08-22 14:34:34 +02:00
++++ b/net/sched/sch_generic.c	2004-08-22 14:34:34 +02:00
+@@ -415,6 +415,7 @@
+ 	if (!ops->init || ops->init(sch, NULL) == 0)
+ 		return sch;
  
-@@ -1766,7 +1768,7 @@
- 		spin_unlock_bh(&sch->dev->queue_lock);
- #endif
- 
--		cbq_destroy_class(cl);
-+		cbq_destroy_class(sch, cl);
- 	}
- }
- 
-@@ -2000,7 +2002,7 @@
- 	sch_tree_unlock(sch);
- 
- 	if (--cl->refcnt == 0)
--		cbq_destroy_class(cl);
-+		cbq_destroy_class(sch, cl);
- 
- 	return 0;
++	dev_put(dev);
+ 	kfree(p);
+ 	return NULL;
  }
 
---------------040809050802040307090201
-Content-Type: text/x-patch;
- name="01-2.6-cbq-leaks.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="01-2.6-cbq-leaks.diff"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/08/22 14:30:32+02:00 kaber@coreworks.de 
-#   [PKT_SCHED]: Fix class leak in CBQ scheduler
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/sched/sch_cbq.c
-#   2004/08/22 14:30:13+02:00 kaber@coreworks.de +8 -6
-#   [PKT_SCHED]: Fix class leak in CBQ scheduler
-# 
-diff -Nru a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
---- a/net/sched/sch_cbq.c	2004-08-22 14:33:59 +02:00
-+++ b/net/sched/sch_cbq.c	2004-08-22 14:33:59 +02:00
-@@ -1746,15 +1746,18 @@
- 	}
- }
- 
--static void cbq_destroy_class(struct cbq_class *cl)
-+static void cbq_destroy_class(struct Qdisc *sch, struct cbq_class *cl)
- {
-+	struct cbq_sched_data *q = qdisc_priv(sch);
-+
- 	cbq_destroy_filters(cl);
- 	qdisc_destroy(cl->q);
- 	qdisc_put_rtab(cl->R_tab);
- #ifdef CONFIG_NET_ESTIMATOR
- 	qdisc_kill_estimator(&cl->stats);
- #endif
--	kfree(cl);
-+	if (cl != &q->link)
-+		kfree(cl);
- }
- 
- static void
-@@ -1777,8 +1780,7 @@
- 
- 		for (cl = q->classes[h]; cl; cl = next) {
- 			next = cl->next;
--			if (cl != &q->link)
--				cbq_destroy_class(cl);
-+			cbq_destroy_class(sch, cl);
- 		}
- 	}
- 
-@@ -1799,7 +1801,7 @@
- 		spin_unlock_bh(&sch->dev->queue_lock);
- #endif
- 
--		cbq_destroy_class(cl);
-+		cbq_destroy_class(sch, cl);
- 	}
- }
- 
-@@ -2035,7 +2037,7 @@
- 	sch_tree_unlock(sch);
- 
- 	if (--cl->refcnt == 0)
--		cbq_destroy_class(cl);
-+		cbq_destroy_class(sch, cl);
- 
- 	return 0;
- }
-
---------------040809050802040307090201--
+--------------060307060803070800080802--
