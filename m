@@ -1,42 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Jeff Sipek <jeffpc@optonline.net>
 Subject: Re: RFC: another approach for 64-bit network stats
-Date: Mon, 07 Jul 2003 09:53:17 -0700
+Date: Mon, 07 Jul 2003 13:33:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F09A57D.8030003@candelatech.com>
-References: <3F097E4D.1080707@trash.net>
+Message-ID: <200307071333.48179.jeffpc@optonline.net>
+References: <3F097E4D.1080707@trash.net> <3F09A57D.8030003@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
 Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <3F097E4D.1080707@trash.net>
+In-reply-to: <3F09A57D.8030003@candelatech.com>
+To: Ben Greear <greearb@candelatech.com>, Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+Content-description: clearsigned data
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> This patch implements a lockless aproach for 64-bit netstatistics with 
-> only a very rare
-> racecondition. On 64 bit system, nothing is changed. On 32 bit system 
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I think that you should consider providing a new API as opposed to
-breaking existing APIs.
+On Monday 07 July 2003 12:53, Ben Greear wrote:
+> I think that you should consider providing a new API as opposed to
+> breaking existing APIs.
 
-And, perhaps this new API could deal with the very rare race to make
-it never happen?  No matter how rare it is, you still have to write code
-to work around it if it exists..might as well do it once in the kernel
-instead of making each user of the interface deal with it.
+Do you mean reworking the network statistics side of networking?
 
-Personally, I'd like to see the net-device stats (64-bit or otherwise) available
-through the ethtool interface in a well defined binary package (perhaps a
-struct net_device_stats, or similar.)
+Jeff.
 
-Ben
+- -- 
+Please avoid sending me Word or PowerPoint attachments.
+ See http://www.fsf.org/philosophy/no-word-attachments.html 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
 
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+iD8DBQE/Ca77wFP0+seVj/4RArtOAJwNVhV9PNgyli/d93n4ocCaRZzxmACeMdr8
+9W0vfMOt76DNXq2t4Phoye0=
+=8LGV
+-----END PGP SIGNATURE-----
