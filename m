@@ -1,62 +1,51 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] pktgen: sprintf arg type warning
-Date: Sat, 09 Oct 2004 15:07:03 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41686107.7030508@osdl.org>
-References: <20041008203027.643a2a97.rddunlap@osdl.org> <20041008221934.42a6bc7a.davem@davemloft.net>
+From: "Chad N. Tindel" <ctindel@falcon.csc.calpoly.edu>
+Subject: udp_recvmsg: possible bug causing infinite hang?
+Date: Sat, 9 Oct 2004 18:38:58 -0700 (PDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.GSO.4.44.0410091824350.14026-100000@falcon.csc.calpoly.edu>
+References: <Pine.LNX.4.44.0303270917290.29072-100000@home.transmeta.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090406030500080203010406"
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041008221934.42a6bc7a.davem@davemloft.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.44.0303270917290.29072-100000@home.transmeta.com>
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090406030500080203010406
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+I've encountered a hang condition during testing that only appeared when
+we upgraded from Redhat EL 3 Update 2 to Redhat EL 3 Update 3.  After
+looking at the differences, it appears to be caused by a change to
+udp_recvmsg that also appears to have filtered back into the main kernel
+tree, so it is possible that more people would be affected by this than
+just redhat users.  Anyway, here is the scenario:
 
-> This won't fix the problem on sparc64 where u64 is an "unsigned long"
-> So, just cast the thing to the type gcc wants "unsigned long long"
+User space code sends a datagram on a blocking socket, and then calls
+select() or poll() to wait for the reply.  When that pops with a non-error
+condition (so we _know_ there is data to be read), recvfrom() is called.
+Now, assume that somewhere along the way (it doesn't really matter where)
+the UDP packet is corrupted.  Also, assume that no further inbound
+datagrams are destined for this socket.  The new udp_recvmsg() will get
+down to the bottom, and then will go to the try_again label, where it will
+block forever in skb_recv_datagram() waiting for a datagram that will
+never come.
 
-Yep, I should have known that.  New patch attached.
+The old code used to not have this try_again case, and so would always
+just return immediately.
 
-(Note:  testing new mail client; hopefully it's not munged.)
+While this is a general problem for any program that uses UDP and relies
+on the fact that select popped to insure that recvfrom won't hang, the
+place where we always see it is in the DNS lookup portion of glibc.  The
+send_dg() function is what actually hangs.
 
--- 
-~Randy
+My questions are:
 
---------------090406030500080203010406
-Content-Type: text/x-patch;
- name="pktgen_type.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="pktgen_type.patch"
+1.  Why was the code changed in this way?
+2.  Is this a bug?  It seems so to me, because select (or poll)
+specifically says there is data to read, and then it hangs when we try to
+read it.  But, without the context of #1, it is hard to make this
+determination.
 
+Thanks,
 
-Fix printk arg format warning:
-net/core/pktgen.c:607: warning: long long unsigned int format, long unsigned int arg (arg 4)
+Chad
 
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
-
-diffstat:=
- net/core/pktgen.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-diff -Naurp ./net/core/pktgen.c~pktgen_type ./net/core/pktgen.c
---- ./net/core/pktgen.c~pktgen_type	2004-10-06 15:04:06.260548504 -0700
-+++ ./net/core/pktgen.c	2004-10-09 15:04:10.907452600 -0700
-@@ -603,7 +603,7 @@ static void show_results(struct pktgen_i
- 	do_div(idle, cpu_speed);
- 
- 	p += sprintf(p, "OK: %llu(c%llu+d%lu) usec, %llu (%dbyte,%dfrags)\n",
--		     total, total - idle, idle,
-+		     total, (unsigned long long)(total - idle), idle,
- 		     info->sofar, size, nr_frags);
- 
- 	pps = info->sofar * USEC_PER_SEC;
-
---------------090406030500080203010406--
