@@ -1,69 +1,66 @@
-From: Boian Bonev <boian@bonev.com>
-Subject: GRE Ethernet tunneling
-Date: Wed,  9 Mar 2005 10:15:01 +0200
-Message-ID: <20050309081501.5354.qmail@orange.bonev.com>
+From: Domen Puncer <domen@coderock.org>
+Subject: Re: [patch 04/26] net/ixgb_osdep: replace schedule_timeout() with msleep()
+Date: Wed, 9 Mar 2005 09:16:45 +0100
+Message-ID: <20050309081645.GC10041@nd47.coderock.org>
+References: <20050306103248.7C3A21F1F0@trashy.coderock.org> <5fc59ff305030805243de69624@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_1_1110356101_5352"
-Content-Transfer-Encoding: 8bit
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, nacc@us.ibm.com,
+        janitor@sternwelten.at
+To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <5fc59ff305030805243de69624@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+On 08/03/05 05:24 -0800, Ganesh Venkatesan wrote:
+> No. This would not work. You cannot replace msec_delay with msleep.
+> You probably could replace the set_current_task/schedule_timeout with
+> msleep. msleep does not check for the correct context, and if one were
+> to call msec_delay from interrupt context, the kernel would panic.
 
---=_1_1110356101_5352
-Content-Type: text/plain; charset=windows-1251
-Content-Transfer-Encoding: quoted-printable
+And that would be wrong? Guess what BUG() does.
 
-hi,
-
-first to explain why i need to make this stuff in kernel space:
- - userland ethernet tunneling provides more features like encryption but=
- not high performance and low latency
- - low MHz cpus choke on high traffic with userland tunnels (have a look =
-at WRAP boards at www.pcengines.ch)
- - since we have many setups with 802.11a cards and 802.11a protocol does=
- not support direct bridging of interfaces the lack of kernel ethernet tu=
-nnel limits linux use in this area
-
-btw. mikrotik (www.mikrotik.com - a linux based closed source router os) =
-implements a tunnel called eoip the gre way
-btw2. 802.11a cards support mtus over 1500 so at least software fragmenta=
-tion may be avoided. i am not sure what happens at lower layers but it pe=
-rforms without much cpu usage increase or speed loss
-
-before writing here i have made a concept proof - i cloned the ip_gre.c m=
-odule and changed:
- - device creation to be ethernet alike (mtu 1500, ARPHRD_ETHER, hard_hea=
-der, etc)
- - the protocol to be IPPROTO_GRE+1 (just for testing - not to interferre=
- with existing gre tunnels)
- - removed all code that mangled ttl, ecn, mtu etc
- - GRE protocol to 0x6558 (Ethernet over GRE)
-
-then i dirty patched iproute to manage the new interfaces and here i disc=
-overed something not very clean in interface management by iproute - when=
- listing interfaces iproute performs a SIOCGIFHWADDR and checks for ARPHR=
-D_TUNNEL... this may be clean for ip tunnels but it cant work for etherne=
-t tunnels.
-
-now i am looking for a clean way to identify ethernet tunnels in iproute:=
-
- - if i change the type to APRHRD_TUNNEL this will break consistency with=
- both userland utils and kernel side.
- - SIOCDEVPRIVATE + x is not appropriate because it may conflict with som=
-e real ethernet device
- - dev->flags are all defined
- - dev->priv_flags in not visible in userspace
-
-i need help to choose a clean and consistent strategy for iproute <---> k=
-ernel comm
-then i will be able to integrate my concept proof code into ip_gre.c
-
-another thing that comes to mind is to implement a small subset ot ethtoo=
-l ioctls but this does not seem consistent to me...
-
-b.
---=_1_1110356101_5352--
+> 
+> ganesh.
+> 
+> 
+> On Sun, 06 Mar 2005 11:32:48 +0100, domen@coderock.org
+> <domen@coderock.org> wrote:
+> > 
+> > 
+> > Use msleep() instead of schedule_timeout()
+> > to guarantee the task delays as expected. I was told earlier that the
+> > in_interrupt() check is not necessary. It would be nice to get some
+> > verification of this (i.e. the driver functions the same without it).
+> > 
+> > Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> > Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+> > Signed-off-by: Domen Puncer <domen@coderock.org>
+> > ---
+> > 
+> > kj-domen/drivers/net/ixgb/ixgb_osdep.h |    8 +-------
+> > 1 files changed, 1 insertion(+), 7 deletions(-)
+> > 
+> > diff -puN drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_ixgb_osdep drivers/net/ixgb/ixgb_osdep.h
+> > --- kj/drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_ixgb_osdep 2005-03-05 16:09:27.000000000 +0100
+> > +++ kj-domen/drivers/net/ixgb/ixgb_osdep.h      2005-03-05 16:09:27.000000000 +0100
+> > @@ -41,13 +41,7 @@
+> > #include <linux/sched.h>
+> > 
+> > #ifndef msec_delay
+> > -#define msec_delay(x)  do { if(in_interrupt()) { \
+> > -                               /* Don't mdelay in interrupt context! */ \
+> > -                               BUG(); \
+> > -                       } else { \
+> > -                               set_current_state(TASK_UNINTERRUPTIBLE); \
+> > -                               schedule_timeout((x * HZ)/1000 + 2); \
+> > -                       } } while(0)
+> > +#define msec_delay(x)  msleep(x)
+> > #endif
+> > 
+> > #define PCI_COMMAND_REGISTER   PCI_COMMAND
+> > _
+> > 
+> >
