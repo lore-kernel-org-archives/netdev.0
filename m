@@ -1,36 +1,49 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [PATCH] Add audit uid to netlink credentials
-Date: Wed, 9 Feb 2005 16:19:46 -0800
-Message-ID: <20050209161946.F24171@build.pdx.osdl.net>
-References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com> <1107958621.19262.524.camel@hades.cambridge.redhat.com> <1107960659.4837.9.camel@serge> <1107973381.17568.97.camel@moss-spartans.epoch.ncsc.mil> <20050209103747.Y24171@build.pdx.osdl.net> <1107974448.17568.108.camel@moss-spartans.epoch.ncsc.mil> <20050209153816.B24171@build.pdx.osdl.net> <1107993369.9154.2.camel@localhost.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: serious netpoll bug w/NAPI
+Date: Wed, 9 Feb 2005 16:46:58 -0800
+Message-ID: <20050209164658.409f8950.davem@davemloft.net>
+References: <20050208201634.03074349.davem@davemloft.net>
+	<20050209183219.GA2366@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Audit Discussion <linux-audit@redhat.com>, netdev@oss.sgi.com,
-        davem@davemloft.net, kuznet@ms2.inr.ac.ru
-To: David Woodhouse <dwmw2@infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1107993369.9154.2.camel@localhost.localdomain>; from dwmw2@infradead.org on Wed, Feb 09, 2005 at 11:56:09PM +0000
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jmoyer@redhat.com, netdev@oss.sgi.com
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20050209183219.GA2366@waste.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* David Woodhouse (dwmw2@infradead.org) wrote:
-> On Wed, 2005-02-09 at 15:38 -0800, Chris Wright wrote:
-> >I just don't see it making sense to add another credential for a special
-> >case.  The signal code already peaks into the siginfo struct when queueing
-> >a signal to make sure some user isn't trying to send si_code == SI_KERNEL
-> >or similar.  Perhaps audit could do that with it's own payload during send.
-> >No matter how we slice it, it's a special case.
+On Wed, 9 Feb 2005 10:32:19 -0800
+Matt Mackall <mpm@selenic.com> wrote:
+
+> On closer inspection, there's a couple other related failure cases
+> with the new ->poll logic in netpoll. I'm afraid it looks like
+> CONFIG_NETPOLL will need to guard ->poll() with a per-device spinlock
+> on netpoll-enabled devices.
 > 
-> I'm not entirely sure the check is needed anyway. This is a trusted
-> application sending audit messages. Why shouldn't it be permitted to log
-> auditable events which were triggered by someone _else_? 
+> This will mean putting a pointer to struct netpoll in struct
+> net_device (which I should have done in the first place) and will take
+> a few patches to sort out.
 
-Then it comes back to the question of how to protect loginuid.  If it
-can be spoofed by someone with CAP_AUDIT_WRITE, then it shouldn't be
-write protected by CAP_AUDIT_CONTROL.
+Will this ->poll() guarding lock be acquired only in the netpoll
+code or system-wide?  If the latter, this introduced an incredible
+performance regression for devices using the LLTX locking scheme
+(ie. the most important high-performance gigabit drivers in the
+tree use this).
 
-thanks,
--chris
--- 
-Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
+Please detail your fix idea so that I can analyze a concrete idea
+instead of some guess on my part :-)
+
+I know you want to do anything except drop the packet.  What you
+may do instead, therefore, is add the packet to the normal device
+mid-layer queue and kick NET_TX_ACTION if netif_queue_stopped() is
+true.
+
+Sure, the packet still might get dropped in extreme cases, but
+this idea seems to eliminate all of this locking complexity netpoll
+is trying to handle.
+
+As an aside, ipt_LOG is a great stress test for netpoll, because 4
+incoming packets can generate 8 outgoing packets worth of netconsole
+traffic :-)
