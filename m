@@ -1,13 +1,21 @@
-From: "Hossain, Mohammad" <mohammad.hossain@intel.com>
-Subject: delete from mailing list
-Date: Sun, 21 Jul 2002 22:06:54 -0700
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Frozen machine with adding a tc filter
+Date: Tue, 23 Jul 2002 00:46:44 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <9795DB627281D941B9E608445730DFC821F163@fmsmsx106.fm.intel.com>
+Message-ID: <200207222046.AAA14255@sex.inr.ac.ru>
+References: <20020722034919.GH685@telpin.com.ar>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: albertogli@telpin.COM.AR (Alberto Bertogli)
+In-Reply-To: <20020722034919.GH685@telpin.com.ar> from "Alberto Bertogli" at Jul 22, 2 08:15:00 am
 List-Id: netdev.vger.kernel.org
 
-delete from mailing list
+Hello!
+
+> I know it's weird, but anyway i don't think that a lockup is the error the
+> user deserves =)
+
+You really deserved this.
+
+Alexey
