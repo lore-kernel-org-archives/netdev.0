@@ -1,41 +1,33 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: Patch for NETLINK_TCPDIAG
-Date: Wed, 21 May 2003 06:26:15 +0400 (MSD)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Mail delivery failed: returning message to sender
+Date: Tue, 20 May 2003 19:31:19 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200305210226.GAA13667@dub.inr.ac.ru>
-References: <OF172D8043.CEAC83BF-ON88256D2C.0066D5DE@us.ibm.com>
+Message-ID: <20030520.193119.55733737.davem@redhat.com>
+References: <20030520.175553.35669773.davem@redhat.com>
+	<200305210222.GAA13659@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: rmk@arm.linux.org.uk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kumarkr@us.ibm.com (Krishna Kumar)
-In-Reply-To: <OF172D8043.CEAC83BF-ON88256D2C.0066D5DE@us.ibm.com> from "Krishna Kumar" at May 20, 2003 11:49:43 AM
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200305210222.GAA13659@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+   From: kuznet@ms2.inr.ac.ru
+   Date: Wed, 21 May 2003 06:22:10 +0400 (MSD)
+   
+   > Russel, please retest using this patch.  This piece of
+   > code needs to be audited further.
+   
+   Relax, it is right now.
+   
+   I hope it is the only place where route is copied as whole.
 
-> I am not sure if there is a reason why ACK cannot be set for
-> NETLINK_TCPDIAG.
+I explicitly zeroed out child and xfrm in my final version.
+These should never be non-NULL, it is pure paranoia on my part :-)
 
-No reasons, indeed.
-
-> If it is settable, please apply following patch.
-
-OK.
-
-
-> diff -ruN linux-2.5.68.org/net/ipv4/tcp_diag.c linux-2.5.68/net/ipv4/tcp_diag.c
-> --- linux-2.5.68.org/net/ipv4/tcp_diag.c  2003-05-20 11:38:06.000000000 -0700
-> +++ linux-2.5.68/net/ipv4/tcp_diag.c      2003-05-20 11:39:48.000000000 -0700
-> @@ -609,7 +609,7 @@
->             if (nlh->nlmsg_len < sizeof(*nlh) || skb->len < nlh->nlmsg_len)
->                   return;
->             err = tcpdiag_rcv_msg(skb, nlh);
-> -           if (err)
-> +           if (err || nlh->nlmsg_flags & NLM_F_ACK)
->                   netlink_ack(skb, nlh, err);
->       }
->  }
-> 
+IP6 makes this more intelligently using ip6_route_copy() function.
+We should probably make similar beast for ipv4 just for clarity's
+sake.
