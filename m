@@ -1,25 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 4/4] rose check error on memcpy_fromiovec (resend)
-Date: Mon, 19 Jan 2004 21:15:39 -0800
+Subject: Re: Fw: Oops in register_proc_table (2.6.1-mm4)
+Date: Mon, 19 Jan 2004 21:18:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040119211539.7210bd7a.davem@redhat.com>
-References: <20040116142502.B19034@osdlab.pdx.osdl.net>
-	<20040116142614.T19023@osdlab.pdx.osdl.net>
-	<20040116142723.U19023@osdlab.pdx.osdl.net>
-	<20040116142821.V19023@osdlab.pdx.osdl.net>
+Message-ID: <20040119211800.582e4c3a.davem@redhat.com>
+References: <20040116104709.2163912c.akpm@osdl.org>
+	<20040117173202.76119237.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, shemminger@osdl.org
+Cc: netdev@oss.sgi.com, thomas.schlichter@web.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Chris Wright <chrisw@osdl.org>
-In-Reply-To: <20040116142821.V19023@osdlab.pdx.osdl.net>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20040117173202.76119237.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Jan 2004 14:28:21 -0800
-Chris Wright <chrisw@osdl.org> wrote:
+On Sat, 17 Jan 2004 17:32:02 -0800
+Andrew Morton <akpm@osdl.org> wrote:
 
-> Check the return value on memcpy_fromiovec().
+> It seems that ipv6 is registering something under /proc/net/ipv6/route
+> which has a bad ctl_table.procname.  I don't know what it is - the ipv6
+> sysctl code overpowered my attention span.
 
-All 4 patches applied, thanks a lot Chris.
+I believe the patches posted by Krishna and Yoshfuji today should
+cure this.  I've integrated those into my tree and will push to
+Linus in a bit.
