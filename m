@@ -1,26 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] net/socket.c : remove redundant NULL pointer check
- before kfree()
-Date: Tue, 22 Mar 2005 18:47:50 -0800
-Message-ID: <20050322184750.4ec7a51c.davem@davemloft.net>
-References: <Pine.LNX.4.62.0503172028030.2512@dragon.hyggekrogen.localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, obz@Kodak.COM, bir7@leland.Stanford.Edu,
-        waltje@uWalt.NL.Mugnet.ORG, linux-net@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Jesper Juhl <juhl-lkml@dif.dk>
-In-Reply-To: <Pine.LNX.4.62.0503172028030.2512@dragon.hyggekrogen.localhost>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 4381] New: When i try to start a pppoe conn., crash at net/core/skbuff.c:91
+Date: Wed, 23 Mar 2005 13:49:01 +1100
+Message-ID: <E1DDvvZ-000350-00@gondolin.me.apana.org.au>
+References: <4240D266.4080403@trash.net>
+Cc: akpm@osdl.org, netdev@oss.sgi.com, o.cornu@gmail.com, paulus@samba.org
+To: kaber@trash.net (Patrick McHardy)
+In-Reply-To: <4240D266.4080403@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Mar 2005 20:34:05 +0100 (CET)
-Jesper Juhl <juhl-lkml@dif.dk> wrote:
-
-> kfree() handles NULL pointers just fine, checking first is pointless.
+Patrick McHardy <kaber@trash.net> wrote:
 > 
-> Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+> ===== drivers/net/ppp_async.c 1.26 vs edited =====
+> --- 1.26/drivers/net/ppp_async.c        2005-01-21 06:02:12 +01:00
+> +++ edited/drivers/net/ppp_async.c      2005-03-23 03:15:31 +01:00
+> @@ -183,6 +183,7 @@
+>        ap->chan.private = ap;
+>        ap->chan.ops = &async_ops;
+>        ap->chan.mtu = PPP_MRU;
+> +       ap->chan.hdrlen = 2;
+>        err = ppp_register_channel(&ap->chan);
 
-Applied, thanks Jesper.
+I'm not sure whether this could cause the original crash that we saw.
+If ap->chan.hdrlen is not set then it should be zero.  It being zero
+should not cause skb_over_panic to trigger in ppp_write, should it?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
