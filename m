@@ -1,54 +1,48 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: [PATCH,resent] reduce sizeof(struct inet_peer) from 128 to 64 bytes
- on 64bits architectures
-Date: Thu, 17 Mar 2005 00:38:48 +0100
-Message-ID: <4238C388.5040303@cosmosbay.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFT 2/3] 8139cp: don't mix software and chip stats
+Date: Thu, 17 Mar 2005 00:42:02 +0100
+Message-ID: <20050316234202.GB27664@electric-eye.fr.zoreil.com>
+References: <20050316150431.6888fe55@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060101080702030703080106"
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050316150431.6888fe55@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060101080702030703080106
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Stephen Hemminger <shemminger@osdl.org> :
+> The rx_frags statistic is a software statistic and not a hardware statistic
+> and it is pasted on to the end. Since the statistic is really a warning about
+> overlength frames, it shouldn't be in the ethtool stats.  
+> 
+> Francois, could you make sure 8169 and 8139cp report fragments the same way.
 
-Resent with diff file not tab/space mangled :(
+(not sure I understood the question)
 
-As peer_cachep uses kmem_cache_create("inet_peer_cache", ... SLAB_HWCACHE_ALIGN ...),
-better try to use exactly 64 bytes instead of 72 for struct inet_peer.
+Do you mean that the r8169 driver should provide something like
+cp_rx_err_acct() ?
 
-This also means that this structure fits in one cache line on x86_64.
+[...]
+> diff -Nru a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+> --- a/drivers/net/8139cp.c	2005-03-16 14:55:11 -08:00
+> +++ b/drivers/net/8139cp.c	2005-03-16 14:55:11 -08:00
+[...]
+> +		/* we don't support incoming fragmented frames.
+> +		 * instead, we attempt to ensure that the
+> +		 * pre-allocated RX skbs are properly sized such
+> +		 * that RX fragments are never encountered
+> +		 */
+> +		if ((status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag)
+> +			|| (status & (RxError | RxErrFIFO))) {
+>  			cp_rx_err_acct(cp, rx_tail, status, len);
+>  			goto rx_next;
+>  		}
 
+I'll verify how the 8169 behaves wrt the Rx fifo error indication. It can
+apparently be set a bit too much (i.e. on every packet).
 
-Thank you
-Eric Dumazet
-
-
-
---------------060101080702030703080106
-Content-Type: text/plain;
- name="diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="diff"
-
-diff -Nru linux-2.6.11/include/net/inetpeer.h linux-2.6.11-ed/include/net/inetpeer.h
---- linux-2.6.11/include/net/inetpeer.h	2005-03-02 08:37:48.000000000 +0100
-+++ linux-2.6.11-ed/include/net/inetpeer.h	2005-03-16 18:52:49.000000000 +0100
-@@ -19,9 +19,9 @@
- {
- 	struct inet_peer	*avl_left, *avl_right;
- 	struct inet_peer	*unused_next, **unused_prevp;
--	atomic_t		refcnt;
- 	unsigned long		dtime;		/* the time of last use of not
- 						 * referenced entries */
-+	atomic_t		refcnt;
- 	__u32			v4daddr;	/* peer's address */
- 	__u16			avl_height;
- 	__u16			ip_id_count;	/* IP ID for the next packet */
-
---------------060101080702030703080106--
+--
+Ueimor
