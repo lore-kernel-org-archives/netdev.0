@@ -1,58 +1,40 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: Assertions when lowering tcp_tso_win_divisor
-Date: Fri, 19 Nov 2004 18:00:21 -0800 (PST)
-Message-ID: <Pine.LNX.4.58.0411191755160.2567@w-sridhar.beaverton.ibm.com>
-References: <Pine.LNX.4.58.0411160931080.31882@w-sridhar.beaverton.ibm.com>
- <E1CUAQ2-0002jT-00@gondolin.me.apana.org.au> <20041116163106.3b62a39a.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+From: janitor@sternwelten.at
+Subject: [patch 2/2]  linux-2.6.7/net/atm/mpc.c: add error check
+Date: Sat, 20 Nov 2004 03:43:00 +0100
+Message-ID: <E1CVLDJ-00028Y-3q@sputnik>
+Cc: netdev@oss.sgi.com, janitor@sternwelten.at, WHarms@bfs.de, wharms@bfs.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041116163106.3b62a39a.davem@davemloft.net>
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Nov 2004, David S. Miller wrote:
 
-> On Wed, 17 Nov 2004 07:59:18 +1100
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
->
-> > Sridhar Samudrala <sri@us.ibm.com> wrote:
-> > > We are seeing following assertions when running specweb99 with
-> > > tcp_tso_win_divisor lowered to 4, 2 or 1 on linux 2.6.9 based kernels.
-> >
-> > 2.6.9 is known to have bugs in TCP book-keeping.  Please try 2.6.10-rc2
-> > instead.
->
-> Actually, that's true.  I missed that this report was against
-> 2.6.9 vanilla, TCP is buggy as can be wrt TSO in that
-> release.
 
-Unfortunately as we cannot upgrade to 2.6.10-rc2, i tried to locate all the
-TSO accounting related bugfixes that went in after 2.6.9 and came up with
-the following 4 patches.
+Content-type: text/plain; charset=us-ascii
 
-[TCP]: Fix new packet len calc in tcp_fragment()
-http://linux.bkbits.net:8080/linux-2.5/cset@4175f423T1X-UctOUzkYgMxq16ODAw?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
+add errorcheck for register_netdevice_notifier()
 
-[TCP]: Fix tcp_trim_head() calculations.
-http://linux.bkbits.net:8080/linux-2.5/cset@41789ca8a4gfwR352SuIgAl6GbQmbQ?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
+Signed-off-by: walter harms <wharms@bfs.de>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+---
 
-[TCP]: Only re-set TSO size for packet which was TSO to begin with.
-http://linux.bkbits.net:8080/linux-2.5/cset@417982139wJw8yO-JClu818UQuoa_g?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
+ linux-2.6.10-rc2-bk4-max/net/atm/mpc.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletion(-)
 
-[TCP]: Handle real partial-ACKs of TSO frames correctly.
-http://linux.bkbits.net:8080/linux-2.5/cset@417dcb39pNYZ1fRBQTQES0JVcUji2g?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
-
-Even with these 4 patches applied, we are still seeing the assertions.
-
-Also, the webserver is started only after lowering tcp_tso_win_divisor and
-the value is is not changed again.
-
-Are there any other TSO related patches apart from the above 4 that went in
-after 2.6.9? Or could it be that this bug is still there?
-
-Thanks
-Sridhar
+diff -puN net/atm/mpc.c~check-register_netdevice_notifier-net_atm_mpc net/atm/mpc.c
+--- linux-2.6.10-rc2-bk4/net/atm/mpc.c~check-register_netdevice_notifier-net_atm_mpc	2004-11-20 03:04:37.000000000 +0100
++++ linux-2.6.10-rc2-bk4-max/net/atm/mpc.c	2004-11-20 03:04:37.000000000 +0100
+@@ -761,7 +761,10 @@ int atm_mpoa_mpoad_attach (struct atm_vc
+ 		mpc_timer_refresh();
+ 
+ 		/* This lets us now how our LECs are doing */
+-		register_netdevice_notifier(&mpoa_notifier);
++		if (register_netdevice_notifier(&mpoa_notifier) < 0) {
++			del_timer(&mpc_timer);
++			return -1;
++		}
+ 	}
+ 	
+ 	mpc = find_mpc_by_itfnum(arg);
+_
