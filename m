@@ -1,37 +1,36 @@
-From: Reuben Farrelly <reuben-linux@reub.net>
-Subject: Re: Kernel crash in 2.6.0-test9-mm3
-Date: Thu, 20 Nov 2003 16:05:27 +1300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <6.0.1.1.0.20031120160110.02412b80@tornado.reub.net>
-References: <OF0696EDA9.D66EB77E-ON88256DE3.0009C15A@us.ibm.com>
- <6.0.1.1.0.20031119155347.023f89d0@tornado.reub.net>
- <20031119185157.3edf69c8.davem@redhat.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [CFT] 2.6.x experimental net driver updates
+Date: Thu, 20 Nov 2003 00:23:44 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3FBC4FE0.2020705@pobox.com>
+References: <3FBBA954.6000601@pobox.com> <20031120025423.GB24159@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: kumarkr@us.ibm.com, akpm@osdl.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031119185157.3edf69c8.davem@redhat.com>
-References: <OF0696EDA9.D66EB77E-ON88256DE3.0009C15A@us.ibm.com>
- <6.0.1.1.0.20031119155347.023f89d0@tornado.reub.net>
- <20031119185157.3edf69c8.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: viro@parcelfarce.linux.theplanet.co.uk
+In-Reply-To: <20031120025423.GB24159@parcelfarce.linux.theplanet.co.uk>
 List-Id: netdev.vger.kernel.org
 
-Yes - with the patch backed out, the system has been up for 20 hours 
-without a crash and nothing has been logged.  I was just holding off a bit 
-longer before reporting back in case it just needs a bit more time to 
-trigger ;-)
+viro@parcelfarce.linux.theplanet.co.uk wrote:
+> On Wed, Nov 19, 2003 at 12:33:08PM -0500, Jeff Garzik wrote:
+> 
+>>Ok, Al Viro's net driver refcounting work is pretty much complete, and 
+> 
+> 
+> The hell it is.  We are through with legacy probes, we are through with
+> init_etherdev(), we are practically through with static struct net_device.
 
-Reuben
+hehe :)  I don't mean to suggest that all is clean and pure :)
 
 
-At 15:51 20/11/2003, David S. Miller wrote:
->On Wed, 19 Nov 2003 15:58:18 +1300
->Reuben Farrelly <reuben-linux@reub.net> wrote:
->
-> > The system is a UP system..
->
->Have you done ask Andrew asked, backing out the atomic_dec_and_test()
->debugging patch to see if all the weird kernel log messages go away
->as a result?
+> However, we still have weird allocators (I've got almost all of them
+> done by now, will submit in the next batch) and we still have struct
+> net_device embedded as a field of other structures in several drivers.
+
+Some of that will be interesting.  ns83820 for example embedded 
+net_device on purpose...  Ben seemed to think at the time it gave him 
+some speed, a few less pointer derefs and such.
+
+	Jeff
