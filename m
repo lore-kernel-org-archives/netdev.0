@@ -1,32 +1,32 @@
-From: kuznet@ms2.inr.ac.ru
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] IPv6: Allow Both IPv6 and IPv4 Sockets on the Same
-Date: Thu, 3 Oct 2002 17:06:48 +0400 (MSD)
+Date: Thu, 03 Oct 2002 06:02:54 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210031306.RAA29293@sex.inr.ac.ru>
+Message-ID: <20021003.060254.26942488.davem@redhat.com>
 References: <20021003.012904.75241727.davem@redhat.com>
+	<200210031306.RAA29293@sex.inr.ac.ru>
 Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.COM (David S. Miller)
-In-Reply-To: <20021003.012904.75241727.davem@redhat.com> from "David S. Miller" at Oct 3, 2 12:45:01 pm
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200210031306.RAA29293@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+   From: kuznet@ms2.inr.ac.ru
+   Date: Thu, 3 Oct 2002 17:06:48 +0400 (MSD)
 
-> For example, this IPV6_V6ONLY socket option is flawed.  What we
-> really need is a generic socket option which says "my family only"
-> 
-> There is nothing ipv6 specific about such a socket attribute.
-> 
-> So please, create instead "SO_ONEFAMILY" or similar generic
-> socket option.
+   No, really! __Sharing__ of port space between IPv4 and IPv6 was mad
+   idea. It cannot generalized to other protocol families.
+   
+   So, IPV6_V6ONLY is really unique for IPv6. Well, actually, it could
+   be negated: be default and the option would be called
+   IPV6_SHARE_THIS_PORT_TO_IPV4.
 
-No, really! __Sharing__ of port space between IPv4 and IPv6 was mad
-idea. It cannot generalized to other protocol families.
+I think what I want to really say is that I want to provide
+way for ipv4 application to say "no ipv6 connections on this
+listening socket please".
 
-So, IPV6_V6ONLY is really unique for IPv6. Well, actually, it could
-be negated: be default and the option would be called
-IPV6_SHARE_THIS_PORT_TO_IPV4.
-
-Alexey
+So does it make no sense at all to have IP_V4ONLY?
