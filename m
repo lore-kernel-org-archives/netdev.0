@@ -1,29 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: [Bugme-new] [Bug 4138] New: ipsec with racoon in transport mode with esp and ah hangs (problem is in xfrm_state_add)
-Date: Wed, 9 Mar 2005 10:00:08 +1100
-Message-ID: <20050308230008.GA27450@gondor.apana.org.au>
-References: <E1CvZCT-00017g-00@gondolin.me.apana.org.au> <200501311640.16118.au@unterluggauer.org> <20050131211102.GA20323@gondor.apana.org.au> <422E28D6.1070103@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andreas Unterluggauer <au@unterluggauer.org>, netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <422E28D6.1070103@trash.net>
+From: Andy Fleming <afleming@freescale.com>
+Subject: PATCH: Some random ethtool fixes
+Date: Tue, 8 Mar 2005 17:11:10 -0600
+Message-ID: <e0f0506f97b60f97d376756c72e88c6e@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: multipart/mixed; boundary=Apple-Mail-1-1019768010
+Cc: Kumar Gala <kumar.gala@freescale.com>
+To: Netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 08, 2005 at 11:36:06PM +0100, Patrick McHardy wrote:
-> 
-> You're right, but I think there is also kernel misbehaviour here that
-> is fixed by the patch for __xfrm_state_find_acq_byseq() I sent to Dave
-> earlier. Andreas, can you try this patch please ?
 
-Good catch.  That should also make racoon work.
+--Apple-Mail-1-1019768010
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset=US-ASCII;
+	format=flowed
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The patch I sent out earlier had some other changes which were just 
+little bug fixes, and I have distilled those into this patch.  This 
+patch applies on ethtool.c (from the application).  It fixes these 
+problems:
+
+* Allows ethtool -s to set the negotiated speed to 1000 (full/half)
+* Causes ethtool -s ethN autoneg on to enable gigabit speeds as well as 
+the others
+* Fixes a spelling error where external was spelled "externel"
+
+
+--Apple-Mail-1-1019768010
+Content-Transfer-Encoding: 7bit
+Content-Type: application/octet-stream;
+	x-unix-mode=0644;
+	name="ethtool_20050308.patch"
+Content-Disposition: attachment;
+	filename=ethtool_20050308.patch
+
+Index: ethtool.c
+===================================================================
+RCS file: /cvsroot/gkernel/ethtool/ethtool.c,v
+retrieving revision 1.50
+diff -u -r1.50 ethtool.c
+--- ethtool.c   2 Jul 2004 15:35:09 -0000       1.50
++++ ethtool.c   8 Mar 2005 23:01:51 -0000
+@@ -681,13 +681,21 @@
+                else if (speed_wanted == SPEED_100 &&
+                         duplex_wanted == DUPLEX_FULL)
+                        advertising_wanted = ADVERTISED_100baseT_Full;
+-               else
++               else if (speed_wanted == SPEED_1000 &&
++                        duplex_wanted == DUPLEX_HALF)
++                       advertising_wanted = ADVERTISED_1000baseT_Half;
++               else if (speed_wanted == SPEED_1000 &&
++                        duplex_wanted == DUPLEX_FULL)
++                       advertising_wanted = ADVERTISED_1000baseT_Full;
++               else {
+                        /* auto negotiate without forcing */
+                        advertising_wanted = ADVERTISED_100baseT_Full |
+                                ADVERTISED_100baseT_Half |
+                                ADVERTISED_10baseT_Full |
+-                               ADVERTISED_100baseT_Half;
+-
++                               ADVERTISED_10baseT_Half |
++                               ADVERTISED_1000baseT_Half |
++                               ADVERTISED_1000baseT_Full;
++               }
+        }
+ 
+        if (devname == NULL) {
+@@ -857,7 +865,7 @@
+                fprintf(stdout, "internal\n");
+                break;
+        case XCVR_EXTERNAL:
+-               fprintf(stdout, "externel\n");
++               fprintf(stdout, "external\n");
+                break;
+        default:
+                fprintf(stdout, "Unknown!\n");
+
+--Apple-Mail-1-1019768010--
