@@ -1,97 +1,138 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Kernel 2.4.25 + VLAN + CBQ disc broken ?
-Date: Tue, 23 Mar 2004 23:56:37 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] [RFT] 2.6.4 - epic100 napi
+Date: Wed, 24 Mar 2004 01:41:40 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4060C0A5.40402@trash.net>
-References: <4008E74134355D43998FFFC3D637BB030463DF@starsky.ncc.itgate.net>
+Message-ID: <20040324014140.A16202@electric-eye.fr.zoreil.com>
+References: <20040320152109.A31118@electric-eye.fr.zoreil.com> <405DDDC6.7030007@pobox.com> <8765cvmyaq.fsf@devron.myhome.or.jp> <20040323195119.A14062@electric-eye.fr.zoreil.com> <871xnjgwrs.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090502020107040702010806"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        "David S. Miller" <davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Gianfranco Delli Carri <gf.dellicarri@ncc.itgate.net>
-In-Reply-To: <4008E74134355D43998FFFC3D637BB030463DF@starsky.ncc.itgate.net>
+To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Content-Disposition: inline
+In-Reply-To: <871xnjgwrs.fsf@devron.myhome.or.jp>; from hirofumi@mail.parknet.co.jp on Wed, Mar 24, 2004 at 04:59:19AM +0900
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090502020107040702010806
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Gianfranco Delli Carri wrote:
-> Greetigs,
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> :
+[...]
+> > -> napi irq are disabled and device is removed from poll list. What will
+> >    prevent it ?
 > 
-> seems that in a 2.4.25 kernel, with VLAN configured, if you try tu use CBQ disc on VLAN subIf no more traffic can be passed. (NO ARP, NO IP)
+> __LINK_STATE_RX_SCHED flag is setting until __netif_rx_complete() is called.
+> So netif_rx_schedule_prep() returns 0.
+
+Ok, thanks for the explanation. It is possible that the lock stays anyway (see
+below).
+
+[...]
+> > Afaiu, if some data comes in just before the spin_lock, it may wait for ages.
 > 
-> Just after: 
-> /sbin/tc qdisc add dev eth1.10 root handle 1 cbq bandwidth 100Mbit avpkt 1000 cell 8
-> 
-> traffic was dropped.
-> 
-> Seems that in the same server enviroment the CBQ disc attached to the untagged interface can work without problems.
+> Yes, maybe. But, if after spin_lock, it loop may call the twice
+> __netif_rx_schedule(). And netif_rx_complete() doesn't call dev_put().
+> It will leaks the dev->refcnt, I think.
 
-Please try this patch.
+@$*#!zW
 
-Dave, the txqueuelen=0 fix for pfifo_fast apparently didn't went in
-2.4, this is the patch from 2.6, it applies with minor offset.
-
-Best regards
-Patrick
-
---------------090502020107040702010806
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-ChangeSet 1.1561.2.5, 2004/02/18 13:18:53-08:00, kaber@trash.net
-
-	[PKTSCHED]: Use queue limit of 1 when tx_queue_len is zero.
+The following patch should avoid the leak as well as the packet rot
+(untested, 1:33 AM, apply on top of previous serie).
 
 
-# This patch includes the following deltas:
-#	           ChangeSet	1.1561.2.4 -> 1.1561.2.5
-#	net/sched/sch_fifo.c	1.7     -> 1.8    
-#	net/sched/sch_gred.c	1.13    -> 1.14   
-#
-
- sch_fifo.c |    6 ++++--
- sch_gred.c |    2 +-
- 2 files changed, 5 insertions(+), 3 deletions(-)
+Multiple invocation of __netif_rx_schedule() in epic_interrupt() while
+epic_poll loops over __netif_rx_complete() leads to serious device
+refcount leak.
 
 
-diff -Nru a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
---- a/net/sched/sch_fifo.c	Wed Feb 18 18:09:39 2004
-+++ b/net/sched/sch_fifo.c	Wed Feb 18 18:09:39 2004
-@@ -141,10 +141,12 @@
- 	struct fifo_sched_data *q = (void*)sch->data;
+ drivers/net/epic100.c |   26 +++++++++++++-------------
+ 1 files changed, 13 insertions(+), 13 deletions(-)
+
+diff -puN drivers/net/epic100.c~epic100-napi-30 drivers/net/epic100.c
+--- linux-2.6.5-rc2/drivers/net/epic100.c~epic100-napi-30	2004-03-24 01:18:25.000000000 +0100
++++ linux-2.6.5-rc2-fr/drivers/net/epic100.c	2004-03-24 01:19:35.000000000 +0100
+@@ -337,6 +337,7 @@ struct epic_private {
+ 	/* Ring pointers. */
+ 	spinlock_t lock;				/* Group with Tx control cache line. */
+ 	spinlock_t napi_lock;
++	unsigned int reschedule_in_poll;
+ 	unsigned int cur_tx, dirty_tx;
  
- 	if (opt == NULL) {
-+		unsigned int limit = sch->dev->tx_queue_len ? : 1;
-+
- 		if (sch->ops == &bfifo_qdisc_ops)
--			q->limit = sch->dev->tx_queue_len*sch->dev->mtu;
-+			q->limit = limit*sch->dev->mtu;
- 		else	
--			q->limit = sch->dev->tx_queue_len;
-+			q->limit = limit;
- 	} else {
- 		struct tc_fifo_qopt *ctl = RTA_DATA(opt);
- 		if (opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
-diff -Nru a/net/sched/sch_gred.c b/net/sched/sch_gred.c
---- a/net/sched/sch_gred.c	Wed Feb 18 18:09:39 2004
-+++ b/net/sched/sch_gred.c	Wed Feb 18 18:09:39 2004
-@@ -110,7 +110,7 @@
- 	unsigned long	qave=0;	
- 	int i=0;
+ 	unsigned int cur_rx, dirty_rx;
+@@ -472,7 +473,9 @@ static int __devinit epic_init_one (stru
+ 	dev->base_addr = ioaddr;
+ 	dev->irq = irq;
  
--	if (!t->initd && skb_queue_len(&sch->q) < sch->dev->tx_queue_len) {
-+	if (!t->initd && skb_queue_len(&sch->q) < (sch->dev->tx_queue_len ? : 1)) {
- 		D2PRINTK("NO GRED Queues setup yet! Enqueued anyway\n");
- 		goto do_enqueue;
+-	spin_lock_init (&ep->lock);
++	spin_lock_init(&ep->lock);
++	spin_lock_init(&ep->napi_lock);
++	ep->reschedule_in_poll = 0;
+ 
+ 	/* Bring the chip out of low-power mode. */
+ 	outl(0x4200, ioaddr + GENCTL);
+@@ -981,8 +984,6 @@ static void epic_init_ring(struct net_de
+ 	int i;
+ 
+ 	ep->tx_full = 0;
+-	spin_lock_init(&ep->lock);
+-	spin_lock_init(&ep->napi_lock);
+ 	ep->dirty_tx = ep->cur_tx = 0;
+ 	ep->cur_rx = ep->dirty_rx = 0;
+ 	ep->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
+@@ -1152,7 +1153,6 @@ static void epic_tx(struct net_device *d
  	}
+ }
+ 
+-
+ /* The interrupt handler does all of the Rx thread work and cleans up
+    after the Tx thread. */
+ static irqreturn_t epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
+@@ -1177,12 +1177,13 @@ static irqreturn_t epic_interrupt(int ir
+ 			break;
+ 		handled = 1;
+ 
+-		if (status & EpicNapiEvent) {
++		if ((status & EpicNapiEvent) && !ep->reschedule_in_poll) {
+ 			spin_lock(&ep->napi_lock);
+ 			if (netif_rx_schedule_prep(dev)) {
+ 				epic_napi_irq_off(dev, ep);
+ 				__netif_rx_schedule(dev);
+-			}
++			} else
++				ep->reschedule_in_poll++;
+ 			spin_unlock(&ep->napi_lock);
+ 		}
+ 
+@@ -1355,7 +1356,6 @@ static int epic_poll(struct net_device *
+ 
+ 	orig_budget = (*budget > dev->quota) ? dev->quota : *budget;
+ 
+-rx_action:
+ 	outl(EpicNapiEvent, ioaddr + INTSTAT);
+ 
+ 	epic_tx(dev, ep);
+@@ -1369,18 +1369,18 @@ rx_action:
+ 
+ 	if (netif_running(dev) && (work_done < orig_budget)) {
+ 		unsigned long flags;
+-		int status;
+ 
+-		spin_lock_irqsave(&ep->napi_lock, flags);
+ 		epic_napi_irq_on(dev, ep);
++
++		spin_lock_irqsave(&ep->napi_lock, flags);
+ 		__netif_rx_complete(dev);
+-		spin_unlock_irqrestore(&ep->napi_lock, flags);
+ 
+-		status = inl(ioaddr + INTSTAT);
+-		if (status & EpicNapiEvent) {
++		if (ep->reschedule_in_poll) {
+ 			epic_napi_irq_off(dev, ep);
+-			goto rx_action;
++			__netif_rx_schedule(dev);
++			ep->reschedule_in_poll--;
+ 		}
++		spin_unlock_irqrestore(&ep->napi_lock, flags);
+ 	}
+ 
+ 	return (work_done >= orig_budget);
 
---------------090502020107040702010806--
+_
