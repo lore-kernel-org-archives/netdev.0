@@ -1,39 +1,62 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: e1000 close (NAPI)
-Date: Wed, 8 Oct 2003 05:07:20 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008050720.7d65bd88.davem@redhat.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102229702@orsmsx402.jf.intel.com>
-	<16259.54738.75122.134408@robur.slu.se>
+From: Tobias DiPasquale <toby@cbcg.net>
+Subject: [PATCH] kfree_skb() bug in 2.4.22
+Date: Wed, 08 Oct 2003 08:44:35 -0400
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <1065617075.1514.29.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: scott.feldman@intel.com, Robert.Olsson@data.slu.se, jgarzik@pobox.com,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16259.54738.75122.134408@robur.slu.se>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	coreteam@netfilter.org, netfilter@lists.netfilter.org,
+	akpm@zip.com.au, jgarzik@pobox.com, davem@redhat.com,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@intercode.com.au,
+	yoshfuji@linux-ipv6.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Oct 2003 11:16:02 +0200
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+Hi all,
 
-> Feldman, Scott writes:
->  > > -	if(work_done < work_to_do) {
->  > > +	if(work_done < work_to_do || !netif_running(netdev)) {
->  > >  		netif_rx_complete(netdev);
->  > >  		e1000_irq_enable(adapter);
->  > >  	}
->  > 
->  > Is e1000 unique in this regard, or do the other NAPI-enabled drivers
->  > have the same issue?
-> 
->  Other drivers may have the same issue. This was spotted while stress-testing 
->  tulip. Patch was sent here some days ago. It's only seen if trying to close 
->  device under extreme loads. See the syncing code in dev_close()
-> 
->  You may try the e100 as well. We update the docs when see that this is OK.
+I was debugging one of my iptables/netfilter modules yesterday and I
+came across this bug in kfree_skb(). One of my functions returns a
+struct skbuff * on success and NULL on failure. When it failed, the code
+calling said function attempted to free the struct skbuff *, which at
+that point was NULL. This produced a kernel panic. I investigated the
+problem and found that, not only should I be checking for a NULL pointer
+when freeing the struct skbuff *, but the actual cause of the panic was
+because kfree_skb() and kfree_skb_fast() do not check for skb==NULL,
+either. They immediately attempt to dereference the users field of the
+struct skbuff * in order to decrement that reference counter. 
 
-We should just fix all the NAPI drivers in this regard at one
-time.  Undoubtedly tg3 needs this change too.
+I have come up with a patch that applies to both the 2.4.22 pristine
+source tree and the 2.4.23-pre6 source tree that solves this issue (see
+below). I tried to follow Documentation/SubmittingPatches to the letter;
+please let me know if I failed this in some way. Thanks :)
+
+P.S. I wasn't sure who exactly maintains this particular code; that's
+why I just sent it to everyone listed in MAINTAINERS remotely associated
+with include/linux/skbuff.h ;)
+
+
+--- include/linux/skbuff.h.orig	2003-10-08 07:52:31.000000000 -0400
++++ include/linux/skbuff.h	2003-10-08 07:52:52.000000000 -0400
+@@ -293,6 +293,8 @@
+  
+ static inline void kfree_skb(struct sk_buff *skb)
+ {
++	if (!skb)
++		return;
+ 	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
+ 		__kfree_skb(skb);
+ }
+@@ -300,6 +302,8 @@
+ /* Use this if you didn't touch the skb state [for fast switching] */
+ static inline void kfree_skb_fast(struct sk_buff *skb)
+ {
++	if (!skb)
++		return;
+ 	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
+ 		kfree_skbmem(skb);	
+ }
+
+
