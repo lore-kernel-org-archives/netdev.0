@@ -1,31 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch 1/3] fix buggy IEEE80211_CRYPT_* selects
-Date: Sun, 6 Mar 2005 20:09:36 +1100
-Message-ID: <20050306090936.GA31890@gondor.apana.org.au>
-References: <200503041237.j24Cbb69026470@shell0.pdx.osdl.net> <42289BDF.1080409@pobox.com> <20050304221014.GJ3327@stusta.de> <4228DF62.4000205@pobox.com> <20050304230718.GL3327@stusta.de>
+From: Martin Mares <mj@ucw.cz>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: Sun, 6 Mar 2005 10:56:42 +0100
+Message-ID: <20050306095642.GA1352@ucw.cz>
+References: <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, akpm@osdl.org, davem@davemloft.net,
-        netdev@oss.sgi.com
-To: Adrian Bunk <bunk@stusta.de>
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: Zdenek Radouch <zdenek@rcn.com>
 Content-Disposition: inline
-In-Reply-To: <20050304230718.GL3327@stusta.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 05, 2005 at 12:07:18AM +0100, Adrian Bunk wrote:
-> 
-> The way kconfig currently works, you have to ensure that the 
-> dependencies of what you select are fulfilled.
+Hello!
 
-Yes Adrian's right.  In the other places where we select CRYPTO
-symbols, we always make sure that CRYPTO itself is selected.  See
-net/ipv4/Kconfig for example.
+> Unfortunately, this does not work with the Linux stack, because the
+> 127 net is treated (for good reasons I suppose) as a special net.
 
-Cheers,
+Is it really?
+
+I've just tried
+
+	ip addr del 127.0.0.1/8 dev lo
+	ip addr add 127.0.0.1/24 dev lo
+
+and `ping 127.1.2.3' is then happily sent along the default route.
+
+				Have a nice fortnight
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Martin `MJ' Mares   <mj@ucw.cz>   http://atrey.karlin.mff.cuni.cz/~mj/
+Faculty of Math and Physics, Charles University, Prague, Czech Rep., Earth
+Only dead fish swim with the stream.
