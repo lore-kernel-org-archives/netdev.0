@@ -1,828 +1,487 @@
 From: James Morris <jmorris@intercode.com.au>
-Subject: [PATCH] LSM networking: socket hooks for 2.5.59 (4/8)
-Date: Fri, 31 Jan 2003 10:01:34 +1100 (EST)
+Subject: [PATCH] LSM networking: ipv4 hooks for 2.5.59 (5/8)
+Date: Fri, 31 Jan 2003 10:06:09 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0301310956530.31382-100000@blackbird.intercode.com.au>
-References: <Pine.LNX.4.44.0301310952140.31382-100000@blackbird.intercode.com.au>
+Message-ID: <Pine.LNX.4.44.0301311001440.31382-100000@blackbird.intercode.com.au>
+References: <Pine.LNX.4.44.0301310956530.31382-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com, <linux-security-module@wirex.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <Pine.LNX.4.44.0301310952140.31382-100000@blackbird.intercode.com.au>
+In-Reply-To: <Pine.LNX.4.44.0301310956530.31382-100000@blackbird.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
- include/linux/security.h |  346 +++++++++++++++++++++++++++++++++++++++++++++++
- include/net/sock.h       |   14 +
- net/core/sock.c          |    6 
- net/ipv4/tcp_ipv4.c      |    4 
- net/socket.c             |   72 +++++++++
- security/dummy.c         |  111 ++++++++++++++-
- 6 files changed, 549 insertions(+), 4 deletions(-)
+ include/linux/ip.h       |    1 
+ include/linux/security.h |  108 ++++++++++++++++++++++++++++++++++++++++++++++-
+ net/ipv4/ah.c            |    2 
+ net/ipv4/ip_fragment.c   |    7 ++-
+ net/ipv4/ip_gre.c        |    3 +
+ net/ipv4/ip_options.c    |    5 ++
+ net/ipv4/ip_output.c     |    3 +
+ net/ipv4/ipip.c          |    4 +
+ net/ipv4/ipmr.c          |    4 +
+ security/capability.c    |   13 +++++
+ security/dummy.c         |   36 +++++++++++++++
+ 11 files changed, 183 insertions(+), 3 deletions(-)
 
+diff -urN -X dontdiff linux-2.5.59.w0/include/linux/ip.h linux-2.5.59.w1/include/linux/ip.h
+--- linux-2.5.59.w0/include/linux/ip.h	Thu Oct 31 16:01:08 2002
++++ linux-2.5.59.w1/include/linux/ip.h	Thu Jan 30 21:33:32 2003
+@@ -58,6 +58,7 @@
+ #define IPOPT_SEC	(2 |IPOPT_CONTROL|IPOPT_COPY)
+ #define IPOPT_LSRR	(3 |IPOPT_CONTROL|IPOPT_COPY)
+ #define IPOPT_TIMESTAMP	(4 |IPOPT_MEASUREMENT)
++#define IPOPT_CIPSO	(6 |IPOPT_CONTROL|IPOPT_COPY)
+ #define IPOPT_RR	(7 |IPOPT_CONTROL)
+ #define IPOPT_SID	(8 |IPOPT_CONTROL|IPOPT_COPY)
+ #define IPOPT_SSRR	(9 |IPOPT_CONTROL|IPOPT_COPY)
 diff -urN -X dontdiff linux-2.5.59.w0/include/linux/security.h linux-2.5.59.w1/include/linux/security.h
---- linux-2.5.59.w0/include/linux/security.h	Thu Jan 30 21:31:15 2003
-+++ linux-2.5.59.w1/include/linux/security.h	Thu Jan 30 21:31:32 2003
-@@ -65,6 +65,9 @@
- 
- /* forward declares to avoid warnings */
- struct sock;
-+struct socket;
-+struct sockaddr;
-+struct msghdr;
- struct sk_buff;
+--- linux-2.5.59.w0/include/linux/security.h	Thu Jan 30 21:33:15 2003
++++ linux-2.5.59.w1/include/linux/security.h	Thu Jan 30 21:33:32 2003
+@@ -38,6 +38,9 @@
+  * as the default capabilities functions
+  */
+ extern int cap_capable (struct task_struct *tsk, int cap);
++struct sk_buff;
++extern int cap_ip_decode_options (struct sk_buff *skb, const char *optptr,
++				  unsigned char **pp_ptr);
+ extern int cap_ptrace (struct task_struct *parent, struct task_struct *child);
+ extern int cap_capget (struct task_struct *target, kernel_cap_t *effective, kernel_cap_t *inheritable, kernel_cap_t *permitted);
+ extern int cap_capset_check (struct task_struct *target, kernel_cap_t *effective, kernel_cap_t *inheritable, kernel_cap_t *permitted);
+@@ -68,7 +71,6 @@
+ struct socket;
+ struct sockaddr;
+ struct msghdr;
+-struct sk_buff;
  struct net_device;
  struct nfsctl_arg;
-@@ -587,6 +590,126 @@
-  * 	is being reparented to the init task.
-  *	@p contains the task_struct for the kernel thread.
+ struct sched_param;
+@@ -710,6 +712,48 @@
+  *	@skb contains the incoming network data.
+  * 	Return 0 if permission is granted.
   *
-+ * Security hooks for socket operations.
++ * IPv4 networking hooks.
 + *
-+ * @socket_create:
-+ *	Check permissions prior to creating a new socket.
-+ *	@family contains the requested protocol family.
-+ *	@type contains the requested communications type.
-+ *	@protocol contains the requested protocol.
-+ *	Return 0 if permission is granted.
-+ * @socket_post_create:
-+ *	This hook allows a module to update or allocate a per-socket security
-+ *	structure. Note that the security field was not added directly to the
-+ *	socket structure, but rather, the socket security information is stored
-+ *	in the associated inode.  Typically, the inode alloc_security hook will
-+ *	allocate and and attach security information to
-+ *	sock->inode->i_security.  This hook may be used to update the
-+ *	sock->inode->i_security field with additional information that wasn't
-+ *	available when the inode was allocated.
-+ *	@sock contains the newly created socket structure.
-+ *	@family contains the requested protocol family.
-+ *	@type contains the requested communications type.
-+ *	@protocol contains the requested protocol.
-+ * @socket_bind:
-+ *	Check permission before socket protocol layer bind operation is
-+ *	performed and the socket @sock is bound to the address specified in the
-+ *	@address parameter.
-+ *	@sock contains the socket structure.
-+ *	@address contains the address to bind to.
-+ *	@addrlen contains the length of address.
-+ *	Return 0 if permission is granted.  
-+ * @socket_connect:
-+ *	Check permission before socket protocol layer connect operation
-+ *	attempts to connect socket @sock to a remote address, @address.
-+ *	@sock contains the socket structure.
-+ *	@address contains the address of remote endpoint.
-+ *	@addrlen contains the length of address.
-+ *	Return 0 if permission is granted.  
-+ * @socket_listen:
-+ *	Check permission before socket protocol layer listen operation.
-+ *	@sock contains the socket structure.
-+ *	@backlog contains the maximum length for the pending connection queue.
-+ *	Return 0 if permission is granted.
-+ * @socket_accept:
-+ *	Check permission before accepting a new connection.  Note that the new
-+ *	socket, @newsock, has been created and some information copied to it,
-+ *	but the accept operation has not actually been performed.
-+ *	@sock contains the listening socket structure.
-+ *	@newsock contains the newly created server socket for connection.
-+ *	Return 0 if permission is granted.
-+ * @socket_post_accept:
-+ *	This hook allows a security module to copy security
-+ *	information into the newly created socket's inode.
-+ *	@sock contains the listening socket structure.
-+ *	@newsock contains the newly created server socket for connection.
-+ * @socket_sendmsg:
-+ *	Check permission before transmitting a message to another socket.
-+ *	@sock contains the socket structure.
-+ *	@msg contains the message to be transmitted.
-+ *	@size contains the size of message.
-+ *	Return 0 if permission is granted.
-+ * @socket_recvmsg:
-+ *	Check permission before receiving a message from a socket.
-+ *	@sock contains the socket structure.
-+ *	@msg contains the message structure.
-+ *	@size contains the size of message structure.
-+ *	@flags contains the operational flags.
-+ *	Return 0 if permission is granted.  
-+ * @socket_getsockname:
-+ *	Check permission before the local address (name) of the socket object
-+ *	@sock is retrieved.
-+ *	@sock contains the socket structure.
-+ *	Return 0 if permission is granted.
-+ * @socket_getpeername:
-+ *	Check permission before the remote address (name) of a socket object
-+ *	@sock is retrieved.
-+ *	@sock contains the socket structure.
-+ *	Return 0 if permission is granted.
-+ * @socket_getsockopt:
-+ *	Check permissions before retrieving the options associated with socket
-+ *	@sock.
-+ *	@sock contains the socket structure.
-+ *	@level contains the protocol level to retrieve option from.
-+ *	@optname contains the name of option to retrieve.
-+ *	Return 0 if permission is granted.
-+ * @socket_setsockopt:
-+ *	Check permissions before setting the options associated with socket
-+ *	@sock.
-+ *	@sock contains the socket structure.
-+ *	@level contains the protocol level to set options for.
-+ *	@optname contains the name of the option to set.
-+ *	Return 0 if permission is granted.  
-+ * @socket_shutdown:
-+ *	Checks permission before all or part of a connection on the socket
-+ *	@sock is shut down.
-+ *	@sock contains the socket structure.
-+ *	@how contains the flag indicating how future sends and receives are handled.
-+ *	Return 0 if permission is granted.
-+ * @socket_sock_alloc_security:
-+ *      @sk contains the sock structure.
-+ *	@gfp_mask contains the kernel allocation gfp_mask value.
-+ *      Allocate and attach a security structure to @sk->security.  The
-+ *      security field is initialized to NULL when the sock structure is
-+ *      allocated.
-+ *      Return 0 if operation was successful.
-+ * @socket_sock_free_security:
-+ *      @sk contains the sock structure.
-+ *      Deallocate and clear the sk->security field.
-+ * @socket_sock_rcv_skb:
-+ *	Check permissions on incoming network packets.  This hook is distinct
-+ *	from the network input hooks of ip_security_ops since it is the first
-+ *	time that the incoming sk_buff @skb has been associated with a
-+ *	particular socket, @sk.  Security modules should not try to dereference
-+ *	@sk->socket if the socket is in a time wait state 
-+ *	(@sk->state == TCP_TIME_WAIT), since the @sk refers to a tcp_tw_bucket
-+ *	structure in that case.  Also, even if the socket is not in this state,
-+ *	@sk->socket may be NULL, e.g. a newly created server socket for a
-+ *	connection that has not yet been accepted by a process.
-+ *	@sk contains the sock (not socket) associated with the incoming sk_buff.
-+ *	@skb contains the incoming network data.
-+ * 	Return 0 if permission is granted.
++ * @ip_fragment:
++ *	This is called for each fragment generated when an outgoing packet is
++ *	being fragmented, and may be used to copy security attributes from the
++ *	original packet to each fragment.
++ *	@newskb contains the newly created fragment.
++ *	@oldskb contains the original packet being fragmented.
++ * @ip_defragment:
++ *	This hook is called when an incoming fragment is about to be inserted
++ *	into a reassembly queue.  It's purpose is to enable the validation of
++ *	security attributes for each fragment.  An LSM module using this hook
++ *	will likely need to maintain its own fragment queue information, handle
++ *	fragment expiration and implement DoS countermeasures.
++ *	@skb contains the incoming fragment.
++ *	Returns 0 on success.
++ * @ip_encapsulate:
++ *	This hook is called when an IP packet is encapsulated, and may be used
++ *	to update security attributes prior to reprocessing via the local_out
++ *	or forward hooks.
++ *	@skb contains the encapsulated packet.
++ * @ip_decapsulate:
++ *	This hook is called when a packet is decapsulated, and may be used to
++ *	process security attributes at each level of encapsulation.  An example
++ *	of this would be keeping track of nested security associations for an
++ *	incoming packet.
++ *	@skb contains the decapsulated packet.
++ * @ip_decode_options:
++ *	This hook is used for processing IP security options at the network
++ *	layer when labeled networking (e.g. CIPSO) is implemented.
++ *	For outgoing packets, IP options passed down from the application or
++ *	transport layers may be verified here prior the packet being built.
++ *	For incoming packets, IP options may be verified and their values
++ *	recorded via the &sk_buff security blob for later processing.
++ *	@skb contains the &sk_buff containing IP packet (usually NULL for outgoing).
++ *	@optptr contains the &ip_options structure.
++ *	@pp_ptr contains the parameter problem pointer.
++ *	Returns 0 on success.
++ *	A non-zero return value will cause an ICMP parameter problem message to
++ *	be generated and transmitted to the sender.  The @pp_ptr parameter may
++ *	be used to point to the offending option parameter.
 + *
   * Lifecycle hooks for network buffers.
   *
   * @skb_alloc_security:
-@@ -1012,6 +1135,30 @@
- 	                            struct security_operations *ops);
+@@ -987,6 +1031,9 @@
+ 	int (*quotactl) (int cmds, int type, int id, struct super_block * sb);
+ 	int (*quota_on) (struct file * f);
  
- #ifdef CONFIG_SECURITY_NETWORK
-+	int (*socket_create) (int family, int type, int protocol);
-+	void (*socket_post_create) (struct socket * sock, int family,
-+				    int type, int protocol);
-+	int (*socket_bind) (struct socket * sock,
-+			    struct sockaddr * address, int addrlen);
-+	int (*socket_connect) (struct socket * sock,
-+			       struct sockaddr * address, int addrlen);
-+	int (*socket_listen) (struct socket * sock, int backlog);
-+	int (*socket_accept) (struct socket * sock, struct socket * newsock);
-+	void (*socket_post_accept) (struct socket * sock,
-+				    struct socket * newsock);
-+	int (*socket_sendmsg) (struct socket * sock,
-+			       struct msghdr * msg, int size);
-+	int (*socket_recvmsg) (struct socket * sock,
-+			       struct msghdr * msg, int size, int flags);
-+	int (*socket_getsockname) (struct socket * sock);
-+	int (*socket_getpeername) (struct socket * sock);
-+	int (*socket_getsockopt) (struct socket * sock, int level, int optname);
-+	int (*socket_setsockopt) (struct socket * sock, int level, int optname);
-+	int (*socket_shutdown) (struct socket * sock, int how);
-+	int (*socket_sock_alloc_security) (struct sock * sk, int gfp_mask);
-+	void (*socket_sock_free_security) (struct sock * sk);
-+	int (*socket_sock_rcv_skb) (struct sock * sk, struct sk_buff * skb);
++	int (*ip_decode_options) (struct sk_buff * skb,
++				  const char *optptr, unsigned char **pp_ptr);
++
+ 	int (*bprm_alloc_security) (struct linux_binprm * bprm);
+ 	void (*bprm_free_security) (struct linux_binprm * bprm);
+ 	void (*bprm_compute_creds) (struct linux_binprm * bprm);
+@@ -1159,6 +1206,12 @@
+ 	void (*socket_sock_free_security) (struct sock * sk);
+ 	int (*socket_sock_rcv_skb) (struct sock * sk, struct sk_buff * skb);
+ 
++	void (*ip_fragment) (struct sk_buff * newskb,
++			     const struct sk_buff * oldskb);
++	int (*ip_defragment) (struct sk_buff * skb);
++	void (*ip_encapsulate) (struct sk_buff * skb);
++	void (*ip_decapsulate) (struct sk_buff * skb);
 +
  	int (*skb_alloc_security) (struct sk_buff * skb, int gfp_mask);
  	int (*skb_clone) (struct sk_buff * newskb,
  			  const struct sk_buff * oldskb);
-@@ -2180,6 +2327,107 @@
+@@ -1222,6 +1275,13 @@
+ 	return security_ops->quota_on (file);
+ }
  
- #ifdef CONFIG_SECURITY_NETWORK
++static inline int security_ip_decode_options(struct sk_buff * skb, 
++					     const char *optptr, 
++					     unsigned char **pp_ptr)
++{
++	return security_ops->ip_decode_options(skb, optptr, pp_ptr);
++}
++
+ static inline int security_bprm_alloc (struct linux_binprm *bprm)
+ {
+ 	return security_ops->bprm_alloc_security (bprm);
+@@ -1827,6 +1887,13 @@
+ 	return 0;
+ }
  
-+static inline int security_socket_create (int family, int type, int protocol)
++static inline int security_ip_decode_options(struct sk_buff * skb, 
++					     const char *optptr, 
++					     unsigned char **pp_ptr)
 +{
-+	return security_ops->socket_create(family, type, protocol);
++	return cap_ip_decode_options(skb,optptr,pp_ptr);
 +}
 +
-+static inline void security_socket_post_create(struct socket * sock, 
-+					       int family,
-+					       int type, 
-+					       int protocol)
+ static inline int security_bprm_alloc (struct linux_binprm *bprm)
+ {
+ 	return 0;
+@@ -2428,6 +2495,27 @@
+ 	return security_ops->socket_sock_rcv_skb (sk, skb);
+ }
+ 
++static inline void security_ip_fragment(struct sk_buff * newskb, 
++					const struct sk_buff * oldskb)
 +{
-+	security_ops->socket_post_create(sock, family, type, protocol);
++	security_ops->ip_fragment(newskb, oldskb);
 +}
 +
-+static inline int security_socket_bind(struct socket * sock, 
-+				       struct sockaddr * address, 
-+				       int addrlen)
++static inline int security_ip_defragment(struct sk_buff * skb)
 +{
-+	return security_ops->socket_bind(sock, address, addrlen);
++	return security_ops->ip_defragment(skb);
 +}
 +
-+static inline int security_socket_connect(struct socket * sock, 
-+					  struct sockaddr * address, 
-+					  int addrlen)
++static inline void security_ip_encapsulate(struct sk_buff * skb)
 +{
-+	return security_ops->socket_connect(sock, address, addrlen);
++	security_ops->ip_encapsulate(skb);
 +}
 +
-+static inline int security_socket_listen(struct socket * sock, int backlog)
++static inline void security_ip_decapsulate(struct sk_buff * skb)
 +{
-+	return security_ops->socket_listen(sock, backlog);
-+}
-+
-+static inline int security_socket_accept(struct socket * sock, 
-+					 struct socket * newsock)
-+{
-+	return security_ops->socket_accept(sock, newsock);
-+}
-+
-+static inline void security_socket_post_accept(struct socket * sock, 
-+					       struct socket * newsock)
-+{
-+	security_ops->socket_post_accept(sock, newsock);
-+}
-+
-+static inline int security_socket_sendmsg(struct socket * sock, 
-+					  struct msghdr * msg, int size)
-+{
-+	return security_ops->socket_sendmsg(sock, msg, size);
-+}
-+
-+static inline int security_socket_recvmsg(struct socket * sock, 
-+					  struct msghdr * msg, int size, 
-+					  int flags)
-+{
-+	return security_ops->socket_recvmsg(sock, msg, size, flags);
-+}
-+
-+static inline int security_socket_getsockname(struct socket * sock)
-+{
-+	return security_ops->socket_getsockname(sock);
-+}
-+
-+static inline int security_socket_getpeername(struct socket * sock)
-+{
-+	return security_ops->socket_getpeername(sock);
-+}
-+
-+static inline int security_socket_getsockopt(struct socket * sock, 
-+					     int level, int optname)
-+{
-+	return security_ops->socket_getsockopt(sock, level, optname);
-+}
-+
-+static inline int security_socket_setsockopt(struct socket * sock, 
-+					     int level, int optname)
-+{
-+	return security_ops->socket_setsockopt(sock, level, optname);
-+}
-+
-+static inline int security_socket_shutdown(struct socket * sock, int how)
-+{
-+	return security_ops->socket_shutdown(sock, how);
-+}
-+
-+static inline int security_sock_alloc(struct sock * sk, 
-+				      int gfp_mask)
-+{
-+	return security_ops->socket_sock_alloc_security(sk, gfp_mask);
-+}
-+
-+static inline void security_sock_free(struct sock * sk)
-+{
-+	security_ops->socket_sock_free_security(sk);
-+}
-+
-+static inline int security_sock_rcv_skb (struct sock * sk, 
-+					 struct sk_buff * skb)
-+{
-+	return security_ops->socket_sock_rcv_skb (sk, skb);
++	security_ops->ip_decapsulate(skb);
 +}
 +
  static inline int security_skb_alloc(struct sk_buff * skb, int gfp_mask)
  {
  	return security_ops->skb_alloc_security(skb, gfp_mask);
-@@ -2221,6 +2469,104 @@
+@@ -2567,6 +2655,24 @@
+ 	return 0;
+ }
  
- #else	/* CONFIG_SECURITY_NETWORK */
- 
-+static inline int security_socket_create (int family, int type, int protocol)
++static inline void security_ip_fragment(struct sk_buff * newskb, 
++					const struct sk_buff * oldskb)
++{
++}
++
++static inline int security_ip_defragment(struct sk_buff * skb)
 +{
 +	return 0;
 +}
 +
-+static inline void security_socket_post_create(struct socket * sock, 
-+					       int family,
-+					       int type, 
-+					       int protocol)
++static inline void security_ip_encapsulate(struct sk_buff * skb)
 +{
 +}
 +
-+static inline int security_socket_bind(struct socket * sock, 
-+				       struct sockaddr * address, 
-+				       int addrlen)
++static inline void security_ip_decapsulate(struct sk_buff * skb)
 +{
-+	return 0;
-+}
-+
-+static inline int security_socket_connect(struct socket * sock, 
-+					  struct sockaddr * address, 
-+					  int addrlen)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_listen(struct socket * sock, int backlog)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_accept(struct socket * sock, 
-+					 struct socket * newsock)
-+{
-+	return 0;
-+}
-+
-+static inline void security_socket_post_accept(struct socket * sock, 
-+					       struct socket * newsock)
-+{
-+}
-+
-+static inline int security_socket_sendmsg(struct socket * sock, 
-+					  struct msghdr * msg, int size)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_recvmsg(struct socket * sock, 
-+					  struct msghdr * msg, int size, 
-+					  int flags)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_getsockname(struct socket * sock)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_getpeername(struct socket * sock)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_getsockopt(struct socket * sock, 
-+					     int level, int optname)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_setsockopt(struct socket * sock, 
-+					     int level, int optname)
-+{
-+	return 0;
-+}
-+
-+static inline int security_socket_shutdown(struct socket * sock, int how)
-+{
-+	return 0;
-+}
-+
-+static inline int security_sock_alloc(struct sock * sk, 
-+				      int gfp_mask)
-+{
-+	return 0;
-+}
-+
-+static inline void security_sock_free(struct sock * sk)
-+{
-+}
-+
-+static inline int security_sock_rcv_skb (struct sock * sk, 
-+					 struct sk_buff * skb)
-+{
-+	return 0;
 +}
 +
  static inline int security_skb_alloc(struct sk_buff * skb, int gfp_mask)
  {
  	return 0;
-diff -urN -X dontdiff linux-2.5.59.w0/include/net/sock.h linux-2.5.59.w1/include/net/sock.h
---- linux-2.5.59.w0/include/net/sock.h	Thu Jan 30 21:31:15 2003
-+++ linux-2.5.59.w1/include/net/sock.h	Thu Jan 30 21:31:32 2003
-@@ -197,7 +197,12 @@
- 
- 	/* RPC layer private data */
- 	void			*user_data;
--  
-+
-+#ifdef CONFIG_SECURITY_NETWORK
-+	/* LSM security field */
-+	void                    *security;
-+#endif 
-+
- 	/* Callbacks */
- 	void			(*state_change)(struct sock *sk);
- 	void			(*data_ready)(struct sock *sk,int bytes);
-@@ -714,15 +719,20 @@
- 
- static inline int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- {
-+	int err = 0;
-+
- 	/* Cast skb->rcvbuf to unsigned... It's pointless, but reduces
- 	   number of warnings when compiling with -W --ANK
- 	 */
- 	if (atomic_read(&sk->rmem_alloc) + skb->truesize >= (unsigned)sk->rcvbuf)
-                 return -ENOMEM;
- 
-+	err = security_sock_rcv_skb(sk, skb);
-+	if (err)
-+		return err;
-+
- #ifdef CONFIG_FILTER
- 	if (sk->filter) {
--		int err = 0;
- 		struct sk_filter *filter;
- 
- 		/* It would be deadlock, if sock_queue_rcv_skb is used
-diff -urN -X dontdiff linux-2.5.59.w0/net/core/sock.c linux-2.5.59.w1/net/core/sock.c
---- linux-2.5.59.w0/net/core/sock.c	Sat Oct 19 19:57:49 2002
-+++ linux-2.5.59.w1/net/core/sock.c	Thu Jan 30 21:31:32 2003
-@@ -109,6 +109,7 @@
- #include <linux/poll.h>
- #include <linux/tcp.h>
- #include <linux/init.h>
+diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/ah.c linux-2.5.59.w1/net/ipv4/ah.c
+--- linux-2.5.59.w0/net/ipv4/ah.c	Sat Jan 11 10:47:20 2003
++++ linux-2.5.59.w1/net/ipv4/ah.c	Thu Jan 30 21:33:32 2003
+@@ -52,7 +52,7 @@
+ 		switch (*optptr) {
+ 		case IPOPT_SEC:
+ 		case 0x85:	/* Some "Extended Security" crap. */
+-		case 0x86:	/* Another "Commercial Security" crap. */
++		case IPOPT_CIPSO:	/* Another "Commercial Security" crap. */
+ 		case IPOPT_RA:
+ 		case 0x80|21:	/* RFC1770 */
+ 			break;
+diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/ip_fragment.c linux-2.5.59.w1/net/ipv4/ip_fragment.c
+--- linux-2.5.59.w0/net/ipv4/ip_fragment.c	Sat Jan 11 10:47:20 2003
++++ linux-2.5.59.w1/net/ipv4/ip_fragment.c	Thu Jan 30 21:33:32 2003
+@@ -37,6 +37,7 @@
+ #include <linux/udp.h>
+ #include <linux/inet.h>
+ #include <linux/netfilter_ipv4.h>
 +#include <linux/security.h>
  
- #include <asm/uaccess.h>
- #include <asm/system.h>
-@@ -600,6 +601,10 @@
- 			sk->family = family;
- 			sock_lock_init(sk);
- 		}
-+		if (security_sock_alloc(sk, priority)) {
-+			kmem_cache_free(slab, sk);
-+			return NULL;
-+		}
- 		sk->slab = slab;
- 	}
+ /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
+  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
+@@ -372,7 +373,11 @@
+ {
+ 	struct sk_buff *prev, *next;
+ 	int flags, offset;
+-	int ihl, end;
++	int ihl, end, ret;
++
++	ret = security_ip_defragment(skb);
++	if (ret)
++		goto err;
  
-@@ -626,6 +631,7 @@
- 	if (atomic_read(&sk->omem_alloc))
- 		printk(KERN_DEBUG "sk_free: optmem leakage (%d bytes) detected.\n", atomic_read(&sk->omem_alloc));
+ 	if (qp->last_in & COMPLETE)
+ 		goto err;
+diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/ip_gre.c linux-2.5.59.w1/net/ipv4/ip_gre.c
+--- linux-2.5.59.w0/net/ipv4/ip_gre.c	Tue Nov 12 00:12:06 2002
++++ linux-2.5.59.w1/net/ipv4/ip_gre.c	Thu Jan 30 21:33:32 2003
+@@ -28,6 +28,7 @@
+ #include <linux/inetdevice.h>
+ #include <linux/igmp.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/security.h>
  
-+	security_sock_free(sk);
- 	kmem_cache_free(sk->slab, sk);
+ #include <net/sock.h>
+ #include <net/ip.h>
+@@ -661,6 +662,7 @@
+ 		skb->nf_debug = 0;
+ #endif
+ #endif
++		security_ip_decapsulate(skb);
+ 		ipgre_ecn_decapsulate(iph, skb);
+ 		netif_rx(skb);
+ 		read_unlock(&ipgre_lock);
+@@ -898,6 +900,7 @@
+ 	skb->nf_debug = 0;
+ #endif
+ #endif
++	security_ip_encapsulate(skb);
+ 
+ 	IPTUNNEL_XMIT();
+ 	tunnel->recursion--;
+diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/ip_options.c linux-2.5.59.w1/net/ipv4/ip_options.c
+--- linux-2.5.59.w0/net/ipv4/ip_options.c	Tue Sep 24 19:22:50 2002
++++ linux-2.5.59.w1/net/ipv4/ip_options.c	Thu Jan 30 21:33:32 2003
+@@ -18,6 +18,7 @@
+ #include <linux/icmp.h>
+ #include <linux/netdevice.h>
+ #include <linux/rtnetlink.h>
++#include <linux/security.h>
+ #include <net/sock.h>
+ #include <net/ip.h>
+ #include <net/icmp.h>
+@@ -433,7 +434,11 @@
+ 				opt->router_alert = optptr - iph;
+ 			break;
+ 		      case IPOPT_SEC:
++		      case IPOPT_CIPSO:
+ 		      case IPOPT_SID:
++		      	if (security_ip_decode_options(skb, optptr, &pp_ptr))
++				goto error;
++			break;
+ 		      default:
+ 			if (!skb && !capable(CAP_NET_RAW)) {
+ 				pp_ptr = optptr;
+diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/ip_output.c linux-2.5.59.w1/net/ipv4/ip_output.c
+--- linux-2.5.59.w0/net/ipv4/ip_output.c	Sat Jan 11 10:47:20 2003
++++ linux-2.5.59.w1/net/ipv4/ip_output.c	Thu Jan 30 21:33:32 2003
+@@ -81,6 +81,7 @@
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/mroute.h>
+ #include <linux/netlink.h>
++#include <linux/security.h>
+ 
+ /*
+  *      Shall we try to damage output packets if routing dev changes?
+@@ -633,6 +634,8 @@
+ 		ptr += len;
+ 		offset += len;
+ 
++		security_ip_fragment(skb2, skb);
++
+ 		/*
+ 		 *	Put this fragment into the sending queue.
+ 		 */
+diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/ipip.c linux-2.5.59.w1/net/ipv4/ipip.c
+--- linux-2.5.59.w0/net/ipv4/ipip.c	Tue Nov 12 00:12:07 2002
++++ linux-2.5.59.w1/net/ipv4/ipip.c	Thu Jan 30 21:33:32 2003
+@@ -108,6 +108,7 @@
+ #include <linux/mroute.h>
+ #include <linux/init.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/security.h>
+ 
+ #include <net/sock.h>
+ #include <net/ip.h>
+@@ -508,6 +509,7 @@
+ 		skb->nf_debug = 0;
+ #endif
+ #endif
++		security_ip_decapsulate(skb);
+ 		ipip_ecn_decapsulate(iph, skb);
+ 		netif_rx(skb);
+ 		read_unlock(&ipip_lock);
+@@ -662,6 +664,8 @@
+ #endif
+ #endif
+ 
++	security_ip_encapsulate(skb);
++
+ 	IPTUNNEL_XMIT();
+ 	tunnel->recursion--;
+ 	return 0;
+diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/ipmr.c linux-2.5.59.w1/net/ipv4/ipmr.c
+--- linux-2.5.59.w0/net/ipv4/ipmr.c	Tue Nov 12 00:12:07 2002
++++ linux-2.5.59.w1/net/ipv4/ipmr.c	Thu Jan 30 21:33:32 2003
+@@ -60,6 +60,7 @@
+ #include <linux/netfilter_ipv4.h>
+ #include <net/ipip.h>
+ #include <net/checksum.h>
++#include <linux/security.h>
+ 
+ #if defined(CONFIG_IP_PIMSM_V1) || defined(CONFIG_IP_PIMSM_V2)
+ #define CONFIG_IP_PIMSM	1
+@@ -1105,6 +1106,7 @@
+ 	nf_conntrack_put(skb->nfct);
+ 	skb->nfct = NULL;
+ #endif
++	security_ip_encapsulate(skb);
  }
  
-diff -urN -X dontdiff linux-2.5.59.w0/net/ipv4/tcp_ipv4.c linux-2.5.59.w1/net/ipv4/tcp_ipv4.c
---- linux-2.5.59.w0/net/ipv4/tcp_ipv4.c	Thu Jan 16 22:51:35 2003
-+++ linux-2.5.59.w1/net/ipv4/tcp_ipv4.c	Thu Jan 30 21:31:32 2003
-@@ -71,6 +71,7 @@
- #include <linux/stddef.h>
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-+#include <linux/security.h>
+ static inline int ipmr_forward_finish(struct sk_buff *skb)
+@@ -1461,6 +1463,7 @@
+ 	nf_conntrack_put(skb->nfct);
+ 	skb->nfct = NULL;
+ #endif
++	security_ip_decapsulate(skb);
+ 	netif_rx(skb);
+ 	dev_put(reg_dev);
+ 	return 0;
+@@ -1528,6 +1531,7 @@
+ 	nf_conntrack_put(skb->nfct);
+ 	skb->nfct = NULL;
+ #endif
++	security_ip_decapsulate(skb);
+ 	netif_rx(skb);
+ 	dev_put(reg_dev);
+ 	return 0;
+diff -urN -X dontdiff linux-2.5.59.w0/security/capability.c linux-2.5.59.w1/security/capability.c
+--- linux-2.5.59.w0/security/capability.c	Tue Dec 10 15:02:03 2002
++++ linux-2.5.59.w1/security/capability.c	Thu Jan 30 21:33:32 2003
+@@ -266,6 +266,16 @@
+ 	return;
+ }
  
- extern int sysctl_ip_dynaddr;
- extern int sysctl_ip_default_ttl;
-@@ -1798,6 +1799,9 @@
- 		goto no_tcp_socket;
- 
- process:
-+	if (security_sock_rcv_skb(sk, skb))
-+		goto discard_and_relse;
++int cap_ip_decode_options (struct sk_buff *skb, const char *optptr,
++			   unsigned char **pp_ptr)
++{
++	if (!skb && !capable (CAP_NET_RAW)) {
++		(const unsigned char *) *pp_ptr = optptr;
++		return -EPERM;
++	}
++	return 0;
++}
 +
- 	if (sk->state == TCP_TIME_WAIT)
- 		goto do_time_wait;
+ EXPORT_SYMBOL(cap_capable);
+ EXPORT_SYMBOL(cap_ptrace);
+ EXPORT_SYMBOL(cap_capget);
+@@ -276,6 +286,7 @@
+ EXPORT_SYMBOL(cap_task_post_setuid);
+ EXPORT_SYMBOL(cap_task_kmod_set_label);
+ EXPORT_SYMBOL(cap_task_reparent_to_init);
++EXPORT_SYMBOL(cap_ip_decode_options);
  
-diff -urN -X dontdiff linux-2.5.59.w0/net/socket.c linux-2.5.59.w1/net/socket.c
---- linux-2.5.59.w0/net/socket.c	Thu Jan  9 16:08:27 2003
-+++ linux-2.5.59.w1/net/socket.c	Thu Jan 30 21:31:32 2003
-@@ -77,6 +77,7 @@
- #include <linux/highmem.h>
- #include <linux/divert.h>
- #include <linux/mount.h>
-+#include <linux/security.h>
+ #ifdef CONFIG_SECURITY
  
- #if defined(CONFIG_KMOD) && defined(CONFIG_NET)
- #include <linux/kmod.h>
-@@ -527,6 +528,10 @@
- 	si->msg = msg;
- 	si->size = size;
+@@ -293,6 +304,8 @@
+ 	.task_post_setuid =		cap_task_post_setuid,
+ 	.task_kmod_set_label =		cap_task_kmod_set_label,
+ 	.task_reparent_to_init =	cap_task_reparent_to_init,
++	
++	.ip_decode_options =		cap_ip_decode_options,
+ };
  
-+	err = security_socket_sendmsg(sock, msg, size);
-+	if (err)
-+		return err;
-+
- 	err = scm_send(sock, msg, si->scm);
- 	if (err >= 0) {
- 		err = sock->ops->sendmsg(iocb, sock, msg, size, si->scm);
-@@ -551,6 +556,7 @@
- 
- int __sock_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg, int size, int flags)
- {
-+	int err;
- 	struct sock_iocb *si = kiocb_to_siocb(iocb);
- 
- 	si->sock = sock;
-@@ -560,6 +566,10 @@
- 	si->size = size;
- 	si->flags = flags;
- 
-+	err = security_socket_recvmsg(sock, msg, size, flags);
-+	if (err)
-+		return err;
-+
- 	memset(si->scm, 0, sizeof(*si->scm));
- 
- 	size = sock->ops->recvmsg(iocb, sock, msg, size, flags, si->scm);
-@@ -963,6 +973,7 @@
- int sock_create(int family, int type, int protocol, struct socket **res)
- {
- 	int i;
-+	int err;
- 	struct socket *sock;
- 
- 	/*
-@@ -986,6 +997,10 @@
- 		}
- 		family = PF_PACKET;
- 	}
-+
-+	err = security_socket_create(family, type, protocol);
-+	if (err)
-+		return err;
- 		
- #if defined(CONFIG_KMOD) && defined(CONFIG_NET)
- 	/* Attempt to load a protocol module if the find failed. 
-@@ -1031,6 +1046,7 @@
- 	}
- 
- 	*res = sock;
-+	security_socket_post_create(sock, family, type, protocol);
- 
- out:
- 	net_family_read_unlock();
-@@ -1141,8 +1157,14 @@
- 
- 	if((sock = sockfd_lookup(fd,&err))!=NULL)
- 	{
--		if((err=move_addr_to_kernel(umyaddr,addrlen,address))>=0)
-+		if((err=move_addr_to_kernel(umyaddr,addrlen,address))>=0) {
-+			err = security_socket_bind(sock, (struct sockaddr *)address, addrlen);
-+			if (err) {
-+				sockfd_put(sock);
-+				return err;
-+			}
- 			err = sock->ops->bind(sock, (struct sockaddr *)address, addrlen);
-+		}
- 		sockfd_put(sock);
- 	}			
- 	return err;
-@@ -1163,6 +1185,13 @@
- 	if ((sock = sockfd_lookup(fd, &err)) != NULL) {
- 		if ((unsigned) backlog > SOMAXCONN)
- 			backlog = SOMAXCONN;
-+
-+		err = security_socket_listen(sock, backlog);
-+		if (err) {
-+			sockfd_put(sock);
-+			return err;
-+		}
-+
- 		err=sock->ops->listen(sock, backlog);
- 		sockfd_put(sock);
- 	}
-@@ -1199,6 +1228,10 @@
- 	newsock->type = sock->type;
- 	newsock->ops = sock->ops;
- 
-+	err = security_socket_accept(sock, newsock);
-+	if (err)
-+		goto out_release;
-+
- 	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
- 	if (err < 0)
- 		goto out_release;
-@@ -1218,6 +1251,8 @@
- 	if ((err = sock_map_fd(newsock)) < 0)
- 		goto out_release;
- 
-+	security_socket_post_accept(sock, newsock);
-+
- out_put:
- 	sockfd_put(sock);
- out:
-@@ -1253,6 +1288,11 @@
- 	err = move_addr_to_kernel(uservaddr, addrlen, address);
- 	if (err < 0)
- 		goto out_put;
-+
-+	err = security_socket_connect(sock, (struct sockaddr *)address, addrlen);
-+	if (err)
-+		goto out_put;
-+
- 	err = sock->ops->connect(sock, (struct sockaddr *) address, addrlen,
- 				 sock->file->f_flags);
- out_put:
-@@ -1275,6 +1315,11 @@
- 	sock = sockfd_lookup(fd, &err);
- 	if (!sock)
- 		goto out;
-+
-+	err = security_socket_getsockname(sock);
-+	if (err)
-+		goto out_put;
-+
- 	err = sock->ops->getname(sock, (struct sockaddr *)address, &len, 0);
- 	if (err)
- 		goto out_put;
-@@ -1299,6 +1344,12 @@
- 
- 	if ((sock = sockfd_lookup(fd, &err))!=NULL)
- 	{
-+		err = security_socket_getpeername(sock);
-+		if (err) {
-+			sockfd_put(sock);
-+			return err;
-+		}
-+
- 		err = sock->ops->getname(sock, (struct sockaddr *)address, &len, 1);
- 		if (!err)
- 			err=move_addr_to_user(address,len, usockaddr, usockaddr_len);
-@@ -1427,6 +1478,12 @@
- 			
- 	if ((sock = sockfd_lookup(fd, &err))!=NULL)
- 	{
-+		err = security_socket_setsockopt(sock,level,optname);
-+		if (err) {
-+			sockfd_put(sock);
-+			return err;
-+		}
-+
- 		if (level == SOL_SOCKET)
- 			err=sock_setsockopt(sock,level,optname,optval,optlen);
- 		else
-@@ -1448,6 +1505,13 @@
- 
- 	if ((sock = sockfd_lookup(fd, &err))!=NULL)
- 	{
-+		err = security_socket_getsockopt(sock, level, 
-+							   optname);
-+		if (err) {
-+			sockfd_put(sock);
-+			return err;
-+		}
-+
- 		if (level == SOL_SOCKET)
- 			err=sock_getsockopt(sock,level,optname,optval,optlen);
- 		else
-@@ -1469,6 +1533,12 @@
- 
- 	if ((sock = sockfd_lookup(fd, &err))!=NULL)
- 	{
-+		err = security_socket_shutdown(sock, how);
-+		if (err) {
-+			sockfd_put(sock);
-+			return err;
-+		}
-+				
- 		err=sock->ops->shutdown(sock, how);
- 		sockfd_put(sock);
- 	}
+ #if defined(CONFIG_SECURITY_CAPABILITIES_MODULE)
 diff -urN -X dontdiff linux-2.5.59.w0/security/dummy.c linux-2.5.59.w1/security/dummy.c
---- linux-2.5.59.w0/security/dummy.c	Thu Jan 30 21:31:15 2003
-+++ linux-2.5.59.w1/security/dummy.c	Thu Jan 30 21:31:32 2003
-@@ -20,7 +20,7 @@
- #include <linux/security.h>
- #include <linux/skbuff.h>
- #include <linux/netlink.h>
--
-+#include <net/sock.h>
+--- linux-2.5.59.w0/security/dummy.c	Thu Jan 30 21:33:15 2003
++++ linux-2.5.59.w1/security/dummy.c	Thu Jan 30 21:33:32 2003
+@@ -597,6 +597,16 @@
+ 	return 0;
+ }
  
- static int dummy_ptrace (struct task_struct *parent, struct task_struct *child)
- {
-@@ -599,6 +599,98 @@
- 
++static int dummy_ip_decode_options (struct sk_buff *skb, const char *optptr,
++				    unsigned char **pp_ptr)
++{
++	if (!skb && !capable (CAP_NET_RAW)) {
++		(const unsigned char *) *pp_ptr = optptr;
++		return -EPERM;
++	}
++	return 0;
++}
++
  #ifdef CONFIG_SECURITY_NETWORK
  
-+static int dummy_socket_create (int family, int type, int protocol)
-+{
-+	return 0;
-+}
-+
-+static void dummy_socket_post_create (struct socket *sock, int family, int type,
-+				      int protocol)
-+{
-+	return;
-+}
-+
-+static int dummy_socket_bind (struct socket *sock, struct sockaddr *address,
-+			      int addrlen)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_connect (struct socket *sock, struct sockaddr *address,
-+				 int addrlen)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_listen (struct socket *sock, int backlog)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_accept (struct socket *sock, struct socket *newsock)
-+{
-+	return 0;
-+}
-+
-+static void dummy_socket_post_accept (struct socket *sock, 
-+				      struct socket *newsock)
+ static int dummy_socket_create (int family, int type, int protocol)
+@@ -686,6 +696,27 @@
+ 	return;
+ }
+ 
++static void dummy_ip_fragment (struct sk_buff *newskb,
++			       const struct sk_buff *oldskb)
 +{
 +	return;
 +}
 +
-+static int dummy_socket_sendmsg (struct socket *sock, struct msghdr *msg,
-+				 int size)
++static int dummy_ip_defragment (struct sk_buff *skb)
 +{
 +	return 0;
 +}
 +
-+static int dummy_socket_recvmsg (struct socket *sock, struct msghdr *msg,
-+				 int size, int flags)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_getsockname (struct socket *sock)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_getpeername (struct socket *sock)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_setsockopt (struct socket *sock, int level, int optname)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_getsockopt (struct socket *sock, int level, int optname)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_shutdown (struct socket *sock, int how)
-+{
-+	return 0;
-+}
-+
-+static int dummy_socket_sock_alloc_security(struct sock *sk, int gfp_mask)
-+{
-+	sk->security = NULL;
-+	return 0;
-+}
-+
-+static void dummy_socket_sock_free_security(struct sock *sk)
++static void dummy_ip_decapsulate (struct sk_buff *skb)
 +{
 +	return;
 +}
 +
-+static int dummy_socket_sock_rcv_skb (struct sock *sk, struct sk_buff *skb)
++static void dummy_ip_encapsulate (struct sk_buff *skb)
 +{
-+	return 0;
++	return;
 +}
 +
- static int dummy_skb_alloc_security (struct sk_buff *skb, int gfp_mask)
+ static int dummy_socket_sock_rcv_skb (struct sock *sk, struct sk_buff *skb)
  {
  	return 0;
-@@ -768,6 +860,23 @@
+@@ -859,6 +890,7 @@
+ 	set_to_dummy_if_null(ops, sem_semop);
  	set_to_dummy_if_null(ops, register_security);
  	set_to_dummy_if_null(ops, unregister_security);
++	set_to_dummy_if_null(ops, ip_decode_options);
  #ifdef CONFIG_SECURITY_NETWORK
-+	set_to_dummy_if_null(ops, socket_create);
-+	set_to_dummy_if_null(ops, socket_post_create);
-+	set_to_dummy_if_null(ops, socket_bind);
-+	set_to_dummy_if_null(ops, socket_connect);
-+	set_to_dummy_if_null(ops, socket_listen);
-+	set_to_dummy_if_null(ops, socket_accept);
-+	set_to_dummy_if_null(ops, socket_post_accept);
-+	set_to_dummy_if_null(ops, socket_sendmsg);
-+	set_to_dummy_if_null(ops, socket_recvmsg);
-+	set_to_dummy_if_null(ops, socket_getsockname);
-+	set_to_dummy_if_null(ops, socket_getpeername);
-+	set_to_dummy_if_null(ops, socket_setsockopt);
-+	set_to_dummy_if_null(ops, socket_getsockopt);
-+	set_to_dummy_if_null(ops, socket_shutdown);
-+	set_to_dummy_if_null(ops, socket_sock_alloc_security);
-+	set_to_dummy_if_null(ops, socket_sock_free_security);
-+	set_to_dummy_if_null(ops, socket_sock_rcv_skb);
+ 	set_to_dummy_if_null(ops, socket_create);
+ 	set_to_dummy_if_null(ops, socket_post_create);
+@@ -877,6 +909,10 @@
+ 	set_to_dummy_if_null(ops, socket_sock_alloc_security);
+ 	set_to_dummy_if_null(ops, socket_sock_free_security);
+ 	set_to_dummy_if_null(ops, socket_sock_rcv_skb);
++	set_to_dummy_if_null(ops, ip_fragment);
++	set_to_dummy_if_null(ops, ip_defragment);
++	set_to_dummy_if_null(ops, ip_decapsulate);
++	set_to_dummy_if_null(ops, ip_encapsulate);
  	set_to_dummy_if_null(ops, skb_alloc_security);
  	set_to_dummy_if_null(ops, skb_clone);
  	set_to_dummy_if_null(ops, skb_copy);
