@@ -1,35 +1,37 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: OT: randomly unsubscribed
-Date: Fri, 4 Jun 2004 19:12:25 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: Broken? 2.6.6 + IP_ADD_SOURCE_MEMBERSHIP + SO_REUSEADDR
+Date: Sat, 05 Jun 2004 02:14:11 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040604171225.GB15486@linux-mips.org>
-References: <Pine.NEB.4.33.0406040858260.4315-100000@dexter.psc.edu>
+Message-ID: <20040605.021411.55160771.yoshfuji@linux-ipv6.org>
+References: <20040604155423.GA5656@muffin>
+	<20040605.015544.102223977.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-Content-Disposition: inline
-In-Reply-To: <Pine.NEB.4.33.0406040858260.4315-100000@dexter.psc.edu>
+To: davem@redhat.com
+In-Reply-To: <20040605.015544.102223977.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 04, 2004 at 09:04:40AM -0400, John Heffner wrote:
+In article <20040605.015544.102223977.yoshfuji@linux-ipv6.org> (at Sat, 05 Jun 2004 01:55:44 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-> I can't find an admin address for this list, sorry about the off-topic
-> post.
+> The following patch should fix the issue. Please try.
 
-Ever heared about postmaster?
+And, here's a variant for 2.4.
 
-> I'm getting randomly and silently unsubscribed from this list.  It's
-> happened three or four times now in the past few months.  Could the list
-> admin look in to this?
+===== net/ipv4/udp.c 1.13 vs edited =====
+--- 1.13/net/ipv4/udp.c	2004-02-22 06:12:49 +09:00
++++ edited/net/ipv4/udp.c	2004-06-05 01:56:50 +09:00
+@@ -290,7 +290,7 @@
+ 		    ipv6_only_sock(s)					||
+ 		    (s->bound_dev_if && s->bound_dev_if != dif))
+ 			continue;
+-		if (!ip_mc_sf_allow(sk, loc_addr, rmt_addr, dif))
++		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
+ 			continue;
+ 		break;
+   	}
 
-Subscribers will be unsubscribed if a there the number of bounces exceeds
-a certain threshold.  The bounce filter is not able to distinguish between
-"real" bounces and false bounces such caused by sender address forgery
-by viruses and spam.  As you can imagine due the massive abuse of email
-by spam and viruses this is going to cause problems ...  For now I've
-double the number of bounces before a user gets unsubscribed.
-
-  Ralf
+-- yoshfuji @ time to sleep...
