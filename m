@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/16] PKT_SCHED: Add dump_stats qdisc op
-Date: Thu, 21 Oct 2004 14:36:26 +0200
+Subject: [PATCH 4/16] CBQ: use dump_stats
+Date: Thu, 21 Oct 2004 14:37:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021123626.GH21977@postel.suug.ch>
+Message-ID: <20041021123724.GI21977@postel.suug.ch>
 References: <20041021123209.GE21977@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,33 +14,47 @@ In-Reply-To: <20041021123209.GE21977@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adds a new qdisc operation dump_stats which qdiscs can use
-to dump statistics. The op is invoked between gnet_stats_start_copy
-and gnet_stats_finish_copy and therefore stats_lock is already
-held. This is required to ensure proper locking throughout the
-whole statistic dumping procedure.
+Makes CBQ use dump_stats qdisc op to provide xstats.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.9-rc5.orig/include/net/pkt_sched.h	2004-10-21 10:44:44.000000000 +0200
-+++ linux-2.6.9-rc5/include/net/pkt_sched.h	2004-10-21 11:11:45.000000000 +0200
-@@ -64,6 +64,7 @@
- 	int			(*change)(struct Qdisc *, struct rtattr *arg);
- 
- 	int			(*dump)(struct Qdisc *, struct sk_buff *);
-+	int			(*dump_stats)(struct Qdisc *, struct gnet_dump *);
- 
- 	struct module		*owner;
- };
---- linux-2.6.9-rc5.orig/net/sched/sch_api.c	2004-10-21 10:45:08.000000000 +0200
-+++ linux-2.6.9-rc5/net/sched/sch_api.c	2004-10-21 11:11:45.000000000 +0200
-@@ -767,6 +767,9 @@
- 			TCA_XSTATS, q->stats_lock, &d) < 0)
+--- linux-2.6.9-rc5.orig/net/sched/sch_cbq.c	2004-10-21 11:07:46.000000000 +0200
++++ linux-2.6.9-rc5/net/sched/sch_cbq.c	2004-10-21 11:20:06.000000000 +0200
+@@ -1633,13 +1633,6 @@
+ 	if (cbq_dump_attr(skb, &q->link) < 0)
  		goto rtattr_failure;
+ 	rta->rta_len = skb->tail - b;
+-	spin_lock_bh(&sch->dev->queue_lock);
+-	q->link.xstats.avgidle = q->link.avgidle;
+-	if (cbq_copy_xstats(skb, &q->link.xstats)) {
+-		spin_unlock_bh(&sch->dev->queue_lock);
+-		goto rtattr_failure;
+-	}
+-	spin_unlock_bh(&sch->dev->queue_lock);
+ 	return skb->len;
  
-+	if (q->ops->dump_stats && q->ops->dump_stats(q, &d) < 0)
-+		goto rtattr_failure;
+ rtattr_failure:
+@@ -1648,6 +1641,15 @@
+ }
+ 
+ static int
++cbq_dump_stats(struct Qdisc *sch, struct gnet_dump *d)
++{
++	struct cbq_sched_data *q = qdisc_priv(sch);
 +
- 	if (gnet_stats_copy_basic(&d, &q->bstats) < 0 ||
- #ifdef CONFIG_NET_ESTIMATOR
- 	    gnet_stats_copy_rate_est(&d, &q->rate_est) < 0 ||
++	q->link.xstats.avgidle = q->link.avgidle;
++	return gnet_stats_copy_app(d, &q->link.xstats, sizeof(q->link.xstats));
++}
++
++static int
+ cbq_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	       struct sk_buff *skb, struct tcmsg *tcm)
+ {
+@@ -2133,6 +2135,7 @@
+ 	.destroy	=	cbq_destroy,
+ 	.change		=	NULL,
+ 	.dump		=	cbq_dump,
++	.dump_stats	=	cbq_dump_stats,
+ 	.owner		=	THIS_MODULE,
+ };
+ 
