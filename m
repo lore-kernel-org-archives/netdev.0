@@ -1,161 +1,107 @@
 From: Matt Mackall <mpm@selenic.com>
-Subject: [PATCH 4/6] netpoll: fix ->poll() locking
-Date: Thu, 17 Feb 2005 23:25:19 -0600
-Message-ID: <5.378217222@selenic.com>
-References: <4.378217222@selenic.com>
+Subject: [PATCH 2/6] netpoll: filter inlines
+Date: Thu, 17 Feb 2005 23:25:18 -0600
+Message-ID: <3.378217222@selenic.com>
+References: <2.378217222@selenic.com>
 Cc: netdev@oss.sgi.com, Jeff Moyer <jmoyer@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <4.378217222@selenic.com>
+In-Reply-To: <2.378217222@selenic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Introduce a per-client poll lock and flag. The lock assures we never
-have more than one caller in dev->poll(). The flag provides recursion
-avoidance on UP where the lock disappears.
+Add netpoll rx helpers 
+Move skb_free for rx into __netpoll_rx
 
 Signed-off-by: Matt Mackall <mpm@selenic.com>
 
-Index: rc4/net/core/netpoll.c
+Index: rc4bk2/net/core/netpoll.c
 ===================================================================
---- rc4.orig/net/core/netpoll.c	2005-02-17 22:39:59.000000000 -0600
-+++ rc4/net/core/netpoll.c	2005-02-17 22:40:02.000000000 -0600
-@@ -36,7 +36,6 @@
- static struct sk_buff *skbs;
- 
- static atomic_t trapped;
--static DEFINE_SPINLOCK(netpoll_poll_lock);
- 
- #define NETPOLL_RX_ENABLED  1
- #define NETPOLL_RX_DROP     2
-@@ -63,8 +62,15 @@
+--- rc4bk2.orig/net/core/netpoll.c	2005-02-14 10:34:12.000000000 -0800
++++ rc4bk2/net/core/netpoll.c	2005-02-14 17:10:34.000000000 -0800
+@@ -368,7 +368,7 @@
+ 	netpoll_send_skb(np, send_skb);
  }
  
- /*
-- * Check whether delayed processing was scheduled for our current CPU,
-- * and then manually invoke NAPI polling to pump data off the card.
-+ * Check whether delayed processing was scheduled for our NIC. If so,
-+ * we attempt to grab the poll lock and use ->poll() to pump the card.
-+ * If this fails, either we've recursed in ->poll() or it's already
-+ * running on another CPU.
-+ *
-+ * Note: we don't mask interrupts with this lock because we're using
-+ * trylock here and interrupts are already disabled in the softirq
-+ * case. Further, we test the poll_owner to avoid recursion on UP
-+ * systems where the lock doesn't exist.
-  *
-  * In cases where there is bi-directional communications, reading only
-  * one message at a time can lead to packets being dropped by the
-@@ -74,13 +80,10 @@
- static void poll_napi(struct netpoll *np)
+-int netpoll_rx(struct sk_buff *skb)
++int __netpoll_rx(struct sk_buff *skb)
  {
- 	int budget = 16;
--	unsigned long flags;
--	struct softnet_data *queue;
+ 	int proto, len, ulen;
+ 	struct iphdr *iph;
+@@ -440,12 +440,18 @@
+ 				    (char *)(uh+1),
+ 				    ulen - sizeof(struct udphdr));
  
--	spin_lock_irqsave(&netpoll_poll_lock, flags);
--	queue = &__get_cpu_var(softnet_data);
- 	if (test_bit(__LINK_STATE_RX_SCHED, &np->dev->state) &&
--	    !list_empty(&queue->poll_list)) {
-+	    np->poll_owner != __smp_processor_id() &&
-+	    spin_trylock(&np->poll_lock)) {
- 		np->rx_flags |= NETPOLL_RX_DROP;
- 		atomic_inc(&trapped);
- 
-@@ -88,8 +91,8 @@
- 
- 		atomic_dec(&trapped);
- 		np->rx_flags &= ~NETPOLL_RX_DROP;
-+		spin_unlock(&np->poll_lock);
++		kfree_skb(skb);
+ 		return 1;
  	}
--	spin_unlock_irqrestore(&netpoll_poll_lock, flags);
- }
+ 	spin_unlock_irqrestore(&rx_list_lock, flags);
  
- void netpoll_poll(struct netpoll *np)
-@@ -194,6 +197,12 @@
- 		return;
- 	}
- 
-+	/* avoid ->poll recursion */
-+	if(np->poll_owner == __smp_processor_id()) {
-+		__kfree_skb(skb);
-+		return;
+ out:
+-	return atomic_read(&trapped);
++	if (atomic_read(&trapped)) {
++		kfree_skb(skb);
++		return 1;
 +	}
 +
- 	spin_lock(&np->dev->xmit_lock);
- 	np->dev->xmit_lock_owner = smp_processor_id();
++	return 0;
+ }
  
-@@ -542,6 +551,9 @@
- 	struct net_device *ndev = NULL;
- 	struct in_device *in_dev;
- 
-+	np->poll_lock = SPIN_LOCK_UNLOCKED;
-+	np->poll_owner = -1;
-+
- 	if (np->dev_name)
- 		ndev = dev_get_by_name(np->dev_name);
- 	if (!ndev) {
-Index: rc4/include/linux/netpoll.h
+ int netpoll_parse_options(struct netpoll *np, char *opt)
+Index: rc4bk2/include/linux/netpoll.h
 ===================================================================
---- rc4.orig/include/linux/netpoll.h	2005-02-17 22:39:59.000000000 -0600
-+++ rc4/include/linux/netpoll.h	2005-02-17 22:40:02.000000000 -0600
-@@ -21,6 +21,8 @@
- 	u32 local_ip, remote_ip;
- 	u16 local_port, remote_port;
- 	unsigned char local_mac[6], remote_mac[6];
-+	spinlock_t poll_lock;
-+	int poll_owner;
- };
+--- rc4bk2.orig/include/linux/netpoll.h	2005-02-14 10:34:08.000000000 -0800
++++ rc4bk2/include/linux/netpoll.h	2005-02-14 17:10:34.000000000 -0800
+@@ -30,7 +30,15 @@
+ int netpoll_trap(void);
+ void netpoll_set_trap(int trap);
+ void netpoll_cleanup(struct netpoll *np);
+-int netpoll_rx(struct sk_buff *skb);
++int __netpoll_rx(struct sk_buff *skb);
  
- void netpoll_poll(struct netpoll *np);
-@@ -37,8 +39,27 @@
- {
- 	return skb->dev->np && skb->dev->np->rx_flags && __netpoll_rx(skb);
- }
-+
-+static inline void netpoll_poll_lock(struct net_device *dev)
++#ifdef CONFIG_NETPOLL
++static inline int netpoll_rx(struct sk_buff *skb)
 +{
-+	if (dev->np) {
-+		spin_lock(&dev->np->poll_lock);
-+		dev->np->poll_owner = __smp_processor_id();
-+	}
++	return skb->dev->netpoll_rx && __netpoll_rx(skb);
 +}
-+
-+static inline void netpoll_poll_unlock(struct net_device *dev)
-+{
-+	if (dev->np) {
-+		spin_unlock(&dev->np->poll_lock);
-+		dev->np->poll_owner = -1;
-+	}
-+}
-+
- #else
- #define netpoll_rx(a) 0
-+#define netpoll_poll_lock(a)
-+#define netpoll_poll_unlock(a)
- #endif
++#else
++#define netpoll_rx(a) 0
++#endif
  
  #endif
-Index: rc4/net/core/dev.c
+Index: rc4bk2/net/core/dev.c
 ===================================================================
---- rc4.orig/net/core/dev.c	2005-02-17 22:39:59.000000000 -0600
-+++ rc4/net/core/dev.c	2005-02-17 22:40:02.000000000 -0600
-@@ -1775,8 +1775,10 @@
+--- rc4bk2.orig/net/core/dev.c	2005-02-14 10:34:12.000000000 -0800
++++ rc4bk2/net/core/dev.c	2005-02-14 17:10:34.000000000 -0800
+@@ -1427,13 +1427,10 @@
+ 	struct softnet_data *queue;
+ 	unsigned long flags;
  
- 		dev = list_entry(queue->poll_list.next,
- 				 struct net_device, poll_list);
-+		netpoll_poll_lock(dev);
+-#ifdef CONFIG_NETPOLL
+-	if (skb->dev->netpoll_rx && netpoll_rx(skb)) {
+-		kfree_skb(skb);
++	/* if netpoll wants it, pretend we never saw it */
++	if (netpoll_rx(skb))
+ 		return NET_RX_DROP;
+-	}
+-#endif
+-	
++
+ 	if (!skb->stamp.tv_sec)
+ 		net_timestamp(&skb->stamp);
  
- 		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
-+			netpoll_poll_unlock(dev);
- 			local_irq_disable();
- 			list_del(&dev->poll_list);
- 			list_add_tail(&dev->poll_list, &queue->poll_list);
-@@ -1785,6 +1787,7 @@
- 			else
- 				dev->quota = dev->weight;
- 		} else {
-+			netpoll_poll_unlock(dev);
- 			dev_put(dev);
- 			local_irq_disable();
- 		}
+@@ -1629,12 +1626,9 @@
+ 	int ret = NET_RX_DROP;
+ 	unsigned short type;
+ 
+-#ifdef CONFIG_NETPOLL
+-	if (skb->dev->netpoll_rx && skb->dev->poll && netpoll_rx(skb)) {
+-		kfree_skb(skb);
++	/* if we've gotten here through NAPI, check netpoll */
++	if (skb->dev->poll && netpoll_rx(skb))
+ 		return NET_RX_DROP;
+-	}
+-#endif
+ 
+ 	if (!skb->stamp.tv_sec)
+ 		net_timestamp(&skb->stamp);
