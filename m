@@ -1,49 +1,53 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: Fw: [PATCH] IPv6: Allow 6to4 routes with SIT
-Date: Tue, 15 Jul 2003 03:29:12 +0400 (MSD)
+From: N N Ashok <nalkunda@egr.msu.edu>
+Subject: Re: Kernel locking up in module
+Date: Mon, 14 Jul 2003 19:35:18 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307142329.DAA06071@dub.inr.ac.ru>
-References: <20030713005345.1fea1092.davem@redhat.com>
+Message-ID: <200307141935.18837.nalkunda@egr.msu.edu>
+References: <200307141746.30761.nalkunda@egr.msu.edu> <20030714154946.27369852.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com (David S. Miller)
-In-Reply-To: <20030713005345.1fea1092.davem@redhat.com> from "David S. Miller" at È¿Ã 13, 2003 12:53:45 
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030714154946.27369852.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Monday 14 July 2003 18:49, Stephen Hemminger scrawled:
+> On Mon, 14 Jul 2003 17:46:30 -0400
+>
+> N N Ashok <nalkunda@egr.msu.edu> wrote:
+> > Hi All,
+> >     I am creating a module to measure the outgoing bandwidth usage on the
+> > interfaces. It uses the get_stats() of the device to get the current
+> > stats and then computes the bandwidth usage. The algorithm for the usage
+> > calculation are borrowed from iproute2 package (tc/tc_estimator.c). The
+> > problem is that the kernel keeps locking up. I am using rwlock_t locks to
+> > lock the data. In the code, I traverse the list of bwuage structures and
+> > as a debug message am printing whether the traversal ended in the
+> > variable becoming null (which it should if everything went right), but
+> > the variable is non-null every other time I insert the module.
+> > 	printk(KERN_INFO "bwestimator: dev: %s. bwusage: %s.\n", dev ?
+> > "non-null" : "null", bwusage ? "non-null" : "null");
+> >
+> >   I think this has got to do with some locking issues. As this is my
+> > first go at the kernel locking, I might have used the wrong kind of
+> > locks. I have attached the module source, header and the log messages as
+> > I inserted the module a couple of times. I request you all to please help
+> > me as I am totally lost here.
+> >
+> > Thanks,
+> > Ashok
+>
+> You are not locking out the bottom half receive thread so it will deadlock
+> when it runs while your code holds the top half lock.
 
-> Hey guys, even though yoshfuji is away I don't see any
-> reason why I shouldn't apply the patch below to both
-> 2.4.x and 2.5.x.  It looks very uncontroversial to me.
-> 
-> Any objections?
+Hi Stephen,
+Thanks for the reply.
+Do I used write_lock_bh()/write_unlock_bh() for my lock (bwusage_head_lock) 
+while still using read_lock() for dev_base_lock ?
 
-I would wait for experts.
-
-Technically IPv6 does not allow use of non-link-local address
-as nexthop address, because nexthop address is expected to be unique
-for router.
-
-Use of IPv4-COMPAT format for tunnels was a hack to make use of tunnel more
-handly, it just a tricky way to encapsulate an IPv4 address inside
-IPv6 one, it has nothing to do with _real_ IPv4-COMPAT addresses,
-(though logically IPv4-COMPAT addresses _are_ really link-local
-for 6over4 "network") it is just an element of our API. Use of 6of4 address
-is very strange idea in this context, it does not contradict to anything,
-of course, but it looks utterly stupid: 6to4 is a complicated format, where
-information about nexthop is encoded in an inapproriate way.
-The questions sort of: "What the hell? I do a route with nexthop
-2002:x:y::a:b and a:b disappears somewhere." And the question is right,
-because plain logic requires to use a:b as meaningful part of nexthop,
-it is the part which provides node _identity_, x:y is just routing information,
-identifying particullar "6to4" network, it is meaningless when used
-as a nexthop address.
-
-Shortly, this is mess. Technically, it is just one more trick and useless one,
-logically... mess.
-
-Alexey
+Thanks,
+Ashok
