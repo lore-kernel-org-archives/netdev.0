@@ -1,36 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.4] Use double-linked list for dev->qdisc_list
-Date: Wed, 18 Aug 2004 13:10:27 -0700
+Subject: Re: [RFC] netem - enhancement
+Date: Wed, 18 Aug 2004 14:16:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040818131027.01288786.davem@redhat.com>
-References: <20040804125926.GA15324@krezus.e-wro.net>
-	<4110E505.1010205@trash.net>
-	<20040804145610.GA21339@krezus.e-wro.net>
-	<20040804134432.40500c15.davem@redhat.com>
-	<41115A37.30806@trash.net>
-	<411DCA88.3080508@trash.net>
+Message-ID: <20040818141600.1fd67e91.davem@redhat.com>
+References: <20040811123103.620c2a36@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tomasz.paszkowski@e-wro.pl, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <411DCA88.3080508@trash.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040811123103.620c2a36@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 14 Aug 2004 10:17:12 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Wed, 11 Aug 2004 12:31:03 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Patrick McHardy wrote:
-> > David S. Miller wrote:
-> > 
-> >> Can someone regenerate this patch with the q_idx fix Patrick
-> >> just posted added to it?
-> >>  
-> >>
-> > Updated patch for 2.4 attached.
+> This still needs more testing to go into the mainstream but here is the
+> updated version of netem.  It adds:
+>   * distribution table (if any) loaded as part of the configuration
+>   * random packet duplication
+>   * correlated random number's for loss, jitter, duplication
+>   * changing netem parameters doesn't wipe out underlying qdisc
+>   * better random number generator - simple net_random just isn't good enough
 > 
-> seems like you missed this patch.
+> Also more complete comments and attribution.
 
-Sorry, applied :-)
+I guess you will soon post an updated version
+that makes use of the newer net_getrandom() stuff?
