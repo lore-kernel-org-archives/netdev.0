@@ -1,47 +1,109 @@
-From: rick jones <rick.jones2@hp.com>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Sat, 12 Feb 2005 17:29:16 -0800
-Message-ID: <67e9e71a41cc2a840cc89f836e2b6f4b@hp.com>
-References: <0525M9211@server5.heliogroup.fr> <420D37A3.6020209@hp.com> <20050211170958.17fcde21.davem@davemloft.net> <20050212143105.GB27456@yakov.inr.ac.ru> <86de38db09518ced8865af09cd79c064@hp.com> <20050212205617.GA29146@yakov.inr.ac.ru> <0db5e06aa50422877f9ec4a2e35d6795@hp.com> <20050212220010.GA29417@yakov.inr.ac.ru>
-Mime-Version: 1.0 (Apple Message framework v619.2)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, hubert.tonneau@fullpliant.org, shemminger@osdl.org
-In-Reply-To: <20050212220010.GA29417@yakov.inr.ac.ru>
-To: netdev@oss.sgi.com
+From: linux@horizon.com
+Subject: Re: [PATCH] OpenBSD Networking-related randomization port
+Date: 13 Feb 2005 01:41:04 -0000
+Message-ID: <20050213014104.19282.qmail@science.horizon.com>
+References: <527jld2tyx.fsf@topspin.com>
+Cc: ak@muc.de, arjan@infradead.org, bunk@stusta.de, chrisw@osdl.org,
+        davem@redhat.com, hlein@progressive-comp.com,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shemminger@osdl.org,
+        Valdis.Kletnieks@vt.edu
+To: linux@horizon.com, roland@topspin.com
+In-Reply-To: <527jld2tyx.fsf@topspin.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+    linux> It's easy to make a smaller hash by just thowing bits away,
+    linux> but a block cipher is a permutation, and has to be
+    linux> invertible.
 
-On Feb 12, 2005, at 2:00 PM, Alexey Kuznetsov wrote:
-> Any which follows some of congestion window validation recommendations.
+    linux> For example, if I take a k-bit counter and encrypt it with
+    linux> a k-bit block cipher, the output is guaranteed not to
+    linux> repeat in less than 2^k steps, but the value after a given
+    linux> value is hard to predict.
 
-If you could point me at the chapter and verse that would be great.
+> Huh?  What if my cipher consists of XOR-ing with a k-bit pattern?
+> That's a permutation on the set of k-bit blocks but it happens to
+> decompose as a product of (non-overlapping) swaps.
+> 
+> In general for more realistic block ciphers like DES it seems
+> extremely unlikely that the cipher has only a single orbit when viewed
+> as a permutation.  I would expect a real block cipher to behave more
+> like a random permutation, which means that the expected number of
+> orbits for a k-bit cipher should be about ln(2^k) or roughly .7 * k.
 
-> Even canonical bsd restarts slow start after rtt.
+I think you misunderstand; your comments don't seem to make sense unless
+I assume you're imagining output feedback mode:
 
-Did we have >= one RTT of idle in the packet trace?
+x[0] = encrypt(IV)
+x[1] = encrypt(x[0])
+x[2] = encrypt(x[1])
+etc.
 
->> N is something other than one though.
->
-> Well, 1 is quite enough to be sure that something is very wrong.
-> You see a proof here.
+Obviously, this pattern will repeat after some unpredictable interval.
+(However, owing to the invertibility of encryption, looping can
+be easily detected by noticing that x[i] = IV.)
 
-The debate of course is what :)
+But I was talking about counter mode:
 
-In and of _itself_, a delayed ACK does not guarantee something is very 
-wrong.  For example, in a request/response situation when the response 
-takes longer than the delayed ACK interval to generate.  And if it was 
-not request/response, and the sender simply didn't have any more to 
-send at that point.
+x[0] = encrypt(0)
+x[1] = encrypt(1)
+x[2] = encrypt(2)
+etc.
 
-Going back to the quantity of cwnd which may be left unused when TSO is 
-enabled.  If when TSO is enabled, the sender does not take full 
-advantage of the cwnd doesn't that then mean that to deal with the same 
-bandwidth delay product, one needs a larger TCP window when TSO is 
-enabled than when it is not?  In the default case of 
-tcp_tso_win_divisor being 8 that would be another 12.5% right?
+It should be obvious that this will not repeat until the counter
+overflows k bits and you try to compute encrypt(2^k) = encrypt(0).
 
-rick jones
-there is no rest for the wicked, yet the virtuous have no pillows
+One easy way to generate unpredictable 16-bit port numbers that don't
+repeat too fast is:
+
+highbit = 0;
+for (;;) {
+	generate_random_encryption_key(key);
+	for (i = 0; i < 20000; i++)
+		use(highbit | encrypt15(i, key));
+	highbit ^= 0x8000;
+}
+
+Note that this does NOT use all 32K values before switching to another
+key; if that were the case, an attacker who kept a big bitmap of reviously
+seen values could preduct the last few values based on knowing what
+hadn't been seen already.
+
+
+Of course, you can always wrap a layer of Knuth's Algorithm B
+(randomization by shuffling) around anything:
+
+#include "basic_rng.h"
+
+#define SHUFFLE_SIZE 32	/* Power of 2 is more efficient */
+
+struct better_rng_state {
+	struct basic_rng_state basic;
+	unsigned y;
+	unsigned z[SHUFFLE_SIZE];
+};
+
+void
+better_rng_seed(struct better_rng_state *state, unsigned seed)
+{
+	unsigned i;
+	basic_rng_seed(&state->basic, seed);
+
+	for (i = 0; i < SHUFFLE_SIZE; i++)
+		state->z[i] = basic_rng(&state->basic);
+	state->y = basic_rng(&state->basic) % SHUFFLE_SIZE;
+}
+
+unsigned
+better_rng(struct better_rng_state *state)
+{
+	unsigned x = state->z[state->y];
+	state->y = (state->z = basic_rng(&state->basic)) % SHUFFLE_SIZE;
+	return x;
+}
+
+(You can reduce code size by reducing modulo SHUFFLE_SIZE when you use
+state->y rather than when storing into it, but I have done it the other
+way to make clear exactly how much "effective" state is stored.  You can
+also just initialize state->y to a fixed value.)
