@@ -1,44 +1,47 @@
-From: Cheng Jin <chengjin@cs.caltech.edu>
-Subject: Re: Linux SMP on 2.4.18-3
-Date: Mon, 28 Oct 2002 10:26:58 -0800 (PST)
+From: Donald Becker <becker@scyld.com>
+Subject: Re: via-rhine "reset did not complete" errors
+Date: Mon, 28 Oct 2002 14:38:18 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33L0.0210281020180.28869-100000@fast2.cs.caltech.edu>
-References: <Pine.GSO.4.30.0210280741020.9849-100000@shell.cyberus.ca>
+Message-ID: <Pine.LNX.4.44.0210281425480.1346-100000@beohost.scyld.com>
+References: <7BFCE5F1EF28D64198522688F5449D5A03C079@xchangeserver2.storigen.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Cc: linux-net@vger.kernel.org, <netdev@oss.sgi.com>, <rl@hellgate.ch>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <Pine.GSO.4.30.0210280741020.9849-100000@shell.cyberus.ca>
+To: Larry Sendlosky <Larry.Sendlosky@storigen.com>
+In-Reply-To: <7BFCE5F1EF28D64198522688F5449D5A03C079@xchangeserver2.storigen.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 28 Oct 2002, Larry Sendlosky wrote:
 
-Jamal,
+> We're using VIA EPIA mini-ITX with 800Mhz C3 and the
+> VT6103 PHY. (via-rhine driver says VT6102). We have made sure
+> power supply is "big enough". Our kernel is 2.4.18 with
+> via-rhine.c patches to fix TX timeout.
 
-Thanks for writing me back.
+Those are evil patches...
 
-> The IP network stack in linux is totaly reentrant. You could have a
-> packet on _each_ processor in SMP concurently executing the same code. If
-> you add anything, you need to take this into account.
+> Our TX timeout issues seem to have gone away with the recent
+> patches. However we are still plagued with the "reset did not
+> complete in 10ms" errors.
 
-We did add code to the TCP layer, but I don't exactly see anything in the
-original code where locking is used.  I assume the locks are in the IP
-layer and lower?  The weirdest thing is that we noticed in
-update_send_head, tp->packets_out sometimes increases by more than one
-even though the code ++ it only once.  I guess I am not sure how we could
-have screwed it up if the modifications are on the TCP layer.
-
-> In non-NAPI based NICs such as yours, you could have reordering within
-> the system (this is described in the NAPI paper). Either get it NAPIfied
-> or get yourself a NAPI capable NIC such as tg3 based, e1000, Dlink gige
-> etc.
-
-Out of curiosity, what is the maximum send rate (pps) under Linux
-2.4.18-3?  I read in the paper that sending across two Intel Gbe with one
-CPU gets up to 36o Kpps.
+A driver _really_, _really_ shouldn't be busy-waiting for link
+negotiation to complete.  That happened a lot with MS-DOS drivers, but
+it wasn't even reasonable there.
+Yet it's far easier for someone to get a horribly flawed patch like that
+accepted, while my patches went completely ignored.
 
 
-Thanks,
+> Once it this state, a warm restart of
+> the system is necessary (and we have seen this problem at
+> boot time, which is more confusing).
 
-Cheng
+Look at the what the code is doing.  It is easier to write drivers when
+you make the rest of the kernel single threaded on your code...
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Scyld Beowulf cluster system
+Annapolis MD 21403			410-990-9993
