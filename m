@@ -1,35 +1,62 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: unregister_netdevice 2.6.9
-Date: Wed, 20 Oct 2004 02:26:22 +0900 (JST)
+From: Bob Wirka <bobwirka@rtcworks.com>
+Subject: Re: NFS and Network Driver Question
+Date: Tue, 19 Oct 2004 13:03:16 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020.022622.27982693.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.58LT.0410191738420.2725@lt.wsisiz.edu.pl>
+Message-ID: <417556E4.4090406@rtcworks.com>
+References: <41704198.8000206@rtcworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: lukasz@trabinski.net
-In-Reply-To: <Pine.LNX.4.58LT.0410191738420.2725@lt.wsisiz.edu.pl>
+In-Reply-To: <41704198.8000206@rtcworks.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.58LT.0410191738420.2725@lt.wsisiz.edu.pl> (at Tue, 19 Oct 2004 17:58:58 +0200 (CEST)), Lukasz Trabinski <lukasz@trabinski.net> says:
+Please disregard my last post, I believe the problem is solved. Thanks 
+again to all, especially Thomas Graf.
 
-> After shutdown/reboot :
-> 
-> unregister_netdevice: waiting for xxxx to become free. Usage count = 1
-:
-> whreis xxxx is name of sit device, created via script
+The essential things to learn from this exercise are:
 
-Is your box acting as router, or host?
-% sysctl -a |grep ipv6|grep forwarding
+1. A network driver compiled into the kernel must have an initialization 
+function that allocates the 'net_device' structure and passes this to 
+the kernel through the 'register_netdev()' call. You can reuse the 
+module-version initialization function; rename it and prefix it's 
+declaration with 'static __init'.
 
-What is happend if you let the interface down and delete it before
-becore rebooting?
+2. Add the 'module_init( init_fcn )' macro after the initialization 
+function. This will cause the kernel to execute that code when booting.
 
-Thanks.
+Onward and upward.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Bob Wirka
+Realtime Control Works
+
+Bob Wirka wrote:
+
+> Hello,
+>
+> I'm trying to build a kernel that mounts a NFS root file system. This 
+> is an embedded system; it uses an SMSC LAN91C111 network chip that is 
+> hardwired to I/O addres 0x300 and IRQ 5. I've been using the driver 
+> (as supplied by SMSC) as a module, and it works fine. Now I'm trying 
+> to incorporate it into the kernel build so that I can mount an NFS 
+> file system when the system boots.
+>
+> I've added the source code to the kernel tree, and modified the 
+> Makefile(s) and Config.in files so that the driver <<appears>> to be 
+> compiled into the kernel. The kernel will load, but the chip is not 
+> initialized and the NFS fails.
+>
+> Since I don't know how to pass the io address and irq number to the 
+> kernel, I've hard-coded them into the driver's init function (which I 
+> don't see being called).
+>
+> If someone could point me in the right direction, I'd appreciate it.
+>
+> Thank you,
+>
+> Bob Wirka
+> Realtime Control Works
+>
+>
