@@ -1,45 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-Date: Thu, 11 Sep 2003 14:29:06 -0700
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: 82540EM very slow on 2.6.0-test[45]
+Date: Thu, 11 Sep 2003 14:40:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911142906.74d9dfe5.davem@redhat.com>
-References: <Pine.LNX.4.44.0309081953510.1261-100000@localhost.localdomain>
-	<3F60CA6D.9090503@pobox.com>
-	<3F60D0F3.8080006@candelatech.com>
-	<20030911131219.0ab8dfdd.davem@redhat.com>
-	<3F60DDCC.5020906@candelatech.com>
-	<20030911140746.4f0384a1.davem@redhat.com>
-	<3F60E947.4090005@candelatech.com>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010124F030@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, scott.feldman@intel.com, netdev@oss.sgi.com,
-   ricardoz@us.ibm.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F60E947.4090005@candelatech.com>
+content-class: urn:content-classes:message
+To: <rwhron@earthlink.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Sep 2003 14:29:43 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+> I tried 4 Solaris servers.  2 had forced full duplex
+> and 100 Mbps.  Those are slow.  2 other Solaris servers
+> on the same LAN as the "slow" Solaris servers are fast.
+> These "fast" servers are using default settings (which
+> should also be 100 Mbps full-duplex).
 
-> Thanks for that clarification.  Is there no way to tell
-> at 'sendto' time that the buffers are over-full, and either
-> block or return -EBUSY or something like that?
+Maybe someone else on the list has some suggestions?  I think we're
+troubleshooting your network now.
 
-The TX queue state can change by hundreds of packets by
-the time we are finished making the "decision", also how would
-you like to "wake" up sockets when the TX queue is liberated.
-That extra overhead and logic would be wonderful for performance.
+Is it just ftp that's slow?  What's in the path between the Linux and
+the "slow" Solaris server?  Can you shorten the path?  What happens if
+you don't force 100/full on the "slow" Solaris server?
 
-No, this is all nonsense.  Packet scheduling and queueing is
-an opaque layer to all the upper layers.  It is the only sensible
-design.
-
-IP transmit is black hole that may drop packets at any moment,
-any datagram application not prepared for this should be prepared
-for troubles or choose to move over to something like TCP.
-
-I listed even a workaround for such stupid UDP apps, simply limit
-their socket send queue limits.
+-scott
