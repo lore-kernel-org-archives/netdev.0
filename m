@@ -1,8 +1,9 @@
 From: domen@coderock.org
-Subject: [patch 13/26] net/airo: replace schedule_timeout() with msleep()/ssleep()
-Date: Sun, 06 Mar 2005 11:33:18 +0100
-Message-ID: <20050306103319.0A45D1F1F0@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com
+Subject: [patch 10/26] janitor: net/ixgb: remove pci_find_device
+Date: Sun, 06 Mar 2005 11:33:08 +0100
+Message-ID: <20050306103309.090EF1F202@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, sfeldma@pobox.com,
+        janitor@sternwelten.at
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -10,97 +11,141 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Use msleep()/ssleep() instead of schedule_timeout() to guarantee the task delays as expected.
 
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Removing pci_find_device required removing driver's custom
+reboot notifier which walked the device list and then called
+the suspend func.  But, the suspend func isn't even hooked up
+to the driver's PM ->suspend hook!  So it's vestigial (cut-
+and-paste from e1000).  If ixgb ever implements PM hooks,
+and there is a need to call ->suspend during shutdown, then
+->shutdown can be implemented.  The need would be something
+like Wake-on-LAN (10GbE?) arming.  Until then, all this code
+needs to go.  Compile tested.
+
+Signed-off-by: Scott Feldman <sfeldma@pobox.com>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/wireless/airo.c |   25 +++++++++----------------
- 1 files changed, 9 insertions(+), 16 deletions(-)
+ kj-domen/drivers/net/ixgb/ixgb_main.c |   69 ----------------------------------
+ 1 files changed, 1 insertion(+), 68 deletions(-)
 
-diff -puN drivers/net/wireless/airo.c~msleep_ssleep-drivers_net_wireless_airo drivers/net/wireless/airo.c
---- kj/drivers/net/wireless/airo.c~msleep_ssleep-drivers_net_wireless_airo	2005-03-05 16:10:27.000000000 +0100
-+++ kj-domen/drivers/net/wireless/airo.c	2005-03-05 16:10:27.000000000 +0100
-@@ -1698,9 +1698,8 @@ static int readBSSListRid(struct airo_in
- 			issuecommand(ai, &cmd, &rsp);
- 			up(&ai->sem);
- 			/* Let the command take effect */
--			set_current_state (TASK_INTERRUPTIBLE);
- 			ai->task = current;
--			schedule_timeout (3*HZ);
-+			ssleep(3);
- 			ai->task = NULL;
- 		}
- 	rc = PC4500_readrid(ai, first ? RID_BSSLISTFIRST : RID_BSSLISTNEXT,
-@@ -2685,11 +2684,9 @@ int reset_card( struct net_device *dev ,
- 		return -1;
- 	waitbusy (ai);
- 	OUT4500(ai,COMMAND,CMD_SOFTRESET);
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ/5);
-+	msleep(200);
- 	waitbusy (ai);
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ/5);
-+	msleep(200);
- 	if (lock)
- 		up(&ai->sem);
- 	return 0;
-@@ -5516,12 +5513,12 @@ static int airo_pci_resume(struct pci_de
- 	} else {
- 		OUT4500(ai, EVACK, EV_AWAKEN);
- 		OUT4500(ai, EVACK, EV_AWAKEN);
--		schedule_timeout(HZ/10);
-+		msleep(100);
- 	}
+diff -puN drivers/net/ixgb/ixgb_main.c~remove-pci-find-device-drivers_net_ixgb_ixgb_main drivers/net/ixgb/ixgb_main.c
+--- kj/drivers/net/ixgb/ixgb_main.c~remove-pci-find-device-drivers_net_ixgb_ixgb_main	2005-03-05 16:09:44.000000000 +0100
++++ kj-domen/drivers/net/ixgb/ixgb_main.c	2005-03-05 16:09:44.000000000 +0100
+@@ -116,21 +116,11 @@ static void ixgb_vlan_rx_add_vid(struct 
+ static void ixgb_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
+ static void ixgb_restore_vlan(struct ixgb_adapter *adapter);
  
- 	set_bit (FLAG_COMMIT, &ai->flags);
- 	disable_MAC(ai, 0);
--        schedule_timeout (HZ/5);
-+	msleep(200);
- 	if (ai->SSID) {
- 		writeSsidRid(ai, ai->SSID, 0);
- 		kfree(ai->SSID);
-@@ -7470,8 +7467,7 @@ int cmdreset(struct airo_info *ai) {
+-static int ixgb_notify_reboot(struct notifier_block *, unsigned long event,
+-			      void *ptr);
+-static int ixgb_suspend(struct pci_dev *pdev, uint32_t state);
+-
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ /* for netdump / net console */
+ static void ixgb_netpoll(struct net_device *dev);
+ #endif
  
- 	OUT4500(ai,COMMAND,CMD_SOFTRESET);
+-struct notifier_block ixgb_notifier_reboot = {
+-	.notifier_call = ixgb_notify_reboot,
+-	.next = NULL,
+-	.priority = 0
+-};
+-
+ /* Exported from other modules */
  
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ);          /* WAS 600 12/7/00 */
-+	ssleep(1);			/* WAS 600 12/7/00 */
+ extern void ixgb_check_options(struct ixgb_adapter *adapter);
+@@ -140,9 +130,6 @@ static struct pci_driver ixgb_driver = {
+ 	.id_table = ixgb_pci_tbl,
+ 	.probe = ixgb_probe,
+ 	.remove = __devexit_p(ixgb_remove),
+-	/* Power Managment Hooks */
+-	.suspend = NULL,
+-	.resume = NULL
+ };
  
- 	if(!waitbusy (ai)){
- 		printk(KERN_INFO "Waitbusy hang AFTER RESET\n");
-@@ -7498,8 +7494,7 @@ int setflashmode (struct airo_info *ai) 
- 		OUT4500(ai, SWS3, FLASH_COMMAND);
- 		OUT4500(ai, COMMAND,0);
- 	}
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ/2); /* 500ms delay */
-+	msleep(500);		/* 500ms delay */
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+@@ -165,17 +152,12 @@ MODULE_LICENSE("GPL");
+ static int __init
+ ixgb_init_module(void)
+ {
+-	int ret;
+ 	printk(KERN_INFO "%s - version %s\n",
+ 	       ixgb_driver_string, ixgb_driver_version);
  
- 	if(!waitbusy(ai)) {
- 		clear_bit (FLAG_FLASHING, &ai->flags);
-@@ -7609,8 +7604,7 @@ int flashputbuf(struct airo_info *ai){
- int flashrestart(struct airo_info *ai,struct net_device *dev){
- 	int    i,status;
+ 	printk(KERN_INFO "%s\n", ixgb_copyright);
  
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ);          /* Added 12/7/00 */
-+	ssleep(1);			/* Added 12/7/00 */
- 	clear_bit (FLAG_FLASHING, &ai->flags);
- 	if (test_bit(FLAG_MPI, &ai->flags)) {
- 		status = mpi_init_descriptors(ai);
-@@ -7625,8 +7619,7 @@ int flashrestart(struct airo_info *ai,st
- 				( ai, 2312, i >= MAX_FIDS / 2 );
- 		}
- 
--	set_current_state (TASK_UNINTERRUPTIBLE);
--	schedule_timeout (HZ);          /* Added 12/7/00 */
-+	ssleep(1);			/* Added 12/7/00 */
- 	return status;
+-	ret = pci_module_init(&ixgb_driver);
+-	if(ret >= 0) {
+-		register_reboot_notifier(&ixgb_notifier_reboot);
+-	}
+-	return ret;
++	return pci_module_init(&ixgb_driver);
  }
- #endif /* CISCO_EXT */
+ 
+ module_init(ixgb_init_module);
+@@ -190,7 +172,6 @@ module_init(ixgb_init_module);
+ static void __exit
+ ixgb_exit_module(void)
+ {
+-	unregister_reboot_notifier(&ixgb_notifier_reboot);
+ 	pci_unregister_driver(&ixgb_driver);
+ }
+ 
+@@ -2072,54 +2053,6 @@ ixgb_restore_vlan(struct ixgb_adapter *a
+ 	}
+ }
+ 
+-/**
+- * ixgb_notify_reboot - handles OS notification of reboot event.
+- * @param nb notifier block, unused
+- * @param event Event being passed to driver to act upon
+- * @param p A pointer to our net device
+- **/
+-static int
+-ixgb_notify_reboot(struct notifier_block *nb, unsigned long event, void *p)
+-{
+-	struct pci_dev *pdev = NULL;
+-
+-	switch(event) {
+-	case SYS_DOWN:
+-	case SYS_HALT:
+-	case SYS_POWER_OFF:
+-		while ((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev))) {
+-			if (pci_dev_driver(pdev) == &ixgb_driver)
+-				ixgb_suspend(pdev, 3);
+-		}
+-	}
+-	return NOTIFY_DONE;
+-}
+-
+-/**
+- * ixgb_suspend - driver suspend function called from notify.
+- * @param pdev pci driver structure used for passing to
+- * @param state power state to enter 
+- **/
+-static int
+-ixgb_suspend(struct pci_dev *pdev, uint32_t state)
+-{
+-	struct net_device *netdev = pci_get_drvdata(pdev);
+-	struct ixgb_adapter *adapter = netdev->priv;
+-
+-	netif_device_detach(netdev);
+-
+-	if(netif_running(netdev))
+-		ixgb_down(adapter, TRUE);
+-
+-	pci_save_state(pdev);
+-
+-	state = (state > 0) ? 3 : 0;
+-	pci_set_power_state(pdev, state);
+-	msec_delay(200);
+-
+-	return 0;
+-}
+-
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ /*
+  * Polling 'interrupt' - used by things like netconsole to send skbs
 _
