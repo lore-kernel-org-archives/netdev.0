@@ -1,88 +1,47 @@
-From: Sean Hunter <sean@uncarved.com>
+From: Horst von Brand <vonbrand@inf.utfsm.cl>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Wed, 12 Jun 2002 10:18:25 +0100
+Date: Wed, 12 Jun 2002 08:11:45 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae73ri$ndr$2@main.gmane.org>
-References: <20020609.213440.04716391.davem@redhat.com> <Pine.LNX.3.96.1020611183218.29598A-100000@gatekeeper.tmr.com> <20020611.204119.58650447.davem@redhat.com> <20020611235726.P25193@grendel.conscoop.ottawa.on.ca> <20020612012004.A15773@mark.mielke.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Guy Briggs <rgb@conscoop.ottawa.on.ca>,
-   "David S. Miller" <davem@redhat.com>, davidsen@tmr.com,
-   greearb@candelatech.com, cfriesen@nortelnetworks.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Message-ID: <ae7dvs$vc7$2@main.gmane.org>
+References: <greearb@candelatech.com>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Mark Mielke <mark@mark.mielke.cc>
-Content-Disposition: inline
-In-Reply-To: <20020612012004.A15773@mark.mielke.cc>; from mark@mark.mielke.cc on Wed, Jun 12, 2002 at 01:20:04AM -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: Message from Ben Greear <greearb@candelatech.com>
+   of "Tue, 11 Jun 2002 23:26:40 MST." <3D06E9A0.5060801@candelatech.com>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 12, 2002 at 01:20:04AM -0400, Mark Mielke wrote:
-> On Tue, Jun 11, 2002 at 11:57:26PM -0400, Richard Guy Briggs wrote:
-> > Basically Bill, if you don't like this policy, fork the code. That
-> > is one of the strengths (and weaknesses) of open source. If your
-> > tree works better and gets wider use, then something about it must
-> > be better. If not, then maybe it wasn't. This community works on
-> > reputation capital (and some diplomacy).
->
-> To some degree (i.e. I know it is not intentional), this comes across
-> as blackmail.
->
-> Sorta like "if you want to play ball with me, you play by my rules,
-> otherwise you can go find your own diamond and your own friends to
-> play with."
->
-> I would still like to see David's logic as to why the approach is bad.
+[Cc:'s stripped]
 
-Perhaps the reason David Miller is the network stack maintainer is that
-he can see things that you can't see? The onus is on you (as proposer)
-to show _him_ that a change is worthwhile, not the other way round.
-Don't be confused into thinking this is some sort of democracy.
+Ben Greear <greearb@candelatech.com> said:
+> Pekka Savola wrote:
+> > Just to chime in my support (not that I don't think anyone needs it), I 
+> > think socket-based counters are An Extremely Bad Idea.  
 
-> So far it amounts to 1) David doesn't like it, 2) David doesn't see a
-> need for it, or can see other less adequate methods of approximating
-> the same effect, and 3) David suspects that it will effect the
-> performance of all users to provide a limited gain for some
-> applications.
+[...]
 
-Yup. What you've left out is:
+> If they are useful to some people, and have zero performance affect on others
+> (due to being a configurable kernel feature), then what is your
+> complaint?
 
-4)David has demonstrated that he knows his stuff by high-quality work
-  over a long period of time
-5)You haven't.
-6)Because he is the network maintainer you need to convince him and you
-  haven't done so.
+That it adds code, which impacts _everybody_ futzing around in that area,
+specially if it is a configurable option (this means multiplying the
+possible configurations to be tested).
 
-> 'Reputation capital' is earned. I would like to see it 'earned' in
-> practice given a real requirement from a real developer on a real
-> world class application.
->
-> Statements such as 'the most important thing I do is say no', don't
-> convince me that a reputation is deserved. The extreme of this is that
-> an automaton could say no to everything.
+> I see two reasons left to dislike this feature:
+> 
+> 1)  General increase in #ifdef'd code.  This actually seems like
+>     a pretty good argument, but I haven't seen anyone mention it
+>     specifically.
 
-Bollocks. Its plainly ridiculous to impugne David Miller and imply his
-reputation isn't earned. You or I or your straw automaton could say
-"no", but it doesn't mean anyone will listen.
+Right.
 
-Furthermore, I would propose that the Linux TCP/IP networking stack is "world
-class" and has earned David Miller (and others) a fair bit of "reputation
-capital", and that's why he (and not you or I) is where he is.
+> 2)  General dislike for a feature that one personally has no use for.
+>     Seems to be Dave's main (professed) excuse.
 
-> Yes, I might be testing David... is it fair? Well, the requirement was
-> fair, so how could it not be fair?
->
-> I (and Bill) are just asking for some logic to show us where we are
-> wrong. Linus can pull the "I'm god, and that's that" gig. Fine. How
-> far does the godhead extend? Who else can pull this gig?
-
-Show why it should be in the main tree and not just a debugging patch.
-
-> I am waiting in anticipation to be shown the error of my ways using
-> proper logic and iron clad reasoning... :-)
-
-I think its more like Dave M et al are waiting for someone to show the
-slightest bit of evidence to say this isn't better off as just a
-debugging patch rather than just waving hands and talking bollocks.
-
-
-Sean
+General dislike for adding features of _extremely_ limited (debugging!) use?
+-- 
+Dr. Horst H. von Brand                   User #22616 counter.li.org
+Departamento de Informatica                     Fono: +56 32 654431
+Universidad Tecnica Federico Santa Maria              +56 32 654239
+Casilla 110-V, Valparaiso, Chile                Fax:  +56 32 797513
