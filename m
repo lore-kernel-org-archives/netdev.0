@@ -1,24 +1,42 @@
-From: "Antwerpen, Gert van" <antwerp@TPD.TNO.NL>
-Subject: Your mail is temporary blocked by Spam Blocker
-Date: Mon, 26 Jul 2004 16:08:13 +0200
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: b44: add 47xx support
+Date: Mon, 26 Jul 2004 17:11:28 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <F25FAA5196702B40BC43BB86611E6B9906A5BDEF@mailserver.tpd.tno.nl>
+Message-ID: <20040726141128.GA5435@ee.oulu.fi>
+References: <200407232335.37809.jolt@tuxbox.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset=iso-8859-1
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Netdev'" <netdev@oss.sgi.com>
+To: Florian Schirmer <jolt@tuxbox.org>
+Content-Disposition: inline
+In-Reply-To: <200407232335.37809.jolt@tuxbox.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Spam Blocker has detected you as an unknown sender.
-The message you have sent to "antwerpen, gert van" is not delivered yet.
-If you really want to send a message, please reply within 7 days to this
-mail and put the following key in the subject field:
+On Fri, Jul 23, 2004 at 11:35:30PM +0200, Florian Schirmer wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Hi,
+> 
+> this patch adds support for the BCM47xx device to the b44 driver. Please 
+> apply.
+> 
+> BTW what happened to the 1GB DMA fix? The SiliconBackplane cores _are_ limited 
+> to a 1GB DMA window so we need to take that into account. Any reason why 
+> those patches where dropped?
+Hiya
 
-6DBC01C47319FD795842
+Looks good (well, won't be able to test that it doesn't break 4401 until
+next week :-) ).
 
-If you do so, your previous message plus all subsequent messages will be
-delivered as soon as possible.
+As for the 1GB patch going in, I sure hope they would (perhaps in a cleaned
+up state, it might be more pretty if I just unconditionally enabled the
+workaround and had a b44_alloc_skb() that tries a normal dev_alloc_skb and if
+that gives something over 1GB retry with GFP_DMA...
 
-Spam Blocker 1.9
+A situation where it breaks even without 4g4g would help in getting the
+patch in :-)
+
+ 
