@@ -1,32 +1,60 @@
-From: Matthew Wilcox <willy@debian.org>
-Subject: Re: [PATCH] netdev_ops
-Date: Tue, 8 Jul 2003 22:25:51 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.5.74] convert apne to dynamic allocation
+Date: Tue, 8 Jul 2003 15:12:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk>
-References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk> <3F0B2D30.4020102@candelatech.com>
+Message-ID: <20030708151245.179cac2b.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Wilcox <willy@debian.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <3F0B2D30.4020102@candelatech.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 08, 2003 at 01:44:32PM -0700, Ben Greear wrote:
-> Some of these are missing their netdevice arg?
-> >+	int	(*get_regs_len)(struct ethtool_regs *);
-> >+	int	(*self_test_len)(struct ethtool_test *);
-> >+	int	(*get_strings_len)(struct ethtool_gstrings *);
-> >+	int	(*get_stats_len)(struct ethtool_stats *);
+Convert apne driver away from static net_device structure.
 
-Well, they don't actually need it -- these are more attributes of
-the underlying driver than they are of any individual network device.
-I suspect at least one of them isn't needed, and I'm sure the e1000 guys
-are about to tell me which one ;-)
+Builds, but not tested with real hardware.
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+diff -Nru a/drivers/net/apne.c b/drivers/net/apne.c
+--- a/drivers/net/apne.c	Mon Jul  7 14:46:31 2003
++++ b/drivers/net/apne.c	Mon Jul  7 14:46:31 2003
+@@ -534,16 +534,21 @@
+ }
+ 
+ #ifdef MODULE
+-static struct net_device apne_dev;
++static struct net_device *apne_dev;
+ 
+ int init_module(void)
+ {
+ 	int err;
+ 
++	apne_dev = kmalloc(sizeof(*apne_dev));
++	if (!apne_dev)
++		return -ENOMEM;
++
+ 	apne_dev.init = apne_probe;
+ 	if ((err = register_netdev(&apne_dev))) {
+ 		if (err == -EIO)
+ 			printk("No PCMCIA NEx000 ethernet card found.\n");
++		kfree(apne_dev);
+ 		return (err);
+ 	}
+ 	return (0);
+@@ -551,11 +556,13 @@
+ 
+ void cleanup_module(void)
+ {
+-	unregister_netdev(&apne_dev);
++	unregister_netdev(apne_dev);
+ 
+ 	pcmcia_disable_irq();
+ 
+-	free_irq(IRQ_AMIGA_PORTS, &apne_dev);
++	free_irq(IRQ_AMIGA_PORTS, apne_dev);
++
++	kfree(apne_dev);
+ 
+ 	pcmcia_reset();
+ 
