@@ -1,43 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Possible race/deadlock in netdev_unregister
-Date: Fri, 28 Jan 2005 15:38:06 -0800
-Message-ID: <20050128153806.2c0fd337@dxpl.pdx.osdl.net>
-References: <200501282313.30517.daniele@orlandi.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] NETLINK: Use SKB_MAXORDER to calculate NLMSG_GOODSIZE
+Date: Sat, 29 Jan 2005 00:40:22 +0100
+Message-ID: <20050128234022.GW31837@postel.suug.ch>
+References: <20050128230327.GV31837@postel.suug.ch> <E1CufRB-0000zf-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniele Orlandi <daniele@orlandi.com>
-In-Reply-To: <200501282313.30517.daniele@orlandi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1CufRB-0000zf-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Jan 2005 23:13:29 +0100
-Daniele Orlandi <daniele@orlandi.com> wrote:
+* Herbert Xu <E1CufRB-0000zf-00@gondolin.me.apana.org.au> 2005-01-29 10:22
+> Thomas Graf <tgraf@suug.ch> wrote:
+> > 
+> > The current value doesn't make much sense anymore because
+> > skb_shared_info isn't taken into account which means that
+> > depending on the architecture NLMSG_GOOSIZE can exceed PAGE_SIZE
+> > resulting in a waste of almost a complete page.
+> 
+> You're quite right.
+> 
+> > Using SKB_MAXORDER solves this potential leak at the cost of
+> > slightly smaller but safer sizes for some architectures.
+> 
+> At first glance it's not clear which of sk_buff or skb_shared_info
+> is bigger.  So it might even end up being bigger :)
 
-> 
-> Hello,
-> 
-> First of all, please excuse me if this happens to be a bug in my code :)
-> Unfortunately I'm still a newbie with netdev and his interactions with 
-> netlink, hotplug, etc... please help me understand what's happening and who 
-> is wrong.
-> 
-> The scenario is this:
-> 
-> - A device driver module (written by me) has two netdevices registered.
-> - Another module (written by me, too) provides sockets implementation for the 
-> protocol spoken by the device.
-> - An application has one socket bound to one netdevice
-> - I rmmod the device driver module
-> - The exit function in the module calls netdev_unregister
-> - The event dispatcher notifies the socket layer that a device is going down
-> - The socket is marked errored but the application keeps it open for a while
-> - The application ends, the socket is destroyed, the remaining reference to 
-> netdevice is released but netdev_unregister keeps sleeping forever with this 
-> backtrace:
+skb_shared_info is 160 bytes and sk_buff is 196 bytes on my box (x86)
+but that's not the point. We need to take SMP_CACHE_BYTES alignment into
+account which tends to be quite big. The original NLMSG_GOODSIZE
+results in 3908 on my box and gets pumped up to 4128 by skb_alloc
+(ALIGN(...,SMP_CACHE_BYTES) + sizeof(struct skb_shared_info)) having
+SMP_CACHE_BYTES at 128. 
 
-You are probably self-deadlocking on the netlink mutex (rtnl).
-Is your netdevice_notifier handler calling rtnl_lock?
+> > -#define NLMSG_GOODSIZE (PAGE_SIZE - ((sizeof(struct sk_buff)+0xF)&~0xF))
+> > +#define NLMSG_GOODORDER 0
+> > +#define NLMSG_GOODSIZE (SKB_MAX_ORDER(0, NLMSG_GOODORDER))
+> 
+> Are we ever going use NLMSG_GOODORDER for anything? If not why don't
+> we go straight to NLMSG_GOODSIZE?
+
+My thought behind it is that it clearly documents that we use order-0
+allocation and we can easly bump it up if we need more space but it's
+basically just cosmetic.
