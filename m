@@ -1,38 +1,42 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6 IPSEC support
-Date: Sun, 23 Feb 2003 09:44:42 +0900 (JST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Functions Clean-up
+Date: Sun, 23 Feb 2003 01:18:16 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030223.094442.107718872.yoshfuji@linux-ipv6.org>
-References: <20030222.031326.103246837.davem@redhat.com>
-	<20030222.214935.134101784.yoshfuji@linux-ipv6.org>
-	<20030222.154753.133994666.davem@redhat.com>
+Message-ID: <20030223.011816.108201183.davem@redhat.com>
+References: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: kazunori@miyazawa.org, kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, usagi@linux-ipv6.org, kunihiro@ipinfusion.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   netfilter-devel@lists.netfilter.org, kuznet@ms2.inr.ac.ru,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20030222.154753.133994666.davem@redhat.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030222.154753.133994666.davem@redhat.com> (at Sat, 22 Feb 2003 15:47:53 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Sun, 03 Nov 2002 11:54:27 +0900 (JST)
+   
+   This patch cleans up functions in ipv6 stack:
+   
+    - export route6_me_harder() as ip6_route_harder() and
+      use it from net/ipv6/netfilter/ip6_queue.c.
+    - make ip6_addr_prefix() to generate prefix of given address and
+      prefix length, instead of doing "ipv6_copy_addr() then
+      ipv6_wash_prefix()."
+   
+Please change new name to ip6_route_me_harder().  When one
+says "something me harder" is has amusing implications when
+heard by most english speakers and I'd like to keep this :-)
 
-> One example, xfrm_lookup() gets this xfrm_afinfo pointer, and it can
-> use it to learn how to compare addresses.  The xfrm_afinfo pointer
-> is also passed to xfrm_bundle_create() which uses it to learn how
-> to lookup tunnel routes.
-> 
-> A small net/ipv6/xfrm_ipv6.c module is created, which registers
-> a xfrm_afinfo structure to the generic xfrm engine, it teaches
-> how to do these operations for AF_INET6 xfrm objects.
-> 
-> Do you think this can work?
+I will apply this patch once you make the change.  Would you
+like me to add it to 2.4.x as well?
 
-I suppose so.  We'll try to work on it.
+We really need to revisit USAGI patch backlog.  I have and will apply
+privacy extension 2.5.x patch you sent.  For all the others please
+feel free to "patch bomb" me :-) Please indicate with each patch
+whether the it is desired in 2.4.x as well.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+If you wish to concentrate on ipv6 ipsec first, that is ok too. :-)
