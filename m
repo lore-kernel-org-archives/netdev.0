@@ -1,29 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch 7/9] X.25: Dont log "unknown frame type" when receiving
- clear confirm
-Date: Thu, 28 Oct 2004 16:48:46 -0700
+Subject: Re: [patch 9/9] Avoid warning on CONNTRACK_STAT_INC in
+ destroy_conntrack()
+Date: Thu, 28 Oct 2004 16:49:56 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028164846.5a67f4f1.davem@davemloft.net>
-References: <200410280721.i9S7Lj908010@mail.osdl.org>
+Message-ID: <20041028164956.2c340c1b.davem@davemloft.net>
+References: <200410280721.i9S7Ll908021@mail.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, ahendry@tusc.com.au
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org,
+        rusty@rustcorp.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
 To: akpm@osdl.org
-In-Reply-To: <200410280721.i9S7Lj908010@mail.osdl.org>
+In-Reply-To: <200410280721.i9S7Ll908021@mail.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Oct 2004 00:19:46 -0700
+On Thu, 28 Oct 2004 00:19:48 -0700
 akpm@osdl.org wrote:
 
-> From: Andrew Hendry <ahendry@tusc.com.au>
+> From: Rusty Russell <rusty@rustcorp.com.au>
 > 
-> There is no need to log "unknown frame type" when remote X.25 sends clear
-> confirms.
+> ip_conntrack_put can be called in any context in theory: in particular,
+> MASQUERADE will can call it (via ip_ct_selective_cleanup) when an interface
+> comes up with a different address.
 > 
-> Signed-off-by: Andrew Hendry <ahendry@tusc.com.au>
+> Move the CONNTRACK_STAT_INC inside the lock: it needs preemption disabled.
+> 
+> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 > Signed-off-by: Andrew Morton <akpm@osdl.org>
 
 Applied, thanks.
