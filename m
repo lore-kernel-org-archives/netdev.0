@@ -1,34 +1,48 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [E1000-devel] Transmission limit
-Date: Mon, 29 Nov 2004 20:08:08 +0100
-Message-ID: <20041129190808.GA21164@xi.wantstofly.org>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it> <41A73826.3000109@draigBrady.com> <20041127200030.GD27762@xi.wantstofly.org> <1101732267.14930.75.camel@verza.polito.it> <20041129151940.GA19184@xi.wantstofly.org> <1101749533.17091.3.camel@verza.polito.it>
+Date: Mon, 29 Nov 2004 12:16:04 -0800
+Message-ID: <20041129121604.47eb6593.davem@davemloft.net>
+References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
+	<41A73826.3000109@draigBrady.com>
+	<16807.20052.569125.686158@robur.slu.se>
+	<1101484740.24742.213.camel@mellia.lipar.polito.it>
+	<41A76085.7000105@draigBrady.com>
+	<1101499285.1079.45.camel@jzny.localdomain>
+	<16811.8052.678955.795327@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, P@draigBrady.com, mellia@prezzemolo.polito.it,
+        Robert.Olsson@data.slu.se, e1000-devel@lists.sourceforge.net,
+        jorge.finochietto@polito.it, galante@polito.it, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marco Mellia <mellia@prezzemolo.polito.it>
-Content-Disposition: inline
-In-Reply-To: <1101749533.17091.3.camel@verza.polito.it>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16811.8052.678955.795327@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 29, 2004 at 06:32:13PM +0100, Marco Mellia wrote:
+On Mon, 29 Nov 2004 14:09:08 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> Using the Agilent Router tester as receiver...
-> :-(
+>  Did I dream or did someone tell me that S2IO 
+>  could have several TX ring that could via MSI be routed to proper cpu?
 
-OK, so you're measuring the inter-packet gap and in that burst of 11
-(or whatever many) packets it's 96 bit times between every packet, yes?
+One of Sun's gigabit chips can do this too, except it isn't
+via MSI, the driver has to read the descriptor to figure out
+which cpu gets the software interrupt to process the packet.
 
-Interesting.  Can you also try 'pre-loading' the TX ring with a bunch of
-packets and then writing the values 0, 1, 2, 3 ... n-1 to the TXD register
-with back-to-back MMIO writes (instead of doing a single write of the
-value 'n'), and check what inter-packet gap you get then?
+SGI had hardware which allowed you to do this kind of stuff too.
 
+Obviously the MSI version works much better.
 
-cheers,
-Lennert
+It is important, the cpu selection process.  First of all, it must
+be calculated such that flows always go through the same cpu.
+Otherwise TCP sockets bounce between the cpus for a streaming
+transfer.
+
+And even this doesn't avoid all such problems, TCP LISTEN state
+sockets will still thrash between the cpus with such a "pick
+a cpu based upon" flow scheme.
+
+Anyways, just some thoughts.
