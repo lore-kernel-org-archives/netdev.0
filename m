@@ -1,80 +1,76 @@
-From: Dipankar Sarma <dipankar@in.ibm.com>
+From: Andrea Arcangeli <andrea@suse.de>
 Subject: Re: route cache DoS testing and softirqs
-Date: Wed, 31 Mar 2004 01:58:21 +0530
+Date: Tue, 30 Mar 2004 22:47:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040330202820.GA3956@in.ibm.com>
-References: <20040329222926.GF3808@dualathlon.random> <200403302005.AAA00466@yakov.inr.ac.ru>
-Reply-To: dipankar@in.ibm.com
+Message-ID: <20040330204731.GG3808@dualathlon.random>
+References: <20040329184550.GA4540@in.ibm.com> <20040329222926.GF3808@dualathlon.random> <20040330144324.GA3778@in.ibm.com> <20040330195315.GB3773@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrea Arcangeli <andrea@suse.de>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        Robert Olsson <Robert.Olsson@data.slu.se>,
         "Paul E. McKenney" <paulmck@us.ibm.com>,
-        Dave Miller <davem@redhat.com>, Andrew Morton <akpm@osdl.org>
+        Dave Miller <davem@redhat.com>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: Dipankar Sarma <dipankar@in.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <200403302005.AAA00466@yakov.inr.ac.ru>
+In-Reply-To: <20040330195315.GB3773@in.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 31, 2004 at 12:05:05AM +0400, kuznet@ms2.inr.ac.ru wrote:
-> What's about the problem it really splits to two ones:
+On Wed, Mar 31, 2004 at 01:23:15AM +0530, Dipankar Sarma wrote:
+> It doesn't look as if we are processing much from ksoftirqd at
+> all in this case. I did the following instrumentation -
 > 
-> 1. The _new_ problem when bad latency of rcu hurts core
->    functionality. This is precise description:
-
-Which essentially happens due to userland starvation during a
-softirq flood.
-
+>         if (in_interrupt() && local_softirqd_running())
+>                 return;
+>         max_restart = MAX_SOFTIRQ_RESTART;
+>         local_irq_save(flags);
 > 
-> > to keep up with the softirq load.  This has never been the case so far,
-> > and serving softirq as fast as possible is normally a good thing for
-> > server/firewalls, the small unfariness (note unfariness != starvation)
-> > it generates has never been an issue, because so far the softirq never
-> > required the scheduler to work in order to do their work, rcu changed
-> > this in the routing cache specific case.
+>         if (rcu_trace) {
+>                 int cpu = smp_processor_id();
+>                 per_cpu(softirq_count, cpu)++;
+>                 if (local_softirqd_running() && current == __get_cpu_var(ksoftirqd))
+>                         per_cpu(ksoftirqd_count, cpu)++;
+>                 else if (!in_interrupt())
+>                         per_cpu(other_softirq_count, cpu)++;
+>         }
+>         pending = local_softirq_pending();
 > 
-> We had one full solution for this issue not changing anything
-> in scheduler/softirq relationship: to run rcu task for the things
-> sort of dst cache not from process context, but essentially as part
-> of do_softirq(). Simple, stupid and apparently solves new problems
-> which rcu created.
+> A look at the softirq_count, ksoftirqd_count and other_softirq_count shows -
+> 
+> CPU 0 : 638240	554	637686
+> CPU 1 : 102316 	1 	102315
+> CPU 2 : 675696 	557 	675139
+> CPU 3 : 102305 	0 	102305
+> 
+> So, it doesn't seem supprising that your ksoftirqd offloading didn't
+> really help much. The softirq frequency and grace period graph
+> looks pretty much same without that patch -
+> 
+> http://lse.sourceforge.net/locking/rcu/rtcache/pktgen/andrea/cpu-softirq.png
+> 
+> We are simply calling do_softirq() too much it seems and not letting
+> other things run on the system. Perhaps we need to look at real
+> throttling of softirqs ?
+> 
 
-Can you be a little bit more specific about this solution ? There
-were a number of them discussed during our private emails and I
-can't tell which one you are talking about.
+I see what's going on now, yes my patch cannot help. the workload is
+simply generating too much hardirq load, and it's like if we don't use
+softirq at all but that we process the packet inside the hardirq for
+this matter. As far as RCU is concerned it's like if there a no softirq
+at all but that we process everything in the hardirq.
 
-> Another solution is just to increase memory consumption limits
-> to deal with current rcu latency. F.e. 300ms latency just requires
-> additional space for pps*300ms objects, which are handled by RCU.
-> The problem with this is that pps is the thing which increases
-> when cpu power grows and that 300ms is not a mathematically established
-> limit too.
+so what you're looking after is a new feature then:
 
-I don't think increasing memory consumption limit is a good idea.
+1) rate limit the hardirqs
+2) rate limit only part of the irq load (i.e. the softirq, that's handy
+   since it's already splitted out) to scheduler-aware context (not
+   inside irq context anymore)
+3) stop processing packets in irqs in the first place (NAPI or similar)
 
-> Andrea, it is experimenatl fact: this "small unfariness" stalls process
-> contexts for >=6 seconds and gives them microscopic slices. We could live
-> with this (provided RCU problem is solved in some way). Essentially,
-> the only trouble for me was that we could use existing rcu bits to make
-> offloading to ksoftirqd more smart (not aggressive, _smart_). The absense
-> of RCU quiescent states looks too close to absence of forward progress
-> in process contexts, it was anticipating similarity. The dumb throttling
-> do_softirq made not from ksoftirqd context when starvation is detected
-> which we tested the last summer is not only ugly, it really might hurt
-> router performance, you are right here too. It is the challenge:
-> or we proceed with this idea and invent something, or we just forget
-> about this concentrating on RCU.
-
-Exactly. And the throttling will likely  not be enough by ksoftirqd
-as indicated by my earlier experiments. We have potential fixes
-for RCU through a call_rcu_bh() interface where completion of a
-softirq handler is a quiescent state. I am working on forward porting
-that old patch from our discussion last year and testing in my
-environment. That should increase the number of quiescent state
-points significantly and hopefully reduce the grace period significantly.
-But this does nothing to help userland starvation.
-
-Thanks
-Dipankar
+however I start to think they can be all wrong, and that rcu is simply
+not suitable for purerely irq usages like this. w/o rcu there would be
+no need of the scheduler keeping up with the irq load, and in some usage
+I can imagine that it is a feature to prioritize heavily on the
+irq load vs scheduler-aware context.
