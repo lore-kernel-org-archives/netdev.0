@@ -1,67 +1,46 @@
-From: maximilian attems <janitor@sternwelten.at>
-Subject: Re: [Kernel-janitors] [PATCH 2.6.9-rc2 17/38] net/islpci_dev: replace schedule_timeout() with msleep()
-Date: Fri, 24 Sep 2004 18:34:00 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Fri, 24 Sep 2004 10:58:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924163400.GA3118@stro.at>
-References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de>
+Message-ID: <20040924105855.0e1aecd0.davem@davemloft.net>
+References: <414F1E12.6010808@eurodev.net>
+	<20040922000503.GA13218@gondor.apana.org.au>
+	<4150E7E5.2000001@eurodev.net>
+	<20040922045239.GA19573@gondor.apana.org.au>
+	<1095854920.1047.64.camel@jzny.localdomain>
+	<20040922105221.59a67d4b.davem@davemloft.net>
+	<4152EE68.4030803@eurodev.net>
+	<20040923121651.51a58cf2.davem@davemloft.net>
+	<20040924032830.GC6384@gondor.apana.org.au>
+	<20040923223909.6f4da27f.davem@davemloft.net>
+	<20040924062604.GA7393@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nishanth Aravamudan <nacc@us.ibm.com>, netdev@oss.sgi.com,
-        mcgrof@studorgs.rutgers.edu, kernel-janitors@lists.osdl.org,
-        jgarzik@pobox.com, prism54-devel@prism54.org, hvr@gnu.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Margit Schubert-While <margitsw@t-online.de>
-Content-Disposition: inline
-In-Reply-To: <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040924062604.GA7393@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2004, Margit Schubert-While wrote:
-..
-> The patch has wrong line numbers. Doesn't take into account the stacked up
-> netdev changes. (Therefore CC'ing Jeff Garzik)
+On Fri, 24 Sep 2004 16:26:04 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-sure the kj patches are against mainline.
- 
-> This breaks 2.4 compatibility.
-> So either backport to 2.4 or Nish can take over prism54 2.4 maintenance ;-)
+> It also means those responders that can calculate the correct size
+> of the reply doesn't need to go through this copy process.
 
-can't remember the last time when Randy submitted janitorial patches to
-2.4.x, but it's long ago.  2.4 is in maintenance mode.
- 
-> Don't say a backport is not possible/reasonable, it happened with 
-> netdev_priv().
-> (In 2.4.27; At least there, we have HAVE_NETDEV_PRIV).
+This is the crux of the problem, you don't know how big
+the response will be until you look at the whole object
+you are returning.
 
-there must have been serious reasons for that.
- 
-> If this is going to be forced, can we at least have a
-> define HAVE_MSLEEP in delay.h ?
-> 
-> I am somewhat confused by the second part of the patch.
-> What has that got to do with msleep ?
+This is because there are usually an unknown number of
+attributes that will be returned.
 
-basically a lot, because as prism54 lots of drivers forgo/et to set
-there state when calling schedule_timeout().
+This is why I suggested the PAGE_SIZE scratchpad, you build
+the response fully into there, then you know the exact size
+SKB you need so you allocate it and copy into it from the
+scratch pad.
 
-> Actually, the fix would appear to be correct, but that is a seperate issue
-> and nothing to do with msleep.
-> (Prims54 developers -> I'll take a look over the weekend)
-
-great, please also remove the unused TRACE macro.
-(patch was sent to netdev on 3. Sept).
-the kj mailing list got another submission to correct 
-the __FUNCTION__ use their. :)
- 
-> I am sceptical about the whole msleep patchset as, by their own admission,
-> the janitors have/can not (no hardware) test the majority of the changes.
-> Even more worrying is that incorrect code has directly appeared in
-> mainline kernel BK.
-
-the named small errors were quickly corrected.
-it's up to the driver MAINTAINER to prove us wrong.
-we got lots of ack in between.
-
---
-maks
-kernel janitor  	http://janitor.kernelnewbies.org/
+It's just a response build up area, and the goal is to have
+the minimum sized SKB necessary to represent the response.
