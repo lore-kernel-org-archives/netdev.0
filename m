@@ -1,99 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.6 2/2]: Use get_cycles for PSCHED_CPU clock source
-Date: Fri, 23 Jul 2004 01:42:15 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] pkt_cls.h incompatiables
+Date: Thu, 22 Jul 2004 20:04:26 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410050D7.4030507@trash.net>
+Message-ID: <20040722.200426.99255296.yoshfuji@linux-ipv6.org>
+References: <20040716103759.1928c2ae@dell_ss3.pdx.osdl.net>
+	<200407172357.15832.arekm@pld-linux.org>
+	<20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050007080004080806020709"
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, hadi@znyx.com, arekm@pld-linux.org, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: shemminger@osdl.org
+In-Reply-To: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050007080004080806020709
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+In article <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net> (at Thu, 22 Jul 2004 13:45:22 -0700), Stephen Hemminger <shemminger@osdl.org> says:
 
-This patch changes PSCHED_CPU clock source to use get_cycles.
+> The recent changes to (6 Jul 04) pkt_cls.h are evil, you can't build a version
+> of 'tc' to work unless you know the kernel config!
+> 
+> It has several API problems:
+>   - API data structures change on kernel config options
+>   - new fields should be added at the end of a structure to allow
+>     binary compatibility.
+    - We cannot add new variable(s) after the last member which is 
+      an variable-length array in effect.
 
---------------050007080004080806020709
-Content-Type: application/octect-stream;
- name="02-psched-get_cycles.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="02-psched-get_cycles.diff"
+> @@ -229,11 +214,9 @@
+>  
+>  	short			hoff;
+>  	__u32			hmask;
+> -#ifdef CONFIG_CLS_U32_PERF
+> +	struct tc_u32_key	keys[0];
+>  	unsigned long		rcnt;
+>  	unsigned long		rhit;
+> -#endif
+> -	struct tc_u32_key	keys[0];
+>  };
+>  
+>  /* Flags */
 
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBkaWZmIC1OcnUgc3R5bGUgcGF0Y2gu
-CiMKIyBDaGFuZ2VTZXQKIyAgIDIwMDQvMDcvMjIgMDE6NDM6NDgrMDI6MDAga2FiZXJAdHJh
-c2gubmV0IAojICAgW1BLVF9TQ0hFRF06IFVzZSBnZXRfY3ljbGVzKCkgZm9yIFBTQ0hFRF9D
-UFUgY2xvY2sgc291cmNlCiMgICAKIyAgIFNpZ25lZC1vZmYtYnk6IFBhdHJpY2sgTWNIYXJk
-eSA8a2FiZXJAdHJhc2gubmV0PgojIAojIG5ldC9zY2hlZC9zY2hfYXBpLmMKIyAgIDIwMDQv
-MDcvMjIgMDE6NDM6MzcrMDI6MDAga2FiZXJAdHJhc2gubmV0ICsxMSAtMTEKIyAgIFtQS1Rf
-U0NIRURdOiBVc2UgZ2V0X2N5Y2xlcygpIGZvciBQU0NIRURfQ1BVIGNsb2NrIHNvdXJjZQoj
-IAojIGluY2x1ZGUvbmV0L3BrdF9zY2hlZC5oCiMgICAyMDA0LzA3LzIyIDAxOjQzOjM3KzAy
-OjAwIGthYmVyQHRyYXNoLm5ldCArMTUgLTM0CiMgICBbUEtUX1NDSEVEXTogVXNlIGdldF9j
-eWNsZXMoKSBmb3IgUFNDSEVEX0NQVSBjbG9jayBzb3VyY2UKIyAKZGlmZiAtTnJ1IGEvaW5j
-bHVkZS9uZXQvcGt0X3NjaGVkLmggYi9pbmNsdWRlL25ldC9wa3Rfc2NoZWQuaAotLS0gYS9p
-bmNsdWRlL25ldC9wa3Rfc2NoZWQuaAkyMDA0LTA3LTIyIDIyOjIwOjA0ICswMjowMAorKysg
-Yi9pbmNsdWRlL25ldC9wa3Rfc2NoZWQuaAkyMDA0LTA3LTIyIDIyOjIwOjA0ICswMjowMApA
-QCAtMTYsMTEgKzE2LDYgQEAKICNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4KICNpbmNsdWRl
-IDxsaW51eC9ydG5ldGxpbmsuaD4KIAotI2lmZGVmIENPTkZJR19YODZfVFNDCi0jaW5jbHVk
-ZSA8YXNtL21zci5oPgotI2VuZGlmCi0KLQogc3RydWN0IHJ0YXR0cjsKIHN0cnVjdCBRZGlz
-YzsKIApAQCAtMjM1LDQxICsyMzAsMjcgQEAKICNkZWZpbmUgUFNDSEVEX0pJRkZJRTJVUyhk
-ZWxheSkgKChkZWxheSk8PFBTQ0hFRF9KU0NBTEUpCiAKICNlbGlmIFBTQ0hFRF9DTE9DS19T
-T1VSQ0UgPT0gUFNDSEVEX0NQVQorI2luY2x1ZGUgPGFzbS90aW1leC5oPgogCiBleHRlcm4g
-cHNjaGVkX3RkaWZmX3QgcHNjaGVkX2Nsb2NrX3Blcl9oejsKIGV4dGVybiBpbnQgcHNjaGVk
-X2Nsb2NrX3NjYWxlOworZXh0ZXJuIHBzY2hlZF90aW1lX3QgcHNjaGVkX3RpbWVfYmFzZTsK
-K2V4dGVybiBjeWNsZXNfdCBwc2NoZWRfdGltZV9tYXJrOwogCisjZGVmaW5lIFBTQ0hFRF9H
-RVRfVElNRShzdGFtcCkJCQkJCQlcCitkbyB7CQkJCQkJCQkJXAorCWN5Y2xlc190IGN1ciA9
-IGdldF9jeWNsZXMoKTsJCQkJCVwKKwlpZiAoc2l6ZW9mKGN5Y2xlc190KSA9PSBzaXplb2Yo
-dTMyKSkgewkJCQlcCisJCWlmIChjdXIgPD0gcHNjaGVkX3RpbWVfbWFyaykJCQkJXAorCQkJ
-cHNjaGVkX3RpbWVfYmFzZSArPSAweDEwMDAwMDAwMFVMTDsJCVwKKwkJcHNjaGVkX3RpbWVf
-bWFyayA9IGN1cjsJCQkJCVwKKwkJKHN0YW1wKSA9IChwc2NoZWRfdGltZV9iYXNlICsgY3Vy
-KT4+cHNjaGVkX2Nsb2NrX3NjYWxlOwlcCisJfSBlbHNlIHsJCQkJCQkJXAorCQkoc3RhbXAp
-ID0gY3VyPj5wc2NoZWRfY2xvY2tfc2NhbGU7CQkJXAorCX0JCQkJCQkJCVwKK30gd2hpbGUg
-KDApCiAjZGVmaW5lIFBTQ0hFRF9VUzJKSUZGSUUoZGVsYXkpICgoKGRlbGF5KStwc2NoZWRf
-Y2xvY2tfcGVyX2h6LTEpL3BzY2hlZF9jbG9ja19wZXJfaHopCiAjZGVmaW5lIFBTQ0hFRF9K
-SUZGSUUyVVMoZGVsYXkpICgoZGVsYXkpKnBzY2hlZF9jbG9ja19wZXJfaHopCi0KLSNpZmRl
-ZiBDT05GSUdfWDg2X1RTQwotCi0jZGVmaW5lIFBTQ0hFRF9HRVRfVElNRShzdGFtcCkgXAot
-KHsgdTY0IF9fY3VyOyBcCi0gICByZHRzY2xsKF9fY3VyKTsgXAotICAgKHN0YW1wKSA9IF9f
-Y3VyPj5wc2NoZWRfY2xvY2tfc2NhbGU7IFwKLX0pCi0KLSNlbGlmIGRlZmluZWQgKF9fYWxw
-aGFfXykKLQotI2RlZmluZSBQU0NIRURfV0FUQ0hFUiB1MzIKLQotZXh0ZXJuIHBzY2hlZF90
-aW1lX3QgcHNjaGVkX3RpbWVfYmFzZTsKLWV4dGVybiBQU0NIRURfV0FUQ0hFUiBwc2NoZWRf
-dGltZV9tYXJrOwotCi0jZGVmaW5lIFBTQ0hFRF9HRVRfVElNRShzdGFtcCkgXAotKHsgdTMy
-IF9fcmVzOyBcCi0gICBfX2FzbV9fIF9fdm9sYXRpbGVfXyAoInJwY2MgJTAiIDogInI9Iihf
-X3JlcykpOyBcCi0gICBpZiAoX19yZXMgPD0gcHNjaGVkX3RpbWVfbWFyaykgcHNjaGVkX3Rp
-bWVfYmFzZSArPSAweDEwMDAwMDAwMFVMOyBcCi0gICBwc2NoZWRfdGltZV9tYXJrID0gX19y
-ZXM7IFwKLSAgIChzdGFtcCkgPSAocHNjaGVkX3RpbWVfYmFzZSArIF9fcmVzKT4+cHNjaGVk
-X2Nsb2NrX3NjYWxlOyBcCi19KQotCi0jZWxzZQotCi0jZXJyb3IgUFNDSEVEX0NMT0NLX1NP
-VVJDRT1QU0NIRURfQ1BVIGlzIG5vdCBzdXBwb3J0ZWQgb24gdGhpcyBhcmNoLgotCi0jZW5k
-aWYgLyogQVJDSCAqLwogCiAjZW5kaWYgLyogUFNDSEVEX0NMT0NLX1NPVVJDRSA9PSBQU0NI
-RURfSklGRklFUyAqLwogCmRpZmYgLU5ydSBhL25ldC9zY2hlZC9zY2hfYXBpLmMgYi9uZXQv
-c2NoZWQvc2NoX2FwaS5jCi0tLSBhL25ldC9zY2hlZC9zY2hfYXBpLmMJMjAwNC0wNy0yMiAy
-MjoyMDowNCArMDI6MDAKKysrIGIvbmV0L3NjaGVkL3NjaF9hcGkuYwkyMDA0LTA3LTIyIDIy
-OjIwOjA0ICswMjowMApAQCAtMTEwOSwyNSArMTEwOSwyNyBAQAogRVhQT1JUX1NZTUJPTChw
-c2NoZWRfY2xvY2tfcGVyX2h6KTsKIEVYUE9SVF9TWU1CT0wocHNjaGVkX2Nsb2NrX3NjYWxl
-KTsKIAotI2lmZGVmIFBTQ0hFRF9XQVRDSEVSCiBwc2NoZWRfdGltZV90IHBzY2hlZF90aW1l
-X2Jhc2U7Ci1QU0NIRURfV0FUQ0hFUiBwc2NoZWRfdGltZV9tYXJrOworY3ljbGVzX3QgcHNj
-aGVkX3RpbWVfbWFyazsKIEVYUE9SVF9TWU1CT0wocHNjaGVkX3RpbWVfbWFyayk7CiBFWFBP
-UlRfU1lNQk9MKHBzY2hlZF90aW1lX2Jhc2UpOwogCisvKgorICogUGVyaW9kaWNhbGx5IGFk
-anVzdCBwc2NoZWRfdGltZV9iYXNlIHRvIGF2b2lkIG92ZXJmbG93CisgKiB3aXRoIDMyLWJp
-dCBnZXRfY3ljbGVzKCkuIFNhZmUgdXAgdG8gNEdIeiBDUFUuCisgKi8KIHN0YXRpYyB2b2lk
-IHBzY2hlZF90aWNrKHVuc2lnbmVkIGxvbmcpOwotCiBzdGF0aWMgc3RydWN0IHRpbWVyX2xp
-c3QgcHNjaGVkX3RpbWVyID0gVElNRVJfSU5JVElBTElaRVIocHNjaGVkX3RpY2ssIDAsIDAp
-OwogCiBzdGF0aWMgdm9pZCBwc2NoZWRfdGljayh1bnNpZ25lZCBsb25nIGR1bW15KQogewot
-CXBzY2hlZF90aW1lX3QgZHVtbXlfc3RhbXA7Ci0JUFNDSEVEX0dFVF9USU1FKGR1bW15X3N0
-YW1wKTsKLQkvKiBJdCBpcyBPSyB1cCB0byA0R0h6IGNwdSAqLwotCXBzY2hlZF90aW1lci5l
-eHBpcmVzID0gamlmZmllcyArIDEqSFo7Ci0JYWRkX3RpbWVyKCZwc2NoZWRfdGltZXIpOwor
-CWlmIChzaXplb2YoY3ljbGVzX3QpID09IHNpemVvZih1MzIpKSB7CisJCXBzY2hlZF90aW1l
-X3QgZHVtbXlfc3RhbXA7CisJCVBTQ0hFRF9HRVRfVElNRShkdW1teV9zdGFtcCk7CisJCXBz
-Y2hlZF90aW1lci5leHBpcmVzID0gamlmZmllcyArIDEqSFo7CisJCWFkZF90aW1lcigmcHNj
-aGVkX3RpbWVyKTsKKwl9CiB9Ci0jZW5kaWYKIAogaW50IF9faW5pdCBwc2NoZWRfY2FsaWJy
-YXRlX2Nsb2NrKHZvaWQpCiB7CkBAIC0xMTM3LDkgKzExMzksNyBAQAogCWxvbmcgcmRlbGF5
-OwogCXVuc2lnbmVkIGxvbmcgc3RvcDsKIAotI2lmZGVmIFBTQ0hFRF9XQVRDSEVSCiAJcHNj
-aGVkX3RpY2soMCk7Ci0jZW5kaWYKIAlzdG9wID0gamlmZmllcyArIEhaLzEwOwogCVBTQ0hF
-RF9HRVRfVElNRShzdGFtcCk7CiAJZG9fZ2V0dGltZW9mZGF5KCZ0dik7Cg==
---------------050007080004080806020709--
+We cannot do this because keys holds key of variable length.
+
+Solutions are, for example,
+ to allocate new TCA_U32_xxx for rcnt and rhit,
+or, 
+ to rename TCA_U32_SEL to TCA_U32_OLS_SEL and allocate new value for 
+ TCA_U32_SEL.
+
+--yoshfuji
