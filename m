@@ -1,37 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] network hotplug via class_device/kobject
-Date: Sun, 15 Jun 2003 00:50:55 -0700 (PDT)
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Make xfrm subsystem optional
+Date: Sun, 15 Jun 2003 10:08:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030615.005055.55726223.davem@redhat.com>
-References: <20030613164119.15209934.shemminger@osdl.org>
+Message-ID: <20030615080824.GA11398@wotan.suse.de>
+References: <20030614101851.GA24170@wotan.suse.de> <20030614.042636.74749587.davem@redhat.com> <20030614183232.GB23546@wotan.suse.de> <20030614.200303.71094694.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030613164119.15209934.shemminger@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030614.200303.71094694.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Fri, 13 Jun 2003 16:41:19 -0700
+On Sat, Jun 14, 2003 at 08:03:03PM -0700, David S. Miller wrote:
+>    From: Andi Kleen <ak@suse.de>
+>    Date: Sat, 14 Jun 2003 20:32:32 +0200
+> 
+>    On Sat, Jun 14, 2003 at 04:26:36AM -0700, David S. Miller wrote:
+>    >    From: Andi Kleen <ak@suse.de>
+>    >    Date: Sat, 14 Jun 2003 12:18:51 +0200
+>    >    
+>    >    Allocating it at first lookup would be racy (would need a nasty
+>    >    spinlock at least). It may be possible at first policy setup, but
+>    >    it's not guaranteed you can still get two 32K continuous areas. You
+>    >    could fall back to vmalloc I guess.
+>    > 
+>    > Andi, you're getting rediculious.  Add a xfrm_whatever_init() call
+>    > and allocate the table there.
+>    
+>    Did you actually read what I wrote? Allocating on init is useless
+>    from the bloat perspective because it's 100% equivalent to an BSS 
+>    allocation.
+>    
+> If dynamic, you could allocate a "tiny" hash table or whatever
+> on bootup and grow it as usage increases, much like we grow the
+> FIB hashes dynamically.
 
-   This patch changes network devices to run hotplug out of the
-   kobject/class_device infrastructure rather than calling it from the
-   network core. The code gets simpler and there is only one place for
-   Greg to fix when he changes the API ;-)
+I suspect dynamic growing at runtime would result in interesting SMP
+locking issues (suspect - i haven't studied the xfrm locking in detail
+yet) 
 
-I'll apply this patch, looks fine.
-   
-   Paranoid about some driver doing something like:
-   	rtnl_lock(); register_netdevice(); unregister_netdevice(); rtnl_unlock() BOOM
+Also it has the same problem - 32K direct mapping allocation may not
+work anymore during runtime.
 
-These sorts of turds exist at least in two places:
+I can take a look later if something else can be improved, but I'm
+not very optimistic (the design of this thing is just not lightweight
+neither in code nor data structures) 
+Especially since you already vetoed the two best looking options.
 
-1) drivers/net/wan/comx.c
-2) drivers/net/wan/hdlc_fr.c
+It is just another inetpeer cache, a sleeping gigant waiting mostly 
+unused for its great days ;)
 
-But it is pretty clear that these two drivers have been
-tried by nobody in recent years.  They both call into
-{un,}register_netdevice without the RTNL semaphore held.
+-Andi
