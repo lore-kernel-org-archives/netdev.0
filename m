@@ -1,66 +1,78 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Bug#251215: kernel-image-2.6.6-1-k7: pppd locks up, cannot be  killed, during ppp shutdown
-Date: Sat, 29 May 2004 22:00:52 +1000
+From: MICROWORLDLOT AGENCY BV <Microwrldlot@netscape.net>
+Subject: CONGRATULATIONS: AWARD WINNING NOTIFICATION!!!!!!
+Date: Sat, 29 May 2004 07:57:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1BU2WC-0003nd-00@gondolin.me.apana.org.au>
-References: <20040529051736.GA11303@gondor.apana.org.au>
-Cc: debian.bugs@kepier.clara.net, 251215@bugs.debian.org, shemminger@osdl.org,
-        davem@redhat.com, jgarzik@pobox.com, netdev@oss.sgi.com
+Message-ID: <200405291457.i4TEvQgi030882@oss.sgi.com>
+Reply-To: Microworldlot@netscape.net
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="45ff2be3-65b5-4ed4-a5cd-84712b9edf4a"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au (Herbert Xu)
-In-Reply-To: <20040529051736.GA11303@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> OK, I've had a look and it looks like the free_netdev call in
-> ppp_shutdown_inteface is the problem.  What's happening is that
-> the todo list is being processed either on another CPU or by
-> preemption in another context.  As a result when the subsequent
-> free_netdev is called the device hasn't yet been processed and
-> is still in state UNREGISTERING.
-> 
-> Why do we need to call free_netdev after unregistering the netdev
-> from the drivers at all? What's wrong with calling it from run_todo
-> itself?
 
-Well I guess someone might want to reregister the net device :)
+This is a multi-part message in MIME format
+--45ff2be3-65b5-4ed4-a5cd-84712b9edf4a
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Here is a minimal fix for this problem.
+         MICROWORLDLOT AGENCY BV THE NETHERLANDS.
+          ADDRESS;  HANDELSWEG  20,  2404 CD  ALPHEN A/D RIJN
+          THE NETHERLANDS.
+          TEL :0031 627 396 636
+FROM THE DESK OF THE PROMOTIONS MANAGER, INTERNATIONAL PROMOTIONS/PRIZE AWARD =
+DEPARTMENT,
+REF: MWA/LP/ 266613/02
+BATCH: 558/0311/MWLP
+ATTENTION: WINNING NOTIFICATION/FINAL NOTICE.
+We are pleased to inform you that you are part of the
+winners at the recent LOTTERY INTERNATIONAL PROMOTION held 22nd of
+May, 2004.
+You are attached to ticket number 003-2148-790-648 with serial number =
+5614-30,which drew the lucky numbers 29-58-40- 36-47-68, and consiquently
+won the lottery in the 3rd category.
+You have therefore been approved for a lump sum payment
+of US$750.000,00(SEVEN HUNDRED AND FIFTY THOUSAND UNITED STATE DOLLARS) =
+credited to file REF: MWA/LP/ 266613/02, with BATCH NO.558/0311/MWLP. From =
+total prize money of US$2. Million among the 20 international winners in this =
+category.
+All participants were selected through a computer
+ballot system drawn from 50,000 Internet Users from Australia, New Zealand, =
+America, Europe, North America, Africa and Asia as part of International =
+Lottery Promotions Program, which is conducted once in a year.
+CONGRATULATIONS!!!
+Your funds are now deposited to a financial institute;
+Insured and attached with your Email address/ Ref / Batch and ticket numbers.
+=
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-===== net/core/dev.c 1.141 vs edited =====
---- 1.141/net/core/dev.c	2004-05-23 06:45:55 +10:00
-+++ edited/net/core/dev.c	2004-05-29 21:56:18 +10:00
-@@ -2999,7 +2999,6 @@
- 
- 		case NETREG_UNREGISTERING:
- 			netdev_unregister_sysfs(dev);
--			dev->reg_state = NETREG_UNREGISTERED;
- 
- 			netdev_wait_allrefs(dev);
- 
-@@ -3015,6 +3014,7 @@
- 			 */
- 			if (dev->destructor)
- 				dev->destructor(dev);
-+			class_device_put(&dev->class_dev);
- 			break;
- 
- 		default:
-@@ -3140,6 +3140,8 @@
- 	free_divert_blk(dev);
- 
- 	/* Finish processing unregister after unlock */
-+	dev->reg_state = NETREG_UNREGISTERED;
-+	class_device_get(&dev->class_dev);
- 	net_set_todo(dev);
- 
- 	dev_put(dev);
+Due to the mix-up of some email addresses and ticket numbers, we ask that you =
+keep this award strictly from public notice until your claim has been =
+processed and your funds are remitted to your designated bank account.
+This is part of our security protocol to avoid double
+claims or unscrupulous acts by lucky winners of this program. We hope with =
+part of your Award Prize, you will be included in 2005 of year high stakes =
+US$4.3 Million International Lottery.
+To begin your claim, please contact your claim agent; DR. WALTER SMITH  =
+Foreign Service Manager.
+Email;microworldlot@netscape.net
+For due processing and the remittance of your prize money to a designated =
+account of your choice. Remember; all prize money must be claimed not later =
+than June,12th 2004. After this date, all funds will be returned as =
+unclaimed.
+NOTE: In order to avoid unnecessary delays and
+complications, please remember to quote
+your REF&BATCH numbers to any of our
+correspondences worldwide.
+Furthermore, should there be any change of your
+address, do inform your claims agent as soon as possible.
+N:B .....Any breach of our security protocol / policy on the part of any =
+winners will result to disqualification.
+CONGRATULATIONS once again from all our staffs and thanks
+for being part of the computer promotions program.
+Sincerely,
+CATHY  HAYES
+THE PROMOTIONS SECRETARY
+N.B...... WE APOLOGIES FOR THE DELAY OF THIS
+INFORMATION.!!!  
+--45ff2be3-65b5-4ed4-a5cd-84712b9edf4a--
