@@ -1,56 +1,47 @@
-From: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>
-Subject: Re: 3c59x (was Route cache performance under stress)
-Date: Tue, 10 Jun 2003 18:15:07 +0200 (CEST)
+From: Henrik Petander <lpetande@tml.hut.fi>
+Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
+Date: Tue, 10 Jun 2003 18:25:18 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306101801070.26879-100000@kenzo.iwr.uni-heidelberg.de>
-References: <20030610.085342.41654796.davem@redhat.com>
+Message-ID: <3EE5F85E.9080006@tml.hut.fi>
+References: <20030606223057.41ac1c9d.nakam@linux-ipv6.org>	<Pine.GSO.4.44.0306091140470.25126-100000@morphine.tml.hut.fi> <20030609203659.089b241b.nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: hadi@shell.cyberus.ca, <ralph+d@istop.com>, <xerox@foonet.net>,
-   <sim@netnation.com>, <fw@deneb.enyo.de>, <netdev@oss.sgi.com>,
-   <linux-net@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Henrik Petander <lpetande@morphine.tml.hut.fi>,
+   YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, vnuorval@tcs.hut.fi,
+   davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   ajtuomin@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com,
+   usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030610.085342.41654796.davem@redhat.com>
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+In-Reply-To: <20030609203659.089b241b.nakam@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jun 2003, David S. Miller wrote:
+Masahide NAKAMURA wrote:
+> On Mon, 9 Jun 2003 12:06:35 +0300 (EEST)
+> Henrik Petander <lpetande@morphine.tml.hut.fi> wrote:
+> 
+> 
+>>On Fri, 6 Jun 2003, Masahide NAKAMURA wrote:
+>>
+>>>We don't think we have to change the logic handling policy with
+>>>the reason because we can treat MIPv6 policy just like IPsec.
+>>>
+>>>When we want to apply both MIPv6 and IPsec to the same target,
+>>>we need one policy that has two or more of templates(e.g. one is
+>>>MIPv6's template and the other is IPsec's).
+>>
+>>Does this also mean that the IPSec and MIPv6 policies and SAs need to be
+>>configured at the same time or is it possible to add templates to an
+>>existing policy?
+> 
+> 
+> Currently no interface to add templates directly to it.
 
-> Acutally, the main issue with 3c59x is that it still
-> uses PIO accesses. This basically makes it useless
-> for routing or anything wanting serious latency.
+Then the policies for mipv6 would need to be specified at the same time 
+as the ipsec policies. This is not a problem as long as the policies are 
+  loaded at start up. However, this could lead to problems with 
+applications which specify their own policies, e.g. racoon.
 
-I did try about 2 years ago and converted the driver to MMIO. I wasn't 
-able to see _any_ kind of improvement and I was using it in parallel 
-computation where latency counts. I have to say though that I wasn't 
-interested at that time in obtaining profiles and such because only the 
-end-user performance was important.
-
-> Andrew Morton knows this,
-
-... and knows about my MMIO trial too (mentioned also on vortex-list)...
-
-> but he is such a good maintainer that he doesn't want to change over the
-> MEM I/O accesses for fear of breaking something.
-
-Given that the 3c59x driver supports several generations of cards most of 
-them being EOL-ed years ago, it's pretty hard to do such change. If a new 
-driver would be forked that serviced only the latest generations (Cyclone 
-= 905B and Tornado = 905C(X)), switching to MMIO would probably make sense 
-along with lots of others small changes (large MTU/VLAN, polling 
-descriptors, MII-only media selection etc.) and maybe have NAPI in the mix 
-as well...
-
-> It's actually a simple change to make if someone wants to
-> spend a few cycles on it,
-
-Not if you include testing in those cycles :-)
-
--- 
-Bogdan Costescu
-
-IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
-Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
-Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
-E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
+Henrik
