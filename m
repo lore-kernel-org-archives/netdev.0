@@ -1,51 +1,44 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] Change masquerade code to use first IP address of
-	interface.
-Date: Thu, 21 Oct 2004 10:50:49 +1000
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <1098319849.10571.155.camel@localhost.localdomain>
-References: <E1CKBtq-0005FC-00@gondolin.me.apana.org.au>
-	<Pine.LNX.4.61.0410201123200.25590@filer.marasystems.com>
-	<20041020104650.GA20868@gondor.apana.org.au>
-	<Pine.LNX.4.61.0410201300580.28452@filer.marasystems.com>
-	<20041020111245.GA22703@gondor.apana.org.au>
+From: Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>
+Subject: r8169 - dac testing (was: [mini-RFT] r8169 and amd64)
+Date: Thu, 21 Oct 2004 01:11:07 +0000 (UTC)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200410221112.18575.sriharivijayaraghavan@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com,
-	Netfilter development mailing list <netfilter-devel@lists.netfilter.org>,
-	Henrik Nordstrom <hno@marasystems.com>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041020111245.GA22703@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Date: Fri, 22 Oct 2004 11:12:18 +1000
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-10-20 at 21:12, Herbert Xu wrote:
-> On Wed, Oct 20, 2004 at 01:04:51PM +0200, Henrik Nordstrom wrote:
-> > On Wed, 20 Oct 2004, Herbert Xu wrote:
-> > 
-> > >I mean
-> > >
-> > >	rt = (struct rtable *)(*pskb)->dst;
-> > >	newsrc = inet_select_addr(out, rt->rt_gateway, RT_SCOPE_UNIVERSE);
-> > 
-> > IIRC we are not allowed to access this here, but I may be wrong.. If we 
-> 
-> Why? POST_ROUTING is called in three places in ip_output.c and they all
-> give a valid dst.  In fact ip_refrag in ip_conntrack_standalone.c is also
-> accessing skb->dst.
+Hello Francois,
 
-Yeah, I like it.  Please send patch on top of mine to Dave, and we'll
-see what blows up.
+I read your email with a subject "[mini-RFT] r8169 and amd64" at LKML 
+(archive). Since I am not subscribed to LKML I am unable to answer to that 
+thread. Sorry.
 
-Rusty.
--- 
-Anyone who quotes me in their signature is an idiot -- Rusty Russell
+Anyway, I have applied your patch at 
+http://www.fr.zoreil.com/people/francois/misc/20041020-2.6.9-r8169.c-test.patch 
+to vanilla 2.6.9, and tested it on my AMD64.
+
+In its default configuration, ie, without use_dac=1 parameter, it works great. 
+But OTOH with that parameter kernel displays these messages:
+
+eth0: Identified chip type is 'RTL8169s/8110s'.
+eth0: RTL8169 at 0xffffff0000040000, 00:0d:61:15:23:e6, IRQ 18
+r8169: eth0: PCI error (cmd = 0x0017, status = 0x22b0).
+eth1: link up, 100Mbps, full-duplex, lpa 0x45E1
+
+And the network card does not work, as I cannot ping another host (DSL 
+modem/router) on the network.
+
+(Once I load the module with that parameter, unloading and reloading it 
+without that parameter does not bring the network card back to its working 
+configuration.)
+
+Thank you.
+Hari.
