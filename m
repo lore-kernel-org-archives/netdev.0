@@ -1,61 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Tue, 28 Sep 2004 13:59:21 +1000
+From: Roland Dreier <roland@topspin.com>
+Subject: Re: Advice needed on IP-over-InfiniBand driver
+Date: Mon, 27 Sep 2004 21:41:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928035921.GA10675@gondor.apana.org.au>
-References: <20040923120707.GB32624@gondor.apana.org.au> <1095995042.1044.34.camel@jzny.localdomain> <20040924032440.GB6384@gondor.apana.org.au> <1096289189.1075.37.camel@jzny.localdomain> <20040927213607.GD7243@gondor.apana.org.au> <1096339407.8660.33.camel@jzny.localdomain> <20040928024614.GA9911@gondor.apana.org.au> <1096340772.8659.51.camel@jzny.localdomain> <20040928032321.GB10116@gondor.apana.org.au> <1096343125.8661.96.camel@jzny.localdomain>
+Message-ID: <52r7onc8ev.fsf@topspin.com>
+References: <52fz5esxx6.fsf@topspin.com>
+	<20040919140133.60ea3fb3.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1096343125.8661.96.camel@jzny.localdomain>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040919140133.60ea3fb3.davem@davemloft.net> (David S.
+ Miller's message of "Sun, 19 Sep 2004 14:01:33 -0700")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 27, 2004 at 11:45:25PM -0400, jamal wrote:
-> 
-> > Now that we know where the events are coming from and what they are,
-> > we can decide on the solution.  In this particular case, there is
-> > nothing you can do on the sending side.  Stopping people from operating
-> > on networking objects just because some netlink listener can't keep up
-> > isn't going to work.  So congestion control is out of the question.
-> 
-> fixing the NLM_GOODSIZE issue is a very good first step.
+I've been mulling over the previous advice I got and reading over the
+networking code, and I hope I have some more intelligent questions
+now.  It seems I really have two somewhat independent issues to
+resolve with respect to IP-over-IB address resolution:
 
-Well I'm afraid that it doesn't help in your interface address example
-because rtmsg_ifa() already allocates a buffer of (approximately) the
-right size.  That is, it doesn't use NLM_GOODSIZE at all.
+ - IPoIB adds a second InfiniBand-specific path record lookup after
+   the normal ARP/ND lookup.  I think I have a handle on how this can
+   be added to net/ipv4/arp.c.
 
-> Adding congestion control would be harder but not out of question.
+ - For InfiniBand, the layer 2 header is built and parsed by the
+   hardware without a chance for software to see it.  In fact, once we
+   have completed the 2 stage resolution as described above, the
+   network driver has to pass this path information to the IB hardware
+   and get an "address handle" back, which it uses to actually send
+   packets.  It seems the existing hard_header, hard_header_cache and
+   header_cache_update are not really applicable.
 
-But the question is who are you going to throttle? If you throttle
-the source of the messages then you're going to stop people from adding
-or deleting IP addresses which can't be right.
+   My ideal solution would be some way for the driver have the packets
+   passed to its hard_start_xmit method with the address handle in the
+   skb->cb field (or another field if it's acceptable/desirable to add
+   a field for this to struct sk_buff -- I notice a number of
+   #ifdef'ed fields in there already, but I'm not sure if that type of
+   thing is just old cruft or still OK).
 
-If you move the netlink sender into a different execution context and
-throttle that then that's just extending the receive queue length by
-stealth.
+   Also it would be nice is that address handle could be taken
+   directly from the struct neighbor -- after all, we should be able
+   to get it without requiring the driver to do any lookup from HW
+   address to address handle.
 
-So I'm afraid I don't see how congestion control could be applied in
-*this* particular context.
- 
-> > So just bite the bullet and reread the system state by issuing dump
-> > operations.
-> 
-> We may as well choose to document it as being this mostly because of the
-> issue i described above. We shouldnt give up so easily though ;->
+   Finally, address handles need to be freed eventually, and I
+   don't see a way for a driver to find out when an ARP entry is being
+   destroyed.  Am I missing something, or is this something else I'll
+   need to add?  What would be an acceptable way to add this to the
+   networking code?
 
-Well IMHO this is not giving up at all.
+I'd really appreciate another dose of cluestick...
 
-Think of it another way.  Monitoring routes is like maintaining a
-program.  Normally you just fix the bugs as they come.  But if the
-bug reports are coming in so fast that you can't keep up, perhaps
-it's time to throw it away and rewrite it from scratch :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thanks,
+  Roland
