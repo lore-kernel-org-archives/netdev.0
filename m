@@ -1,35 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 22 Sep 2004 15:04:25 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: PPP-over-L2TP kernel support, new patch for review
+Date: Thu, 23 Sep 2004 08:05:35 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922150425.78839350.davem@davemloft.net>
-References: <20040920063012.GL2825@krispykreme>
-	<20040920203021.GD4242@wotan.suse.de>
-	<20040921155835.18aee381.davem@davemloft.net>
-	<20040922140000.GD27432@wotan.suse.de>
-	<20040922111209.7887df53.davem@davemloft.net>
-	<20040922195515.GA2619@wotan.suse.de>
-	<4151DB6C.8050906@us.ibm.com>
-	<20040922133011.5885640b.davem@davemloft.net>
-	<20040922215657.GB2619@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: niv@us.ibm.com, ak@suse.de, anton@samba.org, netdev@oss.sgi.com
+Message-ID: <E1CAFF1-00076S-00@gondolin.me.apana.org.au>
+References: <1095888533.4151ee95ed23c@www.katalix.com>
+Cc: herbert@gondor.apana.org.au, bcrl@kvack.org, davem@davemloft.net,
+        netdev@oss.sgi.com, kleptog@svana.org, mostrows@styx.uwaterloo.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040922215657.GB2619@wotan.suse.de>
+To: jchapman@katalix.com (James Chapman)
+In-Reply-To: <1095888533.4151ee95ed23c@www.katalix.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004 23:56:57 +0200
-Andi Kleen <ak@suse.de> wrote:
+James Chapman <jchapman@katalix.com> wrote:
+> 
+> We keep coming back to the scalability issue. Sure this driver
+> wouldn't work when handling thousands of sessions, but I just don't
+> think it's an issue in the VPN case. People will be nailing up their
 
-> I suspect with a slow bus you can also see advantages
-> on 1Gb/s.
+That's where I disagree.  We don't want to end up with two L2TP
+implementations in the kernel, one geared towards large installations
+and one geared towards IPsec setups.
 
-Yes, that's true.
+So I think both Ben and James need to work out how they can best
+absorb the advantages of each other's stack.
 
-I can keep a gigabit line full on my slow 350MHZ
-sparc64 boxes except when the card is in a
-33Mhz/32-bit PCI slot.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
