@@ -1,44 +1,42 @@
-From: Kevin Shiel <kevin.shiel@gmail.com>
-Subject: Donate to NarutoFan.com for Child Porn
-Date: Sun, 23 Jan 2005 02:34:57 -0500
-Message-ID: <E1CscGv-0006VL-5m@shmust2.zoneserv.net>
-Reply-To: kevin.shiel@gmail.com
+From: Daniele Venzano <webvenza@libero.it>
+Subject: Re: [PATCH 1/5] sis900 printk audit
+Date: Sun, 23 Jan 2005 09:52:29 +0100
+Message-ID: <20050123085229.GD31816@gateway.milesteg.arr>
+References: <20050122214657.18649.66345@localhost.localdomain> <20050122222640.GB24461@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20050122222640.GB24461@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Jan 22, 2005 at 11:26:40PM +0100, Francois Romieu wrote:
+> Daniele Venzano <webvenza@libero.it> :
+> [...]
+> > Index: sis900.c
+> > ===================================================================
+> > --- a/drivers/net/sis900.c	(revision 83)
+> > +++ b/drivers/net/sis900.c	(revision 84)
+> [...]
+> > @@ -1906,8 +1918,22 @@
+> >  	strcpy (info->bus_info, pci_name(sis_priv->pci_dev));
+> >  }
+> >  
+> > +static u32 sis900_get_msglevel(struct net_device *net_dev)
+> > +{
+> > +	struct sis900_private *sis_priv = net_dev->priv;
+> 
+> s/net_dev->priv/netdev_priv/
 
-Good Day Folks!
+I don't understand, what's wrong here ?
+Is that a suggestion that I make some global variable or macro to avoid
+repeating that declaration in almost every function of the driver ?
 
-My name is Kevin Shiel and I am the webmaster from narutofan.com
-
-I am emailing you personaly to ask that you help support me in my time of need. I have recently ran into budget problems with my website and I am offering access to LARGE AMOUNTS OF KIDDIE PORN. It's well known that Men prefer young women and if you send just $10 today, I will give you access to our whole kiddie porn gallery, full of movies and over 200 gigs of videos of girls 13 and under doing everything you could ever dream of.
-
-Interested?
-
-All you need to do is go to narutofan.com and register, then click donation or you can click <a href="https://www.paypal.com/xclick/business=tazmo_nfcom@hotmail.com&item_name=NarutoFan.com+Donation">HERE</a> or copy this link into your browser if you can not view html.
-
-https://www.paypal.com/xclick/business=tazmo_nfcom@hotmail.com&item_name=NarutoFan.com+Donation
-
-Send payment for $10 or more and when you signup add in the notes section KDX-Videos, when paying using paypal, and we will send you the login information within 24 hours with the links to our child porn gallery for you only to enjoy.
-
-Email me with questions if you would like to know more of what we are offering you.
-
-Want to talk to me live? Add me to your MSN messenger tazmo_nfcom@hotmail.com
-
-Kevin Shiel
-Webmaster of NarutoFan.com
-tazmo@narutofan.com
-kevin.shiel@gmail.com
-
+-- 
 -----------------------------
-Anti Spam Policy
-
-We never spam. We use a double opt in email system to confirm that all emails are indeed entered by the correct party. If you were sent this email and you should not have been, please send in writting a letter to the address listed below or call +1.4036155961.
-
-Kevin Shiel 
-1735-246 Stewart Green S.W
-Cagary, ALBERTA T3H-3C8
-CA
+Daniele Venzano
+Web: http://teg.homeunix.org
