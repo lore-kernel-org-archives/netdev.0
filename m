@@ -1,29 +1,99 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: "eth%d" - net dev name in 2.6?
-Date: Wed, 10 Mar 2004 15:59:06 +0100
-Sender: linux-mips-bounce@linux-mips.org
-Message-ID: <20040310145906.GA9104@linux-mips.org>
-References: <20040310023308.GU31326@mvista.com> <20040310025346.GA5661@deprecation.cyrius.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 2.6] Intersil Prism54 wireless driver
+Date: Wed, 10 Mar 2004 16:55:48 +0000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040310165548.A24693@infradead.org>
+References: <20040304023524.GA19453@bougret.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jun Sun <jsun@mvista.com>, linux-mips@linux-mips.org,
-	netdev@oss.sgi.com
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: Martin Michlmayr <tbm@cyrius.com>
+Cc: "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>,
+        netdev@oss.sgi.com,
+        Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jt@hpl.hp.com
 Content-Disposition: inline
-In-Reply-To: <20040310025346.GA5661@deprecation.cyrius.com>
-Errors-to: linux-mips-bounce@linux-mips.org
+In-Reply-To: <20040304023524.GA19453@bougret.hpl.hp.com>; from jt@bougret.hpl.hp.com on Wed, Mar 03, 2004 at 06:35:24PM -0800
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 10, 2004 at 02:53:46AM +0000, Martin Michlmayr wrote:
+On Wed, Mar 03, 2004 at 06:35:24PM -0800, Jean Tourrilhes wrote:
+> 	Hi Dave & Jeff,
+> 
+> 	The attached .bz2 file is a patch for 2.6.3 adding the
+> Intersil Prism54 wireless driver. Sorry for the attachement, the file
+> is rather big, if you want inline+plaintext, I'll send that personal
+> to you.
+> 	I've been using this driver with great success on 2.6.3 and
+> 2.6.4-rc1 (SMP). This driver support various popular CardBus and PCI
+> 802.11g cards (54 Mb/s) based on the Intersil PrismGT/PrismDuette
+> chipset.
+> 	I would like this driver to go into 2.6.X. However, I
+> understand that it's lot's of code to review.
 
-> I have no idea, but I've seen a similar bug report at
-> http://bugs.debian.org/234817
+Here's a few things I found.  It's not exactly a full review, there's
+too much new snow to spend lots of time in front of a computer here :)
 
-This affects drivers/net/ne.c, so I'm adding netdev to the cc list.
+diff -Naur -X /home/mcgrof/lib/dontdiff linux-2.6.3/drivers/net/wireless/prism54/Makefile linux-2.6.3-prism54/drivers/net/wireless/prism54/Makefile
+--- linux-2.6.3/drivers/net/wireless/prism54/Makefile	Thu Jan  1 00:00:00 1970
++++ linux-2.6.3-prism54/drivers/net/wireless/prism54/Makefile	Thu Mar  4 02:00:01 2004
+@@ -0,0 +1,10 @@
++# $Id: Makefile.k26,v 1.7 2004/01/30 16:24:00 ajfa Exp $
++
++prism54-objs := islpci_eth.o islpci_mgt.o \
++                isl_38xx.o isl_ioctl.o islpci_dev.o \
++		islpci_hotplug.o isl_wds.o oid_mgt.o
 
-Same problem, dereferencing net_device->name before register_netdev().
-That's caused by a bit toooo quick and sloopy conversion from
-init_etherdev to alloc_etherdev & register_netdev.
+	please use foo-y for new drivers.
 
-  Ralf
++
++obj-$(CONFIG_PRISM54) += prism54.o
++
++EXTRA_CFLAGS = -I$(PWD) #-DCONFIG_PRISM54_WDS
+
+	This is bogus, especially with srcdir != objdir.
+	please fixup the includes instead
+
++#define __KERNEL_SYSCALLS__
+
+	this shouldn't be used anymore.
+
++
++#include <linux/version.h>
++#include <linux/module.h>
++#include <linux/types.h>
++#include <linux/delay.h>
++
++#include "isl_38xx.h"
++#include <linux/firmware.h>
++
++#include <asm/uaccess.h>
++#include <asm/io.h>
+
+	Please include headers in the following order <linux/*.h>,
+	<asm/*.h>, driver-specific.
+
++#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,5,75))
++#include <linux/device.h>
++# define _REQ_FW_DEV_T struct device *
++#else
++# define _REQ_FW_DEV_T char *
++#endif
+
+	Eeek, why don't you simply pass the pci_dev down?
+
+
++typedef struct isl38xx_cb isl38xx_control_block;
+
+	No useless typedefs please.
+
++MODULE_PARM(init_mode, "i");
++MODULE_PARM_DESC(init_mode,
++		 "Set card mode:\n0: Auto\n1: Ad-Hoc\n2: Managed Client (Default)\n3: Master / Access Point\n4: Repeater (Not supported yet)\n5: Secondary (Not supported yet)\n6: Monitor");
+
+	Please use module_param
+
+diff -Naur -X /home/mcgrof/lib/dontdiff linux-2.6.3/drivers/net/wireless/prism54/isl_wds.c linux-2.6.3-prism54/drivers/net/wireless/prism54/isl_wds.c
+--- linux-2.6.3/drivers/net/wireless/prism54/isl_wds.c	Thu Jan  1 00:00:00 1970
++++ linux-2.6.3-prism54/drivers/net/wireless/prism54/isl_wds.c	Thu Mar  4 02:00:01 2004
+
+	WDS doesn't belong into a driver but in higher-level code.
