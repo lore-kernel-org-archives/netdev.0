@@ -1,34 +1,40 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: STOP SPAM ( ex Re: YES! Receive 3.000+ valued VISITORS to your web - DAILY and FREE!)
-Date: Fri, 17 Jan 2003 17:04:41 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: eepro100 - 802.1q - mtu size
+Date: Fri, 17 Jan 2003 11:28:18 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030117170441.A7989@linux-mips.org>
-References: <006701c2bce0$d5d382e0$c4accad4@pc01> <SmartMessage.4.44.0301160029560.3244>
+Message-ID: <20030117162818.GA1074@gtf.org>
+References: <20030117145357.GA1139@paradigm.rfc822.org> <20030117160840.GR12676@stingr.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Lt.Cmd. Geordi LaForge" <laforge@ncc1701e.net>
+To: linux-kernel@vger.kernel.org, Florian Lohoff <flo@rfc822.org>
 Content-Disposition: inline
-In-Reply-To: <SmartMessage.4.44.0301160029560.3244>; from laforge@ncc1701e.net on Thu, Jan 16, 2003 at 12:32:42AM +0100
+In-Reply-To: <20030117160840.GR12676@stingr.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 16, 2003 at 12:32:42AM +0100, Lt.Cmd. Geordi LaForge wrote:
+On Fri, Jan 17, 2003 at 07:08:40PM +0300, Paul P Komkoff Jr wrote:
+> Replying to Florian Lohoff:
+> > Why is this patch not integerated yet ?
+> 
+> Because newer and better e100 driver, which accepts tagged frames and
+> handles it properly, already in the tree
 
-> Please, it's possible stop this spam in this mailing list ?
-> Is this an open mailing list that anyone on internet 
-> can send any kind of mail ?
+Regardless, people still use eepro100, so I would still like to get
+eepro100 doing VLAN.
 
-Yes and it will stay that way.
+The reason why the patch was not accepted is that it changes one magic
+number to another magic number, and without chipset docs, I had no idea
+what either magic number really meant.
 
-> Mailing List manager please close this list or use an antispam
-> software or an antispam system on mail server..
+Now that Intel has released chipset docs, this is an excellent time to
+re-evaluate those eepro100 VLAN changes.  I still refuse to accept a
+"change the magic numbers" patch... any change will need to define
+a constant that describes the bits we wish to set/clear.
 
-Don't make yourself any illusions.  There's dozens of rejected spams every
-day to this list.  Being a very old list with lots of archive netdev is
-under very heavy spam fire.
+Download the e100 documentation from the e1000 sourceforge site:
+http://sourceforge.net/projects/e1000
+["8255x Developer Manual"]
 
-Spam is not a discussion topic.
-
-  Ralf
+	Jeff
