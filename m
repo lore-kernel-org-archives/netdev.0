@@ -1,105 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] - Incorrect cpumask definition in net/core/flow.c
-Date: Sat, 08 Nov 2003 13:57:57 +1100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1AIJIT-0002q9-00@gondolin.me.apana.org.au>
-References: <20031107210848.GA10774@sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: steiner@sgi.com (Jack Steiner), davem@redhat.com,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-In-Reply-To: <20031107210848.GA10774@sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] net driver fixes
+Date: Sat, 8 Nov 2003 12:27:48 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20031108172748.GA8186@gtf.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: torvalds@osdl.org
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Jack Steiner <steiner@sgi.com> wrote:
-> This fixes a problem in net/core/flow.c. 
-> 
-> The field "cpumap" is defined as a "unsigned long". It 
-> should be a "cpumask_t".
 
-Thanks.  Here is a patch that changes the operations on the maps as well
-for consistency.
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-Index: kernel-source-2.5/net/core/flow.c
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/core/flow.c,v
-retrieving revision 1.8
-diff -u -r1.8 flow.c
---- kernel-source-2.5/net/core/flow.c	11 Oct 2003 06:29:28 -0000	1.8
-+++ kernel-source-2.5/net/core/flow.c	8 Nov 2003 02:54:01 -0000
-@@ -19,6 +19,7 @@
- #include <linux/bitops.h>
- #include <linux/notifier.h>
- #include <linux/cpu.h>
-+#include <linux/cpumask.h>
- #include <net/flow.h>
- #include <asm/atomic.h>
- #include <asm/semaphore.h>
-@@ -65,7 +66,7 @@
- 
- struct flow_flush_info {
- 	atomic_t cpuleft;
--	unsigned long cpumap;
-+	cpumask_t cpumap;
- 	struct completion completion;
- };
- static DEFINE_PER_CPU(struct tasklet_struct, flow_flush_tasklets) = { NULL };
-@@ -73,7 +74,7 @@
- #define flow_flush_tasklet(cpu) (&per_cpu(flow_flush_tasklets, cpu))
- 
- static DECLARE_MUTEX(flow_cache_cpu_sem);
--static unsigned long flow_cache_cpu_map;
-+static cpumask_t flow_cache_cpu_map;
- static unsigned int flow_cache_cpu_count;
- 
- static void flow_cache_new_hashrnd(unsigned long arg)
-@@ -81,7 +82,7 @@
- 	int i;
- 
- 	for (i = 0; i < NR_CPUS; i++)
--		if (test_bit(i, &flow_cache_cpu_map))
-+		if (cpu_isset(i, flow_cache_cpu_map))
- 			flow_hash_rnd_recalc(i) = 1;
- 
- 	flow_hash_rnd_timer.expires = jiffies + FLOW_HASH_RND_PERIOD;
-@@ -178,7 +179,7 @@
- 	cpu = smp_processor_id();
- 
- 	fle = NULL;
--	if (!test_bit(cpu, &flow_cache_cpu_map))
-+	if (!cpu_isset(cpu, flow_cache_cpu_map))
- 		goto nocache;
- 
- 	if (flow_hash_rnd_recalc(cpu))
-@@ -277,7 +278,7 @@
- 	struct tasklet_struct *tasklet;
- 
- 	cpu = smp_processor_id();
--	if (!test_bit(cpu, &info->cpumap))
-+	if (!cpu_isset(cpu, info->cpumap))
- 		return;
- 
- 	tasklet = flow_flush_tasklet(cpu);
-@@ -301,7 +302,7 @@
- 
- 	local_bh_disable();
- 	smp_call_function(flow_cache_flush_per_cpu, &info, 1, 0);
--	if (test_bit(smp_processor_id(), &info.cpumap))
-+	if (cpu_isset(smp_processor_id(), info.cpumap))
- 		flow_cache_flush_tasklet((unsigned long)&info);
- 	local_bh_enable();
- 
-@@ -341,7 +342,7 @@
- static int __devinit flow_cache_cpu_online(int cpu)
- {
- 	down(&flow_cache_cpu_sem);
--	set_bit(cpu, &flow_cache_cpu_map);
-+	cpu_set(cpu, flow_cache_cpu_map);
- 	flow_cache_cpu_count++;
- 	up(&flow_cache_cpu_sem);
- 
+Linus, please do a
+
+	bk pull bk://gkernel.bkbits.net/net-drivers-2.5
+
+This will update the following files:
+
+ drivers/net/b44.c     |   56 ++++++++++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/pcnet32.c |    4 +++
+ 2 files changed, 58 insertions(+), 2 deletions(-)
+
+through these ChangeSets:
+
+<ralf@linux-mips.org> (03/11/08 1.1416)
+   [netdrvr pcnet32] add missing pci_dma_sync_single
+   
+   a patch for the pcnet32.c driver which adds a missing call to
+   pci_dma_sync_single.  If a received packet is smaller than rx_copybreak
+   the pcnet driver will recycle the receive buffer which requires calling
+   pci_dma_sync_single.  Patch is against 2.6 but I it's also needed in 2.4.
+   
+   Without that call the processor might still have old stale data in
+   the data cache when the processor accesses the recycled buffer.
+   
+
+<pp@ee.oulu.fi> (03/11/08 1.1415)
+   [netdrvr b44] Fix irq enable/disable; fix oops due to lack of SET_NETDEV_DEV() call
+   
+   Also, add suspend/resume functions.
