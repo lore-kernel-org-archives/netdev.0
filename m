@@ -1,8 +1,8 @@
 From: "Laudney Ren" <laudney@21cn.com>
 Subject: T/TCP patch Beta-1.0 for kernel 2.4.2 launched.
-Date: Sat, 22 Jun 2002 22:9:19 +0800
+Date: Sat, 22 Jun 2002 22:10:0 +0800
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Fn979377779141.03607@send4.inner-21cn.com>
+Message-ID: <Gf979377779379.28115@send6.inner-21cn.com>
 Reply-To: laudney@21cn.com
 Mime-Version: 1.0
 Content-Type: text/plain;
