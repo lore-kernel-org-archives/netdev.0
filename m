@@ -1,36 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3 XFRM]: Fix invalid key for lookup of cached bundles
-Date: Sun, 06 Mar 2005 21:29:34 +1100
-Message-ID: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au>
-References: <4229BB3E.8020203@trash.net>
-Cc: davem@davemloft.net, netdev@oss.sgi.com
-To: kaber@trash.net (Patrick McHardy)
-In-Reply-To: <4229BB3E.8020203@trash.net>
+From: domen@coderock.org
+Subject: [patch 01/26] list_for_each: net-ipv6-ip6_fib.c
+Date: Sun, 06 Mar 2005 11:32:38 +0100
+Message-ID: <20050306103238.86F181E46E@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, janitor@sternwelten.at
+To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
->
-> @@ -97,6 +104,7 @@
->  		err = xfrm_dst_lookup((struct xfrm_dst**)&rt, &fl_tunnel, AF_INET);
->  		if (err)
->  			goto error;
-> +		rt->u.dst.flags |= DST_XFRM_TUNNEL;
 
-This line doesn't look right.  rt is an entry in the IPv4 routing
-cache, right? If so why should its flags change when some bundle is
-created?
 
-After all, it could also be used at the bottom of a transport mode bundle.
 
-Besides, I think IPv4 routing cache entry will never show up at the top of
-a bundle anyway which means that this flags value will never be read in
-the find_bundle function.
+s/for/list_for_each/
+Compile tested.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Domen Puncer <domen@coderock.org>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+Signed-off-by: Domen Puncer <domen@coderock.org>
+---
+
+
+ kj-domen/net/ipv6/ip6_fib.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN net/ipv6/ip6_fib.c~list-for-each-drivers_net_ipv6_ip6_fib net/ipv6/ip6_fib.c
+--- kj/net/ipv6/ip6_fib.c~list-for-each-drivers_net_ipv6_ip6_fib	2005-03-05 16:09:09.000000000 +0100
++++ kj-domen/net/ipv6/ip6_fib.c	2005-03-05 16:09:09.000000000 +0100
+@@ -99,7 +99,7 @@ struct fib6_walker_t fib6_walker_list = 
+ 	.next	= &fib6_walker_list, 
+ };
+ 
+-#define FOR_WALKERS(w) for ((w)=fib6_walker_list.next; (w) != &fib6_walker_list; (w)=(w)->next)
++#define FOR_WALKERS(w) list_for_each((w), &fib6_walker_list)
+ 
+ static __inline__ u32 fib6_new_sernum(void)
+ {
+_
