@@ -1,46 +1,72 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: One-way Gigabit Ethernet TCP performance with Jumbo frames
-Date: Fri, 3 Jan 2003 14:25:21 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: SIOCADDMULTI for unicast broken
+Date: Fri, 3 Jan 2003 16:46:40 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15893.36673.476788.286469@robur.slu.se>
-References: <3E142D85.71FFA06C@digeo.com>
-	<Pine.LNX.4.44.0301021329410.18738-200000@sp-laptop.isdn.scali.no>
+Message-ID: <20030103164001.S48623@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="0-1640597484-1041630400=:48623"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steffen Persvold <sp@scali.com>
-In-Reply-To: <Pine.LNX.4.44.0301021329410.18738-200000@sp-laptop.isdn.scali.no>
+To: Jeff Garzik <jgarzik@pobox.com>, Donald Becker <becker@scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
+
+--0-1640597484-1041630400=:48623
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
 
-Steffen Persvold writes:
- > Hi all,
- > 
- > Lately I've been testing out two Gigabit Ethernet adapters on Pentium 4 
- > Xeon platforms; onboard Intel 82544GC (e1000 driver) and onboard Broadcom 
- > BCM5701 (tg3 driver), and I'm experiencing some wierd behaviour on 
- > one-way tests (ping-ping). The machines I'm testing is connected back to 
- > back (i.e no switch) and are fairly fast systems (Dual Xeon 2.4 GHz, 1GB 
- > memory) configured to use Jumbo frames (9000 bytes).
+Some programs require ability to accept packets destined to certain
+MAC addresses (in addition to their own).
+Example Jerome Ettienes vrrpd (http://w3.arobas.net/~jetienne/vrrpd/)
 
+The trick is to add unicast addresses via SIOCADDMULTI and accept those
+packets when they make their way up the stack.
+I think this used to work, no? Donald, any history/comments behind
+this?
+Patch attahced, not very well tested but looks safe.
 
- > But, when running a one-way test (where one machine only sends, and the 
- > other only receives, i.e ping-ping) there is a serious dip in the 
- > performance curve at ~768 bytes and the bandwidth levels out at approx 
- > 60 MByte/sec (about half of peak) regadless of application and GbE device. 
+cheers,
+jamal
+--0-1640597484-1041630400=:48623
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="eth_type_trans.fix"
+Content-Transfer-Encoding: BASE64
+Content-ID: <20030103164640.K48623@shell.cyberus.ca>
+Content-Description: 
+Content-Disposition: attachment; filename="eth_type_trans.fix"
 
- I've seen similar problems... and most of the times this seems due to 
- incorrect tuned mitigation. Think of what happens if you don't have TX-
- interrupts enough to clean your TX-ring. Which means your app. can not
- fill it at full speed -- and as long you have RX traffic it contributes 
- with interrupts so the problem is not visile. 
+LS0tIG5ldC9ldGhlcm5ldC9ldGguYwkyMDAzLzAxLzAzIDE4OjIwOjQ5CTEu
+MQ0KKysrIG5ldC9ldGhlcm5ldC9ldGguYwkyMDAzLzAxLzAzIDE4OjIyOjA1
+DQpAQCAtMTQ4LDYgKzE0OCwzMCBAQA0KIAlyZXR1cm4gMDsNCiB9DQogDQor
+dm9pZCBjaGVja19tY2FzdF9saXN0KHN0cnVjdCBza19idWZmICpza2IsIHN0
+cnVjdCBuZXRfZGV2aWNlICpkZXYpDQorew0KKwlzdHJ1Y3QgZGV2X21jX2xp
+c3QgKmRtaTsNCisJc3RydWN0IGV0aGhkciAqZXRoOw0KKwkJCSAgICAgICAg
+DQorCWlmIChza2ItPnBrdF90eXBlICE9IFBBQ0tFVF9PVEhFUkhPU1QpDQor
+CQlyZXR1cm47DQorDQorCWV0aCA9IHNrYi0+bWFjLmV0aGVybmV0Ow0KKw0K
+KwkvKiBtYXkgbm90IGJlIG5lY2Vzc2FyeSB0byBiaF9sb2NrIC0gZml4IGxh
+dGVyIC0gSkhTICovDQorCXNwaW5fbG9ja19iaCgmZGV2LT54bWl0X2xvY2sp
+Ow0KKw0KKwlmb3IgKGRtaSA9IGRldi0+bWNfbGlzdDsgZG1pICE9IE5VTEw7
+IGRtaSA9IGRtaS0+bmV4dCkgew0KKwkJaWYgKG1lbWNtcChkbWktPmRtaV9h
+ZGRyLCBldGgtPmhfZGVzdCwgZGV2LT5hZGRyX2xlbikgPT0gMA0KKwkJICAg
+ICYmIGRtaS0+ZG1pX2FkZHJsZW4gPT0gZGV2LT5hZGRyX2xlbikgeyANCisJ
+CQlza2ItPnBrdF90eXBlID0gUEFDS0VUX0hPU1Q7DQorCQkJCWJyZWFrOw0K
+KwkJfQ0KKwl9DQorDQorCXNwaW5fdW5sb2NrX2JoKCZkZXYtPnhtaXRfbG9j
+ayk7DQorfQ0KKw0KIA0KIC8qDQogICoJRGV0ZXJtaW5lIHRoZSBwYWNrZXQn
+cyBwcm90b2NvbCBJRC4gVGhlIHJ1bGUgaGVyZSBpcyB0aGF0IHdlIA0KQEAg
+LTE4Miw4ICsyMDYsMTQgQEANCiAJIA0KIAllbHNlIGlmKDEgLypkZXYtPmZs
+YWdzJklGRl9QUk9NSVNDKi8pDQogCXsNCi0JCWlmKG1lbWNtcChldGgtPmhf
+ZGVzdCxkZXYtPmRldl9hZGRyLCBFVEhfQUxFTikpDQotCQkJc2tiLT5wa3Rf
+dHlwZT1QQUNLRVRfT1RIRVJIT1NUOw0KKwkJaWYobWVtY21wKGV0aC0+aF9k
+ZXN0LGRldi0+ZGV2X2FkZHIsIEVUSF9BTEVOKSkgew0KKwkJCXNrYi0+cGt0
+X3R5cGUgPSBQQUNLRVRfT1RIRVJIT1NUOw0KKwkJCS8qIHdlIG92ZXJyaWRl
+IFBBQ0tFVF9PVEhFUkhPU1QgaWYgTUFDIGFwcGVhcnMNCisJCQkgKiBpbiBv
+dXIgbWNhc3QgbGlzdCBhbGxvd3MgdG8gaGF2ZSBzZXZlcmFsIA0KKwkJCSAq
+IGFsbG93ZWQgTUFDcyBmb3IgcmVjZWl2ZXMgYWRkZWQgdmlhIA0KKwkJCSAq
+IFNJT0NBRERNVUxUSSBvbiB0aGUgZGV2aWNlKi8NCisJCQljaGVja19tY2Fz
+dF9saXN0KHNrYixkZXYpOw0KKwkJfQ0KIAl9DQogCQ0KIAlpZiAobnRvaHMo
+ZXRoLT5oX3Byb3RvKSA+PSAxNTM2KQ0K
 
- If you test IP-forwarding with RX soly on one interface and TX soly on the
- other and routing between them. You'll see drops at the qdisc in such case.
-
- Cheers.
-						--ro
+--0-1640597484-1041630400=:48623--
