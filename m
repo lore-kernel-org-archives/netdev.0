@@ -1,7 +1,7 @@
 From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] Sparse fixes for NETROM
-Date: Wed, 2 Mar 2005 21:47:53 +0100
-Message-ID: <20050302204753.GA5985@linux-mips.org>
+Subject: [PATCH] Remove rose_rx_ip
+Date: Wed, 2 Mar 2005 22:00:04 +0100
+Message-ID: <20050302210003.GA5997@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 To: netdev@oss.sgi.com
@@ -10,30 +10,50 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Moving nr_init_timers prototype to where all the other prototypes
-already are.
+Rose_rx_ip is unused and seems it's always been since it made it into the
+kernel in 2.3.19.  Probably directly calling ip_rcv from a non-IP stack
+is no longer a good idea anyway, so this should be solved differently.
 
-Index: bk-afu/include/net/netrom.h
+Index: bk-afu/net/rose/rose_dev.c
 ===================================================================
---- bk-afu.orig/include/net/netrom.h	2005-03-01 00:49:26.108296048 +0000
-+++ bk-afu/include/net/netrom.h	2005-03-01 00:54:52.707645400 +0000
-@@ -221,6 +221,7 @@
- extern void nr_disconnect(struct sock *, int);
+--- bk-afu.orig/net/rose/rose_dev.c	2005-03-01 01:03:14.857307048 +0000
++++ bk-afu/net/rose/rose_dev.c	2005-03-01 01:06:30.364585424 +0000
+@@ -37,38 +37,6 @@
+ #include <net/ax25.h>
+ #include <net/rose.h>
  
- /* nr_timer.c */
-+extern void nr_init_timers(struct sock *sk);
- extern void nr_start_heartbeat(struct sock *);
- extern void nr_start_t1timer(struct sock *);
- extern void nr_start_t2timer(struct sock *);
-Index: bk-afu/net/netrom/af_netrom.c
-===================================================================
---- bk-afu.orig/net/netrom/af_netrom.c	2005-03-01 00:49:26.088299088 +0000
-+++ bk-afu/net/netrom/af_netrom.c	2005-03-01 00:55:31.325774552 +0000
-@@ -63,7 +63,6 @@
- static DEFINE_SPINLOCK(nr_list_lock);
- 
- static struct proto_ops nr_proto_ops;
--void nr_init_timers(struct sock *sk);
- 
- static struct sock *nr_alloc_sock(void)
+-/*
+- *	Only allow IP over ROSE frames through if the netrom device is up.
+- */
+-
+-int rose_rx_ip(struct sk_buff *skb, struct net_device *dev)
+-{
+-	struct net_device_stats *stats = netdev_priv(dev);
+-
+-#ifdef CONFIG_INET
+-	if (!netif_running(dev)) {
+-		stats->rx_errors++;
+-		return 0;
+-	}
+-
+-	stats->rx_packets++;
+-	stats->rx_bytes += skb->len;
+-
+-	skb->protocol = htons(ETH_P_IP);
+-
+-	/* Spoof incoming device */
+-	skb->dev      = dev;
+-	skb->h.raw    = skb->data;
+-	skb->nh.raw   = skb->data;
+-	skb->pkt_type = PACKET_HOST;
+-
+-	ip_rcv(skb, skb->dev, NULL);
+-#else
+-	kfree_skb(skb);
+-#endif
+-	return 1;
+-}
+-
+ static int rose_header(struct sk_buff *skb, struct net_device *dev, unsigned short type,
+ 	void *daddr, void *saddr, unsigned len)
  {
