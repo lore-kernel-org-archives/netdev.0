@@ -1,33 +1,54 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: David Woodhouse <dwmw2@infradead.org>
 Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Mon, 29 Sep 2003 09:29:19 +0300 (EEST)
+Date: Mon, 29 Sep 2003 10:02:55 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309290927460.15163-100000@netcore.fi>
+Message-ID: <1064826174.29569.13.camel@hades.cambridge.redhat.com>
 References: <20030928225941.GW15338@fs.tum.de>
+	 <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de>
+	 <20030928233909.GG1039@conectiva.com.br> <20030929001439.GY15338@fs.tum.de>
+	 <20030929003229.GM1039@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, <davem@redhat.com>,
-        <lksctp-developers@lists.sourceforge.net>,
-        <linux-kernel@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Adrian Bunk <bunk@fs.tum.de>, netdev@oss.sgi.com, davem@redhat.com,
+        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@fs.tum.de>
-In-Reply-To: <20030928225941.GW15338@fs.tum.de>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20030929003229.GM1039@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Sep 2003, Adrian Bunk wrote:
-> It seems modular IPv6 doesn't work 100% reliable, e.g. after looking at 
-> the code it doesn't seem to be a good idea to compile a kernel without 
-> IPv6 support and later build and install IPv6 modules. Is there a great 
-> need for modular IPv6 or is the patch below to disallow modular IPv6 OK?
+On Sun, 2003-09-28 at 21:32 -0300, Arnaldo Carvalho de Melo wrote:
+> Em Mon, Sep 29, 2003 at 02:14:39AM +0200, Adrian Bunk escreveu:
+> > On Sun, Sep 28, 2003 at 08:39:10PM -0300, Arnaldo Carvalho de Melo wrote:
+> > What about the following solution (the names and help texts for the
+> > config options might not be optimal, I hope you understand the
+> > intention):
+> > 
+> > config IPV6_SUPPORT
+> > 	bool "IPv6 support"
+> > 
+> > config IPV6_ENABLE
+> > 	tristate "enable IPv6"
+> > 	depends on IPV6_SUPPORT
+> > 
+> > IPV6_SUPPORT changes structs etc. and IPV6_ENABLE is responsible for 
+> > ipv6.o .
+> 
+> Humm, and the idea is? This seems confusing, could you elaborate on why such
+> scheme is a good thing?
 
-IPv6 modularity is critical for all the Linux distributions who wish to
-give the users the possibility to turn on IPv6 if they wish, but turning
-it on by default for everybody is not realistic.
+The idea is that you then have ifdefs on CONFIG_IPV6_SUPPORT not on
+CONFIG_IPV6_MODULE.
 
-IMHO, making it non-modular is *NOT* an option.
+The underlying point being that your static kernel should not change if
+you change an option from 'n' to 'm'. It should only affect the kernel
+image if you change options to/from 'y'.
+
+We should remove the definitions of 'CONFIG_xxxx_MODULE' entirely from
+visibility during the build of non-module files, to prevent further
+breakage of this sort.
 
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+dwmw2
