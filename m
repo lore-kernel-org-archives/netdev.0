@@ -1,193 +1,629 @@
-From: Michael Bellion and Thomas Heinz <nf@hipac.org>
-Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
-Date: Wed, 06 Aug 2003 00:21:56 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] X.25 async net_device fixup
+Date: Tue, 5 Aug 2003 15:43:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F302E04.1090503@hipac.org>
-References: <200307141045.40999.nf@hipac.org>	 <1058328537.1797.24.camel@jzny.localdomain>  <3F16A0E5.1080007@hipac.org>	 <1059934468.1103.41.camel@jzny.localdomain>  <3F2E5CD6.4030500@hipac.org> <1060012260.1103.380.camel@jzny.localdomain>
+Message-ID: <20030805154335.7abfcb92.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig2AA484285077C06548045724"
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1060012260.1103.380.camel@jzny.localdomain>
+To: Henner Eisen <eis@baty.hanse.de>, "David S. Miller" <davem@redhat.com>,
+   linux-x25@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig2AA484285077C06548045724
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Convert X.25 async driver to have dynamic net_device's.
+This driver is a lot like SLIP so the code changes were similar.  
+	- Added similar locking to SLIP
+	- replaced code that snooped for MTU changes with the
+ 	  net_device change mtu callback.
+	- cleaned up the statistics by using the net_device_stats structure.
 
-Hi Jamal
+Patch is against 2.6.0-test2.
 
-You wrote:
-> I promise i will. I dont think i will do it justice spending 5 minutes
-> on it. I take it you have written extensive docs too ;->
-
-Of course ;-)
-Well, actually we are going to present an overview of the hipac
-algorithm at the netfilter developer workshop in Budapest.
-Hope to see you there.
-
-> Unfortunately it is more exciting to write code than documents. I almost
-> got someone to document at least its proper usage but they backed away
-> at the last minute.
-
-lol
-
-> I dont wanna go in a lot of details, but one important detail is that
-> keynodes can also lead to other hash tables. So you can split the packet
-> parsing across multiple hashes - this is where the comparison with
-> chains comes in. There are several ways to do this. I'll show you the
-> brute force way and you can make it more usable with "hashkey" and
-> "sample" operator. Stealing from your example:
-> 
-> [example snipped]
-> 
-> Makes sense?
-
-Yes, it does. Still the question is how to solve this
-generally. Consider the following example ruleset:
-
-1) src ip 10.0.0.0/30 dst ip 20.0.0.0/20
-2) src ip 10.0.0.0/28 dst ip 20.0.0.0/22
-3) src ip 10.0.0.0/26 dst ip 20.0.0.0/24
-4) src ip 10.0.0.0/24 dst ip 20.0.0.0/26
-5) src ip 10.0.0.0/22 dst ip 20.0.0.0/28
-6) src ip 10.0.0.0/20 dst ip 20.0.0.0/30
-
-So you have 1 src ip hash and #buckets(src ip hash) many
-dst ip hashes. In order to achieve maximum performance
-you have to minimize the number of collisions in the
-hash buckets. How would you choose the hash function
-and what would the construction look like?
-
-In principle the tree of hashes approach is capable to
-express a general access list like ruleset, i.e. a set
-of terminal rules with different priorities. The problem
-is that the approach is only efficient if the number of
-collisions is O(1) -> no amortized analysis but rather
-per bucket.
-
-In theory you can do the following. Let's consider one
-dimension. The matches in one dimension form a set of
-elementary intervals which are overlapped by certain rules.
-Example:
-
-          |------|                      |---------|
-      |----------------|
-             |------------------|
-                           |---------------|
-
-|----|---|--|---|-----|---|----|-------|--|------|-------|
-
-The '|-----|' reflect the matches and the bottom line
-represents the set of elementary intervals introduced
-by the matches. Now, you can decide for each elementary
-interval which rule matches since the rules are terminal
-and uniquely prioritized.
-
-The next step would be to create a hash with #elementary
-intervals many buckets and create a hash function which
-maps the keys to the appropriate buckets like in the picture.
-In this case you have exactly 1 entry per hash bucket.
-Sounds fine BUT it is not possible to generically deduce
-an easily (= fast) computable hash function with the
-described requirements.
-
-BTW, this approach can be extended to 2 or more dimensions
-where the hash function for each hash has to meet the
-requirement. Of course this information is not very helpful
-since the problem of defining appropriate hash functions
-remains ;)
-
-Obviously this way is not viable but supposedly the only
-one to achieve ultimate performance with the tree of hashes
-concept.
-
-BTW, the way hipac works is basically not so different
-from the idea described above but since we use efficient
-btrees we don't have to define hash functions.
-
-> sure position could be used as a priority. It is easier/intuitive to
-> just have explicit priorities.
-
-Merely a matter of taste. The way iptables and nf-hipac use
-priorities is somewhat more dynamic than the tc way because
-they are automatically adjusted if a rule is inserted in between
-others.
-
-> What "optimizes" could be a user interface or the thread i was talking
-> about earlier.
-
-Hm, this rebalancing is not clear to us. Do you want to rebalance
-the tree of hashes? This seems a little strange at the first
-glance because the performance of the tree of hashes is dominated
-by the number of collisions that need to be resolved and
-not the depth of the tree.
-
-> Is your plan to put this in other places other than Linux?
-
-Currently we are working on the integration in linux.
-In general the hipac core is OS and application independent,
-so basically it could also be used for some userspace program
-which is related to classification and of course in other OS's.
-
-Any special reason why you are asking this question?
-
-> So you got this thought from iptables and took it to the next level?
-
-Well, in order to support iptables matches and targets we had
-to create an appropriate abstraction for them on the hipac
-layer. This abstraction can also be used for tc classifiers
-if the tcf_result is ignored, i.e. you just consider whether
-the filter matched or not.
-
-> I am still not sure i understand why not use what already exists - but
-> i'll just say i dont see it right now.
-
-If hipac had no support for embedded classifiers you couldn't
-express a ruleset like:
-1) [native hipac matches] [u32 filter] [classid]
-2) [native hipac matches] [classid]
-You would have to construct rule 1) in a way that it "jumps"
-to an external u32 filter. Unfortunately, you cannot jump
-back to the hipac filter again in case the u32 filter does
-not match so rule 2) is unreachable. This problem is caused
-by the fact that cls_hipac can occur at most once per interface.
-
-> It doesnt appear harmful to leave it there without destroying it.
-> The next time someome adds a filter of the same protocol + priority, it
-> will already exist. If you want to be accurate (because it does get
-> destroyed when the init() fails), then destroy it but you need to put
-> checks for "incase we have added a new tcf_proto" which may not look
-> pretty. Is this causing you some discomfort?
-
-No, actually not.
+Not sure if anyone ever uses this.  I tested by bringing up an x.25 async
+line using a modified version of slattach.
 
 
-Regards,
-
-+-----------------------+----------------------+
-|   Michael Bellion     |     Thomas Heinz     |
-| <mbellion@hipac.org>  |  <creatix@hipac.org> |
-+-----------------------+----------------------+
-|    High Performance Packet Classification    |
-|       nf-hipac: http://www.hipac.org/        |
-+----------------------------------------------+
-
---------------enig2AA484285077C06548045724
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Using GnuPG with Debian - http://enigmail.mozdev.org
-
-iD8DBQE/MC4FtXh2AYIMjggRAvm5AJ4r5t7eKXHNt/mWCIcS93+l/Gh+tgCdH82Z
-76Nh+wx5v75reDsjfY1SJY4=
-=NW50
------END PGP SIGNATURE-----
-
---------------enig2AA484285077C06548045724--
+diff -urNp -X dontdiff net-2.5/drivers/net/wan/x25_asy.c linux-2.5-net/drivers/net/wan/x25_asy.c
+--- net-2.5/drivers/net/wan/x25_asy.c	2003-08-01 11:11:42.000000000 -0700
++++ linux-2.5-net/drivers/net/wan/x25_asy.c	2003-07-31 13:22:41.000000000 -0700
+@@ -34,81 +34,67 @@
+ #include <linux/init.h>
+ #include "x25_asy.h"
+ 
+-typedef struct x25_ctrl {
+-	struct x25_asy	ctrl;		/* X.25 things			*/
+-	struct net_device	dev;		/* the device			*/
+-} x25_asy_ctrl_t;
+-
+-static x25_asy_ctrl_t	**x25_asy_ctrls = NULL;
+-
+-int x25_asy_maxdev = SL_NRUNIT;		/* Can be overridden with insmod! */
++static struct net_device **x25_asy_devs;
++static int x25_asy_maxdev = SL_NRUNIT;
+ 
+ MODULE_PARM(x25_asy_maxdev, "i");
+ MODULE_LICENSE("GPL");
+ 
+ static int x25_asy_esc(unsigned char *p, unsigned char *d, int len);
+ static void x25_asy_unesc(struct x25_asy *sl, unsigned char c);
++static void x25_asy_setup(struct net_device *dev);
+ 
+ /* Find a free X.25 channel, and link in this `tty' line. */
+-static inline struct x25_asy *x25_asy_alloc(void)
++static struct x25_asy *x25_asy_alloc(void)
+ {
+-	x25_asy_ctrl_t *slp = NULL;
++	struct net_device *dev = NULL;
++	struct x25_asy *sl;
+ 	int i;
+ 
+-	if (x25_asy_ctrls == NULL)
++	if (x25_asy_devs == NULL)
+ 		return NULL;	/* Master array missing ! */
+ 
+-	for (i = 0; i < x25_asy_maxdev; i++) 
+-	{
+-		slp = x25_asy_ctrls[i];
++	for (i = 0; i < x25_asy_maxdev; i++) {
++		dev = x25_asy_devs[i];
++
+ 		/* Not allocated ? */
+-		if (slp == NULL)
++		if (dev == NULL)
+ 			break;
++
++		sl = dev->priv;
+ 		/* Not in use ? */
+-		if (!test_and_set_bit(SLF_INUSE, &slp->ctrl.flags))
+-			break;
++		if (!test_and_set_bit(SLF_INUSE, &sl->flags))
++			return sl;
+ 	}
+-	/* SLP is set.. */
++
+ 
+ 	/* Sorry, too many, all slots in use */
+ 	if (i >= x25_asy_maxdev)
+ 		return NULL;
+ 
+ 	/* If no channels are available, allocate one */
+-	if (!slp &&
+-	    (x25_asy_ctrls[i] = (x25_asy_ctrl_t *)kmalloc(sizeof(x25_asy_ctrl_t),
+-						    GFP_KERNEL)) != NULL) {
+-		slp = x25_asy_ctrls[i];
+-		memset(slp, 0, sizeof(x25_asy_ctrl_t));
++	if (!dev) {
++		char name[IFNAMSIZ];
++		sprintf(name, "x25asy%d", i);
++
++		dev = alloc_netdev(sizeof(struct x25_asy),
++				   name, x25_asy_setup);
++		if (!dev)
++			return NULL;
+ 
+ 		/* Initialize channel control data */
+-		set_bit(SLF_INUSE, &slp->ctrl.flags);
+-		slp->ctrl.tty         = NULL;
+-		sprintf(slp->dev.name, "x25asy%d", i);
+-		slp->dev.base_addr    = i;
+-		slp->dev.priv         = (void*)&(slp->ctrl);
+-		slp->dev.next         = NULL;
+-		slp->dev.init         = x25_asy_init;
+-	}
+-	if (slp != NULL) 
+-	{
++		sl = dev->priv;
++		dev->base_addr    = i;
+ 
+ 		/* register device so that it can be ifconfig'ed       */
+-		/* x25_asy_init() will be called as a side-effect      */
+-		/* SIDE-EFFECT WARNING: x25_asy_init() CLEARS slp->ctrl ! */
+-
+-		if (register_netdev(&(slp->dev)) == 0) 
+-		{
++		if (register_netdev(dev) == 0) {
+ 			/* (Re-)Set the INUSE bit.   Very Important! */
+-			set_bit(SLF_INUSE, &slp->ctrl.flags);
+-			slp->ctrl.dev = &(slp->dev);
+-			slp->dev.priv = (void*)&(slp->ctrl);
+-			return (&(slp->ctrl));
+-		}
+-		else
+-		{
+-			clear_bit(SLF_INUSE,&(slp->ctrl.flags));
++			set_bit(SLF_INUSE, &sl->flags);
++			x25_asy_devs[i] = dev;
++			return sl;
++		} else {
+ 			printk("x25_asy_alloc() - register_netdev() failure.\n");
++			kfree(dev);
+ 		}
+ 	}
+ 	return NULL;
+@@ -116,8 +102,7 @@ static inline struct x25_asy *x25_asy_al
+ 
+ 
+ /* Free an X.25 channel. */
+-
+-static inline void x25_asy_free(struct x25_asy *sl)
++static void x25_asy_free(struct x25_asy *sl)
+ {
+ 	/* Free all X.25 frame buffers. */
+ 	if (sl->rbuff)  {
+@@ -134,18 +119,11 @@ static inline void x25_asy_free(struct x
+ 	}
+ }
+ 
+-/* MTU has been changed by the IP layer. Unfortunately we are not told
+-   about this, but we spot it ourselves and fix things up. We could be
+-   in an upcall from the tty driver, or in an ip packet queue. */
+-
+-static void x25_asy_changed_mtu(struct x25_asy *sl)
+-{
+-	struct net_device *dev = sl->dev;
+-	unsigned char *xbuff, *rbuff, *oxbuff, *orbuff;
+-	int len;
+-	unsigned long flags;
+-
+-	len = dev->mtu * 2;
++static int x25_asy_change_mtu(struct net_device *dev, int newmtu)
++{
++	struct x25_asy *sl = dev->priv;
++	unsigned char *xbuff, *rbuff;
++	int len = 2* newmtu;
+ 
+ 	xbuff = (unsigned char *) kmalloc (len + 4, GFP_ATOMIC);
+ 	rbuff = (unsigned char *) kmalloc (len + 4, GFP_ATOMIC);
+@@ -153,52 +131,47 @@ static void x25_asy_changed_mtu(struct x
+ 	if (xbuff == NULL || rbuff == NULL)  
+ 	{
+ 		printk("%s: unable to grow X.25 buffers, MTU change cancelled.\n",
+-		       sl->dev->name);
+-		dev->mtu = sl->mtu;
++		       dev->name);
+ 		if (xbuff != NULL)  
+ 			kfree(xbuff);
+ 		if (rbuff != NULL)  
+ 			kfree(rbuff);
+-		return;
++		return -ENOMEM;
+ 	}
+ 
+-	save_flags(flags); 
+-	cli();
+-
+-	oxbuff    = sl->xbuff;
+-	sl->xbuff = xbuff;
+-	orbuff    = sl->rbuff;
+-	sl->rbuff = rbuff;
+-
++	spin_lock_bh(&sl->lock);
++	xbuff    = xchg(&sl->xbuff, xbuff);
+ 	if (sl->xleft)  {
+ 		if (sl->xleft <= len)  {
+ 			memcpy(sl->xbuff, sl->xhead, sl->xleft);
+ 		} else  {
+ 			sl->xleft = 0;
+-			sl->tx_dropped++;
++			sl->stats.tx_dropped++;
+ 		}
+ 	}
+ 	sl->xhead = sl->xbuff;
+ 
++	rbuff	 = xchg(&sl->rbuff, rbuff);
+ 	if (sl->rcount)  {
+ 		if (sl->rcount <= len) {
+-			memcpy(sl->rbuff, orbuff, sl->rcount);
++			memcpy(sl->rbuff, rbuff, sl->rcount);
+ 		} else  {
+ 			sl->rcount = 0;
+-			sl->rx_over_errors++;
++			sl->stats.rx_over_errors++;
+ 			set_bit(SLF_ERROR, &sl->flags);
+ 		}
+ 	}
+-	sl->mtu      = dev->mtu;
+ 
++	dev->mtu    = newmtu;
+ 	sl->buffsize = len;
+ 
+-	restore_flags(flags);
++	spin_unlock_bh(&sl->lock);
+ 
+-	if (oxbuff != NULL) 
+-		kfree(oxbuff);
+-	if (orbuff != NULL)
+-		kfree(orbuff);
++	if (xbuff != NULL) 
++		kfree(xbuff);
++	if (rbuff != NULL)
++		kfree(rbuff);
++	return 0;
+ }
+ 
+ 
+@@ -226,13 +199,13 @@ static void x25_asy_bump(struct x25_asy 
+ 	int err;
+ 
+ 	count = sl->rcount;
+-	sl->rx_bytes+=count;
++	sl->stats.rx_bytes+=count;
+ 	
+ 	skb = dev_alloc_skb(count+1);
+ 	if (skb == NULL)  
+ 	{
+ 		printk("%s: memory squeeze, dropping packet.\n", sl->dev->name);
+-		sl->rx_dropped++;
++		sl->stats.rx_dropped++;
+ 		return;
+ 	}
+ 	skb_push(skb,1);	/* LAPB internal control */
+@@ -249,7 +222,7 @@ static void x25_asy_bump(struct x25_asy 
+ 	{
+ 		netif_rx(skb);
+ 		sl->dev->last_rx = jiffies;
+-		sl->rx_packets++;
++		sl->stats.rx_packets++;
+ 	}
+ }
+ 
+@@ -257,19 +230,13 @@ static void x25_asy_bump(struct x25_asy 
+ static void x25_asy_encaps(struct x25_asy *sl, unsigned char *icp, int len)
+ {
+ 	unsigned char *p;
+-	int actual, count;
+-
++	int actual, count, mtu = sl->dev->mtu;
+ 
+-	if (sl->mtu != sl->dev->mtu) {	/* Someone has been ifconfigging */
+-
+-		x25_asy_changed_mtu(sl);
+-	}
+-
+-	if (len > sl->mtu) 
++	if (len > mtu) 
+ 	{		/* Sigh, shouldn't occur BUT ... */
+-		len = sl->mtu;
++		len = mtu;
+ 		printk ("%s: truncating oversized transmit packet!\n", sl->dev->name);
+-		sl->tx_dropped++;
++		sl->stats.tx_dropped++;
+ 		x25_asy_unlock(sl);
+ 		return;
+ 	}
+@@ -310,7 +277,7 @@ static void x25_asy_write_wakeup(struct 
+ 	{
+ 		/* Now serial buffer is almost free & we can start
+ 		 * transmission of another packet */
+-		sl->tx_packets++;
++		sl->stats.tx_packets++;
+ 		tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
+ 		x25_asy_unlock(sl);
+ 		return;
+@@ -324,15 +291,20 @@ static void x25_asy_write_wakeup(struct 
+ static void x25_asy_timeout(struct net_device *dev)
+ {
+ 	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
+-	/* May be we must check transmitter timeout here ?
+-	 *      14 Oct 1994 Dmitry Gorodchanin.
+-	 */
+-	printk(KERN_WARNING "%s: transmit timed out, %s?\n", dev->name,
+-	       (sl->tty->driver->chars_in_buffer(sl->tty) || sl->xleft) ?
+-	       "bad line quality" : "driver error");
+-	sl->xleft = 0;
+-	sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
+-	x25_asy_unlock(sl);
++
++	spin_lock(&sl->lock);
++	if (netif_queue_stopped(dev)) {
++		/* May be we must check transmitter timeout here ?
++		 *      14 Oct 1994 Dmitry Gorodchanin.
++		 */
++		printk(KERN_WARNING "%s: transmit timed out, %s?\n", dev->name,
++		       (sl->tty->driver->chars_in_buffer(sl->tty) || sl->xleft) ?
++		       "bad line quality" : "driver error");
++		sl->xleft = 0;
++		sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
++		x25_asy_unlock(sl);
++	}
++	spin_unlock(&sl->lock);
+ }
+ 
+ /* Encapsulate an IP datagram and kick it into a TTY queue. */
+@@ -342,10 +314,10 @@ static int x25_asy_xmit(struct sk_buff *
+ 	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
+ 	int err;
+ 
+-	if (!netif_running(sl->dev))
+-	{
++	if (!netif_running(sl->dev)) {
+ 		printk("%s: xmit call when iface is down\n", dev->name);
+-		return 1;
++		kfree_skb(skb);
++		return 0;
+ 	}
+ 	
+ 	switch(skb->data[0])
+@@ -409,8 +381,11 @@ static int x25_asy_data_indication(void 
+ static void x25_asy_data_transmit(void *token, struct sk_buff *skb)
+ {
+ 	struct x25_asy *sl=token;
+-	if (netif_queue_stopped(sl->dev))
++	
++	spin_lock(&sl->lock);
++	if (netif_queue_stopped(sl->dev) || sl->tty == NULL)
+ 	{
++		spin_unlock(&sl->lock);
+ 		printk(KERN_ERR "x25_asy: tbusy drop\n");
+ 		kfree_skb(skb);
+ 		return;
+@@ -419,10 +394,11 @@ static void x25_asy_data_transmit(void *
+ 	if (skb != NULL) 
+ 	{
+ 		x25_asy_lock(sl);
+-		sl->tx_bytes+=skb->len;
++		sl->stats.tx_bytes+=skb->len;
+ 		x25_asy_encaps(sl, skb->data, skb->len);
+ 		dev_kfree_skb(skb);
+ 	}
++	spin_unlock(&sl->lock);
+ }
+ 
+ /*
+@@ -475,12 +451,20 @@ static void x25_asy_disconnected(void *t
+ 	sl->dev->last_rx = jiffies;
+ }
+ 
++static struct lapb_register_struct x25_asy_callbacks = {
++	.connect_confirmation = x25_asy_connected,
++	.connect_indication = x25_asy_connected,
++	.disconnect_confirmation = x25_asy_disconnected,
++	.disconnect_indication = x25_asy_disconnected,
++	.data_indication = x25_asy_data_indication,
++	.data_transmit = x25_asy_data_transmit,
++
++};
+ 
+-/* Open the low-level part of the X.25 channel. Easy! */
+ 
++/* Open the low-level part of the X.25 channel. Easy! */
+ static int x25_asy_open(struct net_device *dev)
+ {
+-	struct lapb_register_struct x25_asy_callbacks;
+ 	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
+ 	unsigned long len;
+ 	int err;
+@@ -505,7 +489,7 @@ static int x25_asy_open(struct net_devic
+ 	if (sl->xbuff == NULL)   {
+ 		goto noxbuff;
+ 	}
+-	sl->mtu	     = dev->mtu;
++
+ 	sl->buffsize = len;
+ 	sl->rcount   = 0;
+ 	sl->xleft    = 0;
+@@ -516,14 +500,6 @@ static int x25_asy_open(struct net_devic
+ 	/*
+ 	 *	Now attach LAPB
+ 	 */
+-	 
+-	x25_asy_callbacks.connect_confirmation=x25_asy_connected;
+-	x25_asy_callbacks.connect_indication=x25_asy_connected;
+-	x25_asy_callbacks.disconnect_confirmation=x25_asy_disconnected;
+-	x25_asy_callbacks.disconnect_indication=x25_asy_disconnected;
+-	x25_asy_callbacks.data_indication=x25_asy_data_indication;
+-	x25_asy_callbacks.data_transmit=x25_asy_data_transmit;
+-
+ 	if((err=lapb_register(sl, &x25_asy_callbacks))==LAPB_OK)
+ 		return 0;
+ 
+@@ -542,13 +518,16 @@ static int x25_asy_close(struct net_devi
+ 	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
+ 	int err;
+ 
+-	if (sl->tty == NULL)
+-		return -EBUSY;
++	spin_lock(&sl->lock);
++	if (sl->tty) 
++		sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
+ 
+-	sl->tty->flags &= ~(1 << TTY_DO_WRITE_WAKEUP);
+ 	netif_stop_queue(dev);
++	sl->rcount = 0;
++	sl->xleft  = 0;
+ 	if((err=lapb_unregister(sl))!=LAPB_OK)
+ 		printk(KERN_ERR "x25_asy_close: lapb_unregister error -%d\n",err);
++	spin_unlock(&sl->lock);
+ 	return 0;
+ }
+ 
+@@ -571,20 +550,12 @@ static void x25_asy_receive_buf(struct t
+ 	if (!sl || sl->magic != X25_ASY_MAGIC || !netif_running(sl->dev))
+ 		return;
+ 
+-	/*
+-	 * Argh! mtu change time! - costs us the packet part received
+-	 * at the change
+-	 */
+-	if (sl->mtu != sl->dev->mtu)  {
+-
+-		x25_asy_changed_mtu(sl);
+-	}
+ 
+ 	/* Read the characters out of the buffer */
+ 	while (count--) {
+ 		if (fp && *fp++) {
+ 			if (!test_and_set_bit(SLF_ERROR, &sl->flags))  {
+-				sl->rx_errors++;
++				sl->stats.rx_errors++;
+ 			}
+ 			cp++;
+ 			continue;
+@@ -659,27 +630,14 @@ static void x25_asy_close_tty(struct tty
+ 	tty->disc_data = 0;
+ 	sl->tty = NULL;
+ 	x25_asy_free(sl);
+-	unregister_netdev(sl->dev);
+ }
+ 
+ 
+ static struct net_device_stats *x25_asy_get_stats(struct net_device *dev)
+ {
+-	static struct net_device_stats stats;
+ 	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
+ 
+-	memset(&stats, 0, sizeof(struct net_device_stats));
+-
+-	stats.rx_packets     = sl->rx_packets;
+-	stats.tx_packets     = sl->tx_packets;
+-	stats.rx_bytes	     = sl->rx_bytes;
+-	stats.tx_bytes	     = sl->tx_bytes;
+-	stats.rx_dropped     = sl->rx_dropped;
+-	stats.tx_dropped     = sl->tx_dropped;
+-	stats.tx_errors      = sl->tx_errors;
+-	stats.rx_errors      = sl->rx_errors;
+-	stats.rx_over_errors = sl->rx_over_errors;
+-	return (&stats);
++	return &sl->stats;
+ }
+ 
+ 
+@@ -757,7 +715,7 @@ static void x25_asy_unesc(struct x25_asy
+ 			sl->rbuff[sl->rcount++] = s;
+ 			return;
+ 		}
+-		sl->rx_over_errors++;
++		sl->stats.rx_over_errors++;
+ 		set_bit(SLF_ERROR, &sl->flags);
+ 	}
+ }
+@@ -799,18 +757,14 @@ static int x25_asy_open_dev(struct net_d
+ }
+ 
+ /* Initialise the X.25 driver.  Called by the device init code */
+-int x25_asy_init(struct net_device *dev)
++static void x25_asy_setup(struct net_device *dev)
+ {
+-	struct x25_asy *sl = (struct x25_asy*)(dev->priv);
+-
+-	if (sl == NULL)		/* Allocation failed ?? */
+-		return -ENODEV;
+-
+-	/* Set up the control block. (And clear statistics) */
++	struct x25_asy *sl = dev->priv;
+ 
+-	memset(sl, 0, sizeof (struct x25_asy));
+ 	sl->magic  = X25_ASY_MAGIC;
+ 	sl->dev	   = dev;
++	spin_lock_init(&sl->lock);
++	set_bit(SLF_INUSE, &sl->flags);
+ 
+ 	/*
+ 	 *	Finish setting up the DEVICE info. 
+@@ -823,6 +777,7 @@ int x25_asy_init(struct net_device *dev)
+ 	dev->open		= x25_asy_open_dev;
+ 	dev->stop		= x25_asy_close;
+ 	dev->get_stats	        = x25_asy_get_stats;
++	dev->change_mtu		= x25_asy_change_mtu;
+ 	dev->hard_header_len	= 0;
+ 	dev->addr_len		= 0;
+ 	dev->type		= ARPHRD_X25;
+@@ -830,8 +785,6 @@ int x25_asy_init(struct net_device *dev)
+ 
+ 	/* New-style flags. */
+ 	dev->flags		= IFF_NOARP;
+-
+-	return 0;
+ }
+ 
+ static struct tty_ldisc x25_ldisc = {
+@@ -853,13 +806,15 @@ static int __init init_x25_asy(void)
+ 
+ 	printk(KERN_INFO "X.25 async: version 0.00 ALPHA "
+ 			"(dynamic channels, max=%d).\n", x25_asy_maxdev );
+-	x25_asy_ctrls = kmalloc(sizeof(void*)*x25_asy_maxdev, GFP_KERNEL);
+-	if (!x25_asy_ctrls) {
++
++	x25_asy_devs = kmalloc(sizeof(struct net_device *)*x25_asy_maxdev, 
++			       GFP_KERNEL);
++	if (!x25_asy_devs) {
+ 		printk(KERN_WARNING "X25 async: Can't allocate x25_asy_ctrls[] "
+ 				"array! Uaargh! (-> No X.25 available)\n");
+ 		return -ENOMEM;
+ 	}
+-	memset(x25_asy_ctrls, 0, sizeof(void*)*x25_asy_maxdev); /* Pointers */
++	memset(x25_asy_devs, 0, sizeof(struct net_device *)*x25_asy_maxdev); 
+ 
+ 	return tty_register_ldisc(N_X25, &x25_ldisc);
+ }
+@@ -867,22 +822,29 @@ static int __init init_x25_asy(void)
+ 
+ static void __exit exit_x25_asy(void)
+ {
++	struct net_device *dev;
+ 	int i;
+ 
+ 	for (i = 0; i < x25_asy_maxdev; i++) {
+-		if (x25_asy_ctrls[i]) {
++		dev = x25_asy_devs[i];
++		if (dev) {
++			struct x25_asy *sl = dev->priv;
++
++			spin_lock_bh(&sl->lock);
++			if (sl->tty) 
++				tty_hangup(sl->tty);
++
++			spin_unlock_bh(&sl->lock);
+ 			/*
+ 			 * VSV = if dev->start==0, then device
+ 			 * unregistered while close proc.
+ 			 */
+-			if (netif_running(&(x25_asy_ctrls[i]->dev)))
+-				unregister_netdev(&(x25_asy_ctrls[i]->dev));
+-
+-			kfree(x25_asy_ctrls[i]);
++			unregister_netdev(dev);
++			kfree(dev);
+ 		}
+ 	}
+ 
+-	kfree(x25_asy_ctrls);
++	kfree(x25_asy_devs);
+ 	tty_register_ldisc(N_X25, NULL);
+ }
+ 
+diff -urNp -X dontdiff net-2.5/drivers/net/wan/x25_asy.h linux-2.5-net/drivers/net/wan/x25_asy.h
+--- net-2.5/drivers/net/wan/x25_asy.h	2003-08-01 11:11:42.000000000 -0700
++++ linux-2.5-net/drivers/net/wan/x25_asy.h	2003-07-30 14:29:19.000000000 -0700
+@@ -18,8 +18,9 @@ struct x25_asy {
+   int			magic;
+ 
+   /* Various fields. */
++  spinlock_t		lock;
+   struct tty_struct	*tty;		/* ptr to TTY structure		*/
+-  struct net_device		*dev;		/* easy for intr handling	*/
++  struct net_device	*dev;		/* easy for intr handling	*/
+ 
+   /* These are pointers to the malloc()ed frame buffers. */
+   unsigned char		*rbuff;		/* receiver buffer		*/
+@@ -29,17 +30,8 @@ struct x25_asy {
+   int                   xleft;          /* bytes left in XMIT queue     */
+ 
+   /* X.25 interface statistics. */
+-  unsigned long		rx_packets;	/* inbound frames counter	*/
+-  unsigned long         tx_packets;     /* outbound frames counter      */
+-  unsigned long		rx_bytes;	/* inbound byte counte		*/
+-  unsigned long         tx_bytes;       /* outbound byte counter	*/
+-  unsigned long         rx_errors;      /* Parity, etc. errors          */
+-  unsigned long         tx_errors;      /* Planned stuff                */
+-  unsigned long         rx_dropped;     /* No memory for skb            */
+-  unsigned long         tx_dropped;     /* When MTU change              */
+-  unsigned long         rx_over_errors; /* Frame bigger then X.25 buf.  */
++  struct net_device_stats stats;
+ 
+-  int			mtu;		/* Our mtu (to spot changes!)   */
+   int                   buffsize;       /* Max buffers sizes            */
+ 
+   unsigned long		flags;		/* Flag values/ mode etc	*/
