@@ -1,34 +1,37 @@
-From: Oliver Neukum <oliver@neukum.org>
+From: Tomas Carnecky <tom@dbservice.com>
 Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 20:30:04 +0100
-Message-ID: <200412172030.04831.oliver@neukum.org>
-References: <41C26DD1.7070006@trash.net> <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com> <41C330F7.4000806@dbservice.com>
+Date: Fri, 17 Dec 2004 20:34:55 +0100
+Message-ID: <41C334DF.107@dbservice.com>
+References: <Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com>	<41C2DCBC.1080302@dbservice.com> <20041217111634.740d4d46.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-os@analogic.com, Bill Davidsen <davidsen@tmr.com>,
-        James Morris <jmorris@redhat.com>, Patrick McHardy <kaber@trash.net>,
-        Bryan Fulton <bryan@coverity.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
+Cc: jmorris@redhat.com, kaber@trash.net, bryan@coverity.com,
+        netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tomas Carnecky <tom@dbservice.com>
-In-Reply-To: <41C330F7.4000806@dbservice.com>
-Content-Disposition: inline
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041217111634.740d4d46.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller wrote:
+> On Fri, 17 Dec 2004 14:18:52 +0100
+> Tomas Carnecky <tom@dbservice.com> wrote:
+> 
+> 
+>>IMHO such things (passing values between user/kernel space) should 
+>>always be checked.
+> 
+> 
+> As per Patrick's posting, which James was responding to, it is
+> checked at the level above this function.
 
-> But the difference between you example (cp /dev/zero /dev/mem) and 
-> passing unchecked data to the kernel is... you _can_ check the data and 
+Is only the capability checked or also the data passed to the kernel?
+It's not clear from Patricks reply:
+ > It is already checked in do_ip6t_set_ctl(). Otherwise anyone could
+ > replace iptables rules :)
+For me it seems that only CAP_NET_ADMIN is checked and not the data.
 
-This is the difference:
-static int open_port(struct inode * inode, struct file * filp)
-{
-	return capable(CAP_SYS_RAWIO) ? 0 : -EPERM;
-}
-(from mem.c)
-
-	Regards
-		Oliver
+tom
