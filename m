@@ -1,40 +1,33 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: 21 Sep 2004 22:57:26 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: 2.6.8.1 IPv6 Routing Problem
+Date: Tue, 21 Sep 2004 19:57:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095821845.1047.9.camel@jzny.localdomain>
-References: <E1C8way-0000aH-00@gondolin.me.apana.org.au>
-	 <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net>
-	 <20040919215915.GB9573@gondor.apana.org.au>
-	 <1095633569.1047.107.camel@jzny.localdomain>
-	 <20040919231734.GA10124@gondor.apana.org.au>
-	 <1095647944.1046.206.camel@jzny.localdomain>
-	 <20040920025802.GA11567@gondor.apana.org.au>
-	 <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net>
-	 <20040922000503.GA13218@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040921195752.015e3d1d.davem@davemloft.net>
+References: <20040919074605.GJ6005@sunbeam.de.gnumonks.org>
+	<Pine.LNX.4.44.0409200806460.22679-100000@netcore.fi>
+	<20040920.152012.114156249.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: pekkas@netcore.fi, laforge@gnumonks.org, netdev@oss.sgi.com,
+        usagi-users@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040922000503.GA13218@gondor.apana.org.au>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040920.152012.114156249.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-21 at 20:05, Herbert Xu wrote:
+On Mon, 20 Sep 2004 15:20:12 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
+> This behavior lives for years (AFAIK),
+> and we haven't got so many reports 
+> because people usually bring loopback device first.
+> 
+> I think the following message will help people, anyway.
 
-> Secondly each of your user-space messages is producing a number of
-> replies.  This should be done as a dump operation.  If you do it as
-> a dump operation, then you will never get overruns because the kernel
-> never sends more than the user can handle.
+If ipv6 has a dependency upon this, why doesn't it just
+bring the device up itself at this moment if necessary?
 
-This is not accurate. You will get overruns. Try adding a few thousand
-ipsec policies and then dumping them. Perhaps we can have the cb reset
-in case of overrun detection.
-
-cheers,
-jamal
+It is kind of silly to force this device up ordering
+upon people anyways.
