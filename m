@@ -1,51 +1,76 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] sctp/socket: fix printk arg. type
-Date: Mon, 15 Nov 2004 11:42:34 -0800
-Message-ID: <419906AA.8010705@osdl.org>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+Date: Mon, 15 Nov 2004 12:20:46 -0800
+Message-ID: <20041115122046.1413527e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090302010609050607090804"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, sri@us.ibm.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090302010609050607090804
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-fix printk argument type warning:
-net/sctp/socket.c:2672: warning: format argument is not a pointer (arg 5)
-
-diffstat:=
-   net/sctp/socket.c |    2 +-
-   1 files changed, 1 insertion(+), 1 deletion(-)
-
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
--- 
 
 
---------------090302010609050607090804
-Content-Type: text/x-patch;
- name="socket_printk.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="socket_printk.patch"
+Begin forwarded message:
 
-diff -Naurp ./net/sctp/socket.c~socket_printk ./net/sctp/socket.c
---- ./net/sctp/socket.c~socket_printk	2004-11-15 10:02:01.901678280 -0800
-+++ ./net/sctp/socket.c	2004-11-15 10:56:53.683251416 -0800
-@@ -2669,7 +2669,7 @@ static int sctp_getsockopt_sctp_status(s
- 		goto out;
- 	}
- 
--	SCTP_DEBUG_PRINTK("sctp_getsockopt_sctp_status(%d): %d %d %p\n",
-+	SCTP_DEBUG_PRINTK("sctp_getsockopt_sctp_status(%d): %d %d %d\n",
- 			  len, status.sstat_state, status.sstat_rwnd,
- 			  status.sstat_assoc_id);
- 
+Date: Mon, 15 Nov 2004 04:33:51 -0800
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
 
 
---------------090302010609050607090804--
+http://bugme.osdl.org/show_bug.cgi?id=3746
+
+           Summary: Bridge causes machine lockups
+    Kernel Version: 2.6.9
+            Status: NEW
+          Severity: high
+             Owner: acme@conectiva.com.br
+         Submitter: alchemyx@uznam.net.pl
+
+
+Distribution: Gentoo 2004.2 with vanilla kernel sources
+Hardware Environment: 2 x Xeon 2.80 GHz, 1GB RAM, 4 x e1000 NIC, 2 x e100 NIC
+Software Environment: bridge-utils-0.9.6, bridged 2x e100 and 3x e1000
+Problem Description:
+
+On my Linux box I have few scripts that modify entries in ebtables filtering
+chains. I have main chain called BLOCKED and in FORWARD chain I have entry "-j
+BLOCKED", which directs every bridged packet to BLOCKED chain. Blocked chain
+consists of entries:
+
+-s SO:ME:MA:CA:DD:R0 -j DROP
+-d SO:ME:MA:CA:DD:R0 -j DROP
+[... about 50 of them ...]
+-j RETURN
+
+It works fine. About twenty or thirty times a day, a script does 'iptables -F
+BLOCKED' and writes new entries into chain BLOCKED. Problem is that machine dies
+from time to time (under heavy network load it happens once a day). It just
+locks, nothing happenes, no oopses, or entries in logs. Then after 60 seconds,
+watchdog from Intel motherboard resets machine.
+
+Also I was doing some changes manually into chains and noticed that machine died
+after I have issued 'ebtables -F BLOCKED' (clearing the chain). Once again after
+60 seconds watchdog reset machine.
+
+Problem is present in 2.6.8.1 and 2.6.9 kernels. There was no such problem on
+2.4.26.
+
+The only weird thing I noticed is when I initalise my bridge, is something about
+that it can't get speed of some interfaces (guessing it is about e1000). I can't
+give you full error message at the moment, because those have been rotated by
+logrotate.
+
+Steps to reproduce:
+
+1. Set up a bridge consisting of few devices and having chains as described in
+"Problem description"
+2. Use high flow trough those devices (at least 50 megabits per second cumulative).
+3. Change chain BLOCKED few tens of time a day.
+4. Wait for lockup.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
