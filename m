@@ -1,95 +1,124 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: analysis of TCP window size issues still around - several reports / SACK involved?
-Date: Tue, 6 Jul 2004 11:35:03 +0200
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] allow modular mv64340_eth
+Date: Tue, 6 Jul 2004 12:36:45 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706093503.GA8147@outpost.ds9a.nl>
-References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org> <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br>
+Message-ID: <20040706103645.GA14521@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>,
-        "linux-kernel @ vger. kernel. org Stephen Hemminger" <shemminger@osdl.org>,
-        netdev@oss.sgi.com, alessandro.suardi@oracle.com, phyprabab@yahoo.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+To: jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <20040702013225.GA24707@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 01, 2004 at 10:32:25PM -0300, Arnaldo Carvalho de Melo wrote:
+Only tested together with some additional patches to make the driver
+work on PPC that need more work, but the changes are obvious.
 
-> > > Rather than using *tcp_prot.memory_pressure, just go back to looking at
-> > > tcp_memory_pressure.
-> > 
-> > Hehe, applied thanks Stephen.
 
-People,
-
-There are still persistent reports of TCP problems, even after patching away
-the memory_pressure pointer problem. From one trace I've seen, by Alessandro
-Suardi, but I lack the SACK knowledge to fully interpret these traces:
-
-22:42:40.890025 192.168.1.6.32843 > 204.152.189.116.http: S 1994994484:1994994484(0) win 5840 <mss 1460,sackOK,timestamp 4294940315 0,nop,wscale 7> (DF)
-22:42:41.143063 204.152.189.116.http > 192.168.1.6.32843: S 1404108869:1404108869(0) ack 1994994485 win 5792 <mss 1452,sackOK,timestamp 3383469176 4294940315,nop,wscale 0> (DF)
-22:42:41.143123 192.168.1.6.32843 > 204.152.189.116.http: . ack 1 win 45 <nop,nop,timestamp 4294940568 3383469176> (DF)
-
-Alessandro's machine does perform window scaling, tcpdump however does not
-understand that and neglects to multiply 45 by 2^7 (=5760). Kernel.org does do
-wscale, but defaults to 2^0.
-
-22:42:41.143362 192.168.1.6.32843 > 204.152.189.116.http: P 1:421(420) ack 1 win 45 <nop,nop,timestamp 4294940568 3383469176> (DF)
-
-Alessandro's machine sends a GET request.
-
-22:42:41.147669 204.152.189.116.http > 192.168.1.6.32843: S 1404108869:1404108869(0) ack 1994994485 win 5792 <mss 1452,sackOK,timestamp 3383469180 4294940315,nop,wscale 0> (DF)
-
-www.kernel.org acts like it did not see our ACK.
-
-22:42:41.147723 192.168.1.6.32843 > 204.152.189.116.http: . ack 1 win 45 <nop,nop,timestamp 4294940572 3383469180,nop,nop,sack sack 1 {0:1} > (DF)
-
-Allessandro's machine sends a selective ACK - could have gotten away with a
-regular one I'd think?
-
-22:42:41.408763 204.152.189.116.http > 192.168.1.6.32843: . ack 421 win 6432 <nop,nop,timestamp 3383469440 4294940568> (DF)
-
-www.kernel.org acks the GET, but from then on does not send anything.
-
-After a minute, Alessandro gets bored and presses STOP in Mozilla:
-
-22:43:41.051537 192.168.1.6.32843 > 204.152.189.116.http: F 421:421(0) ack 1 win 45 <nop,nop,timestamp 33189 3383469440> (DF)
-
-k.o acks this FIN, but also sends a selective ack:
-
-22:43:41.304371 204.152.189.116.http > 192.168.1.6.32843: . ack 422 win 6432 <nop,nop,timestamp 3383529343 33189,nop,nop,sack sack 1 {421:422} > (DF)
-
-Here are the underlying reports:
-
-http://lkml.org/lkml/2004/7/4/116 (Alessandro Suardi)
-	The _only_ site I found I can browse without disabling TCP
-	  window scaling is http://www.google.it.
-
-	tcpdump at: http://xoomer.virgilio.it/incident/tcpdump.out 
-
-http://lkml.org/lkml/2004/7/5/105 (Phy Prabab)
-	Concerning my issue with ftp'ing from remote sites,
-	using these sysctl's I was able to get the performance
-	back:
-
-	net.ipv4.tcp_default_win_scale=0
-	net.ipv4.tcp_moderate_rcvbuf=0
-
-	2.6.7-bk18 w/out sysctls:
-	2573621 bytes received in 2e+02 seconds (12 Kbytes/s)
-
-	2.6.7-bk18 w/sysctls:
-	2573621 bytes received in 0.69 seconds (3.6e+03
-	Kbytes/s)
-
-These both refer to bk after the *tcp_prot.memory_pressure patch was
-applied.
-
-Thanks for your attention.
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+--- a/drivers/net/Kconfig~	2004-07-06 14:32:32.380761120 +0200
++++ b/drivers/net/Kconfig	2004-07-06 14:32:40.494527640 +0200
+@@ -2132,7 +2132,7 @@
+ 	  will be called tg3.  This is recommended.
+ 
+ config MV64340_ETH
+-	bool "MV-64340 Ethernet support"
++	tristate "MV-64340 Ethernet support"
+ 	depends on MOMENCO_OCELOT_C || MOMENCO_JAGUAR_ATX
+ 	help
+ 	  This driver supports the gigabit Ethernet on the Marvell MV64340
+--- a/drivers/net/mv64340_eth.c~	2004-07-06 14:26:47.163242160 +0200
++++ b/drivers/net/mv64340_eth.c	2004-07-06 14:32:15.198373240 +0200
+@@ -1316,7 +1316,7 @@
+  * Input : number of port to initialize
+  * Output : -ENONMEM if failed , 0 if success
+  */
+-static int mv64340_eth_init(int port_num)
++static struct net_device *mv64340_eth_init(int port_num)
+ {
+ 	struct mv64340_private *mp;
+ 	struct net_device *dev;
+@@ -1324,7 +1324,7 @@
+ 
+ 	dev = alloc_etherdev(sizeof(struct mv64340_private));
+ 	if (!dev)
+-		return -ENOMEM;
++		return NULL;
+ 
+ 	mp = netdev_priv(dev);
+ 
+@@ -1395,14 +1395,27 @@
+ 	printk("RX NAPI Enabled \n");
+ #endif
+ 
+-	return 0;
++	return dev;
+ 
+ out_free_dev:
+ 	free_netdev(dev);
+ 
+-	return err;
++	return NULL;
++}
++
++static void mv64340_eth_remove(struct net_device *dev)
++{
++	struct mv64340_private *mp = netdev_priv(dev);
++
++	unregister_netdev(dev);
++	flush_scheduled_work();
++	free_netdev(dev);
+ }
+ 
++static struct net_device *mv64340_dev0;
++static struct net_device *mv64340_dev1;
++static struct net_device *mv64340_dev2;
++
+ /*
+  * mv64340_init_module
+  *
+@@ -1415,20 +1428,24 @@
+ static int __init mv64340_init_module(void)
+ {
+ 	printk(KERN_NOTICE "MV-64340 10/100/1000 Ethernet Driver\n");
++
+ #ifdef CONFIG_MV64340_ETH_0
+-	if (mv64340_eth_init(0)) {
++	mv64340_dev0 = mv64340_eth_init(0);
++	if (!mv64340_dev0) {
+ 		printk(KERN_ERR
+ 		       "Error registering MV-64360 ethernet port 0\n");
+ 	}
+ #endif
+ #ifdef CONFIG_MV64340_ETH_1
+-	if (mv64340_eth_init(1)) {
++	mv64340_dev1 = mv64340_eth_init(1);
++	if (!mv64340_dev1) {
+ 		printk(KERN_ERR
+ 		       "Error registering MV-64360 ethernet port 1\n");
+ 	}
+ #endif
+ #ifdef CONFIG_MV64340_ETH_2
+-	if (mv64340_eth_init(2)) {
++	mv64340_dev2 = mv64340_eth_init(2);
++	if (!mv64340_dev2) {
+ 		printk(KERN_ERR
+ 		       "Error registering MV-64360 ethernet port 2\n");
+ 	}
+@@ -1445,9 +1462,14 @@
+  *
+  * Output : N/A
+  */
+-static void __init mv64340_cleanup_module(void)
++static void __exit mv64340_cleanup_module(void)
+ {
+-	/* Nothing to do here ! it's not a removable module */
++	if (mv64340_dev2)
++		mv64340_eth_remove(mv64340_dev2);
++	if (mv64340_dev1)
++		mv64340_eth_remove(mv64340_dev1);
++	if (mv64340_dev0)
++		mv64340_eth_remove(mv64340_dev0);
+ }
+ 
+ module_init(mv64340_init_module);
