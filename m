@@ -1,784 +1,609 @@
-From: Felipe W Damasio <felipewd@terra.com.br>
-Subject: [PATCH] SMP support and perfomance improvement in 3c527 net driver
-Date: Mon, 06 Oct 2003 16:31:23 -0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F81C30B.7080106@terra.com.br>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: [PATCH/RFC] Let {ip,arp}tables "see" bridged VLAN tagged {I,AR}P
+	packets
+Date: Mon, 6 Oct 2003 22:04:07 +0200
+Sender: vlan-bounces@wanfear.com
+Message-ID: <200310062204.07230.bdschuym@pandora.be>
+Reply-To: "Linux 802.1Q VLAN" <vlan@wanfear.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010003080109070003070903"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Richard Procter <rnp@paradise.net.nz>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Return-path: <vlan-bounces@wanfear.com>
+To: netdev@oss.sgi.com, bridge <bridge@osdl.org>,
+        "David S.Miller" <davem@redhat.com>,
+        Ben Greear <greearb@candelatech.com>, vlan@wanfear.com,
+        Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+List-Unsubscribe: <http://www.WANfear.com/mailman/listinfo/vlan>,
+	<mailto:vlan-request@wanfear.com?subject=unsubscribe>
+List-Archive: <http://ns1.wanfear.com/pipermail/vlan>
+List-Post: <mailto:vlan@wanfear.com>
+List-Help: <mailto:vlan-request@wanfear.com?subject=help>
+List-Subscribe: <http://www.WANfear.com/mailman/listinfo/vlan>,
+	<mailto:vlan-request@wanfear.com?subject=subscribe>
+Errors-To: vlan-bounces@wanfear.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010003080109070003070903
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi all,
 
-	Hi Jeff/Richard,
+The patch below does four trivial changes and one big change
+Trivial changes, these are all in br_netfilter.c:
+- check ar_pln==4 when giving bridged ARP packets to arptables
+- delete unnecessary if in br_nf_local_in
+- add more logging for the "Argh" message
+- add some brag-comments in the file head comment
 
-	Richard Procter and I worked to remove cli/sti to add proper SMP 
-support (I did the original stuff and Richard did the actual current 
-code :)).
+Big change: let {ip,arp}tables see VLAN tagged {I,AR}P packets.
+This patch also makes an oops go away when locally generated packets
+are sent through something like br0.1000.
 
-	Besides that, Richard did a great jog improving the perfomance of the 
-driver quite a bit:
+This is what the patch does:
+- add vlan_dev_hard_start_xmit_p, because br_netfilter.c needs to know
+the address of vlan_dev_hard_start_xmit(). When the local machine sends
+a packet through br0.1000, we need to allow filtering in LOCAL_OUT/FILTER
+on the bridge out port, so we need to be able to postpone the iptables
+filtering.
+- add nf_bridge->netoutdev for vlan. When the local machine sends a
+packet through br0.1000, iptables -o br0.1000 should match instead of
+iptables -o br0. In the bridge code, it is not known that the out device
+was br0.1000, so we need to save this info in nf_bridge->netoutdev.
+- change nf_bridge->hh size to 18, which is the Ethernet header size +
+VLAN header size.
+- add BRNF_NF_BRIDGE_PREROUTING mask, to make sure the iptables PREROUTING
+chain isn't traversed twice. The old mechanism isn't satisfactory when
+the bridge port is a VLAN tagged device.
+- add some code in vlan_dev.c::vlan_dev_hard_start_xmit():
+skb->protocol = __constant_htons(ETH_P_8021Q);
+skb->mac.raw -= VLAN_HLEN;
+skb->nh.raw -= VLAN_HLEN;
+When the logical VLAN device adds its VLAN header to the packet, I think
+it should update the skb. The protocol then becomes VLAN, the Ethernet
+header pointer should be updated correctly. Also, the network header
+pointer should now point to the VLAN header.
+This code is needed for the code in br_netfilter.c to work, without it
+things will get more complicated inside br_netfilter.c.
+I can put it between an #ifdef CONFIG_BRIDGE_NETFILTER if you like, but
+I think that to keep the skb correct these changes should always happen.
+- {arp,ip}tables can filter the VLAN tagged packets thanks to some
+playing around with the skb->data and skb->nh.raw pointer inside
+br_netfilter.c.
 
-	- Improve mc32_command by 770% (438% non-inlined) over the semaphore 
-version (at a cost of 1 sem + 2 completions per driver).
+When br0.1000 (or the like) exists, this is what happens to the
+device matching in {eb,ip}tables:
+Suppose a frame arrives on br0: in PREROUTING the (logical) in-dev is
+br0. When the frame is bridged, the in-dev remains br0. When the frame
+is destined for the bridge box, the in-dev for iptables LOCAL_IN becomes
+br0.1000, for ebtables LOCAL_IN it remains br0.
+Suppose the bridge box sends a locally generated IP packet through
+br0.1000. The out-dev for iptables is br0.1000, the out-dev for ebtables
+is br0.
 
-	- Removed mutex covering mc32_send_packet (hard_start_xmit). This 
-lets the interrupt handler operate concurrently and removes 
-unnecessary locking. It makes the code only slightly more brittle
+Comments are welcome.
+If people could test this patch and give feedback, that would be great.
 
-	Original post:
+cheers,
+Bart
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=106438449315202&w=2
 
-	Since it didn't apply cleanly against 2.6.0-test6, I forward ported 
-it. Patch attached.
-
-	Jeff, please consider applying,
-
-	Thanks.
-
-Felipe
-
---------------010003080109070003070903
-Content-Type: text/plain;
- name="3c527-cli_sti_removal.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="3c527-cli_sti_removal.patch"
-
---- linux-2.6.0-test6/drivers/net/3c527.c.orig	2003-10-06 15:21:38.000000000 -0300
-+++ linux-2.6.0-test6/drivers/net/3c527.c	2003-10-06 16:18:32.000000000 -0300
-@@ -1,9 +1,10 @@
--/* 3c527.c: 3Com Etherlink/MC32 driver for Linux 2.4
-+/* 3c527.c: 3Com Etherlink/MC32 driver for Linux 2.4 and 2.6.
-  *
-  *	(c) Copyright 1998 Red Hat Software Inc
-  *	Written by Alan Cox. 
-  *	Further debugging by Carl Drougge.
-- *      Modified by Richard Procter (rnp@netlink.co.nz)
-+ *      Initial SMP support by Felipe W Damasio <felipewd@terra.com.br>
-+ *      Heavily modified by Richard Procter <rnp@paradise.net.nz>
-  *
-  *	Based on skeleton.c written 1993-94 by Donald Becker and ne2.c
-  *	(for the MCA stuff) written by Wim Dumon.
-@@ -17,11 +18,11 @@
-  */
+--- linux-2.6.0-test6/net/8021q/vlan.c	Sun Sep 28 02:50:40 2003
++++ linux-2.6.0-test6-new/net/8021q/vlan.c	Sun Oct  5 21:56:15 2003
+@@ -103,6 +103,9 @@ static int __init vlan_proto_init(void)
  
- #define DRV_NAME		"3c527"
--#define DRV_VERSION		"0.6a"
--#define DRV_RELDATE		"2001/11/17"
-+#define DRV_VERSION		"0.7-SMP"
-+#define DRV_RELDATE		"2003/10/06"
+ 	vlan_ioctl_set(vlan_ioctl_handler);
  
- static const char *version =
--DRV_NAME ".c:v" DRV_VERSION " " DRV_RELDATE " Richard Proctor (rnp@netlink.co.nz)\n";
-+DRV_NAME ".c:v" DRV_VERSION " " DRV_RELDATE " Richard Procter <rnp@paradise.net.nz>\n";
- 
- /**
-  * DOC: Traps for the unwary
-@@ -100,7 +101,9 @@
- #include <linux/string.h>
- #include <linux/wait.h>
- #include <linux/ethtool.h>
-+#include <linux/completion.h>
- 
-+#include <asm/semaphore.h>
- #include <asm/uaccess.h>
- #include <asm/system.h>
- #include <asm/bitops.h>
-@@ -152,8 +155,10 @@
- /* Information that needs to be kept for each board. */
- struct mc32_local 
- {
--	struct net_device_stats net_stats;
- 	int slot;
-+	
-+	u32 base;
-+	struct net_device_stats net_stats;
- 	volatile struct mc32_mailbox *rx_box;
- 	volatile struct mc32_mailbox *tx_box;
- 	volatile struct mc32_mailbox *exec_box;
-@@ -163,22 +168,22 @@
-         u16 tx_len;             /* Transmit list count */ 
-         u16 rx_len;             /* Receive list count */
- 
--	u32 base;
--	u16 exec_pending;
--	u16 mc_reload_wait;	/* a multicast load request is pending */
-+	u16 xceiver_desired_state; /* HALTED or RUNNING */ 
-+	u16 cmd_nonblocking;    /* Thread is uninterested in command result */ 
-+	u16 mc_reload_wait;     /* A multicast load request is pending */
- 	u32 mc_list_valid;	/* True when the mclist is set */
--	u16 xceiver_state;      /* Current transceiver state. bitmapped */ 
--	u16 desired_state;      /* The state we want the transceiver to be in */ 
--	atomic_t tx_count;	/* buffers left */
--	wait_queue_head_t event;
- 
- 	struct mc32_ring_desc tx_ring[TX_RING_LEN];	/* Host Transmit ring */
- 	struct mc32_ring_desc rx_ring[RX_RING_LEN];	/* Host Receive ring */
- 
--	u16 tx_ring_tail;       /* index to tx de-queue end */
--	u16 tx_ring_head;       /* index to tx en-queue end */
--
-+	atomic_t tx_count;      /* buffers left */
-+	volatile u16 tx_ring_head; /* index to tx en-queue end */
-+	u16 tx_ring_tail;          /* index to tx de-queue end */
- 	u16 rx_ring_tail;       /* index to rx de-queue end */ 
-+
-+	struct semaphore cmd_mutex;    /* Serialises issuing of execute commands */
-+	struct completion execution_cmd; /* Card has completed an execute command */
-+	struct completion xceiver_cmd;   /* Card has completed a tx or rx command */  
- };
- 
- /* The station (ethernet) address prefix, used for a sanity check. */
-@@ -234,7 +239,6 @@
- {
- 	static int current_mca_slot = -1;
- 	int i;
--	int adapter_found = 0;
- 
- 	SET_MODULE_OWNER(dev);
- 
-@@ -245,11 +249,11 @@
- 	   Autodetecting MCA cards is extremely simple. 
- 	   Just search for the card. */
- 
--	for(i = 0; (mc32_adapters[i].name != NULL) && !adapter_found; i++) {
-+	for(i = 0; (mc32_adapters[i].name != NULL); i++) {
- 		current_mca_slot = 
- 			mca_find_unused_adapter(mc32_adapters[i].id, 0);
- 
--		if((current_mca_slot != MCA_NOTFOUND) && !adapter_found) {
-+		if(current_mca_slot != MCA_NOTFOUND) {
- 			if(!mc32_probe1(dev, current_mca_slot))
- 			{
- 				mca_set_adapter_name(current_mca_slot, 
-@@ -407,7 +411,7 @@
- 	 *	Grab the IRQ
- 	 */
- 
--	i = request_irq(dev->irq, &mc32_interrupt, SA_SHIRQ, dev->name, dev);
-+	i = request_irq(dev->irq, &mc32_interrupt, SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
- 	if (i) {
- 		release_region(dev->base_addr, MC32_IO_EXTENT);
- 		printk(KERN_ERR "%s: unable to get IRQ %d.\n", dev->name, dev->irq);
-@@ -496,7 +500,9 @@
- 	lp->tx_len 		= lp->exec_box->data[9];   /* Transmit list count */ 
- 	lp->rx_len 		= lp->exec_box->data[11];  /* Receive list count */
- 
--	init_waitqueue_head(&lp->event);
-+	init_MUTEX_LOCKED(&lp->cmd_mutex);
-+	init_completion(&lp->execution_cmd);
-+	init_completion(&lp->xceiver_cmd);
- 	
- 	printk("%s: Firmware Rev %d. %d RX buffers, %d TX buffers. Base of 0x%08X.\n",
- 		dev->name, lp->exec_box->data[12], lp->rx_len, lp->tx_len, lp->base);
-@@ -510,10 +516,6 @@
- 	dev->watchdog_timeo	= HZ*5;	/* Board does all the work */
- 	dev->ethtool_ops	= &netdev_ethtool_ops;
- 	
--	lp->xceiver_state = HALTED; 
--	
--	lp->tx_ring_tail=lp->tx_ring_head=0;
--
- 	/* Fill in the fields of the device structure with ethernet values. */
- 	ether_setup(dev);
- 	
-@@ -537,7 +539,7 @@
-  *	status of any pending commands and takes very little time at all.
-  */
-  
--static void mc32_ready_poll(struct net_device *dev)
-+static inline void mc32_ready_poll(struct net_device *dev)
- {
- 	int ioaddr = dev->base_addr;
- 	while(!(inb(ioaddr+HOST_STATUS)&HOST_STATUS_CRR));
-@@ -552,31 +554,36 @@
-  *	@len: Length of the data block
-  *
-  *	Send a command from interrupt state. If there is a command
-- *	currently being executed then we return an error of -1. It simply
-- *	isn't viable to wait around as commands may be slow. Providing we
-- *	get in, we busy wait for the board to become ready to accept the
-- *	command and issue it. We do not wait for the command to complete
-- *	--- the card will interrupt us when it's done.
-+ *	currently being executed then we return an error of -1. It
-+ *	simply isn't viable to wait around as commands may be
-+ *	slow. This can theoretically be starved on SMP, but it's hard
-+ *	to see a realistic situation.  We do not wait for the command
-+ *	to complete --- we rely on the interrupt handler to tidy up
-+ *	after us.
-  */
- 
- static int mc32_command_nowait(struct net_device *dev, u16 cmd, void *data, int len)
- {
- 	struct mc32_local *lp = (struct mc32_local *)dev->priv;
- 	int ioaddr = dev->base_addr;
--
--	if(lp->exec_pending)
--		return -1;
-+	int ret = -1;
- 	
--	lp->exec_pending=3;
--	lp->exec_box->mbox=0;
--	lp->exec_box->mbox=cmd;
--	memcpy((void *)lp->exec_box->data, data, len);
--	barrier();	/* the memcpy forgot the volatile so be sure */
-+	if (down_trylock(&lp->cmd_mutex) == 0) 
-+	{
-+		lp->cmd_nonblocking=1;
-+		lp->exec_box->mbox=0;
-+		lp->exec_box->mbox=cmd;
-+		memcpy((void *)lp->exec_box->data, data, len);
-+		barrier();      /* the memcpy forgot the volatile so be sure */
-+		
-+		/* Send the command */
-+		mc32_ready_poll(dev);
-+		outb(1<<6, ioaddr+HOST_CMD);
- 
--	/* Send the command */
--	while(!(inb(ioaddr+HOST_STATUS)&HOST_STATUS_CRR));
--	outb(1<<6, ioaddr+HOST_CMD);	
--	return 0;
-+		ret = 0;
-+		/* Interrupt handler will signal mutex on completion */ 
-+	}
-+	return ret;
- }
- 
- 
-@@ -590,7 +597,7 @@
-  *	Sends exec commands in a user context. This permits us to wait around
-  *	for the replies and also to wait for the command buffer to complete
-  *	from a previous command before we execute our command. After our 
-- *	command completes we will complete any pending multicast reload
-+ *	command completes we will attempt any pending multicast reload
-  *	we blocked off by hogging the exec buffer.
-  *
-  *	You feed the card a command, you wait, it interrupts you get a 
-@@ -598,66 +605,37 @@
-  *	commands for filter list changes which come in at bh level from things
-  *	like IPV6 group stuff.
-  *
-- *	We have a simple state machine
-- *
-- *	0	- nothing issued
-- *
-- *	1	- command issued, wait reply
-- *
-- *	2	- reply waiting - reader then goes to state 0
-- *
-- *	3	- command issued, trash reply. In which case the irq
-- *		  takes it back to state 0
-- *
-  */
-   
- static int mc32_command(struct net_device *dev, u16 cmd, void *data, int len)
- {
- 	struct mc32_local *lp = (struct mc32_local *)dev->priv;
- 	int ioaddr = dev->base_addr;
--	unsigned long flags;
- 	int ret = 0;
-+
-+	down(&lp->cmd_mutex);
- 	
- 	/*
--	 *	Wait for a command
--	 */
--	 
--	save_flags(flags);
--	cli();
--	 
--	while(lp->exec_pending)
--		sleep_on(&lp->event);
--		
--	/*
--	 *	Issue mine
-+	 *	My turn
- 	 */
- 
--	lp->exec_pending=1;
--	
--	restore_flags(flags);
--	
-+	lp->cmd_nonblocking=0;
- 	lp->exec_box->mbox=0;
- 	lp->exec_box->mbox=cmd;
- 	memcpy((void *)lp->exec_box->data, data, len);
- 	barrier();	/* the memcpy forgot the volatile so be sure */
- 
--	/* Send the command */
--	while(!(inb(ioaddr+HOST_STATUS)&HOST_STATUS_CRR));
--	outb(1<<6, ioaddr+HOST_CMD);	
--
--	save_flags(flags);
--	cli();
-+	mc32_ready_poll(dev);
-+	outb(1<<6, ioaddr+HOST_CMD);
- 
--	while(lp->exec_pending!=2)
--		sleep_on(&lp->event);
--	lp->exec_pending=0;
--	restore_flags(flags);
-+	wait_for_completion(&lp->execution_cmd);
- 	
- 	if(lp->exec_box->mbox&(1<<13))
- 		ret = -1;
- 
-+	up(&lp->cmd_mutex);
- 	/*
--	 *	A multicast set got blocked - do it now
-+	 *	A multicast set got blocked - try it now
- 	 */
- 		
- 	if(lp->mc_reload_wait)
-@@ -676,10 +654,8 @@
-  *	This may be called from the interrupt state, where it is used
-  *	to restart the rx ring if the card runs out of rx buffers. 
-  *	
-- * 	First, we check if it's ok to start the transceiver. We then show
-- * 	the card where to start in the rx ring and issue the
-- * 	commands to start reception and transmission. We don't wait
-- * 	around for these to complete.
-+ *	We must first check if it's ok to (re)start the transceiver. See
-+ *	mc32_close for details.
-  */ 
- 
- static void mc32_start_transceiver(struct net_device *dev) {
-@@ -688,24 +664,20 @@
- 	int ioaddr = dev->base_addr;
- 
- 	/* Ignore RX overflow on device closure */ 
--	if (lp->desired_state==HALTED)  
-+	if (lp->xceiver_desired_state==HALTED)  
- 		return; 
- 
-+	/* Give the card the offset to the post-EOL-bit RX descriptor */
- 	mc32_ready_poll(dev); 
--
--	lp->tx_box->mbox=0;
- 	lp->rx_box->mbox=0;
--
--	/* Give the card the offset to the post-EOL-bit RX descriptor */ 
- 	lp->rx_box->data[0]=lp->rx_ring[prev_rx(lp->rx_ring_tail)].p->next; 
--
- 	outb(HOST_CMD_START_RX, ioaddr+HOST_CMD);      
- 
- 	mc32_ready_poll(dev); 
-+	lp->tx_box->mbox=0;
- 	outb(HOST_CMD_RESTRT_TX, ioaddr+HOST_CMD);   /* card ignores this on RX restart */ 
- 	
- 	/* We are not interrupted on start completion */ 
--	lp->xceiver_state=RUNNING; 
- }
- 
- 
-@@ -725,24 +697,18 @@
- {
- 	struct mc32_local *lp = (struct mc32_local *)dev->priv;
- 	int ioaddr = dev->base_addr;
--	unsigned long flags;
- 
- 	mc32_ready_poll(dev);	
- 
--	lp->tx_box->mbox=0;
- 	lp->rx_box->mbox=0;
- 
- 	outb(HOST_CMD_SUSPND_RX, ioaddr+HOST_CMD);			
-+	wait_for_completion(&lp->xceiver_cmd);
-+	
- 	mc32_ready_poll(dev); 
-+	lp->tx_box->mbox=0;
- 	outb(HOST_CMD_SUSPND_TX, ioaddr+HOST_CMD);	
--		
--	save_flags(flags);
--	cli();
--		
--	while(lp->xceiver_state!=HALTED) 
--		sleep_on(&lp->event); 
--		
--	restore_flags(flags);	
-+	wait_for_completion(&lp->xceiver_cmd);
- } 
- 
- 
-@@ -754,7 +720,7 @@
-  *	the point where mc32_start_transceiver() can be called.
-  *
-  *	The card sets up the receive ring for us. We are required to use the
-- *	ring it provides although we can change the size of the ring.
-+ *	ring it provides, although the size of the ring is configurable.
-  *
-  * 	We allocate an sk_buff for each ring entry in turn and
-  * 	initalise its house-keeping info. At the same time, we read
-@@ -775,7 +741,7 @@
- 	
- 	rx_base=lp->rx_chain;
- 
--	for(i=0;i<RX_RING_LEN;i++)
-+	for(i=0; i<RX_RING_LEN; i++)
- 	{
- 		lp->rx_ring[i].skb=alloc_skb(1532, GFP_KERNEL);
- 		skb_reserve(lp->rx_ring[i].skb, 18);  
-@@ -812,21 +778,20 @@
-  *
-  *	Free the buffer for each ring slot. This may be called 
-  *      before mc32_load_rx_ring(), eg. on error in mc32_open().
-+ *      Requires rx skb pointers to point to a valid skb, or NULL. 
-  */
- 
- static void mc32_flush_rx_ring(struct net_device *dev)
- {
- 	struct mc32_local *lp = (struct mc32_local *)dev->priv;
- 	
--	struct sk_buff *skb;
- 	int i; 
- 
- 	for(i=0; i < RX_RING_LEN; i++) 
--	{ 
--		skb = lp->rx_ring[i].skb;
--		if (skb!=NULL) {
--			kfree_skb(skb);
--			skb=NULL; 
-+	{
-+		if (lp->rx_ring[i].skb) {
-+			dev_kfree_skb(lp->rx_ring[i].skb);
-+			lp->rx_ring[i].skb = NULL;
- 		}
- 		lp->rx_ring[i].p=NULL; 
- 	} 
-@@ -858,7 +823,7 @@
- 
- 	tx_base=lp->tx_box->data[0]; 
- 
--	for(i=0;i<lp->tx_len;i++) 
-+	for(i=0 ; i<TX_RING_LEN ; i++)
- 	{
- 		p=isa_bus_to_virt(lp->base+tx_base);
- 		lp->tx_ring[i].p=p; 
-@@ -868,8 +833,8 @@
- 	}
- 
- 	/* -1 so that tx_ring_head cannot "lap" tx_ring_tail,           */
--	/* which would be bad news for mc32_tx_ring as cur. implemented */ 
--
-+	/* see mc32_tx_ring */
-+	
- 	atomic_set(&lp->tx_count, TX_RING_LEN-1); 
- 	lp->tx_ring_head=lp->tx_ring_tail=0; 
- } 
-@@ -878,45 +843,27 @@
- /**
-  *	mc32_flush_tx_ring 	-	free transmit ring
-  *	@lp: Local data of 3c527 to flush the tx ring of
-- *
-- *	We have to consider two cases here. We want to free the pending
-- *	buffers only. If the ring buffer head is past the start then the
-- *	ring segment we wish to free wraps through zero. The tx ring 
-- *	house-keeping variables are then reset.
-+ *	
-+ *      If the ring is non-empty, zip over the it, freeing any
-+ *      allocated skb_buffs.  The tx ring house-keeping variables are
-+ *      then reset. Requires rx skb pointers to point to a valid skb,
-+ *      or NULL.
-  */
- 
- static void mc32_flush_tx_ring(struct net_device *dev)
- {
- 	struct mc32_local *lp = (struct mc32_local *)dev->priv;
-+
-+	int i; 
- 	
--	if(lp->tx_ring_tail!=lp->tx_ring_head)
-+	for (i=0; i < TX_RING_LEN; i++) 
- 	{
--		int i;	
--		if(lp->tx_ring_tail < lp->tx_ring_head)
--		{
--			for(i=lp->tx_ring_tail;i<lp->tx_ring_head;i++)
--			{
--				dev_kfree_skb(lp->tx_ring[i].skb);
--				lp->tx_ring[i].skb=NULL;
--				lp->tx_ring[i].p=NULL; 
--			}
--		}
--		else
-+		if (lp->tx_ring[i].skb) 
- 		{
--			for(i=lp->tx_ring_tail; i<TX_RING_LEN; i++) 
--			{
--				dev_kfree_skb(lp->tx_ring[i].skb);
--				lp->tx_ring[i].skb=NULL;
--				lp->tx_ring[i].p=NULL; 
--			}
--			for(i=0; i<lp->tx_ring_head; i++) 
--			{
--				dev_kfree_skb(lp->tx_ring[i].skb);
--				lp->tx_ring[i].skb=NULL;
--				lp->tx_ring[i].p=NULL; 
--			}
--		}
--	}
-+			dev_kfree_skb(lp->tx_ring[i].skb); 
-+			lp->tx_ring[i].skb = NULL; 
-+		} 
-+	}					
- 	
- 	atomic_set(&lp->tx_count, 0); 
- 	lp->tx_ring_tail=lp->tx_ring_head=0;
-@@ -955,9 +902,14 @@
- 	regs=inb(ioaddr+HOST_CTRL);
- 	regs|=HOST_CTRL_INTE;
- 	outb(regs, ioaddr+HOST_CTRL);
--	
- 
- 	/*
-+	 * 	Allow ourselves to issue commands
-+	 */
-+
-+	up(&lp->cmd_mutex);
-+	
-+	/*
- 	 *	Send the indications on command
- 	 */
- 
-@@ -1008,7 +960,7 @@
- 		return -ENOBUFS;
- 	}
- 
--	lp->desired_state = RUNNING; 
-+	lp->xceiver_desired_state = RUNNING;
- 	
- 	/* And finally, set the ball rolling... */
- 	mc32_start_transceiver(dev);
-@@ -1045,61 +997,64 @@
-  *	Transmit a buffer. This normally means throwing the buffer onto
-  *	the transmit queue as the queue is quite large. If the queue is
-  *	full then we set tx_busy and return. Once the interrupt handler
-- *	gets messages telling it to reclaim transmit queue entries we will
-+ *	gets messages telling it to reclaim transmit queue entries, we will
-  *	clear tx_busy and the kernel will start calling this again.
-  *
-- *	We use cli rather than spinlocks. Since I have no access to an SMP
-- *	MCA machine I don't plan to change it. It is probably the top 
-- *	performance hit for this driver on SMP however.
-+ *	We do not disable interrupts or acquire any locks; this can
-+ *	run concurrently with mc32_tx_ring(), and the function itself
-+ *	is serialised at a higher layer. However, this makes it
-+ *	crucial that we update lp->tx_ring_head only after we've
-+ *	established a valid packet in the tx ring (and is why we mark
-+ *	tx_ring_head volatile).
-  */
- 
- static int mc32_send_packet(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct mc32_local *lp = (struct mc32_local *)dev->priv;
--	unsigned long flags;
--
-+	
-+	u16 head = lp->tx_ring_head;
-+	
- 	volatile struct skb_header *p, *np;
- 
- 	netif_stop_queue(dev);
- 
--	save_flags(flags);
--	cli();
--		
--	if(atomic_read(&lp->tx_count)==0)
--	{
--		restore_flags(flags);
-+	if(atomic_read(&lp->tx_count)==0) {
- 		return 1;
- 	}
- 
-+	skb = skb_padto(skb, ETH_ZLEN);
-+	if (skb == NULL) { 
-+		netif_wake_queue(dev);
-+		return 0;
-+	}
-+	
- 	atomic_dec(&lp->tx_count); 
- 
- 	/* P is the last sending/sent buffer as a pointer */
--	p=lp->tx_ring[lp->tx_ring_head].p; 
--		
--	lp->tx_ring_head=next_tx(lp->tx_ring_head); 
--
-+	p=lp->tx_ring[head].p;	
-+	
-+	head = next_tx(head);
-+	
- 	/* NP is the buffer we will be loading */
--	np=lp->tx_ring[lp->tx_ring_head].p; 
-+	np=lp->tx_ring[head].p; 
-+	
-+	/* We will need this to flush the buffer out */
-+	lp->tx_ring[head].skb=skb;
- 
--   	if (skb->len < ETH_ZLEN) {
--   		skb = skb_padto(skb, ETH_ZLEN);
--   		if (skb == NULL)
--   			goto out;
--   	}
-+	np->length = unlikely(skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len;
- 
--	/* We will need this to flush the buffer out */
--	lp->tx_ring[lp->tx_ring_head].skb = skb;
--   	   
--	np->length = (skb->len < ETH_ZLEN) ? ETH_ZLEN : skb->len; 
--			
- 	np->data	= isa_virt_to_bus(skb->data);
- 	np->status	= 0;
- 	np->control     = CONTROL_EOP | CONTROL_EOL;     
- 	wmb();
--		
--	p->control     &= ~CONTROL_EOL;     /* Clear EOL on p */ 
--out:	
--	restore_flags(flags);
-+
-+	/*
-+	 * The new frame has been setup; we can now
-+	 * let the card and interrupt handler "see" it
-+	 */
-+
-+	p->control     &= ~CONTROL_EOL;
-+	lp->tx_ring_head= head;
- 
- 	netif_wake_queue(dev);
++#ifdef CONFIG_BRIDGE_NETFILTER
++	vlan_dev_hard_start_xmit_p = vlan_dev_hard_start_xmit;
++#endif
  	return 0;
-@@ -1180,11 +1135,11 @@
- {
- 	struct mc32_local *lp=dev->priv;		
- 	volatile struct skb_header *p;
--	u16 rx_ring_tail = lp->rx_ring_tail;
--	u16 rx_old_tail = rx_ring_tail; 
--
-+	u16 rx_ring_tail;
-+	u16 rx_old_tail; 
- 	int x=0;
--	
-+
-+	rx_old_tail = rx_ring_tail = lp->rx_ring_tail;
- 	do
- 	{ 
- 		p=lp->rx_ring[rx_ring_tail].p; 
-@@ -1273,8 +1228,13 @@
- 	struct mc32_local *lp=(struct mc32_local *)dev->priv;
- 	volatile struct skb_header *np;
- 
--	/* NB: lp->tx_count=TX_RING_LEN-1 so that tx_ring_head cannot "lap" tail here */
--
-+	/*
-+	 * We rely on head==tail to mean 'queue empty'. 
-+	 * This is why lp->tx_count=TX_RING_LEN-1: in order to prevent
-+	 * tx_ring_head wrapping to tail and confusing a 'queue empty'
-+	 * condition with 'queue full' 
-+	 */
-+	
- 	while (lp->tx_ring_tail != lp->tx_ring_head)  
- 	{   
- 		u16 t; 
-@@ -1386,8 +1346,7 @@
- 				break;
- 			case 3: /* Halt */
- 			case 4: /* Abort */
--				lp->xceiver_state |= TX_HALTED; 
--				wake_up(&lp->event);
-+				complete(&lp->xceiver_cmd);
- 				break;
- 			default:
- 				printk("%s: strange tx ack %d\n", dev->name, status&7);
-@@ -1402,8 +1361,7 @@
- 				break;
- 			case 3: /* Halt */
- 			case 4: /* Abort */
--				lp->xceiver_state |= RX_HALTED;
--				wake_up(&lp->event);
-+				complete(&lp->xceiver_cmd);
- 				break;
- 			case 6:
- 				/* Out of RX buffers stat */
-@@ -1419,26 +1377,17 @@
- 		status>>=3;
- 		if(status&1)
- 		{
-+			/*
-+			 * No thread is waiting: we need to tidy
-+			 * up ourself.
-+			 */
- 
--			/* 0=no 1=yes 2=replied, get cmd, 3 = wait reply & dump it */
--			
--			if(lp->exec_pending!=3) {
--				lp->exec_pending=2;
--				wake_up(&lp->event);
--			}
--			else 
--			{				
--			  	lp->exec_pending=0;
--
--				/* A new multicast set may have been
--				   blocked while the old one was
--				   running. If so, do it now. */
--				   
-+			if (lp->cmd_nonblocking) { 
-+				up(&lp->cmd_mutex);
- 				if (lp->mc_reload_wait) 
- 					mc32_reset_multicast_list(dev);
--				else 
--					wake_up(&lp->event);			       
- 			}
-+			else complete(&lp->execution_cmd);
- 		}
- 		if(status&2)
- 		{
-@@ -1496,7 +1445,7 @@
- 	u8 regs;
- 	u16 one=1;
- 	
--	lp->desired_state = HALTED;
-+	lp->xceiver_desired_state = HALTED;
- 	netif_stop_queue(dev);
- 
- 	/*
-@@ -1508,12 +1457,10 @@
- 	/* Shut down the transceiver */
- 
- 	mc32_halt_transceiver(dev); 
-+
-+	/* Ensure we issue no more commands beyond this point */
-+	down(&lp->cmd_mutex);
- 	
--	/* Catch any waiting commands */
--	
--	while(lp->exec_pending==1)
--		sleep_on(&lp->event);
--	       
- 	/* Ok the card is now stopping */	
- 	
- 	regs=inb(ioaddr+HOST_CTRL);
-@@ -1540,12 +1487,10 @@
- 
- static struct net_device_stats *mc32_get_stats(struct net_device *dev)
- {
--	struct mc32_local *lp;
-+	struct mc32_local *lp = (struct mc32_local *)dev->priv;;
- 	
- 	mc32_update_stats(dev); 
- 
--	lp = (struct mc32_local *)dev->priv;
--
- 	return &lp->net_stats;
  }
  
+@@ -125,6 +128,9 @@ static void __exit vlan_cleanup_devices(
+ 		}
+ 	}
+ 	rtnl_unlock();
++#ifdef CONFIG_BRIDGE_NETFILTER
++	vlan_dev_hard_start_xmit_p = NULL;
++#endif
+ }
+ 
+ /*
+--- linux-2.6.0-test6/net/core/dev.c	Sun Sep 28 02:50:20 2003
++++ linux-2.6.0-test6-new/net/core/dev.c	Sun Oct  5 21:56:15 2003
+@@ -1489,6 +1489,14 @@ static void net_tx_action(struct softirq
+ }
+ 
+ #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
++
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++#ifdef CONFIG_BRIDGE_NETFILTER
++/* net/bridge/br_netfilter.c needs the address of vlan_dev_hard_start_xmit */
++int (*vlan_dev_hard_start_xmit_p)(struct sk_buff *skb, struct net_device *dev);
++#endif
++#endif
++
+ int (*br_handle_frame_hook)(struct sk_buff *skb);
+ 
+ static __inline__ int handle_bridge(struct sk_buff *skb,
+--- linux-2.6.0-test6/include/linux/if_vlan.h	Sun Sep 28 02:50:10 2003
++++ linux-2.6.0-test6-new/include/linux/if_vlan.h	Sun Oct  5 21:56:15 2003
+@@ -54,6 +54,12 @@ struct vlan_hdr {
+ 
+ #define VLAN_VID_MASK	0xfff
+ 
++#ifdef CONFIG_BRIDGE_NETFILTER
++extern int (*vlan_dev_hard_start_xmit_p)(struct sk_buff *skb,
++					  struct net_device *dev);
++#endif
++
++
+ /* found in socket.c */
+ extern void vlan_ioctl_set(int (*hook)(unsigned long));
+ 
+--- linux-2.6.0-test6/net/netsyms.c	Sun Sep 28 02:50:17 2003
++++ linux-2.6.0-test6-new/net/netsyms.c	Sun Oct  5 21:56:15 2003
+@@ -236,6 +236,11 @@ EXPORT_SYMBOL(scm_detach_fds);
+ 
+ #if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
+ EXPORT_SYMBOL(br_handle_frame_hook);
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++#ifdef CONFIG_BRIDGE_NETFILTER
++EXPORT_SYMBOL(vlan_dev_hard_start_xmit_p);
++#endif
++#endif
+ #endif
+ 
+ #ifdef CONFIG_NET_DIVERT
+--- linux-2.6.0-test6/include/linux/skbuff.h	Sun Sep 28 02:50:29 2003
++++ linux-2.6.0-test6-new/include/linux/skbuff.h	Sun Oct  5 21:56:15 2003
+@@ -103,8 +103,11 @@ struct nf_bridge_info {
+ 	atomic_t use;
+ 	struct net_device *physindev;
+ 	struct net_device *physoutdev;
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++	struct net_device *netoutdev;
++#endif
+ 	unsigned int mask;
+-	unsigned long hh[16 / sizeof(unsigned long)];
++	unsigned char hh[18];
+ };
+ #endif
+ 
+--- linux-2.6.0-test6/include/linux/netfilter_bridge.h	Sun Sep 28 02:50:28 2003
++++ linux-2.6.0-test6-new/include/linux/netfilter_bridge.h	Mon Oct  6 20:56:42 2003
+@@ -8,6 +8,9 @@
+ #include <linux/netfilter.h>
+ #if defined(__KERNEL__) && defined(CONFIG_BRIDGE_NETFILTER)
+ #include <asm/atomic.h>
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++#include <linux/if_ether.h>
++#endif
+ #endif
+ 
+ /* Bridge Hooks */
+@@ -44,6 +47,7 @@ enum nf_br_hook_priorities {
+ #define BRNF_BRIDGED_DNAT		0x02
+ #define BRNF_DONT_TAKE_PARENT		0x04
+ #define BRNF_BRIDGED			0x08
++#define BRNF_NF_BRIDGE_PREROUTING	0x10
+ 
+ static inline
+ struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+@@ -54,9 +58,39 @@ struct nf_bridge_info *nf_bridge_alloc(s
+ 		atomic_set(&(*nf_bridge)->use, 1);
+ 		(*nf_bridge)->mask = 0;
+ 		(*nf_bridge)->physindev = (*nf_bridge)->physoutdev = NULL;
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++		(*nf_bridge)->netoutdev = NULL;
++#endif
+ 	}
+ 
+ 	return *nf_bridge;
++}
++
++/* Only used in br_forward.c */
++static inline
++void nf_bridge_maybe_copy_header(struct sk_buff *skb)
++{
++	if (skb->nf_bridge) {
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++			memcpy(skb->data - 18, skb->nf_bridge->hh, 18);
++			skb_push(skb, 4);
++		} else
++#endif
++			memcpy(skb->data - 16, skb->nf_bridge->hh, 16);
++	}
++}
++
++static inline
++void nf_bridge_save_header(struct sk_buff *skb)
++{
++        int header_size = 16;
++
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++	if (skb->protocol == __constant_htons(ETH_P_8021Q))
++		header_size = 18;
++#endif
++	memcpy(skb->nf_bridge->hh, skb->data - header_size, header_size);
+ }
+ 
+ struct bridge_skb_cb {
+--- linux-2.6.0-test6/net/bridge/br_forward.c	Sun Sep 28 02:50:15 2003
++++ linux-2.6.0-test6-new/net/bridge/br_forward.c	Mon Oct  6 20:19:32 2003
+@@ -35,8 +35,7 @@ int br_dev_queue_push_xmit(struct sk_buf
+ {
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	/* ip_refrag calls ip_fragment, which doesn't copy the MAC header. */
+-	if (skb->nf_bridge)
+-		memcpy(skb->data - 16, skb->nf_bridge->hh, 16);
++	nf_bridge_maybe_copy_header(skb);
+ #endif
+ 	skb_push(skb, ETH_HLEN);
+ 
+--- linux-2.6.0-test6/net/8021q/vlan_dev.c	Sun Sep 28 02:51:00 2003
++++ linux-2.6.0-test6-new/net/8021q/vlan_dev.c	Sun Oct  5 21:56:15 2003
+@@ -502,6 +502,10 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	stats->tx_packets++; /* for statics only */
+ 	stats->tx_bytes += skb->len;
+ 
++	skb->protocol = __constant_htons(ETH_P_8021Q);
++	skb->mac.raw -= VLAN_HLEN;
++	skb->nh.raw -= VLAN_HLEN;
++
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
+--- linux-2.6.0-test6/net/bridge/br_netfilter.c	Sun Sep 28 02:51:07 2003
++++ linux-2.6.0-test6-new/net/bridge/br_netfilter.c	Mon Oct  6 21:10:40 2003
+@@ -4,7 +4,13 @@
+  *
+  *	Authors:
+  *	Lennert Buytenhek               <buytenh@gnu.org>
+- *	Bart De Schuymer		<bdschuym@pandora.be>
++ *	Bart De Schuymer (maintainer)	<bdschuym@pandora.be>
++ *
++ *	Changes:
++ *	Apr 29 2003: physdev module support (bdschuym)
++ *	Jun 19 2003: let arptables see bridged ARP traffic (bdschuym)
++ *	Oct 06 2003: filter encapsulated IP/ARP VLAN traffic on untagged bridge
++ *	             (bdschuym)
+  *
+  *	This program is free software; you can redistribute it and/or
+  *	modify it under the terms of the GNU General Public License
+@@ -20,6 +26,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/if_ether.h>
++#include <linux/if_vlan.h>
+ #include <linux/netfilter_bridge.h>
+ #include <linux/netfilter_ipv4.h>
+ #include <linux/netfilter_arp.h>
+@@ -40,6 +47,11 @@
+ #define has_bridge_parent(device)	((device)->br_port != NULL)
+ #define bridge_parent(device)		((device)->br_port->br->dev)
+ 
++#define IS_VLAN_IP (skb->protocol == __constant_htons(ETH_P_8021Q) && \
++	hdr->h_vlan_encapsulated_proto == __constant_htons(ETH_P_IP))
++#define IS_VLAN_ARP (skb->protocol == __constant_htons(ETH_P_8021Q) && \
++	hdr->h_vlan_encapsulated_proto == __constant_htons(ETH_P_ARP))
++
+ /* We need these fake structures to make netfilter happy --
+  * lots of places assume that skb->dst != NULL, which isn't
+  * all that unreasonable.
+@@ -135,8 +147,13 @@ static int br_nf_pre_routing_finish_brid
+ 		skb->pkt_type = PACKET_HOST;
+ 		skb->nf_bridge->mask |= BRNF_PKT_TYPE;
+ 	}
++	skb->nf_bridge->mask ^= BRNF_NF_BRIDGE_PREROUTING;
+ 
+ 	skb->dev = bridge_parent(skb->dev);
++	if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++		skb_pull(skb, VLAN_HLEN);
++		skb->nh.raw += VLAN_HLEN;
++	}
+ 	skb->dst->output(skb);
+ 	return 0;
+ }
+@@ -155,6 +172,7 @@ static int br_nf_pre_routing_finish(stru
+ 		skb->pkt_type = PACKET_OTHERHOST;
+ 		nf_bridge->mask ^= BRNF_PKT_TYPE;
+ 	}
++	nf_bridge->mask ^= BRNF_NF_BRIDGE_PREROUTING;
+ 
+ 	if (dnat_took_place(skb)) {
+ 		if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos,
+@@ -186,6 +204,11 @@ bridged_dnat:
+ 				nf_bridge->mask |= BRNF_BRIDGED_DNAT;
+ 				skb->dev = nf_bridge->physindev;
+ 				clear_cb(skb);
++				if (skb->protocol ==
++				    __constant_htons(ETH_P_8021Q)) {
++					skb_push(skb, VLAN_HLEN);
++					skb->nh.raw -= VLAN_HLEN;
++				}
+ 				NF_HOOK_THRESH(PF_BRIDGE, NF_BR_PRE_ROUTING,
+ 					       skb, skb->dev, NULL,
+ 					       br_nf_pre_routing_finish_bridge,
+@@ -202,6 +225,10 @@ bridged_dnat:
+ 
+ 	clear_cb(skb);
+ 	skb->dev = nf_bridge->physindev;
++	if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++		skb_push(skb, VLAN_HLEN);
++		skb->nh.raw -= VLAN_HLEN;
++	}
+ 	NF_HOOK_THRESH(PF_BRIDGE, NF_BR_PRE_ROUTING, skb, skb->dev, NULL,
+ 		       br_handle_frame_finish, 1);
+ 
+@@ -220,13 +247,20 @@ static unsigned int br_nf_pre_routing(un
+ {
+ 	struct iphdr *iph;
+ 	__u32 len;
+-	struct sk_buff *skb;
++	struct sk_buff *skb = *pskb;
+ 	struct nf_bridge_info *nf_bridge;
+ 
+-	if ((*pskb)->protocol != __constant_htons(ETH_P_IP))
+-		return NF_ACCEPT;
+-
+-	if ((skb = skb_share_check(*pskb, GFP_ATOMIC)) == NULL)
++	if (skb->protocol != __constant_htons(ETH_P_IP)) {
++		struct vlan_ethhdr *hdr = (struct vlan_ethhdr *)
++					  ((*pskb)->mac.ethernet);
++
++		if (!IS_VLAN_IP)
++			return NF_ACCEPT;
++		if ((skb = skb_share_check(*pskb, GFP_ATOMIC)) == NULL)
++			goto out;
++		skb_pull(*pskb, VLAN_HLEN);
++		(*pskb)->nh.raw += VLAN_HLEN;
++	} else if ((skb = skb_share_check(*pskb, GFP_ATOMIC)) == NULL)
+ 		goto out;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+@@ -264,6 +298,7 @@ static unsigned int br_nf_pre_routing(un
+ 		nf_bridge->mask |= BRNF_PKT_TYPE;
+ 	}
+ 
++	nf_bridge->mask |= BRNF_NF_BRIDGE_PREROUTING;
+ 	nf_bridge->physindev = skb->dev;
+ 	skb->dev = bridge_parent(skb->dev);
+ 	store_orig_dstaddr(skb);
+@@ -294,9 +329,6 @@ static unsigned int br_nf_local_in(unsig
+ {
+ 	struct sk_buff *skb = *pskb;
+ 
+-	if (skb->protocol != __constant_htons(ETH_P_IP))
+-		return NF_ACCEPT;
+-
+ 	if (skb->dst == (struct dst_entry *)&__fake_rtable) {
+ 		dst_release(skb->dst);
+ 		skb->dst = NULL;
+@@ -310,12 +342,13 @@ static int br_nf_forward_finish(struct s
+ {
+ 	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
+ 	struct net_device *in;
++	struct vlan_ethhdr *hdr = (struct vlan_ethhdr *)(skb->mac.ethernet);
+ 
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	skb->nf_debug ^= (1 << NF_BR_FORWARD);
+ #endif
+ 
+-	if (skb->protocol == __constant_htons(ETH_P_IP)) {
++	if (skb->protocol == __constant_htons(ETH_P_IP) || IS_VLAN_IP) {
+ 		in = nf_bridge->physindev;
+ 		if (nf_bridge->mask & BRNF_PKT_TYPE) {
+ 			skb->pkt_type = PACKET_OTHERHOST;
+@@ -324,7 +357,10 @@ static int br_nf_forward_finish(struct s
+ 	} else {
+ 		in = *((struct net_device **)(skb->cb));
+ 	}
+-
++	if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++		skb_push(skb, VLAN_HLEN);
++		skb->nh.raw -= VLAN_HLEN;
++	}
+ 	NF_HOOK_THRESH(PF_BRIDGE, NF_BR_FORWARD, skb, in,
+ 			skb->dev, br_forward_finish, 1);
+ 	return 0;
+@@ -342,15 +378,20 @@ static unsigned int br_nf_forward(unsign
+ {
+ 	struct sk_buff *skb = *pskb;
+ 	struct nf_bridge_info *nf_bridge;
++	struct vlan_ethhdr *hdr = (struct vlan_ethhdr *)(skb->mac.ethernet);
+ 
+ 	if (skb->protocol != __constant_htons(ETH_P_IP) &&
+-	    skb->protocol != __constant_htons(ETH_P_ARP))
+-		return NF_ACCEPT;
++	    skb->protocol != __constant_htons(ETH_P_ARP)) {
++		if (!IS_VLAN_IP && !IS_VLAN_ARP)
++			return NF_ACCEPT;
++		skb_pull(*pskb, VLAN_HLEN);
++		(*pskb)->nh.raw += VLAN_HLEN;
++	}
+ 
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	skb->nf_debug ^= (1 << NF_BR_FORWARD);
+ #endif
+-	if (skb->protocol == __constant_htons(ETH_P_IP)) {
++	if (skb->protocol == __constant_htons(ETH_P_IP) || IS_VLAN_IP) {
+ 		nf_bridge = skb->nf_bridge;
+ 		if (skb->pkt_type == PACKET_OTHERHOST) {
+ 			skb->pkt_type = PACKET_HOST;
+@@ -365,7 +406,15 @@ static unsigned int br_nf_forward(unsign
+ 			bridge_parent(out), br_nf_forward_finish);
+ 	} else {
+ 		struct net_device **d = (struct net_device **)(skb->cb);
++		struct arphdr *arp = skb->nh.arph;
+ 
++		if (arp->ar_pln != 4) {
++			if (IS_VLAN_ARP) {
++				skb_push(*pskb, VLAN_HLEN);
++				(*pskb)->nh.raw -= VLAN_HLEN;
++			}
++			return NF_ACCEPT;
++		}
+ 		*d = (struct net_device *)in;
+ 		NF_HOOK(NF_ARP, NF_ARP_FORWARD, skb, (struct net_device *)in,
+ 			(struct net_device *)out, br_nf_forward_finish);
+@@ -381,6 +430,10 @@ static int br_nf_local_out_finish(struct
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	skb->nf_debug &= ~(1 << NF_BR_LOCAL_OUT);
+ #endif
++	if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++		skb_push(skb, VLAN_HLEN);
++		skb->nh.raw -= VLAN_HLEN;
++	}
+ 
+ 	NF_HOOK_THRESH(PF_BRIDGE, NF_BR_LOCAL_OUT, skb, NULL, skb->dev,
+ 			br_forward_finish, NF_BR_PRI_FIRST + 1);
+@@ -419,8 +472,9 @@ static unsigned int br_nf_local_out(unsi
+ 	struct net_device *realindev;
+ 	struct sk_buff *skb = *pskb;
+ 	struct nf_bridge_info *nf_bridge;
++	struct vlan_ethhdr *hdr = (struct vlan_ethhdr *)(skb->mac.ethernet);
+ 
+-	if (skb->protocol != __constant_htons(ETH_P_IP))
++	if (skb->protocol != __constant_htons(ETH_P_IP) && !IS_VLAN_IP)
+ 		return NF_ACCEPT;
+ 
+ 	/* Sometimes we get packets with NULL ->dst here (for example,
+@@ -444,11 +498,26 @@ static unsigned int br_nf_local_out(unsi
+ 			skb->pkt_type = PACKET_OTHERHOST;
+ 			nf_bridge->mask ^= BRNF_PKT_TYPE;
+ 		}
++		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++			skb_push(skb, VLAN_HLEN);
++			skb->nh.raw -= VLAN_HLEN;
++		}
+ 
+ 		NF_HOOK(PF_BRIDGE, NF_BR_FORWARD, skb, realindev,
+ 			skb->dev, okfn);
+ 	} else {
++		struct net_device *realoutdev = bridge_parent(skb->dev);
++
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++		/* iptables should match -o br0.x */
++		if (nf_bridge->netoutdev)
++			realoutdev = nf_bridge->netoutdev;
++#endif
+ 		okfn = br_nf_local_out_finish;
++		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++			skb_pull(skb, VLAN_HLEN);
++			(*pskb)->nh.raw += VLAN_HLEN;
++		}
+ 		/* IP forwarded traffic has a physindev, locally
+ 		 * generated traffic hasn't.
+ 		 */
+@@ -456,9 +525,8 @@ static unsigned int br_nf_local_out(unsi
+ 			if (((nf_bridge->mask & BRNF_DONT_TAKE_PARENT) == 0) &&
+ 			    has_bridge_parent(realindev))
+ 				realindev = bridge_parent(realindev);
+-
+ 			NF_HOOK_THRESH(PF_INET, NF_IP_FORWARD, skb, realindev,
+-				       bridge_parent(skb->dev), okfn,
++				       realoutdev, okfn,
+ 				       NF_IP_PRI_BRIDGE_SABOTAGE_FORWARD + 1);
+ 		} else {
+ #ifdef CONFIG_NETFILTER_DEBUG
+@@ -466,7 +534,7 @@ static unsigned int br_nf_local_out(unsi
+ #endif
+ 
+ 			NF_HOOK_THRESH(PF_INET, NF_IP_LOCAL_OUT, skb, realindev,
+-				       bridge_parent(skb->dev), okfn,
++				       realoutdev, okfn,
+ 				       NF_IP_PRI_BRIDGE_SABOTAGE_LOCAL_OUT + 1);
+ 		}
+ 	}
+@@ -482,6 +550,8 @@ static unsigned int br_nf_post_routing(u
+ {
+ 	struct sk_buff *skb = *pskb;
+ 	struct nf_bridge_info *nf_bridge = (*pskb)->nf_bridge;
++	struct vlan_ethhdr *hdr = (struct vlan_ethhdr *)(skb->mac.ethernet);
++	struct net_device *realoutdev = bridge_parent(skb->dev);
+ 
+ 	/* Be very paranoid. Must be a device driver bug. */
+ 	if (skb->mac.raw < skb->head || skb->mac.raw + ETH_HLEN > skb->data) {
+@@ -492,11 +562,11 @@ static unsigned int br_nf_post_routing(u
+ 			if (has_bridge_parent(skb->dev))
+ 				printk("[%s]", bridge_parent(skb->dev)->name);
+ 		}
+-		printk("\n");
++		printk(" head:%p, raw:%p\n", skb->head, skb->mac.raw);
+ 		return NF_ACCEPT;
+ 	}
+ 
+-	if (skb->protocol != __constant_htons(ETH_P_IP))
++	if (skb->protocol != __constant_htons(ETH_P_IP) && !IS_VLAN_IP)
+ 		return NF_ACCEPT;
+ 
+ 	/* Sometimes we get packets with NULL ->dst here (for example,
+@@ -517,10 +587,19 @@ static unsigned int br_nf_post_routing(u
+ 		nf_bridge->mask |= BRNF_PKT_TYPE;
+ 	}
+ 
+-	memcpy(nf_bridge->hh, skb->data - 16, 16);
++	if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++		skb_pull(skb, VLAN_HLEN);
++		skb->nh.raw += VLAN_HLEN;
++	}
++
++	nf_bridge_save_header(skb);
+ 
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++	if (nf_bridge->netoutdev)
++		realoutdev = nf_bridge->netoutdev;
++#endif
+ 	NF_HOOK(PF_INET, NF_IP_POST_ROUTING, skb, NULL,
+-		bridge_parent(skb->dev), br_dev_queue_push_xmit);
++		realoutdev, br_dev_queue_push_xmit);
+ 
+ 	return NF_STOLEN;
+ }
+@@ -535,8 +614,8 @@ static unsigned int ipv4_sabotage_in(uns
+    const struct net_device *in, const struct net_device *out,
+    int (*okfn)(struct sk_buff *))
+ {
+-	if (in->hard_start_xmit == br_dev_xmit &&
+-	    okfn != br_nf_pre_routing_finish) {
++	if ((*pskb)->nf_bridge &&
++	    !((*pskb)->nf_bridge->mask & BRNF_NF_BRIDGE_PREROUTING)) {
+ 		okfn(*pskb);
+ 		return NF_STOLEN;
+ 	}
+@@ -552,10 +631,15 @@ static unsigned int ipv4_sabotage_out(un
+    const struct net_device *in, const struct net_device *out,
+    int (*okfn)(struct sk_buff *))
+ {
+-	if (out->hard_start_xmit == br_dev_xmit &&
++	if ((out->hard_start_xmit == br_dev_xmit &&
+ 	    okfn != br_nf_forward_finish &&
+ 	    okfn != br_nf_local_out_finish &&
+-	    okfn != br_dev_queue_push_xmit) {
++	    okfn != br_dev_queue_push_xmit)
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++	    || (out->hard_start_xmit == vlan_dev_hard_start_xmit_p &&
++	    VLAN_DEV_INFO(out)->real_dev->hard_start_xmit == br_dev_xmit)
++#endif
++	    ) {
+ 		struct sk_buff *skb = *pskb;
+ 		struct nf_bridge_info *nf_bridge;
+ 
+@@ -574,6 +658,11 @@ static unsigned int ipv4_sabotage_out(un
+ 			nf_bridge->mask &= BRNF_DONT_TAKE_PARENT;
+ 			nf_bridge->physindev = (struct net_device *)in;
+ 		}
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
++		/* the iptables outdev is br0.x, not br0 */
++		if (out->hard_start_xmit == vlan_dev_hard_start_xmit_p)
++			nf_bridge->netoutdev = (struct net_device *)out;
++#endif
+ 		okfn(skb);
+ 		return NF_STOLEN;
+ 	}
 
---------------010003080109070003070903--
+_______________________________________________
+VLAN mailing list  -  VLAN@wanfear.com
+http://www.WANfear.com/mailman/listinfo/vlan
+VLAN Page:  http://scry.wanfear.com/~greear/vlan.html
