@@ -1,49 +1,102 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 1/2] IPV6: use ipv6_addr_any()
-Date: Wed, 28 Jan 2004 16:30:43 +0900 (JST)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC/PATCH] IMQ port to 2.6
+Date: 26 Jan 2004 22:25:05 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040128.163043.120256112.yoshfuji@linux-ipv6.org>
+Message-ID: <1075173905.1039.65.camel@jzny.localdomain>
+References: <20040125164431.GA31548@louise.pinerecords.com>
+	 <1075058539.1747.92.camel@jzny.localdomain>
+	 <20040125202148.GA10599@usr.lcm.msu.ru>
+	 <1075074316.1747.115.camel@jzny.localdomain>
+	 <20040126001102.GA12303@usr.lcm.msu.ru>
+	 <1075086588.1732.221.camel@jzny.localdomain>
+	 <20040126093230.GA17811@usr.lcm.msu.ru>
+	 <1075124312.1732.292.camel@jzny.localdomain>
+	 <20040126135545.GA19497@usr.lcm.msu.ru>
+	 <1075127396.1746.370.camel@jzny.localdomain>
+	 <20040126174122.GB20001@usr.lcm.msu.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+In-Reply-To: <20040126174122.GB20001@usr.lcm.msu.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Mon, 2004-01-26 at 12:41, Vladimir B. Savkin wrote:
+> On Mon, Jan 26, 2004 at 09:29:56AM -0500, jamal wrote:
+[..]
+> 
+> Over here every good networking engineer I have talked to knows this :)
 
-Use simple ipv6_addr_any()
-where ipv6_addr_type() is called only to check for unspecified address.
+This may be true but its like sticking a finger in the air
+and saying the "wind blows south" ;-> Data my friend.
 
-Thanks.
+> > Thats what i was assuming. Shaping alone is insufficient as well.
+> 
+> I don't quite understand what you mean here.
+> Ultimately, any packet will land in some leaf qdisc,
+> where there is a queue of some maximum size.
+> If a sender does not reduce its rate, queue overflows, and we drop.
+> But in my experience this rarely happens with TCP. I think that sender
+> just see measured RTT increase and reduce its rate or shrinks
+> its window. I don't know modern TCP implementations in detail, 
+> but I can see it works.
 
-===== net/ipv6/af_inet6.c 1.60 vs edited =====
---- 1.60/net/ipv6/af_inet6.c	Thu Jan 22 15:38:40 2004
-+++ edited/net/ipv6/af_inet6.c	Wed Jan 28 16:11:31 2004
-@@ -464,7 +464,7 @@
- 		if (np->sndflow)
- 			sin->sin6_flowinfo = np->flow_label;
- 	} else {
--		if (ipv6_addr_type(&np->rcv_saddr) == IPV6_ADDR_ANY)
-+		if (ipv6_addr_any(&np->rcv_saddr))
- 			ipv6_addr_copy(&sin->sin6_addr, &np->saddr);
- 		else
- 			ipv6_addr_copy(&sin->sin6_addr, &np->rcv_saddr);
-===== net/ipv6/ndisc.c 1.64 vs edited =====
---- 1.64/net/ipv6/ndisc.c	Thu Jan 22 15:38:40 2004
-+++ edited/net/ipv6/ndisc.c	Wed Jan 28 16:13:21 2004
-@@ -544,7 +544,7 @@
- 	}
- 
- 	len = sizeof(struct icmp6hdr) + sizeof(struct in6_addr);
--	send_llinfo = dev->addr_len && ipv6_addr_type(saddr) != IPV6_ADDR_ANY;
-+	send_llinfo = dev->addr_len && !ipv6_addr_any(saddr);
- 	if (send_llinfo)
- 		len += NDISC_OPT_SPACE(dev->addr_len);
- 
+We are saying the same thing. And we are also digressing from the main
+point. So lets drop this part if you dont mind.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+> > So why cant you attach a ingress qdisc on eth1-2 and use policing to
+> > mark excess traffic (not drop)? On eth0 all you do is based on the mark
+> 
+> And where to drop then?
+> 
+
+Look at the example i just typed.
+In your case you dont need the patch i described; use the standard
+ingress qdisc and mark with iptables.
+
+> So, it's just like IMQ, but without that Q bit, only marking?
+> 
+
+Exactly.
+
+> But how would I calculate guaranteed rate for a client?
+
+Note how i used index 1 for the meter in the example i posted.
+index 1 is only for one client.
+
+> Suppose I have 100 clients connected, then I can only
+> guarantee a 1/100th of the pipe to each. But if only 5 of them
+> are active, then each can get 1/5th of the pipe.
+
+Look at the way i had index 200 and 300 one for sharing within a
+device and another for the whole system. 
+You should also just be able to use marks and shape on egress.
+
+> Round-robin mechanism such as wrr effectively adjusts rates in dynamic.
+> I use two-layer hierarchy actually, by applying sfq to every wrr class,
+> so a user can download a file and play Quake at the same time,
+> with acceptable delays and no packet loss. At the same time,
+> user that opens 1000 connections with some evil multithreaded downloader
+> thing, has the same aggregate rate, but can't play Quake because
+> of high latency.  It works wonderfully.
+> 
+> I suppose we can have a flavor of wrr that will not queue packets,
+> only find over-active flows and mark or drop over-profile packets
+> but 1) no such thing exist AFAIK and 2) it will not have separate
+> queue for each user/flow, thus all flows will have same latency,
+> only drop probabilities will differ.
+> 
+> So, it seems to me that IMQ fits nicely when there're some artificial
+> bandwidth limits (as opposed to bandwidth of some physical interface)
+> and no single egress interface for all flows to be shaped.
+
+Look at that sample and then lets discuss further. I spent a long time
+typing it (and wanna catch up with other email). I think we may be
+gettin close.
+
+cheers,
+jamal
