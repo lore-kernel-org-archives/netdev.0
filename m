@@ -1,22 +1,34 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH] X.25 async net_device fixup
-Date: Wed, 6 Aug 2003 10:35:19 +1000 (EST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: More 2.4.22pre10 ACPI breakage
+Date: Tue, 05 Aug 2003 22:58:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0308061035120.24985-100000@excalibur.intercode.com.au>
-References: <20030805154335.7abfcb92.shemminger@osdl.org>
+Message-ID: <3F306EC4.1030109@pobox.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E01022292CD@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Henner Eisen <eis@baty.hanse.de>, "David S. Miller" <davem@redhat.com>,
-   <linux-x25@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Samuel Flory <sflory@rackable.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030805154335.7abfcb92.shemminger@osdl.org>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E01022292CD@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Also applied to bk://kernel.bkbits.net/jmorris/net-2.5
+Feldman, Scott wrote:
+>>  It appears that the intel Se7501BR mother is also having 
+>>issues with ACPI.  When ACPI support is enable the e1000
+>>controller stops working printing "<6>NETDEV WATCHDOG:
+>>eth0: transmit timed out".
+> 
+> 
+> Must...have...interrupts.
 
+You are 100% correct.
 
--- 
-James Morris
-<jmorris@intercode.com.au>
+That said... I'm tempted to extend NAPI just a bit, to provide an 
+"always poll" mode.  It seems like all the bug reports I get these days 
+for 8139too are caused by x86 ACPI/APIC/irq routing troubles completely 
+unrelated to the driver.  Tulip-almost-NAPI in 2.4 has an always-poll 
+mode, so I have a convenient excuse :)
+
+	Jeff
