@@ -1,69 +1,85 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH][RFC/v1][8/12] Add IPoIB
-	(IP-over-InfiniBand) driver
-Date: Mon, 22 Nov 2004 15:18:07 -0800
-Message-ID: <52k6sdbhhs.fsf@topspin.com>
-References: <20041122713.FnSlYodJYum7s82D@topspin.com>
-	<20041122714.nKCPmH9LMhT0X7WE@topspin.com>
-	<20041122223432.GC15634@kroah.com>
+From: "Stuart Macdonald" <stuart@ken-caryl.net>
+Subject: RE: netfilter query
+Date: Mon, 22 Nov 2004 18:47:17 -0700
+Message-ID: <DHEOJAHAGKDLCDOHPMIECEFNCCAA.stuart@ken-caryl.net>
+References: <Pine.LNX.4.61.0411221245470.20973@filer.marasystems.com>
+Reply-To: <stuart@ken-caryl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Greg KH <greg@kroah.com>
-In-Reply-To: <20041122223432.GC15634@kroah.com> (Greg KH's message of "Mon,
-	22 Nov 2004 14:34:32 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: kernelnewbies@nl.linux.org, netfilter-devel@lists.netfilter.org,
+  netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <kernelnewbies-bounce@nl.linux.org>
+To: "Henrik Nordstrom" <hno@marasystems.com>,
+  "cranium2003" <cranium2003@yahoo.com>
+In-Reply-To: <Pine.LNX.4.61.0411221245470.20973@filer.marasystems.com>
+Sender: kernelnewbies-bounce@nl.linux.org
+Errors-to: kernelnewbies-bounce@nl.linux.org
+List-help: <mailto:ecartis@nl.linux.org?Subject=help>
+List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
+List-owner: <mailto:ecartis-owner@nl.linux.org>
+List-post: <mailto:kernelnewbies@nl.linux.org>
+List-archive: <http://mail.nl.linux.org/kernelnewbies/>
 List-Id: netdev.vger.kernel.org
 
-    Greg> What's wrong with using the dev_printk() and friends instead
-    Greg> of your own?
+Just a parallel thought here,
 
-dev_printk expects a struct device, not a net_device.
+A different approach is to implement the Netfilter Bridge hooks and run a
+box as a bridge. This requires a kernel parameter for Bridge to be enabled
+when the kernel is built and then the brctl utility to setup the bridge. In
+this manner, your bridge netfilter hooks always receive packets starting at
+the MAC headers. You can parse from there to derive subsequent protocols:
+IP, IPX, LLC, SNAP, NETBEUI...
 
-    Greg> And why cast a pointer in a macro, don't you know the type
-    Greg> of it anyway?
+Stuart
 
-this lets us pass in the return value of netdev_priv() directly
-without having to have the cast in the code that uses the macro.
 
-    Greg> You're using a separate filesystem to export debug data?
-    Greg> I'm all for new virtual filesystems, but why not just use
-    Greg> sysfs for this?  What are you doing in here that you can't
-    Greg> do with another mechanism (netlink, sysfs, sockets, relayfs,
-    Greg> etc.)?
 
-For each multicast group, we want to export the GID, how long it's
-been around, whether our join has completed and whether it's
-send-only.  It wouldn't be too bad to create a kobject with all those
-attributes but getting the info from so many little files is a little
-bit of a pain, and so is dealing with kobject lifetime rules.  It's
-even worse with netlink since then a new tool is required.  (AFAIK
-relayfs isn't in Linus's kernel).
+-----Original Message-----
+From: kernelnewbies-bounce@nl.linux.org
+[mailto:kernelnewbies-bounce@nl.linux.org]On Behalf Of Henrik Nordstrom
+Sent: Monday, November 22, 2004 5:03 AM
+To: cranium2003
+Cc: kernelnewbies@nl.linux.org; netdev@oss.sgi.com;
+netfilter-devel@lists.netfilter.org; linux-kernel@vger.kernel.org
+Subject: Re: netfilter query
 
-It's nice to be able to tell someone to just mount ipoib_debugfs and
-send the contents of debugfs/ib0_mcg.
 
-The actual filesystem stuff is pretty trivial using everything libfs
-provides for us now...
+On Sun, 21 Nov 2004, cranium2003 wrote:
 
-    Greg> Why not just use 2 different debug variables for this?
+> Also,which headers are added when packet
+> reaches to netfilter hook NF_IP_LOCAL_OUT? I found
+> TCP/UDP/ICMP ,IP. Is that correct?
 
-No real reason... I'll fix it up.
+Yes.
 
-    >> + +int mcast_debug_level;
+netfilter is running at the IP layer and only reliably have access to IP
+headers and up. Lower level headers such as Ethernet MAC header is
+transport dependent and not always available, and certainly not available
+in NF_IP_LOCAL_OUT as it is not yet known the packet will be sent to an
+Ethernet.
 
-    Greg> Global?
+In some netfilter hooks it is possible to rewind back to the Ethernet MAC
+header but one must be careful to verify that it really is an Ethernet
+packet one is looking at when doing this. Unfortunately there is no
+perfect solution how to detect this.. For an example of how one may try to
+look at the Ethernet MAC header see ipt_mac.c. But be warned that it is
+possible for non-Ethernet frames to pass the simple checks done there..
 
-Good point, I'll move it into ipoib_multicast.c.
+Regards
+Henrik
 
- - R.
+--
+Kernelnewbies: Help each other learn about the Linux kernel.
+Archive:       http://mail.nl.linux.org/kernelnewbies/
+FAQ:           http://kernelnewbies.org/faq/
+
+
+
+--
+Kernelnewbies: Help each other learn about the Linux kernel.
+Archive:       http://mail.nl.linux.org/kernelnewbies/
+FAQ:           http://kernelnewbies.org/faq/
