@@ -1,33 +1,39 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: Re: [PATCH] [IPVS] add a sysctl variable to expire quiescent template
-Date: Thu, 9 Dec 2004 23:09:48 +0800 (CST)
-Message-ID: <Pine.LNX.4.61.0412092308570.1021@penguin.linux-vs.org>
-References: <Pine.LNX.4.61.0412020045380.1073@penguin.linux-vs.org>
- <20041208220818.05a5811b.davem@davemloft.net>
+From: Ross Biro <ross.biro@gmail.com>
+Subject: Re: [PATCH] port_reuse listen fix (allow simultaneous single listen + outgoing connects from same port)
+Date: Thu, 9 Dec 2004 10:36:08 -0500
+Message-ID: <8783be6604120907367db1fda5@mail.gmail.com>
+References: <fcb9aa29041209032521899698@mail.gmail.com>
+Reply-To: Ross Biro <ross.biro@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com,
+        =?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?= <yoshfuji@linux-ipv6.org>,
+        davem@redhat.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041208220818.05a5811b.davem@davemloft.net>
+To: Ilya Pashkovsky <ilya.pashkovsky@gmail.com>
+In-Reply-To: <fcb9aa29041209032521899698@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 9 Dec 2004 13:25:26 +0200, Ilya Pashkovsky
+<ilya.pashkovsky@gmail.com> wrote:
+> This is the latest patch with removed bool > 1 check and ipv6 support.
+> http://puding.mine.nu/patches/
+> http://puding.mine.nu/patches/patch-reuse-bool-ipv6
+> 
+> to check, you can use netcat (sets SO_REUSEADDR by default).
+> on one host (host A): nc -v -l -p 9999
+> on another/same host (host B): nc -v -l -p 9000
+> on host A: nc -v -p 9999 host.B.ip.addr 9000
+> on host B: nc -v host.A.ip.addr 9999
 
+What happens if on host B you do 
 
-On Wed, 8 Dec 2004, David S. Miller wrote:
+nc -v -p 9000 host.A.ip.addr 9999?
 
-> On Thu, 2 Dec 2004 00:48:26 +0800 (CST)
-> Wensong Zhang <wensong@linux-vs.org> wrote:
->
->> Here is the patch from Horms <horms@vergenet.net> to add a sysctl
->> variable to expire quiescent templat. Please check and apply them to
->> kernel 2.4 and 2.6 respectively.
->
-> Sorry for the delay, I'll apply this soon.
->
+Seems to me you will break the rule that a connection is uniquely
+identified by (srcpip, destip, srcport, destport).
 
-No problem. Thanks for applying it.
-
-Wensong
+    Ross
