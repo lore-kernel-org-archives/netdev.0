@@ -1,23 +1,18 @@
-From: Aaron Sethman <androsyn@ratbox.org>
-Subject: qfe problems on x86
-Date: Tue, 23 Apr 2002 01:19:49 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: qfe problems on x86
+Date: Mon, 22 Apr 2002 22:24:25 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0204230116440.6706-100000@simon.ratbox.org>
+Message-ID: <20020422.222425.06221436.davem@redhat.com>
+References: <Pine.LNX.4.44.0204230116440.6706-100000@simon.ratbox.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org, <davem@redhat.com>
+To: androsyn@ratbox.org
+In-Reply-To: <Pine.LNX.4.44.0204230116440.6706-100000@simon.ratbox.org>
 List-Id: netdev.vger.kernel.org
 
 
-I'm currently having a problem with my qfe card on an intel box.
-Basically what will happen is when I load the module and bring it up, I
-will get the "eth0: Switching to 100Mbps at full duplex." Followed by a
-"eth0: Link status change.".  For some reason, it gets stuck in a loop and
-I get a continual stream of these and the system is pretty much useless
-from that point on.  Any ideas of something I could try?
-
-Regards,
-
-Aaron
-
+You didn't bother mentioning what kernel verions you see this with so
+I basically have no way to help you out.
