@@ -1,34 +1,33 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: e1000 performance hack for ppc64 (Power4)
-Date: Sat, 14 Jun 2003 10:08:49 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Make xfrm subsystem optional
+Date: Sat, 14 Jun 2003 20:32:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030614170848.GA3324@kroah.com>
-References: <20030613.224122.104034261.davem@redhat.com> <5.1.0.14.2.20030614154954.026b4768@mira-sjcm-3.cisco.com> <20030613.230850.85410095.davem@redhat.com> <20030613.231418.39160686.davem@redhat.com>
+Message-ID: <20030614183232.GB23546@wotan.suse.de>
+References: <20030614093630.GB16993@wotan.suse.de> <20030614.023843.78709528.davem@redhat.com> <20030614101851.GA24170@wotan.suse.de> <20030614.042636.74749587.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ltd@cisco.com, anton@samba.org, haveblue@us.ibm.com, hdierks@us.ibm.com,
-   scott.feldman@intel.com, dwg@au1.ibm.com, linux-kernel@vger.kernel.org,
-   milliner@us.ibm.com, ricardoz@us.ibm.com, twichell@us.ibm.com,
-   netdev@oss.sgi.com
+Cc: ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20030613.231418.39160686.davem@redhat.com>
+In-Reply-To: <20030614.042636.74749587.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 13, 2003 at 11:14:18PM -0700, David S. Miller wrote:
+On Sat, Jun 14, 2003 at 04:26:36AM -0700, David S. Miller wrote:
+>    From: Andi Kleen <ak@suse.de>
+>    Date: Sat, 14 Jun 2003 12:18:51 +0200
+>    
+>    Allocating it at first lookup would be racy (would need a nasty
+>    spinlock at least). It may be possible at first policy setup, but
+>    it's not guaranteed you can still get two 32K continuous areas. You
+>    could fall back to vmalloc I guess.
 > 
-> Folks, can we remove whatever member of this CC: list creates
-> bounces that say:
-> 
-> Your message to Linux_news awaits moderator approval
+> Andi, you're getting rediculious.  Add a xfrm_whatever_init() call
+> and allocate the table there.
 
-It's someone subscribed to linux-kernel@vger.kernel.org that causes
-this.
+Did you actually read what I wrote? Allocating on init is useless
+from the bloat perspective because it's 100% equivalent to an BSS 
+allocation.
 
-I've complained to the admin of that mail-news gateway that is barfing
-on too many CC: members in the past to not do this, but it doesn't seem
-like they are listening...
-
-greg k-h
+-Andi
