@@ -1,105 +1,49 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: Thu, 6 Jan 2005 20:41:02 +0100
-Message-ID: <20050106194102.GW26856@postel.suug.ch>
-References: <20050103125635.GB26856@postel.suug.ch> <20050104223612.GN26856@postel.suug.ch> <1104894728.1117.56.camel@jzny.localdomain> <20050105110048.GO26856@postel.suug.ch> <1104931991.1117.152.camel@jzny.localdomain> <20050105144514.GQ26856@postel.suug.ch> <1105019225.2312.7.camel@jzny.localdomain>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Thu, 6 Jan 2005 21:29:14 +0100
+Message-ID: <16861.40858.80960.794144@robur.slu.se>
+References: <200501031455.26980.jeremy.guthrie@berbee.com>
+	<200501060926.54588.jeremy.guthrie@berbee.com>
+	<16861.32852.11187.131058@robur.slu.se>
+	<200501061335.55104.jeremy.guthrie@berbee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1105019225.2312.7.camel@jzny.localdomain>
+To: jeremy.guthrie@berbee.com
+In-Reply-To: <200501061335.55104.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1105019225.2312.7.camel@jzny.localdomain> 2005-01-06 08:47
-> So the issue is whether its by ref or copy? Maybe thats what the flag is
-> for then. My view is that _everything_ for ematches should be by copy
-> for simplicty.
 
-If we do everything as ref we'll be allocating 4 byte chunks or we
-introduce a storage u32 which pollutes the structure. I don't
-like that given that the transfer of a single u32 is probably the
-most common for all those smallish ematches for a specific thing.
-For simplicity, you don't even notice if you're not aware of that
-it can be of help so I don't think we're losing any simplicity here.
+Jeremy M. Guthrie writes:
 
-> Oh, yes;->  the one check in the datapath comes with a _huge_ advantage
-> even all that you had was old style matches because now you have embeded
-> logical operations which are more than just the old AND. But more
-> importantly you can use ematches as well to influence the existing u32
-> tree path.
+ > >  You only use CPU0 for packet processing. Also it seems you use  the
+ > > non-NAPI version of e1000.
+ > The E1000 driver is the stock driver in 2.4.28.
 
-Missunderstanding here, I meant is there any advantage in having
-multiple ematch trees (interleaved) over just making the existing
-u32 key an ematch and have the selector (with the hashing bits
-extracted) with one ematch tree.
 
-> What i am reading is you see more work involved. Is this correct?
+ There is a kernel config option.  Use Rx Polling (NAPI)
+ 
+ > eth2 is TX only.  We don't receive anything on it.  This system should only 
+ > ever RX on eth3 and TX on eth2 as part of its function.  
 
-Well, given we can agree on moving the u32 key to an ematch and
-have the selector replaced with an ematch tree the following
-modifications would be required in u32:
+ Ok! So unidirectional traffic and CPU0 processes all skb's and passes them 
+ over to CPU1 which touches and frees them. You could try some other 
+ affinity setting later on but there are so many options depending what 
+ we want do. If we just want to compare 2.4/2.6 we can start out simple 
+ with setting affinity so only one CPU. Which is almost what you got.
+ We reach all the complicated problems immediately... Now we pass skb's
+ between the CPU's which release cache bouncing and makes slab rebalance it's
+ pools. So using just one CPU is probably better... If we had incoming pkts
+ on eth2 eventually we could have had any use for CPU1.
 
-1) extract hashing bits out of selector and move it into a new
-   TLV.
-2) Replace the foreach key match loop with an ematch_tree match
-3) Fill out a pkt_info struct with ptr and off2 so we don't lose
-   hashing capabilities
-4) Add backward compat code. Old selector must be transformed
-   into a flat ematch tree and the hashing bits must be extracted
-   and stored in the new struct.
+ Install NAPI-driver, set affinity so eth2/eth3 uses same CPU to start with.
 
-> There is one issue which i think is the big source of our lack of sync:
-> You conclude people are gonna want to use the logical tree building
-> scheme you are putting in to put together matches and ematches. U32
-> _already_ has a tree building scheme which is very very flexible.
+ The stats info you sent was almost impossible to read. See if you can get 
+ only the rtstats.
 
-I know and I'm not gonna break it but rather replace the ANDed
-u32 key chains with an ematch tree. I'm fully aware of what u32
-can do and I will in no way remove anything.
-
-To make it clear, I'm only gonna change about 10 lines in classify:
-
-for (i = n->sel.nkeys; i>0; i--, key++) {
-
-	if ((*(u32*)(ptr+key->off+(off2&key->offmask))^key->val)&key->mask) {
-		n = n->next;
-		goto next_knode;
-	}
-}
-
-will be replaced with:
-
-info.nexthdr = off2;
-info.ptr = ptr;
-
-if (!tcf_em_tree_match(..., &info)) {
-	n = n->next;
-	goto next_knode;
-}
-
-That's all, nothing else is changed. I think this is exactly the part were
-we're out of sync.
-
-The most difficult part is to do the Kconfig dependencies in a smart way ;->
-
-> Again, u32 classifier is not just matches; the more interesting thing
-> is  the layout of the rules that it can be taught to do.
-> I think the ematch which emulates the std u32 match is of course
-> valuable to have but it _doesnt_ deserve the same name.
-
-Stupid terms, em_u32.c is a replacement for the u32 key and it has exactly
-the same behaviour. I'll be happy to rename it but as you know I really
-suck at naming things ;->
-
-> Thinking more about it; not sure why you would even bother managing
-> them. Everything runs at the same kernel privilege level. I am not sure
-> you want to have certain things that can only be built when recompiling
-> the kernel
-
-Well, we have exactly the same issues as with TLV types. I don't see
-why one would need to recompile things. The enumeration is for ematches
-included in the kernel tree.
+						--ro
