@@ -1,69 +1,46 @@
-From: Andi Kleen <ak@muc.de>
+From: Arjan van de Ven <arjan@infradead.org>
 Subject: Re: [PATCH] OpenBSD Networking-related randomization port
-Date: Sat, 29 Jan 2005 07:59:33 +0100
-Message-ID: <m1hdl0lnze.fsf@muc.de>
+Date: Sat, 29 Jan 2005 09:04:42 +0100
+Message-ID: <1106985882.4174.58.camel@laptopd505.fenrus.org>
 References: <1106932637.3778.92.camel@localhost.localdomain>
-	<20050128100229.5c0e4ea1@dxpl.pdx.osdl.net>
-	<1106937110.3864.5.camel@localhost.localdomain>
-	<20050128105217.1dc5ef42@dxpl.pdx.osdl.net>
-	<1106944492.3864.30.camel@localhost.localdomain>
-	<20050128124517.36aa5e05.davem@davemloft.net>
-	<20050128133408.49021343@dxpl.pdx.osdl.net>
+	 <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net>
+	 <1106937110.3864.5.camel@localhost.localdomain>
+	 <20050128105217.1dc5ef42@dxpl.pdx.osdl.net>
+	 <1106944492.3864.30.camel@localhost.localdomain>
+	 <1106945266.7776.41.camel@laptopd505.fenrus.org>
+	 <1106950369.3864.45.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?iso-8859-1?q?Lorenzo_Hern=E1ndez_Garc=EDa-Hierro?=
-	<lorenzo@gnu.org>, linux-kernel@vger.kernel.org, chrisw@osdl.org,
-	netdev@oss.sgi.com, arjan@infradead.org,
-	hlein@progressive-comp.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262863AbVA2G7h@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050128133408.49021343@dxpl.pdx.osdl.net> (Stephen
- Hemminger's message of "Fri, 28 Jan 2005 13:34:08 -0800")
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com,
+	Hank Leininger <hlein@progressive-comp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262874AbVA2IEx@vger.kernel.org>
+To: Lorenzo =?ISO-8859-1?Q?Hern=E1ndez_?=
+	 =?ISO-8859-1?Q?Garc=EDa-Hierro?= <lorenzo@gnu.org>
+In-Reply-To: <1106950369.3864.45.camel@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> writes:
+On Fri, 2005-01-28 at 23:12 +0100, Lorenzo Hern=C3=A1ndez Garc=C3=ADa-H=
+ierro
+wrote:
+> El vie, 28-01-2005 a las 21:47 +0100, Arjan van de Ven escribi=C3=B3:
+> > as for obsd_get_random_long().. would it be possible to use the
+> > get_random_int() function from the patches I posted the other day? =
+They
+> > use the existing random.c infrastructure instead of making a copy..=
+=2E
+>=20
+> As seen at
+> http://www.kernel.org/pub/linux/kernel/people/arjan/execshield/00-ran=
+domize-A0 you can suppose that there's=20
 
-> On Fri, 28 Jan 2005 12:45:17 -0800
-> "David S. Miller" <davem@davemloft.net> wrote:
->
->> On Fri, 28 Jan 2005 21:34:52 +0100
->> Lorenzo Hern=E1ndez Garc=EDa-Hierro <lorenzo@gnu.org> wrote:
->>=20
->> > Attached the new patch following Arjan's recommendations.
->>=20
->> No SMP protection on the SBOX, better look into that.
->> The locking you'll likely need to add will make this
->> routine serialize many networking operations which is
->> one thing we've been trying to avoid.
->>=20
->
-> per-cpu would be the way to go here.
 
-I don't think so no - just doing per cpu counters you
-risk nearby duplicates, which can cause even easier data corruption=20
-(e.g. during ip fragment reassembly - it is already very weak
-and making it weaker is probably not a good idea)=20
-
-If you want SMP performance for ipids you can resurrect
-the old "cookie jar" approach I used in 2.4 time frame to get
-rid of inetpeers. The idea was that you have global state,
-and each CPU would regenerate some numbers from the state,
-then store them in a private "jar" and use them use, then
-look at the global state with locking again etc.
-
-This can be tuned on how big the jar is - the bigger the
-smaller the sequence space (risky for 16bit ipids), but
-the better the scalability.
-
-But before doing anything like this I would recommend
-that someone skilled in cryptography evaluates the security
-of these functions carefully and see if it actually has any=20
-advantages. I remember that Andrey S. broke
-some of the "cool" "secure" openbsd IDs easily some years ago.
-
-At least for ipids I'm utterly sceptical. 16bits are just
-hopeless.
-
--Andi
+I actually meant
+http://www.kernel.org/pub/linux/kernel/people/arjan/randomize/02-
+randomize-infrastructure
+which I posted for inclusion in the main kernel 2 or 3 days ago.
+That's nice and stand alone to get a random value; we should be able to
+share that.
