@@ -1,46 +1,77 @@
-From: Chris Dukes <pakrat@www.uk.linux.org>
-Subject: Re: Make ipconfig.c work as a loadable module.
-Date: Fri, 7 Mar 2003 01:29:05 +0000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030307012905.G20725@parcelfarce.linux.theplanet.co.uk>
-References: <Pine.LNX.4.44.0303061500310.31368-100000@mandrake.americas.sgi.com> <1046990052.18158.121.camel@irongate.swansea.linux.org.uk> <20030306221136.GB26732@gtf.org> <20030306222546.K838@flint.arm.linux.org.uk> <1046996037.18158.142.camel@irongate.swansea.linux.org.uk> <20030306231905.M838@flint.arm.linux.org.uk> <1046996987.17718.144.camel@irongate.swansea.linux.org.uk> <20030307000816.P838@flint.arm.linux.org.uk>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: unix socket latency regression from 2.4 to 2.5    (and multicast AF_UNIX benchmarks)
+Date: Fri, 07 Mar 2003 00:48:21 -0500
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3E6832A5.2020502@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>, Jeff Garzik <jgarzik@pobox.com>,
-   Robin Holt <holt@sgi.com>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20030307000816.P838@flint.arm.linux.org.uk>; from rmk@arm.linux.org.uk on Fri, Mar 07, 2003 at 12:08:16AM +0000
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-net@vger.kernel.org, netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 07, 2003 at 12:08:16AM +0000, Russell King wrote:
-> > 
-> > You can build the dhcp client with glibc static into your initrd. Its hardly
-> > magic or special programs or random garbage, and last time I counted it came
-> > to one program. Dunno what the other 999 utilities your dhcp needs are ?
-> 
-> How about mount for nfs-root, a shell and a shell script to supply the
-> correct parameters to mount so it doesn't go and try to mount the
-> nfs-root with locking enabled - oh, and a few programs like sed and
-> so forth to pull the mount parameters out of the dhcp client output,
-> if there is such an output.
 
-If IBM can fit a kernel and a ramdisk containing all the utilities you
-describe and more in smaller than 5M of file for tftp, one would think 
-that it could be done on Linux.
-> 
-> ipconfig.c does more than just configure networking.  It's a far smaller
-> solution to NFS-root than any userspace implementation could ever hope
-> to be.
+I've done another series of benchmarks with regards to multicast AF_UNIX 
+on the 2.5.63 kernel.  One of the biggest surprises to me was the 
+performance regression in the normal userspace case and in the kernel 
+case with samll numbers of listeners.
 
-That's nice.  Would you mind explaining to us where that would be a
-benefit?  Aside from dead header space in elf executables, I'm at
-a loss as to how a usermode implementation must be significantly
-larger than kernel code.
+The tests basically work by having a single sender send messages of 
+three different sizes to varying numbers of listeners, which take a 
+timestamp and then nanosleep() for a second to allow the other listeners 
+to wake up as fast as possible.  When the listeners wake up they figure 
+out the latency and send it on to a third utility which dumps out the 
+latencies.  In the case of the userspace test, the sender sends to each 
+listener in turn.  In the case of the multicast test, the kernel handles 
+the cloning of the packet to distribute it to the listeners.
+
+Here are the new results combined with the old for comparison.  The 
+machine is a Duron 750, with K7 optimizations in the kernel. Both 
+kernels were compiled with gcc 3.2.
+
+44bytes         2.4.20       2.5.63        2.4.20         2.5.63
+# listeners    userspace    userspace     kernelspace    kernelspace
+10              73,335      96,493         103,252        100,286
+20              72,610      99,885         106,429        134,517
+50              74,1482     95,2075        205,1301       230,1273
+100             76,3000     97,4173        362,3425       431,2654
+200                         107,8719       737,9917       831,5412
+
+236bytes         2.4.20      2.5.63         2.4.20        2.5.63
+# listeners    userspace    userspace      kernelspace   kernelspace
+10              70,346      98,510         81,265        100,290
+20              74,639      100,918        122,468       137,533
+50              75,1557     103,2225       230,1421      238,1329
+100             80,3107     105,4415       408,3743      461,2794
+200                         131,9117                     889,5720
+
+40036-bytes     2.4.20       2.5.63         2.4.20       2.5.63
+# listeners    userspace    userspace      kernelspace   kernelspace
+10             302,4181     841,6218       322,1692      702,2231
+20             303,7491     873,12606      347,3450      722,3829
+50             306,10451    868,38031      483,8394      884,8583
+100            309,23107    881,69403      697,17061     1137,16729
+200            313,45528    898,132887     997,39810     1586,32722
+
+
+It appears that sending/receiving is significantly more expensive in 2.5 
+than it was in 2.4, with the difference going up as the size of the 
+message goes up.  Is 2.5 using different copying code or something? 
+Anyone have any ideas as to what is going on here?
+
+Also, even with the increased copying costs, the O(1) scheduler in 2.5 
+means that the kernelspace multicast solution is faster than the 
+userspace solution in either kernel in all cases, even when waking up 
+200 listeners simultaneously.
+
+Any comments on the multicast concept that haven't been discussed already?
+
+Chris
 
 -- 
-Chris Dukes
-I tried being reasonable once--I didn't like it.
+Chris Friesen                    | MailStop: 043/33/F10
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
+
