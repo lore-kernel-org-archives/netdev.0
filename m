@@ -1,28 +1,49 @@
-From: "David S. Miller" <davem@redhat.com>
+From: "Andreas Herrmann" <AHERRMAN@de.ibm.com>
 Subject: Re: [PATCH] new net device feature: shared-ipv6-cards
-Date: Mon, 19 Aug 2002 01:11:31 -0700 (PDT)
+Date: Mon, 19 Aug 2002 11:57:11 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020819.011131.82964805.davem@redhat.com>
-References: <OFA9FA0A49.89F0FA84-ONC1256C16.004D221E@de.ibm.com>
+Message-ID: <OFB130AE35.650BE060-ONC1256C1A.00366E92@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru, ak@suse.de
+Content-Type: text/plain; charset=us-ascii
+Cc: ak@suse.de, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   owner-netdev@oss.sgi.com, pekkas@netcore.fi
 Return-path: <owner-netdev@oss.sgi.com>
-To: AHERRMAN@de.ibm.com
-In-Reply-To: <OFA9FA0A49.89F0FA84-ONC1256C16.004D221E@de.ibm.com>
+To: "David S. Miller" <davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-   From: "Andreas Herrmann" <AHERRMAN@de.ibm.com>
-   Date: Mon, 19 Aug 2002 10:20:19 +0200
+      "David S. Miller" <davem@redhat.com>
+      08/19/02 10:11 AM
 
-   The following changes are performed:
-   
-    o Documentation/Configure.help
-      net/Config.in
-           Configure option and help text for the new feature.
+  >    From: "Andreas Herrmann" <AHERRMAN@de.ibm.com>
+  >    Date: Mon, 19 Aug 2002 10:20:19 +0200
 
-No config option please.  If device driver indicates it wants this
-behavior with a flag bit, no need to duplicate this logic.
-It is likely that it will not be just z-series machines that
-will find this useful.
+  >    The following changes are performed:
+
+  >     o Documentation/Configure.help
+  >       net/Config.in
+  >            Configure option and help text for the new feature.
+
+  > No config option please.  If device driver indicates it wants this
+  > behavior with a flag bit, no need to duplicate this logic.
+  > It is likely that it will not be just z-series machines that
+  > will find this useful.
+
+
+Ok, that's quite sensible. Then I'd like to add some documentation
+either to Documentation/networking/netdevices.txt or a new file (say
+Documentation/networking/ipv6-addrconf.txt) to describe the new
+feature.  Although netdevices.txt seems to be rather incomplete, I
+think the description of this netdevice feature belongs herein.
+
+
+Any other thoughts, comments regarding the patch?
+
+
+Andreas
+
+
+--
+Linux for eServer Development
+Tel :  +49-7031-16-4640
+Notes mail :  Andreas Herrmann/GERMANY/IBM@IBMDE
+email :  aherrman@de.ibm.com
