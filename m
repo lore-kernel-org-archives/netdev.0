@@ -1,58 +1,64 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Annoying bug with many sockets.
-Date: Sun, 20 Feb 2005 16:26:23 -0800
-Message-ID: <42192AAF.8020609@us.ibm.com>
-References: <421925DB.2060602@rapidforum.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/3] r8169: code clean-up
+Date: Mon, 21 Feb 2005 01:28:27 +0100
+Message-ID: <20050221002827.GB14268@electric-eye.fr.zoreil.com>
+References: <200502161823.43562.jdmason@us.ibm.com> <20050217232804.GA4992@electric-eye.fr.zoreil.com> <4218CE73.6010206@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Christian Schmid <webmaster@rapidforum.com>
-In-Reply-To: <421925DB.2060602@rapidforum.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com
+To: Richard Dawe <rich@phekda.gotadsl.co.uk>
+Content-Disposition: inline
+In-Reply-To: <4218CE73.6010206@phekda.gotadsl.co.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christian Schmid wrote:
+Richard Dawe <rich@phekda.gotadsl.co.uk> :
+[...]
+> I started working on adding netif_msg checks to the printks. How far 
+> have you got? I don't want to duplicate your work.
 
-> Hi.
-> 
-> This is really annoying. With 3500 sockets onwards, linux 2.6.10 
-> completely lags. This is a bug and I am not willing to buy new servers 
-> just because linux has a BUG. tcp_mem _rmem and _wmem have been set to 
-> 1024000 for testing but this doesnt help as well. so whats WRONG 
-> there... please?
-> 
-> Best regards,
-> Chris
+None so far. Go wild.
 
-You have not actually said what the problem is - do
-new connections not get made? Or existing connections
-slow down?
+> Incidentally, is there a to-do list somewhere for the r8169 driver? 
 
-You are trying to run many simultaneous connections, so
-bumping up the individual socket buffer allocation will
-not necessarily help - you need to bump up the global
-TCP limit (tcp_mem[]) - it's a 3-tuple - if you have
-the memory in your system, bump it way up. netstat -tan
-will tell you if there is unread data in the queues..
+(without priority)
 
-Are you running into memory pressure? Or aborts?
-netstat -s might give you some info on what is happening.
+- validate suspend/resume/wol
 
-Bump up the port space (/proc/sys/net/ipv4/ip_local_port_range)
-available - typical default is 32K - 61000 (can lower min to 4K)
+- fix the dac issues on x64
+  Weird. Pita. Status needs to be updated.
 
-Are they all receiving data or sending? Are they talking to
-different hosts?
+- push jumbo frames beyond 7k
+  see with Jon Mason
 
-You can increase tcp_max_syn_backlog, core/netdev_max_backlog,
-for a start.
+- merge with the 8139cp driver
+  always interrupted but I have not given up
 
-But it would help if you looked at the stats and ifconfig
-to see who's dropping packets, how many retransmissions there
-are, memory failures, or the bottleneck is some other issue altogether...
+- fix the gcc 2.95.x miscompilations
+  people upgrade their compiler and return to real life before it can be
+  diagnosed. It should not be hard but I have not had the time to install
+  a broken debian to reproduce it so far :o(
 
+- benchmark/improve the performances
+  Executive summary by Lennert Buytenhek: it sucks. If someone could identify
+  where the bottleneck is with hard numbers...
 
-thanks,
-Nivedita
+- harvest the hopeless r8169 users on the web
+  time consuming like hell but it really helps to figure if things are
+  stable or not.
+
+- backport to 2.4
+  RSN. Pending queue is available here and will be pushed once 2.6.x is
+  up-to-date.
+
+- ask Ben Greear if he still experiences keyboard issues with its laptop
+  when he uses the r8169 driver
+  Pending for 5 months... Ahem.
+
+> Maybe I can help out with some of the things.
+
+Figure what's wrong with M. Gardiol setup ?
+
+--
+Ueimor
