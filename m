@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH]  netem: account for packets in delayed queue in qlen (2.4)
-Date: Tue, 29 Mar 2005 15:21:09 -0800
-Message-ID: <20050329152109.5194b62c@dxpl.pdx.osdl.net>
+Subject: [PATCH] netem: account for packets in delayed queue in qlen
+Date: Tue, 29 Mar 2005 15:21:10 -0800
+Message-ID: <20050329152110.38d50653@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,33 +12,38 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Netem qlen fix for 2.4.  
+Netem has a private queue for delayed packets, and currently, packets
+in this queue are not accounted for in the qdisc qlen statistics.
+This is a problem if netem is used inside another qdisc doing rate
+control that peeks at the qlen.
+
 This patch changes the statistics to include the packets held but
 not ready to send.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
---- a/net/sched/sch_netem.c	2005-03-29 15:19:22 -08:00
-+++ b/net/sched/sch_netem.c	2005-03-29 15:19:22 -08:00
-@@ -155,8 +155,6 @@
+--- a/net/sched/sch_netem.c	2005-03-29 13:54:37 -08:00
++++ b/net/sched/sch_netem.c	2005-03-29 13:54:37 -08:00
+@@ -152,9 +152,6 @@
  	/* Always queue at tail to keep packets in order */
  	if (likely(q->delayed.qlen < q->limit)) {
  		__skb_queue_tail(&q->delayed, skb);
--		sch->stats.bytes += skb->len;
--		sch->stats.packets++;
-  
+-		sch->bstats.bytes += skb->len;
+-		sch->bstats.packets++;
+-
  		if (!timer_pending(&q->timer)) {
  			q->timer.expires = jiffies + PSCHED_US2JIFFIE(td);
-@@ -165,7 +163,6 @@
+ 			add_timer(&q->timer);
+@@ -162,7 +159,6 @@
  		return NET_XMIT_SUCCESS;
  	}
  
--	sch->stats.drops++;
+-	sch->qstats.drops++;
  	kfree_skb(skb);
  	return NET_XMIT_DROP;
  }
-@@ -173,6 +170,8 @@
+@@ -170,6 +166,8 @@
  static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch)
  {
  	struct netem_sched_data *q = qdisc_priv(sch);
@@ -47,7 +52,7 @@ diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
  
  	pr_debug("netem_enqueue skb=%p @%lu\n", skb, jiffies);
  
-@@ -185,12 +184,16 @@
+@@ -182,12 +180,16 @@
  	}
  
  	/* Random duplication */
@@ -62,14 +67,14 @@ diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
 +
 +		if (delay_skb(sch, skb2)) {
 +			sch->q.qlen++;
-+			sch->stats.bytes += skb2->len;
-+			sch->stats.packets++;
++			sch->bstats.bytes += skb2->len;
++			sch->bstats.packets++;
 +		} else
-+			sch->stats.drops++;
++			sch->qstats.drops++;
  	}
  
  	/* If doing simple delay then gap == 0 so all packets
-@@ -199,22 +202,21 @@
+@@ -196,22 +198,21 @@
  	 * packets will be delayed.
  	 */
  	if (q->counter < q->gap) {
@@ -79,10 +84,10 @@ diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
  		ret = q->qdisc->enqueue(skb, q->qdisc);
 -		if (likely(ret == NET_XMIT_SUCCESS)) {
 -			sch->q.qlen++;
--			sch->stats.bytes += skb->len;
--			sch->stats.packets++;
+-			sch->bstats.bytes += skb->len;
+-			sch->bstats.packets++;
 -		} else
--			sch->stats.drops++;
+-			sch->qstats.drops++;
 -		return ret;
 +	} else {
 +		q->counter = 0;
@@ -90,27 +95,27 @@ diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
  	}
 -	
 -	q->counter = 0;
-+		
-+	if (likely(ret == NET_XMIT_SUCCESS)) {
-+		sch->q.qlen++;
-+		sch->stats.bytes += skb->len;
-+		sch->stats.packets++;
-+	} else
-+		sch->stats.drops++;
  
 -	return delay_skb(sch, skb);
++	if (likely(ret == NET_XMIT_SUCCESS)) {
++		sch->q.qlen++;
++		sch->bstats.bytes += skb->len;
++		sch->bstats.packets++;
++	} else
++		sch->qstats.drops++;
++
 +	return ret;
  }
  
  /* Requeue packets but don't change time stamp */
-@@ -284,10 +286,10 @@
+@@ -283,10 +284,10 @@
  		}
  		__skb_unlink(skb, &q->delayed);
  
 -		if (q->qdisc->enqueue(skb, q->qdisc))
 +		if (q->qdisc->enqueue(skb, q->qdisc)) {
 +			sch->q.qlen--;
- 			sch->stats.drops++;
+ 			sch->qstats.drops++;
 -		else
 -			sch->q.qlen++;
 +		}
