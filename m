@@ -1,33 +1,77 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.10] tg3: Fix TSO for 5750
-Date: Mon, 24 Jan 2005 14:41:00 -0800
-Message-ID: <20050124144100.58a3fb54.davem@davemloft.net>
-References: <B1508D50A0692F42B217C22C02D84972020F3D42@NT-IRVA-0741.brcm.ad.broadcom.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: skb_checksum_help
+Date: Tue, 25 Jan 2005 09:54:23 +1100
+Message-ID: <20050124225423.GA15405@gondor.apana.org.au>
+References: <20050124005348.GL23931@postel.suug.ch> <E1Cst4o-0007bD-00@gondolin.me.apana.org.au> <20050123202715.281ac87c.davem@davemloft.net> <20050124121610.GP23931@postel.suug.ch> <41F50B6C.6010107@davidcoulson.net> <20050124151510.GV23931@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="RnlQjJ0d97Da+TV1"
+Cc: David Coulson <david@davidcoulson.net>,
+        "David S. Miller" <davem@davemloft.net>, kaber@trash.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3D42@NT-IRVA-0741.brcm.ad.broadcom.com>
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20050124151510.GV23931@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Jan 2005 13:51:36 -0800
-"Michael Chan" <mchan@broadcom.com> wrote:
 
-> - Fix TSO for 5750 chips by setting tcp checksum field to 0 for TSO packets
-> - Add TG3_FLG2_HW_TSO flag for 5750 and newer chips that use the same TSO
-> scheme
+--RnlQjJ0d97Da+TV1
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-If we've created this new TG3_FLG2_HW_TSO flag, we should eliminate
-all 5750 tests which are just checking for that.
+On Mon, Jan 24, 2005 at 04:15:10PM +0100, Thomas Graf wrote:
+> 
+> After inspecting your iptables rule set I think it is a general UDP DNAT
+> problem under some circumstances. Some defragmentation weirdness in
+> prerouting might be invovled. It would definitely help to have a dump
+> of a complete ip fragments sequence causing this bug but I can't tell
+> what exactly is the cause just now so yes it might be a good idea to
+> limit the dump to the above subnet and hope the dodgy traffic comes
+> from the same subnet again.
 
-For example, this patch leaves the following test:
+OK, I think I've found the problem.  It's a totally innocuous bug
+in ip_fragment/ip6_fragment.  When we're in the fast path and use
+the pre-existing frag_list skb's, we forgot to clear ip_summed.
 
--		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705) {
-+		if ((tp->tg3_flags2 & TG3_FLG2_HW_TSO) ||
-+		    (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705)) {
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Here, just checking the TG3_FLG3_HW_TSO flag would suffice.
+However, the problem that Patrick identified is very serious and
+we should fix that as a matter of urgency.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--RnlQjJ0d97Da+TV1
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/ip_output.c 1.73 vs edited =====
+--- 1.73/net/ipv4/ip_output.c	2004-12-28 12:56:34 +11:00
++++ edited/net/ipv4/ip_output.c	2005-01-25 09:32:49 +11:00
+@@ -504,6 +504,7 @@
+ 			/* Prepare header of the next frame,
+ 			 * before previous one went down. */
+ 			if (frag) {
++				frag->ip_summed = CHECKSUM_NONE;
+ 				frag->h.raw = frag->data;
+ 				frag->nh.raw = __skb_push(frag, hlen);
+ 				memcpy(frag->nh.raw, iph, hlen);
+===== net/ipv6/ip6_output.c 1.81 vs edited =====
+--- 1.81/net/ipv6/ip6_output.c	2005-01-15 15:41:34 +11:00
++++ edited/net/ipv6/ip6_output.c	2005-01-25 09:48:25 +11:00
+@@ -592,6 +592,7 @@
+ 			/* Prepare header of the next frame,
+ 			 * before previous one went down. */
+ 			if (frag) {
++				frag->ip_summed = CHECKSUM_NONE;
+ 				frag->h.raw = frag->data;
+ 				fh = (struct frag_hdr*)__skb_push(frag, sizeof(struct frag_hdr));
+ 				frag->nh.raw = __skb_push(frag, hlen);
+
+--RnlQjJ0d97Da+TV1--
