@@ -1,50 +1,35 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-Date: Thu, 11 Sep 2003 22:13:48 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 0/10] [bonding 2.6] port 2.4 bug fixes to 2.6
+Date: Thu, 11 Sep 2003 14:55:32 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010124F032@orsmsx402.jf.intel.com>
+Message-ID: <3F60C524.5070904@pobox.com>
+References: <200309042043.25567.amir.noam@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>, <ricardoz@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
+To: Amir Noam <amir.noam@intel.com>
+In-Reply-To: <200309042043.25567.amir.noam@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Feldman, Scott wrote:
-> > * Change the default number of Tx descriptors from 256 to 1024.
-> >   Data from [ricardoz@us.ibm.com] shows it's easy to overrun
-> >   the Tx desc queue.
+Amir Noam wrote:
+> The following set ports to 2.6 numerous bug fixes that went into
+> 2.4 recently. Patches apply on 2.6.0-test4. Compile tested only.
 > 
+> patch1:  fix 802.3ad long fail over with high UDP Tx stress
+> patch2:  fix load balance problem with high UDP Tx stress
+> patch3:  fix ARP monitoring bug
+> patch4:  fix kernel panic when optional feature used
+> patch5:  fix change active command
+> patch6:  fix OOPS in bonding driver, when removing primary
+> patch7:  embed stats struct inside bonding private struct
+> patch8:  fix error handling in init code
+> patch9:  make each bond device use its own /proc entry
+> patch10: misc fixes: missing include, typos, comments
 > 
-> All e1000 patches applied except this one.
-> 
-> You're just wasting memory.
 
-256 descriptors does sound like enough, but what about the fragmented
-skb case?  MAX_SKB_FRAGS is (64K/4K + 2) = 18, and each fragment gets
-mapped to one descriptor.  It even gets worse with e1000 because we may
-need to split a fragment into two fragments in the driver to workaround
-hardware errata.  :-(
+All patches in this series applied.
 
-It would be interesting to see the frags:skb ratio for 2.6 with TSO
-enabled and disabled with Rick's test.  So our effective number of
-descriptors needs to be adjusted by that ratio.  I agree with David that
-it's wasteful for the device driver to worry about more than
-dev->tx_queue_len, but that's in skb units, not descriptor units.
-
-On the other hand, if we're always running the descriptor ring near
-empty, we've got other problems.  It seems to reason that it doesn't
-matter how big the ring is if we're in that situation.  If the CPU can
-overrun the device, expanding the queues between the CPU and the device
-may help with bursts but gets you nothing for a sustained load.
-
-I flunked that queuing theory class anyway, so what do I know?  Every
-time I get stuck in a traffic slug on the freeway, I think about that
-class.  Hey, that means my car is like an skb, so maybe longer roads
-would help?  Not!
-
--scott
+	Jeff
