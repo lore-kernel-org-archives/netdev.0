@@ -1,86 +1,118 @@
-From: "santosh kumar gowda" <ipv6_san@rediffmail.com>
-Subject: Re: Re: Re: Re: IPv6 enabled Network services
-Date: 13 Feb 2003 13:05:14 -0000
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Troubles with NFS & ip_conntrack: packets go to wrong mac
+Date: Thu, 13 Feb 2003 17:40:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030213130514.7494.qmail@webmail17.rediffmail.com>
-Reply-To: "santosh kumar gowda" <ipv6_san@rediffmail.com>
+Message-ID: <3E4BCA83.4060304@trash.net>
+References: <3E4A7ECB.1020207@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Peter Bieringer" <pb@bieringer.de>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
+In-Reply-To: <3E4A7ECB.1020207@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ooops...i still have some problem
+Some of the information in my last mail was wrong, i'll cut-and-paste 
+the information entered into the netfilter
+bugtracking system, maybe someone has a suggestion. The important part 
+is the packets checksum turns out to
+be right if the destination ip is replaced by the ip the mac belongs to, 
+so the mac is correct.
 
- From machine-1 with Linux version 2.4.18-3smp gcc version 2.96,
-  Red Hat Linux 7.3,
+--cut-n-paste--
 
-telnet>feco::102:304:5678
-Trying feco::102:304:5678
-telnet: connect to address feco::102:304:5678: Connection 
-refused
+With ip_conntrack loaded on the nfs server, client reads time out.
+Clients start logging:
 
-why am i getting connection refused ??
+UDP: short packet: 192.168.0.1:0 0/120 to 192.168.0.23:0
+UDP: short packet: 192.168.0.1:6439 28562/120 to 192.168.0.23:60558
 
-and machine-2 with Linux version 2.4.18-14 (gcc version 3.2
-20020903 (Red Hat Linux 8.0 3.2-7),
+tcpdump shows corrupted packets:
+0:e0:7d:74:ab:cc 0:e0:7d:74:ab:cd 0800 1514: 192.168.0.1 > 192.168.0.223: (frag
+42878:1480@4440+) (ttl 64, len 1500, bad cksum 29ff!)
+0:e0:7d:74:ab:cc 0:e0:7d:74:ab:cd 0800 1514: 192.168.0.1 > 192.168.0.223: (frag
+42879:1480@4440+) (ttl 64, len 1500, bad cksum 29fe!)
 
-telnet>feco::102:304:1357
-feco::102:304:1357/28: Unknown host
+0:e0:7d:74:ab:cd is not the mac of 192.168.0.223 but 192.168.0.23. Both are
+nfs-clients. If more nfs-clients show up more incorrect destination ips appear.
+The packets checksum is correct if the (incorrect) destination ip is replaced by
+the correct destination ip. Only single fragments have incorrect destination,
+the remaining fragments of a packet are fine. Packets verified (checksum) in
+ip_finish_output2 show no corruption.
 
-Response from machine-2 is quite differnet than machine-1. why 
-??
+Neighbour table of nfs server:
+192.168.0.223 dev eth0 lladdr 00:e0:29:3c:c1:c9 nud reachable
+192.168.0.23 dev eth0 lladdr 00:e0:7d:74:ab:cd nud reachable
 
-thanx,
-San
-----------------------------------------
+The problem goes away as soon as ip_conntrack is unloaded. Another possibility
+is to set the interface mtu to 1486 on the nfs server.
 
-On Thu, 13 Feb 2003 Peter Bieringer wrote :
+CPU: AMD-K6(tm) 3D processor, 256MB RAM
+Kernel: 2.4.21-pre3 with few netfilter patches applied, problem also exists in
+vanilla kernel, first noticed around 2.4.17
+
+lspci:
+00:00.0 Host bridge: Acer Laboratories Inc. [ALi] M1541 (rev 04)
+00:01.0 PCI bridge: Acer Laboratories Inc. [ALi] M5243 (rev 04)
+00:07.0 ISA bridge: Acer Laboratories Inc. [ALi] M1533 PCI to ISA Bridge
+[Aladdin IV] (rev c3)
+00:08.0 VGA compatible unclassified device: S3 Inc. 86c864 [Vision 864 DRAM] vers 0
+00:09.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8139 (rev 10)
+00:0a.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8139 (rev 10)
+00:0f.0 IDE interface: Acer Laboratories Inc. [ALi] M5229 IDE (rev c2)
+
+--end-cut-n-paste--
+
+Bye,
+Patrick
+
+
+
+Patrick McHardy wrote:
+
+> I've been experiencing strange problems with nfs and ip_conntrack for 
+> a while now,
+> unfortunately noone so far was able to help. The problem occurs when 
+> ip_conntrack
+> is loaded on the nfs server. nfs reads hang and the clients start logging
 >
+> UDP: short packet: 192.168.0.1:0 0/120 to 192.168.0.23:0
+> UDP: short packet: 192.168.0.1:6439 28562/120 to 192.168.0.23:60558
 >
->--On Thursday, February 13, 2003 11:15:57 AM +0000 santosh 
->kumar
->gowda <ipv6_san@rediffmail.com> wrote:
+> There are two ways to make it work: 1. remove ip_conntrack or 2. set 
+> mtu to 1484 on
+> the nfs server. One suspicion was ip_conntrack breaking udp path mtu 
+> discovery
+> since it seems to defragment packets with DF|MF and refragment them 
+> (with possibly
+> different mtu) at POSTROUTING. This doesn't seem to be the problem, 
+> but i noted the
+> nfs server sends out fragments with wrong destination mac.
 >
-> > Dr.Peter,
-> >
-> > I'm able to ping (using ping6) from both the machines.
-> >
-> > But, when i perform telnet, in machine-1 with Linux version
-> > 2.4.18-3smp gcc version 2.96, Red Hat Linux 7.3, i get
-> >
-> ># telnet fe80::2b0:d0ff:fed2:65ff
-> > Trying fe80::2b0:d0ff:fed2:65ff
-> > telnet: connect to address fe80::2b0:d0ff:fed2:65ff: Invalid
-> > argument
-> >
-> > And the machine-2 with Linux version 2.4.18-14 (gcc version 
->3.2
-> > 20020903 (Red Hat Linux 8.0 3.2-7), i get
-> >
-> ># telnet fe80::250:daff:fed2:d90e
-> > fe80::250:daff:fed2:d90e: Unknown host
-> >
-> > In case, if i need to upgrade telnet, ftp, etc, suggest me 
->where i
-> > can find them. Any docs for the same. looking forward for ur 
->help
+> This is a packet captured on 192.168.0.23:
+> 0:e0:7d:74:ab:cc 0:e0:7d:74:ab:cd 0800 1514: 192.168.0.1 > 
+> 192.168.0.223: (frag 44777:1480@4440+) (ttl 64, len 1500, bad cksum 
+> 2294!)
 >
->Grmmml, read FAQ in HowTo: do not use link-local addresses for 
->normal
->purposes, they won't work because of the scoping issue. Configure 
->and
->use site-local instead.
+> This happens every 1-30 seconds. I never saw more than one misdirected 
+> fragment per packet.
 >
->         Peter
->--
->Dr. Peter Bieringer                     
->http://www.bieringer.de/pb/
->GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot 
->de
->Deep Space 6 Co-Founder and Core Member  
->http://www.deepspace6.net/
+> Relevent parts from neighbour table:
+> 192.168.0.223 dev eth0 lladdr 00:e0:29:3c:c1:c9 nud reachable
+> 192.168.0.23 dev eth0 lladdr 00:e0:7d:74:ab:cd nud reachable
+>
+> On 192.168.0.223 packets for 192.168.0.23 show up. Both clients time 
+> out during reassembly.
+> I placed some printks though the netfilter code and ip_output.c but 
+> couldn't find any further
+> pointers. I looked for broken checksums (something seems to alter the 
+> ip after checksumming)
+> in ip_finish_output2, but everything is ok there. I can't see anything 
+> netfilter related touching packets after that.
+> Any help and/or pointers where to look further would be appreciated.
+>
+> Regards,
+> Patrick
+>
