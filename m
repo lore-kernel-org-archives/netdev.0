@@ -1,81 +1,63 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.9-rc2 1/1] r8169: default on disabling PCIDAC
-Date: Mon, 20 Sep 2004 00:41:02 +0200
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Mon, 20 Sep 2004 00:49:10 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919224102.GA32577@electric-eye.fr.zoreil.com>
+Message-ID: <414E0CE6.107@eurodev.net>
+References: <414D0CCD.90209@eurodev.net> <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <20040919120730.GA6005@gondor.apana.org.au> <414DF111.3080409@eurodev.net> <20040919215328.GA9573@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, Andy Lutomirski <luto@myrealbox.com>,
-        Jon Mason <jdmason@us.ibm.com>,
-        Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-Content-Disposition: inline
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040919215328.GA9573@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Herbert,
 
-Default to disabling PCI DAC as this option appears unsafe on amd64
-(original suggestion by Hans-Frieder Vogt <hfvogt@arcor.de>).
+Sorry, if i repeat things, I'm not willing to be annoying, just clarifying.
 
-The driver will typically report PCI System error when something goes
-wrong. The relevant interrupt is not masked any more and the driver
-can thus be disabled.
+I'm always talking all the time about sending information from kernel 
+space to user space where I found the problem. There's no problem in 
+doing on the other way, in that case buffer never gets full.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Herbert Xu wrote:
 
-diff -puN linux-2.6.9-rc2.orig/drivers/net/r8169.c linux-2.6.9-rc2/drivers/net/r8169.c
---- linux-2.6.9-rc2.orig/drivers/net/r8169.c	2004-09-19 00:17:04.000000000 +0200
-+++ linux-2.6.9-rc2/drivers/net/r8169.c	2004-09-20 00:16:02.000000000 +0200
-@@ -156,6 +156,7 @@ static struct pci_device_id rtl8169_pci_
- MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
- 
- static int rx_copybreak = 200;
-+static int use_dac;
- 
- enum RTL8169_registers {
- 	MAC0 = 0,		/* Ethernet hardware address. */
-@@ -358,6 +359,8 @@ MODULE_AUTHOR("Realtek");
- MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
- MODULE_PARM(media, "1-" __MODULE_STRING(MAX_UNITS) "i");
- MODULE_PARM(rx_copybreak, "i");
-+MODULE_PARM(use_dac, "i");
-+MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
- MODULE_LICENSE("GPL");
- 
- static int rtl8169_open(struct net_device *dev);
-@@ -375,7 +378,7 @@ static int rtl8169_poll(struct net_devic
- #endif
- 
- static const u16 rtl8169_intr_mask =
--	LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
-+	SYSErr | LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
- static const u16 rtl8169_napi_event =
- 	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
- static const unsigned int rtl8169_rx_config =
-@@ -984,7 +987,7 @@ rtl8169_init_board(struct pci_dev *pdev,
- 	tp->cp_cmd = PCIMulRW | RxChkSum;
- 
- 	if ((sizeof(dma_addr_t) > 4) &&
--	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK))
-+	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK) && use_dac)
- 		tp->cp_cmd |= PCIDAC;
- 	else {
- 		rc = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
-@@ -1761,6 +1764,15 @@ rtl8169_interrupt(int irq, void *dev_ins
- 		if (!(status & rtl8169_intr_mask))
- 			break;
- 
-+		if (unlikely(status & SYSErr)) {
-+			printk(KERN_ERR PFX "%s: PCI error (status: 0x%04x)."
-+			       " Device disabled.\n", dev->name, status);
-+			RTL_W8(ChipCmd, 0x00);
-+			RTL_W16(IntrMask, 0x0000);
-+			RTL_R16(IntrMask);
-+			break;
-+		}
-+
- 		if (status & LinkChg)
- 			rtl8169_check_link_status(dev, tp, ioaddr);
- 
+>Workaround for what? Please define your problem.
+>  
+>
+Two problems:
+
+a) if you request information via nl sockets from user space and a 
+kernel module doesn't use the dontwait flag (I know, *nobody* is doing 
+this at the moment, so currently broadcast/unicast never wait as you 
+remarked).
+
+When we request info from user space (sendmsg), you execute the callback 
+from a module which usually replies with some information 
+(netlink_unicast). The problem happens if the size of the information is 
+too big for the buffer. In that case, before using applying my patch, it 
+hangs (in <2.6.9-rc1, it puts it to sleep if buffer gets full). I'm 
+talking about using unicast/broadcast without dontwait flag.
+
+b) A module needs to send a lot of information from kernel space to user 
+space, if buffer gets full quickly, buffer overruns and 
+netlink_unicast/broadcast never wait, so they drop packets.
+
+Why someone could call netlink_unicast/broadcast from a module telling 
+them to wait if necessary? if that module want to care about a possible 
+message drop. This happens if you stress nl sockets. This way netlink 
+sockets behave well with an important workload without dropping 
+messages. So the user space part doesn't get that annoying -enobufs error.
+
+>Your original message mentioned a dead-lock, which is now obviously non-existant.
+>  
+>
+
+it exists if you use netlink_unicast/broadcast telling them to wait, so 
+it's not a real problem for current applications because they tell 
+netlink_unicast/broadcast not to wait.
+
+regards,
+Pablo
