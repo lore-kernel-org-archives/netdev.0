@@ -1,26 +1,37 @@
-From: "Christopher K. Johnson" <ckjohnson@gwi.net>
-Subject: Bug 132832 - ipsec malformed packet in tunnel mode with ah and esp
-Date: Thu, 07 Oct 2004 15:31:24 -0400
+From: Colin Leroy <colin@colino.net>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Thu, 7 Oct 2004 22:00:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4165998C.1010600@gwi.net>
+Message-ID: <20041007220055.3cede68e@jack.colino.net>
+References: <20041006232544.53615761@jack.colino.net>
+	<20041006214322.GG31237@waste.org>
+	<20041007075319.6b31430d@jack.colino.net>
+	<20041006234912.66bfbdcc.davem@davemloft.net>
+	<20041007160532.60c3f26b@pirandello>
+	<20041007112846.5c85b2d9.davem@davemloft.net>
+	<20041007184141.GL31237@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20041007184141.GL31237@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please see https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=132832
+On 07 Oct 2004 at 13h10, Matt Mackall wrote:
 
-I'm the person who contributed the FC2 information about the bug, 
-including the packet trace.  I would gladly provide any other 
-information which could help you in resolving this bug.
+Hi, 
 
-Just let me know.
+> Colin, feeling adventurous enough to take a stab at this? It looks
+> pretty straightforward but I'm going to be even more useless than
+> usual for the next two weeks.
 
-Chris
+I'll try :)
+
+Thanks for all the input !
+
 -- 
------------------------------------------------------------
-    "Spend less!  Do more!  Go Open Source..." -- Dirigo.net
-    Chris Johnson, RHCE #807000448202021
+Colin
+  Recursion: see Recursion
