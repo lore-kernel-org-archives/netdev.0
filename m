@@ -1,35 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec tunnel mode bug - malformed, misaddressed packets
-Date: Mon, 18 Oct 2004 11:08:16 +1000
+From: Administrator <admin@mlinfomap.com>
+Subject: ALERT FROM PostMaster AVAC
+Date: Sat, 16 Oct 2004 17:14:25 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041018010816.GA30059@gondor.apana.org.au>
-References: <41725CF5.2010606@gwi.net>
+Message-ID: <8853797.1097927065294.JavaMail.Administrator@vsnl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Christopher K. Johnson" <ckjohnson@gwi.net>
-Content-Disposition: inline
-In-Reply-To: <41725CF5.2010606@gwi.net>
+To: Post <post@mlinfomap.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 17, 2004 at 11:52:21AM +0000, Christopher K. Johnson wrote:
-> There is an ipsec bug in FC2 kernel 2.6.8-1.521 for ipsec tunnel mode.
-> I have proven with a packet trace that some packets are
-> misaddressed.  Specifically it constructs a packet of the form:
-> IP header1 | AH header | IP header2 | ESP
+===========================================================
+System Generated Message - DO NOT REPLY TO THIS !
+===========================================================
+PostMaster AvAc has processed the mail detailed below
+and has generated this alert for your reference.
 
-This is purely a user-space error.  The Linux IPsec stack is
-very flexible.  In particular, you can configure it to generate
-non-sense such as the above quite easily.
+Message Details:
+-----------------------------------------------------------------------------------
+Message ID        : <E1CIn29-0007XC-Cp@pop.net4india.com>
+Message From      : netdev@oss.sgi.com
+Message To        : Post <post@mlinfomap.com>
+Message Subject   : Re: Old photos
+Message Rcvd Date : Sat Oct 16 17:11:45 IST 2004
+-----------------------------------------------------------------------------------
 
-In this case, racoon needs to be taught that only the inner SA
-should be marked as tunnel mode.
+PostMaster AvAc has found that the following file(s) / attachment(s)
+have infected or malicious content:
+-----------------------------------------------------------------------------------
+ File Scanned: letter.zip  Virus Found: W32.NetSky.Q
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+PostMaster AvAc is configured to delete file(s) / attachment(s) if attempt
+at cleaning infection fails. Accordingly the following action has been taken:
+-----------------------------------------------------------------------------------
+ File Deleted: letter.zip  Virus Name: W32.NetSky.Q
+
+!-- Virus-Free Mail Using PostMaster AvAc & QuickHeal Engine --!
