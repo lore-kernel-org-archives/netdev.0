@@ -1,46 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: kernel bug in socketpair()
-Date: Wed, 23 Jul 2003 10:31:35 -0700
+Date: 23 Jul 2003 18:50:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030723103135.3eac4cd2.davem@redhat.com>
+Message-ID: <1058982641.5520.98.camel@dhcp22.swansea.linux.org.uk>
 References: <200307231428.KAA15254@raptor.research.att.com>
-	<20030723074615.25eea776.davem@redhat.com>
-	<200307231656.MAA69129@raptor.research.att.com>
-	<20030723100043.18d5b025.davem@redhat.com>
-	<200307231724.NAA90957@raptor.research.att.com>
+	 <20030723074615.25eea776.davem@redhat.com>
+	 <200307231656.MAA69129@raptor.research.att.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: gsf@research.att.com, dgk@research.att.com, linux-kernel@vger.kernel.org,
+Cc: davem@redhat.com, dgk@research.att.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Glenn Fowler <gsf@research.att.com>
-In-Reply-To: <200307231724.NAA90957@raptor.research.att.com>
+In-Reply-To: <200307231656.MAA69129@raptor.research.att.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Jul 2003 13:24:36 -0400 (EDT)
-Glenn Fowler <gsf@research.att.com> wrote:
+On Mer, 2003-07-23 at 17:56, Glenn Fowler wrote:
+> you can eliminate the security implications for all fd types by
+> simply translating
+> 	open("/dev/fd/N",...)
+> to
+> 	dup(atoi(N))
+> w.r.t. fd N in the current process
 
-> /dev/fd/N is the underlying mechanism for implementing the bash and ksh
-> 
-> 	cmd-1 <(cmd-2 ...) ... <(cmd-n ...)
-> 
+This has very different semantics. Consider lseek().
 
-Interesting.
+> otherwise there is a bug in the /dev/fd/N -> /proc/self/fd/N implementation
+> and /dev/fd/N should be separated out to its (original) dup(atoi(N))
+> semantics
 
-I looked at the bash code, and it uses pipes with /dev/fd/N, and for
-/dev/fd/N which are pipes the open should work under Linux.
+I don't see a bug. I see differing behaviour between Linux and BSD on a
+completely non standards defined item. Also btw nobody ever really wrote
+a /dev/fd/ for Linux - it was just a byproduct of the proc stuff someone
+noticed. I guess someone could write a Plan-9 style dev/fd or devfdfs
+for Linux if they wanted.
 
-This is what David Korn said in his original report.
-
-I guess the part that is left is the fchmod() issue which exists
-because one inode is used to implement both sides of the pipe under
-Linux.
-
-Was the idea to, since fchmod() on pipes modified both sides,
-to use UNIX domain sockets to implement this?  And that's how
-you discovered the /dev/fd/N failure for sockets?
-
-Another idea is to use named unix sockets.  Can that be
-sufficient to solve your dilemma?
+Alan
