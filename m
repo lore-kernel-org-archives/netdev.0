@@ -1,43 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] (0/9) free_netdev -- delay freeing of net_device structure
- till after last use
-Date: Tue, 19 Aug 2003 16:44:27 -0400
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
+Date: Tue, 19 Aug 2003 17:41:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F428C2B.9070809@pobox.com>
-References: <20030819121800.009db89b.shemminger@osdl.org>	<20030819124818.476dc36d.davem@redhat.com>	<3F42877B.9040407@pobox.com> <20030819132432.4c601c5f.davem@redhat.com>
+Message-ID: <20030820004128.GA11382@bougret.hpl.hp.com>
+References: <20030818122702.67e9162d.shemminger@osdl.org> <20030818232554.A7779@electric-eye.fr.zoreil.com> <20030818150514.310f6f5d.shemminger@osdl.org> <20030819002637.B7779@electric-eye.fr.zoreil.com> <20030820003648.A23942@electric-eye.fr.zoreil.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, mochel@osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030819132432.4c601c5f.davem@redhat.com>
+To: Francois Romieu <romieu@fr.zoreil.com>,
+   Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030820003648.A23942@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Tue, 19 Aug 2003 16:24:27 -0400
-> Jeff Garzik <jgarzik@pobox.com> wrote:
+On Wed, Aug 20, 2003 at 12:36:48AM +0200, Francois Romieu wrote:
+> Apply on top of Stephen's serie [1-4]. Compile ok.
 > 
-> 
->>Also, my tendency is to apply patches 1-8, and not apply patch 9 just 
->>yet.  Even though patch 9 is a fix, those specific areas of code, I'm 
->>betting, will change when those drivers are fixed WRT full dynamic 
->>allocation and refcounting.
->>
->>Comments?
-> 
-> 
-> I disagree about patch 9.
-> 
-> These drivers already dynamically allocate their netdev
-> structs, so they do not require any more fixing.  I just
-> double checked each driver changes in patch 9 and to me
-> this is undoubtedly the case.
-> 
-> These are just pure bug fixes.
+> Style: separate data from code.
 
+	By the way, I've totally lost track of who does what. If David
+Miller doesn't process your patch, send it to me and I'll push it
+through the usual channels.
+	If any of you guys have issues setting up a testbed, either
+with real IrDA hardware or a serial cross-over cable, please
+yell. Testing is one of my hot button, and I don't want to give much
+excuse ;-)
+	By the way, I'm on vacation starting this thursday, I'll be
+back in september.
 
-Ok with me, then.
+	Have fun...
 
-	Jeff
+	Jean
