@@ -1,38 +1,57 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: TOE brain dump
-Date: Sun, 3 Aug 2003 22:25:54 -0700
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: multicast IP datagram forwarding bug and fix (fwd)
+Date: Mon, 4 Aug 2003 09:06:04 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030803222554.7027a160.davem@redhat.com>
-References: <20030802140444.E5798@almesberger.net>
-	<3F2BF5C7.90400@us.ibm.com>
-	<3F2C0C44.6020002@pobox.com>
-	<20030802184901.G5798@almesberger.net>
-	<3F2CAE61.7070401@pobox.com>
-	<3F2DBB2B.9050803@aarnet.edu.au>
+Message-ID: <Pine.LNX.4.44.0308040905260.11876-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Glen Turner <glen.turner@aarnet.edu.au>
-In-Reply-To: <3F2DBB2B.9050803@aarnet.edu.au>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[ This discussion belongs on netdev, not linux-kernel. ]
+I didn't see followups to this, so I'm re-sending to the list just in case 
+it got dropped in the cracks..
 
-On Mon, 04 Aug 2003 11:17:23 +0930
-Glen Turner <glen.turner@aarnet.edu.au> wrote:
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+---------- Forwarded message ----------
+Date: Mon, 28 Jul 2003 13:20:31 -0400
+From: "Weng, Wending" <WWending@oerlikon.ca>
+To: netdev@oss.sgi.com
+Subject: multicast IP datagram forwarding bug and fix
 
-> That's Matt Mathis's phrase.  The Web100 project
-> <http://www.web100.org/> has a set of patches to the kernel
-> which go a long way to reducing the wizard gap.  It would be
-> nice to see those patches eventually appear in the Linux
-> mainstream.
-
-The web100 patches aren't in the kernel because 1) they've
-never even been submitted and 2) they need a large cleanup.
-
-I sort of get the impression that the web100 folks actually like that
-their changes are not in the main sources, it keeps their work
-"special".
+> Hi,
+> 
+>    LINUX doesn't forward multicast IP datagram if it has option(s), there is is a bug in the module ipmr.c, function
+> ipmr_forward_finish, below is the current version of this function:
+> 
+> static inline int ipmr_forward_finish(struct sk_buff *skb)
+> {
+>         struct dst_entry *dst = skb->dst;
+> 
+>         if (skb->len <= dst->pmtu)
+>                 return dst->output(skb);
+>         else
+>                 return ip_fragment(skb, dst->output);
+> }
+> 
+> it forgets to recalculate the checksum in case the option is modified.
+> 
+> The following code works properly:
+> 
+> static inline int ipmr_forward_finish(struct sk_buff *skb)
+> {
+>         struct dst_entry *dst = skb->dst;
+> 
+>         ip_forward_options (skb); /* this line recalculates checksum if needed. */
+> 
+>         if (skb->len <= dst->pmtu)
+>                 return dst->output(skb);
+>         else
+>                 return ip_fragment(skb, dst->output);
+> }
+> 
+> Wending Weng
