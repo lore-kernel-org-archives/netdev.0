@@ -1,27 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NET]: TSO requires SG, enforce this at device registry.
-Date: Sun, 24 Oct 2004 22:57:00 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: linux-2.6.9 eepro100 warning
+Date: Mon, 25 Oct 2004 02:16:46 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041024225700.4a22a968.davem@davemloft.net>
-References: <200410221715.i9MHFlIu021927@hera.kernel.org>
-	<417C9431.6030505@pobox.com>
+Message-ID: <417C9A4E.3030909@pobox.com>
+References: <200410232313.AA00003@prism.kumin.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <417C9431.6030505@pobox.com>
+To: Seiichi Nakashima <nakasima@kumin.ne.jp>
+In-Reply-To: <200410232313.AA00003@prism.kumin.ne.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Oct 2004 01:50:41 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Seiichi Nakashima wrote:
+> Hi.
+> 
+> I update linux kernel form 2.6.8.1 to 2.6.9.
+> I found eepro100 warning, then I update 2.6.10-rc1, but same result.
+> It is only warning, I think pro100 may work fine.
 
-> 1) Given current driver implementations of ethtool ioctls, sysadmin is 
-> free to create a combination of bits that are IMHO a bug.  One can argue 
-> that this is an extension of "root can shoot himself in the foot", so 
-> who knows.
+This should be fixed in the 2.6.9-mm tree (via my netdev-2.6 tree).
 
-I made a followon posting proposing ethtool changes which
-would enforce the rules there too, did you see it?
+Note that eepro100 driver will be deleted soon.
+
+	Jeff
