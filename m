@@ -1,76 +1,38 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH] IPv6: (5/5+1) Autoconfig link-local addr to IPv6 tunnels
-Date: Tue, 2 Sep 2003 17:40:15 +0300 (EEST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH/RFC] disallow vlan devices on top of a logical bridge
+ device
+Date: Tue, 2 Sep 2003 08:28:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309021735350.4244-100000@netcore.fi>
-References: <Pine.LNX.4.44.0309011709370.29198-200000@rhea.tcs.hut.fi>
+Message-ID: <20030902082807.0e18fe76.shemminger@osdl.org>
+References: <200308301504.03241.bdschuym@pandora.be>
+	<20030830203043.0eb1a660.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <yoshfuji@linux-ipv6.org>,
-   <usagi-core@linux-ipv6.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Bart De Schuymer <bdschuym@pandora.be>, greearb@candelatech.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0309011709370.29198-200000@rhea.tcs.hut.fi>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030830203043.0eb1a660.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Sep 2003, Ville Nuorvala wrote:
-> On Mon, 1 Sep 2003, David S. Miller wrote:
-> > On Mon, 1 Sep 2003 13:48:44 +0300 (EEST)
-> > Pekka Savola <pekkas@netcore.fi> wrote:
-> >
-> > > Well, link-local addresses are used e.g. by routing protocols and such, so
-> > > having one is probably rather important..
-> >
-> > Ok.
-> >
-> > > FWIW, on FreeBSD platform they take the link-local address of the first
-> > > physical interface, and give the exact same link-local address on all of
-> > > the tunnels, disambiuating them with the scope identifier.  Seems like an
-> > > OK appaorach too, and guarantees (to the degree of unique MAC addresses)
-> > > that the addresses of the endpoints do not clash.
-> >
-> > Interesting approach...  I'm not particularly picky about how this
-> > uniqueness issue is solved.
+On Sat, 30 Aug 2003 20:30:43 -0700
+"David S. Miller" <davem@redhat.com> wrote:
+
+> On Sat, 30 Aug 2003 15:04:03 +0200
+> Bart De Schuymer <bdschuym@pandora.be> wrote:
 > 
-> Ok, this incremental patch to my previous addrconf.c patch generates a
-> link-local address to the IPv6 tunnel device. It first tries to inherit
-> the EUI64 identifier of some other device and if this fails, uses a
-> random interface id.
+> > The patch below disables making vlan devices on top of bridge
+> > devices, f.e. br0.12 would be impossible.
+> 
+> I don't think disallowing this merely for the sake of
+> implementation convenience is such a good idea.  And
+> from other people's comments, such setups might even
+> be useful.
 
-Two comments:
 
-+       /* try to inherit EUI64 from another device */
-+       for (dev = dev_base; dev; dev = dev->next) {
-+               if (!ipv6_generate_eui64(addr.s6_addr + 8, dev)) {
-+                       addrconf_add_linklocal(idev, &addr);
-+                       return;
-+
+Bridge of a VLAN makes sense and is done.
+VLAN of a bridge might be done by someone for redundancy or testing.
 
-==> does this really inherit _EUI64_, *or* MAC address (or something like
-it) to derive an EUI64?  Note that there is a significant difference when
-you've configured manually e.g. 3ffe:ffff:f00:ba::1 on a device, and the
-case when you've auto-configured the interface identifier from the MAC
-address of the device.
-
-The latter is probably always unique.  The former is not necessarily
-sufficiently unique (but better than nothing, of course).
-
-+#ifdef CONFIG_IPV6_PRIVACY
-+       /* else try to generate a random identifier */
-+       if (!__ipv6_regen_rndid(idev)) {
-+               memcpy(addr.s6_addr + 8, idev->rndid, 8);
-+               addrconf_add_linklocal(idev, &addr);
-+               return;
-+
-
-==> my question is: as the former method to steal an EUI64 should succeed
-pretty much always, is it useful to add basically dead code which never
-gets executed here?  I certainly can't think of any scenario where you'd
-have no interface to steal the MAC address/EUI64 from and you'd have to
-fall back to random identifiers?
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Don't apply the patch, can't see the harm in allowing either case.
