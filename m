@@ -1,48 +1,61 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [E1000-devel] Transmission limit
-Date: Mon, 29 Nov 2004 12:16:04 -0800
-Message-ID: <20041129121604.47eb6593.davem@davemloft.net>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	<41A73826.3000109@draigBrady.com>
-	<16807.20052.569125.686158@robur.slu.se>
-	<1101484740.24742.213.camel@mellia.lipar.polito.it>
-	<41A76085.7000105@draigBrady.com>
-	<1101499285.1079.45.camel@jzny.localdomain>
-	<16811.8052.678955.795327@robur.slu.se>
+From: Paul Jakma <paul@clubi.ie>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 29 Nov 2004 20:27:57 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0411292007080.18143@hibernia.jakma.org>
+References: <OF7E76C3BE.B1D182D3-ONC1256F5B.005B3E84-C1256F5B.005BB584@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, P@draigBrady.com, mellia@prezzemolo.polito.it,
-        Robert.Olsson@data.slu.se, e1000-devel@lists.sourceforge.net,
-        jorge.finochietto@polito.it, galante@polito.it, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16811.8052.678955.795327@robur.slu.se>
+To: Thomas Spatzier <thomas.spatzier@de.ibm.com>
+In-Reply-To: <OF7E76C3BE.B1D182D3-ONC1256F5B.005B3E84-C1256F5B.005BB584@de.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Nov 2004 14:09:08 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+On Mon, 29 Nov 2004, Thomas Spatzier wrote:
 
->  Did I dream or did someone tell me that S2IO 
->  could have several TX ring that could via MSI be routed to proper cpu?
+> Yes, for the examples you mentioned the app should better be 
+> notified. However, AFAICS, there are no such notification 
+> mechanisms on a per-packet basis implemented in the kernel. And I 
+> doubt that they are going to be implemented.
 
-One of Sun's gigabit chips can do this too, except it isn't
-via MSI, the driver has to read the descriptor to figure out
-which cpu gets the software interrupt to process the packet.
+We do get notified. We get a netlink interface update with 
+unset IFF_RUNNING from the interface flags.
 
-SGI had hardware which allowed you to do this kind of stuff too.
+However, it can take time before zebra gets to read it, and further 
+time before zebra sends its own interface update to protocol daemons, 
+and further time before they might get to read and update their own 
+interface state. By which time those daemons may have sent packets 
+down those interfaces (which packets may become invalid before link 
+becomes back, but which still will be sent and hence which 
+potentially could disrupt routing).
 
-Obviously the MSI version works much better.
+Ideally, we should be notified synchronously (EBUFS?) or if thats not 
+possible, packet should be dropped (see my below presumption though).
 
-It is important, the cpu selection process.  First of all, it must
-be calculated such that flows always go through the same cpu.
-Otherwise TCP sockets bounce between the cpus for a streaming
-transfer.
+The other solution is some means for a daemon to be able flush queues 
+for a specific interface. (but thats a bit ugly).
 
-And even this doesn't avoid all such problems, TCP LISTEN state
-sockets will still thrash between the cpus with such a "pick
-a cpu based upon" flow scheme.
+> Good suggestion, if anyone has an interesting and feasible solution 
+> I will be happy to integrate it. So far, however, it don't see one 
+> and I would point people being worried about lost packets to TCP.
 
-Anyways, just some thoughts.
+Surely TCP already was able to take care of retransmits? I'm not 
+familiar with Linux internals, but how did TCP cope with the previous 
+driver behaviour? (I get the vague impression that we're talking 
+about a driver specific buffer here, rather than the applications 
+socket buffer - is that correct?).
+
+Jeff, David, enlighten us please! :)
+
+> Regards,
+> Thomas.
+
+regards,
+-- 
+Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
+Fortune:
+I can't understand why people are frightened of new ideas.  I'm frightened
+of the old ones.
+ 		-- John Cage
