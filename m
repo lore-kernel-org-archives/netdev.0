@@ -1,62 +1,255 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec xfrm resolution
-Date: Fri, 18 Feb 2005 21:08:54 +1100
-Message-ID: <20050218100854.GA19427@gondor.apana.org.au>
-References: <20050209085251.GA9030@gondor.apana.org.au> <420B9DF1.3020704@trash.net> <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [IPV4] Fix ip_rt_gc_min_interval_ms procfs/sysctl
+Date: Fri, 18 Feb 2005 19:24:30 +0900 (JST)
+Message-ID: <20050218.192430.98634850.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maillist netdev <netdev@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42152841.5000707@trash.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+To: torvalds@osdl.org, akpm@osdl.org, davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 18, 2005 at 12:26:57AM +0100, Patrick McHardy wrote:
->
-> Yes, this part is simple. There's one thing I think we need to do
-> slightly different from what you describe. The current behaviour is
-> to resolve one SA at a time, we should keep it this way because we
-> may need an early SA in the bundle for a different policy to resolve
-> a follow-up SA for nested tunnels with different peers where the
-> second peer is only reachable through a tunnel to the first peer.
+Hello, Linus, Andrew and David;
 
-Agreed.  This doesn't stop us from creating the bundle object of course.
+Recently, we added gc_min_interval_ms procfs/sysctl.
+
+Because type of ip_rt_gc_min_interval is int, 
+use of ulong helpers is inappropriate and unsafe.
+I believe it breaks some archs that the size of unsigned long
+is not equal to one of int.
+
+So, let's add new sysctl helpers and use them instead.
+This also fixes inconsistency between procfs and sysctl.
+
+Please pull following changesets available at
+        <bk://bk.skbuff.net:20611/linux-2.6-sysctl/>
+into 2.6.11 tree.
+
+Thanks.
+
+P.S. I will send several changesets to add other users 
+(neighbour and ipv6 routing) after 2.6.12 opens.
+
+HEADLINES
+---------
+ChangeSet@1.2063, 2005-02-18 18:23:43+09:00, yoshfuji@linux-ipv6.org
+ add sysctl helper functions to provide milliseconds-based interfaces.
+ChangeSet@1.2064, 2005-02-18 18:54:30+09:00, yoshfuji@linux-ipv6.org
+ [IPV4] Use appropriate sysctl helpers for gc_min_interval_ms.
+
+
+DIFFSTATS
+---------
+ include/linux/sysctl.h |    3 +
+ kernel/sysctl.c        |   91 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/route.c       |    6 +--
+ 3 files changed, 97 insertions(+), 3 deletions(-)
+
+
+CHANGESETS
+----------
+ChangeSet@1.2063, 2005-02-18 18:23:43+09:00, yoshfuji@linux-ipv6.org
+ add sysctl helper functions to provide milliseconds-based interfaces.
  
-> I'm not sure yet how to deal with optional SAs. We shouldn't add
-> incomplete optional tunnel mode SAs to the bundle because then we
-> can't determine the output device, but if we don't nothing will
-> trigger resolving of optional SAs following a non-optional SA that
-> needs to be resolved.
+ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-I don't get it.  Can't you just add it into the bundle but ignore it
-for dst->output and other calculations until it's either realised or
-removed?
-
-> I thought about adding the queue to the xfrm_dst and adding a dummy
-> xfrm_state with a selector that matches only the current flow. This
-
-The inner flow is probably not the best key for this.  How about
-keying it using the outer remote address on the template? The SAs
-have a bydst hash which makes this easy to look up.
-
-So we would attach each packet to a queue shared by all SAs to a
-specific (outer) remote address.
+diff -Nru a/include/linux/sysctl.h b/include/linux/sysctl.h
+--- a/include/linux/sysctl.h	2005-02-18 18:55:25 +09:00
++++ b/include/linux/sysctl.h	2005-02-18 18:55:25 +09:00
+@@ -796,6 +796,8 @@
+ 				 void __user *, size_t *, loff_t *);
+ extern int proc_dointvec_userhz_jiffies(ctl_table *, int, struct file *,
+ 					void __user *, size_t *, loff_t *);
++extern int proc_dointvec_ms_jiffies(ctl_table *, int, struct file *,
++				    void __user *, size_t *, loff_t *);
+ extern int proc_doulongvec_minmax(ctl_table *, int, struct file *,
+ 				  void __user *, size_t *, loff_t *);
+ extern int proc_doulongvec_ms_jiffies_minmax(ctl_table *table, int,
+@@ -813,6 +815,7 @@
+ extern ctl_handler sysctl_string;
+ extern ctl_handler sysctl_intvec;
+ extern ctl_handler sysctl_jiffies;
++extern ctl_handler sysctl_ms_jiffies;
  
-> Finding all queues affected by ADDSA/UPDATESA is not easy. A SA
-> installed in response to an acquire request doesn't need to match
-> the one requested, so theoretically states waiting on different
-> larval states SAs might be able to use it. I don't think we have
-> much choice other than looking at all incomplete bundles (or
-> one per flow) on SADB changes.
+ 
+ /*
+diff -Nru a/kernel/sysctl.c b/kernel/sysctl.c
+--- a/kernel/sysctl.c	2005-02-18 18:55:25 +09:00
++++ b/kernel/sysctl.c	2005-02-18 18:55:25 +09:00
+@@ -1902,6 +1902,27 @@
+ 	return 0;
+ }
+ 
++static int do_proc_dointvec_ms_jiffies_conv(int *negp, unsigned long *lvalp,
++					    int *valp,
++					    int write, void *data)
++{
++	if (write) {
++		*valp = msecs_to_jiffies(*negp ? -*lvalp : *lvalp);
++	} else {
++		int val = *valp;
++		unsigned long lval;
++		if (val < 0) {
++			*negp = -1;
++			lval = (unsigned long)-val;
++		} else {
++			*negp = 0;
++			lval = (unsigned long)val;
++		}
++		*lvalp = jiffies_to_msecs(lval);
++	}
++	return 0;
++}
++
+ /**
+  * proc_dointvec_jiffies - read a vector of integers as seconds
+  * @table: the sysctl table
+@@ -1946,6 +1967,28 @@
+ 		    	    do_proc_dointvec_userhz_jiffies_conv,NULL);
+ }
+ 
++/**
++ * proc_dointvec_ms_jiffies - read a vector of integers as 1 milliseconds
++ * @table: the sysctl table
++ * @write: %TRUE if this is a write to the sysctl file
++ * @filp: the file structure
++ * @buffer: the user buffer
++ * @lenp: the size of the user buffer
++ *
++ * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
++ * values from/to the user buffer, treated as an ASCII string. 
++ * The values read are assumed to be in 1/1000 seconds, and 
++ * are converted into jiffies.
++ *
++ * Returns 0 on success.
++ */
++int proc_dointvec_ms_jiffies(ctl_table *table, int write, struct file *filp,
++			     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return do_proc_dointvec(table, write, filp, buffer, lenp, ppos,
++				do_proc_dointvec_ms_jiffies_conv, NULL);
++}
++
+ #else /* CONFIG_PROC_FS */
+ 
+ int proc_dostring(ctl_table *table, int write, struct file *filp,
+@@ -1990,6 +2033,12 @@
+ 	return -ENOSYS;
+ }
+ 
++int proc_dointvec_ms_jiffies(ctl_table *table, int write, struct file *filp,
++			     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return -ENOSYS;
++}
++
+ int proc_doulongvec_minmax(ctl_table *table, int write, struct file *filp,
+ 		    void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+@@ -2119,6 +2168,33 @@
+ 	return 1;
+ }
+ 
++/* Strategy function to convert jiffies to seconds */ 
++int sysctl_ms_jiffies(ctl_table *table, int __user *name, int nlen,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen, void **context)
++{
++	if (oldval) {
++		size_t olen;
++		if (oldlenp) { 
++			if (get_user(olen, oldlenp))
++				return -EFAULT;
++			if (olen!=sizeof(int))
++				return -EINVAL; 
++		}
++		if (put_user(jiffies_to_msecs(*(int *)(table->data)), (int __user *)oldval) ||
++		    (oldlenp && put_user(sizeof(int),oldlenp)))
++			return -EFAULT;
++	}
++	if (newval && newlen) { 
++		int new;
++		if (newlen != sizeof(int))
++			return -EINVAL; 
++		if (get_user(new, (int __user *)newval))
++			return -EFAULT;
++		*(int *)(table->data) = msecs_to_jiffies(new);
++	}
++	return 1;
++}
+ 
+ #else /* CONFIG_SYSCTL */
+ 
+@@ -2149,6 +2225,13 @@
+ 	return -ENOSYS;
+ }
+ 
++int sysctl_ms_jiffies(ctl_table *table, int __user *name, int nlen,
++		void __user *oldval, size_t __user *oldlenp,
++		void __user *newval, size_t newlen, void **context)
++{
++	return -ENOSYS;
++}
++
+ int proc_dostring(ctl_table *table, int write, struct file *filp,
+ 		  void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+@@ -2185,6 +2268,12 @@
+ 	return -ENOSYS;
+ }
+ 
++int proc_dointvec_ms_jiffies(ctl_table *table, int write, struct file *filp,
++			     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return -ENOSYS;
++}
++
+ int proc_doulongvec_minmax(ctl_table *table, int write, struct file *filp,
+ 		    void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+@@ -2219,11 +2308,13 @@
+ EXPORT_SYMBOL(proc_dointvec_jiffies);
+ EXPORT_SYMBOL(proc_dointvec_minmax);
+ EXPORT_SYMBOL(proc_dointvec_userhz_jiffies);
++EXPORT_SYMBOL(proc_dointvec_ms_jiffies);
+ EXPORT_SYMBOL(proc_dostring);
+ EXPORT_SYMBOL(proc_doulongvec_minmax);
+ EXPORT_SYMBOL(proc_doulongvec_ms_jiffies_minmax);
+ EXPORT_SYMBOL(register_sysctl_table);
+ EXPORT_SYMBOL(sysctl_intvec);
+ EXPORT_SYMBOL(sysctl_jiffies);
++EXPORT_SYMBOL(sysctl_ms_jiffies);
+ EXPORT_SYMBOL(sysctl_string);
+ EXPORT_SYMBOL(unregister_sysctl_table);
 
-If you key it on the remote address then you only have to look up
-those.
+ChangeSet@1.2064, 2005-02-18 18:54:30+09:00, yoshfuji@linux-ipv6.org
+ [IPV4] Use appropriate sysctl helpers for gc_min_interval_ms.
+ 
+ Because its type is int, inappropriate to use ulong helpers.
+ This also fixes inconsistency between sysctl and procfs.
+ 
+ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Cheers,
+diff -Nru a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c	2005-02-18 18:55:29 +09:00
++++ b/net/ipv4/route.c	2005-02-18 18:55:29 +09:00
+@@ -2545,10 +2545,10 @@
+ 		.ctl_name	= NET_IPV4_ROUTE_GC_MIN_INTERVAL_MS,
+ 		.procname	= "gc_min_interval_ms",
+ 		.data		= &ip_rt_gc_min_interval,
+-		.maxlen		= sizeof(unsigned long),
++		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
+-		.strategy	= &sysctl_jiffies,
++		.proc_handler	= &proc_dointvec_ms_jiffies,
++		.strategy	= &sysctl_ms_jiffies,
+ 	},
+ 	{
+ 		.ctl_name	= NET_IPV4_ROUTE_GC_TIMEOUT,
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
