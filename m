@@ -1,22 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPV4] convert proc/net/pnp to seq_file.
-Date: Mon, 15 Sep 2003 15:50:28 -0700
+Subject: Re: Fw: [Kernel-janitors] old ioctl definitions in 2.5
+Date: Mon, 15 Sep 2003 15:54:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030915155028.271aa1e9.davem@redhat.com>
-References: <20030913.142007.113839771.yoshfuji@linux-ipv6.org>
+Message-ID: <20030915155415.73c5056d.davem@redhat.com>
+References: <20030915155225.3cf90d79.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030913.142007.113839771.yoshfuji@linux-ipv6.org>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20030915155225.3cf90d79.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 13 Sep 2003 14:20:07 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
+On Mon, 15 Sep 2003 15:52:25 -0700
+"Randy.Dunlap" <rddunlap@osdl.org> wrote:
 
-> Convert /proc/net/pnp to seq_file.
+> I think that we need to ask the netdev people about this...
 
-Applied, thank you Yoshfuji-san.
+If the current generation of the bonding userland tools
+have stopped using these older ioctl values, yes we should
+kill them from the entire kernel tree.
