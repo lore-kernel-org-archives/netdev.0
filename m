@@ -1,78 +1,58 @@
-From: "D. Hugh Redelmeier" <hugh@mimosa.com>
-Subject: adding a new card to 8139too
-Date: Sat, 31 Jan 2004 17:58:43 -0500 (EST)
+From: Michael Neuffer <neuffer@neuffer.info>
+Subject: Re: 2.6.2-rc2-mm2
+Date: Sun, 1 Feb 2004 11:03:40 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0401311738130.12810-100000@redshift.mimosa.com>
-Reply-To: "D. Hugh Redelmeier" <hugh@mimosa.com>
+Message-ID: <20040201100340.GA12436@neuffer.info>
+References: <20040130014108.09c964fd.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shuchen@realtek.com.tw
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040130014108.09c964fd.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have a Compaq HNE-300, a 10/100 ethernet CardBus adapter.
 
-The 8139too driver does not support this card but it is an easy matter
-to make the driver do so: just add an entry to each of three tables.
-I figured this out by looking at Donald Becker's driver.  I've
-confirmed this by testing it on a Red Hat Linux 9 kernel.
+Quoting Andrew Morton (akpm@osdl.org):
+> [...] 
+> +bk-netdev.patch
+> 
+>  Latest experimental netdev tree
 
-I would like to get this adopted upstream so that I don't have to keep
-building my own kernels.
+The patch to r8169.c from the netdev patch clearly increases stability
 
-I've submitted a tracker item to the official 8139too home page, but
-that has gotten no attention:
-	<http://sourceforge.net/tracker/index.php?func=detail&aid=829125&group_id=3242&atid=303242>
+The 2.6.2-rc2 kernel hangs within minutes even on very light load, whereas
+2.6.2-rc2-mm2-1 holds up under heavy network traffic repeatably for
+over half an hour before it hangs and somewhat longer under light traffic.
 
-I've submitted a bug report to Red Hat, but that has gotten no
-attention:
-	<http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=107850>
+It is definitely the RTL-8169 interface since I can not get the kernel
+to hang using a different (RTL-8139C) controller connected to the same 
+Gigabit switch.
 
-Any suggestions on what I should do?
+After many tests I was finally able to capture an Oops:
+Oops: 0000 [#1]
+PREEMPT
+CPU:    0
+EIP:    0060:[<c02f6a7a>]   Not tainted VLI
+EFLAGS: 00010216
+EIP is at rtl8169_rx_interrupt+0x7a/0x280
+eax: 0000000f7  ebx: 3281c0f7   ecx: efcec200   edx: 00000000
+esi: eecc2070   edi: 00000007   ebp: 000000f3   esp: e99a9fc2
+ds: 007b   es: 007b   ss: 0068
+Process setiathome (pid: 1817, threadinfo=e99a8000 task=e9a92240)
+Stack: ed7d5600 efcec000 efcec000 e99a9f68 eecc2070 00000000 00000001 f3851000
+       00000014 e99a8000 c02f6d62 efcec000 efcec200 f3851000 00000001 efcec200
+       ef00ef00 04000001 00000000 e99a9fc4 c010e06a 00000013 efcec000 e99a9fc4
+Call Trace:
+ [<c02f6d62>] rtl8169_interrupt+0xe2/0xf0
+ [<c010e06a>] handle_IRQ_event+0x3a/0x70
+ [<c010e401>] do_IRQ+0x91/0x130
+ [<c0491cdc>] common_interrupt+0x18/0x20
 
-Although the Red Hat kernel version, the Source Forge version, and the
-kernel.org 2.4.24 version of the driver claim to be DRV_VERSION
-0.9.26, there are significant differences between them.  None supports
-my card, as far as I can tell.
-
-I've not tested this on a kernal.org 2.4 kernel.  It would take me a
-bit of work to do so (the notebook with the card is in a different
-city).
-
-Here is the patch to 8139too.c that works for me on Red Hat Linux 9:
-
-===================================================================
-RCS file: RCS/8139too.c,v
-retrieving revision 1.1
-diff -u -r1.1 8139too.c
---- 8139too.c	2003/10/22 16:55:51	1.1
-+++ 8139too.c	2003/10/22 16:59:37
-@@ -223,6 +223,7 @@
- 	RTL8129,
- 	FNW3603TX,
- 	FNW3800TX,
-+	HNE300,
- } board_t;
- 
- 
-@@ -244,6 +245,7 @@
- 	{ "RealTek RTL8129", RTL8129_CAPS },
- 	{ "Planex FNW-3603-TX 10/100 CardBus", RTL8139_CAPS },
- 	{ "Planex FNW-3800-TX 10/100 CardBus", RTL8139_CAPS },
-+	{ "Compaq iPaq HNE-300 CardBus (RealTek RTL8139c)", RTL8139_CAPS },
- };
- 
- 
-@@ -260,6 +262,7 @@
- 	{0x1259, 0xa117, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ALLIED8139 },
- 	{0x14ea, 0xab06, PCI_ANY_ID, PCI_ANY_ID, 0, 0, FNW3603TX },
- 	{0x14ea, 0xab07, PCI_ANY_ID, PCI_ANY_ID, 0, 0, FNW3800TX },
-+	{0x021b, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, HNE300 },
- 
- #ifdef CONFIG_8139TOO_8129
- 	{0x10ec, 0x8129, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8129 },
-================ end ================
-
-Hugh Redelmeier
-hugh@mimosa.com  voice: +1 416 482-8253
+Code: 24 14 89 d8 25 ff 1f 00 00 8d 68 fc 3b 2d 38 12 58 c0 0f 8c 3f 01 00 00 8b
+ 4c 24 30 c7 84 b9 90 00 00 00 00 00 00 00 8b 54 24 14 <8b> 42 68 85 c0 0f 85 14
+ 01 00 00 8b 82 a0 00 00 00 01 6a 64 01
+ <0>Kernel panic: Fatal exception in interrupt
+In interrupt handler not syncing
