@@ -1,32 +1,52 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: modified pci.ids file
-Date: Mon, 25 Oct 2004 11:24:16 -0400
+From: akpm@osdl.org
+Subject: [patch 1/5] small sha256 cleanup
+Date: Mon, 25 Oct 2004 12:38:26 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041025152416.GB9878@redhat.com>
-References: <1098687547.2237.18.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pci-ids@ucw.cz, netdev@oss.sgi.com, jgarzik@pobox.com
+Message-ID: <200410251940.i9PJeM910827@mail.osdl.org>
+Cc: jmorris@redhat.com, netdev@oss.sgi.com, akpm@osdl.org,
+        vda@port.imtp.ilyichevsk.odessa.ua
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ralph Roesler <rroesler@syskonnect.de>
-Content-Disposition: inline
-In-Reply-To: <1098687547.2237.18.camel@localhost.localdomain>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Oct 25, 2004 at 08:59:08AM +0200, Ralph Roesler wrote:
- > Hi *,
- > 
- > here is the list of pci-device id that are supported
- > by the Marvell/SysKonnect sk98lin driver.
- > 
- > Is it possible for you to the new information into 
- > the latest 2.6 kernel tree? I made the patch against
- > version 2.6.10-rc1-bk2 (the most recent one while
- > writing this mail).
 
-See http://pciids.sf.net
-Submitting them to the database there means they'll
-get picked up by every project that uses them.
+From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
 
-		Dave
+Looks like open-coded be_to_cpu.  GCC produces rather poor code for this. 
+be_to_cpu produces asm()s which are ~4 times shorter.
+
+Compile-tested only.
+
+I am not sure whether input can be 32bit-unaligned.
+If it indeed can be, replace:
+
+((u32*)(input))[I]  ->  get_unaligned( ((u32*)(input))+I )
+
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ 25-akpm/crypto/sha256.c |   10 +---------
+ 1 files changed, 1 insertion(+), 9 deletions(-)
+
+diff -puN crypto/sha256.c~small-sha256-cleanup crypto/sha256.c
+--- 25/crypto/sha256.c~small-sha256-cleanup	2004-10-01 21:20:39.113354352 -0700
++++ 25-akpm/crypto/sha256.c	2004-10-01 21:20:39.117353744 -0700
+@@ -63,15 +63,7 @@ static inline u32 RORu32(u32 x, u32 y)
+ 
+ static inline void LOAD_OP(int I, u32 *W, const u8 *input)
+ {
+-	u32 t1 = input[(4 * I)] & 0xff;
+-
+-	t1 <<= 8;
+-	t1 |= input[(4 * I) + 1] & 0xff;
+-	t1 <<= 8;
+-	t1 |= input[(4 * I) + 2] & 0xff;
+-	t1 <<= 8;
+-	t1 |= input[(4 * I) + 3] & 0xff;
+-	W[I] = t1;
++	W[I] = __be32_to_cpu( ((u32*)(input))[I] );
+ }
+ 
+ static inline void BLEND_OP(int I, u32 *W)
+_
