@@ -1,73 +1,104 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: Oops in __xfrm4_state_lookup when setting up an IPSEC tunnel
- (fwd)
-Date: Wed, 5 Nov 2003 18:19:05 -0500 (EST)
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: [PATCH] panic during unregister_netdevice()
+Date: Wed, 5 Nov 2003 16:00:49 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0311051818010.16006-100000@thoron.boston.redhat.com>
+Message-ID: <Pine.LNX.4.44.0311051558350.1359-100000@DYN318430BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Here is some better debug info, also, he was able to resolve the issue by 
-fixing his policy (previously posted to lkml), so it looks like a bug to be 
-investigated.
+Hi dave,
 
----------- Forwarded message ----------
-Date: Wed, 05 Nov 2003 10:26:58 -0500
-From: David T Hollis <dhollis@davehollis.com>
-To: James Morris <jmorris@redhat.com>
-Cc: David S. Miller <davem@redhat.com>
-Subject: Re: Oops in __xfrm4_state_lookup when setting up an IPSEC tunnel
+While doing a test comprising of :
 
-James Morris wrote:
+insmod e100
+ifup eth0
+rmmod e100
 
->On Wed, 5 Nov 2003, David T Hollis wrote:
->
->
->  
->
->>>>EIP is at __xfrm4_state_lookup+0x6f/0xa0
->>>>   
->>>>
->>>>        
->>>>
->>>If you compile your kernel with -g, you should be able to find the 
->>>corresponding line of code (e.g. with addr2line).
->>> 
->>>
->>>      
->>>
-Here's a much better dump of information.  This time I went with no 
-netfilter stuff loaded, very bare bones.  Without those modules, the 
-dump didn't scroll past the screen so I was able to get the rather 
-important bit about KERNEL: ASSERTION (x->km.state == XFRM_STATE_DEAD) 
-failed at net/xfrm/xfrm_state.c (193) (this is in 
-__xfrm_state_destroy).  So the state of my transform is set to dead for 
-some reason, next question is why that would be.  I still die in 
-__xfrm4_state_lookup on the list_for_each_entry. 
+on test9-bk9 bits, I got the following Oops :
+
+Nov  5 14:54:58 linux kernel: Unable to handle kernel paging request at virtual address 0260025d
+Nov  5 14:54:58 linux kernel:  printing eip:
+Nov  5 14:54:58 linux kernel: c0318a5a
+Nov  5 14:54:58 linux kernel: *pde = 00000000
+Nov  5 14:54:58 linux kernel: Oops: 0000 [#1]
+Nov  5 14:54:58 linux kernel: CPU:    0
+Nov  5 14:54:58 linux kernel: EIP:    0060:[__rta_fill+90/160]    Not tainted
+Nov  5 14:54:58 linux kernel: EIP:    0060:[<c0318a5a>]    Not tainted
+Nov  5 14:54:58 linux kernel: EFLAGS: 00010282
+Nov  5 14:54:58 linux kernel: EIP is at __rta_fill+0x5a/0xa0
+Nov  5 14:54:58 linux kernel: eax: 00000008   ebx: 00000004   ecx: 00000001   edx: c94fe980
+Nov  5 14:54:58 linux kernel: esi: 0260025d   edi: c7e8a054   ebp: c1553e64   esp: c1553e48
+Nov  5 14:54:58 linux kernel: ds: 007b   es: 007b   ss: 0068
+Nov  5 14:54:58 linux kernel: Process events/0 (pid: 4, threadinfo=c1552000 task=c152c670)
+Nov  5 14:54:58 linux kernel: Stack: c1553e6c c011b36e c0433800 00000008 c7e8a050 ce77a000 00000000 c1553e98
+Nov  5 14:54:58 linux kernel:        c0318fee c94fe980 0000000a 00000004 0260025d c030a268 00000000 c7e8a000
+Nov  5 14:54:58 linux kernel:        011b000e c94fe980 ce77a000 00000011 c1553ec8 c031943c c94fe980 ce77a000
+Nov  5 14:54:58 linux kernel: Call Trace:
+Nov  5 14:54:58 linux kernel:  [recalc_task_prio+126/384] recalc_task_prio+0x7e/0x180
+Nov  5 14:54:58 linux kernel:  [<c011b36e>] recalc_task_prio+0x7e/0x180
+Nov  5 14:54:58 linux kernel:  [rtnetlink_fill_ifinfo+862/1264] rtnetlink_fill_ifinfo+0x35e/0x4f0
+Nov  5 14:54:58 linux kernel:  [<c0318fee>] rtnetlink_fill_ifinfo+0x35e/0x4f0
+Nov  5 14:54:58 linux kernel:  [alloc_skb+72/240] alloc_skb+0x48/0xf0
+Nov  5 14:54:58 linux kernel:  [<c030a268>] alloc_skb+0x48/0xf0
+Nov  5 14:54:58 linux kernel:  [rtmsg_ifinfo+92/208] rtmsg_ifinfo+0x5c/0xd0
+Nov  5 14:54:58 linux kernel:  [<c031943c>] rtmsg_ifinfo+0x5c/0xd0
+Nov  5 14:54:58 linux kernel:  [rtnetlink_event+48/117] rtnetlink_event+0x30/0x75
+Nov  5 14:54:58 linux kernel:  [<c0319980>] rtnetlink_event+0x30/0x75
+Nov  5 14:54:58 linux kernel:  [notifier_call_chain+45/80] notifier_call_chain+0x2d/0x50
+Nov  5 14:54:58 linux kernel:  [<c013055d>] notifier_call_chain+0x2d/0x50
+Nov  5 14:54:58 linux kernel:  [netdev_wait_allrefs+242/320] netdev_wait_allrefs+0xf2/0x140
+Nov  5 14:54:58 linux kernel:  [<c0310d52>] netdev_wait_allrefs+0xf2/0x140
+Nov  5 14:54:58 linux kernel:  [netdev_run_todo+347/608] netdev_run_todo+0x15b/0x260
+Nov  5 14:54:58 linux kernel:  [<c0310efb>] netdev_run_todo+0x15b/0x260
+Nov  5 14:54:58 linux kernel:  [worker_thread+531/800] worker_thread+0x213/0x320
+Nov  5 14:54:58 linux kernel:  [<c01333a3>] worker_thread+0x213/0x320
+Nov  5 14:54:58 linux kernel:  [linkwatch_event+0/48] linkwatch_event+0x0/0x30
+Nov  5 14:54:58 linux kernel:  [<c0319c60>] linkwatch_event+0x0/0x30
+Nov  5 14:54:58 linux kernel:  [default_wake_function+0/48] default_wake_function+0x0/0x30
+Nov  5 14:54:58 linux kernel:  [<c011d030>] default_wake_function+0x0/0x30
+Nov  5 14:54:58 linux kernel:  [ret_from_fork+6/20] ret_from_fork+0x6/0x14
+Nov  5 14:54:58 linux kernel:  [<c01097e6>] ret_from_fork+0x6/0x14
+Nov  5 14:54:58 linux kernel:  [default_wake_function+0/48] default_wake_function+0x0/0x30
+Nov  5 14:54:58 linux kernel:  [<c011d030>] default_wake_function+0x0/0x30
+Nov  5 14:54:58 linux kernel:  [worker_thread+0/800] worker_thread+0x0/0x320
+Nov  5 14:54:58 linux kernel:  [<c0133190>] worker_thread+0x0/0x320
+Nov  5 14:54:58 linux kernel:  [kernel_thread_helper+5/24] kernel_thread_helper+0x5/0x18
+Nov  5 14:54:58 linux kernel:  [<c010753d>] kernel_thread_helper+0x5/0x18
+Nov  5 14:54:58 linux kernel:
+Nov  5 14:54:58 linux kernel: Code: f3 a5 f6 c3 02 74 02 66 a5 f6 c3 01 74 01 a4 8b 5d f4 8b 75
 
 
-KERNEL: ASSERTION (x->km.state == XFRM_STATE_DEAD) failed at 
-net/xfrm/xfrm_state.c (193)
-Unable to handle kernel paging request at virtual address 39302035
- printing eip:
-c02a7c8f
-*pde = 00000000
-Oops: 0000 [#1]
-CPU:  0
-EIP:   0060:[<c02a7c8f>]     Not tainted
-EFLAGS: 00010282
-EIP is at __xfrm4_state_lookup+0x6f/0xa0
+I think the problem is as follows (changed between 2.4 and 2.6).
+unregister_netdevice() drops the last reference to the device and waits
+for the ref counter for the dev to drop to zero. While it is OK for
+unregister_netdevice to call notifier_call_chain (since it does a dev_put
+at the end of the routine), netdev_wait_allrefs() cannot do the same until
+it gets it's own reference. The dev can disappear during this when the
+last reference gets dropped by the process holding it.
 
+Following patch should fix it. I will try to reproduce this with and
+without the patch to be certain.
 
-Call Trace:
-xfrm_state_lookup+0x4c/0x70
-xfrm4_rcv_encap+0x9f/0x390
-default_wake_function+0x2a/0x30
-xfrm4_rcv+0x17/0x20
-ip_local_deliver+0xe5/0x230
-ip_rcv+0x31f/0x470
-netif_recieve_skb+0x183/0x200
+Thanks,
+
+- KK
+
+diff -ruN linux-2.6.0-test9-bk9/net/core/dev.c linux-2.6.0-test9-bk9.new/net/core/dev.c
+--- linux-2.6.0-test9-bk9/net/core/dev.c	2003-11-05 15:43:21.000000000 -0800
++++ linux-2.6.0-test9-bk9.new/net/core/dev.c	2003-11-05 15:43:50.000000000 -0800
+@@ -2749,8 +2749,10 @@
+ 			rtnl_exlock();
+
+ 			/* Rebroadcast unregister notification */
++			dev_hold(dev);
+ 			notifier_call_chain(&netdev_chain,
+ 					    NETDEV_UNREGISTER, dev);
++			dev_put(dev);
+
+ 			if (test_bit(__LINK_STATE_LINKWATCH_PENDING,
+ 				     &dev->state)) {
