@@ -1,36 +1,28 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: Re: snd_cwnd drawn and quartered
-Date: Wed, 15 Jan 2003 16:37:11 -0300
+From: "catwalk.tci inc. - global e-commerce" <catwalktci@hotPOP.com>
+Subject: YES! Receive 3.000+ valued VISITORS to your web - DAILY and FREE!
+Date: Wed, 15 Jan 2003 22:55:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030115163711.C1521@almesberger.net>
-References: <20030115152504.B1521@almesberger.net> <200301151843.VAA16069@sex.inr.ac.ru>
+Message-ID: <006701c2bce0$d5d382e0$c4accad4@pc01>
+Reply-To: "catwalk.tci inc. - global e-commerce" <catwalktci@hotPOP.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, chengjin@cs.caltech.edu
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: <netdev@oss.sgi.com>
 Content-Disposition: inline
-In-Reply-To: <200301151843.VAA16069@sex.inr.ac.ru>; from kuznet@ms2.inr.ac.ru on Wed, Jan 15, 2003 at 09:43:29PM +0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
-> We receive some amount of dupacks for segments >high_seq, before ACK
-> for retransmitted 99th segment arrives and terminates recovery. You meaned
-> this, right? :-)
 
-Yes, that's it.
+Dear fellow,
 
-> Yup, this is bug. OK, this case is sorted out. I think that small fix
-> proposed by you is enough for beginning.
+our speciality is to lead THOUSANDS of FREE VISITORS to your site every day! Try it and keep using it - your business succes will rise instantly! Open the EUROPEAN market for you!
 
-I think, in addition to this fix, you also need to do RTO upon loss
-of retransmission. Otherwise, my fix would make you halve cwnd only
-once in this case.
+Yours truly
 
-- Werner
+Tom, CEO, targVISIT - the "visitor machine"
+http://www.server-stress-test.com
 
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+This is NO SPAM. You're being contacted, because your e-mail address was added to one of our databases. One time contact. No reply "unsubscribe" necessary. If your mail address will not be found in our VisitorExchange within the next 72 hours, it is going to be deleted automatically. Thank you so much.
+
+[[HTML alternate version deleted]]
