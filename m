@@ -1,35 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patches] 2.6.0-test9 - r8169 DMA API conversion
-Date: Wed, 19 Nov 2003 20:36:52 -0500
+From: Reuben Farrelly <reuben-linux@reub.net>
+Subject: Re: Kernel crash in 2.6.0-test9-mm3
+Date: Thu, 20 Nov 2003 16:05:27 +1300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBC1AB4.9010503@pobox.com>
-References: <47973.68.105.173.45.1069042089.squirrel@mail.mainstreetsoftworks.com> <3FB9A277.70309@pobox.com> <20031118135848.A2451@electric-eye.fr.zoreil.com> <3FBBA76B.4070606@pobox.com> <20031120010056.A19444@electric-eye.fr.zoreil.com> <3FBC05FB.2020409@mcve.com> <20031120014550.A22377@electric-eye.fr.zoreil.com> <3FBC11F2.5080805@mcve.com>
+Message-ID: <6.0.1.1.0.20031120160110.02412b80@tornado.reub.net>
+References: <OF0696EDA9.D66EB77E-ON88256DE3.0009C15A@us.ibm.com>
+ <6.0.1.1.0.20031119155347.023f89d0@tornado.reub.net>
+ <20031119185157.3edf69c8.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, Brad House <brad_mssw@gentoo.org>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: kumarkr@us.ibm.com, akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Brad House <brad@mcve.com>
-In-Reply-To: <3FBC11F2.5080805@mcve.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031119185157.3edf69c8.davem@redhat.com>
+References: <OF0696EDA9.D66EB77E-ON88256DE3.0009C15A@us.ibm.com>
+ <6.0.1.1.0.20031119155347.023f89d0@tornado.reub.net>
+ <20031119185157.3edf69c8.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Brad House wrote:
-> any reason why it's not against the v1.6 ?
-> the current driver is missing support for the
-> 8110S chip (or at least it doesn't seem to work at all),
-> so you're cutting out all the chips on the mobos out there.
-> Haven't looked to see if it's just a PCI ID or other functionality,
-> but since the V1.2 is from realtek that's in the official
-> kernel, it would make sense to use the 1.6 patch....
-> 
-> I suppose I could do it, but it would take me much
-> more time simply because I'm not familiar with the
-> changes you're making.
+Yes - with the patch backed out, the system has been up for 20 hours 
+without a crash and nothing has been logged.  I was just holding off a bit 
+longer before reporting back in case it just needs a bit more time to 
+trigger ;-)
+
+Reuben
 
 
-He's doing the work, and he included 1.6 in his list of changes... looks 
-like everybody will be happy :)
-
-	Jeff
+At 15:51 20/11/2003, David S. Miller wrote:
+>On Wed, 19 Nov 2003 15:58:18 +1300
+>Reuben Farrelly <reuben-linux@reub.net> wrote:
+>
+> > The system is a UP system..
+>
+>Have you done ask Andrew asked, backing out the atomic_dec_and_test()
+>debugging patch to see if all the weird kernel log messages go away
+>as a result?
