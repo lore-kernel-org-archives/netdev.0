@@ -1,207 +1,170 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH] fix secure tcp sequence number generation
-Date: Sat, 02 Oct 2004 20:10:22 +0200
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: [BRIDGE] convert __constant_htons(constant) to htons
+Date: Sat, 02 Oct 2004 16:31:27 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415EEF0E.3080808@colorfullife.com>
+Message-ID: <415F020F.7010909@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020503080807000603060306"
-Cc: Netdev <netdev@oss.sgi.com>
+ boundary="------------020908070200080805000100"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------020503080807000603060306
-Content-Type: text/plain; charset=us-ascii; format=flowed
+--------------020908070200080805000100
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Hi Dave,
+Hi David,
 
-Ted's recent random.c update broke the periodic rekeying:
-schedule_work() doesn't provide synchronization. Additionally the first
-syn values after boot are generated with secret 0 - not good.
+	Please consider pulling from:
 
-Attached is a big cleanup. Linus asked me to send to to you for merging:
+bk://kernel.bkbits.net/acme/sk_buff-2.6
 
-Description:
-The tcp sequence number generator needs a random seed that is reset every
-few minutes. Since the sequence numbers should be constantly increasing,
-for each rekey 2^24 is added to the sequence number.
-The actual use of the sequence number generator is lockless,
-synchronization is achieved by having two copies of the control structure.
+	Now there are two outstanding changesets in this tree.
 
-The attached patch:
-- fixes a race in rekey_seq_generator(): schedule_work doesn't
-   provide synchronization.
-- Uses schedule_delayed_work() for the rekey: simplifies synchronization
-   and speeds up the hot path.
-- replaces do_gettimeofday with get_seconds(): get_seconds is faster and
-   usec resolution is not required.
-- removes tmpdata - not needed with new locking.
-- Adds a late_initcall for the first initialization after boot.
-   init_call would be too early, I've checked that the late_initcall runs
-   before net/ipv4/ipconfig.c, i.e. the BOOTP/DHCP autoconfiguration.
+Regards,
 
-Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
+- Arnaldo
 
-
-
---------------020503080807000603060306
+--------------020908070200080805000100
 Content-Type: text/plain;
- name="patch-random-cleanup"
+ name="bridge.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="patch-random-cleanup"
+ filename="bridge.patch"
 
---- 2.6/drivers/char/random.c	2004-10-02 19:30:18.583688301 +0200
-+++ build-2.6/drivers/char/random.c	2004-10-02 19:09:54.288451293 +0200
-@@ -2184,7 +2184,7 @@
- #undef K3
- 
- /* This should not be decreased so low that ISNs wrap too fast. */
--#define REKEY_INTERVAL	300
-+#define REKEY_INTERVAL	(300*HZ)
- /*
-  * Bit layout of the tcp sequence numbers (before adding current time):
-  * bit 24-31: increased after every key exchange
-@@ -2210,49 +2210,55 @@
- #define HASH_MASK	( (1<<HASH_BITS)-1 )
- 
- static struct keydata {
--	time_t rekey_time;
- 	__u32	count;		// already shifted to the final position
- 	__u32	secret[12];
- } ____cacheline_aligned ip_keydata[2];
- 
--static spinlock_t ip_lock = SPIN_LOCK_UNLOCKED;
- static unsigned int ip_cnt;
- 
--static void rekey_seq_generator(void *private_)
--{
--	struct keydata *keyptr, tmp;
--	struct timeval 	tv;
-+static void rekey_seq_generator(void *private_);
- 
--	do_gettimeofday(&tv);
--	get_random_bytes(tmp.secret, sizeof(tmp.secret));
-+static DECLARE_WORK(rekey_work, rekey_seq_generator, NULL);
- 
--	spin_lock_bh(&ip_lock);
--	keyptr = &ip_keydata[ip_cnt&1];
-+/*
-+ * Lock avoidance:
-+ * The ISN generation runs lockless - it's just a hash over random data.
-+ * State changes happen every 5 minutes when the random key is replaced.
-+ * Synchronization is performed by having two copies of the hash function
-+ * state and rekey_seq_generator always updates the inactive copy.
-+ * The copy is then activated by updating ip_cnt.
-+ * The implementation breaks down if someone blocks the thread
-+ * that processes SYN requests for more than 5 minutes. Should never
-+ * happen, and even if that happens only a not perfectly compliant
-+ * ISN is generated, nothing fatal.
-+ */
-+static void rekey_seq_generator(void *private_)
-+{
-+	struct keydata *keyptr = &ip_keydata[1^(ip_cnt&1)];
- 
--	keyptr = &ip_keydata[1^(ip_cnt&1)];
--	keyptr->rekey_time = tv.tv_sec;
--	memcpy(keyptr->secret, tmp.secret, sizeof(keyptr->secret));
-+	get_random_bytes(keyptr->secret, sizeof(keyptr->secret));
- 	keyptr->count = (ip_cnt&COUNT_MASK)<<HASH_BITS;
--	mb();
-+	smp_wmb();
- 	ip_cnt++;
--
--	spin_unlock_bh(&ip_lock);
-+	schedule_delayed_work(&rekey_work, REKEY_INTERVAL);
- }
- 
--static DECLARE_WORK(rekey_work, rekey_seq_generator, NULL);
--
--static inline struct keydata *check_and_rekey(time_t time)
-+static inline struct keydata *get_keyptr(void)
- {
- 	struct keydata *keyptr = &ip_keydata[ip_cnt&1];
- 
--	rmb();
--	if (!keyptr->rekey_time || (time - keyptr->rekey_time) > REKEY_INTERVAL) {
--		schedule_work(&rekey_work);
--	}
-+	smp_rmb();
- 
- 	return keyptr;
- }
- 
-+static __init int seqgen_init(void)
-+{
-+	rekey_seq_generator(NULL);
-+	return 0;
-+}
-+late_initcall(seqgen_init);
-+
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- __u32 secure_tcpv6_sequence_number(__u32 *saddr, __u32 *daddr,
- 				   __u16 sport, __u16 dport)
-@@ -2260,14 +2266,12 @@
- 	struct timeval 	tv;
- 	__u32		seq;
- 	__u32		hash[12];
--	struct keydata *keyptr;
-+	struct keydata *keyptr = get_keyptr();
- 
- 	/* The procedure is the same as for IPv4, but addresses are longer.
- 	 * Thus we must use twothirdsMD4Transform.
- 	 */
- 
--	do_gettimeofday(&tv);	/* We need the usecs below... */
--	keyptr = check_and_rekey(tv.tv_sec);
- 
- 	memcpy(hash, saddr, 16);
- 	hash[4]=(sport << 16) + dport;
-@@ -2275,6 +2279,8 @@
- 
- 	seq = twothirdsMD4Transform(daddr, hash) & HASH_MASK;
- 	seq += keyptr->count;
-+
-+	do_gettimeofday(&tv);
- 	seq += tv.tv_usec + tv.tv_sec*1000000;
- 
- 	return seq;
-@@ -2288,13 +2294,7 @@
- 	struct timeval 	tv;
- 	__u32		seq;
- 	__u32	hash[4];
--	struct keydata *keyptr;
--
--	/*
--	 * Pick a random secret every REKEY_INTERVAL seconds.
--	 */
--	do_gettimeofday(&tv);	/* We need the usecs below... */
--	keyptr = check_and_rekey(tv.tv_sec);
-+	struct keydata *keyptr = get_keyptr();
- 
- 	/*
- 	 *  Pick a unique starting offset for each TCP connection endpoints
-@@ -2317,6 +2317,7 @@
- 	 *	That's funny, Linux has one built in!  Use it!
- 	 *	(Networks are faster now - should this be increased?)
- 	 */
-+	do_gettimeofday(&tv);
- 	seq += tv.tv_usec + tv.tv_sec*1000000;
- #if 0
- 	printk("init_seq(%lx, %lx, %d, %d) = %d\n",
-@@ -2335,7 +2336,7 @@
- 	struct keydata *keyptr;
- 	__u32 hash[4];
- 
--	keyptr = check_and_rekey(get_seconds());
-+	keyptr = get_keyptr();
- 
- 	/*
- 	 *  Pick a unique starting offset for each IP destination.
+You can import this changeset into BK by piping this whole message to:
+'| bk receive [path to repository]' or apply the patch as usual.
+
+===================================================================
 
 
---------------020503080807000603060306--
+ChangeSet@1.2031, 2004-10-02 16:27:19-03:00, acme@amd64.kerneljanitors.org
+  [BRIDGE] convert __constant_htons(constant) to htons
+  
+  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+  Signed-off-by: David S. Miller <davem@redhat.com>
+  
+
+
+ ebt_arp.c      |    4 ++--
+ ebt_arpreply.c |    6 +++---
+ ebt_ip.c       |    2 +-
+ ebt_log.c      |    2 +-
+ ebt_vlan.c     |    2 +-
+ 5 files changed, 8 insertions(+), 8 deletions(-)
+
+
+diff -Nru a/net/bridge/netfilter/ebt_arp.c b/net/bridge/netfilter/ebt_arp.c
+--- a/net/bridge/netfilter/ebt_arp.c	2004-10-02 16:29:01 -03:00
++++ b/net/bridge/netfilter/ebt_arp.c	2004-10-02 16:29:01 -03:00
+@@ -108,8 +108,8 @@
+ 
+ 	if (datalen != EBT_ALIGN(sizeof(struct ebt_arp_info)))
+ 		return -EINVAL;
+-	if ((e->ethproto != __constant_htons(ETH_P_ARP) &&
+-	   e->ethproto != __constant_htons(ETH_P_RARP)) ||
++	if ((e->ethproto != htons(ETH_P_ARP) &&
++	   e->ethproto != htons(ETH_P_RARP)) ||
+ 	   e->invflags & EBT_IPROTO)
+ 		return -EINVAL;
+ 	if (info->bitmask & ~EBT_ARP_MASK || info->invflags & ~EBT_ARP_MASK)
+diff -Nru a/net/bridge/netfilter/ebt_arpreply.c b/net/bridge/netfilter/ebt_arpreply.c
+--- a/net/bridge/netfilter/ebt_arpreply.c	2004-10-02 16:29:01 -03:00
++++ b/net/bridge/netfilter/ebt_arpreply.c	2004-10-02 16:29:01 -03:00
+@@ -29,9 +29,9 @@
+ 	if (ap == NULL)
+ 		return EBT_DROP;
+ 
+-	if (ap->ar_op != __constant_htons(ARPOP_REQUEST) ||
++	if (ap->ar_op != htons(ARPOP_REQUEST) ||
+ 	    ap->ar_hln != ETH_ALEN ||
+-	    ap->ar_pro != __constant_htons(ETH_P_IP) ||
++	    ap->ar_pro != htons(ETH_P_IP) ||
+ 	    ap->ar_pln != 4)
+ 		return EBT_CONTINUE;
+ 
+@@ -65,7 +65,7 @@
+ 		return -EINVAL;
+ 	if (BASE_CHAIN && info->target == EBT_RETURN)
+ 		return -EINVAL;
+-	if (e->ethproto != __constant_htons(ETH_P_ARP) ||
++	if (e->ethproto != htons(ETH_P_ARP) ||
+ 	    e->invflags & EBT_IPROTO)
+ 		return -EINVAL;
+ 	CLEAR_BASE_CHAIN_BIT;
+diff -Nru a/net/bridge/netfilter/ebt_ip.c b/net/bridge/netfilter/ebt_ip.c
+--- a/net/bridge/netfilter/ebt_ip.c	2004-10-02 16:29:01 -03:00
++++ b/net/bridge/netfilter/ebt_ip.c	2004-10-02 16:29:01 -03:00
+@@ -80,7 +80,7 @@
+ 
+ 	if (datalen != EBT_ALIGN(sizeof(struct ebt_ip_info)))
+ 		return -EINVAL;
+-	if (e->ethproto != __constant_htons(ETH_P_IP) ||
++	if (e->ethproto != htons(ETH_P_IP) ||
+ 	   e->invflags & EBT_IPROTO)
+ 		return -EINVAL;
+ 	if (info->bitmask & ~EBT_IP_MASK || info->invflags & ~EBT_IP_MASK)
+diff -Nru a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
+--- a/net/bridge/netfilter/ebt_log.c	2004-10-02 16:29:01 -03:00
++++ b/net/bridge/netfilter/ebt_log.c	2004-10-02 16:29:01 -03:00
+@@ -121,7 +121,7 @@
+ 
+ 		/* If it's for Ethernet and the lengths are OK,
+ 		 * then log the ARP payload */
+-		if (ah->ar_hrd == __constant_htons(1) &&
++		if (ah->ar_hrd == htons(1) &&
+ 		    ah->ar_hln == ETH_ALEN &&
+ 		    ah->ar_pln == sizeof(uint32_t)) {
+ 			struct arppayload _arpp, *ap;
+diff -Nru a/net/bridge/netfilter/ebt_vlan.c b/net/bridge/netfilter/ebt_vlan.c
+--- a/net/bridge/netfilter/ebt_vlan.c	2004-10-02 16:29:01 -03:00
++++ b/net/bridge/netfilter/ebt_vlan.c	2004-10-02 16:29:01 -03:00
+@@ -104,7 +104,7 @@
+ 	}
+ 
+ 	/* Is it 802.1Q frame checked? */
+-	if (e->ethproto != __constant_htons(ETH_P_8021Q)) {
++	if (e->ethproto != htons(ETH_P_8021Q)) {
+ 		DEBUG_MSG
+ 		    ("passed entry proto %2.4X is not 802.1Q (8100)\n",
+ 		     (unsigned short) ntohs(e->ethproto));
+
+===================================================================
+
+
+This BitKeeper patch contains the following changesets:
+1.2031
+## Wrapped with gzip_uu ##
+
+
+M'XL( 'T!7T$  ^U876_;-A1]MGX%AP)%BD$ROT1*1ATD38S6V(JZ3O,T# 8E
+MT99F63(DQELP_OA15)IX21K;:OMFV:!HB9?WZ/+<HTN_ M>UK 8]$:^D\PI\
+M*&LUZ,5E(6.5;807ERLOJLR-:5F:&WWYCZI$OQG<CY;]>CF+;N9S%WO,,6,F
+M0L4IV,BJ'O201^ZOJ-NU'/2FH_?7OY]/'6<X!!>I*!;R2BHP'#JJK#8B3^HS
+MH=*\+#SCH:A74EGO^GZHQA!B\_$1)]!G&C%(N8Y1@I"@2"80TX!1I\%V]O@!
+M_C\+168FQ"CV0^V'(<7.)4 >A@0!2/L(]B$&B TP'Z#0A60 (;"SBE7"J+>4
+M52'SOT21&>"U5U8+\*L/7.B\ S_V22Z<&/SQ;CJ^?#_Z$Y@G,H%58#8SO5J)
+M0LU297HG7W^^,=Z!O63,S/<J6Q0R<4NS/-'M )Q7A4%6@@O10$Q+D$CP4>8E
+M>/MLP$Z?SG I-ED"KCSP,<MS68&WB=C(U5DEDU2HQJRQ<7X##&/"G<G#&CON
+M@8?C0 &=4Q E=9S>W*[.UJ)(RDIXD=2%5/VHRI*%[)ON/,N5K/HR4C-1K2NY
+MSF^]N DO@0&F"!%$F:8,<:XI1)3BF!-"6)C$XN4EW==/2Z40<T@UHP%I8+=Q
+M*6Y4[159L12>F>#;\V7K=B8,0\0P00@S32@,B$;()WZ$!4(\A',8=T7\U<,V
+M5LH8H0=C-<_^#%C"@E 'B3!P&:."B@3&R7>$]RE:A'WF'XQVDXOB,5RN+0TT
+M];D448AP,#=P&>T*]\''-E[LD^#PZ.;EXCDJ&"YH:I9?(.D+%,(PX%%7N/<N
+MMM'ZC%-D97D/TC>"_5/STMD*FNWFY5SMI.5V2L+ 1,G,ZA,-,>?(JCMY+.V0
+M[B?M!+CD*.UWTFX5[A-PJ[_OOD;G]UB6#F^ 2V(6RAG;MI?-P8E8NZ>BFI5K
+M\,NP#<;)^73R:3*;CCY?CZZ^O %:&RMJK9JV!\QQ9[6NR@>ST9</L\EL/&DM
+M6-!8V-;ZD>ZI5*DQ4$],C#]KLRM5VBSY:=+:+4.>)@>B04!L<O"NR8&!BX_)
+MT29'^Y(Z(#FZY05""&!G;/AA3I:Q.RG[^K5-AA>&39MQN[F==:+V_A5.!V9G
+MSQ";<AZVQ ZZ$AL!%QV)W1*[K17W)7;6D=<!:738MKMT>+R'#-M*YW"N'E"#
+M?6.GN6_MU6P_H?8-\>&1JC^*JFTINR]5[8ITTF!LRXSVU&O+D]06&FF5&-+=
+ML159Z7V1INW^X7">'K*WZ:"J6]L:4[!#%!*S5="8^;355?/R.;+UN]G:;A/W
+M96N[)IWH"KFEJSWM$M? :--G4PO\^_"/7IS*>%G?K(9Q..<XP8'S'Y#WT^ V
+#%   
+ 
+
+--------------020908070200080805000100--
