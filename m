@@ -1,71 +1,33 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [Bugme-new] [Bug 4310] New: ppc 8260 fcc ethernet driver cannot
- read LXT971 PHY id
-Date: Tue, 8 Mar 2005 11:48:51 -0800
-Message-ID: <20050308114851.1f997476.akpm@osdl.org>
-References: <200503081415.j28EF9CG002475@fire-1.osdl.org>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: netif_rx packet dumping
+Date: Tue, 08 Mar 2005 18:01:01 +0000
+Message-ID: <422DE85D.1010901@ev-en.org>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>	<42278122.6000000@ev-en.org>	<20050303133659.0d224e61.davem@davemloft.net>	<42278554.2090902@ev-en.org>	<20050303135718.2e1a0170.davem@davemloft.net>	<422DC7CE.2040800@ev-en.org> <m1y8cykr7i.fsf@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@ozlabs.org, netdev@oss.sgi.com
-To: oray@lucent.com
-In-Reply-To: <200503081415.j28EF9CG002475@fire-1.osdl.org>
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <m1y8cykr7i.fsf@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Andi Kleen wrote:
+> Baruch Even <baruch@ev-en.org> writes:
+> 
+>>I can squeeze the tcp_skb_cb to one pointer at the expense of extra
+>>work to remove a packet from the list (the other pointer is the prev
+>>pointer).
+> 
+> You could also use a xor list in theory. But I'm not sure it's worth it.
+> Increasing cb by 4 bytes shouldn't be a very big issue.
 
-I'm not sure that we have a maintainer for fcc_enet.c.  Could you
-please send in a tested diff?
+If increasing the cb by 4 bytes is ok, it would make my life easier and 
+the code simpler. But I don't think it would also be a big issue to 
+remove the prev pointer.
 
-bugme-daemon@osdl.org wrote:
->
-> http://bugme.osdl.org/show_bug.cgi?id=4310
-> 
->            Summary: ppc 8260 fcc ethernet driver cannot read LXT971 PHY id
->     Kernel Version: 2.6.10
->             Status: NEW
->           Severity: normal
->              Owner: platform_ppc-32@kernel-bugs.osdl.org
->          Submitter: oray@lucent.com
-> 
-> 
-> Distribution: www.kernel.org
-> Hardware Environment: Target: PowerPC 8260 custom board
-> Software Environment: Red Hat 9 cross development using ELDK 3.1 distribution.
-> Problem Description: Fast ethernet driver (fcc_enet.c) initialization fails to
-> read a valid id from registers 2 and 3 of the LXT971 PHY device and calls the
-> panic routine. The bug is in the mii_send_receive() function. During the read
-> phase, per LXT971 data sheet, the device starts driving the MDIO line after the
-> rising edge of the MDC clock and it could take up to 150ns before the data
-> settles. The driver reads the MDIO line before waiting for the data to settle
-> down and thus reads in garbage. I fixed the problem by moving the sampling of
-> the MDIO line to after the MDC clock is taken low. The code snippet follows:   
-> 
-> 
->                 for (i = 0, off = 15; i < 16; i++, off--)
->                 {
-> #define FCC_8260_BUG
->                         FCC_PDATC_MDC(1);
->                         retval <<= 1;
-> #ifndef FCC_8260_BUG
->                         if (io->iop_pdatc & fip->fc_mdio)
->                                 retval++;
->                         udelay(1);
->                         FCC_PDATC_MDC(0);
-> #else
->                         udelay(1);
->                         FCC_PDATC_MDC(0);
->                         if (io->iop_pdatc & fip->fc_mdio)
->                                 retval++;
-> #endif
->                         udelay(1);
-> #undef FCC_8260_BUG
->                 }
-> 
-> 
-> Steps to reproduce: Is likely to happen on an 8260 target with any kind of PHY,
-> not just the LXT971, hooked up to the FCC port.
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+Now, if we can agree on increasing the tcp_sock by 20 bytes I'll be able 
+to continue my work.
+
+Baruch
