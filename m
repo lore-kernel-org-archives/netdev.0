@@ -1,23 +1,22 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 3/3] NET: Use proc_net_fops_create() and
- proc_net_remove() in net/ipv6
-Date: Thu, 11 Sep 2003 18:00:54 -0700
+Subject: Re: [PATCH 2.6] clear hw checksum flags when bridging
+Date: Thu, 11 Sep 2003 18:02:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911180054.1800ea75.davem@redhat.com>
-References: <20030908.034107.96819866.yoshfuji@linux-ipv6.org>
+Message-ID: <20030911180235.3d5c91f6.davem@redhat.com>
+References: <20030908093649.5b6dafc1.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: bridge@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030908.034107.96819866.yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030908093649.5b6dafc1.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 08 Sep 2003 03:41:07 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
+On Mon, 8 Sep 2003 09:36:49 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> [3/3] Use proc_net_fops_create() and proc_net_remove() in net/ipv6.
+> same patch as 2.4, just the offsets are changed.
 
-Applied, thank you.
+Both 2.4.x and 2.6.x versions applied, thanks Stephen.
