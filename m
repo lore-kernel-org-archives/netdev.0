@@ -1,27 +1,25 @@
-From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 06 Sep 2002 12:45:39 -0700
+Date: Fri, 06 Sep 2002 12:34:28 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <65179883.1031316338@[10.10.2.3]>
-References: <1031339954.3d78ffb257d22@imap.linux.ibm.com>
-Reply-To: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
+Message-ID: <20020906.123428.28085660.davem@redhat.com>
+References: <3D78F55C.4020207@colorfullife.com>
+	<20020906.113829.65591342.davem@redhat.com>
+	<3D790499.8020501@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: haveblue@us.ibm.com, hadi@cyberus.ca, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>, Andi Kleen <ak@suse.de>
-In-Reply-To: <1031339954.3d78ffb257d22@imap.linux.ibm.com>
-Content-Disposition: inline
+To: manfred@colorfullife.com
+In-Reply-To: <3D790499.8020501@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Tthere is some cacheline thrashing hurting the NUMA 
-> more than other systems here too..
+   From: Manfred Spraul <manfred@colorfullife.com>
+   Date: Fri, 06 Sep 2002 21:40:09 +0200
+   
+   Dave, do you have interrupt rates from the clients with and without NAPI?
 
-There is no NUMA here ... the clients are 4 single node SMP 
-systems. We're using the old quads to make them, but they're 
-all split up, not linked together into one system.
-Sorry if we didn't make that clear.
-
-M.
+Robert does.
