@@ -1,40 +1,74 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Conntrack leak with raw sockets
-Date: Sat, 26 Mar 2005 11:09:41 +1100
-Message-ID: <E1DEys1-0005wu-00@gondolin.me.apana.org.au>
-References: <4244766D.2020001@trash.net>
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
-To: kaber@trash.net (Patrick McHardy)
-In-Reply-To: <4244766D.2020001@trash.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+From: jamal <hadi@cyberus.ca>
+Subject: PATCH: IPSEC acquire in presence of multiple managers
+Date: 25 Mar 2005 19:12:07 -0500
+Message-ID: <1111795927.1089.749.camel@jzny.localdomain>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=-KKtamxd5AOUq9jGcgTIc"
+Cc: Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        Shinta Sugimoto <shinta.sugimoto@ericsson.com>,
+        netdev <netdev@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@redhat.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
-> 
-> Great work tracking this down. But I fear the problem will come back
-> haunt us with this patch. The are more places where a packet can be
-> queued indefinitely, for example stopped qdiscs. IMO the best fix
-> is to drop the conntrack reference once the packet leaves IP, so we
-> don't have to make any assumptions about what will happen to the
-> packet - this would be in ip_finish_output2(). Could you send a patch
-> that does this? While you're at it, you could also remove this part
-> from ip_conntrack_standalone:
 
-Agreed.
+--=-KKtamxd5AOUq9jGcgTIc
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-BTW, please use nf_reset() instead of open coding this.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Herbert/Dave,
+
+Acquire should be supported by both pfkey and netlink.
+However, it stops to send acquire message from the kernel on first
+success.
+It is possible that one or the other manager maybe passively monitoring
+and needs to see those messages.
+
+Thanks to Masahide NAKAMURA <nakam@linux-ipv6.org>, Shinta Sugimoto
+<shinta.sugimoto@ericsson.com> for both identifying the issue and
+validating the fix.
+
+If you want i can put this with other NLMSGALIGN one liner i mentioned
+earlier.
+
+cheers,
+jamal
+
+--=-KKtamxd5AOUq9jGcgTIc
+Content-Disposition: attachment; filename=acq_p
+Content-Type: text/plain; name=acq_p; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- a/net/xfrm/xfrm_state.c	2005/03/25 17:44:43	1.1
++++ b/net/xfrmxfrm_state.c	2005/03/25 18:55:33
+@@ -774,16 +774,20 @@
+ 		wake_up(&km_waitq);
+ }
+ 
++/*
++ * We send to all registered managers regardless of failure
++ * We are happy with one success
++*/
+ int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol)
+ {
+-	int err = -EINVAL;
++	int err = -EINVAL, acqret = -EINVAL;
+ 	struct xfrm_mgr *km;
+ 
+ 	read_lock(&xfrm_km_lock);
+ 	list_for_each_entry(km, &xfrm_km_list, list) {
+-		err = km->acquire(x, t, pol, XFRM_POLICY_OUT);
+-		if (!err)
+-			break;
++		acqret = km->acquire(x, t, pol, XFRM_POLICY_OUT);
++		if (!acqret)
++			err = acqret;
+ 	}
+ 	read_unlock(&xfrm_km_lock);
+ 	return err;
+
+--=-KKtamxd5AOUq9jGcgTIc--
