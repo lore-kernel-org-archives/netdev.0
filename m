@@ -1,53 +1,46 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Thu, 4 Mar 2004 22:56:26 +0200 (EET)
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [janitor] "Lots of unnecessary casts in drivers can be removed"
+Date: Thu, 4 Mar 2004 13:14:43 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0403042229210.1130@u.domain.uli>
-References: <20031212003143.062598e9.davem@redhat.com>
- <Pine.LNX.4.44.0312130205460.7978-100000@u.domain.uli>
- <20040304013618.31a827ba.davem@redhat.com>
+Message-ID: <20040304131443.62c34eaf.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: niv@us.ibm.com, ak@suse.de, ruddk@us.ibm.com, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com, chester.f.johnson@intel.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040304013618.31a827ba.davem@redhat.com>
+To: netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+[resend]
 
-On Thu, 4 Mar 2004, David S. Miller wrote:
+Dave Jones wrote:
+- Lots of unnecessary casts in drivers can be removed.
 
-> Julian, I'd like to bring this back to life.  Can you post a new version
-> of the ip_rt_ignore_tos patch against current 2.6.x?
+(from the KJ TODO list).
 
-	Done. Essentially, this patch combines the last posted
-two diff files:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-http://www.ssi.bg/~ja/tmp/tos-6.diff
+From: Carlo Perassi <carlo@linux.it>
 
-> We'll discuss and integrate just like for the ARP stuff.
->
-> Sorry for sitting on this for so long, been busy...
+Carlo sent patches to remove unneeded casts from 90 files.
+Most of them are in drivers/net/ and will follow...
+(not one per file but grouped into families).
 
-	np, the remaining questions are:
 
-- do we need to walk all tos values for ip_rt_redirect in the same
-way as for ip_rt_frag_needed, if yes, how to name this flag?
-icmp_redirect_tos_mode? match_tos_on_redirect? May be
-pmtu_mode can be renamed to match_tos_on_pmtu?
+and Russell King wrote about the first round of patches:
+} I think we should really consider using netdev_priv() in all these places
+} so the compiler knows that 'dev' and 'priv' are related.
 
-- from another thread: whether ICMP redirects modify only
-routes via gateway when shared_media is ON:
+so this set of patches in round 2 teaches net drivers to use
+netdev_priv() in addition to eliminating the unneeded casts.
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=107109827516060&w=2
 
-At the final I'll change some doc files to explain the new flags.
+Here they are again....
 
-Regards
+Please apply/merge to 2.6.4-rc-current.
+
+Built as much as I have possible, and running with eepro100.
 
 --
-Julian Anastasov <ja@ssi.bg>
+~Randy
