@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] remove unneeded casts in intel-ee drivers
-Date: Sun, 29 Feb 2004 14:56:33 -0800
+Subject: Re: [janitor] remove unneeded casts (others)
+Date: Sun, 29 Feb 2004 15:02:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040229145633.008ea503.rddunlap@osdl.org>
+Message-ID: <20040229150250.26de9ef3.rddunlap@osdl.org>
 References: <20040229142516.3d218ed0.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -18,469 +18,1146 @@ List-Id: netdev.vger.kernel.org
 From: Carlo Perassi <carlo@linux.it>
 
 
- drivers/net/82596.c      |    6 +++---
- drivers/net/eepro.c      |   16 ++++++++--------
- drivers/net/eepro100.c   |   42 +++++++++++++++++++++---------------------
- drivers/net/eexpress.c   |   28 ++++++++++++++--------------
- drivers/net/lasi_82596.c |    6 +++---
- 5 files changed, 49 insertions(+), 49 deletions(-)
+ drivers/net/amd8111e.c     |    8 ++++----
+ drivers/net/ariadne.c      |   10 +++++-----
+ drivers/net/at1700.c       |   12 ++++++------
+ drivers/net/atari_bionet.c |   12 ++++++------
+ drivers/net/atp.c          |   20 ++++++++++----------
+ drivers/net/bmac.c         |    2 +-
+ drivers/net/cs89x0.c       |   34 +++++++++++++++++-----------------
+ drivers/net/eth16i.c       |   14 +++++++-------
+ drivers/net/fec.c          |    2 +-
+ drivers/net/gt96100eth.c   |   40 ++++++++++++++++++++--------------------
+ drivers/net/mac89x0.c      |   10 +++++-----
+ drivers/net/ni5010.c       |    8 ++++----
+ drivers/net/rrunner.c      |    8 ++++----
+ drivers/net/sb1000.c       |   14 +++++++-------
+ drivers/net/sb1250-mac.c   |   14 +++++++-------
+ drivers/net/seeq8005.c     |   12 ++++++------
+ drivers/net/sgiseeq.c      |    2 +-
+ drivers/net/sk_g16.c       |    2 +-
+ drivers/net/smc9194.c      |   12 ++++++------
+ 19 files changed, 118 insertions(+), 118 deletions(-)
 
-diff -puN drivers/net/82596.c~net_intel_casts drivers/net/82596.c
---- linux-263-229/drivers/net/82596.c~net_intel_casts	2004-02-29 14:02:15.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/82596.c	2004-02-29 14:02:15.000000000 -0800
-@@ -528,7 +528,7 @@ static irqreturn_t i596_error(int irq, v
- 
- static inline void init_rx_bufs(struct net_device *dev)
+diff -puN drivers/net/amd8111e.c~drivers_net_casts drivers/net/amd8111e.c
+--- linux-263-229/drivers/net/amd8111e.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/amd8111e.c	2004-02-29 14:03:33.000000000 -0800
+@@ -197,7 +197,7 @@ This function will set PHY speed. During
+ */
+ static void amd8111e_set_ext_phy(struct net_device *dev)
  {
--	struct i596_private *lp = (struct i596_private *)dev->priv;
-+	struct i596_private *lp = dev->priv;
+-	struct amd8111e_priv *lp = (struct amd8111e_priv *)dev->priv;
++	struct amd8111e_priv *lp = dev->priv;
+ 	u32 bmcr,advert,tmp;
+ 	
+ 	/* Determine mii register values to set the speed */
+@@ -239,7 +239,7 @@ all transmit and receive skbuffs.
+ */
+ static int amd8111e_free_skbs(struct net_device *dev)
+ {
+-	struct amd8111e_priv *lp = (struct amd8111e_priv *)dev->priv;
++	struct amd8111e_priv *lp = dev->priv;
+ 	struct sk_buff* rx_skbuff;
  	int i;
- 	struct i596_rfd *rfd;
- 	struct i596_rbd *rbd;
-@@ -579,7 +579,7 @@ static inline void init_rx_bufs(struct n
  
- static inline void remove_rx_bufs(struct net_device *dev)
+@@ -290,7 +290,7 @@ This function will free all the previous
+  */
+ static int amd8111e_init_ring(struct net_device *dev)
  {
--	struct i596_private *lp = (struct i596_private *)dev->priv;
-+	struct i596_private *lp = dev->priv;
- 	struct i596_rbd *rbd;
+-	struct amd8111e_priv *lp = (struct amd8111e_priv *)dev->priv;
++	struct amd8111e_priv *lp = dev->priv;
  	int i;
  
-@@ -765,7 +765,7 @@ failed:
- 
- static inline int i596_rx(struct net_device *dev)
+ 	lp->rx_idx = lp->tx_idx = 0;
+@@ -1185,7 +1185,7 @@ static int amd8111e_close(struct net_dev
+ */
+ static int amd8111e_open(struct net_device * dev )
  {
--	struct i596_private *lp = (struct i596_private *)dev->priv;
-+	struct i596_private *lp = dev->priv;
- 	struct i596_rfd *rfd;
- 	struct i596_rbd *rbd;
- 	int frames = 0;
-diff -puN drivers/net/eepro100.c~net_intel_casts drivers/net/eepro100.c
---- linux-263-229/drivers/net/eepro100.c~net_intel_casts	2004-02-29 14:02:15.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/eepro100.c	2004-02-29 14:02:15.000000000 -0800
-@@ -995,7 +995,7 @@ static void mdio_write(struct net_device
+-	struct amd8111e_priv *lp = (struct amd8111e_priv *)dev->priv;
++	struct amd8111e_priv *lp = dev->priv;
+ 
+ 	if(dev->irq ==0 || request_irq(dev->irq, amd8111e_interrupt, SA_SHIRQ,
+ 					 dev->name, dev)) 
+diff -puN drivers/net/ariadne.c~drivers_net_casts drivers/net/ariadne.c
+--- linux-263-229/drivers/net/ariadne.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/ariadne.c	2004-02-29 14:03:33.000000000 -0800
+@@ -333,7 +333,7 @@ static int ariadne_open(struct net_devic
+ 
+ static void ariadne_init_ring(struct net_device *dev)
+ {
+-    struct ariadne_private *priv = (struct ariadne_private *)dev->priv;
++    struct ariadne_private *priv = dev->priv;
+     volatile struct lancedata *lancedata = (struct lancedata *)dev->mem_start;
+     int i;
+ 
+@@ -379,7 +379,7 @@ static void ariadne_init_ring(struct net
+ 
+ static int ariadne_close(struct net_device *dev)
+ {
+-    struct ariadne_private *priv = (struct ariadne_private *)dev->priv;
++    struct ariadne_private *priv = dev->priv;
+     volatile struct Am79C960 *lance = (struct Am79C960*)dev->base_addr;
+ 
+     netif_stop_queue(dev);
+@@ -589,7 +589,7 @@ static void ariadne_tx_timeout(struct ne
+ 
+ static int ariadne_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-    struct ariadne_private *priv = (struct ariadne_private *)dev->priv;
++    struct ariadne_private *priv = dev->priv;
+     volatile struct Am79C960 *lance = (struct Am79C960*)dev->base_addr;
+     int entry;
+     unsigned long flags;
+@@ -697,7 +697,7 @@ static int ariadne_start_xmit(struct sk_
+ 
+ static int ariadne_rx(struct net_device *dev)
+ {
+-    struct ariadne_private *priv = (struct ariadne_private *)dev->priv;
++    struct ariadne_private *priv = dev->priv;
+     int entry = priv->cur_rx % RX_RING_SIZE;
+     int i;
+ 
+@@ -787,7 +787,7 @@ static int ariadne_rx(struct net_device 
+ 
+ static struct net_device_stats *ariadne_get_stats(struct net_device *dev)
+ {
+-    struct ariadne_private *priv = (struct ariadne_private *)dev->priv;
++    struct ariadne_private *priv = dev->priv;
+     volatile struct Am79C960 *lance = (struct Am79C960*)dev->base_addr;
+     short saved_addr;
+     unsigned long flags;
+diff -puN drivers/net/at1700.c~drivers_net_casts drivers/net/at1700.c
+--- linux-263-229/drivers/net/at1700.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/at1700.c	2004-02-29 14:03:33.000000000 -0800
+@@ -618,7 +618,7 @@ static int __init read_eeprom(long ioadd
+ 
+ static int net_open(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	/* Set the configuration register 0 to 32K 100ns. byte-wide memory, 16 bit
+@@ -649,7 +649,7 @@ static int net_open(struct net_device *d
+ 
+ static void net_tx_timeout (struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	printk ("%s: transmit timed out with status %04x, %s?\n", dev->name,
+@@ -808,7 +808,7 @@ net_interrupt(int irq, void *dev_id, str
+ static void
+ net_rx(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	int boguscount = 5;
+ 
+@@ -891,7 +891,7 @@ net_rx(struct net_device *dev)
+ /* The inverse routine to net_open(). */
+ static int net_close(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	netif_stop_queue(dev);
+@@ -919,7 +919,7 @@ static int net_close(struct net_device *
+ static struct net_device_stats *
+ net_get_stats(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	return &lp->stats;
+ }
+ 
+@@ -931,7 +931,7 @@ static void
+ set_rx_mode(struct net_device *dev)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	unsigned char mc_filter[8];		 /* Multicast hash filter */
+ 	unsigned long flags;
+ 	int i;
+diff -puN drivers/net/atari_bionet.c~drivers_net_casts drivers/net/atari_bionet.c
+--- linux-263-229/drivers/net/atari_bionet.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/atari_bionet.c	2004-02-29 14:03:33.000000000 -0800
+@@ -408,7 +408,7 @@ struct net_device * __init bionet_probe(
+  */
  static int
- speedo_open(struct net_device *dev)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	long ioaddr = dev->base_addr;
- 	int retval;
+ bionet_open(struct net_device *dev) {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
  
-@@ -1194,7 +1194,7 @@ speedo_rx_soft_reset(struct net_device *
- static void speedo_timer(unsigned long data)
+ 	if (bionet_debug > 0)
+ 		printk("bionet_open\n");
+@@ -433,7 +433,7 @@ bionet_open(struct net_device *dev) {
+ 
+ static int
+ bionet_send_packet(struct sk_buff *skb, struct net_device *dev) {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	unsigned long flags;
+ 
+ 	/* Block a timer-based transmit from overlapping.  This could better be
+@@ -499,7 +499,7 @@ bionet_send_packet(struct sk_buff *skb, 
+  */
+ static void
+ bionet_poll_rx(struct net_device *dev) {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int boguscount = 10;
+ 	int pkt_len, status;
+ 	unsigned long flags;
+@@ -601,7 +601,7 @@ bionet_poll_rx(struct net_device *dev) {
+ static void
+ bionet_tick(unsigned long data) {
+ 	struct net_device	 *dev = (struct net_device *)data;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	if( bionet_debug > 0 && (lp->open_time++ & 7) == 8 )
+ 		printk("bionet_tick: %ld\n", lp->open_time);
+@@ -616,7 +616,7 @@ bionet_tick(unsigned long data) {
+  */
+ static int
+ bionet_close(struct net_device *dev) {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	if (bionet_debug > 0)
+ 		printk("bionet_close, open_time=%ld\n", lp->open_time);
+@@ -638,7 +638,7 @@ bionet_close(struct net_device *dev) {
+  */
+ static struct net_device_stats *net_get_stats(struct net_device *dev) 
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	return &lp->stats;
+ }
+ 
+diff -puN drivers/net/atp.c~drivers_net_casts drivers/net/atp.c
+--- linux-263-229/drivers/net/atp.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/atp.c	2004-02-29 14:03:33.000000000 -0800
+@@ -432,7 +432,7 @@ static unsigned short __init eeprom_op(l
+    */
+ static int net_open(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int ret;
+ 
+ 	/* The interrupt line is turned off (tri-stated) when the device isn't in
+@@ -458,7 +458,7 @@ static int net_open(struct net_device *d
+    the hardware may have been temporarily detached. */
+ static void hardware_init(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	long ioaddr = dev->base_addr;
+     int i;
+ 
+@@ -541,7 +541,7 @@ static void write_packet(long ioaddr, in
+ 
+ static void tx_timeout(struct net_device *dev)
+ {
+-	struct net_local *np = (struct net_local *)dev->priv;
++	struct net_local *np = dev->priv;
+ 	long ioaddr = dev->base_addr;
+ 
+ 	printk(KERN_WARNING "%s: Transmit timed out, %s?\n", dev->name,
+@@ -557,7 +557,7 @@ static void tx_timeout(struct net_device
+ 
+ static int atp_send_packet(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	long ioaddr = dev->base_addr;
+ 	int length;
+ 	unsigned long flags;
+@@ -726,7 +726,7 @@ static void atp_timed_checker(unsigned l
  {
  	struct net_device *dev = (struct net_device *)data;
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
  	long ioaddr = dev->base_addr;
- 	int phy_num = sp->phy[0] & 0x1f;
- 
-@@ -1239,7 +1239,7 @@ static void speedo_timer(unsigned long d
- 
- static void speedo_show_state(struct net_device *dev)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int tickssofar = jiffies - lp->last_rx_time;
  	int i;
  
- 	if (netif_msg_pktdata(sp)) {
-@@ -1282,7 +1282,7 @@ static void speedo_show_state(struct net
- static void
- speedo_init_rx_ring(struct net_device *dev)
+@@ -762,7 +762,7 @@ static void atp_timed_checker(unsigned l
+ /* We have a good packet(s), get it/them out of the buffers. */
+ static void net_rx(struct net_device *dev)
  {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	struct RxFD *rxf, *last_rxf = NULL;
- 	dma_addr_t last_rxf_dma = 0 /* to shut up the compiler */;
- 	int i;
-@@ -1330,7 +1330,7 @@ speedo_init_rx_ring(struct net_device *d
- 
- static void speedo_purge_tx(struct net_device *dev)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	int entry;
- 
- 	while ((int)(sp->cur_tx - sp->dirty_tx) > 0) {
-@@ -1362,7 +1362,7 @@ static void speedo_purge_tx(struct net_d
- 
- static void reset_mii(struct net_device *dev)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 
- 	/* Reset the MII transceiver, suggested by Fred Young @ scalable.com. */
- 	if ((sp->phy[0] & 0x8000) == 0) {
-@@ -1385,7 +1385,7 @@ static void reset_mii(struct net_device 
- 
- static void speedo_tx_timeout(struct net_device *dev)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
  	long ioaddr = dev->base_addr;
- 	int status = inw(ioaddr + SCBStatus);
- 	unsigned long flags;
-@@ -1447,7 +1447,7 @@ static void speedo_tx_timeout(struct net
+ 	struct rx_header rx_head;
+ 
+@@ -838,7 +838,7 @@ static void read_block(long ioaddr, int 
  static int
- speedo_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ net_close(struct net_device *dev)
  {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
  	long ioaddr = dev->base_addr;
- 	int entry;
  
-@@ -1518,7 +1518,7 @@ speedo_start_xmit(struct sk_buff *skb, s
- static void speedo_tx_buffer_gc(struct net_device *dev)
+ 	netif_stop_queue(dev);
+@@ -863,7 +863,7 @@ net_close(struct net_device *dev)
+ static struct net_device_stats *
+ net_get_stats(struct net_device *dev)
  {
- 	unsigned int dirty_tx;
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	return &lp->stats;
+ }
  
- 	dirty_tx = sp->dirty_tx;
- 	while ((int)(sp->cur_tx - dirty_tx) > 0) {
-@@ -1677,7 +1677,7 @@ static irqreturn_t speedo_interrupt(int 
+@@ -873,7 +873,7 @@ net_get_stats(struct net_device *dev)
  
- static inline struct RxFD *speedo_rx_alloc(struct net_device *dev, int entry)
+ static void set_rx_mode_8002(struct net_device *dev)
  {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	struct RxFD *rxf;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	long ioaddr = dev->base_addr;
+ 
+ 	if ( dev->mc_count > 0 || (dev->flags & (IFF_ALLMULTI|IFF_PROMISC))) {
+@@ -890,7 +890,7 @@ static void set_rx_mode_8002(struct net_
+ 
+ static void set_rx_mode_8012(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	long ioaddr = dev->base_addr;
+ 	unsigned char new_mode, mc_filter[8]; /* Multicast hash filter */
+ 	int i;
+diff -puN drivers/net/bmac.c~drivers_net_casts drivers/net/bmac.c
+--- linux-263-229/drivers/net/bmac.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/bmac.c	2004-02-29 14:03:33.000000000 -0800
+@@ -1086,7 +1086,7 @@ static int miscintcount;
+ static irqreturn_t bmac_misc_intr(int irq, void *dev_id, struct pt_regs *regs)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_id;
+-	struct bmac_data *bp = (struct bmac_data *)dev->priv;
++	struct bmac_data *bp = dev->priv;
+ 	unsigned int status = bmread(dev, STATUS);
+ 	if (miscintcount++ < 10) {
+ 		XXDEBUG(("bmac_misc_intr\n"));
+diff -puN drivers/net/cs89x0.c~drivers_net_casts drivers/net/cs89x0.c
+--- linux-263-229/drivers/net/cs89x0.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/cs89x0.c	2004-02-29 14:03:33.000000000 -0800
+@@ -735,7 +735,7 @@ out1:
+ static void
+ get_dma_channel(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	if (lp->dma) {
+ 		dev->dma = lp->dma;
+@@ -757,7 +757,7 @@ get_dma_channel(struct net_device *dev)
+ static void
+ write_dma(struct net_device *dev, int chip_type, int dma)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	if ((lp->isa_config & ANY_ISA_DMA) == 0)
+ 		return;
+ 	if (chip_type == CS8900) {
+@@ -770,7 +770,7 @@ write_dma(struct net_device *dev, int ch
+ static void
+ set_dma_cfg(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	if (lp->use_dma) {
+ 		if ((lp->isa_config & ANY_ISA_DMA) == 0) {
+@@ -793,7 +793,7 @@ set_dma_cfg(struct net_device *dev)
+ static int
+ dma_bufcfg(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	if (lp->use_dma)
+ 		return (lp->isa_config & ANY_ISA_DMA)? RX_DMA_ENBL : 0;
+ 	else
+@@ -804,7 +804,7 @@ static int
+ dma_busctl(struct net_device *dev)
+ {
+ 	int retval = 0;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	if (lp->use_dma) {
+ 		if (lp->isa_config & ANY_ISA_DMA)
+ 			retval |= RESET_RX_DMA; /* Reset the DMA pointer */
+@@ -820,7 +820,7 @@ dma_busctl(struct net_device *dev)
+ static void
+ dma_rx(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
  	struct sk_buff *skb;
- 	/* Get a fresh skbuff to replace the consumed one. */
-@@ -1704,7 +1704,7 @@ static inline struct RxFD *speedo_rx_all
- static inline void speedo_rx_link(struct net_device *dev, int entry,
- 								  struct RxFD *rxf, dma_addr_t rxf_dma)
+ 	int status, length;
+ 	unsigned char *bp = lp->rx_dma_ptr;
+@@ -882,7 +882,7 @@ skip_this_frame:
+ 
+ void  __init reset_chip(struct net_device *dev)
  {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	rxf->status = cpu_to_le32(0xC0000001); 	/* '1' for driver use only. */
- 	rxf->link = 0;			/* None yet. */
- 	rxf->count = cpu_to_le32(PKT_BUF_SZ << 16);
-@@ -1718,7 +1718,7 @@ static inline void speedo_rx_link(struct
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	int reset_start_time;
  
- static int speedo_refill_rx_buf(struct net_device *dev, int force)
+@@ -912,7 +912,7 @@ void  __init reset_chip(struct net_devic
+ static void
+ control_dc_dc(struct net_device *dev, int on_not_off)
  {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	int entry;
- 	struct RxFD *rxf;
- 
-@@ -1760,7 +1760,7 @@ static int speedo_refill_rx_buf(struct n
- 
- static void speedo_refill_rx_buffers(struct net_device *dev, int force)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 
- 	/* Refill the RX ring. */
- 	while ((int)(sp->cur_rx - sp->dirty_rx) > 0 &&
-@@ -1770,7 +1770,7 @@ static void speedo_refill_rx_buffers(str
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	unsigned int selfcontrol;
+ 	int timenow = jiffies;
+ 	/* control the DC to DC convertor in the SelfControl register.  
+@@ -940,7 +940,7 @@ control_dc_dc(struct net_device *dev, in
  static int
- speedo_rx(struct net_device *dev)
+ detect_tp(struct net_device *dev)
  {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	int entry = sp->cur_rx % RX_RING_SIZE;
- 	int rx_work_limit = sp->dirty_rx + RX_RING_SIZE - sp->cur_rx;
- 	int alloc_ok = 1;
-@@ -1884,7 +1884,7 @@ static int
- speedo_close(struct net_device *dev)
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int timenow = jiffies;
+ 	int fdx;
+ 
+@@ -1055,7 +1055,7 @@ send_test_pkt(struct net_device *dev)
+ static int
+ detect_aui(struct net_device *dev)
  {
- 	long ioaddr = dev->base_addr;
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	if (net_debug > 1) printk("%s: Attempting AUI\n", dev->name);
+ 	control_dc_dc(dev, 0);
+@@ -1071,7 +1071,7 @@ detect_aui(struct net_device *dev)
+ static int
+ detect_bnc(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	if (net_debug > 1) printk("%s: Attempting BNC\n", dev->name);
+ 	control_dc_dc(dev, 1);
+@@ -1117,7 +1117,7 @@ write_irq(struct net_device *dev, int ch
+ static int
+ net_open(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int result = 0;
  	int i;
- 
- 	netdevice_stop(dev);
-@@ -1962,7 +1962,7 @@ speedo_close(struct net_device *dev)
- static struct net_device_stats *
- speedo_get_stats(struct net_device *dev)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	long ioaddr = dev->base_addr;
- 
- 	/* Update only if the previous dump finished. */
-@@ -2070,7 +2070,7 @@ static int netdev_ethtool_ioctl(struct n
- 
- static int speedo_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&rq->ifr_data;
- 	int phy = sp->phy[0] & 0x1f;
- 	int saved_acpi;
-@@ -2121,7 +2121,7 @@ static int speedo_ioctl(struct net_devic
- */
- static void set_rx_mode(struct net_device *dev)
- {
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	long ioaddr = dev->base_addr;
- 	struct descriptor *last_cmd;
- 	char new_rx_mode;
-@@ -2313,7 +2313,7 @@ static void set_rx_mode(struct net_devic
- static int eepro100_suspend(struct pci_dev *pdev, u32 state)
- {
- 	struct net_device *dev = pci_get_drvdata (pdev);
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	long ioaddr = dev->base_addr;
- 
- 	pci_save_state(pdev, sp->pm_state);
-@@ -2333,7 +2333,7 @@ static int eepro100_suspend(struct pci_d
- static int eepro100_resume(struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata (pdev);
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	long ioaddr = dev->base_addr;
- 
- 	pci_restore_state(pdev, sp->pm_state);
-@@ -2363,7 +2363,7 @@ static int eepro100_resume(struct pci_de
- static void __devexit eepro100_remove_one (struct pci_dev *pdev)
- {
- 	struct net_device *dev = pci_get_drvdata (pdev);
--	struct speedo_private *sp = (struct speedo_private *)dev->priv;
-+	struct speedo_private *sp = dev->priv;
- 	
- 	unregister_netdev(dev);
- 
-diff -puN drivers/net/eepro.c~net_intel_casts drivers/net/eepro.c
---- linux-263-229/drivers/net/eepro.c~net_intel_casts	2004-02-29 14:02:15.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/eepro.c	2004-02-29 14:02:15.000000000 -0800
-@@ -932,7 +932,7 @@ static int eepro_open(struct net_device 
- 	unsigned short temp_reg, old8, old9;
- 	int irqMask;
- 	int i, ioaddr = dev->base_addr;
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 
- 	if (net_debug > 3)
- 		printk(KERN_DEBUG "%s: entering eepro_open routine.\n", dev->name);
-@@ -1122,7 +1122,7 @@ static void eepro_tx_timeout (struct net
- 
- static int eepro_send_packet(struct sk_buff *skb, struct net_device *dev)
- {
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 	unsigned long flags;
- 	int ioaddr = dev->base_addr;
- 	short length = skb->len;
-@@ -1235,7 +1235,7 @@ eepro_interrupt(int irq, void *dev_id, s
- 
- static int eepro_close(struct net_device *dev)
- {
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 	int ioaddr = dev->base_addr;
- 	short temp_reg;
- 
-@@ -1280,7 +1280,7 @@ static int eepro_close(struct net_device
- static struct net_device_stats *
- eepro_get_stats(struct net_device *dev)
- {
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 
- 	return &lp->stats;
- }
-@@ -1290,7 +1290,7 @@ eepro_get_stats(struct net_device *dev)
- static void
- set_multicast_list(struct net_device *dev)
- {
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 	short ioaddr = dev->base_addr;
- 	unsigned short mode;
- 	struct dev_mc_list *dmi=dev->mc_list;
-@@ -1468,7 +1468,7 @@ read_eeprom(int ioaddr, int location, st
- static int
- hardware_send_packet(struct net_device *dev, void *buf, short length)
- {
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 	short ioaddr = dev->base_addr;
- 	unsigned status, tx_available, last, end;
- 
-@@ -1553,7 +1553,7 @@ hardware_send_packet(struct net_device *
- static void
- eepro_rx(struct net_device *dev)
- {
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 	short ioaddr = dev->base_addr;
- 	short boguscount = 20;
- 	short rcv_car = lp->rx_start;
-@@ -1651,7 +1651,7 @@ eepro_rx(struct net_device *dev)
- static void
- eepro_transmit_interrupt(struct net_device *dev)
- {
--	struct eepro_local *lp = (struct eepro_local *)dev->priv;
-+	struct eepro_local *lp = dev->priv;
- 	short ioaddr = dev->base_addr;
- 	short boguscount = 25; 
- 	short xmt_status;
-diff -puN drivers/net/eexpress.c~net_intel_casts drivers/net/eexpress.c
---- linux-263-229/drivers/net/eexpress.c~net_intel_casts	2004-02-29 14:02:15.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/eexpress.c	2004-02-29 14:02:15.000000000 -0800
-@@ -452,7 +452,7 @@ static int eexp_open(struct net_device *
- {
  	int ret;
- 	unsigned short ioaddr = dev->base_addr;
+@@ -1358,7 +1358,7 @@ static void net_timeout(struct net_devic
+ 
+ static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
+ {
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
  
- #if NET_DEBUG > 6
- 	printk(KERN_DEBUG "%s: eexp_open()\n", dev->name);
-@@ -541,7 +541,7 @@ static int eexp_close(struct net_device 
+ 	if (net_debug > 3) {
+ 		printk("%s: sent %d byte packet of type %x\n",
+@@ -1517,7 +1517,7 @@ count_rx_errors(int status, struct net_l
+ static void
+ net_rx(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	struct sk_buff *skb;
+ 	int status, length;
  
- static struct net_device_stats *eexp_stats(struct net_device *dev)
+@@ -1573,7 +1573,7 @@ static void release_dma_buff(struct net_
+ static int
+ net_close(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	netif_stop_queue(dev);
+ 	
+@@ -1600,7 +1600,7 @@ net_close(struct net_device *dev)
+ static struct net_device_stats *
+ net_get_stats(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+@@ -1614,7 +1614,7 @@ net_get_stats(struct net_device *dev)
+ 
+ static void set_multicast_list(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	unsigned long flags;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+diff -puN drivers/net/eth16i.c~drivers_net_casts drivers/net/eth16i.c
+--- linux-263-229/drivers/net/eth16i.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/eth16i.c	2004-02-29 14:03:33.000000000 -0800
+@@ -950,7 +950,7 @@ static void eth16i_eeprom_cmd(int ioaddr
+ 
+ static int eth16i_open(struct net_device *dev)
+ {
+-	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
++	struct eth16i_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	
+ 	/* Powerup the chip */
+@@ -986,7 +986,7 @@ static int eth16i_open(struct net_device
+ 
+ static int eth16i_close(struct net_device *dev)
+ {
+-	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
++	struct eth16i_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	eth16i_reset(dev);
+@@ -1012,7 +1012,7 @@ static int eth16i_close(struct net_devic
+ 
+ static void eth16i_timeout(struct net_device *dev)
+ {
+-	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
++	struct eth16i_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	/* 
+ 	   If we get here, some higher level has decided that 
+@@ -1053,7 +1053,7 @@ static void eth16i_timeout(struct net_de
+ 
+ static int eth16i_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
++	struct eth16i_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	int status = 0;
+ 	ushort length = skb->len;
+@@ -1130,7 +1130,7 @@ static int eth16i_tx(struct sk_buff *skb
+ 
+ static void eth16i_rx(struct net_device *dev)
+ {
+-	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
++	struct eth16i_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	int boguscount = MAX_RX_LOOP;
+ 
+@@ -1340,7 +1340,7 @@ static void eth16i_skip_packet(struct ne
+ 
+ static void eth16i_reset(struct net_device *dev)
+ {
+-	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
++	struct eth16i_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	if(eth16i_debug > 1) 
+@@ -1372,7 +1372,7 @@ static void eth16i_multicast(struct net_
+ 
+ static struct net_device_stats *eth16i_get_stats(struct net_device *dev)
+ {
+-	struct eth16i_local *lp = (struct eth16i_local *)dev->priv;
++	struct eth16i_local *lp = dev->priv;
+ 	return &lp->stats;
+ }
+ 
+diff -puN drivers/net/fec.c~drivers_net_casts drivers/net/fec.c
+--- linux-263-229/drivers/net/fec.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/fec.c	2004-02-29 14:03:33.000000000 -0800
+@@ -1531,7 +1531,7 @@ fec_enet_close(struct net_device *dev)
+ 
+ static struct net_device_stats *fec_enet_get_stats(struct net_device *dev)
+ {
+-	struct fec_enet_private *fep = (struct fec_enet_private *)dev->priv;
++	struct fec_enet_private *fep = dev->priv;
+ 
+ 	return &fep->stats;
+ }
+diff -puN drivers/net/gt96100eth.c~drivers_net_casts drivers/net/gt96100eth.c
+--- linux-263-229/drivers/net/gt96100eth.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/gt96100eth.c	2004-02-29 14:03:33.000000000 -0800
+@@ -277,7 +277,7 @@ read_MII(int phy_addr, u32 reg)
+ static void
+ dump_tx_desc(int dbg_lvl, struct net_device *dev, int i)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	gt96100_td_t *td = &gp->tx_ring[i];
+ 
+ 	dbg(dbg_lvl, "Tx descriptor at 0x%08lx:\n", virt_to_phys(td));
+@@ -292,7 +292,7 @@ dump_tx_desc(int dbg_lvl, struct net_dev
+ static void
+ dump_rx_desc(int dbg_lvl, struct net_device *dev, int i)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	gt96100_rd_t *rd = &gp->rx_ring[i];
+ 
+ 	dbg(dbg_lvl, "Rx descriptor at 0x%08lx:\n", virt_to_phys(rd));
+@@ -332,7 +332,7 @@ write_MII(int phy_addr, u32 reg, u16 dat
+ static void
+ dump_tx_ring(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	int i;
+ 
+ 	dbg(0, "%s: txno/txni/cnt=%d/%d/%d\n", __FUNCTION__,
+@@ -345,7 +345,7 @@ dump_tx_ring(struct net_device *dev)
+ static void
+ dump_rx_ring(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	int i;
+ 
+ 	dbg(0, "%s: rxno=%d\n", __FUNCTION__, gp->rx_next_out);
+@@ -359,7 +359,7 @@ static void
+ dump_MII(int dbg_lvl, struct net_device *dev)
+ {
+ 	int i, val;
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+     
+ 	if (dbg_lvl <= GT96100_DEBUG) {
+ 		for (i=0; i<7; i++) {
+@@ -419,7 +419,7 @@ dump_skb(int dbg_lvl, struct net_device 
+ static int
+ gt96100_add_hash_entry(struct net_device *dev, unsigned char* addr)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	//u16 hashResult, stmp;
+ 	//unsigned char ctmp, hash_ea[6];
+ 	u32 tblEntry1, tblEntry0, *tblEntryAddr;
+@@ -544,7 +544,7 @@ update_stats(struct gt96100_private *gp)
+ static void
+ abort(struct net_device *dev, u32 abort_bits)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	int timedout = 100; // wait up to 100 msec for hard stop to complete
+ 
+ 	dbg(3, "%s\n", __FUNCTION__);
+@@ -582,7 +582,7 @@ abort(struct net_device *dev, u32 abort_
+ static void
+ hard_stop(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 
+ 	dbg(3, "%s\n", __FUNCTION__);
+ 
+@@ -598,7 +598,7 @@ hard_stop(struct net_device *dev)
+ static void
+ enable_ether_irq(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	u32 intMask;
+ 	/*
+ 	 * route ethernet interrupt to GT_SERINT0 for port 0,
+@@ -631,7 +631,7 @@ enable_ether_irq(struct net_device *dev)
+ static void
+ disable_ether_irq(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	u32 intMask;
+ 	int intr_mask_reg = (gp->port_num == 0) ?
+ 		GT96100_SERINT0_MASK : GT96100_INT0_HIGH_MASK;
+@@ -839,7 +839,7 @@ out:
+ static void
+ reset_tx(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	int i;
+ 
+ 	abort(dev, sdcmrAT);
+@@ -877,7 +877,7 @@ reset_tx(struct net_device *dev)
+ static void
+ reset_rx(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	int i;
+ 
+ 	abort(dev, sdcmrAR);
+@@ -934,7 +934,7 @@ gt96100_check_tx_consistent(struct gt961
+ static int
+ gt96100_init(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	u32 tmp;
+ 	u16 mii_reg;
+     
+@@ -1115,7 +1115,7 @@ gt96100_close(struct net_device *dev)
+ static int
+ gt96100_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	unsigned long flags;
+ 	int nextIn;
+ 
+@@ -1187,7 +1187,7 @@ gt96100_tx(struct sk_buff *skb, struct n
+ static int
+ gt96100_rx(struct net_device *dev, u32 status)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	struct sk_buff *skb;
+ 	int pkt_len, nextOut, cdp;
+ 	gt96100_rd_t *rd;
+@@ -1296,7 +1296,7 @@ gt96100_rx(struct net_device *dev, u32 s
+ static void
+ gt96100_tx_complete(struct net_device *dev, u32 status)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	int nextOut, cdp;
+ 	gt96100_td_t *td;
+ 	u32 cmdstat;
+@@ -1385,7 +1385,7 @@ static irqreturn_t
+ gt96100_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+ {
+ 	struct net_device *dev = (struct net_device *)dev_id;
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	u32 status;
+     	int handled = 0;
+ 
+@@ -1486,7 +1486,7 @@ gt96100_interrupt(int irq, void *dev_id,
+ static void
+ gt96100_tx_timeout(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	unsigned long flags;
+     
+ 	spin_lock_irqsave(&gp->lock, flags);
+@@ -1511,7 +1511,7 @@ gt96100_tx_timeout(struct net_device *de
+ static void
+ gt96100_set_rx_mode(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	unsigned long flags;
+ 	//struct dev_mc_list *mcptr;
+     
+@@ -1555,7 +1555,7 @@ gt96100_set_rx_mode(struct net_device *d
+ static struct net_device_stats *
+ gt96100_get_stats(struct net_device *dev)
+ {
+-	struct gt96100_private *gp = (struct gt96100_private *)dev->priv;
++	struct gt96100_private *gp = dev->priv;
+ 	unsigned long flags;
+ 
+ 	dbg(3, "%s: dev=%p\n", __FUNCTION__, dev);
+diff -puN drivers/net/mac89x0.c~drivers_net_casts drivers/net/mac89x0.c
+--- linux-263-229/drivers/net/mac89x0.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/mac89x0.c	2004-02-29 14:03:33.000000000 -0800
+@@ -328,7 +328,7 @@ void __init reset_chip(struct net_device
+ static int
+ net_open(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int i;
+ 
+ 	/* Disable the interrupt for now */
+@@ -392,7 +392,7 @@ net_send_packet(struct sk_buff *skb, str
+ 	if (test_and_set_bit(0, (void*)&dev->tbusy) != 0)
+ 		printk("%s: Transmitter access conflict.\n", dev->name);
+ 	else {
+-		struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 		unsigned long flags;
+ 
+ 		if (net_debug > 3)
+@@ -505,7 +505,7 @@ static irqreturn_t net_interrupt(int irq
+ static void
+ net_rx(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	struct sk_buff *skb;
+ 	int status, length;
+ 
+@@ -571,7 +571,7 @@ net_close(struct net_device *dev)
+ static struct net_device_stats *
+ net_get_stats(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	unsigned long flags;
+ 
+ 	local_irq_save(flags);
+@@ -585,7 +585,7 @@ net_get_stats(struct net_device *dev)
+ 
+ static void set_multicast_list(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	if(dev->flags&IFF_PROMISC)
+ 	{
+diff -puN drivers/net/ni5010.c~drivers_net_casts drivers/net/ni5010.c
+--- linux-263-229/drivers/net/ni5010.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/ni5010.c	2004-02-29 14:03:33.000000000 -0800
+@@ -527,7 +527,7 @@ static void dump_packet(void *buf, int l
+ /* We have a good packet, get it out of the buffer. */
+ static void ni5010_rx(struct net_device *dev)
+ {
+-	struct ni5010_local *lp = (struct ni5010_local *)dev->priv;
++	struct ni5010_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	unsigned char rcv_stat;
+ 	struct sk_buff *skb;
+@@ -592,7 +592,7 @@ static void ni5010_rx(struct net_device 
+ 
+ static int process_xmt_interrupt(struct net_device *dev)
+ {
+-	struct ni5010_local *lp = (struct ni5010_local *)dev->priv;
++	struct ni5010_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	int xmit_stat;
+ 
+@@ -651,7 +651,7 @@ static int ni5010_close(struct net_devic
+    closed. */
+ static struct net_device_stats *ni5010_get_stats(struct net_device *dev)
+ {
+-	struct ni5010_local *lp = (struct ni5010_local *)dev->priv;
++	struct ni5010_local *lp = dev->priv;
+ 
+ 	PRINTK2((KERN_DEBUG "%s: entering ni5010_get_stats\n", dev->name));
+ 	
+@@ -693,7 +693,7 @@ static void ni5010_set_multicast_list(st
+ 
+ static void hardware_send_packet(struct net_device *dev, char *buf, int length, int pad)
+ {
+-	struct ni5010_local *lp = (struct ni5010_local *)dev->priv;
++	struct ni5010_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 	unsigned int buf_offs;
+diff -puN drivers/net/rrunner.c~drivers_net_casts drivers/net/rrunner.c
+--- linux-263-229/drivers/net/rrunner.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/rrunner.c	2004-02-29 14:03:33.000000000 -0800
+@@ -960,7 +960,7 @@ static u32 rr_handle_event(struct net_de
+ 
+ static void rx_int(struct net_device *dev, u32 rxlimit, u32 index)
+ {
+-	struct rr_private *rrpriv = (struct rr_private *)dev->priv;
++	struct rr_private *rrpriv = dev->priv;
+ 	struct rr_regs *regs = rrpriv->regs;
+ 
+ 	do {
+@@ -1133,7 +1133,7 @@ static irqreturn_t rr_interrupt(int irq,
+ static void rr_timer(unsigned long data)
+ {
+ 	struct net_device *dev = (struct net_device *)data;
+-	struct rr_private *rrpriv = (struct rr_private *)dev->priv;
++	struct rr_private *rrpriv = dev->priv;
+ 	struct rr_regs *regs = rrpriv->regs;
+ 	unsigned long flags;
+ 
+@@ -1160,7 +1160,7 @@ static void rr_timer(unsigned long data)
+ 
+ static int rr_open(struct net_device *dev)
+ {
+-	struct rr_private *rrpriv = (struct rr_private *)dev->priv;
++	struct rr_private *rrpriv = dev->priv;
+ 	struct pci_dev *pdev = rrpriv->pci_dev;
+ 	struct rr_regs *regs;
+ 	int ecode = 0;
+@@ -1418,7 +1418,7 @@ static int rr_close(struct net_device *d
+ 
+ static int rr_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct rr_private *rrpriv = (struct rr_private *)dev->priv;
++	struct rr_private *rrpriv = dev->priv;
+ 	struct rr_regs *regs = rrpriv->regs;
+ 	struct ring_ctrl *txctrl;
+ 	unsigned long flags;
+diff -puN drivers/net/sb1000.c~drivers_net_casts drivers/net/sb1000.c
+--- linux-263-229/drivers/net/sb1000.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/sb1000.c	2004-02-29 14:03:33.000000000 -0800
+@@ -746,7 +746,7 @@ sb1000_rx(struct net_device *dev)
+ 	int ioaddr, ns;
+ 	unsigned int skbsize;
+ 	struct sk_buff *skb;
+-	struct sb1000_private *lp = (struct sb1000_private *)dev->priv;
++	struct sb1000_private *lp = dev->priv;
+ 	struct net_device_stats *stats = &lp->stats;
+ 
+ 	/* SB1000 frame constants */
+@@ -905,7 +905,7 @@ sb1000_error_dpc(struct net_device *dev)
+ 	char *name;
+ 	unsigned char st[5];
+ 	int ioaddr[2];
+-	struct sb1000_private *lp = (struct sb1000_private *)dev->priv;
++	struct sb1000_private *lp = dev->priv;
+ 	const unsigned char Command0[6] = {0x80, 0x26, 0x00, 0x00, 0x00, 0x00};
+ 	const int ErrorDpcCounterInitialize = 200;
+ 
+@@ -932,7 +932,7 @@ sb1000_open(struct net_device *dev)
+ {
+ 	char *name;
+ 	int ioaddr[2], status;
+-	struct sb1000_private *lp = (struct sb1000_private *)dev->priv;
++	struct sb1000_private *lp = dev->priv;
+ 	const unsigned short FirmwareVersion[] = {0x01, 0x01};
+ 
+ 	ioaddr[0] = dev->base_addr;
+@@ -998,7 +998,7 @@ static int sb1000_dev_ioctl(struct net_d
+ 	short PID[4];
+ 	int ioaddr[2], status, frequency;
+ 	unsigned int stats[5];
+-	struct sb1000_private *lp = (struct sb1000_private *)dev->priv;
++	struct sb1000_private *lp = dev->priv;
+ 
+ 	if (!(dev && dev->flags & IFF_UP))
+ 		return -ENODEV;
+@@ -1092,7 +1092,7 @@ static irqreturn_t sb1000_interrupt(int 
+ 	unsigned char st;
+ 	int ioaddr[2];
+ 	struct net_device *dev = (struct net_device *) dev_id;
+-	struct sb1000_private *lp = (struct sb1000_private *)dev->priv;
++	struct sb1000_private *lp = dev->priv;
+ 
+ 	const unsigned char Command0[6] = {0x80, 0x2c, 0x00, 0x00, 0x00, 0x00};
+ 	const unsigned char Command1[6] = {0x80, 0x2e, 0x00, 0x00, 0x00, 0x00};
+@@ -1148,7 +1148,7 @@ static irqreturn_t sb1000_interrupt(int 
+ 
+ static struct net_device_stats *sb1000_stats(struct net_device *dev)
+ {
+-	struct sb1000_private *lp = (struct sb1000_private *)dev->priv;
++	struct sb1000_private *lp = dev->priv;
+ 	return &lp->stats;
+ }
+ 
+@@ -1156,7 +1156,7 @@ static int sb1000_close(struct net_devic
+ {
+ 	int i;
+ 	int ioaddr[2];
+-	struct sb1000_private *lp = (struct sb1000_private *)dev->priv;
++	struct sb1000_private *lp = dev->priv;
+ 
+ 	if (sb1000_debug > 2)
+ 		printk(KERN_DEBUG "%s: Shutting down sb1000.\n", dev->name);
+diff -puN drivers/net/sb1250-mac.c~drivers_net_casts drivers/net/sb1250-mac.c
+--- linux-263-229/drivers/net/sb1250-mac.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/sb1250-mac.c	2004-02-29 14:03:33.000000000 -0800
+@@ -2150,7 +2150,7 @@ static irqreturn_t sbmac_intr(int irq,vo
+  ********************************************************************* */
+ static int sbmac_start_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
++	struct sbmac_softc *sc = dev->priv;
+ 	
+ 	/* lock eth irq */
+ 	spin_lock_irq (&sc->sbm_lock);
+@@ -2454,7 +2454,7 @@ static int sbmac_init(struct net_device 
+ 
+ static int sbmac_open(struct net_device *dev)
+ {
+-	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
++	struct sbmac_softc *sc = dev->priv;
+ 	
+ 	if (debug > 1) {
+ 		printk(KERN_DEBUG "%s: sbmac_open() irq %d.\n", dev->name, dev->irq);
+@@ -2609,7 +2609,7 @@ static int sbmac_mii_poll(struct sbmac_s
+ static void sbmac_timer(unsigned long data)
+ {
+ 	struct net_device *dev = (struct net_device *)data;
+-	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
++	struct sbmac_softc *sc = dev->priv;
+ 	int next_tick = HZ;
+ 	int mii_status;
+ 
+@@ -2673,7 +2673,7 @@ static void sbmac_tx_timeout (struct net
+ 
+ static struct net_device_stats *sbmac_get_stats(struct net_device *dev)
+ {
+-	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
++	struct sbmac_softc *sc = dev->priv;
+ 	unsigned long flags;
+ 	
+ 	spin_lock_irqsave(&sc->sbm_lock, flags);
+@@ -2691,7 +2691,7 @@ static void sbmac_set_rx_mode(struct net
+ {
+ 	unsigned long flags;
+ 	int msg_flag = 0;
+-	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
++	struct sbmac_softc *sc = dev->priv;
+ 
+ 	spin_lock_irqsave(&sc->sbm_lock, flags);
+ 	if ((dev->flags ^ sc->sbm_devflags) & IFF_PROMISC) {
+@@ -2726,7 +2726,7 @@ static void sbmac_set_rx_mode(struct net
+ 
+ static int sbmac_mii_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
++	struct sbmac_softc *sc = dev->priv;
+ 	u16 *data = (u16 *)&rq->ifr_data;
+ 	unsigned long flags;
+ 	int retval;
+@@ -2762,7 +2762,7 @@ static int sbmac_mii_ioctl(struct net_de
+ 
+ static int sbmac_close(struct net_device *dev)
+ {
+-	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
++	struct sbmac_softc *sc = dev->priv;
+ 	unsigned long flags;
+ 	int irq;
+ 
+diff -puN drivers/net/seeq8005.c~drivers_net_casts drivers/net/seeq8005.c
+--- linux-263-229/drivers/net/seeq8005.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/seeq8005.c	2004-02-29 14:03:33.000000000 -0800
+@@ -357,7 +357,7 @@ out:
+    */
+ static int seeq8005_open(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 
+ 	{
+ 		 int irqval = request_irq(dev->irq, &seeq8005_interrupt, 0, "seeq8005", dev);
+@@ -390,7 +390,7 @@ static void seeq8005_timeout(struct net_
+ 
+ static int seeq8005_send_packet(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	short length = skb->len;
+ 	unsigned char *buf;
+ 
+@@ -462,7 +462,7 @@ static irqreturn_t seeq8005_interrupt(in
+ /* We have a good packet(s), get it/them out of the buffers. */
+ static void seeq8005_rx(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int boguscount = 10;
+ 	int pkt_hdr;
+ 	int ioaddr = dev->base_addr;
+@@ -561,7 +561,7 @@ static void seeq8005_rx(struct net_devic
+ /* The inverse routine to net_open(). */
+ static int seeq8005_close(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	lp->open_time = 0;
+@@ -583,7 +583,7 @@ static int seeq8005_close(struct net_dev
+    closed. */
+ static struct net_device_stats *seeq8005_get_stats(struct net_device *dev)
  {
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
  
  	return &lp->stats;
  }
-@@ -553,7 +553,7 @@ static struct net_device_stats *eexp_sta
+@@ -618,7 +618,7 @@ static void set_multicast_list(struct ne
  
- static void unstick_cu(struct net_device *dev)
+ void seeq8005_init(struct net_device *dev, int startp)
  {
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
- 	unsigned short ioaddr = dev->base_addr;
- 
- 	if (lp->started)
-@@ -627,7 +627,7 @@ static void unstick_cu(struct net_device
- 
- static void eexp_timeout(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- #ifdef CONFIG_SMP
- 	unsigned long flags;
- #endif
-@@ -667,7 +667,7 @@ static void eexp_timeout(struct net_devi
-  */
- static int eexp_xmit(struct sk_buff *buf, struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	short length = buf->len;
- #ifdef CONFIG_SMP
- 	unsigned long flags;
-@@ -728,7 +728,7 @@ static unsigned short eexp_start_irq(str
- 				     unsigned short status)
- {
- 	unsigned short ack_cmd = SCB_ack(status);
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short ioaddr = dev->base_addr;
- 	if ((dev->flags & IFF_UP) && !(lp->started & STARTED_CU)) {
- 		short diag_status, tdr_status;
-@@ -925,7 +925,7 @@ static void eexp_hw_set_interface(struct
- 
- static void eexp_hw_rx_pio(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short rx_block = lp->rx_ptr;
- 	unsigned short boguscount = lp->num_rx_bufs;
- 	unsigned short ioaddr = dev->base_addr;
-@@ -1022,7 +1022,7 @@ static void eexp_hw_rx_pio(struct net_de
- static void eexp_hw_tx_pio(struct net_device *dev, unsigned short *buf,
- 		       unsigned short len)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short ioaddr = dev->base_addr;
- 
- 	if (LOCKUP16 || lp->width) {
-@@ -1262,7 +1262,7 @@ static unsigned short __init eexp_hw_rea
- 
- static unsigned short eexp_hw_lasttxstat(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short tx_block = lp->tx_reap;
- 	unsigned short status;
- 
-@@ -1332,7 +1332,7 @@ static unsigned short eexp_hw_lasttxstat
- 
- static void eexp_hw_txrestart(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short ioaddr = dev->base_addr;
- 
- 	lp->last_tx_restart = lp->tx_link;
-@@ -1377,7 +1377,7 @@ static void eexp_hw_txrestart(struct net
- 
- static void eexp_hw_txinit(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short tx_block = TX_BUF_START;
- 	unsigned short curtbuf;
- 	unsigned short ioaddr = dev->base_addr;
-@@ -1419,7 +1419,7 @@ static void eexp_hw_txinit(struct net_de
- 
- static void eexp_hw_rxinit(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short rx_block = lp->rx_buf_start;
- 	unsigned short ioaddr = dev->base_addr;
- 
-@@ -1478,7 +1478,7 @@ static void eexp_hw_rxinit(struct net_de
- 
- static void eexp_hw_init586(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	unsigned short ioaddr = dev->base_addr;
+ 	int ioaddr = dev->base_addr;
  	int i;
+ 	
+diff -puN drivers/net/sgiseeq.c~drivers_net_casts drivers/net/sgiseeq.c
+--- linux-263-229/drivers/net/sgiseeq.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/sgiseeq.c	2004-02-29 14:03:33.000000000 -0800
+@@ -445,7 +445,7 @@ static irqreturn_t sgiseeq_interrupt(int
  
-@@ -1639,7 +1639,7 @@ static void
- eexp_set_multicast(struct net_device *dev)
+ static int sgiseeq_open(struct net_device *dev)
  {
-         unsigned short ioaddr = dev->base_addr;
--        struct net_local *lp = (struct net_local *)dev->priv;
-+        struct net_local *lp = dev->priv;
-         int kick = 0, i;
-         if ((dev->flags & IFF_PROMISC) != lp->was_promisc) {
-                 outw(CONF_PROMISC & ~31, ioaddr+SM_PTR);
-diff -puN drivers/net/lasi_82596.c~net_intel_casts drivers/net/lasi_82596.c
---- linux-263-229/drivers/net/lasi_82596.c~net_intel_casts	2004-02-29 14:02:15.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/lasi_82596.c	2004-02-29 14:02:15.000000000 -0800
-@@ -541,7 +541,7 @@ static void i596_error(int irq, void *de
+-	struct sgiseeq_private *sp = (struct sgiseeq_private *)dev->priv;
++	struct sgiseeq_private *sp = dev->priv;
+ 	struct sgiseeq_regs *sregs = sp->sregs;
  
- static inline void init_rx_bufs(struct net_device *dev)
+ 	int err = init_seeq(dev, sp, sregs);
+diff -puN drivers/net/sk_g16.c~drivers_net_casts drivers/net/sk_g16.c
+--- linux-263-229/drivers/net/sk_g16.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/sk_g16.c	2004-02-29 14:03:33.000000000 -0800
+@@ -869,7 +869,7 @@ static int SK_open(struct net_device *de
+ 
+     int irqtab[] = SK_IRQS; 
+ 
+-    struct priv *p = (struct priv *)dev->priv;
++    struct priv *p = dev->priv;
+ 
+     PRINTK(("## %s: At beginning of SK_open(). CSR0: %#06x\n", 
+            SK_NAME, SK_read_reg(CSR0)));
+diff -puN drivers/net/smc9194.c~drivers_net_casts drivers/net/smc9194.c
+--- linux-263-229/drivers/net/smc9194.c~drivers_net_casts	2004-02-29 14:03:33.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/smc9194.c	2004-02-29 14:03:33.000000000 -0800
+@@ -465,7 +465,7 @@ static void smc_setmulticast( int ioaddr
+ */
+ static int smc_wait_to_send_packet( struct sk_buff * skb, struct net_device * dev )
  {
--	struct i596_private *lp = (struct i596_private *)dev->priv;
-+	struct i596_private *lp = dev->priv;
- 	int i;
- 	struct i596_rfd *rfd;
- 	struct i596_rbd *rbd;
-@@ -595,7 +595,7 @@ static inline void init_rx_bufs(struct n
- 
- static inline void remove_rx_bufs(struct net_device *dev)
+-	struct smc_local *lp 	= (struct smc_local *)dev->priv;
++	struct smc_local *lp = dev->priv;
+ 	unsigned short ioaddr 	= dev->base_addr;
+ 	word 			length;
+ 	unsigned short 		numPages;
+@@ -576,7 +576,7 @@ static int smc_wait_to_send_packet( stru
+ */
+ static void smc_hardware_send_packet( struct net_device * dev )
  {
--	struct i596_private *lp = (struct i596_private *)dev->priv;
-+	struct i596_private *lp = dev->priv;
- 	struct i596_rbd *rbd;
- 	int i;
- 
-@@ -727,7 +727,7 @@ failed:
- 
- static inline int i596_rx(struct net_device *dev)
+-	struct smc_local *lp = (struct smc_local *)dev->priv;
++	struct smc_local *lp = dev->priv;
+ 	byte	 		packet_no;
+ 	struct sk_buff * 	skb = lp->saved_skb;
+ 	word			length;
+@@ -1150,7 +1150,7 @@ static irqreturn_t smc_interrupt(int irq
  {
--	struct i596_private *lp = (struct i596_private *)dev->priv;
-+	struct i596_private *lp = dev->priv;
- 	struct i596_rfd *rfd;
- 	struct i596_rbd *rbd;
- 	int frames = 0;
+ 	struct net_device *dev 	= dev_id;
+ 	int ioaddr 		= dev->base_addr;
+-	struct smc_local *lp 	= (struct smc_local *)dev->priv;
++	struct smc_local *lp = dev->priv;
+ 
+ 	byte	status;
+ 	word	card_stats;
+@@ -1274,7 +1274,7 @@ static irqreturn_t smc_interrupt(int irq
+ */
+ static void smc_rcv(struct net_device *dev)
+ {
+-	struct smc_local *lp = (struct smc_local *)dev->priv;
++	struct smc_local *lp = dev->priv;
+ 	int 	ioaddr = dev->base_addr;
+ 	int 	packet_number;
+ 	word	status;
+@@ -1401,7 +1401,7 @@ done:
+ static void smc_tx( struct net_device * dev )
+ {
+ 	int	ioaddr = dev->base_addr;
+-	struct smc_local *lp = (struct smc_local *)dev->priv;
++	struct smc_local *lp = dev->priv;
+ 	byte saved_packet;
+ 	byte packet_no;
+ 	word tx_status;
+@@ -1474,7 +1474,7 @@ static int smc_close(struct net_device *
+  . This may be called with the card open or closed.
+  .-------------------------------------------------------------*/
+ static struct net_device_stats* smc_query_statistics(struct net_device *dev) {
+-	struct smc_local *lp = (struct smc_local *)dev->priv;
++	struct smc_local *lp = dev->priv;
+ 
+ 	return &lp->stats;
+ }
 
 _
 
