@@ -1,47 +1,41 @@
-From: LCD module <lcdmodule@hotmail.com>
-Subject: LCD modules from China for sales
-Date: Mon, 29 Apr 2002 11:28:14 +0800
+From: Francois-Xavier Kowalski <francois-xavier_kowalski@hp.com>
+Subject: feature request: get ipv6 address from interface name (SIOCGIFNAME)
+Date: Mon, 29 Apr 2002 11:48:39 +0200
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <aaiet2$30a$2@main.gmane.org>
-Reply-To: lcd_module@163.com
+Message-ID: <3CCD16F7.1070303@hp.com>
+Reply-To: francois-xavier_kowalski@hp.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="bb7aa08f-5b62-11d6-a0b8-5254ab33fa19"
+Content-Type: text/plain; charset=iso-8859-1;
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Francois-Xavier 'FiX' KOWALSKI" <francois-xavier_kowalski@hp.com>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: unlisted-recipients:; (no To-header on input)
+To: Linux Networking Development ML <linux-net@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
-This is a multi-part message in MIME format
---bb7aa08f-5b62-11d6-a0b8-5254ab33fa19
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+I am currently writing some user-space stuff that require to get the
+IP address from the Eternet interface name (because the interface name
+is the one linked to the physical device).
 
-Dear Madam/Sir:
+ipv4 let the a the ability to retrieve a single address using the
+itocl(SIOCGIFNAME) command.
 
-This email is for LCD Module sales only. Pls beleive that it's just a =
-friendly business letter.
+So I am wondering if the fact that this feature is left un-implemented
+in ipv6 is intentionnal or not.  The currently implemented ipv6 ioctl
+commands only allow to set values, but not to retrieve them.
 
-If you did not need LCD module, pls sign "remove" in the subject of your =
-reply. We will delete your information from our database
+BTW, I have also noted that a single IPv4 address can be retrieved
+using the ioctl(SIOCGIFNAME), whereas the ip(7) command gives the
+ability to add several IP addresses per interface (not speaking of the
+old "eth0:1" notiation, which is said to be deprecated).
 
-If you are interested in LCD Module, pls contact with us by the email: =
-lcdmodule@fjemail.net 
+Thanks in advance for any help / explanation or pointer.
 
-We are professional LCD modules supplier from China. 
+Regards
 
-We offer around 100 kinds of LCD modules in good quality and low price, =
-including:
-from "8 characters x 1 line" to "40 characters x 4 lines" Character LCD =
-Module
-from "122x32 Dot matrix" to "240x64 Dot Matrix"  Graphic LCD Module
-Standard products or customer design projects are available here.
+=46iX
+--=20
+=46ran=E7ois-Xavier 'FiX' KOWALSKI
 
-We would like to supply you more information of our products upon your =
-requirement.
-
-Hope everything goes well with you .
-
-Warm Regards
-Jack Chuen  
---bb7aa08f-5b62-11d6-a0b8-5254ab33fa19--
 
