@@ -1,67 +1,161 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: sis900 oops on resume
-Date: Wed, 17 Nov 2004 21:10:08 +0100
-Message-ID: <20041117201008.GA11439@elf.ucw.cz>
-References: <20041117182403.GC2252@stro.at>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.10-rc2] tulip: make tulip_stop_rxtx() wait for DMA to fully stop
+Date: Wed, 17 Nov 2004 15:12:44 -0500
+Message-ID: <20041117151244.B31363@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, grant.grundler@hp.com,
+        charlie.brett@hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, Daniele Venzano <webvenza@libero.it>
+To: linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20041117182403.GC2252@stro.at>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
+tulip_stop_rxtx() doesn't wait for DMA to fully stop like the function
+call name implies.
 
-> happens since the use of guessnet,
-> guessnet is based on divine and sends arp requests to network.
-> network was down after the oops, but beside resume system worked.
+Acked-by: Grant Grundler <grant.grundler@hp.com>
+Acked-by: Charlie Brett <charlie.brett@hp.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+This was submitted through my employer -- I am not the original author
+of this patch.  However, I passed it by Jeff Garizk and he expressed
+interest in having it upstream.
 
-And where do you see the oops? Irq 10 does not work, that's only
-backtrace. Fix the sis900 driver...
+ drivers/net/tulip/21142.c      |    2 +-
+ drivers/net/tulip/eeprom.c     |    1 +
+ drivers/net/tulip/interrupt.c  |    2 +-
+ drivers/net/tulip/media.c      |    1 +
+ drivers/net/tulip/pnic.c       |    1 +
+ drivers/net/tulip/pnic2.c      |    2 +-
+ drivers/net/tulip/timer.c      |    1 +
+ drivers/net/tulip/tulip.h      |   15 ++++++++++++++-
+ drivers/net/tulip/tulip_core.c |    2 +-
+ 9 files changed, 22 insertions(+), 5 deletions(-)
 
-							Pavel
-
-> Nov 16 20:15:36 sputnik kernel: Stopping tasks: ============================|
-> Nov 16 20:15:37 sputnik kernel: Freeing memory... done (37019 pages freed)
-> Nov 16 20:15:37 sputnik kernel: ..........................................swsusp
-> : Need to copy 10075 pages
-> Nov 16 20:15:37 sputnik kernel: .<6>eth0: Abnormal interrupt,status 0x03008000.
-> Nov 16 20:15:37 sputnik kernel: irq 10: nobody cared!
-> Nov 16 20:15:37 sputnik kernel: [<c0130a34>] __report_bad_irq+0x24/0x90
-> Nov 16 20:15:37 sputnik kernel: [<c0130b31>] note_interrupt+0x61/0x90
-> Nov 16 20:15:37 sputnik kernel: [<c013059b>] __do_IRQ+0x11b/0x130
-> Nov 16 20:15:37 sputnik kernel: [<c0104b4c>] do_IRQ+0x5c/0x60
-> Nov 16 20:15:37 sputnik kernel: [<c01031ea>] common_interrupt+0x1a/0x20
-> Nov 16 20:15:37 sputnik kernel: [<c0130440>] handle_IRQ_event+0x20/0x60
-> Nov 16 20:15:37 sputnik kernel: [<c013054a>] __do_IRQ+0xca/0x130
-> Nov 16 20:15:37 sputnik kernel: [<c0104b2e>] do_IRQ+0x3e/0x60
-> Nov 16 20:15:37 sputnik kernel: =======================
-> Nov 16 20:15:37 sputnik kernel: [<c01031ea>] common_interrupt+0x1a/0x20
-> Nov 16 20:15:37 sputnik kernel: [<c020007b>] sisdrv_irq_install+0xbb/0x160
-> Nov 16 20:15:37 sputnik kernel: [<c0207144>] i8042_command+0xc4/0xf0
-> Nov 16 20:15:37 sputnik kernel: [<c0207571>] i8042_enable_mux_mode+0x21/0x90
-> Nov 16 20:15:37 sputnik kernel: [<c0207a9c>] i8042_controller_resume+0xdc/0x120
-> Nov 16 20:15:37 sputnik kernel: [<c020abad>] platform_resume+0x3d/0x40
-> Nov 16 20:15:37 sputnik kernel: [<c020be46>] resume_device+0x16/0x20
-> Nov 16 20:15:37 sputnik kernel: [<c020bef7>] dpm_resume+0xa7/0xb0
-> Nov 16 20:15:37 sputnik kernel: [<c020bf11>] device_resume+0x11/0x20
-> Nov 16 20:15:37 sputnik kernel: [<c012f6a5>] finish+0x5/0x40
-> Nov 16 20:15:37 sputnik kernel: [<c012f7bc>] pm_suspend_disk+0x3c/0x70
-> Nov 16 20:15:37 sputnik kernel: [<c012dee5>] enter_state+0x65/0x70
-> Nov 16 20:15:37 sputnik kernel: [<c012e023>] state_store+0xa3/0xab
-> Nov 16 20:15:37 sputnik kernel: [<c012df80>] state_store+0x0/0xab
-> Nov 16 20:15:37 sputnik kernel: [<c017e7f6>] subsys_attr_store+0x36/0x40
-> Nov 16 20:15:37 sputnik kernel: [<c017ea5e>] flush_write_buffer+0x2e/0x40
-> Nov 16 20:15:37 sputnik kernel: [<c017eac1>] sysfs_write_file+0x51/0x60
-> Nov 16 20:15:37 sputnik kernel: [<c014e101>] vfs_write+0xd1/0x120
-> Nov 16 20:15:37 sputnik kernel: [<c014e217>] sys_write+0x47/0x80
-> Nov 16 20:15:37 sputnik kernel: [<c010307b>] syscall_call+0x7/0xb
-> Nov 16 20:15:37 sputnik kernel: [<e0032720>] (sis900_interrupt+0x0/0x100 [sis900])
-> Nov 16 20:15:37 sputnik kernel: Disabling IRQ #10
-
--- 
-People were complaining that M$ turns users into beta-testers...
-...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/tulip_core.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/tulip_core.c
+@@ -26,8 +26,8 @@
+ 
+ 
+ #include <linux/module.h>
+-#include "tulip.h"
+ #include <linux/pci.h>
++#include "tulip.h"
+ #include <linux/init.h>
+ #include <linux/etherdevice.h>
+ #include <linux/delay.h>
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/media.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/media.c
+@@ -18,6 +18,7 @@
+ #include <linux/mii.h>
+ #include <linux/init.h>
+ #include <linux/delay.h>
++#include <linux/pci.h>
+ #include "tulip.h"
+ 
+ 
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/21142.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/21142.c
+@@ -14,9 +14,9 @@
+ 
+ */
+ 
+-#include "tulip.h"
+ #include <linux/pci.h>
+ #include <linux/delay.h>
++#include "tulip.h"
+ 
+ 
+ static u16 t21142_csr13[] = { 0x0001, 0x0009, 0x0009, 0x0000, 0x0001, };
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/timer.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/timer.c
+@@ -14,6 +14,7 @@
+ 
+ */
+ 
++#include <linux/pci.h>
+ #include "tulip.h"
+ 
+ 
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/tulip.h.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/tulip.h
+@@ -149,6 +149,9 @@ enum status_bits {
+ 	TxIntr = 0x01,
+ };
+ 
++/* bit mask for CSR5 TX/RX process state */
++#define CSR5_TS	0x00700000
++#define CSR5_RS	0x000e0000
+ 
+ enum tulip_mode_bits {
+ 	TxThreshold		= (1 << 22),
+@@ -460,9 +463,19 @@ static inline void tulip_stop_rxtx(struc
+ 	u32 csr6 = ioread32(ioaddr + CSR6);
+ 
+ 	if (csr6 & RxTx) {
++		unsigned i=1300/10;
+ 		iowrite32(csr6 & ~RxTx, ioaddr + CSR6);
+ 		barrier();
+-		(void) ioread32(ioaddr + CSR6); /* mmio sync */
++		/* wait until in-flight frame completes.
++		 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
++		 * Typically expect this loop to end in < 50 us on 100BT.
++		 */
++		while (--i && (ioread32(ioaddr + CSR5) & (CSR5_TS|CSR5_RS)))
++			udelay(10);
++
++		if (!i)
++			printk(KERN_DEBUG "%s: tulip_stop_rxtx() failed\n",
++					tp->pdev->slot_name);
+ 	}
+ }
+ 
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/pnic.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/pnic.c
+@@ -15,6 +15,7 @@
+ */
+ 
+ #include <linux/kernel.h>
++#include <linux/pci.h>
+ #include "tulip.h"
+ 
+ 
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/pnic2.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/pnic2.c
+@@ -76,8 +76,8 @@
+ 
+ 
+ 
+-#include "tulip.h"
+ #include <linux/pci.h>
++#include "tulip.h"
+ #include <linux/delay.h>
+ 
+ 
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/eeprom.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/eeprom.c
+@@ -14,6 +14,7 @@
+ 
+ */
+ 
++#include <linux/pci.h>
+ #include "tulip.h"
+ #include <linux/init.h>
+ #include <asm/unaligned.h>
+--- tulip_stop_rxtx-2.6/drivers/net/tulip/interrupt.c.orig
++++ tulip_stop_rxtx-2.6/drivers/net/tulip/interrupt.c
+@@ -14,10 +14,10 @@
+ 
+ */
+ 
++#include <linux/pci.h>
+ #include "tulip.h"
+ #include <linux/config.h>
+ #include <linux/etherdevice.h>
+-#include <linux/pci.h>
+ 
+ int tulip_rx_copybreak;
+ unsigned int tulip_max_interrupt_work;
