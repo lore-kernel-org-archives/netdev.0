@@ -1,50 +1,98 @@
-From: Andries.Brouwer@cwi.nl
-Subject: [patch] posix compliance for send(to)
-Date: Sat, 25 Oct 2003 23:44:19 +0200 (MEST)
+From: Mike Phillips <phillim2@comcast.net>
+Subject: [PATCH] ibmtr_cs/ibmtr on 2.6.0-test9 - get working again
+Date: Sat, 25 Oct 2003 18:14:35 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <UTC200310252144.h9PLiJ502790.aeb@smtp.cwi.nl>
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Message-ID: <20031025221435.GA18782@siasl.dyndns.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@osdl.org, jgarzik@pobox.com, shemminger@osdl.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-POSIX 1003.1-2001, 2003 edition
-(see http://www.opengroup.org/onlinepubs/007904975/toc.htm)
-says about send():
+Patch to get ibmtr_cs / ibmtr working again in 2.6.0-test9. A change
+went in a while back I missed that killed it. Also fixed the timer to
+elimitate the uninitialized timer error on close. 
 
-  The send() function shall send a message only
-  when the socket is connected
+Please apply so we have a working driver for 2.6. I'll start right on
+updates to the new net-2.5 probes interface. 
 
-and gives the error returns
+Thanks
+Mike Phillips
 
-[ENOTCONN]
-  The socket is not connected or otherwise has not had the peer
-  pre-specified.
-[EPIPE]
-  The socket is shut down for writing, or the socket is connection-mode
-  and is no longer connected. In the latter case, and if the socket is of
-  type SOCK_STREAM, the SIGPIPE signal is generated to the calling thread.
 
-However, currently (2.6.0-test6) I see EPIPE and SIGPIPE
-for a send() on a fresh, non-connected socket.
-
-I suppose the below patch fixes this, but have not checked
-details of the state machine.
-
-Andries
-
-diff -u --recursive --new-file -X /linux/dontdiff a/net/ipv4/tcp.c b/net/ipv4/tcp.c
---- a/net/ipv4/tcp.c	Mon Jun 23 04:44:14 2003
-+++ b/net/ipv4/tcp.c	Sat Oct 25 22:46:44 2003
-@@ -1044,6 +1044,10 @@
- 	flags = msg->msg_flags;
- 	timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
+diff -urN -X dontdiff linux-2.6.0-test9.vanilla/drivers/net/pcmcia/ibmtr_cs.c linux-2.6.0-test9/drivers/net/pcmcia/ibmtr_cs.c
+--- linux-2.6.0-test9.vanilla/drivers/net/pcmcia/ibmtr_cs.c	2003-10-25 14:43:42.000000000 -0400
++++ linux-2.6.0-test9/drivers/net/pcmcia/ibmtr_cs.c	2003-10-25 17:23:35.000000000 -0400
+@@ -136,7 +136,7 @@
+     struct net_device	*dev;
+     dev_node_t          node;
+     window_handle_t     sram_win_handle;
+-    struct tok_info	ti;
++    struct tok_info	*ti;
+ } ibmtr_dev_t;
  
-+	err = -ENOTCONN;
-+	if (sk->sk_state == TCP_CLOSE && !sock_flag(sk, SOCK_DONE))
-+		goto out_err;
-+
- 	/* Wait for a connection to finish. */
- 	if ((1 << sk->sk_state) & ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT))
- 		if ((err = wait_for_tcp_connect(sk, flags, &timeo)) != 0)
+ static void netdev_get_drvinfo(struct net_device *dev,
+@@ -168,14 +168,17 @@
+     DEBUG(0, "ibmtr_attach()\n");
+ 
+     /* Create new token-ring device */
+-    dev = alloc_trdev(sizeof(*info));
++    info = kmalloc(sizeof(*info), GFP_KERNEL); 
++    if (!info) return NULL;
++    memset(info,0,sizeof(*info));
++    dev = alloc_trdev(sizeof(struct tok_info));
+     if (!dev)
+ 	    return NULL;
+-    info = dev->priv;
+ 
+     link = &info->link;
+     link->priv = info;
+-
++    info->ti = dev->priv; 
++    
+     link->io.Attributes1 = IO_DATA_PATH_WIDTH_8;
+     link->io.NumPorts1 = 4;
+     link->io.IOAddrLines = 16;
+@@ -265,6 +268,7 @@
+     *linkp = link->next;
+     unregister_netdev(dev);
+     free_netdev(dev);
++    kfree(info); 
+ } /* ibmtr_detach */
+ 
+ /*======================================================================
+diff -urN -X dontdiff linux-2.6.0-test9.vanilla/drivers/net/tokenring/ibmtr.c linux-2.6.0-test9/drivers/net/tokenring/ibmtr.c
+--- linux-2.6.0-test9.vanilla/drivers/net/tokenring/ibmtr.c	2003-10-25 14:43:58.000000000 -0400
++++ linux-2.6.0-test9/drivers/net/tokenring/ibmtr.c	2003-10-25 17:26:38.000000000 -0400
+@@ -152,7 +152,7 @@
+ 
+ /* this allows displaying full adapter information */
+ 
+-char *channel_def[] __initdata = { "ISA", "MCA", "ISA P&P" };
++char *channel_def[] __devinitdata = { "ISA", "MCA", "ISA P&P" };
+ 
+ static char pcchannelid[] __devinitdata = {
+ 	0x05, 0x00, 0x04, 0x09,
+@@ -864,7 +864,8 @@
+ 	ti->sram_virt &= ~1; /* to reverse what we do in tok_close */
+ 	/* init the spinlock */
+ 	ti->lock = (spinlock_t) SPIN_LOCK_UNLOCKED;
+-
++	init_timer(&ti->tr_timer);
++	
+ 	i = tok_init_card(dev);
+ 	if (i) return i;
+ 
+@@ -1033,7 +1034,7 @@
+ 
+ 	/* Important for PCMCIA hot unplug, otherwise, we'll pull the card, */
+ 	/* unloading the module from memory, and then if a timer pops, ouch */
+-	del_timer(&ti->tr_timer);
++	del_timer_sync(&ti->tr_timer);
+ 	outb(0, dev->base_addr + ADAPTRESET);
+ 	ti->sram_virt |= 1;
+ 	ti->open_status = CLOSED;
