@@ -1,28 +1,45 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] tg3 locking update (with NAPI overtones)
-Date: Tue, 26 Nov 2002 23:40:59 -0800
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Aggregated TX performance
+Date: Wed, 27 Nov 2002 19:20:10 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DE4770B.3020701@candelatech.com>
-References: <3DE406AE.2000908@pobox.com> <20021126.155144.43008660.davem@redhat.com> <3DE41779.9030804@pobox.com>
+Message-ID: <15845.3290.483532.218491@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Just out of curiosity, have any of you been able to reproduce
-any IRQ warnings under heavy loads with the tg3?  If I start
-up all ports of a 4-port tulip nic and also start the tg3
-(all running high speed), then I see a steady stream of
-complaints from the tg3....
 
-At least one other person has seen the same and has emailed
-me about it...
+We discussed this. Below is a recent experiment... 
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+
+Aggregated TX performance test 2.5.47 SMP w. 2 x E1000 82546 (dual) 4.4.12-k1 
++ NAPI fixes for e1000 sent to lkml. SuperMicro 370 DL3 2x PIII @ 933 MHz.
+
+Setup. (w. pktgen)
+CPU0 transmitted on eth0 and eth1. 
+CPU1 transmitted on eth2.
+
+
+1) "Vanilla" setup no affinity and "full" kmalloc/kfree for each packet.
+2)  As 1. irq affinity were set so interrupt go to resp. CPU.
+3)  As 2. and pktgen used it's clone_skb behavior. In practice no 
+    kmalloc's and kfree just doing a decrement.
+
+Results in kpps.
+
+Setup     1        2         3
+===============================
+eth0     182      220       466
+eth1     182      220       466
+eth2     314      429       791
+         ---      ---      ----
+Total    678      869      1723
+
+
+
+Cheers.
+						--ro
