@@ -1,64 +1,71 @@
-From: "Zona Service Internet" <x@x.com>
-Subject: Zona Service
-Date: Mon, 26 Aug 2002 01:00:38 -0300
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: packet re-ordering on SMP machines.
+Date: Sun, 25 Aug 2002 21:34:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200208260357.g7Q3vA9D010249@oss.sgi.com>
+Message-ID: <3D69AFE7.6020902@candelatech.com>
+References: <Pine.GSO.4.30.0208252046250.675-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- Zona Service
 
+jamal wrote:
 
+> That doesnt sound impressive at all. I know it's about .8 of wire rate
+> but you should be able to exceed that.
+> Robert was generating in the range of 800Kpps with that NIC if i recall
+> corectly
 
-[IMG]
+I had only tested 1514 byte pkts, so I was getting around 880Mbps,
+which is pretty good as far as I know.
 
-netdev@oss.sgi.com,
+I see about 255 kpps when sending 64 byte pkts to myself.  Still
+dropping about 1 in 4000 packets at this speed.  I think most of Robert's
+tests didn't involve actually doing something with the received packet
+though, and I am inspecting it for latency, sequence number, etc.
 
-Estamos iniciando o servi&ccedil;o de classificados para todo o Brasil
-totalmente gratuito, onde voc&ecirc; mesmo adiciona e altera seus anuncios,
-sem interven&ccedil;&atilde;o do portal, utilizando uma senha que voc&ecirc;
-mesmo escolhe ap&oacute;s cadastramento. 
+I'm even doing a __get_timeofday() call to calculate the latency...need
+to find a faster way to do that...
 
-Atualmente temos os seguintes servi&ccedil;os: 
-  * Classificados em geral; 
-  * Not&iacute;cias internacionais, nacionais e regionais, atualizadas
-constantemente; 
-  * Sistema de pessoas desaparecidas, onde parentes a amigos de
-desaparecidoster&atilde;o mais uma chance de divulga&ccedil;&atilde;o,
-totalmente gratuito; 
-  * Hospedagem profissional de sites.
-    Planos a partir de R$ 19,90.
-    Php, mysql, e-mails pop ilimitados, estatistica de acesso em portugues e
-muito mais. 
+If I only allocate/scan 1 per 100 packets (ie alloc one packet and send it 100 times),
+then I get a more respectable 365kpps.  Robert's patch should definately help!
 
+> Also if you have SMP, tie each onto a CPU.
 
-Contamos com seu anuncio para que nosso portal tenha in&uacute;meras visitas
-e que se torne um atrativo para voc&ecirc; e sua fam&iacute;lia. 
+That's with the irq_afinity thing in proc, right?
 
-Pedimos sinceras desculpas caso nossa publicidade tenha causado algum tipo
-detranstorno. 
-SPAM n&atilde;o &eacute;crime, &eacute;apenas uma das centenas formas de
-livre express&atilde;o que a Internet proporcionou. 
+> Additionaly get the skb recycler patch from Robert, it should improve
+> things even more.
 
-Cordialmente, 
+Do you happen to have a URL for this?
 
-Equipe Zona Service.
-http://www.zonaservice.com.br[1] 
+Actually, the various network tweaks are relatively hard to find
+(at least to find the most up-to-date coppies).  It would be great if
+there was a place where they were all concentrated.
 
-Esta mensagem &eacute;enviada com a complac&ecirc;ncia da nova
-legisla&ccedil;&atilde;osobre correio eletr&ocirc;nico, Se&ccedil;&atilde;o
-301, Par&aacute;grafo (a) (2) (c) Decreto S.1618, T&iacute;tulo Terceiro
-aprovado pelo "105 Congresso Base das Normativas Internacionais sobre o
-SPAM".Este E-mail n&atilde;o poder&aacute; ser considerado SPAM quando
-incluauma forma de ser removido. Para ser removido de futuros correios. Se
-voc&ecirc; n&atilde;o quiser 
-receber este E-mail, por favor, clique aqui.[2] 
+> 
+> 
+>>Also, I see the hard_start_xmit call failing 5876 times out of 2719493
+>>calls (for example).  The code that calls the method looks like this:
+>>
+> 
+> 
+> I dont have access to that NIC. But a stoopid question: Have you tried
+> increasing the transmit queue via ifconfig? 1000 packets is reasonable
+> for gige.
 
---- Links ---
-   1 http://www.zonaservice.com.br
-   2 http://www.zonaservice.com.br/remover_newslatter.php?email=netdev@oss. sgi.com
+I upped it, but it didn't stop the errors.  The NIC is still performing,
+so it may not be a real problem...
+
+Thanks for the info,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
