@@ -1,37 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: PATCH: kmalloc packet slab
-Date: Mon, 27 Dec 2004 18:17:32 +0100
-Message-ID: <41D043AC.2070203@trash.net>
-References: <1104156983.20944.25.camel@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: jumbo on 8169
+Date: Mon, 27 Dec 2004 17:38:02 +0100
+Message-ID: <20041227163802.GA27692@electric-eye.fr.zoreil.com>
+References: <41CFF27A.2070008@inet.it> <20041227123136.GA25187@electric-eye.fr.zoreil.com> <41D01562.4090606@inet.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Maillist netdev <netdev@oss.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261932AbUL0RSq@vger.kernel.org>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1104156983.20944.25.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+Resent-Message-Id: <200412271747.iBRHl0CM028784@electric-eye.fr.zoreil.com>
+To: Luca Bortot <l.bortot@inet.it>
+Content-Disposition: inline
+In-Reply-To: <41D01562.4090606@inet.it>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
-> The networking world runs in 1514 byte packets pretty much all the time.
-> This adds a 1620 byte slab for such objects and is one of the internally
-> generated Red Hat patches we use on things like Fedora Core 3. Original:
-> Arjan van de Ven.
+Luca Bortot <l.bortot@inet.it> :
+[...]
+> based on a simple tcp test I made (writes zeroes to a socket in 32Kb 
+> blocks and prints the write speed), these are the results (win box cpu 
+> not reported - always under 10% load):
 > 
-> Signed-off-by: Alan Cox <alan@redhat.com>
+> BEFORE PATCH (mtu 1500)
+> speed ~38 MB/s
+> cpu idle 10%
+> cpu system 90%
+> 
+> AFTER PATCH (mtu 7000)
+> speed ~45MB/s
+> cpu idle 40%
+> cpu system 60%
 
-Why 1620 bytes ? Most drivers allocate packet_size + 2 bytes.
-dev_alloc_skb adds another 16 bytes, finally alloc_skb adds
-sizeof(struct skb_shared_info). So we get:
+TSO may make a difference for a TCP test. See ethtool help to enable it.
+You can experiment with Tx csum/SG as well.
 
-(32bit): 1514b + 2b + 16b + 160b = 1692b
-(64bit): 1514b + 2b + 16b + 312b = 1844b
+I'll welcome a complete dmesg and lspci -vx as they pretty well describe
+the working combinations.
 
-On paths using alloc_skb instead of dev_alloc_skb it's 16 bytes
-less, but 1620 bytes is still too small for full-sized packets.
-
-Regards
-Patrick
+--
+Ueimor
