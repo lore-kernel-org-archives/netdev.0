@@ -1,26 +1,30 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: disablenetwork() syscall?
-Date: Mon, 7 Jul 2003 14:03:10 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030707210310.GA21759@gaz.sfgoth.com>
-References: <Pine.LNX.4.44.0307072237560.11843-100000@netcore.fi>
+From: "Paul Albrecht" <palbrecht@qwest.net>
+Subject: Re: question about linux tcp request queue handling
+Date: Mon, 7 Jul 2003 16:30:47 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <001401c344df$ccbc63c0$6801a8c0@oemcomputer>
+References: <3F08858E.8000907@us.ibm.com> <001a01c3441c$6fe111a0$6801a8c0@oemcomputer> <3F08B7E2.7040208@us.ibm.com> <000d01c3444f$e6439600$6801a8c0@oemcomputer> <3F090A4F.10004@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0307072237560.11843-100000@netcore.fi>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, "netdev" <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: "Nivedita Singhvi" <niv@us.ibm.com>
 List-Id: netdev.vger.kernel.org
 
-Pekka Savola wrote:
-> In a bugtraq thread, DJ Bernstein brought up an idea which I'm not sure 
-> has been brought up in the past.  I'm not sure whether it's feasible or 
-> not, but at least it (and other methods to limit the functions of a 
-> user-level code) might bear consideration.
+Nivedita Singhvi writes:
 
-It sounds like something that could be a implemented as a capability
-(CAP_NET_ACCESS or such)
+>
+> Again, youre limiting the number of connnection requests
+> that are allowed to wait in the *accept* queue, where
+> we move to once we're ESTABLISHED.  You arent limiting
+> a request sitting in the SYN queue.
+>
 
--Mitch
+This statement is inconsistent with the description of this scenario in
+Steven's TCP/IP Illustrated.  Specifically, continuing the handshake in the
+TCP layer, i.e., sending a syn/ack and moving to the syn_recd state, is
+incorrect if the limit of the server's socket backlog would be exceeded.
+How do you account for this discrepancy between linux and other
+berkeley-derived implementations?
