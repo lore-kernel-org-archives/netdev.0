@@ -1,48 +1,71 @@
-From: "J.A. Magallon" <jamagallon@able.es>
+From: Daniel Jacobowitz <dan@debian.org>
 Subject: Re: [RFC][PATCH] net drivers and cache alignment
-Date: Sun, 8 Dec 2002 00:52:55 +0100
+Date: Sat, 7 Dec 2002 20:14:03 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021207235255.GA3754@werewolf.able.es>
-References: <3DF2781D.3030209@pobox.com> <20021207.144004.45605764.davem@redhat.com> <3DF27EE7.4010508@pobox.com> <3DF2844C.F9216283@digeo.com> <20021207233745.GE3183@werewolf.able.es> <3DF28811.F6580BA6@digeo.com>
+Message-ID: <20021208011403.GA7729@nevyn.them.org>
+References: <3DF2781D.3030209@pobox.com> <20021207.144004.45605764.davem@redhat.com> <3DF27EE7.4010508@pobox.com> <3DF2844C.F9216283@digeo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 8bit
-Cc: "J.A. Magallon" <jamagallon@able.es>, Jeff Garzik <jgarzik@pobox.com>,
-   "David S. Miller" <davem@redhat.com>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Andrew Morton <akpm@digeo.com>
 Content-Disposition: inline
-In-Reply-To: <3DF28811.F6580BA6@digeo.com>; from akpm@digeo.com on Sun, Dec 08, 2002 at 00:45:21 +0100
+In-Reply-To: <3DF2844C.F9216283@digeo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Dec 07, 2002 at 03:29:16PM -0800, Andrew Morton wrote:
+> Jeff Garzik wrote:
+> > 
+> > David S. Miller wrote:
+> > > Can't the cacheline_aligned attribute be applied to individual
+> > > struct members?  I remember doing this for thread_struct on
+> > > sparc ages ago.
+> > 
+> > Looks like it from the 2.4 processor.h code.
+> > 
+> > Attached is cut #2.  Thanks for all the near-instant feedback so far :)
+> >   Andrew, does the attached still need padding on SMP?
+> 
+> It needs padding _only_ on SMP.  ____cacheline_aligned_in_smp.
+> 
+> #define offsetof(t, m)  ((int)(&((t *)0)->m))
+> 
+> struct foo {
+>         int a;
+>         int b __attribute__((__aligned__(1024)));
+>         int c;
+> } foo;
+> 
+> main()
+> {
+>         printf("%d\n", sizeof(struct foo));
+>         printf("%d\n", offsetof(struct foo, a));
+>         printf("%d\n", offsetof(struct foo, b));
+>         printf("%d\n", offsetof(struct foo, c));
+> }
+> 
+> ./a.out
+> 2048
+> 0
+> 1024
+> 1028
+> 
+> So your patch will do what you want it to do.  You should just tag the
+> first member of a group with ____cacheline_aligned_in_smp, and keep an
+> eye on things with offsetof().
+> 
+> Not sure why sizeof() returned 2048 though.
 
-On 2002.12.08 Andrew Morton wrote:
->"J.A. Magallon" wrote:
->> 
->> #define __cacheline_start   struct { } ____cacheline_aligned;
->
->That will generate a warning on faster^Wolder versions of gcc.
->
->mnm:/home/akpm> gcc t2.c
->t2.c:11: warning: unnamed struct/union that defines no instances
->t2.c:15: warning: unnamed struct/union that defines no instances
->mnm:/home/akpm> gcc -v 
->Reading specs from /usr/local/lib/gcc-lib/i686-pc-linux-gnu/2.95.3/specs
->gcc version 2.95.3 20010315 (release)
->
+The structure contains an __aligned__(1024) item.  Think about an array
+of 'struct foo' items.  They have to be 2048 bytes or you won't align
+correctly.
 
-And how 'bout this (do not have any gcc oldie available to test):
+C allows for empty space in structure padding, but not in arrays,
+AFAIK.
 
-#define __cacheline_start   union { int :0; } ____cacheline_aligned;
-
-It passes gcc-3.2 -Wall...
-I think it's nicer to insert __c_s than to go field by field marking
-them...
 
 -- 
-J.A. Magallon <jamagallon@able.es>      \                 Software is like sex:
-werewolf.able.es                         \           It's better when it's free
-Mandrake Linux release 9.1 (Cooker) for i586
-Linux 2.4.20-jam1 (gcc 3.2 (Mandrake Linux 9.1 3.2-4mdk))
+Daniel Jacobowitz
+MontaVista Software                         Debian GNU/Linux Developer
