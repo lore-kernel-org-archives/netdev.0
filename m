@@ -1,77 +1,99 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: RE: [Fwd: [E1000] NAPI re-insertion w/ changes]
-Date: Mon, 31 Mar 2003 19:14:36 +0200
+From: Tom Lendacky <toml@us.ibm.com>
+Subject: [PATCH] IPSec: Use of "sizeof" for header sizes
+Date: 31 Mar 2003 12:07:08 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16008.30588.705825.524303@robur.slu.se>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D2D8@orsmsx402.jf.intel.com>
+Message-ID: <1049134030.1253.143.camel@tomlt2.tomloffice.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   Jeff Garzik
-	 <jgarzik@pobox.com>, netdev@oss.sgi.com
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, toml@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010107D2D8@orsmsx402.jf.intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+Below is a patch for your consideration eliminating the use of some
+constants in the AH and ESP routines for IPv4 and IPv6.  I believe
+there was also a typo in a memcpy statement in net/ipv4/ah.c where
+iph->ihl was multiplied by 5 instead of 4.
 
-Hello!
+Also, the ESP files often use the constant 8 when calculating header
+length.  This could be replaced a couple of ways:
+  - use sizeof spi and sizeof seq_no
+  - use sizeof ip(v6)_esp_hdr and substract the sizeof enc_data
+  - remove enc_data[8] from the ip(v6)_esp_hdr.  You could then use
+    sizeof ip(v6)_esp_hdr, but you would then need to fix the
+    references to enc_data in the code (3 refs in each version).
+I thought I'd get some comments or other suggestions on which
+approach would be best and most understandable/readable.
 
-A better approximation I think but probably not the last...
+Thanks,
+Tom
 
-Cheers.
-						--ro
-
-
-
---- linux/drivers/net/e1000/e1000_main.c.orig   2003-03-27 14:38:02.000000000 +0100
-+++ linux/drivers/net/e1000/e1000_main.c        2003-03-31 17:56:05.000000000 +0200
-@@ -1999,11 +1999,17 @@
-                mod_timer(&adapter->watchdog_timer, jiffies);
-        }
+diff -ur linux-2.5.66-orig/net/ipv4/ah.c linux-2.5.66/net/ipv4/ah.c
+--- linux-2.5.66-orig/net/ipv4/ah.c	2003-03-31 09:35:36.000000000 -0600
++++ linux-2.5.66/net/ipv4/ah.c	2003-03-31 09:22:47.000000000 -0600
+@@ -18,7 +18,7 @@
+ static int ip_clear_mutable_options(struct iphdr *iph, u32 *daddr)
+ {
+ 	unsigned char * optptr = (unsigned char*)(iph+1);
+-	int  l = iph->ihl*4 - 20;
++	int  l = iph->ihl*4 - sizeof(struct iphdr);
+ 	int  optlen;
  
--#ifdef CONFIG_E1000_NAPI
--       /* Don't disable interrupts - rely on h/w interrupt
--        * moderation to keep interrupts low.  netif_rx_schedule
--        * is NOP if already polling. */
--       netif_rx_schedule(netdev);
-+#ifdef  CONFIG_E1000_NAPI
-+       if (netif_rx_schedule_prep(netdev)) {
-+
-+               /* Disable interrupts and register for poll. The flush 
-+                  of the posted write is intentionally left out.
-+               */
-+
-+               atomic_inc(&adapter->irq_sem);
-+               E1000_WRITE_REG(&adapter->hw, IMC, ~0);
-+               __netif_rx_schedule(netdev);
-+       }
- #else
-        for(i = 0; i < E1000_MAX_INTR; i++)
-                if(!e1000_clean_rx_irq(adapter) &&
-@@ -2025,17 +2031,16 @@
-        int work_to_do = min(*budget, netdev->quota);
-        int work_done = 0;
-        
--       while(work_done < work_to_do)
--               if(!e1000_clean_rx_irq(adapter, &work_done, work_to_do) &&
--                  !e1000_clean_tx_irq(adapter))
--                       break;
-+       e1000_clean_tx_irq(adapter);
-+       e1000_clean_rx_irq(adapter, &work_done, work_to_do);
+ 	while (l > 0) {
+@@ -132,7 +132,7 @@
+ 		top_iph->frag_off = iph->frag_off;
+ 		top_iph->daddr = iph->daddr;
+ 		if (iph->ihl != 5)
+-			memcpy(top_iph+1, iph+1, iph->ihl*5 - 20);
++			memcpy(top_iph+1, iph+1, iph->ihl*4 - sizeof(struct iphdr));
+ 	}
+ 	ip_send_check(top_iph);
  
-        *budget -= work_done;
-        netdev->quota -= work_done;
-        
--       if(work_done < work_to_do)
-+       if(work_done < work_to_do) {
-                netif_rx_complete(netdev);
--
-+               e1000_irq_enable(adapter);
-+       }
-        return (work_done >= work_to_do);
- }
-#endif
+@@ -288,7 +288,7 @@
+ 	
+ 	x->props.header_len = XFRM_ALIGN8(ahp->icv_trunc_len + AH_HLEN_NOICV);
+ 	if (x->props.mode)
+-		x->props.header_len += 20;
++		x->props.header_len += sizeof(struct iphdr);
+ 	x->data = ahp;
+ 
+ 	return 0;
+diff -ur linux-2.5.66-orig/net/ipv4/esp.c linux-2.5.66/net/ipv4/esp.c
+--- linux-2.5.66-orig/net/ipv4/esp.c	2003-03-31 09:35:36.000000000 -0600
++++ linux-2.5.66/net/ipv4/esp.c	2003-03-31 09:22:47.000000000 -0600
+@@ -367,7 +367,7 @@
+ 	crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len);
+ 	x->props.header_len = 8 + esp->conf.ivlen;
+ 	if (x->props.mode)
+-		x->props.header_len += 20;
++		x->props.header_len += sizeof(struct iphdr);
+ 	x->data = esp;
+ 	x->props.trailer_len = esp4_get_max_size(x, 0) - x->props.header_len;
+ 	return 0;
+diff -ur linux-2.5.66-orig/net/ipv6/ah6.c linux-2.5.66/net/ipv6/ah6.c
+--- linux-2.5.66-orig/net/ipv6/ah6.c	2003-03-31 09:37:20.000000000 -0600
++++ linux-2.5.66/net/ipv6/ah6.c	2003-03-31 09:22:47.000000000 -0600
+@@ -287,7 +287,7 @@
+ 	
+ 	x->props.header_len = XFRM_ALIGN8(ahp->icv_trunc_len + AH_HLEN_NOICV);
+ 	if (x->props.mode)
+-		x->props.header_len += 40;
++		x->props.header_len += sizeof(struct ipv6hdr);
+ 	x->data = ahp;
+ 
+ 	return 0;
+diff -ur linux-2.5.66-orig/net/ipv6/esp6.c linux-2.5.66/net/ipv6/esp6.c
+--- linux-2.5.66-orig/net/ipv6/esp6.c	2003-03-31 09:37:20.000000000 -0600
++++ linux-2.5.66/net/ipv6/esp6.c	2003-03-31 09:22:47.000000000 -0600
+@@ -468,7 +468,7 @@
+ 	crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len);
+ 	x->props.header_len = 8 + esp->conf.ivlen;
+ 	if (x->props.mode)
+-		x->props.header_len += 40;  /* XXX ext hdr */
++		x->props.header_len += sizeof(struct ipv6hdr);
+ 	x->data = esp;
+ 	return 0;
+ 
