@@ -1,43 +1,43 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: unregister_netdev Annoyance WAS(Re: ing_filter debug messages
-Date: 03 Jan 2005 09:50:40 -0500
-Message-ID: <1104763839.1047.563.camel@jzny.localdomain>
-References: <20041230160643.GD24603@wiggy.net>
-	 <1104469666.1049.231.camel@jzny.localdomain>
-	 <20041231093827.GG24603@wiggy.net>
-	 <1104491510.1047.234.camel@jzny.localdomain>
-	 <20041231131553.GA7460@wiggy.net>
-	 <1104505838.1048.273.camel@jzny.localdomain>
-	 <20041231154844.GA11511@wiggy.net>
-	 <1104511697.1048.308.camel@jzny.localdomain>
-	 <20050102121349.GA27022@outpost.ds9a.nl>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
+Date: Mon, 3 Jan 2005 16:02:30 +0100
+Message-ID: <20050103150230.GC26856@postel.suug.ch>
+References: <20041231110836.GD32419@postel.suug.ch> <1104505142.1048.262.camel@jzny.localdomain> <20041231153930.GN32419@postel.suug.ch> <1104511494.1048.303.camel@jzny.localdomain> <20041231181153.GP32419@postel.suug.ch> <1104526311.1047.379.camel@jzny.localdomain> <20050101121041.GR32419@postel.suug.ch> <1104622164.1048.444.camel@jzny.localdomain> <20050102000612.GU32419@postel.suug.ch> <1104763012.1047.524.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Wichert Akkerman <wichert@wiggy.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20050102121349.GA27022@outpost.ds9a.nl>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1104763012.1047.524.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-01-02 at 07:13, bert hubert wrote:
-
-> This is a separate and known problem - see 'Re: Major deadlock:
-> unregister_netdevice: waiting for <device> to become free. Usage count = 1'
-> by Peter Bieringer.
+* jamal <1104763012.1047.524.camel@jzny.localdomain> 2005-01-03 09:36
+> On Sat, 2005-01-01 at 19:06, Thomas Graf wrote:
+> > * jamal <1104622164.1048.444.camel@jzny.localdomain> 2005-01-01 18:29
+> > > Does the ematch API include a dump()? I dont think it should - thats the
+> > > point i was making. Should be simple.
+> > 
+> > Yes, although simple ematches are not required to implement dump.
 > 
-> For some reason this issue has been widely ignored. I see it as well here
-> and it is the one reason I don't entirely trust 2.6.10 yet in production.
-> 
-> Thanks for looking into it Jamal!
+> ok. I realize its optional - but i wouldnt even give the writter of
+> ematch the opportunity to write one. Want something more complex? write
+> a classifier.
 
-This issue was already being looked into by about 3 people {Dave,
-Yoshfuji-san, Herbert}. They have more knowledge about the circumstances
-than i do. The holidays are over, so give it a short time and lets see
-what happens.
+A classifier is at least 300 lines and you lose the ability to use the
+logic relations.
 
-cheers,
-jamal
+> Again allowing for this may be overkill. Just send the same structure
+> the ematch needs in exactly the same form it needs it and you dont need
+> this. 
+
+Compromise: If change/dump is not provided the api allocates and
+memcpy's itself resptively dumps m->data. Simple ematches don't have to
+care and can simple access m->data, more complex ematches can implement
+their own change/dump. Does that sound beter?
+
+> whats the .link for?
+
+I use list.h to chain ematch_ops and it's better to have it initialized.
