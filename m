@@ -1,36 +1,42 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] set owner on /proc/net/rt6_stats
-Date: Fri, 15 Aug 2003 11:01:07 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] SCTP: typo in Kconfig
+Date: Sat, 16 Aug 2003 05:33:32 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030815110107.3ea9b4dc.shemminger@osdl.org>
+Message-ID: <20030816.053332.108341697.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-   Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix up initialization of IPV6 /proc/net/rt6_stats entries so owner field is set.
-Use proc_net_fops_create helper instead of proc_net_create and fops assignment.
+Hello.
 
-diff -Nru a/net/ipv6/route.c b/net/ipv6/route.c
---- a/net/ipv6/route.c	Fri Aug 15 10:57:55 2003
-+++ b/net/ipv6/route.c	Fri Aug 15 10:57:55 2003
-@@ -1983,10 +1983,11 @@
- 						     NULL, NULL);
- 	fib6_init();
- #ifdef 	CONFIG_PROC_FS
--	proc_net_create("ipv6_route", 0, rt6_proc_info);
--	p = create_proc_entry("rt6_stats", S_IRUGO, proc_net);
-+	p = proc_net_create("ipv6_route", 0, rt6_proc_info);
- 	if (p)
--		p->proc_fops = &rt6_stats_seq_fops;
-+		p->owner = THIS_MODULE;
-+
-+	proc_net_fops_create("rt6_stats", S_IRUGO, &rt6_stats_seq_fops);
- #endif
- #ifdef CONFIG_XFRM
- 	xfrm6_init();
+This patch fixes typo in net/sctp/Kconfig.
+
+Thanks in advance.
+
+Index: linux-2.6/net/sctp/Kconfig
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/sctp/Kconfig,v
+retrieving revision 1.6
+diff -u -r1.6 Kconfig
+--- linux-2.6/net/sctp/Kconfig	10 May 2003 12:19:24 -0000	1.6
++++ linux-2.6/net/sctp/Kconfig	15 Aug 2003 19:01:23 -0000
+@@ -43,7 +43,7 @@
+ 	bool "SCTP: Use old checksum (Adler-32)"
+ 	depends on IP_SCTP
+ 	help
+-	  RCF2960 currently specifies the Adler-32 checksum algorithm for SCTP.
++	  RFC2960 currently specifies the Adler-32 checksum algorithm for SCTP.
+ 	  This has been deprecated and replaced by an algorithm now referred
+ 	  to as crc32c.
+ 
+
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
