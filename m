@@ -1,35 +1,31 @@
-From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [PATCH 0/6 Linux-2.6.7-bk13] prism54 patches
-Date: Wed, 30 Jun 2004 13:49:17 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6] allow large MTU on dummy net device
+Date: Wed, 30 Jun 2004 11:37:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040630174917.GI14482@ruslug.rutgers.edu>
-References: <200406301938.48468.margitsw@t-online.de>
+Message-ID: <20040630113754.5ae6b14a@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Margit Schubert-While <margitsw@t-online.de>
-Content-Disposition: inline
-In-Reply-To: <200406301938.48468.margitsw@t-online.de>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+It is useful for testing to allow larger MTU value to be set on
+the dummy network device. The current code limits it to valid Ether mtu's.
 
-Please CC prism54-devel for archiving :)
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+ 
 
-	Luis
-
-On Wed, Jun 30, 2004 at 07:38:48PM +0200, Margit Schubert-While wrote:
-> Please apply following patches :
-> [PATCH 1/6 Linux-2.6.7-bk13] prism54 : Cleanup functions
-> [PATCH 2/6 Linux-2.6.7-bk13] prism54 : Missing error check
-> [PATCH 3/6 Linux-2.6.7-bk13] prism54 : Fix likely thinko
-> [PATCH 4/6 Linux-2.6.7-bk13] prism54 : Cleanup the device list
-> [PATCH 5/6 Linux-2.6.7-bk13] prism54 : Remove poke into programmable registers
-> [PATCH 6/6 Linux-2.6.7-bk13] prism54 : Use pci_set_mwi()
-> 
-> Margit
-> 
-
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+diff -Nru a/drivers/net/dummy.c b/drivers/net/dummy.c
+--- a/drivers/net/dummy.c	2004-06-30 11:37:38 -07:00
++++ b/drivers/net/dummy.c	2004-06-30 11:37:38 -07:00
+@@ -78,6 +78,7 @@
+ 	/* Fill in device structure with ethernet-generic values. */
+ 	ether_setup(dev);
+ 	dev->tx_queue_len = 0;
++	dev->change_mtu = NULL;
+ 	dev->flags |= IFF_NOARP;
+ 	dev->flags &= ~IFF_MULTICAST;
+ 	SET_MODULE_OWNER(dev);
