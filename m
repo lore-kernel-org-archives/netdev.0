@@ -1,41 +1,64 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: Andre Hedrick <andre@linux-ide.org>
 Subject: Re: [Design] [PATCH] USAGI IPsec
-Date: Mon, 21 Oct 2002 12:42:57 +0900 (JST)
+Date: Sun, 20 Oct 2002 21:22:23 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021021.124257.131358184.yoshfuji@linux-ipv6.org>
-References: <m3k7kpjt7c.wl@karaba.org>
-	<3DB41338.3070502@storm.ca>
-	<1035168066.4817.1.camel@rth.ninka.net>
+Message-ID: <Pine.LNX.4.10.10210202120100.674-100000@master.linux-ide.org>
+References: <3DB41338.3070502@storm.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sandy@storm.ca, mk@linux-ipv6.org, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: Mitsuru KANDA <mk@linux-ipv6.org>, linux-kernel@vger.kernel.org,
    netdev@oss.sgi.com, cryptoapi-devel@kerneli.org, design@lists.freeswan.org,
    usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@rth.ninka.net
-In-Reply-To: <1035168066.4817.1.camel@rth.ninka.net>
+To: Sandy Harris <sandy@storm.ca>
+In-Reply-To: <3DB41338.3070502@storm.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <1035168066.4817.1.camel@rth.ninka.net> (at 20 Oct 2002 19:41:06 -0700), "David S. Miller" <davem@rth.ninka.net> says:
 
-> > Is this code being checked in to the mainline kernel? Or becoming part 
-> > of the
-> > CryptoAPI patch set? Bravo, in either case.
+It is all bolted togather and does not need to be piece from random parts.
+Thus in simple reality, it is superior.
+
+Maybe FreeS/WAN will get busy and compete or die.
+
+Cheers,
+
+Andre Hedrick
+LAD Storage Consulting Group
+
+On Mon, 21 Oct 2002, Sandy Harris wrote:
+
+> Mitsuru KANDA wrote:
 > 
-> We will be incorporating lots of ideas and small code pieces
-> from USAGI's work, but most of the core engine will be a new
-> implementation.
-:
-> It is intended that this work will be complete (it isn't done as I
-> type this) and pushed to Linus upon his return from vacation.
-
-Well, we'd like to learn more about your ideas...
-Source code is our friend.
-If you don't mind, would you send "as-is" codes to us?
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+> >Hello Linux kernel network maintainers,
+> >
+> >I'm a member of USAGI project.
+> >
+> >In IPv6 specifications, IPsec is mandatory.
+> >
+> >We implemented IPsec for Linux IP stack.
+> >
+> >At present, our implementation includes:
+> >	PF_KEY V2 interface,
+> >	Security Association Database and
+> >	Security Policy Database for whole IP versions,
+> >	IPsec for IPv6,(transport, tunnel mode),
+> >	IPsec for IPv4 (transport mode),
+> >
+> >Would you mind checking it ?
+> >
+> Is this code being checked in to the mainline kernel? Or becoming part 
+> of the
+> CryptoAPI patch set? Bravo, in either case.
+> 
+> How does that affect FreeS/WAN development?
+> 
+> >  
+> >
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
