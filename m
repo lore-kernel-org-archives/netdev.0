@@ -1,39 +1,80 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: [patch 4/8 2.5] e1000 Check value returned by from
-	pci_enable_device
-Date: Fri, 17 Sep 2004 20:05:10 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095476710.3496.13.camel@localhost.localdomain>
-References: <Pine.LNX.4.44.0409170233040.15233-100000@isotope.jf.intel.com>
-Reply-To: sfeldma@pobox.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [TRIVIAL] Fix recent bug in fib_semantics.c
+Date: Sat, 18 Sep 2004 14:16:28 +1000
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040918041627.GA12356@gondor.apana.org.au>
+References: <9e47339104091717215e9be08b@mail.gmail.com> <E1C8T4t-0006ug-00@gondolin.me.apana.org.au> <9e473391040917183726113e91@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0409170233040.15233-100000@isotope.jf.intel.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="9amGYk9869ThD9tj"
+Cc: davem@davemloft.net, david@gibson.dropbear.id.au, akpm@osdl.org,
+	trivial@rustcorp.com.au, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269116AbUIREQ5@vger.kernel.org>
+To: Jon Smirl <jonsmirl@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <9e473391040917183726113e91@mail.gmail.com>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-09-17 at 02:57, Ganesh Venkatesan wrote:
-> diff -up linux-2.5/drivers/net/e1000/e1000_main.c linux-2.5/drivers/net/e1000.new/e1000_main.c
-> --- linux-2.5/drivers/net/e1000/e1000_main.c	2004-09-09 11:17:11.000000000 -0700
-> +++ linux-2.5/drivers/net/e1000.new/e1000_main.c	2004-09-09 11:17:12.000000000 -0700
-> @@ -2881,9 +2881,9 @@ e1000_resume(struct pci_dev *pdev)
->  {
->  	struct net_device *netdev = pci_get_drvdata(pdev);
->  	struct e1000_adapter *adapter = netdev->priv;
-> -	uint32_t manc;
-> +	uint32_t manc, ret;
->  
-> -	pci_enable_device(pdev);
-> +	ret = pci_enable_device(pdev);
->  	pci_set_power_state(pdev, 0);
->  	pci_restore_state(pdev, adapter->pci_state);
 
-Where is the check of the return value?  I just see an assignment to an
-automatic that gets tossed (probably by the compiler if it's paying
-attention).
+--9amGYk9869ThD9tj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
--scott
+On Fri, Sep 17, 2004 at 09:37:15PM -0400, Jon Smirl wrote:
+> Call stack at failure:
+> e1000_exit_module
+> ...pci calls...
+> e1000_remove
+> unregister_netdev
+> unregister_netdevice
+> notifier_call_chain
+> fib_netdev_event
+> fib_disable_ip
+> error_code
+
+Thanks.  The following bug is probably your problem.
+
+> Rest of the info has scrolled off the screen.
+
+You should be able to hit Shift-PageUp to scroll up.
+
+There is a thinko in the allocation for the devindex hash.  We're
+only giving it 8 elements when it should be 1<<8 elements.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--9amGYk9869ThD9tj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/fib_semantics.c 1.16 vs edited =====
+--- 1.16/net/ipv4/fib_semantics.c	2004-09-18 04:11:04 +10:00
++++ edited/net/ipv4/fib_semantics.c	2004-09-18 14:08:55 +10:00
+@@ -52,7 +52,8 @@
+ static unsigned int fib_info_cnt;
+ 
+ #define DEVINDEX_HASHBITS 8
+-static struct hlist_head fib_info_devhash[DEVINDEX_HASHBITS];
++#define DEVINDEX_HASHSIZE (1U << DEVINDEX_HASHBITS)
++static struct hlist_head fib_info_devhash[DEVINDEX_HASHSIZE];
+ 
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 
+@@ -229,7 +230,7 @@
+ 
+ static inline unsigned int fib_devindex_hashfn(unsigned int val)
+ {
+-	unsigned int mask = ((1U << DEVINDEX_HASHBITS) - 1);
++	unsigned int mask = DEVINDEX_HASHSIZE - 1;
+ 
+ 	return (val ^
+ 		(val >> DEVINDEX_HASHBITS) ^
+
+--9amGYk9869ThD9tj--
