@@ -1,25 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169, 2.6.2-rc2, Sager 4780 laptop
-Date: Wed, 7 Apr 2004 11:26:07 +0200
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: get atm_guess_pdu2truesize() right
+Date: Wed, 07 Apr 2004 08:05:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040407112607.A17476@electric-eye.fr.zoreil.com>
-References: <Pine.LNX.4.58.0401261443190.7894@edp12.straus-frank.int> <20040126235559.A3832@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0404041553010.6853@edp12.straus-frank.int> <20040405002028.A8125@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0404061650310.20664@edp12.straus-frank.int> <20040407001815.C7833@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0404061758570.17117@edp12.straus-frank.int> <20040407013841.A7978@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0404070014571.17117@edp12.straus-frank.int>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Message-ID: <200404071205.i37C58MO020742@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bhartin@straus-frank.com
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0404070014571.17117@edp12.straus-frank.int>; from bhartin@straus-frank.com on Wed, Apr 07, 2004 at 12:15:27AM -0500
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-bhartin@straus-frank.com <bhartin@straus-frank.com> :
-[...]
-> The patch resolved the PHY messages, and I stress-tested the networking 
-> again--it's still stable.
+please apply to 2.6 and 2.4 kernels. 
 
-Does it allow the link to be recovered if the cable is removed/plugde ?
+thanks!
 
---
-Ueimor
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1331.3.3 -> 1.1331.3.4
+#	include/linux/atmdev.h	1.13    -> 1.14   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/04/07	chas@relax.cmf.nrl.navy.mil	1.1331.3.4
+# [ATM]: get atm_guess_pdu2truesize() right
+# --------------------------------------------
+#
+diff -Nru a/include/linux/atmdev.h b/include/linux/atmdev.h
+--- a/include/linux/atmdev.h	Wed Apr  7 08:01:57 2004
++++ b/include/linux/atmdev.h	Wed Apr  7 08:01:57 2004
+@@ -411,9 +411,9 @@
+  *
+  */
+ 
+-static inline int atm_guess_pdu2truesize(int pdu_size)
++static inline int atm_guess_pdu2truesize(int size)
+ {
+-	return ((pdu_size+15) & ~15) + sizeof(struct sk_buff);
++	return (SKB_DATA_ALIGN(size) + sizeof(struct skb_shared_info));
+ }
+ 
+ 
