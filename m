@@ -1,26 +1,32 @@
-From: Quantum Scientific <Info@quantum-sci.com>
-Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Sun, 27 Feb 2005 13:10:59 -0600
-Message-ID: <200502271310.59682.Info@quantum-sci.com>
-References: <200502270928.44402.Info@Quantum-Sci.com> <200502271220.06560.Info@quantum-sci.com> <42221897.4000704@pobox.com>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: [PATCH]: r8169: Expose hardware stats via ethtool
+Date: Sun, 27 Feb 2005 13:28:41 -0600
+Message-ID: <200502271328.41747.jdmason@us.ibm.com>
+References: <42208D83.80803@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
-In-Reply-To: <42221897.4000704@pobox.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+To: Richard Dawe <rich@phekda.gotadsl.co.uk>
+In-Reply-To: <42208D83.80803@phekda.gotadsl.co.uk>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 27 February 2005 12:59, Jeff Garzik wrote:
-> Connection tracking doesn't scale.  It's impossible to hash the entire 
-> Internet.
+On Saturday 26 February 2005 08:53 am, Richard Dawe wrote:
+> Hi Francois and Jon!
+> 
+> Please find attached a patch that adds the hardware statistics ethtool 
+> operations to the r8169 driver. It's against 2.6.11-rc5.
 
-I have read this.  
+I tested it on my amd64 system and it works great.  
 
-And I've seen inferences that IPV6 takes care of this problem somehow 
-automatically.  But no one seems to know how.
+I saw the same error if stats were gathered with the interface was down.  As 
+a sanity check, I preformed the same test on e1000 and it does not have this 
+error.  Not sure the significance of that.
 
-Carl Cook
+Thanks Richard!
+
+Jon
