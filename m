@@ -1,124 +1,78 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] rtnl_unlock/lock in sch_api.c
-Date: Mon, 28 Mar 2005 16:50:32 +0200
-Message-ID: <424819B8.8000201@trash.net>
-References: <Pine.LNX.4.62.0503281720430.20453@webhosting.rdsbv.ro>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [PATCH] Merge p80211 to ieee80211 subsystem
+Date: Mon, 28 Mar 2005 06:53:34 -0800
+Message-ID: <20050328145334.GE8180@jm.kir.nu>
+References: <1111740953.17276.84.camel@debian.sh.intel.com> <20050327023706.GH8204@jm.kir.nu> <1111994365.17276.205.camel@debian.sh.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020703090606070105060609"
-Cc: netdev@oss.sgi.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-In-Reply-To: <Pine.LNX.4.62.0503281720430.20453@webhosting.rdsbv.ro>
+To: Zhu Yi <yi.zhu@intel.com>
+Content-Disposition: inline
+In-Reply-To: <1111994365.17276.205.camel@debian.sh.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020703090606070105060609
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, Mar 28, 2005 at 03:19:25PM +0800, Zhu Yi wrote:
 
-Catalin(ux aka Dino) BOIE wrote:
-> Hello!
+> > - Native WPA/802.11i?
+> > 
+> > What do you mean with this?
 > 
-> Trying to load a custom module (same for teql but I didn't tried it)
-> whan the qdisc module is not loaded, makes tc hang.
-> This is because qdisc_create aquires rtnl_sem and then tries to load a 
-> module that tries to register_netdev (that tries to aquire the same 
-> rtnl_sem).
-> Applying this patch makes the problem go away.
+> Handling EAP, EAPOL in the stack.
 
-You open a race by dropping the lock and not replaying the request
-after acquiring it again. This is Dave's original patch, please
-simply fix this one up so it applies again.
+Why would that be in kernel? I don't really see much point in moving
+things like TLS and user certificates, SIM card authentication, and so
+on into the kernel.
 
-Regards
-Patrick
+> With the native 802.11 stack, the link layer will return 802.11 packets
+> instead of 802.3 packets. If wpa_supplicant is involved in setting up
+> WPA/802.11i, it has to encrypt and decrypt EAPOL packets like it does
+> currently. I didn't look into WME/802.11e much and don't see how it
+> involves here. But moving EAPOL code into the stack will resolve the
+> problem.
 
---------------020703090606070105060609
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+wpa_supplicant does not encrypt or decrypt any packets, nor would it
+even be able to since it does not have all the needed information for
+this (packet sequence numbers and possibility to insert one of those).
+These are just normal data frames that should be taken care of by the
+802.11 stack. From my viewpoint, moving EAPOL code into the stack would
+not be solution, but another problem.
 
-===== net/sched/sch_api.c 1.41 vs edited =====
---- 1.41/net/sched/sch_api.c	2004-11-05 16:34:45 -08:00
-+++ edited/net/sched/sch_api.c	2004-11-09 15:57:19 -08:00
-@@ -396,17 +396,30 @@
- 	struct Qdisc_ops *ops;
- 	int size;
- 
-+	err = -EINVAL;
- 	ops = qdisc_lookup_ops(kind);
- #ifdef CONFIG_KMOD
- 	if (ops==NULL && tca[TCA_KIND-1] != NULL) {
- 		if (RTA_PAYLOAD(kind) <= IFNAMSIZ) {
-+			rtnl_unlock();
- 			request_module("sch_%s", (char*)RTA_DATA(kind));
-+			rtnl_lock();
-+
- 			ops = qdisc_lookup_ops(kind);
-+
-+			/* We dropped the RTNL semaphore in order to
-+			 * perform the module load.  So, even if we
-+			 * succeeded in loading the module we have to
-+			 * tell the caller to replay the request.  We
-+			 * indicate this using -EAGAIN.
-+			 */
-+			if (ops != NULL)
-+				err = -EAGAIN;
-+			goto err_out;
- 		}
- 	}
- #endif
- 
--	err = -EINVAL;
- 	if (ops == NULL)
- 		goto err_out;
- 	err = -EBUSY;
-@@ -600,14 +613,19 @@
- 
- static int tc_modify_qdisc(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
- {
--	struct tcmsg *tcm = NLMSG_DATA(n);
--	struct rtattr **tca = arg;
-+	struct tcmsg *tcm;
-+	struct rtattr **tca;
- 	struct net_device *dev;
--	u32 clid = tcm->tcm_parent;
--	struct Qdisc *q = NULL;
--	struct Qdisc *p = NULL;
-+	u32 clid;
-+	struct Qdisc *q, *p;
- 	int err;
- 
-+replay:
-+	tcm = NLMSG_DATA(n);
-+	tca = arg;
-+	clid = tcm->tcm_parent;
-+	q = p = NULL;
-+
- 	if ((dev = __dev_get_by_index(tcm->tcm_ifindex)) == NULL)
- 		return -ENODEV;
- 
-@@ -701,8 +719,14 @@
- 		q = qdisc_create(dev, tcm->tcm_parent, tca, &err);
-         else
- 		q = qdisc_create(dev, tcm->tcm_handle, tca, &err);
--	if (q == NULL)
-+	if (q == NULL) {
-+		if (err == -EAGAIN) {
-+			/* Replay the request. */
-+			dev_put(dev);
-+			goto replay;
-+		}
- 		return err;
-+	}
- 
- graft:
- 	if (1) {
+WMM/IEEE 802.11e changes the packet header, so if user space programs
+are required to parse/generate them, they would also need to know how to
+parse these additional fields and even more importantly, when to add
+them..
 
+> > dev->type is set to ARPHRD_ETHER. Shouldn't it be something else? How
+> > does user space know what kind of frames to expect?
+> 
+> This is mentioned in the comment. I didn't set dev->type to
+> ARPHRD_IEEE80211 here just keep the compatibility with other devices.
+> For example, some APs will think this is a wrong ARP type and discard
+> the packet. But most user space programs won't be affected by this if
+> they don't play with ARP.
 
---------------020703090606070105060609--
+But all user space programs looking at link layer headers will be
+confused.. If the net device is not looking like wired Ethernet anymore,
+its type should not claim so either.
+
+> Yes, this is debug code, we can just remove it at this time. For whether
+> or not it is wise to support EAPOL in the stack, can you share some of
+> your viewpoints?
+
+Well, you probably have already figured out from my comments above that
+I'm against this. I see no benefit in moving EAPOL/EAP processing into
+kernel. We are talking about 20k lines of code (not including TLS
+library) here for just the currently used EAP methods.. In addition, one
+would need to provide mechanism for configuring certificates, smart card
+access, etc. for the kernel to do. All of this is much easier to do in
+user space as far as I can tell.
+
+What benefits do you see in having EAPOL/EAP implemented in network
+stack? Did you see it being adding as part of 802.11 stack or network
+stack in general? IEEE 802.1X/EAPOL is used also on wired interfaces..
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
