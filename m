@@ -1,7 +1,7 @@
 From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 5/9][ATM]: [ambassador] fix text section references to __init text and __initdata
-Date: Mon, 07 Mar 2005 17:06:31 -0500
-Message-ID: <200503072206.j27M6V7g020979@ginger.cmf.nrl.navy.mil>
+Subject: [PATCH 9/9][ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
+Date: Mon, 07 Mar 2005 17:08:28 -0500
+Message-ID: <200503072208.j27M8SOt021044@ginger.cmf.nrl.navy.mil>
 Cc: davem@redhat.com
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
@@ -13,138 +13,247 @@ please apply to 2.6 -- thanks!
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/03/07 14:31:55-05:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [ambassador] fix text section references to __init text and __initdata
+#   2005/03/07 15:31:25-05:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
 #   
-#   Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
 #   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 # 
-# drivers/atm/ambassador.c
-#   2005/03/07 14:31:37-05:00 chas@relax.cmf.nrl.navy.mil +14 -14
-#   [ATM]: [ambassador] fix text section references to __init text and __initdata
+# drivers/atm/fore200e.h
+#   2005/03/07 15:31:07-05:00 chas@relax.cmf.nrl.navy.mil +1 -1
+#   [ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
 #   
-#   Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
 #   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 # 
-diff -Nru a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
---- a/drivers/atm/ambassador.c	2005-03-07 15:34:59 -05:00
-+++ b/drivers/atm/ambassador.c	2005-03-07 15:34:59 -05:00
-@@ -296,16 +296,16 @@
- #endif
- #define UCODE2(x) #x
+# drivers/atm/fore200e.c
+#   2005/03/07 15:31:07-05:00 chas@relax.cmf.nrl.navy.mil +107 -47
+#   [ATM]: [fore200e] rewrite to eliminate pci_find_device() but preserve sbus support
+#   
+#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+# 
+diff -Nru a/drivers/atm/fore200e.c b/drivers/atm/fore200e.c
+--- a/drivers/atm/fore200e.c	2005-03-07 15:36:53 -05:00
++++ b/drivers/atm/fore200e.c	2005-03-07 15:36:53 -05:00
+@@ -110,7 +110,7 @@
+ static const struct atmdev_ops   fore200e_ops;
+ static const struct fore200e_bus fore200e_bus[];
  
--static u32 __initdata ucode_start = 
-+static u32 __devinitdata ucode_start = 
- #include UCODE(start)
- ;
+-static struct fore200e* fore200e_boards = NULL;
++static LIST_HEAD(fore200e_boards);
  
--static region __initdata ucode_regions[] = {
-+static region __devinitdata ucode_regions[] = {
- #include UCODE(regions)
-   { 0, 0 }
- };
  
--static u32 __initdata ucode_data[] = {
-+static u32 __devinitdata ucode_data[] = {
- #include UCODE(data)
-   0xdeadbeef
- };
-@@ -1539,7 +1539,7 @@
- 
- /********** creation of communication queues **********/
- 
--static int __init create_queues (amb_dev * dev, unsigned int cmds,
-+static int __devinit create_queues (amb_dev * dev, unsigned int cmds,
- 				 unsigned int txs, unsigned int * rxs,
- 				 unsigned int * rx_buffer_sizes) {
-   unsigned char pool;
-@@ -1769,7 +1769,7 @@
- 	return res;
+ MODULE_AUTHOR("Christophe Lizzi - credits to Uwe Dannowski and Heikki Vatiainen");
+@@ -633,39 +633,6 @@
  }
  
--static int __init do_loader_command (volatile loader_block * lb,
-+static int __devinit do_loader_command (volatile loader_block * lb,
- 				     const amb_dev * dev, loader_command cmd) {
-   
-   unsigned long timeout;
-@@ -1825,7 +1825,7 @@
  
- /* loader: determine loader version */
- 
--static int __init get_loader_version (loader_block * lb,
-+static int __devinit get_loader_version (loader_block * lb,
- 				      const amb_dev * dev, u32 * version) {
-   int res;
-   
-@@ -1841,7 +1841,7 @@
- 
- /* loader: write memory data blocks */
- 
--static int __init loader_write (loader_block * lb,
-+static int __devinit loader_write (loader_block * lb,
- 				const amb_dev * dev, const u32 * data,
- 				u32 address, unsigned int count) {
-   unsigned int i;
-@@ -1860,7 +1860,7 @@
- 
- /* loader: verify memory data blocks */
- 
--static int __init loader_verify (loader_block * lb,
-+static int __devinit loader_verify (loader_block * lb,
- 				 const amb_dev * dev, const u32 * data,
- 				 u32 address, unsigned int count) {
-   unsigned int i;
-@@ -1885,7 +1885,7 @@
- 
- /* loader: start microcode */
- 
--static int __init loader_start (loader_block * lb,
-+static int __devinit loader_start (loader_block * lb,
- 				const amb_dev * dev, u32 address) {
-   PRINTD (DBG_FLOW|DBG_LOAD, "loader_start");
-   
-@@ -1961,7 +1961,7 @@
- 
- /********** transfer and start the microcode **********/
- 
--static int __init ucode_init (loader_block * lb, amb_dev * dev) {
-+static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
-   unsigned int i = 0;
-   unsigned int total = 0;
-   const u32 * pointer = ucode_data;
-@@ -2011,7 +2011,7 @@
-     return cpu_to_be32 (virt_to_bus (addr));
- }
- 
--static int __init amb_talk (amb_dev * dev) {
-+static int __devinit amb_talk (amb_dev * dev) {
-   adap_talk_block a;
-   unsigned char pool;
-   unsigned long timeout;
-@@ -2058,7 +2058,7 @@
- }
- 
- // get microcode version
--static void __init amb_ucode_version (amb_dev * dev) {
-+static void __devinit amb_ucode_version (amb_dev * dev) {
-   u32 major;
-   u32 minor;
-   command cmd;
-@@ -2085,7 +2085,7 @@
- }
- 
- // get end station address
--static void __init amb_esi (amb_dev * dev, u8 * esi) {
-+static void __devinit amb_esi (amb_dev * dev, u8 * esi) {
-   u32 lower4;
-   u16 upper2;
-   command cmd;
-@@ -2131,7 +2131,7 @@
- 	return;
- }
- 
--static int __init amb_init (amb_dev * dev)
-+static int __devinit amb_init (amb_dev * dev)
+-static struct fore200e* __init
+-fore200e_pca_detect(const struct fore200e_bus* bus, int index)
+-{
+-    struct fore200e* fore200e;
+-    struct pci_dev*  pci_dev = NULL;
+-    int              count = index;
+-    
+-    do {
+-	pci_dev = pci_find_device(PCI_VENDOR_ID_FORE, PCI_DEVICE_ID_FORE_PCA200E, pci_dev);
+-	if (pci_dev == NULL)
+-	    return NULL;
+-    } while (count--);
+-
+-    if (pci_enable_device(pci_dev))
+-	return NULL;
+-    
+-    fore200e = fore200e_kmalloc(sizeof(struct fore200e), GFP_KERNEL);
+-    if (fore200e == NULL)
+-	return NULL;
+-
+-    fore200e->bus       = bus;
+-    fore200e->bus_dev   = pci_dev;    
+-    fore200e->irq       = pci_dev->irq;
+-    fore200e->phys_base = pci_resource_start(pci_dev, 0);
+-
+-    sprintf(fore200e->name, "%s-%d", bus->model_name, index - 1);
+-
+-    pci_set_master(pci_dev);
+-
+-    return fore200e;
+-}
+-
+-
+ static int __init
+ fore200e_pca_prom_read(struct fore200e* fore200e, struct prom_data* prom)
  {
-   loader_block lb;
-   
+@@ -2764,20 +2731,107 @@
+     return 0;
+ }
+ 
++
++static int __devinit
++fore200e_pca_detect(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
++{
++    const struct fore200e_bus* bus = (struct fore200e_bus*) pci_ent->driver_data;
++    struct fore200e* fore200e;
++    int err = 0;
++    static int index = 0;
++
++    if (pci_enable_device(pci_dev)) {
++	err = -EINVAL;
++	goto out;
++    }
++    
++    fore200e = fore200e_kmalloc(sizeof(struct fore200e), GFP_KERNEL);
++    if (fore200e == NULL) {
++	err = -ENOMEM;
++	goto out_disable;
++    }
++
++    fore200e->bus       = bus;
++    fore200e->bus_dev   = pci_dev;    
++    fore200e->irq       = pci_dev->irq;
++    fore200e->phys_base = pci_resource_start(pci_dev, 0);
++
++    sprintf(fore200e->name, "%s-%d", bus->model_name, index - 1);
++
++    pci_set_master(pci_dev);
++
++    printk(FORE200E "device %s found at 0x%lx, IRQ %s\n",
++	   fore200e->bus->model_name, 
++	   fore200e->phys_base, fore200e_irq_itoa(fore200e->irq));
++
++    sprintf(fore200e->name, "%s-%d", bus->model_name, index);
++
++    err = fore200e_init(fore200e);
++    if (err < 0) {
++	fore200e_shutdown(fore200e);
++	goto out_free;
++    }
++
++    ++index;
++    pci_set_drvdata(pci_dev, fore200e);
++
++out:
++    return err;
++
++out_free:
++    kfree(fore200e);
++out_disable:
++    pci_disable_device(pci_dev);
++    goto out;
++}
++
++
++static void __devexit fore200e_pca_remove_one(struct pci_dev *pci_dev)
++{
++    struct fore200e *fore200e;
++
++    fore200e = pci_get_drvdata(pci_dev);
++
++    list_del(&fore200e->entry);
++
++    fore200e_shutdown(fore200e);
++    kfree(fore200e);
++    pci_disable_device(pci_dev);
++}
++
++
++#ifdef CONFIG_ATM_FORE200E_PCA
++static struct pci_device_id fore200e_pca_tbl[] = {
++    { PCI_VENDOR_ID_FORE, PCI_DEVICE_ID_FORE_PCA200E, PCI_ANY_ID, PCI_ANY_ID,
++      0, 0, (unsigned long) &fore200e_bus[0] },
++    { 0, }
++};
++
++MODULE_DEVICE_TABLE(pci, fore200e_pca_tbl);
++
++static struct pci_driver fore200e_pca_driver = {
++    .name =     "fore_200e",
++    .probe =    fore200e_pca_detect,
++    .remove =   __devexit_p(fore200e_pca_remove_one),
++    .id_table = fore200e_pca_tbl,
++};
++#endif
++
++
+ static int __init
+ fore200e_module_init(void)
+ {
+     const struct fore200e_bus* bus;
+     struct       fore200e*     fore200e;
+-    int                        index, link;
++    int                        index;
+ 
+     printk(FORE200E "FORE Systems 200E-series ATM driver - version " FORE200E_VERSION "\n");
+ 
+     /* for each configured bus interface */
+-    for (link = 0, bus = fore200e_bus; bus->model_name; bus++) {
++    for (bus = fore200e_bus; bus->model_name; bus++) {
+ 
+ 	/* detect all boards present on that bus */
+-	for (index = 0; (fore200e = bus->detect(bus, index)); index++) {
++	for (index = 0; bus->detect && (fore200e = bus->detect(bus, index)); index++) {
+ 	    
+ 	    printk(FORE200E "device %s found at 0x%lx, IRQ %s\n",
+ 		   fore200e->bus->model_name, 
+@@ -2791,15 +2845,18 @@
+ 		break;
+ 	    }
+ 
+-	    link++;
+-
+-	    fore200e->next  = fore200e_boards;
+-	    fore200e_boards = fore200e;
++	    list_add(&fore200e->entry, &fore200e_boards);
+ 	}
+     }
+ 
+-    if (link)
+-        return 0;
++#ifdef CONFIG_ATM_FORE200E_PCA
++    if (!pci_register_driver(&fore200e_pca_driver))
++	return 0;
++#endif
++
++    if (!list_empty(&fore200e_boards))
++	return 0;
++
+     return -ENODEV;
+ }
+ 
+@@ -2807,11 +2864,14 @@
+ static void __exit
+ fore200e_module_cleanup(void)
+ {
+-    while (fore200e_boards) {
+-        struct fore200e* fore200e = fore200e_boards;
++    struct fore200e *fore200e, *next;
++
++#ifdef CONFIG_ATM_FORE200E_PCA
++    pci_unregister_driver(&fore200e_pca_driver);
++#endif
+ 
++    list_for_each_entry_safe(fore200e, next, &fore200e_boards, entry) {
+ 	fore200e_shutdown(fore200e);
+-	fore200e_boards = fore200e->next;
+ 	kfree(fore200e);
+     }
+     DPRINTK(1, "module being removed\n");
+@@ -3146,7 +3206,7 @@
+       fore200e_pca_dma_sync_for_device,
+       fore200e_pca_dma_chunk_alloc,
+       fore200e_pca_dma_chunk_free,
+-      fore200e_pca_detect,
++      NULL,
+       fore200e_pca_configure,
+       fore200e_pca_map,
+       fore200e_pca_reset,
+diff -Nru a/drivers/atm/fore200e.h b/drivers/atm/fore200e.h
+--- a/drivers/atm/fore200e.h	2005-03-07 15:36:53 -05:00
++++ b/drivers/atm/fore200e.h	2005-03-07 15:36:53 -05:00
+@@ -841,7 +841,7 @@
+ /* per-device data */
+ 
+ typedef struct fore200e {
+-    struct       fore200e*     next;                   /* next device                        */
++    struct       list_head     entry;                  /* next device                        */
+     const struct fore200e_bus* bus;                    /* bus-dependent code and data        */
+     union        fore200e_regs regs;                   /* bus-dependent registers            */
+     struct       atm_dev*      atm_dev;                /* ATM device                         */
