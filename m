@@ -1,37 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC: IPSEC patch 0 for netlink events
-Date: Sun, 27 Mar 2005 18:24:22 +1000
-Message-ID: <20050327082422.GA25302@gondor.apana.org.au>
-References: <1111864971.1092.904.camel@jzny.localdomain> <20050326194006.GA9737@gondor.apana.org.au> <1111867505.1089.907.camel@jzny.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1111867505.1089.907.camel@jzny.localdomain>
+From: =?ISO-2022-JP?B?GyRCOGUkSyRiQGgkSyRiJVYlayVeJENMPBsoQg==?= <chan@mag.vig-seet.to>
+Subject: =?ISO-2022-JP?B?GyRCTFwxIyQ3JDUkbCRGJTglZSVcJTglZSVcIXkbKEI=?=
+Date: Sun, 27 Mar 2005 17:55:11 +0900 (KST)
+Message-ID: <20050327085511.6FA06520A1@misty.ori-g.net>
+To: netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 26, 2005 at 03:05:05PM -0500, jamal wrote:
->
-> > Is the intention that you'll be sending policy expire messages to
-> > POLEXPIRE only?
-> 
-> Right. Unless you think this will break existing apps?
 
-Yes openswan listens on XFRMGRP_EXPIRE for poilcy expire messages
-to detect unused pass policies that were automatically generated.
+☆゜・。。・゜☆☆゜・。闇ルート特集メルマガ。・゜☆☆゜・。。・゜☆
+　　　　　　　　　　　　　　　
+・‥‥…━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　　　●●●『究極の一人エッチをするには・・・』
+ 　　　　　　　　声が聞こえる！中が見える！●●●
 
-> Maybe i should leave EXPIRE alone?
+ 　   ストーカーが部屋の中にカメラを仕掛けた！！
+　    　　　完全動画で○○○○○娘の乱れた私生活○見え♪
+ 　　
+　　　　　  http://hanamitu.polty.cc/?hq1ksxfds0
+・‥‥…━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-I think so.
+ 　   男の子の為のチカン特集！
+　　　女の子の為のオナニー特集！
+ 　　
+□□■□□☆□□■□□☆□□■□□☆□□■□□☆□□■□□☆□□■
+□■□■□□□■□■□□□■□■□□□■□■□□□■□■□□□■□
+ 
+　　　 ┌──────────────────────┐
+　　　 ★★★★　　　　　　１．レズビアンの企画　　　　　　　★★★★
+　　　 └──────────────────────┘
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+　　　  ●●●●●●●さらけ出された肉欲●●●●●●●
+
+　  　視られることが快感の女の子たちがいろんな場所で大ハプニング♪
+　　  最初は恥ずかしがっていた彼女たちも次第にコーフンしてきて
+ 　　 どんどん淫らに…
+ 
+　　　　●●●●●●●フェチな妄想かなえます●●●●●●●
+ 
+  　   首筋、背中、ムネ、お尻…あなたはどんなパーツが好き？
+　　　 女の子のいろんな部分にこだわった画像が盛りだくさん♪
+　　　 今回Ｘマス企画として、女の子が身体を張っての出張レポ♪
+　　　 日頃の溜まった妄想を思う存分吐き出しちゃってください☆
+ 
+    　 http://hanamitu.polty.cc/?hq1ksxfds0
+
+ -------------------------------------------------------------------
+ 　　　┌──────────────────────────┐
+ 　　　★★★★　　　　　２．ますます充実！大人気コーナー 　　　　★★★★
+ 　　　└──────────────────────────┘
+
+ 　　■女子○生のナマ姿
+　　　　…可愛い女子○生たちが大胆に制服の下のありのままの姿をさらけだします
+　　　　　
+　　 ■Mな願望
+　　　　…ドロドロに汚れるまで奉仕させられる女たちの一部始終を厳選公開！！
+ 
+　　 ■コスチュームの裏の裏
+　　　　…ナースやスッチー、和服にチャイナドレスなど、憧れのコスプレ目白押し☆
+ 
+         http://hanamitu.polty.cc/?hq1ksxfds0
+　　　　　
+ □□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□
+ -------------------------------------------------------------------
+ 　　　★★★★★★★★＜メルサちゃんより＞★★★★★★★★
+ -------------------------------------------------------------------
+　　 ■このマガジンメールの掲載情報の利用に関しては、
+　　　　各人が自分の責任で行なっていただくこを前提としています。
+　　　　掲載情報に関してのお問合せや損害に対してはいかなる責任も
+　　　　負いかねますので、予めご了承下さい。
+ 
+　　　　掲載された記事の一部または全部を許可なく転載することを禁止致します。
+ -------------------------------------------------------------------
+ 　－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－
+　　 ※購読解除方法
+　　　　購読解除はお手数ですが、下記のアドレスよりログインし、ご自身でお手続き下さい。
+
+          http://mag.vig-seet.to/melsa/
+ 　－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－　　　
