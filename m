@@ -1,62 +1,56 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: SIOCADDMULTI for unicast broken
-Date: Sat, 4 Jan 2003 14:04:17 -0500 (EST)
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: Send-Q not being emptied
+Date: Sat, 04 Jan 2003 17:10:56 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030104135539.C48869@shell.cyberus.ca>
-References: <Pine.LNX.4.44.0301042016020.863-100000@u.domain.uli>
+Message-ID: <3E178620.53128BE6@us.ibm.com>
+References: <3E1702F2.9000105@us.ibm.com>
+Reply-To: niv@us.ibm.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Donald Becker <becker@scyld.com>, Ben Greear <greearb@candelatech.com>,
-   Jeff Garzik <jgarzik@pobox.com>,
-   Alexandre Cassen <Alexandre.Cassen@wanadoo.fr>, "" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0301042016020.863-100000@u.domain.uli>
+To: Dave Hansen <haveblue@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Dave Hansen wrote:
+> 
+> I'm seeing some strange behavior running Specweb99 with
+> 2.4.19-64GB-SMP on the clients, and 2.5.50 on the server.  I'm using
+> Apache/2.0.43.  The load is fairly low, ~1000 (this is an 8-way P4).
+> 
+> The client program is sitting blocked on a socket read().  It's
+> netstat entry looks like this (I clipped off the PID/Program part):
+> Recv-Q Send-Q Local Address       Foreign Address      State
+>       0      0 192.168.1.100:35486 192.168.1.1:80       ESTABLISHED
+> The server side's netstat (httpd):
+>       0 120184 192.168.1.1:80      192.168.1.100:35486  ESTABLISHED
 
+> It will stay like this for several minutes at a time, until the
+> Specweb99 client program usually times out complaining with something
+> like this:
+> Sat Jan  4 10:05:28 2003 HTTPGetReply: got 272144, expected 614400
+> 
+> But, this doesn't always happen to the client, and sometimes it will
+> stay blocking on that socket read() forever.  This keeps me from
+> getting any completed benchmark runs because there are always 1 or two
+> of these stragglers.
 
-On Sat, 4 Jan 2003, Julian Anastasov wrote:
+hmmm, send side window was closed and we lost an update? or we
+had a lot of successive drops and we're backed off and client 
+terminated before we retransmitted?
 
->
-> 	Hello,
->
-> On Sat, 4 Jan 2003, jamal wrote:
->
-> >
-> > I think hacking the ARP code to do this would be horrible - one way to do
-> > it is write a tc module that mungles outgoing ARPs to substitute the src
-> > MAC address based on src IP.
->
-> 	You can do it with arptables (still not sure how) or with
+but, why doesnt the client time out in all instances? is the send
+side always still around in established state? if the sending thread
+got killed for some reason, the client might have gotten a reset back..
 
-I havent seen user-space arptables around.
+> Why isn't the client's read ever completing, even if the server has
+> data in its send queue?  I'm sure that the cable is plugged in :)
 
-> arprules+iparp:
->
-> # send all our requests from VRIP with VMAC
-> ip arp add table output from 1.2.3.4 llsrc 00:00:5E:00:01:10
->
-> http://www.ssi.bg/~ja/#iparp
+you've probably turned off sack etc, right? what are your settings?
+taking a look at the stats would be useful..also tried pinging just
+to make sure the interface is still up and not jammed? 
 
-I like this concept. This + the patch i posted should resolve the problem
-of getting multiple VRIDs on a single interface.
-[Although you could do it in a lot less code, maybe 50%, using
-some of the tc filter extensions i am working on; also a lot less code
-than arptables]
-
->
-> 	But this is not enough for VRRP. For Linux we need a
-> way to bind VRIPs to source VMACs or sort of this. I'm cc-ing to Alexandre
-> Cassen as he is working on VRRP (http://keepalived.sourceforge.net/).
-> I hope he can shed some light on the VRRP needs.
->
-
-I guess there is more than one VRRP implementation on Linux; the one i
-played with is from some crazy Frenchman named Jerome Ettiene;->
-With two conecpts being addressed i.e patch like that you have +
-the patch i posted i dont see any orther reason VRRP to be hindered.
-
-cheers,
-jamal
+thanks,
+Nivedita
