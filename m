@@ -1,209 +1,45 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.7-rc2 + bk-netdev 2/4] r8169: initial link setup rework
-Date: Thu, 3 Jun 2004 01:33:19 +0200
+Subject: [patch 2.6.7-rc2 + bk-netdev 3/4] r8169: gcc bug workaround
+Date: Thu, 3 Jun 2004 01:35:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040603013319.A22272@electric-eye.fr.zoreil.com>
-References: <200406010922.i519MIr27814@mail.osdl.org> <40BE2FAB.1040008@pobox.com> <20040603013128.D18059@electric-eye.fr.zoreil.com>
+Message-ID: <20040603013511.B22272@electric-eye.fr.zoreil.com>
+References: <200406010922.i519MIr27814@mail.osdl.org> <40BE2FAB.1040008@pobox.com> <20040603013128.D18059@electric-eye.fr.zoreil.com> <20040603013319.A22272@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@osdl.org, luto@myrealbox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040603013128.D18059@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Thu, Jun 03, 2004 at 01:31:28AM +0200
+In-Reply-To: <20040603013319.A22272@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Thu, Jun 03, 2004 at 01:33:19AM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Use rtl8169_set_speed() for link setup in rtl8169_init_one():
-- the code which handles the option checking is isolated;
-- display (once) a notice message about the deprecated interface;
-- rtl8169_open() enables the phy timer if the link is not up;
-- rtl8169_set_speed() checks that the netdevice is actually ready
-  in order to activate the timer.
+Add a temporary variable to workaround gcc 2.95.3 bug.
 
-diff -puN drivers/net/r8169.c~r8169-link-10 drivers/net/r8169.c
---- linux-2.6.7-rc2/drivers/net/r8169.c~r8169-link-10	2004-06-02 23:18:02.000000000 +0200
-+++ linux-2.6.7-rc2-fr/drivers/net/r8169.c	2004-06-02 23:18:02.000000000 +0200
-@@ -7,7 +7,7 @@
-  Feb  4 2002	- created initially by ShuChen <shuchen@realtek.com.tw>.
-  May 20 2002	- Add link status force-mode and TBI mode support.
- =========================================================================
--  1. The media can be forced in 5 modes.
-+  1. [DEPRECATED: use ethtool instead] The media can be forced in 5 modes.
- 	 Command: 'insmod r8169 media = SET_MEDIA'
- 	 Ex:	  'insmod r8169 media = 0x04' will force PHY to operate in 100Mpbs Half-duplex.
- 	
-@@ -466,6 +466,38 @@ static void rtl8169_check_link_status(st
- 	spin_unlock_irqrestore(&tp->lock, flags);
- }
+diff -puN drivers/net/r8169.c~r8169-gcc-killed-me drivers/net/r8169.c
+--- linux-2.6.7-rc2/drivers/net/r8169.c~r8169-gcc-killed-me	2004-06-03 00:15:34.000000000 +0200
++++ linux-2.6.7-rc2-fr/drivers/net/r8169.c	2004-06-03 00:15:34.000000000 +0200
+@@ -1542,6 +1542,7 @@ rtl8169_start_xmit(struct sk_buff *skb, 
  
-+static void rtl8169_link_option(int idx, u8 *autoneg, u16 *speed, u8 *duplex)
-+{
-+	struct {
-+		u16 speed;
-+		u8 duplex;
-+		u8 autoneg;
-+		u8 media;
-+	} link_settings[] = {
-+		{ SPEED_10,	DUPLEX_HALF, AUTONEG_DISABLE,	_10_Half },
-+		{ SPEED_10,	DUPLEX_FULL, AUTONEG_DISABLE,	_10_Full },
-+		{ SPEED_100,	DUPLEX_HALF, AUTONEG_DISABLE,	_100_Half },
-+		{ SPEED_100,	DUPLEX_FULL, AUTONEG_DISABLE,	_100_Full },
-+		{ SPEED_1000,	DUPLEX_FULL, AUTONEG_DISABLE,	_1000_Full },
-+		/* Make TBI happy */
-+		{ SPEED_1000,	DUPLEX_FULL, AUTONEG_ENABLE,	0xff }
-+	}, *p;
-+	unsigned char option;
-+	
-+	option = ((idx < MAX_UNITS) && (idx >= 0)) ? media[idx] : 0xff;
-+
-+	if ((option != 0xff) && !idx)
-+		printk(KERN_WARNING PFX "media option is deprecated.\n");
-+
-+	for (p = link_settings; p->media != 0xff; p++) {
-+		if (p->media == option)
-+			break;
-+	}
-+	*autoneg = p->autoneg;
-+	*speed = p->speed;
-+	*duplex = p->duplex;
-+}
-+
- static void rtl8169_get_drvinfo(struct net_device *dev,
- 				struct ethtool_drvinfo *info)
- {
-@@ -547,7 +579,7 @@ static int rtl8169_set_speed(struct net_
+ 	if (!(le32_to_cpu(tp->TxDescArray[entry].status) & OWNbit)) {
+ 		dma_addr_t mapping;
++		u32 status;
  
- 	ret = tp->set_speed(dev, autoneg, speed, duplex);
+ 		mapping = pci_map_single(tp->pci_dev, skb->data, len,
+ 					 PCI_DMA_TODEVICE);
+@@ -1549,8 +1550,10 @@ rtl8169_start_xmit(struct sk_buff *skb, 
+ 		tp->Tx_skbuff[entry] = skb;
+ 		tp->TxDescArray[entry].addr = cpu_to_le64(mapping);
  
--	if (tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full)
-+	if (netif_running(dev) && (tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full))
- 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
- 
- 	return ret;
-@@ -1027,8 +1059,9 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	void *ioaddr = NULL;
- 	static int board_idx = -1;
- 	static int printed_version = 0;
-+	u8 autoneg, duplex;
-+	u16 speed;
- 	int i, rc;
--	int option = -1, Cap10_100 = 0, Cap1000 = 0;
- 
- 	assert(pdev != NULL);
- 	assert(ent != NULL);
-@@ -1131,97 +1164,12 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 		mdio_write(ioaddr, 0x0b, 0x0000); //w 0x0b 15 0 0
- 	}
- 
--	// if TBI is not endbled
--	if (!(RTL_R8(PHYstatus) & TBI_Enable)) {
--		int val = mdio_read(ioaddr, PHY_AUTO_NEGO_REG);
--
--		option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
--		// Force RTL8169 in 10/100/1000 Full/Half mode.
--		if (option > 0) {
--			printk(KERN_INFO "%s: Force-mode Enabled.\n",
--			       dev->name);
--			Cap10_100 = 0, Cap1000 = 0;
--			switch (option) {
--			case _10_Half:
--				Cap10_100 = PHY_Cap_10_Half_Or_Less;
--				Cap1000 = PHY_Cap_Null;
--				break;
--			case _10_Full:
--				Cap10_100 = PHY_Cap_10_Full_Or_Less;
--				Cap1000 = PHY_Cap_Null;
--				break;
--			case _100_Half:
--				Cap10_100 = PHY_Cap_100_Half_Or_Less;
--				Cap1000 = PHY_Cap_Null;
--				break;
--			case _100_Full:
--				Cap10_100 = PHY_Cap_100_Full_Or_Less;
--				Cap1000 = PHY_Cap_Null;
--				break;
--			case _1000_Full:
--				Cap10_100 = PHY_Cap_100_Full_Or_Less;
--				Cap1000 = PHY_Cap_1000_Full;
--				break;
--			default:
--				break;
--			}
--			// leave PHY_AUTO_NEGO_REG bit4:0 unchanged
--			mdio_write(ioaddr, PHY_AUTO_NEGO_REG,
--				   Cap10_100 | (val & 0x1F));
--			mdio_write(ioaddr, PHY_1000_CTRL_REG, Cap1000);
--		} else {
--			printk(KERN_INFO "%s: Auto-negotiation Enabled.\n",
--			       dev->name);
-+	rtl8169_link_option(board_idx, &autoneg, &speed, &duplex);
- 
--			// enable 10/100 Full/Half Mode
--			// leave PHY_AUTO_NEGO_REG bit4:0 unchanged
--			mdio_write(ioaddr, PHY_AUTO_NEGO_REG,
--				   PHY_Cap_100_Full_Or_Less | (val & 0x1f));
--
--			// enable 1000 Full Mode
--			mdio_write(ioaddr, PHY_1000_CTRL_REG,
--				   PHY_Cap_1000_Full);
--
--		}
--
--		// Enable auto-negotiation and restart auto-nigotiation
--		mdio_write(ioaddr, PHY_CTRL_REG,
--			   PHY_Enable_Auto_Nego | PHY_Restart_Auto_Nego);
--		udelay(100);
--
--		// wait for auto-negotiation process
--		for (i = 10000; i > 0; i--) {
--			//check if auto-negotiation complete
--			if (mdio_read(ioaddr, PHY_STAT_REG) &
--			    PHY_Auto_Neco_Comp) {
--				udelay(100);
--				option = RTL_R8(PHYstatus);
--				if (option & _1000bpsF) {
--					printk(KERN_INFO
--					       "%s: 1000Mbps Full-duplex operation.\n",
--					       dev->name);
--				} else {
--					printk(KERN_INFO
--					       "%s: %sMbps %s-duplex operation.\n",
--					       dev->name,
--					       (option & _100bps) ? "100" :
--					       "10",
--					       (option & FullDup) ? "Full" :
--					       "Half");
--				}
--				break;
--			} else {
--				udelay(100);
--			}
--		}	// end for-loop to wait for auto-negotiation process
--
--	} else {
--		udelay(100);
--		printk(KERN_INFO
--		       "%s: 1000Mbps Full-duplex operation, TBI Link %s!\n",
--		       dev->name,
--		       (RTL_R32(TBICSR) & TBILinkOK) ? "OK" : "Failed");
--	}
-+	rtl8169_set_speed(dev, autoneg, speed, duplex);
-+	
-+	if (RTL_R8(PHYstatus) & TBI_Enable)
-+		printk(KERN_INFO PFX "%s: TBI auto-negotiating\n", dev->name);
- 
- 	return 0;
- }
-@@ -1322,6 +1270,8 @@ rtl8169_open(struct net_device *dev)
- 	rtl8169_hw_start(dev);
- 
- 	rtl8169_request_timer(dev);
-+
-+	rtl8169_check_link_status(dev, tp, tp->mmio_addr);
- out:
- 	return retval;
+-		tp->TxDescArray[entry].status = cpu_to_le32(OWNbit | FSbit |
+-			LSbit | len | (EORbit * !((entry + 1) % NUM_TX_DESC)));
++		/* anti gcc 2.95.3 bugware */
++		status = OWNbit | FSbit | LSbit | len |
++			 (EORbit * !((entry + 1) % NUM_TX_DESC));
++		tp->TxDescArray[entry].status = cpu_to_le32(status);
+ 			
+ 		RTL_W8(TxPoll, 0x40);	//set polling bit
  
 
 _
