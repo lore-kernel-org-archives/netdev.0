@@ -1,101 +1,93 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [janitor] use netdev_priv() in NET/ROM and ROSE.
-Date: Thu, 4 Mar 2004 23:04:21 +0100
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] remove magic number for netdev alignment
+Date: Thu, 4 Mar 2004 14:15:53 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040304220421.GA16866@linux-mips.org>
+Message-ID: <20040304141553.0080a1ba.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev <netdev@oss.sgi.com>
-Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-netdev_priv-ify two more drivers.
+Hi,
+Please apply to 2.6.current.
 
-Index: net/netrom/nr_dev.c
-===================================================================
-RCS file: /home/cvs/linux/net/netrom/nr_dev.c,v
-retrieving revision 1.16
-diff -u -r1.16 nr_dev.c
---- net/netrom/nr_dev.c	10 Jan 2004 04:59:58 -0000	1.16
-+++ net/netrom/nr_dev.c	4 Mar 2004 21:58:28 -0000
-@@ -46,7 +46,7 @@
+--
+~Randy
+
+
+// Linux 2.6.3
+// remove magic number of '31' for net_device and private alignment;
+
+diffstat:=
+ drivers/net/net_init.c    |   13 ++++++++-----
+ include/linux/netdevice.h |    7 ++++++-
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+
+
+diff -Naurp ./drivers/net/net_init.c~netpriv ./drivers/net/net_init.c
+--- ./drivers/net/net_init.c~netpriv	2004-02-17 19:57:14.000000000 -0800
++++ ./drivers/net/net_init.c	2004-03-04 14:15:17.000000000 -0800
+@@ -79,8 +79,9 @@ struct net_device *alloc_netdev(int size
  
- int nr_rx_ip(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
-+	struct net_device_stats *stats = netdev_priv(dev);
+ 	/* ensure 32-byte alignment of both the device and private area */
  
- 	if (!netif_running(dev)) {
- 		stats->rx_errors++;
-@@ -73,7 +73,7 @@
- static int nr_rebuild_header(struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dev;
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
-+	struct net_device_stats *stats = netdev_priv(dev);
- 	struct sk_buff *skbn;
- 	unsigned char *bp = skb->data;
- 	int len;
-@@ -186,7 +186,7 @@
+-	alloc_size = (sizeof(struct net_device) + 31) & ~31;
+-	alloc_size += sizeof_priv + 31;
++	alloc_size = (sizeof(struct net_device) + NETDEV_ALIGN_CONST)
++			& ~NETDEV_ALIGN_CONST;
++	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
  
- static int nr_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
-+	struct net_device_stats *stats = netdev_priv(dev);
- 	dev_kfree_skb(skb);
- 	stats->tx_errors++;
- 	return 0;
-@@ -194,7 +194,7 @@
+ 	p = kmalloc (alloc_size, GFP_KERNEL);
+ 	if (!p) {
+@@ -90,7 +91,8 @@ struct net_device *alloc_netdev(int size
  
- static struct net_device_stats *nr_get_stats(struct net_device *dev)
+ 	memset(p, 0, alloc_size);
+ 
+-	dev = (struct net_device *)(((long)p + 31) & ~31);
++	dev = (struct net_device *)(((long)p + NETDEV_ALIGN_CONST)
++				& ~NETDEV_ALIGN_CONST);
+ 	dev->padded = (char *)dev - (char *)p;
+ 
+ 	if (sizeof_priv)
+@@ -109,7 +111,7 @@ static struct net_device *init_alloc_dev
+ 	int alloc_size;
+ 
+ 	/* ensure 32-byte alignment of the private area */
+-	alloc_size = sizeof (*dev) + sizeof_priv + 31;
++	alloc_size = sizeof (*dev) + sizeof_priv + NETDEV_ALIGN_CONST;
+ 
+ 	dev = (struct net_device *) kmalloc (alloc_size, GFP_KERNEL);
+ 	if (dev == NULL)
+@@ -121,7 +123,8 @@ static struct net_device *init_alloc_dev
+ 	memset(dev, 0, alloc_size);
+ 
+ 	if (sizeof_priv)
+-		dev->priv = (void *) (((long)(dev + 1) + 31) & ~31);
++		dev->priv = (void *) (((long)(dev + 1) + NETDEV_ALIGN_CONST)
++				& ~NETDEV_ALIGN_CONST);
+ 
+ 	return dev;
+ }
+diff -Naurp ./include/linux/netdevice.h~netpriv ./include/linux/netdevice.h
+--- ./include/linux/netdevice.h~netpriv	2004-02-17 19:59:32.000000000 -0800
++++ ./include/linux/netdevice.h	2004-03-04 14:13:42.000000000 -0800
+@@ -478,9 +478,14 @@ struct net_device
+ 	int padded;
+ };
+ 
++#define	NETDEV_ALIGN		32
++#define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
++
+ static inline void *netdev_priv(struct net_device *dev)
  {
--	return (struct net_device_stats *)dev->priv;
-+	return netdev_priv(dev);
+-	return (char *)dev + ((sizeof(struct net_device) + 31) & ~31);
++	return (char *)dev + ((sizeof(struct net_device)
++					+ NETDEV_ALIGN_CONST)
++				& ~NETDEV_ALIGN_CONST);
  }
  
- void nr_setup(struct net_device *dev)
-Index: net/rose/rose_dev.c
-===================================================================
-RCS file: /home/cvs/linux/net/rose/rose_dev.c,v
-retrieving revision 1.17
-diff -u -r1.17 rose_dev.c
---- net/rose/rose_dev.c	15 Aug 2003 15:14:41 -0000	1.17
-+++ net/rose/rose_dev.c	4 Mar 2004 21:58:28 -0000
-@@ -43,7 +43,7 @@
- 
- int rose_rx_ip(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
-+	struct net_device_stats *stats = netdev_priv(dev);
- 
- #ifdef CONFIG_INET
- 	if (!netif_running(dev)) {
-@@ -89,7 +89,7 @@
- static int rose_rebuild_header(struct sk_buff *skb)
- {
- 	struct net_device *dev = skb->dev;
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
-+	struct net_device_stats *stats = netdev_priv(dev);
- 	unsigned char *bp = (unsigned char *)skb->data;
- 	struct sk_buff *skbn;
- 
-@@ -149,7 +149,7 @@
- 
- static int rose_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
-+	struct net_device_stats *stats = netdev_priv(dev);
- 
- 	if (!netif_running(dev)) {
- 		printk(KERN_ERR "ROSE: rose_xmit - called when iface is down\n");
-@@ -162,7 +162,7 @@
- 
- static struct net_device_stats *rose_get_stats(struct net_device *dev)
- {
--	return (struct net_device_stats *)dev->priv;
-+	return netdev_priv(dev);
- }
- 
- void rose_setup(struct net_device *dev)
+ #define SET_MODULE_OWNER(dev) do { } while (0)
