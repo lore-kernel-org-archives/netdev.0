@@ -1,46 +1,202 @@
-From: rick jones <rick.jones2@hp.com>
-Subject: Re: on the wire behaviour of TSO on/off is supposed to be the same yes?
-Date: Sat, 22 Jan 2005 11:05:25 -0800
-Message-ID: <92ADD7B5-6CA8-11D9-86F8-000393765F60@hp.com>
-References: <41F1516D.5010101@hp.com> <200501211358.53783.jdmason@us.ibm.com> <41F163AD.5070400@hp.com> <20050121124441.76cbbfb9.davem@davemloft.net> <41F17B7E.2020002@hp.com> <20050121141820.7d59a2d1.davem@davemloft.net> <41F186A8.9030805@hp.com> <20050121204948.034b2510.davem@davemloft.net>
-Mime-Version: 1.0 (Apple Message framework v619)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+From: Daniele Venzano <webvenza@libero.it>
+Subject: [PATCH 5/5] sis900 printk audit
+Date: Sat, 22 Jan 2005 22:47:01 +0100 (CET)
+Message-ID: <20050122214701.18649.41030@localhost.localdomain>
+References: <20050122214657.18649.66345@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; charset="us-ascii";
+	boundary="===============1344517621=="
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20050121204948.034b2510.davem@davemloft.net>
-To: netdev@oss.sgi.com
+In-Reply-To: <20050122214657.18649.66345@localhost.localdomain>
+To: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a MIME message, see the first attachment for the text
+and the second for the patch
+--===============1344517621==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 
-On Jan 21, 2005, at 8:49 PM, David S. Miller wrote:
-> The code can potentially get really messy and ugly if we start
-> preemptively building larger frames "hoping" the cwnd will be
-> large enough by the time we push it onto the wire.  Segmenting
-> at send time is completely upside down to the way packets are
-> built currently for transmission.  A bad guess also means that
-> we'll spend significant cycles chopping up TSO packets and
-> resegmenting the queue.
 
-so if i'm parsing correctly, with TSO enabled, at user send time, the 
-send code builds "tso-sized" segments based on the value of cwnd at the 
-time of the send.
 
-with TSO disabled, at user send time, the code will build a string of 
-MSS-sized segments and queue them.
+Chip revision is now a member of sis_priv structure
+Kill all calls to pci_read_config_byte but one
+Change the code to use sis_priv->chipset_rev
 
-then at transmit time, cwnd is consulted and either a group of 
-mss-sized segments is sent, or a tso-sized segment is sent down the 
-stack.
 
-is it necessary to build TSO-sized segments at the time the user does 
-the send? could just a chain of mss-sized segments be used as the 
-TSO-sized segment?
 
-admittedly, it is more buffers to manipulate by the NIC, and the large 
-DMA's don't happen, but it means that TSO can take full advantage of 
-cwnd at transmit time without much resegmentation.
+Signed-off-by: Daniele Venzano <webvenza@libero.it>
 
-rick jones
-there is no rest for the wicked, yet the virtuous have no pillows
+
+--===============1344517621==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+Index: sis900.c
+===================================================================
+--- a/drivers/net/sis900.c	(revision 87)
++++ b/drivers/net/sis900.c	(revision 88)
+@@ -181,6 +181,7 @@
+ 
+ 	unsigned int tx_full; /* The Tx queue is full. */
+ 	u8 host_bridge_rev;
++	u8 chipset_rev;
+ };
+ 
+ MODULE_AUTHOR("Jim Huang <cmhuang@sis.com.tw>, Ollie Lho <ollie@sis.com.tw>");
+@@ -393,7 +394,6 @@
+ 	void *ring_space;
+ 	long ioaddr;
+ 	int i, ret;
+-	u8 revision;
+ 	char *card_name = card_names[pci_id->driver_data];
+ 
+ /* when built into the kernel, we only print version if device is found */
+@@ -474,19 +474,18 @@
+ 		goto err_unmap_rx;
+ 		
+ 	/* Get Mac address according to the chip revision */
+-	pci_read_config_byte(pci_dev, PCI_CLASS_REVISION, &revision);
+-
++	pci_read_config_byte(pci_dev, PCI_CLASS_REVISION, &(sis_priv->chipset_rev));
+ 	if(netif_msg_probe(sis_priv))
+ 		printk(KERN_DEBUG "%s: detected revision %2.2x, "
+ 				"trying to get MAC address...\n",
+-				net_dev->name, revision);
++				net_dev->name, sis_priv->chipset_rev);
+ 	
+ 	ret = 0;
+-	if (revision == SIS630E_900_REV)
++	if (sis_priv->chipset_rev == SIS630E_900_REV)
+ 		ret = sis630e_get_mac_addr(pci_dev, net_dev);
+-	else if ((revision > 0x81) && (revision <= 0x90) )
++	else if ((sis_priv->chipset_rev > 0x81) && (sis_priv->chipset_rev <= 0x90) )
+ 		ret = sis635_get_mac_addr(pci_dev, net_dev);
+-	else if (revision == SIS96x_900_REV)
++	else if (sis_priv->chipset_rev == SIS96x_900_REV)
+ 		ret = sis96x_get_mac_addr(pci_dev, net_dev);
+ 	else
+ 		ret = sis900_get_mac_addr(pci_dev, net_dev);
+@@ -498,7 +497,7 @@
+ 	}
+ 	
+ 	/* 630ET : set the mii access mode as software-mode */
+-	if (revision == SIS630ET_900_REV)
++	if (sis_priv->chipset_rev == SIS630ET_900_REV)
+ 		outl(ACCESSMODE | inl(ioaddr + cr), ioaddr + cr);
+ 
+ 	/* probe for mii transceiver */
+@@ -555,7 +554,6 @@
+ 	u16 poll_bit = MII_STAT_LINK, status = 0;
+ 	unsigned long timeout = jiffies + 5 * HZ;
+ 	int phy_addr;
+-	u8 revision;
+ 
+ 	sis_priv->mii = NULL;
+ 
+@@ -652,8 +650,7 @@
+ 		}
+ 	}
+ 
+-	pci_read_config_byte(sis_priv->pci_dev, PCI_CLASS_REVISION, &revision);
+-	if (revision == SIS630E_900_REV) {
++	if (sis_priv->chipset_rev == SIS630E_900_REV) {
+ 		/* SiS 630E has some bugs on default value of PHY registers */
+ 		mdio_write(net_dev, sis_priv->cur_phy, MII_ANADV, 0x05e1);
+ 		mdio_write(net_dev, sis_priv->cur_phy, MII_CONFIG1, 0x22);
+@@ -968,15 +965,13 @@
+ {
+ 	struct sis900_private *sis_priv = net_dev->priv;
+ 	long ioaddr = net_dev->base_addr;
+-	u8 revision;
+ 	int ret;
+ 
+ 	/* Soft reset the chip. */
+ 	sis900_reset(net_dev);
+ 
+ 	/* Equalizer workaround Rule */
+-	pci_read_config_byte(sis_priv->pci_dev, PCI_CLASS_REVISION, &revision);
+-	sis630_set_eq(net_dev, revision);
++	sis630_set_eq(net_dev, sis_priv->chipset_rev);
+ 
+ 	ret = request_irq(net_dev->irq, &sis900_interrupt, SA_SHIRQ,
+ 						net_dev->name, net_dev);
+@@ -1245,7 +1240,6 @@
+ 	struct mii_phy *mii_phy = sis_priv->mii;
+ 	static int next_tick = 5*HZ;
+ 	u16 status;
+-	u8 revision;
+ 
+ 	if (!sis_priv->autong_complete){
+ 		int speed, duplex = 0;
+@@ -1253,9 +1247,7 @@
+ 		sis900_read_mode(net_dev, &speed, &duplex);
+ 		if (duplex){
+ 			sis900_set_mode(net_dev->base_addr, speed, duplex);
+-			pci_read_config_byte(sis_priv->pci_dev,
+-						PCI_CLASS_REVISION, &revision);
+-			sis630_set_eq(net_dev, revision);
++			sis630_set_eq(net_dev, sis_priv->chipset_rev);
+ 			netif_start_queue(net_dev);
+ 		}
+ 
+@@ -1290,9 +1282,7 @@
+ 			    ((mii_phy->phy_id1 & 0xFFF0) == 0x8000))
+                			sis900_reset_phy(net_dev,  sis_priv->cur_phy);
+   
+-                	pci_read_config_byte(sis_priv->pci_dev,
+-					PCI_CLASS_REVISION, &revision);
+-			sis630_set_eq(net_dev, revision);
++			sis630_set_eq(net_dev, sis_priv->chipset_rev);
+   
+                 	goto LookForLink;
+                 }
+@@ -2146,11 +2136,10 @@
+ 	u16 mc_filter[16] = {0};	/* 256/128 bits multicast hash table */
+ 	int i, table_entries;
+ 	u32 rx_mode;
+-	u8 revision;
+ 
+ 	/* 635 Hash Table entires = 256(2^16) */
+-	pci_read_config_byte(sis_priv->pci_dev, PCI_CLASS_REVISION, &revision);
+-	if((revision >= SIS635A_900_REV) || (revision == SIS900B_900_REV))
++	if((sis_priv->chipset_rev >= SIS635A_900_REV) ||
++			(sis_priv->chipset_rev == SIS900B_900_REV))
+ 		table_entries = 16;
+ 	else
+ 		table_entries = 8;
+@@ -2176,7 +2165,7 @@
+ 			mclist && i < net_dev->mc_count;
+ 			i++, mclist = mclist->next) {
+ 			unsigned int bit_nr =
+-				sis900_mcast_bitnr(mclist->dmi_addr, revision);
++				sis900_mcast_bitnr(mclist->dmi_addr, sis_priv->chipset_rev);
+ 			mc_filter[bit_nr >> 4] |= (1 << (bit_nr & 0xf));
+ 		}
+ 	}
+@@ -2222,7 +2211,6 @@
+ 	long ioaddr = net_dev->base_addr;
+ 	int i = 0;
+ 	u32 status = TxRCMP | RxRCMP;
+-	u8  revision;
+ 
+ 	outl(0, ioaddr + ier);
+ 	outl(0, ioaddr + imr);
+@@ -2235,8 +2223,8 @@
+ 		status ^= (inl(isr + ioaddr) & status);
+ 	}
+ 
+-	pci_read_config_byte(sis_priv->pci_dev, PCI_CLASS_REVISION, &revision);
+-	if( (revision >= SIS635A_900_REV) || (revision == SIS900B_900_REV) )
++	if( (sis_priv->chipset_rev >= SIS635A_900_REV) ||
++			(sis_priv->chipset_rev == SIS900B_900_REV) )
+ 		outl(PESEL | RND_CNT, ioaddr + cfg);
+ 	else
+ 		outl(PESEL, ioaddr + cfg);
+
+--===============1344517621==--
