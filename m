@@ -1,103 +1,62 @@
-From: Matthew Wilcox <willy@debian.org>
-Subject: Re: [PATCH] netdev_ops
-Date: Fri, 11 Jul 2003 21:04:23 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: networking bugs and bugme.osdl.org
+Date: Sat, 12 Jul 2003 22:22:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030711200423.GL20424@parcelfarce.linux.theplanet.co.uk>
-References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk> <3F0B2D30.4020102@candelatech.com> <20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk> <20030708.150835.78728697.davem@redhat.com> <20030709161520.GW1939@parcelfarce.linux.theplanet.co.uk> <20030711193215.GH16037@gtf.org>
+Message-ID: <20030712222222.01089864.davem@redhat.com>
+References: <1056755336.5459.16.camel@dhcp22.swansea.linux.org.uk>
+	<20030627.172123.78713883.davem@redhat.com>
+	<1056827972.6295.28.camel@dhcp22.swansea.linux.org.uk>
+	<20030628.150328.74739742.davem@redhat.com>
+	<m2vfu765cx.fsf@tnuctip.rychter.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Wilcox <willy@debian.org>, netdev@oss.sgi.com,
-   greearb@candelatech.com, "David S. Miller" <davem@redhat.com>,
-   Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20030711193215.GH16037@gtf.org>
+To: Jan Rychter <jan@rychter.com>
+In-Reply-To: <m2vfu765cx.fsf@tnuctip.rychter.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 11, 2003 at 03:32:15PM -0400, Jeff Garzik wrote:
-> 1) The _ops are either too limited in scope, or too wide in scope.
+On Sat, 12 Jul 2003 10:07:42 -0700
+Jan Rychter <jan@rychter.com> wrote:
 
-Couldn't agree more.  I blame acme -- he wants me to push it to be much
-wider in scope.  Let's push _all_ the function pointers into netdev_ops.
-
-But this is a mere step 1.  I don't have enough network-related clout
-to do everything in one fell swoop.
-
-> 2.c) If #2 is decided to be netdev_ops, and all func ptrs are moved into
-> netdev_ops struct, then create the macro
-> 	SET_NETDEV_OPS(dev, ops)
+> Interesting you should think you're 'rewarding' people. I thought your
+> goal was to have fun working on cool software and making it
+> better. I also thought I had the same goal as a bug-reporter.
 > 
-> This allows full back compat, without ugliness in mainline tree.
+> When I write software, I care about every bug report and consider people
+> doing the reporting a very valuable resource.
 
-Yes, that was my preferred approach.
+The whole game changes when you are stretched as thinly
+as I am.  Scaling becomes everything, and nitpicking through
+vague and poorly composed bug reports is an absolute waste of
+my time as networking subsystem maintainer.
 
-> 3) The func ptrs _count() are totally bogus.  We have an unconditional
-> indirect reference to a function call which does nothing but return a
-> driver constant.
-> 
-> I personally think that having ethtool_ops members manually calling
-> the ->get_drvinfo hook is a _lot_ cleaner than 10,000 foo_count hooks.
+If other people want to improve bug reports, put them into
+a cute usable database, and munge them along, that's fine with
+me.
 
-Disagree.  I'd like to completely get rid of the ->get_drvinfo hook and
-have each hook return one thing.  DaveM claims that these things are not
-always constants, and I believe him -- it's entirely possible different
-revs of a chip (with the same driver) may have more or fewer registers
-to return, for example.
+But _I_ only want to work with things that make the best use
+of my limited time.
 
-We might want to put these counts directly in the net_device itself and
-eliminate the function calls.  That would make sense.
+To be frank and honest, I do things that interest _ME_.  And waddling
+through poorly made bug reports is anything but interesting, in fact
+it's frustrating work.  I'd rather implement a software 802.11 stack
+or TCP Vegas implementation, THAT is what is a good use of my time
+because of my knowledge of how all these kinds of things work in the
+Linux networking.  I can do things overnight that would take others
+weeks.
 
-> 4) I don't see why ethtool.h suddenly needs to include linux/types.h,
-> when it hasn't needed it in all this time until now.
+Having me pillage through a bug database is a poor use of my time and
+capabilities.  And all of my time is spent reviewing patches and
+dealing with the properly composed bug reports anyways, so even if I
+enjoyed pillaging through badly made bug reports I couldn't.
 
-Otherwise you have to include <linux/types.h> before you include
-<linux/ethtool.h> which sucks.  No relying on other people to do your
-inclusions for you ;-)
+People are assuming that just because _I_ don't want to work on the
+bad bug reports that I think nobody should.  It's the exact opposite.
 
-> 5) net/socket.c changes appear unrelated to this patch.
-
-You're right, they just happen to be in that tree.
-
-> 6) (low prio)  Add documentation to
-> Documentation/networking/netdevices.txt.  Most importantly, this
-> documents locking/context.
-
-An excellent idea.
-
-> 7) (low prio)  All that similar code in net/core/ethtool.c can be
-> template-ized with a macro, IMO.  Something like
->   DEF_ETHTOOL_GOP(get_coalesce, ETHTOOL_GCOALESCE, ethtool_coalesce);
->   DEF_ETHTOOL_SOP(set_coalesce, ethtool_coalesce);
->   (and templates for the ops that use edata)
-
-Maybe.  I'm not a fan of templated ops as it makes it harder to grep.
-
-> 8) (security)  get-eeprom op needs to check that offset+len is not
-> invalid, and does not wrap.
-
-Good idea, I'll add that check now.
-
-> 9) phys_id op should return an error, for consistency if nothing else.
-> It's simple for driver authors to unconditionally return 0 if their code
-> has no failure cases, and it's a slow path so adding the return in the
-> driver code is no big deal.
-
-OK, ditto.
-
-> 10) (low prio) since it's a slow path, what about replacing the switch
-> statement in dev_ethtool() with a lookup table?  All the ethtool
-> commands are low numbers.  If you do this, I would suggest using the gcc
-> array initializer syntax:
-> 	[ETHTOOL_GCOALESCE, ethtool_get_coalesce]
-> 
-> All the ethtool ops have the same prototype, after all.
-
-Well, they don't have quite the same prototype ... that's part of the
-point -- get the type safety going as early as possible.
-
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+I can't force other people to do or not do things anyways, just like
+everyone trying to somehow make it my "duty" to look at every single
+bug report cannot force me to do that.
