@@ -1,35 +1,59 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPV6: clean-up ndisc printk's
-Date: Wed, 11 Feb 2004 11:18:23 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040211111823.2aa480b5.davem@redhat.com>
-References: <20040210.164650.109511390.yoshfuji@linux-ipv6.org>
-	<20040211111616.34c18a2c.davem@redhat.com>
+From: Andi Kleen <ak@suse.de>
+Subject: Re: some bluetooth fixes
+Date: Wed, 11 Feb 2004 19:33:10 +0000 (UTC)
+Sender: bluez-devel-admin@lists.sourceforge.net
+Message-ID: <20040215002513.7c6fc532.ak@suse.de>
+References: <20040206050042.20a2b3b0.ak@suse.de>
+	<1076079512.2806.40.camel@pegasus>
+	<20040207032428.56ffbebc.ak@suse.de>
+	<1076152411.14418.73.camel@pegasus>
+	<20040207125723.391a1fcd.ak@suse.de>
+	<1076173068.2670.4.camel@pegasus>
+	<20040207172436.GB449@wotan.suse.de>
+	<1076525743.2792.1.camel@pegasus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040211111616.34c18a2c.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+	viro@zenII.linux.org.uk
+Return-path: <bluez-devel-admin@lists.sourceforge.net>
+To: Marcel Holtmann <marcel@holtmann.org>
+In-Reply-To: <1076525743.2792.1.camel@pegasus>
+Errors-To: bluez-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Date: Sun, 15 Feb 2004 00:25:13 +0100
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Feb 2004 11:16:16 -0800
-"David S. Miller" <davem@redhat.com> wrote:
+On Wed, 11 Feb 2004 19:55:43 +0100
+Marcel Holtmann <marcel@holtmann.org> wrote:
 
-> On Tue, 10 Feb 2004 16:46:50 +0900 (JST)
-> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+> Hi Andi,
 > 
-> > D: print KERN_xxx appropriately.
-> > D: put net_ratelimit() inside the macro.
-> > D: re-arrange levels.
+> > Doing size checks after the multiply is too late - they could
+> > have already overflowed. You have to check the raw value from the user.
+> 
+> new patch is attached.
 
-Actually, no, this makes GCC upset.  I have to revert the patch.
 
-Please fix this:
++	if (req.conn_num * sizeof(*ci) > PAGE_SIZE * 2)
++		return -EINVAL;
 
-net/ipv6/ndisc.c:1283:40: pasting "(" and "KERN_ERR" does not give a valid preprocessing token
-net/ipv6/ndisc.c:1442:31: pasting "(" and "KERN_ERR" does not give a valid preprocessing token
+This can still overflow. It should be 
 
-Thanks.
+	if (req.conn_num > (PAGE_SIZE * 2)/sizeof(*ci))
+		return -EINVAL
+
+-Andi
+
+
+-------------------------------------------------------
+SF.Net is sponsored by: Speed Start Your Linux Apps Now.
+Build and deploy apps & Web services for Linux with
+a free DVD software kit from IBM. Click Now!
+http://ads.osdn.com/?ad_id=1356&alloc_id=3438&op=click
