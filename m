@@ -1,47 +1,57 @@
-From: Guido Guenther <agx@sigxcpu.org>
-Subject: Re: [patch 03/10] pcnet32: 79c976 with fiber optic fix
-Date: Fri, 7 Jan 2005 09:36:15 +0100
-Message-ID: <20050107083615.GC13766@bogon.ms20.nix>
-References: <200501050559.j055xb614676@mail.osdl.org> <41DDBF72.4000406@pobox.com> <20050106231956.GA22130@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="IpbVkmxF4tDyP/Kb"
-Cc: Jeff Garzik <jgarzik@pobox.com>, akpm@osdl.org, davem@davemloft.net,
-        netdev@oss.sgi.com, lars@segv.dk
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Don Fry <brazilnut@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20050106231956.GA22130@us.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: "Zhenyu Wu" <y030729@njupt.edu.cn>
+Subject: Something on CBQ!
+Date: Fri, 07 Jan 2005 18:00:53 +0800
+Message-ID: <305092053.32587@njupt.edu.cn>
+Reply-To: "Zhenyu Wu" <y030729@njupt.edu.cn>
+Content-Type: text/plain
+Cc: lartc@mailman.ds9a.nl, imipak@yahoo.com
+Return-path: <lartc-admin@mailman.ds9a.nl>
+To: netdev@oss.sgi.com
+Sender: lartc-admin@mailman.ds9a.nl
+Errors-To: lartc-admin@mailman.ds9a.nl
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
 List-Id: netdev.vger.kernel.org
 
+Hello, 
 
---IpbVkmxF4tDyP/Kb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I think I have misundertood the relationship between cbq and the queue (such as
+Red) attached to 
+it. This is my latest opion, please give me some advice on it:
 
-On Thu, Jan 06, 2005 at 03:19:56PM -0800, Don Fry wrote:
-> 2) Thomas Bogendorfer was working on a patch to support a board with
-> both a fiber and copper connection on the same board.  He is still
-> cooking that change, but it changes code in the same place, but in a
-> different way.
-I sent the patch to Andrew as a "quick fix" to get things working at all
-until Thomas's full fix is available.
-Cheers,
- -- Guido
+At beginning, I thought that a packet will be firstly classified by the CBQ where
+it will 
+find the proper class it belongs to. Then the packet enters the queue attached to
+that class.
+At last, the packet is scheduled in that queue, and put into the link. But now, I
+find it is 
+wrong. I have read the source code on CBQ again, especially the part-cbq_dequeue,
+I think
+that at first the CBQ will find the active class and their priority. Then in the
+function 
+cbq_dequeue_prio, the algorithm WRR will be used to schedule the packet. At first,
+it find a class,
+then, this skb = cl->q->dequeue(cl->q) maybe very important, I think "cl->q" is
+the queue 
+attached to the class "cl". So, the packet in the different queue is scheduled and
+put into 
+the link. 
 
---IpbVkmxF4tDyP/Kb
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+Another issue is that a scheduling algorithm WRR is used here, But i think it is
+not the best
+one, So can we modify here and add a new scheduling algorithm as we expected?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
+What about your opions?
 
-iD8DBQFB3kn/n88szT8+ZCYRAn4+AJ9cDx7KBo2Ez1n2uHSDsqx0ordqqACfRKp6
-w5zm1v4K64l3cMU4UltbGSw=
-=i3EM
------END PGP SIGNATURE-----
+Best,
 
---IpbVkmxF4tDyP/Kb--
+
+
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
