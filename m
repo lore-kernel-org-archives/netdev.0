@@ -1,47 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
- device
-Date: Tue, 25 Nov 2003 03:55:31 +0900 (JST)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] 2.6.0-test9-bk27-netdrvr-exp1 - r8169 update
+Date: Mon, 24 Nov 2003 22:34:59 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031125.035531.94714784.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi>
+Message-ID: <20031124223459.A11435@electric-eye.fr.zoreil.com>
+References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <3FC14058.4010600@mcve.com> <20031124004023.A1140@electric-eye.fr.zoreil.com> <3FC14AA3.9050009@mcve.com> <20031124090421.A4482@electric-eye.fr.zoreil.com> <3FC21843.2080805@mcve.com> <20031124184908.A9566@electric-eye.fr.zoreil.com> <3FC24C2B.1030007@mainstreetsoftworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi>
+To: Brad House <brad@mainstreetsoftworks.com>
+Content-Disposition: inline
+In-Reply-To: <3FC24C2B.1030007@mainstreetsoftworks.com>; from brad@mainstreetsoftworks.com on Mon, Nov 24, 2003 at 01:21:31PM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi> (at Wed, 5 Nov 2003 15:07:32 +0200 (EET)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+Brad House <brad@mainstreetsoftworks.com> :
+> Yes, I can do that.  These are the patches I applied:
+> -ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test9-bk25-netdrvr-exp1.patch.bz2
+> -r8169-mac-phy-version.patch
+[...]
+> Let me know where to begin, and I'll do it.
 
-> this (rewritten) patch configures link-local addresses to the ip6-ip6
-> tunnel devices so you can run link-local protocols over them. If you are
-> ok with the patch, perhaps we could push it forward to Dave.
+You patch -R in the following order until you get the behavior of vanilla
+kernel (or return to vanilla and patch in reverse order but you will notice
+a small reject for rx_copybreak due to an inserted GPL_MODULE in -netdrvr-exp).
+- r8169-mac-phy-version.patch
+- r8169-rx_copybreak.patch (11/22/2003 in euroland)
+- r8169-dma-api-tx-buffers.patch
+- r8169-start-xmit-fixes.patch
+- r8169-dma-api-data-buffers.patch
+- r8169-dma-api-tx.patch 
 
-Sorry for long silence.
+1 - If you don't get the usual behavior at this point, something is _wrong_.
+2 - You will have a one line offset, don't worry.
 
-> +static inline int
-> +ip6_tnl_inherit_linklocal(struct inet6_dev *idev, struct net_device *link_dev)
-> +{
-> +	struct in6_addr lladdr;
-> +
-> +	if (!ipv6_get_lladdr(link_dev, &lladdr)) {
-> +		addrconf_add_linklocal(idev, &lladdr);
-> +		return 0;
-> +	}
-> +	return -1;
-> +}
-> +
+Thank you.
 
-I prefer ipv6_inherit_linklocal() or something like that
-because this does not seem ip6_tun specific.
-
-I'm ok with other portion.
-
-Thanks.
-
---yoshfuji
+--
+Ueimor
