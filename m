@@ -1,310 +1,259 @@
-From: Crazy AMD K7 <snort2004@mail.ru>
-Subject: do_IRQ: stack overflow: 956 Fwd: Re: do_IRQ: stack overflow: 872..
-Date: Sat, 8 Jan 2005 23:29:08 +0300
-Message-ID: <15912343549.20050108232908@mail.ru>
-Reply-To: Crazy AMD K7 <snort2004@mail.ru>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/decnet/: misc possible cleanups (fwd)
+Date: Sat, 8 Jan 2005 22:40:03 +0100
+Message-ID: <20050108214003.GS14108@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>, Andi Kleen <ak@suse.de>,
-        Bart De Schuymer <bdschuym@pandora.be>, <bridge@osdl.org>,
-        <netdev@oss.sgi.com>, Rusty Russell <rusty@rustcorp.com.au>,
-        "David S. Miller" <davem@davemloft.net>
+Cc: patrick@tykepenguin.com, Steve Whitehouse <SteveW@ACM.org>,
+        linux-decnet-user@lists.sourceforge.net, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Crazy AMD K7 <snort2004@mail.ru>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-May be it will be interesting, may be not, but the situation
-with stack overflow appeared at my system again.
+The patch forwarded below (already ACK'ed by Patrick Caulfield) still 
+applies and compiles against 2.6.10-mm2.
 
-2.4.28 kernel
-+ ebtables-brnf-8_vs_2.4.28.diff
-+ fixbrnf.diff
-+ u32 (from patch-o-matic)
-
-Here are the results:
-ksymoops 2.4.4 on i686 2.4.28.  Options used
-     -V (default)
-     -k /proc/ksyms (default)
-     -l /proc/modules (default)
-     -o /lib/modules/2.4.28/ (default)
-     -m /boot/System.map-2.4.28-fixed (specified)
-
-Jan  6 18:49:04 localhost kernel: do_IRQ: stack overflow: 956
-Jan  6 18:49:04 localhost kernel: c02623f4 000003bc dfe65f00 00000001 0000000b ceb1c9d8 c010a508 dfe65f00
-Jan  6 18:49:04 localhost kernel:        0000000b 0000000b 00000001 0000000b ceb1c9d8 04000000 00000018 00000018 
-Jan  6 18:49:04 localhost kernel:        ffffff0c c0108069 00000010 00000246 ceb1c9d8 0000000b c0300bc0 dfe65f00 
-Jan  6 18:49:04 localhost kernel: Call Trace:    [<c010a508>] [<c0108069>] [<c0108208>] [<c010a508>] [<c025769b>]
-Jan  6 18:49:04 localhost kernel:   [<c0208dc8>] [<c020777b>] [<c020790d>] [<c01be170>] [<c020afd5>] [<c02530e0>]
-Jan  6 18:49:04 localhost kernel:   [<c02146fc>] [<c020b1de>] [<c02530e0>] [<c024642c>] [<c0253199>] [<c02130b3>]
-Jan  6 18:49:04 localhost kernel:   [<c02530e0>] [<c02530e0>] [<c021342e>] [<c0213460>] [<c01be937>] [<c0256e10>]
-Jan  6 18:49:04 localhost kernel:   [<c02530e0>] [<c0244098>] [<c02530e0>] [<c02130b3>] [<c02530e0>] [<c02530e0>]
-Jan  6 18:49:04 localhost kernel:   [<c021342e>] [<c02530e0>] [<c02130b3>] [<c02531b0>] [<c02531e9>] [<c02530e0>]
-Jan  6 18:49:04 localhost kernel:   [<c0213460>] [<c020b1de>] [<c02531b0>] [<c0256cbf>] [<c02531b0>] [<c0208dc8>]
-Jan  6 18:49:04 localhost kernel:   [<c02531b0>] [<c02130b3>] [<c02531b0>] [<c02531b0>] [<c021342e>] [<c02531b0>]
-Jan  6 18:49:04 localhost kernel:   [<c020777b>] [<c020790d>] [<c025322a>] [<c02531b0>] [<c02532ab>] [<c025276a>]
-Jan  6 18:49:04 localhost kernel:   [<c020b02e>] [<c025279d>] [<c020b255>] [<c02530e0>] [<c02530e0>] [<c021342e>]
-Jan  6 18:49:04 localhost kernel:   [<c0213460>] [<c021e9e7>] [<c0256e10>] [<c021e940>] [<c021e940>] [<c0256f42>]
-Jan  6 18:49:04 localhost kernel:   [<c02130b3>] [<c021e940>] [<c021e940>] [<c021342e>] [<c021e940>] [<c0108079>]
-Jan  6 18:49:04 localhost kernel:   [<c021d649>] [<c021e940>] [<c0208dc8>] [<c020777b>] [<c020790d>] [<c021eb60>]
-Jan  6 18:49:04 localhost kernel:   [<c0246498>] [<c021ea40>] [<c021ea40>] [<c0256f42>] [<c02130b3>] [<c021ea40>]
-Jan  6 18:49:04 localhost kernel:   [<c021ea40>] [<c021342e>] [<c021ea40>] [<c02130b3>] [<c021dac1>] [<c021ea40>]
-Jan  6 18:49:04 localhost kernel:   [<c0213460>] [<c0208dc8>] [<c0256e10>] [<c02530e0>] [<c0244098>] [<c023296d>]
-Jan  6 18:49:04 localhost kernel:   [<c022db29>] [<c02292c1>] [<c02530e0>] [<c022e5e1>] [<c022b929>] [<c0256cbf>]
-Jan  6 18:49:04 localhost kernel:   [<c022bd67>] [<c02531b0>] [<c02130b3>] [<c02531b0>] [<c02531b0>] [<c021342e>]
-Jan  6 18:49:04 localhost kernel:   [<c02531b0>] [<c020777b>] [<c020790d>] [<c025322a>] [<c02088f5>] [<c0233719>]
-Jan  6 18:49:04 localhost kernel:   [<c023366e>] [<c0233bc4>] [<c0244098>] [<c021acb0>] [<c02463ac>] [<c021ad67>]
-Jan  6 18:49:04 localhost kernel:   [<c021acb0>] [<c021acb0>] [<c021342e>] [<c021acb0>] [<c0213460>] [<c02560c0>]
-Jan  6 18:49:04 localhost kernel:   [<c024642c>] [<c021ade0>] [<c021a93c>] [<c021acb0>] [<c02560c0>] [<c02188fd>]
-Jan  6 18:49:04 localhost kernel:   [<c021ade0>] [<c021ade0>] [<c021af4b>] [<c0253b70>] [<c02568c0>] [<c021ade0>]
-Jan  6 18:49:04 localhost kernel:   [<c0256e3b>] [<c02130b3>] [<c021ade0>] [<c021ade0>] [<c021342e>] [<c021ade0>]
-Jan  6 18:49:04 localhost kernel:   [<c021ea40>] [<c021ac7d>] [<c021ade0>] [<c0253b70>] [<c0233719>] [<c0250f2c>]
-Jan  6 18:49:04 localhost kernel:   [<c0253b70>] [<c02075a1>] [<c020b7df>] [<c023296d>] [<c020b87d>] [<c020b99c>]
-Jan  6 18:49:04 localhost kernel:   [<c0108079>] [<c01176cb>] [<c010823c>] [<c010a508>] [<c0163161>] [<c015ec35>]
-Jan  6 18:49:04 localhost kernel:   [<c020b435>] [<c02075a1>] [<c01be64d>] [<c015ec8f>] [<c0158441>] [<c022db29>]
-Jan  6 18:49:04 localhost kernel:   [<c02292c1>] [<c0233719>] [<c0253ac0>] [<c021342e>] [<c016320b>] [<c015ec35>]
-Jan  6 18:49:04 localhost kernel:   [<c0132e86>] [<c015ec97>] [<c0158ab0>] [<c016320b>] [<c0158a53>] [<c0158b57>]
-Jan  6 18:49:04 localhost kernel:   [<c0158c2c>] [<c015ef55>] [<c014312e>] [<c015384a>] [<c016320b>] [<c015ec35>]
-Jan  6 18:49:04 localhost kernel:   [<c021ade0>] [<c021ade0>] [<c021af4b>] [<c0256e3b>] [<c015f29d>] [<c0158728>]
-Jan  6 18:49:04 localhost kernel:   [<c0158791>] [<c021ade0>] [<c021ade0>] [<c021342e>] [<c016320b>] [<c015ec35>]
-Jan  6 18:49:04 localhost kernel:   [<c0132e86>] [<c015ec97>] [<c016320b>] [<c015ec35>] [<c0155b79>] [<c0155e95>]
-Jan  6 18:49:04 localhost kernel:   [<c0132bf8>] [<c0132c09>] [<c0132e86>] [<c0158728>] [<c0158791>] [<c0155d03>]
-Jan  6 18:49:04 localhost kernel:   [<c015656d>] [<c01330b1>] [<c01566c9>] [<c0133616>] [<c0164f07>] [<c0133ecd>]
-Jan  6 18:49:04 localhost kernel:   [<c0156670>] [<c0156b1c>] [<c0156670>] [<c01297f5>] [<c012339d>] [<c0125ec5>]
-Jan  6 18:49:04 localhost kernel:   [<c0126320>] [<c015467f>] [<c0131175>] [<c013eea8>] [<c0108208>] [<c0116feb>]
-Jan  6 18:49:04 localhost kernel:   [<c0106cb3>]
-Warning (Oops_read): Code line not seen, dumping what data is available
-
-Trace; c010a508 <call_do_IRQ+5/d>
-Trace; c0108069 <handle_IRQ_event+29/60>
-Trace; c0108208 <do_IRQ+88/d0>
-Trace; c010a508 <call_do_IRQ+5/d>
-Trace; c025769b <_mmx_memcpy+2b/150>
-Trace; c0208dc8 <skb_copy_and_csum_dev+78/d0>
-Trace; c020777b <kfree_skbmem+b/60>
-Trace; c020790d <__kfree_skb+13d/150>
-Trace; c01be170 <rtl8139_start_xmit+50/100>
-Trace; c020afd5 <dev_queue_xmit_nit+15/a0>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c02146fc <qdisc_restart+4c/d0>
-Trace; c020b1de <dev_queue_xmit+fe/260>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c024642c <ipt_route_hook+1c/20>
-Trace; c0253199 <br_dev_queue_push_xmit+b9/d0>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c0213460 <nf_hook_slow+e0/140>
-Trace; c01be937 <rtl8139_interrupt+d7/120>
-Trace; c0256e10 <br_nf_post_routing+140/150>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c0244098 <ipt_do_table+308/450>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c02531e9 <br_forward_finish+39/40>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c0213460 <nf_hook_slow+e0/140>
-Trace; c020b1de <dev_queue_xmit+fe/260>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c0256cbf <br_nf_local_out+19f/1b0>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c0208dc8 <skb_copy_and_csum_dev+78/d0>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c020777b <kfree_skbmem+b/60>
-Trace; c020790d <__kfree_skb+13d/150>
-Trace; c025322a <__br_deliver+3a/40>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c02532ab <br_deliver+2b/50>
-Trace; c025276a <__br_dev_xmit+6a/90>
-Trace; c020b02e <dev_queue_xmit_nit+6e/a0>
-Trace; c025279d <br_dev_xmit+d/10>
-Trace; c020b255 <dev_queue_xmit+175/260>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c0213460 <nf_hook_slow+e0/140>
-Trace; c021e9e7 <ip_finish_output2+a7/100>
-Trace; c0256e10 <br_nf_post_routing+140/150>
-Trace; c021e940 <ip_finish_output2+0/100>
-Trace; c021e940 <ip_finish_output2+0/100>
-Trace; c0256f42 <ip_sabotage_out+f2/110>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c021e940 <ip_finish_output2+0/100>
-Trace; c021e940 <ip_finish_output2+0/100>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c021e940 <ip_finish_output2+0/100>
-Trace; c0108079 <handle_IRQ_event+39/60>
-Trace; c021d649 <ip_output+139/150>
-Trace; c021e940 <ip_finish_output2+0/100>
-Trace; c0208dc8 <skb_copy_and_csum_dev+78/d0>
-Trace; c020777b <kfree_skbmem+b/60>
-Trace; c020790d <__kfree_skb+13d/150>
-Trace; c021eb60 <ip_queue_xmit2+120/1f7>
-Trace; c0246498 <ipt_local_hook+68/b0>
-Trace; c021ea40 <ip_queue_xmit2+0/1f7>
-Trace; c021ea40 <ip_queue_xmit2+0/1f7>
-Trace; c0256f42 <ip_sabotage_out+f2/110>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c021ea40 <ip_queue_xmit2+0/1f7>
-Trace; c021ea40 <ip_queue_xmit2+0/1f7>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c021ea40 <ip_queue_xmit2+0/1f7>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c021dac1 <ip_queue_xmit+461/4b0>
-Trace; c021ea40 <ip_queue_xmit2+0/1f7>
-Trace; c0213460 <nf_hook_slow+e0/140>
-Trace; c0208dc8 <skb_copy_and_csum_dev+78/d0>
-Trace; c0256e10 <br_nf_post_routing+140/150>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c0244098 <ipt_do_table+308/450>
-Trace; c023296d <tcp_v4_send_check+6d/b0>
-Trace; c022db29 <tcp_transmit_skb+549/670>
-Trace; c02292c1 <tcp_clean_rtx_queue+221/320>
-Trace; c02530e0 <br_dev_queue_push_xmit+0/d0>
-Trace; c022e5e1 <tcp_write_xmit+151/290>
-Trace; c022b929 <__tcp_data_snd_check+49/d0>
-Trace; c0256cbf <br_nf_local_out+19f/1b0>
-Trace; c022bd67 <tcp_rcv_established+137/8d0>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c02531b0 <br_forward_finish+0/40>
-Trace; c020777b <kfree_skbmem+b/60>
-Trace; c020790d <__kfree_skb+13d/150>
-Trace; c025322a <__br_deliver+3a/40>
-Trace; c02088f5 <skb_checksum+45/240>
-Trace; c0233719 <tcp_v4_do_rcv+29/100>
-Trace; c023366e <tcp_v4_checksum_init+7e/100>
-Trace; c0233bc4 <tcp_v4_rcv+3d4/620>
-Trace; c0244098 <ipt_do_table+308/450>
-Trace; c021acb0 <ip_local_deliver_finish+0/130>
-Trace; c02463ac <ipt_hook+1c/20>
-Trace; c021ad67 <ip_local_deliver_finish+b7/130>
-Trace; c021acb0 <ip_local_deliver_finish+0/130>
-Trace; c021acb0 <ip_local_deliver_finish+0/130>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c021acb0 <ip_local_deliver_finish+0/130>
-Trace; c0213460 <nf_hook_slow+e0/140>
-Trace; c02560c0 <br_nf_pre_routing_finish+0/1f0>
-Trace; c024642c <ipt_route_hook+1c/20>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021a93c <ip_local_deliver+17c/190>
-Trace; c021acb0 <ip_local_deliver_finish+0/130>
-Trace; c02560c0 <br_nf_pre_routing_finish+0/1f0>
-Trace; c02188fd <ip_route_input+3d/130>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021af4b <ip_rcv_finish+16b/1a0>
-Trace; c0253b70 <br_handle_frame_finish+0/110>
-Trace; c02568c0 <br_nf_pre_routing+330/350>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c0256e3b <ip_sabotage_in+1b/30>
-Trace; c02130b3 <nf_iterate+33/90>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021ea40 <ip_queue_xmit2+0/1f7>
-Trace; c021ac7d <ip_rcv+32d/360>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c0253b70 <br_handle_frame_finish+0/110>
-Trace; c0233719 <tcp_v4_do_rcv+29/100>
-Trace; c0250f2c <packet_rcv+ec/260>
-Trace; c0253b70 <br_handle_frame_finish+0/110>
-Trace; c02075a1 <alloc_skb+d1/190>
-Trace; c020b7df <netif_receive_skb+17f/1b0>
-Trace; c023296d <tcp_v4_send_check+6d/b0>
-Trace; c020b87d <process_backlog+6d/120>
-Trace; c020b99c <net_rx_action+6c/100>
-Trace; c0108079 <handle_IRQ_event+39/60>
-Trace; c01176cb <do_softirq+4b/90>
-Trace; c010823c <do_IRQ+bc/d0>
-Trace; c010a508 <call_do_IRQ+5/d>
-Trace; c0163161 <journal_cancel_revoke+51/170>
-Trace; c015ec35 <do_get_write_access+4b5/4e0>
-Trace; c020b435 <netif_rx+75/160>
-Trace; c02075a1 <alloc_skb+d1/190>
-Trace; c01be64d <rtl8139_rx_interrupt+1ad/2a0>
-Trace; c015ec8f <journal_get_write_access+2f/50>
-Trace; c0158441 <ext3_do_update_inode+41/3c0>
-Trace; c022db29 <tcp_transmit_skb+549/670>
-Trace; c02292c1 <tcp_clean_rtx_queue+221/320>
-Trace; c0233719 <tcp_v4_do_rcv+29/100>
-Trace; c0253ac0 <br_pass_frame_up_finish+0/10>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c016320b <journal_cancel_revoke+fb/170>
-Trace; c015ec35 <do_get_write_access+4b5/4e0>
-Trace; c0132e86 <bread+16/80>
-Trace; c015ec97 <journal_get_write_access+37/50>
-Trace; c0158ab0 <ext3_reserve_inode_write+30/b0>
-Trace; c016320b <journal_cancel_revoke+fb/170>
-Trace; c0158a53 <ext3_mark_iloc_dirty+23/50>
-Trace; c0158b57 <ext3_mark_inode_dirty+27/40>
-Trace; c0158c2c <ext3_dirty_inode+bc/100>
-Trace; c015ef55 <journal_get_undo_access+f5/120>
-Trace; c014312e <__mark_inode_dirty+2e/90>
-Trace; c015384a <ext3_new_block+aa/830>
-Trace; c016320b <journal_cancel_revoke+fb/170>
-Trace; c015ec35 <do_get_write_access+4b5/4e0>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021af4b <ip_rcv_finish+16b/1a0>
-Trace; c0256e3b <ip_sabotage_in+1b/30>
-Trace; c015f29d <journal_dirty_metadata+17d/1a0>
-Trace; c0158728 <ext3_do_update_inode+328/3c0>
-Trace; c0158791 <ext3_do_update_inode+391/3c0>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021ade0 <ip_rcv_finish+0/1a0>
-Trace; c021342e <nf_hook_slow+ae/140>
-Trace; c016320b <journal_cancel_revoke+fb/170>
-Trace; c015ec35 <do_get_write_access+4b5/4e0>
-Trace; c0132e86 <bread+16/80>
-Trace; c015ec97 <journal_get_write_access+37/50>
-Trace; c016320b <journal_cancel_revoke+fb/170>
-Trace; c015ec35 <do_get_write_access+4b5/4e0>
-Trace; c0155b79 <ext3_alloc_block+19/20>
-Trace; c0155e95 <ext3_alloc_branch+55/2d0>
-Trace; c0132bf8 <getblk+28/60>
-Trace; c0132c09 <getblk+39/60>
-Trace; c0132e86 <bread+16/80>
-Trace; c0158728 <ext3_do_update_inode+328/3c0>
-Trace; c0158791 <ext3_do_update_inode+391/3c0>
-Trace; c0155d03 <ext3_get_branch+53/d0>
-Trace; c015656d <ext3_get_block_handle+1bd/2c0>
-Trace; c01330b1 <create_buffers+61/f0>
-Trace; c01566c9 <ext3_get_block+59/60>
-Trace; c0133616 <__block_prepare_write+e6/300>
-Trace; c0164f07 <__jbd_kmalloc+27/a0>
-Trace; c0133ecd <block_prepare_write+1d/40>
-Trace; c0156670 <ext3_get_block+0/60>
-Trace; c0156b1c <ext3_prepare_write+7c/120>
-Trace; c0156670 <ext3_get_block+0/60>
-Trace; c01297f5 <lru_cache_add+65/70>
-Trace; c012339d <add_to_page_cache_unique+9d/b0>
-Trace; c0125ec5 <do_generic_file_write+255/3e0>
-Trace; c0126320 <generic_file_write+f0/110>
-Trace; c015467f <ext3_file_write+1f/b0>
-Trace; c0131175 <sys_write+95/f0>
-Trace; c013eea8 <sys_select+468/480>
-Trace; c0108208 <do_IRQ+88/d0>
-Trace; c0116feb <sys_gettimeofday+1b/a0>
-Trace; c0106cb3 <system_call+33/38>
+Please apply.
 
 
-1 warning issued.  Results may not be reliable.
+----- Forwarded message from Adrian Bunk <bunk@stusta.de> -----
+
+Date:	Tue, 14 Dec 2004 13:58:38 +0100
+From: Adrian Bunk <bunk@stusta.de>
+To: patrick@tykepenguin.com, Steve Whitehouse <SteveW@ACM.org>
+Cc: linux-decnet-user@lists.sourceforge.net, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Subject: [2.6 patch] net/decnet/: misc possible cleanups
+
+The patch below contains the following possible cleanups:
+- make needlessly global code static
+- dn_fib.c: remove the write-only global variable dn_fib_info_cnt
+- dn_fib.c: remove the unused global function dn_fib_rt_message
+- dn_neigh.c: remove the unused global function dn_neigh_pointopoint_notify
+- dn_timer.c: remove the fast timer code that isn't used
+
+Please review and comment on this patch.
+
+
+diffstat output:
+ include/net/dn.h       |    2 -
+ include/net/dn_fib.h   |    1 
+ net/decnet/af_decnet.c |    6 +----
+ net/decnet/dn_fib.c    |   15 -------------
+ net/decnet/dn_neigh.c  |    8 ------
+ net/decnet/dn_route.c  |    6 ++---
+ net/decnet/dn_timer.c  |   47 -----------------------------------------
+ 7 files changed, 5 insertions(+), 80 deletions(-)
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.10-rc3-mm1-full/net/decnet/af_decnet.c.old	2004-12-14 03:30:13.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/decnet/af_decnet.c	2004-12-14 03:47:00.000000000 +0100
+@@ -246,7 +246,7 @@
+ 	write_unlock_bh(&dn_hash_lock);
+ }
+ 
+-struct hlist_head *listen_hash(struct sockaddr_dn *addr)
++static struct hlist_head *listen_hash(struct sockaddr_dn *addr)
+ {
+ 	int i;
+ 	unsigned hash = addr->sdn_objnum;
+@@ -447,7 +447,7 @@
+ 	dst_release(xchg(&sk->sk_dst_cache, NULL));
+ }
+ 
+-struct sock *dn_alloc_sock(struct socket *sock, int gfp)
++static struct sock *dn_alloc_sock(struct socket *sock, int gfp)
+ {
+ 	struct dn_scp *scp;
+ 	struct sock *sk = sk_alloc(PF_DECnet, gfp, sizeof(struct dn_sock),
+@@ -578,7 +578,6 @@
+ 	if (sk->sk_socket)
+ 		return 0;
+ 
+-	dn_stop_fast_timer(sk); /* unlikely, but possible that this is runninng */
+ 	if ((jiffies - scp->stamp) >= (HZ * decnet_time_wait)) {
+ 		dn_unhash_sock(sk);
+ 		sock_put(sk);
+@@ -631,7 +630,6 @@
+ 		default:
+ 			printk(KERN_DEBUG "DECnet: dn_destroy_sock passed socket in invalid state\n");
+ 		case DN_O:
+-			dn_stop_fast_timer(sk);
+ 			dn_stop_slow_timer(sk);
+ 
+ 			dn_unhash_sock_bh(sk);
+--- linux-2.6.10-rc3-mm1-full/include/net/dn_fib.h.old	2004-12-14 03:32:14.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/dn_fib.h	2004-12-14 03:32:19.000000000 +0100
+@@ -117,7 +117,6 @@
+ extern void dn_fib_init(void);
+ extern void dn_fib_cleanup(void);
+ 
+-extern int dn_fib_rt_message(struct sk_buff *skb);
+ extern int dn_fib_ioctl(struct socket *sock, unsigned int cmd, 
+ 			unsigned long arg);
+ extern struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, 
+--- linux-2.6.10-rc3-mm1-full/net/decnet/dn_fib.c.old	2004-12-14 03:31:33.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_fib.c	2004-12-14 03:32:31.000000000 +0100
+@@ -60,7 +60,6 @@
+ static spinlock_t dn_fib_multipath_lock = SPIN_LOCK_UNLOCKED;
+ static struct dn_fib_info *dn_fib_info_list;
+ static rwlock_t dn_fib_info_lock = RW_LOCK_UNLOCKED;
+-int dn_fib_info_cnt;
+ 
+ static struct
+ {
+@@ -93,7 +92,6 @@
+ 			dev_put(nh->nh_dev);
+ 		nh->nh_dev = NULL;
+ 	} endfor_nexthops(fi);
+-	dn_fib_info_cnt--;
+ 	kfree(fi);
+ }
+ 
+@@ -388,7 +386,6 @@
+ 	if (dn_fib_info_list)
+ 		dn_fib_info_list->fib_prev = fi;
+ 	dn_fib_info_list = fi;
+-	dn_fib_info_cnt++;
+ 	write_unlock(&dn_fib_info_lock);
+ 	return fi;
+ 
+@@ -486,18 +483,6 @@
+ }
+ 
+ 
+-/*
+- * Punt to user via netlink for example, but for now
+- * we just drop it.
+- */
+-int dn_fib_rt_message(struct sk_buff *skb)
+-{
+-	kfree_skb(skb);
+-
+-	return 0;
+-}
+-
+-
+ static int dn_fib_check_attr(struct rtmsg *r, struct rtattr **rta)
+ {
+ 	int i;
+--- linux-2.6.10-rc3-mm1-full/net/decnet/dn_neigh.c.old	2004-12-14 03:32:55.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_neigh.c	2004-12-14 03:33:29.000000000 +0100
+@@ -355,14 +355,6 @@
+  * basically does a neigh_lookup(), but without comparing the device
+  * field. This is required for the On-Ethernet cache
+  */
+-/*
+- * Any traffic on a pointopoint link causes the timer to be reset
+- * for the entry in the neighbour table.
+- */
+-void dn_neigh_pointopoint_notify(struct sk_buff *skb)
+-{
+-	return;
+-}
+ 
+ /*
+  * Pointopoint link receives a hello message
+--- linux-2.6.10-rc3-mm1-full/net/decnet/dn_route.c.old	2004-12-14 03:33:53.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_route.c	2004-12-14 03:34:54.000000000 +0100
+@@ -99,9 +99,9 @@
+ 
+ static unsigned char dn_hiord_addr[6] = {0xAA,0x00,0x04,0x00,0x00,0x00};
+ 
+-int dn_rt_min_delay = 2 * HZ;
+-int dn_rt_max_delay = 10 * HZ;
+-int dn_rt_mtu_expires = 10 * 60 * HZ;
++static const int dn_rt_min_delay = 2 * HZ;
++static const int dn_rt_max_delay = 10 * HZ;
++static const int dn_rt_mtu_expires = 10 * 60 * HZ;
+ 
+ static unsigned long dn_rt_deadline;
+ 
+--- linux-2.6.10-rc3-mm1-full/include/net/dn.h.old	2004-12-14 03:35:13.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/dn.h	2004-12-14 03:46:38.000000000 +0100
+@@ -220,8 +220,6 @@
+ 
+ extern void dn_start_slow_timer(struct sock *sk);
+ extern void dn_stop_slow_timer(struct sock *sk);
+-extern void dn_start_fast_timer(struct sock *sk);
+-extern void dn_stop_fast_timer(struct sock *sk);
+ 
+ extern dn_address decnet_address;
+ extern int decnet_debug_level;
+--- linux-2.6.10-rc3-mm1-full/net/decnet/dn_timer.c.old	2004-12-14 03:35:29.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_timer.c	2004-12-14 03:48:49.000000000 +0100
+@@ -27,11 +27,9 @@
+ #include <net/dn.h>
+ 
+ /*
+- * Fast timer is for delayed acks (200mS max)
+  * Slow timer is for everything else (n * 500mS)
+  */
+ 
+-#define FAST_INTERVAL (HZ/5)
+ #define SLOW_INTERVAL (HZ/2)
+ 
+ static void dn_slow_timer(unsigned long arg);
+@@ -109,48 +107,3 @@
+ 	bh_unlock_sock(sk);
+ 	sock_put(sk);
+ }
+-
+-static void dn_fast_timer(unsigned long arg)
+-{
+-	struct sock *sk = (struct sock *)arg;
+-	struct dn_scp *scp = DN_SK(sk);
+-
+-	bh_lock_sock(sk);
+-	if (sock_owned_by_user(sk)) {
+-		scp->delack_timer.expires = jiffies + HZ / 20;
+-		add_timer(&scp->delack_timer);
+-		goto out;
+-	}
+-
+-	scp->delack_pending = 0;
+-
+-	if (scp->delack_fxn)
+-		scp->delack_fxn(sk);
+-out:
+-	bh_unlock_sock(sk);
+-}
+-
+-void dn_start_fast_timer(struct sock *sk)
+-{
+-	struct dn_scp *scp = DN_SK(sk);
+-
+-	if (!scp->delack_pending) {
+-		scp->delack_pending = 1;
+-		init_timer(&scp->delack_timer);
+-		scp->delack_timer.expires = jiffies + FAST_INTERVAL;
+-		scp->delack_timer.data = (unsigned long)sk;
+-		scp->delack_timer.function = dn_fast_timer;
+-		add_timer(&scp->delack_timer);
+-	}
+-}
+-
+-void dn_stop_fast_timer(struct sock *sk)
+-{
+-	struct dn_scp *scp = DN_SK(sk);
+-
+-	if (scp->delack_pending) {
+-		scp->delack_pending = 0;
+-		del_timer(&scp->delack_timer);
+-	}
+-}
+-
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
+
+----- End forwarded message -----
