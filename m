@@ -1,7 +1,7 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 2.6.11-rc3 2/5]: bonding: use wrappers to change mtu and MAC
-Date: Fri, 11 Feb 2005 01:16:31 -0800
-Message-ID: <200502110916.j1B9GV6q003659@death.nxdomain.ibm.com>
+Subject: [PATCH 2.6.11-rc3 1/5]: net/core: move set MAC into separate function
+Date: Fri, 11 Feb 2005 01:15:50 -0800
+Message-ID: <200502110915.j1B9Fo2v003646@death.nxdomain.ibm.com>
 Cc: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
@@ -10,139 +10,84 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	This updates the bonding driver to use the dev_set_mtu() and
-dev_set_mac_address() wrapper functions.
+	This moves the SIOCSIFHWADDR code from dev_ifsioc() into a
+separate new function, dev_set_mac_address().  This provides a single
+entry point for all callers performing MAC address changes.
 
 Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-Index: linux-2611-rc3/drivers/net/bonding/bond_main.c
+
+Index: linux-2611-rc3/net/core/dev.c
 ===================================================================
-RCS file: /sda7/CVS/linux-2611-rc3/linux-2611-rc3/drivers/net/bonding/bond_main.c,v
+RCS file: /sda7/CVS/linux-2611-rc3/linux-2611-rc3/net/core/dev.c,v
 retrieving revision 1.1.1.1
-diff -u -u -r1.1.1.1 bond_main.c
---- linux-2611-rc3/drivers/net/bonding/bond_main.c	11 Feb 2005 04:50:54 -0000	1.1.1.1
-+++ linux-2611-rc3/drivers/net/bonding/bond_main.c	11 Feb 2005 06:20:08 -0000
-@@ -1719,7 +1719,7 @@
- 		 */
- 		memcpy(addr.sa_data, bond_dev->dev_addr, bond_dev->addr_len);
- 		addr.sa_family = slave_dev->type;
--		res = slave_dev->set_mac_address(slave_dev, &addr);
-+		res = dev_set_mac_address(slave_dev, &addr);
- 		if (res) {
- 			dprintk("Error %d calling set_mac_address\n", res);
- 			goto err_free;
-@@ -1991,7 +1991,7 @@
- err_restore_mac:
- 	memcpy(addr.sa_data, new_slave->perm_hwaddr, ETH_ALEN);
- 	addr.sa_family = slave_dev->type;
--	slave_dev->set_mac_address(slave_dev, &addr);
-+	dev_set_mac_address(slave_dev, &addr);
+retrieving revision 1.2
+diff -u -u -r1.1.1.1 -r1.2
+--- linux-2611-rc3/net/core/dev.c	11 Feb 2005 04:50:49 -0000	1.1.1.1
++++ linux-2611-rc3/net/core/dev.c	11 Feb 2005 05:54:32 -0000	1.2
+@@ -2299,6 +2299,21 @@
+ 	return err;
+ }
  
- err_free:
- 	kfree(new_slave);
-@@ -2171,7 +2171,7 @@
- 		/* restore original ("permanent") mac address */
- 		memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
- 		addr.sa_family = slave_dev->type;
--		slave_dev->set_mac_address(slave_dev, &addr);
-+		dev_set_mac_address(slave_dev, &addr);
- 	}
++int dev_set_mac_address(struct net_device *dev, struct sockaddr *sa)
++{
++	int err;
++
++	if (!dev->set_mac_address)
++		return -EOPNOTSUPP;
++	if (sa->sa_family != dev->type)
++		return -EINVAL;
++	if (!netif_device_present(dev))
++		return -ENODEV;
++	err = dev->set_mac_address(dev, sa);
++	if (!err)
++		notifier_call_chain(&netdev_chain, NETDEV_CHANGEADDR, dev);
++	return err;
++}
  
- 	/* restore the original state of the
-@@ -2262,7 +2262,7 @@
- 			/* restore original ("permanent") mac address*/
- 			memcpy(addr.sa_data, slave->perm_hwaddr, ETH_ALEN);
- 			addr.sa_family = slave_dev->type;
--			slave_dev->set_mac_address(slave_dev, &addr);
-+			dev_set_mac_address(slave_dev, &addr);
- 		}
+ /*
+  *	Perform the SIOCxIFxxx calls.
+@@ -2345,17 +2360,7 @@
+ 			return 0;
  
- 		/* restore the original state of the IFF_NOARP flag that might have
-@@ -3898,12 +3898,7 @@
- 	bond_for_each_slave(bond, slave, i) {
- 		dprintk("s %p s->p %p c_m %p\n", slave,
- 			slave->prev, slave->dev->change_mtu);
--		if (slave->dev->change_mtu) {
--			res = slave->dev->change_mtu(slave->dev, new_mtu);
--		} else {
--			slave->dev->mtu = new_mtu;
--			res = 0;
--		}
-+		res = dev_set_mtu(slave->dev, new_mtu);
+ 		case SIOCSIFHWADDR:
+-			if (!dev->set_mac_address)
+-				return -EOPNOTSUPP;
+-			if (ifr->ifr_hwaddr.sa_family != dev->type)
+-				return -EINVAL;
+-			if (!netif_device_present(dev))
+-				return -ENODEV;
+-			err = dev->set_mac_address(dev, &ifr->ifr_hwaddr);
+-			if (!err)
+-				notifier_call_chain(&netdev_chain,
+-						    NETDEV_CHANGEADDR, dev);
+-			return err;
++			return dev_set_mac_address(dev, &ifr->ifr_hwaddr);
  
- 		if (res) {
- 			/* If we failed to set the slave's mtu to the new value
-@@ -3929,14 +3924,10 @@
- 	bond_for_each_slave_from_to(bond, slave, i, bond->first_slave, stop_at) {
- 		int tmp_res;
- 
--		if (slave->dev->change_mtu) {
--			tmp_res = slave->dev->change_mtu(slave->dev, bond_dev->mtu);
--			if (tmp_res) {
--				dprintk("unwind err %d dev %s\n", tmp_res,
--					slave->dev->name);
--			}
--		} else {
--			slave->dev->mtu = bond_dev->mtu;
-+		tmp_res = dev_set_mtu(slave->dev, bond_dev->mtu);
-+		if (tmp_res) {
-+			dprintk("unwind err %d dev %s\n", tmp_res,
-+				slave->dev->name);
- 		}
- 	}
- 
-@@ -3988,7 +3979,7 @@
- 			goto unwind;
- 		}
- 
--		res = slave->dev->set_mac_address(slave->dev, addr);
-+		res = dev_set_mac_address(slave->dev, addr);
- 		if (res) {
- 			/* TODO: consider downing the slave
- 			 * and retry ?
-@@ -4014,7 +4005,7 @@
- 	bond_for_each_slave_from_to(bond, slave, i, bond->first_slave, stop_at) {
- 		int tmp_res;
- 
--		tmp_res = slave->dev->set_mac_address(slave->dev, &tmp_sa);
-+		tmp_res = dev_set_mac_address(slave->dev, &tmp_sa);
- 		if (tmp_res) {
- 			dprintk("unwind err %d dev %s\n", tmp_res,
- 				slave->dev->name);
-Index: linux-2611-rc3/drivers/net/bonding/bond_alb.c
+ 		case SIOCSIFHWBROADCAST:
+ 			if (ifr->ifr_hwaddr.sa_family != dev->type)
+@@ -3322,6 +3327,7 @@
+ EXPORT_SYMBOL(dev_set_promiscuity);
+ EXPORT_SYMBOL(dev_change_flags);
+ EXPORT_SYMBOL(dev_set_mtu);
++EXPORT_SYMBOL(dev_set_mac_address);
+ EXPORT_SYMBOL(free_netdev);
+ EXPORT_SYMBOL(netdev_boot_setup_check);
+ EXPORT_SYMBOL(netdev_set_master);
+Index: linux-2611-rc3/include/linux/netdevice.h
 ===================================================================
-RCS file: /sda7/CVS/linux-2611-rc3/linux-2611-rc3/drivers/net/bonding/bond_alb.c,v
+RCS file: /sda7/CVS/linux-2611-rc3/linux-2611-rc3/include/linux/netdevice.h,v
 retrieving revision 1.1.1.1
-diff -u -u -r1.1.1.1 bond_alb.c
---- linux-2611-rc3/drivers/net/bonding/bond_alb.c	11 Feb 2005 04:50:54 -0000	1.1.1.1
-+++ linux-2611-rc3/drivers/net/bonding/bond_alb.c	11 Feb 2005 06:16:32 -0000
-@@ -954,9 +954,9 @@
- 	/* each slave will receive packets destined to a different mac */
- 	memcpy(s_addr.sa_data, addr, dev->addr_len);
- 	s_addr.sa_family = dev->type;
--	if (dev->set_mac_address(dev, &s_addr)) {
-+	if (dev_set_mac_address(dev, &s_addr)) {
- 		printk(KERN_ERR DRV_NAME
--		       ": Error: dev->set_mac_address of dev %s failed! ALB "
-+		       ": Error: dev_set_mac_address of dev %s failed! ALB "
- 		       "mode requires that the base driver support setting "
- 		       "the hw address also when the network device's "
- 		       "interface is open\n",
-@@ -1209,7 +1209,7 @@
- 		/* save net_device's current hw address */
- 		memcpy(tmp_addr, slave->dev->dev_addr, ETH_ALEN);
+retrieving revision 1.2
+diff -u -u -r1.1.1.1 -r1.2
+--- linux-2611-rc3/include/linux/netdevice.h	11 Feb 2005 04:51:23 -0000	1.1.1.1
++++ linux-2611-rc3/include/linux/netdevice.h	11 Feb 2005 05:54:25 -0000	1.2
+@@ -678,6 +678,8 @@
+ extern int		dev_change_flags(struct net_device *, unsigned);
+ extern int		dev_change_name(struct net_device *, char *);
+ extern int		dev_set_mtu(struct net_device *, int);
++extern int		dev_set_mac_address(struct net_device *,
++					    struct sockaddr *);
+ extern void		dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev);
  
--		res = slave->dev->set_mac_address(slave->dev, addr);
-+		res = dev_set_mac_address(slave->dev, addr);
- 
- 		/* restore net_device's hw address */
- 		memcpy(slave->dev->dev_addr, tmp_addr, ETH_ALEN);
-@@ -1229,7 +1229,7 @@
- 	stop_at = slave;
- 	bond_for_each_slave_from_to(bond, slave, i, bond->first_slave, stop_at) {
- 		memcpy(tmp_addr, slave->dev->dev_addr, ETH_ALEN);
--		slave->dev->set_mac_address(slave->dev, &sa);
-+		dev_set_mac_address(slave->dev, &sa);
- 		memcpy(slave->dev->dev_addr, tmp_addr, ETH_ALEN);
- 	}
- 
+ extern void		dev_init(void);
