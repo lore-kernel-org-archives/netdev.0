@@ -1,30 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: neigh_create/inetdev_destroy race?
-Date: Tue, 7 Sep 2004 13:50:36 -0700
+Subject: Re: [PATCH] Do less atomic count changes in dev_queue_xmit
+Date: Tue, 7 Sep 2004 13:52:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907135036.5c80714a.davem@davemloft.net>
-References: <20040815191450.77532d5d.davem@redhat.com>
-	<20040816105131.GA11299@gondor.apana.org.au>
-	<20040828234201.79556f6e.davem@davemloft.net>
-	<20040829065031.GA786@gondor.apana.org.au>
-	<20040830230820.7514985d.davem@davemloft.net>
-	<20040831104139.GA2124@gondor.apana.org.au>
-	<20040901222118.0ce4bcc6.davem@davemloft.net>
-	<20040902130605.GA32570@gondor.apana.org.au>
-	<20040903133623.GA23179@gondor.apana.org.au>
-	<20040903090053.22c67bb9@dell_ss3.pdx.osdl.net>
-	<20040903234941.GA26247@gondor.apana.org.au>
+Message-ID: <20040907135230.447a2d8b.davem@davemloft.net>
+References: <20040904135439.GA23934@wotan.suse.de>
+	<20040905220341.GA13217@gondor.apana.org.au>
+	<20040907115655.GA25051@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, ak@suse.de, davem@redhat.com,
+        netdev@oss.sgi.com, akepner@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040903234941.GA26247@gondor.apana.org.au>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040907115655.GA25051@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 7 Sep 2004 13:56:55 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-Looks great Herbert, applied.
+> David, can you please consider this patch, thanks? 
+
+Applied, thanks guys.
+
+Andi can you please start providing "Signed-off-by:"
+lines with your patches?  I can only add my own at
+this time, but it makes me feel better if you provide
+one too.
 
 Thanks.
