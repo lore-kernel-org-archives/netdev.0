@@ -1,25 +1,56 @@
-From: "Cornelia Huck" <COHUCK@de.ibm.com>
-Subject: Re: Bug in qeth in 2.6
-Date: Thu, 4 Sep 2003 10:54:43 +0200
+From: Dax Kelson <Dax@GuruLabs.com>
+Subject: echo 0 > send_redirects broken?
+Date: Thu, 04 Sep 2003 15:04:02 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFCF0074F3.0CE8CF77-ONC1256D97.00308924-C1256D97.0030F005@de.ibm.com>
+Message-ID: <1062709441.2884.34.camel@mentor.gurulabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, zaitcev@redhat.com,
-   "Utz Bacher" <utz.bacher@de.ibm.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-cIOIRamT7qY1i+wP+ewE"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pete Zaitcev <zaitcev@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Pete,
 
-could you please elaborate what's exactly wrong with qeth_verify_dev()?
+--=-cIOIRamT7qY1i+wP+ewE
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-It has the same behaviour as in 2.4, and it looks correct to us...
+192.168.0.0/24=20
 
-Best regards / Mit freundlichen Gruessen
+  .9    .10      .254
+=3D=3D|=3D=3D=3D=3D=3D=3D|=3D=3D=3D=3D=3D=3D=3D|=3D=3D=3D=3D
+ [A]    [B]   [Router]
 
-Cornelia Huck
-zLinux Developer
-Tel.: +49-7031-16-4837, Mail: cohuck@de.ibm.com
+Hosts A and B running RHL9 with kernel 2.4.20-8.
+
+1. Start pinging the .254 IP from host A
+
+2. Enable ip_forwarding on host B
+3. Run arpspoof on host B to poison the arp cache on host A and the
+router
+4. On host B Turn off icmp redirects with the command:
+
+echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects
+
+Problem: Host B *still* sends ICMP redirects. Initially many redirects
+are sent, then the rate at which ICMP redirects are sent slows down
+until redirects only trickle out every few minutes.
+
+In older 2.4 kernels (2.4.9 for example) this did not happen. Turning
+off ICMP redirects really turned them off.
+
+Comments?
+
+--=-cIOIRamT7qY1i+wP+ewE
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQA/V6jBESq34TbtkiIRAtS0AJ9QnqGym/Ajz1HFOZ3qXQe8xRZuRQCgqPrC
+Ot1mGFrtzv56rD7xmEriKGM=
+=GT1y
+-----END PGP SIGNATURE-----
+
+--=-cIOIRamT7qY1i+wP+ewE--
