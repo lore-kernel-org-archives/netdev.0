@@ -1,25 +1,35 @@
-From: Eugene Surovegin <ebs@ebshome.net>
-Subject: Re: [IPSEC] fix ref counting in __xfrm4_bundle_create()
-Date: Tue, 1 Jun 2004 13:17:24 -0700
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Fw: F_SETSIG broken/changed in 2.6 for UDP and TCP sockets?
+Date: Tue, 1 Jun 2004 14:19:04 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040601201724.GA17412@gate.ebshome.net>
-References: <20040529001450.GA647@gate.ebshome.net> <E1BTuV7-0002m2-00@gondolin.me.apana.org.au>
+Message-ID: <OFAD1DE5B4.1A829EE7-ON88256EA6.006EE314-88256EA6.006F8B71@us.ibm.com>
+References: <20040531151843.7144dfce.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com, Russell Leighton <russ@elegant-software.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1BTuV7-0002m2-00@gondolin.me.apana.org.au>
+In-Reply-To: <20040531151843.7144dfce.akpm@osdl.org>
+To: Andrew Morton <akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, May 29, 2004 at 01:27:13PM +1000, Herbert Xu wrote:
-> However, can you see if the following patch fixes this problem as well?
-> It moves the dst->xfrm assignment to a spot where errors cannot occur.
+> In the udp case, I when I listen for multicast packets my app only
+> receives them when I am running a tcpdump (bizarre!).
 
-Yes, your version is OK. We haven't got the crash during our testing.
+Russ,
+        This piece (which I expect has nothing to do with the other
+problems you mentioned) sounds like you haven't joined the groups on
+the interface on which you're receiving the multicast packets.
+"tcpdump" will place the interface in "promiscuous mode" which will
+receive all packets, and ordinary packet delivery will allow
+the application to receive them, even if you haven't joined the group
+on the relevant interface.
+        To verify if the group joins is broken, you can look at
+/proc/net/igmp. If the groups you're joining are not listed on the
+interface you want, the program isn't joining the groups correctly.
+Group membership is per-interface, so joining a group on one interface
+does not join it on another.
+        Feel free to contact me if you need some help debugging the
+multicast problem.
 
-Thanks a lot, Herbert.
-
-Eugene
+                                                        +-DLS
