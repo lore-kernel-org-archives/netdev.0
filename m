@@ -1,35 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Wed, 19 Jan 2005 23:05:43 -0800
-Message-ID: <20050119230543.22a04473.davem@davemloft.net>
-References: <1104764660.1048.578.camel@jzny.localdomain>
-	<52brc68q05.fsf@topspin.com>
-	<5cac192f05010308414a25b548@mail.gmail.com>
-	<527jmu8nbw.fsf@topspin.com>
-	<5cac192f0501030907c755135@mail.gmail.com>
-	<20050103171227.GD7370@esmail.cup.hp.com>
-	<1104812294.1085.53.camel@jzny.localdomain>
-	<20050119144711.3fdd3d93.davem@davemloft.net>
-	<20050119151853.259de49a@dxpl.pdx.osdl.net>
-	<20050119164640.6c67bdfa.davem@davemloft.net>
-	<20050120031423.GC30088@wotan.suse.de>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 6/9] irda: use sock slab cache
+Date: Thu, 20 Jan 2005 08:54:54 +0000
+Message-ID: <20050120085454.GA31160@infradead.org>
+References: <41EF11AF.70203@conectiva.com.br> <20050120021607.GA11216@bougret.hpl.hp.com> <41EF29BE.2020807@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, hadi@cyberus.ca, iod00d@hp.com,
-        eric.lemoine@gmail.com, roland@topspin.com, netdev@oss.sgi.com,
-        ak@suse.de, openib-general@openib.org, kaber@trash.net
+Content-Type: text/plain; charset=us-ascii
+Cc: jt@hpl.hp.com, "David S. Miller" <davem@davemloft.net>,
+        irda-users@lists.sourceforge.net, netdev@oss.sgi.com,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20050120031423.GC30088@wotan.suse.de>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Disposition: inline
+In-Reply-To: <41EF29BE.2020807@conectiva.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jan 2005 04:14:23 +0100
-Andi Kleen <ak@suse.de> wrote:
+On Thu, Jan 20, 2005 at 01:47:10AM -0200, Arnaldo Carvalho de Melo wrote:
+> >	I'm just curious about the overhead of adding a specific slab
+> >for IrDA sockets. Most users never create any (using IrCOMM), or
+> >maximum one (using Obex), so it's not like it will get a lot of use
+> >(except here, of course).
+> 
+> Well, lets start with something that may sound funny: when this series
+> of patches is finished the overhead will _decrease_ for most people.
+> 
+> Why? Today we have in most machines five slab caches of this nature:
+> udp_sock, raw_sock, tcp_sock, unix_sock (PF_LOCAL) and the generic,
+> sock, that only is used by the protocols that are using 
+> kmalloc(pritave_sock) +
+> sk_protinfo.
 
-> Looks good to me and much cleaner than what I initially did.
-> Thanks.
-
-Thanks for the review Andi.
+But as Jean sais this type of socket is used very little, as are a few
+other probably (raw, pfkey?), so maybe those should just use kmalloc +
+kfree instead of their own slab?
