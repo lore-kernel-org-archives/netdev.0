@@ -1,36 +1,65 @@
-From: Madanlal Musuvathi <madan@cs.Stanford.EDU>
-Subject: clarification regarding tcp_sequence() fn
-Date: Wed, 17 Sep 2003 11:29:39 -0700
+From: maximilian attems <janitor@sternwelten.at>
+Subject: [patch] remove " ALLMULTI check " in plip.c
+Date: Wed, 17 Sep 2003 20:45:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16232.43027.255833.806157@chicory.Stanford.EDU>
+Message-ID: <20030917184504.GB15929@mail.sternwelten.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="uQr8t48UFsdbeI+V"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: kj <kernel-janitors@osdl.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
- In tcp_input.c the function tcp_sequence is defined as follows
 
-static inline int tcp_sequence(struct tcp_opt *tp, u32 seq, u32 end_seq)
-{
-	return	!before(end_seq, tp->rcv_wup) &&
-		!after(seq, tp->rcv_nxt + tcp_receive_window(tp));
-}
+--uQr8t48UFsdbeI+V
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I read this as (after inlining tcp_receive_window()): 
-  A received tcp packet is in sequence if
-     end_seq >= tp->rcv_wup &&
-     seq <= tp->rcv_wup + tp->rcv_wnd  
 
-However, this function accepts a packet that is just to the left of the
-window (end_seq == tp->rcv_wup). Is this intentional?
+please check the following patch
+maybe the comment is wrong and
+then it should be changed ;)
 
-If such a packet arrives, RFC requires that a duplicate acknowledgment be
-sent.  The linux tcp (atleast 2.4.19 & the latest 2.5 version from
-bitkeeper) would not acknowledge such packets in some cases. (Specifically
-those cases where the conditions in __tcp_ack_snd_check() fail.)
+it compiles, but no further checks
+same patch applies to 2.4.22 with offset
 
-madan
+thx for your feedback
+a++ maks
+
+
+--- linux-2.6.0-test5/drivers/net/plip.c	Mon Sep  8 21:50:40 2003
++++ linux/drivers/net/plip.c	Wed Sep 17 20:06:38 2003
+@@ -567,14 +567,6 @@
+ 			skb->pkt_type=3DPACKET_MULTICAST;
+ 	}
+ =09
+-	/*
+-	 *	This ALLMULTI check should be redundant by 1.4
+-	 *	so don't forget to remove it.
+-	 */
+-	=20
+-	if (ntohs(eth->h_proto) >=3D 1536)
+-		return eth->h_proto;
+-	=09
+ 	rawp =3D skb->data;
+ =09
+ 	/*
+
+--uQr8t48UFsdbeI+V
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
+
+iD8DBQE/aKuv6//kSTNjoX0RAkuPAJ9mpMQRWu4i2hnt4+o16UqaT9x4fgCfbdCo
+Iunk75jZtkN2EdbdUsedo9o=
+=G9kW
+-----END PGP SIGNATURE-----
+
+--uQr8t48UFsdbeI+V--
