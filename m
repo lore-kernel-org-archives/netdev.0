@@ -1,25 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] dvb-net -- allocate network device structures
-Date: Wed, 8 Oct 2003 08:43:46 -0700
+Subject: Re: [2.6 PATCH] ipvs - avoid returning NF_DROP from the packet
+ schedulers
+Date: Wed, 8 Oct 2003 08:48:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008084346.457e927b.davem@redhat.com>
-References: <20031007172257.7dff3075.shemminger@osdl.org>
+Message-ID: <20031008084833.0efcc4e1.davem@redhat.com>
+References: <Pine.LNX.4.44.0310081101170.5889-200000@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kraxel@bytesex.org, video4linux-list@redhat.com, netdev@oss.sgi.com
+Cc: wensong@linux-vs.org, rusty@rustcorp.com.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031007172257.7dff3075.shemminger@osdl.org>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0310081101170.5889-200000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Oct 2003 17:22:57 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 8 Oct 2003 11:09:20 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-> This patch to 2.6.0-test6 converts the DVB net driver to allocate network
-> devices structures in a manner similar to other network devices in 2.6 by
-> using alloc_netdev.  Instead of an array of structures, and array of pointers
-> is used.
+> 	It seems my NF_DROP approach leads to new bugs. So, better
+> free skb, return NF_STOLEN and add some comments. If someone
+> wants to fix it in another way, go ahead.
 
 Applied, thanks.
