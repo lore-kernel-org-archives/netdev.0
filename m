@@ -1,31 +1,32 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: 2.6.7 tulip performance (with NAPI)
-Date: Fri, 8 Oct 2004 01:44:13 +0200
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Fri, 8 Oct 2004 01:50:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041007234413.GC24969@xi.wantstofly.org>
-References: <41633174.7070805@candelatech.com> <16740.17875.574967.11417@robur.slu.se> <41646587.7070401@candelatech.com> <41649425.1010102@candelatech.com> <16741.45331.743721.822091@robur.slu.se>
+Message-ID: <20041007235022.GB19864@wotan.suse.de>
+References: <20041006214322.GG31237@waste.org> <20041007075319.6b31430d@jack.colino.net> <20041006234912.66bfbdcc.davem@davemloft.net> <20041007160532.60c3f26b@pirandello> <20041007112846.5c85b2d9.davem@davemloft.net> <20041007224422.1c1bea95@jack.colino.net> <20041007214505.GB31558@wotan.suse.de> <20041007215025.GT31237@waste.org> <20041007150756.2373719f.davem@davemloft.net> <20041007234322.GW31237@waste.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@davemloft.net>, ak@suse.de, colin@colino.net,
+        akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+To: Matt Mackall <mpm@selenic.com>
 Content-Disposition: inline
-In-Reply-To: <16741.45331.743721.822091@robur.slu.se>
+In-Reply-To: <20041007234322.GW31237@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 07, 2004 at 11:11:47PM +0200, Robert Olsson wrote:
+> Deadlocks from recursion, presumably? We could probably throw in a max
+> retry count, as ugly as that is..
 
->  I'm interested if anyone has done any pktgen performance tests with
->  w. S2IO or other 10G card we need to upgrade the lab equipment. 
->  Both 64 byte pkts and MTU sized pkts is interesting.  Anyone?
+There should not be any recursion, no.
 
-If you're interested in raw pps numbers and willing to use something
-other than pktgen to attain them, you might want to look into the intel
-IXP-based boards.  You actually have to write some microcode and upload
-it to an on-chip processor array, but you can easily sustain wirespeed
-at 4Gbps (IXP2400-based) or 10Gbps (IXP2800-based.)
+The problem is that the poll is effectively a spinlock. But when
+another CPU takes an long interrupt while holding the lock it 
+could take quite a long time to grab the lock.
+
+For most network drivers this shouldn't occur though because
+the net driver private lock is usually always taken with interrupts
+off. 
 
 
---L
+-Andi
