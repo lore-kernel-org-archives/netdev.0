@@ -1,39 +1,36 @@
 From: Roland Dreier <roland@topspin.com>
 Subject: Re: Advice needed on IP-over-InfiniBand driver
-Date: Sun, 19 Sep 2004 21:49:25 -0700
+Date: Sun, 19 Sep 2004 21:51:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <52y8j5r1d6.fsf@topspin.com>
+Message-ID: <52u0ttr196.fsf@topspin.com>
 References: <52fz5esxx6.fsf@topspin.com>
 	<20040919140133.60ea3fb3.davem@davemloft.net>
 	<1095628759.1049.22.camel@jzny.localdomain>
+	<20040919193415.6dc96cab.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1095628759.1049.22.camel@jzny.localdomain> (jamal's message of
- "19 Sep 2004 17:19:19 -0400")
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040919193415.6dc96cab.davem@davemloft.net> (David S.
+ Miller's message of "Sun, 19 Sep 2004 19:34:15 -0700")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    jamal> Probably just easier to have his own private tables holding
-    jamal> reference to neighbor entries instead of polluting the
-    jamal> neighbor tables.  Listens to ARP events - on state
-    jamal> transition to/from reachable state he queries his remote
-    jamal> manager.
+    David> It sounds like a two-stage thing, the first stage lets you
+    David> talk on the subnet and get to the IB subnet manager, and
+    David> the second stage lets you acually speak IP.  My
+    David> understanding, from his description, is that once the
+    David> second stage part is complete you don't need to first stage
+    David> address information at all.
 
-This does seem neater, but I don't know how to implement it.  How does
-one hook into ARP events?
-
-    jamal> Curious though if ARP still works even when that "path"
-    jamal> thing hasnt been resolved.
-
-ARP works because we can send broadcasts even without a path to a
-specific destination.  (I'm leaving out the details of how IP
-broadcast gets mapped to InfiniBand multicast)  When the system with
-the IP we're looking for receives a broadcast ARP, it can use the HW
-address in the ARP request to look up a path, so it can send an ARP
-reply.
+Pretty much... ARP gives you a unique identifier for the port with the
+IP address you're looking for.  Then you need to take that unique
+identifier and ask the subnet manager what path to use to get from
+your local port to that destination port.  (Talking to the subnet
+manager uses an InfiniBand native, non-IP mechanism -- one of the
+first things the subnet manager does is go over the whole fabric and
+tell each port what path to use to send it queries)
 
 Thanks,
   Roland
