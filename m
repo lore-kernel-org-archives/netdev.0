@@ -1,59 +1,38 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Sun, 19 Dec 2004 23:29:43 +0100
-Message-ID: <41C600D7.70005@tpack.net>
-References: <OF28701C56.81E1D26E-ONC1256F6B.00513EDD-C1256F6B.0052AF84@de.ibm.com> <1103484552.1046.155.camel@jzny.localdomain>
+From: Roland Dreier <roland@topspin.com>
+Subject: Re: LLTX and netif_stop_queue
+Date: Sun, 19 Dec 2004 14:35:26 -0800
+Message-ID: <52fz21ncgh.fsf@topspin.com>
+References: <52llbwoaej.fsf@topspin.com>
+	<20041217214432.07b7b21e.davem@davemloft.net>
+	<1103484675.1050.158.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, jgarzik@pobox.com,
-        netdev@oss.sgi.com, Paul Jakma <paul@clubi.ie>
-Return-path: <netdev-bounce@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
 To: hadi@cyberus.ca
-In-Reply-To: <1103484552.1046.155.camel@jzny.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <1103484675.1050.158.camel@jzny.localdomain> (jamal's message
+	of "19 Dec 2004 14:31:15 -0500")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Wed, 2004-12-15 at 10:03, Thomas Spatzier wrote:
-> 
->>jamal <hadi@cyberus.ca> wrote on 15.12.2004 14:50:27:
->>
->>
->>>When you netif_stop_queue you should never receive packets anymore
->>>at the device level. If you receive any its a bug and you should drop
->>>them and bitch violently. In other words i think what you have at the
->>>moment is bandaid not the solution.
->>
->>When we do a netif_stop_queue, we do not get any more packets.
->>So this behaviour is ok. The problem is that the socket write
->>queues fill up then and get blocked as soon as they are full.
->>
-> 
-> This is the strange part. Anyone still willing to provide a sample
-> program that hangs?
+    jamal> How about releasing the qlock only when the LLTX transmit
+    jamal> lock is grabbed? That should bring it to par with what it
+    jamal> was originally.
 
-I haven't tried this myself, but surely it can happen when the
-socket send-buffer is smaller than what can be queued up for
-transmission: i.e. in the qdisc queue and device DMA ring.
-And even more so, when sending to multiple devices from one socket.
+This seems a little risky.  I can't point to a specific deadlock but
+it doesn't seem right on general principles to unlock in a different
+order than you nested the locks when acquiring them -- if I understand
+correctly, you're suggesting lock(queue_lock), lock(tx_lock),
+unlock(queue_lock), unlock(tx_lock).
 
-> Look at e1000 they do it right there. 
-> 
-> On link up:
-> 	netif_carrier_on(netdev);
-> 	netif_wake_queue(netdev);
-> On Link Down:
-> 	netif_carrier_off(netdev); // wonder if these need swapping
-> 	netif_stop_queue(netdev);
-> 
-
-Well, this is the same as what started this whole thread.
-I believe that stopping the queue on link-down events is simply
-bad behavior of the driver.
-
--Tommy
+Thanks,
+  Roland
