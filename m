@@ -1,51 +1,60 @@
-From: jamal <hadi@cyberus.ca>
+From: Patrick Schaaf <bof@bof.de>
 Subject: Re: TODO list before feature freeze
-Date: Tue, 30 Jul 2002 08:04:42 -0400 (EDT)
+Date: Tue, 30 Jul 2002 14:27:58 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0207300800440.15727-100000@shell.cyberus.ca>
-References: <20020729224724.91A3A4B7F@lists.samba.org>
+Message-ID: <20020730142758.A492@oknodo.bof.de>
+References: <20020729182659.D570@oknodo.bof.de> <Pine.GSO.4.30.0207300750240.15727-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netfilter-devel@lists.netfilter.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick Schaaf <bof@bof.de>, Andi Kleen <ak@suse.de>,
+   Rusty Russell <rusty@rustcorp.com.au>, netfilter-devel@lists.netfilter.org,
+   netdev@oss.sgi.com, netfilter-core@lists.netfilter.org
 Return-path: <owner-netdev@oss.sgi.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-In-Reply-To: <20020729224724.91A3A4B7F@lists.samba.org>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.30.0207300750240.15727-100000@shell.cyberus.ca>; from hadi@cyberus.ca on Tue, Jul 30, 2002 at 07:58:42AM -0400
 List-Id: netdev.vger.kernel.org
 
+> What i have seen and reported by many people (someone seems to have gone
+> one step further and documented numbers, but cant find his email right
+> now). Take Linux as a router, it routes at x% of wire rate. Load
+> conntracking and watch it go down another 25% at least.
 
+Unfortunately, this is insufficient information to pin down what was
+happening. As Andi Kleen mentioned, a simple kernel profile from such
+a test would be a good start.
 
-On Tue, 30 Jul 2002, Rusty Russell wrote:
+Most likely things leading to such a result, in no specific suborder:
 
-> In message <Pine.GSO.4.30.0207290648020.12604-100000@shell.cyberus.ca> you writ
-> e:
-> > > Connection tracking:
-> >
-> > Fix perfomance problems with this thing. You may have seen reports of
-> > performance degradation it introduces. I was hoping to take a look at some
-> > point time hasnt been visiting this side.
->
-> There are several simple things to do here.  One is to improve the
-> hashing (fine for internet traffic, but frequently sucks under LAN
-> conditions), which is easy.  The other is to modify the
-> one-timer-per-connection approach to a "sweep once a second, or when
-> full" approach.
->
+- skb linearization
+- always-defragment
+- ip_conntrack_lock contention
+- per-packet timer management
 
-Thats the right direction. From code inspection, fixing the later problem
-would give you a lot more punch.
+I'm not personally interested in line rate routing, but I look forward
+to further results from such setups. I concentrate on real server work-
+loads, because that's where my job is.
 
-> Both these are simple patches, but I want to see benchmarks showing
-> that they improve things.
->
+> I think hashing is one of the problems. What performance improvemet are
+> you seeing? (couldnt tell from looking at your data)
 
-Indeed.
+We found that the autosizing tends to make the bucket count a multiple
+of two, and we found the currently used hash function does not like
+that, resulting in longer average bucket list lengths than neccessary.
+The crc32 hashes, and suitable modified abcd hashes, don't suffer from
+this deficiency, and they are almost identical to random (a pseudohash
+I used to depict the optimum).
 
-> Yes, that's exactly the plan.  It'd be more like the old-style
-> insert/delete (probably not replace), except with a "commit"
-> interface, implemented by copying the rules when they start modifying.
->
+However, the "badness" of the current hash, given my datasets, results
+in less than one additional list element, on average. So we could save
+one memory roundtrip. Given that with my netfilter hook statistics patch,
+I see >3000 cycles (1Ghz processor) spent in ip_conntrack_in - about
+10 memory round-trips - I don't think that you could measure the hash
+function improvement, except for artificial test cases.
 
-Why not take a look at the way tc does things and emulate that?
+We can improve here, but not much. Changing the hash function is mostly
+interesting to make hash bucket length attacks more unlikely.  The abcd
+hash family, with boottime chosen multipliers, could be of use here.
 
-cheers,
-jamal
+best regards
+  Patrick
