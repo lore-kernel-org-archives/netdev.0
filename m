@@ -1,30 +1,30 @@
-From: jamal <hadi@cyberus.ca>
+From: Dmitry Torokhov <dtor_core@ameritech.net>
 Subject: Re: Kernel BUG: Qos seg. fault
-Date: 24 May 2004 17:42:33 -0400
+Date: Mon, 24 May 2004 14:53:46 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1085434953.1043.50.camel@jzny.localdomain>
-References: <20040524212553.52149.qmail@web80507.mail.yahoo.com>
-	 <1085434355.1039.47.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040524215346.73109.qmail@web80501.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Jaume Catarineu <jaume.catarineu@upf.edu>,
         "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dmitry Torokhov <dtor_core@ameritech.net>
-In-Reply-To: <1085434355.1039.47.camel@jzny.localdomain>
+To: hadi@cyberus.ca
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-05-24 at 17:32, jamal wrote:
-
+> > Since TBF has only one child no matter what I contend that
+> > implementing filters for TBF does not make sense, filters should
+> > be attached either to TBF's child ot to TBF's parent but not to
+> > TBF itself.
 > 
-> PS:- Very strange how netdev is not allowing my postings through.
+> Ok, understood. Why does TBF have only one child?
 
-Oh, i see the cure was for me to say netdev was blocking my emails;->
-About 3 or 4 postings i sent before this never made it.
-Now SMTP is no longer a reliable protocol. 
+It just does... TBF as far as I understand is a simple rate
+limiting tool for your network link. I implemented the child
+qdisc for TBF so you can change default fifo queue in it to
+SFQ or PRIO. It supposed to be very lightweight. If you need
+something more complex/fancy then you probably want HTB or CBF.
 
-cheers,
-jamal
+It's all just my opinion though.
+
+Dmitry
