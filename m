@@ -1,28 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: skb_checksum_help
-Date: Tue, 25 Jan 2005 13:07:49 +1100
-Message-ID: <20050125020749.GA16809@gondor.apana.org.au>
-References: <20050124121610.GP23931@postel.suug.ch> <41F50B6C.6010107@davidcoulson.net> <20050124151510.GV23931@postel.suug.ch> <20050124225423.GA15405@gondor.apana.org.au> <20050124234515.GA31837@postel.suug.ch> <20050125000759.GA15883@gondor.apana.org.au> <20050124164049.3b939791.davem@davemloft.net> <20050125014538.GB31837@postel.suug.ch> <20050125014838.GA16637@gondor.apana.org.au> <41F5A7F8.6060706@davidcoulson.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.10] tg3: Fix TSO for 5750
+Date: Mon, 24 Jan 2005 18:05:15 -0800
+Message-ID: <20050124180515.6f288742.davem@davemloft.net>
+References: <B1508D50A0692F42B217C22C02D84972020F3D44@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
-        kaber@trash.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Coulson <david@davidcoulson.net>
-Content-Disposition: inline
-In-Reply-To: <41F5A7F8.6060706@davidcoulson.net>
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3D44@NT-IRVA-0741.brcm.ad.broadcom.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 24, 2005 at 08:59:20PM -0500, David Coulson wrote:
-> 
-> I've got the NIC VLANed out in the kernel. It's the same physical NIC 
-> for inside and outside.
+On Mon, 24 Jan 2005 14:59:43 -0800
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-I don't think the vlan code actually sets the features bits...
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> > Here, just checking the TG3_FLG3_HW_TSO flag would suffice.
+> 
+> This particular test is for 5705 or 5750. 5705 is a little different from
+> 5750 in terms of TSO.
+
+You are right, I transposed 5705 and 5750 while reading the diff.
+
+I'll apply your patch right away Michael, thanks a lot.
