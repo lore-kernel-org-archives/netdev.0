@@ -1,42 +1,77 @@
-From: Casey Carter <Casey@Carter.net>
-Subject: Re: RFC1323. No timestamping if SYN timestamp = 0. Bug or Feature?
-Date: Fri, 24 Oct 2003 08:16:13 -0500
+From: Tomas Szepe <szepe@pinerecords.com>
+Subject: possible bug in tcp_input.c
+Date: Fri, 24 Oct 2003 18:29:59 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F99261D.5030008@Carter.net>
-References: <20031022200152.17005.qmail@web13006.mail.yahoo.com> <20031023013748.0dd168db.davem@redhat.com>
+Message-ID: <20031024162959.GB11154@louise.pinerecords.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bartek Wydrowski <b_wydrowski@yahoo.com.au>, netdev@oss.sgi.com,
-        kuznet@ms2.inr.ac.ru
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, grof@dragon.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031023013748.0dd168db.davem@redhat.com>
+To: davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+Hi David,
 
->It is impossible to comply to RFC1323 if we allow TSval in the
->initial SYN packet to be zero, from RFC1323:
->
->         When TSecr is not valid, its value must be zero.
->
->It is therefore impossible to accept TSval as zero, because
->our TSecr echo of that timestamp would be also zero and thus
->invalid.
->
->That is why we reject zero timestamps in the initial SYN packet.
->  
->
-Note that the text does not say "When TSecr is zero, it is invalid."  
-You are reversing the conditional statement "not valid implies zero" to 
-"zero implies not valid." I don't think that the intent of this text in 
-the RFC is to forbid the use of zero as a timestamp, but only to assert 
-that the value should be set to zero by default.
+We came up with the attached patch during a hectic oops tracing session
+that got started by our sysadmin writing down an oops using the pen & paper
+method, no less.  The crashing machine has been a firewall running a very
+unusual NAT + QoS configuration, however we believe that we might have
+discovered a real bug in 2.4's tcp_input.c.  Since our insight into the
+internals of the tcp/ip stack is far from even basic, we are seeking your
+opinion on whether we are correct.
 
+The static inline function skb_peek() as defined in include/linux/skbuff.h
+returns a pointer to a sk_buff, or NULL when its argument is an empty list
+or a pointer to the head element.  Since this is documented behavior, it is
+not surprising that all segments of code within tcp_input.c dealing with
+a return from skb_peek() take care not to dereference the returned pointer
+if it happens to be NULL.  There is an exception, though:
+
+/* tcp_input.c, line 1138 */
+static inline int tcp_head_timedout(struct sock *sk, struct tcp_opt *tp)
+{
+  return tp->packets_out && tcp_skb_timedout(tp, skb_peek(&sk->write_queue));
+}
+
+The passed NULL (and yes, this is where we are getting one) is dereferenced
+immediately in:
+
+/* tcp_input.c, line 1133 */
+static inline int tcp_skb_timedout(struct tcp_opt *tp, struct sk_buff *skb)
+{
+  return (tcp_time_stamp - TCP_SKB_CB(skb)->when > tp->rto);
+}
+
+with TCP_SKB_CB that is defined as
+
+/* tcp.h, line 1034 */
+#define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
+
+We are proposing to cure the problem by adding a simple check in
+tcp_head_timedout(), but are not sure whether this is the right
+thing to do, because as a friend put it, we seem to be fixing
+a leaking faucet in a god damn power plant.
+
+Thanks for any help,
 -- 
-Casey Carter
-Casey@Carter.net
-ccarter@cs.uiuc.edu
-AIM: cartec69
+Tomas Szepe <szepe@pinerecords.com>
+
+
+diff -urN a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c	2003-06-13 16:51:39 +0200
++++ b/net/ipv4/tcp_input.c	2003-10-24 17:41:19 +0200
+@@ -1138,7 +1138,11 @@
+ 
+ static inline int tcp_head_timedout(struct sock *sk, struct tcp_opt *tp)
+ {
+-	return tp->packets_out && tcp_skb_timedout(tp, skb_peek(&sk->write_queue));
++	struct sk_buff *skb = skb_peek(&sk->write_queue);
++	if (skb == NULL)
++		return 1;
++
++	return tp->packets_out && tcp_skb_timedout(tp, skb);
+ }
+ 
+ /* Linux NewReno/SACK/FACK/ECN state machine.
