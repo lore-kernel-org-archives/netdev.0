@@ -1,40 +1,70 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Why was the /proc info removed from e1000 ?
-Date: Thu, 30 Jan 2003 08:51:06 -0800
+From: James Morris <jmorris@intercode.com.au>
+Subject: [PATCH] LSM networking: introduction (0/8)
+Date: Fri, 31 Jan 2003 09:42:24 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E3957FA.6050500@candelatech.com>
-References: <3E388D19.4000004@candelatech.com> <slrnb3ikqi.i0h.lunz@stoli.localnet>
+Message-ID: <Pine.LNX.4.44.0301310916040.31382-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <linux-security-module@wirex.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <slrnb3ikqi.i0h.lunz@stoli.localnet>
+To: "David S. Miller" <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jason Lunz wrote:
-> greearb@candelatech.com said:
-> 
->>I just noticed in the latest changelog that the /proc support was
->>removed from the e1000 driver?  I always found this usefull...any
->>reason why it was deleted?
-> 
-> 
-> shortly lower in the changelog, you'll see that the same stats are now
-> availble using the standard ethtool interface. I don't know whether you
-> need a new ethtool to make sense of the e1000 stats struct.
-> 
-> Jason
+Following this email will be the LSM (Linux Security Modules) networking
+code split up into eight patches for submission to the mainline kernel.
 
-It was nice to not have to have to dredge up the latest ethtool binary
-in order to see the pretty stats.  However, I am glad to see more stuff
-supported by the ethtool interface.
+Since the last submission of these patches, improvements have been made to
+the LSM code based on feedback from maintainers and the community.  The
+LSM hooks are now implemented as static inlines in the main kernel, and
+may be compiled out, while the LSM networking code is now generally
+configurable via CONFIG_SECURITY_NETWORK.  This work was done by Stephen
+Smalley.
 
-Ben
+The configuration exceptions are the two Netlink hooks and the
+ip_decode_options() hook, which always need to be present as they
+implement default capabilities logic.  The rest of the hooks disappear
+when not enabled.
 
+Cumulative summary:
+
+ include/linux/ip.h            |    1 
+ include/linux/netdevice.h     |    4 
+ include/linux/security.h      |  807 +++++++++++++++++++++++++++++++++++++++++-
+ include/linux/skbuff.h        |    3 
+ include/linux/tcp.h           |   11 
+ include/net/sock.h            |   16 
+ include/net/tcp.h             |   26 +
+ net/core/datagram.c           |    5 
+ net/core/dev.c                |    3 
+ net/core/rtnetlink.c          |    3 
+ net/core/skbuff.c             |   16 
+ net/core/sock.c               |    6 
+ net/ipv4/ah.c                 |    2 
+ net/ipv4/ip_fragment.c        |    7 
+ net/ipv4/ip_gre.c             |    3 
+ net/ipv4/ip_options.c         |    5 
+ net/ipv4/ip_output.c          |    3 
+ net/ipv4/ipip.c               |    4 
+ net/ipv4/ipmr.c               |    4 
+ net/ipv4/netfilter/ip_queue.c |    3 
+ net/ipv4/syncookies.c         |    3 
+ net/ipv4/tcp_ipv4.c           |    8 
+ net/ipv4/tcp_minisocks.c      |    6 
+ net/netlink/af_netlink.c      |    8 
+ net/socket.c                  |   72 +++
+ net/unix/af_unix.c            |   16 
+ security/Kconfig              |    9 
+ security/capability.c         |   30 +
+ security/dummy.c              |  267 +++++++++++++
+ 29 files changed, 1334 insertions(+), 17 deletions(-)
+
+
+(Note that more information on LSM can be found at 
+http://lsm.immunix.org/).
+
+
+- James
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+James Morris
+<jmorris@intercode.com.au>
