@@ -1,44 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 3/3 XFRM]: Fix invalid key for lookup of cached bundles
-Date: Sun, 06 Mar 2005 11:54:07 +0100
-Message-ID: <422AE14F.6000805@trash.net>
-References: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: support of IPv6 by NFS
+Date: Sun, 6 Mar 2005 12:02:25 +0100
+Message-ID: <20050306110225.GV30487@sunbeam.de.gnumonks.org>
+References: <42243F8D.5030302@bull.net> <200503010744.38339.Info@Quantum-Sci.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="5G50dybFf3pRZKd7"
+Cc: netdev@oss.sgi.com, usagi-users@linux-ipv6.org
+To: Quantum Scientific <Info@Quantum-Sci.com>
+Content-Disposition: inline
+In-Reply-To: <200503010744.38339.Info@Quantum-Sci.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
->>@@ -97,6 +104,7 @@
->> 		err = xfrm_dst_lookup((struct xfrm_dst**)&rt, &fl_tunnel, AF_INET);
->> 		if (err)
->> 			goto error;
->>+		rt->u.dst.flags |= DST_XFRM_TUNNEL;
-> 
-> 
-> This line doesn't look right.  rt is an entry in the IPv4 routing
-> cache, right? If so why should its flags change when some bundle is
-> created?
-> 
-> After all, it could also be used at the bottom of a transport mode bundle.
 
-Oops, that is correct of course. I wanted to kill the ugly int
-*is_tunnel argument to xfrm_bundle_ok() in my last patch, but
-I need to look for a different way.
+--5G50dybFf3pRZKd7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Besides, I think IPv4 routing cache entry will never show up at the top of
-> a bundle anyway which means that this flags value will never be read in
-> the find_bundle function.
+On Tue, Mar 01, 2005 at 07:44:37AM -0600, Quantum Scientific wrote:
+> Also one must become an ip6tables expert in order to have a reasonably se=
+cure=20
+> firewall, because ip6tables and 6tables are dead, and Shorewall does not=
+=20
+> support IPV6 security for some reason.  Another deterrant.
 
-At least that part was correct, __xfrm4_find_bundle() uses
-dst->path->flags in my patch.
+I have to oppose that statement.  ip6tables is not dead, it's alive.
+We're even at the brink of submitting nf_conntrack, the new connection
+tracking engine that covers ipv4 and ipv6, to the mainline kernel.
 
-Thanks,
-Patrick
+I'm running a number of ipv6 packet filters, and as of now we are not
+aware of any known issues or bugs in the current ip6tables code base.
+
+--=20
+- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+"Privacy in residential applications is a desirable marketing option."
+                                                  (ETSI EN 300 175-7 Ch. A6)
+
+--5G50dybFf3pRZKd7
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFCKuNBXaXGVTD0i/8RAjhEAKCZ4czid+6Xh03ONG47WLYgM8taCgCfWb14
+SmFPlkNWE5FPhkbVRpgvGiw=
+=feZj
+-----END PGP SIGNATURE-----
+
+--5G50dybFf3pRZKd7--
