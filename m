@@ -1,7 +1,7 @@
 From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: mv643xx(5/20): update ppc7d platform for new mv643xx_eth platform data
-Date: Mon, 28 Mar 2005 16:45:44 -0700
-Message-ID: <20050328234544.GE29098@xyzzy>
+Subject: mv643xx(4/20): Update the Artesyn katana mv643xx ethernet platform data
+Date: Mon, 28 Mar 2005 16:44:39 -0700
+Message-ID: <20050328234439.GD29098@xyzzy>
 References: <20050328233807.GA28423@xyzzy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,67 +18,55 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch updates the ethernet device platform data of Radstone
-PPC7D.
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
-Acked-by: Dale Farnsworth <dale@farnsworth.org>
-
-Index: linux-2.6/arch/ppc/platforms/radstone_ppc7d.c
+Index: linux-2.5-enet/arch/ppc/platforms/katana.c
 ===================================================================
---- linux-2.6.orig/arch/ppc/platforms/radstone_ppc7d.c	2005-03-27 15:09:33.000000000 +0100
-+++ linux-2.6/arch/ppc/platforms/radstone_ppc7d.c	2005-03-27 15:29:58.000000000 +0100
-@@ -41,6 +41,7 @@
- #include <linux/serial_core.h>
+--- linux-2.5-enet.orig/arch/ppc/platforms/katana.c
++++ linux-2.5-enet/arch/ppc/platforms/katana.c
+@@ -30,6 +30,7 @@
+ #include <linux/bootmem.h>
+ #include <linux/mtd/physmap.h>
  #include <linux/mv643xx.h>
- #include <linux/netdevice.h>
 +#include <linux/ethtool.h>
- 
- #include <asm/system.h>
- #include <asm/pgtable.h>
-@@ -638,21 +639,30 @@
+ #ifdef CONFIG_BOOTIMG
+ #include <linux/bootimg.h>
+ #endif
+@@ -495,21 +496,30 @@
  #endif
  
  #if defined(CONFIG_MV643XX_ETH)
-+static struct ethtool_cmd ppc7d_ethtool_cmd[] = {
++static struct ethtool_cmd mv643xx_ethtool_cmd[] = {
 +	[0] = {
-+		.phy_address =	PPC7D_ETH0_PHY_ADDR,
++		.phy_address =	KATANA_ETH0_PHY_ADDR,
 +		.autoneg =	AUTONEG_ENABLE,
 +	},
 +	[1] = {
-+		.phy_address =	PPC7D_ETH1_PHY_ADDR,
++		.phy_address =	KATANA_ETH1_PHY_ADDR,
 +		.autoneg =	AUTONEG_ENABLE,
 +	},
 +	[2] = {
-+		.phy_address =	PPC7D_ETH2_PHY_ADDR,
++		.phy_address =	KATANA_ETH2_PHY_ADDR,
 +		.autoneg =	AUTONEG_ENABLE,
 +	}
 +};
 +
- static void __init ppc7d_fixup_eth_pdata(struct platform_device *pdev)
+ static void __init
+ katana_fixup_eth_pdata(struct platform_device *pdev)
  {
  	struct mv643xx_eth_platform_data *eth_pd;
 -	static u16 phy_addr[] = {
--		PPC7D_ETH0_PHY_ADDR,
--		PPC7D_ETH1_PHY_ADDR,
--		PPC7D_ETH2_PHY_ADDR,
+-		KATANA_ETH0_PHY_ADDR,
+-		KATANA_ETH1_PHY_ADDR,
+-		KATANA_ETH2_PHY_ADDR,
 -	};
- 	int i;
  
  	eth_pd = pdev->dev.platform_data;
 -	eth_pd->force_phy_addr = 1;
 -	eth_pd->phy_addr = phy_addr[pdev->id];
- 	eth_pd->tx_queue_size = PPC7D_ETH_TX_QUEUE_SIZE;
- 	eth_pd->rx_queue_size = PPC7D_ETH_RX_QUEUE_SIZE;
-+	eth_pd->ethtool_cmd = &ppc7d_ethtool_cmd[pdev->id];
- 
- 	/* Adjust IRQ by mv64360_irq_base */
- 	for (i = 0; i < pdev->num_resources; i++) {
-@@ -665,7 +675,6 @@
- 				 (int)r->start);
- 		}
- 	}
--
+ 	eth_pd->tx_queue_size = KATANA_ETH_TX_QUEUE_SIZE;
+ 	eth_pd->rx_queue_size = KATANA_ETH_RX_QUEUE_SIZE;
++	eth_pd->ethtool_cmd = &mv643xx_ethtool_cmd[pdev->id];
  }
  #endif
  
