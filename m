@@ -1,38 +1,140 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Intel and TOE in the news
-Date: 21 Feb 2005 10:50:51 -0500
-Message-ID: <1109001050.1076.6.camel@jzny.localdomain>
-References: <20050220230713.GA62354@muc.de>
-	 <200502210332.j1L3WkDD014744@guinness.s2io.com>
-	 <20050221115006.GB87576@muc.de> <20050221132844.GU31837@postel.suug.ch>
-	 <1108994621.1089.158.camel@jzny.localdomain>
-	 <20050221141714.GV31837@postel.suug.ch>
-	 <1108996313.1090.178.camel@jzny.localdomain>
-	 <16922.89.271972.745365@robur.slu.se>
-Reply-To: hadi@cyberus.ca
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH] pktgen: reduce stack usage
+Date: Mon, 21 Feb 2005 08:12:48 -0800
+Message-ID: <421A0880.5070205@osdl.org>
+References: <20050218134219.3f079110.rddunlap@osdl.org>	<20050218221121.GA22845@electric-eye.fr.zoreil.com>	<42166E3F.2050304@osdl.org> <16921.60572.951532.31861@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Andi Kleen <ak@muc.de>,
-        Leonid Grossman <leonid.grossman@neterion.com>,
-        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
-        "'Alex Aizman'" <alex@neterion.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, robert.olsson@its.uu.se,
+        netdev <netdev@oss.sgi.com>
 To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16922.89.271972.745365@robur.slu.se>
+In-Reply-To: <16921.60572.951532.31861@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-02-21 at 10:38, Robert Olsson wrote:
+Robert Olsson wrote:
+> Randy.Dunlap writes:
+> 
+>  > I don't see any simultaneous uses of the 2 buffers, so here's the
+>  > union version of the patch (attached this time), although it only
+>  > saves 4 bytes... so maybe the compiler had already realized that
+>  > usage.  Either one accomplishes a large stack reduction, but the
+> 
+>  Hello!
+> 
+>  Here is version with just one buffer.
 
->  Yes when queue length/batch increases you're risking to load the L2 
->  twice for the same skb. Which is the most expensive operation.... 
+Yep, even better:  few changes + using sizeof.
 
-You are probably onto something here. I have to rerun with varying batch
-sizes to see if this is true (although i did i think try with even 2 and
-still saw performance degradation).
+> How did you calculate the saving?
 
-I will be revisiting these patches in about a month.
+objdump the .o file before and after changes.  Look at how much
+temp space is allocated by "sub  const,%esp"  (on x86).  E.g.:
+      9e8:	81 ec 24 01 00 00    	sub    $0x124,%esp
 
-cheers,
-jamal
+
+> 					   --ro
+> 
+> 
+> 
+> --- net/core/pktgen.c.050221	2005-02-21 14:02:40.000000000 +0100
+> +++ net/core/pktgen.c	2005-02-21 15:02:44.000000000 +0100
+> @@ -151,7 +151,7 @@
+>  #include <asm/timex.h>
+>  
+>  
+> -#define VERSION  "pktgen v2.57: Packet Generator for packet performance testing.\n"
+> +#define VERSION  "pktgen v2.58: Packet Generator for packet performance testing.\n"
+>  
+>  /* #define PG_DEBUG(a) a */
+>  #define PG_DEBUG(a) 
+> @@ -811,6 +811,7 @@
+>          struct pktgen_dev *pkt_dev = (struct pktgen_dev*)(data);
+>          char* pg_result = NULL;
+>          int tmp = 0;
+> +	char buf[128];
+>          
+>          pg_result = &(pkt_dev->result[0]);
+>          
+> @@ -1071,7 +1072,6 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "dst_min") || !strcmp(name, "dst")) {
+> -                char buf[IP_NAME_SZ];
+>  		len = strn_len(&user_buffer[i], sizeof(pkt_dev->dst_min) - 1);
+>                  if (len < 0) { return len; }
+>  
+> @@ -1091,7 +1091,6 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "dst_max")) {
+> -                char buf[IP_NAME_SZ];
+>  		len = strn_len(&user_buffer[i], sizeof(pkt_dev->dst_max) - 1);
+>                  if (len < 0) { return len; }
+>  
+> @@ -1112,9 +1111,7 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "dst6")) {
+> -                char buf[128];
+> -
+> -		len = strn_len(&user_buffer[i], 128 - 1);
+> +		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
+>                  if (len < 0) return len; 
+>  
+>  		pkt_dev->flags |= F_IPV6;
+> @@ -1136,9 +1133,7 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "dst6_min")) {
+> -                char buf[128];
+> -
+> -		len = strn_len(&user_buffer[i], 128 - 1);
+> +		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
+>                  if (len < 0) return len; 
+>  
+>  		pkt_dev->flags |= F_IPV6;
+> @@ -1159,9 +1154,7 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "dst6_max")) {
+> -                char buf[128];
+> -
+> -		len = strn_len(&user_buffer[i], 128 - 1);
+> +		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
+>                  if (len < 0) return len; 
+>  
+>  		pkt_dev->flags |= F_IPV6;
+> @@ -1181,9 +1174,7 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "src6")) {
+> -                char buf[128];
+> -
+> -		len = strn_len(&user_buffer[i], 128 - 1);
+> +		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
+>                  if (len < 0) return len; 
+>  
+>  		pkt_dev->flags |= F_IPV6;
+> @@ -1205,7 +1196,6 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "src_min")) {
+> -                char buf[IP_NAME_SZ];
+>  		len = strn_len(&user_buffer[i], sizeof(pkt_dev->src_min) - 1);
+>                  if (len < 0) { return len; }
+>                  if (copy_from_user(buf, &user_buffer[i], len))
+> @@ -1224,7 +1214,6 @@
+>  		return count;
+>  	}
+>  	if (!strcmp(name, "src_max")) {
+> -                char buf[IP_NAME_SZ];
+>  		len = strn_len(&user_buffer[i], sizeof(pkt_dev->src_max) - 1);
+>                  if (len < 0) { return len; }
+>                  if (copy_from_user(buf, &user_buffer[i], len))
+
+
+-- 
+~Randy
