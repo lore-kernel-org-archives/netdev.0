@@ -1,217 +1,135 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [PATCH] Re: Another holiday, another set of tg3 releases.
-Date: Sat, 11 Jan 2003 19:57:27 -0500
+From: jamal <hadi@cyberus.ca>
+Subject: Re: NAPI vs. interrupts
+Date: Sat, 11 Jan 2003 22:41:32 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030112005727.GB17545@gtf.org>
-References: <Pine.LNX.4.51.0301120101210.1290@mint>
+Message-ID: <20030111220310.Y9973@shell.cyberus.ca>
+References: <20030111220826.GA10085@gtf.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="yrj/dFKFPuw6o+aM"
-Cc: lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com, davem@redhat.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, "" <linux-net@vger.kernel.org>, "" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jean-Daniel Pauget <jd@disjunkt.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.51.0301120101210.1290@mint>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030111220826.GA10085@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---yrj/dFKFPuw6o+aM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Sun, Jan 12, 2003 at 01:14:03AM +0100, Jean-Daniel Pauget wrote:
-> 
-> on 2002-12-30, Jeff Garzik <jgarzik@pobox.com> wrote :
-> 
-> > Another holiday, another set of tg3 releases.
-> 
->     in my seek for unexpected freeze of my box (not yet figured which
->     hardware is involved exactly) I updated to tg3-1.2a and applied
->     both tg3-1.2a-00_irqsave and tg3-1.2a-01_mask_rewrite.
->     as a result, after working a few seconds the network card freezes, and
->     no ifupdown would permit any recovery.
-> 
->     on the other hand, with only the first patch tg3-1.2a-00_irqsave, things
->     seems ok and I'm waiting for my machine to freeze... ...or not. (the freeze
->     frequency is ~10hours )...
-
-Thanks, please do keep us posted.
-
-I have attached two patches, with accompanying descriptions, that I have
-been testing locally on UP and SMP.  They are a bit more conservative
-than tg3-1.2a-01_mask_rewrite while still addressing the same issue.
-
-Right now my plan for tg3 version 1.3 (next release) is:
-	tg3-1.2a-00_irqsave
-	tg3-irq-mask-2.patch (attached), and
-	tg3-irq-flush.patch (attached)
-	and maybe the MTU stuff [more on that below]
-
-The first patch, 00_irqsave, is a bit too paranoid for DaveM's liking,
-so even though I will to apply 00_irqsave, that area will get further
-attention once existing bug reports are resolved.
-
-[Note to DaveM -- tg3_timer is not a fast path, so extra paranoia there
-won't hurt]
 
 
->     though, on your page you mention a fifth patch concerning mtu, as I'm
->     running with an unusual mtu of 1452 because of internet over internet
->     encapsulation on my DSL, maybe I'm concerned ?
+On Sat, 11 Jan 2003, Jeff Garzik wrote:
 
-MTU of 1452 should not be a problem.  The issue is more of correcting
-handling of change-MTU condition that rarely happens.
+> I am seeing some tg3 reports occasionally that show a fair number of
+> interrupts-per-second, even though tg3 is 100% NAPI.
+>
 
-	Jeff
+sample data?
 
+> It seems to me that as machines get faster, and amount of memory
+> increase [xlat: less waiting for free RAM in all parts of the kernel,
+> and less GFP_ATOMIC alloc failures], the likelihood that a NAPI driver
+> can process 100% of the RX and TX work without having to reqquest
+> subsequent iterations of dev->poll().
+>
 
+This is very interesting - I havent come across such a CPU myself.
+I am just about to unleash a P4 machine (> 2Ghz) so i may see this.
 
+> NAPI's benefits kick in when there is some amount of system load.
+> However if the box is fast enough to eliminate cases where system load
+> would otherwise exist (interrupt and packet processing overhead), the
+> NAPI "worst case" kicks in, where a NAPI driver _always_ does
+> 	ack some irqs
+> 	mask irqs
+> 	ack some more irqs
+> 	process events
+> 	unmask irqs
+>
+> whereas a non-NAPI driver _always_ does
+> 	ack irqs
+> 	process events
+>
 
---yrj/dFKFPuw6o+aM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="tg3-irq-mask-2.patch"
+I think you may have added one more transaction on NAPI, but thats beside
+the point.
+Yes, this is what would happen in the worst case on NAPI.
+When Manfred first posted his results i was one of the doubting people
+as to the effect of these extra IOs. Recently i got my hands on a pentium
+(lucky me!) and i was able to see up to 8% increase on CPU with NAPI
+vs non-NAPI under conditions of what i would consider typically to
+be low traffic input (anywhere between 5-8000 packets coming into the
+system). To describe the problem better, anywhere where the CPU can
+process the full rate (example the 5000 packets/sec arrivals on the
+pentium above) the system becomes penalized by the extra IO. Note in
+the above pentium system, the effect of IO became lower when i switched
+to MMIO based PCI transactions. Of course when going got tough on the
+pentium it died without NAPI.
 
-# --------------------------------------------
-# 03/01/05	jgarzik@redhat.com	1.926.1.2
-# [netdrvr tg3] Better interrupt masking
-# 
-# The bcm570x chips provide a register that disables (masks) or enables
-# interrupts, and as a side effect, each write to this register regardless 
-# of value clears various PCI and internal interrupt-pending flags.  This
-# register, intr-mbox-0, provides a superset of the function provided
-# by the mask-pci-int and clear-pci-int bits in the misc-host-ctrl register.
-# 
-# Furthermore, the documentation clearly implies use of this register,
-# as an indicator that the host [tg3 driver] is in its interrupt handler.
-# 
-# The new tg3 logic, taking this knowledge into account, masks-and-clears
-# irqs using intr-mbox-0 [only] when a hard irq is received, and
-# unmasks-and-clears irqs at the end of tg3_poll after all NAPI events
-# have been exhausted.
-# 
-# The old logic twiddled the misc-host-ctrl irq masking bits separately
-# from intr-mbox-0 bits, which was not only inconsistent but also
-# a few additional I/Os that were not needed.
-# --------------------------------------------
-#
-diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
---- a/drivers/net/tg3.c	Sat Jan 11 19:42:56 2003
-+++ b/drivers/net/tg3.c	Sat Jan 11 19:42:56 2003
-@@ -217,22 +217,6 @@
- 	tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
- }
- 
--static inline void tg3_mask_ints(struct tg3 *tp)
--{
--	tw32(TG3PCI_MISC_HOST_CTRL,
--	     (tp->misc_host_ctrl | MISC_HOST_CTRL_MASK_PCI_INT));
--}
--
--static inline void tg3_unmask_ints(struct tg3 *tp)
--{
--	tw32(TG3PCI_MISC_HOST_CTRL,
--	     (tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
--	if (tp->hw_status->status & SD_STATUS_UPDATED) {
--		tw32(GRC_LOCAL_CTRL,
--		     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
--	}
--}
--
- static void tg3_switch_clocks(struct tg3 *tp)
- {
- 	if (tr32(TG3PCI_CLOCK_CTRL) & CLOCK_CTRL_44MHZ_CORE) {
-@@ -2052,7 +2036,7 @@
- 
- 	if (done) {
- 		netif_rx_complete(netdev);
--		tg3_unmask_ints(tp);
-+		tg3_enable_ints(tp);
- 	}
- 
- 	spin_unlock_irq(&tp->lock);
-@@ -2060,10 +2044,10 @@
- 	return (done ? 0 : 1);
- }
- 
--static __inline__ void tg3_interrupt_main_work(struct net_device *dev, struct tg3 *tp)
-+static inline unsigned int tg3_has_work(struct net_device *dev, struct tg3 *tp)
- {
- 	struct tg3_hw_status *sblk = tp->hw_status;
--	int work_exists = 0;
-+	unsigned int work_exists = 0;
- 
- 	if (!(tp->tg3_flags &
- 	      (TG3_FLAG_USE_LINKCHG_REG |
-@@ -2075,19 +2059,7 @@
- 	    sblk->idx[0].rx_producer != tp->rx_rcb_ptr)
- 		work_exists = 1;
- 
--	if (!work_exists)
--		return;
--
--	if (netif_rx_schedule_prep(dev)) {
--		/* NOTE: These writes are posted by the readback of
--		 *       the mailbox register done by our caller.
--		 */
--		tg3_mask_ints(tp);
--		__netif_rx_schedule(dev);
--	} else {
--		printk(KERN_ERR PFX "%s: Error, poll already scheduled\n",
--		       dev->name);
--	}
-+	return work_exists;
- }
- 
- static void tg3_interrupt(int irq, void *dev_id, struct pt_regs *regs)
-@@ -2102,13 +2074,16 @@
- 	if (sblk->status & SD_STATUS_UPDATED) {
- 		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
- 			     0x00000001);
-+		tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
- 		sblk->status &= ~SD_STATUS_UPDATED;
- 
--		tg3_interrupt_main_work(dev, tp);
--
--		tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
--			     0x00000000);
--		tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
-+		if (likely(tg3_has_work(dev, tp)))
-+			netif_rx_schedule(dev);
-+		else {
-+			tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW,
-+			     	0x00000000);
-+			tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
-+		}
- 	}
- 
- 	spin_unlock_irqrestore(&tp->lock, flags);
+> When there is load, the obvious NAPI benefits kick in.  However, on
+> super-fast servers, SMP boxes, etc. it seems likely to me that one can
+> receive well in excess of 1,000 interrupts per second, simply because
+> the box is so fast it can run thousands of iterations of the NAPI "worst
+> case", above.
+>
 
---yrj/dFKFPuw6o+aM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="tg3-irq-flush.patch"
+True but you are better off with NAPI than without it in fast machines.
+[I dont think youll notice much of CPU cycles disappearing on P3 for
+example]
+It's the slow machines that are a problem - and there you make the
+sacrifice on small loads where you spend the unnecessary CPU but benefit
+when you go under stress.
+Lets take a worst case doomsday scenario:
+Giges max rate: 1.4Mpps; take only 30% of that and you are
+talking rx interupts at around 500K/sec. Say you have two giges NICs,
+thats 1M receive interupts/sec. Is there a commodity type h/ware which
+can handle this?
+Robert and i have been discussing this very issue for our presentation at
+nordu/usenix coming up and his arguement is: who gives a shit if you
+loose some CPU cycles at low rates? He has a point, of course; I have been
+experimenting with some things which will kick into NAPI at high rates
+and maintain old scheme but what i can say at this point is that
+they are experimental and that some of the benefits of NAPI disapear as
+a result. For the scheme to work, all the NAPI benefits have to be
+maintained and it has to be very unintrusive.
 
-# --------------------------------------------
-# 03/01/05	jgarzik@redhat.com	1.926.1.3
-# [netdrvr tg3] flush irq-mask reg write before checking hw status block,
-# in tg3_enable_ints.
-# --------------------------------------------
-#
-diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
---- a/drivers/net/tg3.c	Sat Jan 11 19:43:21 2003
-+++ b/drivers/net/tg3.c	Sat Jan 11 19:43:21 2003
-@@ -209,12 +209,11 @@
- 	tw32(TG3PCI_MISC_HOST_CTRL,
- 	     (tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
- 	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
-+	tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
- 
--	if (tp->hw_status->status & SD_STATUS_UPDATED) {
-+	if (tp->hw_status->status & SD_STATUS_UPDATED)
- 		tw32(GRC_LOCAL_CTRL,
- 		     tp->grc_local_ctrl | GRC_LCLCTRL_SETINT);
--	}
--	tr32(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW);
- }
- 
- static void tg3_switch_clocks(struct tg3 *tp)
+> The purpose of this email is to solicit suggestions to develop a
+> strategy to fix what I believe is a problem with NAPI.
+>
+> Here are some comments of mine:
+>
+> 1) Can this problem be alleviated entirely without driver changes?  For
+> example, would it be reasonable to do pkts-per-second sampling in the
+> net core, and enable software mitigation based on that?
+>
+> 2) Implement hardware mitigation in addition to NAPI.  Either the driver
+> does adaptive sampling, or simply hard-locks mitigation settings at
+> something that averages out to N pkts per second.
+>
+> 3) Implement an alternate driver path that follows the classical,
+> non-NAPI interrupt handling path in addition to NAPI, by logic similar
+> to this[warning: off the cuff and not analyzed... i.e. just an idea]:
+>
+> 	ack irqs
+> 	call dev->poll() from irq handler
+> 			[processes events until budget runs out,
+> 		 	 or available events are all processed]
+> 	if budget ran out,
+> 		mask irqs
+> 		netif_rx_schedule()
+>
+> [this, #3, does not address the irq-per-sec problem directly, but does
+> lessen the effect of "worst case"]
+>
+> Anyway, for tg3 specifically, I am leaning towards the latter part of #2,
+> hard-locking mitigation settings at something tests prove is
+> "reasonable", and in heavy load situations NAPI will kick in as
+> expected, and perform its magic ;-)
+>
 
---yrj/dFKFPuw6o+aM--
+Youll run into all sorts of problems with 1 and 3. Example in SMP.
+I think 2 is the best path for now. If we can collect data that shows
+this to be an issue we can accelerate getting a patch; i only work on it
+when i am bored. For now i agree with Roberts philosophy - if we can get
+the workaround for free while maintaining NAPI benefits, great. The
+question is do we care about slow machines loosing some cycles?
+
+cheers,
+jamal
