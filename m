@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.9-rc4 1/3] tg3: use module_param
-Date: Fri, 15 Oct 2004 13:44:52 -0700
+Subject: [PATCH 2.6.9-rc4 2/2] b44: use netdev_priv
+Date: Fri, 15 Oct 2004 13:03:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015134452.08fccaf8@zqx3.pdx.osdl.net>
+Message-ID: <20041015130308.2965d8b3@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,32 +12,28 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-get rid of deprecated use of MODULE_PARM
+Replace uses of dev->priv with netdev_priv
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
---- a/drivers/net/tg3.c	2004-10-15 12:19:54 -07:00
-+++ b/drivers/net/tg3.c	2004-10-15 12:19:54 -07:00
-@@ -12,7 +12,7 @@
- #include <linux/config.h>
+diff -Nru a/drivers/net/b44.c b/drivers/net/b44.c
+--- a/drivers/net/b44.c	2004-10-15 12:23:59 -07:00
++++ b/drivers/net/b44.c	2004-10-15 12:23:59 -07:00
+@@ -1885,7 +1885,7 @@
+ static int b44_suspend(struct pci_dev *pdev, u32 state)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct b44 *bp = dev->priv;
++	struct b44 *bp = netdev_priv(dev);
  
- #include <linux/module.h>
--
-+#include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/compiler.h>
-@@ -141,10 +141,10 @@
- MODULE_AUTHOR("David S. Miller (davem@redhat.com) and Jeff Garzik (jgarzik@pobox.com)");
- MODULE_DESCRIPTION("Broadcom Tigon3 ethernet driver");
- MODULE_LICENSE("GPL");
--MODULE_PARM(tg3_debug, "i");
--MODULE_PARM_DESC(tg3_debug, "Tigon3 bitmapped debugging message enable value");
+         if (!netif_running(dev))
+                  return 0;
+@@ -1906,7 +1906,7 @@
+ static int b44_resume(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct b44 *bp = dev->priv;
++	struct b44 *bp = netdev_priv(dev);
  
- static int tg3_debug = -1;	/* -1 == use TG3_DEF_MSG_ENABLE as value */
-+module_param(tg3_debug, int, 0);
-+MODULE_PARM_DESC(tg3_debug, "Tigon3 bitmapped debugging message enable value");
+ 	pci_restore_state(pdev, bp->pci_cfg_state);
  
- static struct pci_device_id tg3_pci_tbl[] = {
- 	{ PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_TIGON3_5700,
