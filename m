@@ -1,71 +1,86 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
-Date: Wed, 12 Jan 2005 14:42:49 -0800
-Message-ID: <41E5A7E9.4030101@candelatech.com>
-References: <20050112222437.GC14280@xi.wantstofly.org>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Wed, 12 Jan 2005 16:47:28 -0600
+Message-ID: <200501121647.30934.jeremy.guthrie@berbee.com>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501121621.24259.jeremy.guthrie@berbee.com> <16869.42247.126428.508479@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: multipart/signed;
+  boundary="nextPart1205900.ElXUU3VXJm";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, shemminger@osdl.org, rhousley@rsasecurity.com,
-        shollenbeck@verisign.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050112222437.GC14280@xi.wantstofly.org>
+To: netdev@oss.sgi.com
+In-Reply-To: <16869.42247.126428.508479@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> Hi,
-> 
-> After struggling with various userland VPN solutions for a while (and
-> failing to make IPSEC tunnel mode do what I want), I decided to just
-> implement ethernet-in-IP tunneling in the kernel and let IPSEC transport
-> mode handle the rest.
-> 
-> There appeared to be an RFC for ethernet-in-IP already, RFC 3378, so I
-> just implemented that.  It's very simple -- slap a 16-bit header (0x3000,
-> which is 4 bits of etherip version number and 12 bits of padding) onto
-> the beginning of the ethernet packet, and then wrap it in an IP packet.
-> 
-> Below is what I came up with, against the latest Fedora Core 3 kernel,
-> which is 2.6.10-something.  It survives some fairly basic testing between
-> a number of different machines, UP and SMP.  (Corresponding iproute2
-> patch is available from http://www.wantstofly.org/~buytenh/etherip/ )
-> 
-> Notes:
-> - daddr=0 tunnel mode is meaningless for generic ethernet tunneling,
->   so I didn't implement that.  Packets are just dropped on the floor
->   if daddr==0 at the time of sending, which is the default mode for
->   the etherip0 device.
-> 
-> Issues and TODO:
-> - Implement MULTICAST(daddr) tunnel mode, seems useful to have.
-> - Perhaps we should always present a MTU=1500 device to the user and
->   deal with fragmentation issues ourselves.
-> - Don't take TTL of outer packet from inner packet.
-> - Figure out what to do with DF.
-> - Check whether ECN bits are correctly {en,de}capsulated.
-> - Check out iffy-looking '2 * sizeof(struct etheriphdr)' construct
->   (same problem in ip_gre.c?)
-> 
-> Comments?  I would like to see this upstream when the remaining issues
-> have been sorted out.
+--nextPart1205900.ElXUU3VXJm
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Why do you add a single device when loading the module?  Is this just
-so you have something to hook the ioctl to?
+Here is what it looked like I was getting before from the old driver... tha=
+t=20
+took me down to 8mbps.
 
-My personal preference would be something where you do not automatically
-create an etherip0, but would have an etherip-config tool or similar to
-create/destroy interfaces.
+"printk: 4624 messages suppressed.
+dst cache overflow
+printk: 4630 messages suppressed.
+dst cache overflow
+printk: 4631 messages suppressed.
+dst cache overflow
+printk: 4646 messages suppressed.
+dst cache overflow
+printk: 4645 messages suppressed.
+dst cache overflow"
 
-Also, could you add an ioctl that allowed one to query whether or not
-a particular device is an etherip device?  I had always wished I had added
-this earlier to the VLAN code :)
+On Wednesday 12 January 2005 04:30 pm, Robert Olsson wrote:
+> Can you give this a last try. It's from an older driver
+>
+>
+> e1000_clean(struct net_device *netdev, int *budget)
+> {
+>         struct e1000_adapter *adapter =3D netdev->priv;
+>         int work_to_do =3D min(*budget, netdev->quota);
+>         int work_done =3D 0;
+>
+>         e1000_clean_tx_irq(adapter);
+>         e1000_clean_rx_irq(adapter, &work_done, work_to_do);
+>
+>         *budget -=3D work_done;
+>         netdev->quota -=3D work_done;
+>
+>         if(work_done < work_to_do) {
+>                 netif_rx_complete(netdev);
+>                 e1000_irq_enable(adapter);
+>         }
+>
+>         return (work_done >=3D work_to_do);
+> }
 
-Thanks,
-Ben
+=2D-=20
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart1205900.ElXUU3VXJm
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB5akCqtjaBHGZBeURAq5TAJ9iGI8IEFZa1JRlQvXywW4mgYlBbgCfSQJ8
+e36cZNT6ZrUUymU4X0FkPkY=
+=Xf+f
+-----END PGP SIGNATURE-----
+
+--nextPart1205900.ElXUU3VXJm--
