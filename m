@@ -1,52 +1,62 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH] IFA_MAX sets wrong in rtnetlink.h
-Date: Wed, 26 May 2004 13:50:39 -0700
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 9/5 2.6.6-bk8] pcnet32: avoid timeout with tcpdump
+Date: Wed, 26 May 2004 13:52:53 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405261350.39088.mashirle@us.ibm.com>
-References: <200403171130.30282.mashirle@us.ibm.com> <200405261319.55787.mashirle@us.ibm.com>
+Message-ID: <200405262052.i4QKqss27931@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_fMQtAzgrdHz5Ynj"
-Cc: netdev@oss.sgi.com, xma@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <200405261319.55787.mashirle@us.ibm.com>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This patch avoids a timeout when entering/exiting promiscuous mode with
+tcpdump.  All pending xmit operations are flushed and if the queue is
+full the timeout will occur.  The wake_queue avoids that timeout.
+Tested ppc64 and ia32. 
 
---Boundary-00=_fMQtAzgrdHz5Ynj
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-A tiny patch here for 2.6.6 kernel.
+--- linux-2.6.6-bk8/drivers/net/big.pcnet32.c	Wed May 26 12:23:09 2004
++++ linux-2.6.6-bk8/drivers/net/pcnet32.c	Wed May 26 12:24:37 2004
+@@ -22,8 +22,8 @@
+  *************************************************************************/
+ 
+ #define DRV_NAME	"pcnet32"
+-#define DRV_VERSION	"1.30b"
+-#define DRV_RELDATE	"05.24.2004"
++#define DRV_VERSION	"1.30c"
++#define DRV_RELDATE	"05.25.2004"
+ #define PFX		DRV_NAME ": "
+ 
+ static const char *version =
+@@ -244,6 +244,7 @@
+  * v1.30a  22 May 2004 Don Fry limit frames received during interrupt.
+  * v1.30b  24 May 2004 Don Fry fix bogus tx carrier errors with 79c973,
+  *	   assisted by Bruce Penrod <bmpenrod@endruntechnologies.com>.
++ * v1.30c  25 May 2004 Don Fry added netif_wake_queue after pcnet32_restart.
+  */
+ 
+ 
+@@ -1859,6 +1860,7 @@
+ 	    /* stop the chip to clear the error condition, then restart */
+ 	    lp->a.write_csr (ioaddr, 0, 0x0004);
+ 	    pcnet32_restart(dev, 0x0002);
++	    netif_wake_queue(dev);
+ 	}
+     }
+ 
+@@ -2130,8 +2132,9 @@
+     }
+ 
+     lp->a.write_csr (ioaddr, 0, 0x0004); /* Temporarily stop the lance. */
+-
+     pcnet32_restart(dev, 0x0042); /*  Resume normal operation */
++    netif_wake_queue(dev);
++
+     spin_unlock_irqrestore(&lp->lock, flags);
+ }
+ 
 
 -- 
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-
---Boundary-00=_fMQtAzgrdHz5Ynj
-Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="linux-2.6.6-max.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="linux-2.6.6-max.patch"
-
-diff -urN linux-2.6.6/include/linux/rtnetlink.h linux-2.6.6-max/include/linux/rtnetlink.h
---- linux-2.6.6/include/linux/rtnetlink.h	2004-05-09 19:33:13.000000000 -0700
-+++ linux-2.6.6-max/include/linux/rtnetlink.h	2004-05-26 13:47:20.535090648 -0700
-@@ -348,7 +348,7 @@
- 	IFA_MULTICAST
- };
- 
--#define IFA_MAX IFA_CACHEINFO
-+#define IFA_MAX IFA_MULTICAST
- 
- /* ifa_flags */
- 
-
---Boundary-00=_fMQtAzgrdHz5Ynj--
+Don Fry
+brazilnut@us.ibm.com
