@@ -1,50 +1,41 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: inter-packet gap in pktgen
-Date: Tue, 7 Dec 2004 23:25:22 +0100
-Message-ID: <20041207222522.GA30266@xi.wantstofly.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
+Date: Tue, 7 Dec 2004 23:40:22 +0100
+Message-ID: <16822.12630.275389.575326@robur.slu.se>
+References: <20041206205305.GA11970@soohrt.org>
+	<20041207211035.GA20286@quickstop.soohrt.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
+	Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261950AbULGWki@vger.kernel.org>
+To: Karsten Desler <kdesler@soohrt.org>
+In-Reply-To: <20041207211035.GA20286@quickstop.soohrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Robert,
 
-For TX/RX tests, I've been trying to convince pktgen to spit out exactly
-N packets per second (for various values of N) by tweaking the inter-packet
-gap parameter, and I've noticed the following.
+Karsten Desler writes:
 
-The 'ipg' parameter to pktgen seems to be neither (i) the actual
-on-the-wire inter-packet gap (which is the time between the FCS of one
-packet and the preamble of the next), nor (ii) the time between the first
-data bit of one packet and that of the next.
+ > I totally forgot to mention: There are approximately 100k concurrent
+ > flows.
 
->From observing that the pps rate for a given 'ipg' does not depend on the
-packet size, it would seem that 'ipg' attempts to be (ii).  But it doesn't
-quite succeed in that -- it appears to be always ~496ns off on my box.
-For example, if I send 500B packets with param 'ipg' equal to 10000ns, I
-would expect to end up either with 71kpps(i) or with 100kpps(ii).  But what
-I get is 95kpps, 1e9/(10000+496).  At 5000ns ipg, I get neither 109kpps(i)
-nor 200kpps(ii) but 182kpps, 1e9/(5000+496).
+ > >From dmesg:
+ > IP: routing cache hash table of 16384 buckets, 128Kbytes
 
-Presumably this 496ns is the CPU cost of shoving one packet towards the
-NIC, and pktgen only after sending a packet starts waiting for 'ipg' ns
-before transmitting the next packet.
-
-Can we not compensate for this cost so that we either always get (i) or
-(ii)?  Possibly by first getting the current time X, then transmitting
-the packet, and then waiting until X+ipg, which would then give us (ii).
-(We'd have to rename it to 'inter-packet-start gap' though, or something
-like that.)
-
-By tweaking the 'ipg' parameter I can generate pretty much any packet rate
-I want, as long as I set ipg=(1e9/rate)-496 instead of something possibly
-more straightforward.
+ You can take a looks at stats w. rtstat. Hash spinning and how many new 
+ entires create and how many warm you hit. 
 
 
-thanks,
-Lennert
+ > Maybe there is some contention on the rt_hash_table spinlocks?
+ > Is the attached patch enough to increase the size?
+
+ There is boot option for this now
+
+   rhash_entries=  [KNL,NET]
+                        Set number of hash buckets for route cache
+
+
+						   --ro
