@@ -1,76 +1,99 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [RFC] add rtnl semaphore to linux-atm
-Date: Mon, 6 Oct 2003 02:03:04 -0700
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [2.6 PATCH] ipvs - properly handle non-linear skbs
+Date: Mon, 6 Oct 2003 13:23:16 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031006090304.GD4651@gaz.sfgoth.com>
-References: <20031004194242.GC94203@gaz.sfgoth.com> <200310051252.h95CqvkT022363@ginger.cmf.nrl.navy.mil>
+Message-ID: <Pine.LNX.4.44.0310061225190.2558-100000@l>
+References: <20031006000225.AF7642C0A7@lists.samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, Wensong Zhang <wensong@linux-vs.org>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas williams <chas@cmf.nrl.navy.mil>
-Content-Disposition: inline
-In-Reply-To: <200310051252.h95CqvkT022363@ginger.cmf.nrl.navy.mil>
+To: Rusty Russell <rusty@rustcorp.com.au>
+In-Reply-To: <20031006000225.AF7642C0A7@lists.samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-chas williams wrote:
-> i am not sure the negotiation should be handled by the kernel.
-> we will cross this bridge when we get there.  i dont see a
-> rush of people trying to add dsl drivers.  in fact, the
-> community seems to be pretty stingy with documentation about
-> the dsl hardware.
 
-Yeah, I've been trying to get that resolved but so far noone is
-anwering my emails.  There are two DSL drivers in some state of
-completion that could be merged if the companies involved to
-just release them.
+	Hello,
 
-> >> people who use ATM_ITF_ANY are going to pay a penalty
-> >Exactly - its a userspace problem.
-> 
-> so the idea is to fix it minimally.  people who use it should be
-> encouraged to change.  i would either get rid of completely or
-> make it work as before.  not change the way it works.
+On Mon, 6 Oct 2003, Rusty Russell wrote:
 
-I don't think there are any current users that would be broken by
-a "just pick the first interface" policy.  I just don't want to
-entirely remove it in case someone is using '*.0.50' in their clip
-configs or something.
+> 	I diffed our two patches.  Is see you still use iph temp vars:
+> fair enough: I removed mine after some subtle bugs (although it does
+> make the code a bit uglier).
+>
+> Looks really good.  Could you just clarify a couple of things for me please?
+>
+> @@ -527,10 +528,7 @@ struct ip_vs_conn {
+>  	struct ip_vs_dest       *dest;          /* real server */
+>  	atomic_t                in_pkts;        /* incoming packet counter */
+>
+> -	/* packet transmitter for different forwarding methods.  If it
+> -	   mangles the packet, it must return NF_DROP or NF_STOLEN, otherwise
+> -	   this must be changed to a sk_buff **.
+> -	 */
+> +	/* packet transmitter for different forwarding methods */
+>  	int (*packet_xmit)(struct sk_buff *skb, struct ip_vs_conn *cp,
+>  			   struct ip_vs_protocol *pp);
+>
+> This comment is still true: the skb pointer from the caller is
+> useless, so xmit *must* return NF_DROP or NF_STOLEN.  I thought about
+> making it return void and the callers always return NF_STOLEN, but
+> there was enough change already.  You might want to put a comment in
+> there.
 
-There are no users inside the atm tools that need ATM_ITF_ANY.  Anyone
-using it directly in a PVC address is already broken and non-determanistic
-if they have more than one interface, so I'm not worried if the semantics
-in that case are only 90% identical instead of 100%
+	My merging mistake, your comment is valid. In this way is
+better, sometimes we want to return NF_STOLEN, sometimes NF_DROP.
+But it is true that it can be only NF_STOLEN. I made some changes
+to return NF_DROP if possible, may be someone wants to log later
+these packets as dropped ones.
 
-> i dont believe any of the smp problems have come from open/close/change_qos.
+> ip_vs_make_skb_writable(): how is this different from
+> skb_ip_make_writable(), except you have to maintain it yourself?  The
+> advantage of the general one is that Dave looks after it for us 8)
 
-I doubt many crashes happen there (in practice mostly those operations
-will be serialized by userland - it's rare to have multiple threads
-opening/closing vccs at once) but that doesn't mean that races aren't
-hiding.  Again, there's zero performance implication to serializing
-them so we might as well make the driver API a little more foolproof.
+	The main difference is that we should not call skb_copy
+for cloned skbs, this is a waste of CPU for allocating new skb.
+May be you will change skb_ip_make_writable :)
 
-> well the linear seach is already fairly efficient for most people since
-> most people dont have more than a handful of vcc's open at a time.
+> In ip_vs_out_icmp():
+>
+>  	/* Is the embedded protocol header present? */
+>  	if (unlikely(ciph.frag_off & __constant_htons(IP_OFFSET) &&
+> -		     /* FIXME: Remove minhlen, and surely dont_defrag
+> -		      * test is backwards? --RR */
+>  		     (pp->minhlen || pp->dont_defrag)))
+>  		return NF_ACCEPT;
+>
+> If the protocol says "don't defrag" they never see fragmented packets.
 
-Yes, but the worst-case is unacceptable.  There are at least some people
-who have used the code to terminate VCCs coming from DSL customers (a
-project like that is actually what got me started with hacking on
-linux-atm 5 years ago :-).  They could have hundreds of VCCs active at
-once.
+	The semantic is: Do not defrag for me, I do not care for my
+protocol header, you can give me fragmented skbs. This is true for now
+for AH and ESP because we treat these protocols like slave ones, i.e.
+UDP 500->500 is a master connection and we forward AH/ESP according
+to the main connection ignoring any protocol headers and payloads.
+But I'm not sure how that will change in the feature.
 
-> >I don't think that's the case at all - you could safely remove the vcc from
-> >the list at ->close time (but not free its memory until the last reference
-> >disappears)  Then an ->open would see the vpi/vci as free immediately (which
-> >should be safe)
-> 
-> not sure about this.  the fore200e seems to have a problem with
-> reopening on a vcc while there still might be outstanding skb's on a
-> vcc from a previos open/close.
+> AFAICT, minhlen and dont_defrag are now the same everywhere (minhlen
+> is not respected: protocols are expected to catch skb_copy_bits
+> failing on their own, and they do).  Perhaps drop minhlen altogether,
+> and just keep dont_defrag?
 
-Hmmmm... ok.  I really believe that we need to sleep in close until the
-VCC is truly free.  If userland can't do a close followed immediately by
-an open on the same vci then something is busted.
+	Yes, I forgot it. We have to remove minhlen and minhlen_icmp.
+It must be: && pp->dont_defrag
 
--Mitch
+> Hey, thanks for doing the hard work for me!
+
+	np, tonight I'll cleanup these things and may be other
+missed ones.
+
+> Cheers,
+> Rusty.
+> --
+>   Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
