@@ -1,38 +1,25 @@
-From: Henrik Petander <lpetande@tml.hut.fi>
-Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
-Date: Thu, 12 Jun 2003 11:44:49 +0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: gettime: Was (Re: Route cache performance under stress
+Date: Thu, 12 Jun 2003 01:46:11 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EE83D81.5030605@tml.hut.fi>
-References: <3EE5F85E.9080006@tml.hut.fi>	<20030610.095135.28806569.davem@redhat.com>	<3EE6ECD3.6050103@tml.hut.fi> <20030611.202003.74721468.davem@redhat.com>
+Message-ID: <20030612.014611.32747925.davem@redhat.com>
+References: <20030611120803.GB22720@wotan.suse.de>
+	<20030611.203015.104061804.davem@redhat.com>
+	<3EE81E89.1040004@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nakam@linux-ipv6.org, lpetande@morphine.tml.hut.fi,
-   yoshfuji@linux-ipv6.org, vnuorval@tcs.hut.fi, kuznet@ms2.inr.ac.ru,
-   netdev@oss.sgi.com, ajtuomin@morphine.tml.hut.fi, jagana@us.ibm.com,
-   kumarkr@us.ibm.com, usagi-core@linux-ipv6.org
+Cc: ak@suse.de, hadi@shell.cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030611.202003.74721468.davem@redhat.com>
+To: greearb@candelatech.com
+In-Reply-To: <3EE81E89.1040004@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: Henrik Petander <lpetande@tml.hut.fi>
->    Date: Wed, 11 Jun 2003 11:48:19 +0300
->    
->    Does this make sense to you?
-> 
-> No it doesn't. When you startup zebra, it may flush the entire
-> routing table.
+   From: Ben Greear <greearb@candelatech.com>
+   Date: Wed, 11 Jun 2003 23:32:41 -0700
 
+   skb->rx_stamp = getCurTSC();
 
-I don't see a problem in that. It would only result in a short period of 
-missing mipv6 route optimization information, until MIPv6 daemon 
-reinserted the mipv6 information. MIPv6 daemon would do this after 
-getting a notification of the deletion of the old mipv6 related cached 
-routes. This would relate to zebra in the same way as pmtu discovery.
-
-Regards,
-
-Henrik
+Thanks for mentioned this idea for the 10th time in
+the past 2 days :-)
