@@ -1,23 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patches for PROC_FS=n (2.6.0-test7)
-Date: Sat, 11 Oct 2003 12:08:52 -0700
+Subject: Re: [PATCH] hostess -- return value check for register_netdev
+Date: Sat, 11 Oct 2003 12:12:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011120852.13fa8ec4.davem@redhat.com>
-References: <20031010141646.779f10bb.rddunlap@osdl.org>
+Message-ID: <20031011121234.01bbe577.davem@redhat.com>
+References: <20031009112714.18742308.shemminger@osdl.org>
+	<20031010000158.2dc9ce78.davem@redhat.com>
+	<20031010103225.2177d385.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <20031010141646.779f10bb.rddunlap@osdl.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031010103225.2177d385.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Oct 2003 14:16:46 -0700
-"Randy.Dunlap" <rddunlap@osdl.org> wrote:
+On Fri, 10 Oct 2003 10:32:25 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> http://developer.osdl.org/rddunlap/patches/atmprocfs_260t7.patch
+> Another driver that checks for register_netdev returing -1 when
+> it can return -EIO or -EEXIST.
 
-How can this be needed?  When procfs is disabled then
-remove_proc_entry() is defined as "do { } while (0)", ie. a nop.
+Applied, thanks Stephen.
