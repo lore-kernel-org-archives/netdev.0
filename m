@@ -1,61 +1,55 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] IPv6 IPsec support
-Date: Tue, 18 Feb 2003 23:02:11 -0800 (PST)
+Date: Tue, 18 Feb 2003 23:13:24 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030218.230211.89243941.davem@redhat.com>
+Message-ID: <20030218.231324.44469350.davem@redhat.com>
 References: <20030219134850.5f203ea7.Kazunori.Miyazawa@jp.yokogawa.com>
-	<87znos3j8s.wl@ipinfusion.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Kazunori.Miyazawa@jp.yokogawa.com, netdev@oss.sgi.com,
-   usagi-core@linux-ipv6.org, kuznet@ms2.inr.ac.ru
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kunihiro@ipinfusion.com
-In-Reply-To: <87znos3j8s.wl@ipinfusion.com>
+To: Kazunori.Miyazawa@jp.yokogawa.com
+In-Reply-To: <20030219134850.5f203ea7.Kazunori.Miyazawa@jp.yokogawa.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kunihiro Ishiguro <kunihiro@ipinfusion.com>
-   Date: Tue, 18 Feb 2003 21:57:39 -0800
+   From: Kazunori MIyazawa <Kazunori.Miyazawa@jp.yokogawa.com>
+   Date: Wed, 19 Feb 2003 13:48:50 +0900
 
-   I think no need of broadcasting my comments to kernel ML, so I took it
-   of from CC:.  netdev guys will be interested in right?  So I kept it.
+   Please let me know if you have some ideas and/or comments.
+
+Hello again Miyazawa-san, I give you my initial comment.
+
+I see very quickly that the ipv6 side of implementation will
+give lots of opportunity for code sharing.  But we must plan
+it correctly :-)
    
-Yes, this is fine.
+I also wish to avoid exporting internal xfrm objects to ipv6 module.
 
-   1. Do we really need to remove AH header from skb?
+So, let us discuss one example:
    
-   In case of IPv4 we modify iph->protocol for further processing thus AH
-   header is removed.  But in case of IPv6, we just simply authenticate
-   the packet then process next header.  So do we really need to remove
-   AH header in IPv6?  Remaining AH header does not harm...
-   
-This is an interesting topic.
+   diff -urN linux-2.5.62/net/ipv4/xfrm_input.c linux25_for_patch/net/ipv4/xfrm_input.c
+   --- linux-2.5.62/net/ipv4/xfrm_input.c	2003-02-18 07:55:50.000000000 +0900
+   +++ linux25_for_patch/net/ipv4/xfrm_input.c	2003-02-19 02:36:53.000000000 +0900
+   @@ -1,7 +1,7 @@
+    #include <net/ip.h>
+    #include <net/xfrm.h>
+    
+   -static kmem_cache_t *secpath_cachep;
+   +kmem_cache_t *secpath_cachep;
+    
+    void __secpath_destroy(struct sec_path *sp)
+    {
 
-Actually, there is no reason to prefer one way or another.
-Remember, if anyone else is interested in SKB contents (such as
-tcpdump), that entity has clone of skb and can still see full
-contents.
+I understand why you need this, for xfrm6_rcv().  This is fine.
 
-   2. Easy kmalloc()...
-   
-   It seems there are some easy kmalloc().  Yes I'm stingy with memory.
+However, it would be even better to put xfrm6_rcv() into
+net/ipv4/xfrm_input.c, protected by CONFIG_IPV6 || CONFIG_IPV6_MODULE
+ifdef.
 
-It is another fun topic.
+In this way we may split out identical pieces of code which
+occur in xfrm4_rcv() and xfrm6_rcv().  Then we merely need
+to export the xfrm6_rcv symbol for sake of ipv6 as module.
 
-These are great long term improvements.  But for now, please consider
-something important when evaluating "overhead".  This is the fact that
-we are performing full encryption or hash function.  Such operation is
-quite massively more expensive than kmalloc here and there.
-
-Some day we will have hw acceleration support both at IPSEC and at
-crypto library level.  At that time cost analysis will change.
-
-   Well, I'll find more.  Maybe we should be offline and come up with a
-   single patch.
-
-I would ask that Alexey and myself stay on the CC: list.
-
-It would not hurt to keep netdev as well, perhaps we can
-breed some new experts in our ipsec code :-)
+In fact, nearly %90 of these two functions are identical.
