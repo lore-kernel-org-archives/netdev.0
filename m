@@ -1,46 +1,38 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH 2/3] r8169: code clean-up
-Date: Sun, 20 Feb 2005 12:14:15 -0600
-Message-ID: <200502201214.15884.jdmason@us.ibm.com>
-References: <200502161823.43562.jdmason@us.ibm.com> <20050217232804.GA4992@electric-eye.fr.zoreil.com> <4218CE73.6010206@phekda.gotadsl.co.uk>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+From: rick jones <rick.jones2@hp.com>
+Subject: Re: Intel and TOE in the news
+Date: Sun, 20 Feb 2005 11:45:02 -0800
+Message-ID: <91f1bcca156f343c17918ce67ef23666@hp.com>
+References: <4216B62D.6000502@pobox.com> <20050219041007.GA17896@xi.wantstofly.org> <20050219114624.373af63f.davem@davemloft.net> <m1psywb8i4.fsf@muc.de>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
-To: Richard Dawe <rich@phekda.gotadsl.co.uk>
-In-Reply-To: <4218CE73.6010206@phekda.gotadsl.co.uk>
-Content-Disposition: inline
+In-Reply-To: <m1psywb8i4.fsf@muc.de>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 20 February 2005 11:52 am, Richard Dawe wrote:
-> Hello.
+> <speculating freely>
 >
-> Francois Romieu wrote:
-> > Jon Mason <jdmason@us.ibm.com> :
+> It would be nice if the NIC could asynchronously trigger prefetches in
+> the CPU. Currently a lot of the packet processing cost goes
+> to waiting for read cache misses.
 >
-> [snip]
+> E.g.
 >
-> >>adds a link down notification, and cleans up
-> >
-> > Ok. I'll netif_msg it before someone else complains that the driver
-> > is too verbose.
+> - NIC receives packet.
+> - Tells target CPU to prefetch RX descriptor and headers.
+> - CPU later looks at them and doesn't have to wait a for a cache miss.
 >
-> [snip]
->
-> I started working on adding netif_msg checks to the printks. How far
-> have you got? I don't want to duplicate your work.
->
-> Incidentally, is there a to-do list somewhere for the r8169 driver?
+> Drawback is that you would need to tell the NIC in advance
+> on which CPU you want to process the packet, but with Linux
+> IRQ affinity that's easy to figure out.
 
-Not to my knowledge.  It would be nice if there was a wiki out there which 
-lists all of the drivers and areas to work on (features enablement, open 
-bugs, etc.)
+With all the interrupt avoidance that is going-on these days, would 
+prefetching in the driver be sufficient?  Presumably the driver is 
+going to be processing multiple packets at a time on an interrupt/etc 
+so having it issue prefetches in SW would seem to help with all but the 
+very first packet.
 
-> Maybe I can help out with some of the things.
-
-I know Francois likes it when people test his patches.  :-)
-
-> Thanks, bye, Rich =]
+rick jones
+Wisdom teeth are impacted, people are affected by the effects of events
