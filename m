@@ -1,33 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][SELINUX] 2/2 sock_create_lite()
-Date: Sat, 8 May 2004 15:04:32 -0700
+Subject: Re: [PATCH - SCTP] Fix multihomed connection failures on 64-bit
+ systems.
+Date: Sat, 8 May 2004 15:22:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040508150432.3856573c.davem@redhat.com>
-References: <Xine.LNX.4.44.0405071118490.21529-100000@thoron.boston.redhat.com>
-	<Xine.LNX.4.44.0405071531480.22499-100000@thoron.boston.redhat.com>
+Message-ID: <20040508152220.3e614800.davem@redhat.com>
+References: <Pine.LNX.4.58.0405071443050.17510@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hch@infradead.org, sds@epoch.ncsc.mil, chrisw@osdl.org,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        selinux@tycho.nsa.gov
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0405071531480.22499-100000@thoron.boston.redhat.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0405071443050.17510@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 7 May 2004 15:53:30 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
+On Fri, 7 May 2004 14:51:02 -0700 (PDT)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> Ok, here's a version of this patch which doesn't do anything with 
-> sock_alloc().
+> The following patch from Vladislav Yasevich fixes an SCTP issue with 64-bit
+> systems.
+> This applies to 2.4 tree also with a small offset.
 
-Applied, although I had to hand-edit the patch since you
-accidently included the following bit from the first SELINUX
-patch of this series :-)
+Please use attachments if your mailer is going to turn tabs
+into spaces as this makes the patch not apply cleanly.
 
-> -	err = sock_create(family, SOCK_SEQPACKET, IPPROTO_SCTP,
-> -			  &sctp_ctl_socket);
-> +	err = sock_create_kern(family, SOCK_SEQPACKET, IPPROTO_SCTP,
-> +			       &sctp_ctl_socket);
+I fixed it up by hand this time.
+
+Thanks.
