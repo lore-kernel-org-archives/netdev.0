@@ -1,14 +1,37 @@
-From: mlpi_uy_rff03dw@amazon.com
-Subject: =?ISO-8859-1?Q?=A4=A3=A5i=BF=F9=B9L=C1=C8=BF=FA=AA=BA=A6n=BE=F7=B7|=A1I=A1I?=
-Date: 01 Sep 2002 07:13:39 +0800
+From: jamal <hadi@cyberus.ca>
+Subject: Re: "Loopback" route through two cards?
+Date: Tue, 3 Sep 2002 07:30:46 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <19047.2568305724$1031033624@news.gmane.org>
-Reply-To: n3qv_coe_e3cbiy@bloomberg.com
+Message-ID: <Pine.GSO.4.30.0209030729370.7754-100000@shell.cyberus.ca>
+References: <20020903050441.4052F2C414@lists.samba.org>
 Mime-Version: 1.0
-Content-Type: text/html
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>, <anton@samba.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Reply-To: receive_adm@topservice.net
+To: Rusty Russell <rusty@rustcorp.com.au>@shell.cyberus.ca@shell.cyberus.ca
+In-Reply-To: <20020903050441.4052F2C414@lists.samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+
+
+Unless you are trying to stress test NAT, i wouldnt go the NAT path.
+Have you looked at the packet generator in 2.4.19? With it you can
+bypass IP totaly.
+
+cheers,
+jamal
+
+On Tue, 3 Sep 2002, Rusty Russell wrote:
+
+> Hi all,
+>
+> 	I know this is an FAQ, but I never saw an answer I liked.  We
+> want to stress-test a couple of gigabit NICs by connecting them to
+> each other and routing packets out one and into the other.  Is this
+> still impossible without nat?
+>
+> Rusty.
+> --
+>   Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+>
