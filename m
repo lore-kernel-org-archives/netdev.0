@@ -1,21 +1,18 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Mon, 20 Sep 2004 23:29:02 -0700
+Subject: Re: Kernel Oops (sig11) near vlan_dev_ioctl in 2.6.8.1
+Date: Mon, 20 Sep 2004 23:34:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920232902.620c157b.davem@davemloft.net>
-References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+Message-ID: <20040920233440.4aa52a81.davem@davemloft.net>
+References: <20040921060824.GA14840@keitarou.bubblesworth.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+To: Paul.Hampson@anu.edu.au (Paul Hampson)
+In-Reply-To: <20040921060824.GA14840@keitarou.bubblesworth.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Thanks Harald.
-
-I have some ideas about how we might refine your approach,
-and I'll work on that and report back to you tomorrow.
+Has been fixed in 2.6.9-X
