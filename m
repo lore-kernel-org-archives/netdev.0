@@ -1,42 +1,45 @@
-From: John Zwiebel <John.Zwiebel@procket.com>
-Subject: [Fwd: Re: IGMPv3 in linux]
-Date: Wed, 15 May 2002 13:39:50 -0700
+From: Martin Devera <devik@cdi.cz>
+Subject: ANK's PSCHED_TDIFF_SAFE change unmasked old bug (~0UL != 0xFFFFFFFF)
+Date: Thu, 16 May 2002 15:52:43 +0200 (CEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3CE2C796.B18FB3E2@Procket.com>
+Message-ID: <Pine.LNX.4.44.0205161543400.12674-100000@luxik.cdi.cz>
+References: <200205121635.UAA01437@mops.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com, jzwiebel@procket.com
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <200205121635.UAA01437@mops.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
+> > even if tv1<tv2 which can be true when time wraps (which is true
+> > at least with PSCHED_TIME_SOURCE == JIFFIES)
+>
+> No, psched_time_t cannot wrap for our life.
 
-When will IGMPv3 be standard in Linux?
-What can I do to make it happen sooner?
-Who should I contact?
+Ok. It did. I looked for the reason and probably find another
+bug. In all kernels (example given for 2.4.19pre8)
+include/net/pkt_sched.h line 224:
+#if ~0UL == 0xFFFFFFFF
 
-IGMPv3 is in Windows XP.  IGMPv3 is required for general Source 
-Specific Multicast (SSM).  SSM across the internet is much 
-more reliable than MSDP/PIM/MBGP (ASM: any source multicast).
-Although Microsoft doesn't yet have an IGMPv3 application, IP/TV
-from cisco will be (does already, at least in a beta app) use it.
-There are a number of Linux applications that use it, but since
-it requires a special kernel installation, many people who would
-benefit from SSM are now denied.  
+this test delimits part which decides about PSCHED_WATCHER usage.
+The test is FALSE on gcc:
+gcc version 2.95.2 20000220 (Debian GNU/Linux)
+gcc version egcs-2.91.66 19990314/Linux (egcs-1.1.2 release)
+gcc version 3.0.2
 
-I am working also to get IGMPv3 into FreeBSD from which it
-should "automagically" get into Opendarwin and then MacOSX.
+I tested by:
+echo -e "#if ~0UL == 0xffffffff\nTST\n#endif"|gcc -E -
+echo -e "#if ~0UL == 0xffffffffffffffff\nTST\n#endif"|gcc -E -
 
-Thanks
+and the second line displays TST !!
 
-John Zwiebel
+So that the test is never TRUE and PSCHED_WATCHER is never used.
+Thus psched_time_t wraps every 40 minutes and your change (althought
+correct one) to PSCHED_TDIFF_SAFE made it more visible than before.
 
--------- Original Message --------
-Subject: Re: IGMPv3 in linux
-Date: Wed, 15 May 2002 21:36:43 +0100 (BST)
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-To: jzwiebel@procket.com (John Zwiebel)
+Probably the test should be changed. I'm not sure how. How to detect
+that long is 64 bit in cpp ?
 
-Long time since I was involved in the net code. I believe IGMPv3 is
-still
-not in the kernel. Dunno if its planned - ask netdev@oss.sgi.com
+regards
+devik
