@@ -1,83 +1,61 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Mon, 27 Sep 2004 20:54:53 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Tue, 28 Sep 2004 13:59:21 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927205453.79f9628f.rddunlap@osdl.org>
-References: <414A3562.2090803@pobox.com>
-	<005801c4a4f4$1598d6d0$a010100a@S2IOtech.com>
+Message-ID: <20040928035921.GA10675@gondor.apana.org.au>
+References: <20040923120707.GB32624@gondor.apana.org.au> <1095995042.1044.34.camel@jzny.localdomain> <20040924032440.GB6384@gondor.apana.org.au> <1096289189.1075.37.camel@jzny.localdomain> <20040927213607.GD7243@gondor.apana.org.au> <1096339407.8660.33.camel@jzny.localdomain> <20040928024614.GA9911@gondor.apana.org.au> <1096340772.8659.51.camel@jzny.localdomain> <20040928032321.GB10116@gondor.apana.org.au> <1096343125.8661.96.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        raghavendra.koushik@s2io.com, rapuru.sriram@s2io.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <ravinandan.arakali@s2io.com>
-In-Reply-To: <005801c4a4f4$1598d6d0$a010100a@S2IOtech.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1096343125.8661.96.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Sep 2004 17:42:51 -0700 Ravinandan Arakali wrote:
+On Mon, Sep 27, 2004 at 11:45:25PM -0400, jamal wrote:
+> 
+> > Now that we know where the events are coming from and what they are,
+> > we can decide on the solution.  In this particular case, there is
+> > nothing you can do on the sending side.  Stopping people from operating
+> > on networking objects just because some netlink listener can't keep up
+> > isn't going to work.  So congestion control is out of the question.
+> 
+> fixing the NLM_GOODSIZE issue is a very good first step.
 
-| Hi,
-| Attached are the updated patches. It is designed to work on the latest
-| kernel. Also, this time the submission is split to 3 patches(they need
-| to applied in the order mentioned below).
-| 
-| s2io_styling_level1  - Contains
-|                              a. styling related, function name changes.
-|                              b. fix for 32-bit systems.
-|                              c. modified Transmit descriptor allocation
-| strategy.
-|                              d. miscellaneous fixes.
-| with_napi_level2     - Fixes/tunes NAPI feature
-| with_2buff_level3    - Adds support for 2-buffer mode.
-| 
-| Please review and get back with your comments.
+Well I'm afraid that it doesn't help in your interface address example
+because rtmsg_ifa() already allocates a buffer of (approximately) the
+right size.  That is, it doesn't use NLM_GOODSIZE at all.
 
-The focused nature of the NAPI and 2BUFF patches are good IMO.
+> Adding congestion control would be harder but not out of question.
 
-It would be very helpful if the styling patch had all comments/whitespace/style
-changes split out from it (maybe 3000 of the 4000 lines of the patch).
-Then we (reviewers) could spend time focusing on the important parts of
-your patches, and the styling patch could go with some lighter review.
+But the question is who are you going to throttle? If you throttle
+the source of the messages then you're going to stop people from adding
+or deleting IP addresses which can't be right.
 
-I'd like to help Jeff with some review here, but it's become too painful &
-time-consuming for me to wade thru the patches looking for the
-more-important parts of such a large patch, so I'll have to leave it to
-Jeff and other netdev regulars.
+If you move the netlink sender into a different execution context and
+throttle that then that's just extending the receive queue length by
+stealth.
 
+So I'm afraid I don't see how congestion control could be applied in
+*this* particular context.
+ 
+> > So just bite the bullet and reread the system state by issuing dump
+> > operations.
+> 
+> We may as well choose to document it as being this mostly because of the
+> issue i described above. We shouldnt give up so easily though ;->
 
-| Thanks,
-| Ravi
-| 
-| -----Original Message-----
-| From: Jeff Garzik [mailto:jgarzik@pobox.com]
-| Sent: Thursday, September 16, 2004 5:53 PM
-| To: ravinandan.arakali@s2io.com
-| Cc: netdev@oss.sgi.com; leonid.grossman@s2io.com;
-| raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com
-| Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-| 
-| 
-| Ravinandan Arakali wrote:
-| > Jeff,
-| > We tried it out with 2.6.7. Can you pls specify the kernel version
-| > on which you tried and we will send a patch which works for that version.
-| > We will also send a more detailed description of the changes along with
-| > that.
-| 
-| 
-| Always diff against the latest version of the kernel.  You can find out
-| the latest version by going to http://www.kernel.org/  You'll typically
-| want the latest snapshot (preferably), or the latest pre-patch.
-| 
-| Standard patch submission format is described at
-| http://linux.yyz.us/patch-format.html and in
-| Documentation/SubmittingPatches.
-| 
-| When submitting a series of patches, it is normal patches to depend on
-| preceding patches.
+Well IMHO this is not giving up at all.
 
-
---
-~Randy
+Think of it another way.  Monitoring routes is like maintaining a
+program.  Normally you just fix the bugs as they come.  But if the
+bug reports are coming in so fast that you can't keep up, perhaps
+it's time to throw it away and rewrite it from scratch :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
