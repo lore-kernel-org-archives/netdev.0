@@ -1,120 +1,56 @@
-From: Richard Underwood <richard@aspectgroup.co.uk>
-Subject: RE: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Wed, 20 Aug 2003 09:58:51 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <353568DCBAE06148B70767C1B1A93E625EAB61@post.pc.aspectgroup.co.uk>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [PATCH] IPv6: Fix target address for (proxy/anycast) NA
+Date: Wed, 20 Aug 2003 14:23:12 +0300 (EEST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0308192019030.27510-200000@rhea.tcs.hut.fi>
+References: <20030819083621.2ae4abc8.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: skraw@ithnet.com, willy@w.ods.org,
-	Richard Underwood <richard@aspectgroup.co.uk>,
-	carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-	bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "'David S. Miller'" <davem@redhat.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-377318441-782513297-1061378592=:541"
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com, <usagi-core@linux-ipv6.org>
+In-Reply-To: <20030819083621.2ae4abc8.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> 
-> Indeed, would people stop quoting from RFC 985 and
-> RFC 826.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-	In case anyone missed it, the following message was posted to
-linux-net and netdev. This is currently a draft standard, but anyone
-implementing IPv6 should be following it. It clearly states that the the
-source address for the equivalent of the ARP request should be the INTERFACE
-address.
+---377318441-782513297-1061378592=:541
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-	While it doesn't directly apply to IPv4 (except for David's claim
-that IPv4 ARP is based on IPv6 ARP) it does clarify the situation nicely.
+Hi,
 
-	I, for one, will be glad when (!) we all migrade to IPv6 and we can
-once and all be done with this nonsense, unless Linux plans to deviate from
-the standard?
+the target address in neighbor advertisements must be the solicited
+address. Otherwise proxy NAs (and NAs for anycast addresses) don't work.
+Please apply!
 
-	Thanks,
-
-		Richard
-
------Original Message-----
-From: Steven Blake [mailto:slblake@petri-meat.com]
-Sent: 20 August 2003 05:58
-To: David S. Miller
-Cc: netdev@oss.sgi.com; linux-net@vger.kernel.org
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Thanks,
+Ville
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
 
 
-On Tue, 2003-08-19 at 13:53, David S. Miller wrote:
+---377318441-782513297-1061378592=:541
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ndisc_na_target.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0308201423120.541@rhea.tcs.hut.fi>
+Content-Description: 
+Content-Disposition: attachment; filename="ndisc_na_target.patch"
 
-> BTW, this ARP source address algorithm we use comes from
-> ipv6, it would be instructive to go and see why they do
-> things the way they do.
-
-Are you sure?  See below:
-
-========================================================================
-
-RFC 2461              Neighbor Discovery for IPv6          December 1998
-
-
-4.3.  Neighbor Solicitation Message Format
-
-   Nodes send Neighbor Solicitations to request the link-layer address
-   of a target node while also providing their own link-layer address to
-   the target.  Neighbor Solicitations are multicast when the node needs
-   to resolve an address and unicast when the node seeks to verify the
-   reachability of a neighbor.
-
-         0                   1                   2                   3
-         0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |     Type      |     Code      |          Checksum             |
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |                           Reserved                            |
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |                                                               |
-        +                                                               +
-        |                                                               |
-        +                       Target Address                          +
-        |                                                               |
-        +                                                               +
-        |                                                               |
-        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-        |   Options ...
-        +-+-+-+-+-+-+-+-+-+-+-+-
-
-   IP Fields:
-
-      Source Address
-                     Either an address assigned to the interface from
-                     which this message is sent or (if Duplicate Address
-                     Detection is in progress [ADDRCONF]) the
-                     unspecified address.
-
-      Destination Address
-                     Either the solicited-node multicast address
-                     corresponding to the target address, or the target
-                     address.
-
-      Hop Limit      255
-
-      Authentication Header
-                     If a Security Association for the IP Authentication
-                     Header exists between the sender and the
-                     destination address, then the sender SHOULD include
-                     this header.
-
-
-
-
-
-Narten, et. al.             Standards Track                    [Page 21]
-
-========================================================================
-
-
-Regards,
-
-// Steve
+LS0tIGxpbnV4LTIuNS5PTEQvbmV0L2lwdjYvbmRpc2MuYwkyMDAzLTA4LTIw
+IDE0OjA5OjEzLjAwMDAwMDAwMCArMDMwMA0KKysrIGxpbnV4LTIuNS9uZXQv
+aXB2Ni9uZGlzYy5jCTIwMDMtMDgtMjAgMTQ6MDk6MjguMDAwMDAwMDAwICsw
+MzAwDQpAQCAtNDg1LDcgKzQ4NSw3IEBADQogICAgICAgICBtc2ctPmljbXBo
+LmljbXA2X292ZXJyaWRlICA9ICEhb3ZlcnJpZGU7DQogDQogICAgICAgICAv
+KiBTZXQgdGhlIHRhcmdldCBhZGRyZXNzLiAqLw0KLQlpcHY2X2FkZHJfY29w
+eSgmbXNnLT50YXJnZXQsIHNyY19hZGRyKTsNCisJaXB2Nl9hZGRyX2NvcHko
+Jm1zZy0+dGFyZ2V0LCBzb2xpY2l0ZWRfYWRkcik7DQogDQogCWlmIChpbmNf
+b3B0KQ0KIAkJbmRpc2NfZmlsbF9vcHRpb24obXNnLT5vcHQsIE5EX09QVF9U
+QVJHRVRfTExfQUREUiwgZGV2LT5kZXZfYWRkciwgZGV2LT5hZGRyX2xlbik7
+DQo=
+---377318441-782513297-1061378592=:541--
