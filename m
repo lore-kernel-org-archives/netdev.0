@@ -1,51 +1,26 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Second 3c509 missing (2.5.71 thru 2.6.0-t7)
-Date: Fri, 10 Oct 2003 12:48:49 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Tigon3 5701 PCI-X recv performance problem
+Date: Fri, 10 Oct 2003 21:20:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010124849.5ae48bd9.shemminger@osdl.org>
-References: <200310100126.VAA21162@clem.clem-digital.net>
+Message-ID: <20031010192036.GA31727@wotan.suse.de>
+References: <3F844578.40306@sgi.com> <20031008101046.376abc3b.davem@redhat.com> <3F8455BE.8080300@sgi.com> <20031008183742.GA24822@wotan.suse.de> <20031008122223.1ba5ac79.davem@redhat.com> <20031008202248.GA15611@oldwotan.suse.de> <3F8702FF.70500@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@redhat.com>,
+        johnip@sgi.com, netdev@oss.sgi.com, jgarzik@pobox.com, jes@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pete Clements <clem@clem.clem-digital.net>, netdev@oss.sgi.com
-In-Reply-To: <200310100126.VAA21162@clem.clem-digital.net>
+To: Steve Modica <modica@sgi.com>
+Content-Disposition: inline
+In-Reply-To: <3F8702FF.70500@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Oct 2003 21:26:01 -0400 (EDT)
-Pete Clements <clem@clem.clem-digital.net> wrote:
+> Customers running Suse on Altix have to edit modules.conf anyhow so they 
+> use the tg3 module (instead of bcm).  So when they do this, we could easily 
+> have them add an argument to the modules.conf line and we avoid a kernel 
+> build. This let's us run with a standard ia64 kernel.
 
-> Since things are moving into fixes...
-> 
-> I use 3c509 compiled in. Second card not detected. This has been the
-> case with the stock kernel since 2.5.71.  Have been replacing the
-> code for all kernels since .70.  Have not tried as modules.
+Doesn't it already have a rx_copy_break argument? If yes just set it to
+zero and it will always copy. If not add it.
 
-Try this.
-
-diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Fri Oct 10 10:03:42 2003
-+++ b/drivers/net/Space.c	Fri Oct 10 10:03:42 2003
-@@ -433,17 +433,15 @@
- 	
- #ifdef CONFIG_SBNI
- 	for (num = 0; num < 8; ++num)
--		if (sbni_probe(num))
--			break;
-+		sbni_probe(num);
- #endif
- #ifdef CONFIG_TR
- 	for (num = 0; num < 8; ++num)
--		if (trif_probe(num))
--			break;
-+		trif_probe(num);
- #endif
- 	for (num = 0; num < 8; ++num)
--		if (ethif_probe(num))
--			break;
-+		ethif_probe(num);
-+
- #ifdef CONFIG_COPS
- 	cops_probe(0);
- 	cops_probe(1);
+-Andi
