@@ -1,63 +1,39 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: Memory usage for ip_conntrack
-Date: Thu, 24 Jul 2003 18:01:16 +0200
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Thu, 24 Jul 2003 17:14:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030724160107.GC10897@naboo>
-References: <1058563690.26030.23.camel@tux.rsn.bth.se> <16153.56832.379224.202834@fisica.ufpr.br>
+Message-ID: <3F20766C.3060400@us.ibm.com>
+References: <200307241443.SAA09525@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="IpbVkmxF4tDyP/Kb"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Carlos Carvalho <carlos@fisica.ufpr.br>
-Content-Disposition: inline
-In-Reply-To: <16153.56832.379224.202834@fisica.ufpr.br>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307241443.SAA09525@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+So people are ok with using struct ? Since it can be typecast as an array :-)
 
---IpbVkmxF4tDyP/Kb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+thanks,
 
-On Sat, Jul 19, 2003 at 09:10:40PM -0300, Carlos Carvalho wrote:
-> Martin Josefsson (gandalf@wlug.westbo.se) wrote on 18 July 2003 23:28:
->  >> If I echo 102400 > /proc/sys/net/ipv4/ip_conntrack_max, what is my wo=
-rst
->  >> case memory usage?
->  >
->  >Don't do this. This will increase the maximum number of connections it
->  >will track, but not the number of buckets. Which means that it will be
->  >slower due to longer collision-chains. Instead increase the number of
->  >buckets. modprobe ip_conntrack hashsize=3D131072 (or any number here.
->=20
-> How can we increase the number of buckets with a monolithic kernel?
+- KK
 
-For 2.4: by altering the default in the kernel source, sorry.
-For 2.5/2.6: there is now a generic way of specifying module parameters
-=66rom the boot command line.
 
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---IpbVkmxF4tDyP/Kb
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
-
-iD8DBQE/IALBXaXGVTD0i/8RAh2DAJ9qobKhgY2vjygWm/0rcGyOkFFkHACgl//g
-AL7lgAvRyJXOnotlqbED8Qw=
-=cw1n
------END PGP SIGNATURE-----
-
---IpbVkmxF4tDyP/Kb--
+kuznet@ms2.inr.ac.ru wrote:
+> Hello!
+> 
+> 
+>>I'm not so sure about the "array," but anyway,
+>>I don't think it is so ugly to use struct / offsetof.
+> 
+> 
+> Just write a sample of code, printing all fields of struct
+> and equivalent array, and you will see.
+> 
+> Well, I just know, that when iproute will do this, it will
+> cast the struct to array in any case. It is dirty, but sane at least. :-)
+> 
+> Alexey
+> 
