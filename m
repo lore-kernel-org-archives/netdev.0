@@ -1,100 +1,50 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
-Date: Fri, 2 Jul 2004 13:44:37 -0700
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: [Fwd: [Bug 3003] New: might_sleep warning when setting up IPSec
+ with IPCOMP]
+Date: Fri, 02 Jul 2004 14:27:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040702134437.5891e998@dell_ss3.pdx.osdl.net>
-References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
+Message-ID: <40E5D326.5000509@us.ibm.com>
+References: <40E5A1B3.2020202@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Catalin BOIE <util@deuroconsult.ro>, netdev@oss.sgi.com,
-        lartc@mailman.ds9a.nl
+Cc: James Morris <jmorris@intercode.com.au>, akpm@osdl.org,
+        netdev <netdev@oss.sgi.com>, christophe@saout.de, mjbligh@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <40E5A1B3.2020202@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Here is an enhancement to netem to do allow emulating lower speed 
-networks.  The resolution is close, but obviously limited by the
-granularity of timers and size of packets.
+Nivedita Singhvi wrote:
 
-Also, fixes a rtnetlink dependency which showed up in some configurations
-and optimizes for the non-loss case by avoiding net_random call.
+> James, Andrew,
+> 
+> Looks like deflate_comp_init() is not calling
+> __vmalloc in a kosher way.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
- 
-diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
---- a/net/sched/sch_netem.c	2004-07-02 13:40:11 -07:00
-+++ b/net/sched/sch_netem.c	2004-07-02 13:40:11 -07:00
-@@ -18,6 +18,7 @@
- #include <linux/errno.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
- 
- #include <net/pkt_sched.h>
- 
-@@ -31,11 +32,13 @@
- 	struct sk_buff_head qnormal;
- 	struct sk_buff_head qdelay;
- 	struct timer_list timer;
-+	psched_time_t last;
- 
- 	u32 latency;
- 	u32 loss;
- 	u32 counter;
- 	u32 gap;
-+	u32 rate;
- };
- 
- /* Time stamp put into socket buffer control block */
-@@ -54,13 +57,23 @@
- 	pr_debug("netem_enqueue skb=%p @%lu\n", skb, jiffies);
- 
- 	/* Random packet drop 0 => none, ~0 => all */
--	if (q->loss >= net_random()) {
-+	if (q->loss && q->loss >= net_random()) {
- 		sch->stats.drops++;
- 		return 0;	/* lie about loss so TCP doesn't know */
- 	}
- 
- 	if (q->qnormal.qlen < sch->dev->tx_queue_len) {
- 		PSCHED_GET_TIME(cb->time_to_send);
-+		if (q->rate) {
-+			if (!PSCHED_IS_PASTPERFECT(q->last) &&
-+			    PSCHED_TLESS(cb->time_to_send, q->last))
-+				cb->time_to_send = q->last;
-+
-+			PSCHED_TADD(cb->time_to_send, 
-+				    (USEC_PER_SEC * skb->len) / q->rate);
-+			q->last = cb->time_to_send;
-+		}
-+
- 		PSCHED_TADD(cb->time_to_send, q->latency);
- 
- 		__skb_queue_tail(&q->qnormal, skb);
-@@ -179,6 +192,7 @@
- 	q->gap = qopt->gap;
- 	q->loss = qopt->loss;
- 	q->latency = qopt->latency;
-+	q->rate = qopt->rate;
- 
- 	return 0;
- }
-@@ -196,6 +210,7 @@
- 	q->timer.function = netem_timer;
- 	q->timer.data = (unsigned long) sch;
- 	q->counter = 0;
-+	PSCHED_SET_PASTPERFECT(q->last);
- 
- 	return netem_change(sch, opt);
- }
-@@ -217,6 +232,7 @@
- 	qopt.limit = sch->dev->tx_queue_len;
- 	qopt.loss = q->loss;
- 	qopt.gap = q->gap;
-+	qopt.rate = q->rate;
- 
- 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
- 
+> Jul  2 18:39:04 websrv Debug: sleeping function called from invalid 
+> context at
+> mm/slab.c:1994
+> Jul  2 18:39:04 websrv in_atomic():1, irqs_disabled():0
+> Jul  2 18:39:04 websrv [<c0106c37>] dump_stack+0x17/0x20
+> Jul  2 18:39:04 websrv [<c0118fb4>] __might_sleep+0xb4/0xe0
+> Jul  2 18:39:04 websrv [<c0139fbc>] kmem_cache_alloc+0x5c/0x60
+> Jul  2 18:39:04 websrv [<c0147bc0>] __get_vm_area+0x20/0xf0
+> Jul  2 18:39:04 websrv [<c0147cb4>] get_vm_area+0x24/0x30
+> Jul  2 18:39:04 websrv [<c0147f1c>] __vmalloc+0x3c/0x100
+> Jul  2 18:39:04 websrv [<c01ecdca>] deflate_comp_init+0x4a/0xf0
+> Jul  2 18:39:04 websrv [<c01ecf44>] deflate_compress+0x24/0x80
+> Jul  2 18:39:04 websrv [<c01e8a84>] crypto_compress+0x24/0x30
+> Jul  2 18:39:04 websrv [<c031744c>] ipcomp_compress+0x6c/0x110
+> Jul  2 18:39:04 websrv [<c0317681>] ipcomp_output+0xc1/0x370
+
+We are grabbing dst->xfrm lock in ipcomp_output(),
+and have it held when we call ipcomp_compress().
+
+Is that the issue? I don't have the crypto module
+code, but in_atomic() will be true.
+
+
+thanks,
+Nivedita
