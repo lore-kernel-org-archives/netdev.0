@@ -1,25 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPSEC] Merge xfrm4_bundle_ok/xfrm6_bundle_ok/stale_bundle
-Date: Sat, 29 Jan 2005 22:47:21 +0900 (JST)
-Message-ID: <20050129.224721.131964551.yoshfuji@linux-ipv6.org>
-References: <20050129123803.GA17390@gondor.apana.org.au>
+From: Christian Schmid <webmaster@rapidforum.com>
+Subject: How to remove TCP-limits?
+Date: Sat, 29 Jan 2005 17:06:53 +0100
+Message-ID: <41FBB49D.2020809@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20050129123803.GA17390@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050129123803.GA17390@gondor.apana.org.au> (at Sat, 29 Jan 2005 23:38:03 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+Referring to the following:
 
-> This patch merges __xfrm4_bundle_ok/__xfrm6_bundle_ok/stale_bundle
-> so that when I add MTU verification code I don't have to put it in
-> three places.
+ >In 2.6.10 there has been a "bug" introduced. You may also call it a feature, but its a crappy 
+ >feature for big servers. It seems the kernel is dynamically adjusting the buffer-space available 
+ >for sockets. Even if send-buffer has been set to 1024 KB, the kernel blocks at less if there are 
+ >enough sockets in use. If you have 10 sockets with 1024 KB each, they do not block at all, using 
+ >full 1024 KB. If you have 4000 sockets, they only use 200 KB. So it seems its blocking at 800 MB. 
+ >This is good, if you have a 1/3 system, because else the kernel would run out of low mem. But I 
+ >have a 2/2 system and I need them for buffers. So what can I do? Where can I adjust the "pool"?
 
-Ok, I agree.
+How can I disable this? I have been searching the code but I can't find it. Or can I at least adjust 
+it somehow? Thank you in advance.
 
---yoshfuji
+Best regards,
+Christian Schmid - RapidTec
