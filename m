@@ -1,98 +1,50 @@
-From: Marc Herbert <marc.herbert@free.fr>
-Subject: TxDescriptors -> 1024 default. Please not for every NIC!
-Date: Sat, 15 May 2004 14:14:26 +0200 (CEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0405151354220.9894@fcat>
-References: <OF72607111.CD0234C8-ON85256DA1.0068861B-86256DA1.0068FF60@us.ibm.com>
+From: Miroslav Zubcic <mvz@nimium.com>
+Subject: Re: [PATCH] Re: ethernet/b44: Bug in b44.c:v0.93 (Mar, 2004)
+ ethernet driver in 2.6.6
+Date: Sat, 15 May 2004 20:07:50 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <lzbrkp36rr.fsf@anthea.home.int>
+References: <lzekpnlxwl.fsf@nimiumvax.nimium.local>
+	<20040514130206.GA9583@ee.oulu.fi> <20040515120518.GA9480@ee.oulu.fi>
+	<20040515121112.GA9579@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <OF72607111.CD0234C8-ON85256DA1.0068861B-86256DA1.0068FF60@us.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, pavel@ucw.cz, netdev@oss.sgi.com,
+	jgarzik@pobox.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S261752AbUEOSJL@vger.kernel.org>
+To: Pekka Pietikainen <pp@ee.oulu.fi>
+In-Reply-To: <20040515121112.GA9579@ee.oulu.fi> (Pekka Pietikainen's message
+ of "Sat, 15 May 2004 15:11:12 +0300")
 List-Id: netdev.vger.kernel.org
 
-On Sun, 14 Sep 2003, Ricardo C Gonzalez wrote:
+Pekka Pietikainen <pp@ee.oulu.fi> writes:
 
-> David Miller wrote:
+> On Sat, May 15, 2004 at 03:05:19PM +0300, Pekka Pietikainen wrote:
+>> +	/* Enable CRC32, set proper LED modes and power on MAC */
+>> +	bw32(B44_MAC_CTRL, MAC_CTRL_CRC32_ENAB | MAC_CTRL_PHY_LEDCTRL);
+> Erk, that comment should of course be "power on PHY". I hate acronyms...
 >
-> >Back to the main topic, maybe we should set dev->tx_queue_len to
-> >1000 by default for all ethernet devices.
->
->
-> I definately agree with setting the dev->tx_queue_len to 1000 as a defa=
-ult
-> for all ethernet adapters. All adapters will benefit from this change.
->
+> --- linux-2.6.5-1.358/drivers/net/b44.c.orig	2004-05-15 13:59:57.000000000 +0300
+> +++ linux-2.6.5-1.358/drivers/net/b44.c	2004-05-15 14:59:39.794720368 +0300
+> @@ -27,8 +27,8 @@
 
-<http://oss.sgi.com/projects/netdev/archive/2003-09/threads.html#00247>
+Pekka, thank you very much for your patch. It looks like things are
+working now:
 
-Sorry to exhume this discussion but I only recently discovered this
-change, the hard way.
+dmesg part:
+b44.c:v0.95 (May 15, 2004)
+...
+eth0: Broadcom 4400 10/100BaseT Ethernet 00:08:02:e2:2d:ba
+ip_tables: (C) 2000-2002 Netfilter core team
+b44: eth0: Link is down.
+b44: eth0: Link is up at 100 Mbps, full duplex.
+b44: eth0: Flow control is off for TX and off for RX.
 
-I carefully read this old thread and did not grasp _every_ detail, but
-there is one thing that I am sure of: 1000 packets @ 1=A0Gb/s looks
-good, but on the other hand, 1000 full-size Ethernet packets @ 10=A0Mb/s
-are about 1.2=A0seconds long!
+I have tried moving large packets, NFS, ping etc ... no problem
+anymore, it works.
 
-Too little buffering means not enough dampering effect, which is very
-important for performance in asynchronous systems, granted. However,
-_too much_ buffering means too big and too variable latencies. When
-discussing buffers, duration is very often more important than size.
-Applications, TCP's dynamic (and kernel dynamics too?) do not care
-much about buffer sizes, they more often care about latencies (and
-throughput, of course). Buffers sizes is often "just a small matter of
-implementation" :-) For instance people designing routers talk about
-buffers in _milliseconds_ much more often than in _bytes_ (despite the
-fact that their memories cost more than in hosts, considering the
-throughputs involved).
-
-100 packets @ 100=A0Mb/s was 12 ms. 1000 packets @ 1=A0Gb/s is still
-12=A0ms. 12=A0ms is great. It's a "good" latency because it is the
-order of magnitude of real-world constants like:  comfortable
-interactive applications, operating system sheduler granularity or
-propagation time in 2000=A0km of cable.
-
-But 1000=A0packets @ 100=A0Mb/s is 120=A0ms and is neither very good nor
-very useful anymore. 1000=A0packets @ 10=A0Mb/s is 1.2=A0s, which is
-ridiculous. It does mean that, when joe user is uploading some big
-file through his cheap Ethernet card, and that there are no other
-bottleneck/drops further in the network, every concurrent application
-will have to wait 1.2 s before accessing the network!
- It this hard to believe for you, just make the test yourself, it's
-very easy: force one of you NICs to 10Mb/s full duplex, txqueuelen
-1000 and send a continuous flow to a nearby machine. Then try to ping
-anything.
- Imagine now that some packet is lost for whatever reason on some
-_other_ TCP connection going through this terrible 1.2=A0s queue. Then
-you need one SACK/RTX extra round trip time to recover from it: so
-it's now _2.4=A0s_ to deliver the data sent just after the dropped
-packet...  Assuming of course TCP timers do not become confused by
-this huge latency and probably huge jitter.
-
-And I don't think you want to make fiddling with "tc" mandatory for
-joe user. Or tell him: "oh, please just 'ifconfig txqueuelen 10', or
-buy a new Ethernet card".
-
-I am unfortunately not familiar with this part of the linux kernel,
-but I really think that, if possible, txqueuelen should be initialized
-at some "constant 12=A0ms" and not at the "1000 packets" highly variable
-latency setting. I=A0can imagine there are some corner cases, like for
-instance when some GEth NIC is hot-plugged into a 100=A0Mb/s, or jumbo
-frames, but hey, those are corner cases : as a first step, even a
-simple constant-per-model txqueuelen initialization would be already
-great.
-
-Cheers,
-
-Marc.
+Thanks again!
 
 
-PS: one workaround for joe user against this 1.2s latency would be to
-keep his SND_BUF and number of sockets small. But this is poor.
-
-
---=20
-"Je n'ai fait cette lettre-ci plus longue que parce que je n'ai pas eu
-le loisir de la faire plus courte." -- Blaise Pascal
+-- 
+		The Network is the Filesystem.
