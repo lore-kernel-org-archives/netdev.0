@@ -1,43 +1,53 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [PATCH] af_pppox: create module infrastructure for protocol
-	modules
-Date: 30 Apr 2003 11:11:37 -0700
+From: James Stevenson <james@stev.org>
+Subject: Re: 3c59x support
+Date: 01 May 2003 00:17:21 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1051726260.13512.59.camel@localhost.localdomain>
-References: <20030428.222728.48508327.davem@redhat.com>
-	 <20030429065419.GN25361@conectiva.com.br>
-	 <5.1.0.14.2.20030429123317.10d71178@unixmail.qualcomm.com>
-	 <20030429.192931.104061911.davem@redhat.com>
+Message-ID: <1051744645.2308.11.camel@god.stev.org>
+References: <200304290202.02811.borkdude@cs.utwente.nl>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, andrewm@uow.edu.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030429.192931.104061911.davem@redhat.com>
+To: borkdude@cs.utwente.nl
+In-Reply-To: <200304290202.02811.borkdude@cs.utwente.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2003-04-29 at 19:29, David S. Miller wrote:
->    From: Max Krasnyansky <maxk@qualcomm.com>
->    Date: Tue, 29 Apr 2003 13:05:08 -0700
-> 
->    - Why do we have to bump module refcount for 'struct sock' with
->      _default_ callbacks ?
-> 
-> Nothing says that just because a sock uses default callbacks, it can't
-> be referenced in other ways by the implementation module, for example
-> it can sit in the protocol hash tables and that by itself requires
-> a module reference.
-That's a good point. However this is protocol's local business.
-Netcore does not use those hashes directly. Netcore only uses things
-like sk->state, sk->lock, etc and callbacks. So the callback is the only
-reference, from netcore's point of view, into the protocol module.
-Most protocols that I've looked at unlink sk from its hashes in
-proto_sock_release(struct socket *sock) so it's enough to make sure that
-struct socket is accounted for.  
-And like I said before if protocol wants for some reason to be around
-until sk is destroyed it will simply do sk_set_owner() right after
-alloc_sk().
+Hi
 
-Max
+i also had problems with the card in some 2.4.x releases
+but it seems to work for me on a 2.4.20 kernel.
+
+3c59x: Donald Becker and others. www.scyld.com/network/vortex.html
+00:0a.0: 3Com PCI 3c905C Tornado at 0xec00. Vers LK1.1.16
+
+i do still have problems with a card in another machine when rebooting
+from windows into linux it fails to init properly.
+But since the machine boots from nfs i have not been bothered to
+dump the info from this.
+
+
+On Tue, 2003-04-29 at 01:02, Michiel Borkent wrote:
+> Hello,
+> I am trying to make a 2.4.20 kernel with 3c59x support.
+> My card is a:
+> 
+> 3Com 3c900 Cyclone 10Mbps TPO 
+> 
+> card and it only works with the 3c59x-scyld module, I found with Debian Woody 
+> with a linux v2.2 kernel.
+> 
+> It does NOT work with the normal 3c59x module and as I am trying to make a 
+> 2.4.20 kernel, it still doesn't work. I chose support for "Vortex/Boomerang" 
+> and normally my card would be supported I think.
+> 
+> Can someone help me with this?
+> 
+> Greetings,
+> Michiel Borkent
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
