@@ -1,14 +1,14 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH][NET] Add PPC440SP support to IBM EMAC driver
-Date: Wed, 02 Feb 2005 00:29:31 -0500
-Message-ID: <4200653B.5040302@pobox.com>
-References: <20050131171009.F25809@cox.net>
+Subject: Re: [PATCH 2/2] ray_cs: reduce stack usage (sockaddr)
+Date: Wed, 02 Feb 2005 00:35:21 -0500
+Message-ID: <42006699.3040508@pobox.com>
+References: <41FAB900.5020502@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, linuxppc-embedded@ozlabs.org
-To: Matt Porter <mporter@kernel.crashing.org>
-In-Reply-To: <20050131171009.F25809@cox.net>
+Cc: netdev@oss.sgi.com, corey@world.std.com
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <41FAB900.5020502@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
