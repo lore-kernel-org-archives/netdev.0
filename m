@@ -1,37 +1,52 @@
-From: rask@sygehus.dk (Rask Ingemann Lambertsen)
-Subject: Re:  Is a driver allowed to modify dev->flags?
-Date: Tue, 1 Apr 2003 19:40:30 +0200
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: RE: [Fwd: [E1000] NAPI re-insertion w/ changes]
+Date: Tue, 1 Apr 2003 20:57:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3383.14929181269$1049220831@news.gmane.org>
-References: <Pine.LNX.4.44.0304011213380.1685-100000@beohost.scyld.com>
-Reply-To: rask@sygehus.dk
+Message-ID: <16009.57620.391630.720667@robur.slu.se>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D30D@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   Jason Lunz
+	 <lunz@falooley.org>, Jeff Garzik <jgarzik@pobox.com>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org, netdev@oss.sgi.com
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010107D30D@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Donald Becker wrote:
-> On Tue, 1 Apr 2003, Rask Ingemann Lambertsen wrote:
-> 
-> > Is a network device driver allowed to modify dev->flags? For example:
-> >
-> > if (dev->flags & IFF_ALLMULTI)
-> >         dev->flags |= IFF_PROMISC;
-> 
-> You must be looking at the atp.c driver, or a driver that cribbed from
-> it.  (Is anyone still running a parallel port Ethernet device?!)
+Feldman, Scott writes:
 
-No, but I've seen such code in other Ethernet drivers and adopted it for my NE3200 driver.
+ > Thanks for you help guys!  I broke NAPI (don't hate me) and then went on
+ > vacation, so I apologize for not responding sooner.  I like what you've
+ > come up with here, so I'll turn the patch around for Jeff to update 2.5
+ > e1000.
+ > 
+ > > +       e1000_clean_tx_irq(adapter);
+ > > +       e1000_clean_rx_irq(adapter, &work_done, work_to_do);
+ > 
+ > Just curious, why give priority to Tx over Rx?
 
-> > I've found it to cause the IFF_PROMISC flag to stick when using
-> > "tcpdump -p", which to my surprice sets the IFF_ALLMULTI flag.
-> 
-> Which driver are you using?
+ Hello!
 
-My experimental NE3200 driver, linux 2.4.20 and tcpdump from Redhat 7.3.
+ Honestly not too much thinking... well we can always argue by having
+ Rx last we get more packets per poll. Yes we should test the other
+ way around.
 
-Regards,
-Rask Ingemann Lambertsen
+ Also still some concern by having the watchdog kicked in e1000_intr 
+ wouldn't e1000_clean feel better? 
+
+ It would also be interesting to see what happens if we remove the flush when 
+ enable interrupts in e1000_clean?
+
+ I've tested the patch that removes some of the PCI-accesses. I think I sent
+ you some version of it. Anyway it seems to have some effects. If Jason has 
+ time we will get some numbers from his instrument/setup.
+
+ Cheers.
+						--ro
+ 
+ 
