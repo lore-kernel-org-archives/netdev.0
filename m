@@ -1,54 +1,47 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Tue, 16 Sep 2003 08:05:07 +0200
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <200309160805.08171.bdschuym@pandora.be>
-References: <200309022116.41697.bdschuym@pandora.be> <200309132159.37834.bdschuym@pandora.be> <20030915155903.12a3f95d.davem@redhat.com>
+Date: Mon, 15 Sep 2003 23:02:59 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030915230259.79f5a545.davem@redhat.com>
+References: <200309022116.41697.bdschuym@pandora.be>
+	<200309132159.37834.bdschuym@pandora.be>
+	<20030915155903.12a3f95d.davem@redhat.com>
+	<200309160805.08171.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: laforge@netfilter.org, acme@conectiva.com.br,
-	netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030915155903.12a3f95d.davem@redhat.com>
-Content-Disposition: inline
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200309160805.08171.bdschuym@pandora.be>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 16 September 2003 00:59, David S. Miller wrote:
-> > -	char physindev[IFNAMSIZ];
-> > +	char physindev[IFNAMSIZ] __attribute__ ((aligned (__alignof__(unsigned
-> > int))));
->
-> I have to reject the fix for this problem again.
->
-> You can't change the struct exported to userspace in any way
-> without breaking the tools.  I tried to explain this in the
-> first revision of your change.
+On Tue, 16 Sep 2003 08:05:07 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-On Thursday 04 September 2003 05:05, you wrote:
-<quote>
-As I mentioned in another email, this patch can't be used, it
-breaks in mixed 32/64 bit environments.
-<unquote>
+> Anyway, this rule about not changing structs exported to userspace truly 
+> sucks, IMHO.
 
-I guess I'm a bit on the slow side but I didn't quite read the above text like 
-that.
-Anyway, this rule about not changing structs exported to userspace truly 
-sucks, IMHO. If someone decides to compile her own kernel this person should 
-not expect every userspace tool to keep working, again IMHO. Adding a new 
-module to the kernel results in the user having to upgrade her tools, 
-recompiling won't even do. Why on earth do you allow adding modules.
-But I'm sure some nice volunteer will come along and downgrade that code 
-fragment.
+Welcome to the real world.
 
-Bart
+> If someone decides to compile her own kernel this person should 
+> not expect every userspace tool to keep working, again IMHO.
+
+Wouldn't it be great if you recompiled you kernel and the args
+to the read() system call got rearranged?
+
+There is simply no difference in this case.  The situation doesn't
+change because the object is being passed into some netfilter module.
+
+You can't arbitrarily change userland exported APIs at your convenience
+to fix some bug.  You either have to create a new interface for the user
+to use, or fix the bug without changing the API.
+
+Will it be the end of the world if you do a byte at a time comparison,
+at least as a temporary solution?
+
+Also, another solution could be to store the object inside the kernel
+using a different structure, one where you can guarentee the alignment
+of these things properly.
