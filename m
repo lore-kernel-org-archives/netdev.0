@@ -1,37 +1,32 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [PATCH] more const in skbuff
-Date: Thu, 18 Sep 2003 13:42:53 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: Thu, 18 Sep 2003 19:48:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030918204253.GA43611@gaz.sfgoth.com>
-References: <20030918102709.34211ee5.shemminger@osdl.org>
+Message-ID: <20030918194802.6726d53c.davem@redhat.com>
+References: <200309022116.41697.bdschuym@pandora.be>
+	<20030916140918.GF810@obroa-skai.de.gnumonks.org>
+	<20030916181603.366b7c06.davem@redhat.com>
+	<200309172317.38348.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: laforge@netfilter.org, hno@marasystems.com, acme@conectiva.com.br,
+        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030918102709.34211ee5.shemminger@osdl.org>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200309172317.38348.bdschuym@pandora.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> -static inline int skb_cloned(struct sk_buff *skb)
-> +static inline int skb_cloned(const struct sk_buff *skb)
->  {
->  	return skb->cloned && atomic_read(&skb_shinfo(skb)->dataref) != 1;
->  }
+On Wed, 17 Sep 2003 23:17:38 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-Are you sure that atomic_read() is garaunteed to take a const pointer?
-My understanding is that an arch could in theory take a spinlock (although
-none do currently)
+> Let me try to convince you one more time :)
 
-If it is garaunteed to take a const pointer then please fix the inline in
-include/asm-parisc/atomic.h or your patch will create a lot of warnings on
-that architecture.
+Sure, but let me give you a suggestion, OK?
 
-Other than that this patch is a strict subset of the "small skbuff.[ch]
-tweaks" patch I posted here 2 weeks ago:
-  http://oss.sgi.com/projects/netdev/archive/2003-09/msg00036.html
-Never heard from davem one way or the other on that one.
+Don't use an alignment attribute, just put the member of
+the struct at the very beginning and use "unsigned int"
+at a time op+comparisons.
 
--Mitch
+How about that?
