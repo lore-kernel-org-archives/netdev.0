@@ -1,72 +1,47 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [ANNOUNCE] iproute2 2.6.9-041019
-Date: Wed, 20 Oct 2004 09:00:17 +0200
-Sender: lartc-admin@mailman.ds9a.nl
-Message-ID: <20041020070017.GA19899@sunbeam.de.gnumonks.org>
-References: <41758014.4080502@osdl.org> <Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
+From: Frank Pavlic <PAVLIC@de.ibm.com>
+Subject: Re: FWD:  setting skb->dev to vlan device in vlan_hwaccel_rx is wrong ...
+Date: Wed, 20 Oct 2004 10:08:42 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <OFB8B932F8.E041070C-ONC1256F33.0027CE30-C1256F33.002CBE1E@de.ibm.com>
+References: <20041019233618.6fdcb01d.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="+QahgC5+KEYLbs62"
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, LARTC@mailman.ds9a.nl
-Return-path: <lartc-admin@mailman.ds9a.nl>
-To: Jeff Chua <jeffchua@silk.corp.fedex.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
-Errors-To: lartc-admin@mailman.ds9a.nl
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com, vlan@candelatech.com
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <20041019233618.6fdcb01d.davem@redhat.com>
+To: Ben Greear <greearb@candelatech.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+ oh , I'm sorry for confusing you guys , I finally get the point on how 
+the 
+hw_accel_rx stuff is working ...
 
---+QahgC5+KEYLbs62
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Frank
 
-On Wed, Oct 20, 2004 at 08:21:10AM +0800, Jeff Chua wrote:
->=20
-> On Tue, 19 Oct 2004, Stephen Hemminger wrote:
->=20
-> >Now that 2.6.9 is final. Here is an update of the iproute2 utilities that
->=20
->=20
-> can't compile Got the following error. Linux is 2.6.9. Gcc is 2.95.3.
 
-I'll take care of this. sorry fort he inconvenience.
 
-> Thanks,
-> Jeff.
 
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
+"David S. Miller" <davem@redhat.com> 
+20.10.2004 08:36
 
---+QahgC5+KEYLbs62
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+To
+Ben Greear <greearb@candelatech.com>
+cc
+vlan@candelatech.com, Frank Pavlic/Germany/IBM@IBMDE, netdev@oss.sgi.com
+Subject
+Re: FWD:  setting skb->dev to vlan device in vlan_hwaccel_rx is wrong ...
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
 
-iD8DBQFBdg0BXaXGVTD0i/8RAglWAJ9cCOmYHE7pY2yG8wLtL+BH6Ps+vACaA9s3
-nEBgFCfKmTLjtgm+Dk5/X0I=
-=Scj1
------END PGP SIGNATURE-----
 
---+QahgC5+KEYLbs62--
-_______________________________________________
-LARTC mailing list / LARTC@mailman.ds9a.nl
-http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
+
+
+
+On Fri, 15 Oct 2004 16:27:46 -0700
+Ben Greear <greearb@candelatech.com> wrote:
+
+> Dave, since you did the hw-accel work, what do you think of this patch?
+
+I see no mention of what specific part of the "receive path"
+depends upon the skb->dev being set to the real_dev and not
+the true VLAN device.
