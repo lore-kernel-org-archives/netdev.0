@@ -1,32 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Check connect address in NETLINK
-Date: Tue, 29 Jun 2004 21:18:33 +1000
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Updated Wireless Extension patches
+Date: Tue, 29 Jun 2004 09:23:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040629111833.GA22880@gondor.apana.org.au>
-References: <20040628231439.GA3021@gondor.apana.org.au> <20040629082252.GA26866@ms2.inr.ac.ru> <20040629084552.GA6202@gondor.apana.org.au> <20040629111433.GA28463@ms2.inr.ac.ru>
+Message-ID: <20040629162339.GA4356@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040629111433.GA28463@ms2.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 29, 2004 at 03:14:33PM +0400, Alexey Kuznetsov wrote:
-> 
-> > Or we can set the disconnected pid to a negative value since POSIX
-> > requires pid_t to be signed.  I see that you've reserved everything
-> > between -4096 and 0.  So perhaps we can pick -1?
-> 
-> I think we can.
+	Hi all,
 
-Great.  I'll code it up then.
+	I've been working a bit more on my current set of Wireless
+Extension patches (WPA, Wireless-RtNetlink, ...). I've just updated
+them on my personal web page :
+	http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html#wext
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	The main change is that I'm now happy of the format of
+Wireless over RtNetlink, so it should be close to definitive. I've
+also split all the minor changes as a separate patch (WE-17), so it
+doesn't have to wait for WPA and Wireless-RtNetlink that still need a
+bit of work, and I plan to push this patch soon.
+	You will also find patches for various drivers to take
+advantage of the new features. I would like to thank the various
+driver authors that sent me patches, suggestions and comments, and
+thank them for their patience.
+
+	Have fun...
+
+	Jean
