@@ -1,51 +1,35 @@
-From: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>
-Subject: Re: Make ipconfig.c work as a loadable module.
-Date: Sat, 8 Mar 2003 11:45:40 +0100 (CET)
+From: =?iso-8859-1?q?barkkarn=20aravinda?= <dirch221@yahoo.co.in>
+Subject: protocol development
+Date: Sat, 8 Mar 2003 10:49:50 +0000 (GMT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0303081132030.12316-100000@kenzo.iwr.uni-heidelberg.de>
-References: <m1fzpylimr.fsf@frodo.biederman.org>
+Message-ID: <20030308104950.66215.qmail@web8205.mail.in.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Russell King <rmk@arm.linux.org.uk>, Chris Dukes <pakrat@www.uk.linux.org>,
-   Alan Cox <alan@lxorguk.ukuu.org.uk>, Jeff Garzik <jgarzik@pobox.com>,
-   Robin Holt <holt@sgi.com>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   <netdev@oss.sgi.com>
+Content-Type: multipart/alternative; boundary="0-1071572380-1047120590=:63048"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-In-Reply-To: <m1fzpylimr.fsf@frodo.biederman.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 7 Mar 2003, Eric W. Biederman wrote:
+--0-1071572380-1047120590=:63048
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
 
-> Only because the implementations suck.  See etherboot.
 
-Agreed, but as you rightly say at the end of your message...
+hi
 
-> But sometimes you are stuck with what you can do.
+   iam arvind from india.i want to make some changes to tcp protocol and implement in my computer.can i use libpcap to write my own protocol.give me some suggestion about how to work on this project.what are the books that can help me in this project.
 
-... and you can't go use etherboot or whatever, you have to deal with it. 
-You can deal with it today because ipconfig is small, you might not be 
-able to deal with it tomorrow if you'll have to transfer twice as much 
-because of a big initrd.
+bye
 
-> But this is all before the kernel is loaded. 
+Catch all the cricket action. Download Yahoo! Score tracker
+--0-1071572380-1047120590=:63048
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
 
-But that's exactly my point. The ipconfig functionality is needed and what 
-I ask for is that whatever means (if any) are chosen to replace it, they 
-should keep the low size.
-
-> Having booted a 1000 node cluster with TFTP and DHCP.
-
-I do not doubt this, but I'm afraid that you (or we) might not be able to 
-do it again tomorrow. And probably this is an ideal case where you have 
-used the better solution as client (etherboot)...
-
--- 
-Bogdan Costescu
-
-IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
-Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
-Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
-E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
+<P>hi</P>
+<P>&nbsp;&nbsp; iam arvind from india.i want to make some changes to tcp protocol and implement in my computer.can i use libpcap to write my own protocol.give me some suggestion about how to work on this project.what are the books that can help me in this project.</P>
+<P>bye</P><p><img src="http://sg.yimg.com/i/aa/icons/28/cricket.gif" height=28 width=28>
+Catch all the cricket action. Download <a href="http://in.sports.yahoo.com/cricket/tracker.html" target="_blank">
+Yahoo! Score tracker</a>
+--0-1071572380-1047120590=:63048--
