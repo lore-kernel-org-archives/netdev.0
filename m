@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 4 2.4.27] pcnet32: Add HomePNA parameter for 79C978.
-Date: Mon, 9 Aug 2004 16:17:33 -0700
+Subject: [PATCH 5 2.4.27] pcnet32: correctly program bcr32.
+Date: Mon, 9 Aug 2004 16:18:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040809231733.GE13717@us.ibm.com>
+Message-ID: <20040809231821.GF13717@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,76 +11,56 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch adds a module parameter to select HomePNA mode of operation
-for the 79C978 version of the pcnet32.  Tested ia32.
+The pcnet32 driver was not correctly enabling MII autonegotiation after
+booting when ppc firmware forced the speed/duplex mode of the chip.
+After several conversations with AMD this patch corrects the problem.
 
-signed-off-by: Patrick Simmons <psimmons@flash.net>
-signed-off-by: Don Fry <brazilnut@us.ibm.com>
+Signed-off-by: Don Fry <brazilnut@us.ibm.com>
 
---- linux-2.4.27/drivers/net/ints.pcnet32.c	Mon Aug  9 15:41:52 2004
-+++ linux-2.4.27/drivers/net/pcnet32.c	Mon Aug  9 15:42:04 2004
+--- linux-2.4.27/drivers/net/home.pcnet32.c	Mon Aug  9 15:42:04 2004
++++ linux-2.4.27/drivers/net/pcnet32.c	Mon Aug  9 15:42:09 2004
 @@ -22,8 +22,8 @@
   *************************************************************************/
  
  #define DRV_NAME	"pcnet32"
--#define DRV_VERSION	"1.30f"
--#define DRV_RELDATE	"06.16.2004"
-+#define DRV_VERSION	"1.30g"
-+#define DRV_RELDATE	"06.22.2004"
+-#define DRV_VERSION	"1.30g"
+-#define DRV_RELDATE	"06.22.2004"
++#define DRV_VERSION	"1.30h"
++#define DRV_RELDATE	"06.24.2004"
  #define PFX		DRV_NAME ": "
  
  static const char *version =
-@@ -137,6 +137,7 @@ static const char pcnet32_gstrings_test[
- #define MAX_UNITS 8	/* More are supported, limit only on options */
- static int options[MAX_UNITS];
- static int full_duplex[MAX_UNITS];
-+static int homepna[MAX_UNITS];
- 
- /*
-  *				Theory of Operation
-@@ -250,6 +251,8 @@ static int full_duplex[MAX_UNITS];
-  * v1.30f  16 Jun 2004 Don Fry cleanup IRQ to allow 0 and 1 for PCI,
-  * 	   expanding on suggestions from Ralf Baechle <ralf@linux-mips.org>,
+@@ -253,6 +253,7 @@ static int homepna[MAX_UNITS];
   * 	   and Brian Murphy <brian@murphy.dk>.
-+ * v1.30g  22 Jun 2004 Patrick Simmons <psimmons@flash.net> added option
-+ *	   homepna for selecting HomePNA mode for PCNet/Home 79C978.
+  * v1.30g  22 Jun 2004 Patrick Simmons <psimmons@flash.net> added option
+  *	   homepna for selecting HomePNA mode for PCNet/Home 79C978.
++ * v1.30h  24 Jun 2004 Don Fry correctly select auto, speed, duplex in bcr32.
   */
  
  
-@@ -1083,15 +1086,17 @@ pcnet32_probe1(unsigned long ioaddr, int
- 	fdx = 1;
- 	/*
- 	 * This is based on specs published at www.amd.com.  This section
--	 * assumes that a card with a 79C978 wants to go into 1Mb HomePNA
--	 * mode.  The 79C978 can also go into standard ethernet, and there
--	 * probably should be some sort of module option to select the
--	 * mode by which the card should operate
-+	 * assumes that a card with a 79C978 wants to go into standard
-+	 * ethernet mode.  The 79C978 can also go into 1Mb HomePNA mode,
-+	 * and the module option homepna=1 can select this instead.
- 	 */
--	/* switch to home wiring mode */
- 	media = a->read_bcr(ioaddr, 49);
-+	media &= ~3;		/* default to 10Mb ethernet */
-+	if (cards_found < MAX_UNITS && homepna[cards_found])
-+	    media |= 1; 	/* switch to home wiring mode */
- 	if (pcnet32_debug & NETIF_MSG_PROBE)
--	    printk(KERN_DEBUG PFX "media reset to %#x.\n",  media);
-+	    printk(KERN_DEBUG PFX "media set to %dMbit mode.\n", 
-+		    (media & 1) ? 1 : 10);
- 	a->write_bcr(ioaddr, 49, media);
- 	break;
-     case 0x2627:
-@@ -2255,6 +2260,9 @@ MODULE_PARM(options, "1-" __MODULE_STRIN
- MODULE_PARM_DESC(options, DRV_NAME " initial option setting(s) (0-15)");
- MODULE_PARM(full_duplex, "1-" __MODULE_STRING(MAX_UNITS) "i");
- MODULE_PARM_DESC(full_duplex, DRV_NAME " full duplex setting(s) (1)");
-+/* Module Parameter for HomePNA cards added by Patrick Simmons, 2004 */
-+MODULE_PARM(homepna,"1-" __MODULE_STRING(MAX_UNITS) "i");
-+MODULE_PARM_DESC(homepna, DRV_NAME " mode for 79C978 cards (1 for HomePNA, 0 for Ethernet, default Ethernet");
+@@ -1421,9 +1422,13 @@ pcnet32_open(struct net_device *dev)
+ 	val |= 0x10;
+     lp->a.write_csr (ioaddr, 124, val);
  
- MODULE_AUTHOR("Thomas Bogendoerfer");
- MODULE_DESCRIPTION("Driver for PCnet32 and PCnetPCI based ethercards");
++    /* 24 Jun 2004 according AMD, in order to change the PHY,
++     * DANAS (or DISPM for 79C976) must be set; then select the speed,
++     * duplex, and/or enable auto negotiation, and clear DANAS */
+     if (lp->mii && !(lp->options & PCNET32_PORT_ASEL)) {
++	lp->a.write_bcr(ioaddr, 32, lp->a.read_bcr(ioaddr, 32) | 0x0080);
+ 	/* disable Auto Negotiation, set 10Mpbs, HD */
+-	val = lp->a.read_bcr (ioaddr, 32) & ~0x38;
++	val = lp->a.read_bcr(ioaddr, 32) & ~0xb8;
+ 	if (lp->options & PCNET32_PORT_FD)
+ 	    val |= 0x10;
+ 	if (lp->options & PCNET32_PORT_100)
+@@ -1431,6 +1436,7 @@ pcnet32_open(struct net_device *dev)
+ 	lp->a.write_bcr (ioaddr, 32, val);
+     } else {
+ 	if (lp->options & PCNET32_PORT_ASEL) {
++	    lp->a.write_bcr(ioaddr, 32, lp->a.read_bcr(ioaddr, 32) | 0x0080);
+ 	    /* enable auto negotiate, setup, disable fd */
+ 	    val = lp->a.read_bcr(ioaddr, 32) & ~0x98;
+ 	    val |= 0x20;
 
 -- 
 Don Fry
