@@ -1,39 +1,70 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: dev->destructor
-Date: Tue, 06 May 2003 07:25:29 -0700 (PDT)
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH 2.5.69] Bug in sys_accept() module ref counts
+Date: Tue, 6 May 2003 12:28:41 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030506.072529.52888036.davem@redhat.com>
-References: <20030502.134804.78707298.davem@redhat.com>
-	<20030503040949.804182C003@lists.samba.org>
-	<20030505090820.50cd5a13.shemminger@osdl.org>
+Message-ID: <Pine.LNX.4.44.0305061223090.1348-100000@dyn9-47-18-140.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   acme@conectiva.com.br
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030505090820.50cd5a13.shemminger@osdl.org>
+To: davem@redhat.com, <acme@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Mon, 5 May 2003 09:08:20 -0700
 
-   On Sat, 03 May 2003 14:07:41 +1000
-   Rusty Russell <rusty@rustcorp.com.au> wrote:
-   
-   > But Alexey said you can only call unregister_netdev from module
-   > unload, ie. if not a module, it can't be unloaded, hence no refcount
-   > needed.  I wrote the above paragraph because I'm not sure if I
-   > understood Alexey correctly?
+I think there is a bug in the recent changes to sys_accept() to implement 
+module ref counts.
 
-   There are several flavors of pseudo-network devices like bridging
-   and VLAN that dynamically create/destroy netdev's even when they
-   are not modules.
+module_put() gets called twice on error. Once via the explicit module_put and
+the second via sock_release(). Also i think we should do a __module_get() with 
+newsock's owner(although same as the original listening sock).
 
-I think you'll understand what Alexey/Rusty are saying better
-if you consider statically compiled kernel code as a module with
-an implicit non-zero reference count :-)
+The following patch against 2.5.69 should fix the problem.
 
-   
+Thanks
+Sridhar
+-------------------------------------------------------------------------------
+diff -Nru a/net/socket.c b/net/socket.c
+--- a/net/socket.c	Tue May  6 12:14:35 2003
++++ b/net/socket.c	Tue May  6 12:14:35 2003
+@@ -1280,26 +1280,26 @@
+ 	 * We don't need try_module_get here, as the listening socket (sock)
+ 	 * has the protocol module (sock->ops->owner) held.
+ 	 */
+-	__module_get(sock->ops->owner);
++	__module_get(newsock->ops->owner);
+ 
+ 	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
+ 	if (err < 0)
+-		goto out_module_put;
++		goto out_release;
+ 
+ 	if (upeer_sockaddr) {
+ 		if(newsock->ops->getname(newsock, (struct sockaddr *)address, &len, 2)<0) {
+ 			err = -ECONNABORTED;
+-			goto out_module_put;
++			goto out_release;
+ 		}
+ 		err = move_addr_to_user(address, len, upeer_sockaddr, upeer_addrlen);
+ 		if (err < 0)
+-			goto out_module_put;
++			goto out_release;
+ 	}
+ 
+ 	/* File flags are not inherited via accept() unlike another OSes. */
+ 
+ 	if ((err = sock_map_fd(newsock)) < 0)
+-		goto out_module_put;
++		goto out_release;
+ 
+ 	security_socket_post_accept(sock, newsock);
+ 
+@@ -1307,8 +1307,6 @@
+ 	sockfd_put(sock);
+ out:
+ 	return err;
+-out_module_put:
+-	module_put(sock->ops->owner);
+ out_release:
+ 	sock_release(newsock);
+ 	goto out_put;
