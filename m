@@ -1,35 +1,48 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: synchronization between bottom half and user context
-Date: Wed, 4 Dec 2002 07:51:34 -0500 (EST)
+Subject: Re: Patch resubmission: RFC2863 operstatus for 2.5.49
+Date: Wed, 4 Dec 2002 08:06:07 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0212040749090.2731-100000@shell.cyberus.ca>
-References: <Pine.LNX.4.44.0212030038030.1334-100000@bobbidi.cs.virginia.edu>
+Message-ID: <Pine.GSO.4.30.0212040753410.2731-100000@shell.cyberus.ca>
+References: <3DED3869.5E47D7A2@isg.de>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Cc: <davem@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ronghua Zhang <rz5b@cs.virginia.edu>
-In-Reply-To: <Pine.LNX.4.44.0212030038030.1334-100000@bobbidi.cs.virginia.edu>
+To: Stefan Rompf <srompf@isg.de>
+In-Reply-To: <3DED3869.5E47D7A2@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-On Tue, 3 Dec 2002, Ronghua Zhang wrote:
+On Wed, 4 Dec 2002, Stefan Rompf wrote:
 
-> Can someone tell me when lock should be used to synchronize bh and user
-> context?
+> Hi Jamal,
 >
-> For examle: in tcp_accept(), lock_sock() is called to avoid any change
-> made by net_bh during its operation. But if tcp_accept() is called, it's
-> impossilbe that net_bh is also executing. (i think this is true for UP,
-> what about SMP?), then why need lock_sock()?
+> > Just thought of something, it may be a little tricky but valuable and
+> > i am not quiet sure if it should part of your patch: We probably need to
+> > flush the qdiscs software queues; maybe even the DMA ring i.e simulate
+> > admin down followed by admin up.
 >
+> dev_close() is doing quite a lot of stuff, so we should do nothing more
+> than flush the qdiscs when the link comes up. But is it really useful?
 
-to serialize packets towards the socket; The linux network stack
-is threaded, you can have upto n packets to the same socket coming up the
-stack in parallel on an n-SMP machine; think of that and the fact that TCP
-data must be sequenced.
+Indeed it is, infact i have been bitten by buffered packets confusing
+an upstream switch with buffered VRRP packets when someone stepped on a
+cable that i later reconnected. Typically about 30 seconds
+later an arp fixes the problem - if the queue had been properly flushed
+thered be no problem.
+I think maybe flushing all routes and neighbors pointing out that
+device is also useful.
+
+> Normally, the queues are short anyway to keep latencies low, and fifty
+> additional packets don't hurt. I rather think about clearing neighbor
+> tables and the route cache whenever the operstatus goes down.
+>
+> Anyway, implementation and usage of the notification should not mix up,
+> so it let it be a separate patch.
+
+Agreed; just queueing more work for you ;->
 
 cheers,
 jamal
