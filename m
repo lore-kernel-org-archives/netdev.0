@@ -1,44 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: network delay simulation
-Date: Tue, 16 Mar 2004 18:40:01 -0800
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Subject: Making the NS83820 usable on IA64
+Date: Wed, 17 Mar 2004 14:57:36 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4057BA81.9090602@candelatech.com>
-References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
+Message-ID: <16471.52400.222262.824746@wombat.disy.cse.unsw.edu.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
+To: linux-ia64@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Still bumming around for how to easily simulate long latencies.
-> There is NISTnet but that is fugly old 2.2 code; and Dummynet, and hitbox 
-> which are FreeBSD based. The existing traffic shaper might do, but it seems
-> to be limited to lower speed lines and needs some work (using atomic_set
-> do own locking for instance).
-> 
-> Probably "the cowboy way" would be to right a new net/scheduler to just
-> do FIFO delay.
-> 
-> Any ideas/comments? Somebody have some code sitting in a drawer?
 
-I'll give you licenses to my (closed source) LANforge-ICE WAN emulator which runs
-as a Linux module and has been benchmarked at 1Gbps full-duplex (well, 999Mbps).
+Hi Folks, 
 
-It can do up to about 1 second delay at 1Gbps, but with more delay
-at this high speed it runs out of memory (seems skb_alloc, or the
-way I am calling it, will not use high-memory).  At lower speeds you
-can have several seconds of delay.
+With the current NS83820 driver and IP stack implementation,
+the IA64 kernel spends 99.9% of its time in the unaligned access trap
+handler when the network starts getting busy.  When I raised this
+issue before, the idea of realigning the skbuf data in the driver was
+scouted; therefore I submit this patch for your approval.  It makes
+the driver usable, and doesn't seem to affect anything else.
 
-Please send me email off the list if you are interested.
+The idea is to tell gcc that the IP header is 2-byte aligned,
+so it can generate the right code to access it.  Otherwise, it tries
+to do a 4-byte load when trying to extract the header length bitfield,
+which traps.  As far as I read the C standard, gcc can do almost
+whatever it wants as regarding the alignment and underlying storage
+size of a bitfield, so it's free to assume 32-bit alignment if it
+wants.
 
-Thanks,
-Ben
+Tested on McKinley with gcc 3.3.x
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+
+===== linus-2.6.4/include/linux/ip.h 1.12 vs edited =====
+--- 1.12/include/linux/ip.h	Fri Jan  2 07:28:33 2004
++++ edited/include/linux/ip.h	Wed Mar 17 11:58:09 2004
+@@ -186,7 +186,7 @@
+ 	__u32	saddr;
+ 	__u32	daddr;
+ 	/*The options start here. */
+-};
++} __attribute__((packed,aligned(2)));
+ 
+ struct ip_auth_hdr {
+ 	__u8  nexthdr;
+
+
+--
+Dr Peter Chubb     http://www.gelato.unsw.edu.au  peterc@gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
