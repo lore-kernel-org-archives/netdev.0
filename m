@@ -1,160 +1,169 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 1/22] xfrm: Add direction information to xfrm_state
-Date: Thu, 30 Dec 2004 03:48:34 -0500
-Message-ID: <20041230035000.10@ori.thedillows.org>
-References: <20041230035000.01@ori.thedillows.org>
+Subject: [RFC 2.6.10 12/22] ethtool: Add support for crypto offload
+Date: Thu, 30 Dec 2004 03:48:36 -0500
+Message-ID: <20041230035000.21@ori.thedillows.org>
+References: <20041230035000.20@ori.thedillows.org>
 Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <netdev-bounce@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261584AbUL3I7z@vger.kernel.org>
 To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/12/30 00:27:15-05:00 dave@thedillows.org 
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
+#   2004/12/30 00:51:19-05:00 dave@thedillows.org 
+#   Add support for querying and changing the status of the
+#   IPSEC crypto offload feature of a NIC.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/xfrm/xfrm_state.c
-#   2004/12/30 00:25:42-05:00 dave@thedillows.org +5 -0
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
+# net/core/ethtool.c
+#   2004/12/30 00:51:00-05:00 dave@thedillows.org +54 -0
+#   Add support for querying and changing the status of the IPSEC
+#   crypto offload feature of a NIC.
+#   
+#   Turn on/off the feature flag before informing the xfrm engine
+#   of the change so that existing xfrms get the new settings.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/ipv6/xfrm6_state.c
-#   2004/12/30 00:25:42-05:00 dave@thedillows.org +9 -0
-#   Place holder for adding IPv6 direction mapping routine.
-# 
-# net/ipv4/xfrm4_state.c
-#   2004/12/30 00:25:42-05:00 dave@thedillows.org +10 -0
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
+# include/linux/ethtool.h
+#   2004/12/30 00:51:00-05:00 dave@thedillows.org +8 -0
+#   Add support for querying and changing the status of the
+#   IPSEC crypto offload feature of a NIC.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# include/net/xfrm.h
-#   2004/12/30 00:25:42-05:00 dave@thedillows.org +10 -0
-#   Add direction information to xfrm_state. This will be needed to
-#   offload xfrm processing to the NIC.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h	2004-12-30 01:12:08 -05:00
-+++ b/include/net/xfrm.h	2004-12-30 01:12:08 -05:00
-@@ -146,6 +146,9 @@
- 	/* Private data of this transformer, format is opaque,
- 	 * interpreted by xfrm_type methods. */
- 	void			*data;
-+
-+	/* Intended direction of this state, used for offloading */
-+	int			dir;
- };
+diff -Nru a/include/linux/ethtool.h b/include/linux/ethtool.h
+--- a/include/linux/ethtool.h	2004-12-30 01:09:49 -05:00
++++ b/include/linux/ethtool.h	2004-12-30 01:09:49 -05:00
+@@ -260,6 +260,8 @@
+ int ethtool_op_set_sg(struct net_device *dev, u32 data);
+ u32 ethtool_op_get_tso(struct net_device *dev);
+ int ethtool_op_set_tso(struct net_device *dev, u32 data);
++u32 ethtool_op_get_ipsec(struct net_device *dev);
++int ethtool_op_set_ipsec(struct net_device *dev, u32 data);
  
- enum {
-@@ -157,6 +160,12 @@
- 	XFRM_STATE_DEAD
- };
+ /**
+  * &ethtool_ops - Alter and report network device settings
+@@ -293,6 +295,8 @@
+  * get_strings: Return a set of strings that describe the requested objects 
+  * phys_id: Identify the device
+  * get_stats: Return statistics about the device
++ * get_ipsec: Report whether IPSEC crypto offload is enabled
++ * set_ipsec: Turn IPSEC crypto offload on or off
+  *
+  * Description:
+  *
+@@ -345,6 +349,8 @@
+ 	int	(*set_sg)(struct net_device *, u32);
+ 	u32	(*get_tso)(struct net_device *);
+ 	int	(*set_tso)(struct net_device *, u32);
++	u32	(*get_ipsec)(struct net_device *);
++	int	(*set_ipsec)(struct net_device *, u32);
+ 	int	(*self_test_count)(struct net_device *);
+ 	void	(*self_test)(struct net_device *, struct ethtool_test *, u64 *);
+ 	void	(*get_strings)(struct net_device *, u32 stringset, u8 *);
+@@ -388,6 +394,8 @@
+ #define ETHTOOL_GSTATS		0x0000001d /* get NIC-specific statistics */
+ #define ETHTOOL_GTSO		0x0000001e /* Get TSO enable (ethtool_value) */
+ #define ETHTOOL_STSO		0x0000001f /* Set TSO enable (ethtool_value) */
++#define ETHTOOL_GIPSEC		0x00000020 /* Get IPSEC enable (ethtool_value) */
++#define ETHTOOL_SIPSEC		0x00000021 /* Set IPSEC enable (ethtool_value) */
  
-+enum {
-+	XFRM_STATE_DIR_UNKNOWN,
-+	XFRM_STATE_DIR_IN,
-+	XFRM_STATE_DIR_OUT,
-+};
-+
- struct xfrm_type;
- struct xfrm_dst;
- struct xfrm_policy_afinfo {
-@@ -194,6 +203,7 @@
- 	struct xfrm_state	*(*find_acq)(u8 mode, u32 reqid, u8 proto, 
- 					     xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 					     int create);
-+	void			(*map_direction)(struct xfrm_state *xfrm);
- };
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff -Nru a/net/core/ethtool.c b/net/core/ethtool.c
+--- a/net/core/ethtool.c	2004-12-30 01:09:49 -05:00
++++ b/net/core/ethtool.c	2004-12-30 01:09:49 -05:00
+@@ -14,6 +14,7 @@
+ #include <linux/errno.h>
+ #include <linux/ethtool.h>
+ #include <linux/netdevice.h>
++#include <net/xfrm.h>
+ #include <asm/uaccess.h>
  
- extern int xfrm_state_register_afinfo(struct xfrm_state_afinfo *afinfo);
-diff -Nru a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
---- a/net/ipv4/xfrm4_state.c	2004-12-30 01:12:08 -05:00
-+++ b/net/ipv4/xfrm4_state.c	2004-12-30 01:12:08 -05:00
-@@ -106,12 +106,22 @@
- 	return x0;
+ /* 
+@@ -72,6 +73,24 @@
+ 	return 0;
  }
  
-+static void
-+__xfrm4_map_direction(struct xfrm_state *x)
++u32 ethtool_op_get_ipsec(struct net_device *dev)
 +{
-+	if (inet_addr_type(x->id.daddr.a4) == RTN_LOCAL)
-+		x->dir = XFRM_STATE_DIR_IN;
-+	else
-+		x->dir = XFRM_STATE_DIR_OUT;
++	return (dev->features & NETIF_F_IPSEC) != 0;
 +}
 +
- static struct xfrm_state_afinfo xfrm4_state_afinfo = {
- 	.family			= AF_INET,
- 	.lock			= RW_LOCK_UNLOCKED,
- 	.init_tempsel		= __xfrm4_init_tempsel,
- 	.state_lookup		= __xfrm4_state_lookup,
- 	.find_acq		= __xfrm4_find_acq,
-+	.map_direction		= __xfrm4_map_direction,
- };
++int ethtool_op_set_ipsec(struct net_device *dev, u32 data)
++{
++	if (data) {
++		dev->features |= NETIF_F_IPSEC;
++		xfrm_accel_add(dev);
++	} else {
++		dev->features &= ~NETIF_F_IPSEC;
++		xfrm_accel_flush(dev);
++	}
++
++	return 0;
++}
++
+ /* Handlers for each ethtool command */
  
- void __init xfrm4_state_init(void)
-diff -Nru a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
---- a/net/ipv6/xfrm6_state.c	2004-12-30 01:12:08 -05:00
-+++ b/net/ipv6/xfrm6_state.c	2004-12-30 01:12:08 -05:00
-@@ -116,12 +116,21 @@
- 	return x0;
+ static int ethtool_get_settings(struct net_device *dev, void __user *useraddr)
+@@ -548,6 +567,33 @@
+ 	return dev->ethtool_ops->set_tso(dev, edata.data);
  }
  
-+static void
-+__xfrm6_map_direction(struct xfrm_state *x)
++static int ethtool_get_ipsec(struct net_device *dev, char __user *useraddr)
 +{
-+	/* XXX This needs to be implemented by someone who knows
-+	 * IPv6 better then I.
-+	 */
++	struct ethtool_value edata = { ETHTOOL_GIPSEC };
++
++	if (!dev->ethtool_ops->get_ipsec)
++		return -EOPNOTSUPP;
++
++	edata.data = dev->ethtool_ops->get_ipsec(dev);
++
++	if (copy_to_user(useraddr, &edata, sizeof(edata)))
++		return -EFAULT;
++	return 0;
 +}
 +
- static struct xfrm_state_afinfo xfrm6_state_afinfo = {
- 	.family			= AF_INET6,
- 	.lock			= RW_LOCK_UNLOCKED,
- 	.init_tempsel		= __xfrm6_init_tempsel,
- 	.state_lookup		= __xfrm6_state_lookup,
- 	.find_acq		= __xfrm6_find_acq,
-+	.map_direction		= __xfrm6_map_direction,
- };
- 
- void __init xfrm6_state_init(void)
-diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
---- a/net/xfrm/xfrm_state.c	2004-12-30 01:12:08 -05:00
-+++ b/net/xfrm/xfrm_state.c	2004-12-30 01:12:08 -05:00
-@@ -186,6 +186,7 @@
- 		x->lft.soft_packet_limit = XFRM_INF;
- 		x->lft.hard_byte_limit = XFRM_INF;
- 		x->lft.hard_packet_limit = XFRM_INF;
-+		x->dir = XFRM_STATE_DIR_UNKNOWN;
- 		spin_lock_init(&x->lock);
- 	}
- 	return x;
-@@ -404,6 +405,8 @@
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
- 
-+	afinfo->map_direction(x);
++static int ethtool_set_ipsec(struct net_device *dev, char __user *useraddr)
++{
++	struct ethtool_value edata;
 +
- 	spin_lock_bh(&xfrm_state_lock);
- 
- 	x1 = afinfo->state_lookup(&x->id.daddr, x->id.spi, x->id.proto);
-@@ -451,6 +454,8 @@
- 	afinfo = xfrm_state_get_afinfo(x->props.family);
- 	if (unlikely(afinfo == NULL))
- 		return -EAFNOSUPPORT;
++	if (!dev->ethtool_ops->set_ipsec)
++		return -EOPNOTSUPP;
 +
-+	afinfo->map_direction(x);
- 
- 	spin_lock_bh(&xfrm_state_lock);
- 	x1 = afinfo->state_lookup(&x->id.daddr, x->id.spi, x->id.proto);
++	if (copy_from_user(&edata, useraddr, sizeof(edata)))
++		return -EFAULT;
++
++	return dev->ethtool_ops->set_ipsec(dev, edata.data);
++}
++
+ static int ethtool_self_test(struct net_device *dev, char __user *useraddr)
+ {
+ 	struct ethtool_test test;
+@@ -783,6 +829,12 @@
+ 	case ETHTOOL_STSO:
+ 		rc = ethtool_set_tso(dev, useraddr);
+ 		break;
++	case ETHTOOL_GIPSEC:
++		rc = ethtool_get_ipsec(dev, useraddr);
++		break;
++	case ETHTOOL_SIPSEC:
++		rc = ethtool_set_ipsec(dev, useraddr);
++		break;
+ 	case ETHTOOL_TEST:
+ 		rc = ethtool_self_test(dev, useraddr);
+ 		break;
+@@ -813,7 +865,9 @@
+ EXPORT_SYMBOL(ethtool_op_get_link);
+ EXPORT_SYMBOL(ethtool_op_get_sg);
+ EXPORT_SYMBOL(ethtool_op_get_tso);
++EXPORT_SYMBOL(ethtool_op_get_ipsec);
+ EXPORT_SYMBOL(ethtool_op_get_tx_csum);
+ EXPORT_SYMBOL(ethtool_op_set_sg);
+ EXPORT_SYMBOL(ethtool_op_set_tso);
++EXPORT_SYMBOL(ethtool_op_set_ipsec);
+ EXPORT_SYMBOL(ethtool_op_set_tx_csum);
