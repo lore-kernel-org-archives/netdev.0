@@ -1,51 +1,38 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] Remove MOD_* from LAPB
-Date: Fri, 18 Jul 2003 13:32:11 -0700
+Subject: [PATCH] Eliminate MOD_ from wanrouter
+Date: Fri, 18 Jul 2003 13:35:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030718133211.1c7ed08d.shemminger@osdl.org>
+Message-ID: <20030718133512.434b1e70.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Henner Eisen <eis@baty.hanse.de>, "David S. Miller" <davem@redhat.com>
+To: Nenad Corbic <ncorbic@sangoma.com>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The MOD_INC and MOD_DEC in lapb are no longer necessary in 2.6 since
-the module subsystem will not allow lapb to be unloaded as long as a module
-that is referencing the symbols (lapb_register/lapb_unregister) is loaded.
+Wan router register/unregister doesn't need MOD_INC/MOD_DEC because it
+can't be unloaded as long as it's symbols are in use by the calling module.
 
-The lapb parameter block does have callback's so it is up to the caller
-to correctly unregister on module exit; and looking at the existing code
-it does do that.
+Patch against 2.6.0-test1
 
-Patch is against 2.6-test1
-
-diff -Nru a/net/lapb/lapb_iface.c b/net/lapb/lapb_iface.c
---- a/net/lapb/lapb_iface.c	Fri Jul 18 13:21:02 2003
-+++ b/net/lapb/lapb_iface.c	Fri Jul 18 13:21:02 2003
-@@ -43,13 +43,11 @@
- static rwlock_t lapb_list_lock = RW_LOCK_UNLOCKED;
- 
- /*
-- *	Free an allocated lapb control block. This is done to centralise
-- *	the MOD count code.
-+ *	Free an allocated lapb control block. 
-  */
- static void lapb_free_cb(struct lapb_cb *lapb)
- {
- 	kfree(lapb);
--	MOD_DEC_USE_COUNT;
+diff -Nru a/net/wanrouter/wanmain.c b/net/wanrouter/wanmain.c
+--- a/net/wanrouter/wanmain.c	Fri Jul 18 13:20:48 2003
++++ b/net/wanrouter/wanmain.c	Fri Jul 18 13:20:48 2003
+@@ -305,7 +305,6 @@
+ 	wandev->dev  = NULL;
+ 	wandev->next = wanrouter_router_devlist;
+ 	wanrouter_router_devlist = wandev;
+-        MOD_INC_USE_COUNT;	/* prevent module from unloading */
+ 	return 0;
  }
  
- static __inline__ void lapb_hold(struct lapb_cb *lapb)
-@@ -126,8 +124,6 @@
+@@ -350,7 +349,6 @@
+ 		wanrouter_router_devlist = wandev->next;
  
- 	if (!lapb)
- 		goto out;
--
--	MOD_INC_USE_COUNT;
- 
- 	memset(lapb, 0x00, sizeof(*lapb));
+ 	wanrouter_proc_delete(wandev);
+-        MOD_DEC_USE_COUNT;
+ 	return 0;
+ }
  
