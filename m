@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.9-rc4 1/2] slip: use module_param
-Date: Fri, 15 Oct 2004 13:04:28 -0700
+Subject: [PATCH 2.6.9-rc4] dummy: use netdev_priv
+Date: Fri, 15 Oct 2004 15:32:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015130428.76eef1c3@zqx3.pdx.osdl.net>
+Message-ID: <20041015153230.60e718af@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,29 +12,28 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Replace MODULE_PARM with module_param (also make slip_maxdev static).
+Can use netdev_priv in dummy device.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/drivers/net/slip.c b/drivers/net/slip.c
---- a/drivers/net/slip.c	2004-10-15 12:34:30 -07:00
-+++ b/drivers/net/slip.c	2004-10-15 12:34:30 -07:00
-@@ -57,6 +57,7 @@
- #define SL_CHECK_TRANSMIT
- #include <linux/config.h>
- #include <linux/module.h>
-+#include <linux/moduleparam.h>
+diff -Nru a/drivers/net/dummy.c b/drivers/net/dummy.c
+--- a/drivers/net/dummy.c	2004-10-15 14:25:11 -07:00
++++ b/drivers/net/dummy.c	2004-10-15 14:25:11 -07:00
+@@ -77,7 +77,7 @@
  
- #include <asm/system.h>
- #include <asm/uaccess.h>
-@@ -85,8 +86,8 @@
+ static int dummy_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *stats = dev->priv;
++	struct net_device_stats *stats = netdev_priv(dev);
  
- static struct net_device **slip_devs;
+ 	stats->tx_packets++;
+ 	stats->tx_bytes+=skb->len;
+@@ -88,7 +88,7 @@
  
--int slip_maxdev = SL_NRUNIT;		/* Can be overridden with insmod! */
--MODULE_PARM(slip_maxdev, "i");
-+static int slip_maxdev = SL_NRUNIT;
-+module_param(slip_maxdev, int, 0);
- MODULE_PARM_DESC(slip_maxdev, "Maximum number of slip devices");
+ static struct net_device_stats *dummy_get_stats(struct net_device *dev)
+ {
+-	return dev->priv;
++	return netdev_priv(dev);
+ }
  
- static int slip_esc(unsigned char *p, unsigned char *d, int len);
+ static struct net_device **dummies;
