@@ -1,40 +1,43 @@
-From: Andi Kleen <ak@colin2.muc.de>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Subject: Re: [PATCH] Add 32bit emulation for wireless
-Date: 19 Jan 2004 21:50:16 +0100
+Date: Mon, 19 Jan 2004 12:51:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040119205016.GA51807@colin2.muc.de>
-References: <20040119123945.A32623@infradead.org> <20040119141041.2cccbc3d.ak@suse.de> <20040119055615.4380e157.davem@redhat.com> <20040119153919.14102937.ak@suse.de> <20040119063921.586b37ac.davem@redhat.com> <20040119155412.2bffee5a.ak@suse.de> <20040119194943.GA9360@bougret.hpl.hp.com> <20040119210132.0c52df58.ak@suse.de> <20040119201912.GA9701@bougret.hpl.hp.com> <20040119122657.3b432583.davem@redhat.com>
+Message-ID: <20040119205100.GB10116@bougret.hpl.hp.com>
+References: <20040119123945.A32623@infradead.org> <20040119141041.2cccbc3d.ak@suse.de> <20040119055615.4380e157.davem@redhat.com> <20040119153919.14102937.ak@suse.de> <20040119063921.586b37ac.davem@redhat.com> <20040119155412.2bffee5a.ak@suse.de> <20040119194943.GA9360@bougret.hpl.hp.com> <20040119210132.0c52df58.ak@suse.de> <20040119201912.GA9701@bougret.hpl.hp.com> <20040119213501.4d2420e8.ak@suse.de>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jt@hpl.hp.com, jt@bougret.hpl.hp.com, ak@suse.de, hch@infradead.org,
-        netdev@oss.sgi.com
+Cc: davem@redhat.com, hch@infradead.org, ak@colin2.muc.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Mon, 19 Jan 2004 21:50:16 +0100
-To: "David S. Miller" <davem@redhat.com>
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
-In-Reply-To: <20040119122657.3b432583.davem@redhat.com>
+In-Reply-To: <20040119213501.4d2420e8.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> 1) they're a lot faster than their 64-bit counterparts
+On Mon, Jan 19, 2004 at 09:35:01PM +0100, Andi Kleen wrote:
+> On Mon, 19 Jan 2004 12:19:12 -0800
+> Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
 > 
-> 2) they're a lot smaller than their 64-bit counterparts
+> > On Mon, Jan 19, 2004 at 09:01:32PM +0100, Andi Kleen wrote:
+> > > 
+> > > [1] I actually have a Samsung wireless card, but it's not working
+> > > due to missing support for the Cirrus 6729 PCMCIA bridge on there.
+> > 
+> > 	I was wondering, because Samsungs cards should be supported by
+> > the HostAP driver (which remind me, HostAP needs to go in the kernel).
 > 
-> 3) 64-bits buys them absolutely nothing
+> It apparently works with David Hinds' PCMCIA kit, but that is far
+> too messy to patch into a changing development kernel all the time.
+> The main problem seems to be the missing bridge support in the kernel
+> PCMCIA, so the wireless driver cannot even see the chip.
 
-Just for the record: this doesn't apply to AMD64. While data structures
-take a bit more memory at runtime the 64bit code is a lot better 
-due to more registers and better ABI.  And it is also not signifcantly
-bigger, in fact some programs get smaller when you recompile them for 
-64bit.
+	I see you have it covered :
+http://www.ussg.iu.edu/hypermail/linux/kernel/0312.1/0469.html
+	You may want to get in touch with Dominik Brodowski and
+Russell King, because the i82365 driver in 2.6.X is fairly stable (as
+opposed to the CardBus stuff).
 
-Still good 32bit emulation is important because people expect 32bit
-applications to run seamlessly on 64bit kernels.
+> -Andi
 
-> Therefore the 32-bit compatability layer must be as fully supportive as humanly
-> possible.  Most 64-bit platforms still have %99 32-bit distributions.
-
-AMD64 should usually run with 64bit userland, except for user who
-transistion slowly from a 32bit user land.
-
--Andi
+	Jean
