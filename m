@@ -1,28 +1,32 @@
-From: shemminger@osdl.org
-Subject: Re: Unknown qdisc "netem"
-Date: Wed, 13 Oct 2004 20:39:26 -0700 (PDT)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: xfrm_user.c doesn't use NLMSG_F_MULTI
+Date: Thu, 14 Oct 2004 19:52:54 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <60664.63.170.215.71.1097725166.squirrel@www.osdl.org>
-References: <41538C5B0002BF06@ims6b.cp.tin.it>
-Mime-Version: 1.0
-Content-Type: text/plain;charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
+Message-ID: <E1CI2I2-0001sI-00@gondolin.me.apana.org.au>
+References: <20041013080705.GB3387@obroa-skai.de.gnumonks.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <41538C5B0002BF06@ims6b.cp.tin.it>
-To: carlo.altarelli@virgilio.it
+To: laforge@gnumonks.org (Harald Welte)
+In-Reply-To: <20041013080705.GB3387@obroa-skai.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> i'm tring to use netem under a 2.6.8.1 kernel,
-> the error report is : "Unknown qdisc netem",
-> I've just rebuild the kernel with these options about QoS:
->
+Harald Welte <laforge@gnumonks.org> wrote:
+> 
+> If I send a GETSA with NLM_F_DUMP message from userspace, I receive a
+> batch of SA messages, but they apparently don't have the F_MULTI flag
+> set. 
+> 
+> Aren't they (all but the last msg) supposed to have the usual F_MULTI ?
+> Is this by intention or a mistake?
 
-More likely the problem is out of date versions of tc or picking up
-the wrong version of tc from the PATH. Some distro's put tc in /sbin
-but the current iproute2 'make install' puts it in /usr/sbin.  With
-the latest iproute2 the netem support is in the shared library
-/usr/lib/tc/q_netem.so. I could have built it into tc but wanted to
-use netem as test case for the extensiblity with shared libraries,
-and it solves build/link issues with older kernels.
+The documentation says so but none of the existing users really care.
+The doco also says that the DONE message shouldn't have F_MULTI set
+but it does :)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
