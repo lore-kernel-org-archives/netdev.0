@@ -1,20 +1,26 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] tg3.h & b44.h ifndef ADVERTISE_PAUSE typo
-Date: Thu, 27 Jan 2005 17:17:27 -0500
-Message-ID: <41F96877.5090600@pobox.com>
-References: <1105454553.4264.4.camel@dhollis-lnx.centricconsulting.com>	 <41E421A8.60203@pobox.com> <1105472929.6599.3.camel@dhollis-lnx.centricconsulting.com>
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [PATCH] prism54: use NULL for pointer
+Date: Thu, 27 Jan 2005 17:21:05 -0500
+Message-ID: <20050127222105.GJ5159@ruslug.rutgers.edu>
+References: <20050122225335.225f8042.rddunlap@osdl.org> <41F9674A.6090104@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Randy.Dunlap" <rddunlap@osdl.org>, netdev@oss.sgi.com,
+        prism54-private@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Hollis <dhollis@davehollis.com>
-In-Reply-To: <1105472929.6599.3.camel@dhollis-lnx.centricconsulting.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <41F9674A.6090104@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied.
+On Thu, Jan 27, 2005 at 05:12:26PM -0500, Jeff Garzik wrote:
+> applied
 
-please send patches that apply with "patch -sp1 < patch" in the future. 
-  your patch, as sent, broke scripts and had to be applied manually.
+Sorry for the delay here too, patched into prism54 tree as well.
+
+	Luis
+
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
