@@ -1,46 +1,67 @@
-From: bert hubert <ahu@ds9a.nl>
+From: "Richard B. Johnson" <root@chaos.analogic.com>
 Subject: Re: [RESEND] tuning linux for high network performance?
-Date: Wed, 23 Oct 2002 19:01:02 +0200
+Date: Wed, 23 Oct 2002 13:11:35 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021023170102.GA5302@outpost.ds9a.nl>
-References: <200210231218.18733.roy@karlsbakk.net> <20021023130101.GA646@outpost.ds9a.nl> <1035379308.5950.3.camel@rth.ninka.net> <200210231542.48673.roy@karlsbakk.net>
+Message-ID: <Pine.LNX.3.95.1021023130843.14535A-100000@chaos.analogic.com>
+References: <20021023170102.GA5302@outpost.ds9a.nl>
+Reply-To: root@chaos.analogic.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@rth.ninka.net>, netdev@oss.sgi.com,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Roy Sigurd Karlsbakk <roy@karlsbakk.net>,
+   "David S. Miller" <davem@rth.ninka.net>, netdev@oss.sgi.com,
    Kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
-Content-Disposition: inline
-In-Reply-To: <200210231542.48673.roy@karlsbakk.net>
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20021023170102.GA5302@outpost.ds9a.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 23, 2002 at 03:42:48PM +0200, Roy Sigurd Karlsbakk wrote:
-> > The e1000 can very well do hardware checksumming on transmit.
-> >
-> > The missing piece of the puzzle is that his application is not
-> > using sendfile(), without which no transmit checksum offload
-> > can take place.
+On Wed, 23 Oct 2002, bert hubert wrote:
+
+> On Wed, Oct 23, 2002 at 03:42:48PM +0200, Roy Sigurd Karlsbakk wrote:
+> > > The e1000 can very well do hardware checksumming on transmit.
+> > >
+> > > The missing piece of the puzzle is that his application is not
+> > > using sendfile(), without which no transmit checksum offload
+> > > can take place.
+> > 
+> > As far as I've understood, sendfile() won't do much good with large files. Is 
+> > this right?
 > 
-> As far as I've understood, sendfile() won't do much good with large files. Is 
-> this right?
+> I still refuse to believe that a 1.8GHz Pentium4 can only checksum
+> 250megabits/second. MD Raid5 does better and they probably don't use a
+> checksum as braindead as that used by TCP.
+> 
+> If the checksumming is not the problem, the copying is, which would be a
+> weakness of your hardware. The function profiled does both the copying and
+> the checksumming.
+> 
+> But 250megabits/second also seems low.
+> 
+> Dave? 
+> 
 
-I still refuse to believe that a 1.8GHz Pentium4 can only checksum
-250megabits/second. MD Raid5 does better and they probably don't use a
-checksum as braindead as that used by TCP.
+Ordinary DUAL Pentium 400 MHz machine does this...
 
-If the checksumming is not the problem, the copying is, which would be a
-weakness of your hardware. The function profiled does both the copying and
-the checksumming.
 
-But 250megabits/second also seems low.
+Calculating CPU speed...done
+Testing checksum speed...done
+Testing RAM copy...done
+Testing I/O port speed...done
 
-Dave? 
+                     CPU Clock = 400  MHz
+                checksum speed = 685  Mb/s
+                      RAM copy = 1549 Mb/s
+                I/O port speed = 654  kb/s
 
-Regards,
 
-bert
+This is 685 megaBYTES per second.
 
--- 
-http://www.PowerDNS.com          Versatile DNS Software & Services
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+                checksum speed = 685  Mb/s
+
+
+
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.4.18 on an i686 machine (797.90 BogoMips).
+   Bush : The Fourth Reich of America
