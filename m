@@ -1,26 +1,27 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFT] remove skb_linearize from igmp.c
-Date: Mon, 23 Jun 2003 13:17:58 -0700 (PDT)
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: e100 "Twin City" release
+Date: Mon, 23 Jun 2003 15:46:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030623.131758.23035859.davem@redhat.com>
-References: <20030623120342.470cf504.shemminger@osdl.org>
-	<20030623.120229.59679308.davem@redhat.com>
-	<20030623124118.620f8339.shemminger@osdl.org>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010107D9DD@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030623124118.620f8339.shemminger@osdl.org>
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Mon, 23 Jun 2003 12:41:18 -0700
+Thanks to Jason, Udo, Zose, and David for the feedback so far.  New
+version posted: http://sf.net/projects/e1000, download e100-3.0.0_dev9.
 
-   Try again... this time add pullup logic to the query processing, and
-   use skb_checksum to handle non-linear buffers.
-   
-I'll let this one sit for a day or so in order to get some
-testing done :-)
+Changes from e100-3.0.0-dev8:
+
+* Added Device ID 0x1029.
+* Named union for compilers not supporting anonymous unions.
+* Initialize struct for ETHTOOL_GRINGPARAM.
+
+DON'T USE THIS DRIVER ON A PRODUCTION SYSTEM!
+
+-scott
