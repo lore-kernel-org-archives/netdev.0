@@ -1,31 +1,35 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6]: keep fragment queues private to each user
-Date: Tue, 25 Jan 2005 15:41:04 +0100
-Message-ID: <41F65A80.70808@trash.net>
-References: <E1CtPJf-0005RG-00@gondolin.me.apana.org.au>
+From: "Art Haas" <ahaas@airmail.net>
+Subject: Current kernel and cvs/rsync problems
+Date: Tue, 25 Jan 2005 09:05:14 -0600
+Message-ID: <20050125150514.GA2262@artsapartment.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CtPJf-0005RG-00@gondolin.me.apana.org.au>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+Hi.
 
->However, I think this is still not enough.  What about fragments
->that come from different interfaces? Fragments with different
->security paths?
->
-Fragments with different security paths are indeed a problem, I
-already tried fixing them by keeping the secpaths of all fragments
-on a list in the head secpath and changing __xfrm_policy_check to
-deal with them, but it is pretty tricky to get right. For different
-interfaces: I'm not exactly sure where this is a problem, except
-that any classification will only look at the head fragment interface.
+I'm running the current BK kernel on my machine. As the subject stated
+both cvs and rsync are not working correctly under this kernel, while
+they work fine under a kernel built from BK sources several days prior
+to the release of the -rc2 kernel. Watching cvs with strace I can
+observe that the various file tests run without problems, but once cvs
+starts the network activity with write() or read() calls things just
+hang.
 
-Regards
-Patrick
+While both cvs and rsync fail under the -rc2+ kernels, other programs
+like subversion and BitKeeper still work, and I can view web things with
+Mozilla without problem.
+
+Is anyone seeing similar behavior with the current BK kernel?
+
+Art Haas
+-- 
+Man once surrendering his reason, has no remaining guard against absurdities
+the most monstrous, and like a ship without rudder, is the sport of every wind.
+
+-Thomas Jefferson to James Smith, 1822
