@@ -1,93 +1,40 @@
-From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] Reduce netfilter memory use on MP systems
-Date: Fri, 4 Feb 2005 15:09:00 +0100
-Message-ID: <20050204140900.GD2518@wotan.suse.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [IPV6]: Fix tunnel list locking in ip6_tunnel.c.
+Date: Sat, 05 Feb 2005 01:56:33 +0900 (JST)
+Message-ID: <20050205.015633.45798306.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+To: davem@davemloft.net
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-On kernels compiled with a big NR_CPUS netfilter rules would 
-eat a lot of memory because all counters would be duplicated
-for all NR_CPUs CPUs.  With NR_CPUS=256 this would add up
-to many MBs of memory.
+We need to fix tunnel list locking in ip6_tunnel.c as well.
+Noticed by jean-mickael guerin <jean-mickael.guerin@6WIND.com>.
 
-This patch only allocates enough memory for the possible CPUs,
-which is usually a much smaller number than NR_CPUS.
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-This allows loading of bigger rule sets on 64bit systems.
-There is still a limit because someone else broke vmalloc to have a 64MB 
-limit on 64bit systems for single allocations, 129MB on 32bit.
-It allocates an array of pages with kmalloc and kmalloc has a 128K limit. 
-To be fixed with a separate patch.
-
-64bit systems were hurt worst because they tend to have big NR_CPUS
-and the counters need more memory there, and the vmalloc limit is lower.
-But it will raise the limits even on 32bit. 
-
-And in general it saves a lot of memory.
-
-Tested only on a small dual CPU box. 
-
-Signed-off-by: Andi Kleen <ak@suse.de>
-
-diff -u linux/net/ipv4/netfilter/ip_tables.c-o linux/net/ipv4/netfilter/ip_tables.c
---- linux/net/ipv4/netfilter/ip_tables.c-o	2005-02-04 09:40:12.000000000 +0100
-+++ linux/net/ipv4/netfilter/ip_tables.c	2005-02-04 14:26:56.000000000 +0100
-@@ -923,7 +923,7 @@
- 	}
+===== net/ipv6/ip6_tunnel.c 1.27 vs edited =====
+--- 1.27/net/ipv6/ip6_tunnel.c	2005-01-14 13:41:06 +09:00
++++ edited/net/ipv6/ip6_tunnel.c	2005-02-05 01:50:53 +09:00
+@@ -180,10 +180,10 @@
+ {
+ 	struct ip6_tnl **tp = ip6ip6_bucket(&t->parms);
  
- 	/* And one copy for every other CPU */
--	for (i = 1; i < NR_CPUS; i++) {
-+	for (i = 1; i < num_possible_cpus(); i++) {
- 		memcpy(newinfo->entries + SMP_ALIGN(newinfo->size)*i,
- 		       newinfo->entries,
- 		       SMP_ALIGN(newinfo->size));
-@@ -945,7 +945,7 @@
- 		struct ipt_entry *table_base;
- 		unsigned int i;
+-	write_lock_bh(&ip6ip6_lock);
+ 	t->next = *tp;
+-	write_unlock_bh(&ip6ip6_lock);
++	write_lock_bh(&ip6ip6_lock);
+ 	*tp = t;
++	write_unlock_bh(&ip6ip6_lock);
+ }
  
--		for (i = 0; i < NR_CPUS; i++) {
-+		for (i = 0; i < num_possible_cpus(); i++) {
- 			table_base =
- 				(void *)newinfo->entries
- 				+ TABLE_OFFSET(newinfo, i);
-@@ -992,7 +992,7 @@
- 	unsigned int cpu;
- 	unsigned int i;
- 
--	for (cpu = 0; cpu < NR_CPUS; cpu++) {
-+	for (cpu = 0; cpu < num_possible_cpus(); cpu++) {
- 		i = 0;
- 		IPT_ENTRY_ITERATE(t->entries + TABLE_OFFSET(t, cpu),
- 				  t->size,
-@@ -1130,7 +1130,7 @@
- 		return -ENOMEM;
- 
- 	newinfo = vmalloc(sizeof(struct ipt_table_info)
--			  + SMP_ALIGN(tmp.size) * NR_CPUS);
-+			  + SMP_ALIGN(tmp.size) * num_possible_cpus());
- 	if (!newinfo)
- 		return -ENOMEM;
- 
-@@ -1460,7 +1460,7 @@
- 		= { 0, 0, 0, { 0 }, { 0 }, { } };
- 
- 	newinfo = vmalloc(sizeof(struct ipt_table_info)
--			  + SMP_ALIGN(repl->size) * NR_CPUS);
-+			  + SMP_ALIGN(repl->size) * num_possible_cpus());
- 	if (!newinfo)
- 		return -ENOMEM;
- 
+ /**
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
