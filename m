@@ -1,29 +1,27 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Mon, 20 Sep 2004 22:30:21 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: netdev-2.6 queue updated
+Date: Mon, 20 Sep 2004 16:31:25 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920203021.GD4242@wotan.suse.de>
-References: <20040920063012.GL2825@krispykreme>
+Message-ID: <414F3E1D.8070106@pobox.com>
+References: <20040920194842.GA21782@havoc.gtf.org> <200409202214.45202.arekm@pld-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: quoted-printable
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Anton Blanchard <anton@samba.org>
-Content-Disposition: inline
-In-Reply-To: <20040920063012.GL2825@krispykreme>
+To: Arkadiusz Miskiewicz <arekm@pld-linux.org>
+In-Reply-To: <200409202214.45202.arekm@pld-linux.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 20, 2004 at 04:30:13PM +1000, Anton Blanchard wrote:
-> 
-> Hi,
-> 
-> I just tried latest 2.6.9-rc2-BK on a machine with an e1000 on it. With
-> TSO off it does about 100MB/sec. With TSO on it does between 1MB/sec and
-> 10MB/sec.
+Arkadiusz Miskiewicz wrote:
+> For example Pavel is not author for this change - =C9ric Brunet is.
+>=20
+> It seems that bk changelog quite often lies.
 
-I see the same problem here, but it's even worse. I only get 150-200KB/s
-sending data with scp from a fast machine with e1000 with a gigabit link. 
-netperf also gives only 250KB/s. 
 
--Andi
+
+ChangeSet@1.1923.1.4, 2004-09-20 14:34:45-04:00, pavel@ucw.cz
+   [PATCH] swsuspend for ne2k-pci cards
+
+   Author: =C9ric Brunet <Eric.Brunet@lps.ens.fr>
