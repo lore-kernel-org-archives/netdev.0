@@ -1,42 +1,39 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] acenic - don't spin in hard_start_xmit when ring fills
-Date: Thu, 16 Sep 2004 16:50:42 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
+Date: Thu, 16 Sep 2004 20:38:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916165042.362a3e79.davem@davemloft.net>
-References: <20040916161753.37254cbd@dell_ss3.pdx.osdl.net>
-	<20040916162250.5b7cfa85.davem@davemloft.net>
-	<20040916164206.707204d4@dell_ss3.pdx.osdl.net>
+Message-ID: <414A3213.9030401@pobox.com>
+References: <002201c499b4$7c7b60c0$a010100a@S2IOtech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jes@wildopensource.com, jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
+        rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040916164206.707204d4@dell_ss3.pdx.osdl.net>
+To: ravinandan.arakali@s2io.com
+In-Reply-To: <002201c499b4$7c7b60c0$a010100a@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Sep 2004 16:42:06 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Ravinandan Arakali wrote:
+> Hi Jeff,
+> Attached is the patch with the first round comments incorporated.
+> In addition, this patch contains
+> Some fixes related to 32-bit systems.
+> Few fixes related to Rx path in NAPI.
 
-> NO, the bus just isn't fast enough to keep up with the number of small
-> packets I am shoving at it.
-> 
-> You got TX_LOCKED and TX_BUSY confused. The problem is drivers that
-> don't check to see if the last packet sent fills the ring and stop
-> themselves.
+hmmm...  it's a big undescribed patch that doesn't apply anymore :/
 
-I understand.
 
-But that still makes this change buggy.  I believe the two choices
-are:
+drivers/net/Kconfig 1.91 -> 1.92: 2657 lines
+1 out of 1 hunk FAILED -- saving rejects to file drivers/net/Kconfig.rej
+drivers/net/s2io-regs.h 1.1 -> 1.2: 775 lines
+drivers/net/s2io.c 1.6 -> 1.7: 4393 lines
+1 out of 148 hunks FAILED -- saving rejects to file drivers/net/s2io.c.rej
+drivers/net/s2io.h 1.5 -> 1.6: 854 lines
 
-1) Accept this spinning performance characteristic of the
-   acenic driver.
 
-or
+Can you please split it up into individual changes, or at least smaller 
+chunks?
 
-2) Finally give up on acenic's clever lockless scheme and add
-   the necessary locking + start/stop tx flow control so it
-   will never have to return TX_BUSY except in absolutely
-   catastrophic failure cases.
+	Jeff
