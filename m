@@ -1,80 +1,86 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NETDRV] Fixed MCA resource bugs in at1700
-Date: Sat, 5 Jun 2004 18:38:34 +1000
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH 7/17 linux-2.6.7-rc2] prism54: Fix endian patch (resend)
+Date: Sat, 5 Jun 2004 14:48:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040605083834.GA29142@gondor.apana.org.au>
+Message-ID: <200406051448.49243.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="a8Wt8u1KmwUX3Y2C"
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_xEcwAn8+ZGAgS1T"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---a8Wt8u1KmwUX3Y2C
-Content-Type: text/plain; charset=us-ascii
+--Boundary-00=_xEcwAn8+ZGAgS1T
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Hi Jeff:
+* Split out patch islpci_eth.c :
+* Fix endian problem (bug 74/75 related)
 
-This patch fixes an incorrect MCA check as well as a leak on probe
-failure in at1700.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---a8Wt8u1KmwUX3Y2C
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+--Boundary-00=_xEcwAn8+ZGAgS1T
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="07-fix-endian.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="07-fix-endian.patch"
 
-===== drivers/net/at1700.c 1.22 vs edited =====
---- 1.22/drivers/net/at1700.c	2004-05-22 17:28:45 +10:00
-+++ edited/drivers/net/at1700.c	2004-06-05 18:34:29 +10:00
-@@ -244,7 +244,7 @@
- {
- #ifdef CONFIG_MCA	
- 	struct net_local *lp = netdev_priv(dev);
--	if (lp->mca_slot)
-+	if (lp->mca_slot >= 0)
- 		mca_mark_as_unused(lp->mca_slot);
- #endif	
- 	free_irq(dev->irq, NULL);
-@@ -446,11 +446,11 @@
- 					break;
- 			}
- 			if (i == 8) {
--				goto err_out;
-+				goto err_mca;
- 			}
- 		} else {
- 			if (fmv18x_probe_list[inb(ioaddr + IOCONFIG) & 0x07] != ioaddr)
--				goto err_out;
-+				goto err_mca;
- 			irq = fmv_irqmap[(inb(ioaddr + IOCONFIG)>>6) & 0x03];
- 		}
- 	}
-@@ -548,11 +548,16 @@
- 	if (ret) {
- 		printk ("  AT1700 at %#3x is unusable due to a conflict on"
- 				"IRQ %d.\n", ioaddr, irq);
--		goto err_out;
-+		goto err_mca;
- 	}
+diff -NaurEb linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c
+--- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 14:40:26.996454744 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 14:25:30.065808928 +0200
+@@ -262,9 +262,9 @@
+ 	if (priv->ndev->type == ARPHRD_IEEE80211_PRISM) {
+ 		struct avs_80211_1_header *avs;
+ 		/* extract the relevant data from the header */
+-		u32 clock = hdr->clock;
++		u32 clock = le32_to_cpu(hdr->clock);
+ 		u8 rate = hdr->rate;
+-		u16 freq = be16_to_cpu(hdr->freq);
++		u16 freq = le16_to_cpu(hdr->freq);
+ 		u8 rssi = hdr->rssi;
  
- 	return 0;
+ 		skb_pull(*skb, sizeof (struct rfmon_header));
+@@ -288,20 +288,20 @@
+ 							   sizeof (struct
+ 								   avs_80211_1_header));
  
-+err_mca:
-+#ifdef CONFIG_MCA
-+	if (slot >= 0)
-+		mca_mark_as_unused(slot);
-+#endif
- err_out:
- #ifndef CONFIG_X86_PC9800
- 	release_region(ioaddr, AT1700_IO_EXTENT);
+-		avs->version = htonl(P80211CAPTURE_VERSION);
+-		avs->length = htonl(sizeof (struct avs_80211_1_header));
+-		avs->mactime = __cpu_to_be64(clock);
+-		avs->hosttime = __cpu_to_be64(jiffies);
+-		avs->phytype = htonl(6);	/*OFDM: 6 for (g), 8 for (a) */
+-		avs->channel = htonl(channel_of_freq(freq));
+-		avs->datarate = htonl(rate * 5);
+-		avs->antenna = htonl(0);	/*unknown */
+-		avs->priority = htonl(0);	/*unknown */
+-		avs->ssi_type = htonl(2);	/*2: dBm, 3: raw RSSI */
+-		avs->ssi_signal = htonl(rssi);
+-		avs->ssi_noise = htonl(priv->local_iwstatistics.qual.noise);	/*better than 'undefined', I assume */
+-		avs->preamble = htonl(0);	/*unknown */
+-		avs->encoding = htonl(0);	/*unknown */
++		avs->version = cpu_to_be32(P80211CAPTURE_VERSION);
++		avs->length = cpu_to_be32(sizeof (struct avs_80211_1_header));
++		avs->mactime = cpu_to_be64(le64_to_cpu(clock));
++		avs->hosttime = cpu_to_be64(jiffies);
++		avs->phytype = cpu_to_be32(6);	/*OFDM: 6 for (g), 8 for (a) */
++		avs->channel = cpu_to_be32(channel_of_freq(freq));
++		avs->datarate = cpu_to_be32(rate * 5);
++		avs->antenna = cpu_to_be32(0);	/*unknown */
++		avs->priority = cpu_to_be32(0);	/*unknown */
++		avs->ssi_type = cpu_to_be32(3);	/*2: dBm, 3: raw RSSI */
++		avs->ssi_signal = cpu_to_be32(rssi & 0x7f);
++		avs->ssi_noise = cpu_to_be32(priv->local_iwstatistics.qual.noise);	/*better than 'undefined', I assume */
++		avs->preamble = cpu_to_be32(0);	/*unknown */
++		avs->encoding = cpu_to_be32(0);	/*unknown */
+ 	} else
+ 		skb_pull(*skb, sizeof (struct rfmon_header));
+ 
 
---a8Wt8u1KmwUX3Y2C--
+--Boundary-00=_xEcwAn8+ZGAgS1T--
