@@ -1,75 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: pskb change in dst->output
-Date: Sat, 10 Jul 2004 07:43:10 +1000
+From: Sam Leffler <sam@errno.com>
+Subject: Re: ethernet QoS support?
+Date: Fri, 9 Jul 2004 15:34:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040709214310.GA3474@gondor.apana.org.au>
-References: <20040709081443.GA11101@gondor.apana.org.au> <Xine.LNX.4.44.0407091001460.3887-100000@thoron.boston.redhat.com> <20040709123608.1f9f9265.davem@redhat.com> <20040709204228.GA3015@gondor.apana.org.au> <20040709142144.483369ec.davem@redhat.com>
+Message-ID: <200407091534.53166.sam@errno.com>
+References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com> <1089383622.1030.21.camel@jzny.localdomain> <200407092126.43021.vkondra@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca, Jeff Garzik <jgarzik@pobox.com>,
+        Kumar Gala <kumar.gala@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+In-Reply-To: <200407092126.43021.vkondra@mail.ru>
 Content-Disposition: inline
-In-Reply-To: <20040709142144.483369ec.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 09, 2004 at 02:21:44PM -0700, David S. Miller wrote:
+On Friday 09 July 2004 11:26 am, Vladimir Kondratiev wrote:
+
+> > So what do you do now?
 >
-> > When TCP retransmits the packet, it will do a pskb_copy() on it so
-> > it's no longer a clone.
-> 
-> Not necessarily true.  If the device has finished transmission,
-> which is true %99.9999 of the time when a retransmission happens,
-> another clone will be made against the original SKB sitting in
-> the write queue.
-
-You're right.  But that case is identical to the clone during the
-initial transmission.
-
-> The hw checksumming state is what we care about.  And skb_cow()'s implementation
-> is:
-> 
-> 1) Always copy all data if cloned
-> 
-> 2) Allocate a unique data area, and even the shared private skb
->    area becomes local to the skb.
-> 
-> In short only the data is uncloned.
-> 
-> However, skb_checksum_help() is doing something entirely different.
-> It makes a fully new skb, both data and sk_buff struct are uncloned.
-
-I completely agree with these facts.
-
-> This is particularly important for the very case which ah_output()
-> cares about, for example.  If the skb is CHECKSUM_HW we have to unclone
-> the full SKB.  ah_output() does not use things like skb_cow() like
-> ESP and others do.
+> Waiting. If no support will exist, it simply means we will be unable to use
+> QoS provided by modern 802.11. Depending on market development, impact may
+> range from being slightly slower relating to Windows clients, to being
+> almost completely unable to communicate for traffic like VOIP. Later will
+> be the case if most access points will implement QoS as in TGE.
 >
-> I really think the dst->output() SKB pointer passing is truly needed.
+> I can now deliver packets accordingly to skb->priority, but if stack have
+> different idea for what is proper proportion between different sorts of
+> traffic, driver's Tx path will be flooded with low priority frames.
+>
+> Situation is much worser for streams with admission control. I have no
+> mechanism to communicate with stack for such traffic establishment and tear
+> down.
 
-That's where we disagree.  The very first thing ah_output() does after
-the *conditional* skb_checksum_help() call is skb_push().  This cannot
-be done on a shared skb.  Therefore the skb must be totally private
-or at most cloned.
+FWIW the madwifi net80211 layer parses TOS to calculate priority and sticks it 
+in the skb.  It also calculates the WME AC to form the QoS frame matter.  
+This is then handed to drivers below.  The Atheros driver supports multiple 
+tx queues in h/w with appropriate scheduling (for 5212 MACs); it uses the AC 
+to set packets on the appropriate queue.
 
-This is the fundamental reason why there is no need to make a completely
-new skb because we already have (or assume to have) exlucsive access
-to the fields in the sk_buff struct.
+Clearly it'd be better if upper layers did the TOS stuff.  Whatever is done 
+however should consider the case where the driver (nee h/w) has it's own 
+queueing/scheduling facilities.
 
-Now whether we need to unclone the data or not is a different question.
-My opinion is that we don't, but I'm not to fussed over that.
-
-> You still won't be convinced, I know :-)  So propose a patch and we'll
-> shoot holes in it so we can discuss something concrete, ok? :)))
-
-OK, that's what I'll do once I finish working on the IPv4 IPsec
-encapsulation stuff.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Sam
