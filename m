@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] 2/3 rtnetlink -- RTA_PUT unlikely.
-Date: Mon, 22 Sep 2003 16:36:39 -0700
+Subject: [PATCH] (3/3) rtnetlink -- ASSERT_RTNL and BUG_TRAP
+Date: Mon, 22 Sep 2003 16:39:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030922163639.6d7ac30f.shemminger@osdl.org>
+Message-ID: <20030922163946.5854bb8e.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,32 +12,38 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-RTA_PUT should normally be handed enough space, so optimize 
+Change ASSERT_RTNL and BUG_TRAP
+	- unlikely to occur
+	- tag message as error
+	- dump_stack in ASSERT_RTNL to aide finding code path
+	- make all format's which a smart compiler can optimize
 
 diff -Nru a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
---- a/include/linux/rtnetlink.h	Mon Sep 22 16:14:19 2003
-+++ b/include/linux/rtnetlink.h	Mon Sep 22 16:14:19 2003
-@@ -642,8 +642,9 @@
- extern void __rta_fill(struct sk_buff *skb, int attrtype, int attrlen, const void *data);
+--- a/include/linux/rtnetlink.h	Mon Sep 22 16:31:24 2003
++++ b/include/linux/rtnetlink.h	Mon Sep 22 16:31:24 2003
+@@ -683,11 +683,21 @@
+ extern void rtnl_unlock(void);
+ extern void rtnetlink_init(void);
  
- #define RTA_PUT(skb, attrtype, attrlen, data) \
--({ if (skb_tailroom(skb) < (int)RTA_SPACE(attrlen)) goto rtattr_failure; \
--   __rta_fill(skb, attrtype, attrlen, data); })
-+({	if (unlikely(skb_tailroom(skb) < (int)RTA_SPACE(attrlen))) \
-+		 goto rtattr_failure; \
-+   	__rta_fill(skb, attrtype, attrlen, data); }) 
+-#define ASSERT_RTNL() do { if (down_trylock(&rtnl_sem) == 0)  { up(&rtnl_sem); \
+-printk("RTNL: assertion failed at " __FILE__ "(%d)\n", __LINE__); } \
+-		   } while(0)
+-#define BUG_TRAP(x) if (!(x)) { printk("KERNEL: assertion (" #x ") failed at " __FILE__ "(%d)\n", __LINE__); }
++#define ASSERT_RTNL() do { \
++	if (unlikely(down_trylock(&rtnl_sem) == 0)) { \
++		up(&rtnl_sem); \
++		printk(KERN_ERR "RTNL: assertion failed at %s (%d)\n", \
++		       __FILE__,  __LINE__); \
++		dump_stack(); \
++	} \
++} while(0)
  
- static inline struct rtattr *
- __rta_reserve(struct sk_buff *skb, int attrtype, int attrlen)
-@@ -658,8 +659,9 @@
- }
++#define BUG_TRAP(x) do { \
++	if (unlikely(!(x))) { \
++		printk(KERN_ERR "KERNEL: assertion (%s) failed at %s (%d)\n", \
++			#x,  __FILE__ , __LINE__); \
++	} \
++} while(0)
  
- #define __RTA_PUT(skb, attrtype, attrlen) \
--({ if (skb_tailroom(skb) < (int)RTA_SPACE(attrlen)) goto rtattr_failure; \
--   __rta_reserve(skb, attrtype, attrlen); })
-+({ 	if (unlikely(skb_tailroom(skb) < (int)RTA_SPACE(attrlen))) \
-+		goto rtattr_failure; \
-+   	__rta_reserve(skb, attrtype, attrlen); })
- 
- extern void rtmsg_ifinfo(int type, struct net_device *dev, unsigned change);
+ #endif /* __KERNEL__ */
  
