@@ -1,50 +1,43 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH] 2.6: allow CONFIG_NETFILTER=n and CONFIG_XFRM=y
-Date: Tue, 27 Apr 2004 17:35:09 +0200
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [janitor] sis900: don't use yield()
+Date: Tue, 27 Apr 2004 10:38:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040427153509.GD6836@suse.de>
+Message-ID: <20040427103807.311caa42.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik <jgarzik@pobox.com>, ollie@sis.com.tw
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+From: maximilian attems <janitor@sternwelten.at>
 
-Hi,
+thanks to Felipe W Damasio hint rediffed.
+patch is on top of linux-2.6.6-rc2
 
-the following patch should fix a compile error when setting
-CONFIG_NETFILTER=n and CONFIG_XFRM=y.
+yield() removes process from active array into expired array,
+better just yield the CPU for a bit.
+tested on my laptop with a sis900.
 
-Cheers,
-Olaf
--- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
+a++ maks
 
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=netfilter-config
-
-This patch makes sure the kernel can be compiled with CONFIG_XFRM=y and
-CONFIG_NETFILTER off.
-
---- linux-2.6.5/include/linux/netfilter_ipv4.h.dbg	2004-04-27 13:00:55.000000000 +0200
-+++ linux-2.6.5/include/linux/netfilter_ipv4.h	2004-04-27 13:15:24.000000000 +0200
-@@ -86,7 +86,7 @@
- extern int skb_ip_make_writable(struct sk_buff **pskb,
- 				unsigned int writable_len);
+Index: linux-266-rc2-kj1/drivers/net/sis900.c
+===================================================================
+--- linux-266-rc2-kj1.orig/drivers/net/sis900.c	2004-04-03 19:36:57.000000000 -0800
++++ linux-266-rc2-kj1/drivers/net/sis900.c	2004-04-21 15:32:56.000000000 -0700
+@@ -600,7 +600,8 @@ static int __init sis900_mii_probe (stru
  
--#ifdef CONFIG_XFRM
-+#if defined(CONFIG_XFRM) && defined(CONFIG_NETFILTER)
- #include <net/route.h>
- #include <net/xfrm.h>
+ 	if(status & MII_STAT_LINK){
+ 		while (poll_bit) {
+-			yield();
++			set_current_state(TASK_UNINTERRUPTIBLE);
++			schedule_timeout(HZ/100);
  
+ 			poll_bit ^= (mdio_read(net_dev, sis_priv->cur_phy, MII_STATUS) & poll_bit);
+ 			if (time_after_eq(jiffies, timeout)) {
 
---HlL+5n6rz5pIUxbD--
+
+--
