@@ -1,163 +1,58 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Tue, 11 Jan 2005 19:46:24 +0100
-Message-ID: <16868.7936.512676.178828@robur.slu.se>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
-	<20050107145711.367aa159@dxpl.pdx.osdl.net>
-	<200501110917.26621.jeremy.guthrie@berbee.com>
-	<200501111118.00601.jeremy.guthrie@berbee.com>
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: Re: [patch 1/1] net/pcnet32: replace schedule_timeout() with msleep_interruptible()
+Date: Tue, 11 Jan 2005 16:04:58 -0800
+Message-ID: <20050112000458.GA17834@us.ibm.com>
+References: <20050111230150.1B6141F225@trashy.coderock.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: tsbogend@alpha.franken.de, netdev@oss.sgi.com, nacc@us.ibm.com,
+        janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jeremy.guthrie@berbee.com
-In-Reply-To: <200501111118.00601.jeremy.guthrie@berbee.com>
+To: domen@coderock.org
+Content-Disposition: inline
+In-Reply-To: <20050111230150.1B6141F225@trashy.coderock.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Looks and runs fine.
 
+Signed-off-by: Don Fry <brazilnut@us.ibm.com>
 
-Yes rtstats is what we estimated. How about RX ring size and the e1000 fix?
+On Wed, Jan 12, 2005 at 12:01:49AM +0100, domen@coderock.org wrote:
+> 
+> 
+> 
+> Any comments would be appreciated.
+> 
+> Description: Use msleep_interruptible() instead of schedule_timeout() to
+> guarantee the task delays as expected.
+> 
+> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+> Signed-off-by: Domen Puncer <domen@coderock.org>
+> ---
+> 
+> 
+>  kj-domen/drivers/net/pcnet32.c |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -puN drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32 drivers/net/pcnet32.c
+> --- kj/drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32	2005-01-10 18:00:07.000000000 +0100
+> +++ kj-domen/drivers/net/pcnet32.c	2005-01-10 18:00:07.000000000 +0100
+> @@ -847,7 +847,7 @@ static int pcnet32_phys_id(struct net_de
+>      if ((!data) || (data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ)))
+>      data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
+>  
+> -    schedule_timeout(data * HZ);
+> +    msleep_interruptible(data * 1000);
+>      del_timer_sync(&lp->blink_timer);
+>  
+>      /* Restore the original value of the bcrs */
+> _
+> 
+> 
 
-We give up here? Or you want to try another setting of route hash? It's beyond
-the scope of this subject. You have to reboot if so.
-
-						--ro
-
-
-
-Jeremy M. Guthrie writes:
- >  ./rtstat
- >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc 
- > GC: tot ignored goal_miss ovrf HASH: in_search out_search
- > 63375     86092    2844     0     0     0     0     0         5       1 
- > 1610369017    2846    2844         0    0          386039         17
- > 64870     84431 537031471 537492192     0     0     0     0         1       0      
- > 0    2848    2846         0    0          386130         10
- > 58707     87889    2715     0     0     0     0     0         7       1      0    
- > 2716    2714         0    0          384782         13
- > 60617     89993    2796     0     0     0     0     0         5       0      0    
- > 2795    2793         0    0          384432         17
- > 62458     93221    2772     0     0     0     0     0         3       0      0    
- > 2772    2770         0    0          399579          9
- > 63990     93792    2712     0     0     0     0     0         6       0      0    
- > 2713    2711         0    0          422585         12
- > 65499     94235    2846     0     0     0     0     0         2       0      0    
- > 2846    2844         0    0          424341          9
- > 59755     90992    2864     0     0     0     0     0         1       1      0    
- > 2865    2863         0    0          385888         13
- > 61702     87681    2798     0     0     0     0     0         6       2      0    
- > 2800    2798         0    0          383276         34
- > 63334     90557    2734     0     0     0     0     0         5       1      0    
- > 2735    2733         0    0          422121         28
- > 64798     88178    2732     0     0     0     0     0         1       0      0    
- > 2732    2730         0    0          410772         11
- > 58574     85910    2669     0     0     0     0     0         3       0      0    
- > 2670    2668         0    0          393331         10
- > 60538     87238    2705     0     0     0     0     0         4       0      0    
- > 2705    2703         0    0          382161         20
- > 62164     85738    2628     0     0     0     0     0         4       0      0    
- > 2628    2626         0    0          373049         25
- > 63759     78752    2638     0     0     0     0     0         2       0      0    
- > 2638    2636         0    0          348411          5
- > 65052     79832    2482     0     0     0     0     0         3       0      0    
- > 2481    2479         0    0          365871         20
- > 58986     82611    2549     0     0     0     0     0         4       1      0    
- > 2550    2548         0    0          366429         24
- > 60845     85340    2620     0     0     1     0     0         2       0      0    
- > 2620    2618         0    0          369963         16
- > 62465     83122    2591     0     0     0     0     0         5       0      0    
- > 2591    2589         0    0          371261         18
- >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc 
- > GC: tot ignored goal_miss ovrf HASH: in_search out_search
- > 63998     86141    2640     0     0     0     0     0         4       0 
- > 537114631    2640    2638         0    0          386452         15
- > 65294     85989    2527     0     0     0     0     0         5       1 
- > 1610369017    2528    2526         0    0          379801         26
- > 59241     84305    2662     0     0     0     0     0         7       0      0    
- > 2662    2660         0    0          371925         35
- > 61194     85397    2837     0     0     0     0     0         3       0      0    
- > 2837    2835         0    0          374788         17
- > 62908     88133    2688     0     0     1     0     0         4       1      0    
- > 2689    2687         0    0          382411         19
- > 64329     88495    2648     0     0     0     0     0         5       1      0    
- > 2649    2647         0    0          398763         30
- > 65560     84994    2447     0     0     1     0     0         6       2      0    
- > 2449    2447         0    0          394745         33
- > 59677     81478    2568     0     0     0     0     0         5       0      0    
- > 2569    2567         0    0          341439         22
- > 61459     81225    2623     0     0     0     0     0         5       0      0    
- > 2623    2621         0    0          345996         30
- > 63038     83660    2544     0     0     0     0     0         3       0      0    
- > 2544    2542         0    0          381567         21
- > 64494     86321    2620     0     0     0     0     0         4       0      0    
- > 2620    2618         0    0          395278         19
- > 65528     88754    2766     0     0     0     0     0         6       0      0    
- > 2765    2763         0    0          421075         34
- > 59948     86443    2990     0     0     0     0     0         5       0      0    
- > 2990    2988         0    0          373605         29
- > 61860     81912    2786     0     0     0     0     0         5       1      0    
- > 2787    2785         0    0          354678         34
- > 63630     80399    2981     0     0     0     0     0         4       0      0    
- > 2979    2977         0    0          354983         32
- > 65215     83600    2934     0     0     0     0     0         6       3      0    
- > 2937    2935         0    0          371497         41
- > 59322     85583    2821     0     0     0     0     0         7       0      0    
- > 2822    2820         0    0          382896         40
- > 61268     82602    2817     0     0     0     0     0         9       2      0    
- > 2819    2817         0    0          368078         54
- > 62989     85336    2760     0     0     1     0     0         9       0      0    
- > 2760    2758         0    0          394212         39
- > 64387     84861    2603     0     0     0     0     0         7       0      0    
- > 2602    2600         0    0          390852         36
- >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc 
- > GC: tot ignored goal_miss ovrf HASH: in_search out_search
- > 65681     82848    2625     0     0     0     0     0         8       0 
- > 537114631    2625    2623         0    0          370769         49
- > 59923     82826    2685     0     0     0     0     0         6       0 
- > 1610369017    2685    2683         0    0          344094         41
- > 61700     82705    2706     0     0     0     0     0         7       0      0    
- > 2706    2704         0    0          368474         39
- > 63247     91042    2592     0     0     0     0     0         9       1      0    
- > 2593    2591         0    0          399393         57
- > 64636     93050    2530     0     0     0     0     0         6       0      0    
- > 2530    2528         0    0          405903         24
- > 58301     90662    2554     0     0     0     0     0         5       0      0    
- > 2555    2553         0    0          404296         39
- > 60146     88405    2567     0     0     0     0     0         8       1      0    
- > 2567    2565         0    0          370227         49
- > 61822     86417    2579     0     0     0     0     0         7       1      0    
- > 2580    2578         0    0          366323         43
- > 63351     86517    2594     0     0     1     0     0         9       0      0    
- > 2594    2592         0    0          363340         51
- > 64739     87879    2669     0     0     0     0     0         3       0      0    
- > 2670    2668         0    0          387580         26
- > 58397     88297    2566     0     0     0     0     0         4       0      0    
- > 2566    2564         0    0          396980         34
- > 60352     85039    2707     0     0     0     0     0         6       1      0    
- > 2709    2707         0    0          367790         47
- > 62169     87083    2779     0     0     0     0     0         6       0      0    
- > 2775    2773         0    0          377163         31
- > 63808     88700    2752     0     0     0     0     0         4       0      0    
- > 2751    2749         0    0          392830         28
- > 65189     91242    2725     0     0     0     0     0         5       1      0    
- > 2727    2725         0    0          416871         31
- > 59326     84893    2834     0     0     0     0     0         5       1      0    
- > 2828    2826         0    0          380811         28
- > 61064     87351    2553     0     0     0     0     0         9       0      0    
- > 2552    2550         0    0          382053         37
- > 62637     88761    2551     0     0     0     0     0         5       1      0    
- > 2553    2551         0    0          384974         29
- > 
- > -- 
- > 
- > --------------------------------------------------
- > Jeremy M. Guthrie        jeremy.guthrie@berbee.com
- > Senior Network Engineer        Phone: 608-298-1061
- > Berbee                           Fax: 608-288-3007
- > 5520 Research Park Drive         NOC: 608-298-1102
- > Madison, WI 53711
+-- 
+Don Fry
+brazilnut@us.ibm.com
