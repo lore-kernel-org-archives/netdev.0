@@ -1,34 +1,37 @@
-From: Dax Kelson <dax@gurulabs.com>
-Subject: Re: [BUG] can't unload network device's if IPV6 is loaded
-Date: Sun, 14 Dec 2003 22:51:54 -0700
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] MODULE_ALIAS_PROTO for PPPoE
+Date: Mon, 15 Dec 2003 11:43:48 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1071467514.3219.11.camel@mentor.gurulabs.com>
-References: <20031211153334.0c59214b.shemminger@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Message-ID: <20031215060838.E7F7C2C284@lists.samba.org>
+References: <20031210102256.27d2ff51.shemminger@osdl.org>
 Cc: "David S. Miller" <davem@redhat.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+        Rusty Russell <rusty@rustcorp.com.au>,
+        Michal Ostrowski <mostrows@styk.uwaterloo.ca.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031211153334.0c59214b.shemminger@osdl.org>
+Cc: netdev@oss.sgi.com
+In-reply-to: Your message of "Wed, 10 Dec 2003 10:22:56 -0800."
+             <20031210102256.27d2ff51.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2003-12-11 at 16:33, Stephen Hemminger wrote:
-> In 2.6.0-test11, IPV6 is not correctly cleaning up the network device reference's
-> (ie missing dev_put).  So if I do:
-> 	rmmod e100
-> it hangs forever and complains about that not all references have been cleaned up.
-> 
-> This happens even if no IPV6 addresses have been set up. Just having ipv6 available
-> to be loaded at boot up.  The vendor startup scripts (SuSe 9) may be setting something.
+In message <20031210102256.27d2ff51.shemminger@osdl.org> you write:
+> Rusty added module aliases for most protocol families but missed this one.
 
-I noticed this on my laptop with my internal Dell TrueMobile 1150
-wireless 802.11 card (orinoco_cs).
+Thanks.  I've got a few aliases accumulated.  I'll push this to Linus/Akpm
+and see if they bite.
 
-On my Fedora box when I added IPV6=yes to /etc/sysconfig/network I
-couldn't get clean reboots or shutdowns.
+Thanks.
+Rusty
 
-Dax Kelson
-Guru Labs
+> diff -Nru a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+> --- a/drivers/net/pppoe.c	Wed Dec 10 10:20:36 2003
+> +++ b/drivers/net/pppoe.c	Wed Dec 10 10:20:36 2003
+> @@ -1151,3 +1151,4 @@
+>  MODULE_AUTHOR("Michal Ostrowski <mostrows@speakeasy.net>");
+>  MODULE_DESCRIPTION("PPP over Ethernet driver");
+>  MODULE_LICENSE("GPL");
+> +MODULE_ALIAS_NETPROTO(PF_PPPOX);
+
+--
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
