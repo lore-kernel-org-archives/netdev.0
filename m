@@ -1,42 +1,99 @@
-From: Cheng Jin <chengjin@cs.caltech.edu>
-Subject: Re: TCP receiver's window calculation problem
-Date: Thu, 24 Jun 2004 23:37:35 -0700 (PDT)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETDRV] Fix successive calls to spin_lock_irqsave in sk98lin
+Date: Fri, 25 Jun 2004 19:46:52 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0406241331590.1272-100000@orchestra.cs.caltech.edu>
-References: <Pine.NEB.4.33.0406241519430.28506-100000@dexter.psc.edu>
+Message-ID: <20040625094652.GA10032@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-        "fast-support@cs.caltech.edu" <fast-support@cs.caltech.edu>
+Content-Type: multipart/mixed; boundary="lrZ03NoBR/3+SXJZ"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.NEB.4.33.0406241519430.28506-100000@dexter.psc.edu>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-John,
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> > I think having a default limit on tcp memory is acceptable to prevent DoS,
-> > but when a user increases the memory limit by explicitly setting tcp_rmem,
-> > that should take effect.  The code itself shouldnt pose any limit like it
-> > does now.
-> 
-> The core of the problem is that you are describing a truesize of each skb
-> at about 16k, but each of those only contains < 1500 bytes of payload.
-> You are wasting 90% of your socket memory.  Announcing a 3 MB window with
-> a 30 MB socket buffer is the right thing to do, from a certain point of
-> view.  OTOH, it kills performance.
+Hi Jeff:
 
-The receiver is set to use a 9000 MTU, but the sender uses a 1500-byte 
-MTU, which is not really a pathological case.  It would have made more
-sense for the receiver to allocate skbs of the right size as incoming 
-packets are received.  
+This patch fixes the few places in sk98lin where it calls
+spin_lock_saveirq on the same flags variable thus causing
+interrupts to be disabled upon leaving the driver.
 
-Is it due to effciency reasons that the skbs are just fixed in size 
-according to the set MTU on the interface card? I suppose that the 
-receiver has no real way of knowing the right MTU size at the sender.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-Thanks,
+--lrZ03NoBR/3+SXJZ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-Cheng
+Index: drivers/net/sk98lin/skge.c
+===================================================================
+RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/drivers/net/sk98lin/skge.c,v
+retrieving revision 1.1.1.17
+diff -u -r1.1.1.17 skge.c
+--- drivers/net/sk98lin/skge.c	10 May 2004 09:47:55 -0000	1.1.1.17
++++ drivers/net/sk98lin/skge.c	22 Jun 2004 10:45:23 -0000
+@@ -3093,8 +3093,7 @@
+ 	SkEventDispatcher(pAC, pAC->IoBase);
+ 
+ 	for (i=0; i<pAC->GIni.GIMacsFound; i++) {
+-		spin_lock_irqsave(
+-			&pAC->TxPort[i][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_lock(&pAC->TxPort[i][TX_PRIO_LOW].TxDesRingLock);
+ 		netif_stop_queue(pAC->dev[i]);
+ 
+ 	}
+@@ -4773,12 +4772,10 @@
+ 		spin_lock_irqsave(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
+-		spin_lock_irqsave(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_lock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		SkGeStopPort(pAC, IoC, FromPort, SK_STOP_ALL, SK_SOFT_RST);
+ 		SkGeStopPort(pAC, IoC, ToPort, SK_STOP_ALL, SK_SOFT_RST);
+-		spin_unlock_irqrestore(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_unlock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		spin_unlock_irqrestore(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
+@@ -4791,8 +4788,7 @@
+ 		spin_lock_irqsave(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
+-		spin_lock_irqsave(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_lock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		pAC->ActivePort = ToPort;
+ #if 0
+ 		SetQueueSizes(pAC);
+@@ -4807,8 +4803,7 @@
+ 			pAC,
+ 			pAC->ActivePort,
+ 			DualNet)) {
+-			spin_unlock_irqrestore(
+-				&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++			spin_unlock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 			spin_unlock_irqrestore(
+ 				&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 				Flags);
+@@ -4834,8 +4829,7 @@
+ 		SkGePollTxD(pAC, IoC, ToPort, SK_TRUE);
+ 		ClearAndStartRx(pAC, FromPort);
+ 		ClearAndStartRx(pAC, ToPort);
+-		spin_unlock_irqrestore(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_unlock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		spin_unlock_irqrestore(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
+
+--lrZ03NoBR/3+SXJZ--
