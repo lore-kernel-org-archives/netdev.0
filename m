@@ -1,46 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Intel and TOE in the news
-Date: 21 Feb 2005 16:12:42 -0500
-Message-ID: <1109020362.1077.134.camel@jzny.localdomain>
-References: <20050220230713.GA62354@muc.de>
-	 <200502210332.j1L3WkDD014744@guinness.s2io.com>
-	 <20050221115006.GB87576@muc.de> <20050221132844.GU31837@postel.suug.ch>
-	 <1108994621.1089.158.camel@jzny.localdomain>
-	 <20050221141714.GV31837@postel.suug.ch>
-	 <1108996313.1090.178.camel@jzny.localdomain>
-	 <20050221153443.GW31837@postel.suug.ch>
-	 <1109000925.1076.3.camel@jzny.localdomain>
-	 <20050221164006.GY31837@postel.suug.ch>
-	 <1109005385.1074.68.camel@jzny.localdomain>
-	 <1109016740.25476.2.camel@mcmanus.datapower.com>
-Reply-To: hadi@cyberus.ca
+From: Christian Schmid <webmaster@rapidforum.com>
+Subject: Re: ARGH MORE BUGS!!!
+Date: Mon, 21 Feb 2005 22:17:46 +0100
+Message-ID: <421A4FFA.7090003@rapidforum.com>
+References: <421A3EB8.4050607@rapidforum.com> <20050221202854.GA26248@electric-eye.fr.zoreil.com> <421A45CA.80001@rapidforum.com> <20050221205606.GB26248@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-To: patrick mcmanus <mcmanus@ducksong.com>
-In-Reply-To: <1109016740.25476.2.camel@mcmanus.datapower.com>
+Cc: netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050221205606.GB26248@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-02-21 at 15:12, patrick mcmanus wrote:
-> On Mon, 2005-02-21 at 12:03, jamal wrote:
-> > after the BSD folks claimed to be
-> > doing 1Mpps forwarding (only to find out they used CSA later).
->                            ^^^^^^^^^^^^^^^^^^^^^^^^
-> 
-> I can't grok this. Can you elucidate?
-> 
+Its attached, since these are several files. your script didnt work. I used this one:
 
-Credit should go to Harald Welte for pointing this out to me a while
-back.
-CSA is essentially a direct link to the Northbridge System Controller
-(or MCH); there are some speacilized motherboards that have this
-feature. So imagine a e1000 with no PCI-X bridge directly connected to
-the MCH. The funny thing is it was supposed to be a cost-reduction
-concept (no more PCI-X brifge). Refer to my earlier comment about
-intel and its chipset division.
+# nice -n -19 vmstat 1 > /tmp/v & nice -n -19 perl -e 'for(1..1000){sleep(1);system("cat 
+/proc/slabinfo > /tmp/sl$_")}'
 
-cheers,
-jamal
+I started it after one break-cyclus and stopped it immedately after the next break-cyclus ended.
+
+Francois Romieu wrote:
+> Christian Schmid <webmaster@rapidforum.com> :
+> [...]
+> 
+> Let's calm down, please.
+> 
+> # cat>/tmp/momo<<EOD
+> i=0
+> while : ; do
+>         cat /proc/slabinfo > /tmp/\$i
+>         i=$[ $i + 1 ]
+>         sleep 1
+> done
+> EOD
+> # nice -n -19 vmstat 1 > /tmp/v & nice -n -19 sh /tmp/momo
+> 
+> Wait a few minutes or more until the 5s pauses happen several times
+> and post the result somewhere.
+> 
+> I doubt I'll fix it but it should give nifty graphics.
+> 
+> --
+> Ueimor
+> 
+> 
