@@ -1,64 +1,53 @@
-From: "Andreas Herrmann" <AHERRMAN@de.ibm.com>
-Subject: Re: [PATCH] new net device feature: shared-ipv6-cards
-Date: Thu, 22 Aug 2002 15:34:55 +0200
+From: Julian Anastasov <ja@ssi.bg>
+Subject: TCP fixes for 2.2: forget sendmsg OOM, tcp_reset error_report
+Date: Fri, 23 Aug 2002 09:53:53 +0000 (GMT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <OFB94D6180.E856067C-ONC1256C1D.004A69B6@de.ibm.com>
+Message-ID: <Pine.LNX.4.44.0208230943280.1117-100000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, owner-netdev@oss.sgi.com, pekkas@netcore.fi
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
-      kuznet@ms2.inr.ac.ru
-      08/21/02 07:13 PM
+
+	Hello,
+
+	Below are two fixes useful for 2.2.22.
+
+	The first fixes SIGIO issue with tcp_reset, stolen from
+2.4 - we should send event on error.
+
+	The second one fixes TCP sendmsg problem on OOM (broken
+terminals, etc) - we should forget the old error (ENOMEM) and
+not to fail with EFAULT.
+
+--- v2.2.21/linux/net/ipv4/tcp_input.c	Sun Nov  4 10:16:16 2001
++++ linux/net/ipv4/tcp_input.c	Thu Aug 22 22:14:23 2002
+@@ -296,7 +296,7 @@
+ 	}
+ 	sk->shutdown = SHUTDOWN_MASK;
+ 	if (!sk->dead) 
+-		sk->state_change(sk);
++		sk->error_report(sk);
+ }
+ 
+ /* This tags the retransmission queue when SACKs arrive. */
 
 
-  > Hello!
-
-  > > What about implementing your alternative proposal in 2.5 and to use
-  > > the current approach in a next 2.4.x kernel?
-
-  > I do not see any good reasons to do this differently.
-
-  > Alexey
-
-
-      "David S. Miller" <davem@redhat.com>
-      08/21/02 11:55 PM
+--- v2.2.21/linux/net/ipv4/tcp.c	Sun Nov  4 10:16:16 2001
++++ linux/net/ipv4/tcp.c	Thu Aug 22 22:16:02 2002
+@@ -940,6 +940,7 @@
+ 				if (!err) 
+ 					tcp_push_pending_frames(sk, tp);
+ 				wait_for_tcp_memory(sk, err);
++				err = 0;
+ 
+ 				/* If SACK's were formed or PMTU events happened,
+ 				 * we must find out about it.
 
 
-  >    From: "Andreas Herrmann" <AHERRMAN@de.ibm.com>
-  >    Date: Wed, 21 Aug 2002 19:00:39 +0200
-
-  >      > In this way we are guaranteed not to have problems of this kind
-  >      > in future.
-
-  >    What about implementing your alternative proposal in 2.5 and to use
-  >    the current approach in a next 2.4.x kernel?
-
-  > Just because you have some code depending upon this doesn't
-  > mean that is the way we should implement it in 2.4.x
-
-  > We should do it right from the start.  Because doing it properly
-  > hurts no other driver except for yours. :-)
-
-
-Well, I tried it;-)
-Sometimes programmers are as lazy as something.
-
-But in fact, I'm on your side.
-
-So it's time for another patch. However, I cannot foresee when I
-finish this work.
-
-
-Regards,
-
-Andreas
+Regards
 
 --
-Linux for eServer Development
-Tel :  +49-7031-16-4640
-Notes mail :  Andreas Herrmann/GERMANY/IBM@IBMDE
-email :  aherrman@de.ibm.com
+Julian Anastasov <ja@ssi.bg>
