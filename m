@@ -1,51 +1,85 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: [PATCH] IPv6: Fix erratic behavior in rt6_dump_route()
-Date: Mon, 17 Nov 2003 12:11:52 +0200 (EET)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Announce: NetKeeper Firewall For Linux
+Date: 17 Nov 2003 09:21:58 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
+Message-ID: <1069076627.1075.15.camel@jzny.localdomain>
+References: <1067285612.552.9.camel@aphrodite.olympus.net>
+	 <20031028014223.129933be.davem@redhat.com>
+	 <1067335655.10628.7.camel@rade7.s.cs.auc.dk>
+	 <1068001237.1064.31.camel@jzny.localdomain>
+	 <1068046114.31636.92.camel@rade7.s.cs.auc.dk>
+	 <1068089345.1020.17.camel@jzny.localdomain>
+	 <1068114376.1532.115.camel@rade7.s.cs.auc.dk>
+	 <1068211670.1031.49.camel@jzny.localdomain>  <3FAE9B9B.60007@cs.auc.dk>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Emmanuel Fleury <fleury@cs.auc.dk>, "David S. Miller" <davem@redhat.com>,
+        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Mikkel Christiansen <mixxel@cs.auc.dk>
+In-Reply-To: <3FAE9B9B.60007@cs.auc.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-===== net/ipv6/route.c 1.60 vs edited =====
-Hi Dave!
+Hi,
 
-I noticed some erratic behavior when doing "ip -6 r". I traced the problem
-to rt6_dump_route() where we typecast NLMSG_DATA() to a rtmsg without
-checking the size of the netlink message first. Seems like ip only passes
-a rtgenmsg to the kernel when it does a dump, so we end up reading pure
-garbage when we interpret it as a rtmsg. Please apply the patch!
+On Sun, 2003-11-09 at 14:55, Mikkel Christiansen wrote:
 
-Thanks,
-Ville
+> >
+> Integrate your classifer like any other tc
+> >classifier and then you dont have to look at my code unless you really
+> >want to.  
+> >
+> 
+> If we integrate it would mean a new/alternative interface
+> to tc where you compile the filter/configuratoin before
+> uploading.
 
---- 1.60/net/ipv6/route.c	Tue Nov 11 09:09:55 2003
-+++ edited/net/ipv6/route.c	Mon Nov 17 11:10:21 2003
-@@ -1558,13 +1558,13 @@
- static int rt6_dump_route(struct rt6_info *rt, void *p_arg)
- {
- 	struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
--	struct rtmsg *rtm;
- 	int prefix;
+Why cant you use the same interface that exists today - the one that is
+used to load new filter rules?
 
--	rtm = NLMSG_DATA(arg->cb->nlh);
--	if (rtm)
-+	if (arg->cb->nlh->nlmsg_len >= NLMSG_LENGTH(sizeof(struct rtmsg))) {
-+		struct rtmsg *rtm = NLMSG_DATA(arg->cb->nlh);
- 		prefix = (rtm->rtm_flags & RTM_F_PREFIX) != 0;
--	else prefix = 0;
-+	} else
-+		prefix = 0;
+>  We believe this is a good thing since it allows
+> admins to (syntax) check the filter before inserting it.
 
- 	return rt6_fill_node(arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
- 		     NETLINK_CB(arg->cb->skb).pid, arg->cb->nlh->nlmsg_seq,
+Sure. It will be nice to have something like that in user space.
 
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+> I believe the guys from shorewall sees this as a missing
+> feature of iptables.
+> 
+> Would you consider such an interface for tc good are bad?
+> 
+
+Refer to my comment above: I dont think you need anything new. Look at a
+simple classifier like fwmark and comment if you need something new.
+
+> >Isnt the state database another classifier and therefore you will be
+> >faced with the same challenges for it? 
+> >I dont think you wuill get a free ride putting the state lookups
+> >somewhere else.
+> >
+> current scheme cant handle dynamic rules - and it will
+> be a while (if ever) before it can.
+> 
+
+Please think about that problem - otherwise you get an C in your course
+work from me ;-> (F would be too harsh ;->)
+
+> >
+> >Couldnt you, knowing the rules already existing check for breakage in
+> >user space?
+> >
+> no - if someone decided to write their own "client/compiler" in
+> userspace they could potentially produce a broken IDD - that
+> could crash the kernel!
+> 
+
+I think it is nice to have a feature that does the verification in
+user space before downloading.  
+I didnt understand what you mean that someone else writes their own
+"client/compiler". Arent you the one in charge of this compiler?
+Why would you allow other people to write this compiler?
+
+cheers,
+jamal
