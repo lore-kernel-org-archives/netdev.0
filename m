@@ -1,422 +1,193 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Source Specific Query of MLDv2 [PATCH]
-Date: Tue, 10 Feb 2004 17:45:43 -0700
+From: Krishna Kumar <kumarkr@us.ibm.com>
+Subject: Re: Kernel Panic
+Date: Tue, 10 Feb 2004 17:16:52 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFE4F39A6C.5E40D57D-ON88256E37.00008C47-88256E37.0003F08A@us.ibm.com>
-References: <20040210.125124.97248371.yoshfuji@linux-ipv6.org>
+Message-ID: <OF67EB6530.F0E7FBBC-ON88256E37.0006CCC0@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	Boundary="0__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7"
-Cc: davem@redhat.com, hibi665@oki.com, netdev@oss.sgi.com,
-        "Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp>,
-        yoshfuji@linux-ipv6.org
+Content-Type: multipart/related;
+	Boundary="0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040210.125124.97248371.yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+To: Niranjan <niranjan_cs2905@yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7
+--0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
 Content-type: multipart/alternative;
-	Boundary="1__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7"
+	Boundary="1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50"
 
---1__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7
-Content-type: text/plain; charset=US-ASCII
-
-
-
-
-
-
-
-"Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp> wrote on
-02/09/2004 07:51:24 PM:
-
-> likely(!(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)))?
-
-      If your question is "why use the deliver variable?", I left that
-because it'd
-need to be re-added when multicast routing is supported. This patch puts it
-back,
-and eliminates "discard" (including within the "#if 0" code).
-
-> Where is pskb_pull()?
-> I'd suggest to check the protocol number != icmp there.
-> After doing pskb_pull() in icmpv6_rcv(), we see type field.
-
-      Oops! I missed that one. This patch adds it. I did not
-split the protocol check from the type check because they'd be
-in two different places (less clear what they're for). By keeping
-it in one place, it's clear exactly which packets are excepted,
-and the only cost is an extra do-nothing pskb_pull() for ICMP
-multicasts coming from a host that is excluded by the source
-filters.
-
-> BTW, I want to keep #if 0 ... #endif portion.
-> We're working on this... :-)
-
-I put it back in this patch, but edited it to remove "discard".
-
-                        +-DLS
-
-diff -ruN linux-2.6.2/include/net/addrconf.h linux-2.6.2F2/include/net/addrconf.h
---- linux-2.6.2/include/net/addrconf.h    2004-02-03 19:44:17.000000000 -0800
-+++ linux-2.6.2F2/include/net/addrconf.h  2004-02-10 15:17:00.000000000 -0800
-@@ -98,6 +98,7 @@
-
- extern int ipv6_chk_mcast_addr(struct net_device *dev, struct in6_addr *group,
-            struct in6_addr *src_addr);
-+extern int ipv6_is_mld(struct sk_buff *skb);
-
- extern void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len);
-
-diff -ruN linux-2.6.2/net/ipv6/ip6_input.c linux-2.6.2F2/net/ipv6/ip6_input.c
---- linux-2.6.2/net/ipv6/ip6_input.c      2004-02-03 19:44:14.000000000 -0800
-+++ linux-2.6.2F2/net/ipv6/ip6_input.c    2004-02-10 16:23:51.808947560 -0800
-@@ -168,11 +168,19 @@
-
-            smp_read_barrier_depends();
-            if (ipprot->flags & INET6_PROTO_FINAL) {
-+                 struct ipv6hdr *hdr;
-+
-                  if (!cksum_sub && skb->ip_summed == CHECKSUM_HW) {
-                        skb->csum = csum_sub(skb->csum,
-                                         csum_partial(skb->nh.raw, skb->h.raw-skb->nh.raw, 0));
-                        cksum_sub++;
-                  }
-+                 hdr = skb->nh.ipv6h;
-+                 if (ipv6_addr_is_multicast(&hdr->daddr) &&
-+                     !ipv6_chk_mcast_addr(skb->dev, &hdr->daddr,
-+                     &hdr->saddr) &&
-+                     !ipv6_is_mld(skb))
-+                       goto discard;
-            }
-            if (!(ipprot->flags & INET6_PROTO_NOPOLICY) &&
-                !xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
-@@ -211,15 +219,14 @@
-
- int ip6_mc_input(struct sk_buff *skb)
- {
--     struct ipv6hdr *hdr;
--     int deliver = 0;
--     int discard = 1;
-+     struct ipv6hdr *hdr;
-+     int deliver;
-
-      IP6_INC_STATS_BH(Ip6InMcastPkts);
-
-      hdr = skb->nh.ipv6h;
--     if (ipv6_chk_mcast_addr(skb->dev, &hdr->daddr, &hdr->saddr))
--           deliver = 1;
-+     deliver = !(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)) ||
-+         ipv6_chk_mcast_addr(skb->dev, &hdr->daddr, NULL);
-
-      /*
-       *    IPv6 multicast router mode isnt currently supported.
-@@ -238,23 +245,21 @@
-
-                  if (deliver) {
-                        skb2 = skb_clone(skb, GFP_ATOMIC);
-+                       dst_output(skb2);
-                  } else {
--                       discard = 0;
--                       skb2 = skb;
-+                       dst_output(skb);
-+                       return 0;
-                  }
--
--                 dst_output(skb2);
-            }
-      }
- #endif
-
--     if (deliver) {
--           discard = 0;
-+     if (likely(deliver)) {
-            ip6_input(skb);
-+           return 0;
-      }
--
--     if (discard)
--           kfree_skb(skb);
-+     /* discard */
-+     kfree_skb(skb);
-
-      return 0;
- }
-diff -ruN linux-2.6.2/net/ipv6/mcast.c linux-2.6.2F2/net/ipv6/mcast.c
---- linux-2.6.2/net/ipv6/mcast.c    2004-02-03 19:44:28.000000000 -0800
-+++ linux-2.6.2F2/net/ipv6/mcast.c  2004-02-10 15:15:52.000000000 -0800
-@@ -901,6 +901,30 @@
- }
-
- /*
-+ * identify MLD packets for MLD filter exceptions
-+ */
-+int ipv6_is_mld(struct sk_buff *skb)
-+{
-+     struct icmp6hdr *pic;
-+
-+     if (!pskb_pull(skb, sizeof(struct icmp6hdr)))
-+           return 0;
-+
-+     pic = (struct icmp6hdr *)skb->h.raw;
-+
-+     switch (pic->icmp6_type) {
-+     case ICMPV6_MGM_QUERY:
-+     case ICMPV6_MGM_REPORT:
-+     case ICMPV6_MGM_REDUCTION:
-+     case ICMPV6_MLD2_REPORT:
-+           return 1;
-+     default:
-+           break;
-+     }
-+     return 0;
-+}
-+
-+/*
-  *   check if the interface/address pair is valid
-  */
- int ipv6_chk_mcast_addr(struct net_device *dev, struct in6_addr *group,
-@@ -918,7 +942,7 @@
-                        break;
-            }
-            if (mc) {
--                 if (!ipv6_addr_any(src_addr)) {
-+                 if (src_addr && !ipv6_addr_any(src_addr)) {
-                        struct ip6_sf_list *psf;
-
-                        spin_lock_bh(&mc->mca_lock);
-(See attached file: mldx4.patch)
---1__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
-
-<html><body>
-<p><tt>&quot;Hideaki YOSHIFUJI&quot; &lt;yoshfuji@cerberus.hongo.wide.ad.jp&gt; wrote on 02/09/2004 07:51:24 PM:<br>
-</tt><br>
-<tt>&gt; likely(!(skb-&gt;dev-&gt;flags &amp; (IFF_PROMISC|IFF_ALLMULTI)))?</tt><br>
-<br>
-<tt>	If your question is &quot;why use the deliver variable?&quot;, I left that because it'd</tt><br>
-<tt>need to be re-added when multicast routing is supported. This patch puts it back,</tt><br>
-<tt>and eliminates &quot;discard&quot; (including within the &quot;#if 0&quot; code).<br>
-</tt><br>
-<tt>&gt; Where is pskb_pull()?<br>
-&gt; I'd suggest to check the protocol number != icmp there.<br>
-&gt; After doing pskb_pull() in icmpv6_rcv(), we see type field.</tt><br>
-<br>
-<tt>	Oops! I missed that one. This patch adds it. I did not</tt><br>
-<tt>split the protocol check from the type check because they'd be</tt><br>
-<tt>in two different places (less clear what they're for). By keeping</tt><br>
-<tt>it in one place, it's clear exactly which packets are excepted,</tt><br>
-<tt>and the only cost is an extra do-nothing pskb_pull() for ICMP</tt><br>
-<tt>multicasts coming from a host that is excluded by the source</tt><br>
-<tt>filters.<br>
-</tt><br>
-<tt>&gt; BTW, I want to keep #if 0 ... #endif portion.<br>
-&gt; We're working on this... :-)</tt><br>
-<br>
-<tt>I put it back in this patch, but edited it to remove &quot;discard&quot;.</tt><br>
-<br>
-<tt>				+-DLS</tt><br>
-<br>
-<tt>diff -ruN linux-2.6.2/include/net/addrconf.h linux-2.6.2F2/include/net/addrconf.h<br>
---- linux-2.6.2/include/net/addrconf.h	2004-02-03 19:44:17.000000000 -0800<br>
-+++ linux-2.6.2F2/include/net/addrconf.h	2004-02-10 15:17:00.000000000 -0800<br>
-@@ -98,6 +98,7 @@<br>
- <br>
- extern int ipv6_chk_mcast_addr(struct net_device *dev, struct in6_addr *group,<br>
- 		struct in6_addr *src_addr);<br>
-+extern int ipv6_is_mld(struct sk_buff *skb);<br>
- <br>
- extern void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len);<br>
- <br>
-diff -ruN linux-2.6.2/net/ipv6/ip6_input.c linux-2.6.2F2/net/ipv6/ip6_input.c<br>
---- linux-2.6.2/net/ipv6/ip6_input.c	2004-02-03 19:44:14.000000000 -0800<br>
-+++ linux-2.6.2F2/net/ipv6/ip6_input.c	2004-02-10 16:23:51.808947560 -0800<br>
-@@ -168,11 +168,19 @@<br>
- 		<br>
- 		smp_read_barrier_depends();<br>
- 		if (ipprot-&gt;flags &amp; INET6_PROTO_FINAL) {<br>
-+			struct ipv6hdr *hdr;	<br>
-+<br>
- 			if (!cksum_sub &amp;&amp; skb-&gt;ip_summed == CHECKSUM_HW) {<br>
- 				skb-&gt;csum = csum_sub(skb-&gt;csum,<br>
- 						 &nbsp; &nbsp; csum_partial(skb-&gt;nh.raw, skb-&gt;h.raw-skb-&gt;nh.raw, 0));<br>
- 				cksum_sub++;<br>
- 			}</tt><br>
-<tt>+			hdr = skb-&gt;nh.ipv6h;<br>
-+			if (ipv6_addr_is_multicast(&amp;hdr-&gt;daddr) &amp;&amp;<br>
-+			 &nbsp; &nbsp;!ipv6_chk_mcast_addr(skb-&gt;dev, &amp;hdr-&gt;daddr,<br>
-+			 &nbsp; &nbsp;&amp;hdr-&gt;saddr) &amp;&amp;<br>
-+			 &nbsp; &nbsp;!ipv6_is_mld(skb))<br>
-+				goto discard;<br>
- 		}<br>
- 		if (!(ipprot-&gt;flags &amp; INET6_PROTO_NOPOLICY) &amp;&amp;<br>
- 		 &nbsp; &nbsp;!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) <br>
-@@ -211,15 +219,14 @@<br>
- <br>
- int ip6_mc_input(struct sk_buff *skb)<br>
- {<br>
--	struct ipv6hdr *hdr;	<br>
--	int deliver = 0;<br>
--	int discard = 1;<br>
-+	struct ipv6hdr *hdr;<br>
-+	int deliver;<br>
- <br>
- 	IP6_INC_STATS_BH(Ip6InMcastPkts);<br>
- <br>
- 	hdr = skb-&gt;nh.ipv6h;<br>
--	if (ipv6_chk_mcast_addr(skb-&gt;dev, &amp;hdr-&gt;daddr, &amp;hdr-&gt;saddr))<br>
--		deliver = 1;<br>
-+	deliver = !(skb-&gt;dev-&gt;flags &amp; (IFF_PROMISC|IFF_ALLMULTI)) ||<br>
-+	 &nbsp; &nbsp;ipv6_chk_mcast_addr(skb-&gt;dev, &amp;hdr-&gt;daddr, NULL);<br>
- <br>
- 	/*<br>
- 	 *	IPv6 multicast router mode isnt currently supported.<br>
-@@ -238,23 +245,21 @@<br>
- 			<br>
- 			if (deliver) {<br>
- 				skb2 = skb_clone(skb, GFP_ATOMIC);<br>
-+				dst_output(skb2);<br>
- 			} else {<br>
--				discard = 0;<br>
--				skb2 = skb;<br>
-+				dst_output(skb);<br>
-+				return 0;<br>
- 			}<br>
--<br>
--			dst_output(skb2);<br>
- 		}</tt><br>
-<tt> 	}<br>
- #endif<br>
- <br>
--	if (deliver) {<br>
--		discard = 0;<br>
-+	if (likely(deliver)) {<br>
- 		ip6_input(skb);<br>
-+		return 0;<br>
- 	}<br>
--<br>
--	if (discard)<br>
--		kfree_skb(skb);<br>
-+	/* discard */<br>
-+	kfree_skb(skb);<br>
- <br>
- 	return 0;<br>
- }<br>
-diff -ruN linux-2.6.2/net/ipv6/mcast.c linux-2.6.2F2/net/ipv6/mcast.c<br>
---- linux-2.6.2/net/ipv6/mcast.c	2004-02-03 19:44:28.000000000 -0800<br>
-+++ linux-2.6.2F2/net/ipv6/mcast.c	2004-02-10 15:15:52.000000000 -0800<br>
-@@ -901,6 +901,30 @@<br>
- }<br>
- <br>
- /*<br>
-+ * identify MLD packets for MLD filter exceptions<br>
-+ */<br>
-+int ipv6_is_mld(struct sk_buff *skb)<br>
-+{<br>
-+	struct icmp6hdr *pic;<br>
-+<br>
-+	if (!pskb_pull(skb, sizeof(struct icmp6hdr)))<br>
-+		return 0;<br>
-+<br>
-+	pic = (struct icmp6hdr *)skb-&gt;h.raw;<br>
-+<br>
-+	switch (pic-&gt;icmp6_type) {<br>
-+	case ICMPV6_MGM_QUERY:<br>
-+	case ICMPV6_MGM_REPORT:<br>
-+	case ICMPV6_MGM_REDUCTION:<br>
-+	case ICMPV6_MLD2_REPORT:<br>
-+		return 1;<br>
-+	default:<br>
-+		break;<br>
-+	}<br>
-+	return 0;<br>
-+}<br>
-+<br>
-+/*<br>
- &nbsp;*	check if the interface/address pair is valid<br>
- &nbsp;*/<br>
- int ipv6_chk_mcast_addr(struct net_device *dev, struct in6_addr *group,<br>
-@@ -918,7 +942,7 @@<br>
- 				break;<br>
- 		}<br>
- 		if (mc) {</tt><br>
-<tt>-			if (!ipv6_addr_any(src_addr)) {<br>
-+			if (src_addr &amp;&amp; !ipv6_addr_any(src_addr)) {<br>
- 				struct ip6_sf_list *psf;<br>
- <br>
- 				spin_lock_bh(&amp;mc-&gt;mca_lock);</tt><br>
-<i>(See attached file: mldx4.patch)</i><br>
-</body></html>
-
---1__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7--
-
-
---0__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7
-Content-type: application/octet-stream;
-	name="mldx4.patch"
-Content-Disposition: attachment; filename="mldx4.patch"
-Content-ID: <10__=07BBE4A4DF930AD78f9e8a93df938@us.ibm.com>
+--1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
+Content-type: text/plain; charset=UTF-8
 Content-transfer-encoding: base64
 
-ZGlmZiAtcnVOIGxpbnV4LTIuNi4yL2luY2x1ZGUvbmV0L2FkZHJjb25mLmggbGludXgtMi42LjJG
-Mi9pbmNsdWRlL25ldC9hZGRyY29uZi5oCi0tLSBsaW51eC0yLjYuMi9pbmNsdWRlL25ldC9hZGRy
-Y29uZi5oCTIwMDQtMDItMDMgMTk6NDQ6MTcuMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0yLjYu
-MkYyL2luY2x1ZGUvbmV0L2FkZHJjb25mLmgJMjAwNC0wMi0xMCAxNToxNzowMC4wMDAwMDAwMDAg
-LTA4MDAKQEAgLTk4LDYgKzk4LDcgQEAKIAogZXh0ZXJuIGludCBpcHY2X2Noa19tY2FzdF9hZGRy
-KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHN0cnVjdCBpbjZfYWRkciAqZ3JvdXAsCiAJCXN0cnVj
-dCBpbjZfYWRkciAqc3JjX2FkZHIpOworZXh0ZXJuIGludCBpcHY2X2lzX21sZChzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiKTsKIAogZXh0ZXJuIHZvaWQgYWRkcmNvbmZfcHJlZml4X3JjdihzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2LCB1OCAqb3B0LCBpbnQgbGVuKTsKIApkaWZmIC1ydU4gbGludXgtMi42LjIv
-bmV0L2lwdjYvaXA2X2lucHV0LmMgbGludXgtMi42LjJGMi9uZXQvaXB2Ni9pcDZfaW5wdXQuYwot
-LS0gbGludXgtMi42LjIvbmV0L2lwdjYvaXA2X2lucHV0LmMJMjAwNC0wMi0wMyAxOTo0NDoxNC4w
-MDAwMDAwMDAgLTA4MDAKKysrIGxpbnV4LTIuNi4yRjIvbmV0L2lwdjYvaXA2X2lucHV0LmMJMjAw
-NC0wMi0xMCAxNjoyMzo1MS44MDg5NDc1NjAgLTA4MDAKQEAgLTE2OCwxMSArMTY4LDE5IEBACiAJ
-CQogCQlzbXBfcmVhZF9iYXJyaWVyX2RlcGVuZHMoKTsKIAkJaWYgKGlwcHJvdC0+ZmxhZ3MgJiBJ
-TkVUNl9QUk9UT19GSU5BTCkgeworCQkJc3RydWN0IGlwdjZoZHIgKmhkcjsJCisKIAkJCWlmICgh
-Y2tzdW1fc3ViICYmIHNrYi0+aXBfc3VtbWVkID09IENIRUNLU1VNX0hXKSB7CiAJCQkJc2tiLT5j
-c3VtID0gY3N1bV9zdWIoc2tiLT5jc3VtLAogCQkJCQkJICAgICBjc3VtX3BhcnRpYWwoc2tiLT5u
-aC5yYXcsIHNrYi0+aC5yYXctc2tiLT5uaC5yYXcsIDApKTsKIAkJCQlja3N1bV9zdWIrKzsKIAkJ
-CX0KKwkJCWhkciA9IHNrYi0+bmguaXB2Nmg7CisJCQlpZiAoaXB2Nl9hZGRyX2lzX211bHRpY2Fz
-dCgmaGRyLT5kYWRkcikgJiYKKwkJCSAgICAhaXB2Nl9jaGtfbWNhc3RfYWRkcihza2ItPmRldiwg
-Jmhkci0+ZGFkZHIsCisJCQkgICAgJmhkci0+c2FkZHIpICYmCisJCQkgICAgIWlwdjZfaXNfbWxk
-KHNrYikpCisJCQkJZ290byBkaXNjYXJkOwogCQl9CiAJCWlmICghKGlwcHJvdC0+ZmxhZ3MgJiBJ
-TkVUNl9QUk9UT19OT1BPTElDWSkgJiYKIAkJICAgICF4ZnJtNl9wb2xpY3lfY2hlY2soTlVMTCwg
-WEZSTV9QT0xJQ1lfSU4sIHNrYikpIApAQCAtMjExLDE1ICsyMTksMTQgQEAKIAogaW50IGlwNl9t
-Y19pbnB1dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogewotCXN0cnVjdCBpcHY2aGRyICpoZHI7CQot
-CWludCBkZWxpdmVyID0gMDsKLQlpbnQgZGlzY2FyZCA9IDE7CisJc3RydWN0IGlwdjZoZHIgKmhk
-cjsKKwlpbnQgZGVsaXZlcjsKIAogCUlQNl9JTkNfU1RBVFNfQkgoSXA2SW5NY2FzdFBrdHMpOwog
-CiAJaGRyID0gc2tiLT5uaC5pcHY2aDsKLQlpZiAoaXB2Nl9jaGtfbWNhc3RfYWRkcihza2ItPmRl
-diwgJmhkci0+ZGFkZHIsICZoZHItPnNhZGRyKSkKLQkJZGVsaXZlciA9IDE7CisJZGVsaXZlciA9
-ICEoc2tiLT5kZXYtPmZsYWdzICYgKElGRl9QUk9NSVNDfElGRl9BTExNVUxUSSkpIHx8CisJICAg
-IGlwdjZfY2hrX21jYXN0X2FkZHIoc2tiLT5kZXYsICZoZHItPmRhZGRyLCBOVUxMKTsKIAogCS8q
-CiAJICoJSVB2NiBtdWx0aWNhc3Qgcm91dGVyIG1vZGUgaXNudCBjdXJyZW50bHkgc3VwcG9ydGVk
-LgpAQCAtMjM4LDIzICsyNDUsMjEgQEAKIAkJCQogCQkJaWYgKGRlbGl2ZXIpIHsKIAkJCQlza2Iy
-ID0gc2tiX2Nsb25lKHNrYiwgR0ZQX0FUT01JQyk7CisJCQkJZHN0X291dHB1dChza2IyKTsKIAkJ
-CX0gZWxzZSB7Ci0JCQkJZGlzY2FyZCA9IDA7Ci0JCQkJc2tiMiA9IHNrYjsKKwkJCQlkc3Rfb3V0
-cHV0KHNrYik7CisJCQkJcmV0dXJuIDA7CiAJCQl9Ci0KLQkJCWRzdF9vdXRwdXQoc2tiMik7CiAJ
-CX0KIAl9CiAjZW5kaWYKIAotCWlmIChkZWxpdmVyKSB7Ci0JCWRpc2NhcmQgPSAwOworCWlmIChs
-aWtlbHkoZGVsaXZlcikpIHsKIAkJaXA2X2lucHV0KHNrYik7CisJCXJldHVybiAwOwogCX0KLQot
-CWlmIChkaXNjYXJkKQotCQlrZnJlZV9za2Ioc2tiKTsKKwkvKiBkaXNjYXJkICovCisJa2ZyZWVf
-c2tiKHNrYik7CiAKIAlyZXR1cm4gMDsKIH0KZGlmZiAtcnVOIGxpbnV4LTIuNi4yL25ldC9pcHY2
-L21jYXN0LmMgbGludXgtMi42LjJGMi9uZXQvaXB2Ni9tY2FzdC5jCi0tLSBsaW51eC0yLjYuMi9u
-ZXQvaXB2Ni9tY2FzdC5jCTIwMDQtMDItMDMgMTk6NDQ6MjguMDAwMDAwMDAwIC0wODAwCisrKyBs
-aW51eC0yLjYuMkYyL25ldC9pcHY2L21jYXN0LmMJMjAwNC0wMi0xMCAxNToxNTo1Mi4wMDAwMDAw
-MDAgLTA4MDAKQEAgLTkwMSw2ICs5MDEsMzAgQEAKIH0KIAogLyoKKyAqIGlkZW50aWZ5IE1MRCBw
-YWNrZXRzIGZvciBNTEQgZmlsdGVyIGV4Y2VwdGlvbnMKKyAqLworaW50IGlwdjZfaXNfbWxkKHN0
-cnVjdCBza19idWZmICpza2IpCit7CisJc3RydWN0IGljbXA2aGRyICpwaWM7CisKKwlpZiAoIXBz
-a2JfcHVsbChza2IsIHNpemVvZihzdHJ1Y3QgaWNtcDZoZHIpKSkKKwkJcmV0dXJuIDA7CisKKwlw
-aWMgPSAoc3RydWN0IGljbXA2aGRyICopc2tiLT5oLnJhdzsKKworCXN3aXRjaCAocGljLT5pY21w
-Nl90eXBlKSB7CisJY2FzZSBJQ01QVjZfTUdNX1FVRVJZOgorCWNhc2UgSUNNUFY2X01HTV9SRVBP
-UlQ6CisJY2FzZSBJQ01QVjZfTUdNX1JFRFVDVElPTjoKKwljYXNlIElDTVBWNl9NTEQyX1JFUE9S
-VDoKKwkJcmV0dXJuIDE7CisJZGVmYXVsdDoKKwkJYnJlYWs7CisJfQorCXJldHVybiAwOworfQor
-CisvKgogICoJY2hlY2sgaWYgdGhlIGludGVyZmFjZS9hZGRyZXNzIHBhaXIgaXMgdmFsaWQKICAq
-LwogaW50IGlwdjZfY2hrX21jYXN0X2FkZHIoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0
-IGluNl9hZGRyICpncm91cCwKQEAgLTkxOCw3ICs5NDIsNyBAQAogCQkJCWJyZWFrOwogCQl9CiAJ
-CWlmIChtYykgewotCQkJaWYgKCFpcHY2X2FkZHJfYW55KHNyY19hZGRyKSkgeworCQkJaWYgKHNy
-Y19hZGRyICYmICFpcHY2X2FkZHJfYW55KHNyY19hZGRyKSkgewogCQkJCXN0cnVjdCBpcDZfc2Zf
-bGlzdCAqcHNmOwogCiAJCQkJc3Bpbl9sb2NrX2JoKCZtYy0+bWNhX2xvY2spOwo=
 
---0__=07BBE4A4DF930AD78f9e8a93df938690918c07BBE4A4DF930AD7--
+DQoNCg0KDQpZb3UgbmVlZCB0byBzcGVjaWZ5IHRoZSBrZXJuZWwgdmVyc2lvbiB5b3UgYXJlIHJ1
+bm5pbmcsIHBsdXMgYWxsIG90aGVyDQp2YXJpYWJsZXMgd2hpY2ggY2F1c2VzIHRoaXMgcGFuaWMu
+DQpBIG9iamR1bXAgb2YgcGFuaWNpbmcgY29kZSAoZGV2X3F1ZXVlX3htaXQgPyBub3QgbmVjZXNz
+YXJpbHksIHdoYXQgYWJvdXQNCmVpcCBhbmQgcmVnaXN0ZXIvc3RhY2ssIGV0Yw0KdGhhdCBoYXZl
+IHNjcm9sbGVkIG91dCBvZiB0aGUgc2NyZWVuKSB3aWxsIGJlIHVzZWZ1bC4gVXNlIHNlcmlhbCBj
+b25zb2xlDQooZG9jdW1lbnRhdGlvbiBpcyBwcmVzZW50IGluDQpzZXJpYWwtY29uc29sZS50eHQp
+IHRvIGdldCBmdWxsIGR1bXAgaW5mb3JtYXRpb24uDQoNCi0gS0sNCg0KDQoNCnwtLS0tLS0tLS0r
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLT4NCnwgICAgICAgICB8ICAgICAgICAgICBOaXJh
+bmphbiAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAgICAgICA8bmlyYW5qYW5fY3MyOTA1QHwN
+CnwgICAgICAgICB8ICAgICAgICAgICB5YWhvby5jb20+ICAgICAgIHwNCnwgICAgICAgICB8ICAg
+ICAgICAgICBTZW50IGJ5OiAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAgICAgICBuZXRkZXYt
+Ym91bmNlQG9zc3wNCnwgICAgICAgICB8ICAgICAgICAgICAuc2dpLmNvbSAgICAgICAgIHwNCnwg
+ICAgICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAgICAgICAwMi8xMC8yMDA0
+IDA0OjMyIHwNCnwgICAgICAgICB8ICAgICAgICAgICBQTSAgICAgICAgICAgICAgIHwNCnwgICAg
+ICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCnwtLS0tLS0tLS0rLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLT4NCiAgPi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfA0KICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8DQogIHwgICAgICAgVG86ICAgICAgIG5ldGRl
+dkBvc3Muc2dpLmNvbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCiAgfCAgICAgICBjYzogICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfA0KICB8ICAgICAgIFN1Ympl
+Y3Q6ICBLZXJuZWwgUGFuaWMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8DQogIHwgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCiAgPi0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfA0K
+DQoNCg0KDQpIaSwNCkkgYW0gdHJ5aW5nIHRvIGFkZCBjcnlwdG9hcGkgc3VwcG9ydCBpbiB3aXJl
+bGVzcyBMQU4gZHJpdmVyIChsaW51eC13bGFuLW5nDQpmb3IgUHJpc20gYmFzZWQgY2FyZCkgZm9y
+IG15IHNlY3VyaXR5IHByb2plY3QuDQpXaGlsZSBkb2luZyBzbywgSSBhbSBnZXR0aW5nIGEga2Vy
+bmVsIHBhbmljLiBJIGFtIG5vdCBhYmxlIHRvIGRlYnVnIGl0IGFzDQp0aGVyZSBpcyBubyBsb2dn
+aW5nIG9mIGFueSBpbmZvcm1hdGlvbiByZWxhdGVkIHRvIGtlcm5lbCBwYW5pYyBpbiB0aGUgbG9n
+DQpmaWxlcyAoL3Zhci9sb2cvbWVzc2FnZXMgb3IgL3Zhci9sb2cvZG1lc2cpIHdoZW4gSSByZWJv
+b3QgdGhlIHN5c3RlbS4gSQ0KaGF2ZSBhdHRhY2hlZCB0aGUgbG9nIGJlbG93IGF2YWlsYWJsZSBv
+biB0aGUgc2NyZWVuLg0KQ2FuIGFueW9uZSBwbGVhc2UgaGVscCBtZSBpbiB3aGF0IGNhbiBiZSBw
+b3NzaWJsZSBlcnJvciBieSBsb29raW5nIGF0IHRoZQ0KbG9nID8NCkkgd2lsbCBncmVhdGx5IGFw
+cHJlY2lhdGUgYW55IGhlbHAgaW4gdGhpcyBtYXR0ZXIuDQoNClJlZ2FyZHMsDQotTmlyYW5qYW4N
+ClJlc2VhcmNoIEFzc2lzdGFudCwgVU1BU1MuDQoNCkxvZyBhdmFpbGFibGUgb24gdGhlIHNjcmVl
+bjoNCg0KLi4uLi4uDQouLi4uLi4NCls8YzAxZjU4NTA+XSAgZGV2X3F1ZXVlX3htaXQgICAgICAg
+ICAgIFtrZXJuZWxdICAgICAgICAgICAgMHgyMTANCigweGMwMzRkZTA0KSkNCls8YzAxZjk4ZWM+
+XSAgIG5laWdoX3Jlc29sdmVfb3V0cHV0ICAgIFtrZXJuZWxdICAgICAgICAgICAgMHhlYw0KKDB4
+YzAzNGRlMWMpKQ0KICAgICAgICAgICAgICAgICAgICAgICAgbmVpZ2hfdXBkYXRlDQogICAgICAg
+ICAgICAgICAgICAgICAgICBuZWlnaF9sb29rdXANCiAgICAgICAgICAgICAgICAgICAgICAgIGFy
+cF9wcm9jZXNzDQogICAgICAgICAgICAgICAgICAgICAgICBuZXRpZl9yZWNlaXZlX3NrYg0KICAg
+ICAgICAgICAgICAgICAgICAgICAgcHJvY2Vzc19iYWNrbG9nDQogICAgICAgICAgICAgICAgICAg
+ICAgICBuZXRfcnhfYWN0aW9uDQogICAgICAgICAgICAgICAgICAgICAgICBkb19zb2Z0aXJxDQog
+ICAgICAgICAgICAgICAgICAgICAgICBkb19JUlENCiAgICAgICAgICAgICAgICAgICAgICAgIGNh
+bGxfZG9fSVJRDQogICAgICAgICAgICAgICAgICAgICAgICBkdW1wX2ZwdQ0KICAgICAgICAgICAg
+ICAgICAgICAgICAgYXBtX2Jpb3NfY2FsbF9zaW1wbGUNCiAgICAgICAgICAgICAgICAgICAgICAg
+IGFwbV9kb19pZGxlDQogICAgICAgICAgICAgICAgICAgICAgICBhcG1fY3B1X2lkbGUNCiAgICAg
+ICAgICAgICAgICAgICAgICAgIGFwbV9jcHVfaWRsZQ0KICAgICAgICAgICAgICAgICAgICAgICAg
+ZGVmYXVsdF9pZGxlDQogICAgICAgICAgICAgICAgICAgICAgIGNwdV9pZGxlDQpbPGMwMTAxNTAw
+MD4gc3RleHQgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFtrZXJuZWxdICAgICAgICAgICAg
+MHgwDQooMHhjMDM0ZGZlMCkpDQoNCkNvZGU6ICAgMGYgMGIgZTIgM2YgZDcgMjUgYzAgZTkgNzcg
+ZmQgZmYgZmYgOGQgYjQgMjYgMDAgMDAgMDAgMDANCiA8MD5LZXJuZWwgUGFuaWM6IEFpZWUsIGtp
+bGxpbmcgaW50ZXJydXB0IGhhbmRsZXIhDQpJbiBpbnRlcnJ1cHQgaGFuZGxlciDigJMgbm90IHN5
+bmNpbmcNCg0KDQpEbyB5b3UgWWFob28hPw0KWWFob28hIEZpbmFuY2U6IEdldCB5b3VyIHJlZnVu
+ZCBmYXN0IGJ5IGZpbGluZyBvbmxpbmUNCg0KDQoNCg0K
+
+--1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
+Content-type: text/html; charset=UTF-8
+Content-Disposition: inline
+Content-transfer-encoding: base64
+
+PGh0bWw+PGJvZHk+DQo8cD5Zb3UgbmVlZCB0byBzcGVjaWZ5IHRoZSBrZXJuZWwgdmVyc2lvbiB5
+b3UgYXJlIHJ1bm5pbmcsIHBsdXMgYWxsIG90aGVyIHZhcmlhYmxlcyB3aGljaCBjYXVzZXMgdGhp
+cyBwYW5pYy48YnI+DQpBIG9iamR1bXAgb2YgcGFuaWNpbmcgY29kZSAoZGV2X3F1ZXVlX3htaXQg
+PyBub3QgbmVjZXNzYXJpbHksIHdoYXQgYWJvdXQgZWlwIGFuZCByZWdpc3Rlci9zdGFjaywgZXRj
+PGJyPg0KdGhhdCBoYXZlIHNjcm9sbGVkIG91dCBvZiB0aGUgc2NyZWVuKSB3aWxsIGJlIHVzZWZ1
+bC4gVXNlIHNlcmlhbCBjb25zb2xlIChkb2N1bWVudGF0aW9uIGlzIHByZXNlbnQgaW48YnI+DQpz
+ZXJpYWwtY29uc29sZS50eHQpIHRvIGdldCBmdWxsIGR1bXAgaW5mb3JtYXRpb24uPGJyPg0KPGJy
+Pg0KLSBLSzxicj4NCjxicj4NCjxpbWcgc3JjPSIvaWNvbnMvZ3JheWNvbC5naWYiIHdpZHRoPSIx
+NiIgaGVpZ2h0PSIxNiIgYWx0PSJJbmFjdGl2ZSBoaWRlIGRldGFpbHMgZm9yIE5pcmFuamFuICZs
+dDtuaXJhbmphbl9jczI5MDVAeWFob28uY29tJmd0OyI+TmlyYW5qYW4gJmx0O25pcmFuamFuX2Nz
+MjkwNUB5YWhvby5jb20mZ3Q7PGJyPg0KPGJyPg0KPGJyPg0KDQo8dGFibGUgVjVET1RCTD10cnVl
+IHdpZHRoPSIxMDAlIiBib3JkZXI9IjAiIGNlbGxzcGFjaW5nPSIwIiBjZWxscGFkZGluZz0iMCI+
+DQo8dHIgdmFsaWduPSJ0b3AiPjx0ZCB3aWR0aD0iMSUiPjxpbWcgc3JjPSIvaWNvbnMvZWNibGFu
+ay5naWYiIGJvcmRlcj0iMCIgaGVpZ2h0PSIxIiB3aWR0aD0iNzIiIGFsdD0iIj48YnI+DQo8L3Rk
+Pjx0ZCBzdHlsZT0iYmFja2dyb3VuZC1pbWFnZTp1cmwoY2lkOjEwX189MDdCQkU0QTRERjk1NEE1
+MDhmOWU4YTkzZGY5MzhAdXMuaWJtLmNvbSk7IGJhY2tncm91bmQtcmVwZWF0OiBuby1yZXBlYXQ7
+ICIgd2lkdGg9IjElIj48aW1nIHNyYz0iL2ljb25zL2VjYmxhbmsuZ2lmIiBib3JkZXI9IjAiIGhl
+aWdodD0iMSIgd2lkdGg9IjIyNSIgYWx0PSIiPjxicj4NCg0KPHVsPg0KPHVsPg0KPHVsPg0KPHVs
+PjxiPjxmb250IHNpemU9IjIiPk5pcmFuamFuICZsdDtuaXJhbmphbl9jczI5MDVAeWFob28uY29t
+Jmd0OzwvZm9udD48L2I+PGJyPg0KPGZvbnQgc2l6ZT0iMiI+U2VudCBieTogbmV0ZGV2LWJvdW5j
+ZUBvc3Muc2dpLmNvbTwvZm9udD4NCjxwPjxmb250IHNpemU9IjIiPjAyLzEwLzIwMDQgMDQ6MzIg
+UE08L2ZvbnQ+PC91bD4NCjwvdWw+DQo8L3VsPg0KPC91bD4NCjwvdGQ+PHRkIHdpZHRoPSIxMDAl
+Ij48aW1nIHNyYz0iL2ljb25zL2VjYmxhbmsuZ2lmIiBib3JkZXI9IjAiIGhlaWdodD0iMSIgd2lk
+dGg9IjEiIGFsdD0iIj48YnI+DQo8Zm9udCBzaXplPSIxIiBmYWNlPSJBcmlhbCI+CTwvZm9udD48
+YnI+DQo8Zm9udCBzaXplPSIyIj4JVG86CTwvZm9udD48Zm9udCBzaXplPSIyIj5uZXRkZXZAb3Nz
+LnNnaS5jb208L2ZvbnQ+PGJyPg0KPGZvbnQgc2l6ZT0iMiI+CWNjOgk8L2ZvbnQ+PGJyPg0KPGZv
+bnQgc2l6ZT0iMiI+CVN1YmplY3Q6CTwvZm9udD48Zm9udCBzaXplPSIyIj5LZXJuZWwgUGFuaWM8
+L2ZvbnQ+PC90ZD48L3RyPg0KPC90YWJsZT4NCjxicj4NCjxicj4NCjxmb250IHNpemU9IjQiIGZh
+Y2U9IlRpbWVzIE5ldyBSb21hbiI+SGksPGJyPg0KSSBhbSB0cnlpbmcgdG8gYWRkIGNyeXB0b2Fw
+aSBzdXBwb3J0IGluIHdpcmVsZXNzIExBTiBkcml2ZXIgKGxpbnV4LXdsYW4tbmcgZm9yIFByaXNt
+IGJhc2VkIGNhcmQpIGZvciBteSBzZWN1cml0eSBwcm9qZWN0LiAgPGJyPg0KV2hpbGUgZG9pbmcg
+c28sIEkgYW0gZ2V0dGluZyBhIGtlcm5lbCBwYW5pYy4gSSBhbSBub3QgYWJsZSB0byBkZWJ1ZyBp
+dCBhcyB0aGVyZSBpcyBubyBsb2dnaW5nIG9mIGFueSBpbmZvcm1hdGlvbiByZWxhdGVkIHRvIGtl
+cm5lbCBwYW5pYyBpbiB0aGUgbG9nIGZpbGVzICgvdmFyL2xvZy9tZXNzYWdlcyBvciAvdmFyL2xv
+Zy9kbWVzZykgd2hlbiBJIHJlYm9vdCB0aGUgc3lzdGVtLiBJIGhhdmUgYXR0YWNoZWQgdGhlIGxv
+ZyBiZWxvdyBhdmFpbGFibGUgb24gdGhlIHNjcmVlbi48YnI+DQpDYW4gYW55b25lIHBsZWFzZSBo
+ZWxwIG1lIGluIHdoYXQgY2FuIGJlIHBvc3NpYmxlIGVycm9yIGJ5IGxvb2tpbmcgYXQgdGhlIGxv
+ZyA/PC9mb250Pjxicj4NCjxmb250IHNpemU9IjQiIGZhY2U9IlRpbWVzIE5ldyBSb21hbiI+SSB3
+aWxsIGdyZWF0bHkgYXBwcmVjaWF0ZSBhbnkgaGVscCBpbiB0aGlzIG1hdHRlci48YnI+DQo8YnI+
+DQpSZWdhcmRzLDxicj4NCi1OaXJhbmphbjxicj4NClJlc2VhcmNoIEFzc2lzdGFudCwgVU1BU1Mu
+PC9mb250Pjxicj4NCjxmb250IHNpemU9IjQiIGZhY2U9IlRpbWVzIE5ldyBSb21hbiI+PGJyPg0K
+TG9nIGF2YWlsYWJsZSBvbiB0aGUgc2NyZWVuOjxicj4NCjxicj4NCi4uLi4uLjxicj4NCi4uLi4u
+Ljxicj4NCjxjMDFmNTg1MD4gIGRldl9xdWV1ZV94bWl0ICAgICAgICAgICBba2VybmVsXSAgICAg
+ICAgICAgIDB4MjEwICAoMHhjMDM0ZGUwNCkpPGJyPg0KPGMwMWY5OGVjPiAgIG5laWdoX3Jlc29s
+dmVfb3V0cHV0ICAgIFtrZXJuZWxdICAgICAgICAgICAgMHhlYyAgICAgKDB4YzAzNGRlMWMpKTxi
+cj4NCiAgICAgICAgICAgICAgICAgICAgICAgIG5laWdoX3VwZGF0ZTxicj4NCiAgICAgICAgICAg
+ICAgICAgICAgICAgIG5laWdoX2xvb2t1cDxicj4NCiAgICAgICAgICAgICAgICAgICAgICAgIGFy
+cF9wcm9jZXNzPGJyPg0KICAgICAgICAgICAgICAgICAgICAgICAgbmV0aWZfcmVjZWl2ZV9za2I8
+YnI+DQogICAgICAgICAgICAgICAgICAgICAgICBwcm9jZXNzX2JhY2tsb2c8YnI+DQogICAgICAg
+ICAgICAgICAgICAgICAgICBuZXRfcnhfYWN0aW9uPGJyPg0KICAgICAgICAgICAgICAgICAgICAg
+ICAgZG9fc29mdGlycTxicj4NCiAgICAgICAgICAgICAgICAgICAgICAgIGRvX0lSUTxicj4NCiAg
+ICAgICAgICAgICAgICAgICAgICAgIGNhbGxfZG9fSVJRPGJyPg0KICAgICAgICAgICAgICAgICAg
+ICAgICAgZHVtcF9mcHU8YnI+DQogICAgICAgICAgICAgICAgICAgICAgICBhcG1fYmlvc19jYWxs
+X3NpbXBsZTxicj4NCiAgICAgICAgICAgICAgICAgICAgICAgIGFwbV9kb19pZGxlPGJyPg0KICAg
+ICAgICAgICAgICAgICAgICAgICAgYXBtX2NwdV9pZGxlPGJyPg0KICAgICAgICAgICAgICAgICAg
+ICAgICAgYXBtX2NwdV9pZGxlPGJyPg0KICAgICAgICAgICAgICAgICAgICAgICAgZGVmYXVsdF9p
+ZGxlPGJyPg0KICAgICAgICAgICAgICAgICAgICAgICBjcHVfaWRsZTxicj4NCjxjMDEwMTUwMDA+
+IHN0ZXh0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBba2VybmVsXSAgICAgICAgICAgIDB4
+MCAgICAgICgweGMwMzRkZmUwKSkNCiANCkNvZGU6ICAgMGYgMGIgZTIgM2YgZDcgMjUgYzAgZTkg
+NzcgZmQgZmYgZmYgOGQgYjQgMjYgMDAgMDAgMDAgMDANCiA8MD5LZXJuZWwgUGFuaWM6IEFpZWUs
+IGtpbGxpbmcgaW50ZXJydXB0IGhhbmRsZXIhPC9mb250Pg0KSW4gaW50ZXJydXB0IGhhbmRsZXIg
+4oCTIG5vdCBzeW5jaW5nDQpEbyB5b3UgWWFob28hPw0KWWFob28hIEZpbmFuY2U6IDxhIGhyZWY9
+Imh0dHA6Ly91cy5yZC55YWhvby5jb20vZXZ0PTIyMDU1LypodHRwOi8vdGF4ZXMueWFob28uY29t
+L2ZpbGluZy5odG1sIj5HZXQgeW91ciByZWZ1bmQgZmFzdCBieSBmaWxpbmcgb25saW5lPC9hPg0K
+DQoNCjwvYm9keT48L2h0bWw+
+
+
+--1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50--
+
+
+--0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
+Content-type: image/gif;
+	name="pic03043.gif"
+Content-Disposition: inline; filename="pic03043.gif"
+Content-ID: <10__=07BBE4A4DF954A508f9e8a93df938@us.ibm.com>
+Content-transfer-encoding: base64
+
+R0lGODlhWABDALP/AAAAAK04Qf79/o+Gm7WuwlNObwoJFCsoSMDAwGFsmIuezf///wAAAAAAAAAA
+AAAAACH5BAEAAAgALAAAAABYAEMAQAT/EMlJq704682770RiFMRinqggEUNSHIchG0BCfHhOjAuh
+EDeUqTASLCbBhQrhG7xis2j0lssNDopE4jfIJhDaggI8YB1sZeZgLVA9YVCpnGagVjV171aRVrYR
+RghXcAGFhoUETwYxcXNyADJ3GlcSKGAwLwllVC1vjIUHBWsFilKQdI8GA5IcpApeJQt8L09lmgkH
+LZikoU5wjqcyAMMFrJIDPAKvCFletKSev1HBw8KrxtjZ2tvc3d5VyKtCKW3jfz4uMKmq3xu4N0nK
+BVoJQmx2LGVOmrqNjjJf2hHAQo/eDwJGTKhQMcgQEEAnEjFS98+RnW3smGkZU6ncCWav/4wYOnAI
+TihRL/4FEwbp28BXMMcoscQCVxlepL4IGDSCyJyVQOu0o7CjmLN50OZlqWmyFy5/6yBBuji0AxFR
+M00oQAqNIstqI6qKHUsWRAEAvagsmfUEAImyxgbmUpJk3IklNUtJOUAVLoUr1+wqDGTE4zk+T6FG
+uQb3SizBCwatiiUgCBN8vrz+zFjVyQ8FWkOlg4NQiZMB5QS8QO3mpOaKnL0Z2EKvNMSILEThKhCg
+zMKPVxYJh23qm9KNW7pArPynMqZDiErsTMqI+LRi3QAgkFUbXpuFKhSYZALd0O5RKa2z9EYKBbpb
+qxIKsjUPRgD7I2XYV6wyrOw92ykExP8NW4URhknC5dKGE4v4NENQj2jXjmfNgOZDaXb5glRmXQ33
+YEWQYNcZFnrYcIQLNzyTFDQNkXIff0ExVlY4srziQk43inZgL4rwxxINMvpFFAz1KOODHiu+4aEw
+NEjFl5B3JIKWKF3k6I9bfUGp5ZZcdunll5IA4cuHvQQJ5gcsoCWOOUwgltIwAKRxJgbIkJAQZEq0
+2YliZnpZZ4BH3CnYOXldOUOfQoYDqF1LFHbXCrO8xmRsfoXDXJ6ChjCAH3QlhJcT6VWE6FCkfCco
+CgrMFsROrIEX3o2whVjWDjoJccN3LdggSGXLCdLEgHr1lyU3O3QxhgohNKXJCWv8JQr/PDdaqd6w
+2rj1inLiGeiCJoDspAoQlYE6QWLSECehcWIYxIQES6zhbn1iImTHEQyqJ4eIxJJoUBc+3CbBuwZE
+V5cJPPkIjFDdeEabQbd6WgICTxiiz0f5dBKquXF6k4senwEhYGnKEFJeGrxUZy8dB8gmAXI/sPvH
+ESfCwVt5hTgYiqQqtdRNHQIU1PJ33ZqmzgE90OwLaoJcnMop1WiMmgkPHQRIrwgFuNV90A3doNKT
+mrKIN07AnGcI9BQjhCBN4RfA1qIZnMqorJCogKfGQnxSCDilTVIA0yl5ciTovgLuBDKFUDE9aQcw
+9SA+rjSNf9/M1gxrj6VwDTS0IUSElMzBfsj0NFXR2kwsV1A5IF1grLgLL/r1R40BZEnuBWgmQEyb
+jqRwSAt6bqMCOFkvKFN2GPPkUzIm/SCF8z8pVzpbjVnMsy0vOr1hw3SaSRUhpY09v0z0J1FnwzPl
+fmh+xl4WtR0zGu24I4KbMQm3lnVu2oNWxI9W/lcyzA+mCKF4DBikxb/+UWtOGRiFP8qEwAayIgIA
+Ow==
+
+--0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50--
