@@ -1,76 +1,50 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.6.x net driver merges
-Date: Fri, 1 Aug 2003 15:44:20 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] ethtool_ops rev 4
+Date: Fri, 1 Aug 2003 13:20:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030801194420.GD3571@gtf.org>
+Message-ID: <20030801132037.3f3542ae.davem@redhat.com>
+References: <20030801150232.GV22222@parcelfarce.linux.theplanet.co.uk>
+	<20030801154021.GA7696@gtf.org>
+	<20030801154656.GW22222@parcelfarce.linux.theplanet.co.uk>
+	<20030801162536.GA18574@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: willy@debian.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: torvalds@osdl.org
-Content-Disposition: inline
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030801162536.GA18574@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 1 Aug 2003 12:25:36 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-Linus, please do a
+> On Fri, Aug 01, 2003 at 04:46:56PM +0100, Matthew Wilcox wrote:
+> > On Fri, Aug 01, 2003 at 11:40:21AM -0400, Jeff Garzik wrote:
+> > > Comments:
+> > > 
+> > > * need SET_ETHTOOL_OPS macro or HAVE_ETHTOOL_OPS test macro or similar
+> > 
+> > DaveM disagreed with that...
+> 
+> It's standard netdevice.h practice, and, he didn't disagree w/ my
+> rebuttal.
+> 
+> It is needed.
 
-	bk pull bk://gkernel.bkbits.net/net-drivers-2.5
+Absolutely not, it makes no sense whatsoever to have this.
 
-Others may download the patch from
+Jeff, stop and think.
 
-ftp://ftp.??.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test2-netdrvr1.patch.bz2
+The whole _POINT_ of these ops are to avoid duplicated code.
+If someone is absolutely adament about supporting kernels
+without ops support they should not support it at all.
 
-This will update the following files:
+The point is to avoid code duplication, but what you suggest can only
+be used to keep the duplicated code around "just in case".  This makes
+exactly no sense at all, it severs only to defeat the whole purpose
+of the change in the first place.
 
- Documentation/networking/bonding.txt |  343 ++++++++++++++++++++++++-----------
- Documentation/networking/ifenslave.c |    3 
- drivers/net/arcnet/com20020-isa.c    |    2 
- drivers/net/tokenring/ibmtr.c        |    3 
- drivers/net/wireless/airo.c          |  104 +++++++---
- 5 files changed, 309 insertions(+), 146 deletions(-)
-
-through these ChangeSets:
-
-<jgarzik@redhat.com> (03/08/01 1.1547.8.10)
-   Cset exclude: jgarzik@redhat.com|ChangeSet|20030731201437|53548
-   
-   My fix was wrong, and, mainline now has a better fix.
-
-<jgarzik@redhat.com> (03/07/31 1.1547.8.9)
-   [tokenring ibmtr_cs] fix build, due to missing ibmtr.c build
-   
-   Note: Better fix is needed.
-   
-   Contributed by Mike Phillips.
-
-<jgarzik@redhat.com> (03/07/31 1.1547.8.8)
-   [arcnet com20020-isa] fix build broken by lack of ->owner
-
-<jgarzik@redhat.com> (03/07/31 1.1547.8.7)
-   [netdrvr bonding] fix ifenslave build on ia64
-   
-   Forward port from 2.4.
-
-<jgarzik@redhat.com> (03/07/31 1.1547.8.6)
-   [netdrvr bonding] update docs
-
-<achirica@telefonica.net> (03/07/29 1.1547.8.5)
-   [wireless airo] adds support for noise level reporting (if available)
-
-<achirica@telefonica.net> (03/07/29 1.1547.8.4)
-   [wireless airo] makes the card passive when entering monitor mode
-
-<achirica@telefonica.net> (03/07/29 1.1547.8.3)
-   [wireless airo] eliminate infinite loop
-   
-   makes sure a possible (never happened, but just in case) infinite
-   loop in the transmission code terminates.
-
-<achirica@telefonica.net> (03/07/29 1.1547.8.2)
-   [wireless airo] safer shutdown sequence
-   
-   changes the card shutdown sequence to a safer one
-
-<achirica@telefonica.net> (03/07/29 1.1547.8.1)
-   [wireless airo] fix Tx race
+I totally am against making an ifdef test available for this, it can
+only result in illogical things being done by driver maintainers.
