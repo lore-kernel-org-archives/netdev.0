@@ -1,26 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Linux 2.4.23-pre7 (irda compile fixes)
-Date: Sat, 11 Oct 2003 12:16:35 -0700
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: patches for PROC_FS=n (2.6.0-test7)
+Date: Sat, 11 Oct 2003 21:40:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011121635.4eb39ca6.davem@redhat.com>
-References: <Pine.LNX.4.44.0310091939100.6403-100000@logos.cnet>
-	<20031010162302.GA1526@suse.de>
+Message-ID: <20031011194008.GA2395@mars.ravnborg.org>
+References: <20031010141646.779f10bb.rddunlap@osdl.org> <20031011120852.13fa8ec4.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: marcelo.tosatti@cyclades.com, linux-kernel@vger.kernel.org,
-        irda-users@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Randy.Dunlap" <rddunlap@osdl.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Olaf Hering <olh@suse.de>
-In-Reply-To: <20031010162302.GA1526@suse.de>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031011120852.13fa8ec4.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Oct 2003 18:23:02 +0200
-Olaf Hering <olh@suse.de> wrote:
+On Sat, Oct 11, 2003 at 12:08:52PM -0700, David S. Miller wrote:
+> On Fri, 10 Oct 2003 14:16:46 -0700
+> "Randy.Dunlap" <rddunlap@osdl.org> wrote:
+> 
+> > http://developer.osdl.org/rddunlap/patches/atmprocfs_260t7.patch
+> 
+> How can this be needed?  When procfs is disabled then
+> remove_proc_entry() is defined as "do { } while (0)", ie. a nop.
 
-> The attached patch converts all printk(__FUNCTION__); to
-> printk("%s", __FUNCTION__);
-> gcc34 doesnt accept the current code anymore, irda doesnt compile.
+Due to this - the real offender:
 
-Applied, thanks Olaf.
+from: net/atm/clip.c:
+#ifdef CONFIG_PROC_FS
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#endif
+
+	Sam
