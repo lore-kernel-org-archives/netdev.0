@@ -1,24 +1,41 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: Update on e1000 troubles (over-heating!)
-Date: Sun, 6 Oct 2002 00:33:38 -0700
+From: mlpi_uy_rff03dw@amazon.com
+Subject: =?ISO-8859-1?Q?=B1=A1=BD=EC=A5=CE=AB~?=  =?ISO-8859-1?Q?=BA=F4=B8=F4=C1=CA=AA=AB=B0=D3=AB=B0?=
+Date: 05 Oct 2002 10:13:36 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <288F9BF66CD9D5118DF400508B68C44604758AF7@orsmsx113.jf.intel.com>
+Message-ID: <4378.28364451907$1033935573@news.gmane.org>
+Reply-To: n3qv_coe_e3cbiy@bloomberg.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-   "'netdev@oss.sgi.com'"
-	 <netdev@oss.sgi.com>
+Content-Type: text/html
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Ben Greear'" <greearb@candelatech.com>
+To: netdev@oss.sgi.com
+Reply-To: receive_adm@topservice.net.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I believe I have figured out why the e1000 crashed my machine 
-> after .5 - 1 hours:  The NIC was over-heating.  I measured 
-> one of the NICs after the machine crashed with an external 
-> (cheap) temp probe.  It registered right at 50 degrees C, and 
-> this was about 15-30 seconds after it crashed.
+<html>
+<head>
+<title>=B5L=BC=D0=C3D=A4=E5=A5=F3</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
+<title></title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
+</head>
+<body bgcolor=3D"#FFFFFF" text=3D"#000000">
+<p align=3D"center"><b><font size=3D"6" color=3D"#9900FF">=B1=A1=BD=EC=A5=
+=CE=AB~</font><font size=3D"4" color=3D"#9900FF">=BA=F4=B8=F4=C1=CA=AA=AB=
+=B0=D3=AB=B0</font></b></p>
+<p align=3D"center"><font size=3D"4" color=3D"#000000">=A6p=AAG=B1z=A8S=BF=
+=B3=BD=EC=A9=CE=ACO</font><font size=3D"4" color=3D"#FF0000">=A5=BC=A6=A8=
+=A6~=A1A=BD=D0=A4=C5=B6i=A4J</font><font size=3D"4" color=3D"#000000">.</=
+font></p>
+<p align=3D"center"><font size=3D"4" color=3D"#000000">=A7=DA=AD=CC=BE=D6=
+=A6=B3=B3=CC=B7s=A9_=A9M=B3=CC=A6h=BA=D8=C3=FE=AA=BA=B1=A1=BD=EC=A5=CE=AB=
+~</font></p>
+<p align=3D"center"><font size=3D"4" color=3D"#000000">=B8=DB=BC=B0=C1=DC=
+=BD=D0=B1z=A8=D3=B0=D1=C6[</font></p>
+<p align=3D"center"><a href=3D"http://www.e-kile.com/sexshop/index.php?id=
+=3Dminiang" target=3D"_blank"><b><font color=3D"#9900FF" size=3D"5">=B6i=A4=
+J</font></b></a></p>
+<p align=3D"center">&nbsp;</p>
 
-Ben, please send lspci -x on the hot nic.
-
--scott
+</html>
