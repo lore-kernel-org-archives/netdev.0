@@ -1,38 +1,41 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: patch for common networking error messages
-Date: Mon, 16 Jun 2003 15:50:34 -0700
+Date: Mon, 16 Jun 2003 18:52:10 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EEE49BA.6070401@us.ibm.com>
-References: <3EEE28DE.6040808@us.ibm.com>	<3EEE40F1.4030107@us.ibm.com> <20030616.151308.55864910.davem@redhat.com>
+Message-ID: <3EEE4A1A.6010904@pobox.com>
+References: <3EEE28DE.6040808@us.ibm.com> <20030616.133841.35533284.davem@redhat.com> <3EEE2F9F.60706@us.ibm.com> <3EEE492E.9080308@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: janiceg@us.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   stekloff@us.ibm.com, girouard@us.ibm.com, lkessler@us.ibm.com,
-   kenistonj@us.ibm.com, jgarzik@pobox.com
+Cc: Janice M Girouard <janiceg@us.ibm.com>,
+   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+   Daniel Stekloff <stekloff@us.ibm.com>,
+   Janice Girouard <girouard@us.ibm.com>, Larry Kessler <lkessler@us.ibm.com>,
+   kenistonj@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030616.151308.55864910.davem@redhat.com>
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <3EEE492E.9080308@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: Nivedita Singhvi <niv@us.ibm.com>
->    Date: Mon, 16 Jun 2003 15:13:05 -0700
->    
->    I'd certainly like to see messages from the driver when the
->    card enters/leaves promiscuous mode,
+Jeff Garzik wrote:
+> 3) _Somebody_ needs to do some "ground pounding", and figure out what 
+> info sysadmins and users want to see.  Event logging in general, so far, 
+> seems to me more like a management checklist item than a real user 
+> need... but I am quite willing to be proved wrong.  Until we get 
+> feedback along these lines, I tend to resist changes like this in 
+> general.  My initial read of your attached patch was that it was a long 
+> of source churn, and I couldn't fathom what any user would gain from it 
+
+make that "a lot of"
+
+
+> There are a whole bunch of netif_msg_xxx and corresponding NETIF_MSG_xxx 
+> bits.  I don't see much need to change that I think getting the logging 
+> API right for those would be an important first step.
 > 
-> egrep "promiscuous mode" net/core/dev.c | grep printk
+>     Jeff
 
+arg :)  I should fire my editor.
 
-Yeah, but dev_mc_upload() doesnt return any status ;).
-(For those of us who distrust hw (Sorry Scott! :))).
-
-But it was just my example, I assure you. I'm not
-holding up a flag in the wind on this particular nit.
-I do see positives in the feature as a whole though.
-It would be a shame to get grounded for minor things..
-
-thanks,
-Nivedita
+	Jeff
