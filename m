@@ -1,32 +1,37 @@
 From: jamal <hadi@cyberus.ca>
-Subject: cls patchlet
-Date: 03 Oct 2004 15:52:07 -0400
+Subject: Resend WAS(Re: cls patchlet
+Date: 03 Oct 2004 16:12:32 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096833127.1048.333.camel@jzny.localdomain>
+Message-ID: <1096834352.1046.349.camel@jzny.localdomain>
+References: <1096833127.1048.333.camel@jzny.localdomain>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-aleoHynQzGWpIePjXRde"
+Content-Type: multipart/mixed; boundary="=-B5wXIDjMz5cnfE0o4eEB"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <1096833127.1048.333.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-aleoHynQzGWpIePjXRde
+--=-B5wXIDjMz5cnfE0o4eEB
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-Dave,
+Ignore previous. This is better formated ;->
 
-resets class when tc_classid non-zero.
+On Sun, 2004-10-03 at 15:52, jamal wrote:
+> Dave,
+> 
+> resets class when tc_classid non-zero.
+> 
+> Please apply.
+> 
+> cheers,
+> jamal
 
-Please apply.
-
-cheers,
-jamal
-
---=-aleoHynQzGWpIePjXRde
+--=-B5wXIDjMz5cnfE0o4eEB
 Content-Disposition: attachment; filename=classfix_p
 Content-Type: text/plain; name=classfix_p; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
@@ -41,8 +46,8 @@ Content-Transfer-Encoding: 7bit
  						skb->tc_classid = 0;
  					}
  
---- /usr/src/269-rc3-mod/net/sched/cls_fw.c	2004/10/01 12:36:06	1.1
-+++ /usr/src/269-rc3-mod/net/sched/cls_fw.c	2004/10/01 14:22:30
+--- a/net/sched/cls_fw.c	2004/10/01 12:36:06	1.1
++++ b/net/sched/cls_fw.c	2004/10/01 14:22:30
 @@ -103,6 +103,12 @@
  #endif
                                 if (f->action) {
@@ -57,4 +62,4 @@ Content-Transfer-Encoding: 7bit
                                                 return pol_res;
                                 } else
 
---=-aleoHynQzGWpIePjXRde--
+--=-B5wXIDjMz5cnfE0o4eEB--
