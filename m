@@ -1,36 +1,36 @@
-From: Arthur Kepner <akepner@sgi.com>
-Subject: [PATCH] use NETIF_F_LLTX in bonding device
-Date: Tue, 15 Mar 2005 10:29:16 -0800 (PST)
-Message-ID: <Pine.LNX.4.61.0503151016580.18478@linux.site>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] net/802/fc.c: remove fc_type_trans
+Date: Tue, 15 Mar 2005 10:26:52 -0800
+Message-ID: <20050315102652.2d122c2f.davem@davemloft.net>
+References: <20050306205754.GO5070@stusta.de>
+	<20050314214940.4947ccd9.davem@davemloft.net>
+	<20050315122017.GF3189@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050315122017.GF3189@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 15 Mar 2005 13:20:17 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
-Lock contention on the bonding device's xmit_lock can 
-become a bottleneck when 3 or more gige links are aggregated. 
-And it looks like it's unnecessary too, so use the 
-NETIF_F_LLTX flag to avoid grabbing this lock. 
+> On Mon, Mar 14, 2005 at 09:49:40PM -0800, David S. Miller wrote:
+> > On Sun, 6 Mar 2005 21:57:54 +0100
+> > Adrian Bunk <bunk@stusta.de> wrote:
+> > 
+> > > The only user of fc_type_trans (drivers/net/fc/iph5526.c) is BROKEN in 
+> > > 2.6 and removed in -mm.
+> > > 
+> > > Signed-off-by: Adrian Bunk <bunk@stusta.de>
+> > 
+> > That driver isn't in Linus's tree any longer either.  Just delete
+> > the thing altogether instead of #if 0'ing it.
+> >...
+> 
+> Updated patch:
 
-Signed-off-by: <akepner@sgi.com>
-
---- linux.orig/drivers/net/bonding/bond_main.c	2005-03-14 14:08:29.000000000 -0800
-+++ linux/drivers/net/bonding/bond_main.c	2005-03-14 17:08:57.000000000 -0800
-@@ -4306,6 +4306,10 @@ static int __init bond_init(struct net_d
- 	 */
- 	bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
- 
-+	/* don't acquire bond device's xmit_lock when 
-+	 * transmitting */
-+	bond_dev->features |= NETIF_F_LLTX;
-+
- 	/* By default, we declare the bond to be fully
- 	 * VLAN hardware accelerated capable. Special
- 	 * care is taken in the various xmit functions
-
---
-Arthur
+Applied, thanks a lot Adrian.
