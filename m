@@ -1,25 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Deadlock on ip_mc_list->lock
-Date: Tue, 7 Oct 2003 07:54:17 -0700
+Subject: Re: [2.4 PATCH] two ipvs fixes
+Date: Tue, 7 Oct 2003 07:57:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007075417.0e2a9173.davem@redhat.com>
-References: <20031006140320.GB24082@vana.vc.cvut.cz>
+Message-ID: <20031007075707.47d7596b.davem@redhat.com>
+References: <Pine.LNX.4.44.0310070050120.1212-300000@penguin.linux-vs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: rusty@rustcorp.com.au, ja@ssi.bg, netdev@oss.sgi.com,
+        lvs-users@LinuxVirtualServer.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Petr Vandrovec <vandrove@vc.cvut.cz>
-In-Reply-To: <20031006140320.GB24082@vana.vc.cvut.cz>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.44.0310070050120.1212-300000@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 Oct 2003 16:03:20 +0200
-Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
+On Tue, 7 Oct 2003 00:58:29 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
->    Currently this 'return -EINVAL' below is one I suspect from
-> being guilty, as it looks to me like that nobody is unlocking
-> spinlock & bh in this case, and so system dies horrible death
-> after this (saying that userspace scheduled while in_atomic:1).
+> Here are IPVS two patches for kernel 2.4, which are basically back ported 
+> from the IPVS changes in kernel 2.6.
 
-Patch applied, thanks Petr.
+Looks good, applied.
+
+Thanks Wensong.
