@@ -1,12 +1,13 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/llc/: misc possible cleanups
-Date: Wed, 15 Dec 2004 02:12:11 +0100
-Message-ID: <20041215011211.GC12937@stusta.de>
+Subject: [2.6 patch] net/ipv4/netfilter/: misc possible cleanups
+Date: Wed, 15 Dec 2004 02:19:31 +0100
+Message-ID: <20041215011931.GD12937@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br
+To: coreteam@netfilter.org
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -15,750 +16,826 @@ List-Id: netdev.vger.kernel.org
 The patch below contains the following possible cleanups:
 - make some needlessly global code static
 - remove the following unused global functions:
-  - lc_c_ac.c: llc_conn_ac_report_status
-  - lc_c_ac.c: llc_conn_ac_send_dm_rsp_f_set_f_flag
-  - lc_c_ac.c: llc_conn_ac_resend_i_cmd_p_set_1
-  - lc_c_ac.c: llc_conn_ac_resend_i_cmd_p_set_1_or_send_rr
-  - lc_c_ac.c: llc_conn_ac_send_ack_cmd_p_set_1
-  - lc_c_ac.c: llc_conn_ac_send_ua_rsp_f_set_f_flag
-  - lc_c_ac.c: llc_conn_ac_set_f_flag_p
-  - llc_c_ev.c: llc_conn_ev_conn_resp
-  - llc_c_ev.c: llc_conn_ev_rst_resp
-  - llc_c_ev.c: llc_conn_ev_rx_xxx_cmd_pbit_set_0
-  - llc_c_ev.c: llc_conn_ev_rx_xxx_yyy
-  - llc_c_ev.c: llc_conn_ev_any_tmr_exp
-  - llc_c_ev.c: llc_conn_ev_qlfy_init_p_f_cycle
-  - llc_c_ev.c: llc_conn_ev_qlfy_set_status_impossible
-  - llc_c_ev.c: llc_conn_ev_qlfy_set_status_received
-  - llc_if.c: llc_build_and_send_reset_pkt
-  - llc_pdu.c: llc_pdu_decode_cr_bit
-- remove the following unneeded EXPORT_SYMBOL:
-  - llc_core.c: llc_sap_list_lock
+  - ip_conntrack_core.c: ip_conntrack_expect_find_get
+  - ip_conntrack_core.c: ip_conntrack_unexpect_related
+  - ip_nat_standalone.c: ip_nat_protocol_register
+  - ip_nat_standalone.c: ip_nat_protocol_unregister
+  - ip_nat_helper.c: ip_nat_find_helper
+  - ipfwadm_core.c: ip_acct_ctl
+- remove the following variables that never change their values:
+  - ip_conntrack_ftp.c: ip_conntrack_ftp
+  - ip_conntrack_irc.c: ip_conntrack_irc
+- remove the following unneeded EXPORT_SYMBOL's:
+  - ip_conntrack_standalone.c: ip_ct_find_helper
+  - ip_conntrack_standalone.c: ip_conntrack_unexpect_related
+  - ip_conntrack_standalone.c: ip_conntrack_expect_list
+  - ip_conntrack_standalone.c: ip_conntrack_put
+  - ip_nat_standalone.c: ip_nat_protocol_register
+  - ip_nat_standalone.c: ip_nat_protocol_unregister
+  - ip_nat_standalone.c: ip_nat_find_helper
+- remove the following unneeded EXPORT_SYMBOL_GPL:
+  - ip_conntrack_standalone.c: ip_conntrack_expect_find_get
 
 Please comment on which of these changes are correct and which conflict
 with pending patches.
 
 
 diffstat output:
- include/net/llc_c_ac.h |   19 ------
- include/net/llc_c_ev.h |   12 ---
- include/net/llc_conn.h |    3 
- include/net/llc_pdu.h  |    1 
- include/net/llc_sap.h  |    1 
- net/llc/llc_c_ac.c     |  127 ++++-------------------------------------
- net/llc/llc_c_ev.c     |   88 ----------------------------
- net/llc/llc_conn.c     |    7 +-
- net/llc/llc_core.c     |    7 --
- net/llc/llc_if.c       |   24 -------
- net/llc/llc_pdu.c      |   13 ----
- net/llc/llc_proc.c     |    4 -
- net/llc/llc_sap.c      |    5 -
- net/llc/llc_station.c  |    2 
- 14 files changed, 27 insertions(+), 286 deletions(-)
+ include/linux/netfilter_ipv4/ip_conntrack.h        |    7 
+ include/linux/netfilter_ipv4/ip_conntrack_helper.h |    4 
+ include/linux/netfilter_ipv4/ip_nat_core.h         |    4 
+ include/linux/netfilter_ipv4/ip_nat_helper.h       |    3 
+ include/linux/netfilter_ipv4/ip_nat_protocol.h     |    4 
+ include/linux/netfilter_ipv4/ipfwadm_core.h        |    9 -
+ net/ipv4/netfilter/ip_conntrack_core.c             |   28 ---
+ net/ipv4/netfilter/ip_conntrack_ftp.c              |    3 
+ net/ipv4/netfilter/ip_conntrack_irc.c              |    8 
+ net/ipv4/netfilter/ip_conntrack_proto_sctp.c       |   20 +-
+ net/ipv4/netfilter/ip_conntrack_standalone.c       |    5 
+ net/ipv4/netfilter/ip_nat_core.c                   |   94 +++++------
+ net/ipv4/netfilter/ip_nat_helper.c                 |   14 -
+ net/ipv4/netfilter/ip_nat_standalone.c             |   30 ---
+ net/ipv4/netfilter/ipchains_core.c                 |   22 +-
+ net/ipv4/netfilter/ipfwadm_core.c                  |  108 +++----------
+ net/ipv4/netfilter/ipt_CLUSTERIP.c                 |    2 
+ net/ipv4/netfilter/ipt_ULOG.c                      |    4 
+ net/ipv4/netfilter/ipt_hashlimit.c                 |    2 
+ net/ipv4/netfilter/ipt_recent.c                    |    2 
+ 20 files changed, 111 insertions(+), 262 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/include/net/llc_c_ac.h.old	2004-12-14 21:20:52.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/llc_c_ac.h	2004-12-14 21:25:39.000000000 +0100
-@@ -96,7 +96,6 @@
- extern int llc_conn_ac_disc_ind(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_rst_ind(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_rst_confirm(struct sock* sk, struct sk_buff *skb);
--extern int llc_conn_ac_report_status(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_clear_remote_busy_if_f_eq_1(struct sock* sk,
- 						   struct sk_buff *skb);
- extern int llc_conn_ac_stop_rej_tmr_if_data_flag_eq_2(struct sock* sk,
-@@ -107,8 +106,6 @@
- 					   struct sk_buff *skb);
- extern int llc_conn_ac_send_dm_rsp_f_set_1(struct sock* sk,
- 					   struct sk_buff *skb);
--extern int llc_conn_ac_send_dm_rsp_f_set_f_flag(struct sock* sk,
--						struct sk_buff *skb);
- extern int llc_conn_ac_send_frmr_rsp_f_set_x(struct sock* sk,
- 					     struct sk_buff *skb);
- extern int llc_conn_ac_resend_frmr_rsp_f_set_0(struct sock* sk,
-@@ -116,11 +113,6 @@
- extern int llc_conn_ac_resend_frmr_rsp_f_set_p(struct sock* sk,
- 					       struct sk_buff *skb);
- extern int llc_conn_ac_send_i_cmd_p_set_1(struct sock* sk, struct sk_buff *skb);
--extern int llc_conn_ac_send_i_cmd_p_set_0(struct sock* sk, struct sk_buff *skb);
--extern int llc_conn_ac_resend_i_cmd_p_set_1(struct sock* sk,
--					    struct sk_buff *skb);
--extern int llc_conn_ac_resend_i_cmd_p_set_1_or_send_rr(struct sock* sk,
--						  struct sk_buff *skb);
- extern int llc_conn_ac_send_i_xxx_x_set_0(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_resend_i_xxx_x_set_0(struct sock* sk,
- 					    struct sk_buff *skb);
-@@ -145,8 +137,6 @@
- 						struct sk_buff *skb);
- extern int llc_conn_ac_send_rr_cmd_p_set_1(struct sock* sk,
- 					   struct sk_buff *skb);
--extern int llc_conn_ac_send_ack_cmd_p_set_1(struct sock* sk,
--					    struct sk_buff *skb);
- extern int llc_conn_ac_send_rr_rsp_f_set_1(struct sock* sk,
- 					   struct sk_buff *skb);
- extern int llc_conn_ac_send_ack_rsp_f_set_1(struct sock* sk,
-@@ -157,8 +147,6 @@
- 					    struct sk_buff *skb);
- extern int llc_conn_ac_send_sabme_cmd_p_set_x(struct sock* sk,
- 					      struct sk_buff *skb);
--extern int llc_conn_ac_send_ua_rsp_f_set_f_flag(struct sock* sk,
--						struct sk_buff *skb);
- extern int llc_conn_ac_send_ua_rsp_f_set_p(struct sock* sk,
- 					   struct sk_buff *skb);
- extern int llc_conn_ac_set_s_flag_0(struct sock* sk, struct sk_buff *skb);
-@@ -183,7 +171,6 @@
- extern int llc_conn_ac_set_data_flag_1_if_data_flag_eq_0(struct sock* sk,
- 							 struct sk_buff *skb);
- extern int llc_conn_ac_set_p_flag_0(struct sock* sk, struct sk_buff *skb);
--extern int llc_conn_ac_set_p_flag_1(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_set_remote_busy_0(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_set_retry_cnt_0(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_set_cause_flag_0(struct sock* sk, struct sk_buff *skb);
-@@ -195,20 +182,14 @@
- extern int llc_conn_ac_set_vs_nr(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_rst_vs(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_upd_vs(struct sock* sk, struct sk_buff *skb);
--extern int llc_conn_ac_set_f_flag_p(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_disc(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_reset(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_disc_confirm(struct sock* sk, struct sk_buff *skb);
- extern u8 llc_circular_between(u8 a, u8 b, u8 c);
- extern int llc_conn_ac_send_ack_if_needed(struct sock* sk, struct sk_buff *skb);
--extern int llc_conn_ac_inc_npta_value(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_adjust_npta_by_rr(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_adjust_npta_by_rnr(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_rst_sendack_flag(struct sock* sk, struct sk_buff *skb);
--extern int llc_conn_ac_send_rr_rsp_f_set_ackpf(struct sock* sk,
--					       struct sk_buff *skb);
--extern int llc_conn_ac_send_i_rsp_f_set_ackpf(struct sock* sk,
--					      struct sk_buff *skb);
- extern int llc_conn_ac_send_i_rsp_as_ack(struct sock* sk, struct sk_buff *skb);
- extern int llc_conn_ac_send_i_as_ack(struct sock* sk, struct sk_buff *skb);
+--- linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_conntrack.h.old	2004-12-14 03:53:07.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_conntrack.h	2004-12-14 03:55:53.000000000 +0100
+@@ -244,13 +244,6 @@
+ 	return (struct ip_conntrack *)skb->nfct;
+ }
  
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_c_ac.c.old	2004-12-14 21:21:07.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_c_ac.c	2004-12-14 21:26:07.000000000 +0100
-@@ -33,6 +33,13 @@
- static void llc_process_tmr_ev(struct sock *sk, struct sk_buff *skb);
- static int llc_conn_ac_data_confirm(struct sock *sk, struct sk_buff *ev);
+-/* decrement reference count on a conntrack */
+-extern inline void ip_conntrack_put(struct ip_conntrack *ct);
+-
+-/* find unconfirmed expectation based on tuple */
+-struct ip_conntrack_expect *
+-ip_conntrack_expect_find_get(const struct ip_conntrack_tuple *tuple);
+-
+ /* decrement reference count on an expectation */
+ void ip_conntrack_expect_put(struct ip_conntrack_expect *exp);
  
-+static int llc_conn_ac_inc_npta_value(struct sock *sk, struct sk_buff *skb);
-+
-+static int llc_conn_ac_send_rr_rsp_f_set_ackpf(struct sock *sk,
-+					       struct sk_buff *skb);
-+
-+static int llc_conn_ac_set_p_flag_1(struct sock *sk, struct sk_buff *skb);
-+
- #define INCORRECT 0
+--- linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_conntrack_helper.h.old	2004-12-14 03:56:52.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_conntrack_helper.h	2004-12-14 03:57:33.000000000 +0100
+@@ -33,9 +33,6 @@
+ extern int ip_conntrack_helper_register(struct ip_conntrack_helper *);
+ extern void ip_conntrack_helper_unregister(struct ip_conntrack_helper *);
  
- int llc_conn_ac_clear_remote_busy(struct sock *sk, struct sk_buff *skb)
-@@ -185,11 +192,6 @@
+-extern struct ip_conntrack_helper *ip_ct_find_helper(const struct ip_conntrack_tuple *tuple);
+-
+-
+ /* Allocate space for an expectation: this is mandatory before calling 
+    ip_conntrack_expect_related. */
+ extern struct ip_conntrack_expect *ip_conntrack_expect_alloc(void);
+@@ -44,6 +41,5 @@
+ 				       struct ip_conntrack *related_to);
+ extern int ip_conntrack_change_expect(struct ip_conntrack_expect *expect,
+ 				      struct ip_conntrack_tuple *newtuple);
+-extern void ip_conntrack_unexpect_related(struct ip_conntrack_expect *exp);
+ 
+ #endif /*_IP_CONNTRACK_HELPER_H*/
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_standalone.c.old	2004-12-14 03:53:25.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-12-14 03:57:37.000000000 +0100
+@@ -892,22 +892,17 @@
+ EXPORT_SYMBOL(ip_ct_refresh_acct);
+ EXPORT_SYMBOL(ip_ct_protos);
+ EXPORT_SYMBOL(ip_ct_find_proto);
+-EXPORT_SYMBOL(ip_ct_find_helper);
+ EXPORT_SYMBOL(ip_conntrack_expect_alloc);
+ EXPORT_SYMBOL(ip_conntrack_expect_related);
+ EXPORT_SYMBOL(ip_conntrack_change_expect);
+-EXPORT_SYMBOL(ip_conntrack_unexpect_related);
+-EXPORT_SYMBOL_GPL(ip_conntrack_expect_find_get);
+ EXPORT_SYMBOL_GPL(ip_conntrack_expect_put);
+ EXPORT_SYMBOL(ip_conntrack_tuple_taken);
+ EXPORT_SYMBOL(ip_ct_gather_frags);
+ EXPORT_SYMBOL(ip_conntrack_htable_size);
+-EXPORT_SYMBOL(ip_conntrack_expect_list);
+ EXPORT_SYMBOL(ip_conntrack_lock);
+ EXPORT_SYMBOL(ip_conntrack_hash);
+ EXPORT_SYMBOL(ip_conntrack_untracked);
+ EXPORT_SYMBOL_GPL(ip_conntrack_find_get);
+-EXPORT_SYMBOL_GPL(ip_conntrack_put);
+ #ifdef CONFIG_IP_NF_NAT_NEEDED
+ EXPORT_SYMBOL(ip_conntrack_tcp_update);
+ #endif
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_core.c.old	2004-12-14 03:53:36.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_core.c	2004-12-14 03:57:45.000000000 +0100
+@@ -77,7 +77,7 @@
+ 
+ DEFINE_PER_CPU(struct ip_conntrack_stat, ip_conntrack_stat);
+ 
+-inline void 
++static inline void 
+ ip_conntrack_put(struct ip_conntrack *ct)
+ {
+ 	IP_NF_ASSERT(ct);
+@@ -173,23 +173,6 @@
+ 			 struct ip_conntrack_expect *, tuple);
+ }
+ 
+-/* Find a expectation corresponding to a tuple. */
+-struct ip_conntrack_expect *
+-ip_conntrack_expect_find_get(const struct ip_conntrack_tuple *tuple)
+-{
+-	struct ip_conntrack_expect *exp;
+-
+-	READ_LOCK(&ip_conntrack_lock);
+-	READ_LOCK(&ip_conntrack_expect_tuple_lock);
+-	exp = __ip_ct_expect_find(tuple);
+-	if (exp)
+-		atomic_inc(&exp->use);
+-	READ_UNLOCK(&ip_conntrack_expect_tuple_lock);
+-	READ_UNLOCK(&ip_conntrack_lock);
+-
+-	return exp;
+-}
+-
+ /* remove one specific expectation from all lists and drop refcount,
+  * does _NOT_ delete the timer. */
+ static void __unexpect_related(struct ip_conntrack_expect *expect)
+@@ -497,7 +480,7 @@
+ 	return ip_ct_tuple_mask_cmp(rtuple, &i->tuple, &i->mask);
+ }
+ 
+-struct ip_conntrack_helper *ip_ct_find_helper(const struct ip_conntrack_tuple *tuple)
++static struct ip_conntrack_helper *ip_ct_find_helper(const struct ip_conntrack_tuple *tuple)
+ {
+ 	return LIST_FIND(&helpers, helper_cmp,
+ 			 struct ip_conntrack_helper *,
+@@ -812,13 +795,6 @@
+ 	return ip_ct_tuple_mask_cmp(&i->tuple, tuple, &intersect_mask);
+ }
+ 
+-inline void ip_conntrack_unexpect_related(struct ip_conntrack_expect *expect)
+-{
+-	WRITE_LOCK(&ip_conntrack_lock);
+-	unexpect_related(expect);
+-	WRITE_UNLOCK(&ip_conntrack_lock);
+-}
+-	
+ static void expectation_timed_out(unsigned long ul_expect)
+ {
+ 	struct ip_conntrack_expect *expect = (void *) ul_expect;
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_ftp.c.old	2004-12-14 03:58:12.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_ftp.c	2004-12-14 03:58:47.000000000 +0100
+@@ -29,7 +29,6 @@
+ static char ftp_buffer[65536];
+ 
+ static DECLARE_LOCK(ip_ftp_lock);
+-struct module *ip_conntrack_ftp = THIS_MODULE;
+ 
+ #define MAX_PORTS 8
+ static int ports[MAX_PORTS];
+@@ -438,7 +437,7 @@
+ 		ftp[i].max_expected = 1;
+ 		ftp[i].timeout = 0;
+ 		ftp[i].flags = IP_CT_HELPER_F_REUSE_EXPECT;
+-		ftp[i].me = ip_conntrack_ftp;
++		ftp[i].me = THIS_MODULE;
+ 		ftp[i].help = help;
+ 
+ 		tmpname = &ftp_names[i][0];
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_irc.c.old	2004-12-14 03:59:08.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_irc.c	2004-12-14 04:00:11.000000000 +0100
+@@ -56,8 +56,6 @@
+ static char *dccprotos[] = { "SEND ", "CHAT ", "MOVE ", "TSEND ", "SCHAT " };
+ #define MINMATCHLEN	5
+ 
+-struct module *ip_conntrack_irc = THIS_MODULE;
+-
+ #if 0
+ #define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s:" format, \
+                                        __FILE__, __FUNCTION__ , ## args)
+@@ -65,8 +63,8 @@
+ #define DEBUGP(format, args...)
+ #endif
+ 
+-int parse_dcc(char *data, char *data_end, u_int32_t * ip, u_int16_t * port,
+-	      char **ad_beg_p, char **ad_end_p)
++static int parse_dcc(char *data, char *data_end, u_int32_t * ip,
++		     u_int16_t * port, char **ad_beg_p, char **ad_end_p)
+ /* tries to get the ip_addr and port out of a dcc command
+    return value: -1 on failure, 0 on success 
+ 	data		pointer to first byte of DCC command data
+@@ -269,7 +267,7 @@
+ 		hlpr->max_expected = max_dcc_channels;
+ 		hlpr->timeout = dcc_timeout;
+ 		hlpr->flags = IP_CT_HELPER_F_REUSE_EXPECT;
+-		hlpr->me = ip_conntrack_irc;
++		hlpr->me = THIS_MODULE;
+ 		hlpr->help = help;
+ 
+ 		tmpname = &irc_names[i][0];
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_proto_sctp.c.old	2004-12-14 04:00:28.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_conntrack_proto_sctp.c	2004-12-14 04:01:47.000000000 +0100
+@@ -58,13 +58,13 @@
+ #define HOURS * 60 MINS
+ #define DAYS  * 24 HOURS
+ 
+-unsigned long ip_ct_sctp_timeout_closed            =  10 SECS;
+-unsigned long ip_ct_sctp_timeout_cookie_wait       =   3 SECS;
+-unsigned long ip_ct_sctp_timeout_cookie_echoed     =   3 SECS;
+-unsigned long ip_ct_sctp_timeout_established       =   5 DAYS;
+-unsigned long ip_ct_sctp_timeout_shutdown_sent     = 300 SECS / 1000;
+-unsigned long ip_ct_sctp_timeout_shutdown_recd     = 300 SECS / 1000;
+-unsigned long ip_ct_sctp_timeout_shutdown_ack_sent =   3 SECS;
++static unsigned long ip_ct_sctp_timeout_closed            =  10 SECS;
++static unsigned long ip_ct_sctp_timeout_cookie_wait       =   3 SECS;
++static unsigned long ip_ct_sctp_timeout_cookie_echoed     =   3 SECS;
++static unsigned long ip_ct_sctp_timeout_established       =   5 DAYS;
++static unsigned long ip_ct_sctp_timeout_shutdown_sent     = 300 SECS / 1000;
++static unsigned long ip_ct_sctp_timeout_shutdown_recd     = 300 SECS / 1000;
++static unsigned long ip_ct_sctp_timeout_shutdown_ack_sent =   3 SECS;
+ 
+ static unsigned long * sctp_timeouts[]
+ = { NULL,                                  /* SCTP_CONNTRACK_NONE  */
+@@ -501,7 +501,7 @@
  	return 0;
  }
  
--int llc_conn_ac_report_status(struct sock *sk, struct sk_buff *skb)
--{
--	return 0;
--}
--
- int llc_conn_ac_clear_remote_busy_if_f_eq_1(struct sock *sk,
- 					    struct sk_buff *skb)
+-struct ip_conntrack_protocol ip_conntrack_protocol_sctp = { 
++static struct ip_conntrack_protocol ip_conntrack_protocol_sctp = { 
+ 	.proto 		 = IPPROTO_SCTP, 
+ 	.name 		 = "sctp",
+ 	.pkt_to_tuple 	 = sctp_pkt_to_tuple, 
+@@ -609,7 +609,7 @@
+ static struct ctl_table_header *ip_ct_sysctl_header;
+ #endif
+ 
+-int __init init(void)
++static int __init init(void)
  {
-@@ -291,32 +293,6 @@
- 	goto out;
+ 	int ret;
+ 
+@@ -639,7 +639,7 @@
+ 	return ret;
  }
  
--int llc_conn_ac_send_dm_rsp_f_set_f_flag(struct sock *sk, struct sk_buff *skb)
--{
--	int rc = -ENOBUFS;
--	struct sk_buff *nskb = llc_alloc_frame();
--
--	if (nskb) {
--		struct llc_opt *llc = llc_sk(sk);
--		struct llc_sap *sap = llc->sap;
--		u8 f_bit = llc->f_flag;
--
--		nskb->dev = llc->dev;
--		llc_pdu_header_init(nskb, LLC_PDU_TYPE_U, sap->laddr.lsap,
--				    llc->daddr.lsap, LLC_PDU_RSP);
--		llc_pdu_init_as_dm_rsp(nskb, f_bit);
--		rc = llc_mac_hdr_init(nskb, llc->dev->dev_addr, llc->daddr.mac);
--		if (rc)
--			goto free;
--		llc_conn_send_pdu(sk, nskb);
--	}
--out:
--	return rc;
--free:
--	kfree_skb(nskb);
--	goto out;
--}
--
- int llc_conn_ac_send_frmr_rsp_f_set_x(struct sock *sk, struct sk_buff *skb)
+-void __exit fini(void)
++static void __exit fini(void)
  {
- 	u8 f_bit;
-@@ -426,7 +402,7 @@
- 	return rc;
- }
+ 	ip_conntrack_protocol_unregister(&ip_conntrack_protocol_sctp);
+ #ifdef CONFIG_SYSCTL
+--- linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_nat_core.h.old	2004-12-14 04:04:27.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_nat_core.h	2004-12-14 04:04:36.000000000 +0100
+@@ -19,9 +19,5 @@
+ 				  unsigned int hooknum,
+ 				  int dir);
  
--int llc_conn_ac_send_i_cmd_p_set_0(struct sock *sk, struct sk_buff *skb)
-+static int llc_conn_ac_send_i_cmd_p_set_0(struct sock *sk, struct sk_buff *skb)
- {
- 	int rc;
- 	struct llc_opt *llc = llc_sk(sk);
-@@ -443,27 +419,6 @@
- 	return rc;
- }
+-extern void replace_in_hashes(struct ip_conntrack *conntrack,
+-			      struct ip_nat_info *info);
+-extern void place_in_hashes(struct ip_conntrack *conntrack,
+-			    struct ip_nat_info *info);
  
--int llc_conn_ac_resend_i_cmd_p_set_1(struct sock *sk, struct sk_buff *skb)
--{
--	struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
--	u8 nr = LLC_I_GET_NR(pdu);
--
--	llc_conn_resend_i_pdu_as_cmd(sk, nr, 1);
--	return 0;
--}
--
--int llc_conn_ac_resend_i_cmd_p_set_1_or_send_rr(struct sock *sk,
--						struct sk_buff *skb)
--{
--	struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
--	u8 nr = LLC_I_GET_NR(pdu);
--	int rc = llc_conn_ac_send_rr_cmd_p_set_1(sk, skb);
--
--	if (!rc)
--		llc_conn_resend_i_pdu_as_cmd(sk, nr, 0);
--	return rc;
--}
--
- int llc_conn_ac_send_i_xxx_x_set_0(struct sock *sk, struct sk_buff *skb)
- {
- 	int rc;
-@@ -745,31 +700,6 @@
- 	goto out;
- }
- 
--int llc_conn_ac_send_ack_cmd_p_set_1(struct sock *sk, struct sk_buff *skb)
--{
--	int rc = -ENOBUFS;
--	struct sk_buff *nskb = llc_alloc_frame();
--
--	if (nskb) {
--		struct llc_opt *llc = llc_sk(sk);
--		struct llc_sap *sap = llc->sap;
--
--		nskb->dev = llc->dev;
--		llc_pdu_header_init(nskb, LLC_PDU_TYPE_S, sap->laddr.lsap,
--				    llc->daddr.lsap, LLC_PDU_CMD);
--		llc_pdu_init_as_rr_cmd(nskb, 1, llc->vR);
--		rc = llc_mac_hdr_init(nskb, llc->dev->dev_addr, llc->daddr.mac);
--		if (rc)
--			goto free;
--		llc_conn_send_pdu(sk, nskb);
--	}
--out:
--	return rc;
--free:
--	kfree_skb(nskb);
--	goto out;
--}
--
- int llc_conn_ac_send_rr_rsp_f_set_1(struct sock *sk, struct sk_buff *skb)
- {
- 	int rc = -ENOBUFS;
-@@ -911,31 +841,6 @@
- 	goto out;
- }
- 
--int llc_conn_ac_send_ua_rsp_f_set_f_flag(struct sock *sk, struct sk_buff *skb)
--{
--	int rc = -ENOBUFS;
--	struct sk_buff *nskb = llc_alloc_frame();
--
--	if (nskb) {
--		struct llc_opt *llc = llc_sk(sk);
--		struct llc_sap *sap = llc->sap;
--
--		nskb->dev = llc->dev;
--		llc_pdu_header_init(nskb, LLC_PDU_TYPE_U, sap->laddr.lsap,
--				    llc->daddr.lsap, LLC_PDU_RSP);
--		llc_pdu_init_as_ua_rsp(nskb, llc->f_flag);
--		rc = llc_mac_hdr_init(nskb, llc->dev->dev_addr, llc->daddr.mac);
--		if (rc)
--			goto free;
--		llc_conn_send_pdu(sk, nskb);
--	}
--out:
--	return rc;
--free:
--	kfree_skb(nskb);
--	goto out;
--}
--
- int llc_conn_ac_send_ua_rsp_f_set_p(struct sock *sk, struct sk_buff *skb)
- {
- 	u8 f_bit;
-@@ -1041,7 +946,8 @@
-  *	set to one if one PDU with p-bit set to one is received.  Returns 0 for
-  *	success, 1 otherwise.
-  */
--int llc_conn_ac_send_i_rsp_f_set_ackpf(struct sock *sk, struct sk_buff *skb)
-+static int llc_conn_ac_send_i_rsp_f_set_ackpf(struct sock *sk,
-+					      struct sk_buff *skb)
- {
- 	int rc;
- 	struct llc_opt *llc = llc_sk(sk);
-@@ -1091,7 +997,8 @@
-  *	if there is any. ack_pf flag indicates if a PDU has been received with
-  *	p-bit set to one. Returns 0 for success, 1 otherwise.
-  */
--int llc_conn_ac_send_rr_rsp_f_set_ackpf(struct sock *sk, struct sk_buff *skb)
-+static int llc_conn_ac_send_rr_rsp_f_set_ackpf(struct sock *sk,
-+					       struct sk_buff *skb)
- {
- 	int rc = -ENOBUFS;
- 	struct sk_buff *nskb = llc_alloc_frame();
-@@ -1126,7 +1033,7 @@
-  *	acknowledgements decreases by increasing of "npta". Returns 0 for
-  *	success, 1 otherwise.
-  */
--int llc_conn_ac_inc_npta_value(struct sock *sk, struct sk_buff *skb)
-+static int llc_conn_ac_inc_npta_value(struct sock *sk, struct sk_buff *skb)
- {
- 	struct llc_opt *llc = llc_sk(sk);
- 
-@@ -1387,7 +1294,7 @@
- 	return 0;
- }
- 
--int llc_conn_ac_set_p_flag_1(struct sock *sk, struct sk_buff *skb)
-+static int llc_conn_ac_set_p_flag_1(struct sock *sk, struct sk_buff *skb)
- {
- 	llc_conn_set_p_flag(sk, 1);
- 	return 0;
-@@ -1453,12 +1360,6 @@
- 	return 0;
- }
- 
--int llc_conn_ac_set_f_flag_p(struct sock *sk, struct sk_buff *skb)
--{
--	llc_pdu_decode_pf_bit(skb, &llc_sk(sk)->f_flag);
--	return 0;
--}
--
- void llc_conn_pf_cycle_tmr_cb(unsigned long timeout_data)
- {
- 	struct sock *sk = (struct sock *)timeout_data;
---- linux-2.6.10-rc3-mm1-full/include/net/llc_c_ev.h.old	2004-12-14 21:26:24.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/llc_c_ev.h	2004-12-14 21:40:58.000000000 +0100
-@@ -129,11 +129,9 @@
- typedef int (*llc_conn_ev_qfyr_t)(struct sock *sk, struct sk_buff *skb);
- 
- extern int llc_conn_ev_conn_req(struct sock *sk, struct sk_buff *skb);
--extern int llc_conn_ev_conn_resp(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_data_req(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_disc_req(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_rst_req(struct sock *sk, struct sk_buff *skb);
--extern int llc_conn_ev_rst_resp(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_local_busy_detected(struct sock *sk,
- 					   struct sk_buff *skb);
- extern int llc_conn_ev_local_busy_cleared(struct sock *sk, struct sk_buff *skb);
-@@ -162,7 +160,6 @@
- 					     struct sk_buff *skb);
- extern int llc_conn_ev_rx_xxx_rsp_fbit_set_x(struct sock *sk,
- 					     struct sk_buff *skb);
--extern int llc_conn_ev_rx_xxx_yyy(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_rx_zzz_cmd_pbit_set_x_inval_nr(struct sock *sk,
- 						      struct sk_buff *skb);
- extern int llc_conn_ev_rx_zzz_rsp_fbit_set_x_inval_nr(struct sock *sk,
-@@ -171,13 +168,10 @@
- extern int llc_conn_ev_ack_tmr_exp(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_rej_tmr_exp(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_busy_tmr_exp(struct sock *sk, struct sk_buff *skb);
--extern int llc_conn_ev_any_tmr_exp(struct sock *sk, struct sk_buff *skb);
- extern int llc_conn_ev_sendack_tmr_exp(struct sock *sk, struct sk_buff *skb);
- /* NOT_USED functions and their variations */
- extern int llc_conn_ev_rx_xxx_cmd_pbit_set_1(struct sock *sk,
- 					     struct sk_buff *skb);
--extern int llc_conn_ev_rx_xxx_cmd_pbit_set_0(struct sock *sk,
--					     struct sk_buff *skb);
- extern int llc_conn_ev_rx_xxx_rsp_fbit_set_1(struct sock *sk,
- 					     struct sk_buff *skb);
- extern int llc_conn_ev_rx_i_cmd_pbit_set_0_unexpd_ns(struct sock *sk,
-@@ -252,20 +246,14 @@
- 					    struct sk_buff *skb);
- extern int llc_conn_ev_qlfy_cause_flag_eq_0(struct sock *sk,
- 					    struct sk_buff *skb);
--extern int llc_conn_ev_qlfy_init_p_f_cycle(struct sock *sk,
--					   struct sk_buff *skb);
- extern int llc_conn_ev_qlfy_set_status_conn(struct sock *sk,
- 					    struct sk_buff *skb);
- extern int llc_conn_ev_qlfy_set_status_disc(struct sock *sk,
- 					    struct sk_buff *skb);
- extern int llc_conn_ev_qlfy_set_status_failed(struct sock *sk,
- 					      struct sk_buff *skb);
--extern int llc_conn_ev_qlfy_set_status_impossible(struct sock *sk,
--						  struct sk_buff *skb);
- extern int llc_conn_ev_qlfy_set_status_remote_busy(struct sock *sk,
- 						  struct sk_buff *skb);
--extern int llc_conn_ev_qlfy_set_status_received(struct sock *sk,
--						struct sk_buff *skb);
- extern int llc_conn_ev_qlfy_set_status_refuse(struct sock *sk,
- 					      struct sk_buff *skb);
- extern int llc_conn_ev_qlfy_set_status_conflict(struct sock *sk,
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_c_ev.c.old	2004-12-14 21:26:38.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_c_ev.c	2004-12-14 21:39:03.000000000 +0100
-@@ -105,14 +105,6 @@
- 	       ev->prim_type == LLC_PRIM_TYPE_REQ ? 0 : 1;
- }
- 
--int llc_conn_ev_conn_resp(struct sock *sk, struct sk_buff *skb)
--{
--	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
--
--	return ev->prim == LLC_CONN_PRIM &&
--	       ev->prim_type == LLC_PRIM_TYPE_RESP ? 0 : 1;
--}
--
- int llc_conn_ev_data_req(struct sock *sk, struct sk_buff *skb)
- {
- 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
-@@ -137,14 +129,6 @@
- 	       ev->prim_type == LLC_PRIM_TYPE_REQ ? 0 : 1;
- }
- 
--int llc_conn_ev_rst_resp(struct sock *sk, struct sk_buff *skb)
--{
--	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
--
--	return ev->prim == LLC_RESET_PRIM &&
--	       ev->prim_type == LLC_PRIM_TYPE_RESP ? 0 : 1;
--}
--
- int llc_conn_ev_local_busy_detected(struct sock *sk, struct sk_buff *skb)
- {
- 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
-@@ -474,27 +458,6 @@
- 	return rc;
- }
- 
--int llc_conn_ev_rx_xxx_cmd_pbit_set_0(struct sock *sk, struct sk_buff *skb)
--{
--	u16 rc = 1;
--	struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
--
--	if (LLC_PDU_IS_CMD(pdu)) {
--		if (LLC_PDU_TYPE_IS_I(pdu) || LLC_PDU_TYPE_IS_S(pdu)) {
--			if (LLC_I_PF_IS_0(pdu))
--				rc = 0;
--		} else if (LLC_PDU_TYPE_IS_U(pdu))
--			switch (LLC_U_PDU_CMD(pdu)) {
--			case LLC_2_PDU_CMD_SABME:
--			case LLC_2_PDU_CMD_DISC:
--				if (LLC_U_PF_IS_0(pdu))
--					rc = 0;
--				break;
--			}
--	}
--	return rc;
--}
--
- int llc_conn_ev_rx_xxx_cmd_pbit_set_x(struct sock *sk, struct sk_buff *skb)
- {
- 	u16 rc = 1;
-@@ -557,26 +520,6 @@
- 	return rc;
- }
- 
--int llc_conn_ev_rx_xxx_yyy(struct sock *sk, struct sk_buff *skb)
--{
--	u16 rc = 1;
--	struct llc_pdu_un *pdu = llc_pdu_un_hdr(skb);
--
--	if (LLC_PDU_TYPE_IS_I(pdu) || LLC_PDU_TYPE_IS_S(pdu))
--		rc = 0;
--	else if (LLC_PDU_TYPE_IS_U(pdu))
--		switch (LLC_U_PDU_CMD(pdu)) {
--		case LLC_2_PDU_CMD_SABME:
--		case LLC_2_PDU_CMD_DISC:
--		case LLC_2_PDU_RSP_UA:
--		case LLC_2_PDU_RSP_DM:
--		case LLC_2_PDU_RSP_FRMR:
--			rc = 0;
--			break;
--		}
--	return rc;
--}
--
- int llc_conn_ev_rx_zzz_cmd_pbit_set_x_inval_nr(struct sock *sk,
- 					       struct sk_buff *skb)
- {
-@@ -646,16 +589,6 @@
- 	return ev->type != LLC_CONN_EV_TYPE_BUSY_TMR;
- }
- 
--int llc_conn_ev_any_tmr_exp(struct sock *sk, struct sk_buff *skb)
--{
--	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
--
--	return ev->type == LLC_CONN_EV_TYPE_P_TMR ||
--	       ev->type == LLC_CONN_EV_TYPE_ACK_TMR ||
--	       ev->type == LLC_CONN_EV_TYPE_REJ_TMR ||
--	       ev->type == LLC_CONN_EV_TYPE_BUSY_TMR ? 0 : 1;
--}
--
- int llc_conn_ev_init_p_f_cycle(struct sock *sk, struct sk_buff *skb)
- {
- 	return 1;
-@@ -778,11 +711,6 @@
- 	return llc_sk(sk)->cause_flag;
- }
- 
--int llc_conn_ev_qlfy_init_p_f_cycle(struct sock *sk, struct sk_buff *skb)
--{
--	return 0;
--}
--
- int llc_conn_ev_qlfy_set_status_conn(struct sock *sk, struct sk_buff *skb)
- {
- 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
-@@ -799,14 +727,6 @@
- 	return 0;
- }
- 
--int llc_conn_ev_qlfy_set_status_impossible(struct sock *sk, struct sk_buff *skb)
--{
--	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
--
--	ev->status = LLC_STATUS_IMPOSSIBLE;
--	return 0;
--}
--
- int llc_conn_ev_qlfy_set_status_failed(struct sock *sk, struct sk_buff *skb)
- {
- 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
-@@ -824,14 +744,6 @@
- 	return 0;
- }
- 
--int llc_conn_ev_qlfy_set_status_received(struct sock *sk, struct sk_buff *skb)
--{
--	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
--
--	ev->status = LLC_STATUS_RECEIVED;
--	return 0;
--}
--
- int llc_conn_ev_qlfy_set_status_refuse(struct sock *sk, struct sk_buff *skb)
- {
- 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
---- linux-2.6.10-rc3-mm1-full/include/net/llc_conn.h.old	2004-12-14 21:29:57.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/llc_conn.h	2004-12-14 21:30:20.000000000 +0100
-@@ -91,7 +91,6 @@
- extern void llc_sk_free(struct sock *sk);
- 
- extern void llc_sk_reset(struct sock *sk);
--extern int llc_sk_init(struct sock *sk);
- 
- /* Access to a connection */
- extern int llc_conn_state_process(struct sock *sk, struct sk_buff *skb);
-@@ -106,8 +105,6 @@
- extern struct sock *llc_lookup_established(struct llc_sap *sap,
- 					   struct llc_addr *daddr,
- 					   struct llc_addr *laddr);
--extern struct sock *llc_lookup_listener(struct llc_sap *sap,
--					struct llc_addr *laddr);
- extern void llc_sap_add_socket(struct llc_sap *sap, struct sock *sk);
- extern void llc_sap_remove_socket(struct llc_sap *sap, struct sock *sk);
- 
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_conn.c.old	2004-12-14 21:29:09.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_conn.c	2004-12-14 21:30:31.000000000 +0100
-@@ -503,7 +503,8 @@
-  *	local mac, and local sap. Returns pointer for parent socket found,
-  *	%NULL otherwise.
-  */
--struct sock *llc_lookup_listener(struct llc_sap *sap, struct llc_addr *laddr)
-+static struct sock *llc_lookup_listener(struct llc_sap *sap,
-+					struct llc_addr *laddr)
- {
- 	struct sock *rc;
- 	struct hlist_node *node;
-@@ -546,7 +547,7 @@
-  *	Finds offset of next category of transitions in transition table.
-  *	Returns the start index of next category.
-  */
--u16 find_next_offset(struct llc_conn_state *state, u16 offset)
-+static u16 find_next_offset(struct llc_conn_state *state, u16 offset)
- {
- 	u16 cnt = 0;
- 	struct llc_conn_state_trans **next_trans;
-@@ -785,7 +786,7 @@
-  *
-  *     Initializes a socket with default llc values.
-  */
--int llc_sk_init(struct sock* sk)
-+static int llc_sk_init(struct sock* sk)
- {
- 	struct llc_opt *llc = kmalloc(sizeof(*llc), GFP_ATOMIC);
- 	int rc = -ENOMEM;
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_core.c.old	2004-12-14 21:30:45.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_core.c	2004-12-14 21:31:57.000000000 +0100
-@@ -31,7 +31,7 @@
-  *
-  *	Allocates and initializes sap.
-  */
--struct llc_sap *llc_sap_alloc(void)
-+static struct llc_sap *llc_sap_alloc(void)
- {
- 	struct llc_sap *sap = kmalloc(sizeof(*sap), GFP_ATOMIC);
- 
-@@ -50,7 +50,7 @@
-  *
-  *	Adds a sap to the LLC's station sap list.
-  */
--void llc_add_sap(struct llc_sap *sap)
-+static void llc_add_sap(struct llc_sap *sap)
- {
- 	write_lock_bh(&llc_sap_list_lock);
- 	list_add_tail(&sap->node, &llc_sap_list);
-@@ -63,7 +63,7 @@
-  *
-  *	Removes a sap to the LLC's station sap list.
-  */
--void llc_del_sap(struct llc_sap *sap)
-+static void llc_del_sap(struct llc_sap *sap)
- {
- 	write_lock_bh(&llc_sap_list_lock);
- 	list_del(&sap->node);
-@@ -169,7 +169,6 @@
- 
- EXPORT_SYMBOL(llc_station_mac_sa);
- EXPORT_SYMBOL(llc_sap_list);
--EXPORT_SYMBOL(llc_sap_list_lock);
- EXPORT_SYMBOL(llc_sap_find);
- EXPORT_SYMBOL(llc_sap_open);
- EXPORT_SYMBOL(llc_sap_close);
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_if.c.old	2004-12-14 21:32:12.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_if.c	2004-12-14 21:32:20.000000000 +0100
-@@ -155,27 +155,3 @@
- 	return rc;
- }
- 
--/**
-- *	llc_build_and_send_reset_pkt - Resets an established LLC connection
-- *	@prim: pointer to structure that contains service parameters.
-- *
-- *	Called when upper layer wants to reset an established LLC connection
-- *	with a remote machine. This function packages a proper event and sends
-- *	it to connection component state machine. Returns 0 for success, 1
-- *	otherwise.
-- */
--int llc_build_and_send_reset_pkt(struct sock *sk)
--{
--	int rc = 1;
--	struct sk_buff *skb = alloc_skb(0, GFP_ATOMIC);
--
--	if (skb) {
--		struct llc_conn_state_ev *ev = llc_conn_ev(skb);
--
--		ev->type      = LLC_CONN_EV_TYPE_PRIM;
--		ev->prim      = LLC_RESET_PRIM;
--		ev->prim_type = LLC_PRIM_TYPE_REQ;
--		rc = llc_conn_state_process(sk, skb);
--	}
--	return rc;
--}
---- linux-2.6.10-rc3-mm1-full/include/net/llc_pdu.h.old	2004-12-14 21:32:38.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/llc_pdu.h	2004-12-14 21:32:43.000000000 +0100
-@@ -419,7 +419,6 @@
- extern void llc_pdu_set_cmd_rsp(struct sk_buff *skb, u8 type);
- extern void llc_pdu_set_pf_bit(struct sk_buff *skb, u8 bit_value);
- extern void llc_pdu_decode_pf_bit(struct sk_buff *skb, u8 *pf_bit);
--extern void llc_pdu_decode_cr_bit(struct sk_buff *skb, u8 *cr_bit);
- extern void llc_pdu_init_as_disc_cmd(struct sk_buff *skb, u8 p_bit);
- extern void llc_pdu_init_as_i_cmd(struct sk_buff *skb, u8 p_bit, u8 ns, u8 nr);
- extern void llc_pdu_init_as_rej_cmd(struct sk_buff *skb, u8 p_bit, u8 nr);
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_pdu.c.old	2004-12-14 21:32:53.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_pdu.c	2004-12-14 21:33:00.000000000 +0100
-@@ -80,19 +80,6 @@
- }
- 
- /**
-- *	llc_pdu_decode_cr_bit - extracts command response bit from LLC header
-- *	@skb: input skb that c/r bit must be extracted from it.
-- *	@cr_bit: command/response bit (0 or 1).
-- *
-- *	This function extracts command/response bit from LLC header. this bit
-- *	is right bit of source SAP.
-- */
--void llc_pdu_decode_cr_bit(struct sk_buff *skb, u8 *cr_bit)
--{
--	*cr_bit = llc_pdu_un_hdr(skb)->ssap & LLC_PDU_CMD_RSP_MASK;
--}
--
--/**
-  *	llc_pdu_init_as_disc_cmd - Builds DISC PDU
-  *	@skb: Address of the skb to build
-  *	@p_bit: The P bit to set in the PDU
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_proc.c.old	2004-12-14 21:33:18.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_proc.c	2004-12-14 21:33:44.000000000 +0100
-@@ -185,14 +185,14 @@
- 	return 0;
- }
- 
--struct seq_operations llc_seq_socket_ops = {
-+static struct seq_operations llc_seq_socket_ops = {
- 	.start  = llc_seq_start,
- 	.next   = llc_seq_next,
- 	.stop   = llc_seq_stop,
- 	.show   = llc_seq_socket_show,
+ #endif /* _IP_NAT_CORE_H */
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_nat_core.c.old	2004-12-14 04:04:43.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_nat_core.c	2004-12-14 04:05:37.000000000 +0100
+@@ -479,6 +479,53 @@
+ #endif
  };
  
--struct seq_operations llc_seq_core_ops = {
-+static struct seq_operations llc_seq_core_ops = {
- 	.start  = llc_seq_start,
- 	.next   = llc_seq_next,
- 	.stop   = llc_seq_stop,
---- linux-2.6.10-rc3-mm1-full/include/net/llc_sap.h.old	2004-12-14 21:34:59.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/llc_sap.h	2004-12-14 21:35:05.000000000 +0100
-@@ -14,7 +14,6 @@
- struct llc_sap;
- struct sk_buff;
++static void replace_in_hashes(struct ip_conntrack *conntrack,
++			      struct ip_nat_info *info)
++{
++	/* Source has changed, so replace in hashes. */
++	unsigned int srchash
++		= hash_by_src(&conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
++			      .tuple.src,
++			      conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
++			      .tuple.dst.protonum);
++	/* We place packet as seen OUTGOUNG in byips_proto hash
++           (ie. reverse dst and src of reply packet. */
++	unsigned int ipsprotohash
++		= hash_by_ipsproto(conntrack->tuplehash[IP_CT_DIR_REPLY]
++				   .tuple.dst.ip,
++				   conntrack->tuplehash[IP_CT_DIR_REPLY]
++				   .tuple.src.ip,
++				   conntrack->tuplehash[IP_CT_DIR_REPLY]
++				   .tuple.dst.protonum);
++
++	MUST_BE_WRITE_LOCKED(&ip_nat_lock);
++	list_move(&info->bysource, &bysource[srchash]);
++	list_move(&info->byipsproto, &byipsproto[ipsprotohash]);
++}
++
++static void place_in_hashes(struct ip_conntrack *conntrack,
++			    struct ip_nat_info *info)
++{
++	unsigned int srchash
++		= hash_by_src(&conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
++			      .tuple.src,
++			      conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
++			      .tuple.dst.protonum);
++	/* We place packet as seen OUTGOUNG in byips_proto hash
++           (ie. reverse dst and src of reply packet. */
++	unsigned int ipsprotohash
++		= hash_by_ipsproto(conntrack->tuplehash[IP_CT_DIR_REPLY]
++				   .tuple.dst.ip,
++				   conntrack->tuplehash[IP_CT_DIR_REPLY]
++				   .tuple.src.ip,
++				   conntrack->tuplehash[IP_CT_DIR_REPLY]
++				   .tuple.dst.protonum);
++
++	MUST_BE_WRITE_LOCKED(&ip_nat_lock);
++	list_add(&info->bysource, &bysource[srchash]);
++	list_add(&info->byipsproto, &byipsproto[ipsprotohash]);
++}
++
+ unsigned int
+ ip_nat_setup_info(struct ip_conntrack *conntrack,
+ 		  const struct ip_nat_multi_range *mr,
+@@ -620,53 +667,6 @@
+ 	return NF_ACCEPT;
+ }
  
--extern void llc_sap_state_process(struct llc_sap *sap, struct sk_buff *skb);
- extern void llc_sap_rtn_pdu(struct llc_sap *sap, struct sk_buff *skb);
- extern void llc_save_primitive(struct sk_buff* skb, unsigned char prim);
- extern struct sk_buff *llc_alloc_frame(void);
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_sap.c.old	2004-12-14 21:34:03.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_sap.c	2004-12-14 21:34:48.000000000 +0100
-@@ -173,7 +173,7 @@
-  *	if needed(on receiving an UI frame). sk can be null for the
-  *	datalink_proto case.
-  */
--void llc_sap_state_process(struct llc_sap *sap, struct sk_buff *skb)
-+static void llc_sap_state_process(struct llc_sap *sap, struct sk_buff *skb)
- {
- 	struct llc_sap_state_ev *ev = llc_sap_ev(skb);
+-void replace_in_hashes(struct ip_conntrack *conntrack,
+-		       struct ip_nat_info *info)
+-{
+-	/* Source has changed, so replace in hashes. */
+-	unsigned int srchash
+-		= hash_by_src(&conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
+-			      .tuple.src,
+-			      conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
+-			      .tuple.dst.protonum);
+-	/* We place packet as seen OUTGOUNG in byips_proto hash
+-           (ie. reverse dst and src of reply packet. */
+-	unsigned int ipsprotohash
+-		= hash_by_ipsproto(conntrack->tuplehash[IP_CT_DIR_REPLY]
+-				   .tuple.dst.ip,
+-				   conntrack->tuplehash[IP_CT_DIR_REPLY]
+-				   .tuple.src.ip,
+-				   conntrack->tuplehash[IP_CT_DIR_REPLY]
+-				   .tuple.dst.protonum);
+-
+-	MUST_BE_WRITE_LOCKED(&ip_nat_lock);
+-	list_move(&info->bysource, &bysource[srchash]);
+-	list_move(&info->byipsproto, &byipsproto[ipsprotohash]);
+-}
+-
+-void place_in_hashes(struct ip_conntrack *conntrack,
+-		     struct ip_nat_info *info)
+-{
+-	unsigned int srchash
+-		= hash_by_src(&conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
+-			      .tuple.src,
+-			      conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
+-			      .tuple.dst.protonum);
+-	/* We place packet as seen OUTGOUNG in byips_proto hash
+-           (ie. reverse dst and src of reply packet. */
+-	unsigned int ipsprotohash
+-		= hash_by_ipsproto(conntrack->tuplehash[IP_CT_DIR_REPLY]
+-				   .tuple.dst.ip,
+-				   conntrack->tuplehash[IP_CT_DIR_REPLY]
+-				   .tuple.src.ip,
+-				   conntrack->tuplehash[IP_CT_DIR_REPLY]
+-				   .tuple.dst.protonum);
+-
+-	MUST_BE_WRITE_LOCKED(&ip_nat_lock);
+-	list_add(&info->bysource, &bysource[srchash]);
+-	list_add(&info->byipsproto, &byipsproto[ipsprotohash]);
+-}
+-
+ /* Returns true if succeeded. */
+ static int
+ manip_pkt(u_int16_t proto,
+--- linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_nat_helper.h.old	2004-12-14 04:05:58.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_nat_helper.h	2004-12-14 04:06:08.000000000 +0100
+@@ -42,9 +42,6 @@
+ extern void ip_nat_helper_unregister(struct ip_nat_helper *me);
  
-@@ -275,7 +275,8 @@
-  *	Search socket list of the SAP and finds connection using the local
-  *	mac, and local sap. Returns pointer for socket found, %NULL otherwise.
-  */
--struct sock *llc_lookup_dgram(struct llc_sap *sap, struct llc_addr *laddr)
-+static struct sock *llc_lookup_dgram(struct llc_sap *sap,
-+				     struct llc_addr *laddr)
+ extern struct ip_nat_helper *
+-ip_nat_find_helper(const struct ip_conntrack_tuple *tuple);
+-
+-extern struct ip_nat_helper *
+ __ip_nat_find_helper(const struct ip_conntrack_tuple *tuple);
+ 
+ /* These return true or false. */
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_nat_standalone.c.old	2004-12-14 04:06:19.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_nat_standalone.c	2004-12-14 04:08:05.000000000 +0100
+@@ -279,33 +279,6 @@
+ };
+ #endif
+ 
+-/* Protocol registration. */
+-int ip_nat_protocol_register(struct ip_nat_protocol *proto)
+-{
+-	int ret = 0;
+-
+-	WRITE_LOCK(&ip_nat_lock);
+-	if (ip_nat_protos[proto->protonum] != &ip_nat_unknown_protocol) {
+-		ret = -EBUSY;
+-		goto out;
+-	}
+-	ip_nat_protos[proto->protonum] = proto;
+- out:
+-	WRITE_UNLOCK(&ip_nat_lock);
+-	return ret;
+-}
+-
+-/* Noone stores the protocol anywhere; simply delete it. */
+-void ip_nat_protocol_unregister(struct ip_nat_protocol *proto)
+-{
+-	WRITE_LOCK(&ip_nat_lock);
+-	ip_nat_protos[proto->protonum] = &ip_nat_unknown_protocol;
+-	WRITE_UNLOCK(&ip_nat_lock);
+-
+-	/* Someone could be still looking at the proto in a bh. */
+-	synchronize_net();
+-}
+-
+ static int init_or_cleanup(int init)
  {
- 	struct sock *rc;
- 	struct hlist_node *node;
---- linux-2.6.10-rc3-mm1-full/net/llc/llc_station.c.old	2004-12-14 21:35:20.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/llc/llc_station.c	2004-12-14 21:35:29.000000000 +0100
-@@ -642,7 +642,7 @@
-  *	Queues an event (on the station event queue) for handling by the
-  *	station state machine and attempts to process any queued-up events.
-  */
--void llc_station_state_process(struct sk_buff *skb)
-+static void llc_station_state_process(struct sk_buff *skb)
+ 	int ret = 0;
+@@ -381,14 +354,11 @@
+ module_exit(fini);
+ 
+ EXPORT_SYMBOL(ip_nat_setup_info);
+-EXPORT_SYMBOL(ip_nat_protocol_register);
+-EXPORT_SYMBOL(ip_nat_protocol_unregister);
+ EXPORT_SYMBOL(ip_nat_helper_register);
+ EXPORT_SYMBOL(ip_nat_helper_unregister);
+ EXPORT_SYMBOL(ip_nat_cheat_check);
+ EXPORT_SYMBOL(ip_nat_mangle_tcp_packet);
+ EXPORT_SYMBOL(ip_nat_mangle_udp_packet);
+ EXPORT_SYMBOL(ip_nat_used_tuple);
+-EXPORT_SYMBOL(ip_nat_find_helper);
+ EXPORT_SYMBOL(__ip_nat_find_helper);
+ MODULE_LICENSE("GPL");
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_nat_helper.c.old	2004-12-14 04:06:33.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ip_nat_helper.c	2004-12-14 04:07:06.000000000 +0100
+@@ -48,7 +48,7 @@
+ #endif
+ 
+ static LIST_HEAD(helpers);
+-DECLARE_LOCK(ip_nat_seqofs_lock);
++static DECLARE_LOCK(ip_nat_seqofs_lock);
+ 
+ /* Setup TCP sequence correction given this change at this sequence */
+ static inline void 
+@@ -431,18 +431,6 @@
+ 	return LIST_FIND(&helpers, helper_cmp, struct ip_nat_helper *, tuple);
+ }
+ 
+-struct ip_nat_helper *
+-ip_nat_find_helper(const struct ip_conntrack_tuple *tuple)
+-{
+-	struct ip_nat_helper *h;
+-
+-	READ_LOCK(&ip_nat_lock);
+-	h = __ip_nat_find_helper(tuple);
+-	READ_UNLOCK(&ip_nat_lock);
+-
+-	return h;
+-}
+-
+ static int
+ kill_helper(const struct ip_conntrack *i, void *helper)
  {
- 	spin_lock_bh(&llc_main_station.ev_q.lock);
- 	skb_queue_tail(&llc_main_station.ev_q.list, skb);
+--- linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_nat_protocol.h.old	2004-12-14 04:07:23.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ip_nat_protocol.h	2004-12-14 04:07:42.000000000 +0100
+@@ -48,10 +48,6 @@
+ #define MAX_IP_NAT_PROTO 256
+ extern struct ip_nat_protocol *ip_nat_protos[MAX_IP_NAT_PROTO];
+ 
+-/* Protocol registration. */
+-extern int ip_nat_protocol_register(struct ip_nat_protocol *proto);
+-extern void ip_nat_protocol_unregister(struct ip_nat_protocol *proto);
+-
+ static inline struct ip_nat_protocol *ip_nat_find_proto(u_int8_t protocol)
+ {
+ 	return ip_nat_protos[protocol];
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipchains_core.c.old	2004-12-14 04:08:35.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipchains_core.c	2004-12-14 04:10:24.000000000 +0100
+@@ -266,7 +266,7 @@
+ #endif
+ 
+ /* Lock around ip_fw_chains linked list structure */
+-rwlock_t ip_fw_lock = RW_LOCK_UNLOCKED;
++static rwlock_t ip_fw_lock = RW_LOCK_UNLOCKED;
+ 
+ /* Head of linked list of fw rules */
+ static struct ip_chain *ip_fw_chains;
+@@ -1758,17 +1758,17 @@
+ /*
+  *	Interface to the generic firewall chains.
+  */
+-int ipfw_input_check(struct firewall_ops *this, int pf,
+-		     struct net_device *dev, void *arg,
+-		     struct sk_buff **pskb)
++static int ipfw_input_check(struct firewall_ops *this, int pf,
++			    struct net_device *dev, void *arg,
++			    struct sk_buff **pskb)
+ {
+ 	return ip_fw_check(dev->name,
+ 			   arg, IP_FW_INPUT_CHAIN, pskb, SLOT_NUMBER(), 0);
+ }
+ 
+-int ipfw_output_check(struct firewall_ops *this, int pf,
+-		      struct net_device *dev, void *arg,
+-		      struct sk_buff **pskb)
++static int ipfw_output_check(struct firewall_ops *this, int pf,
++			     struct net_device *dev, void *arg,
++			     struct sk_buff **pskb)
+ {
+ 	/* Locally generated bogus packets by root. <SIGH>. */
+ 	if ((*pskb)->len < sizeof(struct iphdr) ||
+@@ -1778,15 +1778,15 @@
+ 			   arg, IP_FW_OUTPUT_CHAIN, pskb, SLOT_NUMBER(), 0);
+ }
+ 
+-int ipfw_forward_check(struct firewall_ops *this, int pf,
+-		       struct net_device *dev, void *arg,
+-		       struct sk_buff **pskb)
++static int ipfw_forward_check(struct firewall_ops *this, int pf,
++			      struct net_device *dev, void *arg,
++			      struct sk_buff **pskb)
+ {
+ 	return ip_fw_check(dev->name,
+ 			   arg, IP_FW_FORWARD_CHAIN, pskb, SLOT_NUMBER(), 0);
+ }
+ 
+-struct firewall_ops ipfw_ops = {
++static struct firewall_ops ipfw_ops = {
+ 	.fw_forward	=	ipfw_forward_check,
+ 	.fw_input	=	ipfw_input_check,
+ 	.fw_output	=	ipfw_output_check,
+--- linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ipfwadm_core.h.old	2004-12-14 04:11:30.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter_ipv4/ipfwadm_core.h	2004-12-14 04:17:32.000000000 +0100
+@@ -229,17 +229,10 @@
+ 
+ #include <linux/config.h>
+ #ifdef CONFIG_IP_FIREWALL
+-extern struct ip_fw *ip_fw_in_chain;
+-extern struct ip_fw *ip_fw_out_chain;
+-extern struct ip_fw *ip_fw_fwd_chain;
+-extern int ip_fw_in_policy;
+-extern int ip_fw_out_policy;
+-extern int ip_fw_fwd_policy;
+ extern int ip_fw_ctl(int, void *, int);
+ #endif
+ #ifdef CONFIG_IP_ACCT
+ extern struct ip_fw *ip_acct_chain;
+-extern int ip_acct_ctl(int, void *, int);
+ #endif
+ #ifdef CONFIG_IP_MASQUERADE
+ extern int ip_masq_ctl(int, void *, int);
+@@ -250,7 +243,5 @@
+ 
+ extern int ip_fw_masq_timeouts(void *user, int len);
+ 
+-extern int ip_fw_chk(struct sk_buff **, struct net_device *, __u16 *,
+-		     struct ip_fw *, int, int);
+ #endif /* KERNEL */
+ #endif /* _IP_FW_H */
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipfwadm_core.c.old	2004-12-14 04:10:42.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipfwadm_core.c	2004-12-15 00:13:46.000000000 +0100
+@@ -165,11 +165,11 @@
+ 
+ #if defined(CONFIG_IP_ACCT) || defined(CONFIG_IP_FIREWALL)
+ 
+-struct ip_fw *ip_fw_fwd_chain;
+-struct ip_fw *ip_fw_in_chain;
+-struct ip_fw *ip_fw_out_chain;
+-struct ip_fw *ip_acct_chain;
+-struct ip_fw *ip_masq_chain;
++static struct ip_fw *ip_fw_fwd_chain;
++static struct ip_fw *ip_fw_in_chain;
++static struct ip_fw *ip_fw_out_chain;
++static struct ip_fw *ip_acct_chain;
++static struct ip_fw *ip_masq_chain;
+ 
+ static struct ip_fw **chains[] =
+ 	{&ip_fw_fwd_chain, &ip_fw_in_chain, &ip_fw_out_chain, &ip_acct_chain,
+@@ -178,9 +178,9 @@
+ #endif /* CONFIG_IP_ACCT || CONFIG_IP_FIREWALL */
+ 
+ #ifdef CONFIG_IP_FIREWALL
+-int ip_fw_fwd_policy=IP_FW_F_ACCEPT;
+-int ip_fw_in_policy=IP_FW_F_ACCEPT;
+-int ip_fw_out_policy=IP_FW_F_ACCEPT;
++static int ip_fw_fwd_policy=IP_FW_F_ACCEPT;
++static int ip_fw_in_policy=IP_FW_F_ACCEPT;
++static int ip_fw_out_policy=IP_FW_F_ACCEPT;
+ 
+ static int *policies[] =
+ 	{&ip_fw_fwd_policy, &ip_fw_in_policy, &ip_fw_out_policy};
+@@ -188,7 +188,7 @@
+ #endif
+ 
+ #ifdef CONFIG_IP_FIREWALL_NETLINK
+-struct sock *ipfwsk;
++static struct sock *ipfwsk;
+ #endif
+ 
+ /*
+@@ -323,9 +323,9 @@
+  */
+ 
+ 
+-int ip_fw_chk(struct sk_buff **pskb,
+-	      struct net_device *rif, __u16 *redirport,
+-	      struct ip_fw *chain, int policy, int mode)
++static int ip_fw_chk(struct sk_buff **pskb,
++		     struct net_device *rif, __u16 *redirport,
++		     struct ip_fw *chain, int policy, int mode)
+ {
+ 	struct ip_fw *f;
+ 	__u32			src, dst;
+@@ -939,7 +939,7 @@
+ 
+ #endif  /* CONFIG_IP_ACCT || CONFIG_IP_FIREWALL */
+ 
+-struct ip_fw *check_ipfw_struct(struct ip_fw *frwl, int len)
++static struct ip_fw *check_ipfw_struct(struct ip_fw *frwl, int len)
+ {
+ 
+ 	if ( len != sizeof(struct ip_fw) )
+@@ -1008,55 +1008,6 @@
+ }
+ 
+ 
+-
+-
+-#ifdef CONFIG_IP_ACCT
+-
+-int ip_acct_ctl(int stage, void *m, int len)
+-{
+-	if ( stage == IP_ACCT_FLUSH )
+-	{
+-		free_fw_chain(&ip_acct_chain);
+-		return(0);
+-	}
+-	if ( stage == IP_ACCT_ZERO )
+-	{
+-		zero_fw_chain(ip_acct_chain);
+-		return(0);
+-	}
+-	if ( stage == IP_ACCT_INSERT || stage == IP_ACCT_APPEND ||
+-	  				stage == IP_ACCT_DELETE )
+-	{
+-		struct ip_fw *frwl;
+-
+-		if (!(frwl=check_ipfw_struct(m,len)))
+-			return (EINVAL);
+-
+-		switch (stage)
+-		{
+-			case IP_ACCT_INSERT:
+-				return( insert_in_chain(&ip_acct_chain,frwl,len));
+-			case IP_ACCT_APPEND:
+-				return( append_to_chain(&ip_acct_chain,frwl,len));
+-		    	case IP_ACCT_DELETE:
+-				return( del_from_chain(&ip_acct_chain,frwl));
+-			default:
+-				/*
+- 				 *	Should be panic but... (Why ??? - AC)
+-				 */
+-#ifdef DEBUG_IP_FIREWALL
+-				printk("ip_acct_ctl:  unknown request %d\n",stage);
+-#endif
+-				return(EINVAL);
+-		}
+-	}
+-#ifdef DEBUG_IP_FIREWALL
+-	printk("ip_acct_ctl:  unknown request %d\n",stage);
+-#endif
+-	return(EINVAL);
+-}
+-#endif
+-
+ #ifdef CONFIG_IP_FIREWALL
+ int ip_fw_ctl(int stage, void *m, int len)
+ {
+@@ -1321,45 +1272,47 @@
+  *	Interface to the generic firewall chains.
+  */
+ 
+-int ipfw_input_check(struct firewall_ops *this, int pf,
+-		     struct net_device *dev, void *arg,
+-		     struct sk_buff **pskb)
++static int ipfw_input_check(struct firewall_ops *this, int pf,
++			    struct net_device *dev, void *arg,
++			    struct sk_buff **pskb)
+ {
+ 	return ip_fw_chk(pskb, dev, arg, ip_fw_in_chain, ip_fw_in_policy,
+ 			 IP_FW_MODE_FW);
+ }
+ 
+-int ipfw_output_check(struct firewall_ops *this, int pf,
+-		      struct net_device *dev, void *arg,
+-		      struct sk_buff **pskb)
++static int ipfw_output_check(struct firewall_ops *this, int pf,
++			     struct net_device *dev, void *arg,
++			     struct sk_buff **pskb)
+ {
+ 	return ip_fw_chk(pskb, dev, arg, ip_fw_out_chain, ip_fw_out_policy,
+ 			 IP_FW_MODE_FW);
+ }
+ 
+-int ipfw_forward_check(struct firewall_ops *this, int pf,
+-		       struct net_device *dev, void *arg,
+-		       struct sk_buff **pskb)
++static int ipfw_forward_check(struct firewall_ops *this, int pf,
++			      struct net_device *dev, void *arg,
++			      struct sk_buff **pskb)
+ {
+ 	return ip_fw_chk(pskb, dev, arg, ip_fw_fwd_chain, ip_fw_fwd_policy,
+ 			 IP_FW_MODE_FW);
+ }
+ 
+ #ifdef CONFIG_IP_ACCT
+-int ipfw_acct_in(struct firewall_ops *this, int pf, struct net_device *dev,
+-		 void *arg, struct sk_buff **pskb)
++static int ipfw_acct_in(struct firewall_ops *this, int pf,
++			struct net_device *dev,
++			void *arg, struct sk_buff **pskb)
+ {
+ 	return ip_fw_chk(pskb,dev,NULL,ip_acct_chain,0,IP_FW_MODE_ACCT_IN);
+ }
+ 
+-int ipfw_acct_out(struct firewall_ops *this, int pf, struct net_device *dev,
+-		  void *arg, struct sk_buff **pskb)
++static int ipfw_acct_out(struct firewall_ops *this, int pf,
++			 struct net_device *dev,
++			 void *arg, struct sk_buff **pskb)
+ {
+ 	return ip_fw_chk(pskb,dev,NULL,ip_acct_chain,0,IP_FW_MODE_ACCT_OUT);
+ }
+ #endif
+ 
+-struct firewall_ops ipfw_ops = {
++static struct firewall_ops ipfw_ops = {
+ 	.fw_forward	=	ipfw_forward_check,
+ 	.fw_input	=	ipfw_input_check,
+ 	.fw_output	=	ipfw_output_check,
+@@ -1373,7 +1326,8 @@
+ 
+ #if defined(CONFIG_IP_ACCT) || defined(CONFIG_IP_FIREWALL)
+ 
+-int ipfw_device_event(struct notifier_block *this, unsigned long event, void *ptr)
++static int ipfw_device_event(struct notifier_block *this, unsigned long event,
++			     void *ptr)
+ {
+ 	struct net_device *dev=ptr;
+ 	char *devname = dev->name;
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_CLUSTERIP.c.old	2004-12-14 04:17:48.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_CLUSTERIP.c	2004-12-14 04:17:57.000000000 +0100
+@@ -66,7 +66,7 @@
+ 
+ /* clusterip_lock protects the clusterip_configs list _AND_ the configurable
+  * data within all structurses (num_local_nodes, local_nodes[]) */
+-DECLARE_RWLOCK(clusterip_lock);
++static DECLARE_RWLOCK(clusterip_lock);
+ 
+ #ifdef CONFIG_PROC_FS
+ static struct file_operations clusterip_proc_fops;
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_ULOG.c.old	2004-12-14 04:18:10.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_ULOG.c	2004-12-14 04:18:30.000000000 +0100
+@@ -100,7 +100,7 @@
+ static ulog_buff_t ulog_buffers[ULOG_MAXNLGROUPS];	/* array of buffers */
+ 
+ static struct sock *nflognl;	/* our socket */
+-DECLARE_LOCK(ulog_lock);	/* spinlock */
++static DECLARE_LOCK(ulog_lock);	/* spinlock */
+ 
+ /* send one ulog_buff_t to userspace */
+ static void ulog_send(unsigned int nlgroupnum)
+@@ -140,7 +140,7 @@
+ 	UNLOCK_BH(&ulog_lock);
+ }
+ 
+-struct sk_buff *ulog_alloc_skb(unsigned int size)
++static struct sk_buff *ulog_alloc_skb(unsigned int size)
+ {
+ 	struct sk_buff *skb;
+ 
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_hashlimit.c.old	2004-12-14 04:18:42.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_hashlimit.c	2004-12-14 04:18:53.000000000 +0100
+@@ -97,7 +97,7 @@
+ 	struct list_head hash[0];	/* hashtable itself */
+ };
+ 
+-DECLARE_RWLOCK(hashlimit_lock);		/* protects htables list */
++static DECLARE_RWLOCK(hashlimit_lock);	/* protects htables list */
+ static LIST_HEAD(hashlimit_htables);
+ static kmem_cache_t *hashlimit_cachep;
+ 
+--- linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_recent.c.old	2004-12-14 04:19:11.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipv4/netfilter/ipt_recent.c	2004-12-14 04:19:18.000000000 +0100
+@@ -107,7 +107,7 @@
+       int *hotdrop);
+ 
+ /* Function to hash a given address into the hash table of table_size size */
+-int hash_func(unsigned int addr, int table_size)
++static int hash_func(unsigned int addr, int table_size)
+ {
+ 	int result = 0;
+ 	unsigned int value = addr;
