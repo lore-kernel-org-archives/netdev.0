@@ -1,36 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
-Date: Wed, 12 Jan 2005 15:43:52 -0800
-Message-ID: <41E5B638.8070007@candelatech.com>
+Date: Thu, 13 Jan 2005 00:43:44 +0100
+Message-ID: <20050112234344.GM26856@postel.suug.ch>
 References: <20050112222437.GC14280@xi.wantstofly.org> <41E5A7E9.4030101@candelatech.com> <20050112224810.GE14280@xi.wantstofly.org> <41E5AEAC.8060706@candelatech.com> <20050112231615.GF14280@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com,
+        shemminger@osdl.org, shollenbeck@verisign.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Disposition: inline
 In-Reply-To: <20050112231615.GF14280@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
+* Lennert Buytenhek <20050112231615.GF14280@xi.wantstofly.org> 2005-01-13 00:16
 > On Wed, Jan 12, 2005 at 03:11:40PM -0800, Ben Greear wrote:
 > 
-> 
->>>>Also, could you add an ioctl that allowed one to query whether or not
->>>>a particular device is an etherip device?  I had always wished I had added
->>>>this earlier to the VLAN code :)
->>>
->>>Hmmm.  Bridge devices don't have this either, do they?  Can you name
->>>an advantage of having this?
->>
->>I got the request several times with regard to VLANs.  Lots of people
->>(and applications) will want to know the interface type for various
->>reasons.  If you don't give them a nice programatic thing like an
->>IOCTL to call, they will undoubtedly start making assumptions based
->>off of the device name...
-> 
+> > >>Also, could you add an ioctl that allowed one to query whether or not
+> > >>a particular device is an etherip device?  I had always wished I had added
+> > >>this earlier to the VLAN code :)
+> > >
+> > >Hmmm.  Bridge devices don't have this either, do they?  Can you name
+> > >an advantage of having this?
+> > 
+> > I got the request several times with regard to VLANs.  Lots of people
+> > (and applications) will want to know the interface type for various
+> > reasons.  If you don't give them a nice programatic thing like an
+> > IOCTL to call, they will undoubtedly start making assumptions based
+> > off of the device name...
 > 
 > Makes sense..
 > 
@@ -40,13 +39,7 @@ Lennert Buytenhek wrote:
 > 
 > Any better ideas?  I hate adding more ioctls.
 
-How about add one IOCTL that takes a small (naturally packed/aligned, fixed-size!)
-struct that has within it an enumeration of specific commands and whatever fields
-are needed for arguments.  Then you only need to add a single IOCTL to the system,
-and you can add more commands at will.
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+I think it should go into ip_tunnel_param, unforunately there are no
+unused fields. Maybe schedule this for 2.7 together with a clean up
+of all the tunnels so they share redundant code? Lots of gre related
+code and comments spread over non-gre tunnels that should go away.
