@@ -1,32 +1,94 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: A new 10GB Ethernet Driver by Chelsio Communications
-Date: Fri, 11 Mar 2005 11:21:32 -0800
-Message-ID: <20050311112132.6a3a3b49.akpm@osdl.org>
-References: <Pine.LNX.4.58.0503110356340.14213@server.graphe.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Last night Linus bk - netfilter busted?
+Date: Fri, 11 Mar 2005 21:49:18 +0100
+Message-ID: <4232044E.8030001@trash.net>
+References: <200503110223.34461.dtor_core@ameritech.net>	<4231A498.4020101@trash.net>
+	<20050311105136.2a5e4ddc.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, mark@chelsio.com, netdev@oss.sgi.com,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Christoph Lameter <christoph@graphe.net>
-In-Reply-To: <Pine.LNX.4.58.0503110356340.14213@server.graphe.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="------------000409040102040404030604"
+Cc: netdev@oss.sgi.com, dtor_core@ameritech.net,
+	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050311105136.2a5e4ddc.davem@davemloft.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter <christoph@graphe.net> wrote:
->
-> A Linux driver for the Chelsio 10Gb Ethernet Network Controller by
->  Chelsio (http://www.chelsio.com). This driver supports the Chelsio N210
->  NIC and is backward compatible with the Chelsio N110 model 10Gb NICs.
+This is a multi-part message in MIME format.
+--------------000409040102040404030604
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thanks, Christoph.
+David S. Miller wrote:
+> Damn, wait, Patrick, I think I know what's happening.  The iptables
+> IPT_* verdicts are dependant upon the NF_* values, and they don't
+> cope with Bart's changes I bet.  Can you figure out what the exact
+> error would be?  This kind of issue would explain the looping inside
+> of ipt_do_table(), wouldn't it?
 
-The 400k patch was too large for the vger email server so I have uploaded it to
+You're right, good catch. IPT_RETURN is interpreted internally by
+ip_tables, but since the value changed it isn't recognized by ip_tables
+anymore and returned to nf_iterate() as NF_REPEAT. This patch restores
+the old value.
 
- http://www.zip.com.au/~akpm/linux/patches/stuff/a-new-10gb-ethernet-driver-by-chelsio-communications.patch
 
-for reviewers.
+--------------000409040102040404030604
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-> It supports AMD64, EM64T and x86 systems.
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/03/11 21:41:01+01:00 kaber@coreworks.de 
+#   [NETFILTER]: Fix iptables userspace compatibility breakage
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# include/linux/netfilter_ipv6/ip6_tables.h
+#   2005/03/11 21:40:52+01:00 kaber@coreworks.de +1 -1
+#   [NETFILTER]: Fix iptables userspace compatibility breakage
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# include/linux/netfilter_ipv4/ip_tables.h
+#   2005/03/11 21:40:52+01:00 kaber@coreworks.de +1 -1
+#   [NETFILTER]: Fix iptables userspace compatibility breakage
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
+--- a/include/linux/netfilter_ipv4/ip_tables.h	2005-03-11 21:41:32 +01:00
++++ b/include/linux/netfilter_ipv4/ip_tables.h	2005-03-11 21:41:32 +01:00
+@@ -166,7 +166,7 @@
+ #define IPT_CONTINUE 0xFFFFFFFF
+ 
+ /* For standard target */
+-#define IPT_RETURN (-NF_MAX_VERDICT - 1)
++#define IPT_RETURN (-NF_REPEAT - 1)
+ 
+ /* TCP matching stuff */
+ struct ipt_tcp
+diff -Nru a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
+--- a/include/linux/netfilter_ipv6/ip6_tables.h	2005-03-11 21:41:32 +01:00
++++ b/include/linux/netfilter_ipv6/ip6_tables.h	2005-03-11 21:41:32 +01:00
+@@ -166,7 +166,7 @@
+ #define IP6T_CONTINUE 0xFFFFFFFF
+ 
+ /* For standard target */
+-#define IP6T_RETURN (-NF_MAX_VERDICT - 1)
++#define IP6T_RETURN (-NF_REPEAT - 1)
+ 
+ /* TCP matching stuff */
+ struct ip6t_tcp
 
-Is it only supported on those systems?  If so, why is that?
+--------------000409040102040404030604--
