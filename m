@@ -1,53 +1,468 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH]sk98lin ethtool support
-Date: Tue, 30 Dec 2003 19:23:41 -0500
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: kill obsolete functions
+Date: Thu, 01 Jan 2004 15:43:05 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FF2170D.5070302@pobox.com>
-References: <1072779867.3632.38.camel@l5ac210.l5.laser5.co.jp> <3FF16F18.7060303@pro-linux.de> <3FF19659.8030408@pobox.com> <3FF22333.2070004@pro-linux.de>
+Message-ID: <20040101.154305.69668715.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krishnakumar@naturesoft.net, mlindner@syskonnect.de, netdev@oss.sgi.com,
-        felix@allot.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mirko Lindner <demon@pro-linux.de>
-In-Reply-To: <3FF22333.2070004@pro-linux.de>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mirko Lindner wrote:
-> Jeff Garzik wrote:
-> 
->> Mirko Lindner wrote:
->>
->>> Thanks. I'll complete the support as soon I'm back in the office. All 
->>> driver statistics are also available in the the proc system under 
->>> /proc/net/sk98lin/
->>
->>
->>
->>
->> procfs statistics are deprecated...
->>
->>     Jeff
-> 
-> 
-> Jeff,
-> 
-> the proc statistics are integrated in the driver since kernel 2.2. I'll 
+Hello.
 
-Well, understood, but we don't need vendor-specific, non-standard 
-statistics when there is a standard method to export these statistics 
-(ETHTOOl_GSTATS).
+We've migrated to ip6_append_data(). Old functions such as
+ip6_frag_xmit() and ip6_build_xmit() are no longer used.
 
+D: kill obsolete functions.
 
-> include full support for ethtool as soon I've time to do this. At the 
-> moment I'm still working on a support for the upcoming Marvell chipset 
-> (it would be great to support Linux as soon the chip is availiable) and 
-> a Diag-Tool for all Genesis and Yukon based cards (GUI and console tool).
+===== include/net/ipv6.h 1.26 vs edited =====
+--- 1.26/include/net/ipv6.h	Mon Sep  1 23:33:05 2003
++++ edited/include/net/ipv6.h	Thu Jan  1 14:40:58 2004
+@@ -329,13 +329,6 @@
+ 					   struct in6_addr *daddr,
+ 					   int proto, int len);
+ 
+-extern int			ip6_build_xmit(struct sock *sk,
+-					       inet_getfrag_t getfrag,
+-					       const void *data,
+-					       struct flowi *fl,
+-					       unsigned length,
+-					       struct ipv6_txoptions *opt,
+-					       int hlimit, int flags);
+ extern int			ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr);
+ 
+ extern int			ip6_append_data(struct sock *sk,
+===== net/ipv6/ip6_output.c 1.46 vs edited =====
+--- 1.46/net/ipv6/ip6_output.c	Mon Oct 27 16:58:06 2003
++++ edited/net/ipv6/ip6_output.c	Thu Jan  1 14:37:03 2004
+@@ -304,422 +304,6 @@
+ 	return 0;
+ }
+ 
+-static struct ipv6hdr * ip6_bld_1(struct sock *sk, struct sk_buff *skb, struct flowi *fl,
+-				  int hlimit, unsigned pktlength)
+-{
+-	struct ipv6hdr *hdr;
+-	
+-	skb->nh.raw = skb_put(skb, sizeof(struct ipv6hdr));
+-	hdr = skb->nh.ipv6h;
+-	
+-	*(u32*)hdr = fl->fl6_flowlabel | htonl(0x60000000);
+-
+-	hdr->payload_len = htons(pktlength - sizeof(struct ipv6hdr));
+-	hdr->hop_limit = hlimit;
+-	hdr->nexthdr = fl->proto;
+-
+-	ipv6_addr_copy(&hdr->saddr, &fl->fl6_src);
+-	ipv6_addr_copy(&hdr->daddr, &fl->fl6_dst);
+-	return hdr;
+-}
+-
+-static __inline__ u8 * ipv6_build_fraghdr(struct sk_buff *skb, u8* prev_hdr, unsigned offset)
+-{
+-	struct frag_hdr *fhdr;
+-
+-	fhdr = (struct frag_hdr *) skb_put(skb, sizeof(struct frag_hdr));
+-
+-	fhdr->nexthdr  = *prev_hdr;
+-	*prev_hdr = NEXTHDR_FRAGMENT;
+-	prev_hdr = &fhdr->nexthdr;
+-
+-	fhdr->reserved = 0;
+-	fhdr->frag_off = htons(offset);
+-	ipv6_select_ident(skb, fhdr);
+-	return &fhdr->nexthdr;
+-}
+-
+-static int ip6_frag_xmit(struct sock *sk, inet_getfrag_t getfrag,
+-			 const void *data, struct dst_entry *dst,
+-			 struct flowi *fl, struct ipv6_txoptions *opt,
+-			 struct in6_addr *final_dst,
+-			 int hlimit, int flags, unsigned length, int mtu)
+-{
+-	struct ipv6hdr *hdr;
+-	struct sk_buff *last_skb;
+-	u8 *prev_hdr;
+-	int unfrag_len;
+-	int frag_len;
+-	int last_len;
+-	int nfrags;
+-	int fhdr_dist;
+-	int frag_off;
+-	int data_off;
+-	int err;
+-
+-	/*
+-	 *	Fragmentation
+-	 *
+-	 *	Extension header order:
+-	 *	Hop-by-hop -> Dest0 -> Routing -> Fragment -> Auth -> Dest1 -> rest (...)
+-	 *	
+-	 *	We must build the non-fragmented part that
+-	 *	will be in every packet... this also means
+-	 *	that other extension headers (Dest, Auth, etc)
+-	 *	must be considered in the data to be fragmented
+-	 */
+-
+-	unfrag_len = sizeof(struct ipv6hdr) + sizeof(struct frag_hdr);
+-	last_len = length;
+-
+-	if (opt) {
+-		unfrag_len += opt->opt_nflen;
+-		last_len += opt->opt_flen;
+-	}
+-
+-	/*
+-	 *	Length of fragmented part on every packet but 
+-	 *	the last must be an:
+-	 *	"integer multiple of 8 octets".
+-	 */
+-
+-	frag_len = (mtu - unfrag_len) & ~0x7;
+-
+-	/* Unfragmentable part exceeds mtu. */
+-	if (frag_len <= 0) {
+-		ipv6_local_error(sk, EMSGSIZE, fl, mtu);
+-		return -EMSGSIZE;
+-	}
+-
+-	nfrags = last_len / frag_len;
+-
+-	/*
+-	 *	We must send from end to start because of 
+-	 *	UDP/ICMP checksums. We do a funny trick:
+-	 *	fill the last skb first with the fixed
+-	 *	header (and its data) and then use it
+-	 *	to create the following segments and send it
+-	 *	in the end. If the peer is checking the M_flag
+-	 *	to trigger the reassembly code then this 
+-	 *	might be a good idea.
+-	 */
+-
+-	frag_off = nfrags * frag_len;
+-	last_len -= frag_off;
+-
+-	if (last_len == 0) {
+-		last_len = frag_len;
+-		frag_off -= frag_len;
+-		nfrags--;
+-	}
+-	data_off = frag_off;
+-
+-	/* And it is implementation problem: for now we assume, that
+-	   all the exthdrs will fit to the first fragment.
+-	 */
+-	if (opt) {
+-		if (frag_len < opt->opt_flen) {
+-			ipv6_local_error(sk, EMSGSIZE, fl, mtu);
+-			return -EMSGSIZE;
+-		}
+-		data_off = frag_off - opt->opt_flen;
+-	}
+-
+-	if (flags&MSG_PROBE)
+-		return 0;
+-
+-	last_skb = sock_alloc_send_skb(sk, unfrag_len + frag_len +
+-				       dst->dev->hard_header_len + 15,
+-				       flags & MSG_DONTWAIT, &err);
+-
+-	if (last_skb == NULL)
+-		return err;
+-
+-	last_skb->dst = dst_clone(dst);
+-
+-	skb_reserve(last_skb, (dst->dev->hard_header_len + 15) & ~15);
+-
+-	hdr = ip6_bld_1(sk, last_skb, fl, hlimit, frag_len+unfrag_len);
+-	prev_hdr = &hdr->nexthdr;
+-
+-	if (opt && opt->opt_nflen)
+-		prev_hdr = ipv6_build_nfrag_opts(last_skb, prev_hdr, opt, final_dst, 0);
+-
+-	prev_hdr = ipv6_build_fraghdr(last_skb, prev_hdr, frag_off);
+-	fhdr_dist = prev_hdr - last_skb->data;
+-
+-	err = getfrag(data, &hdr->saddr, last_skb->tail, data_off, last_len);
+-
+-	if (!err) {
+-		while (nfrags--) {
+-			struct sk_buff *skb;
+-			
+-			struct frag_hdr *fhdr2;
+-				
+-			skb = skb_copy(last_skb, sk->sk_allocation);
+-
+-			if (skb == NULL) {
+-				IP6_INC_STATS(Ip6FragFails);
+-				kfree_skb(last_skb);
+-				return -ENOMEM;
+-			}
+-
+-			frag_off -= frag_len;
+-			data_off -= frag_len;
+-
+-			fhdr2 = (struct frag_hdr *) (skb->data + fhdr_dist);
+-
+-			/* more flag on */
+-			fhdr2->frag_off = htons(frag_off | 1);
+-
+-			/* Write fragmentable exthdrs to the first chunk */
+-			if (nfrags == 0 && opt && opt->opt_flen) {
+-				ipv6_build_frag_opts(skb, &fhdr2->nexthdr, opt);
+-				frag_len -= opt->opt_flen;
+-				data_off = 0;
+-			}
+-
+-			err = getfrag(data, &hdr->saddr,skb_put(skb, frag_len),
+-				      data_off, frag_len);
+-
+-			if (err) {
+-				kfree_skb(skb);
+-				break;
+-			}
+-
+-			IP6_INC_STATS(Ip6FragCreates);
+-			IP6_INC_STATS(Ip6OutRequests);
+-			err = NF_HOOK(PF_INET6,NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_maybe_reroute);
+-			if (err) {
+-				kfree_skb(last_skb);
+-				return err;
+-			}
+-		}
+-	}
+-
+-	if (err) {
+-		IP6_INC_STATS(Ip6FragFails);
+-		kfree_skb(last_skb);
+-		return -EFAULT;
+-	}
+-
+-	hdr->payload_len = htons(unfrag_len + last_len - sizeof(struct ipv6hdr));
+-
+-	/*
+-	 *	update last_skb to reflect the getfrag we did
+-	 *	on start.
+-	 */
+-
+-	skb_put(last_skb, last_len);
+-
+-	IP6_INC_STATS(Ip6FragCreates);
+-	IP6_INC_STATS(Ip6FragOKs);
+-	IP6_INC_STATS(Ip6OutRequests);
+-	return NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, last_skb, NULL,dst->dev, ip6_maybe_reroute);
+-}
+-
+-int ip6_build_xmit(struct sock *sk, inet_getfrag_t getfrag, const void *data,
+-		   struct flowi *fl, unsigned length,
+-		   struct ipv6_txoptions *opt, int hlimit, int flags)
+-{
+-	struct inet_opt *inet = inet_sk(sk);
+-	struct ipv6_pinfo *np = inet6_sk(sk);
+-	struct in6_addr final_dst_buf, *final_dst = NULL;
+-	struct dst_entry *dst;
+-	int err = 0;
+-	unsigned int pktlength, jumbolen, mtu;
+-
+-	if (opt && opt->srcrt) {
+-		struct rt0_hdr *rt0 = (struct rt0_hdr *) opt->srcrt;
+-		ipv6_addr_copy(&final_dst_buf, &fl->fl6_dst);
+-		final_dst = &final_dst_buf;
+-		ipv6_addr_copy(&fl->fl6_dst, rt0->addr);
+-	}
+-
+-	if (!fl->oif && ipv6_addr_is_multicast(&fl->fl6_dst))
+-		fl->oif = np->mcast_oif;
+-
+-	dst = __sk_dst_check(sk, np->dst_cookie);
+-	if (dst) {
+-		struct rt6_info *rt = (struct rt6_info*)dst;
+-
+-			/* Yes, checking route validity in not connected
+-			   case is not very simple. Take into account,
+-			   that we do not support routing by source, TOS,
+-			   and MSG_DONTROUTE 		--ANK (980726)
+-
+-			   1. If route was host route, check that
+-			      cached destination is current.
+-			      If it is network route, we still may
+-			      check its validity using saved pointer
+-			      to the last used address: daddr_cache.
+-			      We do not want to save whole address now,
+-			      (because main consumer of this service
+-			       is tcp, which has not this problem),
+-			      so that the last trick works only on connected
+-			      sockets.
+-			   2. oif also should be the same.
+-			 */
+-
+-		if (((rt->rt6i_dst.plen != 128 ||
+-		      ipv6_addr_cmp(&fl->fl6_dst, &rt->rt6i_dst.addr))
+-		     && (np->daddr_cache == NULL ||
+-			 ipv6_addr_cmp(&fl->fl6_dst, np->daddr_cache)))
+-		    || (fl->oif && fl->oif != dst->dev->ifindex)) {
+-			dst = NULL;
+-		} else
+-			dst_hold(dst);
+-	}
+-
+-	if (dst == NULL)
+-		dst = ip6_route_output(sk, fl);
+-
+-	if (dst->error) {
+-		IP6_INC_STATS(Ip6OutNoRoutes);
+-		dst_release(dst);
+-		return -ENETUNREACH;
+-	}
+-
+-	if (ipv6_addr_any(&fl->fl6_src)) {
+-		err = ipv6_get_saddr(dst, &fl->fl6_dst, &fl->fl6_src);
+-
+-		if (err) {
+-#if IP6_DEBUG >= 2
+-			printk(KERN_DEBUG "ip6_build_xmit: "
+-			       "no available source address\n");
+-#endif
+-			goto out;
+-		}
+-	}
+-	pktlength = length;
+-
+-        if (dst) {
+-		if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0) {
+-			dst_release(dst);	
+-			return -ENETUNREACH;
+-		}
+-        }
+-
+-	if (hlimit < 0) {
+-		if (ipv6_addr_is_multicast(&fl->fl6_dst))
+-			hlimit = np->mcast_hops;
+-		else
+-			hlimit = np->hop_limit;
+-		if (hlimit < 0)
+-			hlimit = dst_metric(dst, RTAX_HOPLIMIT);
+-	}
+-
+-	jumbolen = 0;
+-
+-	if (!inet->hdrincl) {
+-		pktlength += sizeof(struct ipv6hdr);
+-		if (opt)
+-			pktlength += opt->opt_flen + opt->opt_nflen;
+-
+-		if (pktlength > sizeof(struct ipv6hdr) + IPV6_MAXPLEN) {
+-			/* Jumbo datagram.
+-			   It is assumed, that in the case of hdrincl
+-			   jumbo option is supplied by user.
+-			 */
+-			pktlength += 8;
+-			jumbolen = pktlength - sizeof(struct ipv6hdr);
+-		}
+-	}
+-
+-	mtu = dst_pmtu(dst);
+-	if (np->frag_size < mtu) {
+-		if (np->frag_size)
+-			mtu = np->frag_size;
+-		else if (np->pmtudisc == IPV6_PMTUDISC_DONT)
+-			mtu = IPV6_MIN_MTU;
+-	}
+-
+-	/* Critical arithmetic overflow check.
+-	   FIXME: may gcc optimize it out? --ANK (980726)
+-	 */
+-	if (pktlength < length) {
+-		ipv6_local_error(sk, EMSGSIZE, fl, mtu);
+-		err = -EMSGSIZE;
+-		goto out;
+-	}
+-
+-	if (flags&MSG_CONFIRM)
+-		dst_confirm(dst);
+-
+-	if (pktlength <= mtu) {
+-		struct sk_buff *skb;
+-		struct ipv6hdr *hdr;
+-		struct net_device *dev = dst->dev;
+-
+-		err = 0;
+-		if (flags&MSG_PROBE)
+-			goto out;
+-		/* alloc skb with mtu as we do in the IPv4 stack for IPsec */
+-		skb = sock_alloc_send_skb(sk, mtu + LL_RESERVED_SPACE(dev),
+-					  flags & MSG_DONTWAIT, &err);
+-
+-		if (skb == NULL) {
+-			IP6_INC_STATS(Ip6OutDiscards);
+-			goto out;
+-		}
+-
+-		skb->dst = dst_clone(dst);
+-
+-		skb_reserve(skb, (dev->hard_header_len + 15) & ~15);
+-
+-		hdr = (struct ipv6hdr *) skb->tail;
+-		skb->nh.ipv6h = hdr;
+-
+-		if (!inet->hdrincl) {
+-			ip6_bld_1(sk, skb, fl, hlimit,
+-				  jumbolen ? sizeof(struct ipv6hdr) : pktlength);
+-
+-			if (opt || jumbolen) {
+-				u8 *prev_hdr = &hdr->nexthdr;
+-				prev_hdr = ipv6_build_nfrag_opts(skb, prev_hdr, opt, final_dst, jumbolen);
+-				if (opt && opt->opt_flen)
+-					ipv6_build_frag_opts(skb, prev_hdr, opt);
+-			}
+-		}
+-
+-		skb_put(skb, length);
+-		err = getfrag(data, &hdr->saddr,
+-			      ((char *) hdr) + (pktlength - length),
+-			      0, length);
+-		if (!opt || !opt->dst1opt)
+-			skb->h.raw = ((char *) hdr) + (pktlength - length);
+-
+-		if (!err) {
+-			IP6_INC_STATS(Ip6OutRequests);
+-			err = NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL, dst->dev, ip6_maybe_reroute);
+-		} else {
+-			err = -EFAULT;
+-			kfree_skb(skb);
+-		}
+-	} else {
+-		if (inet->hdrincl || jumbolen ||
+-		    np->pmtudisc == IPV6_PMTUDISC_DO) {
+-			ipv6_local_error(sk, EMSGSIZE, fl, mtu);
+-			err = -EMSGSIZE;
+-			goto out;
+-		}
+-
+-		err = ip6_frag_xmit(sk, getfrag, data, dst, fl, opt, final_dst, hlimit,
+-				    flags, length, mtu);
+-	}
+-
+-	/*
+-	 *	cleanup
+-	 */
+-out:
+-	ip6_dst_store(sk, dst,
+-		      !ipv6_addr_cmp(&fl->fl6_dst, &np->daddr) ?
+-		      &np->daddr : NULL);
+-	if (err > 0)
+-		err = np->recverr ? net_xmit_errno(err) : 0;
+-	return err;
+-}
+-
+ int ip6_call_ra_chain(struct sk_buff *skb, int sel)
+ {
+ 	struct ip6_ra_chain *ra;
 
-Make sure you don't duplicate any ethtool functions.  We don't need a 
-NIC-specific diag tool either ;-)  ethtool is the preferred method 
-moving forward, as it's already shipping in most Linux distros.
-
-	Jeff
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
