@@ -1,284 +1,101 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [PATCH] [IPVS] add a sysctl variable to expire quiescent template
-Date: Thu, 2 Dec 2004 13:07:20 +0900
-Message-ID: <20041202040717.GF32190@verge.net.au>
-References: <Pine.LNX.4.61.0412020045380.1073@penguin.linux-vs.org>
+From: Scott Feldman <sfeldma@pobox.com>
+Subject: Re: [E1000-devel] Transmission limit
+Date: Wed, 01 Dec 2004 22:13:33 -0800
+Message-ID: <1101967983.4782.9.camel@localhost.localdomain>
+References: <1101484740.24742.213.camel@mellia.lipar.polito.it>
+	 <41A76085.7000105@draigBrady.com>
+	 <1101499285.1079.45.camel@jzny.localdomain>
+	 <16811.8052.678955.795327@robur.slu.se>
+	 <1101821501.1043.43.camel@jzny.localdomain>
+	 <20041130134600.GA31515@xi.wantstofly.org>
+	 <1101824754.1044.126.camel@jzny.localdomain>
+	 <20041201001107.GE4203@xi.wantstofly.org>
+	 <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net>
+	 <20041201182943.GA14470@xi.wantstofly.org>
+	 <20041201213550.GF14470@xi.wantstofly.org>
+Reply-To: sfeldma@pobox.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, Robert Olsson <Robert.Olsson@data.slu.se>,
+        P@draigBrady.com, mellia@prezzemolo.polito.it,
+        e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0412020045380.1073@penguin.linux-vs.org>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041201213550.GF14470@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 02, 2004 at 12:48:26AM +0800, Wensong Zhang wrote:
+On Wed, 2004-12-01 at 13:35, Lennert Buytenhek wrote: 
+> Pretty graph attached.  From ~220B packets or so it does wire speed, but
+> there's still an odd drop in performance around 256B packets (which is
+> also there without your patch.)  From 350B packets or so, performance is
+> identical with or without your patch (wire speed.)
+Seems this is helping PCI nics but not PCI-X.  I was using PCI 32/33. 
+Can't explain the dip around 256B.
+
+> So.  Do you have any other good plans perhaps? :)
+
+Idea#1
+
+Is the write of TDT causing interference with DMA transactions?
+
+In addition to my patch, what happens if you bump the Tx tail every n
+packets, where n is like 16 or 32 or 64?  
+
+if((i % 16) == 0)
+	E1000_REG_WRITE(&adapter->hw, TDT, i);
+
+This might piss the NETDEV timer off if the send count isn't a multiple
+of n, so you might want to disable netdev->tx_timeout.
+
+Idea#2
+
+The Ultimate: queue up 4096 packets and then write TDT once to send all
+4096 in one shot.  Well, maybe a few less that 4096 so we don't wrap the
+ring.  How about pkt_size = 4000?
+
+Take my patch and change the timer call in e1000_xmit_frame from 
+
+	jiffies + 1
+
+to
+
+	jiffies + HZ
+
+This will schedule the cleanup of the skbs 1 second after the first
+queue, so we shouldn't be doing any cleanup while the 4000 packets are
+DMA'ed.
+
+Oh, and change the tail write to
+
+if((i % 4000) == 0)
+	E1000_REG_WRITE(&adapter->hw, TDT, i);
+
+Of course you'll need to close/open the driver after each run.
+
+Idea#3
+
+http://www.mail-archive.com/freebsd-net@freebsd.org/msg10826.html
+
+Set TXDMAC to 0 in e1000_configure_tx.
+
+> > Once or twice it went into a state where it started spitting out these
+> > kinds of messages and never recovered:
+> > 
+> > 	Dec  1 19:13:18 phi kernel: NETDEV WATCHDOG: eth1: transmit timed out
+> > 	[...]
+> > 	Dec  1 19:13:31 phi kernel: NETDEV WATCHDOG: eth1: transmit timed out
+> > 	[...]
+> > 	Dec  1 19:13:43 phi kernel: NETDEV WATCHDOG: eth1: transmit timed out
 > 
-> 
-> Hi Dave,
-> 
-> Here is the patch from Horms <horms@vergenet.net> to add a sysctl 
-> variable to expire quiescent templat. Please check and apply them to
-> kernel 2.4 and 2.6 respectively.
-> 
-> Thanks,
-> 
-> Wensong
+> Didn't see this happen anymore.  (ifconfig down and then up recovered it
+> both times I saw it happen.)
 
-I can do this too, just in case you need it.
+Well, it's probably not a HW bug that's causing the reset; it's probably
+some bug with my patch.
 
-Signed-off-by: Horms <horms@verge.net.au>
-
-> # This is a BitKeeper generated diff -Nru style patch.
-> #
-> # ChangeSet
-> #   2004/12/02 00:02:48+08:00 wensong@linux-vs.org 
-> #   [IPVS] add a sysctl variable to expire quiescent template
-> #   
-> #   The patch is from Horms <horms@vergenet.net>
-> # 
-> # net/ipv4/ipvs/ip_vs_ctl.c
-> #   2004/12/02 00:02:38+08:00 wensong@linux-vs.org +4 -0
-> #   set sysctl_ip_vs_expire_quiescent_template
-> # 
-> # net/ipv4/ipvs/ip_vs_conn.c
-> #   2004/12/02 00:02:37+08:00 wensong@linux-vs.org +3 -1
-> #   don't use quiescent template if the expire_quiescent_template is enabled
-> # 
-> # include/net/ip_vs.h
-> #   2004/12/02 00:02:37+08:00 wensong@linux-vs.org +2 -0
-> #   add the sysctl_ip_vs_expire_quiescent_template
-> # 
-> diff -Nru a/include/net/ip_vs.h b/include/net/ip_vs.h
-> --- a/include/net/ip_vs.h	2004-12-02 00:16:36 +08:00
-> +++ b/include/net/ip_vs.h	2004-12-02 00:16:36 +08:00
-> @@ -317,6 +317,7 @@
->  	NET_IPV4_VS_EXPIRE_NODEST_CONN=23,
->  	NET_IPV4_VS_SYNC_THRESHOLD=24,
->  	NET_IPV4_VS_NAT_ICMP_SEND=25,
-> +	NET_IPV4_VS_EXPIRE_QUIESCENT_TEMPLATE=26,
->  	NET_IPV4_VS_LAST
->  };
->  
-> @@ -700,6 +701,7 @@
->   */
->  extern int sysctl_ip_vs_cache_bypass;
->  extern int sysctl_ip_vs_expire_nodest_conn;
-> +extern int sysctl_ip_vs_expire_quiescent_template;
->  extern int sysctl_ip_vs_sync_threshold;
->  extern int sysctl_ip_vs_nat_icmp_send;
->  extern struct ip_vs_stats ip_vs_stats;
-> diff -Nru a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
-> --- a/net/ipv4/ipvs/ip_vs_conn.c	2004-12-02 00:16:36 +08:00
-> +++ b/net/ipv4/ipvs/ip_vs_conn.c	2004-12-02 00:16:36 +08:00
-> @@ -1131,7 +1131,9 @@
->  	 * Checking the dest server status.
->  	 */
->  	if ((dest == NULL) ||
-> -	    !(dest->flags & IP_VS_DEST_F_AVAILABLE)) {
-> +	    !(dest->flags & IP_VS_DEST_F_AVAILABLE) || 
-> +	    (sysctl_ip_vs_expire_quiescent_template && 
-> +	     (atomic_read(&dest->weight) == 0))) {
->  		IP_VS_DBG(9, "check_template: dest not available for "
->  			  "protocol %s s:%u.%u.%u.%u:%d v:%u.%u.%u.%u:%d "
->  			  "-> d:%u.%u.%u.%u:%d\n",
-> diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-> --- a/net/ipv4/ipvs/ip_vs_ctl.c	2004-12-02 00:16:36 +08:00
-> +++ b/net/ipv4/ipvs/ip_vs_ctl.c	2004-12-02 00:16:36 +08:00
-> @@ -74,6 +74,7 @@
->  static int sysctl_ip_vs_am_droprate = 10;
->  int sysctl_ip_vs_cache_bypass = 0;
->  int sysctl_ip_vs_expire_nodest_conn = 0;
-> +int sysctl_ip_vs_expire_quiescent_template = 0;
->  int sysctl_ip_vs_sync_threshold = 3;
->  int sysctl_ip_vs_nat_icmp_send = 0;
->  
-> @@ -1439,6 +1440,9 @@
->  	  &proc_dointvec},
->  	 {NET_IPV4_VS_NAT_ICMP_SEND, "nat_icmp_send",
->  	  &sysctl_ip_vs_nat_icmp_send, sizeof(int), 0644, NULL,
-> +	  &proc_dointvec},
-> +	 {NET_IPV4_VS_EXPIRE_QUIESCENT_TEMPLATE, "expire_quiescent_template",
-> +	  &sysctl_ip_vs_expire_quiescent_template, sizeof(int), 0644, NULL,
->  	  &proc_dointvec},
->  	 {0}},
->  	{{NET_IPV4_VS, "vs", NULL, 0, 0555, ipv4_vs_table.vs_vars},
-
-> # This is a BitKeeper generated diff -Nru style patch.
-> #
-> # ChangeSet
-> #   2004/12/02 00:42:15+08:00 wensong@linux-vs.org 
-> #   [IPVS] add a sysctl variable to expire quiescent template
-> #   
-> #   The patch is from Horms <horms@vergenet.net>
-> # 
-> # net/ipv4/ipvs/ip_vs_ctl.c
-> #   2004/12/02 00:41:56+08:00 wensong@linux-vs.org +20 -11
-> #   set the sysctl_ip_vs_expire_quiescent_template
-> # 
-> # net/ipv4/ipvs/ip_vs_conn.c
-> #   2004/12/02 00:41:56+08:00 wensong@linux-vs.org +3 -1
-> #   don't use quiescent template if the expire_quiescent_template is enabled
-> # 
-> # include/net/ip_vs.h
-> #   2004/12/02 00:41:56+08:00 wensong@linux-vs.org +2 -0
-> #   add the sysctl_ip_vs_expire_quiescent_template prototype
-> # 
-> diff -Nru a/include/net/ip_vs.h b/include/net/ip_vs.h
-> --- a/include/net/ip_vs.h	2004-12-02 00:43:14 +08:00
-> +++ b/include/net/ip_vs.h	2004-12-02 00:43:14 +08:00
-> @@ -358,6 +358,7 @@
->  	NET_IPV4_VS_EXPIRE_NODEST_CONN=23,
->  	NET_IPV4_VS_SYNC_THRESHOLD=24,
->  	NET_IPV4_VS_NAT_ICMP_SEND=25,
-> +	NET_IPV4_VS_EXPIRE_QUIESCENT_TEMPLATE=26,
->  	NET_IPV4_VS_LAST
->  };
->  
-> @@ -879,6 +880,7 @@
->   */
->  extern int sysctl_ip_vs_cache_bypass;
->  extern int sysctl_ip_vs_expire_nodest_conn;
-> +extern int sysctl_ip_vs_expire_quiescent_template;
->  extern int sysctl_ip_vs_sync_threshold[2];
->  extern int sysctl_ip_vs_nat_icmp_send;
->  extern struct ip_vs_stats ip_vs_stats;
-> diff -Nru a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
-> --- a/net/ipv4/ipvs/ip_vs_conn.c	2004-12-02 00:43:14 +08:00
-> +++ b/net/ipv4/ipvs/ip_vs_conn.c	2004-12-02 00:43:14 +08:00
-> @@ -453,7 +453,9 @@
->  	 * Checking the dest server status.
->  	 */
->  	if ((dest == NULL) ||
-> -	    !(dest->flags & IP_VS_DEST_F_AVAILABLE)) {
-> +	    !(dest->flags & IP_VS_DEST_F_AVAILABLE) || 
-> +	    (sysctl_ip_vs_expire_quiescent_template && 
-> +	     (atomic_read(&dest->weight) == 0))) {
->  		IP_VS_DBG(9, "check_template: dest not available for "
->  			  "protocol %s s:%u.%u.%u.%u:%d v:%u.%u.%u.%u:%d "
->  			  "-> d:%u.%u.%u.%u:%d\n",
-> diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
-> --- a/net/ipv4/ipvs/ip_vs_ctl.c	2004-12-02 00:43:14 +08:00
-> +++ b/net/ipv4/ipvs/ip_vs_ctl.c	2004-12-02 00:43:14 +08:00
-> @@ -75,6 +75,7 @@
->  static int sysctl_ip_vs_am_droprate = 10;
->  int sysctl_ip_vs_cache_bypass = 0;
->  int sysctl_ip_vs_expire_nodest_conn = 0;
-> +int sysctl_ip_vs_expire_quiescent_template = 0;
->  int sysctl_ip_vs_sync_threshold[2] = { 3, 50 };
->  int sysctl_ip_vs_nat_icmp_send = 0;
->  
-> @@ -1447,9 +1448,9 @@
->  	{
->  		.ctl_name	= NET_IPV4_VS_TO_ES,
->  		.procname	= "timeout_established",
-> -	  	.data	= &vs_timeout_table_dos.timeout[IP_VS_S_ESTABLISHED],
-> +		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_ESTABLISHED],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1457,7 +1458,7 @@
->  		.procname	= "timeout_synsent",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_SYN_SENT],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1465,7 +1466,7 @@
->  		.procname	= "timeout_synrecv",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_SYN_RECV],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1473,7 +1474,7 @@
->  		.procname	= "timeout_finwait",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_FIN_WAIT],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1489,7 +1490,7 @@
->  		.procname	= "timeout_close",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_CLOSE],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1497,7 +1498,7 @@
->  		.procname	= "timeout_closewait",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_CLOSE_WAIT],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1505,7 +1506,7 @@
->  		.procname	= "timeout_lastack",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_LAST_ACK],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1513,7 +1514,7 @@
->  		.procname	= "timeout_listen",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_LISTEN],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1521,7 +1522,7 @@
->  		.procname	= "timeout_synack",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_SYNACK],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1529,7 +1530,7 @@
->  		.procname	= "timeout_udp",
->  		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_UDP],
->  		.maxlen		= sizeof(int),
-> -		.mode		= 0644, 
-> +		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec_jiffies,
->  	},
->  	{
-> @@ -1553,6 +1554,14 @@
->  		.ctl_name	= NET_IPV4_VS_EXPIRE_NODEST_CONN,
->  		.procname	= "expire_nodest_conn",
->  		.data		= &sysctl_ip_vs_expire_nodest_conn,
-> +		.maxlen		= sizeof(int),
-> +		.mode		= 0644,
-> +		.proc_handler	= &proc_dointvec,
-> +	},
-> +	{
-> +		.ctl_name	= NET_IPV4_VS_EXPIRE_QUIESCENT_TEMPLATE,
-> +		.procname	= "expire_quiescent_template",
-> +		.data		= &sysctl_ip_vs_expire_quiescent_template,
->  		.maxlen		= sizeof(int),
->  		.mode		= 0644,
->  		.proc_handler	= &proc_dointvec,
-
-
--- 
-Horms
+-scott
