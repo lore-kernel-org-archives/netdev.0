@@ -1,79 +1,53 @@
-From: kuznet@ms2.inr.ac.ru
+From: Tommy Christensen <tommy.christensen@tpack.net>
 Subject: Re: Linux 2.6.0-test9
-Date: Mon, 27 Oct 2003 22:54:41 +0300 (MSK)
+Date: Tue, 28 Oct 2003 01:42:39 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310271954.WAA07541@yakov.inr.ac.ru>
-References: <20031026224358.233e6d1a.davem@redhat.com>
+Message-ID: <3F9DBB7F.7030309@tpack.net>
+References: <200310271936.WAA07348@yakov.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org (Linus Torvalds), akpm@osdl.org, Andries.Brouwer@cwi.nl,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: Linus Torvalds <torvalds@osdl.org>, akpm@osdl.org, Andries.Brouwer@cwi.nl,
+        Kernel Mailing List
+ <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com, "David S. Miller"
+ <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com (David S. Miller)
-In-Reply-To: <20031026224358.233e6d1a.davem@redhat.com> from "David S. Miller" at Oct 26, 2003 10:43:58 PM
+To: kuznet@ms2.inr.ac.ru
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
-
-
-> But I am starting to see that URG is different.  It is not like
-> other socket errors that halt the socket and make no new data
-> arrive after it happens.  Rather, URG can happen just about anywhere
-> and more data can continue to flow into the socket buffers.
+kuznet@ms2.inr.ac.ru wrote:
+> Hello!
 > 
-> In fact, this means that our change can result in an application
-> can never see the error if data continues to arrive faster than
-> the application can pull it out, see?
 > 
-> Alexey, I think we did not understand this case fully when making this
-> change.
-
-No doubts taking into account that the things are so badly broken. :-)
-
-But I was aware about this problem and even "proved" to you that the patch
-will not change anything. :-) Remember this?
-
-
-> I found only one more or less essential difference: when we have one oob
-> octet in the stream with data following it, read() can return -EINTR/RESTART
-> due to pending SIGURG and normal data will be read at the second read(),
-> or, alternatively, it can return data following oob octet immediately.
->
-> In practice there is no real difference: SIGURG is processed before read()
-> returns in any case and even more, with restartable signals it is just
-> exactly no difference.
-
-
-Actually, I considered the same thing:
-
->--- 1.49/net/ipv4/tcp.c	Mon Oct 20 22:27:42 2003
->+++ edited/net/ipv4/tcp.c	Sun Oct 26 17:59:14 2003
->@@ -1536,9 +1536,15 @@
-> 		struct sk_buff *skb;
-> 		u32 offset;
+>>And Alexey apparently tried to do the "FIXME" part, but without thinking 
+>>about the SIGURG part.
 > 
->-		/* Are we at urgent data? Stop if we have read anything. */
->-		if (copied && tp->urg_data && tp->urg_seq == *seq)
->-			break;
->+		/* Are we at urgent data? Stop if we have read anything or have SIGURG pending. */
->+		if (tp->urg_data && tp->urg_seq == *seq) {
->+			if (copied)
->+				break;
->+			if (signal_pending(current)) {
->+				copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
->+				break;
->+			}
->+		}
 > 
-> 		/* Next get a buffer. */
+> Actually, it was thought a lot for several linux-2.x. :-)
 > 
+> 
+> 
+>>We _need_ to stop at urgent data and we _should_ return -EINTR, and let
+>>the SIGURG handler do the URG read. Otherwise we'll lose urgent data (or
+>>we'll just read it inline without realizing that it was urgent data).
+> 
+> 
+> The patch was expected not to break this property. Alas, something
+> is overlooked yet. I still do not understand what exactly is broken,
+> I feel I have to find some rlogin to experiment in vivo.
 
-as a reliable workaround for SIGURG situation, but then "figured out"
-that this is not necessary (which was mistake). Though at the moment I still
-do not understand what exactly is so wrong with that my argument, the signal
-should be processed before read() returns, should not it? Maybe, rlogin
-longjmp()s or something like this...
+Hi Alexey
 
-Alexey
+I think the patch breaks things because it consumes (or rather skips)
+the urgent data ( in the code after the label found_ok_skb: ).
+
+Since this happens before the SIGURG handler is run, it won't find
+any urgent data.
+
+What do you think?
+
+The patch by Linus seems to be fine though.
+
+-Tommy
