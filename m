@@ -1,29 +1,37 @@
 From: bert hubert <ahu@ds9a.nl>
-Subject: Re: RFC 3095
-Date: Thu, 28 Nov 2002 12:13:39 +0100
+Subject: Re: How to get IPv6 interface?
+Date: Thu, 28 Nov 2002 12:16:00 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021128111339.GA30530@outpost.ds9a.nl>
-References: <378C31E229CFD411B48B009027EE73C0013A6E21@fhpex002.dsto.defence.gov.au>
+Message-ID: <20021128111600.GA30967@outpost.ds9a.nl>
+References: <003201c29525$cd933360$6c06a8c0@zhengjp> <55380000.1038337716@worker.muc.bieringer.de> <004c01c29679$52812600$6c06a8c0@zhengjp> <8120000.1038471604@gate.muc.bieringer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Blackmore, Perry" <Perry.Blackmore@dsto.defence.gov.au>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <378C31E229CFD411B48B009027EE73C0013A6E21@fhpex002.dsto.defence.gov.au>
+In-Reply-To: <8120000.1038471604@gate.muc.bieringer.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 28, 2002 at 01:13:17PM +1100, Blackmore, Perry wrote:
-> Guys,
+On Thu, Nov 28, 2002 at 09:20:04AM +0100, Peter Bieringer wrote:
 > 
-> Alan Cox has referred you to me.
 > 
-> Are you aware if RFC 3095 (Robust Header Compression) has been implemented
-> by anyone on the Linux platform?
+> --On Thursday, November 28, 2002 08:58:53 AM +0800 Zheng Jianping
+> <zjp@iscas.ac.cn> wrote:
+> 
+> > I'm writing an IPv6 application, so which function can get the IPv6
+> > inteface information? And how to call it?
+> 
+> Sorry, I'm not really an IPv6 programmer, hopefully others can help
+> you.
 
-Haven't heard of it and probably would have. Looks interesting though, even
-if the RFC is very longwinded.
+The best way is probably to look at the 'ip' sources which use netlink to
+query the kernel.
+
+> BTW: if someone has some written information about using the APIs,
+> would be nice if can be contributed to the HowTo.
+
+indeed.
 
 Regards,
 
