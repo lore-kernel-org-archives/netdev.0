@@ -1,55 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Source Specific Query of MLDv2 [PATCH]
-Date: Wed, 11 Feb 2004 16:01:52 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040211.160152.48476158.yoshfuji@linux-ipv6.org>
-References: <20040211.120234.92333563.yoshfuji@linux-ipv6.org>
-	<OFA69E1A86.43DC582D-ON88256E37.0016A3A7-88256E37.00195210@us.ibm.com>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: TProxy, 2.4 Kernel and NetFilter
+Date: Wed, 11 Feb 2004 08:49:33 +0100 (CET)
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <Pine.LNX.4.44.0402110840470.23130-100000@filer.marasystems.com>
+References: <20040209075644.11922.qmail@web25110.mail.ukl.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, hibi665@oki.com, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: dlstevens@us.ibm.com
-In-Reply-To: <OFA69E1A86.43DC582D-ON88256E37.0016A3A7-88256E37.00195210@us.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@lists.netfilter.org, <netdev@oss.sgi.com>
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: =?iso-8859-1?q?Jambunathan=20Kalyanasundaram?= <k_jambunathan@yahoo.co.uk>
+In-Reply-To: <20040209075644.11922.qmail@web25110.mail.ukl.yahoo.com>
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-In article <OFA69E1A86.43DC582D-ON88256E37.0016A3A7-88256E37.00195210@us.ibm.com> (at Tue, 10 Feb 2004 21:39:15 -0700), David Stevens <dlstevens@us.ibm.com> says:
+On Mon, 9 Feb 2004, Jambunathan Kalyanasundaram wrote:
 
-> "Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp> wrote on
-> 02/10/2004 07:02:34 PM:
-> 
-> > My point is, !(skb->dev->flags & IFF_PROMISC|IFF_ALLMULTI) is likely
-> true.
-> 
-> Yes, "deliver" is set to the expression that includes the check
-> "!(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI))" and it is likely
-> true, which is why the patch I sent has "if (likely(deliver)) {"
-> in it.
-> 
-> I don't understand what you're suggesting. If you aren't suggesting
-> that I remove the "deliver" variable (which is needed again when you
-> enable the "#if 0" part), then I think your suggestion is already
-> in the patch. Can you explain?
+> 2) But if I am not really interested in the overheads
+> imposed by the NetFilter, the only option is to patch
+> the Linux kernel with Balazs Scheidler's patch.
 
-David, they produce different assembly code.
+Not sure this has less overhead.
 
-If we say
-        deliver = likely(!(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI))) ||
-                  ipv6_chk_mcast_addr(skb->dev, &skb->nh.ipv6h->daddr, NULL);
-then we can run the next code without breaking pipeline in the CPU
-if !(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)) is true.
-This condition is true with good device and driver.
+> If I don't like something as heavyweight as Netfilter
+> and something that is as  "non standard" as patching
+> the kernel, are there any ways out ? 
 
-If you say
-        deliver = !(skb->dev->flags & (IFF_PROMISC|IFF_ALLMULTI)) ||
-                  ipv6_chk_mcast_addr(skb->dev, &skb->nh.ipv6h->daddr, NULL);
-then you brean the pipeline.
+Yes, by configuring the client to use the proxy.
 
-objdump -d will help you. :-)
+> Also are there any existing NetFilter modules that
+> work on a standard, unpatched kerenel that allow proxy
+> to talk to the web server as though it's the web
+> browser ( source address spoofing ) ?
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Depends on your environment and the proxy.
+
+First requirement is that the proxy is running inline on a gateway in the
+data path between the webserver and the client. If this is not the case 
+then forget about it.
+
+If it is a normal Internet proxy environment where the number of clients 
+are limited, and the proxy supports per-user selection of the outgoing 
+address (Squid does) then it is possible with the help of NAT.
+
+1. Set up as many IP aliases on the proxy server as you have clients. Use
+one of the unassigned networks.
+
+2. Configure the proxy to use one IP alias per client IP address.
+
+3. Configure iptables NAT rules in OUTPUT to NAT these IP aliases back to
+the client IP address.
+
+
+If it is a reverse proxy or other environment where the client addresses 
+are not limited then this obviously can not be done and you must use the 
+tproxy patch.
+
+Regards
+Henrik
