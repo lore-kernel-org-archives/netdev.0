@@ -1,13 +1,12 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/ipvs/: make some code static
-Date: Wed, 15 Dec 2004 01:58:01 +0100
-Message-ID: <20041215005801.GB11972@stusta.de>
+Subject: [2.6 patch] net/ipx/: make some code static
+Date: Wed, 15 Dec 2004 01:59:25 +0100
+Message-ID: <20041215005925.GC11972@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-users@linuxvirtualserver.org, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Cc: linux-net@vger.kernel.or, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: wensong@linux-vs.org, ja@ssi.bg
+To: acme@conectiva.com.br
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -17,86 +16,88 @@ The patch below makes some needlessly global code static.
 
 
 diffstat output:
- net/ipv4/ipvs/ip_vs_app.c        |    2 +-
- net/ipv4/ipvs/ip_vs_conn.c       |    2 +-
- net/ipv4/ipvs/ip_vs_ctl.c        |    2 +-
- net/ipv4/ipvs/ip_vs_proto.c      |    4 ++--
- net/ipv4/ipvs/ip_vs_proto_icmp.c |    4 ++--
- 5 files changed, 7 insertions(+), 7 deletions(-)
+ include/net/ipx.h  |    8 --------
+ net/ipx/af_ipx.c   |   10 ++++++++--
+ net/ipx/ipx_proc.c |    6 +++---
+ 3 files changed, 11 insertions(+), 13 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_app.c.old	2004-12-14 05:15:21.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_app.c	2004-12-14 05:15:28.000000000 +0100
-@@ -65,7 +65,7 @@
- /*
-  *	Allocate/initialize app incarnation and register it in proto apps.
-  */
--int
-+static int
- ip_vs_app_inc_new(struct ip_vs_app *app, __u16 proto, __u16 port)
- {
- 	struct ip_vs_protocol *pp;
---- linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_conn.c.old	2004-12-14 05:15:44.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_conn.c	2004-12-14 05:15:51.000000000 +0100
-@@ -64,7 +64,7 @@
- } __attribute__((__aligned__(SMP_CACHE_BYTES)));
- 
- /* lock array for conn table */
--struct ip_vs_aligned_lock
-+static struct ip_vs_aligned_lock
- __ip_vs_conntbl_lock_array[CT_LOCKARRAY_SIZE] __cacheline_aligned;
- 
- static inline void ct_read_lock(unsigned key)
---- linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_ctl.c.old	2004-12-14 05:17:03.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_ctl.c	2004-12-14 05:17:14.000000000 +0100
-@@ -62,7 +62,7 @@
- /* 1/rate drop and drop-entry variables */
- int ip_vs_drop_rate = 0;
- int ip_vs_drop_counter = 0;
--atomic_t ip_vs_dropentry = ATOMIC_INIT(0);
-+static atomic_t ip_vs_dropentry = ATOMIC_INIT(0);
- 
- /* number of virtual services */
- static int ip_vs_num_services = 0;
---- linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_proto.c.old	2004-12-14 05:17:33.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_proto.c	2004-12-14 05:17:47.000000000 +0100
-@@ -45,7 +45,7 @@
- /*
-  *	register an ipvs protocol
-  */
--int register_ip_vs_protocol(struct ip_vs_protocol *pp)
-+static int register_ip_vs_protocol(struct ip_vs_protocol *pp)
- {
- 	unsigned hash = IP_VS_PROTO_HASH(pp->protocol);
- 
-@@ -62,7 +62,7 @@
- /*
-  *	unregister an ipvs protocol
-  */
--int unregister_ip_vs_protocol(struct ip_vs_protocol *pp)
-+static int unregister_ip_vs_protocol(struct ip_vs_protocol *pp)
- {
- 	struct ip_vs_protocol **pp_p;
- 	unsigned hash = IP_VS_PROTO_HASH(pp->protocol);
---- linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_proto_icmp.c.old	2004-12-14 05:18:02.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/ipv4/ipvs/ip_vs_proto_icmp.c	2004-12-14 05:18:37.000000000 +0100
-@@ -22,7 +22,7 @@
- 
- static char * icmp_state_name_table[1] = { "ICMP" };
- 
--struct ip_vs_conn *
-+static struct ip_vs_conn *
- icmp_conn_in_get(const struct sk_buff *skb,
- 		 struct ip_vs_protocol *pp,
- 		 const struct iphdr *iph,
-@@ -49,7 +49,7 @@
- #endif
+--- linux-2.6.10-rc3-mm1-full/include/net/ipx.h.old	2004-12-14 14:55:42.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/ipx.h	2004-12-14 14:57:03.000000000 +0100
+@@ -139,14 +139,6 @@
+ 		ipxitf_down(intrfc);
  }
  
--struct ip_vs_conn *
-+static struct ip_vs_conn *
- icmp_conn_out_get(const struct sk_buff *skb,
- 		  struct ip_vs_protocol *pp,
- 		  const struct iphdr *iph,
+-extern void __ipxitf_down(struct ipx_interface *intrfc);
+-
+-static __inline__ void __ipxitf_put(struct ipx_interface *intrfc)
+-{
+-	if (atomic_dec_and_test(&intrfc->refcnt))
+-		__ipxitf_down(intrfc);
+-}
+-
+ static __inline__ void ipxrtr_hold(struct ipx_route *rt)
+ {
+ 	        atomic_inc(&rt->refcnt);
+--- linux-2.6.10-rc3-mm1-full/net/ipx/af_ipx.c.old	2004-12-14 14:56:12.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipx/af_ipx.c	2004-12-14 14:57:28.000000000 +0100
+@@ -291,7 +291,7 @@
+ }
+ #endif
+ 
+-void __ipxitf_down(struct ipx_interface *intrfc)
++static void __ipxitf_down(struct ipx_interface *intrfc)
+ {
+ 	struct sock *s;
+ 	struct hlist_node *node, *t;
+@@ -335,6 +335,12 @@
+ 	spin_unlock_bh(&ipx_interfaces_lock);
+ }
+ 
++static __inline__ void __ipxitf_put(struct ipx_interface *intrfc)
++{
++	if (atomic_dec_and_test(&intrfc->refcnt))
++		__ipxitf_down(intrfc);
++}
++
+ static int ipxitf_device_event(struct notifier_block *notifier,
+ 				unsigned long event, void *ptr)
+ {
+@@ -1629,7 +1635,7 @@
+ 	return rc;
+ }
+ 
+-int ipx_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt)
++static int ipx_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt)
+ {
+ 	/* NULL here for pt means the packet was looped back */
+ 	struct ipx_interface *intrfc;
+--- linux-2.6.10-rc3-mm1-full/net/ipx/ipx_proc.c.old	2004-12-14 14:57:40.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/ipx/ipx_proc.c	2004-12-14 14:57:56.000000000 +0100
+@@ -287,21 +287,21 @@
+ 	return 0;
+ }
+ 
+-struct seq_operations ipx_seq_interface_ops = {
++static struct seq_operations ipx_seq_interface_ops = {
+ 	.start  = ipx_seq_interface_start,
+ 	.next   = ipx_seq_interface_next,
+ 	.stop   = ipx_seq_interface_stop,
+ 	.show   = ipx_seq_interface_show,
+ };
+ 
+-struct seq_operations ipx_seq_route_ops = {
++static struct seq_operations ipx_seq_route_ops = {
+ 	.start  = ipx_seq_route_start,
+ 	.next   = ipx_seq_route_next,
+ 	.stop   = ipx_seq_route_stop,
+ 	.show   = ipx_seq_route_show,
+ };
+ 
+-struct seq_operations ipx_seq_socket_ops = {
++static struct seq_operations ipx_seq_socket_ops = {
+ 	.start  = ipx_seq_socket_start,
+ 	.next   = ipx_seq_socket_next,
+ 	.stop   = ipx_seq_interface_stop,
