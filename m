@@ -1,67 +1,96 @@
-From: Kosta Todorovic <kostodo@gmail.com>
-Subject: Re: Network card driver problem (znb.o/tulip)
-Date: Fri, 11 Mar 2005 06:08:43 +0000
-Message-ID: <efe3b006050310220838330cbf@mail.gmail.com>
-References: <efe3b00605031021513b7268d1@mail.gmail.com>
-	 <423133F7.7040400@candelatech.com>
-Reply-To: Kosta Todorovic <kostodo@gmail.com>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: [PATCH] move tc_u32_mark into pkt_cls.h
+Date: Fri, 11 Mar 2005 09:01:31 +0200 (EET)
+Message-ID: <Pine.LNX.4.62.0503110859570.11178@webhosting.rdsbv.ro>
+References: <20050310104207.1d74ac00@dxpl.pdx.osdl.net>
+ <1110481248.1074.306.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <423133F7.7040400@candelatech.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: Jamal Hadi Salim <hadi@znyx.com>
+In-Reply-To: <1110481248.1074.306.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Its not really an option to exchange network cards. 
+On Thu, 10 Mar 2005, Jamal Hadi Salim wrote:
 
-Any other suggestions?
-
-
-
-
-On Thu, 10 Mar 2005 22:00:23 -0800, Ben Greear <greearb@candelatech.com> wrote:
-> Kosta Todorovic wrote:
-> > My company has recently purchased several ZNYX ZX274 network cards.
-> > These cards are Four Channel, 10/100 PCI Adapters. They use Intel chipsets.
-> >
-> > Unfortunately there exists no drivers for linux amd64 architecture.
-> > There are 32bit drivers found at:
-> > http://www.znyx.com/support/drivers/ZX374_drivers.htm but naturally
-> > they wont compile under my amd64 system.
-> >
-> > The driver itself is called znb.o and can be downloaded from ZNYX's
-> > website. I spoke to support staff there but they told me they have
-> > discontinued support and development for this series of cards.
-> >
-> > The system I am running gentoo and have tried both 2.4.x and 2.6.x
-> > kernels but no luck.
-> >
-> > Unfortunately there is NO 64bit drivers available for ANY platform. not even MS.
-> >
-> > Does anyone know of a customised znb.o driver built for amd64?
-> > Is there any chance of anyone modifying the source code of the driver
-> > to compile under a amd64 system?
-> >
-> > I've noticed that "tulip" drivers get loaded as a module at boot time.
-> > but they dont function correctly. (lets you start the device and
-> > attach ips but cant talk through it)
-> >
-> > Is there any variants of the tulip driver that will work for this?
-> >
-> > Help much appreciated.
-> 
-> My personal opinion is that those NICs suck.  I never did get mine
-> to work.  I'd suggest getting a DFE-570tx if you can find it, or
-> perhaps a p430tx.  You can also get 4-port GigE NICs from Intel for
-> around $400 these days...
-> 
-> Ben
-> 
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
-> 
 >
+> Agreed on both counts.
+>
+> Note, however, the tc_u32_mark should die Real Soon Now given the
+> meta match patches that are in from Thomas.
+
+It can die, but there are users that use it.
+So, I think that as long as u32 will stay in kernel, we can let 
+mark_in_u32 live.
+It's a small modification and I think it may stay.
+Thank you.
+
+> cheers,
+> jamal
+>
+>
+> On Thu, 2005-03-10 at 13:42, Stephen Hemminger wrote:
+>> The tc_u32_mark structure is used as part of the netlink message
+>> from the user API to the kernel, so it needs to be moved to include/linux/pkt_cls.h
+>> and have types changed from u32 to __u32.
+>>
+>> Also, the definition of u32 performance counters doesn't need to depend
+>> on the config option.  The definition can exist even if the code isn't
+>> enabled.
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+>>
+>> diff -Nru a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+>> --- a/include/linux/pkt_cls.h	2005-03-10 10:36:39 -08:00
+>> +++ b/include/linux/pkt_cls.h	2005-03-10 10:36:39 -08:00
+>> @@ -221,14 +221,20 @@
+>>  	struct tc_u32_key	keys[0];
+>>  };
+>>
+>> -#ifdef CONFIG_CLS_U32_PERF
+>> +struct tc_u32_mark
+>> +{
+>> +	__u32		val;
+>> +	__u32		mask;
+>> +	__u32		success;
+>> +};
+>> +
+>>  struct tc_u32_pcnt
+>>  {
+>>  	__u64 rcnt;
+>>  	__u64 rhit;
+>>  	__u64 kcnts[0];
+>>  };
+>> -#endif
+>> +
+>>  /* Flags */
+>>
+>>  #define TC_U32_TERMINAL		1
+>> diff -Nru a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+>> --- a/net/sched/cls_u32.c	2005-03-10 10:36:39 -08:00
+>> +++ b/net/sched/cls_u32.c	2005-03-10 10:36:39 -08:00
+>> @@ -58,14 +58,6 @@
+>>  #include <net/act_api.h>
+>>  #include <net/pkt_cls.h>
+>>
+>> -
+>> -struct tc_u32_mark
+>> -{
+>> -	u32		val;
+>> -	u32		mask;
+>> -	u32		success;
+>> -};
+>> -
+>>  struct tc_u_knode
+>>  {
+>>  	struct tc_u_knode	*next;
+>
+>
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
