@@ -1,59 +1,35 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [Patch]: IPv6 Connection Tracking
-Date: Tue, 7 Oct 2003 14:30:21 +0200
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [2.6 PATCH] ipvs - remove some unused fields from the protocols
+Date: Tue, 07 Oct 2003 20:14:25 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007123021.GX18246@sunbeam.de.gnumonks.org>
-References: <20030925092806.GC5758@sunbeam.de.gnumonks.org> <200310031119.UAA11088@toshiba.co.jp>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="aEcIyhw0mmnxygNd"
-Cc: coreteam@netfilter.org, netfilter-devel@lists.netfilter.org,
-        netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Message-ID: <20031007134931.CA9662C7A8@lists.samba.org>
+References: <Pine.LNX.4.44.0310070104470.6107-100000@u.domain.uli>
+Cc: "David S. Miller" <davem@redhat.com>, Wensong Zhang <wensong@linux-vs.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
-Content-Disposition: inline
-In-Reply-To: <200310031119.UAA11088@toshiba.co.jp>
+To: Julian Anastasov <ja@ssi.bg>
+In-reply-to: Your message of "Tue, 07 Oct 2003 01:16:36 +0300."
+             <Pine.LNX.4.44.0310070104470.6107-100000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In message <Pine.LNX.4.44.0310070104470.6107-100000@u.domain.uli> you write:
+> 
+> 	Hello,
+> 
+> 	The promised removal of some unused fields. For inclusion after 
+> comments from Rusty. Rusty, it seems we can not convert the transmitters 
+> to NF_STOLEN, ip_vs_null_xmit returns NF_ACCEPT.
 
---aEcIyhw0mmnxygNd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Ah that's right.  I hit that as I was halfway through changing, and
+reverted.  Sorry.
 
-On Fri, Oct 03, 2003 at 08:19:07PM +0900, Yasuyuki Kozakai wrote:
-> I select 2), too.
+Leaving the comment there and adding one in ip_vs_null_xmit on why
+breaking the rule in that case is OK is the right approach, I think.
 
-Ok, thanks for your patience and understanding.
+Patch looks good!
 
-> Harald, Could you add my patch to patch-o-matic ?
-
-Ok, I'll put it into patch-o-matic asap.
-
-> Regards,
-> Yasuyuki KOZAKAI
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---aEcIyhw0mmnxygNd
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQE/grHdXaXGVTD0i/8RAgpNAJ45UTeBOXL3dqPY74rWZjQqntjQiACgipl8
-M9YLjRtvXOs9Qs9ISzIQjtU=
-=IaCj
------END PGP SIGNATURE-----
-
---aEcIyhw0mmnxygNd--
+Thanks,
+Rusty.
+--
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
