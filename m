@@ -1,32 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]Add new IPv6 MIBs counters support through netlink
-Date: Wed, 26 May 2004 17:01:40 -0700
+From: Greg Banks <gnb@sgi.com>
+Subject: Re: [PATCH] fix BUG in tg3_tx
+Date: Thu, 27 May 2004 09:52:55 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040526170140.4668dc21.davem@redhat.com>
-References: <20040527.080828.06774575.yoshfuji@linux-ipv6.org>
-	<OFA97F4753.DC8C93AD-ON87256EA0.0080DAAB-07256EA0.00814B08@us.ibm.com>
-	<20040527.085812.33823249.yoshfuji@linux-ipv6.org>
+Message-ID: <20040526235255.GC5958@sgi.com>
+References: <B1508D50A0692F42B217C22C02D849727FEDBE@NT-IRVA-0741.brcm.ad.broadcom.com> <20040526114714.23fcf37d.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: xma@us.ibm.com, mashirle@us.ibm.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Michael Chan <mchan@broadcom.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040527.085812.33823249.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040526114714.23fcf37d.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 May 2004 08:58:12 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
-
-> > All the counters not just IP will be eventually 64 bits. We can fix it 
-> > later. And 
-> > if we implement 64 counters here, there is performance issue on some 
-> > architectures which don't support atmoic 64 for 32 bit platform.
+On Wed, May 26, 2004 at 11:47:14AM -0700, David S. Miller wrote:
+> On Wed, 26 May 2004 10:43:10 -0700
+> "Michael Chan" <mchan@broadcom.com> wrote:
 > 
-> I strongly do not want to change interface twice to support these new
-> statistics.
+> > I would recommend tg3 to make the switch also.
+> 
+> Ok, I'll make it use DMA tx descriptors by default.
 
-As a side note, I am worried about investing so much effort and
-expense if by the time we make 64-bit atomic counters work acceptably
-on 32-bit platforms we are all running Opteron machines :-)
+Cool!
+
+Greg.
+-- 
+Greg Banks, R&D Software Engineer, SGI Australian Software Group.
+I don't speak for SGI.
