@@ -1,33 +1,65 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: unregister_netdevice: waiting for tun6to4 to become free.
-Date: Thu, 23 Sep 2004 15:18:49 +0900 (JST)
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [IPv4] Kill remnant of ip_nat_dumb
+Date: Thu, 23 Sep 2004 08:19:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923.151849.54646117.yoshfuji@linux-ipv6.org>
-References: <414FC92F.6090009@tomt.net>
-	<1095854932.17821.1190.camel@hades.cambridge.redhat.com>
-	<20040922111544.469dc4c2.davem@davemloft.net>
+Message-ID: <20040923061923.GL3236@sunbeam.de.gnumonks.org>
+References: <20040922040155.GA19302@gondor.apana.org.au> <1095855039.1045.67.camel@jzny.localdomain> <20040922110931.68b113a4.davem@davemloft.net> <20040922181433.GH27432@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dwmw2@infradead.org, andre@tomt.net, jgarzik@pobox.com, pp@ee.oulu.fi,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="suYNV1AwziNMnBoj"
+Cc: "David S. Miller" <davem@davemloft.net>, hadi@cyberus.ca,
+        herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20040922111544.469dc4c2.davem@davemloft.net>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20040922181433.GH27432@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040922111544.469dc4c2.davem@davemloft.net> (at Wed, 22 Sep 2004 11:15:44 -0700), "David S. Miller" <davem@davemloft.net> says:
 
-> > It's not just tunnel interfaces. It seems to be related to hot-unplug of
-> > interfaces with live IPv6 addresses. I've seen it on my prism54 card too
-> > on many recent kernels. All I have to do is insert it and remove it a
-> > few times. 
-> 
-> There is code in ipv6 which takes route references to devices and moves
-> that reference over to loopback.  There might be bugs in that area, and
-> I would suggest debugging in that area.
+--suYNV1AwziNMnBoj
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Okay, I'll look into it again...
+On Wed, Sep 22, 2004 at 08:14:33PM +0200, Andi Kleen wrote:
+> > It's gone until someone fixes it up into working condition
+> > once more.  It's been broken ever since the first bits
+> > of IPSEC dst cache infrastructure went in.
+>=20
+> Also netfilter has a static NAT too these days, so it doesn't=20
+> seem to be very useful to have another one.
 
---yoshfuji
+yes and no.=20
+
+=46rom a functionality point of view: yes. =20
+
+=46rom a performance point of view, there are applications for really dumb
+static NAT where you don't want to pull all the dependencies from
+ip_conntrack over ip_tables.
+
+> -Andi
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--suYNV1AwziNMnBoj
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBUmrrXaXGVTD0i/8RAsB3AJ4pbskrLDWWLXYGbVUOwcO21Vi/SQCgigyn
+eRZF/QFIUXBkd31eIDHaatU=
+=Q/LN
+-----END PGP SIGNATURE-----
+
+--suYNV1AwziNMnBoj--
