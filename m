@@ -1,74 +1,74 @@
-From: Hasso Tepper <hasso@estpak.ee>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: dummy as IMQ replacement
-Date: Mon, 31 Jan 2005 15:02:56 +0200
-Message-ID: <200501311502.56796.hasso@estpak.ee>
-References: <1107123123.8021.80.camel@jzny.localdomain> <200501311438.01118.hasso@estpak.ee> <1107175673.7847.130.camel@jzny.localdomain>
+Date: Mon, 31 Jan 2005 14:28:19 +0100
+Message-ID: <20050131132819.GB31837@postel.suug.ch>
+References: <1107123123.8021.80.camel@jzny.localdomain> <200501311438.01118.hasso@estpak.ee> <1107175673.7847.130.camel@jzny.localdomain> <200501311502.56796.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com,
+        Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
         Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
         syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
         Damion de Soto <damion@snapgear.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1107175673.7847.130.camel@jzny.localdomain>
+To: Hasso Tepper <hasso@estpak.ee>
 Content-Disposition: inline
+In-Reply-To: <200501311502.56796.hasso@estpak.ee>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2005-01-31 at 07:38, Hasso Tepper wrote:
-> > jamal wrote:
-> > > On Mon, 2005-01-31 at 03:20, Hasso Tepper wrote:
-> > > > Policing didn't work with IPv6 last time I checked.
-> > >
-> > > Really? I take it this is using the u32 classifier?
-> > > What filter did you use?
-> >
-> > http://mailman.ds9a.nl/pipermail/lartc/2004q2/012422.html
-> >
-> > Got one answer to this in private that "AFAIK it isn't implemented
-> > yet".
->
-> This?
->
-> tc filter add dev eth1.101 parent ffff: protocol all prio 50 handle \
-> 0x101 fw police rate 1024kbit burst 60k drop flowid :101
->
-> What are you trying to do? Are you also trying to rate limit ARPs etc
-> in one shot?
+> > > http://mailman.ds9a.nl/pipermail/lartc/2004q2/012422.html
 
-All traffic coming from eth1.101 interface.
+It depends on whether you have CONFIG_NET_CLS_ACT enabled or not.
+If so, the ingress qdisc is hit before PREROUTING and thus can't
+see the mark for a good reason. Simply removing the dependcy on
+the mark resolves the issue for you.
 
-> Does this even get hit at all? tc -s would show you stats. I suspect
-> for one it is not being hit.
+If you don't have CONFIG_NET_CLS_ACT enabled you would see the
+mark if the ingress qdisc would register on the IPv6 PREROUTING
+hook but apparently it doesn't.
 
-As far as I remember situation was exactly as I described. This worked for 
-IPv4 traffic, but not for IPv6 traffic.
+The patch below should fix it, it is completely untested though.
 
-> Maybe you are trying to use iptables marks that happen
-> a long time after the ingress has seen the packets (which would
-> explain why it is not being hit)? This would be true kernels > 2.6.8
-> but not before ..
-
-This test was done with 2.6.6.
-
-> In other words, it may be a config issue.
-
-Would be nice ;).
-
-> If you tell me what it is you are trying to do i could try and set it
-> up when i come back from work today.
-
-I'd like to limit _all_ traffic coming in from one particular interface to 
-the one common limit. No matter what traffic it is - IPv4 or IPv6. Sum of 
-traffic should be the one I specify.
-
-
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+--- linux-2.6.11-rc2-bk8.orig/net/sched/sch_ingress.c	2005-01-30 21:19:51.000000000 +0100
++++ linux-2.6.11-rc2-bk8/net/sched/sch_ingress.c	2005-01-31 14:23:08.000000000 +0100
+@@ -271,6 +271,14 @@
+ 	.priority       = NF_IP_PRI_FILTER + 1,
+ };
+ 
++static struct nf_hook_ops ing6_ops = {
++	.hook           = ing_hook,
++	.owner		= THIS_MODULE,
++	.pf             = PF_INET6,
++	.hooknum        = NF_IP6_PRE_ROUTING,
++	.priority       = NF_IP6_PRI_FILTER + 1,
++};
++
+ #endif
+ #endif
+ 
+@@ -296,6 +304,11 @@
+ 			printk("ingress qdisc registration error \n");
+ 			return -EINVAL;
+ 		}
++		if (nf_register_hook(&ing6_ops) < 0) {
++			nf_unregister_hook(&ing_ops);
++			printk("ingress ipv6 qdisc registration error \n");
++			return -EINVAL;
++		}
+ 		nf_registered++;
+ 	}
+ #endif
+@@ -408,8 +421,10 @@
+ 	unregister_qdisc(&ingress_qdisc_ops);
+ #ifndef CONFIG_NET_CLS_ACT
+ #ifdef CONFIG_NETFILTER
+-	if (nf_registered)
++	if (nf_registered) {
+ 		nf_unregister_hook(&ing_ops);
++		nf_unregister_hook(&ing6_ops);
++	}
+ #endif
+ #endif
+ }
