@@ -1,74 +1,64 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Mon, 20 Sep 2004 02:31:32 +0200
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] Clean up fib_hash datastructures
+Date: 19 Sep 2004 20:39:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414E24E4.1020104@eurodev.net>
-References: <414D0CCD.90209@eurodev.net> <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <20040919120730.GA6005@gondor.apana.org.au> <414DF111.3080409@eurodev.net> <20040919215328.GA9573@gondor.apana.org.au> <414E0CE6.107@eurodev.net> <20040919234445.GC10124@gondor.apana.org.au>
+Message-ID: <1095640781.1047.168.camel@jzny.localdomain>
+References: <20040918203319.24004d6e.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, jamal <hadi@cyberus.ca>,
-        netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-3cWj/G40spLwEklC0FOz"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040919234445.GC10124@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040918203319.24004d6e.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
 
-Herbert Xu wrote:
+--=-3cWj/G40spLwEklC0FOz
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
->On Mon, Sep 20, 2004 at 12:49:10AM +0200, Pablo Neira wrote:
->  
->
->>Sorry, if i repeat things, I'm not willing to be annoying, just clarifying.
->>    
->>
->
->You're alright.  We're on the same side :)
->  
->
+On Sat, 2004-09-18 at 23:33, David S. Miller wrote:
+> So, before we even think about trying new faster algorithms
+> in net/ipv4/fib_hash.c we have to clean it up.
 
-that's fine :)
+Will look at rest of patch and get back to you. Curious piece like you
+note:
 
->There is no point for the kernel to wait at all.  For unicast sockets
->used for sending commands to the kernel, you should never get overruns
->if you are reading your responses correctly and have set the queue size
->correctly.
->  
->
 
-sure, not for commands. When I talk about netlink sockets, I'm not 
-focused on commands because what they do currently is quite enough for 
-them I think. I know that commands are the main application of netlink 
-sockets but there are many others.
+> Does anyone know what this test:
+> 
+> 		if (!iter->zone->fz_next)
+> 			continue;
+> 
+> in fib_get_first() is doing?  I kept it there
+> but it looks fishy.  
 
->>b) A module needs to send a lot of information from kernel space to user 
->>space, if buffer gets full quickly, buffer overruns and 
->>netlink_unicast/broadcast never wait, so they drop packets.
->>    
->>
->
->I agree that this may be a problem for some, but I don't see how your
->patch addresses it.  For the case of ip_queue the kernel simply cannot
->wait since it just creates a queue through the backdoor.  You might as
->well just increase your receive queue length.
->  
->
+Yes, it is fishy;-> patch attached. Probably one of the more interesting
+typos i have seen recently
 
-I agree, ip_queue case is kind of complex. Well, think about a logging 
-tool for packets in kernel space that sends messages via netlink when a 
-packet matches a condition. Now, we receive 300 packets in a very very 
-short period of time (with the default buffer size) and after that 
-everything' gets calm again, that is, there's nothing to send to user space.
+cheers,
+jamal
 
-In that case, netlink buffer will surely overrun, so those 300 messages 
-will be drop because kernel didn't wait a bit. This is what happens now, 
-I can reproduce this with my tool.
 
-Well, if system work load is high (in term of sending netlink messages), 
-we don't have too many things to do...
 
-regards,
-Pablo
+
+--=-3cWj/G40spLwEklC0FOz
+Content-Disposition: attachment; filename=fibhash_p
+Content-Type: text/plain; name=fibhash_p; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- a/net/ipv4/fib_hash.c	2004/09/20 00:35:16	1.1
++++ b/net/ipv4/fib_hash.c	2004/09/20 00:36:16
+@@ -915,7 +915,7 @@
+ 	     iter->zone = iter->zone->fz_next) {
+ 		int maxslot;
+ 
+-		if (!iter->zone->fz_next)
++		if (!iter->zone->fz_nent)
+ 			continue;
+ 
+ 		iter->hash = iter->zone->fz_hash;
+
+--=-3cWj/G40spLwEklC0FOz--
