@@ -1,51 +1,60 @@
-From: Takashi Ikebe <ikebe.takashi@lab.ntt.co.jp>
-Subject: Re: [Bugme-new] [Bug 4189] New: IPv6 link local addresses are not
- assigned correctly on multiple-bonding enviromrnts
-Date: Thu, 10 Feb 2005 20:59:18 +0900
-Message-ID: <420B4C96.9010808@lab.ntt.co.jp>
-References: <20050210002356.500401f7.akpm@osdl.org>	<20050210.182225.07335127.yoshfuji@linux-ipv6.org> <20050210.182517.55994883.yoshfuji@linux-ipv6.org>
+From: Stephen Smalley <sds@epoch.ncsc.mil>
+Subject: Re: [PATCH] Add audit uid to netlink credentials
+Date: Thu, 10 Feb 2005 07:36:09 -0500
+Message-ID: <1108038968.22172.26.camel@moss-spartans.epoch.ncsc.mil>
+References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com>
+	 <1107958621.19262.524.camel@hades.cambridge.redhat.com>
+	 <1107960659.4837.9.camel@serge>
+	 <1107973381.17568.97.camel@moss-spartans.epoch.ncsc.mil>
+	 <20050209103747.Y24171@build.pdx.osdl.net>
+	 <1107974448.17568.108.camel@moss-spartans.epoch.ncsc.mil>
+	 <20050209153816.B24171@build.pdx.osdl.net>
+	 <20050209171115.G24171@build.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, davem@davemloft.net, akpm@osdl.org,
-        ctindel@users.sourceforge.net, fubar@us.ibm.com,
-        bonding-devel@lists.sourceforge.net
-To: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
- <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20050210.182517.55994883.yoshfuji@linux-ipv6.org>
+Cc: netdev@oss.sgi.com, Linux Audit Discussion <linux-audit@redhat.com>,
+        davem@davemloft.net, kuznet@ms2.inr.ac.ru
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <20050209171115.G24171@build.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I think this cause by network init script.
-network init script always bring up ifcfg-[A-Za-z0-9\._-],
-so ifcfg-bond* always bring up before ifcfg-eth*! ("b" is before "e" in
-alphabet order!)
-I see, this is not a kernel issue, and this is initscript issue.
+On Wed, 2005-02-09 at 20:11, Chris Wright wrote:
+> * Chris Wright (chrisw@osdl.org) wrote:
+> > Hmm, perhaps we could eliminate the whole asynchronous issue by allowing
+> > registration of a netlink link specific security handler.  Something like:
+> > 
+> > netlink_kernel_create_sec(unit, rx, sec_handler)
+> > 
+> > Then the check would be done before the packet was ever queued.  This
+> > would eliminate the if (NETLINK_CREDS(skb)->$cred == bad) on receipt
+> > side, and push it to sender side.  It would also be link specific so
+> > audit could do it's audit payload loginuid check here.  I think it would
+> > also eliminate SELinux's need to tag the packet for later checking on
+> > receipt.  Thoughts?
+> 
+> Here's an example of what I mean.  It's quite rough, doesn't yet eliminate
+> any of the code that it eventually could, and doesn't deal with broadcast.
+> I gave it a quick test with audit netlink, and it does what I expect.
 
-
-YOSHIFUJI Hideaki / 吉藤英明 wrote:
-> Sorry for typo...
-> 
-> In article <20050210.182225.07335127.yoshfuji@linux-ipv6.org> (at Thu, 10 Feb 2005 18:22:25 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-> 
-> 
->>So, currently, you need to do this:
->>
->># ip link set bond0 address 00:01:02:03:04:05
->># ifconfig bond0 up <= here fe80::200:ff:fe00:0/64 is assigned
-> 
->                               fe80::201:02ff:fe03:0405 is assigned
-> 
->># ifenslave bond0 eth0 ...
-> 
-> 
-
+Why not just call the security handler from the security_netlink_send()
+function, which is already called by netlink_sendmsg()?  Note that
+SELinux (thanks to work by James Morris a while back) does apply
+fine-grained netlink controls using its selinux_netlink_send() hook
+function, but the problem with this approach is that it requires
+maintaining a netlink message type table within SELinux itself that maps
+netlink operations to generic flow operations (read, write), effectively
+duplicating state between SELinux and the netlink protocol
+implementations.  It also isn't necessarily sufficiently granular for
+all needs.  It would be preferable to have the netlink protocol
+implementations to maintain such mappings and just invoke security
+modules to check the generic permissions based on its own internal
+mapping (same idea applies for ioctls, where the device driver or
+filesystem code should handle the mapping to generic permissions and
+only invoke the security module to check the generic permission).
 
 -- 
-Takashi Ikebe
-NTT Network Service Systems Laboratories
-9-11, Midori-Cho 3-Chome Musashino-Shi,
-Tokyo 180-8585 Japan
-Tel : +81 422 59 4246, Fax : +81 422 60 4012
-e-mail : ikebe.takashi@lab.ntt.co.jp
+Stephen Smalley <sds@epoch.ncsc.mil>
+National Security Agency
