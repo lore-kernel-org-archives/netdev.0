@@ -1,92 +1,27 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH[ via-ircc: fix exit section usage
-Date: Mon, 10 Jan 2005 16:43:54 -0800
-Message-ID: <20050111004354.GO14400@bougret.hpl.hp.com>
-References: <20050106230803.00714c45.rddunlap@osdl.org>
-Reply-To: jt@hpl.hp.com
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] use rtnl_lock_interruptible in 8139 to avoid
+ shutdown hang
+Date: Mon, 10 Jan 2005 17:50:42 -0800
+Message-ID: <20050110175042.53eaa3c1.davem@davemloft.net>
+References: <20050109121630.GB19599@lst.de>
+	<20050110133714.023aa21b.davem@davemloft.net>
+	<20050110214522.GA17463@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050106230803.00714c45.rddunlap@osdl.org>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20050110214522.GA17463@lst.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 06, 2005 at 11:08:03PM -0800, Randy.Dunlap wrote:
-> 
-> Fix exit section usage, starting with this Error
-> from reference_discarded.pl (make buildcheck):
-> Error: ./drivers/net/irda/via-ircc.o .data refers to 000000f8 R_386_32          .exit.text
-> 
-> Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+On Mon, 10 Jan 2005 22:45:22 +0100
+Christoph Hellwig <hch@lst.de> wrote:
 
-	Sounds good to me ;-)
+> Btw, there's some confusing between rtnl_lock and rtnl_shlock (similar
+> for the other variants).  Is there an agenda behind this versions or
+> would you take a patch that unifies the lock assecors?
 
-	Jean
-
-> diffstat:=
->  drivers/net/irda/via-ircc.c |   12 ++++++------
->  1 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff -Naurp ./drivers/net/irda/via-ircc.c~irda_via_devexit ./drivers/net/irda/via-ircc.c
-> --- ./drivers/net/irda/via-ircc.c~irda_via_devexit	2004-12-24 13:33:47.000000000 -0800
-> +++ ./drivers/net/irda/via-ircc.c	2005-01-06 21:18:49.742203456 -0800
-> @@ -83,7 +83,7 @@ static struct via_ircc_cb *dev_self[] = 
->  
->  /* Some prototypes */
->  static int via_ircc_open(int i, chipio_t * info, unsigned int id);
-> -static int __exit via_ircc_close(struct via_ircc_cb *self);
-> +static int via_ircc_close(struct via_ircc_cb *self);
->  static int via_ircc_dma_receive(struct via_ircc_cb *self);
->  static int via_ircc_dma_receive_complete(struct via_ircc_cb *self,
->  					 int iobase);
-> @@ -111,7 +111,7 @@ static void hwreset(struct via_ircc_cb *
->  static int via_ircc_dma_xmit(struct via_ircc_cb *self, u16 iobase);
->  static int upload_rxdata(struct via_ircc_cb *self, int iobase);
->  static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_device_id *id);
-> -static void __exit via_remove_one (struct pci_dev *pdev);
-> +static void __devexit via_remove_one (struct pci_dev *pdev);
->  
->  /* FIXME : Should use udelay() instead, even if we are x86 only - Jean II */
->  static void iodelay(int udelay)
-> @@ -140,7 +140,7 @@ static struct pci_driver via_driver = {
->  	.name		= VIA_MODULE_NAME,
->  	.id_table	= via_pci_tbl,
->  	.probe		= via_init_one,
-> -	.remove		= via_remove_one,
-> +	.remove		= __devexit_p(via_remove_one),
->  };
->  
->  
-> @@ -273,7 +273,7 @@ static int __devinit via_init_one (struc
->   *    Close all configured chips
->   *
->   */
-> -static void __exit via_ircc_clean(void)
-> +static void via_ircc_clean(void)
->  {
->  	int i;
->  
-> @@ -285,7 +285,7 @@ static void __exit via_ircc_clean(void)
->  	}
->  }
->  
-> -static void __exit via_remove_one (struct pci_dev *pdev)
-> +static void __devexit via_remove_one (struct pci_dev *pdev)
->  {
->  	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
->  
-> @@ -468,7 +468,7 @@ static __devinit int via_ircc_open(int i
->   *    Close driver instance
->   *
->   */
-> -static int __exit via_ircc_close(struct via_ircc_cb *self)
-> +static int via_ircc_close(struct via_ircc_cb *self)
->  {
->  	int iobase;
->  
-> 
-> ---
+What exactly do you plan to change?
