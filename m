@@ -1,28 +1,38 @@
-From: Pavlin Radoslavov <pavlin@icir.org>
-Subject: Re: A request to add RTPROT_XORP to linux/rtnetlink.h
-Date: Tue, 02 Dec 2003 16:32:36 -0800
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: IPv6 MIB:ipv6PrefixTable implementation
+Date: Tue, 2 Dec 2003 16:33:13 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200312030032.hB30WaSx019988@possum.icir.org>
-References: <davem@redhat.com>
-Cc: Pavlin Radoslavov <pavlin@icir.org>, netdev@oss.sgi.com
+Message-ID: <OFD75AA082.D0EE04A4-ON87256DF1.00005FF4@us.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: mashirle@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: Message from "David S. Miller" <davem@redhat.com>
-   of "Tue, 02 Dec 2003 16:30:35 PST." <20031202163035.698533e7.davem@redhat.com>
+To: kuznet@ms2.inr.ac.ru
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> On Tue, 02 Dec 2003 13:19:36 -0800
-> Pavlin Radoslavov <pavlin@icir.org> wrote:
-> 
-> > On behalf of the XORP (eXtensible Open Router Platform) project
-> > (http://www.xorp.org), I'd like to ask if the XORP-specific protocol
-> > value can be included in linux/rtnetlink.h (similar to the values
-> > already assigned to other routing daemons/suites such as GateD,
-> > etc.)
-> 
-> Patch applied, thanks.
 
-Great! Thanks!!
 
-Pavlin
+
+
+Hi, Alexy,
+
+> preferred time is not an attribute of a prefix at all,
+> it is attribute of address, is not it? Unless the prefix is used
+> to install local address it does not make sense, right?
+
+The new IPv6 MIBs said that the preferred time is saved in the prefix
+table,
+not in the address table.
+Also, not every onlink prefix is saved in the routing table, for example,
+if there
+is already a manual address configured for an interface with the same
+prefix.
+
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
