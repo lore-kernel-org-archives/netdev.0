@@ -1,33 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: [PATCH - RFC] [1/5] 64-bit network statistics - generic net
-Date: Sun, 6 Jul 2003 01:44:23 +0200
+Date: 06 Jul 2003 08:27:14 +0100
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030706014423.A11165@electric-eye.fr.zoreil.com>
-References: <E19YtAq-0006Xf-00@calista.inka.de> <200307051700.32533.jeffpc@optonline.net> <20030705235131.A10511@electric-eye.fr.zoreil.com> <200307051839.50327.jeffpc@optonline.net>
+Message-ID: <1057476433.700.2.camel@dhcp22.swansea.linux.org.uk>
+References: <E19YtAq-0006Xf-00@calista.inka.de>
+	 <200307051637.52252.jeffpc@optonline.net> <3F0737D1.5090109@pobox.com>
+	 <3F0745EC.1060204@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	Bernd Eckenfels <ecki@calista.eckenfels.6bone.ka-ip.net>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@digeo.com>,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Jeff Sipek <jeffpc@optonline.net>,
+	Bernd Eckenfels <ecki@calista.eckenfels.6bone.ka-ip.net.sgi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@digeo.com>,
 	Dave Jones <davej@codemonkey.org.uk>,
 	Linus Torvalds <torvalds@osdl.org>, netdev@oss.sgi.com
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jeff Sipek <jeffpc@optonline.net>
-Content-Disposition: inline
-In-Reply-To: <200307051839.50327.jeffpc@optonline.net>; from jeffpc@optonline.net on Sat, Jul 05, 2003 at 06:39:41PM -0400
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3F0745EC.1060204@candelatech.com>
 List-Id: netdev.vger.kernel.org
 
-Jeff Sipek <jeffpc@optonline.net> :
-[...]
-> P.S. I just looked up the cheapest gigabit copper I could find in 10 seconds, 
-> and I found: D-Link DGE-500T for $36.27 this is just 4 times the price of the 
-> cheapest fast ethernet I found on the same site (cdw.com - they are not the 
-> cheapest, but I like them)
+On Sad, 2003-07-05 at 22:41, Ben Greear wrote:
+> Untill the net-stats are 64-bit on 32-bit systems, we will need some
+> way to know if they have wrapped or not when reading from nettool
+> and getting 64-bit numbers.
 
-Please google around on the topic "nanog/gigabit/routing/linux" and read
-netdev archive again.
+iptables
 
-It isn't _that_ simple.
-
---
-Ueimor
+Collecting the data on a need to know basis 8)
