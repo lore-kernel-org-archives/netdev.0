@@ -1,35 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] compat bug in sys_recvmsg, MSG_CMSG_COMPAT check
- missing
-Date: Sat, 5 Jun 2004 14:36:49 -0700
+Subject: Re: small netfilter cleanup
+Date: Sat, 5 Jun 2004 14:39:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040605143649.3fd6c22b.davem@redhat.com>
-References: <20040605204334.GA1134@suse.de>
-	<20040605140153.6c5945a0.davem@redhat.com>
-	<20040605140544.0de4034d.davem@redhat.com>
-	<jer7st7lam.fsf@sykes.suse.de>
+Message-ID: <20040605143929.5f0980f6.davem@redhat.com>
+References: <1086434538.1590.16.camel@jzny.localdomain>
+	<20040605140104.GD1128@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: olh@suse.de, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: hadi@znyx.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Schwab <schwab@suse.de>
-In-Reply-To: <jer7st7lam.fsf@sykes.suse.de>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20040605140104.GD1128@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 05 Jun 2004 23:21:53 +0200
-Andreas Schwab <schwab@suse.de> wrote:
+On Sat, 5 Jun 2004 16:01:04 +0200
+Harald Welte <laforge@netfilter.org> wrote:
 
-> "David S. Miller" <davem@redhat.com> writes:
+> > Attached patches for 2.4.26 and 2.6.6; both should patch
+> > cleanly against pre 2.4.27 and 2.6.7
 > 
-> > This means also that Olaf's patch is broken, when CONFIG_COMPAT is not
-> > set, MSG_CMSG_COMPAT is zero, thus ~MSG_CMSG_COMPAT is the unexpected
-> > value all 1's thus breaking the tests for unexpected flags completely.
-> 
-> ??? Where do you get ~MSG_CMSG_COMPAT from?
+> dave, would you pleae apply the patches to 2.4 an 2.6 ? thanks.
 
-Olaf's patch, it said:
-
--	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC))
-+	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT))
+Will do sometime this weekend.
