@@ -1,22 +1,27 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.4.x patchlet
-Date: Thu, 6 Jan 2005 15:30:51 -0800
-Message-ID: <20050106153051.7d0fb873.davem@davemloft.net>
-References: <1104242685.1090.97.camel@jzny.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/5] sis900 debugging and revision code
+Date: Thu, 06 Jan 2005 18:35:48 -0500
+Message-ID: <41DDCB54.2080101@pobox.com>
+References: <20041212121852.GA16325@gateway.milesteg.arr> <20041212123031.GB16325@gateway.milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: NetDev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@znyx.com
-In-Reply-To: <1104242685.1090.97.camel@jzny.localdomain>
+To: Daniele Venzano <webvenza@libero.it>
+In-Reply-To: <20041212123031.GB16325@gateway.milesteg.arr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 28 Dec 2004 09:04:45 -0500
-Jamal Hadi Salim <hadi@znyx.com> wrote:
+Patches 1, 2, and 5 are OK.
 
-> Removes annoying compile of newer tools when done on 2.4.x
+For the other two patches, I don't want to deviate from the style that 
+has been standard for years:  dev->name prefix, followed by message.
 
-Applied, thanks Jamal.
+It may make greps easier for you, but it becomes a non-standard style 
+and may make existing sysadmin scripts out in the field.
+
+Please resend series without the PFX-where-devname-is-known changes.
+
+	Jeff
