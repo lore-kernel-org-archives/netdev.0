@@ -1,41 +1,31 @@
-From: "Maciej W. Rozycki" <macro@ds2.pg.gda.pl>
-Subject: Re: [PATCH] Fix warnings in defxx.c
-Date: Tue, 7 Oct 2003 20:15:04 +0200 (MET DST)
+From: Joe Perches <joe@perches.com>
+Subject: comment on [NET]: Delete support for old-style protocols, no
+	longer necessary.
+Date: Tue, 07 Oct 2003 11:37:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.3.96.1031007200222.13842A-100000@delta.ds2.pg.gda.pl>
-References: <20031007175535.GA1743@averell>
+Message-ID: <1065551829.2340.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <20031007175535.GA1743@averell>
+To: davem@nuts.ninka.net, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Oct 2003, Andi Kleen wrote:
+How about
 
-> Fix harmless 64bit warnings in defxx.c
-> 
-> diff -u linux-2.5-cleanup/drivers/net/defxx.c-o linux-2.5-cleanup/drivers/net/defxx.c
-> --- linux-2.5-cleanup/drivers/net/defxx.c-o	2003-08-22 13:35:29.000000000 +0200
-> +++ linux-2.5-cleanup/drivers/net/defxx.c	2003-12-02 17:12:55.629162080 +0100
-> @@ -2664,8 +2664,8 @@
->   
->  static void my_skb_align(struct sk_buff *skb, int n)
->  {
-> -	u32 x=(u32)skb->data;	/* We only want the low bits .. */
-> -	u32 v;
-> +	unsigned long x=(unsigned long)skb->data;	
-> +	unsigned long v;
->  	
->  	v=(x+n-1)&~(n-1);	/* Where we want to be */
+netdevice.h
 
- Thanks for the fix.  I have a 64-bit system to test the driver at the run
-time (for both endiannesses, even), so in a long run I'm going to keep an
-eye on such bits.
+struct sock;
 
--- 
-+  Maciej W. Rozycki, Technical University of Gdansk, Poland   +
-+--------------------------------------------------------------+
-+        e-mail: macro@ds2.pg.gda.pl, PGP key available        +
+struct packet_type {
+        unsigned short          type;   /* This is really htons(ether_type).    */
+        struct net_device               *dev;   /* NULL is wildcarded here              */
+        int                     (*func) (struct sk_buff *, struct net_device *,
+                                         struct packet_type *);
+-       void                    *af_packet_priv;
++       struct sock             *sk;	/* appropriate comment: socket copy? */
+        struct list_head        list;
+ };
+
+and s/af_packet_priv/sk/g in the rest of the files?
