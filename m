@@ -1,125 +1,94 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Changing bonding <-> ifenslave interface [was: Problem with current /proc entries]
-Date: Mon, 20 Oct 2003 09:42:22 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] Make LLC2 compile with PROC_FS=n
+Date: Mon, 20 Oct 2003 10:16:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310201642.h9KGgMXp027089@death.ibm.com>
-References: <amir.noam@intel.com>
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Message-ID: <20031020101607.76e02647.shemminger@osdl.org>
+References: <Pine.GSO.4.58.0310171452540.13905@blinky>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@conectiva.com.br, rddunlap@osdl.org, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Noam, Amir" <amir.noam@intel.com>
-In-Reply-To: Message from "Noam, Amir" <amir.noam@intel.com>
-   of "Sun, 19 Oct 2003 17:56:01 +0200." <E6F7D288B394A64585E67497E5126BA601EB5067@hasmsx403.iil.intel.com>
+To: "Noah J. Misch" <noah@caltech.edu>
+In-Reply-To: <Pine.GSO.4.58.0310171452540.13905@blinky>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Why make up a whole separate llc_proc.h file for two prototypes? 
+Put them on the end of llc.h
 
-	The "To clarify, I'm interpreting" comments are mine (3 ">");
-Chad's are one up and down (2 and 4 ">").
-
->"Chad N. Tindel" <chad@tindel.net> wrote:
->
->>  > >I say that if people want to switch between 2.4 and 2.6, they can
->>  > >write a script to create the appropriate ifenslave symbolic link.
->>  > 
->>  > 	To clarify, I'm interpreting this to mean:
->>  > 
->>  > 	2.4.X ifenslave (where "X" is recent enough that it doesn't
->>  > use SIOCDEVPRIVATE) should work with 2.6.anything.
->
->I disagree. See below.
->
->>  > 	2.4.X ifenslave (where "X" is old and it uses SIOCDEVPRIVATE)
->>  > need not work with 2.6.anything.
->>  > 
->>  > 	2.6.X ifenslave (where "X" is 0 or better) should work with
->>  > any 2.6 later than the one it was shipped with.
->
->Yes.
->
->>  > 	2.6.X ifenslave (where "X" is 0 or better) need not work with
->>  > 2.4.anything.
->
->I disagree. I think that the latest version of ifenslave should work
->with all versions of the bonding module that we can reasonably expect
->people to use. This means that if ifenslave fails to use the new
->interface it can try the old one. (This is how I understood Jeff's
->position).
-
-	When we discussed this previously, my understanding was:
-
-	An ifenslave only had to work forwards, it didn't need to go
-backwards.  So, an ifenslave from 2.4.X would run on that version, as
-well as any future 2.4.Y (where Y > X).  But, the reverse isn't true:
-ifenslave from 2.4.Y need not work on kernel 2.4.X (again, Y > X).
-
-	Applying this to 2.6, a 2.6 ifenslave shouldn't need to
-control a 2.4 bonding driver, but a 2.4 ifenslave should control a 2.6
-kernel (for reasonable ranges of 2.4.X, in particular excluding
-SIOCDEVPRIVATE).
-
-	I was thinking that the 2.4 ifenslave should work with 2.4 or
-2.6 (including the new shiny API, to make kernel upgrades less
-hassle), but the 2.6 ifenslave need not work with 2.4, so we could
-hopefully vacuum it clean of the various ABI gook once we have a new
-shiny interface.  The 2.6 ifenslave presumably won't be included in a
-distro until they ship a 2.6 kernel, so that would theoretically be
-sufficient.
-
->However, I'm definitely in favor of dropping compatibility in the
->*module* in 2.6. This is because most recent distributions (Red Hat 9,
->for example) still use an antique version of ifenslave that still uses
->the SIOCDEVPRIVATE ioctls. If we remove support for these ioctls in
->2.6 (as we should), then the bonding module will break compatibility
->with those ifenslave versions anyway. I see no point in trying to keep
->compatibility with the ifenslave version that is in the 2.4 kernel
->tree, while it is not yet in use by any distribution.
-
-	When you say "dropping compatibility" are you just referring
-to the SIOCDEVPRIVATE ioctls, or the full "old style" ifenslave to
-bonding API (which would be replaced by the new shiny interface you
-were talking about earlier)?
-
->>  My opinion is this.  What has worked in 2.4 in the past 
->>  should always work
->>  for 2.4.  Once you upgrade to 2.6, all bets for that are off.  
->
->I agree, except that I think that if you upgrade to 2.6, and update
->your ifenslave accordingly, you shouldn't have to switch user space
->utilities when you boot into different kernels. That's why I said that
->once you update ifenslave it should work with old bonding as well.
-
-	As I said above, I don't think we need to put ourselves in the
-position of supporting both backwards compatibility (old ifenslave,
-new bonding) and forwards compatibility (new ifenslave, old bonding).
-
-	I'm thinking we should give the 2.4 ifenslave the "shiny new
-API" stuff (which is only applicable to the 2.6 bonding driver) so
-that it'll run with 2.6 for the forseeable future, and then excise the
-existing API from 2.6 (realistically, at some point in the future,
-probably when 2.6 becomes "the standard").
-
-	Comments?
-
->We can probably provide a version of bonding/ifenslave that works with
->the new interface within two weeks (hopefully less). This is, of course,
->assuming we reach a consensus on the compatibility issue.
-
-	Would that be dependant upon the cleanup stuff, or not?
-
->>  > 	Am I nuts to want to get the new API stuff in for 2.6.0?  It'd
->>  > be nice to not be locked in to supporting the current 
->>  scheme because
->>  > the first ifenslave in 2.6.0 uses it.
->>  
->>  I agree wholeheartedly.
->
->I also agree. The question is, can we really push such a change into
->bonding in 2.6, now that Linus only accepts bug fixes?
-
-	That I don't know.  Most of this is moot if we can't mess with
-2.6.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+diff -Nru a/include/net/llc.h b/include/net/llc.h
+--- a/include/net/llc.h	Mon Oct 20 10:14:56 2003
++++ b/include/net/llc.h	Mon Oct 20 10:14:56 2003
+@@ -88,4 +88,12 @@
+ 
+ extern int llc_station_init(void);
+ extern void llc_station_exit(void);
++
++#ifdef CONFIG_PROC_FS
++extern int llc_proc_init(void);
++extern void llc_proc_exit(void);
++#else
++#define llc_proc_init()	(0)
++#define llc_proc_exit()	do { } while(0)
++#endif /* CONFIG_PROC_FS */
+ #endif /* LLC_H */
+diff -Nru a/include/net/llc_proc.h b/include/net/llc_proc.h
+--- a/include/net/llc_proc.h	Mon Oct 20 10:14:56 2003
++++ /dev/null	Wed Dec 31 16:00:00 1969
+@@ -1,18 +0,0 @@
+-#ifndef LLC_PROC_H
+-#define LLC_PROC_H
+-/*
+- * Copyright (c) 1997 by Procom Technology, Inc.
+- * 		 2002 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+- *
+- * This program can be redistributed or modified under the terms of the
+- * GNU General Public License as published by the Free Software Foundation.
+- * This program is distributed without any warranty or implied warranty
+- * of merchantability or fitness for a particular purpose.
+- *
+- * See the GNU General Public License for more details.
+- */
+-
+-extern int llc_proc_init(void);
+-extern void llc_proc_exit(void);
+-
+-#endif /* LLC_PROC_H */
+diff -Nru a/net/llc/af_llc.c b/net/llc/af_llc.c
+--- a/net/llc/af_llc.c	Mon Oct 20 10:14:56 2003
++++ b/net/llc/af_llc.c	Mon Oct 20 10:14:56 2003
+@@ -30,7 +30,6 @@
+ #include <net/llc_sap.h>
+ #include <net/llc_pdu.h>
+ #include <net/llc_conn.h>
+-#include <net/llc_proc.h>
+ 
+ /* remember: uninitialized global data is zeroed because its in .bss */
+ static u16 llc_ui_sap_last_autoport = LLC_SAP_DYN_START;
+diff -Nru a/net/llc/llc_proc.c b/net/llc/llc_proc.c
+--- a/net/llc/llc_proc.c	Mon Oct 20 10:14:56 2003
++++ b/net/llc/llc_proc.c	Mon Oct 20 10:14:56 2003
+@@ -14,7 +14,6 @@
+ 
+ #include <linux/config.h>
+ #include <linux/init.h>
+-#ifdef CONFIG_PROC_FS
+ #include <linux/kernel.h>
+ #include <linux/proc_fs.h>
+ #include <linux/errno.h>
+@@ -273,13 +272,3 @@
+ 	remove_proc_entry("core", llc_proc_dir);
+ 	remove_proc_entry("llc", proc_net);
+ }
+-#else /* CONFIG_PROC_FS */
+-int __init llc_proc_init(void)
+-{
+-	return 0;
+-}
+-
+-void llc_proc_exit(void)
+-{
+-}
+-#endif /* CONFIG_PROC_FS */
