@@ -1,56 +1,123 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: e1000 problem with NAPI?
-Date: Tue, 1 Mar 2005 14:59:31 +0100
-Message-ID: <20050301135931.GA14610@xi.wantstofly.org>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
+Date: Tue, 01 Mar 2005 17:17:57 +0300
+Message-ID: <1109686677.28266.66.camel@uganda>
+References: <4221E548.4000008@ak.jp.nec.com>
+	 <20050227140355.GA23055@logos.cnet> <42227AEA.6050002@ak.jp.nec.com>
+	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
+	 <20050227233943.6cb89226.akpm@osdl.org>
+	 <1109592658.2188.924.camel@jzny.localdomain>
+	 <20050228132051.GO31837@postel.suug.ch>
+	 <1109598010.2188.994.camel@jzny.localdomain>
+	 <20050228135307.GP31837@postel.suug.ch>
+	 <1109599803.2188.1014.camel@jzny.localdomain>
+	 <20050228142551.GQ31837@postel.suug.ch>
+	 <1109604693.1072.8.camel@jzny.localdomain>
+	 <20050228191759.6f7b656e@zanzibar.2ka.mipt.ru>
+	 <1109665299.8594.55.camel@frecb000711.frec.bull.fr>
+	 <42247051.7070303@ak.jp.nec.com>
+	 <1109685236.8594.75.camel@frecb000711.frec.bull.fr>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, robert.olsson@data.slu.se
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-T+HcrVsRNtFuhZ2bJkzx"
+Cc: Kaigai Kohei <kaigai@ak.jp.nec.com>, hadi@cyberus.ca,
+        Thomas Graf <tgraf@suug.ch>, Andrew Morton <akpm@osdl.org>,
+        marcelo.tosatti@cyclades.com, "David S. Miller" <davem@redhat.com>,
+        jlan@sgi.com, LSE-Tech <lse-tech@lists.sourceforge.net>,
+        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+        elsa-devel <elsa-devel@lists.sourceforge.net>
+To: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
+In-Reply-To: <1109685236.8594.75.camel@frecb000711.frec.bull.fr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all,
 
-I'm seeing some strange issues with an e1000 NIC.  I'm flooding it
-with tinygrams from a packet generator and then abruptly stop the
-generator.  The last few packets from the burst don't come through
-until after two seconds.  Sometimes there are multiple trailing
-bursts, each of them separated by two seconds.
+--=-T+HcrVsRNtFuhZ2bJkzx
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-For example:  (The low 24 bits of the destination address are set
-to the packet sequence number by the generator.)
+On Tue, 2005-03-01 at 14:53 +0100, Guillaume Thouvenin wrote:
+> On Tue, 2005-03-01 at 22:38 +0900, Kaigai Kohei wrote:
+> > > I tested without user space listeners and the cost is negligible. I w=
+ill
+> > > test with a user space listeners and see the results. I'm going to ru=
+n
+> > > the test this week after improving the mechanism that switch on/off t=
+he
+> > > sending of the message.
+> >=20
+> > I'm also trying to mesure the process-creation/destruction performance =
+on following three environment.
+> > Archtechture: i686 / Distribution: Fedora Core 3
+> > * Kernel Preemption is DISABLE
+> > * SMP kernel but UP-machine / Not Hyper Threading
+> > [1] 2.6.11-rc4-mm1 normal
+> > [2] 2.6.11-rc4-mm1 with PAGG based Process Accounting Module
+> > [3] 2.6.11-rc4-mm1 with fork-connector notification (it's enabled)
+> >=20
+> > When 367th-fork() was called after fork-connector notification, kernel =
+was locked up.
+> > (User-Space-Listener has been also run until 366th-fork() notification =
+was received)
+>=20
+> I don't see this limit on my computer. I'm currently running the lmbench
+> with a new fork connector patch (one that enable/disable fork connector)
+> on an SMP computer. I will send results and the new patch tomorrow
+> because the test takes a while...
+>=20
+> I'm using a small patch provided by Evgeniy and not included in the
+> 2.6.11-rc4-mm1 tree.
 
-14:44:19.649874 IP 10.10.0.0 > 1.4.10.11: [|tcp]
-14:44:19.649878 IP 10.10.0.0 > 1.4.10.12: [|tcp]
-14:44:19.649882 IP 10.10.0.0 > 1.4.10.13: [|tcp]
-14:44:19.649887 IP 10.10.0.0 > 1.4.10.14: [|tcp]
-14:44:19.649891 IP 10.10.0.0 > 1.4.10.15: [|tcp]
-14:44:19.649895 IP 10.10.0.0 > 1.4.10.16: [|tcp]
-14:44:19.649899 IP 10.10.0.0 > 1.4.10.17: [|tcp]
-14:44:21.650293 IP 10.10.0.0 > 1.4.10.18: [|tcp]		<=== delayed
-14:44:21.650303 IP 10.10.0.0 > 1.4.10.19: [|tcp]
-14:44:21.650308 IP 10.10.0.0 > 1.4.10.20: [|tcp]
-14:44:21.650312 IP 10.10.0.0 > 1.4.10.21: [|tcp]
-14:44:21.650316 IP 10.10.0.0 > 1.4.10.22: [|tcp]
-14:44:21.650320 IP 10.10.0.0 > 1.4.10.23: [|tcp]
-14:44:21.650324 IP 10.10.0.0 > 1.4.10.24: [|tcp]
-14:44:21.650328 IP 10.10.0.0 > 1.4.10.25: [|tcp]
-14:44:21.650332 IP 10.10.0.0 > 1.4.10.26: [|tcp]
+2.6.11-rc4-mm1 tree does not have the latest connector.
+Various fixes were added, not only that.
 
-I wrote the packet generator code myself (ixp2400 platform), but I've
-verified that the packets do leave the generator back-to-back.  What's
-also strange is that when these trailing bursts come in, the interface
-statistics counters do not change -- the packets in the trailing bursts
-have already been counted by the time they show up in tcpdump.
+I run the latest patch Guillaume sent to me(with small updates),=20
+fork bomb with more than 100k forks passed already without any freeze.
+I do not have numbers thought.
 
-Jamal suspects a NAPI 'rotting packet' issue, which doesn't sound all
-that unlikely.  (Oh, this is kernel 2.6.10-something with e1000 driver
-version "5.5.4-k2-NAPI".)
+> Best regards,
+> Guillaume
+>=20
+> --- orig/connector.c
+> +++ mod/connector.c
+> @@ -168,12 +168,11 @@
+>         group =3D NETLINK_CB((skb)).groups;
+>         msg =3D (struct cn_msg *)NLMSG_DATA(nlh);
+>=20
+> -       if (msg->len !=3D nlh->nlmsg_len - sizeof(*msg) - sizeof(*nlh)) {
+> +       if (NLMSG_SPACE(msg->len + sizeof(*msg)) !=3D nlh->nlmsg_len) {
+>                 printk(KERN_ERR "skb does not have enough length: "
+> -                               "requested msg->len=3D%u[%u], nlh->nlmsg_=
+len=3D%u[%u], skb->len=3D%u[must be %u].\n",
+> -                               msg->len, NLMSG_SPACE(msg->len),
+> -                               nlh->nlmsg_len, nlh->nlmsg_len - sizeof(*=
+nlh),
+> -                               skb->len, msg->len + sizeof(*msg));
+> +                               "requested msg->len=3D%u[%u], nlh->nlmsg_=
+len=3D%u, skb->len=3D%u.\n",
+> +                               msg->len, NLMSG_SPACE(msg->len + sizeof(*=
+msg)),
+> +                               nlh->nlmsg_len, skb->len);
+>                 kfree_skb(skb);
+>                 return -EINVAL;
+>         }
+>=20
+--=20
+        Evgeniy Polyakov
 
-Ideas?
+Crash is better than data corruption -- Arthur Grabowski
 
+--=-T+HcrVsRNtFuhZ2bJkzx
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-cheers,
-Lennert
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBCJHmVIKTPhE+8wY0RArr4AJ43/qPErT1WsYHIXDcSs3Z4g7tKCwCfSdjl
+s1xDdJ3ZZYS4zmbpUe3+J1M=
+=U897
+-----END PGP SIGNATURE-----
+
+--=-T+HcrVsRNtFuhZ2bJkzx--
