@@ -1,34 +1,39 @@
-From: James Morris <jmorris@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: 2.6.9-rc1-mm5: TCP oopses
-Date: Mon, 13 Sep 2004 23:04:24 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0409132303160.22907-100000@thoron.boston.redhat.com>
+Date: Tue, 14 Sep 2004 13:34:20 +1000
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <E1C745E-00024r-00@gondolin.me.apana.org.au>
 References: <20040913190858.12544431.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: akpm@osdl.org, <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: jmorris@redhat.com, akpm@osdl.org, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268670AbUINDen@vger.kernel.org>
+To: davem@davemloft.net (David S. Miller)
 In-Reply-To: <20040913190858.12544431.davem@davemloft.net>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004, David S. Miller wrote:
+David S. Miller <davem@davemloft.net> wrote:
+>
+> @@ -968,11 +972,17 @@
+>                return -EAGAIN;
+> 
+>        if (skb->len > cur_mss) {
+> +               int old_factor = TCP_SKB_CB(skb)->tso_factor;
+> +               int new_factor;
+> +
+>                if (tcp_fragment(sk, skb, cur_mss))
+>                        return -ENOMEM; /* We'll try again later. */
+> 
+>                /* New SKB created, account for it. */
+> -               tcp_inc_pcount(&tp->packets_out, skb);
+> +               new_factor = TCP_SKB_CB(skb)->tso_factor;
+> +               tcp_dec_pcount_explicit(&tp->packets_out,
+> +                                       new_factor - old_factor);
 
-> I think I fixed this one yesterday.  Callers of tcp_fragment()
-> in tcp_output.c were not accounting packets correctly.  I
-> believe this is what will fix it, and this is in Linus's
-> tree already.
+That should be tcp_inc_pcount_explicit.
 
-This patch is also in -mm5 (linus.patch), and the oopses go away when I 
-back it out.
-
-> I guess you have an e1000 in this box? :)
-
-Yes.
-
-
-- James
+Cheers,
 -- 
-James Morris
-<jmorris@redhat.com>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
