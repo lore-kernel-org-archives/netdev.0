@@ -1,28 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc2 1/12] S2io: cosmetic changes
-Date: Thu, 28 Oct 2004 15:06:37 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Update IPVS version number
+Date: Thu, 28 Oct 2004 12:26:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4181433D.7060101@pobox.com>
-References: <000d01c4bd1c$a8ef5e50$9810100a@S2IOtech.com> <41813EEC.5040703@pobox.com>
+Message-ID: <20041028122630.4feeab54.davem@davemloft.net>
+References: <Pine.LNX.4.44.0410290017450.5836-300000@penguin.linux-vs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
-        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
-        rapuru.sriram@s2io.com, alicia.pena@s2io.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@s2io.com
-In-Reply-To: <41813EEC.5040703@pobox.com>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.44.0410290017450.5836-300000@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Can you please re-diff and re-send patches #3 - #12 ?
+On Fri, 29 Oct 2004 00:21:27 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
+> Since there are some fixes in the IPVS code, it's good to update its 
+> version number. Please help apply the version number patch to kernel 2.6 
+> and 2.4 respectively.
 
-BTW, when you re-send, don't forget to format your emails just like you 
-did today -- including description, signed-off-by line, etc.
-
-Thanks,
-
-	Jeff
+Applied, thanks Wensong
