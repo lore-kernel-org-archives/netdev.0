@@ -1,51 +1,64 @@
-From: jamal <hadi@cyberus.ca>
+From: Kumar Gala <kumar.gala@freescale.com>
 Subject: Re: ethernet QoS support?
-Date: 09 Jul 2004 10:33:43 -0400
+Date: Fri, 9 Jul 2004 10:46:25 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089383622.1030.21.camel@jzny.localdomain>
-References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com>
-	 <200407091002.26410.vkondra@mail.ru>
-	 <1089379137.1047.242.camel@jzny.localdomain>
-	 <200407091641.35651.vkondra@mail.ru>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
+Message-ID: <2290273A-D1BF-11D8-B72C-000393DBC2E8@freescale.com>
+References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com> <40ED9A1C.4040707@pobox.com> <1089316845.1072.1.camel@jzny.localdomain> <200407091002.26410.vkondra@mail.ru>
+Mime-Version: 1.0 (Apple Message framework v618)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
-        Kumar Gala <kumar.gala@freescale.com>
+Cc: <hadi@cyberus.ca>, Kumar Gala <kumar.gala@motorola.com>,
+        <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <200407091002.26410.vkondra@mail.ru>
 To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200407091641.35651.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-07-09 at 09:41, Vladimir Kondratiev wrote:
 
-> So far, I have hardware related parts working. I rely on skb->priority to 
-> determine traffic class and select proper queue.
+On Jul 9, 2004, at 2:02 AM, Vladimir Kondratiev wrote:
 
-Who marks the skb->priority? Is that the default mark as per TOS?
-I think the VLAN code marks it as well.
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+>
+> I guess, Kumar is asking for support for several Tx queues with 
+> different
+> priorities. One need to start/stop these queues separately. This is 
+> dictated
+> by presense of different priorities on physical layer.
+>
+> Kumar, is it 802.11? WME or TGE?
 
-> All this worth nothing if one can't do separate queues. qdisc assignment for 
-> driver is not in driver's hands, so it can't do any assumptions.
->  Generic 
-> in-kernel support needed here. Stack should allow driver to request 
-> additional Tx queues, providing some classifiers for each one. I tried to 
-> imagine how to work it around, but there is no good solution without those 
-> several queues.
+I'm not sure what WME or TGE stand for, we are looking at a gig-e 
+controller.
 
-I dont think we should put intelligence at the driver level.
-We can have drivers configured via parameter to look at the priority
-field. Only then do they look at it; else use only single ring.
-When multi-ring is on, you intepret the priority. 
-priority field is set above driver based on which priority queue the
-packet was grabbed from (before sending to driver).
-
-> This mean, I will be able to deliver QoS support when network stack will make 
-> it possible.
-
-So what do you do now?
-
-cheers,
-jamal
+>
+> Vladimir.
+>
+> On Thursday 08 July 2004 23:00, jamal wrote:
+>> On Thu, 2004-07-08 at 15:01, Jeff Garzik wrote:
+>>> Kumar Gala wrote:
+>>>> Jeff,
+>>>>
+>>>> I was wondering if there was any support for handling ethernet 
+>>>> devices
+>>>> that support multiple RX/TX queues to provide QoS.  If so any 
+>>>> pointers
+>>>> would be great.
+>>>
+>>> IIRC skb->priority provides priority bands for TX.  Not sure about 
+>>> RX...
+>>> jamal?
+>>
+>> The question was very ambigous.
+>> What is it that Kumar is looking for? Is it 802.1p, IP level etc?
+>>
+>> cheers,
+>> jamal
+> -----BEGIN PGP SIGNATURE-----
+> Version: GnuPG v1.2.4 (GNU/Linux)
+>
+> iD8DBQFA7kMCqxdj7mhC6o0RAkeKAJ96kf49fbVy4qOjqqBBuNzmCteTrQCfU55Q
+> ke3RQ2prgMLEssvjeQIgegs=
+> =/KHu
+> -----END PGP SIGNATURE-----
