@@ -1,36 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Mon, 09 Jun 2003 10:21:31 -0700 (PDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.5.70+] warning in ethtool ixgb
+Date: Mon, 9 Jun 2003 10:51:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609.102131.73669235.davem@redhat.com>
-References: <16091.11735.721251.925522@robur.slu.se>
-	<20030602151852.GA6070@netnation.com>
-	<16091.32021.75335.227150@robur.slu.se>
+Message-ID: <20030609105106.0330bbec.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sim@netnation.com, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   kuznet@ms2.inr.ac.ru
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert.Olsson@data.slu.se
-In-Reply-To: <16091.32021.75335.227150@robur.slu.se>
+To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Robert Olsson <Robert.Olsson@data.slu.se>
-   Date: Mon, 2 Jun 2003 18:36:37 +0200
-   
-   Simon Kirby writes:
-   
-    > Is it possible to have a dst LRU or a simpler approximation of such and
-    > recycle dst entries rather than deallocating/reallocating them?  This
-    > would relieve a lot of work from the garbage collector and avoid the
-    > periodic large garbage collection latency.  It could be tuned to only
-    > occur in an attack (I remember Alexey saying that the deferred garbage
-    > collection was implemented to reduce latency in normal opreation).
-   
-    I don't see how this can be done. Others may?
+Looks like ethtool now knows about 10G devices in 2.5.70 bk-latest, so ixgb genrates a warning.
+This should fix that:
 
-Full recycle is very doable in 2.4.x, in 2.5.x is an enormously hard
-problem because we use RCU there (readers run completely without
-locks).
+diff -Nru a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
+--- a/drivers/net/ixgb/ixgb_ethtool.c	Mon Jun  9 10:49:01 2003
++++ b/drivers/net/ixgb/ixgb_ethtool.c	Mon Jun  9 10:49:01 2003
+@@ -50,9 +50,6 @@
+ 	return (IXGB_EEPROM_SIZE << 1);
+ }
+ 
+-#define SUPPORTED_10000baseT_Full (1 << 11)
+-#define SPEED_10000 10000
+-
+ static void
+ ixgb_ethtool_gset(struct ixgb_adapter *adapter, struct ethtool_cmd *ecmd)
+ {
