@@ -1,77 +1,49 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [1/2] CARP implementation. HA master's failover.
-Date: Thu, 15 Jul 2004 20:59:17 +0400
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Fragment ID wrap workaround (read-only, untested).
+Date: Thu, 15 Jul 2004 09:54:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089910757.6114.965.camel@uganda>
-References: <1089898303.6114.859.camel@uganda>
-	 <1089898595.6114.866.camel@uganda>
-	 <1089902654.1029.23.camel@jzny.localdomain>
-	 <1089905244.6114.887.camel@uganda>  <1089906936.6114.904.camel@uganda>
-	 <1089908900.1027.77.camel@jzny.localdomain>
-Reply-To: johnpol@2ka.mipt.ru
+Message-ID: <OF6D39F992.163676EB-ON88256ED2.005AF110-88256ED2.005CC82F@us.ibm.com>
+References: <20040715182735.3787c8b1.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-c6beA3+FFR3nBPyCcawT"
-Cc: netdev@oss.sgi.com, netfilter-failover@lists.netfilter.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com, rusty@au1.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1089908900.1027.77.camel@jzny.localdomain>
+In-Reply-To: <20040715182735.3787c8b1.ak@suse.de>
+To: Andi Kleen <ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Andi Kleen wrote on 07/15/2004 09:27:35 AM:
 
---=-c6beA3+FFR3nBPyCcawT
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> I'm well aware of the Gigabit+ NFS problem. My standard suggestion to 
+solve
+> it is to just get rid of NFS over UDP - it always was a bad idea.
 
-On Thu, 2004-07-15 at 20:28, jamal wrote:
-> On Thu, 2004-07-15 at 11:55, Evgeniy Polyakov wrote:
->=20
->=20
-> > > OpenBSD's CARP does load balancing through Source Hashing (SH), which
-> > UCARP=20
-> > > lacks support for.
-> >=20
-> > Userspace can't in principle.
-> > Current kernel implementation can't too, but it can. In principle.
->=20
-> Easy with current traffic control extensions. We need an action written
-> for this. User space dameon controls it.
+No disagreement here.
 
-Load balancing between different computers?
-How nodes will know about each other using only tc extension?
-Kernel traps packet, send info about it to userspace, it decides drop it
-or not... Not very fast path.
-Or you may hardcode parameters for packets to be sent through current
-machine in it's rules, and userspace will decide only _when_ apply all
-those rules. But if we want to change things we have following chain:
-driver <-0-> stack <-1-> tc <-2-> userspace carp <-3-> stack <-4-> other
-machine.
-With kernel implementation we may avoid 2 and 3.
+> My point was just that you're concentrating on that one only,
+> but you're potentially causing more problems for slow links.
+> The stack has to work well both for slow and fast links though.
 
-And the bigggest advantage of the CARP is that it may touch kernel bits.
-For any situation that may occure in HA world and will require touching
-kernel space we always need some inkernel agent and some state
-machine/protocol to connect it to userspace...
-CARP already may this.
+That's the problem it's intended to solve, but of course any
+actual solution would have to behave well for all links, and
+that's in fact the whole reason to have a dynamic frag queue
+timeout instead of a fixed one for all links. As long as the
+timeout is conservative without being so enormously so that it
+allows IP ID wrap, it shouldn't affect any existing use at all.
 
->=20
-> cheers,
-> jamal
---=20
-	Evgeniy Polaykov ( s0mbre )
+If the timeout were scaled to be only 10 (or 100!) times any reasonable
+expectation of success rather than thousands or tens of thousands
+of times too large, the problem wouldn't exist on fast links, and
+slow links would behave exactly as they do now.
 
-Crash is better than data corruption. -- Art Grabowski
-
---=-c6beA3+FFR3nBPyCcawT
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBA9rflIKTPhE+8wY0RAvxyAJ4s54HrUETsdr9DnLAQhbTb9xbJ6gCePj6T
-yi2OQh4jNy2XwD7OkCmjtAE=
-=JBey
------END PGP SIGNATURE-----
-
---=-c6beA3+FFR3nBPyCcawT--
+I agree that NFS over UDP should be dead as soon as possible,
+and fragmentation in general not far behind it. They aren't quite
+dead yet; until they are, why not make them better behaved? And
+if your argument is that it isn't worth fixing because it isn't
+used, then of course the argument that it'll break slow links to
+change it doesn't fly. Sites obviously have fast links where this
+can break, and done correctly, this shouldn't affect slow links
+at all. People who don't use NFS over UDP aren't affected by it
+either way, right? :-)
+                                                        +-DLS
