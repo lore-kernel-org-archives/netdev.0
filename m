@@ -1,37 +1,44 @@
-From: John Bradford <john@grabjohn.com>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 16:25:05 +0100
+From: James Carlson <carlson@workingcode.com>
+Subject: Re: [PATCH, untested] Support for PPPOE on SMP
+Date: Fri, 27 Jun 2003 11:27:40 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200306271525.h5RFP5K1001776@81-2-122-30.bradfords.org.uk>
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-   netdev@oss.sgi.com
+Message-ID: <16124.25196.268015.288718@h006008986325.ne.client2.attbi.com>
+References: <20030625.143334.85380461.davem@redhat.com>
+	<20030626035824.D68B62C147@lists.samba.org>
+	<20030625.205941.41631020.davem@redhat.com>
+	<16122.53298.150512.793074@h006008986325.ne.client2.attbi.com>
+	<20030626190407.S87648@shell.cyberus.ca>
+	<16124.11495.374998.153330@h006008986325.ne.client2.attbi.com>
+	<16124.13469.944716.441016@nanango.paulus.ozlabs.org>
+	<20030627075946.7ab6f591.shemminger@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Paul Mackerras <paulus@samba.org>, hadi@shell.cyberus.ca, davem@redhat.com,
+   rusty@rustcorp.com.au, netdev@oss.sgi.com, fcusack@samba.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, matti.aarnio@zmailer.org, mbligh@aracnet.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: Stephen Hemminger's message of 27 June 2003 07:59:46
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > Ok, responding so that the response appears also
-> > at the bug db is another story.
->
-> That is possible to do - there's patches to Bugzilla that implement an
-> email interface, but it has some problems like the one you pointed out
-> above. One possiblility is to make people manually do something to the
-> email for each reply, but that's rather ugly. 
->
-> Hopefully we can discuss this more at OLS this year, and get a plan 
-> going forward that people are happy with. I'm well aware that Bugzilla
-> is not the perefect tool, but I think it's better than what we had 
-> before (yeah, I know some of us disagree), and is easy to change.
-> I'd rather start with something simple, and evolve it to the needs of
-> the community than try dumping something complex onto people up front.
+Stephen Hemminger writes:
+> Does LLC allow for re-ordering?
 
-I did make the effort to make a dedicated bug database for kernel
-development in December last year.  Do people actively hate it, or are
-they just not aware of it?  :-).  I got some very favourable comments
-early on, and a review in a Linux magazine, but haven't had much
-feedback recently about it.  I was specifically trying to address the
-kind of problems we're seeing with Bugzilla...
+ANSI/IEEE Std 802.2, 1998, section 8.5.2.2 describes a common LLC type
+3 simplification that relies on MAC ordering.  This is used on media
+(such as Ethernet) that don't reorder.
 
-http://grabjohn.com/kernelbugdatabase
+I believe that LLC type 2 ought to be able to handle misordering and
+duplication, at least that's the intent of I-mode frames.  I don't
+know if this actually works in all implementations (after all,
+Ethernet doesn't reorder, so it's not as if anyone's really had to
+test it), but I can check one or two if someone cares.
 
-John.
+I'm not sure about LLC type 1.  It appears to expose the client to the
+ordering guarantees of the underlying MAC layer, and thus it's very
+likely the case that LLC type 1 clients make assumptions about known
+MAC types.
+
+-- 
+James Carlson                                  <carlson@workingcode.com>
