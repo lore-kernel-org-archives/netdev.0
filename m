@@ -1,32 +1,66 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC] Fix xfrm_tunnel leak
-Date: Tue, 1 Jun 2004 12:35:42 -0700
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH 7/17 linux-2.6.7-rc2] prism54: Fix endian patch
+Date: Sun, 30 May 2004 22:03:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040601123542.48e364e4.davem@redhat.com>
-References: <20040601122559.GA19761@gondor.apana.org.au>
+Message-ID: <5.1.0.14.2.20040530213959.00b07890@pop.t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+	boundary="=====================_50441250==_"
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040601122559.GA19761@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Jun 2004 22:25:59 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+--=====================_50441250==_
+Content-Type: text/plain; charset="us-ascii"; format=flowed
 
-> Turns out that the IPIP tunnel used by IPCOMP states are only freed
-> if the IPCOMP state is deleted by xfrm_state_delete.
-> 
-> This is not the case for all states.  For example, an immature IPCOMP
-> state that dies in add_sa will not go through xfrm_state_delete.
-> 
-> The following patch moves the delete_tunnel call into IPCOMP's
-> destructor.  I think it makes more sense there as IPCOMP is the
-> only user of the tunnel anyway.
+* Split out patch islpci_eth.c :
+* Fix endian problem (bug 74/75 related)
+--=====================_50441250==_
+Content-Type: application/octet-stream; name="07-fix-endian.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="07-fix-endian.patch"
 
-Looks perfect, patch applied.
-
-Thanks Herbert.
+ZGlmZiAtTmF1ckViIGxpbnV4LTIuNi42Y3QvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJpc201NC9p
+c2xwY2lfZXRoLmMgbGludXgtMi42LjYtMDEvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJpc201NC9p
+c2xwY2lfZXRoLmMKLS0tIGxpbnV4LTIuNi42Y3QvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJpc201
+NC9pc2xwY2lfZXRoLmMJMjAwNC0wNS0yOCAxNDo0MDoyNi45OTY0NTQ3NDQgKzAyMDAKKysrIGxp
+bnV4LTIuNi42LTAxL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQvaXNscGNpX2V0aC5jCTIw
+MDQtMDUtMjggMTQ6MjU6MzAuMDY1ODA4OTI4ICswMjAwCkBAIC0yNjIsOSArMjYyLDkgQEAKIAlp
+ZiAocHJpdi0+bmRldi0+dHlwZSA9PSBBUlBIUkRfSUVFRTgwMjExX1BSSVNNKSB7CiAJCXN0cnVj
+dCBhdnNfODAyMTFfMV9oZWFkZXIgKmF2czsKIAkJLyogZXh0cmFjdCB0aGUgcmVsZXZhbnQgZGF0
+YSBmcm9tIHRoZSBoZWFkZXIgKi8KLQkJdTMyIGNsb2NrID0gaGRyLT5jbG9jazsKKwkJdTMyIGNs
+b2NrID0gbGUzMl90b19jcHUoaGRyLT5jbG9jayk7CiAJCXU4IHJhdGUgPSBoZHItPnJhdGU7Ci0J
+CXUxNiBmcmVxID0gYmUxNl90b19jcHUoaGRyLT5mcmVxKTsKKwkJdTE2IGZyZXEgPSBsZTE2X3Rv
+X2NwdShoZHItPmZyZXEpOwogCQl1OCByc3NpID0gaGRyLT5yc3NpOwogCiAJCXNrYl9wdWxsKCpz
+a2IsIHNpemVvZiAoc3RydWN0IHJmbW9uX2hlYWRlcikpOwpAQCAtMjg4LDIwICsyODgsMjAgQEAK
+IAkJCQkJCQkgICBzaXplb2YgKHN0cnVjdAogCQkJCQkJCQkgICBhdnNfODAyMTFfMV9oZWFkZXIp
+KTsKIAotCQlhdnMtPnZlcnNpb24gPSBodG9ubChQODAyMTFDQVBUVVJFX1ZFUlNJT04pOwotCQlh
+dnMtPmxlbmd0aCA9IGh0b25sKHNpemVvZiAoc3RydWN0IGF2c184MDIxMV8xX2hlYWRlcikpOwot
+CQlhdnMtPm1hY3RpbWUgPSBfX2NwdV90b19iZTY0KGNsb2NrKTsKLQkJYXZzLT5ob3N0dGltZSA9
+IF9fY3B1X3RvX2JlNjQoamlmZmllcyk7Ci0JCWF2cy0+cGh5dHlwZSA9IGh0b25sKDYpOwkvKk9G
+RE06IDYgZm9yIChnKSwgOCBmb3IgKGEpICovCi0JCWF2cy0+Y2hhbm5lbCA9IGh0b25sKGNoYW5u
+ZWxfb2ZfZnJlcShmcmVxKSk7Ci0JCWF2cy0+ZGF0YXJhdGUgPSBodG9ubChyYXRlICogNSk7Ci0J
+CWF2cy0+YW50ZW5uYSA9IGh0b25sKDApOwkvKnVua25vd24gKi8KLQkJYXZzLT5wcmlvcml0eSA9
+IGh0b25sKDApOwkvKnVua25vd24gKi8KLQkJYXZzLT5zc2lfdHlwZSA9IGh0b25sKDIpOwkvKjI6
+IGRCbSwgMzogcmF3IFJTU0kgKi8KLQkJYXZzLT5zc2lfc2lnbmFsID0gaHRvbmwocnNzaSk7Ci0J
+CWF2cy0+c3NpX25vaXNlID0gaHRvbmwocHJpdi0+bG9jYWxfaXdzdGF0aXN0aWNzLnF1YWwubm9p
+c2UpOwkvKmJldHRlciB0aGFuICd1bmRlZmluZWQnLCBJIGFzc3VtZSAqLwotCQlhdnMtPnByZWFt
+YmxlID0gaHRvbmwoMCk7CS8qdW5rbm93biAqLwotCQlhdnMtPmVuY29kaW5nID0gaHRvbmwoMCk7
+CS8qdW5rbm93biAqLworCQlhdnMtPnZlcnNpb24gPSBjcHVfdG9fYmUzMihQODAyMTFDQVBUVVJF
+X1ZFUlNJT04pOworCQlhdnMtPmxlbmd0aCA9IGNwdV90b19iZTMyKHNpemVvZiAoc3RydWN0IGF2
+c184MDIxMV8xX2hlYWRlcikpOworCQlhdnMtPm1hY3RpbWUgPSBjcHVfdG9fYmU2NChsZTY0X3Rv
+X2NwdShjbG9jaykpOworCQlhdnMtPmhvc3R0aW1lID0gY3B1X3RvX2JlNjQoamlmZmllcyk7CisJ
+CWF2cy0+cGh5dHlwZSA9IGNwdV90b19iZTMyKDYpOwkvKk9GRE06IDYgZm9yIChnKSwgOCBmb3Ig
+KGEpICovCisJCWF2cy0+Y2hhbm5lbCA9IGNwdV90b19iZTMyKGNoYW5uZWxfb2ZfZnJlcShmcmVx
+KSk7CisJCWF2cy0+ZGF0YXJhdGUgPSBjcHVfdG9fYmUzMihyYXRlICogNSk7CisJCWF2cy0+YW50
+ZW5uYSA9IGNwdV90b19iZTMyKDApOwkvKnVua25vd24gKi8KKwkJYXZzLT5wcmlvcml0eSA9IGNw
+dV90b19iZTMyKDApOwkvKnVua25vd24gKi8KKwkJYXZzLT5zc2lfdHlwZSA9IGNwdV90b19iZTMy
+KDMpOwkvKjI6IGRCbSwgMzogcmF3IFJTU0kgKi8KKwkJYXZzLT5zc2lfc2lnbmFsID0gY3B1X3Rv
+X2JlMzIocnNzaSAmIDB4N2YpOworCQlhdnMtPnNzaV9ub2lzZSA9IGNwdV90b19iZTMyKHByaXYt
+PmxvY2FsX2l3c3RhdGlzdGljcy5xdWFsLm5vaXNlKTsJLypiZXR0ZXIgdGhhbiAndW5kZWZpbmVk
+JywgSSBhc3N1bWUgKi8KKwkJYXZzLT5wcmVhbWJsZSA9IGNwdV90b19iZTMyKDApOwkvKnVua25v
+d24gKi8KKwkJYXZzLT5lbmNvZGluZyA9IGNwdV90b19iZTMyKDApOwkvKnVua25vd24gKi8KIAl9
+IGVsc2UKIAkJc2tiX3B1bGwoKnNrYiwgc2l6ZW9mIChzdHJ1Y3QgcmZtb25faGVhZGVyKSk7CiAK
+--=====================_50441250==_--
