@@ -1,100 +1,100 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/netlink/af_netlink.c: possible cleanups
-Date: Wed, 15 Dec 2004 01:46:04 +0100
-Message-ID: <20041215004604.GH23151@stusta.de>
+Subject: [2.6 patch] net/packet/af_packet.c: make some code static
+Date: Wed, 15 Dec 2004 01:47:45 +0100
+Message-ID: <20041215004745.GI23151@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@redhat.com>, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch below contains the following possible cleanups:
-- make the needlessly global function netlink_getsockbypid static
-- remove the EXPORT_SYMBOL'ed but unused functions netlink_attach and 
-  netlink_detach
-
-Please review whether these changes are correct or whether they conflict 
-with pending patches.
+The patch below makes some needlessly global code static.
 
 
 diffstat output:
- include/linux/netlink.h  |    3 ---
- net/netlink/af_netlink.c |   28 +---------------------------
- 2 files changed, 1 insertion(+), 30 deletions(-)
+ net/packet/af_packet.c |   21 +++++++++++----------
+ 1 files changed, 11 insertions(+), 10 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/include/linux/netlink.h.old	2004-12-14 21:43:16.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/linux/netlink.h	2004-12-14 21:44:27.000000000 +0100
-@@ -116,8 +116,6 @@
- #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
+--- linux-2.6.10-rc3-mm1-full/net/packet/af_packet.c.old	2004-12-14 21:47:49.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/packet/af_packet.c	2004-12-14 21:50:25.000000000 +0100
+@@ -145,10 +145,10 @@
+  */
+ 
+ /* List of all packet sockets. */
+-HLIST_HEAD(packet_sklist);
++static HLIST_HEAD(packet_sklist);
+ static rwlock_t packet_sklist_lock = RW_LOCK_UNLOCKED;
+ 
+-atomic_t packet_socks_nr;
++static atomic_t packet_socks_nr;
  
  
--extern int netlink_attach(int unit, int (*function)(int,struct sk_buff *skb));
--extern void netlink_detach(int unit);
- extern int netlink_post(int unit, struct sk_buff *skb);
- extern struct sock *netlink_kernel_create(int unit, void (*input)(struct sock *sk, int len));
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
-@@ -129,7 +127,6 @@
- extern int netlink_unregister_notifier(struct notifier_block *nb);
+ /* Private packet socket structures. */
+@@ -215,7 +215,7 @@
  
- /* finegrained unicast helpers: */
--struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid);
- struct sock *netlink_getsockbyfilp(struct file *filp);
- int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock, long timeo);
- void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
---- linux-2.6.10-rc3-mm1-full/net/netlink/af_netlink.c.old	2004-12-14 21:43:31.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/netlink/af_netlink.c	2004-12-14 21:44:34.000000000 +0100
-@@ -546,7 +546,7 @@
+ #define pkt_sk(__sk) ((struct packet_opt *)(__sk)->sk_protinfo)
+ 
+-void packet_sock_destruct(struct sock *sk)
++static void packet_sock_destruct(struct sock *sk)
+ {
+ 	BUG_TRAP(!atomic_read(&sk->sk_rmem_alloc));
+ 	BUG_TRAP(!atomic_read(&sk->sk_wmem_alloc));
+@@ -234,10 +234,10 @@
+ }
+ 
+ 
+-extern struct proto_ops packet_ops;
++static struct proto_ops packet_ops;
+ 
+ #ifdef CONFIG_SOCK_PACKET
+-extern struct proto_ops packet_ops_spkt;
++static struct proto_ops packet_ops_spkt;
+ 
+ static int packet_rcv_spkt(struct sk_buff *skb, struct net_device *dev,  struct packet_type *pt)
+ {
+@@ -1350,8 +1350,8 @@
  	}
  }
  
--struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
-+static struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
+-int packet_getsockopt(struct socket *sock, int level, int optname,
+-		      char __user *optval, int __user *optlen)
++static int packet_getsockopt(struct socket *sock, int level, int optname,
++			     char __user *optval, int __user *optlen)
  {
- 	int protocol = ssk->sk_protocol;
- 	struct sock *sock;
-@@ -1210,30 +1210,6 @@
-  *	Backward compatibility.
-  */	
-  
--int netlink_attach(int unit, int (*function)(int, struct sk_buff *skb))
--{
--	struct sock *sk = netlink_kernel_create(unit, NULL);
--	if (sk == NULL)
--		return -ENOBUFS;
--	nlk_sk(sk)->handler = function;
--	write_lock_bh(&nl_emu_lock);
--	netlink_kernel[unit] = sk->sk_socket;
--	write_unlock_bh(&nl_emu_lock);
--	return 0;
--}
--
--void netlink_detach(int unit)
--{
--	struct socket *sock;
--
--	write_lock_bh(&nl_emu_lock);
--	sock = netlink_kernel[unit];
--	netlink_kernel[unit] = NULL;
--	write_unlock_bh(&nl_emu_lock);
--
--	sock_release(sock);
--}
--
- int netlink_post(int unit, struct sk_buff *skb)
- {
- 	struct socket *sock;
-@@ -1522,7 +1498,5 @@
- EXPORT_SYMBOL(netlink_unregister_notifier);
+ 	int len;
+ 	struct sock *sk = sock->sk;
+@@ -1500,7 +1500,8 @@
+ #define packet_poll datagram_poll
+ #else
  
- #if defined(CONFIG_NETLINK_DEV) || defined(CONFIG_NETLINK_DEV_MODULE)
--EXPORT_SYMBOL(netlink_attach);
--EXPORT_SYMBOL(netlink_detach);
- EXPORT_SYMBOL(netlink_post);
+-unsigned int packet_poll(struct file * file, struct socket *sock, poll_table *wait)
++static unsigned int packet_poll(struct file * file, struct socket *sock,
++				poll_table *wait)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct packet_opt *po = pkt_sk(sk);
+@@ -1747,7 +1748,7 @@
+ 
+ 
+ #ifdef CONFIG_SOCK_PACKET
+-struct proto_ops packet_ops_spkt = {
++static struct proto_ops packet_ops_spkt = {
+ 	.family =	PF_PACKET,
+ 	.owner =	THIS_MODULE,
+ 	.release =	packet_release,
+@@ -1769,7 +1770,7 @@
+ };
  #endif
+ 
+-struct proto_ops packet_ops = {
++static struct proto_ops packet_ops = {
+ 	.family =	PF_PACKET,
+ 	.owner =	THIS_MODULE,
+ 	.release =	packet_release,
