@@ -1,60 +1,27 @@
-From: Michal Ostrowski <mostrows@watson.ibm.com>
-Subject: Deadlock in sungem/ip_auto_config/linkwatch
-Date: Mon, 05 Jan 2004 08:07:58 -0500
+From: Amir Noam <amir.noam@intel.com>
+Subject: [PATCH 0/3] [bonding 2.4] Using per-bond parameters
+Date: Mon, 5 Jan 2004 17:25:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1073307882.2041.98320.camel@brick.watson.ibm.com>
+Message-ID: <200401051725.08348.amir.noam@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-VstyQxFiTA9BMsLFyv50"
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "Jeff Garzik" <jgarzik@pobox.com>, "Jay Vosburgh" <fubar@us.ibm.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The following patch set makes each bonding interface keep its own set 
+of parameters, rather than use global values.
 
---=-VstyQxFiTA9BMsLFyv50
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+This is the first step necessary to allow the configuration of 
+different parameters to different bonding interfaces.
 
-I believe I've found a potential deadlock condition.
+The patches are against the netdev-2.4 tree (after Shmulik's 'update 
+comment blocks' patch).
 
-It occurs when we make the following sequence of calls:
-
-ip_auto_config
-ic_open_devs
-dev_change_flags
-dev_open
-gem_open
-flush_scheduled_work
-
-ic_open_devs grabs rtnl_sem with an rtnl_shlock() call.
-
-The sungem driver at some point calls gem_init_one, which calls
-netif_carrier_*, which in turn calls schedule_work (linkwatch_event).
-
-linkwatch_event in turn needs rtnl_sem.
-
-If we enter the call sequence above and linkwatch_event is still
-pending, we will deadlock since flush_scheduled_work will wait for
-completion of linkwatch_event, which is blocked since it cannot get
-rtnl_sem.
-
-In general when can one call flush_scheduled_work?  It seems that one
-can't unless you know your callers aren't holding any locks.
-
-
---=20
-Michal Ostrowski <mostrows@watson.ibm.com>
-
---=-VstyQxFiTA9BMsLFyv50
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQA/+WDqDMDCqU5zPMARAmTwAJ9ujgnF4BI4AVvkhSQ5YgJXBx+sXACfXT+z
-rx8XL7PYFznObN8IXIZqAW8=
-=HBFR
------END PGP SIGNATURE-----
-
---=-VstyQxFiTA9BMsLFyv50--
+-- 
+Amir
