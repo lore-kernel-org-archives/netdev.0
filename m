@@ -1,26 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] handle slip module unload race better.
-Date: Thu, 12 Jun 2003 17:55:32 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030612.175532.78736834.davem@redhat.com>
-References: <20030612132714.6b8e1267.shemminger@osdl.org>
-	<20030612.145803.112592736.davem@redhat.com>
-	<20030612161243.01052de0.shemminger@osdl.org>
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Problem while using VLAN
+Date: Thu, 12 Jun 2003 18:12:08 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3EE924E8.8080003@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: viro@parcelfarce.linux.theplanet.co.uk, jgarzik@pobox.com,
-   netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030612161243.01052de0.shemminger@osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Thu, 12 Jun 2003 16:12:43 -0700
-   
-   Okay, this patch does that. I could start and unload slip, but could
-   not actually trigger the failure.
+Hi,
 
-Applied, thanks.
+I am trying to configure a few thousand (< 5000) VLAN devices on 2.5.70, and use 
+following commands (in a loop) :
+
+	vconfig add eth0 $i$j
+	ifconfig eth0.$i$j 10.0.$i.$j broadcast <> netmask <> up
+	ifconfig eth0.$i$j add fec0:1:2:$i::$j/64
+
+I get following problems :
+	1. After some time, I lose the link local and site local addresses on my eth0 
+and eth1 interfaces which were added through autoconfig.
+	2. After some time, I lose link local and site addresses on all VLAN devices 
+(after creating a few thousand devices).
+	3. I find two devices for each created device, eg two eth0.232 or eth0.45 
+devices. So if I create 100 devices, I get 200.
+
+Is there any reason for this to happen, and am I doing something wrong ? 
+Alternatively, any fixes for this ?
+
+Thanks,
+
+- KK
+
+
