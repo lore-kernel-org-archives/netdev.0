@@ -1,46 +1,40 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [2.6.9] Networking crash, slightly exotic setup, bridged tap/tun
- interfaces
-Date: Mon, 13 Dec 2004 22:21:30 -0200
-Message-ID: <41BE320A.8090201@conectiva.com.br>
-References: <20041214105245.32c9b1a6.random@72616e646f6d20323030342d30342d31360a.nosense.org>	<41BE2B20.5080602@conectiva.com.br> <20041214113036.3ccb3480.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][v3][16/21] IPoIB IPv6 support
+Date: Tue, 14 Dec 2004 11:30:23 +0900 (JST)
+Message-ID: <20041214.113023.65866789.yoshfuji@linux-ipv6.org>
+References: <20041213109.5NKezuGE9PMejMSM@topspin.com>
+	<20041213109.iziHvQZqtmP83gmx@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
-In-Reply-To: <20041214113036.3ccb3480.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: roland@topspin.com
+In-Reply-To: <20041213109.iziHvQZqtmP83gmx@topspin.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Mark Smith wrote:
-> Hi Arnaldo,
-> 
-> Thanks for getting back to me so quickly.
+In article <20041213109.iziHvQZqtmP83gmx@topspin.com> (at Mon, 13 Dec 2004 10:09:46 -0800), Roland Dreier <roland@topspin.com> says:
 
-:-)
+>  }
+> @@ -1794,6 +1801,7 @@
+>  	if ((dev->type != ARPHRD_ETHER) && 
+>  	    (dev->type != ARPHRD_FDDI) &&
+>  	    (dev->type != ARPHRD_IEEE802_TR) &&
+> +	    (dev->type != ARPHRD_INFINIBAND) &&
+>  	    (dev->type != ARPHRD_ARCNET)) {
+>  		/* Alas, we support only Ethernet autoconfiguration. */
+>  		return;
 
-> On Mon, 13 Dec 2004 21:52:00 -0200
-> Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
-> 
-> 
->>Mark Smith wrote:
->>
->>>My kernel is only slightly modified from vanilla 2.6.9 - I've
->>>increased
->>
->>Can you reproduce this with 2.6.10-rc3? 2.6.9 had several networking
->>bugs fixed already in 2.6.10-rc3.
->>
-> 
-> 
-> I'll install that, and report back a bit later. I've tended to stick to
-> "full figure" kernels to stay a bit more stable.
+Please put ARPHRD_INFINIBAND after ARPHRD_ARCNET like other places.
 
-Yeah, I understand, 2.6.10 final is taking a long time to brew, hopefully
-this time around we'll manage to get something more solid than the previous
-ones.
-
-- Arnaldo
+--yoshfuji
