@@ -1,38 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: comment about struct tcp_tw_bucket in struct sock
-Date: Wed, 14 May 2003 13:02:32 -0700 (PDT)
+From: davej@codemonkey.org.uk
+Subject: missing netrom patch in 2.5
+Date: Thu, 15 May 2003 04:31:14 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030514.130232.88490119.davem@redhat.com>
-References: <20030514192305.GB31303@Wotan.suse.de>
-	<20030514.123421.85395571.davem@redhat.com>
-	<20030514195731.GC31303@Wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: olh@suse.de, marcelo@conectiva.com.br, netdev@oss.sgi.com
+Message-ID: <200305150331.h4F3VESL000719@deviant.impure.org.uk>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20030514195731.GC31303@Wotan.suse.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andi Kleen <ak@suse.de>
-   Date: Wed, 14 May 2003 21:57:31 +0200
+This went into 2.4 a year back in 2.4.19pre1-pre2,
+and is still missing in current 2.5
 
-   When they cut'n'paste structures they're completely on their own ...
-   
-Depends upon who's willing to support them.
-
-   I hope you will never let stop such an omnious third party module
-   you from doing any bug fix or optimization.
-   
-Aha, you're right and _I_ don't need to worry about this.  I'm merely
-saying some vendor's _might_. :-)
-
-But see, since it only matters in the main kernel, every attempt to
-change the layout of struct sock will go through me before it hits the
-vanilla tree, so as a result I'll catch such problems and we thus have
-no problems :-)
-
-You can't have it both ways Andi, either we care about arbitrary third
-parties do or we don't.
+diff -urpN --exclude-from=/home/davej/.exclude bk-linus/net/netrom/nr_loopback.c linux-2.5/net/netrom/nr_loopback.c
+--- bk-linus/net/netrom/nr_loopback.c	2003-04-10 06:01:43.000000000 +0100
++++ linux-2.5/net/netrom/nr_loopback.c	2003-03-17 23:43:10.000000000 +0000
+@@ -76,6 +76,9 @@ static void nr_loopback_timer(unsigned l
+ 		if (dev == NULL || nr_rx_frame(skb, dev) == 0)
+ 			kfree_skb(skb);
+ 
++		if (dev != NULL)
++			dev_put(dev);
++
+ 		if (!skb_queue_empty(&loopback_queue) && !nr_loopback_running())
+ 			nr_set_loopback_timer();
+ 	}
