@@ -1,56 +1,35 @@
-From: Petr Vandrovec <vandrove@vc.cvut.cz>
-Subject: Known problems with TCP window size on 2.6.7?
-Date: Wed, 27 Oct 2004 13:06:17 +0200
+From: ext Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH] Add ability to register class interfaces for network class
+Date: Wed, 27 Oct 2004 12:13:17 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027110617.GA28757@vana.vc.cvut.cz>
+Message-ID: <20041027111317.GA27240@infradead.org>
+References: <20041026183526.GA23535@two.research.nokia.com> <20041026184838.GB16621@infradead.org> <20041026205239.GA23825@two.research.nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: ext Christoph Hellwig <hch@infradead.org>, davem@davemloft.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "Teras Timo (EXT-YomiGroup/Helsinki)" <Ext-Timo.Teras@nokia.com>
 Content-Disposition: inline
+In-Reply-To: <20041026205239.GA23825@two.research.nokia.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-   are there some known problems with 2.6.7 and TCP window growing up over limits?  
-usermap is running 2.6.7-bk1, regata1 is running some AIX5.
+> I pointed out the reason why I need it: to add an attribute:
+> /sys/class/net/<interface>/<new_attribute>. Others might want to do this
+> too.
+> 
+> Also the interface subsystem is used in many places (eg. i2o) to create
+> all the sysfs entries. Maybe it'd be useful to do in net class as well.
+> And if'd make separate interfaces for standard attributes and wireless
+> attributes. That way you'd get rid of the #ifdefs of WIRELESS_EXT in
+> net-sysfs.c.
+> 
+> On the other hand you didn't answer my question: why the
+> interface registration should not be possible?
+> Documentation/driver-model/interface.txt states that this is exactly the
+> thing it should be used for.
 
-   It seems that at startup they do not agree on using window scaling, yet Linux grows
-window above 64KB, throwing away high window size bit, and very bad things happen after 
-that - AIX is confused that our window shrunk (which is illegal, I'd say) and switches 
-to some strange "1 packet every 200ms" mode.
-
-   In this state connection stays until it is closed (which takes over 10 hours
-with transfer we want to perform).  Our window never goes back from 449 anywhere (and
-values depend on tranfered data; sometime it ends up with window size 328 and others;
-I saw different values in range 200-500).
-
-   I was using this kernel since middle of June, and it worked flawlessly until
-about three weeks ago when large SQL transfer started needing over 10 hours instead 
-of less than 1 minute they were taking just day before.
-
-
-12:44:17.564459 IP regata1.1526 > usermap.52501: P 588189:588844(655) ack 43805 win 65535
-12:44:17.568496 IP usermap.52501 > regata1.1526: P 43805:43853(48) ack 588844 win 63040
-12:44:17.646162 IP regata1.1526 > usermap.52501: . ack 43853 win 65535
-12:44:17.706182 IP regata1.1526 > usermap.52501: P 588844:589508(664) ack 43853 win 65535
-12:44:17.710367 IP usermap.52501 > regata1.1526: P 43853:43901(48) ack 589508 win 63040
-12:44:17.846308 IP regata1.1526 > usermap.52501: . ack 43901 win 65535
-12:44:17.893726 IP regata1.1526 > usermap.52501: P 589508:590203(695) ack 43901 win 65535
-12:44:17.897917 IP usermap.52501 > regata1.1526: P 43901:43949(48) ack 590203 win 64395
-                                                                                  ^^^^^
-12:44:18.046237 IP regata1.1526 > usermap.52501: . ack 43949 win 65535
-12:44:18.080419 IP regata1.1526 > usermap.52501: P 590203:590980(777) ack 43949 win 65535
-12:44:18.084746 IP usermap.52501 > regata1.1526: P 43949:43997(48) ack 590980 win 449
-                                                                                  ^^^
-12:44:18.246438 IP regata1.1526 > usermap.52501: . 590980:591429(449) ack 43997 win 65535
-12:44:18.288637 IP usermap.52501 > regata1.1526: . ack 591429 win 449
-12:44:18.288863 IP regata1.1526 > usermap.52501: P 591429:591670(241) ack 43997 win 65535
-12:44:18.289094 IP usermap.52501 > regata1.1526: . ack 591670 win 449
-12:44:18.292995 IP usermap.52501 > regata1.1526: P 43997:44045(48) ack 591670 win 449
-12:44:18.446430 IP regata1.1526 > usermap.52501: . 591670:592119(449) ack 44045 win 65535
-12:44:18.488626 IP usermap.52501 > regata1.1526: . ack 592119 win 449
-
-
-						Thanks,
-							Petr Vandrovec
+Because we don't add interfaces for the sake of it. You still haven't show
+the user that wants this.  i you presented a sane user the review would be
+quite different.
