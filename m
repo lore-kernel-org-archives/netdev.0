@@ -1,38 +1,48 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPv6 Extension Headers with UDP
-Date: Fri, 16 Apr 2004 19:36:15 +0900 (JST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] Mixed PCI/ISA device name conflicts
+Date: Fri, 16 Apr 2004 09:46:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040416.193615.62247078.yoshfuji@linux-ipv6.org>
+Message-ID: <20040416094614.5d5775dd@dell_ss3.pdx.osdl.net>
+References: <20031222091115.42dd5f1f.shemminger@osdl.org>
+	<405F994B.6080501@pobox.com>
+	<20040329153236.0cf427c9@dell_ss3.pdx.osdl.net>
+	<407C33A4.3010804@pobox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, takamiya@po.ntts.co.jp, usagi-core@linux-ipv6.org,
-        yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <407C33A4.3010804@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+In systems with mixed network cards, and all drivers compiled into
+the kernel; the PCI device (eth0) will get probed first, before the ISA.
 
-D: Fix SEGV when sending UDPv6 with extension headers using ancillary data. (fix is based on patch from <takamiya@po.ntts.co.jp>)
+The problem is that the ISA device can mistakenly try to probe
+for eth0.  The problem is that the ISA driver will not detect the failure
+until it goes to call register_netdevice, and not all drivers have
+perfect error unwind code. 
 
-Thanks.
+This patch short circuits the device probe, so it won't bother
+looking for devices that already are registered.
 
---yoshfuji
-
-===== net/ipv6/udp.c 1.60 vs edited =====
---- 1.60/net/ipv6/udp.c	Wed Feb 25 17:17:45 2004
-+++ edited/net/ipv6/udp.c	Fri Apr 16 19:23:38 2004
-@@ -913,6 +913,7 @@
- 	if (msg->msg_controllen) {
- 		opt = &opt_space;
- 		memset(opt, 0, sizeof(struct ipv6_txoptions));
-+		opt->tot_len = sizeof(*opt);
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	Fri Apr 16 09:37:20 2004
++++ b/net/core/dev.c	Fri Apr 16 09:37:20 2004
+@@ -432,6 +432,14 @@
+ 	int i;
  
- 		err = datagram_send_ctl(msg, fl, opt, &hlimit);
- 		if (err < 0) {
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+ 	sprintf(name, "%s%d", prefix, unit);
++
++	/*
++	 * If device already registered then return base of 1
++	 * to indicate not to probe for this interface
++	 */
++	if (__dev_get_by_name(name))
++		return 1;
++
+ 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++)
+ 		if (!strcmp(name, s[i].name))
+ 			return s[i].map.base_addr;
