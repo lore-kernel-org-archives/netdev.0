@@ -1,43 +1,40 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: Patch: Idea for RFC2863 conform OperStatus
-Date: Mon, 14 Oct 2002 09:01:50 -0400 (EDT)
+Date: Mon, 14 Oct 2002 09:11:41 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210140851220.26803-100000@shell.cyberus.ca>
-References: <200210132204.CAA09385@sex.inr.ac.ru>
+Message-ID: <Pine.GSO.4.30.0210140901570.26803-100000@shell.cyberus.ca>
+References: <3DAABBAE.79E22EB6@isg.de>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Cc: <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <200210132204.CAA09385@sex.inr.ac.ru>
+To: Stefan Rompf <srompf@isg.de>
+In-Reply-To: <3DAABBAE.79E22EB6@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-On Mon, 14 Oct 2002 kuznet@ms2.inr.ac.ru wrote:
+On Mon, 14 Oct 2002, Stefan Rompf wrote:
 
-> Hello!
+> Alexey, Jamal,
 >
-> > Actually the extra flags are only valid when IFF_RUNNING is not set.
+> the first version of this patch just added the feature to distribute
+> state changes created by netif_carrier_on()/_off() inside the kernel and
+> to netlink via netdev_state_change(). This is still the part most
+> important to me - not only in 2.5, but also as a 2.4 backport.
 >
-> Even so...
->
-> Well, then I am inclined not to agree to give even one of those valuable
-> 16 spare bits for this. :-)
->
-> I cannot imagine how much should I drink to consider states descibed
-> in this rfc as a valid abstraction. Device can be working and can be dead
-> by thousands of reasons. The best which I can propose is to show a string
-> somewhere in /proc (well, or as a _string_ attribute in RTM_NEWLINK),
-> explaining why device is not alive and let snmpd to translate this string
-> to these bogus states to generate traps.
+> I don't think RFC2863 state keeping makes much sense if we cannot
+> forward the results to userspace. So if you are happy with keeping the
+> current semantics, but using the more sophisticated implementation of
+> forwarding worked out last weekend, I'll be happy to provide a new patch
+> (also adressing Jamal's nitpicks). Just agree on one way.
 
-;-> Believe it or not people use these things to draw nice GUI
-representations (search for lowerLayerDown at cisco for example);
-how we represent them shouldnt matter whether its via ifi_flags, /proc
-etc. Infact it should also be fine if we dont propagate them to user space
-for now, but the abstraction should stay in the kernel at least.
+the RFC2863 semantics should stay; the thing we havent agreed on is
+how to do it. Maybe for the first phase patch you dont need to expose them
+to user space - maybe in the way Alexey suggested as attributes without
+loosing any of the flag bits...
+Alexey should make that call.
 
 cheers,
 jamal
