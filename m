@@ -1,63 +1,44 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: Intel and TOE in the news
-Date: 22 Feb 2005 23:42:37 +0100
-Message-ID: <20050222224237.GB60153@muc.de>
-References: <20050222214345.GA51890@muc.de> <200502222218.j1MMIVDD007619@guinness.s2io.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [rft/update] r8169 changes in 2.6.x
+Date: Wed, 23 Feb 2005 00:48:10 +0100
+Message-ID: <20050222234810.GA17303@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'Stephen Hemminger'" <shemminger@osdl.org>, hadi@cyberus.ca,
-        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
-        "'Alex Aizman'" <alex@neterion.com>
-Date: Tue, 22 Feb 2005 23:42:37 +0100
-To: Leonid Grossman <leonid.grossman@neterion.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        Jon Mason <jdmason@us.ibm.com>,
+        Richard Dawe <rich@phekda.gotadsl.co.uk>,
+        Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <200502222218.j1MMIVDD007619@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 22, 2005 at 02:17:35PM -0800, Leonid Grossman wrote:
->  
-> 
-> > -----Original Message-----
-> > From: Andi Kleen [mailto:ak@muc.de] 
-> > Sent: Tuesday, February 22, 2005 1:44 PM
-> > To: Leonid Grossman
-> > Cc: 'Stephen Hemminger'; hadi@cyberus.ca; 'rick jones'; 
-> > netdev@oss.sgi.com; 'Alex Aizman'
-> > Subject: Re: Intel and TOE in the news
-> > 
-> > > TSO case is probably different - TSO hardware just sets PSH on the 
-> > > last fragment only (and only if the flag was set on the 
-> > original large 
-> > > tx packet). Receiver doesn't really know if the sender is 
-> > TSO-capable 
-> > > or not and will ACK the same way - will it not?
-> > > Anyway, with LRO we do change rx packet count so affecting parts of 
-> > > TCP that depend on packet count is indeed a concern; I guess we'll 
-> > > find out soon enough whether there are real issues with the 
-> > approach 
-> > > :-)
-> > 
-> > Linux doesn't depend on packet count; it keeps an estimate 
-> > called rcv_mss about the biggest seen packet size and acks 
-> > every 2*rcv_mss worth of data.
-> > 
-> > Your scheme would likely result in acking every two of your 
-> > large packets as soon as the connection is out of "quickack" 
-> > mode. So there would be on wire differences. 
-> 
-> Sounds good, thanks! We should be OK then.
+An update of the r8169 driver is available for the 2.6.11-rc4 kernel.
 
-Are you sure? It definitely wouldn't look like a conventional
-TCP ack clock on the wire, but you would get an ack only every 
-(BIGPACKETSIZE/MSS) * 2 packets. 
+Noticable changes:
+- better handling of PHY as found on Acer Aspire 1524WLMi (Richard Dawe);
+- fix a bug triggered when the device is brought down then up again;
+- avoid a few lost/screaming interrupts;
+- closed a race when a change of mtu is issued during network activity;
+- fix VLAN on big-endian hosts (is someone using it apart from me ?);
+- merge relevant changes from Realtek's 2.2 driver.
 
-Quite a stretch ACK.
+If it worked for you before, you should not notice anything.
 
-I'm not saying it wouldn't work (and maybe Rick et.al. are right
-and Acking overhead is the next TCP frontier), but it would be definitely
-quite different. It needs careful testing on how it behaves with 
-packet loss.
+Patch against 2.6.10-rc4:
+- http://www.fr.zoreil.com/~romieu/misc/20050222-2.6.11-rc4-r8169.c-test.patch
 
--Andi
+Patch-script directory:
+- http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.11-rc4/r8169/
+
+Patch-script tarball:
+- http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.11-rc4/r8169-blob.tar.bz2
+
+The 2.4.x backport will be updated later this week.
+
+As usual, success/regression reports will be welcome.
+
+Thank you for your attention.
+
+--
+Ueimor
