@@ -1,27 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6]: fix unbalances spin_unlock_bh in
- __xfrm_find_acq_byseq
-Date: Thu, 23 Sep 2004 13:23:30 -0700
+Subject: Re: [PATCH][ATM]: [drivers] use msleep() instead of
+ schedule_timeout() (from Nishanth Aravamudan <nacc@us.ibm.com>)
+Date: Thu, 23 Sep 2004 13:30:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923132330.24f5a5f6.davem@davemloft.net>
-References: <41524CC8.1070104@trash.net>
+Message-ID: <20040923133052.259d3e39.davem@davemloft.net>
+References: <20040923160710.GB1699@us.ibm.com>
+	<200409231626.i8NGQ44f014489@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: nacc@us.ibm.com, netdev@oss.sgi.com, davem@redhat.com,
+        kernel-janitors@lists.osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41524CC8.1070104@trash.net>
+To: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200409231626.i8NGQ44f014489@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Sep 2004 06:10:48 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Thu, 23 Sep 2004 12:26:05 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-> This patch fixes an unbalanced spin_unlock_bh in
-> __xfrm_find_acq_byseq left over from the larval
-> state SA fix.
+> # ChangeSet
+> #   2004/09/23 12:24:28-04:00 chas@relax.cmf.nrl.navy.mil 
+> #   [ATM]: [lanai] get sleep interval right
 
-Good catch, patch applied.
-
-Thanks Patrick.
+Applied, thanks.
