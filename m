@@ -1,43 +1,438 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Manfred Spraul <manfred@colorfullife.com>
 Subject: Re: Options for forcedeth Linux kernel module
-Date: Sun, 14 Nov 2004 12:53:00 +0100
-Message-ID: <20041114115300.GA32451@electric-eye.fr.zoreil.com>
-References: <200411131913.iADJDZ321996@sun80.thp.Uni-Koeln.DE> <41971E3B.40605@stud.feec.vutbr.cz> <200411141028.iAEASVL27021@sun80.thp.Uni-Koeln.DE>
+Date: Sun, 14 Nov 2004 16:02:50 +0100
+Message-ID: <4197739A.7050804@colorfullife.com>
+References: <200411131913.iADJDZ321996@sun80.thp.Uni-Koeln.DE> <41971E3B.40605@stud.feec.vutbr.cz> <200411141028.iAEASVL27021@sun80.thp.Uni-Koeln.DE> <20041114115300.GA32451@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>, netdev@oss.sgi.com,
-        c-d.hailfinger.kernel.2004@gmx.net, manfred@colorfullife.com
+Content-Type: multipart/mixed;
+ boundary="------------070703090800020700080104"
+Cc: Andreas Sindermann <sinder@thp.Uni-Koeln.DE>,
+        Michal Schmidt <xschmi00@stud.feec.vutbr.cz>, netdev@oss.sgi.com,
+        c-d.hailfinger.kernel.2004@gmx.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Sindermann <sinder@thp.Uni-Koeln.DE>
-Content-Disposition: inline
-In-Reply-To: <200411141028.iAEASVL27021@sun80.thp.Uni-Koeln.DE>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20041114115300.GA32451@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andreas Sindermann <sinder@thp.Uni-Koeln.DE> :
-[...]
-> Thanks for your answer! I tried ethtool but without success. The
-> mii-tool doesn't seem to be delivered with Suse 9.2 and I can't find
-> the sources right now on the net. Here what I tried with ethtool:
-> 
-> linux3:~ # ethtool  -s eth0 speed 100 duplex full autoneg off
-> Cannot get current device settings: Operation not supported
->   not setting speed
->   not setting duplex
->   not setting autoneg
-[...]
-> So unfortunately ethtool doesn't seem to work properly for me at the
-> moment.
+This is a multi-part message in MIME format.
+--------------070703090800020700080104
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-At least in 2.6.10-rc1-bk20 + 2.6.10-rc1-bk14-netdev1, the driver does
-not provide a set_settings() method in its ethtool_ops structure. It
-does not use generic_mii_ioctl() or support SIOC#MII### either.
-So neither ethtool nor mii-tool will allow you to set the required
-option.
+Francois Romieu wrote:
 
-Otoh it seems that phy_init() contains most of the code one needs to
-glue to have mii-tool/ethtool support.
+>>So unfortunately ethtool doesn't seem to work properly for me at the
+>>moment.
+>>    
+>>
+>
+>At least in 2.6.10-rc1-bk20 + 2.6.10-rc1-bk14-netdev1, the driver does
+>not provide a set_settings() method in its ethtool_ops structure.
+>
+Correct. Attached is a patch that adds get_settings and set_settings. 
+Andreas, could you apply it and test if it solves your problem?
+I've tested it with an gigabit nforce nic and it worked as expected: 
+duplex mismatch means ~23 kB throughput, proper link setting ~11 MB/sec, 
+both with 100 FD.
 
 --
-Ueimor
+    Manfred
+
+--------------070703090800020700080104
+Content-Type: text/plain;
+ name="patch-forcedeth-031-ethtool"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-031-ethtool"
+
+// $Header$
+// Kernel Version:
+//  VERSION = 2
+//  PATCHLEVEL = 6
+//  SUBLEVEL = 10
+//  EXTRAVERSION =-rc1
+--- 2.6/drivers/net/forcedeth.c	2004-11-14 14:50:21.668871625 +0100
++++ build-2.6/drivers/net/forcedeth.c	2004-11-14 15:55:45.780714220 +0100
+@@ -79,6 +79,8 @@
+  *	0.30: 25 Sep 2004: rx checksum support for nf 250 Gb. Add rx reset
+  *			   into nv_close, otherwise reenabling for wol can
+  *			   cause DMA to kfree'd memory.
++ *	0.31: 14 Nov 2004: ethtool support for getting/setting link
++ *	                   capabilities.
+  *
+  * Known bugs:
+  * We suspect that on some hardware no TX done interrupts are generated.
+@@ -90,7 +92,7 @@
+  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
+  * superfluous timer interrupts from the nic.
+  */
+-#define FORCEDETH_VERSION		"0.30"
++#define FORCEDETH_VERSION		"0.31"
+ #define DRV_NAME			"forcedeth"
+ 
+ #include <linux/module.h>
+@@ -210,6 +212,7 @@ enum {
+ #define NVREG_LINKSPEED_10	1000
+ #define NVREG_LINKSPEED_100	100
+ #define NVREG_LINKSPEED_1000	50
++#define NVREG_LINKSPEED_MASK	(0xFFF)
+ 	NvRegUnknownSetupReg5 = 0x130,
+ #define NVREG_UNKSETUP5_BIT31	(1<<31)
+ 	NvRegUnknownSetupReg3 = 0x13c,
+@@ -441,6 +444,8 @@ struct fe_priv {
+ 	int in_shutdown;
+ 	u32 linkspeed;
+ 	int duplex;
++	int autoneg;
++	int fixed_mode;
+ 	int phyaddr;
+ 	int wolenabled;
+ 	unsigned int phy_oui;
+@@ -765,50 +770,6 @@ static struct net_device_stats *nv_get_s
+ 	return &np->stats;
+ }
+ 
+-static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+-{
+-	struct fe_priv *np = get_nvpriv(dev);
+-	strcpy(info->driver, "forcedeth");
+-	strcpy(info->version, FORCEDETH_VERSION);
+-	strcpy(info->bus_info, pci_name(np->pci_dev));
+-}
+-
+-static void nv_get_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
+-{
+-	struct fe_priv *np = get_nvpriv(dev);
+-	wolinfo->supported = WAKE_MAGIC;
+-
+-	spin_lock_irq(&np->lock);
+-	if (np->wolenabled)
+-		wolinfo->wolopts = WAKE_MAGIC;
+-	spin_unlock_irq(&np->lock);
+-}
+-
+-static int nv_set_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
+-{
+-	struct fe_priv *np = get_nvpriv(dev);
+-	u8 __iomem *base = get_hwbase(dev);
+-
+-	spin_lock_irq(&np->lock);
+-	if (wolinfo->wolopts == 0) {
+-		writel(0, base + NvRegWakeUpFlags);
+-		np->wolenabled = 0;
+-	}
+-	if (wolinfo->wolopts & WAKE_MAGIC) {
+-		writel(NVREG_WAKEUPFLAGS_ENABLE, base + NvRegWakeUpFlags);
+-		np->wolenabled = 1;
+-	}
+-	spin_unlock_irq(&np->lock);
+-	return 0;
+-}
+-
+-static struct ethtool_ops ops = {
+-	.get_drvinfo = nv_get_drvinfo,
+-	.get_link = ethtool_op_get_link,
+-	.get_wol = nv_get_wol,
+-	.set_wol = nv_set_wol,
+-};
+-
+ /*
+  * nv_alloc_rx: fill rx ring entries.
+  * Return 1 if the allocations for the skbs failed and the
+@@ -1286,6 +1247,25 @@ static int nv_update_linkspeed(struct ne
+ 		goto set_speed;
+ 	}
+ 
++	if (np->autoneg == 0) {
++		dprintk(KERN_DEBUG "%s: nv_update_linkspeed: autoneg off, PHY set to 0x%04x.\n",
++				dev->name, np->fixed_mode);
++		if (np->fixed_mode & LPA_100FULL) {
++			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_100;
++			newdup = 1;
++		} else if (np->fixed_mode & LPA_100HALF) {
++			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_100;
++			newdup = 0;
++		} else if (np->fixed_mode & LPA_10FULL) {
++			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
++			newdup = 1;
++		} else {
++			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
++			newdup = 0;
++		} 
++		retval = 1;
++		goto set_speed;
++	}
+ 	/* check auto negotiation is complete */
+ 	if (!(mii_status & BMSR_ANEGCOMPLETE)) {
+ 		/* still in autonegotiation - configure nic for 10 MBit HD and wait. */
+@@ -1303,7 +1283,7 @@ static int nv_update_linkspeed(struct ne
+ 
+ 		if ((control_1000 & ADVERTISE_1000FULL) &&
+ 			(status_1000 & LPA_1000FULL)) {
+-		dprintk(KERN_DEBUG "%s: nv_update_linkspeed: GBit ethernet detected.\n",
++			dprintk(KERN_DEBUG "%s: nv_update_linkspeed: GBit ethernet detected.\n",
+ 				dev->name);
+ 			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_1000;
+ 			newdup = 1;
+@@ -1362,9 +1342,9 @@ set_speed:
+ 	phyreg &= ~(PHY_HALF|PHY_100|PHY_1000);
+ 	if (np->duplex == 0)
+ 		phyreg |= PHY_HALF;
+-	if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_100)
++	if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_100)
+ 		phyreg |= PHY_100;
+-	else if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_1000)
++	else if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_1000)
+ 		phyreg |= PHY_1000;
+ 	writel(phyreg, base + NvRegPhyInterface);
+ 
+@@ -1500,6 +1480,223 @@ static void nv_do_nic_poll(unsigned long
+ 	enable_irq(dev->irq);
+ }
+ 
++static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
++{
++	struct fe_priv *np = get_nvpriv(dev);
++	strcpy(info->driver, "forcedeth");
++	strcpy(info->version, FORCEDETH_VERSION);
++	strcpy(info->bus_info, pci_name(np->pci_dev));
++}
++
++static void nv_get_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
++{
++	struct fe_priv *np = get_nvpriv(dev);
++	wolinfo->supported = WAKE_MAGIC;
++
++	spin_lock_irq(&np->lock);
++	if (np->wolenabled)
++		wolinfo->wolopts = WAKE_MAGIC;
++	spin_unlock_irq(&np->lock);
++}
++
++static int nv_set_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
++{
++	struct fe_priv *np = get_nvpriv(dev);
++	u8 __iomem *base = get_hwbase(dev);
++
++	spin_lock_irq(&np->lock);
++	if (wolinfo->wolopts == 0) {
++		writel(0, base + NvRegWakeUpFlags);
++		np->wolenabled = 0;
++	}
++	if (wolinfo->wolopts & WAKE_MAGIC) {
++		writel(NVREG_WAKEUPFLAGS_ENABLE, base + NvRegWakeUpFlags);
++		np->wolenabled = 1;
++	}
++	spin_unlock_irq(&np->lock);
++	return 0;
++}
++
++static int nv_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++{
++	struct fe_priv *np = netdev_priv(dev);
++	int adv;
++
++	spin_lock_irq(&np->lock);
++	ecmd->port = PORT_MII;
++	if (!netif_running(dev)) {
++		/* We do not track link speed / duplex setting if the
++		 * interface is disabled. Force a link check */
++		nv_update_linkspeed(dev);
++	}
++	switch(np->linkspeed & (NVREG_LINKSPEED_MASK)) {
++		case NVREG_LINKSPEED_10:
++			ecmd->speed = SPEED_10;
++			break;
++		case NVREG_LINKSPEED_100:
++			ecmd->speed = SPEED_100;
++			break;
++		case NVREG_LINKSPEED_1000:
++			ecmd->speed = SPEED_1000;
++			break;
++	}
++	ecmd->duplex = DUPLEX_HALF;
++	if (np->duplex)
++		ecmd->duplex = DUPLEX_FULL;
++
++	ecmd->autoneg = np->autoneg;
++
++	ecmd->advertising = ADVERTISED_MII;
++	if (np->autoneg) {
++		ecmd->advertising |= ADVERTISED_Autoneg;
++		adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
++	} else {
++		adv = np->fixed_mode;
++	}
++	if (adv & ADVERTISE_10HALF)
++		ecmd->advertising |= ADVERTISED_10baseT_Half;
++	if (adv & ADVERTISE_10FULL)
++		ecmd->advertising |= ADVERTISED_10baseT_Full;
++	if (adv & ADVERTISE_100HALF)
++		ecmd->advertising |= ADVERTISED_100baseT_Half;
++	if (adv & ADVERTISE_100FULL)
++		ecmd->advertising |= ADVERTISED_100baseT_Full;
++	if (np->autoneg && np->gigabit == PHY_GIGABIT) {
++		adv = mii_rw(dev, np->phyaddr, MII_1000BT_CR, MII_READ);
++		if (adv & ADVERTISE_1000FULL)
++			ecmd->advertising |= ADVERTISED_1000baseT_Full;
++	}
++
++	ecmd->supported = (SUPPORTED_Autoneg |
++		SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
++		SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
++		SUPPORTED_MII);
++	if (np->gigabit == PHY_GIGABIT)
++		ecmd->supported |= SUPPORTED_1000baseT_Full;
++	
++	ecmd->phy_address = np->phyaddr;
++	ecmd->transceiver = XCVR_EXTERNAL;
++
++	/* ignore maxtxpkt, maxrxpkt for now */
++	spin_unlock_irq(&np->lock);
++	return 0;
++}
++
++static int nv_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++{
++	struct fe_priv *np = netdev_priv(dev);
++
++	if (ecmd->port != PORT_MII)
++		return -EINVAL;
++	if (ecmd->transceiver != XCVR_EXTERNAL)
++		return -EINVAL;
++	if (ecmd->phy_address != np->phyaddr) {
++		/* TODO: support switching between multiple phys. Should be
++		 * trivial, but not enabled due to lack of test hardware. */
++		return -EINVAL;
++	}
++	if (ecmd->autoneg == AUTONEG_ENABLE) {
++		if ((ecmd->advertising & (ADVERTISED_10baseT_Half |
++					  ADVERTISED_10baseT_Full |
++					  ADVERTISED_100baseT_Half |
++					  ADVERTISED_100baseT_Full |
++					  ADVERTISED_1000baseT_Full)) == 0) {
++			return -EINVAL;
++		}
++		if (ecmd->advertising & ADVERTISED_1000baseT_Full &&
++			np->gigabit != PHY_GIGABIT) {
++			return -EINVAL;
++		}
++	} else if (ecmd->autoneg == AUTONEG_DISABLE) {
++		/* Note: autonegotiation disable, speed 1000 intentionally
++		 * forbidden - noone should need that. */
++
++		if (ecmd->speed != SPEED_10 && ecmd->speed != SPEED_100)
++			return -EINVAL;
++		if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
++			return -EINVAL;
++	} else {
++		return -EINVAL;
++	}
++
++	spin_lock_irq(&np->lock);
++	if (ecmd->autoneg == AUTONEG_ENABLE) {
++		int adv, tmp;
++
++		np->autoneg = 1;
++
++		/* advertise only what has been requested */
++		adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
++		adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
++		if (ecmd->advertising & ADVERTISED_10baseT_Half)
++			adv |= ADVERTISE_10HALF;
++		if (ecmd->advertising & ADVERTISED_10baseT_Full)
++			adv |= ADVERTISE_10FULL;
++		if (ecmd->advertising & ADVERTISED_100baseT_Half)
++			adv |= ADVERTISE_100HALF;
++		if (ecmd->advertising & ADVERTISED_100baseT_Full)
++			adv |= ADVERTISE_100FULL;
++		mii_rw(dev, np->phyaddr, MII_ADVERTISE, adv);
++
++		if (np->gigabit == PHY_GIGABIT) {
++			adv = mii_rw(dev, np->phyaddr, MII_1000BT_CR, MII_READ);
++			adv &= ~ADVERTISE_1000FULL;
++			if (ecmd->advertising & ADVERTISED_1000baseT_Full)
++				adv |= ADVERTISE_1000FULL;
++			mii_rw(dev, np->phyaddr, MII_1000BT_CR, adv);
++		}
++
++		tmp = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
++		tmp |= (BMCR_ANENABLE | BMCR_ANRESTART);
++		mii_rw(dev, np->phyaddr, MII_BMCR, tmp);
++
++	} else {
++		int adv, tmp;
++
++		np->autoneg = 0;
++
++		adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
++		adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
++		if (ecmd->speed == SPEED_10 && ecmd->duplex == DUPLEX_HALF)
++			adv |= ADVERTISE_10HALF;
++		if (ecmd->speed == SPEED_10 && ecmd->duplex == DUPLEX_FULL)
++			adv |= ADVERTISE_10FULL;
++		if (ecmd->speed == SPEED_100 && ecmd->duplex == DUPLEX_HALF)
++			adv |= ADVERTISE_100HALF;
++		if (ecmd->speed == SPEED_100 && ecmd->duplex == DUPLEX_FULL)
++			adv |= ADVERTISE_100FULL;
++		mii_rw(dev, np->phyaddr, MII_ADVERTISE, adv);
++		np->fixed_mode = adv;
++
++		if (np->gigabit == PHY_GIGABIT) {
++			adv = mii_rw(dev, np->phyaddr, MII_1000BT_CR, MII_READ);
++			adv &= ~ADVERTISE_1000FULL;
++			mii_rw(dev, np->phyaddr, MII_1000BT_CR, adv);
++		}
++		tmp = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
++		tmp |= ~BMCR_ANENABLE;
++		mii_rw(dev, np->phyaddr, MII_BMCR, tmp);
++
++		if (netif_running(dev)) {
++			/* Wait a bit and then reconfigure the nic. */
++			udelay(10);
++			nv_linkchange(dev);
++		}
++	}
++	spin_unlock_irq(&np->lock);
++
++	return 0;
++}
++
++static struct ethtool_ops ops = {
++	.get_drvinfo = nv_get_drvinfo,
++	.get_link = ethtool_op_get_link,
++	.get_wol = nv_get_wol,
++	.set_wol = nv_set_wol,
++	.get_settings = nv_get_settings,
++	.set_settings = nv_set_settings,
++};
++
+ static int nv_open(struct net_device *dev)
+ {
+ 	struct fe_priv *np = get_nvpriv(dev);
+@@ -1550,9 +1747,6 @@ static int nv_open(struct net_device *de
+ 		base + NvRegRingSizes);
+ 
+ 	/* 5) continue setup */
+-	np->linkspeed = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
+-	np->duplex = 0;
+-
+ 	writel(np->linkspeed, base + NvRegLinkSpeed);
+ 	writel(NVREG_UNKSETUP3_VAL1, base + NvRegUnknownSetupReg3);
+ 	writel(np->desc_ver, base + NvRegTxRxControl);
+@@ -1866,6 +2060,11 @@ static int __devinit nv_probe(struct pci
+ 		phy_init(dev);
+ 	}
+ 
++	/* set default link speed settings */
++	np->linkspeed = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
++	np->duplex = 0;
++	np->autoneg = 1;
++
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		printk(KERN_INFO "forcedeth: unable to register netdev: %d\n", err);
+
+--------------070703090800020700080104--
