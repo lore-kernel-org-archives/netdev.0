@@ -1,81 +1,38 @@
-From: =?ISO-2022-JP?B?GyRCOGUkSyRiQGgkSyRiJVYlayVeJENMPBsoQg==?= <chan@mag.vig-seet.to>
-Subject: =?ISO-2022-JP?B?GyRCTFwxIyQ3JDUkbCRGJTglZSVcJTglZSVcIXkbKEI=?=
-Date: Sun, 27 Mar 2005 17:55:11 +0900 (KST)
-Message-ID: <20050327085511.6FA06520A1@misty.ori-g.net>
-To: netdev@oss.sgi.com
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Ingo Molnar <mingo@elte.hu>
+Subject: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (126)
+Date: Sun, 27 Mar 2005 11:15:24 +0200
+Message-ID: <20050327091524.GA23215@elte.hu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Disposition: inline
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-☆゜・。。・゜☆☆゜・。闇ルート特集メルマガ。・゜☆☆゜・。。・゜☆
-　　　　　　　　　　　　　　　
-・‥‥…━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　　　●●●『究極の一人エッチをするには・・・』
- 　　　　　　　　声が聞こえる！中が見える！●●●
+i got one such message:
 
- 　   ストーカーが部屋の中にカメラを仕掛けた！！
-　    　　　完全動画で○○○○○娘の乱れた私生活○見え♪
- 　　
-　　　　　  http://hanamitu.polty.cc/?hq1ksxfds0
-・‥‥…━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at
+ net/netlink/af_netlink.c (126)
 
- 　   男の子の為のチカン特集！
-　　　女の子の為のオナニー特集！
- 　　
-□□■□□☆□□■□□☆□□■□□☆□□■□□☆□□■□□☆□□■
-□■□■□□□■□■□□□■□■□□□■□■□□□■□■□□□■□
- 
-　　　 ┌──────────────────────┐
-　　　 ★★★★　　　　　　１．レズビアンの企画　　　　　　　★★★★
-　　　 └──────────────────────┘
+this was on a box that is DSL connected and thus gets lots of trash 
+packets over the wire. It is running -RT ontop of 2.6.12-rc1, and got 
+this message after 2 days of uptime.
 
-　　　  ●●●●●●●さらけ出された肉欲●●●●●●●
+There was no apparent bad side-effect after this happened - no crash, no 
+hung applications, no hung connections, the box is still up and running 
+fine. The message is not reproducible, unfortunately. Never saw this 
+message with 2.6.11-ish kernels on the same box.
 
-　  　視られることが快感の女の子たちがいろんな場所で大ハプニング♪
-　　  最初は恥ずかしがっていた彼女たちも次第にコーフンしてきて
- 　　 どんどん淫らに…
- 
-　　　　●●●●●●●フェチな妄想かなえます●●●●●●●
- 
-  　   首筋、背中、ムネ、お尻…あなたはどんなパーツが好き？
-　　　 女の子のいろんな部分にこだわった画像が盛りだくさん♪
-　　　 今回Ｘマス企画として、女の子が身体を張っての出張レポ♪
-　　　 日頃の溜まった妄想を思う存分吐き出しちゃってください☆
- 
-    　 http://hanamitu.polty.cc/?hq1ksxfds0
+since the locking is so different under PREEMPT_RT it may very well be
+caused by PREEMPT_RT itself - but it could also be some real bug that
+only triggers under PREEMPT_RT. Based on current bug trends i'd say the
+likelyhood is 70% for this to be a genuine upstream bug, and 30% for
+this to be a PREEMPT_RT artifact. (These days most PREEMPT_RT artifacts 
+get detected by PREEMPT_RT's own debugging features - and all of them 
+were enabled on this box. Due to its preemption model, PREEMPT_RT is 
+pretty good at catching races that are near-impossible to trigger on the 
+stock kernel. It already caught more than a dozen such upstream races in 
+various kernel subsystems.)
 
- -------------------------------------------------------------------
- 　　　┌──────────────────────────┐
- 　　　★★★★　　　　　２．ますます充実！大人気コーナー 　　　　★★★★
- 　　　└──────────────────────────┘
-
- 　　■女子○生のナマ姿
-　　　　…可愛い女子○生たちが大胆に制服の下のありのままの姿をさらけだします
-　　　　　
-　　 ■Mな願望
-　　　　…ドロドロに汚れるまで奉仕させられる女たちの一部始終を厳選公開！！
- 
-　　 ■コスチュームの裏の裏
-　　　　…ナースやスッチー、和服にチャイナドレスなど、憧れのコスプレ目白押し☆
- 
-         http://hanamitu.polty.cc/?hq1ksxfds0
-　　　　　
- □□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□□
- -------------------------------------------------------------------
- 　　　★★★★★★★★＜メルサちゃんより＞★★★★★★★★
- -------------------------------------------------------------------
-　　 ■このマガジンメールの掲載情報の利用に関しては、
-　　　　各人が自分の責任で行なっていただくこを前提としています。
-　　　　掲載情報に関してのお問合せや損害に対してはいかなる責任も
-　　　　負いかねますので、予めご了承下さい。
- 
-　　　　掲載された記事の一部または全部を許可なく転載することを禁止致します。
- -------------------------------------------------------------------
- 　－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－
-　　 ※購読解除方法
-　　　　購読解除はお手数ですが、下記のアドレスよりログインし、ご自身でお手続き下さい。
-
-          http://mag.vig-seet.to/melsa/
- 　－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－－　　　
+	Ingo
