@@ -1,47 +1,66 @@
-From: Jeff Chua <jeffchua@silk.corp.fedex.com>
-Subject: Re: [ANNOUNCE] iproute2 2.6.9-041019
-Date: Wed, 20 Oct 2004 08:21:10 +0800 (SGT)
+From: Bob Wirka <bobwirka@rtcworks.com>
+Subject: Re: NFS and Network Driver Question
+Date: Tue, 19 Oct 2004 19:19:10 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
-References: <41758014.4080502@osdl.org>
+Message-ID: <4175AEFE.7090002@rtcworks.com>
+References: <41704198.8000206@rtcworks.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org, LARTC@mailman.ds9a.nl
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <41758014.4080502@osdl.org>
+In-Reply-To: <41704198.8000206@rtcworks.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Ok, now I feel like I'm taking crazy pills...
 
-On Tue, 19 Oct 2004, Stephen Hemminger wrote:
+The embedded system boots up and mounts the root file system on my host 
+laptop. The 'rc.sysinit' startup script executes the command 'mount -a' 
+which should mount /proc, /dev/pts, and /dev/shm, as listed in 
+/etc/fstab. When executed, that command returns  "mount: only root can 
+do that".
 
-> Now that 2.6.9 is final. Here is an update of the iproute2 utilities that
+When I get to the bash prompt, 'whoami' reports that I am, indeed, root. 
+A 'mount -a' from the command prompt gives the same result; it doesn't 
+think I'm root for the mount command.
 
+I can chown a file owned by root to some other user, and I can create a 
+file or directory in a directory owned by root; so it doesn't always 
+think I'm not root.
 
-can't compile Got the following error. Linux is 2.6.9. Gcc is 2.95.3.
-
-
-make[1]: Entering directory `/usr/src/net/iproute2-2.6.9/misc'
-gcc -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -g -I../include 
--DRESOLVE_HOSTNAMES   -c -o ss.o ss.c
-In file included from /usr/include/asm/byteorder.h:57,
-                  from ss.c:36:
-/usr/include/linux/byteorder/little_endian.h:43: parse error before 
-`__cpu_to_le64p'
-/usr/include/linux/byteorder/little_endian.h: In function 
-`__cpu_to_le64p':
-/usr/include/linux/byteorder/little_endian.h:45: `__le64' undeclared 
-(first use in this function)
-/usr/include/linux/byteorder/little_endian.h:45: (Each undeclared 
-identifier is reported only once
-...
-
-a lot of these errors.
-
-These errors went away if linux-2.4.28pre4 is used to compile.
-
+Any ideas???
 
 Thanks,
-Jeff.
+
+Bob Wirka
+Realtime Control Works
+
+Bob Wirka wrote:
+
+> Hello,
+>
+> I'm trying to build a kernel that mounts a NFS root file system. This 
+> is an embedded system; it uses an SMSC LAN91C111 network chip that is 
+> hardwired to I/O addres 0x300 and IRQ 5. I've been using the driver 
+> (as supplied by SMSC) as a module, and it works fine. Now I'm trying 
+> to incorporate it into the kernel build so that I can mount an NFS 
+> file system when the system boots.
+>
+> I've added the source code to the kernel tree, and modified the 
+> Makefile(s) and Config.in files so that the driver <<appears>> to be 
+> compiled into the kernel. The kernel will load, but the chip is not 
+> initialized and the NFS fails.
+>
+> Since I don't know how to pass the io address and irq number to the 
+> kernel, I've hard-coded them into the driver's init function (which I 
+> don't see being called).
+>
+> If someone could point me in the right direction, I'd appreciate it.
+>
+> Thank you,
+>
+> Bob Wirka
+> Realtime Control Works
+>
+>
