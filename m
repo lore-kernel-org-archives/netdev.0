@@ -1,24 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6.0-test4][NET] 3c509.c: remove device.name field
-Date: Sun, 24 Aug 2003 03:47:35 -0700
+From: Laurent Deniel <laurent.deniel@free.fr>
+Subject: Re: [Bonding-devel] RE: [PATCH] convering bonding driver /proc interface
+ to seq_file
+Date: Sun, 24 Aug 2003 12:41:29 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030824034735.534b8c68.davem@redhat.com>
-References: <1061644409.1141.18.camel@lima.royalchallenge.com>
+Message-ID: <3F489659.6040507@free.fr>
+References: <E791C176A6139242A988ABA8B3D9B38A014C94BF@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+   Chad Tindel <ctindel@users.sourceforge.net>,
+   Jay Vosburgh <fubar@us.ibm.com>, "David  S. Miller" <davem@redhat.com>,
+   Jeff Garzik <jgarzik@pobox.com>, bonding-devel@lists.sourceforge.net,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vinay K Nallamothu <vinay-rc@naturesoft.net>
-In-Reply-To: <1061644409.1141.18.camel@lima.royalchallenge.com>
+To: "Hen, Shmulik" <shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 23 Aug 2003 18:43:29 +0530
-Vinay K Nallamothu <vinay-rc@naturesoft.net> wrote:
+Hen, Shmulik wrote:
+> Guys,
+>
+> Could everyone please hold off the bonding modifications for
+> only a short while until we get this sorted out? We have a
+> bunch of other patch sets in queue that add lots of new stuff
+> and they all depend on that first set being accepted.
 
-> This patch removes the device name field which is no longer present.
+Could you give a short description of what is pending ? this
+could avoid duplicate efforts, or worst, incompatible ones ...
 
-This doesn't look like the right fix.  You can't just
-delete these lines, you should rather replace them with
-accesses to whatever the MCA device struct name field is.
+Laurent
