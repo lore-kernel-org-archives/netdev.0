@@ -1,55 +1,54 @@
-From: Andrea G Forte <andreaf@cs.columbia.edu>
-Subject: Re: primary and secondary ip addresses
-Date: Fri, 17 Dec 2004 10:58:10 -0500
-Message-ID: <41C30212.6000906@cs.columbia.edu>
-References: <41912F7A.6000408@redhat.com> <200412161153.51251.hasso@estpak.ee> <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com> <200412161302.42357.hasso@estpak.ee> <41C2F6E5.5010607@cs.columbia.edu> <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com>
+From: linux-os <linux-os@chaos.analogic.com>
+Subject: Re: [Coverity] Untrusted user data in kernel
+Date: Fri, 17 Dec 2004 11:11:37 -0500 (EST)
+Message-ID: <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
+References: <41C26DD1.7070006@trash.net> <Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com>
+ <41C2FF99.3020908@tmr.com>
+Reply-To: linux-os@analogic.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hasso Tepper <hasso@estpak.ee>, Harald Welte <laforge@gnumonks.org>,
-        Neil Horman <nhorman@redhat.com>, linux-net@vger.kernel.org,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Henrik Nordstrom <hno@marasystems.com>
-In-Reply-To: <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: James Morris <jmorris@redhat.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Bryan Fulton <bryan@coverity.com>, netdev@oss.sgi.com,
+	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261768AbULQQPS@vger.kernel.org>
+To: Bill Davidsen <davidsen@tmr.com>
+In-Reply-To: <41C2FF99.3020908@tmr.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Which source IP is used by the kernel is determined primary by your 
-> routing tables.
->
-> The requirements for an IP address to be allowed to be used in the 
-> routing table is that the IP address does exists on any of your 
-> interfaces, either as primary or secondary.
->
-> When you add/delete a primary address to a interface the kernel 
-> automatically adds/deletes routes accordingly, including source IP 
-> address selection.
->
-This does not help, since if I want to use my secondary IP address 
-instead of my primary, I cannot delete the primary otherwise all of my 
-secondary IPs are lost as well (and since I can only have only one 
-primary IP address).
+On Fri, 17 Dec 2004, Bill Davidsen wrote:
 
-> If the routing table does not have information about which source IP 
-> address to use for this traffic then the kernel searches the interface 
-> for a valid primary address.
+> James Morris wrote:
+>> On Fri, 17 Dec 2004, Patrick McHardy wrote:
+>> 
+>> 
+>>> James Morris wrote:
+>>> 
+>>> 
+>>>> This at least needs CAP_NET_ADMIN.
+>>>> 
+>>> 
+>>> It is already checked in do_ip6t_set_ctl(). Otherwise anyone could
+>>> replace iptables rules :)
+>> 
+>> 
+>> That's what I meant, you need the capability to do anything bad :-)
 >
-I update all the routing entries and eventually things start to work 
-again. The problem is that:
--If I use a secondary IP and try to invalidate the primary (i.e. by 
-removing its routing table entry), it takes about 500ms for the actual 
-change (data packets sent on the secondary IP instead of the primary) to 
-take effect.
--If I try to update the primary address directly without creating any 
-secondary IP, then it still takes about 300ms for the change to take place.
+> Are you saying that processes with capability don't make mistakes? This isn't 
+> a bug related to untrusted users doing privileged operations, it's a case of 
+> using unchecked user data.
+>
 
-I honestly do not understand what harm could do to have more than one 
-primary address, especially on different subnets.
+But isn't there always the possibility of "unchecked user data"?
+I can, as root, do `cp /dev/zero /dev/mem` and have the most
+spectacular crask you've evet seen. I can even make my file-
+systems unrecoverable.
+
+
 
 Cheers,
-Andrea
-
-> Regards
-> Henrik
+Dick Johnson
+Penguin : Linux version 2.6.9 on an i686 machine (5537.79 BogoMips).
+  Notice : All mail here is now cached for review by Dictator Bush.
+                  98.36% of all statistics are fiction.
