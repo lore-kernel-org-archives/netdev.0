@@ -1,70 +1,63 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
-	in case forwarded frame has VLAN-header]
-Date: 08 Mar 2005 08:13:47 -0500
-Message-ID: <1110287626.1043.146.camel@jzny.localdomain>
-References: <20050305141225.GA5180@xi.wantstofly.org>
-	 <4229D98F.9010008@trash.net> <422A0C21.3050709@candelatech.com>
-	 <1110199696.1094.1299.camel@jzny.localdomain>
-	 <Pine.LNX.4.62.0503072034340.5934@kaber.coreworks.de>
-	 <1110238537.1043.62.camel@jzny.localdomain>  <422CE983.7060305@trash.net>
-	 <1110241190.1043.100.camel@jzny.localdomain>  <422D1E26.1010902@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+Subject: Re: [patch 04/26] net/ixgb_osdep: replace schedule_timeout() with msleep()
+Date: Tue, 8 Mar 2005 05:24:41 -0800
+Message-ID: <5fc59ff305030805243de69624@mail.gmail.com>
+References: <20050306103248.7C3A21F1F0@trashy.coderock.org>
+Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, leo@yuriev.ru,
-        Lennert Buytenhek <buytenh@wantstofly.org>, shemminger@osdl.org,
-        netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <422D1E26.1010902@trash.net>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, nacc@us.ibm.com,
+        janitor@sternwelten.at
+To: "domen@coderock.org" <domen@coderock.org>
+In-Reply-To: <20050306103248.7C3A21F1F0@trashy.coderock.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-03-07 at 22:38, Patrick McHardy wrote:
-> jamal wrote:
-> > Indeed that looks bad. But wouldnt have helped if we started at 0
-> > either. You need monotonically increasing values to make proper
-> > sense. So i suppose to do proper qos with L2, one must install the prio
-> > qdisc and rewrite the priomap.
+No. This would not work. You cannot replace msec_delay with msleep.
+You probably could replace the set_current_task/schedule_timeout with
+msleep. msleep does not check for the correct context, and if one were
+to call msec_delay from interrupt context, the kernel would panic.
+
+ganesh.
+
+
+On Sun, 06 Mar 2005 11:32:48 +0100, domen@coderock.org
+<domen@coderock.org> wrote:
 > 
-> One reason more to move it to an optional ebtables target. Or leave it
-> all to prio + u32. But I guess a CLASSIFY target similar to iptables
-> could also be useful otherwise.
-
-I think you still want (perhaps the vlan) driver to come up with some
-sane defaults. From what i read from bgrear he has arbitrary values.
-
-The only problem is we get conflicting goals with skb->priority between
-IEEE/IETF so you cant have them both interworking; 
-I dont know what CLASSIFY target but a meta action on ingress of a
-device would easily set the skb->priority as well. So yes, if you want
-to have both L2 and L3, you will need something that overwrites the
-priority according to whatever the map is for one of them. Like i said
-earlier though you need to have some sane value being set in the vlan
-driver.
-
-> Are there any changes required besides ip_tos2prio ? 
-
-Theres also the user space->kernel setsockopt semantics; Unfortunately
-just ridding of this is like killing an ABI interface, so it is
-untouchable. However, it may be time to introudce a new setsockopt to
-enable DSCP setting. 
-ip_tos2prio is becoming less important if we are killing TOS routing
-(which Dave may have done a while back - i have to look); however, we
-can probably have a ip_dscp2prio or  ip_prec2prio map. 
-
-> More importantly,
-> it there a different meaningful mapping to priorities we can apply ?
-
-Well, old 4 bit TOS is really obsoleted - Look at RFC 2474. 
-
-Two schools of thoughts exist on mappings - we oughta support both.
-One is the app controls these settings (MS is big on this approach).
-The other is network providers control the network and dont give a squat
-about what you set you values to be - we do that for example in qdiscs.
-I would say the second is more prelevant.
-
-cheers,
-jamal
+> 
+> Use msleep() instead of schedule_timeout()
+> to guarantee the task delays as expected. I was told earlier that the
+> in_interrupt() check is not necessary. It would be nice to get some
+> verification of this (i.e. the driver functions the same without it).
+> 
+> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+> Signed-off-by: Domen Puncer <domen@coderock.org>
+> ---
+> 
+> kj-domen/drivers/net/ixgb/ixgb_osdep.h |    8 +-------
+> 1 files changed, 1 insertion(+), 7 deletions(-)
+> 
+> diff -puN drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_ixgb_osdep drivers/net/ixgb/ixgb_osdep.h
+> --- kj/drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_ixgb_osdep 2005-03-05 16:09:27.000000000 +0100
+> +++ kj-domen/drivers/net/ixgb/ixgb_osdep.h      2005-03-05 16:09:27.000000000 +0100
+> @@ -41,13 +41,7 @@
+> #include <linux/sched.h>
+> 
+> #ifndef msec_delay
+> -#define msec_delay(x)  do { if(in_interrupt()) { \
+> -                               /* Don't mdelay in interrupt context! */ \
+> -                               BUG(); \
+> -                       } else { \
+> -                               set_current_state(TASK_UNINTERRUPTIBLE); \
+> -                               schedule_timeout((x * HZ)/1000 + 2); \
+> -                       } } while(0)
+> +#define msec_delay(x)  msleep(x)
+> #endif
+> 
+> #define PCI_COMMAND_REGISTER   PCI_COMMAND
+> _
+> 
+>
