@@ -1,80 +1,114 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: do_IRQ: stack overflow: 872..
-Date: Fri, 7 Jan 2005 10:00:17 -0800
-Message-ID: <20050107100017.454ddadc@dxpl.pdx.osdl.net>
-References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
-	<p73zn0ccaee.fsf@verdi.suse.de>
-	<1105117559.11753.34.camel@baythorne.infradead.org>
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.6.10-bk9] pcnet32: 79c976 with fiber optic fix
+Date: Fri, 7 Jan 2005 09:32:32 -0800
+Message-ID: <20050107173232.GA24906@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============66447518882067547=="
-Cc: Crazy AMD K7 <snort2004@mail.ru>, bridge@osdl.org, Andi Kleen <ak@suse.de>,
-   netdev@oss.sgi.com
-Return-path: <bridge-bounces@lists.osdl.org>
-To: David Woodhouse <dwmw2@infradead.org>,
-   Bart De Schuymer
-	<bdschuym@pandora.be>
-In-Reply-To: <1105117559.11753.34.camel@baythorne.infradead.org>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Sender: bridge-bounces@lists.osdl.org
-Errors-To: bridge-bounces@lists.osdl.org
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============66447518882067547==
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+After testing this patch I agree that it should be applied.  The one
+change I made was to print the device name (ethN) instead of 'pcnet32'.
+Tested ia32.
 
-On Fri, 07 Jan 2005 17:05:59 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
+From: Guido Guenther <agx@sigxcpu.org>,
+      Lars Munch <lars@segv.dk>
 
-> On Sat, 2004-12-18 at 08:50 +0100, Andi Kleen wrote:
-> > It's not really an oops, just a warning that stack space got quiet
-> > tight.
-> > 
-> > The problem seems to be that the br netfilter code is nesting far too
-> > deeply and recursing several times. Looks like a design bug to me,
-> > it shouldn't do that.
-> 
-> I don't think it's recursing -- I think the stack trace is just a bit
-> noisy. The problem is that the bridge code, especially with br_netfilter
-> in the equation, is implicated in code paths which are just _too_ deep.
-> This happens when you're bridging packets received in an interrupt while
-> you were deep in journalling code, and it's also been seen with a call
-> trace something like nfs->sunrpc->ip->bridge->br_netfilter.
+Skip PHY selection on Allied Telesyn 2701FX, it looses the link otherwise. 
+Fix up the AT 2700FX as well.
 
-Sounds like an argument for interrupt stacks.
+Signed-Off-By: Guido Guenther <agx@sigxcpu.org>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+signed-off-by: Don Fry <brazilnut@us.ibm.com>
 
-> One option might be to make br_dev_xmit() just queue the packet rather
-> than trying to deliver it to all the slave devices immediately. Then the
-> actual retransmission can be handled from a context where we're _not_
-> short of stack; perhaps from a dedicated kernel thread. 
+---
 
-Probably the solution would be to handle it in the filter code
-that way if we are not filtering, we can use the interrupt path,
-but if filtering just defer to a safer context (like soft irq).
+ 25-akpm/drivers/net/pcnet32.c   |   47 ++++++++++++++++++++++++----------------
+ 25-akpm/include/linux/pci_ids.h |    5 ++++
+ 2 files changed, 34 insertions(+), 18 deletions(-)
 
-> Unfortunately that approach would introduce a lot of latency on all
-> packets we pass. Another option would be to have all architectures
-> provide a stack_available() function and for br_dev_xmit() to queue the
-> packet only if we're short of stack, while still sending most packets
-> immediately. 
+diff -puN drivers/net/pcnet32.c~pcnet32-79c976-with-fiber-optic drivers/net/pcnet32.c
+--- 25/drivers/net/pcnet32.c~pcnet32-79c976-with-fiber-optic	2005-01-04 21:57:35.666712120 -0800
++++ 25-akpm/drivers/net/pcnet32.c	2005-01-04 21:57:35.673711056 -0800
+@@ -1429,25 +1429,36 @@ pcnet32_open(struct net_device *dev)
+ 	val |= 0x10;
+     lp->a.write_csr (ioaddr, 124, val);
+ 
+-    /* 24 Jun 2004 according AMD, in order to change the PHY,
+-     * DANAS (or DISPM for 79C976) must be set; then select the speed,
+-     * duplex, and/or enable auto negotiation, and clear DANAS */
+-    if (lp->mii && !(lp->options & PCNET32_PORT_ASEL)) {
+-	lp->a.write_bcr(ioaddr, 32, lp->a.read_bcr(ioaddr, 32) | 0x0080);
+-	/* disable Auto Negotiation, set 10Mpbs, HD */
+-	val = lp->a.read_bcr(ioaddr, 32) & ~0xb8;
+-	if (lp->options & PCNET32_PORT_FD)
+-	    val |= 0x10;
+-	if (lp->options & PCNET32_PORT_100)
+-	    val |= 0x08;
+-	lp->a.write_bcr (ioaddr, 32, val);
++    /* Allied Telesyn AT 2700/2701 FX looses the link, so skip that */
++    if (lp->pci_dev->subsystem_vendor == PCI_VENDOR_ID_AT &&
++        (lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2700FX ||
++	 lp->pci_dev->subsystem_device == PCI_SUBDEVICE_ID_AT_2701FX)) {
++	printk(KERN_DEBUG "%s: Skipping PHY selection.\n", dev->name);
+     } else {
+-	if (lp->options & PCNET32_PORT_ASEL) {
+-	    lp->a.write_bcr(ioaddr, 32, lp->a.read_bcr(ioaddr, 32) | 0x0080);
+-	    /* enable auto negotiate, setup, disable fd */
+-	    val = lp->a.read_bcr(ioaddr, 32) & ~0x98;
+-	    val |= 0x20;
+-	    lp->a.write_bcr(ioaddr, 32, val);
++	/*
++	 * 24 Jun 2004 according AMD, in order to change the PHY,
++	 * DANAS (or DISPM for 79C976) must be set; then select the speed,
++	 * duplex, and/or enable auto negotiation, and clear DANAS
++	 */
++	if (lp->mii && !(lp->options & PCNET32_PORT_ASEL)) {
++	    lp->a.write_bcr(ioaddr, 32,
++				lp->a.read_bcr(ioaddr, 32) | 0x0080);
++	    /* disable Auto Negotiation, set 10Mpbs, HD */
++	    val = lp->a.read_bcr(ioaddr, 32) & ~0xb8;
++	    if (lp->options & PCNET32_PORT_FD)
++		val |= 0x10;
++	    if (lp->options & PCNET32_PORT_100)
++		val |= 0x08;
++	    lp->a.write_bcr (ioaddr, 32, val);
++	} else {
++	    if (lp->options & PCNET32_PORT_ASEL) {
++		lp->a.write_bcr(ioaddr, 32,
++			lp->a.read_bcr(ioaddr, 32) | 0x0080);
++		/* enable auto negotiate, setup, disable fd */
++		val = lp->a.read_bcr(ioaddr, 32) & ~0x98;
++		val |= 0x20;
++		lp->a.write_bcr(ioaddr, 32, val);
++	    }
+ 	}
+     }
+ 
+diff -puN include/linux/pci_ids.h~pcnet32-79c976-with-fiber-optic include/linux/pci_ids.h
+--- 25/include/linux/pci_ids.h~pcnet32-79c976-with-fiber-optic	2005-01-04 21:57:35.669711664 -0800
++++ 25-akpm/include/linux/pci_ids.h	2005-01-04 21:57:35.676710600 -0800
+@@ -1644,6 +1644,11 @@
+ #define PCI_DEVICE_ID_OPTIBASE_VPLEXCC	0x2120
+ #define PCI_DEVICE_ID_OPTIBASE_VQUEST	0x2130
+ 
++/* Allied Telesyn */
++#define PCI_VENDOR_ID_AT    		0x1259
++#define PCI_SUBDEVICE_ID_AT_2700FX	0x2701
++#define PCI_SUBDEVICE_ID_AT_2701FX	0x2703
++
+ #define PCI_VENDOR_ID_ESS		0x125d
+ #define PCI_DEVICE_ID_ESS_ESS1968	0x1968
+ #define PCI_DEVICE_ID_ESS_AUDIOPCI	0x1969
+_
 
-NO, that looks like a testablity and portablity nightmare.
 
---===============66447518882067547==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-_______________________________________________
-Bridge mailing list
-Bridge@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/bridge
 
---===============66447518882067547==--
+-- 
+Don Fry
+brazilnut@us.ibm.com
