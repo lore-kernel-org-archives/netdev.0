@@ -1,61 +1,101 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Marco Mellia <mellia@prezzemolo.polito.it>
 Subject: Re: [E1000-devel] Transmission limit
-Date: Thu, 2 Dec 2004 18:54:32 +0100
-Message-ID: <16815.22232.190929.306486@robur.slu.se>
+Date: 02 Dec 2004 18:24:34 +0100
+Message-ID: <1102008274.19646.14.camel@mellia.lipar.polito.it>
 References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	<41A73826.3000109@draigBrady.com>
-	<16807.20052.569125.686158@robur.slu.se>
-	<1101484740.24742.213.camel@mellia.lipar.polito.it>
-	<41A76085.7000105@draigBrady.com>
-	<1101499285.1079.45.camel@jzny.localdomain>
-	<16811.8052.678955.795327@robur.slu.se>
-	<1101821501.1043.43.camel@jzny.localdomain>
-	<20041130134600.GA31515@xi.wantstofly.org>
-	<1101824754.1044.126.camel@jzny.localdomain>
-	<20041201001107.GE4203@xi.wantstofly.org>
-	<1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net>
-	<16813.58484.343629.570703@robur.slu.se>
-	<1101919791.5198.15.camel@localhost.localdomain>
+	 <41A73826.3000109@draigBrady.com>
+	 <1101483081.24742.174.camel@mellia.lipar.polito.it>
+	 <1101498963.1076.39.camel@jzny.localdomain>
+	 <1101738118.14930.142.camel@verza.polito.it>
+	 <1101822364.1044.60.camel@jzny.localdomain>
+Reply-To: mellia@prezzemolo.polito.it
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Lennert Buytenhek <buytenh@wantstofly.org>, jamal <hadi@cyberus.ca>,
-        P@draigBrady.com, mellia@prezzemolo.polito.it,
+Cc: mellia@prezzemolo.polito.it, P@draigBrady.com,
         e1000-devel@lists.sourceforge.net,
         Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
         Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sfeldma@pobox.com
-In-Reply-To: <1101919791.5198.15.camel@localhost.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1101822364.1044.60.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> > In our experiments, we modified the kernel to drop packets just after
+> > receiving them. skb are just deallocated (using standerd kernel
+> > routines, i.e., no recycling is used). Logically, that happen when the
+> > netif_rx() is called.
+> > 
+> > Now, we have three cases
+> > 1) just mofify the netif_rx() to drop packets.
+> > 2) as in one, plus remove the protocol check in the driver
+> > (i.e., comment the line
+> >       skb->protocol = eth_type_trans(skb, netdev);
+> > ) to avoid to access the real packet data.
+> > 3) as in 2, but dealloc is performed at the driver level, instead of
+> > calling the netif_rx()
+> > 
+> > In the first case, we can receive about 1.1Mpps (~80% of packets)
+> 
+> Possible. I was able to receive 900Kpps or so in my experiments with
+> gact drop which is slightly above this with a 2.4 Ghz machine with IRQ
+> affinity.
 
-Scott Feldman writes:
- > Thank you Robert for trying it out.
+I double checked with the people that actually did the job. They indeed
+tested both cases, i.e., dropping packets either using IRQ (therefore
+using netif_rx()) or using NAPI (therefore using netif_receive_skb()).
 
- Scott! 
+In both cases, disabling the eth_type_trans() check, we receive 100% of
+packets...
 
- I've rerun some of the tests. I've set maxcpus=1 make sure all things
- happens on one CPU. Some HW as yesterday.
+> > In the third case, we can NOT receive 100% of packets!
+> > The only difference is that we actually _REMOVED_ a funcion call. This
+> > reduces the overhead, and the compiler/cpu/whatever can not optimize the
+> > data path to access to the skb which must be freed.
+> 
+> It doesnt seem like you were runing NAPI if you depended on calling
+> netif_rx
+> In that case, #3 would be freeing in hard IRQ context while #2 is
+> softIRQ.
 
- I see a now lot variation in the results from your patch.
+Again, it was my mistake. Case #3 was performed using the NAPI stack,
+i.e., freeing up skb instead of calling the netif_receive_skb().
+Doing that, we observed a performance drop, that we hint to some caching
+isses. Indeed, investigating with a Oprofile, in case #3 it registers
+about twice the number of cache miss than in case #2.
+Again, we do not have any plain explanation, but our intuition is that
+adding a function call with  pointer as argument might allow the
+compiler/cpu to prefecth the skb and speed up the memory release...
 
- vanilla 
-   804353pps 411Mb/sec (411828736bps) errors: 98877
 
- patch TXD=4096
- Sometimes:   882362pps 451Mb/sec (451769344bps) errors: 0
+> > Our guess is that by freeing up the skb in the netif_rx() function
+> > actually allows the compiler/cpu to prefetch the skb itself, and
+> > therefore keep the pipeline working...
+> > 
+> > My guess is that if you change compiler, cpu, memory subsystem, you may
+> > get very counterintuitive results...
+> 
+> Refer to my comment above.
+> Repeat tests with NAPI and see if you get same results.
 
- patch TXD=2048
- Sometimes:   943007pps 482Mb/sec (482819584bps) errors: 0
+We were using NAPI. Sorry for the misunderstanding.
+Hope this helps.
 
- But very often runs around 500 kpps with patch. This smells scheduling to me 
- as smaller rings use to mean higher performance but ring need to big 
- enough to hide latencies.
 
- See also my next mail...
 
-						--ro
+-- 
+Ciao,                    /\/\/\rco
+
++--+  
+| Marco Mellia - Assistant Professor|
+| Tel: 39-011-2276-608              |
+| Tel: 39-011-564-4173              |
+| Cel: 39-340-9674888               |   /"\  .. . . . . . . . . . . . .
+| Politecnico di Torino             |   \ /  . ASCII Ribbon Campaign  .
+| Corso Duca degli Abruzzi 24       |    X   .- NO HTML/RTF in e-mail .
+| Torino - 10129 - Italy            |   / \  .- NO Word docs in e-mail.
+| http://www1.tlc.polito.it/mellia  |        .. . . . . . . . . . . . .
++--+
+The box said "Requires Windows 95 or Better." So I installed Linux.
