@@ -1,122 +1,77 @@
-From: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
-Subject: Re: bridge between ppp and ethernet - 1 IP address and assign it to
- another host
-Date: Tue, 8 Mar 2005 00:26:43 +1030
-Message-ID: <20050308002643.7eac84e7.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-References: <20050306153108.20430b58.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-	<1110199198.1094.1282.camel@jzny.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] neighbour tables configuration via rtnetlink
+Date: Mon, 7 Mar 2005 15:26:22 +0100
+Message-ID: <20050307142622.GT31837@postel.suug.ch>
+References: <20050305172257.GN31837@postel.suug.ch> <1110202499.1094.1371.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ahu@ds9a.nl, netdev@oss.sgi.com
-To: hadi@cyberus.ca
-In-Reply-To: <1110199198.1094.1282.camel@jzny.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1110202499.1094.1371.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 07 Mar 2005 07:39:59 -0500
-jamal <hadi@cyberus.ca> wrote:
+* jamal <1110202499.1094.1371.camel@jzny.localdomain> 2005-03-07 08:34
+> On Sat, 2005-03-05 at 12:22, Thomas Graf wrote:
+> The patch overall looks ok although adventerous.
+> What is it that requires you to change multiple parameters atomically? I
+> cant seem to think of anything. I can see value in seeing some of these
+> parameters in user space. Maybe.
 
-Hi Jamal, Bert,
+Mainly because we have multiple applications that modify neighbour parameters
+and they really have need to finish changing all parameters before another
+application can look at them again. I solved this with a userspace lockfile
+so far but this only catches applications that are aware of the lockfile.
+The netlink method still leaves the gap open between fetching the data and
+then changing it but that isn't a problem in my case and can be solved with
+the netlink daemon for those who care.
 
-(Bert, sorry for calling you Ben earlier, I must have got a bit
-distracted between seeing your name on a web page, and typing it on my
-email client)
+> Some of the parameters you are dumping maybe dangerous if they are also
+> allowed to be setable. As an example, changing a table name/id etc.
+> I think you should review closely again what needs to be exposed.
 
-I'm fairly confident that broadly I'm thinking about the same way as
-Bert, although as I'm about to go into some detail, it might turn out we
-have slightly different ideas.
+Sure, not all dumpable parameters will be available for modification but
+having them all available in userspace is definitely a good thing.
 
-> 
-> I actually havent quiet figured what you guys are talking about.
-> Did i misunderstand or is it as simple as having ethernet on one (LAN)
-> side and ppp on other (wan) side?
->
+> I think this is reasonable. However - it is a lot of work. I will have
+> no issues with seeing nothing else but netlink (even for ethtool like
+> setups). There are certain things that would require more attention than
+> others.
 
-Not quite that simple. It's sort of "half routing" / "half bridging".
+Yes, I think so as well but I really want to avoid putting effort into it
+and then see it replaced with something else. I think Herbert once thought
+about moving some of the rtnetlink stuff into a separate family and
+restructuring the whole thing. Still plans there Herbert?
 
-The Linux box terminates the PPP connection, including performing
-authentication and aquisition of a /32 IP address from the service
-providers PPP server - a typical point-to-point scenario. However,
-rather than considering that IP address to now be a local address on the
-Linux host, it is then allocated to the Windows (for e.g.) box ie. on
-the Window's box's ethernet interface, the IP address is assigned. One
-possiblity would be for the Linux box to issue the IP address to the
-Windows box via DHCP. The Windows box's default gateway would be remote
-PPP endpoint IP address, which means that the Linux box would also have
-to perform Proxy ARP for that remote IP address on it's windows facing
-ethernet interface. 
+> I was going to write a simple patch to allow setting of indev
+> parameters via netlink but havent had time. Started it but havent had
+> time to revisit it - if you want to take over that one as well i could
+> pass it on to you.
 
-(I'm not sure if there would be issues with the default gateway on the
-Windows box not being part of the same IP subnet that the allocated IP
-address is, maybe that would be solved by assigning a /32 mask to the IP
-address on the windows box, or possibly have DHCP configure a host route
-on the Windows box for the default gateway, pointing out the ethernet
-interface, so that it ARPs for the default gateway address, which the
-Proxy ARP on the Linux box would receive. It would be interesting to see
-what the DSL modems that do this trick do on the devices sitting behind
-them.).
+Sure, but I won't have time to actually work on it until next week.
 
-Here is the path an incoming and outgoing IP packets would follow,
-adding in my firewalling suggestion :
+> To achieve distributed configuration you dont need netlink. The main
+> advantage of netlink over say /proc is the ability to do async events.
+> [Yes, I know i have been shouting for taking netlink and and sending it
+> over the wire and mucking around with endianness flags - but after
+> practical considerations i am having second thoughts;] 
 
-1) IP packet comes in encapsulated in PPP.
+Yes I went through severeal iterations of thoughts as well but it still
+seems reasonable to me. My current approach sounds quite silly but seems
+to work out pretty well. It gets down to having libnl providing a XML input
+and output interface and XSLT templates to convert every block into byte
+order independant form and vice versa. I'm still toying around but I
+already managed to convert my XML thingy into other protocols (given they
+are at least somehow compatible in architecture). It is also quite simple
+to convert these requests into a human readable form such as HTML and
+have it placed onto a website for a operator to accept the change or to
+simply keep a log of what has been changed when.
 
-2) The Linux box decapsulates it from the PPP header / trailer.
-
-3) The Linux box performs layer 3 firewalling processing against the IP
-packet.
-
-4) If the IP packet passes the firewall rules, it is then encapsulated
-in an ethernet frame, and sent to the Windows box. This might be achived
-by configuring a host route for the IP address on the Linux box,
-pointing directly to the ethernet interface, indicating it is directly
-attached.
-
-5) The windows box does what ever it wants with the IP packet, as normal.
-
-6) The windows box sends a IP packet back, encapsulated in the ethernet
-frame, via it's default gateway, which would be the Linux box Proxy
-ARP'ing for the IP address of the remote PPP endpoint IP address.
-
-7) The Linux box receives the IP packet, decapsulates it, and then
-passes it through the layer 3 outgoing firewalling rules again.
-
-8) If it passes those, it is then encapsulated in PPP, and off it goes.
-
-The role the Linux box would be performing would be PPP session
-termination, layer 3 firewalling and layer 2 style forwarding between
-its ethernet and PPP interfaces.
-
-Actually, what I've just described is quite similar to translational
-bridging eg 802.5 (Token Ring) <-> 802.3 (Ethernet), with a bit of layer
-3 processing ie. the firewalling occuring during the translation between
-the layer 2 frame formats. The reason why it isn't quite translational
-bridging is that PPP doesn't really have layer 2 addresses at all, so
-the ethernet device can't specify a destination address in its header of
-the PPP remote endpoint layer 2 address, which is why the Linux box has
-to act as a Proxy for ARPs for the IP address of the remote end. In a TR
-<-> Eth translation scenario, TR and Eth use compatible IEEE MAC
-addresses, so the ethernet device can be fooled into believing it is
-talking to another ethernet device, and vice versa, with a device in
-between performing frame translation.
-
-pppd already supports the Proxy ARP facility, although it is commonly
-used to make a PPP connected remote PC appear on the local LAN where the
-PPPD server is located. In the above scenario, Proxy ARP would be making
-the remote router (ie. default getway) appear on the local LAN that the
-Windows PC is attached to.
-
-
-Hopefully that all makes sense ! If it doesn't, please ask, I'll work
-out another way to explain it, or go into more detail.
-
-Regards,
-Mark.
-
-
-
--- 
-
-    The Internet's nature is peer to peer.
+I'm not yet sure if it works out in the end but the goal is to reduce the
+work needed to support a new rtnetlink object to the existance of a XSLT
+stylesheet published somewhere and if possible have the XSLT processor
+fetch it automatically from a local or global site. Other advantages?
+Operators could modify the XSLT and add conditions and automatically
+modify change requests to their needs.
