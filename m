@@ -1,41 +1,36 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [RFC,PATCH] fastroute dead code...
-Date: Fri, 30 Jul 2004 17:08:54 -0400
+Date: Fri, 30 Jul 2004 17:11:03 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410AB8E6.1010102@pobox.com>
-References: <20040730060348.GA22854@havoc.gtf.org> <ea86ce220407301229522be64f@mail.gmail.com> <20040730193515.GA11365@havoc.gtf.org> <ea86ce2204073013292c055a3@mail.gmail.com>
+Message-ID: <410AB967.2010202@pobox.com>
+References: <20040730060348.GA22854@havoc.gtf.org>	 <ea86ce220407301229522be64f@mail.gmail.com>	 <20040730193515.GA11365@havoc.gtf.org>	 <20040730131004.2be1274d.davem@redhat.com> <1091219266.1029.470.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, hadi@cyberus.ca, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, tmattox@gmail.com,
+        netdev@oss.sgi.com, Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tim Mattox <tmattox@gmail.com>
-In-Reply-To: <ea86ce2204073013292c055a3@mail.gmail.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1091219266.1029.470.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tim Mattox wrote:
->>It is dead code, as-is, in the kernel.  It would require patches to
->>actually work at all.
->>
->>It is impossible that fastrouting is being actively used, without patches.
->>
->>        Jeff
+jamal wrote:
+> On Fri, 2004-07-30 at 16:10, David S. Miller wrote:
+>>I totally agree.  And people can always resurrect it from the
+>>repository history or an old tarball if they wish.
 > 
 > 
-> Some might consider dropping in a new network driver module a patch,
-> others wouldn't...  Anyway, as I said before, IMHO I agree its dead code
-> worthy of removal unless someone comes up with a GigE driver that
-> actually uses it.
+> Patches are needed for the driver to use that code. So its not entirely
+> dead code i.e it is referenced from fastroute enabled drivers.
+> Sample (really old) code found at:
+> http://ftp.iasi.roedu.net/mirrors/ftp.inr.ac.ru/ip-routing/fastroute/
 
 
-Driver use is completely irrelevant :)
+Actually the opposite...  the driver infrastructure is pretty much in 
+place.  It's the core IPv4 routing code that no longer does what people 
+think :)
 
-Regardless of what any driver does, the IPv4 code in the kernel does not 
-make use of the RTCF_FAST flag, once set.  All the fastrouting driver 
-support API/code amounts to precisely nothing.
-
-Unless the --core net stack-- is patched again to support fastrouting, 
-all this is dead code.
+grep for RTCF_FAST in 2.4.x and then in 2.6.x...
 
 	Jeff
