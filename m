@@ -1,55 +1,155 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: Re: [RFC] add rtnl semaphore to linux-atm
-Date: Mon, 06 Oct 2003 10:46:25 -0400
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: [2.4 PATCH] two ipvs fixes
+Date: Tue, 7 Oct 2003 00:58:29 +0800 (CST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310061446.h96EkOkT029882@ginger.cmf.nrl.navy.mil>
-References: <mitch@sfgoth.com>
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0310070050120.1212-300000@penguin.linux-vs.org>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463755008-474097134-1065459509=:1212"
+Cc: rusty@rustcorp.com.au, Julian Anastasov <ja@ssi.bg>, <netdev@oss.sgi.com>,
+        <lvs-users@LinuxVirtualServer.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: Message from Mitchell Blank Jr <mitch@sfgoth.com>
-   of "Mon, 06 Oct 2003 02:03:04 PDT." <20031006090304.GD4651@gaz.sfgoth.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20031006090304.GD4651@gaz.sfgoth.com>,Mitchell Blank Jr writes:
->There are no users inside the atm tools that need ATM_ITF_ANY.  Anyone
->using it directly in a PVC address is already broken and non-determanistic
->if they have more than one interface, so I'm not worried if the semantics
->in that case are only 90% identical instead of 100%
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-i think the vswitch stuff used it.  but it can be made to work w/o 
-too much trouble.
+---1463755008-474097134-1065459509=:1212
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
->I doubt many crashes happen there (in practice mostly those operations
->will be serialized by userland - it's rare to have multiple threads
->opening/closing vccs at once) but that doesn't mean that races aren't
->hiding.  Again, there's zero performance implication to serializing
->them so we might as well make the driver API a little more foolproof.
 
-so if it isnt a problem why fix it?  further, if, as you say, open and
-close could sleep and possibly for long periods of time then holding
-this semaphore will block other open/close during this time.  that's
-going to be very annoying.  (i have already seen this problem with the
-old-style SOCKOPS lock_kernel() nonsense.  on vcc's that are slow to
-close the machine basically comes to a complete stop until that vcc
-is closed).  so either you make open/close non sleeping and add a 
-semaphore and just dont add a semaphore.
 
->Yes, but the worst-case is unacceptable.  There are at least some people
->who have used the code to terminate VCCs coming from DSL customers (a
->project like that is actually what got me started with hacking on
->linux-atm 5 years ago :-).  They could have hundreds of VCCs active at
->once.
+Hi,
 
-i agree.  our atm router typically has something like 100 open at a
-time.  so a linear search here is bad, but the he driver does a little
-work to make this somewhat more efficient (like caching the mapping 
-since this cant change while under the lock).
+Here are IPVS two patches for kernel 2.4, which are basically back ported 
+from the IPVS changes in kernel 2.6.
 
->Hmmmm... ok.  I really believe that we need to sleep in close until the
->VCC is truly free.  If userland can't do a close followed immediately by
->an open on the same vci then something is busted.
+One is to fix ip_vs_tunnel_xmit to return NF_DROP when no memory
+available, the other is to add strict boundary check in parsing FTP
+commands.
 
-see above why sleeping is bad.  tcp sockets can also get 'stuck' in a 
-close where you cant reopen immediately, TIME_WAIT i believe.
+Please check them.
+
+Thanks,
+
+Wensong
+
+---1463755008-474097134-1065459509=:1212
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-tunnel-xmit.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0310070058290.1212@penguin.linux-vs.org>
+Content-Description: 
+Content-Disposition: attachment; filename="linux-2.4-ipvs-tunnel-xmit.patch"
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTE0MSAgLT4gMS4xMTQyIA0KIwlu
+ZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwkxLjEgICAgIC0+IDEuMiAgICAN
+CiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNl
+dCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0NCiMgMDMvMTAvMDEJd2Vuc29uZ0BsaW51eC12cy5vcmcJMS4x
+MTQyDQojIFtJUFZTXSBGaXggaXBfdnNfdHVubmVsX3htaXQgdG8gcmV0dXJu
+IE5GX0RST1Agd2hlbiBubyBtZW1vcnkgYXZhaWxhYmxlDQojIC0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQojDQpkaWZm
+IC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYyBiL25ldC9pcHY0
+L2lwdnMvaXBfdnNfY29ubi5jDQotLS0gYS9uZXQvaXB2NC9pcHZzL2lwX3Zz
+X2Nvbm4uYwlXZWQgT2N0ICAxIDE5OjU0OjAyIDIwMDMNCisrKyBiL25ldC9p
+cHY0L2lwdnMvaXBfdnNfY29ubi5jCVdlZCBPY3QgIDEgMTk6NTQ6MDIgMjAw
+Mw0KQEAgLTkwMyw5ICs5MDMsOCBAQA0KIAkJCXNrYl9yZWFsbG9jX2hlYWRy
+b29tKHNrYiwgbWF4X2hlYWRyb29tKTsNCiAJCWlmICghbmV3X3NrYikgew0K
+IAkJCWlwX3J0X3B1dChydCk7DQotCQkJa2ZyZWVfc2tiKHNrYik7DQogCQkJ
+SVBfVlNfRVJSX1JMKCJpcF92c190dW5uZWxfeG1pdCgpOiBubyBtZW1vcnlc
+biIpOw0KLQkJCXJldHVybiAtRUlOVkFMOw0KKwkJCXJldHVybiBORl9EUk9Q
+Ow0KIAkJfQ0KIAkJa2ZyZWVfc2tiKHNrYik7DQogCQlza2IgPSBuZXdfc2ti
+Ow0K
+---1463755008-474097134-1065459509=:1212
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-ftp-parse.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0310070058291.1212@penguin.linux-vs.org>
+Content-Description: 
+Content-Disposition: attachment; filename="linux-2.4-ipvs-ftp-parse.patch"
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTE2NCAgLT4gMS4xMTY1IA0KIwlu
+ZXQvaXB2NC9pcHZzL2lwX3ZzX2Z0cC5jCTEuMSAgICAgLT4gMS4yICAgIA0K
+Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
+IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLQ0KIyAwMy8xMC8wNwl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjEx
+NjUNCiMgW0lQVlNdIGFkZCBzdHJpY3QgYm91bmRhcnkgY2hlY2sgaW4gcGFy
+c2luZyBGVFAgY29tbWFuZHMNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMNCmRpZmYgLU5ydSBhL25ldC9pcHY0
+L2lwdnMvaXBfdnNfZnRwLmMgYi9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Z0cC5j
+DQotLS0gYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Z0cC5jCVR1ZSBPY3QgIDcg
+MDA6NDk6MDQgMjAwMw0KKysrIGIvbmV0L2lwdjQvaXB2cy9pcF92c19mdHAu
+YwlUdWUgT2N0ICA3IDAwOjQ5OjA0IDIwMDMNCkBAIC04OCwzOSArODgsNDYg
+QEANCiAJCQkJICBfX3UzMiAqYWRkciwgX191MTYgKnBvcnQsDQogCQkJCSAg
+Y2hhciAqKnN0YXJ0LCBjaGFyICoqZW5kKQ0KIHsNCi0JdW5zaWduZWQgY2hh
+ciBwMSxwMixwMyxwNCxwNSxwNjsNCisJdW5zaWduZWQgY2hhciBwWzZdOw0K
+KwlpbnQgaSA9IDA7DQogDQotCXdoaWxlIChkYXRhIDwgZGF0YV9saW1pdCkg
+ew0KLQkJaWYgKHN0cm5pY21wKGRhdGEsIHBhdHRlcm4sIHBsZW4pICE9IDAp
+IHsNCi0JCQlkYXRhKys7DQotCQkJY29udGludWU7DQorCWlmIChkYXRhX2xp
+bWl0IC0gZGF0YSA8IHBsZW4pIHsNCisJCS8qIGNoZWNrIGlmIHRoZXJlIGlz
+IHBhcnRpYWwgbWF0Y2ggKi8NCisJCWlmIChzdHJuaWNtcChkYXRhLCBwYXR0
+ZXJuLCBkYXRhX2xpbWl0IC0gZGF0YSkgPT0gMCkNCisJCQlyZXR1cm4gLTE7
+DQorCQllbHNlDQorCQkJcmV0dXJuIDA7DQorCX0NCisNCisJaWYgKHN0cm5p
+Y21wKGRhdGEsIHBhdHRlcm4sIHBsZW4pICE9IDApIHsNCisJCXJldHVybiAw
+Ow0KKwl9DQorCSpzdGFydCA9IGRhdGEgKyBwbGVuOw0KKw0KKwlmb3IgKGRh
+dGEgPSAqc3RhcnQ7ICpkYXRhICE9IHRlcm07IGRhdGErKykgew0KKwkJaWYg
+KGRhdGEgPT0gZGF0YV9saW1pdCkNCisJCQlyZXR1cm4gLTE7DQorCX0NCisJ
+KmVuZCA9IGRhdGE7DQorDQorCW1lbXNldChwLCAwLCBzaXplb2YocCkpOw0K
+Kwlmb3IgKGRhdGEgPSAqc3RhcnQ7IGRhdGEgIT0gKmVuZDsgZGF0YSsrKSB7
+DQorCQlpZiAoKmRhdGEgPj0gJzAnICYmICpkYXRhIDw9ICc5Jykgew0KKwkJ
+CXBbaV0gPSBwW2ldKjEwICsgKmRhdGEgLSAnMCc7DQorCQl9IGVsc2UgaWYg
+KCpkYXRhID09ICcsJyAmJiBpIDwgNSkgew0KKwkJCWkrKzsNCisJCX0gZWxz
+ZSB7DQorCQkJLyogdW5leHBlY3RlZCBjaGFyYWN0ZXIgKi8NCisJCQlyZXR1
+cm4gLTE7DQogCQl9DQotCQkqc3RhcnQgPSBkYXRhK3BsZW47DQotCQlwMSA9
+IHNpbXBsZV9zdHJ0b3VsKGRhdGErcGxlbiwgJmRhdGEsIDEwKTsNCi0JCWlm
+ICgqZGF0YSAhPSAnLCcpDQotCQkJY29udGludWU7DQotCQlwMiA9IHNpbXBs
+ZV9zdHJ0b3VsKGRhdGErMSwgJmRhdGEsIDEwKTsNCi0JCWlmICgqZGF0YSAh
+PSAnLCcpDQotCQkJY29udGludWU7DQotCQlwMyA9IHNpbXBsZV9zdHJ0b3Vs
+KGRhdGErMSwgJmRhdGEsIDEwKTsNCi0JCWlmICgqZGF0YSAhPSAnLCcpDQot
+CQkJY29udGludWU7DQotCQlwNCA9IHNpbXBsZV9zdHJ0b3VsKGRhdGErMSwg
+JmRhdGEsIDEwKTsNCi0JCWlmICgqZGF0YSAhPSAnLCcpDQotCQkJY29udGlu
+dWU7DQotCQlwNSA9IHNpbXBsZV9zdHJ0b3VsKGRhdGErMSwgJmRhdGEsIDEw
+KTsNCi0JCWlmICgqZGF0YSAhPSAnLCcpDQotCQkJY29udGludWU7DQotCQlw
+NiA9IHNpbXBsZV9zdHJ0b3VsKGRhdGErMSwgJmRhdGEsIDEwKTsNCi0JCWlm
+ICgqZGF0YSAhPSB0ZXJtKQ0KLQkJCWNvbnRpbnVlOw0KLQ0KLQkJKmVuZCA9
+IGRhdGE7DQotCQkqYWRkciA9IChwNDw8MjQpIHwgKHAzPDwxNikgfCAocDI8
+PDgpIHwgcDE7DQotCQkqcG9ydCA9IChwNjw8OCkgfCBwNTsNCi0JCXJldHVy
+biAxOw0KIAl9DQotCXJldHVybiAwOw0KKw0KKwlpZiAoaSAhPSA1KQ0KKwkJ
+cmV0dXJuIC0xOw0KKw0KKwkqYWRkciA9IChwWzNdPDwyNCkgfCAocFsyXTw8
+MTYpIHwgKHBbMV08PDgpIHwgcFswXTsNCisJKnBvcnQgPSAocFs1XTw8OCkg
+fCBwWzRdOw0KKwlyZXR1cm4gMTsNCiB9DQogDQogDQpAQCAtMTY1LDcgKzE3
+Miw3IEBADQogCQkJCQkgICBTRVJWRVJfU1RSSU5HLA0KIAkJCQkJICAgc2l6
+ZW9mKFNFUlZFUl9TVFJJTkcpLTEsICcpJywNCiAJCQkJCSAgICZmcm9tLCAm
+cG9ydCwNCi0JCQkJCSAgICZzdGFydCwgJmVuZCkgPT0gMCkNCisJCQkJCSAg
+ICZzdGFydCwgJmVuZCkgIT0gMSkNCiAJCQlyZXR1cm4gMDsNCiANCiAJCUlQ
+X1ZTX0RCRygxLWRlYnVnLCAiUEFTViByZXNwb25zZSAoJXUuJXUuJXUuJXU6
+JWQpIC0+ICINCkBAIC0yNjUsNyArMjcyLDcgQEANCiAJZGF0YSA9IGRhdGFf
+c3RhcnQgPSAoY2hhciAqKXRoICsgKHRoLT5kb2ZmIDw8IDIpOw0KIAlkYXRh
+X2xpbWl0ID0gc2tiLT50YWlsOw0KIA0KLQl3aGlsZSAoZGF0YSA8IGRhdGFf
+bGltaXQpIHsNCisJd2hpbGUgKGRhdGEgPD0gZGF0YV9saW1pdCAtIDYpIHsN
+CiAJCWlmIChzdHJuaWNtcChkYXRhLCAiUEFTVlxyXG4iLCA2KSA9PSAwKSB7
+DQogCQkJSVBfVlNfREJHKDEtZGVidWcsICJnb3QgUEFTViBhdCAlZCBvZiAl
+ZFxuIiwNCiAJCQkJICBkYXRhIC0gZGF0YV9zdGFydCwNCkBAIC0yODMsMTMg
+KzI5MCwxMCBAQA0KIAkgKiB0aGVuIGNyZWF0ZSBhIG5ldyBjb25uZWN0aW9u
+IGVudHJ5IGZvciB0aGUgY29taW5nIGRhdGENCiAJICogY29ubmVjdGlvbi4N
+CiAJICovDQotCWRhdGEgPSBkYXRhX3N0YXJ0Ow0KLQlkYXRhX2xpbWl0ID0g
+c2tiLT5oLnJhdyArIHNrYi0+bGVuIC0gMTg7DQotDQotCWlmIChpcF92c19m
+dHBfZ2V0X2FkZHJwb3J0KGRhdGEsIGRhdGFfbGltaXQsDQorCWlmIChpcF92
+c19mdHBfZ2V0X2FkZHJwb3J0KGRhdGFfc3RhcnQsIGRhdGFfbGltaXQsDQog
+CQkJCSAgIENMSUVOVF9TVFJJTkcsIHNpemVvZihDTElFTlRfU1RSSU5HKS0x
+LA0KIAkJCQkgICAnXHInLCAmdG8sICZwb3J0LA0KLQkJCQkgICAmc3RhcnQs
+ICZlbmQpID09IDApDQorCQkJCSAgICZzdGFydCwgJmVuZCkgIT0gMSkNCiAJ
+CXJldHVybiAwOw0KIA0KIAlJUF9WU19EQkcoMS1kZWJ1ZywgIlBPUlQgJXUu
+JXUuJXUuJXU6JWQgZGV0ZWN0ZWRcbiIsDQo=
+---1463755008-474097134-1065459509=:1212--
