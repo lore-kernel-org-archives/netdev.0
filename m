@@ -1,91 +1,124 @@
-From: Alexander Samad <alex@samad.com.au>
-Subject: Re: [RFC, PATCH 4/5]: netfilter+ipsec - policy lookup
-Date: Wed, 24 Mar 2004 14:33:26 +1100
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20040324033326.GP3387@samad.com.au>
-References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF17.8090907@trash.net> <20040324021514.GM3387@samad.com.au> <4060F4F6.5020400@trash.net>
+From: "Gargi D" <gargid@cdacindia.com>
+Subject: RE: NETLINK upcalls and wireless events
+Date: Wed, 24 Mar 2004 09:37:01 +0530
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Message-ID: <001d01c41155$759ca8f0$1006a8c0@rahul>
+References: <200403230212.i2N2CeRj069721@possum.icir.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Y5wfsVCgeKAcINk2"
-Cc: "David S. Miller" <davem@redhat.com>, herbert@gondor.apana.org.au,
-	netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4060F4F6.5020400@trash.net>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: "'Pavlin Radoslavov'" <pavlin@icir.org>, <hostap@shmoo.com>,
+	<netdev@oss.sgi.com>
+In-Reply-To: <200403230212.i2N2CeRj069721@possum.icir.org>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---Y5wfsVCgeKAcINk2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I was wondering if you could help me in understanding the usage of
+netlink sockets.  Wireless events such as a signal that a new interface
+has been created, can anyway be read from 
 
-On Wed, Mar 24, 2004 at 03:39:50AM +0100, Patrick McHardy wrote:
-> Alexander Samad wrote:
-> >Hi
-> >
-> >Think their might be a problem with this patch.
-> >
-> >Potientially a packet could traverse the pre, forward and the post
-> >routing, at which point it can be SNAT'ed or MASQ'ed and then re
-> >injected into route_me_harder.  This potiential could allow packets to
-> >be rerouted based on the new src/dst addresses differently to the intail
-> >packet but this new packet doesn't traverse any of the chains with the
-> >new information.
->=20
-> This is just as without the patches, SNAT in POST_ROUTING never causes
-> a packet to re-traverse the hooks. There is one minor difference,
-> packets which match a policy after NAT stop traversing the hooks at
-> NF_IP_PRI_NAT_SRC priority. I will fix this this for the final version.
+/proc/net and var/lib/pcmcia/stab
 
-Sorry might not have made myself clear, after an SNAT with your patch
-the packet is re injected into route_me_harder, thus the packet is able
-to be rerouted (sent out another interface for example)=20
+Why would then want to use netlink sockets to get an indication of the
+same.
 
-What this would mean is a packet could meet your iptable rules with is
-PRE-SNAT details and then actually behave differently once it has been
-SNAT'ed (and not get checked)
 
-Alex
+Regards, 
 
->=20
-> Regards
-> Patrick
->=20
-> >
-> >Alex
-> >
-> >On Thu, Mar 18, 2004 at 05:32:23PM +0100, Patrick McHardy wrote:
-> >
-> >>This patch adds policy lookups to ip_route_me_harder and makes NAT
-> >>reroute for any change that affects route/policy lookups.
-> >>
-> >
-> >
-> >
->=20
->=20
 
---Y5wfsVCgeKAcINk2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+Miss. Gargi Dadhich 
+Member Technical Staff 
+Networking and Internet Software Group (NISG) 
+C-DAC, Pune 
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+Tel:    020-25694000/1/2/3      Extn: 484 
+Fax:    020-25694059 
 
-iD8DBQFAYQGGkZz88chpJ2MRAo0JAJ9BoQrQ6BYCrP97qVL5XelYiwQLYQCdGKxY
-r1Z0KbBtH5IxE2ZoHGV0BIU=
-=mcmw
------END PGP SIGNATURE-----
 
---Y5wfsVCgeKAcINk2--
+
+-----Original Message-----
+From: hostap-bounces+gargid=cdacindia.com@shmoo.com
+[mailto:hostap-bounces+gargid=cdacindia.com@shmoo.com] On Behalf Of
+Pavlin Radoslavov
+Sent: Tuesday, March 23, 2004 7:43 AM
+To: hostap@shmoo.com; netdev@oss.sgi.com
+Cc: pavlin@icir.org
+Subject: NETLINK upcalls and wireless events
+
+
+[Apology for the cross-post, but I am not sure which is the right
+mailing list for this question]
+
+
+BACKGROUND:
+
+I am using Linux NETLINK sockets to monitor network interface events in
+the kernel such as "interface added/deleted", "address added/deleted",
+etc.
+
+The RTM_NEWLINK message type upcall from the kernel to user-space is
+used to signal that a new network interface has been created (e.g., a
+tunnel interface, a PC-Card has been inserted, etc). One of the
+attributes of that message (see rtnetlink(7)) is IFLA_IFNAME and is used
+to store the device name (e.g., "tun0", "eth0", etc).
+
+
+PROBLEM:
+
+So far everything worked fine on a desktop: whenever I add a tunnel, the
+kernel sends to user-space RTM_NEWLINK, I check the IFLA_IFNAME
+attribute to get the name of the new interface, etc.
+
+However, a fellow tried same software on a laptop in wireless
+environment, and then RTM_NEWLINK messages started to appear for no
+apparent reason. Those messages did not contain the IFLA_IFNAME
+attribute which was strange and I started to suspect that it could be a
+kernel bug. After some investigation I found that the RTM_NEWLINK
+message can be generated not only when there is a new interface, but in
+some other cases as well. Inside file linux/wireless.h (I am looking
+into version 15 from 12.7.02) I found the following comment: 
+
+/* ----------------------- WIRELESS EVENTS ----------------------- */
+/*
+ * Wireless events are carried through the rtnetlink socket to user
+ * space. They are encapsulated in the IFLA_WIRELESS field of
+ * a RTM_NEWLINK message.
+ */
+
+
+In other words, some wireless events may also generate RTM_NEWLINK
+message as well. I don't have a laptop with Linux to verify that myself,
+but I am quite sure that some wireless events do generate RTM_NEWLINK
+with no IFLA_IFNAME.
+
+
+QUESTION:
+
+If I receive an RTM_NEWLINK message, is there a reliable way to find-out
+whether the message is generated because of a wireless event or because
+indeed there is a new network interface installed in the kernel.
+
+Checking whether the message contains the IFLA_WIRELESS field is
+probably not an option, because I may be compiling the code on a
+slightly older Linux box that doesn't have IFLA_WIRELESS defined. The
+only solution I have so far is to check whether the message contains the
+IFLA_IFNAME field, but this is more like a work-around rather than a
+solution. Any suggestions?
+
+Thanks,
+Pavlin
+_______________________________________________
+HostAP mailing list
+HostAP@shmoo.com
+http://lists.shmoo.com/mailman/listinfo/hostap
