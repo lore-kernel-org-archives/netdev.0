@@ -1,44 +1,27 @@
-From: Julian Anastasov <ja@ssi.bg>
+From: "Carlos Velasco" <carlosev@newipnet.com>
 Subject: Re: Bug? ARP with wrong src IP address
-Date: Thu, 24 Jul 2003 19:32:55 +0300 (EEST)
+Date: Thu, 24 Jul 2003 18:36:06 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307241922270.10460-100000@l>
-References: <200307241804140253.00527C89@192.168.128.16>
+Message-ID: <200307241836060226.006FACEB@192.168.128.16>
+References: <Pine.LNX.4.44.0307241922270.10460-100000@l>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Bart De Schuymer <bdschuym@pandora.be>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: "Bart De Schuymer" <bdschuym@pandora.be>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Carlos Velasco <carlosev@newipnet.com>
-In-Reply-To: <200307241804140253.00527C89@192.168.128.16>
+In-Reply-To: <Pine.LNX.4.44.0307241922270.10460-100000@l>
+To: "Julian Anastasov" <ja@ssi.bg>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On 24/07/2003 at 19:32 Julian Anastasov wrote:
 
-	Hello,
+>	There are some exceptions for the src IP. Even Linux will
+>not reply if the src IP in incoming probe matches local IP. But
+>may be only Linux preserves the src IP in outgoing probes.
 
-On Thu, 24 Jul 2003, Carlos Velasco wrote:
+I think so, I don't like that src IP in outgoing probes... but as Windows OS replies to this ARP can't see why Cisco IOS is not replying.
+Will open a TAC case tomorrow. I'm interested on testing this in Solaris.
 
-> This would be another approach, configuring the IP address on the 
-> ethernet interface (ex. eth0:2) and not advertising or replying arp with 
-> the hidden patch.
-> However the usual approach is configuring the destination IP address on 
-> a loopback interface that does real "hiding" as it's no more in ethernet 
-> interface.
-
-	The Linux concept differs. As for hidden, it works for 
-different interface, not for the one where the probe is received. The 
-alias names do not play here.
-
-> As long as I know, Solaris 8 and Windows 2000 have no problems with the 
-> ARP Request, as they use the src IP address of the ethernet interface. 
-> But as I have seen in the RFC it seems that Cisco devices should reply 
-> to this ARP request without looking into the source ip address.
-
-	There are some exceptions for the src IP. Even Linux will
-not reply if the src IP in incoming probe matches local IP. But
-may be only Linux preserves the src IP in outgoing probes.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Regards,
+Carlos Velasco
