@@ -1,35 +1,18 @@
-From: AntiVir@zeus.unive.it
-Subject: AntiVir ALERT [your mail: "Thank you!"]
-Date: Sun, 31 Aug 2003 03:46:38 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] (3/3) llc - set owner on /proc/net/llc directory
+Date: Sat, 30 Aug 2003 19:05:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308310146.h7V1kcsv002912@zeus.unive.it>
+Message-ID: <20030830190516.0738ee3d.davem@redhat.com>
+References: <20030829105140.72c5fad3.shemminger@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@conectiva.com.br, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030829105140.72c5fad3.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* * * * * * * * * * * * * * * AntiVir ALERT * * * * * * * * * * * * * * *
-This version of AntiVir is licensed and full featured.
 
-AntiVir has detected the following in a mail from your address:
-
-        Worm/Sobig.F	
-
-The mail was not delivered.
-
-Please remove any potential malicious software from your computer before
-sending a new mail with attachments.
-
-Mail-Info:
---8<--
- From: <netdev@oss.sgi.com>
- To: <pregadio@unive.it>
- Date: Sun, 31 Aug 2003 10:46:41 +0900
- Subject: Thank you!
---8<--
-
-
---
-AntiVir for UNIX
-Copyright (C) 1994-2002 by H+BEDV Datentechnik GmbH. All rights reserved.
-For more information see http://www.antivir.de/ or http://www.hbedv.com/
+All three LLC patches applied, thanks Stephen.
