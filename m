@@ -1,120 +1,175 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM] don't export llc_oui
-Date: Mon, 08 Sep 2003 16:50:30 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (3/4) dlci locking and registration changes
+Date: Mon, 8 Sep 2003 14:12:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309082050.h88KoUSa003672@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com, mitch@sfgoth.com
+Message-ID: <20030908141246.5782437a.shemminger@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-llc_oui[] is only used in two places.  the overhead of exporting
-probably isnt worth the effort.  please apply to 2.6. -- thanks!
+Change the locking for the dlci device list and registration.
+- use RTNL instead of a private lock (needed for net notifier in next patch).
+- reorder the checks in the dlci_add to avoid complicated unwinds
+- use dev->destructor to free
+- hold RTNL around deassoc to protect callback from races
 
-[ATM]: exporting llc_oui[] isn't worth it (from mitch@sfgoth.com)
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1423  -> 1.1424 
-#	  net/atm/ipcommon.c	1.2     -> 1.3    
-#	 net/sched/sch_atm.c	1.13    -> 1.14   
-#	include/linux/atmclip.h	1.1     -> 1.2    
-#	      net/atm/clip.c	1.25    -> 1.26   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/09/04	chas@relax.cmf.nrl.navy.mil	1.1424
-# [ATM]: exporting llc_oui[] isn't worth it (from mitch@sfgoth.com)
-# --------------------------------------------
-#
-diff -Nru a/include/linux/atmclip.h b/include/linux/atmclip.h
---- a/include/linux/atmclip.h	Mon Sep  8 16:38:01 2003
-+++ b/include/linux/atmclip.h	Mon Sep  8 16:38:01 2003
-@@ -18,8 +18,4 @@
+diff -Nru a/drivers/net/wan/dlci.c b/drivers/net/wan/dlci.c
+--- a/drivers/net/wan/dlci.c	Mon Sep  8 14:02:46 2003
++++ b/drivers/net/wan/dlci.c	Mon Sep  8 14:02:46 2003
+@@ -58,7 +58,6 @@
+ static const char version[] = "DLCI driver v0.35, 4 Jan 1997, mike.mclagan@linux.org";
  
- #define	SIOCMKCLIP	_IO('a',ATMIOC_CLIP)	/* create IP interface */
+ static LIST_HEAD(dlci_devs);
+-static spinlock_t dlci_dev_lock = SPIN_LOCK_UNLOCKED;
  
--#ifdef __KERNEL__
--extern const unsigned char llc_oui[6];
--#endif
--
- #endif
-diff -Nru a/net/atm/clip.c b/net/atm/clip.c
---- a/net/atm/clip.c	Mon Sep  8 16:38:01 2003
-+++ b/net/atm/clip.c	Mon Sep  8 16:38:01 2003
-@@ -193,6 +193,13 @@
- 	return 0;
- }
+ static void dlci_setup(struct net_device *);
  
-+static const unsigned char llc_oui[] = {
-+	0xaa,	/* DSAP: non-ISO */
-+	0xaa,	/* SSAP: non-ISO */
-+	0x03,	/* Ctrl: Unnumbered Information Command PDU */
-+	0x00,	/* OUI: EtherType */
-+	0x00,
-+	0x00 };
- 
- static void clip_push(struct atm_vcc *vcc,struct sk_buff *skb)
- {
-diff -Nru a/net/atm/ipcommon.c b/net/atm/ipcommon.c
---- a/net/atm/ipcommon.c	Mon Sep  8 16:38:01 2003
-+++ b/net/atm/ipcommon.c	Mon Sep  8 16:38:01 2003
-@@ -22,15 +22,6 @@
- #endif
+@@ -360,34 +359,38 @@
+ 	struct net_device	*master, *slave;
+ 	struct dlci_local	*dlp;
+ 	struct frad_local	*flp;
+-	int			err;
++	int			err = -EINVAL;
  
  
--const unsigned char llc_oui[] = {
--	0xaa,	/* DSAP: non-ISO */
--	0xaa,	/* SSAP: non-ISO */
--	0x03,	/* Ctrl: Unnumbered Information Command PDU */
--	0x00,	/* OUI: EtherType */
--	0x00,
--	0x00 };
--
--
- /*
-  * skb_migrate appends the list at "from" to "to", emptying "from" in the
-  * process. skb_migrate is atomic with respect to all other skb operations on
-@@ -67,5 +58,4 @@
- }
+ 	/* validate slave device */
+ 	slave = dev_get_by_name(dlci->devname);
+ 	if (!slave)
+-		return(-ENODEV);
++		return -ENODEV;
  
- 
--EXPORT_SYMBOL(llc_oui);
- EXPORT_SYMBOL(skb_migrate);
-diff -Nru a/net/sched/sch_atm.c b/net/sched/sch_atm.c
---- a/net/sched/sch_atm.c	Mon Sep  8 16:38:01 2003
-+++ b/net/sched/sch_atm.c	Mon Sep  8 16:38:01 2003
-@@ -216,6 +216,13 @@
- 	tasklet_schedule(&p->task);
- }
- 
-+static const u8 llc_oui_ip[] = {
-+	0xaa,		/* DSAP: non-ISO */
-+	0xaa,		/* SSAP: non-ISO */
-+	0x03,		/* Ctrl: Unnumbered Information Command PDU */
-+	0x00,		/* OUI: EtherType */
-+	0x00, 0x00,
-+	0x08, 0x00 };	/* Ethertype IP (0800) */
- 
- static int atm_tc_change(struct Qdisc *sch, u32 classid, u32 parent,
-     struct rtattr **tca, unsigned long *arg)
-@@ -322,11 +329,10 @@
- 	flow->next = p->link.next;
- 	p->link.next = flow;
- 	flow->hdr_len = hdr_len;
--	if (hdr) memcpy(flow->hdr,hdr,hdr_len);
--	else {
--		memcpy(flow->hdr,llc_oui,sizeof(llc_oui));
--		((u16 *) flow->hdr)[3] = htons(ETH_P_IP);
+-	if (slave->type != ARPHRD_FRAD) {
+-		dev_put(slave);
+-		return(-EINVAL);
 -	}
-+	if (hdr)
-+		memcpy(flow->hdr,hdr,hdr_len);
-+	else
-+		memcpy(flow->hdr,llc_oui_ip,sizeof(llc_oui_ip));
- 	*arg = (unsigned long) flow;
- 	return 0;
- err_out:
++	if (slave->type != ARPHRD_FRAD || slave->priv == NULL)
++		goto err1;
+ 
+ 	/* create device name */
+ 	master = alloc_netdev( sizeof(struct dlci_local), "dlci%d",
+ 			      dlci_setup);
+ 	if (!master) {
+-		dev_put(slave);
+-		return(-ENOMEM);
++		err = -ENOMEM;
++		goto err1;
+ 	}
+ 
+-	err = register_netdev(master);
+-	if (err < 0) {
+-		dev_put(slave);
+-		kfree(master);
+-		return(err);
++	/* make sure same slave not already registered */
++	rtnl_lock();
++	list_for_each_entry(dlp, &dlci_devs, list) {
++		if (dlp->slave == slave) {
++			err = -EBUSY;
++			goto err2;
++		}
+ 	}
+ 
++	err = dev_alloc_name(master, master->name);
++	if (err < 0)
++		goto err2;
++
+ 	*(short *)(master->dev_addr) = dlci->dlci;
+ 
+ 	dlp = (struct dlci_local *) master->priv;
+@@ -395,22 +398,27 @@
+ 	dlp->master = master;
+ 
+ 	flp = slave->priv;
+-	err = flp ? (*flp->assoc)(slave, master) : -EINVAL;
++	err = (*flp->assoc)(slave, master);
+ 	if (err < 0)
+-	{
+-		unregister_netdev(master);
+-		dev_put(slave);
+-		free_netdev(master);
+-		return(err);
+-	}
++		goto err2;
++
++	err = register_netdevice(master);
++	if (err < 0) 
++		goto err2;
+ 
+ 	strcpy(dlci->devname, master->name);
+ 
+-	spin_lock_bh(&dlci_dev_lock);
+ 	list_add(&dlp->list, &dlci_devs);
+-	spin_unlock_bh(&dlci_dev_lock);
++	rtnl_unlock();
+ 
+ 	return(0);
++
++ err2:
++	rtnl_unlock();
++	kfree(master);
++ err1:
++	dev_put(slave);
++	return(err);
+ }
+ 
+ static int dlci_del(struct dlci_add *dlci)
+@@ -433,21 +441,18 @@
+ 	slave = dlp->slave;
+ 	flp = slave->priv;
+ 
++	rtnl_lock();
+ 	err = (*flp->deassoc)(slave, master);
+-	if (err) 
+-		return(err);
+-
++	if (!err) {
++		list_del(&dlp->list);
+ 
+-	spin_lock_bh(&dlci_dev_lock);
+-	list_del(&dlp->list);
+-	spin_unlock_bh(&dlci_dev_lock);
++		unregister_netdevice(master);
+ 
+-	unregister_netdev(master);
+-
+-	dev_put(slave);
+-	free_netdev(master);
++		dev_put(slave);
++	}
++	rtnl_unlock();
+ 
+-	return(0);
++	return(err);
+ }
+ 
+ static int dlci_ioctl(unsigned int cmd, void *arg)
+@@ -494,6 +499,7 @@
+ 	dev->hard_header	= dlci_header;
+ 	dev->get_stats		= dlci_get_stats;
+ 	dev->change_mtu		= dlci_change_mtu;
++	dev->destructor		= free_netdev;
+ 
+ 	dlp->receive		= dlci_receive;
+ 
+@@ -518,12 +524,12 @@
+ 	
+ 	dlci_ioctl_set(NULL);
+ 
++	rtnl_lock();
+ 	list_for_each_entry_safe(dlp, nxt, &dlci_devs, list) {
+-		unregister_netdev(dlp->master);
++		unregister_netdevice(dlp->master);
+ 		dev_put(dlp->slave);
+-		free_netdev(dlp->master);
+ 	}
+-
++	rtnl_unlock();
+ }
+ 
+ module_init(init_dlci);
