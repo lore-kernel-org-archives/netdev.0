@@ -1,19 +1,34 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: A better way to get driver stats than parsing /proc/net/dev ?
-Date: Fri, 11 Apr 2003 15:19:52 +0000 (UTC)
+From: "Ury N. Stankevich" <ury@bofh.homeunix.org>
+Subject: bug in 2.4.20
+Date: Fri, 11 Apr 2003 19:37:05 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <slrnb9dn9r.fef.lunz@stoli.localnet>
-References: <3E967535.2000409@candelatech.com>
+Message-ID: <20030411193705.02eeea7f.ury@bofh.homeunix.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-greearb@candelatech.com said:
-> Is there an ioctl or some other binary means of getting the info that
-> /proc/net/dev provides?
+hi
+i use 2.4.20xfs kernel on my box with 4 eth cards
+2 rtl8139 eth0, eth1
+2 rtl8029 eth2, eth3
 
-You can do it with netlink sockets. See print_linkinfo() in the iproute2
-code.
+and one time samba fail use eth3 iface and i found...
+# ip n ls dev eth3
+..
+10.103.104.255  nud failed
+..
+broadcast address appear in arp table
+while i have C class network attached.
 
-Jason
+after
+# ip l set eth3 dowm; ip l set eth3 up
+all become fine.
+
+any suggestions?
+
+-- 
+    Linux registered user #287505
