@@ -1,60 +1,46 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: Re: Fragment ID wrap workaround (read-only, untested).
-Date: Tue, 27 Jul 2004 14:38:42 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040727123842.GF27188@suse.de>
-References: <20040715092715.GA23131@wotan.suse.de> <OF97127705.C0C08B6A-ON88256ED2.004DB9A5-88256ED2.005146DA@us.ibm.com>
+From: Pasi Sjoholm <ptsjohol@cc.jyu.fi>
+Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe
+ RLT-8139 related)
+Date: Tue, 27 Jul 2004 17:20:18 +0300 (EEST)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0407271710070.3787-100000@silmu.st.jyu.fi>
+References: <16646.14381.740376.204381@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com,
-        "Rusty Russell (IBM)" <rusty@au1.ibm.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF97127705.C0C08B6A-ON88256ED2.004DB9A5-88256ED2.005146DA@us.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	H?ctor Mart?n <hector@marcansoft.com>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>, <akpm@osdl.org>,
+	<netdev@oss.sgi.com>, <brad@brad-x.com>, <shemminger@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265966AbUG0OVF@vger.kernel.org>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16646.14381.740376.204381@robur.slu.se>
 List-Id: netdev.vger.kernel.org
 
-> you'll reassemble garbage when the IP ID wraps (well before the frag queue
-> expires). And the checksum will pass anyway on average about 1/64K of the
-> time. If you send at full rate and drop, say, 100 frags a second, it
-> doesn't take too long to get a Frankenpacket-- reassembled from parts of
-> others. :-)
+On Tue, 27 Jul 2004, Robert Olsson wrote:
 
-In the scenarios we were looking at, packet loss rate was fairly low.
-What compounded the problem was that the NFS payload wasn't very varied,
-so the UDP checksum distribution was far from even.
+>  > First run:
+>  > timestamp diff =3D 0, maxlat =3D 4581159
+>  Yes you starved your user apps for ~5 sec.=20
+>  Any idea where your load comes from? Pure NFS network load cannot be=
+ hard.
 
-When we looked into the problem, we considered implementing a per-route
-parameter where the admin can set lower reassembly timeouts. I think this
-is a solution that both addresses the problem, and does not interfere
-with WAN traffic. The user space tools could even select reasonable
-defaults based on the hardware type when setting up the device.
+Yeah, when the ksoftirqd is taking all the cpu it will be like that, bu=
+t=20
+when the kernel is behaving normally the starving diff is between 0->1s=
+ec.
 
-(We did not implement this because we decided to go for NFS over TCP by
-default instead).
+With two samba-server-> workstation -> nfs-server file copys on the dif=
+f=20
+is normally 0.02secs if I'm not doing anything else but If I will do=20
+something cpu-intensive like compiling the kernel with "make -j3", the=20
+ksoftirqd will be soon taking all the cpu-time but this requires that I=
+=20
+will also have those network file transfers going on.
 
-> > In general handling a link where the RTT increases would seem
-> > tricky with your scheme. Unlike TCP there is no retransmit
-> > to save the day.
-> 
-> In the particular case (NFS over UDP), there is both a retransmit (done
-> by RPC) and significant loss rate to start with. As long as the time-out
-> is conservative, I don't think this has to affect other cases
-> significantly.
+--
+Pasi Sj=F6holm
 
-NFS isn't the only application making heavy use of UDP.  Video and
-audio do so too, and these don't have retransmits. Granted, these should
-choose a paket size that is below the path MTU, but not all applications
-always do.
 
-IMO an estimator such as you describe would need to be very sensitive
-to jitter in fragment latencies, and it may be fairly hard to find a
-solution that works from 802.11 up to 10GE. A per-route reassembly
-timeout is probably a lot less of a headache.
 
-Olaf
--- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
+ =20
