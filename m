@@ -1,62 +1,43 @@
-From: Neema <neema.network@gmail.com>
-Subject: Re: help in using eth_change_mtu
-Date: Tue, 25 Jan 2005 09:16:17 +0530
-Message-ID: <41F5C109.7060801@gmail.com>
-References: <cfc9593605012400595e529682@mail.gmail.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: skb_checksum_help
+Date: Mon, 24 Jan 2005 19:43:28 -0800
+Message-ID: <20050124194328.20a106de.davem@davemloft.net>
+References: <41F50B6C.6010107@davidcoulson.net>
+	<20050124151510.GV23931@postel.suug.ch>
+	<20050124225423.GA15405@gondor.apana.org.au>
+	<20050124234515.GA31837@postel.suug.ch>
+	<20050125000759.GA15883@gondor.apana.org.au>
+	<20050124164049.3b939791.davem@davemloft.net>
+	<20050125014538.GB31837@postel.suug.ch>
+	<20050125014838.GA16637@gondor.apana.org.au>
+	<20050125020118.GC31837@postel.suug.ch>
+	<20050124180354.63ae600d.davem@davemloft.net>
+	<20050125022431.GD31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Harsh <hanemade@gmail.com>
-In-Reply-To: <cfc9593605012400595e529682@mail.gmail.com>
-Sender: linux-net-owner@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, david@davidcoulson.net, kaber@trash.net,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050125022431.GD31837@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 25 Jan 2005 03:24:31 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-    What ever u may send,the maximum size of the packet in ethernet 
-should be 1514bytes, that includes ethernet header (And also minimum is 
-82bytes).
-I think u are using old libnet version. That function sets the MTU with 
-the given value if neither exceeded max and nor minimum.
+> This of course explains it, didn't think of that. I thought it would
+> inherit the checksumming features.
 
+It should, but only in very limited cases.
 
-HTH,
-Neema
+For example, it probably only works properly when HW vlan assist
+is being used on TX.  It's likely that the chips which don't support
+VLAN assist also can't handle VLAN headers in their TX checksumming
+engine.
 
-Harsh wrote:
-
->Hello,
->         If some extra information is required to be sent with each
->packet then does that require to change Ethernet MTU 1500 to
->1500-(Bytes in extra info) or its ok with 1500 value of MTU? While
->checking source code of net_init.c in drivers/net dir i found one
->function eth_change_mtu. I want to know does that helps? why its given
->there in source code?
->regards,
->Harsh.
->
->static int eth_change_mtu(struct net_device *dev, int new_mtu)
-> {
->        if ((new_mtu < 68) || (new_mtu > 1500))
->                 return -EINVAL;
->        dev->mtu = new_mtu;
->        return 0;
-> }
->-
->To unsubscribe from this list: send the line "unsubscribe linux-net" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  
->
-
-
--- 
-
-Thanks & Regards,
-Neema
-
-
-
+Because it is very chip dependant whether this works or not in
+any case, we should probably create a special features flag for
+this.  Something like NETIF_F_VLAN_INHERIT_FEATURES.
