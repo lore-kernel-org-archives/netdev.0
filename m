@@ -1,48 +1,66 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: LLTX and netif_stop_queue
-Date: Mon, 03 Jan 2005 07:57:14 -0800
-Message-ID: <52brc68q05.fsf@topspin.com>
-References: <52llbwoaej.fsf@topspin.com>
-	<20041217214432.07b7b21e.davem@davemloft.net>
-	<1103484675.1050.158.camel@jzny.localdomain>
-	<5cac192f04122210491d64d4b6@mail.gmail.com>
-	<20041222202919.057b8331.davem@davemloft.net>
-	<5cac192f0412230110628749e3@mail.gmail.com>
-	<41CAF444.3000305@trash.net>
-	<5cac192f04122408102129af43@mail.gmail.com>
-	<1104240717.1100.66.camel@jzny.localdomain>
-	<5cac192f0501021530672a908a@mail.gmail.com>
-	<1104764660.1048.578.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
+Date: 03 Jan 2005 10:55:26 -0500
+Message-ID: <1104767726.1049.591.camel@jzny.localdomain>
+References: <20041231110836.GD32419@postel.suug.ch>
+	 <1104505142.1048.262.camel@jzny.localdomain>
+	 <20041231153930.GN32419@postel.suug.ch>
+	 <1104511494.1048.303.camel@jzny.localdomain>
+	 <20041231181153.GP32419@postel.suug.ch>
+	 <1104526311.1047.379.camel@jzny.localdomain>
+	 <20050101121041.GR32419@postel.suug.ch>
+	 <1104622164.1048.444.camel@jzny.localdomain>
+	 <20050102000612.GU32419@postel.suug.ch>
+	 <1104763012.1047.524.camel@jzny.localdomain>
+	 <20050103150230.GC26856@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Eric Lemoine <eric.lemoine@gmail.com>,
-	Andi Kleen <ak@suse.de>, openib-general@openib.org,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <openib-general-bounces@openib.org>
-To: hadi@cyberus.ca
-In-Reply-To: <1104764660.1048.578.camel@jzny.localdomain> (jamal's message
-	of "03 Jan 2005 10:04:21 -0500")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050103150230.GC26856@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    jamal> Andi or anyone else - has anyone really done perfomance
-    jamal> analysis of LLTX (with anything other than loopback) and
-    jamal> shown it has any value? Maybe time to just shoot the damn
-    jamal> thing.
+On Mon, 2005-01-03 at 10:02, Thomas Graf wrote:
 
-For the IPoIB driver, it seems to be worth a couple percent.  It's
-hard to get really consistent results but on my pair of test systems,
-TCP throughput with netperf goes up by about 30 Mbps out of roughly
-1900 Mbps total.  It's probably not worth the complexity in the net
-core if all drivers only get that level of improvement.
+> > ok. I realize its optional - but i wouldnt even give the writter of
+> > ematch the opportunity to write one. Want something more complex? write
+> > a classifier.
+> 
+> A classifier is at least 300 lines and you lose the ability to use the
+> logic relations.
 
- - Roland
+Sure, but simpler-than-classifier is where we started ;->
+I think in time we should revamp this a little more, but classifiers we
+have today already we just cant get rid of them now. Over time, I agree 
+we should revamp.
+ 
+> > Again allowing for this may be overkill. Just send the same structure
+> > the ematch needs in exactly the same form it needs it and you dont need
+> > this. 
+> 
+> Compromise: If change/dump is not provided the api allocates and
+> memcpy's itself resptively dumps m->data. Simple ematches don't have to
+> care and can simple access m->data, more complex ematches can implement
+> their own change/dump. Does that sound beter?
+
+Yes, indeed. A copy instead of reference is owned by the classifier.
+To me its a valid compromise. Dont want those matches to be shared
+in any case. Also dont want user to know shit about TLVs.
+Neither in the kernel, nor in user space. Simplicty.
+
+Sorry, havent looked at the code yet. Is the patch you posted the same
+as you have on the url earlier?
+
+> > whats the .link for?
+> 
+> I use list.h to chain ematch_ops and it's better to have it initialized.
+
+I relaized that - but should the user know anything about this?
+
+cheers,
+jamal
