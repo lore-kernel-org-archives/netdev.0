@@ -1,25 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.6 PATCH] bridge - provide valid tos value for
- ip_route_output_key
-Date: Fri, 5 Dec 2003 12:44:55 -0800
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: [2/4] pollcontroller patch for 2.6.0-test10-bk25-netdrvr-exp1
+Date: Fri, 5 Dec 2003 13:36:30 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031205124455.6b313caf.davem@redhat.com>
-References: <Pine.LNX.4.44.0312030156410.1237-200000@u.domain.uli>
-	<200312031938.22925.bdschuym@pandora.be>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDD27@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@oss.sgi.com, shemminger@osdl.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <mpm@selenic.com>, <suparna@in.ibm.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200312031938.22925.bdschuym@pandora.be>
+content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>, <prasanna@in.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Dec 2003 19:38:22 +0100
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+> For both, as Scott mentioned, they don't look tested under NAPI.  For 
+> e100 specifically, there is a spiffy new e100 that would need to be 
+> re-diffed and tested against.
 
-> Hi Dave, If you haven't already applied the patch from Julian Anastasov
-> below, please do.
+Specifically, we need to care about insuring netif_rx is called in the
+poll_controller callback, rather than netif_receive_skb.  If you use
+netif_receive_skb (NAPI mode), the netdump conversation is one-sided.
+tg3.c looks broken in this regard in the 2.6-exp BK tree, BTW.
 
-Applied, thanks guys.
+Additionally, if you have VLANs enabled on the interface, we might need
+to care about netif_hwaccell_[rx|receive_skb].  Something tells me all
+of the netif_* receive funcs need to handle the netdump conversation.
+That would be easier than special casing poll_controller in each driver.
+Is someone working on this?
+
+We're working on e100/e1000 patches for the current scheme, so we'll
+post these when we've tested the various NAPI/VLAN combinations.
+
+-scott
