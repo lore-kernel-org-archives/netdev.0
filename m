@@ -1,40 +1,29 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: e100-3.0.0_dev8 "Minneapolis Moline" release
-Date: Wed, 18 Jun 2003 09:52:15 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Convert pppoe to new style protocol
+Date: Wed, 18 Jun 2003 10:15:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010107D97A@orsmsx402.jf.intel.com>
+Message-ID: <20030618.101535.112616670.davem@redhat.com>
+References: <20030617220420.GA1169@averell>
+	<20030617.150751.52901849.davem@redhat.com>
+	<20030618080118.GC23037@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ak@muc.de, netdev@oss.sgi.com, mostrows@speakeasy.net, paulus@au.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jason Lunz" <lunz@reflexsecurity.com>, <netdev@oss.sgi.com>
+To: ak@suse.de
+In-Reply-To: <20030618080118.GC23037@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> It's running on my workstation with no problems. passes the 
-> "ping -qf" load test.
+   From: Andi Kleen <ak@suse.de>
+   Date: Wed, 18 Jun 2003 10:01:18 +0200
 
-Do you have any other tests you can through at it?
+   I'm not going through the whole PPP layer now to audit it for non
+   linear skb cleanliness...
+   
+Then you're not making it a compatible protocol.
+And the printk will remain until someone fixes it.
 
-> ethtool output seems normal, but what's with the rx-mini and 
-> rx-jumbo max settings in the -g output?
-
-Good catch.  Needs this:
-
-@@ -1848,8 +1848,12 @@ static int e100_ethtool(struct net_devic
-        case ETHTOOL_GRINGPARAM:
-                ecmd->ring.rx_max_pending = rfds->max;
-                ecmd->ring.tx_max_pending = cbs->max;
-+               ecmd->ring.rx_mini_max_pending = 0;
-+               ecmd->ring.rx_jumbo_max_pending = 0;
-                ecmd->ring.rx_pending = rfds->count;
-                ecmd->ring.tx_pending = cbs->count;
-+               ecmd->ring.rx_mini_pending = 0;
-+               ecmd->ring.rx_jumbo_pending = 0;
-                if(copy_to_user(useraddr, ecmd, sizeof(ecmd->ring)))
-                        err = -EFAULT;
-                break;
-
--scott
+If I could get Rusty to fixup _ALL_ of netfilter, I can get
+you to fix just _ONE_ thing.
