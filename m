@@ -1,41 +1,51 @@
-From: abuas_z <rocky7@wp.pl>
-Subject: Re: [Orinoco-devel] [0/5] Orinoco merge updates, part the fourth
-Date: Wed, 30 Mar 2005 09:56:19 +0200
-Message-ID: <548301398.20050330095619@wp.pl>
-References: <20050330034238.GF6478@localhost.localdomain>
-Reply-To: abuas_z <rocky7@wp.pl>
+From: Michal Vanco <vanco@satro.sk>
+Subject: Re: e1000 packet corruption problem
+Date: Wed, 30 Mar 2005 09:04:28 +0200
+Message-ID: <424A4F7C.2070104@satro.sk>
+References: <C925F8B43D79CC49ACD0601FB68FF50C03793405@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Roskin <proski@gnu.org>,
-	Orinoco Development List <orinoco-devel@lists.sourceforge.net>,
-	<netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261792AbVC3H4O@vger.kernel.org>
-To: David Gibson <david@gibson.dropbear.id.au>
-In-Reply-To: <20050330034238.GF6478@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigAA4AC246E32393D810058A69"
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+In-Reply-To: <C925F8B43D79CC49ACD0601FB68FF50C03793405@orsmsx408>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigAA4AC246E32393D810058A69
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-DG> Here's yet another batch of orinoco updates.
+Brandeburg, Jesse wrote:
+> You might be having interrupt routing problems, have you tried
+> pci=noapic as a boot parameter?
+>
+hi
 
-Will this patches be included in CVS-Head code? Now I checked and the
-last modification of orinoco.c was about 4 days ago, when switch to
-enable monitor mode on all firmwares was included...
+pci=noapic doesn't work (PCI: Unknown option `noapic' in dmesg).
 
-DG> Smaller and less significant than the last,
+tried also noapic and pci=noacpi params with the same result (packet
+corruption).
 
-What was the last?
+regards,
+michal
 
-DG> this is basically a handful of remaining small updates before
-DG> tackling the big changes (wext v15, monitor and scanning).
+--------------enigAA4AC246E32393D810058A69
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-So, the next thing that will be do, will be WPA and monitor mode
-improvement (maybe in all firmwares)?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
 
--- 
-Bye,
- abuas_z                            mailto:rocky7@wp.pl
+iD8DBQFCSk9+SBxxqpMaGkMRAqczAJ46EWCqWLF3NgZjljV6bfm1xB+ZOgCfafuj
+2YrYHu5D1zs7P4hmw0KIWhw=
+=2nm6
+-----END PGP SIGNATURE-----
 
-The Bat! v3.0.2.10, Windows XP 5.1, Build 2600, Service Pack 1
+--------------enigAA4AC246E32393D810058A69--
