@@ -1,59 +1,61 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: NAPI-ized tulip patch against 2.4.20-rc1
-Date: Wed, 06 Nov 2002 10:44:17 -0800
+Date: Wed, 6 Nov 2002 20:47:01 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DC96301.7070602@candelatech.com>
-References: <Pine.LNX.4.44.0211061319220.13934-100000@beohost.scyld.com>
+Message-ID: <15817.29109.859144.565330@robur.slu.se>
+References: <3DC8B85B.5050805@candelatech.com>
+	<15817.21170.173913.829498@robur.slu.se>
+	<3DC95631.6030001@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
+   Jeff Garzik <jgarzik@mandrakesoft.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Donald Becker <becker@scyld.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3DC95631.6030001@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Donald Becker wrote:
-> On Wed, 6 Nov 2002, Ben Greear wrote:
-> 
-> 
->>> I see you increased the RX-ring to 1024 pkts. 
->>> Did you really see any improvement with this?
->>
->>It helped drop fewer packets when running 4 ports at 92Mbps+
->>However, the difference between that and 512 is not large.
-> 
-> 
-> Using 512 Rx buffers at 100Mbps seem like a pretty silly default.
 
-I'm open to suggestions.  However, I am running 4 or 8 ports simultaneously,
-on a single processor machine, so w/out large receive buffers, I drop packets
-horribly.  If there is some magic number you think will be better than
-others, I'll be happy to try it and report results...
+Ben Greear writes:
+
+ > >  I see you increased the RX-ring to 1024 pkts. 
+ > >  Did you really see any improvement with this?
+ > 
+ > It helped drop fewer packets when running 4 ports at 92Mbps+
+ > However, the difference between that and 512 is not large.
+ > I would really like to make that size adjustable at module load
+ > time and/or runtime, but I'm not sure how easy that would be.
+ > 
+ > Imagine being able to crank up your receive buffers when running at
+ > very high speeds (and/or when you start dropping packets).  At lower speeds,
+ > shrink things down and free up resources....
+
+ I still doubt ;-) 
+
+ With e1000 I played with various settings for RX-buffers rather recently 
+ when the 82544 increased the number of available buffers from 256 to 4096.
+
+ And I guess my test looks a bit like yours... Injecting an "overload" of 
+ packets. I found was 256 buffers was the optimum. Approximative of course.
+ 
+ 
+ > Were you testing SMP or uni-processor?  I've been doing the tulip testing
+ > on a single processor P-IV system.
+
+ We tested both at that time but it's rewritten now... 
+
+ And as you saw for SMP with recycle it is easy to feed the recycled skb 
+ back to CPU were it was created/processed.
+
+ So kfree/skb_headerinit "should" cause less cache bouncing. Still we need
+ to pollute one cache line to find the CPU "owner". I posted some of 
+ numbers here time ago but it would be nice to verify with CPU's performance 
+ counters.
 
 
-> The trivial case is a module option that sets a variable replacing
-> RX_RING_SIZE / TX_RING_SIZE..
-> The passed-in value shouldn't be used directly:
->  - many drivers have upper and lower bounds
->  - the size can only be changed when the rings are initialized,
->    which occurs when the interface starts.
+ Cheers.
 
-So, adjusting the ring size would require stopping and starting the
-NIC?  Is that a full bounce (including auto-negotiation)?
-
->  - users thinking "if 32 is good, 32000 is better"
-
-The sad truth is, most NICs/drivers do not perform at high
-speeds w/out hacking them in various ways.  Where to lay the
-blame (VM, shitty hardware, etc) is debatable, but it doesn't
-change the results.  I do know that 1024 is better than 32 for
-high speeds on muliple ports, on my NICs.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+						--ro
