@@ -1,51 +1,106 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] Fix X.25 use after free.
-Date: Tue, 5 Aug 2003 15:01:10 -0700
+From: Felix Radensky <felix@allot.com>
+Subject: Re: e100 "Ferguson" release
+Date: Tue, 05 Aug 2003 18:44:10 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030805150110.0e2753ab.shemminger@osdl.org>
+Message-ID: <3F2FD0CA.1080403@allot.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E01022292A4@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-x25@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+ boundary="Boundary_(ID_Lg9l6CsjxHY6kAV0DHDKJw)"
+Cc: Ben Greear <greearb@candelatech.com>, Jeff Garzik <jgarzik@pobox.com>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Henner Eisen <eis@baty.hanse.de>, "David S. Miller" <davem@redhat.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The conversion from cli/sti to locking in X.25 must not have been tested
-on a real SMP with memory debugging enabled.  It OOPS right away if
-I do:
-	modprobe x25; ifconfig -a
 
-The problem is that it dereferences the socket after it has already been
-freed.  The fix for this is to make the call to sock_put, later in
-x25_destroy_socket do the free.  Also, need a go to avoid references
-in x25_release.
+--Boundary_(ID_Lg9l6CsjxHY6kAV0DHDKJw)
+Content-type: text/plain; charset=us-ascii; format=flowed
+Content-transfer-encoding: 7BIT
 
-This patch is against 2.6.0-test2.
-diff -urNp -X dontdiff net-2.5/net/x25/af_x25.c linux-2.5-net/net/x25/af_x25.c
---- net-2.5/net/x25/af_x25.c	2003-08-01 11:12:02.000000000 -0700
-+++ linux-2.5-net/net/x25/af_x25.c	2003-08-05 12:14:42.000000000 -0700
-@@ -350,8 +350,11 @@ void x25_destroy_socket(struct sock *sk)
- 		sk->sk_timer.function = x25_destroy_timer;
- 		sk->sk_timer.data     = (unsigned long)sk;
- 		add_timer(&sk->sk_timer);
--	} else
--		sk_free(sk);
-+	} else {
-+		/* drop last reference so sock_put will free */
-+		__sock_put(sk);
-+	}
-+
- 	release_sock(sk);
- 	sock_put(sk);
- }
-@@ -553,7 +556,7 @@ static int x25_release(struct socket *so
- 		case X25_STATE_2:
- 			x25_disconnect(sk, 0, 0, 0);
- 			x25_destroy_socket(sk);
--			break;
-+			goto out;
- 
- 		case X25_STATE_1:
- 		case X25_STATE_3:
+Hi, Scott
+
+This change seems to fix the problem.
+Thanks a lot !
+
+Felix.
+
+Feldman, Scott wrote:
+
+>>I've also noticed that the number of hard_start_xmit failures 
+>>in e1000 has increased significantly in version 5.1.13-k1. In 
+>>version 5.0.43-k1 the number of failures was much smaller.
+>>    
+>>
+>
+>Interesting.  Felix, would you undo the change[1] below in 5.1.13-k1 and
+>see what happens?  With the change below, 5.1.13 would be more
+>aggressive on Tx cleanup, so we'll be quicker waking the queue than
+>before. 
+>
+>-scott
+>
+>        for(i = 0; i < E1000_MAX_INTR; i++)
+>-               if(!e1000_clean_rx_irq(adapter) &&
+>+               if(!e1000_clean_rx_irq(adapter) &
+>                   !e1000_clean_tx_irq(adapter))
+>                        break;
+>
+>[1] Something still bothers me about this new form where we're mixing a
+>bit-wise operator with logical operands.  Should this bother me?
+>
+>  
+>
+
+
+--Boundary_(ID_Lg9l6CsjxHY6kAV0DHDKJw)
+Content-type: text/html; charset=us-ascii
+Content-transfer-encoding: 7BIT
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <title></title>
+</head>
+<body>
+Hi, Scott<br>
+<br>
+This change seems to fix the problem. <br>
+Thanks a lot ! <br>
+<br>
+Felix.<br>
+<br>
+Feldman, Scott wrote:<br>
+<blockquote type="cite"
+ cite="midC6F5CF431189FA4CBAEC9E7DD5441E01022292A4@orsmsx402.jf.intel.com">
+  <blockquote type="cite">
+    <pre wrap="">I've also noticed that the number of hard_start_xmit failures 
+in e1000 has increased significantly in version 5.1.13-k1. In 
+version 5.0.43-k1 the number of failures was much smaller.
+    </pre>
+  </blockquote>
+  <pre wrap=""><!---->
+Interesting.  Felix, would you undo the change[1] below in 5.1.13-k1 and
+see what happens?  With the change below, 5.1.13 would be more
+aggressive on Tx cleanup, so we'll be quicker waking the queue than
+before. 
+
+-scott
+
+        for(i = 0; i &lt; E1000_MAX_INTR; i++)
+-               if(!e1000_clean_rx_irq(adapter) &amp;&amp;
++               if(!e1000_clean_rx_irq(adapter) &amp;
+                   !e1000_clean_tx_irq(adapter))
+                        break;
+
+[1] Something still bothers me about this new form where we're mixing a
+bit-wise operator with logical operands.  Should this bother me?
+
+  </pre>
+</blockquote>
+<br>
+</body>
+</html>
+
+--Boundary_(ID_Lg9l6CsjxHY6kAV0DHDKJw)--
