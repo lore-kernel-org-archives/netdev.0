@@ -1,7 +1,7 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: [PATCH] tcp: efficient port randomisation (revised)
-Date: Thu, 2 Dec 2004 13:52:52 -0800
-Message-ID: <20041202135252.04e64f51.davem@davemloft.net>
+Date: Thu, 2 Dec 2004 14:51:39 -0800
+Message-ID: <20041202145139.03a6977a@dxpl.pdx.osdl.net>
 References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
 	<200411020854.44745.michael.vittrup.larsen@ericsson.com>
 	<20041104100104.570e67cd@dxpl.pdx.osdl.net>
@@ -11,21 +11,27 @@ References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
 	<20041201152446.3a0d5ce3@dxpl.pdx.osdl.net>
 	<20041201204622.7b760400.davem@davemloft.net>
 	<20041202134930.132d7bd8@dxpl.pdx.osdl.net>
+	<20041202135252.04e64f51.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: michael.vittrup.larsen@ericsson.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041202134930.132d7bd8@dxpl.pdx.osdl.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041202135252.04e64f51.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Dec 2004 13:49:30 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 2 Dec 2004 13:52:52 -0800
+"David S. Miller" <davem@davemloft.net> wrote:
 
-> These are run on a relatively slow machine (2 way Pentium III 850Mhz)
-> and it looks like the results are no change (in the noise).
+> On Thu, 2 Dec 2004 13:49:30 -0800
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+> 
+> > These are run on a relatively slow machine (2 way Pentium III 850Mhz)
+> > and it looks like the results are no change (in the noise).
+> 
+> Or averaged out, about 1ms more expensive.
 
-Or averaged out, about 1ms more expensive.
+I am writing my own test since, that one seems so noisy.
