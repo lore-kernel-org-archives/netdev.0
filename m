@@ -1,39 +1,51 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Make netif_rx_ni preempt-safe
-Date: Thu, 21 Oct 2004 10:35:03 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021003503.GA10391@gondor.apana.org.au>
-References: <1098230132.23628.28.camel@krustophenia.net> <200410202256.56636.vda@port.imtp.ilyichevsk.odessa.ua> <1098303951.2268.8.camel@krustophenia.net> <200410202332.33583.vda@port.imtp.ilyichevsk.odessa.ua> <20041020171508.0e947d08.davem@davemloft.net>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] Change masquerade code to use first IP address of
+	interface.
+Date: Thu, 21 Oct 2004 10:50:49 +1000
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <1098319849.10571.155.camel@localhost.localdomain>
+References: <E1CKBtq-0005FC-00@gondolin.me.apana.org.au>
+	<Pine.LNX.4.61.0410201123200.25590@filer.marasystems.com>
+	<20041020104650.GA20868@gondor.apana.org.au>
+	<Pine.LNX.4.61.0410201300580.28452@filer.marasystems.com>
+	<20041020111245.GA22703@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>, rlrevell@joe-job.com,
-        akpm@osdl.org, linux-kernel@vger.kernel.org,
-        linux-kernel@gondor.apana.org.au, maxk@qualcomm.com,
-        irda-users@lists.sourceforge.net, netdev@oss.sgi.com,
-        alain@parkautomat.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041020171508.0e947d08.davem@davemloft.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com,
+	Netfilter development mailing list <netfilter-devel@lists.netfilter.org>,
+	Henrik Nordstrom <hno@marasystems.com>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041020111245.GA22703@gondor.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 20, 2004 at 05:15:08PM -0700, David S. Miller wrote:
->  
-> +int netif_rx_ni(struct sk_buff *skb)
-> +{
-> +       int err = netif_rx(skb);
-> +
-> +       preempt_disable();
-> +       if (softirq_pending(smp_processor_id()))
-> +               do_softirq();
+On Wed, 2004-10-20 at 21:12, Herbert Xu wrote:
+> On Wed, Oct 20, 2004 at 01:04:51PM +0200, Henrik Nordstrom wrote:
+> > On Wed, 20 Oct 2004, Herbert Xu wrote:
+> > 
+> > >I mean
+> > >
+> > >	rt = (struct rtable *)(*pskb)->dst;
+> > >	newsrc = inet_select_addr(out, rt->rt_gateway, RT_SCOPE_UNIVERSE);
+> > 
+> > IIRC we are not allowed to access this here, but I may be wrong.. If we 
+> 
+> Why? POST_ROUTING is called in three places in ip_output.c and they all
+> give a valid dst.  In fact ip_refrag in ip_conntrack_standalone.c is also
+> accessing skb->dst.
 
-You need to move the netif_rx call inside the disable as otherwise
-you might be checking the pending flag on the wrong CPU.
+Yeah, I like it.  Please send patch on top of mine to Dave, and we'll
+see what blows up.
 
-Cheers,
+Rusty.
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Anyone who quotes me in their signature is an idiot -- Rusty Russell
