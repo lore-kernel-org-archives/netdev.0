@@ -1,58 +1,75 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Crash with e100 and ethtool on 2.6.0-test4 latest
-Date: Fri, 5 Sep 2003 11:24:46 -0700
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Fri, 05 Sep 2003 11:26:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905112446.00ba4e32.shemminger@osdl.org>
+Message-ID: <3F58D567.2050201@us.ibm.com>
+References: <20030730220223.4c25fcfe.davem@redhat.com>	<Pine.LNX.4.44.0307311330200.27478-100000@DYN318430> <20030804165746.133f370a.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+   Krishna Kumar <krkumar@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Scott Feldman <scott.feldman@intel.com>, Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030804165746.133f370a.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Dave,
 
-#  ethtool -K eth0 rx off
+ > Krishna is away, but let us make more progress on this patch.
 
-Unable to handle kernel paging request at virtual address f8875000
- printing eip:
-f8874fff
-*pde = 0389e067
-*pte = 00000000
-Oops: 0000 [#1]
-CPU:    7
-EIP:    0060:[<f8874fff>]    Not tainted
-EFLAGS: 00010282
-EIP is at 0xf8874fff
-eax: f68243a0   ebx: f68243a0   ecx: f6824184   edx: 00000000
-esi: 00000000   edi: 00000000   ebp: f5fefda8   esp: f5fefd90
-ds: 007b   es: 007b   ss: 0068
-Process ethtool (pid: 1815, threadinfo=f5fee000 task=f6820d00)
-Stack: f885f6b9 f68243a0 f885f2ea f68243a0 f6824184 f68242a8 f5fefed4 f8861f9e 
-       f68243a0 bffff020 00000008 f68243a0 c0328800 c0328b80 00000015 00000000 
-       c0142acf c35dc5a8 00000000 f5fefe08 c014e6f3 00000286 00000246 00000000 
-Call Trace:
- [<f885f6b9>] e100_hw_init+0x14/0x106 [e100]
- [<f885f2ea>] e100_close+0x67/0x7a [e100]
- [<f8861f9e>] e100_do_ethtool_ioctl+0x533/0x88a [e100]
- [<c0142acf>] buffered_rmqueue+0xc0/0x193
- [<c014e6f3>] zap_pte_range+0x71/0x208
- [<c0142c2c>] __alloc_pages+0x8a/0x324
- [<c013e92e>] find_get_page+0x37/0x94
- [<c013facc>] filemap_nopage+0x239/0x315
- [<c01556b1>] pte_chain_alloc+0x64/0x67
- [<c0150558>] do_no_page+0x1f5/0x410
- [<c014e02e>] pte_alloc_map+0xd9/0x12e
- [<c028315c>] dev_ethtool+0x95/0x2f9
- [<c02880e6>] rtnl_lock+0x22/0x38
- [<c02809a1>] dev_ioctl+0x1a0/0x34f
- [<c02c32f4>] inet_ioctl+0x102/0x112
- [<c0277253>] sock_ioctl+0x154/0x34a
- [<c0278afc>] sys_socketcall+0xb7/0x29a
- [<c01742f8>] sys_ioctl+0x147/0x305
- [<c0152eb7>] sys_munmap+0x58/0x77
- [<c010b301>] sysenter_past_esp+0x52/0x71
+I have just got back and I didn't see any follow up on this. I also found
+that it is not yet in the 2.6.0-test4 kernel, so would like to find  out what
+needs to be done to get it included.
 
-Code: 00  Bad EIP value.
- Segmentation fault
+To answer your comments :
+
+ > Ok, how does this actually work?  The code does RTA_PUT(...IFLA_INET6_*...)
+ > but IFLA_PROTINFO is not actually used anywhere.  This cannot work, it makes
+ > these RTA attributes just look like whatever IFLA_* ones have the
+ > same values as the inet6 ones in this enumeration.
+
+The inet6_fill_ifinfo adds a IFLA_PROTINFO msg to the skb and then adds the
+sub-attribute like IFLA_INET6_FLAGS, IFLA_INET6_CONF, sets the length of
+sub-attr, etc. Code snippet :
+
+	subattr = (struct rtattr*)skb->tail;
+	RTA_PUT(skb, IFLA_PROTINFO, 0, NULL);
+	/* return the device flags */
+	RTA_PUT(skb, IFLA_INET6_FLAGS, sizeof(__u32), &idev->if_flags);
+
+ > > +		 /* return the device sysctl params */
+ > > +		 if ((array = kmalloc(DEVCONF_MAX * sizeof(*array), GFP_KERNEL)) == NULL)
+ > > +		 		 goto rtattr_failure;
+ > > +		 ipv6_store_devconf(&idev->cnf, array);
+ > > +		 RTA_PUT(skb, IFLA_INET6_CONF, DEVCONF_MAX * sizeof(*array), array);
+
+ > This is what I'm talking about.  Maybe there is something I'm missing.
+ > How does APP know to interpret IFLA_INET6_CONF as "sub-attribute"
+ > of IFLA_PROTINFO?
+
+I think this is answered above. Please correct me if I have missed something.
+
+ > Also, missing "memset(array, 0, sizeof(*array));" else we leak
+ > uninitialized kernel memory into user space.
+
+Is that needed since the array allocated is exactly DEVCONF_MAX sized and the
+ipv6_store_devconf writes exactly DEVCONF_MAX entries and the rta_len is marked
+accordinging to finish at the end of the array. But I can still add it for
+clarity...
+
+ > Another bug, GFP_KERNEL memory allocation with dev_base_lock held.
+
+Yes, that should be changed to GFP_ATOMIC.
+
+ > Otherwise I am OK with the patch.
+
+OK, should I fix these two bugs and re-submit against test4 kernel ?
+
+Dave, I would like to get the prefix list and O/M flags information included
+in 2.4 kernel too, are you OK with that ?
+
+Thanks,
+
+- KK
