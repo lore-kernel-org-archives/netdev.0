@@ -1,50 +1,44 @@
-From: Deepak Saxena <dsaxena@plexity.net>
+From: John Heffner <jheffner@psc.edu>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 14:36:00 -0700
+Date: Wed, 15 Sep 2004 17:36:18 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040915213600.GA12153@plexity.net>
-References: <4148991B.9050200@pobox.com> <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
-Reply-To: dsaxena@plexity.net
+Message-ID: <Pine.NEB.4.33.0409151704200.5383-100000@dexter.psc.edu>
+References: <4148991B.9050200@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>, leonid.grossman@s2io.com,
-        Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <leonid.grossman@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Paul Jakma <paul@clubi.ie>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
+To: Netdev <netdev@oss.sgi.com>
+In-Reply-To: <4148991B.9050200@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sep 15 2004, at 21:04, Paul Jakma was caught saying:
-> On Wed, 15 Sep 2004, Jeff Garzik wrote:
-> 
-> >Put simply, the "ultimate TOE card" would be a card with network ports, a 
-> >generic CPU (arm, mips, whatever.), some RAM, and some flash.  This card's 
-> >"firmware" is the Linux kernel, configured to run as a _totally indepenent 
-> >network node_, with IP address(es) all its own.
-> >
-> >Then, your host system OS will communicate with the Linux kernel running 
-> >on the card across the PCI bus, using IP packets (64K fixed MTU).
-> 
-> >My dream is that some vendor will come along and implement such a 
-> >design, and sell it in enough volume that it's US$100 or less. 
-> >There are a few cards on the market already where implementing this 
-> >design _may_ be possible, but they are all fairly expensive.
-> 
-> The intel IXP's are like the above, XScale+extra-bits host-on-a-PCI 
-> card running Linux. Or is that what you were referring to with 
-> "<cards exist> but they are all fairly expensive."?
+My view on TOE is that it is brought up in response to the fact that when
+leading edge network technologies are brought out (GigE a few years ago,
+10 GigE now), hosts can't keep up.  Specifically, these people usually
+don't care about wasting their man CPU cycles, but rather the fact they
+can't get the full rate out of their expensive new NIC.
 
-Unfortunately all the SW that lets one make use of the interesting
-features of the IXPs (microEngines, crypto, etc) is a pile of
-propietary code.
+The reason hosts can't keep up are
 
-~Deepak
+  (a) host bus speeds, or (not exclusive)
+  (b) the CPU can't handle per-packet processing
 
+In the case of (a), TOE doesn't really help.  In the case of (b), Jeff's
+proposed general-purpose offload doesn't help -- you really need a custom
+ASIC or maybe FPGA if you hope to beat the host CPU.  Thus I think Jeff's
+idea is not likely to fly with this crowd of TOE proponents.
 
--- 
-Deepak Saxena - dsaxena at plexity dot net - http://www.plexity.net/
+The other (much nicer) solution to case (b) is to just USE A BIGGER MTU.
+1500 bytes is ridiculously small.  Even with a 9k MTU, the benefits of TOE
+or TSO are nearly vanishing.  Those who say they require high performance,
+but are unwilling to buy or produce networking gear with an MTU larger
+than 1500 bytes probably deserve what they get.
 
-"Unlike me, many of you have accepted the situation of your imprisonment
-and will die here like rotten cabbages." - Number 6
+There are other possible justifications for TOE (with other
+counter-arguments) -- basically to reduce load on the main CPU -- but I
+think these are for the most part NOT what is driving the market (let me
+know if I'm being myopic here).  This issue is also largely or completely
+solved by using a bigger MTU.
+
+  -John
