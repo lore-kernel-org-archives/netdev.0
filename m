@@ -1,36 +1,45 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPCOMP] Use per-cpu buffers
-Date: Thu, 9 Sep 2004 09:16:52 -0700
+Subject: Re: [PATCH 2.6 NET] Catch wrong RTATTR_MAX with BUG()
+Date: Thu, 9 Sep 2004 09:55:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040909091652.490c7833.davem@davemloft.net>
-References: <20040909122202.GA3170@gondor.apana.org.au>
+Message-ID: <20040909095531.331fd168.davem@davemloft.net>
+References: <20040909164346.GA18994@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040909122202.GA3170@gondor.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20040909164346.GA18994@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Sep 2004 22:22:02 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Thu, 9 Sep 2004 18:43:46 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> With per-cpu buffers this goes down to 300K per CPU.
+> Catches outdated/invalid RTATTR_MAX and therefore avoids possible stack
+> corruption.
 
-That amount of space just for decompression state is
-rediculious.
+Your test has an off by one error, but more importantly,
+it's probably better to do this at compile time with
+something like:
 
-I seem to recall that the last time I looked at this
-the reason the tables are so huge is that the zlib
-we use in the kernel isn't configurable.  The table
-configuration is compile time decided.
+extern void rtattr_max_too_small(void);
 
-Yes, it's because of linux/zlib.h's cpp settings.
+...
 
-I guess it would be a lot of surgery to make this dynamic.
+void __init rtnetlink_init(void)
+{
+	if (IFLA_MAX > RTATTR_MAX ||
+	    IFA_MAX > RTATTR_MAX ||
+	    RTA_MAX > RTATTR_MAX ||
+	    NDA_MAX > RTATTR_MAX ||
+	    TCA_MAX > RTATTR_MAX ||
+	    TCAA_MAX > RTATTR_MAX)
+		rtattr_max_too_small();
 
-A second thought is that we may not be the only part
-of the kernel interested in a per-cpu zlib scratch
-buffer, no?
+I would therefore accept a patch that did things
+this way.  BUG()'ing at runtime for something like
+this is too rude. :)
+
+Thanks.
