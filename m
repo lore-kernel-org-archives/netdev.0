@@ -1,8 +1,8 @@
-From: Crutcher Dunnavant <crutcher@eng.ua.edu>
-Subject: proposed changes to init_*dev() for GFP_DMA
-Date: Tue, 2 Jul 2002 14:36:54 -0500
+From: bert hubert <ahu@ds9a.nl>
+Subject: SMP issues on ingress queue grafting
+Date: Thu, 4 Jul 2002 16:41:42 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020702143654.A9903@monket.dyndns.org>
+Message-ID: <20020704144142.GC12749@outpost.ds9a.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <owner-netdev@oss.sgi.com>
@@ -10,29 +10,55 @@ To: netdev@oss.sgi.com
 Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Hello all.
+Alexey, Werner, Jamal, Others,
 
-For the 2.5 tree,
+On 2.4.18-ac3 SMP, Dimitris Zilaskos reports that he can reliably hang his
+system with the following two line script repeated during heavy traffic.
 
-I'm wondering if there would be support for extending the
-underlying init_*dev() -> init_netdev() interfaces, so that
-there is a way to pass in the GFP_DMA alloc flag, or any other
-flag, if needed for the private memory to be kmalloced for
-dev->priv? This would allow more drivers to use the same
-interface.
+Full thread starts here:
+http://mailman.ds9a.nl/pipermail/lartc/2002q3/004316.html
 
-Basicaly, I'm thinking something like:
+Hope this points you to any problems.
 
-struct net_device *init_etherdev(struct net_device *dev, int sizeof_priv, int flags);
+Regards,
 
-/* for regualr devices */
-dev = init_etherdev(NULL, sizeof(struct foo_priv), GFP_KERNEL);
+bert
 
-or 
+----- Forwarded message from Dimitris Zilaskos <dzila@tassadar.physics.auth.gr> -----
 
-/* for DMA devices */
-dev = init_etherdev(NULL, sizeof(struct foo_priv), GFP_KERNEL | GFP_DMA);
+From: Dimitris Zilaskos <dzila@tassadar.physics.auth.gr>
+To: Stef Coene <stef.coene@docum.org>
+Cc: lartc@mailman.ds9a.nl
+Subject: Re: [LARTC] tc reliably hangs my system
+Date: Thu, 4 Jul 2002 13:07:08 +0300 (EEST)
+
+
+ ok , this 2 lines repated anything from 5 to 20 times cause the hang :
+
+tc qdisc del dev eth0 ingress
+tc qdisc add dev eth0 handle ffff: ingress
+
+ again , the presence of sustained outgoing traffic catalyses the effect .
+It takes at least 150-200 kbytes/sec to easily cause the hang .
+
+ Regards ,
+
+--
+=============================================================================
+
+Dimitris Zilaskos
+
+Department of Physics @ Aristotle Univercity of Thessaloniki , Greece
+=============================================================================
+
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
+
+
+----- End forwarded message -----
 
 -- 
-Crutcher Dunnavant <crutcher+spam@eng.ua.edu>
-ECSS System Hacker / UA COE CS Senior
+http://www.PowerDNS.com          Versatile DNS Software & Services
+http://www.tk                              the dot in .tk
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
