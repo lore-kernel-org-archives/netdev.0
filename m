@@ -1,33 +1,71 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH 2/2] use rtnl_lock_interruptible in 8139 to avoid shutdown hang
-Date: Mon, 10 Jan 2005 22:45:22 +0100
-Message-ID: <20050110214522.GA17463@lst.de>
-References: <20050109121630.GB19599@lst.de> <20050110133714.023aa21b.davem@davemloft.net>
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [PATCH] remove unused variables in net/sunrpc/auth.c
+Date: Mon, 10 Jan 2005 22:50:34 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0501102239000.2987@dragon.hygekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-net <linux-net@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
+        Olaf Kirch <okir@monad.swb.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050110133714.023aa21b.davem@davemloft.net>
+To: linux-kernel <linux-kernel@vger.kernel.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 10, 2005 at 01:37:14PM -0800, David S. Miller wrote:
-> On Sun, 9 Jan 2005 13:16:30 +0100
-> Christoph Hellwig <hch@lst.de> wrote:
-> 
-> > The 8139too thread needs to use rtnl_lock_interruptible so it can avoid
-> > doing the actual work once it's been kill_proc()ed on module removal
-> > time.
-> > 
-> > Based on debugging and an earlier patch that adds a driver-private
-> > semaphore from Herbert Xu.
-> 
-> I've applied these two patches, they look perfectly fine.
-> Thanks Christoph.
 
-Btw, there's some confusing between rtnl_lock and rtnl_shlock (similar
-for the other variants).  Is there an agenda behind this versions or
-would you take a patch that unifies the lock assecors?
+We have a few unused variables in net/sunrpc/auth.c:320:
+
+net/sunrpc/auth.c:320: warning: unused variable `auth'
+net/sunrpc/auth.c:333: warning: unused variable `auth'
+net/sunrpc/auth.c:345: warning: unused variable `auth'
+net/sunrpc/auth.c:385: warning: unused variable `auth'
+
+As far as I can see, the patch that caused them to become unused is this 
+one (which btw is ~36 months old) :
+http://linux.bkbits.net:8080/linux-2.6/diffs/net/sunrpc/auth.c@1.4?nav=index.html|src/|src/net|src/net/sunrpc|hist/net/sunrpc/auth.c
+
+Here is a patch to get rid of them (compile tested only).
+
+
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+
+diff -up linux-2.6.10-bk13-orig/net/sunrpc/auth.c linux-2.6.10-bk13/net/sunrpc/auth.c
+--- linux-2.6.10-bk13-orig/net/sunrpc/auth.c	2005-01-10 22:09:22.000000000 +0100
++++ linux-2.6.10-bk13/net/sunrpc/auth.c	2005-01-10 22:37:55.000000000 +0100
+@@ -317,7 +317,6 @@ put_rpccred(struct rpc_cred *cred)
+ void
+ rpcauth_unbindcred(struct rpc_task *task)
+ {
+-	struct rpc_auth	*auth = task->tk_auth;
+ 	struct rpc_cred	*cred = task->tk_msg.rpc_cred;
+ 
+ 	dprintk("RPC: %4d releasing %s cred %p\n",
+@@ -330,7 +329,6 @@ rpcauth_unbindcred(struct rpc_task *task
+ u32 *
+ rpcauth_marshcred(struct rpc_task *task, u32 *p)
+ {
+-	struct rpc_auth	*auth = task->tk_auth;
+ 	struct rpc_cred	*cred = task->tk_msg.rpc_cred;
+ 
+ 	dprintk("RPC: %4d marshaling %s cred %p\n",
+@@ -342,7 +340,6 @@ rpcauth_marshcred(struct rpc_task *task,
+ u32 *
+ rpcauth_checkverf(struct rpc_task *task, u32 *p)
+ {
+-	struct rpc_auth	*auth = task->tk_auth;
+ 	struct rpc_cred	*cred = task->tk_msg.rpc_cred;
+ 
+ 	dprintk("RPC: %4d validating %s cred %p\n",
+@@ -382,7 +379,6 @@ rpcauth_unwrap_resp(struct rpc_task *tas
+ int
+ rpcauth_refreshcred(struct rpc_task *task)
+ {
+-	struct rpc_auth	*auth = task->tk_auth;
+ 	struct rpc_cred	*cred = task->tk_msg.rpc_cred;
+ 
+ 	dprintk("RPC: %4d refreshing %s cred %p\n",
+
+
+
+
+PS. please keep me on CC 
