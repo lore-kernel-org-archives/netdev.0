@@ -1,35 +1,120 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Fw: F_SETSIG broken/changed in 2.6 for UDP and TCP sockets?
-Date: Tue, 1 Jun 2004 14:19:04 -0600
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH 12/17 linux-2.6.7-rc2] prism54: Add likely/unlikely, KO
+  wds completely
+Date: Sun, 30 May 2004 22:00:09 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFAD1DE5B4.1A829EE7-ON88256EA6.006EE314-88256EA6.006F8B71@us.ibm.com>
-References: <20040531151843.7144dfce.akpm@osdl.org>
+Message-ID: <5.1.0.14.2.20040530215003.00b1f4d0@pop.t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@oss.sgi.com, Russell Leighton <russ@elegant-software.com>
+Content-Type: multipart/mixed;
+	boundary="=====================_50498543==_"
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040531151843.7144dfce.akpm@osdl.org>
-To: Andrew Morton <akpm@osdl.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> In the udp case, I when I listen for multicast packets my app only
-> receives them when I am running a tcpdump (bizarre!).
+--=====================_50498543==_
+Content-Type: text/plain; charset="us-ascii"; format=flowed
 
-Russ,
-        This piece (which I expect has nothing to do with the other
-problems you mentioned) sounds like you haven't joined the groups on
-the interface on which you're receiving the multicast packets.
-"tcpdump" will place the interface in "promiscuous mode" which will
-receive all packets, and ordinary packet delivery will allow
-the application to receive them, even if you haven't joined the group
-on the relevant interface.
-        To verify if the group joins is broken, you can look at
-/proc/net/igmp. If the groups you're joining are not listed on the
-interface you want, the program isn't joining the groups correctly.
-Group membership is per-interface, so joining a group on one interface
-does not join it on another.
-        Feel free to contact me if you need some help debugging the
-multicast problem.
+2004-04-26      Margit Schubert-While <margitsw@t-online.de>
 
-                                                        +-DLS
+* islpci_mgt.h : Replace init_wds with a define. The compiler does not
+   optimize it out (and also generates the field in the ro section of every 
+module)
+
+* prismcompat.h : Include linux/compiler.h Now we can play
+   with the likely/unlikely macros
+--=====================_50498543==_
+Content-Type: application/octet-stream; name="12-add-likely.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="12-add-likely.patch"
+
+ZGlmZiAtTmF1ckViQiBsaW51eC0yLjYuNmN0L2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQv
+aXNsX2lvY3RsLmMgbGludXgtMi42LjYtMDEvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJpc201NC9p
+c2xfaW9jdGwuYwotLS0gbGludXgtMi42LjZjdC9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0
+L2lzbF9pb2N0bC5jCTIwMDQtMDUtMjggMTU6MTQ6NDkuNDE4OTE4ODcyICswMjAwCisrKyBsaW51
+eC0yLjYuNi0wMS9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbF9pb2N0bC5jCTIwMDQt
+MDUtMjggMTU6MzM6NDIuMTg0NzEyMjk2ICswMjAwCkBAIC0yMTUyLDcgKzIxNDYsNyBAQAogCXtQ
+UklTTTU0X0RCR19PSUQsIElXX1BSSVZfVFlQRV9JTlQgfCBJV19QUklWX1NJWkVfRklYRUQgfCAx
+LCAwLAogCSAiZGJnX29pZCJ9LAogCXtQUklTTTU0X0RCR19HRVRfT0lELCAwLCBJV19QUklWX1RZ
+UEVfQllURSB8IDI1NiwgImRiZ19nZXRfb2lkIn0sCi0Je1BSSVNNNTRfREJHX1NFVF9PSUQsIElX
+X1BSSVZfVFlQRV9CWVRFIHwgMjU2LCAwLCAiZGJnX2dldF9vaWQifSwKKwl7UFJJU001NF9EQkdf
+U0VUX09JRCwgSVdfUFJJVl9UWVBFX0JZVEUgfCAyNTYsIDAsICJkYmdfc2V0X29pZCJ9LAogCS8q
+IC0tLSBzdWItaW9jdGxzIGhhbmRsZXJzIC0tLSAqLwogCXtQUklTTTU0X0dFVF9PSUQsCiAJIDAs
+IElXX1BSSVZfVFlQRV9DSEFSIHwgSVdfUFJJVl9TSVpFX0ZJWEVEIHwgUFJJVl9TVFJfU0laRSwg
+IiJ9LApkaWZmIC1OYXVyRWJCIGxpbnV4LTIuNi42Y3QvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJp
+c201NC9pc2xwY2lfZXRoLmMgbGludXgtMi42LjYtMDEvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJp
+c201NC9pc2xwY2lfZXRoLmMKLS0tIGxpbnV4LTIuNi42Y3QvZHJpdmVycy9uZXQvd2lyZWxlc3Mv
+cHJpc201NC9pc2xwY2lfZXRoLmMJMjAwNC0wNS0yOCAxNDo0MTozMi44MjA0NDc5NzYgKzAyMDAK
+KysrIGxpbnV4LTIuNi42LTAxL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQvaXNscGNpX2V0
+aC5jCTIwMDQtMDUtMjggMTU6MzM6NDIuMTg3NzExODQwICswMjAwCkBAIC0xMDUsNyArMTA1LDcg
+QEAKIAogCS8qIGNoZWNrIHdoZXRoZXIgdGhlIGRlc3RpbmF0aW9uIHF1ZXVlIGhhcyBlbm91Z2gg
+ZnJhZ21lbnRzIGZvciB0aGUgZnJhbWUgKi8KIAljdXJyX2ZyYWcgPSBsZTMyX3RvX2NwdShjYi0+
+ZHJpdmVyX2N1cnJfZnJhZ1tJU0wzOFhYX0NCX1RYX0RBVEFfTFFdKTsKLQlpZiAoY3Vycl9mcmFn
+IC0gcHJpdi0+ZnJlZV9kYXRhX3R4ID49IElTTDM4WFhfQ0JfVFhfUVNJWkUpIHsKKwlpZiAodW5s
+aWtlbHkoY3Vycl9mcmFnIC0gcHJpdi0+ZnJlZV9kYXRhX3R4ID49IElTTDM4WFhfQ0JfVFhfUVNJ
+WkUpKSB7CiAJCXByaW50ayhLRVJOX0VSUiAiJXM6IHRyYW5zbWl0IGRldmljZSBxdWV1ZSBmdWxs
+IHdoZW4gYXdha2VcbiIsCiAJCSAgICAgICBuZGV2LT5uYW1lKTsKIAkJbmV0aWZfc3RvcF9xdWV1
+ZShuZGV2KTsKQEAgLTEyMSw3ICsxMjEsNyBAQAogCS8qIENoZWNrIGFsaWdubWVudCBhbmQgV0RT
+IGZyYW1lIGZvcm1hdHRpbmcuIFRoZSBzdGFydCBvZiB0aGUgcGFja2V0IHNob3VsZAogCSAqIGJl
+IGFsaWduZWQgb24gYSA0LWJ5dGUgYm91bmRhcnkuIElmIFdEUyBpcyBlbmFibGVkIGFkZCBhbm90
+aGVyIDYgYnl0ZXMKIAkgKiBhbmQgYWRkIFdEUyBhZGRyZXNzIGluZm9ybWF0aW9uICovCi0JaWYg
+KCgobG9uZykgc2tiLT5kYXRhICYgMHgwMykgfCBpbml0X3dkcykgeworCWlmICh1bmxpa2VseSgo
+KGxvbmcpIHNrYi0+ZGF0YSAmIDB4MDMpIHwgaW5pdF93ZHMpKSB7CiAJCS8qIGdldCB0aGUgbnVt
+YmVyIG9mIGJ5dGVzIHRvIGFkZCBhbmQgcmUtYWxsaWduICovCiAJCW9mZnNldCA9ICg0IC0gKGxv
+bmcpIHNrYi0+ZGF0YSkgJiAweDAzOwogCQlvZmZzZXQgKz0gaW5pdF93ZHMgPyA2IDogMDsKQEAg
+LTE5Miw3ICsxOTIsNyBAQAogCXBjaV9tYXBfYWRkcmVzcyA9IHBjaV9tYXBfc2luZ2xlKHByaXYt
+PnBkZXYsCiAJCQkJCSAodm9pZCAqKSBza2ItPmRhdGEsIHNrYi0+bGVuLAogCQkJCQkgUENJX0RN
+QV9UT0RFVklDRSk7Ci0JaWYgKHBjaV9tYXBfYWRkcmVzcyA9PSAwKSB7CisJaWYgKHVubGlrZWx5
+KHBjaV9tYXBfYWRkcmVzcyA9PSAwKSkgewogCQlwcmludGsoS0VSTl9XQVJOSU5HICIlczogY2Fu
+bm90IG1hcCBidWZmZXIgdG8gUENJXG4iLAogCQkgICAgICAgbmRldi0+bmFtZSk7CiAKQEAgLTM4
+MiwxMCArMzgyLDEwIEBACiAJc2tiLT5kZXYgPSBuZGV2OwogCiAJLyogdGFrZSBjYXJlIG9mIG1v
+bml0b3IgbW9kZSBhbmQgc3B5IG1vbml0b3JpbmcuICovCi0JaWYgKHByaXYtPml3X21vZGUgPT0g
+SVdfTU9ERV9NT05JVE9SKQorCWlmICh1bmxpa2VseShwcml2LT5pd19tb2RlID09IElXX01PREVf
+TU9OSVRPUikpCiAJCWRpc2NhcmQgPSBpc2xwY2lfbW9uaXRvcl9yeChwcml2LCAmc2tiKTsKIAll
+bHNlIHsKLQkJaWYgKHNrYi0+ZGF0YVsyICogRVRIX0FMRU5dID09IDApIHsKKwkJaWYgKHVubGlr
+ZWx5KHNrYi0+ZGF0YVsyICogRVRIX0FMRU5dID09IDApKSB7CiAJCQkvKiBUaGUgcGFja2V0IGhh
+cyBhIHJ4X2FubmV4LiBSZWFkIGl0IGZvciBzcHkgbW9uaXRvcmluZywgVGhlbgogCQkJICogcmVt
+b3ZlIGl0LCB3aGlsZSBrZWVwaW5nIHRoZSAyIGxlYWRpbmcgTUFDIGFkZHIuCiAJCQkgKi8KQEAg
+LTQxOCw3ICs0MTgsNyBAQAogCSAgICAgc2tiLT5kYXRhWzBdLCBza2ItPmRhdGFbMV0sIHNrYi0+
+ZGF0YVsyXSwgc2tiLT5kYXRhWzNdLAogCSAgICAgc2tiLT5kYXRhWzRdLCBza2ItPmRhdGFbNV0p
+OwogI2VuZGlmCi0JaWYgKGRpc2NhcmQpIHsKKwlpZiAodW5saWtlbHkoZGlzY2FyZCkpIHsKIAkJ
+ZGV2X2tmcmVlX3NrYihza2IpOwogCQlza2IgPSBOVUxMOwogCX0gZWxzZQpAQCAtNDM0LDcgKzQz
+NCw4IEBACiAJICAgICAgIGluZGV4IC0gcHJpdi0+ZnJlZV9kYXRhX3J4IDwgSVNMMzhYWF9DQl9S
+WF9RU0laRSkgewogCQkvKiBhbGxvY2F0ZSBhbiBza19idWZmIGZvciByZWNlaXZlZCBkYXRhIGZy
+YW1lcyBzdG9yYWdlCiAJCSAqIGluY2x1ZGUgYW55IHJlcXVpcmVkIGFsbGlnbm1lbnQgb3BlcmF0
+aW9ucyAqLwotCQlpZiAoc2tiID0gZGV2X2FsbG9jX3NrYihNQVhfRlJBR01FTlRfU0laRV9SWCAr
+IDIpLCBza2IgPT0gTlVMTCkgeworCQlza2IgPSBkZXZfYWxsb2Nfc2tiKE1BWF9GUkFHTUVOVF9T
+SVpFX1JYICsgMik7CisJCWlmICh1bmxpa2VseShza2IgPT0gTlVMTCkpIHsKIAkJCS8qIGVycm9y
+IGFsbG9jYXRpbmcgYW4gc2tfYnVmZiBzdHJ1Y3R1cmUgZWxlbWVudHMgKi8KIAkJCURFQlVHKFNI
+T1dfRVJST1JfTUVTU0FHRVMsICJFcnJvciBhbGxvY2F0aW5nIHNrYiBcbiIpOwogCQkJYnJlYWs7
+CkBAIC00NTQsNyArNDU1LDcgQEAKIAkJICAgIHBjaV9tYXBfc2luZ2xlKHByaXYtPnBkZXYsICh2
+b2lkICopIHNrYi0+ZGF0YSwKIAkJCQkgICBNQVhfRlJBR01FTlRfU0laRV9SWCArIDIsCiAJCQkJ
+ICAgUENJX0RNQV9GUk9NREVWSUNFKTsKLQkJaWYgKHByaXYtPnBjaV9tYXBfcnhfYWRkcmVzc1tp
+bmRleF0gPT0gKGRtYV9hZGRyX3QpIE5VTEwpIHsKKwkJaWYgKHVubGlrZWx5KHByaXYtPnBjaV9t
+YXBfcnhfYWRkcmVzc1tpbmRleF0gPT0gKGRtYV9hZGRyX3QpIE5VTEwpKSB7CiAJCQkvKiBlcnJv
+ciBtYXBwaW5nIHRoZSBidWZmZXIgdG8gZGV2aWNlIGFjY2Vzc2FibGUgbWVtb3J5IGFkZHJlc3Mg
+Ki8KIAkJCURFQlVHKFNIT1dfRVJST1JfTUVTU0FHRVMsCiAJCQkgICAgICAiRXJyb3IgbWFwcGlu
+ZyBETUEgYWRkcmVzc1xuIik7CmRpZmYgLU5hdXJFYkIgbGludXgtMi42LjZjdC9kcml2ZXJzL25l
+dC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9tZ3QuaCBsaW51eC0yLjYuNi0wMS9kcml2ZXJzL25l
+dC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9tZ3QuaAotLS0gbGludXgtMi42LjZjdC9kcml2ZXJz
+L25ldC93aXJlbGVzcy9wcmlzbTU0L2lzbHBjaV9tZ3QuaAkyMDA0LTA1LTI4IDE0OjQwOjI3LjAw
+MDQ1NDEzNiArMDIwMAorKysgbGludXgtMi42LjYtMDEvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJp
+c201NC9pc2xwY2lfbWd0LmgJMjAwNC0wNS0yOCAxNTozMzo0Mi4xODg3MTE2ODggKzAyMDAKQEAg
+LTM0LDcgKzM0LDcgQEAKICNkZWZpbmUgVFJBQ0UoZGV2bmFtZSkgICBLX0RFQlVHKFNIT1dfVFJB
+Q0lORywgVkVSQk9TRSwgIiVzOiAgLT4gIiBfX0ZVTkNUSU9OX18gIigpXG4iLCBkZXZuYW1lKQog
+CiBleHRlcm4gaW50IHBjX2RlYnVnOwotc3RhdGljIGNvbnN0IGludCBpbml0X3dkcyA9IDA7CS8q
+IGhlbHAgY29tcGlsZXIgb3B0aW1pemUgYXdheSBkZWFkIGNvZGUgKi8KKyNkZWZpbmUgaW5pdF93
+ZHMgICAwCS8qIGhlbHAgY29tcGlsZXIgb3B0aW1pemUgYXdheSBkZWFkIGNvZGUgKi8KIAogCiAv
+KiBHZW5lcmFsIGRyaXZlciBkZWZpbml0aW9ucyAqLwpkaWZmIC1OYXVyRWJCIGxpbnV4LTIuNi42
+Y3QvZHJpdmVycy9uZXQvd2lyZWxlc3MvcHJpc201NC9wcmlzbWNvbXBhdC5oIGxpbnV4LTIuNi42
+LTAxL2RyaXZlcnMvbmV0L3dpcmVsZXNzL3ByaXNtNTQvcHJpc21jb21wYXQuaAotLS0gbGludXgt
+Mi42LjZjdC9kcml2ZXJzL25ldC93aXJlbGVzcy9wcmlzbTU0L3ByaXNtY29tcGF0LmgJMjAwNC0w
+NS0yOCAxNDo0MDoyNy4wMDM0NTM2ODAgKzAyMDAKKysrIGxpbnV4LTIuNi42LTAxL2RyaXZlcnMv
+bmV0L3dpcmVsZXNzL3ByaXNtNTQvcHJpc21jb21wYXQuaAkyMDA0LTA1LTI4IDE1OjMzOjQyLjE5
+MDcxMTM4NCArMDIwMApAQCAtMzIsNiArMzIsNyBAQAogI2luY2x1ZGUgPGxpbnV4L2NvbmZpZy5o
+PgogI2luY2x1ZGUgPGxpbnV4L21vZHVsZXBhcmFtLmg+CiAjaW5jbHVkZSA8bGludXgvd29ya3F1
+ZXVlLmg+CisjaW5jbHVkZSA8bGludXgvY29tcGlsZXIuaD4KIAogI2lmICFkZWZpbmVkKENPTkZJ
+R19GV19MT0FERVIpICYmICFkZWZpbmVkKENPTkZJR19GV19MT0FERVJfTU9EVUxFKQogI2Vycm9y
+IEZpcm13YXJlIExvYWRpbmcgaXMgbm90IGNvbmZpZ3VyZWQgaW4gdGhlIGtlcm5lbCAhCg==
+--=====================_50498543==_--
