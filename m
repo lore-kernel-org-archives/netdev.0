@@ -1,24 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: bugs in net/ipv6/mcast.c (fwd)
-Date: Mon, 27 Oct 2003 00:02:11 -0800
+Subject: Re: Linux 2.6.0-test9
+Date: Mon, 27 Oct 2003 01:40:32 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031027000211.3dcaa385.davem@redhat.com>
-References: <Pine.LNX.4.44.0310252226470.12162-100000@netcore.fi>
-	<20031027.110710.54972254.yoshfuji@linux-ipv6.org>
+Message-ID: <20031027014032.4908019f.davem@redhat.com>
+References: <UTC200310270148.h9R1mqO06057.aeb@smtp.cwi.nl>
+	<Pine.LNX.4.44.0310261752160.3157-100000@home.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, niteowl@austin.rr.com, pekkas@netcore.fi,
-        yoshfuji@linux-ipv6.org
+Cc: Andries.Brouwer@cwi.nl, akpm@osdl.org, kuznet@ms2.inr.ac.ru,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031027.110710.54972254.yoshfuji@linux-ipv6.org>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.44.0310261752160.3157-100000@home.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Oct 2003 11:07:10 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> Exactly. Patch follows.
+I'm going to just revert the changeset in the networking
+fixes I send to Linus today.
 
-Applied, thanks everyone.
+If we resolve this some other way, that's fine and the
+original change is in the revision history for people
+to refer to.
