@@ -1,8 +1,8 @@
 From: "Francois Baligant" <francois@baligant.net>
-Subject: 2.6.0-test9 [Bug 1595] New: Oops in tcp_v4_get_port
-Date: Tue, 25 Nov 2003 23:16:18 +0100
+Subject: Fw: [Bug 1595] New: Oops in tcp_v4_get_port
+Date: Wed, 26 Nov 2003 02:04:29 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16f901c3b3a1$c17235e0$15fea8c0@fortress>
+Message-ID: <177601c3b3b9$3f2c37d0$15fea8c0@fortress>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="iso-8859-1"
@@ -12,6 +12,12 @@ To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
+
+I have been told the following Kernel Oops in networking code could be of
+interest to netdev people.
+
+----- Original Message ----- 
 From: <bugme-daemon@osdl.org>
 To: <francois+kernel@nikita.cx>
 Sent: Tuesday, November 25, 2003 9:26 PM
