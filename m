@@ -1,53 +1,60 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: pktgen
-Date: 27 Nov 2004 10:04:22 -0500
-Message-ID: <1101567861.1044.87.camel@jzny.localdomain>
-References: <20041124161848.GA18059@xi.wantstofly.org>
-	 <16804.48120.375307.718766@robur.slu.se>
-	 <20041124170948.GC18059@xi.wantstofly.org>
-	 <16804.60621.990421.525393@robur.slu.se>
-	 <20041125030450.GA24417@xi.wantstofly.org>
-	 <16805.40983.937641.670275@robur.slu.se>
-	 <20041127002841.GA17184@xi.wantstofly.org>
-	 <20041127004325.GA17401@xi.wantstofly.org>
-	 <16808.28005.74903.881087@robur.slu.se>
-	 <20041127135354.GA24617@xi.wantstofly.org>
-	 <20041127143923.GA25155@xi.wantstofly.org>
-Reply-To: hadi@cyberus.ca
+From: Daniele Venzano <webvenza@libero.it>
+Subject: Re: SiS900 Bugreport
+Date: Sat, 27 Nov 2004 19:26:54 +0100
+Message-ID: <20041127182654.GC2356@gateway.milesteg.arr>
+References: <1838546024.20041126141110@solidirc.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: NetDev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041127143923.GA25155@xi.wantstofly.org>
+To: phrozen77 <phrozen77@solidirc.com>
+Content-Disposition: inline
+In-Reply-To: <1838546024.20041126141110@solidirc.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-11-27 at 09:39, Lennert Buytenhek wrote:
-
-> Look at it this way.  Assume that the cost of transmitting a single
-> packet consists of a packet-size-dependent part (call it 'bandwidth')
-> and a packet-size-independent part (call that one 'latency').
+On Fri, Nov 26, 2004 at 02:11:10PM +0100, phrozen77 wrote:
+> on one of my Servers, running Gentoo with a 2.6.9-r1 kernel,
+> i have an integrated SiS900 Networking Chipset(rev 90) which
+> is making trouble. It is turning off networking seemingly
+> "at will" and when the network is in some more or less
+> "idle"-state.
 > 
-> The higher the latter part is, the bigger packets you need to saturate
-> the (GigE) pipe.  
+> The Output of dmesg | grep eth0 and in /var/log/messages is full of
+> these:
 > 
-> Your 64/133 setup saturates GigE with 160B packets, my 32/66 setup needs
-> 350B packets even though there is ample bandwidth in both cases.
+> Nov 25 15:37:48 $HOSTNAME eth0: Media Link Off
+> Nov 25 15:37:58 $HOSTNAME eth0: Media Link On 100mbps full-duplex
 > 
-> Hope I'm making some sense here.
+> Searching the whole Web now for several days, all i come up with is
+> that this seemingly is a multi-distribution and even multi-kernel
+> problem, but no solution :(
+> 
+> I tried resolving this with disabling ACPI / APM in the kernel,
+> searching for patches and other methods to resolve it but sadly
+> nothing did help.
 
-Yes, you are.
+Sadly I can't help you right now, recently I'm receiving more and more 
+reports of 'strange things' that happen with sis900 around the world. 
+There is something that goes wrong with MII detection, I've just replied
+to another report that reported a non working sis900 after a reboot
+cycle. It has to keep the machine powered off some time before the
+sis900 restarts working.
 
-Note the constant part of the equation though is not exactly "constant"
-even if uyou picked constant hardware. It is per machine (chipset,
-topology layout of the bus), per machine setup (how much latency does
-your RAM have) and worse: load dependent (two IO endpoints contending
-for a PCI-X bridge or the CPU being very busy at the moment with a lot
-compute vs RAM-bound execution).
-It would be interesting to see a study in this area though.
+You can send me the output of a kernel compiled eith this [1] patch, or
+the output of the mii-diag program (preferred) [2]. That says to me what
+hardware you have, and I can see if it is already supported or not.
 
-cheers,
-jamal
+I'm planning a rework of the sis900 code, to integrate it better with
+kernel interfaces and clean it up, so perhaps things will get better
+with time.
+
+[1] http://teg.homeunix.org/download/kpatches/sis900-list-phy-ids.diff
+[2] http://www.scyld.com/ethercard_diag.html
+
+Thanks, bye.
+-- 
+-----------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
