@@ -1,8 +1,8 @@
 From: janitor@sternwelten.at
-Subject: [patch 03/16]  net/appletalk: replace schedule_timeout() 	with msleep()
-Date: Wed, 01 Sep 2004 23:02:48 +0200
+Subject: [patch 01/16]  __FUNCTION__ string concatenation
+Date: Wed, 01 Sep 2004 23:02:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C2cFk-0007mX-Fq@sputnik>
+Message-ID: <E1C2cFZ-0007l7-Gh@sputnik>
 Cc: jgarzik@pobox.com, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -11,52 +11,44 @@ List-Id: netdev.vger.kernel.org
 
 
 
+I've replaced the __FUNCTION__ string concatenation with the
+%s placeholder and a printf parameter in
+drivers/net/wireless/prism65/islpci_mgt.h, as suggested in the TODO
+list.
 
+I don't have the hardware to do a run-time check. It should not pose any
+problems though.
 
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/07/04 22:08:37+02:00 drizzd@aon.at 
+#   __FUNCTION__ string concatenation is deprecated
+# 
+# drivers/net/wireless/prism54/islpci_mgt.h
+#   2004/07/03 17:18:20+02:00 drizzd@aon.at +1 -1
+#   __FUNCTION__ string concatenation is deprecated
+# 
 
-
-I would appreciate any comments from the janitor@sternweltens list.
-
-Thanks,
-Nish
-
-
-
-Description: Uses msleep() instead of schedule_timeout() so the task
-is guaranteed to delay the desired time.
-
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-
 
 
 ---
 
- linux-2.6.9-rc1-bk7-max/drivers/net/appletalk/ltpc.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ linux-2.6.9-rc1-bk7-max/drivers/net/wireless/prism54/islpci_mgt.h |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/appletalk/ltpc.c~msleep-drivers_net_appletalk_ltpc drivers/net/appletalk/ltpc.c
---- linux-2.6.9-rc1-bk7/drivers/net/appletalk/ltpc.c~msleep-drivers_net_appletalk_ltpc	2004-09-01 19:35:26.000000000 +0200
-+++ linux-2.6.9-rc1-bk7-max/drivers/net/appletalk/ltpc.c	2004-09-01 19:35:26.000000000 +0200
-@@ -1109,8 +1109,7 @@ struct net_device * __init ltpc_probe(vo
- 	inb_p(io+1);
- 	inb_p(io+3);
+diff -puN drivers/net/wireless/prism54/islpci_mgt.h~printk-net_wireless_prism54_islpci_mgt.h drivers/net/wireless/prism54/islpci_mgt.h
+--- linux-2.6.9-rc1-bk7/drivers/net/wireless/prism54/islpci_mgt.h~printk-net_wireless_prism54_islpci_mgt.h	2004-09-01 19:34:23.000000000 +0200
++++ linux-2.6.9-rc1-bk7-max/drivers/net/wireless/prism54/islpci_mgt.h	2004-09-01 19:34:23.000000000 +0200
+@@ -31,7 +31,7 @@
+ #define K_DEBUG(f, m, args...) do { if(f & m) printk(KERN_DEBUG args); } while(0)
+ #define DEBUG(f, args...) K_DEBUG(f, pc_debug, args)
  
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(2*HZ/100);
-+	msleep(20);
+-#define TRACE(devname)   K_DEBUG(SHOW_TRACING, VERBOSE, "%s:  -> " __FUNCTION__ "()\n", devname)
++#define TRACE(devname)   K_DEBUG(SHOW_TRACING, VERBOSE, "%s:  -> %s()\n", devname, __FUNCTION__)
  
- 	inb_p(io+0);
- 	inb_p(io+2);
-@@ -1120,8 +1119,7 @@ struct net_device * __init ltpc_probe(vo
- 	inb_p(io+5); /* enable dma */
- 	inb_p(io+6); /* tri-state interrupt line */
- 
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ);
-+	msleep(1000);
- 	
- 	/* now, figure out which dma channel we're using, unless it's
- 	   already been specified */
+ extern int pc_debug;
+ #define init_wds 0	/* help compiler optimize away dead code */
 
 _
