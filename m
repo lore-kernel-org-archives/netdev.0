@@ -1,44 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC, PATCH 4/5]: netfilter+ipsec - policy lookup
-Date: Mon, 22 Mar 2004 09:16:04 +1100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] [RFT] 2.6.4 - epic100 napi
+Date: Sun, 21 Mar 2004 13:24:06 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040321221604.GA32277@gondor.apana.org.au>
-References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF17.8090907@trash.net>
+Message-ID: <405DDDC6.7030007@pobox.com>
+References: <20040320152109.A31118@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4059CF17.8090907@trash.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040320152109.A31118@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 18, 2004 at 05:32:23PM +0100, Patrick McHardy wrote:
->  
-> @@ -661,6 +661,20 @@
->  	
->  	if ((*pskb)->dst->error)
->  		return -1;
-> +
-> +#ifdef CONFIG_XFRM
-> +	if (!(IPCB(*pskb)->flags & IPSKB_XFRM_TRANSFORMED)) {
-> +		struct xfrm_policy_afinfo *afinfo;
-> +
-> +		afinfo = xfrm_policy_get_afinfo(AF_INET);
-> +		if (afinfo != NULL) {
-> +			afinfo->decode_session(*pskb, &fl);
-> +			xfrm_policy_put_afinfo(afinfo);
-> +			if (xfrm_lookup(&(*pskb)->dst, &fl, (*pskb)->sk, 0) != 0)
-> +				return -1;
-> +		}
-> +	}
-> +#endif
+Francois Romieu wrote:
+> People are welcome to report how the following patch behaves on their
+> hardware. It does not seem too bad here but it probably is still a bit rough.
+> A split version of the patch will follow tomorrow. This one definitely aims
+> at brave and/or bored testers.
 
-BTW, you can xfrm4_route_forward here.
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Looks pretty good, but includes a standard NAPI race...
+
+When you split up the patches, I'll throw it into my -netdev tree, which 
+means it will be automatically included in -mm for testing (as is r8169 
+now).
+
+FWIW Andrew Morton has made me lazy...  I don't bother publishing 
+separate -netdev patches anymore, since he automatically downloads my 
+netdev-2.6 BK tree before doing each -mm release.
+
+
+> +	if (work_done < orig_budget) {
+> +		unsigned long flags;
+> +		int status;
+> +
+> +		spin_lock_irqsave(&ep->napi_lock, flags);
+> +		epic_napi_irq_on(dev, ep);
+> +		__netif_rx_complete(dev);
+> +		spin_unlock_irqrestore(&ep->napi_lock, flags);
+> +
+> +		status = inl(ioaddr + INTSTAT);
+> +		if (status & EpicNapiEvent) {
+> +			epic_napi_irq_off(dev, ep);
+> +			goto rx_action;
+> +		}
+
+Need to add a netif_running() check to the 'if' test at the top of the 
+quote.
+
+Are you (or somebody else?) interested in reviewing all the in-tree NAPI 
+drivers, and seeing if other drivers have this bug?  I think 8139cp.c 
+does at least, maybe e100 too...  Such a fix would need to go into 2.4.x 
+as well.
+
+	Jeff
