@@ -1,11 +1,10 @@
 From: domen@coderock.org
-Subject: [patch 1/1] net/ltpc: replace schedule_timeout() with ssleep()/msleep()
-Date: Wed, 12 Jan 2005 00:08:40 +0100
-Message-ID: <20050111230841.2869F1F225@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
-        janitor@sternwelten.at
+Subject: [patch 01/19] list_for_each: net-ipv6-ip6_fib.c
+Date: Wed, 12 Jan 2005 00:10:08 +0100
+Message-ID: <20050111231008.B3A551F225@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br
+To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -13,42 +12,30 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Any comments would be appreciated.
+Hi.
 
-Description: Use ssleep() / msleep() [as appropriate]
-instead of schedule_timeout() to guarantee the task delays as expected.
+s/for/list_for_each/
+Compile tested.
 
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-Acked-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Signed-off-by: Domen Puncer <domen@coderock.org>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/appletalk/ltpc.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ kj-domen/net/ipv6/ip6_fib.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/appletalk/ltpc.c~msleep+ssleep-drivers_net_appletalk_ltpc drivers/net/appletalk/ltpc.c
---- kj/drivers/net/appletalk/ltpc.c~msleep+ssleep-drivers_net_appletalk_ltpc	2005-01-10 18:00:14.000000000 +0100
-+++ kj-domen/drivers/net/appletalk/ltpc.c	2005-01-10 18:00:14.000000000 +0100
-@@ -1109,8 +1109,7 @@ struct net_device * __init ltpc_probe(vo
- 	inb_p(io+1);
- 	inb_p(io+3);
+diff -puN net/ipv6/ip6_fib.c~list-for-each-drivers_net_ipv6_ip6_fib net/ipv6/ip6_fib.c
+--- kj/net/ipv6/ip6_fib.c~list-for-each-drivers_net_ipv6_ip6_fib	2005-01-10 17:59:48.000000000 +0100
++++ kj-domen/net/ipv6/ip6_fib.c	2005-01-10 17:59:48.000000000 +0100
+@@ -99,7 +99,7 @@ struct fib6_walker_t fib6_walker_list = 
+ 	.next	= &fib6_walker_list, 
+ };
  
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(2*HZ/100);
-+	msleep(20);
+-#define FOR_WALKERS(w) for ((w)=fib6_walker_list.next; (w) != &fib6_walker_list; (w)=(w)->next)
++#define FOR_WALKERS(w) list_for_each((w), &fib6_walker_list)
  
- 	inb_p(io+0);
- 	inb_p(io+2);
-@@ -1120,8 +1119,7 @@ struct net_device * __init ltpc_probe(vo
- 	inb_p(io+5); /* enable dma */
- 	inb_p(io+6); /* tri-state interrupt line */
- 
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ);
-+	ssleep(1);
- 	
- 	/* now, figure out which dma channel we're using, unless it's
- 	   already been specified */
+ static __inline__ u32 fib6_new_sernum(void)
+ {
 _
