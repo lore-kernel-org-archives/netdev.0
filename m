@@ -1,32 +1,21 @@
-From: "James H. Cloos Jr." <cloos@jhcloos.com>
-Subject: Re: e100 in 2.5.59 through 2.5.61
-Date: 17 Feb 2003 11:03:18 -0500
+From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+Subject: socket lock question
+Date: Mon, 17 Feb 2003 17:46:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m37kbyc2t5.fsf@lugabout.jhcloos.org>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E01780B72@orsmsx402.jf.intel.com>
+Message-ID: <20030217164640.GC289@udine>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E01780B72@orsmsx402.jf.intel.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> "Scott" == Feldman, Scott <scott.feldman@intel.com> writes:
+Hi
 
->> The switch is fine with other 100 devices, such as the printer and
->> the 802.11 gateway.  It is also happy with the 3com card in the
->> laptop's port duplicator.
+It seems to me that sk->slock.lock is grabbed twice successively in the
+same code path, namely in tcp_v4_rcv() and tcp_v4_do_rcv(). 
 
-Scott> Switch vendor/model?
-
-Good point.  It is a Belkin F5D5130-8 8-port 10/100.
- 
->> Both the e100 and the eepro100 modules fail at 100baseT.
-
-Scott> Is the switch port forced or autoneg?
-
-Autoneg.  
-
--JimC
+Does anyone know how this is possible?
+-- 
+Eric
