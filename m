@@ -1,30 +1,51 @@
-From: Zdenek Radouch <zdenek@rcn.com>
-Subject: Do you know the linux TCP stack?
-Date: Sat, 05 Mar 2005 09:31:32 -0500
-Message-ID: <E1D7aML-0007Wp-00@smtp01.mrf.mail.rcn.net>
+From: Richard Dawe <rich@phekda.gotadsl.co.uk>
+Subject: [PATCH]: r8169: prototype parameter name consistency
+Date: Sat, 05 Mar 2005 14:51:49 +0000
+Message-ID: <4229C785.806@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------040507070404080307080909"
+Cc: Linux netdev <netdev@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------040507070404080307080909
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I ran out of ideas.  Can't find the answers in any docs,
-and I don't have time to read and analyze the source right now.
+Hello.
 
-I will hire you to help me; I need the following to be done in
-my net device driver:
+Attached is a minor clean-up for consistency in the parameter names for 
+a couple of prototypes in the r8169 driver.
 
-With the ARP disabled (this is well documented so I believe I've done that),
-while queueing the physical output, I need to get hold of the IP address
-of where the packet is being sent.  Yes, I mean IP address, not
-Ethernet address, and yes this is not the destination addresses in
-the IP header.
+Bye, Rich =]
 
-If you can do it, and are interested in helping me,  please send me
-a note, with your hourly consulting rate, or a suggestion of how
-you'd like to be compensated for the work.  Of course, if you'd
-like to just send me an answer, that would be fine, too. :-)
-Thanks.
+Signed-Off-By: Richard Dawe <rich@phekda.gotadsl.co.uk>
 
--Zdenek
+--------------040507070404080307080909
+Content-Type: text/plain;
+ name="r8169-proto-consistency.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="r8169-proto-consistency.patch"
+
+--- linux-2.6.11/drivers/net/r8169.c.orig	2005-03-02 07:38:09.000000000 +0000
++++ linux-2.6.11/drivers/net/r8169.c	2005-03-05 14:41:29.000000000 +0000
+@@ -433,10 +433,10 @@ static void rtl8169_hw_start(struct net_
+ static int rtl8169_close(struct net_device *dev);
+ static void rtl8169_set_rx_mode(struct net_device *dev);
+ static void rtl8169_tx_timeout(struct net_device *dev);
+-static struct net_device_stats *rtl8169_get_stats(struct net_device *netdev);
++static struct net_device_stats *rtl8169_get_stats(struct net_device *dev);
+ static int rtl8169_rx_interrupt(struct net_device *, struct rtl8169_private *,
+ 				void __iomem *);
+-static int rtl8169_change_mtu(struct net_device *netdev, int new_mtu);
++static int rtl8169_change_mtu(struct net_device *dev, int new_mtu);
+ static void rtl8169_down(struct net_device *dev);
+ 
+ #ifdef CONFIG_R8169_NAPI
+
+--------------040507070404080307080909--
