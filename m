@@ -1,38 +1,52 @@
-From: =?gb2312?q?minnie=20wu?= <minniewkitty@yahoo.com.cn>
-Subject: How to improve small packet performance?
-Date: Fri, 8 Aug 2003 10:55:09 +0800 (CST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [bk patches 2.6] ethtool_ops
+Date: Thu, 7 Aug 2003 23:32:19 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030808025509.4328.qmail@web15211.mail.bjs.yahoo.com>
+Message-ID: <20030808033219.GA5779@gtf.org>
+Reply-To: netdev@oss.sgi.com
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="0-1326245407-1060311309=:1975"
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0-1326245407-1060311309=:1975
-Content-Type: text/plain; charset=gb2312
-Content-Transfer-Encoding: base64
-X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id h782vAFl015650
+Eventually destined for Linus, after some testing, and I after I merge
+willy's 8139too.c conversion.  This ethtool_ops update doesn't break
+existing drivers, allowing for piecemeal migration.
 
-SGksIGFsbCENCiAgICAgSSdtIHdvcmtpbmcgb24gZTEwMC9lZXBybzEwMCwga2VybmVsIHZl
-cnNpb24gMi40LjIwLiBJIHVzZWQgTkFQSSwgYnV0IHRoZSA2NCBiaXQgc21hbGwgcGFja2V0
-IGR1YWwgdGhyb3VnaG91dCBpcyBvbmx5IDI4TS9zLiBIb3cgdG8gaW1wcm92ZSBzbWFsbCBw
-YWNrZXQgcGVyZm9ybWFuY2UgZnVydGhlcj8NCg0KDQoNCi0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLQ0KRG8gWW91IFlhaG9vIT8NCsruxtq088asxuu+29HFu6LNqCDN+MLn
-yePP8c23K9HFu6LNqLX3xrXK1dL0u/q1yMTjwLTEww==
---0-1326245407-1060311309=:1975
-Content-Type: text/html; charset=gb2312
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id h782vAFl015650
 
-<DIV>Hi, all!</DIV>
-<DIV>&nbsp;&nbsp;&nbsp;&nbsp; I'm working on e100/eepro100, kernel versio=
-n 2.4.20. I used NAPI, but the 64 bit small packet dual throughout is onl=
-y 28M/s. How to improve small packet performance further?</DIV><p><br><hr=
- size=3D1><b>Do You Yahoo!?</b><br>
-<a href=3D"http://cn.rd.yahoo.com/mail_cn/tag/?http://cn.promo.yahoo.com/=
-minisite/messenger1/" target=3Dblank>=CA=EE=C6=DA=B4=F3=C6=AC=C6=EB=BE=DB=
-=D1=C5=BB=A2=CD=A8 =CD=F8=C2=E7=C9=E3=CF=F1=CD=B7+=D1=C5=BB=A2=CD=A8=B5=F7=
-=C6=B5=CA=D5=D2=F4=BB=FA=B5=C8=C4=E3=C0=B4=C4=C3</a>
---0-1326245407-1060311309=:1975--
+BK users:
+
+	bk pull http://gkernel.bkbits.net/ethtool-2.6
+
+GNU diff:
+
+ftp://ftp.??.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test2-bk7-ethtool1.patch.bz2
+
+This will update the following files:
+
+ drivers/net/tg3.c         |  664 +++++++++++++++++++--------------------------
+ include/linux/ethtool.h   |   99 ++++++
+ include/linux/netdevice.h |    9 
+ net/core/Makefile         |    4 
+ net/core/dev.c            |   16 -
+ net/core/ethtool.c        |  672 ++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 1076 insertions(+), 388 deletions(-)
+
+through these ChangeSets:
+
+<jgarzik@redhat.com> (03/08/07 1.1119.3.3)
+   [netdrvr] add SET_ETHTOOL_OPS back-compat hook
+
+<jgarzik@redhat.com> (03/08/07 1.1119.3.2)
+   [netdrvr tg3] convert to using ethtool_ops
+
+   [also contributed by Matthew Wilcox -jg]
+
+<jgarzik@redhat.com> (03/08/07 1.1119.3.1)
+   [netdrvr] add ethtool_ops to struct net_device, and associated infrastructure
+   
+   Contributed by Matthew Wilcox.
