@@ -1,39 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Initialising net/ipv4/ before net/ipv6/ breaks IPv6 autoconf
- with nfsroot....
-Date: Fri, 20 Feb 2004 11:08:12 -0800
+From: Andrew Walrond <andrew@walrond.org>
+Subject: Re: Linux-2.6.3 : [eth0: Too much work at interrupt, status=0x00000001.]
+Date: Fri, 20 Feb 2004 19:15:09 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040220110812.07cff16f.davem@redhat.com>
-References: <1077201499.18703.381.camel@hades.cambridge.redhat.com>
-	<20040219222253.082458cf.davem@redhat.com>
-	<1077303776.427.575.camel@hades.cambridge.redhat.com>
+Message-ID: <200402201915.09342.andrew@walrond.org>
+References: <200402201803.12146.andrew@walrond.org> <20040221.032006.68375681.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1077303776.427.575.camel@hades.cambridge.redhat.com>
+To: YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?= =?utf-8?q?=20=09?=<yoshfuji@linux-ipv6.org>,
+        netdev@oss.sgi.com
+In-Reply-To: <20040221.032006.68375681.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Feb 2004 19:02:57 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
+On Friday 20 Feb 2004 6:20 pm, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
+> In article <200402201803.12146.andrew@walrond.org> (at Fri, 20 Feb 2004=
+=20
+18:03:11 +0000), Andrew Walrond <andrew@walrond.org> says:
+>
+> I've got this several times, randomly, and
+> I had to go to the console to reboot the machine.
+>
 
-> On Thu, 2004-02-19 at 22:22 -0800, David S. Miller wrote:
-> > On Thu, 19 Feb 2004 14:38:20 +0000
-> > David Woodhouse <dwmw2@infradead.org> wrote:
-> > 
-> > > Putting IPv6 before IPv4 in net/Makefile fixes it, letting it IPv6
-> > > register its notifiers before the IPv4 ipconfig code brings up the
-> > > interface.
-> > > 
-> > > Objections?
-> > 
-> > No objection.  Send me a patch.
-> 
-> For 2.4, which is the one I've actually tested...
+Well the machine and network (at least with just ssh access) is working f=
+ine
 
-Also applied.
+I left the machine (which is a remote rack-mounted server) for an hour an=
+d now=20
+there is perhaps 120 of these warnings. Net is still working though.
 
-Thanks again David.
+Unless anyone has any ideas, I'll move back to 2.4 on this machine
+
+Andrew
