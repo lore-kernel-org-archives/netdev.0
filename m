@@ -1,58 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC, PATCH 4/5]: netfilter+ipsec - policy lookup
-Date: Fri, 19 Mar 2004 22:51:30 +1100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] packet delay scheduler
+Date: 19 Mar 2004 09:52:07 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040319115130.GE29066@gondor.apana.org.au>
-References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF17.8090907@trash.net>
+Message-ID: <1079707927.1032.42.camel@jzny.localdomain>
+References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
+	 <20040316174134.2f1da12a.davem@redhat.com>
+	 <20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+        lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4059CF17.8090907@trash.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 18, 2004 at 05:32:23PM +0100, Patrick McHardy wrote:
->
-> @@ -635,7 +636,6 @@
->  #ifdef CONFIG_IP_ROUTE_FWMARK
->  		fl.nl_u.ip4_u.fwmark = (*pskb)->nfmark;
->  #endif
-> -		fl.proto = iph->protocol;
+Hi Stephen,
 
-Better call __ip_route_output_key rather than not setting proto because
-you'll need proto in xfrm_lookup.
+Good effort but we could do more to capture the essence of nistnet. I am
+not familiar with dummynet so cant comment on it. 
+For example just with the delaying action nistnet does a lot more
+(cutnpaste):
+Fixed delays, variable delays with loadable delay probability
+distribution (Default distribution is pareto-normal, empirically
+parametrized to match observed packet delays), settable mean/variance.
 
->  		if (ip_route_output_key(&rt, &fl) != 0)
->  			return -1;
->  
+It can also introduce Packet reordering, packet loss, packet
+duplication, as well as bandwidth limitation to induce congestion.
 
-> @@ -661,6 +661,20 @@
->  	
->  	if ((*pskb)->dst->error)
->  		return -1;
-> +
-> +#ifdef CONFIG_XFRM
-> +	if (!(IPCB(*pskb)->flags & IPSKB_XFRM_TRANSFORMED)) {
-> +		struct xfrm_policy_afinfo *afinfo;
-> +
-> +		afinfo = xfrm_policy_get_afinfo(AF_INET);
-> +		if (afinfo != NULL) {
-> +			afinfo->decode_session(*pskb, &fl);
-> +			xfrm_policy_put_afinfo(afinfo);
-> +			if (xfrm_lookup(&(*pskb)->dst, &fl, (*pskb)->sk, 0) != 0)
-> +				return -1;
-> +		}
-> +	}
-> +#endif
+You get the point: essentially you have barely scratched the surface.
 
-If we can reinject transport packets then we can move this back into
-the if clause.
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I think putting all the above in one huge monolithic module is wrong
+this being one of the problems i had with nistnet.
+
+The better alternative is to use the tc extension patches i have
+because then you could write little modules which do different things
+and cascade them. 
+
+Maybe as an example i can rewrite the fixed delayer you wrote as an
+action module. The only catch is the patches i have are still in 2.4.x
+at the moment. Let me know if you are interested and i could pass you
+the patches.
+
+cheers,
+jamal
