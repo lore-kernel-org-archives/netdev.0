@@ -1,31 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][IPROUTE2] clean xfrm message format
-Date: Wed, 4 Aug 2004 20:11:51 +1000
+From: James Morris <jmorris@redhat.com>
+Subject: Re: Fw: [Bugme-new] [Bug 3151] New: IPSEC triggers "bad: scheduling
+ while atomic!" errors.
+Date: Wed, 4 Aug 2004 09:00:09 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040804101151.GA4940@gondor.apana.org.au>
-References: <20040803164539.41a0a975@localhost>
+Message-ID: <Xine.LNX.4.44.0408040858561.8700-100000@dhcp83-76.boston.redhat.com>
+References: <20040803224319.50363100.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Masahide Nakamura <nakam@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20040803164539.41a0a975@localhost>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20040803224319.50363100.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 03, 2004 at 04:45:39PM -0700, Masahide Nakamura wrote:
+On Tue, 3 Aug 2004, Andrew Morton wrote:
+
 > 
-> This is a patch for ip xfrm and against for the latest
-> snapshot(iproute2-2.6.8-ss040730.tar.gz). Please apply it.
+> Looks like a lock/unlock imbalance somewhere in the 2.6.7 ipsec code.
 
-Yes this looks great.
+This could also be ppp related, oops related to this code seem to be 
+reported regularly.
 
-Thanks a lot for your work.
 
-Cheers,
+- James
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+James Morris
+<jmorris@redhat.com>
