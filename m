@@ -1,27 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][ATM]: [horizon] avoid warning about limited range of
- data type
-Date: Wed, 21 Jan 2004 22:15:31 -0800
+Subject: Re: [PATCH 2/2] IPv6: strict address checks even on globals in
+ ndisc
+Date: Wed, 21 Jan 2004 22:34:31 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040121221531.10e4f8a2.davem@redhat.com>
-References: <200401210124.i0L1OZRr014516@ginger.cmf.nrl.navy.mil>
+Message-ID: <20040121223431.5929dca1.davem@redhat.com>
+References: <Pine.LNX.4.58.0401141035260.23925@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, rddunlap@osdl.org,
-        venza@libero.it
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200401210124.i0L1OZRr014516@ginger.cmf.nrl.navy.mil>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.58.0401141035260.23925@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Jan 2004 20:24:37 -0500
-chas williams (contractor) <chas@cmf.nrl.navy.mil> wrote:
+On Wed, 14 Jan 2004 11:08:04 +0200 (EET)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> this patch fixes the horizon driver so that it will compile
-> without a warning.
+> The attached patch adds a "strict" parameter to ip6_chk_addr() and
+> ip6_get_ifaddr() to allow link-local protocols like ND and DAD to do
+> strict address checks even on addresses with greater scope than
+> link-local.
 
-Applied, I assumed this was meant for 2.6.x only.
+Looks fine, applied.
 
-Thanks.
+Thanks Ville.
