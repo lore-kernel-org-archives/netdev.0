@@ -1,40 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Thu, 7 Oct 2004 15:08:50 -0700
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: 2.6.7 tulip performance (with NAPI)
+Date: Fri, 8 Oct 2004 00:13:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041007150850.7ba2a387.davem@davemloft.net>
-References: <20041006232544.53615761@jack.colino.net>
-	<20041006214322.GG31237@waste.org>
-	<20041007075319.6b31430d@jack.colino.net>
-	<20041006234912.66bfbdcc.davem@davemloft.net>
-	<20041007160532.60c3f26b@pirandello>
-	<20041007112846.5c85b2d9.davem@davemloft.net>
-	<20041007224422.1c1bea95@jack.colino.net>
+Message-ID: <16741.49048.717774.307462@robur.slu.se>
+References: <41633174.7070805@candelatech.com>
+	<16740.17875.574967.11417@robur.slu.se>
+	<41646587.7070401@candelatech.com>
+	<41649425.1010102@candelatech.com>
+	<16741.45331.743721.822091@robur.slu.se>
+	<4165B981.8060703@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, akpm@osdl.org, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Colin Leroy <colin@colino.net>
-In-Reply-To: <20041007224422.1c1bea95@jack.colino.net>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4165B981.8060703@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Oct 2004 22:44:22 +0200
-Colin Leroy <colin@colino.net> wrote:
 
-> On 07 Oct 2004 at 11h10, David S. Miller wrote:
-> 
-> Hi again, 
-> 
-> > So, netpoll needs to have the NETIF_F_LLTX stuff added to it.
-> 
-> This patch should do that. It works OK for me, but I'd like it checked
-> before sent upstream...
-> 
-> However, it doesn't fix the hang. it looks like this hang is really
-> coming from sungem.
+Ben Greear writes:
 
-Is it hanging inside of the ->hard_start_xmit() call or somewhere
-else?  Do you have a way to determine this without adding printk()'s
-and thus causing recursion as you mentioned earlier? :-)
+ > You must have several PCI-X busses on that system?  From what I can tell,
+ > my dual-xeon system (2.8Ghz, X5DPA-GG motherboard) just can't handle the
+ > PCI bandwidth.  I still have processing power it appears, and I see lots
+ > of hard-start-xmit errors out of the pro/1000 NICs, so I assume I am
+ > able to drive them as hard as they can go...  It may be that receiving
+ > the pkts, as I am doing, also decreases transmit in more than a linear fashion.
+
+ Yes the board has 4 different PCI-bus from what I remember it's was a 
+ Supermicro X5DL8-GG. Yes you need bus bandwith from what I've seen even 
+ 133 MHz PCI-X is limiting the small packet performance at GIGE speeds.
+
+
+ > >  I'm interested if anyone has done any pktgen performance tests with
+ > >  w. S2IO or other 10G card we need to upgrade the lab equipment. 
+ > >  Both 64 byte pkts and MTU sized pkts is interesting.  Anyone?
+ > 
+ > Not I, but would be interested as well!
+
+ Andi got one... ;-)
+
+						--ro
