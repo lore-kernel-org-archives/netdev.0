@@ -1,34 +1,67 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Source Specific Query of MLDv2 [PATCH]
-Date: Sat, 07 Feb 2004 15:46:03 +0900 (JST)
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Subject: [PATCH] af_unix: Fix path of /proc/net/unix
+Date: Sat, 07 Feb 2004 16:03:48 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040207.154603.51160771.yoshfuji@linux-ipv6.org>
-References: <20040207.142519.117436499.yoshfuji@linux-ipv6.org>
-	<OF92ABDC1A.4056C324-ON88256E33.002267FA-88256E33.00247258@us.ibm.com>
+Message-ID: <878yjf2wx7.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, hibi665@oki.com, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dlstevens@us.ibm.com
-In-Reply-To: <OF92ABDC1A.4056C324-ON88256E33.002267FA-88256E33.00247258@us.ibm.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF92ABDC1A.4056C324-ON88256E33.002267FA-88256E33.00247258@us.ibm.com> (at Fri, 6 Feb 2004 22:40:42 -0800), David Stevens <dlstevens@us.ibm.com> says:
+Hi,
 
-> Good idea; I'll incorporate all the comments, retest and repost.
-> 
-> > So... hmm... Let's check dev->flags ^ (IFF_PROMISC|IFF_ALLMULTI) like
-> this.
-> 
->       I think you mean (dev->flags & (IFF_PROMISC|IFF_ALLMULTI)) here,
-> right?
+/proc/net/unix on 2.4,
+  c14e0580: 0000000C 00000000 00000000 0002 01   742 /dev/log
+  c06bfa80: 00000002 00000000 00000000 0002 01 1019617 @0123 ...
 
-Oops! Sorry, you're right...
-And, it'd be good to use unlikely() here.
+/proc/net/unix on 2.6,
+  c7c85d1c: 0000000C 00000000 00000000 0002 01  1021 /dev/log^@
+  c551bd5c: 00000002 00000000 00000000 0002 01  5692 ^@0123 ... @
 
+We should overwrite the first "nul" by "@" in the case of abstract
+path, otherwise currently "netstat -x" can't print, at least.  And
+normal one, odd "nul" was added.
+
+This patch does behavior of 2.4. Please apply.
+
+
+---
+
+ net/unix/af_unix.c |   15 ++++++++++-----
+ 1 files changed, 10 insertions(+), 5 deletions(-)
+
+diff -puN net/unix/af_unix.c~af_unix-abstruct-fix net/unix/af_unix.c
+--- linux-2.6.2/net/unix/af_unix.c~af_unix-abstruct-fix	2004-02-07 01:47:05.000000000 +0900
++++ linux-2.6.2-hirofumi/net/unix/af_unix.c	2004-02-07 03:39:06.000000000 +0900
+@@ -1863,14 +1863,19 @@ static int unix_seq_show(struct seq_file
+ 			sock_i_ino(s));
+ 
+ 		if (u->addr) {
+-			int i;
++			int i, len;
+ 			seq_putc(seq, ' ');
+-			
+-			for (i = 0; i < u->addr->len-sizeof(short); i++)
+-				seq_putc(seq, u->addr->name->sun_path[i]);
+ 
+-			if (UNIX_ABSTRACT(s))
++			i = 0;
++			len = u->addr->len - sizeof(short);
++			if (!UNIX_ABSTRACT(s))
++				len--;
++			else {
+ 				seq_putc(seq, '@');
++				i++;
++			}
++			for ( ; i < len; i++)
++				seq_putc(seq, u->addr->name->sun_path[i]);
+ 		}
+ 		unix_state_runlock(s);
+ 		seq_putc(seq, '\n');
+
+_
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
