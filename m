@@ -1,47 +1,29 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: abysmal e1000 performance (DITR)
-Date: Mon, 7 Jun 2004 21:14:27 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Fwd: in-driver QoS
+Date: Mon, 07 Jun 2004 15:38:23 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16580.48787.965298.891413@robur.slu.se>
-References: <1085700138.30156.1322.camel@tubarao>
-	<16580.33370.535347.85788@robur.slu.se>
-	<1086631191.5220.15.camel@tubarao>
+Message-ID: <40C4C42F.2040006@pobox.com>
+References: <200406072217.31924.vkondra@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Cc: James Ketrenos <jketreno@linux.jf.intel.com>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tharbaugh@lnxi.com
-In-Reply-To: <1086631191.5220.15.camel@tubarao>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+In-Reply-To: <200406072217.31924.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Vladimir Kondratiev wrote:
+> skb->priority help determining Tx queue, but fundamental problem is with
+> single Tx queue from network stack. Any smart queuing/scheduling etc. made by
+> driver, will render useless while network stack provides single Tx queue.
 
-Thayne Harbaugh writes:
- > 
- > >  The only useful measure we found was using the number of packets
- > > received on the RX-ring. You see this used in tulip driver to get a
- > > dynamic RX interrupt delay. 
- > 
- > That, however, is exactly the problem.  When only the packets are
- > considered then interrupts are throttled even when the system can handle
- > the extra load of heavy interrupts.  When the interrupts are
- > unnecessarily throttled without considering the system load then network
- > throughput is greatly reduced - even though the system is mostly idle. 
- > That approach is too naive for balanced performance between network
- > throughput and application processing.
- > 
- > In the end, I thing that DITR should be disabled in favor of NAPI which
- > has a similar goal and is more general.
 
- I'm not arguing with you. NAPI uses just number of received packets to
- decide which action to take and the decision gets instant and simple.
+The packet schedulers already have multiple queues, why isn't the packet 
+scheduling framework sufficient?
 
- > FWIW, I haven't looked through the tulip driver.  Thanks for the pointer
- > - I'll go have a peek.
+Who cares if there is a single TX "delivery point" to the driver, as 
+long as the driver knows how to differentiate queues.
 
- Well it has a simple variant to avoid fixed interrupt delays and is used
- with NAPI in tulip. Jamal gave talk on this at OLS 2000?. 
- 
- Cheers.
-						--ro
+	Jeff
