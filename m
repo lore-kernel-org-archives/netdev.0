@@ -1,151 +1,36 @@
-From: Brad House <brad@mainstreetsoftworks.com>
-Subject: r8169 in netdev experimental
-Date: Sun, 04 Jan 2004 12:00:51 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 in netdev experimental
+Date: Sun, 4 Jan 2004 23:38:49 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FF846C3.5070207@mainstreetsoftworks.com>
-References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <20031126004550.A25408@electric-eye.fr.zoreil.com> <20031127235143.A16767@electric-eye.fr.zoreil.com> <20031130014738.A2589@electric-eye.fr.zoreil.com>
+Message-ID: <20040104233849.A3214@electric-eye.fr.zoreil.com>
+References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <20031126004550.A25408@electric-eye.fr.zoreil.com> <20031127235143.A16767@electric-eye.fr.zoreil.com> <20031130014738.A2589@electric-eye.fr.zoreil.com> <3FF846C3.5070207@mainstreetsoftworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>, brad_mssw@gentoo.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20031130014738.A2589@electric-eye.fr.zoreil.com>
+To: Brad House <brad@mainstreetsoftworks.com>
+Content-Disposition: inline
+In-Reply-To: <3FF846C3.5070207@mainstreetsoftworks.com>; from brad@mainstreetsoftworks.com on Sun, Jan 04, 2004 at 12:00:51PM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ok, sorry I dropped out of existance for a while.
-I just tried the 2.6.0-bk2 netdev experimental
-patches, and the r8169 module locks the system on
-loading.  Funny thing is I had to unplug the power cable
-from the computer for a few seconds and plug it back in,
-because an immediate reset wouldn't let to old driver
-work :/
+Brad House <brad@mainstreetsoftworks.com> :
+[...]
+> Let me know where to start debugging this, as I should
+> have some time here.
 
-Let me know where to start debugging this, as I should
-have some time here.
-(Been busy getting AMD64 port into 'official' mode
-for Gentoo, so I haven't had time to look into this too
-much...)
+static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
+                           u32 start, u32 end)
+{
+        u32 cur;
+        
+        for (cur = start; end - start > 0; cur++) {
+                                ^^^^^
+This should read:
 
-Thanks
+        for (cur = start; end - cur > 0; cur++) {
 
--Brad
+Care to test 2.6.1-rc1-mm1 and simply change the offending line ?
 
-
-Francois Romieu wrote:
-> Hopefully last round of Brad/Realtek's merging. 
-> 
-> Patches apply in this order:
-> 1 - r8169-hw_start.patch
-> 2 - r8169-missing-tx-stats.patch
-> 3 - r8169-intr_mask.patch
-> 
-> on top of:
-> 
->   2.6.0-test11
-> + 2.6.0-test9-bk25-netdrvr-exp1
-> + r8169-mac-phy-version
-> + r8169-init_one
-> + r8169-timer
-> 
-> The unconditional calls to rtl8169_{rx/tx}_interrupt in rtl8169_interrupt()
-> are not integrated. That should not make a huge difference.
-> 
-> --
-> Ueimor
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> 
-> Merge of changes from Realtek:
-> - register voodoo in rtl8169_hw_start().
-> 
-> 
->  drivers/net/r8169.c |    6 ++++++
->  1 files changed, 6 insertions(+)
-> 
-> diff -puN drivers/net/r8169.c~r8169-hw_start drivers/net/r8169.c
-> --- linux-2.6.0-test11/drivers/net/r8169.c~r8169-hw_start	2003-11-29 20:36:12.000000000 +0100
-> +++ linux-2.6.0-test11-fr/drivers/net/r8169.c	2003-11-29 20:44:17.000000000 +0100
-> @@ -1028,6 +1028,12 @@ rtl8169_hw_start(struct net_device *dev)
->  	RTL_W32(TxConfig,
->  		(TX_DMA_BURST << TxDMAShift) | (InterFrameGap <<
->  						TxInterFrameGapShift));
-> +	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd));
-> +
-> +	if (tp->mac_version == RTL_GIGA_MAC_VER_D) {
-> +		dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0: bit-3 and bit-14 MUST be 1\n");
-> +		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | (1 << 14) | (1 << 3));
-> +	}
->  
->  	tp->cur_rx = 0;
->  
-> 
-> _
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> 
-> Driver forgot to update the transmitted bytes counter.
-> Originally done in rtl8169_start_xmit() by Realtek.
-> 
-> 
->  drivers/net/r8169.c |    5 ++++-
->  1 files changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff -puN drivers/net/r8169.c~r8169-missing-tx-stats drivers/net/r8169.c
-> --- linux-2.6.0-test11/drivers/net/r8169.c~r8169-missing-tx-stats	2003-11-29 22:34:10.000000000 +0100
-> +++ linux-2.6.0-test11-fr/drivers/net/r8169.c	2003-11-30 00:26:09.000000000 +0100
-> @@ -1303,10 +1303,13 @@ rtl8169_tx_interrupt(struct net_device *
->  			int cur = dirty_tx % NUM_TX_DESC;
->  			struct sk_buff *skb = tp->Tx_skbuff[cur];
->  
-> +			/* FIXME: is it really accurate for TxErr ? */
-> +			tp->stats.tx_bytes += skb->len >= ETH_ZLEN ?
-> +					      skb->len : ETH_ZLEN;
-> +			tp->stats.tx_packets++;
->  			rtl8169_unmap_tx_skb(tp->pci_dev, tp->Tx_skbuff + cur,
->  					     tp->TxDescArray + cur);
->  			dev_kfree_skb_irq(skb);
-> -			tp->stats.tx_packets++;
->  			dirty_tx++;
->  			tx_left--;
->  			entry++;
-> 
-> _
-> 
-> 
-> ------------------------------------------------------------------------
-> 
->  drivers/net/r8169.c |    7 ++-----
->  1 files changed, 2 insertions(+), 5 deletions(-)
-> 
-> diff -puN drivers/net/r8169.c~r8169-intr_mask drivers/net/r8169.c
-> --- linux-2.6.0-test11/drivers/net/r8169.c~r8169-intr_mask	2003-11-30 01:16:48.000000000 +0100
-> +++ linux-2.6.0-test11-fr/drivers/net/r8169.c	2003-11-30 01:18:22.000000000 +0100
-> @@ -334,8 +334,7 @@ static void rtl8169_tx_timeout(struct ne
->  static struct net_device_stats *rtl8169_get_stats(struct net_device *netdev);
->  
->  static const u16 rtl8169_intr_mask =
-> -    SYSErr | PCSTimeout | RxUnderrun | RxOverflow | RxFIFOOver | TxErr | TxOK |
-> -    RxErr | RxOK;
-> +    RxUnderrun | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
->  static const unsigned int rtl8169_rx_config =
->      (RX_FIFO_THRESH << RxCfgFIFOShift) | (RX_DMA_BURST << RxCfgDMAShift);
->  
-> @@ -1445,9 +1444,7 @@ rtl8169_interrupt(int irq, void *dev_ins
->  		RTL_W16(IntrStatus,
->  			(status & RxFIFOOver) ? (status | RxOverflow) : status);
->  
-> -		if ((status &
-> -		     (SYSErr | PCSTimeout | RxUnderrun | RxOverflow | RxFIFOOver
-> -		      | TxErr | TxOK | RxErr | RxOK)) == 0)
-> +		if (!(status & rtl8169_intr_mask))
->  			break;
->  
->  		// Rx interrupt 
-> 
-> _
+--
+Ueimor
