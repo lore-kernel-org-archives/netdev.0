@@ -1,37 +1,31 @@
-From: Matthew Wilcox <willy@debian.org>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: [PATCH] minor socket ioctl cleanup for 2.5.30
-Date: Thu, 8 Aug 2002 17:07:20 +0100
+Date: Thu, 8 Aug 2002 21:13:15 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020808170720.N24631@parcelfarce.linux.theplanet.co.uk>
-References: <Mutt.LNX.4.44.0208081018410.16830-100000@blackbird.intercode.com.au> <20020808.083320.100990288.davem@redhat.com>
+Message-ID: <200208081713.VAA02896@sex.inr.ac.ru>
+References: <20020808170720.N24631@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jmorris@intercode.com.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+Cc: davem@redhat.com, jmorris@intercode.com.au, netdev@oss.sgi.com,
    willy@debian.org
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20020808.083320.100990288.davem@redhat.com>; from davem@redhat.com on Thu, Aug 08, 2002 at 08:33:20AM -0700
+To: willy@debian.org (Matthew Wilcox)
+In-Reply-To: <20020808170720.N24631@parcelfarce.linux.theplanet.co.uk> from "Matthew Wilcox" at Aug 8, 2 05:07:20 pm
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 08, 2002 at 08:33:20AM -0700, David S. Miller wrote:
->    From: James Morris <jmorris@intercode.com.au>
->    Date: Thu, 8 Aug 2002 10:24:19 +1000 (EST)
+Hello!
+
+> > Do we really want to do this?  What if some socket family either
+> > doesn't want to support it or wants to handle it differently?
 > 
->    Suggested by Matthew Wilcox, the patch below consolidates FIOSETOWN etc. 
->    ioctl handling into the socket layer, making it common for all sockets.
-> 
-> Do we really want to do this?  What if some socket family either
-> doesn't want to support it or wants to handle it differently?
+> I rather think we do.  It's analagous to saying "What if some filesystem
+> either doesn't want to support it or wants to handle it differently?"
+> -- tough!  This is unix and filesystems (socket families) support this.
 
-I rather think we do.  It's analagous to saying "What if some filesystem
-either doesn't want to support it or wants to handle it differently?"
--- tough!  This is unix and filesystems (socket families) support this.
+No, this is not true. This creepy ioctl is specific to TCP
+(well, x.25 also uses SIGURG), which use kill*(sk->proc, SIGURG) directly.
 
-have you read forsyth's paper "Sending UNIX to the Fat Farm"?
-http://www.caldo.demon.co.uk/doc/taste.pdf
-Section 3.3 is relevant here ... though I think you'll find great
-amusement in his other criticisms of solaris.
+Probably, it is better to move sk->proc to TCP private data,
+this ioctl to tcp_ioctl(). Or... find a way to get rid of this completely,
+not breaking compatibility with a few BSDish applications.
 
--- 
-Revolutions do not require corporate support.
+Alexey
