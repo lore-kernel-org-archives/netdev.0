@@ -1,335 +1,193 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: Re: [2.4/2.6] ipvs: improve conn rehashing, other fixes
-Date: Tue, 23 Mar 2004 00:58:38 +0800 (CST)
+From: Michael Schroeder <mls@suse.de>
+Subject: [PATCH] new "fromarp" route flag
+Date: Mon, 22 Mar 2004 18:27:16 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0403230036130.3318-600000@penguin.linux-vs.org>
-References: <20040321230703.408d2240.davem@redhat.com>
+Message-ID: <20040322172716.GE8210@suse.de>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811584-515257213-1079974718=:6711"
-Cc: Julian Anastasov <ja@ssi.bg>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040321230703.408d2240.davem@redhat.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
 
----1463811584-515257213-1079974718=:6711
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+The following patch implements a new route flag, "fromarp".
+
+Problem description:
+--------------------
+
+Zeroconf hardware automatically assigns an ip address from the
+link local range (169.254.1.0 - 169.254.254.255). This ip addresses
+don't get routed and are local to the interfaces. To address such
+a component, one can add a link local route:
+
+    ip route add 169.254.0.0/16 dev eth0
+
+Things get ugly if a host is multihomed and zeroconf hardware is
+conected to more than one interface. It is not possible to add
+a route in that case.
+
+Solution:
+---------
+
+My patch adds a new route flag, "fromarp", to the kernel. Example:
+
+    ip route add 169.254.0.0/16 fromarp nexthop dev eth0 nexthop dev eth1
+
+If a packet is to be send with such a route, the kernel
+checks the arp cache of the interfaces specified in the route.
+If a match is found, the packet is send to the matching interface.
+Otherwise an arp request is sent from all of the interfaces.
+
+Comments anyone?
+
+--- ./include/linux/in_route.h.orig	2004-03-19 11:20:12.000000000 +0000
++++ ./include/linux/in_route.h	2004-03-19 11:21:18.000000000 +0000
+@@ -18,6 +18,7 @@
+ #define RTCF_MASQ	0x00400000
+ #define RTCF_SNAT	0x00800000
+ #define RTCF_DOREDIRECT 0x01000000
++#define RTCF_FROMARP    0x02000000
+ #define RTCF_DIRECTSRC	0x04000000
+ #define RTCF_DNAT	0x08000000
+ #define RTCF_BROADCAST	0x10000000
+--- ./include/linux/rtnetlink.h.orig	2004-03-19 11:20:12.000000000 +0000
++++ ./include/linux/rtnetlink.h	2004-03-19 11:21:18.000000000 +0000
+@@ -170,6 +170,7 @@
+ #define RTM_F_CLONED		0x200	/* This route is cloned		*/
+ #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
+ #define RTM_F_PREFIX		0x800	/* Prefix addresses		*/
++#define RTM_F_FROMARP		0x1000	/* Select if from arpcache      */
+ 
+ /* Reserved table identifiers */
+ 
+--- ./net/ipv4/arp.c.orig	2004-03-19 11:19:43.000000000 +0000
++++ ./net/ipv4/arp.c	2004-03-19 11:21:18.000000000 +0000
+@@ -952,6 +952,12 @@
+ 	return 0;
+ }
+ 
++struct neighbour *arp_lookup(u32 ip, struct net_device *dev, int creat)
++{
++        return __neigh_lookup(&arp_tbl, &ip, dev, creat);
++}
++
++
+ /*
+  *	User level interface (ioctl)
+  */
+--- ./net/ipv4/fib_semantics.c.orig	2004-03-19 11:20:18.000000000 +0000
++++ ./net/ipv4/fib_semantics.c	2004-03-19 11:21:18.000000000 +0000
+@@ -1035,4 +1035,52 @@
+ 	res->nh_sel = 0;
+ 	spin_unlock_bh(&fib_multipath_lock);
+ }
++
++extern struct neighbour *arp_lookup(u32 ip, struct net_device *dev, int creat);
++
++int fib_select_fromarp(const struct flowi *flp, struct fib_result *res)
++{
++	struct net_device *dev;
++	struct fib_info *fi = res->fi;
++	struct neighbour *n;
++	u32 ip;
++	int i, new;
++
++	res->nh_sel = 0;
++	ip = flp->nl_u.ip4_u.daddr;
++	if (ip == 0xffffffff || MULTICAST(ip))
++		return 1;
++	spin_lock_bh(&fib_multipath_lock);
++	for (i = 0, new = -1; i < fi->fib_nhs; i++) {
++		dev = fi->fib_nh[i].nh_dev;
++		n = arp_lookup(ip, dev, 0);
++		if (!n) {
++			if (new < 0)
++				new = i;
++			continue;
++		}
++		if ((n->nud_state&(NUD_CONNECTED|NUD_DELAY|NUD_PROBE)) != 0) {
++			res->nh_sel = i;
++			neigh_release(n);
++			spin_unlock_bh(&fib_multipath_lock);
++			return 1;
++		}
++		neigh_release(n);
++	}
++	if (new < 0)
++		new = 0;
++	res->nh_sel = new;
++	for (i = 0; i < fi->fib_nhs; i++) {
++		if (i == new)
++			continue;
++		dev = fi->fib_nh[i].nh_dev;
++		if ((n = arp_lookup(ip, dev, 1)) != 0) {
++			neigh_event_send(n, (struct sk_buff *)0);
++			neigh_release(n);
++		}
++	}
++	spin_unlock_bh(&fib_multipath_lock);
++	return 0;
++}
++
+ #endif
+--- ./net/ipv4/route.c.orig	2004-03-19 11:20:18.000000000 +0000
++++ ./net/ipv4/route.c	2004-03-19 11:21:18.000000000 +0000
+@@ -1332,7 +1332,9 @@
+ {
+ 	struct rtable *rt;
+ 
+-	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
++	rt = (struct rtable *) skb->dst;
++	if (!rt || !(rt->rt_flags & RTCF_FROMARP))
++		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_HOST_UNREACH, 0);
+ 
+ 	rt = (struct rtable *) skb->dst;
+ 	if (rt)
+@@ -2077,9 +2079,13 @@
+ 	}
+ 
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+-	if (res.fi->fib_nhs > 1 && fl.oif == 0)
+-		fib_select_multipath(&fl, &res);
+-	else
++	if (res.fi->fib_nhs > 1 && fl.oif == 0) {
++		if (res.fi->fib_flags & RTM_F_FROMARP) {
++			if (!fib_select_fromarp(&fl, &res))
++				flags |= RTCF_FROMARP;
++		} else
++			fib_select_multipath(&fl, &res);
++	}
+ #endif
+ 	if (!res.prefixlen && res.type == RTN_UNICAST && !fl.oif)
+ 		fib_select_default(&fl, &res);
+@@ -2190,8 +2196,18 @@
+ 
+ 	rth->rt_flags = flags;
+ 
+-	hash = rt_hash_code(oldflp->fl4_dst, oldflp->fl4_src ^ (oldflp->oif << 5), tos);
+-	err = rt_intern_hash(hash, rth, rp);
++	if (flags & RTCF_FROMARP) {
++		err = 0;
++		if (rth->rt_type == RTN_UNICAST || rth->fl.iif == 0) {
++			if ((err = arp_bind_neighbour(&rth->u.dst)) != 0)
++				rt_drop(rth);
++		}
++		if (!err)
++			*rp = rth;
++	} else {
++		hash = rt_hash_code(oldflp->fl4_dst, oldflp->fl4_src ^ (oldflp->oif << 5), tos);
++		err = rt_intern_hash(hash, rth, rp);
++	}
+ done:
+ 	if (free_res)
+ 		fib_res_put(&res);
 
 
+Cheers,
+  Michael.
 
-Hi,
-
-On Sun, 21 Mar 2004, David S. Miller wrote:
-
-> 
-> These look find to me at first glance.
-> 
-> Wensong, resend to me under seperate cover once you've
-> reviewed.
-> 
-
-Dave, please check the attached patches. There are three patches for 2.4, 
-and two for 2.6.
-
-Thanks,
-
-Wensong
-
----1463811584-515257213-1079974718=:6711
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-hraw.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0403230058380.6711@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4-ipvs-hraw.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTMzNyAgLT4gMS4xMzM4IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwkxLjQgICAgIC0+IDEuNSAgICAN
-CiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNl
-dCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0NCiMgMDQvMDMvMjIJamFAc3NpLmJnCTEuMTMzOA0KIyBbSVBW
-U10gRml4IHRvIHVwZGF0ZSB0aGUgc2tiLT5oLnJhdyBhZnRlciBza2IgcmVh
-bGxvY2F0aW9uIGluIHR1bm5lbF94bWl0DQojIC0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQojDQpkaWZmIC1OcnUgYS9u
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYyBiL25ldC9pcHY0L2lwdnMvaXBf
-dnNfY29ubi5jDQotLS0gYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwlN
-b24gTWFyIDIyIDIzOjMwOjUzIDIwMDQNCisrKyBiL25ldC9pcHY0L2lwdnMv
-aXBfdnNfY29ubi5jCU1vbiBNYXIgMjIgMjM6MzA6NTMgMjAwNA0KQEAgLTg5
-Miw4ICs4OTIsNiBAQA0KIAkvKiB1cGRhdGUgY2hlY2tzdW0gYmVjYXVzZSBz
-a2IgbWlnaHQgYmUgZGVmcmFnbWVudGVkICovDQogCWlwX3NlbmRfY2hlY2so
-b2xkX2lwaCk7DQogDQotCXNrYi0+aC5yYXcgPSBza2ItPm5oLnJhdzsNCi0N
-CiAJLyoNCiAJICogT2theSwgbm93IHNlZSBpZiB3ZSBjYW4gc3R1ZmYgaXQg
-aW4gdGhlIGJ1ZmZlciBhcy1pcy4NCiAJICovDQpAQCAtOTEzLDYgKzkxMSw3
-IEBADQogCQlvbGRfaXBoID0gc2tiLT5uaC5pcGg7DQogCX0NCiANCisJc2ti
-LT5oLnJhdyA9IHNrYi0+bmgucmF3Ow0KIAlza2ItPm5oLnJhdyA9IHNrYl9w
-dXNoKHNrYiwgc2l6ZW9mKHN0cnVjdCBpcGhkcikpOw0KIAltZW1zZXQoJihJ
-UENCKHNrYiktPm9wdCksIDAsIHNpemVvZihJUENCKHNrYiktPm9wdCkpOw0K
-IA0K
----1463811584-515257213-1079974718=:6711
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-unhash.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0403230058381.6711@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4-ipvs-unhash.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTMzNSAgLT4gMS4xMzM2IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwkxLjMgICAgIC0+IDEuNCAgICAN
-CiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNl
-dCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0NCiMgMDQvMDMvMjIJamFAc3NpLmJnCTEuMTMzNg0KIyBbSVBW
-U10gRml4IGNvbm5lY3Rpb24gcmVoYXNoaW5nIHdpdGggbmV3IGNwb3J0DQoj
-IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-DQojDQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYyBi
-L25ldC9pcHY0L2lwdnMvaXBfdnNfY29ubi5jDQotLS0gYS9uZXQvaXB2NC9p
-cHZzL2lwX3ZzX2Nvbm4uYwlNb24gTWFyIDIyIDIzOjAwOjIwIDIwMDQNCisr
-KyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfY29ubi5jCU1vbiBNYXIgMjIgMjM6
-MDA6MjAgMjAwNA0KQEAgLTEzNywyNSArMTM3LDI3IEBADQogc3RhdGljIGlu
-dCBpcF92c19jb25uX2hhc2goc3RydWN0IGlwX3ZzX2Nvbm4gKmNwKQ0KIHsN
-CiAJdW5zaWduZWQgaGFzaDsNCi0NCi0JaWYgKGNwLT5mbGFncyAmIElQX1ZT
-X0NPTk5fRl9IQVNIRUQpIHsNCi0JCUlQX1ZTX0VSUigiaXBfdnNfY29ubl9o
-YXNoKCk6IHJlcXVlc3QgZm9yIGFscmVhZHkgaGFzaGVkLCAiDQotCQkJICAi
-Y2FsbGVkIGZyb20gJXBcbiIsIF9fYnVpbHRpbl9yZXR1cm5fYWRkcmVzcygw
-KSk7DQotCQlyZXR1cm4gMDsNCi0JfQ0KKwlpbnQgcmV0Ow0KIA0KIAkvKiBI
-YXNoIGJ5IHByb3RvY29sLCBjbGllbnQgYWRkcmVzcyBhbmQgcG9ydCAqLw0K
-IAloYXNoID0gaXBfdnNfY29ubl9oYXNoa2V5KGNwLT5wcm90b2NvbCwgY3At
-PmNhZGRyLCBjcC0+Y3BvcnQpOw0KIA0KIAljdF93cml0ZV9sb2NrKGhhc2gp
-Ow0KIA0KLQlsaXN0X2FkZCgmY3AtPmNfbGlzdCwgJmlwX3ZzX2Nvbm5fdGFi
-W2hhc2hdKTsNCi0JY3AtPmZsYWdzIHw9IElQX1ZTX0NPTk5fRl9IQVNIRUQ7
-DQotCWF0b21pY19pbmMoJmNwLT5yZWZjbnQpOw0KKwlpZiAoIShjcC0+Zmxh
-Z3MgJiBJUF9WU19DT05OX0ZfSEFTSEVEKSkgew0KKwkJbGlzdF9hZGQoJmNw
-LT5jX2xpc3QsICZpcF92c19jb25uX3RhYltoYXNoXSk7DQorCQljcC0+Zmxh
-Z3MgfD0gSVBfVlNfQ09OTl9GX0hBU0hFRDsNCisJCWF0b21pY19pbmMoJmNw
-LT5yZWZjbnQpOw0KKwkJcmV0ID0gMTsNCisJfSBlbHNlIHsNCisJCUlQX1ZT
-X0VSUigiaXBfdnNfY29ubl9oYXNoKCk6IHJlcXVlc3QgZm9yIGFscmVhZHkg
-aGFzaGVkLCAiDQorCQkJICAiY2FsbGVkIGZyb20gJXBcbiIsIF9fYnVpbHRp
-bl9yZXR1cm5fYWRkcmVzcygwKSk7DQorCQlyZXQgPSAwOw0KKwl9DQogDQog
-CWN0X3dyaXRlX3VubG9jayhoYXNoKTsNCiANCi0JcmV0dXJuIDE7DQorCXJl
-dHVybiByZXQ7DQogfQ0KIA0KIA0KQEAgLTE2NiwyNCArMTY4LDIzIEBADQog
-c3RhdGljIGludCBpcF92c19jb25uX3VuaGFzaChzdHJ1Y3QgaXBfdnNfY29u
-biAqY3ApDQogew0KIAl1bnNpZ25lZCBoYXNoOw0KLQ0KLQlpZiAoIShjcC0+
-ZmxhZ3MgJiBJUF9WU19DT05OX0ZfSEFTSEVEKSkgew0KLQkJSVBfVlNfRVJS
-KCJpcF92c19jb25uX3VuaGFzaCgpOiByZXF1ZXN0IGZvciB1bmhhc2ggZmxh
-Z2dlZCwgIg0KLQkJCSAgImNhbGxlZCBmcm9tICVwXG4iLCBfX2J1aWx0aW5f
-cmV0dXJuX2FkZHJlc3MoMCkpOw0KLQkJcmV0dXJuIDA7DQotCX0NCisJaW50
-IHJldDsNCiANCiAJLyogdW5oYXNoIGl0IGFuZCBkZWNyZWFzZSBpdHMgcmVm
-ZXJlbmNlIGNvdW50ZXIgKi8NCiAJaGFzaCA9IGlwX3ZzX2Nvbm5faGFzaGtl
-eShjcC0+cHJvdG9jb2wsIGNwLT5jYWRkciwgY3AtPmNwb3J0KTsNCiAJY3Rf
-d3JpdGVfbG9jayhoYXNoKTsNCiANCi0JbGlzdF9kZWwoJmNwLT5jX2xpc3Qp
-Ow0KLQljcC0+ZmxhZ3MgJj0gfklQX1ZTX0NPTk5fRl9IQVNIRUQ7DQotCWF0
-b21pY19kZWMoJmNwLT5yZWZjbnQpOw0KKwlpZiAoY3AtPmZsYWdzICYgSVBf
-VlNfQ09OTl9GX0hBU0hFRCkgew0KKwkJbGlzdF9kZWwoJmNwLT5jX2xpc3Qp
-Ow0KKwkJY3AtPmZsYWdzICY9IH5JUF9WU19DT05OX0ZfSEFTSEVEOw0KKwkJ
-YXRvbWljX2RlYygmY3AtPnJlZmNudCk7DQorCQlyZXQgPSAxOw0KKwl9IGVs
-c2UNCisJCXJldCA9IDA7DQogDQogCWN0X3dyaXRlX3VubG9jayhoYXNoKTsN
-CiANCi0JcmV0dXJuIDE7DQorCXJldHVybiByZXQ7DQogfQ0KIA0KIA0KQEAg
-LTcyMSwxNSArNzIyLDIwIEBADQogCS8qDQogCSAqICBDaGVjayBpZiBpdCBp
-cyBub19jcG9ydCBjb25uZWN0aW9uIC4uLg0KIAkgKi8NCi0JaWYgKGNwLT5m
-bGFncyAmIElQX1ZTX0NPTk5fRl9OT19DUE9SVCkgew0KLQkJYXRvbWljX2Rl
-YygmaXBfdnNfY29ubl9ub19jcG9ydF9jbnQpOw0KLQkJaXBfdnNfY29ubl91
-bmhhc2goY3ApOw0KLQkJY3AtPmZsYWdzICY9IH5JUF9WU19DT05OX0ZfTk9f
-Q1BPUlQ7DQotCQljcC0+Y3BvcnQgPSBoLnBvcnRwWzBdOw0KLQkJLyogaGFz
-aCBvbiBuZXcgZHBvcnQgKi8NCi0JCWlwX3ZzX2Nvbm5faGFzaChjcCk7DQor
-CWlmICh1bmxpa2VseShjcC0+ZmxhZ3MgJiBJUF9WU19DT05OX0ZfTk9fQ1BP
-UlQpKSB7DQorCQlpZiAoaXBfdnNfY29ubl91bmhhc2goY3ApKSB7DQorCQkJ
-c3Bpbl9sb2NrKCZjcC0+bG9jayk7DQorCQkJaWYgKGNwLT5mbGFncyAmIElQ
-X1ZTX0NPTk5fRl9OT19DUE9SVCkgew0KKwkJCQlhdG9taWNfZGVjKCZpcF92
-c19jb25uX25vX2Nwb3J0X2NudCk7DQorCQkJCWNwLT5mbGFncyAmPSB+SVBf
-VlNfQ09OTl9GX05PX0NQT1JUOw0KKwkJCQljcC0+Y3BvcnQgPSBoLnBvcnRw
-WzBdOw0KKwkJCQlJUF9WU19EQkcoMTAsICJmaWxsZWQgY3BvcnQ9JWRcbiIs
-IG50b2hzKGNwLT5kcG9ydCkpOw0KKwkJCX0NCisJCQlzcGluX3VubG9jaygm
-Y3AtPmxvY2spOw0KIA0KLQkJSVBfVlNfREJHKDEwLCAiZmlsbGVkIGNwb3J0
-PSVkXG4iLCBudG9ocyhjcC0+ZHBvcnQpKTsNCisJCQkvKiBoYXNoIG9uIG5l
-dyBkcG9ydCAqLw0KKwkJCWlwX3ZzX2Nvbm5faGFzaChjcCk7DQorCQl9DQog
-CX0NCiANCiAJaWYgKCEocnQgPSBfX2lwX3ZzX2dldF9vdXRfcnQoY3AsIFJU
-X1RPUyhpcGgtPnRvcykpKSkNCkBAIC0xMTM4LDExICsxMTQ0LDE0IEBADQog
-CQkvKg0KIAkJICogSW52YWxpZGF0ZSB0aGUgY29ubmVjdGlvbiB0ZW1wbGF0
-ZQ0KIAkJICovDQotCQlpcF92c19jb25uX3VuaGFzaChjdCk7DQotCQljdC0+
-ZHBvcnQgPSA2NTUzNTsNCi0JCWN0LT52cG9ydCA9IDY1NTM1Ow0KLQkJY3Qt
-PmNwb3J0ID0gMDsNCi0JCWlwX3ZzX2Nvbm5faGFzaChjdCk7DQorCQlpZiAo
-Y3QtPmNwb3J0KSB7DQorCQkJaWYgKGlwX3ZzX2Nvbm5fdW5oYXNoKGN0KSkg
-ew0KKwkJCQljdC0+ZHBvcnQgPSA2NTUzNTsNCisJCQkJY3QtPnZwb3J0ID0g
-NjU1MzU7DQorCQkJCWN0LT5jcG9ydCA9IDA7DQorCQkJCWlwX3ZzX2Nvbm5f
-aGFzaChjdCk7DQorCQkJfQ0KKwkJfQ0KIA0KIAkJLyoNCiAJCSAqIFNpbXBs
-eSBkZWNyZWFzZSB0aGUgcmVmY250IG9mIHRoZSB0ZW1wbGF0ZSwNCkBAIC0x
-MTk2LDcgKzEyMDUsOCBAQA0KIAkvKg0KIAkgKgl1bmhhc2ggaXQgaWYgaXQg
-aXMgaGFzaGVkIGluIHRoZSBjb25uIHRhYmxlDQogCSAqLw0KLQlpcF92c19j
-b25uX3VuaGFzaChjcCk7DQorCWlmICghaXBfdnNfY29ubl91bmhhc2goY3Ap
-KQ0KKwkJZ290byBleHBpcmVfbGF0ZXI7DQogDQogCS8qDQogCSAqCXJlZmNu
-dD09MSBpbXBsaWVzIEknbSB0aGUgb25seSBvbmUgcmVmZXJyZXINCg==
----1463811584-515257213-1079974718=:6711
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-updsvc.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0403230058382.6711@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4-ipvs-updsvc.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTMzNiAgLT4gMS4xMzM3IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuNSAgICAgLT4gMS42ICAgIA0K
-Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
-IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KIyAwNC8wMy8yMgl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjEz
-MzcNCiMgW0lQVlNdIEZpeCB0byBob2xkIHRoZSBsb2NrIGJlZm9yZSB1cGRh
-dGluZyBhIHNlcnZpY2UNCiMgDQojIEJyZXR0IEUuIDxicmV0dHNwYW1hY2N0
-QGZhc3RjbGljay5jb20+IG5vdGljZWQgdGhlIG1pc3Npbmcgc2VydmljZSBs
-b2NrDQojIGZvciBlZGl0aW5nIGRlc3QuDQojIA0KIyBKdWxpYW4gQW5hc3Rh
-c292IDxqYUBzc2kuYmc+IHByb3ZpZGVkIHRoZSBwYXRjaC4NCiMgDQojIC0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQoj
-DQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jIGIvbmV0
-L2lwdjQvaXB2cy9pcF92c19jdGwuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9p
-cF92c19jdGwuYwlNb24gTWFyIDIyIDIzOjEwOjQ3IDIwMDQNCisrKyBiL25l
-dC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMJTW9uIE1hciAyMiAyMzoxMDo0NyAy
-MDA0DQpAQCAtODg5LDggKzg4OSwxNSBAQA0KIA0KIAlfX2lwX3ZzX3VwZGF0
-ZV9kZXN0KHN2YywgZGVzdCwgdXIpOw0KIA0KKwl3cml0ZV9sb2NrX2JoKCZf
-X2lwX3ZzX3N2Y19sb2NrKTsNCisNCisJLyogV2FpdCB1bnRpbCBhbGwgb3Ro
-ZXIgc3ZjIHVzZXJzIGdvIGF3YXkgKi8NCisJd2hpbGUgKGF0b21pY19yZWFk
-KCZzdmMtPnVzZWNudCkgPiAxKSB7fTsNCisNCiAJLyogY2FsbCB0aGUgdXBk
-YXRlX3NlcnZpY2UsIGJlY2F1c2Ugc2VydmVyIHdlaWdodCBtYXkgYmUgY2hh
-bmdlZCAqLw0KIAlzdmMtPnNjaGVkdWxlci0+dXBkYXRlX3NlcnZpY2Uoc3Zj
-KTsNCisNCisJd3JpdGVfdW5sb2NrX2JoKCZfX2lwX3ZzX3N2Y19sb2NrKTsN
-CiANCiAJTGVhdmVGdW5jdGlvbigyKTsNCiANCg==
----1463811584-515257213-1079974718=:6711
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.6-ipvs-unhash.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0403230058383.6711@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.6-ipvs-unhash.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTY5NCAgLT4gMS4xNjk1IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwkxLjEzICAgIC0+IDEuMTQgICAN
-CiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNl
-dCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0NCiMgMDQvMDMvMjIJamFAc3NpLmJnCTEuMTY5NQ0KIyBbSVBW
-U10gRml4IGNvbm5lY3Rpb24gcmVoYXNoaW5nIHdpdGggbmV3IGNwb3J0DQoj
-IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-DQojDQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYyBi
-L25ldC9pcHY0L2lwdnMvaXBfdnNfY29ubi5jDQotLS0gYS9uZXQvaXB2NC9p
-cHZzL2lwX3ZzX2Nvbm4uYwlNb24gTWFyIDIyIDIzOjM2OjMzIDIwMDQNCisr
-KyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfY29ubi5jCU1vbiBNYXIgMjIgMjM6
-MzY6MzMgMjAwNA0KQEAgLTEyNSwyNSArMTI1LDI3IEBADQogc3RhdGljIGlu
-bGluZSBpbnQgaXBfdnNfY29ubl9oYXNoKHN0cnVjdCBpcF92c19jb25uICpj
-cCkNCiB7DQogCXVuc2lnbmVkIGhhc2g7DQotDQotCWlmIChjcC0+ZmxhZ3Mg
-JiBJUF9WU19DT05OX0ZfSEFTSEVEKSB7DQotCQlJUF9WU19FUlIoImlwX3Zz
-X2Nvbm5faGFzaCgpOiByZXF1ZXN0IGZvciBhbHJlYWR5IGhhc2hlZCwgIg0K
-LQkJCSAgImNhbGxlZCBmcm9tICVwXG4iLCBfX2J1aWx0aW5fcmV0dXJuX2Fk
-ZHJlc3MoMCkpOw0KLQkJcmV0dXJuIDA7DQotCX0NCisJaW50IHJldDsNCiAN
-CiAJLyogSGFzaCBieSBwcm90b2NvbCwgY2xpZW50IGFkZHJlc3MgYW5kIHBv
-cnQgKi8NCiAJaGFzaCA9IGlwX3ZzX2Nvbm5faGFzaGtleShjcC0+cHJvdG9j
-b2wsIGNwLT5jYWRkciwgY3AtPmNwb3J0KTsNCiANCiAJY3Rfd3JpdGVfbG9j
-ayhoYXNoKTsNCiANCi0JbGlzdF9hZGQoJmNwLT5jX2xpc3QsICZpcF92c19j
-b25uX3RhYltoYXNoXSk7DQotCWNwLT5mbGFncyB8PSBJUF9WU19DT05OX0Zf
-SEFTSEVEOw0KLQlhdG9taWNfaW5jKCZjcC0+cmVmY250KTsNCisJaWYgKCEo
-Y3AtPmZsYWdzICYgSVBfVlNfQ09OTl9GX0hBU0hFRCkpIHsNCisJCWxpc3Rf
-YWRkKCZjcC0+Y19saXN0LCAmaXBfdnNfY29ubl90YWJbaGFzaF0pOw0KKwkJ
-Y3AtPmZsYWdzIHw9IElQX1ZTX0NPTk5fRl9IQVNIRUQ7DQorCQlhdG9taWNf
-aW5jKCZjcC0+cmVmY250KTsNCisJCXJldCA9IDE7DQorCX0gZWxzZSB7DQor
-CQlJUF9WU19FUlIoImlwX3ZzX2Nvbm5faGFzaCgpOiByZXF1ZXN0IGZvciBh
-bHJlYWR5IGhhc2hlZCwgIg0KKwkJCSAgImNhbGxlZCBmcm9tICVwXG4iLCBf
-X2J1aWx0aW5fcmV0dXJuX2FkZHJlc3MoMCkpOw0KKwkJcmV0ID0gMDsNCisJ
-fQ0KIA0KIAljdF93cml0ZV91bmxvY2soaGFzaCk7DQogDQotCXJldHVybiAx
-Ow0KKwlyZXR1cm4gcmV0Ow0KIH0NCiANCiANCkBAIC0xNTQsMjQgKzE1Niwy
-NCBAQA0KIHN0YXRpYyBpbmxpbmUgaW50IGlwX3ZzX2Nvbm5fdW5oYXNoKHN0
-cnVjdCBpcF92c19jb25uICpjcCkNCiB7DQogCXVuc2lnbmVkIGhhc2g7DQot
-DQotCWlmICghKGNwLT5mbGFncyAmIElQX1ZTX0NPTk5fRl9IQVNIRUQpKSB7
-DQotCQlJUF9WU19FUlIoImlwX3ZzX2Nvbm5fdW5oYXNoKCk6IHJlcXVlc3Qg
-Zm9yIHVuaGFzaCBmbGFnZ2VkLCAiDQotCQkJICAiY2FsbGVkIGZyb20gJXBc
-biIsIF9fYnVpbHRpbl9yZXR1cm5fYWRkcmVzcygwKSk7DQotCQlyZXR1cm4g
-MDsNCi0JfQ0KKwlpbnQgcmV0Ow0KIA0KIAkvKiB1bmhhc2ggaXQgYW5kIGRl
-Y3JlYXNlIGl0cyByZWZlcmVuY2UgY291bnRlciAqLw0KIAloYXNoID0gaXBf
-dnNfY29ubl9oYXNoa2V5KGNwLT5wcm90b2NvbCwgY3AtPmNhZGRyLCBjcC0+
-Y3BvcnQpOw0KKw0KIAljdF93cml0ZV9sb2NrKGhhc2gpOw0KIA0KLQlsaXN0
-X2RlbCgmY3AtPmNfbGlzdCk7DQotCWNwLT5mbGFncyAmPSB+SVBfVlNfQ09O
-Tl9GX0hBU0hFRDsNCi0JYXRvbWljX2RlYygmY3AtPnJlZmNudCk7DQorCWlm
-IChjcC0+ZmxhZ3MgJiBJUF9WU19DT05OX0ZfSEFTSEVEKSB7DQorCQlsaXN0
-X2RlbCgmY3AtPmNfbGlzdCk7DQorCQljcC0+ZmxhZ3MgJj0gfklQX1ZTX0NP
-Tk5fRl9IQVNIRUQ7DQorCQlhdG9taWNfZGVjKCZjcC0+cmVmY250KTsNCisJ
-CXJldCA9IDE7DQorCX0gZWxzZQ0KKwkJcmV0ID0gMDsNCiANCiAJY3Rfd3Jp
-dGVfdW5sb2NrKGhhc2gpOw0KIA0KLQlyZXR1cm4gMTsNCisJcmV0dXJuIHJl
-dDsNCiB9DQogDQogDQpAQCAtMjg1LDEyICsyODcsMTggQEANCiAgKi8NCiB2
-b2lkIGlwX3ZzX2Nvbm5fZmlsbF9jcG9ydChzdHJ1Y3QgaXBfdnNfY29ubiAq
-Y3AsIF9fdTE2IGNwb3J0KQ0KIHsNCi0JYXRvbWljX2RlYygmaXBfdnNfY29u
-bl9ub19jcG9ydF9jbnQpOw0KLQlpcF92c19jb25uX3VuaGFzaChjcCk7DQot
-CWNwLT5mbGFncyAmPSB+SVBfVlNfQ09OTl9GX05PX0NQT1JUOw0KLQljcC0+
-Y3BvcnQgPSBjcG9ydDsNCi0JLyogaGFzaCBvbiBuZXcgZHBvcnQgKi8NCi0J
-aXBfdnNfY29ubl9oYXNoKGNwKTsNCisJaWYgKGlwX3ZzX2Nvbm5fdW5oYXNo
-KGNwKSkgew0KKwkJc3Bpbl9sb2NrKCZjcC0+bG9jayk7DQorCQlpZiAoY3At
-PmZsYWdzICYgSVBfVlNfQ09OTl9GX05PX0NQT1JUKSB7DQorCQkJYXRvbWlj
-X2RlYygmaXBfdnNfY29ubl9ub19jcG9ydF9jbnQpOw0KKwkJCWNwLT5mbGFn
-cyAmPSB+SVBfVlNfQ09OTl9GX05PX0NQT1JUOw0KKwkJCWNwLT5jcG9ydCA9
-IGNwb3J0Ow0KKwkJfQ0KKwkJc3Bpbl91bmxvY2soJmNwLT5sb2NrKTsNCisN
-CisJCS8qIGhhc2ggb24gbmV3IGRwb3J0ICovDQorCQlpcF92c19jb25uX2hh
-c2goY3ApOw0KKwl9DQogfQ0KIA0KIA0KQEAgLTQ1NywxMSArNDY1LDE0IEBA
-DQogCQkvKg0KIAkJICogSW52YWxpZGF0ZSB0aGUgY29ubmVjdGlvbiB0ZW1w
-bGF0ZQ0KIAkJICovDQotCQlpcF92c19jb25uX3VuaGFzaChjdCk7DQotCQlj
-dC0+ZHBvcnQgPSA2NTUzNTsNCi0JCWN0LT52cG9ydCA9IDY1NTM1Ow0KLQkJ
-Y3QtPmNwb3J0ID0gMDsNCi0JCWlwX3ZzX2Nvbm5faGFzaChjdCk7DQorCQlp
-ZiAoY3QtPmNwb3J0KSB7DQorCQkJaWYgKGlwX3ZzX2Nvbm5fdW5oYXNoKGN0
-KSkgew0KKwkJCQljdC0+ZHBvcnQgPSA2NTUzNTsNCisJCQkJY3QtPnZwb3J0
-ID0gNjU1MzU7DQorCQkJCWN0LT5jcG9ydCA9IDA7DQorCQkJCWlwX3ZzX2Nv
-bm5faGFzaChjdCk7DQorCQkJfQ0KKwkJfQ0KIA0KIAkJLyoNCiAJCSAqIFNp
-bXBseSBkZWNyZWFzZSB0aGUgcmVmY250IG9mIHRoZSB0ZW1wbGF0ZSwNCkBA
-IC00OTMsNyArNTA0LDggQEANCiAJLyoNCiAJICoJdW5oYXNoIGl0IGlmIGl0
-IGlzIGhhc2hlZCBpbiB0aGUgY29ubiB0YWJsZQ0KIAkgKi8NCi0JaXBfdnNf
-Y29ubl91bmhhc2goY3ApOw0KKwlpZiAoIWlwX3ZzX2Nvbm5fdW5oYXNoKGNw
-KSkNCisJCWdvdG8gZXhwaXJlX2xhdGVyOw0KIA0KIAkvKg0KIAkgKglyZWZj
-bnQ9PTEgaW1wbGllcyBJJ20gdGhlIG9ubHkgb25lIHJlZmVycmVyDQo=
----1463811584-515257213-1079974718=:6711
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.6-ipvs-updsvc.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0403230058384.6711@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.6-ipvs-updsvc.patch"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTgzMCAgLT4gMS4xODMxIA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuMTQgICAgLT4gMS4xNSAgIA0K
-Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
-IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLQ0KIyAwNC8wMy8yMwl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjE4
-MzENCiMgW0lQVlNdIEZpeCB0byBob2xkIHRoZSBsb2NrIGJlZm9yZSB1cGRh
-dGluZyBhIHNlcnZpY2UNCiMgDQojIEJyZXR0IEUuIDxicmV0dHNwYW1hY2N0
-QGZhc3RjbGljay5jb20+IG5vdGljZWQgdGhlIG1pc3Npbmcgc2VydmljZSBs
-b2NrDQojIGZvciBlZGl0aW5nIGRlc3QuDQojIA0KIyBKdWxpYW4gQW5hc3Rh
-c292IDxqYUBzc2kuYmc+IHByb3ZpZGVkIHRoZSBwYXRjaC4NCiMgLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMNCmRp
-ZmYgLU5ydSBhL25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMgYi9uZXQvaXB2
-NC9pcHZzL2lwX3ZzX2N0bC5jDQotLS0gYS9uZXQvaXB2NC9pcHZzL2lwX3Zz
-X2N0bC5jCVR1ZSBNYXIgMjMgMDA6NTc6NTggMjAwNA0KKysrIGIvbmV0L2lw
-djQvaXB2cy9pcF92c19jdGwuYwlUdWUgTWFyIDIzIDAwOjU3OjU4IDIwMDQN
-CkBAIC04OTgsOCArODk4LDE1IEBADQogDQogCV9faXBfdnNfdXBkYXRlX2Rl
-c3Qoc3ZjLCBkZXN0LCB1ZGVzdCk7DQogDQorCXdyaXRlX2xvY2tfYmgoJl9f
-aXBfdnNfc3ZjX2xvY2spOw0KKw0KKwkvKiBXYWl0IHVudGlsIGFsbCBvdGhl
-ciBzdmMgdXNlcnMgZ28gYXdheSAqLw0KKwl3aGlsZSAoYXRvbWljX3JlYWQo
-JnN2Yy0+dXNlY250KSA+IDEpIHt9Ow0KKw0KIAkvKiBjYWxsIHRoZSB1cGRh
-dGVfc2VydmljZSwgYmVjYXVzZSBzZXJ2ZXIgd2VpZ2h0IG1heSBiZSBjaGFu
-Z2VkICovDQogCXN2Yy0+c2NoZWR1bGVyLT51cGRhdGVfc2VydmljZShzdmMp
-Ow0KKw0KKwl3cml0ZV91bmxvY2tfYmgoJl9faXBfdnNfc3ZjX2xvY2spOw0K
-IA0KIAlMZWF2ZUZ1bmN0aW9uKDIpOw0KIA0K
----1463811584-515257213-1079974718=:6711--
+-- 
+Michael Schroeder                                   mls@suse.de
+main(_){while(_=~getchar())putchar(~_-1/(~(_|32)/13*2-11)*13);}
