@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (9/12) skge: interrupt coalecsing related fixes
-Date: Thu, 3 Mar 2005 11:41:47 -0800
-Message-ID: <20050303114147.1bc9ca1b@dxpl.pdx.osdl.net>
+Subject: [PATCH] (10/12) skge: use lockless transmit
+Date: Thu, 3 Mar 2005 11:43:04 -0800
+Message-ID: <20050303114304.1d3b05f5@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,85 +11,41 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Avoid overflows (and 64 bit) in tha math for computing interrupt
-coalesce values.  Turn on transmit coalescing by default.
+Support lockless transmit, because there is existing transmit
+lock. Also small declaration style fix.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- skge-2.6.11/drivers/net/skge.c.orig	2005-03-03 10:22:43.000000000 -0800
-+++ skge-2.6.11/drivers/net/skge.c	2005-03-03 10:26:58.000000000 -0800
-@@ -553,14 +553,27 @@
- 	return 0;
- }
+--- skge-2.6.11/drivers/net/skge.c.orig	2005-03-03 10:28:11.000000000 -0800
++++ skge-2.6.11/drivers/net/skge.c	2005-03-03 10:29:41.000000000 -0800
+@@ -2289,13 +2289,20 @@
+ 	struct skge_tx_desc *td;
+ 	int i;
+ 	u32 control, len;
+-	u64 map; unsigned long flags;
++	u64 map;
++	unsigned long flags;
  
--static inline u32 skge_freq(const struct skge_hw *hw)
-+/* Chip internal frequency for clock calculations */
-+static inline u32 hwkhz(const struct skge_hw *hw)
- {
- 	if (hw->chip_id == CHIP_ID_GENESIS)
--		return 53215000; /* or:  53.125 MHz */
-+		return 53215; /* or:  53.125 MHz */
- 	else if (hw->chip_id == CHIP_ID_YUKON_EC)
--		return 125000000; /* or: 125.000 MHz */
-+		return 125000; /* or: 125.000 MHz */
- 	else
--		return 78215000; /* or:  78.125 MHz */
-+		return 78215; /* or:  78.125 MHz */
-+}
+ 	skb = skb_padto(skb, ETH_ZLEN);
+ 	if (!skb)
+ 		return NETDEV_TX_OK;
+ 
+-	spin_lock_irqsave(&skge->tx_lock, flags);
++	local_irq_save(flags);
++	if (!spin_trylock(&skge->tx_lock)) {
++ 		/* Collision - tell upper layer to requeue */ 
++ 		local_irq_restore(flags); 
++ 		return NETDEV_TX_LOCKED; 
++ 	} 
 +
-+/* Chip hz to microseconds */
-+static inline u32 skge_clk2usec(const struct skge_hw *hw, u32 ticks)
-+{
-+	return (ticks * 1000) / hwkhz(hw);
-+}
-+
-+/* Microseconds to chip hz */
-+static inline u32 skge_usecs2clk(const struct skge_hw *hw, u32 usec)
-+{
-+	return hwkhz(hw) * usec / 1000;
- }
+ 	if (unlikely(skge->tx_avail < skb_shinfo(skb)->nr_frags +1)) {
+ 		netif_stop_queue(dev);
+ 		spin_unlock_irqrestore(&skge->tx_lock, flags);
+@@ -3089,6 +3096,7 @@
+ 	dev->poll_controller = skge_netpoll;
+ #endif
+ 	dev->irq = hw->pdev->irq;
++	dev->features = NETIF_F_LLTX;
  
- static int skge_get_coalesce(struct net_device *dev,
-@@ -574,14 +587,8 @@
- 	ecmd->tx_coalesce_usecs = 0;
- 
- 	if (skge_read32(hw, B2_IRQM_CTRL) & TIM_START) {
--		u32 msk;
--		u64 delay = skge_read32(hw, B2_IRQM_INI);
--
--		pr_debug("irqm = %lld\n", delay);
--		delay *=  USEC_PER_SEC;
--
--		do_div(delay, skge_freq(hw));
--		msk = skge_read32(hw, B2_IRQM_MSK);
-+		u32 delay = skge_clk2usec(hw, skge_read32(hw, B2_IRQM_INI));
-+		u32 msk = skge_read32(hw, B2_IRQM_MSK);
- 
- 		if (msk & rxirqmask[port])
- 			ecmd->rx_coalesce_usecs = delay;
-@@ -626,10 +633,7 @@
- 	if (msk == 0)
- 		skge_write32(hw, B2_IRQM_CTRL, TIM_STOP);
- 	else {
--		u64 ticks = (u64) delay * skge_freq(hw);
--		pr_debug("ticks * 10^6=%lld\n", ticks);
--		do_div(ticks, USEC_PER_SEC);
--		skge_write32(hw, B2_IRQM_INI, ticks);
-+		skge_write32(hw, B2_IRQM_INI, skge_usecs2clk(hw, delay));
- 		skge_write32(hw, B2_IRQM_CTRL, TIM_START);
- 	}
- 	return 0;
-@@ -3025,6 +3029,13 @@
- 
- 	skge_write32(hw, B0_HWE_IMSK, IS_ERR_MSK);
- 
-+	/* Set interrupt moderation for Transmit only
-+	 * Receive interrupts avoided by NAPI
-+	 */
-+	skge_write32(hw, B2_IRQM_MSK, IS_XA1_F|IS_XA2_F);
-+	skge_write32(hw, B2_IRQM_INI, skge_usecs2clk(hw, 100));
-+	skge_write32(hw, B2_IRQM_CTRL, TIM_START);
-+
- 	hw->intr_mask = IS_HW_ERR | IS_EXT_REG | IS_PORT_1;
- 	if (isdualport(hw))
- 		hw->intr_mask |= IS_PORT_2;
+ 	skge = netdev_priv(dev);
+ 	skge->netdev = dev;
