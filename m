@@ -1,70 +1,100 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [BK PATCH] 2.6 SCTP updates.
-Date: Thu, 2 Oct 2003 16:46:06 -0700 (PDT)
+From: Julian Anastasov <ja@ssi.bg>
+Subject: tunnel xmit and h.raw
+Date: Fri, 3 Oct 2003 03:00:27 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310021631550.2530-100000@localhost.localdomain>
+Message-ID: <Pine.LNX.4.44.0310030252070.1394-100000@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
 
-Please do a
-	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5
-to get the following udpates to SCTP on top of linux 2.6.0-test6
+	Hello,
 
-The changesets include fixes for a couple of arch specific issues with ppc64 
-and parisc64, few ADDIP extension related patches and a bug fix.
+	Is the following change needed? May be yes for all kernels
+where the nearest skb_shared checks are actual.
 
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1375  -> 1.1377 
-#	net/sctp/associola.c	1.59    -> 1.61   
-#	net/sctp/sm_statefuns.c	1.63    -> 1.64   
-#	net/sctp/endpointola.c	1.28    -> 1.29   
-#	net/sctp/sm_make_chunk.c	1.61    -> 1.64   
-#	include/net/sctp/sctp.h	1.50    -> 1.52   
-#	   net/sctp/sysctl.c	1.13    -> 1.14   
-#	include/net/sctp/sm.h	1.29    -> 1.31   
-#	include/linux/sctp.h	1.8     -> 1.9    
-#	net/sctp/sm_sideeffect.c	1.48    -> 1.49   
-#	net/sctp/bind_addr.c	1.21    -> 1.22   
-#	include/net/sctp/command.h	1.14    -> 1.15   
-#	include/net/sctp/structs.h	1.73    -> 1.75   
-#	   net/sctp/socket.c	1.96    -> 1.99   
+#	           ChangeSet	1.1356  -> 1.1357 
+#	   net/ipv4/ip_gre.c	1.30    -> 1.31   
+#	      net/ipv6/sit.c	1.28    -> 1.29   
+#	     net/ipv4/ipip.c	1.32    -> 1.33   
 #
 # The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/10/03	ja@ssi.bg	1.1357
+# [IPV4/IPV6]: tunnel xmit must load skb->h.raw after all reallocations
+# --------------------------------------------
 #
-#ChangeSet@1.1377, 2003-10-02 11:36:34-07:00, sri@us.ibm.com
-#  [SCTP] Fix bugs in conversions between msecs and jiffies.
-#
-#ChangeSet@1.1376, 2003-09-29 12:04:57-07:00, sri@us.ibm.com
-#  Merge us.ibm.com:/home/sridhar/BK/linux-2.6.0-test6
-#  into us.ibm.com:/home/sridhar/BK/lksctp-2.6.0-test6
-#
-#ChangeSet@1.1217.15.5, 2003-09-29 10:23:40-07:00, sri@us.ibm.com
-#  [SCTP] Convert tv_add from static inline to a macro to fix an obscure
-#  assembler problem with parisc64.
-#
-#ChangeSet@1.1217.15.4, 2003-09-22 14:29:35-07:00, sri@us.ibm.com
-#  [SCTP] ADDIP: Support for the creation of ASCONF_ACK chunk (Kevin).
-#
-#ChangeSet@1.1217.15.3, 2003-09-18 14:44:14-07:00, sri@us.ibm.com
-#  [SCTP] ADDIP: Handle ERROR chunk in response to an ASCONF chunk.
-#  
-#  Disable sending any further ASCONF chunks and stop its T-4 timer if
-#  the peer responds to an ASCONF with an ERROR chunk.
-#
-#ChangeSet@1.1217.15.2, 2003-09-18 14:39:59-07:00, sri@us.ibm.com
-#  [SCTP] ADDIP: Support to send ASCONF chunk with ADD/DEL IP params.
-#
-#ChangeSet@1.1217.15.1, 2003-09-09 11:03:31-07:00, sri@us.ibm.com
-#  [SCTP] PPC64 port: Don't overload the optval arg of ADDRS_NUM socket
-#  options with different types for input and output. Instead use it only
-#  as an input arg and return the no. of addresses in the return value.
+diff -Nru a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+--- a/net/ipv4/ip_gre.c	Fri Oct  3 02:43:29 2003
++++ b/net/ipv4/ip_gre.c	Fri Oct  3 02:43:29 2003
+@@ -803,8 +803,6 @@
+ 			tunnel->err_count = 0;
+ 	}
+ 
+-	skb->h.raw = skb->nh.raw;
+-
+ 	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen;
+ 
+ 	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
+@@ -823,6 +821,7 @@
+ 		old_iph = skb->nh.iph;
+ 	}
+ 
++	skb->h.raw = skb->nh.raw;
+ 	skb->nh.raw = skb_push(skb, gre_hlen);
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	dst_release(skb->dst);
+diff -Nru a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+--- a/net/ipv4/ipip.c	Fri Oct  3 02:43:29 2003
++++ b/net/ipv4/ipip.c	Fri Oct  3 02:43:29 2003
+@@ -596,8 +596,6 @@
+ 			tunnel->err_count = 0;
+ 	}
+ 
+-	skb->h.raw = skb->nh.raw;
+-
+ 	/*
+ 	 * Okay, now see if we can stuff it in the buffer as-is.
+ 	 */
+@@ -619,6 +617,7 @@
+ 		old_iph = skb->nh.iph;
+ 	}
+ 
++	skb->h.raw = skb->nh.raw;
+ 	skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	dst_release(skb->dst);
+diff -Nru a/net/ipv6/sit.c b/net/ipv6/sit.c
+--- a/net/ipv6/sit.c	Fri Oct  3 02:43:29 2003
++++ b/net/ipv6/sit.c	Fri Oct  3 02:43:29 2003
+@@ -530,8 +530,6 @@
+ 			tunnel->err_count = 0;
+ 	}
+ 
+-	skb->h.raw = skb->nh.raw;
+-
+ 	/*
+ 	 * Okay, now see if we can stuff it in the buffer as-is.
+ 	 */
+@@ -553,6 +551,7 @@
+ 		iph6 = skb->nh.ipv6h;
+ 	}
+ 
++	skb->h.raw = skb->nh.raw;
+ 	skb->nh.raw = skb_push(skb, sizeof(struct iphdr));
+ 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+ 	dst_release(skb->dst);
 
-Thanks
-Sridhar
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
