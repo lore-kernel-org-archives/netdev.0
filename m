@@ -1,45 +1,57 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: netlink tester program
-Date: Mon, 02 Jun 2003 20:38:34 -0700 (PDT)
+Date: Mon, 02 Jun 2003 20:46:45 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030602.203834.115933659.davem@redhat.com>
-References: <3EDC0047.7030007@pacbell.net>
-	<20030602.190240.74724523.davem@redhat.com>
-	<3EDC173B.80909@pacbell.net>
+Message-ID: <20030602.204645.48505284.davem@redhat.com>
+References: <3EDC1418.6080808@monmouth.com>
+	<20030602.202233.39180859.davem@redhat.com>
+	<3EDC18F2.6090505@monmouth.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rddunlap@osdl.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: david-b@pacbell.net
-In-Reply-To: <3EDC173B.80909@pacbell.net>
+To: jsd@monmouth.com
+In-Reply-To: <3EDC18F2.6090505@monmouth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: David Brownell <david-b@pacbell.net>
-   Date: Mon, 02 Jun 2003 20:34:19 -0700
+   From: "John S. Denker" <jsd@monmouth.com>
+   Date: Mon, 02 Jun 2003 23:41:38 -0400
+   
+   If we are taking the legal system as our
+   model of openness, then open-source software
+   has come to a sorry pass indeed.
+   
+It does have connections where a "user" wants to
+do something with FOO but does not wish to do the
+legwork necessary to be an expert in FOO.  They hire
+an expert.
 
-   > See, a document is NOT the spec, the code is the spec.
+Or, in our case, they make an expert interested in the
+thing they want to do :-)))
    
-   That's hardly the only development model.
-   
-It's the one that works for _me_ and Alexey and myself, and we're the
-ones doing all the work.
+   It is also important to distinguish what's best
+   for *you* and what's best for the project.
+   Maybe *you* don't want to be responsible for
+   doing all the documentation.
 
-When someone doing the work desires the docs and desires to
-WRITE it, it will appear.
-   
-You can expect exactly nothing more in our development model.
-If you require me to write the docs, you misunderstand how the
-system works :)
+I'm not even going to attempt to document something that
+moves as fast as the kernel.
 
-   You clipped out the text where I pointed out that bugs can
-   be in specs as well as code.  They can be fixed there, too.
-   
-Very true.  So when Randy writes the more detailed netlink/rtnetlink
-docs, we'll be happy :-)
-   
-There is even an official IETF RFC written by Jamal, Alexey, and
-others documenting netlink btw :-))))))))))))
+I go to bookstores and I see many excellent attempts to document
+kernel internals, but these books are frozen in time.  Specifically
+they are frozen in the time of the moment the kernel they write for is
+published.  As a consequence they are all obsolete the moment they are
+published.
 
-Did anybody notice this?
+Some poor student reads these books, written against 2.4.8 or
+whatever, then they go and try to contribute to 2.5.x and it
+doesn't work except for certain kinds of drivers where we've
+kept the APIs more or less the same.
+
+But I don't care that people do this, just don't require that I do
+it.
+
+I think this extra fluidity we get from being able to change so fast
+is a strength not a weakness.
