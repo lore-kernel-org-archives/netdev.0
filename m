@@ -1,28 +1,40 @@
-From: "Patrick R. McManus" <mcmanus@ducksong.com>
-Subject: netlink sockets and rtm_newlink messages
-Date: Thu, 26 Sep 2002 18:38:53 -0400
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] Networking: send-to-self [link to non-broken patch this
+Date: Fri, 27 Sep 2002 05:00:30 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020926223853.GA4062@ducksong.com>
+Message-ID: <200209270100.FAA19447@sex.inr.ac.ru>
+References: <3D893ECC.4020906@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: greearb@candelatech.COM (Ben Greear)
+In-Reply-To: <3D893ECC.4020906@candelatech.com> from "Ben Greear" at Sep 19, 2 07:15:01 am
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hello -
+Hello!
 
-I've got a little userspace app that listens to a netlink socket and
-filters for messages of type RTM_NEWLINK to check for interfaces going
-up or down (checking ifi_flags to make that determination)..
+> The old way is broken, it sets the bound-device to 0 when sending
+> the syn-ack.
 
-the only stumbling point is that I each time I do something like
-"ifconfig eth4 down" my app reads 2 identical RTM_NEWLINK messages
-instead of one (same behavior on up case too.)
-
-any thoughts on why? I didn't really know how to interpret sockaddr
-nl.nl_groups.. 1 seems to give me the same duplicates as ~0.. 0 gives me nothing.
+Ben, this function is _not_ used to send syn-acks...
 
 
--Pat
+> +#ifdef CONFIG_NET_SENDTOSELF
+> +	if (ip_route_output(&rt, daddr, rt->rt_spec_dst, RT_TOS(skb->nh.iph->tos), sk->bound_dev_if))
+> +#else
+>   	if (ip_route_output(&rt, daddr, rt->rt_spec_dst, RT_TOS(skb->nh.iph->tos), 0))
+> +#endif
+
+This chunk is noop, sk here is a dummy socket internal to kernel,
+where sk->bound_dev_if is identical zero. Grep code to see
+what it is used for.
+
+The same ("noopness") is true about 90% of the patch. F.e. all the messing
+inside tcp with openreqs is noop.
+
+Essentially, the only chunk which has a real meaning is that one
+for fib_frontend.c. And it is simpler to do this with sysctl, compare
+to rp_filter at al.
+
+Alexey
