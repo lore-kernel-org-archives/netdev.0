@@ -1,37 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: anyone ever done multicast AF_UNIX sockets?
-Date: Mon, 03 Mar 2003 09:56:41 -0800 (PST)
+Date: 03 Mar 2003 19:18:07 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030303.095641.87696857.davem@redhat.com>
-References: <3E638C51.2000904@nortelnetworks.com>
-	<20030303.085504.105424448.davem@redhat.com>
-	<3E6399F1.10303@nortelnetworks.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: terje.eggestad@scali.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org
+Message-ID: <p73smu45n6o.fsf@amdsimf.suse.de>
+References: <3E5E7081.6020704@nortelnetworks.com.suse.lists.linux.kernel> <20030228083009.Y53276@shell.cyberus.ca.suse.lists.linux.kernel> <3E5F748E.2080605@nortelnetworks.com.suse.lists.linux.kernel> <20030228212309.C57212@shell.cyberus.ca.suse.lists.linux.kernel> <3E619E97.8010508@nortelnetworks.com.suse.lists.linux.kernel> <20030302081916.S61365@shell.cyberus.ca.suse.lists.linux.kernel> <3E6398C4.2020605@nortelnetworks.com.suse.lists.linux.kernel>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cfriesen@nortelnetworks.com
-In-Reply-To: <3E6399F1.10303@nortelnetworks.com>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
+In-Reply-To: Chris Friesen's message of "3 Mar 2003 19:07:27 +0100"
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Chris Friesen <cfriesen@nortelnetworks.com>
-   Date: Mon, 03 Mar 2003 13:07:45 -0500
-   
-   Suppose I have a process that waits on UDP packets, the unified local 
-   IPC that we're discussing, other unix sockets, and stdin.  It's awfully 
-   nice if the local IPC can be handled using the same select/poll 
-   mechanism as all the other messaging.
+Chris Friesen <cfriesen@nortelnetworks.com> writes:
 
-So use UDP, you still haven't backed up your performance
-claims.  Experiment, set the SO_NO_CHECK socket option to
-"1" and see if that makes a difference performance wise
-for local clients.
+> I'll look at how they were measuring unix socket throughput and try 
+> implementing something similar for UDP.  It's not clear to me how to 
+> really measure throughput in a multicast environment though since it 
+> depends very much on your application messaging patterns.
 
-But if performance is "so important", then you shouldn't really be
-shying away from the shared memory suggestion and nothing is going to
-top that (it eliminates all the copies, using flat out AF_UNIX over
-UDP only truly eliminates some header processing, nothing more, the
-copies are still there with AF_UNIX).
+Unix sockets are often slower than TCP over loopback because they use
+much smaller socket sizes by default. This causes much more context 
+switches.
+
+Just run a vmstat 1 in parallel and watch the context switch rates.
+
+You can fix it by increasing the send and receive buffers of the unix
+socket.
+
+-Andi
