@@ -1,72 +1,46 @@
-From: Martijn Hijdra <martijn@esrac.ele.tue.nl>
-Subject: Re: [PATCH] hamradio/scc -
-Date: Wed, 17 Sep 2003 08:35:41 +0200
-Sender: linux-hams-owner@vger.kernel.org
-Message-ID: <1063780541.2971.4.camel@imst153.imst.de>
-References: <20030915162335.0034a551.shemminger@osdl.org>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: Wed, 17 Sep 2003 08:42:17 +0200
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <200309170842.17766.bdschuym@pandora.be>
+References: <200309022116.41697.bdschuym@pandora.be> <200309161757.50682.bdschuym@pandora.be> <20030916182335.359c419f.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-hN8ySaqxnHj08rJ9vSsJ"
-Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20030915162335.0034a551.shemminger@osdl.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: tommy@home.tig-grr.com, laforge@netfilter.org,
+	acme@conectiva.com.br, netfilter-devel@lists.netfilter.org,
+	netdev@oss.sgi.com
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030916182335.359c419f.davem@redhat.com>
+Content-Disposition: inline
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 17 September 2003 03:23, David S. Miller wrote:
+> But recall that there are other netfilter modules doing this
+> "compare chars using cast to long" trick that need to be fixed
+> too.
 
---=-hN8ySaqxnHj08rJ9vSsJ
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Well, acme hasn't reported any other issues. Perhaps Rusty had foresight about 
+these possible issues and made sure alignment was good...
+In which case I don't see any reason for altering his code.
 
-On Tue, 2003-09-16 at 01:23, Stephen Hemminger wrote:
-> Update hamradio/scc for 2.6.0-test5
-> 	- use seq_file for /proc
-> 	- get rid of dev_get()
-> 	- use alloc_netdev
-> 
+> Also, adding attributes to user exported structures would need
+> to be done _very_ carefully, as compilation when using such
+> gcc extensions will fail when the user uses '-ansi' on the
+> compiler command line.
 
-Hi, and another small patch for hamradio/scc to
-fill the statistics counters for the scc driver.
-(see output of ifconfig RX bytes and TX bytes)
+Now why on Earth would I have to bother with some luser doing this? I'm not 
+the slave of annoying users.
 
-
-
--- 
-Martijn Hijdra <martijn@esrac.ele.tue.nl>
-
---=-hN8ySaqxnHj08rJ9vSsJ
-Content-Disposition: attachment; filename=scc_260t5.diff
-Content-Type: text/x-patch; name=scc_260t5.diff; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-
---- drivers/net/hamradio/scc.c.orig	2003-08-23 01:58:57.000000000 +0200
-+++ drivers/net/hamradio/scc.c	2003-09-03 08:57:50.000000000 +0200
-@@ -1635,6 +1635,7 @@
- 	}
- 		
- 	scc->dev_stat.rx_packets++;
-+	scc->dev_stat.rx_bytes += skb->len;
- 
- 	skb->dev      = scc->dev;
- 	skb->protocol = htons(ETH_P_AX25);
-@@ -1661,6 +1662,7 @@
- 	}
- 	
- 	scc->dev_stat.tx_packets++;
-+	scc->dev_stat.tx_bytes += skb->len;
- 	scc->stat.txframes++;
- 	
- 	kisscmd = *skb->data & 0x1f;
---- include/linux/scc.h.orig	2003-09-03 09:13:26.000000000 +0200
-+++ include/linux/scc.h	2003-09-03 09:13:55.000000000 +0200
-@@ -200,7 +200,7 @@
- 	unsigned char fulldup;		/* Full Duplex mode 0=CSMA 1=DUP 2=ALWAYS KEYED */
- 	unsigned char waittime;		/* Waittime before any transmit attempt */
- 	unsigned int  maxkeyup;		/* Maximum time to transmit (seconds) */
--	unsigned char mintime;		/* Minimal offtime after MAXKEYUP timeout (seconds) */
-+	unsigned int  mintime;		/* Minimal offtime after MAXKEYUP timeout (seconds) */
- 	unsigned int  idletime;		/* Maximum idle time in ALWAYS KEYED mode (seconds) */
- 	unsigned int  maxdefer;		/* Timer for CSMA channel busy limit */
- 	unsigned char tx_inhibit;	/* Transmit is not allowed when set */	
-
---=-hN8ySaqxnHj08rJ9vSsJ--
-
+cheers,
+Bart
