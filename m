@@ -1,42 +1,53 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: SCTP path mtu support needs some ip layer support.
-Date: Tue, 14 Jan 2003 14:15:27 -0800 (PST)
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: NAPI vs. interrupts
+Date: Wed, 15 Jan 2003 00:06:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0301141409320.2142-100000@dyn9-47-18-86.beaverton.ibm.com>
-References: <1042575066.2610.26.camel@devil>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E01087ADC@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sridhar Samudrala <sri@us.ibm.com>, <kuznet@ms2.inr.ac.ru>,
-   <jgrimm2@us.ibm.com>, <davem@redhat.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika Liljeberg <mika.liljeberg@welho.com>
-In-Reply-To: <1042575066.2610.26.camel@devil>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org
+content-class: urn:content-classes:message
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 14 Jan 2003, Mika Liljeberg wrote:
+> NAPI driver _always_ does
+> 	ack some irqs
+> 	mask irqs
+> 	ack some more irqs
+> 	process events
+> 	unmask irqs
 
-> On Tue, 2003-01-14 at 20:44, Sridhar Samudrala wrote:
-> > Frankly, i haven't thought of IPV6 in detail. I was under the impression that
-> > it is simpler in ipv6 as only source is allowed to do fragmentation and as there
-> > is no DF bit, it will automatically fragment any packets larger than the pmtu.
-> > But looking at ip6_xmit(), i realize that ICMPV6_PKT_TOOBIG error is generated
-> > forcing the transport layer to do the fragmentation. TCP can handle this, but
-> > SCTP cannot.
+e1000+NAPI is this path.
+
+> The purpose of this email is to solicit suggestions to 
+> develop a strategy to fix what I believe is a problem with NAPI.
 > 
-> IPv6 is simpler, because the specification asserts that every IPv6
-> capable link must support a MTU of at least 1280 bytes. If you don't
-> generate packets larger than this you don't have to worry about
-> fragmentation.
+> Here are some comments of mine:
 > 
-> If you want larger data chunks, then you have to solve this for IPv6 as
-> well.
+> 1) Can this problem be alleviated entirely without driver 
+> changes?  For example, would it be reasonable to do 
+> pkts-per-second sampling in the net core, and enable software 
+> mitigation based on that?
+> 
+> 2) Implement hardware mitigation in addition to NAPI.  Either 
+> the driver does adaptive sampling, or simply hard-locks 
+> mitigation settings at something that averages out to N pkts 
+> per second.
 
-Yes. If we restrict the max. data chunksize to 1280 bytes for ipv6 and 576 bytes
-for ipv4, we could have avoided ip fragmentation alltogether. 
-But this will add unnecessary overhead of sctp fragmentation/reassembly and
-additional chunk headers when the real pmtu is much larger and the messages are
-big.
-
-Thanks
-Sridhar
+I've tried something similar to this while playing around with e1000
+recently.  Using ITR (InterruptThrottleRate), dial in a max intr/sec
+rate of say 4000 intr/sec, and then just call netif_rx_schedule() for
+each interrupt.  Don't mask/unmask interrupts.  If already polling,
+netif_rx_schedule does nothing.  The code differences between the NAPI
+path and non-NAPI path was minimal, so I liked that, and your worst case
+is gone.  If you look at the average size of the Rx packets, you could
+fine tune ITR to get a pkt/intr rate to balance your quota to try to
+maximize the amount of time spent polling, but this is too fancy for my
+taste.  Anyway, worst case, 2*4000 PIO writes/sec was the savings, but I
+can't say I could measure a difference.
+ 
+-scott
