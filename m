@@ -1,214 +1,46 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: [SET 2][PATCH 8/8][bonding] Propagating master's settings to slaves
-Date: Fri, 8 Aug 2003 17:45:23 +0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308081745.23436.shmulik.hen@intel.com>
-Reply-To: shmulik.hen@intel.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
+Date: 08 Aug 2003 17:51:40 -0400
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <1060379500.1723.214.camel@jzny.localdomain>
+References: <200307141045.40999.nf@hipac.org>
+	 <1058328537.1797.24.camel@jzny.localdomain> <3F16A0E5.1080007@hipac.org>
+	 <1059934468.1103.41.camel@jzny.localdomain> <3F2E5CD6.4030500@hipac.org>
+	 <1060012260.1103.380.camel@jzny.localdomain> <3F302E04.1090503@hipac.org>
+	 <1060286331.1025.73.camel@jzny.localdomain>
+	 <20030807130502.4af9c815.davem@redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: nf@hipac.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030807130502.4af9c815.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-8 - Enhance netdev notification handling. Add comment block
-    and bump version.
+On Thu, 2003-08-07 at 16:05, David S. Miller wrote: 
+> On 07 Aug 2003 15:58:51 -0400
+> jamal <hadi@cyberus.ca> wrote:
 
-diff -Nuarp linux-2.4.22-rc1/drivers/net/bonding/bond_main.c linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c
---- linux-2.4.22-rc1/drivers/net/bonding/bond_main.c	Fri Aug  8 14:03:27 2003
-+++ linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c	Fri Aug  8 14:03:28 2003
-@@ -408,6 +408,18 @@
-  *	  and free it separately; use standard list operations instead
-  *	  of pre-allocated array of bonds.
-  *	  Version to 2.3.0.
-+ *
-+ * 2003/08/07 - Jay Vosburgh <fubar at us dot ibm dot com>,
-+ *	       Amir Noam <amir.noam at intel dot com> and
-+ *	       Shmulik Hen <shmulik.hen at intel dot com>
-+ *	- Propagating master's settings: Distinguish between modes that
-+ *	  use a primary slave from those that don't, and propagate settings
-+ *	  accordingly; Consolidate change_active opeartions and add
-+ *	  reselect_active and find_best opeartions; Decouple promiscuous
-+ *	  handling from the multicast mode setting; Add support for changing
-+ *	  HW address and MTU with proper unwind; Consolidate procfs code,
-+ *	  add CHANGENAME handler; Enhance netdev notification handling.
-+ *	  Version to 2.4.0.
-  */
- 
- #include <linux/config.h>
-@@ -452,8 +464,8 @@
- #include "bond_3ad.h"
- #include "bond_alb.h"
- 
--#define DRV_VERSION	"2.3.0"
--#define DRV_RELDATE	"August 6, 2003"
-+#define DRV_VERSION	"2.4.0"
-+#define DRV_RELDATE	"August 7, 2003"
- #define DRV_NAME	"bonding"
- #define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
- 
-@@ -572,7 +584,6 @@ static struct net_device_stats *bond_get
- static void bond_mii_monitor(struct net_device *dev);
- static void loadbalance_arp_monitor(struct net_device *dev);
- static void activebackup_arp_monitor(struct net_device *dev);
--static int bond_event(struct notifier_block *this, unsigned long event, void *ptr);
- static void bond_mc_list_destroy(struct bonding *bond);
- static void bond_mc_add(bonding_t *bond, void *addr, int alen);
- static void bond_mc_delete(bonding_t *bond, void *addr, int alen);
-@@ -3468,7 +3479,6 @@ static int bond_read_proc(char *buf, cha
- }
- #endif /* CONFIG_PROC_FS */
- 
--
- static int bond_create_proc_info(struct bonding *bond)
- {
- #ifdef CONFIG_PROC_FS
-@@ -3633,21 +3643,134 @@ unwind:
- 	return error;
- }
- 
--static int bond_event(struct notifier_block *this, unsigned long event, 
--			void *ptr)
-+/*
-+ * Change device name
-+ */
-+static inline int bond_event_changename(struct bonding *bond)
-+{
-+	int error;
-+
-+	bond_destroy_proc_info(bond);
-+	error = bond_create_proc_info(bond);
-+	if (error) {
-+		return NOTIFY_BAD;
-+	}
-+	return NOTIFY_DONE;
-+}
-+
-+static int bond_master_netdev_event(unsigned long event, struct net_device *event_dev)
-+{
-+	struct bonding *bond, *event_bond = NULL;
-+
-+	list_for_each_entry(bond, &bond_dev_list, bond_list) {
-+		if (bond == event_dev->priv) {
-+			event_bond = bond;
-+			break;
-+		}
-+	}
-+
-+	if (event_bond == NULL) {
-+		return NOTIFY_DONE;
-+	}
-+
-+	switch (event) {
-+	case NETDEV_CHANGENAME:
-+		return bond_event_changename(event_bond);
-+	case NETDEV_UNREGISTER:
-+		/*
-+		 * TODO: remove a bond from the list?
-+		 */
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static int bond_slave_netdev_event(unsigned long event, struct net_device *event_dev)
- {
--	struct net_device *event_dev = (struct net_device *)ptr;
- 	struct net_device *master = event_dev->master;
- 
--	if ((event == NETDEV_UNREGISTER) && (master != NULL)) {
--		bond_release(master, event_dev);
-+	switch (event) {
-+	case NETDEV_UNREGISTER:
-+		if (master != NULL) {
-+			bond_release(master, event_dev);
-+		}
-+		break;
-+	case NETDEV_CHANGE:
-+		/*
-+		 * TODO: is this what we get if somebody
-+		 * sets up a hierarchical bond, then rmmod's
-+		 * one of the slave bonding devices?
-+		 */
-+		break;
-+	case NETDEV_DOWN:
-+		/*
-+		 * ... Or is it this?
-+		 */
-+		break;
-+	case NETDEV_CHANGEMTU:
-+		/*
-+		 * TODO: Should slaves be allowed to
-+		 * independently alter their MTU?  For
-+		 * an active-backup bond, slaves need
-+		 * not be the same type of device, so
-+		 * MTUs may vary.  For other modes,
-+		 * slaves arguably should have the
-+		 * same MTUs. To do this, we'd need to
-+		 * take over the slave's change_mtu
-+		 * function for the duration of their
-+		 * servitude.
-+		 */
-+		break;
-+	case NETDEV_CHANGENAME:
-+		/*
-+		 * TODO: handle changing the primary's name
-+		 */
-+		break;
-+	default:
-+		break;
- 	}
- 
- 	return NOTIFY_DONE;
- }
- 
-+/*
-+ * bond_netdev_event: handle netdev notifier chain events.
-+ *
-+ * This function receives events for the netdev chain.  The caller (an
-+ * ioctl handler calling notifier_call_chain) holds the necessary
-+ * locks for us to safely manipulate the slave devices (RTNL lock,
-+ * dev_probe_lock).
-+ */
-+static int bond_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
-+{
-+	struct net_device *event_dev = (struct net_device *)ptr;
-+	unsigned short flags;
-+	int res = NOTIFY_DONE;
-+
-+	dprintk(KERN_INFO "bond_netdev_event n_b %p ev %lx ptr %p\n",
-+		this, event, ptr);
-+
-+	flags = event_dev->flags & (IFF_MASTER | IFF_SLAVE);
-+	switch (flags) {
-+	case IFF_MASTER:
-+		res = bond_master_netdev_event(event, event_dev);
-+		break;
-+	case IFF_SLAVE:
-+		res = bond_slave_netdev_event(event, event_dev);
-+		break;
-+	default:
-+		/* A master that is also a slave ? */
-+		break;
-+	}
-+
-+	return res;
-+}
-+
- static struct notifier_block bond_netdev_notifier = {
--	notifier_call: bond_event,
-+	notifier_call: bond_netdev_event,
- };
- 
- static void bond_deinit(struct net_device *dev)
+> If you input all the keys into the Jenkins hash, how does
+> it perform?  Has anyone even tried that and compared it
+> to all of these fancy multi-level tree like hash things?
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+AFAIK, noone has tried it. I will try out at some point. 
+
+> I think Jenkins would work very well for exactly this kind
+> of application.  And it's fully available to the entire kernel
+> via linux/jhash.h and already in use by other things such
+> as the routing cache and the netfilter conntrack code.
+
+A good reason for the multilevel stuff is to support arbitrary packet 
+offsets i.e you dont know which bits in the packet you are interested in
+ahead of time. Its easy to use hashes when you know that you need to
+find example ip src/dst. Since its in the kernel I will look into 
+it - but has to meet the arbitrary offset requirement.
+
+cheers,
+jamal
+
+
