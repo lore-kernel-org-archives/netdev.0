@@ -1,67 +1,65 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: packet re-ordering on SMP machines.
-Date: Tue, 27 Aug 2002 15:13:17 +0200
+From: "Mala Anand" <manand@us.ibm.com>
+Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
+Date: Tue, 27 Aug 2002 08:18:36 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020827151317.A3389@wotan.suse.de>
-References: <20020827142004.C4358@wotan.suse.de> <200208271306.RAA19164@sex.inr.ac.ru>
+Message-ID: <OFC842923C.BD15E014-ON87256C22.0047BBD6@boulder.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8bit
-Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
+Cc: Bill Hartner <bhartner@us.ibm.com>, davem@redhat.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200208271306.RAA19164@sex.inr.ac.ru>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-On Tue, Aug 27, 2002 at 05:06:30PM +0400, A.N.Kuznetsov wrote:
-> Hello!
-> 
-> > Of course. The only problem is that the clock can be non mononotonous 
-> > sometimes and not be in sync with gettimeofday, but at least the kernel 
-> > users of packet timestamps do not care.
-> 
-> What kernel users? Where did you find them? :-)
-
-Hmm, I thought TCP used it, but it seems to use jiffies directly.
-
-Ok, no kernel users then. Not sure about sunrpc and out of tree stuff
-like SCTP.
 
 
-> > The only problem is the socket option, but it is obscure enough that I 
-> > would not worry too much about it.
-> 
-> I am very sorry, but passing timestamp to user level is the only purpose
-> of timestamping and it _MUST_ be monotonic and synchronous to time of day,
-> otherwise it is completely useless.
+Jamal wrote ..
+>On Mon, 26 Aug 2002, Mala Anand wrote:
 
-That make monotonous step doesn't need to be in netif_rx. My old proposal
-was to move it to socket layer. Then it would be only done when needed.
-Unfortunately it could get somewhat inaccurate when the queueing delay
-is too long.
+>> Troy Wilson (who works with me) posted SPECweb99 results using my
+>> skbinit patch to lkml on Friday:
+>>  http://www.uwsg.iu.edu/hypermail/linux/kernel/0208.2/1470.html
+>> I know you don't subscribe to lkml. Have you seen these results?
+>> On Numa machine it showed around 3% improvement using SPECweb99.
 
-> > > > - Implement lockless
-> 
-> You talk about this for ages. :-)
+>The posting you pointed to says 1% - not that it matters. It becomes more
+>insignificant when skb recycling comes in play mostly because the alloc
+>and freeing of skbs doesnt really show up as hotlist item within
+>the profile.
+>I am not saying it is totaly useless -- anything that will save a few
+>cycles is good;
 
-It is nearly there for x86-64 ;)  (code is in for vsyscalls, just kernel 
-do_gettimeofday doesn't use it yet)
+SPECweb99 profile shows that __kfree_skb is in the top 5 hot routines. We
+will test the skb recycle patch on SPECweb99 and add skbinit patch
+to that and see how it helps.  What I understand is that the skb recycle
+patch does not attempt to recycle if the skbs are allocated on CPU
+and freed on another CPU. Is that right? If so, skbinit patch will help
+those
+cases. I think this patch is pretty safe and I anticipate greater gains
+on NUMA systems.
 
-> 
-> 
-> Actually, the problem is solved very easily. Deprecate SIOCGSTAMP,
-> and either count users of SO_TIMESTAMP and enable timestamping only
-> when it is required, or, alternatively, to move retrirval timestamp to socket
-> level.
+BTW the 3% gain that I reported earlier on NUMA is done at another site
+of IBM and it turned out to be it is not a NUMA machine. It is also
+an 8-way SMP machine, however those are non-complaint SPECWeb99 runs so
+I won't be able to use those results.
 
-Moving it later may make it useless for RTT purposes when the queueing 
-delays are too long.
-
-But if no kernel users exist then just making it a global refcnt could work
-nicely. Then most people would not eat the overhead when count == 0.
+The alloc and free routines are not hot in netperf3 profiles. However
+I am seeing some gains there also, not significant. I will post netperf3
+results with skbinit patch later.
 
 
--Andi
+
+Regards,
+    Mala
+
+
+   Mala Anand
+   IBM Linux Technology Center - Kernel Performance
+   E-mail:manand@us.ibm.com
+   http://www-124.ibm.com/developerworks/opensource/linuxperf
+   http://www-124.ibm.com/developerworks/projects/linuxperf
+   Phone:838-8088; Tie-line:678-8088
