@@ -1,73 +1,46 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK/GNU] net driver series 12
-Date: Fri, 25 Oct 2002 18:50:41 -0400
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPv6: Garbage scope-id in MSG_ERRQUEUE message
+Date: Sat, 26 Oct 2002 11:28:13 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DB9CAC1.2010000@pobox.com>
+Message-ID: <20021026.112813.43505001.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050902010002000309090606"
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, LKML
- <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcelo Tosatti <marcelo@conectiva.com.br>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050902010002000309090606
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi,
 
-Marcelo,
+This patch clears sin6_scope_id in sockaddr_in6 in MSG_ERRQUEUE
+message.  Without this we would see garbage there.
 
-I have pushed a tulip bug fix out to gkernel.  Please do a
+This patch is against linux-2.4.20-pre11.
 
-        bk pull http://gkernel.bkbits.net/net-drivers-2.4
+Thanks in advance.
 
-to retrieve the simple tulip patch, which is attached to this email for 
-your review.  The BK repository also contains the previous 34 patches I 
-sent to you yesterday, or the day before...
-
-
---------------050902010002000309090606
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch"
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.759   -> 1.760  
-#	drivers/net/tulip/tulip_core.c	1.35    -> 1.36   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 02/10/25	jgarzik@redhat.com	1.760
-# Fix tulip net driver multi-port board irq assignment
-# --------------------------------------------
-#
-diff -Nru a/drivers/net/tulip/tulip_core.c b/drivers/net/tulip/tulip_core.c
---- a/drivers/net/tulip/tulip_core.c	Fri Oct 25 18:22:30 2002
-+++ b/drivers/net/tulip/tulip_core.c	Fri Oct 25 18:22:30 2002
-@@ -1482,7 +1482,6 @@
- 	tp->timer.function = tulip_tbl[tp->chip_id].media_timer;
- 
- 	dev->base_addr = ioaddr;
--	dev->irq = irq;
- 
- #ifdef CONFIG_TULIP_MWI
- 	if (!force_csr0 && (tp->flags & HAS_PCI_MWI))
-@@ -1655,6 +1654,7 @@
- 	for (i = 0; i < 6; i++)
- 		last_phys_addr[i] = dev->dev_addr[i];
- 	last_irq = irq;
-+	dev->irq = irq;
- 
- 	/* The lower four bits are the media type. */
- 	if (board_idx >= 0  &&  board_idx < MAX_UNITS) {
-
---------------050902010002000309090606--
+-------------------------------------------------------------------
+Patch-Name: Garbage scope-id in MSG_ERRQUEUE message
+Patch-Id: FIX_2_4_20_pre11_ICMP_ERROR-20021026
+Patch-Author: YOSHIFUJI Hideaki / USAGI Project <yoshfuji@linux-ipv6.org>
+Credit: YOSHIFUJI Hideaki / USAGI Project <yoshfuji@linux-ipv6.org>
+-------------------------------------------------------------------
+Index: net/ipv6/datagram.c
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/datagram.c,v
+retrieving revision 1.1.1.2
+retrieving revision 1.1.1.2.22.1
+diff -u -r1.1.1.2 -r1.1.1.2.22.1
+--- net/ipv6/datagram.c	9 Oct 2002 01:35:53 -0000	1.1.1.2
++++ net/ipv6/datagram.c	25 Oct 2002 16:55:56 -0000	1.1.1.2.22.1
+@@ -158,6 +158,7 @@
+ 	if (serr->ee.ee_origin != SO_EE_ORIGIN_LOCAL) {
+ 		sin->sin6_family = AF_INET6;
+ 		sin->sin6_flowinfo = 0;
++		sin->sin6_scope_id = 0;
+ 		if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP6) {
+ 			memcpy(&sin->sin6_addr, &skb->nh.ipv6h->saddr, 16);
+ 			if (sk->net_pinfo.af_inet6.rxopt.all)
