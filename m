@@ -1,34 +1,124 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: 2.6.2 crash after network link failure
-Date: Mon, 9 Feb 2004 15:37:48 -0800
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Tue, 10 Feb 2004 01:52:53 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDE6C@orsmsx402.jf.intel.com>
+Message-ID: <Pine.LNX.4.58.0402100114020.1251@u.domain.uli>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
+ <1076338874.1026.36.camel@jzny.localdomain>  <Pine.LNX.4.58.0402100008580.1251@u.domain.uli>
+ <1076367038.1037.15.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "David S. Miller" <davem@redhat.com>,
-        "Petr Vandrovec" <vandrove@vc.cvut.cz>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1076367038.1037.15.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I think what might be happening is that somehow the TX queue 
-> is corrupted if
-> e100_config() runs (due to link UP state change) while there 
-> are active normal SKB packets on the TX queue.  Or perhaps 
-> some TX queue handling locking issue.
-> 
-> Scott, any ideas?
 
-e100 hardware will continue to process the hardware's Tx queue even
-after link is lost, and then cleanup (return skbs) on interrupt.  I
-would expect e100 to be holding no Tx skbs when link returned.
+	Hello,
 
-Petr, -mm kernel has an updated (and much simpler) e100 driver.  Is this
-something you can try?  The switch failure can be simulated by manually
-plugging the cable in/out.
+On Tue, 9 Feb 2004, jamal wrote:
 
--scott
+> > 	Then where is better such flag to exist, for indev or
+> > for outdev?
+>
+> parse error. Are you agreeing it should be a sysctl?
+
+	May be, if we found usage for this, because I see the
+handling in this way (I should put this info in doc file later):
+
+- if the target is not an ARP neighbour then it is already validated
+from ip_route_input (for example, target is some IP on PPP device
+and this device exists and is UP, so there is route we are using).
+In such case we do not need a validation phase (but may be we still
+need to delay the answer)
+
+- we need delay (if configured via dev/proxy_delay) not for target
+validation reasons but just to lose the game with other authoritative
+hosts. For this reason we do not want to delay answers to unicast
+probes if we have such answer. There is one bad case here:
+authoritative hosts running in promisc mode. In such case we
+risk to win the race.
+
+	As for the static proxy entries may be we do not want
+to delay the answers for them, I assume they are something like
+local addresses at ARP level? So, do we need to delay the
+pneigh_lookup case (fwd_proxy=0)?
+
+> what i meant was i am happy with the slight delay in some cases i get
+
+	Ah, this delay will stay, if configured. But it is
+not needed for the unicast case.
+
+> now; example host we are parping for sends a unicast probe - we would
+> immediately respond. Host sends a resolved IP packet - we attempt to
+> route and worst case we find that we dont have the target entry in our
+> cache; we arp at that point.
+
+	With the new changes we will respond to unicast probe
+immediately only if the target neighbour is marked valid in our
+cache. For non-ARP target devices the behaviour is same - immediate
+response.
+
+	You forgot the main reason I started this change: for
+neighbour state detection reasons it is bad the requestor to receive
+answer for target host when this host is down. The goal is to
+stop any traffic to target if it is not reachable and to use
+other paths. Note that you have exactly such behaviour if target
+is routed via non-ARP device, ip_route_input fails and there is no
+answer. Assume such setup:
+
+- many end hosts/routers using TIP as gw IP
+
+- TIP is proxied from other routers runing proxy_arp
+
+- above these routers are the uplink routers (DSL?) that have
+TIP configured
+
+	We want the end host to know the real TIP state and
+to use alternative paths. So, we want to proxy the neighbour
+state.
+
+	But in what I'm not sure yet is whether there is a
+usage that relies on immediate answer no matter the state.
+If we do not want to ignore such usage we have to add flag
+as you proposed. The question is: is it useful to provide
+immediate response as before without knowing the neighbour
+state, for the ARP cases.
+
+> In your case, you will amortize that cost at arp time. In the case of
+> unicast probes (assuming a sane arp implementation on the other side)
+> you will actually be adding cost since mostly that entry will be in the
+> cache.
+
+	You mean the delay? I add it for other purposes, even
+if target is valid in the cache.
+
+> In the case of broadcasts you could achieve the same effect by setting
+> the proxy_delay in /proc to zero.
+
+	True, if the administrator is sure that our box is the
+only responder for such targets he can set the delay to 0 to
+speedup the answers.
+
+> > 	You are right, if proxy_delay is large the requestor can
+> > disappear from our cache but it is not fatal for us to send reply,
+> > we do not need cache entry for this. I'm not sure what is better, is
+> > it right to confirm the requestor without receiving recent event
+> > from it? If will be visible for too large proxy_delay values.
+>
+> I guess you could look at one view as possibly doing 2 neigh_event_ns()
+> and correct whereas the other is doing 1 but with the above side effect.
+
+	Our replies are always unicast to the lladdr. Do you still
+prefer 2 calls to neigh_event_ns (sorry, my english is too limited
+to understand correctly the above two lines :)) ?
+
+> cheers,
+> jamal
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
