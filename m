@@ -1,47 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
-Date: Fri, 16 Jan 2004 10:37:10 +0900 (JST)
+From: Mike Fedyk <mfedyk@matchmail.com>
+Subject: Re: [2.6] nfs_rename: target $file busy, d_count=2
+Date: Thu, 15 Jan 2004 18:45:55 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040116.103710.94220850.yoshfuji@linux-ipv6.org>
-References: <OFB4F51C5A.FC479F2C-ON87256E1C.007B64B8@us.ibm.com>
+Message-ID: <20040116024555.GC1880@srv-lnx2600.matchmail.com>
+References: <20040116000346.GD1784@srv-lnx2600.matchmail.com> <20040116005457.GE1784@srv-lnx2600.matchmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, xma@us.ibm.com
-In-Reply-To: <OFB4F51C5A.FC479F2C-ON87256E1C.007B64B8@us.ibm.com>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20040116005457.GE1784@srv-lnx2600.matchmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OFB4F51C5A.FC479F2C-ON87256E1C.007B64B8@us.ibm.com> (at Thu, 15 Jan 2004 14:31:47 -0800), Shirley Ma <xma@us.ibm.com> says:
+On Thu, Jan 15, 2004 at 04:54:57PM -0800, Mike Fedyk wrote:
+> On Thu, Jan 15, 2004 at 04:03:46PM -0800, Mike Fedyk wrote:
+> > Both client and server are running the same 2.6.1-bk2 kernel with TCP-NFS.
+> > SMP, Highmem, & preempt.
+> 
+> I have four clients that are all having this problem also, three 2.6, and
+> one 2.4 client.
+> 
+> Using TCP-NFS they all have stale nfs handles even after a reboot (only
+> rebooted one to try with 2.4.23), but changed one to UDP-NFS, and it didn't
+> have the stale handles.
+> 
+> Will do more testing with UDP-NFS.
 
-> This patch is going to be used by SNMP for ipv6RouterAdvert Table. I will
-> remove this Micro, and resubmit the patch.
+No, TCP and UDP NFS both get stale file handles. :(
 
-This patch is conceptually wrong.
-
-I think you're misunderstanding the darft.
-ipv6RouterAdvertTable contains information used to create router
-advertisements on router. Not on host.
-
-Patch should be rejected.
-
->From draft-ietf-ipv6-rfc2011-update-05.txt:
-
---- cut here 
-3.2.9.  Router Advertisement Table
-
-This table contains the non-routing information that an IPv6 router
-would use in constructing a router advertisement message.  It does not
-contain information about the prefixes or other routing specific
-information that the router might advertise.  The router should acquire
-such information from either the routing tables or from some routing
-table specific MIB.
-
-This table is only required for IPv6 router entities.
---- cut here 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Can anyone reproduce?
