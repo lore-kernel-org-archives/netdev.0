@@ -1,52 +1,41 @@
-From: Bob Wirka <bobwirka@rtcworks.com>
-Subject: Re: NFS and Network Driver Question
-Date: Wed, 20 Oct 2004 11:03:56 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41768C6C.6040102@rtcworks.com>
-References: <41704198.8000206@rtcworks.com> <4175AEFE.7090002@rtcworks.com> <41768B15.1090402@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [ANNOUNCE] iproute2 2.6.9-041019
+Date: Wed, 20 Oct 2004 09:15:54 -0700
+Sender: lartc-admin@mailman.ds9a.nl
+Message-ID: <20041020091554.57e60936@zqx3.pdx.osdl.net>
+References: <41758014.4080502@osdl.org>
+	<Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <41768B15.1090402@osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, LARTC@mailman.ds9a.nl
+Return-path: <lartc-admin@mailman.ds9a.nl>
+To: Jeff Chua <jeffchua@silk.corp.fedex.com>
+In-Reply-To: <Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
+Errors-To: lartc-admin@mailman.ds9a.nl
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
 List-Id: netdev.vger.kernel.org
 
-No, I was actually taking stupid pills. I had the setuid bit set on 
-'mount', and it was owned by 'admin'. I had a number of files and 
-directories owned by 'admin' so that I could ftp files in and out of the 
-original target system (as admin). It bit me.
+Try this, ss was dragging in byteorder.h and it didn't need to.
 
-Everything seems to be working well now.
-
-Best regards,
-
-Bob Wirka
-Realtime Control Works
-
-Stephen Hemminger wrote:
-
-> Bob Wirka wrote:
->
->> Ok, now I feel like I'm taking crazy pills...
->>
->> The embedded system boots up and mounts the root file system on my 
->> host laptop. The 'rc.sysinit' startup script executes the command 
->> 'mount -a' which should mount /proc, /dev/pts, and /dev/shm, as 
->> listed in /etc/fstab. When executed, that command returns  "mount: 
->> only root can do that".
->>
->> When I get to the bash prompt, 'whoami' reports that I am, indeed, 
->> root. A 'mount -a' from the command prompt gives the same result; it 
->> doesn't think I'm root for the mount command.
->>
->> I can chown a file owned by root to some other user, and I can create 
->> a file or directory in a directory owned by root; so it doesn't 
->> always think I'm not root.
->>
-> Are you getting bit by the nfs uid mapping on the server. Is it 
-> mapping your local "root" to "nobody"
-> on the server?
->
+diff -Nru a/misc/ss.c b/misc/ss.c
+--- a/misc/ss.c	2004-10-20 09:13:56 -07:00
++++ b/misc/ss.c	2004-10-20 09:13:56 -07:00
+@@ -33,7 +33,6 @@
+ #include "libnetlink.h"
+ #include "SNAPSHOT.h"
+ 
+-#include <asm/byteorder.h>
+ #include <linux/tcp.h>
+ #include <linux/tcp_diag.h>
+ 
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
