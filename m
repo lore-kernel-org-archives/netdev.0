@@ -1,43 +1,44 @@
-From: Geoffrey Lee <glee@gnupilgrims.org>
-Subject: Signal interrupt with connect.
-Date: Tue, 15 Oct 2002 11:42:35 +0800
+From: Dave Hansen <haveblue@us.ibm.com>
+Subject: Re: Update on e1000 troubles (over-heating!)
+Date: Mon, 14 Oct 2002 22:42:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021015034235.GA15574@anakin.wychk.org>
+Message-ID: <3DABAACE.9040706@us.ibm.com>
+References: <288F9BF66CD9D5118DF400508B68C44604758B78@orsmsx113.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=big5
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'Ben Greear'" <greearb@candelatech.com>,
+   linux-kernel <linux-kernel@vger.kernel.org>,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "Feldman, Scott" <scott.feldman@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Feldman, Scott wrote:
+>>Here is the lspci information, both -x and -vv.  This is with 
+>>two of the e1000 single-port NICS side-by-side.  I have also 
+>>strapped a P-IV CPU fan on top of the two cards to blow some 
+>>air over them....running tests now to see if that actually 
+>>helps anything.  If it does, I'll be sure to send you a picture :)
+> 
+> Ben, I checked the datasheet for the part shown in the lspci dump, and it
+> shows an operating temperature of 0-55 degrees C.  You said you measured 50
+> degrees C, so you're within the safe range.  Did the fans help?
+> 
+> Here's the datasheet:
+> http://www.intel.com/network/connectivity/resources/doc_library/data_sheets/
+> pro1000mt_sa.pdf
 
+I get some strange e1000 failures too.  It usually involves the 
+watchdog kicking them back into order, but sometimes they'll stay 
+offline for a while.  Heat would explain it, though, because it only 
+happens when I'm actually using the cards for a benchmark.  I figured 
+that it was either my cables, or a shoddy switch.
 
-A while ago, I have raised the issue of the interruptibility of
-the connect() function.
-
-We decided that a "restartable" connect() if interrupted by a signal
-is the best solution.
-
-I must apologize that I should have looked this up more carefully.
-
-According to this document here (IEEE Std 1003.1-2001):
-
-http://www.opengroup.org/onlinepubs/007904975/functions/connect.html
-
-"If connect() is interrupted by a signal that is caught while blocked
-waiting to establish a connection, connect() shall fail and set errno to
-[EINTR], but the connection request shall not be aborted, and the
-connection shall be established asynchronously."
-
-so we must return -EINTR in the kernel.
-
-Alexey, will you finally agree that we need to change this? :-)
-
-(Yes, that sucks ... but ...)
-
-
-
-	-- G.
-	
+The new dual-port e1000 that I have doesn't seem to have this problem, 
+even though I'm running 4 times more traffic than the singles that I 
+had.
+-- 
+Dave Hansen
+haveblue@us.ibm.com
