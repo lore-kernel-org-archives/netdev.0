@@ -1,63 +1,32 @@
-From: Michael Renzmann <mrenzmann@web.de>
-Subject: Deleting incoming network packets / sk_buff
-Date: Sat, 14 Aug 2004 21:12:44 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [ESP] Only one algorithm is required
+Date: Sun, 15 Aug 2004 05:24:12 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411E642C.9010708@web.de>
+Message-ID: <20040814192412.GA24399@gondor.apana.org.au>
+References: <20040814105245.GA20646@gondor.apana.org.au> <Xine.LNX.4.44.0408141012510.26617-100000@dhcp83-76.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0408141012510.26617-100000@dhcp83-76.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all.
+On Sat, Aug 14, 2004 at 10:16:17AM -0400, James Morris wrote:
+> On Sat, 14 Aug 2004, Herbert Xu wrote:
+> 
+> > Both encryption and authentication are optional for ESP.  However, at
+> > least one of them must be present.  The following patch changes init_state
+> > to match that specification.
+> 
+> This is userland level policy and I don't think the kernel should be
+> enforcing this.
 
-I'm just making my first steps in kernel programming, and I have a few 
-questions.
-
-It's necessary for me to "delete" network packets that come in on a 
-ethernet device after passing them to an userspace program (through a 
-packet socket that the program has opened). My first idea was to write a 
-kernel module that registers on the NF_IP_PRE_ROUTING netfilter hook and 
-does its job. But there are two downsides on this approach:
-
-1. I need to delete every packet, no matter if it is IP or something 
-else. As far as I understood only IP-packets will pass the netfilter 
-hooks, since the netfilter framework only works with IP traffic.
-
-2. The solution also has to work for 2.2.x kernels, as long as there is 
-any way to achieve this functionality for these kernel series and 2.4.x 
-as well.
-
-I continued to dig some documentation, and found a possible solution in 
-a rather old phrack article [1]: "What we do is code our own kernel 
-module that registers our packet_type{} data structure to handle all 
-incoming packets (sk_buff's) right after they come out of the device 
-driver." While the authors use this technique to implement some 
-"protocol obfuscation" or an in-kernel packet sniffer, it seems to be a 
-good way to reach what I want to do.
-
-Now, what I'm wondering about is the way to "correctly" remove an 
-sk_buff so that the upper layer won't see the corresponding packet. I 
-somewhere read that the code for packet sockets have to clone the 
-sk_buff before passing it to the socket, else it would be "lost" and 
-could not be seen by following handlers.
-
-So, the questions I have:
-
-1. What has to be done to delete a bypassing sk_buff, so that upper 
-layer routines don't see it?
-
-2. How can it be achieved to pass a sk_buff to opened packet sockets 
-before deleting the sk_buff? I guess the handler either has to pass the 
-sk_buff "manually" to the packet socket handler packet_rcv() or has to 
-place itself to be called directly after packet_rcv() has been called.
-
-I hope that my description can be understood - not enough that I'm not 
-very keen with kernel programming, but I also am no native english 
-speaker... :) Please let me know if you need further information to clarify.
-
-Bye, Mike
-
-[1] http://www.phrack.org/show.php?p=55&a=12
+We should remove the ealg check altogether then?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
