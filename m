@@ -1,30 +1,75 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
-	using SELinux and SOCK_SEQPACKET
-Date: Thu, 18 Nov 2004 23:39:32 +0000
-Message-ID: <1100821144.6005.40.camel@localhost.localdomain>
-References: <Xine.LNX.4.44.0411181328460.5555-100000@thoron.boston.redhat.com>
+From: Aristeu Sergio Rozanski Filho <aris@cathedrallabs.org>
+Subject: [PATCH] 2/5: eepro: use module_param macros
+Date: Thu, 18 Nov 2004 21:40:48 -0200
+Message-ID: <20041118234048.GG24080@cathedrallabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Ross Kendall Axe <ross.axe@blueyonder.co.uk>, netdev@oss.sgi.com,
-        Stephen Smalley <sds@epoch.ncsc.mil>,
-        lkml <linux-kernel@vger.kernel.org>, Chris Wright <chrisw@osdl.org>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ggdAeHltlv4tpqCr"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0411181328460.5555-100000@thoron.boston.redhat.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Iau, 2004-11-18 at 18:40, James Morris wrote:
-> One thing that looks broken (unrelated to the patch I posted) is that
-> unix_dgram_sendmsg() already does not check sk->sk_shutdown &
-> SEND_SHUTDOWN for SOCK_SEQPACKET.
 
-Looks like a real bug yes.
+--ggdAeHltlv4tpqCr
+Content-Type: multipart/mixed; boundary="oiL9LJXJsdjS5rzq"
+Content-Disposition: inline
 
-As to the other stuff I think the only change needed is to check the
-queued asynchronous error and report that before going on to the
-connected test
+
+--oiL9LJXJsdjS5rzq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+
+--=20
+Aristeu
+
+
+--oiL9LJXJsdjS5rzq
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="02-eepro-module_param.patch"
+Content-Transfer-Encoding: quoted-printable
+
+eepro: use module_param macros
+
+Signed-off-by: Aristeu Sergio Rozanski Filho <aris@cathedrallabs.org>
+
+--- 2.6-pre/drivers/net/eepro.c	2004-08-26 14:38:29.000000000 -0300
++++ 2.6-work/drivers/net/eepro.c	2004-09-13 13:37:20.000000000 -0300
+@@ -1720,10 +1720,11 @@ MODULE_AUTHOR("Pascal Dupuis, and aris@c
+ MODULE_DESCRIPTION("Intel i82595 ISA EtherExpressPro10/10+ driver");
+ MODULE_LICENSE("GPL");
+=20
+-MODULE_PARM(io, "1-" __MODULE_STRING(MAX_EEPRO) "i");
+-MODULE_PARM(irq, "1-" __MODULE_STRING(MAX_EEPRO) "i");
+-MODULE_PARM(mem, "1-" __MODULE_STRING(MAX_EEPRO) "i");
+-MODULE_PARM(autodetect, "1-" __MODULE_STRING(1) "i");
++static int num_params;
++module_param_array(io, int, num_params, 0);
++module_param_array(irq, int, num_params, 0);
++module_param_array(mem, int, num_params, 0);
++module_param(autodetect, int, 0);
+ MODULE_PARM_DESC(io, "EtherExpress Pro/10 I/O base addres(es)");
+ MODULE_PARM_DESC(irq, "EtherExpress Pro/10 IRQ number(s)");
+ MODULE_PARM_DESC(mem, "EtherExpress Pro/10 Rx buffer size(es) in kB (3-29)=
+");
+
+--oiL9LJXJsdjS5rzq--
+
+--ggdAeHltlv4tpqCr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBnTMARRJOudsVYbMRAj8zAJ4jFzTa3vI8YKTBiyqS7mG5uNTylwCfcG2q
+cQd7mu3B56/V+rSAriCNwIk=
+=GQF7
+-----END PGP SIGNATURE-----
+
+--ggdAeHltlv4tpqCr--
