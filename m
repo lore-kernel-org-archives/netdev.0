@@ -1,36 +1,37 @@
-From: linux lover <linux_lover2004@yahoo.com>
-Subject: Required resources on network driver programming
-Date: Sun, 19 Dec 2004 23:45:35 -0800 (PST)
-Message-ID: <20041220074535.64217.qmail@web52208.mail.yahoo.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] PKT_SCHED: dsmark must take care of shared/cloned skbs
+Date: Mon, 20 Dec 2004 09:06:06 +0100
+Message-ID: <41C687EE.1090205@trash.net>
+References: <20041218170017.GH17998@postel.suug.ch> <1103487827.1048.188.camel@jzny.localdomain> <20041219203641.GL17998@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041219203641.GL17998@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
-Hi all,
-                  I am newbie to Linux kernel
-programming. I want to write my own virtual network
-device driver that take every packets from IP layer
-just print the contents of packet(header part with its
-starting addresses only) and send it to actual device
-driver for packet transmission and at receiving end
-receive packet from NIC card again print the header
-addresses and send it to upper layer for normal packet
-processing.
-                 I require help about where can i get
-resources or any book for writing virtual network
-driver with SAMPLE EXAMPLES?
-regards,
-linux_lover
+Thomas Graf wrote:
+> * jamal <1103487827.1048.188.camel@jzny.localdomain> 2004-12-19 15:23
+> 
+>>If the qdisc at that level muddies the packet thats fair game - thats
+>>what goes out on the wire. So we should leave the code as is.
+> 
+> 
+> Agreed for egress but I think it is needed for stuff like IMQ. It's
+> debatable whether we should take care of IMQ and alike though.
+> 
 
+You shouldn't care about IMQ, but we still need to copy the packet
+before modifying it if the data is shared. Otherwise we have a race
+on SMP with AF_PACKET sockets, depending on when the packet is read
+it can be either modified or not.
 
-		
-__________________________________ 
-Do you Yahoo!? 
-Send holiday email and support a worthy cause. Do good. 
-http://celebrity.mail.yahoo.com
+Converting dsmark to an action sounds like the best long-term solution.
+
+Regards
+Patrick
