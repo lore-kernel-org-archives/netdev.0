@@ -1,65 +1,60 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [ANNOUNCE] Porting MPLS-Linux to 2.6 (2.6.0-test9-bk22) comments welcome.
-Date: Sat, 22 Nov 2003 09:55:57 +0100
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Enabling ethernet drivers to return FCS in the skb?
+Date: Sun, 23 Nov 2003 01:02:41 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031122085557.GA2745@obroa-skai.de.gnumonks.org>
-References: <Pine.SOL.4.40.0311180035340.18795-100000@gervaise.enst.fr> <1069125993.1056.39.camel@jzny.localdomain>
+Message-ID: <3FC077B1.1050807@candelatech.com>
+References: <3FB94311.10004@candelatech.com> <20031119123556.A7622@sygehus.dk> <3FBB8D61.6010106@candelatech.com> <20031120173404.A1538@sygehus.dk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="qDbXVdCdHGoSgWSk"
-Cc: Ramon Casellas <casellas@infres.enst.fr>, mpls-linux-general@sf.net,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1069125993.1056.39.camel@jzny.localdomain>
+To: Rask Ingemann Lambertsen <rask@sygehus.dk>
+In-Reply-To: <20031120173404.A1538@sygehus.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Rask Ingemann Lambertsen wrote:
+> On Wed, Nov 19, 2003 at 07:33:53AM -0800, Ben Greear wrote:
+> 
+>>Rask Ingemann Lambertsen wrote:
+>>
+>>>The Intel i82586 and i82596 and can be told to receive frames with a bad FCS.
+>>>They can also be told to send a precomputed FCS rather than computing it on
+>>>the fly. The i82596 and tulip can also transfer the FCS to memory when
+>>>receiving frames. I guess all of this is also supported on the i82557/8/9.
+>>
+>>If you have a patch or example code that shows how to do this, I'd love to
+>>see it.  I have code that should RX bad CSUM from the Intel folks, but I can't
+>>get it to generate bad CRC (it does framing errors instead with my attempt),
+>>so I can't test the RX code properly!
+> 
+> 
+> The i825xx Ethernet chips are configured by putting a configure command on
+> the TX list. One of the bits of the configure command tells the chip to
+> discard or keep packets with errors. Assuming you can find that piece of
+> code, flipping the bit is easy enough. Similiarily for transferring the FCS
+> to/from memory. IIRC, this is a per-frame setting for TX on i82596 and
+> i82557/8/9. You can find i82596 documentation on Intel's home page and
+> the i82557/8/9 on SourceForge under the e100 (or was it e1000?) project.
 
---qDbXVdCdHGoSgWSk
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Thanks, I found the e100 document (from sourceforge) and it looks like it can
+definately receive all sorts of busted packets with a little configuration.
 
-On Mon, Nov 17, 2003 at 10:26:34PM -0500, jamal wrote:
-> Did you actually talk to James Leu before embarking on this rather
-> valiant effort? If you did he may have warned you that the code was
-> being rewritten from scratch. The code rewrite belongs to Dave Miller;
-> i am adding user space support. James has been invited to look at that
-> code once it is deemed working. If you want to be on the list as well,
-> let me know. I am sure you as will James will both have valuable input.
+It's less clear what happens when you turn off the FCS generation.  One part of
+the document mentions it gets it from RAM, which I assume means it uses the last
+part of the DMA'd packet???  Another explanation of the transmit state machine does
+not mention that you can disable FCS generation...  I'm going to print this out
+and read it again in detail...
 
-now that is interesting.  I have a working patch for adding netfilter
-hooks to the old MPLS stack.  If your rewrite doesn't yet have some,
-I'll gladly add them.
+I searched Intel's site for the e1000 docs, but could not find any detailed
+information.  Does anyone have a link to a (legal) copy of the e1000 docs?
 
-I also have a working implementation of the draft-ietf-mpls-lsp-ping-01
-based on the netfilter hooks for James Leu's MPLS implementation, btw.
+Thanks for the detailed information.  When I get the e100 and e1000 working to
+my satisfaction, I'll work on the tulip driver a bit.
 
-> cheers,
-> jamal
+Ben
 
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---qDbXVdCdHGoSgWSk
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQE/vySdXaXGVTD0i/8RAsRkAKCKaz6vCPFy9lQ9Y/Gifs+CPWGtkgCfbe7N
-4dl6fuBLhhKkNCft8ERmkJw=
-=gadv
------END PGP SIGNATURE-----
-
---qDbXVdCdHGoSgWSk--
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
