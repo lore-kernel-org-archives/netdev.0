@@ -1,75 +1,60 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: crappy/good gigabit chipsets?
-Date: Sat, 27 Nov 2004 14:47:06 +0100
-Message-ID: <20041127134706.GA28907@electric-eye.fr.zoreil.com>
-References: <41A81C15.5080905@gmx.net> <20041127111009.GB23139@xi.wantstofly.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: pktgen
+Date: Sat, 27 Nov 2004 14:53:54 +0100
+Message-ID: <20041127135354.GA24617@xi.wantstofly.org>
+References: <20041111233507.GA3202@xi.wantstofly.org> <20041124161848.GA18059@xi.wantstofly.org> <16804.48120.375307.718766@robur.slu.se> <20041124170948.GC18059@xi.wantstofly.org> <16804.60621.990421.525393@robur.slu.se> <20041125030450.GA24417@xi.wantstofly.org> <16805.40983.937641.670275@robur.slu.se> <20041127002841.GA17184@xi.wantstofly.org> <20041127004325.GA17401@xi.wantstofly.org> <16808.28005.74903.881087@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>,
-        Netdev <netdev@oss.sgi.com>
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Content-Disposition: inline
-In-Reply-To: <20041127111009.GB23139@xi.wantstofly.org>
+In-Reply-To: <16808.28005.74903.881087@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek <buytenh@wantstofly.org> :
-[...]
-> I'm not much of an expert, but I do have some experience to share.
+On Sat, Nov 27, 2004 at 01:04:53PM +0100, Robert Olsson wrote:
 
-AOL
+> 60	825789
+> 64	748975
+> 68	729149
+> 72	719721
+> 76	720204
+> 80	720127
+> 84	702722
+> 88	702799
+> 92	705107
+> 96	701711
+> 100	703858
+> 104	692120
+> 108	696139
+> 112	708936
+> 116	697780
+> 120	677887
+> 124	678158
+> 128	739290
+> 132	737070
+> 136	736894
+> 140	737645
+> 144	737816
+> 148	682755
+> 152	648547
+> 156	646464
 
-> I tried r8169 (Realtek gigabit chipset, used in various el-cheapo
-> GigE cards) in a cheap Asus mainboard in a 32/33 slot, and when
-> driver spewing out various scary-looking PCI errors to the console.
-> throwing enough packets at it the card would just stall with the
+This part is strange.  In my case the pps rate for 132-byte packets is
+100kpps lower than for 60-byte packets, in your case the curve is rather
+flat.  Perhaps you're CPU-bound here (or hitting some NIC limit.)
 
-<r8169 maintainer hat on>
+Your data is a bit noisy -- can you rerun the test for the 60-200 byte
+packet range but using 10M packets per run instead of 1M?
 
-- which chipset on the motherboard ?
-- do you have some (even gross) figures for the required packet rate ?
-- is your computer with the r8169 adapter still available for testing ?
 
-People, please report such behavior. Even if you do not have time to
-further help fixing it, it really helps me to know own many hit the
-issue. Bugzilla or mail are fine with me.
+> 160	679270
 
-> Didn't have time to look into it further at the time (this was on
-> 2.6.9-something.)  Might not be the NIC's fault.
+>From this point onwards your HW can saturate the pipe, this is the
+boring part of the graph.
 
-Sensible. Without further documentation related to the recovery for
-this specific issue (DAC related PCI errors are a different beast),
-I assumed that the safer thing was to disable the device.
 
-At least on x86, under load, I would not be surprised if it makes 
-zero difference to ignore the PCI error. Before this check was introduced,
-there was no identified complaint related to the stability of the driver
-in the vanilla kernel.
-
-More specifically, Google shows many people with r8169 issues. At the end
-of the day, there are mostly related to old drivers, flaky hardware,
-gcc 2.95.x, lovecraftian build of the kernel and such. Pending issues:
-1) a complete failure on an amd64 laptop I'll be happy to see disappear in
-   the "acpi killed me" category. Hopefully the things seem to improve
-   on the acpi side.
-2) Ben Greear experiences some troubles with a pcmcia adapter on its laptop.
-   I have recently got the hardware to dig this issue.
-3) gcc 2.95.4 related failure.
-4) misc pci error reports on x86 since the code for it has been added.
-   The pattern is not clear (chipset of the mobo ? cooling ? wtf ?).
-5) DAC sucks on x86_64.
-
-So far there are no known figures for the r8169 in the kind of setup that
-Carl-Daniel plans to use.
-
-> On an intel board with independent PCI buses, I see an e1000 'desktop'
-> NIC filling the pipe for any packet size > ~350 when the card sits on
-> its own PCI bus.  This is while running at 32/66, CPU being a 2.4GHz
-> Xeon.
-
-How do you fill it ?
-
---
-Ueimor
+thanks,
+Lennert
