@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] ethertap can use alloc_etherdev
-Date: Tue, 11 Nov 2003 14:45:57 -0800
+Subject: [PATCH] sk_g16 missing declaration
+Date: Tue, 11 Nov 2003 14:47:04 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031111144557.38bde052.shemminger@osdl.org>
+Message-ID: <20031111144704.1d6910de.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,19 +12,19 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Can use alloc_etherdev, don't need to call ether_setup.
-Found by viro.
+The new probe code in net-drivers-2.5-exp lost a declaration for the
+module case (thanks al).
 
-diff -Nru a/drivers/net/ethertap.c b/drivers/net/ethertap.c
---- a/drivers/net/ethertap.c	Tue Nov 11 09:36:15 2003
-+++ b/drivers/net/ethertap.c	Tue Nov 11 09:36:15 2003
-@@ -72,8 +72,7 @@
- 	struct net_device *dev;
- 	int err = -ENOMEM;
+diff -Nru a/drivers/net/sk_g16.c b/drivers/net/sk_g16.c
+--- a/drivers/net/sk_g16.c	Tue Nov 11 09:36:10 2003
++++ b/drivers/net/sk_g16.c	Tue Nov 11 09:36:10 2003
+@@ -604,6 +604,9 @@
  
--	dev = alloc_netdev(sizeof(struct net_local), "tap%d",
--			   ether_setup);
-+	dev = alloc_etherdev(sizeof(struct net_local));
  
- 	if (!dev)
- 		goto out;
+ #ifdef MODULE
++
++static struct net_device *SK_dev;
++
+ static int __init SK_init_module (void)
+ {
+  	SK_dev = SK_init(-1);
