@@ -1,103 +1,70 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/802/fc.c: remove fc_type_trans
-Date: Tue, 15 Mar 2005 13:20:17 +0100
-Message-ID: <20050315122017.GF3189@stusta.de>
-References: <20050306205754.GO5070@stusta.de> <20050314214940.4947ccd9.davem@davemloft.net>
+Subject: [2.6 patch] fix bridge <-> ATM compile error
+Date: Tue, 15 Mar 2005 13:19:30 +0100
+Message-ID: <20050315121930.GE3189__39666.5378976197$1110889422$gmane$org@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.co,
+        linux-kernel@vger.kernel.org
+Resent-Message-ID: <20050315122259.GG3189@stusta.de>
+To: shemminger@osdl.org, bridge@osdl.org, chas@cmf.nrl.navy.mil
 Content-Disposition: inline
-In-Reply-To: <20050314214940.4947ccd9.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 14, 2005 at 09:49:40PM -0800, David S. Miller wrote:
-> On Sun, 6 Mar 2005 21:57:54 +0100
-> Adrian Bunk <bunk@stusta.de> wrote:
-> 
-> > The only user of fc_type_trans (drivers/net/fc/iph5526.c) is BROKEN in 
-> > 2.6 and removed in -mm.
-> > 
-> > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> 
-> That driver isn't in Linus's tree any longer either.  Just delete
-> the thing altogether instead of #if 0'ing it.
->...
-
-Updated patch:
-
+This patch fixes the following compile error with CONFIG_BRIDGE=y and 
+CONFIG_ATM_LANE=m:
 
 <--  snip  -->
 
+...
+  LD      .tmp_vmlinux1
+net/built-in.o(.init.text+0x3ad1): In function `br_init':
+: undefined reference to `br_fdb_get_hook'
+net/built-in.o(.init.text+0x3adb): In function `br_init':
+: undefined reference to `br_fdb_put_hook'
+net/built-in.o(.exit.text+0xa2): In function `br_deinit':
+: undefined reference to `br_fdb_get_hook'
+net/built-in.o(.exit.text+0xac): In function `br_deinit':
+: undefined reference to `br_fdb_put_hook'
+make: *** [.tmp_vmlinux1] Error 1
 
-The only user of fc_type_trans (drivers/net/fc/iph5526.c) is removed in 
-Linus' tree.
+<--  snip  -->
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
 ---
 
- include/linux/fcdevice.h |    2 --
- net/802/fc.c             |   34 ----------------------------------
- 2 files changed, 36 deletions(-)
+ net/bridge/br.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
 
---- linux-2.6.11-mm1-full/include/linux/fcdevice.h.old	2005-03-06 21:40:36.000000000 +0100
-+++ linux-2.6.11-mm1-full/include/linux/fcdevice.h	2005-03-06 21:41:07.000000000 +0100
-@@ -24,12 +24,10 @@
- #define _LINUX_FCDEVICE_H
+--- linux-2.6.11-mm3-modular/net/bridge/br.c.old	2005-03-15 03:23:10.000000000 +0100
++++ linux-2.6.11-mm3-modular/net/bridge/br.c	2005-03-15 03:24:05.000000000 +0100
+@@ -22,7 +22,7 @@
  
+ #include "br_private.h"
  
- #include <linux/if_fc.h>
- 
- #ifdef __KERNEL__
--extern unsigned short	fc_type_trans(struct sk_buff *skb, struct net_device *dev); 
--
- extern struct net_device *alloc_fcdev(int sizeof_priv);
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
++#if defined(CONFIG_ATM_LANE) || (defined(CONFIG_ATM_LANE_MODULE) && defined(MODULE))
+ #include "../atm/lec.h"
  #endif
  
- #endif	/* _LINUX_FCDEVICE_H */
---- linux-2.6.11-mm3-full/net/802/fc.c.old	2005-03-15 13:02:13.000000000 +0100
-+++ linux-2.6.11-mm3-full/net/802/fc.c	2005-03-15 13:02:34.000000000 +0100
-@@ -97,40 +97,6 @@
- #endif
- }
+@@ -39,7 +39,7 @@
+ 	brioctl_set(br_ioctl_deviceless_stub);
+ 	br_handle_frame_hook = br_handle_frame;
  
--unsigned short
--fc_type_trans(struct sk_buff *skb, struct net_device *dev)
--{
--	struct fch_hdr *fch = (struct fch_hdr *)skb->data;
--	struct fcllc *fcllc;
--
--	skb->mac.raw = skb->data;
--	fcllc = (struct fcllc *)(skb->data + sizeof (struct fch_hdr) + 2);
--	skb_pull(skb, sizeof (struct fch_hdr) + 2);
--
--	if (*fch->daddr & 1) {
--		if (!memcmp(fch->daddr, dev->broadcast, FC_ALEN))
--			skb->pkt_type = PACKET_BROADCAST;
--		else
--			skb->pkt_type = PACKET_MULTICAST;
--	} else if (dev->flags & IFF_PROMISC) {
--		if (memcmp(fch->daddr, dev->dev_addr, FC_ALEN))
--			skb->pkt_type = PACKET_OTHERHOST;
--	}
--
--	/*
--	 * Strip the SNAP header from ARP packets since we don't pass
--	 * them through to the 802.2/SNAP layers.
--	 */
--	if (fcllc->dsap == EXTENDED_SAP &&
--	    (fcllc->ethertype == ntohs(ETH_P_IP) ||
--	     fcllc->ethertype == ntohs(ETH_P_ARP))) {
--		skb_pull(skb, sizeof (struct fcllc));
--		return fcllc->ethertype;
--	}
--
--	return ntohs(ETH_P_802_2);
--}
--
- static void fc_setup(struct net_device *dev)
- {
- 	dev->hard_header	= fc_header;
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
++#if defined(CONFIG_ATM_LANE) || (defined(CONFIG_ATM_LANE_MODULE) && defined(MODULE))
+ 	br_fdb_get_hook = br_fdb_get;
+ 	br_fdb_put_hook = br_fdb_put;
+ #endif
+@@ -60,7 +60,7 @@
+ 
+ 	synchronize_net();
+ 
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
++#if defined(CONFIG_ATM_LANE) || (defined(CONFIG_ATM_LANE_MODULE) && defined(MODULE))
+ 	br_fdb_get_hook = NULL;
+ 	br_fdb_put_hook = NULL;
+ #endif
