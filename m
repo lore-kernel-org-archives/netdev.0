@@ -1,37 +1,34 @@
-From: Fernando Gont <fernando@gont.com.ar>
-Subject: Re: ICMP attacks against TCP
-Date: Thu, 16 Sep 2004 16:34:51 -0300
+From: James Morris <jmorris@redhat.com>
+Subject: Re: Crypto tests via tcrypt.o modules failes
+Date: Thu, 16 Sep 2004 15:25:44 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4.3.2.7.2.20040916162351.00e16d00@pop.gmx.net>
-References: <4.3.2.7.2.20040912223315.00df2890@mail.daleclick.com>
- <4.3.2.7.2.20040912223315.00df2890@mail.daleclick.com> <20040913160133.69185327.davem@davemloft.net>
+Message-ID: <Xine.LNX.4.44.0409161524190.4676-100000@thoron.boston.redhat.com>
+References: <1095358282.3359.83.camel@swoop.gemtek.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Fernando Gont <fernando@gont.com.ar>
-In-Reply-To: <20040913160133.69185327.davem@davemloft.net>
-References: <4.3.2.7.2.20040912223315.00df2890@mail.daleclick.com>
- <4.3.2.7.2.20040912223315.00df2890@mail.daleclick.com>
+To: Zilvinas Valinskas <zilvinas@gemtek.lt>
+In-Reply-To: <1095358282.3359.83.camel@swoop.gemtek.lt>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 16:01 13/09/2004 -0700, David S. Miller wrote:
+On Thu, 16 Sep 2004, Zilvinas Valinskas wrote:
 
-> > There are some other work-arounds (for example, ignoring ICMP Source 
-> Quench
-> > messages) are not implemented in Linux, though.
->
->I have no problem changing Linux to ignore these ICMP Source Quench
->messages, I completely agree with the draft.  I've made the
->change in both my 2.4.x and 2.6.x trees as follows:
+> Details are here,http://www.gemtek.lt/~zilvinas/crypto/tcrypt-tests
 
-Great!
-
-Thanks so much for your feedback!
+AES is failing, but it has proven to be endian safe on other 
+architectures.
 
 
---
-Fernando Gont
-e-mail: fernando@gont.com.ar || fgont@acm.org
+Where does the 'fig' come from in:
+
+<4>decrypt: fig
+
+Can you try a completely unpatched kernel?
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
