@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [PATCH] Typhoon (3CR990) updates for 2.4
-Date: 26 Nov 2003 23:09:01 -0500
+Subject: [PATCH] Typhoon (3CR990) updates for 2.5
+Date: 26 Nov 2003 23:09:08 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1069906141.4557.6.camel@ori.thedillows.org>
+Message-ID: <1069906147.4552.10.camel@ori.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
@@ -16,28 +16,28 @@ List-Id: netdev.vger.kernel.org
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1063.4.32 -> 1.1063.47.1
-#	drivers/net/typhoon.c	1.4     -> 1.8    
+#	           ChangeSet	1.1486  -> 1.1487 
+#	drivers/net/typhoon.c	1.8     -> 1.12   
 #
 # The following is the BitKeeper ChangeSet Log
 # --
-# 03/11/25	dave@thedillows.org	1.1063.47.1
+# 03/11/26	dave@thedillows.org	1.1487
 # Bug fixes:
 # * Avoid short timeouts when waiting for a reset
-# * Support newer versions of the sleep image
+# * Fix issue with loading runtime image on newer versions of the sleep image
 # * Fix link status reporting
 # --
 #
 diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
--- a/drivers/net/typhoon.c	Wed Nov 26 00:45:39 2003
-+++ b/drivers/net/typhoon.c	Wed Nov 26 00:45:39 2003
+-- a/drivers/net/typhoon.c	Wed Nov 26 01:28:53 2003
++++ b/drivers/net/typhoon.c	Wed Nov 26 01:28:53 2003
 @@ -85,8 +85,8 @@
  #define PKT_BUF_SZ		1536
  
  #define DRV_MODULE_NAME		"typhoon"
--#define DRV_MODULE_VERSION 	"1.4.1"
+-#define DRV_MODULE_VERSION 	"1.5.1"
 -#define DRV_MODULE_RELDATE	"03/06/26"
-+#define DRV_MODULE_VERSION 	"1.4.2"
++#define DRV_MODULE_VERSION 	"1.5.2"
 +#define DRV_MODULE_RELDATE	"03/11/25"
  #define PFX			DRV_MODULE_NAME ": "
  #define ERR_PFX			KERN_ERR PFX
@@ -94,7 +94,7 @@ diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
  
  	writel(TYPHOON_INTR_ALL, ioaddr + TYPHOON_REG_INTR_MASK);
  	writel(TYPHOON_INTR_ALL, ioaddr + TYPHOON_REG_INTR_STATUS);
-@@ -1857,6 +1861,11 @@
+@@ -1858,6 +1862,11 @@
  	if(typhoon_wait_status(ioaddr, TYPHOON_STATUS_SLEEPING) < 0)
  		return -ETIMEDOUT;
  
@@ -106,7 +106,7 @@ diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
  	pci_enable_wake(tp->pdev, state, 1);
  	pci_disable_device(pdev);
  	return pci_set_power_state(pdev, state);
-@@ -1871,8 +1880,13 @@
+@@ -1872,8 +1881,13 @@
  	pci_set_power_state(pdev, 0);
  	pci_restore_state(pdev, tp->pci_state);
  
@@ -121,7 +121,7 @@ diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
  		return typhoon_reset(ioaddr, wait_type);
  
  	return 0;
-@@ -2250,7 +2264,7 @@
+@@ -2251,7 +2265,7 @@
  	void *shared;
  	dma_addr_t shared_dma;
  	struct cmd_desc xp_cmd;
@@ -130,14 +130,14 @@ diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
  	int i;
  	int err = 0;
  
-@@ -2378,15 +2392,15 @@
+@@ -2380,15 +2394,15 @@
  	}
  
  	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_MAC_ADDRESS);
 -	if(typhoon_issue_command(tp, 1, &xp_cmd, 1, &xp_resp) < 0) {
 +	if(typhoon_issue_command(tp, 1, &xp_cmd, 1, xp_resp) < 0) {
  		printk(ERR_PFX "%s: cannot read MAC address\n",
- 		       pdev->slot_name);
+ 		       pci_name(pdev));
  		err = -EIO;
  		goto error_out_reset;
  	}
@@ -149,7 +149,7 @@ diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
  
  	if(!is_valid_ether_addr(dev->dev_addr)) {
  		printk(ERR_PFX "%s: Could not obtain valid ethernet address, "
-@@ -2394,6 +2408,28 @@
+@@ -2396,6 +2410,28 @@
  		goto error_out_reset;
  	}
  
@@ -177,8 +177,8 @@ diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
 +
  	if(typhoon_sleep(tp, 3, 0) < 0) {
  		printk(ERR_PFX "%s: cannot put adapter to sleep\n",
- 		       pdev->slot_name);
-@@ -2401,9 +2437,6 @@
+ 		       pci_name(pdev));
+@@ -2403,9 +2439,6 @@
  		goto error_out_reset;
  	}
  
@@ -188,7 +188,7 @@ diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
  	/* The chip-specific entries in the device structure. */
  	dev->open		= typhoon_open;
  	dev->hard_start_xmit	= typhoon_start_tx;
-@@ -2440,6 +2473,32 @@
+@@ -2442,6 +2475,32 @@
  		printk("%2.2x:", dev->dev_addr[i]);
  	printk("%2.2x\n", dev->dev_addr[i]);
  
