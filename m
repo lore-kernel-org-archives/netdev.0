@@ -1,20 +1,26 @@
-From: Sam Leffler <sam@errno.com>
+From: Vladimir Kondratiev <vkondra@mail.ru>
 Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: Mon, 6 Sep 2004 12:30:54 -0700
+Date: Mon, 6 Sep 2004 23:09:18 +0300
 Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <44D53E64-003B-11D9-B426-000A95AD0668@errno.com>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <757AB580-0030-11D9-9224-000A95AD0668@errno.com> <200409062157.52042.vkondra@mail.ru>
+Message-ID: <200409062309.26113.vkondra@mail.ru>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409062157.52042.vkondra@mail.ru> <44D53E64-003B-11D9-B426-000A95AD0668@errno.com>
 Reply-To: acx100-devel@lists.sourceforge.net
-Mime-Version: 1.0 (Apple Message framework v619)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Mime-Version: 1.0
+Content-Type: multipart/signed;
+  boundary="nextPart5058822.29dr7VZc3Q";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>, netdev@oss.sgi.com,
-   acx100-devel@lists.sourceforge.net, jgarzik@pobox.com,
-   Jean Tourrilhes <jt@bougret.hpl.hp.com>, Jouni Malinen <jkmaline@cc.hut.fi>,
-   prism54-devel@prism54.org
+Cc: Sam Leffler <sam@errno.com>,
+ Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+ acx100-devel@lists.sourceforge.net,
+ jgarzik@pobox.com,
+ Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+ Jouni Malinen <jkmaline@cc.hut.fi>,
+ prism54-devel@prism54.org
 Return-path: <acx100-devel-admin@lists.sourceforge.net>
-In-Reply-To: <200409062157.52042.vkondra@mail.ru>
-To: Vladimir Kondratiev <vkondra@mail.ru>
+To: netdev@oss.sgi.com
+In-Reply-To: <44D53E64-003B-11D9-B426-000A95AD0668@errno.com>
 Errors-To: acx100-devel-admin@lists.sourceforge.net
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
@@ -25,22 +31,44 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Sep 6, 2004, at 11:57 AM, Vladimir Kondratiev wrote:
+--nextPart5058822.29dr7VZc3Q
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Sam,
->
-> could you please provide URL where this code is hosted? I know it only 
-> as part
-> of madwifi.
+I know about madwifi. I wondering whether there is URL for net80211, or it=
+=20
+exist only as part of madwifi.
+Thanks, Vladimir
+On Monday 06 September 2004 22:30, Sam Leffler wrote:
+SL> On Sep 6, 2004, at 11:57 AM, Vladimir Kondratiev wrote:
+SL>
+SL> > Sam,
+SL> >
+SL> > could you please provide URL where this code is hosted? I know it only
+SL> > as part
+SL> > of madwifi.
+SL>
+SL> The madwifi project is hosted at sourceforge
+SL> http;//sourceforge.net/projects/madwifi. Source code is currently
+SL> available only via cvs (but there's a web interface that you can reach
+SL> through the above url).
+SL>
+SL>  Sam
 
-The madwifi project is hosted at sourceforge 
-http;//sourceforge.net/projects/madwifi. Source code is currently 
-available only via cvs (but there's a web interface that you can reach 
-through the above url).
+--nextPart5058822.29dr7VZc3Q
+Content-Type: application/pgp-signature
 
-	Sam
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
 
+iD8DBQBBPMP2qxdj7mhC6o0RAvWCAKCOyYzH/QM+TncdMjwqMy/tRv4D6gCaAnmq
+V0Qm5+89YAX/B/uMhdZiUf8=
+=pcep
+-----END PGP SIGNATURE-----
 
+--nextPart5058822.29dr7VZc3Q--
 
 
 -------------------------------------------------------
