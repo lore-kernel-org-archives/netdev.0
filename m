@@ -1,9 +1,8 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [Patch 3/5 2.5] e100: Fix set ringparam for ethtool returning error
- code on bad input
-Date: Fri, 15 Oct 2004 06:53:40 -0700 (PDT)
+Subject: [Patch 4/5 2.5] e100: driver version update
+Date: Fri, 15 Oct 2004 06:53:49 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0410150556010.31227-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0410150557180.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -15,13 +14,12 @@ List-Id: netdev.vger.kernel.org
 diff -up netdev-2.6/drivers/net/e100.c netdev-2.6/drivers/net/e100.c.new
 --- netdev-2.6/drivers/net/e100.c	2004-10-07 13:58:59.000000000 -0700
 +++ netdev-2.6/drivers/net/e100.c.new	2004-10-07 13:59:00.000000000 -0700
-@@ -1957,6 +1957,9 @@ static int e100_set_ringparam(struct net
- 	struct param_range *rfds = &nic->params.rfds;
- 	struct param_range *cbs = &nic->params.cbs;
+@@ -155,7 +155,7 @@
  
-+	if ((ring->rx_mini_pending) || (ring->rx_jumbo_pending)) 
-+		return -EINVAL;
-+
- 	if(netif_running(netdev))
- 		e100_down(nic);
- 	rfds->count = max(ring->rx_pending, rfds->min);
+ #define DRV_NAME		"e100"
+ #define DRV_EXT		"-NAPI"
+-#define DRV_VERSION		"3.1.4"DRV_EXT
++#define DRV_VERSION		"3.2.3-k2"DRV_EXT
+ #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
+ #define DRV_COPYRIGHT		"Copyright(c) 1999-2004 Intel Corporation"
+ #define PFX			DRV_NAME ": "
