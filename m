@@ -1,36 +1,24 @@
-From: Andi Kleen <ak@suse.de>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] switch sdla to initcalls
-Date: Wed, 21 May 2003 12:31:23 +0200
+Date: Wed, 21 May 2003 03:33:36 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030521123123.40924dce.ak@suse.de>
-References: <20030521081938.GD22869@wotan.suse.de>
-	<20030521102512.A30373@lst.de>
-	<20030521082630.GF22869@wotan.suse.de>
-	<20030521.013453.118618445.davem@redhat.com>
+Message-ID: <20030521.033336.55842349.davem@redhat.com>
+References: <20030521101126.A30197@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hch@lst.de, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030521.013453.118618445.davem@redhat.com>
+To: hch@lst.de
+In-Reply-To: <20030521101126.A30197@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 May 2003 01:34:53 -0700 (PDT)
-"David S. Miller" <davem@redhat.com> wrote:
+   From: Christoph Hellwig <hch@lst.de>
+   Date: Wed, 21 May 2003 10:11:26 +0200
 
-> I have to admit that I must feign ignorance here.  And that someone
-> who really understands the EISA/ISA probe ordering requirements
-> should document them as best as possible in Space.c
+   Wow, on driver that had it's dirt fingers in both Space.c and
+   setup.c :)
 
-I doubt anybody understands it. It is just lots of hard earned ad-hoc 
-experience distilled in these files.
-
-It's basically untestable/unknown because you'll likely have a hard time
-to find such a card anymore. And even if you had you would need the other
-ISA cards that could possible conflicts to test all combinations - impossible
-task. For such unsolvable problems it is best to leave it untouched because it
-cannot be tested. Either that or remove the driver completely.
-
--Andi
+Since I think Andi's arguments are totally valid I'm not
+going to apply this, sorry.
