@@ -1,108 +1,196 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Asynchronous crypto layer.
-Date: Sun, 31 Oct 2004 01:46:38 +0400
-Message-ID: <20041031014638.596da2a5@zanzibar.2ka.mipt.ru>
-References: <1099030958.4944.148.camel@uganda>
-	<1099053738.1024.104.camel@jzny.localdomain>
-	<20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
-	<41824D9A.3070407@logix.cz>
-	<20041029183606.0b1a0538@zanzibar.2ka.mipt.ru>
-	<Pine.LNX.4.61.0410291636020.25667@maxipes.logix.cz>
-	<20041029192741.5344ad0f@zanzibar.2ka.mipt.ru>
-	<20041030203906.GC6256@gate.ebshome.net>
-	<20041031011719.07858890@zanzibar.2ka.mipt.ru>
-	<20041030210915.GE6256@gate.ebshome.net>
-Reply-To: johnpol@2ka.mipt.ru
+From: maximilian attems <janitor@sternwelten.at>
+Subject: [KJ] [patch 2.4] back port msleep(), msleep_interruptible()
+Date: Sun, 31 Oct 2004 00:22:28 +0200
+Message-ID: <20041030222228.GB1456@stro.at>
+References: <20040923221303.GB13244@us.ibm.com>
+	<20040923221303.GB13244@us.ibm.com>
+	<5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de>
+	<415CD9D9.2000607@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Michal Ludvig <michal@logix.cz>, netdev@oss.sgi.com,
-        cryptoapi@lists.logix.cz
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Eugene Surovegin <ebs@ebshome.net>
-In-Reply-To: <20041030210915.GE6256@gate.ebshome.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============01020764270095742=="
+Cc: netdev@oss.sgi.com, Margit Schubert-While <margitsw@t-online.de>,
+   kernel-janitors@lists.osdl.org, mcgrof@studorgs.rutgers.edu,
+   prism54-devel@prism54.org, Domen Puncer <domen@coderock.org>,
+   linux-kernel@vger.kernel.org, hvr@gnu.org
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <415CD9D9.2000607@pobox.com>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Oct 2004 14:09:15 -0700
-Eugene Surovegin <ebs@ebshome.net> wrote:
+--===============01020764270095742==
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> On Sun, Oct 31, 2004 at 01:17:19AM +0400, Evgeniy Polyakov wrote:
-> > On Sat, 30 Oct 2004 13:39:06 -0700
-> > Eugene Surovegin <ebs@ebshome.net> wrote:
-> > 
-> > > On Fri, Oct 29, 2004 at 07:27:41PM +0400, Evgeniy Polyakov wrote:
-> > > > but it was designed to be usefull only in custom MX box, 
-> > > 
-> > > This is not true. I coded it using Hifn PCI card plugged in 440GP eval 
-> > > board as well in P4 2.6 GHz box.
-> > > 
-> > > Driver isn't perfect, it's quite simple, I suspended all work on it 
-> > > because without async crypto it doesn't make a lot of sense.
-> > > 
-> > > > so it has some design notes that I do not agree with.
-> > > 
-> > > And they are (I know there are problems, just curious which ones you 
-> > > "don't agree with") ? 
-> > 
-> > It supports only one card, 
-> 
-> Yes, and comment says it trivially fixed  :)
-> 
-> > it has very nontrivial locking, 
-> 
-> locking is really simple, it was obviously done for current sync 
-> crypto layer.
+On Fri, 01 Oct 2004, Jeff Garzik wrote:
 
-Current locking just can not be used tu support several sessions to be 
-processed in a parallel, although hardware support it, not?
-Probably it is not driver problem, but what do we try to figure out?
-With current crypto it can work - good, with acrypto it must be completely 
-rewritten.
+> I would rather see an msleep implementation in 2.4.x...
 
-> > which may(I'm not sure after just finished diagonal review) lead to 
-> > too big latencies,
-> 
-> Huh?
+thanks for Domen Puncer at helping out.
 
-neither will hifn_cipher() busy-wait until request processing will be finished
-if it happens in interrupt context? 
+msleep() and msleep_interruptible() as found in current 2.6 to 2.4.
+therefor also adds the helper functions ssleep(), jiffies_to_msecs(),
+jiffies_to_usecs(), msecs_to_jiffies().
 
-> > hifn_cipher() can not work with any other crypto design, 
-> 
-> Well, this funny one :). Of course it cannot, because none existed 
-> when I wrote it. 
+compile and boot tested.
 
-It was written _only_ for syncronous events.
-I think only HW initialization bits can be copied into future version, 
-but again, what do we discuss and/or accuse? :)
+
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+
+
+---
+
+ include/linux/delay.h |    8 ++++++
+ include/linux/time.h  |   41 +++++++++++++++++++++++++++++++++
+ kernel/Makefile       |    3 +-
+ kernel/timer.c        |   33 ++++++++++++++++++++++++++
+ 4 files changed, 84 insertions(+), 1 deletion(-)
+
+diff -puN kernel/Makefile~add-msleep-2.4 kernel/Makefile
+--- a/kernel/Makefile~add-msleep-2.4	2004-10-30 22:48:46.000000000 +0200
++++ b/kernel/Makefile	2004-10-30 22:50:45.000000000 +0200
+@@ -9,7 +9,8 @@
  
-> If your async stuff will be accepted into the official kernel tree 
-> I'll re-write it ASAP.
-> 
-> > I doubt it can  work with other card capabilities other then you 
-> > have implemented without major rewrite.
-> 
-> Hmm, what do you mean "other" card? It's written for particular 
-> Hifn chip. I wrote it for IPSec acceleration in mind. Some algorithms 
-> aren't supported (compression for example), because we don't use 
-> them.
+ O_TARGET := kernel.o
+ 
+-export-objs = signal.o sys.o kmod.o context.o ksyms.o pm.o exec_domain.o printk.o
++export-objs   = signal.o sys.o kmod.o context.o ksyms.o pm.o exec_domain.o \
++		printk.o timer.o
+ 
+ obj-y     = sched.o dma.o fork.o exec_domain.o panic.o printk.o \
+ 	    module.o exit.o itimer.o info.o time.o softirq.o resource.o \
+diff -puN kernel/timer.c~add-msleep-2.4 kernel/timer.c
+--- a/kernel/timer.c~add-msleep-2.4	2004-10-30 22:48:46.000000000 +0200
++++ b/kernel/timer.c	2004-10-30 22:50:09.000000000 +0200
+@@ -22,6 +22,7 @@
+ #include <linux/smp_lock.h>
+ #include <linux/interrupt.h>
+ #include <linux/kernel_stat.h>
++#include <linux/module.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -874,3 +875,35 @@ asmlinkage long sys_nanosleep(struct tim
+ 	return 0;
+ }
+ 
++/**
++ * msleep - sleep safely even with waitqueue interruptions
++ * @msecs: Time in milliseconds to sleep for
++ */
++void msleep(unsigned int msecs)
++{
++	unsigned long timeout = msecs_to_jiffies(msecs) + 1;
++
++	while (timeout) {
++		set_current_state(TASK_UNINTERRUPTIBLE);
++		timeout = schedule_timeout(timeout);
++	}
++}
++
++EXPORT_SYMBOL(msleep);
++
++/**
++ * msleep_interruptible - sleep waiting for waitqueue interruptions
++ * @msecs: Time in milliseconds to sleep for
++ */
++unsigned long msleep_interruptible(unsigned int msecs)
++{
++	unsigned long timeout = msecs_to_jiffies(msecs) + 1;
++
++	while (timeout && !signal_pending(current)) {
++		set_current_state(TASK_INTERRUPTIBLE);
++		timeout = schedule_timeout(timeout);
++	}
++	return jiffies_to_msecs(timeout);
++}
++
++EXPORT_SYMBOL(msleep_interruptible);
+diff -puN include/linux/delay.h~add-msleep-2.4 include/linux/delay.h
+--- a/include/linux/delay.h~add-msleep-2.4	2004-10-30 22:48:46.000000000 +0200
++++ b/include/linux/delay.h	2004-10-30 22:48:46.000000000 +0200
+@@ -34,4 +34,12 @@ extern unsigned long loops_per_jiffy;
+ 	({unsigned long msec=(n); while (msec--) udelay(1000);}))
+ #endif
+ 
++void msleep(unsigned int msecs);
++unsigned long msleep_interruptible(unsigned int msecs);
++
++static inline void ssleep(unsigned int seconds)
++{
++	msleep(seconds * 1000);
++}
++
+ #endif /* defined(_LINUX_DELAY_H) */
+diff -puN include/linux/time.h~add-msleep-2.4 include/linux/time.h
+--- a/include/linux/time.h~add-msleep-2.4	2004-10-30 22:48:46.000000000 +0200
++++ b/include/linux/time.h	2004-10-30 22:48:46.000000000 +0200
+@@ -126,4 +126,45 @@ struct	itimerval {
+ 	struct	timeval it_value;	/* current value */
+ };
+ 
++/*
++ * Convert jiffies to milliseconds and back.
++ *
++ * Avoid unnecessary multiplications/divisions in the
++ * two most common HZ cases:
++ */
++static inline unsigned int jiffies_to_msecs(const unsigned long j)
++{
++#if HZ <= 1000 && !(1000 % HZ)
++	return (1000 / HZ) * j;
++#elif HZ > 1000 && !(HZ % 1000)
++	return (j + (HZ / 1000) - 1)/(HZ / 1000);
++#else
++	return (j * 1000) / HZ;
++#endif
++}
++
++static inline unsigned int jiffies_to_usecs(const unsigned long j)
++{
++#if HZ <= 1000 && !(1000 % HZ)
++	return (1000000 / HZ) * j;
++#elif HZ > 1000 && !(HZ % 1000)
++	return (j*1000 + (HZ - 1000))/(HZ / 1000);
++#else
++	return (j * 1000000) / HZ;
++#endif
++}
++
++static inline unsigned long msecs_to_jiffies(const unsigned int m)
++{
++	if (m > jiffies_to_msecs(MAX_JIFFY_OFFSET))
++		return MAX_JIFFY_OFFSET;
++#if HZ <= 1000 && !(1000 % HZ)
++	return (m + (1000 / HZ) - 1) / (1000 / HZ);
++#elif HZ > 1000 && !(HZ % 1000)
++	return m * (HZ / 1000);
++#else
++	return (m * HZ + 999) / 1000;
++#endif
++}
++
+ #endif
 
-I mean other capabilities not card.
-
-> > I'm quite sure it is good driver for current crypto schema, but if
-> > acrypto will be committed it could not work without complete rewrite.
-> 
-> Yes, that's true :). That's the reason I never officially announced it, 
-> because current one is quite trivial, and there are a lot of things 
-> which can be improved upon, after async crypto is in, and IPSec uses 
-> it.
-> 
-> --
-> Eugene
 
 
-	Evgeniy Polyakov
+--===============01020764270095742==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Only failure makes us experts. -- Theo de Raadt
+_______________________________________________
+Kernel-janitors mailing list
+Kernel-janitors@lists.osdl.org
+http://lists.osdl.org/mailman/listinfo/kernel-janitors
+
+--===============01020764270095742==--
