@@ -1,93 +1,30 @@
-From: Surakshan Mendis <surakshan@surasoft.com>
-Subject: Re: Fw: [Bugme-new] [Bug 3765] New: Network link down, when
-	writting to sata disk AND network in use
-Date: Fri, 19 Nov 2004 20:06:39 +0800
-Message-ID: <1100865999.13851.7.camel@localhost>
-References: <20041117211822.243aa8bd.akpm@osdl.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
+	using SELinux and SOCK_SEQPACKET
+Date: Fri, 19 Nov 2004 11:39:22 +0000
+Message-ID: <1100864358.8127.5.camel@localhost.localdomain>
+References: <Xine.LNX.4.44.0411182207080.7831-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, bugtracker@surasoft.com
+Cc: Ross Kendall Axe <ross.axe@blueyonder.co.uk>, netdev@oss.sgi.com,
+        Stephen Smalley <sds@epoch.ncsc.mil>,
+        lkml <linux-kernel@vger.kernel.org>, Chris Wright <chrisw@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041117211822.243aa8bd.akpm@osdl.org>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0411182207080.7831-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-FYI 
+On Gwe, 2004-11-19 at 03:12, James Morris wrote:
+> On Thu, 18 Nov 2004, Alan Cox wrote:
+> 
+> > As to the other stuff I think the only change needed is to check the
+> > queued asynchronous error and report that before going on to the
+> > connected test
+> 
+> How about this?
 
-I've just added a realtek based card using the 8139too kernel module.
-The "issue" mention below DOES NOT happen with this network card. Only
-with the onboard b44 card!
-
-
-
-On Wed, 2004-11-17 at 21:18 -0800, Andrew Morton wrote:
-> 
-> Well this is novel.  I'd be suspecting a hardware problem.  Are you sure
-> the power supply isn't overloaded, or in need of replacement?
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Wed, 17 Nov 2004 21:13:36 -0800
-> From: bugme-daemon@osdl.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 3765] New: Network link down, when writting to sata disk AND network in use
-> 
-> 
-> http://bugme.osdl.org/show_bug.cgi?id=3765
-> 
->            Summary: Network link down, when writting to sata disk AND
->                     network in use
->     Kernel Version: linux-kernel 2.6.9
->             Status: NEW
->           Severity: high
->              Owner: other_other@kernel-bugs.osdl.org
->          Submitter: bugtracker@surasoft.com
-> 
-> 
-> Distribution: Gentoo
-> 
-> Hardware Environment: 
-> P4 2.66ghz
-> Motherboard: ASUS P4PE (with onboard lan)
-> Promise Sata150 TX4 PCI (sata expansion card)
-> 
-> Software Environment: 
-> Kernel 2.6.9
-> - onboard LAN: driver in use
-> - "Broadcom 4400 ethernet support" compiled into kernel
-> 
-> - Promise Sata150 TX4 PCI (sata expansion card)
-> - Driver "Promise SATA TX2/TX4 support" compiled into kernel
-> - 200GB Western Digital SATA drive attached to PCI sata card
-> 
-> Problem Description:
-> If data is being copied to the SATA drive (eg from another DISK which is on
-> motherboard IDE controller) AND I start a network data transfer where data is
-> goung through the Broadcom lan the following occurs (from kernel log)
-> 
-> Nov 18 11:43:10 synapse b44: eth0: Link is down.
-> Nov 18 11:43:15 synapse b44: eth0: Link is up at 100 Mbps, full duplex.
-> Nov 18 11:43:15 synapse b44: eth0: Flow control is on for TX and on for RX.
-> Nov 18 11:43:19 synapse b44: eth0: Link is down.
-> Nov 18 11:43:21 synapse b44: eth0: Link is up at 100 Mbps, full duplex. 
-> 
-> Link keeps going up and down, as long as there's data movment from the SATA
-> drive, and a network movement (network download doesn't have to be saving to the
->  sata drive)
-> 
-> I've disabled APCI, problem persits.
-> 
-> Steps to reproduce:
-> 1. copy data to Sata drive CONNECTED to PCI controller
-> 2. Download file from network via onboard LAN, doesn't matter which drive you
-> save it
-> 3. Onboards lan "link" goes up and down, causing disruption to network useage.
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
-> 
-> 
+Looks right to me, the ECONNRESET is no longer being lost.
