@@ -1,59 +1,72 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: tulip NAPI patch that works with 2.4.20-pre9 or so?
-Date: Tue, 22 Oct 2002 09:56:59 -0700
+From: "pvpi25200oramd@compuserve.net" <mdsk25200oramd@compuserve.net>
+Subject: Gingivitis? - Gum Disease? - Bleeding Gums? xnxh
+Date: Tue, 22 Oct 2002 15:43:03 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DB5835B.8000502@candelatech.com>
-References: <Pine.GSO.4.30.0210210826440.17911-100000@shell.cyberus.ca>	<3DB4EB25.5050706@candelatech.com> <15797.22728.683363.412344@robur.slu.se>
+Message-ID: <200210221940.g9MJeduR026182@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+To: Oral.Care@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
-> Ben Greear writes:
-> 
-> 
->    In the help file, you suggest this at close:
->             for (i=0; i<NR_CPUS; i++) {
->  -                  if(adapter->cnt[i]) {
-> .
->    I think the second if should probably be while, ie like this:
->             for (i=0; i<NR_CPUS; i++) {
->  +                  while(adapter->cnt[i]) {
->  
->  Thanks!
-> 
->  Your postings about driver for p430 Phobos 4-port NIC was very confusing. 
->  I assume that tulip in 2.4.20-pre9 works even without the tulip-020922.pat.  
->  Right?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          Gum Disease? - Gingivitis? - Bleeding Gums?
+               Nature Provides the Best Answer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-It works fine as far as negotiation and ping goes, it just drops packets
-(and very rarely, locks up on receive) at higher speeds.  With NAPI and
-larger receive buffers, it drops very few packets, though it does occasionally
-lock up when I first start traffic.  I will run tulip-diag on it next time
-it does this...
+Gum disease occurs naturally. You can end it naturally too!
 
-> 
->  Does the board have separate MII-transceivers or is the tulip chips used
->  for MII?
+        "Since using Oramd, my wife and I have both
+        noticed improvements in our gums. My gums had
+        been bleeding due to separation between the
+        gum and tooth, or plaque build-up. Using two
+        drops for brushing has made a difference. I am
+        re-ordering the product because I am convinced
+        that it is working for both of us, and I want
+        to see how much improvement I can realize over
+        a longer period of time. I've only been using
+        it for a month and I can see a difference".
 
-I'm not sure...
+        Richard Massie, New York
 
-Thanks,
-Ben
+            -----------------------------------
+        "I was experiencing sensitive teeth (sensitive
+        to hot and cold) and went to the dentist. He
+        coated the affected tooth with a product that
+        was supposed to stop the sensitivity but it did
+        not. Two days later my first order of OraMD
+        arrived and I started to use it. By the second
+        day the sensitivity was gone. Also, I like the
+        way my teeth feel, clean and fresh, after using
+        OraMD. Your product is great".
 
-> 
->  Cheers.
-> 
-> 						--ro
-> 
+        Bill Gore
+        Cincinnati, OH
+            -----------------------------------
+
+        "I really do enjoy using your product ORAMD. It
+        gives my mouth such a clean refreshing taste. I
+        was so excited when I went to the dentist after
+        using your product for 3 months , I had zero bleeding
+        points!! That was the first time I had ever had
+        no bleeding points. I especially like the fact
+        that it is all natural with no chemicals or
+        preservatives. If gives my mouth a fresh awaking
+        feeling and I feel like I have not had bad breath
+        since I have started using it. Its a terrific
+        product and would highly recommend it to anyone.
+        Thanks for making a healthy tooth polish combination
+        mouth wash!"
+
+        Sue Donahoe, Lexington, KY
 
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Click for more information and tons of testimonials
+http://www.oramd.com/_le.htm
+
+
+
+This message sent to netdev@oss.sgi.com
+We absolutely honor your request to be taken off our mailing list
+http://www.oramd.com/_goodbye.htm
