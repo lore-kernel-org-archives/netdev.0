@@ -1,33 +1,32 @@
-From: Andrea G Forte <andreaf@cs.columbia.edu>
-Subject: IP aliasing and IP change delay.
-Date: Mon, 06 Dec 2004 19:28:04 -0500
-Message-ID: <41B4F914.2070401@cs.columbia.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Tue, 07 Dec 2004 12:13:33 +1100
+Message-ID: <E1CbTv3-000732-00@gondolin.me.apana.org.au>
+References: <200412061642.00552.hasso@estpak.ee>
+Cc: hadi@cyberus.ca, paul@clubi.ie, thomas.spatzier@de.ibm.com,
+        jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: hasso@estpak.ee (Hasso Tepper)
+In-Reply-To: <200412061642.00552.hasso@estpak.ee>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello all,
+Hasso Tepper <hasso@estpak.ee> wrote:
+> 
+> Seems that it's no longer true. Seems that kernel is now trying as hard as 
+> possible not to loose any data - data is queued and if the queue will be 
+> full, all related sockets will be blocked to notify application. So, one 
+> socket approach don't work any more for Quagga/Zebra. No problem, we can 
+> take the "one socket per interface" approach. And we already have link 
+> detection implemented to notify daemons.
 
-I am new to this list but I hope you can help me.
-I have been trying to use two different IP addresses on the same PCMCIA 
-wireless card. For doing this I tried the classic
-ifconfig wlan0:0 inet xxx.xxx.xxx.xxx
-route ......
-and I also tried
-ip address add xxx.xxx.xxx.xxx dev wlan0
-
-The problem is that after I issue the command, the IP is actually 
-changed several hundred of milliseconds later, while if I do not create 
-an alias and change the IP twice on the same interface (using ifconfig), 
-then the change of IP is really fast, practically it changes starting 
-from the packet following the command.
-Anybody has some ideas why there is such a double behaviour if using 
-wlan0 and wlan0:0 or using only wlan0??
-
-Thank you very much for your help,
-Andrea
+I don't see why this should be happening.  Can you please provide a
+minimal program that reproduces this blocking problem? For example,
+something that sends a packet to a downed interface and then sends
+one to an interface that's up?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
