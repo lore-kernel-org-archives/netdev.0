@@ -1,38 +1,58 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Change MAC without bringing interface down
-Date: Mon, 18 Aug 2003 05:12:27 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818051227.4f35f2f3.davem@redhat.com>
-References: <20030818091312.GA4889@lapdog>
-	<20030818041911.358c3437.davem@redhat.com>
-	<1061208824.16010.2119.camel@jzny.localdomain>
+From: Stephan von Krawczynski <skraw@ithnet.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Mon, 18 Aug 2003 14:34:01 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030818143401.1352d158.skraw@ithnet.com>
+References: <20030728213933.F81299@coredump.scriptkiddie.org>
+	<200308171509570955.003E4FEC@192.168.128.16>
+	<200308171516090038.0043F977@192.168.128.16>
+	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
+	<200308171555280781.0067FB36@192.168.128.16>
+	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
+	<200308171759540391.00AA8CAB@192.168.128.16>
+	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
+	<200308171827130739.00C3905F@192.168.128.16>
+	<1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk>
+	<20030817224849.GB734@alpha.home.local>
+	<20030817223118.3cbc497c.davem@redhat.com>
+	<20030818133957.3d3d51d2.skraw@ithnet.com>
+	<20030818044419.0bc24d14.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tv@debian.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1061208824.16010.2119.camel@jzny.localdomain>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
+	lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+	marcelo@conectiva.com.br, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030818044419.0bc24d14.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On 18 Aug 2003 08:13:44 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Mon, 18 Aug 2003 04:44:19 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-> Editing the header may be the better approach if you have a few hundred 
-> hhs already inserted (this was the issue i was faced with when VRRP was
-> failing over when i was playing with it). I tried to flush the cache but
-> it took longer to recover it. 
+> On Mon, 18 Aug 2003 13:39:57 +0200
+> Stephan von Krawczynski <skraw@ithnet.com> wrote:
+> 
+> > Can you please give us a striking example of a widespread application where
+> > current behaviour is a requirement or at least a very positive thing?
+> 
+> [ I've been waiting what seems like centuries for someone
+>   to even consider talking about source address selection,
+>   alas I have to bring it up myself :( ]
+> 
+> I'll responsd by asking questions of you.
 
-There is another reason I want the cache flushed.
+David, this is the wrong way round. Others'/my question was not about the
+implementation and technical considerations leading to it (bottom up), but pure
+and simple (and top down): what is the _positive_ outcome of this
+implementation compared to others? We are always talking of setups that seem to
+be more complicated because of the current situation. So one would expect that
+there are advantages that make up the discussed disadvantages.
+And since I obviously don't have the knowledge to see them, I'd like to learn
+and therefore ask: what are the advantages on the _users_ side?
 
-Those hh cache entries are what ARP resolved to when we
-had the previous MAC address, not the one we have now.
-
-The ARPs may come back differently with the new MAC
-address.
-
-I _REALLY REALLY_ don't want to have to change the
-->update() implementations.  Although one thing I
-would consider is a new ->update_src() operation
-and if this were NULL we flush the entries instead.
+Regards,
+Stephan
