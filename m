@@ -1,33 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 9/11] PKT_SCHED: Cleanup cls_set_class
-Date: Wed, 27 Oct 2004 14:38:19 -0700
+Subject: Re: [PATCH 2.6] fix NLM_F_MULTI in tcp_diag and xfrm_user (was Re:
+ BTW)
+Date: Wed, 27 Oct 2004 14:42:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027143819.3c92655a.davem@davemloft.net>
-References: <20041026222148.GA12289@postel.suug.ch>
-	<20041026222813.GJ12289@postel.suug.ch>
-	<1098867450.1813.37.camel@cyan.cph.tpack.net>
-	<20041027094238.GM12289@postel.suug.ch>
+Message-ID: <20041027144210.03b95b4b.davem@davemloft.net>
+References: <20041027074307.GT18934@sunbeam.de.gnumonks.org>
+	<E1CMjAM-0002aJ-00@gondolin.me.apana.org.au>
+	<20041027085141.GW18934@sunbeam.de.gnumonks.org>
+	<20041027094057.GA10305@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tommy.christensen@tpack.net, netdev@oss.sgi.com, hadi@cyberus.ca
+Cc: laforge@netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041027094238.GM12289@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041027094057.GA10305@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Oct 2004 11:42:38 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Wed, 27 Oct 2004 19:40:57 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> > This locks once too many.
-> > (And it returns an *unsigned* long.)
+> On Wed, Oct 27, 2004 at 10:51:41AM +0200, Harald Welte wrote:
+> > Sorry for submitting incomplete/stupid patches, but as indicated before,
+> > I'm not familiar with that code at all.
 > 
-> Thanks. I wonder how this lock could get in there.
+> Thank you very much for persisting in this.  It looks great.
 > 
-> 
-> Remove bogus lock and make cls_set_class return unsigned long.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Applied, thanks.
+Applied, thanks everyone :-)
