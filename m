@@ -1,36 +1,45 @@
-From: P@draigBrady.com
-Subject: gettimeofday scalability
-Date: Tue, 05 Oct 2004 17:36:06 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Hang when testing with AMD64 with Tg3
+Date: Tue, 05 Oct 2004 10:06:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4162CD76.4070204@draigBrady.com>
+Message-ID: <1096995975.22947.7.camel@localhost.localdomain>
+References: <1096935071.22155.6.camel@localhost.localdomain>
+	 <20041005001527.GB13106@wotan.suse.de>
+	 <1096938308.22947.3.camel@localhost.localdomain>
+	 <4162B6B2.6030208@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Ingo Molnar <mingo@elte.hu>, Andrea Arcangeli <andrea@suse.de>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@suse.de>, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <4162B6B2.6030208@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I'm starting to look again at the performance of my packet sniffer.
-Any performace tips are appreciated (I'm using irq affinity and
-CONFIG_PACKET_MMAP on 2.4.20 on a dual P4 xeon at present).
+On Tue, 2004-10-05 at 07:58 -0700, Nivedita Singhvi wrote:
+> Stephen Hemminger wrote:
+> > On Tue, 2004-10-05 at 02:15 +0200, Andi Kleen wrote:
+> > 
+> >>On Mon, Oct 04, 2004 at 05:11:11PM -0700, Stephen Hemminger wrote:
+> >>
+> >>>Doing simple iperf test on new opteron with tg3 against existing Xeon
+> >>>system.  I am seeing something wierd, the connection hangs right away.
+> >>>Is this a TSO bug.  
+> >>>
+> >>>Sender: BK latest (2.6.9-rc3) Tg3 (XX.YY.250.3)
+> >>>Receiver: BK + netdev(jeffm) + dave's latest e100 (XX.YY.1.73)
+> >>>
+> >>>Both machines are directly connected with a netgear 100mbit switch.
+> >>
+> > 
+> > IT ISN'T A NETWORK PROBLEM.  The problem is that iperf uses posix
+> > pthread mutex's to sychronize and it looks like a futex bug.
+> 
+> might not be a futex bug - check to see if iperf does
+> any writes, fflushes, etc, in a signal handler - i.e.
+> that its signal handling is thread-safe. glibc now
+> makes it a fatal bug..
 
-In particular I was wondering about reducing the overhead of
-calling do_gettimeofday.
-
-I noticed in the following paper that the xeon is much less
-efficient than the P3 for gettimeofday (for the syscall at least):
-http://www.labs.fujitsu.com/en/techinfo/linux/lse-0211/lse-0211.pdf
-
-I've seen various gettimeofday locking speedup patches floating
-around for 2.4. There is a version from Stephen and Andrea
-that uses frlock, claiming 18%, and one from ingo that uses brlock.
-2.6.8.1 uses seqlock, which contains the comment
-that it's not as cache friendly as brlock.
-
-So can anyone summarise the relative merits of these locking
-mechanisms, before I start benchmarking?
-
-thanks,
-P=C3=A1draig.
+It doesn't do I/O from signal handler, but the problem goes away when
+not compiling with -O2.
