@@ -1,7 +1,7 @@
 From: domen@coderock.org
-Subject: [patch 18/26] net/8139too: remove interruptible_sleep_on_timeout() usage
-Date: Sun, 06 Mar 2005 11:33:36 +0100
-Message-ID: <20050306103337.3B60B1F202@trashy.coderock.org>
+Subject: [patch 13/26] net/airo: replace schedule_timeout() with msleep()/ssleep()
+Date: Sun, 06 Mar 2005 11:33:18 +0100
+Message-ID: <20050306103319.0A45D1F1F0@trashy.coderock.org>
 Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
@@ -10,53 +10,97 @@ List-Id: netdev.vger.kernel.org
 
 
 
-One thing I would have preferred using here is use wait_event*(), but there is
-no condition. However, try_to_freeze(PF_FREEZE) could be used as one, if the
-return condition matters -- it can return 0 or 1, from what I understand. If the
-intent is to loop until the task is "frozen," then I can revise the patch to use
-wait_event_interruptible_timeout().
-
-Replace deprecated interruptible_sleep_on_timeout() function calls
-with direct wait-queue usage. I did not find the direct wake_up_interruptible()
-function call in this file for the wait-queue, but that may not be an issue.
-Patch is compile-tested.
+Use msleep()/ssleep() instead of schedule_timeout() to guarantee the task delays as expected.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/8139too.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletion(-)
+ kj-domen/drivers/net/wireless/airo.c |   25 +++++++++----------------
+ 1 files changed, 9 insertions(+), 16 deletions(-)
 
-diff -puN drivers/net/8139too.c~int_sleep_on-drivers_net_8139too drivers/net/8139too.c
---- kj/drivers/net/8139too.c~int_sleep_on-drivers_net_8139too	2005-03-05 16:12:09.000000000 +0100
-+++ kj-domen/drivers/net/8139too.c	2005-03-05 16:12:09.000000000 +0100
-@@ -108,6 +108,7 @@
- #include <linux/mii.h>
- #include <linux/completion.h>
- #include <linux/crc32.h>
-+#include <linux/wait.h>
- #include <asm/io.h>
- #include <asm/uaccess.h>
- #include <asm/irq.h>
-@@ -1612,6 +1613,7 @@ static inline void rtl8139_thread_iter (
+diff -puN drivers/net/wireless/airo.c~msleep_ssleep-drivers_net_wireless_airo drivers/net/wireless/airo.c
+--- kj/drivers/net/wireless/airo.c~msleep_ssleep-drivers_net_wireless_airo	2005-03-05 16:10:27.000000000 +0100
++++ kj-domen/drivers/net/wireless/airo.c	2005-03-05 16:10:27.000000000 +0100
+@@ -1698,9 +1698,8 @@ static int readBSSListRid(struct airo_in
+ 			issuecommand(ai, &cmd, &rsp);
+ 			up(&ai->sem);
+ 			/* Let the command take effect */
+-			set_current_state (TASK_INTERRUPTIBLE);
+ 			ai->task = current;
+-			schedule_timeout (3*HZ);
++			ssleep(3);
+ 			ai->task = NULL;
+ 		}
+ 	rc = PC4500_readrid(ai, first ? RID_BSSLISTFIRST : RID_BSSLISTNEXT,
+@@ -2685,11 +2684,9 @@ int reset_card( struct net_device *dev ,
+ 		return -1;
+ 	waitbusy (ai);
+ 	OUT4500(ai,COMMAND,CMD_SOFTRESET);
+-	set_current_state (TASK_UNINTERRUPTIBLE);
+-	schedule_timeout (HZ/5);
++	msleep(200);
+ 	waitbusy (ai);
+-	set_current_state (TASK_UNINTERRUPTIBLE);
+-	schedule_timeout (HZ/5);
++	msleep(200);
+ 	if (lock)
+ 		up(&ai->sem);
+ 	return 0;
+@@ -5516,12 +5513,12 @@ static int airo_pci_resume(struct pci_de
+ 	} else {
+ 		OUT4500(ai, EVACK, EV_AWAKEN);
+ 		OUT4500(ai, EVACK, EV_AWAKEN);
+-		schedule_timeout(HZ/10);
++		msleep(100);
+ 	}
  
- static int rtl8139_thread (void *data)
- {
-+	DEFINE_WAIT(wait);
- 	struct net_device *dev = data;
- 	struct rtl8139_private *tp = dev->priv;
- 	unsigned long timeout;
-@@ -1622,7 +1624,9 @@ static int rtl8139_thread (void *data)
- 	while (1) {
- 		timeout = next_tick;
- 		do {
--			timeout = interruptible_sleep_on_timeout (&tp->thr_wait, timeout);
-+			prepare_to_wait(&tp->thr_wait, &wait, TASK_INTERRUPTIBLE);
-+			timeout = schedule_timeout(timeout);
-+			finish_wait(&tp->thr_wait, &wait);
- 			/* make swsusp happy with our thread */
- 			try_to_freeze(PF_FREEZE);
- 		} while (!signal_pending (current) && (timeout > 0));
+ 	set_bit (FLAG_COMMIT, &ai->flags);
+ 	disable_MAC(ai, 0);
+-        schedule_timeout (HZ/5);
++	msleep(200);
+ 	if (ai->SSID) {
+ 		writeSsidRid(ai, ai->SSID, 0);
+ 		kfree(ai->SSID);
+@@ -7470,8 +7467,7 @@ int cmdreset(struct airo_info *ai) {
+ 
+ 	OUT4500(ai,COMMAND,CMD_SOFTRESET);
+ 
+-	set_current_state (TASK_UNINTERRUPTIBLE);
+-	schedule_timeout (HZ);          /* WAS 600 12/7/00 */
++	ssleep(1);			/* WAS 600 12/7/00 */
+ 
+ 	if(!waitbusy (ai)){
+ 		printk(KERN_INFO "Waitbusy hang AFTER RESET\n");
+@@ -7498,8 +7494,7 @@ int setflashmode (struct airo_info *ai) 
+ 		OUT4500(ai, SWS3, FLASH_COMMAND);
+ 		OUT4500(ai, COMMAND,0);
+ 	}
+-	set_current_state (TASK_UNINTERRUPTIBLE);
+-	schedule_timeout (HZ/2); /* 500ms delay */
++	msleep(500);		/* 500ms delay */
+ 
+ 	if(!waitbusy(ai)) {
+ 		clear_bit (FLAG_FLASHING, &ai->flags);
+@@ -7609,8 +7604,7 @@ int flashputbuf(struct airo_info *ai){
+ int flashrestart(struct airo_info *ai,struct net_device *dev){
+ 	int    i,status;
+ 
+-	set_current_state (TASK_UNINTERRUPTIBLE);
+-	schedule_timeout (HZ);          /* Added 12/7/00 */
++	ssleep(1);			/* Added 12/7/00 */
+ 	clear_bit (FLAG_FLASHING, &ai->flags);
+ 	if (test_bit(FLAG_MPI, &ai->flags)) {
+ 		status = mpi_init_descriptors(ai);
+@@ -7625,8 +7619,7 @@ int flashrestart(struct airo_info *ai,st
+ 				( ai, 2312, i >= MAX_FIDS / 2 );
+ 		}
+ 
+-	set_current_state (TASK_UNINTERRUPTIBLE);
+-	schedule_timeout (HZ);          /* Added 12/7/00 */
++	ssleep(1);			/* Added 12/7/00 */
+ 	return status;
+ }
+ #endif /* CISCO_EXT */
 _
