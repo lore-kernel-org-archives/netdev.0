@@ -1,48 +1,29 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: route cache DoS testing and softirqs
-Date: Thu, 1 Apr 2004 10:43:45 +0400 (MSD)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] fix IGMPv3 timer initialization when device not "upped"
+Date: Wed, 31 Mar 2004 23:02:31 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404010643.KAA08190@yakov.inr.ac.ru>
-References: <20040331225259.GT2143@dualathlon.random>
+Message-ID: <20040331230231.5ab14fa8.davem@redhat.com>
+References: <20040330192558.1d9c8eb2.davem@redhat.com>
+	<OF6BC12EE1.9BBDEC37-ON88256E69.0021C0E6-88256E69.0021F10B@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se (Robert Olsson),
-        dipankar@in.ibm.com (Dipankar Sarma),
-        davem@redhat.com (David S. Miller), kuznet@ms2.inr.ac.ru,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
-        akpm@osdl.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: andrea@suse.de (Andrea Arcangeli)
-In-Reply-To: <20040331225259.GT2143@dualathlon.random> from "Andrea Arcangeli" at Apr 01, 2004 12:52:59 AM
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF6BC12EE1.9BBDEC37-ON88256E69.0021C0E6-88256E69.0021F10B@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Wed, 31 Mar 2004 23:10:22 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-> I didn't focus much on the irq count, but now that I look at it, it
-> looks like the biggest source of softirq in irq context is the timer
-> irq, not the network irq. That explains the problem and why NAPI
-> couldn't avoid the softirq load in irq context, NAPI avoids the network
-> irqs, but the softirqs keeps running in irq context.
+> netdev-bounce@oss.sgi.com wrote on 03/30/2004 07:25:58 PM:
 > 
-> So lowering HZ to 100 should mitigate the problem significantly.
+> > Applied, thanks David.  Can I have a 2.4.x variant under seperate
+> > cover please?  I did the "mc_initted" thing there too.
+> 
+> Dave,
+>       Here's a 2.4.x version of the patch.
 
-Plus local_bh_enable(), which was actually the first source discovered
-by Robert year ago. It does not contribute now, but Robert could turn it on
-starting some non-trivial process context workload.
-
-We have lots of places where we do local_bh_disable/enable() several times
-in row and each of them triggers full do_softirq() run without schedule()
-in between. See?
-
-The thing which I want to say is: source of do_softirq() does not matter.
-All of them happening outside of ksoftirqd are equally bad, unaccountable,
-uncontrollable and will show up in some situation.
-
-What's about some accounting do_softirq() in some way as a starting point?
-F.e. one way is to account all timer ticks happened while do_softirq()
-to ksoftirqd instead of current process (I am not sure that this is even
-possible without race conditions). Or something like that.
-
-Alexey
+Applied, thanks.
