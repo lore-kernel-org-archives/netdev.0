@@ -1,9 +1,9 @@
 From: domen@coderock.org
-Subject: [patch 13/19] net/cycx_drv: replace delay_cycx() with msleep_interruptible()
-Date: Wed, 12 Jan 2005 00:10:47 +0100
-Message-ID: <20050111231047.6E6501F225@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
-        acme@conectiva.com.br, janitor@sternwelten.at
+Subject: [patch 16/19] janitor: net/tg3: pci_find_device to pci_dev_present
+Date: Wed, 12 Jan 2005 00:10:56 +0100
+Message-ID: <20050111231057.52CDE1F225@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, sfeldma@pobox.com,
+        janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
@@ -13,106 +13,56 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Any comments would be appreciated.
+Replace pci_find_device with pci_dev_present.  Compile tested.
 
-Description: Use msleep_interruptible() instead of delay_cycx()
-to guarantee the task delays as expected. Remove the prototype and
-definition of delay_cycx().
-
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-Acked-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Signed-off-by: Scott Feldman <sfeldma@pobox.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/wan/cycx_drv.c |   24 ++++++++----------------
- 1 files changed, 8 insertions(+), 16 deletions(-)
+ kj-domen/drivers/net/tg3.c |   24 ++++++++++++++----------
+ 1 files changed, 14 insertions(+), 10 deletions(-)
 
-diff -puN drivers/net/wan/cycx_drv.c~msleep_interruptible-drivers_net_wan_cycx_drv drivers/net/wan/cycx_drv.c
---- kj/drivers/net/wan/cycx_drv.c~msleep_interruptible-drivers_net_wan_cycx_drv	2005-01-10 18:00:08.000000000 +0100
-+++ kj-domen/drivers/net/wan/cycx_drv.c	2005-01-10 18:00:08.000000000 +0100
-@@ -56,7 +56,7 @@
- #include <linux/sched.h>	/* for jiffies, HZ, etc. */
- #include <linux/cycx_drv.h>	/* API definitions */
- #include <linux/cycx_cfm.h>	/* CYCX firmware module definitions */
--#include <linux/delay.h>	/* udelay */
-+#include <linux/delay.h>	/* udelay, msleep */
- #include <asm/io.h>		/* read[wl], write[wl], ioremap, iounmap */
+diff -puN drivers/net/tg3.c~remove-pci-find-device-drivers_net_tg3 drivers/net/tg3.c
+--- kj/drivers/net/tg3.c~remove-pci-find-device-drivers_net_tg3	2005-01-10 18:00:18.000000000 +0100
++++ kj-domen/drivers/net/tg3.c	2005-01-10 18:00:18.000000000 +0100
+@@ -7368,6 +7368,19 @@ static int __devinit tg3_is_sun_570X(str
  
- #define	MOD_VERSION	0
-@@ -74,7 +74,6 @@ static int reset_cyc2x(void __iomem *add
- static int detect_cyc2x(void __iomem *addr);
- 
- /* Miscellaneous functions */
--static void delay_cycx(int sec);
- static int get_option_index(long *optlist, long optval);
- static u16 checksum(u8 *buf, u32 len);
- 
-@@ -259,7 +258,7 @@ static int memory_exists(void __iomem *a
- 			if (readw(addr + 0x10) == TEST_PATTERN)
- 				return 1;
- 
--		delay_cycx(1);
-+		msleep_interruptible(1000);
- 	}
- 
- 	return 0;
-@@ -316,7 +315,7 @@ static void cycx_reset_boot(void __iomem
- 
- 	/* 80186 was in hold, go */
- 	writeb(0, addr + START_CPU);
--	delay_cycx(1);
-+	msleep_interruptible(1000);
- }
- 
- /* Load data.bin file through boot (reset) interface. */
-@@ -462,13 +461,13 @@ static int load_cyc2x(struct cycx_hw *hw
- 		cycx_reset_boot(hw->dpmbase, reset_image, img_hdr->reset_size);
- 		/* reset is waiting for boot */
- 		writew(GEN_POWER_ON, pt_cycld);
--		delay_cycx(1);
-+		msleep_interruptible(1000);
- 
- 		for (j = 0 ; j < 3 ; j++)
- 			if (!readw(pt_cycld))
- 				goto reset_loaded;
- 			else
--				delay_cycx(1);
-+				msleep_interruptible(1000);
- 	}
- 
- 	printk(KERN_ERR "%s: reset not started.\n", modname);
-@@ -495,7 +494,7 @@ reset_loaded:
- 
- 	/* Arthur Ganzert's tip: wait a while after the firmware loading...
- 	   seg abr 26 17:17:12 EST 1999 - acme */
--	delay_cycx(7);
-+	msleep_interruptible(7000);
- 	printk(KERN_INFO "%s: firmware loaded!\n", modname);
- 
- 	/* enable interrupts */
-@@ -547,20 +546,13 @@ static int get_option_index(long *optlis
- static int reset_cyc2x(void __iomem *addr)
+ static int __devinit tg3_get_invariants(struct tg3 *tp)
  {
- 	writeb(0, addr + RST_ENABLE);
--	delay_cycx(2);
-+	msleep_interruptible(2000);
- 	writeb(0, addr + RST_DISABLE);
--	delay_cycx(2);
-+	msleep_interruptible(2000);
++	static struct pci_device_id write_reorder_chipsets[] = {
++		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
++		             PCI_DEVICE_ID_INTEL_82801AA_8) },
++		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
++		             PCI_DEVICE_ID_INTEL_82801AB_8) },
++		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
++		             PCI_DEVICE_ID_INTEL_82801BA_11) },
++		{ PCI_DEVICE(PCI_VENDOR_ID_INTEL,
++		             PCI_DEVICE_ID_INTEL_82801BA_6) },
++		{ PCI_DEVICE(PCI_VENDOR_ID_AMD,
++		             PCI_DEVICE_ID_AMD_FE_GATE_700C) },
++		{ },
++	};
+ 	u32 misc_ctrl_reg;
+ 	u32 cacheline_sz_reg;
+ 	u32 pci_state_reg, grc_misc_cfg;
+@@ -7386,16 +7399,7 @@ static int __devinit tg3_get_invariants(
+ 	 * every mailbox register write to force the writes to be
+ 	 * posted to the chip in order.
+ 	 */
+-	if (pci_find_device(PCI_VENDOR_ID_INTEL,
+-			    PCI_DEVICE_ID_INTEL_82801AA_8, NULL) ||
+-	    pci_find_device(PCI_VENDOR_ID_INTEL,
+-			    PCI_DEVICE_ID_INTEL_82801AB_8, NULL) ||
+-	    pci_find_device(PCI_VENDOR_ID_INTEL,
+-			    PCI_DEVICE_ID_INTEL_82801BA_11, NULL) ||
+-	    pci_find_device(PCI_VENDOR_ID_INTEL,
+-			    PCI_DEVICE_ID_INTEL_82801BA_6, NULL) ||
+-	    pci_find_device(PCI_VENDOR_ID_AMD,
+-			    PCI_DEVICE_ID_AMD_FE_GATE_700C, NULL))
++	if (pci_dev_present(write_reorder_chipsets))
+ 		tp->tg3_flags |= TG3_FLAG_MBOX_WRITE_REORDER;
  
- 	return memory_exists(addr);
- }
- 
--/* Delay */
--static void delay_cycx(int sec)
--{
--	set_current_state(TASK_INTERRUPTIBLE);
--	schedule_timeout(sec * HZ);
--}
--
- /* Calculate 16-bit CRC using CCITT polynomial. */
- static u16 checksum(u8 *buf, u32 len)
- {
+ 	/* Force memory write invalidate off.  If we leave it on,
 _
