@@ -1,37 +1,40 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: Re: [0/3] via-rhine: experimental patches
-Date: Tue, 10 Aug 2004 03:16:08 -0400
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: ipw2100 wireless driver
+Date: Tue, 10 Aug 2004 12:16:40 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1092122167.829.7.camel@mindpipe>
-References: <20040808140216.GA8181@k3.hellgate.ch>
-	 <1092103694.761.5.camel@mindpipe>  <20040810071050.GC11224@k3.hellgate.ch>
+Message-ID: <20040810101640.GF9034@atrey.karlin.mff.cuni.cz>
+References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        linux-kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roger Luethi <rl@hellgate.ch>
-In-Reply-To: <20040810071050.GC11224@k3.hellgate.ch>
+To: Christoph Hellwig <hch@infradead.org>,
+        Jeff Chua <jeffchua@silk.corp.fedex.com>,
+        Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
+        kernel list <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20040810075558.A14154@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-08-10 at 03:10, Roger Luethi wrote:
-> On Mon, 09 Aug 2004 22:08:14 -0400, Lee Revell wrote:
-> > On Sun, 2004-08-08 at 10:02, Roger Luethi wrote:
-> > > The following batch needs testing. I don't expect any notable
-> > > regressions, but I could do with some reports on WOL (already in -mm)
-> > > and suspend/resume.
+Hi!
+
+> > > ipw2100 0.51 from ipw2100.sf.net builds using gcc-2.95.3 "out of the box."
 > > 
-> > Maybe this is a known issue by now, but the via-rhine bug is still not
-> > fixed in 2.6.8-rc3.  I had to replace it with the via-rhine.c from -mm2
-> > to get online.
+> > Well, this is really good news!
+> > 
+> > I just downloaded 0.51 compiled with gcc-2.95.3 and got it working on my 
+> > IBM X31 with WEP. Even better, 0.51 doesn't need hostap-driver.
 > 
-> It is known. The fix for that bug is simmering in the pipeline
-> somewhere. The experimental patches OTOH were for -mm and unrelated.
-> 
+> Btw, any vounteer for merging the hostap-based generic ieee80211_* files
+> from the ipw2100 driver with the hostap driver in the wireless-2.6 tree?
 
-OK, just wanted to make sure the fix gets into 2.6.8, because it can be
-a showstopper.
+I know very little about wireless-2.6 tree (where to get it without
+bitkeeper?), but...
 
-Lee
+task is to take ipw2100 driver, drop ieee80211_* files from it, and
+make it work with ieee80211* files from wireless-2.6?
+
+								Pavel
+-- 
+Horseback riding is like software...
+...vgf orggre jura vgf serr.
