@@ -1,42 +1,48 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Sat, 12 Feb 2005 23:56:17 +0300
-Message-ID: <20050212205617.GA29146@yakov.inr.ac.ru>
-References: <0525M9211@server5.heliogroup.fr> <420D37A3.6020209@hp.com> <20050211170958.17fcde21.davem@davemloft.net> <20050212143105.GB27456@yakov.inr.ac.ru> <86de38db09518ced8865af09cd79c064@hp.com>
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH 2/4] [NETLINK] introduce netlink_check_skb function
+Date: Sat, 12 Feb 2005 22:18:59 +0100
+Message-ID: <420E72C3.1050307@eurodev.net>
+References: <420BF8CB.6080005@eurodev.net> <20050211032448.GD31837@postel.suug.ch> <420D243C.4090507@eurodev.net> <20050211224354.GE31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
-        romieu@fr.zoreil.com, hubert.tonneau@fullpliant.org,
-        shemminger@osdl.org
-To: rick jones <rick.jones2@hp.com>
-Content-Disposition: inline
-In-Reply-To: <86de38db09518ced8865af09cd79c064@hp.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050211224354.GE31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi Thomas,
 
-> Actually, it may think slow start is being done - there was enough 
-> small packet back and forth on the connection before the "heavy 
-> transfer" to get cwnd opened
+Thomas Graf wrote:
 
-If receiver sent an ACK it still does not mean that sender used it
-to increase its cwnd. Particularly, small packet exchange definitely
-does not inflate cwnd.
+>>They are all the same thing. They all return 16 bytes which is the size 
+>>of a netlink header. If you and someone else think that those are more 
+>>readable, I'm ok with it, whatever. I just stole that piece of code as 
+>>is from current checkings done in xfrm and rtnetlink.
+>>    
+>>
+>
+>That's absolutely true, my point is that while reading that line
+>of code it reads like while the remaining length in the socket buffer
+>is still greather or equal than the total message size until the next
+>message with a payload of 0, then do something. It looks confusing at
+>a first glance because you're not event interested in the payload just
+>now. A choice of NLMSG_ALIGN(sizeof(*nlh)) or NLMSG_LENGTH(0) clearly
+>points out that you're just checking for enough room regarding the
+>netlink header in order to access it safely and do the real sanity
+>check against the complete message length. Engross that thought a bit
+>further, NLMSG_SPACE could change at some point assuming that it is
+>only used in contexts where the total message size is in question.
+>
+>If you think that's too much of nitpicking, then forget about it. It's
+>technicaly absolutely correct at the moment.
+>  
+>
 
+Looks fine you convince me. If this is finally pushed forward, let's 
+replace that line. Thanks.
 
-> output.  All the stacks with ACK avoidance with which I am familiar do 
-> not make the assumption that the sender is not doing slow-start.  They 
-> make sure to send enough ACKs at the beginning (or after packet loss) 
-> to allow the sender's cwnd to grow.
-
-Well, we do similar thing with delayed ACKs. And it took a few of runs
-of testing to understand that we cannot detect even packet loss reliably
-enough. :-)
-
-Actually, those receivers could use the first delayed ACK event as
-a sign of failure of their heuristics and block stretching acks for
-this connection.
-
-Alexey
+--
+Pablo
