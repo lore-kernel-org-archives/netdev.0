@@ -1,619 +1,256 @@
-From: Srivatsa Vaddagiri <vatsa@in.ibm.com>
-Subject: Re: [RFC] Use RCU for tcp_ehash lookup
-Date: Wed, 1 Sep 2004 17:06:41 +0530
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040901113641.GA3918@in.ibm.com>
-References: <20040831125941.GA5534@in.ibm.com> <20040831135419.GA17642@wotan.suse.de>
-Reply-To: vatsa@in.ibm.com
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: RE: [Bridge] BCP status
+Date: Wed, 1 Sep 2004 10:13:17 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <C0170D0AF1277849A4B4518034F855DD0CFCA8@aiexchange.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	Dipankar <dipankar@in.ibm.com>, paulmck@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265887AbUIALfs@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040831135419.GA17642@wotan.suse.de>
+Content-Type: multipart/mixed;
+	boundary="----_=_NextPart_001_01C4902D.D3F1B09D"
+Cc: <bridge@lists.osdl.org>, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+Content-class: urn:content-classes:message
+To: "Petter Larsen" <petter.larsen@morecom.no>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 31, 2004 at 03:54:20PM +0200, Andi Kleen wrote:
-> I bet also when you just do rdtsc timing for the TCP receive
-> path the cycle numbers will be way down (excluding the copy).
+This is a multi-part message in MIME format.
 
-I got cycle numbers for the lookup routine (with CONFIG_PREEMPT turned off).
-They were taken on a 900MHz 8way Intel P3 SMP box.  The results are as below:
+------_=_NextPart_001_01C4902D.D3F1B09D
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
+> -----Original Message-----
+> From: Petter Larsen [mailto:petter.larsen@morecom.no]=20
+> Subject: RE: [Bridge] BCP status
+>=20
+> Ok. The patches that you sent to the mailing list in March,=20
+> are they the latest from your side? You mentioned that you had some=20
+> plug-ins for HDLC ppp-layer drivers. =20
+>=20
+> Are you working on this now, or are you finished?=20
 
--------------------------------------------------------------------------------
-			     |	2.6.8.1		      |	2.6.8.1 + my patch
--------------------------------------------------------------------------------
-Average cycles 		     |			      |
-spent in 		     |			      |
-__tcp_v4_lookup_established  |	2970.65               |	668.227
-			     | (~3.3 micro-seconds)   | (~0.74 microseconds)
--------------------------------------------------------------------------------
+Nothing is ever finished; however, I have not worked on it for months.
 
-This repesents improvement by a factor of 77.5%!
+Kernel BCP patch:
+http://marc.theaimsgroup.com/?l=3Dlinux-ppp&m=3D107814944215772&w=3D2
+No changes since then, AFAICT.
 
+PPP daemon BCP patch:
+http://marc.theaimsgroup.com/?l=3Dlinux-ppp&m=3D107772784930462&w=3D2
+No changes since then, AFAICT.
 
-> 
-> And it should also fix the performance problems with
-> cat /proc/net/tcp on ppc64/ia64 for large hash tables because the rw locks 
-> are gone.
+PPP daemon "wanppp" plugin:
+http://marc.theaimsgroup.com/?l=3Dlinux-ppp&m=3D105526128502635&w=3D2
+It looks current except for a correction of spelling
+(s/compliled/compiled/) and the addition of prototypes for
+wanppp_cleanup() and wanppp_close().
 
-But spinlocks are in! Would that still improve the performance compared to rw 
-locks?  (See me earlier note where I have explained that lookup done for 
-/proc/net/tcp is _not_ lock-free yet).
+Kernel generic HDLC to generic PPP layer:
+http://marc.theaimsgroup.com/?l=3Dlinux-net&m=3D105525978800615&w=3D2
+This has changed slightly.  I have attached our latest
+drivers/net/wan/hdlc_ppp.c.
 
-> I haven't studied it in detail (yet), just two minor style 
-> comments: 
+--=20
+Dan Eble <dane@aiinet.com>  _____  .
+Software Engineer          |  _  |/|
+Applied Innovation Inc.    | |_| | |
+http://www.aiinet.com/     |__/|_|_|
 
-[snip]
+------_=_NextPart_001_01C4902D.D3F1B09D
+Content-Type: application/octet-stream;
+	name="hdlc_ppp.c"
+Content-Transfer-Encoding: base64
+Content-Description: hdlc_ppp.c
+Content-Disposition: attachment;
+	filename="hdlc_ppp.c"
 
-> Can you rewrite that without goto? 
+LyoKICogR2VuZXJpYyBIRExDIHN1cHBvcnQgcm91dGluZXMgZm9yIExpbnV4CiAqIFBvaW50LXRv
+LXBvaW50IHByb3RvY29sIHN1cHBvcnQKICoKICogQ29weXJpZ2h0IChDKSAxOTk5IC0gMjAwMyBL
+cnp5c3p0b2YgSGFsYXNhIDxraGNAcG0ud2F3LnBsPgogKgogKiBUaGlzIHByb2dyYW0gaXMgZnJl
+ZSBzb2Z0d2FyZTsgeW91IGNhbiByZWRpc3RyaWJ1dGUgaXQgYW5kL29yIG1vZGlmeSBpdAogKiB1
+bmRlciB0aGUgdGVybXMgb2YgdmVyc2lvbiAyIG9mIHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGlj
+ZW5zZQogKiBhcyBwdWJsaXNoZWQgYnkgdGhlIEZyZWUgU29mdHdhcmUgRm91bmRhdGlvbi4KICov
+CgojaW5jbHVkZSA8bGludXgvY29uZmlnLmg+CiNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4KI2lu
+Y2x1ZGUgPGxpbnV4L2tlcm5lbC5oPgojaW5jbHVkZSA8bGludXgvc2xhYi5oPgojaW5jbHVkZSA8
+bGludXgvcG9sbC5oPgojaW5jbHVkZSA8bGludXgvZXJybm8uaD4KI2luY2x1ZGUgPGxpbnV4L2lm
+X2FycC5oPgojaW5jbHVkZSA8bGludXgvaW5pdC5oPgojaW5jbHVkZSA8bGludXgvc2tidWZmLmg+
+CiNpbmNsdWRlIDxsaW51eC9wa3Rfc2NoZWQuaD4KI2luY2x1ZGUgPGxpbnV4L2luZXRkZXZpY2Uu
+aD4KI2luY2x1ZGUgPGxpbnV4L2xhcGIuaD4KI2luY2x1ZGUgPGxpbnV4L3J0bmV0bGluay5oPgoj
+aW5jbHVkZSA8bGludXgvaGRsYy5oPgojaW5jbHVkZSA8bGludXgvcHBwX2RlZnMuaD4KI2luY2x1
+ZGUgPGxpbnV4L2lmX3BwcC5oPgojaW5jbHVkZSA8bGludXgvcHBwX2NoYW5uZWwuaD4KCi8qKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKgogKiBDb25zdGFudHMgYW5kIFN0cnVjdHVyZXMKICoqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KiovCgovKiBUaGUgUFBQIGhlYWRlciBpbmNsdWRlcyB0aGUgSERMQyBhZGRyZXNzICYgY29udHJv
+bCBieXRlcywKICogc28gZG8gbm90IGNvdW50IHRoZW0gaW4gTVRVIGFkanVzdG1lbnRzLgogKi8K
+I2RlZmluZSBQUFBfT1ZFUkhFQUQJKFBQUF9IRFJMRU4gLSAyKQoKLyoqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+CiAqIFByb3RvdHlwZXMKICoqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKiovCgpzdGF0aWMgaW50IGhkbGNfcHBwX3Jl
+Z2lzdGVyKGhkbGNfZGV2aWNlICpoZGxjKTsKc3RhdGljIHZvaWQgaGRsY19wcHBfdW5yZWdpc3Rl
+cihoZGxjX2RldmljZSAqaGRsYyk7CnN0YXRpYyB2b2lkIGhkbGNfcHBwX25ldGlmX3J4KHN0cnVj
+dCBza19idWZmICpza2IpOwpzdGF0aWMgaW50IGhkbGNfZ2VucHBwX3N0YXJ0X3htaXQoc3RydWN0
+IHBwcF9jaGFubmVsICosIHN0cnVjdCBza19idWZmICopOwpzdGF0aWMgaW50IGhkbGNfZ2VucHBw
+X2lvY3RsKHN0cnVjdCBwcHBfY2hhbm5lbCosIHVuc2lnbmVkIGludCwgdW5zaWduZWQgbG9uZyk7
+CgovKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioKICogVmFyaWFibGVzCiAqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqLwoKc3Rh
+dGljIHN0cnVjdCBwcHBfY2hhbm5lbF9vcHMgaGRsY19nZW5wcHBfb3BzID0KewoJLnN0YXJ0X3ht
+aXQgPQloZGxjX2dlbnBwcF9zdGFydF94bWl0LAoJLmlvY3RsID0JaGRsY19nZW5wcHBfaW9jdGwK
+fTsKCi8qKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKgogKiBJbmxpbmUgRnVuY3Rpb25zCiAqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqLwoKLyoqIEdldCB0aGUgUFBQIGNoYW5uZWwgb3duZWQgYnkgYW4gSERMQyBkZXZpY2UuICov
+CnN0YXRpYyBfX2lubGluZV9fIHN0cnVjdCBwcHBfY2hhbm5lbCogaGRsY190b19jaGFuKGhkbGNf
+ZGV2aWNlICpoZGxjKQp7CglyZXR1cm4gKHN0cnVjdCBwcHBfY2hhbm5lbCopJmhkbGMtPnN0YXRl
+LnBwcC5jaGFuOwp9CgovKiogR2V0IGFuIEhETEMgZGV2aWNlIGZyb20gaXRzIFBQUCBjaGFubmVs
+LiAqLwpzdGF0aWMgX19pbmxpbmVfXyBoZGxjX2RldmljZSogY2hhbl90b19oZGxjKHN0cnVjdCBw
+cHBfY2hhbm5lbCAqY2hhbikKewoJcmV0dXJuIChoZGxjX2RldmljZSopY2hhbi0+cHJpdmF0ZTsK
+fQoKLyoqIENoZWNrIFVQLCBSVU5OSU5HLCBhbmQgY2FycmllciBhbGwgYXQgb25jZS4gKi8Kc3Rh
+dGljIF9faW5saW5lX18gaW50IG5ldGlmX2dvb2RfdG9fZ28oc3RydWN0IG5ldF9kZXZpY2UgKmRl
+dikKewoJcmV0dXJuIChkZXYtPmZsYWdzICYgSUZGX1VQKSAmJgoJCW5ldGlmX3J1bm5pbmcoZGV2
+KSAmJgoJCW5ldGlmX2NhcnJpZXJfb2soZGV2KTsKfQoKLyoqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqCiAqIEZ1
+bmN0aW9ucwogKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqKioqKioqKioqKi8KCi8qKgogKiBJbml0aWFsaXplIGFuZCByZWdpc3Rl
+ciBhIFBQUCBjaGFubmVsIHdpdGggdGhlIGdlbmVyaWMgUFBQIGxheWVyLgogKgogKiBoZGxjX3Bw
+cF9yZWdpc3RlcigpIGlzIGNhbGxlZCBmcm9tIHByb2Nlc3MgY29udGV4dCB3aGlsZSB0aGUKICog
+aW50ZXJmYWNlIGlzIGRvd24uCiAqLwpzdGF0aWMgaW50IGhkbGNfcHBwX3JlZ2lzdGVyKGhkbGNf
+ZGV2aWNlICpoZGxjKQp7CglzdHJ1Y3QgbmV0X2RldmljZSAqY29uc3QgZGV2ID0gaGRsY190b19k
+ZXYoaGRsYyk7CglzdHJ1Y3QgcHBwX2NoYW5uZWwgKmNvbnN0IGNoYW4gPSBoZGxjX3RvX2NoYW4o
+aGRsYyk7CglpbnQgb2xkX210dSwgbmV3X210dTsKCWludCBlcnI7CgoJLyoKCSAqIFNhdmUgdGhl
+IG9sZCBNVFUgYW5kIHVzZSBvbmUgbW9yZSBhZGVxdWF0ZSBmb3IgUFBQLgoJICovCglvbGRfbXR1
+ID0gZGV2LT5tdHU7CgoJLyogVHJ5IGFuIE1UVSBmb3IgYnJpZGdpbmcgRXRoZXJuZXQgZnJhbWVz
+LiAqLwoJbmV3X210dSA9IFBQUF9PVkVSSEVBRCArQkNQXzgwMl8zX0hEUkxFTiArIEVUSF9GUkFN
+RV9MRU4gKyBFVEhfRkNTX0xFTjsKCWlmIChkZXYtPm10dSA8IG5ld19tdHUpCgkJZGV2LT5jaGFu
+Z2VfbXR1KGRldiwgbmV3X210dSk7CgoJLyogSWYgdGhhdCBNVFUgZGlkbid0IHdvcmssIHRyeSBp
+dCB3aXRob3V0IHJvb20gZm9yIHRoZSBFdGhlcm5ldCBGQ1MsCgkgKiB3aGljaCBpcyBvcHRpb25h
+bCBmb3IgQkNQIGVuY2Fwc3VsYXRpb24uICovCgluZXdfbXR1IC09IEVUSF9GQ1NfTEVOOwoJaWYg
+KGRldi0+bXR1IDwgbmV3X210dSkKCQlkZXYtPmNoYW5nZV9tdHUoZGV2LCBuZXdfbXR1KTsKCgkv
+KiBJZiAqdGhhdCogZGlkbid0IHdvcmssIHRyeSB0aGUgZGVmYXVsdCBQUFAgTVRVLiAqLwoJbmV3
+X210dSA9IFBQUF9PVkVSSEVBRCArIFBQUF9NVFU7CglpZiAoZGV2LT5tdHUgPCBuZXdfbXR1KQoJ
+CWRldi0+Y2hhbmdlX210dShkZXYsIG5ld19tdHUpOwoKCS8qIE1UVSBzaG91bGQgbm90IGJlIGNo
+YW5nZWQgd2hpbGUgUFBQIG1vZGUgaXMgaW4gZWZmZWN0LiAqLwoJaGRsYy0+bXR1X2xvY2tlZCA9
+IDE7CgoJLyogcmVzZXQgdGhlIFBQUCBzdGF0ZSAqLwoJbWVtc2V0KCZoZGxjLT5zdGF0ZS5wcHAs
+IDAsIHNpemVvZihoZGxjLT5zdGF0ZS5wcHApKTsKCWNoYW4tPnByaXZhdGUgPSBoZGxjOwoJY2hh
+bi0+b3BzID0gJmhkbGNfZ2VucHBwX29wczsKCgkvKiBUaGUgY2hhbm5lbCBNVFUgaXMgdGhlIHVu
+ZGVybHlpbmcgSERMQyBNVFUgcmVkdWNlZCBieSB0aGUKCSAqIG92ZXJoZWFkIFBQUCByZXF1aXJl
+cy4KCSAqLwoJY2hhbi0+bXR1ID0gZGV2LT5tdHUgLSBQUFBfT1ZFUkhFQUQ7CgoJLyogY2hhbi0+
+aGRybGVuIGlzIHRoZSBoZWFkcm9vbSB0aGUgZ2VuZXJpYyBQUFAgbGF5ZXIgd2lsbAoJICogcmVz
+ZXJ2ZSBvbiBidWZmZXJzIGl0IHNlbmRzIHRvIHRoaXMgZHJpdmVyLiAgV2UgbmVlZCBlbm91Z2gK
+CSAqIGZvciB0aGUgSERMQyBhZGRyZXNzIGFuZCBjb250cm9sIGJ5dGVzLiAqLwoJY2hhbi0+aGRy
+bGVuID0gMjsKCiAJLyogVGhlIHBwcF9jaGFubmVsIG9iamVjdCBtdXN0IGV4aXN0IGZyb20gdGhl
+IHRpbWUgdGhhdAoJICogcHBwX3JlZ2lzdGVyX2NoYW5uZWwoKSBpcyBjYWxsZWQgdW50aWwgYWZ0
+ZXIgdGhlIGNhbGwgdG8KCSAqIHBwcF91bnJlZ2lzdGVyX2NoYW5uZWwoKSByZXR1cm5zLgoJICov
+CgllcnIgPSBwcHBfcmVnaXN0ZXJfY2hhbm5lbChjaGFuKTsKCWlmICghZXJyKQoJewoJCWhkbGMt
+Pm9wZW4gPSBOVUxMOwoJCWhkbGMtPnN0b3AgPSBOVUxMOwoJCWhkbGMtPnByb3RvX2RldGFjaCA9
+IGhkbGNfcHBwX3VucmVnaXN0ZXI7CgkJaGRsYy0+bmV0aWZfcnggPSBoZGxjX3BwcF9uZXRpZl9y
+eDsKCQloZGxjLT50eXBlX3RyYW5zID0gTlVMTDsJLyogZm9yY2UgdXNlIG9mIG5ldGlmX3J4KCkg
+Ki8KCQloZGxjLT5wcm90byA9IElGX1BST1RPX1BQUDsKCgkJZGV2LT5oYXJkX3N0YXJ0X3htaXQg
+PSBoZGxjLT54bWl0OwoJCWRldi0+aGFyZF9oZWFkZXIgPSBOVUxMOwoJCWRldi0+dHlwZSA9IEFS
+UEhSRF9QUFA7CgkJZGV2LT5oYXJkX2hlYWRlcl9sZW4gPSAyOwoJCWRldi0+YWRkcl9sZW4gPSAx
+OwoJCWRldi0+YnJvYWRjYXN0WzBdID0gUFBQX0FMTFNUQVRJT05TOwoJCWRldi0+ZGV2X2FkZHJb
+MF0gPSAwOwkJLyogbm90IGltcG9ydGFudCBmb3IgUFBQICovCgoJCWhkbGMtPnN0YXRlLnBwcC5z
+ZXR0aW5ncy5jaGFubmVsID0KCQkJcHBwX2NoYW5uZWxfaW5kZXgoaGRsY190b19jaGFuKGhkbGMp
+KTsKCgkJZ290byBTdWNjZXNzOwoJfQoKCS8qIHJlc3RvcmUgb2xkIE1UVSAqLwoJaGRsYy0+bXR1
+X2xvY2tlZCA9IDA7CglpZiAoZGV2LT5tdHUgIT0gb2xkX210dSkKCQlkZXYtPmNoYW5nZV9tdHUo
+ZGV2LCBvbGRfbXR1KTsKCiBTdWNjZXNzOgoJcmV0dXJuIGVycjsKfQoKCgovKioKICogQ2xvc2Ug
+dGhlIGNoYW5uZWwgdG8gdGhlIGdlbmVyaWMgUFBQIGxheWVyLgogKgogKiBoZGxjX3BwcF91bnJl
+Z2lzdGVyKCkgaXMgY2FsbGVkIGZyb20gcHJvY2VzcyBjb250ZXh0IHdoaWxlIHRoZQogKiBpbnRl
+cmZhY2UgaXMgZG93bi4KICovCnN0YXRpYyB2b2lkIGhkbGNfcHBwX3VucmVnaXN0ZXIoaGRsY19k
+ZXZpY2UgKmhkbGMpCnsKCXN0cnVjdCBwcHBfY2hhbm5lbCAqY29uc3QgY2hhbiA9IGhkbGNfdG9f
+Y2hhbihoZGxjKTsKCXN0cnVjdCBuZXRfZGV2aWNlICpjb25zdCBkZXYgPSBoZGxjX3RvX2Rldiho
+ZGxjKTsKCgkvKiBObyB0aHJlYWQgbWF5IGJlIGluIGEgY2FsbCB0byBhbnkgb2YgcHBwX2lucHV0
+KCksCgkgKiBwcHBfaW5wdXRfZXJyb3IoKSwgcHBwX291dHB1dF93YWtldXAoKSwgcHBwX2NoYW5u
+ZWxfaW5kZXgoKQoJICogb3IgcHBwX3VuaXRfbnVtYmVyKCkgZm9yIGEgY2hhbm5lbCBhdCB0aGUg
+dGltZSB0aGF0CgkgKiBwcHBfdW5yZWdpc3Rlcl9jaGFubmVsKCkgaXMgY2FsbGVkIGZvciB0aGF0
+IGNoYW5uZWwuCgkgKi8KCS8qIEJ5IHRoZSB0aW1lIGEgY2FsbCB0byBwcHBfdW5yZWdpc3Rlcl9j
+aGFubmVsKCkgcmV0dXJucywgbm8KCSAqIHRocmVhZCB3aWxsIGJlIGV4ZWN1dGluZyBpbiBhIGNh
+bGwgZnJvbSB0aGUgZ2VuZXJpYyBsYXllcgoJICogdG8gdGhhdCBjaGFubmVsJ3Mgc3RhcnRfeG1p
+dCgpIG9yIGlvY3RsKCkgZnVuY3Rpb24sIGFuZCB0aGUKCSAqIGdlbmVyaWMgbGF5ZXIgd2lsbCBu
+b3QgY2FsbCBlaXRoZXIgb2YgdGhvc2UgZnVuY3Rpb25zCgkgKiBzdWJzZXF1ZW50bHkuCgkgKi8K
+CXBwcF91bnJlZ2lzdGVyX2NoYW5uZWwoY2hhbik7CgoJaGRsYy0+bXR1X2xvY2tlZCA9IDA7Cglo
+ZGxjLT5zdGF0ZS5wcHAuc2V0dGluZ3MuY2hhbm5lbCA9IC0xOwoJZGV2LT5oYXJkX2hlYWRlcl9s
+ZW4gPSAxNjsKfQoKCgovKioKICogUmVjZWl2ZSBhIGJ1ZmZlciBmcm9tIHRoZSBoYXJkd2FyZSwg
+c3RyaXAgdGhlIFBQUCBoZWFkZXIsIGFuZCBwYXNzCiAqIHRoZSByZXN0IHRvIHRoZSBnZW5lcmlj
+IFBQUCBsYXllci4KICovCnN0YXRpYyB2b2lkIGhkbGNfcHBwX25ldGlmX3J4KHN0cnVjdCBza19i
+dWZmICpza2IpCnsKCXN0cnVjdCBwcHBfY2hhbm5lbCAqY29uc3QgY2hhbiA9IGhkbGNfdG9fY2hh
+bihkZXZfdG9faGRsYyhza2ItPmRldikpOwoJdW5zaWduZWQgY2hhciAqcDsKCgkvKiBzdHJpcCBh
+ZGRyZXNzL2NvbnRyb2wgZmllbGQgaWYgcHJlc2VudCAqLwoJcCA9IHNrYi0+ZGF0YTsKCWlmIChw
+WzBdID09IFBQUF9BTExTVEFUSU9OUyAmJiBwWzFdID09IFBQUF9VSSkgewoJCS8qIGNob3Agb2Zm
+IGFkZHJlc3MvY29udHJvbCAqLwoJCWlmIChza2ItPmxlbiA8IDMpCgkJCWdvdG8gZXJyOwoJCXAg
+PSBza2JfcHVsbChza2IsIDIpOwoJfQoKCS8qIGRlY29tcHJlc3MgcHJvdG9jb2wgZmllbGQgaWYg
+Y29tcHJlc3NlZCAqLwoJaWYgKHBbMF0gJiAxKSB7CgkJLyogcHJvdG9jb2wgaXMgY29tcHJlc3Nl
+ZCAqLwoJCXNrYl9wdXNoKHNrYiwgMSlbMF0gPSAwOwoJfSBlbHNlIGlmIChza2ItPmxlbiA8IDIp
+CgkJZ290byBlcnI7CgoJLyogcGFzcyB0byBnZW5lcmljIGxheWVyICovCglwcHBfaW5wdXQoY2hh
+biwgc2tiKTsKCXJldHVybjsKCiBlcnI6CglrZnJlZV9za2Ioc2tiKTsKCXBwcF9pbnB1dF9lcnJv
+cihjaGFuLCAwKTsKfQoKCgovKioKICogU2VuZCBhIHBhY2tldCAob3IgbXVsdGlsaW5rIGZyYWdt
+ZW50KSBvbiB0aGlzIGNoYW5uZWwuCiAqIFJldHVybnMgMSBpZiBpdCB3YXMgYWNjZXB0ZWQsIDAg
+dG8gcXVldWUgaXQgZm9yIGxhdGVyLgogKgogKiBUaGUgZ2VuZXJpYyBsYXllciB3aWxsIG5vdCBj
+YWxsIHRoZSBzdGFydF94bWl0KCkgZnVuY3Rpb24gZm9yIGEKICogY2hhbm5lbCB3aGlsZSBhbnkg
+dGhyZWFkIGlzIGFscmVhZHkgZXhlY3V0aW5nIGluIHRoYXQgZnVuY3Rpb24gZm9yCiAqIHRoYXQg
+Y2hhbm5lbC4KICoKICogVGhlIGdlbmVyaWMgbGF5ZXIgbWF5IGNhbGwgdGhlIGNoYW5uZWwgc3Rh
+cnRfeG1pdCgpIGZ1bmN0aW9uIGF0CiAqIHNvZnRpcnEvQkggbGV2ZWwgYnV0IHdpbGwgbm90IGNh
+bGwgaXQgYXQgaW50ZXJydXB0IGxldmVsLiAgVGh1cyB0aGUKICogc3RhcnRfeG1pdCgpIGZ1bmN0
+aW9uIG1heSBub3QgYmxvY2suCiAqLwpzdGF0aWMgaW50IGhkbGNfZ2VucHBwX3N0YXJ0X3htaXQo
+c3RydWN0IHBwcF9jaGFubmVsICpjaGFuLAoJCQkJICBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQp7Cglo
+ZGxjX2RldmljZSAqY29uc3QgaGRsYyA9IGNoYW5fdG9faGRsYyhjaGFuKTsKCXN0cnVjdCBuZXRf
+ZGV2aWNlICpjb25zdCBkZXYgPSBoZGxjX3RvX2RldihoZGxjKTsKCWludCBwcm90bzsKCXVuc2ln
+bmVkIGNoYXIgKmRhdGE7CglpbnQgaXNsY3A7CgoJaWYgKCFuZXRpZl9nb29kX3RvX2dvKGRldikp
+IHsKCQkvKiogQHRvZG8gSW5zdGVhZCwgcmV0dXJuIDAgdG8gbWFrZSBnZW5lcmljIGxheWVyCgkJ
+ICogcXVldWUgdGhlIHBhY2tldC4gIFRoYXQgd2lsbCByZXF1aXJlIGNhbGxpbmcKCQkgKiBwcHBf
+b3V0cHV0X3dha2V1cCgpIGF0IGFuIGFwcHJvcHJpYXRlIHRpbWUuICovCgkJa2ZyZWVfc2tiKHNr
+Yik7CgkJKytoZGxjLT5zdGF0cy50eF9kcm9wcGVkOwoJCXJldHVybiAxOwoJfQoKCWRhdGEgID0g
+c2tiLT5kYXRhOwoJcHJvdG8gPSAoZGF0YVswXSA8PCA4KSArIGRhdGFbMV07CgoJLyogTENQIHBh
+Y2tldHMgd2l0aCBjb2RlcyBiZXR3ZWVuIDEgKGNvbmZpZ3VyZS1yZXF1ZXN0KQoJICogYW5kIDcg
+KGNvZGUtcmVqZWN0KSBtdXN0IGJlIHNlbnQgYXMgdGhvdWdoIG5vIG9wdGlvbnMKCSAqIGhhdmUg
+YmVlbiBuZWdvdGlhdGVkLgoJICovCglpc2xjcCA9IHByb3RvID09IFBQUF9MQ1AgJiYgMSA8PSBk
+YXRhWzJdICYmIGRhdGFbMl0gPD0gNzsKCgkvKiBjb21wcmVzcyBwcm90b2NvbCBmaWVsZCBpZiBv
+cHRpb24gZW5hYmxlZCAqLwoJaWYgKGRhdGFbMF0gPT0gMCAmJiAoaGRsYy0+c3RhdGUucHBwLmZs
+YWdzICYgU0NfQ09NUF9QUk9UKSAmJiAhaXNsY3ApCgkJc2tiX3B1bGwoc2tiLDEpOwoKCS8qIHBy
+ZXBlbmQgYWRkcmVzcy9jb250cm9sIGZpZWxkcyBpZiBuZWNlc3NhcnkgKi8KCWlmICgoaGRsYy0+
+c3RhdGUucHBwLmZsYWdzICYgU0NfQ09NUF9BQykgPT0gMCB8fCBpc2xjcCkgewoJCWlmIChza2Jf
+aGVhZHJvb20oc2tiKSA8IDIpIHsKCQkJc3RydWN0IHNrX2J1ZmYgKm5wa3QgPSBkZXZfYWxsb2Nf
+c2tiKHNrYi0+bGVuICsgMik7CgkJCWlmIChucGt0ID09IE5VTEwpIHsKCQkJCWtmcmVlX3NrYihz
+a2IpOwoJCQkJKytoZGxjLT5zdGF0cy50eF9kcm9wcGVkOwoJCQkJcmV0dXJuIDE7CgkJCX0KCQkJ
+c2tiX3Jlc2VydmUobnBrdCwyKTsKCQkJbWVtY3B5KHNrYl9wdXQobnBrdCxza2ItPmxlbiksIHNr
+Yi0+ZGF0YSwgc2tiLT5sZW4pOwoJCQlrZnJlZV9za2Ioc2tiKTsKCQkJc2tiID0gbnBrdDsKCQl9
+CgkJc2tiX3B1c2goc2tiLDIpOwoJCXNrYi0+ZGF0YVswXSA9IFBQUF9BTExTVEFUSU9OUzsKCQlz
+a2ItPmRhdGFbMV0gPSBQUFBfVUk7Cgl9CgoJc2tiLT5kZXYgPSBkZXY7Cglza2ItPm5oLnJhdyA9
+IHNrYi0+ZGF0YTsKCglkZXZfcXVldWVfeG1pdChza2IpOwoJcmV0dXJuIDE7Cn0KCgoKLyoqCiAq
+IEhhbmRsZSBhbiBpb2N0bCBjYWxsIHRoYXQgaGFzIGNvbWUgaW4gdmlhIC9kZXYvcHBwLgogKgog
+KiBUaGUgZ2VuZXJpYyBsYXllciB3aWxsIG9ubHkgY2FsbCB0aGUgY2hhbm5lbCBpb2N0bCgpIGZ1
+bmN0aW9uIGluCiAqIHByb2Nlc3MgY29udGV4dC4KICoKICogVGhlIGdlbmVyaWMgbGF5ZXIgd2ls
+bCBub3QgY2FsbCB0aGUgaW9jdGwoKSBmdW5jdGlvbiBmb3IgYSBjaGFubmVsCiAqIHdoaWxlIGFu
+eSB0aHJlYWQgaXMgYWxyZWFkeSBleGVjdXRpbmcgaW4gdGhhdCBmdW5jdGlvbiBmb3IgdGhhdAog
+KiBjaGFubmVsLgogKi8Kc3RhdGljIGludCBoZGxjX2dlbnBwcF9pb2N0bChzdHJ1Y3QgcHBwX2No
+YW5uZWwgKmNoYW4sCgkJCSAgICAgdW5zaWduZWQgaW50IGNtZCwgdW5zaWduZWQgbG9uZyBhcmcp
+CnsKCWhkbGNfZGV2aWNlICpjb25zdCBoZGxjID0gY2hhbl90b19oZGxjKGNoYW4pOwoJc3RydWN0
+IG5ldF9kZXZpY2UgKmNvbnN0IGRldiA9IGhkbGNfdG9fZGV2KGhkbGMpOwoJaW50IHZhbDsKCWlu
+dCBlcnI7CgoJZXJyID0gLUVGQVVMVDsKCXN3aXRjaCAoY21kKSB7CgljYXNlIFBQUElPQ0dNUlU6
+CgkJaWYgKHB1dF91c2VyKGRldi0+bXR1IC0gUFBQX09WRVJIRUFELCAoaW50ICopIGFyZykpCgkJ
+CWJyZWFrOwoJCWVyciA9IDA7CgkJYnJlYWs7CgoJY2FzZSBQUFBJT0NTTVJVOgoJCWlmIChnZXRf
+dXNlcih2YWwsIChpbnQgKikgYXJnKSkKCQkJYnJlYWs7CgoJCWlmICh2YWwgPiBkZXYtPm10dSAt
+IFBQUF9PVkVSSEVBRCkKCQkJZXJyID0gLUVJTlZBTDsKCQllbHNlCgkJCWVyciA9IDA7CgkJYnJl
+YWs7CgoJY2FzZSBQUFBJT0NTRkxBR1M6CgkJaWYgKGdldF91c2VyKHZhbCwgKGludCAqKSBhcmcp
+KQoJCQlicmVhazsKCQl2YWwgJj0gU0NfTUFTSzsJLyoga2VlcCB0aGUgYml0cyB0aGF0IGFyZSBh
+bGxvd2VkIHRvIGJlIHNldCAqLwoJCWhkbGMtPnN0YXRlLnBwcC5mbGFncyAmPSB+U0NfTUFTSzsK
+CQloZGxjLT5zdGF0ZS5wcHAuZmxhZ3MgfD0gdmFsOwoJCWVyciA9IDA7CgkJYnJlYWs7CgoJZGVm
+YXVsdDoKCQllcnIgPSAtRU5PVFRZOwoJfQoJcmV0dXJuIGVycjsKfQoKCgppbnQgaGRsY19wcHBf
+aW9jdGwoaGRsY19kZXZpY2UgKmhkbGMsIHN0cnVjdCBpZnJlcSAqaWZyKQp7CglzdHJ1Y3QgbmV0
+X2RldmljZSAqZGV2ID0gaGRsY190b19kZXYoaGRsYyk7CglpbnQgZXJyOwoKCXN3aXRjaCAoaWZy
+LT5pZnJfc2V0dGluZ3MudHlwZSkgewoJY2FzZSBJRl9HRVRfUFJPVE86CgkJaWZyLT5pZnJfc2V0
+dGluZ3MudHlwZSA9IElGX1BST1RPX1BQUDsKCQlpZiAoaWZyLT5pZnJfc2V0dGluZ3Muc2l6ZSA8
+IHNpemVvZihwcHBfcHJvdG8pKSB7CgkJCWlmci0+aWZyX3NldHRpbmdzLnNpemUgPSBzaXplb2Yo
+cHBwX3Byb3RvKTsKCQkJcmV0dXJuIC1FTk9CVUZTOwoJCX0KCQlpZiAoY29weV90b191c2VyKGlm
+ci0+aWZyX3NldHRpbmdzLmlmc19pZnN1LnBwcCwKCQkJCSAmaGRsYy0+c3RhdGUucHBwLnNldHRp
+bmdzLCBzaXplb2YocHBwX3Byb3RvKSkpCgkJCXJldHVybiAtRUZBVUxUOwoJCXJldHVybiAwOwoK
+CWNhc2UgSUZfUFJPVE9fUFBQOgoJCWlmKCFjYXBhYmxlKENBUF9ORVRfQURNSU4pKQoJCQlyZXR1
+cm4gLUVQRVJNOwoKCQlpZihkZXYtPmZsYWdzICYgSUZGX1VQKQoJCQlyZXR1cm4gLUVCVVNZOwoK
+CQkvKiBubyBzZXR0YWJsZSBwYXJhbWV0ZXJzICovCgoJCWVyciA9IGhkbGMtPmF0dGFjaChoZGxj
+LCBFTkNPRElOR19OUlosUEFSSVRZX0NSQzE2X1BSMV9DQ0lUVCk7CgkJaWYgKCFlcnIpIHsKCQkJ
+aGRsY19wcm90b19kZXRhY2goaGRsYyk7CgkJCWVyciA9IGhkbGNfcHBwX3JlZ2lzdGVyKGhkbGMp
+OwoJCX0KCgkJcmV0dXJuIGVycjsKCX0KCglyZXR1cm4gLUVJTlZBTDsKfQo=
 
-[snip]
-
-> And that too.
-
-I have avoided the goto's in the updated patch below.
-
-Thanks!!
-
-
----
-
- linux-2.6.8.1-vatsa/include/net/sock.h       |   22 +++++++++--
- linux-2.6.8.1-vatsa/include/net/tcp.h        |   24 +++++++++---
- linux-2.6.8.1-vatsa/net/core/sock.c          |   11 +++++
- linux-2.6.8.1-vatsa/net/ipv4/tcp.c           |    2 -
- linux-2.6.8.1-vatsa/net/ipv4/tcp_diag.c      |   11 +++--
- linux-2.6.8.1-vatsa/net/ipv4/tcp_ipv4.c      |   50 ++++++++++++++++-----------
- linux-2.6.8.1-vatsa/net/ipv4/tcp_minisocks.c |   47 ++++++++++++++++++++-----
- linux-2.6.8.1-vatsa/net/ipv6/tcp_ipv6.c      |   22 +++++++----
- 8 files changed, 135 insertions(+), 54 deletions(-)
-
-diff -puN include/net/sock.h~tcp_ehash include/net/sock.h
---- linux-2.6.8.1/include/net/sock.h~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/include/net/sock.h	2004-09-01 10:09:43.000000000 +0530
-@@ -50,6 +50,7 @@
- #include <linux/security.h>
- 
- #include <linux/filter.h>
-+#include <linux/rcupdate.h>
- 
- #include <asm/atomic.h>
- #include <net/dst.h>
-@@ -178,6 +179,7 @@ struct sock_common {
-   *	@sk_error_report - callback to indicate errors (e.g. %MSG_ERRQUEUE)
-   *	@sk_backlog_rcv - callback to process the backlog
-   *	@sk_destruct - called at sock freeing time, i.e. when all refcnt == 0
-+  *	@sk_rcu - RCU callback structure
-  */
- struct sock {
- 	/*
-@@ -266,6 +268,7 @@ struct sock {
-   	int			(*sk_backlog_rcv)(struct sock *sk,
- 						  struct sk_buff *skb);  
- 	void                    (*sk_destruct)(struct sock *sk);
-+	struct rcu_head		sk_rcu;
- };
- 
- /*
-@@ -350,7 +353,7 @@ static __inline__ int sk_del_node_init(s
- 
- static __inline__ void __sk_add_node(struct sock *sk, struct hlist_head *list)
- {
--	hlist_add_head(&sk->sk_node, list);
-+	hlist_add_head_rcu(&sk->sk_node, list);
- }
- 
- static __inline__ void sk_add_node(struct sock *sk, struct hlist_head *list)
-@@ -371,7 +374,7 @@ static __inline__ void sk_add_bind_node(
- }
- 
- #define sk_for_each(__sk, node, list) \
--	hlist_for_each_entry(__sk, node, list, sk_node)
-+	hlist_for_each_entry_rcu(__sk, node, list, sk_node)
- #define sk_for_each_from(__sk, node) \
- 	if (__sk && ({ node = &(__sk)->sk_node; 1; })) \
- 		hlist_for_each_entry_from(__sk, node, sk_node)
-@@ -703,6 +706,7 @@ extern void FASTCALL(release_sock(struct
- extern struct sock *		sk_alloc(int family, int priority, int zero_it,
- 					 kmem_cache_t *slab);
- extern void			sk_free(struct sock *sk);
-+extern void			sk_free_rcu(struct rcu_head *head);
- 
- extern struct sk_buff		*sock_wmalloc(struct sock *sk,
- 					      unsigned long size, int force,
-@@ -888,8 +892,18 @@ static inline void sk_filter_charge(stru
- /* Ungrab socket and destroy it, if it was the last reference. */
- static inline void sock_put(struct sock *sk)
- {
--	if (atomic_dec_and_test(&sk->sk_refcnt))
--		sk_free(sk);
-+	while (atomic_dec_and_test(&sk->sk_refcnt)) {
-+		/* Restore ref count and schedule callback.
-+		 * If we don't restore ref count, then the callback can be
-+		 * scheduled by more than one CPU.
-+		 */
-+		atomic_inc(&sk->sk_refcnt);
-+
-+		if (atomic_read(&sk->sk_refcnt) == 1) {
-+			call_rcu(&sk->sk_rcu, sk_free_rcu);
-+			break;
-+		}
-+	}
- }
- 
- /* Detach socket from process context.
-diff -puN include/net/tcp.h~tcp_ehash include/net/tcp.h
---- linux-2.6.8.1/include/net/tcp.h~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/include/net/tcp.h	2004-09-01 10:13:40.000000000 +0530
-@@ -30,6 +30,7 @@
- #include <linux/slab.h>
- #include <linux/cache.h>
- #include <linux/percpu.h>
-+#include <linux/rcupdate.h>
- #include <net/checksum.h>
- #include <net/sock.h>
- #include <net/snmp.h>
-@@ -44,7 +45,7 @@
-  * for the rest.  I'll experiment with dynamic table growth later.
-  */
- struct tcp_ehash_bucket {
--	rwlock_t	  lock;
-+	spinlock_t	  lock;
- 	struct hlist_head chain;
- } __attribute__((__aligned__(8)));
- 
-@@ -222,12 +223,13 @@ struct tcp_tw_bucket {
- 	struct in6_addr		tw_v6_rcv_saddr;
- 	int			tw_v6_ipv6only;
- #endif
-+	struct rcu_head		tw_rcu;
- };
- 
- static __inline__ void tw_add_node(struct tcp_tw_bucket *tw,
- 				   struct hlist_head *list)
- {
--	hlist_add_head(&tw->tw_node, list);
-+	hlist_add_head_rcu(&tw->tw_node, list);
- }
- 
- static __inline__ void tw_add_bind_node(struct tcp_tw_bucket *tw,
-@@ -305,14 +307,22 @@ static inline int tcp_v6_ipv6only(const 
- #endif
- 
- extern kmem_cache_t *tcp_timewait_cachep;
-+extern void tcp_tw_free(struct rcu_head *head);
- 
- static inline void tcp_tw_put(struct tcp_tw_bucket *tw)
- {
--	if (atomic_dec_and_test(&tw->tw_refcnt)) {
--#ifdef INET_REFCNT_DEBUG
--		printk(KERN_DEBUG "tw_bucket %p released\n", tw);
--#endif
--		kmem_cache_free(tcp_timewait_cachep, tw);
-+	while (atomic_dec_and_test(&tw->tw_refcnt)) {
-+		/* Restore ref count and schedule callback.
-+		 * If we don't restore ref count, then the callback can be
-+		 * scheduled by more than one CPU.
-+		 */
-+
-+		atomic_inc(&tw->tw_refcnt);
-+
-+		if (atomic_read(&tw->tw_refcnt) == 1) {
-+			call_rcu(&tw->tw_rcu, tcp_tw_free);
-+			break;
-+		}
- 	}
- }
- 
-diff -puN net/core/sock.c~tcp_ehash net/core/sock.c
---- linux-2.6.8.1/net/core/sock.c~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/net/core/sock.c	2004-08-26 16:53:14.000000000 +0530
-@@ -657,6 +657,16 @@ void sk_free(struct sock *sk)
- 	module_put(owner);
- }
- 
-+/* RCU callback to free a socket */
-+
-+void sk_free_rcu(struct rcu_head *head)
-+{
-+	struct sock *sk = container_of(head, struct sock, sk_rcu);
-+
-+	if (atomic_dec_and_test(&sk->sk_refcnt))
-+		sk_free(sk);
-+}
-+
- void __init sk_init(void)
- {
- 	sk_cachep = kmem_cache_create("sock", sizeof(struct sock), 0,
-@@ -1347,6 +1357,7 @@ EXPORT_SYMBOL(__lock_sock);
- EXPORT_SYMBOL(__release_sock);
- EXPORT_SYMBOL(sk_alloc);
- EXPORT_SYMBOL(sk_free);
-+EXPORT_SYMBOL(sk_free_rcu);
- EXPORT_SYMBOL(sk_send_sigurg);
- EXPORT_SYMBOL(sock_alloc_send_pskb);
- EXPORT_SYMBOL(sock_alloc_send_skb);
-diff -puN net/ipv4/tcp_ipv4.c~tcp_ehash net/ipv4/tcp_ipv4.c
---- linux-2.6.8.1/net/ipv4/tcp_ipv4.c~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/net/ipv4/tcp_ipv4.c	2004-08-25 18:07:27.000000000 +0530
-@@ -351,7 +351,8 @@ void tcp_listen_wlock(void)
- static __inline__ void __tcp_v4_hash(struct sock *sk, const int listen_possible)
- {
- 	struct hlist_head *list;
--	rwlock_t *lock;
-+	rwlock_t *lock = NULL;
-+	spinlock_t *slock = NULL;
- 
- 	BUG_TRAP(sk_unhashed(sk));
- 	if (listen_possible && sk->sk_state == TCP_LISTEN) {
-@@ -360,14 +361,16 @@ static __inline__ void __tcp_v4_hash(str
- 		tcp_listen_wlock();
- 	} else {
- 		list = &tcp_ehash[(sk->sk_hashent = tcp_sk_hashfn(sk))].chain;
--		lock = &tcp_ehash[sk->sk_hashent].lock;
--		write_lock(lock);
-+		slock = &tcp_ehash[sk->sk_hashent].lock;
-+		spin_lock(slock);
- 	}
- 	__sk_add_node(sk, list);
- 	sock_prot_inc_use(sk->sk_prot);
--	write_unlock(lock);
--	if (listen_possible && sk->sk_state == TCP_LISTEN)
-+	if (listen_possible && sk->sk_state == TCP_LISTEN) {
-+		write_unlock(lock);
- 		wake_up(&tcp_lhash_wait);
-+	} else
-+		spin_unlock(slock);
- }
- 
- static void tcp_v4_hash(struct sock *sk)
-@@ -381,7 +384,8 @@ static void tcp_v4_hash(struct sock *sk)
- 
- void tcp_unhash(struct sock *sk)
- {
--	rwlock_t *lock;
-+	rwlock_t *lock = NULL;
-+	spinlock_t *slock = NULL;
- 
- 	if (sk_unhashed(sk))
- 		goto ende;
-@@ -392,17 +396,20 @@ void tcp_unhash(struct sock *sk)
- 		lock = &tcp_lhash_lock;
- 	} else {
- 		struct tcp_ehash_bucket *head = &tcp_ehash[sk->sk_hashent];
--		lock = &head->lock;
--		write_lock_bh(&head->lock);
-+		slock = &head->lock;
-+		spin_lock_bh(&head->lock);
- 	}
- 
- 	if (__sk_del_node_init(sk))
- 		sock_prot_dec_use(sk->sk_prot);
--	write_unlock_bh(lock);
- 
-+	if (sk->sk_state != TCP_LISTEN)
-+		spin_unlock_bh(slock);
-+	else {
-+		write_unlock_bh(lock);
-  ende:
--	if (sk->sk_state == TCP_LISTEN)
- 		wake_up(&tcp_lhash_wait);
-+	}
- }
- 
- /* Don't inline this cruft.  Here are some nice properties to
-@@ -494,7 +501,7 @@ static inline struct sock *__tcp_v4_look
- 	 */
- 	int hash = tcp_hashfn(daddr, hnum, saddr, sport);
- 	head = &tcp_ehash[hash];
--	read_lock(&head->lock);
-+	rcu_read_lock();
- 	sk_for_each(sk, node, &head->chain) {
- 		if (TCP_IPV4_MATCH(sk, acookie, saddr, daddr, ports, dif))
- 			goto hit; /* You sunk my battleship! */
-@@ -507,7 +514,7 @@ static inline struct sock *__tcp_v4_look
- 	}
- 	sk = NULL;
- out:
--	read_unlock(&head->lock);
-+	rcu_read_unlock();
- 	return sk;
- hit:
- 	sock_hold(sk);
-@@ -559,7 +566,7 @@ static int __tcp_v4_check_established(st
- 	struct hlist_node *node;
- 	struct tcp_tw_bucket *tw;
- 
--	write_lock(&head->lock);
-+	spin_lock(&head->lock);
- 
- 	/* Check TIME-WAIT sockets first. */
- 	sk_for_each(sk2, node, &(head + tcp_ehash_size)->chain) {
-@@ -614,7 +621,7 @@ unique:
- 	BUG_TRAP(sk_unhashed(sk));
- 	__sk_add_node(sk, &head->chain);
- 	sock_prot_inc_use(sk->sk_prot);
--	write_unlock(&head->lock);
-+	spin_unlock(&head->lock);
- 
- 	if (twp) {
- 		*twp = tw;
-@@ -630,7 +637,7 @@ unique:
- 	return 0;
- 
- not_unique:
--	write_unlock(&head->lock);
-+	spin_unlock(&head->lock);
- 	return -EADDRNOTAVAIL;
- }
- 
-@@ -2228,7 +2235,10 @@ static void *established_get_first(struc
- 		struct hlist_node *node;
- 		struct tcp_tw_bucket *tw;
- 	       
--		read_lock(&tcp_ehash[st->bucket].lock);
-+		/* Take the spinlock. Otherwise a dancing socket
-+		 * (__tcp_tw_hashdance) may be reported twice!
-+		 */
-+		spin_lock(&tcp_ehash[st->bucket].lock);
- 		sk_for_each(sk, node, &tcp_ehash[st->bucket].chain) {
- 			if (sk->sk_family != st->family) {
- 				continue;
-@@ -2245,7 +2255,7 @@ static void *established_get_first(struc
- 			rc = tw;
- 			goto out;
- 		}
--		read_unlock(&tcp_ehash[st->bucket].lock);
-+		spin_unlock(&tcp_ehash[st->bucket].lock);
- 		st->state = TCP_SEQ_STATE_ESTABLISHED;
- 	}
- out:
-@@ -2272,10 +2282,10 @@ get_tw:
- 			cur = tw;
- 			goto out;
- 		}
--		read_unlock(&tcp_ehash[st->bucket].lock);
-+		spin_unlock(&tcp_ehash[st->bucket].lock);
- 		st->state = TCP_SEQ_STATE_ESTABLISHED;
- 		if (++st->bucket < tcp_ehash_size) {
--			read_lock(&tcp_ehash[st->bucket].lock);
-+			spin_lock(&tcp_ehash[st->bucket].lock);
- 			sk = sk_head(&tcp_ehash[st->bucket].chain);
- 		} else {
- 			cur = NULL;
-@@ -2385,7 +2395,7 @@ static void tcp_seq_stop(struct seq_file
- 	case TCP_SEQ_STATE_TIME_WAIT:
- 	case TCP_SEQ_STATE_ESTABLISHED:
- 		if (v)
--			read_unlock(&tcp_ehash[st->bucket].lock);
-+			spin_unlock(&tcp_ehash[st->bucket].lock);
- 		local_bh_enable();
- 		break;
- 	}
-diff -puN net/ipv4/tcp.c~tcp_ehash net/ipv4/tcp.c
---- linux-2.6.8.1/net/ipv4/tcp.c~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/net/ipv4/tcp.c	2004-08-25 18:07:27.000000000 +0530
-@@ -2258,7 +2258,7 @@ void __init tcp_init(void)
- 	if (!tcp_ehash)
- 		panic("Failed to allocate TCP established hash table\n");
- 	for (i = 0; i < (tcp_ehash_size << 1); i++) {
--		tcp_ehash[i].lock = RW_LOCK_UNLOCKED;
-+		tcp_ehash[i].lock = SPIN_LOCK_UNLOCKED;
- 		INIT_HLIST_HEAD(&tcp_ehash[i].chain);
- 	}
- 
-diff -puN net/ipv4/tcp_diag.c~tcp_ehash net/ipv4/tcp_diag.c
---- linux-2.6.8.1/net/ipv4/tcp_diag.c~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/net/ipv4/tcp_diag.c	2004-08-25 18:07:27.000000000 +0530
-@@ -522,7 +522,10 @@ skip_listen_ht:
- 		if (i > s_i)
- 			s_num = 0;
- 
--		read_lock_bh(&head->lock);
-+		/* Take the spinlock. Otherwise a dancing socket
-+		 * (__tcp_tw_hashdance) may be reported twice!
-+		 */
-+		spin_lock_bh(&head->lock);
- 
- 		num = 0;
- 		sk_for_each(sk, node, &head->chain) {
-@@ -542,7 +545,7 @@ skip_listen_ht:
- 			if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
- 					 NETLINK_CB(cb->skb).pid,
- 					 cb->nlh->nlmsg_seq) <= 0) {
--				read_unlock_bh(&head->lock);
-+				spin_unlock_bh(&head->lock);
- 				goto done;
- 			}
- 			++num;
-@@ -568,13 +571,13 @@ skip_listen_ht:
- 				if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
- 						 NETLINK_CB(cb->skb).pid,
- 						 cb->nlh->nlmsg_seq) <= 0) {
--					read_unlock_bh(&head->lock);
-+					spin_unlock_bh(&head->lock);
- 					goto done;
- 				}
- 				++num;
- 			}
- 		}
--		read_unlock_bh(&head->lock);
-+		spin_unlock_bh(&head->lock);
- 	}
- 
- done:
-diff -puN net/ipv4/tcp_minisocks.c~tcp_ehash net/ipv4/tcp_minisocks.c
---- linux-2.6.8.1/net/ipv4/tcp_minisocks.c~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/net/ipv4/tcp_minisocks.c	2004-08-26 16:58:08.000000000 +0530
-@@ -64,14 +64,14 @@ static void tcp_timewait_kill(struct tcp
- 
- 	/* Unlink from established hashes. */
- 	ehead = &tcp_ehash[tw->tw_hashent];
--	write_lock(&ehead->lock);
-+	spin_lock(&ehead->lock);
- 	if (hlist_unhashed(&tw->tw_node)) {
--		write_unlock(&ehead->lock);
-+		spin_unlock(&ehead->lock);
- 		return;
- 	}
- 	__hlist_del(&tw->tw_node);
- 	sk_node_init(&tw->tw_node);
--	write_unlock(&ehead->lock);
-+	spin_unlock(&ehead->lock);
- 
- 	/* Disassociate with bind bucket. */
- 	bhead = &tcp_bhash[tcp_bhashfn(tw->tw_num)];
-@@ -308,17 +308,28 @@ static void __tcp_tw_hashdance(struct so
- 	tw_add_bind_node(tw, &tw->tw_tb->owners);
- 	spin_unlock(&bhead->lock);
- 
--	write_lock(&ehead->lock);
-+	spin_lock(&ehead->lock);
- 
--	/* Step 2: Remove SK from established hash. */
--	if (__sk_del_node_init(sk))
--		sock_prot_dec_use(sk->sk_prot);
-+	/*
-+	 * We have to be carefull here since there could be racing
-+	 * (lock-free) lookups happening on other CPUs. If we remove SK first
-+	 * and then add TW, then there is a tiny window where this socket is
-+	 * in neither the established half nor in the TIMEWAIT half of the ehash
-+	 * table. Lookups occuring in that window can drop packets!
-+	 * Hence we first add TW and then remove SK, with a barrier in between.
-+	 */
- 
--	/* Step 3: Hash TW into TIMEWAIT half of established hash table. */
-+	/* Step 2: Hash TW into TIMEWAIT half of established hash table. */
- 	tw_add_node(tw, &(ehead + tcp_ehash_size)->chain);
- 	atomic_inc(&tw->tw_refcnt);
- 
--	write_unlock(&ehead->lock);
-+	smp_wmb();
-+
-+	/* Step 3: Remove SK from established hash. */
-+	if (__sk_del_node_init(sk))
-+		sock_prot_dec_use(sk->sk_prot);
-+
-+	spin_unlock(&ehead->lock);
- }
- 
- /* 
-@@ -1069,11 +1080,29 @@ int tcp_child_process(struct sock *paren
- 	return ret;
- }
- 
-+/* RCU callback to free a timewait bucket */
-+
-+void tcp_tw_free(struct rcu_head *head)
-+{
-+	struct tcp_tw_bucket *tw =
-+		container_of(head, struct tcp_tw_bucket, tw_rcu);
-+
-+	if (atomic_dec_and_test(&tw->tw_refcnt)) {
-+#ifdef INET_REFCNT_DEBUG
-+		printk(KERN_DEBUG "tw_bucket %p released\n", tw);
-+#endif
-+        	kmem_cache_free(tcp_timewait_cachep, tw);
-+	}
-+}
-+
-+
-+
- EXPORT_SYMBOL(tcp_check_req);
- EXPORT_SYMBOL(tcp_child_process);
- EXPORT_SYMBOL(tcp_create_openreq_child);
- EXPORT_SYMBOL(tcp_timewait_state_process);
- EXPORT_SYMBOL(tcp_tw_deschedule);
-+EXPORT_SYMBOL(tcp_tw_free);
- 
- #ifdef CONFIG_SYSCTL
- EXPORT_SYMBOL(sysctl_tcp_tw_recycle);
-diff -puN net/ipv6/tcp_ipv6.c~tcp_ehash net/ipv6/tcp_ipv6.c
---- linux-2.6.8.1/net/ipv6/tcp_ipv6.c~tcp_ehash	2004-08-25 18:06:42.000000000 +0530
-+++ linux-2.6.8.1-vatsa/net/ipv6/tcp_ipv6.c	2004-08-25 18:07:27.000000000 +0530
-@@ -210,7 +210,8 @@ fail:
- static __inline__ void __tcp_v6_hash(struct sock *sk)
- {
- 	struct hlist_head *list;
--	rwlock_t *lock;
-+	rwlock_t *lock = NULL;
-+	spinlock_t *slock = NULL;
- 
- 	BUG_TRAP(sk_unhashed(sk));
- 
-@@ -221,13 +222,16 @@ static __inline__ void __tcp_v6_hash(str
- 	} else {
- 		sk->sk_hashent = tcp_v6_sk_hashfn(sk);
- 		list = &tcp_ehash[sk->sk_hashent].chain;
--		lock = &tcp_ehash[sk->sk_hashent].lock;
--		write_lock(lock);
-+		slock = &tcp_ehash[sk->sk_hashent].lock;
-+		spin_lock(slock);
- 	}
- 
- 	__sk_add_node(sk, list);
- 	sock_prot_inc_use(sk->sk_prot);
--	write_unlock(lock);
-+	if (sk->sk_state == TCP_LISTEN)
-+		write_unlock(lock);
-+	else
-+		spin_unlock(slock);
- }
- 
- 
-@@ -307,7 +311,7 @@ static inline struct sock *__tcp_v6_look
- 	 */
- 	hash = tcp_v6_hashfn(daddr, hnum, saddr, sport);
- 	head = &tcp_ehash[hash];
--	read_lock(&head->lock);
-+	rcu_read_lock();
- 	sk_for_each(sk, node, &head->chain) {
- 		/* For IPV6 do the cheaper port and family tests first. */
- 		if(TCP_IPV6_MATCH(sk, saddr, daddr, ports, dif))
-@@ -326,12 +330,12 @@ static inline struct sock *__tcp_v6_look
- 				goto hit;
- 		}
- 	}
--	read_unlock(&head->lock);
-+	rcu_read_unlock();
- 	return NULL;
- 
- hit:
- 	sock_hold(sk);
--	read_unlock(&head->lock);
-+	rcu_read_unlock();
- 	return sk;
- }
- 
-@@ -452,7 +456,7 @@ static int tcp_v6_check_established(stru
- 	struct hlist_node *node;
- 	struct tcp_tw_bucket *tw;
- 
--	write_lock_bh(&head->lock);
-+	spin_lock_bh(&head->lock);
- 
- 	/* Check TIME-WAIT sockets first. */
- 	sk_for_each(sk2, node, &(head + tcp_ehash_size)->chain) {
-@@ -491,7 +495,7 @@ unique:
- 	__sk_add_node(sk, &head->chain);
- 	sk->sk_hashent = hash;
- 	sock_prot_inc_use(sk->sk_prot);
--	write_unlock_bh(&head->lock);
-+	spin_unlock_bh(&head->lock);
- 
- 	if (tw) {
- 		/* Silly. Should hash-dance instead... */
-
-_
--- 
-
-
-Thanks and Regards,
-Srivatsa Vaddagiri,
-Linux Technology Center,
-IBM Software Labs,
-Bangalore, INDIA - 560017
+------_=_NextPart_001_01C4902D.D3F1B09D--
