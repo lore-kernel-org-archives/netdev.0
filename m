@@ -1,28 +1,44 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 2.6] e100, e1000, ixgb: add MODULE_VERSION tags
-Date: Tue, 2 Nov 2004 15:06:39 -0500
-Message-ID: <20041102150639.A19501@tuxdriver.com>
-References: <20041102190724.GA6962@lists.us.dell.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET] Fix neighbour tbl->entries race
+Date: Wed, 3 Nov 2004 07:37:20 +1100
+Message-ID: <20041102203720.GA12108@gondor.apana.org.au>
+References: <20041102112651.GA8633@gondor.apana.org.au> <1099404823.1021.15.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux.nics@intel.com, jgarzik@pobox.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Domsch <Matt_Domsch@dell.com>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20041102190724.GA6962@lists.us.dell.com>; from Matt_Domsch@dell.com on Tue, Nov 02, 2004 at 01:07:24PM -0600
+In-Reply-To: <1099404823.1021.15.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 02, 2004 at 01:07:24PM -0600, Matt Domsch wrote:
-> Patch below adds MODULE_VERSION tags to the e100, e1000, and ixgb
-> drivers.  Tools like DKMS will make use of this information to
+On Tue, Nov 02, 2004 at 09:13:43AM -0500, jamal wrote:
+> 
+> Is this still the same logic:
+> 
+> -------------
+> -               if (!neigh_forced_gc(tbl) &&
+> -                   tbl->entries > tbl->gc_thresh3)
+> -                       goto out;
+> +               neigh_forced_gc(tbl);
+> +               if (atomic_read(&tbl->entries) > tbl->gc_thresh3)
+> +                       goto out_entries;
+> 
+> -------
+> 
+> In previous code it seems you should short-circuit if
+> neigh_forced_gc(tbl) returns non-zero. why do you have to break that
+> if statement?
 
-I had recently posted patches to this effect for e100, e1000 (nearly
-identical to yours) and several others.  I did not, however, include
-ixgb, so I'm sure that one will be quite welcome! :-)
+The previous logic is slightly incorrect in that even if neigh_forced_gc
+succeeded in removing some entries, the total number of entries may still
+be above the threshold 3.
 
-John
+Thanks,
 -- 
-John W. Linville
-linville@tuxdriver.com
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
