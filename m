@@ -1,222 +1,98 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: bert hubert <ahu@ds9a.nl>
 Subject: Re: (udp-en/decap broken in 2.6.8-rc2?) Re: ipsec, nat-t, iproute2?
-Date: Sat, 31 Jul 2004 20:32:07 +1000
+Date: Sat, 31 Jul 2004 13:20:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1Bqr9r-0004av-00@gondolin.me.apana.org.au>
-References: <20040731083456.GA24761@outpost.ds9a.nl>
-Cc: herbert@gondor.apana.org.au, jmorris@redhat.com, netdev@oss.sgi.com
+Message-ID: <20040731112048.GA27893@outpost.ds9a.nl>
+References: <20040731083456.GA24761@outpost.ds9a.nl> <E1Bqr9r-0004av-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ahu@ds9a.nl (bert hubert)
-In-Reply-To: <20040731083456.GA24761@outpost.ds9a.nl>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1Bqr9r-0004av-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-bert hubert <ahu@ds9a.nl> wrote:
+On Sat, Jul 31, 2004 at 08:32:07PM +1000, Herbert Xu wrote:
+
+> > encapsulated packets reach userspace?
 > 
-> Would this be:
-> #define UDP_ESPINUDP    100, known in the kernel as UDP_ENCAP?
+> No.
 
-Correct.
+socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP) = 3
+setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+bind(3, {sa_family=AF_INET, sin_port=htons(4500),
+	sin_addr=inet_addr("10.0.0.3")}, 16) = 0
 
-> Does the socket need to be kept open after the setsockopt? Do the
+setsockopt(3, SOL_UDP, 100, [1], 4)     = 0
+read(3, "\0\0\206\305\0\0\f\311\27\263\3379\313z\377T\310\6\25\217"..., 1024) = 104
 
-Yes.
+I do see packets coming in on 2.6.8-rc2 and tethereal verifies that the
+packets at least appear to be ESP:
 
-> encapsulated packets reach userspace?
+Internet Protocol, Src Addr: 192.168.1.4 (192.168.1.4), Dst Addr: 10.0.0.3
+(10.0.0.3)
+    Version: 4
+    Header length: 20 bytes
+    Differentiated Services Field: 0x00 (DSCP 0x00: Default; ECN: 0x00)
+        0000 00.. = Differentiated Services Codepoint: Default (0x00)
+        .... ..0. = ECN-Capable Transport (ECT): 0
+        .... ...0 = ECN-CE: 0
+    Total Length: 132
+    Identification: 0x00f0 (240)
+    Flags: 0x04 (Don't Fragment)
+        0... = Reserved bit: Not set
+        .1.. = Don't fragment: Set
+        ..0. = More fragments: Not set
+    Fragment offset: 0
+    Time to live: 64
+    Protocol: UDP (0x11)
+    Header checksum: 0x6dca (correct)
+    Source: 192.168.1.4 (192.168.1.4)
+    Destination: 10.0.0.3 (10.0.0.3)
+User Datagram Protocol, Src Port: 4500 (4500), Dst Port: 4500 (4500)
+    Source port: 4500 (4500)
+    Destination port: 4500 (4500)
+    Length: 112
+    Checksum: 0x0000 (none)
+UDP Encapsulation of IPsec Packets
+Encapsulating Security Payload
+    SPI: 0x000086c5
+    Sequence: 4116
+    Data (96 bytes)
 
-No.
+I'm trying to reverse engineer the code out there but can't find other
+things I need to do to get this to work - right now the kernel does not see
+the ESP packets, but passes them to userspace. I have this SA in place on
+the receiving end:
 
-> The right way to do this is probably to first get a socket, set it to
-> UDP_ENCAP, and only then try to negotiate an SA, using the port number
-> assigned previously?
+192.168.1.4[4500] 10.0.0.3[4500] 
+	esp-udp mode=transport spi=34501(0x000086c5) reqid=0(0x00000000)
+	E: aes-cbc  31323334 35363738 39303132 31323334 35363738 39303132
+	seq=0x00000000 replay=0 flags=0x00000000 state=mature 
+	created: Jul 31 13:12:09 2004	current: Jul 31 13:12:13 2004
+	diff: 4(s)	hard: 0(s)	soft: 0(s)
+	last:                     	hard: 0(s)	soft: 0(s)
+	current: 0(bytes)	hard: 0(bytes)	soft: 0(bytes)
+	allocated: 0	hard: 0	soft: 0
+	sadb_seq=0 pid=595 refcnt=0
 
-Theoretically you can use another port if you're the initiator, but the
-draft document requires you to use port 4500.
+Note how the SPI matches with what tethereal sees.
 
-> I'm trying to figure out how this stuff works with an eye on documenting it.
-> So far I haven't been able to get openswan to do nat-t, hence I've been
-> trying to do this from the ground up.
+And this policy on 10.0.0.3.
 
-There is a NAT-T bug in Opeswan 2.1.* which was recently fixed.
-Here is the patch.
+192.168.1.4[any] 10.0.0.3[any] icmp
+	in ipsec
+	esp/transport//require
+	created: Jul 31 13:14:22 2004  lastused:                     
+	lifetime: 0(s) validtime: 0(s)
+	spid=16 seq=0 pid=659
+	refcnt=1
 
-In future please ask on users@lists.openswan.org.
+Any further ideas? 
 
-Cheers,
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-Index: programs/pluto/server.c
-===================================================================
-RCS file: /public/cvs/openswan-2/programs/pluto/server.c,v
-retrieving revision 1.97
-diff -u -r1.97 server.c
---- programs/pluto/server.c	2 Jun 2004 12:42:50 -0000	1.97
-+++ programs/pluto/server.c	22 Jul 2004 03:34:50 -0000
-@@ -523,6 +523,51 @@
-     }
- #endif
- 
-+#if defined(linux) && defined(KERNEL26_SUPPORT)
-+    if (!no_klips && kernel_ops->type == KERNEL_TYPE_LINUX)
-+    {
-+	struct sadb_x_policy policy;
-+	int level, opt;
-+
-+	policy.sadb_x_policy_len = sizeof(policy) / IPSEC_PFKEYv2_ALIGN;
-+	policy.sadb_x_policy_exttype = SADB_X_EXT_POLICY;
-+	policy.sadb_x_policy_type = IPSEC_POLICY_BYPASS;
-+	policy.sadb_x_policy_dir = IPSEC_DIR_INBOUND;
-+	policy.sadb_x_policy_reserved = 0;
-+	policy.sadb_x_policy_id = 0;
-+	policy.sadb_x_policy_reserved2 = 0;
-+
-+	if (addrtypeof(&ifp->addr) == AF_INET6)
-+	{
-+	    level = IPPROTO_IPV6;
-+	    opt = IPV6_IPSEC_POLICY;
-+	}
-+	else
-+	{
-+	    level = IPPROTO_IP;
-+	    opt = IP_IPSEC_POLICY;
-+	}
-+
-+	if (setsockopt(fd, level, opt
-+	  , &policy, sizeof(policy)) < 0)
-+	{
-+	    log_errno((e, "setsockopt IPSEC_POLICY in process_raw_ifaces()"));
-+	    close(fd);
-+	    return -1;
-+	}
-+
-+	policy.sadb_x_policy_dir = IPSEC_DIR_OUTBOUND;
-+
-+	if (setsockopt(fd, level, opt
-+	  , &policy, sizeof(policy)) < 0)
-+	{
-+	    log_errno((e, "setsockopt IPSEC_POLICY in process_raw_ifaces()"));
-+	    close(fd);
-+	    return -1;
-+	}
-+    }
-+#endif
-+
-     setportof(htons(port), &ifp->addr);
-     if (bind(fd, sockaddrof(&ifp->addr), sockaddrlenof(&ifp->addr)) < 0)
-     {
-@@ -659,13 +704,10 @@
- 		if (q == NULL)
- 		{
- 		    /* matches nothing -- create a new entry */
--		    int fd = socket(addrtypeof(&ifp->addr), SOCK_DGRAM, IPPROTO_UDP);
-+		    int fd = create_socket(ifp, v->name, pluto_port);
- 
- 		    if (fd < 0)
--		    {
--			log_errno((e, "socket() in process_raw_ifaces()"));
- 			break;
--		    }
- 
- #ifdef NAT_TRAVERSAL
- 		    if (nat_traversal_support_non_ike)
-@@ -673,96 +715,6 @@
- 			nat_traversal_espinudp_socket(fd, ESPINUDP_WITH_NON_IKE);
- 		    }
- #endif
--		    if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
--		    {
--			log_errno((e, "fcntl(,, FD_CLOEXEC) in process_raw_ifaces()"));
--			break;
--		    }
--
--		    if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR
--		    , (const void *)&on, sizeof(on)) < 0)
--		    {
--			log_errno((e, "setsockopt SO_REUSEADDR in process_raw_ifaces()"));
--			break;
--		    }
--
--		    /* To improve error reporting.  See ip(7). */
--#if defined(IP_RECVERR) && defined(MSG_ERRQUEUE)
--		    if (setsockopt(fd, SOL_IP, IP_RECVERR
--		    , (const void *)&on, sizeof(on)) < 0)
--		    {
--			log_errno((e, "setsockopt IP_RECVERR in process_raw_ifaces()"));
--			break;
--		    }
--#endif
--
--		    /* With IPv6, there is no fragmentation after
--		     * it leaves our interface.  PMTU discovery
--		     * is mandatory but doesn't work well with IKE (why?).
--		     * So we must set the IPV6_USE_MIN_MTU option.
--		     * See draft-ietf-ipngwg-rfc2292bis-01.txt 11.1
--		     */
--#ifdef IPV6_USE_MIN_MTU	/* YUCK: not always defined */
--		    if (addrtypeof(&ifp->addr) == AF_INET6
--		    && setsockopt(fd, SOL_SOCKET, IPV6_USE_MIN_MTU
--		      , (const void *)&on, sizeof(on)) < 0)
--		    {
--			log_errno((e, "setsockopt IPV6_USE_MIN_MTU in process_raw_ifaces()"));
--			break;
--		    }
--#endif
--
--#if defined(linux) && defined(KERNEL26_SUPPORT)
--		    if (!no_klips && kernel_ops->type == KERNEL_TYPE_LINUX)
--		    {
--			struct sadb_x_policy policy;
--			int level, opt;
--
--			policy.sadb_x_policy_len = sizeof(policy) / IPSEC_PFKEYv2_ALIGN;
--			policy.sadb_x_policy_exttype = SADB_X_EXT_POLICY;
--			policy.sadb_x_policy_type = IPSEC_POLICY_BYPASS;
--			policy.sadb_x_policy_dir = IPSEC_DIR_INBOUND;
--			policy.sadb_x_policy_reserved = 0;
--			policy.sadb_x_policy_id = 0;
--			policy.sadb_x_policy_reserved2 = 0;
--
--			if (addrtypeof(&ifp->addr) == AF_INET6)
--			{
--			    level = IPPROTO_IPV6;
--			    opt = IPV6_IPSEC_POLICY;
--			}
--			else
--			{
--			    level = IPPROTO_IP;
--			    opt = IP_IPSEC_POLICY;
--			}
--
--			if (setsockopt(fd, level, opt
--			  , &policy, sizeof(policy)) < 0)
--			{
--			    log_errno((e, "setsockopt IPSEC_POLICY in process_raw_ifaces()"));
--			    break;
--			}
--
--			policy.sadb_x_policy_dir = IPSEC_DIR_OUTBOUND;
--
--			if (setsockopt(fd, level, opt
--			  , &policy, sizeof(policy)) < 0)
--			{
--			    log_errno((e, "setsockopt IPSEC_POLICY in process_raw_ifaces()"));
--			    break;
--			}
--		    }
--#endif
--
--		    setportof(htons(pluto_port), &ifp->addr);
--		    if (bind(fd, sockaddrof(&ifp->addr), sockaddrlenof(&ifp->addr)) < 0)
--		    {
--			log_errno((e, "bind() for %s/%s %s:%u in process_raw_ifaces()"
--			    , ifp->name, v->name
--			    , ip_str(&ifp->addr), (unsigned) pluto_port));
--			break;
--		    }
- 
- 		    q = alloc_thing(struct iface, "struct iface");
- 		    q->rname = clone_str(ifp->name, "real device name");
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
