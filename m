@@ -1,37 +1,30 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: Dealing with buggy hardware (was: b44 and 4g4g)
-Date: Fri, 11 Jun 2004 11:45:23 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040611094523.GB13834@elf.ucw.cz>
-References: <20040531202104.GA8301@ee.oulu.fi> <20040605200643.GA2210@ee.oulu.fi> <20040605131923.232f8950.davem@redhat.com> <20040609122905.GA12715@ee.oulu.fi> <20040610200504.GG4507@openzaurus.ucw.cz> <20040610203442.GA27762@ee.oulu.fi> <20040610211217.GA6634@elf.ucw.cz> <20040611061730.GA8081@ee.oulu.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S263763AbUFKJpn@vger.kernel.org>
-To: Pekka Pietikainen <pp@ee.oulu.fi>
-Content-Disposition: inline
-In-Reply-To: <20040611061730.GA8081@ee.oulu.fi>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: UDP sockets bound to ANY send answers with wrong src ip address
+Date: Fri, 11 Jun 2004 20:34:18 +1000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <E1BYjMY-0002CE-00@gondolin.me.apana.org.au>
+References: <200406111230.35481.vda@port.imtp.ilyichevsk.odessa.ua>
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, davem@redhat.com, pekkas@netcore.fi,
+	jmorris@redhat.com, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: vda@port.imtp.ilyichevsk.odessa.ua (Denis Vlasenko)
+In-Reply-To: <200406111230.35481.vda@port.imtp.ilyichevsk.odessa.ua>
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-> > Okay, this is probably other problem. When the bug hit, what are the symptoms?
-> Total immediate crash without an oops. When the RX ring skbufs are allocated
-> with GFP_DMA receives work, but any transmits from > 1GB cause a link
-> down/link up (which is just about all of them). With GPF_DMA bounce
-> buffers those start working too.
+Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> wrote:
 > 
-> > > (Or the issue isn't fully understood yet, figuring out what breaks and what
-> > > doesn't was basically just trial and error :-/ )
-> > 
-> > Can you try the driver from broadcom? bcom4400, or how is it
-> > called. Its extremely ugly, but might get this kind of stuff right...
-> Tried that, it breaks with 4:4 and >1GB in exactly the same way :-)
+> I looked into sendmsg(). Looks like ther is no way to
+> indicate source ip.
+> 
+> Shall I use some other technique?
 
-You might want to report them, then look at diff between latest and
-previous versions :-)))).
-									Pavel
+IP_PKTINFO works just as well there.  Look at the ip_cmsg_send call
+in udp_sendmsg.
+
+Cheers,
 -- 
-People were complaining that M$ turns users into beta-testers...
-...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
