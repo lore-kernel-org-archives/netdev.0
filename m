@@ -1,36 +1,61 @@
-From: "Chad N. Tindel" <chad@tindel.net>
-Subject: Re: Wrong UIDs reported in /proc/net/tcp
-Date: Fri, 19 Nov 2004 16:01:56 -0500
-Message-ID: <20041119210156.GA6513@calma.pair.com>
-References: <20041109205358.GA64015@calma.pair.com> <E1CRdBr-0001P2-00@gondolin.me.apana.org.au> <20041118190257.GA7084@calma.pair.com> <20041118210307.GA9557@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20041118210307.GA9557@gondor.apana.org.au>
-Sender: linux-net-owner@vger.kernel.org
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: [PATCH] MII bus API for PHY devices
+Date: Fri, 19 Nov 2004 15:01:21 -0600
+Message-ID: <2A6C102E-3A6E-11D9-B023-000393C30512@freescale.com>
+References: <419E550B.7030107@colorfullife.com>
+Mime-Version: 1.0 (Apple Message framework v619)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jason McMullan <jason.mcmullan@timesys.com>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <419E550B.7030107@colorfullife.com>
+To: Manfred Spraul <manfred@colorfullife.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > OK, so just out of sheer morbid curiousity, I added an ioctl which will
-> > accept 4 parameters (the address/port pairs), and will return the user id
-> > associated with that socket.  I also changed pidentd to call this ioctl
-> > instead of looking at /proc/net/tcp.  This should theoretically get rid
-> > of all race conditions.
-> 
-> Please show us the code of your ioctl.
 
-Hi-
+On Nov 19, 2004, at 14:18, Manfred Spraul wrote:
 
-I found the problem... it was a bug in my pidentd changes where I wasn't 
-properly handling an ioctl failure.  So, using an ioctl to do a direct hash
-table lookup makes the userid mismatches go away.  We've been running tests for
-12 hours without any failures.
+> Hi,
+>
+> I don't like the polling/interrupt setup part:
+> - for a nic driver, there is no irq line that could be requested by 
+> mii_phy_irq_enable().
+> - if the mii bus driver uses it's own timers, then locking within the 
+> nics will be more difficult.
 
-> Have you tried netlink yet? Does it exhibit the same problem?
+I'm not sure I accept the argument that locking will be more difficult. 
+  Jason's patch requires that a callback be registered for the interrupt 
+or the polling (My update has a similar scheme).  The function you 
+register is essentially like an extra interrupt, except it is never 
+invoked at interrupt time.  All the function has to do is react 
+properly to link state.  If, previously, you checked link state in your 
+interrupt handler, you could still do it there, I suspect.
 
-Only so many test systems to go around.  ;-)  Will start these tests tonight
-and report back.
+>
+> Could you make that part optional? For a nic driver, I would prefer if 
+> I could just call the ->startup part without the request_irq. If the 
+> nic irq handler notices that the nic got an event, then it would call 
+> an appropriate mii_bus function.
 
-Chad
+I think it would be doable to arrange the interface such that drivers 
+could adopt only the PHY configuration infrastructure, and not any of 
+the polling/interrupt infrastructure.  Of course, as it is, it is at 
+least WHOLLY optional, so no driver has to use it at all.
+
+>
+> This also applies for something like /dev/phy/xy: With natsemi, it 
+> would be very tricky to add proper locking. The nic as an internal phy 
+> and an external mii bus. The internal phy is partially visible on the 
+> external bus and any accesses to the phy id of the internal phy on the 
+> external bus cause lockups. No big deal, I just move the internal phy 
+> around [the phy id doesn't matter], but I would prefer if I have to do 
+> that just for ethtool, not for multiple interfaces.
+
+I agree with this point -- Accessing the PHY through /dev registers is 
+a recipe for some mess.  Though I could be convinced that it is 
+manageable.  I do think, however, that the ethtool interface is 
+sufficient to the task.
