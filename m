@@ -1,48 +1,46 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH-2.6.0-tiny] "uninline" {lock,release}_sock
-Date: Sun, 28 Dec 2003 12:42:25 -0600
+From: "justdoit" <justdoit@justdoit.com>
+Subject: =?GB2312?B?zfjC57j4xOO0+MC0yrLDtKO/?=
+Date: Mon, 29 Dec 2003 22:04:41 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031228184225.GT18208@waste.org>
-References: <20031228075426.GB24351@conectiva.com.br> <Pine.LNX.4.58.0312280017060.2274@home.osdl.org> <20031228012329.43003de5.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@osdl.org>, acme@conectiva.com.br,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Message-ID: <200312291405.hBTE5bTb002287@oss.sgi.com>
+Reply-To: justdoit@justdoit.com
+Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031228012329.43003de5.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Dec 28, 2003 at 01:23:29AM -0800, David S. Miller wrote:
-> On Sun, 28 Dec 2003 00:23:07 -0800 (PST)
-> Linus Torvalds <torvalds@osdl.org> wrote:
-> 
-> > Function calls aren't all that expensive, especially with FASTCALL() etc 
-> > to show that you don't have to follow the common calling conventions. 
-> > Right now I think FASTCALL() only matters on x86, but some other 
-> > architectures could make it mean "smaller call clobbered list" or similar.
-> > 
-> > Have you benchmarked with the smaller kernel? 
+现金克隆网--cashcloner是中国人自己开办的“点击+信件”网赚公司！
 
-The primary benchmark for -tiny is how much space it frees up, which
-is very straightforward. More generally, I think we've got something
-of a crisis on our hands in terms of benchmarking as caching
-architectures are making microbenchmark results worse than worthless
-for real life and changes like these are often lost in the noise for
-larger benchmarks.
- 
-> To be honest I think {lock,release}_sock() should both be uninlined
-> always.
-> 
-> It almost made sense to inline these things before the might_sleep()
-> was added, now it definitely makes no sense.
+http://cashcloner.com/paidmail/site/index.php?refid=5690
 
-For the purposes of my -tiny tree, I'd like to make every new feature
-conditional as an aid to footprint measurement, benchmarking, regression
-testing, etc. When I start feeding these patches to mainline, they can
-be made unconditional as is warranted.
+免费注册。无需要任何费用。
+-----------------------------------------------------------------------
 
--- 
-Matt Mackall : http://www.selenic.com : Linux development and consulting
+现金克隆网--cashcloner是中国人自己开办的“点击+信件”网赚公司！
+你只需要点击广告和收看信件，每天不到10分钟。
+一旦满￥25便会汇款到你帐号里，是以人民币 (建议用建行龙卡)支付。
+会员可享受5层下线提成，各层的提成分别是：15%，10%，5%，3%，2%。
+现在注册就补贴￥2.00/人！
+该公司是2003年10月6日新设立的，全中文界面，容易操作！
+如果你介绍5个朋友(5个朋友应该没问题吧？)，
+你的5个朋友每个人再介绍5个朋友，以次类推，到第五层时你将会有3905个下线了。
+假设每个人每个月只赚￥10， 你自己赚的钱 ￥10,通过计算得出你每个月赚￥917.5。
+
+层 下线数 下线赚的钱(￥) 提成百分比 得到的提成(￥)
+1   5         50          15%        7.5
+2   25        250         10%        25
+3   125       1250        5%         62.5
+4   625       6250        3%         187.5
+5   3125      31250       2%         625
+合计 3905   39050    35%         907.5
+其实你不一定只介绍5个会员，如果介绍的越多赚的也越多，所以建议你尽量发展更多的下线。
+快加入噢:
+
+http://cashcloner.com/paidmail/site/index.php?refid=5690
+
+免费注册, 钱途无量
+
+-------------------------------------------------------------------------------
+如有疑问，请于QQ：290226945联系。
+我会免费提供发展下线的软件。
