@@ -1,28 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2/2] IPv6: strict address checks even on globals in
- ndisc
-Date: Wed, 21 Jan 2004 22:34:31 -0800
+From: Srihari Vijayaraghavan <harisri@bigpond.com>
+Subject: Re: [PROBLEM] r8169 deadlocks
+Date: Thu, 22 Jan 2004 21:32:06 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040121223431.5929dca1.davem@redhat.com>
-References: <Pine.LNX.4.58.0401141035260.23925@rhea.tcs.hut.fi>
+Message-ID: <200401222132.07355.harisri@bigpond.com>
+References: <200401152039.00182.harisri@bigpond.com> <200401212115.45027.harisri@bigpond.com> <20040122005940.A26438@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.58.0401141035260.23925@rhea.tcs.hut.fi>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040122005940.A26438@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jan 2004 11:08:04 +0200 (EET)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+Hello Francois,
 
-> The attached patch adds a "strict" parameter to ip6_chk_addr() and
-> ip6_get_ifaddr() to allow link-local protocols like ND and DAD to do
-> strict address checks even on addresses with greater scope than
-> link-local.
+On Thursday 22 January 2004 10:59, Francois Romieu wrote:
+> [...]
+> r8169 did not evolve between 2.6.1 and 2.6.2-rc1. Change of behavior
+> probably comes from some other part of the kernel. Joy.
+>
+> > If you want me to I can test your r8169-tc-index-overflow.patch.
+>
+> See attachment. It applies against plain 2.6.2-rc1.
 
-Looks fine, applied.
+OK. I have applied your patch and I have tested my computer under moderate to 
+high network load. Although I may not have the kind of network load to 
+trigger the bug your patch is meant to attack, I can confirm there is no 
+stability issue with your patch.
 
-Thanks Ville.
+Thanks
+Hari
