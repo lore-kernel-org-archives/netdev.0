@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (6/12) skge: use chip MIB stats for packet and byte counts
-Date: Thu, 3 Mar 2005 11:37:40 -0800
-Message-ID: <20050303113740.692bf69e@dxpl.pdx.osdl.net>
+Subject: [PATCH] (4/12) skge: suspend/resume related state management
+Date: Thu, 3 Mar 2005 11:35:43 -0800
+Message-ID: <20050303113543.72ba7dbf@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,76 +11,47 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Use the chip MIB statistics to implement the packet and byte counts.
+Fix suspend/resume logic.  On suspend, shutdown board if it is already
+up, and on resume only bring it up if it was up before the suspend
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- skge-2.6.11/drivers/net/skge.c.orig	2005-03-02 17:25:25.000000000 -0800
-+++ skge-2.6.11/drivers/net/skge.c	2005-03-02 17:29:30.000000000 -0800
-@@ -361,6 +361,31 @@
- 		yukon_get_stats(skge, data);
- }
+--- skge-2.6.11/drivers/net/skge.c.orig	2005-03-02 17:17:25.000000000 -0800
++++ skge-2.6.11/drivers/net/skge.c	2005-03-02 17:21:40.000000000 -0800
+@@ -3268,11 +3268,12 @@
+ 	for(i = 0; i < 2; i++) {
+ 		struct net_device *dev = hw->dev[i];
  
-+/* Use hardware MIB variables for critical path statistics and
-+ * transmit feedback not reported at interrupt.
-+ * Other errors are accounted for in interrupt handler.
-+ */
-+static struct net_device_stats *skge_get_stats(struct net_device *dev)
-+{
-+	struct skge_port *skge = netdev_priv(dev);
-+	u64 data[ARRAY_SIZE(skge_stats)];
-+
-+	if (skge->hw->chip_id == CHIP_ID_GENESIS)
-+		genesis_get_stats(skge, data);
-+	else
-+		yukon_get_stats(skge, data);
-+
-+	skge->net_stats.tx_bytes = data[0];
-+	skge->net_stats.rx_bytes = data[1];
-+	skge->net_stats.tx_packets = data[2] + data[4] + data[6];
-+	skge->net_stats.rx_packets = data[3] + data[5] + data[7];
-+	skge->net_stats.multicast = data[5] + data[7];
-+	skge->net_stats.collisions = data[10];
-+	skge->net_stats.tx_aborted_errors = data[12];
-+
-+	return &skge->net_stats;
-+}
-+
- static void skge_get_strings(struct net_device *dev, u32 stringset, u8 *data)
- {
- 	int i;
-@@ -2336,9 +2361,6 @@
- 		netif_stop_queue(dev);
- 	}
- 
--	skge->net_stats.tx_packets++;
--	skge->net_stats.tx_bytes += skb->len;
+-		if (dev && netif_running(dev)) {
++		if (dev) {
+ 			struct skge_port *skge = netdev_priv(dev);
 -
- 	dev->trans_start = jiffies;
- 	spin_unlock_irqrestore(&skge->tx_lock, flags);
- 
-@@ -2572,8 +2594,6 @@
+-			netif_carrier_off(dev);
+-			skge_down(dev);
++			if (netif_running(dev)) {
++				netif_carrier_off(dev);
++				skge_down(dev);
++			}
+ 			netif_device_detach(dev);
+ 			wol |= skge->wol;
  		}
+@@ -3293,13 +3294,17 @@
  
- 		dev->last_rx = jiffies;
--		skge->net_stats.rx_packets++;
--		skge->net_stats.rx_bytes += skb->len;
- 		netif_receive_skb(skb);
+ 	pci_set_power_state(pdev, PCI_D0);
+ 	pci_restore_state(pdev);
++	pci_enable_wake(pdev, PCI_D0, 0);
  
- 		++work_done;
-@@ -2825,15 +2845,6 @@
+ 	skge_reset(hw);
+ 
+ 	for(i = 0; i < 2; i++) {
+ 		struct net_device *dev = hw->dev[i];
+-		if (dev && netif_running(dev))
+-			skge_up(dev);
++		if (dev) {
++			netif_device_attach(dev);
++			if(netif_running(dev))
++				skge_up(dev);
++		}
+ 	}
+ 	return 0;
  }
- #endif
- 
--/* TODO: use MIB counters instead?? */
--static struct net_device_stats *skge_get_stats(struct net_device *dev)
--{
--	struct skge_port *skge = netdev_priv(dev);
--
--	return &skge->net_stats;
--}
--
--
- static int skge_set_mac_address(struct net_device *dev, void *p)
- {
- 	struct skge_port *skge = netdev_priv(dev);
