@@ -1,30 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: James Morris <jmorris@intercode.com.au>
 Subject: Re: [PATCH] IPv6: Functions Clean-up
-Date: Sun, 03 Nov 2002 22:20:10 +0900 (JST)
+Date: Mon, 4 Nov 2002 00:22:39 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021103.222010.31188042.yoshfuji@linux-ipv6.org>
-References: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
-	<1036328414.1048.3.camel@arwen>
-	<20021103.221658.52523847.yoshfuji@linux-ipv6.org>
+Message-ID: <Mutt.LNX.4.44.0211040019450.7526-100000@blackbird.intercode.com.au>
+References: <20021103.221658.52523847.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   netfilter-devel@lists.netfilter.org, davem@redhat.com, kuznet@ms2.inr.ac.ru,
-   usagi@linux-ipv6.org, yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Cc: kisza@securityaudit.hu, <linux-kernel@vger.kernel.org>,
+   <netdev@oss.sgi.com>, <netfilter-devel@lists.netfilter.org>,
+   <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>, <usagi@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kisza@securityaudit.hu
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 In-Reply-To: <20021103.221658.52523847.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20021103.221658.52523847.yoshfuji@linux-ipv6.org> (at Sun, 03 Nov 2002 22:16:58 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+On Sun, 3 Nov 2002, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
 
 > So, the reason why the copy of route6_me_harder() 
 > lives there is because net/ipv6/ip6_output.c has not been 
-                                               ~~~~~~~~~~~~does not
 > exported it.
-  ~~~~~~~~export
+> 
 
---yoshfuji
+Yes.  It would be much better to use common core networking code.
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
