@@ -1,637 +1,683 @@
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 17/17 linux-2.6.7-rc2] prism54: White space and indentation (resend)
-Date: Sat, 5 Jun 2004 14:51:34 +0200
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: small netfilter cleanup
+Date: 05 Jun 2004 07:22:19 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406051451.34065.margitsw@t-online.de>
+Message-ID: <1086434538.1590.16.camel@jzny.localdomain>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_WHcwAw8pWE41qOR"
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-q0+k3WAQkq6HY9b92iVN"
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: Harald Welte <laforge@netfilter.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Boundary-00=_WHcwAw8pWE41qOR
-Content-Type: text/plain;
-  charset="us-ascii"
+--=-q0+k3WAQkq6HY9b92iVN
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-2004-05-29  Margit Schubert-While <margitsw@t-online.de>
-
-* White space and indentation patch
+Content-Type: text/plain
 
 
+I have been sitting on these patches for sometime now.
+Harald, we did discuss this back when.
+Attached patches for 2.4.26 and 2.6.6; both should patch
+cleanly against pre 2.4.27 and 2.6.7
 
---Boundary-00=_WHcwAw8pWE41qOR
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="17-white-space-indent.patch"
+cheers,
+jamal
+
+--=-q0+k3WAQkq6HY9b92iVN
 Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="17-white-space-indent.patch"
+Content-Disposition: attachment; filename=nf24p
+Content-Type: text/plain; name=nf24p; charset=ISO-8859-1
 
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c	2004-05-28 15:50:41.989678376 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c	2004-05-28 15:49:40.516023792 +0200
-@@ -166,7 +166,7 @@
- 	 * for it save old values */
- 	if (init_mode > IW_MODE_MONITOR || init_mode < IW_MODE_AUTO) {
- 		printk(KERN_DEBUG "%s(): You passed a non-valid init_mode. "
--				"Using default mode\n", __FUNCTION__);
-+		       "Using default mode\n", __FUNCTION__);
- 		init_mode = CARD_DEFAULT_IW_MODE;
- 	}
- 	/* This sets all of the mode-dependent values */
-@@ -518,9 +518,7 @@
- 		i++;
- 		data++;
- 	}
--
- 	range->num_bitrates = i;
--
- 	kfree(r.ptr);
+--- /usr/src/2426/include/linux/netfilter.h	2003-08-25 07:44:44.000000000 -0400
++++ /usr/src/2426-mod/include/linux/netfilter.h	2004-06-03 22:51:00.000000000 -0400
+@@ -146,6 +146,12 @@
+ 			struct nf_info *info,
+ 			unsigned int verdict);
  
- 	return rvalue;
-@@ -559,7 +557,6 @@
- 	int rvalue;
++extern inline struct ipt_target *
++ipt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++extern inline struct ip6t_target *
++ip6t_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++extern inline struct arpt_target *
++arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
+ extern void (*ip_ct_attach)(struct sk_buff *, struct nf_ct_info *);
  
- 	rvalue = mgt_get_request(priv, DOT11_OID_BSSID, 0, NULL, &r);
+ #ifdef CONFIG_NETFILTER_DEBUG
+--- /usr/src/2426/include/linux/netfilter_ipv4/ip_tables.h	2002-02-25 14:38:13.000000000 -0500
++++ /usr/src/2426-mod/include/linux/netfilter_ipv4/ip_tables.h	2004-06-03 22:52:39.000000000 -0400
+@@ -283,6 +283,8 @@
+ 	struct ipt_entry entrytable[0];
+ };
+ 
++extern struct semaphore ipt_mutex;
++
+ /* Standard return verdict, or do jump. */
+ #define IPT_STANDARD_TARGET ""
+ /* Error verdict. */
+@@ -334,6 +336,7 @@
+ /*
+  *	Main firewall chains definitions and global var's definitions.
+  */
++static DECLARE_MUTEX(ipt_mutex);
+ #ifdef __KERNEL__
+ 
+ #include <linux/init.h>
+@@ -403,6 +406,11 @@
+ 	struct module *me;
+ };
+ 
++extern struct ipt_target *
++ipt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++extern struct arpt_target *
++arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++
+ extern int ipt_register_target(struct ipt_target *target);
+ extern void ipt_unregister_target(struct ipt_target *target);
+ 
+--- /usr/src/2426/net/ipv4/netfilter/ip_tables.c	2004-02-18 08:36:32.000000000 -0500
++++ /usr/src/2426-mod/net/ipv4/netfilter/ip_tables.c	2004-06-03 21:56:59.000000000 -0400
+@@ -53,9 +53,6 @@
+ #endif
+ #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
+ 
+-/* Mutex protects lists (only traversed in user context). */
+-static DECLARE_MUTEX(ipt_mutex);
 -
- 	memcpy(awrq->sa_data, r.ptr, 6);
- 	awrq->sa_family = ARPHRD_ETHER;
- 	kfree(r.ptr);
-@@ -669,7 +666,6 @@
- 			kfree(buf);
- 		}
- 	}
--
- 	return current_ev;
+ /* Must have mutex */
+ #define ASSERT_READ_LOCK(x) IP_NF_ASSERT(down_trylock(&ipt_mutex) != 0)
+ #define ASSERT_WRITE_LOCK(x) IP_NF_ASSERT(down_trylock(&ipt_mutex) != 0)
+@@ -418,7 +415,7 @@
+ {
+ 	void *ret;
+ 
+-#if 0
++#if 0 
+ 	duprintf("find_inlist: searching for `%s' in %s.\n",
+ 		 name, head == &ipt_target ? "ipt_target"
+ 		 : head == &ipt_match ? "ipt_match"
+@@ -464,7 +461,7 @@
+ #endif
+ 
+ static inline struct ipt_table *
+-find_table_lock(const char *name, int *error, struct semaphore *mutex)
++ipt_find_table_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ipt_tables, name, "iptable_", error, mutex);
+ }
+@@ -475,8 +472,8 @@
+ 	return find_inlist_lock(&ipt_match, name, "ipt_", error, mutex);
  }
  
-@@ -731,7 +727,7 @@
- 		memcpy(essid.octets, extra, dwrq->length);
- 	} else
- 		essid.length = 0;
--	
-+
- 	if (priv->iw_mode != IW_MODE_MONITOR)
- 		return mgt_set_request(priv, DOT11_OID_SSID, 0, &essid);
+-static inline struct ipt_target *
+-find_target_lock(const char *name, int *error, struct semaphore *mutex)
++struct ipt_target *
++ipt_find_target_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ipt_target, name, "ipt_", error, mutex);
+ }
+@@ -693,7 +690,7 @@
+ 		goto cleanup_matches;
  
-@@ -817,21 +813,21 @@
- 	char *data;
- 	int ret, i;
- 	union oid_res_t r;
--	
-+
- 	if (vwrq->value == -1) {
- 		/* auto mode. No limit. */
- 		profile = 1;
- 		return mgt_set_request(priv, DOT11_OID_PROFILES, 0, &profile);
+ 	t = ipt_get_target(e);
+-	target = find_target_lock(t->u.user.name, &ret, &ipt_mutex);
++	target = ipt_find_target_lock(t->u.user.name, &ret, &ipt_mutex);
+ 	if (!target) {
+ 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
+ 		goto cleanup_matches;
+@@ -1030,7 +1027,7 @@
+ 	int ret;
+ 	struct ipt_table *t;
+ 
+-	t = find_table_lock(entries->name, &ret, &ipt_mutex);
++	t = ipt_find_table_lock(entries->name, &ret, &ipt_mutex);
+ 	if (t) {
+ 		duprintf("t->private->number = %u\n",
+ 			 t->private->number);
+@@ -1097,7 +1094,7 @@
+ 
+ 	duprintf("ip_tables: Translated table\n");
+ 
+-	t = find_table_lock(tmp.name, &ret, &ipt_mutex);
++	t = ipt_find_table_lock(tmp.name, &ret, &ipt_mutex);
+ 	if (!t)
+ 		goto free_newinfo_counters_untrans;
+ 
+@@ -1191,7 +1188,7 @@
+ 		goto free;
  	}
--	
-+
- 	if ((ret =
- 	     mgt_get_request(priv, DOT11_OID_SUPPORTEDRATES, 0, NULL, &r)))
- 		return ret;
--		
-+
- 	rate = (u32) (vwrq->value / 500000);
- 	data = r.ptr;
- 	i = 0;
--	
-+
- 	while (data[i]) {
- 		if (rate && (data[i] == rate)) {
+ 
+-	t = find_table_lock(tmp.name, &ret, &ipt_mutex);
++	t = ipt_find_table_lock(tmp.name, &ret, &ipt_mutex);
+ 	if (!t)
+ 		goto free;
+ 
+@@ -1266,7 +1263,7 @@
  			break;
-@@ -842,14 +838,14 @@
- 		data[i] |= 0x80;
- 		i++;
- 	}
--		
-+
- 	if (!data[i]) {
- 		return -EINVAL;
- 	}
--	
-+
- 	data[i] |= 0x80;
- 	data[i + 1] = 0;
--	
-+
- 	/* Now, check if we want a fixed or auto value */
- 	if (vwrq->fixed) {
- 		data[0] = data[i];
-@@ -864,14 +860,14 @@
- 		i++;
- 	}
- 	printk("0\n");
--*/	
-+*/
- 	profile = -1;
- 	ret = mgt_set_request(priv, DOT11_OID_PROFILES, 0, &profile);
- 	ret |= mgt_set_request(priv, DOT11_OID_EXTENDEDRATES, 0, data);
- 	ret |= mgt_set_request(priv, DOT11_OID_RATES, 0, data);
--	
-+
- 	kfree(r.ptr);
--	
-+
- 	return ret;
- }
- 
-@@ -897,7 +893,7 @@
- 	data = r.ptr;
- 	vwrq->fixed = (data[0] != 0) && (data[1] == 0);
- 	kfree(r.ptr);
--	
-+
- 	return 0;
- }
- 
-@@ -994,7 +990,6 @@
- 		rvalue |=
- 		    mgt_set_request(priv, DOT11_OID_MAXTXLIFETIME, 0,
- 				    &lifetime);
--
- 	return rvalue;
- }
- 
-@@ -1090,8 +1085,7 @@
- 			}
  		}
- 	}
--
--	/* now read the flags     */
-+	/* now read the flags */
- 	if (dwrq->flags & IW_ENCODE_DISABLED) {
- 		/* Encoding disabled, 
- 		 * authen = DOT11_AUTH_OS;
-@@ -1240,7 +1234,7 @@
+ 		name[IPT_TABLE_MAXNAMELEN-1] = '\0';
+-		t = find_table_lock(name, &ret, &ipt_mutex);
++		t = ipt_find_table_lock(name, &ret, &ipt_mutex);
+ 		if (t) {
+ 			struct ipt_getinfo info;
  
- static int
- prism54_set_u32(struct net_device *ndev, struct iw_request_info *info,
--		   __u32 * uwrq, char *extra)
-+		__u32 * uwrq, char *extra)
- {
- 	u32 oid = uwrq[0], u = uwrq[1];
+@@ -1838,6 +1835,7 @@
+ EXPORT_SYMBOL(ipt_do_table);
+ EXPORT_SYMBOL(ipt_register_target);
+ EXPORT_SYMBOL(ipt_unregister_target);
++EXPORT_SYMBOL(ipt_find_target_lock);
  
-@@ -1858,7 +1852,7 @@
- 	enum oid_num_t n = mgt_oidtonum(frame->header->oid);
+ module_init(init);
+ module_exit(fini);
+--- /usr/src/2426/include/linux/netfilter_arp.h	2002-08-02 20:39:45.000000000 -0400
++++ /usr/src/2426-mod/include/linux/netfilter_arp.h	2004-06-03 22:52:11.000000000 -0400
+@@ -16,4 +16,5 @@
+ #define NF_ARP_OUT	1
+ #define NF_ARP_NUMHOOKS	2
  
- 	if (n != OID_NUM_LAST)
--	prism54_process_trap_helper(netdev_priv(ndev), n, frame->data);
-+		prism54_process_trap_helper(netdev_priv(ndev), n, frame->data);
- 	islpci_mgt_release(frame);
++static DECLARE_MUTEX(arpt_mutex);
+ #endif /* __LINUX_ARP_NETFILTER_H */
+--- /usr/src/2426/net/ipv4/netfilter/arp_tables.c	2003-08-25 07:44:44.000000000 -0400
++++ /usr/src/2426-mod/net/ipv4/netfilter/arp_tables.c	2004-06-03 21:56:59.000000000 -0400
+@@ -52,7 +52,6 @@
+ #endif
+ #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
+ 
+-static DECLARE_MUTEX(arpt_mutex);
+ 
+ #define ASSERT_READ_LOCK(x) ARP_NF_ASSERT(down_trylock(&arpt_mutex) != 0)
+ #define ASSERT_WRITE_LOCK(x) ARP_NF_ASSERT(down_trylock(&arpt_mutex) != 0)
+@@ -380,12 +379,12 @@
  }
- 
-@@ -1935,7 +1929,7 @@
- 		  __u32 * uwrq, char *extra)
- {
- 	islpci_private *priv = netdev_priv(ndev);
--	
-+
- 	priv->priv_oid = *uwrq;
- 	printk("%s: oid 0x%08X\n", ndev->name, *uwrq);
- 
-@@ -1944,15 +1938,15 @@
- 
- int
- prism54_debug_get_oid(struct net_device *ndev, struct iw_request_info *info,
--		struct iw_point *data, char *extra)
-+		      struct iw_point *data, char *extra)
- {
- 	islpci_private *priv = netdev_priv(ndev);
- 	struct islpci_mgmtframe *response = NULL;
- 	int ret = -EIO, response_op = PIMFOR_OP_ERROR;
--	
-+
- 	printk("%s: get_oid 0x%08X\n", ndev->name, priv->priv_oid);
- 	data->length = 0;
--	
-+
- 	if (islpci_get_state(priv) >= PRV_STATE_INIT) {
- 		ret =
- 		    islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
-@@ -1976,21 +1970,21 @@
- 			printk("%s: len: %i\n", ndev->name, data->length);
- 		}
- 	}
--	
-+
- 	return ret;
- }
- 
- int
- prism54_debug_set_oid(struct net_device *ndev, struct iw_request_info *info,
--		struct iw_point *data, char *extra)
-+		      struct iw_point *data, char *extra)
- {
- 	islpci_private *priv = netdev_priv(ndev);
- 	struct islpci_mgmtframe *response = NULL;
- 	int ret = 0, response_op = PIMFOR_OP_ERROR;
--	
-+
- 	printk("%s: set_oid 0x%08X\tlen: %d\n", ndev->name, priv->priv_oid,
- 	       data->length);
--	
-+
- 	if (islpci_get_state(priv) >= PRV_STATE_INIT) {
- 		ret =
- 		    islpci_mgt_transaction(priv->ndev, PIMFOR_OP_SET,
-@@ -2005,10 +1999,10 @@
- 		}
- 		if (ret || response_op == PIMFOR_OP_ERROR) {
- 			printk("%s: EIO\n", ndev->name);
--		        ret = -EIO;
-+			ret = -EIO;
- 		}
- 	}
--	
-+
- 	return (ret ? ret : -EINPROGRESS);
- }
- 
-@@ -2107,7 +2101,7 @@
- #define PRISM54_DBG_GET_OID	SIOCIWFIRSTPRIV+15
- #define PRISM54_DBG_SET_OID	SIOCIWFIRSTPRIV+16
- 
--#define PRISM54_GET_OID	   SIOCIWFIRSTPRIV+17
-+#define PRISM54_GET_OID		SIOCIWFIRSTPRIV+17
- #define PRISM54_SET_OID_U32	SIOCIWFIRSTPRIV+18
- #define	PRISM54_SET_OID_STR	SIOCIWFIRSTPRIV+20
- #define	PRISM54_SET_OID_ADDR	SIOCIWFIRSTPRIV+22
-@@ -2179,7 +2173,7 @@
- 	IWPRIV_U32(DOT11_OID_AUTHENABLE, "authenable"),
- 	IWPRIV_U32(DOT11_OID_PRIVACYINVOKED, "privinvok"),
- 	IWPRIV_U32(DOT11_OID_EXUNENCRYPTED, "exunencrypt"),
--	
-+
- 	IWPRIV_U32(DOT11_OID_REKEYTHRESHOLD, "rekeythresh"),
- 
- 	IWPRIV_U32(DOT11_OID_MAXTXLIFETIME, "maxtxlife"),
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_dev.h linux-2.6.6-01/drivers/net/wireless/prism54/islpci_dev.h
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_dev.h	2004-05-28 14:40:26.994455048 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_dev.h	2004-05-28 14:25:30.063809232 +0200
-@@ -173,7 +173,7 @@
- 	islpci_state_t state;
- 	int state_off;		/* enumeration of off-state, if 0 then
- 				 * we're not in any off-state */
--	
-+
- 	/* WPA stuff */
- 	int wpa; /* WPA mode enabled */
- 	struct list_head bss_wpa_list;
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 15:50:41.991678072 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c	2004-05-28 15:49:40.517023640 +0200
-@@ -208,7 +208,7 @@
- 	priv->data_low_tx[index] = skb;
- 	/* set the proper fragment start address and size information */
- 	fragment->size = cpu_to_le16(frame_size);
--	fragment->flags = cpu_to_le16(0);  /* set to 1 if more fragments */
-+	fragment->flags = cpu_to_le16(0);	/* set to 1 if more fragments */
- 	fragment->address = cpu_to_le32(pci_map_address);
- 	curr_frag++;
- 
-@@ -218,7 +218,7 @@
- 	cb->driver_curr_frag[ISL38XX_CB_TX_DATA_LQ] = cpu_to_le32(curr_frag);
- 
- 	if (curr_frag - priv->free_data_tx + ISL38XX_MIN_QTHRESHOLD
--	                                           > ISL38XX_CB_TX_QSIZE) {
-+	    > ISL38XX_CB_TX_QSIZE) {
- 		/* stop sends from upper layers */
- 		netif_stop_queue(ndev);
- 
-@@ -239,7 +239,7 @@
- 
- 	return 0;
- 
-- drop_free:
-+      drop_free:
- 	/* free the skbuf structure before aborting */
- 	dev_kfree_skb(skb);
- 	skb = NULL;
-@@ -287,7 +287,7 @@
- 		    (struct avs_80211_1_header *) skb_push(*skb,
- 							   sizeof (struct
- 								   avs_80211_1_header));
--
-+		
- 		avs->version = cpu_to_be32(P80211CAPTURE_VERSION);
- 		avs->length = cpu_to_be32(sizeof (struct avs_80211_1_header));
- 		avs->mactime = cpu_to_be64(le64_to_cpu(clock));
-@@ -487,10 +487,10 @@
- void
- islpci_do_reset_and_wake(void *data)
- {
--       islpci_private *priv = (islpci_private *) data;
--       islpci_reset(priv, 1);
--       netif_wake_queue(priv->ndev);
--       priv->reset_task_pending = 0;
-+	islpci_private *priv = (islpci_private *) data;
-+	islpci_reset(priv, 1);
-+	netif_wake_queue(priv->ndev);
-+	priv->reset_task_pending = 0;
- }
- 
- void
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.c	2004-05-28 15:14:49.426917656 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.c	2004-05-28 15:12:49.370169056 +0200
-@@ -85,7 +85,7 @@
- {
- 	pimfor_header_t *h = data;
- 
--        while ((void *) h < data + len) {
-+	while ((void *) h < data + len) {
- 		if (h->flags & PIMFOR_FLAG_LITTLE_ENDIAN) {
- 			le32_to_cpus(&h->oid);
- 			le32_to_cpus(&h->length);
-@@ -107,8 +107,8 @@
- islpci_mgmt_rx_fill(struct net_device *ndev)
- {
- 	islpci_private *priv = netdev_priv(ndev);
--	isl38xx_control_block *cb =    /* volatile not needed */
--		(isl38xx_control_block *) priv->control_block;
-+	isl38xx_control_block *cb =	/* volatile not needed */
-+	    (isl38xx_control_block *) priv->control_block;
- 	u32 curr = le32_to_cpu(cb->driver_curr_frag[ISL38XX_CB_RX_MGMTQ]);
- 
- #if VERBOSE > SHOW_ERROR_MESSAGES
-@@ -140,15 +140,15 @@
- 			}
- 		}
- 
--                /* be safe: always reset control block information */
-+		/* be safe: always reset control block information */
- 		frag->size = cpu_to_le16(MGMT_FRAME_SIZE);
- 		frag->flags = 0;
- 		frag->address = cpu_to_le32(buf->pci_addr);
- 		curr++;
- 
--                /* The fragment address in the control block must have
--                 * been written before announcing the frame buffer to
--                 * device */
-+		/* The fragment address in the control block must have
-+		 * been written before announcing the frame buffer to
-+		 * device */
- 		wmb();
- 		cb->driver_curr_frag[ISL38XX_CB_RX_MGMTQ] = cpu_to_le32(curr);
- 	}
-@@ -168,7 +168,7 @@
- {
- 	islpci_private *priv = netdev_priv(ndev);
- 	isl38xx_control_block *cb =
--		(isl38xx_control_block *) priv->control_block;
-+	    (isl38xx_control_block *) priv->control_block;
- 	void *p;
- 	int err = -EINVAL;
- 	unsigned long flags;
-@@ -242,7 +242,7 @@
- 	priv->mgmt_tx[index] = buf;
- 	frag = &cb->tx_data_mgmt[index];
- 	frag->size = cpu_to_le16(frag_len);
--	frag->flags = 0;   /* for any other than the last fragment, set to 1 */
-+	frag->flags = 0;	/* for any other than the last fragment, set to 1 */
- 	frag->address = cpu_to_le32(buf.pci_addr);
- 
- 	/* The fragment address in the control block must have
-@@ -256,11 +256,11 @@
- 	islpci_trigger(priv);
- 	return 0;
- 
-- error_unlock:
-+      error_unlock:
- 	spin_unlock_irqrestore(&priv->slock, flags);
-- error_free:
-+      error_free:
- 	kfree(buf.mem);
-- error:
-+      error:
- 	return err;
- }
- 
-@@ -274,16 +274,16 @@
- {
- 	islpci_private *priv = netdev_priv(ndev);
- 	isl38xx_control_block *cb =
--		(isl38xx_control_block *) priv->control_block;
-+	    (isl38xx_control_block *) priv->control_block;
- 	u32 curr_frag;
- 
- #if VERBOSE > SHOW_ERROR_MESSAGES
- 	DEBUG(SHOW_FUNCTION_CALLS, "islpci_mgt_receive \n");
  #endif
  
--        /* Only once per interrupt, determine fragment range to
--         * process.  This avoids an endless loop (i.e. lockup) if
--         * frames come in faster than we can process them. */
-+	/* Only once per interrupt, determine fragment range to
-+	 * process.  This avoids an endless loop (i.e. lockup) if
-+	 * frames come in faster than we can process them. */
- 	curr_frag = le32_to_cpu(cb->device_curr_frag[ISL38XX_CB_RX_MGMTQ]);
- 	barrier();
- 
-@@ -294,29 +294,29 @@
- 		u16 frag_len;
- 		int size;
- 		struct islpci_mgmtframe *frame;
--              
--                /* I have no idea (and no documentation) if flags != 0
--                 * is possible.  Drop the frame, reuse the buffer. */
-+
-+		/* I have no idea (and no documentation) if flags != 0
-+		 * is possible.  Drop the frame, reuse the buffer. */
- 		if (le16_to_cpu(cb->rx_data_mgmt[index].flags) != 0) {
--                        printk(KERN_WARNING "%s: unknown flags 0x%04x\n",
--                               ndev->name,
--                               le16_to_cpu(cb->rx_data_mgmt[index].flags));
--                        continue;
--                }
-+			printk(KERN_WARNING "%s: unknown flags 0x%04x\n",
-+			       ndev->name,
-+			       le16_to_cpu(cb->rx_data_mgmt[index].flags));
-+			continue;
-+		}
- 
- 		/* The device only returns the size of the header(s) here. */
- 		frag_len = le16_to_cpu(cb->rx_data_mgmt[index].size);
- 
- 		/*
--                 * We appear to have no way to tell the device the
--                 * size of a receive buffer.  Thus, if this check
--                 * triggers, we likely have kernel heap corruption. */
--                if (frag_len > MGMT_FRAME_SIZE) {
-+		 * We appear to have no way to tell the device the
-+		 * size of a receive buffer.  Thus, if this check
-+		 * triggers, we likely have kernel heap corruption. */
-+		if (frag_len > MGMT_FRAME_SIZE) {
- 			printk(KERN_WARNING
- 				"%s: Bogus packet size of %d (%#x).\n",
- 				ndev->name, frag_len, frag_len);
--                        frag_len = MGMT_FRAME_SIZE;
--                }
-+			frag_len = MGMT_FRAME_SIZE;
-+		}
- 
- 		/* Ensure the results of device DMA are visible to the CPU. */
- 		pci_dma_sync_single(priv->pdev, buf->pci_addr,
-@@ -338,7 +338,7 @@
- #if VERBOSE > SHOW_ERROR_MESSAGES
- 		DEBUG(SHOW_PIMFOR_FRAMES,
- 		      "PIMFOR: op %i, oid 0x%08x, device %i, flags 0x%x length 0x%x \n",
--		      header->operation, header->oid, header->device_id, 
-+		      header->operation, header->oid, header->device_id,
- 		      header->flags, header->length);
- 
- 		/* display the buffer contents for debugging */
-@@ -363,7 +363,7 @@
- 			printk(KERN_WARNING
- 			       "%s: Out of memory, cannot handle oid 0x%08x\n",
- 			       ndev->name, header->oid);
--			continue;        
-+			continue;
- 		}
- 		frame->ndev = ndev;
- 		memcpy(&frame->buf, header, size);
-@@ -383,7 +383,7 @@
- 			       header->oid, header->device_id, header->flags,
- 			       header->length);
- #endif
--                      
-+
- 			/* Create work to handle trap out of interrupt
- 			 * context. */
- 			INIT_WORK(&frame->ws, prism54_process_trap, frame);
-@@ -416,19 +416,19 @@
- islpci_mgt_cleanup_transmit(struct net_device *ndev)
+-static inline struct arpt_table *find_table_lock(const char *name, int *error, struct semaphore *mutex)
++static inline struct arpt_table *arpt_find_table_lock(const char *name, int *error, struct semaphore *mutex)
  {
- 	islpci_private *priv = netdev_priv(ndev);
--	isl38xx_control_block *cb =    /* volatile not needed */
--		(isl38xx_control_block *) priv->control_block;
-+	isl38xx_control_block *cb =	/* volatile not needed */
-+	    (isl38xx_control_block *) priv->control_block;
- 	u32 curr_frag;
+ 	return find_inlist_lock(&arpt_tables, name, "arptable_", error, mutex);
+ }
  
- #if VERBOSE > SHOW_ERROR_MESSAGES
--        DEBUG(SHOW_FUNCTION_CALLS, "islpci_mgt_cleanup_transmit\n");
-+	DEBUG(SHOW_FUNCTION_CALLS, "islpci_mgt_cleanup_transmit\n");
+-static inline struct arpt_target *find_target_lock(const char *name, int *error, struct semaphore *mutex)
++struct arpt_target *arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&arpt_target, name, "arpt_", error, mutex);
+ }
+@@ -535,7 +534,7 @@
+ 	}
+ 
+ 	t = arpt_get_target(e);
+-	target = find_target_lock(t->u.user.name, &ret, &arpt_mutex);
++	target = arpt_find_target_lock(t->u.user.name, &ret, &arpt_mutex);
+ 	if (!target) {
+ 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
+ 		goto out;
+@@ -834,7 +833,7 @@
+ 	int ret;
+ 	struct arpt_table *t;
+ 
+-	t = find_table_lock(entries->name, &ret, &arpt_mutex);
++	t = arpt_find_table_lock(entries->name, &ret, &arpt_mutex);
+ 	if (t) {
+ 		duprintf("t->private->number = %u\n",
+ 			 t->private->number);
+@@ -900,7 +899,7 @@
+ 
+ 	duprintf("arp_tables: Translated table\n");
+ 
+-	t = find_table_lock(tmp.name, &ret, &arpt_mutex);
++	t = arpt_find_table_lock(tmp.name, &ret, &arpt_mutex);
+ 	if (!t)
+ 		goto free_newinfo_counters_untrans;
+ 
+@@ -985,7 +984,7 @@
+ 		goto free;
+ 	}
+ 
+-	t = find_table_lock(tmp.name, &ret, &arpt_mutex);
++	t = arpt_find_table_lock(tmp.name, &ret, &arpt_mutex);
+ 	if (!t)
+ 		goto free;
+ 
+@@ -1058,7 +1057,7 @@
+ 			break;
+ 		}
+ 		name[ARPT_TABLE_MAXNAMELEN-1] = '\0';
+-		t = find_table_lock(name, &ret, &arpt_mutex);
++		t = arpt_find_table_lock(name, &ret, &arpt_mutex);
+ 		if (t) {
+ 			struct arpt_getinfo info;
+ 
+@@ -1306,6 +1305,7 @@
+ EXPORT_SYMBOL(arpt_register_table);
+ EXPORT_SYMBOL(arpt_unregister_table);
+ EXPORT_SYMBOL(arpt_do_table);
++EXPORT_SYMBOL(arpt_find_target_lock);
+ EXPORT_SYMBOL(arpt_register_target);
+ EXPORT_SYMBOL(arpt_unregister_target);
+ 
+--- /usr/src/2426/include/linux/netfilter_ipv6/ip6_tables.h	2003-06-13 10:51:38.000000000 -0400
++++ /usr/src/2426-mod/include/linux/netfilter_ipv6/ip6_tables.h	2004-06-03 22:54:59.000000000 -0400
+@@ -106,6 +106,8 @@
+ 	u_int64_t pcnt, bcnt;			/* Packet and byte counters */
+ };
+ 
++static DECLARE_MUTEX(ip6t_mutex);
++
+ /* Values for "flag" field in struct ip6t_ip6 (general ip6 structure). */
+ #define IP6T_F_PROTO		0x01	/* Set if rule cares about upper 
+ 					   protocols */
+--- /usr/src/2426/net/ipv6/netfilter/ip6_tables.c	2004-04-14 09:05:41.000000000 -0400
++++ /usr/src/2426-mod/net/ipv6/netfilter/ip6_tables.c	2004-06-03 21:56:59.000000000 -0400
+@@ -57,8 +57,6 @@
+ #endif
+ #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
+ 
+-/* Mutex protects lists (only traversed in user context). */
+-static DECLARE_MUTEX(ip6t_mutex);
+ 
+ /* Must have mutex */
+ #define ASSERT_READ_LOCK(x) IP_NF_ASSERT(down_trylock(&ip6t_mutex) != 0)
+@@ -535,7 +533,7 @@
  #endif
  
- 	/* Only once per cleanup, determine fragment range to
- 	 * process.  This avoids an endless loop (i.e. lockup) if
- 	 * the device became confused, incrementing device_curr_frag
- 	 * rapidly. */
--	curr_frag = le32_to_cpu(cb->device_curr_frag[ISL38XX_CB_TX_MGMTQ]); 
-+	curr_frag = le32_to_cpu(cb->device_curr_frag[ISL38XX_CB_TX_MGMTQ]);
- 	barrier();
- 
- 	for (; priv->index_mgmt_tx < curr_frag; priv->index_mgmt_tx++) {
-@@ -475,9 +475,9 @@
- 		frame = xchg(&priv->mgmt_received, NULL);
- 		if (frame) {
- 			if (frame->header->oid == oid) {
--			*recvframe = frame;
--			err = 0;
--			goto out;
-+				*recvframe = frame;
-+				err = 0;
-+				goto out;
- 			} else {
- 				printk(KERN_DEBUG
- 				       "%s: expecting oid 0x%x, received 0x%x.\n",
-@@ -485,13 +485,13 @@
- 				       frame->header->oid);
- 				kfree(frame);
- 				frame = NULL;
--		}
-+			}
- 		}
- 		if (timeleft == 0) {
- 			printk(KERN_DEBUG
- 				"%s: timeout waiting for mgmt response %lu, "
- 				"triggering device\n",
--			       ndev->name, timeout_left);
-+				ndev->name, timeout_left);
- 			islpci_trigger(priv);
- 		}
- 		timeout_left += timeleft - wait_cycle_jiffies;
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.c linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.c	2004-05-28 15:14:49.431916896 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.c	2004-05-28 15:12:49.372168752 +0200
-@@ -454,7 +454,7 @@
- 			islpci_mgt_release(response);
- 		}
- 		if (ret || response_op == PIMFOR_OP_ERROR)
--		        ret = -EIO;
-+			ret = -EIO;
- 	} else if (!cache)
- 		ret = -EIO;
- 
-@@ -479,7 +479,7 @@
- 	int ret = -EIO;
- 	int reslen = 0;
- 	struct islpci_mgmtframe *response = NULL;
--	
-+
- 	int dlen;
- 	void *cache, *_res = NULL;
- 	u32 oid;
-@@ -504,7 +504,7 @@
- 		ret = islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
- 					     oid, data, dlen, &response);
- 		if (ret || !response ||
--			response->header->operation == PIMFOR_OP_ERROR) {
-+		    response->header->operation == PIMFOR_OP_ERROR) {
- 			if (response)
- 				islpci_mgt_release(response);
- 			ret = -EIO;
-@@ -541,7 +541,7 @@
- 		       "mgt_get_request(0x%x): received data length was bigger "
- 		       "than expected (%d > %d). Memory is probably corrupted...",
- 		       oid, reslen, isl_oid[n].size);
--	
-+
- 	return ret;
+ static inline struct ip6t_table *
+-find_table_lock(const char *name, int *error, struct semaphore *mutex)
++ip6t_find_table_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ip6t_tables, name, "ip6table_", error, mutex);
+ }
+@@ -546,8 +544,8 @@
+ 	return find_inlist_lock(&ip6t_match, name, "ip6t_", error, mutex);
  }
  
-@@ -561,11 +561,11 @@
- 		while (j <= t->range) {
- 			response = NULL;
- 			ret |= islpci_mgt_transaction(priv->ndev, PIMFOR_OP_SET,
--			                              oid, data, t->size,
-+						      oid, data, t->size,
- 						      &response);
- 			if (response) {
- 				ret |= (response->header->operation ==
--				        PIMFOR_OP_ERROR);
-+					PIMFOR_OP_ERROR);
- 				islpci_mgt_release(response);
- 			}
- 			j++;
-@@ -669,7 +669,7 @@
- 		/* some request have failed. The device might be in an
- 		   incoherent state. We should reset it ! */
- 		printk(KERN_DEBUG "%s: mgt_commit has failed. Restart the "
--                "device \n", priv->ndev->name);
-+		       "device \n", priv->ndev->name);
+-static inline struct ip6t_target *
+-find_target_lock(const char *name, int *error, struct semaphore *mutex)
++struct ip6t_target *
++ip6t_find_target_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ip6t_target, name, "ip6t_", error, mutex);
+ }
+@@ -764,7 +762,7 @@
+ 		goto cleanup_matches;
+ 
+ 	t = ip6t_get_target(e);
+-	target = find_target_lock(t->u.user.name, &ret, &ip6t_mutex);
++	target = ip6t_find_target_lock(t->u.user.name, &ret, &ip6t_mutex);
+ 	if (!target) {
+ 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
+ 		goto cleanup_matches;
+@@ -1101,7 +1099,7 @@
+ 	int ret;
+ 	struct ip6t_table *t;
+ 
+-	t = find_table_lock(entries->name, &ret, &ip6t_mutex);
++	t = ip6t_find_table_lock(entries->name, &ret, &ip6t_mutex);
+ 	if (t) {
+ 		duprintf("t->private->number = %u\n",
+ 			 t->private->number);
+@@ -1164,7 +1162,7 @@
+ 
+ 	duprintf("ip_tables: Translated table\n");
+ 
+-	t = find_table_lock(tmp.name, &ret, &ip6t_mutex);
++	t = ip6t_find_table_lock(tmp.name, &ret, &ip6t_mutex);
+ 	if (!t)
+ 		goto free_newinfo_counters_untrans;
+ 
+@@ -1258,7 +1256,7 @@
+ 		goto free;
  	}
- }
  
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.h linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.h
---- linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.h	2004-05-28 14:07:22.645122000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.h	2004-05-28 14:06:37.941917920 +0200
-@@ -38,7 +38,7 @@
- int mgt_set_request(islpci_private *, enum oid_num_t, int, void *);
+-	t = find_table_lock(tmp.name, &ret, &ip6t_mutex);
++	t = ip6t_find_table_lock(tmp.name, &ret, &ip6t_mutex);
+ 	if (!t)
+ 		goto free;
  
- int mgt_get_request(islpci_private *, enum oid_num_t, int, void *,
--                    union oid_res_t *);
-+		    union oid_res_t *);
+@@ -1333,7 +1331,7 @@
+ 			break;
+ 		}
+ 		name[IP6T_TABLE_MAXNAMELEN-1] = '\0';
+-		t = find_table_lock(name, &ret, &ip6t_mutex);
++		t = ip6t_find_table_lock(name, &ret, &ip6t_mutex);
+ 		if (t) {
+ 			struct ip6t_getinfo info;
  
- int mgt_commit_list(islpci_private *, enum oid_num_t *, int);
- 
+@@ -1940,6 +1938,7 @@
+ EXPORT_SYMBOL(ip6t_register_table);
+ EXPORT_SYMBOL(ip6t_unregister_table);
+ EXPORT_SYMBOL(ip6t_do_table);
++EXPORT_SYMBOL(ip6t_find_target_lock);
+ EXPORT_SYMBOL(ip6t_register_match);
+ EXPORT_SYMBOL(ip6t_unregister_match);
+ EXPORT_SYMBOL(ip6t_register_target);
 
---Boundary-00=_WHcwAw8pWE41qOR--
+--=-q0+k3WAQkq6HY9b92iVN
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=nf26p
+Content-Type: text/plain; name=nf26p; charset=ISO-8859-1
+
+--- /usr/src/266/include/linux/netfilter.h	2004-05-09 22:32:37.000000000 -0400
++++ /usr/src/266-mod/include/linux/netfilter.h	2004-06-04 10:21:20.000000000 -0400
+@@ -171,6 +171,12 @@
+ 			struct nf_info *info,
+ 			unsigned int verdict);
+ 
++extern inline struct ipt_target *
++ipt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++extern inline struct ip6t_target *
++ip6t_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++extern inline struct arpt_target *
++arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
+ extern void (*ip_ct_attach)(struct sk_buff *, struct nf_ct_info *);
+ 
+ #ifdef CONFIG_NETFILTER_DEBUG
+--- /usr/src/266/include/linux/netfilter_ipv4/ip_tables.h	2004-05-09 22:32:37.000000000 -0400
++++ /usr/src/266-mod/include/linux/netfilter_ipv4/ip_tables.h	2004-06-04 10:21:20.000000000 -0400
+@@ -283,6 +283,8 @@
+ 	struct ipt_entry entrytable[0];
+ };
+ 
++extern struct semaphore ipt_mutex;
++
+ /* Standard return verdict, or do jump. */
+ #define IPT_STANDARD_TARGET ""
+ /* Error verdict. */
+@@ -334,6 +336,7 @@
+ /*
+  *	Main firewall chains definitions and global var's definitions.
+  */
++static DECLARE_MUTEX(ipt_mutex);
+ #ifdef __KERNEL__
+ 
+ #include <linux/init.h>
+@@ -406,6 +409,11 @@
+ 	struct module *me;
+ };
+ 
++extern struct ipt_target *
++ipt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++extern struct arpt_target *
++arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex);
++
+ extern int ipt_register_target(struct ipt_target *target);
+ extern void ipt_unregister_target(struct ipt_target *target);
+ 
+--- /usr/src/266/net/ipv4/netfilter/ip_tables.c	2004-05-09 22:32:26.000000000 -0400
++++ /usr/src/266-mod/net/ipv4/netfilter/ip_tables.c	2004-06-04 10:21:20.000000000 -0400
+@@ -61,9 +61,6 @@
+ #endif
+ #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
+ 
+-/* Mutex protects lists (only traversed in user context). */
+-static DECLARE_MUTEX(ipt_mutex);
+-
+ /* Must have mutex */
+ #define ASSERT_READ_LOCK(x) IP_NF_ASSERT(down_trylock(&ipt_mutex) != 0)
+ #define ASSERT_WRITE_LOCK(x) IP_NF_ASSERT(down_trylock(&ipt_mutex) != 0)
+@@ -418,7 +415,7 @@
+ {
+ 	void *ret;
+ 
+-#if 0
++#if 0 
+ 	duprintf("find_inlist: searching for `%s' in %s.\n",
+ 		 name, head == &ipt_target ? "ipt_target"
+ 		 : head == &ipt_match ? "ipt_match"
+@@ -461,7 +458,7 @@
+ #endif
+ 
+ static inline struct ipt_table *
+-find_table_lock(const char *name, int *error, struct semaphore *mutex)
++ipt_find_table_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ipt_tables, name, "iptable_", error, mutex);
+ }
+@@ -472,8 +469,8 @@
+ 	return find_inlist_lock(&ipt_match, name, "ipt_", error, mutex);
+ }
+ 
+-static inline struct ipt_target *
+-find_target_lock(const char *name, int *error, struct semaphore *mutex)
++struct ipt_target *
++ipt_find_target_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ipt_target, name, "ipt_", error, mutex);
+ }
+@@ -688,7 +685,7 @@
+ 		goto cleanup_matches;
+ 
+ 	t = ipt_get_target(e);
+-	target = find_target_lock(t->u.user.name, &ret, &ipt_mutex);
++	target = ipt_find_target_lock(t->u.user.name, &ret, &ipt_mutex);
+ 	if (!target) {
+ 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
+ 		goto cleanup_matches;
+@@ -1025,7 +1022,7 @@
+ 	int ret;
+ 	struct ipt_table *t;
+ 
+-	t = find_table_lock(entries->name, &ret, &ipt_mutex);
++	t = ipt_find_table_lock(entries->name, &ret, &ipt_mutex);
+ 	if (t) {
+ 		duprintf("t->private->number = %u\n",
+ 			 t->private->number);
+@@ -1092,7 +1089,7 @@
+ 
+ 	duprintf("ip_tables: Translated table\n");
+ 
+-	t = find_table_lock(tmp.name, &ret, &ipt_mutex);
++	t = ipt_find_table_lock(tmp.name, &ret, &ipt_mutex);
+ 	if (!t)
+ 		goto free_newinfo_counters_untrans;
+ 
+@@ -1195,7 +1192,7 @@
+ 		goto free;
+ 	}
+ 
+-	t = find_table_lock(tmp.name, &ret, &ipt_mutex);
++	t = ipt_find_table_lock(tmp.name, &ret, &ipt_mutex);
+ 	if (!t)
+ 		goto free;
+ 
+@@ -1270,7 +1267,7 @@
+ 			break;
+ 		}
+ 		name[IPT_TABLE_MAXNAMELEN-1] = '\0';
+-		t = find_table_lock(name, &ret, &ipt_mutex);
++		t = ipt_find_table_lock(name, &ret, &ipt_mutex);
+ 		if (t) {
+ 			struct ipt_getinfo info;
+ 
+@@ -1855,6 +1852,7 @@
+ EXPORT_SYMBOL(ipt_do_table);
+ EXPORT_SYMBOL(ipt_register_target);
+ EXPORT_SYMBOL(ipt_unregister_target);
++EXPORT_SYMBOL(ipt_find_target_lock);
+ 
+ module_init(init);
+ module_exit(fini);
+--- /usr/src/266/include/linux/netfilter_arp.h	2004-05-09 22:32:00.000000000 -0400
++++ /usr/src/266-mod/include/linux/netfilter_arp.h	2004-06-04 10:21:20.000000000 -0400
+@@ -17,4 +17,5 @@
+ #define NF_ARP_FORWARD	2
+ #define NF_ARP_NUMHOOKS	3
+ 
++static DECLARE_MUTEX(arpt_mutex);
+ #endif /* __LINUX_ARP_NETFILTER_H */
+--- /usr/src/266/net/ipv4/netfilter/arp_tables.c	2004-05-09 22:33:12.000000000 -0400
++++ /usr/src/266-mod/net/ipv4/netfilter/arp_tables.c	2004-06-04 10:21:20.000000000 -0400
+@@ -56,7 +56,6 @@
+ #endif
+ #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
+ 
+-static DECLARE_MUTEX(arpt_mutex);
+ 
+ #define ASSERT_READ_LOCK(x) ARP_NF_ASSERT(down_trylock(&arpt_mutex) != 0)
+ #define ASSERT_WRITE_LOCK(x) ARP_NF_ASSERT(down_trylock(&arpt_mutex) != 0)
+@@ -388,12 +387,12 @@
+ }
+ #endif
+ 
+-static inline struct arpt_table *find_table_lock(const char *name, int *error, struct semaphore *mutex)
++static inline struct arpt_table *arpt_find_table_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&arpt_tables, name, "arptable_", error, mutex);
+ }
+ 
+-static inline struct arpt_target *find_target_lock(const char *name, int *error, struct semaphore *mutex)
++struct arpt_target *arpt_find_target_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&arpt_target, name, "arpt_", error, mutex);
+ }
+@@ -543,7 +542,7 @@
+ 	}
+ 
+ 	t = arpt_get_target(e);
+-	target = find_target_lock(t->u.user.name, &ret, &arpt_mutex);
++	target = arpt_find_target_lock(t->u.user.name, &ret, &arpt_mutex);
+ 	if (!target) {
+ 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
+ 		goto out;
+@@ -843,7 +842,7 @@
+ 	int ret;
+ 	struct arpt_table *t;
+ 
+-	t = find_table_lock(entries->name, &ret, &arpt_mutex);
++	t = arpt_find_table_lock(entries->name, &ret, &arpt_mutex);
+ 	if (t) {
+ 		duprintf("t->private->number = %u\n",
+ 			 t->private->number);
+@@ -909,7 +908,7 @@
+ 
+ 	duprintf("arp_tables: Translated table\n");
+ 
+-	t = find_table_lock(tmp.name, &ret, &arpt_mutex);
++	t = arpt_find_table_lock(tmp.name, &ret, &arpt_mutex);
+ 	if (!t)
+ 		goto free_newinfo_counters_untrans;
+ 
+@@ -1002,7 +1001,7 @@
+ 		goto free;
+ 	}
+ 
+-	t = find_table_lock(tmp.name, &ret, &arpt_mutex);
++	t = arpt_find_table_lock(tmp.name, &ret, &arpt_mutex);
+ 	if (!t)
+ 		goto free;
+ 
+@@ -1075,7 +1074,7 @@
+ 			break;
+ 		}
+ 		name[ARPT_TABLE_MAXNAMELEN-1] = '\0';
+-		t = find_table_lock(name, &ret, &arpt_mutex);
++		t = arpt_find_table_lock(name, &ret, &arpt_mutex);
+ 		if (t) {
+ 			struct arpt_getinfo info;
+ 
+@@ -1323,6 +1322,7 @@
+ EXPORT_SYMBOL(arpt_register_table);
+ EXPORT_SYMBOL(arpt_unregister_table);
+ EXPORT_SYMBOL(arpt_do_table);
++EXPORT_SYMBOL(arpt_find_target_lock);
+ EXPORT_SYMBOL(arpt_register_target);
+ EXPORT_SYMBOL(arpt_unregister_target);
+ 
+--- /usr/src/266/include/linux/netfilter_ipv6/ip6_tables.h	2004-05-09 22:33:20.000000000 -0400
++++ /usr/src/266-mod/include/linux/netfilter_ipv6/ip6_tables.h	2004-06-04 10:21:20.000000000 -0400
+@@ -106,6 +106,8 @@
+ 	u_int64_t pcnt, bcnt;			/* Packet and byte counters */
+ };
+ 
++static DECLARE_MUTEX(ip6t_mutex);
++
+ /* Values for "flag" field in struct ip6t_ip6 (general ip6 structure). */
+ #define IP6T_F_PROTO		0x01	/* Set if rule cares about upper 
+ 					   protocols */
+--- /usr/src/266/net/ipv6/netfilter/ip6_tables.c	2004-05-09 22:33:19.000000000 -0400
++++ /usr/src/266-mod/net/ipv6/netfilter/ip6_tables.c	2004-06-04 10:21:20.000000000 -0400
+@@ -66,8 +66,6 @@
+ #endif
+ #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
+ 
+-/* Mutex protects lists (only traversed in user context). */
+-static DECLARE_MUTEX(ip6t_mutex);
+ 
+ /* Must have mutex */
+ #define ASSERT_READ_LOCK(x) IP_NF_ASSERT(down_trylock(&ip6t_mutex) != 0)
+@@ -544,7 +542,7 @@
+ #endif
+ 
+ static inline struct ip6t_table *
+-find_table_lock(const char *name, int *error, struct semaphore *mutex)
++ip6t_find_table_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ip6t_tables, name, "ip6table_", error, mutex);
+ }
+@@ -555,8 +553,8 @@
+ 	return find_inlist_lock(&ip6t_match, name, "ip6t_", error, mutex);
+ }
+ 
+-static inline struct ip6t_target *
+-find_target_lock(const char *name, int *error, struct semaphore *mutex)
++struct ip6t_target *
++ip6t_find_target_lock(const char *name, int *error, struct semaphore *mutex)
+ {
+ 	return find_inlist_lock(&ip6t_target, name, "ip6t_", error, mutex);
+ }
+@@ -771,7 +769,7 @@
+ 		goto cleanup_matches;
+ 
+ 	t = ip6t_get_target(e);
+-	target = find_target_lock(t->u.user.name, &ret, &ip6t_mutex);
++	target = ip6t_find_target_lock(t->u.user.name, &ret, &ip6t_mutex);
+ 	if (!target) {
+ 		duprintf("check_entry: `%s' not found\n", t->u.user.name);
+ 		goto cleanup_matches;
+@@ -1111,7 +1109,7 @@
+ 	int ret;
+ 	struct ip6t_table *t;
+ 
+-	t = find_table_lock(entries->name, &ret, &ip6t_mutex);
++	t = ip6t_find_table_lock(entries->name, &ret, &ip6t_mutex);
+ 	if (t) {
+ 		duprintf("t->private->number = %u\n",
+ 			 t->private->number);
+@@ -1174,7 +1172,7 @@
+ 
+ 	duprintf("ip_tables: Translated table\n");
+ 
+-	t = find_table_lock(tmp.name, &ret, &ip6t_mutex);
++	t = ip6t_find_table_lock(tmp.name, &ret, &ip6t_mutex);
+ 	if (!t)
+ 		goto free_newinfo_counters_untrans;
+ 
+@@ -1276,7 +1274,7 @@
+ 		goto free;
+ 	}
+ 
+-	t = find_table_lock(tmp.name, &ret, &ip6t_mutex);
++	t = ip6t_find_table_lock(tmp.name, &ret, &ip6t_mutex);
+ 	if (!t)
+ 		goto free;
+ 
+@@ -1351,7 +1349,7 @@
+ 			break;
+ 		}
+ 		name[IP6T_TABLE_MAXNAMELEN-1] = '\0';
+-		t = find_table_lock(name, &ret, &ip6t_mutex);
++		t = ip6t_find_table_lock(name, &ret, &ip6t_mutex);
+ 		if (t) {
+ 			struct ip6t_getinfo info;
+ 
+@@ -1964,6 +1962,7 @@
+ EXPORT_SYMBOL(ip6t_register_table);
+ EXPORT_SYMBOL(ip6t_unregister_table);
+ EXPORT_SYMBOL(ip6t_do_table);
++EXPORT_SYMBOL(ip6t_find_target_lock);
+ EXPORT_SYMBOL(ip6t_register_match);
+ EXPORT_SYMBOL(ip6t_unregister_match);
+ EXPORT_SYMBOL(ip6t_register_target);
+
+--=-q0+k3WAQkq6HY9b92iVN--
