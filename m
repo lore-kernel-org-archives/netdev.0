@@ -1,59 +1,52 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: waiting for ppp0 to become free (Re: ppp0 out of control)
-Date: Wed, 26 Jan 2005 11:02:54 +0100
-Message-ID: <41F76ACE.3070405@tomt.net>
-References: <20050121144444.GA2100@roxor.be> <20050126094422.GA31040@lk8rp.mail.xeon.eu.org>
+From: MIYAZAWA Kazunori <kazunori@miyazawa.org>
+Subject: [PATCH][IPsec] fix process of error from crypto module
+Date: Wed, 26 Jan 2005 19:10:20 +0900
+Message-ID: <200501261910.20867.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Janos Farkas <jf-ml-k1-1087813225@lk8rp.mail.xeon.eu.org>
-In-Reply-To: <20050126094422.GA31040@lk8rp.mail.xeon.eu.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Janos Farkas wrote:
-> On 2005-01-21 at 15:44:44, Aur=E9lien G=C9R=D4ME wrote:
->=20
->>I am running 2.6.10 from kernel.org on Debian Sid ppc/x86, the same
->>issue occurs with 2.6.9. Though, 2.6.8.1 and previous are fine.
->>
->>When my ISP connection via PPPoE (kernel side) goes down, reconnection
->>does not occur, and the kernel displays continuous:
->>
->>kernel: unregister_netdevice: waiting for ppp0 to become free. Usage co=
-unt =3D 1
->=20
->=20
-> BTW, I have seen many cases when this symptom annoyed me too, the last
-> one is that my shutdown scripts tried unloading the network driver
-> modules.  Is your setup doing this by any chance?  In my case,
-> apparently there were conntrack entries keeping the device in use,
-> which is almost useless when preparing to shutdown :)
->=20
-> OTOH, I couldn't find a way to flush those conntracks, so I worked
-> around it by not rmmoding ethernet drivers.
->=20
-> In your case, it's probably conntrack too, I'd presume you are using
-> that PPPoE machine as a masquerading gateway, which by definition needs
-> connection tracking...  I'm not sure either if this is a "real" change,
-> I only vaguely recollect as some moons earlier this wasn't a problem in
-> 2.6.
->=20
+Hello,
 
-Here's some data I've collected on a possible related or identical one.
+This patch fixes the process under the case that the crypto module
+returns error because of its weak keys or etc.
 
-So far it seems related to interface removal. I've seen this recently on=20
-vlan interfaces, since ifupdown on my systems kill vlan devices on ifdown.
 
-In my cases I've not been able to reproduce without ipv6 loaded in the=20
-kernel, and it only seems to happen when lo/loopback is taken offline=20
-first (ifdown -a here does it in that order..)
+diff -ur a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+--- a/net/ipv4/esp4.c 2004-12-25 06:34:58.000000000 +0900
++++ b/net/ipv4/esp4.c 2005-01-26 18:57:18.000000000 +0900
+@@ -427,7 +427,8 @@
+    goto error;
+   get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
+  }
+- crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len);
++ if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
++  goto error;
+  x->props.header_len = sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
+  if (x->props.mode)
+   x->props.header_len += sizeof(struct iphdr);
+diff -ur a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+--- a/net/ipv6/esp6.c 2004-12-25 06:35:01.000000000 +0900
++++ b/net/ipv6/esp6.c 2005-01-26 18:57:04.000000000 +0900
+@@ -364,7 +364,8 @@
+    goto error;
+   get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
+  }
+- crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len);
++ if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
++  goto error;
+  x->props.header_len = sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen;
+  if (x->props.mode)
+   x->props.header_len += sizeof(struct ipv6hdr);
 
-A shutdown rrmod-type takedown of a NIC would probably be run after=20
-"ifdown -a", hence after lo is down, thats why I suspect it to be the=20
-same problem.
 
-I still have a binary search to do for pinpointing what broke it, though.
+--
+Kazunori Miyazawa
