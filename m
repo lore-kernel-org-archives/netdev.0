@@ -1,60 +1,45 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [RFC] IPv4 Netfilter hook priorities for SELinux
-Date: Tue, 6 Jan 2004 20:13:11 +0100
+From: Erik Hensema <erik@hensema.net>
+Subject: Re: 2.6.0: something is leaking memory
+Date: Tue, 6 Jan 2004 20:36:15 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040106191311.GH934@obroa-skai.de.gnumonks.org>
-References: <Xine.LNX.4.44.0401061046390.7530-100000@thoron.boston.redhat.com>
+Message-ID: <20040106193615.GA4544@bender.home.hensema.net>
+References: <slrnbvgohn.1pb.erik@dexter.hensema.net> <Pine.LNX.4.58.0401041257290.2162@home.osdl.org> <slrnbvh1hd.jl6.erik@dexter.hensema.net> <Pine.LNX.4.58.0401041826400.2162@home.osdl.org> <20040104204834.40b6ca51.davem@redhat.com> <20040106155933.GA3373@bender.home.hensema.net> <20040106095909.7243b2ce.davem@redhat.com>
+Reply-To: erik@hensema.net
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="U3s59FfKcByyGl+j"
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-        "David S. Miller" <davem@redhat.com>,
-        Stephen Smalley <sds@epoch.ncsc.mil>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@osdl.org, netdev@oss.sgi.com, acme@conectiva.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0401061046390.7530-100000@thoron.boston.redhat.com>
+In-Reply-To: <20040106095909.7243b2ce.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, Jan 06, 2004 at 09:59:09AM -0800, David S. Miller wrote:
+> On Tue, 6 Jan 2004 16:59:34 +0100
+> Erik Hensema <erik@hensema.net> wrote:
+> 
+> > David: are you sure it was fixed in rc1?
+> > 
+> > It doesn't seem to be in -rc2 either.
+> > 
+> > This is after 26 hours uptime:
+> > 
+> > tcp6_sock           6246   6248   1024    4    1 : tunables   54   27    0
+> > : slabdata   1562   1562      0
+> 
+> Someone mentioned about a bug in the userland program you're
+> using that is openning these sockets?  Something about leaving sockets
+> not closed.
 
---U3s59FfKcByyGl+j
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+That's correct. I suspect that this exposes the leak in the kernel more
+promimently than on other systems.
 
-On Tue, Jan 06, 2004 at 11:01:03AM -0500, James Morris wrote:
-=20
-> Does anyone have any objections to the patch below (which I'd propose for=
-=20
-> 2.6.2), or other comments?
+The leak is in nscd, it doesn't properly close sockets to my LDAP server.
+This is not a kernel problem I think, because it also leaks in 2.4.x. The
+kernelspace leak however is not in 2.4, only in 2.6.
 
-Thanks James, I am perfectly fine with your patch.  Feel free to put
-them into netfilter_arp.h and netfilter_ipv6.h, too.
-
-> - James
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---U3s59FfKcByyGl+j
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQE/+wjGXaXGVTD0i/8RAjFRAJ9Mub15xR+99zCM+eZgCi04/P3XCACeLCmI
-B9EEK83mrXSiQN6i549VcP4=
-=vGvz
------END PGP SIGNATURE-----
-
---U3s59FfKcByyGl+j--
+I'm restarting nscd in cron every night, which makes the CLOSE_WAIT sockets
+go away. However the kernel resources are not freed it seems.
+-- 
+Erik Hensema (erik@hensema.net)
