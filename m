@@ -1,32 +1,61 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: The ultimate TOE design
-Date: Thu, 16 Sep 2004 15:33:01 +0200
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2.6 NET] Fixes slab corruption in cbq_destroy
+Date: Thu, 16 Sep 2004 15:47:56 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916133301.GA15562@wotan.suse.de>
-References: <20040915141346.5c5e5377.davem@davemloft.net> <4148991B.9050200@pobox.com> <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <1095275660.20569.0.camel@localhost.localdomain> <4148A90F.80003@pobox.com> <20040915140123.14185ede.davem@davemloft.net> <20040915210818.GA22649@havoc.gtf.org> <20040915141346.5c5e5377.davem@davemloft.net> <5.1.0.14.2.20040916192213.04240008@171.71.163.14> <1095337159.22739.7.camel@localhost.localdomain>
+Message-ID: <4149998C.6060501@trash.net>
+References: <20040916132856.GA27293@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lincoln Dale <ltd@cisco.com>, Jeff Garzik <jgarzik@pobox.com>,
-        "David S. Miller" <davem@davemloft.net>, paul@clubi.ie,
-        netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Content-Disposition: inline
-In-Reply-To: <1095337159.22739.7.camel@localhost.localdomain>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20040916132856.GA27293@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 16, 2004 at 01:19:21PM +0100, Alan Cox wrote:
-> On Iau, 2004-09-16 at 10:29, Lincoln Dale wrote:
-> > . . . this ignore the realities of power restrictions of PCI today . . .
-> > sure, one could create a PCI card that takes a power-connector, but that 
-> > don't scale so well either . . .
+Thomas Graf wrote:
+
+>Fixes slab corruption in cbq_destroy. cbq_destroy_filters and
+>qdisc_put_rtab(q->link.R_tab) are already called in cbq_destroy_class.
+>The latter lead to a slab corruption due to repeated freeing of
+>q->link.R_tab because q->link is part of q->classes. Problem introduced
+>in 1.21.
+>  
+>
+I don't see how there can be slab corruption. qdisc_put_rtab only
+calls kfree if the table is found in qdisc_rtab_list, which only
+happens once. But the patch is still fine as cleanup :)
+
+Regards
+Patrick
+
+>Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>
+>
+>--- linux-2.6.9-rc2-bk2.orig/net/sched/sch_cbq.c	2004-09-16 14:52:23.000000000 +0200
+>+++ linux-2.6.9-rc2-bk2/net/sched/sch_cbq.c	2004-09-16 14:53:53.000000000 +0200
+>@@ -1770,10 +1770,6 @@
+> #ifdef CONFIG_NET_CLS_POLICE
+> 	q->rx_class = NULL;
+> #endif
+>-	for (h = 0; h < 16; h++) {
+>-		for (cl = q->classes[h]; cl; cl = cl->next)
+>-			cbq_destroy_filters(cl);
+>-	}
 > 
-> At 1Ghz the Athlon Geode NX draws about 6W. Thats less than my SCSI
-
-Are you sure that's worst case, not average? Worst case is usually
-much worse on a big CPU like an Athlon, but the power supply 
-has to be sized for it. 
-
--Andi
+> 	for (h = 0; h < 16; h++) {
+> 		struct cbq_class *next;
+>@@ -1783,8 +1779,6 @@
+> 			cbq_destroy_class(sch, cl);
+> 		}
+> 	}
+>-
+>-	qdisc_put_rtab(q->link.R_tab);
+> }
+> 
+> static void cbq_put(struct Qdisc *sch, unsigned long arg)
+>
+>  
+>
