@@ -1,45 +1,115 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: route cache DoS testing and softirqs
-Date: Wed, 31 Mar 2004 12:36:25 +1000
+From: Christopher Chan <cchan@outblaze.com>
+Subject: Network unavailability in 2.6.4
+Date: Wed, 31 Mar 2004 11:27:42 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1080700584.17686.237.camel@bach>
-References: <20040329184550.GA4540@in.ibm.com>
-	 <20040329222926.GF3808@dualathlon.random>
-	 <20040330050614.GA4669@in.ibm.com>
+Message-ID: <406A3AAE.3030508@outblaze.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrea Arcangeli <andrea@suse.de>, Dipankar Sarma <dipankar@in.ibm.com>,
-        lkml - Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
-        "Paul E. McKenney" <paulmck@us.ibm.com>,
-        Dave Miller <davem@redhat.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Andrew Morton <akpm@osdl.org>,
-        rusty@au1.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Srivatsa Vaddagiri <vatsa@in.ibm.com>
-In-Reply-To: <20040330050614.GA4669@in.ibm.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-03-30 at 15:06, Srivatsa Vaddagiri wrote:
-> On Tue, Mar 30, 2004 at 01:07:12AM +0000, Andrea Arcangeli wrote:
-> > btw, the set_current_state(TASK_INTERRUPTIBLE) before
-> > kthread_should_stop seems overkill w.r.t. smp locking, plus the code is
-> > written in the wrong way around, all set_current_state are in the wrong
-> > place. It's harmless but I cleaned up that bit as well.
-> 
-> I think set_current_state(TASK_INTERRUPTIBLE) before kthread_should_stop()
-> _is_ required, otherwise kthread_stop can fail to destroy a kthread.
+Hi, I have a box running 2.6.4 which from time to time will become 
+unavailable. Each of those times would have corresponding logs in messages.
 
-The problem is that kthread_stop used to send a signal to the kthread,
-which meant we didn't have to beware of races (since it would never
-sleep any more): kthread_should_stop() was called signal_pending 8)
+Hardware:
+00:04.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] 
+(rev 08)
 
-Andrew hated the signal mechanism, so I abandoned it, but didn't go back
-and fix all the users.  It's tempting to send a signal anyway to make
-life simpler, though, although that might set a bad example for others.
+I am using the e100 driver.
 
-Rusty.
--- 
-Anyone who quotes me in their signature is an idiot -- Rusty Russell
+
+The current resolution is to reboot the box.
+
+
+logs in /var/log/messages:
+
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
+tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
+net/ipv4/tcp.c (1635)
+Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
+at net/ipv4/tcp.c (1571)
+Mar 30 23:34:28 spf6 syslogd 1.4.1: restart.
+Mar 30 23:34:28 spf6 syslog: syslogd startup succeeded
