@@ -1,26 +1,38 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@wide.ad.jp>
+ <yoshfuji@wide.ad.jp>
 Subject: Re: IPsecv6 integrity failures not dropped
-Date: Sat, 19 Apr 2003 11:17:19 +0900 (JST)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030419.111719.51896623.yoshfuji@wide.ad.jp>
+Date: Sat, 19 Apr 2003 11:50:53 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030419.115053.123574563.yoshfuji@wide.ad.jp>
 References: <200304182017.h3IKH4ng019821@faith.austin.ibm.com>
-	<20030418.141014.17269641.davem@redhat.com>
-	<20030419.111238.07385967.yoshfuji@wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: latten@austin.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: davem@redhat.com
-In-Reply-To: <20030419.111238.07385967.yoshfuji@wide.ad.jp>
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: latten@austin.ibm.com
+In-Reply-To: <200304182017.h3IKH4ng019821@faith.austin.ibm.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030419.111238.07385967.yoshfuji@wide.ad.jp> (at Sat, 19 Apr 2003 11:12:38 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@wide.ad.jp> says:
+In article <200304182017.h3IKH4ng019821@faith.austin.ibm.com> (at Fri, 18 Apr 2003 15:17:04 -0500), latten@austin.ibm.com says:
 
->   > 0: more header(s) follows; next header is pointed by skb->nh.raw[nhoff]
-                                 next header is pointed by nhoff (which means, the next header is skb->nh.raw[nhoff])
+> incoming packet fails, result is an ICMPv6 Parameter problem 
+> of Unknown-Next-Header, instead of just dropping packet. This 
+> is because xfrm6_rcv() expects an unsigned-8-bit return value 
+> from the input handler, i.e. ah6_input() or esp6_input(). But handler 
+> returns a signed int (-EINVAL) that seems to be getting converted into 
+> a "u8" via 2's complement, because ah6_input() says it is returning
+> -EINVAL/-22, but xfrm6_rcv() says it got a return value of 234,
+> which it believes to be valid and passes to ip6_input() who thinks it is 
+> the next header.  
+> 
+> I modified ah6_input() and esp6_input() to return zero instead of -EINVAL
+> in the fix below. I tested it and it works.
+
+just change u8 nexthdr = 0 to int nexthdr = 0, in xfrm6_rcv() is fine, 
+isn't it?
 
 -- 
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
