@@ -1,58 +1,45 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] bridge: no update when hold time is zero
-Date: Fri, 11 Mar 2005 10:26:36 -0800
-Message-ID: <20050311102636.30934f12@dxpl.pdx.osdl.net>
-References: <20050310154437.1223b6e9@dxpl.pdx.osdl.net>
-	<20050310185152.12ed9819.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Last night Linus bk - netfilter busted?
+Date: Fri, 11 Mar 2005 10:51:36 -0800
+Message-ID: <20050311105136.2a5e4ddc.davem@davemloft.net>
+References: <200503110223.34461.dtor_core@ameritech.net>
+	<4231A498.4020101@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============52277180049049865=="
-Cc: netdev@oss.sgi.com, bridge@lists.osdl.org
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050310185152.12ed9819.davem@davemloft.net>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Sender: bridge-bounces@lists.osdl.org
-Errors-To: bridge-bounces@lists.osdl.org
-List-Id: netdev.vger.kernel.org
-
---===============52277180049049865==
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, dtor_core@ameritech.net,
+	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4231A498.4020101@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
+List-Id: netdev.vger.kernel.org
 
-Some users, set hold time to zero on bridge so it always does
-flooding. This is usually when using it with wireless.  The new RCU
-based code changed the behaviour so the bridge would not flood for
-one GC interval. This patch restores the original behaviour.
+On Fri, 11 Mar 2005 15:00:56 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-diff -Nru a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
---- a/net/bridge/br_fdb.c	2005-03-11 10:23:44 -08:00
-+++ b/net/bridge/br_fdb.c	2005-03-11 10:23:44 -08:00
-@@ -337,6 +337,10 @@
- 	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
- 	struct net_bridge_fdb_entry *fdb;
- 
-+	/* some users want to always flood. */
-+	if (hold_time(br) == 0)
-+		return;
-+
- 	rcu_read_lock();
- 	fdb = fdb_find(head, addr);
- 	if (likely(fdb)) {
+> Works fine here. You could try if reverting one of these two patches
+> helps (second one only if its a SMP box).
+> 
+> ChangeSet@1.2010, 2005-03-09 20:28:17-08:00, bdschuym@pandora.be
+>    [NETFILTER]: Reduce call chain length in netfilter (take 2)
 
---===============52277180049049865==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+It's this change, I know it is, because Linus sees the same problem
+on his workstation.
 
-_______________________________________________
-Bridge mailing list
-Bridge@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/bridge
+You wouldn't happen to be seeing this problem on a PPC box would
+you?  Since Linus's machine is a PPC machine too, that would support
+my theory that this could be a compiler issue on that platform.
 
---===============52277180049049865==--
+Damn, wait, Patrick, I think I know what's happening.  The iptables
+IPT_* verdicts are dependant upon the NF_* values, and they don't
+cope with Bart's changes I bet.  Can you figure out what the exact
+error would be?  This kind of issue would explain the looping inside
+of ipt_do_table(), wouldn't it?
