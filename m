@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (0/7) ipmr fixes
-Date: Wed, 25 Jun 2003 11:40:38 -0700
+Subject: [PATCH] (1/7) ipmr - C99 initializers
+Date: Wed, 25 Jun 2003 11:40:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030625114038.176ee030.shemminger@osdl.org>
+Message-ID: <20030625114042.3cee041e.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,14 +12,20 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-These patches fix ip multicast route (ipmr) on 2.5.73.
+Change notifier to C99 initialization
 
-1 - Trivial C99 initialization
-2 - Change functions/variables to static
-3 - Drop and reacquire RTNL in error path
-4 - Use time_after()
-5 - Use alloc_netdev
-6 - Fix OOPS on dropped packets
-7 - Get rid of skb_linearize
-
-Tested on 8-way SMP by bringing up pimd.
+This one changes an initializer to C99 style.
+diff -Nru a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+--- a/net/ipv4/ipmr.c	Wed Jun 25 11:14:59 2003
++++ b/net/ipv4/ipmr.c	Wed Jun 25 11:14:59 2003
+@@ -1078,9 +1078,7 @@
+ 
+ 
+ static struct notifier_block ip_mr_notifier={
+-	ipmr_device_event,
+-	NULL,
+-	0
++	.notifier_call = ipmr_device_event,
+ };
+ 
+ /*
