@@ -1,117 +1,58 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Fri, 7 Jan 2005 10:17:26 -0600
-Message-ID: <200501071017.31751.jeremy.guthrie@berbee.com>
-References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501061618.24465.jeremy.guthrie@berbee.com> <16861.48463.770166.352726@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Fri, 07 Jan 2005 16:26:45 +0100
+Message-ID: <1105111605.3462.101.camel@tsc-6.cph.tpack.net>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
+	 <1105019912.2314.20.camel@jzny.localdomain>
+	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
+	 <1105104757.1046.63.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1340695.bQ2qdNF43y";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Stephen Hemminger <shemminger@osdl.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16861.48463.770166.352726@robur.slu.se>
+To: hadi@cyberus.ca
+In-Reply-To: <1105104757.1046.63.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1340695.bQ2qdNF43y
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Fri, 2005-01-07 at 14:32, jamal wrote:
+> On Thu, 2005-01-06 at 10:06, Tommy Christensen wrote:
+> 
+> > But qdisc_restart() isn't called any more after the queue is
+> > stopped. So how do we get to drain the packets?
+> 
+> We return -1; so qdisc restart will be called until theres no packets
+> left on the queue. Did i miss something in the state machine there?
 
-On Thursday 06 January 2005 04:35 pm, Robert Olsson wrote:
-> Jeremy M. Guthrie writes:
->  > You mentioned before that " The stats didn't show any numbers so we
->  > don't know your load."  Was there a command you wanted me to re-run?
->
->  rtstat should show the routing/packet load.
->
->  From a systems like yours 2*933 MHz PIII in production for tens of
-> thoundans of users many filter and full BGP routing. Current (late here)
-> use.
->
->
->  ifstat2 eth*
->              RX --------------------------   TX -------------------------
-> eth0          272.8 M bit/s       51 k pps    350.7 M bit/s       51 k pps
-> eth1          371.9 M bit/s       55 k pps    293.6 M bit/s       55 k pps
-> eth2            6.7 M bit/s     1348   pps      3.0 M bit/s      991   pps
-> eth3            472   bit/s        0   pps      600   bit/s        0   pps
-Ifstat output:
-#kernel
-Interface        RX Pkts/Rate    TX Pkts/Rate    RX Data/Rate    TX Data/Ra=
-te
-                 RX Errs/Drop    TX Errs/Drop    RX Over/Rate    TX Coll/Ra=
-te
-lo                     0 0             0 0             0 0             0 0
-                       0 0             0 0             0 0             0 0
-eth0                   1 0             1 0            66 0           178 0
-                       0 0             0 0             0 0             0 0
-eth2                   0 0         30770 0             0 0        13361K 0
-                       0 0             0 0             0 0             0 0
-eth3               81019 0             0 0        41740K 0             0 0
-                       0 0             0 0             0 0             0 0
+Yes, qdisc_run does this
+  while (!netif_queue_stopped(dev) && qdisc_restart(dev) < 0)
+    /* NOTHING */;
 
-> rtstat
->  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot  =
- =20
-> mc GC: tot ignored goal_miss ovrf HASH: in_search out_search 21007  =20
-> 114060     748     0     5     0     0     0        11       5      0    =
- =20
-> 0       0         0    0           58280          4 22683    112556     8=
-27
->     0     6     0     0     0         5       5      0       0       0   =
- =20
->    0    0           60841          7 24230    111083     765     0     4 =
- =20
->  0     0     0        13       4      0       0       0         0    0   =
- =20
->      66628          7
-> Around 110 kpps hitting warm cache entries and ~800 new lookups/sec. I was
-> expecting so see something similar from your system.
-Did my second email w/ the lnstat data not make it?
+> > Another approach could be to reset the qdisc (kind of what
+> > dev_deactivate does) if the driver stays in queue_stopped
+> > and carrier_off for some period of time.
+> > 
+> 
+> reseting qdisc could certainly be part of the device watchdog.
+> Note that once the packets are drained, the next thing that will happen
+> if device is stopped for a dev->timeout period is watchdog kicking in
+> and flushing the DMA. So you could reset your qdisc there though i am
+> not sure it will be needed with that patch.
 
->
-> FYI.
->  cat /proc/net/softnet_stat
+Unfortunately the watchdog won't do this when carrier is off, which
+is fair enough since the chip isn't hung as such.
 
+So, we would need another method to flush out stale packets from
+the DMA ring. Some drivers already do this themselves, and some won't
+need it because they keep on running even when link is down.
 
-total    droppped tsquz    Throttl  FR_hit   FR_succe FR_defer FR_def_o=20
- cpu_coll=20
-> 9ba490f3 00000000 01281572 00000000 00000000 00000000 00000000 00000000
-> 002562c2 9939268d 00000000 010e42e9 00000000 00000000 00000000 00000000=20
-> 00000000 0028fe72
-Why do these drops not show up in the interface drop?
-
-> Good Night.
->
->
->           --ro
-
-=2D-=20
-
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
-
---nextPart1340695.bQ2qdNF43y
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBB3rYbqtjaBHGZBeURApowAJ9tp9NRJazOm/HsVeC4ANYiDgyzjgCghJBx
-U1Pf8s66CXj3d7Zk3O7yBzQ=
-=AMaR
------END PGP SIGNATURE-----
-
---nextPart1340695.bQ2qdNF43y--
+-Tommy
