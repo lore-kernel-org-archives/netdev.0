@@ -1,27 +1,21 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH] Update in-kernel orinoco drivers to upstream current CVS
-Date: Fri, 02 Jul 2004 15:11:38 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <1088795498.18039.25.camel@dcbw.boston.redhat.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: netdev-2.6 queue refreshed
+Date: Fri, 02 Jul 2004 15:15:28 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <40E5B450.9050601@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264843AbUGBTLo@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Netdev <netdev@oss.sgi.com>, Andrew Morton <akpm@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-This patch is simply the fixed-up diff between the kernel's current
-0.13e version and the upstream 0.15rc1+ version from savannah CVS.
-0.15rc1 has been out for a couple months now and seems stable.
+I just refreshed and re-merged the netdev-2.6 queue.
 
-The major benefits that this newer version brings are, of course, many
-bugfixes, but best of all wireless scanning support for the Orinoco line
-of cards.
+Everybody following the BK queue bk://gkernel.bkbits.net/netdev-2.6 (or 
+its mirror bk://kernel.bkbits.net/jgarzik/netdev-2.6), please remove and 
+re-clone your repository.
 
-http://people.redhat.com/dcbw/linux-2.6.7-orinoco.patch.bz2
-
-Dan Williams
-Red Hat, Inc.
+	Jeff
