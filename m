@@ -1,31 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] NET: Fix calculation for collapsed skb size
-Date: Tue, 8 Feb 2005 20:54:24 -0800
-Message-ID: <20050208205424.19d421b8.davem@davemloft.net>
-References: <20050128230327.GV31837@postel.suug.ch>
-	<E1CufRB-0000zf-00@gondolin.me.apana.org.au>
-	<20050128234828.GA24868@yakov.inr.ac.ru>
-	<20050129002128.GX31837@postel.suug.ch>
-	<20050129002701.GY31837@postel.suug.ch>
-	<20050206223239.5dc4e325.davem@davemloft.net>
-	<20050207142742.GA31837@postel.suug.ch>
+Subject: Re: patch: annoying u32 double listing
+Date: Tue, 8 Feb 2005 20:56:05 -0800
+Message-ID: <20050208205605.0935a77c.davem@davemloft.net>
+References: <1107719343.1055.22.camel@jzny.localdomain>
+	<42068EA2.6030507@trash.net>
+	<1107727330.1053.44.camel@jzny.localdomain>
+	<4206A58A.9050909@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, herbert@gondor.apana.org.au, netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050207142742.GA31837@postel.suug.ch>
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <4206A58A.9050909@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Feb 2005 15:27:42 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+On Mon, 07 Feb 2005 00:17:30 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> patch also applies to 2.4 with some fuzz.
+> jamal wrote:
 > 
-> Noticed by Denis V. Lunev <den@asplinux.ru>
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> >I should have caught that output missing divisor ;->
+> >Dave please apply Patricks version. Should probably apply cleanly on
+> >2.4.x as well.
+> >
+> My last patch has a similar problem, new hash tables added with
+> "u32 divisor .." are skipped while walking. This patch is better
+> tested and should be fine. Applies to 2.4 and 2.6.
 
-Applied, thanks Thomas.
+Applied, thanks Patrick.
