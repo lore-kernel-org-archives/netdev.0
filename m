@@ -1,42 +1,36 @@
-From: "Richard B. Johnson" <root@chaos.analogic.com>
-Subject: Re: ping takes much time to myself?
-Date: Mon, 26 Apr 2004 12:02:29 -0400 (EDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] tcp_vegas_cong_avoid doc
+Date: Mon, 26 Apr 2004 10:12:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0404261159510.1494@chaos>
-References: <20040426154437.67657.qmail@web41402.mail.yahoo.com>
-Reply-To: root@chaos.analogic.com
+Message-ID: <20040426101210.461726d2@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: net dev <netdev@oss.sgi.com>, kernerl mail <linux-kernel@vger.kernel.org>,
-        linux net <linux-net@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Parag Nemade <cranium2003@yahoo.com>
-In-Reply-To: <20040426154437.67657.qmail@web41402.mail.yahoo.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 26 Apr 2004, Parag Nemade wrote:
+Patch to update sysctl documentation to include tcp_vegas.
+Feel free to rewrite for better explanation.
 
-> hello,
->      i want to add my own variables with icmp header.
-> so i modified icmp header and added 2 variables to
-> make icmp header len is 16 bytes. but when i build
-> kernel image and boot it and then ping to myself why
-> am i still getting 8 bytes header i.e. 84 bytes packet
-> and why not 92 bytes packet?
-> 56 bytes data + 16 bytes icmp header + 20 bytes ip
-> header = 92 bytes
-> also ping results shown below takes much time to ping
-> myself. what gone wrong? how to make it behave like
-> normal ping?
-
-
-You don't modify the kernel to make a new ICMP packet!
-You modify `ping` or make your own. If you change the
-length of the header, it is no longer ICMP. Your
-tools will misinterpret what you have.
-
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.4.26 on an i686 machine (5557.45 BogoMips).
-            Note 96.31% of all statistics are fiction.
+diff -Nru a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+--- a/Documentation/networking/ip-sysctl.txt	Mon Apr 26 10:09:25 2004
++++ b/Documentation/networking/ip-sysctl.txt	Mon Apr 26 10:09:25 2004
+@@ -307,6 +307,15 @@
+ 	wired networks and throughput over wireless links.   
+         Default: 0
+ 
++tcp_vegas_cong_avoid - BOOLEAN
++	Enable TCP Vegas congestion avoidance algorithm.
++	TCP Vegas is a sender-side only change to TCP that anticipates
++	the onset of congestion by estimating the bandwidth. TCP Vegas
++	adjusts the sending rate by modifying the congestion
++	window. TCP Vegas should provide less packet loss, but is not
++	be as aggressive as TCP Reno.
++	Default:0
++
+ ip_local_port_range - 2 INTEGERS
+ 	Defines the local port range that is used by TCP and UDP to
+ 	choose the local port. The first number is the first, the 
