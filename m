@@ -1,44 +1,55 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 12:56:04 -0700 (PDT)
+From: Arthur Kepner <akepner@sgi.com>
+Subject: Re: [PATCH] fix "ethtool -S" for tg3
+Date: Wed, 12 May 2004 13:00:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com>
-References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com>
- <40A26FFA.4030701@pobox.com>            <20040512193349.GA14936@elte.hu>
- <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu>
+Message-ID: <Pine.SGI.4.56.0405121256510.7328714@neteng.engr.sgi.com>
+References: <Pine.SGI.4.56.0405111251080.7038576@neteng.engr.sgi.com>
+ <20040512120810.464aaee6.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ingo Molnar <mingo@elte.hu>, Jeff Garzik <jgarzik@pobox.com>,
-        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>,
-        linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1072017398-1259774184-1084392024=:7328714"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Valdis.Kletnieks@vt.edu
-In-Reply-To: <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040512120810.464aaee6.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 May 2004 Valdis.Kletnieks@vt.edu wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-> On Wed, 12 May 2004 21:33:49 +0200, Ingo Molnar said:
-> > 
-> > * Jeff Garzik <jgarzik@pobox.com> wrote:
-> > 
-> > > >Woah, that's new.  And wrong.  The code in include/asm-i386/param.h that
-> > > >says:
-> > > >	# define JIFFIES_TO_MSEC(x)     (x)
-> > > >	# define MSEC_TO_JIFFIES(x)     (x)
-> > > >
-> > > >Is not correct.  Look at kernel/sched.c for verification of this :)
-> > > 
-> > > 
-> > > Yes, that is _massively_ broken.
-> > 
-> > why is it wrong?
-> 
-> If the kernel jiffie is anything other than exactly 1 msec, you're screwed... 
-
-I believe they were talking about include/asm-i386/param.h
-                                          ^^^^^^^^
+---1072017398-1259774184-1084392024=:7328714
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
 
-- Davide
+On Wed, 12 May 2004, David S. Miller wrote:
+
+> .....
+> Patch doesn't apply, your mail client turned all the tabs
+> into spaces.  Use attachments if necessary, thanks.
+>
+
+OK. Attached is the patch.
+
+--
+
+Arthur
+---1072017398-1259774184-1084392024=:7328714
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name=ethtool-S-patch
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.SGI.4.56.0405121300240.7328714@neteng.engr.sgi.com>
+Content-Description: ethtool -S patch
+Content-Disposition: attachment; filename=ethtool-S-patch
+
+LS0tIGxpbnV4Lm9yaWcvZHJpdmVycy9uZXQvdGczLmMJMjAwNC0wNS0xMiAx
+Mjo0MTo1OC4wMDAwMDAwMDAgLTA3MDANCisrKyBsaW51eC9kcml2ZXJzL25l
+dC90ZzMuYwkyMDA0LTA1LTEyIDEyOjQ3OjA2LjAwMDAwMDAwMCAtMDcwMA0K
+QEAgLTYyODQsNyArNjI4NCw3IEBADQogCQkJCSAgIHN0cnVjdCBldGh0b29s
+X3N0YXRzICplc3RhdHMsIHU2NCAqdG1wX3N0YXRzKQ0KIHsNCiAJc3RydWN0
+IHRnMyAqdHAgPSBkZXYtPnByaXY7DQotCW1lbWNweSh0bXBfc3RhdHMsICZ0
+cC0+ZXN0YXRzLCBzaXplb2YodHAtPmVzdGF0cykpOw0KKwltZW1jcHkodG1w
+X3N0YXRzLCB0ZzNfZ2V0X2VzdGF0cyh0cCksIHNpemVvZih0cC0+ZXN0YXRz
+KSk7DQogfQ0KIA0KIHN0YXRpYyBpbnQgdGczX2lvY3RsKHN0cnVjdCBuZXRf
+ZGV2aWNlICpkZXYsIHN0cnVjdCBpZnJlcSAqaWZyLCBpbnQgY21kKQ0K
+
+---1072017398-1259774184-1084392024=:7328714--
