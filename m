@@ -1,31 +1,45 @@
-From: "David S. Miller" <davem@redhat.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [RFC/PATCH] IMQ port to 2.6
-Date: Sun, 25 Jan 2004 13:55:47 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040125.135547.99459090.davem@redhat.com>
+Date: 25 Jan 2004 18:45:16 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <1075074316.1747.115.camel@jzny.localdomain>
 References: <20040125152419.GA3208@penguin.localdomain>
-	<20040125.112542.10303353.davem@redhat.com>
-	<401425B6.4050701@trash.net>
+	 <20040125164431.GA31548@louise.pinerecords.com>
+	 <1075058539.1747.92.camel@jzny.localdomain>
+	 <20040125202148.GA10599@usr.lcm.msu.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: sebek64@post.cz, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: kaber@trash.net
-In-Reply-To: <401425B6.4050701@trash.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
+In-Reply-To: <20040125202148.GA10599@usr.lcm.msu.ru>
 List-Id: netdev.vger.kernel.org
 
-   From: Patrick McHardy <kaber@trash.net>
-   Date: Sun, 25 Jan 2004 21:23:18 +0100
+On Sun, 2004-01-25 at 15:21, Vladimir B. Savkin wrote:
+> On Sun, Jan 25, 2004 at 02:22:19PM -0500, jamal wrote:
 
-   David S. Miller wrote:
-   > Patrick, do you mind if I merge this 2.6.x port into my tree?
-   
-   Please don't. The imq device is buggy, 
- ...
-   Some users that depend on the functionality
-   are working on a better implementation, I'd suggest to wait
-   until then.
+> Think multiple clients connected via PPP. I want to shape traffic,
+> so ingress is out of question. I want different clients in a same
 
-Ok.
+Ok, 
+a) why do you want to shape on ingress instead of policing?
+OR
+b) Why cant you achieve the same results by marking on ingress and
+shaping on egress? 
+
+> htb class, so using qdisc on each ppp interface is out of
+> question. It seems to me that IMQ is the only way to achieve my goals.
+
+By multiple clients i believe you mean you want to say "-i ppp+"?
+We had a long discussion on this a while back (search netdev) 
+and i think it is a valid point for dynamic devices like ppp. 
+We need to rethink how we do things. Theres a lot of valu in having per
+device tables (scalability being one).
+IMO, this alone does not justify the existence of IMQ. 
+We should do this (and other things) right, maybe a sync with the
+netfilter folks will be the right thing to do. 
+
+cheers,
+jamal
