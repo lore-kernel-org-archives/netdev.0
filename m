@@ -1,70 +1,67 @@
-From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
-Date: Thu, 10 Jun 2004 08:07:16 +0200
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: in-driver QoS
+Date: Thu, 10 Jun 2004 08:55:31 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086847636.1719.6.camel@teapot.felipe-alfaro.com>
-References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>
-	 <20040608124215.291a7072@dell_ss3.pdx.osdl.net>
-	 <1086725369.1806.1.camel@teapot.felipe-alfaro.com>
-	 <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>
-	 <1086794282.1706.2.camel@teapot.felipe-alfaro.com>
-	 <40C793CE.6000609@g-house.de>
+Message-ID: <200406100855.37348.vkondra@mail.ru>
+References: <20040608184831.GA18462@bougret.hpl.hp.com> <200406092127.28477.vkondra@mail.ru> <1086832740.1205.65.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>,
-        NetDev Mailinglist <netdev@oss.sgi.com>,
-        Kernel Mailinglist <linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: jt@hpl.hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christian Kujau <evil@g-house.de>
-In-Reply-To: <40C793CE.6000609@g-house.de>
+To: netdev@oss.sgi.com, hadi@cyberus.ca
+In-Reply-To: <1086832740.1205.65.camel@jzny.localdomain>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-06-10 at 00:48 +0200, Christian Kujau wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
-> 
-> Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-> |>What is happening is that some subsystem is holding a reference to the
-> device (calling dev_hold())
-> |>but not cleaning up (calling dev_put).  It can be a hard to track
-> which of the many
-> |>things routing, etc are not being cleared properly.  Look for routes
-> that still
-> |>get stuck (ip route) and neighbor cache entries.  Most of these end up
-> being
-> |>protocol bugs.
-> |
-> |
-> | The two attached patches, one for net/ipv4/route.c, the other for net/
-> | ipv6/route.c fix all my problems when running "cardctl eject" while a
-> | program mantains an open network socket (ESTABLISHED).
-> |
-> | Both patches apply cleanly against 2.6.7-rc3 and 2.6.7-rc3-mm1.
-> | I'm not completely sure what has changed in 2.6.7-rc3 that is breaking
-> | cardctl for me, as it Just Worked(TM) fine in 2.6.7-rc2.
-> 
-> do you know, by any chance, if this error is dependent to eth0 only or
-> could help for my error message too:
-> 
-> unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-I think the mentioned error is not dependent on any specific interface
-(let it be eth0, or ppp0), but any interface in general which has a
-routing entry and is the target/source of IP traffic. This is based on
-the fact that my fixes play with the refcounting on any interface. not
-just eth0 specifically, and pertain to both IPv4 and IPv6 core.
+On Thursday 10 June 2004 04:59, jamal wrote:
+> On Wed, 2004-06-09 at 14:27, Vladimir Kondratiev wrote:
+> > Sure. I know when each DMA queue have space to accept new packets. w.r.t
+> > Tx discipline, it is really like 4 (taking into account TSPEC, see my
+> > mail about TGe, minimum 5 for STA and 6 (i did not said about power save
+> > buffering) for AP) independent devices.
+>
+> Vladimir - do you have one of these cards? Jean is putting some my
+> doubts in my mind about their designs. Do they have seperate DMA rings?
+Good question. Until I can really answer, let's say "in theory, all next 
+generation wireless cards should have similar design". Hint: I have also mail 
+ending by intel.com
+>
+> > I see you got the idea. Question is, how to implement it.
+>
+> As suggested earlier:
+> - introduce id and id_state per ring.
+> - use a skb tag to select id
+skb->priority, correct?
+> - if ring is full, use same id to requeue to qdisc.
+how?
+> - qdiscs above must have semantics that map to the strict priority
+> scheme (eg you could use CBQ which does both priorities and bandwith
+> allocation or use simple prio or strict prio qdiscs).
+> - netif stopping and starting is done per id/ring.
+how to do it? I am afraid several network interfaces is not a good idea.
+>
+> Did i miss something?
+Sounds good. Next step is integrated service, where, prior to use some 
+priority, STA have to allocate bandwidth and get admission from AP.
+>
+> Do you wanna try this? I could give you a hand but dont have much time
+> to code at the moment. I could point you to the different pieces of code
+> that need mods and suggest the changes.
+It would be great help. Please...
+I promise to share results.
+>
+> cheers,
+> jamal
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-However, I detected this behavior on my eth0, since this is the only
-interface I have on my laptop. You just can try both patches against
-2.6.7-rc3 or 2.6.7-rc3-mm1 to see if them cure your problems.
-
-> happened just a few hours ago (2.6.7-rc3), i had to reboot the box
-> anyway, but pppd was not able to die (even with kill -9)
-
-In my case, I was able to trigger the problem by running "cardctl eject"
-which was then stuck at D state. Killing any program using a network
-socket, and waiting for opened connections to transition from
-ESTABLISHED to TIME_WAIT and then being closed, allowed "cardctl" to
-exit the D state.
+iD8DBQFAx/fZqxdj7mhC6o0RAv/6AJ9r0zqZN8E1Y6UFUBH+0Ikfl6yRPQCgqhCJ
+OmLUtIXWDjtI8RpQcsUvQJ0=
+=agJJ
+-----END PGP SIGNATURE-----
