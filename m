@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (1/12) skge: use PFX string
-Date: Thu, 3 Mar 2005 11:45:57 -0800
-Message-ID: <20050303114557.6373662b@dxpl.pdx.osdl.net>
+Subject: [PATCH] (8/12) skge: only allow tx/rx csum on Yukon chipset
+Date: Thu, 3 Mar 2005 11:39:19 -0800
+Message-ID: <20050303113919.4b365d90@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,68 +11,81 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Use the PFX string consistently for all messages
+Only allow transmit and receive checksum to be set on Yukon chipsets
+because the Genesis chipset support probably is broken based on the
+comments in the sk98lin driver.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- skge-test/drivers/net/skge.c	2005-03-02 17:37:08.000000000 -0800
-+++ skge-test/drivers/net/skge.c.new	2005-03-02 17:36:57.000000000 -0800
-@@ -3120,13 +3120,13 @@ static int __devinit skge_probe(struct p
- 	int err, using_dac = 0;
+--- skge-2.6.11/drivers/net/skge.c.orig	2005-03-03 09:42:33.000000000 -0800
++++ skge-2.6.11/drivers/net/skge.c	2005-03-03 09:51:52.000000000 -0800
+@@ -480,6 +480,17 @@
+ 	return ethtool_op_set_sg(dev, data);
+ }
  
- 	if ((err = pci_enable_device(pdev))) {
--		printk(KERN_ERR "%s cannot enable PCI device\n",
-+		printk(KERN_ERR PFX "%s cannot enable PCI device\n",
- 		       pci_name(pdev));
- 		goto err_out;
- 	}
++static int skge_set_tx_csum(struct net_device *dev, u32 data)
++{
++	struct skge_port *skge = netdev_priv(dev);
++	struct skge_hw *hw = skge->hw;
++
++	if (hw->chip_id == CHIP_ID_GENESIS && data)
++		return -EOPNOTSUPP;
++
++	return ethtool_op_set_tx_csum(dev, data);
++}
++
+ static u32 skge_get_rx_csum(struct net_device *dev)
+ {
+ 	struct skge_port *skge = netdev_priv(dev);
+@@ -487,6 +498,7 @@
+ 	return skge->rx_csum;
+ }
  
- 	if ((err = pci_request_regions(pdev, DRV_NAME))) {
--		printk(KERN_ERR "%s cannot obtain PCI resources\n",
-+		printk(KERN_ERR PFX "%s cannot obtain PCI resources\n",
- 		       pci_name(pdev));
- 		goto err_out_disable_pdev;
- 	}
-@@ -3136,7 +3136,7 @@ static int __devinit skge_probe(struct p
- 	if (!(err = pci_set_dma_mask(pdev, DMA_64BIT_MASK)))
- 		using_dac = 1;
- 	else if (!(err = pci_set_dma_mask(pdev, DMA_32BIT_MASK))) {
--		printk(KERN_ERR "%s no usable DMA configuration\n",
-+		printk(KERN_ERR PFX "%s no usable DMA configuration\n",
- 		       pci_name(pdev));
- 		goto err_out_free_regions;
- 	}
-@@ -3155,7 +3155,7 @@ static int __devinit skge_probe(struct p
- 	err = -ENOMEM;
- 	hw = kmalloc(sizeof(*hw), GFP_KERNEL);
- 	if (!hw) {
--		printk(KERN_ERR "skge %s: cannot allocate hardware struct\n",
-+		printk(KERN_ERR PFX "%s: cannot allocate hardware struct\n",
- 		       pci_name(pdev));
- 		goto err_out_free_regions;
- 	}
-@@ -3167,13 +3167,13 @@ static int __devinit skge_probe(struct p
++/* Only Yukon supports checksum offload. */
+ static int skge_set_rx_csum(struct net_device *dev, u32 data)
+ {
+ 	struct skge_port *skge = netdev_priv(dev);
+@@ -498,6 +510,7 @@
+ 	return 0;
+ }
  
- 	hw->regs = ioremap_nocache(pci_resource_start(pdev, 0), 0x4000);
- 	if (!hw->regs) {
--		printk(KERN_ERR "skge %s: cannot map device registers\n",
-+		printk(KERN_ERR PFX "%s: cannot map device registers\n",
- 		       pci_name(pdev));
- 		goto err_out_free_hw;
- 	}
++/* Only Yukon II supports TSO (not implemented yet) */
+ static int skge_set_tso(struct net_device *dev, u32 data)
+ {
+ 	if (data)
+@@ -750,7 +763,7 @@
+ 	.get_sg		= ethtool_op_get_sg,
+ 	.set_sg		= skge_set_sg,
+ 	.get_tx_csum	= ethtool_op_get_tx_csum,
+-	.set_tx_csum	= ethtool_op_set_tx_csum,
++	.set_tx_csum	= skge_set_tx_csum,
+ 	.get_rx_csum	= skge_get_rx_csum,
+ 	.set_rx_csum	= skge_set_rx_csum,
+ 	.get_strings	= skge_get_strings,
+@@ -3065,14 +3078,11 @@
+ 	dev->poll_controller = skge_netpoll;
+ #endif
+ 	dev->irq = hw->pdev->irq;
+-	if (hw->chip_id != CHIP_ID_GENESIS)
+-		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
  
- 	if ((err = request_irq(pdev->irq, skge_intr, SA_SHIRQ, DRV_NAME, hw))) {
--		printk(KERN_ERR "%s: cannot assign irq %d\n",
-+		printk(KERN_ERR PFX "%s: cannot assign irq %d\n",
- 		       pci_name(pdev), pdev->irq);
- 		goto err_out_iounmap;
- 	}
-@@ -3194,7 +3194,7 @@ static int __devinit skge_probe(struct p
- 		dev->features |= NETIF_F_HIGHDMA;
+ 	skge = netdev_priv(dev);
+ 	skge->netdev = dev;
+ 	skge->hw = hw;
+ 	skge->msg_enable = netif_msg_init(debug, default_msg);
+-	skge->rx_csum = 1;
+ 	skge->tx_ring.count = DEFAULT_TX_RING_SIZE;
+ 	skge->rx_ring.count = DEFAULT_RX_RING_SIZE;
  
- 	if ((err = register_netdev(dev))) {
--		printk(KERN_ERR  "%s: cannot register net device\n",
-+		printk(KERN_ERR PFX "%s: cannot register net device\n",
- 		       pci_name(pdev));
- 		goto err_out_free_netdev;
- 	}
+@@ -3097,6 +3107,11 @@
+ 	skge->led_blink.function = skge_blink_timer;
+ 	skge->led_blink.data = (unsigned long) skge;
+ 
++	if (hw->chip_id != CHIP_ID_GENESIS) {
++		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
++		skge->rx_csum = 1;
++	}
++
+ 	/* read the mac address */
+ 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
+ 
