@@ -1,65 +1,27 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: PATCH: [LLC] set mac.raw if tr_source_route is called
-Date: Wed, 06 Oct 2004 18:58:32 -0300
+From: Thomas Davis <tadavis@lbl.gov>
+Subject: Re: Raylink/WebGear testing - ray_cs.c iomem bug?
+Date: Wed, 06 Oct 2004 14:59:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41646A88.4050609@conectiva.com.br>
+Message-ID: <41646AD5.1070800@lbl.gov>
+References: <Pine.LNX.4.58.0410061032410.8290@ppc970.osdl.org> <41644492.1000400@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040304090308000805060400"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@osdl.org>,
+        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+        Corey Thomas <corey@world.std.com>, netdev@oss.sgi.com,
+        Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <41644492.1000400@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040304090308000805060400
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Jeff Garzik wrote:
+> I'm not aware of anyone with ray_cs hardware, alas...
+> 
 
-Hi David,
+I do believe I still have two of these squirreled away someplace..  Let 
+me check and see later tonight.
 
-	Here is the fix for the problem Thomas pointed out, its at
-the usual place:
-
-bk://kernel.bkbits.net/acme/sk_buff-2.6
-
-- Arnaldo
-
---------------040304090308000805060400
-Content-Type: text/plain;
- name="tr_hdr-fix.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tr_hdr-fix.patch"
-
-===================================================================
-
-
-ChangeSet@1.2057, 2004-10-06 18:51:11-03:00, acme@conectiva.com.br
-  [LLC] set mac.raw if tr_source_route is called
-  
-  Thanks to Thomas Graf for spotting this.
-  
-  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-  Signed-off-by: David S. Miller <davem@redhat.com>
-
-
- llc_output.c |    1 +
- 1 files changed, 1 insertion(+)
-
-
-diff -Nru a/net/llc/llc_output.c b/net/llc/llc_output.c
---- a/net/llc/llc_output.c	2004-10-06 18:56:17 -03:00
-+++ b/net/llc/llc_output.c	2004-10-06 18:56:17 -03:00
-@@ -51,6 +51,7 @@
- 		if (da) {
- 			memcpy(trh->daddr, da, dev->addr_len);
- 			tr_source_route(skb, trh, dev);
-+			skb->mac.raw = skb->data;
- 		}
- 		break;
- 	}
-
-
---------------040304090308000805060400--
+thomas
