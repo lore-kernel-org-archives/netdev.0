@@ -1,107 +1,161 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: IMQ / new Dummy device post.
-Date: Sun, 18 Apr 2004 17:35:17 +0100
+From: "Ana Grace" <9wozqy@yahoo.com>
+Subject: =?ISO-8859-1?Q?=A1=D9=A1=DA=A1=D9=B4=A9=B1=B8=B3=AA=20=B4=E7=C0=CF?=
+	=?ISO-8859-1?Q?5000=B8=B8=BF=F8(=C3=D6=C0=FA=C0=CC=C0=DA)!=B9=AB=B9=E6=B9=AE=A1=D9=A1=DA=A1=D9@?= iks  yd ylr m
+Date: Sun, 18 Apr 04 14:45:37 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4082AE45.7030101@dsl.pipex.com>
-References: <407E5905.9070108@dsl.pipex.com>	 <1082031313.1039.13.camel@jzny.localdomain>	 <407EE3E5.8060200@dsl.pipex.com>	 <1082087553.1035.287.camel@jzny.localdomain>	 <4080356F.4020609@dsl.pipex.com>	 <1082145341.1026.125.camel@jzny.localdomain>	 <40810957.6030209@dsl.pipex.com>	 <1082203795.1043.18.camel@jzny.localdomain>	 <4081A824.5020107@dsl.pipex.com> <1082298480.1041.94.camel@jzny.localdomain>
+Message-ID: <t-3d4-q1654l$4-7$o8$77-98-0$g@8v32hn6n1>
+Reply-To: "Ana Grace" <9wozqy@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary=".0_C_C85651E.._8786"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1082298480.1041.94.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Sat, 2004-04-17 at 17:56, Andy Furniss wrote:
-> 
->>jamal wrote:
-> 
->  
-> 
->>>I think i am almost understanding you now. Your main concern is people
->>>using bittorrent to upload to you, correct? 
->>>Is there a way to recognize packets going to/from bittorent?
->>
->>Quite possibly (though I think it uses connmark which I can't use as I 
->>use connbytes to get new tcps out of slowstart).
-> 
-> 
-> You are speaking Inuit to me. What is connmark? and what is the relation
-> to tcp slowstart.
-> 
-> 
 
-Connmark is a netfilter patch which is required by the type of P2P 
-limiting/marking projects on sf.net that could mark bittorrent traffic. 
-It is incompatable with the connbytes patch which I use to mark the 
-first x KB of new connections. Doing this lets me send new TCps to a 
-short queue which is capped at 50% of my bandwidth. This means that some 
-packets get dropped and the slowstart phase is ended before it's 
-exponential nature floods my ISP buffer.
+--.0_C_C85651E.._8786
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-Put another way - I can game without latency spikes while a couple of 
-people are browsing "heavy .jpg" type websites. It only works well if my 
-link is otherwise clear - but this is a common situation for my home 
-setup.
+<html>
+<head>
+<title>Untitled-3.gif</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html;">
+<!--Fireworks MX 2004 Dreamweaver MX 2004 target.  Created Sat Feb 21 18:4=
+1:41 GMT+0900 2004-->
+</head>
+<body bgcolor=3D"#ffffff">
+<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"561">
+<!-- fwtable fwsrc=3D"Untitled" fwbase=3D"Untitled-3.gif" fwstyle=3D"Dream=
+weaver" fwdocid =3D "840337059" fwnested=3D"0" -->
+  <tr>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"239"=
+ height=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"68" =
+height=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"253"=
+ height=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"1" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://counter.cgiworld.net/cgi-bin/counter.cgi?id=3Dtr=
+ugem&no=3D3" width=3D"1" height=3D"1" border=3D"0" alt=3D""></td>
+  </tr>
 
+  <tr>
+   <td colspan=3D"4"><img name=3D"slicer1_c1" src=3D"http://loan.haolen.co=
+m/mail_c/slicer1_c1.gif" width=3D"561" height=3D"1" border=3D"0" alt=3D"">=
+</td>
+   <td><img src=3D"spacer.gif" width=3D"1" height=3D"1" border=3D"0"
+alt=3D=
+""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"3"><img name=3D"mail_c10" src=3D"http://loan.haolen.com/=
+mail_c/mail_c-10.gif" width=3D"560" height=3D"49" border=3D"0" alt=3D""></=
+td>
+   <td rowspan=3D"10"><img name=3D"slicer2_c4" src=3D"http://loan.haolen.c=
+om/mail_c/slicer2_c4.gif" width=3D"1" height=3D"637" border=3D"0" alt=3D""=
+></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"49" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"2"><a href=3D"http://loan.haolen.com/?i=3Dkim02"
+target=3D=
+"_blank"><img name=3D"mail_c21" src=3D"http://loan.haolen.com/mail_c/mail_=
+c-21.gif" width=3D"307" height=3D"108" border=3D"0" alt=3D""></a></td>
+   <td><img name=3D"mail_c22" src=3D"http://loan.haolen.com/mail_c/mail_c-=
+22.gif" width=3D"253" height=3D"108" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"108" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"2"><a href=3D"http://loan.haolen.com/?i=3Dkim02"
+target=3D=
+"_blank"><img name=3D"mail_c31" src=3D"http://loan.haolen.com/mail_c/mail_=
+c-31.gif" width=3D"307" height=3D"87" border=3D"0" alt=3D""></a></td>
+   <td><img name=3D"mail_c32" src=3D"http://loan.haolen.com/mail_c/mail_c-=
+32.gif" width=3D"253" height=3D"87" border=3D"0" alt=3D""></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"87" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"3"><img name=3D"mail_c40" src=3D"http://loan.haolen.com/=
+mail_c/mail_c-40.gif" width=3D"560" height=3D"46" border=3D"0" alt=3D""></=
+td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"46" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"2"><a href=3D"http://loan.haolen.com/?i=3Dkim02"
+target=3D=
+"_blank"><img name=3D"mail_c51" src=3D"http://loan.haolen.com/mail_c/mail_=
+c-51.gif" width=3D"307" height=3D"126" border=3D"0" alt=3D""></a></td>
+   <td><a href=3D"http://loan.haolen.com/?i=3Dkim02" target=3D"_blank"><im=
+g name=3D"mail_c52" src=3D"http://loan.haolen.com/mail_c/mail_c-52.gif" wi=
+dth=3D"253" height=3D"126" border=3D"0" alt=3D""></a></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"126" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"3"><img name=3D"mail_c60" src=3D"http://loan.haolen.com/=
+mail_c/mail_c-60.gif" width=3D"560" height=3D"14" border=3D"0" alt=3D""></=
+td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"14" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td><a href=3D"http://loan.haolen.com/?i=3Dkim02" target=3D"_blank"><im=
+g name=3D"mail_c71" src=3D"http://loan.haolen.com/mail_c/mail_c-71.gif" wi=
+dth=3D"239" height=3D"131" border=3D"0" alt=3D""></a></td>
+   <td colspan=3D"2"><a href=3D"http://loan.haolen.com/?i=3Dkim02"
+target=3D=
+"_blank"><img name=3D"mail_c72" src=3D"http://loan.haolen.com/mail_c/mail_=
+c-72.gif" width=3D"321" height=3D"131" border=3D"0" alt=3D""></a></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"131" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"3"><img name=3D"mail_c80" src=3D"http://loan.haolen.com/=
+mail_c/mail_c-80.gif" width=3D"560" height=3D"14" border=3D"0" alt=3D""></=
+td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"14" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"3" valign=3D"top" bgcolor=3D"#888888">  <FONT
+face=3D"=FFFFFFB5=
+=FFFFFFB8=FFFFFFBF=FFFFFFF2,
+=FFFFFFB5=FFFFFFB8=FFFFFFBF=FFFFFFF2=FFFFFFC3=FFFFFFBC" color=3D#ffffff size=3D2><BR> [<B><A href=3D=
+"http://loan.haolen.com/reject.php?i=3Dkim02"><FONT
+face=3D"=FFFFFFB5=FFFFFFB8=FFFFFFBF=FFFFFFF2, =
+=FFFFFFB5=FFFFFFB8=FFFFFFBF=FFFFFFF2=FFFFFFC3=FFFFFFBC" color=3D#ffffff
+size=3D2>reject</FONT></A></B>]<BR>If =
+you don't want to receive our mail, please [<B><A href=3D"http://loan.haol=
+en.com/reject.php?i=3Dkim02"><FONT
+face=3D"=FFFFFFB5=FFFFFFB8=FFFFFFBF=FFFFFFF2, =FFFFFFB5=FFFFFFB8=FFFFFFBF=FFFFFFF2=FFFFFFC3=FFFFFFBC=
+" color=3D#ffffff size=3D2>click</FONT></A></B>] here and insert your mail=
+ adress.</FONT>
+</td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"59" border=3D"0" alt=3D""></td>
+  </tr>
+  <tr>
+   <td colspan=3D"3"><img name=3D"slicer11_c1" src=3D"http://loan.haolen.c=
+om/mail_c/slicer11_c1.gif" width=3D"560" height=3D"3" border=3D"0" alt=3D"=
+"></td>
+   <td><img src=3D"http://loan.haolen.com/mail_c/spacer.gif" width=3D"1" h=
+eight=3D"3" border=3D"0" alt=3D""></td>
+  </tr>
+</table>
+</body>
+</html>
+dqydqyzhpzjwawhazycm
+e
+oilhwehn
+yuva 
+cl  xqx rizqftz 
+rv qtirscydvvm qs pt bba
 
->>I also sometimes use wget and I've seen posts on LARTC from people who 
->>use squid and need to solve the same problem.
-> 
-> 
-> I am gonna assume that you have some way to recognize the flows destined
-> to localhost which you want to punish.
-> 
-> 
->>>
-> 
-> 
->>>>ppp0 one dynamic real IP ->  gateway PC -> eth0 -> LAN 192.168.0.0/24
->>>>                                  |
->>>>                                   -> local process.
->>>
->>>
->>>
->>>Ok good. Assuming you have attached your HTB etc on one or more dummy
->>>devices.
-> 
-> 
->>>- The third path is packets that come in from ppp0, get demasquareded,
->>>then have to either go a) to the LAN/eth0 or b)localhost bittorent
->>>process. You want to restrict b)
->>
->>Well not just restrict - dynamically share per IP total incoming 
->>bandwidth with LAN traffic using HTB.
-> 
-> 
-> Sure - thats assumed since you attach HTB to the dummy device.
-> 
-> To accomodate your need for b), the idea would be as follows:
-> packet gets demasquared, mark it with a fwmark
-
-I guess you really mean mark then demasquerade.
-
-> based on some recognition
-> you have for bittorent or squid and lastly policy route it to the dummy
-> device based on fwmark (since routing happens last).
-> I will need to modify the dummy to not drop such packets which are
-> fwmarked. 
-
-OK I can see this as a possibility - assuming I can mark. Maybe conmark 
-will be OK with connbytes sometime. I don't really know how to use it, 
-but if it is possible to mark egress connections in output and have 
-connmark match their incoming packets that would be a solution. I 
-haven't got a clue if connmark can do this, though, just speculating.
-
-Does anyone else know, and why it's not compatable with connbytes?
-
-Andy.
-
-> cheers,
-> jamal
-> 
-> 
-> 
+--.0_C_C85651E.._8786--
