@@ -1,28 +1,73 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (0/16) intro to IRDA patches for 2.6.0-test6
-Date: Wed, 1 Oct 2003 00:07:04 -0700
+From: Florian Zwoch <zwoch@backendmedia.com>
+Subject: Re: e1000 -> 82540EM on linux 2.6.0-test[45] very slow in one direction
+Date: Wed, 01 Oct 2003 10:02:18 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031001000704.252e4737.davem@redhat.com>
-References: <20030930152530.1e279c29.shemminger@osdl.org>
-	<20030930230049.GA22339@bougret.hpl.hp.com>
+Message-ID: <ble1ma$ul9$1@sea.gmane.org>
+References: <bkeli5$8l2$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jt@bougret.hpl.hp.com, shemminger@osdl.org, netdev@oss.sgi.com,
-        irda-users@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20030930230049.GA22339@bougret.hpl.hp.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <bkeli5$8l2$1@sea.gmane.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Sep 2003 16:00:49 -0700
-Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
+issue seems to partly solved. the e1000 driver seems to be ok!
+i reconfigured my kernel and intentionally left out netfilter options. 
+after that my network performance was back to normal.
 
-> On Tue, Sep 30, 2003 at 03:25:30PM -0700, Stephen Hemminger wrote:
-> > David, please apply after Jean gives his approval.
- ...
-> 	Please go ahead, I'll test them in parallel.
-> 	Thanks !
+netfilter was only compiled in the kernel. it was not used with any rules!
 
-Great, I'm applying Stephen's patches now.
+so my wild guess would be that something with the netfilter code (i am 
+not 100% sure it was netfilter.. _maybe_ it was some small odd kernel 
+option i accidently enabled/disabled) is broken since test3 (again 
+uncertified. but i firstly noticed this switching from test3 to test4).
+
+Florian Zwoch wrote:
+> hi,
+> this has been discussed very roughly before. but unfortunately no real 
+> solution has been brought up so far (or i have not read it yet).
+> 
+> problem in short: the 82540EM intel gigabit adapter became very slow as 
+> of 2.6.0-test4. maybe earlier versions were als affected aswell, but i 
+> noticed this behaviour on test4 and later. the 'slowness' of the adapter 
+> only affects a certain data direction. i performed the following tests 
+> to show you what is wrong.
+> 
+> dummy data file was 34257856 bytes (34.3MB).
+> test machines were a pentium4 with the intel adapter, and a pentium2 266 
+> with a lowcost realtek card (runs linux 2.4).
+> 
+> SCP:
+>   e1000 -> 8139too    28.6KB/s
+>   e1000 <- 8139too    4.6MB/s
+> 
+> SMB:
+>   e1000 -> 8139too    3.0MB/s
+>   e1000 <- 8139too    3.3MB/s
+> 
+> FTP
+>   e1000 -> 8139too    54KB/s
+>   e1000 <- 8139too    9.4MB/s
+> 
+> as you can see reveiving data is no problem at all (maybe another 
+> protocol can create some problems in this case?). but sending data is 
+> awesome slow! exception is the samba protocol. why is that? i thought 
+> that samba may use udp instead of tcp. but iptraf did not show any udp 
+> packets going around so i guess i was wrong.
+> 
+> the problem gets worse while trying to test things over the internet. 
+> scp stalls incredibly often on my 256kbit/s upstream. so does ftp and 
+> irc dcc protocol. irc dcc ends up with sending 0.3KB/s on a megabyte 
+> sized file.
+> 
+> before people again trying to tell me that some duplex settings could be 
+> messed up - then tell me why this should happen. when i boot into 2.4 
+> kernel with that test machine the nic works without problems. so IF 
+> duplex stuff is the reason for the hickups something must be wrong with 
+> the duplex detection code in the new driver/kernel?
+> 
+> i tried vanilla 2.6.0-test5, 2.6.0-test5-mm2 and mm3 + 2.6.0-test5-bk4. 
+> none of these gave any difference regarding network performance.
