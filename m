@@ -1,30 +1,58 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH][6/12][RFC/v1] Add IPoIB (IP-over-InfiniBand) driver
-Date: Mon, 22 Nov 2004 10:55:21 -0800
-Message-ID: <521xelemsm.fsf@topspin.com>
-References: <200411181046.6Dz1IPtDKfpgSXN9@topspin.com>
-	<200411181046.Jj0jsF5E2KmiGN8f@topspin.com>
-	<20041118200017.GA26976@infradead.org> <52sm71ex0l.fsf@topspin.com>
-	<20041122153456.GA4905@infradead.org>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH][RFC/v1][8/12] Add IPoIB
+	(IP-over-InfiniBand) driver
+Date: Mon, 22 Nov 2004 20:40:03 +0100
+Message-ID: <20041122194003.GC8150@mars.ravnborg.org>
+References: <20041122713.FnSlYodJYum7s82D@topspin.com>
+	<20041122714.nKCPmH9LMhT0X7WE@topspin.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20041122153456.GA4905@infradead.org> (Christoph Hellwig's
- message of "Mon, 22 Nov 2004 15:34:56 +0000")
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Roland Dreier <roland@topspin.com>
+Content-Disposition: inline
+In-Reply-To: <20041122714.nKCPmH9LMhT0X7WE@topspin.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-    Christoph> That just means avoidable interface changes sooner or
-    Christoph> later.  The dma_ interfaces also have the added benefit
-    Christoph> of allowing better control of the type of consistant
-    Christoph> allocation interface.
+More nitpicking..
 
-Is there a dma_xxx equivalent to DECLARE_PCI_UNMAP_ADDR(),
-pci_unmap_addr_set() and friends, or does a driver always have to save
-off the DMA address from dma_map_xxx?
+	Sam
+	
+> +++ linux-bk/drivers/infiniband/Makefile	2004-11-21 21:25:56.794775182 -0800
+> @@ -1,2 +1,3 @@
+>  obj-$(CONFIG_INFINIBAND)		+= core/
+No reason to use $(CONFIG_INFINIBAND) here - it's already done in
+drivers/infiniband/Makefile
 
-Thanks, 
-  Roland
+> +EXTRA_CFLAGS += -Idrivers/infiniband/include
+This will get killed if you move the include files...
+
+ +
+> +obj-$(CONFIG_INFINIBAND_IPOIB)			+= ib_ipoib.o
+> +
+> +ib_ipoib-y					:= ipoib_main.o \
+> +						   ipoib_ib.o \
+> +						   ipoib_multicast.o \
+> +						   ipoib_verbs.o \
+> +						   ipoib_vlan.o
+One or two lines.
+
+> +#include <asm/semaphore.h>
+> +
+> +#include "ipoib_proto.h"
+Shoulb be included as the last file - since it's the most local one.
+> +
+> +#include <ib_verbs.h>
+> +#include <ib_pack.h>
+> +#include <ib_sa.h>
+> 
