@@ -1,44 +1,98 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: [PATCH] fix use after free in e100
-Date: 02 Jun 2003 01:04:58 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1054508698.24777.17.camel@tux.rsn.bth.se>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Route cache performance under stress
+Date: Mon, 2 Jun 2003 12:58:31 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <16091.11735.721251.925522@robur.slu.se>
+References: <20030522.015815.91322249.davem@redhat.com>
+	<20030522.034058.71558626.davem@redhat.com>
+	<20030522114438.GD2961@netnation.com>
+	<20030522.153330.74735095.davem@redhat.com>
+	<20030529205125.GA30058@netnation.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: scott.feldman@intel.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, kuznet@ms2.inr.ac.ru
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Simon Kirby <sim@netnation.com>
+In-Reply-To: <20030529205125.GA30058@netnation.com>
 List-Id: netdev.vger.kernel.org
 
-Hi Scott.
 
-Here's a fix for a use-after-free in the e100 driver.
-You can't touch the skb after a call to netif_rx(), it might have been
-free'd. Caught with Manfred's unmap-page-debugging patch in -mm.
+Simon Kirby writes:
+ > Full profile output available here:
+ > 
+ > 	http://blue.netnation.com/sim/ref/
+ > 	readprofile.full_route_table_hash_fixed_napi.*
+ > 
+ > Note that if I increase the packet rate and NAPI kicks in, all of the
+ > handle_IRQ and similar overhead basically disappears because it no longer
+ > uses IRQs.  Pretty spiffy.  Here is a profile of that:
+ > Full profile output available as:
 
-Applies to both 2.4 and 2.5
 
---- linux-2.5.69-mm9/drivers/net/e100/e100_main.c.orig	2003-06-02 00:48:13.000000000 +0200
-+++ linux-2.5.69-mm9/drivers/net/e100/e100_main.c	2003-06-02 00:50:09.000000000 +0200
-@@ -2052,13 +2052,14 @@
- 			skb->ip_summed = CHECKSUM_NONE;
- 		}
+  8896 rt_garbage_collect                         9.4237
+  8959 ip_route_input_slow                        3.8885
+ 10516 dst_alloc                                 73.0278
+ 10666 kmem_cache_free                           66.6625
+ 15339 tg3_rx                                    16.2489
+ 16553 ipt_do_table                              14.9937
+ 20193 fn_hash_lookup                            70.1146
+ 26833 rt_intern_hash                            34.9388
+ 64803 ip_route_input                           150.0069
+
+ From DoS perspective a more interesting experiment compared to where you limited input
+ rate to have 30% idle CPU.
+
+ New dst is coming all the time first seached in hash (ip_route_input) and not found
+ so ip_route_input_slow/fn_hash_lookup/dst_alloc/rt_intern_hash path is taken to add
+ a new dst entry...
+
+ And later GC have to remove all enties with spin_lock_bh hold (no packet processing 
+ runs). I see packet drops exactly when GC runs. Tuning GC might help but it's something 
+ to observe.
+
  
-+		bdp->drv_stats.net_stats.rx_bytes += skb->len;
-+
- 		if(bdp->vlgrp && (rfd_status & CB_STATUS_VLAN)) {
- 			vlan_hwaccel_rx(skb, bdp->vlgrp, be16_to_cpu(rfd->vlanid));
- 		} else {
- 			netif_rx(skb);
- 		}
- 		dev->last_rx = jiffies;
--		bdp->drv_stats.net_stats.rx_bytes += skb->len;
- 		
- 		rfd_cnt++;
- 	}			/* end of rfd loop */
+ I had some idea to rate-limit new flows and try to isolate the device causing the DoS 
+ Something like (ip_route_input):
+
+ [We don't have an hash entry]
+
+        /* 
+           DoS check... Rate down but do not stop GC and creation of new 
+           hash entries until GC frees resources. We limit per interface 
+           so hogger dev(s) will be hit hardest. As a side effect we get 
+           dst_overrun per device.
+
+        */
+
+        entries = atomic_read(&ipv4_dst_ops.entries);
+
+        if (entries > ip_rt_max_size) {
+                int drp = 4;
+
+                if( dev->dst_hash_overrun++ % drp ) {
+
+                        if (net_ratelimit())
+                                printk(KERN_WARNING "dst creation throttled\n");
+
+                        return -ECONNREFUSED;
+                }
+
+       /* Also make sure the slow path gets a chance to create the dst entry */
+
+                if (ipv4_dst_ops.gc && ipv4_dst_ops.gc()) {
+                        RT_CACHE_STAT_INC(gc_dst_overflow);
+                        return -ENOBUFS;
+                }
+        }
+  
+ [ip_route_input_slow comes here] 
 
 
--- 
-/Martin
+ But more thinking is needed...
+
+ Cheers.
+							--ro
+  
+
