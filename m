@@ -1,34 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Functions Clean-up
-Date: Sun, 23 Feb 2003 23:18:47 -0800 (PST)
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: Re: Re: (no subject)
+Date: Mon, 24 Feb 2003 09:38:38 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030223.231847.58640988.davem@redhat.com>
-References: <20030223.225426.28829614.davem@redhat.com>
-	<20030224.161815.511623971.yoshfuji@linux-ipv6.org>
-	<20030224.162911.826686204.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.GSO.4.21.0302240937390.28564-100000@vervain.sonytel.be>
+References: <20030224052704.30149.qmail@webmail29.rediffmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   netfilter-devel@lists.netfilter.org, kuznet@ms2.inr.ac.ru,
-   usagi@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Randy.Dunlap" <rddunlap@osdl.org>, macro@ds2.pg.gda.pl,
+   netdev@oss.sgi.com, Linux/MIPS Development <linux-mips@linux-mips.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030224.162911.826686204.yoshfuji@linux-ipv6.org>
+To: santosh kumar gowda <ipv6_san@rediffmail.com>
+In-Reply-To: <20030224052704.30149.qmail@webmail29.rediffmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Mon, 24 Feb 2003 16:29:11 +0900 (JST)
+On 24 Feb 2003, santosh kumar gowda wrote:
+> Also, Flash ROM of the device is loaded with kernel and 
+> filesystem
+> images. so it not possible for me to browse through the source 
+> code.
 
-   In article <20030224.161815.511623971.yoshfuji@linux-ipv6.org> (at Mon, 24 Feb 2003 16:18:15 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-   
-   > sorry, I had compiled with wrong options... :-p
-   > just a moment, please...
-   
-   Please apply this patch on top of the previous patch.
-   Sorry for the mess.
+You do not have access to the Linux kernel sources? Sounds like a violation of
+the GPL! Please contact your vendor and ask them for the sources.
 
-As I said, I fixed it already by using pfx->s6_addr.
+Gr{oetje,eeting}s,
 
-No problems and no need to apologize :)
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
