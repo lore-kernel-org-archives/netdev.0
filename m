@@ -1,27 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Update STRIP driver
-Date: Tue, 19 Aug 2003 21:04:13 -0700
+Subject: Re: [PATCH] make pktgen depends on procfs [2.6.0-test3]
+Date: Tue, 19 Aug 2003 21:08:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819210413.2891f84d.davem@redhat.com>
-References: <20030819162156.4a9f6697.shemminger@osdl.org>
+Message-ID: <20030819210819.42196998.davem@redhat.com>
+References: <200308182326.10798.bellucda@tiscali.it>
+	<16194.11289.761163.104079@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: bellucda@tiscali.it, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030819162156.4a9f6697.shemminger@osdl.org>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16194.11289.761163.104079@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Aug 2003 16:21:56 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Tue, 19 Aug 2003 15:54:33 +0200
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> Update the STRIP driver.
-> 	- set owner field on tty ldisc
-> 	- allocate network device objects with alloc_netdev
-> 	- use list_head macros and put locking around list of devices
-> 	- convert to seq_file for /proc
-> 	- use change_mtu hook rather than guessing at mtu changes
+> diff -urN 1.0/net/Kconfig 1.1/net/Kconfig
+> --- 1.0/net/Kconfig	2003-08-18 23:25:02.000000000 +0200
+> +++ 1.1/net/Kconfig	2003-08-18 23:25:13.000000000 +0200
+> @@ -661,6 +661,7 @@
+>  
+>  config NET_PKTGEN
+>  	tristate "Packet Generator (USE WITH CAUTION)"
+> +	depends on PROC_FS
 
-Applied, thanks Stephen.
+Applied, thanks.
