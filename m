@@ -1,45 +1,46 @@
-From: Alex Pankratov <ap@cipherica.com>
-Subject: [PATCH 2.6.1] dst_gc_timer initialization
-Date: Mon, 19 Jan 2004 16:14:07 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: add missing sentinel for addrconf procfs
+Date: Tue, 20 Jan 2004 09:42:23 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <400C72CF.9020906@cipherica.com>
+Message-ID: <20040120.094223.76534381.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080502050504050300070007"
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080502050504050300070007
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Sorry, I forgot to increase the number of members in the array and 
+that the sentinel was removed.
+So, add missing sentinel explicitly.
 
-The second and third parameters of TIMER_INITIALIZER macro, which is 
-used to initialize dst_gc_timer, are swapped. The patch puts them into 
-the right order.
-
-Alex
-
---------------080502050504050300070007
-Content-Type: text/plain;
- name="dst.c.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="dst.c.diff"
-
---- dst.c	2004-01-19 16:16:41.323996968 -0800
-+++ dst.c.patched	2004-01-19 16:16:31.188537792 -0800
-@@ -40,7 +40,7 @@
- static void ___dst_free(struct dst_entry * dst);
- 
- static struct timer_list dst_gc_timer =
--	TIMER_INITIALIZER(dst_run_gc, 0, DST_GC_MIN);
-+	TIMER_INITIALIZER(dst_run_gc, DST_GC_MIN, 0);
- 
- static void dst_run_gc(unsigned long dummy)
+===== net/ipv6/addrconf.c 1.85 vs edited =====
+--- 1.85/net/ipv6/addrconf.c	Fri Jan 16 19:05:24 2004
++++ edited/net/ipv6/addrconf.c	Tue Jan 20 09:34:19 2004
+@@ -3039,7 +3039,7 @@
+ static struct addrconf_sysctl_table
  {
+ 	struct ctl_table_header *sysctl_header;
+-	ctl_table addrconf_vars[16];
++	ctl_table addrconf_vars[17];
+ 	ctl_table addrconf_dev[2];
+ 	ctl_table addrconf_conf_dir[2];
+ 	ctl_table addrconf_proto_dir[2];
+@@ -3180,6 +3180,9 @@
+ 			.mode		=	0644,
+ 			.proc_handler	=	&proc_dointvec,
+ 		},
++		{
++			.ctl_name	=	0,	/* sentinel */
++		}
+ 	},
+ 	.addrconf_dev = {
+ 		{
 
---------------080502050504050300070007--
+
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
