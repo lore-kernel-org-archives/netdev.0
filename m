@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Subject: Re: [PATCH 2.5.69] wanrouter clean up MOD_*_USE_COUNT
-Date: Wed, 21 May 2003 21:40:18 -0300
+Date: Wed, 21 May 2003 21:47:18 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030522004018.GA13028@conectiva.com.br>
+Message-ID: <20030522004718.GB13028@conectiva.com.br>
 References: <1053550112.2444.35.camel@ibm-c.pdx.osdl.net> <20030521231801.GE10295@conectiva.com.br> <20030521.162707.88487215.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -25,9 +25,4 @@ Em Wed, May 21, 2003 at 04:27:07PM -0700, David S. Miller escreveu:
 > deleted, the PROCFS registry etc. have to set ->owner fields correctly
 > before this is valid.
 
-Agreed.
- 
-> By just removing MOD_*(), I can load just wanrouter, open a proc file,
-> unload the wanrouter module, and crash.
-
-yup.
+Yoshfuji-san has already done this in wanproc.c.
