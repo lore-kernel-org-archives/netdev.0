@@ -1,51 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 20 Dec 2004 20:19:42 -0500
-Message-ID: <41C77A2E.3090000@pobox.com>
-References: <OF28701C56.81E1D26E-ONC1256F6B.00513EDD-C1256F6B.0052AF84@de.ibm.com>	 <1103484552.1046.155.camel@jzny.localdomain>  <41C600D7.70005@tpack.net>	 <1103497516.1046.231.camel@jzny.localdomain>  <41C612BC.5070909@tpack.net> <1103551830.1047.316.camel@jzny.localdomain> <41C71FFD.7090308@pobox.com> <41C76AA0.7020800@tpack.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP
+ 16-way)
+Date: Mon, 20 Dec 2004 22:19:36 -0800
+Message-ID: <20041220221936.056b6812.davem@davemloft.net>
+References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU>
+	<20041220161552.2b88aa3d.davem@davemloft.net>
+	<16839.30796.413939.333935@wombat.chubb.wattle.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>
+Cc: peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <41C76AA0.7020800@tpack.net>
+To: Peter Chubb <peterc@gelato.unsw.edu.au>
+In-Reply-To: <16839.30796.413939.333935@wombat.chubb.wattle.id.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tommy Christensen wrote:
-> Jeff Garzik wrote:
+On Tue, 21 Dec 2004 12:11:40 +1100
+Peter Chubb <peterc@gelato.unsw.edu.au> wrote:
+
+> It doesn't work because tg3_readphy sets bmsr to 0xffffffff even if it
+> can't read the value.  This breaks that loop early; and because
+> BBMSR_LSTATUS is set, all sorts of things happen before the card is ready.
 > 
->> I haven't heard anything to convince me that the same change should be 
->> deployed across NNN drivers.  The drivers already signal the net core 
->> that the link is down; to me, that implies there should be code in 
->> _one_ place that handles this condition, not NNN places.
-> 
-> 
-> AFAICS only a handful of (newer) drivers call netif_stop_queue() directly.
-> Others may do this indirectly if the MAC stops taking packets from the
-> DMA ringbuffer. At least some MAC's/drivers certainly don't.
+> Why is tg3_readphys returning 0xffffffff if it can't read a value anyway?
 
-Incorrect.  Use of netif_stop_queue() is -required- to signal that the 
-hardware cannot accept any more skbs from the system.
+Because callers are not supposed to depend upon the value being set
+to anything valid if tg3_readphy() returns an error.
 
-Far more than a "handful" and required for all but a few very strange 
-drivers.
+I thought it should never be returning an error at this spot.  The
+PHY should always return a valid value within PHY_BUSY_LOOPS.  If
+MI_COM_BUSY is staying set for such a long time that's a pretty
+serious problem.
 
+Taking a peek at the bcm5700 driver by Broadcom, they handle all PHY read
+timeouts the way your patch does in this one spot, by setting the returned
+value to zero.  So it seems the device can time out like that in these
+situations, and your patch is something close to the correct fix.
 
-> OK, another view on this: isn't is problematic to have skb's stuck in
-> the network stack "indefinitely" ?
-> They hold references to a dst_entry and a sock (and probably more).
-> So how about this for the FAQ:
->  Q: Why can't I unload the af_packet module?
->  A: Ohh, you'll have to plug in the darn cable to eth0 first!
-> *Please* tell me, I've got this all wrong.
+Good catch Peter, I'll think some more about this and probably end
+up using something similar to your second patch.
 
-You've got this all wrong.
-
-	Jeff
+Thanks.
