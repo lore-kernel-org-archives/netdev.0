@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 6/11] [NET] Convert sk_no_largesend into SOCK_NO_LARGESEND flag
-Date: Wed, 9 Mar 2005 20:49:19 +0100
-Message-ID: <20050309194919.GN31837@postel.suug.ch>
+Subject: [PATCH 8/11] [NET] Convert sk_queue_shrunk into SOCK_QUEUE_SHRUNK flag
+Date: Wed, 9 Mar 2005 20:50:31 +0100
+Message-ID: <20050309195031.GP31837@postel.suug.ch>
 References: <20050309194521.GH31837@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -17,116 +17,75 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
 diff -Nru linux-2.6.11-rc4.orig/include/net/sock.h linux-2.6.11-rc4/include/net/sock.h
---- linux-2.6.11-rc4.orig/include/net/sock.h	2005-03-09 01:03:45.000000000 +0100
-+++ linux-2.6.11-rc4/include/net/sock.h	2005-03-09 01:08:01.000000000 +0100
-@@ -134,7 +134,6 @@
-   *	@sk_sndbuf - size of send buffer in bytes
-   *	@sk_flags - %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE, %SO_OOBINLINE settings
-   *	@sk_no_check - %SO_NO_CHECK setting, wether or not checkup packets
--  *	@sk_no_largesend - whether to sent large segments or not
-   *	@sk_route_caps - route capabilities (e.g. %NETIF_F_TSO)
-   *	@sk_lingertime - %SO_LINGER l_linger setting
-   *	@sk_hashent - hash entry in several tables (e.g. tcp_ehash)
-@@ -206,7 +205,6 @@
- 	int			sk_sndbuf;
- 	unsigned long 		sk_flags;
- 	char		 	sk_no_check;
--	unsigned char		sk_no_largesend;
- 	int			sk_route_caps;
- 	unsigned long	        sk_lingertime;
- 	int			sk_hashent;
-@@ -387,6 +385,7 @@
- 	SOCK_USE_WRITE_QUEUE, /* wheter to call sk->sk_write_space in sock_wfree */
- 	SOCK_DBG, /* %SO_DEBUG setting */
+--- linux-2.6.11-rc4.orig/include/net/sock.h	2005-03-09 01:31:21.000000000 +0100
++++ linux-2.6.11-rc4/include/net/sock.h	2005-03-09 02:48:15.000000000 +0100
+@@ -164,7 +164,6 @@
+   *	@sk_sndmsg_off - cached offset for sendmsg
+   *	@sk_send_head - front of stuff to transmit
+   *	@sk_write_pending - a write to stream socket waits to start
+-  *	@sk_queue_shrunk - write queue has been shrunk recently
+   *	@sk_state_change - callback to indicate change in the state of the sock
+   *	@sk_data_ready - callback to indicate there is data to be processed
+   *	@sk_write_space - callback to indicate there is bf sending space available
+@@ -243,7 +242,6 @@
+ 	struct sk_buff		*sk_send_head;
+ 	int			sk_write_pending;
+ 	void			*sk_security;
+-	__u8			sk_queue_shrunk;
+ 	/* three bytes hole, try to pack */
+ 	void			(*sk_state_change)(struct sock *sk);
+ 	void			(*sk_data_ready)(struct sock *sk, int bytes);
+@@ -385,6 +383,7 @@
  	SOCK_RCVTSTAMP, /* %SO_TIMESTAMP setting */
-+	SOCK_NO_LARGESEND, /* whether to sent large segments or not */
+	SOCK_NO_LARGESEND, /* whether to sent large segments or not */
+ 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
++	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
  };
  
  static inline void sock_set_flag(struct sock *sk, enum sock_flags flag)
-diff -Nru linux-2.6.11-rc4.orig/include/net/tcp.h linux-2.6.11-rc4/include/net/tcp.h
---- linux-2.6.11-rc4.orig/include/net/tcp.h	2005-03-08 18:11:24.000000000 +0100
-+++ linux-2.6.11-rc4/include/net/tcp.h	2005-03-09 01:06:29.000000000 +0100
-@@ -1914,7 +1914,7 @@
+@@ -449,7 +448,7 @@
+ 
+ static inline void sk_stream_free_skb(struct sock *sk, struct sk_buff *skb)
  {
- 	sk->sk_route_caps = dst->dev->features;
- 	if (sk->sk_route_caps & NETIF_F_TSO) {
--		if (sk->sk_no_largesend || dst->header_len)
-+		if (sock_flag(sk, SOCK_NO_LARGESEND) || dst->header_len)
- 			sk->sk_route_caps &= ~NETIF_F_TSO;
- 	}
- }
-diff -Nru linux-2.6.11-rc4.orig/include/net/tcp_ecn.h linux-2.6.11-rc4/include/net/tcp_ecn.h
---- linux-2.6.11-rc4.orig/include/net/tcp_ecn.h	2005-03-08 18:11:24.000000000 +0100
-+++ linux-2.6.11-rc4/include/net/tcp_ecn.h	2005-03-09 01:06:42.000000000 +0100
-@@ -33,7 +33,7 @@
- 	if (sysctl_tcp_ecn && !(sk->sk_route_caps & NETIF_F_TSO)) {
- 		TCP_SKB_CB(skb)->flags |= TCPCB_FLAG_ECE|TCPCB_FLAG_CWR;
- 		tp->ecn_flags = TCP_ECN_OK;
--		sk->sk_no_largesend = 1;
-+		sock_set_flag(sk, SOCK_NO_LARGESEND);
- 	}
- }
- 
+-	sk->sk_queue_shrunk   = 1;
++	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+ 	sk->sk_wmem_queued   -= skb->truesize;
+ 	sk->sk_forward_alloc += skb->truesize;
+ 	__kfree_skb(skb);
 diff -Nru linux-2.6.11-rc4.orig/net/ipv4/tcp_input.c linux-2.6.11-rc4/net/ipv4/tcp_input.c
---- linux-2.6.11-rc4.orig/net/ipv4/tcp_input.c	2005-03-08 18:11:28.000000000 +0100
-+++ linux-2.6.11-rc4/net/ipv4/tcp_input.c	2005-03-09 01:07:20.000000000 +0100
-@@ -977,7 +977,7 @@
- 	 * Not good, but alternative is to resegment the queue. */
- 	if (sk->sk_route_caps & NETIF_F_TSO) {
- 		sk->sk_route_caps &= ~NETIF_F_TSO;
--		sk->sk_no_largesend = 1;
-+		sock_set_flag(sk, SOCK_NO_LARGESEND);
- 		tp->mss_cache = tp->mss_cache_std;
- 	}
+--- linux-2.6.11-rc4.orig/net/ipv4/tcp_input.c	2005-03-09 01:09:59.000000000 +0100
++++ linux-2.6.11-rc4/net/ipv4/tcp_input.c	2005-03-09 02:48:13.000000000 +0100
+@@ -3935,7 +3935,7 @@
  
-@@ -4507,7 +4507,7 @@
  
- 		TCP_ECN_rcv_synack(tp, th);
- 		if (tp->ecn_flags&TCP_ECN_OK)
--			sk->sk_no_largesend = 1;
-+			sock_set_flag(sk, SOCK_NO_LARGESEND);
+ /* When incoming ACK allowed to free some skb from write_queue,
+- * we remember this event in flag sk->sk_queue_shrunk and wake up socket
++ * we remember this event in flag SOCK_QUEUE_SHRUNK and wake up socket
+  * on the exit from tcp input handler.
+  *
+  * PROBLEM: sndbuf expansion does not work well with largesend.
+@@ -3963,8 +3963,8 @@
  
- 		tp->snd_wl1 = TCP_SKB_CB(skb)->seq;
- 		tcp_ack(sk, skb, FLAG_SLOWPATH);
-@@ -4645,7 +4645,7 @@
- 
- 		TCP_ECN_rcv_syn(tp, th);
- 		if (tp->ecn_flags&TCP_ECN_OK)
--			sk->sk_no_largesend = 1;
-+			sock_set_flag(sk, SOCK_NO_LARGESEND);
- 
- 		tcp_sync_mss(sk, tp->pmtu_cookie);
- 		tcp_initialize_rcv_mss(sk);
-diff -Nru linux-2.6.11-rc4.orig/net/ipv4/tcp_minisocks.c linux-2.6.11-rc4/net/ipv4/tcp_minisocks.c
---- linux-2.6.11-rc4.orig/net/ipv4/tcp_minisocks.c	2005-03-08 18:11:28.000000000 +0100
-+++ linux-2.6.11-rc4/net/ipv4/tcp_minisocks.c	2005-03-09 01:07:30.000000000 +0100
-@@ -841,7 +841,7 @@
- 		newtp->rx_opt.mss_clamp = req->mss;
- 		TCP_ECN_openreq_child(newtp, req);
- 		if (newtp->ecn_flags&TCP_ECN_OK)
--			newsk->sk_no_largesend = 1;
-+			sock_set_flag(newsk, SOCK_NO_LARGESEND);
- 
- 		tcp_ca_init(newtp);
- 
+ static inline void tcp_check_space(struct sock *sk)
+ {
+-	if (sk->sk_queue_shrunk) {
+-		sk->sk_queue_shrunk = 0;
++	if (sock_flag(sk, SOCK_QUEUE_SHRUNK)) {
++		sock_reset_flag(sk, SOCK_QUEUE_SHRUNK);
+ 		if (sk->sk_socket &&
+ 		    test_bit(SOCK_NOSPACE, &sk->sk_socket->flags))
+ 			tcp_new_space(sk);
 diff -Nru linux-2.6.11-rc4.orig/net/ipv4/tcp_output.c linux-2.6.11-rc4/net/ipv4/tcp_output.c
---- linux-2.6.11-rc4.orig/net/ipv4/tcp_output.c	2005-03-08 18:11:28.000000000 +0100
-+++ linux-2.6.11-rc4/net/ipv4/tcp_output.c	2005-03-09 01:07:56.000000000 +0100
-@@ -1040,7 +1040,7 @@
+--- linux-2.6.11-rc4.orig/net/ipv4/tcp_output.c	2005-03-09 01:09:59.000000000 +0100
++++ linux-2.6.11-rc4/net/ipv4/tcp_output.c	2005-03-09 02:47:14.000000000 +0100
+@@ -593,9 +593,9 @@
+ 	skb->ip_summed = CHECKSUM_HW;
  
- 		if (sk->sk_route_caps & NETIF_F_TSO) {
- 			sk->sk_route_caps &= ~NETIF_F_TSO;
--			sk->sk_no_largesend = 1;
-+			sock_set_flag(sk, SOCK_NO_LARGESEND);
- 			tp->mss_cache = tp->mss_cache_std;
- 		}
+ 	skb->truesize	     -= len;
+-	sk->sk_queue_shrunk   = 1;
+ 	sk->sk_wmem_queued   -= len;
+ 	sk->sk_forward_alloc += len;
++	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
  
-@@ -1669,7 +1669,7 @@
- 				/* SWS override triggered forced fragmentation.
- 				 * Disable TSO, the connection is too sick. */
- 				if (sk->sk_route_caps & NETIF_F_TSO) {
--					sk->sk_no_largesend = 1;
-+					sock_set_flag(sk, SOCK_NO_LARGESEND);
- 					sk->sk_route_caps &= ~NETIF_F_TSO;
- 					tp->mss_cache = tp->mss_cache_std;
- 				}
+ 	/* Any change of skb->len requires recalculation of tso
+ 	 * factor and mss.
