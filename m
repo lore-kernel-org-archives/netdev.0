@@ -1,65 +1,48 @@
-From: cliff white <cliffw@osdl.org>
-Subject: Re: netif_rx packet dumping
-Date: Tue, 22 Mar 2005 13:55:33 -0800
-Message-ID: <20050322135533.55313a42@es175>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
-	<20050303125556.6850cfe5.davem@davemloft.net>
-	<1109884688.1090.282.camel@jzny.localdomain>
-	<20050303132143.7eef517c@dxpl.pdx.osdl.net>
-	<1109885065.1098.285.camel@jzny.localdomain>
-	<20050303133237.5d64578f.davem@davemloft.net>
-	<20050303135416.0d6e7708@dxpl.pdx.osdl.net>
-	<Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu>
-	<1109888811.1092.352.camel@jzny.localdomain>
-	<20050303151606.3587394f@dxpl.pdx.osdl.net>
-	<4227A23C.5050300@ev-en.org>
-	<1109907956.1092.476.camel@jzny.localdomain>
-	<42282098.8010506@ev-en.org>
-	<1110203711.1088.1393.camel@jzny.localdomain>
-	<422DCB14.1040805@ev-en.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH 2.6.11 4/8] tg3: Add msi test
+Date: Tue, 22 Mar 2005 14:07:13 -0800
+Message-ID: <B1508D50A0692F42B217C22C02D84972020F3E2E@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: Baruch Even <baruch@ev-en.org>, netdev@oss.sgi.com
-In-Reply-To: <422DCB14.1040805@ev-en.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
+Content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>, "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 08 Mar 2005 15:56:04 +0000
-Baruch Even <baruch@ev-en.org> wrote:
+"Jeff Garzik" wrote:
 
-> jamal wrote:
-> > On Fri, 2005-03-04 at 03:47, Baruch Even wrote:
+> Michael Chan wrote:
+> > Add an MSI test to make sure MSI is working at the system level. If 
+> > the test fails, the driver will go back to INTx mode.
 > > 
-> >>jamal wrote:
-> > 
-> > 
-[snip]
+> > Signed-off-by: Michael Chan <mchan@broadcom.com
 > 
-> > So if i was you i would repeat 1.2 with the fix from 1.1 as well as
-> > tying the NIC to one CPU. And it would be a good idea to present more
-> > detailed results - not just tcp windows fluctuating (you may not need
-> > them for the paper, but would be useful to see for debugging purposes
-> > other parameters).
+> In theory, this patch is not necessary.
 > 
-> I'd be happy to hear what other benchmarks you would like to see, I 
-> currently intend to add some ack processing time analysis and oprofile 
-> information. With possibly showing the size of the ingress queue as a 
-> measure as well.
+> pci_enable_msi() should fail, if MSI is not available at the 
+> system level.
 > 
-> Making it as thorough as possible is one of my goals. Input is always 
-> welcome.
+> What behavior are you seeing?
+> 
+> 	Jeff
+> 
+ 
+Some older chipsets/APICs in older PCI machines do not properly support MSI.
+In some cases you will get no interrupts and in a few cases you can get
+SERR/NMI because the MSI cycle terminates abnormally. The pci_msi_quirk does
+not cover all problem chipsets out there. pci_enable_msi() can succeed on
+these problem machines.
 
-I am collecting network benchmarks/test in hope of doing some testing here at OSDL.
-Would love to run your benchmark, if you wished to share.
-cliffw
+Most newer PCI Express machines have no problem with MSI, but we have at
+least one machine in the lab that doesn't work with MSI.
 
-> 
-> Baruch
-> 
+The interrupt test code is very small and can conclusively determine if MSI
+is working on the machine or not. The code can later be used as part of the
+ethtool self test. Without the test, we'll have to resort of a parameter or a
+config option to disable MSI in tg3.
 
-
--- 
-"Ive always gone through periods where I bolt upright at four in the morning; 
-now at least theres a reason." -Michael Feldman
+Michael
