@@ -1,52 +1,36 @@
-From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
-Subject: Re: [PATCH] Fix checksum bug for multicast/broadcast packets on postrouting
- hook
-Date: Sat, 14 Feb 2004 21:07:14 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Restrict local IP announcements in ARP requests
+Date: Sat, 14 Feb 2004 12:37:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <402E71E2.1040508@kolumbus.fi>
-References: <Xine.LNX.4.44.0402141318490.6128-100000@thoron.boston.redhat.com>
+Message-ID: <20040214123751.4c080f14.davem@redhat.com>
+References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
+	<20040209140853.69ab8bea.davem@redhat.com>
+	<Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
+	<20040209151053.1f63937a.davem@redhat.com>
+	<Pine.LNX.4.58.0402100251380.1251@u.domain.uli>
+	<20040211201656.4e4f708e.davem@redhat.com>
+	<Pine.LNX.4.58.0402130138540.1149@u.domain.uli>
+	<20040213232400.007a7436.davem@redhat.com>
+	<Pine.LNX.4.58.0402141358550.1132@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, Harald Welte <laforge@netfilter.org>,
-        netdev@oss.sgi.com, Stephen Smalley <sds@epoch.ncsc.mil>
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0402141318490.6128-100000@thoron.boston.redhat.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402141358550.1132@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 14 Feb 2004 14:03:06 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
+> On Fri, 13 Feb 2004, David S. Miller wrote:
+> 
+> > > http://www.ssi.bg/~ja/arp_announce-2.6.2-4.diff
+> >
+> > Ok, I eat this, please make a 2.4.x version against Marcelo's current tree.
+> 
+> 	Attached, against rc2 which looks enough.
 
-James Morris wrote:
-
->This patch fixes a bug with with multicast/broadcast packets,
->Netfilter, and NICs which do hardware checksums.
->
->Outgoing multicast and broadcast packets are cloned prior to being fed
->into the postrouting hook and looped back.  A problem is caused when the
->shared packet data is modified by the netfilter core code when updating
->the checksum, but the skb->ip_summed field in the header of the original
->skb is not updated.  The NIC then tries to do a hardware checksum on an
->already correct checksum, and we end up transmitting the wrong thing.
->
->This bug stops things like DHCP from working, and was noted under SELinux
->which uses the postrouting hook alone.
->
->The proposed solution below is to copy the skb rather than clone it, to 
->ensure that the original and looped back packets are independent.
->
->Please review.
->
->(A similar problem seems to exist in the IPv6 code, although not 
->verified yet).
->
->
->- James
->
-
-This is unneeded overhead for the common case. The right fix is to make 
-sure the modifier (netfilter etc) makes the copy if needed. Actually, 
-this is what skb_ip_make_writable() is doing.
-
---Mika
+Applying, thanks.
