@@ -1,23 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6] Fix IPv6 esp mem leak in esp6_input
-Date: Sat, 2 Aug 2003 22:56:19 -0700
+Subject: Re: [PATCH] IPV6: Incorrect hoplimit in ip6_push_pending_frames()
+Date: Sat, 2 Aug 2003 22:59:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030802225619.17d477e3.davem@redhat.com>
-References: <200308021350.23342.daniel.ritz@gmx.ch>
+Message-ID: <20030802225948.01c96fb7.davem@redhat.com>
+References: <Pine.LNX.4.44.0307041601570.15229-100000@rhea.tcs.hut.fi>
+	<Pine.LNX.4.44.0308011353520.16201-100000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniel Ritz <daniel.ritz@gmx.ch>
-In-Reply-To: <200308021350.23342.daniel.ritz@gmx.ch>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0308011353520.16201-100000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2 Aug 2003 13:50:23 +0200
-Daniel Ritz <daniel.ritz@gmx.ch> wrote:
+On Fri, 1 Aug 2003 14:15:21 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> fixes a mem leak in esp6_input() in the error paths. and return -ENOMEM,
-> not -EINVAL when out of memory. against 2.6.0-test2-bk
+> I noticed the hop limit passed to ip6_append_data() isn't used by
+> ip6_push_pending_frames(), which might lead to unexpected behavior with
+> multicast and (ipv6-in-ipv6) tunneled packets. This patch (against Linux
+> 2.6.0-test2 and cset 1.1595) fixes the problem.
 
-Patch applied, thanks Daniel.
+Applied, thank you.
