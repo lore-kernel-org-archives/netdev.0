@@ -1,773 +1,216 @@
-From: David TILLOY <dtilloy@neocom.fr>
-Subject: Re: Fw: [Bugme-new] [Bug 2782] New: ksoftirqd load system, kernel h
-	anga fter a few minuts
-Date: Tue, 13 Jul 2004 14:10:29 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
+Date: Tue, 13 Jul 2004 09:16:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040713121029.GG2700@mailx.neocom.fr>
-References: <20040527115311.472d3c3a.akpm@osdl.org>
+Message-ID: <20040713091606.36f75611@dell_ss3.pdx.osdl.net>
+References: <40F34740.5040100@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=us-ascii
-Cc: netdev@oss.sgi.com, dav@neocom.fr
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        devik
+ <devik@cdi.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20040527115311.472d3c3a.akpm@osdl.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <40F34740.5040100@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 27, 2004 at 11:53:11AM -0700, Andrew Morton wrote:
-> 
-> Suggest you try an up-to-date kernel.
+Here is the patch I have been testing against 2.6.8-rc1 to use sched_clock.
 
-	Ok, test in progress, and same problem occurs ;-(
-	I'm waiting for packet lost before to submit new informations into
-ticket, do you want I collect some additional informations before to switch
-our production traffic on another system ?
-
-thx,
-dav.
---
-
-> 
-> Begin forwarded message:
-> 
-> Date: Thu, 27 May 2004 09:19:49 -0700
-> From: bugme-daemon@osdl.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 2782] New: ksoftirqd load system, kernel hang after a few minuts
-> 
-> 
-> http://bugme.osdl.org/show_bug.cgi?id=2782
-> 
->            Summary: ksoftirqd load system, kernel hang after a few minuts
->     Kernel Version: 2.4.20-2.4.22
->             Status: NEW
->           Severity: blocking
->              Owner: other_other@kernel-bugs.osdl.org
->          Submitter: dav@neocom.fr
-> 
-> 
-> Distribution: Linux/RedHat 9/x86
-> Hardware Environment:DELL PowerEdge-Dual Intel Xeon CPU 2.4G+hyperthreading
-> Software Environment:RedHat 9
-> Problem Description:when network flow is near 15 Mb/s bandwith, ksoftirqd loads 
-> and kernel freeze after a few minuts
-> 
-> Steps to reproduce:
-> 
-> 1. Boot system,
-> 2. put linux system into 2 subnets,
-> 3. generate 15Mb/s bandwith between to interface and wait for 1 hour
-> 
-> --- additional informations ---
-> This occurs with a lot of kernel tested (2.4.20, 2.4.21, 2.4.22, 2.4.22-ac4) 
-> and with standard linux RedHat kernel up to kernel-smp-2.4.20-28.9.i686.rpm.
-> 
-> Datas collected when problem occurs :
-> 
-> # cat /proc/version
-> Linux version 2.4.20-8smp (bhcompile@porky.devel.redhat.com) (gcc version 3.2.2 
-> 20030222 (Red Hat Linux 3.2.2-5)) #1 SMP Thu Mar 13 17:45:54 EST 2003
-> 
-> # w | head -1
->  22:34:33  up 21 days,  8:04,  3 users,  load average: 1.17, 1.02, 0.99
-> 
-> # ps axuw
-> USER       PID %CPU %MEM   VSZ  RSS TTY      STAT START   TIME COMMAND
-> root         1  0.0  0.0  1372  472 ?        S    Oct07   0:20 init
-> root         2  0.0  0.0     0    0 ?        SW   Oct07   0:00 [migration/0]
-> root         3  0.0  0.0     0    0 ?        SW   Oct07   0:00 [migration/1]
-> root         4  0.0  0.0     0    0 ?        SW   Oct07   0:00 [migration/2]
-> root         5  0.0  0.0     0    0 ?        SW   Oct07   0:00 [migration/3]
-> root         6  0.0  0.0     0    0 ?        SW   Oct07   0:00 [keventd]
-> root         7  6.0  0.0     0    0 ?        RWN  Oct07 1862:18 [ksoftirqd_CPU0]
-> root         8  0.0  0.0     0    0 ?        SWN  Oct07   0:00 [ksoftirqd_CPU1]
-> root         9  0.0  0.0     0    0 ?        SWN  Oct07   0:00 [ksoftirqd_CPU2]
-> root        10  0.0  0.0     0    0 ?        SWN  Oct07   0:00 [ksoftirqd_CPU3]
-> root        15  0.0  0.0     0    0 ?        SW   Oct07   0:00 [bdflush]
-> root        11  0.0  0.0     0    0 ?        SW   Oct07   0:11 [kswapd]
-> root        12  0.0  0.0     0    0 ?        SW   Oct07   0:00 [kscand/DMA]
-> root        13  0.0  0.0     0    0 ?        SW   Oct07   4:43 [kscand/Normal]
-> root        14  0.0  0.0     0    0 ?        SW   Oct07   5:47 [kscand/HighMem]
-> root        16  0.0  0.0     0    0 ?        SW   Oct07   0:05 [kupdated]
-> root        17  0.0  0.0     0    0 ?        SW   Oct07   0:00 [mdrecoveryd]
-> root        23  0.0  0.0     0    0 ?        SW   Oct07   0:00 [aacraid]
-> root        24  0.0  0.0     0    0 ?        SW   Oct07   0:00 [scsi_eh_0]
-> root        27  0.0  0.0     0    0 ?        SW   Oct07   0:02 [kjournald]
-> root        84  0.0  0.0     0    0 ?        SW   Oct07   0:00 [khubd]
-> root       642  0.0  0.0     0    0 ?        SW   Oct07   0:00 [kjournald]
-> root       643  0.0  0.0     0    0 ?        SW   Oct07   0:13 [kjournald]
-> root      1210  0.0  0.0  1448  588 ?        S    Oct07   0:09 syslogd -m 0
-> root      1214  0.0  0.0  1368  428 ?        S    Oct07   0:00 klogd -x
-> root      1266  0.0  0.1  3580 1396 ?        S    Oct07   0:02 /usr/sbin/sshd
-> .../...
-> 
-> When system is loaded (by process ksoftirq_CPU0), some datas are lost 
-> (monitorring system reports 
-> each 10 minuts CRITICAL alerts => 50% of warning report for packet lost).
-> 
-> report trafic when this issue occurs is like this :
-> .../...
-> eth5|Recv:  2.169G|Sent:  1.591G|Recv Speed:   1.25Kb/s|Sent speed:   1.03Mb/s|
-> eth5|Recv:  2.169G|Sent:  1.594G|Recv Speed:       0b/s|Sent speed: 776.96Kb/s|
-> eth5|Recv:  2.169G|Sent:  1.596G|Recv Speed:   1.75Kb/s|Sent speed: 958.87Kb/s|
-> eth5|Recv:  2.169G|Sent:  1.599G|Recv Speed:     939b/s|Sent speed: 978.17Kb/s|
-> eth5|Recv:  2.169G|Sent:  1.603G|Recv Speed:     640b/s|Sent speed:1009.87Kb/s|
-> eth5|Recv:  2.169G|Sent:  1.607G|Recv Speed:      85b/s|Sent speed:   1.29Mb/s|
-> eth5|Recv:  2.169G|Sent:  1.611G|Recv Speed:     853b/s|Sent speed:   1.28Mb/s|
-> eth5|Recv:  2.169G|Sent:  1.615G|Recv Speed:       0b/s|Sent speed:   1.68Mb/s|
-> .../...
-> 
-> And we can see :
-> 
-> # cat /proc/interrupts
->            CPU0       CPU1       CPU2       CPU3
->   0:  184391788          0          0          0    IO-APIC-edge  timer
->   1:        953          0          0          0    IO-APIC-edge  keyboard
->   2:          0          0          0          0          XT-PIC  cascade
->   5:          0          0          0          0   IO-APIC-level  usb-ohci
->   8:          1          0          0          0    IO-APIC-edge  rtc
->  14:          2          0          0          0    IO-APIC-edge  ide0
->  16:    6640100          0          0          0   IO-APIC-level  eth0
->  20:    2347915          0          0          0   IO-APIC-level  eth2
->  21:    3242586          0          0          0   IO-APIC-level  eth3
->  28: 1362515262          0          0          0   IO-APIC-level  eth4
->  29: 1127825818          0          0          0   IO-APIC-level  eth5
->  30:     831193          0          0          0   IO-APIC-level  aacraid
-> NMI:          0          0          0          0
-> LOC:  184394043  184394090  184394090  184394089
-> ERR:          0
-> MIS:          0
-> 
-> .../...
-> 
-> eth4      Link encap:Ethernet  HWaddr 00:06:5B:F3:61:5F
->           inet addr:192.168.20.245  Bcast:192.168.20.255  Mask:255.255.255.0
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:2184189475 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:2195331 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:100
->           RX bytes:717500525 (684.2 Mb)  TX bytes:153729558 (146.6 Mb)
->           Interrupt:28
-> 
-> eth5      Link encap:Ethernet  HWaddr 00:06:5B:F3:61:60
->           inet addr:194.xxx.xxx.248  Bcast:194.xxx.xxx.255  Mask:255.255.255.0
->           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->           RX packets:26145681 errors:0 dropped:0 overruns:0 frame:0
->           TX packets:2205082845 errors:0 dropped:0 overruns:0 carrier:0
->           collisions:0 txqueuelen:100
->           RX bytes:2328890724 (2221.0 Mb)  TX bytes:1860452584 (1774.2 Mb)
->           Interrupt:29
-> 
-> # cat /proc/modules
-> tg3                    52904   2
-> e100                   62340   3
-> ipt_LOG                 4280   0 (autoclean)
-> ipt_limit               1688   0 (autoclean)
-> ipt_REJECT              3928   0 (autoclean)
-> iptable_mangle          2776   0 (autoclean) (unused)
-> ipt_state               1080   0 (autoclean)
-> iptable_nat            22904   0 (autoclean)
-> ip_conntrack           29696   2 (autoclean) [ipt_state iptable_nat]
-> iptable_filter          2412   0 (autoclean)
-> ip_tables              15864   9 [ipt_LOG ipt_limit ipt_REJECT iptable_mangle 
-> ipt_state iptable_nat iptable_filter]
-> keybdev                 2976   0 (unused)
-> mousedev                5656   0 (unused)
-> hid                    22308   0 (unused)
-> input                   6208   0 [keybdev mousedev hid]
-> usb-ohci               22216   0 (unused)
-> usbcore                82592   1 [hid usb-ohci]
-> ext3                   73376   3
-> jbd                    56336   3 [ext3]
-> aacraid                32580   4
-> sd_mod                 13452   8
-> scsi_mod              110488   2 [aacraid sd_mod]
-> # cat /proc/ioports
-> 0000-001f : dma1
-> 0020-003f : pic1
-> 0040-005f : timer
-> 0060-006f : keyboard
-> 0070-007f : rtc
-> 0080-008f : dma page reg
-> 00a0-00bf : pic2
-> 00c0-00df : dma2
-> 00f0-00ff : fpu
-> 01f0-01f7 : ide0
-> 02f8-02ff : serial(auto)
-> 03c0-03df : vga+
-> 03f6-03f6 : ide0
-> 03f8-03ff : serial(auto)
-> 08b0-08bf : ServerWorks CSB5 IDE Controller
->   08b0-08b7 : ide0
->   08b8-08bf : ide1
-> 0cf8-0cff : PCI conf1
-> 9000-9fff : PCI Bus #07
->   9800-98ff : Adaptec RAID subsystem HBA (#2)
->   9c00-9cff : Adaptec RAID subsystem HBA
-> c000-cfff : PCI Bus #03
->   ccc0-ccdf : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#4)
->     ccc0-ccdf : e100
->   cce0-ccff : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#3)
->     cce0-ccff : e100
-> d000-dfff : PCI Bus #02
->   dcc0-dcdf : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#2)
->     dcc0-dcdf : e100
->   dce0-dcff : Intel Corp. 82557/8/9 [Ethernet Pro 100]
->     dce0-dcff : e100
-> e800-e8ff : ATI Technologies Inc Rage XL
-> ec80-ecbf : Dell Computer Corporation PowerEdge Expandable RAID Controller 3/Di
-> ece8-ecef : Dell Computer Corporation Embedded Systems Management Device 4
-> ecf4-ecf7 : PCI device 1028:000d (Dell Computer Corporation)
-> ecf8-ecff : Dell Computer Corporation Embedded Systems Management Device 4
-> 
-> # cat /proc/iomem
-> 00000000-0009ffff : System RAM
-> 000a0000-000bffff : Video RAM area
-> 000c0000-000c7fff : Video ROM
-> 000cc000-000cc5ff : Extension ROM
-> 000f0000-000fffff : System ROM
-> 00100000-3ffeffff : System RAM
->   00100000-002720eb : Kernel code
->   002720ec-00383ba3 : Kernel data
-> 3fff0000-3fffebff : ACPI Tables
-> 3fffec00-3fffefff : reserved
-> f0000000-f7ffffff : Dell Computer Corporation PowerEdge Expandable RAID 
-> Controller 3
-> fc300000-fc4fffff : PCI Bus #07
->   fc3fe000-fc3fefff : Adaptec RAID subsystem HBA (#2)
->   fc3ff000-fc3fffff : Adaptec RAID subsystem HBA
-> fc600000-fc60ffff : Broadcom Corporation NetXtreme BCM5701 Gigabit Ethernet (#2)
->   fc600000-fc60ffff : tg3
-> fc610000-fc61ffff : Broadcom Corporation NetXtreme BCM5701 Gigabit Ethernet
->   fc610000-fc61ffff : tg3
-> fc700000-fc7fffff : PCI Bus #03
->   fc7fe000-fc7fefff : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#4)
->     fc7fe000-fc7fefff : e100
->   fc7ff000-fc7fffff : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#3)
->     fc7ff000-fc7fffff : e100
-> fc800000-fc8fffff : PCI Bus #02
->   fc8fe000-fc8fefff : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#2)
->     fc8fe000-fc8fefff : e100
->   fc8ff000-fc8fffff : Intel Corp. 82557/8/9 [Ethernet Pro 100]
->     fc8ff000-fc8fffff : e100
-> fca00000-fccfffff : PCI Bus #03
->   fca00000-fcafffff : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#4)
->     fca00000-fcafffff : e100
->   fcb00000-fcbfffff : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#3)
->     fcb00000-fcbfffff : e100
-> fcd00000-fcffffff : PCI Bus #02
->   fcd00000-fcdfffff : Intel Corp. 82557/8/9 [Ethernet Pro 100] (#2)
->     fcd00000-fcdfffff : e100
->   fce00000-fcefffff : Intel Corp. 82557/8/9 [Ethernet Pro 100]
->     fce00000-fcefffff : e100
-> fd000000-fdffffff : ATI Technologies Inc Rage XL
-> fe100000-fe100fff : ServerWorks OSB4/CSB5 OHCI USB Controller
->   fe100000-fe100fff : usb-ohci
-> fe101000-fe101fff : ATI Technologies Inc Rage XL
-> fe102000-fe102fff : Dell Computer Corporation PowerEdge Expandable RAID 
-> Controller 3/Di
-> feb00000-feb7ffff : Dell Computer Corporation PowerEdge Expandable RAID 
-> Controller 3/Di
-> feb80000-feb80fff : Dell Computer Corporation Embedded Systems Management 
-> Device 4
-> fec00000-fec0ffff : reserved
-> fee00000-fee0ffff : reserved
-> fff80000-ffffffff : reserved
-> 
-> 00:00.0 Host bridge: ServerWorks CMIC-LE (rev 13)
->         Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR- FastB2B-
->         Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
-> <MAbort- >SERR- <PERR-
-> 00:00.1 Host bridge: ServerWorks CMIC-LE
->         Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR- FastB2B-
->         Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
-> <MAbort- >SERR- <PERR-
-> 00:00.2 Host bridge: ServerWorks: Unknown device 0000
->         Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR- FastB2B-
->         Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- 
-> <MAbort- >SERR- <PERR-
-> 00:04.0 Class ff00: Dell Computer Corporation Embedded Systems Management 
-> Device 4
->         Subsystem: Dell Computer Corporation Embedded Systems Management Device 
-> 4
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 32, cache line size 10
->         Interrupt: pin A routed to IRQ 19
->         Region 0: Memory at feb80000 (32-bit, prefetchable) [size=4K]
->         Region 1: I/O ports at ecf8 [size=8]
->         Region 2: I/O ports at ece8 [size=8]
->         Expansion ROM at fe000000 [disabled] [size=64K]
->         Capabilities: [48] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 00:04.1 Class ff00: Dell Computer Corporation PowerEdge Expandable RAID 
-> Controller 3/Di
->         Subsystem: Dell Computer Corporation PowerEdge Expandable RAID 
-> Controller 3/Di
->         Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Interrupt: pin B routed to IRQ 23
->         Region 0: Memory at fe102000 (32-bit, non-prefetchable) [size=4K]
->         Region 1: I/O ports at ec80 [size=64]
->         Region 2: Memory at feb00000 (32-bit, prefetchable) [size=512K]
->         Capabilities: [48] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 00:04.2 Class 0c07: Dell Computer Corporation: Unknown device 000d
->         Subsystem: Dell Computer Corporation: Unknown device 000d
->         Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Interrupt: pin C routed to IRQ 27
->         Region 0: I/O ports at ecf4 [size=4]
->         Capabilities: [48] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 00:0e.0 VGA compatible controller: ATI Technologies Inc Rage XL (rev 27) (prog-
-> if 00 [VGA])
->         Subsystem: Dell Computer Corporation: Unknown device 0121
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop+ ParErr- 
-> Stepping+ SERR- FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 32 (2000ns min), cache line size 10
->         Region 0: Memory at fd000000 (32-bit, non-prefetchable) [size=16M]
->         Region 1: I/O ports at e800 [size=256]
->         Region 2: Memory at fe101000 (32-bit, non-prefetchable) [size=4K]
->         Expansion ROM at <unassigned> [disabled] [size=128K]
->         Capabilities: [5c] Power Management version 2
->                 Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 00:0f.0 Host bridge: ServerWorks CSB5 South Bridge (rev 93)
->         Subsystem: ServerWorks CSB5 South Bridge
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ 
-> Stepping- SERR+ FastB2B-
->         Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort+ >SERR- <PERR-
->         Latency: 32
-> 00:0f.1 IDE interface: ServerWorks CSB5 IDE Controller (rev 93) (prog-if 82 
-> [Master PriP])
->         Subsystem: ServerWorks CSB5 IDE Controller
->         Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ 
-> Stepping- SERR+ FastB2B-
->         Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 64
->         Region 0: I/O ports at <ignored>
->         Region 1: I/O ports at <ignored>
->         Region 2: I/O ports at <ignored>
->         Region 3: I/O ports at <ignored>
->         Region 4: I/O ports at 08b0 [size=16]
-> 00:0f.2 USB Controller: ServerWorks OSB4/CSB5 OHCI USB Controller (rev 05) 
-> (prog-if 10 [OHCI])
->         Subsystem: ServerWorks OSB4/CSB5 OHCI USB Controller
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr+ 
-> Stepping- SERR+ FastB2B-
->         Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 32 (20000ns max)
->         Interrupt: pin A routed to IRQ 5
->         Region 0: Memory at fe100000 (32-bit, non-prefetchable) [size=4K]
-> 00:0f.3 ISA bridge: ServerWorks GCLE Host Bridge
->         Subsystem: ServerWorks: Unknown device 0230
->         Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR- FastB2B-
->         Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 0
-> 00:10.0 Host bridge: ServerWorks: Unknown device 0101 (rev 03)
->         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr+ 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort+ >SERR- <PERR-
->         Capabilities: [60] PCI-X non-bridge device.
->                 Command: DPERE- ERO- RBC=0 OST=4
->                 Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, 
-> DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-
-> 00:10.2 Host bridge: ServerWorks: Unknown device 0101 (rev 03)
->         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr+ 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort+ >SERR- <PERR-
->         Capabilities: [60] PCI-X non-bridge device.
->                 Command: DPERE- ERO- RBC=0 OST=4
->                 Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, 
-> DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-
-> 00:11.0 Host bridge: ServerWorks: Unknown device 0101 (rev 03)
->         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr+ 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort+ >SERR- <PERR-
->         Capabilities: [60] PCI-X non-bridge device.
->                 Command: DPERE- ERO- RBC=0 OST=4
->                 Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, 
-> DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-
-> 00:11.2 Host bridge: ServerWorks: Unknown device 0101 (rev 03)
->         Control: I/O- Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr+ 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort+ >SERR- <PERR-
->         Capabilities: [60] PCI-X non-bridge device.
->                 Command: DPERE- ERO- RBC=0 OST=4
->                 Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, 
-> DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-
-> 01:06.0 PCI bridge: Intel Corp. 21152 PCI-to-PCI Bridge (prog-if 00 [Normal 
-> decode])
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 32, cache line size 10
->         Bus: primary=01, secondary=02, subordinate=02, sec-latency=32
->         I/O behind bridge: 0000d000-0000dfff
->         Memory behind bridge: fcd00000-fcffffff
->         Prefetchable memory behind bridge: 00000000fc800000-00000000fc800000
->         BridgeCtl: Parity- SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-
->         Capabilities: [dc] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
->                 Bridge: PM- B3+
-> 01:08.0 PCI bridge: Intel Corp. 21152 PCI-to-PCI Bridge (prog-if 00 [Normal 
-> decode])
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 32, cache line size 10
->         Bus: primary=01, secondary=03, subordinate=03, sec-latency=32
->         I/O behind bridge: 0000c000-0000cfff
->         Memory behind bridge: fca00000-fccfffff
->         Prefetchable memory behind bridge: 00000000fc700000-00000000fc700000
->         BridgeCtl: Parity- SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-
->         Capabilities: [dc] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
->                 Bridge: PM- B3+
-> 02:04.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] (rev 05)
->         Subsystem: Intel Corp. EtherExpress PRO/100+ Dual Port Adapter
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 64 (2000ns min, 14000ns max), cache line size 10
->         Interrupt: pin A routed to IRQ 16
->         Region 0: Memory at fc8ff000 (32-bit, prefetchable) [size=4K]
->         Region 1: I/O ports at dce0 [size=32]
->         Region 2: Memory at fce00000 (32-bit, non-prefetchable) [size=1M]
->         Capabilities: [dc] Power Management version 1
->                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME
-> (D0+,D1+,D2+,D3hot+,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 02:05.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] (rev 05)
->         Subsystem: Intel Corp. EtherExpress PRO/100+ Dual Port Adapter
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 64 (2000ns min, 14000ns max), cache line size 10
->         Interrupt: pin A routed to IRQ 17
->         Region 0: Memory at fc8fe000 (32-bit, prefetchable) [size=4K]
->         Region 1: I/O ports at dcc0 [size=32]
->         Region 2: Memory at fcd00000 (32-bit, non-prefetchable) [size=1M]
->         Capabilities: [dc] Power Management version 1
->                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME
-> (D0+,D1+,D2+,D3hot+,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 03:04.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] (rev 05)
->         Subsystem: Intel Corp. EtherExpress PRO/100+ Dual Port Adapter
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 64 (2000ns min, 14000ns max), cache line size 10
->         Interrupt: pin A routed to IRQ 20
->         Region 0: Memory at fc7ff000 (32-bit, prefetchable) [size=4K]
->         Region 1: I/O ports at cce0 [size=32]
->         Region 2: Memory at fcb00000 (32-bit, non-prefetchable) [size=1M]
->         Capabilities: [dc] Power Management version 1
->                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME
-> (D0+,D1+,D2+,D3hot+,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 03:05.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] (rev 05)
->         Subsystem: Intel Corp. EtherExpress PRO/100+ Dual Port Adapter
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 64 (2000ns min, 14000ns max), cache line size 10
->         Interrupt: pin A routed to IRQ 21
->         Region 0: Memory at fc7fe000 (32-bit, prefetchable) [size=4K]
->         Region 1: I/O ports at ccc0 [size=32]
->         Region 2: Memory at fca00000 (32-bit, non-prefetchable) [size=1M]
->         Capabilities: [dc] Power Management version 1
->                 Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME
-> (D0+,D1+,D2+,D3hot+,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 05:06.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5701 Gigabit 
-> Ethernet (rev 15)
->         Subsystem: Dell Computer Corporation Broadcom BCM5701 1000Base-T
->         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 64 (16000ns min), cache line size 10
->         Interrupt: pin A routed to IRQ 28
->         Region 0: Memory at fc610000 (64-bit, non-prefetchable) [size=64K]
->         Capabilities: [40] PCI-X non-bridge device.
->                 Command: DPERE- ERO- RBC=0 OST=0
->                 Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, 
-> DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-      Capabilities: [48] Power Management 
-> version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot+,D3cold+)
->                 Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->         Capabilities: [50] Vital Product Data
->         Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 
-> Enable-
->                 Address: 52f48734a4062484  Data: c906
-> 05:08.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5701 Gigabit 
-> Ethernet (rev 15)
->         Subsystem: Dell Computer Corporation Broadcom BCM5701 1000Base-T
->         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 64 (16000ns min), cache line size 10
->         Interrupt: pin A routed to IRQ 29
->         Region 0: Memory at fc600000 (64-bit, non-prefetchable) [size=64K]
->         Capabilities: [40] PCI-X non-bridge device.
->                 Command: DPERE- ERO- RBC=0 OST=0
->                 Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, 
-> DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-      Capabilities: [48] Power Management 
-> version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot+,D3cold+)
->                 Status: D0 PME-Enable- DSel=0 DScale=1 PME-
->         Capabilities: [50] Vital Product Data
->         Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3 
-> Enable-
->                 Address: d616aa75c6ef8af0  Data: 80a0
-> 06:08.0 PCI bridge: Intel Corp.: Unknown device 0309 (rev 01) (prog-if 00 
-> [Normal decode])
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=slow >TAbort- <TAbort- 
-> <MAbort- >SERR- <PERR-
->         Latency: 32, cache line size 10
->         Bus: primary=06, secondary=07, subordinate=07, sec-latency=32
->         I/O behind bridge: 00009000-00009fff
->         Memory behind bridge: fc300000-fc4fffff
->         Prefetchable memory behind bridge: fff00000-000fffff
->         BridgeCtl: Parity- SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-
->         Capabilities: [68] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 06:08.1 RAID bus controller: Dell Computer Corporation PowerEdge Expandable 
-> RAID Controller 3 (rev 01)
->         Subsystem: Dell Computer Corporation PowerEdge Expandable RAID 
-> Controller 3/Di
->         Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=slow >TAbort- <TAbort- 
-> <MAbort- >SERR- <PERR-
->         Latency: 32, cache line size 10
->         Interrupt: pin A routed to IRQ 30
->         Region 0: Memory at f0000000 (32-bit, prefetchable) [size=128M]
->         Expansion ROM at fc200000 [disabled] [size=64K]
->         Capabilities: [80] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 07:06.0 SCSI storage controller: Adaptec RAID subsystem HBA (rev 01)
->         Subsystem: Dell Computer Corporation PowerEdge 2550
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 32 (10000ns min, 6250ns max), cache line size 10
->         Interrupt: pin A routed to IRQ 30
->         BIST result: 00
->         Region 0: I/O ports at 9c00 [size=256]
->         Region 1: Memory at fc3ff000 (64-bit, non-prefetchable) [size=4K]
->         Expansion ROM at fc400000 [disabled] [size=128K]
->         Capabilities: [dc] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 07:06.1 SCSI storage controller: Adaptec RAID subsystem HBA (rev 01)
->         Subsystem: Dell Computer Corporation PowerEdge 2550
->         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-> Stepping- SERR+ FastB2B-
->         Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-> <TAbort- <MAbort- >SERR- <PERR-
->         Latency: 32 (10000ns min, 6250ns max), cache line size 10
->         Interrupt: pin B routed to IRQ 31
->         BIST result: 00
->         Region 0: I/O ports at 9800 [size=256]
->         Region 1: Memory at fc3fe000 (64-bit, non-prefetchable) [size=4K]
->         Expansion ROM at fc400000 [disabled] [size=128K]
->         Capabilities: [dc] Power Management version 2
->                 Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-
-> ,D3hot-,D3cold-)
->                 Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-> 
-> 
-> # cat /proc/scsi/scsi
-> Attached devices:
-> Host: scsi0 Channel: 00 Id: 00 Lun: 00
->   Vendor: DELL     Model: PERCRAID RAID10  Rev: V1.0
->   Type:   Direct-Access                    ANSI SCSI revision: 02
-> 
-> # cat /proc/net/netstat
-> TcpExt: SyncookiesSent SyncookiesRecv SyncookiesFailed EmbryonicRsts 
-> PruneCalled RcvPruned OfoPruned OutOfWindowIcmps LockDroppedIcmps ArpFilter TW 
-> TWRecycled TWKilled PAWSPassive PAWSActive PAWSEstab DelayedACKs 
-> DelayedACKLocked DelayedACKLost ListenOverflows ListenDrops TCPPrequeued 
-> TCPDirectCopyFromBacklog TCPDirectCopyFromPrequeue TCPPrequeueDropped TCPHPHits 
-> TCPHPHitsToUser TCPPureAcks TCPHPAcks TCPRenoRecovery TCPSackRecovery 
-> TCPSACKReneging TCPFACKReorder TCPSACKReorder TCPRenoReorder TCPTSReorder 
-> TCPFullUndo TCPPartialUndo TCPDSACKUndo TCPLossUndo TCPLoss TCPLostRetransmit 
-> TCPRenoFailures TCPSackFailures TCPLossFailures TCPFastRetrans 
-> TCPForwardRetrans TCPSlowStartRetrans TCPTimeouts TCPRenoRecoveryFail 
-> TCPSackRecoveryFail TCPSchedulerFailed TCPRcvCollapsed TCPDSACKOldSent 
-> TCPDSACKOfoSent TCPDSACKRecv TCPDSACKOfoRecv TCPAbortOnSyn TCPAbortOnData 
-> TCPAbortOnClose TCPAbortOnMemory TCPAbortOnTimeout TCPAbortOnLinger 
-> TCPAbortFailed TCPMemoryPressures
-> TcpExt: 0 0 0 23 0 0 0 0 0 0 5 0 0 0 0 0 17865 1 12 0 0 8574 0 9 0 197814 0 
-> 458166 187419 0 77 0 0 0 0 0 0 0 0 3 41 0 0 38 0 89 0 42 118 0 13 0 0 39 0 3 0 
-> 0 4 1 0 0 0 0 0
->  
->  
-> # sh ver_linux
-> If some fields are empty or look unusual you may have an old version.
-> Compare to the current minimal requirements in Documentation/Changes.
-> Linux FW2 2.4.20-8smp #1 SMP Thu Mar 13 17:45:54 EST 2003 i686 i686 i386 
-> GNU/Linux
-> Gnu C                  18:
-> Gnu make               3.79.1
-> util-linux             2.11y
-> mount                  2.11y
-> modutils               2.4.22
-> e2fsprogs              1.32
-> Linux C Library        2.3.2
-> Dynamic linker (ldd)   2.3.2
-> Procps                 2.0.11
-> Net-tools              1.60
-> Kbd                    1.08
-> Sh-utils               4.5.3
-> Modules Loaded         tg3 e100 ipt_LOG ipt_limit ipt_REJECT iptable_mangle 
-> ipt_state iptable_nat ip_conntrack iptable_filter ip_tables keybdev mousedev 
-> hid input usb-ohci usbcore ext3 jbd aacraid sd_mod scsi_mod
->  
-> # cat /proc/cpuinfo
-> processor       : 0
-> vendor_id       : GenuineIntel
-> cpu family      : 15
-> model           : 2
-> model name      : Intel(R) Xeon(TM) CPU 2.40GHz
-> stepping        : 7
-> cpu MHz         : 2392.327
-> cache size      : 512 KB
-> physical id     : 0
-> siblings        : 2
-> fdiv_bug        : no
-> hlt_bug         : no
-> f00f_bug        : no
-> coma_bug        : no
-> fpu             : yes
-> fpu_exception   : yes
-> cpuid level     : 2
-> wp              : yes
-> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
-> pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm
-> bogomips        : 4771.02
-> processor       : 1
-> vendor_id       : GenuineIntel
-> cpu family      : 15
-> model           : 2
-> model name      : Intel(R) Xeon(TM) CPU 2.40GHz
-> stepping        : 7
-> cpu MHz         : 2392.327
-> cache size      : 512 KB
-> physical id     : 0
-> siblings        : 2
-> fdiv_bug        : no
-> hlt_bug         : no
-> f00f_bug        : no
-> coma_bug        : no
-> fpu             : yes
-> fpu_exception   : yes
-> cpuid level     : 2
-> wp              : yes
-> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
-> pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm
-> bogomips        : 4784.12
-> processor       : 2
-> vendor_id       : GenuineIntel
-> cpu family      : 15
-> model           : 2
-> model name      : Intel(R) Xeon(TM) CPU 2.40GHz
-> stepping        : 7
-> cpu MHz         : 2392.327
-> cache size      : 512 KB
-> physical id     : 3
-> siblings        : 2
-> fdiv_bug        : no
-> hlt_bug         : no
-> f00f_bug        : no
-> coma_bug        : no
-> fpu             : yes
-> fpu_exception   : yes
-> cpuid level     : 2
-> wp              : yes
-> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
-> pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm
-> bogomips        : 4784.12
-> processor       : 3
-> vendor_id       : GenuineIntel
-> cpu family      : 15
-> model           : 2
-> model name      : Intel(R) Xeon(TM) CPU 2.40GHz
-> stepping        : 7
-> cpu MHz         : 2392.327
-> cache size      : 512 KB
-> physical id     : 3
-> siblings        : 2
-> fdiv_bug        : no
-> hlt_bug         : no
-> f00f_bug        : no
-> coma_bug        : no
-> fpu             : yes
-> fpu_exception   : yes
-> cpuid level     : 2
-> wp              : yes
-> flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov 
-> pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm
-> bogomips        : 4784.12
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
-
-
---
-David TILLOY. Directeur Technique. NEOCOM MULTIMEDIA.
-Tel. 01.45.15.2000 - Fax. 01.45.15.2001 - <dtilloy@neocom.fr>
-14, rue Jules VANZUPPE. 94854 IVRY SUR SEINE CEDEX. FRANCE
+diff -Nru a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+--- a/include/net/pkt_sched.h	2004-07-12 11:06:52 -07:00
++++ b/include/net/pkt_sched.h	2004-07-12 11:06:52 -07:00
+@@ -16,11 +16,6 @@
+ #include <linux/module.h>
+ #include <linux/rtnetlink.h>
+ 
+-#ifdef CONFIG_X86_TSC
+-#include <asm/msr.h>
+-#endif
+-
+-
+ struct rtattr;
+ struct Qdisc;
+ 
+@@ -179,16 +174,19 @@
+    clock evaluated by integration of network data flow
+    in the most critical places.
+ 
+-   Note: we do not use fastgettimeofday.
+-   The reason is that, when it is not the same thing as
+-   gettimeofday, it returns invalid timestamp, which is
+-   not updated, when net_bh is active.
+-
+-   So, use PSCHED_CLOCK_SOURCE = PSCHED_CPU on alpha and pentiums
+-   with rtdsc. And PSCHED_JIFFIES on all other architectures, including [34]86
+-   and pentiums without rtdsc.
+-   You can use PSCHED_GETTIMEOFDAY on another architectures,
+-   which have fast and precise clock source, but it is too expensive.
++   The problem is that there are kernel interfaces that provide:
++
++   - high resolution (us or better)
++   - fast to read (minimal locking, no i/o access)
++   - synchronized on all processors and all architectures
++   - handles cpu clock frequency changes
++
++   but no interface provides all of the above. By default
++   the current choice is to use PSCHED_JIFFIES because it is fast
++   to read, synchronized, and stable with frequency changes
++
++   You can use PSCHED_CPU which maps to sched_clock on architectures 
++   that have synchronized clocks. 
+  */
+ 
+ /* General note about internal clock.
+@@ -237,39 +235,12 @@
+ 
+ #elif PSCHED_CLOCK_SOURCE == PSCHED_CPU
+ 
+-extern psched_tdiff_t psched_clock_per_hz;
+-extern int psched_clock_scale;
+-
+-#define PSCHED_US2JIFFIE(delay) (((delay)+psched_clock_per_hz-1)/psched_clock_per_hz)
+-#define PSCHED_JIFFIE2US(delay) ((delay)*psched_clock_per_hz)
+-
+-#ifdef CONFIG_X86_TSC
+-
+-#define PSCHED_GET_TIME(stamp) \
+-({ u64 __cur; \
+-   rdtscll(__cur); \
+-   (stamp) = __cur>>psched_clock_scale; \
+-})
+-
+-#elif defined (__alpha__)
+-
+-#define PSCHED_WATCHER u32
+-
+-extern PSCHED_WATCHER psched_time_mark;
+-
+-#define PSCHED_GET_TIME(stamp) \
+-({ u32 __res; \
+-   __asm__ __volatile__ ("rpcc %0" : "r="(__res)); \
+-   if (__res <= psched_time_mark) psched_time_base += 0x100000000UL; \
+-   psched_time_mark = __res; \
+-   (stamp) = (psched_time_base + __res)>>psched_clock_scale; \
+-})
++extern unsigned long long sched_clock(void);
+ 
+-#else
+-
+-#error PSCHED_CLOCK_SOURCE=PSCHED_CPU is not supported on this arch.
+-
+-#endif /* ARCH */
++#define PSCHED_GET_TIME(stamp)	\
++	do { (stamp) = sched_clock(); do_div(stamp, 1000); } while(0)
++#define PSCHED_US2JIFFIE(usecs) (((usecs)+(1000000/HZ-1))/(1000000/HZ))
++#define PSCHED_JIFFIE2US(delay)((delay)*(1000000/HZ))
+ 
+ #endif /* PSCHED_CLOCK_SOURCE == PSCHED_JIFFIES */
+ 
+@@ -496,7 +467,7 @@
+ /* Calculate maximal size of packet seen by hard_start_xmit
+    routine of this device.
+  */
+-static inline unsigned psched_mtu(struct net_device *dev)
++static inline unsigned psched_mtu(const struct net_device *dev)
+ {
+ 	unsigned mtu = dev->mtu;
+ 	return dev->hard_header ? mtu + dev->hard_header_len : mtu;
+diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c	2004-07-12 11:06:52 -07:00
++++ b/net/sched/sch_api.c	2004-07-12 11:06:52 -07:00
+@@ -1101,91 +1101,17 @@
+ EXPORT_SYMBOL(psched_tod_diff);
+ #endif
+ 
+-psched_time_t psched_time_base;
+-
+-#if PSCHED_CLOCK_SOURCE == PSCHED_CPU
+-psched_tdiff_t psched_clock_per_hz;
+-int psched_clock_scale;
+-EXPORT_SYMBOL(psched_clock_per_hz);
+-EXPORT_SYMBOL(psched_clock_scale);
+-#endif
+-
+-#ifdef PSCHED_WATCHER
+-PSCHED_WATCHER psched_time_mark;
+-EXPORT_SYMBOL(psched_time_mark);
+-EXPORT_SYMBOL(psched_time_base);
+-
+-static void psched_tick(unsigned long);
+-
+-static struct timer_list psched_timer = TIMER_INITIALIZER(psched_tick, 0, 0);
+-
+-static void psched_tick(unsigned long dummy)
+-{
+-#if PSCHED_CLOCK_SOURCE == PSCHED_CPU
+-	psched_time_t dummy_stamp;
+-	PSCHED_GET_TIME(dummy_stamp);
+-	/* It is OK up to 4GHz cpu */
+-	psched_timer.expires = jiffies + 1*HZ;
+-#else
+-	unsigned long now = jiffies;
+-	psched_time_base += ((u64)(now-psched_time_mark))<<PSCHED_JSCALE;
+-	psched_time_mark = now;
+-	psched_timer.expires = now + 60*60*HZ;
+-#endif
+-	add_timer(&psched_timer);
+-}
+-#endif
+-
+ #if PSCHED_CLOCK_SOURCE == PSCHED_CPU
+-int __init psched_calibrate_clock(void)
+-{
+-	psched_time_t stamp, stamp1;
+-	struct timeval tv, tv1;
+-	psched_tdiff_t delay;
+-	long rdelay;
+-	unsigned long stop;
+-
+-#ifdef PSCHED_WATCHER
+-	psched_tick(0);
+-#endif
+-	stop = jiffies + HZ/10;
+-	PSCHED_GET_TIME(stamp);
+-	do_gettimeofday(&tv);
+-	while (time_before(jiffies, stop)) {
+-		barrier();
+-		cpu_relax();
+-	}
+-	PSCHED_GET_TIME(stamp1);
+-	do_gettimeofday(&tv1);
+-
+-	delay = PSCHED_TDIFF(stamp1, stamp);
+-	rdelay = tv1.tv_usec - tv.tv_usec;
+-	rdelay += (tv1.tv_sec - tv.tv_sec)*1000000;
+-	if (rdelay > delay)
+-		return -1;
+-	delay /= rdelay;
+-	psched_tick_per_us = delay;
+-	while ((delay>>=1) != 0)
+-		psched_clock_scale++;
+-	psched_us_per_tick = 1<<psched_clock_scale;
+-	psched_clock_per_hz = (psched_tick_per_us*(1000000/HZ))>>psched_clock_scale;
+-	return 0;
+-}
++EXPORT_SYMBOL(sched_clock);
+ #endif
+ 
+ static int __init pktsched_init(void)
+ {
+ 	struct rtnetlink_link *link_p;
+ 
+-#if PSCHED_CLOCK_SOURCE == PSCHED_CPU
+-	if (psched_calibrate_clock() < 0)
+-		return -1;
+-#elif PSCHED_CLOCK_SOURCE == PSCHED_JIFFIES
++#if PSCHED_CLOCK_SOURCE == PSCHED_JIFFIES
+ 	psched_tick_per_us = HZ<<PSCHED_JSCALE;
+ 	psched_us_per_tick = 1000000;
+-#ifdef PSCHED_WATCHER
+-	psched_tick(0);
+-#endif
+ #endif
+ 
+ 	link_p = rtnetlink_links[PF_UNSPEC];
