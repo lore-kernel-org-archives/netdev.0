@@ -1,32 +1,105 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: copybreak and gige network drivers
-Date: Mon, 29 Sep 2003 14:25:12 -0400
+From: Dana Lacoste <dana.lacoste@peregrine.com>
+Subject: route cache and messed up network
+Date: Mon, 29 Sep 2003 15:58:36 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F787908.7000305@nortelnetworks.com>
+Message-ID: <1064865515.8417.2.camel@dlacoste.ottawa.loran.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+(Originally sent to linux-net, but that list seems to
+be almost zero traffic lately and Dave Miller suggested
+that this list might have better results :)
 
-I'm looking at doing some work on a driver for the gige portion of the 
-Marvell Disco2.
+(Note also that I'm not subscribed [can't find out how
+to do so on the sgi site])
 
-The existing driver allocates mtu-sized buffers and always passes them 
-off to the network stack.  I'm thinking about adding some copybreak 
-optimizations, but I'm not sure what value I should use for the 
-copybreak.  I would expect most packets to be on the smaller side.
+I'm trying to get a system working where Linux's network
+route cache is causing problems.
 
-Any suggestions?
+Essentially, the linux side of the problem appears to be that
+/proc/sys/net/ipv4/gc_timeout (for ICMP redirect entries) times
+out not on how long it's been in the cache but on how long it's
+been idle : if the entry is not idle it will never time out.
 
-Chris
+I verified this behaviour by setting the timeout to 20 seconds
+and testing it with ping :
 
--- 
-Chris Friesen                    | MailStop: 043/33/F10
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
+echo '20' > /proc/sys/net/ipv4/gc_timeout
+ping ip_address once
+   Redirect message appears in output
+ping ip_address again (once)
+   Redirect does not appear
+sleep 30
+ping ip_address again (once)
+   Redirect message appears in output
+ping for 30 seconds
+ping ip_address again (once)
+   Redirect does not appear
+sleep 30
+ping ip_address again (once)
+   Redirect message appears in output
+
+So it only expires the cache if it's not active.
+
+Can I change this?  I notice that net/ipv4/route.c has a line
+that says :
+               /* Entry is expired even if it is in use */
+(kernel 2.4.22, stock, line 408)
+
+Can I force it to timeout entries that are in use?
+
+Here's the situation :
+
+System A is a linux server
+System B is a Cisco router
+System C is a PIX firewall
+
+Subnet X has the linux server, Cisco router, and PIX firewall
+Subnet Y is an internal network connected via System B
+Subnet Z is the internet, behind the PIX
+
+System A (linux) has a single default route to System B (cisco
+router) for all traffic.
+
+System B (cisco router) has static routes for (is connected to)
+Subnets X and Y, and a default route to System C (the firewall.)
+
+Sometimes the connection to Subnet Y on System B (cisco router)
+will go down when System A (Linux server) tries to communicate
+with a system in Subnet Y.  It for some unknown and really
+bass-ackwards reason decides then that the default route (to
+System C, the firewall) is where the packets should be going,
+so it sends them there along with an ICMP redirect back to
+System A (the linux box,) to let it know that it would be more
+efficient to send the packet to System C (the firewall) than to
+System B (the cisco router.)
+
+Well, System C (the firewall) doesn't route packets from the
+internal network to the internal network : it just throws them
+away.  So the packets from System A (linux server) to Subnet Y
+(internal network) don't arrive.  As the gc_timeout is set to
+300 seconds and the linux kernel only times out on idle routes,
+and System A (the linux server) tries to reconnect every minute,
+the (bad) route cache entry never expires and the packets never
+reach their destination again.
+
+I've proposed that the cisco box shouldn't send ICMP redirects
+for subnets which it has a local connection to if no other connection
+to that subnet exists, and that the PIX firewall should be intelligent
+enough to do another ICMP redirect back to the cisco router,
+but instead it just throws all the packets away and I'm not
+allowed to change either of these things.
+
+Which means I can only change the linux box.  Is there a way I can
+change it so that it does a timeout on all route cache entries,
+wether they're used or not?
+
+Thanks
+
+Dana Lacoste
+Ottawa, Canada
