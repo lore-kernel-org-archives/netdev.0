@@ -1,30 +1,24 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@wide.ad.jp>
-Subject: Re: Hi, this is my patch for broadcom sb1250-mac.c
-Date: Thu, 29 May 2003 13:39:18 +0900 (JST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Dump of TCP hang in established state
+Date: Thu, 29 May 2003 02:41:14 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529.133918.72483716.yoshfuji@wide.ad.jp>
-References: <3ED58DBA.6000506@netpower.com.cn>
+Message-ID: <20030529.024114.78714066.davem@redhat.com>
+References: <1052841090.13492.20.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: zhanght@netpower.com.cn
-In-Reply-To: <3ED58DBA.6000506@netpower.com.cn>
+To: gandalf@wlug.westbo.se
+In-Reply-To: <1052841090.13492.20.camel@tux.rsn.bth.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <3ED58DBA.6000506@netpower.com.cn> (at Thu, 29 May 2003 12:34:02 +0800), Zhang Haitao <zhanght@netpower.com.cn> says:
+   From: Martin Josefsson <gandalf@wlug.westbo.se>
+   Date: 13 May 2003 17:51:31 +0200
+   
+   If more details are needed I can try to reproduce it again,
+   shouldn't be too difficult.
 
-> i'm very glad to let all of you to review this patch
-> or give me some advice from the oops message!
-
-Please don't try to make cosmetic changes 
-including indentation, and/or new lines etc.
-
-Thank you.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Can you reproduce this with the latest and greatest 2.5.x
+sources?  I think we might have just nailed it...
