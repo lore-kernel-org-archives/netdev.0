@@ -1,186 +1,91 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Use NET_IP_ALIGN in acenic
-Date: Sun, 25 Jul 2004 03:43:48 +1000
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [AH6] Rearrange routing headers
+Date: Sat, 24 Jul 2004 14:22:03 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724174348.GL4556@krispykreme>
+Message-ID: <20040724.142203.15175626.yoshfuji@linux-ipv6.org>
+References: <20040724083709.GA9416@gondor.apana.org.au>
+	<200407250222.22934.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jes@trained-monkey.org, davem@redhat.com
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: kazunori@miyazawa.org, davem@redhat.com, herbert@gondor.apana.org.au
+In-Reply-To: <200407250222.22934.kazunori@miyazawa.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <200407250222.22934.kazunori@miyazawa.org> (at Sun, 25 Jul 2004 02:22:22 +0900), Kazunori Miyazawa <kazunori@miyazawa.org> says:
 
-Use NET_IP_ALIGN in acenic driver. Also remove the 16 byte padding,
-caches can be anywhere from 16 to 256 bytes and the skb should be
-cacheline aligned already.
+> 2004/07/24(土) 17:37、Herbert Xu  wrote:
+> > Hi:
+> >
+> > This patch rearranges the IPv6 routing header so that the destination
+> > addresses appear in the order as they would on the destination.  This
+> > is specified in Appendix A2 of RFC 2402.
+> >
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> >
+> > Cheers,
+> 
+> I saw roughly the packet.
+> It needs to check direction of the process.
+> We don't need to do that in INBOUND.
 
-Signed-off-by: Anton Blanchard <anton@samba.org>
+Here's the patch (on top of the Xu's patch).
 
-===== drivers/net/acenic.c 1.50 vs edited =====
---- 1.50/drivers/net/acenic.c	Thu Jul 15 05:12:55 2004
-+++ edited/drivers/net/acenic.c	Mon Jul 19 12:03:55 2004
-@@ -369,9 +369,9 @@
-  */
- #define ACE_MINI_SIZE		100
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+
+--- linux26/net/ipv6/ah6.c	2004-07-24 13:53:08.000000000 -0400
++++ linux26/net/ipv6/ah6.c	2004-07-24 14:01:12.000000000 -0400
+@@ -93,7 +93,6 @@
+ 	segments_left = rthdr->segments_left;
+ 	if (segments_left == 0)
+ 		return;
+-	rthdr->segments_left = 0; 
  
--#define ACE_MINI_BUFSIZE	(ACE_MINI_SIZE + 2 + 16)
--#define ACE_STD_BUFSIZE		(ACE_STD_MTU + ETH_HLEN + 2+4+16)
--#define ACE_JUMBO_BUFSIZE	(ACE_JUMBO_MTU + ETH_HLEN + 2+4+16)
-+#define ACE_MINI_BUFSIZE	ACE_MINI_SIZE
-+#define ACE_STD_BUFSIZE		(ACE_STD_MTU + ETH_HLEN + 4)
-+#define ACE_JUMBO_BUFSIZE	(ACE_JUMBO_MTU + ETH_HLEN + 4)
+ 	/* The value of rthdr->hdrlen has been verified either by the system
+ 	 * call if it is locally generated, or by ipv6_rthdr_rcv() for incoming
+@@ -114,7 +113,7 @@
+ 	ipv6_addr_copy(&iph->daddr, &final_addr);
+ }
  
- /*
-  * There seems to be a magic difference in the effect between 995 and 996
-@@ -678,7 +678,7 @@
- 			ringp = &ap->skb->rx_std_skbuff[i];
- 			mapping = pci_unmap_addr(ringp, mapping);
- 			pci_unmap_page(ap->pdev, mapping,
--				       ACE_STD_BUFSIZE - (2 + 16),
-+				       ACE_STD_BUFSIZE,
- 				       PCI_DMA_FROMDEVICE);
- 
- 			ap->rx_std_ring[i].size = 0;
-@@ -698,7 +698,7 @@
- 				ringp = &ap->skb->rx_mini_skbuff[i];
- 				mapping = pci_unmap_addr(ringp,mapping);
- 				pci_unmap_page(ap->pdev, mapping,
--					       ACE_MINI_BUFSIZE - (2 + 16),
-+					       ACE_MINI_BUFSIZE,
- 					       PCI_DMA_FROMDEVICE);
- 
- 				ap->rx_mini_ring[i].size = 0;
-@@ -717,7 +717,7 @@
- 			ringp = &ap->skb->rx_jumbo_skbuff[i];
- 			mapping = pci_unmap_addr(ringp, mapping);
- 			pci_unmap_page(ap->pdev, mapping,
--				       ACE_JUMBO_BUFSIZE - (2 + 16),
-+				       ACE_JUMBO_BUFSIZE,
- 				       PCI_DMA_FROMDEVICE);
- 
- 			ap->rx_jumbo_ring[i].size = 0;
-@@ -1257,7 +1257,7 @@
- 	set_aceaddr(&info->stats2_ptr, (dma_addr_t) tmp_ptr);
- 
- 	set_aceaddr(&info->rx_std_ctrl.rngptr, ap->rx_ring_base_dma);
--	info->rx_std_ctrl.max_len = ACE_STD_MTU + ETH_HLEN + 4;
-+	info->rx_std_ctrl.max_len = ACE_STD_BUFSIZE;
- 	info->rx_std_ctrl.flags =
- 	  RCB_FLG_TCP_UDP_SUM | RCB_FLG_NO_PSEUDO_HDR | ACE_RCB_VLAN_FLAG;
- 
-@@ -1700,17 +1700,14 @@
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = alloc_skb(ACE_STD_BUFSIZE, GFP_ATOMIC);
-+		skb = alloc_skb(ACE_STD_BUFSIZE + NET_IP_ALIGN, GFP_ATOMIC);
- 		if (!skb)
+-static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len)
++static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len, int dir)
+ {
+ 	union {
+ 		struct ipv6hdr *iph;
+@@ -141,7 +140,9 @@
  			break;
  
--		/*
--		 * Make sure IP header starts on a fresh cache line.
--		 */
--		skb_reserve(skb, 2 + 16);
-+		skb_reserve(skb, NET_IP_ALIGN);
- 		mapping = pci_map_page(ap->pdev, virt_to_page(skb->data),
- 				       offset_in_page(skb->data),
--				       ACE_STD_BUFSIZE - (2 + 16),
-+				       ACE_STD_BUFSIZE,
- 				       PCI_DMA_FROMDEVICE);
- 		ap->skb->rx_std_skbuff[idx].skb = skb;
- 		pci_unmap_addr_set(&ap->skb->rx_std_skbuff[idx],
-@@ -1718,7 +1715,7 @@
- 
- 		rd = &ap->rx_std_ring[idx];
- 		set_aceaddr(&rd->addr, mapping);
--		rd->size = ACE_STD_MTU + ETH_HLEN + 4;
-+		rd->size = ACE_STD_BUFSIZE;
- 		rd->idx = idx;
- 		idx = (idx + 1) % RX_STD_RING_ENTRIES;
- 	}
-@@ -1766,17 +1763,14 @@
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = alloc_skb(ACE_MINI_BUFSIZE, GFP_ATOMIC);
-+		skb = alloc_skb(ACE_MINI_BUFSIZE + NET_IP_ALIGN, GFP_ATOMIC);
- 		if (!skb)
+ 		case NEXTHDR_ROUTING:
+-			ipv6_rearrange_rthdr(iph, exthdr.rth);
++			if (dir == XFRM_POLICY_OUT)
++				ipv6_rearrange_rthdr(iph, exthdr.rth);
++			exthdr.rth->segments_left = 0;
  			break;
  
--		/*
--		 * Make sure the IP header ends up on a fresh cache line
--		 */
--		skb_reserve(skb, 2 + 16);
-+		skb_reserve(skb, NET_IP_ALIGN);
- 		mapping = pci_map_page(ap->pdev, virt_to_page(skb->data),
- 				       offset_in_page(skb->data),
--				       ACE_MINI_BUFSIZE - (2 + 16),
-+				       ACE_MINI_BUFSIZE,
- 				       PCI_DMA_FROMDEVICE);
- 		ap->skb->rx_mini_skbuff[idx].skb = skb;
- 		pci_unmap_addr_set(&ap->skb->rx_mini_skbuff[idx],
-@@ -1784,7 +1778,7 @@
+ 		default :
+@@ -208,7 +209,8 @@
+ 		(*pskb)->nh.ipv6h = (struct ipv6hdr*)skb_push(*pskb, x->props.header_len);
+ 		iph->payload_len = htons((*pskb)->len - sizeof(struct ipv6hdr));
+ 		memcpy((*pskb)->nh.ipv6h, iph, hdr_len);
+-		err = ipv6_clear_mutable_options((*pskb)->nh.ipv6h, hdr_len);
++		err = ipv6_clear_mutable_options((*pskb)->nh.ipv6h, hdr_len,
++						 XFRM_POLICY_OUT);
+ 		if (err)
+ 			goto error_free_iph;
  
- 		rd = &ap->rx_mini_ring[idx];
- 		set_aceaddr(&rd->addr, mapping);
--		rd->size = ACE_MINI_SIZE;
-+		rd->size = ACE_MINI_BUFSIZE;
- 		rd->idx = idx;
- 		idx = (idx + 1) % RX_MINI_RING_ENTRIES;
- 	}
-@@ -1827,17 +1821,14 @@
- 		struct rx_desc *rd;
- 		dma_addr_t mapping;
- 
--		skb = alloc_skb(ACE_JUMBO_BUFSIZE, GFP_ATOMIC);
-+		skb = alloc_skb(ACE_JUMBO_BUFSIZE + NET_IP_ALIGN, GFP_ATOMIC);
- 		if (!skb)
- 			break;
- 
--		/*
--		 * Make sure the IP header ends up on a fresh cache line
--		 */
--		skb_reserve(skb, 2 + 16);
-+		skb_reserve(skb, NET_IP_ALIGN);
- 		mapping = pci_map_page(ap->pdev, virt_to_page(skb->data),
- 				       offset_in_page(skb->data),
--				       ACE_JUMBO_BUFSIZE - (2 + 16),
-+				       ACE_JUMBO_BUFSIZE,
- 				       PCI_DMA_FROMDEVICE);
- 		ap->skb->rx_jumbo_skbuff[idx].skb = skb;
- 		pci_unmap_addr_set(&ap->skb->rx_jumbo_skbuff[idx],
-@@ -1845,7 +1836,7 @@
- 
- 		rd = &ap->rx_jumbo_ring[idx];
- 		set_aceaddr(&rd->addr, mapping);
--		rd->size = ACE_JUMBO_MTU + ETH_HLEN + 4;
-+		rd->size = ACE_JUMBO_BUFSIZE;
- 		rd->idx = idx;
- 		idx = (idx + 1) % RX_JUMBO_RING_ENTRIES;
- 	}
-@@ -2027,19 +2018,19 @@
- 			 */
- 		case 0:
- 			rip = &ap->skb->rx_std_skbuff[skbidx];
--			mapsize = ACE_STD_BUFSIZE - (2 + 16);
-+			mapsize = ACE_STD_BUFSIZE;
- 			rxdesc = &ap->rx_std_ring[skbidx];
- 			std_count++;
- 			break;
- 		case BD_FLG_JUMBO:
- 			rip = &ap->skb->rx_jumbo_skbuff[skbidx];
--			mapsize = ACE_JUMBO_BUFSIZE - (2 + 16);
-+			mapsize = ACE_JUMBO_BUFSIZE;
- 			rxdesc = &ap->rx_jumbo_ring[skbidx];
- 			atomic_dec(&ap->cur_jumbo_bufs);
- 			break;
- 		case BD_FLG_MINI:
- 			rip = &ap->skb->rx_mini_skbuff[skbidx];
--			mapsize = ACE_MINI_BUFSIZE - (2 + 16);
-+			mapsize = ACE_MINI_BUFSIZE;
- 			rxdesc = &ap->rx_mini_ring[skbidx];
- 			mini_count++; 
- 			break;
+@@ -316,7 +318,7 @@
+ 	if (!tmp_hdr)
+ 		goto out;
+ 	memcpy(tmp_hdr, skb->nh.raw, hdr_len);
+-	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
++	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len, XFRM_POLICY_IN))
+ 		goto out;
+ 	skb->nh.ipv6h->priority    = 0;
+ 	skb->nh.ipv6h->flow_lbl[0] = 0;
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
