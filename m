@@ -1,34 +1,29 @@
-From: "Sebastian Piecha" <spi@gmxpro.de>
-Subject: Re: oops in skbuff.c
-Date: Thu, 16 Oct 2003 22:01:19 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] (5/6) ibmtr -- probe2
+Date: Thu, 16 Oct 2003 13:08:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F8F152F.4147.5743B2C@localhost>
-References: <3F8EF7B3.25278.5010BC6@localhost>
+Message-ID: <20031016130858.1751ce27.shemminger@osdl.org>
+References: <OFF934C8CA.6C5807E0-ON88256DC1.007CA7CB-88256DC1.007DB00E@urscorp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>, LK-net <linux-net@vger.kernel.org>,
-        <netdev@oss.sgi.com>
-In-reply-to: <Xine.LNX.4.44.0310161512210.6059-100000@thoron.boston.redhat.com>
-Content-description: Mail message body
+To: Mike_Phillips@URSCorp.com
+In-Reply-To: <OFF934C8CA.6C5807E0-ON88256DC1.007CA7CB-88256DC1.007DB00E@urscorp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 16 Oct 2003 at 15:15, James Morris wrote:
+On Thu, 16 Oct 2003 15:52:50 -0700
+Mike_Phillips@URSCorp.com wrote:
 
-> On Thu, 16 Oct 2003, Sebastian Piecha wrote:
 > 
-> >  panics. Copying more than 4 GB to the samba share also lets the 
-> > kernel panic with an OOPS.
+> > typedef struct ibmtr_dev_t {
+> > +    struct tok_info         ti;         /* must be first! */
 > 
-> Does the above cause a panic for the 2.6-test kernels?
-> Do you have netfilter enabled, and if so, any iptables modules loaded?
-> 
-No. Only in 2.4-kernels. No netfilter. No iptables. Just samba 
-sharing some reiserfs directories on a Promise attached ide harddisk.
+> Why must this be first ?? Sounds like an alignment issue, we shouldn't
+> assume some is aligned correctly just because it's the first entry.
 
-Mit freundlichen Gruessen/Best regards,
-Sebastian Piecha
-
-EMail: spi@gmxpro.de
+Because ibmtr_cs calls ibmtr_probe1 function which does:
+	struct tok_info *ti = dev->priv;
+and dereferences it in a couple of places.
