@@ -1,85 +1,45 @@
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 6/6 linux-2.6.9-rc1/2.4.28-pre2] prism54 fix
-	wpa_supplicant frequency parsing
-Date: Sun, 5 Sep 2004 12:37:56 +0200
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <200409051237.56058.margitsw@t-online.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Improvements in FreeBSD 5.3 networking
+Date: 05 Sep 2004 08:15:25 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1094386350.1340.6.camel@jzny.localdomain>
+References: <20040905094636.GA10086@irc.pl>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_EyuOBgflA0PJwpo"
-Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: jgarzik@pobox.com
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>,
+        Robert Olsson <Robert.Olsson@data.slu.se>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Tomasz Torcz <zdzichu@irc.pl>
+In-Reply-To: <20040905094636.GA10086@irc.pl>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Boundary-00=_EyuOBgflA0PJwpo
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Guess didnt take too long for those BSDers to post on slashdot.
+It would be nice for someone to install freebsd and verify the claims
+on the routing aspect.
+Anyone in Ottawa with BSD expertise drop me a note - I have access to
+measurement equipment (and really dont wanna touch BSD if i can avoid it).
 
-2004-09-05 Margit Schubert-While <margitsw@t-online.de>
-2004-08-22 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
+cheers,
+jamal
 
-* This work fixes wpa_supplicant frequency parsing. iwlist eth0
-* scan will now show channel and frequency.
+PS: We can certainly do better than that on Opterons. Robert
+reports a 1.3 Mpps rate on a dual opteron 1.6Ghz. Our numbers on Xeons
+are less than 1Mpps. But we can let an old OS like BSD beat us, can we 
+now ? ;->
 
-
-Margit
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
---Boundary-00=_EyuOBgflA0PJwpo
-Content-Type: text/x-diff; charset="us-ascii"; name="06_fix_freqparse.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="06_fix_freqparse.patch"
-
-diff -Naur linux-2.6.9rc1/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.9-rc1msw/drivers/net/wireless/prism54/isl_ioctl.c
---- linux-2.6.9rc1/drivers/net/wireless/prism54/isl_ioctl.c	2004-09-05 10:49:37.000000000 +0200
-+++ linux-2.6.9-rc1msw/drivers/net/wireless/prism54/isl_ioctl.c	2004-09-05 10:49:53.000000000 +0200
-@@ -604,8 +604,8 @@
- 	current_ev = iwe_stream_add_point(current_ev, end_buf, &iwe, NULL);
- 
- 	/* Add frequency. (short) bss->channel is the frequency in MHz */
--	iwe.u.freq.m = channel_of_freq(bss->channel);
--	iwe.u.freq.e = 0;
-+	iwe.u.freq.m = bss->channel;
-+	iwe.u.freq.e = 6;
- 	iwe.cmd = SIOCGIWFREQ;
- 	current_ev =
- 	    iwe_stream_add_event(current_ev, end_buf, &iwe, IW_EV_FREQ_LEN);
-
---Boundary-00=_EyuOBgflA0PJwpo
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---Boundary-00=_EyuOBgflA0PJwpo--
+On Sun, 2004-09-05 at 05:46, Tomasz Torcz wrote:
+>  Hi,
+> 
+>  reading Slashdot I'm sutmbled upon presentation of FreeBSD new
+> features:
+> http://people.freebsd.org/~andre/FreeBSD-5.3-Networking.pdf
+> 
+>  It look pretty interesting (e.g. tcphostcache), especially they claim
+> that FreeBSD on 2.8 GHz Xeon can route 1Mpps.
+> 
+>  Original slashodt story:
+> http://bsd.slashdot.org/article.pl?sid=04/09/04/133253
