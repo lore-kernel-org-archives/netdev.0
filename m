@@ -1,33 +1,28 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] sdla non-module build fix.
-Date: Mon, 8 Sep 2003 09:57:08 -0700
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [PATCH] sdla non-module build fix.
+Date: Mon, 8 Sep 2003 10:32:26 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030908095708.107b98c4.shemminger@osdl.org>
-References: <Pine.LNX.4.44.0309071117290.21192-200000@home.osdl.org>
-	<3F5B7ED7.2070908@pobox.com>
+Message-ID: <Pine.LNX.4.44.0309081030310.15082-100000@home.osdl.org>
+References: <20030908095708.107b98c4.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@osdl.org>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F5B7ED7.2070908@pobox.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030908095708.107b98c4.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Last round of changes broke sdla build if not a module.
 
-diff -Nru a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
---- a/drivers/net/wan/sdla.c	Mon Sep  8 09:49:56 2003
-+++ b/drivers/net/wan/sdla.c	Mon Sep  8 09:49:56 2003
-@@ -1719,9 +1719,9 @@
- 	
- 	unregister_frad(devname);
- }
--#endif
- 
- MODULE_LICENSE("GPL");
- 
- module_init(init_sdla);
- module_exit(exit_sdla);
-+#endif
+On Mon, 8 Sep 2003, Stephen Hemminger wrote:
+>
+> Last round of changes broke sdla build if not a module.
+
+This patch can't be right. It may fix the compile, but it looks like 
+init/exit_sdla is never registered at all if it's built-in.
+
+I suspect the whole #ifdef should go away. A driver that does things 
+differently depending on whether it is a module or not is generally a 
+_broken_ driver.
+
+		Linus
