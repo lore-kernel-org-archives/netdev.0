@@ -1,42 +1,127 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc4-mm1] [m32r] Fix smc91x driver for m32r
-Date: Thu, 14 Oct 2004 10:21:51 -0400
+Subject: Re: [PATCH 2.6.9-rc2 1/8] S2io: cosmetic changes
+Date: Thu, 14 Oct 2004 10:39:25 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <416E8B7F.9050401@pobox.com>
-References: <416BFD79.1010306@pobox.com>	<20041013.105243.511706221.takata.hirokazu@renesas.com>	<416C8E0B.4030409@pobox.com>	<20041013.121547.863739114.takata.hirokazu@renesas.com> <20041012223227.45a62301.akpm@osdl.org>
+Message-ID: <416E8F9D.7040300@pobox.com>
+References: <003e01c4b18b$0578cd70$6c10100a@S2IOtech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Hirokazu Takata <takata.hirokazu@renesas.com>, takata@linux-m32r.org,
-        linux-kernel@vger.kernel.org, paul.mundt@nokia.com, nico@cam.org,
-        netdev@oss.sgi.com
+Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
+        rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041012223227.45a62301.akpm@osdl.org>
+To: ravinandan.arakali@s2io.com
+In-Reply-To: <003e01c4b18b$0578cd70$6c10100a@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> smc91x-revert-11923358-m32r-modify-drivers-net-smc91xc.patch
-> smc91x-assorted-minor-cleanups.patch
-> smc91x-set-the-mac-addr-from-the-smc_enable-function.patch
-> smc91x-fold-smc_setmulticast-into-smc_set_multicast_list.patch
-> smc91x-simplify-register-bank-usage.patch
-> smc91x-move-tx-processing-out-of-irq-context-entirely.patch
-> smc91x-use-a-work-queue-to-reconfigure-the-phy-from.patch
-> smc91x-fix-possible-leak-of-the-skb-waiting-for-mem.patch
-> smc91x-display-pertinent-register-values-from-the.patch
-> smc91x-straighten-smp-locking.patch
-> smc91x-cosmetics.patch
-> m32r-trivial-fix-of-smc91xh.patch
-> smc91x-fix-smp-lock-usage.patch
-> smc91x-more-smp-locking-fixes.patch
-> smc91x-fix-compilation-with-dma-on-pxa2xx.patch
-> smc91x-receives-two-bytes-too-many.patch
-> smc91x-release-on-chip-rx-packet-memory-asap.patch
+Ravinandan Arakali wrote:
+> Hi All,
+> This is the first patch in the 8 part series. I'll be sending
+> the remaining immediately following this patch.
+
+OK this is MUCH improved, thanks much.
+
+There is one final problem with your patches:  your email program 
+(Outlook, it appears?) is mangling patches, preventing them from being 
+applied by a script that looks directly at the email.  Example from the 
+first few lines of your first patch:
+> --- vanilla-linux/drivers/net/s2io.c	2004-10-06 11:31:09.552305224 -0700
+> +++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-06 13:03:08.087360376 -0700
+> @@ -69,7 +69,7 @@
+> =20
+>  /* S2io Driver name & version. */
+>  static char s2io_driver_name[] =3D "s2io";
+> -static char s2io_driver_version[] =3D "Version 1.0";
+> +static char s2io_driver_version[] =3D "Version 1.7.5.1";
+> =20
+>  #define LINK_IS_UP(val64) (!(val64 & (ADAPTER_STATUS_RMAC_REMOTE_FAULT =
+> | \
+>  				      ADAPTER_STATUS_RMAC_LOCAL_FAULT)))
+> @@ -99,45 +99,45 @@
+>  };
+> =20
+>  static char ethtool_stats_keys[][ETH_GSTRING_LEN] =3D {
+
+
+Now we move on the content portion of the review :)
+
+> This first patch contains cosmetic changes such as indentation, 
+> change in comment styles, variable name changes etc.
 > 
-> I'll unload all those onto Jeff...
+> Randy, we'll implement your comment about C99 syntax along with
+> all the other comments received, in the next submission.
+> 
+> Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
+
+Patch 1 comments:
+
+1) undescribed non-cosmetic change:
+
+> @@ -1240,82 +1290,72 @@
+>          * force link down. Since link is already up, we will get
+>          * link state change interrupt after this reset
+>          */
+> -       writeq(0x8007051500000000ULL, &bar0->dtx_control);
+> +       writeq(0x80010515001E0000ULL, &bar0->dtx_control);
+>         val64 = readq(&bar0->dtx_control);
+> -       writeq(0x80070515000000E0ULL, &bar0->dtx_control);
+> +       udelay(50);
+> +       writeq(0x80010515001E00E0ULL, &bar0->dtx_control);
+>         val64 = readq(&bar0->dtx_control);
+> +       udelay(50);
+>         writeq(0x80070515001F00E4ULL, &bar0->dtx_control);
+>         val64 = readq(&bar0->dtx_control);
+> +       udelay(50);
+>  
+>         return SUCCESS;
+
+Resolution:  describe change in patch description, or move change to 
+another patch
 
 
-I'll wait for these patches, and drop other smc91x patches...
+2) undescribed non-cosmetic change:
 
-	Jeff
+>  #ifdef CONFIG_S2IO_NAPI
+>         dev->poll = s2io_poll;
+> -       dev->weight = 128;      /* For now. */
+> +       dev->weight = 90;       /* For now. */
+>  #endif
+
+Resolution:  describe change in patch description, or move change to 
+another patch
+
+3) non-cosmetic change, that should not be present in upstream sources:
+
+> +#ifdef SET_ETHTOOL_OPS
+>         SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+> -
+> +#endif
+
+Compatibility defines should be kept in an external package, to keep the 
+kernel source relatively clean.  There exist compatibility packages such 
+as "kcompat" (http://sf.net/projects/gkernel/) that allow you to develop 
+a driver using the current kernel API, and then add the needed compat 
+definitions in a separate module.
+
+Resolution:  remove #ifdef
+
+4) non-cosmetic change, that should not be present in upstream sources:
+
+> +#ifndef SET_ETHTOOL_OPS
+> +#define SUPPORTED_10000baseT_Full (1 << 12)
+> +#endif
+
+Resolution:  remove all three lines I quoted
+
+5) don't add this #ifdef either:
+
+> +#ifdef SET_ETHTOOL_OPS
+>  static struct ethtool_ops netdev_ethtool_ops;
+> +#endif
+
+
+
+
+More comments follow in upcoming emails.
