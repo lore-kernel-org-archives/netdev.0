@@ -1,27 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (2/3) tcp - diagnostics enhancement for westwood
-Date: Mon, 27 Sep 2004 14:16:55 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Set truesize in pskb_expand_head
+Date: Tue, 28 Sep 2004 07:29:53 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927141655.5e53ca7a.davem@redhat.com>
-References: <20040927112118.4c376303@zqx3.pdx.osdl.net>
-	<20040927121746.7ab592d5.davem@redhat.com>
-	<20040927132418.509c689b@zqx3.pdx.osdl.net>
+Message-ID: <20040927212953.GB7243@gondor.apana.org.au>
+References: <20040924232053.GA7807@gondor.apana.org.au> <20040924163328.7597352c.davem@davemloft.net> <20040924233555.GA7962@gondor.apana.org.au> <20040924233713.GA8001@gondor.apana.org.au> <20040924164540.2d750572.davem@davemloft.net> <20040925000503.GA10873@gondor.apana.org.au> <20040927122700.4696e416.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: joe@Perches.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040927132418.509c689b@zqx3.pdx.osdl.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040927122700.4696e416.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Sep 2004 13:24:18 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Mon, Sep 27, 2004 at 12:27:00PM -0700, David S. Miller wrote:
+> 
+> Ok.. idea wise.  But, why are you subtracting 'delta' from
+> skb->truesize?  That's the amount actually used not the
+> amount trimmed by pskb_expand_head().
 
-> Joe's suggestion, put jiffies_to_usecs in time.h and make it smarter
-> about HZ values math.
-
-Works for me.
-
-Applied, thanks Stephen/Joe.
+delta = skb->end - skb->tail which is the amount we want to trim.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
