@@ -1,49 +1,68 @@
 From: Julian Anastasov <ja@ssi.bg>
-Subject: RE: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Thu, 11 Dec 2003 02:17:19 +0200 (EET)
+Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
+Date: Thu, 11 Dec 2003 02:34:51 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0312110207290.1519-100000@u.domain.uli>
-References: <7E713DB94F47914DB5AAB80DE8EEA87501539908@fmsmsx410.fm.intel.com>
+Message-ID: <Pine.LNX.4.44.0312110219210.1519-100000@u.domain.uli>
+References: <20031210160946.4110c611.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <niv@us.ibm.com>, <ak@suse.de>,
-        <ruddk@us.ibm.com>, <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>
+Cc: niv@us.ibm.com, <ak@suse.de>, <ruddk@us.ibm.com>, <kuznet@ms2.inr.ac.ru>,
+        <netdev@oss.sgi.com>, <chester.f.johnson@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Johnson, Chester F" <chester.f.johnson@intel.com>
-In-Reply-To: <7E713DB94F47914DB5AAB80DE8EEA87501539908@fmsmsx410.fm.intel.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031210160946.4110c611.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 	Hello,
 
-On Wed, 10 Dec 2003, Johnson, Chester F wrote:
+On Wed, 10 Dec 2003, David S. Miller wrote:
 
-> I'm trying to think through one potential issue with ignoring the TOS
-> field. Would/should a route redirect have to match the same src-dst-tos
-> hash?
-
-	It will surely match as before, as long as you do not
-change the sysctl var to ignore the TOS.
-
-> 1. Assume the network uses DSCP to make routing decisions.
-> 2. Assume the first hop routers are configured as passive and do not
-> advertise routes to the supported subnets and presumes static routes
-> configured on end hosts.
-> 3. The Linux host has multiple network interfaces for route diversity.
+> On Thu, 11 Dec 2003 02:06:09 +0200 (EET)
+> Julian Anastasov <ja@ssi.bg> wrote:
 >
-> The preferred route may send the frame to the wrong router and then
-> ignore the icmp route redirect. Or would it?
+> > But the common average chain length for full table is 16 and the
+> > different TOS values are usually 1 or 2 per path. We do not talk
+> > about intentional DoS.
+>
+> Your system has not configured it's rthash table size properly, see
+> recent discussions Robert has been making here.  You should have
+> rthash sized somewhere near the number of entries a full system
+> will have.
+>
+> But regardless, let us say that your system has complexity O(16)
+> lookups as you mention, your proposal changes this to O(16+8).
 
-	That is why I prefer 3 states, we will be able to route by
-TOS (it will not be ignored for routing and cache) but still to
-ignore TOS for PMTUD. I think, we need one proc entry that will
-alter 2 int variables: whether TOS is ignored for PMTU and another
-for the routing TOS mask. As we see, if we ignore TOS and OIF
-for PMTU, all possible paths (including different TOS and OIF
-values) between SADDR and DADDR will have same PMTU and we can
-not solve this problem, we have to update PMTU for all these
-entries.
+	It is ~16 :)
+
+	ip_rt_max_size = (rt_hash_mask + 1) * 16;
+
+	This is what happens on full table, of course. OK,
+some simple numbers for an ideal table:
+
+- full table with 1024 chains, 16384 (max_size) entries equally
+distributed in these 1024 chains, 16 per chain.
+
+- there are 2048 paths with same saddr->daddr, each has 8 TOS values
+
+2 cases depending on whether TOS is a hash key (path=saddr->daddr):
+
+1. TOS is a hash key:
+
+	- in each chain we have 16 paths, 1 TOS value per path
+	- all 8 TOS values for a path are in 8 different chains
+
+2. TOS is not a hash key:
+
+	2 paths per chain (2 paths x 8 TOS values => 16 entries)
+
+if all saddr->daddr->tos streams have same packet rate I think
+the CPU time to lookup them will be same.
+This is because 8 (number of TOS values) < 16 (chain length).
+
+	And I hope the users always can tune the proposed TOS
+settings if they see DoS and if they do not need TOS as a rt key.
 
 Regards
 
