@@ -1,128 +1,101 @@
-From: Johannes Erdfelt <johannes@erdfelt.com>
-Subject: [RFC] tulip VLAN support
-Date: Wed, 5 Jan 2005 11:34:25 -0800
-Message-ID: <20050105193425.GY18847@sventech.com>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Open hardware wireless cards
+Date: Wed, 5 Jan 2005 15:05:26 -0500
+Message-ID: <20050105200526.GL5159@ruslug.rutgers.edu>
+References: <20050105192447.GJ5159@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============2024586875=="
+Cc: Netdev <netdev@oss.sgi.com>,
+	Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: prism54-devel@prism54.org, prism54-users@prism54.org
+In-Reply-To: <20050105192447.GJ5159@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Mime-version: 1.0
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-I recently upgraded a system running a 2.4 kernel to a 2.6 based
-distribution (Fedora Core 2, 2.6.9-1.6_FC2 kernel) and ran into a
-problem using NFS. After spending some tracking it down, I found out it
-was an MTU problem and then remembered I had the same problem a couple
-of years ago with the 2.4 kernels I was running.
 
-The problem is that the tulip driver doesn't handle 802.1q tags
-correctly. Since the VLAN tagging adds 4 bytes to the beginning of the
-frame, this can cause frame sizes to be too large for the driver (chip?)
-and the packets get dropped.
+--===============2024586875==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="FN+gV9K+162wdwwF"
+Content-Disposition: inline
 
-I've taken the 2.4 patch I found (I forget who developed it, sorry) and
-ported it to the 2.6 driver. The patch is relative to the 2.6.9-1.6_FC2
-kernel for FC2, but I suspect it will apply to other kernels relatively
-cleanly.
 
-Before I rediff the patch against the BK tree and double check all of
-the tulip variants are updated correctly as well, is there any interest
-in accepting a patch like this?
+--FN+gV9K+162wdwwF
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The 2.4 patch worked for a couple of years for me with no problems and
-this 2.6 patch has worked for over a week now with no problems. However,
-I'm worried that there is a reason why a similar patch has not been
-applied already.
+On Wed, Jan 05, 2005 at 02:24:47PM -0500, Luis R. Rodriguez wrote:
+<-- snip -->
 
-JE
+> As far as support for the new chipsets goes -- sorry -- we won't be able
+> to support it as I don't think even Conexant has a final well tested
+> linux source base ready for 2.6. And even if we are given a source base
+> there is nothing we can do to get around the need for the closed-source=
+=20
+> softmac libs that it relies on. As much as I'd like to support it, I
+> don't want to get a headache to support something I cannot modify so I
+> won't be willing to support a half-opened driver as the atheros driver.
 
-diff -ur linux-2.6.9.orig/drivers/net/tulip/interrupt.c linux-2.6.9/drivers/net/tulip/interrupt.c
---- linux-2.6.9.orig/drivers/net/tulip/interrupt.c	2004-10-18 14:55:36.000000000 -0700
-+++ linux-2.6.9/drivers/net/tulip/interrupt.c	2004-12-30 15:23:51.085876693 -0800
-@@ -155,9 +155,9 @@
-                        if (--rx_work_limit < 0)
-                                goto not_done;
-  
--                       if ((status & 0x38008300) != 0x0300) {
--                               if ((status & 0x38000300) != 0x0300) {
--                                /* Ingore earlier buffers. */
-+                       if ((status & (0x38000000 | RxDescFatalErr | RxWholePkt)) != RxWholePkt) {
-+                               if ((status & (0x38000000 | RxWholePkt)) != RxWholePkt) {
-+                                /* Ignore earlier buffers. */
-                                        if ((status & 0xffff) != 0x7fff) {
-                                                if (tulip_debug > 1)
-                                                        printk(KERN_WARNING "%s: Oversized Ethernet frame "
-@@ -182,10 +182,10 @@
-                                struct sk_buff *skb;
-   
- #ifndef final_version
--                               if (pkt_len > 1518) {
-+                               if (pkt_len > 1522) {
-                                        printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
-                                               dev->name, pkt_len, pkt_len);
--                                       pkt_len = 1518;
-+                                       pkt_len = 1522;
-                                        tp->stats.rx_length_errors++;
-                                }
- #endif
-@@ -378,9 +378,9 @@
- 				   dev->name, entry, status);
- 		if (--rx_work_limit < 0)
- 			break;
--		if ((status & 0x38008300) != 0x0300) {
--			if ((status & 0x38000300) != 0x0300) {
--				/* Ingore earlier buffers. */
-+                if ((status & (0x38000000 | RxDescFatalErr | RxWholePkt)) != RxWholePkt) {
-+                        if ((status & (0x38000000 | RxWholePkt)) != RxWholePkt) {
-+				/* Ignore earlier buffers. */
- 				if ((status & 0xffff) != 0x7fff) {
- 					if (tulip_debug > 1)
- 						printk(KERN_WARNING "%s: Oversized Ethernet frame "
-@@ -405,10 +405,10 @@
- 			struct sk_buff *skb;
- 
- #ifndef final_version
--			if (pkt_len > 1518) {
-+			if (pkt_len > 1522) {
- 				printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
- 					   dev->name, pkt_len, pkt_len);
--				pkt_len = 1518;
-+				pkt_len = 1522;
- 				tp->stats.rx_length_errors++;
- 			}
- #endif
-diff -ur linux-2.6.9.orig/drivers/net/tulip/tulip.h linux-2.6.9/drivers/net/tulip/tulip.h
---- linux-2.6.9.orig/drivers/net/tulip/tulip.h	2004-10-18 14:55:21.000000000 -0700
-+++ linux-2.6.9/drivers/net/tulip/tulip.h	2004-12-30 15:20:21.432056171 -0800
-@@ -191,7 +191,7 @@
- 
- enum desc_status_bits {
- 	DescOwned = 0x80000000,
--	RxDescFatalErr = 0x8000,
-+	RxDescFatalErr = 0x4842,
- 	RxWholePkt = 0x0300,
- };
- 
-@@ -259,7 +259,7 @@
- #define RX_RING_SIZE	128 
- #define MEDIA_MASK     31
- 
--#define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer. */
-+#define PKT_BUF_SZ		1540	/* Size of each temporary Rx buffer. */
- 
- #define TULIP_MIN_CACHE_LINE	8	/* in units of 32-bit words */
- 
-diff -ur linux-2.6.9.orig/drivers/net/tulip/tulip_core.c linux-2.6.9/drivers/net/tulip/tulip_core.c
---- linux-2.6.9.orig/drivers/net/tulip/tulip_core.c	2004-10-18 14:54:32.000000000 -0700
-+++ linux-2.6.9/drivers/net/tulip/tulip_core.c	2004-12-30 15:19:42.424578510 -0800
-@@ -70,7 +70,7 @@
- #if defined(__alpha__) || defined(__arm__) || defined(__hppa__) \
- 	|| defined(__sparc_) || defined(__ia64__) \
- 	|| defined(__sh__) || defined(__mips__)
--static int rx_copybreak = 1518;
-+static int rx_copybreak = 1522;
- #else
- static int rx_copybreak = 100;
- #endif
+I'd also like to add...
+
+For those of you frustrated about our current wireless driver situation
+in open platforms --
+
+I think we probably will have this trouble with most modern hardware for a =
+while
+(graphics cards, wireless driver, etc). A lot of has to do with patent
+infringement issues, "intellectual property" protection, and other
+business-oriented excuses.
+
+What I think we probably will have to do is just work torwards seeing if
+we can come up with our own open wireless hardware. I know there was
+a recent thread on lkml about an open video card -- anyone know where
+that ended up?
+
+If we can't come up with our own project to work on open hardware we can
+also just see if its feasible to purchase hardware companies on the
+verge of going backrupt and buy them out and release the specs/etc (a la
+blender). Can someone do the math here? I'm lazy.
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--FN+gV9K+162wdwwF
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFB3EiGat1JN+IKUl4RAt6mAJ9gbrBRF/ua2WuCBHLQcrpy012SxQCgjAlq
+HLlowOyG5hYmToywmmfBsNA=
+=g6/K
+-----END PGP SIGNATURE-----
+
+--FN+gV9K+162wdwwF--
+
+--===============2024586875==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--===============2024586875==--
