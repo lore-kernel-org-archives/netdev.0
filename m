@@ -1,52 +1,39 @@
-From: Elvis =?iso-8859-1?q?Pf=FCtzenreuter?= <epx@altoriopreto.com.br>
-Subject: Problems with TCP + netem packet loss simulation
-Date: Thu, 11 Nov 2004 21:15:23 -0200
-Message-ID: <200411112115.23269.epx@altoriopreto.com.br>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6 PKT_SCHED]: Fix overflow on 64bit in times reported
+ to userspace by tc actions
+Date: Thu, 11 Nov 2004 15:03:14 -0800
+Message-ID: <20041111150314.576ce699.davem@davemloft.net>
+References: <41908D1D.50405@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41908D1D.50405@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 09 Nov 2004 10:25:49 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-I am experiencing a strange problem when I try to simulate a lossy channel 
-with netem scheduler module. Whatever the packet loss %, all TCP connections 
-eventually stall. 
+> This patch fixes on overflow in tc actions times reported to
+> userspace on 64 bit architectures. struct tcf_t only contains
+> 32-bit timestamps, but they are initialized to jiffies. When
+> jiffies is larger than 2^32-1 only the low 32 bit are saved,
+> and the diff between jiffies and the current timestamp becomes
+> very large. This happens immediately after boottime since jiffies
+> is initialized to 2^32-300. It was invisible until now because
+> only the lower 32bit were reported to userspace, but with the
+> USER_HZ conversion the reported times start somewhere around
+> 4294967s.
+> 
+> This patch extends the timestamps to 64bit. It breaks userspace
+> compatibility for actions, but considering that most of this is
+> not even in iproute yet this should be acceptable.
 
-The TCP connection exchange no packets after the stall (not even when the 
-process is killed), but PING to the other host flows normally, with the 
-expected loss rate.
+I agree, and since Jamal also ACK'd it, I've applied
+this patch.
 
-The first thing to be suspected would be my throughput testing application, 
-but other TCP connections (including ssh sessions) will stall too, more often 
-if the packet loss is high.
-
-I tried the kernels 2.6.9-rc4, 2.6.9, 2.6.10rc1 with the same results. Any 
-other netem function (delay, reordering [2.6.10rc1] etc.) does not stall the 
-TCP connection.
-
-I suspected a bug in TCP stack (SCTP connections stall for 1 second sometimes 
-but they recover and go on), but if I make packet loss with "nth" iptables 
-rule, the connection does not stall. I even tried to pull network cables, 
-turn off switch etc. to see if any "real" packet loss would stall TCP the 
-same way but it it didn't happen.  
-
-And, since I use packet loss-based techniques (tc ingress filter) to do QoS on 
-my ADSL, I would have been experiencing problems with TCP well before I tried 
-netem. So it seems to be some interation between TCP and netem. 
-
-I am using 2 machines in a local Ethernet network. I didn't try to put netem 
-in a third machine (that would be the router), to see if it improves 
-something. I am going to try this later. But if anyone is aware of the cause 
-of the problem I am experiencing, I'd like to hear of.
-
-Thanks
-
--- 
-Elvis
+Thanks.
