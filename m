@@ -1,39 +1,27 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Inaccuracies with SCH_CLK_CPU
-Date: 07 Aug 2004 14:54:49 -0400
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: [PATCH 2.6] vlan ioctl propagation (rev.2)
+Date: Sat, 7 Aug 2004 23:10:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1091904889.1041.21.camel@jzny.localdomain>
-References: <20040804094310.1d054b3a@dell_ss3.pdx.osdl.net>
-	 <41152301.5090405@trash.net>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040807211036.GA7970@outpost.ds9a.nl>
+References: <20040806091305.4d405664@dell_ss3.pdx.osdl.net> <20040806132145.675fd17d.davem@redhat.com> <20040806143928.711d92eb@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41152301.5090405@trash.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040806143928.711d92eb@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-08-07 at 14:44, Patrick McHardy wrote:
+On Fri, Aug 06, 2004 at 02:39:28PM -0700, Stephen Hemminger wrote:
+> Here is a redo of the patch to propagate ethtool and mii ioctl's
+> on vlan's to the underlying real device.  This time the request
+> is copied to a new buffer, to avoid the colon name rewrite issues.
 
-> sch_netem's interface is in us, but it doesn't convert the values to 
-> psched_us.
-> psched_us differ from us with CLK_CPU or CLK_JIFFIES for most values of HZ.
-> This patch fixes the problem, but the best solution is to change the 
-> interface and pass the time values as psched_us from userspace, as done with 
-> rate-tables and I think CBQ. 
+Is this really what we want? We also don't make virtual IPs appear as real
+interfaces anymore. Virtual devices are just that - virtual.
 
-Nice catch Patrick.
-While you are doing that Stephen, can you also compute the probability
-tables in user space? This allows me to take advantage of the schem
-later on when i convert gact action which has randomness built in.
-
-> I should have done this for HFSC too, but unlike for 
-> sch_netem, I think it's too late to change the interface.
-
-Maybe post 2.6?
-
-cheers,
-jamal
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
