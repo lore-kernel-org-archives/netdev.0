@@ -1,57 +1,50 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: Mon, 10 Jan 2005 22:17:47 +0100
-Message-ID: <20050110211747.GA26856@postel.suug.ch>
-References: <20050104223612.GN26856@postel.suug.ch> <1104894728.1117.56.camel@jzny.localdomain> <20050105110048.GO26856@postel.suug.ch> <1104931991.1117.152.camel@jzny.localdomain> <20050105144514.GQ26856@postel.suug.ch> <1105019225.2312.7.camel@jzny.localdomain> <20050106194102.GW26856@postel.suug.ch> <1105105511.1046.77.camel@jzny.localdomain> <20050108145457.GZ26856@postel.suug.ch> <1105363582.1041.162.camel@jzny.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH PKT_SCHED 0/22]: tc action cleanups
+Date: Mon, 10 Jan 2005 22:21:04 +0100
+Message-ID: <41E2F1C0.90505@trash.net>
+References: <41E2D97A.1060400@trash.net> <1105391297.1084.54.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Maillist netdev <netdev@oss.sgi.com>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1105363582.1041.162.camel@jzny.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1105391297.1084.54.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1105363582.1041.162.camel@jzny.localdomain> 2005-01-10 08:26
-> I think its _a hack_ Thomas ;-> Mostly because it has dependency on u32.
-> off2 doesnt exist on any other classifier and the basic ematch should be
-> usable by any classifier.
+jamal wrote:
 
-It does not, u32 does have a dependency on em_u32 but not vice versa.
-em_u32 is perfectly useful even without nexthdr functionality since
-this is the way it is used today in 90% of the cases and it should be
-a little bit faster than em_cmp but also a bit less powerful. On top
-of that, rsvp could provide this information as well so one could
-extend rsvp with em_u32 ematches. I think we should not think of it
-as being dependant on off2 but rather as it is able to use information
-from a underlying layer.
+>On Mon, 2005-01-10 at 14:37, Patrick McHardy wrote:
+>
+>>Hi Jamal,
+>>
+>>following are the reorganized tc action cleanup patches with some
+>>additional fixes. Please review and comment, I would like to ask
+>>Dave to pull them in soon so I don't get more clashes.
+>>
+>>
+>
+>Other than the ipt breakage fix - Is there anything new since our last
+>discussion that you want me to pay attention to? 
+>Sorry dont have the cycles to pay close attention today. Will do
+>tommorow. 
+>
 
-> Why not just have a check to see if it is native match then not to call
-> up any ematch executing code. Have the native match maybe be of kind 0.
-> Have the return code for ematch lookup return something that indicates
-> that you need to match using local u32 instead of ematch.
+There are a couple of new things, more noteable more action init fixes,
+but nothing that needs special attention.
 
-This limits the number of native ematches to 1 or any other reserved
-number and complicates userspace part for no reason. Is there any
-advantage besides that it fits into layerrs more nicely? I can
-tell you the disavantages and then we can compare ;->
+>You seem to also have touched some police code this time (I suppose the
+>LinuxWay payoff time is here).So, if you want me to pay close attention
+>to specific items i will; otherwise i would suggest that Dave sucks them
+>in, then we can resolve things later.
+>
+The police fixes are basically the same as for the other actions.
+Some more review can't hurt, but I think we can put them in now.
 
- - additional code is required in the classifier which would not
-   be required otherwise.
- - given we define 0 as native ematch, what happens if we need
-   another native one? reserve a number in the namespace and
-   make a comment, "please do not use" or will we just say,
-   well, we can make it a regular ematch, it's not perfectly clean
-   but it works perfectly fine?
- - making it a little bit generic such as em_u32 makes it useable
-   by other classifiers. One example is the above mentioned
-   rsvp which parses headers or there might be other specialized
-   classifiers having use for it. we can't have this if its put
-   into the classifier itself.
- - userspace needs additional special handling and this will
-   get ugly once we need more than 1 native ematch, we'd need
-   some register api so ematch modules could tell which numbers
-   are native for them.
- - did i state it's more work already? ;->
+Dave, please pull in the changes from bk://212.42.230.204/net-2.6-sched
+
+Regards
+Patrick
