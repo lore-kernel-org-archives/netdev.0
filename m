@@ -1,39 +1,28 @@
-From: Mike_Phillips@URSCorp.com
+From: "Randy.Dunlap" <rddunlap@osdl.org>
 Subject: Re: [PATCH] ibmtr: fix init (devinit) section usage
-Date: Wed, 4 Aug 2004 14:20:31 -0400
+Date: Wed, 4 Aug 2004 12:21:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF5BF82238.ABA1EE0F-ON85256EE6.0064AACC-85256EE6.0064C0D5@urscorp.com>
+Message-ID: <20040804122157.67389b90.rddunlap@osdl.org>
 References: <20040804094905.667b3954.rddunlap@osdl.org>
+	<OF5BF82238.ABA1EE0F-ON85256EE6.0064AACC-85256EE6.0064C0D5@urscorp.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="=_alternative 0064BDAF85256EE6_="
-Cc: jgarzik <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>,
-        netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040804094905.667b3954.rddunlap@osdl.org>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
+To: Mike_Phillips@URSCorp.com
+In-Reply-To: <OF5BF82238.ABA1EE0F-ON85256EE6.0064AACC-85256EE6.0064C0D5@urscorp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multipart message in MIME format.
---=_alternative 0064BDAF85256EE6_=
-Content-Type: text/plain; charset="US-ASCII"
+On Wed, 4 Aug 2004 14:20:31 -0400 Mike_Phillips@URSCorp.com wrote:
 
-Randy:
+| Randy:
+| 
+| Does ibmtr_cs still compile with those changes ? It links in ibmtr.c and 
+| the probe functions. 
 
-Does ibmtr_cs still compile with those changes ? It links in ibmtr.c and 
-the probe functions. 
+Oh.  I'll check and let you know...
 
-Mike
-
---=_alternative 0064BDAF85256EE6_=
-Content-Type: text/html; charset="US-ASCII"
-
-
-<br><font size=2 face="sans-serif">Randy:</font>
-<br>
-<br><font size=2 face="sans-serif">Does ibmtr_cs still compile with those
-changes ? It links in ibmtr.c and the probe functions. </font>
-<br>
-<br><font size=2 face="sans-serif">Mike</font>
-<br>
---=_alternative 0064BDAF85256EE6_=--
+--
+~Randy
