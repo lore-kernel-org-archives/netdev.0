@@ -1,43 +1,22 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: Re: [PATCH] pkt_cls.h incompatiables
-Date: 24 Jul 2004 08:16:39 -0400
+From: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+Subject: ICMP breaks TCP connection
+Date: Sat, 24 Jul 2004 15:08:19 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1090671399.1160.0.camel@jzny.localdomain>
-References: <1090612669.1218.47.camel@jzny.localdomain>
-	 <20040723135945.7f50b02c.davem@redhat.com>
-	 <1090630154.1134.6.camel@jzny.localdomain>
-	 <20040723.214240.76745170.yoshfuji@linux-ipv6.org>
-Reply-To: hadi@znyx.com
+Message-ID: <Pine.LNX.4.58.0407241503470.27814@artax.karlin.mff.cuni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@redhat.com>, shemminger@osdl.org,
-        arekm@pld-linux.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040723.214240.76745170.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-07-23 at 21:42, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
-=B1=E6=98=8E wrote:
-> In article <1090630154.1134.6.camel@jzny.localdomain> (at 23 Jul 2004 2=
-0:49:15 -0400), Jamal Hadi Salim <hadi@znyx.com> says:
->=20
-> > I will take care of it next week when i get back.=20
-> > If 2.6.8 is coming out before end of next week, i would suggest undoi=
-ng
-> > Stephens patch.
->=20
-> I've talked about this with Jamal.
->=20
-> I believe it is very important to maintain th original (or=20
-> traditional) ABI, which has been used in -2.6.7(?).
->=20
-> So, I'd rather say, let's remove (or disable) whole thing=20
-> until we find the way to avoid breaking ABIs.
+Hi
 
-Just back out Stephens patch for now until i get back.
+I found that Linux 2.2.16 and 2.4.25 break tcp connection (with no route
+to host error) after first attempt when received ICMP packet with type 3
+and code 1 (ICMP_UNREACH_HOST).
 
-cheers,
-jamal
+RFC1122, section 3.2.2.1 says, that the message MUST be interpreted as
+hint, not proof of unreachable machine.
+
+Mikulas
