@@ -1,33 +1,62 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] ref count bug in MLDv2
-Date: Wed, 12 Nov 2003 17:58:26 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] 2.5.x net driver fixes
+Date: Wed, 12 Nov 2003 20:37:15 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031112175826.13850359.davem@redhat.com>
-References: <OF9FB7F6ED.3B4FEB1E-ON88256DDD.0002886E@us.ibm.com>
-	<Pine.LNX.4.44.0311121630100.1794-100000@linux.local>
+Message-ID: <20031113013715.GA10734@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: krkumar@us.ibm.com, netdev@oss.sgi.com, dlstevens@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <krkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0311121630100.1794-100000@linux.local>
+To: torvalds@osdl.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Nov 2003 16:56:20 -0800 (PST)
-Krishna Kumar <krkumar@us.ibm.com> wrote:
 
-> Dave Stevens and I  found this problem when the device is going down,
-> mc_destroy_dev() calls igmp6_group_dropped which checks for IFF_UP before
-> calling mld_add_delrec and posting a timer.
-> 
-> IFF_UP need not be set though the device is going down (eg last address
-> deletion). So timer can get started at this time. The problem is that
-> when the timer fires (after ifdown is over) for the last time
-> (mld_ifc_timer_expire), it does a __in6_dev_put() and that will not free
-> up the idev.
-> 
-> To fix that that the check must be for idev->dead instead.
+Linus, please do a
 
-Applied, thanks a lot Krishna.
+	bk pull bk://gkernel.bkbits.net/net-drivers-2.5
+
+This will update the following files:
+
+ drivers/net/tg3.c         |    2 +-
+ drivers/net/tulip/de4x5.c |    2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+through these ChangeSets:
+
+<shemminger@osdl.org> (03/11/12 1.1414.3.4)
+   [netdrvr de4x5] NE54-de4x5 - fix missing free on error path - found by viro
+
+<herbert@gondor.apana.org.au> (03/11/12 1.1414.3.3)
+   [netdrvr tg3] initialize workqueue correctly
+   
+   (fixes crash)
+
+
+
+
+diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
+--- a/drivers/net/tg3.c	Wed Nov 12 20:34:35 2003
++++ b/drivers/net/tg3.c	Wed Nov 12 20:34:35 2003
+@@ -7605,7 +7605,7 @@
+ 	spin_lock_init(&tp->lock);
+ 	spin_lock_init(&tp->tx_lock);
+ 	spin_lock_init(&tp->indirect_lock);
+-	PREPARE_WORK(&tp->reset_task, tg3_reset_task, tp);
++	INIT_WORK(&tp->reset_task, tg3_reset_task, tp);
+ 
+ 	tp->regs = (unsigned long) ioremap(tg3reg_base, tg3reg_len);
+ 	if (tp->regs == 0UL) {
+diff -Nru a/drivers/net/tulip/de4x5.c b/drivers/net/tulip/de4x5.c
+--- a/drivers/net/tulip/de4x5.c	Wed Nov 12 20:34:35 2003
++++ b/drivers/net/tulip/de4x5.c	Wed Nov 12 20:34:35 2003
+@@ -1237,6 +1237,8 @@
+ 	if (lp->useSROM) {
+ 	    lp->state = INITIALISED;
+ 	    if (srom_infoleaf_info(dev)) {
++	        dma_free_coherent (gendev, lp->dma_size,
++			       lp->rx_ring, lp->dma_rings);
+ 		return -ENXIO;
+ 	    }
+ 	    srom_init(dev);
