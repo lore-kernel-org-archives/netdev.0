@@ -1,42 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Sat, 12 Feb 2005 11:41:32 -0800
-Message-ID: <20050212114132.5f7b7ffe.davem@davemloft.net>
-References: <0525M9211@server5.heliogroup.fr>
-	<20050211150420.74737b2e@dxpl.pdx.osdl.net>
-	<20050211170740.2608419b.davem@davemloft.net>
-	<20050212141641.GA27456@yakov.inr.ac.ru>
+From: "Leonid Grossman" <leonid.grossman@neterion.com>
+Subject: RE: 2.6.10 TCP troubles -- suggested patch
+Date: Sat, 12 Feb 2005 11:44:45 -0800
+Message-ID: <200502121945.j1CJjWDD016296@guinness.s2io.com>
+References: <20050212112811.13a0b97d.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, hubert.tonneau@fullpliant.org, romieu@fr.zoreil.com,
-        kuznet@ms2.inr.ac.ru, niv@us.ibm.com, rick.jones2@hp.com,
-        netdev@oss.sgi.com
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20050212141641.GA27456@yakov.inr.ac.ru>
+Cc: <rick.jones2@hp.com>, <hubert.tonneau@fullpliant.org>,
+        <shemminger@osdl.org>, <romieu@fr.zoreil.com>, <kuznet@ms2.inr.ac.ru>,
+        <netdev@oss.sgi.com>
+To: "'David S. Miller'" <davem@davemloft.net>,
+        "'Alexey Kuznetsov'" <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20050212112811.13a0b97d.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 12 Feb 2005 17:16:41 +0300
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+Typically, a TSO engine sets PSH in the last packet that it builds for the
+TSO+PSH request.
+Leonid
 
-> > This set of data frames you quoted are all full, and
-> > are tightly interspaced.  It looks exactly like a TSO
-> > frame, which we certainly set PSH on, but the TSO
-> > engine is dropping it aparently.
- ...
-> Or it was two one-segment frames.
-
-Even ignoring my TSO changes, we should be seeing at a minimum
-1/2 window PSH settings which we're not as far as I can tell.
-(this is due to the forced_push() test in net/ipv4/tcp.c)
-
-This also points out a bug in my TSO PSH patch, I should be
-updating tp->pushed_seq shouldn't I?  Question is, what to
-set it to?  I think correct value is TCP_SKB_CB(skb)->end_seq.
-
-> I.e. let's disable TSO in 2.6.9 and look.
-
-I believe this experiment had been performed already.  Stephen,
-isn't that the case?
+> -----Original Message-----
+> From: netdev-bounce@oss.sgi.com 
+> [mailto:netdev-bounce@oss.sgi.com] On Behalf Of David S. Miller
+> Sent: Saturday, February 12, 2005 11:28 AM
+> To: Alexey Kuznetsov
+> Cc: rick.jones2@hp.com; hubert.tonneau@fullpliant.org; 
+> shemminger@osdl.org; romieu@fr.zoreil.com; 
+> kuznet@ms2.inr.ac.ru; netdev@oss.sgi.com
+> Subject: Re: 2.6.10 TCP troubles -- suggested patch
+> 
+> On Sat, 12 Feb 2005 17:31:05 +0300
+> Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+> 
+> > In any case, receiver cannot know sender cwnd, so that 
+> "fill" or "not fill"
+> > is is not a question.
+> >
+> > What is broken in that implementation is that it does not 
+> feel slow start.
+> > ACK avoidance while slow start is certain disaster. 
+> Currrent theory is 
+> > that MacOS X thinks that we do not do slow start.
+> 
+> It is correct.  Although, I am still believing that setting 
+> PSH is the avenue of investigation.
+> 
+> 
