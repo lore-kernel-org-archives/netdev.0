@@ -1,41 +1,40 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
-Date: 07 Dec 2004 23:27:25 -0500
-Message-ID: <1102480044.1050.9.camel@jzny.localdomain>
-References: <1102380430.6103.6.camel@buffy>
-	 <20041206224441.628e7885.akpm@osdl.org>
-	 <1102422544.1088.98.camel@jzny.localdomain> <41B5E188.5050800@trash.net>
-	 <20041207170748.GF1371@postel.suug.ch>  <41B5E722.2080600@trash.net>
+Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
+Date: 07 Dec 2004 23:31:58 -0500
+Message-ID: <1102480318.1050.16.camel@jzny.localdomain>
+References: <20041206205305.GA11970@soohrt.org>
+	 <20041207211035.GA20286@quickstop.soohrt.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Andrew Morton <akpm@osdl.org>,
-	Thomas Cataldo <tomc@compaqnet.fr>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261787AbULHE1f@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41B5E722.2080600@trash.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@davemloft.net>,
+        Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Karsten Desler <kdesler@soohrt.org>
+In-Reply-To: <20041207211035.GA20286@quickstop.soohrt.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-12-07 at 12:23, Patrick McHardy wrote:
+On Tue, 2004-12-07 at 16:10, Karsten Desler wrote:
+> Karsten Desler <kdesler@soohrt.org> wrote:
+> > Current packetload on eth0 (and reversed on eth1):
+> >   115kpps tx
+> >   135kpps rx
+> 
+> I totally forgot to mention: There are approximately 100k concurrent
+> flows.
 
-> Either one is fine with me, although I would prefer to see
-> the number of ifdefs in this area going down, not up :)
-
-You guys pick one or other or a mix. I run 4 base testcases for the
-policer typically:
-
-1) Old kernel, uptodate TC - MUST pass
-2) old kernel, old tc (trivial - expected to pass).
-3) New Kernel, uptodate TC - MUST pass
-4) New Kernel, uptodate TC - MUST pass (although trivial)
-
-Try both setting, dumping then deleting policies.
-
-If these tests pass, please push patch to Dave. 
+;-> Aha. That would make a huge difference. I know of noone
+who has actually done this level of testing. I have tried upto about 50K
+flows myself in early 2.6.x and was eventually compute bound.
+Really try compiling out totaly iptables/netfilter - it will make a
+difference.
+You may also want to try something like LC trie algorithm that Robert
+and co are playing with to see if it makes a difference with this many
+flows. 
 
 cheers,
 jamal
