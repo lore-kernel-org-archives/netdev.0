@@ -1,61 +1,39 @@
-From: "Auto-reply from chrris@mail.dk" <chrris@mail.dk>
-Subject: Re: Thank you!
-Date: Fri, 29 Aug 2003 14:41:28 +0200
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: forcing bottom half to a specific processor on numa
+Date: Fri, 29 Aug 2003 11:49:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829124128.DUWC24095.fepZ.post.tele.dk@fepZ>
-References: <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
-		Boundary="===========================_ _= 7276611(24095)1062160888"
+Message-ID: <200308291549.h7TFngl5014364@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-In-Reply-To: <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+for my network card (its an atm card but that really doesnt matter in
+this case since the work done is fundamentally very similar) on a numa
+machine i would prefer that the bottom half processing happen on
+a processor that is 'local' (or atleast closer) to the card.  primarily,
+so that any copies to/from the card and buffers that might allocated
+be given to card come from the memory on the processor to prevent
+undo traffic on the machine's interconnect.  my particular h/w is the
+sn2.  i do something like the following to force the tasklet be 
+scheduled on the 'local' processor:
 
---===========================_ _= 7276611(24095)1062160888
-Content-Type: text/plain; charset=us-ascii
+	...
+	he_dev->cnode = nasid_to_cnodeid(NASID_GET(he_dev->membase));
+	...
 
+__tasklet_schedule(void *data)
+{
+        struct he_dev *he_dev = (struct he_dev *) data;
+        tasklet_schedule(&he_dev->tasklet);
+}
 
-Hej, dette er et automatisk svar. 
-Send venligst din mail til min nye adresse christian@rishoj.net i stedet.
+he_irq_handler()
+{
+...
+	smp_call_function_single(he_dev->cnode, __tasklet_schedule, he_dev, 0, 0);
+...
+}
 
-Hello, this is an automatic reply. 
-Please send your mail to my new address christian@rishoj.net instead.
-
-Christian
-
---===========================_ _= 7276611(24095)1062160888
-Content-Type: message/rfc822
-
-Received: from TESTSTAR ([203.125.33.211]) by fepZ.post.tele.dk
-          (InterMail vM.5.01.06.04 201-253-122-130-104-20030726) with ESMTP
-          id <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
-          for <chrris@mail.dk>; Fri, 29 Aug 2003 14:41:28 +0200
-From: <netdev@oss.sgi.com>
-To: <chrris@mail.dk>
-Subject: Re: Thank you!
-Date: Fri, 29 Aug 2003 20:42:14 +0800
-X-MailScanner: Found to be clean
-Importance: Normal
-X-Mailer: Microsoft Outlook Express 6.00.2600.0000
-X-MSMail-Priority: Normal
-X-Priority: 3 (Normal)
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_NextPart_000_00F7F6F1"
-Message-Id: <20030829124128.DUWA24095.fepZ.post.tele.dk@TESTSTAR>
-
-This is a multipart message in MIME format
-
---_NextPart_000_00F7F6F1
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-
-Please see the attached file for details.
---_NextPart_000_00F7F6F1--
-
-
---===========================_ _= 7276611(24095)1062160888--
+is there a reason i shouldnt do this?  is there a better way?
