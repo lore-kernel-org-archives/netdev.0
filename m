@@ -1,8 +1,8 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC, PATCH 3/5]: netfilter+ipsec - input hooks
-Date: Fri, 19 Mar 2004 22:07:19 +1100
+Date: Fri, 19 Mar 2004 22:46:44 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040319110719.GB29066@gondor.apana.org.au>
+Message-ID: <20040319114644.GC29066@gondor.apana.org.au>
 References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF0E.3050708@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -31,7 +31,18 @@ On Thu, Mar 18, 2004 at 05:32:14PM +0100, Patrick McHardy wrote:
 > +			if (nf_postxfrm_input(skb))
 > +				goto out;
 
-Need to check ipprot != NULL here.
+Just an idea: what if we reinject the packet just as we do in tunnel mode?
+
+> @@ -346,6 +351,10 @@
+>  		}
+>  	}
+>  
+> +	if (skb->sp && !(((struct rtable *)skb->dst)->rt_flags&RTCF_LOCAL))
+> +		if (nf_postxfrm_nonlocal(skb))
+> +			goto drop;
+> +
+
+What if the PRE_ROUTING turns it into a local address again?
 -- 
 Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
 Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
