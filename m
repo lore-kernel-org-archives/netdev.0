@@ -1,50 +1,55 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating  master'ssettings toslaves
-Date: Tue, 12 Aug 2003 17:03:15 +0300
+From: SZALAY Attila <sasa@balabit.hu>
+Subject: Re: Problem with __check_and_rekey
+Date: Tue, 12 Aug 2003 16:05:16 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308121703.15567.shmulik.hen@intel.com>
-References: <E791C176A6139242A988ABA8B3D9B38A0251E69F@hasmsx403.iil.intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <20030812140516.GA27237@mochrul.balabit>
+References: <20030812132050.GA27178@mochrul.balabit> <20030812.225527.35784879.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <laurent.deniel@thalesatm.com>, <jgarzik@pobox.com>,
-   <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: sasa@balabit.hu, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, <hadi@cyberus.ca>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A0251E69F@hasmsx403.iil.intel.com>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20030812.225527.35784879.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 12 August 2003 04:08 pm, David S. Miller wrote:
+Hi ALl!
 
-> Policy belongs strictly at user space.
 
-Regarding bonding, what policies are we talking about ?
-run-time ?  config time ?  both ?  other ?
-Our current aim is config time only.
+On 2003 Aug 12, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> In article <20030812132050.GA27178@mochrul.balabit> (at Tue, 12 Aug 200=
+3 15:20:50 +0200), SZALAY Attila <sasa@balabit.hu> says:
+>=20
+> But anyway, I can't find these lines in linux-2.4.21 (or even in 2.6.x).
+> Are you sure you're working on the vanilla kernel?
 
-> One of the great things about what Jamal spends his time working
-> on is finally a strict seperation of the control layer from
-> everything else.  And part of this is moving all of the control
-> logic into userspace. Once that is accomplished, I can have my
-> toilet flush every time a TCP packet is routed through my system
-> and this won't crap up the kernel.
+Sorry, no.
 
-What scope are we talking about here ?
-2.4 ?  2.6 ?  2.7 ?  other ?
-Our current aim is 2.4 and 2.6.
+The patch in vanilla kernel:
 
-Taking into account the two statements I made above:
-Do you think that what we're doing right now might interfere with what 
-Jamal is suggesting ?
-Wouldn't it be possible to do things the old way first and than 
-convert everything to the new way ?
-Shouldn't all this be a part of a totally new project like "bonding2"
+--- tcp_ipv4.c~ Tue Aug 12 16:01:31 2003
++++ tcp_ipv4.c  Tue Aug 12 16:03:35 2003
+@@ -843,9 +843,12 @@
+        if (err)
+                goto failure;
+=20
+-       if (!tp->write_seq)
++       if (!tp->write_seq) {
++               local_bh_disable();
+                tp->write_seq =3D secure_tcp_sequence_number(sk->saddr, s=
+k->daddr,
+                                                           sk->sport, usi=
+n->sin_port);
++               local_bh_enable();
++       }
+=20
+        sk->protinfo.af_inet.id =3D tp->write_seq^jiffies;
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+
+
+--=20
+Szalay Attila                     BalaBit IT Biztons=E1gtechnikai Kft.
+tel:(36-1)-371-05-40              1116 Bp. Csurgoi ut 20/b
+fax:(36-1)-208-08-75              http://www.balabit.hu/
