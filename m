@@ -1,100 +1,61 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.6-rc net driver fixes
-Date: Sat, 24 Jan 2004 16:21:59 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Compile Error with r8169.c
+Date: Sat, 24 Jan 2004 22:21:28 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124212159.GA25401@gtf.org>
+Message-ID: <20040124222128.B2069@electric-eye.fr.zoreil.com>
+References: <Pine.LNX.4.58.0401241222570.19565@duron.home> <20040124214009.A2069@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0401241248050.19622@duron.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org, torvalds@osdl.org
+To: Christoph Lameter <christoph@lameter.com>
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0401241248050.19622@duron.home>; from christoph@lameter.com on Sat, Jan 24, 2004 at 12:49:16PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Christoph Lameter <christoph@lameter.com> :
+[2.6.2-rc1 expected]
+> 2.6.2-rc1
 
-Please do a
+(shitstorm in sight, level 9...)
 
-	bk pull bk://gkernel.bkbits.net/net-drivers-2.5
+[...]
+> 2.6.2-rc1 right?
 
-This will update the following files:
+Yes (...level 10).
 
- drivers/net/8139cp.c          |   12 ++++++++++--
- drivers/net/tulip/xircom_cb.c |    5 +++++
- 2 files changed, 15 insertions(+), 2 deletions(-)
+[.config]
 
-through these ChangeSets:
+No problem here for 'make drivers/net/r8169.o' with this .config at any
+stage of patching.
 
-<shemminger@osdl.org> (04/01/24 1.1512)
-   [PATCH] Make xircom cardbus handle shared irq
-   
-   Current driver doesn't do shared irq properly.  When testing on
-   a laptop here irq 3 get shared between pcmcia slot and tty/IRDA
+Once r8169-missing-static is applied on top of the other patches, I get:
+$ md5sum drivers/net/r8169.c
+2525aab3261e165fc5698347eede84f3  drivers/net/r8169.c
 
-<hirofumi@mail.parknet.co.jp> (04/01/24 1.1511)
-   [netdrvr 8139cp] fix NAPI race
-   
-   Andreas Happe <andreashappe@gmx.net> writes:
-   > my notebook (hp/compaq nx7000) still crashes when using 8139cp (runs
-   > rock solid with 8139too driver). The computer just locks up, there is no
-   > dmesg output. This has happened since I've got this laptop (around
-   > november '03).
-   
-   It seems 8139cp.c has the race condition of rx_poll and interrupt.
-   
-   NOTE, since I don't have this device, patch is untested. Sorry.
+(btw, no timer_t at line 383, care to send source file ?)
 
-[further note - it has been tested]
+Before anything is applied (2.4.2-rc1), I get:
+$ md5sum drivers/net/r8169.c
+4286c8aa2ec99e566b0c43da9a032b14  drivers/net/r8169.c
 
-diff -Nru a/drivers/net/8139cp.c b/drivers/net/8139cp.c
---- a/drivers/net/8139cp.c	Sat Jan 24 16:20:26 2004
-+++ b/drivers/net/8139cp.c	Sat Jan 24 16:20:26 2004
-@@ -615,8 +615,10 @@
- 		if (cpr16(IntrStatus) & cp_rx_intr_mask)
- 			goto rx_status_loop;
- 
--		netif_rx_complete(dev);
-+		local_irq_disable();
- 		cpw16_f(IntrMask, cp_intr_mask);
-+		__netif_rx_complete(dev);
-+		local_irq_enable();
- 
- 		return 0;	/* done */
- 	}
-@@ -643,6 +645,12 @@
- 
- 	spin_lock(&cp->lock);
- 
-+	/* close possible race's with dev_close */
-+	if (unlikely(!netif_running(dev))) {
-+		cpw16(IntrMask, 0);
-+		goto out;
-+	}
-+
- 	if (status & (RxOK | RxErr | RxEmpty | RxFIFOOvr)) {
- 		if (netif_rx_schedule_prep(dev)) {
- 			cpw16_f(IntrMask, cp_norx_intr_mask);
-@@ -664,7 +672,7 @@
- 
- 		/* TODO: reset hardware */
- 	}
--
-+out:
- 	spin_unlock(&cp->lock);
- 	return IRQ_HANDLED;
- }
-diff -Nru a/drivers/net/tulip/xircom_cb.c b/drivers/net/tulip/xircom_cb.c
---- a/drivers/net/tulip/xircom_cb.c	Sat Jan 24 16:20:26 2004
-+++ b/drivers/net/tulip/xircom_cb.c	Sat Jan 24 16:20:26 2004
-@@ -342,6 +342,11 @@
- 	printk("tx status 0x%08x 0x%08x \n",card->tx_buffer[0],card->tx_buffer[4]);
- 	printk("rx status 0x%08x 0x%08x \n",card->rx_buffer[0],card->rx_buffer[4]);
- #endif	
-+	/* Handle shared irq and hotplug */
-+	if (status == 0 || status == 0xffffffff) {
-+		spin_unlock(&card->lock);
-+		return IRQ_NONE;
-+	}
- 
- 	if (link_status_changed(card)) {
- 		int newlink;
+The top-level Makefile indicates a 2.6.2-rc1 and it just passed correctly
+a patch/unpatch of -rc1-mm2.
+
+[...]
+> > You can try the first 10 patches (i.e. including r8169-intr_mask.patch)
+> > from the last serie.
+> 
+> I tried them and got the compile failure.
+
+Can you check the md5 sums and issue a simple 'make drivers/net/r8169.o' ?
+Here it simply says (KBUILD_VERBOSE=1):
+$ make drivers/net/r8169.o
+make -f scripts/Makefile.build obj=scripts
+make -f scripts/Makefile.build obj=scripts/genksyms
+make -f scripts/Makefile.build obj=drivers/net drivers/net/r8169.o
+  gcc -Wp,-MD,drivers/net/.r8169.o.d -nostdinc -iwithprefix include -D__KERNEL__ -Iinclude  -D__KERNEL__ -Iinclude  -Wall -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -pipe -mpreferred-stack-boundary=2 -march=athlon -Iinclude/asm-i386/mach-default -O2 -fomit-frame-pointer    -DMODULE -DKBUILD_BASENAME=r8169 -DKBUILD_MODNAME=r8169 -c -o drivers/net/.tmp_r8169.o drivers/net/r8169.c
+
+--
+Ueimor
