@@ -1,24 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] remove net/README
-Date: Thu, 4 Sep 2003 07:45:20 -0700
+Subject: Re: [PATCH] (1/8) add probe_old_netdevs hook
+Date: Thu, 4 Sep 2003 09:06:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030904074520.5dceff3e.davem@redhat.com>
-References: <20030904145204.GA27953@compsoc.man.ac.uk>
+Message-ID: <20030904090602.12f73b5e.davem@redhat.com>
+References: <20030903164908.14705874.shemminger@osdl.org>
+	<3F568C88.4030303@pobox.com>
+	<20030903204150.14273da8.davem@redhat.com>
+	<20030904083124.2a6c795c.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Levon <levon@movementarian.org>
-In-Reply-To: <20030904145204.GA27953@compsoc.man.ac.uk>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030904083124.2a6c795c.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2003 15:52:04 +0100
-John Levon <levon@movementarian.org> wrote:
+On Thu, 4 Sep 2003 08:31:24 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> This file seems bitrotted and more up to date info is available in
-> MAINTAINERS in large part.
+> Here is a patch that restores the original order.
+> Applies after original #3 patch
 
-For some reason I deleted this file from 2.4.x but I never
-did it for 2.5.x, fixed...
+I already told you that I did the fix for you.
+
+Oh, the perils of doing work and replying before
+processing one's entire mailbox :)
