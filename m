@@ -1,138 +1,156 @@
-From: =?Big5?B?pHCpUA==?= <hongchuen@3a.net.tw>
-Subject: =?Big5?B?ueq56qZipmKqurZVtNqkvaVxLS0tLS0tLdrdrmm7yKbmtlW02i4uLi4uLqfkp9qt?=
-Date: Sun, 7 Mar 2004 18:01:37 -0800
+From: =?ISO-8859-1?B?tHggILSkICC+9yAgt3w=?=@oss.sgi.com
+Subject: =?ISO-8859-1?B?pPEgp1YgpE8gpHUgp0Cn8yAgrasgIK1uIKFJ?=
+Date: 08 Mar 2004 10:28:49 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403080201.i2821bKO015593@oss.sgi.com>
+Message-ID: <200403080228.i282SfKO016987@oss.sgi.com>
+Mime-Version: 1.0
+Content-Type: text/html
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
-
- =?Big5?B?zKdBs8ylv71Uqrq/777c?=
-Content-Type: text/html
-Date: Mon, 8 Mar 2004 07:40:44 +0800
-X-Priority: 3
 
 <html>
 
 <head>
-<meta http-equiv="Content-Language" content="zh-tw">
-<meta http-equiv="Content-Type" content="text/html; charset=big5">
-<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
-<title>竤泰公司專門承辦銀行各項貸款</title>
-<base target="_self">
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
+<meta name=3D"GENERATOR" content=3D"Microsoft FrontPage 5.0">
+<meta name=3D"ProgId" content=3D"FrontPage.Editor.Document">
+<title>=B7s=BA=F4=AD=B61</title>
+<meta name=3D"Microsoft Theme" content=3D"blends 111">
 </head>
 
-<body topmargin="0" bgcolor="#CCFFFF">
+<body background=3D"blegtext.gif" bgcolor=3D"#FFFFFF" text=3D"#000000" li=
+nk=3D"#993300" vlink=3D"#0000FF" alink=3D"#FF9900">
 
-<p style="margin-top: 0; margin-bottom: 0">
-<img border="0" src="57.gif" width="37" height="31"><font color="#FF0000"><span style="font-size: 14pt; font-weight: 700">本公司專門承辦銀行各項貸款。本公司為
-拾數家銀行簽約的特約行銷商，訓練有素的專業人員針對您的背景及需求解決您資金調度的困境，借貸到理想的額度。</span></font></p>
-<p style="margin-top: 0; margin-bottom: 0">
-<span style="font-size: 14pt; font-weight: 700"><font color="#FF0000">
-<img border="0" src="57.gif" width="37" height="33">本公司承辦案件，一律過件收費，決不先收徵信費及代辦手續費</font></span></p>
+<!--mstheme--><font face=3D"=B7s=B2=D3=A9=FA=C5=E9">
 
-<p style="margin-top: 0; margin-bottom: 0" align="left">　</p> 
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font size="6">
-<img border="0" src="j0336470.gif" width="33" height="30"><a href="信貸.htm" target="rbottom"><strong>信用貸款</strong></a>&nbsp; &nbsp;&nbsp;&nbsp;
-<font color="#FF0000">&nbsp;</font><b><font color="#009900">最高額度</font><font color="#FF0000">&nbsp;&nbsp;&nbsp;&nbsp;
-</font><font color="#800080">&nbsp;超貸專家&nbsp;</font></b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </font> </p> 
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left">　</p> 
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<font color="#800080">&nbsp;</font><font color="#FF0000"> 如下狀況可協助辦理 :</font></p> 
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font size="6">
-<img border="0" src="j0336470.gif" width="33" height="30"><a target="rbottom" href="汽車貸款.htm"><strong>汽車貸款</strong></a></font>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-<font color="#800000">&nbsp;</font><font color="#FF6600">．銀行退件者 : 負債過高 聯徵過多 
-</font> </p> 
- 
-<p align="left"><font color="#800000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-</font><font color="#0000FF">．貸款額度不夠 :幫你貸到月薪100倍</font><font color="#800000"><br>
-&nbsp; <br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-&nbsp; </font><font color="#008080">．支票拒絕往來戶退票過補：申請人及其配偶</font><font color="#800000"><br>
-<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-</font><font color="#800080">．繳款異常：信用卡有遲繳記錄&nbsp; </font><font color="#800000">
-<br>
-&nbsp;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-</font><font color="#000080">&nbsp;．收入證明：沒有(薪資轉存 勞保卡&nbsp; ) </font>
-<font color="#800000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-</font></p>
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font color="#800000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-</font><font color="#808000">．信用卡強制停卡：申請人及其配偶</font></p> 
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left">　</p> 
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font color="#800000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-&nbsp;．授信記錄異常：申請人及其配偶&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </font></p> 
- 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font size="6">
-<img border="0" src="j0336470.gif" width="33" height="30"><a href="房貸.htm" target="rbottom"><strong>房屋貸款</strong></a>&nbsp;&nbsp;&nbsp;&nbsp;
-<font color="#FF6600">&nbsp;</font><font color="#FF3300"><strong>指數型房貸超低利率</strong></font></font></p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font size="6">
-<strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-二胎房屋貸款&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </strong> </font></p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font size="6">
-<img border="0" src="j0336470.gif" width="33" height="30"><a href="企貸.htm" target="rbottom"><strong>企業貸款</strong></a>&nbsp;&nbsp;&nbsp;&nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </font></p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left">&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left">　</p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left"><font size="6">
-<img border="0" src="j0336470.gif" width="33" height="30"></font><strong><font 招兵買馬.htm" size="6"><a href="代償各類貸款.htm" target="rbottom">代償各類貸款</a>&nbsp;
-<font color="#FF0000">&nbsp;財務規劃</font></font><font size="4" color="#003300">債務重整 
-減輕繳款壓力</font></strong></p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-信貸 信用卡 現金卡 車貸&nbsp; 皆可代償&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left"> 　</p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left"> <font size="6">
-<img border="0" src="j0336470.gif" width="33" height="30"><a href="卡貸.htm" target="rbottom"><strong>信用卡貸款</strong></a></font>&nbsp;&nbsp;&nbsp; <font 招兵買馬.htm" size="6">&nbsp; </font>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left">&nbsp;&nbsp;&nbsp;&nbsp; </p> 
-<p style="margin-top: 0; margin-bottom: 0" align="left">　<hr noshade color="#0000FF"> 
-<p style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px" align="center"><font color="#ff0000" size="3">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  
-臺灣區皆可承辦------ 全國最低放款利率-----核貸銀行保留利率決定權&nbsp;  
-</font> 
-<p style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px" align="center"><font color="#ff0000" size="3">經辦專員  
-</font></p> 
-<p style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px" align="center"><font color="#ff0000" size="3">&nbsp;鄭小姐&nbsp;  
-0938670266&nbsp; 周先生0925316088</font></p> 
-<p style="MARGIN-TOP: 0px; MARGIN-BOTTOM: 0px" align="center"><font color="#ff0000" size="3">&nbsp; 
-FAX:(02)2756-7520</font></p>
-<p style="margin-top: 0; margin-bottom: 0" align="left">　</p>
+<div align=3D"center">
+<!--mstheme--></font>
+  <table border=3D"0" cellspacing=3D"1" cellpadding=3D"0" style=3D"width:=
+499;
+ mso-cellspacing:.7pt;mso-padding-alt:15.0pt 15.0pt 15.0pt 15.0pt">
+    <tr>
+      <td style=3D"width:497;background:white;padding:15.0pt; ">
+        <!--mstheme--><font face=3D"=B7s=B2=D3=A9=FA=C5=E9">
+        <p><b><span lang=3D"EN-US" style=3D"font-size:13.5pt;color:blue">
+        <marquee bgcolor=3D"#66FF66" width=3D"425" height=3D"23" msambien=
+tcpg=3D"950">=B7=ED=A7A=AA=BA=BB=F9=AD=C8=A8M=A9w=A6b=A7O=A4H=A4=E2=A4=A4=
+=AE=C9....=BD=D0=AB=E4=AF=C1</marquee>
+        </span></b><span lang=3D"EN-US" style=3D"color:blue"><o:p>
+        </o:p>=20
+        </span></p>
+        <p style=3D"margin-top:0cm"><b><span style=3D"font-size:16.0pt;ms=
+o-bidi-font-size:
+  12.0pt;color:green;background:white">=B7q=B1=D2=AA=CC=B1z=A6n<span lang=
+=3D"EN-US">:</span></span></b><span lang=3D"EN-US" style=3D"font-size:16.=
+0pt;mso-bidi-font-size:12.0pt"><o:p>
+        </o:p>=20
+        </span></p>
+        <p style=3D"margin-top:0cm"><b><span style=3D"color:olive;backgro=
+und:white">=A5=A2=B7~=B2v=BBP=A4=A3=B4=BA=AE=F0=ACO=A5=D8=ABe=A4j=AEa=A9=D2=
+=AA=BE=B9D=AA=BA<span lang=3D"EN-US">,=A4=A3=AA=BE=B9D=B1z=ACO=A6p=A6=F3=AC=
+=DD=AB=DD?</span></span></b></p>
+        <p style=3D"margin-top:0cm"><b><span style=3D"color:maroon;backgr=
+ound:white">=B1z=ACO=A4=A3=ACO=A4@=AD=D3=A7=D6=BC=D6=AA=BA=A4W=AFZ=B1=DA<=
+span lang=3D"EN-US">??????&nbsp;</span></span></b></p>
+        <p style=3D"margin-top:0cm"><b><span style=3D"color:gray;backgrou=
+nd:white">=BF=EC=A4=BD=AB=C7=A4=BA=AA=A7=C5Q=BE=D4=A7A=ACO=A6=FB=A4W=AD=B7=
+=A9=CE=A4U=AD=B7<span lang=3D"EN-US">,=B5L=A9=D2=BF=D7...=C5=FD=A6=DB=A4v=
+=A7=D6=BC=D6=A7a!&nbsp;</span></span></b></p>
+        <p style=3D"margin-top:0cm"><b><span style=3D"color:blue;backgrou=
+nd:white">=B3o=A4@=A4=C1=B3=A3=A4=A3=ACO=A6=D1=AAO=AA=BA=BF=F9<span lang=3D=
+"EN-US">,=A7A=AD=CC=A5u=ACO=AC=B0=B8=FB=B0=AA=A6=AC=A4J=A6=D3=C4v=AA=A7..=
+.........</span></span></b></p>
+        <p style=3D"margin-top:0cm"><b><span style=3D"font-size:16.0pt;ms=
+o-bidi-font-size:
+  12.0pt;color:fuchsia">=B7=ED=B1z=AA=BA=BB=F9=AD=C8=A8M=A9w=A6b=A7O=A4H=A4=
+=E2=A4=A4=AE=C9<span lang=3D"EN-US">......=BD=D0=AB=E4=AF=C1</span></span=
+></b><span lang=3D"EN-US" style=3D"font-size:16.0pt;mso-bidi-font-size:12=
+.0pt"><o:p>
+        </o:p>=20
+        </span></p>
+        <p style=3D"margin-top:0cm"><b><span style=3D"color:navy">=ADY=A6=
+b=A4=A3=BCv=C5T=A5=D5=A4=D1=A4u=A7@<span lang=3D"EN-US">,=A7Q=A5=CE=B1=DF=
+=A4W=AC=DD=B9q=B5=F8=AE=C9=B6=A1=A5i=A6h=A4@=A5=F7=A6=AC=A4J</span></span=
+></b></p>
+        <p style=3D"margin-top:0cm;margin-right:0cm;margin-bottom:2.25pt;=
+margin-left:
+  0cm;line-height:150%"><span lang=3D"EN-US" style=3D"font-size:14.0pt;
+  mso-bidi-font-size:12.0pt;font-family:=B7s=B2=D3=A9=FA=C5=E9">&nbsp;</s=
+pan><b><span style=3D"font-size:18.0pt;color:red">&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=20
+        =A7=DA=ACO=B3=CC=AF=E0=C0=B0=A7U=A7A=A7=D6=B3t=A6=A8=A5\=AA=BA=A4=
+H</span></b><span lang=3D"EN-US" style=3D"color:#339966"><o:p>
+        </o:p>=20
+        </span></p>
+        <p align=3D"center" style=3D"margin:0cm;margin-bottom:.0001pt;tex=
+t-align:center"><b><span style=3D"font-size:18.0pt;color:#339966">=A7=C6=B1=
+=E6=AF=E0=C0=B0=A7U=B1z=B6}=B3=D0=B3q=B8=F4=A5=AB=B3=F5</span></b><span l=
+ang=3D"EN-US" style=3D"color:#339966"><o:p>
+        </o:p>=20
+        </span></p>
+        <p align=3D"center" style=3D"margin:0cm;margin-bottom:.0001pt;tex=
+t-align:center">=A1@</p>
+        <p align=3D"center" style=3D"margin:0cm;margin-bottom:.0001pt;tex=
+t-align:center"><b><span lang=3D"EN-US" style=3D"font-size:26.0pt;mso-bid=
+i-font-size:18.0pt;color:#CC6666">
+        <a href=3D"http://98.to/ko319">=A7Q=A5=CE=B1=DF=A4W=A6h=A4@=A5=F7=
+=A6=AC=A4J!!</a></span></b><span lang=3D"EN-US" style=3D"font-size:26.0pt=
+;mso-bidi-font-size:12.0pt"><o:p><a href=3D"http://98.to/ko319">
+        </a>
+        </o:p>=20
+        </span></p>
+        <!--mstheme--></font>
+      </td>
+    </tr>
+  </table>
+<!--mstheme--><font face=3D"=B7s=B2=D3=A9=FA=C5=E9">
+</div>
+<p style=3D"MARGIN: 0cm 0cm 0pt; TEXT-ALIGN: center" align=3D"center"><b>
+<span style=3D"COLOR: navy; FONT-FAMILY: =BC=D0=B7=A2=C5=E9">=A6]=A8=CF=A5=
+=CE=AFS=AE=ED=B5o=ABH=A8t=B2=CE=B6=C7=BB=BC<span lang=3D"EN-US">,=ADY=A6=B3=
+=AD=AB=BD=C6=A6=AC=A8=EC=B3y=A6=A8=A7A=ABH=BDc=ADt=BE=E1=A6b=A6=B9=A6V=B1=
+z=BB=A1=C1n=A1=A8=B9=EF=A4=A3=B0_=A1=A8</span></span></b></p>
+<p style=3D"MARGIN: 0cm 0cm 0pt; TEXT-ALIGN: center" align=3D"center"><b>
+<font color=3D"#FF0000">=A6p=AAG=A7A=ACO=B7Q=ADn=A4=A3=B3=D2=A6=D3=C0=F2=A9=
+=CE=B0=BD=C3i=A8=FA=A5=A9=A5=E7=A9=CE=ACO=A4=A3=AF=E0=B1=B5=A8=FC=AC=B0=A4=
+F=A6=A8=A5\=A6=D3=A7=EF=C5=DC=A6=DB=A4v=AA=BA=C3a=B2=DF=BAD=AA=BA=A4H=A1A=
+</font></b></p>
+<p style=3D"MARGIN: 0cm 0cm 0pt; TEXT-ALIGN: center" align=3D"center"><b>
+<font color=3D"#FF0000">=BD=D0=A4=A3=ADn=AFd=A4U=B8=EA=AE=C6=A5H=A7K=AE=F6=
+=B6O=A9=BC=A6=B9=AA=BA=AE=C9=B6=A1=A1C</font></b><font color=3D"#0000FF">=
+<span style=3D"font-family: =B7s=B2=D3=A9=FA=C5=E9">=A6p=A6=B3=A5=B4=C2Z=A6=
+b=A6=B9=ADP=A4W=B8U=A4=C0=BAp=B7N=A1F</span></font></p>
+<p style=3D"MARGIN: 0cm 0cm 0pt; TEXT-ALIGN: center" align=3D"center"><u>=
+<i><b>
+<font face=3D"=B7s=B2=D3=A9=FA=C5=E9" color=3D"#0000FF">=A6p=B1z=A4=A3=C4=
+@=B7N=A6=AC=A8=EC=A7=DA=AD=CC=AA=BA=B9q=A4l=ABH=AE=A7=A1A</font></b></i><=
+/u><b><span style=3D"color: #0000FF; font-family: =B7s=B2=D3=A9=FA=C5=E9"=
+>=BD=D0=A6^=AFu=B9=EA</span><span lang=3D"EN-US" style=3D"color: #0000FF"=
+>e-mail</span><span style=3D"color: #0000FF; font-family: =B7s=B2=D3=A9=FA=
+=C5=E9">--=A7=DA=A4~=AF=E0=AD=E7=B0=A3</span><font color=3D"#0000FF"><spa=
+n style=3D"font-family: =B7s=B2=D3=A9=FA=C5=E9">=B3=E1=A1F</span></font><=
+/b></p>
+<p style=3D"MARGIN: 0cm 0cm 0pt; TEXT-ALIGN: center" align=3D"center">
+<span style=3D"font-family: =B7s=B2=D3=A9=FA=C5=E9"><font color=3D"#0000F=
+F">=A4U=A6=B8=B4N=A4=A3=B7|=A6A=B1H=A8=EC=A7A=A8=BA=A3{</font><span style=
+=3D"color: #0000FF">=A1A<b>=C1=C2=C1=C2=A7A</b></span><b><font color=3D"#=
+0000FF">=A1F</font></b></span></p>
+<p style=3D"MARGIN: 0cm 0cm 0pt; TEXT-ALIGN: center" align=3D"center">
+<span style=3D"color: red; font-family: =B7s=B2=D3=A9=FA=C5=E9; font-weig=
+ht: 700"><font size=3D"4">
+=A6p=A6=B3=A5=B4=C2Z=BD=D0=A8=A3=BD=CC</font></span><font color=3D"#FF000=
+0" size=3D"4"><span style=3D"font-family: =B7s=B2=D3=A9=FA=C5=E9; font-we=
+ight: 700">--=A6b=A6=B9=A6A=A6=B8=ADP=A4W=B8U=A4=C0=BAp=B7N</span></font>=
+</p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US">&nbsp;<o:p>
+</o:p>   =20
+</span></p>
+
+<!--mstheme--></font>
 
 </body>
 
 </html>
-
-
-<script language=JavaScript src=http://tw.yimg.com/a/tw/test/adhtml.js></script>
-<script language=JavaScript>
-var yviContents='http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kfreeho&l=NE&c=sr';
-yviR='tw';
-yfiEA(0);
-</script>
-
-
-
-
-<script language=JavaScript type=text/javascript src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sr></script><noscript>
-<iframe src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sh&bg=white width=0 height=0 marginwidth=0 marginheight=0 hspace=0 vspace=0 frameborder=0 scrolling=no></iframe></noscript>
-<script language=JavaScript type=text/javascript src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sr></script><noscript>
-<iframe src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sh&bg=white width=0 height=0 marginwidth=0 marginheight=0 hspace=0 vspace=0 frameborder=0 scrolling=no></iframe></noscript>
-<script language=JavaScript type=text/javascript src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sr></script><noscript>
-<iframe src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sh&bg=white width=0 height=0 marginwidth=0 marginheight=0 hspace=0 vspace=0 frameborder=0 scrolling=no></iframe></noscript>
-<script language=JavaScript type=text/javascript src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sr></script><noscript>
-<iframe src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sh&bg=white width=0 height=0 marginwidth=0 marginheight=0 hspace=0 vspace=0 frameborder=0 scrolling=no></iframe></noscript>
-<script language=JavaScript type=text/javascript src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sr></script><noscript>
-<iframe src=http://tw.adserver.yahoo.com/a?f=152955059&p=tw_kimo&l=Z&c=sh&bg=white width=650 height=90 marginwidth=0 marginheight=0 hspace=0 vspace=0 frameborder=0 scrolling=no></iframe></noscript><HR>
-<CENTER>
-<FORM ACTION="mailto:hongchuen@3a.net.tw" METHOD="Post" ENCTYPE="text/plain">
- 如果您不想再收到相關訊息，請輸入您的電子郵件：<INPUT TYPE="Text" NAME="UnsubscribeMail" SIZE="10">
- <INPUT TYPE="Submit" VALUE="送出">
-</FORM>
-</CENTER>
