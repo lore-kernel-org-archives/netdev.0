@@ -1,74 +1,80 @@
-From: Andi Kleen <ak@suse.de>
+From: Martin Josefsson <gandalf@wlug.westbo.se>
 Subject: Re: TODO list before feature freeze
-Date: Mon, 29 Jul 2002 22:51:47 +0200
+Date: 30 Jul 2002 00:43:52 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020729225147.A24288@wotan.suse.de>
-References: <20020729131239.A5183@wotan.suse.de> <200207291525.g6TFPTTu011558@marajade.sandelman.ottawa.on.ca>
+Message-ID: <1027982632.12630.119.camel@tux>
+References: <20020729131239.A5183@wotan.suse.de>
+	<Pine.GSO.4.30.0207290719580.12604-100000@shell.cyberus.ca>
+	<20020729135615.A20412@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, Rusty Russell <rusty@rustcorp.com.au>,
+   Netfilter-devel <netfilter-devel@lists.netfilter.org>, netdev@oss.sgi.com,
    netfilter-core@lists.netfilter.org
 Return-path: <owner-netdev@oss.sgi.com>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-Content-Disposition: inline
-In-Reply-To: <200207291525.g6TFPTTu011558@marajade.sandelman.ottawa.on.ca>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20020729135615.A20412@wotan.suse.de>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 29, 2002 at 11:25:28AM -0400, Michael Richardson wrote:
-> 
-> >>>>> "Andi" == Andi Kleen <ak@suse.de> writes:
->     Andi> (case in point: we have at least one report that routing
->     Andi> performance breaks down with ip_conntrack when memory size is
->     Andi> increased over 1GB on P3s. The hash table size depends on the
->     Andi> memory size. The problem does not occur on P4s. P4s have larger
->     Andi> TLBs than P3s.)
-> 
->   That's a non-obvious result.
-> 
->   I'll bet that most of the memory-size based hash tables in the kernel
-> suffer from similar problems. A good topic for a paper, I'd say.
+On Mon, 2002-07-29 at 13:56, Andi Kleen wrote:
 
-In fact there have been papers about this like
-http://www.citi.umich.edu/projects/linux-scalability/reports/hash.html
-but the results were unfortunately not adapted.
+> here is a patch for 2.4 that just makes it use get_free_pages to test the 
+> TLB theory. Another obvious improvement would be to not use list_heads 
+> for the hash table buckets - a single pointer would likely suffice and 
+> it would cut the hash table in half, saving cache, TLB and memory.
 
-This has been discussed for a long time. Linux hash tables suffer often
-from poor hash functions (some are good, but others are not so great),
-excessive sizing to cover the poor functions and using double pointer heads 
-when not needed (=hash table twice as big). Excessive sizing wastes memory
-(several MB just for hash tables on a standard system including some gems
-like a incredible big mount hash table that near nobody needs to manage 
-their 5-10 mounts) 
+ip_nat_core is also allocating it's hashtable via vmalloc and it's twice
+as large as the one in ip_conntrack. (or rather, it's two hashtables
+allocated at once, maybe they should be split up into two allocations?)
 
-I wrote a slist.h that works like the linux
-list.h some time ago, but uses lists instead of rings with a single pointer
-head to at least avoid the last problem. In the following discussion
-the preference was for a more generic hash table ADT instead of another
-list abstraction.
 
-So if you wanted to put some work into this I would:
+diff -x *.orig -x *.rej -urN linux-2.4.19-rc3.old/net/ipv4/netfilter/ip_nat_core.c linux-2.4.19-rc3/net/ipv4/netfilter/ip_nat_core.c
+--- linux-2.4.19-rc3.old/net/ipv4/netfilter/ip_nat_core.c	Thu Jul 25 18:26:42 2002
++++ linux-2.4.19-rc3/net/ipv4/netfilter/ip_nat_core.c	Tue Jul 30 00:14:12 2002
+@@ -43,6 +43,8 @@
+ /* Calculated at init based on memory size */
+ static unsigned int ip_nat_htable_size;
+ 
++static int ip_nat_vmalloc;
++
+ static struct list_head *bysource;
+ static struct list_head *byipsproto;
+ LIST_HEAD(protos);
+@@ -958,8 +960,16 @@
+ 	/* Leave them the same for the moment. */
+ 	ip_nat_htable_size = ip_conntrack_htable_size;
+ 
+-	/* One vmalloc for both hash tables */
+-	bysource = vmalloc(sizeof(struct list_head) * ip_nat_htable_size*2);
++	/* One allocation for both hash tables */
++	ip_nat_vmalloc = 0;
++	bysource = (void *)__get_free_pages(GFP_KERNEL,
++					get_order(sizeof(struct list_head) *
++						  ip_nat_htable_size * 2));
++	if (!bysource) {
++		ip_nat_vmalloc = 1;
++		printk("ip_nat: falling back to vmalloc. performance may be degraded.\n");
++		bysource = vmalloc(sizeof(struct list_head) * ip_nat_htable_size * 2);
++	}
+ 	if (!bysource) {
+ 		return -ENOMEM;
+ 	}
+@@ -999,5 +1009,10 @@
+ {
+ 	ip_ct_selective_cleanup(&clean_nat, NULL);
+ 	ip_conntrack_destroyed = NULL;
+-	vfree(bysource);
++
++	if (ip_nat_vmalloc)
++		vfree(bysource);
++	else
++		free_pages((unsigned long)bysource,
++			   get_order(sizeof(struct list_head) * ip_nat_htable_size * 2));
+ }
+ 
+-- 
+/Martin
 
-- Develop some simple and tasteful and linux like (most of the existing
-ones in other software packages fail at least one of these) generic hash table
-abstraction.
-- Convert all the big hash tables to this generic code.
-- Let it use single pointer heads.
-- Make it implement the sizing based on memory size in common code with a 
-single knob to tune it per system. In fact I think it should definitely
-take L2 cache size in account, not only main memory.
-- Add generic statistics as CONFIG option so that you can see hit rates
-for all your hash tables and how much space they need.
-- Make it either use the existing hash function per table or a generic good 
-hash function like http://burtleburtle.net/bob/hash/evahash.html
-
-Try out all these knobs and write a paper about it.
-
-- Try to get it merged with the best results as default options
-
-Unfortunately netfilter hash is a bad example for this, because its
-DoS handling requirements (LRU etc.) are more complex than what most other 
-linux hash tables need and I am not sure if it would make sense to 
-put it into generic code. On the other hand if the generic code is flexible
-enough it would be possible to implement it on top of it.
-
--Andi
+Never argue with an idiot. They drag you down to their level, then beat
+you with experience.
