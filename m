@@ -1,170 +1,103 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.8.1-mm4 2/11] r8169: per device receive buffer size
-Date: Tue, 24 Aug 2004 00:45:48 +0200
+Subject: [PATCH 2.6.8.1-mm4 1/11] r8169: add ethtool_ops.{get_regs_len/get_regs}
+Date: Tue, 24 Aug 2004 00:44:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040823224548.GB20726@electric-eye.fr.zoreil.com>
-References: <20040823224100.GA14680@electric-eye.fr.zoreil.com> <20040823224425.GA20726@electric-eye.fr.zoreil.com>
+Message-ID: <20040823224425.GA20726@electric-eye.fr.zoreil.com>
+References: <20040823224100.GA14680@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <20040823224425.GA20726@electric-eye.fr.zoreil.com>
+In-Reply-To: <20040823224100.GA14680@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Turn the Rx receive buffer size into a per device variable.
+
+- ethtool_ops.{get_regs_len/get_regs} for r8169;
+- fix a dubious check: datasheet v1.21 claims on p.44 that io/memory space
+  is exactly 256 bytes wide;
+- use SET_ETHTOOL_OPS().
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff -puN drivers/net/r8169.c~r8169-010 drivers/net/r8169.c
---- linux-2.6.8.1/drivers/net/r8169.c~r8169-010	2004-08-23 23:29:59.000000000 +0200
-+++ linux-2.6.8.1-fr/drivers/net/r8169.c	2004-08-23 23:29:59.000000000 +0200
-@@ -341,6 +341,7 @@ struct rtl8169_private {
- 	dma_addr_t RxPhyAddr;
- 	struct sk_buff *Rx_skbuff[NUM_RX_DESC];	/* Rx data buffers */
- 	struct sk_buff *Tx_skbuff[NUM_TX_DESC];	/* Tx data buffers */
-+	unsigned rx_buf_sz;
- 	struct timer_list timer;
- 	u16 cp_cmd;
- 	u16 intr_mask;
-@@ -1056,6 +1057,8 @@ rtl8169_init_board(struct pci_dev *pdev,
- 	}
- 	tp->chipset = i;
+diff -puN drivers/net/r8169.c~r8169-000 drivers/net/r8169.c
+--- linux-2.6.8.1/drivers/net/r8169.c~r8169-000	2004-08-23 23:29:58.000000000 +0200
++++ linux-2.6.8.1-fr/drivers/net/r8169.c	2004-08-23 23:29:58.000000000 +0200
+@@ -99,6 +99,7 @@ static int multicast_filter_limit = 32;
+ #define RxPacketMaxSize	0x0800	/* Maximum size supported is 16K-1 */
+ #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
  
-+	tp->rx_buf_sz = RX_BUF_SIZE;
++#define R8169_REGS_SIZE		256
+ #define R8169_NAPI_WEIGHT	64
+ #define NUM_TX_DESC	64	/* Number of Tx descriptor registers */
+ #define NUM_RX_DESC	256	/* Number of Rx descriptor registers */
+@@ -106,7 +107,6 @@ static int multicast_filter_limit = 32;
+ #define R8169_TX_RING_BYTES	(NUM_TX_DESC * sizeof(struct TxDesc))
+ #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
+ 
+-#define RTL_MIN_IO_SIZE 0x80
+ #define RTL8169_TX_TIMEOUT	(6*HZ)
+ #define RTL8169_PHY_TIMEOUT	(10*HZ)
+ 
+@@ -508,6 +508,11 @@ static void rtl8169_get_drvinfo(struct n
+ 	strcpy(info->bus_info, pci_name(tp->pci_dev));
+ }
+ 
++static int rtl8169_get_regs_len(struct net_device *dev)
++{
++	return R8169_REGS_SIZE;
++}
 +
- 	*ioaddr_out = ioaddr;
- 	*dev_out = dev;
+ static int rtl8169_set_speed_tbi(struct net_device *dev,
+ 				 u8 autoneg, u16 speed, u8 duplex)
+ {
+@@ -671,12 +676,27 @@ static int rtl8169_get_settings(struct n
  	return 0;
-@@ -1377,46 +1380,48 @@ static inline void rtl8169_make_unusable
- 	desc->status &= ~cpu_to_le32(OWNbit | RsvdMask);
  }
  
--static void rtl8169_free_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
--				struct RxDesc *desc)
-+static void rtl8169_free_rx_skb(struct rtl8169_private *tp,
-+				struct sk_buff **sk_buff, struct RxDesc *desc)
- {
--	pci_unmap_single(pdev, le64_to_cpu(desc->addr), RX_BUF_SIZE,
-+	struct pci_dev *pdev = tp->pci_dev;
++static void rtl8169_get_regs(struct net_device *dev, struct ethtool_regs *regs,
++			     void *p)
++{
++        struct rtl8169_private *tp = netdev_priv(dev);
++        unsigned long flags;
 +
-+	pci_unmap_single(pdev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
- 			 PCI_DMA_FROMDEVICE);
- 	dev_kfree_skb(*sk_buff);
- 	*sk_buff = NULL;
- 	rtl8169_make_unusable_by_asic(desc);
- }
++        if (regs->len > R8169_REGS_SIZE)
++        	regs->len = R8169_REGS_SIZE;
++
++        spin_lock_irqsave(&tp->lock, flags);
++        memcpy_fromio(p, tp->mmio_addr, regs->len);
++        spin_unlock_irqrestore(&tp->lock, flags);
++}
  
--static inline void rtl8169_return_to_asic(struct RxDesc *desc)
-+static inline void rtl8169_return_to_asic(struct RxDesc *desc, int rx_buf_sz)
- {
--	desc->status |= cpu_to_le32(OWNbit + RX_BUF_SIZE);
-+	desc->status |= cpu_to_le32(OWNbit + rx_buf_sz);
- }
+ static struct ethtool_ops rtl8169_ethtool_ops = {
+ 	.get_drvinfo		= rtl8169_get_drvinfo,
++	.get_regs_len		= rtl8169_get_regs_len,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_settings		= rtl8169_get_settings,
+ 	.set_settings		= rtl8169_set_settings,
++	.get_regs		= rtl8169_get_regs,
+ };
  
--static inline void rtl8169_give_to_asic(struct RxDesc *desc, dma_addr_t mapping)
-+static inline void rtl8169_give_to_asic(struct RxDesc *desc, dma_addr_t mapping,
-+					int rx_buf_sz)
- {
- 	desc->addr = cpu_to_le64(mapping);
--	desc->status |= cpu_to_le32(OWNbit + RX_BUF_SIZE);
-+	desc->status |= cpu_to_le32(OWNbit + rx_buf_sz);
- }
- 
--static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct net_device *dev,
--				struct sk_buff **sk_buff, struct RxDesc *desc)
-+static int rtl8169_alloc_rx_skb(struct pci_dev *pdev, struct sk_buff **sk_buff,
-+				struct RxDesc *desc, int rx_buf_sz)
- {
- 	struct sk_buff *skb;
- 	dma_addr_t mapping;
- 	int ret = 0;
- 
--	skb = dev_alloc_skb(RX_BUF_SIZE);
-+	skb = dev_alloc_skb(rx_buf_sz);
- 	if (!skb)
- 		goto err_out;
- 
--	skb->dev = dev;
- 	skb_reserve(skb, 2);
- 	*sk_buff = skb;
- 
--	mapping = pci_map_single(pdev, skb->tail, RX_BUF_SIZE,
-+	mapping = pci_map_single(pdev, skb->tail, rx_buf_sz,
- 				 PCI_DMA_FROMDEVICE);
- 
--	rtl8169_give_to_asic(desc, mapping);
-+	rtl8169_give_to_asic(desc, mapping, rx_buf_sz);
- 
- out:
- 	return ret;
-@@ -1433,7 +1438,7 @@ static void rtl8169_rx_clear(struct rtl8
- 
- 	for (i = 0; i < NUM_RX_DESC; i++) {
- 		if (tp->Rx_skbuff[i]) {
--			rtl8169_free_rx_skb(tp->pci_dev, tp->Rx_skbuff + i,
-+			rtl8169_free_rx_skb(tp, tp->Rx_skbuff + i,
- 					    tp->RxDescArray + i);
- 		}
+ static void rtl8169_write_gmii_reg_bit(void *ioaddr, int reg, int bitnum,
+@@ -968,7 +988,7 @@ rtl8169_init_board(struct pci_dev *pdev,
+ 		goto err_out_disable;
  	}
-@@ -1450,8 +1455,8 @@ static u32 rtl8169_rx_fill(struct rtl816
- 		if (tp->Rx_skbuff[i])
- 			continue;
- 			
--		ret = rtl8169_alloc_rx_skb(tp->pci_dev, dev, tp->Rx_skbuff + i,
--					   tp->RxDescArray + i);
-+		ret = rtl8169_alloc_rx_skb(tp->pci_dev, tp->Rx_skbuff + i,
-+					   tp->RxDescArray + i, tp->rx_buf_sz);
- 		if (ret < 0)
- 			break;
- 	}
-@@ -1646,8 +1651,7 @@ rtl8169_tx_interrupt(struct net_device *
- }
- 
- static inline int rtl8169_try_rx_copy(struct sk_buff **sk_buff, int pkt_size,
--				      struct RxDesc *desc,
--				      struct net_device *dev)
-+				      struct RxDesc *desc, int rx_buf_sz)
- {
- 	int ret = -1;
- 
-@@ -1656,11 +1660,10 @@ static inline int rtl8169_try_rx_copy(st
- 
- 		skb = dev_alloc_skb(pkt_size + 2);
- 		if (skb) {
--			skb->dev = dev;
- 			skb_reserve(skb, 2);
- 			eth_copy_and_sum(skb, sk_buff[0]->tail, pkt_size, 0);
- 			*sk_buff = skb;
--			rtl8169_return_to_asic(desc);
-+			rtl8169_return_to_asic(desc, rx_buf_sz);
- 			ret = 0;
- 		}
- 	}
-@@ -1707,17 +1710,19 @@ rtl8169_rx_interrupt(struct net_device *
- 
- 
- 			pci_dma_sync_single_for_cpu(tp->pci_dev,
--				le64_to_cpu(desc->addr), RX_BUF_SIZE,
-+				le64_to_cpu(desc->addr), tp->rx_buf_sz,
- 				PCI_DMA_FROMDEVICE);
- 
--			if (rtl8169_try_rx_copy(&skb, pkt_size, desc, dev)) {
-+			if (rtl8169_try_rx_copy(&skb, pkt_size, desc,
-+						tp->rx_buf_sz)) {
- 				pci_action = pci_unmap_single;
- 				tp->Rx_skbuff[entry] = NULL;
- 			}
- 
- 			pci_action(tp->pci_dev, le64_to_cpu(desc->addr),
--				   RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
-+				   tp->rx_buf_sz, PCI_DMA_FROMDEVICE);
- 
-+			skb->dev = dev;
- 			skb_put(skb, pkt_size);
- 			skb->protocol = eth_type_trans(skb, dev);
- 			rtl8169_rx_skb(skb);
+ 	// check for weird/broken PCI region reporting
+-	if (mmio_len < RTL_MIN_IO_SIZE) {
++	if (mmio_len < R8169_REGS_SIZE) {
+ 		printk(KERN_ERR PFX "Invalid PCI region size(s), aborting\n");
+ 		rc = -ENODEV;
+ 		goto err_out_disable;
+@@ -1105,7 +1125,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	dev->open = rtl8169_open;
+ 	dev->hard_start_xmit = rtl8169_start_xmit;
+ 	dev->get_stats = rtl8169_get_stats;
+-	dev->ethtool_ops = &rtl8169_ethtool_ops;
++	SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
+ 	dev->stop = rtl8169_close;
+ 	dev->tx_timeout = rtl8169_tx_timeout;
+ 	dev->set_multicast_list = rtl8169_set_rx_mode;
 
 _
