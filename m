@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] remove useless MOD_{INC,DEC}_USE_COUNT in lasi_82596.c
-Date: Sun, 22 Feb 2004 19:35:04 +0100
+Subject: [PATCH] remove useless MOD_{INC,DEC}_USE_COUNT in sun3lance
+Date: Sun, 22 Feb 2004 19:57:55 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040222183504.GA28040@lst.de>
+Message-ID: <20040222185755.GA28350@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -12,23 +12,22 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---- 1.22/drivers/net/lasi_82596.c	Sat Jan 10 16:34:11 2004
-+++ edited/drivers/net/lasi_82596.c	Sun Feb 22 20:30:38 2004
-@@ -1016,8 +1016,6 @@
- {
- 	DEB(DEB_OPEN,printk("%s: i596_open() irq %d.\n", dev->name, dev->irq));
- 
+--- 1.17/drivers/net/sun3lance.c	Sat Jan 10 16:37:56 2004
++++ edited/drivers/net/sun3lance.c	Sun Feb 22 20:31:10 2004
+@@ -430,7 +430,6 @@
+ 	netif_start_queue(dev);
+ 	
+ 	DPRINTK( 2, ( "%s: LANCE is open, csr0 %04x\n", dev->name, DREG ));
 -	MOD_INC_USE_COUNT;
+ 
+ 	return( 0 );
+ }
+@@ -880,8 +879,6 @@
+ 	/* We stop the LANCE here -- it occasionally polls
+ 	   memory if we don't. */
+ 	DREG = CSR0_STOP;
 -
- 	if (request_irq(dev->irq, &i596_interrupt, 0, "i82596", dev)) {
- 		printk("%s: IRQ %d not free\n", dev->name, dev->irq);
- 		goto out;
-@@ -1038,8 +1036,6 @@
- 	remove_rx_bufs(dev);
- 	free_irq(dev->irq, dev);
- out:
 -	MOD_DEC_USE_COUNT;
--
- 	return -EAGAIN;
+ 	return 0;
  }
  
