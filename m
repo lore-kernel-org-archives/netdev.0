@@ -1,45 +1,119 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] repairing rtcache killer
-Date: Wed, 6 Aug 2003 20:50:28 +0200
+From: Jesse Pollard <jesse@cats-chateau.net>
+Subject: Re: TOE brain dump
+Date: Wed, 6 Aug 2003 13:58:59 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16177.19956.596928.527997@robur.slu.se>
-References: <16177.14760.612648.582063@robur.slu.se>
-	<200308061806.WAA01763@dub.inr.ac.ru>
+Message-ID: <03080613585900.09086@tabby>
+References: <20030802140444.E5798@almesberger.net> <03080607463300.08387@tabby> <20030806112556.C26920@hexapodia.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se (Robert Olsson), davem@redhat.com,
-   netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200308061806.WAA01763@dub.inr.ac.ru>
+To: Andy Isaacson <adi@hexapodia.org>
+In-Reply-To: <20030806112556.C26920@hexapodia.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wednesday 06 August 2003 11:25, Andy Isaacson wrote:
+> On Wed, Aug 06, 2003 at 07:46:33AM -0500, Jesse Pollard wrote:
+> > On Tuesday 05 August 2003 12:19, Eric W. Biederman wrote:
+> > > So store and forward of packets in a 3 layer switch hierarchy, at 1.3
+> > > us per copy. 1.3us to the NIC + 1.3us to the first switch chip + 1.3us
+> > > to the second switch chip + 1.3us to the top level switch chip + 1.3us
+> > > to a middle layer switch chip + 1.3us to the receiving NIC + 1.3us the
+> > > receiver.
+> > >
+> > > 1.3us * 7 = 9.1us to deliver a packet to the other side.  That is
+> > > still quite painful.  Right now I can get better latencies over any of
+> > > the cluster interconnects.  I think 5 us is the current low end, with
+> > > the high end being about 1 us.
+> >
+> > I think you are off here since the second and third layer should not
+> > recompute checksums other than for the header (if they even did that).
+> > Most of the switches I used (mind, not configured) were wire speed. Only
+> > header checksums had recomputes, and I understood it was only for
+> > routing.
+>
+> The switches may be "wire speed" but that doesn't help the latency any.
+> AFAIK all GigE switches are store-and-forward, which automatically costs
+> you the full 1.3us for each link hop.  (I didn't check Eric's numbers,
+> so I don't know that 1.3us is the right value, but it sounds right.)
+> Also I think you might be confused about what Eric meant by "3 layer
+> switch hierarchy"; he's referring to a tree topology network with
+> layer-one switches connecting hosts, layer-two switches connecting
+> layer-one switches, and layer-three switches connecting layer-two
+> switches.  This means that your worst-case node-to-node latency has 6
+> wire hops with 7 "read the entire packet into memory" operations,
+> depending on how you count the initiating node's generation of the
+> packet.
 
-kuznet@ms2.inr.ac.ru writes:
+If it reads the packet into memory before starting transmission, it isn't
+"wire speed". It is a router.
 
- > It is the system with positive feedback. Reduction of chain length
- > results in increasing amount of misses and so on. Under normal load
- > it has the only stable state, zero chain length and will never leave it.
- > 
- > hits/misses is wrong feedback, unless you use it to increase chain length. :-)
- > 
+> [snip]
+>
+> > > Quite often in MPI when a message is sent the program cannot continue
+> > > until the reply is received.  Possibly this is a fundamental problem
+> > > with the application programming model, encouraging applications to
+> > > be latency sensitive.  But it is a well established API and
+> > > programming paradigm so it has to be lived with.
+>
+> This is true, in HPC.  Some of the problem is the APIs encouraging such
+> behavior; another part of the problem is that sometimes, the problem has
+> fundamental latency dependencies that cannot be programmed around.
+>
+> > > A lot of the NICs which are used for MPI tend to be smart for two
+> > > reasons.  1) So they can do source routing. 2) So they can safely
+> > > export some of their interface to user space, so in the fast path
+> > > they can bypass the kernel.
+> >
+> > And bypass any security checks required. A single rogue MPI application
+> > using such an interface can/will bring the cluster down.
+>
+> This is just false.  Kernel bypass (done properly) has no negative
+> effect on system stability, either on-node or on-network.  By "done
+> properly" I mean that the NIC has mappings programmed into it by the
+> kernel at app-startup time, and properly bounds-checks all remote DMA,
+> and has a method for verifying that incoming packets are not rogue or
+> corrupt.  (Of course a rogue *kernel* can probably interfere with other
+> *applications* on the network it's connected to, by inserting malicious
+> packets into the datastream, but even that is soluble with cookies or
+> routing checks.  However, I don't believe any systems try to defend
+> against rogue nodes today.)
 
- Well is was not the intention to find any optimum or equilibrium point
- the idea was just to get a different and more agressive setting pure DoS 
- attacks to start with. 
+Just because the packet gets transfered to a buffer correctly does not
+mean that buffer is the one it should have been sent to. If it didn't
+have this problem, then there would be no kernel TCP/IP interaction. Just
+open the ethernet device and start writing/reading. Ooops. known security
+failure.
 
- Something like:
+>
+> I believe that Myrinet's hardware has the capability to meet the "kernel
+> bypass done properly" requirement I state above; I make no claim that
+> their GM implementation actually meets the requirement (although I think
+> it might).  It's pretty likely that QSW's Elan hardware can, too, but I
+> know even less about that.
 
- if (in_hit < in_slow_tot) 
-	ip_rt_gc_elasticity2 = 1;
- else 
-         ip_rt_gc_elasticity2 = 2*ip_rt_gc_elasticity;
+since the routing is done is user mode, as part of the library, it can be
+used to directly affect processes NOT owned by the user. This bypasses
+the kernel security checks by definition. Already known to happen with
+raw myrinet, so there is a kernel layer on top of it to shield it (or
+at least try to). If there is no kernel involvement, then there can be
+no restrictions on what can be passed down the line to the device. Now
+some of the modifications for myrinet were to use normal TCP/IP to establish
+source/destination header information, then bypass any packet handshake, but
+force EACH packet to include the pre-established source/destination header 
+info. This is equivalent to UDP, but without any checksums, and sometimes
+can bypass part of the kernel cache. Unfortunately, it also means that
+sometimes incoming data is NOT destined for the user, and must be 
+erased/copied before the final destination is achieved. This introduces leaks 
+due to the race condition caused by the transfer to the wrong buffer.
 
- would have been cleaner but maybe it's not worth it.
+You can't DMA directly to a users buffer, because you MUST verify the header
+before the data... and you can't do that until the buffer is in memory...
+So bypassing the kernel generates security failures.
 
-
- Cheers.
-
-						--ro
+This is already a problem in fibre channel devices, and in other network
+devices. Anytime you bypass the kernel security you also void any 
+restrictions on the network, and any hosts it is attached to.
