@@ -1,36 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Mon, 9 Feb 2004 13:45:51 -0800
+From: Kenneth Krekula <kenneth.krekula@kiruna.se>
+Subject: A small forcedeth driver issue
+Date: Mon, 9 Feb 2004 22:52:22 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209134551.3bd533a2.davem@redhat.com>
-References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
-	<20040209121926.6f016ebf.davem@redhat.com>
-	<4027FE27.9020102@candelatech.com>
+Message-ID: <200402092252.22540.kenneth.krekula@kiruna.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: c-d.hailfinger.kernel.2004@gmx.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4027FE27.9020102@candelatech.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 09 Feb 2004 13:39:51 -0800
-Ben Greear <greearb@candelatech.com> wrote:
+Hi.
 
-> Arp requests are always broadcasts, so promisc changes nothing,
-> right?
+I have a NForce1 motherboard and have tested the forcedeth driver with the 
+Mandrake 10 betas. The driver works very well (thanks for the great work!!) 
+and I only have a small issue:
 
-Unicast probes are possible.
+If I have been using the driver in Mandrake 10 beta 2, and reboot into Win XP 
+or Mandrake Linux 9.2 (with the NVIdia NForce drivers) the network just 
+fails. 
 
-If it is broadcast/multicast then pkt_type will be PACKET_{BROAD,MULTI}CAST.
+However, if I shut off the power switch and wait for some seconds, I can power 
+on and boot into Win XP, Mandrake 9.2.
 
-The existing ipv4 proxy-arp code is saying (as I read it) to not delay the
-response if this is a unicast probe.  This is one of the behaviors that
-Julian is modifying slightly.
+I don't know if this is a known issue or not.
 
-For everyone's edification, when looking at changes Julian is suggesting, realize
-that his interests lie in IPVS like applications, so consider the corner case
-situations that such setups might be interested in and you'll see clearly the
-impetus for all of his ARP change proposals :-)
+Regards,
+Kenneth
