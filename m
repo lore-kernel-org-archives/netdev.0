@@ -1,81 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] Check encap_type at config time
-Date: Fri, 25 Jun 2004 22:35:27 +1000
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: TCP receiver's window calculation problem
+Date: Fri, 25 Jun 2004 09:43:32 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040625123527.GA11685@gondor.apana.org.au>
-References: <20040625121147.GA11231@gondor.apana.org.au>
+Message-ID: <Pine.NEB.4.33.0406250932560.2996-100000@dexter.psc.edu>
+References: <Pine.LNX.4.44.0406241331590.1272-100000@orchestra.cs.caltech.edu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="7AUc2qLy4jB3hD7Z"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+        "fast-support@cs.caltech.edu" <fast-support@cs.caltech.edu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040625121147.GA11231@gondor.apana.org.au>
+To: Cheng Jin <chengjin@cs.caltech.edu>
+In-Reply-To: <Pine.LNX.4.44.0406241331590.1272-100000@orchestra.cs.caltech.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 24 Jun 2004, Cheng Jin wrote:
 
---7AUc2qLy4jB3hD7Z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> The receiver is set to use a 9000 MTU, but the sender uses a 1500-byte
+> MTU, which is not really a pathological case.  It would have made more
+> sense for the receiver to allocate skbs of the right size as incoming
+> packets are received.
 
-On Fri, Jun 25, 2004 at 10:11:47PM +1000, herbert wrote:
-> 
-> PS I will be doing a similar patch for the encap_type in xfrm.
+Some drivers are apparently optimized for this case.  I have not confirmed
+this.
 
-Here is the patch to check encap_type at the earliest possible
-opportunity in xfrm_user/af_key.
 
-This will allow us to assume in esp4 that the encap_type from x->encap
-is always valid.
+> Is it due to effciency reasons that the skbs are just fixed in size
+> according to the set MTU on the interface card? I suppose that the
+> receiver has no real way of knowing the right MTU size at the sender.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I haven't looked too hard in to this.  Any device driver people want to
+chime in?
 
---7AUc2qLy4jB3hD7Z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/key/af_key.c 1.61 vs edited =====
---- 1.61/net/key/af_key.c	2004-06-06 18:27:42 +10:00
-+++ edited/net/key/af_key.c	2004-06-25 19:33:51 +10:00
-@@ -1075,6 +1075,15 @@
- 		n_type = ext_hdrs[SADB_X_EXT_NAT_T_TYPE-1];
- 		natt->encap_type = n_type->sadb_x_nat_t_type_type;
- 
-+		switch (natt->encap_type) {
-+		case UDP_ENCAP_ESPINUDP:
-+		case UDP_ENCAP_ESPINUDP_NON_IKE:
-+			break;
-+		default:
-+			err = -ENOPROTOOPT;
-+			goto out;
-+		}
-+
- 		if (ext_hdrs[SADB_X_EXT_NAT_T_SPORT-1]) {
- 			struct sadb_x_nat_t_port* n_port =
- 				ext_hdrs[SADB_X_EXT_NAT_T_SPORT-1];
-===== net/xfrm/xfrm_user.c 1.42 vs edited =====
---- 1.42/net/xfrm/xfrm_user.c	2004-03-25 09:18:34 +11:00
-+++ edited/net/xfrm/xfrm_user.c	2004-06-25 19:33:51 +10:00
-@@ -78,6 +78,15 @@
- 	if ((rt->rta_len - sizeof(*rt)) < sizeof(*encap))
- 		return -EINVAL;
- 
-+	encap = RTA_DATA(rt);
-+	switch (encap->encap_type) {
-+	case UDP_ENCAP_ESPINUDP:
-+	case UDP_ENCAP_ESPINUDP_NON_IKE:
-+		break;
-+	default:
-+		return -ENOPROTOOPT;
-+	}
-+
- 	return 0;
- }
- 
-
---7AUc2qLy4jB3hD7Z--
+  -John
