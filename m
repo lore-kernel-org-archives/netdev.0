@@ -1,8 +1,8 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [bk patches] net driver updates
-Date: Sun, 17 Aug 2003 14:31:37 -0400
+Subject: [bk patches] add ethtool_ops to net drivers
+Date: Sun, 17 Aug 2003 14:38:48 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030817183137.GA18521@gtf.org>
+Message-ID: <20030817183848.GA18728@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
@@ -12,92 +12,52 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Linus,
 
-Linus, please do a
+In order to maintain backwards compatibility and minimize impact,
+netdev_ops mentioned at KS was scaled back to ethtool_ops.  This allows
+driver-at-a-time replacement often-duplicated ioctl handling code with a
+Linux-style foo_ops set of function pointers.
 
-	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.6
+Also, I've been waiting on this patch to begin attacking the stack
+usage problems that often occur in ethtool ioctl handlers.  Since gcc
+sums instead of unions disjoint stack scopes (gcc bug #9997), huge
+functions that handle a bunch of ioctls wind up eating way more stack
+space than the programmer (rightfully) intended.  ethtool_ops not
+only makes a driver smaller, but it also neatly eliminates the stack
+usage problem.
 
-Patch is also available at
+I much prefer this scaled back approach, which doesn't break anything,
+and DaveM is ok with it as well.  Please apply.
 
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test3-bk5-netdrvr1.patch.bz2
+
+BitKeeper repo:
+
+	bk pull http://gkernel.bkbits.net/ethtool-2.6
+
+Patch is also available from
+
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test3-bk5-ethtool1.patch.bz2
 
 This will update the following files:
 
- drivers/net/Kconfig               |   11 
- drivers/net/Makefile              |    1 
- drivers/net/Makefile.lib          |    1 
- drivers/net/arcnet/com20020-pci.c |    6 
- drivers/net/arcnet/com20020.c     |   31 
- drivers/net/arcnet/com90io.c      |   17 
- drivers/net/hydra.c               |   24 
- drivers/net/sis190.c              | 2094 +++++++++++++++++++++++++++++---------
- drivers/net/tokenring/3c359.c     |    2 
- drivers/net/tokenring/olympic.c   |    3 
- drivers/net/tulip/tulip_core.c    |    1 
- drivers/net/wan/z85230.c          |    6 
- drivers/net/wireless/airo.c       |   12 
- drivers/net/wireless/atmel_cs.c   |    1 
- 14 files changed, 1715 insertions(+), 495 deletions(-)
+ drivers/net/tg3.c         |  664 +++++++++++++++++++--------------------------
+ include/linux/ethtool.h   |   99 ++++++
+ include/linux/netdevice.h |    9 
+ net/core/Makefile         |    4 
+ net/core/dev.c            |   16 -
+ net/core/ethtool.c        |  672 ++++++++++++++++++++++++++++++++++++++++++++++
+ 6 files changed, 1076 insertions(+), 388 deletions(-)
 
 through these ChangeSets:
 
-<jgarzik@redhat.com> (03/08/17 1.1217)
-   [netdrvr sis190] allocate RX/TX descriptors using PCI DMA API
+<jgarzik@redhat.com> (03/08/07 1.1119.10.3)
+   [netdrvr] add SET_ETHTOOL_OPS back-compat hook
+
+<jgarzik@redhat.com> (03/08/07 1.1119.10.2)
+   [netdrvr tg3] convert to using ethtool_ops
+
+<jgarzik@redhat.com> (03/08/07 1.1119.10.1)
+   [netdrvr] add ethtool_ops to struct net_device, and associated infrastructure
    
-   The RX buffers themselves still need to be converted.  The three
-   places that need fixing are marked with #warning.
-
-<ionut@badula.org> (03/08/17 1.1216)
-   [netdrvr tulip] add pci id for 3com 3CSOHO100B-TX
-
-<jgarzik@redhat.com> (03/08/17 1.1215)
-   [netdrvr sis190] manually clean up formatting a bit more
-   
-   Also, two trivial code changes:
-   * add unlikely() to assert() definition
-   * fix MODULE_AUTHOR email address brackets
-
-<jgarzik@redhat.com> (03/08/17 1.1214)
-   [netdrvr sis190] Lindent sis190.  zero code changes.
-
-<jgarzik@redhat.com> (03/08/17 1.1213)
-   [netdrvr] add sis190 gigabit ethernet driver (note: needs work)
-
-<shemminger@osdl.org> (03/08/17 1.1212)
-   [PATCH] Make z8530.c build on 2.6
-   
-   Either we need to mark this driver (and the parts that use them) as BROKEN,
-   or at least get it building again.
-   
-   With this it builds, but of course, I don't have the real hardware.
-
-<rddunlap@osdl.org> (03/08/17 1.1211)
-   [netdrvr hydra] janitor cleanups
-
-<achirica@telefonica.net> (03/08/17 1.1210)
-   [wireless airo] Fix PCI unregister code
-
-<achirica@telefonica.net> (03/08/17 1.1209)
-   [wireless airo] Turns on spy code in wireless extensions v16
-
-<jgarzik@redhat.com> (03/08/17 1.1208)
-   [arcnet com90io] replace check_region with temporary request_region,
-   in probe phase.
-
-<jgarzik@redhat.com> (03/08/17 1.1207)
-   [arcnet com20020] misc fixes
-   
-   * com20020_close expects two arguments (and actually uses the
-     second argument), but the arcnet layer only passes one arg.
-     Fun ensues.
-   * Remove __devinit markers, this is a library module.
-   * Move request_region up in com20020_found, to make the call
-     occur before the first I/O access in the function.
-
-<jgarzik@redhat.com> (03/08/17 1.1206)
-   [arcnet com20020] check_region removal, ->name removal breakage fix
-
-<jgarzik@redhat.com> (03/08/17 1.1205)
-   [netdrvr] clean up driver object name removal breakage
-   
-   Affected drivers: atmel_cs, olympic, 3c359
+   Contributed by Matthew Wilcox.
