@@ -1,69 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [janitor] remove casts in drivers/net/arm/
-Date: Tue, 02 Mar 2004 14:29:02 -0500
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.6.4-rc1] pcnet32 correct names for changes
+Date: Tue, 2 Mar 2004 11:27:44 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4044E07E.8000409@pobox.com>
-References: <20040229142516.3d218ed0.rddunlap@osdl.org>	<20040229143436.4bb884ee.rddunlap@osdl.org>	<20040302121042.A9931@flint.arm.linux.org.uk>	<4044D86C.70709@pobox.com>	<20040302110237.0f580736.rddunlap@osdl.org>	<4044DB78.7040309@pobox.com> <20040302111700.76c0b381.rddunlap@osdl.org>
+Message-ID: <200403021927.i22JRiJ11750@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rmk@arm.linux.org.uk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <20040302111700.76c0b381.rddunlap@osdl.org>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Randy.Dunlap wrote:
-> On Tue, 02 Mar 2004 14:07:36 -0500 Jeff Garzik wrote:
-> 
-> | Randy.Dunlap wrote:
-> | > On Tue, 02 Mar 2004 13:54:36 -0500 Jeff Garzik wrote:
-> | > 
-> | > | Russell King wrote:
-> | > | > On Sun, Feb 29, 2004 at 02:34:36PM -0800, Randy.Dunlap wrote:
-> | > | > 
-> | > | >> drivers/net/arm/am79c961a.c |   18 +++++++++---------
-> | > | >> drivers/net/arm/ether1.c    |   18 +++++++++---------
-> | > | >> drivers/net/arm/ether3.c    |   18 +++++++++---------
-> | > | >> drivers/net/arm/etherh.c    |    4 ++--
-> | > | >> 4 files changed, 29 insertions(+), 29 deletions(-)
-> | > | > 
-> | > | > 
-> | > | > I think we should really consider using netdev_priv() in all these places
-> | > | > so the compiler knows that 'dev' and 'priv' are related.
-> | > | 
-> | > | 
-> | > | Good point.
-> | > 
-> | > I respectfully disagree, but if the maintainter won't merge
-> | > them as is, so be it.
-> | > 
-> | > I have trouble understanding why this:
-> | > 	return (char *)dev + ((sizeof(struct net_device) + 31) & ~31);
-> | > is better than using a structure->field, i.e.,
-> | > 	dev->priv
-> | > 
-> | > Can one of you enlighten me?
-> | 
-> | 
-> | One is an additional pointer load and dereference, and one is a constant 
-> | offset from the beginning of the dev structure, calculated at compile 
-> | time.  netdev_priv() provides the same results as dev->priv but at less 
-> | cost.
-> 
-> OK, thanks, I see.
-> I think it's ugly, but you'll get updated patches anyway.
+This patch corrects the names of contributors of changes to the pcnet32
+driver.
 
+--- linux-2.6.4-rc1/drivers/net/good.pcnet32.c	Tue Mar  2 09:44:22 2004
++++ linux-2.6.4-rc1/drivers/net/pcnet32.c	Tue Mar  2 11:24:43 2004
+@@ -225,10 +225,12 @@
+  * v1.27b  Sep 30 2002 Kent Yoder <yoder1@us.ibm.com>
+  * 	   Added timer for cable connection state changes.
+  * v1.28   20 Feb 2004 Don Fry <brazilnut@us.ibm.com>
+- *	   Jon Lewis <jonmason@us.ibm.com>, Chinmay Albal <albal@in.ibm.com>
++ *	   Jon Mason <jonmason@us.ibm.com>, Chinmay Albal <albal@in.ibm.com>
+  *	   Now uses ethtool_ops, netif_msg_* and generic_mii_ioctl.
+  *	   Fixes bogus 'Bus master arbitration failure', pci_[un]map_single
+  *	   length errors, and transmit hangs.  Cleans up after errors in open.
++ *	   Jim Lewis <jklewis@us.ibm.com> added ethernet loopback test.
++ *	   Thomas Munck Steenholdt <tmus@tmus.dk> non-mii ioctl corrections.
+  */
+ 
 
-I wasn't rejecting your patches.
-
-In fact, I want to apply your cast patches separate from any 
-netdev_priv() cleanup.
-
-netdev_priv() should be a separate item on the janitor todo list.
-
-RMK however is free to reject these patches for drivers/net/arm/ of 
-course...
-
-	Jeff
+-- 
+Don Fry
+brazilnut@us.ibm.com
