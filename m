@@ -1,30 +1,34 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: e1000 kick
-Date: Sat, 09 Oct 2004 10:38:43 -0700
+From: Sam Leffler <sam@errno.com>
+Subject: Re: [PATCH] pktgen: sprintf arg type warning
+Date: Sat, 09 Oct 2004 10:49:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1097343522.3903.25.camel@sfeldma-mobl2.dsl-verizon.net>
-References: <20041008231713.1126.qmail@web80401.mail.yahoo.com>
-Reply-To: sfeldma@pobox.com
+Message-ID: <416824C3.9040903@errno.com>
+References: <20041008203027.643a2a97.rddunlap@osdl.org> <20041008221934.42a6bc7a.davem@davemloft.net> <41682021.3080400@errno.com> <20041009173644.GC30713@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        "Randy.Dunlap" <rddunlap@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Scott Huang <scott_z_huang@yahoo.com>
-In-Reply-To: <20041008231713.1126.qmail@web80401.mail.yahoo.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20041009173644.GC30713@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-10-08 at 16:17, Scott Huang wrote:
-> Is there a way to force tx dma to start on e1000 after
-> the I fill up the tx ring to a certain level?
+Andi Kleen wrote:
+>>Other systems have addressed this problem by extending printf with 
+>>portable %formats.
+> 
+> 
+> Problem is that gcc -Wformat doesn't know the new format codes,
+> and in Linux we still have to support old gcc versions.
 
-Just delay the write of the Tx tail index (TDT).  Writing to the Tx tail
-index signals hardware to start the DMA from Tx head index (TDH) to
-TDT.  See code for
+Yes, gcc has been modified to understand the new %formats.  That's the 
+advantage to distributing a full system and not just a kernel :)
 
-	E1000_WRITE_REG(&adapter->hw, TDT, i);
-
-But don't delay too long...you'll trigger the tx_timeout reset.
-
--scott
+> 
+> Standard trick is to cast to long.
+> 
+> -Andi
+> 
+> 
