@@ -1,26 +1,30 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6]: Fix oops in ipt action error path
-Date: Fri, 10 Dec 2004 00:46:17 +0100
-Message-ID: <41B8E3C9.5060002@trash.net>
-References: <41B7892E.1080706@trash.net> <1102594472.1048.50.camel@jzny.localdomain>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] remove FCS from pktgen bandwidth calculation
+Date: Thu, 9 Dec 2004 15:59:36 -0800
+Message-ID: <20041209155936.69313e70.davem@davemloft.net>
+References: <20041208201116.GA10691@xi.wantstofly.org>
+	<16824.22466.897897.238619@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: buytenh@wantstofly.org, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1102594472.1048.50.camel@jzny.localdomain>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16824.22466.897897.238619@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+On Thu, 9 Dec 2004 14:48:50 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
->Thanks Patrick. If you have more cleanups on ipt, please shoot them in
->as well. 
->  
->
-I didn't get to it yet, but I'll have more free time at christmas.
+> OK! We strictly define statistics to be based on the data we deliver
+> to hard_xmit. Feel free to change the current kernel version... while
+> we wait for 2.7 :-)
 
-Regards
-Patrick
+Robert can you collect together the various pktgen patches
+that have been floating about over the past few days and
+send to me what you think should be applied.
+
+There is this FCS patch, and the naonspin one from Lennert
+as well.  There may have been others.
