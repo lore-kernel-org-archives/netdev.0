@@ -1,8 +1,8 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [ioctl][3/8] use new code for pppoatm and br2684 (from levon@movementarian.org)
-Date: Thu, 25 Sep 2003 12:10:04 -0400
+Subject: [PATCH][ATM]: [ioctl][4/8] use new code for mpoa (from levon@movementarian.org)
+Date: Thu, 25 Sep 2003 12:10:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309251610.h8PGA3kT006938@ginger.cmf.nrl.navy.mil>
+Message-ID: <200309251610.h8PGAKkT006950@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,166 +16,191 @@ please apply to 2.6 -- thanks
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1449  -> 1.1450 
-#	    net/atm/br2684.c	1.11    -> 1.12   
-#	     net/atm/ioctl.c	1.2     -> 1.3    
-#	   net/atm/pppoatm.c	1.14    -> 1.15   
+#	           ChangeSet	1.1450  -> 1.1451 
+#	       net/atm/mpc.h	1.2     -> 1.3    
+#	     net/atm/ioctl.c	1.3     -> 1.4    
+#	       net/atm/mpc.c	1.27    -> 1.28   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/09/23	chas@relax.cmf.nrl.navy.mil	1.1450
-# [ATM]: [ioctl][3/8] use new code for pppoatm and br2684 (from levon@movementarian.org)
+# 03/09/23	chas@relax.cmf.nrl.navy.mil	1.1451
+# [ATM]: [ioctl][4/8] use new code for mpoa (from levon@movementarian.org)
 # --------------------------------------------
 #
-diff -Nru a/net/atm/br2684.c b/net/atm/br2684.c
---- a/net/atm/br2684.c	Thu Sep 25 09:24:19 2003
-+++ b/net/atm/br2684.c	Thu Sep 25 09:24:19 2003
-@@ -634,9 +634,11 @@
-  * This handles ioctls actually performed on our vcc - we must return
-  * -ENOIOCTLCMD for any unrecognized ioctl
-  */
--static int br2684_ioctl(struct atm_vcc *atmvcc, unsigned int cmd,
-+static int br2684_ioctl(struct socket *sock, unsigned int cmd,
- 	unsigned long arg)
- {
-+	struct atm_vcc *atmvcc = ATM_SD(sock);
-+
- 	int err;
- 	switch(cmd) {
- 	case ATM_SETBACKEND:
-@@ -667,6 +669,12 @@
- 	return -ENOIOCTLCMD;
- }
- 
-+static struct atm_ioctl br2684_ioctl_ops = {
-+	.owner	= THIS_MODULE,
-+	.ioctl	= br2684_ioctl,
-+};
-+
-+
- #ifdef CONFIG_PROC_FS
- static void *br2684_seq_start(struct seq_file *seq, loff_t *pos)
- {
-@@ -774,7 +782,7 @@
- 		return -ENOMEM;
- 	p->proc_fops = &br2684_proc_ops;
- #endif
--	br2684_ioctl_set(br2684_ioctl);
-+	register_atm_ioctl(&br2684_ioctl_ops);
- 	return 0;
- }
- 
-@@ -783,7 +791,7 @@
- 	struct net_device *net_dev;
- 	struct br2684_dev *brdev;
- 	struct br2684_vcc *brvcc;
--	br2684_ioctl_set(NULL);
-+	deregister_atm_ioctl(&br2684_ioctl_ops);
- 
- #ifdef CONFIG_PROC_FS
- 	remove_proc_entry("br2684", atm_proc_root);
 diff -Nru a/net/atm/ioctl.c b/net/atm/ioctl.c
---- a/net/atm/ioctl.c	Thu Sep 25 09:24:19 2003
-+++ b/net/atm/ioctl.c	Thu Sep 25 09:24:19 2003
-@@ -122,38 +122,6 @@
+--- a/net/atm/ioctl.c	Thu Sep 25 09:24:27 2003
++++ b/net/atm/ioctl.c	Thu Sep 25 09:24:27 2003
+@@ -14,6 +14,7 @@
+ #include <linux/atmarp.h>	/* manifest constants */
+ #include <linux/sonet.h>	/* for ioctls */
+ #include <linux/atmsvc.h>
++#include <linux/atmmpc.h>
+ #include <asm/ioctls.h>
+ 
+ #ifdef CONFIG_ATM_CLIP
+@@ -54,36 +55,6 @@
  #endif
  #endif
  
--#if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
--static DECLARE_MUTEX(pppoatm_ioctl_mutex);
+-#if defined(CONFIG_ATM_MPOA) || defined(CONFIG_ATM_MPOA_MODULE)
+-#include <linux/atmmpc.h>
+-#include "mpc.h"
+-struct atm_mpoa_ops *atm_mpoa_ops;
+-static DECLARE_MUTEX(atm_mpoa_ops_mutex);
 -
--static int (*pppoatm_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
--
--void pppoatm_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long))
+-void atm_mpoa_ops_set(struct atm_mpoa_ops *hook)
 -{
--	down(&pppoatm_ioctl_mutex);
--	pppoatm_ioctl_hook = hook;
--	up(&pppoatm_ioctl_mutex);
+-	down(&atm_mpoa_ops_mutex);
+-	atm_mpoa_ops = hook;
+-	up(&atm_mpoa_ops_mutex);
 -}
--#ifdef CONFIG_PPPOATM_MODULE
--EXPORT_SYMBOL(pppoatm_ioctl_set);
--#endif
--#endif
 -
--#if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
--static DECLARE_MUTEX(br2684_ioctl_mutex);
--
--static int (*br2684_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
--
--void br2684_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long))
+-int try_atm_mpoa_ops(void)
 -{
--	down(&br2684_ioctl_mutex);
--	br2684_ioctl_hook = hook;
--	up(&br2684_ioctl_mutex);
+-	down(&atm_mpoa_ops_mutex);
+-	if (atm_mpoa_ops && try_module_get(atm_mpoa_ops->owner)) {
+-		up(&atm_mpoa_ops_mutex);
+-		return 1;
+-	}
+-	up(&atm_mpoa_ops_mutex);
+-	return 0;
 -}
--#ifdef CONFIG_ATM_BR2684_MODULE
--EXPORT_SYMBOL(br2684_ioctl_set);
+-#ifdef CONFIG_ATM_MPOA_MODULE
+-EXPORT_SYMBOL(atm_mpoa_ops);
+-EXPORT_SYMBOL(try_atm_mpoa_ops);
+-EXPORT_SYMBOL(atm_mpoa_ops_set);
 -#endif
 -#endif
 -
- static DECLARE_MUTEX(ioctl_mutex);
- static LIST_HEAD(ioctl_list);
- 
-@@ -433,23 +401,6 @@
- 
- 	if (error != -ENOIOCTLCMD)
- 		goto done;
--
--#if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
--	down(&pppoatm_ioctl_mutex);
--	if (pppoatm_ioctl_hook)
--		error = pppoatm_ioctl_hook(vcc, cmd, arg);
--	up(&pppoatm_ioctl_mutex);
--	if (error != -ENOIOCTLCMD)
--		goto done;
+ #if defined(CONFIG_ATM_TCP) || defined(CONFIG_ATM_TCP_MODULE)
+ #include <linux/atm_tcp.h>
+ #ifdef CONFIG_ATM_TCP_MODULE
+@@ -309,36 +280,6 @@
+ 				error = -ENOSYS;
+ 			goto done;
+ #endif
+-#if defined(CONFIG_ATM_MPOA) || defined(CONFIG_ATM_MPOA_MODULE)
+-		case ATMMPC_CTRL:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-#if defined(CONFIG_ATM_MPOA_MODULE)
+-			if (!atm_mpoa_ops)
+-                                request_module("mpoa");
 -#endif
--#if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
--	down(&br2684_ioctl_mutex);
--	if (br2684_ioctl_hook)
--		error = br2684_ioctl_hook(vcc, cmd, arg);
--	up(&br2684_ioctl_mutex);
--	if (error != -ENOIOCTLCMD)
--		goto done;
+-			if (try_atm_mpoa_ops()) {
+-				error = atm_mpoa_ops->mpoad_attach(vcc, (int) arg);
+-				module_put(atm_mpoa_ops->owner);
+-				if (error >= 0)
+-					sock->state = SS_CONNECTED;
+-			} else
+-				error = -ENOSYS;
+-			goto done;
+-		case ATMMPC_DATA:
+-			if (!capable(CAP_NET_ADMIN)) {
+-				error = -EPERM;
+-				goto done;
+-			}
+-			if (try_atm_mpoa_ops()) {
+-				error = atm_mpoa_ops->vcc_attach(vcc, arg);
+-				module_put(atm_mpoa_ops->owner);
+-			} else
+-				error = -ENOSYS;
+-			goto done;
 -#endif
- 
- 	error = atm_dev_ioctl(cmd, arg);
- 
-diff -Nru a/net/atm/pppoatm.c b/net/atm/pppoatm.c
---- a/net/atm/pppoatm.c	Thu Sep 25 09:24:19 2003
-+++ b/net/atm/pppoatm.c	Thu Sep 25 09:24:19 2003
-@@ -315,9 +315,11 @@
-  * This handles ioctls actually performed on our vcc - we must return
-  * -ENOIOCTLCMD for any unrecognized ioctl
-  */
--static int pppoatm_ioctl(struct atm_vcc *atmvcc, unsigned int cmd,
-+static int pppoatm_ioctl(struct socket *sock, unsigned int cmd,
- 	unsigned long arg)
- {
-+	struct atm_vcc *atmvcc = ATM_SD(sock);
+ #if defined(CONFIG_ATM_TCP) || defined(CONFIG_ATM_TCP_MODULE)
+ 		case SIOCSIFATMTCP:
+ 			if (!capable(CAP_NET_ADMIN)) {
+@@ -385,6 +326,10 @@
+ 		default:
+ 			break;
+ 	}
 +
- 	if (cmd != ATM_SETBACKEND && atmvcc->push != pppoatm_push)
- 		return -ENOIOCTLCMD;
- 	switch (cmd) {
-@@ -341,15 +343,20 @@
- 	return -ENOIOCTLCMD;
++	if (cmd == ATMMPC_CTRL || cmd == ATMMPC_DATA)
++		request_module("mpoa");
++
+ 	error = -ENOIOCTLCMD;
+ 
+ 	down(&ioctl_mutex);
+diff -Nru a/net/atm/mpc.c b/net/atm/mpc.c
+--- a/net/atm/mpc.c	Thu Sep 25 09:24:27 2003
++++ b/net/atm/mpc.c	Thu Sep 25 09:24:27 2003
+@@ -1361,15 +1361,41 @@
+ 	mpc_timer_refresh();
  }
  
-+struct atm_ioctl pppoatm_ioctl_ops = {
+-static struct atm_mpoa_ops __atm_mpoa_ops = {
+-	.mpoad_attach =	atm_mpoa_mpoad_attach,
+-	.vcc_attach =	atm_mpoa_vcc_attach,
+-	.owner = THIS_MODULE
++static int atm_mpoa_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
++{
++	int err = 0;
++	struct atm_vcc *vcc = ATM_SD(sock);
++
++	if (cmd != ATMMPC_CTRL && cmd != ATMMPC_DATA)
++		return -ENOIOCTLCMD;
++
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	switch (cmd) {
++		case ATMMPC_CTRL:
++			err = atm_mpoa_mpoad_attach(vcc, (int)arg);
++			if (err >= 0)
++				sock->state = SS_CONNECTED;
++			break;
++		case ATMMPC_DATA:
++			err = atm_mpoa_vcc_attach(vcc, arg);
++			break;
++		default:
++			break;
++	}
++	return err;
++}
++
++
++static struct atm_ioctl atm_ioctl_ops = {
 +	.owner	= THIS_MODULE,
-+	.ioctl	= pppoatm_ioctl,
-+};
-+
- static int __init pppoatm_init(void)
- {
--	pppoatm_ioctl_set(pppoatm_ioctl);
-+	register_atm_ioctl(&pppoatm_ioctl_ops);
- 	return 0;
- }
++	.ioctl	= atm_mpoa_ioctl,
+ };
  
- static void __exit pppoatm_exit(void)
+ static __init int atm_mpoa_init(void)
  {
--	pppoatm_ioctl_set(NULL);
-+	deregister_atm_ioctl(&pppoatm_ioctl_ops);
- }
+-	atm_mpoa_ops_set(&__atm_mpoa_ops);
++	register_atm_ioctl(&atm_ioctl_ops);
  
- module_init(pppoatm_init);
+ #ifdef CONFIG_PROC_FS
+ 	if (mpc_proc_init() != 0)
+@@ -1395,7 +1421,7 @@
+ 
+ 	del_timer(&mpc_timer);
+ 	unregister_netdevice_notifier(&mpoa_notifier);
+-	atm_mpoa_ops_set(NULL);
++	deregister_atm_ioctl(&atm_ioctl_ops);
+ 
+ 	mpc = mpcs;
+ 	mpcs = NULL;
+diff -Nru a/net/atm/mpc.h b/net/atm/mpc.h
+--- a/net/atm/mpc.h	Thu Sep 25 09:24:27 2003
++++ b/net/atm/mpc.h	Thu Sep 25 09:24:27 2003
+@@ -44,18 +44,6 @@
+ };
+ 
+ 
+-/* Functions to call during ioctl(ATMMPC, ) */
+-struct atm_mpoa_ops {
+-        int (*mpoad_attach)(struct atm_vcc *vcc, int arg);  /* attach mpoa daemon  */
+-        int (*vcc_attach)(struct atm_vcc *vcc, long arg);   /* attach shortcut vcc */
+-	struct module *owner;
+-};
+-
+-/* Boot/module initialization function */
+-extern struct atm_mpoa_ops *atm_mpoa_ops;
+-int try_atm_mpoa_ops(void);
+-void atm_mpoa_ops_set(struct atm_mpoa_ops *hook);
+-
+ /* MPOA QoS operations */
+ struct atm_mpoa_qos *atm_mpoa_add_qos(uint32_t dst_ip, struct atm_qos *qos);
+ struct atm_mpoa_qos *atm_mpoa_search_qos(uint32_t dst_ip);
