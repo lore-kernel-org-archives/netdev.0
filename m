@@ -1,47 +1,41 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: struct sock size limit?
-Date: Sun, 27 Oct 2002 03:18:40 -0300
+From: Cheng Jin <chengjin@cs.caltech.edu>
+Subject: Linux SMP on 2.4.18-3
+Date: Sun, 27 Oct 2002 01:27:47 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021027061840.GA4720@conectiva.com.br>
-References: <Pine.LNX.4.33L0.0210262236120.4401-100000@fast2.cs.caltech.edu>
+Message-ID: <Pine.LNX.4.33L0.0210270117050.10547-100000@fast2.cs.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Cheng Jin <chengjin@cs.caltech.edu>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.33L0.0210262236120.4401-100000@fast2.cs.caltech.edu>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Sat, Oct 26, 2002 at 10:44:03PM -0700, Cheng Jin escreveu:
-> Hi,
-> 
-> I have been adding members to struct sock (by changing struct tcp_opt) in
-> linux 2.4.18-3 kernel.  I haven't had problems with the kernel until
-> today.   When I added a few more bytes (~ 20 bytes) on top of my old
-> addition (around 80 bytes), the kernel would crash calling udp_sendmsg
+Hi,
 
-beware the data dependencies of struct sock and tcp_tw_bucket, etc, I
-bet you're adding new struct members at the start of struct sock, see the
-comment in include/net/tcp.h, just above struct tcp_tw_bucket definition...
-and also study current include/net/sock.h in 2.5, this thing was all
-changed (for the better 8) ).
+Please excuse me for asking questions on a rather old kernel.  We decided
+to do kernel modificatios against 2.4.18-3 so we can't back it out now.
 
-> (syslogd initialization).  I suspect that there may be some kind of size
-> limit with struct sock/tcp_opt.  The TCP connected state is checked
-> from within udp_sendmsg (no idea why that is so).
+On the SMP test machine we have at the lab (Dual 2.4 Ghz Xeons with one
+SysKonnect Gigabit Ethernet card, SuperMicro P4DP6 MB), I observed TCP
+functions being called simultaneously by both processors.  What I did was
+to simply increment a counter (init to zero) and check whether it is one
+in the functions under suspicion.  Sure enough, I see a lot of messages
+printed out saying it is two.  Admittedly, my counter var is not protected
+either, but seeing it becoming 2 is proof enough that the functions are
+entered simultaneously (yes I decrement the counter before functions
+return).
 
-so look at other protocols such as decnet that also uses the TCP_ state
-macros :-) its just reusing those macros.
- 
-> I searched around on google, but didn't find anything on struct sock or
-> struct tcp_opt.  Does anyone know whether the size of struct sock/tcp_opt
-> is capped?
-> 
-> Thanks a lot,
-> 
-> Cheng
-> 
-> Lab # 626 395 8820
-> 
+I looked at the code fairly extensively, and I didn't see any lock for
+these functions, tcp_send_skb, tcp_push_one, update_send_head, where
+packets_out gets incremented.  The problem I was having was that
+tp->packets_out got out of sync with the number of unacked packets on the
+sk->write_queue.
+
+I would like to confirm with people that are involved with kernel
+developement that what I observed was indeed correct.
+
+Thanks,
+
+Cheng
+
+Lab # 626 395 8820
