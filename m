@@ -1,99 +1,48 @@
-From: "Leonid Grossman" <leonid.grossman@neterion.com>
-Subject: RE: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
-Date: Mon, 14 Mar 2005 18:28:19 -0800
-Message-ID: <200503150228.j2F2SJDD028252@guinness.s2io.com>
-References: <42363A96.2090601@hp.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: VIA Rhine (VT6105M) v/s Tulip performance.
+Date: Mon, 14 Mar 2005 19:57:15 -0800
+Message-ID: <42365D1B.2080504@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: "'Rick Jones'" <rick.jones2@hp.com>, <netdev@oss.sgi.com>
-In-Reply-To: <42363A96.2090601@hp.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
+
+I just got a new 4-port VIA VT6105M NIC (router-board 44) and decided to
+benchmark it against my 4-port tulip NIC (p430tx)...
+
+My test is pktgen sending to itself across two interfaces, and my network
+emulator bridging the other two interfaces.  It's wired so that pktgen is
+sending a packet through the bridge.  There is no protocol overhead here
+since my bridge software doesn't care, and pktgen is receiving before the
+UDP protocol can get a hold of it.
+
+Kernel is 2.4.29, P-IV 2.66Ghz, 512MB RAM, RH9 w/X and some applications
+running.
+
+With the VIA board, I get about 39Mbps tx + rx on each interface with 1514
+byte packets.  I get a few dropped packets, maybe .1% or so.
+
+The tulip board sustains about 58Mbps tx+rx on each interface, and for whatever
+reason, the CPU usage is lower.  I am dropping a larger percentage of packets
+with tulip, but not too bad.
+
+Both NICs are stable under load so far...though I've only cooked them for 10 minutes
+at a time.  Will let the VIA cook over-night to see if it holds up (have cooked
+the tulip NICs for days and they always do well)...
+
+The VIA board is significantly cheaper, so the lower performance may just be
+the reality of the situation.  I'll try the VIA in a 2.6 kernel sometime soon
+and let you all know if that changes things significantly.
+
+Take it easy,
+Ben
 
 
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
-> Behalf Of Rick Jones
-> Sent: Monday, March 14, 2005 5:30 PM
-> To: netdev@oss.sgi.com
-> Subject: Re: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE
-> Adapters
-> 
-> Alex Aizman wrote:
-> > Andi Kleen writes:
-> >
-> >
-> >>I guess the main objection to the HAL comes not from
-> >>performance issues
-> >
-> >
-> > But the second or the third objection comes from there, I guess... As
-> far as
-> > the data path, HAL as a "layer" completely disappears. There is just a
-> few
-> > inline instructions that post descriptors and process completed
-> descriptors.
-> > These same instructions are unavoidable; they'd be present HAL or no-
-> HAL.
-> > There's no HAL locks on the data path (the locks are compiled out), no
-> HAL
-> > (as a "layer") induced overhead. Note that the performance was one
-> > persistent "paranoia" from the very start of this project.
-> >
-> > The numbers also tell the tale. We have 7.6Gbps jumbo throughput, the
-> > bottleneck is PCI, not the host.
-> 
-> That would seem to suggest then comparing (using netperf terminology)
-> service
-> demands between HAL and no HAL.  JumboFrame can compensate for a host of
-> ills :)
-> I really do _not_ mean to imply there are any ills for which compensation
-> is
-> required, just suggesting to get folks into the habit of including CPU
-> utilization.  And since we cannot count on JumboFrame being there end-to-
-> end,
-> performance with 1500 byte frames, while perhaps a bit unpleasant, is
-> still
-> important.
-
-Hi Rick,
-With Jumbo frames, the performance and %cpu for the two drivers are at par.
-With 1500, HAL driver actually shows somewhat better throughput and %cpu -
-though the approach has nothing to do with it, the important point is that
-there is no performance drop that could be traced to the usage of HAL per
-say
-Leonid.
-
-> 
-> > We have 13us 1byte netpipe latency.
-> 
-> So 76,000 transactions per second on something like single-byte netperf
-> TCP_RR?!? Or am I mis-interpreting the netpipe latency figure?
-> 
-> I am of course biased, but netperf (compiled with -DUSE_PROCSTAT under
-> Linux,
-> somethign else for other OSes - feel free to contact me about it) tests
-> along
-> the lines of:
-> 
-> netperf -c -C -t TCP_STREAM -H <remote> -l <length> -i 10,3 -- -s 256K -S
-> 256K
-> -m 32K
-> 
-> and
-> 
-> netperf -c -C -t TCP_RR -H <remote> -l <length> -i 10,3
-> 
-> are generally useful.  If you have the same system type at each end, the -
-> C can
-> be dropped from the TCP_RR test since it _should_ be symmetric.  If -C
-> dumps
-> core on the TCP_STREAM test, drop it and add a TCP_MAERTS test to get
-> receive
-> service demand.
-> 
-> rick jones
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
