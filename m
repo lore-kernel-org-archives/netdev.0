@@ -1,24 +1,50 @@
-From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: netdevice->generate_eui64
-Date: Fri, 30 Jan 2004 17:03:16 -0800
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Fwd: receive path with fragmented skbs
+Date: Sat, 31 Jan 2004 08:36:03 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040130170316.789e8939.zaitcev@redhat.com>
+Message-ID: <20040131073603.GA17225@alpha.home.local>
+References: <1075504343.21310.23.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: zaitcev@redhat.com, <utz.bacher@de.ibm.com>, pavlic@de.ibm.com,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: schwidefsky@de.ibm.com
+To: Kallol Biswas <kallol.biswas@s2io.com>
+Content-Disposition: inline
+In-Reply-To: <1075504343.21310.23.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, guys:
+Hi,
 
-Does anyone know where I can find a patch to add dev->generate_eui64?
-The qeth in 2.6 tree requires it to be built (with IPv6). I am talking
-about a descendant of this patch:
- http://www.ussg.iu.edu/hypermail/linux/net/0303.0/0037.html
+you should have posted this to the netdev list : netdev@oss.sgi.com.
+You don't need to resend, I have CC'd it.
 
-Thanks,
--- Pete
+Willy
+
+On Fri, Jan 30, 2004 at 03:12:24PM -0800, Kallol Biswas wrote:
+> Hello,
+>       We have been developing drivers and networking software  on
+> a 10 gigabit ethernet adapter from S2io Inc (www.s2io.com). There is a
+> requirement that the ethernet header, IP+TCP headers have to be cache
+> aligned and the payload and the IP+TCP headers have to be in different
+> fragments. So we have created receive path skbs with data size big
+> enough to hold the ethernet header and two fragments, one fragment for
+> the IP+TCP header and the other for payload. The card can  directly dma
+> into the three receive scatter buffers when a frame arrives.
+> 
+> We could not get ping working with this design of receive skbs,
+> but if a skb is linearized with skb_linearize() before calling
+> netif_rx(), ping works.
+> 
+> /proc/net/snmp was printed, no frame had any error. Probably no one has
+> ever tested the receive path of the stack with fragmented skbs, am I
+> right? One of the ways this problem can be debugged is to find out where
+> exactly the packets get dropped. Any comment?
+> 
+> Kallol 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
