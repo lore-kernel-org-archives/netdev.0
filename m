@@ -1,36 +1,34 @@
-From: David Stevens <dlstevens@us.ibm.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: 6to4/SIT and IP DF
-Date: Wed, 15 Oct 2003 22:21:37 -0700
+Date: Wed, 15 Oct 2003 22:27:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF32DA07F2.CE83636D-ON88256DC1.001CC44C@us.ibm.com>
+Message-ID: <20031015222712.18d1434f.davem@redhat.com>
+References: <OF32DA07F2.CE83636D-ON88256DC1.001CC44C@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: pekkas@netcore.fi, r.venning@telstra.com, nate@thebog.net,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF32DA07F2.CE83636D-ON88256DC1.001CC44C@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 15 Oct 2003 22:21:37 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
 
+> That doesn't sound terrible, but won't it have to drop a minimum of
+> 2 packets per tunnel on an MTU change (or initial probe with a large
+> packet)?
 
+Welcome to the real world where most routers don't quote enough
+information.  :) What we do is the only sane way to handle this
+problem.
 
+All of our ipv4 tunnels work this way due to that quoting size issue.
 
-That doesn't sound terrible, but won't it have to drop a minimum of
-2 packets per tunnel on an MTU change (or initial probe with a large
-packet)?
-
-So, it wouldn't be a good idea to connect multiple v6 clouds in series,
-with
-6to4 tunnels between them and decreasing MTU's and then try to send a
-large packet from one end to the other; you might run out of retransmits
-before
-you get to the other end. :-)
-
-But using v4 PMTU info is probably almost always better than fragmenting
-everything. A "fragment, but tell me about it" ICMP message would come in
-handy here. And a requirement that ICMPv4 with tunnels include encapsulated
-headers +8.
-
-Thanks, Dave,
-                  +-DLS
+The "fragment but tell me about it" isn't such a great idea.  You'll
+run into all kinds of difficult decisions about behavior in the cases
+where a too-big packet overruns multiple hops on the path.  This is why
+the original implementors didn't put this into the RFCs.
