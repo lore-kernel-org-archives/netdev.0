@@ -1,43 +1,51 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [stable] [BK PATCHES] 2.6.x net driver oops fixes
-Date: Thu, 10 Mar 2005 13:39:17 -0800
-Message-ID: <20050310213917.GW5389@shell0.pdx.osdl.net>
-References: <422F59E8.2090707@pobox.com> <20050310202548.GV5389@shell0.pdx.osdl.net> <4230AE24.602@pobox.com>
+From: cliff white <cliffw@osdl.org>
+Subject: Ethtool doesn't work on Debian unstable?
+Date: Thu, 10 Mar 2005 13:54:35 -0800
+Message-ID: <20050310135435.23af10b8@es175>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@osdl.org>, Andrew Morton <akpm@osdl.org>,
-        Linus Torvalds <torvalds@osdl.org>, Netdev <netdev@oss.sgi.com>,
-        stable@kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>,
-        Roger Luethi <rl@hellgate.ch>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4230AE24.602@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Jeff Garzik (jgarzik@pobox.com) wrote:
-> Chris Wright wrote:
-> >* Jeff Garzik (jgarzik@pobox.com) wrote:
-> >
-> >
-> >>This will update the following files:
-> >>
-> >>drivers/net/sis900.c    |   41 +++++++++++++++++++++--------------------
-> >>drivers/net/via-rhine.c |    3 +++
-> >
-> >
-> >The via-rhine fix is already in the stable queue.  But the sis900 oops
-> >fix does not apply to the stable tree.  It relies on a few intermediate
-> >patches.  Appears to still be an issue for the older version which is in
-> >2.6.11.  Here's a stab at a backport.  Would you like to review/validate
-> >or drop this one?
-> 
-> The backport looks correct to me, though it would be nice to get a 
-> via-rhine owner to ACK the patch before it goes in...
 
-OK, thanks.  ITYM sis900 maintainer, is that still Ollie Lho as listed in
-MAINTAINERS (that's looking old)?
+This is wierd. I know I am doing something Real Stupid, but i can't figure it out.
 
-thanks,
--chris
+Two systems.  2.6.11 kernel on both systems. 
+One runs RedHat 9.0, and ethtool Just Works:
+ ethtool -g eth0
+Ring parameters for eth0:
+Pre-set maximums:
+RX:             256
+RX Mini:        0
+RX Jumbo:       0
+TX:             256
+Current hardware settings:
+RX:             64
+RX Mini:        0
+RX Jumbo:       0
+TX:             64
+--------------------
+The other is Debian unstable, and nothing works:
+ ethtool -g eth0
+Ring parameters for eth0:
+Cannot get device ring settings: Operation not supported
+------------------------
+If i strace, i see the ioctl failing on the Debian side:
+7657  munmap(0xb7fd6000, 75321)         = 0
+7657  socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 3
+7657  fstat64(1, {st_mode=S_IFCHR|0600, st_rdev=makedev(136, 5), ...}) = 0
+7657  mmap2(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0xb7fe8000
+7657  write(1, "Ring parameters for eth1:\n", 26) = 26
+7657  ioctl(3, SIOCETHTOOL, 0xbffffd30) = -1 EOPNOTSUPP (Operation not supported)
+7657  dup(2)                            = 4
+------------------------
+Can anyone help me here? I'd like to use Debian for this testing, but so far, no love.
+cliffw
+
+
+-- 
+"Ive always gone through periods where I bolt upright at four in the morning; 
+now at least theres a reason." -Michael Feldman
