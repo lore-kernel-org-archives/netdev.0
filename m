@@ -1,7 +1,7 @@
 From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [PATCH] linux/ibmtr.h: add constants for appropriate delays
-Date: Mon, 1 Nov 2004 11:22:10 -0800
-Message-ID: <20041101192210.GD1730@us.ibm.com>
+Subject: [PATCH] net/ibmtr: replace schedule_timeout() with msleep()/msleep_interruptible()
+Date: Mon, 1 Nov 2004 11:27:38 -0800
+Message-ID: <20041101192738.GE1730@us.ibm.com>
 References: <E1CO1wB-0002eM-If@sputnik> <4184C66B.8040501@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -28,9 +28,7 @@ On Sun, Oct 31, 2004 at 06:03:07AM -0500, Jeff Garzik wrote:
 > >
 > > linux-2.6.10-rc1-max/drivers/net/tokenring/ibmtr.c |   11 +++++------
 > > 1 files changed, 5 insertions(+), 6 deletions(-)
-
-<snip>
-
+> >
 > >-		schedule_timeout(TR_RST_TIME); /* wait 50ms */
 > >+		msleep(jiffies_to_msecs(TR_RST_TIME)); /* wait 50ms */
 
@@ -54,26 +52,53 @@ On Sun, Oct 31, 2004 at 06:03:07AM -0500, Jeff Garzik wrote:
 > It makes more sense to convert the constants to msecs in the source 
 > code, instead of converting them at runtime.
 
-This required changing both the .h and .c files, the first of which is
-attached below.
+Here is the patch to ibmtr.c which completes these changes...
 
-Description: Adds constant definitions for timeout variables in terms of
-milliseconds to avoid run-time constant conversion.
+Description: Uses msleep()/msleep_interruptible() [as appropriate] to
+guarantee the task delays as expected. This patch depends on the
+corresponding addition of the millisecond-unit constants to ibmtr.h.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 
---- 2.6.10-rc1-vanilla/include/linux/ibmtr.h	2004-10-30 15:34:03.000000000 -0700
-+++ 2.6.10-rc1/include/linux/ibmtr.h	2004-11-01 11:13:41.000000000 -0800
-@@ -6,8 +6,10 @@
+
+--- 2.6.10-rc1-vanilla/drivers/net/tokenring/ibmtr.c	2004-10-30 15:33:28.000000000 -0700
++++ 2.6.10-rc1/drivers/net/tokenring/ibmtr.c	2004-11-01 11:18:10.000000000 -0800
+@@ -130,6 +130,7 @@ in the event that chatty debug messages 
+ #include <linux/ip.h>
+ #include <linux/trdevice.h>
+ #include <linux/ibmtr.h>
++#include <linux/delay.h>
  
- /* ported to the Alpha architecture 02/20/96 (just used the HZ macro) */
+ #include <net/checksum.h>
  
--#define TR_RETRY_INTERVAL	(30*HZ)	/* 500 on PC = 5 s */
--#define TR_RST_TIME		(HZ/20) /* 5 on PC = 50 ms */
-+#define TR_RETRY_INTERVAL	(30*HZ)	/* 500 on PC = 5 s (in jiffies) */
-+#define TR_RETRY_INTERVAL	(30000) /* 500 on PC = 5 s */
-+#define TR_RST_TIME		(HZ/20) /* 5 on PC = 50 ms (in jiffies) */
-+#define TR_RST_TIME_MS		(50)    /* 5 on PC = 50 ms */
- #define TR_BUSY_INTERVAL	(HZ/5)	/* 5 on PC = 200 ms */
- #define TR_SPIN_INTERVAL	(3*HZ)	/* 3 seconds before init timeout */
+@@ -317,7 +318,7 @@ static void ibmtr_cleanup_card(struct ne
+ 	if (dev->base_addr) {
+ 		outb(0,dev->base_addr+ADAPTRESET);
+ 		
+-		schedule_timeout(TR_RST_TIME); /* wait 50ms */
++		msleep(TR_RST_TIME_MS);
  
+ 		outb(0,dev->base_addr+ADAPTRESETREL);
+ 	}
+@@ -858,8 +859,7 @@ static int tok_init_card(struct net_devi
+ 	writeb(~INT_ENABLE, ti->mmio + ACA_OFFSET + ACA_RESET + ISRP_EVEN);
+ 	outb(0, PIOaddr + ADAPTRESET);
+ 
+-	current->state=TASK_UNINTERRUPTIBLE;
+-	schedule_timeout(TR_RST_TIME); /* wait 50ms */
++	msleep(TR_RST_TIME_MS);
+ 
+ 	outb(0, PIOaddr + ADAPTRESETREL);
+ #ifdef ENABLE_PAGING
+@@ -912,9 +912,8 @@ static int tok_open(struct net_device *d
+ 			DPRINTK("Adapter is up and running\n");
+ 			return 0;
+ 		}
+-		current->state=TASK_INTERRUPTIBLE;
+-		i=schedule_timeout(TR_RETRY_INTERVAL); /* wait 30 seconds */
+-		if(i!=0) break; /*prob. a signal, like the i>24*HZ case above */
++		if(msleep_interruptible(TR_RETRY_INTERVAL_MS)) break;
++				/*prob. a signal, like the i>24*HZ case above */
+ 	}
+ 	outb(0, dev->base_addr + ADAPTRESET);/* kill pending interrupts*/
+ 	DPRINTK("TERMINATED via signal\n");	/*BMS useful */
