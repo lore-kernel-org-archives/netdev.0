@@ -1,63 +1,117 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: Intel and TOE in the news
-Date: 21 Feb 2005 00:07:13 +0100
-Message-ID: <20050220230713.GA62354@muc.de>
-References: <m17jl2ncmu.fsf@muc.de> <200502202244.j1KMinDD013572@guinness.s2io.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/3] r8169: code clean-up
+Date: Mon, 21 Feb 2005 00:34:05 +0100
+Message-ID: <20050220233405.GA14268@electric-eye.fr.zoreil.com>
+References: <200502161823.43562.jdmason@us.ibm.com> <200502191147.14845.jdmason@us.ibm.com> <20050219223012.GA3601@electric-eye.fr.zoreil.com> <200502201204.23468.jdmason@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
-        "'Alex Aizman'" <alex@neterion.com>
-Date: Mon, 21 Feb 2005 00:07:13 +0100
-To: Leonid Grossman <leonid.grossman@neterion.com>
+Cc: netdev@oss.sgi.com
+To: Jon Mason <jdmason@us.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <200502202244.j1KMinDD013572@guinness.s2io.com>
+In-Reply-To: <200502201204.23468.jdmason@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 20, 2005 at 02:43:59PM -0800, Leonid Grossman wrote:
-> This is an interesting idea, we'll play around...
+Jon Mason <jdmason@us.ibm.com> :
+[...]
+> Actually, I removed it and it causes the partition point to move, similiar to 
+> opts2.  I realize this isn't really an acceptable answer, so I will try to 
+> determine what is causing this weird behavior.
 
-What exactly? The software only shadow table?
+It is an acceptable answer: the behavior changes.
 
+[...]
+> True, but this problem existed before I made the jumbo frames changes.  The 
+
+AFAIKS, if the rx_copybreak fails, be it because the packet is too big or
+because the allocation failed, the current skb is sent to the upper layers.
+
+
+> static inline int rtl8169_rx_copy(struct sk_buff **sk_buff, int pkt_size,
+>                               struct RxDesc *desc, struct rtl8169_private *tp)
+> {
+>         u32 status = le32_to_cpu(desc->opts1);
 > 
-> BTW - does anybody know if it's possible to indicate multiple receive
-> packets?
+>         if ((pkt_size > rx_copybreak) &&
+>                         ((status & FirstFrag) && (status & LastFrag)))
+>                 return -1;
 > 
-> In other OS drivers we have an option to indicate a "packet train" that got
-> received during an interrupt, but I'm not sure if/how it's doable in Linux.
+>         if (status & FirstFrag) {
+>                 struct sk_buff *skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
+>                 u32 len = (pkt_size > rx_copybreak) ? tp->desc_part : pkt_size;
+> 
+>                 if (skb) {
+>                         skb_reserve(skb, NET_IP_ALIGN);
+>                         memcpy(skb->data, sk_buff[0]->tail, len);
+>                         skb_put(skb, len);
+>                 } else {
+>                         printk(KERN_INFO "no rx skb allocated\n");
+>                         if (pkt_size <= rx_copybreak) 
+>                                 return -1;
+>                 }
+> 
+>                 tp->new_skb = skb;
+>         }
+> 
+> Is this acceptable?
 
-You can always call netif_rx() multiple times from the interrupt. The
-function doesn't do the full packet processing,  but just stuffs the packet 
-into a CPU queue that is processed at a lower priority interrupt (softirq). 
-Doesn't work for NAPI unfortunately though; netif_receive_skb always
-does the protocol stack.
+I'll think more until I can figure I got the whole picture (only copy the
+first frament ?). I would have expected something like the mess below:
 
-> We are adding Linux driver support for message-signaled interrupts and
-> header separation (just recently figured out how to indicate chained skb for
+static int rtl8169_rx_copy(struct sk_buff **sk_buff, int pkt_size,
+			   struct RxDesc *desc, struct rtl8169_private *tp)
+{
+	u32 status = le32_to_cpu(desc->opts1);
+	struct sk_buff *skb;
+	int ret = -1;
 
-I had an experimental patch to enable MSI (without -X) for your cards,
-but didn't push it out because i wasn't too happy with it.
+	if ((pkt_size > rx_copybreak) && (status & FirstFrag) &&
+	    (status & LastFrag)) {
+		goto out;
+	}
 
-Most interesting would be to use per CPU TX completion interrupts using
-MSI-X and avoid bouncing packets around between CPUs.
+	if (pkt_size < rx_copybreak) {
+		skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
+		if (!skb)
+			goto out;
+		skb_reserve(skb, NET_IP_ALIGN);
+	} else if (status & FirstFrag)
+		skb = tp->new_skb = sk_buff[0];
 
-> a packet that has IP and TCP headers separated by the ASIC);
-> If a packet train indication works then the driver could prefetch the
-> descriptor ring segment and also a rx buffer segment that holds headers
-> stored back-to-back, before indicating the train. 
+	if ((pkt_size < rx_copybreak) || !(status & FirstFrag)) {
+		memcpy(skb->data, sk_buff[0]->tail, pkt_size);
+		rtl8169_return_to_asic(desc, tp->rx_buf_sz);
+		*sk_buff = skb;
+		ret = 0;
+	}
 
-Me and Jamal tried that some time ago, but it did not help too much.
-Probably because the protocol process overhead was not big enough.
-However that was with NAPI, might be perhaps worth trying without
-it. 
+	skb_put(skb, pkt_size);
 
-Problem is that need to fill in skb->protocol/pkt_type before you can pass
-the packet up; you can perhaps derive it from the RX descriptor (card has a 
-bit that says "this is IP" and "its unicast for my MAC"). 
-But the RX descriptor access is already a cache miss that stalls you.  
+out:
+	return ret;
+}
 
-To make the prefetching work well for this would probably require a callback
-to the driver so that you can do this later after your prefetch succeeded.
+At this point I'd expect "How do you handle rtl8169_rx_copy() return ?" 
+(or "yuck").
 
--Andi
+[...]
+> If I am still not making sense, I can be more verbose.
+
+Enlight me with the code, just to be sure.
+
+[...]
+> Sorry, I guess I got a little over eager.  I will attempt to avoid this 
+> behavior in the future.  Forgiveness please.
+
+No problem, really.
+
+[...]
+> I realize this is being a little creative, but it is much cleaner code this 
+> way. Otherwise the driver will need a global counter to use as a offset of 
+> the skb->tail and call skb_put after it is all over.
+
+Ok, ok, I did not get it in the original patch.
+
+--
+Ueimor
