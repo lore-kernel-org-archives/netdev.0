@@ -1,65 +1,51 @@
-From: maks attems <debian@sternwelten.at>
-Subject: [patch-kj] remove old ifdefs net/eepro100.c
-Date: Fri, 23 Jul 2004 17:43:12 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] pkt_cls.h incompatiables
+Date: Fri, 23 Jul 2004 09:21:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040723154312.GO1795@stro.at>
+Message-ID: <20040723092111.44b289a9@dell_ss3.pdx.osdl.net>
+References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
+	<20040722.200426.99255296.yoshfuji@linux-ipv6.org>
+	<1090593676.1128.25.camel@jzny.localdomain>
+	<20040723.110007.27520072.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: hadi@znyx.com, davem@redhat.com, arekm@pld-linux.org, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: saw@saw.sw.com.sg, jgarzik@pobox.com
-Content-Disposition: inline
+To: YOSHIFUJI Hideaki / =?ISO-8859-1?B?X19fX19fX19fX19f?=
+ <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040723.110007.27520072.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 23 Jul 2004 11:00:07 -0400 (EDT)
+YOSHIFUJI Hideaki / ____________ <yoshfuji@linux-ipv6.org> wrote:
 
+> In article <1090593676.1128.25.camel@jzny.localdomain> (at 23 Jul 2004 10:41:16 -0400), Jamal Hadi Salim <hadi@znyx.com> says:
+> 
+> > > Solutions are, for example,
+> > >  to allocate new TCA_U32_xxx for rcnt and rhit,
+> > > or, 
+> > >  to rename TCA_U32_SEL to TCA_U32_OLS_SEL and allocate new value for 
+> > >  TCA_U32_SEL.
+> > 
+> > 
+> > we could do this, but since we are already fscking the ABI it is not
+> > valuable.
+> 
+> BTW, what's for rcnt etc.? I don't see the point. 
+> 
+> They're not (effectively) used in kernel.
+> I'd suggest to remove these things and to maintain the original ABI.
+> 
+> If rcnt etc. are for other purposes, such as statistics for userspace,
+> please allocate another structure / interface for it.
+> 
+> (And... cheking size is too strict;
+> we need to relax it to accept old binaries if we add something
+> at the tail of structure.)
 
- Patches to remove some old ifdefs, 2.2 comptability.
- then remove unused #include <linux/version.h>
-
-applies cleanly to 2.6.8-rc2
-
-From: Domen Puncer <domen@coderock.org>
-Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-
-
-
----
-
- linux-2.6.7-bk20-max/drivers/net/eepro100.c |   17 -----------------
- 1 files changed, 17 deletions(-)
-
-diff -puN drivers/net/eepro100.c~remove-old-ifdefs-eepro100 drivers/net/eepro100.c
---- linux-2.6.7-bk20/drivers/net/eepro100.c~remove-old-ifdefs-eepro100	2004-07-11 14:42:27.000000000 +0200
-+++ linux-2.6.7-bk20-max/drivers/net/eepro100.c	2004-07-11 14:42:27.000000000 +0200
-@@ -88,7 +88,6 @@ static int options[] = {-1, -1, -1, -1, 
- #define PKT_BUF_SZ		1536
- 
- #include <linux/config.h>
--#include <linux/version.h>
- #include <linux/module.h>
- 
- #include <linux/kernel.h>
-@@ -2447,22 +2446,6 @@ static struct pci_driver eepro100_driver
- #endif /* CONFIG_PM */
- };
- 
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,48)
--static int pci_module_init(struct pci_driver *pdev)
--{
--	int rc;
--
--	rc = pci_register_driver(pdev);
--	if (rc <= 0) {
--		printk(KERN_INFO "%s: No cards found, driver not installed.\n",
--			   pdev->name);
--		pci_unregister_driver(pdev);
--		return -ENODEV;
--	}
--	return 0;
--}
--#endif
--
- static int __init eepro100_init_module(void)
- {
- #ifdef MODULE
+Looking at the netlink style, wouldn't it make sense to add additional
+separate payloads for the new features.  This keeps the API the same and
+the kernel can easily adapt for new/old values.
