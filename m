@@ -1,38 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Tue, 25 Jan 2005 22:27:05 -0800
-Message-ID: <20050125222705.1ee878fd.davem@davemloft.net>
-References: <527jmu8nbw.fsf@topspin.com>
-	<5cac192f0501030907c755135@mail.gmail.com>
-	<20050103171227.GD7370@esmail.cup.hp.com>
-	<1104812294.1085.53.camel@jzny.localdomain>
-	<20050119144711.3fdd3d93.davem@davemloft.net>
-	<20050119151853.259de49a@dxpl.pdx.osdl.net>
-	<20050119164640.6c67bdfa.davem@davemloft.net>
-	<52r7kgu5n5.fsf@topspin.com>
-	<20050119230526.393a5184.davem@davemloft.net>
-	<20050120085611.33f9485e@dxpl.pdx.osdl.net>
-	<20050121105452.GA12988@xi.wantstofly.org>
+Subject: Re: [BK PATCH] Ndisc updates
+Date: Tue, 25 Jan 2005 22:31:04 -0800
+Message-ID: <20050125223104.27b193f7.davem@davemloft.net>
+References: <20050121.015326.41280602.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, roland@topspin.com, hadi@cyberus.ca, iod00d@hp.com,
-        eric.lemoine@gmail.com, netdev@oss.sgi.com, ak@suse.de,
-        openib-general@openib.org, kaber@trash.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050121105452.GA12988@xi.wantstofly.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050121.015326.41280602.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005 11:54:52 +0100
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+On Fri, 21 Jan 2005 01:53:26 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> If multiple CPUs can call into the tunneling drivers without taking
-> any locks, we'd need some extra locking in there, or just do what
-> Alexey describes and keep track of recursion in the skb.
+> Please pull following changesets available at
+>   <bk://bk.skbuff.net:20611/linux-2.6-ndisc-20050121/>.
+> 
+> Note: Roland already reviewd ipoib changeset.
 
-Another idea is that, just like how loopback made it's statistics
-per-cpu for LLTX support, this recursion variable could be per-cpu
-as well.
+I put in Roland's original ipoib ndisc change at nearly the
+same time you put together these changes.  So your tree
+will need to be updated to be against that.
+
+The changes look perfectly fine to me, so please resolve this
+conflict and I'll pull in your tree.
+
+Arigato gozaimasu.
