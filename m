@@ -1,39 +1,56 @@
-From: Mika Liljeberg <mika.liljeberg@welho.com>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: 11 Jul 2003 03:04:29 +0300
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPV6: fix data offset calculation when pushing frag
+ options {dst1opts|auth}
+Date: Fri, 11 Jul 2003 09:18:14 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1057881869.3588.10.camel@hades>
-References: <20030710154302.GE1722@zip.com.au>
-	 <1057854432.3588.2.camel@hades>  <20030710233931.GG1722@zip.com.au>
+Message-ID: <20030711.091814.128467921.yoshfuji@linux-ipv6.org>
+References: <20030710234449.GB30577@rei.rakuen>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   pekkas@netcore.fi
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: CaT <cat@zip.com.au>
-In-Reply-To: <20030710233931.GG1722@zip.com.au>
+To: tgraf@suug.ch, davem@redhat.com, jmorris@intercode.com.au
+In-Reply-To: <20030710234449.GB30577@rei.rakuen>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2003-07-11 at 02:39, CaT wrote:
-> And having remembered /127 being mentioned as bad I changed the
-> interface config to a netmask of /64. Dropped it and brought it
-> up and it all works.
-> 
-> There's something fundamental about ipv6 netmasks that I just don't
-> understand...
+In article <20030710234449.GB30577@rei.rakuen> (at Fri, 11 Jul 2003 01:44:49 +0200), Thomas Graf <tgraf@suug.ch> says:
 
-Well, the thing is that prefix:: is a special anycast address that
-identifies a router on the link prefix::/n, where n is the prefix
-length. You had configured a 127-bit link prefix, meaning that you had
-only one valid unicast address (last bit == 1) in addition to the router
-anycast address (last bit == 0).
+> yoshfuji agreed on this.
 
-Normally, IPv6 networks are supposed to use 64-bit on-link prefixes but
-the implementation can be written in such a way that other prefix
-lengths can be configured.
+I agreed, but
 
-Setting your tunnel prefix to /64 is certainly the right thing to do. 
+> -		exthdrlen += opt ? opt->opt_flen : 0;
+> +		exthdrlen = rt->u.dst.header_len + opt ? opt->opt_flen : 0;
 
-	MikaL
+Well, sorry, this was wrong.
+
+D: fix offset of payload with extension header.
+D: based on patch from Thomas Graf <tgraf@suug.ch>
+
+Index: linux-2.5/net/ipv6/ip6_output.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/ip6_output.c,v
+retrieving revision 1.33
+diff -u -r1.33 ip6_output.c
+--- linux-2.5/net/ipv6/ip6_output.c	9 Jul 2003 05:55:17 -0000	1.33
++++ linux-2.5/net/ipv6/ip6_output.c	10 Jul 2003 22:50:33 -0000
+@@ -1247,11 +1247,9 @@
+ 		inet->cork.length = 0;
+ 		inet->sndmsg_page = NULL;
+ 		inet->sndmsg_off = 0;
+-		if ((exthdrlen = rt->u.dst.header_len) != 0) {
+-			length += exthdrlen;
+-			transhdrlen += exthdrlen;
+-		}
+-		exthdrlen += opt ? opt->opt_flen : 0;
++		exthdrlen += rt->u.dst.header_len + (opt ? opt->opt_flen : 0);
++		length += exthdrlen;
++		transhdrlen += exthdrlen;
+ 	} else {
+ 		rt = np->cork.rt;
+ 		if (inet->cork.flags & IPCORK_OPT)
+
+--yoshfuji
