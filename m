@@ -1,46 +1,38 @@
-From: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
-Subject: O_DIRECT sockets? (was [RESEND] tuning linux for high network performance?)
-Date: Wed, 23 Oct 2002 17:26:21 +0200
+From: Oskar Andreasson <blueflux@koffein.net>
+Subject: [release] ipsysctl tutorial 1.0.1
+Date: Wed, 23 Oct 2002 17:47:07 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210231726.21135.roy@karlsbakk.net>
-References: <200210231218.18733.roy@karlsbakk.net> <20021023130101.GA646@outpost.ds9a.nl> <3DB6B96F.A0DE47BF@us.ibm.com>
+Message-ID: <Pine.LNX.4.44.0210231741160.2217-100000@laptop1.agatha>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, Kernel mailing list <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>, bert hubert <ahu@ds9a.nl>
-In-Reply-To: <3DB6B96F.A0DE47BF@us.ibm.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 October 2002 16:59, Nivedita Singhvi wrote:
-> bert hubert wrote:
-> > > ...adding the whole profile output - sorted by the first column this
-> > > time...
-> > >
-> > > 905182 total                                      0.4741
-> > > 121426 csum_partial_copy_generic                474.3203
-> > >  93633 default_idle                             1800.6346
-> > >  74665 do_wp_page                               111.1086
-> >
-> > Perhaps the 'copy' also entails grabbing the page from disk, leading to
-> > inflated csum_partial_copy_generic stats?
->
-> I think this is strictly a copy from user space->kernel and vice versa.
-> This shouldnt include the disk access etc.
+Hi all,
 
-hm
+First of all, I hope this is no inconvenience to anyone, but I thought it 
+may be of interest to some people on the netdev mailinglist as well.
 
-I'm doing O_DIRECT read (from disk), so it needs to be user -> kernel, then.
+Just to inform people who may be interested, the ipsysctl tutorial has 
+been released in a new version at http://ipsysctl-tutorial.frozentux.net. 
 
-any chance of using O_DIRECT to the socket?
+There are a lot of bugfixes in the new version, but no big additions at 
+this time. I hope to spend more time the upcoming weeks with adding 
+explanations about the route/ and neigh/ part of the sysctl's though. 
 
--- 
-Roy Sigurd Karlsbakk, Datavaktmester
-ProntoTV AS - http://www.pronto.tv/
-Tel: +47 9801 3356
+Comments are welcome, as always. Before anyone asks this time, no I will
+not add explanations of the IPv6 sysctl's at this time since I want to
+finish up what I have begun before I even think about that;). However, if
+anyone wants to, they are more than welcome to write those sections up
+themselves and send to me for inclusion.
 
-Computers are like air conditioners.
-They stop working when you open Windows.
+Sorry for taking your time, I hope this will be of some help.
+
+----
+Oskar Andreasson
+http://www.frozentux.net
+http://iptables-tutorial.frozentux.net
+http://ipsysctl-tutorial.frozentux.net
+mailto:blueflux@koffein.net
