@@ -1,34 +1,63 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] fix BUG in tg3_tx
-Date: Wed, 26 May 2004 11:01:21 -0700
+Date: Wed, 26 May 2004 11:47:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040526110121.657f2d42.davem@redhat.com>
-References: <B1508D50A0692F42B217C22C02D849727FEDB8@NT-IRVA-0741.brcm.ad.broadcom.com>
-	<20040526160443.GD4557@sgi.com>
+Message-ID: <20040526114714.23fcf37d.davem@redhat.com>
+References: <B1508D50A0692F42B217C22C02D849727FEDBE@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@oss.sgi.com
+Cc: gnb@sgi.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg Banks <gnb@sgi.com>
-In-Reply-To: <20040526160443.GD4557@sgi.com>
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <B1508D50A0692F42B217C22C02D849727FEDBE@NT-IRVA-0741.brcm.ad.broadcom.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 May 2004 02:04:43 +1000
-Greg Banks <gnb@sgi.com> wrote:
+On Wed, 26 May 2004 10:43:10 -0700
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-> On a related note, is there a good reason why the tg3 driver uses
-> the on-chip SRAM send ring by default instead of the host send ring?
-> This seems like it would dramatically increase the PIO load on the
-> chipset for some of the workloads I'm interested in.
+> I would recommend tg3 to make the switch also.
 
-Good question.
+Ok, I'll make it use DMA tx descriptors by default.
 
-It actually results in better performance to use PIOs to the
-chip to write the TXD descriptors.  You may be skeptical about
-this but it cannot be denied that it does result in lower
-latency as we don't have to wait for the chip to do it's next
-prefetch and _furthermore_ this means that no CPU cache lines
-will bounce from cpu-->device in order to get the descriptors
-to the chip.
+The checking for cases where we can't do on-chip TX desciptors
+I'll keep around (albeit commented out) just in case we allow
+this again in the future.
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/05/26 11:46:50-07:00 davem@nuts.davemloft.net 
+#   [TG3]: Use HOST TXDs always.
+# 
+# drivers/net/tg3.c
+#   2004/05/26 11:46:42-07:00 davem@nuts.davemloft.net +9 -0
+#   [TG3]: Use HOST TXDs always.
+# 
+diff -Nru a/drivers/net/tg3.c b/drivers/net/tg3.c
+--- a/drivers/net/tg3.c	2004-05-26 11:46:57 -07:00
++++ b/drivers/net/tg3.c	2004-05-26 11:46:57 -07:00
+@@ -7534,6 +7534,14 @@
+ 	udelay(50);
+ 	tg3_nvram_init(tp);
+ 
++	/* Always use host TXDs, it performs better in particular
++	 * with multi-frag packets.  The tests below are kept here
++	 * as documentation should we change this decision again
++	 * in the future.
++	 */
++	tp->tg3_flags |= TG3_FLAG_HOST_TXDS;
++
++#if 0
+ 	/* Determine if TX descriptors will reside in
+ 	 * main memory or in the chip SRAM.
+ 	 */
+@@ -7541,6 +7549,7 @@
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5705 ||
+ 	    GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5750)
+ 		tp->tg3_flags |= TG3_FLAG_HOST_TXDS;
++#endif
+ 
+ 	grc_misc_cfg = tr32(GRC_MISC_CFG);
+ 	grc_misc_cfg &= GRC_MISC_CFG_BOARD_ID_MASK;
