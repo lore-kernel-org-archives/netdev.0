@@ -1,25 +1,52 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
-Date: Fri, 27 Sep 2002 20:02:51 +0400 (MSD)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6: Refine IPv6 Address Validation Timer
+Date: Sat, 28 Sep 2002 01:14:39 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209271602.UAA21381@sex.inr.ac.ru>
-References: <20020928.001742.125874265.yoshfuji@linux-ipv6.org>
+Message-ID: <20020928.011439.108856769.yoshfuji@linux-ipv6.org>
+References: <20020928.001617.91124319.yoshfuji@linux-ipv6.org>
+	<200209271530.TAA21206@sex.inr.ac.ru>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.ORG (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
-In-Reply-To: <20020928.001742.125874265.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Sep 27, 2 07:45:03 pm
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200209271530.TAA21206@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+In article <200209271530.TAA21206@sex.inr.ac.ru> (at Fri, 27 Sep 2002 19:30:14 +0400 (MSD)), kuznet@ms2.inr.ac.ru says:
 
-> This patch supports standard default source address selection
-> algorithm.
+> Let's only delete this:
+> 
+> > +	if (time_before(now + HZ/2, jiffies)) {
+> > +		ADBG((KERN_WARNING 
+> > +		      "addrconf_verify(): too slow; jiffies - now = %ld\n",
+> > +		      (long)jiffies - (long)now));
+> > +	}
+> 
+> I do not understand how this survived. If you worry about infinite
+> spinning in loop you could make this check real, f.e. breaking loop
+> when jiffies >= now+2. In this form it is just mud.
 
-To all that I remember we had long discussion about this ages ago.
-I said I hate this. Such complicated selection without caching is _bug_.
-I see nothing improved since that time, except for the function became
-even more hairy. :-)
+hmm, I supposed it finally exited the loop (and then we got above warn).
+Code around end of patch (*) prevent continuous run of this function.
+If it is (almost) meaningless, just delete it.
 
-Alexey
+(*) Oops, I slipped at (almost) end of the patch when making patch... sorry;
+I inteded to refine timing into ~0.5 sec at worst; so, please change
+	addr_chk_timer.expires = time_before(next, jiffies + HZ) ? jiffies + HZ : next;
+to
+	addr_chk_timer.expires = time_before(next, jiffies + HZ/2) ? jiffies + HZ/2 : next;
+.
+
+Thanks.
+
+
+(do I need to resend complete patch?)
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
