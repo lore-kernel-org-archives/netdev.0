@@ -1,55 +1,33 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4434] New: Tulip based NIC card causes hard
- lock up of PC
-Date: Sat, 2 Apr 2005 01:56:22 -0800
-Message-ID: <20050402015622.41dff439.akpm@osdl.org>
+From: Akshay Kawale <linux781@gmail.com>
+Subject: Problem accessing IP header fields.
+Date: Sat, 2 Apr 2005 05:31:35 -0500
+Message-ID: <72252ed05040202313a309e77@mail.gmail.com>
+Reply-To: Akshay Kawale <linux781@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: kernel@wpascanner.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
+I am trying to access the tot_len field in the IP Header using a
+sk_buff structure inside a Netfilter hook.
 
-Begin forwarded message:
+I do something like:
 
-Date: Sat, 2 Apr 2005 01:49:50 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4434] New: Tulip based NIC card causes hard lock up of PC
+(**skb).nh.iph->tot_len += 64
 
+I have tried other variants of the same statement but none of them work.
+I want to increment the length by 64 bytes, but it gives me an error
+saying that I am trying to access an 'incomplete data type'.
 
-http://bugme.osdl.org/show_bug.cgi?id=4434
+Can anyone shed some light on this problem?
+tot_len if of type __u16 (unsigned short int).
 
-           Summary: Tulip based NIC card causes hard lock up of PC
-    Kernel Version: 2.6.11
-            Status: NEW
-          Severity: high
-             Owner: acme@conectiva.com.br
-         Submitter: kernel@wpascanner.com
+Thanks.
 
-
-Distribution: Knoppix V3.8 CeBIT, V3.7 PC-Welt, ANY Knoppix under kernel 2.6.x
-Hardware Environment: #1 FIC PA-2007 MB 160MB RAM BIOS V1.09CD12
-                      #2 ABIT K7R MB 384MB RAM
-                      LAN Cards OEM DEC Tulip 21041 DLink DE-530+
-                      LAN Cards Intel 21143 Tulip based
-
-Software Environment: de4x5
-
-Problem Description: Hard lock up on setting up LAN/NIC card
-
-Steps to reproduce: Can not boot to working enviroment with DHCP enabled 
-(default for Knoppix) or after booting via NODHCP cheat code on command line 
-and using netcardconfig results in the hard lock up.
-
-See:
-http://www.knoppix.net/forum/viewtopic.php?t=17985&highlight=
-http://www.knoppix.net/forum/viewtopic.php?t=17986&highlight=
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+- Akshay
