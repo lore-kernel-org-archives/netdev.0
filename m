@@ -1,84 +1,70 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe
- RLT-8139 related)
-Date: Fri, 30 Jul 2004 11:18:56 +0200
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: hfsc and huge set of rules
+Date: Fri, 30 Jul 2004 12:34:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16650.4736.456106.603065@robur.slu.se>
-References: <16647.61953.158512.433946@robur.slu.se>
-	<Pine.LNX.4.44.0407290315240.5763-100000@silmu.st.jyu.fi>
+Message-ID: <410A2449.3020701@trash.net>
+References: <20040729211844.61e8d328.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Francois Romieu <romieu@fr.zoreil.com>,
-        H?ctor Mart?n <hector@marcansoft.com>,
-        Linux-Kernel <linux-kernel@vger.kernel.org>, <akpm@osdl.org>,
-        <netdev@oss.sgi.com>, <brad@brad-x.com>, <shemminger@osdl.org>
+Cc: hadi@cyberus.ca, devik@cdi.cz, netdev@oss.sgi.com,
+        tomasz.paszkowski@e-wro.pl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pasi Sjoholm <ptsjohol@cc.jyu.fi>
-In-Reply-To: <Pine.LNX.4.44.0407290315240.5763-100000@silmu.st.jyu.fi>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040729211844.61e8d328.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller wrote:
+> Looks like qdisc destruction has some expensive algorithms.
+> Any quick ideas about the root culprit at least in the hfsc
+> case?  He says htb does it too.
 
-Pasi Sjoholm writes:
+hfsc_destroy_qdisc takes O(n) time wrt. the number of classes,
+but 5-6 seconds is still long. If all these classes contain inner
+qdiscs other than the default, I guess removing the classes from
+dev->qdisc_list in qdisc_destroy takes up most of the time, with
+n O(n) operations. The __qdisc_destroy rcu callback also calls
+reset before destroy, I don't know any qdisc where this is really
+neccessary. Without inner qdiscs, I need to see the script first to
+judge what's going wrong. Tomasz ?
 
-You should monitor the the user app (gettimeofday()monitoring for starvation
-this is the most important measure and what we are trying to improve.
+BTW: The lockless loopback patch broke qdisc_destroy in multiple ways.
+The rcu callback doesn't do any locking, to add locking all
+read/write_lock(qdisc_tree_lock) need to be changed to
+read/write_lock_bh because the callback is called from a tasklet,
+until now all changes to the tree structure were made in
+process-context. Additionally it invalidates the assumption made by
+dev_shutdown that qdisc_destroy will destroy all qdiscs and clear
+dev->qdisc_list immediately. Since qdisc->dev is not refcounted
+netdev_wait_allrefs won't notice when the rcu callback hasn't destroyed
+all qdiscs yet and free the device, but qdisc_destroy called from
+ops->destroy called from the callback will still access the memory.
+Patch coming up soon.
 
-We can hardly expect softirq's alone to give us the balance of load we wish. 
-At overload something has to get less resources. Even we defer all softirq's 
-to scheduler context there is no way making any distinguish between them 
-unless we run them in separate processes i.e one RX_SOFIRQ, TX_SOFIRQ etc. 
-This could solve some problem I just discussed with Jamal where the RX 
-softirq overruns the TX softirq and causes drop at egress (qdisc) when bus 
-BW is saturated. Running softirq's under schedules context's can cause other 
-delays and other problems.
+Regards
+Patrick
 
-About tour test;
-I dunno if the absolute values are comparable but we see a some change 
-in behavior. I use your two last lines from your test assuming these
-are the highest loaded 
-
-                                    BH       KSOFT    IRQ-exit
---------------------------------------------------------------
-00082ac4 00000000 0001180a 00000000 0000497c 00006f17 000f30fa
-00082ac4 00000000 0001225a 00000000 00004a94 00007809 000f3140
-280+2290+70 = 2640                        10       87        3 %
-
-
-(Deffering to ksoftirqd after 2 sec patch)
-0004c2fc 00000000 0000b626 00000000 0000182c 000011aa 000a14d2
-0004c302 00000000 0000c03a 00000000 00001872 00001aec 000a155e
-70+2370+140=2580                           3       92        5 %
-
-So most ksoftirq's runs most softirq's which is good. Without this you would 
-not be able to type any commands at all. Also we see some effects from the 
-path. Can you monitor userland starvation here too?
-
-> - When the ksoftirqd starts to eat cpu-time time_squeeze-value (3rd 
-> column) starts growing (in both cases it's same thing). 
-
-This OK as we have to throttle.
-
-> - We are also getting more hits from SIRQ_FROM_KSOFTIRQD 
-> immediately after that. (6th column)
-
-Good. 
-
-> - Total-column's value stops growing although network file transfers 
-> are still on. (1st column)
-
-Well ksoftirqd now runs RX softirq and competes heavily with other processes 
-for your CPU you may have to adjust priorities to get your desired balance.
-Can you experiment a bit?
- 
-> > And maybe we should take the experiment disussions off the list.
-
-> I think that we should leave netdev as Francois requested it in first 
-> place but we can drop the lkml if you want to.
-
-Well it's not only a network issue.
-
-Cheers.
-						--ro
+> Begin forwarded message:
+> 
+> Date: Tue, 27 Jul 2004 11:47:02 +0200
+> From: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>
+> To: linux-kernel@vger.kernel.org
+> Subject: hfsc and huge set of rules
+> 
+> 
+> Hello,
+> 
+> I'am running hfsc qdisc with huge set of rules loaded.
+> 
+> root@hades:/home/system/scr/etc/hfsc_rebuild# cat tc.batch | grep hfsc | wc -l
+>   27884
+> 
+> 
+> Always when I delete the root qdisc (qdisc del dev eth0 root)
+> the machine stop responding for about 5-6 seconds. As I think it's due the
+> hfsc_destory_qdisc is executed in main kernel thread. Similar problem is
+> present also in htb scheduler.
+> 
+> Is there any quick solution to solve this problem ?
+> 
