@@ -1,68 +1,47 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] merge sctp_opt with sctp_sock
-Date: Mon, 17 Jan 2005 18:18:04 -0800 (PST)
-Message-ID: <Pine.LNX.4.58.0501171813190.16249@w-sridhar.beaverton.ibm.com>
-References: <41E8A17D.9040307@conectiva.com.br> <20050117133327.0386763f.davem@davemloft.net>
- <41EC626D.1010804@conectiva.com.br> <Pine.LNX.4.58.0501171718380.15927@w-sridhar.beaverton.ibm.com>
- <41EC6B2D.7020506@conectiva.com.br>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [BK PATCH] sk_dst_cache annotation
+Date: Tue, 18 Jan 2005 11:40:34 +0900 (JST)
+Message-ID: <20050118.114034.89476074.yoshfuji@linux-ipv6.org>
+References: <20050115.160008.04476889.yoshfuji@linux-ipv6.org>
+	<20050117124913.49c253b6.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <41EC6B2D.7020506@conectiva.com.br>
+To: davem@davemloft.net
+In-Reply-To: <20050117124913.49c253b6.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Jan 2005, Arnaldo Carvalho de Melo wrote:
+In article <20050117124913.49c253b6.davem@davemloft.net> (at Mon, 17 Jan 2005 12:49:13 -0800), "David S. Miller" <davem@davemloft.net> says:
 
-> Sridhar Samudrala escreveu:
-> > On Mon, 17 Jan 2005, Arnaldo Carvalho de Melo wrote:
-> >
-> >
-> >>David S. Miller escreveu:
-> >>
-> >>>On Sat, 15 Jan 2005 02:52:13 -0200
-> >>>Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
-> >>>
-> >>>
-> >>>
-> >>>>	Please take a look and if its acceptable pull from:
-> >>>>
-> >>>>bk://kernel.bkbits.net/acme/connection_sock-2.6
-> >>>>
-> >>>>	The tricky bit here is that SCTP, to keep the existing logic,
-> >>>>needs a way to copy only its private area from one sock to another, so
-> >>>>I introduced a generic inet_sk_copy_descendant, that knows about the
-> >>>>inet (v4/v6) layout (wrt inet_sock and inet6_pinfo), using this and
-> >>>>sk->sk_prot->slab_obj_size we can copy the inet_sock descendant
-> >>>>private area generically.
-> >>>
-> >>>
-> >>>This looks fine, although I wish the descendant copying thing
-> >>>could be done more cleanly somehow.
-> >>
-> >>/me too, but this is the best scheme I've found for now, perhaps in
-> >>the future, after some more refactoring work is done/merged we can
-> >>find some better way of doing this (tcp_create_openreq_child also
-> >>does something like this, but does it in all the sock, perhaps
-> >>SCTP can do something similar).
-> >
-> >
-> > I thought you introduced this generic function so that other protocols also
-> > may use it. If you & Dave feel that this is not clean and is going to be
-> > needed only by SCTP, SCTP also could do a memcpy of the entire sock instead
-> > of only sctp private area before calling sctp_sock_migrate although it is not
-> > very straightforward. Let me know if i should work on a patch to do that.
->
-> Sridhar, please leave it as is for now, perhaps some other protocol will need it,
-> I still have decnet, econet, x.25, wanrouter, etc to go, and this is not something
-> we should spend too much time for now, I think, I'm more than happy if you
-> just tell me that this is equivalent to what we had before, i.e. that I didn't
-> introduced any bugs 8)
+> On Sat, 15 Jan 2005 16:00:08 +0900 (JST)
+> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+> 
+> > ChangeSet@1.2335, 2005-01-15 15:47:12+09:00, yoshfuji@linux-ipv6.org
+> >  [NET] Always hold refcnt for dst when we use sk_dst_cache.
+> >  
+> >  Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> 
+> There is less and less point to having the socket dst cache
+> if we're going to take the read lock and grab an atomic
+> reference all the time anyways.
+> 
+> If the socket is locked, which most of the code paths you
+> are modifying do, there is no need to grab a reference
+> and __sk_dst_cache() is just fine.  That's how it was
+> mean to be used since if the socket is locked nobody
+> can sk_dst_reset() on us.
 
-It looks fine and i don't see any issues. will try to pull from davem's tree and
-test to see that it doesn't break any SCTP regression tests.
+I'll see them again.
 
--Sridhar
+Let me clarify:
+  if all the code paths (for each socket type) lock socket,
+  we don't need sk_dst_lock at all (for that socket type).
+  otherwise, we have races; we need sk_dst_lock (for that socket type).
+
+Am I corrent?
+
+--yoshfuji
