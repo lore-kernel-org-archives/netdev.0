@@ -1,75 +1,57 @@
-From: Mark Huth <mhuth@mvista.com>
-Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating master's
-  settings toslaves
-Date: Mon, 11 Aug 2003 14:27:04 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating master's settings toslaves
+Date: Mon, 11 Aug 2003 14:41:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F380A28.10902@mvista.com>
-References: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com> <200308111720.38472.shmulik.hen@intel.com> <1060612481.1034.15.camel@jzny.localdomain> <200308111925.38278.shmulik.hen@intel.com> <3F37C7C3.7070807@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Message-ID: <200308112141.h7BLftpS015012@death.ibm.com>
+References: <jgarzik@pobox.com>
 Cc: shmulik.hen@intel.com, hadi@cyberus.ca,
-   Laurent DENIEL
- <laurent.deniel@thalesatm.com>,
+   Laurent DENIEL <laurent.deniel@thalesatm.com>,
    bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: Message from Jeff Garzik <jgarzik@pobox.com>
+   of "Mon, 11 Aug 2003 12:43:47 EDT." <3F37C7C3.7070807@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+>The answer is, like life, it's a balance.
+[...]
+>This is why I push for a "bonding-utils" package from Jay.... because of 
+>the general rule above:  put it into userspace, where possible.
 
+	Hmm.  My impression from our prior discussions was that your
+interest in moving ifenslave out of the kernel source and into its own
+package was more of a source code management concern rather than
+moving functionality from the kernel into user space (because
+ifenslave is in user space to begin with).
 
-Jeff Garzik wrote:
+	Anyway, for most of the core bonding failover logic, I don't
+see how a user space daemon implementation can perform equivalently to
+a kernel-only implementation.  I could be wrong (I haven't done any
+testing) but for the core "eth0 is dead, enable eth1" type stuff, it
+seems to me that in-kernel beats "user space yakking with kernel" for
+reliability and speed, particularly on heavily loaded systems.
 
-> The answer is, like life, it's a balance.
->
-> As a general rule, we do prefer to move all code possible out of the 
-> Linux kernel.  We have even created "initramfs", which for 2.7, will 
-> be used as a vehicle to move code from the kernel to userspace, that 
-> previously had to be in the kernel only because it was a task that 
-> "had to be performed at boot time".
->
-> However, one must consider
-> (1) does moving code to userspace create any security holes?
-> (2) does moving code to userspace dramatically increase the number of 
-> context switches?
-> (3) does moving code to userspace violate some atomicity that being 
-> inside the kernel guarantees?
->
-> In practice, #3 is the showstopper that occurs most often.
->
-> This is why I push for a "bonding-utils" package from Jay.... because 
-> of the general rule above:  put it into userspace, where possible.
->
->     Jeff
+	Now, that said, I can see a use for a user space monitoring /
+control program, for the "strategic" problems (as opposed to the
+"tactical" problems, like the previous paragraph).  If we want to,
+e.g., monitor bandwidth usage and add or remove links from the
+aggregation, that is (a) not as time critical, and (b) somewhat
+fuzzier in definition.  Such a user space program could also interface
+with various system management or HA thingies and report status for
+its activities as well as the activities that bonding performs
+independent of it.
 
-Yes, the answer is balance - the complicated, but non-time critical 
-things should go into applications.  However, we need to retain a basic 
-ability to perform the failover according to pre-configured rules within 
-the kernel.  Many of our customers use bonding to provide a redundant 
-network path through the wires and switches for what turn out to be 
-heavily network dependant applications.  In many cases, the systems do 
-not have a local disk, and everything is obtained via say an NFS mount. 
- When the MAC breaks, you may not be able to run userland!
+	One thought I've had (which dovetails somewhat with an earlier
+comment from Laurent) is a tcpdump/bpf-style "policy engine" blob in
+the kernel, which is programmed from user space with enough brains to
+handle the "tactical" level problems (the "strategic" problems might
+be more than such a blob could handle, and if its easy enough to yak
+with user space for those problems, it may not be necessary).  I
+haven't done much more than think about this, though; it may very well
+be overkill for the basic stuff.
 
-In HA systems at this level, guarding against the failure of a redundant 
-hardware component, we find that it is very helpful for the kernel to be 
-able to perform a variety of simple, pre-programmed operations without 
-resort to userland - this keeps the interacting fault domains smaller. 
- Sure, the decisons about how to configure the behaviors - that is the 
-policies - belong in applications.  But the response to an event which 
-triggers the actions may well _need_ to be in the kernel.
+	-J
 
-While the issue may not be so much one of speed - the applications may 
-well respond in an adequate manner, depending on design and load - the 
-issue of the amount of the system that must work for recovery is quite 
-important when trying to push system availabilities into the mythical 5 
-9's plus region.  For an application to run, the system has to be able 
-to fork and exec, access the file system, allocate memory, etc.  Sure, 
-through careful configuration it is possible to reduce the transient 
-resources required (run a pre-loaded/locked daemon, make sure the files 
-are locally cached, etc) then the configuration and testing are 
-complicated.  It worked fine in the lab, because a resource we didn't 
-realize was critical, never got pushed out of the dcache, for example.
-
-Mark Huth
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
