@@ -1,91 +1,83 @@
-From: Andi Kleen <ak@muc.de>
-Subject: [patch] variable number of dummy devices
-Date: Thu, 11 Dec 2003 09:36:21 +0100
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Kernel 2.4.22 MLD problems
+Date: Thu, 11 Dec 2003 15:19:55 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031211083621.GA2455@averell>
+Message-ID: <OF606B371E.03D6C1CF-ON88256DF9.007F6B6C@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com
+Content-Type: multipart/alternative;
+	Boundary="0__=07BBE76ADFECEDFC8f9e8a93df938690918c07BBE76ADFECEDFC"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Takashi Hibi <hibi665@oki.com>, netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--0__=07BBE76ADFECEDFC8f9e8a93df938690918c07BBE76ADFECEDFC
+Content-type: text/plain; charset=US-ASCII
 
-Uses the new module_params that nobody else uses now.
 
-diff -u linux-2.6.0test11-amd64/drivers/net/dummy.c-DUMMY linux-2.6.0test11-amd64/drivers/net/dummy.c
---- linux-2.6.0test11-amd64/drivers/net/dummy.c-DUMMY	2003-11-29 16:34:26.000000000 +0100
-+++ linux-2.6.0test11-amd64/drivers/net/dummy.c	2003-12-11 09:34:17.000000000 +0100
-@@ -33,6 +33,9 @@
- #include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/init.h>
-+#include <linux/moduleparam.h>
-+
-+static int numdummies = 1;
- 
- static int dummy_xmit(struct sk_buff *skb, struct net_device *dev);
- static struct net_device_stats *dummy_get_stats(struct net_device *dev);
-@@ -83,10 +86,14 @@
- 	return dev->priv;
- }
- 
--static struct net_device *dev_dummy;
-+static struct net_device **dummies;
- 
--static int __init dummy_init_module(void)
-+/* Number of dummy devices to be set up by this module. */
-+module_param(numdummies, int, 0);
-+
-+static int __init dummy_init_one(int index)
- {
-+	struct net_device *dev_dummy;
- 	int err;
- 
- 	dev_dummy = alloc_netdev(sizeof(struct net_device_stats),
-@@ -98,15 +105,40 @@
- 	if ((err = register_netdev(dev_dummy))) {
- 		kfree(dev_dummy);
- 		dev_dummy = NULL;
-+	} else {
-+		dummies[index] = dev_dummy; 
- 	}
-+
- 	return err;
- }
- 
-+static void __exit dummy_free_one(int index) 
-+{
-+	unregister_netdev(dummies[index]);
-+	free_netdev(dummies[index]);
-+} 
-+
-+static int __init dummy_init_module(void)
-+{ 
-+	int i, err = 0;
-+	dummies = kmalloc(numdummies * sizeof(void *), GFP_KERNEL); 
-+	if (!dummies)
-+		return -ENOMEM; 
-+	for (i = 0; i < numdummies && !err; i++)
-+		err = dummy_init_one(i); 
-+	if (err) { 
-+		while (--i >= 0)
-+			dummy_free_one(i);
-+	}
-+	return err;
-+} 
-+
- static void __exit dummy_cleanup_module(void)
- {
--	unregister_netdev(dev_dummy);
--	free_netdev(dev_dummy);
--	dev_dummy = NULL;
-+	int i;
-+	for (i = 0; i < numdummies; i++) 
-+		dummy_free_one(i); 
-+	kfree(dummies);	
- }
- 
- module_init(dummy_init_module);
+
+
+
+
+Takashi,
+
+>>But there are still some problems.
+>>[MLDv2]
+>>1. After joining multicast address, MLDv2 listener report isn't issued
+>>immediately.
+>
+>This looks like a bug; it should send the first one immediately,
+>and QRV-1 more at random intervals between 0 and MRC. It's adding
+>the MRC random delay before sending the first one. Not critical,
+>but I'll put a patch together in the next couple of days.
+
+I thought this was a bug, from a quick glance at the code, but I
+just looked some more and it already does the fix I had in mind.
+I also ran some tests, and I do see the advertisement immediately
+after an interface state change. That was with 2.6.0-test11bk8,
+but 2.4.22 has the same code for this piece.
+
+In MLDv1 compatibility mode, interface state changes are not sent, but a
+"leave group" will result in an MLDv1 leave group message. So, I can't
+explain (or reproduce) this behaviour right now.
+
+Please do send me a packet trace with the MLD packets and describing
+what your application is doing in more detail if you still have a problem
+with
+this.
+
+                        +-DLS
+--0__=07BBE76ADFECEDFC8f9e8a93df938690918c07BBE76ADFECEDFC
+Content-type: text/html; charset=US-ASCII
+Content-Disposition: inline
+
+<html><body>
+<p>Takashi,<br>
+<br>
+<tt><font size="4">&gt;&gt;But there are still some problems.</font></tt><br>
+<tt><font size="4">&gt;&gt;[MLDv2]</font></tt><br>
+<tt><font size="4">&gt;&gt;1. After joining multicast address, MLDv2 listener report isn't issued &gt;&gt;immediately.</font></tt><br>
+&gt;<br>
+<tt><font size="4">&gt;This looks like a bug; it should send the first one immediately,</font></tt><br>
+<tt><font size="4">&gt;and QRV-1 more at random intervals between 0 and MRC. It's adding</font></tt><br>
+<tt><font size="4">&gt;the MRC random delay before sending the first one. Not critical,</font></tt><br>
+<tt><font size="4">&gt;but I'll put a patch together in the next couple of days.</font></tt><br>
+<br>
+<tt><font size="4">I thought this was a bug, from a quick glance at the code, but I</font></tt><br>
+<tt><font size="4">just looked some more and it already does the fix I had in mind.</font></tt><br>
+<tt><font size="4">I also ran some tests, and I do see the advertisement immediately</font></tt><br>
+<tt><font size="4">after an interface state change. That was with 2.6.0-test11bk8,</font></tt><br>
+<tt><font size="4">but 2.4.22 has the same code for this piece.</font></tt><br>
+<br>
+In MLDv1 compatibility mode, interface state changes are not sent, but a<br>
+&quot;leave group&quot; will result in an MLDv1 leave group message. So, I can't<br>
+explain (or reproduce) this behaviour right now.<br>
+<br>
+Please do send me a packet trace with the MLD packets and describing<br>
+what your application is doing in more detail if you still have a problem with<br>
+this.<br>
+<br>
+				+-DLS<br>
+</body></html>
+--0__=07BBE76ADFECEDFC8f9e8a93df938690918c07BBE76ADFECEDFC--
