@@ -1,62 +1,52 @@
-From: Fedor Karpelevitch <fedor@karpelevitch.net>
-Subject: Re: [PATCH] Re: ifconfig up/down problem
-Date: Wed, 10 Sep 2003 09:00:01 -0700
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: IPv6 6to4 on site-local networks.
+Date: Wed, 10 Sep 2003 19:38:01 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309100900.01865.fedor@karpelevitch.net>
-References: <Pine.LNX.4.56.0309090004100.24700@space.comunit.de> <200309092308.48099.fedor@karpelevitch.net> <200309100752.19594.fedor@karpelevitch.net>
+Message-ID: <1063219081.7869.205.camel@imladris.demon.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>,
-   Andrew Morton <akpm@digeo.com>, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Sven-Haegar Koch <haegar@sdinet.de>
-In-Reply-To: <200309100752.19594.fedor@karpelevitch.net>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fedor Karpelevitch wrote:
-> Fedor Karpelevitch wrote:
-> > Fedor Karpelevitch wrote:
-> > > Jeff Garzik wrote:
-> > > > Sven-Haegar Koch wrote:
-> > > > > Kernel 2.4.20-pre2-ac3 is ok (my last kernel, running for
-> > > > > month')
-> > > >
-> > > > Does the attached patch fix it?
-> > > >
-> > > > 	Jeff
-> > >
-> > > does not help me (assuming I have the same problem). I have a
-> > > total lockup a few seconds after setting up the interface (not
-> > > immidiately).
-> > >
-> > > Fedor.
-> >
-> > actually it seemed to have helped with 2.6.0-test5 where I was
-> > apparently having the same issue. Not with 2.4.23-pre3 however...
-> >
-> > Fedor.
->
-> I am really sorry for giving all this misleading information but
-> now it works fine for me with 2.4.23-pre3 as well, but I bet it did
-> lock up the first time I tried it. So there may be something wrong
-> with me or it is some other random problem I am seeing...
->
-> Fedor
+I'm looking at the possible ways of setting up a IPv6 site-internal
+network, given the prior existence of IPv4 tunnels on RFC1918 addresses
+between various physical sites.
 
-shit, it DOES happen. somehow, when network cable is unplugged it 
-seems to never happen, when I am plugged in at home I believe I could 
-have gotten that lockup once or twice, but when I am plugged in to 
-the network at my office it seems to happen 100% of the time. I use 
-DHCP in either case. I wonder if it could be related to the noise 
-traffic on the network or what. I get it with both 2.4.23-pre3 and 
-2.6.0-test5 with your patch. It does not seem to occur at any 
-particular time - just some time (seconds to minute or two) after the 
-boot up.
+The idea which looks sanest to me is to use the 6to4 automatic
+tunnelling trick. Instead of 2002::/16, however, we use fec0::/16. Since
+our internal IPv4 addresses are in the 172.16/12 range, we end up with
+fec0:ac10::/28 for the internal site-scope addresses.
 
-Could you suggest any way to at least trace this problem down?
+This requires a hack to sit.c -- just a single s/0x2002/0xfec0/ in fact.
+I'd like to make that configurable somehow. Any ideas on how best to do
+it?
 
-Fedor.
+With this in place, individual routers can still run radvd and route to
+native IPv6 on their own fec0:ac1x:xxyy::/48 subnets -- just as we do in
+the real world with 6to4 on 2002:xxxx:yyyy::/48. 
+
+--
+
+A separate and only vaguely-related question: how separate are
+site-scope and global-scope addresses and routes?
+
+Following the above configuration, we have site-scope addresses in the
+fec0:ac10::/28 range, and a route to that network via the tunnel. This
+goes over the RFC1918 IPv4 internal addresses, across CIPE tunnels etc.
+between offices.
+
+For IPv6 connectivity to the _outside_ world, can it really be done as a
+completely orthogonal issue? A machine in each location can have a
+'real' IPv6 link, and run radvd accordingly, advertising the _global_
+addresses obtained by either a tunnel or 'real' 6to4. 
+
+In the presence of two hosts broadcasting router advertisements, one
+with site-scope addresses and the other with global-scope addresses,
+will Linux do what I'd want?
+
+
+-- 
+dwmw2
