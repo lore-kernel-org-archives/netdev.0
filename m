@@ -1,55 +1,38 @@
-From: Casey Carter <Casey@Carter.net>
-Subject: [PATCH] Make SO_BINDTODEVICE bind very tightly
-Date: Tue, 07 Oct 2003 17:16:25 -0500
+From: Joe Perches <joe@perches.com>
+Subject: Re: comment on [NET]: Delete support for old-style protocols, no
+	longer necessary.
+Date: Tue, 07 Oct 2003 16:33:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F833B39.4020606@Carter.net>
+Message-ID: <1065569620.2340.19.camel@localhost.localdomain>
+References: <1065551829.2340.9.camel@localhost.localdomain>
+	 <20031007115244.14a887ed.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050702070405010702030306"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@nuts.ninka.net, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: David S Miller <davem@redhat.com>
+In-Reply-To: <20031007115244.14a887ed.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050702070405010702030306
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, 2003-10-07 at 11:52, David S. Miller wrote:
+> On Tue, 07 Oct 2003 11:37:09 -0700
+> Joe Perches <joe@perches.com> wrote:
+> 
+> > -       void                    *af_packet_priv;
+> > +       struct sock             *sk;	/* appropriate comment: socket copy? */
+> 
+> AF_PACKET is the only user of this private field, and
+> I want people to be aware of this and not try to use it
+> for other stuff.
+> 
+> Nobody else can use it for something different, the code
+> in net/core/dev.c does specific things when it's non-NULL
+> knowing that this non-NULL value means that it's an
+> AF_PACKET packet_type being passed to it.
+> 
+> So we won't make your suggested change.
 
-In the presence of both sockets that are and sockets that are not bound 
-to a specific interface, those bound to the interface should always be 
-favored for packet delivery over those not so bound.  Attached patch 
-(against 2.6.0-test6) enforces these semantics by a slight adjustment to 
-udp_v4_lookup_longway in net/ipv4/udp.c  The consequence of this change 
-is to make SO_BINDTODEVICE bind more tightly than simple bind().
-
--- 
-Casey Carter
-Casey@Carter.net
-ccarter@cs.uiuc.edu
-AIM: cartec69
-
-
---------------050702070405010702030306
-Content-Type: text/plain;
- name="udp.c.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="udp.c.diff"
-
---- linux-2.6.0-test6/net/ipv4/udp.c	2003-09-27 19:50:10.000000000 -0500
-+++ linux-2.6.0-test6-patch/net/ipv4/udp.c	2003-10-07 17:08:10.000000000 -0500
-@@ -246,9 +246,9 @@
- 			if (sk->sk_bound_dev_if) {
- 				if (sk->sk_bound_dev_if != dif)
- 					continue;
--				score+=2;
-+				score+=8;
- 			}
--			if(score == 9) {
-+			if(score == 15) {
- 				result = sk;
- 				break;
- 			} else if(score > badness) {
-
---------------050702070405010702030306--
+Even so, why not call it a struct sock*?
+It is after all and is used as one.
