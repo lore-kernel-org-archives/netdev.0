@@ -1,39 +1,44 @@
-From: Peter Buckingham <peter@pantasys.com>
-Subject: [PATCH 2.6] ipconfig accepts any DHCPACK
-Date: Tue, 07 Sep 2004 14:46:14 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: 07 Sep 2004 17:53:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <413E2C26.5040108@pantasys.com>
+Message-ID: <1094593729.1079.32.camel@jzny.localdomain>
+References: <20040907120532.GB25051@wotan.suse.de>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040907120532.GB25051@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Tue, 2004-09-07 at 08:05, Andi Kleen wrote:
+> New version of the NETIF_F_LLTX for network devices patch. 
+> 
+> This allows network drivers to set the NETIF_F_LLTX flag
 
-I was playing around with using ipconfig to initialise a bunch of 
-systems and it turns out that the ipconfig code doesn't check to see 
-whether the ACK is for it or another system. I've just added a simple 
-check to compare the hardware address of the device to the one in the 
-packet.
+> The drivers can use try lock if they want and return -1
+> when the lock wasn't grabbed. In this case the packet
+> will be requeued. For better compatibility this is only
+> done for drivers with LLTX set, others don't give a special
+> meaning to -1.
 
-peter
+Are you reinventing the rules or changing them?
 
-Signed-off-by: Peter Buckingham <peter@pantasys.com>
+hard_start_xmit() return codes are intepreted as follows:
 
---- linus-2.6/net/ipv4/ipconfig.c	2004-09-02 14:53:54.000000000 -0700
-+++ local_linux/net/ipv4/ipconfig.c	2004-09-02 14:57:49.000000000 -0700
-@@ -966,6 +966,12 @@ static int __init ic_bootp_recv(struct s
-  				break;
+0: typically means the packet was put in the ring. 
+It is being abused by a few drivers to mean a retry depending on the
+device state (which while may work results in a longer code path). 
+1: means packet was not put on the ring. i.e if you return
+1, the toplayer will retry later with the same skb. 
+[of course If you stash it on the ring, the danger is tx complete will
+try to free it later while the toplayer code is still referencing it. A
+good oops].
 
-  			case DHCPACK:
-+				for (i = 0; (dev->dev_addr[i] == b->hw_addr[i])
-+						&& (i < 16); i++);
-+				if (i < 16)
-+					goto drop_unlock;
-+
-  				/* Yeah! */
-  				break;
+
+cheers,
+jamal
