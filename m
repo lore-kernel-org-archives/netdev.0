@@ -1,48 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH][2.6] de4x5 cleanup
-Date: Sat, 30 Aug 2003 15:16:21 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3F50F805.9090805@pobox.com>
-References: <wrpad9r79g6.fsf@hina.wild-wind.fr.eu.org>	<3F50E3FD.1000703@pobox.com> <wrpn0dr55n1.fsf@hina.wild-wind.fr.eu.org>
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: Re: [Bonding-devel] Re: [bonding][2/3] Synchronizing 2.4-2.6
+Date: Sat, 30 Aug 2003 22:39:40 +0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200308302239.40237.shmulik.hen@intel.com>
+References: <E791C176A6139242A988ABA8B3D9B38A014C94E5@hasmsx403.iil.intel.com> <3F4E27A2.9060204@pobox.com>
+Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-net@vger.kernel.org,
-	Maillist netdev <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: mzyngier@freesurf.fr
-In-Reply-To: <wrpn0dr55n1.fsf@hina.wild-wind.fr.eu.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F4E27A2.9060204@pobox.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Marc Zyngier wrote:
->>>>>>"Jeff" == Jeff Garzik <jgarzik@pobox.com> writes:
-> 
-> 
-> Jeff> It looks pretty good.  My big objection isn't the Space.c stuff
-> Jeff> but de4x5 itself.  I had hoped it would be gone by now :) Oh
-> Jeff> well, not your fault.
-> 
-> Well... I too, had hoped the tulip (and its dc21040 derivative)
-> driver would be the only one. While it works nicely on modern stuff
-> (2114[023]), it has some problems on a few of my test boxes (mostly
-> Alphas with onboard 21040).
+On Thursday 28 August 2003 07:02 pm, Jeff Garzik wrote:
+> Hen, Shmulik wrote:
+> > After patch set 1, It should be as easy as just copying all the
+> > bonding related files from 2.4 to 2.6. I guess I can do that on
+> > Sunday if someone hasn't already done it before.
+>
+> I had hoped to preserve the revision history.  Simply copying the
+> files over does not do that :(
+>
+> What I mean by preserving revision history is, changes should be
+> submitted to 2.6 in the same granularity as they were to 2.4...
+>
 
-Well, 2.6 tulip intentionally doesn't work at all on 21040 and 21041 :) 
-  That's what de2104x driver is for.  Can you give that a beating, and 
-verify that it works for you?
-
-I know that 2114x chips with sym phys still have some issues; jamal has 
-created a patch that fixes that (mostly updates tulip with the latest 
-Becker phy code from Donald's tulip.c), which in turn fixes some 2114x 
-issues on alpha.
+God, I wish I was an English speaking person...  :(
+Amir, on the other hand, understood exactly what you intended, so 
+there should be something ready for tomorrow that brings 2.6 to the 
+same point as 2.4 after set 1, in small steps. After that, sets 2 and 
+3 could be applied the same way for 2.4 and 2.6.
 
 
-> And most of all, tulip doesn't support EISA :-).
-
-If it meant I could kill de4x5, then I would be all for adding EISA 
-support to tulip... :)
-
-	Jeff
-
-
-
+	Shmulik.
