@@ -1,26 +1,36 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Problem witch Your patch to kernel 2.4.26-pre2 ?
-Date: Fri, 2 Apr 2004 01:03:51 +0200
+From: Christopher Chan <cchan@outblaze.com>
+Subject: High number of concurrent connections causes 2.6.4 to go berserk
+Date: Fri, 02 Apr 2004 08:57:05 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040402010351.A29887@electric-eye.fr.zoreil.com>
-References: <1080777461.4358.58.camel@b6.kei.pl>
+Message-ID: <406CBA60.50103@outblaze.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Yusuf Goolamabbas <yusufg@outblaze.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maciek Moskal <maciek@kei.pl>
-Content-Disposition: inline
-In-Reply-To: <1080777461.4358.58.camel@b6.kei.pl>; from maciek@kei.pl on Thu, Apr 01, 2004 at 01:57:43AM +0200
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Maciek Moskal :
-[bad experience with r8169 driver in 2.4.26-pre2]
+KERNEL: assertion (flags & MSG_PEEK) failed a[t net/ipv4/tcp.c (1571)
+KERNEL: assertion (tp->copied_seq == tp->rcv_nxt || (flags & (MSG_PEEK | 
+MSG_TRUNC))) failed at net/ipv4/tcp.c (1635)
 
-You may try:
-http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.26-rc1/r8169-mammoth-attack.patch
+These are repeated in the logs during kernel berserk period
 
-Please keep netdev Cc:ed.
+postfix is running on this box.
 
---
-Ueimor
+It is set to spawn max 750 smtpd processes to handle incoming smtp sessions.
+
+When tcp_max_syn_backlog is set to 4096 and
+route.max_size = 131072
+route.gc_thresh = 65536
+
+the box goes berserk almost immediately after bootup due to a bounce 
+flood hitting the box.
+
+The below values seem to workaround whatever problem the kernel has.
+
+tcp_max_syn_backlog = 2048
+route.max_size = 1048576
+route.gc_thresh = 65536
