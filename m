@@ -1,29 +1,30 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Mon, 20 Sep 2004 08:54:18 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414EFD2A.5000805@us.ibm.com>
-References: <20040920063012.GL2825@krispykreme>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: 2.6.9-rc1-bk11+ and 2.6.9-rc1-mm3,4 r8169: freeze during boot (FIX included)
+Date: Mon, 20 Sep 2004 11:06:06 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <200409201106.06363.jdmason@us.ltcfwd.linux.ibm.com>
+References: <200409130035.50823.hfvogt@arcor.de> <20040917160151.GA29337@electric-eye.fr.zoreil.com> <414DF773.7060402@myrealbox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20040920063012.GL2825@krispykreme>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Hans-Frieder Vogt <hfvogt@arcor.de>,
+	linux-kernel@vger.kernel.org, jgarzik@pobox.com, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266756AbUITQGf@vger.kernel.org>
+To: Andy Lutomirski <luto@myrealbox.com>
+In-Reply-To: <414DF773.7060402@myrealbox.com>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Anton Blanchard wrote:
-> Hi,
-> 
-> I just tried latest 2.6.9-rc2-BK on a machine with an e1000 on it. With
-> TSO off it does about 100MB/sec. With TSO on it does between 1MB/sec and
-> 10MB/sec.
+Andy,
+Your setup sounds very similar to mine, and I am not hitting the error.  I am 
+running Gentoo on AMD Athlon(tm) 64 Processor 3200+ with 512MB RAM.  My r8169 
+adapter (8110 chipset) is integrated in my MoBo.  How is your setup 
+different?
 
-Hey Anton,  yep, I was just debugging this. TSO mainline reworked
-implementation is still not cooked. Don't worry, final state won't
-be this bad :).
+Thanks,
 
-Could you echo 0 > /proc/sys/net/ipv4/tcp_bic and redo test,
-please?
+-- 
+Jon Mason
+jdmason@us.ibm.com
