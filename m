@@ -1,44 +1,49 @@
-From: Troy Wilson <tcw@tempest.prismnet.com>
-Subject: SPECWeb99 Data -- tcp-wakeups
-Date: Wed, 25 Sep 2002 10:47:53 -0500 (CDT)
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: [Question] SMP for TCP/IP Stack
+Date: Wed, 25 Sep 2002 12:32:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209251547.g8PFlsrR013807@tempest.prismnet.com>
+Message-ID: <3D920F38.410CA3AB@us.ibm.com>
+References: <20020925112731.A19934@toad.postech.ac.kr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   lse-tech@lists.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@digeo.com
+To: Hyochang Nam <cannon@postech.ac.kr>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   ********************************************************************
-   *  SPEC(tm) and the benchmark name SPECweb(tm) are registered      *
-   *  trademarks of the Standard Performance Evaluation Corporation.  *
-   *  This benchmarking was performed for research purposes only,     *
-   *  and is non-compliant, with the following deviations from the    *
-   *  rules -                                                         *
-   *                                                                  *
-   *    1 - It was run on hardware that does not meed the SPEC        *
-   *        availability-to-the-public criteria.  The machine is      *
-   *        an engineering sample.                                    *
-   *                                                                  *
-   *    2 - access_log wasn't kept for full accounting.  It was       *
-   *        being written, but deleted every 200 seconds.             *
-   ********************************************************************
+Hyochang Nam wrote:
+> 
+> Can Linux Kernel 2.4.X handle two IP Packets at the same time
+> in a SMP machine which has two CPUs?
 
-  I've done some testing with SPECWeb99 on 2.5.35 mm1 with and without 
-the tcp-wakeups patch backed out.  The addition of tcp-wakeups makes a 2%
-improvement in performance.
+We've done tests on large SMP's without significant problems.
 
-                           mm1              mm1 without tcp-wakeup
-                         -----------------------------------------
-Simultaneous connections   3049             2982
+> I have a SMP machine which equips two Intel Xeon CPUs and two
+> Intel Gigabit Network Cards. When I sent small IP Packets
+> to the machine, most of packets are dropped. When I watch
 
+How small is your small packet? Do you have the same problem
+with larger packets? 
+Are these drops showing up in ifconfig output? i.e. reported
+by the card? In which case I suspect it might be a card issue.
+Also, have you configured your card settings?
 
-  The system is an 8-way, 900MHz, Profusion-based P3 box with 32GB memory.
-It's connected to 16 SPECWeb client machines via 4 e1000 gigabit adapters.
-I'm using Apache 2.0.36 as the webserver.
+> CPU utlization with TOP program, only one CPU shows high value
+> but the other shows much low value, ie. 10% CPU utlization.
 
-- Troy
+How are you doing your sends? Is your application mostly running
+on one CPU? Do you have anything else running on the busy CPU?
+What is the interrupt distribution between the two CPU's?
+
+> My test shows current IP Stack in Linux Kernel cannot provide
+> SMP Processing properly. But, some articles said Linux Kernel 2.4
+> gives true SMP processing. What do you think my problem is?
+
+Could you provide your stats (ifconfig, netstat -s)?
+
+> Hyochang Nam
+
+thanks,
+Nivedita
