@@ -1,35 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPv4]: More fib_alias insertion fixes
-Date: Mon, 27 Sep 2004 07:23:16 +1000
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] r8169 tx_timeout recovery and automatic DAC step-down
+Date: Mon, 27 Sep 2004 01:09:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CBgUG-0001GH-00@gondolin.me.apana.org.au>
-References: <Pine.LNX.4.58.0409261611230.8973@u.domain.uli>
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net, netdev@oss.sgi.com
+Message-ID: <20040926230928.GA28817@electric-eye.fr.zoreil.com>
+References: <20040919224102.GA32577@electric-eye.fr.zoreil.com> <200409231558.29821.jdmason@us.ltcfwd.linux.ibm.com> <20040923220519.GD8018@electric-eye.fr.zoreil.com> <200409231840.12539.jdmason@us.ltcfwd.linux.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jon Mason <jdmason@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ja@ssi.bg (Julian Anastasov)
-In-Reply-To: <Pine.LNX.4.58.0409261611230.8973@u.domain.uli>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <200409231840.12539.jdmason@us.ltcfwd.linux.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Julian Anastasov <ja@ssi.bg> wrote:
-> 
->        True, but in your patch2 you return fa after
-> list_for_each_entry which is not valid when the loop terminates.
-> Just change it to return the fa into the loop.
+Untested patches of the day (it's late and I need to sleep):
 
-You're right, we dereference it in fn_hash_insert.
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.9-rc2-mm2/r8169-200.patch
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.9-rc2-mm2/r8169-210.patch
 
-> [-- text/plain, encoding base64, charset: US-ASCII, 28 lines, name: fib_ins3.diff --]
-> [-- Description: fib_alias ordered by TOS --]
-> 
-> diff -ur v2.6.9-rc2-bk10/linux/net/ipv4/fib_hash.c linux/net/ipv4/fib_hash.c
-> --- v2.6.9-rc2-bk10/linux/net/ipv4/fib_hash.c   2004-09-26 16:52:11.000000000 +0300
+The first one should perform a clean reset of the device under TX_TIMEOUT.
+The second one should be able to detect a broken setup wrt pci dac
+transaction and downgrade the advertised features of the driver accordingly.
 
-Looks good.
+The quality of my untested patches past 00 AM is not guaranteed.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+Ueimor
