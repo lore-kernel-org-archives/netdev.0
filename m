@@ -1,207 +1,102 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [RFC] TCP congestion schedulers
-Date: Tue, 15 Mar 2005 14:54:24 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0503151450240.6669@dexter.psc.edu>
-References: <421CF5E5.1060606@ev-en.org> <20050223135732.39e62c6c.davem@davemloft.net>
- <421D1E66.5090301@osdl.org> <421D30FA.1060900@ev-en.org>
- <20050225120814.5fa77b13@dxpl.pdx.osdl.net> <20050309210442.3e9786a6.davem@davemloft.net>
- <4230288F.1030202@ev-en.org> <20050310182629.1eab09ec.davem@davemloft.net>
- <20050311120054.4bbf675a@dxpl.pdx.osdl.net> <20050311201011.360c00da.davem@davemloft.net>
- <20050314151726.532af90d@dxpl.pdx.osdl.net>
+From: Chuck Ebbert <76306.1226@compuserve.com>
+Subject: [PATCH] Optimize loopback stats
+Date: Tue, 15 Mar 2005 14:56:15 -0500
+Message-ID: <200503151459_MC3-1-989A-61A4@compuserve.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, baruch@ev-en.org,
-        netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050314151726.532af90d@dxpl.pdx.osdl.net>
+Content-Type: text/plain;
+	 charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, Christoph Lameter <clameter@sgi.com>
+To: linux-netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Cool. :)  Here's High Speed TCP.
+  This patch optimizes the loopback driver's statistics by using a single
+counter for rx and tx stats instead of one for rx and one for tx.  It also
+adds unlikely() to the test for TSO since it's no longer supported by default.
+(Maybe the TSO code should be bracketed by "#if 0" ?)
 
-  -John
+  o saves 84 bytes per CPU on 32bit and 168 bytes on 64 bit
+    (should save 84K data on 512-way ia64)
 
+  o AFAICT the driver is ~2.5% faster sending PF_PACKET data
 
----
+  o applies on top of Christoph's patch in -mm that removes update
+    of the device's last_rx field
 
-/*
- * Sally Floyd's High Speed TCP (RFC 3649) congestion control
- *
- * See http://www.icir.org/floyd/hstcp.html
- *
- * John Heffner <jheffner@psc.edu>
- */
+Signed-off-by: Chuck Ebbert <76306.1226@compuserve.com>
 
-#include <linux/config.h>
-#include <linux/module.h>
-#include <net/tcp.h>
+--- 2.6.11-mm/drivers/net/loopback.c    2005-03-15 14:23:30.180677000 -0500
++++ 2.6.11-ce/drivers/net/loopback.c    2005-03-15 14:26:23.700677000 -0500
+@@ -58,7 +58,12 @@
+ #include <linux/tcp.h>
+ #include <linux/percpu.h>
+ 
+-static DEFINE_PER_CPU(struct net_device_stats, loopback_stats);
++struct loopback_device_stats {
++       unsigned long rx_tx_bytes;
++       unsigned long rx_tx_packets;
++};
++
++static DEFINE_PER_CPU(struct loopback_device_stats, loopback_stats);
+ 
+ #define LOOPBACK_OVERHEAD (128 + MAX_HEADER + 16 + 16)
+ 
+@@ -126,7 +131,7 @@ static void emulate_large_send_offload(s
+  */
+ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-       struct net_device_stats *lb_stats;
++       struct loopback_device_stats *lb_stats;
+ 
+        skb_orphan(skb);
+ 
+@@ -136,7 +141,7 @@ static int loopback_xmit(struct sk_buff 
+        skb->ip_summed = CHECKSUM_UNNECESSARY;
+ #endif
+ 
+-       if (skb_shinfo(skb)->tso_size) {
++       if (unlikely(skb_shinfo(skb)->tso_size)) {
+                BUG_ON(skb->protocol != htons(ETH_P_IP));
+                BUG_ON(skb->nh.iph->protocol != IPPROTO_TCP);
+ 
+@@ -145,10 +150,8 @@ static int loopback_xmit(struct sk_buff 
+        }
+ 
+        lb_stats = &per_cpu(loopback_stats, get_cpu());
+-       lb_stats->rx_bytes += skb->len;
+-       lb_stats->tx_bytes += skb->len;
+-       lb_stats->rx_packets++;
+-       lb_stats->tx_packets++;
++       lb_stats->rx_tx_bytes += skb->len;
++       lb_stats->rx_tx_packets++;
+        put_cpu();
+ 
+        netif_rx(skb);
+@@ -168,15 +171,15 @@ static struct net_device_stats *get_stat
+        memset(stats, 0, sizeof(struct net_device_stats));
+ 
+        for (i=0; i < NR_CPUS; i++) {
+-               struct net_device_stats *lb_stats;
++               struct loopback_device_stats *lb_stats;
+ 
+                if (!cpu_possible(i)) 
+                        continue;
+                lb_stats = &per_cpu(loopback_stats, i);
+-               stats->rx_bytes   += lb_stats->rx_bytes;
+-               stats->tx_bytes   += lb_stats->tx_bytes;
+-               stats->rx_packets += lb_stats->rx_packets;
+-               stats->tx_packets += lb_stats->tx_packets;
++               stats->rx_bytes   += lb_stats->rx_tx_bytes;
++               stats->tx_bytes    = stats->rx_bytes;
++               stats->rx_packets += lb_stats->rx_tx_packets;
++               stats->tx_packets  = stats->rx_packets;
+        }
+                                
+        return stats;
+_
 
-
-/* From AIMD tables from RFC 3649 appendix B,
- * with fixed-point MD scaled <<8.
- */
-static struct hstcp_aimd_val {
-        unsigned int cwnd;
-        unsigned int md;
-} hstcp_aimd_vals[] = {
- {     38,  128, /*  0.50 */ },
- {    118,  112, /*  0.44 */ },
- {    221,  104, /*  0.41 */ },
- {    347,   98, /*  0.38 */ },
- {    495,   93, /*  0.37 */ },
- {    663,   89, /*  0.35 */ },
- {    851,   86, /*  0.34 */ },
- {   1058,   83, /*  0.33 */ },
- {   1284,   81, /*  0.32 */ },
- {   1529,   78, /*  0.31 */ },
- {   1793,   76, /*  0.30 */ },
- {   2076,   74, /*  0.29 */ },
- {   2378,   72, /*  0.28 */ },
- {   2699,   71, /*  0.28 */ },
- {   3039,   69, /*  0.27 */ },
- {   3399,   68, /*  0.27 */ },
- {   3778,   66, /*  0.26 */ },
- {   4177,   65, /*  0.26 */ },
- {   4596,   64, /*  0.25 */ },
- {   5036,   62, /*  0.25 */ },
- {   5497,   61, /*  0.24 */ },
- {   5979,   60, /*  0.24 */ },
- {   6483,   59, /*  0.23 */ },
- {   7009,   58, /*  0.23 */ },
- {   7558,   57, /*  0.22 */ },
- {   8130,   56, /*  0.22 */ },
- {   8726,   55, /*  0.22 */ },
- {   9346,   54, /*  0.21 */ },
- {   9991,   53, /*  0.21 */ },
- {  10661,   52, /*  0.21 */ },
- {  11358,   52, /*  0.20 */ },
- {  12082,   51, /*  0.20 */ },
- {  12834,   50, /*  0.20 */ },
- {  13614,   49, /*  0.19 */ },
- {  14424,   48, /*  0.19 */ },
- {  15265,   48, /*  0.19 */ },
- {  16137,   47, /*  0.19 */ },
- {  17042,   46, /*  0.18 */ },
- {  17981,   45, /*  0.18 */ },
- {  18955,   45, /*  0.18 */ },
- {  19965,   44, /*  0.17 */ },
- {  21013,   43, /*  0.17 */ },
- {  22101,   43, /*  0.17 */ },
- {  23230,   42, /*  0.17 */ },
- {  24402,   41, /*  0.16 */ },
- {  25618,   41, /*  0.16 */ },
- {  26881,   40, /*  0.16 */ },
- {  28193,   39, /*  0.16 */ },
- {  29557,   39, /*  0.15 */ },
- {  30975,   38, /*  0.15 */ },
- {  32450,   38, /*  0.15 */ },
- {  33986,   37, /*  0.15 */ },
- {  35586,   36, /*  0.14 */ },
- {  37253,   36, /*  0.14 */ },
- {  38992,   35, /*  0.14 */ },
- {  40808,   35, /*  0.14 */ },
- {  42707,   34, /*  0.13 */ },
- {  44694,   33, /*  0.13 */ },
- {  46776,   33, /*  0.13 */ },
- {  48961,   32, /*  0.13 */ },
- {  51258,   32, /*  0.13 */ },
- {  53677,   31, /*  0.12 */ },
- {  56230,   30, /*  0.12 */ },
- {  58932,   30, /*  0.12 */ },
- {  61799,   29, /*  0.12 */ },
- {  64851,   28, /*  0.11 */ },
- {  68113,   28, /*  0.11 */ },
- {  71617,   27, /*  0.11 */ },
- {  75401,   26, /*  0.10 */ },
- {  79517,   26, /*  0.10 */ },
- {  84035,   25, /*  0.10 */ },
- {  89053,   24, /*  0.10 */ },
-};
-
-#define HSTCP_AIMD_MAX	((sizeof (hstcp_aimd_vals) / sizeof (struct hstcp_aimd_val)) - 1)
-
-struct hstcp_ca {
-	u32	ai;
-};
-
-static void hstcp_start(struct tcp_sock *tp)
-{
-	struct hstcp_ca *ca = tcp_ca(tp);
-
-	ca->ai = 0;
-
-	/* Ensure the MD arithmetic works.  This is somewhat pedantic,
-	 * since I don't think we will see a cwnd this large. :) */
-	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
-}
-
-static void hstcp_cong_avoid(struct tcp_sock *tp, u32 adk, u32 rtt, u32 in_flight)
-{
-	struct hstcp_ca *ca = tcp_ca(tp);
-
-	if (in_flight < tp->snd_cwnd)
-		return;
-
-	if (tp->snd_cwnd <= tp->snd_ssthresh) {
-		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
-			tp->snd_cwnd++;
-	} else {
-		/* Update AIMD parameters */
-		if (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd) {
-			while (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd &&
-			       ca->ai < HSTCP_AIMD_MAX)
-				ca->ai++;
-		} else if (tp->snd_cwnd < hstcp_aimd_vals[ca->ai].cwnd) {
-			while (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd &&
-			       ca->ai > 0)
-				ca->ai--;
-		}
-
-		/* Do additive increase */
-		if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
-			tp->snd_cwnd_cnt += ca->ai;
-			if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
-				tp->snd_cwnd++;
-				tp->snd_cwnd_cnt -= tp->snd_cwnd;
-			}
-		}
-	}
-}
-
-static u32 hstcp_ssthresh(struct tcp_sock *tp)
-{
-	struct hstcp_ca *ca = tcp_ca(tp);
-
-	/* Do multiplicative decrease */
-	return max(tp->snd_cwnd - ((tp->snd_cwnd * hstcp_aimd_vals[ca->ai].md) >> 8), 2U);
-}
-
-static struct tcp_ca_type tcp_highspeed = {
-	.start		= hstcp_start,
-	.ssthresh	= hstcp_ssthresh,
-	.min_cwnd	= tcp_reno_cwnd_min,
-	.cong_avoid	= hstcp_cong_avoid,
-
-	.owner		= THIS_MODULE,
-	.name		= "highspeed"
-};
-
-static int __init hstcp_init(void)
-{
-	BUILD_BUG_ON(sizeof(struct hstcp_ca) > TCP_CA_PRIV_SIZE);
-	tcp_ca_register(&tcp_highspeed);
-	return 0;
-}
-
-static void __exit hstcp_exit(void)
-{
-	tcp_ca_unregister(&tcp_highspeed);
-}
-
-module_init(hstcp_init);
-module_exit(hstcp_exit);
-
-MODULE_AUTHOR("John Heffner");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("High Speed TCP");
+--
+Chuck
