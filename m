@@ -1,47 +1,36 @@
-From: Thomas Svedberg <Thomas.Svedberg@me.chalmers.se>
-Subject: Re: Hard lock with recent 2.6.0-test kernels
-Date: Fri, 17 Oct 2003 11:12:26 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <1066310622.1483.2.camel@thsvlap.swenox.net>
-References: <1063272933.26472.16.camel@ampc545.am.chalmers.se>
+From: "Sebastian Piecha" <spi@gmxpro.de>
+Subject: Re: oops in skbuff.c
+Date: Fri, 17 Oct 2003 14:17:25 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3F8FF9F5.24611.8F1E08C@localhost>
+References: <3F8EF7B3.25278.5010BC6@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Kernel List <linux-kernel@vger.kernel.org>,
-	jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Thomas Svedberg <thsv@am.chalmers.se>
-In-Reply-To: <1063272933.26472.16.camel@ampc545.am.chalmers.se>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Return-path: <netdev-bounce@oss.sgi.com>
+To: James Morris <jmorris@redhat.com>, LK-net <linux-net@vger.kernel.org>,
+        <netdev@oss.sgi.com>
+In-reply-to: <Xine.LNX.4.44.0310161512210.6059-100000@thoron.boston.redhat.com>
+Content-description: Mail message body
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have tried a lot more of the recent kernels, and still have these
-lockups.
-The box is, however, completely stable if i switch from running 8139cp
-to 8139too.
-I am willing to test patches.
+On 16 Oct 2003 at 15:15, James Morris wrote:
 
-tor 2003-09-11 klockan 11.35 skrev Thomas Svedberg:
-> I first experienced total lockup with 2.6.0-test4-mm5 and have now tr=
-ied
-> a few different ones. -test4-mm4 works, test4-bk2 works, test4-mm5
-> locks, test4-bk3 locks, test5-mm1 locks.
-> Nothing shows in the logs, and the lock occurs while doing random thi=
-ngs
-> but only after a few seconds - minutes after i logged in to X.
-> sysrq don't work either.
-> It is an Compaq Evo 1020v and configs etc. can be found at:
-> http://www.am.chalmers.se/~thsv/laptop/ =20
---=20
-/ Thomas
-=2E....................................................................=
-=2E.
- Thomas Svedberg
- Department of Applied Mechanics=20
- Chalmers University of Technology=20
+> On Thu, 16 Oct 2003, Sebastian Piecha wrote:
+> 
+> >  panics. Copying more than 4 GB to the samba share also lets the 
+> > kernel panic with an OOPS.
+> 
+> Does the above cause a panic for the 2.6-test kernels?
+> Do you have netfilter enabled, and if so, any iptables modules loaded?
+> 
+> 
+I did a mistake. iptables is installed but no rules added. I'll 
+remove iptables and rerun the check.
 
- Address: SE-412 96 G=F6teborg, SWEDEN=20
- E-mail : thsv@am.chalmers.se, thsv@bigfoot.com
- Phone  : +46 31 772 1522
- Fax    : +46 31 772 3827
-=2E....................................................................=
-=2E.
+--
+Mit freundlichen Gruessen/Best regards,
+Sebastian Piecha
+
+EMail: spi@gmxpro.de
