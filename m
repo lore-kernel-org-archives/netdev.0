@@ -1,44 +1,31 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH] 2.6.3 pcnet32.c wrong vendor ID fix
-Date: Thu, 19 Feb 2004 09:14:49 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402191714.i1JHEnu05047@DYN318364BLD.beaverton.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [NET] 64 bit byte counter for 2.6.3
+Date: Thu, 19 Feb 2004 09:27:08 -0800
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040219092708.1935e684@dell_ss3.pdx.osdl.net>
+References: <20040218101711.25dda791@dell_ss3.pdx.osdl.net>
+	<E1AtjKh-0006Bz-Ee@rhn.tartu-labor>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: mroos@linux.ee, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: netdev@oss.sgi.com
+In-Reply-To: <E1AtjKh-0006Bz-Ee@rhn.tartu-labor>
 List-Id: netdev.vger.kernel.org
 
-This patch was originally sent by Jon Mason on Sat Jan 31.
+On Thu, 19 Feb 2004 10:14:55 +0200
+Meelis Roos <mroos@linux.ee> wrote:
 
-"I created a patch that allows pcnet32 adapters sold in IBM RS/6000 systems 
-to be recognized in non-ppc computers.  The problem is that the Vendor ID 
-of this adapter is incorrect.  There is a ppc specific workaround to get 
-it working on that architecture (checkout 
-http://lxr.linux.no/source/arch/ppc/kernel/pci.c?a=ppc#L87
-for the workaround), but it obviously won't fix the problem in non-ppc 
-architectures."
+> SH>  * Network changes gets discussed on netdev@oss.sgi.com 
+> SH>  * 64 bit values are not atomic on 32 bit architectures 
+> 
+> Agree.
+> 
+> SH>  * wider values in /proc output risks breaking apps like ifconfig and netstat
+> 
+> This is probably not a problem here, ifconfig etc have been working fine
+> with non-wrapping numbers on sparc64 and other 64-bit machines.
 
-
-
---- linux-2.6.3/drivers/net/hang.pcnet32.c	Thu Feb 19 08:58:32 2004
-+++ linux-2.6.3/drivers/net/pcnet32.c	Thu Feb 19 08:59:26 2004
-@@ -58,6 +58,12 @@
- static struct pci_device_id pcnet32_pci_tbl[] = {
-     { PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE_HOME, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-     { PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+    /*
-+     * Adapters that were sold with IBM's RS/6000 or pSeries hardware have
-+     * the incorrect vendor id.
-+     */
-+    { PCI_VENDOR_ID_TRIDENT, PCI_DEVICE_ID_AMD_LANCE, PCI_ANY_ID, PCI_ANY_ID,
-+	    PCI_CLASS_NETWORK_ETHERNET << 8, 0xffff00, 0 },
-     { 0, }
- };
- 
-
--- 
-Don Fry
-brazilnut@us.ibm.com
+Looking at current net-tools source, they are doing sscanf into a long-long-unsigned
+value already.
