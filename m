@@ -1,34 +1,49 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] Make LLC2 compile with PROC_FS=n
-Date: Mon, 20 Oct 2003 04:44:28 -0300
+From: Shirley Ma <xma@us.ibm.com>
+Subject: [Issues] Implementation for IPv6 MIB:ipv6PrefixTable
+Date: Wed, 22 Oct 2003 13:01:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031020074428.GA26494@conectiva.com.br>
-References: <Pine.GSO.4.58.0310171452540.13905@blinky>
+Message-ID: <OFBADF6ADC.FB447CDE-ON87256DC7.006394FF@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rddunlap@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Cc: mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Noah J. Misch" <noah@caltech.edu>
-Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.58.0310171452540.13905@blinky>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Sun, Oct 19, 2003 at 10:03:52PM -0700, Noah J. Misch escreveu:
-> Hello Arnaldo,
-> 
-> This patch allows the LLC2 code to link properly when CONFIG_PROC_FS=n.  The
-> problem was that the Makefile only built llc_proc.c when PROC_FS=y/m, but
-> af_llc.c called functions in that file in all cases.  The log details how I
-> fixed this.
-> 
-> I think this is the best fix, but of course there are a number of less intrusive
-> fixes, including (I think) one as simple as making llc_proc.c always compile.
-> This one does apply cleanly to linux-2.5 BK as of 0400 UTC 10/20/2003 and passes
-> allyesconfig and (allyesconfig - PROC_FS) compiles on i386.
-> 
-> Please let me know if I should supply you with further information.
 
-I'm OK with this patch.
 
-- Arnaldo
+
+
+Hi, Dave,
+
+I have several implementation issues about ipv6PrefixTable for IPv6 MIBs.
+This table must include all prefixes' info, manually configured prefix,
+addrconf prefix, dhcp prefix ... In each ipv6PrefixTable, there are 9
+objects, which are Ifindex, Type, Prefix, Length, Origin(addrconf,
+manually, dhcp, others), OnLinkFlag, AutonomoueFlag, AdvPreferredLiftTime
+and ValidLifeTime.
+There is no such a table or similar list saved in Linux kernel. Manually
+configured prefix router, and on-link addrconf prefix router are saved in
+routing table, but only Prefix and Lengh objects there. The off-link or
+on-link flag (set to 0) prefix router are not in routing table or anywhere
+else, which are using default router by RFC 2461.
+I would like to hear your opinion on the implementation. I read some email
+thread before about a implementation of prefix list in the kernel. At that
+time, the conclusion was not implementing prefix list in the kernel, and
+also the prefix list only refers to onlink prefix by RFC2461.
+
+First, do you think it's a good idea to save all prefix objects in routing
+table?
+Second, where is the best location for the off-link prefix, on-link flag 0
+prefix to be saved?
+Third, do you think it's a good idea to implement a prefix table/per
+interface in the kernel?
+
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
