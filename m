@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 1/1] err1-28: rose_route locking fix
-Date: Fri, 02 Jul 2004 01:11:17 -0700
+Subject: [patch 1/1] err1-62: ax25_ds_idletimer_expiry() locking fix
+Date: Fri, 02 Jul 2004 01:28:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407020812.i628CFG17588@mail.osdl.org>
+Message-ID: <200407020829.i628TNG20391@mail.osdl.org>
 Cc: netdev@oss.sgi.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,24 +11,24 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Fix deadlock in rose_del_loopback_node().  Found by the Stanford locking
-checker.
+Fix deadlock identified by the Stanford locking checker.
 
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/net/rose/rose_route.c |    1 -
- 1 files changed, 1 deletion(-)
+ 25-akpm/net/ax25/ax25_ds_timer.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/rose/rose_route.c~err1-28-rose_route-locking-fix net/rose/rose_route.c
---- 25/net/rose/rose_route.c~err1-28-rose_route-locking-fix	2004-07-02 01:09:27.377403248 -0700
-+++ 25-akpm/net/rose/rose_route.c	2004-07-02 01:09:33.617454616 -0700
-@@ -206,7 +206,6 @@ static void rose_remove_node(struct rose
- {
- 	struct rose_node *s;
+diff -puN net/ax25/ax25_ds_timer.c~err1-62-ax25_ds_idletimer_expiry-locking-fix net/ax25/ax25_ds_timer.c
+--- 25/net/ax25/ax25_ds_timer.c~err1-62-ax25_ds_idletimer_expiry-locking-fix	2004-07-02 01:27:07.504239472 -0700
++++ 25-akpm/net/ax25/ax25_ds_timer.c	2004-07-02 01:27:11.824582680 -0700
+@@ -180,7 +180,7 @@ void ax25_ds_idletimer_expiry(ax25_cb *a
+ 			ax25->sk->sk_state_change(ax25->sk);
+ 			sock_set_flag(ax25->sk, SOCK_DEAD);
+ 		}
+-		bh_lock_sock(ax25->sk);
++		bh_unlock_sock(ax25->sk);
+ 	}
+ }
  
--	spin_lock_bh(&rose_node_list_lock);
- 	if ((s = rose_node_list) == rose_node) {
- 		rose_node_list = rose_node->next;
- 		kfree(rose_node);
 _
