@@ -1,87 +1,45 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 6 Sep 2002 13:44:34 +0200
+Date: Fri, 06 Sep 2002 07:29:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15736.38178.445310.714015@robur.slu.se>
+Message-ID: <46202575.1031297360@[10.10.2.3]>
+References: <20020905.235159.128049953.davem@redhat.com>
+Reply-To: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@zip.com.au, Martin.Bligh@us.ibm.com, hadi@cyberus.ca,
-   tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   niv@us.ibm.com, Robert.Olsson@data.slu.se
+Cc: hadi@cyberus.ca, tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020905.235159.128049953.davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> Stupid question, are you sure you have CONFIG_E1000_NAPI enabled?
+> 
+> NAPI is also not the panacea to all problems in the world.
 
-David S. Miller writes:
- >    Mala did some testing on this a couple of weeks back.  It appears that
- >    NAPI damaged performance significantly.
- > 
- >    http://www-124.ibm.com/developerworks/opensource/linuxperf/netperf/results/july_02/netperf2.5.25results.htm
- > 
+No, but I didn't expect throughput to drop by 40% or so either,
+which is (very roughly) what happened. Interrupts are a pain to
+manage and do affinity with, so NAPI should (at least in theory)
+be better for this kind of setup ... I think.
+ 
+> I bet your greatest gain would be obtained from going to Tux
+> and using appropriate IRQ affinity settings and making sure
+> Tux threads bind to same cpu as device where they accept
+> connections.
+> 
+> It is standard method to obtain peak specweb performance.
 
- > Robert can comment on optimal settings
+Ah, but that's not really our goal - what we're trying to do is
+use specweb as a tool to simulate a semi-realistic customer
+workload, and improve the Linux kernel performance, using that
+as our yardstick for measuring ourselves. For that I like the
+setup we have reasonably well, even though it won't get us the
+best numbers.
 
-Hopefully yes...
+To get the best benchmark numbers, you're absolutely right though.
 
-I see other numbers so we have to sort out the differences. Andrew Morton
-pinged me about this test last week. So I've had a chance to run some tests. 
-
-Some comments:
-Scale to CPU can be dangerous measure w. NAPI due to its adapting behaviour 
-where RX interrupts decreases in favour of successive polls.
-
-And NAPI scheme behaves different since we can not assume that all network 
-traffic is well-behaved like TCP. System has to be manageable and to "perform"
-under any network load not only for well-behaved TCP. So of course we will 
-see some differences -- there are no free lunch. Simply we can not blindly
-look at one test. IMO NAPI is the best overall performer. The number speaks 
-for themselves.
-
-Here is the most recent test...
-
-NAPI kernel path is included in 2.4.20-pre4 the comparison below is mainly 
-between e1000 driver w and w/o NAPI and the NAPI port to e1000 is still 
-evolving. 
-
-Linux 2.4.20-pre4/UP PIII @ 933 MHz w. Intel's e100 2 port GIGE adapter.
-e1000 4.3.2-k1 (current kernel version) and current NAPI patch. For NAPI 
-e1000 driver uses RxIntDelay=1. RxIntDewlay=0 caused problem. Non-NAPI
-driver RxIntDelay=64. (default)
-
-Three tests: TCP, UDP, packet forwarding.
-
-Netperf. TCP socket size 131070, Single TCP stream. Test length 30 s.
-
-M-size   e1000    NAPI-e1000
-============================
-      4   20.74    20.69  Mbit/s data received.
-    128  458.14   465.26 
-    512  836.40   846.71 
-   1024  936.11   937.93 
-   2048  940.65   939.92 
-   4096  940.86   937.59
-   8192  940.87   939.95 
-  16384  940.88   937.61
-  32768  940.89   939.92
-  65536  940.90   939.48
- 131070  940.84   939.74
-
-Netperf. UDP_STREAM. 1440 pkts. Single UDP stream. Test length 30 s.
-         e1000    NAPI-e1000
-====================================
-         955.7    955.7   Mbit/s data received.
-
-Forwarding test. 1 Mpkts at 970 kpps injected.
-          e1000   NAPI-e1000
-=============================================
-T-put       305   298580    pkts routed.
-
-NOTE! 
-With non-NAPI driver this system is "dead" an performes nothing.
-
-
-Cheers.
-						--ro
+M.
