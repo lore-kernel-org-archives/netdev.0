@@ -1,17 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] 2.6.1-bk1-netdev2 - Realtek 8169 braindamaged
-Date: Mon, 12 Jan 2004 17:20:47 -0500
+Subject: Re: experimental net driver queue updated
+Date: Mon, 12 Jan 2004 17:22:28 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40031DBF.1050305@pobox.com>
-References: <20040112231204.B5983@electric-eye.fr.zoreil.com>
+Message-ID: <40031E24.6040702@pobox.com>
+References: <4000C5A3.5070101@pobox.com> <20040111004540.403ca854.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040112231204.B5983@electric-eye.fr.zoreil.com>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20040111004540.403ca854.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-thanks, applied :)
+thanks, applied
