@@ -1,93 +1,95 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH]: fix skb_copy_expand offset calculation
-Date: Thu, 06 Nov 2003 18:21:46 +0100
+From: Krishna Kumar <kumarkr@us.ibm.com>
+Subject: Re: [PATCH] panic during unregister_netdevice()
+Date: Thu, 6 Nov 2003 11:58:24 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FAA832A.6000505@trash.net>
+Message-ID: <OF5A6B1679.D88C275D-ON88256DD6.006CF971@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080502050700020003090802"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Cc: davem@redhat.com, krkumar@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080502050700020003090802
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Hi Dave,
-this patch fixes offset calculation in skb_copy_expand.
-
-        head_copy_len = skb_headroom(skb);
-        head_copy_off = 0;
-        if (newheadroom < head_copy_len) {
-                head_copy_off = head_copy_len - newheadroom;
-                head_copy_len = newheadroom;
-        }
- 
-        /* Copy the linear header and data. */
-        if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
-                          skb->len + head_copy_len))
 
 
-It looks like it is intended to copy as much as possible, cutting off
-bytes at the beginning is there is not enough room. For the case
-newheadroom < head_copy_len that means it needs to copy newheadroom
-bytes from skb->data - newheadroom to n->head, so head_copy_off
-needs to be 0. I don't know how the data copied is used later on
-but I assume it is intended to stay continous. That means in
-the case that newheadroom > skb_headroom(skb) we need to copy
-skb_headroom(skb) bytes to n->head + newheadroom - skb_headroom(skb),
-so head_copy_off becomes newheadroom - head_copy_len.
 
-In the patch the case newheadroom == skb_headroom(skb) is handled with
-the first condition to save either a jump or a subtraction.
 
-The patch is verified to fix the problem that led me to this, ipt_REJECT
-produced broken RSTs which triggered the "ipt_hook: happy cracking!"
-line in ip_conntrack_standalone.c.
+Actually, even the original code looks good, and if that panic'd, the
+following won't change
+that (verified it also).
 
-Best regards,
-Patrick
+When unregister_netdev() is called by the driver, it first calls
+unregister_netdevice() which
+drops it's last ref to the dev, making it zero. unregister_netdev() then
+calls rtnl_unlock() which
+calls netdev_run_todo(), which calls netdev_wait_allrefs() and only after
+that succeeds,
+does the driver do a free_netdev(). So the dev should not be freed while
+the wait_ref() is
+executing, and the original code looks correct.
 
---------------080502050700020003090802
-Content-Type: text/plain;
- name="2.6-skb_copy_expand.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="2.6-skb_copy_expand.diff"
+I don't know if it is some corruption on my system, some hardware problem ?
+I will look
+some more, also try to get a different machine.
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1413  -> 1.1414 
-#	   net/core/skbuff.c	1.32    -> 1.33   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/11/06	kaber@trash.net	1.1414
-# Fix skb_copy_expand offset calculation
-# --------------------------------------------
-#
-diff -Nru a/net/core/skbuff.c b/net/core/skbuff.c
---- a/net/core/skbuff.c	Thu Nov  6 17:34:55 2003
-+++ b/net/core/skbuff.c	Thu Nov  6 17:34:55 2003
-@@ -595,10 +595,10 @@
- 
- 	head_copy_len = skb_headroom(skb);
- 	head_copy_off = 0;
--	if (newheadroom < head_copy_len) {
--		head_copy_off = head_copy_len - newheadroom;
-+	if (newheadroom <= head_copy_len)
- 		head_copy_len = newheadroom;
--	}
-+	else
-+		head_copy_off = newheadroom - head_copy_len;
- 
- 	/* Copy the linear header and data. */
- 	if (skb_copy_bits(skb, -head_copy_len, n->head + head_copy_off,
+- KK
 
---------------080502050700020003090802--
+
+
+
+|---------+---------------------------->
+|         |           Stephen Hemminger|
+|         |           <shemminger@osdl.|
+|         |           org>             |
+|         |           Sent by:         |
+|         |           netdev-bounce@oss|
+|         |           .sgi.com         |
+|         |                            |
+|         |                            |
+|         |           11/05/2003 05:09 |
+|         |           PM               |
+|         |                            |
+|---------+---------------------------->
+  >-----------------------------------------------------------------------------------------------------------------|
+  |                                                                                                                 |
+  |       To:       Krishna Kumar/Beaverton/IBM@IBMUS                                                               |
+  |       cc:       davem@redhat.com, krkumar@us.ltcfwd.linux.ibm.com, netdev@oss.sgi.com                           |
+  |       Subject:  Re: [PATCH] panic during unregister_netdevice()                                                 |
+  |                                                                                                                 |
+  >-----------------------------------------------------------------------------------------------------------------|
+
+
+
+
+Try this. Instead of dropping the last reference in unregister, it does it
+after all other references are gone (sort of like the old 2.4 code).
+
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c           Wed Nov  5 17:04:57 2003
++++ b/net/core/dev.c           Wed Nov  5 17:04:57 2003
+@@ -2743,7 +2743,7 @@
+             unsigned long rebroadcast_time, warning_time;
+
+             rebroadcast_time = warning_time = jiffies;
+-            while (atomic_read(&dev->refcnt) != 0) {
++            while (atomic_read(&dev->refcnt) > 1) {
+                         if (time_after(jiffies, rebroadcast_time + 1 *
+HZ)) {
+                                     rtnl_shlock();
+                                     rtnl_exlock();
+@@ -2838,6 +2838,7 @@
+                                     dev->reg_state = NETREG_UNREGISTERED;
+
+                                     netdev_wait_allrefs(dev);
++                                    dev_put(dev);
+
+                                     /* paranoia */
+                                     BUG_ON(atomic_read(&dev->refcnt));
+@@ -2974,7 +2975,6 @@
+             /* Finish processing unregister after unlock */
+             net_set_todo(dev);
+
+-            dev_put(dev);
+             return 0;
+ }
