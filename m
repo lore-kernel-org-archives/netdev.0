@@ -1,47 +1,65 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: Re: (usagi-users 03180) Re: netfilter6: ICMPv6 type 143 doesn't
-	match
-Date: Mon, 10 Jan 2005 14:17:09 +0100
-Message-ID: <20050110131709.GB16911@suse.de>
-References: <6050E336B1A0D7D8E70C66F3@t1mobil.muc.aerasec.de>
-	<200412270417.iBR4HZRG021429@toshiba.co.jp>
-	<20041227.100205.102356251.yoshfuji@linux-ipv6.org>
-	<EA4274721EC980393BB13B5E@worker.muc.bieringer.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 10 Jan 2005 08:18:12 -0500
+Message-ID: <1105363092.1041.146.camel@jzny.localdomain>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
+	 <1105019912.2314.20.camel@jzny.localdomain>
+	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
+	 <1105104757.1046.63.camel@jzny.localdomain>
+	 <1105111605.3462.101.camel@tsc-6.cph.tpack.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com,
-	yasuyuki.kozakai@toshiba.co.jp,
-	netfilter-devel@lists.netfilter.org, laforge@gnumonks.org, kaber@trash.net
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Peter Bieringer <pb@bieringer.de>
-Content-Disposition: inline
-In-Reply-To: <EA4274721EC980393BB13B5E@worker.muc.bieringer.de>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <1105111605.3462.101.camel@tsc-6.cph.tpack.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 08, 2005 at 12:45:14PM +0100, Peter Bieringer wrote:
-> -               ptr = IPV6_HDR_LEN;
-> +               ptr = ((u8*)skb->nh.raw - skb->data) + IPV6_HDR_LEN;
-[...]
-> But it won't help :-((
+On Fri, 2005-01-07 at 10:26, Tommy Christensen wrote:
+> On Fri, 2005-01-07 at 14:32, jamal wrote:
+> > On Thu, 2005-01-06 at 10:06, Tommy Christensen wrote:
 
-The following works for me on 2.6.8:
+[..]
 
-		ptr = ((char *) ipv6 - (char *) skb->data) + IPV6_HDR_LEN;
+> > reseting qdisc could certainly be part of the device watchdog.
+> > Note that once the packets are drained, the next thing that will happen
+> > if device is stopped for a dev->timeout period is watchdog kicking in
+> > and flushing the DMA. So you could reset your qdisc there though i am
+> > not sure it will be needed with that patch.
+> 
+> Unfortunately the watchdog won't do this when carrier is off, which
+> is fair enough since the chip isn't hung as such.
 
-Older 2.6 kernels also do not call ipv6_skip_exthdr() in icmp6_match();
-more recent kernels fix this.
+We may have to kick the dog in that path as well then.
 
-Olaf
--- 
-Olaf Kirch     | Things that make Monday morning interesting, #2:
-okir@suse.de   |        "We have 8,000 NFS mount points, why do we keep
----------------+ 	 running out of privileged ports?"
+> So, we would need another method to flush out stale packets from
+> the DMA ring. Some drivers already do this themselves, and some won't
+> need it because they keep on running even when link is down.
+
+kicking tx_timeout seems like the right thing to do until i looked at
+the drivers. Sigh. I just stared at a few drivers and it is not pleasant
+- and they mostly have the same theme (so you cant say they are
+inconsistent).
+Looking at e1000 for example is quiet interesting - it actually brings
+down then up the device ;-> This will both flash the dma and reset qdisc
+but also loose any static routes. It will also reschedule the device;-<
+So i am not so sure that the dog kicking in a minute later is a good
+thing at all. We may need a lot of janitorial work to cleanse the
+drivers - something jgarzik is against. 
+
+A qdisc_reset, as you suggest, will probably not cure the problem but
+provide some cosmetics. Thoughts?
+
+cheers,
+jamal
