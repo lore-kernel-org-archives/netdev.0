@@ -1,106 +1,113 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: PROBLEM: IProute hangs after running traffic shaping scripts
-Date: Sun, 07 Nov 2004 23:22:42 +0100
-Message-ID: <418EA032.7050507@trash.net>
-References: <418B4C7C.8000402@crocom.com.pl>
+Subject: [PATCH 2.6 PKT_SCHED]: Fix scheduler/classifier module unload race
+Date: Sun, 07 Nov 2004 23:41:27 +0100
+Message-ID: <418EA497.10302@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------090005050602060004080505"
-Cc: netdev@oss.sgi.com, Thomas Graf <tgraf@suug.ch>
+ boundary="------------090303090605070009050009"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Szymon Miotk <spam@crocom.com.pl>
-In-Reply-To: <418B4C7C.8000402@crocom.com.pl>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------090005050602060004080505
+--------------090303090605070009050009
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Szymon Miotk wrote:
-
-> This mail was posted 02-11-2004 to linux-net@vger.kernel.org, but I 
-> got no response at all, so I am resending it.
->
-> [1.] One line summary of the problem:
-> IProute hangs after running traffic shaping scripts
-
-Can you test if this patch helps please ? It immediately removes all
-inner qdiscs of classful qdiscs from dev->qdisc_list, making it
-impossible for anyone to look up an inner qdisc that is about to get
-destroyed. Taking qdisc_tree_lock in qdisc_lookup is not really
-necessary with this patch anymore, since all changes to dev->qdisc_list
-happen under the rtnl again (which is also relied on for memory). I put
-it in anyways for now until I have fully analyzed locking.
+This patch fixes an scheduler/classifier module unload race.
+struct Qdisc_ops which includes the owner field is also part
+of the module's memory, so ops might already be freed when
+try_module_get(ops->owner) is called outside of the locked
+section.
 
 Regards
 Patrick
 
 
---------------090005050602060004080505
+
+--------------090303090605070009050009
 Content-Type: text/plain;
  name="x"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
  filename="x"
 
-===== net/sched/sch_api.c 1.42 vs edited =====
---- 1.42/net/sched/sch_api.c	2004-11-07 05:03:04 +01:00
-+++ edited/net/sched/sch_api.c	2004-11-07 22:59:52 +01:00
-@@ -194,13 +194,15 @@
- 
- struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
- {
--	struct Qdisc *q;
-+	struct Qdisc *q = NULL;
- 
-+	read_lock_bh(&qdisc_tree_lock);
- 	list_for_each_entry(q, &dev->qdisc_list, list) {
- 		if (q->handle == handle)
--			return q;
-+			break;
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/11/07 05:03:11+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: Fix scheduler/classifier module unload race
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/sch_api.c
+#   2004/11/07 05:03:04+01:00 kaber@coreworks.de +4 -4
+#   [PKT_SCHED]: Fix scheduler/classifier module unload race
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/cls_api.c
+#   2004/11/07 05:03:04+01:00 kaber@coreworks.de +4 -6
+#   [PKT_SCHED]: Fix scheduler/classifier module unload race
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/sched/cls_api.c b/net/sched/cls_api.c
+--- a/net/sched/cls_api.c	2004-11-07 23:32:50 +01:00
++++ b/net/sched/cls_api.c	2004-11-07 23:32:50 +01:00
+@@ -60,8 +60,11 @@
+ 	if (kind) {
+ 		read_lock(&cls_mod_lock);
+ 		for (t = tcf_proto_base; t; t = t->next) {
+-			if (rtattr_strcmp(kind, t->kind) == 0)
++			if (rtattr_strcmp(kind, t->kind) == 0) {
++				if (!try_module_get(t->owner))
++					t = NULL;
+ 				break;
++			}
+ 		}
+ 		read_unlock(&cls_mod_lock);
  	}
--	return NULL;
-+	read_unlock_bh(&qdisc_tree_lock);
-+	return q;
- }
+@@ -231,11 +234,6 @@
+ 		tp->q = q;
+ 		tp->classify = tp_ops->classify;
+ 		tp->classid = parent;
+-		err = -EBUSY;
+-		if (!try_module_get(tp_ops->owner)) {
+-			kfree(tp);
+-			goto errout;
+-		}
+ 		if ((err = tp_ops->init(tp)) != 0) {
+ 			module_put(tp_ops->owner);
+ 			kfree(tp);
+diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c	2004-11-07 23:32:50 +01:00
++++ b/net/sched/sch_api.c	2004-11-07 23:32:50 +01:00
+@@ -229,8 +229,11 @@
+ 	if (kind) {
+ 		read_lock(&qdisc_mod_lock);
+ 		for (q = qdisc_base; q; q = q->next) {
+-			if (rtattr_strcmp(kind, q->id) == 0)
++			if (rtattr_strcmp(kind, q->id) == 0) {
++				if (!try_module_get(q->owner))
++					q = NULL;
+ 				break;
++			}
+ 		}
+ 		read_unlock(&qdisc_mod_lock);
+ 	}
+@@ -408,9 +411,6 @@
  
- struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
-===== net/sched/sch_generic.c 1.30 vs edited =====
---- 1.30/net/sched/sch_generic.c	2004-11-06 01:34:45 +01:00
-+++ edited/net/sched/sch_generic.c	2004-11-07 22:37:55 +01:00
-@@ -483,10 +483,30 @@
+ 	err = -EINVAL;
+ 	if (ops == NULL)
+-		goto err_out;
+-	err = -EBUSY;
+-	if (!try_module_get(ops->owner))
+ 		goto err_out;
  
- void qdisc_destroy(struct Qdisc *qdisc)
- {
-+	struct list_head cql = LIST_HEAD_INIT(cql);
-+	struct Qdisc *cq, *q, *n;
-+
- 	if (qdisc->flags & TCQ_F_BUILTIN ||
- 		!atomic_dec_and_test(&qdisc->refcnt))
- 		return;
-+
- 	list_del(&qdisc->list);
-+
-+	/* unlink inner qdiscs from dev->qdisc_list immediately */
-+	if (qdisc->ops->cl_ops != NULL)
-+		list_add(&qdisc->list, &cql);
-+	list_for_each_entry(cq, &cql, list) {
-+		list_for_each_entry_safe(q, n, &qdisc->dev->qdisc_list, list)
-+		if (TC_H_MAJ(q->parent) == TC_H_MAJ(cq->handle)) {
-+			if (q->ops->cl_ops != NULL)
-+				list_move_tail(&q->list, &cql);
-+			else
-+				list_del_init(&q->list);
-+		}
-+	}
-+	list_for_each_entry_safe(cq, n, &cql, list)
-+		list_del_init(&cq->list);
-+
- 	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
- }
- 
+ 	/* ensure that the Qdisc and the private data are 32-byte aligned */
 
---------------090005050602060004080505--
+--------------090303090605070009050009--
