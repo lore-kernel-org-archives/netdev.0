@@ -1,78 +1,45 @@
 From: David Gibson <hermes@gibson.dropbear.id.au>
-Subject: [3/8] orinoco: Use mdelay()/ssleep() instead of more complex delays
-Date: Wed, 12 Jan 2005 16:26:30 +1100
-Message-ID: <20050112052630.GD30426@localhost.localdomain>
-References: <20050112052352.GA30426@localhost.localdomain> <20050112052434.GB30426@localhost.localdomain> <20050112052543.GC30426@localhost.localdomain>
+Subject: [7/8] orinoco: Replace obsolete MODULE_PARM()
+Date: Wed, 12 Jan 2005 16:28:48 +1100
+Message-ID: <20050112052848.GH30426@localhost.localdomain>
+References: <20050112052352.GA30426@localhost.localdomain> <20050112052434.GB30426@localhost.localdomain> <20050112052543.GC30426@localhost.localdomain> <20050112052630.GD30426@localhost.localdomain> <20050112052711.GE30426@localhost.localdomain> <20050112052741.GF30426@localhost.localdomain> <20050112052814.GG30426@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: orinoco-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263091AbVALF35@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>, orinoco-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20050112052543.GC30426@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050112052814.GG30426@localhost.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Use mdelay() or ssleep() instead of various silly more complicated
-ways of delaying in the orinoco driver.
+Replace obsolete MODULE_PARM() with module_param() in the orinoco
+driver.
 
 Signed-off-by: David Gibson <hermes@gibson.dropbear.id.au>
 
-Index: working-2.6/drivers/net/wireless/orinoco_pci.c
+Index: working-2.6/drivers/net/wireless/orinoco.c
 ===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_pci.c	2005-01-12 15:13:18.819073992 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_pci.c	2005-01-12 15:15:33.137654464 +1100
-@@ -151,19 +151,11 @@
+--- working-2.6.orig/drivers/net/wireless/orinoco.c	2005-01-12 15:47:48.215477920 +1100
++++ working-2.6/drivers/net/wireless/orinoco.c	2005-01-12 15:50:14.156291544 +1100
+@@ -461,12 +461,14 @@
+ /* Level of debugging. Used in the macros in orinoco.h */
+ #ifdef ORINOCO_DEBUG
+ int orinoco_debug = ORINOCO_DEBUG;
+-MODULE_PARM(orinoco_debug, "i");
++module_param(orinoco_debug, int, 0644);
++MODULE_PARM_DESC(orinoco_debug, "Debug level");
+ EXPORT_SYMBOL(orinoco_debug);
+ #endif
  
- 	/* Assert the reset until the card notice */
- 	hermes_write_regn(hw, PCI_COR, HERMES_PCI_COR_MASK);
--	timeout = jiffies + (HERMES_PCI_COR_ONT * HZ / 1000);
--	while(time_before(jiffies, timeout)) {
--		mdelay(1);
--	}
--	//mdelay(HERMES_PCI_COR_ONT);
-+	mdelay(HERMES_PCI_COR_ONT);
+ static int suppress_linkstatus; /* = 0 */
+-MODULE_PARM(suppress_linkstatus, "i");
++module_param(suppress_linkstatus, int, 0644);
++MODULE_PARM_DESC(suppress_linkstatus, "Don't log link status changes");
  
- 	/* Give time for the card to recover from this hard effort */
- 	hermes_write_regn(hw, PCI_COR, 0x0000);
--	timeout = jiffies + (HERMES_PCI_COR_OFFT * HZ / 1000);
--	while(time_before(jiffies, timeout)) {
--		mdelay(1);
--	}
--	//mdelay(HERMES_PCI_COR_OFFT);
-+	mdelay(HERMES_PCI_COR_OFFT);
- 
- 	/* The card is ready when it's no longer busy */
- 	timeout = jiffies + (HERMES_PCI_COR_BUSYT * HZ / 1000);
-Index: working-2.6/drivers/net/wireless/orinoco_plx.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_plx.c	2005-01-12 15:13:18.821073688 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_plx.c	2005-01-12 15:15:33.138654312 +1100
-@@ -356,8 +356,7 @@
- static void __exit orinoco_plx_exit(void)
- {
- 	pci_unregister_driver(&orinoco_plx_driver);
--	current->state = TASK_UNINTERRUPTIBLE;
--	schedule_timeout(HZ);
-+	ssleep(1);
- }
- 
- module_init(orinoco_plx_init);
-Index: working-2.6/drivers/net/wireless/orinoco_tmd.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_tmd.c	2005-01-12 15:13:18.820073840 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_tmd.c	2005-01-12 15:16:05.897674184 +1100
-@@ -225,8 +225,7 @@
- static void __exit orinoco_tmd_exit(void)
- {
- 	pci_unregister_driver(&orinoco_tmd_driver);
--	current->state = TASK_UNINTERRUPTIBLE;
--	schedule_timeout(HZ);
-+	ssleep(1);
- }
- 
- module_init(orinoco_tmd_init);
+ /********************************************************************/
+ /* Compile time configuration and compatibility stuff               */
 
 
 -- 
