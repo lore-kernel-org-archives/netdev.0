@@ -1,247 +1,215 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (42/42) atari_lance
-Date: Wed, 12 Nov 2003 16:47:18 -0800
+Subject: [PATCH] (31/42) mac89x0
+Date: Wed, 12 Nov 2003 16:45:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311130047.hAD0lI431741@mail.osdl.org>
+Message-ID: <200311130045.hAD0jS931210@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NE68-atarilance
-	* switched to dynamic allocation
-	* fixed resource leaks on failure exits
-	* also kill off last usage of probe_list
+NE56-mac8390
+	* switched mac8390 to dynamic allocation
+	* mac8390: fixed resource leaks on failure exits
 
-diff -urN B9-sun3_lance/drivers/net/Space.c B9-atari_lance/drivers/net/Space.c
---- B9-sun3_lance/drivers/net/Space.c	Tue Nov 11 20:49:12 2003
-+++ B9-atari_lance/drivers/net/Space.c	Tue Nov 11 21:17:48 2003
-@@ -74,7 +74,7 @@
- extern struct net_device *SK_init(int unit);
- extern struct net_device *seeq8005_probe(int unit);
- extern struct net_device *smc_init(int unit);
--extern int atarilance_probe(struct net_device *);
-+extern struct net_device *atarilance_probe(struct net_device *);
- extern struct net_device *sun3lance_probe(int unit);
- extern struct net_device *sun3_82586_probe(int unit);
- extern struct net_device *apne_probe(int unit);
-@@ -103,42 +103,11 @@
- /* SBNI adapters */
- extern int sbni_probe(int unit);
- 
--struct devprobe
--{
--	int (*probe)(struct net_device *dev);
--	int status;	/* non-zero if autoprobe has failed */
--};
--
- struct devprobe2 {
- 	struct net_device *(*probe)(int unit);
- 	int status;	/* non-zero if autoprobe has failed */
- };
- 
--/*
-- * probe_list walks a list of probe functions and calls each so long
-- * as a non-zero ioaddr is given, or as long as it hasn't already failed 
-- * to find a card in the past (as recorded by "status") when asked to
-- * autoprobe (i.e. a probe that fails to find a card when autoprobing
-- * will not be asked to autoprobe again).  It exits when a card is found.
-- */
--static int __init probe_list(struct net_device *dev, struct devprobe *plist)
--{
--	struct devprobe *p = plist;
--	unsigned long base_addr = dev->base_addr;
--
--	while (p->probe != NULL) {
--		if (base_addr && p->probe(dev) == 0) 	/* probe given addr */
--			return 0;
--		else if (p->status == 0) {		/* has autoprobe failed yet? */
--			p->status = p->probe(dev);	/* no, try autoprobe */
--			if (p->status == 0)
--				return 0;
--		}
--		p++;
--	}
--	return -ENODEV;
--}
--
- static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
- {
- 	struct net_device *dev;
-@@ -296,14 +265,10 @@
- 	{NULL, 0},
- };
- 
--static struct devprobe m68k_probes[] __initdata = {
-+static struct devprobe2 m68k_probes[] __initdata = {
- #ifdef CONFIG_ATARILANCE	/* Lance-based Atari ethernet boards */
- 	{atarilance_probe, 0},
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Tue Nov 11 14:15:51 2003
++++ b/drivers/net/Space.c	Tue Nov 11 14:15:51 2003
+@@ -89,7 +89,7 @@
+ extern int mace_probe(struct net_device *dev);
+ extern int macsonic_probe(struct net_device *dev);
+ extern int mac8390_probe(struct net_device *dev);
+-extern int mac89x0_probe(struct net_device *dev);
++extern struct net_device *mac89x0_probe(int unit);
+ extern struct net_device *mc32_probe(int unit);
+ extern struct net_device *cops_probe(int unit);
+ extern struct net_device *ltpc_probe(void);
+@@ -329,6 +329,10 @@
+ #ifdef CONFIG_MAC8390           /* NuBus NS8390-based cards */
+ 	{mac8390_probe, 0},
  #endif
--	{NULL, 0},
--};
--
--static struct devprobe2 m68k_probes2[] __initdata = {
- #ifdef CONFIG_SUN3LANCE         /* sun3 onboard Lance chip */
- 	{sun3lance_probe, 0},
++	{NULL, 0},
++};
++
++static struct devprobe2 m68k_probes2[] __initdata = {
+ #ifdef CONFIG_MAC89x0
+  	{mac89x0_probe, 0},
  #endif
-@@ -355,40 +320,6 @@
-  * per bus interface. This drives the legacy devices only for now.
-  */
-  
--static int __init ethif_probe(int unit)
--{
--	struct net_device *dev;
--	int err = -ENODEV;
--
--	dev = alloc_etherdev(0);
--	if (!dev)
--		return -ENOMEM;
--
--	sprintf(dev->name, "eth%d", unit);
--	netdev_boot_setup_check(dev);
--
--	/* 
--	 * Backwards compatibility - historically an I/O base of 1 was 
--	 * used to indicate not to probe for this ethN interface 
--	 */
--	if (dev->base_addr == 1) {
--		free_netdev(dev);
--		return -ENXIO;
--	}
--
--	/* 
--	 * The arch specific probes are 1st so that any on-board ethernet
--	 * will be probed before other ISA/EISA/MCA/PCI bus cards.
--	 */
--	if (probe_list(dev, m68k_probes) == 0)
--		err = register_netdev(dev);
--
--	if (err)
--		free_netdev(dev);
--	return err;
--
--}
-- 
- static void __init ethif_probe2(int unit)
- {
- 	unsigned long base_addr = netdev_boot_base("eth", unit);
-@@ -396,7 +327,7 @@
+@@ -391,6 +395,7 @@
  	if (base_addr == 1)
  		return;
  
--	probe_list2(unit, m68k_probes2, base_addr == 0) &&
-+	probe_list2(unit, m68k_probes, base_addr == 0) &&
++	probe_list2(unit, m68k_probes2, base_addr == 0) &&
  	probe_list2(unit, mips_probes, base_addr == 0) &&
  	probe_list2(unit, eisa_probes, base_addr == 0) &&
  	probe_list2(unit, mca_probes, base_addr == 0) &&
-@@ -485,8 +416,7 @@
- 			trif_probe2(num);
+diff -Nru a/drivers/net/mac89x0.c b/drivers/net/mac89x0.c
+--- a/drivers/net/mac89x0.c	Tue Nov 11 14:15:51 2003
++++ b/drivers/net/mac89x0.c	Tue Nov 11 14:15:51 2003
+@@ -123,7 +123,6 @@
+ 
+ /* Index to functions, as function prototypes. */
+ 
+-extern int mac89x0_probe(struct net_device *dev);
+ #if 0
+ extern void reset_chip(struct net_device *dev);
  #endif
- 	for (num = 0; num < 8; ++num)
--		if (!ethif_probe(num))
--			ethif_probe2(num);
-+		ethif_probe2(num);
+@@ -170,8 +169,9 @@
  
- #ifdef CONFIG_COPS
- 	cops_probe(0);
-diff -urN B9-sun3_lance/drivers/net/atarilance.c B9-atari_lance/drivers/net/atarilance.c
---- B9-sun3_lance/drivers/net/atarilance.c	Mon May  5 03:28:03 2003
-+++ B9-atari_lance/drivers/net/atarilance.c	Tue Nov 11 21:17:48 2003
-@@ -371,26 +371,39 @@
- }
- 
- 
--int __init atarilance_probe( struct net_device *dev )
--{	
-+struct net_device * __init atarilance_probe(int unit)
-+{
- 	int i;
- 	static int found;
--
--	SET_MODULE_OWNER(dev);
+ /* Probe for the CS8900 card in slot E.  We won't bother looking
+    anywhere else until we have a really good reason to do so. */
+-int __init mac89x0_probe(struct net_device *dev)
++struct net_device * __init mac89x0_probe(int unit)
+ {
 +	struct net_device *dev;
+ 	static int once_is_enough;
+ 	struct net_local *lp;
+ 	static unsigned version_printed;
+@@ -179,18 +179,28 @@
+ 	unsigned rev_type = 0;
+ 	unsigned long ioaddr;
+ 	unsigned short sig;
 +	int err = -ENODEV;
- 
- 	if (!MACH_IS_ATARI || found)
- 		/* Assume there's only one board possible... That seems true, since
- 		 * the Riebl/PAM board's address cannot be changed. */
--		return( ENODEV );
-+		return ERR_PTR(-ENODEV);
 +
-+	dev = alloc_etherdev(sizeof(struct lance_private));
++	dev = alloc_etherdev(sizeof(struct net_local));
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
++
 +	if (unit >= 0) {
 +		sprintf(dev->name, "eth%d", unit);
 +		netdev_boot_setup_check(dev);
 +	}
-+	SET_MODULE_OWNER(dev);
  
- 	for( i = 0; i < N_LANCE_ADDR; ++i ) {
- 		if (lance_probe1( dev, &lance_addr_list[i] )) {
- 			found = 1;
--			return( 0 );
-+			err = register_netdev(dev);
-+			if (!err)
-+				return dev;
-+			free_irq(dev->irq, dev);
-+			break;
- 		}
+ 	SET_MODULE_OWNER(dev);
+ 
+ 	if (once_is_enough)
+-		return -ENODEV;
++		goto out;
+ 	once_is_enough = 1;
+ 
+ 	/* We might have to parameterize this later */
+ 	slot = 0xE;
+ 	/* Get out now if there's a real NuBus card in slot E */
+ 	if (nubus_find_slot(slot, NULL) != NULL)
+-		return -ENODEV;	
++		goto out;
+ 
+ 	/* The pseudo-ISA bits always live at offset 0x300 (gee,
+            wonder why...) */
+@@ -206,21 +216,15 @@
+ 		local_irq_restore(flags);
+ 
+ 		if (!card_present)
+-			return -ENODEV;
++			goto out;
  	}
+ 
+ 	nubus_writew(0, ioaddr + ADD_PORT);
+ 	sig = nubus_readw(ioaddr + DATA_PORT);
+ 	if (sig != swab16(CHIP_EISA_ID_SIG))
+-		return -ENODEV;
++		goto out;
+ 
+ 	/* Initialize the net_device structure. */
+-	if (dev->priv == NULL) {
+-		dev->priv = kmalloc(sizeof(struct net_local), GFP_KERNEL);
+-		if (!dev->priv)
+-			return -ENOMEM;
+-                memset(dev->priv, 0, sizeof(struct net_local));
+-        }
+ 	lp = (struct net_local *)dev->priv;
+ 
+ 	/* Fill in the 'dev' fields. */
+@@ -258,9 +262,7 @@
+ 	/* Try to read the MAC address */
+ 	if ((readreg(dev, PP_SelfST) & (EEPROM_PRESENT | EEPROM_OK)) == 0) {
+ 		printk("\nmac89x0: No EEPROM, giving up now.\n");
+-		kfree(dev->priv);
+-		dev->priv = NULL;
+-		return -ENODEV;
++		goto out1;
+         } else {
+                 for (i = 0; i < ETH_ALEN; i += 2) {
+ 			/* Big-endian (why??!) */
+@@ -277,6 +279,7 @@
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		printk("%2.2x%s", dev->dev_addr[i],
+ 		       ((i < ETH_ALEN-1) ? ":" : ""));
++	printk("\n");
+ 
+ 	dev->open		= net_open;
+ 	dev->stop		= net_close;
+@@ -285,11 +288,15 @@
+ 	dev->set_multicast_list = &set_multicast_list;
+ 	dev->set_mac_address = &set_mac_address;
+ 
+-	/* Fill in the fields of the net_device structure with ethernet values. */
+-	ether_setup(dev);
 -
--	return( ENODEV );
+-	printk("\n");
++	err = register_netdev(dev);
++	if (err)
++		goto out1;
+ 	return 0;
++out1:
++	nubus_writew(0, dev->base_addr + ADD_PORT);
++out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
  }
  
+ #if 0
+@@ -619,7 +626,7 @@
  
-@@ -511,12 +524,6 @@
- 	return( 0 );
- 
-   probe_ok:
--	init_etherdev( dev, sizeof(struct lance_private) );
--	if (!dev->priv) {
--		dev->priv = kmalloc( sizeof(struct lance_private), GFP_KERNEL );
--		if (!dev->priv)
--			return 0;
--	}
- 	lp = (struct lance_private *)dev->priv;
- 	MEM = (struct lance_memory *)memaddr;
- 	IO = lp->iobase = (struct lance_ioreg *)ioaddr;
-@@ -1171,26 +1178,21 @@
- 
- 
  #ifdef MODULE
--static struct net_device atarilance_dev;
-+static struct net_device *atarilance_dev;
  
- int init_module(void)
--
--{	int err;
--
--	atarilance_dev.init = atarilance_probe;
--	if ((err = register_netdev( &atarilance_dev ))) {
--		if (err == -EIO)  {
--			printk( "No Atari Lance board found. Module not loaded.\n");
--		}
--		return( err );
--	}
--	return( 0 );
-+{
-+	atarilance_dev = atarilance_probe(-1);
-+	if (IS_ERR(atarilance_dev))
-+		return PTR_ERR(atarilance_dev);
-+	return 0;
- }
+-static struct net_device dev_cs89x0;
++static struct net_device *dev_cs89x0;
+ static int debug;
  
- void cleanup_module(void)
--
+ MODULE_PARM(debug, "i");
+@@ -630,36 +637,20 @@
+ init_module(void)
  {
--	unregister_netdev( &atarilance_dev );
-+	unregister_netdev(atarilance_dev);
-+	free_irq(atarilance_dev->irq, atarilance_dev);
-+	free_netdev(atarilance_dev);
+ 	net_debug = debug;
+-        dev_cs89x0.init = mac89x0_probe;
+-        dev_cs89x0.priv = kmalloc(sizeof(struct net_local), GFP_KERNEL);
+-	if (!dev_cs89x0.priv)
+-		return -ENOMEM;
+-	memset(dev_cs89x0.priv, 0, sizeof(struct net_local));
+-
+-        if (register_netdev(&dev_cs89x0) != 0) {
++        dev_cs89x0 = mac89x0_probe(-1);
++	if (IS_ERR(dev_cs89x0)) {
+                 printk(KERN_WARNING "mac89x0.c: No card found\n");
+-		kfree(dev_cs89x0.priv);
+-                return -ENXIO;
+-        }
++		return PTR_ERR(dev_cs89x0);
++	}
+ 	return 0;
  }
  
+ void
+ cleanup_module(void)
+ {
+-
+-#endif
+-#ifdef MODULE
+-	nubus_writew(0, dev_cs89x0.base_addr + ADD_PORT);
+-#endif
+-#ifdef MODULE
+-
+-        if (dev_cs89x0.priv != NULL) {
+-                /* Free up the private structure, or leak memory :-)  */
+-                unregister_netdev(&dev_cs89x0);
+-                kfree(dev_cs89x0.priv);
+-                dev_cs89x0.priv = NULL;	/* gets re-allocated by cs89x0_probe1 */
+-        }
++	unregister_netdev(dev_cs89x0);
++	nubus_writew(0, dev_cs89x0->base_addr + ADD_PORT);
++	free_netdev(dev_cs89x0);
+ }
  #endif /* MODULE */
+ 
