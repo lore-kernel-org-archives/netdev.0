@@ -1,48 +1,43 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [RFC] Extend netlink error codes
-Date: Sat, 11 Sep 2004 17:49:14 +0200
+Date: Sat, 11 Sep 2004 17:58:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040911154914.GB21181@postel.suug.ch>
-References: <20040910225158.GO20088@postel.suug.ch> <20040910160736.309bc29c.davem@davemloft.net> <1094866738.1042.53.camel@jzny.localdomain>
+Message-ID: <20040911155839.GN4431@wotan.suse.de>
+References: <20040910225158.GO20088@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
-In-Reply-To: <1094866738.1042.53.camel@jzny.localdomain>
+In-Reply-To: <20040910225158.GO20088@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1094866738.1042.53.camel@jzny.localdomain> 2004-09-10 21:38
-> I think its a good idea.
-> 
-> so, questions:
-> classical ABI issues
-> a) old kernel vs new app
-> b) new kernel vs old app
+On Sat, Sep 11, 2004 at 12:51:58AM +0200, Thomas Graf wrote:
+> The current situation with error codes sent back to a netlink
+> application is unsatisfactory. Most often, the application
+> receives EINVAL but has no idea what was wrong.
 
-> and lastly:
-> c) how to make sure no conflicts ever with updates to errno.h in the
-> case of b)
+[...]
 
-Outdated error string table should result in a unknown error like
-in strerror. 2^16 errno codes should be sufficient forever.
+IMHO it would be far better to just pass text errors
+in a variable length packet back.  It's a bit plan9ish,
+but it would work nicely here and be a bit improvement
+(especially for the qdiscs) 
 
-The only problem to be solved I see is where to specify the error
-codes or how to distribute them between netlink users in kernel
-context. Manage them as 512 blocks of 64 error codes and hand
-them out to netlink users?
+Otherwise you will end up with a mainteance nightmare of a
+long list of error codes that needs to be updated for every new
+subsystem.  And everybody who has a patch to add a new netlink
+user would always fight with conflicts in this file.
 
-> one solution is to introduce a new flag NLM_F_NERR that signals kernel
-> that we have a new app.
+I don't think an very specific error like
+"CFQ subsystem parameter X is FOO, can be only upto BAR" 
+can be nicely put into a global error file.
+And most errors can only be handled by passing them to the user anyways,
+text errors would be fine for that.
 
-Another solution would be to add a new TLV to the ACK holding the
-additional error code. However, I do like your idea better as it's
-less work and easier for the userspace application.
+There could be still an errno provided for easy success/failure
+checking.
 
-Both, a) and b) are not problem in my eyes and can be easily solved:
-  a) the user space application has to set NLM_F_ERR on all outgoing
-     messages and check for the flag again in the NLMSG_ERROR handler and
-     handle nlmsgerr::error differently.
-  b) check nlh->nlmsg_flags & NLM_F_ERR in netlink_ack, 1-line change
+-Andi
