@@ -1,23 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (1/4) support large number of network devices
-Date: Mon, 19 Jan 2004 21:24:45 -0800
+Subject: Re: [PATCH] more improvement to dev_alloc_name -- strnchr
+Date: Mon, 19 Jan 2004 21:25:37 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040119212445.5074ac8c.davem@redhat.com>
-References: <20040116154652.04dd3324.shemminger@osdl.org>
+Message-ID: <20040119212537.5d73a031.davem@redhat.com>
+References: <1074302619.40088e9bd44a6@www.geekmail.cc>
+	<20040119113204.5913a8d6.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: ap@cipherica.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040116154652.04dd3324.shemminger@osdl.org>
+In-Reply-To: <20040119113204.5913a8d6.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 19 Jan 2004 11:32:04 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-I think I'm going to defer this change until the next 2.6.x, we have enough
-crap in there now I believe :-)
+> Okay, this patch avoids the loop if no wildcarding present, and keeps
+> the same behaviour as original.  It adds the string function strnchr
+> to avoid searching past the maximum ifname size to find the format character.
 
-Please remeber to resend this as I do want to integrate your work.
+I'm deferring this until the next 2.6.x-pre starts up as well.
+Please resend at that time.
 
 Thanks Stephen.
