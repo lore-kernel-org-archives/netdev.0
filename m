@@ -1,74 +1,73 @@
-From: Michal Ludvig <mludvig@suse.cz>
-Subject: [PATCH] rtnetlink & address family problem
-Date: Fri, 03 Dec 2004 18:43:16 +0100
-Message-ID: <41B0A5B4.6060108@suse.cz>
+From: Peter Kjellstroem <cap@nsc.liu.se>
+Subject: e1000>5.2.30 unstable with InterruptThrottleRate=0
+Date: Fri, 3 Dec 2004 20:02:00 +0100 (CET)
+Message-ID: <Pine.LNX.4.44.0412031833150.13794-100000@papput.nsc.liu.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020005070601050006080808"
-Cc: netdev@oss.sgi.com, Jan Kara <jack@suse.cz>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020005070601050006080808
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: 7bit
+Hello folks,
 
-Hi,
+Short version: 82547GI with ITR=0 on 2.4.28 (vanilla) and RHEL3u3 has           
+problems (traffic grinds to a temporary halt under anything but trivila         
+network traffic). kernel prints the following and resets the IF (many           
+times):                                                                         
+                                                                                
+NETDEV WATCHDOG: eth0: transmit timed out           
 
-running 'ip -6 addr flush dev eth0' on a kernel without IPv6 support
-flushes *all* addresses from the interface, even those IPv4 ones,
-because the unsupported protocol is substituted by PF_UNSPEC.
-IMHO it should better return with an error EAFNOSUPPORT.
 
-Attached patch fixes it. Please apply.
+More verbose version with background:
+I have a problem with e1000 being unstable when I run it with 
+InterruptThrottleRate=0 (abbreviated ITR in the rest of this e-mail). I 
+need to turn ITR off or set it so large that it behaves as off. The reason 
+for having to turn it off is that I run MPI-applications (cluster stuff) 
+and that happens to be largely latency bound.
 
-BTW Credits to Jan Kara <jack@suse.cz> for discovering and analysing
-this bug.
+Latency with default e1000 is terrible, 250 us, with ITR=0 (where it 
+works) the latency drops to 20-25 us.
 
-Michal Ludvig
+Enough of background. Up untill now I have allways been able to run with 
+ITR=0 and intel gigabit has been very nice. Now, for some combinations of 
+driver, chip and ITR setting it all falls apart.
+
+
+Affected chips (theory, 8254X, X>1 or anything faster then PCI33):
+82547GI, 82546 (said to be affected, not verified by me)
+
+Unaffected chips:
+82541 (rock solid no matter what driver or ITR)
+
+
+Linux-2.4.26 vanilla (smp, without NAPI with e1000 as module) is ok
+(82547, ITR=0, rock solid)
+
+Linux-2.4.28 vanilla (smp, without NAPI with e1000 as module) is BAD
+(82547 needs ITR<20000 for resonable stability)
+
+Linux-2.4.28 with e1000 from 2.4.26 but otherwise exactly as above is ok
+rock solid!!!
+
+Linux-2.4.21-20smp RHEL3 update 3 is BAD
+(known stable with default ITR (1?) but probably ok for <20000)
+
+Conclusions: something happened above e1000 version 5.2.30 (as in 
+linux-2.4.26), RHEL has 5.2.52 and 2.4.28 has 5.4.11.
+
+
+Some more discussions on this subject has taken place on another list, see 
+following thread if interested:
+ http://lists.us.dell.com/pipermail/linux-poweredge/2004-November/023061.html
+
+
+Best Regards,
+ Peter
+
 -- 
-SUSE Labs                    mludvig@suse.cz
-(+420) 296.542.396        http://www.suse.cz
-Personal homepage http://www.logix.cz/michal
-
---------------020005070601050006080808
-Content-Type: text/plain;
- name="rtnetlink-family.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="rtnetlink-family.diff"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/12/03 18:06:31+01:00 michal@logix.cz 
-#   Return EAFNOSUPPORT if requested operation on unsupported family.
-#   
-#   Signed-off-by: Michal Ludvig <michal@logix.cz>
-# 
-# net/core/rtnetlink.c
-#   2004/12/03 18:05:49+01:00 michal@logix.cz +4 -2
-#   Return EAFNOSUPPORT if requested operation on unsupported family.
-# 
-diff -Nru a/net/core/rtnetlink.c b/net/core/rtnetlink.c
---- a/net/core/rtnetlink.c	2004-12-03 18:30:33 +01:00
-+++ b/net/core/rtnetlink.c	2004-12-03 18:30:33 +01:00
-@@ -477,8 +477,10 @@
- 	}
- 
- 	link_tab = rtnetlink_links[family];
--	if (link_tab == NULL)
--		link_tab = rtnetlink_links[PF_UNSPEC];
-+	if (link_tab == NULL) {
-+		*errp = -EAFNOSUPPORT;
-+		return -1;
-+	}
- 	link = &link_tab[type];
- 
- 	sz_idx = type>>2;
-
---------------020005070601050006080808--
+------------------------------------------------------------
+  Peter Kjellstroem              | E-mail: cap@nsc.liu.se
+  National Supercomputer Centre  |
+  Sweden                         | http://www.nsc.liu.se
