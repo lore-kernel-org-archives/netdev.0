@@ -1,39 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix typo in net/ipv4/ip_input.c
-Date: Fri, 12 Sep 2003 17:05:39 -0700
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20030912170539.2be84702.davem@redhat.com>
-References: <20030912162729.GD8713@conectiva.com.br>
+Subject: Re: [PATCH] proc_net macro's for non-proc-fs case
+Date: Fri, 12 Sep 2003 17:13:41 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030912171341.60157cbc.davem@redhat.com>
+References: <20030911154357.6b31891c.shemminger@osdl.org>
+	<20030911235405.GA74116@compsoc.man.ac.uk>
+	<20030912112120.23300a99.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, bdschuym@pandora.be,
-        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20030912162729.GD8713@conectiva.com.br>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Cc: levon@movementarian.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030912112120.23300a99.shemminger@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Sep 2003 13:27:30 -0300
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+On Fri, 12 Sep 2003 11:21:20 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> 	Please apply.
+> The following should work better. They have the desired properties that:
+> 	- return value makes sense for those that might check
+> 	- arguments fops and info don't have to be defined (ie can be #ifdef'd out)
+> 	- generate no warnings for null effect.
 
-Applied.
-
-This happens because of the encoding Harald uses for his
-emails, when I save the email in the default way using
-"Ctrl-s" in Sylpheed, I get all of those weird space and
-newline characters.  I have to save it in a different way
-to avoid this problem and I forgot to do that this time :(
-
-Usually the patch fails to apply when I make this mistake,
-unfortunately this time it did not.
+Looks good, applied thanks.
