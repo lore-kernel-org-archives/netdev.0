@@ -1,139 +1,208 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: iproute2 and kernel headers
-Date: Fri, 6 Aug 2004 17:07:07 -0700
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: [CFT, PATCH] media detection updates for 100 MBit nForce nics
+Date: Sat, 07 Aug 2004 12:01:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040807000707.GB11761@bougret.hpl.hp.com>
-References: <20040805005019.GA11538@bougret.hpl.hp.com> <20040806093920.045b379e@dell_ss3.pdx.osdl.net>
-Reply-To: jt@hpl.hp.com
+Message-ID: <4114A873.7050007@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------080406060307080703000902"
+Cc: Tim Waugh <twaugh@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20040806093920.045b379e@dell_ss3.pdx.osdl.net>
+To: Netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 06, 2004 at 09:39:20AM -0700, Stephen Hemminger wrote:
-> On Wed, 4 Aug 2004 17:50:19 -0700
-> Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
-> > 
-> > 	Now, my sick brain would like to suggest a few other crazy
-> > solutions totally out of the box :
-> > 
-> > 	1) Get it right the first time, so no change is ever
-> > needed. If things are standardised (POSIX, IEEE), this can work, if
-> > you are called Linus, most likely, otherwise, good luck...
-> 
-> The management API's are what seemed to get changed the most.
-> The only relevant standard's seem to be SNMP, but it doesn't match
-> the kernel API needs.
+This is a multi-part message in MIME format.
+--------------080406060307080703000902
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-	And SNMP standardisation usually is late to the party.
+Hi,
 
-> > 	2) Migrate all those kernel APIs to XML. XML is the future,
-> > you can validate the output, and you can add/remove nodes/attributes
-> > between versions without the full thing falling apart. And we already
-> > have a web server in the kernel.
-> 
-> No, don't reinvent SOAP for kernel API's.
+the media detection seems to be broken for the non-gige nForce nics: The 
+driver doesn't receive interupts for link changes and thus a link change 
+means a dead network interface.
+This is fatal, because the driver doesn't wait for autonegotiation 
+completion in _probe() or _open().
 
-	I feel honored that you are taking my braindamage so
-seriously. Maybe I should have suggested to have a Lisp command line
-to configure the kernel (angle brackets or parenthesis, all the same
-to me).
-	The beauty of XML is that you can use any gramar you want and
-still be compliant. Obviously, we have to define our own gramar, named
-LKXML :
-	<Linus>
-		<Proc>i386</Proc>
-		<JeffG>
-			<eth0 full_duplex="on"/>
-		</JeffG>
-		<DaveM>
-			<TCPVegas Alpha="2" Beta="6"/>
-		</DaveM>
-		<RMK>
-			<arch>StrongARM</arch>
-		</RMK>
-		<StephenH>
-			<Bug Text="Incompatible statements" Severity="42">
-				<Proc>i386</Proc>
-				<arch>StrongARM</arch>
-			</Bug>
-		</StephenH>
-	</Linus>
+The attached patch adds a periodic timer that polls the phy - that 
+should fix the problem.
+Could you test it? I don't have an 100 MBit nForce board, my 250-Gb 
+doesn't show the problem.
 
-> > 	3) Every time you need to change the API, migrate it to
-> > another delivery mechanism and create a totally different set of
-> > tools. If you were using ioctl, migrate to netlink. If you were using
-> > netlink, migrate to a pseudo filesystem. Obviously the holy grail is
-> > to make it a system call. Also, make sure to kill the old APIs and old
-> > tools, otherwise some other folks my continue to maintain it.
-> 
-> Doesn't make sense unless the new interface is better.
-> Just use different ioctl's or message types.
+Thanks,
+    Manfred
+P.S.: The patch is against the 0.29 jumbo frame version I posted last 
+week, but the rejects against stock 2.6.8-rc3-mm1 are trivial: just the 
+changelog and the version number. You can ignore the merge errors.
 
-	Hum... Every time I will change the data struct (add a field,
-change a field type), I will move to a new ioctl number. Maybe we want
-to migrate ioctl numbers from 32 bits to 64 bits to avoid quickly
-exhausting the ioctl space.
+--------------080406060307080703000902
+Content-Type: text/plain;
+ name="patch-forcedeth-timer"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-forcedeth-timer"
 
-> > 	4) Distribute all those system utilities as part of the
-> > kernel, compile them as part of the kernel, and install them in a
-> > kernel specific directory. Basically, treat system utilities exactly
-> > the same way as kernel modules.
-> > 	That actually would go a long way toward solving the issue of
-> > distribution of system utils (where is module-init-tools ?) and push
-> > more people to implement their pet project in user space rather than
-> > in the kernel.
-> 
-> Too old school, unix.  It might have worked in the past, and we might
-> end up back there, but it ain't going to happen now.
+// $Header$
+// Kernel Version:
+//  VERSION = 2
+//  PATCHLEVEL = 6
+//  SUBLEVEL = 8
+//  EXTRAVERSION =-rc3-mm1
+--- 2.6/drivers/net/forcedeth.c	2004-08-07 11:52:47.563501472 +0200
++++ build-2.6/drivers/net/forcedeth.c	2004-08-07 11:40:34.000000000 +0200
+@@ -77,6 +77,7 @@
+  *	0.28: 21 Jun 2004: Big cleanup, making driver mostly endian safe
+  *	0.29: 28 Jul 2004: Add jumbo frame support. Add reset into nv_close,
+  *			   previous code clobbered kfree'd memory.
++ *	0.30: 07 Aug 2004: Add backup timer for link change notification.
+  *
+  * Known bugs:
+  * We suspect that on some hardware no TX done interrupts are generated.
+@@ -88,7 +89,7 @@
+  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
+  * superfluous timer interrupts from the nic.
+  */
+-#define FORCEDETH_VERSION		"0.29"
++#define FORCEDETH_VERSION		"0.30"
+ #define DRV_NAME			"forcedeth"
+ 
+ #include <linux/module.h>
+@@ -126,6 +127,7 @@
+ #define DEV_IRQMASK_1		0x0002
+ #define DEV_IRQMASK_2		0x0004
+ #define DEV_NEED_TIMERIRQ	0x0008
++#define DEV_NEED_LINKTIMER	0x0010
+ 
+ enum {
+ 	NvRegIrqStatus = 0x000,
+@@ -373,6 +375,7 @@ struct ring_desc {
+ 
+ #define OOM_REFILL	(1+HZ/20)
+ #define POLL_WAIT	(1+HZ/100)
++#define LINK_TIMEOUT	(3*HZ)
+ 
+ #define DESC_VER_1	0x0
+ #define DESC_VER_2	0x02100
+@@ -453,6 +456,11 @@ struct fe_priv {
+ 	struct timer_list oom_kick;
+ 	struct timer_list nic_poll;
+ 
++	/* media detection workaround.
++	 * Locking: Within irq hander or disable_irq+spin_lock(&np->lock);
++	 */
++	int need_linktimer;
++	unsigned long link_timeout;
+ 	/*
+ 	 * tx specific fields.
+ 	 */
+@@ -1470,6 +1478,25 @@ set_speed:
+ 	return retval;
+ }
+ 
++static void nv_linkchange(struct net_device *dev)
++{
++	if (nv_update_linkspeed(dev)) {
++		if (netif_carrier_ok(dev)) {
++			nv_stop_rx(dev);
++		} else {
++			netif_carrier_on(dev);
++			printk(KERN_INFO "%s: link up.\n", dev->name);
++		}
++		nv_start_rx(dev);
++	} else {
++		if (netif_carrier_ok(dev)) {
++			netif_carrier_off(dev);
++			printk(KERN_INFO "%s: link down.\n", dev->name);
++			nv_stop_rx(dev);
++		}
++	}
++}
++
+ static void nv_link_irq(struct net_device *dev)
+ {
+ 	u8 *base = get_hwbase(dev);
+@@ -1477,25 +1504,10 @@ static void nv_link_irq(struct net_devic
+ 
+ 	miistat = readl(base + NvRegMIIStatus);
+ 	writel(NVREG_MIISTAT_MASK, base + NvRegMIIStatus);
+-	dprintk(KERN_DEBUG "%s: link change notification, status 0x%x.\n", dev->name, miistat);
++	dprintk(KERN_INFO "%s: link change irq, status 0x%x.\n", dev->name, miistat);
+ 
+-	if (miistat & (NVREG_MIISTAT_LINKCHANGE)) {
+-		if (nv_update_linkspeed(dev)) {
+-			if (netif_carrier_ok(dev)) {
+-				nv_stop_rx(dev);
+-			} else {
+-				netif_carrier_on(dev);
+-				printk(KERN_INFO "%s: link up.\n", dev->name);
+-			}
+-			nv_start_rx(dev);
+-		} else {
+-			if (netif_carrier_ok(dev)) {
+-				netif_carrier_off(dev);
+-				printk(KERN_INFO "%s: link down.\n", dev->name);
+-				nv_stop_rx(dev);
+-			}
+-		}
+-	}
++	if (miistat & (NVREG_MIISTAT_LINKCHANGE))
++		nv_linkchange(dev);
+ 	dprintk(KERN_DEBUG "%s: link change notification done.\n", dev->name);
+ }
+ 
+@@ -1538,6 +1550,12 @@ static irqreturn_t nv_nic_irq(int foo, v
+ 			nv_link_irq(dev);
+ 			spin_unlock(&np->lock);
+ 		}
++		if (np->need_linktimer && time_after(jiffies, np->link_timeout)) {
++			spin_lock(&np->lock);
++			nv_linkchange(dev);
++			spin_unlock(&np->lock);
++			np->link_timeout = jiffies + LINK_TIMEOUT;
++		}
+ 		if (events & (NVREG_IRQ_TX_ERR)) {
+ 			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+ 						dev->name, events);
+@@ -1907,6 +1925,14 @@ static int __devinit nv_probe(struct pci
+ 		np->irqmask = NVREG_IRQMASK_WANTED_2;
+ 	if (id->driver_data & DEV_NEED_TIMERIRQ)
+ 		np->irqmask |= NVREG_IRQ_TIMER;
++	if (id->driver_data & DEV_NEED_LINKTIMER) {
++		dprintk(KERN_INFO "%s: link timer on.\n", pci_name(pci_dev));
++		np->need_linktimer = 1;
++		np->link_timeout = jiffies + LINK_TIMEOUT;
++	} else {
++		dprintk(KERN_INFO "%s: link timer off.\n", pci_name(pci_dev));
++		np->need_linktimer = 0;
++	}
+ 
+ 	/* find a suitable phy */
+ 	for (i = 1; i < 32; i++) {
+@@ -2000,21 +2026,21 @@ static struct pci_device_id pci_tbl[] = 
+ 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_1,
+ 		.subvendor = PCI_ANY_ID,
+ 		.subdevice = PCI_ANY_ID,
+-		.driver_data = DEV_IRQMASK_1|DEV_NEED_TIMERIRQ,
++		.driver_data = DEV_IRQMASK_1|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
+ 	},
+ 	{	/* nForce2 Ethernet Controller */
+ 		.vendor = PCI_VENDOR_ID_NVIDIA,
+ 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_2,
+ 		.subvendor = PCI_ANY_ID,
+ 		.subdevice = PCI_ANY_ID,
+-		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
++		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
+ 	},
+ 	{	/* nForce3 Ethernet Controller */
+ 		.vendor = PCI_VENDOR_ID_NVIDIA,
+ 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_3,
+ 		.subvendor = PCI_ANY_ID,
+ 		.subdevice = PCI_ANY_ID,
+-		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
++		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
+ 	},
+ 	{	/* nForce3 Ethernet Controller */
+ 		.vendor = PCI_VENDOR_ID_NVIDIA,
 
-	I pretty much test every kernel release, and every month I
-need to go in /lib/modules and remove obsolete modules directories to
-free some disk space. The idea of having a new version of
-ifconfig/iwconfig/iproute/cardmgr/... on my hard disk every time I
-upgrade my kernel doesn't appeal to me.
-	Note : this is why I kill the wireless redirector stuff.
-
-> > 	I wish you a lot of luck exploring those issues, and if one of
-> > those long nights you have a Eureka moment, please share with us ;-)
-> > 	Have fun...
-> 
-> You ignored the advantage of using simple string interfaces (a.l.a Plan 9)
-> or simple name:value pairs.
-
-	Yep, you can do everything with strings, even introduces
-parsing bugs in the kernel (been there...). It's also fun dealing with
-fields that contain spaces or fancy character in them, fortunately it
-only happen when the API is specified by non-Unix standards. And there
-is so many formating of simple name:value pairs (with ':', '=' or ' '
-as separator). By the way, as far as I am concerned, XML is just a
-fancy name:value pairs format with angle brackets (see above).
-	Also, it depends if you care about kernel bloat. Maybe we
-should make kernel memory swapable.
-
-	Note : I have some kernel APIs that are ASCII based. It's
-worth it because you don't need user tools at all. But unfortunately
-it's not always applicable, otherwise stuff like RtNetlink that don't
-require backward compatibility would have been designed ASCII based.
-
-> Also, it turns out that some simple things like
-> increasing the size of the structure or adding a new rtnetlink message type
-> are not too hard to deal with.
-
-	Actually, reading a struct that increased in size will make
-your read buffer overflow if you are not careful. Note that this is
-the solution I adopted in the end, but as I say, you need to be
-careful.
-	Note that with respect to your *original* problem (yeah, we
-are so slightly off-topic), if this is the case you only need to
-include the very latest version of the header, and don't really care
-what is the actual header in the kernel.
-
-	Have fun...
-
-	Jean
+--------------080406060307080703000902--
