@@ -1,66 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [7/*] [IPSEC] Get metrics for xfrm_dst from top dst
-Date: Wed, 16 Feb 2005 22:38:36 +1100
-Message-ID: <20050216113836.GA1652@gondor.apana.org.au>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <20050216103744.GA476@gondor.apana.org.au> <20050216110842.GA1024@gondor.apana.org.au>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: e1000: driver reboot/kexec bug.
+Date: 16 Feb 2005 05:25:56 -0700
+Message-ID: <m1psz0vgh7.fsf@ebiederm.dsl.xmission.com>
+References: <Pine.LNX.4.44.0502151039110.30336-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="pf9I7BMVVzbSWLtt"
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@redhat.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050216110842.GA1024@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>
+To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
+In-Reply-To: <Pine.LNX.4.44.0502151039110.30336-100000@isotope.jf.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---pf9I7BMVVzbSWLtt
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+When I kexec a new kernel on hardware that includes
+some revs of the e1000 (see below for lscpi -n) the
+e1000 driver is not able to reinitialize the NIC.  I
+have seen this in both 2.4.29 and 2.6.10.
 
-For the metrics other than MTU, we should also be getting it from
-the top dst as opposed to the bottom dst.  With this change, the
-user is able to manipulate values such as advmss for individual
-hosts behind a remote IPsec gateway.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Tracking it down it appears to be some side effect to powering down
+the nic.  If I remove the pci_set_power_state call in e1000_suspend
+or I simply apply the attached patch so I get that affect when
+rebooting everything works.  pci_enable_device brings the device
+up to full power before the driver initialization code does anything
+else so I don't have a clue what is really going on but it is.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---pf9I7BMVVzbSWLtt
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-7
+Boot messages on failure:
+> Intel(R) PRO/1000 Network Driver - version 5.6.10.1-k1
+> Copyright (c) 1999-2004 Intel Corporation.
+> PCI: Enabling device 03:04.0 (0000 -> 0003)
+> e1000: 03:04.0: e1000_probe: The EEPROM Checksum Is Not Valid
+> PCI: Enabling device 03:04.1 (0000 -> 0003)
+> e1000: 03:04.1: e1000_probe: The EEPROM Checksum Is Not Valid
 
-===== net/ipv4/xfrm4_policy.c 1.17 vs edited =====
---- 1.17/net/ipv4/xfrm4_policy.c	2005-02-16 22:09:18 +11:00
-+++ edited/net/ipv4/xfrm4_policy.c	2005-02-16 22:35:09 +11:00
-@@ -133,7 +133,7 @@
- 		dst_prev->lastuse	= jiffies;
- 		dst_prev->header_len	= header_len;
- 		dst_prev->trailer_len	= trailer_len;
--		memcpy(&dst_prev->metrics, &rt->u.dst.metrics, sizeof(dst_prev->metrics));
-+		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
- 
- 		/* Copy neighbout for reachability confirmation */
- 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
-===== net/ipv6/xfrm6_policy.c 1.28 vs edited =====
---- 1.28/net/ipv6/xfrm6_policy.c	2005-02-16 22:09:18 +11:00
-+++ edited/net/ipv6/xfrm6_policy.c	2005-02-16 22:35:15 +11:00
-@@ -149,7 +149,7 @@
- 		dst_prev->lastuse	= jiffies;
- 		dst_prev->header_len	= header_len;
- 		dst_prev->trailer_len	= trailer_len;
--		memcpy(&dst_prev->metrics, &rt->u.dst.metrics, sizeof(dst_prev->metrics));
-+		memcpy(&dst_prev->metrics, &x->route->metrics, sizeof(dst_prev->metrics));
- 
- 		/* Copy neighbour for reachability confirmation */
- 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
+lspci -n of the problem onboard e1000 NIC.  
+> 03:04.0 Class 0200: 8086:1079 (rev 03)
+> 03:04.1 Class 0200: 8086:1079 (rev 03)
 
---pf9I7BMVVzbSWLtt--
+
+Patch which avoids the problem.
+diff -uNrX linux-exclude-files linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c linux-2.4.29-kexec7.build.x86_64/drivers/net/e1000/e1000_main.c
+--- linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c	Tue Feb 15 14:17:09 2005
++++ linux-2.4.29-kexec7.build.x86_64/drivers/net/e1000/e1000_main.c	Wed Feb 16 04:58:18 2005
+@@ -2777,7 +2777,7 @@
+ 	case SYS_POWER_OFF:
+ 		while((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev))) {
+ 			if(pci_dev_driver(pdev) == &e1000_driver)
+-				e1000_suspend(pdev, 3);
++				e1000_suspend(pdev, (event == SYS_DOWN)?0:3);
+ 		}
+ 	}
+ 	return NOTIFY_DONE;
+
+
+Any help to track down why this is happening so we can apply
+a clean fix would be appreciated.
+
+Eric
