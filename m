@@ -1,51 +1,173 @@
-From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [nicstar] use kernel min/max (by "Randy.Dunlap" <rddunlap@osdl.org>)
-Date: Wed, 24 Mar 2004 18:12:57 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] 2.6.5-rc2 - more epic100 napi
+Date: Thu, 25 Mar 2004 01:27:52 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403242312.i2ONCu6E026729@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com
+Message-ID: <20040325012752.B30067@electric-eye.fr.zoreil.com>
+References: <20040320152109.A31118@electric-eye.fr.zoreil.com> <405DDDC6.7030007@pobox.com> <8765cvmyaq.fsf@devron.myhome.or.jp> <20040323195119.A14062@electric-eye.fr.zoreil.com> <871xnjgwrs.fsf@devron.myhome.or.jp> <20040324014140.A16202@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <20040324014140.A16202@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Wed, Mar 24, 2004 at 01:41:40AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to the 2.6 and 2.4 kernels.
+Francois Romieu <romieu@fr.zoreil.com> :
+[...]
+> diff -puN drivers/net/epic100.c~epic100-napi-30 drivers/net/epic100.c
+> --- linux-2.6.5-rc2/drivers/net/epic100.c~epic100-napi-30	2004-03-24 01:18:25.000000000 +0100
+> +++ linux-2.6.5-rc2-fr/drivers/net/epic100.c	2004-03-24 01:19:35.000000000 +0100
+> @@ -1355,7 +1356,6 @@ static int epic_poll(struct net_device *
+>  
+>  	orig_budget = (*budget > dev->quota) ? dev->quota : *budget;
+>  
+> -rx_action:
+>  	outl(EpicNapiEvent, ioaddr + INTSTAT);
+>  
+>  	epic_tx(dev, ep);
+> @@ -1369,18 +1369,18 @@ rx_action:
+>  
+>  	if (netif_running(dev) && (work_done < orig_budget)) {
+>  		unsigned long flags;
+> -		int status;
+>  
+> -		spin_lock_irqsave(&ep->napi_lock, flags);
+>  		epic_napi_irq_on(dev, ep);
+> +
+> +		spin_lock_irqsave(&ep->napi_lock, flags);
+>  		__netif_rx_complete(dev);
+> -		spin_unlock_irqrestore(&ep->napi_lock, flags);
+>  
+> -		status = inl(ioaddr + INTSTAT);
+> -		if (status & EpicNapiEvent) {
+> +		if (ep->reschedule_in_poll) {
+>  			epic_napi_irq_off(dev, ep);
+> -			goto rx_action;
+> +			__netif_rx_schedule(dev);
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-thanks!
+While in poll() handler, brilliant :o(
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1673  -> 1.1674 
-#	drivers/atm/nicstar.c	1.21    -> 1.22   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/03/24	chas@relax.cmf.nrl.navy.mil	1.1674
-# [ATM]: [nicstar] use kernel min/max (by "Randy.Dunlap" <rddunlap@osdl.org>)
-# --------------------------------------------
-#
-diff -Nru a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
---- a/drivers/atm/nicstar.c	Wed Mar 24 15:17:23 2004
-+++ b/drivers/atm/nicstar.c	Wed Mar 24 15:17:23 2004
-@@ -112,9 +112,6 @@
+Please apply (tested) patch below on top of the acked patches (i.e 1/4...4/4):
+- issuing commands via the serial console under an incoming stream of 40k
+  short sized pps sucks but it is possible;
+- does not leak refcount (it rmmods fine).
+
+Next step: identify the best performer amongst the previously discussed changes.
+
+
+Multiple invocation of __netif_rx_schedule() in epic_interrupt() while
+epic_poll loops over __netif_rx_complete() leads to serious device
+refcount leak.
+
+
+ drivers/net/epic100.c |   33 ++++++++++++++++++---------------
+ 1 files changed, 18 insertions(+), 15 deletions(-)
+
+diff -puN drivers/net/epic100.c~epic100-napi-30 drivers/net/epic100.c
+--- linux-2.6.5-rc2/drivers/net/epic100.c~epic100-napi-30	2004-03-24 01:18:25.000000000 +0100
++++ linux-2.6.5-rc2-fr/drivers/net/epic100.c	2004-03-25 00:51:30.000000000 +0100
+@@ -337,6 +337,7 @@ struct epic_private {
+ 	/* Ring pointers. */
+ 	spinlock_t lock;				/* Group with Tx control cache line. */
+ 	spinlock_t napi_lock;
++	unsigned int reschedule_in_poll;
+ 	unsigned int cur_tx, dirty_tx;
  
- /* Macros *********************************************************************/
+ 	unsigned int cur_rx, dirty_rx;
+@@ -472,7 +473,9 @@ static int __devinit epic_init_one (stru
+ 	dev->base_addr = ioaddr;
+ 	dev->irq = irq;
  
--#define MAX(a,b) ((a) > (b) ? (a) : (b))
--#define MIN(a,b) ((a) < (b) ? (a) : (b))
+-	spin_lock_init (&ep->lock);
++	spin_lock_init(&ep->lock);
++	spin_lock_init(&ep->napi_lock);
++	ep->reschedule_in_poll = 0;
+ 
+ 	/* Bring the chip out of low-power mode. */
+ 	outl(0x4200, ioaddr + GENCTL);
+@@ -981,8 +984,6 @@ static void epic_init_ring(struct net_de
+ 	int i;
+ 
+ 	ep->tx_full = 0;
+-	spin_lock_init(&ep->lock);
+-	spin_lock_init(&ep->napi_lock);
+ 	ep->dirty_tx = ep->cur_tx = 0;
+ 	ep->cur_rx = ep->dirty_rx = 0;
+ 	ep->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
+@@ -1152,7 +1153,6 @@ static void epic_tx(struct net_device *d
+ 	}
+ }
+ 
 -
- #define CMD_BUSY(card) (readl((card)->membase + STAT) & NS_STAT_CMDBZ)
+ /* The interrupt handler does all of the Rx thread work and cleans up
+    after the Tx thread. */
+ static irqreturn_t epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
+@@ -1177,14 +1177,16 @@ static irqreturn_t epic_interrupt(int ir
+ 			break;
+ 		handled = 1;
  
- #define NS_DELAY mdelay(1)
-@@ -2483,7 +2480,7 @@
-             for (j = 1; j < NS_SKB(iovb)->iovcnt; j++)
-             {
-                lb = (struct sk_buff *) iov->iov_base;
--               tocopy = MIN(remaining, iov->iov_len);
-+               tocopy = min_t(int, remaining, iov->iov_len);
-                memcpy(hb->tail, lb->data, tocopy);
-                skb_put(hb, tocopy);
-                iov++;
+-		if (status & EpicNapiEvent) {
++		if ((status & EpicNapiEvent) && !ep->reschedule_in_poll) {
+ 			spin_lock(&ep->napi_lock);
+ 			if (netif_rx_schedule_prep(dev)) {
+ 				epic_napi_irq_off(dev, ep);
+ 				__netif_rx_schedule(dev);
+-			}
++			} else
++				ep->reschedule_in_poll++;
+ 			spin_unlock(&ep->napi_lock);
+ 		}
++		status &= ~EpicNapiEvent;
+ 
+ 		/* Check uncommon events all at once. */
+ 		if (status &
+@@ -1211,7 +1213,7 @@ static irqreturn_t epic_interrupt(int ir
+ 			/* Clear all error sources. */
+ 			outl(status & 0x7f18, ioaddr + INTSTAT);
+ 		}
+-		if (status & EpicNormalEvent)
++		if (!(status & EpicNormalEvent))
+ 			break;
+ 		if (--boguscnt < 0) {
+ 			printk(KERN_ERR "%s: Too much work at interrupt, "
+@@ -1356,7 +1358,6 @@ static int epic_poll(struct net_device *
+ 	orig_budget = (*budget > dev->quota) ? dev->quota : *budget;
+ 
+ rx_action:
+-	outl(EpicNapiEvent, ioaddr + INTSTAT);
+ 
+ 	epic_tx(dev, ep);
+ 
+@@ -1369,18 +1370,20 @@ rx_action:
+ 
+ 	if (netif_running(dev) && (work_done < orig_budget)) {
+ 		unsigned long flags;
+-		int status;
+ 
+ 		spin_lock_irqsave(&ep->napi_lock, flags);
+-		epic_napi_irq_on(dev, ep);
+-		__netif_rx_complete(dev);
+-		spin_unlock_irqrestore(&ep->napi_lock, flags);
+ 
+-		status = inl(ioaddr + INTSTAT);
+-		if (status & EpicNapiEvent) {
+-			epic_napi_irq_off(dev, ep);
++		if (ep->reschedule_in_poll) {
++			ep->reschedule_in_poll--;
++			spin_unlock_irqrestore(&ep->napi_lock, flags);
+ 			goto rx_action;
+ 		}
++
++		outl(EpicNapiEvent, ioaddr + INTSTAT);
++		epic_napi_irq_on(dev, ep);
++		__netif_rx_complete(dev);
++
++		spin_unlock_irqrestore(&ep->napi_lock, flags);
+ 	}
+ 
+ 	return (work_done >= orig_budget);
+
+_
