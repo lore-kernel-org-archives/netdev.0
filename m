@@ -1,43 +1,23 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] Networking: send-to-self [link to non-broken patch this
-Date: Fri, 27 Sep 2002 08:53:27 -0700
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: netlink sockets and rtm_newlink messages
+Date: Fri, 27 Sep 2002 19:55:02 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D947EF7.2080302@candelatech.com>
-References: <200209271546.TAA21299@sex.inr.ac.ru>
+Message-ID: <200209271555.TAA21348@sex.inr.ac.ru>
+References: <20020927134806.GA12745@ducksong.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: mcmanus@ducksong.COM (Patrick R. McManus)
+In-Reply-To: <20020927134806.GA12745@ducksong.com> from "Patrick R. McManus" at Sep 27, 2 06:15:01 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
-> Hello!
-> 
-> 
->>It will not match the case where the sending socket is bound to interface 3
->>and the listening socket is bound on interface 4, but both sockets have the
->>same source IP and port.  That was what I was trying
->>to do...but I may have not done it quite right :)
-> 
-> 
-> I would say "quite not right". :-)
-> 
-> Anyway, this is supposed to work without any modifications.
+Hello!
 
-I will run some tests with that part of the code commented out.
+> the messages weren't identical
 
-Thanks,
-Ben
+One of them is a mud. Apparently, I forgot to delete the line
+rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING)
+in rtnetlink_event().
 
-> 
-> Alexey
-> 
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Alexey
