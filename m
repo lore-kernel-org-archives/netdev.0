@@ -1,106 +1,47 @@
-From: Bukie Mabayoje <bukiemab@gte.net>
-Subject: Re: 2.4.29, e100 and a WOL packet causes keventd going mad
-Date: Sun, 30 Jan 2005 20:23:47 -0800
-Message-ID: <41FDB2D3.5CBD6F7D@gte.net>
-References: <20050130171849.GA3354@hardeman.nu> <1107143255.18167.428.camel@localhost.localdomain>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Mon, 31 Jan 2005 13:45:59 +0900 (JST)
+Message-ID: <20050131.134559.125426676.yoshfuji@linux-ipv6.org>
+References: <41FD2043.3070303@trash.net>
+	<E1CvSuS-00056x-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David =?iso-8859-1?Q?H=E4rdeman?= <david@2gen.com>,
-	Michael Gernoth <simigern@stud.uni-erlangen.de>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261916AbVAaEdk@vger.kernel.org>
-To: sfeldma@pobox.com
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, rmk+lkml@arm.linux.org.uk, Robert.Olsson@data.slu.se,
+        akpm@osdl.org, torvalds@osdl.org, alexn@dsv.su.se, kas@fi.muni.cz,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: herbert@gondor.apana.org.au, davem@davemloft.net
+In-Reply-To: <E1CvSuS-00056x-00@gondolin.me.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <E1CvSuS-00056x-00@gondolin.me.apana.org.au> (at Mon, 31 Jan 2005 15:11:32 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-Scott Feldman wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
+> > 
+> > Ok, final decision: you are right :) conntrack also defragments locally
+> > generated packets before they hit ip_fragment. In this case the fragments
+> > have skb->dst set.
+> 
+> Well caught.  The same thing is needed for IPv6, right?
 
-> On Sun, 2005-01-30 at 09:18, David H=C3=A4rdeman wrote:
-> > I experience the same problems as reported by Michael Gernoth when
-> > sending a WOL-packet to computer with a e100 NIC which is already
-> > powered on.
->
-> I didn't look at the 2.4 case, but for 2.6, it seems e100 was enablin=
-g
-> PME wakeup during probe.  PME shouldn't be enabled while the system i=
-s
-> up.  I suspect the assertion of PME while the system is up is what's
-> causing problems.  This patch moves PME wakeup enabling to either
-> suspend or shutdown.
->
-> David, would you give this patch a try?  Make sure the system still
-> wakes from a magic packet if suspended or shut down, and doesn't caus=
-e
-> kacpid to go crazy if system is running.  If it helps for 2.6, perhap=
-s
-> someone can look into 2.4 to see if there is something similar going =
-on
+(not yet confirmed, but) yes, please.
 
-This issue was reported on 2.4.
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
->
-> there.
->
-> -scott
->
-> --- linux-2.6.11-rc2/drivers/net/e100.c.orig    2005-01-30 19:13:56.8=
-50497376 -0800
-> +++ linux-2.6.11-rc2/drivers/net/e100.c 2005-01-30 19:26:41.154305536=
- -0800
-> @@ -1868,7 +1868,6 @@ static int e100_set_wol(struct net_devic
->         else
->                 nic->flags &=3D ~wol_magic;
->
-> -       pci_enable_wake(nic->pdev, 0, nic->flags & (wol_magic | e100_=
-asf(nic)));
->         e100_exec_cb(nic, NULL, e100_configure);
->
->         return 0;
-> @@ -2262,8 +2261,6 @@ static int __devinit e100_probe(struct p
->            (nic->eeprom[eeprom_id] & eeprom_id_wol))
->                 nic->flags |=3D wol_magic;
->
-> -       pci_enable_wake(pdev, 0, nic->flags & (wol_magic | e100_asf(n=
-ic)));
-> -
->         strcpy(netdev->name, "eth%d");
->         if((err =3D register_netdev(netdev))) {
->                 DPRINTK(PROBE, ERR, "Cannot register net device, abor=
-ting.\n");
-> @@ -2344,6 +2341,15 @@ static int e100_resume(struct pci_dev *p
->  }
->  #endif
->
-> +static void e100_shutdown(struct device *dev)
-> +{
-> +       struct pci_dev *pdev =3D container_of(dev, struct pci_dev, de=
-v);
-> +       struct net_device *netdev =3D pci_get_drvdata(pdev);
-> +       struct nic *nic =3D netdev_priv(netdev);
-> +
-> +       pci_enable_wake(pdev, 0, nic->flags & (wol_magic | e100_asf(n=
-ic)));
-> +}
-> +
->  static struct pci_driver e100_driver =3D {
->         .name =3D         DRV_NAME,
->         .id_table =3D     e100_id_table,
-> @@ -2353,6 +2359,9 @@ static struct pci_driver e100_driver =3D {
->         .suspend =3D      e100_suspend,
->         .resume =3D       e100_resume,
->  #endif
-> +       .driver =3D {
-> +               .shutdown =3D e100_shutdown,
-> +       }
->  };
->
->  static int __init e100_init_module(void)
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+===== net/ipv6/ip6_output.c 1.82 vs edited =====
+--- 1.82/net/ipv6/ip6_output.c	2005-01-25 09:40:10 +09:00
++++ edited/net/ipv6/ip6_output.c	2005-01-31 13:44:01 +09:00
+@@ -463,6 +463,7 @@
+ 	to->priority = from->priority;
+ 	to->protocol = from->protocol;
+ 	to->security = from->security;
++	dst_release(to->dst);
+ 	to->dst = dst_clone(from->dst);
+ 	to->dev = from->dev;
+ 
+
+--yoshfuji
