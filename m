@@ -1,32 +1,42 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] neighbour cache statistics like rt_stat
-Date: Mon, 27 Sep 2004 22:17:05 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Tue, 28 Sep 2004 15:15:39 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927221705.53a629d1.davem@davemloft.net>
-References: <20040927093613.GH3236@sunbeam.de.gnumonks.org>
-	<20040927162334.GV3236@sunbeam.de.gnumonks.org>
-	<20040927122136.7016b2c1.davem@davemloft.net>
-	<20040927222055.GD3236@sunbeam.de.gnumonks.org>
+Message-ID: <20040928051539.GA11354@gondor.apana.org.au>
+References: <20040923161141.4ea9be4c.davem@davemloft.net> <Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu> <20040927160411.22b44f48.davem@davemloft.net> <20040927233639.GA8333@gondor.apana.org.au> <20040927171356.6a59d039.davem@davemloft.net> <20040928003412.GA8755@gondor.apana.org.au> <20040927215901.6f65dc15.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jheffner@psc.edu, ak@suse.de, niv@us.ibm.com, andy.grover@gmail.com,
+        anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040927222055.GD3236@sunbeam.de.gnumonks.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040927215901.6f65dc15.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Sep 2004 00:20:55 +0200
-Harald Welte <laforge@gnumonks.org> wrote:
-
-> On Mon, Sep 27, 2004 at 12:21:36PM -0700, David S. Miller wrote:
+On Mon, Sep 27, 2004 at 09:59:01PM -0700, David S. Miller wrote:
 > 
-> > 1) Please update the patch since I replaced "diff4" with
-> >    a patch simply removing the INCOMPLETE checks from neigh_forced_gc()
-> > 
-> > 2) I'd recommend using unsigned long for all the statistics.
-> 
-> both updated in attached version.
+> It's got a nasty bug though, I'm not updating
+> TCP_SKB_CB(skb)->seq so retransmits have corrupted
+> sequence numbers, doh!  And hey if I update that
+> then I do not need this tso_offset thingy.
 
-Applied, thanks Harald.
+Nice work.
+
+> +	if (skb->len != (data_end_seq - data_seq)) {
+
+Please make that > so that I can sleep at night :)
+
+> +		if (__tcp_trim_head(sk, skb, data_end_seq - data_seq))
+
+The argument to __tcp_trim_head should be
+
+skb->len - (data_end_seq - data_seq)
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
