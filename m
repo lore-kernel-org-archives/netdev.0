@@ -1,24 +1,26 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: Fw: Re: 2.6.9-rc1-mm2
-Date: Wed, 1 Sep 2004 01:41:18 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: 2.6.9-rc1 oops
+Date: Wed, 01 Sep 2004 18:02:36 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040901014118.45204bcb.akpm@osdl.org>
-References: <41351C86.7000704@us.ibm.com>
-	<200409010833.i818XPZ04210@owlet.beaverton.ibm.com>
+Message-ID: <20040901.180236.102852119.yoshfuji@linux-ipv6.org>
+References: <1093945177.16908.14.camel@hostmaster.org>
+	<1094028647.16908.42.camel@hostmaster.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: niv@us.ibm.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Lindsley <ricklind@us.ibm.com>
-In-Reply-To: <200409010833.i818XPZ04210@owlet.beaverton.ibm.com>
+To: thomasz@hostmaster.org
+In-Reply-To: <1094028647.16908.42.camel@hostmaster.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rick Lindsley <ricklind@us.ibm.com> wrote:
->
-> But considering I ran make oldconfig on this and chose
->  the defaults in each and every case, should I end up with a config that
->  doesn't compile?
+In article <1094028647.16908.42.camel@hostmaster.org> (at Wed, 01 Sep 2004 10:50:47 +0200), Thomas Zehetbauer <thomasz@hostmaster.org> says:
 
-No, you shouldn't.  This indicates a Kconfig bug.
+> I have now created a bug report for this issue:
+> http://bugzilla.kernel.org/show_bug.cgi?id=3323
+
+(Plase use netdev...)
+I think this is already fixed in current bk tree.
+
+--yoshfuji
