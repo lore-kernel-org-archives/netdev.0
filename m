@@ -1,88 +1,55 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Get rid of rt_check_expire and rt_garbage_collect
-Date: Sat, 2 Apr 2005 16:03:42 +0200
-Message-ID: <16974.42558.753736.846391@robur.slu.se>
-References: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au>
-	<424E641A.1020609@cosmosbay.com>
-	<20050402112304.GA11321@gondor.apana.org.au>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
+Date: Sat, 02 Apr 2005 16:10:10 +0200
+Message-ID: <424EA7C2.6060308@cosmosbay.com>
+References: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au>	<424E641A.1020609@cosmosbay.com> <16974.41648.568927.54429@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <dada1@cosmosbay.com>, davem@davemloft.net,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se, hadi@cyberus.ca
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050402112304.GA11321@gondor.apana.org.au>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16974.41648.568927.54429@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Robert Olsson a =E9crit :
+> Eric Dumazet writes:
 
-Herbert Xu writes:
+>  Yes thats a pretty much load. Very short flows some reason?
 
- > Rather than changing the timer GC so that it runs more often to keep
- > up with the large routing cache, we should get out of this by reducing
- > the amount of work we have to do.
+Well... yes. This is a real server, not a DOS simulation.
+1 million TCP flows, and about 3 million peers using UDP frames.
 
- Yeep.
+>  What's your ip_rt_gc_min_interval? GC should be allowed to=20
+>  run frequent to smoothen out the GC load. Also good idea=20
+>  to decrease gc_thresh and you hash is really huge.
 
- > Imagine an ideal balanced hash table with 2.6 million entries.  That
- > is, all incoming/outgoing packets belong to flows that are already in
- > the hash table.  Imagine also that there is no PMTU/link failure taking
- > place so all entries are valid forever.
- > 
- > In this state there is absolutely no need to execute the timer GC.
- 
- > Let's remove one of those assumptions and allow there to be entries
- > which need to expire after a set period.
- > 
- > Instead of having the timer GC clean them up, we can move the expire
- > check to the place where the entries are used.  That is, we make
- > ip_route_input/ip_route_output/ipv4_dst_check check whether the
- > entry has expired.
- > 
- > On the face of it we're doing more work since every routing cache
- > hit will need to check the validity of the dst.  However, because
- > it's a single subtraction it is actually pretty cheap.  There is
- > also no additional cache miss compared to doing it in the timer
- > GC since we have to read the dst anyway.
- > 
- > Let's go one step further and make the routing cache come to life.
- > Now there are new entries coming in and we need to remove old ones
- > in order to make room for them.
- > 
- > That task is currently carried out by the timer GC in rt_check_expire
- > and on demand by rt_garbage_collect.  Either way we have to walk the
- > entire routing cache looking for entries to get rid of.
- > 
- > This is quite expensive when the routing cache is large.  However,
- > there is a better way.
- > 
- > The reason we keep a cap on the routing cache (for a given hash size)
- > is so that individual chains do not degenerate into long linked lists.
- > 
- > In other words, we don't really care about how many entries there are
- > in the routing cache.  But we do care about how long each hash chain
- > is.
- > 
- > So instead of walking the entire routing cache to keep the number of
- > entries down, what we should do is keep each hash chain as short as
- > possible.
- > 
- > Assuming that the hash function is good, this should achieve the
- > same end result.
- > 
- > Here is how it can be done: Every time a routing entry is inserted into
- > a hash chain, we perform GC on that chain unconditionally.
- > 
- > It might seem that we're doing more work again.  However, as before
- > because we're traversing the chain anyway, it is very cheap to perform
- > the GC operations which mainly involve the checks in rt_may_expire.
+No. As soon as I lower gc_thresh (and let gc running), the machine starts=
+ to drop connections and crash some seconds later.
+I found I had to make the hash table very large (but lowering elasticity,=
+ ie chain length) .
+It needs lot of ram, but at least CPU usage of net/ipv4/route.c is close =
+to 0.
 
-
- Agree... It's very interesting and worth to test something like this.
- also it could clean up the GC process and the need for tuning which 
- would be very welcome.
-
-					   --ro
- 
+# grep . /proc/sys/net/ipv4/route/*
+/proc/sys/net/ipv4/route/error_burst:5000
+/proc/sys/net/ipv4/route/error_cost:1000
+/proc/sys/net/ipv4/route/gc_elasticity:2
+/proc/sys/net/ipv4/route/gc_interval:1
+/proc/sys/net/ipv4/route/gc_min_interval:0
+/proc/sys/net/ipv4/route/gc_min_interval_ms:500
+/proc/sys/net/ipv4/route/gc_thresh:2900000
+/proc/sys/net/ipv4/route/gc_timeout:155
+/proc/sys/net/ipv4/route/max_delay:10
+/proc/sys/net/ipv4/route/max_size:16777216
+/proc/sys/net/ipv4/route/min_adv_mss:256
+/proc/sys/net/ipv4/route/min_delay:2
+/proc/sys/net/ipv4/route/min_pmtu:552
+/proc/sys/net/ipv4/route/mtu_expires:600
+/proc/sys/net/ipv4/route/redirect_load:20
+/proc/sys/net/ipv4/route/redirect_number:9
+/proc/sys/net/ipv4/route/redirect_silence:20480
+/proc/sys/net/ipv4/route/secret_interval:36000
