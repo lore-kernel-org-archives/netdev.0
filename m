@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 7/16] CBQ: Use gnet_stats for class statistics
-Date: Thu, 21 Oct 2004 14:40:39 +0200
+Subject: [PATCH 8/16] CBQ: Use dump_stats for class statistics dumping
+Date: Thu, 21 Oct 2004 14:43:29 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021124039.GL21977@postel.suug.ch>
+Message-ID: <20041021124329.GM21977@postel.suug.ch>
 References: <20041021123209.GE21977@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,68 +14,93 @@ In-Reply-To: <20041021123209.GE21977@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Converts CBQ class statistics counters to gnet_stats
-structures.
+Makes CBQ use dump_stats to dump class statistics, i.e.
+moves the statistic dump code from cbq_dump_class to
+cbq_dump_class_stats.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.9-rc5.orig/net/sched/sch_cbq.c	2004-10-21 12:45:47.000000000 +0200
-+++ linux-2.6.9-rc5/net/sched/sch_cbq.c	2004-10-21 12:57:37.000000000 +0200
-@@ -146,7 +146,9 @@
- 	long			avgidle;
- 	long			deficit;	/* Saved deficit for WRR */
- 	unsigned long		penalized;
--	struct tc_stats		stats;
-+	struct gnet_stats_basic bstats;
-+	struct gnet_stats_queue qstats;
-+	struct gnet_stats_rate_est rate_est;
- 	spinlock_t		*stats_lock;
- 	struct tc_cbq_xstats	xstats;
- 
-@@ -448,7 +450,7 @@
- 		kfree_skb(skb);
- 	else {
- 		cbq_mark_toplevel(q, cl);
--		cl->stats.drops++;
-+		cl->qstats.drops++;
- 	}
- #else
- 	if ( NET_XMIT_DROP == ret) {
-@@ -457,7 +459,7 @@
- 
- 	if (cl != NULL) {
- 		cbq_mark_toplevel(q, cl);
--		cl->stats.drops++;
-+		cl->qstats.drops++;
- 	}
- #endif
- 	return ret;
-@@ -491,7 +493,7 @@
- 		return 0;
- 	}
- 	sch->qstats.drops++;
--	cl->stats.drops++;
-+	cl->qstats.drops++;
- 	return ret;
+--- linux-2.6.9-rc5.orig/net/sched/sch_cbq.c	2004-10-21 12:59:00.000000000 +0200
++++ linux-2.6.9-rc5/net/sched/sch_cbq.c	2004-10-21 12:59:32.000000000 +0200
+@@ -1614,16 +1614,6 @@
+ 	return 0;
  }
  
-@@ -789,8 +791,8 @@
- 		long avgidle = cl->avgidle;
- 		long idle;
+-int cbq_copy_xstats(struct sk_buff *skb, struct tc_cbq_xstats *st)
+-{
+-	RTA_PUT(skb, TCA_XSTATS, sizeof(*st), st);
+-	return 0;
+-
+-rtattr_failure:
+-	return -1;
+-}
+-
+-
+ static int cbq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ {
+ 	struct cbq_sched_data *q = qdisc_priv(sch);
+@@ -1655,7 +1645,6 @@
+ cbq_dump_class(struct Qdisc *sch, unsigned long arg,
+ 	       struct sk_buff *skb, struct tcmsg *tcm)
+ {
+-	struct cbq_sched_data *q = qdisc_priv(sch);
+ 	struct cbq_class *cl = (struct cbq_class*)arg;
+ 	unsigned char	 *b = skb->tail;
+ 	struct rtattr *rta;
+@@ -1672,25 +1661,35 @@
+ 	if (cbq_dump_attr(skb, cl) < 0)
+ 		goto rtattr_failure;
+ 	rta->rta_len = skb->tail - b;
+-	cl->stats.qlen = cl->q->q.qlen;
+-	if (qdisc_copy_stats(skb, &cl->stats, cl->stats_lock))
+-		goto rtattr_failure;
+-	spin_lock_bh(&sch->dev->queue_lock);
++	return skb->len;
++
++rtattr_failure:
++	skb_trim(skb, b - skb->data);
++	return -1;
++}
++
++static int
++cbq_dump_class_stats(struct Qdisc *sch, unsigned long arg,
++	struct gnet_dump *d)
++{
++	struct cbq_sched_data *q = qdisc_priv(sch);
++	struct cbq_class *cl = (struct cbq_class*)arg;
++
++	cl->qstats.qlen = cl->q->q.qlen;
+ 	cl->xstats.avgidle = cl->avgidle;
+ 	cl->xstats.undertime = 0;
++
+ 	if (!PSCHED_IS_PASTPERFECT(cl->undertime))
+ 		cl->xstats.undertime = PSCHED_TDIFF(cl->undertime, q->now);
+-	if (cbq_copy_xstats(skb, &cl->xstats)) {
+-		spin_unlock_bh(&sch->dev->queue_lock);
+-		goto rtattr_failure;
+-	}
+-	spin_unlock_bh(&sch->dev->queue_lock);
  
--		cl->stats.packets++;
--		cl->stats.bytes += len;
-+		cl->bstats.packets++;
-+		cl->bstats.bytes += len;
+-	return skb->len;
++	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
++#ifdef CONFIG_NET_ESTIMATOR
++	    gnet_stats_copy_rate_est(d, &cl->rate_est) < 0 ||
++#endif
++	    gnet_stats_copy_queue(d, &cl->qstats) < 0)
++		return -1;
  
- 		/*
- 		   (now - last) is total time between packet right edges.
-@@ -888,7 +890,7 @@
- 		   no another solution exists.
- 		 */
- 		if ((cl = cl->borrow) == NULL) {
--			this_cl->stats.overlimits++;
-+			this_cl->qstats.overlimits++;
- 			this_cl->overlimit(this_cl);
- 			return NULL;
- 		}
+-rtattr_failure:
+-	skb_trim(skb, b - skb->data);
+-	return -1;
++	return gnet_stats_copy_app(d, &cl->xstats, sizeof(cl->xstats));
+ }
+ 
+ static int cbq_graft(struct Qdisc *sch, unsigned long arg, struct Qdisc *new,
+@@ -2121,6 +2120,7 @@
+ 	.bind_tcf	=	cbq_bind_filter,
+ 	.unbind_tcf	=	cbq_unbind_filter,
+ 	.dump		=	cbq_dump_class,
++	.dump_stats	=	cbq_dump_class_stats,
+ };
+ 
+ static struct Qdisc_ops cbq_qdisc_ops = {
