@@ -1,44 +1,34 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH] pkt_cls.h incompatiables
-Date: 23 Jul 2004 20:49:15 -0400
+Date: Fri, 23 Jul 2004 21:42:40 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1090630154.1134.6.camel@jzny.localdomain>
-References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
-	 <20040722.200426.99255296.yoshfuji@linux-ipv6.org>
-	 <1090593676.1128.25.camel@jzny.localdomain>
-	 <20040723.110007.27520072.yoshfuji@linux-ipv6.org>
-	 <1090612669.1218.47.camel@jzny.localdomain>
-	 <20040723135945.7f50b02c.davem@redhat.com>
-Reply-To: hadi@znyx.com
+Message-ID: <20040723.214240.76745170.yoshfuji@linux-ipv6.org>
+References: <1090612669.1218.47.camel@jzny.localdomain>
+	<20040723135945.7f50b02c.davem@redhat.com>
+	<1090630154.1134.6.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, shemminger@osdl.org, arekm@pld-linux.org,
-        netdev@oss.sgi.com
+Cc: shemminger@osdl.org, arekm@pld-linux.org, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org, hadi@znyx.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040723135945.7f50b02c.davem@redhat.com>
+To: hadi@znyx.com, davem@redhat.com
+In-Reply-To: <1090630154.1134.6.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <1090630154.1134.6.camel@jzny.localdomain> (at 23 Jul 2004 20:49:15 -0400), Jamal Hadi Salim <hadi@znyx.com> says:
 
+> I will take care of it next week when i get back. 
+> If 2.6.8 is coming out before end of next week, i would suggest undoing
+> Stephens patch.
 
-I will take care of it next week when i get back. 
-If 2.6.8 is coming out before end of next week, i would suggest undoing
-Stephens patch.
-The way it was before was backward compatible as long as you dont
-turn on those features; and those features all have a strong warning not
-to turn them on unless you a new iproute2;-> And if you turn them on and
-used my patches to tc all will work just fine ...
+I've talked about this with Jamal.
 
-cheers,
-jamal
+I believe it is very important to maintain th original (or 
+traditional) ABI, which has been used in -2.6.7(?).
 
-On Fri, 2004-07-23 at 16:59, David S. Miller wrote:
-> The current 2.6.x tree is obviously busted.
-> 
-> Can someone send me a patch soon'ish that does something
-> about it, so that 2.6.8 doesn't go et with things
-> like this?
-> 
-> Thanks.
+So, I'd rather say, let's remove (or disable) whole thing 
+until we find the way to avoid breaking ABIs.
+
+--yoshfuji
