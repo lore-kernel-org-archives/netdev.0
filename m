@@ -1,77 +1,76 @@
 From: bert hubert <ahu@ds9a.nl>
-Subject: Re: preliminary conclusions regarding window size issues
-Date: Thu, 8 Jul 2004 08:03:26 +0200
+Subject: window tracking firewall involved, was: Re: preliminary conclusions regarding window size issues
+Date: Thu, 8 Jul 2004 08:37:00 +0200
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040708060326.GA22258@outpost.ds9a.nl>
-References: <20040707232757.GA14471@outpost.ds9a.nl> <20040708014443.GE17266@mail.shareable.org>
+Message-ID: <20040708063700.GA23496@outpost.ds9a.nl>
+References: <20040707232757.GA14471@outpost.ds9a.nl> <20040708014443.GE17266@mail.shareable.org> <20040708060326.GA22258@outpost.ds9a.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>,
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Jamie Lokier <jamie@shareable.org>,
+	"David S. Miller" <davem@redhat.com>,
 	Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
 	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
 	ALESSANDRO.SUARDI@ORACLE.COM
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Jamie Lokier <jamie@shareable.org>
 Content-Disposition: inline
-In-Reply-To: <20040708014443.GE17266@mail.shareable.org>
+In-Reply-To: <20040708060326.GA22258@outpost.ds9a.nl>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 08, 2004 at 02:44:43AM +0100, Jamie Lokier wrote:
+On Thu, Jul 08, 2004 at 08:03:26AM +0200, bert hubert wrote:
 
-> An iptable mangle rule would do the trick -- mangle the TTL only on
-> packets which match this point in the trace.
+[ theory that a window tracking firewall drops packets for which it thinks
+  the intended recipient has no room, as they are larger than the window size
+  it sees, where it neglects to scale that window size ]
 
-Indeed fiddly - not only does the packet have to disappear, we need an ICMP
-to confirm that. This is because the packet currently disappears anyhow. 
+> We could verify this assumption by checking if lowering the MTU to say 700
+> allows wscale=3 to work. 
 
-Another thought that ocurred to me is that this might be a window tracking
-firewall that says, based on the scaled window size which it misinterprets
-because it does not understand window scaling: "I'm not going to let this
-packet pass, I've seen that the intended recipient announced a 43 byte
-window size".
+This has now been confirmed with the packages.gentoo.org firewall!
 
-The idea such a silly firewall would have is that it 'protects' a host from
-traffic it can't handle.
+Setting MTU does not help because the kernel adjusts the window size too.
+However, fiddling with MSS helps.
 
-This jives with the observed fact that things work up to and including
-wscale=2, but breaks with wscale=3. With wscale=3, the scaled window size is
-730. With wscale=2, the observed window of 1460 is big enough to let a
-packet pass.
+Setting wscale to 3 breaks connectivity to packages.gentoo.org, but one can
+restore it with:
 
-We could verify this assumption by checking if lowering the MTU to say 700
-allows wscale=3 to work. 
+# iptables -t mangle -A OUTPUT -p tcp -o wlan0 -d 198.63.211.232 -j TCPMSS \
+	--set-mss=742 --tcp-flags SYN,RST SYN
 
-Looking at the traceroute to Alessandro, my current suspect is this machine:
+742 is the limit value, note how this is pretty close to the scaled window
+size of 730.
 
-(The 1655 ports scanned but not shown below are in state: closed)
-PORT    STATE    SERVICE
-81/tcp  filtered hosts2-ns
-135/tcp filtered msrpc
-445/tcp filtered microsoft-ds
-514/tcp open     shell
-No exact OS matches for host (If you know what OS is running on it, see
-http://www.insecure.org/cgi-bin/nmap-submit.cgi).
-TCP/IP fingerprint:
-SInfo(V=3.50%P=i686-pc-linux-gnu%D=7/8%Time=40ECDF49%O=514%C=1)
-TSeq(Class=TR%IPID=Z%TS=U)
-T1(Resp=Y%DF=Y%W=1020%ACK=S++%Flags=AS%Ops=ME)
-T2(Resp=N)
-T3(Resp=Y%DF=Y%W=1020%ACK=S++%Flags=AS%Ops=ME)
-T4(Resp=Y%DF=N%W=0%ACK=O%Flags=R%Ops=)
-T5(Resp=Y%DF=N%W=0%ACK=S++%Flags=AR%Ops=)
-T6(Resp=Y%DF=N%W=0%ACK=O%Flags=R%Ops=)
-T7(Resp=Y%DF=N%W=0%ACK=S%Flags=AR%Ops=)
-PU(Resp=N)
+Trace of succesful connection:
 
+08:29:54.799158 192.168.1.4.33116 > 198.63.211.232.80: S 258776237:258776237(0) 
+	win 5840 <mss 742,sackOK,timestamp 5528023 0,nop,wscale 3> 
+	(DF)
+08:29:54.935830 198.63.211.232.80 > 192.168.1.4.33116: S 3729725382:3729725382(0) 
+	ack 258776238 win 5792 <mss 1460,sackOK,timestamp 824466134 5528023,nop,wscale 0> 
+	(DF)
+08:29:54.935997 192.168.1.4.33116 > 198.63.211.232.80: 
+	. ack 1 win 730 <nop,nop,timestamp 5528160 824466134> 
+	(DF)
+08:29:54.936116 192.168.1.4.33116 > 198.63.211.232.80: P 1:107(106) 
+	ack 1 win 730 <nop,nop,timestamp 5528160 824466134> 
+	(DF)
+08:29:55.058090 198.63.211.232.80 > 192.168.1.4.33116: . 
+	ack 107 win 5792 <nop,nop,timestamp 824466159 5528160> (DF)
+08:29:55.058325 198.63.211.232.80 > 192.168.1.4.33116: . 1:731(730) 
+	ack 107 win 5792 <nop,nop,timestamp 824466160 5528160> 
+	(DF)
+08:29:55.058425 192.168.1.4.33116 > 198.63.211.232.80: . 
+	ack 731 win 912 <nop,nop,timestamp 5528283 824466160> 
+	(DF)
+08:29:55.181172 198.63.211.232.80 > 192.168.1.4.33116: . 731:1461(730) 
+	ack 107 win 5792 <nop,nop,timestamp 824466184 5528283> 
+	(DF)
 
-TCP Sequence Prediction: Class=truly random
-                         Difficulty=9999999 (Good luck!)
-TCP ISN Seq. Numbers: 9D217EAD 78BBFA4A 6C815E49 191A3C0A 2A07597F 8B869DAA
-IPID Sequence Generation: All zeros
+Packages.gentoo.org is behind a
+Running: Cisco IOS 12.X
+OS details: Cisco 7200 router running IOS 12.1(14)E6
+OS Fingerprint:
 
-Nmap run completed -- 1 IP address (1 host up) scanned in 25.593 seconds
-
-TCP port 514 is rsh, but when I try rsh on that port it doesn't work.
+Not sure if that would be the culprit though.
 
 -- 
 http://www.PowerDNS.com      Open source, database driven DNS Software 
