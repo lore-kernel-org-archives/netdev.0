@@ -1,95 +1,56 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [NET] Move local_bh_disable back in dev_queue_xmit
-Date: Wed, 03 Nov 2004 15:48:49 +0100
-Message-ID: <4188EFD1.4050909@tpack.net>
-References: <20041102225406.GA13760@gondor.apana.org.au>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: IPv6 dead in -bk11
+Date: Thu, 04 Nov 2004 01:21:28 +0900 (JST)
+Message-ID: <20041104.012128.51410945.yoshfuji@linux-ipv6.org>
+References: <20041102.225343.06193184.yoshfuji@linux-ipv6.org>
+	<4187A4E3.8010600@pobox.com>
+	<20041103.012923.102810732.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070405050509000708050508"
-Cc: "David S. Miller" <davem@davemloft.net>, mingo@elte.hu, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, akpm@osdl.org,
+        davem@davemloft.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041102225406.GA13760@gondor.apana.org.au>
+To: davem@davemloft.net, jgarzik@pobox.com
+In-Reply-To: <20041103.012923.102810732.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070405050509000708050508
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+In article <20041103.012923.102810732.yoshfuji@linux-ipv6.org> (at Wed, 03 Nov 2004 01:29:23 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-Herbert Xu wrote:
-> Hi Ingo:
-> 
-> Your recent fix to dev_queue_xmit moved the local_bh_disable to
-> include stuff like skb_linearize and skb_checksum_help.  These
-> are potentially expensive operations.  Since they don't need to
-> run with preempt off, we could simply move the local_bh_enable
-> up instead.
+> So... I guess that kernel failed to add "default route" on receipt of RA.
+> Right?
+:
 
-No, this breaks the normal return path.
+Sorry, this bug was introduced by my changeset:
+<http://linux.bkbits.net:8080/linux-2.5/cset@417dca81tJ4RRAxhWTbn0p6hI-1XIQ>.
 
-How about this instead?
+David, this should fix the issue.
+Please apply.
 
-Signed-off-by: Tommy S. Christensen <tommy.christensen@tpack.net>
+D: Don't purge default routes by RA.
+D:
+D: Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-
---------------070405050509000708050508
-Content-Type: text/plain;
- name="dev.c.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="dev.c.patch"
-
---- linux-2.6.10-rc1-bk/net/core/dev.c	Wed Nov  3 15:10:43 2004
-+++ linux-2.6.10-rc1-work/net/core/dev.c	Wed Nov  3 15:31:22 2004
-@@ -1261,11 +1261,6 @@
- 	struct Qdisc *q;
- 	int rc = -ENOMEM;
- 
--	/* Disable soft irqs for various locks below. Also 
--	 * stops preemption for RCU. 
--	 */
--	local_bh_disable(); 
--
- 	if (skb_shinfo(skb)->frag_list &&
- 	    !(dev->features & NETIF_F_FRAGLIST) &&
- 	    __skb_linearize(skb, GFP_ATOMIC))
-@@ -1290,6 +1285,11 @@
- 	      	if (skb_checksum_help(skb, 0))
- 	      		goto out_kfree_skb;
- 
-+	/* Disable soft irqs for various locks below. Also 
-+	 * stops preemption for RCU. 
-+	 */
-+	local_bh_disable(); 
-+
- 	/* Updates of qdisc are serialized by queue_lock. 
- 	 * The struct Qdisc which is pointed to by qdisc is now a 
- 	 * rcu structure - it may be accessed without acquiring 
-@@ -1352,7 +1352,6 @@
- 			if (net_ratelimit())
- 				printk(KERN_CRIT "Virtual device %s asks to "
- 				       "queue packet!\n", dev->name);
--			goto out_enetdown;
- 		} else {
- 			/* Recursion is detected! It is possible,
- 			 * unfortunately */
-@@ -1361,10 +1360,13 @@
- 				       "%s, fix it urgently!\n", dev->name);
+===== net/ipv6/ndisc.c 1.103 vs edited =====
+--- 1.103/net/ipv6/ndisc.c	2004-10-26 12:55:42 +09:00
++++ edited/net/ipv6/ndisc.c	2004-11-04 01:05:19 +09:00
+@@ -1078,13 +1078,6 @@
+ 			return;
  		}
+ 		neigh->flags |= NTF_ROUTER;
+-
+-		/*
+-		 *	If we where using an "all destinations on link" route
+-		 *	delete it
+-		 */
+-
+-		rt6_purge_dflt_routers();
  	}
--out_enetdown:
-+
- 	rc = -ENETDOWN;
-+	local_bh_enable();
-+
- out_kfree_skb:
- 	kfree_skb(skb);
-+	return rc;
- out:
- 	local_bh_enable();
- 	return rc;
+ 
+ 	if (rt)
 
---------------070405050509000708050508--
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
