@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 17/22] xfrm offload v2: typhoon: split out setting of offloaded tasks
-Date: Mon, 10 Jan 2005 10:37:02 -0500
-Message-ID: <20040110014300.26@ori.thedillows.org>
-References: <20040110014300.25@ori.thedillows.org>
+Subject: [RFC BK 7/22] xfrm offload v2: Allow device drivers to force recalculation of offloads
+Date: Mon, 10 Jan 2005 10:37:00 -0500
+Message-ID: <20040110014300.16@ori.thedillows.org>
+References: <20040110014300.15@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,112 +13,149 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:57:58-05:00 dave@thedillows.org 
-#   Move the setting of the currently offloaded tasks to its own
-#   function, as we'll be making use of it to change the crypto
-#   offload status when adding/removing xfrms.
+#   2005/01/10 00:46:32-05:00 dave@thedillows.org 
+#   Give device drivers a method to allow the use of crypto
+#   offload features for existing xfrm_states and bundles, as
+#   well as dynamically remove crypto offload capabilities.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# drivers/net/typhoon.c
-#   2005/01/10 00:57:41-05:00 dave@thedillows.org +26 -15
-#   Move the setting of the currently offloaded tasks to its own
-#   function, as we'll be making use of it to change the crypto
-#   offload status when adding/removing xfrms.
+# net/xfrm/xfrm_state.c
+#   2005/01/10 00:46:14-05:00 dave@thedillows.org +39 -0
+#   When we've been informed of a new device that can offload
+#   xfrm crypto operations, go ahead and offload existing inbound
+#   xfrm_states to it.
+#   
+#   When we're removing crypto offload capabilities, remove every
+#   offload instance for that device.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2005-01-10 01:17:21 -05:00
-+++ b/drivers/net/typhoon.c	2005-01-10 01:17:21 -05:00
-@@ -303,6 +303,7 @@
- 	u16			xcvr_select;
- 	u16			wol_events;
- 	u32			offload;
-+	spinlock_t		offload_lock;
+# net/xfrm/xfrm_policy.c
+#   2005/01/10 00:46:14-05:00 dave@thedillows.org +17 -0
+#   When adding/removing xfrm offload capable device, give the xfrm_state
+#   engine a chance to make the changes it needs, then flush any existing
+#   bundles that use the device so that future flows get a chance to use
+#   the offload features (for add), or resume using the software crypto
+#   routines (for remove).
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# net/xfrm/xfrm_export.c
+#   2005/01/10 00:46:14-05:00 dave@thedillows.org +2 -0
+#   Export the driver-visible API.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# include/net/xfrm.h
+#   2005/01/10 00:46:14-05:00 dave@thedillows.org +4 -0
+#   Prototypes for the new routines.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+--- a/include/net/xfrm.h	2005-01-10 01:19:25 -05:00
++++ b/include/net/xfrm.h	2005-01-10 01:19:25 -05:00
+@@ -826,6 +826,8 @@
+ extern struct xfrm_state *xfrm_find_acq_byseq(u32 seq);
+ extern void xfrm_state_delete(struct xfrm_state *x);
+ extern void xfrm_state_flush(u8 proto);
++extern void xfrm_state_accel_add(struct net_device *dev);
++extern void xfrm_state_accel_flush(struct net_device *dev);
+ extern int xfrm_replay_check(struct xfrm_state *x, u32 seq);
+ extern void xfrm_replay_advance(struct xfrm_state *x, u32 seq);
+ extern int xfrm_state_check(struct xfrm_state *x, struct sk_buff *skb);
+@@ -879,6 +881,8 @@
+ extern void xfrm_policy_flush(void);
+ extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+ extern int xfrm_flush_bundles(void);
++extern void xfrm_accel_add(struct net_device *dev);
++extern void xfrm_accel_flush(struct net_device *dev);
  
- 	u16			tx_sa_max;
- 	u16			rx_sa_max;
-@@ -724,11 +725,28 @@
- 	return err;
+ extern wait_queue_head_t km_waitq;
+ extern int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, u16 sport);
+diff -Nru a/net/xfrm/xfrm_export.c b/net/xfrm/xfrm_export.c
+--- a/net/xfrm/xfrm_export.c	2005-01-10 01:19:25 -05:00
++++ b/net/xfrm/xfrm_export.c	2005-01-10 01:19:25 -05:00
+@@ -62,3 +62,5 @@
+ EXPORT_SYMBOL_GPL(skb_icv_walk);
+ 
+ EXPORT_SYMBOL_GPL(xfrm_state_offload_add);
++EXPORT_SYMBOL_GPL(xfrm_accel_add);
++EXPORT_SYMBOL_GPL(xfrm_accel_flush);
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	2005-01-10 01:19:25 -05:00
++++ b/net/xfrm/xfrm_policy.c	2005-01-10 01:19:25 -05:00
+@@ -1141,6 +1141,23 @@
+ 	return 0;
  }
  
-+static int
-+typhoon_set_offload(struct typhoon *tp)
++static int bundle_uses_dev(struct dst_entry *dst, void *dev)
 +{
-+	/* Caller should hold tp->offload_lock, or otherwise guarantee
-+         * exclusitivity to this routine.
-+         */
-+	struct cmd_desc xp_cmd;
-+
-+	smp_rmb();
-+	if(tp->card_state != Running)
-+		return 0;
-+
-+	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_OFFLOAD_TASKS);
-+	xp_cmd.parm2 = tp->offload;
-+	xp_cmd.parm3 = tp->offload;
-+	return typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
++	return (dst->dev == dev);
 +}
 +
- static void
- typhoon_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
- {
- 	struct typhoon *tp = netdev_priv(dev);
--	struct cmd_desc xp_cmd;
- 	int err;
- 
- 	spin_lock_bh(&tp->state_lock);
-@@ -736,25 +754,16 @@
- 		/* We've either been turned on for the first time, or we've
- 		 * been turned off. Update the 3XP.
- 		 */
-+		spin_lock_bh(&tp->offload_lock);
- 		if(grp)
- 			tp->offload |= TYPHOON_OFFLOAD_VLAN;
- 		else
- 			tp->offload &= ~TYPHOON_OFFLOAD_VLAN;
-+		err = typhoon_set_offload(tp);
-+		spin_unlock_bh(&tp->offload_lock);
- 
--		/* If the interface is up, the runtime is running -- and we
--		 * must be up for the vlan core to call us.
--		 *
--		 * Do the command outside of the spin lock, as it is slow.
--		 */
--		INIT_COMMAND_WITH_RESPONSE(&xp_cmd,
--					TYPHOON_CMD_SET_OFFLOAD_TASKS);
--		xp_cmd.parm2 = tp->offload;
--		xp_cmd.parm3 = tp->offload;
--		spin_unlock_bh(&tp->state_lock);
--		err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
- 		if(err < 0)
- 			printk("%s: vlan offload error %d\n", tp->name, -err);
--		spin_lock_bh(&tp->state_lock);
- 	}
- 
- 	/* now make the change visible */
-@@ -1485,6 +1494,7 @@
- 
- 	spin_lock_init(&tp->command_lock);
- 	spin_lock_init(&tp->state_lock);
-+	spin_lock_init(&tp->offload_lock);
++void xfrm_accel_add(struct net_device *dev)
++{
++	xfrm_state_accel_add(dev);
++	xfrm_prune_bundles(bundle_uses_dev, dev);
++}
++
++void xfrm_accel_flush(struct net_device *dev)
++{
++	xfrm_state_accel_flush(dev);
++	xfrm_prune_bundles(bundle_uses_dev, dev);
++}
++
+ /* Well... that's _TASK_. We need to scan through transformation
+  * list and figure out what mss tcp should generate in order to
+  * final datagram fit to mtu. Mama mia... :-)
+diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+--- a/net/xfrm/xfrm_state.c	2005-01-10 01:19:25 -05:00
++++ b/net/xfrm/xfrm_state.c	2005-01-10 01:19:25 -05:00
+@@ -999,6 +999,45 @@
+ 		xfrm_offload_release(old);
  }
  
- static void
-@@ -2217,12 +2227,13 @@
- 	if(err < 0)
- 		goto error_out;
- 
-+	/* tp->card_state != Running, so nothing will change this out
-+	 * from under us.
-+	 */
- 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_OFFLOAD_TASKS);
--	spin_lock_bh(&tp->state_lock);
- 	xp_cmd.parm2 = tp->offload;
- 	xp_cmd.parm3 = tp->offload;
- 	err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
--	spin_unlock_bh(&tp->state_lock);
- 	if(err < 0)
- 		goto error_out;
- 
++static int try_new_accel(struct xfrm_state *x, int unused, void *data)
++{
++	struct net_device *dev = data;
++
++	if (x->dir == XFRM_STATE_DIR_IN)
++		dev->xfrm_state_add(dev, x);
++	return 0;
++}
++
++static int remove_stale_accel(struct xfrm_state *x, int unused, void *dev)
++{
++	struct xfrm_offload *xol, *entry = NULL;
++
++	spin_lock(&x->lock);
++	list_for_each_entry(xol, &x->offloads, bydev) {
++		if (xol->dev == dev) {
++			list_del(&xol->bydev);
++			entry = xol;
++			break;
++		}
++	}
++	spin_unlock(&x->lock);
++
++	if (entry)
++		xfrm_offload_release(entry);
++
++	return 0;
++}
++
++void xfrm_state_accel_add(struct net_device *dev)
++{
++	xfrm_state_walk(IPSEC_PROTO_ANY, try_new_accel, dev);
++}
++
++void xfrm_state_accel_flush(struct net_device *dev)
++{
++	xfrm_state_walk(IPSEC_PROTO_ANY, remove_stale_accel, dev);
++}
++
+ void __init xfrm_state_init(void)
+ {
+ 	int i;
