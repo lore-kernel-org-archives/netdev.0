@@ -1,27 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK-PATCH 2.6] IPV6: Fix checksum for rawv6 sockets
-Date: Thu, 20 May 2004 08:16:31 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [BK-PATCH 2.4] IPV6: ensure to evaluate checksum
+Date: Fri, 21 May 2004 00:55:50 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040520081631.78157bf1.davem@redhat.com>
-References: <20040520.193240.67952249.yoshfuji@linux-ipv6.org>
+Message-ID: <20040521.005550.20498276.yoshfuji@linux-ipv6.org>
+References: <20040520.193312.19702393.yoshfuji@linux-ipv6.org>
+	<20040520081421.594c5447.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040520.193240.67952249.yoshfuji@linux-ipv6.org>
+To: davem@redhat.com
+In-Reply-To: <20040520081421.594c5447.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 May 2004 19:32:40 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+In article <20040520081421.594c5447.davem@redhat.com> (at Thu, 20 May 2004 08:14:21 -0700), "David S. Miller" <davem@redhat.com> says:
 
-> Following changesets fixes checksum for rawv6 sockets.
->  - send appropriate checksum
->  - don't receive packets with incorrect checksum
->  - ensure to notify return code to the caller.
-> 
-> Please pull following csets from <bk://bk.skbuff.net:20606>.
+> I can see both advantages and disadvantages of this
+> behavior.  But what I want to ask is if ipv6 RAW is
+> being different on purpose, for example does the ipv6
+> advanced API specify this perhaps?
 
-This looks great.  Pulled, thanks a lot Yoshfuji.
+Yes. RFC3542 (Advanced Sockets Application Program Interface (API) for 
+IPv6) says:
+|   For other raw IPv6 sockets (that is, for raw IPv6 sockets created
+|   with a third argument other than IPPROTO_ICMPV6), the application
+|   must set the new IPV6_CHECKSUM socket option to have the kernel (1)
+|   compute and store a checksum for output, and (2) verify the received
+|   checksum on input, discarding the packet if the checksum is in error.
+
+--yoshfuji
