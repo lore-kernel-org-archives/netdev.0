@@ -1,45 +1,38 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
-Date: 22 Mar 2005 23:01:56 -0500
-Message-ID: <1111550516.1088.25.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>
-	 <1107174142.8021.121.camel@jzny.localdomain>
-	 <00c301c524b4$938cd240$6e69690a@RIMAS>
-	 <1110379135.1091.143.camel@jzny.localdomain>
-	 <1110416767.1111.76.camel@jzny.localdomain>
-	 <025501c52552$2dbf87c0$6e69690a@RIMAS>
-	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>
-	 <1111410890.1092.195.camel@jzny.localdomain>  <4240C70E.8060503@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [22/*] [NETFILTER] Use correct IPsec MTU in TCPMSS
+Date: Wed, 23 Mar 2005 05:03:04 +0100
+Message-ID: <4240EA78.5050402@trash.net>
+References: <20050214221607.GC18465@gondor.apana.org.au>	<20050306213214.7d8a143d.davem@davemloft.net>	<20050307103536.GB7137@gondor.apana.org.au>	<20050308102741.GA23468@gondor.apana.org.au>	<20050314102614.GA9610@gondor.apana.org.au>	<20050314105313.GA21001@gondor.apana.org.au>	<20050314111002.GA29156@gondor.apana.org.au>	<20050315091904.GA6256@gondor.apana.org.au>	<20050315095837.GA7130@gondor.apana.org.au>	<20050318090310.GA28443@gondor.apana.org.au>	<20050318091129.GA28658@gondor.apana.org.au>	<20050318104013.57d65e99.davem@davemloft.net>	<423D9ADA.6050407@trash.net> <20050322194910.6a9fa3a4.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Harald Welte <laforge@gnumonks.org>, Remus <rmocius@auste.elnet.lt>,
-        netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
-        Damion de Soto <damion@snapgear.com>,
-        Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4240C70E.8060503@trash.net>
+Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org,
+        netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050322194910.6a9fa3a4.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-03-22 at 20:31, Patrick McHardy wrote:
-
-> We'll try to keep this in mind in the future. We could move
-> the version field to the end, but I guess its already too
-> late. What do you think?
+David S. Miller wrote:
+> On Sun, 20 Mar 2005 16:46:34 +0100
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
+> 
+>>So what's holding back these patches is getting some consensus on what
+>>exactly we want to do and finding a better method for determining when
+>>decapsulation is done. One possibility would be stealing packets
+>>in xfrm_policy_check(), but I haven't thought much about this yet.
+> 
+> 
+> That latter idea sounds pursuable.  I guess you'd do a netfilter
+> hook in xfrm_policy_check() right?
 
-I think its ok for now - we'll say if you want to use ipt you have to
-use iptables 1.3.1 and above.
-Just keep me in mind in the future. Like i suggested a while back
-since i am ripping code off iptables anyways. if that code gets
-modularized and in a library then the maintainance of this should be
-easier.
+It would call netif_rx(). The packet should pass all hooks as usual,
+so everything works as expected. It is cleaner than my current
+approach, but has the same problems wrt. statistics and AF_PACKET/raw
+sockets. I'll post a patch (probably tomorrow, its late here) so we
+have something concrete to talk about.
 
-cheers,
-jamal
+Regards
+Patrick
