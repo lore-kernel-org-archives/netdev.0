@@ -1,41 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Seventh release of i82586 drivers: Novell NE3200, Microdyne EXOS
- 205T/215T and Intel EtherExpress 16
-Date: Sat, 24 Jan 2004 20:09:48 -0500
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <4013175C.6090607@pobox.com>
-References: <20031031155341.B1773@sygehus.dk> <3FA2854C.9080801@pobox.com> <20031031180525.A1984@sygehus.dk> <20031107192543.A1921@sygehus.dk>
+From: Srihari Vijayaraghavan <harisri@bigpond.com>
+Subject: Re: [update] 2.6.2-rc1 - Realtek 8169 patches
+Date: Sun, 25 Jan 2004 13:06:58 +1100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200401251306.58563.harisri@bigpond.com>
+References: <20040122234725.A8109@electric-eye.fr.zoreil.com> <200401241522.18369.harisri@bigpond.com> <20040124111601.A30087@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, Netdev <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <20031107192543.A1921@sygehus.dk>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040124111601.A30087@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rask Ingemann Lambertsen wrote:
-> I now have patches against linux 2.4.22-bk45. Due to the size I won't post
-> them to the list. They can be downloaded instead:
-> 
-> <URL:http://users.cybercity.dk/~ccc94453/linux/i82586/i82586-2.4.22bk45.patch1.bz2>
-> (bzip2 compressed, 41140 bytes)
-> <URL:http://users.cybercity.dk/~ccc94453/linux/i82586/i82586-2.4.22bk45.patch1.txt>
-> (uncompressed, 175346 bytes)
+Hello Romieu,
 
-I've been slow getting to these... any chance you could re-diff against 
-2.4.25-pre7?
+On Saturday 24 January 2004 21:16, you wrote:
+> > I have applied your patches (all of them) and the kernel oops when I ping
+> > to that machine from a remote machine :-(.
+>
+> Ok, can you publish/send me offlist an objdump -S of your r8169 module +
+> r8169.c source ?
 
+Please read my comments below and tell me if you still want the objdump?
 
-> Btw, if/when I make more updates, should I make full patches or
-> incremental patches?
+> > I will try to track down which one of your patch introduces the
+> > regression.
+>
+> Thanks, a binary search can be done in 5~6 different rounds.
 
-Up to you.  In general, I prefer being "mailbombed" with multiple 
-patches, against the latest kernel or latest netdev.
+Oh yes, been there done that :-). The r8169-addr-high.patch introduces the 
+regression. The good news is that the previous 13 patches do not introduce 
+any issues, and the kernel is stable with them.
 
-	Jeff
-
-
-P.S. I haven't forgotten about your de2104x mtu patch either, need to 
-review that soon.
-
+Thanks
+Hari
