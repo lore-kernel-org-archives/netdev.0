@@ -1,54 +1,97 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
-Date: Sun, 22 Aug 2004 14:58:01 +0200
+From: "Voluspa" <lista4@comhem.se>
+Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
+Date: Sun, 22 Aug 2004 17:04:35 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41289859.2040803@trash.net>
-References: <20040818091352.GB6507@suse.de>	<20040819101159.GC3921@sunbeam.de.gnumonks.org>	<20040819071846.2d0d6120.davem@redhat.com>	<4124BF7E.7090304@trash.net>	<20040819081428.5243e314.davem@redhat.com>	<412765DC.30600@trash.net> <20040821221344.6dbc98ed.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, okir@suse.de, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Message-ID: <200408221504.i7MF4Z719895@d1o404.telia.com>
+Reply-To: "Voluspa" <lista4@comhem.se>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040821221344.6dbc98ed.davem@redhat.com>
+To: linux-kernel@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+Greetings,
 
->On Sat, 21 Aug 2004 17:10:20 +0200
->Patrick McHardy <kaber@trash.net> wrote:
->
->>The problem is that conntrack unload can cause packets without a
->>dst_entry to appear in ip_local_deliver, which is already after
->>the call to dst_input.
->>    
->>
->
->How can it call ip_local_deliver() without a valid skb->dst?
->That function is only invoked via skb->dst->input(skb) which
->by implication means that skb->dst is non-NULL.
->
->Actually there is a call via ip_mr_input() but that code also
->has a precondition that skb->dst is non-NULL too.  I say this
->due to the unchecked skb->dst accesses it makes early on.
->
->Please explain.  I don't question that it happens, just show
->me how :-)
->  
->
+NOTE
+I wrote the text below just prior to the posting of
+01-2.6-cbq-leaks.diff but applying it doesn't change the
+situation here. I still get the same Oops as below. Slight
+changes in memory address but the Call Trace is identical.
+So, different problem?
+ENDNOTE
 
-The first fragment (offset=0) is given to ip_defrag by conntrack
-at PRE_ROUTING, without a dst_entry. Then conntrack is unloaded.
-Further fragments are now queued in ip_local_deliver. When the
-packet is reassembled and "continues" its way from
-ip_local_deliver, it doesn't have a dst_entry.
+Yes, saw the same thing on eth0 but had a confusing time to catch a
+clean error situation. Having been used to stable kernels for a long
+time I've disabled all debugging options and compile for size. So
+when 2.6.8[.1] threw an Oops at the end of every "shutdown -r now"
+the feedback was useless ("halt" gave no Oops). What looked to be
+the same Oops came when doing a "rmmod 8139too". 2.6.7 has no such
+issues.
 
-The opposite way is of course also possible, packets queued in
-ip_local_deliver can jump and appear in the PRE_ROUTING hook
-when conntrack is loaded, but that way doesn't seem to cause
-problems.
+Turning on CONFIG_KALLSYMS (and CONFIG_CC_OPTIMIZE_FOR_SIZE off), with
+CONFIG_FRAME_POINTER, a slew of other debug options and the
+CONFIG_MAGIC_SYSRQ, hid the Oops and gave the result Nuno Silva
+has described.
 
-Regards
-Patrick
+To make a long story short, I didn't trust my very old system enough
+to report.
+
+But now I've seen the QoS/wshaper connection and achieved a good Oops
+with only CONFIG_KALLSYMS and CONFIG_FRAME_POINTER set.
+
+Typing it here in case it has some kind of value (hand-copied):
+
+[...]
+Unmounting local filesystems...
+Flushing filesystem buffers...
+Please stand by while rebooting...
+Unable to handle kernel paging request at virtual address 8bc289a9
+ printing eip:
+c02ae9c0
+*pde = 00000000
+Ooops: 0000 [#1]
+PREEMPT
+Modules linked in: 8139too crc32
+CPU:    0
+EIP:    0060:[<c02ae9c0>]   Not tainted
+EFLAGS: 00010286   (2.6.8-debug)
+EIP is at fib_sync_down+0x50/0xb0
+eax: cfaee800 ebx: 948bff0d ecx: 8bc28955 edx: c0267eb8
+esi: 00000001 edi: 00000000 ebp: cf0a1ea4 esp: cf0a1e8c
+de: 007b es: 007b ss: 0068
+Process reboot (pid: 151, threadinfo=cf0a1000 task=cfa3e090)
+Stack:
+000000ff 00000001 cfaee800 cfaee800 cfaee800 00000002 cf0a1eb0 c02ad8d1
+c033affc cf0a1ebc c02ad9b9 c033affc cf0a1ed0 c0121508 cfaee800 00000002
+00001003 cf0a1ee0 c025dadf cfaee800 00000002 cf0a1ef8 c025ef32 00000000
+Call Trace:
+ [<c0104d7a>] show_stack+0x7a/0x90
+ [<c0104ef9>] show_registers+0x149/0x1a0
+ [<c010508d>] die+0x8d/0x100
+ [<c0111b45>] do_page_fault+0x1e5/0x569
+ [<c0104a15>] error_code+0x2d/0x38
+ [<c02ad8d1>] fib_disable_ip+0x11/0x30
+ [<c02ad9b9>] fib_netdev_event+0x69/0x80
+ [<c0121508>] notifier_call_chain+0x28/0x50
+ [<c025dadf>] dev_close+0x8f/0xa0
+ [<c025ef32>] dev_change_flags+0x52/0x120
+ [<c02a82f5>] devinet_ioctl+0x245/0x590
+ [<c02aa573>] inet_ioctl+0x63/0xb0
+ [<c0255b82>] sock_ioctl+0xe2/0x230
+ [<c0159a95>] sys_ioctl+0x105/0x260
+ [<c010400b>] syscall_call+0x7/0xb
+Code: 8b 41 54 85 c0 74 19 8d 51 58 31 f6 8b 5a 04 f6 c3 01 74 2c
+/etc/rc.d/rc.6: line 49: 151 Segmentation fault /sbin/reboot -d -f -i
+INIT: no more processes left in this runlevel
+<5>portmap: server localhost not responding, timed out
+RPC: failed to contact portmap (errno -5).
+portmap: server localhost not responding, timed out
+RPC: failed to contact portmap (errno -5).
+--endOops--
+
+The -i parametre to reboot (which is a symlink to halt) means to shut
+down all network interfaces. My halt command doesn't use the -i, hence
+the lack of Oops.
+
+Mvh
+Mats Johannesson
