@@ -1,29 +1,25 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Problems with TCP + netem packet loss simulation
-Date: Thu, 11 Nov 2004 15:28:34 -0800
-Message-ID: <20041111152834.5a7b1f79@dxpl.pdx.osdl.net>
-References: <200411112115.23269.epx@altoriopreto.com.br>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [BK PATCH] Misc IPv6 Updates
+Date: Thu, 11 Nov 2004 15:18:13 -0800
+Message-ID: <20041111151813.55fa815e.davem@davemloft.net>
+References: <20041110.030026.29809367.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Elvis =?ISO-8859-1?B?UGb8dHplbnJldXRlcg==?= <epx@altoriopreto.com.br>
-In-Reply-To: <200411112115.23269.epx@altoriopreto.com.br>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20041110.030026.29809367.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Nov 2004 21:15:23 -0200
-Elvis Pf=FCtzenreuter <epx@altoriopreto.com.br> wrote:
+On Wed, 10 Nov 2004 03:00:26 -0500 (EST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Hi,
->=20
-> I am experiencing a strange problem when I try to simulate a lossy chan=
-nel=20
-> with netem scheduler module. Whatever the packet loss %, all TCP connec=
-tions=20
-> eventually stall.=20
+> Here're changeset at:
+>   bk://bk.skbuff.net:20610/linux-2.6-inet6-misc/
 
-Netem might be buggy, try doing lots of pings and see if the rate you
-expected is correct.  The scaling of percent to u32 is probably the issue.
+Looks fine to me, pulled.
+
+Thank you.
