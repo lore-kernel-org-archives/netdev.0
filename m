@@ -1,28 +1,35 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
-Date: Wed, 09 Feb 2005 21:45:23 +0100
-Message-ID: <420A7663.4060308@tomt.net>
-References: <20050205064643.GA29758@gondor.apana.org.au>	<20050205104559.GA30981@gondor.apana.org.au>	<20050206114145.GA20883@gondor.apana.org.au> <20050206.213018.92031627.yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] ipv4 routing: multipath with cache support,
+ 2.6.10-rc3
+Date: Wed, 9 Feb 2005 13:17:10 -0800
+Message-ID: <20050209131710.00315044.davem@davemloft.net>
+References: <41C6B54F.2020604@einar-lueck.de>
+	<20050202172333.4d0ad5f0.davem@davemloft.net>
+	<420A1011.1030602@einar-lueck.de>
+	<20050209120157.18dc75c1.davem@davemloft.net>
+	<420A715D.7050106@einar-lueck.de>
+	<20050209123004.2d65e1cf.davem@davemloft.net>
+	<420A75BF.1080106@einar-lueck.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
-Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
-        mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, shemminger@osdl.org
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20050206.213018.92031627.yoshfuji@linux-ipv6.org>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: Einar =?ISO-8859-1?Q?L=FCck?= <lkml@einar-lueck.de>
+In-Reply-To: <420A75BF.1080106@einar-lueck.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> Oh, you're right! Thanks.
->=20
-> How about this; Ignore entries addrconf_dst_alloc'ed entries in rt6_ifd=
-own()?
->=20
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+On Wed, 09 Feb 2005 21:42:39 +0100
+Einar L=FCck <lkml@einar-lueck.de> wrote:
 
-This patch seems to work fine here; cleared out the other patches to be=20
-sure. So, herberts first patch fixes it, and so do this one. I have not=20
-tried the one in between.
+> We considered the routing case: in the routing case ip_route_input is c=
+alled.=20
+> In this case we just select the first route in the cache which is alway=
+s the same=20
+> (we ensure that). Consequently, the routing behaviour is not changed in=
+ this case and=20
+> remains in the way you like it.=20
+
+Indeed.  You're right.  Let me re-review your second patch with
+this new understanding in mind :-)
