@@ -1,23 +1,21 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: [BK PATCHES] 2.6.x experimental net driver queue
-Date: Wed, 29 Oct 2003 16:23:22 -0500
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20031029212322.GA6621@gtf.org>
+Date: Wed, 29 Oct 2003 18:34:11 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20031029233411.GA21890@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Main items of interest:
-* shemminger's merge of viro's probe work
-* NAPI support for tulip (Robert Ollson and friends)
-* Matt Mackall's netpoll/netconsole stuff
+Andi Kleen was kind enough to gather up and send the vendor netpoll
+patches that have been lying around in various vendor, -aa, etc. trees
+and send them along.  So here goes -test9-bk3-netdrvr-exp2.
 
-Coming soon:
-* shemminger/ogawa's NAPI support for 8139too
 
 
 BK users:
@@ -25,7 +23,7 @@ BK users:
 	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.5-exp
 
 Patch:
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test9-bk3-netdrvr-exp1.patch.bz2
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test9-bk3-netdrvr-exp2.patch.bz2
 
 This will update the following files:
 
@@ -36,14 +34,17 @@ This will update the following files:
  drivers/net/3c507.c                     |  110 ++---
  drivers/net/3c515.c                     |   23 -
  drivers/net/3c527.c                     |  584 +++++++++++++----------------
+ drivers/net/3c59x.c                     |   15 
  drivers/net/8139too.c                   |   51 +-
  drivers/net/82596.c                     |   83 ++--
  drivers/net/Kconfig                     |    7 
  drivers/net/Makefile                    |    1 
  drivers/net/Space.c                     |  161 +++++---
+ drivers/net/amd8111e.c                  |   14 
  drivers/net/de620.c                     |   63 ++-
  drivers/net/defxx.c                     |    2 
  drivers/net/dummy.c                     |    2 
+ drivers/net/eepro100.c                  |   21 +
  drivers/net/eql.c                       |    2 
  drivers/net/natsemi.c                   |   39 +
  drivers/net/netconsole.c                |  120 ++++++
@@ -51,18 +52,19 @@ This will update the following files:
  drivers/net/ni52.c                      |  118 +++--
  drivers/net/ni65.c                      |  101 +++--
  drivers/net/ns83820.c                   |    2 
+ drivers/net/pcnet32.c                   |   11 
  drivers/net/plip.c                      |   14 
  drivers/net/shaper.c                    |   11 
  drivers/net/sk_g16.c                    |  179 +++------
  drivers/net/skfp/skfddi.c               |   32 -
- drivers/net/tg3.c                       |   12 
+ drivers/net/tg3.c                       |   16 
  drivers/net/tokenring/proteon.c         |  184 ++++-----
  drivers/net/tokenring/skisa.c           |  182 ++++-----
  drivers/net/tokenring/smctr.c           |  194 +++++----
  drivers/net/tulip/Kconfig               |   20 +
  drivers/net/tulip/interrupt.c           |  410 +++++++++++++++-----
  drivers/net/tulip/tulip.h               |   18 
- drivers/net/tulip/tulip_core.c          |   55 +-
+ drivers/net/tulip/tulip_core.c          |   76 ++-
  drivers/net/tun.c                       |   18 
  drivers/net/wan/lmc/lmc_main.c          |  375 ++++++------------
  drivers/net/wan/lmc/lmc_var.h           |   15 
@@ -77,9 +79,44 @@ This will update the following files:
  net/core/dev.c                          |   39 +
  net/core/netpoll.c                      |  636 ++++++++++++++++++++++++++++++++
  net/wanrouter/wanmain.c                 |    2 
- 48 files changed, 2889 insertions(+), 1982 deletions(-)
+ 52 files changed, 2971 insertions(+), 1986 deletions(-)
 
 through these ChangeSets:
+
+<ak@muc.de> (03/10/29 1.1404)
+   [PATCH] netpoll for eepro100
+   
+   netpoll for eepro100
+   
+   This was in Ingo's old original netconsole patches.
+
+<ak@muc.de> (03/10/29 1.1403)
+   [PATCH] fix tg3 netpoll
+   
+   No need to use disable_irq because tg3 is properly spinlocked.
+   Can just call the interrupt handler directly.
+
+<ak@muc.de> (03/10/29 1.1402)
+   [PATCH] Netpoll for pcnet32
+   
+   netpoll for pcnet32
+
+<ak@muc.de> (03/10/29 1.1401)
+   [PATCH] netpoll for amd8111e
+   
+   netpoll for amd8111e
+
+<ak@muc.de> (03/10/29 1.1400)
+   [PATCH] netpoll for tulip
+   
+   Netpoll for tulip. Uses disable_irq() because tulip is unfortunately
+   still lockless.
+
+<ak@muc.de> (03/10/29 1.1399)
+   [PATCH] netpoll for 3c59x
+   
+   >From the old -aa tree with minor changes. Orginally done
+   by Andrea I think.
 
 <mpm@selenic.com> (03/10/29 1.1389.1.3)
    [NET] use the netpoll API to transmit kernel printks over UDP
