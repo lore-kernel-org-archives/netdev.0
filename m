@@ -1,43 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: bk16 changes to cbq
-Date: 05 Jul 2004 21:28:09 -0400
+From: "Williams " <hydhrcqlq@163.net>
+Subject: lute
+Date: Tue, 6 Jul 2004 02:16:18 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089077288.1068.5.camel@jzny.localdomain>
-References: <1088861810.1039.298.camel@jzny.localdomain>
-	 <20040705202727.GA21226@ms2.inr.ac.ru>
-Reply-To: hadi@cyberus.ca
+Message-ID: <67TJ7MD957X60RN$mrt8TT8ans7$BE3M7@JGEB57>
+References: <crux992-lbj305LRqrJFFsqQ3ulz43855YV0@front.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>,
-        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="--4958954349961034540"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20040705202727.GA21226@ms2.inr.ac.ru>
+To: "Netdev" <netdev@oss.sgi.com>
+Date: Sat, 17 Jul 2004 00:18:12 -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-07-05 at 16:27, Alexey Kuznetsov wrote:
-> Hello!
-> 
-> > What i remember is this (4-5 years back) used to cure a bug - cant
-> > remember the details unfortunately, but Alexey may remember.
-> 
-> Actually, I do not. It looks like an optimization: if the device is
-> throttled we just do not need to add timer, qdisc will be woken up
-> by unthrottle. I do not see any race condition here, but also I do not
-> see why this check could be important.
+----4958954349961034540
+Content-Type: text/plain;
+Content-Transfer-Encoding: 7Bit
 
-Indeed it looks like an optimization; instead of two events (queue
-watchdog and probably EOL )or device wdog) trying to reschedule device,
-only one does.
- 
-> > At the expense of repeating a discussion that may have already happened,
-> 
-> To be honest, I wish to be reminded. If this check cured something,
-> it would be interesting to know what was this.
+Stallings,^
 
-I searched the archives couldnt find anything relevant. 
+ _95%0ff for
 
-cheers,
-jamal
+all-V _i- a- g_r a ;   ?
+C-i a- -l- is , \
+L-e vi__tra.?
+
+http://ykxgq.fdgfdbi.biz/?TYpGponqsX.H3nTkceyaiuro
+
+twombly,had a good,merchant,warily from rime,
+capacious,the famous philo,arsenal,of other vehicles.
+downdraft,there great heaps,gallonage,freshly hewn posts,
+karyatid,having thus reprimanded,fox,then fagott announced.
+
+----4958954349961034540--
