@@ -1,58 +1,48 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] netif_rx: receive path optimization
-Date: Thu, 31 Mar 2005 14:02:40 -0800
-Message-ID: <20050331140240.170d7942@dxpl.pdx.osdl.net>
-References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>
-	<20050331120410.7effa94d@dxpl.pdx.osdl.net>
-	<1112303431.1073.67.camel@jzny.localdomain>
-	<20050331131707.69f451ea@dxpl.pdx.osdl.net>
-	<5cac192f05033113434742aeb4@mail.gmail.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Redirect-Device
+Date: Thu, 31 Mar 2005 14:04:11 -0800
+Message-ID: <424C73DB.2090501@candelatech.com>
+References: <424C6089.1080507@candelatech.com>	<20050331130512.7e4b8bc0@dxpl.pdx.osdl.net>	<424C6F82.7030609@candelatech.com> <20050331135229.432afff3.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@znyx.com, "David S. Miller" <davem@davemloft.net>,
-        netdev
- <netdev@oss.sgi.com>
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f05033113434742aeb4@mail.gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050331135229.432afff3.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Mar 2005 23:43:27 +0200
-Eric Lemoine <eric.lemoine@gmail.com> wrote:
-
-> > > > Here is another alternative that seems better than the earlier posting. It uses
-> > > > a per device receive queue for non-NAPI devices.  The only issue is that then
-> > > > we lose the per-cpu queue's and that could impact the loopback device performance.
-> > > > If that is really an issue, then the per-cpu magic should be moved to the loopback
-> > > > device.
-> > > >
-> > >
-> > > The repurcassions of going from per-CPU-for-all-devices queue
-> > > (introduced by softnet) to per-device-for-all-CPUs maybe huge in my
-> > > opinion especially in SMP. A closer view of whats there now maybe
-> > > per-device-per-CPU backlog queue.
-> > 
-> > Any real hardware only has a single receive packet source (the interrupt routine),
-> > and the only collision would be in the case of interrupt migration.  So having
-> > per-device-per-CPU queue's would be overkill and more complex because
-> > the NAPI scheduling is per-netdevice rather than per-queue (though that
-> > could be fixed).
-> > 
-> > > I think performance will be impacted in all devices. imo, whatever needs
-> > > to go in needs to have some experimental data to back it
-> > 
-> > Experiment with what? Proving an absolute negative is impossible.
-> > I will test loopback and non-NAPI version of a couple of gigabit drivers
-> > to see.
+David S. Miller wrote:
+> On Thu, 31 Mar 2005 13:45:38 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
 > 
-> Just a naive question : why at all trying to accelerate netif_rx?
-> Isn't NAPI the best choice for high performance rx anyway?
+> 
+>>>	Adding new ioctl's are very frowned on
+>>
+>>Bummer.  I want these as well, makes programatic reading of the information
+>>much easier than trying to parse some proc file.  I will look into what it
+>>takes to make them compat with 64-bit as DaveM suggested.
+> 
+> 
+> You could extend and use ethtool.  That is what it's there for.
 
-It was a side-effect of trying to clean out the dead code leftover from
-removal of fastroute and other old experiments. netif_rx still gets used
-for loopback and people do benchmarks on loopback.  Also, NAPI doesn't
-work for all cases like layered devices and devices like wifi that need to
-receive packets when the network device is "not running".
+The IOCTLs I need are very specific and will only be used for
+the redirect module.  I don't think it would be worth adding
+a function pointer to the ethtool-ops, but if that is what you
+prefer I can do so.
+
+With regard to the compat:  I did a quick search for 'vlan' in that
+file, thinking I'd mimic whatever was done for the .1q module.  There
+is no mention of vlan anywhere in there.  Does that mean that so long
+as I don't use pointers, strictly define my data types (u32, etc),
+and make sure the ioctl structs are padded to 32-bit (or maybe 64-bit?)
+boundaries, I don't need any 64-bit compat code?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
