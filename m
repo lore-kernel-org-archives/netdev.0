@@ -1,8 +1,8 @@
 From: Roger Luethi <rl@hellgate.ch>
-Subject: [1/9][PATCH 2.6] Restructure reset code
-Date: Tue, 15 Jun 2004 19:48:22 +0200
+Subject: [7/9][PATCH 2.6] Media mode rewrite
+Date: Tue, 15 Jun 2004 19:49:42 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040615174822.GA11107@k3.hellgate.ch>
+Message-ID: <20040615174942.GA11319@k3.hellgate.ch>
 References: <20040615174732.GA10241@k3.hellgate.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,268 +14,320 @@ In-Reply-To: <20040615174732.GA10241@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Restructure code to make it easier to maintain.
+Remove rhine_check_duplex, rhine_timer and related data structures
 
-rhine_hw_init: resets chip, reloads eeprom
-rhine_chip_reset: chip reset + what used to be wait_for_reset
-rhine_reload_eeprom: reload eeprom, re-enable MMIO, disable EEPROM-controlled
-	WOL
+Add rhine_check_media: wrapper for generic mii_check_media, sets duplex
+bit in MAC
 
-Note: Chip reset clears a bunch of registers that should be reloaded
-from EEPROM (which turns off MMIO). Deal with that later.
+Add rhine_enable_linkmon, rhine_disable_linkmon to enable hardware link
+status monitoring
+
+Update mdio_read, mdio_write accordingly
+
+Remove get_intr_status check in rhine_start_tx because we are not racing
+anymore
 
 Signed-off-by: Roger Luethi <rl@hellgate.ch>
 
 --- orig/drivers/net/via-rhine.c
 +++ mod/drivers/net/via-rhine.c
-@@ -579,56 +579,76 @@
+@@ -485,7 +485,6 @@
+ 
+ 	struct pci_dev *pdev;
+ 	struct net_device_stats stats;
+-	struct timer_list timer;	/* Media monitoring timer. */
+ 	spinlock_t lock;
+ 
+ 	/* Frequently used values: keep some adjacent for cache effect. */
+@@ -498,16 +497,12 @@
+ 	/* These values are keep track of the transceiver/media in use. */
+ 	u8 tx_thresh, rx_thresh;
+ 
+-	/* MII transceiver section. */
+-	u16 mii_status;			/* last read MII status */
+ 	struct mii_if_info mii_if;
+ };
+ 
+ static int  mdio_read(struct net_device *dev, int phy_id, int location);
+ static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
+ static int  rhine_open(struct net_device *dev);
+-static void rhine_check_duplex(struct net_device *dev);
+-static void rhine_timer(unsigned long data);
+ static void rhine_tx_timeout(struct net_device *dev);
+ static int  rhine_start_tx(struct sk_buff *skb, struct net_device *dev);
+ static irqreturn_t rhine_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
+@@ -1032,6 +1027,21 @@
  	}
  }
  
--static void wait_for_reset(struct net_device *dev, u32 quirks, char *name)
-+static void rhine_chip_reset(struct net_device *dev)
- {
- 	long ioaddr = dev->base_addr;
-+	struct rhine_private *rp = netdev_priv(dev);
- 	int boguscnt = 20;
- 
-+	writew(CmdReset, ioaddr + ChipCmd);
- 	IOSYNC;
- 
- 	if (readw(ioaddr + ChipCmd) & CmdReset) {
- 		printk(KERN_INFO "%s: Reset not complete yet. "
--			"Trying harder.\n", name);
-+			"Trying harder.\n", DRV_NAME);
- 
--		/* Rhine-II needs to be forced sometimes */
--		if (quirks & rqForceReset)
-+		/* Force reset */
-+		if (rp->quirks & rqForceReset)
- 			writeb(0x40, ioaddr + MiscCmd);
- 
--		/* VT86C100A may need long delay after reset (dlink) */
--		/* Seen on Rhine-II as well (rl) */
-+		/* Reset can take somewhat longer (rare) */
- 		while ((readw(ioaddr + ChipCmd) & CmdReset) && --boguscnt)
- 			udelay(5);
--
- 	}
- 
- 	if (debug > 1)
--		printk(KERN_INFO "%s: Reset %s.\n", name,
-+		printk(KERN_INFO "%s: Reset %s.\n", pci_name(rp->pdev),
- 			boguscnt ? "succeeded" : "failed");
- }
- 
- #ifdef USE_MMIO
--static void __devinit enable_mmio(long ioaddr, u32 quirks)
-+static void __devinit enable_mmio(long pioaddr, u32 quirks)
- {
- 	int n;
- 	if (quirks & rqRhineI) {
- 		/* More recent docs say that this bit is reserved ... */
--		n = inb(ioaddr + ConfigA) | 0x20;
--		outb(n, ioaddr + ConfigA);
-+		n = inb(pioaddr + ConfigA) | 0x20;
-+		outb(n, pioaddr + ConfigA);
- 	} else {
--		n = inb(ioaddr + ConfigD) | 0x80;
--		outb(n, ioaddr + ConfigD);
-+		n = inb(pioaddr + ConfigD) | 0x80;
-+		outb(n, pioaddr + ConfigD);
- 	}
- }
- #endif
- 
--static void __devinit reload_eeprom(long ioaddr)
-+/*
-+ * Loads bytes 0x00-0x05, 0x6E-0x6F, 0x78-0x7B from EEPROM
-+ */
-+static void __devinit rhine_reload_eeprom(long pioaddr, struct net_device *dev)
- {
-+	long ioaddr = dev->base_addr;
-+	struct rhine_private *rp = netdev_priv(dev);
- 	int i;
--	outb(0x20, ioaddr + MACRegEEcsr);
-+
-+	outb(0x20, pioaddr + MACRegEEcsr);
- 	/* Typically 2 cycles to reload. */
- 	for (i = 0; i < 150; i++)
--		if (! (inb(ioaddr + MACRegEEcsr) & 0x20))
-+		if (! (inb(pioaddr + MACRegEEcsr) & 0x20))
- 			break;
-+
-+#ifdef USE_MMIO
-+	/*
-+	 * Reloading from EEPROM overwrites ConfigA-D, so we must re-enable
-+	 * MMIO. If reloading EEPROM was done first this could be avoided, but
-+	 * it is not known if that still works with the "win98-reboot" problem.
-+	 */
-+	enable_mmio(pioaddr, rp->quirks);
-+#endif
-+
-+	/* Turn off EEPROM-controlled wake-up (magic packet) */
-+	if (rp->quirks & rqWOL)
-+		writeb(readb(ioaddr + ConfigA) & 0xFE, ioaddr + ConfigA);
-+
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -640,6 +660,15 @@
- }
- #endif
- 
-+static void rhine_hw_init(struct net_device *dev, long pioaddr)
++static void rhine_check_media(struct net_device *dev, unsigned int init_media)
 +{
-+	/* Reset the chip to erase previous misconfiguration. */
-+	rhine_chip_reset(dev);
++	struct rhine_private *rp = netdev_priv(dev);
++	long ioaddr = dev->base_addr;
 +
-+	/* Reload EEPROM controlled bytes cleared by soft reset */
-+	rhine_reload_eeprom(pioaddr, dev);
++	mii_check_media(&rp->mii_if, debug, init_media);
++
++	if (rp->mii_if.full_duplex)
++	    writeb(readb(ioaddr + ChipCmd1) | Cmd1FDuplex,
++		   ioaddr + ChipCmd1);
++	else
++	    writeb(readb(ioaddr + ChipCmd1) & ~Cmd1FDuplex,
++		   ioaddr + ChipCmd1);
 +}
 +
- static int __devinit rhine_init_one(struct pci_dev *pdev,
- 				    const struct pci_device_id *ent)
+ static void init_registers(struct net_device *dev)
  {
-@@ -649,13 +678,11 @@
- 	u8 pci_rev;
- 	u32 quirks;
- 	static int card_idx = -1;
--	long ioaddr;
-+	long pioaddr;
- 	long memaddr;
-+	long ioaddr;
- 	int io_size;
- 	int phy, phy_idx = 0;
--#ifdef USE_MMIO
--	long ioaddr0;
--#endif
- 	const char *name;
+ 	struct rhine_private *rp = netdev_priv(dev);
+@@ -1047,7 +1057,6 @@
+ 	writeb(0x20, ioaddr + TxConfig);
+ 	rp->tx_thresh = 0x20;
+ 	rp->rx_thresh = 0x60;		/* Written in rhine_set_rx_mode(). */
+-	rp->mii_if.full_duplex = 0;
  
- /* when built into the kernel, we only print version if device is found */
-@@ -708,7 +735,7 @@
- 		goto err_out;
- 	}
+ 	writel(rp->rx_ring_dma, ioaddr + RxRingPtr);
+ 	writel(rp->tx_ring_dma, ioaddr + TxRingPtr);
+@@ -1063,14 +1072,42 @@
  
--	ioaddr = pci_resource_start(pdev, 0);
-+	pioaddr = pci_resource_start(pdev, 0);
- 	memaddr = pci_resource_start(pdev, 1);
- 
- 	pci_set_master(pdev);
-@@ -728,8 +755,7 @@
- 		goto err_out_free_netdev;
- 
- #ifdef USE_MMIO
--	ioaddr0 = ioaddr;
--	enable_mmio(ioaddr0, quirks);
-+	enable_mmio(pioaddr, quirks);
- 
- 	ioaddr = (long) ioremap(memaddr, io_size);
- 	if (!ioaddr) {
-@@ -743,7 +769,7 @@
- 	i = 0;
- 	while (mmio_verify_registers[i]) {
- 		int reg = mmio_verify_registers[i++];
--		unsigned char a = inb(ioaddr0+reg);
-+		unsigned char a = inb(pioaddr+reg);
- 		unsigned char b = readb(ioaddr+reg);
- 		if (a != b) {
- 			rc = -EIO;
-@@ -752,26 +778,18 @@
- 			goto err_out_unmap;
- 		}
- 	}
-+#else
-+	ioaddr = pioaddr;
- #endif /* USE_MMIO */
+ 	writew(CmdStart|CmdTxOn|CmdRxOn|(Cmd1NoTxPoll << 8),
+ 	       ioaddr + ChipCmd);
+-	if (rp->mii_if.force_media)
+-		writeb(readb(ioaddr + ChipCmd1) | Cmd1FDuplex,
+-		       ioaddr + ChipCmd1);
+-	else
+-		writeb(readb(ioaddr + ChipCmd1) & ~Cmd1FDuplex,
+-		       ioaddr + ChipCmd1);
++	rhine_check_media(dev, 1);
++}
 +
- 	dev->base_addr = ioaddr;
-+	rp = netdev_priv(dev);
-+	rp->quirks = quirks;
++/* Enable MII link status auto-polling (required for IntrLinkChange) */
++static void rhine_enable_linkmon(long ioaddr)
++{
++	writeb(0, ioaddr + MIICmd);
++	writeb(MII_BMSR, ioaddr + MIIRegAddr);
++	writeb(0x80, ioaddr + MIICmd);
  
- 	rhine_power_init(dev);
+-	rhine_check_duplex(dev);
++	RHINE_WAIT_FOR((readb(ioaddr + MIIRegAddr) & 0x20));
++
++	writeb(MII_BMSR | 0x40, ioaddr + MIIRegAddr);
++}
++
++/* Disable MII link status auto-polling (required for MDIO access) */
++static void rhine_disable_linkmon(long ioaddr, u32 quirks)
++{
++	writeb(0, ioaddr + MIICmd);
++
++	if (quirks & rqRhineI) {
++		writeb(0x01, ioaddr + MIIRegAddr);	// MII_BMSR
++
++		/* Can be called from ISR. Evil. */
++		mdelay(1);
++
++		/* 0x80 must be set immediately before turning it off */
++		writeb(0x80, ioaddr + MIICmd);
++
++		RHINE_WAIT_FOR(readb(ioaddr + MIIRegAddr) & 0x20);
++
++		/* Heh. Now clear 0x80 again. */
++		writeb(0, ioaddr + MIICmd);
++	}
++	else
++		RHINE_WAIT_FOR(readb(ioaddr + MIIRegAddr) & 0x80);
+ }
  
- 	/* Reset the chip to erase previous misconfiguration. */
--	writew(CmdReset, ioaddr + ChipCmd);
+ /* Read and write over the MII Management Data I/O (MDIO) interface. */
+@@ -1078,15 +1115,20 @@
+ static int mdio_read(struct net_device *dev, int phy_id, int regnum)
+ {
+ 	long ioaddr = dev->base_addr;
++	struct rhine_private *rp = netdev_priv(dev);
++	int result;
+ 
+-	/* Wait for a previous command to complete. */
+-	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x60));
+-	writeb(0x00, ioaddr + MIICmd);
++	rhine_disable_linkmon(ioaddr, rp->quirks);
++
++	writeb(0, ioaddr + MIICmd);
+ 	writeb(phy_id, ioaddr + MIIPhyAddr);
+ 	writeb(regnum, ioaddr + MIIRegAddr);
+ 	writeb(0x40, ioaddr + MIICmd);		/* Trigger read */
+ 	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x40));
+-	return readw(ioaddr + MIIData);
++	result = readw(ioaddr + MIIData);
++
++	rhine_enable_linkmon(ioaddr);
++	return result;
+ }
+ 
+ static void mdio_write(struct net_device *dev, int phy_id, int regnum, int value)
+@@ -1094,29 +1136,17 @@
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 
+-	if (phy_id == rp->mii_if.phy_id) {
+-		switch (regnum) {
+-		case MII_BMCR:		/* Is user forcing speed/duplex? */
+-			if (value & 0x9000)	/* Autonegotiation. */
+-				rp->mii_if.force_media = 0;
+-			else
+-				rp->mii_if.full_duplex = (value & 0x0100) ? 1 : 0;
+-			break;
+-		case MII_ADVERTISE:
+-			rp->mii_if.advertising = value;
+-			break;
+-		}
+-	}
++	rhine_disable_linkmon(ioaddr, rp->quirks);
+ 
+-	/* Wait for a previous command to complete. */
+-	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x60));
+-	writeb(0x00, ioaddr + MIICmd);
++	writeb(0, ioaddr + MIICmd);
+ 	writeb(phy_id, ioaddr + MIIPhyAddr);
+ 	writeb(regnum, ioaddr + MIIRegAddr);
+ 	writew(value, ioaddr + MIIData);
+ 	writeb(0x20, ioaddr + MIICmd);		/* Trigger write. */
+-}
++	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x20));
+ 
++	rhine_enable_linkmon(ioaddr);
++}
+ 
+ static int rhine_open(struct net_device *dev)
+ {
+@@ -1148,78 +1178,9 @@
+ 
+ 	netif_start_queue(dev);
+ 
+-	/* Set the timer to check for link beat. */
+-	init_timer(&rp->timer);
+-	rp->timer.expires = jiffies + 2 * HZ/100;
+-	rp->timer.data = (unsigned long)dev;
+-	rp->timer.function = &rhine_timer;		/* timer handler */
+-	add_timer(&rp->timer);
 -
--	wait_for_reset(dev, quirks, shortname);
+ 	return 0;
+ }
+ 
+-static void rhine_check_duplex(struct net_device *dev)
+-{
+-	struct rhine_private *rp = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
+-	int mii_lpa = mdio_read(dev, rp->mii_if.phy_id, MII_LPA);
+-	int negotiated = mii_lpa & rp->mii_if.advertising;
+-	int duplex;
 -
--	/* Reload the station address from the EEPROM. */
--#ifdef USE_MMIO
--	reload_eeprom(ioaddr0);
--	/* Reloading from eeprom overwrites cfgA-D, so we must re-enable MMIO.
--	   If reload_eeprom() was done first this could be avoided, but it is
--	   not known if that still works with the "win98-reboot" problem. */
--	enable_mmio(ioaddr0, quirks);
--#else
--	reload_eeprom(ioaddr);
--#endif
-+	rhine_hw_init(dev, pioaddr);
- 
- 	for (i = 0; i < 6; i++)
- 		dev->dev_addr[i] = readb(ioaddr + StationAddr + i);
-@@ -782,15 +800,6 @@
- 		goto err_out_unmap;
- 	}
- 
--	if (quirks & rqWOL) {
--		/*
--		 * for 3065D, EEPROM reloaded will cause bit 0 in MAC_REG_CFGA
--		 * turned on. it makes MAC receive magic packet
--		 * automatically. So, we turn it off. (D-Link)
--		 */
--		writeb(readb(ioaddr + ConfigA) & 0xFE, ioaddr + ConfigA);
+-	if (rp->mii_if.force_media || mii_lpa == 0xffff)
+-		return;
+-	duplex = (negotiated & 0x0100) || (negotiated & 0x01C0) == 0x0040;
+-	if (rp->mii_if.full_duplex != duplex) {
+-		rp->mii_if.full_duplex = duplex;
+-		if (debug)
+-			printk(KERN_INFO "%s: Setting %s-duplex based on "
+-			       "MII #%d link partner capability of %4.4x.\n",
+-			       dev->name, duplex ? "full" : "half",
+-			       rp->mii_if.phy_id, mii_lpa);
+-		if (duplex)
+-			writeb(readb(ioaddr + ChipCmd1) | Cmd1FDuplex,
+-			       ioaddr + ChipCmd1);
+-		else
+-			writeb(readb(ioaddr + ChipCmd1) & ~Cmd1FDuplex,
+-			       ioaddr + ChipCmd1);
+-	}
+-}
+-
+-
+-static void rhine_timer(unsigned long data)
+-{
+-	struct net_device *dev = (struct net_device *)data;
+-	struct rhine_private *rp = netdev_priv(dev);
+-	long ioaddr = dev->base_addr;
+-	int next_tick = 10*HZ;
+-	int mii_status;
+-
+-	if (debug > 3) {
+-		printk(KERN_DEBUG "%s: VIA Rhine monitor tick, status %4.4x.\n",
+-		       dev->name, readw(ioaddr + IntrStatus));
 -	}
 -
- 	/* Select backoff algorithm */
- 	if (backoff)
- 		writeb(readb(ioaddr + ConfigD) & (0xF0 | backoff),
-@@ -798,10 +807,8 @@
- 
- 	dev->irq = pdev->irq;
- 
--	rp = netdev_priv(dev);
- 	spin_lock_init(&rp->lock);
- 	rp->pdev = pdev;
--	rp->quirks = quirks;
- 	rp->mii_if.dev = dev;
- 	rp->mii_if.mdio_read = mdio_read;
- 	rp->mii_if.mdio_write = mdio_write;
-@@ -1170,9 +1177,6 @@
- 	long ioaddr = dev->base_addr;
- 	int i;
- 
--	/* Reset the chip. */
--	writew(CmdReset, ioaddr + ChipCmd);
+-	spin_lock_irq (&rp->lock);
 -
- 	i = request_irq(rp->pdev->irq, &rhine_interrupt, SA_SHIRQ, dev->name,
- 			dev);
- 	if (i)
-@@ -1187,7 +1191,7 @@
- 		return i;
- 	alloc_rbufs(dev);
- 	alloc_tbufs(dev);
--	wait_for_reset(dev, rp->quirks, dev->name);
-+	rhine_chip_reset(dev);
- 	init_registers(dev);
- 	if (debug > 2)
- 		printk(KERN_DEBUG "%s: Done rhine_open(), status %4.4x "
-@@ -1283,9 +1287,6 @@
+-	rhine_check_duplex(dev);
+-
+-	/* make IFF_RUNNING follow the MII status bit "Link established" */
+-	mii_status = mdio_read(dev, rp->mii_if.phy_id, MII_BMSR);
+-	if ((mii_status & BMSR_LSTATUS) != (rp->mii_status & BMSR_LSTATUS)) {
+-		if (mii_status & BMSR_LSTATUS)
+-			netif_carrier_on(dev);
+-		else
+-			netif_carrier_off(dev);
+-	}
+-	rp->mii_status = mii_status;
+-
+-	spin_unlock_irq(&rp->lock);
+-
+-	rp->timer.expires = jiffies + next_tick;
+-	add_timer(&rp->timer);
+-}
+-
+-
+ static void rhine_tx_timeout(struct net_device *dev)
+ {
+ 	struct rhine_private *rp = netdev_priv(dev);
+@@ -1256,8 +1217,8 @@
+ static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct rhine_private *rp = netdev_priv(dev);
++	long ioaddr = dev->base_addr;
+ 	unsigned entry;
+-	u32 intr_status;
+ 
+ 	/* Caution: the write order is important here, set the field
+ 	   with the "ownership" bits last. */
+@@ -1308,15 +1269,9 @@
+ 
+ 	/* Non-x86 Todo: explicitly flush cache lines here. */
+ 
+-	/*
+-	 * Wake the potentially-idle transmit channel unless errors are
+-	 * pending (the ISR must sort them out first).
+-	 */
+-	intr_status = get_intr_status(dev);
+-	if ((intr_status & IntrTxErrSummary) == 0) {
+-		writeb(readb(dev->base_addr + ChipCmd1) | Cmd1TxDemand,
+-		       dev->base_addr + ChipCmd1);
+-	}
++	/* Wake the potentially-idle transmit channel */
++	writeb(readb(ioaddr + ChipCmd1) | Cmd1TxDemand,
++	       ioaddr + ChipCmd1);
+ 	IOSYNC;
+ 
+ 	if (rp->cur_tx == rp->dirty_tx + TX_QUEUE_LEN)
+@@ -1639,15 +1594,8 @@
  
  	spin_lock(&rp->lock);
  
--	/* Reset the chip. */
--	writew(CmdReset, ioaddr + ChipCmd);
+-	if (intr_status & (IntrLinkChange)) {
+-		rhine_check_duplex(dev);
+-		if (debug)
+-			printk(KERN_ERR "%s: MII status changed: "
+-			       "Autonegotiation advertising %4.4x partner "
+-			       "%4.4x.\n", dev->name,
+-			       mdio_read(dev, rp->mii_if.phy_id, MII_ADVERTISE),
+-			       mdio_read(dev, rp->mii_if.phy_id, MII_LPA));
+-	}
++	if (intr_status & IntrLinkChange)
++		rhine_check_media(dev, 0);
+ 	if (intr_status & IntrStatsMax) {
+ 		rp->stats.rx_crc_errors += readw(ioaddr + RxCRCErrs);
+ 		rp->stats.rx_missed_errors += readw(ioaddr + RxMissed);
+@@ -1839,8 +1786,6 @@
+ 	long ioaddr = dev->base_addr;
+ 	struct rhine_private *rp = netdev_priv(dev);
+ 
+-	del_timer_sync(&rp->timer);
 -
- 	/* clear all descriptors */
- 	free_tbufs(dev);
- 	free_rbufs(dev);
-@@ -1293,7 +1294,7 @@
- 	alloc_rbufs(dev);
+ 	spin_lock_irq(&rp->lock);
  
- 	/* Reinitialize the hardware. */
--	wait_for_reset(dev, rp->quirks, dev->name);
-+	rhine_chip_reset(dev);
- 	init_registers(dev);
- 
- 	spin_unlock(&rp->lock);
+ 	netif_stop_queue(dev);
