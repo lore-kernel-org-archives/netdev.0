@@ -1,74 +1,117 @@
-From: "연예인" <tyerfghgdsd@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?(=B1=A4=B0=ED)=BF=B9=BB=DB=BF=EC=B8=AE?=
-	=?ISO-8859-1?Q?=C0=DA=B3=E0!=C0=E7=B4=C9=C0=D6=B4=C2?=
-	=?ISO-8859-1?Q?=B3=AA!=BF=AC=BF=B9=B0=E8?=
-	=?ISO-8859-1?Q?=C0=D4=B9=AE=C7=CF=BC=BC=BF=E4!@?= kdfu fuqlmjjbxpfvmff
-Date: Tue, 06 Jul 04 14:56:26 GMT
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <x-4$g9$d-4$704d4-5ik9-pp1a0g@225j2rgb7m>
-Reply-To: "연예인" <tyerfghgdsd@yahoo.co.kr>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] fix tcp_default_win_scale.
+Date: Tue, 6 Jul 2004 11:47:41 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net>
+References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org>
+	<20040629222751.392f0a82.davem@redhat.com>
+	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
+	<20040630153049.3ca25b76.davem@redhat.com>
+	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
+	<20040701140406.62dfbc2a.davem@redhat.com>
+	<20040702013225.GA24707@conectiva.com.br>
+	<20040706093503.GA8147@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="7EF9AC.__1BB2A"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bert hubert <ahu@ds9a.nl>,
+	Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+	netdev@oss.sgi.com, alessandro.suardi@oracle.com,
+	phyprabab@yahoo.com, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040706093503.GA8147@outpost.ds9a.nl>
 List-Id: netdev.vger.kernel.org
 
+Recent TCP changes exposed the problem that there ar lots of really broken firewalls 
+that strip or alter TCP options.
+When the options are modified TCP gets busted now.  The problem is that when
+we propose window scaling, we expect that the other side receives the same initial
+SYN request that we sent.  If there is corrupting firewalls that strip it then
+the window we send is not correctly scaled; so the other side thinks there is not
+enough space to send.
 
---7EF9AC.__1BB2A
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+I propose that the following that will avoid sending window scaling that
+is big enough to break in these cases unless the tcp_rmem has been increased.
+It will keep default configuration from blowing in a corrupt world.
 
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-<html>
-
-<head>
-<title>=FFFFFFBD=FFFFFFC5=FFFFFFC3=FFFFFFBB=FFFFFFC7=FFFFFFCF=FFFFFFBD=FFFFFFC3=FFFFFFB8=FFFFFFE9
-=FFFFFFB9=FFFFFFAB=FFFFFFB7=FFFFFFE1=FFFFFFB1=FFFFFFB3=FFFFFFC0=FFFFFFB0=FFFFFFC7=FFFFFFFD=FFFFFFC5=FFFFFFC3=
-=FFFFFFC0=FFFFFFC7 =FFFFFFB1=FFFFFFE2=FFFFFFC8=FFFFFFB8=FFFFFFB8=FFFFFFA6
-=FFFFFFB5=FFFFFFE5=FFFFFFB8=FFFFFFB3=FFFFFFB4=FFFFFFCF=FFFFFFB4=FFFFFFD9</title>
-<meta name=3D"generator" content=3D"Namo WebEditor v4.0">
-</head>
-
-<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
-k=3D"red">
-<TABLE WIDTH=3D700 CELLPADDING=3D0 CELLSPACING=3D0 align=3D"center"
-style=3D=
-"border-collapse:collapse;">
-	<TR>
-		<TD style=3D"border-width:2; border-color:rgb(51,153,51); border-style:s=
-olid;">
-            <a href=3D"http://pro90090_odition.uu.to"><img src=3D"http://w=
-ww.rau.co.kr/bbs/table/bbs/star.gif" width=3D"731" height=3D"724"
-border=3D=
-"0" alt=3D"img1.gif"></a><br><P align=3Dcenter><a href=3D"http://pro90090_=
-odition.uu.to"><IMG height=3D58 alt=3Dclic2.gif 
-src=3D"http://www.wessen.co.kr/bbs/clic2.gif" width=3D188 border=3D0></a>&=
-nbsp;</P>            <p><br></p>
-</TD>
-	</TR>
-    <tr>
-		<TD style=3D"border-width:2; border-color:rgb(51,153,51); border-style:s=
-olid;" bgcolor=3D"#99CC33">
-
-
-
-        
-<P align=3Dcenter><a href=3D"http://hongbomall.com/rm/sansam/sansam-gubu.h=
-tm"><br><img src=3D"http://www.lemoine.co.kr/plus/board/table/bbs2/upload/=
-remail.gif" width=3D"505" height=3D"86" border=3D"0" alt=3D"remail.gif"></=
-a><br>&nbsp;      </form>
-
-</TD>
-    </tr>
-</TABLE>
-</body>
-
-</html>
-q dcsvvalmiph  rbhwl
-dly qporfqs rwnh
-u b jhgbw xcdlgepm bcf x fmgs
-u rwmkgkb
-
---7EF9AC.__1BB2A--
+diff -Nru a/include/linux/sysctl.h b/include/linux/sysctl.h
+--- a/include/linux/sysctl.h	2004-07-06 11:45:18 -07:00
++++ b/include/linux/sysctl.h	2004-07-06 11:45:18 -07:00
+@@ -337,7 +337,7 @@
+  	NET_TCP_BIC=102,
+  	NET_TCP_BIC_FAST_CONVERGENCE=103,
+ 	NET_TCP_BIC_LOW_WINDOW=104,
+-	NET_TCP_DEFAULT_WIN_SCALE=105,
++/*	NET_TCP_DEFAULT_WIN_SCALE */
+ 	NET_TCP_MODERATE_RCVBUF=106,
+ };
+ 
+diff -Nru a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	2004-07-06 11:45:18 -07:00
++++ b/include/net/tcp.h	2004-07-06 11:45:18 -07:00
+@@ -611,7 +611,6 @@
+ extern int sysctl_tcp_bic;
+ extern int sysctl_tcp_bic_fast_convergence;
+ extern int sysctl_tcp_bic_low_window;
+-extern int sysctl_tcp_default_win_scale;
+ extern int sysctl_tcp_moderate_rcvbuf;
+ 
+ extern atomic_t tcp_memory_allocated;
+@@ -1690,6 +1689,13 @@
+ 		*ptr++ = htonl((TCPOPT_NOP << 24) | (TCPOPT_WINDOW << 16) | (TCPOLEN_WINDOW << 8) | (wscale));
+ }
+ 
++/* Default window scaling based on the size of the maximum window  */
++static inline __u8 tcp_default_win_scale(void)
++{
++	int b = ffs(sysctl_tcp_rmem[2]);
++	return (b < 17) ? 0 : b-16;
++}
++
+ /* Determine a window scaling and initial window to offer.
+  * Based on the assumption that the given amount of space
+  * will be offered. Store the results in the tp structure.
+@@ -1732,8 +1738,7 @@
+ 		    space - max((space>>sysctl_tcp_app_win), mss>>*rcv_wscale) < 65536/2)
+ 			(*rcv_wscale)--;
+ 
+-		*rcv_wscale = max((__u8)sysctl_tcp_default_win_scale,
+-				  *rcv_wscale);
++		*rcv_wscale = max(tcp_default_win_scale(), *rcv_wscale);
+ 	}
+ 
+ 	/* Set initial window to value enough for senders,
+diff -Nru a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+--- a/net/ipv4/sysctl_net_ipv4.c	2004-07-06 11:45:18 -07:00
++++ b/net/ipv4/sysctl_net_ipv4.c	2004-07-06 11:45:18 -07:00
+@@ -667,14 +667,6 @@
+ 		.proc_handler	= &proc_dointvec,
+ 	},
+ 	{
+-		.ctl_name	= NET_TCP_DEFAULT_WIN_SCALE,
+-		.procname	= "tcp_default_win_scale",
+-		.data		= &sysctl_tcp_default_win_scale,
+-		.maxlen		= sizeof(int),
+-		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec,
+-	},
+-	{
+ 		.ctl_name	= NET_TCP_MODERATE_RCVBUF,
+ 		.procname	= "tcp_moderate_rcvbuf",
+ 		.data		= &sysctl_tcp_moderate_rcvbuf,
+diff -Nru a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	2004-07-06 11:45:18 -07:00
++++ b/net/ipv4/tcp.c	2004-07-06 11:45:18 -07:00
+@@ -276,8 +276,6 @@
+ 
+ atomic_t tcp_orphan_count = ATOMIC_INIT(0);
+ 
+-int sysctl_tcp_default_win_scale = 7;
+-
+ int sysctl_tcp_mem[3];
+ int sysctl_tcp_wmem[3] = { 4 * 1024, 16 * 1024, 128 * 1024 };
+ int sysctl_tcp_rmem[3] = { 4 * 1024, 87380, 87380 * 2 };
