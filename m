@@ -1,46 +1,64 @@
-From: Jon Smirl <jonsmirl@gmail.com>
-Subject: Re: [TRIVIAL] Fix recent bug in fib_semantics.c
-Date: Fri, 17 Sep 2004 20:59:24 -0400
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [XFRM] Make XFRM core subsystem af-independent
+Date: Sat, 18 Sep 2004 10:24:04 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <9e4733910409171759242349f0@mail.gmail.com>
-References: <9e47339104091717215e9be08b@mail.gmail.com>
-	 <E1C8T4t-0006ug-00@gondolin.me.apana.org.au>
-Reply-To: Jon Smirl <jonsmirl@gmail.com>
+Message-ID: <20040918.102404.30656051.yoshfuji@linux-ipv6.org>
+References: <20040918.085003.77842779.yoshfuji@linux-ipv6.org>
+	<20040917170607.2e96b58a.davem@davemloft.net>
+	<20040918001216.GB24235@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, david@gibson.dropbear.id.au, akpm@osdl.org,
-        trivial@rustcorp.com.au, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Cc: davem@davemloft.net, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1C8T4t-0006ug-00@gondolin.me.apana.org.au>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20040918001216.GB24235@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have verified that compiling the drivers in avoids the problem. 
+In article <20040918001216.GB24235@gondor.apana.org.au> (at Sat, 18 Sep 2004 10:12:16 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-I'll boot again and get more of the error message. It's not making it
-to the logs so I am copying it by hand from the screen.
-
-
-On Sat, 18 Sep 2004 10:27:47 +1000, Herbert Xu
-<herbert@gondor.apana.org.au> wrote:
-> Jon Smirl <jonsmirl@gmail.com> wrote:
-> > I'm still OOPsing at boot in fib_disable_ip+21 from
-> > fib_netdev_event+63. Both e1000 and tg3 are effected. I have current
-> > linus bk as of time of this message.
+> On Fri, Sep 17, 2004 at 05:06:07PM -0700, David S. Miller wrote:
+> > 
+> > Compiler is smarter than you think :-)
 > 
-> Please post the complete error message.
-> --
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Sparc bigots :)
 > 
+> Unfortunately it can't do that on architectures where the arguments
+> are pushed onto the stack in reverse order, i.e., i386.
 
+I've tested on i386.
 
+.globl ip_route_output_key
+	.type	 ip_route_output_key,@function
+ip_route_output_key:
+	movl 4(%esp),%edx
+	movl 8(%esp),%eax
+	pushl $0
+	pushl $0
+	pushl %eax
+	pushl %edx
+	call ip_route_output_flow
+	addl $16,%esp
+	ret
+
+This is not good.
+
+We, however, now have (up to 3) register parameters on i386 (CONFIG_REGPARM), 
+and assembly code is:
+
+.globl ip_route_output_key
+	.type	ip_route_output_key,@function
+ip_route_output_key:
+	pushl	$0
+	xorl	%ecx, %ecx
+	call	ip_route_output_flow
+	popl	%ecx
+	ret
+
+This is (not good as sparc, but) not bad
+(well, much better than before at least).
 
 -- 
-Jon Smirl
-jonsmirl@gmail.com
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
