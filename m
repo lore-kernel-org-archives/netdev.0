@@ -1,203 +1,34 @@
-From: Ryan Anderson <ryan@michonline.com>
-Subject: Re: [PATCH] Remove K&R prototypes in ppp_deflate.c
-Date: Sat, 7 Jun 2003 21:55:07 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.5.70] Add release_netdev -- hook for sysfs/net device
+ cleanup
+Date: Sat, 07 Jun 2003 23:58:25 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030608015507.GA19133@michonline.com>
-References: <20030608003916.GF20872@michonline.com>
+Message-ID: <20030607.235825.71096085.davem@redhat.com>
+References: <20030606145835.3a263df8.shemminger@osdl.org>
+	<20030607191522.GB3346@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@transmeta.com>,
-   "David S. Miller" <davem@redhat.com>,
-   kernel-janitor-discuss@lists.sourceforge.net
-Content-Disposition: inline
-In-Reply-To: <20030608003916.GF20872@michonline.com>
+To: jgarzik@pobox.com
+In-Reply-To: <20030607191522.GB3346@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I forgot to cc: netdev at first, sorry!
+   From: Jeff Garzik <jgarzik@pobox.com>
+   Date: Sat, 7 Jun 2003 15:15:22 -0400
 
-On Sat, Jun 07, 2003 at 08:39:16PM -0400, Ryan Anderson wrote:
-> This patch removes the K&R initializers in ppp_deflate.c in favor of
-> more modern constructions.
-> 
-> Once the other zlib cleanups appear to be stabilized, I'll look at
-> moving those cleanups into ppp_deflate.c as well.
-> 
-> Dave, I think I sent this to you already once, if it's in your queue
-> already, please ignore this resend.
-> 
-> # This is a BitKeeper generated patch for the following project:
-> # Project Name: Linux kernel tree
-> # This patch format is intended for GNU patch command version 2.5 or higher.
-> # This patch includes the following deltas:
-> #	           ChangeSet	1.1259  -> 1.1260 
-> #	drivers/net/ppp_deflate.c	1.10    -> 1.11   
-> #
-> # The following is the BitKeeper ChangeSet Log
-> # --------------------------------------------
-> # 03/06/02	ryan@mythryan2.(none)	1.1260
-> # Remove the use of K&R prototypes from ppp_deflate.c
-> # --------------------------------------------
-> #
-> diff -Nru a/drivers/net/ppp_deflate.c b/drivers/net/ppp_deflate.c
-> --- a/drivers/net/ppp_deflate.c	Mon Jun  2 09:39:01 2003
-> +++ b/drivers/net/ppp_deflate.c	Mon Jun  2 09:39:01 2003
-> @@ -78,8 +78,7 @@
->  static void	z_comp_stats __P((void *state, struct compstat *stats));
->  
->  static void
-> -z_comp_free(arg)
-> -    void *arg;
-> +z_comp_free(void *arg)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  
-> @@ -95,9 +94,7 @@
->   * Allocate space for a compressor.
->   */
->  static void *
-> -z_comp_alloc(options, opt_len)
-> -    unsigned char *options;
-> -    int opt_len;
-> +z_comp_alloc(unsigned char *options, int opt_len)
->  {
->  	struct ppp_deflate_state *state;
->  	int w_size;
-> @@ -136,10 +133,8 @@
->  }
->  
->  static int
-> -z_comp_init(arg, options, opt_len, unit, hdrlen, debug)
-> -    void *arg;
-> -    unsigned char *options;
-> -    int opt_len, unit, hdrlen, debug;
-> +z_comp_init(void *arg, unsigned char *options, 
-> +		int opt_len, int unit, int hdrlen, int debug)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  
-> @@ -161,8 +156,7 @@
->  }
->  
->  static void
-> -z_comp_reset(arg)
-> -    void *arg;
-> +z_comp_reset(void *arg)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  
-> @@ -171,11 +165,9 @@
->  }
->  
->  int
-> -z_compress(arg, rptr, obuf, isize, osize)
-> -    void *arg;
-> -    unsigned char *rptr;	/* uncompressed packet (in) */
-> -    unsigned char *obuf;	/* compressed packet (out) */
-> -    int isize, osize;
-> +z_compress(void *arg, unsigned char *rptr, /* uncompressed packet (in) */
-> +		unsigned char *obuf,       /* compressed packet (out) */
-> +		int isize, int osize)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  	int r, proto, off, olen, oavail;
-> @@ -252,9 +244,7 @@
->  }
->  
->  static void
-> -z_comp_stats(arg, stats)
-> -    void *arg;
-> -    struct compstat *stats;
-> +z_comp_stats(void *arg, struct compstat *stats)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  
-> @@ -262,8 +252,7 @@
->  }
->  
->  static void
-> -z_decomp_free(arg)
-> -    void *arg;
-> +z_decomp_free(void *arg)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  
-> @@ -279,9 +268,7 @@
->   * Allocate space for a decompressor.
->   */
->  static void *
-> -z_decomp_alloc(options, opt_len)
-> -    unsigned char *options;
-> -    int opt_len;
-> +z_decomp_alloc(unsigned char *options, int opt_len)
->  {
->  	struct ppp_deflate_state *state;
->  	int w_size;
-> @@ -318,10 +305,8 @@
->  }
->  
->  static int
-> -z_decomp_init(arg, options, opt_len, unit, hdrlen, mru, debug)
-> -    void *arg;
-> -    unsigned char *options;
-> -    int opt_len, unit, hdrlen, mru, debug;
-> +z_decomp_init(void *arg, unsigned char *options, 
-> +		int opt_len, int unit, int hdrlen, int mru, int debug)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  
-> @@ -344,8 +329,7 @@
->  }
->  
->  static void
-> -z_decomp_reset(arg)
-> -    void *arg;
-> +z_decomp_reset(void *arg)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  
-> @@ -370,12 +354,8 @@
->   * compression, even though they are detected by inspecting the input.
->   */
->  int
-> -z_decompress(arg, ibuf, isize, obuf, osize)
-> -    void *arg;
-> -    unsigned char *ibuf;
-> -    int isize;
-> -    unsigned char *obuf;
-> -    int osize;
-> +z_decompress(void *arg, unsigned char *ibuf, int isize, 
-> +			unsigned char *obuf, int osize)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  	int olen, seq, r;
-> @@ -478,10 +458,7 @@
->   * Incompressible data has arrived - add it to the history.
->   */
->  static void
-> -z_incomp(arg, ibuf, icnt)
-> -    void *arg;
-> -    unsigned char *ibuf;
-> -    int icnt;
-> +z_incomp(void *arg, unsigned char *ibuf, int icnt)
->  {
->  	struct ppp_deflate_state *state = (struct ppp_deflate_state *) arg;
->  	int proto, r;
-> 
-> 
-> -- 
-> 
-> Ryan Anderson
->   sometimes Pug Majere
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+   I would prefer to fix the drivers _before_ anything else.  i.e. Phase 2
+   becomes Phase 1.
+   
+   These often need to be merged into 2.4 as well, and they can be applied
+   to all drivers without any API changes.  The changes are separated out
+   from any refcounting/sysfs stuff, and can (potentially) be considered
+   and reviewed by the respective maintainers.
 
--- 
+Have you extracted out all the init_etherdev() killings Al and
+myself did so you can backport them to 2.4.x too?
 
-Ryan Anderson
-  sometimes Pug Majere
+If you're not going to do that, there is not much point in trying to
+sync other such things back to 2.4.x as well.
