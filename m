@@ -1,76 +1,64 @@
-From: "Xiaoliang \(David\) Wei" <weixl@caltech.edu>
-Subject: Re: question on routine tcp_moderate_cwnd
-Date: Mon, 27 Jan 2003 14:37:13 -0800
+From: "Justin Edwards" <justin@cview.com.au>
+Subject: Win98 connecting to Samba
+Date: Wed, 29 Jan 2003 17:59:55 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <001501c2c654$a395ef20$f5f2010a@weixl>
-References: <20A6B72E-323D-11D7-9775-000A956767EC@lbl.gov>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Brian Tierney" <bltierney@lbl.gov>
+Message-ID: <b17u0d$7ol$1@main.gmane.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>, "Brian Tierney" <bltierney@lbl.gov>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Brian,
-    Here's my understanding (maybe not very correct):
-    When Linux tries to exit fast_recovery / loss_recovery and go back to
-normal state, tcp_moderate_cwnd is applied to make sure that the cwnd would
-not increase too fast from the current packet rate (packet_in_flight). This
-is NOT effective during normal SlowStart/CongestionAvoid states and not
-necessarily hurt the performance. If this function is deleted, there may be
-a burst when Linux exit recovery.
+I've been trying to connect my windows 98 pc to my linux machine with no
+luck.
 
--David
+I have 2 machines with the following details:
 
-Xiaoliang (David) Wei             Graduate Student in CS@Caltech
-http://www.cs.caltech.edu/~weixl
-====================================================
------ Original Message -----
-From: "Brian Tierney" <bltierney@lbl.gov>
-To: <netdev@oss.sgi.com>
-Cc: "Brian Tierney" <bltierney@lbl.gov>
-Sent: Monday, January 27, 2003 1:20 PM
-Subject: question on routine tcp_moderate_cwnd
+Win98     192.168.1.1
+Linux       192.168.1.2
 
+I can ping both addresses from either end and can connect to both the linux
+and
+win98 machines from the linux pc using the smbclient command.
+The linux machine is sharing its homes directory.
 
-> Hi all:
->
-> Can someone explain what situation the routine tcp_moderate_cwnd is
-> supposed to address?
->
-> Im finding that this code seems to be preventing TCP for achieving
-> anything close to the available bandwidth on large BDP networks.
->
-> Thanks.
->
-> ----------------
->
-> /* CWND moderation, preventing bursts due to too big ACKs
->   * in dubious situations.
->   */
-> static __inline__ void tcp_moderate_cwnd(struct tcp_opt *tp)
-> {
->         u32 t = tcp_packets_in_flight(tp) + tcp_max_burst(tp);
->          if (t < tp->snd_cwnd) {
->                          tp->snd_cwnd = t;
->                          WEB100_VAR_INC(tp, OtherReductions);
->           }
->          tp->snd_cwnd_stamp = tcp_time_stamp;
-> }
->
->
->
-> ------------------------------------------------------------------------
-> -------------------
->    Brian L. Tierney,   Lawrence Berkeley National Laboratory (LBNL)
->    1 Cyclotron Rd.  MS: 50B-2239,  Berkeley, CA  94720
->    tel: 510-486-7381    fax: 510-495-2998   efax:  240-332-4065
->    bltierney@lbl.gov   http://www-didc.lbl.gov/~tierney
-> ------------------------------------------------------------------------
-> ------------------
->
->
->
+I can see the Linux machine name in my Network Neighborhood
+
+I am using the same names between linux and win98 and have set the smb.conf
+to use encryption. testparm appears ok.
+
+I have added my users using the smbpasswd command
+
+When I try net view from my W98 machine I see the computer:
+
+\\linux
+\\win98
+If I try to "net view \\linux" I get the following nasty message:
+"Error 53: The computer name specified in the network path cannot be
+located. Make sure you are specifying the computer name correctly, or
+try again
+later when the remote computer is available."
+
+If I click on Spanky from Network Neighborhood I see:
+\\spanky not accessible.
+The computer or sharename could not be found. Make sure you typed it
+correctly, and try again.
+
+My smb.conf file is as follows
+
+[global]
+
+workgroup = server
+server string =  linux server
+encrypt passwords = yes
+smb passwd fie =  /etc/samba/smbpasswd
+
+[homes]
+comment = homes directory
+browseable = yes
+writable = yes
+
+I would be grateful for any help you could provide me.
+
+Regards
+Justin Edwards
+Justin@cview.com.au
