@@ -1,105 +1,82 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [RFC] add rtnl semaphore to linux-atm
-Date: Sat, 4 Oct 2003 12:42:42 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] [PATCH 1/3] netpoll api
+Date: 04 Oct 2003 16:02:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031004194242.GC94203@gaz.sfgoth.com>
-References: <20031004065925.GB94203@gaz.sfgoth.com> <200310041250.h94Co0kT017402@ginger.cmf.nrl.navy.mil>
+Message-ID: <1065297729.1031.73.camel@jzny.localdomain>
+References: <20031003014104.GR1897@waste.org>
+	 <1065179359.1031.42.camel@jzny.localdomain>
+	 <20031003191116.GA13573@waste.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>,
+        Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-Content-Disposition: inline
-In-Reply-To: <200310041250.h94Co0kT017402@ginger.cmf.nrl.navy.mil>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20031003191116.GA13573@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-chas williams wrote:
-> atm_dev will become a netdevice in the future.  there is no good reason
-> it shouldnt.
+On Fri, 2003-10-03 at 15:11, Matt Mackall wrote:
 
-Agreed.  I'm not sure if it's a giant win (since atm devices are pretty
-unique) but you seem pretty gung-ho about converting it so I'll trust
-you on it.
+> > Nice.
+> > Is the ethernet card in a case like this almost dedicated for this
+> > kind of work?
+> 
+> No, I've had good results with it as the only interface to the
+> machine. As netpoll traffic is fairly infrequent, performance seems
+> little affected.
+> 
 
-> there are
-> (currently) no atm devices with slow open routines so please dont bother
-> with hypothetical devices.
+Ok, I suppose if you are running some serious server you wont be
+debugging either. Did i understand correctly that no netpoll trafic
+translates to a device being removed from the poll list? i.e only when
+theres traffic to send for example would the controller be invoked? 
 
-Well that might be true in the tree.  I think as more DSL adpaters are
-supported this will change.  The atm_dev->open() is really the only sane
-place currently to kick-off DSL negotiation (so the link is brought up
-when pppd or whatever is started)
+> > Is disable_irq() in the controller safe for shared irqs? Or maybe this
+> > is critical enough that you dont care?
+> 
+> I'm not aware of any issues there. I understand Red Hat has banged on
+> this piece pretty heavily recently for their AS kernel. 
+> 
 
-> people who use ATM_ITF_ANY are going to pay
-> a penalty.  that's just the way it is.  its a bit of a bad idea really.
-> what if you want something like round-robin instead of in-order?
+Lets say you have a vga card and ethernet sharing the same irq and doing
+a lot of debugging ... would disabling that shared irq kill the display
+for example? 
 
-Exactly - its a userspace problem.
+> > Its a little wasteful to call the controller when there are is no work
+> > to be done; we have found in NAPI that any extra PCI transactions cost.
+> > (some IBM people doing benchmarking have complained about specweb not
+> > looking good where NAPI will have one extra PCI transaction per packet.
+> > You do it twice the rate NAPI would do it at low speeds).
+> > Again, the answer maybe who cares, this is critical work.
+> 
+> Just to be sure you read this right, the poll method (NAPI) is
+> different from poll_controller (netpoll). The name is unfortunate, but
+> it's what Ingo had in his early 2.4 netconsole patches. I could
+> s/poll_controller/netpoll/ perhaps.
+> 
 
-> i can see why you might want to sleep in close() -- like waiting
-> for all the skb's to transmit/return, but this is only because vcc's dont
-> hold a per skb reference count and dont know when its safe to go away
+Actually the name is proper since polling is involved. I can see the
+confusion with NAPI - so from that angle changing it to something
+more descriptive of its function rather than how it achieves it would
+help.
 
-I can't speak for all the cards but at least lanai.c has to sleep in
-->close() due to hardware issues.  Each VCC has its own cell buffers
-allocated which the card DMAs into.  When you close a vcc you need to
-wait for an internal RX queue to drain before you can safely free the
-buffer or you might end up scribbling on random memory.
+> The NAPI method only gets called when we've frozen the system (kgdb or
+> netdump) and we're the only ones checking for rx work. The netpoll
+> method gets called in that case and when something like netconsole is
+> sending out printks (eg low bandwidth or high priority).
+> 
 
-The only alternative I can think of would be to have the buffer free
-kicked off later from a tasklet or someting but that could get pretty
-gross.
+netpoll calls the interupt handler which typically involved substantial
+PCI reads (and maybe writes). Calling such routines when theres no state
+change in the PCI registers is what i refered to as a waste. This is a
+non-issue under normal conditions since an interupt signals a state
+change. 
+It wouldnt matter if it is event driven (i.e for a brief period of time
+when netconsole has traffic to send thats what you do). It also wouldnt
+matter if you are using the box as dev. environment etc. 
 
-Plus as I mentioned DSL adapters have good reason to sleep in open/close.
-Since we require VCCs to be opened and closed from process context this
-isn't a problem (as long as we do the locking correctly)
-
-> serialization for open/change_qos/close should be handled in the
-> driver (assuming we are discussing serialization across different
-> vcc's and not a single vcc -- a single vcc case is already
-> handled via lock_sock).  if your driver h/w doesnt need this, then 
-> it shouldnt be thrust upon you.
-
-Its a matter of opinion.  My feelings are:
-
-  1. Serializing these operations through a semaphore shouldn't affect
-     performance one bit - even in conditions where open/close happen
-     relatively frequently (say, LANE) there would still be negligable
-     contention on the semaphore
-
-  2. Given the rather spotty history of ATM drivers and SMP I'd rather
-     keep the driver API as safe as possible.  Basically the driver
-     should only have to worry about locking when dealing with the
-     rx/tx paths (and there are still lots of problems there I think)
-     Everything else can be safely serialized by the ATM layer
-
-> vcc_sklist holds a list of sockets active or otherwise.  the atm layer
-> already has flags (ATM_VF_READY) that indicate if a vcc is ready to recv.
-
-Unfortunately the flag is currently managed by the driver instead of the
-ATM layer.  If you're willing to strip out all of the ATM_VF_* use inside
-of the drivers then yes we can use that flag.
-
-> it is unfortunate that the bh's of most drivers dont bother to check this
-> bit
-
-This is just a matter of adding an efficient API for searching for vpi/vci's
-(as we recently discussed on l-a-g)  If that was done then we could get rid
-of the duplicated data strucutres that exist in most of the drivers (and
-get rid of a whole class of races in the rx paths)
-
-Then the ATM layer can easily handle checking the ATM_VF_READY flag.
-
-> in the future (and this
-> isnt a hypothetical driver) vcc's will probably live slightly longer than
-> the close routine (those outstanding skbs) and cant be removed from the
-> vcc_sklist until every last reference is gone.  yes, this means that close
-> could finish but you wouldnt be able to open the vpi/vci again right away.
-
-I don't think that's the case at all - you could safely remove the vcc from
-the list at ->close time (but not free its memory until the last reference
-disappears)  Then an ->open would see the vpi/vci as free immediately (which
-should be safe)
-
--Mitch
+cheers,
+jamal
