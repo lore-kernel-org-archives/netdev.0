@@ -1,61 +1,54 @@
-From: maximilian attems <janitor@sternwelten.at>
-Subject: Re: [KJ] Re: [patch 2.4] back port msleep(), msleep_interruptible()
-Date: Sun, 31 Oct 2004 01:19:12 +0200
-Message-ID: <20041030231912.GC1456__42571.5463854887$1099178800$gmane$org@stro.at>
-References: <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com> <29495f1d041030155953a9a776@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Asynchronous crypto layer.
+Date: 30 Oct 2004 19:41:27 -0400
+Message-ID: <1099179687.1041.117.camel@jzny.localdomain>
+References: <1099030958.4944.148.camel@uganda>
+	 <1099053738.1024.104.camel@jzny.localdomain>
+	 <20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
+	 <20041030203550.GB6256@gate.ebshome.net>
+	 <20041031010415.4c798a04@zanzibar.2ka.mipt.ru>
+	 <20041030205630.GD6256@gate.ebshome.net>
+	 <20041031012423.74b98698@zanzibar.2ka.mipt.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-	Margit Schubert-While <margitsw@t-online.de>,
-	kernel-janitors@lists.osdl.org, mcgrof@studorgs.rutgers.edu,
-	prism54-devel@prism54.org, Domen Puncer <domen@coderock.org>,
-	linux-kernel@vger.kernel.org, hvr@gnu.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261437AbUJ3XVp@vger.kernel.org>
-To: Nish Aravamudan <nish.aravamudan@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <29495f1d041030155953a9a776@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eugene Surovegin <ebs@ebshome.net>, netdev@oss.sgi.com,
+        cryptoapi@lists.logix.cz
+Return-path: <netdev-bounce@oss.sgi.com>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20041031012423.74b98698@zanzibar.2ka.mipt.ru>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Oct 2004, Nish Aravamudan wrote:
+On Sat, 2004-10-30 at 17:24, Evgeniy Polyakov wrote:
+> On Sat, 30 Oct 2004 13:56:31 -0700
+> Eugene Surovegin <ebs@ebshome.net> wrote:
 
-> On Sat, 30 Oct 2004 18:41:10 -0400, Jeff Garzik <jgarzik@pobox.com> wrote:
-> > maximilian attems wrote:
-> > > diff -puN include/linux/delay.h~add-msleep-2.4 include/linux/delay.h
-> > > --- a/include/linux/delay.h~add-msleep-2.4    2004-10-30 22:48:46.000000000 +0200
-> > > +++ b/include/linux/delay.h   2004-10-30 22:48:46.000000000 +0200
-> > > @@ -34,4 +34,12 @@ extern unsigned long loops_per_jiffy;
-> > >       ({unsigned long msec=(n); while (msec--) udelay(1000);}))
-> > >  #endif
-> > >
-> > > +void msleep(unsigned int msecs);
-> > > +unsigned long msleep_interruptible(unsigned int msecs);
-> > > +
-> > > +static inline void ssleep(unsigned int seconds)
-> > [...]
-> > > +static inline unsigned int jiffies_to_msecs(const unsigned long j)
-> > 
-> > > +static inline unsigned int jiffies_to_usecs(const unsigned long j)
-> > 
-> > > +static inline unsigned long msecs_to_jiffies(const unsigned int m)
-> > 
-> > 
-> > I'm pretty sure more than one of these symbols clashes with a symbol
-> > defined locally in a driver.  I like the patch but we can't apply it
-> > until the impact on existing code is evaluated.
+
+> > OK, what about 64 byte packets? I'm not saying hw crypto is useless, 
+> > what I'm saying is it's not that obvious that having hw crypto will 
+> > help in _all_ situations.
 > 
-> More than likely much of the code cleanup that was done before I began
-> my patches, like removing custom msleep()s from drivers will need to
-> be done again, as Jeff points out.
-> 
-> -Nish
+> Sure.
+> For such cases I offered "rate" or "speed" parameter in my first e-mail, 
+> but it can be implicitly implemented by queue length.
+> With 1 big datflow of packets with high priority and little dataflow of
+> packets with little priority if we will catch high priority packets by SW
+> and thus can have situation when we will _never_ catch low-priority packets, 
+> with even very slow HW we can route all those low-priority packets into it, 
+> at least they will be processed sometimes...
 
-thanks Jeff for your quick response,
-ooh i seee libata is defining an msleep().
-so there seems to be need for it.
+Can you explain the "rate" or "speed" parameter ?
+I havent studied your code, however, what Eugene is pointing out is
+valuable detail/feedback.
+You should have in your queuing towards the crypto chip ability to
+batch. i.e sort of nagle-like "wait until we have 10 packets/20KB or 20
+jiffies" before you send everything in the queue to the chip.
+As he points out (and i am sure he can back it with data ;->), that
+given the setup cost, packet size, algo and CPU and bus speed, it may
+not make sense to use the chip at all ;->
 
-ok we'll come up with tougher patchset.
-
---
-maks
-kernel janitor  	http://janitor.kernelnewbies.org/
+cheers,
+jamal
