@@ -1,77 +1,88 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH 2.6.8] ipvs - do not use skb_checksum_help
-Date: Mon, 16 Aug 2004 10:05:54 +0300 (EEST)
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 2/4] deferred drop, __parent workaround, reshape_fail
+Date: Mon, 16 Aug 2004 09:20:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0408160948390.1323@u.domain.uli>
+Message-ID: <20040816072032.GH15418@sunbeam2>
+References: <411C0FCE.9060906@crocetta.org> <1092401484.1043.30.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="/hzbcv1ZPoZ/SOgH"
+Cc: sandr8@crocetta.org, devik@cdi.cz, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1092401484.1043.30.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+--/hzbcv1ZPoZ/SOgH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-	The skb_checksum_help calls are not appropriate for
-IPVS. There is already code to check and alter the ip_summed
-field on packet mangling and the only thing that is needed is
-to ensure ip_summed is valid for output path if the packet is
-not mangled. In such case we do not validate checksum and
-forward the packet claiming it is with valid checksum.
-Apply after ack from Wensong.
+[removing lots of people from the Cc, since they are definitely on
+ netdev and don't need to be Cc'ed at this state]
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Hi Jamal!
 
-diff -ur v2.6.8/linux/net/ipv4/ipvs/ip_vs_core.c linux/net/ipv4/ipvs/ip_vs_core.c
---- v2.6.8/linux/net/ipv4/ipvs/ip_vs_core.c	2004-06-16 23:54:06.000000000 +0300
-+++ linux/net/ipv4/ipvs/ip_vs_core.c	2004-08-16 09:35:01.317806616 +0300
-@@ -735,13 +735,6 @@
- 	if (skb->nfcache & NFC_IPVS_PROPERTY)
- 		return NF_ACCEPT;
- 
--	if (skb->ip_summed == CHECKSUM_HW) {
--		if (skb_checksum_help(pskb, (out == NULL)))
--			return NF_DROP;
--		if (skb != *pskb)
--			skb = *pskb;
--	}
--
- 	iph = skb->nh.iph;
- 	if (unlikely(iph->protocol == IPPROTO_ICMP)) {
- 		int related, verdict = ip_vs_out_icmp(pskb, &related);
-@@ -981,13 +974,6 @@
- 		return NF_ACCEPT;
- 	}
- 
--	if (skb->ip_summed == CHECKSUM_HW) {
--		if (skb_checksum_help(pskb, (out == NULL)))
--			return NF_DROP;
--		if (skb != *pskb)
--			skb = *pskb;
--	}
--
- 	iph = skb->nh.iph;
- 	if (unlikely(iph->protocol == IPPROTO_ICMP)) {
- 		int related, verdict = ip_vs_in_icmp(pskb, &related);
-diff -ur v2.6.8/linux/net/ipv4/ipvs/ip_vs_xmit.c linux/net/ipv4/ipvs/ip_vs_xmit.c
---- v2.6.8/linux/net/ipv4/ipvs/ip_vs_xmit.c	2004-08-14 11:08:13.000000000 +0300
-+++ linux/net/ipv4/ipvs/ip_vs_xmit.c	2004-08-16 09:37:26.024807808 +0300
-@@ -128,6 +128,7 @@
- #define IP_VS_XMIT(skb, rt)				\
- do {							\
- 	(skb)->nfcache |= NFC_IPVS_PROPERTY;		\
-+	(skb)->ip_summed = CHECKSUM_NONE;		\
- 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, (skb), NULL,	\
- 		(rt)->u.dst.dev, dst_output);		\
- } while (0)
-@@ -412,8 +413,6 @@
- 	ip_select_ident(iph, &rt->u.dst, NULL);
- 	ip_send_check(iph);
- 
--	skb->ip_summed = CHECKSUM_NONE;
--
- 	/* Another hack: avoid icmp_send in ip_fragment */
- 	skb->local_df = 1;
- 
+On Fri, Aug 13, 2004 at 08:51:24AM -0400, jamal wrote:
+> Alessandro,
+>=20
+> This summary applies to all your patches: Too many changes that seem
+> unnecessary. Take a deep breath.
+
+I'm actually not as pessimistic about all his changes.
+
+Allesandro's ultimate goal seems to be connection-based accounting that
+accounts precisely which packets have actually hit the outgoing wire.
+While I'm quite happy with the now in-kernel conntrack accounting
+(basedo on Rx rather than Tx packets/bytes), this is a different
+definition of accounting.
+
+Let's discuss the individual patches seperately.
+
+1) Is certainly not a huge issue, no debate here
+
+2) I am not as familiar with the tc/scheduler code as you are, but I
+also think that what he is trying to achieve is a valid goal.  He tries
+to make all tc-related packet drops go to a single code path for packet
+dropping.  Independent of Allesandro's implementation, I would really
+like to see something like this.   We once had an experimental patch
+called the 'dropped hook' that would be traversed for all packets
+dropped somewhere in the stack (for auditing in userspace, whatever).
+Having a single packet drop point makes such a change less intrusive.
+
+3) Is already in davem's tree, no need for discusion ;)
+
+4) This is the part you are complaining about, right?  I agree, I don't
+like conntrack specific stuff in dev.c and packet scheduler areas.
+
+> cheers,
+> jamal
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--/hzbcv1ZPoZ/SOgH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBIGBAXaXGVTD0i/8RAs5RAJ0b+wYGtfWAoYaj4cAhJ17kO1ufTwCfSPH2
+DjWXbTzwa6cEmfcVnOmBFS8=
+=PXbM
+-----END PGP SIGNATURE-----
+
+--/hzbcv1ZPoZ/SOgH--
