@@ -1,103 +1,58 @@
-From: Andi Kleen <ak@muc.de>
-Subject: [PATCH] Fix ns82830 driver for x86-64
-Date: 14 Mar 2005 01:05:43 +0100
-Message-ID: <20050314000543.GA85950@muc.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETLINK] Fix multicast bind/autobind race
+Date: Mon, 14 Mar 2005 20:44:20 +1100
+Message-ID: <20050314094420.GA15349@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Date: Mon, 14 Mar 2005 01:05:43 +0100
-To: jgarzik@pobox.com, netdev@oss.sgi.com, bcrl@kvack.org
+Content-Type: multipart/mixed; boundary="oyUTqETQ0mS9luUI"
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix up some dodgy ifdefs in the ns82820 driver 
-and support DAC mode on x86-64. Do proper sizeof(dma_addr_t) checks
-instead.
 
-Only compile tested due to lack of hardware.
+--oyUTqETQ0mS9luUI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Originally pointed out by Al Viro
+Hi Dave:
 
-Signed-off-by: Andi Kleen <ak@muc.de>
+netlink_autobind has always set nlk_sk(sk)->groups to zero.  This is
+unnecessary because sk_alloc already zeroes the entire structure.
+Since a socket can only be bound once netlink_autobind doesn't need
+to zero groups at all.
 
-Index: linux/drivers/net/ns83820.c
-===================================================================
---- linux.orig/drivers/net/ns83820.c	2005-03-12 15:06:34.000000000 +0100
-+++ linux/drivers/net/ns83820.c	2005-03-14 00:50:07.547865056 +0100
-@@ -1,4 +1,4 @@
--#define _VERSION "0.20"
-+#define VERSION "0.20"
- /* ns83820.c by Benjamin LaHaise with contributions.
-  *
-  * Questions/comments/discussion to linux-ns83820@kvack.org.
-@@ -129,18 +129,6 @@
- #undef Dprintk
- #define	Dprintk			dprintk
+This had been safe until I added mc_list.  Now it is possible for
+netlink_bind to race against netlink_autobind running on the same
+socket on another CPU.  The result would be a socket that's on
+mc_list with groups set to zero.  This socket will be left on the
+list even after it is destroyed.
+
+The fix is to remove the zeroing in netlink_autobind.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--oyUTqETQ0mS9luUI
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/netlink/af_netlink.c 1.70 vs edited =====
+--- 1.70/net/netlink/af_netlink.c	2005-02-09 15:09:15 +11:00
++++ edited/net/netlink/af_netlink.c	2005-03-14 20:28:59 +11:00
+@@ -430,7 +430,6 @@
+ 	err = netlink_insert(sk, pid);
+ 	if (err == -EADDRINUSE)
+ 		goto retry;
+-	nlk_sk(sk)->groups = 0;
+ 	return 0;
+ }
  
--#if defined(CONFIG_HIGHMEM64G) || defined(__ia64__)
--#define USE_64BIT_ADDR	"+"
--#endif
--
--#if defined(USE_64BIT_ADDR)
--#define	VERSION	_VERSION USE_64BIT_ADDR
--#define TRY_DAC	1
--#else
--#define	VERSION	_VERSION
--#define TRY_DAC	0
--#endif
--
- /* tunables */
- #define RX_BUF_SIZE	1500	/* 8192 */
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-@@ -386,22 +374,16 @@
- #define LINK_DOWN		0x02
- #define LINK_UP			0x04
- 
--#ifdef USE_64BIT_ADDR
--#define HW_ADDR_LEN	8
-+#define HW_ADDR_LEN	sizeof(dma_addr_t) 
- #define desc_addr_set(desc, addr)				\
- 	do {							\
--		u64 __addr = (addr);				\
--		(desc)[0] = cpu_to_le32(__addr);		\
--		(desc)[1] = cpu_to_le32(__addr >> 32);		\
-+		((desc)[0] = cpu_to_le32(addr));		\
-+		if (HW_ADDR_LEN == 8)		 		\
-+			(desc)[1] = cpu_to_le32(((u64)addr) >> 32);	\
- 	} while(0)
- #define desc_addr_get(desc)					\
--		(((u64)le32_to_cpu((desc)[1]) << 32)		\
--		     | le32_to_cpu((desc)[0]))
--#else
--#define HW_ADDR_LEN	4
--#define desc_addr_set(desc, addr)	((desc)[0] = cpu_to_le32(addr))
--#define desc_addr_get(desc)		(le32_to_cpu((desc)[0]))
--#endif
-+	(le32_to_cpu((desc)[0]) | \
-+	(HW_ADDR_LEN == 8 ? ((dma_addr_t)le32_to_cpu((desc)[1]))<<32 : 0))
- 
- #define DESC_LINK		0
- #define DESC_BUFPTR		(DESC_LINK + HW_ADDR_LEN/4)
-@@ -1841,7 +1823,8 @@
- 	int using_dac = 0;
- 
- 	/* See if we can set the dma mask early on; failure is fatal. */
--	if (TRY_DAC && !pci_set_dma_mask(pci_dev, 0xffffffffffffffffULL)) {
-+	if (sizeof(dma_addr_t) == 8 && 
-+	 	!pci_set_dma_mask(pci_dev, 0xffffffffffffffffULL)) {
- 		using_dac = 1;
- 	} else if (!pci_set_dma_mask(pci_dev, 0xffffffff)) {
- 		using_dac = 0;
-@@ -1972,9 +1955,8 @@
- 	/* When compiled with 64 bit addressing, we must always enable
- 	 * the 64 bit descriptor format.
- 	 */
--#ifdef USE_64BIT_ADDR
--	dev->CFG_cache |= CFG_M64ADDR;
--#endif
-+	if (sizeof(dma_addr_t) == 8) 
-+		dev->CFG_cache |= CFG_M64ADDR;
- 	if (using_dac)
- 		dev->CFG_cache |= CFG_T64ADDR;
- 
+
+--oyUTqETQ0mS9luUI--
