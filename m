@@ -1,48 +1,35 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH PKT_SCHED 4/17]: Check TCA_ACT_KIND payload size _before_ copying it
-Date: Thu, 30 Dec 2004 14:34:01 +0100
-Message-ID: <20041230133401.GW32419@postel.suug.ch>
-References: <41D37875.5020103@trash.net>
+Subject: [PATCH 0/9] PKT_SCHED: tcf_exts API & make classifier changes consistent upon failure
+Date: Thu, 30 Dec 2004 13:26:52 +0100
+Message-ID: <20041230122652.GM32419@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, Maillist netdev <netdev@oss.sgi.com>
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <41D37875.5020103@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <41D37875.5020103@trash.net> 2004-12-30 04:39
-> -			sprintf(act_name, "%s", (char*)RTA_DATA(kind));
-> -			if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
-> -				printk("Action %s bad\n", (char*)RTA_DATA(kind));
-> +			if (RTA_PAYLOAD(kind) >= IFNAMSIZ)
+Dave,
 
-The check should be RTA_PAYLOAD(kind) > IFNAMSIZ, == is ok
-if the terminating NUL is provided.
+The following patchset adds tcf_exts API to remove the ifdef clutter,
+helps make changes consistent upon failures, makes adding action bits
+to yet unsupported classifiers as easy as adding a few lines and
+generally saves a lot of code per classifier. The patches to make use
+of the API add action support to all classifiers and makes changes
+consistent except for indev failures (to be removed soon) and rsvp
+which needs a closer look since i haven't had time to perfectly
+understand it yet.
 
->  				goto err_out;
-> -			}
-> +			sprintf(act_name, "%s", (char*)RTA_DATA(kind));
->  		} else {
+I gave it extensive testing for 2 weeks, patches 5-6 are non-trivial
+though and it's quite hard to test everything. I will post a request
+to the lartc mailinglist once these changes are in a bk release so
+everyone can try it out and I have time fix any remaining issues
+before the next rc release. I could provide the patchset but its
+quite some work for the testers and I guess there will be more people
+trying it out if they can use an official release.
 
-This will cause horrible crashes if no NUL is provided to terminate
-the name.
-
-So I think this should be:
-
-if (RTA_PAYLOAD(kind) > IFNAMSIZ)
-	goto err_out;
-memset(act_name, ...);
-memcpy(act_name, RTA_DATA(kind), RTA_PAYLOAD(kind));
-act_name[IFNAMSIZ - 1] = '\0';
-
-The memset is required to ensure 0 termination if kind is not and
-shorter than IFNAMSIZ. memcpy instead of str* to avoid using
-any form of str(n)len on a possibly not terminated string
-and setting IFNAMSIZ - 1 to NUL to ensure proper handling of
-a IFNAMSIZ long not terminated string.
-
-I know it's unlikely but this might just save us some troubles later.
+Cheers, Thomas
