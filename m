@@ -1,38 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Allowing netlink_family to be any integer (was: [PATCH 2.6] iptables CLUSTERIP target)
-Date: Fri, 22 Oct 2004 07:31:07 +1000
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [Bug 3610] New: kernel-2.6.9 breaks Amanda
+Date: Thu, 21 Oct 2004 14:50:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au>
-References: <20041021142527.GG3551@sunbeam.de.gnumonks.org>
-Cc: lmb@suse.de, ahu@ds9a.nl, hch@infradead.org, netdev@oss.sgi.com,
-        davem@davemloft.net
+Message-ID: <20041021145053.6d87f32d@zqx3.pdx.osdl.net>
+References: <20041021133752.67a386fb@zqx3.pdx.osdl.net>
+	<20041021142335.54f088ad.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: laforge@netfilter.org (Harald Welte)
-In-Reply-To: <20041021142527.GG3551@sunbeam.de.gnumonks.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041021142335.54f088ad.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Harald Welte <laforge@netfilter.org> wrote:
->
-> For supporting two primitive operation, adding a new netlink address
-> family also isn't worthwhile, especially since we're short of netlink
-> families.
+On Thu, 21 Oct 2004 14:23:35 -0700
+"David S. Miller" <davem@davemloft.net> wrote:
 
-That's something I'm looking into as well.  The current strategy of
-either creating a new family or tacking random things into RTNETLINK
-is simply not going to scale.
+> On Thu, 21 Oct 2004 13:37:52 -0700
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+> 
+> >            Summary: kernel-2.6.9 breaks Amanda
+> 
+> Unfortunately, he failed to show the tcpdump traces of the UDP
+> traffic as he did in his lkml postings.  There you will find
+> checksum errors mentioned in the tcpdump output for the last
+> few consequetive UDP packets and I think that is a good clue
+> as to what may be the problem here.
 
-Initially I considered an interface where kernel users can register
-themselves using a string as the key.  But I soon realised that we
-could simply allow the netlink_family field to be an arbitrary integer
-that is used as a key to a hash table.
-
-The CPU cost of the hash table isn't too bad since you'll only be
-looking it up when the socket is created.
-
-Comments anyone?
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Since it is reproducible, I already requested a tcpdump trace.
