@@ -1,33 +1,27 @@
-From: "Kent" <azbncrz@12move.nl>
-Subject: expound
-Date: Mon, 28 Jun 2004 11:15:23 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <82E915YR236PI2I$ry0BY330ky4$KL66IZJ9@ZWR03>
-References: <efficient7-zk39BKSunAZJhMB5qrs166T0@bluemail.ch>
+From: William Lee Irwin III <wli@holomorphy.com>
+Subject: Re: kiocb->private is too large for kiocb's on-stack
+Date: Mon, 28 Jun 2004 01:20:16 -0700
+Sender: linux-fsdevel-owner@vger.kernel.org
+Message-ID: <20040628082016.GP21066@holomorphy.com>
+References: <20040628080801.GO21066@holomorphy.com> <20040628011232.43acd3b8.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--149808812896248507"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Ltp" <ltp@oss.sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-fsdevel@vger.kernel.org,
+	netdev@oss.sgi.com, davem@redhat.com
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040628011232.43acd3b8.akpm@osdl.org>
 List-Id: netdev.vger.kernel.org
 
-----149808812896248507
-Content-Type: text/plain;
-Content-Transfer-Encoding: 7Bit
+On Mon, Jun 28, 2004 at 01:12:32AM -0700, Andrew Morton wrote:
+> That's so much better than what we had before it ain't funny.
+> Was this runtime tested?
 
-Garland Lambert,{
+Yes. Oracle exercises this, and it survives OAST.
 
-Govenment don't want me to sell
-UndergroundCD !Check Your spouse and staff
-Investigate Your Own CREDIT-HISTORY
-hacking someone PC!Get a new passport!
-Disappear in your city
-bannedcd2004
+I'll write a dedicated userspace testcase for the aio operations and
+follow up with that.
 
-http://bymtvre.manygoodthings.info/amite/CD/
 
-,toothpaste ,diffusive 
-,jerky ,emperor .
-
-----149808812896248507--
+-- wli
