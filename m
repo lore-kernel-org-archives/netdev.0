@@ -1,46 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: netdev_ops retraction
-Date: Wed, 30 Jul 2003 16:41:08 -0700
+Subject: Re: [PATCH] 2.4.22-pre9-bk : bonding bug fixes
+Date: Wed, 30 Jul 2003 16:49:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030730164108.06062b72.davem@redhat.com>
-References: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk>
-	<20030730233541.GB7057@conectiva.com.br>
+Message-ID: <20030730164907.43b2d343.davem@redhat.com>
+References: <20030730140658.GA14437@alpha.home.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: willy@debian.org, netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, marcelo@conectiva.com.br, netdev@oss.sgi.com,
+   bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20030730233541.GB7057@conectiva.com.br>
+To: Willy Tarreau <willy@w.ods.org>
+In-Reply-To: <20030730140658.GA14437@alpha.home.local>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Jul 2003 20:35:42 -0300
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+On Wed, 30 Jul 2003 16:06:58 +0200
+Willy Tarreau <willy@w.ods.org> wrote:
 
-> Em Wed, Jul 30, 2003 at 07:44:16PM +0100, Matthew Wilcox escreveu:
-> > I think there's still scope for a netdev_ops patch, but it's of dubious value
-> > and more of a 2.7 project.
-> 
-> OK with me, I mentioned this in a brainstorm and thought of it as a 2.7 thing
-> anyway.
+> there are still a few bugs in the current bonding driver. I've reported them
+> several times now, but perhaps not at the right places...
 
-I'm ok with the simplified ethtool-only version too.
+So now we have these few bug fixes, and the backport of the
+2.6.x version of the bonding code, both submitted on the same
+day in fact :-)
 
-Although I'm confused about what kind of problem there is with
-netdev_ops being such a "large structure".
-
-This is the kind of thing there'd be _ONE_ copy of in each driver,
-ala.
-
-struct netdev_ops tg3_netdev_ops {
- ...
-	.foo	=	tg3_foo,
- ...
-};
-
-...
-	tp->dev->netdev_ops = &tg3_netdev_ops;
-...
-
-Right?
+Jeff I'd recommend we put Willy's fixes in if you think they're
+OK, then we can think about the 2.6.x backport work for 2.4.23-preX
