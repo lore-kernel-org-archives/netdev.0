@@ -1,24 +1,41 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [IPv4]: More fib_alias insertion fixes
-Date: Mon, 27 Sep 2004 13:53:33 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [6/6]: jenkins hash for neigh
+Date: Mon, 27 Sep 2004 21:56:10 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16727.65341.747293.986870@robur.slu.se>
-References: <Pine.LNX.4.58.0409252249150.1175@u.domain.uli>
-	<20040925201425.16fbcb6c.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, netdev@oss.sgi.com
+Message-ID: <E1CBu70-00010X-00@gondolin.me.apana.org.au>
+References: <20040925005623.2faf8faf.davem@davemloft.net>
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040925201425.16fbcb6c.davem@davemloft.net>
+To: davem@davemloft.net (David S. Miller)
+In-Reply-To: <20040925005623.2faf8faf.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller <davem@davemloft.net> wrote:
+> 
+> 4) The controversial/RFC patch, dorking with neigh_forced_gc()
+>
+> +			if (n->nud_state -= NUD_INCOMPLETE &&
+> +			    reap_incomplete == 0 &&
+> +			    time_after(jiffies,
+> +				       n->used + n->parms->retrans_time)) {
+> +				num_incomplete++;
+> +				goto next_ent;
 
+That should either be time_before, or you need to swap the arguments.
 
-I'll guess struct fib_alias should not be defined in fib_hash.c to 
-support pluggable lookup algorithms.
+@@ -261,7 +277,9 @@
+ 	if (tbl->entries > tbl->gc_thresh3 ||
+ 	    (tbl->entries > tbl->gc_thresh2 &&
+ 	     time_after(now, tbl->last_flush + 5 * HZ))) {
+-		if (!neigh_forced_gc(tbl) &&
++		int goal = tbl->entries - tbl->gc_thresh3;
 
-Cheers.
-						--ro
+This could be negative but I suppose it's harmless...
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
