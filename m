@@ -1,27 +1,27 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: More IPSEC trouble
-Date: Sat, 12 Mar 2005 03:35:46 +0100
-Message-ID: <42325582.1090003@trash.net>
-References: <E1D9Ymg-0001x0-00@gondolin.me.apana.org.au> <Pine.LNX.4.61.0503111453320.18067@sorbus2.navaho> <42323125.20706@trash.net> <20050312013515.GA17539@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC INTRO 0/5] H-TCP congestion control
+Date: Fri, 11 Mar 2005 20:13:22 -0800
+Message-ID: <20050311201322.7f730e51.davem@davemloft.net>
+References: <20050311160734.30424.67955.65942@galon.ev-en.org>
+	<20050311094239.4c59c29d@dxpl.pdx.osdl.net>
+	<4231E5B7.2010306@ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Steve Hill <steve@services.navaho.net>, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050312013515.GA17539@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: shemminger@osdl.org, linux-net@vger.kernel.org, netdev@oss.sgi.com,
+	doug.leith@nuim.ie
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <4231E5B7.2010306@ev-en.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> Good catch.  However let's try to avoid spreading lock/unlock calls
-> around if possible.
-> 
-> Since tunnel_check_size only looks at the state to determine whether
-> it's tunnel mode, it doesn't need to hold the lock at all.
+On Fri, 11 Mar 2005 18:38:47 +0000
+Baruch Even <baruch@ev-en.org> wrote:
 
-Agreed, your patch is better.
+> That's why it's an RFC and not a request to add it.
 
-Regards
-Patrick
+That's fine.
+
+Please in the future still state that there are legal
+hurdles to pass over before inclusion.  I'll often apply
+RFC patches that I think are very good. :-)
