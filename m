@@ -1,47 +1,32 @@
-From: Cedric Gavage <cedric.gavage@unixtech.be>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [Fwd: kernel 2.4.21]
-Date: Wed, 23 Jul 2003 13:40:37 +0200
+Date: Wed, 23 Jul 2003 04:40:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F1E7435.4060308@unixtech.be>
-References: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>	<20030719191723.0821227f.davem@redhat.com>	<3F1E53F7.5000803@unixtech.be>	<20030723023528.76b0f69c.davem@redhat.com>	<3F1E58EE.5010109@unixtech.be> <20030723024648.2e4b6a62.davem@redhat.com>
+Message-ID: <20030723044027.152a298d.davem@redhat.com>
+References: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>
+	<20030719191723.0821227f.davem@redhat.com>
+	<3F1E53F7.5000803@unixtech.be>
+	<20030723023528.76b0f69c.davem@redhat.com>
+	<3F1E58EE.5010109@unixtech.be>
+	<20030723024648.2e4b6a62.davem@redhat.com>
+	<3F1E71C1.8080302@unixtech.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: alan@lxorguk.ukuu.org.uk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030723024648.2e4b6a62.davem@redhat.com>
+To: Cedric Gavage <cedric.gavage@unixtech.be>
+In-Reply-To: <3F1E71C1.8080302@unixtech.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Wed, 23 Jul 2003 11:44:14 +0200
-> Cedric Gavage <cedric.gavage@unixtech.be> wrote:
-> 
-> 
->>David S. Miller wrote:
->>
->>>On Wed, 23 Jul 2003 11:23:03 +0200
->>>Cedric Gavage <cedric.gavage@unixtech.be> wrote:
->>>
->>>>Still this with 2.4.21 kernel: (intel internet card, driver eepro100)
->>>>
->>>>Jul 23 07:25:58 fazer kernel: recvmsg bug: copied 7CB284C0 seq 7CB288AE
->>>>Jul 23 07:25:58 fazer kernel: KERNEL: assertion (flags&MSG_PEEK) failed at tcp.c(1563)
->>>
->>>Are you running and old version of vsftpd?
->>
->>Thanks for your help...
->>
->>This server is efnet.skynet.be, ircd server connected on EFnet with 
->>ircd-hybrid-6.4...
-> 
-> 
-> Any chance you can try with the e100 driver instead of eepro100?
-> 
-Ok, now it's e100 driver, I will wait some hours to see if we have again 
-problems, thanks for your help.
+On Wed, 23 Jul 2003 13:30:09 +0200
+Cedric Gavage <cedric.gavage@unixtech.be> wrote:
 
--- 
-  Cedric Gavage <cedric.gavage@unixtech.be>
-  http://unixtech.be - http://gavage.com - OpenPGP: 0xED325C64
+> David S. Miller wrote:
+> > Any chance you can try with the e100 driver instead of eepro100?
+> Could I use it with these cards?
+
+Yes, if anything, e100 works with more cards than
+eepro100 does.  e100 is supported well, whereas I can't
+remember the last time eepro100 had a change made to it :-)
