@@ -1,8 +1,8 @@
 From: kuznet@ms2.inr.ac.ru
 Subject: Re: off by one error in 3des cbc keying
-Date: Wed, 13 Nov 2002 04:04:15 +0300 (MSK)
+Date: Wed, 13 Nov 2002 04:09:26 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200211130104.EAA09992@sex.inr.ac.ru>
+Message-ID: <200211130109.EAA10034@sex.inr.ac.ru>
 References: <20021112.143636.55033627.davem@redhat.com>
 Mime-Version: 1.0
 Cc: ahu@ds9a.nl, gem@asplinux.ru, netdev@oss.sgi.com
@@ -14,80 +14,99 @@ List-Id: netdev.vger.kernel.org
 
 Hello!
 
-> Applied, thanks.
->    
->    Another fix for wrongly formatted ICV for ESP will follow
->    tonight after test for interoperability with freebsd.
+>    The problem with expiration remains unsolved.
 
-So, this piece is by Maxim. Bert, beware, it is required to talk
-to another stacks but breaks communication with linuxes before this patch.
+Patch #2. Bert, this is supposed to fix the first strange phenomenon
+in your experiment. But I still do not know what will happen after that.
+Please, check.
 
-For log: authentication signature for MD5/SHA was not truncated to conform RFC.
-
-Side note: well, my fault, but damn common sense requires not to break
-nice good MD5 digest to some absolutely unmotivated length.
+Dave, do not take this patch. It is a bit ugly and I would like
+to finish with Bert's problem, which may require sequence of incremental
+fixes to the same place.
 
 Alexey
 
 
-===== net/ipv4/esp.c 1.4 vs edited =====
---- 1.4/net/ipv4/esp.c	Fri Nov  8 11:34:37 2002
-+++ edited/net/ipv4/esp.c	Wed Nov 13 03:00:52 2002
-@@ -190,11 +190,10 @@
- 	struct crypto_tfm *tfm = esp->auth.tfm;
- 	char *digest = esp->auth.work_digest;
- 
--	memset(auth_data, 0, esp->auth.authlen);
-  	crypto_hmac_init(tfm, esp->auth.key, &esp->auth.key_len);
- 	skb_digest_walk(skb, tfm, offset, len);
- 	crypto_hmac_final(tfm, esp->auth.key, &esp->auth.key_len, digest);
--	memcpy(auth_data, digest, crypto_tfm_alg_digestsize(tfm));
-+	memcpy(auth_data, digest, esp->auth.authlen);
+===== include/net/xfrm.h 1.5 vs edited =====
+--- 1.5/include/net/xfrm.h	Tue Nov 12 02:37:12 2002
++++ edited/include/net/xfrm.h	Wed Nov 13 03:38:20 2002
+@@ -473,7 +473,7 @@
+ struct xfrm_policy *xfrm_policy_byid(int dir, u32 id, int delete);
+ void xfrm_policy_flush(void);
+ void xfrm_alloc_spi(struct xfrm_state *x, u32 minspi, u32 maxspi);
+-struct xfrm_state * xfrm_find_acq(u8 mode, u16 reqid, u8 proto, u32 daddr, u32 saddr);
++struct xfrm_state * xfrm_find_acq(u8 mode, u16 reqid, u8 proto, u32 daddr, u32 saddr, int create);
+ extern void xfrm_policy_flush(void);
+ extern void xfrm_policy_kill(struct xfrm_policy *);
+ extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+===== net/ipv4/xfrm_state.c 1.6 vs edited =====
+--- 1.6/net/ipv4/xfrm_state.c	Tue Nov 12 02:37:12 2002
++++ edited/net/ipv4/xfrm_state.c	Wed Nov 13 03:38:26 2002
+@@ -386,7 +386,7 @@
  }
  
- /* Check that skb data bits are writable. If they are not, copy data
-@@ -463,16 +462,16 @@
+ struct xfrm_state *
+-xfrm_find_acq(u8 mode, u16 reqid, u8 proto, u32 daddr, u32 saddr)
++xfrm_find_acq(u8 mode, u16 reqid, u8 proto, u32 daddr, u32 saddr, int create)
+ {
+ 	struct xfrm_state *x, *x0;
+ 	unsigned h = ntohl(daddr);
+@@ -411,7 +411,7 @@
+ 	}
+ 	if (x0) {
+ 		atomic_inc(&x0->refcnt);
+-	} else if ((x0 = xfrm_state_alloc()) != NULL) {
++	} else if (create && (x0 = xfrm_state_alloc()) != NULL) {
+ 		x0->sel.daddr.xfrm4_addr = daddr;
+ 		x0->sel.daddr.xfrm4_mask = ~0;
+ 		x0->sel.saddr.xfrm4_addr = saddr;
+===== net/key/af_key.c 1.7 vs edited =====
+--- 1.7/net/key/af_key.c	Tue Nov 12 02:37:12 2002
++++ edited/net/key/af_key.c	Wed Nov 13 03:48:17 2002
+@@ -528,8 +528,7 @@
  
- 	/* If integrity check is required, do this. */
- 	if (esp->auth.authlen) {
--		int icvsize = crypto_tfm_alg_digestsize(esp->auth.tfm);
--		u8 sum[icvsize];
--		u8 sum1[icvsize];
-+		u8 sum[esp->auth.authlen];
-+		u8 sum1[esp->auth.authlen];
+ 	switch (((struct sockaddr *)(addr + 1))->sa_family) {
+ 	case AF_INET:
+-		x = xfrm_state_lookup(
+-				      ((struct sockaddr_in*)(addr + 1))->sin_addr.s_addr,
++		x = xfrm_state_lookup(((struct sockaddr_in*)(addr + 1))->sin_addr.s_addr,
+ 				      sa->sadb_sa_spi, proto);
+ 		break;
+ 	case AF_INET6:
+@@ -1043,7 +1042,7 @@
+ 	daddr = (struct sockaddr_in*)(addr + 1);
  
- 		esp->auth.digest(esp, skb, 0, skb->len-esp->auth.authlen, sum);
+ 	x = xfrm_find_acq(mode, reqid, proto, daddr->sin_addr.s_addr,
+-			  saddr->sin_addr.s_addr);
++			  saddr->sin_addr.s_addr, 1);
+ 	if (x == NULL)
+ 		return -ENOENT;
  
--		if (skb_copy_bits(skb, skb->len-esp->auth.authlen, sum1, icvsize))
-+		if (skb_copy_bits(skb, skb->len-esp->auth.authlen, sum1, 
-+				esp->auth.authlen))
- 			BUG();
+@@ -1122,7 +1121,17 @@
  
--		if (unlikely(memcmp(sum, sum1, icvsize))) {
-+		if (unlikely(memcmp(sum, sum1, esp->auth.authlen))) {
- 			x->stats.integrity_failed++;
- 			goto out;
- 		}
-@@ -605,14 +604,20 @@
- 	memset(esp, 0, sizeof(*esp));
- 
- 	if (x->aalg) {
-+		int digestsize;
+ 	/* XXX there is race condition */
+ 	x1 = pfkey_xfrm_state_lookup(hdr, ext_hdrs);
+-	if (x1 && hdr->sadb_msg_type == SADB_ADD) {
++	if (!x1) {
++		x1 = xfrm_find_acq(x->props.mode, x->props.reqid, x->id.proto,
++				   x->id.daddr.xfrm4_addr,
++				   x->props.saddr.xfrm4_addr, 0);
++		if (x1 && x1->id.spi != x->id.spi && x1->id.spi) {
++			xfrm_state_put(x1);
++			x1 = NULL;
++		}
++	}
 +
- 		esp->auth.key = x->aalg->alg_key;
- 		esp->auth.key_len = (x->aalg->alg_key_len+7)/8;
- 		esp->auth.tfm = crypto_alloc_tfm(x->aalg->alg_name, 0);
- 		if (esp->auth.tfm == NULL)
- 			goto error;
- 		esp->auth.digest = esp_hmac_digest;
--		esp->auth.authlen = crypto_tfm_alg_digestsize(esp->auth.tfm);
--		esp->auth.work_digest = kmalloc(esp->auth.authlen, GFP_KERNEL);
-+		digestsize = crypto_tfm_alg_digestsize(esp->auth.tfm);
-+		/* XXX RFC2403 and RFC 2404 truncate auth to 96 bit */
-+		esp->auth.authlen = 12;
-+		if (esp->auth.authlen > digestsize) /* XXX */
-+			BUG();
-+		esp->auth.work_digest = kmalloc(digestsize, GFP_KERNEL);
- 		if (!esp->auth.work_digest)
- 			goto error;
++	if (x1 && x1->id.spi && hdr->sadb_msg_type == SADB_ADD) {
+ 		x->km.state = XFRM_STATE_DEAD;
+ 		xfrm_state_put(x);
+ 		xfrm_state_put(x1);
+@@ -1131,7 +1140,7 @@
+ 
+ 	xfrm_state_insert(x);
+ 
+-	if (x1 && hdr->sadb_msg_type != SADB_ADD) {
++	if (x1) {
+ 		xfrm_state_delete(x1);
+ 		xfrm_state_put(x1);
  	}
