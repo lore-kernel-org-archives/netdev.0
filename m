@@ -1,38 +1,37 @@
-From: Henrik Nordstrom <hno@marasystems.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: primary and secondary ip addresses
-Date: Fri, 17 Dec 2004 20:25:10 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.0412172021190.18385@filer.marasystems.com>
-References: <41912F7A.6000408@redhat.com> <200412172003.22319.hasso@estpak.ee>
- <Pine.LNX.4.61.0412171206200.10943@gargoyle.wi.securepipe.com>
- <200412172053.28016.hasso@estpak.ee>
+Date: Fri, 17 Dec 2004 11:20:25 -0800
+Message-ID: <20041217112025.27688eb6.davem@davemloft.net>
+References: <41912F7A.6000408@redhat.com>
+	<200412161153.51251.hasso@estpak.ee>
+	<Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
+	<200412161302.42357.hasso@estpak.ee>
+	<41C2F6E5.5010607@cs.columbia.edu>
+	<Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com>
+	<41C30212.6000906@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "Martin A. Brown" <mabrown@securepipe.com>, linux-net@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hno@marasystems.com, hasso@estpak.ee, laforge@gnumonks.org,
+        nhorman@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Hasso Tepper <hasso@estpak.ee>
-In-Reply-To: <200412172053.28016.hasso@estpak.ee>
+To: Andrea G Forte <andreaf@cs.columbia.edu>
+In-Reply-To: <41C30212.6000906@cs.columbia.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Dec 2004, Hasso Tepper wrote:
+On Fri, 17 Dec 2004 10:58:10 -0500
+Andrea G Forte <andreaf@cs.columbia.edu> wrote:
 
-> All these tricks don't help if you are using dynamic routing.
+> This does not help, since if I want to use my secondary IP address 
+> instead of my primary, I cannot delete the primary otherwise all of my 
+> secondary IPs are lost as well (and since I can only have only one 
+> primary IP address).
 
-Are you seriously saying you are doing dynamic routing for your locally 
-attached lans?
-
-source address assignment for routed traffic via gateways is automatically 
-derived by the source address assignment for traffic addressed to the 
-gateway itself. So even with routing protocols etc you can control the 
-source address assignment simply by setting up routing to use the correct 
-source address to speak to your gateways, the added routes will then 
-inherit the intended source address.
-
-But I am not sure about how you can control this on multicast or broadcast 
-traffic in a reasonable manner, mostly because I rarely have to care about 
-this on such traffic.
-
-Regards
-Henrik
+By definition, a secondary IP address on an interface is not to
+be used as a source.   It is the whole reason for the distinction
+between primary and secondary IP addresses, and it is why all secondaries
+are deleted once the primary is removed (because there are no valid
+source addresses to choose from any longer, therefore IP valid
+communications are no longer possible).
