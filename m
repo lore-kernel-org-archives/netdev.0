@@ -1,42 +1,60 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Tons of "BUG: dst overflow ..." messages
-Date: Wed, 29 Sep 2004 10:03:16 +0200
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 2.6] generic network statistics (was Re: [6/6]: jenkins hash for neigh / Statistics)
+Date: Wed, 29 Sep 2004 10:04:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929080316.GA19331@xi.wantstofly.org>
-References: <415A3635.4070000@pobox.com>
+Message-ID: <20040929080424.GE31674@sunbeam.de.gnumonks.org>
+References: <20040925005623.2faf8faf.davem@davemloft.net> <E1CBu70-00010X-00@gondolin.me.apana.org.au> <20040927121403.767e2308.davem@davemloft.net> <20040927222613.GE3236@sunbeam.de.gnumonks.org> <20040927160636.7741d973.davem@davemloft.net> <1096327658.1729.19.camel@localhost.localdomain> <16729.9326.93269.422940@robur.slu.se> <20040928111906.GB29961@sunbeam.de.gnumonks.org> <20040928144356.371ef3d4.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="3XA6nns4nE4KvaS/"
+Cc: Robert.Olsson@data.slu.se, shemminger@osdl.org,
+        herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <415A3635.4070000@pobox.com>
+In-Reply-To: <20040928144356.371ef3d4.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 29, 2004 at 12:12:37AM -0400, Jeff Garzik wrote:
 
-> Just logged into my router, which is running 2.6.9-rc2-bk1 (or -bk2, not 
-> sure), and saw a buttload of the following messages:
+--3XA6nns4nE4KvaS/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I've been seeing this too for a week or two on 2.6.8-1.521smp, which
-is some kind of Red Hat bastardized version of 2.6.8 that comes with
-Fedora Core 2.
+On Tue, Sep 28, 2004 at 02:43:56PM -0700, David S. Miller wrote:
 
-BUG: dst underflow 0: 3bcf9a80 at 42350024
+> I like this patch a lot and have applied it.
 
-ipt_state 5569 1 - Live 0x4231e000
-iptable_mangle 6209 0 - Live 0x42321000
-mii 7617 2 usbnet,e100, Live 0x42324000
-ip_conntrack 30929 3 ipt_MASQUERADE,iptable_nat,ipt_state, Live 0x42329000
-ipv6 233701 50 - Live 0x42345000		<====
-ipt_mark 5441 1 - Live 0x423f9000
-ipt_MASQUERADE 6849 1 - Live 0x423fc000
-e100 33861 0 - Live 0x423ff000
+thanks :)
 
-I'm running 6to4 on this machine, but not using it as a router.
+> Harald, we've created a lot of churn over the past week or
+> two.  Can I expect a set of 2.4.x patches for all the neigh
+> stuff and this generic statistics thing sometime soon?
 
-Any easy way to find out which symbol in ipv6.ko this address is in?
+Yes, I'll be working on this today or tomorrow, so you can expect a
+patch soon.
 
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
 
---L
+--3XA6nns4nE4KvaS/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBWmyIXaXGVTD0i/8RAoqOAJ4oRQDUOmgxFDERiJhDPvWZa0deTgCgquEV
+BIbrXjtUwx4St9r0H9vMZ+0=
+=Qvb9
+-----END PGP SIGNATURE-----
+
+--3XA6nns4nE4KvaS/--
