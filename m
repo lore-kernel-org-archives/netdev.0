@@ -1,51 +1,31 @@
-From: David Gibson <hermes@gibson.dropbear.id.au>
-Subject: Re: [PATRCH] janitor: hermes: delete verify_area call
-Date: Tue, 30 Sep 2003 14:51:10 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: RFC: [2.6 patch] disallow modular IPv6
+Date: Mon, 29 Sep 2003 22:09:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930045110.GG15200@zax>
-References: <20030925215902.57f53822.rddunlap@osdl.org> <20030929052925.GA5037@zax> <20030929130608.156bbc2b.rddunlap@osdl.org>
+Message-ID: <20030929220916.19c9c90d.davem@redhat.com>
+References: <20030928225941.GW15338@fs.tum.de>
+	<20030928231842.GE1039@conectiva.com.br>
+	<20030928232403.GX15338@fs.tum.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@conectiva.com.br, netdev@oss.sgi.com, pekkas@netcore.fi,
+        lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030929130608.156bbc2b.rddunlap@osdl.org>
+To: Adrian Bunk <bunk@fs.tum.de>
+In-Reply-To: <20030928232403.GX15338@fs.tum.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 29, 2003 at 01:06:08PM -0700, Randy.Dunlap wrote:
-> On Mon, 29 Sep 2003 15:29:25 +1000 David Gibson <hermes@gibson.dropbear.id.au> wrote:
-> 
-> | On Thu, Sep 25, 2003 at 09:59:02PM -0700, Randy.Dunlap wrote:
-> | > 
-> | > Hi,
-> | > Please apply to 2.6.0-test5-current.
-> | > 
-> | > Thanks,
-> | 
-> | Sorry, can you clarify why this verify_area() is not needed?
-> 
-> 
-> Sure, I'll try to do that.
-> There are several related reasons for it.
-> 
-> Summary:
-> Using verify_area() [or access_ok()] is redundant if copy*user(),
-> get_user(), or put_user() is being used, but must (*should*) be used
-> if __copy*user(), __get_user(), or __put_user() are being used.
-> 
-> a.  [include/asm-i386/uaccess.h] verify_area: - Obsolete, use access_ok()
-> 
-> b.  copy_*_user() already calls access_ok() to validate the user address.
->     The __* versions of copy*user() and __get/put_user() do not use
->     access_ok(), so checking must be done before using them.
+On Mon, 29 Sep 2003 01:24:03 +0200
+Adrian Bunk <bunk@fs.tum.de> wrote:
 
-Ah, ok, thanks.  In that case presumably the other call to
-verify_area() doesn't need to be there either...
+> This is broken since it's legal to compile a module much later than the 
+> kernel.
 
--- 
-David Gibson			| For every complex problem there is a
-david@gibson.dropbear.id.au	| solution which is simple, neat and
-				| wrong.
-http://www.ozlabs.org/people/dgibson
+Not in this case.
+
+For things inside the kernel, what ipv6 is doing is completely legal.
+Changing your config setting in any way in the main kernel tree can
+change just about anything else in the kernel, including the layout
+of structures.
