@@ -1,12 +1,12 @@
 From: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
-Subject: [PATCH 9/14 linux-2.6.7-rc1] prism54: Fix prism54.org bug 77; strengthened oid transaction
-Date: Mon, 24 May 2004 04:33:22 -0400
+Subject: [PATCH 10/14 linux-2.6.7-rc1] prism54: Don't allow mib reads while unconfigured
+Date: Mon, 24 May 2004 04:33:30 -0400
 Sender: prism54-devel-admin@prism54.org
-Message-ID: <20040524083322.GJ3330@ruslug.rutgers.edu>
+Message-ID: <20040524083330.GK3330@ruslug.rutgers.edu>
 Reply-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ibhTSt8h7StI2D+z"
+	protocol="application/pgp-signature"; boundary="cGn0fZIJon5R7R2H"
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
 	prism54-devel@prism54.org
 Return-path: <prism54-devel-admin@prism54.org>
@@ -23,625 +23,508 @@ List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
 
---ibhTSt8h7StI2D+z
-Content-Type: multipart/mixed; boundary="lh55S0yADJsuIVGW"
+--cGn0fZIJon5R7R2H
+Content-Type: multipart/mixed; boundary="yQifGgTvVVJcdOYJ"
 Content-Disposition: inline
 
 
---lh55S0yADJsuIVGW
+--yQifGgTvVVJcdOYJ
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 
-2004-04-09      Aurelien Alleaume <slts@free.fr>
+2004-04-17      Aurelien Alleaume <slts@free.fr>
 
-* oid_mgt.c, isl_ioctl.c : Cleanups. Bug #77. Minor stuffs.
-
-* islpci_mgt.c (islpci_mgt_transaction) : enforce serialization=20
-  in oid transaction. lindent.sh.
-
-* islpci_mgt.c (islpci_mgt_transaction) : Strengthened oid transaction.
+        * oid_mgt.c, isl_ioctl.c : Cleanup. Prevented real oid reading
+	before the card is configured with mib values (might be
+	related to
+	bug #53).
 
 --=20
 GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
 
---lh55S0yADJsuIVGW
+--yQifGgTvVVJcdOYJ
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="09-fix-bug-77-enforce-serialization.patch"
+Content-Disposition: attachment; filename="10-prevent-oid-read-before-config.patch"
 Content-Transfer-Encoding: quoted-printable
 
-2004-04-09	Aurelien Alleaume <slts@free.fr>
+2004-04-17	Aurelien Alleaume <slts@free.fr>
 
-	* oid_mgt.c, isl_ioctl.c : Cleanups. Bug #77. Minor stuffs.=20
-
-	* islpci_mgt.c (islpci_mgt_transaction) : enforce serialization in oid
-	transaction. lindent.sh.=20
-=09
-	* islpci_mgt.c (islpci_mgt_transaction) : Strengthened oid transaction.
+	* oid_mgt.c, isl_ioctl.c : Cleanup. Prevented real oid reading
+	before the card is configured with mib values (might be related to=20
+	bug #53).
 
 Index: linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 RCS file: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.c,v
-retrieving revision 1.150
 retrieving revision 1.151
-diff -u -r1.150 -r1.151
---- linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.c	22 Mar 2004 11=
-:21:22 -0000	1.150
-+++ linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.c	9 Apr 2004 11:=
+retrieving revision 1.152
+diff -u -r1.151 -r1.152
+--- linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.c	9 Apr 2004 11:=
 42:25 -0000	1.151
++++ linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.c	17 Apr 2004 08=
+:46:04 -0000	1.152
 @@ -1,4 +1,4 @@
--/*  $Header: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.c,v 1.150 2004/03/22 1=
-1:21:22 ajfa Exp $
-+/*  $Header: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.c,v 1.151 2004/04/09 1=
+-/*  $Header: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.c,v 1.151 2004/04/09 1=
 1:42:25 ajfa Exp $
++/*  $Header: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.c,v 1.152 2004/04/17 0=
+8:46:04 ajfa Exp $
   * =20
   *  Copyright (C) 2002 Intersil Americas Inc.
   *            (C) 2003,2004 Aurelien Alleaume <slts@free.fr>
-@@ -204,7 +204,7 @@
+@@ -173,14 +173,6 @@
+ 	prism54_mib_mode_helper(priv, init_mode);
+ }
 =20
+-void
+-prism54_mib_init_work(islpci_private *priv)
+-{
+-	down_write(&priv->mib_sem);
+-	mgt_commit(priv);
+-	up_write(&priv->mib_sem);
+-}
+-
+ /* this will be executed outside of atomic context thanks to
+  * schedule_work(), thus we can as well use sleeping semaphore
+  * locking */
+@@ -195,13 +187,6 @@
+ 	if (down_interruptible(&priv->stats_sem))
+ 		return;
+=20
+-/* missing stats are :
+- *  iwstatistics.qual.updated
+- *  iwstatistics.discard.nwid	   =20
+- *  iwstatistics.discard.fragment	   =20
+- *  iwstatistics.discard.misc
+- *  iwstatistics.miss.beacon */
+-
  /* Noise floor.
   * I'm not sure if the unit is dBm.
-- * Note : If we are not connected, this value seems to be irrevelant. */
-+ * Note : If we are not connected, this value seems to be irrelevant. */
+  * Note : If we are not connected, this value seems to be irrelevant. */
+@@ -425,7 +410,6 @@
+ 	/* by default  the card sets this to 20. */
+ 	sens =3D vwrq->disabled ? 20 : vwrq->value;
 =20
- 	mgt_get_request(priv, DOT11_OID_NOISEFLOOR, 0, NULL, &r);
- 	priv->local_iwstatistics.qual.noise =3D r.u;
-@@ -216,8 +216,7 @@
- 	data =3D r.ptr;
-=20
- 	/* copy this MAC to the bss */
--	for (j =3D 0; j < 6; j++)
--		bss.address[j] =3D data[j];
-+	memcpy(bss.address, data, 6);
- 	kfree(data);
-=20
- 	/* now ask for the corresponding bss */
-@@ -505,7 +504,7 @@
- 		return 0;
-=20
- 	/* Request the device for the supported frequencies
--	 * not really revelant since some devices will report the 5 GHz band
-+	 * not really relevant since some devices will report the 5 GHz band
- 	 * frequencies even if they don't support them.
- 	 */
- 	rvalue =3D
-@@ -515,21 +514,12 @@
- 	range->num_channels =3D freq->nr;
- 	range->num_frequency =3D freq->nr;
-=20
--	/* Frequencies are not listed in the right order. The reordering is proba=
-bly
--	 * firmware dependant and thus should work for everyone.
--	 */
- 	m =3D min(IW_MAX_FREQUENCIES, (int) freq->nr);
--	for (i =3D 0; i < m - 12; i++) {
--		range->freq[i].m =3D freq->mhz[12 + i];
--		range->freq[i].e =3D 6;
--		range->freq[i].i =3D i + 1;
--	}
--	for (i =3D m - 12; i < m; i++) {
--		range->freq[i].m =3D freq->mhz[i - m + 12];
-+	for (i =3D 0; i < m; i++) {
-+		range->freq[i].m =3D freq->mhz[i];
- 		range->freq[i].e =3D 6;
--		range->freq[i].i =3D i + 23;
-+		range->freq[i].i =3D channel_of_freq(freq->mhz[i]);
- 	}
--
- 	kfree(freq);
-=20
- 	rvalue |=3D mgt_get_request(priv, DOT11_OID_SUPPORTEDRATES, 0, NULL, &r);
-@@ -1967,60 +1957,6 @@
+-	/* set the ed threshold. */
+ 	return mgt_set_request(priv, DOT11_OID_EDTHRESHOLD, 0, &sens);
  }
 =20
- int
--prism54_set_maxframeburst(struct net_device *ndev, struct iw_request_info =
-*info,
--			  __u32 * uwrq, char *extra)
--{
--	islpci_private *priv =3D netdev_priv(ndev);
--	u32 max_burst;
+@@ -534,9 +518,7 @@
+ 		i++;
+ 		data++;
+ 	}
 -
--	max_burst =3D (*uwrq) ? *uwrq : CARD_DEFAULT_MAXFRAMEBURST;
--	mgt_set_request(priv, DOT11_OID_MAXFRAMEBURST, 0, &max_burst);
+ 	range->num_bitrates =3D i;
 -
--	return -EINPROGRESS;	/* Call commit handler */
--}
+ 	kfree(r.ptr);
+=20
+ 	return rvalue;
+@@ -575,7 +557,6 @@
+ 	int rvalue;
+=20
+ 	rvalue =3D mgt_get_request(priv, DOT11_OID_BSSID, 0, NULL, &r);
 -
--int
--prism54_get_maxframeburst(struct net_device *ndev, struct iw_request_info =
-*info,
--			  __u32 * uwrq, char *extra)
--{
--	islpci_private *priv =3D netdev_priv(ndev);
--	union oid_res_t r;
--	int rvalue;
--
--	rvalue =3D mgt_get_request(priv, DOT11_OID_MAXFRAMEBURST, 0, NULL, &r);
--	*uwrq =3D r.u;
--
--	return rvalue;
--}
--
--int
--prism54_set_profile(struct net_device *ndev, struct iw_request_info *info,
--		    __u32 * uwrq, char *extra)
--{
--	islpci_private *priv =3D netdev_priv(ndev);
--	u32 profile;
--
--	profile =3D (*uwrq) ? *uwrq : CARD_DEFAULT_PROFILE;
--	mgt_set_request(priv, DOT11_OID_PROFILES, 0, &profile);
--
--	return -EINPROGRESS;	/* Call commit handler */
--}
--
--int
--prism54_get_profile(struct net_device *ndev, struct iw_request_info *info,
--		    __u32 * uwrq, char *extra)
--{
--	islpci_private *priv =3D netdev_priv(ndev);
--	union oid_res_t r;
--	int rvalue;
--
--	rvalue =3D mgt_get_request(priv, DOT11_OID_PROFILES, 0, NULL, &r);
--	*uwrq =3D r.u;
--
--	return rvalue;
--}
--
--int
- prism54_debug_oid(struct net_device *ndev, struct iw_request_info *info,
- 		  __u32 * uwrq, char *extra)
- {
-@@ -2099,7 +2035,7 @@
+ 	memcpy(awrq->sa_data, r.ptr, 6);
+ 	awrq->sa_family =3D ARPHRD_ETHER;
+ 	kfree(r.ptr);
+@@ -685,7 +666,6 @@
+ 			kfree(buf);
  		}
  	}
-=20
--	return ret;
-+	return (ret ? ret : -EINPROGRESS);
+-
+ 	return current_ev;
  }
+=20
+@@ -712,7 +692,7 @@
+=20
+ 	/* Ask the device for a list of known bss. We can report at most
+ 	 * IW_MAX_AP=3D64 to the range struct. But the device won't repport anyth=
+ing
+-	 * if you change the value of MAXBSS=3D24. Anyway 24 AP It is probably en=
+ough.
++	 * if you change the value of IWMAX_BSS=3D24.
+ 	 */
+ 	rvalue |=3D mgt_get_request(priv, DOT11_OID_BSSLIST, 0, NULL, &r);
+ 	bsslist =3D r.ptr;
+@@ -969,8 +949,6 @@
+  * small frame <=3D>  smaller than the rts threshold
+  * This is not really the behavior expected by the wireless tool but it se=
+ems
+  * to be a common behavior in other drivers.
+- *=20
+- * It seems that playing with this tends to hang the card -> DISABLED
+  */
 =20
  static int
-@@ -2205,16 +2141,16 @@
- #define PRISM54_GET_PRISMHDR	SIOCIWFIRSTPRIV+23
- #define PRISM54_SET_PRISMHDR	SIOCIWFIRSTPRIV+24
+@@ -1002,18 +980,16 @@
+ 		lifetime =3D vwrq->value / 1024;
 =20
--#define IWPRIV_SET_U32(n,x)	{ n, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1=
-, 0, "set_"x }
--#define IWPRIV_SET_SSID(n,x)	{ n, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED |=
- 1, 0, "set_"x }
--#define IWPRIV_SET_ADDR(n,x)	{ n, IW_PRIV_TYPE_ADDR | IW_PRIV_SIZE_FIXED |=
- 1, 0, "set_"x }
--#define IWPRIV_GET(n,x)	{ n, 0, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | P=
-RIV_STR_SIZE, "get_"x }
-+#define IWPRIV_SET_U32(n,x)	{ n, IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1=
-, 0, "s_"x }
-+#define IWPRIV_SET_SSID(n,x)	{ n, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED |=
- 1, 0, "s_"x }
-+#define IWPRIV_SET_ADDR(n,x)	{ n, IW_PRIV_TYPE_ADDR | IW_PRIV_SIZE_FIXED |=
- 1, 0, "s_"x }
-+#define IWPRIV_GET(n,x)	{ n, 0, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | P=
-RIV_STR_SIZE, "g_"x }
-=20
- #define IWPRIV_U32(n,x)		IWPRIV_SET_U32(n,x), IWPRIV_GET(n,x)
- #define IWPRIV_SSID(n,x)	IWPRIV_SET_SSID(n,x), IWPRIV_GET(n,x)
- #define IWPRIV_ADDR(n,x)	IWPRIV_SET_ADDR(n,x), IWPRIV_GET(n,x)
-=20
--/* Note : limited to 128 private ioctls */
-+/* Note : limited to 128 private ioctls (wireless tools 26) */
-=20
- static const struct iw_priv_args prism54_private_args[] =3D {
- /*{ cmd, set_args, get_args, name } */
-@@ -2352,5 +2288,6 @@
- int
- prism54_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
- {
-+
- 	return -EOPNOTSUPP;
+ 	/* now set what is requested */
+-
+-	if (slimit !=3D 0)
++	if (slimit)
+ 		rvalue =3D
+ 		    mgt_set_request(priv, DOT11_OID_SHORTRETRIES, 0, &slimit);
+-	if (llimit !=3D 0)
++	if (llimit)
+ 		rvalue |=3D
+ 		    mgt_set_request(priv, DOT11_OID_LONGRETRIES, 0, &llimit);
+-	if (lifetime !=3D 0)
++	if (lifetime)
+ 		rvalue |=3D
+ 		    mgt_set_request(priv, DOT11_OID_MAXTXLIFETIME, 0,
+ 				    &lifetime);
+-
+ 	return rvalue;
  }
+=20
+@@ -1109,8 +1085,7 @@
+ 			}
+ 		}
+ 	}
+-
+-	/* now read the flags     */
++	/* now read the flags */
+ 	if (dwrq->flags & IW_ENCODE_DISABLED) {
+ 		/* Encoding disabled,=20
+ 		 * authen =3D DOT11_AUTH_OS;
+@@ -1261,11 +1236,6 @@
+ prism54_set_u32(struct net_device *ndev, struct iw_request_info *info,
+ 		__u32 * uwrq, char *extra)
+ {
+-	/*
+-	   u32 *i =3D (int *) extra;
+-	   int param =3D *i;
+-	   int u =3D *(i + 1);
+-	 */
+ 	u32 oid =3D uwrq[0], u =3D uwrq[1];
+=20
+ 	return mgt_set_request((islpci_private *) ndev->priv, oid, 0, &u);
+@@ -1836,9 +1806,7 @@
+ 				     0);
+ 		break;
+=20
+-		/* Note : the following should never happen since we don't run the card =
+in
+-		 * extended mode.
+-		 * Note : "mlme" is actually a "struct obj_mlmeex *" here, but this
++		/* Note : "mlme" is actually a "struct obj_mlmeex *" here, but this
+ 		 * is backward compatible layout-wise with "struct obj_mlme".
+ 		 */
+=20
+Index: linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.h,v
+retrieving revision 1.31
+retrieving revision 1.32
+diff -u -r1.31 -r1.32
+--- linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.h	18 Mar 2004 05=
+:25:24 -0000	1.31
++++ linux-2.6.7-rc1/drivers/net/wireless/prism54/isl_ioctl.h	17 Apr 2004 08=
+:46:04 -0000	1.32
+@@ -1,4 +1,4 @@
+-/*  $Header: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.h,v 1.30 2004/01/30 16=
+:24:00 ajfa Exp $
++/*  $Header: /var/lib/cvs/prism54-ng/ksrc/isl_ioctl.h,v 1.32 2004/04/17 08=
+:46:04 ajfa Exp $
+  * =20
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *            (C) 2003 Aurelien Alleaume <slts@free.fr>
+@@ -30,7 +30,6 @@
+ #define SUPPORTED_WIRELESS_EXT                  16
+=20
+ void prism54_mib_init(islpci_private *);
+-void prism54_mib_init_work(islpci_private *);
+=20
+ struct iw_statistics *prism54_get_wireless_stats(struct net_device *);
+ void prism54_update_stats(islpci_private *);
+Index: linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_dev.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /var/lib/cvs/prism54-ng/ksrc/islpci_dev.c,v
+retrieving revision 1.74
+retrieving revision 1.75
+diff -u -r1.74 -r1.75
+--- linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_dev.c	7 Apr 2004 04=
+:12:12 -0000	1.74
++++ linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_dev.c	17 Apr 2004 0=
+8:46:04 -0000	1.75
+@@ -1,4 +1,4 @@
+-/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_dev.c,v 1.74 2004/04/07 0=
+4:12:12 msw Exp $
++/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_dev.c,v 1.75 2004/04/17 0=
+8:46:04 ajfa Exp $
+  * =20
+  *  Copyright (C) 2002 Intersil Americas Inc.
+  *  Copyright (C) 2003 Herbert Valerio Riedel <hvr@gnu.org>
+@@ -387,7 +387,9 @@
+ 	 * the IRQ line until we know for sure the reset went through */
+ 	isl38xx_enable_common_interrupts(priv->device_base);
+=20
+-	prism54_mib_init_work(priv);
++	down_write(&priv->mib_sem);
++	mgt_commit(priv);
++	up_write(&priv->mib_sem);
+=20
+ 	islpci_set_state(priv, PRV_STATE_READY);
+=20
 Index: linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_mgt.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 RCS file: /var/lib/cvs/prism54-ng/ksrc/islpci_mgt.c,v
-retrieving revision 1.43
 retrieving revision 1.44
-diff -u -r1.43 -r1.44
---- linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_mgt.c	20 Mar 2004 1=
-6:58:37 -0000	1.43
-+++ linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_mgt.c	9 Apr 2004 11=
+retrieving revision 1.45
+diff -u -r1.44 -r1.45
+--- linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_mgt.c	9 Apr 2004 11=
 :42:25 -0000	1.44
++++ linux-2.6.7-rc1/drivers/net/wireless/prism54/islpci_mgt.c	10 Apr 2004 0=
+3:16:55 -0000	1.45
 @@ -1,4 +1,4 @@
--/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_mgt.c,v 1.43 2004/03/20 1=
-6:58:37 mcgrof Exp $
-+/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_mgt.c,v 1.44 2004/04/09 1=
+-/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_mgt.c,v 1.44 2004/04/09 1=
 1:42:25 ajfa Exp $
++/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_mgt.c,v 1.45 2004/04/10 0=
+3:16:55 msw Exp $
   * =20
   *  Copyright (C) 2002 Intersil Americas Inc.
   *  Copyright 2004 Jens Maurer <Jens.Maurer@gmx.net>
-@@ -63,7 +63,6 @@
-     Queue handling for management frames
- **************************************************************************=
-****/
-=20
-- =20
- /*
-  * Helper function to create a PIMFOR management frame header.
-  */
-@@ -86,8 +85,8 @@
- {
- 	pimfor_header_t *h =3D data;
-=20
--        while ((void *) h < data + len) {
--		if(h->flags & PIMFOR_FLAG_LITTLE_ENDIAN) {
-+	while ((void *) h < data + len) {
-+		if (h->flags & PIMFOR_FLAG_LITTLE_ENDIAN) {
- 			le32_to_cpus(&h->oid);
- 			le32_to_cpus(&h->length);
- 		} else {
-@@ -108,8 +107,8 @@
- islpci_mgmt_rx_fill(struct net_device *ndev)
- {
- 	islpci_private *priv =3D netdev_priv(ndev);
--	isl38xx_control_block *cb =3D    /* volatile not needed */
--		(isl38xx_control_block *) priv->control_block;
-+	isl38xx_control_block *cb =3D	/* volatile not needed */
-+	    (isl38xx_control_block *) priv->control_block;
- 	u32 curr =3D le32_to_cpu(cb->driver_curr_frag[ISL38XX_CB_RX_MGMTQ]);
-=20
- #if VERBOSE > SHOW_ERROR_MESSAGES
-@@ -124,7 +123,8 @@
- 		if (buf->mem =3D=3D NULL) {
- 			buf->mem =3D kmalloc(MGMT_FRAME_SIZE, GFP_ATOMIC);
- 			if (!buf->mem) {
--				printk(KERN_WARNING "Error allocating management frame.\n");
-+				printk(KERN_WARNING
-+				       "Error allocating management frame.\n");
- 				return -ENOMEM;
- 			}
- 			buf->size =3D MGMT_FRAME_SIZE;
-@@ -133,24 +133,24 @@
- 			buf->pci_addr =3D pci_map_single(priv->pdev, buf->mem,
- 						       MGMT_FRAME_SIZE,
- 						       PCI_DMA_FROMDEVICE);
--			if(!buf->pci_addr) {
--				printk(KERN_WARNING "Failed to make memory DMA'able\n.");
-+			if (!buf->pci_addr) {
-+				printk(KERN_WARNING
-+				       "Failed to make memory DMA'able\n.");
- 				return -ENOMEM;
- 			}
- 		}
-=20
--                /* be safe: always reset control block information */
-+		/* be safe: always reset control block information */
- 		frag->size =3D cpu_to_le16(MGMT_FRAME_SIZE);
- 		frag->flags =3D 0;
- 		frag->address =3D cpu_to_le32(buf->pci_addr);
- 		curr++;
-=20
--                /* The fragment address in the control block must have
--                 * been written before announcing the frame buffer to
--                 * device */
-+		/* The fragment address in the control block must have
-+		 * been written before announcing the frame buffer to
-+		 * device */
- 		wmb();
--		cb->driver_curr_frag[ISL38XX_CB_RX_MGMTQ] =3D
--			cpu_to_le32(curr);
-+		cb->driver_curr_frag[ISL38XX_CB_RX_MGMTQ] =3D cpu_to_le32(curr);
- 	}
- 	return 0;
- }
-@@ -168,7 +168,7 @@
- {
- 	islpci_private *priv =3D netdev_priv(ndev);
- 	isl38xx_control_block *cb =3D
--		(isl38xx_control_block *) priv->control_block;
-+	    (isl38xx_control_block *) priv->control_block;
- 	void *p;
- 	int err =3D -EINVAL;
- 	unsigned long flags;
-@@ -242,25 +242,25 @@
- 	priv->mgmt_tx[index] =3D buf;
- 	frag =3D &cb->tx_data_mgmt[index];
- 	frag->size =3D cpu_to_le16(frag_len);
--	frag->flags =3D 0;   /* for any other than the last fragment, set to 1 */
-+	frag->flags =3D 0;	/* for any other than the last fragment, set to 1 */
- 	frag->address =3D cpu_to_le32(buf.pci_addr);
-=20
- 	/* The fragment address in the control block must have
- 	 * been written before announcing the frame buffer to
- 	 * device */
- 	wmb();
--	cb->driver_curr_frag[ISL38XX_CB_TX_MGMTQ] =3D cpu_to_le32(curr_frag+1);
-+	cb->driver_curr_frag[ISL38XX_CB_TX_MGMTQ] =3D cpu_to_le32(curr_frag + 1);
- 	spin_unlock_irqrestore(&priv->slock, flags);
-=20
- 	/* trigger the device */
- 	islpci_trigger(priv);
- 	return 0;
-=20
-- error_unlock:
-+      error_unlock:
- 	spin_unlock_irqrestore(&priv->slock, flags);
-- error_free:
-+      error_free:
- 	kfree(buf.mem);
-- error:
-+      error:
- 	return err;
- }
-=20
-@@ -274,50 +274,48 @@
- {
- 	islpci_private *priv =3D netdev_priv(ndev);
- 	isl38xx_control_block *cb =3D
--		(isl38xx_control_block *) priv->control_block;
-+	    (isl38xx_control_block *) priv->control_block;
- 	u32 curr_frag;
-=20
- #if VERBOSE > SHOW_ERROR_MESSAGES
- 	DEBUG(SHOW_FUNCTION_CALLS, "islpci_mgt_receive \n");
- #endif
-=20
--
--        /* Only once per interrupt, determine fragment range to
--         * process.  This avoids an endless loop (i.e. lockup) if
--         * frames come in faster than we can process them. */
-+	/* Only once per interrupt, determine fragment range to
-+	 * process.  This avoids an endless loop (i.e. lockup) if
-+	 * frames come in faster than we can process them. */
- 	curr_frag =3D le32_to_cpu(cb->device_curr_frag[ISL38XX_CB_RX_MGMTQ]);
- 	barrier();
-=20
--	for ( ; priv->index_mgmt_rx < curr_frag; priv->index_mgmt_rx++) {
-+	for (; priv->index_mgmt_rx < curr_frag; priv->index_mgmt_rx++) {
- 		pimfor_header_t *header;
- 		u32 index =3D priv->index_mgmt_rx % ISL38XX_CB_MGMT_QSIZE;
- 		struct islpci_membuf *buf =3D &priv->mgmt_rx[index];
- 		u16 frag_len;
- 		int size;
- 		struct islpci_mgmtframe *frame;
--             =20
--                /* I have no idea (and no documentation) if flags !=3D 0
--                 * is possible.  Drop the frame, reuse the buffer. */
--                if(le16_to_cpu(cb->rx_data_mgmt[index].flags) !=3D 0) {
--                        printk(KERN_WARNING "%s: unknown flags 0x%04x\n",
--                               ndev->name,
--                               le16_to_cpu(cb->rx_data_mgmt[index].flags));
--                        continue;
--                }
-+
-+		/* I have no idea (and no documentation) if flags !=3D 0
-+		 * is possible.  Drop the frame, reuse the buffer. */
-+		if (le16_to_cpu(cb->rx_data_mgmt[index].flags) !=3D 0) {
-+			printk(KERN_WARNING "%s: unknown flags 0x%04x\n",
-+			       ndev->name,
-+			       le16_to_cpu(cb->rx_data_mgmt[index].flags));
-+			continue;
-+		}
-=20
- 		/* The device only returns the size of the header(s) here. */
- 		frag_len =3D le16_to_cpu(cb->rx_data_mgmt[index].size);
-=20
- 		/*
--                 * We appear to have no way to tell the device the
--                 * size of a receive buffer.  Thus, if this check
--                 * triggers, we likely have kernel heap corruption. */
--                if (frag_len > MGMT_FRAME_SIZE) {
--                        printk(KERN_WARNING "%s: Bogus packet size of %d (=
-%#x).\
--n",
--                               ndev->name, frag_len, frag_len);
--                        frag_len =3D MGMT_FRAME_SIZE;
--                }
-+		 * We appear to have no way to tell the device the
-+		 * size of a receive buffer.  Thus, if this check
-+		 * triggers, we likely have kernel heap corruption. */
-+		if (frag_len > MGMT_FRAME_SIZE) {
-+			printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\
-+n", ndev->name, frag_len, frag_len);
-+			frag_len =3D MGMT_FRAME_SIZE;
-+		}
-=20
- 		/* Ensure the results of device DMA are visible to the CPU. */
- 		pci_dma_sync_single(priv->pdev, buf->pci_addr,
-@@ -339,30 +337,32 @@
- #if VERBOSE > SHOW_ERROR_MESSAGES
- 		DEBUG(SHOW_PIMFOR_FRAMES,
- 		      "PIMFOR: op %i, oid 0x%08x, device %i, flags 0x%x length 0x%x \n",
--		      header->operation, header->oid, header->device_id,=20
-+		      header->operation, header->oid, header->device_id,
- 		      header->flags, header->length);
-=20
- 		/* display the buffer contents for debugging */
- 		display_buffer((char *) header, PIMFOR_HEADER_SIZE);
--		display_buffer((char *) header + PIMFOR_HEADER_SIZE, header->length);
-+		display_buffer((char *) header + PIMFOR_HEADER_SIZE,
-+			       header->length);
- #endif
-=20
- 		/* nobody sends these */
- 		if (header->flags & PIMFOR_FLAG_APPLIC_ORIGIN) {
--			printk(KERN_DEBUG "%s: errant PIMFOR application frame\n",
-+			printk(KERN_DEBUG
-+			       "%s: errant PIMFOR application frame\n",
- 			       ndev->name);
- 			continue;
- 		}
-=20
- 		/* Determine frame size, skipping OID_INL_TUNNEL headers. */
- 		size =3D PIMFOR_HEADER_SIZE + header->length;
--		frame =3D kmalloc(sizeof(struct islpci_mgmtframe) + size,
-+		frame =3D kmalloc(sizeof (struct islpci_mgmtframe) + size,
- 				GFP_ATOMIC);
- 		if (!frame) {
--			printk(KERN_WARNING "%s: Out of memory, cannot handle oid 0x%08x\n",
--
+@@ -312,8 +312,9 @@
+ 		 * size of a receive buffer.  Thus, if this check
+ 		 * triggers, we likely have kernel heap corruption. */
+ 		if (frag_len > MGMT_FRAME_SIZE) {
+-			printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\
+-n", ndev->name, frag_len, frag_len);
 +			printk(KERN_WARNING
-+			       "%s: Out of memory, cannot handle oid 0x%08x\n",
- 			       ndev->name, header->oid);
--			continue;       =20
-+			continue;
++				"%s: Bogus packet size of %d (%#x).\n",
++				ndev->name, frag_len, frag_len);
+ 			frag_len =3D MGMT_FRAME_SIZE;
  		}
- 		frame->ndev =3D ndev;
- 		memcpy(&frame->buf, header, size);
-@@ -382,7 +382,7 @@
- 			       header->oid, header->device_id, header->flags,
- 			       header->length);
- #endif
--                     =20
-+
- 			/* Create work to handle trap out of interrupt
- 			 * context. */
- 			INIT_WORK(&frame->ws, prism54_process_trap, frame);
-@@ -392,14 +392,13 @@
- 			/* Signal the one waiting process that a response
- 			 * has been received. */
- 			if ((frame =3D xchg(&priv->mgmt_received, frame)) !=3D NULL) {
--				printk(KERN_WARNING "%s: mgmt response not collected\n",
-+				printk(KERN_WARNING
-+				       "%s: mgmt response not collected\n",
- 				       ndev->name);
- 				kfree(frame);
- 			}
--                             =20
- #if VERBOSE > SHOW_ERROR_MESSAGES
--			DEBUG(SHOW_TRACING,
--			      "Wake up Mgmt Queue\n");
-+			DEBUG(SHOW_TRACING, "Wake up Mgmt Queue\n");
- #endif
- 			wake_up(&priv->mgmt_wqueue);
+=20
+@@ -487,8 +488,9 @@
  		}
-@@ -416,22 +415,22 @@
- islpci_mgt_cleanup_transmit(struct net_device *ndev)
- {
- 	islpci_private *priv =3D netdev_priv(ndev);
--	isl38xx_control_block *cb =3D    /* volatile not needed */
--		(isl38xx_control_block *) priv->control_block;
-+	isl38xx_control_block *cb =3D	/* volatile not needed */
-+	    (isl38xx_control_block *) priv->control_block;
- 	u32 curr_frag;
-=20
- #if VERBOSE > SHOW_ERROR_MESSAGES
--        DEBUG(SHOW_FUNCTION_CALLS, "islpci_mgt_cleanup_transmit\n");
-+	DEBUG(SHOW_FUNCTION_CALLS, "islpci_mgt_cleanup_transmit\n");
- #endif
-=20
- 	/* Only once per cleanup, determine fragment range to
- 	 * process.  This avoids an endless loop (i.e. lockup) if
- 	 * the device became confused, incrementing device_curr_frag
- 	 * rapidly. */
--	curr_frag =3D le32_to_cpu(cb->device_curr_frag[ISL38XX_CB_TX_MGMTQ]);=20
-+	curr_frag =3D le32_to_cpu(cb->device_curr_frag[ISL38XX_CB_TX_MGMTQ]);
- 	barrier();
-=20
--	for ( ; priv->index_mgmt_tx < curr_frag; priv->index_mgmt_tx++) {
-+	for (; priv->index_mgmt_tx < curr_frag; priv->index_mgmt_tx++) {
- 		int index =3D priv->index_mgmt_tx % ISL38XX_CB_MGMT_QSIZE;
- 		struct islpci_membuf *buf =3D &priv->mgmt_tx[index];
- 		pci_unmap_single(priv->pdev, buf->pci_addr, buf->size,
-@@ -462,7 +461,7 @@
-=20
- 	PRISM_DEFWAITQ(priv->mgmt_wqueue, wait);
- 	err =3D islpci_mgt_transmit(ndev, operation, oid, senddata, sendlen);
--	if(err)
-+	if (err)
- 		goto out;
-=20
- 	err =3D -ETIMEDOUT;
-@@ -473,12 +472,22 @@
- 		timeleft =3D schedule_timeout(wait_cycle_jiffies);
- 		frame =3D xchg(&priv->mgmt_received, NULL);
- 		if (frame) {
--			*recvframe =3D frame;
--			err =3D 0;
--			goto out;
-+			if (frame->header->oid =3D=3D oid) {
-+				*recvframe =3D frame;
-+				err =3D 0;
-+				goto out;
-+			} else {
-+				printk(KERN_DEBUG
-+				       "%s: expecting oid 0x%x, received 0x%x.\n",
-+				       ndev->name, (unsigned int) oid,
-+				       frame->header->oid);
-+				kfree(frame);
-+				frame =3D NULL;
-+			}
- 		}
--		if(timeleft =3D=3D 0) {
--			printk(KERN_DEBUG "%s: timeout waiting for mgmt response %lu, trigging =
-device\n",
-+		if (timeleft =3D=3D 0) {
-+			printk(KERN_DEBUG
-+			       "%s: timeout waiting for mgmt response %lu, trigging device\n",
- 			       ndev->name, timeout_left);
+ 		if (timeleft =3D=3D 0) {
+ 			printk(KERN_DEBUG
+-			       "%s: timeout waiting for mgmt response %lu, trigging device\n",
+-			       ndev->name, timeout_left);
++				"%s: timeout waiting for mgmt response %lu, "
++				"triggering device\n",
++				ndev->name, timeout_left);
  			islpci_trigger(priv);
  		}
-@@ -487,10 +496,9 @@
- 	printk(KERN_WARNING "%s: timeout waiting for mgmt response\n",
- 	       ndev->name);
-=20
--	/* TODO: we should reset the device here */    =20
-- out:
-+	/* TODO: we should reset the device here */
-+      out:
- 	PRISM_ENDWAITQ(priv->mgmt_wqueue, wait);
- 	up(&priv->mgmt_sem);
- 	return err;
- }
--
+ 		timeout_left +=3D timeleft - wait_cycle_jiffies;
 Index: linux-2.6.7-rc1/drivers/net/wireless/prism54/oid_mgt.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
 RCS file: /var/lib/cvs/prism54-ng/ksrc/oid_mgt.c,v
-retrieving revision 1.13
 retrieving revision 1.14
-diff -u -r1.13 -r1.14
---- linux-2.6.7-rc1/drivers/net/wireless/prism54/oid_mgt.c	22 Mar 2004 11:2=
-1:22 -0000	1.13
-+++ linux-2.6.7-rc1/drivers/net/wireless/prism54/oid_mgt.c	9 Apr 2004 11:42=
+retrieving revision 1.15
+diff -u -r1.14 -r1.15
+--- linux-2.6.7-rc1/drivers/net/wireless/prism54/oid_mgt.c	9 Apr 2004 11:42=
 :25 -0000	1.14
-@@ -40,17 +40,13 @@
- 	if ((f >=3D 2412) && (f <=3D 2484)) {
- 		while ((c < 14) && (f !=3D frequency_list_bg[c]))
- 			c++;
--		if (c >=3D 14)
--			return 0;
-+		return (c >=3D 14) ? 0 : ++c;
- 	} else if ((f >=3D (int) 5170) && (f <=3D (int) 5320)) {
- 		while ((c < 12) && (f !=3D frequency_list_a[c]))
- 			c++;
--		if (c >=3D 12)
--			return 0;
-+		return (c >=3D 12) ? 0 : (c + 37);
- 	} else
- 		return 0;
++++ linux-2.6.7-rc1/drivers/net/wireless/prism54/oid_mgt.c	17 Apr 2004 08:4=
+6:04 -0000	1.15
+@@ -446,7 +446,7 @@
+ 	if (cache)
+ 		down_write(&priv->mib_sem);
+=20
+-	if (islpci_get_state(priv) >=3D PRV_STATE_INIT) {
++	if (islpci_get_state(priv) >=3D PRV_STATE_READY) {
+ 		ret =3D islpci_mgt_transaction(priv->ndev, PIMFOR_OP_SET, oid,
+ 					     _data, dlen, &response);
+ 		if (!ret) {
+@@ -500,7 +500,7 @@
+ 	if (cache)
+ 		down_read(&priv->mib_sem);
+=20
+-	if (islpci_get_state(priv) >=3D PRV_STATE_INIT) {
++	if (islpci_get_state(priv) >=3D PRV_STATE_READY) {
+ 		ret =3D islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
+ 					     oid, data, dlen, &response);
+ 		if (ret || !response ||
+@@ -539,7 +539,7 @@
+ 	if (reslen > isl_oid[n].size)
+ 		printk(KERN_DEBUG
+ 		       "mgt_get_request(0x%x): received data length was bigger "
+-		       "than expected (%d > %d). Memory is probably corrupted... ",
++		       "than expected (%d > %d). Memory is probably corrupted...",
+ 		       oid, reslen, isl_oid[n].size);
+=20
+ 	return ret;
+@@ -622,12 +622,32 @@
+ 	OID_INL_OUTPUTPOWER,
+ };
+=20
++/* update the MAC addr. */
++static int
++mgt_update_addr(islpci_private *priv)
++{
++	struct islpci_mgmtframe *res;
++	int ret;
++
++	ret =3D islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
++				     isl_oid[GEN_OID_MACADDRESS].oid, NULL,
++				     isl_oid[GEN_OID_MACADDRESS].size, &res);
++
++	if ((ret =3D=3D 0) && res && (res->header->operation !=3D PIMFOR_OP_ERROR=
+))
++		memcpy(priv->ndev->dev_addr, res->data, 6);
++	else
++		ret =3D -EIO;
++	if (res)
++		islpci_mgt_release(res);
++
++	return ret;
++}
++
+ void
+ mgt_commit(islpci_private *priv)
+ {
+ 	int rvalue;
+ 	u32 u;
+-	union oid_res_t r;
+=20
+ 	if (islpci_get_state(priv) < PRV_STATE_INIT)
+ 		return;
+@@ -643,6 +663,7 @@
+=20
+ 	u =3D OID_INL_MODE;
+ 	rvalue |=3D mgt_commit_list(priv, &u, 1);
++	rvalue |=3D mgt_update_addr(priv);
+=20
+ 	if (rvalue) {
+ 		/* some request have failed. The device might be in an
+@@ -650,14 +671,6 @@
+ 		printk(KERN_DEBUG "%s: mgt_commit has failed. Restart the "
+ 		       "device \n", priv->ndev->name);
+ 	}
 -
--	return ++c;
+-	/* update the MAC addr. As it's not cached, no lock will be acquired by
+-	 * the mgt_get_request
+-	 */
+-	mgt_get_request(priv, GEN_OID_MACADDRESS, 0, NULL, &r);
+-	memcpy(priv->ndev->dev_addr, r.ptr, 6);
+-	kfree(r.ptr);
+-
  }
 =20
- #define OID_STRUCT(name,oid,s,t) [name] =3D {oid, 0, sizeof(s), t}
+ /* This will tell you if you are allowed to answer a mlme(ex) request .*/
+@@ -710,8 +723,11 @@
+ 	case OID_TYPE_BSS:{
+ 			struct obj_bss *bss =3D r->ptr;
+ 			return snprintf(str, PRIV_STR_SIZE,
+-					"age=3D%u\nchannel=3D%u\n\
+-				        capinfo=3D0x%X\nrates=3D0x%X\nbasic_rates=3D0x%X\n", bss->age,=
+ bss->channel, bss->capinfo, bss->rates, bss->basic_rates);
++					"age=3D%u\nchannel=3D%u\n"
++					"capinfo=3D0x%X\nrates=3D0x%X\n"
++					"basic_rates=3D0x%X\n", bss->age,
++					bss->channel, bss->capinfo,
++					bss->rates, bss->basic_rates);
+ 		}
+ 		break;
+ 	case OID_TYPE_BSSLIST:{
+@@ -720,7 +736,9 @@
+ 			k =3D snprintf(str, PRIV_STR_SIZE, "nr=3D%u\n", list->nr);
+ 			for (i =3D 0; i < list->nr; i++)
+ 				k +=3D snprintf(str + k, PRIV_STR_SIZE - k,
+-					      "bss[%u] : \nage=3D%u\nchannel=3D%u\ncapinfo=3D0x%X\nrates=3D0x=
+%X\nbasic_rates=3D0x%X\n",
++					      "bss[%u] : \nage=3D%u\nchannel=3D%u\n"
++					      "capinfo=3D0x%X\nrates=3D0x%X\n"
++					      "basic_rates=3D0x%X\n",
+ 					      i, list->bsslist[i].age,
+ 					      list->bsslist[i].channel,
+ 					      list->bsslist[i].capinfo,
+@@ -742,16 +760,17 @@
+ 		break;
+ 	case OID_TYPE_MLME:{
+ 			struct obj_mlme *mlme =3D r->ptr;
+-			return snprintf(str, PRIV_STR_SIZE, "id=3D0x%X\nstate=3D0x%X\n\
+-			         code=3D0x%X\n", mlme->id, mlme->state,
+-					mlme->code);
++			return snprintf(str, PRIV_STR_SIZE,
++					"id=3D0x%X\nstate=3D0x%X\ncode=3D0x%X\n",
++					mlme->id, mlme->state, mlme->code);
+ 		}
+ 		break;
+ 	case OID_TYPE_MLMEEX:{
+ 			struct obj_mlmeex *mlme =3D r->ptr;
+-			return snprintf(str, PRIV_STR_SIZE, "id=3D0x%X\nstate=3D0x%X\n\
+-			         code=3D0x%X\nsize=3D0x%X\n", mlme->id, mlme->state,
+-					mlme->code, mlme->size);
++			return snprintf(str, PRIV_STR_SIZE,
++					"id=3D0x%X\nstate=3D0x%X\n"
++					"code=3D0x%X\nsize=3D0x%X\n", mlme->id,
++					mlme->state, mlme->code, mlme->size);
+ 		}
+ 		break;
+ 	case OID_TYPE_SSID:{
+Index: linux-2.6.7-rc1/drivers/net/wireless/prism54/prismcompat24.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /var/lib/cvs/prism54-ng/ksrc/prismcompat24.h,v
+retrieving revision 1.1
+retrieving revision 1.2
+diff -u -r1.1 -r1.2
+--- linux-2.6.7-rc1/drivers/net/wireless/prism54/prismcompat24.h	20 Mar 200=
+4 18:23:28 -0000	1.1
++++ linux-2.6.7-rc1/drivers/net/wireless/prism54/prismcompat24.h	13 Apr 200=
+4 08:20:13 -0000	1.2
+@@ -27,20 +27,25 @@
+ #include <linux/config.h>
+ #include <linux/tqueue.h>
+=20
+-#define work_struct		tq_struct
+-#define INIT_WORK		INIT_TQUEUE
+-#define schedule_work		schedule_task
+-
+-#define irqreturn_t		void
+-#define IRQ_HANDLED
+-#define IRQ_NONE
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,25)
++#define module_param(x, y, z)	MODULE_PARM(x, "i")
++#else
++#include <linux/moduleparam.h>
++#endif
+=20
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,23)
+ #define free_netdev(x)		kfree(x)
+ #define pci_name(x)		x->slot_name
++#define irqreturn_t		void
++#define IRQ_HANDLED
++#define IRQ_NONE
++#else
++#include <linux/interrupt.h>
+ #endif
+=20
+-#define module_param(x, y, z)	MODULE_PARM(x, "i")
++#define work_struct		tq_struct
++#define INIT_WORK		INIT_TQUEUE
++#define schedule_work		schedule_task
+=20
+ #define netdev_priv(x)		x->priv
+=20
 
---lh55S0yADJsuIVGW--
+--yQifGgTvVVJcdOYJ--
 
---ibhTSt8h7StI2D+z
+--cGn0fZIJon5R7R2H
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFAsbNSat1JN+IKUl4RAiHLAJ443XOJfDwRCFhUNHEVz512tIMyfgCgj/7B
-BIe7NQiKazNPmvtv7k0e7sk=
-=BYKF
+iD8DBQFAsbNaat1JN+IKUl4RAmYgAJ9lElz3VPsY3qRvJlVTIo9AyreENACfXoTc
+Exnhw03PYFJcxGzvK20JIts=
+=ClAE
 -----END PGP SIGNATURE-----
 
---ibhTSt8h7StI2D+z--
+--cGn0fZIJon5R7R2H--
