@@ -1,40 +1,43 @@
-From: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>
-Subject: Re: Where do I ask Vortex Driver Questions?
-Date: Thu, 5 Dec 2002 16:10:35 +0100 (CET)
+From: Ronghua Zhang <rz5b@cs.virginia.edu>
+Subject: synchronization between net_bh and user-context
+Date: Thu, 5 Dec 2002 16:36:09 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0212051608390.13932-100000@kenzo.iwr.uni-heidelberg.de>
-References: <1FB25D2C0FC3D11193C10050046E9254079A4952@whlexch.thezenith.com>
+Message-ID: <Pine.LNX.4.44.0212051612560.712-100000@bobbidi.cs.virginia.edu>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, <linux-kernel@vger.kernel.org>,
+   <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Walker, Caleb" <cwalker@thezenith.com>
-In-Reply-To: <1FB25D2C0FC3D11193C10050046E9254079A4952@whlexch.thezenith.com>
+To: kernelnewbies@nl.linux.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Dec 2002, Walker, Caleb wrote:
+I am reading the TCP/IP code of kernel 2.2.15 and doing some development
+based on it(yes, I know it's an old version, but I have to). I got a
+little confused about the synchronization between net_bh and user-context,
+and hope someone can help me out.
 
-> I apologize for taking your time with this email, but I am wondering if you
-> could tell me where I can ask such questions as:
+Specifically, why the following is impossible?
+destroy_sock is called on CPU1, and a little bit later net_bh() is
+executed on CPU2, which will grab the pointer to the socket just before
+it's destroyed, and its later access becomes invalid.
 
-Most probably on vortex@scyld.com which is a list dedicated to vortex 
-driver related discussions.
+CPU 1                                 CPU2
+destroy_sock()
+ lock_sock()
+   sk->sock_readers++
+   synchronize_bh(), no bh is running
 
-> How do I set the card up to run at 100MB/Half Duplex?
+                                    now net_bh() get called
+                                    =>tcp_v4_rcv()
+                                       sk = __tcp_v4_lookup(...)
+                                        sk has not been destroyed
 
-This is answered in Documentation/networking/vortex.txt in your kernel 
-source tree or at http://www.scyld.com/network/vortex.html (depending on 
-the driver that you're using).
+ tcp_v4_destroy_sock()
+ kill_sk_now() free sk
+                                         now sk has been destroyed
+                                       if (!atomic_read(&sk->sock_readers))
+                                            <-- sk become invalid
 
-> The document is a little hard to understand for someone as ignorant as me.
 
-Err, which document ?
-
--- 
-Bogdan Costescu
-
-IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
-Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
-Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
-E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
+ronghua
