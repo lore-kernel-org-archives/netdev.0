@@ -1,42 +1,47 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
-Date: Thu, 13 Jan 2005 00:16:15 +0100
-Message-ID: <20050112231615.GF14280@xi.wantstofly.org>
-References: <20050112222437.GC14280@xi.wantstofly.org> <41E5A7E9.4030101@candelatech.com> <20050112224810.GE14280@xi.wantstofly.org> <41E5AEAC.8060706@candelatech.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Thu, 13 Jan 2005 00:19:02 +0100
+Message-ID: <16869.45158.194375.398326@robur.slu.se>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
+	<200501121621.24259.jeremy.guthrie@berbee.com>
+	<16869.42247.126428.508479@robur.slu.se>
+	<200501121647.30934.jeremy.guthrie@berbee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, shemminger@osdl.org, shollenbeck@verisign.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <41E5AEAC.8060706@candelatech.com>
+To: jeremy.guthrie@berbee.com
+In-Reply-To: <200501121647.30934.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 12, 2005 at 03:11:40PM -0800, Ben Greear wrote:
 
-> >>Also, could you add an ioctl that allowed one to query whether or not
-> >>a particular device is an etherip device?  I had always wished I had added
-> >>this earlier to the VLAN code :)
-> >
-> >Hmmm.  Bridge devices don't have this either, do they?  Can you name
-> >an advantage of having this?
-> 
-> I got the request several times with regard to VLANs.  Lots of people
-> (and applications) will want to know the interface type for various
-> reasons.  If you don't give them a nice programatic thing like an
-> IOCTL to call, they will undoubtedly start making assumptions based
-> off of the device name...
+Jeremy M. Guthrie writes:
+ > Here is what it looked like I was getting before from the old driver... that 
+ > took me down to 8mbps.
+ > 
+ > "printk: 4624 messages suppressed.
+ > dst cache overflow
+ > printk: 4630 messages suppressed.
+ > dst cache overflow
+ > printk: 4631 messages suppressed.
+ > dst cache overflow
+ > printk: 4646 messages suppressed.
+ > dst cache overflow
+ > printk: 4645 messages suppressed.
+ > dst cache overflow"
+ 
+ Thanks! 
 
-Makes sense..
+ This a known problem. Remember I asked you about this. We're now in the 
+ RCU route-hash problem again. This is not necessary solved by more CPU
+ as higher t-put forces more dst-entries to be freed aand we get 
+ closer to max_size.
 
-Unfortunately SIOCGETTUNNEL is (SIOCDEVPRIVATE + 3), otherwise we could
-just say something like "If an ARPHRD_ETHER device supports SIOCGETTUNNEL,
-it's an ether/ip tunnel."
-
-Any better ideas?  I hate adding more ioctls.
+ As your traffic looks sane double your bucket size of the route hash to 
+ start with. Use the boot option w. rhash_entries. look at rtstat  
 
 
-cheers,
-Lennert
+						  --ro.
