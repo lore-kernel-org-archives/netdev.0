@@ -1,26 +1,45 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Patch?: linux-2.5.45/net - __secpath_destroy made net depend
- on ipv4
-Date: Fri, 01 Nov 2002 02:56:15 -0800 (PST)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20021101.025615.57289488.davem@redhat.com>
-References: <20021101034500.A484@baldur.yggdrasil.com>
+From: Oskar Andreasson <blueflux@koffein.net>
+Subject: [RFC] Badly documented sysctl?
+Date: Fri, 1 Nov 2002 20:22:47 +0100 (CET)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0211012014340.20535-100000@laptop1.agatha>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: adam@yggdrasil.com
-In-Reply-To: <20021101034500.A484@baldur.yggdrasil.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: "Adam J. Richter" <adam@yggdrasil.com>
-   Date: Fri, 1 Nov 2002 03:45:00 -0800
+Hi,
 
-   	In linux-2.5.45, the core networking code calls
-   __secpath_destroy via the static inline routine secpath_put in
-   include/net/xfrm.h.
+I just started checking out the /proc/sys/net/ipv4/route/error_cost and 
+error_burst sysctl's. According to 
+linux/Documentation/filesystems/proc.txt:
 
-Yes, we are fully aware of this.  It will be fixed in due time,
-please use CONFIG_INET=y kernels for the time being.
+----
+
+error_burst and error_cost
+--------------------------
+
+These parameters are used to limit the warning messages written to the
+kernel log from the routing code.  The higher the error_cost factor is,
+the fewer messages will be written. Error_burst controls when messages
+will be dropped. The default settings limit warning messages to one every
+five seconds.
+
+----
+
+I just spent some time reading the source code in question, and if I am 
+not totally off base... this is totally wrong? I am currently checking 
+linux/net/ipv4/route.c, and if I am right, it limits how many 
+ICMP_DEST_UNREACH we are sending to a specific host, and _possibly_ it 
+will also printk() in the ip_rt_send_redirect() function. I don't know for 
+sure, but I _think_ the default settings will limit ICMP_DEST_UNREACH 
+sending in ip_error() to 5 per second... 
+
+If anyone would shed some light on this, I would be tremenduously happy!
+
+----
+Oskar Andreasson
+http://www.frozentux.net
+mailto:blueflux@koffein.net
