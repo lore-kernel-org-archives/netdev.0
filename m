@@ -1,24 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH] SCTP updates.
-Date: Fri, 5 Sep 2003 02:49:12 -0700
+Subject: Re: [PATCH] (2/8) convert sdla to new initialization
+Date: Fri, 5 Sep 2003 02:50:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905024912.3c63fd04.davem@redhat.com>
-References: <Pine.LNX.4.44.0309041440330.21476-100000@localhost.localdomain>
+Message-ID: <20030905025042.2ff7939d.davem@redhat.com>
+References: <20030903164925.5c44ce73.shemminger@osdl.org>
+	<20030905070619.A13947@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: shemminger@osdl.org, mike.mclagan@linux.org, jgarzik@pobox.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0309041440330.21476-100000@localhost.localdomain>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20030905070619.A13947@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2003 15:55:27 -0700 (PDT)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On Fri, 5 Sep 2003 07:06:19 +0100
+Christoph Hellwig <hch@infradead.org> wrote:
 
-> Please do a
-> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5
-> to get the following updates to SCTP on top of linux 2.6.0-test4
+> On Wed, Sep 03, 2003 at 04:49:25PM -0700, Stephen Hemminger wrote:
+> >  extern int mac8390_probe(struct net_device *dev);
+> >  extern int mac89x0_probe(struct net_device *dev);
+> >  extern int mc32_probe(struct net_device *dev);
+> > +#ifdef CONFIG_SDLA
+> > +extern struct net_device *sdla_init(void);
+> > +#endif
+> 
+> Please don't add ifdefs around prototypes.
 
-Looks good, pulled thanks.
+I fixed this all up.
