@@ -1,43 +1,55 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: netlink tester program
-Date: Fri, 30 May 2003 20:22:12 -0700 (PDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Prefix List patch against 2.5.70
+Date: Fri, 30 May 2003 23:32:29 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <32804.4.64.196.31.1054351332.squirrel@www.osdl.org>
-References: <20030530090015.7c435c9a.rddunlap@osdl.org>
-        <20030530.171111.71099698.davem@redhat.com>
+Message-ID: <20030530.233229.08331783.davem@redhat.com>
+References: <3ED80230.2030508@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <rddunlap@osdl.org>, <linux-net@vger.kernel.org>,
-	<netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: <davem@redhat.com>
-In-Reply-To: <20030530.171111.71099698.davem@redhat.com>
+To: krkumar@us.ibm.com
+In-Reply-To: <3ED80230.2030508@us.ibm.com>
 List-Id: netdev.vger.kernel.org
 
->    From: "Randy.Dunlap" <rddunlap@osdl.org>
->    Date: Fri, 30 May 2003 09:00:15 -0700
->
->    I tried to write a simple test program for (rt)netlink, but I didn't
-> succeed I'm sorry to say.  Does anyone have one or know of one?
-> [alternative plan is to use kgdb to determine why my test program is
-> failing...]
->
-> I bet if you actually posted your test program, you'll get more
-> feedback...
+   From: Krishna Kumar <krkumar@us.ibm.com>
+   Date: Fri, 30 May 2003 18:15:28 -0700
 
-I did think of that.  Oh well, it's at this URL, bugs and all.
+This code is so gross..
+   
+   +/* prefix list returned to user space in this structure */
+   +struct plist_user_info {
+   +	char name[IFNAMSIZ];		/* interface name */
+   +	int ifindex;			/* interface index */
 
-http://www.xenotime.net/linux/ipv6/rtnl_test.c
+Just as Yoshfuji said, name is determinable with ifindex alone.
+Don't duplicate information.
 
-It's a heavily modified version of a posting like so:
-/* original name = testIPv6.c */
-/* author:  amit.limaye@patni.com */
+   +	struct var_plist_user_info {	/* multiple elements */
+   +		char flags[3];		/* router advertised flags */
 
-And I'll be looking at Herbert's traceroute function also.
+BARF
 
-Thanks,
-~Randy
+   +#ifdef CONFIG_IPV6_PREFIXLIST
+   +	BUG_TRAP(list_empty(&idev->prefix_list) == 1);
+   +#endif
 
+list_empty() returns a boolean, which for true is not necessarily the
+integer value "1".  This will therefore never trigger when it should
+on cpus which use "-1" as the boolean value true.
 
+You have all of this complexity which duplicates work made by
+the routing code to keep track of these kinds of entities.
 
+Your "takes a long time to walk the routes" argument is NULL
+and void, what if I have 6,000 VLAN interfaces configured up
+speaking ipv6?  This is not a hypothetical situation, I know
+people who do this.
+
+If you're worried about search complexity, you can keep the
+"interesting" routes on a special linked list to avoid having to walk
+all of the routes.  These prefix things really do seem like route
+attributes.
+
+That is 1,000 times cleaner than this thing you are showing us.
