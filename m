@@ -1,107 +1,95 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6_V6ONLY Support, v2 (is Re: [PATCH] IPv6: Allow
- Both IPv6 and IPv4 Sockets on the Same Port)
-Date: Wed, 23 Oct 2002 16:58:32 +0900 (JST)
+From: michael@albog.dk
+Subject: Fwd: Question about kernel and IPv6...
+Date: Wed, 23 Oct 2002 10:05:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021023.165832.11432472.yoshfuji@linux-ipv6.org>
-References: <200210031552.TAA29921@sex.inr.ac.ru>
-	<20021023.162439.114324450.yoshfuji@linux-ipv6.org>
-	<20021023.002303.67097780.davem@redhat.com>
+Message-ID: <1035360350.3db6585e0bdce@webmail.debianlinux.dk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20021023.002303.67097780.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20021023.002303.67097780.davem@redhat.com> (at Wed, 23 Oct 2002 00:23:03 -0700 (PDT)), "David S. Miller" <davem@redhat.com> says:
+Alan Cox have recommended my to forward my questions to you, hope you wil=
+l help=20
+me!
 
-> So, because you simplified some if clauses in Alexey's patch, USAGI is
-> the only entity who deserves credit for the work in the comments?
-> 
-> That's dishonest.  Please fix this.
+Read the following:
 
-Hmm, we simplified our patch based on original linux kernel.
-In fact, I use ipv6_only_sock() from his patch.
-Sorry about that, apply this agaist that patch:
+----- Videresendt meddelelse fra michael@albog.dk -----
+    Dato: Wed, 23 Oct 2002 09:42:51 +0200
+    Fra: michael@albog.dk
+Reply-To: michael@albog.dk
+ Emne: Question about kernel and IPv6...
+      Til: Alan Cox <alan@redhat.com>
 
-Index: net/ipv4/tcp_ipv4.c
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv4/tcp_ipv4.c,v
-retrieving revision 1.1.1.2.16.2
-diff -u -r1.1.1.2.16.2 tcp_ipv4.c
---- net/ipv4/tcp_ipv4.c	22 Oct 2002 19:40:48 -0000	1.1.1.2.16.2
-+++ net/ipv4/tcp_ipv4.c	23 Oct 2002 07:46:23 -0000
-@@ -45,8 +45,8 @@
-  *	Vitaly E. Lavrov	:	Transparent proxy revived after year coma.
-  *	Andi Kleen		:	Fix new listen.
-  *	Andi Kleen		:	Fix accept error reporting.
-- *	YOSHIFUJI Hideaki @USAGI:	Support IPV6_V6ONLY socket option, which
-- *					allow both IPv4 and IPv6 sockets to bind
-+ *	YOSHIFUJI Hideaki @USAGI and:	Support IPV6_V6ONLY socket option, which
-+ *	and Alexey Kuznetsov		allow both IPv4 and IPv6 sockets to bind
-  *					a single port at the same time.
-  */
- 
-Index: net/ipv4/udp.c
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv4/udp.c,v
-retrieving revision 1.1.1.1.40.1
-diff -u -r1.1.1.1.40.1 udp.c
---- net/ipv4/udp.c	22 Oct 2002 19:19:48 -0000	1.1.1.1.40.1
-+++ net/ipv4/udp.c	23 Oct 2002 07:46:23 -0000
-@@ -61,8 +61,8 @@
-  *					return ENOTCONN for unconnected sockets (POSIX)
-  *		Janos Farkas	:	don't deliver multi/broadcasts to a different
-  *					bound-to-device socket
-- *	YOSHIFUJI Hideaki @USAGI:	Support IPV6_V6ONLY socket option, which
-- *					allow both IPv4 and IPv6 sockets to bind
-+ *	YOSHIFUJI Hideaki @USAGI and:	Support IPV6_V6ONLY socket option, which
-+ *	and Alexey Kuznetsov:		allow both IPv4 and IPv6 sockets to bind
-  *					a single port at the same time.
-  *
-  *
-Index: net/ipv6/tcp_ipv6.c
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/tcp_ipv6.c,v
-retrieving revision 1.1.1.2.16.1
-diff -u -r1.1.1.2.16.1 tcp_ipv6.c
---- net/ipv6/tcp_ipv6.c	22 Oct 2002 19:19:48 -0000	1.1.1.2.16.1
-+++ net/ipv6/tcp_ipv6.c	23 Oct 2002 07:46:23 -0000
-@@ -14,8 +14,8 @@
-  *
-  *	Fixes:
-  *	Hideaki YOSHIFUJI	:	sin6_scope_id support
-- *	YOSHIFUJI Hideaki @USAGI:	Support IPV6_V6ONLY socket option, which
-- *					allow both IPv4 and IPv6 sockets to bind
-+ *	YOSHIFUJI Hideaki @USAGI and:	Support IPV6_V6ONLY socket option, which
-+ *	Alexey Kuznetsov		allow both IPv4 and IPv6 sockets to bind
-  *					a single port at the same time.
-  *
-  *	This program is free software; you can redistribute it and/or
-Index: net/ipv6/udp.c
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/udp.c,v
-retrieving revision 1.1.1.2.16.1
-diff -u -r1.1.1.2.16.1 udp.c
---- net/ipv6/udp.c	22 Oct 2002 19:19:48 -0000	1.1.1.2.16.1
-+++ net/ipv6/udp.c	23 Oct 2002 07:46:23 -0000
-@@ -11,8 +11,8 @@
-  *
-  *	Fixes:
-  *	Hideaki YOSHIFUJI	:	sin6_scope_id support
-- *	YOSHIFUJI Hideaki @USAGI:	Support IPV6_V6ONLY socket option, which
-- *					allow both IPv4 and IPv6 sockets to bind
-+ *	YOSHIFUJI Hideaki @USAGI and:	Support IPV6_V6ONLY socket option, which
-+ *	Alexey Kuznetsov		allow both IPv4 and IPv6 sockets to bind
-  *					a single port at the same time.
-  *
-  *	This program is free software; you can redistribute it and/or
+To Alan Cox!
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Hi Alan,
+
+I am working on a master thesis called =93Internet Protocol version 6=94.
+
+In the project I have to setup a test-network for analyzing the RIPng pro=
+tocol=20
+etc. I am using four normal Intel PC=92s each running Debian Linux, with =
+a custom=20
+compiled kernel 2.4.19 downloaded from www.kernel.org. Two of the PC=92s =
+are=20
+running as a software-based router (using Zebra 0.92a-6), and the other i=
+s=20
+separately working as a client and server, respectively connect to router=
+1 and=20
+router2.
+
+My problem is when I try to send an ICMPv6 request via the WAN-link (rout=
+er1=20
+and router2) from the client, I not getting any response from server. The=
+=20
+problem only appears when I try making a connection via the WAN-link, and=
+ not=20
+from router1<->server and router2<->client.
+
+My question is:
+
+- Could a problem be due to a wrong kernel-configuration? (I can attach=20
+the .config if you are interested).
+
+- What "kernel mechanism" is responsible for routing/transporting data be=
+tween=20
+two interfaces? (I think that=92s the problem in router1 and router2. Zeb=
+ra is=20
+only exchanging the "IPv6 kernel routing information" between router1 and=
+=20
+router2, and it is working fine).
+
+- What kernel version have most IPv6 features build-in ?? (Maybe a featur=
+e is=20
+missing in 2.4.19. I have read an article about patching the kernel:=20
+http://project6.ferrara.linux.it/papers/best_ipv6_support_4_linux/best_ip=
+v6_supp
+ort_4_linux.html, it is necessary?).
+
+I hope you understand what my main problem is =96 English is not my prima=
+ry=20
+language.
+
+I have got many information from mailinglists, messagesboards and homepag=
+es,=20
+but the main problem is, that those information is conflicting. That=92s =
+why I=20
+writing to the Linux Guru him self.=20
+
+Btw. You are doing a very good job with the Linux kernel!
+
+Best regards,
+
+Michael Olsen
+
+Atkins Danmark A/S, Tele=20
+Pilestr=E6de 58
+DK-1112 K=F8benhavn K
+Telefon: +45 8233 9154
+Fax:     +45 8233 9017
+
+----- Slut af videresendt meddelelse -----
