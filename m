@@ -1,36 +1,40 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: major bonding bug?
-Date: Tue, 30 Dec 2003 16:03:28 -0800
+From: Mirko Lindner <demon@pro-linux.de>
+Subject: Re: [PATCH]sk98lin ethtool support
+Date: Wed, 31 Dec 2003 01:15:31 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200312310003.hBV03SJ0015202@death.nxdomain.ibm.com>
-References: <amir.noam@intel.com>
-Cc: "Jeff Garzik" <jgarzik@pobox.com>,
-        "Hen,
-    Shmulik" <shmulik.hen@intel.com>,
-        "Marom,
-    Noam" <noam.marom@intel.com>, netdev@oss.sgi.com
+Message-ID: <3FF22333.2070004@pro-linux.de>
+References: <1072779867.3632.38.camel@l5ac210.l5.laser5.co.jp> <3FF16F18.7060303@pro-linux.de> <3FF19659.8030408@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: krishnakumar@naturesoft.net, mlindner@syskonnect.de, netdev@oss.sgi.com,
+        felix@allot.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Amir Noam <amir.noam@intel.com>
-In-Reply-To: Message from Amir Noam <amir.noam@intel.com>
-   of "Tue, 30 Dec 2003 18:45:14 +0200." <200312301845.14275.amir.noam@intel.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3FF19659.8030408@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik wrote:
+> Mirko Lindner wrote:
+> 
+>> Thanks. I'll complete the support as soon I'm back in the office. All 
+>> driver statistics are also available in the the proc system under 
+>> /proc/net/sk98lin/
+> 
+> 
+> 
+> procfs statistics are deprecated...
+> 
+>     Jeff
 
->> This looks very wrong...  bonding mode should be per-interface, not
->> global to the entire driver.  What happens when a user wants
->> BOND_MODE_ROUNDROBIN on bond0, and BOND_MODE_TLB on bond1?
->
->We agree that it looks very wrong, and this is in fact one of the 
->features we've been working on lately. It is not a trivial fix, 
->since, as you've noted, a lot of the code depends on the bond 
->settings being global. We plan to start releasing patches to address 
->this issue very soon (probably even starting tomorrow).
+Jeff,
 
-	FWIW, the workaround is to load the bonding module multiple
-times (once for each desired mode).
+the proc statistics are integrated in the driver since kernel 2.2. I'll 
+include full support for ethtool as soon I've time to do this. At the 
+moment I'm still working on a support for the upcoming Marvell chipset 
+(it would be great to support Linux as soon the chip is availiable) and 
+a Diag-Tool for all Genesis and Yukon based cards (GUI and console tool).
 
-	-J
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Mirko
