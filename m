@@ -1,81 +1,88 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
-Date: 25 Mar 2005 07:39:06 -0500
-Message-ID: <1111754346.1092.480.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <00c301c524b4$938cd240$6e69690a@RIMAS>
-	 <1110379135.1091.143.camel@jzny.localdomain>
-	 <1110416767.1111.76.camel@jzny.localdomain>
-	 <025501c52552$2dbf87c0$6e69690a@RIMAS>
-	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>
-	 <1111410890.1092.195.camel@jzny.localdomain>
-	 <423F41AD.3010902@dsl.pipex.com>
-	 <1111444869.1072.51.camel@jzny.localdomain>
-	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>
-	 <42408998.5000202@dsl.pipex.com>
-	 <1111550254.1089.21.camel@jzny.localdomain>
-	 <4241C478.5030309@dsl.pipex.com>
-	 <1111607112.1072.48.camel@jzny.localdomain>
-	 <4241D764.2030306@dsl.pipex.com>
-	 <1111612042.1072.53.camel@jzny.localdomain>
-	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>
-	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.co
+Subject: PATCH: action stats double dip
+Date: 25 Mar 2005 11:25:13 -0500
+Message-ID: <1111767913.1091.530.camel@jzny.localdomain>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-FBURZWxYAYwT4fQioS20"
-Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
-        Remus <rmocius@auste.elnet.lt>, netdev@oss.sgi.com,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <1111749220.1092.457.camel@jzny.localdomain>
+Content-Type: multipart/mixed; boundary="=-K3TDgNBIR6tQKy6fTART"
+Cc: Thomas Graf <tgraf@suug.ch>, netdev <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-FBURZWxYAYwT4fQioS20
+--=-K3TDgNBIR6tQKy6fTART
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
-On Fri, 2005-03-25 at 06:13, jamal wrote:
 
-> I have reproduced this as well ;-> Reproduced typically means it will be
-> fixed!
-> I gotta give it to you - you have helped isolate more bugs in this one
-> session than all others in the past summed up.
-> 
+Dave,
 
-Dang - this is a _serious_  kernel bug. I went back to some of the rcx
-kernels pre-2611 and its there too.
-Essentially what happens is once you enter netlink from user space
-you cant go back in to query.
-
-I am attaching a workaround patch for tc - Actually it is a solution -
-but this means we have a kernel bug that needs investigation. In other
-words we close that theres an issue for mirred.
+Following patch fixes a scenario where we have forward compatibility
+but action stats being double dipped. 
 
 cheers,
 jamal
 
 
---=-FBURZWxYAYwT4fQioS20
-Content-Disposition: attachment; filename=p2_mirred
-Content-Type: text/plain; name=p2_mirred; charset=ISO-8859-1
+--=-K3TDgNBIR6tQKy6fTART
+Content-Disposition: attachment; filename=p_st2
+Content-Type: text/plain; name=p_st2; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
---- iproute2-2.6.11/tc/m_mirred.c	2005/03/25 12:32:39	1.2
-+++ iproute2-2.6.11/tc/m_mirred.c	2005/03/25 12:34:05
-@@ -263,7 +263,10 @@
+--- a/net/sched/cls_u32.c	2005/03/25 15:11:01	1.1
++++ b/net/sched/cls_u32.c	2005/03/25 15:44:01
+@@ -783,7 +783,7 @@
  	}
- 	p = RTA_DATA(tb[TCA_MIRRED_PARMS]);
  
-+	/*
- 	ll_init_map(&rth);
-+	*/
-+
+ 	rta->rta_len = skb->tail - b;
+-	if (TC_U32_KEY(n->handle))
++	if (TC_U32_KEY(n->handle) && n->exts.action && n->exts.action->type == TCA_OLD_COMPAT)
+ 		if (tcf_exts_dump_stats(skb, &n->exts, &u32_ext_map) < 0)
+ 			goto rtattr_failure;
+ 	return skb->len;
+--- a/net/sched/cls_tcindex.c	2005/03/25 16:04:46	1.1
++++ b/net/sched/cls_tcindex.c	2005/03/25 16:05:20
+@@ -496,8 +496,9 @@
+ 			goto rtattr_failure;
+ 		rta->rta_len = skb->tail-b;
  
- 	if ((dev = ll_index_to_name(p->ifindex)) == 0) {
- 		fprintf(stderr, "Cannot find device %d\n", p->ifindex);
+-		if (tcf_exts_dump_stats(skb, &r->exts, &tcindex_ext_map) < 0)
+-			goto rtattr_failure;
++		if (n->exts.action && n->exts.action->type == TCA_OLD_COMPAT)
++			if (tcf_exts_dump_stats(skb, &r->exts, &tcindex_ext_map) < 0)
++				goto rtattr_failure;
+ 	}
+ 	
+ 	return skb->len;
+--- a/net/sched/cls_fw.c	2005/03/25 15:48:27	1.1
++++ b/net/sched/cls_fw.c	2005/03/25 16:02:22
+@@ -338,8 +338,9 @@
+ 
+ 	rta->rta_len = skb->tail - b;
+ 
+-	if (tcf_exts_dump_stats(skb, &f->exts, &fw_ext_map) < 0)
+-		goto rtattr_failure;
++	if (n->exts.action && n->exts.action->type == TCA_OLD_COMPAT)
++		if (tcf_exts_dump_stats(skb, &f->exts, &fw_ext_map) < 0)
++			goto rtattr_failure;
+ 
+ 	return skb->len;
+ 
+--- a/net/sched/cls_route.c	2005/03/25 16:03:11	1.1
++++ b/net/sched/cls_route.c	2005/03/25 16:04:34
+@@ -599,8 +599,9 @@
+ 
+ 	rta->rta_len = skb->tail - b;
+ 
+-	if (tcf_exts_dump_stats(skb, &f->exts, &route_ext_map) < 0)
+-		goto rtattr_failure;
++	if (n->exts.action && n->exts.action->type == TCA_OLD_COMPAT)
++		if (tcf_exts_dump_stats(skb, &f->exts, &route_ext_map) < 0)
++			goto rtattr_failure;
+ 
+ 	return skb->len;
+ 
 
---=-FBURZWxYAYwT4fQioS20--
+--=-K3TDgNBIR6tQKy6fTART--
