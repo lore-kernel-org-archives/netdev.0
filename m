@@ -1,35 +1,28 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: Conntrack leak (2.6.2rc2)
-Date: Tue, 3 Feb 2004 16:32:42 +0100 (CET)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: (usagi-core 17336) Re: [PATCH|RFC] IPv6: have a proxy discard
+ link-local traffic
+Date: Tue, 3 Feb 2004 09:15:48 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0402031629150.11737-100000@blackhole.kfki.hu>
-References: <Pine.LNX.4.58.0402031415390.10797@sorbus2.navaho>
+Message-ID: <20040203091548.61051d82.davem@redhat.com>
+References: <Pine.LNX.4.58.0401272259160.28384@rhea.tcs.hut.fi>
+	<20040128115910.0a83e906.davem@redhat.com>
+	<20040203.171952.105535895.yoshfuji@linux-ipv6.org>
+	<20040203.172419.43878373.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: vnuorval@tcs.hut.fi, pekkas@netcore.fi, usagi-core@linux-ipv6.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Hill <steve@navaho.co.uk>
-In-Reply-To: <Pine.LNX.4.58.0402031415390.10797@sorbus2.navaho>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040203.172419.43878373.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Feb 2004, Steve Hill wrote:
+On Tue, 03 Feb 2004 17:24:19 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> No extra patches, it's the vanilla 2.6.2rc2 kernel.  I'm running a
-> nonmodular kernel and have spent this morning recompiling it with
-> different options - the problem is only showing up when CONFIG_IP_NF_NAT
-> is turned on, so I'm guessing that you are using a modular kernel and
-> since you haven't set up any rules in the nat table, the module isn't
-> loaded - try modprobing it and seeing if that helps.
+> I however think this should be postponed after linux-2.6.2 is up
+> since this patch is not so "critical" fix.
 
-I can confirm that with the NAT module loaded in, the leak you described
-appears. As if the reference counts created as refragging the packet
-would not be cleaned up properly...
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@sunserv.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+I agree, Ville please resubmit once 2.6.2 is out.
