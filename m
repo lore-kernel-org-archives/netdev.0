@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] dgrs: add iounmap()s to failure paths
-Date: Sat, 24 Jan 2004 22:32:22 -0800
+Subject: [janitor] net: remove unnecessary type casting
+Date: Sat, 24 Jan 2004 22:17:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124223222.52a97b25.rddunlap@osdl.org>
+Message-ID: <20040124221701.3c1406d3.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -21,59 +21,72 @@ Thanks,
 ~Randy
 
 
-From: Leann Ogasawara <ogasawara@osdl.org>
+From: Carlo Perassi <carlo@linux.it>
 
 
-Hi All,
+Hi.
+Line 346 of TODO states:
+"Lots of unnecessary casts in drivers can be removed"
 
-Insert missing iounmap's.  You know the drill, feedback wanted.
+This micro patch removes some of them.
 
-diffed against 2.6.1
+-- 
+Carlo Perassi - http://www.linux.it/~carlo/
 
-Leann
+diff -puN drivers/net/dl2k.c~netdev_rm_casts drivers/net/dl2k.c
 
-===== drivers/net/dgrs.c 1.22 vs edited =====
-
-diff -puN drivers/net/dgrs.c~dgrs_iounmap drivers/net/dgrs.c
-
-diff -puN drivers/net/dgrs.c~dgrs_iounmap drivers/net/dgrs.c
+diff -puN drivers/net/dl2k.c~netdev_rm_casts drivers/net/dl2k.c
 
 
- linux-262-rc1-bk1-rddunlap/drivers/net/dgrs.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletion(-)
+ linux-262-rc1-bk1-rddunlap/drivers/net/dl2k.c     |    4 ++--
+ linux-262-rc1-bk1-rddunlap/drivers/net/fealnx.c   |    2 +-
+ linux-262-rc1-bk1-rddunlap/drivers/net/sundance.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-diff -puN drivers/net/dgrs.c~dgrs_iounmap drivers/net/dgrs.c
---- linux-262-rc1-bk1/drivers/net/dgrs.c~dgrs_iounmap	2004-01-23 15:49:58.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/drivers/net/dgrs.c	2004-01-23 15:49:58.000000000 -0800
-@@ -322,8 +322,10 @@ check_board_dma(struct net_device *dev0)
- 	 */
- 	priv0->vplxdma[PLX_DMA0_MODE/4] = 0xFFFFFFFF;
- 	x = priv0->vplxdma[PLX_DMA0_MODE/4];
--	if (x != 0x00001FFF)
-+	if (x != 0x00001FFF) {
-+		iounmap((void *)priv0->vplxdma);
- 		return (0);
-+	}
+diff -puN drivers/net/dl2k.c~netdev_rm_casts drivers/net/dl2k.c
+--- linux-262-rc1-bk1/drivers/net/dl2k.c~netdev_rm_casts	2004-01-23 15:47:13.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/drivers/net/dl2k.c	2004-01-23 15:47:13.000000000 -0800
+@@ -745,7 +745,7 @@ rio_interrupt (int irq, void *dev_instan
+ static void 
+ rio_free_tx (struct net_device *dev, int irq) 
+ {
+-	struct netdev_private *np = (struct netdev_private *) dev->priv;
++	struct netdev_private *np = dev->priv;
+ 	int entry = np->old_tx % TX_RING_SIZE;
+ 	int tx_use = 0;
+ 	unsigned long flag = 0;
+@@ -855,7 +855,7 @@ tx_error (struct net_device *dev, int tx
+ static int
+ receive_packet (struct net_device *dev)
+ {
+-	struct netdev_private *np = (struct netdev_private *) dev->priv;
++	struct netdev_private *np = dev->priv;
+ 	int entry = np->cur_rx % RX_RING_SIZE;
+ 	int cnt = 30;
  
- 	return (1);
- }
-@@ -1015,6 +1017,8 @@ dgrs_download(struct net_device *dev0)
- 		if (!is)
- 		{
- 			printk("%s: Illegal IRQ %d\n", dev0->name, dev0->irq);
-+			iounmap(priv0->vmem);
-+			priv0->vmem = NULL;
- 			return -ENXIO;
- 		}
- 		OUTB(dev0->base_addr + ES4H_AS_31_24,
-@@ -1096,6 +1100,8 @@ dgrs_download(struct net_device *dev0)
- 	if (priv0->bcomm->bc_status < BC_RUN)
- 	{
- 		printk("%s: board not operating\n", dev0->name);
-+		iounmap(priv0->vmem);
-+		priv0->vmem = NULL;
- 		return -ENXIO;
- 	}
+diff -puN drivers/net/fealnx.c~netdev_rm_casts drivers/net/fealnx.c
+--- linux-262-rc1-bk1/drivers/net/fealnx.c~netdev_rm_casts	2004-01-23 15:47:13.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/drivers/net/fealnx.c	2004-01-23 15:47:13.000000000 -0800
+@@ -1426,7 +1426,7 @@ static irqreturn_t intr_handler(int irq,
+ 	writel(0, dev->base_addr + IMR);
  
+ 	ioaddr = dev->base_addr;
+-	np = (struct netdev_private *) dev->priv;
++	np = dev->priv;
+ 
+ 	do {
+ 		u32 intr_status = readl(ioaddr + ISR);
+diff -puN drivers/net/sundance.c~netdev_rm_casts drivers/net/sundance.c
+--- linux-262-rc1-bk1/drivers/net/sundance.c~netdev_rm_casts	2004-01-23 15:47:13.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/drivers/net/sundance.c	2004-01-23 15:47:13.000000000 -0800
+@@ -1136,7 +1136,7 @@ start_tx (struct sk_buff *skb, struct ne
+ static int
+ reset_tx (struct net_device *dev)
+ {
+-	struct netdev_private *np = (struct netdev_private*) dev->priv;
++	struct netdev_private *np = dev->priv;
+ 	long ioaddr = dev->base_addr;
+ 	struct sk_buff *skb;
+ 	int i;
 
 _
