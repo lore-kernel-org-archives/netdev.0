@@ -1,56 +1,61 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: [PATCH 2.6] e100: remove reference to NAPI config option
-Date: Mon, 31 Jan 2005 17:22:32 -0800
-Message-ID: <1107220952.3366.4.camel@sfeldma-mobl.dsl-verizon.net>
-Reply-To: sfeldma@pobox.com
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [RFC] string matching ematch
+Date: Tue, 01 Feb 2005 02:26:07 +0100
+Message-ID: <41FEDAAF.5090201@eurodev.net>
+References: <20050126150714.GL31837@postel.suug.ch>	 <41F94C63.7010800@eurodev.net>  <20050127205147.GS31837@postel.suug.ch> <1107179994.7840.164.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lunz@falooley.org
-To: jgarzik@pobox.com
+Cc: Thomas Graf <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com, Harald Welte <laforge@netfilter.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1107179994.7840.164.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-e100 is NAPI all the time, so the Kconfig option is wasting space.
+Hi jamal,
 
-Signed-off-by: Scott Feldman <sfeldma@pobox.com>
+Harald, I've cc'ed you since I think that this could be interesting.
 
---- linux-2.6.11-rc2/drivers/net/Kconfig.orig	2005-01-31 17:10:44.900111944 -0800
-+++ linux-2.6.11-rc2/drivers/net/Kconfig	2005-01-31 17:10:52.137011768 -0800
-@@ -1428,23 +1428,6 @@
- 	  <file:Documentation/networking/net-modules.txt>.  The module
- 	  will be called e100.
- 
--config E100_NAPI
--	bool "Use Rx Polling (NAPI)"
--	depends on E100
--	help
--	  NAPI is a new driver API designed to reduce CPU and interrupt load
--	  when the driver is receiving lots of packets from the card. It is
--	  still somewhat experimental and thus not yet enabled by default.
--
--	  If your estimated Rx load is 10kpps or more, or if the card will be
--	  deployed on potentially unfriendly networks (e.g. in a firewall),
--	  then say Y here.
--
--	  See <file:Documentation/networking/NAPI_HOWTO.txt> for more
--	  information.
--
--	  If in doubt, say N.
--
- config LNE390
- 	tristate "Mylex EISA LNE390A/B support (EXPERIMENTAL)"
- 	depends on NET_PCI && EISA && EXPERIMENTAL
---- linux-2.6.11-rc2/Documentation/networking/e100.txt.orig	2005-01-31 17:11:36.387284704 -0800
-+++ linux-2.6.11-rc2/Documentation/networking/e100.txt	2005-01-31 17:12:36.503145704 -0800
-@@ -140,8 +140,7 @@
-   NAPI
-   ----
- 
--  NAPI (Rx polling mode) is supported in the e100 driver. NAPI is enabled
--  or disabled based on the configuration of the kernel. 
-+  NAPI (Rx polling mode) is supported in the e100 driver.
- 
-   See www.cyberus.ca/~hadi/usenix-paper.tgz for more information on NAPI.
- 
+jamal wrote:
+
+>I think we should allow for all sorts of algrithms KMP, Boyer-Moore etc
+>to be plugged in (in tc this is already there).
+>The stuff that Harald was looking at (at least around July when i last
+>talked to him on this) is an infrastructure level thing. Its derived
+>from someone who seems to have well thought of the callbacks etc for a
+>good stateful solution. I cant remember the person from whom Harald was
+>deriving his stuff (email was somewhere in .fr) - but it did seem pretty
+>sensible.
+>
+
+yes, Phil Biondi's libqsearch. I started working with it but then I 
+thought that it was a bit bloated because I didn't see the point of 
+using several algorithms since boyer-moore is the best AFAIK. But Thomas 
+thoughts about memory usage made me see that maybe this doesn't fit well 
+all possible scenarios. So I've changed my mind and I think that such 
+infrastructure level thing is required.
+
+Harald told me that he's going to finish soon his hacks based on 
+libqsearch, then we could merge ideas based in that thing I've posted 
+after christmas and his libqsearch mutant.
+
+> If we can have infrastructure that is also usable by tc, that
+>would be great so we dont go cutnpasting unnecessarily.
+>  
+>
+
+definitely.
+
+>Having said all that:
+>Thomas, I think you should leave what you have as totaly stateless
+>unless we dont have a shareable solution. I have tons of ideas i could
+>share when we get to that level.
+>  
+>
+I've got also some ideas, let's see if I can get settled one of them at 
+least after the infrastructure have been cooked :).
+
+--
+Pablo
