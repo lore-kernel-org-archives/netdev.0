@@ -1,63 +1,39 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Tue, 28 Sep 2004 01:25:55 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [6/6]: jenkins hash for neigh / Statistics
+Date: Mon, 27 Sep 2004 16:27:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927232554.GB15825@wotan.suse.de>
-References: <20040923161141.4ea9be4c.davem@davemloft.net> <Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu> <20040927160411.22b44f48.davem@davemloft.net>
+Message-ID: <1096327658.1729.19.camel@localhost.localdomain>
+References: <20040925005623.2faf8faf.davem@davemloft.net>
+	 <E1CBu70-00010X-00@gondolin.me.apana.org.au>
+	 <20040927121403.767e2308.davem@davemloft.net>
+	 <20040927222613.GE3236@sunbeam.de.gnumonks.org>
+	 <20040927160636.7741d973.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Heffner <jheffner@psc.edu>, ak@suse.de, niv@us.ibm.com,
-        andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Harald Welte <laforge@gnumonks.org>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040927160411.22b44f48.davem@davemloft.net>
+In-Reply-To: <20040927160636.7741d973.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> The reason Andi Kleen didn't see any improvements from limiting
-> 'factor' is that he is using short lived connections.  If you
-
-The netperf test is about 10s - not really short lived and should
-be enough for slow start.
-
-> have a connection up for long enough, this allows the congestion
-> window to grow and then it doesn't matter.
+On Mon, 2004-09-27 at 16:06 -0700, David S. Miller wrote:
+> On Tue, 28 Sep 2004 00:26:13 +0200
+> Harald Welte <laforge@gnumonks.org> wrote:
 > 
-> Something like the following is what I have been talking about.
-> I am able to reproduce the problem here locally and the following
-
-Cool.
-
-> makes it go away.
+> > As stated before, I would like to change rt_stat and ct_stat in order to
+> > include a first 'template' line, too.  This way it is easier to write a
+> > generic foo_stat program, that could deal with any of those statistics
+> > files, even with new ones...  but this of course would break existing
+> > rtstat binaries.  I personally  don't care, since it's a little-known
+> > and little-used feature, which to my knowledge is in a lot of
+> > distributions either non-existant [Debian] or incompatible [SuSE]. What
+> > do you think?
 > 
-> Andi, Anton, and niv, can you confirm it does so for you too?
+> I agree.  And while we're add it let's get a fixed rtstat into
+> iproute2 and make sure that binary gets installed by default
+> so maybe the dists will start shipping it properly.
 
-Unfortunately not - with the patch applied I still get 27MB/s
-
-Looking at the tcpdump the ack clock goes completely out of sync,
-the ratio is 4 packets per ack. The sender seems to send packets
-faster than the target can ack them. It eventually stops for a 
-short time until it gets the ack
-
-
-01:16:26.034669 10.23.202.31.32777 > 10.23.202.10.34491: P 1983065:1984513(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.034713 10.23.202.10.34491 > 10.23.202.31.32777: . ack 1984513 win 63712 <nop,nop,timestamp 53583052 4294889148> (DF)
-01:16:26.034902 10.23.202.31.32777 > 10.23.202.10.34491: . 1984513:1985961(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.034910 10.23.202.31.32777 > 10.23.202.10.34491: . 1985961:1987409(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.034916 10.23.202.31.32777 > 10.23.202.10.34491: . 1987409:1988857(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.034921 10.23.202.31.32777 > 10.23.202.10.34491: . 1988857:1990305(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.034926 10.23.202.31.32777 > 10.23.202.10.34491: . 1990305:1991753(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.034998 10.23.202.10.34491 > 10.23.202.31.32777: . ack 1991753 win 63712 <nop,nop,timestamp 53583052 4294889148> (DF)
-01:16:26.035144 10.23.202.31.32777 > 10.23.202.10.34491: . 1991753:1993201(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.035152 10.23.202.31.32777 > 10.23.202.10.34491: . 1993201:1994649(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.035158 10.23.202.31.32777 > 10.23.202.10.34491: . 1994649:1996097(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.035163 10.23.202.31.32777 > 10.23.202.10.34491: . 1996097:1997545(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.035169 10.23.202.31.32777 > 10.23.202.10.34491: P 1997545:1998993(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.035214 10.23.202.10.34491 > 10.23.202.31.32777: . ack 1998993 win 63712 <nop,nop,timestamp 53583052 4294889148> (DF)
-01:16:26.035393 10.23.202.31.32777 > 10.23.202.10.34491: . 1998993:2000441(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.035401 10.23.202.31.32777 > 10.23.202.10.34491: . 2000441:2001889(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-01:16:26.035406 10.23.202.31.32777 > 10.23.202.10.34491: . 2001889:2003337(1448) ack 1 win 1460 <nop,nop,timestamp 4294889148 53583052> (DF)
-
-
--Andi
+I have the old one in the repository.
