@@ -1,32 +1,30 @@
-From: BZ Benny <bennybbz@yahoo.fr>
-Subject: Ethernet header????
-Date: Tue, 8 Mar 2005 17:36:40 +0100 (CET)
-Message-ID: <20050308163640.96671.qmail@web26606.mail.ukl.yahoo.com>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: netif_rx packet dumping
+Date: Tue, 08 Mar 2005 18:00:49 +0100
+Message-ID: <m1y8cykr7i.fsf@muc.de>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
+	<42278122.6000000@ev-en.org>
+	<20050303133659.0d224e61.davem@davemloft.net>
+	<42278554.2090902@ev-en.org>
+	<20050303135718.2e1a0170.davem@davemloft.net>
+	<422DC7CE.2040800@ev-en.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-To: netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <422DC7CE.2040800@ev-en.org> (Baruch Even's message of "Tue, 08
+ Mar 2005 15:42:06 +0000")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Baruch Even <baruch@ev-en.org> writes:
+>
+> I can squeeze the tcp_skb_cb to one pointer at the expense of extra
+> work to remove a packet from the list (the other pointer is the prev
+> pointer).
 
-is there some fonctions for displaying ethernet
-headers, the protocol used... and the paylod.
+You could also use a xor list in theory. But I'm not sure it's worth it.
+Increasing cb by 4 bytes shouldn't be a very big issue.
 
-I'm using an ethertap device. And I want to see what
-data I'm receiving from my TAP device.
-
-regards
-benny
-
-
-
-=09
-
-=09
-	=09
-D=E9couvrez le nouveau Yahoo! Mail : 250 Mo d'espace de stockage pour vos=
- mails !=20
-Cr=E9ez votre Yahoo! Mail sur http://fr.mail.yahoo.com/
+-Andi
