@@ -1,8 +1,8 @@
 From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Subject: oops in udp_queue_rcv_skb
-Date: Thu, 31 Jul 2003 22:19:31 -0400 (EDT)
+Subject: oops in raw_rcv_skb
+Date: Fri, 1 Aug 2003 01:35:04 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0307312110340.3779@montezuma.mastecende.com>
+Message-ID: <Pine.LNX.4.53.0308010125480.18584@montezuma.mastecende.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -10,59 +10,50 @@ To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I got this whilst doing transfers from a SAMBA server, kernel is 
-2.6.0-test2-mm2 on a 3way. Is there any specific information you require?
+You can reproduce this one easily by doing 5-6 ping -f of a system on the 
+network (not loopback), originally picked up at http://bugme.osdl.org/show_bug.cgi?id=937
 
-Unable to handle kernel paging request at virtual address c4734068
+Unable to handle kernel paging request at virtual address c5100068
  printing eip:
-c04e58b6
-*pde = 00012067
+c02ae8b6
+*pde = 00015067
+*pte = 05100163
 Oops: 0000 [#1]
-PREEMPT SMP DEBUG_PAGEALLOC
 CPU:    0
-EIP:    0060:[<c04e58b6>]    Not tainted VLI
+EIP:    0060:[<c02ae8b6>]    Not tainted
 EFLAGS: 00010246
-EIP is at udp_queue_rcv_skb+0x276/0x3e0
-eax: 00000000   ebx: c8977060   ecx: 00000104   edx: 00000001
-esi: c4734004   edi: c8977004   ebp: 00000000   esp: c06dde78
+EIP is at raw_rcv_skb+0x156/0x220
+eax: 00000040   ebx: c52ed060   ecx: c4f6e024   edx: 00000014
+esi: c52ed004   edi: c5100004   ebp: c52ed06c   esp: c5661d24
 ds: 007b   es: 007b   ss: 0068
-Process swapper (pid: 0, threadinfo=c06dc000 task=c0623a20)
-Stack: c897706c c06dc000 00000202 00000000 0300a8c0 cad60084 c4734004 c8977004 
-       cad60084 c97ef038 c04e5fe2 c8977004 c4734004 c06dc000 2003c000 0300a8c0 
-       ca789004 0300a8c0 0a00a8c0 c0687d18 00000000 c4734004 0a00a8c0 c04bcfc2 
+Process ping (pid: 283, threadinfo=c5660000 task=c585f000)
+Stack: c5100000 c1169890 00001000 00000206 00000000 c1169890 c5100000 0000005a
+       c5100004 c52ed004 c4f6e024 c54a2004 c02aea1d c52ed004 c5100004 c54a2038
+       00000030 00000001 c52ed004 c02ae569 c52ed004 c5100004 6164050a 1964050a
 Call Trace:
- [<c04e5fe2>] udp_rcv+0x222/0x3e0
- [<c04bcfc2>] ip_local_deliver+0x102/0x270
- [<c04bd4ac>] ip_rcv+0x37c/0x4e0
- [<c04a7ee3>] netif_receive_skb+0x153/0x1d0
- [<c04a7fe7>] process_backlog+0x87/0x160
- [<c04a8144>] net_rx_action+0x84/0x160
- [<c0129173>] do_softirq+0xd3/0xe0
- [<c010c2a5>] do_IRQ+0x1b5/0x250
- [<c0106f30>] default_idle+0x0/0x40
- [<c010a558>] common_interrupt+0x18/0x20
- [<c0106f30>] default_idle+0x0/0x40
- [<c0106f5e>] default_idle+0x2e/0x40
- [<c0106fea>] cpu_idle+0x3a/0x50
- [<c0105000>] rest_init+0x0/0x90
- [<c06de7d1>] start_kernel+0x171/0x190
-
-Code: 43 86 57 68 ff 74 24 08 9d 8b 54 24 04 8b 42 14 48 89 42 14 8b 42 08 83 e0 08 
+ [<c02aea1d>] raw_rcv+0x9d/0x110
+ [<c02ae569>] raw_v4_input+0xa9/0x130
+ [<c028ad0b>] ip_local_deliver+0x8b/0x200
+ [<c028b1fc>] ip_rcv+0x37c/0x47a
+ [<c0118588>] kernel_map_pages+0x28/0x5c
+ [<c027a205>] netif_receive_skb+0x165/0x1f0
+ [<c027a319>] process_backlog+0x89/0x120
+ [<c027a441>] net_rx_action+0x91/0x110
+ [<c0123165>] do_softirq+0xd5/0xe0
+ [<c010bfd5>] do_IRQ+0x165/0x220
+ [<c010a06c>] common_interrupt+0x18/0x20
+ [<c027007b>] pirq_sis_get+0x9b/0xc0
+ [<c01557d2>] fput+0x2/0x20
+ [<c0169a05>] poll_freewait+0x35/0x50
+ [<c0169df1>] do_select+0x201/0x350
+ [<c0169a20>] __pollwait+0x0/0xd0
+ [<c016a24b>] sys_select+0x2db/0x4e0
+ [<c027007b>] pirq_sis_get+0x9b/0xc0
+ [<c01096ff>] syscall_call+0x7/0xb
+ 
+Code: 8b 47 64 89 34 24 89 44 24 04 ff 96 50 01 00 00 eb b2 0f 0b
  <0>Kernel panic: Fatal exception in interrupt
 In interrupt handler - not syncing
-
-(gdb) list *udp_queue_rcv_skb+0x276
-0xc04e5cb6 is in udp_queue_rcv_skb (sock.h:942).
-937
-938             skb->dev = NULL;
-939             skb_set_owner_r(skb, sk);
-940             skb_queue_tail(&sk->sk_receive_queue, skb);
-941             if (!sock_flag(sk, SOCK_DEAD))
-942                     sk->sk_data_ready(sk, skb->len);
-943     out:
-944             return err;
-945     }
-946
 
 -- 
 function.linuxpower.ca
