@@ -1,59 +1,31 @@
-From: Javier Achirica <achirica@telefonica.net>
-Subject: Re: [PATCH 2.6] airo.c set_bit bug
-Date: Tue, 3 Aug 2004 02:12:09 +0200 (MEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [2/2] [IPSEC] Move xfrm[46]_tunnel_check_size into
+ xfrm[46]_output.c
+Date: Mon, 2 Aug 2004 17:11:26 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.SOL.4.30.0408030211140.13100-100000@tudela.mad.ttd.net>
-References: <20040723002114.GA11815@bougret.hpl.hp.com>
+Message-ID: <20040802171126.09dc4887.davem@redhat.com>
+References: <20040802093153.GA19706@gondor.apana.org.au>
+	<20040802093500.GA19747@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <jt@hpl.hp.com>
-In-Reply-To: <20040723002114.GA11815@bougret.hpl.hp.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040802093500.GA19747@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2 Aug 2004 19:35:00 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Thanks. Applied. I haven't found any other occurrence.
+> This patch moves xfrm[46]_tunnel_check_size() into xfrm[46]_output.c
+> where it can be made static since it's only used there.
+> 
+> While moving the icmp.h inclusions over I also discovered that the
+> tunnel files are missing an inclusion of net/protocol.h.  So I've
+> added them as well.
 
-Javier Achirica
+The net/xfrm.h hunk failed, but I fixed that up by hand.
 
-On Thu, 22 Jul 2004, Jean Tourrilhes wrote:
-
-> 	Hi Javier,
->
-> 	Managed to find a bug in the usage of set_bit/clear_bit in the
-> airo driver. I'm not sure if I caught all occurence of this pattern,
-> and not sure about exact consequences of the bug, but we might as well
-> fix it...
-> 	Patch below...
->
-> 	Have fun...
->
-> 	Jean
->
-> --------------------------------------------------------
->
-> --- linux/drivers/net/wireless/airo.j1.c	Thu Jul 22 15:27:48 2004
-> +++ linux/drivers/net/wireless/airo.c	Thu Jul 22 15:29:11 2004
-> @@ -1808,7 +1808,8 @@ static int writeConfigRid(struct airo_in
->  	if (!test_bit (FLAG_COMMIT, &ai->flags))
->  		return SUCCESS;
->
-> -	clear_bit (FLAG_COMMIT | FLAG_RESET, &ai->flags);
-> +	clear_bit (FLAG_COMMIT, &ai->flags);
-> +	clear_bit (FLAG_RESET, &ai->flags);
->  	checkThrottle(ai);
->  	cfgr = ai->config;
->
-> @@ -6158,7 +6159,8 @@ static int airo_set_txpow(struct net_dev
->  	readCapabilityRid(local, &cap_rid);
->
->  	if (vwrq->disabled) {
-> -		set_bit (FLAG_RADIO_OFF | FLAG_COMMIT, &local->flags);
-> +		set_bit (FLAG_RADIO_OFF, &local->flags);
-> +		set_bit (FLAG_COMMIT, &local->flags);
->  		return -EINPROGRESS;		/* Call commit handler */
->  	}
->  	if (vwrq->flags != IW_TXPOW_MWATT) {
->
+Applied, thanks.
