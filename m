@@ -1,36 +1,43 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: Re: Fw: issues with SO_PRIORITY and IP_TOS
-Date: Thu, 06 Nov 2003 09:51:34 -0500
+From: Laurens <masterpe@xs4all.nl>
+Subject: New found issues with forcedeth
+Date: Thu, 06 Nov 2003 17:55:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FAA5FF6.50509@nortelnetworks.com>
-References: <200311060931.MAA14771@yakov.inr.ac.ru>
+Message-ID: <1068137741.3611.9.camel@lawbox.int.mpe.xs4all.nl>
+References: <1068059045.3618.3.camel@lawbox.int.mpe.xs4all.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, jmorris@redhat.com, hadi@znyx.com,
-        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: netdev@oss.sgi.com
+In-Reply-To: <1068059045.3618.3.camel@lawbox.int.mpe.xs4all.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
+Further testing revealed several other problems, let me first start with
+my specs:
 
-> What's about VLAN thing, this approach enforces you to use
-> DSCP directly and never use skb->priority (well, to be more exact,
-> to use it when you have no another hints available: in this case
-> our skb->priority is _right_ hint)
+Kernel: Linux 2.6.0-test9-mm2 
+Distro: Gentoo Base System version 1.4.3.11
+CPU: AMD Athlon(tm) XP 2700+
+Disk: Maxtor 6Y120P0
+Ethernet: nVidia Corporation nForce2
+XFree86: 4.3.0
+Monitor: Iiyama AS4314UT, TFT-Master Pro 17
+Videocard: nVidia Corporation NV15DDR [GeForce2 Ti]
+Audio: Creative Labs SB Live! EMU10k1
 
-Okay, maybe you can help me out then.
+Issues: 
+- dhcpcd eth0 takes longer to load
+- emerge sync (gentoo update tool) hangs in the middle of updating
+(confirmed not to happen with nvnet)
+- modprobe segfaulted on "modprobe -r forcedeth" (note: eth0 was not
+active)
 
-I would like to send a vlan tagged packet, with vlan priority of x and 
-DSCP field of (x<<5).  What is the proper way to do this, if I should 
-not be using skb->priority?
+On the good side:
+- nvnet seems to mess up my framebuffer, forcedeth does not :)
 
-Chris
+Should you require more information just ask.
 
--- 
-Chris Friesen                    | MailStop: 043/33/F10
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
+good luck,
+
+Lawrence
