@@ -1,27 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCHSET 0/4] PKT_SCHED: More classifier cleanups
-Date: Mon, 1 Nov 2004 17:06:16 -0800
-Message-ID: <20041101170616.588da57d.davem@davemloft.net>
-References: <20041029140612.GO12289@postel.suug.ch>
+Subject: Re: [PATCH] TG3: fiber hw autoneg bounces
+Date: Mon, 1 Nov 2004 17:27:12 -0800
+Message-ID: <20041101172712.55e97846.davem@davemloft.net>
+References: <4182B6A7.90700@sun.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca
+Cc: Brian.Somers@Sun.COM, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041029140612.GO12289@postel.suug.ch>
+To: Mike Waychison <Michael.Waychison@Sun.COM>
+In-Reply-To: <4182B6A7.90700@sun.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004 16:06:12 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Fri, 29 Oct 2004 17:31:19 -0400
+Mike Waychison <Michael.Waychison@Sun.COM> wrote:
 
-> Cleans up route,rsvp,tcindex, and u32 classifier to
-> use the generic classifier routines.
+> I've traced it to be caused by the tg3_timer 1 second work noticing that
+> MAC_STATUS_LNKSTATE_CHANGED was set, which driver would see as the link
+> going down.
 > 
-> All trivial changes not changing any behaviour.
-> 
-> Relative to patchset "Generic classifier routines / cls_fw cleanup"
+> Upon further inspection, it appears that we don't wait long enough
+> between setting SG_DIG_CTRL and reading the SG_DIG_STATUS for the result.
 
-All applied, thanks a lot Thomas.
+How come the bcm5700 Broadcom driver gets away without this
+incredibly huge delay?  The touching of the device is absolutely
+identical in the tg3 driver to what Broadcom's bcm5700 code
+is doing.
+
+I'll apply the patch for now though...
