@@ -1,54 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] pkt_cls.h incompatiables
-Date: Thu, 22 Jul 2004 20:04:26 -0400 (EDT)
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: [PATCH 2.6] airo.c set_bit bug
+Date: Thu, 22 Jul 2004 17:21:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040722.200426.99255296.yoshfuji@linux-ipv6.org>
-References: <20040716103759.1928c2ae@dell_ss3.pdx.osdl.net>
-	<200407172357.15832.arekm@pld-linux.org>
-	<20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
+Message-ID: <20040723002114.GA11815@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, hadi@znyx.com, arekm@pld-linux.org, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
+To: Javier Achirica <achirica@ttd.net>, Jeff Garzik <jgarzik@pobox.com>,
+        netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net> (at Thu, 22 Jul 2004 13:45:22 -0700), Stephen Hemminger <shemminger@osdl.org> says:
+	Hi Javier,
 
-> The recent changes to (6 Jul 04) pkt_cls.h are evil, you can't build a version
-> of 'tc' to work unless you know the kernel config!
-> 
-> It has several API problems:
->   - API data structures change on kernel config options
->   - new fields should be added at the end of a structure to allow
->     binary compatibility.
-    - We cannot add new variable(s) after the last member which is 
-      an variable-length array in effect.
+	Managed to find a bug in the usage of set_bit/clear_bit in the
+airo driver. I'm not sure if I caught all occurence of this pattern,
+and not sure about exact consequences of the bug, but we might as well
+fix it...
+	Patch below...
 
-> @@ -229,11 +214,9 @@
->  
->  	short			hoff;
->  	__u32			hmask;
-> -#ifdef CONFIG_CLS_U32_PERF
-> +	struct tc_u32_key	keys[0];
->  	unsigned long		rcnt;
->  	unsigned long		rhit;
-> -#endif
-> -	struct tc_u32_key	keys[0];
->  };
->  
->  /* Flags */
+	Have fun...
 
-We cannot do this because keys holds key of variable length.
+	Jean
 
-Solutions are, for example,
- to allocate new TCA_U32_xxx for rcnt and rhit,
-or, 
- to rename TCA_U32_SEL to TCA_U32_OLS_SEL and allocate new value for 
- TCA_U32_SEL.
+--------------------------------------------------------
 
---yoshfuji
+--- linux/drivers/net/wireless/airo.j1.c	Thu Jul 22 15:27:48 2004
++++ linux/drivers/net/wireless/airo.c	Thu Jul 22 15:29:11 2004
+@@ -1808,7 +1808,8 @@ static int writeConfigRid(struct airo_in
+ 	if (!test_bit (FLAG_COMMIT, &ai->flags))
+ 		return SUCCESS;
+ 
+-	clear_bit (FLAG_COMMIT | FLAG_RESET, &ai->flags);
++	clear_bit (FLAG_COMMIT, &ai->flags);
++	clear_bit (FLAG_RESET, &ai->flags);
+ 	checkThrottle(ai);
+ 	cfgr = ai->config;
+ 
+@@ -6158,7 +6159,8 @@ static int airo_set_txpow(struct net_dev
+ 	readCapabilityRid(local, &cap_rid);
+ 
+ 	if (vwrq->disabled) {
+-		set_bit (FLAG_RADIO_OFF | FLAG_COMMIT, &local->flags);
++		set_bit (FLAG_RADIO_OFF, &local->flags);
++		set_bit (FLAG_COMMIT, &local->flags);
+ 		return -EINPROGRESS;		/* Call commit handler */
+ 	}
+ 	if (vwrq->flags != IW_TXPOW_MWATT) {
