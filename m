@@ -1,57 +1,85 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.4.x net driver updates
-Date: Sat, 28 Aug 2004 20:26:06 -0400
+Subject: netdev-2.6 queue updated
+Date: Sat, 28 Aug 2004 21:00:13 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040829002606.GA14433@havoc.gtf.org>
+Message-ID: <20040829010013.GA16237@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: mcgrof@studorgs.rutgers.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+To: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Please do a
+Still got a huge set of patches from Al Viro (ethtool_ops conversions
+for most remaining drivers), and prism54 patches from Luis and Margit
+to apply, so expect another update tomorrow.
 
-	bk pull bk://gkernel.bkbits.net/net-drivers-2.4
+BK users:
+
+	bk pull bk://gkernel.bkbits.net/netdev-2.6
+
+Patch:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.9=
+-rc1-bk4-netdev1.patch.bz2
 
 This will update the following files:
 
- drivers/net/e1000/e1000_param.c |    2 +-
- drivers/net/fealnx.c            |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/8139too.c               |   14=20
+ drivers/net/Kconfig                 |    9=20
+ drivers/net/defxx.c                 |  144 ++++-----
+ drivers/net/defxx.h                 |    2=20
+ drivers/net/mac8390.c               |    4=20
+ drivers/net/r8169.c                 |  564 ++++++++++++++++++++++++++---=
+-------
+ drivers/net/tulip/de4x5.c           |    2=20
+ drivers/net/wireless/airo.c         |   45 +-
+ drivers/net/wireless/wavelan.c      |   19 -
+ drivers/net/wireless/wavelan.p.h    |    3=20
+ drivers/net/wireless/wavelan_cs.c   |   23 -
+ drivers/net/wireless/wavelan_cs.p.h |    3=20
+ include/linux/netdevice.h           |    4=20
+ include/linux/wireless.h            |   64 +++-
+ include/net/iw_handler.h            |   60 ++-
+ net/core/dev.c                      |    2=20
+ net/core/wireless.c                 |  212 +++++++++----
+ net/irda/irlan/irlan_client.c       |    2=20
+ 18 files changed, 816 insertions(+), 360 deletions(-)
 
 through these ChangeSets:
 
-<ha505@hszk.bme.hu> (04/08/28 1.1550)
-   [netdrvr fealnx] fix spin_unlock_irqrestore() usage
+Andrew Morton:
+  o de4x5 warning fix
 
-<tharbaugh@lnxi.com> (04/08/28 1.1549)
-   [netdrvr e1000] disable DITR, which apparently hurts performance
+Fran=E7ois Romieu:
+  o r8169: vlan support
+  o r8169: Rx checksum support
+  o r8169: advertise DMA to high memory
+  o r8169: Tx checksum offload
+  o r8169: comment a gcc 2.95.x bug
+  o r8169: sync the names of a few bits with the 8139cp driver
+  o r8169: bump version number
+  o r8169: enable MWI
+  o r8169: code cleanup
+  o r8169: per device receive buffer size
+  o r8169: add ethtool_ops.{get_regs_len/get_regs}
 
-diff -Nru a/drivers/net/e1000/e1000_param.c b/drivers/net/e1000/e1000_param.c
---- a/drivers/net/e1000/e1000_param.c	2004-08-28 20:25:30 -04:00
-+++ b/drivers/net/e1000/e1000_param.c	2004-08-28 20:25:30 -04:00
-@@ -212,7 +212,7 @@
- #define MAX_TXABSDELAY            0xFFFF
- #define MIN_TXABSDELAY                 0
- 
--#define DEFAULT_ITR                    1
-+#define DEFAULT_ITR                 8000
- #define MAX_ITR                   100000
- #define MIN_ITR                      100
- 
-diff -Nru a/drivers/net/fealnx.c b/drivers/net/fealnx.c
---- a/drivers/net/fealnx.c	2004-08-28 20:25:30 -04:00
-+++ b/drivers/net/fealnx.c	2004-08-28 20:25:30 -04:00
-@@ -1796,7 +1796,7 @@
- 	unsigned long flags;
- 	spin_lock_irqsave(lp, flags);
- 	__set_rx_mode(dev);
--	spin_unlock_irqrestore(&lp, flags);
-+	spin_unlock_irqrestore(lp, flags);
- }
- 
- 
+Jean Tourrilhes:
+  o wireless-drivers-update-for-we-17.patch
+  o wireless-extension-v17-for-linus.patch
+
+Maciej W. Rozycki:
+  o defxx device name fixes
+  o defxx trivial updates
+
+Mika Kukkonen:
+  o sparse: fix warnings in net/irda/*
+
+Olaf Hering:
+  o remove old version check from mac8390
+
+Rene Herman:
+  o 8139too Interframe Gap Time
