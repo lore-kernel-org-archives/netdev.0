@@ -1,102 +1,159 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Sun, 22 Aug 2004 01:43:12 +0200
+From: Nuno Silva <nuno.silva@vgertech.com>
+Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
+ to become free. Usage count = 1
+Date: Sun, 22 Aug 2004 03:13:55 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040821234312.GA10959@electric-eye.fr.zoreil.com>
-References: <001401c48194$62497260$9610100a@S2IOtech.com>
+Message-ID: <41280163.1050508@vgertech.com>
+References: <411BC284.6080807@vgertech.com> <20040813080334.GA13337@tentacle.sectorb.msk.ru> <411D2625.2070908@vgertech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        raghavendra.koushik@s2io.com
+Content-Type: multipart/mixed;
+ boundary="------------060601080403090305050202"
+Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ravinandan Arakali <ravinandan.arakali@s2io.com>
-Content-Disposition: inline
-In-Reply-To: <001401c48194$62497260$9610100a@S2IOtech.com>
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <411D2625.2070908@vgertech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------060601080403090305050202
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-diff -Naur orig/drivers/net/s2io.c new/drivers/net/s2io.c
---- orig/drivers/net/s2io.c	2004-08-06 06:55:01.000000000 -0700
-+++ new/drivers/net/s2io.c	2004-08-06 06:58:44.000000000 -0700
-[...]
-@@ -432,14 +507,29 @@
- 	mac_control = &nic->mac_control;
- 	config = &nic->config;
+Nuno Silva wrote:
+> Vladimir B. Savkin wrote:
+> | On Thu, Aug 12, 2004 at 08:18:28PM +0100, Nuno Silva wrote:
+> |
+> |>Hi!
+> |>
+> |>With 2.6.8-rc4-bk1 I get "Aug 12 17:33:10 puma kernel:
+> |>unregister_netdevice: waiting for ppp0 to become free. Usage count = 1"
+> |>in the logs after pppd exit.
+> |>
+> |>Also, the box won't reboot and print that message forever in the
+> |>console. sysrq-U && sysrq-R did it :-)
+> |>
+> |>The last version I tried was 2.6.8-rc2-bk11 and, wrt this prob, is
+> |>running fine. So, the problem is in that window and the changelog for
+> |>rc4 mentions something about ppp:
+> |>http://kernel.org/pub/linux/kernel/v2.6/testing/ChangeLog-2.6.8-rc4
+> |>
+> |>If someone requires more information or tests feel free to ask!
+> |
+> |
+> | I saw this too, with 2.6.7-rc3-mm1.
+> | I have discovered that it happens because of idle TCP socket
+> | holds a reference to a network device.
+> | After killing associated process, device was freed immediately.
+> |
+> 
+> I waited for 5 mins before sysrq-U && sysrq-R.
+> Anyway, if I 'killall pppd' and then issue 'ifconfig -a' the ifconfig
+> command will hang.
+> 
+> This didn't happen with 2.6.8-rc2-bk11 (the one I'm running now), so
+> something changed... I'm I the only one with ppp/pppd/pppoe who tried
+> 2.6.8-rc4-bk1? :-) Any success reports?
+> 
+
+OK, I just tested again and the problem persists. However this time I 
+had some spare moments so I rebooted a few times to isolate the problem.
+
+The problem is in the QoS code. If I start ppp whithout the 
+/etc/ppp/ip-up.d/wshaper script everything is fine. If I try the 
+wshaper.htb it's also fine. So, I'd say that the problem is in the CBQ 
+section. This time I waited for 1 hour and got hundreds of 
+"unregister_netdevice: waiting for ppp0 to become free. Usage count = 1" 
+in the console/syslog. pppd eats 99% CPU. ifconfig freezes. Even reboot 
+isn't possible without sysrq's help.
+
+This problem was introduced between 2.6.8-rc2-bk11 and 2.6.8-rc4-bk1 and 
+always happens. Right now I'm testing with 2.6.8.1 with a patch from Mr. 
+Miller -- "cacheline-align qdisc data in qdisc_create()" (attached).
+
+If someone needs more details feel free to ask!
+
+Regards,
+Nuno Silva
+
+
+--------------060601080403090305050202
+Content-Type: text/x-patch;
+ name="qdisc.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="qdisc.diff"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/08/15 19:33:16-07:00 kaber@trash.net 
+#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+# net/sched/sch_api.c
+#   2004/08/15 19:32:59-07:00 kaber@trash.net +13 -8
+#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c	2004-08-19 07:33:10 -07:00
++++ b/net/sched/sch_api.c	2004-08-19 07:33:10 -07:00
+@@ -389,7 +389,8 @@
+ {
+ 	int err;
+ 	struct rtattr *kind = tca[TCA_KIND-1];
+-	struct Qdisc *sch = NULL;
++	void *p = NULL;
++	struct Qdisc *sch;
+ 	struct Qdisc_ops *ops;
+ 	int size;
  
--	if (mac_control->txd_list_mem) {
--		pci_free_consistent(nic->pdev,
--				    mac_control->txd_list_mem_sz,
--				    mac_control->txd_list_mem,
--				    mac_control->txd_list_mem_phy);
-+	lst_size = (sizeof(TxD_t) * config->MaxTxDs);
-+	lst_per_page = PAGE_SIZE / lst_size;
-+
-+	for(i=0; i<config->TxFIFONum; i++) {
-+		int tmp =  config->TxCfg[i].FifoLen / lst_per_page;
-+		int tmp1 =  config->TxCfg[i].FifoLen % lst_per_page;
-+		int page_num = tmp1?(tmp+1) : tmp;
-+		for(j=0; j<page_num; j++) {
-+			int mem_blks = (j * lst_per_page);
-+			if(!nic->list_info[i][mem_blks].list_virt_addr)
-+				break;
-+			pci_free_consistent(nic->pdev, PAGE_SIZE,
-+				nic->list_info[i][mem_blks].list_virt_addr,
-+				nic->list_info[i][mem_blks].list_phy_addr);
-+		}
-+		kfree(nic->list_info[i]);
- 	}
-
--> Give it more room and avoid some arithmetic:
-
-	for (i = 0; i < config->TxFIFONum; i++) {
-		int blk, blk_max = config->TxCfg[i].FifoLen;
-
-		for (blk = 0; blk < blk_max; blk += lst_per_page) {
-			struct list_info_hold *lih = &nic->list_info[i][blk];
-
-			if (!lih->list_virt_addr)
-				break;
-			pci_free_consistent(nic->pdev, PAGE_SIZE,
-				lih->list_virt_addr, lih->list_phy_addr);
-		}
-		kfree(nic->list_info[i]);
-	}
-
-[...]
-@@ -858,22 +963,57 @@
- 	writel((u32) (val64 >> 32), (add + 4));
- 	val64 = readq(&bar0->mac_cfg);
+@@ -407,12 +408,18 @@
+ 	if (ops == NULL)
+ 		goto err_out;
  
-+	/*Set the time value  to be inserted in the pause frame generated by xena */
-+	val64 = readq(&bar0->rmac_pause_cfg);
-+	val64 &= ~(RMAC_PAUSE_HG_PTIME(0xffff));
-+	val64 |= RMAC_PAUSE_HG_PTIME(nic->mac_control.rmac_pause_time);
-+	writeq(val64, &bar0->rmac_pause_cfg);
-+
-+	/* Set the Threshold Limit for Generating the pause frame
-+	 * If the amount of data in any Queue exceeds ratio of
-+	 * (mac_control.mc_pause_threshold_q0q3 or q4q7)/256
-+	 * pause frame is generated
-+	 */
-+	val64 = 0;
-+	for (i = 0; i < 4; i++) {
-+		val64 |=
-+		    (((u64) 0xFF00 | nic->mac_control.
-+		      mc_pause_threshold_q0q3)
-+		     << (i * 2 * 8));
-+	}
+-	size = sizeof(*sch) + ops->priv_size;
++	/* ensure that the Qdisc and the private data are 32-byte aligned */
++	size = ((sizeof(*sch) + QDISC_ALIGN_CONST) & ~QDISC_ALIGN_CONST);
++	size += ops->priv_size + QDISC_ALIGN_CONST;
+ 
+-	sch = kmalloc(size, GFP_KERNEL);
++	p = kmalloc(size, GFP_KERNEL);
+ 	err = -ENOBUFS;
+-	if (!sch)
++	if (!p)
+ 		goto err_out;
++	memset(p, 0, size);
++	sch = (struct Qdisc *)(((unsigned long)p + QDISC_ALIGN_CONST)
++	                       & ~QDISC_ALIGN_CONST);
++	sch->padded = (char *)sch - (char *)p;
+ 
+ 	/* Grrr... Resolve race condition with module unload */
+ 
+@@ -420,8 +427,6 @@
+ 	if (ops != qdisc_lookup_ops(kind))
+ 		goto err_out;
+ 
+-	memset(sch, 0, size);
+-
+ 	INIT_LIST_HEAD(&sch->list);
+ 	skb_queue_head_init(&sch->q);
+ 
+@@ -470,8 +475,8 @@
+ 
+ err_out:
+ 	*errp = err;
+-	if (sch)
+-		kfree(sch);
++	if (p)
++		kfree(p);
+ 	return NULL;
+ }
+ 
 
--> (internal parser panic) keep 'mc_pause_threshold_q0q3' on its containing
-   struct line ?
-
--> May be it's not worth it but you can save an iteration:
-   val64 = (u64) 0xFF00 | nic->mac_control.mc_pause_threshold_q0q3;
-   val64 |= val64 << 16;
-   val64 |= val64 << 32;
-
-   You can wrap the whole thing behind an inlined function if it tends
-   to appear several times.
-
---
-Ueimor
+--------------060601080403090305050202--
