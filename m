@@ -1,27 +1,51 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Advice needed on IP-over-InfiniBand driver
-Date: Sun, 19 Sep 2004 14:01:33 -0700
+From: Andy Lutomirski <luto@myrealbox.com>
+Subject: Re: 2.6.9-rc1-bk11+ and 2.6.9-rc1-mm3,4 r8169: freeze during boot
+ (FIX included)
+Date: Sun, 19 Sep 2004 14:17:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919140133.60ea3fb3.davem@davemloft.net>
-References: <52fz5esxx6.fsf@topspin.com>
+Message-ID: <414DF773.7060402@myrealbox.com>
+References: <200409130035.50823.hfvogt@arcor.de> <20040916070211.GA32592@electric-eye.fr.zoreil.com> <200409161320.16526.jdmason@us.ltcfwd.linux.ibm.com> <200409171043.21772.jdmason@us.ltcfwd.linux.ibm.com> <20040917160151.GA29337@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, linux-kernel@vger.kernel.org,
+        jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roland Dreier <roland@topspin.com>
-In-Reply-To: <52fz5esxx6.fsf@topspin.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040917160151.GA29337@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu wrote:
+> Jon Mason <jdmason@us.ibm.com> :
+> [...]
+> 
+>>Before I make any sweeping comments about the performance on ppc64, I should 
+>>probably do some more tests.  I'll have to get back to you regarding that.
+>>
+>>Would you like me to run the "Config2" patch on my amd64 system?
+> 
+> 
+> Please do. If I read you correctly, 2.6.9-rc2-bkX works (more or less)
+> on both your ppc64 and amd64 systems, right ?
 
-You probably want to be editing net/ipv4/arp.c and testing
-it about Infiniband.  Keep neighbour entries in the unresolved
-stated until both transitions are made:
+No, still broken.  But I don't see any change at all in 2.6.9-rc2-bk5. 
+This is on amd64, with 32-bit slots (I think).
 
-1) obtain 20 byte address
-2) get response from IB subnet manager
+BTW, the crash is not immediate.  It takes several seconds after trying 
+to send/recieve.
 
-Only store the destination GID in the neighbour entry,
-and only mark the neighbour entry as resolved once
-#2 above completes successfully.
+I say _trying_ because I can't ping anything.  I haven't had time before 
+the crash to figure out what's wrong, but the device at the other end 
+does flash that a packet came through the wire.
+
+FWIW, it looks like init_board is setting PCIDAC in tp->cp_cmd but that 
+isn't updated to the card until after the rx ring is filled in 
+r8169_open.  This seems suspicious, since DMA memory is being allocated 
+possibly in >32-bit addresses but the card hasn't been told to support 
+that.  Fixing this doesn't seem to help, though...
+
+Turning off high DMA fixes it.  Maybe it just needs to be disabled until 
+someone figures out what's going on.
+
+--Andy
