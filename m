@@ -1,124 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Tue, 10 Feb 2004 01:52:53 +0200 (EET)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [patch] [rft] Re: of 2.6.2-rc2-mm2 and r8169
+Date: Tue, 10 Feb 2004 00:57:18 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402100114020.1251@u.domain.uli>
-References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
- <1076338874.1026.36.camel@jzny.localdomain>  <Pine.LNX.4.58.0402100008580.1251@u.domain.uli>
- <1076367038.1037.15.camel@jzny.localdomain>
+Message-ID: <20040210005718.A10307@electric-eye.fr.zoreil.com>
+References: <20040130014108.09c964fd.akpm@osdl.org> <20040201100340.GA12436@neuffer.info> <20040207001756.A26645@electric-eye.fr.zoreil.com> <20040207115054.GC5704@neuffer.info> <20040207132124.A7344@electric-eye.fr.zoreil.com> <20040208064859.GA29384@neuffer.info>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1076367038.1037.15.camel@jzny.localdomain>
+To: Michael Neuffer <neuffer@neuffer.info>
+Content-Disposition: inline
+In-Reply-To: <20040208064859.GA29384@neuffer.info>; from neuffer@neuffer.info on Sun, Feb 08, 2004 at 07:48:59AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The patch below compiles but I don't know if it will apply against
+current -mm. Complain if it's broken and I'll clean it once I have got some
+sleep.
 
-	Hello,
+Idea behind the change: assume that there is no invocation of the r8169 irq
+handler while the asic fills all the available rx buffers. When it is
+finally called, the rx irq handler will not be stopped by a descriptor
+which is owned by the r8169 asic. The skb refill logic is only called once
+the handler has stopped looping over the ring and the rx handler will happily
+process skb entries that were just NULLed -> Oops
 
-On Tue, 9 Feb 2004, jamal wrote:
-
-> > 	Then where is better such flag to exist, for indev or
-> > for outdev?
->
-> parse error. Are you agreeing it should be a sysctl?
-
-	May be, if we found usage for this, because I see the
-handling in this way (I should put this info in doc file later):
-
-- if the target is not an ARP neighbour then it is already validated
-from ip_route_input (for example, target is some IP on PPP device
-and this device exists and is UP, so there is route we are using).
-In such case we do not need a validation phase (but may be we still
-need to delay the answer)
-
-- we need delay (if configured via dev/proxy_delay) not for target
-validation reasons but just to lose the game with other authoritative
-hosts. For this reason we do not want to delay answers to unicast
-probes if we have such answer. There is one bad case here:
-authoritative hosts running in promisc mode. In such case we
-risk to win the race.
-
-	As for the static proxy entries may be we do not want
-to delay the answers for them, I assume they are something like
-local addresses at ARP level? So, do we need to delay the
-pneigh_lookup case (fwd_proxy=0)?
-
-> what i meant was i am happy with the slight delay in some cases i get
-
-	Ah, this delay will stay, if configured. But it is
-not needed for the unicast case.
-
-> now; example host we are parping for sends a unicast probe - we would
-> immediately respond. Host sends a resolved IP packet - we attempt to
-> route and worst case we find that we dont have the target entry in our
-> cache; we arp at that point.
-
-	With the new changes we will respond to unicast probe
-immediately only if the target neighbour is marked valid in our
-cache. For non-ARP target devices the behaviour is same - immediate
-response.
-
-	You forgot the main reason I started this change: for
-neighbour state detection reasons it is bad the requestor to receive
-answer for target host when this host is down. The goal is to
-stop any traffic to target if it is not reachable and to use
-other paths. Note that you have exactly such behaviour if target
-is routed via non-ARP device, ip_route_input fails and there is no
-answer. Assume such setup:
-
-- many end hosts/routers using TIP as gw IP
-
-- TIP is proxied from other routers runing proxy_arp
-
-- above these routers are the uplink routers (DSL?) that have
-TIP configured
-
-	We want the end host to know the real TIP state and
-to use alternative paths. So, we want to proxy the neighbour
-state.
-
-	But in what I'm not sure yet is whether there is a
-usage that relies on immediate answer no matter the state.
-If we do not want to ignore such usage we have to add flag
-as you proposed. The question is: is it useful to provide
-immediate response as before without knowing the neighbour
-state, for the ARP cases.
-
-> In your case, you will amortize that cost at arp time. In the case of
-> unicast probes (assuming a sane arp implementation on the other side)
-> you will actually be adding cost since mostly that entry will be in the
-> cache.
-
-	You mean the delay? I add it for other purposes, even
-if target is valid in the cache.
-
-> In the case of broadcasts you could achieve the same effect by setting
-> the proxy_delay in /proc to zero.
-
-	True, if the administrator is sure that our box is the
-only responder for such targets he can set the delay to 0 to
-speedup the answers.
-
-> > 	You are right, if proxy_delay is large the requestor can
-> > disappear from our cache but it is not fatal for us to send reply,
-> > we do not need cache entry for this. I'm not sure what is better, is
-> > it right to confirm the requestor without receiving recent event
-> > from it? If will be visible for too large proxy_delay values.
->
-> I guess you could look at one view as possibly doing 2 neigh_event_ns()
-> and correct whereas the other is doing 1 but with the above side effect.
-
-	Our replies are always unicast to the lladdr. Do you still
-prefer 2 calls to neigh_event_ns (sorry, my english is too limited
-to understand correctly the above two lines :)) ?
-
-> cheers,
-> jamal
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+--- drivers/net/r8169.c	2004-02-10 00:20:48.000000000 +0100
++++ drivers/net/r8169.c	2004-02-10 00:26:18.000000000 +0100
+@@ -1471,17 +1471,20 @@ static void
+ rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
+ 		     void *ioaddr)
+ {
+-	int cur_rx, delta;
++	int delta, rx_left;
+ 
+ 	assert(dev != NULL);
+ 	assert(tp != NULL);
+ 	assert(ioaddr != NULL);
+ 
+-	cur_rx = tp->cur_rx % NUM_RX_DESC;
++	rx_left = tp->cur_rx - tp->dirty_rx;
+ 
+-	while (!(le32_to_cpu(tp->RxDescArray[cur_rx].status) & OWNbit)) {
++	while (rx_left > 0) {
++		int cur_rx = tp->cur_rx % NUM_RX_DESC;
+ 		u32 status = le32_to_cpu(tp->RxDescArray[cur_rx].status);
+ 
++		if (status & OWNbit)
++			break;
+ 		if (status & RxRES) {
+ 			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
+ 			tp->stats.rx_errors++;
+@@ -1517,7 +1520,7 @@ rtl8169_rx_interrupt(struct net_device *
+ 		}
+ 		
+ 		tp->cur_rx++; 
+-		cur_rx = tp->cur_rx % NUM_RX_DESC;
++		rx_left--;
+ 	}
+ 
+ 	delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
