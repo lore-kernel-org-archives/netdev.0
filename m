@@ -1,72 +1,35 @@
-From: Bill Davidsen <davidsen@tmr.com>
+From: "Bas Bloemsaat" <bloemsaa@xs4all.nl>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Wed, 20 Aug 2003 15:08:03 -0400 (EDT)
+Date: Wed, 20 Aug 2003 22:07:27 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.3.96.1030820150110.15623A-100000@gatekeeper.tmr.com>
-References: <20030820100044.3127d612.davem@redhat.com>
+Message-ID: <00a501c36756$b536ed30$c801a8c0@llewella>
+References: <Pine.LNX.3.96.1030820150110.15623A-100000@gatekeeper.tmr.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: dang@fprintf.net, alan@lxorguk.ukuu.org.uk, richard@aspectgroup.co.uk,
-   skraw@ithnet.com, willy@w.ods.org, carlosev@newipnet.com,
-   lamont@scriptkiddie.org, bloemsaa@xs4all.nl, marcelo@conectiva.com.br,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
-   torvalds@osdl.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <dang@fprintf.net>, <alan@lxorguk.ukuu.org.uk>,
+   <richard@aspectgroup.co.uk>, <skraw@ithnet.com>, <willy@w.ods.org>,
+   <carlosev@newipnet.com>, <lamont@scriptkiddie.org>,
+   <marcelo@conectiva.com.br>, <netdev@oss.sgi.com>,
+   <linux-net@vger.kernel.org>, <layes@loran.com>, <torvalds@osdl.org>,
+   <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030820100044.3127d612.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Aug 2003, David S. Miller wrote:
+> I don't think anyone is asking for a change in the default behaviour
+> (although my point about breaking modules does apply), people would be
+> satisfied, even ecstatic, if we had a simple way (flag) to set to make
+> Linux work without setting /proc filters, using arpfilter, applying source
+> routes (David's suggestion) and generally jumping through hoops.
+Agree! Just a flag (ARP_ISOLATED, default to 0) in
+/proc/sys/net/ipv4/conf/*? The default behaviour of the current (and future
+kernels) stays as it is now, so it doesn't break for anyone, and a lot of
+people (including me :) benefit from a much easier setup.
 
-> On Wed, 20 Aug 2003 12:49:14 -0400 (EDT)
-> Bill Davidsen <davidsen@tmr.com> wrote:
-> 
-> > On 19 Aug 2003, Daniel Gryniewicz wrote:
-> > 
-> > I have been asking for a similar thing as well, David mentioned some
-> > things that would break, but I believe they break if you use source
-> > routing, so that seems not to be a real objection.
-> 
-> It's not about source routing.  It's about failover and being
-> able to use ARP on interfaces which don't have addresses assigned
-> to them yet.
+No need to implement a whole hidden scenario either.
 
-David mentioned that you could solve the problem by using *rp_filter and
-source routing. I don't think that's entirely true, but doing so has the
-same drawbacks and breaks the same things as a flag to make Linux behave
-like Sun/BSD/Windows (and work with Cisco is the cases previously
-mentioned).
-
-> 
-> > I find it interesting that we can't change networking because a few
-> > complex systems would have to be reconfigured, but we *can* change modules
-> > which requires config changes on probably 90% of all systems (commercial
-> > distributions).
-> 
-> Decisions about Networking will always be in a different domain
-> because the way one behaves has effects upon other systems not
-> just the local one.
-
-Yes, that's exactly the point, the way Linux works has bad effects on
-certain other machines, as in leaves them disconnected to the Linux
-system.
-
-> 
-> BTW, another thing which makes the source address selection for
-> outgoing ARPs a real touchy area is the following.  Some weird
-> configurations actually respond with different ARP answers based upon
-> the source address in the ARP request.  You can ask Julian Anastasov
-> about such (arguably pathological) setups.
-> 
-
-I don't think anyone is asking for a change in the default behaviour
-(although my point about breaking modules does apply), people would be
-satisfied, even ecstatic, if we had a simple way (flag) to set to make
-Linux work without setting /proc filters, using arpfilter, applying source
-routes (David's suggestion) and generally jumping through hoops.
-
--- 
-bill davidsen <davidsen@tmr.com>
-  CTO, TMR Associates, Inc
-Doing interesting things with little computers since 1979.
+Regards,
+Bas
