@@ -1,34 +1,25 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Problem with __check_and_rekey
-Date: Tue, 12 Aug 2003 23:09:29 +0900 (JST)
+Date: Tue, 12 Aug 2003 07:03:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030812.230929.57895537.yoshfuji@linux-ipv6.org>
+Message-ID: <20030812070340.01c320d6.davem@redhat.com>
 References: <20030812132050.GA27178@mochrul.balabit>
 	<20030812.225527.35784879.yoshfuji@linux-ipv6.org>
-	<20030812065347.331e9066.davem@redhat.com>
+	<20030812140516.GA27237@mochrul.balabit>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: sasa@balabit.hu, netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, sasa@balabit.hu, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20030812065347.331e9066.davem@redhat.com>
+To: SZALAY Attila <sasa@balabit.hu>
+In-Reply-To: <20030812140516.GA27237@mochrul.balabit>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030812065347.331e9066.davem@redhat.com> (at Tue, 12 Aug 2003 06:53:46 -0700), "David S. Miller" <davem@redhat.com> says:
+On Tue, 12 Aug 2003 16:05:16 +0200
+SZALAY Attila <sasa@balabit.hu> wrote:
 
-> It doesn't matter, a proper fix was put into drivers/char/random.c
-> already.
-:
-> -	spin_lock(&ip_lock);
-> +	spin_lock_bh(&ip_lock);
-:
-> -	spin_unlock(&ip_lock);
-> +	spin_unlock_bh(&ip_lock);
->  	return keyptr;
+> The patch in vanilla kernel:
 
-Ah, exactly.  Thanks for information.
-
---yoshfuji
+As I said in another email, your patch is unnecessary and
+the bug has been fixed in current kernels already.
