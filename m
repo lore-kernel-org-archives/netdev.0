@@ -1,31 +1,135 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
 Subject: Re: [PATCH] [TRY2] Use nfmark as a key in u32 classifier
-Date: Tue, 9 Nov 2004 14:30:35 +0100
-Message-ID: <20041109133035.GH31969@postel.suug.ch>
+Date: Tue, 9 Nov 2004 15:46:21 +0200 (EET)
+Message-ID: <Pine.LNX.4.61.0411091543220.7105@webhosting.rdsbv.ro>
 References: <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro>
+ <20041109133035.GH31969@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl,
-	netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-193533873-1100007861=:7366"
+Cc: davem@davemloft.net, linux-net@vger.kernel.org,
+	lartc@mailman.ds9a.nl, netdev@oss.sgi.com
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041109133035.GH31969@postel.suug.ch>
+Content-ID: <Pine.LNX.4.61.0411091544290.7366@webhosting.rdsbv.ro>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Catalin(ux aka Dino) BOIE <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro> 2004-11-09 14:27
-> This is the try number two.
-> What was changed:
-> - Added selectable choice in Kconfig file (thanks Jamal!)
-> - Don't abuse tc_u32_sel to not break backward compatibility (thanks 
-> Patrick!).
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Your patchs looks fine except for missing dependcy on CONFIG_NETFILTER.
-Either make CLS_U32_MARK dependant on it or #ifdef the references
-to skb->nfmark.
+---1646943047-193533873-1100007861=:7366
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
+Content-ID: <Pine.LNX.4.61.0411091544291.7366@webhosting.rdsbv.ro>
 
-It might be fair to tell you that this code is likely to be removed
-again once we have the metadata match.
+> * Catalin(ux aka Dino) BOIE <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro> 2004-11-09 14:27
+>> This is the try number two.
+>> What was changed:
+>> - Added selectable choice in Kconfig file (thanks Jamal!)
+>> - Don't abuse tc_u32_sel to not break backward compatibility (thanks
+>> Patrick!).
+>
+> Your patchs looks fine except for missing dependcy on CONFIG_NETFILTER.
+> Either make CLS_U32_MARK dependant on it or #ifdef the references
+> to skb->nfmark.
 
-Cheers
+Patch updated and attached.
+
+> It might be fair to tell you that this code is likely to be removed
+> again once we have the metadata match.
+
+Jamal already warned me about this.
+Is somebody already working on it?
+
+> Cheers
+
+Thank you!
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
+---1646943047-193533873-1100007861=:7366
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="net-match-nfmark-in-u32-try3.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.61.0411091544210.7366@webhosting.rdsbv.ro>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME="net-match-nfmark-in-u32-try3.patch"
+
+LS0tIGxpbnV4Lm9yaWcvbmV0L3NjaGVkL0tjb25maWcJMjAwNC0xMC0xOSAw
+MDo1NTowNi4wMDAwMDAwMDAgKzAzMDANCisrKyBsaW51eC9uZXQvc2NoZWQv
+S2NvbmZpZwkyMDA0LTExLTA5IDE1OjM5OjQ3LjAwMDAwMDAwMCArMDIwMA0K
+QEAgLTMzNCw2ICszMzQsMTggQEAgY29uZmlnIE5FVF9DTFNfSU5EDQogCSAg
+UmVxdWlyZXMgYSBuZXcgaXByb3V0ZTINCiAJICBZb3UgTVVTVCBOT1QgdHVy
+biB0aGlzIG9uIGlmIHlvdSBkb250IGhhdmUgYW4gdXBkYXRlIGlwcm91dGUy
+Lg0KIA0KK2NvbmZpZyBDTFNfVTMyX01BUksNCisJYm9vbCAiVXNlIG5mbWFy
+ayBhcyBhIGtleSBpbiBVMzIgY2xhc3NpZmllciINCisJZGVwZW5kcyBvbiBO
+RVRfQ0xTX1UzMiAmJiBORVRGSUxURVINCisJaGVscA0KKwkgIFRoaXMgYWxs
+b3dzIHlvdSB0byBtYXRjaCBtYXJrIGluIGEgdTMyIGZpbHRlci4NCisJICBF
+eGFtcGxlOg0KKwkgIHRjIGZpbHRlciBhZGQgZGV2IGV0aDAgcHJvdG9jb2wg
+aXAgcGFyZW50IDE6MCBwcmlvIDUgdTMyIFwNCisJCW1hdGNoIG1hcmsgMHgw
+MDkwIDB4ZmZmZiBcDQorCQltYXRjaCBpcCBkc3QgNC40LjQuNCBcDQorCQlm
+bG93aWQgMTo5MA0KKwkgIFlvdSBtdXN0IHVzZSBhIG5ldyBpcHJvdXRlMiB0
+byB1c2UgdGhpcyBmZWF0dXJlLg0KKw0KIGNvbmZpZyBORVRfQ0xTX1JTVlAN
+CiAJdHJpc3RhdGUgIlNwZWNpYWwgUlNWUCBjbGFzc2lmaWVyIg0KIAlkZXBl
+bmRzIG9uIE5FVF9DTFMgJiYgTkVUX1FPUw0KLS0tIGxpbnV4Lm9yaWcvbmV0
+L3NjaGVkL2Nsc191MzIuYwkyMDA0LTEwLTE5IDAwOjUzOjQ1LjAwMDAwMDAw
+MCArMDMwMA0KKysrIGxpbnV4L25ldC9zY2hlZC9jbHNfdTMyLmMJMjAwNC0x
+MS0wOSAxMzo1Njo0Mi4wMDAwMDAwMDAgKzAyMDANCkBAIC0yNyw2ICsyNyw3
+IEBADQogICoJSkhTOiBXZSBzaG91bGQgcmVtb3ZlIHRoZSBDT05GSUdfTkVU
+X0NMU19JTkQgZnJvbSBoZXJlDQogICoJZXZlbnR1YWxseSB3aGVuIHRoZSBt
+ZXRhIG1hdGNoIGV4dGVuc2lvbiBpcyBtYWRlIGF2YWlsYWJsZQ0KICAqDQor
+ICoJbmZtYXJrIG1hdGNoIGFkZGVkIGJ5IENhdGFsaW4odXggYWthIERpbm8p
+IEJPSUUgPGNhdGFiIGF0IHVtYnJlbGxhLnJvPg0KICAqLw0KIA0KICNpbmNs
+dWRlIDxhc20vdWFjY2Vzcy5oPg0KQEAgLTU3LDYgKzU4LDEzIEBADQogI2lu
+Y2x1ZGUgPG5ldC9wa3Rfc2NoZWQuaD4NCiANCiANCitzdHJ1Y3QgdGNfdTMy
+X21hcmsNCit7DQorCV9fdTMyCQl2YWw7DQorCV9fdTMyCQltYXNrOw0KKwlf
+X3UzMgkJc3VjY2VzczsNCit9Ow0KKw0KIHN0cnVjdCB0Y191X2tub2RlDQog
+ew0KIAlzdHJ1Y3QgdGNfdV9rbm9kZQkqbmV4dDsNCkBAIC03OCw2ICs4Niw5
+IEBAIHN0cnVjdCB0Y191X2tub2RlDQogI2lmZGVmIENPTkZJR19DTFNfVTMy
+X1BFUkYNCiAJc3RydWN0IHRjX3UzMl9wY250CSpwZjsNCiAjZW5kaWYNCisj
+aWZkZWYgQ09ORklHX0NMU19VMzJfTUFSSw0KKwlzdHJ1Y3QgdGNfdTMyX21h
+cmsJbWFyazsNCisjZW5kaWYNCiAJc3RydWN0IHRjX3UzMl9zZWwJc2VsOw0K
+IH07DQogDQpAQCAtMTM5LDYgKzE1MCwxNiBAQCBuZXh0X2tub2RlOg0KIAkJ
+bi0+cGYtPnJjbnQgKz0xOw0KIAkJaiA9IDA7DQogI2VuZGlmDQorDQorI2lm
+ZGVmIENPTkZJR19DTFNfVTMyX01BUksNCisJCWlmICgoc2tiLT5uZm1hcmsg
+JiBuLT5tYXJrLm1hc2spICE9IG4tPm1hcmsudmFsKSB7DQorCQkJbiA9IG4t
+Pm5leHQ7DQorCQkJZ290byBuZXh0X2tub2RlOw0KKwkJfSBlbHNlIHsNCisJ
+CQluLT5tYXJrLnN1Y2Nlc3MrKzsNCisJCX0NCisjZW5kaWYNCisNCiAJCWZv
+ciAoaSA9IG4tPnNlbC5ua2V5czsgaT4wOyBpLS0sIGtleSsrKSB7DQogDQog
+CQkJaWYgKCgqKHUzMiopKHB0citrZXktPm9mZisob2ZmMiZrZXktPm9mZm1h
+c2spKV5rZXktPnZhbCkma2V5LT5tYXNrKSB7DQpAQCAtNjE1LDYgKzYzNiw3
+IEBAIHN0YXRpYyBpbnQgdTMyX2NoYW5nZShzdHJ1Y3QgdGNmX3Byb3RvICoN
+CiAJc3RydWN0IHRjX3VfaG5vZGUgKmh0Ow0KIAlzdHJ1Y3QgdGNfdV9rbm9k
+ZSAqbjsNCiAJc3RydWN0IHRjX3UzMl9zZWwgKnM7DQorCXN0cnVjdCB0Y191
+MzJfbWFyayAqbWFyazsNCiAJc3RydWN0IHJ0YXR0ciAqb3B0ID0gdGNhW1RD
+QV9PUFRJT05TLTFdOw0KIAlzdHJ1Y3QgcnRhdHRyICp0YltUQ0FfVTMyX01B
+WF07DQogCXUzMiBodGlkOw0KQEAgLTcxOCw2ICs3NDAsMTYgQEAgc3RhdGlj
+IGludCB1MzJfY2hhbmdlKHN0cnVjdCB0Y2ZfcHJvdG8gKg0KIAl9DQogCW4t
+PmZzaGlmdCA9IGk7DQogfQ0KKw0KKyNpZmRlZiBDT05GSUdfQ0xTX1UzMl9N
+QVJLDQorCWlmICh0YltUQ0FfVTMyX01BUkstMV0gPT0gMCB8fA0KKwkJUlRB
+X1BBWUxPQUQodGJbVENBX1UzMl9NQVJLLTFdKSA8IHNpemVvZihzdHJ1Y3Qg
+dGNfdTMyX21hcmspKQ0KKwkJcmV0dXJuIC1FSU5WQUw7DQorCW1hcmsgPSBS
+VEFfREFUQSh0YltUQ0FfVTMyX01BUkstMV0pOw0KKwltZW1jcHkoJm4tPm1h
+cmssIG1hcmssIHNpemVvZihzdHJ1Y3QgdGNfdTMyX21hcmspKTsNCisJbi0+
+bWFyay5zdWNjZXNzID0gMDsNCisjZW5kaWYNCisNCiAJZXJyID0gdTMyX3Nl
+dF9wYXJtcyh0cC0+cSwgYmFzZSwgaHQsIG4sIHRiLCB0Y2FbVENBX1JBVEUt
+MV0pOw0KIAlpZiAoZXJyID09IDApIHsNCiAJCXN0cnVjdCB0Y191X2tub2Rl
+ICoqaW5zOw0KQEAgLTgwNSw2ICs4MzcsMTIgQEAgc3RhdGljIGludCB1MzJf
+ZHVtcChzdHJ1Y3QgdGNmX3Byb3RvICp0cA0KIAkJCVJUQV9QVVQoc2tiLCBU
+Q0FfVTMyX0NMQVNTSUQsIDQsICZuLT5yZXMuY2xhc3NpZCk7DQogCQlpZiAo
+bi0+aHRfZG93bikNCiAJCQlSVEFfUFVUKHNrYiwgVENBX1UzMl9MSU5LLCA0
+LCAmbi0+aHRfZG93bi0+aGFuZGxlKTsNCisNCisjaWZkZWYgQ09ORklHX0NM
+U19VMzJfTUFSSw0KKwkJaWYgKG4tPm1hcmsudmFsIHx8IG4tPm1hcmsubWFz
+aykNCisJCQlSVEFfUFVUKHNrYiwgVENBX1UzMl9NQVJLLCBzaXplb2Yobi0+
+bWFyayksICZuLT5tYXJrKTsNCisjZW5kaWYNCisNCiAjaWZkZWYgQ09ORklH
+X05FVF9DTFNfQUNUDQogCQkvKiBhZ2FpbiBmb3IgYmFja3dhcmQgY29tcGF0
+aWJsZSBtb2RlIC0gd2Ugd2FudA0KIAkJKiAgdG8gd29yayB3aXRoIGJvdGgg
+b2xkIGFuZCBuZXcgbW9kZXMgb2YgZW50ZXJpbmcNCi0tLSBsaW51eC5vcmln
+L2luY2x1ZGUvbGludXgvcGt0X2Nscy5oCTIwMDQtMTAtMTkgMDA6NTM6MDcu
+MDAwMDAwMDAwICswMzAwDQorKysgbGludXgvaW5jbHVkZS9saW51eC9wa3Rf
+Y2xzLmgJMjAwNC0xMS0wOSAwOTo1MDo0NS4wMDAwMDAwMDAgKzAyMDANCkBA
+IC0xOTAsNiArMTkwLDcgQEAgZW51bQ0KIAlUQ0FfVTMyX0FDVCwgICANCiAJ
+VENBX1UzMl9JTkRFViwNCiAJVENBX1UzMl9QQ05ULA0KKwlUQ0FfVTMyX01B
+UkssDQogCV9fVENBX1UzMl9NQVgNCiB9Ow0KIA0K
+
+---1646943047-193533873-1100007861=:7366--
