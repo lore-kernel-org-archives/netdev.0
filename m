@@ -1,12 +1,12 @@
 From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 3/6 linux-2.6.9-rc1/2.4.28-pre2] prism54
-	remove module params
-Date: Sun, 5 Sep 2004 12:12:28 +0200
+Subject: [PATCH 4/6 linux-2.6.9-rc1/2.4.28-pre2] prism54 add
+	WE17 support
+Date: Sun, 5 Sep 2004 12:18:28 +0200
 Sender: prism54-devel-bounces@prism54.org
-Message-ID: <200409051212.28081.margitsw@t-online.de>
+Message-ID: <200409051218.28597.margitsw@t-online.de>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_MauOBTDXmybLGKK"
+  boundary="Boundary-00=_0fuOBMb4BojZJud"
 Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
 Return-path: <prism54-devel-bounces@prism54.org>
 To: jgarzik@pobox.com
@@ -21,7 +21,7 @@ Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
 
---Boundary-00=_MauOBTDXmybLGKK
+--Boundary-00=_0fuOBMb4BojZJud
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -30,7 +30,7 @@ Content-Disposition: inline
 2004-09-05 Margit Schubert-While <margitsw@t-online.de>
 2004-08-18 Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu>
 
-* Remove unneeded module params.
+* Add support for WE17 from Jean Tourrilhes
 
 Margit
 
@@ -48,114 +48,113 @@ Margit
 
 
 
---Boundary-00=_MauOBTDXmybLGKK
-Content-Type: text/x-diff; charset="us-ascii"; name="03_remove_modparms.patch"
+--Boundary-00=_0fuOBMb4BojZJud
+Content-Type: text/x-diff; charset="us-ascii"; name="04_handle_we17.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="03_remove_modparms.patch"
+	filename="04_handle_we17.patch"
 
 diff -Naur linux-2.6.9rc1/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.9-rc1msw/drivers/net/wireless/prism54/isl_ioctl.c
---- linux-2.6.9rc1/drivers/net/wireless/prism54/isl_ioctl.c	2004-09-05 10:44:54.000000000 +0200
-+++ linux-2.6.9-rc1msw/drivers/net/wireless/prism54/isl_ioctl.c	2004-09-05 10:45:27.000000000 +0200
-@@ -36,38 +36,6 @@
+--- linux-2.6.9rc1/drivers/net/wireless/prism54/isl_ioctl.c	2004-09-05 10:46:50.000000000 +0200
++++ linux-2.6.9-rc1msw/drivers/net/wireless/prism54/isl_ioctl.c	2004-09-05 10:47:13.000000000 +0200
+@@ -451,6 +451,15 @@
+ 	/* txpower is supported in dBm's */
+ 	range->txpower_capa = IW_TXPOW_DBM;
  
- #include <net/iw_handler.h>	/* New driver API */
- 
--static int init_mode = CARD_DEFAULT_IW_MODE;
--static int init_channel = CARD_DEFAULT_CHANNEL;
--static int init_wep = CARD_DEFAULT_WEP;
--static int init_filter = CARD_DEFAULT_FILTER;
--static int init_authen = CARD_DEFAULT_AUTHEN;
--static int init_dot1x = CARD_DEFAULT_DOT1X;
--static int init_conformance = CARD_DEFAULT_CONFORMANCE;
--static int init_mlme = CARD_DEFAULT_MLME_MODE;
--
--module_param(init_mode, int, 0);
--MODULE_PARM_DESC(init_mode,
--		 "Set card mode:\n0: Auto\n1: Ad-Hoc\n2: Managed Client (Default)\n3: Master / Access Point\n4: Repeater (Not supported yet)\n5: Secondary (Not supported yet)\n6: Monitor");
--
--module_param(init_channel, int, 0);
--MODULE_PARM_DESC(init_channel,
--		 "Check `iwpriv ethx channel` for available channels");
--
--module_param(init_wep, int, 0);
--module_param(init_filter, int, 0);
--
--module_param(init_authen, int, 0);
--MODULE_PARM_DESC(init_authen,
--		 "Authentication method. Can be of seven types:\n0 0x0000: None\n1 0x0001: DOT11_AUTH_OS (Default)\n2 0x0002: DOT11_AUTH_SK\n3 0x0003: DOT11_AUTH_BOTH");
--
--module_param(init_dot1x, int, 0);
--MODULE_PARM_DESC(init_dot1x,
--		 "\n0: None/not set	(Default)\n1: DOT11_DOT1X_AUTHENABLED\n2: DOT11_DOT1X_KEYTXENABLED");
--
--module_param(init_mlme, int, 0);
--MODULE_PARM_DESC(init_mlme,
--		 "Sets the MAC layer management entity (MLME) mode of operation,\n0: DOT11_MLME_AUTO (Default)\n1: DOT11_MLME_INTERMEDIATE\n2: DOT11_MLME_EXTENDED");
--
- /**
-  * prism54_mib_mode_helper - MIB change mode helper function
-  * @mib: the &struct islpci_mib object to modify
-@@ -141,36 +109,34 @@
- void
- prism54_mib_init(islpci_private *priv)
- {
--	u32 t;
-+	u32 channel, authen, wep, filter, dot1x, mlme, conformance, power, mode;
- 	struct obj_buffer psm_buffer = {
- 		.size = PSM_BUFFER_SIZE,
- 		.addr = priv->device_psm_buffer
- 	};
- 
--	mgt_set(priv, DOT11_OID_CHANNEL, &init_channel);
--	mgt_set(priv, DOT11_OID_AUTHENABLE, &init_authen);
--	mgt_set(priv, DOT11_OID_PRIVACYINVOKED, &init_wep);
--
-+	channel = CARD_DEFAULT_CHANNEL;
-+	authen = CARD_DEFAULT_AUTHEN;
-+	wep = CARD_DEFAULT_WEP;
-+	filter = CARD_DEFAULT_FILTER; /* (0) Do not filter un-encrypted data */
-+	dot1x = CARD_DEFAULT_DOT1X; 
-+	mlme = CARD_DEFAULT_MLME_MODE;
-+	conformance = CARD_DEFAULT_CONFORMANCE;
-+	power = 127;
-+	mode = CARD_DEFAULT_IW_MODE;
++#if WIRELESS_EXT > 16
++	/* Event capability (kernel + driver) */
++	range->event_capa[0] = (IW_EVENT_CAPA_K_0 |
++	IW_EVENT_CAPA_MASK(SIOCGIWTHRSPY) |
++	IW_EVENT_CAPA_MASK(SIOCGIWAP));
++	range->event_capa[1] = IW_EVENT_CAPA_K_1;
++	range->event_capa[4] = IW_EVENT_CAPA_MASK(IWEVCUSTOM);
++#endif /* WIRELESS_EXT > 16 */
 +
-+	mgt_set(priv, DOT11_OID_CHANNEL, &channel);
-+	mgt_set(priv, DOT11_OID_AUTHENABLE, &authen);
-+	mgt_set(priv, DOT11_OID_PRIVACYINVOKED, &wep);
- 	mgt_set(priv, DOT11_OID_PSMBUFFER, &psm_buffer);
--	mgt_set(priv, DOT11_OID_EXUNENCRYPTED, &init_filter);
--	mgt_set(priv, DOT11_OID_DOT1XENABLE, &init_dot1x);
--	mgt_set(priv, DOT11_OID_MLMEAUTOLEVEL, &init_mlme);
--	mgt_set(priv, OID_INL_DOT11D_CONFORMANCE, &init_conformance);
--
--	t = 127;
--	mgt_set(priv, OID_INL_OUTPUTPOWER, &t);
--
--	/* Important: we are setting a default wireless mode and we are 
--	 * forcing a valid one, so prism54_mib_mode_helper should just set
--	 * mib values depending on what the wireless mode given is. No need
--	 * for it save old values */
--	if (init_mode > IW_MODE_MONITOR || init_mode < IW_MODE_AUTO) {
--		printk(KERN_DEBUG "%s(): You passed a non-valid init_mode. "
--		       "Using default mode\n", __FUNCTION__);
--		init_mode = CARD_DEFAULT_IW_MODE;
--	}
-+	mgt_set(priv, DOT11_OID_EXUNENCRYPTED, &filter);
-+	mgt_set(priv, DOT11_OID_DOT1XENABLE, &dot1x);
-+	mgt_set(priv, DOT11_OID_MLMEAUTOLEVEL, &mlme);
-+	mgt_set(priv, OID_INL_DOT11D_CONFORMANCE, &conformance);
-+	mgt_set(priv, OID_INL_OUTPUTPOWER, &power);
-+
- 	/* This sets all of the mode-dependent values */
--	prism54_mib_mode_helper(priv, init_mode);
-+	prism54_mib_mode_helper(priv, mode);
- }
+ 	if (islpci_get_state(priv) < PRV_STATE_INIT)
+ 		return 0;
  
- /* this will be executed outside of atomic context thanks to
+@@ -656,19 +665,33 @@
+ 	rvalue = mgt_get_request(priv, DOT11_OID_NOISEFLOOR, 0, NULL, &r);
+ 	noise = r.u;
+ 
+-	/* Ask the device for a list of known bss. We can report at most
+-	 * IW_MAX_AP=64 to the range struct. But the device won't repport anything
+-	 * if you change the value of IWMAX_BSS=24.
+-	 */
++	/* Ask the device for a list of known bss.
++	* The old API, using SIOCGIWAPLIST, had a hard limit of IW_MAX_AP=64.
++	* The new API, using SIOCGIWSCAN, is only limited by the buffer size.
++	* WE-14->WE-16, the buffer is limited to IW_SCAN_MAX_DATA bytes.
++	* Starting with WE-17, the buffer can be as big as needed.
++	* But the device won't repport anything if you change the value
++	* of IWMAX_BSS=24. */
++	
+ 	rvalue |= mgt_get_request(priv, DOT11_OID_BSSLIST, 0, NULL, &r);
+ 	bsslist = r.ptr;
+ 
+ 	/* ok now, scan the list and translate its info */
+-	for (i = 0; i < min(IW_MAX_AP, (int) bsslist->nr); i++)
++	for (i = 0; i < (int) bsslist->nr; i++) {
+ 		current_ev = prism54_translate_bss(ndev, current_ev,
+-						   extra + IW_SCAN_MAX_DATA,
++						   extra + dwrq->length,
+ 						   &(bsslist->bsslist[i]),
+ 						   noise);
++#if WIRELESS_EXT > 16
++		/* Check if there is space for one more entry */
++		if((extra + dwrq->length - current_ev) <= IW_EV_ADDR_LEN) {
++			/* Ask user space to try again with a bigger buffer */
++			rvalue = -E2BIG;
++			break;
++		}
++#endif /* WIRELESS_EXT > 16 */
++	}
++
+ 	kfree(bsslist);
+ 	dwrq->length = (current_ev - extra);
+ 	dwrq->flags = 0;	/* todo */
+@@ -2222,7 +2245,9 @@
+ 	.standard = (iw_handler *) prism54_handler,
+ 	.private = (iw_handler *) prism54_private_handler,
+ 	.private_args = (struct iw_priv_args *) prism54_private_args,
++#if WIRELESS_EXT == 16
+ 	.spy_offset = offsetof(islpci_private, spy_data),
++#endif /* WIRELESS_EXT == 16 */
+ };
+ 
+ /* For ioctls that don't work with the new API */
+diff -Naur linux-2.6.9rc1/drivers/net/wireless/prism54/islpci_dev.c linux-2.6.9-rc1msw/drivers/net/wireless/prism54/islpci_dev.c
+--- linux-2.6.9rc1/drivers/net/wireless/prism54/islpci_dev.c	2004-09-05 10:44:54.000000000 +0200
++++ linux-2.6.9-rc1msw/drivers/net/wireless/prism54/islpci_dev.c	2004-09-05 10:47:13.000000000 +0200
+@@ -829,6 +829,12 @@
+ 	priv->ndev->type = (priv->iw_mode == IW_MODE_MONITOR) ?
+ 		priv->monitor_type : ARPHRD_ETHER;
+ 
++#if WIRELESS_EXT > 16
++	/* Add pointers to enable iwspy support. */
++	priv->wireless_data.spy_data = &priv->spy_data;
++	ndev->wireless_data = &priv->wireless_data;
++#endif /* WIRELESS_EXT > 16 */
++
+ 	/* save the start and end address of the PCI memory area */
+ 	ndev->mem_start = (unsigned long) priv->device_base;
+ 	ndev->mem_end = ndev->mem_start + ISL38XX_PCI_MEM_SIZE;
+diff -Naur linux-2.6.9rc1/drivers/net/wireless/prism54/islpci_dev.h linux-2.6.9-rc1msw/drivers/net/wireless/prism54/islpci_dev.h
+--- linux-2.6.9rc1/drivers/net/wireless/prism54/islpci_dev.h	2004-08-14 07:36:56.000000000 +0200
++++ linux-2.6.9-rc1msw/drivers/net/wireless/prism54/islpci_dev.h	2004-09-05 10:47:13.000000000 +0200
+@@ -100,6 +100,10 @@
+ 
+ 	struct iw_spy_data spy_data; /* iwspy support */
+ 
++#if WIRELESS_EXT > 16
++	struct iw_public_data wireless_data;
++#endif /* WIRELESS_EXT > 16 */
++
+ 	int monitor_type; /* ARPHRD_IEEE80211 or ARPHRD_IEEE80211_PRISM */
+ 
+ 	struct islpci_acl acl;
 
---Boundary-00=_MauOBTDXmybLGKK
+--Boundary-00=_0fuOBMb4BojZJud
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -166,4 +165,4 @@ Prism54-devel mailing list
 Prism54-devel@prism54.org
 http://prism54.org/mailman/listinfo/prism54-devel
 
---Boundary-00=_MauOBTDXmybLGKK--
+--Boundary-00=_0fuOBMb4BojZJud--
