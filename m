@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 5/5] r8169: ethtool hardware statistics support
-Date: Wed, 9 Mar 2005 11:36:26 -0800
-Message-ID: <20050309113626.6708c93e@dxpl.pdx.osdl.net>
+Subject: [PATCH 4/5] r8169: ethtool message level control
+Date: Wed, 9 Mar 2005 11:34:02 -0800
+Message-ID: <20050309113402.05d25e49@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,142 +11,181 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add ethtool support for dumping the chip statistics. There aren't lots
-of statistics available, but this is what is available according to the RealTek
-documentation.
+Add ethtool message level control support. This is the standard way
+to enable/disable console log messages.  Also, ratelimit the too much
+work at interrupt message, so if under massive packet load the console
+doesn't get flooded.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
---- a/drivers/net/r8169.c	2005-03-09 11:26:04 -08:00
-+++ b/drivers/net/r8169.c	2005-03-09 11:26:04 -08:00
-@@ -195,6 +195,8 @@
+--- a/drivers/net/r8169.c	2005-03-09 11:25:04 -08:00
++++ b/drivers/net/r8169.c	2005-03-09 11:25:04 -08:00
+@@ -188,6 +188,9 @@
+ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+ 
+ static int rx_copybreak = 200;
++static int debug = 3;
++static const u32 default_msg = NETIF_MSG_DRV | NETIF_MSG_PROBE | 
++			       NETIF_MSG_LINK | NETIF_MSG_IFUP| NETIF_MSG_IFDOWN;
+ 
  enum RTL8169_registers {
  	MAC0 = 0,		/* Ethernet hardware address. */
- 	MAR0 = 8,		/* Multicast filter. */
-+	CounterAddrLow = 0x10,
-+	CounterAddrHigh = 0x14,
- 	TxDescStartAddrLow = 0x20,
- 	TxDescStartAddrHigh = 0x24,
- 	TxHDescStartAddrLow = 0x28,
-@@ -336,6 +338,9 @@
+@@ -390,6 +393,7 @@
+ 	struct pci_dev *pci_dev;	/* Index of PCI device */
+ 	struct net_device_stats stats;	/* statistics of net device */
+ 	spinlock_t lock;		/* spin lock flag */
++	int msg_enable;
+ 	int chipset;
+ 	int mac_version;
+ 	int phy_version;
+@@ -425,6 +429,8 @@
+ module_param_array(media, int, &num_media, 0);
+ module_param(rx_copybreak, int, 0);
+ MODULE_PARM_DESC(rx_copybreak, "copy breakpoint for copy-only-tiny-frames");
++module_param(debug, int, 0);
++MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(RTL8169_VERSION);
  
- 	/* _TBICSRBit */
- 	TBILinkOK = 0x02000000,
-+
-+	/* DumpCounterCommand */
-+	CounterDump = 0x8,
- };
- 
- enum _DescStatusBit {
-@@ -897,6 +902,100 @@
- 	tp->msg_enable = value;
+@@ -547,9 +553,13 @@
+ 	spin_lock_irqsave(&tp->lock, flags);
+ 	if (tp->link_ok(ioaddr)) {
+ 		netif_carrier_on(dev);
+-		printk(KERN_INFO PFX "%s: link up\n", dev->name);
+-	} else
++		if (netif_msg_ifup(tp))
++			printk(KERN_INFO PFX "%s: link up\n", dev->name);
++	} else {
++		if (netif_msg_ifdown(tp))
++			printk(KERN_INFO PFX "%s: link down\n", dev->name);
+ 		netif_carrier_off(dev);
++	}
+ 	spin_unlock_irqrestore(&tp->lock, flags);
  }
  
-+static const char rtl8169_gstrings[][ETH_GSTRING_LEN] = {
-+	"tx_packets",
-+	"rx_packets",
-+	"tx_errors",
-+	"rx_errors",
-+	"rx_missed",
-+	"align_errors",
-+	"tx_single_collisions",
-+	"tx_multi_collisions",
-+	"unicast",
-+	"broadcast",
-+	"multicast",
-+	"tx_aborted",
-+	"tx_underrun",
-+};
-+
-+struct rtl8169_counters {
-+	u64	tx_packets;
-+	u64	rx_packets;
-+	u64	tx_errors;
-+	u32	rx_errors;
-+	u16	rx_missed;
-+	u16	align_errors;
-+	u32	tx_one_collision;
-+	u32	tx_multi_collision;
-+	u64	rx_unicast;
-+	u64	rx_broadcast;
-+	u32	rx_multicast;
-+	u16	tx_aborted;
-+	u16	tx_underun;
-+};
-+
-+static int rtl8169_get_stats_count(struct net_device *dev)
-+{
-+	return 13;
-+}
-+
-+static void rtl8169_get_ethtool_stats(struct net_device *dev,
-+				      struct ethtool_stats *stats, u64 *data)
+@@ -875,12 +885,26 @@
+         spin_unlock_irqrestore(&tp->lock, flags);
+ }
+ 
++static u32 rtl8169_get_msglevel(struct net_device *dev)
 +{
 +        struct rtl8169_private *tp = netdev_priv(dev);
-+	struct rtl8169_counters *counters;
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	int i;
-+	dma_addr_t paddr;
-+	u32 cmd;
-+
-+	ASSERT_RTNL();
-+
-+	counters = pci_alloc_consistent(tp->pci_dev, sizeof(*counters),
-+					&paddr);
-+	if (!counters)
-+		return;
-+	
-+	RTL_W32(CounterAddrHigh, (u64)paddr >> 32);
-+	cmd = (u64) paddr & DMA_32BIT_MASK;
-+	RTL_W32(CounterAddrLow, cmd);
-+	RTL_W32(CounterAddrLow, cmd | CounterDump);
-+
-+	for (i = 0; i < 1000; i++) {
-+		if (!RTL_R32(CounterAddrLow) & CounterDump)
-+			break;
-+		udelay(10);
-+	}
-+	RTL_W32(CounterAddrLow, 0);
-+	RTL_W32(CounterAddrHigh, 0);
-+
-+	data[0]	= le64_to_cpu(counters->tx_packets);
-+	data[1] = le64_to_cpu(counters->rx_packets);
-+	data[2] = le64_to_cpu(counters->tx_errors);
-+	data[3] = le32_to_cpu(counters->rx_errors);
-+	data[4] = le16_to_cpu(counters->rx_missed);
-+	data[5] = le16_to_cpu(counters->align_errors);
-+	data[6] = le32_to_cpu(counters->tx_one_collision);
-+	data[7] = le32_to_cpu(counters->tx_multi_collision);
-+	data[8] = le64_to_cpu(counters->rx_unicast);
-+	data[9] = le64_to_cpu(counters->rx_broadcast);
-+	data[10] = le32_to_cpu(counters->rx_multicast);
-+	data[11] = le16_to_cpu(counters->tx_aborted);
-+	data[12] = le16_to_cpu(counters->tx_underun);
-+
-+	pci_free_consistent(tp->pci_dev, sizeof(*counters), counters, paddr);
++	return tp->msg_enable;
 +}
 +
-+static void rtl8169_get_strings(struct net_device *dev, u32 stringset, u8 *data)
++static void rtl8169_set_msglevel(struct net_device *dev, u32 value)
 +{
-+	switch(stringset) {
-+	case ETH_SS_STATS:
-+		memcpy(data, *rtl8169_gstrings, sizeof(rtl8169_gstrings));
-+		break;
-+	}
++        struct rtl8169_private *tp = netdev_priv(dev);
++	tp->msg_enable = value;
 +}
-+
 +
  static struct ethtool_ops rtl8169_ethtool_ops = {
  	.get_drvinfo		= rtl8169_get_drvinfo,
  	.get_regs_len		= rtl8169_get_regs_len,
-@@ -914,6 +1013,9 @@
- 	.get_tso		= ethtool_op_get_tso,
- 	.set_tso		= ethtool_op_set_tso,
- 	.get_regs		= rtl8169_get_regs,
-+	.get_strings		= rtl8169_get_strings,
-+	.get_stats_count	= rtl8169_get_stats_count,
-+	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
- };
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_settings		= rtl8169_get_settings,
+ 	.set_settings		= rtl8169_set_settings,
++	.get_msglevel		= rtl8169_get_msglevel,
++	.set_msglevel		= rtl8169_set_msglevel,
+ 	.get_rx_csum		= rtl8169_get_rx_csum,
+ 	.set_rx_csum		= rtl8169_set_rx_csum,
+ 	.get_tx_csum		= ethtool_op_get_tx_csum,
+@@ -1095,7 +1119,8 @@
+ 	if (tp->link_ok(ioaddr))
+ 		goto out_unlock;
  
- static void rtl8169_write_gmii_reg_bit(void __iomem *ioaddr, int reg, int bitnum,
+-	printk(KERN_WARNING PFX "%s: PHY reset until link up\n", dev->name);
++	if (netif_msg_link(tp))
++		printk(KERN_WARNING PFX "%s: PHY reset until link up\n", dev->name);
+ 
+ 	tp->phy_reset_enable(ioaddr);
+ 
+@@ -1180,6 +1205,7 @@
+ 	SET_MODULE_OWNER(dev);
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	tp = netdev_priv(dev);
++	tp->msg_enable = netif_msg_init(debug, default_msg);
+ 
+ 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
+ 	rc = pci_enable_device(pdev);
+@@ -1395,20 +1421,22 @@
+ 		return rc;
+ 	}
+ 
+-	printk(KERN_DEBUG "%s: Identified chip type is '%s'.\n", dev->name,
+-	       rtl_chip_info[tp->chipset].name);
++	if (netif_msg_probe(tp))
++		printk(KERN_DEBUG "%s: Identified chip type is '%s'.\n", dev->name,
++		       rtl_chip_info[tp->chipset].name);
+ 
+ 	pci_set_drvdata(pdev, dev);
+ 
+-	printk(KERN_INFO "%s: %s at 0x%lx, "
+-	       "%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x, "
+-	       "IRQ %d\n",
+-	       dev->name,
+-	       rtl_chip_info[ent->driver_data].name,
+-	       dev->base_addr,
+-	       dev->dev_addr[0], dev->dev_addr[1],
+-	       dev->dev_addr[2], dev->dev_addr[3],
+-	       dev->dev_addr[4], dev->dev_addr[5], dev->irq);
++	if (netif_msg_probe(tp))
++		printk(KERN_INFO "%s: %s at 0x%lx, "
++		       "%2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x, "
++		       "IRQ %d\n",
++		       dev->name,
++		       rtl_chip_info[ent->driver_data].name,
++		       dev->base_addr,
++		       dev->dev_addr[0], dev->dev_addr[1],
++		       dev->dev_addr[2], dev->dev_addr[3],
++		       dev->dev_addr[4], dev->dev_addr[5], dev->irq);
+ 
+ 	rtl8169_hw_phy_config(dev);
+ 
+@@ -1431,7 +1459,7 @@
+ 
+ 	rtl8169_set_speed(dev, autoneg, speed, duplex);
+ 	
+-	if (RTL_R8(PHYstatus) & TBI_Enable)
++	if (RTL_R8(PHYstatus) & TBI_Enable && netif_msg_link(tp))
+ 		printk(KERN_INFO PFX "%s: TBI auto-negotiating\n", dev->name);
+ 
+ 	return 0;
+@@ -2185,8 +2213,10 @@
+ 
+ 		if (status & DescOwn)
+ 			break;
+-		if (status & RxRES) {
+-			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
++		if (unlikely(status & RxRES)) {
++			if (netif_msg_rx_err(tp))
++				printk(KERN_INFO "%s: Rx ERROR statu=%x!\n", 
++				       dev->name, status);
+ 			tp->stats.rx_errors++;
+ 			if (status & (RxRWT | RxRUNT))
+ 				tp->stats.rx_length_errors++;
+@@ -2314,8 +2344,9 @@
+ 	} while (boguscnt > 0);
+ 
+ 	if (boguscnt <= 0) {
+-		printk(KERN_WARNING "%s: Too much work at interrupt!\n",
+-		       dev->name);
++		if (net_ratelimit())
++			printk(KERN_WARNING "%s: Too much work at interrupt!\n",
++			       dev->name);
+ 		/* Clear all interrupt sources. */
+ 		RTL_W16(IntrStatus, 0xffff);
+ 	}
+@@ -2409,8 +2440,9 @@
+ 
+ 	if (dev->flags & IFF_PROMISC) {
+ 		/* Unconditionally log net taps. */
+-		printk(KERN_NOTICE "%s: Promiscuous mode enabled.\n",
+-		       dev->name);
++		if (netif_msg_link(tp))
++			printk(KERN_NOTICE "%s: Promiscuous mode enabled.\n",
++			       dev->name);
+ 		rx_mode =
+ 		    AcceptBroadcast | AcceptMulticast | AcceptMyPhys |
+ 		    AcceptAllPhys;
