@@ -1,24 +1,23 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH 7/12] [X25] stop using sk_protinfo
-Date: Fri, 21 Jan 2005 01:19:23 -0200
-Message-ID: <41F074BB.8090501@conectiva.com.br>
+Subject: [PATCH 9/12][LLC] stop using sk_protinfo
+Date: Fri, 21 Jan 2005 01:19:33 -0200
+Message-ID: <41F074C5.2010807@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030700020208060201070604"
+ boundary="------------080105020201040300010902"
 Cc: Networking Team <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Aristeu Rozanski <aris@cathedrallabs.org>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------030700020208060201070604
+--------------080105020201040300010902
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-David/Aristeu,
+Hi David,
 
 	Subject says it all.
 
@@ -27,18 +26,18 @@ Regards,
 - Arnaldo
 
 
---------------030700020208060201070604
+--------------080105020201040300010902
 Content-Type: text/plain;
- name="7-x25.patch"
+ name="9-llc.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="7-x25.patch"
+ filename="9-llc.patch"
 
 ===================================================================
 
 
-ChangeSet@1.2005, 2005-01-20 20:59:08-02:00, acme@toy.ghostprotocols.net
-  [X25] stop using sk_protinfo
+ChangeSet@1.2007, 2005-01-20 21:17:52-02:00, acme@toy.ghostprotocols.net
+  [LLC] stop using sk_protinfo
   
   Required to introduce struct connection_sock.
   
@@ -46,421 +45,833 @@ ChangeSet@1.2005, 2005-01-20 20:59:08-02:00, acme@toy.ghostprotocols.net
   Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
- include/net/x25.h        |   10 +++++++---
- net/x25/af_x25.c         |   36 +++++++++++++-----------------------
- net/x25/x25_facilities.c |    2 +-
- net/x25/x25_in.c         |   10 +++++-----
- net/x25/x25_out.c        |    8 ++++----
- net/x25/x25_proc.c       |    2 +-
- net/x25/x25_subr.c       |   14 +++++++-------
- net/x25/x25_timer.c      |   14 +++++++-------
- 8 files changed, 45 insertions(+), 51 deletions(-)
+ include/net/llc_conn.h |   11 ++++-
+ net/llc/af_llc.c       |   22 +++++------
+ net/llc/llc_c_ac.c     |   92 ++++++++++++++++++++++++-------------------------
+ net/llc/llc_c_ev.c     |    2 -
+ net/llc/llc_conn.c     |   50 +++++++++-----------------
+ net/llc/llc_if.c       |    4 +-
+ net/llc/llc_proc.c     |    8 ++--
+ net/llc/llc_sap.c      |    2 -
+ 8 files changed, 91 insertions(+), 100 deletions(-)
 
 
-diff -Nru a/include/net/x25.h b/include/net/x25.h
---- a/include/net/x25.h	2005-01-21 00:22:53 -02:00
-+++ b/include/net/x25.h	2005-01-21 00:22:53 -02:00
-@@ -10,6 +10,7 @@
- #ifndef _X25_H
- #define _X25_H 
- #include <linux/x25.h>
+diff -Nru a/include/net/llc_conn.h b/include/net/llc_conn.h
+--- a/include/net/llc_conn.h	2005-01-21 00:22:30 -02:00
++++ b/include/net/llc_conn.h	2005-01-21 00:22:30 -02:00
+@@ -13,6 +13,7 @@
+  */
+ #include <linux/timer.h>
+ #include <net/llc_if.h>
 +#include <net/sock.h>
+ #include <linux/llc.h>
  
- #define	X25_ADDR_LEN			16
- 
-@@ -129,7 +130,8 @@
- 	atomic_t		refcnt;
+ #define LLC_EVENT                1
+@@ -28,8 +29,9 @@
+ 	u16		  expire;	/* timer expire time */
  };
  
--struct x25_opt {
-+struct x25_sock {
-+	struct sock		sk;
- 	struct x25_address	source_addr, dest_addr;
- 	struct x25_neigh	*neighbour;
- 	unsigned int		lci;
-@@ -141,7 +143,6 @@
- 	struct sk_buff_head	fragment_queue;
- 	struct sk_buff_head	interrupt_in_queue;
- 	struct sk_buff_head	interrupt_out_queue;
--	struct sock		*sk;		/* Backlink to socket */
- 	struct timer_list	timer;
- 	struct x25_causediag	causediag;
- 	struct x25_facilities	facilities;
-@@ -149,7 +150,10 @@
- 	unsigned long 		vc_facil_mask;	/* inc_call facilities mask */
+-struct llc_opt {
+-	struct sock	    *sk;		/* sock that has this llc_opt */
++struct llc_sock {
++	/* struct sock must be the first member of llc_sock */
++	struct sock	    sk;
+ 	struct sockaddr_llc addr;		/* address sock is bound to */
+ 	u8		    state;		/* state of connection */
+ 	struct llc_sap	    *sap;		/* pointer to parent SAP */
+@@ -75,7 +77,10 @@
+ 					      Used for resending FRMR */
  };
  
--#define x25_sk(__sk) ((struct x25_opt *)(__sk)->sk_protinfo)
-+static inline struct x25_sock *x25_sk(const struct sock *sk)
+-#define llc_sk(__sk) ((struct llc_opt *)(__sk)->sk_protinfo)
++static inline struct llc_sock *llc_sk(const struct sock *sk)
 +{
-+	return (struct x25_sock *)sk;
++	return (struct llc_sock *)sk;
 +}
  
- /* af_x25.c */
- extern int  sysctl_x25_restart_request_timeout;
-diff -Nru a/net/x25/af_x25.c b/net/x25/af_x25.c
---- a/net/x25/af_x25.c	2005-01-21 00:22:53 -02:00
-+++ b/net/x25/af_x25.c	2005-01-21 00:22:53 -02:00
-@@ -444,33 +444,23 @@
- 
- static struct sock *x25_alloc_socket(void)
+ static __inline__ void llc_set_backlog_type(struct sk_buff *skb, char type)
  {
--	struct x25_opt *x25;
--	struct sock *sk = sk_alloc(AF_X25, GFP_ATOMIC, 1, NULL);
-+	struct x25_sock *x25;
-+	struct sock *sk = sk_alloc(AF_X25, GFP_ATOMIC,
-+				   sizeof(struct x25_sock), NULL);
+diff -Nru a/net/llc/af_llc.c b/net/llc/af_llc.c
+--- a/net/llc/af_llc.c	2005-01-21 00:22:30 -02:00
++++ b/net/llc/af_llc.c	2005-01-21 00:22:30 -02:00
+@@ -113,7 +113,7 @@
+  */
+ static int llc_ui_send_data(struct sock* sk, struct sk_buff *skb, int noblock)
+ {
+-	struct llc_opt* llc = llc_sk(sk);
++	struct llc_sock* llc = llc_sk(sk);
+ 	int rc = 0;
+ 
+ 	if (llc_data_accept_state(llc->state) || llc->p_flag) {
+@@ -169,7 +169,7 @@
+ static int llc_ui_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc;
++	struct llc_sock *llc;
  
  	if (!sk)
  		goto out;
+@@ -244,7 +244,7 @@
+ static int llc_ui_autobind(struct socket *sock, struct sockaddr_llc *addr)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_sap *sap;
+ 	int rc = -EINVAL;
  
--	x25 = sk->sk_protinfo = kmalloc(sizeof(*x25), GFP_ATOMIC);
--	if (!x25)
--		goto frees;
+@@ -293,7 +293,7 @@
+ {
+ 	struct sockaddr_llc *addr = (struct sockaddr_llc *)uaddr;
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_sap *sap;
+ 	int rc = -EINVAL;
+ 
+@@ -394,7 +394,7 @@
+ 			  int addrlen, int flags)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct sockaddr_llc *addr = (struct sockaddr_llc *)uaddr;
+ 	struct net_device *dev;
+ 	int rc = -EINVAL;
+@@ -571,7 +571,7 @@
+ static int llc_ui_wait_for_busy_core(struct sock *sk, int timeout)
+ {
+ 	DECLARE_WAITQUEUE(wait, current);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	int rc;
+ 
+ 	add_wait_queue_exclusive(sk->sk_sleep, &wait);
+@@ -612,7 +612,7 @@
+ static int llc_ui_accept(struct socket *sock, struct socket *newsock, int flags)
+ {
+ 	struct sock *sk = sock->sk, *newsk;
+-	struct llc_opt *llc, *newllc;
++	struct llc_sock *llc, *newllc;
+ 	struct sk_buff *skb;
+ 	int rc = -EOPNOTSUPP;
+ 
+@@ -728,7 +728,7 @@
+ 			  struct msghdr *msg, size_t len)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct sockaddr_llc *addr = (struct sockaddr_llc *)msg->msg_name;
+ 	int flags = msg->msg_flags;
+ 	int noblock = flags & MSG_DONTWAIT;
+@@ -819,7 +819,7 @@
+ {
+ 	struct sockaddr_llc sllc;
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	int rc = 0;
+ 
+ 	lock_sock(sk);
+@@ -883,7 +883,7 @@
+ 			     char __user *optval, int optlen)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	int rc = -EINVAL, opt;
+ 
+ 	lock_sock(sk);
+@@ -958,7 +958,7 @@
+ 			     char __user *optval, int __user *optlen)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	int val = 0, len = 0, rc = -EINVAL;
+ 
+ 	lock_sock(sk);
+diff -Nru a/net/llc/llc_c_ac.c b/net/llc/llc_c_ac.c
+--- a/net/llc/llc_c_ac.c	2005-01-21 00:22:30 -02:00
++++ b/net/llc/llc_c_ac.c	2005-01-21 00:22:30 -02:00
+@@ -44,7 +44,7 @@
+ 
+ int llc_conn_ac_clear_remote_busy(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (llc->remote_busy_flag) {
+ 		u8 nr;
+@@ -68,7 +68,7 @@
+ 	sap = llc_sap_find(dsap);
+ 	if (sap) {
+ 		struct llc_conn_state_ev *ev = llc_conn_ev(skb);
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 
+ 		llc_pdu_decode_sa(skb, llc->daddr.mac);
+ 		llc_pdu_decode_da(skb, llc->laddr.mac);
+@@ -146,7 +146,7 @@
+ 	int rc = 1;
+ 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
+ 	struct llc_pdu_un *pdu = llc_pdu_un_hdr(skb);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	switch (ev->type) {
+ 	case LLC_CONN_EV_TYPE_PDU:
+@@ -207,7 +207,7 @@
+ int llc_conn_ac_stop_rej_tmr_if_data_flag_eq_2(struct sock *sk,
+ 					       struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (llc->data_flag == 2)
+ 		del_timer(&llc->rej_sent_timer.timer);
+@@ -220,7 +220,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -246,7 +246,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		u8 f_bit;
+ 
+@@ -273,7 +273,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		u8 f_bit = 1;
+ 
+@@ -299,7 +299,7 @@
+ 	int rc = -ENOBUFS;
+ 	struct sk_buff *nskb;
+ 	struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	llc->rx_pdu_hdr = *((u32 *)pdu);
+ 	if (LLC_PDU_IS_CMD(pdu))
+@@ -334,7 +334,7 @@
+ 
+ 	if (nskb) {
+ 		u8 f_bit = 0;
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		struct llc_pdu_sn *pdu = (struct llc_pdu_sn *)&llc->rx_pdu_hdr;
+ 
+@@ -364,7 +364,7 @@
+ 	llc_pdu_decode_pf_bit(skb, &f_bit);
+ 	nskb = llc_alloc_frame();
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
+ 
+@@ -388,7 +388,7 @@
+ int llc_conn_ac_send_i_cmd_p_set_1(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_sap *sap = llc->sap;
+ 
+ 	llc_pdu_header_init(skb, LLC_PDU_TYPE_I, sap->laddr.lsap,
+@@ -405,7 +405,7 @@
+ static int llc_conn_ac_send_i_cmd_p_set_0(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_sap *sap = llc->sap;
+ 
+ 	llc_pdu_header_init(skb, LLC_PDU_TYPE_I, sap->laddr.lsap,
+@@ -422,7 +422,7 @@
+ int llc_conn_ac_send_i_xxx_x_set_0(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_sap *sap = llc->sap;
+ 
+ 	llc_pdu_header_init(skb, LLC_PDU_TYPE_I, sap->laddr.lsap,
+@@ -454,7 +454,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -490,7 +490,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -516,7 +516,7 @@
+ 
+ 	if (nskb) {
+ 		u8 f_bit = 1;
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -541,7 +541,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		u8 f_bit = 0;
+ 
+@@ -567,7 +567,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -592,7 +592,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		u8 f_bit = 1;
+ 
+@@ -619,7 +619,7 @@
+ 
+ 	if (nskb) {
+ 		u8 f_bit = 0;
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -640,7 +640,7 @@
+ 
+ int llc_conn_ac_set_remote_busy(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (!llc->remote_busy_flag) {
+ 		llc->remote_busy_flag = 1;
+@@ -656,7 +656,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -681,7 +681,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -706,7 +706,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		u8 f_bit = 1;
+ 
+@@ -732,7 +732,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 		u8 f_bit = 1;
+ 
+@@ -758,7 +758,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -783,7 +783,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -816,7 +816,7 @@
+ {
+ 	int rc = -ENOBUFS;
+ 	struct sk_buff *nskb = llc_alloc_frame();
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -849,7 +849,7 @@
+ 
+ 	llc_pdu_decode_pf_bit(skb, &f_bit);
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -882,7 +882,7 @@
+ 
+ int llc_conn_ac_start_p_timer(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	llc_conn_set_p_flag(sk, 1);
+ 	mod_timer(&llc->pf_cycle_timer.timer,
+@@ -903,7 +903,7 @@
+ int llc_conn_ac_send_ack_if_needed(struct sock *sk, struct sk_buff *skb)
+ {
+ 	u8 pf_bit;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	llc_pdu_decode_pf_bit(skb, &pf_bit);
+ 	llc->ack_pf |= pf_bit & 1;
+@@ -950,7 +950,7 @@
+ 					      struct sk_buff *skb)
+ {
+ 	int rc;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_sap *sap = llc->sap;
+ 
+ 	llc_pdu_header_init(skb, LLC_PDU_TYPE_I, sap->laddr.lsap,
+@@ -976,7 +976,7 @@
+  */
+ int llc_conn_ac_send_i_as_ack(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (llc->ack_must_be_send) {
+ 		llc_conn_ac_send_i_rsp_f_set_ackpf(sk, skb);
+@@ -1004,7 +1004,7 @@
+ 	struct sk_buff *nskb = llc_alloc_frame();
+ 
+ 	if (nskb) {
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		nskb->dev = llc->dev;
+@@ -1035,7 +1035,7 @@
+  */
+ static int llc_conn_ac_inc_npta_value(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (!llc->inc_cntr) {
+ 		llc->dec_step = 0;
+@@ -1058,7 +1058,7 @@
+  */
+ int llc_conn_ac_adjust_npta_by_rr(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (!llc->connect_step && !llc->remote_busy_flag) {
+ 		if (!llc->dec_step) {
+@@ -1084,7 +1084,7 @@
+  */
+ int llc_conn_ac_adjust_npta_by_rnr(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (llc->remote_busy_flag)
+ 		if (!llc->dec_step) {
+@@ -1109,7 +1109,7 @@
+  */
+ int llc_conn_ac_dec_tx_win_size(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	u8 unacked_pdu = skb_queue_len(&llc->pdu_unack_q);
+ 
+ 	llc->k -= unacked_pdu;
+@@ -1128,7 +1128,7 @@
+  */
+ int llc_conn_ac_inc_tx_win_size(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	llc->k += 1;
+ 	if (llc->k > 128)
+@@ -1138,7 +1138,7 @@
+ 
+ int llc_conn_ac_stop_all_timers(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	del_timer(&llc->pf_cycle_timer.timer);
+ 	del_timer(&llc->ack_timer.timer);
+@@ -1151,7 +1151,7 @@
+ 
+ int llc_conn_ac_stop_other_timers(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	del_timer(&llc->rej_sent_timer.timer);
+ 	del_timer(&llc->pf_cycle_timer.timer);
+@@ -1163,7 +1163,7 @@
+ 
+ int llc_conn_ac_start_ack_timer(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	mod_timer(&llc->ack_timer.timer, jiffies + llc->ack_timer.expire * HZ);
+ 	return 0;
+@@ -1171,7 +1171,7 @@
+ 
+ int llc_conn_ac_start_rej_timer(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	mod_timer(&llc->rej_sent_timer.timer,
+ 		  jiffies + llc->rej_sent_timer.expire * HZ);
+@@ -1181,7 +1181,7 @@
+ int llc_conn_ac_start_ack_tmr_if_not_running(struct sock *sk,
+ 					     struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (!timer_pending(&llc->ack_timer.timer))
+ 		mod_timer(&llc->ack_timer.timer,
+@@ -1197,7 +1197,7 @@
+ 
+ int llc_conn_ac_stop_p_timer(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	del_timer(&llc->pf_cycle_timer.timer);
+ 	llc_conn_set_p_flag(sk, 0);
+@@ -1215,7 +1215,7 @@
+ 	int acked;
+ 	u16 unacked = 0;
+ 	struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	llc->last_nr = PDU_SUPV_GET_Nr(pdu);
+ 	acked = llc_conn_remove_acked_pdus(sk, llc->last_nr, &unacked);
+diff -Nru a/net/llc/llc_c_ev.c b/net/llc/llc_c_ev.c
+--- a/net/llc/llc_c_ev.c	2005-01-21 00:22:30 -02:00
++++ b/net/llc/llc_c_ev.c	2005-01-21 00:22:30 -02:00
+@@ -78,7 +78,7 @@
+ 	u8 nr1, nr2;
+ 	struct sk_buff *skb;
+ 	struct llc_pdu_sn *pdu;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	int rc = 0;
+ 
+ 	if (llc->dev->flags & IFF_LOOPBACK)
+diff -Nru a/net/llc/llc_conn.c b/net/llc/llc_conn.c
+--- a/net/llc/llc_conn.c	2005-01-21 00:22:30 -02:00
++++ b/net/llc/llc_conn.c	2005-01-21 00:22:30 -02:00
+@@ -53,7 +53,7 @@
+ int llc_conn_state_process(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
+ 
+ 	/*
+@@ -221,7 +221,7 @@
+ 	struct sk_buff *skb;
+ 	struct llc_pdu_sn *pdu;
+ 	u16 nbr_unack_pdus;
+-	struct llc_opt *llc;
++	struct llc_sock *llc;
+ 	u8 howmany_resend = 0;
+ 
+ 	llc_conn_remove_acked_pdus(sk, nr, &nbr_unack_pdus);
+@@ -263,7 +263,7 @@
+ {
+ 	struct sk_buff *skb;
+ 	u16 nbr_unack_pdus;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	u8 howmany_resend = 0;
+ 
+ 	llc_conn_remove_acked_pdus(sk, nr, &nbr_unack_pdus);
+@@ -305,7 +305,7 @@
+ 	struct sk_buff *skb;
+ 	struct llc_pdu_sn *pdu;
+ 	int nbr_acked = 0;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	int q_len = skb_queue_len(&llc->pdu_unack_q);
+ 
+ 	if (!q_len)
+@@ -366,7 +366,7 @@
+ static int llc_conn_service(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc = 1;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_conn_state_trans *trans;
+ 
+ 	if (llc->state > NBR_CONN_STATES)
+@@ -399,7 +399,7 @@
+ 	struct llc_conn_state_trans **next_trans;
+ 	llc_conn_ev_qfyr_t *next_qualifier;
+ 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct llc_conn_state *curr_state =
+ 					&llc_conn_state_table[llc->state - 1];
+ 
+@@ -478,7 +478,7 @@
+ 
+ 	read_lock_bh(&sap->sk_list.lock);
+ 	sk_for_each(rc, node, &sap->sk_list.list) {
+-		struct llc_opt *llc = llc_sk(rc);
++		struct llc_sock *llc = llc_sk(rc);
+ 
+ 		if (llc->laddr.lsap == laddr->lsap &&
+ 		    llc->daddr.lsap == daddr->lsap &&
+@@ -511,7 +511,7 @@
+ 
+ 	read_lock_bh(&sap->sk_list.lock);
+ 	sk_for_each(rc, node, &sap->sk_list.list) {
+-		struct llc_opt *llc = llc_sk(rc);
++		struct llc_sock *llc = llc_sk(rc);
+ 
+ 		if (rc->sk_type == SOCK_STREAM && rc->sk_state == TCP_LISTEN &&
+ 		    llc->laddr.lsap == laddr->lsap &&
+@@ -650,7 +650,7 @@
+ static int llc_conn_rcv(struct sock* sk, struct sk_buff *skb)
+ {
+ 	struct llc_conn_state_ev *ev = llc_conn_ev(skb);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (!llc->dev)
+ 		llc->dev = skb->dev;
+@@ -675,7 +675,7 @@
+ 		 * Didn't find an active connection; verify if there
+ 		 * is a listening socket for this llc addr
+ 		 */
+-		struct llc_opt *llc;
++		struct llc_sock *llc;
+ 		struct sock *parent = llc_lookup_listener(sap, &daddr);
+ 
+ 		if (!parent) {
+@@ -756,7 +756,7 @@
+ static int llc_backlog_rcv(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int rc = 0;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (llc_backlog_type(skb) == LLC_PACKET) {
+ 		if (llc->state > 1) /* not closed */
+@@ -786,17 +786,10 @@
+  *
+  *     Initializes a socket with default llc values.
+  */
+-static int llc_sk_init(struct sock* sk)
++static void llc_sk_init(struct sock* sk)
+ {
+-	struct llc_opt *llc = kmalloc(sizeof(*llc), GFP_ATOMIC);
+-	int rc = -ENOMEM;
++	struct llc_sock *llc = llc_sk(sk);
+ 
+-	if (!llc)
+-		goto out;
+-	memset(llc, 0, sizeof(*llc));
+-	rc = 0;
 -
--	memset(x25, 0, sizeof(*x25));
--
--	x25->sk = sk;
--
+-	llc->sk	      = sk;
+ 	llc->state    = LLC_CONN_STATE_ADM;
+ 	llc->inc_cntr = llc->dec_cntr = 2;
+ 	llc->dec_step = llc->connect_step = 1;
+@@ -827,9 +820,6 @@
+ 		        * tx_win of remote LLC) */
+ 	skb_queue_head_init(&llc->pdu_unack_q);
+ 	sk->sk_backlog_rcv = llc_backlog_rcv;
+-	sk->sk_protinfo = llc;
+-out:
+-	return rc;
+ }
+ 
+ /**
+@@ -842,12 +832,12 @@
+  */
+ struct sock *llc_sk_alloc(int family, int priority)
+ {
+-	struct sock *sk = sk_alloc(family, priority, 1, NULL);
++	struct sock *sk = sk_alloc(family, priority,
++				   sizeof(struct llc_sock), NULL);
+ 
+ 	if (!sk)
+ 		goto out;
+-	if (llc_sk_init(sk))
+-		goto outsk;
++	llc_sk_init(sk);
  	sock_init_data(NULL, sk);
  	sk_set_owner(sk, THIS_MODULE);
- 
-+	x25 = x25_sk(sk);
- 	skb_queue_head_init(&x25->ack_queue);
- 	skb_queue_head_init(&x25->fragment_queue);
- 	skb_queue_head_init(&x25->interrupt_in_queue);
- 	skb_queue_head_init(&x25->interrupt_out_queue);
+ #ifdef LLC_REFCNT_DEBUG
+@@ -857,10 +847,6 @@
+ #endif
  out:
  	return sk;
--frees:
+-outsk:
 -	sk_free(sk);
 -	sk = NULL;
 -	goto out;
  }
  
- void x25_init_timers(struct sock *sk);
-@@ -478,7 +468,7 @@
- static int x25_create(struct socket *sock, int protocol)
- {
- 	struct sock *sk;
--	struct x25_opt *x25;
-+	struct x25_sock *x25;
- 	int rc = -ESOCKTNOSUPPORT;
- 
- 	if (sock->type != SOCK_SEQPACKET || protocol)
-@@ -519,7 +509,7 @@
- static struct sock *x25_make_new(struct sock *osk)
- {
- 	struct sock *sk = NULL;
--	struct x25_opt *x25, *ox25;
-+	struct x25_sock *x25, *ox25;
- 
- 	if (osk->sk_type != SOCK_SEQPACKET)
- 		goto out;
-@@ -557,7 +547,7 @@
- static int x25_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
--	struct x25_opt *x25;
-+	struct x25_sock *x25;
- 
- 	if (!sk)
- 		goto out;
-@@ -644,7 +634,7 @@
- 		       int addr_len, int flags)
- {
- 	struct sock *sk = sock->sk;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	struct sockaddr_x25 *addr = (struct sockaddr_x25 *)uaddr;
- 	struct x25_route *rt;
- 	int rc = 0;
-@@ -802,7 +792,7 @@
- {
- 	struct sockaddr_x25 *sx25 = (struct sockaddr_x25 *)uaddr;
- 	struct sock *sk = sock->sk;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	if (peer) {
- 		if (sk->sk_state != TCP_ESTABLISHED)
-@@ -822,7 +812,7 @@
- {
- 	struct sock *sk;
- 	struct sock *make;
--	struct x25_opt *makex25;
-+	struct x25_sock *makex25;
- 	struct x25_address source_addr, dest_addr;
- 	struct x25_facilities facilities;
- 	struct x25_calluserdata calluserdata;
-@@ -935,7 +925,7 @@
- 		       struct msghdr *msg, size_t len)
- {
- 	struct sock *sk = sock->sk;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	struct sockaddr_x25 *usx25 = (struct sockaddr_x25 *)msg->msg_name;
- 	struct sockaddr_x25 sx25;
- 	struct sk_buff *skb;
-@@ -1112,7 +1102,7 @@
- 		       int flags)
- {
- 	struct sock *sk = sock->sk;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	struct sockaddr_x25 *sx25 = (struct sockaddr_x25 *)msg->msg_name;
- 	size_t copied;
- 	int qbit;
-@@ -1201,7 +1191,7 @@
- static int x25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- {
- 	struct sock *sk = sock->sk;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	void __user *argp = (void __user *)arg;
- 	int rc;
- 
-diff -Nru a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
---- a/net/x25/x25_facilities.c	2005-01-21 00:22:53 -02:00
-+++ b/net/x25/x25_facilities.c	2005-01-21 00:22:53 -02:00
-@@ -158,7 +158,7 @@
- int x25_negotiate_facilities(struct sk_buff *skb, struct sock *sk,
- 			     struct x25_facilities *new)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	struct x25_facilities *ours = &x25->facilities;
- 	struct x25_facilities theirs;
- 	int len;
-diff -Nru a/net/x25/x25_in.c b/net/x25/x25_in.c
---- a/net/x25/x25_in.c	2005-01-21 00:22:53 -02:00
-+++ b/net/x25/x25_in.c	2005-01-21 00:22:53 -02:00
-@@ -34,7 +34,7 @@
- static int x25_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
- {
- 	struct sk_buff *skbo, *skbn = skb;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	if (more) {
- 		x25->fraglen += skb->len;
-@@ -89,7 +89,7 @@
- 
- 	switch (frametype) {
- 		case X25_CALL_ACCEPTED: {
--			struct x25_opt *x25 = x25_sk(sk);
-+			struct x25_sock *x25 = x25_sk(sk);
- 
- 			x25_stop_timer(sk);
- 			x25->condition = 0x00;
-@@ -165,7 +165,7 @@
- {
- 	int queued = 0;
- 	int modulus;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	
- 	modulus = (x25->neighbour->extended) ? X25_EMODULUS : X25_SMODULUS;
- 
-@@ -295,7 +295,7 @@
- 		case X25_RESET_REQUEST:
- 			x25_write_internal(sk, X25_RESET_CONFIRMATION);
- 		case X25_RESET_CONFIRMATION: {
--			struct x25_opt *x25 = x25_sk(sk);
-+			struct x25_sock *x25 = x25_sk(sk);
- 
- 			x25_stop_timer(sk);
- 			x25->condition = 0x00;
-@@ -322,7 +322,7 @@
- /* Higher level upcall for a LAPB frame */
- int x25_process_rx_frame(struct sock *sk, struct sk_buff *skb)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	int queued = 0, frametype, ns, nr, q, d, m;
- 
- 	if (x25->state == X25_STATE_0)
-diff -Nru a/net/x25/x25_out.c b/net/x25/x25_out.c
---- a/net/x25/x25_out.c	2005-01-21 00:22:53 -02:00
-+++ b/net/x25/x25_out.c	2005-01-21 00:22:53 -02:00
-@@ -54,7 +54,7 @@
- 	unsigned char header[X25_EXT_MIN_LEN];
- 	int err, frontlen, len;
- 	int sent=0, noblock = X25_SKB_CB(skb)->flags & MSG_DONTWAIT;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	int header_len = x25->neighbour->extended ? X25_EXT_MIN_LEN :
- 						    X25_STD_MIN_LEN;
- 	int max_len = x25_pacsize_to_bytes(x25->facilities.pacsize_out);
-@@ -116,7 +116,7 @@
+ /**
+@@ -871,7 +857,7 @@
   */
- static void x25_send_iframe(struct sock *sk, struct sk_buff *skb)
+ void llc_sk_free(struct sock *sk)
  {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
  
- 	if (!skb)
- 		return;
-@@ -139,7 +139,7 @@
- 	struct sk_buff *skb, *skbn;
- 	unsigned short start, end;
- 	int modulus;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	if (x25->state != X25_STATE_3)
- 		return;
-@@ -212,7 +212,7 @@
- 
- void x25_enquiry_response(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	if (x25->condition & X25_COND_OWN_RX_BUSY)
- 		x25_write_internal(sk, X25_RNR);
-diff -Nru a/net/x25/x25_proc.c b/net/x25/x25_proc.c
---- a/net/x25/x25_proc.c	2005-01-21 00:22:53 -02:00
-+++ b/net/x25/x25_proc.c	2005-01-21 00:22:53 -02:00
-@@ -134,7 +134,7 @@
- static int x25_seq_socket_show(struct seq_file *seq, void *v)
- {
- 	struct sock *s;
--	struct x25_opt *x25;
-+	struct x25_sock *x25;
- 	struct net_device *dev;
- 	const char *devname;
- 
-diff -Nru a/net/x25/x25_subr.c b/net/x25/x25_subr.c
---- a/net/x25/x25_subr.c	2005-01-21 00:22:53 -02:00
-+++ b/net/x25/x25_subr.c	2005-01-21 00:22:53 -02:00
-@@ -33,7 +33,7 @@
+ 	llc->state = LLC_CONN_OUT_OF_SVC;
+ 	/* Stop all (possibly) running timers */
+@@ -908,7 +894,7 @@
   */
- void x25_clear_queues(struct sock *sk)
+ void llc_sk_reset(struct sock *sk)
  {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
  
+ 	llc_conn_ac_stop_all_timers(sk, NULL);
  	skb_queue_purge(&sk->sk_write_queue);
- 	skb_queue_purge(&x25->ack_queue);
-@@ -51,7 +51,7 @@
- void x25_frames_acked(struct sock *sk, unsigned short nr)
+diff -Nru a/net/llc/llc_if.c b/net/llc/llc_if.c
+--- a/net/llc/llc_if.c	2005-01-21 00:22:30 -02:00
++++ b/net/llc/llc_if.c	2005-01-21 00:22:30 -02:00
+@@ -45,7 +45,7 @@
  {
+ 	struct llc_conn_state_ev *ev;
+ 	int rc = -ECONNABORTED;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	if (llc->state == LLC_CONN_STATE_ADM)
+ 		goto out;
+@@ -86,7 +86,7 @@
+ 	int rc = -EISCONN;
+ 	struct llc_addr laddr, daddr;
  	struct sk_buff *skb;
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	int modulus = x25->neighbour->extended ? X25_EMODULUS : X25_SMODULUS;
+-	struct llc_opt *llc = llc_sk(sk);
++	struct llc_sock *llc = llc_sk(sk);
+ 	struct sock *existing;
  
- 	/*
-@@ -89,7 +89,7 @@
-  */
- int x25_validate_nr(struct sock *sk, unsigned short nr)
+ 	laddr.lsap = llc->sap->laddr.lsap;
+diff -Nru a/net/llc/llc_proc.c b/net/llc/llc_proc.c
+--- a/net/llc/llc_proc.c	2005-01-21 00:22:30 -02:00
++++ b/net/llc/llc_proc.c	2005-01-21 00:22:30 -02:00
+@@ -65,7 +65,7 @@
+ static void *llc_seq_next(struct seq_file *seq, void *v, loff_t *pos)
  {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	unsigned short vc = x25->va;
- 	int modulus = x25->neighbour->extended ? X25_EMODULUS : X25_SMODULUS;
+ 	struct sock* sk, *next;
+-	struct llc_opt *llc;
++	struct llc_sock *llc;
+ 	struct llc_sap *sap;
  
-@@ -108,7 +108,7 @@
-  */
- void x25_write_internal(struct sock *sk, int frametype)
+ 	++*pos;
+@@ -102,7 +102,7 @@
  {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	struct sk_buff *skb;
- 	unsigned char  *dptr;
- 	unsigned char  facilities[X25_MAX_FAC_LEN];
-@@ -248,7 +248,7 @@
- int x25_decode(struct sock *sk, struct sk_buff *skb, int *ns, int *nr, int *q,
- 	       int *d, int *m)
+ 	if (v && v != SEQ_START_TOKEN) {
+ 		struct sock *sk = v;
+-		struct llc_opt *llc = llc_sk(sk);
++		struct llc_sock *llc = llc_sk(sk);
+ 		struct llc_sap *sap = llc->sap;
+ 
+ 		read_unlock_bh(&sap->sk_list.lock);
+@@ -113,7 +113,7 @@
+ static int llc_seq_socket_show(struct seq_file *seq, void *v)
  {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 	unsigned char *frame = skb->data;
+ 	struct sock* sk;
+-	struct llc_opt *llc;
++	struct llc_sock *llc;
  
- 	*ns = *nr = *q = *d = *m = 0;
-@@ -315,7 +315,7 @@
- void x25_disconnect(struct sock *sk, int reason, unsigned char cause,
- 		    unsigned char diagnostic)
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_puts(seq, "SKt Mc local_mac_sap        remote_mac_sap   "
+@@ -160,7 +160,7 @@
+ static int llc_seq_core_show(struct seq_file *seq, void *v)
  {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
+ 	struct sock* sk;
+-	struct llc_opt *llc;
++	struct llc_sock *llc;
  
- 	x25_clear_queues(sk);
- 	x25_stop_timer(sk);
-@@ -342,7 +342,7 @@
-  */
- void x25_check_rbuf(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_puts(seq, "Connection list:\n"
+diff -Nru a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+--- a/net/llc/llc_sap.c	2005-01-21 00:22:30 -02:00
++++ b/net/llc/llc_sap.c	2005-01-21 00:22:30 -02:00
+@@ -283,7 +283,7 @@
  
- 	if (atomic_read(&sk->sk_rmem_alloc) < (sk->sk_rcvbuf / 2) &&
- 	    (x25->condition & X25_COND_OWN_RX_BUSY)) {
-diff -Nru a/net/x25/x25_timer.c b/net/x25/x25_timer.c
---- a/net/x25/x25_timer.c	2005-01-21 00:22:53 -02:00
-+++ b/net/x25/x25_timer.c	2005-01-21 00:22:53 -02:00
-@@ -31,7 +31,7 @@
+ 	read_lock_bh(&sap->sk_list.lock);
+ 	sk_for_each(rc, node, &sap->sk_list.list) {
+-		struct llc_opt *llc = llc_sk(rc);
++		struct llc_sock *llc = llc_sk(rc);
  
- void x25_init_timers(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	init_timer(&x25->timer);
- 	x25->timer.data     = (unsigned long)sk;
-@@ -54,28 +54,28 @@
- 
- void x25_start_t2timer(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	mod_timer(&x25->timer, jiffies + x25->t2);
- }
- 
- void x25_start_t21timer(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	mod_timer(&x25->timer, jiffies + x25->t21);
- }
- 
- void x25_start_t22timer(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	mod_timer(&x25->timer, jiffies + x25->t22);
- }
- 
- void x25_start_t23timer(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	mod_timer(&x25->timer, jiffies + x25->t23);
- }
-@@ -87,7 +87,7 @@
- 
- unsigned long x25_display_timer(struct sock *sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	if (!timer_pending(&x25->timer))
- 		return 0;
-@@ -138,7 +138,7 @@
-  */
- static inline void x25_do_timer_expiry(struct sock * sk)
- {
--	struct x25_opt *x25 = x25_sk(sk);
-+	struct x25_sock *x25 = x25_sk(sk);
- 
- 	switch (x25->state) {
- 
+ 		if (rc->sk_type == SOCK_DGRAM &&
+ 		    llc->laddr.lsap == laddr->lsap &&
 
 
 
---------------030700020208060201070604--
+--------------080105020201040300010902--
