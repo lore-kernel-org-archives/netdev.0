@@ -1,45 +1,53 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6: note on shared socket options
-Date: Thu, 05 Feb 2004 11:09:55 +0900 (JST)
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: FW: Submission for S2io 10GbE driver
+Date: Wed, 4 Feb 2004 18:46:59 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040205.110955.10680487.yoshfuji@linux-ipv6.org>
-References: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
-	<OF2F9C078B.064A8A19-ON87256E30.0077B005-88256E30.0077AF76@us.ibm.com>
+Message-ID: <005701c3eb92$55dc7650$7310100a@S2IOtech.com>
+References: <20040205015149.GN19011@krispykreme>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>, <raghava.vatsavayi@s2io.com>, <iod00d@hp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dlstevens@us.ibm.com
-In-Reply-To: <OF2F9C078B.064A8A19-ON87256E30.0077B005-88256E30.0077AF76@us.ibm.com>
+To: "'Anton Blanchard'" <anton@samba.org>, "'Andi Kleen'" <ak@suse.de>
+In-Reply-To: <20040205015149.GN19011@krispykreme>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF2F9C078B.064A8A19-ON87256E30.0077B005-88256E30.0077AF76@us.ibm.com> (at Wed, 4 Feb 2004 13:49:51 -0800), David Stevens <dlstevens@us.ibm.com> says:
 
->       These are defined by draft-ietf-magma-msf-api-03.txt to be in
-> netinet/in.h (no place else). What's the advantage of adding another
-> copy in in6.h (which currently isn't used by anything)? Portable user apps
-> must include netinet/in.h for them, and in-kernel code already does.
+> > > 1) We did't find quad word memory operations(writeq and readq) on 
+> > > PCI bus for PPC64 architecture.
+> > 
+> > That's a bug in ppc64 then. Can you complain to them?  I would go 
+> > ahead and just use them in the driver unconditionally and 
+> wait for the 
+> > ppc64 to fix it. Or just add them there, it's probably simple.
+> 
+> Yep ppc64 should define them. If you are submitting a driver 
+> for inclusion in 2.6 leave these bits out, its my fault they 
+> arent defined and I'll get them added in.
 
-(I assume you're talking about the "alternatives.")
+Hi Anton,
+We are submitting for inclusion in 2.6 kernel but we'd like to have same
+code for 
+2.4 kernels as well, most our customers will stay with 2.4 for a
+while... If you add the bits to 2.6, we would still need a solution for
+2.4 kernel.
 
-Kernel do not use netinet/*.h.
+> > > On a little endian m/c like IA32 also writel writes same 
+> values in a 
+> > > similar manner as shown above. So the question is -
+> > > Do all big endian machines with linux OS swap the values 
+> and write in
+> > > little endian format?? 
+> > 
+> > I hope not.
+> 
+> Thats how all big endian platforms work. in* and out*, read* 
+> and write* byteswap. 
 
-My main point is, do not let people (or myself) forget reserved 
-(or used) range.  So, it is enough for me to add a comment on that.
+So, we should make the code big endian specific rather than PPC64
+specific, right?
 
-
-Well, I really do not think that the name of MCAST_xxx is good.
-Numeric assignment of "MCAST_xxx" functionalities 
-is only required to be unique in that level in theory
-since we put MCAST_xxx at network level (IPPROTO_{IP,IPV6} for now).
-However, they are share just because of the name.
-
-
-Anyway, what I want to add is some small note on shared range.
-Thanks.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Thanks, Leonid
