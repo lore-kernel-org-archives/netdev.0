@@ -1,28 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] NEIGHBOUR: hold refcnt of net_device from proxy
- neighbor entries.
-Date: Fri, 1 Oct 2004 15:17:32 -0700
+Subject: Re: [PATCH]: fixed typo of reassembly.c
+Date: Fri, 1 Oct 2004 15:19:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041001151732.60899c38.davem@davemloft.net>
-References: <20040930.170729.51800585.yoshfuji@linux-ipv6.org>
+Message-ID: <20041001151923.261b42b3.davem@davemloft.net>
+References: <200409301023.i8UANRGp002783@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040930.170729.51800585.yoshfuji@linux-ipv6.org>
+To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+In-Reply-To: <200409301023.i8UANRGp002783@toshiba.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Sep 2004 17:07:29 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Thu, 30 Sep 2004 19:23:26 +0900 (JST)
+Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp> wrote:
 
-> [NET] NEIGHBOUR: hold refcnt of net_device from proxy neighbor entries.
->  
-> We did not hold refcnt of net_device from proxy neighbor entries
-> while we did from neighbor entries.
->  
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> This patch fixes byte ordering. Please apply this.
 
-Applied, thanks.
+It is textual fix only, do you realize this?
+Both ntohs() and htons() perform the same transformation
+on a 16-bit data item.  It really does not matter which
+one you actually use, in practice.
+
+I will apply your patch anyways, I just wanted to be
+clear that this does not actually fix any bug. :-)
+
+THanks.
