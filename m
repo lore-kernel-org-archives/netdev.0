@@ -1,8 +1,8 @@
 From: Roger Luethi <rl@hellgate.ch>
-Subject: [7/9][PATCH 2.6] Media mode rewrite
-Date: Tue, 15 Jun 2004 19:49:42 +0200
+Subject: [8/9][PATCH 2.6] Small fixes and clean-up
+Date: Tue, 15 Jun 2004 19:49:56 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040615174942.GA11319@k3.hellgate.ch>
+Message-ID: <20040615174956.GA11359@k3.hellgate.ch>
 References: <20040615174732.GA10241@k3.hellgate.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,320 +14,313 @@ In-Reply-To: <20040615174732.GA10241@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Remove rhine_check_duplex, rhine_timer and related data structures
+Bump driver version to mark recent major changes in driver code.
 
-Add rhine_check_media: wrapper for generic mii_check_media, sets duplex
-bit in MAC
+Remove backoff parameter. The reason it was once introduced is gone.
+Continue to go with EEPROM default for now, will hard-wire IEEE backoff
+algorithm instead (later).
 
-Add rhine_enable_linkmon, rhine_disable_linkmon to enable hardware link
-status monitoring
+Rhine-I needs extra time to recuperate from chip reset before EEPROM
+reload.
 
-Update mdio_read, mdio_write accordingly
-
-Remove get_intr_status check in rhine_start_tx because we are not racing
-anymore
+Add Rhine model identification.
 
 Signed-off-by: Roger Luethi <rl@hellgate.ch>
 
 --- orig/drivers/net/via-rhine.c
 +++ mod/drivers/net/via-rhine.c
-@@ -485,7 +485,6 @@
+@@ -125,11 +125,16 @@
+ 	LK1.1.19 (Roger Luethi)
+ 	- Increase Tx threshold for unspecified errors
  
- 	struct pci_dev *pdev;
- 	struct net_device_stats stats;
--	struct timer_list timer;	/* Media monitoring timer. */
- 	spinlock_t lock;
++	LK1.2.0-2.6 (Roger Luethi)
++	- Massive clean-up
++	- Rewrite PHY, media handling (remove options, full_duplex, backoff)
++	- Fix Tx engine race for good
++
+ */
  
- 	/* Frequently used values: keep some adjacent for cache effect. */
-@@ -498,16 +497,12 @@
- 	/* These values are keep track of the transceiver/media in use. */
- 	u8 tx_thresh, rx_thresh;
+ #define DRV_NAME	"via-rhine"
+-#define DRV_VERSION	"1.1.20-2.6"
+-#define DRV_RELDATE	"May-23-2004"
++#define DRV_VERSION	"1.2.0-2.6"
++#define DRV_RELDATE	"June-10-2004"
  
--	/* MII transceiver section. */
--	u16 mii_status;			/* last read MII status */
- 	struct mii_if_info mii_if;
+ 
+ /* A few user-configurable values.
+@@ -142,9 +147,6 @@
+    Setting to > 1518 effectively disables this feature. */
+ static int rx_copybreak;
+ 
+-/* Select a backoff algorithm (Ethernet capture effect) */
+-static int backoff;
+-
+ /*
+  * In case you are looking for 'options[]' or 'full_duplex[]', they
+  * are gone. Use ethtool(8) instead.
+@@ -207,9 +209,6 @@
+ static char version[] __devinitdata =
+ KERN_INFO DRV_NAME ".c:v1.10-LK" DRV_VERSION " " DRV_RELDATE " Written by Donald Becker\n";
+ 
+-static char shortname[] = DRV_NAME;
+-
+-
+ /* This driver was written to use PCI memory space. Some early versions
+    of the Rhine may only work correctly with I/O space accesses. */
+ #ifdef CONFIG_VIA_RHINE_MMIO
+@@ -236,11 +235,9 @@
+ MODULE_PARM(max_interrupt_work, "i");
+ MODULE_PARM(debug, "i");
+ MODULE_PARM(rx_copybreak, "i");
+-MODULE_PARM(backoff, "i");
+ MODULE_PARM_DESC(max_interrupt_work, "VIA Rhine maximum events handled per interrupt");
+ MODULE_PARM_DESC(debug, "VIA Rhine debug level (0-7)");
+ MODULE_PARM_DESC(rx_copybreak, "VIA Rhine copy breakpoint for copy-only-tiny-frames");
+-MODULE_PARM_DESC(backoff, "VIA Rhine: Bits 0-3: backoff algorithm");
+ 
+ /*
+ 		Theory of Operation
+@@ -343,17 +340,18 @@
+ 
+ enum rhine_revs {
+ 	VT86C100A	= 0x00,
++	VTunknown0	= 0x20,
+ 	VT6102		= 0x40,
+ 	VT8231		= 0x50,	/* Integrated MAC */
+ 	VT8233		= 0x60,	/* Integrated MAC */
+ 	VT8235		= 0x74,	/* Integrated MAC */
+ 	VT8237		= 0x78,	/* Integrated MAC */
+-	VTunknown0	= 0x7C,
++	VTunknown1	= 0x7C,
+ 	VT6105		= 0x80,
+ 	VT6105_B0	= 0x83,
+ 	VT6105L		= 0x8A,
+ 	VT6107		= 0x8C,
+-	VTunknown1	= 0x8E,
++	VTunknown2	= 0x8E,
+ 	VT6105M		= 0x90,
  };
  
- static int  mdio_read(struct net_device *dev, int phy_id, int location);
- static void mdio_write(struct net_device *dev, int phy_id, int location, int value);
- static int  rhine_open(struct net_device *dev);
--static void rhine_check_duplex(struct net_device *dev);
--static void rhine_timer(unsigned long data);
- static void rhine_tx_timeout(struct net_device *dev);
- static int  rhine_start_tx(struct sk_buff *skb, struct net_device *dev);
- static irqreturn_t rhine_interrupt(int irq, void *dev_instance, struct pt_regs *regs);
-@@ -1032,6 +1027,21 @@
+@@ -609,7 +607,7 @@
+ 
+ /*
+  * Loads bytes 0x00-0x05, 0x6E-0x6F, 0x78-0x7B from EEPROM
+- * (plus 0x6C for Rhine I/II)
++ * (plus 0x6C for Rhine-I/II)
+  */
+ static void __devinit rhine_reload_eeprom(long pioaddr, struct net_device *dev)
+ {
+@@ -645,9 +643,15 @@
+ 
+ static void rhine_hw_init(struct net_device *dev, long pioaddr)
+ {
++	struct rhine_private *rp = netdev_priv(dev);
++
+ 	/* Reset the chip to erase previous misconfiguration. */
+ 	rhine_chip_reset(dev);
+ 
++	/* Rhine-I needs extra time to recuperate before EEPROM reload */
++	if (rp->quirks & rqRhineI)
++		msleep(5);
++
+ 	/* Reload EEPROM controlled bytes cleared by soft reset */
+ 	rhine_reload_eeprom(pioaddr, dev);
+ }
+@@ -660,12 +664,11 @@
+ 	int i, rc;
+ 	u8 pci_rev;
+ 	u32 quirks;
+-	static int card_idx = -1;
+ 	long pioaddr;
+ 	long memaddr;
+ 	long ioaddr;
+ 	int io_size, phy_id;
+-	const char *name;
++	const char *name, *mname;
+ 
+ /* when built into the kernel, we only print version if device is found */
+ #ifndef MODULE
+@@ -678,22 +681,43 @@
+ 
+ 	io_size = 256;
+ 	phy_id = 0;
+-	if (pci_rev < VT6102) {
++	quirks = 0;
++	name = "Rhine";
++	mname = "unknown";
++	if (pci_rev < VTunknown0) {
+ 		quirks = rqRhineI;
+ 		io_size = 128;
+-		name = "VT86C100A Rhine";
++		mname = "VT86C100A";
  	}
- }
+-	else {
++	else if (pci_rev >= VT6102) {
+ 		quirks = rqWOL | rqForceReset;
+ 		if (pci_rev < VT6105) {
+ 			name = "Rhine II";
+ 			quirks |= rqStatusWBRace;	/* Rhine-II exclusive */
++			if (pci_rev < VT8231)
++				mname = "VT6102";
++			else if (pci_rev < VT8233)
++				mname = "VT8231";
++			else if (pci_rev < VT8235)
++				mname = "VT8233";
++			else if (pci_rev < VT8237)
++				mname = "VT8235";
++			else if (pci_rev < VTunknown1)
++				mname = "VT8237";
+ 		}
+ 		else {
+ 			name = "Rhine III";
+ 			phy_id = 1;	/* Integrated PHY, phy_id fixed to 1 */
+ 			if (pci_rev >= VT6105_B0)
+ 				quirks |= rq6patterns;
++			if (pci_rev < VT6105L)
++				mname = "VT6105";
++			else if (pci_rev < VT6107)
++				mname = "VT6105L";
++			else if (pci_rev < VT6105M)
++				mname = "VT6107";
++			else if (pci_rev >= VT6105M)
++				mname = "Management Adapter VT6105M";
+ 		}
+ 	}
  
-+static void rhine_check_media(struct net_device *dev, unsigned int init_media)
-+{
-+	struct rhine_private *rp = netdev_priv(dev);
-+	long ioaddr = dev->base_addr;
-+
-+	mii_check_media(&rp->mii_if, debug, init_media);
-+
-+	if (rp->mii_if.full_duplex)
-+	    writeb(readb(ioaddr + ChipCmd1) | Cmd1FDuplex,
-+		   ioaddr + ChipCmd1);
-+	else
-+	    writeb(readb(ioaddr + ChipCmd1) & ~Cmd1FDuplex,
-+		   ioaddr + ChipCmd1);
-+}
-+
- static void init_registers(struct net_device *dev)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
-@@ -1047,7 +1057,6 @@
- 	writeb(0x20, ioaddr + TxConfig);
- 	rp->tx_thresh = 0x20;
- 	rp->rx_thresh = 0x60;		/* Written in rhine_set_rx_mode(). */
--	rp->mii_if.full_duplex = 0;
+@@ -722,17 +746,16 @@
  
- 	writel(rp->rx_ring_dma, ioaddr + RxRingPtr);
- 	writel(rp->tx_ring_dma, ioaddr + TxRingPtr);
-@@ -1063,14 +1072,42 @@
+ 	pci_set_master(pdev);
  
- 	writew(CmdStart|CmdTxOn|CmdRxOn|(Cmd1NoTxPoll << 8),
+-	dev = alloc_etherdev(sizeof(*rp));
+-	if (dev == NULL) {
++	dev = alloc_etherdev(sizeof(struct rhine_private));
++	if (!dev) {
+ 		rc = -ENOMEM;
+-		printk(KERN_ERR "init_ethernet failed for card #%d\n",
+-		       card_idx);
++		printk(KERN_ERR "alloc_etherdev failed\n");
+ 		goto err_out;
+ 	}
+ 	SET_MODULE_OWNER(dev);
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+-	rc = pci_request_regions(pdev, shortname);
++	rc = pci_request_regions(pdev, DRV_NAME);
+ 	if (rc)
+ 		goto err_out_free_netdev;
+ 
+@@ -768,9 +791,8 @@
+ 	rp = netdev_priv(dev);
+ 	rp->quirks = quirks;
+ 
++	/* Get chip registers into a sane state */
+ 	rhine_power_init(dev);
+-
+-	/* Reset the chip to erase previous misconfiguration. */
+ 	rhine_hw_init(dev, pioaddr);
+ 
+ 	for (i = 0; i < 6; i++)
+@@ -778,16 +800,11 @@
+ 
+ 	if (!is_valid_ether_addr(dev->dev_addr)) {
+ 		rc = -EIO;
+-		printk(KERN_ERR "Invalid MAC address for card #%d\n", card_idx);
++		printk(KERN_ERR "Invalid MAC address\n");
+ 		goto err_out_unmap;
+ 	}
+ 
+-	/* Select backoff algorithm */
+-	if (backoff)
+-		writeb(readb(ioaddr + ConfigD) & (0xF0 | backoff),
+-		       ioaddr + ConfigD);
+-
+-	/* For Rhine I/II, phy_id is loaded from EEPROM */
++	/* For Rhine-I/II, phy_id is loaded from EEPROM */
+ 	if (!phy_id)
+ 		phy_id = readb(ioaddr + 0x6C);
+ 
+@@ -822,8 +839,8 @@
+ 	if (rc)
+ 		goto err_out_unmap;
+ 
+-	printk(KERN_INFO "%s: VIA %s at 0x%lx, ",
+-	       dev->name, name,
++	printk(KERN_INFO "%s: VIA %s (%s) at 0x%lx, ",
++	       dev->name, name, mname,
+ #ifdef USE_MMIO
+ 		memaddr
+ #else
+@@ -1070,7 +1087,7 @@
+ 	       IntrPCIErr | IntrStatsMax | IntrLinkChange,
+ 	       ioaddr + IntrEnable);
+ 
+-	writew(CmdStart|CmdTxOn|CmdRxOn|(Cmd1NoTxPoll << 8),
++	writew(CmdStart | CmdTxOn | CmdRxOn | (Cmd1NoTxPoll << 8),
  	       ioaddr + ChipCmd);
--	if (rp->mii_if.force_media)
--		writeb(readb(ioaddr + ChipCmd1) | Cmd1FDuplex,
--		       ioaddr + ChipCmd1);
--	else
--		writeb(readb(ioaddr + ChipCmd1) & ~Cmd1FDuplex,
--		       ioaddr + ChipCmd1);
-+	rhine_check_media(dev, 1);
-+}
-+
-+/* Enable MII link status auto-polling (required for IntrLinkChange) */
-+static void rhine_enable_linkmon(long ioaddr)
-+{
-+	writeb(0, ioaddr + MIICmd);
-+	writeb(MII_BMSR, ioaddr + MIIRegAddr);
-+	writeb(0x80, ioaddr + MIICmd);
- 
--	rhine_check_duplex(dev);
-+	RHINE_WAIT_FOR((readb(ioaddr + MIIRegAddr) & 0x20));
-+
-+	writeb(MII_BMSR | 0x40, ioaddr + MIIRegAddr);
-+}
-+
-+/* Disable MII link status auto-polling (required for MDIO access) */
-+static void rhine_disable_linkmon(long ioaddr, u32 quirks)
-+{
-+	writeb(0, ioaddr + MIICmd);
-+
-+	if (quirks & rqRhineI) {
-+		writeb(0x01, ioaddr + MIIRegAddr);	// MII_BMSR
-+
-+		/* Can be called from ISR. Evil. */
-+		mdelay(1);
-+
-+		/* 0x80 must be set immediately before turning it off */
-+		writeb(0x80, ioaddr + MIICmd);
-+
-+		RHINE_WAIT_FOR(readb(ioaddr + MIIRegAddr) & 0x20);
-+
-+		/* Heh. Now clear 0x80 again. */
-+		writeb(0, ioaddr + MIICmd);
-+	}
-+	else
-+		RHINE_WAIT_FOR(readb(ioaddr + MIIRegAddr) & 0x80);
+ 	rhine_check_media(dev, 1);
  }
- 
- /* Read and write over the MII Management Data I/O (MDIO) interface. */
-@@ -1078,15 +1115,20 @@
- static int mdio_read(struct net_device *dev, int phy_id, int regnum)
- {
- 	long ioaddr = dev->base_addr;
-+	struct rhine_private *rp = netdev_priv(dev);
-+	int result;
- 
--	/* Wait for a previous command to complete. */
--	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x60));
--	writeb(0x00, ioaddr + MIICmd);
-+	rhine_disable_linkmon(ioaddr, rp->quirks);
-+
-+	writeb(0, ioaddr + MIICmd);
- 	writeb(phy_id, ioaddr + MIIPhyAddr);
- 	writeb(regnum, ioaddr + MIIRegAddr);
- 	writeb(0x40, ioaddr + MIICmd);		/* Trigger read */
- 	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x40));
--	return readw(ioaddr + MIIData);
-+	result = readw(ioaddr + MIIData);
-+
-+	rhine_enable_linkmon(ioaddr);
-+	return result;
- }
- 
- static void mdio_write(struct net_device *dev, int phy_id, int regnum, int value)
-@@ -1094,29 +1136,17 @@
- 	struct rhine_private *rp = netdev_priv(dev);
- 	long ioaddr = dev->base_addr;
- 
--	if (phy_id == rp->mii_if.phy_id) {
--		switch (regnum) {
--		case MII_BMCR:		/* Is user forcing speed/duplex? */
--			if (value & 0x9000)	/* Autonegotiation. */
--				rp->mii_if.force_media = 0;
--			else
--				rp->mii_if.full_duplex = (value & 0x0100) ? 1 : 0;
--			break;
--		case MII_ADVERTISE:
--			rp->mii_if.advertising = value;
--			break;
--		}
--	}
-+	rhine_disable_linkmon(ioaddr, rp->quirks);
- 
--	/* Wait for a previous command to complete. */
--	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x60));
--	writeb(0x00, ioaddr + MIICmd);
-+	writeb(0, ioaddr + MIICmd);
+@@ -1142,7 +1159,7 @@
  	writeb(phy_id, ioaddr + MIIPhyAddr);
  	writeb(regnum, ioaddr + MIIRegAddr);
  	writew(value, ioaddr + MIIData);
- 	writeb(0x20, ioaddr + MIICmd);		/* Trigger write. */
--}
-+	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x20));
+-	writeb(0x20, ioaddr + MIICmd);		/* Trigger write. */
++	writeb(0x20, ioaddr + MIICmd);		/* Trigger write */
+ 	RHINE_WAIT_FOR(!(readb(ioaddr + MIICmd) & 0x20));
  
-+	rhine_enable_linkmon(ioaddr);
-+}
- 
- static int rhine_open(struct net_device *dev)
- {
-@@ -1148,78 +1178,9 @@
- 
- 	netif_start_queue(dev);
- 
--	/* Set the timer to check for link beat. */
--	init_timer(&rp->timer);
--	rp->timer.expires = jiffies + 2 * HZ/100;
--	rp->timer.data = (unsigned long)dev;
--	rp->timer.function = &rhine_timer;		/* timer handler */
--	add_timer(&rp->timer);
--
- 	return 0;
- }
- 
--static void rhine_check_duplex(struct net_device *dev)
--{
--	struct rhine_private *rp = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
--	int mii_lpa = mdio_read(dev, rp->mii_if.phy_id, MII_LPA);
--	int negotiated = mii_lpa & rp->mii_if.advertising;
--	int duplex;
--
--	if (rp->mii_if.force_media || mii_lpa == 0xffff)
--		return;
--	duplex = (negotiated & 0x0100) || (negotiated & 0x01C0) == 0x0040;
--	if (rp->mii_if.full_duplex != duplex) {
--		rp->mii_if.full_duplex = duplex;
--		if (debug)
--			printk(KERN_INFO "%s: Setting %s-duplex based on "
--			       "MII #%d link partner capability of %4.4x.\n",
--			       dev->name, duplex ? "full" : "half",
--			       rp->mii_if.phy_id, mii_lpa);
--		if (duplex)
--			writeb(readb(ioaddr + ChipCmd1) | Cmd1FDuplex,
--			       ioaddr + ChipCmd1);
--		else
--			writeb(readb(ioaddr + ChipCmd1) & ~Cmd1FDuplex,
--			       ioaddr + ChipCmd1);
--	}
--}
--
--
--static void rhine_timer(unsigned long data)
--{
--	struct net_device *dev = (struct net_device *)data;
--	struct rhine_private *rp = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
--	int next_tick = 10*HZ;
--	int mii_status;
--
--	if (debug > 3) {
--		printk(KERN_DEBUG "%s: VIA Rhine monitor tick, status %4.4x.\n",
--		       dev->name, readw(ioaddr + IntrStatus));
--	}
--
--	spin_lock_irq (&rp->lock);
--
--	rhine_check_duplex(dev);
--
--	/* make IFF_RUNNING follow the MII status bit "Link established" */
--	mii_status = mdio_read(dev, rp->mii_if.phy_id, MII_BMSR);
--	if ((mii_status & BMSR_LSTATUS) != (rp->mii_status & BMSR_LSTATUS)) {
--		if (mii_status & BMSR_LSTATUS)
--			netif_carrier_on(dev);
--		else
--			netif_carrier_off(dev);
--	}
--	rp->mii_status = mii_status;
--
--	spin_unlock_irq(&rp->lock);
--
--	rp->timer.expires = jiffies + next_tick;
--	add_timer(&rp->timer);
--}
--
--
- static void rhine_tx_timeout(struct net_device *dev)
+ 	rhine_enable_linkmon(ioaddr);
+@@ -1152,20 +1169,20 @@
  {
  	struct rhine_private *rp = netdev_priv(dev);
-@@ -1256,8 +1217,8 @@
- static int rhine_start_tx(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct rhine_private *rp = netdev_priv(dev);
-+	long ioaddr = dev->base_addr;
- 	unsigned entry;
--	u32 intr_status;
- 
- 	/* Caution: the write order is important here, set the field
- 	   with the "ownership" bits last. */
-@@ -1308,15 +1269,9 @@
- 
- 	/* Non-x86 Todo: explicitly flush cache lines here. */
- 
--	/*
--	 * Wake the potentially-idle transmit channel unless errors are
--	 * pending (the ISR must sort them out first).
--	 */
--	intr_status = get_intr_status(dev);
--	if ((intr_status & IntrTxErrSummary) == 0) {
--		writeb(readb(dev->base_addr + ChipCmd1) | Cmd1TxDemand,
--		       dev->base_addr + ChipCmd1);
--	}
-+	/* Wake the potentially-idle transmit channel */
-+	writeb(readb(ioaddr + ChipCmd1) | Cmd1TxDemand,
-+	       ioaddr + ChipCmd1);
- 	IOSYNC;
- 
- 	if (rp->cur_tx == rp->dirty_tx + TX_QUEUE_LEN)
-@@ -1639,15 +1594,8 @@
- 
- 	spin_lock(&rp->lock);
- 
--	if (intr_status & (IntrLinkChange)) {
--		rhine_check_duplex(dev);
--		if (debug)
--			printk(KERN_ERR "%s: MII status changed: "
--			       "Autonegotiation advertising %4.4x partner "
--			       "%4.4x.\n", dev->name,
--			       mdio_read(dev, rp->mii_if.phy_id, MII_ADVERTISE),
--			       mdio_read(dev, rp->mii_if.phy_id, MII_LPA));
--	}
-+	if (intr_status & IntrLinkChange)
-+		rhine_check_media(dev, 0);
- 	if (intr_status & IntrStatsMax) {
- 		rp->stats.rx_crc_errors += readw(ioaddr + RxCRCErrs);
- 		rp->stats.rx_missed_errors += readw(ioaddr + RxMissed);
-@@ -1839,8 +1786,6 @@
  	long ioaddr = dev->base_addr;
- 	struct rhine_private *rp = netdev_priv(dev);
+-	int i;
++	int rc;
  
--	del_timer_sync(&rp->timer);
+-	i = request_irq(rp->pdev->irq, &rhine_interrupt, SA_SHIRQ, dev->name,
++	rc = request_irq(rp->pdev->irq, &rhine_interrupt, SA_SHIRQ, dev->name,
+ 			dev);
+-	if (i)
+-		return i;
++	if (rc)
++		return rc;
+ 
+ 	if (debug > 1)
+ 		printk(KERN_DEBUG "%s: rhine_open() irq %d.\n",
+ 		       dev->name, rp->pdev->irq);
+ 
+-	i = alloc_ring(dev);
+-	if (i)
+-		return i;
++	rc = alloc_ring(dev);
++	if (rc)
++		return rc;
+ 	alloc_rbufs(dev);
+ 	alloc_tbufs(dev);
+ 	rhine_chip_reset(dev);
+@@ -1482,10 +1499,6 @@
+ 							    rp->rx_buf_sz,
+ 							    PCI_DMA_FROMDEVICE);
+ 
+-				/* *_IP_COPYSUM isn't defined anywhere and
+-				   eth_copy_and_sum is memcpy for all archs so
+-				   this is kind of pointless right now
+-				   ... or? */
+ 				eth_copy_and_sum(skb,
+ 						 rp->rx_skbuff[entry]->tail,
+ 						 pkt_len, 0);
+@@ -1574,7 +1587,6 @@
+ 		       ioaddr + ChipCmd);
+ 		writeb(readb(ioaddr + ChipCmd1) | Cmd1TxDemand,
+ 		       ioaddr + ChipCmd1);
 -
- 	spin_lock_irq(&rp->lock);
+ 		IOSYNC;
+ 	}
+ 	else {
+@@ -1834,7 +1846,7 @@
  
- 	netif_stop_queue(dev);
+ 
+ static struct pci_driver rhine_driver = {
+-	.name		= "via-rhine",
++	.name		= DRV_NAME,
+ 	.id_table	= rhine_pci_tbl,
+ 	.probe		= rhine_init_one,
+ 	.remove		= __devexit_p(rhine_remove_one),
