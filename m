@@ -1,33 +1,32 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: schedule_work, a summary
-Date: Tue, 7 Sep 2004 15:35:54 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6]: Fix suboptimal fragment sizing for last fragment
+Date: Tue, 7 Sep 2004 13:35:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <840161B2-010D-11D9-AF95-000393C30512@freescale.com>
-Mime-Version: 1.0 (Apple Message framework v618)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
+Message-ID: <20040907133508.5a7aeafb.davem@redhat.com>
+References: <4137681D.3000902@trash.net>
+	<20040902144436.2c8c1337.davem@redhat.com>
+	<20040902220343.GA3250@gondor.apana.org.au>
+	<20040903.104050.29603454.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: herbert@gondor.apana.org.au, kaber@trash.net, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040903.104050.29603454.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ok, so I got no response.  I will summarize on the theory that people 
-tend to ignore long emails:
+On Fri, 03 Sep 2004 10:40:50 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-1) My ethernet driver works in 2.6.8.1, but does not in newer kernels.  
-Note that nothing in the driver has changed.  So either there is a bug 
-in the kernel now, or one has been exposed in my driver.
+> In this case, we know we need more fragment(s).
+> So, let's fill up to maxfraglen (instead of mtu) 
+> to avoid needless copy in the next loop.
+> 
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-2) The bug causes the kernel to stop doing useful work as soon as 
-schedule_work is called.  I can confirm that the function executes to 
-completion, and that the process of scheduling the work is terminated 
-in try_to_wake_up() when it determines that the task (presumably the 
-task keventd is running in) is already running.  Once this happens, the 
-kernel stops printing out information, and the bdi2000 indicates it is 
-frequently in interrupt handling routines.
-
-3) I desperately need to know what's wrong, and if this is not the 
-right place to ask, please tell me where is.
-
-Thanks,
-Andy Fleming
+Has anyone tested or reviewed this patch?
+I'm just walking through my backlog trying
+to figure out what I need to spend time on.
