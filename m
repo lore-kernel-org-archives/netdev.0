@@ -1,55 +1,40 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC/PATCH capture qdisc requeue event in stats
-Date: Tue, 28 Sep 2004 17:03:15 -0700
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Tue, 28 Sep 2004 17:04:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928170315.760b9851.davem@davemloft.net>
-References: <1093799632.1073.410.camel@jzny.localdomain>
-	<1096413009.27967.1.camel@localhost.localdomain>
-	<20040928161838.3d19a17d.davem@davemloft.net>
-	<1096416101.27967.10.camel@localhost.localdomain>
+Message-ID: <20040928170420.7f8a6612.davem@davemloft.net>
+References: <20040923164149.5368d291.davem@davemloft.net>
+	<E1CBkIW-0001dF-00@gondolin.me.apana.org.au>
+	<20040927025048.GA6723@gondor.apana.org.au>
+	<20040926210029.22750d47.davem@davemloft.net>
+	<20040927054541.GA8858@gondor.apana.org.au>
+	<20040927120154.09fdcadf.davem@davemloft.net>
+	<20040927213233.GC7243@gondor.apana.org.au>
+	<20040928141002.164c60af.davem@davemloft.net>
+	<20040928213415.GA4646@wotan.suse.de>
+	<20040928145345.2530d30e.davem@davemloft.net>
+	<20040928223344.GC2975@wotan.suse.de>
+	<20040928155706.65405e88.davem@davemloft.net>
+	<20040929012757.5d0dff61.ak@suse.de>
+	<20040928163509.624a748b.davem@davemloft.net>
+	<20040929015534.3b39b720.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, niv@us.ibm.com, andy.grover@gmail.com,
+        anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <1096416101.27967.10.camel@localhost.localdomain>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040929015534.3b39b720.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Sep 2004 17:01:41 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 29 Sep 2004 01:55:34 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-> On Tue, 2004-09-28 at 16:18 -0700, David S. Miller wrote:
-> > On Tue, 28 Sep 2004 16:10:09 -0700
-> > Stephen Hemminger <shemminger@osdl.org> wrote:
-> > 
-> > > On Sun, 2004-08-29 at 13:13 -0400, jamal wrote:
-> > > > 
-> > > > The requeue event is useful in finding out when a device is overloaded
-> > > > on the egress (bus or bandwidth).
-> > > > Atached patch introduces this. I would have used the overlimit bits
-> > > > but at the moment thats being used for different semantical reasons.
-> > > > I have not done extensive testing on it. 
-> > > > 
-> > > > Opinions welcome - If all is good, Dave please apply.
-> > > 
-> > > Dave, what happened to this?  I put the stuff into iproute2 but the
-> > > requeue stat never made it into 2.6.  Is it a bad idea?
-> > 
-> > Yes, API breaker.
-> 
-> Well it seems to work for me:
-> 	  kernel
->         New	Old
-> tc New  Ok      Ok(0)
->    Old  Ok(0)   Ok
-> 
-> Because tc correctly handles the returned TLV size.
+> Hmpf, it stopped crashing after I recompiled without -funit-at-a-time
+> Maybe it is some compiler issue.
 
-Because tc has all the length checking stuff added to
-it, other applications using netlink might not.  The
-whole world is not 'tc'.
-
-I'm just rehashing how the most recent thread between
-Jamal and myself ended about this topic.
+Could be, I was studying all of the retransmit queue state
+handling and tried to find some hole in the TSO case and I
+could not do so.
