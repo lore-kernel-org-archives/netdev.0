@@ -1,188 +1,352 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH][NET] Assign inet transport sockets to the right module
-Date: Mon, 15 Nov 2004 04:19:34 -0200
-Message-ID: <41984A76.70406@conectiva.com.br>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [netdrvr] netdev-2.6 queue updated
+Date: Mon, 15 Nov 2004 01:46:09 -0500
+Message-ID: <20041115064609.GA14547@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060107090406070700050700"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060107090406070700050700
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi David,
+The most notable thing is the addition of HostAP.
 
-	Please take a look if it makes sense, if so please pull from:
+BK users:
 
-bk://kernel.bkbits.net/acme/sock-2.6
+	bk pull bk://gkernel.bkbits.net/netdev-2.6
 
-Regards,
+Patch:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.1=
+0-rc2-netdev1.patch.bz2
 
-- Arnaldo
+This will update the following files:
 
---------------060107090406070700050700
-Content-Type: text/plain;
- name="sk_prot_owner.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sk_prot_owner.patch"
+ MAINTAINERS                                     |    7=20
+ drivers/net/3c505.c                             |   10=20
+ drivers/net/3c507.c                             |  148=20
+ drivers/net/3c59x.c                             |    1=20
+ drivers/net/8139cp.c                            |  102=20
+ drivers/net/8139too.c                           |   98=20
+ drivers/net/8390.c                              |    1=20
+ drivers/net/8390.h                              |    1=20
+ drivers/net/Kconfig                             |   73=20
+ drivers/net/ac3200.c                            |   64=20
+ drivers/net/atp.c                               |    2=20
+ drivers/net/bonding/bond_3ad.c                  |   10=20
+ drivers/net/depca.c                             |   24=20
+ drivers/net/e100.c                              |    1=20
+ drivers/net/e2100.c                             |   18=20
+ drivers/net/eepro100.c                          |  293 -
+ drivers/net/fealnx.c                            |  275 -
+ drivers/net/gt96100eth.c                        |    8=20
+ drivers/net/hamradio/6pack.c                    |  370 +-
+ drivers/net/hp100.c                             |   65=20
+ drivers/net/ixgb/ixgb_main.c                    |   33=20
+ drivers/net/lne390.c                            |   64=20
+ drivers/net/mace.c                              |   66=20
+ drivers/net/ne3210.c                            |   34=20
+ drivers/net/pcmcia/fmvj18x_cs.c                 |    4=20
+ drivers/net/pcmcia/ibmtr_cs.c                   |    7=20
+ drivers/net/pcmcia/pcnet_cs.c                   |   39=20
+ drivers/net/pcmcia/smc91c92_cs.c                |    2=20
+ drivers/net/pcmcia/xirc2ps_cs.c                 |    2=20
+ drivers/net/r8169.c                             |  855 ++++-
+ drivers/net/s2io-regs.h                         |    3=20
+ drivers/net/s2io.c                              | 3114 ++++++++++++-----=
+---
+ drivers/net/s2io.h                              |  295 +
+ drivers/net/sb1000.c                            |   14=20
+ drivers/net/sis900.c                            |    1=20
+ drivers/net/sk98lin/Makefile                    |    1=20
+ drivers/net/sk98lin/h/skdrv2nd.h                |    5=20
+ drivers/net/sk98lin/skaddr.c                    |    2=20
+ drivers/net/sk98lin/skethtool.c                 |  555 +++
+ drivers/net/sk98lin/skge.c                      |  280 -
+ drivers/net/sk98lin/skproc.c                    |  453 +--
+ drivers/net/skfp/h/fplustm.h                    |    6=20
+ drivers/net/skfp/h/targethw.h                   |    6=20
+ drivers/net/skfp/h/targetos.h                   |    2=20
+ drivers/net/skfp/h/types.h                      |   21=20
+ drivers/net/skfp/skfddi.c                       |   25=20
+ drivers/net/skfp/smt.c                          |    7=20
+ drivers/net/starfire.c                          |   79=20
+ drivers/net/sundance.c                          |  259 -
+ drivers/net/tlan.c                              |   72=20
+ drivers/net/tlan.h                              |   88=20
+ drivers/net/tokenring/3c359.c                   |   36=20
+ drivers/net/tokenring/3c359.h                   |    2=20
+ drivers/net/tokenring/ibmtr.c                   |  158 -
+ drivers/net/tokenring/lanstreamer.c             |   24=20
+ drivers/net/tokenring/lanstreamer.h             |    2=20
+ drivers/net/tokenring/olympic.c                 |   94=20
+ drivers/net/tulip/de2104x.c                     |    1=20
+ drivers/net/tulip/dmfe.c                        |    1=20
+ drivers/net/tulip/tulip_core.c                  |    3=20
+ drivers/net/tulip/winbond-840.c                 |    3=20
+ drivers/net/tulip/xircom_tulip_cb.c             |   16=20
+ drivers/net/typhoon.c                           |    3=20
+ drivers/net/via-rhine.c                         |  276 -
+ drivers/net/via-velocity.h                      |    4=20
+ drivers/net/wan/c101.c                          |    3=20
+ drivers/net/wan/cycx_drv.c                      |   22=20
+ drivers/net/wan/n2.c                            |    5=20
+ drivers/net/wireless/Kconfig                    |    2=20
+ drivers/net/wireless/Makefile                   |    2=20
+ drivers/net/wireless/airo.c                     |   69=20
+ drivers/net/wireless/airport.c                  |    5=20
+ drivers/net/wireless/arlan-main.c               |   90=20
+ drivers/net/wireless/arlan-proc.c               |   15=20
+ drivers/net/wireless/arlan.h                    |   26=20
+ drivers/net/wireless/hermes.c                   |   43=20
+ drivers/net/wireless/hermes.h                   |   62=20
+ drivers/net/wireless/hostap/Kconfig             |  101=20
+ drivers/net/wireless/hostap/Makefile            |    8=20
+ drivers/net/wireless/hostap/hostap.c            | 1205 +++++++
+ drivers/net/wireless/hostap/hostap.h            |   57=20
+ drivers/net/wireless/hostap/hostap_80211.h      |  107=20
+ drivers/net/wireless/hostap/hostap_80211_rx.c   | 1080 +++++++
+ drivers/net/wireless/hostap/hostap_80211_tx.c   |  522 +++
+ drivers/net/wireless/hostap/hostap_ap.c         | 3259 +++++++++++++++++=
+++++
+ drivers/net/wireless/hostap/hostap_ap.h         |  272 +
+ drivers/net/wireless/hostap/hostap_common.h     |  556 +++
+ drivers/net/wireless/hostap/hostap_config.h     |   86=20
+ drivers/net/wireless/hostap/hostap_crypt.c      |  167 +
+ drivers/net/wireless/hostap/hostap_crypt.h      |   50=20
+ drivers/net/wireless/hostap/hostap_crypt_ccmp.c |  486 +++
+ drivers/net/wireless/hostap/hostap_crypt_tkip.c |  696 ++++
+ drivers/net/wireless/hostap/hostap_crypt_wep.c  |  281 +
+ drivers/net/wireless/hostap/hostap_cs.c         |  785 +++++
+ drivers/net/wireless/hostap/hostap_download.c   |  761 +++++
+ drivers/net/wireless/hostap/hostap_hw.c         | 3607 +++++++++++++++++=
+++++++
+ drivers/net/wireless/hostap/hostap_info.c       |  469 +++
+ drivers/net/wireless/hostap/hostap_ioctl.c      | 3624 +++++++++++++++++=
++++++++
+ drivers/net/wireless/hostap/hostap_pci.c        |  452 ++
+ drivers/net/wireless/hostap/hostap_plx.c        |  611 ++++
+ drivers/net/wireless/hostap/hostap_proc.c       |  466 +++
+ drivers/net/wireless/hostap/hostap_wlan.h       | 1071 +++++++
+ drivers/net/wireless/netwave_cs.c               |   75=20
+ drivers/net/wireless/orinoco_cs.c               |   10=20
+ drivers/net/wireless/orinoco_pci.c              |    7=20
+ drivers/net/wireless/orinoco_plx.c              |   82=20
+ drivers/net/wireless/orinoco_tmd.c              |   51=20
+ drivers/net/wireless/prism54/isl_ioctl.c        |   24=20
+ drivers/net/wireless/prism54/islpci_hotplug.c   |    2=20
+ drivers/net/wireless/prism54/prismcompat.h      |    4=20
+ drivers/net/wireless/ray_cs.c                   |    4=20
+ drivers/net/wireless/wavelan_cs.c               |   25=20
+ drivers/net/wireless/wavelan_cs.p.h             |    1=20
+ include/linux/delay.h                           |    5=20
+ include/linux/ibmtr.h                           |   15=20
+ include/linux/pci_ids.h                         |    3=20
+ include/pcmcia/mem_op.h                         |   89=20
+ 117 files changed, 26084 insertions(+), 4024 deletions(-)
 
-===================================================================
+through these ChangeSets:
 
+<philipp.gortan:tttech.com>:
+  o [netdrvr 8139cp] add PCI ID
 
-ChangeSet@1.2148, 2004-11-15 04:05:17-02:00, acme@conectiva.com.br
-  [NET] Assign inet transport sockets to the right module
-  
-  This is another case where when all the protocols use sk->sk_prot
-  we can remove another member from struct sock, sk->sk_owner, instead
-  using the sk->sk_prot->owner, i.e. this property is not per socket
-  instance, but per protocol.
-  
-  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-  Signed-off-by: David S. Miller <davem@davemloft.net>
+<raghavendra.koushik:s2io.com>:
+  o S2io: styling
+  o S2io: modified loadable parameters
+  o S2io: 2 buffer mode with copy
+  o S2io: new functions for card restart
+  o S2io: two buffer mode
+  o S2io: NAPI fix
+  o S2io: new txd allocation
+  o S2io: module loadable parameters
+  o S2io: hardware fixes
+  o S2io: optimizations
+  o S2io: sw bug fixes
+  o S2io: cosmetic changes
 
+Adrian Bunk:
+  o net/skfp/smt.c: remove an unused function
+  o net/3c505.c: remove unused functions
+  o bonding: remove an unused function
+  o net/wan/n2.c: remove an unused function
 
- include/net/sock.h  |    2 ++
- net/ipv4/af_inet.c  |    2 +-
- net/ipv4/raw.c      |    1 +
- net/ipv4/tcp_ipv4.c |    1 +
- net/ipv4/udp.c      |    1 +
- net/ipv6/af_inet6.c |    2 +-
- net/ipv6/raw.c      |    1 +
- net/ipv6/tcp_ipv6.c |    1 +
- net/ipv6/udp.c      |    1 +
- net/sctp/socket.c   |    2 ++
- 10 files changed, 12 insertions(+), 2 deletions(-)
+Alexander Viro:
+  o mace iomem annotations - trivial part
+  o airo iomem annotations
+  o wavelan_cs iomem annotations
+  o lne390 iomem annotations and fixes
+  o fealnx iomem annotations, switch to io{read,write}
+  o wireless iomem annotations and fixes, switch to io{read,write}
+  o ibmtr annotations - the rest
+  o skfp iomem annotations, switch to io{read,write}
+  o olympic_open() cleanup and fixes
+  o sundance iomem annotations, switch to io{read,write}
+  o via-rhine iomem annotations, switch to io{read,write}
+  o net/pcmcia iomem annotations
+  o netwave iomem annotations
+  o arlan iomem annotations and cleanups
+  o netdev_priv() in netwave_cs
+  o netdev_priv() in arlan
+  o (25/32) lanstreamer iomem annotations
+  o beginning of ibmtr iomem annotations
+  o e2100 iomem annotations and fixes
+  o 3c359 iomem annotations
+  o depca iomem annotations
+  o killed isa_... in 3c507
+  o starfire iomem annotations
+  o ne3210 iomem annotations
+  o ac3200 iomem annotations and fixes
+  o iomem annotations in r8169
 
+Andrew Morton:
+  o r8169 module_param build fix
 
-diff -Nru a/include/net/sock.h b/include/net/sock.h
---- a/include/net/sock.h	2004-11-15 04:12:55 -02:00
-+++ b/include/net/sock.h	2004-11-15 04:12:55 -02:00
-@@ -556,6 +556,8 @@
- 	kmem_cache_t		*slab;
- 	int			slab_obj_size;
- 
-+	struct module		*owner;
-+
- 	char			name[32];
- 
- 	struct {
-diff -Nru a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
---- a/net/ipv4/af_inet.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv4/af_inet.c	2004-11-15 04:12:55 -02:00
-@@ -309,7 +309,7 @@
- 	inet->id = 0;
- 
- 	sock_init_data(sock, sk);
--	sk_set_owner(sk, THIS_MODULE);
-+	sk_set_owner(sk, sk->sk_prot->owner);
- 
- 	sk->sk_destruct	   = inet_sock_destruct;
- 	sk->sk_family	   = PF_INET;
-diff -Nru a/net/ipv4/raw.c b/net/ipv4/raw.c
---- a/net/ipv4/raw.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv4/raw.c	2004-11-15 04:12:55 -02:00
-@@ -706,6 +706,7 @@
- 
- struct proto raw_prot = {
- 	.name =		"RAW",
-+	.owner =	THIS_MODULE,
- 	.close =	raw_close,
- 	.connect =	ip4_datagram_connect,
- 	.disconnect =	udp_disconnect,
-diff -Nru a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
---- a/net/ipv4/tcp_ipv4.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv4/tcp_ipv4.c	2004-11-15 04:12:55 -02:00
-@@ -2598,6 +2598,7 @@
- 
- struct proto tcp_prot = {
- 	.name			= "TCP",
-+	.owner			= THIS_MODULE,
- 	.close			= tcp_close,
- 	.connect		= tcp_v4_connect,
- 	.disconnect		= tcp_disconnect,
-diff -Nru a/net/ipv4/udp.c b/net/ipv4/udp.c
---- a/net/ipv4/udp.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv4/udp.c	2004-11-15 04:12:55 -02:00
-@@ -1306,6 +1306,7 @@
- 
- struct proto udp_prot = {
-  	.name =		"UDP",
-+	.owner =	THIS_MODULE,
- 	.close =	udp_close,
- 	.connect =	ip4_datagram_connect,
- 	.disconnect =	udp_disconnect,
-diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
---- a/net/ipv6/af_inet6.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv6/af_inet6.c	2004-11-15 04:12:55 -02:00
-@@ -174,7 +174,7 @@
- 		goto out;
- 
- 	sock_init_data(sock, sk);
--	sk_set_owner(sk, THIS_MODULE);
-+	sk_set_owner(sk, sk->sk_prot->owner);
- 
- 	rc = 0;
- 	sk->sk_prot = answer_prot;
-diff -Nru a/net/ipv6/raw.c b/net/ipv6/raw.c
---- a/net/ipv6/raw.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv6/raw.c	2004-11-15 04:12:55 -02:00
-@@ -975,6 +975,7 @@
- 
- struct proto rawv6_prot = {
- 	.name =		"RAW",
-+	.owner =	THIS_MODULE,
- 	.close =	rawv6_close,
- 	.connect =	ip6_datagram_connect,
- 	.disconnect =	udp_disconnect,
-diff -Nru a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
---- a/net/ipv6/tcp_ipv6.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv6/tcp_ipv6.c	2004-11-15 04:12:55 -02:00
-@@ -2132,6 +2132,7 @@
- 
- struct proto tcpv6_prot = {
- 	.name			= "TCPv6",
-+	.owner			= THIS_MODULE,
- 	.close			= tcp_close,
- 	.connect		= tcp_v6_connect,
- 	.disconnect		= tcp_disconnect,
-diff -Nru a/net/ipv6/udp.c b/net/ipv6/udp.c
---- a/net/ipv6/udp.c	2004-11-15 04:12:55 -02:00
-+++ b/net/ipv6/udp.c	2004-11-15 04:12:55 -02:00
-@@ -1033,6 +1033,7 @@
- 
- struct proto udpv6_prot = {
- 	.name =		"UDP",
-+	.owner =	THIS_MODULE,
- 	.close =	udpv6_close,
- 	.connect =	ip6_datagram_connect,
- 	.disconnect =	udp_disconnect,
-diff -Nru a/net/sctp/socket.c b/net/sctp/socket.c
---- a/net/sctp/socket.c	2004-11-15 04:12:55 -02:00
-+++ b/net/sctp/socket.c	2004-11-15 04:12:55 -02:00
-@@ -4652,6 +4652,7 @@
- /* This proto struct describes the ULP interface for SCTP.  */
- struct proto sctp_prot = {
- 	.name        =	"SCTP",
-+	.owner       =	THIS_MODULE,
- 	.close       =	sctp_close,
- 	.connect     =	sctp_connect,
- 	.disconnect  =	sctp_disconnect,
-@@ -4675,6 +4676,7 @@
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- struct proto sctpv6_prot = {
- 	.name		= "SCTPv6",
-+	.owner		= THIS_MODULE,
- 	.close		= sctp_close,
- 	.connect	= sctp_connect,
- 	.disconnect	= sctp_disconnect,
+Arjan van de Ven:
+  o ray_cs export cleanup
 
+Christoph Hellwig:
+  o unexport ei_tx_timeout
 
---------------060107090406070700050700--
+Daniele Venzano:
+  o Add Altimata PHY to sis900 driver
+
+David Dillow:
+  o net/typhoon.c: use previously-unused function
+
+David S. Miller:
+  o eepro100.c iomap conversion
+
+Felipe Damasio:
+  o 8139cp net driver: add MODULE_VERSION
+
+Fran=E7ois Romieu:
+  o r8169: netconsole support
+  o r8169: unneeded synchronize_irq()
+  o r8169: always clean Tx desc
+  o r8169: cleanup
+  o r8169: rtl8169_close() races
+  o r8169: automatic pci dac step down
+  o r8169: wrong advertisement of VLAN features
+  o r8169: Tx timeout rework
+  o r8169: default on disabling PCIDAC
+  o r8169: Mac identifier extracted from Realtek's driver v2.2
+  o r8169: TSO support
+  o r8169: hint for Tx flow control
+  o r8169: miscalculation of available Tx descriptors
+  o 8139cp: SG support fixes
+  o r8169: vlan support
+  o r8169: Rx checksum support
+  o r8169: advertise DMA to high memory
+  o r8169: Tx checksum offload
+  o r8169: comment a gcc 2.95.x bug
+  o r8169: sync the names of a few bits with the 8139cp driver
+  o r8169: bump version number
+  o r8169: enable MWI
+  o r8169: code cleanup
+  o r8169: per device receive buffer size
+  o r8169: add ethtool_ops.{get_regs_len/get_regs}
+
+Ganesh Venkatesan:
+  o ixgb: Condition that determines when to quit polling
+  o ixgb: Fix memory leak in NAPI mode. Avoid unnecessary
+  o ixgb: Fix VLAN filter setup errors (while running
+
+Jeff Garzik:
+  o [wireless hostap] update for new pci_save_state()
+  o [netdrvr eepro100] fix pci_iomap() args and info msg that follows
+  o [netdrvr 8139cp] TSO support
+
+John W. Linville:
+  o tulip: Add MODULE_VERSION
+  o e100: Add MODULE_VERSION
+  o r8169: Add MODULE_VERSION
+  o 8139too: Add MODULE_VERSION
+  o 3c59x: Add MODULE_VERSION
+  o r8169: simplify trick if() expression
+  o r8169: fix RxVlan bit manipulation
+  o r8169: endian-swap return of rtl8169_tx_vlan_tag()
+
+Jouni Malinen:
+  o Host AP: Replaced MODULE_PARM with module_param*
+  o Host AP: Replaced direct dev->priv references with netdev_priv(dev)
+  o Host AP: Updated to use Linux wireless extensions v17
+  o Host AP: pci_register_driver() return value changes
+  o Host AP: Fix netif_carrier_off() in non-client modes
+  o Host AP: Fix PRISM2_IO_DEBUG
+  o Host AP: Use void __iomem * with {read,write}{b,w}
+  o Host AP: Fix card enabling after firmware download
+  o Host AP: Do not bridge packets to unauthorized ports
+  o Host AP: Fix compilation with PRISM2_NO_STATION_MODES defined
+  o Host AP: Prevent STAs from associating using AP address
+  o Host AP: Fix hw address changing for wifi# interface
+  o Host AP: Remove ioctl debug messages
+  o Host AP: Ignore (Re)AssocResp messages silently
+  o Host AP: Fix interface packet counters
+  o Host AP: Disable EAPOL TX/RX debug messages
+  o fix hostap crypto bugs
+  o Add HostAP wireless driver
+
+Krzysztof Halasa:
+  o net/wan/n2.c: remove an unused function
+
+Margit Schubert-While:
+  o prism54 sparse fixes
+  o prism54 fix resume processing
+
+Michal Schmidt:
+  o sk98: add netpoll console support
+
+Nishanth Aravamudan:
+  o net/gt96100eth: replace gt96100_delay() with msleep_interruptible()
+  o net/sb1000: replace nicedelay() with ssleep_interruptible()
+  o net/cycx_drv: replace delay_cycx() with ssleep_interruptible()
+  o net/airo: replace schedule_timeout() with *sleep() variants
+  o Add ssleep_interruptible()
+
+Ralf B=E4chle:
+  o Another big 6pack patch
+
+Rene Herman:
+  o 8139too Interframe Gap Time
+
+Roger Luethi:
+  o mc_filter on big-endian arch
+
+Steffen Klassert:
+  o 8139cp - add netpoll support
+
+Stephen Hemminger:
+  o sk98: ethtool pause param support
+  o sk98: ethtool phy support
+  o sk98: basic ethtool support
+  o sk98: use module_param
+  o sk98: use netdev_priv
+  o sk98: /proc interface related changes
+  o sk98: local variable can be constant
+  o sk98: no explicit module ref counting needed
+  o xircom_tulip_cb: convert to using module_param
+  o tlan: enable faster hash function
+  o tlan: make inline's static (rev2)
+  o tlan: get rid of unneeded global vars (rev 2)
+  o tlan: use netdev_priv (rev 2)
+  o hp100: use inline for comple usage of dev->priv
+  o hp100: use netdev_priv (rev 2)
+  o via-velocity: get rid of unused global
+  o via-rhine: free_ring should be static
+  o via-rhine: use module_param
+  o 8139too: use netdev_priv
+  o r8169: use netdev_priv
+  o r8169: use module_param
+  o 8139cp - module_param
+
+Thomas Gleixner:
+  o rtl8139too.c: Fix missing pci_disable_dev
+  o rtl8139too.c: Fix missing pci_disable_dev
+
+Tom Rini:
+  o IBM EMAC Kconfig changes: Add 'select CRC32'
+  o IBM EMAC Kconfig changes
