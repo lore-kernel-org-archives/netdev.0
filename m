@@ -1,40 +1,52 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Performance problem with route cache ?
-Date: Thu, 20 Nov 2003 13:37:49 +0100
+From: Felix Radensky <felix@allot.com>
+Subject: hw tcp v4 csum failed on 2.4.23-rc2
+Date: Thu, 20 Nov 2003 15:50:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16316.46493.7576.116171@robur.slu.se>
-References: <02da01c3af54$c1f37f20$890010ac@edumazet>
+Message-ID: <3FBCC693.7070404@allot.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "dada1" <dada1@cosmosbay.com>
-In-Reply-To: <02da01c3af54$c1f37f20$890010ac@edumazet>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
+I keep getting tons of this messages with 2.4.23-rc2
+and e100 driver:
 
-dada1 writes:
- > Hi all
- > 
- > I'm doing some oprofile on a bi athlon, linux-2.6.0-test8 kernel, (with a
- > copybreak intel e1000 patch, because the machine receives a lot of small (<
- > 30 bytes) messages)
+memory : df576280
+memory : df576200
+memory : df576180
+memory : df576100
+memory : dca33f80
+hw tcp v4 csum failed
+hw tcp v4 csum failed
+....
 
- Does the copybreak help? I tested copybreak long time ago and saw no gain
- from it. Do you have pointer to the patch?
+Is it a hardware problem or e100 problem ?
 
- > It seems the route cache may/should be tuned, but I dont know how.
- 
- Tuning is not an easy task and not necessarily you will gain anything,
- It fully depends on your input traffic but it seems your system has a 
- lot of dst entries. Which would cause a lot linear search. Packets per 
- flow and no of parallel flows should be of interest for you. rtstat can 
- give you a better feeling of incoming routing load.
- 
- Is 10kpkts/s the max performance?
+The hardware is Asus MB with Pentum 4 2.4GHz
 
- Cheers.
-						--ro
+00:00.0 Host bridge: Intel Corp. 82865G/PE/P Processor to I/O Controller 
+(rev 02)
+00:02.0 VGA compatible controller: Intel Corp. 82865G Integrated 
+Graphics Device (rev 02)
+00:1d.0 USB Controller: Intel Corp. 82801EB USB (rev 02)
+00:1d.1 USB Controller: Intel Corp. 82801EB USB (rev 02)
+00:1d.2 USB Controller: Intel Corp. 82801EB USB (rev 02)
+00:1d.3 USB Controller: Intel Corp. 82801EB USB (rev 02)
+00:1d.7 USB Controller: Intel Corp. 82801EB USB2 (rev 02)
+00:1e.0 PCI bridge: Intel Corp. 82801BA/CA/DB/EB PCI Bridge (rev c2)
+00:1f.0 ISA bridge: Intel Corp. 82801EB LPC Interface Controller (rev 02)
+00:1f.1 IDE interface: Intel Corp. 82801EB Ultra ATA Storage Controller 
+(rev 02)
+00:1f.3 SMBus: Intel Corp. 82801EB SMBus Controller (rev 02)
+00:1f.5 Multimedia audio controller: Intel Corp. 82801EB AC'97 Audio 
+Controller (rev 02)
+01:08.0 Ethernet controller: Intel Corp.: Unknown device 1050 (rev 02)
+
+Thanks.
+
+Felix.
