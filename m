@@ -1,74 +1,43 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
 Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Thu, 16 Sep 2004 20:07:35 -0700
+Date: Thu, 16 Sep 2004 20:58:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916200735.57909f02.rddunlap@osdl.org>
-References: <005001c49c50$c06b9810$a010100a@S2IOtech.com>
-	<414A3562.2090803@pobox.com>
+Message-ID: <20040916205849.55ce05e5.rddunlap@osdl.org>
+References: <413116FF.7000701@pobox.com>
+	<002201c499b4$7c7b60c0$a010100a@S2IOtech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ravinandan.arakali@s2io.com, netdev@oss.sgi.com, leonid.grossman@s2io.com,
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, leonid.grossman@s2io.com,
         raghavendra.koushik@s2io.com, rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <414A3562.2090803@pobox.com>
+To: <ravinandan.arakali@s2io.com>
+In-Reply-To: <002201c499b4$7c7b60c0$a010100a@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Sep 2004 20:52:50 -0400 Jeff Garzik wrote:
+On Mon, 13 Sep 2004 10:09:53 -0700 Ravinandan Arakali wrote:
 
-| Ravinandan Arakali wrote:
-| > Jeff,
-| > We tried it out with 2.6.7. Can you pls specify the kernel version
-| > on which you tried and we will send a patch which works for that version.
-| > We will also send a more detailed description of the changes along with
-| > that.
-
-For splitting it up :), e.g.:
-
-- 1 patch could be for renaming only, no code/logic changes
-  (like TxCfg to tx_cfg); maybe including comments/whitespace changes;
-
-- 1 could be to eliminate (most/all) typedefs
-
-- 1 could be for errata/workarounds
-
-- 1 could be for ethtool support (changes)
-
-- 1 for NAPI support (changes)
-
-- 1 for 2BUFF mode
-
-etc...
-
-
-Q1:  why is this change needed?
-
- static inline u64 readq(void *addr)
- {
- 	u64 ret = 0;
- 	ret = readl(addr + 4);
--	ret <<= 32;
--	ret |= readl(addr);
-+	(u64) ret <<= 32;
-+	(u64) ret |= readl(addr);
-
-
-
-
+| Hi Jeff,
+| Attached is the patch with the first round comments incorporated.
+| In addition, this patch contains
+| Some fixes related to 32-bit systems.
+| Few fixes related to Rx path in NAPI.
 | 
-| Always diff against the latest version of the kernel.  You can find out 
-| the latest version by going to http://www.kernel.org/  You'll typically 
-| want the latest snapshot (preferably), or the latest pre-patch.
+| Thanks to all for the comments.
 | 
-| Standard patch submission format is described at 
-| http://linux.yyz.us/patch-format.html and in 
-| Documentation/SubmittingPatches.
-| 
-| When submitting a series of patches, it is normal patches to depend on 
-| preceding patches.
+| Pls review this patch as well and come back with your comments.
 
+
+1.  typo?  first name is still used in source code:
+
+-static char s2io_driver_version[] = "Version 1.0";
++static char s2iO_driver_version[] = "Version 1.1";
+
+2.  don't init. globals to 0 -- it's done automatically for you.
+
+
+(more this weekend....)
 
 --
 ~Randy
