@@ -1,28 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [6/6]: jenkins hash for neigh
-Date: Mon, 27 Sep 2004 12:12:09 -0700
+Subject: Re: [IPv4]: More fib_alias insertion fixes
+Date: Mon, 27 Sep 2004 12:12:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927121209.4d3d7e28.davem@davemloft.net>
-References: <20040925005623.2faf8faf.davem@davemloft.net>
-	<E1CBtvC-0000yM-00@gondolin.me.apana.org.au>
+Message-ID: <20040927121240.2aea6f1d.davem@davemloft.net>
+References: <Pine.LNX.4.58.0409252249150.1175@u.domain.uli>
+	<20040925201425.16fbcb6c.davem@davemloft.net>
+	<16727.65341.747293.986870@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, netdev@oss.sgi.com
+Cc: ja@ssi.bg, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CBtvC-0000yM-00@gondolin.me.apana.org.au>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16727.65341.747293.986870@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Sep 2004 21:43:58 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, 27 Sep 2004 13:53:33 +0200
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> David S. Miller <davem@davemloft.net> wrote:
-> > 
-> > 2) Tim Gardner's change to smooth out periodic neighbour GC.
-> 
-> I think tbl->gc_interval can be killed altogether now.
+> I'll guess struct fib_alias should not be defined in fib_hash.c to 
+> support pluggable lookup algorithms.
 
-Let's keep it around so we don't break scripts people
-have writing sysctl/procfs values to that thing.
+Yes, all the fib_alias handling can move into fib_semantics()
+in fact.  I'll work on that.
