@@ -1,26 +1,62 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 4/5] [bonding] backport 2.6 changes to 2.4
-Date: Thu, 07 Aug 2003 20:28:19 -0400
+Subject: [bk patches] 2.4.x net driver updates
+Date: Thu, 7 Aug 2003 20:59:19 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F32EEA3.2000507@pobox.com>
-References: <200307302007.21369.amir.noam@intel.com>
+Message-ID: <20030808005919.GA14081@gtf.org>
+Reply-To: netdev@oss.sgi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Amir Noam <amir.noam@intel.com>
-In-Reply-To: <200307302007.21369.amir.noam@intel.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Amir Noam wrote:
-> Backported from 2.6:
-> Don't dynamically allocate a net_device_stats structure for each bond,
-> instead allocate it with the bonding structure.
-> 
-> Since they are always allocated together anyway, we might as well put
-> the stats struct within the bond.
+(this will be sent to Marcelo when 2.4.23-pre1 opens)
 
+BK users:
 
-applied to 2.4.
+	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.4
+
+GNU diff:
+
+ftp://ftp.??.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.4/2.4.22-rc1-netdrvr1.patch.bz2
+
+This will update the following files:
+
+ drivers/net/bonding/bond_main.c |   17 +++--------------
+ drivers/net/bonding/bonding.h   |    2 +-
+ drivers/net/net_init.c          |    3 ++-
+ drivers/net/wireless/airo.c     |   31 +++++++++++++++++++------------
+ include/linux/netdevice.h       |    2 ++
+ 5 files changed, 27 insertions(+), 28 deletions(-)
+
+through these ChangeSets:
+
+<amir.noam@intel.com> (03/08/07 1.1072)
+   [netdrvr bonding] embed stats struct inside bonding private struct
+   
+   Simplification: Don't allocate the stats struct via kmalloc,
+   embed it inside it's parent bonding_t.
+
+<amir.noam@intel.com> (03/08/07 1.1071)
+   [net] export alloc_netdev
+
+<achirica@telefonica.net> (03/08/07 1.1070)
+   [PATCH] Fix adhoc config
+
+<achirica@telefonica.net> (03/08/07 1.1069)
+   [PATCH] Safer unload code
+
+<achirica@telefonica.net> (03/08/07 1.1068)
+   [PATCH] MIC support with newer firmware
+
+<achirica@telefonica.net> (03/08/07 1.1067)
+   [PATCH] Missing lines for Wireless Extensions 16
+
+<achirica@telefonica.net> (03/08/07 1.1066)
+   [netdrvr airo] MAC type changed to unsigned
+
+<achirica@telefonica.net> (03/08/07 1.1065)
+   [netdrvr airo] Missing defines (only for documentation)
