@@ -1,30 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: iproute2 and kernel headers
-Date: Mon, 2 Aug 2004 16:04:45 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFR] gianfar ethernet driver
+Date: Mon, 2 Aug 2004 19:11:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040802160445.5ef3b251.davem@redhat.com>
-References: <20040802153805.487f832f@dell_ss3.pdx.osdl.net>
+Message-ID: <20040802231112.GA890@havoc.gtf.org>
+References: <C681B01E-CEA9-11D8-931F-000393DBC2E8@freescale.com> <89563A5C-CFAE-11D8-BA44-000393C30512@freescale.com> <1089170282.1038.80.camel@jzny.localdomain> <20040707032913.GA1822@havoc.gtf.org> <FBF8DCB8-E4D1-11D8-999F-000393C30512@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@znyx.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Fleming <AFLEMING@motorola.com>, Kumar Gala <kumar.gala@motorola.com>,
+        "<netdev@oss.sgi.com>" <netdev@oss.sgi.com>, jamal <hadi@cyberus.ca>,
+        "<dwmw2@infradead.org>" <dwmw2@infradead.org>,
+        Christoph Hellwig <hch@infradead.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040802153805.487f832f@dell_ss3.pdx.osdl.net>
+To: Andy Fleming <afleming@freescale.com>
+Content-Disposition: inline
+In-Reply-To: <FBF8DCB8-E4D1-11D8-999F-000393C30512@freescale.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Aug 2004 15:38:05 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
-
-> I am willing to put some headers (not all) in with the user level
-> code, provided they are copies since they I can easily update. I don't want
-> to get into keeping an edited set of headers in sync.
+On Mon, Aug 02, 2004 at 05:19:13PM -0500, Andy Fleming wrote:
+> Here's an updated patch which fixes module support which does this:
 > 
-> What headers really seem to change a lot? The obvious ones are:
+>   * More cleanup/minor bug fixes
+>   * Added locking to PHY read/write wrappers
+>   * Fixed module support
+>   * Removed fastroute code
 > 
-> 	linux/pkt_sched.h
-> 	linux/tcp_diag.h
-> 	linux/xfrm.h
+> As before, this patch replaces the previous ones I have submitted.
 
-I would add linux/rtnetlink.h
+the patch?  :)
+
+	Jeff
