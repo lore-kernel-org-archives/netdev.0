@@ -1,112 +1,168 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPCOMP] Exclude IPCOMP header from props.header_len
-Date: Tue, 6 Jul 2004 22:31:27 +1000
+From: ALESSANDRO.SUARDI@ORACLE.COM
+Subject: Re: analysis of TCP window size issues still around - several reports / SACK involved?
+Date: Tue, 6 Jul 2004 06:30:51 -0600 (MDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706123127.GA18271@gondor.apana.org.au>
+Message-ID: <6913615.1089117051125.JavaMail.oracle@web265.oracle.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="J/dobhs11T7y2rNN"
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>,
+        "linux-kernel @ vger. kernel. org Stephen Hemminger" <shemminger@osdl.org>,
+        netdev@oss.sgi.com, phyprabab@yahoo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: bert hubert <ahu@ds9a.nl>,
+        Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
---J/dobhs11T7y2rNN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+ sorry about the silly formatting, but the webmail
+ client isn't really nice in this respect :(
 
-Hi Dave:
+Further data points: -bk18 built with GCC 3.4.1
+ still hangs talking to most of the world except
+ google.it (redirected from google.com) from
+ my home DSL (US Robotics USR9003 router).
 
-This is another patch on the way towards a unified XFRM tunnel
-encapsulation function.
+It _works_ without changing anything when in
+ my office (unsure about hardware there).
 
-This patch changes the value of props.header_len for IPCOMP to
-exclude the IPCOMP header.  The reason is that the IPCOMP header
-is added only if the packet is compressible.  That is, if the
-size of the compressed payload plus the size of the IPCOMP header
-is less than that of the original payload.
+It _also_ works from my home _if_ I fire up the
+ Cisco VPN client (4.0.4.B) to an Oracle VPN
+ server and access the 'net (kernel.org and
+ all) via our proxies through the VPN.
 
-This means that the IPCOMP encapsulation does not impose any
-overhead at all as far as the MTU is concerned.  The current
-code incorrectly reduces the MTU by the size of the IPCOMP
-header.
+Hope that helps, and sorry for top-posting.
 
-As a side-effect, this means that we don't have to move the
-IP header around when IPCOMP is used.
+Bert Hubert wrote:
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> On Thu, Jul 01, 2004 at 10:32:25PM -0300, 
+> Arnaldo Carvalho de Melo wrote:
+> 
+> > > > Rather than using 
+> *tcp_prot.memory_pressure, just go back to 
+> looking at
+> > > > tcp_memory_pressure.
+> > > 
+> > > Hehe, applied thanks Stephen.
+> 
+> People,
+> 
+> There are still persistent reports of TCP 
+> problems, even after patching away
+> the memory_pressure pointer problem. From one 
+> trace I've seen, by Alessandro
+> Suardi, but I lack the SACK knowledge to fully 
+> interpret these traces:
+> 
+> 22:42:40.890025 192.168.1.6.32843 > 
+> 204.152.189.116.http: S 1994994484:1994994484(0) 
+> win 5840 <mss 1460,sackOK,timestamp 4294940315 
+> 0,nop,wscale 7> (DF)
+> 22:42:41.143063 204.152.189.116.http > 
+> 192.168.1.6.32843: S 1404108869:1404108869(0) 
+> ack 1994994485 win 5792 <mss 
+> 1452,sackOK,timestamp 3383469176 
+> 4294940315,nop,wscale 0> (DF)
+> 22:42:41.143123 192.168.1.6.32843 > 
+> 204.152.189.116.http: . ack 1 win 45 
+> <nop,nop,timestamp 4294940568 3383469176> (DF)
+> 
+> Alessandro's machine does perform window 
+> scaling, tcpdump however does not
+> understand that and neglects to multiply 45 by 
+> 2^7 (=5760). Kernel.org does do
+> wscale, but defaults to 2^0.
+> 
+> 22:42:41.143362 192.168.1.6.32843 > 
+> 204.152.189.116.http: P 1:421(420) ack 1 win 45 
+> <nop,nop,timestamp 4294940568 3383469176> (DF)
+> 
+> Alessandro's machine sends a GET request.
+> 
+> 22:42:41.147669 204.152.189.116.http > 
+> 192.168.1.6.32843: S 1404108869:1404108869(0) 
+> ack 1994994485 win 5792 <mss 
+> 1452,sackOK,timestamp 3383469180 
+> 4294940315,nop,wscale 0> (DF)
+> 
+> www.kernel.org acts like it did not see our ACK.
+> 
+> 
+> 22:42:41.147723 192.168.1.6.32843 > 
+> 204.152.189.116.http: . ack 1 win 45 
+> <nop,nop,timestamp 4294940572 
+> 3383469180,nop,nop,sack sack 1 {0:1} > (DF)
+> 
+> Allessandro's machine sends a selective ACK - 
+> could have gotten away with a
+> regular one I'd think?
+> 
+> 22:42:41.408763 204.152.189.116.http > 
+> 192.168.1.6.32843: . ack 421 win 6432 
+> <nop,nop,timestamp 3383469440 4294940568> (DF)
+> 
+> www.kernel.org acks the GET, but from then on 
+> does not send anything.
+> 
+> After a minute, Alessandro gets bored and 
+> presses STOP in Mozilla:
+> 
+> 22:43:41.051537 192.168.1.6.32843 > 
+> 204.152.189.116.http: F 421:421(0) ack 1 win 45 
+> <nop,nop,timestamp 33189 3383469440> (DF)
+> 
+> k.o acks this FIN, but also sends a selective 
+> ack:
+> 
+> 22:43:41.304371 204.152.189.116.http > 
+> 192.168.1.6.32843: . ack 422 win 6432 
+> <nop,nop,timestamp 3383529343 33189,nop,nop,sack 
+> sack 1 {421:422} > (DF)
+> 
+> Here are the underlying reports:
+> 
+> http://lkml.org/lkml/2004/7/4/116 (Alessandro 
+> Suardi)
+> 	The _only_ site I found I can browse without 
+> disabling TCP
+> 	  window scaling is http://www.google.it.
+> 
+> 	tcpdump at: 
+> http://xoomer.virgilio.it/incident/tcpdump.out 
+> 
+> http://lkml.org/lkml/2004/7/5/105 (Phy Prabab)
+> 	Concerning my issue with ftp'ing from remote 
+> sites,
+> 	using these sysctl's I was able to get the 
+> performance
+> 	back:
+> 
+> 	net.ipv4.tcp_default_win_scale=0
+> 	net.ipv4.tcp_moderate_rcvbuf=0
+> 
+> 	2.6.7-bk18 w/out sysctls:
+> 	2573621 bytes received in 2e+02 seconds (12 
+> Kbytes/s)
+> 
+> 	2.6.7-bk18 w/sysctls:
+> 	2573621 bytes received in 0.69 seconds (3.6e+03
+> 
+> 	Kbytes/s)
+> 
+> These both refer to bk after the 
+> *tcp_prot.memory_pressure patch was
+> applied.
+> 
+> Thanks for your attention.
+> 
+> -- 
+> http://www.PowerDNS.com      Open source, 
+> database driven DNS Software 
+> http://lartc.org           Linux Advanced 
+> Routing & Traffic Control HOWTO
+> 
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---J/dobhs11T7y2rNN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv4/ipcomp.c 1.24 vs edited =====
---- 1.24/net/ipv4/ipcomp.c	2004-06-25 18:38:22 +10:00
-+++ edited/net/ipv4/ipcomp.c	2004-07-06 22:15:58 +10:00
-@@ -114,8 +114,8 @@
- 		goto out;
- 	}
- 	
--	memcpy(start, scratch, dlen);
--	pskb_trim(skb, ihlen + dlen);
-+	memcpy(start + sizeof(struct ip_comp_hdr), scratch, dlen);
-+	pskb_trim(skb, ihlen + dlen + sizeof(struct ip_comp_hdr));
- 	
- out:	
- 	return err;
-@@ -148,13 +148,9 @@
- 	int err;
- 	struct dst_entry *dst = (*pskb)->dst;
- 	struct xfrm_state *x = dst->xfrm;
--	struct iphdr *iph, *top_iph;
-+	struct iphdr *iph;
- 	struct ip_comp_hdr *ipch;
- 	struct ipcomp_data *ipcd = x->data;
--	union {
--		struct iphdr	iph;
--		char 		buf[60];
--	} tmp_iph;
- 	int hdr_len = 0;
- 
- 	if ((*pskb)->ip_summed == CHECKSUM_HW) {
-@@ -211,19 +207,15 @@
- 
- 	/* Install ipcomp header, convert into ipcomp datagram. */
- 	iph = (*pskb)->nh.iph;
--	memcpy(&tmp_iph, iph, iph->ihl * 4);
--	top_iph = (struct iphdr *)skb_push(*pskb, sizeof(struct ip_comp_hdr));
--	memcpy(top_iph, &tmp_iph, iph->ihl * 4);
--	iph = top_iph;
- 	if (x->props.mode && (x->props.flags & XFRM_STATE_NOECN))
- 		IP_ECN_clear(iph);
- 	iph->tot_len = htons((*pskb)->len);
--	iph->protocol = IPPROTO_COMP;
- 	iph->check = 0;
- 	ipch = (struct ip_comp_hdr *)((char *)iph + iph->ihl * 4);
--	ipch->nexthdr = x->props.mode ? IPPROTO_IPIP : tmp_iph.iph.protocol;
-+	ipch->nexthdr = x->props.mode ? IPPROTO_IPIP : iph->protocol;
- 	ipch->flags = 0;
- 	ipch->cpi = htons((u16 )ntohl(x->id.spi));
-+	iph->protocol = IPPROTO_COMP;
- 	ip_send_check(iph);
- 	(*pskb)->nh.raw = (*pskb)->data;
- 
-@@ -365,7 +357,7 @@
- 		goto error;
- 
- 	memset(ipcd, 0, sizeof(*ipcd));
--	x->props.header_len = sizeof(struct ip_comp_hdr);
-+	x->props.header_len = 0;
- 	if (x->props.mode)
- 		x->props.header_len += sizeof(struct iphdr);
- 
-
---J/dobhs11T7y2rNN--
+--alessandro
