@@ -1,44 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [bug 2.6.4] llc2 oops
-Date: Mon, 15 Mar 2004 14:20:16 -0300
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] tun -- name fix
+Date: Mon, 15 Mar 2004 10:22:15 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403151420.19986.acme@conectiva.com.br>
-References: <Pine.LNX.4.58.0403141732350.25924@localhost>
+Message-ID: <20040315102215.65c26745@dell_ss3.pdx.osdl.net>
+References: <20040313164325.070524df.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Cc: Gerd Knorr <kraxel@bytesex.org>, rutger@mail.com, netdev@oss.sgi.com,
+        Maxim Krasnyansky <maxk@qualcomm.com>, vtun@office.satix.net.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jochen Friedrich <jochen@scram.de>
-In-Reply-To: <Pine.LNX.4.58.0403141732350.25924@localhost>
-Content-Disposition: inline
+To: Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040313164325.070524df.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 14 March 2004 13:49, Jochen Friedrich wrote:
-> Hi,
+This fixes both the devfs name and the /sys name issues.
+It ends up as /dev/net/tun and /sys/class/misc/tun looks correct.
 
 
-> fffffffc005831d4
-> 
-> So, apparently, llc_ui_wait_for_conn() and llc_ui_wait_for_disc() are
-> buggy, as well...
-
-
-Oh well, yes, the code has lots of bugs as it is currently in the tree, I have 
-it rewritten in my net-experimental tree, that has lots of other changes 
-(mostly renames, moving buttloads of stuff from net/ipv4 to net/core, etc) to
-core code, tcp/ip v4/v6, sctp, etc, making most protocols use more and
-more common infrastructure, its solid, but I don't have time right now to
-work on chunk it to send to Dave, will do it, I hope, this month.
-
-But hey, if you are really interested in llc2 let me know and I'll send you
-my latest patches (IIRC they are at my 
-www.kernel.org/pub/linux/kernel/people/acme area).
-
-FWIW I have patches for ncftp, vsftpd, openssh, etc making them use
-PF_LLC, mostly transparent, just not for vsftpd, that reivents the
-get{name,addr}info wheel for some reason 8)
-
-- Arnaldo
+diff -Nru a/drivers/net/tun.c b/drivers/net/tun.c
+--- a/drivers/net/tun.c	Mon Mar 15 10:01:52 2004
++++ b/drivers/net/tun.c	Mon Mar 15 10:01:52 2004
+@@ -602,8 +602,9 @@
+ 
+ static struct miscdevice tun_miscdev = {
+ 	.minor = TUN_MINOR,
+-	.name = "net/tun",
+-	.fops = &tun_fops
++	.name = "tun",
++	.fops = &tun_fops,
++	.devfs_name = "net/tun",
+ };
+ 
+ int __init tun_init(void)
