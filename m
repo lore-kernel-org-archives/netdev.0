@@ -1,11 +1,11 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.6 2/7]: Remove useless variable in tc_ctl_tfilter
-Date: Sun, 03 Oct 2004 23:12:53 +0200
+Subject: [PATCH 2.6 4/7]: Fix free_netdev after failed alloc_netdev in ipip_init
+Date: Sun, 03 Oct 2004 23:13:06 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41606B55.8010105@trash.net>
+Message-ID: <41606B62.8020303@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------030605040500090404080507"
+ boundary="------------010704060704000104070009"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
@@ -13,73 +13,62 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------030605040500090404080507
+--------------010704060704000104070009
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Remove useless variable that confused me.
+Same problem as in ip_gre:
+Passing a NULL-ptr to free_netdev is wrong.
 
 
 
---------------030605040500090404080507
+--------------010704060704000104070009
 Content-Type: text/x-patch;
- name="02.diff"
+ name="04.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="02.diff"
+ filename="04.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/10/03 20:29:51+02:00 kaber@coreworks.de 
-#   [NET_SCHED]: Remove useless variable in tc_ctl_tfilter
+#   2004/10/03 20:41:00+02:00 kaber@coreworks.de 
+#   [IPV4]: Fix free_netdev after failed alloc_netdev in ipip_init
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/sched/cls_api.c
-#   2004/10/03 20:29:23+02:00 kaber@coreworks.de +4 -4
-#   [NET_SCHED]: Remove useless variable in tc_ctl_tfilter
+# net/ipv4/ipip.c
+#   2004/10/03 20:40:18+02:00 kaber@coreworks.de +5 -4
+#   [IPV4]: Fix free_netdev after failed alloc_netdev in ipip_init
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-diff -Nru a/net/sched/cls_api.c b/net/sched/cls_api.c
---- a/net/sched/cls_api.c	2004-10-03 22:18:34 +02:00
-+++ b/net/sched/cls_api.c	2004-10-03 22:18:34 +02:00
-@@ -139,7 +139,7 @@
- 	struct tcf_proto_ops *tp_ops;
- 	struct Qdisc_class_ops *cops;
- 	unsigned long cl = 0;
--	unsigned long fh, fh_s;
-+	unsigned long fh;
- 	int err;
+diff -Nru a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+--- a/net/ipv4/ipip.c	2004-10-03 22:20:28 +02:00
++++ b/net/ipv4/ipip.c	2004-10-03 22:20:28 +02:00
+@@ -876,18 +876,19 @@
+ 					   ipip_tunnel_setup);
+ 	if (!ipip_fb_tunnel_dev) {
+ 		err = -ENOMEM;
+-		goto fail;
++		goto err1;
+ 	}
  
- 	if (prio == 0) {
-@@ -249,7 +249,7 @@
- 	} else if (tca[TCA_KIND-1] && rtattr_strcmp(tca[TCA_KIND-1], tp->ops->kind))
- 		goto errout;
+ 	ipip_fb_tunnel_dev->init = ipip_fb_tunnel_init;
  
--	fh_s = fh = tp->ops->get(tp, t->tcm_handle);
-+	fh = tp->ops->get(tp, t->tcm_handle);
+ 	if ((err = register_netdev(ipip_fb_tunnel_dev)))
+-	    goto fail;
++		goto err2;
+  out:
+ 	return err;
+- fail:
+-	xfrm4_tunnel_deregister(&ipip_handler);
++ err2:
+ 	free_netdev(ipip_fb_tunnel_dev);
++ err1:
++	xfrm4_tunnel_deregister(&ipip_handler);
+ 	goto out;
+ }
  
- 	if (fh == 0) {
- 		if (n->nlmsg_type == RTM_DELTFILTER && t->tcm_handle == 0) {
-@@ -257,7 +257,7 @@
- 			*back = tp->next;
- 			qdisc_unlock_tree(dev);
- 
--			tfilter_notify(skb, n, tp, fh_s, RTM_DELTFILTER);
-+			tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
- 			tcf_destroy(tp);
- 			err = 0;
- 			goto errout;
-@@ -276,7 +276,7 @@
- 		case RTM_DELTFILTER:
- 			err = tp->ops->delete(tp, fh);
- 			if (err == 0)
--				tfilter_notify(skb, n, tp, fh_s, RTM_DELTFILTER);
-+				tfilter_notify(skb, n, tp, fh, RTM_DELTFILTER);
- 			goto errout;
- 		case RTM_GETTFILTER:
- 			err = tfilter_notify(skb, n, tp, fh, RTM_NEWTFILTER);
 
---------------030605040500090404080507--
+--------------010704060704000104070009--
