@@ -1,37 +1,53 @@
-From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: Thu, 31 Mar 2005 08:35:15 -0700
-Message-ID: <20050331153515.GA19219@colo.lackof.org>
-References: <20050330161522.GH32111@g5.random> <20050331114122.GL24804@muc.de>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: netif_rx packet dumping
+Date: Thu, 31 Mar 2005 17:33:41 +0100
+Message-ID: <424C2665.9040404@ev-en.org>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>	<42278122.6000000@ev-en.org>	<20050303133659.0d224e61.davem@davemloft.net>	<42278554.2090902@ev-en.org> <20050303135718.2e1a0170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alex Aizman <itn780@yahoo.com>, open-iscsi@googlegroups.com,
-        "'jamal'" <hadi@cyberus.ca>, "'Dmitry Yusupov'" <dmitry_yus@yahoo.com>,
-        "'James Bottomley'" <James.Bottomley@HansenPartnership.com>,
-        "'Rik van Riel'" <riel@redhat.com>, mpm@selenic.com,
-        michaelc@cs.wisc.edu, ksummit-2005-discuss@thunk.org,
-        "'netdev'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, jheffner@psc.edu, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-Content-Disposition: inline
-In-Reply-To: <20050331114122.GL24804@muc.de>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050303135718.2e1a0170.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 31, 2005 at 01:41:22PM +0200, Andi Kleen wrote:
-> It wont work - I can guarantee you that if you add a limit like
-> "we only support 8 iscsi connections max" then users/customers will raise
-> hell because it does not fit their networks.
+David S. Miller wrote:
+> On Thu, 03 Mar 2005 21:44:52 +0000
+> Baruch Even <baruch@ev-en.org> wrote:
+> 
+> 
+>>The current linked list goes over all the packets, the linked list we 
+>>add is for the packets that were not SACKed. The idea being that it is a 
+>>lot faster since there are a lot less packets not SACKed compared to 
+>>packets already SACKed (or never mentioned in SACKs).
+>>
+>>If you have a way around this I'd be happy to hear it.
+> 
+> 
+> I'm sure you can find a way to steal sizeof(void *) from
+> "struct tcp_skb_cb" :-)
+> 
+> It is currently 36 bytes on both 32-bit and 64-bit platforms.
+> This means if you can squeeze out 4 bytes (so that it fits
+> in the skb->cb[] 40 byte area), you can fit a pointer in there
+> for the linked list stuff.
 
-HP has been doing that for years (decades?) for parallel SCSI
-in "High Availability Configuration Guides". It lays out exactly
-what is and isn't supported. I'm sure other vendors have similar
-restrictions. As long as the product is still reasonably useful
-and the vendor provides a solid assurance it will work, such
-configuration restrictions are quite acceptable.
+I changed the code to use only the next pointer and dropped the prev. 
+The cb still fits into 40 bytes for 32bit but for an em64t compile with 
+gcc version 3.4.4 20041218 (prerelease) (Debian 3.4.3-6) the cb now 
+requires 48 bytes. I haven't looked at the code emitted by I suspect 
+it's an alignment that forced the pointer to start at 40 and then the 
+size is 8 bytes.
 
-I'm NOT arguing "8 iSCSI connections max" is reasonable or enough.
-I just arguing some sort of limit is acceptable.
+ From a quick test I did there was no performance hit and the numbers 
+very very similar to those in the 32bit case. The machine is exactly the 
+  same (it's a 3Ghz xeon which I so-far only run as 32 bit, not 
+suspecting I had a 64 bit test machine).
 
-grant
+Baruch
+
+p.s. Thanks to whomever put the compile time test of this, it probably 
+saved me quite a lot of time of hunting weird crashes.
