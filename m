@@ -1,20 +1,42 @@
-From: David Greaves <david@dgreaves.com>
-Subject: Re: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out+ delay
- scheduler
-Date: Fri, 18 Jun 2004 13:51:47 +0100
+From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+Subject: RE: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out+ delay scheduler
+Date: Fri, 18 Jun 2004 07:40:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D2E563.7080302@dgreaves.com>
-References: <40CDD68C.8070509@dgreaves.com> <20040615155111.26d6b809@dell_ss3.pdx.osdl.net> <40D0280B.2030308@dgreaves.com> <Pine.LNX.4.60.0406180953240.1089@jlaas2.data.slu.se> <40D2B114.5020201@dgreaves.com> <Pine.LNX.4.60.0406181217060.1089@jlaas2.data.slu.se>
+Message-ID: <468F3FDA28AA87429AD807992E22D07E01767AF6@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
-        ganesh.venkatesan@intel.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: "Stephen Hemminger" <shemminger@osdl.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jens Laas <jens.laas@data.slu.se>
-In-Reply-To: <Pine.LNX.4.60.0406181217060.1089@jlaas2.data.slu.se>
+Content-class: urn:content-classes:message
+To: "David Greaves" <david@dgreaves.com>, "Jens Laas" <jens.laas@data.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
+
+Jens/David:
+
+Did not mean to get off the list. For some reason, my subscription to
+netdev is not working (even after re-subscribing). So, I grabbed your
+message off of the archive.
+
+I am trying to recreate your failure scenario in our lab. In the
+meantime, please send me any new information you have on this issue.
+
+Thanks,
+ganesh 
+ 
+-------------------------------------------------
+Ganesh Venkatesan
+Network/Storage Division, Hillsboro, OR
+
+-----Original Message-----
+From: David Greaves [mailto:david@dgreaves.com] 
+Sent: Friday, June 18, 2004 5:52 AM
+To: Jens Laas
+Cc: Stephen Hemminger; netdev@oss.sgi.com; Venkatesan, Ganesh
+Subject: Re: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out+
+delay scheduler
 
 New info:
 I booted into XP and the card works there - so it doesn't look like a 
@@ -35,7 +57,8 @@ Jens Laas wrote:
 > Since we have no idea what causes this (AFAIK) it may be a more 
 > general problem than the device driver.
 
-I tend to agree - but I wasn't sure if this was the place and I'll do as 
+I tend to agree - but I wasn't sure if this was the place and I'll do as
+
 I'm told ;)
 
 >> A simple failure case for me is : 'ping -s 1500 '
@@ -55,7 +78,8 @@ lot more debug-able than scp or nfs :)
 No all tests are when it's reset and 'clean'
 
 >> ============
->> From hereon down it's 2.6.7 with Stephen's recent delay scheduler patch
+>> From hereon down it's 2.6.7 with Stephen's recent delay scheduler
+patch
 >>
 >> This changed the behaviour.
 >
@@ -84,7 +108,8 @@ reproducable w/o the patch.
 
 agreed - however in my ignorance of the deep behaviour I'm reporting 
 things that affect behaviour in ways I don't expect.
-I expected it to take longer to run out of buffers - that didn't happen :)
+I expected it to take longer to run out of buffers - that didn't happen
+:)
 
 (Anyway, on retesting I find that this was wrong - I suspect the 
 interface was down and I didn't notice)
