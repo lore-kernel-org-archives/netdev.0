@@ -1,52 +1,31 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
-Date: Sat, 28 Sep 2002 08:24:58 +0300 (EEST)
+Date: Sat, 28 Sep 2002 09:26:57 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209280813030.8846-100000@netcore.fi>
-References: <200209280500.JAA02974@sex.inr.ac.ru>
+Message-ID: <200209280526.JAA03028@sex.inr.ac.ru>
+References: <20020928.141407.110833680.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com, <yoshfuji@linux-ipv6.org>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-   <usagi@linux-ipv6.org>
+Cc: usagi@linux-ipv6.org, davem@redhat.com, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200209280500.JAA02974@sex.inr.ac.ru>
+To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
+In-Reply-To: <20020928.141407.110833680.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Sep 28, 2 02:14:07 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 28 Sep 2002 kuznet@ms2.inr.ac.ru wrote:
-> > route, as there would have to be at least two candidates there.
-> ...
-> > Am I missing something obvious here?
-> 
-> Yes. You select some one of the candidates eventually, do not you? :-)
+Hello!
 
-But can there be more candidates for one route, in which case one would 
-run something similar to this algorithm then?
+> we need per application (per socket) interface
+> for privacy extension (public address vs temporary address) and 
+> mobile ip (home address vs care-of address).
 
-Or would you have an already-sorted list of possible candidate addresses 
-for each route in the order of preference?  And recalculate always when 
-address changes?
+OK. It is natural user-friendly generalization of bind(). I do not see
+problems.
 
-Or..?
+Though, please, explain, to avoid misunderstanding. Let's take the second
+case for simplicity. Is that true that it is supposed to add
+to each application a switch "home or care-of"? This sound strange enough,
+taking into account that only a few of applications have switch sort of -b
+in openssh despite of age of plain bind() is equal to age of internet. :-)
 
-> And when you have some special preference for a subnet you create
-> a route for it.
-
-This is IMO a wrong approach from user's perspective.  Perhaps not if the 
-algorithm was run and e.g. additional, temporary "address selection" 
-routes were created by kernel.
- 
-> > (stuff that's network prefix -independent
-> 
-> I am sorry, I feel I do not understand what you mean.
-
-Hmm.. this depends on the interpretation of the concept above.  If the
-list is refreshed always when addresses change or change state, this could
-perhaps work..
-
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+Alexey
