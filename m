@@ -1,9 +1,9 @@
 From: Werner Almesberger <wa@almesberger.net>
 Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
-Date: Sat, 24 May 2003 01:23:50 -0300
+Date: Sat, 24 May 2003 04:22:46 -0300
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030524012350.A15179@almesberger.net>
-References: <Pine.LNX.4.40.0305220107460.29409-100000@phil.home.phil> <3ECC0B14.7020105@ethanet.com> <20030524011148.A29146@almesberger.net>
+Message-ID: <20030524042246.B29146@almesberger.net>
+References: <Pine.LNX.4.40.0305221019240.29409-100000@phil.home.phil> <3ECCE151.8000903@ethanet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Philippe Biondi <biondi@cartel-securite.fr>,
@@ -14,17 +14,31 @@ Cc: Philippe Biondi <biondi@cartel-securite.fr>,
 Return-path: <linux-net-owner@vger.kernel.org>
 To: Ethan Sommer <sommere@ethanet.com>
 Content-Disposition: inline
-In-Reply-To: <20030524011148.A29146@almesberger.net>; from wa@almesberger.net on Sat, May 24, 2003 at 01:11:48AM -0300
+In-Reply-To: <3ECCE151.8000903@ethanet.com>; from sommere@ethanet.com on Thu, May 22, 2003 at 09:40:17AM -0500
 List-Id: netdev.vger.kernel.org
 
-I wrote:
-> Now, how to turn such expressions with embedded ^ efficiently
-> into a DFA ?
+Ethan Sommer wrote:
+> Philippe Biondi wrote:
+>> For every NDFA, there exist a DFA that recognize the same language.
+>> So, it is possible.
+>>
+> 
+> That is true only if you only care if either are matched. Not if you 
+> care which is matched. By combining them you lose the ability to tell 
+> which matched.
 
-Well, that's too easy. The DFA should also test bits only in the
-order in which they appear in the packet. Constructing a DFA that
-jumps back and forth and tests the same bit over and over again
-wouldn't be much of a challenge :-)
+"exists a DFA" doesn't mean that there is only one :-) Typically,
+there are a lot of DFAs for each NFA, usually an infinite number
+of them. And among them are also those that don't combine states
+you don't want to combine.
+
+>> The question is : will we have enough memory to store a DFA that recognize
+>> a big regexp ? The answer is : let loose some speed and use NDFA.
+
+Also simpler DFAs would be interesting, e.g. acyclic ones. Size
+shouldn't be a problem for them. In fact, for "traditional"
+classification (i.e. well below layer 7), that's really all you
+need.
 
 - Werner
 
