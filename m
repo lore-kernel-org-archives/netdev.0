@@ -1,49 +1,28 @@
-From: "Krishna Kumar" <kumarkr@us.ibm.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@wide.ad.jp>
 Subject: Re: Neighbor cache
-Date: Thu, 2 May 2002 17:07:20 -0700
+Date: Fri, 03 May 2002 09:54:02 +0900
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <OF8105B87F.1724625E-ON88256BAE.00007CE3@boulder.ibm.com>
+Message-ID: <20020503095402W.yoshfuji@wide.ad.jp>
+References: <Mutt.LNX.4.44.0204250152190.11349-100000@blackbird.intercode.com.au>
+	<000001c1f22c$4a894f00$4e6015ac@VAIO>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, owner-netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: "Xiaoning He" <xiaoning@docomolabs-usa.com>
+To: xiaoning@docomolabs-usa.com
+In-Reply-To: <000001c1f22c$4a894f00$4e6015ac@VAIO>
 List-Id: netdev.vger.kernel.org
 
+In article <000001c1f22c$4a894f00$4e6015ac@VAIO> (at Thu, 2 May 2002 15:54:16 -0700), "Xiaoning He" <xiaoning@docomolabs-usa.com> says:
 
-Look for "struct neighbour" and "struct neigh_table" in neighbour.h and
-it's usage. Functions are  neigh_lookup(), neigh_create(), neigh_destroy(),
-etc.
+> 
+> Could you please let me know in the IPv6 kernel, where the Neighbor
+> cache is maintained and which file contains them?
 
-- KK
+net/core/neighbour.c
 
-
-
-                                                                                                                                              
-                      "Xiaoning He"                                                                                                           
-                      <xiaoning@docomola        To:       <netdev@oss.sgi.com>                                                                
-                      bs-usa.com>               cc:                                                                                           
-                      Sent by:                  Subject:  Neighbor cache                                                                      
-                      owner-netdev@oss.s                                                                                                      
-                      gi.com                                                                                                                  
-                                                                                                                                              
-                                                                                                                                              
-                      05/02/2002 03:54                                                                                                        
-                      PM                                                                                                                      
-                                                                                                                                              
-                                                                                                                                              
-
-
-
-Hi All
-
-I have a question related to the Neighbor cache. I am currently trying
-to modify the neighbor cache but I can not find where the code in the
-IPv6 kernel.
-
-Could you please let me know in the IPv6 kernel, where the Neighbor
-cache is maintained and which file contains them?
-
-Thank you very much.
-
-Xiaoning He
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
