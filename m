@@ -1,35 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: tunnel xmit and h.raw
-Date: Tue, 7 Oct 2003 08:32:37 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH/RFC] Let {ip,arp}tables "see" bridged VLAN tagged
+ {I,AR}P packets
+Date: Tue, 7 Oct 2003 08:52:41 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007083237.1de6e10a.davem@redhat.com>
-References: <Pine.LNX.4.44.0310030252070.1394-100000@u.domain.uli>
+Message-ID: <20031007085241.7410611a.shemminger@osdl.org>
+References: <200310062204.07230.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, bridge <bridge@osdl.org>,
+        "David S.Miller" <davem@redhat.com>,
+        Ben Greear <greearb@candelatech.com>, vlan@wanfear.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0310030252070.1394-100000@u.domain.uli>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200310062204.07230.bdschuym@pandora.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 3 Oct 2003 03:00:27 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+Instead of using vlan_dev_hard_start_xmit_p which causes looking
+too deep inside vlan, use the fact that all bridges and vlan devices
+are marked with dev->priv_flags.
 
-> # --------------------------------------------
-> # 03/10/03	ja@ssi.bg	1.1357
-> # [IPV4/IPV6]: tunnel xmit must load skb->h.raw after all reallocations
-> # --------------------------------------------
+Instead of:
 
-I've applied this, it is absolutely correct.
+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+	    || (out->hard_start_xmit == vlan_dev_hard_start_xmit_p &&
+	    VLAN_DEV_INFO(out)->real_dev->hard_start_xmit == br_dev_xmit
+#endif
 
-While studying this I've discovered some deeper problems.
-The skb_shared() checks in these tunnel drivers is bogus,
-on transmit skb->users should never ever be anything but 1.
+Try:
 
-Besides the tunnel drivers, the loopback driver and ipmr.c
-do similar things in their ->hard_start_xmit() handlers.
-In particular, the ipmr.c case is really in bad shape.
+#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+	    || (out->priv_flags & IFF_802_1Q_VLAN) &&
+	    (VLAN_DEV_INFO(out)->real_dev->priv_vlags & IFF_EBRIDGE)
+#endif
 
-I've put fixing this onto the todo list...
+
+Gets rid of all the symbol export and other nastiness
