@@ -1,145 +1,144 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: FIB reorg (2)
-Date: Tue, 30 Nov 2004 22:10:04 -0800
-Message-ID: <20041130221004.7fa2d526.davem@davemloft.net>
-References: <16804.56817.259589.279556@robur.slu.se>
+Subject: Re: FIB reorg (3)
+Date: Tue, 30 Nov 2004 22:16:34 -0800
+Message-ID: <20041130221634.258cd191.davem@davemloft.net>
+References: <16804.57005.843753.810704@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16804.56817.259589.279556@robur.slu.se>
+In-Reply-To: <16804.57005.843753.810704@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Nov 2004 20:16:01 +0100
+On Wed, 24 Nov 2004 20:19:09 +0100
 Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> And a variant of fib_find_alias for fib_semantics
+> And also fib_detect_death.
 
-Applied to my 2.6.11 pending tree.
-
-I made the same fixup here as I did for the
-first FIB reorg patch, namely making use of
-the net/ipv4/fib_lookup.h header file.
+Also applied to my 2.6.11 pending tree with the
+fib_lookup.h usage fixup.
 
 Thanks Robert.
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/11/30 21:45:25-08:00 robert.olsson@data.slu.se 
-#   [IPV4]: FIB cleanup, fib_find_alias()
+#   2004/11/30 21:51:06-08:00 robert.olsson@data.slu.se 
+#   [IPV4]: FIB cleanup, fib_detect_death()
 #   
-#   Abstract out fib_node arg usage in fib_find_alias(),
-#   move to fib_semantics.c
+#   Remove dependancy upon fib_hash specific
+#   fn_hash_select_dflt and move it over to
+#   fib_semantics.c
 #   
 #   Signed-off-by: David S. Miller <davem@davemloft.net>
 # 
 # net/ipv4/fib_semantics.c
-#   2004/11/30 21:44:45-08:00 robert.olsson@data.slu.se +18 -0
-#   [IPV4]: FIB cleanup, fib_find_alias()
+#   2004/11/30 21:50:04-08:00 robert.olsson@data.slu.se +23 -0
+#   [IPV4]: FIB cleanup, fib_detect_death()
 # 
 # net/ipv4/fib_lookup.h
-#   2004/11/30 21:44:45-08:00 robert.olsson@data.slu.se +2 -0
-#   [IPV4]: FIB cleanup, fib_find_alias()
+#   2004/11/30 21:50:04-08:00 robert.olsson@data.slu.se +3 -0
+#   [IPV4]: FIB cleanup, fib_detect_death()
 # 
 # net/ipv4/fib_hash.c
-#   2004/11/30 21:44:45-08:00 robert.olsson@data.slu.se +10 -22
-#   [IPV4]: FIB cleanup, fib_find_alias()
+#   2004/11/30 21:50:04-08:00 robert.olsson@data.slu.se +2 -25
+#   [IPV4]: FIB cleanup, fib_detect_death()
 # 
 diff -Nru a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
---- a/net/ipv4/fib_hash.c	2004-11-30 21:45:41 -08:00
-+++ b/net/ipv4/fib_hash.c	2004-11-30 21:45:41 -08:00
-@@ -399,26 +399,6 @@
- 	return NULL;
- }
+--- a/net/ipv4/fib_hash.c	2004-11-30 21:51:41 -08:00
++++ b/net/ipv4/fib_hash.c	2004-11-30 21:51:41 -08:00
+@@ -274,29 +274,6 @@
  
--/* Return the first fib alias matching TOS with
-- * priority less than or equal to PRIO.
-- */
--static struct fib_alias *fib_find_alias(struct fib_node *fn, u8 tos, u32 prio)
+ static int fn_hash_last_dflt=-1;
+ 
+-static int fib_detect_death(struct fib_info *fi, int order,
+-			    struct fib_info **last_resort, int *last_idx)
 -{
--	if (fn) {
--		struct list_head *head = &fn->fn_alias;
--		struct fib_alias *fa;
+-	struct neighbour *n;
+-	int state = NUD_NONE;
 -
--		list_for_each_entry(fa, head, fa_list) {
--			if (fa->fa_tos > tos)
--				continue;
--			if (fa->fa_info->fib_priority >= prio ||
--			    fa->fa_tos < tos)
--				return fa;
--		}
+-	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
+-	if (n) {
+-		state = n->nud_state;
+-		neigh_release(n);
 -	}
--	return NULL;
+-	if (state==NUD_REACHABLE)
+-		return 0;
+-	if ((state&NUD_VALID) && order != fn_hash_last_dflt)
+-		return 0;
+-	if ((state&NUD_VALID) ||
+-	    (*last_idx<0 && order > fn_hash_last_dflt)) {
+-		*last_resort = fi;
+-		*last_idx = order;
+-	}
+-	return 1;
 -}
 -
- static int
- fn_hash_insert(struct fib_table *tb, struct rtmsg *r, struct kern_rta *rta,
- 	       struct nlmsghdr *n, struct netlink_skb_parms *req)
-@@ -458,7 +438,11 @@
- 		fn_rehash_zone(fz);
- 
- 	f = fib_find_node(fz, key);
--	fa = fib_find_alias(f, tos, fi->fib_priority);
-+
-+	if (!f)
-+		fa = NULL;
-+	else
-+		fa = fib_find_alias(&f->fn_alias, tos, fi->fib_priority);
- 
- 	/* Now fa, if non-NULL, points to the first fib alias
- 	 * with the same keys [prefix,tos,priority], if such key already
-@@ -598,7 +582,11 @@
+ static void
+ fn_hash_select_default(struct fib_table *tb, const struct flowi *flp, struct fib_result *res)
+ {
+@@ -337,7 +314,7 @@
+ 				if (next_fi != res->fi)
+ 					break;
+ 			} else if (!fib_detect_death(fi, order, &last_resort,
+-						     &last_idx)) {
++						     &last_idx, &fn_hash_last_dflt)) {
+ 				if (res->fi)
+ 					fib_info_put(res->fi);
+ 				res->fi = fi;
+@@ -355,7 +332,7 @@
+ 		goto out;
  	}
  
- 	f = fib_find_node(fz, key);
--	fa = fib_find_alias(f, tos, 0);
-+
-+	if (!f)
-+		fa = NULL;
-+	else
-+		fa = fib_find_alias(&f->fn_alias, tos, 0);
- 	if (!fa)
- 		return -ESRCH;
- 
+-	if (!fib_detect_death(fi, order, &last_resort, &last_idx)) {
++	if (!fib_detect_death(fi, order, &last_resort, &last_idx, &fn_hash_last_dflt)) {
+ 		if (res->fi)
+ 			fib_info_put(res->fi);
+ 		res->fi = fi;
 diff -Nru a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
---- a/net/ipv4/fib_lookup.h	2004-11-30 21:45:41 -08:00
-+++ b/net/ipv4/fib_lookup.h	2004-11-30 21:45:41 -08:00
-@@ -33,5 +33,7 @@
- extern void rtmsg_fib(int event, u32 key, struct fib_alias *fa,
- 		      int z, int tb_id,
+--- a/net/ipv4/fib_lookup.h	2004-11-30 21:51:41 -08:00
++++ b/net/ipv4/fib_lookup.h	2004-11-30 21:51:41 -08:00
+@@ -35,5 +35,8 @@
  		      struct nlmsghdr *n, struct netlink_skb_parms *req);
-+extern struct fib_alias *fib_find_alias(struct list_head *fah,
-+					u8 tos, u32 prio);
+ extern struct fib_alias *fib_find_alias(struct list_head *fah,
+ 					u8 tos, u32 prio);
++extern int fib_detect_death(struct fib_info *fi, int order,
++			    struct fib_info **last_resort,
++			    int *last_idx, int *dflt);
  
  #endif /* _FIB_LOOKUP_H */
 diff -Nru a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
---- a/net/ipv4/fib_semantics.c	2004-11-30 21:45:41 -08:00
-+++ b/net/ipv4/fib_semantics.c	2004-11-30 21:45:41 -08:00
-@@ -297,6 +297,24 @@
- 		netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
+--- a/net/ipv4/fib_semantics.c	2004-11-30 21:51:41 -08:00
++++ b/net/ipv4/fib_semantics.c	2004-11-30 21:51:41 -08:00
+@@ -315,6 +315,29 @@
+ 	return NULL;
  }
  
-+/* Return the first fib alias matching TOS with
-+ * priority less than or equal to PRIO.
-+ */
-+struct fib_alias *fib_find_alias(struct list_head *fah, u8 tos, u32 prio)
++int fib_detect_death(struct fib_info *fi, int order,
++		     struct fib_info **last_resort, int *last_idx, int *dflt)
 +{
-+	if (fah) {
-+		struct fib_alias *fa;
-+		list_for_each_entry(fa, fah, fa_list) {
-+			if (fa->fa_tos > tos)
-+				continue;
-+			if (fa->fa_info->fib_priority >= prio ||
-+			    fa->fa_tos < tos)
-+				return fa;
-+		}
++	struct neighbour *n;
++	int state = NUD_NONE;
++
++	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
++	if (n) {
++		state = n->nud_state;
++		neigh_release(n);
 +	}
-+	return NULL;
++	if (state==NUD_REACHABLE)
++		return 0;
++	if ((state&NUD_VALID) && order != *dflt)
++		return 0;
++	if ((state&NUD_VALID) ||
++	    (*last_idx<0 && order > *dflt)) {
++		*last_resort = fi;
++		*last_idx = order;
++	}
++	return 1;
 +}
 +
  #ifdef CONFIG_IP_ROUTE_MULTIPATH
