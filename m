@@ -1,37 +1,51 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Mark Mielke <mark@mark.mielke.cc>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Fri, 07 Jun 2002 15:15:24 -0700
+Date: Sat, 8 Jun 2002 17:05:11 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <adtprm$92q$2@main.gmane.org>
-References: <3CFFB9F8.54455B6E@nortelnetworks.com> <20020606.202108.52904668.davem@redhat.com>
+Message-ID: <20020608170511.B26821@mark.mielke.cc>
+References: <3CFFB9F8.54455B6E@nortelnetworks.com> <20020606.202108.52904668.davem@redhat.com> <3D01307C.4090503@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: cfriesen@nortelnetworks.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, cfriesen@nortelnetworks.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <3D01307C.4090503@candelatech.com>; from greearb@candelatech.com on Fri, Jun 07, 2002 at 03:15:24PM -0700
 List-Id: netdev.vger.kernel.org
 
-Datagram sockets are the ones that drop data though (tcp will
-deal with it via re-transmits).
+On Fri, Jun 07, 2002 at 03:15:24PM -0700, Ben Greear wrote:
+> David S. Miller wrote:
+> > Your idea is totally useless for non-datagram sockets.
+> > Only datagram sockets use the interfaces where you bump
+> > the counters.
+> > I don't like the patch, nor the idea behind it, at all.
+> Datagram sockets are the ones that drop data though (tcp will
+> deal with it via re-transmits).
 
-I have not looked at his patch in detail, but I would welcome anything
-that gets us closer to being able to account for every packet that enters
-the NIC, or enters the kernel from user-space via send(to), etc...
+Outside of the specific changes suggested by Chris, I can see a
+requirement to be able to detect poor connections. While TCP/IP may
+not drop packets from the perspective of user space applications,
+TCP/IP packets do get lost. For certain applications that require high
+bandwidth, or low latency, applications may be able to optimize code
+paths by analyzing statistics related to the socket.
 
-David S. Miller wrote:
+Datagram sockets are more straight forward to implement this for, but
+that does not mean that TCP/IP does not have similar potential.
 
-> Your idea is totally useless for non-datagram sockets.
-> Only datagram sockets use the interfaces where you bump
-> the counters.
-> 
-> I don't like the patch, nor the idea behind it, at all.
-> 
-> 
+I am not certain what the exact requirement is for in Chris' cases,
+but I do know that in his field, he is writing something far more
+complicated and resource intensive than a telnet server.
 
+mark
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+mark@mielke.cc/markm@ncf.ca/markm@nortelnetworks.com __________________________
+.  .  _  ._  . .   .__    .  . ._. .__ .   . . .__  | Neighbourhood Coder
+|\/| |_| |_| |/    |_     |\/|  |  |_  |   |/  |_   | 
+|  | | | | \ | \   |__ .  |  | .|. |__ |__ | \ |__  | Ottawa, Ontario, Canada
+
+  One ring to rule them all, one ring to find them, one ring to bring them all
+                       and in the darkness bind them...
+
+                           http://mark.mielke.cc/
