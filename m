@@ -1,42 +1,74 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Tue, 16 Sep 2003 23:56:50 -0700
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20030916235650.0844021b.davem@redhat.com>
-References: <200309022116.41697.bdschuym@pandora.be>
-	<200309161757.50682.bdschuym@pandora.be>
-	<20030916182335.359c419f.davem@redhat.com>
-	<200309170842.17766.bdschuym@pandora.be>
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: Re: [PATCH] (2/6) ipvs -- get rid of register in declarations
+Date: Thu, 18 Sep 2003 00:09:52 +0800 (CST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0309180006470.15676-100000@penguin.linux-vs.org>
+References: <20030916141739.22ff0101.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tommy@home.tig-grr.com, laforge@netfilter.org, acme@conectiva.com.br,
-        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200309170842.17766.bdschuym@pandora.be>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: lvs-users@LinuxVirtualServer.org, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030916141739.22ff0101.shemminger@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Sep 2003 08:42:17 +0200
-Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> > Also, adding attributes to user exported structures would need
-> > to be done _very_ carefully, as compilation when using such
-> > gcc extensions will fail when the user uses '-ansi' on the
-> > compiler command line.
+
+Hi,
+
+If we are gonna to remove register in declarations, it is good to remove 
+all of them, for example in the ip_vs_rr.c, ip_vs_wrr.c, ip_vs_wlc.c,
+ip_vs_nq.c and ip_vs_sed.c.
+
+Thanks,
+
+Wensong
+
+On Tue, 16 Sep 2003, Stephen Hemminger wrote:
+
+> GCC doesn't need register in declarations (and probably ignores them).
 > 
-> Now why on Earth would I have to bother with some luser doing this? I'm not 
-> the slave of annoying users.
-
-Because you can make his life simpler merely by adding the right
-__extension__() around the attribute designation, just like glibc
-does in it's headers.  It takes nearly no effort on your part and
-makes life simpler for everyone writing userspace programs.
+> diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+> --- a/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:25 2003
+> +++ b/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:25 2003
+> @@ -279,7 +279,7 @@
+>  static __inline__ unsigned
+>  ip_vs_svc_hashkey(unsigned proto, __u32 addr, __u16 port)
+>  {
+> -	register unsigned porth = ntohs(port);
+> +	unsigned porth = ntohs(port);
+>  
+>  	return (proto^ntohl(addr)^(porth>>IP_VS_SVC_TAB_BITS)^porth)
+>  		& IP_VS_SVC_TAB_MASK;
+> @@ -482,7 +482,7 @@
+>   */
+>  static __inline__ unsigned ip_vs_rs_hashkey(__u32 addr, __u16 port)
+>  {
+> -	register unsigned porth = ntohs(port);
+> +	unsigned porth = ntohs(port);
+>  
+>  	return (ntohl(addr)^(porth>>IP_VS_RTAB_BITS)^porth)
+>  		& IP_VS_RTAB_MASK;
+> diff -Nru a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
+> --- a/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:08:25 2003
+> +++ b/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:08:25 2003
+> @@ -171,7 +171,7 @@
+>  /* get weighted least-connection node in the destination set */
+>  static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+>  {
+> -	register struct ip_vs_dest_list *e;
+> +	struct ip_vs_dest_list *e;
+>  	struct ip_vs_dest *dest, *least;
+>  	int loh, doh;
+>  
+> @@ -226,7 +226,7 @@
+>  /* get weighted most-connection node in the destination set */
+>  static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
+>  {
+> -	register struct ip_vs_dest_list *e;
+> +	struct ip_vs_dest_list *e;
+>  	struct ip_vs_dest *dest, *most;
+>  	int moh, doh;
+>  
+> 
