@@ -1,55 +1,46 @@
-From: Glenn Fowler <gsf@research.att.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: kernel bug in socketpair()
-Date: Wed, 23 Jul 2003 13:24:36 -0400 (EDT)
+Date: Wed, 23 Jul 2003 10:31:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307231724.NAA90957@raptor.research.att.com>
-References: <200307231428.KAA15254@raptor.research.att.com>  <20030723074615.25eea776.davem@redhat.com>  <200307231656.MAA69129@raptor.research.att.com> <20030723100043.18d5b025.davem@redhat.com>
+Message-ID: <20030723103135.3eac4cd2.davem@redhat.com>
+References: <200307231428.KAA15254@raptor.research.att.com>
+	<20030723074615.25eea776.davem@redhat.com>
+	<200307231656.MAA69129@raptor.research.att.com>
+	<20030723100043.18d5b025.davem@redhat.com>
+	<200307231724.NAA90957@raptor.research.att.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dgk@research.att.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: gsf@research.att.com, dgk@research.att.com, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, gsf@research.att.com
+To: Glenn Fowler <gsf@research.att.com>
+In-Reply-To: <200307231724.NAA90957@raptor.research.att.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 23 Jul 2003 13:24:36 -0400 (EDT)
+Glenn Fowler <gsf@research.att.com> wrote:
 
-On Wed, 23 Jul 2003 10:00:43 -0700 David S. Miller wrote:
-> On Wed, 23 Jul 2003 12:56:12 -0400 (EDT)
-> Glenn Fowler <gsf@research.att.com> wrote:
+> /dev/fd/N is the underlying mechanism for implementing the bash and ksh
+> 
+> 	cmd-1 <(cmd-2 ...) ... <(cmd-n ...)
+> 
 
-> > the problem is that linux took an implementation shortcut by symlinking
-> > 	/dev/fd/N -> /proc/self/fd/N
-> > and by the time the kernel sees /proc/self/fd/N the "self"-ness is apparently
-> > lost, and it is forced to do the security checks
+Interesting.
 
-> None of this is true.  If you open /proc/self/fd/N directly the problem
-> is still there.
+I looked at the bash code, and it uses pipes with /dev/fd/N, and for
+/dev/fd/N which are pipes the open should work under Linux.
 
-you missed the point that the original open() call is on /dev/fd/N,
-not /proc/PID/fd/N; /proc/PID/fd/N only comes into play because the
-linux implementation foists it on the user
+This is what David Korn said in his original report.
 
-> > if the /proc fd open code has access to the original /proc/PID/fd/N path
-> > then it can do dup(atoi(N)) when the PID is the current process without
-> > affecting security
+I guess the part that is left is the fchmod() issue which exists
+because one inode is used to implement both sides of the pipe under
+Linux.
 
-> If we're talking about the current process, there is no use in using
-> /proc/*/fd/N to open a file descriptor in the first place, you can
-> simply call open(N,...)
+Was the idea to, since fchmod() on pipes modified both sides,
+to use UNIX domain sockets to implement this?  And that's how
+you discovered the /dev/fd/N failure for sockets?
 
-no, in the notation above N is the fd number "so you could simply call dup(N)"
-
-here is one reason why /dev/fd/N is useful:
-
-/dev/fd/N is the underlying mechanism for implementing the bash and ksh
-
-	cmd-1 <(cmd-2 ...) ... <(cmd-n ...)
-
-each <(cmd-i ...) is converted to a pipe() with the write side getting the
-output of cmd-i (and marked close on exec) and the read side *not* marked
-close on exec; cmd-1 is then executed as
-
-	cmd-1 /dev/fd/PIPE-READ-2 ... /dev/fd/PIPE-READ-n
-
-where PIPE-READ-i is the fd number of the read side of the pipe for cmd-i
+Another idea is to use named unix sockets.  Can that be
+sufficient to solve your dilemma?
