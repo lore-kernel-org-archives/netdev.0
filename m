@@ -1,191 +1,115 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 20 Jan 2005 08:37:36 -0600
-Message-ID: <200501200837.40734.jeremy.guthrie@berbee.com>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501191950.08567.jeremy.guthrie@berbee.com> <16879.38457.4576.598144@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] batched tc to improve change throughput
+Date: 20 Jan 2005 09:42:49 -0500
+Message-ID: <1106232168.1041.125.camel@jzny.localdomain>
+References: <20050117152312.GC26856@postel.suug.ch>
+	 <1105976711.1078.1.camel@jzny.localdomain>
+	 <20050117160539.GD26856@postel.suug.ch>
+	 <1105979807.1078.16.camel@jzny.localdomain>
+	 <20050117165626.GE26856@postel.suug.ch>
+	 <1106002197.1046.19.camel@jzny.localdomain>
+	 <20050118134406.GR26856@postel.suug.ch>
+	 <1106058592.1035.95.camel@jzny.localdomain>
+	 <20050118145830.GS26856@postel.suug.ch>
+	 <1106144009.1047.989.camel@jzny.localdomain>
+	 <20050119165421.GB26856@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2546304.NdYkW6LUQn";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: Patrick McHardy <kaber@trash.net>, Stephen Hemminger <shemminger@osdl.org>,
+        netdev@oss.sgi.com, Werner Almesberger <werner@almesberger.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16879.38457.4576.598144@robur.slu.se>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050119165421.GB26856@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart2546304.NdYkW6LUQn
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 2005-01-19 at 11:54, Thomas Graf wrote:
+> * jamal <1106144009.1047.989.camel@jzny.localdomain> 2005-01-19 09:13
+> > What i mean is that we should probably leave iproute2 code alone so that
+> > people can run old scripts etc with it.  i.e the netsh tool should just
+> > either reuse libnetlink and add any things to it or create a brand new
+> > library.
+> 
+> Inspected some more code and I've finished already more than I thought.
+> The architecture currently allows specifying the grammar with macros
+> like this:
 
-On Thursday 20 January 2005 05:30 am, Robert Olsson wrote:
-> Jeremy M. Guthrie writes:
->  > @ 14:51:44 we can see the secret_interval kick in.  Otherwise we run
->  > very solid.
->  >
->  > 101Kpps  8)
->
->  Seems traffic increaed a little bit too?
->
->  > 1024 buffers on the RX of eth3.
->  >
->  > echo 86400 > /proc/sys/net/ipv4/route/secret_interval
->  > echo 524288 > /proc/sys/net/ipv4/route/gc_thresh
->
->  rhash_entries?
-I left that at 2.4 million.
+[.. good stuff was here ..]
 
->  > It appears to be cruising right along now.
->
->  Nice. rtstat's is still interesting so we can see number fib lookups and
->  linear search and GC dynamics etc.
- size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
- mc=20
-GC: tot ignored goal_miss ovrf HASH: in_search out_search
-524291     73651     805     0     0     0     0     0         5       0=20
-537114631     537       0         0    0           45657          3
-524291     74169     779     0     0     0     0     0         2       0=20
-1610369017     516       0         0    0           43612          0
-524287     74830     777     0     0     0     0     0         6       0   =
-  =20
-0     498       0         0    0           40504          1
-524285     77458     949     0     0     0     0     0         4       0   =
-  =20
-0     619       0         0    0           42731          1
-524273     75475     801     0     0     0     0     0        10       0   =
-  =20
-0     549       0         0    0           40084          7
-524292     76740     902     0     0     0     0     0         5       0   =
-  =20
-0     574       0         0    0           41702          3
-524295     76681     829     0     0     0     0     0         4       0   =
-  =20
-0     527       0         0    0           42328          2
-524333     76522     756     0     0     0     0     0         9       1   =
-  =20
-0     432       0         0    0           43621          3
-524286     80323     792     0     0     0     0     0         6       0   =
-  =20
-0     498       0         0    0           44619          2
-524294     79409     758     0     0     0     0     0         6       0   =
-  =20
-0     508       0         0    0           45864          3
-524288     80058     756     0     0     0     0     0         7       0   =
-  =20
-0     478       0         0    0           44711          5
-524291     77128     794     0     0     0     0     0         8       0   =
-  =20
-0     516       0         0    0           42301          3
-524288     77433     823     0     0     0     0     0         4       0   =
-  =20
-0     539       0         0    0           42357          0
-524293     79423     761     0     0     0     0     0         7       0   =
-  =20
-0     514       0         0    0           43102          3
-524293     80940     804     0     0     0     0     0         6       0   =
-  =20
-0     530       0         0    0           45457          3
-524287     84864     813     0     0     0     0     0         3       0   =
-  =20
-0     532       0         0    0           44309          0
-524286     78358     804     0     0     0     0     0         6       0   =
-  =20
-0     531       0         0    0           43669          2
-524293     72760     717     0     0     0     0     0         2       0   =
-  =20
-0     480       0         0    0           41611          0
-524287     72833     684     0     0     0     0     0         5       0   =
-  =20
-0     464       0         0    0           40571          1
-524290     77308     726     0     0     0     0     0         6       0   =
-  =20
-0     486       0         0    0           43031          2
- size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot    =
- mc=20
-GC: tot ignored goal_miss ovrf HASH: in_search out_search
-524288     81205     746     0     0     0     0     0         5       0=20
-537114631     512       0         0    0           42384          3
-524291     81744     736     0     0     0     0     0         5       0=20
-1610369017     494       0         0    0           43980          3
-524285     85813     766     0     0     0     0     0         5       0   =
-  =20
-0     485       0         0    0           45385          3
-524290     80609     810     0     0     0     0     0         5       0   =
-  =20
-0     547       0         0    0           42037          2
-524281     75730     784     0     0     0     0     0         7       0   =
-  =20
-0     515       0         0    0           42966          3
-524295     78139     805     0     0     0     0     0         6       0   =
-  =20
-0     540       0         0    0           43026          3
-524292     77198     724     0     0     0     0     0         7       1   =
-  =20
-0     484       0         0    0           44583          1
-524301     80243     802     0     0     0     0     0         7       0   =
-  =20
-0     524       0         0    0           43462          2
-524286     78010     822     0     0     0     0     0         8       0   =
-  =20
-0     557       0         0    0           44684          4
-524292     76739     814     0     0     0     0     0        11       1   =
-  =20
-0     539       0         0    0           45128          5
-524288     79226     765     0     0     0     0     0         6       0   =
-  =20
-0     518       0         0    0           47706          1
-524286     78367     757     0     0     0     0     0         8       1   =
-  =20
-0     486       0         0    0           44462          1
-524292     79453     774     0     0     0     0     0        10       0   =
-  =20
-0     514       0         0    0           43612          5
-524291     75541     749     0     0     0     0     0        10       0   =
-  =20
-0     492       0         0    0           43462          3
-524289     77849     748     0     0     0     0     0        14       3   =
-  =20
-0     493       0         0    0           43390          7
-524296     77628     773     0     0     0     0     0         8       0   =
-  =20
-0     505       0         0    0           43900          3
-524295     79695     699     0     0     0     0     0         8       0   =
-  =20
-0     451       0         0    0           45529          4
-524293     78484     770     0     0     0     0     0         7       0   =
-  =20
-0     339       0         0    0           44700          2
-524298     79257     732     0     0     0     0     0         8       0   =
-  =20
-0     486       0         0    0           45880          4
-524287     79434     749     0     0     0     0     0        12       0   =
-  =20
-0     496       0         0    0           45081          5
+I like it. Assuming we can have arbitrary hierachies; you just show one
+level - but that may be just the example at hand. Given that should be
+able to meet the layout requirements that Lennert alluded to earlier.
 
-=2D-=20
+> Looks a bit complicated but is actually quite easy, you can do it the
+> linux way. 
 
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
+I get it, like it and yes TheLinuxWay is the OnlyWay ;->
 
---nextPart2546304.NdYkW6LUQn
-Content-Type: application/pgp-signature
+[..]
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+> The status of the whole thing: link and neighbour are finished,
+> core architecture finished as well, route is half done, addresses
+> are half done (both easy to finish). libnl has net/sched/
+> finished but is still missing code for a lot of modules. 
 
-iD8DBQBB78I0qtjaBHGZBeURAsTKAJ0Zm9UNi8F662SsdGsRWvEMFMKQkgCgiYI9
-epww+bzL/MCI5VTGRztx5Sw=
-=LjGK
------END PGP SIGNATURE-----
+This is the part i am a little uncomfortable with. If you can make that
+library maybe part of iproute2 it would ease maintanance. Extend
+libnetlink or have another layer on top of it. 
+I know you have already put the effort, but consider this thought.
 
---nextPart2546304.NdYkW6LUQn--
+> Session
+> management (commit/rollback) was once in but was too unstable,
+> needs a partial rewrite (design flaws) but should fit in quite
+> easly because libnl was designed to support it. It will basically
+> look like: nl_session_start(); ... any high level operations ..
+> if (nl_session_commit() < 0) nl_session_rollback();
+> 
+
+Looks right.
+
+> Problems? Keeping the cache valid (multiple netlink programs).
+> The final update just before the commit and the commit itself
+> must be atomic.
+> 
+
+Indeed.
+
+> Solutions:
+>  - Use ATOMIC flag (dangerous)
+
+Would really need a kernel hack to do right. And .. would slow down
+traffic while you hold the "atomic lock". 
+
+>  - Seq counter in netlink, increased evertime a netlink message
+>    gets processed and returned in ack. A netlink request may contain
+>    a flag and the expected sequence number and the request gets only
+>    processed if they match, otherwise the request fails. (my favourite)
+>  - Lock file in userspace (how to enfroce everyone to use it?)
+>  - Try to detect changes from third party after commit. Quite
+>    hard but possible, reduces race window but doesn't close it
+>    completely.
+> 
+
+Other apps changing things will screw you. If that gets handled then we
+are set. I actually did start working on a netlink redirect(hook) for a
+very different reason, but it should serve this purpose. Essentially you
+register to be the proxy for netlink and all messages go via you. You
+can then munge them, etc before issuing the response or allowing it to
+go on to configure things. With this your "lock" would be to ask for
+certain things to be redirected to you during an update phase.
+Ok, maybe i will put more effort on it over the weekend (Sunday). 
+
+> Background: I keep 2 caches, 1 cache represents the current state
+> in the kernel, it gets updated when required. The second cache
+> contains the local caches. The first cache gets merged into the
+> second before the update and then gets commited. In case of a
+> failure the first cache is used to restore things.
+> 
+
+Looks like the right way forward.
+
+cheers,
+jamal
