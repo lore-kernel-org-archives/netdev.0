@@ -1,61 +1,76 @@
-From: Martin Diehl <lists-d9SKjHWnQKCzQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH] Drop ISA dependencies from IRDA drivers
-Date: Fri, 16 Jul 2004 00:57:59 +0200 (CEST)
-Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Message-ID: <Pine.LNX.4.44.0407160055360.14037-100000@notebook.home.mdiehl.de>
-References: <20040715224235.GA5164@bougret.hpl.hp.com>
-Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+From: Anton Blanchard <anton@samba.org>
+Subject: Network device driver probe issues
+Date: Thu, 15 Jul 2004 23:52:44 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040715135244.GD27715@krispykreme>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andi Kleen <ak-h9bWGtP8wOw@public.gmane.org>, Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-   <netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org>, <irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-   Jean Tourrilhes <jt-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>, <the_nihilant-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>,
-   Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Jean Tourrilhes <jt-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-In-Reply-To: <20040715224235.GA5164-yAE0UhLNZJawPNPzzlOzwdBPR1lH4CV8@public.gmane.org>
-Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5ji9XKYC2TYK4Io4DoRGLOrNAH6kLmebB@public.gmane.org>
-List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5lLLH9aP38KF1pqr+6INuaA@public.gmane.org>
-List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
-	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5R9m/fhtKvoLKtGCp0j7rLg@public.gmane.org>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
+Content-Type: text/plain; charset=us-ascii
+Cc: cramerj@intel.com, john.ronciak@intel.com, ganesh.venkatesan@intel.com,
+        jonmason@us.ibm.com, jkenisto@us.ibm.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jul 2004, Jean Tourrilhes wrote:
 
-> 	irda_setup_dma was (supposedly) fixed in 2.6.8-rc1, and no
-> longer depend on CONFIG_ISA. Those driver are supposed to work on 64
-> bits.
+Hi,
 
-Ok, so maybe the following is missing in addition to Andi's patch?
+With the advent of hotplug and udev we see network device driver opens
+called as soon as possible, ie after register_netdev. In a lot of cases
+drivers currently call register_netdev too early, before they are ready
+to handle an open. I think the e1000 had this problem (which has since
+been fixed), and the s2io appears to have this same issue.
 
-Martin
+Once the register_netdev call is delayed until late in probe (it really
+should be the last thing the probe call does) we have an issue with
+device printks. One of the reasons register_netdev is often early in the
+probe routine of network drivers is that it provides a device name to
+append to printks.
 
------------
+The e1000 gets around this by replicating register_netdev:
 
---- linux-2.6.8-rc1/net/irda/irda_device.c	Tue Jul 13 00:31:34 2004
-+++ v2.6.8-rc1-md/net/irda/irda_device.c	Fri Jul 16 00:45:08 2004
-@@ -529,7 +529,6 @@ int irda_device_set_mode(struct net_devi
- 	return ret;
- }
- 
--#ifdef CONFIG_ISA
- /*
-  * Function setup_dma (idev, buffer, count, mode)
-  *
-@@ -552,4 +551,3 @@ void irda_setup_dma(int channel, dma_add
- 	release_dma_lock(flags);
- }
- EXPORT_SYMBOL(irda_setup_dma);
--#endif
+        rtnl_lock();
+        /* we need to set the name early since the DPRINTK macro needs it set */
+        if (dev_alloc_name(netdev, netdev->name) < 0)
+                goto err_free_unlock;
 
+...
 
+        /* since we are holding the rtnl lock already, call the no-lock version */
+        if((err = register_netdevice(netdev)))
+                goto err_register;
 
--------------------------------------------------------
-This SF.Net email is sponsored by BEA Weblogic Workshop
-FREE Java Enterprise J2EE developer tools!
-Get your free copy of BEA WebLogic Workshop 8.1 today.
-http://ads.osdn.com/?ad_id=4721&alloc_id=10040&op=click
+        cards_found++;
+        rtnl_unlock();
+
+The problem I have with this method has to do with how failures appear
+to the user. If you have two network cards and the first one fails
+during probe you will see:
+
+eth0: Intel(R) PRO/1000 Network Connection
+eth0: The EEPROM Checksum Is Not Valid
+eth0: Intel(R) PRO/1000 Network Connection
+
+This makes debugging the issue difficult. Where is the card that failed?
+We have machines with 100s of interfaces and there it becomes a real
+pain.
+
+We should instead use something stable to attach to printks during
+probe. pci_name() is the obvious choice, perhaps using dev_printk().
+The failure then becomes:
+
+0000:01:01.0 Intel(R) PRO/1000 Network Connection
+0000:01:01.0 The EEPROM Checksum Is Not Valid
+0000:02:01.0 Intel(R) PRO/1000 Network Connection
+
+Also it would be useful if somewhere during probe the network driver
+associated the network name with the pci id, eg:
+
+0000:02:01.0 Intel(R) PRO/1000 Network Connection (eth0)
+
+I know we can get at it via other means but it would be nice to be able
+to look through the dmesg and work out what names were given to the
+cards.
+
+Anton
