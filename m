@@ -1,45 +1,52 @@
-From: "Ethy H. Brito" <ethy@inexo.com.br>
-Subject: Re: shaper.c (fwd)
-Date: Tue, 24 Feb 2004 12:18:41 -0300 (BRT)
+From: Madis Janson <madis@ats.cyber.ee>
+Subject: Re: forcedeth unknown events 0x21
+Date: Tue, 24 Feb 2004 18:04:51 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402241214110.566@node1.inexo.com.br>
+Message-ID: <Pine.LNX.4.58.0402241753150.10866@kiku.itsise>
+References: <Pine.LNX.4.58.0312180952100.21042@kiku.itsise> <3FE6678B.5070006@gmx.net>
+ <Pine.LNX.4.53.0401051456060.1039@alien> <4001D113.3030302@gmx.net>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
+In-Reply-To: <4001D113.3030302@gmx.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hello
+On Sun, 11 Jan 2004, Carl-Daniel Hailfinger wrote:
 
-Is anybody in here? I was directed to this email by Mr. Allan Cox.
-Is this a maillist (i'm not a subscriber - directions please if so) or it is
-a human driven mailbox?
-I need to "talk" about a problem in the kernel shaper.c module.
-
-Regards
-
-
-Ethy H. Brito         /"\
-InterNexo Ltda.       \ /  CAMPANHA DA FITA ASCII - CONTRA MAIL HTML
-+55 (12) 3941-6860     X   ASCII RIBBON CAMPAIGN - AGAINST HTML MAIL
-S.J.Campos - Brasil   / \
-
----------- Forwarded message ----------
-Date: Sat, 21 Feb 2004 17:48:03 -0500
-From: Alan Cox <alan@redhat.com>
-To: Ethy H. Brito <ethy@inexo.com.br>
-Cc: Alan Cox <alan@redhat.com>
-Subject: Re: shaper.c
-
-On Fri, Feb 20, 2004 at 07:21:29PM -0300, Ethy H. Brito wrote:
-> The listing stays several minutes (up to one hour or so) without any drops and
-> then drops a few packets. I couldn't spot why.
+> madis wrote:
+> > On Mon, 22 Dec 2003, Carl-Daniel Hailfinger wrote:
+> >
+> >>Madis Janson wrote:
+> >>
+> >>>When trying forcedeth_2_6_patch_v19.txt, i got the following message
+> >>>fastly repeating after ifup eth0:
+> >>>
+> >>>"eth0: received irq with unknown events 0x21. Please report"
+> >>>
+> >>>and it didn't work eighter (ifup just stalled).
+> [...]
+> >>
+> >>Please try the attached patch on top of it and report back if it works.
+> >
+> > the unknown events message disappeared,
+> > but the network did not start to work...
 >
-> Does this ring any bell to you?
-> SHAPERCB(skb)->shapeclock been zero smells bad?
+> Do you use any powermanagement software (athcool, lvcool, fvcool, coolon,
+> athlon cooling patch, anything STPGNT related)? Does your BIOS list
+> anything STPGNT related?
+>
 
-It certainly shouldnt be, but I've not dealt with the code since 2.2 so Im
-not sure how it has changed to break this. Asking netdev@oss.sgi.com may be
-better
+I didn't found anything STPGNT related to be installed or in BIOS.
+
+But seems that the reason for it to not work was actually stupid cable
+modem, that remembered other end network cards hardware address and
+refused to respond.
+
+That solved, the 2.6.3 kernels forcedeth works, but about half of the
+packets are dropped (rtl8139 used for same thing drops almost nothing).
+Also it complains now very much about "unknown event 0x1" (instead of
+0x21 which was complained when I tried before).
