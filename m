@@ -1,121 +1,119 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [BK PATCH] 2.6 SCTP updates
-Date: Sun, 15 Feb 2004 21:55:48 -0800 (PST)
+From: Michael Schlenstedt <Michael-ml-kernel@schlenn.net>
+Subject: PROBLEM: /proc/sys/net/ipv4/ip_dynaddr does not work correctly
+Date: Sun, 15 Feb 2004 22:22:42 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402152147290.18317@localhost.localdomain>
-References: <Pine.LNX.4.58.0402131443350.2190@localhost.localdomain>
- <20040213215227.270a8147.davem@redhat.com>
+Message-ID: <20040215212241.GA2752__29658.7921948687$1076912052@schlenn.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: jjciarla@raiz.uncu.edu.ar
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040213215227.270a8147.davem@redhat.com>
+Resent-Message-Id: <20040216.151401.52295654.yoshfuji@linux-ipv6.org>
+To: Kernel Mailinglist <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-On Fri, 13 Feb 2004, David S. Miller wrote:
+Hello!
 
-> On Fri, 13 Feb 2004 16:07:05 -0800 (PST)
-> Sridhar Samudrala <sri@us.ibm.com> wrote:
->
-> > Please do a
-> > 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
-> > to get the following fixes to SCTP on top of linux 2.6.2.
->
-> I am pulling this, however I strongly disagree with this change:
->
-> > # 04/02/12      sri@us.ibm.com  1.1552
-> > # [SCTP] Use __get_free_pages() to allocate ssnmap.
-> > #
-> > # This is needed to avoid kmalloc()'s 128K limit when an association is
-> > # initialized with a large no. of streams(more than 65000 inbound +
-> > # outbound streams).
->
-> This is madness because it means that every assosciation created eats
-> at least PAGE_SIZE bytes of memory, even if the ssnmap is tiny.
->
-> Maybe you should just brance between two allocation schemes based upon
-> what sctp_ssnmap_size() returns.
 
-Yes, I didn't realize that this will waste lots of memory for associations
-with a few streams. Here is a patch that fixes it by reverting back to
-kmalloc() for allocs < 128K.
+[1.] One line summary of the problem:
 
-I have pushed it to both 2.6 and 2.4 bk trees. You can pull them from
-	http://linux-lksctp.bkbits.net/lksctp-2.5.work
-	http://linux-lksctp.bkbits.net/lksctp-2.4.work
+/proc/sys/net/ipv4/ip_dynaddr does not work correctly in debug-mode.
 
-# This patch includes the following deltas:
-#	           ChangeSet	1.1554  -> 1.1555
-#	   net/sctp/ssnmap.c	1.3     -> 1.4
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/02/15	sri@us.ibm.com	1.1555
-# [SCTP] Revert back to use kmalloc() for ssnmap allocs of sizes < 128K.
-# --------------------------------------------
-#
-diff -Nru a/net/sctp/ssnmap.c b/net/sctp/ssnmap.c
---- a/net/sctp/ssnmap.c	Sun Feb 15 21:34:49 2004
-+++ b/net/sctp/ssnmap.c	Sun Feb 15 21:34:49 2004
-@@ -40,6 +40,7 @@
- #include <net/sctp/sctp.h>
- #include <net/sctp/sm.h>
 
-+#define MAX_KMALLOC_SIZE	131072
+[2.] Full description of the problem/report:
 
- /* Storage size needed for map includes 2 headers and then the
-  * specific needs of in or out streams.
-@@ -56,11 +57,14 @@
- struct sctp_ssnmap *sctp_ssnmap_new(__u16 in, __u16 out, int gfp)
- {
- 	struct sctp_ssnmap *retval;
--	int order;
--
--	order = get_order(sctp_ssnmap_size(in,out));
--	retval = (struct sctp_ssnmap *)__get_free_pages(gfp, order);
-+	int size;
+I've recognized that the debug-mode ("2") with
+/proc/sys/net/ipv4/ip_dynaddr does not work correctly. In fact, if I do
+a "echo 2 > /proc/sys/net/ipv4/ip_dynaddr", nothing happens. There are no
+messages in the syslog, and there is no function of ip_dynaddr at all.
 
-+	size = sctp_ssnmap_size(in, out);
-+	if (size <= MAX_KMALLOC_SIZE)
-+		retval = kmalloc(size, gfp);
-+	else
-+		retval = (struct sctp_ssnmap *)
-+			  __get_free_pages(gfp, get_order(size));
- 	if (!retval)
- 		goto fail;
+If I use "echo 1 > /proc/sys/net/ipv4/ip_dynaddr", it works fine, of
+course without any debugging messages.
 
-@@ -73,7 +77,10 @@
- 	return retval;
+So it seems that the "2"-mode (debug output) does not work correctly
+with newer kernels (tested with 2.4.21 and 2.4.24)
 
- fail_map:
--	free_pages((unsigned long)retval, order);
-+	if (size <= MAX_KMALLOC_SIZE)
-+		kfree(retval);
-+	else
-+		free_pages((unsigned long)retval, get_order(size));
- fail:
- 	return NULL;
- }
-@@ -109,9 +116,13 @@
- void sctp_ssnmap_free(struct sctp_ssnmap *map)
- {
- 	if (map && map->malloced) {
--		free_pages((unsigned long)map,
--			   get_order(sctp_ssnmap_size(map->in.len,
--						      map->out.len)));
-+		int size;
-+
-+		size = sctp_ssnmap_size(map->in.len, map->out.len);
-+		if (size <= MAX_KMALLOC_SIZE)
-+			kfree(map);
-+		else
-+			free_pages((unsigned long)map, get_order(size));
- 		SCTP_DBG_OBJCNT_DEC(ssnmap);
- 	}
- }
 
-Thanks
-Sridhar
+[3.] Keywords (i.e., modules, networking, kernel):
+
+network, NAT, masquerading, dynamic ip
+
+
+[4.] Kernel version (from /proc/version):
+
+Linux version 2.4.24 (root@gandalf) (gcc version 2.95.4 20011002 (Debian
+prerelease)) #3 SMP Sun Feb 15 10:43:15 CET 2004
+
+
+[7.] Environment
+[7.1.] Software (add the output of the ver_linux script here)
+
+Linux gandalf 2.4.24 #3 SMP Sun Feb 15 10:43:15 CET 2004 i686 unknown
+ 
+Gnu C                  2.95.4
+Gnu make               3.79.1
+util-linux             2.11n
+mount                  2.11n
+modutils               2.4.15
+e2fsprogs              1.27
+PPP                    2.4.1
+isdn4k-utils           3.1pre4
+Linux C Library        2.3.1
+Dynamic linker (ldd)   2.3.1
+Procps                 2.0.7
+Net-tools              1.60
+Console-tools          0.2.3
+Sh-utils               2.0.11
+Modules Loaded         ppp_deflate zlib_deflate bsd_comp ppp_synctty
+nfsd parport_pc lp parport ipt_multiport ipt_LOG ipt_limit ipt_unclean
+iptable_mangle iptable_filter ipt_MASQUERADE ipt_REJECT iptable_nat
+ipt_state ip_conntrack_ftp ip_conntrack ip_tables ppp_generic slhc fcpci
+capi capifs kernelcapi capiutil printer uhci usbcore apm dmfe
+
+
+[7.3.] Module information (from /proc/modules):
+
+ppp_deflate             3008   0 (autoclean)
+zlib_deflate           18048   0 (autoclean) [ppp_deflate]
+bsd_comp                4032   0 (autoclean)
+ppp_synctty             5760   0 (autoclean)
+nfsd                   45920   4 (autoclean)
+parport_pc             25320   1 (autoclean)
+lp                      6528   0 (autoclean)
+parport                24704   1 (autoclean) [parport_pc lp]
+ipt_multiport            640   8 (autoclean)
+ipt_LOG                 3360   8 (autoclean)
+ipt_limit               1056   9 (autoclean)
+ipt_unclean             6784   1 (autoclean)
+iptable_mangle          2208   0 (autoclean) (unused)
+iptable_filter          1760   1 (autoclean)
+ipt_MASQUERADE          1504   0 (unused)
+ipt_REJECT              3264  18
+iptable_nat            16596   1 [ipt_MASQUERADE]
+ipt_state                608  20
+ip_conntrack_ftp        3936   0 (unused)
+ip_conntrack           21428   3 [ipt_MASQUERADE iptable_nat ipt_state
+ip_conntrack_ftp]
+ip_tables              12032  12 [ipt_multiport ipt_LOG ipt_limit
+ipt_unclean iptable_mangle iptable_filter ipt_MASQUERADE ipt_REJECT
+iptable_nat ipt_state]
+ppp_generic            23308   1 (autoclean) [ppp_deflate bsd_comp
+ppp_synctty]
+slhc                    4736   0 (autoclean) [ppp_generic]
+fcpci                 531008   3
+capi                   19360   8
+capifs                  3584   1 [capi]
+kernelcapi             30880   4 [fcpci capi]
+capiutil               22464   0 [kernelcapi]
+printer                 7776   0
+uhci                   25320   0 (unused)
+usbcore                60256   1 [printer uhci]
+apm                     9692   0 (unused)
+dmfe                   12348   1
+
+
+Bye,
+Michael
+
