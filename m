@@ -1,30 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BK PATCH] [IPV6] Merge Specification Conformity Improvements
-Date: Mon, 13 Sep 2004 13:49:25 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH][NET] generalise per socket slab cache use
+Date: Mon, 13 Sep 2004 14:17:41 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913134925.6e63c3bc.davem@davemloft.net>
-References: <20040913.231732.94153456.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.58.0409131410540.19499@localhost.localdomain>
+References: <200409110023.34342.acme@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, vnuorval@tcs.hut.fi
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S.Miller" <davem@redhat.com>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040913.231732.94153456.yoshfuji@linux-ipv6.org>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <200409110023.34342.acme@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004 23:17:32 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+Arnaldo,
 
-> Here're the changesets which improve conformity to 
-> the IPv6 specifications / standards.
-> 
-> Please pull from
->     <bk://bk.skbuff.net:20609/linux-2.6-ndp-20040913/>
+looks good, but i have a few comments. It is great that SCTP now has its own
+slabcaches.
 
-I am pulling this, thank you.
+> +struct ipv6_sk_offset raw_sock_offset = {
+> +     .offset = offsetof(struct udp6_sock, inet6),
+> +};
 
-There are at least two issues I wish to discuss and
-that will show up in a follow mail later today after
-I read these changes some more.
+I think there is a typo here. udp6_sock should be raw6_sock
+
+> -                printk(KERN_CRIT "%s: Can't create protocol sock SLAB "
+> -                    "caches!\n", __FUNCTION__);
+
+You have removed the above critical messages. Is this by intent or a mistake.
+
+I am not clear on why we need this new structure ipv6_sk_offset.
+> +struct ipv6_sk_offset {
+> +     int     offset;
+> +};
+> +
+
+Instead of adding the new field void *af_specific to struct proto, is it not
+sufficient to add
+        int     pinet6_offset;
+
+and assign it as follows for each v6 sock type
+        .pinet6_offset = offsetof(struct struct tcp6_sock, inet6)
+
+In inet6_sk_generic(), you can directly use sk->sk_prot->pinet6_offset.
+
+Thanks
+Sridhar
