@@ -1,40 +1,34 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [PATCH] convering bonding driver /proc interface to seq_file
-Date: Tue, 26 Aug 2003 10:45:16 +0300
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [OOPS] less /proc/net/igmp
+Date: Tue, 26 Aug 2003 17:32:26 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308261045.16910.shmulik.hen@intel.com>
-References: <E791C176A6139242A988ABA8B3D9B38A0251EB62@hasmsx403.iil.intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <20030826.173226.114994096.yoshfuji@linux-ipv6.org>
+References: <20030825163206.GA1340@penguin.penguin>
+	<20030826.150331.102449369.yoshfuji@linux-ipv6.org>
+	<1061878985.3463.2.camel@spider.hotmonkeyporn.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: "James Morris" <jmorris@intercode.com.au>,
-   <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Stephen Hemminger" <shemminger@osdl.org>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A0251EB62@hasmsx403.iil.intel.com>
+To: oford@arghblech.com
+In-Reply-To: <1061878985.3463.2.camel@spider.hotmonkeyporn.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 25 August 2003 10:27 pm, Stephen Hemminger wrote:
->
-> #ifndef PDE
-> #define PDE(i) ((struct proc_dir_entry *)(i)->u.generic_ip)
-> #endif
+Please CC: netdev.
 
-When you're right, you're right. We didn't know we could do that 
-safely in 2.4.
+In article <1061878985.3463.2.camel@spider.hotmonkeyporn.com> (at 26 Aug 2003 01:23:06 -0500), Owen Ford <oford@arghblech.com> says:
 
-How about the following suggestion:
-I'll take it as my personal commitment to implement the fix you've 
-suggested, along with that of James, but only after the 2.4<->2.6 
-synchronization is complete.
+> > I could not reproduce this issue.  anyone?
+> 
+> I can confirm. I have it with 2.6.0-test4.
+> 
+> Let me know what useful info I can provide.  The oops is the same.
 
-After all, my word is my bond(ing) :)
+Okay, everyone. I'll try to fix this.
 
 -- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
