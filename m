@@ -1,29 +1,34 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2.6] convert ipvs to module_param
-Date: Sun, 25 Jul 2004 00:45:57 +1000
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: Re: [AH6] Rearrange routing headers
+Date: Sun, 25 Jul 2004 02:22:22 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1090680357.4508.4.camel@bach>
-References: <20040723131142.13081ed3@dell_ss3.pdx.osdl.net>
+Message-ID: <200407250222.22934.kazunori@miyazawa.org>
+References: <20040724083709.GA9416@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, wensong@linux-vs.org,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040723131142.13081ed3@dell_ss3.pdx.osdl.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040724083709.GA9416@gondor.apana.org.au>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-07-24 at 06:11, Stephen Hemminger wrote:
->  #ifdef CONFIG_IP_VS_DEBUG
->  static int debug=0;
-> -MODULE_PARM(debug, "i");
-> +module_param(debug, int, 0);
->  #endif
+2004/07/24(土) 17:37、Herbert Xu  wrote:
+> Hi:
+>
+> This patch rearranges the IPv6 routing header so that the destination
+> addresses appear in the order as they would on the destination.  This
+> is specified in Appendix A2 of RFC 2402.
+>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>
+> Cheers,
 
-Sure you want 0 here?  Wouldn't it be nice to change it on the fly?
+I saw roughly the packet.
+It needs to check direction of the process.
+We don't need to do that in INBOUND.
 
-Rusty.
--- 
-Anyone who quotes me in their signature is an idiot -- Rusty Russell
+--Kazunori Miyazawa
