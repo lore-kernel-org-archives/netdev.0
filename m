@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Fri, 23 Jul 2004 13:54:59 -0700
+Date: Fri, 23 Jul 2004 13:57:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040723135459.2ee5c42c.davem@redhat.com>
+Message-ID: <20040723135744.70ee6d87.davem@redhat.com>
 References: <40F34740.5040100@trash.net>
 	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
 	<20040712205037.573411c0.davem@redhat.com>
@@ -26,22 +26,7 @@ List-Id: netdev.vger.kernel.org
 On Fri, 23 Jul 2004 19:14:48 +0200
 Patrick McHardy <kaber@trash.net> wrote:
 
-> Patrick McHardy wrote:
-> > I'm pretty sure x86, x86_64, alpha, sparc64, ppc64 and ia64 can
-> > be used. I'm not sure if the frequency of all ppcs is high enough,
-> > so I won't add support for them.
-> 
-> This is the patch for configurable clock source. I've double-checked
-> the arches, I think all mentioned above work fine. I've taken some text
-> from Stephen's patch for the help text .. thanks ;)
+> Dave, do you want me to provide patches for 2.4 as well ?
 
-We can't use this stuff on Alpha, it's cycle counter overflows after
-just 10 minutes.  It works very strangely, something like only the
-lower 32-bits are guarenteed to be continually incrementing.
-
-I'm going to apply your patch and delete the Alpha parts.
-Meanwhile, ping Richard Henderson (rth@redhat.com) or one
-of the other Alpha experts for me to get confirmation on
-this stuff.
-
-Thanks.
+Sure, give it a shot.  If it gets too ugly I may not take
+it though, so be warned :-)
