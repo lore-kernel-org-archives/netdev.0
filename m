@@ -1,29 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Wed, 22 Dec 2004 06:07:52 -0500
-Message-ID: <20041222110752.GA11969@havoc.gtf.org>
-References: <41C71FFD.7090308@pobox.com> <OFD729E7DA.203E1D4A-ONC1256F72.003B7A8E-C1256F72.003C1150@de.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
+Date: Wed, 22 Dec 2004 13:39:41 +0100
+Message-ID: <20041222123940.GA4241@electric-eye.fr.zoreil.com>
+References: <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com> <20041221204853.GA20869@electric-eye.fr.zoreil.com> <20041221212737.GK5974@waste.org> <20041221225831.GA20910@electric-eye.fr.zoreil.com> <41C93FAB.9090708@trash.net> <41C9525F.4070805@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, hadi@cyberus.ca,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>,
-        Tommy Christensen <tommy.christensen@tpack.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Spatzier <thomas.spatzier@de.ibm.com>
+Cc: Matt Mackall <mpm@selenic.com>,
+	Mark Broadbent <markb@wetlettuce.com>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261979AbULVMmR@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <OFD729E7DA.203E1D4A-ONC1256F72.003B7A8E-C1256F72.003C1150@de.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <41C9525F.4070805@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 22, 2004 at 11:56:06AM +0100, Thomas Spatzier wrote:
-> on cable reconnected:
->       netif_carrier_on();
->       netif_wake_queue();
+Patrick McHardy <kaber@trash.net> :
+[...]
+> at least the queued messages ordered. But you need to grab
+> dev->queue_lock, otherwise you risk corrupting qdisc internal data.
+> You should probably also deal with the noqueue-qdisc, which doesn't
+> have an enqueue function. So it should look something like this:
 
-Side note to all driver authors, make sure you only ever start or
-wake the queue if there is truly space available for another skb.
+If I am not mistaken, a failure on spin_trylock + the test on
+xmit_lock_owner imply that it is safe to directly handle the
+queue. It means that qdisc_run() has been interrupted on the
+current cpu and the other paths seem fine as well. Counter-example
+is welcome (no joke).
 
-	Jeff
+Of course the patch is completely ugly and violates any layering
+principle one could think of. It was not submitted for inclusion :o)
+
+> while (!spin_trylock(&np->dev->xmit_lock)) {
+> 	if (np->dev->xmit_lock_owner == smp_processor_id()) {
+> 		struct Qdisc *q;
+> 
+> 		rcu_read_lock();
+> 		q = rcu_dereference(dev->qdisc);
+> 		if (q->enqueue) {
+> 			spin_lock(&dev->queue_lock);
+
+I'd expect it to deadlock if dev_queue_xmit -> qdisc_run is interrupted
+on the current cpu and a printk is issued as dev->queue_lock will have
+been taken elsewhere.
+
+--
+Ueimor
