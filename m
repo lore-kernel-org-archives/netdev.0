@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 6/10] [bonding 2.6] fix OOPS in bonding driver, when removing primary
-Date: Thu, 4 Sep 2003 20:45:07 +0300
+Subject: [PATCH 5/10] [bonding 2.6] fix change active command
+Date: Thu, 4 Sep 2003 20:44:55 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309042045.07050.amir.noam@intel.com>
+Message-ID: <200309042044.55232.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -13,27 +13,40 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:05 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:06 2003
-@@ -1941,6 +1941,10 @@ static int bond_release(struct net_devic
- 			/* release the slave from its bond */
- 			bond_detach_slave(bond, our_slave);
+--- a/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:02 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:03 2003
+@@ -1720,20 +1720,29 @@ static int bond_change_active(struct net
+ 		}
+ 	}
  
-+			if (bond->primary_slave == our_slave) {
-+				bond->primary_slave = NULL;
-+			}
++	/*
++	 * Changing to the current active: do nothing; return success.
++	 */
++	if (newactive && (newactive == oldactive)) {
++		write_unlock_bh(&bond->lock);
++		return 0;
++	}
 +
- 			printk (KERN_INFO "%s: releasing %s interface %s",
- 				master->name,
- 				(our_slave->state == BOND_STATE_ACTIVE) ? "active" : "backup",
-@@ -1957,10 +1961,6 @@ static int bond_release(struct net_devic
- 				printk(KERN_INFO
- 					"%s: now running without any active interface !\n",
- 					master->name);
--			}
--
--			if (bond->primary_slave == our_slave) {
--				bond->primary_slave = NULL;
- 			}
- 
- 			if ((bond_mode == BOND_MODE_TLB) ||
+ 	if ((newactive != NULL)&&
+ 	    (oldactive != NULL)&&
+-	    (newactive != oldactive)&&
+ 	    (newactive->link == BOND_LINK_UP)&&
+ 	    IS_UP(newactive->dev)) {
+-		bond_set_slave_inactive_flags(oldactive);
+-		bond_set_slave_active_flags(newactive);
++		if (bond_mode == BOND_MODE_ACTIVEBACKUP) {
++			bond_set_slave_inactive_flags(oldactive);
++			bond_set_slave_active_flags(newactive);
++		}
++
+ 		bond_mc_update(bond, newactive, oldactive);
+ 		bond_assign_current_slave(bond, newactive);
+ 		printk("%s : activate %s(old : %s)\n",
+ 			master_dev->name, newactive->dev->name, 
+ 			oldactive->dev->name);
+-	}
+-	else {
++	} else {
+ 		ret = -EINVAL;
+ 	}
+ 	write_unlock_bh(&bond->lock);
