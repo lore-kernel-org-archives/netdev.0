@@ -1,193 +1,167 @@
-From: Krishna Kumar <kumarkr@us.ibm.com>
-Subject: Re: Kernel Panic
-Date: Tue, 10 Feb 2004 17:16:52 -0800
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Wed, 11 Feb 2004 03:52:05 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF67EB6530.F0E7FBBC-ON88256E37.0006CCC0@us.ibm.com>
+Message-ID: <Pine.LNX.4.58.0402110349260.1325@u.domain.uli>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
+ <1076338874.1026.36.camel@jzny.localdomain>  <Pine.LNX.4.58.0402100008580.1251@u.domain.uli>
+  <1076367038.1037.15.camel@jzny.localdomain>  <Pine.LNX.4.58.0402100114020.1251@u.domain.uli>
+  <1076376094.1039.102.camel@jzny.localdomain>  <Pine.LNX.4.58.0402101028400.1158@u.domain.uli>
+ <1076410090.1039.578.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/related;
-	Boundary="0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50"
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Niranjan <niranjan_cs2905@yahoo.com>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1076410090.1039.578.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
-Content-type: multipart/alternative;
-	Boundary="1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50"
 
---1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
-Content-type: text/plain; charset=UTF-8
-Content-transfer-encoding: base64
+	Hello,
 
+On Tue, 10 Feb 2004, jamal wrote:
 
-DQoNCg0KDQpZb3UgbmVlZCB0byBzcGVjaWZ5IHRoZSBrZXJuZWwgdmVyc2lvbiB5b3UgYXJlIHJ1
-bm5pbmcsIHBsdXMgYWxsIG90aGVyDQp2YXJpYWJsZXMgd2hpY2ggY2F1c2VzIHRoaXMgcGFuaWMu
-DQpBIG9iamR1bXAgb2YgcGFuaWNpbmcgY29kZSAoZGV2X3F1ZXVlX3htaXQgPyBub3QgbmVjZXNz
-YXJpbHksIHdoYXQgYWJvdXQNCmVpcCBhbmQgcmVnaXN0ZXIvc3RhY2ssIGV0Yw0KdGhhdCBoYXZl
-IHNjcm9sbGVkIG91dCBvZiB0aGUgc2NyZWVuKSB3aWxsIGJlIHVzZWZ1bC4gVXNlIHNlcmlhbCBj
-b25zb2xlDQooZG9jdW1lbnRhdGlvbiBpcyBwcmVzZW50IGluDQpzZXJpYWwtY29uc29sZS50eHQp
-IHRvIGdldCBmdWxsIGR1bXAgaW5mb3JtYXRpb24uDQoNCi0gS0sNCg0KDQoNCnwtLS0tLS0tLS0r
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLT4NCnwgICAgICAgICB8ICAgICAgICAgICBOaXJh
-bmphbiAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAgICAgICA8bmlyYW5qYW5fY3MyOTA1QHwN
-CnwgICAgICAgICB8ICAgICAgICAgICB5YWhvby5jb20+ICAgICAgIHwNCnwgICAgICAgICB8ICAg
-ICAgICAgICBTZW50IGJ5OiAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAgICAgICBuZXRkZXYt
-Ym91bmNlQG9zc3wNCnwgICAgICAgICB8ICAgICAgICAgICAuc2dpLmNvbSAgICAgICAgIHwNCnwg
-ICAgICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIHwNCnwgICAgICAgICB8ICAgICAgICAgICAwMi8xMC8yMDA0
-IDA0OjMyIHwNCnwgICAgICAgICB8ICAgICAgICAgICBQTSAgICAgICAgICAgICAgIHwNCnwgICAg
-ICAgICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCnwtLS0tLS0tLS0rLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLT4NCiAgPi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfA0KICB8ICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8DQogIHwgICAgICAgVG86ICAgICAgIG5ldGRl
-dkBvc3Muc2dpLmNvbSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCiAgfCAgICAgICBjYzogICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfA0KICB8ICAgICAgIFN1Ympl
-Y3Q6ICBLZXJuZWwgUGFuaWMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8DQogIHwgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwNCiAgPi0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfA0K
-DQoNCg0KDQpIaSwNCkkgYW0gdHJ5aW5nIHRvIGFkZCBjcnlwdG9hcGkgc3VwcG9ydCBpbiB3aXJl
-bGVzcyBMQU4gZHJpdmVyIChsaW51eC13bGFuLW5nDQpmb3IgUHJpc20gYmFzZWQgY2FyZCkgZm9y
-IG15IHNlY3VyaXR5IHByb2plY3QuDQpXaGlsZSBkb2luZyBzbywgSSBhbSBnZXR0aW5nIGEga2Vy
-bmVsIHBhbmljLiBJIGFtIG5vdCBhYmxlIHRvIGRlYnVnIGl0IGFzDQp0aGVyZSBpcyBubyBsb2dn
-aW5nIG9mIGFueSBpbmZvcm1hdGlvbiByZWxhdGVkIHRvIGtlcm5lbCBwYW5pYyBpbiB0aGUgbG9n
-DQpmaWxlcyAoL3Zhci9sb2cvbWVzc2FnZXMgb3IgL3Zhci9sb2cvZG1lc2cpIHdoZW4gSSByZWJv
-b3QgdGhlIHN5c3RlbS4gSQ0KaGF2ZSBhdHRhY2hlZCB0aGUgbG9nIGJlbG93IGF2YWlsYWJsZSBv
-biB0aGUgc2NyZWVuLg0KQ2FuIGFueW9uZSBwbGVhc2UgaGVscCBtZSBpbiB3aGF0IGNhbiBiZSBw
-b3NzaWJsZSBlcnJvciBieSBsb29raW5nIGF0IHRoZQ0KbG9nID8NCkkgd2lsbCBncmVhdGx5IGFw
-cHJlY2lhdGUgYW55IGhlbHAgaW4gdGhpcyBtYXR0ZXIuDQoNClJlZ2FyZHMsDQotTmlyYW5qYW4N
-ClJlc2VhcmNoIEFzc2lzdGFudCwgVU1BU1MuDQoNCkxvZyBhdmFpbGFibGUgb24gdGhlIHNjcmVl
-bjoNCg0KLi4uLi4uDQouLi4uLi4NCls8YzAxZjU4NTA+XSAgZGV2X3F1ZXVlX3htaXQgICAgICAg
-ICAgIFtrZXJuZWxdICAgICAgICAgICAgMHgyMTANCigweGMwMzRkZTA0KSkNCls8YzAxZjk4ZWM+
-XSAgIG5laWdoX3Jlc29sdmVfb3V0cHV0ICAgIFtrZXJuZWxdICAgICAgICAgICAgMHhlYw0KKDB4
-YzAzNGRlMWMpKQ0KICAgICAgICAgICAgICAgICAgICAgICAgbmVpZ2hfdXBkYXRlDQogICAgICAg
-ICAgICAgICAgICAgICAgICBuZWlnaF9sb29rdXANCiAgICAgICAgICAgICAgICAgICAgICAgIGFy
-cF9wcm9jZXNzDQogICAgICAgICAgICAgICAgICAgICAgICBuZXRpZl9yZWNlaXZlX3NrYg0KICAg
-ICAgICAgICAgICAgICAgICAgICAgcHJvY2Vzc19iYWNrbG9nDQogICAgICAgICAgICAgICAgICAg
-ICAgICBuZXRfcnhfYWN0aW9uDQogICAgICAgICAgICAgICAgICAgICAgICBkb19zb2Z0aXJxDQog
-ICAgICAgICAgICAgICAgICAgICAgICBkb19JUlENCiAgICAgICAgICAgICAgICAgICAgICAgIGNh
-bGxfZG9fSVJRDQogICAgICAgICAgICAgICAgICAgICAgICBkdW1wX2ZwdQ0KICAgICAgICAgICAg
-ICAgICAgICAgICAgYXBtX2Jpb3NfY2FsbF9zaW1wbGUNCiAgICAgICAgICAgICAgICAgICAgICAg
-IGFwbV9kb19pZGxlDQogICAgICAgICAgICAgICAgICAgICAgICBhcG1fY3B1X2lkbGUNCiAgICAg
-ICAgICAgICAgICAgICAgICAgIGFwbV9jcHVfaWRsZQ0KICAgICAgICAgICAgICAgICAgICAgICAg
-ZGVmYXVsdF9pZGxlDQogICAgICAgICAgICAgICAgICAgICAgIGNwdV9pZGxlDQpbPGMwMTAxNTAw
-MD4gc3RleHQgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFtrZXJuZWxdICAgICAgICAgICAg
-MHgwDQooMHhjMDM0ZGZlMCkpDQoNCkNvZGU6ICAgMGYgMGIgZTIgM2YgZDcgMjUgYzAgZTkgNzcg
-ZmQgZmYgZmYgOGQgYjQgMjYgMDAgMDAgMDAgMDANCiA8MD5LZXJuZWwgUGFuaWM6IEFpZWUsIGtp
-bGxpbmcgaW50ZXJydXB0IGhhbmRsZXIhDQpJbiBpbnRlcnJ1cHQgaGFuZGxlciDigJMgbm90IHN5
-bmNpbmcNCg0KDQpEbyB5b3UgWWFob28hPw0KWWFob28hIEZpbmFuY2U6IEdldCB5b3VyIHJlZnVu
-ZCBmYXN0IGJ5IGZpbGluZyBvbmxpbmUNCg0KDQoNCg0K
+> I believe it would work even if there is no neighbor resolved yet.
+> i.e it depends only on a route being resolvable not necessarily
+> having the next hop existing already in arp cache. Try get on some host
 
---1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
-Content-type: text/html; charset=UTF-8
-Content-Disposition: inline
-Content-transfer-encoding: base64
+	Yes, I tried it on empty system, just ip route get -> NUD_NONE.
 
-PGh0bWw+PGJvZHk+DQo8cD5Zb3UgbmVlZCB0byBzcGVjaWZ5IHRoZSBrZXJuZWwgdmVyc2lvbiB5
-b3UgYXJlIHJ1bm5pbmcsIHBsdXMgYWxsIG90aGVyIHZhcmlhYmxlcyB3aGljaCBjYXVzZXMgdGhp
-cyBwYW5pYy48YnI+DQpBIG9iamR1bXAgb2YgcGFuaWNpbmcgY29kZSAoZGV2X3F1ZXVlX3htaXQg
-PyBub3QgbmVjZXNzYXJpbHksIHdoYXQgYWJvdXQgZWlwIGFuZCByZWdpc3Rlci9zdGFjaywgZXRj
-PGJyPg0KdGhhdCBoYXZlIHNjcm9sbGVkIG91dCBvZiB0aGUgc2NyZWVuKSB3aWxsIGJlIHVzZWZ1
-bC4gVXNlIHNlcmlhbCBjb25zb2xlIChkb2N1bWVudGF0aW9uIGlzIHByZXNlbnQgaW48YnI+DQpz
-ZXJpYWwtY29uc29sZS50eHQpIHRvIGdldCBmdWxsIGR1bXAgaW5mb3JtYXRpb24uPGJyPg0KPGJy
-Pg0KLSBLSzxicj4NCjxicj4NCjxpbWcgc3JjPSIvaWNvbnMvZ3JheWNvbC5naWYiIHdpZHRoPSIx
-NiIgaGVpZ2h0PSIxNiIgYWx0PSJJbmFjdGl2ZSBoaWRlIGRldGFpbHMgZm9yIE5pcmFuamFuICZs
-dDtuaXJhbmphbl9jczI5MDVAeWFob28uY29tJmd0OyI+TmlyYW5qYW4gJmx0O25pcmFuamFuX2Nz
-MjkwNUB5YWhvby5jb20mZ3Q7PGJyPg0KPGJyPg0KPGJyPg0KDQo8dGFibGUgVjVET1RCTD10cnVl
-IHdpZHRoPSIxMDAlIiBib3JkZXI9IjAiIGNlbGxzcGFjaW5nPSIwIiBjZWxscGFkZGluZz0iMCI+
-DQo8dHIgdmFsaWduPSJ0b3AiPjx0ZCB3aWR0aD0iMSUiPjxpbWcgc3JjPSIvaWNvbnMvZWNibGFu
-ay5naWYiIGJvcmRlcj0iMCIgaGVpZ2h0PSIxIiB3aWR0aD0iNzIiIGFsdD0iIj48YnI+DQo8L3Rk
-Pjx0ZCBzdHlsZT0iYmFja2dyb3VuZC1pbWFnZTp1cmwoY2lkOjEwX189MDdCQkU0QTRERjk1NEE1
-MDhmOWU4YTkzZGY5MzhAdXMuaWJtLmNvbSk7IGJhY2tncm91bmQtcmVwZWF0OiBuby1yZXBlYXQ7
-ICIgd2lkdGg9IjElIj48aW1nIHNyYz0iL2ljb25zL2VjYmxhbmsuZ2lmIiBib3JkZXI9IjAiIGhl
-aWdodD0iMSIgd2lkdGg9IjIyNSIgYWx0PSIiPjxicj4NCg0KPHVsPg0KPHVsPg0KPHVsPg0KPHVs
-PjxiPjxmb250IHNpemU9IjIiPk5pcmFuamFuICZsdDtuaXJhbmphbl9jczI5MDVAeWFob28uY29t
-Jmd0OzwvZm9udD48L2I+PGJyPg0KPGZvbnQgc2l6ZT0iMiI+U2VudCBieTogbmV0ZGV2LWJvdW5j
-ZUBvc3Muc2dpLmNvbTwvZm9udD4NCjxwPjxmb250IHNpemU9IjIiPjAyLzEwLzIwMDQgMDQ6MzIg
-UE08L2ZvbnQ+PC91bD4NCjwvdWw+DQo8L3VsPg0KPC91bD4NCjwvdGQ+PHRkIHdpZHRoPSIxMDAl
-Ij48aW1nIHNyYz0iL2ljb25zL2VjYmxhbmsuZ2lmIiBib3JkZXI9IjAiIGhlaWdodD0iMSIgd2lk
-dGg9IjEiIGFsdD0iIj48YnI+DQo8Zm9udCBzaXplPSIxIiBmYWNlPSJBcmlhbCI+CTwvZm9udD48
-YnI+DQo8Zm9udCBzaXplPSIyIj4JVG86CTwvZm9udD48Zm9udCBzaXplPSIyIj5uZXRkZXZAb3Nz
-LnNnaS5jb208L2ZvbnQ+PGJyPg0KPGZvbnQgc2l6ZT0iMiI+CWNjOgk8L2ZvbnQ+PGJyPg0KPGZv
-bnQgc2l6ZT0iMiI+CVN1YmplY3Q6CTwvZm9udD48Zm9udCBzaXplPSIyIj5LZXJuZWwgUGFuaWM8
-L2ZvbnQ+PC90ZD48L3RyPg0KPC90YWJsZT4NCjxicj4NCjxicj4NCjxmb250IHNpemU9IjQiIGZh
-Y2U9IlRpbWVzIE5ldyBSb21hbiI+SGksPGJyPg0KSSBhbSB0cnlpbmcgdG8gYWRkIGNyeXB0b2Fw
-aSBzdXBwb3J0IGluIHdpcmVsZXNzIExBTiBkcml2ZXIgKGxpbnV4LXdsYW4tbmcgZm9yIFByaXNt
-IGJhc2VkIGNhcmQpIGZvciBteSBzZWN1cml0eSBwcm9qZWN0LiAgPGJyPg0KV2hpbGUgZG9pbmcg
-c28sIEkgYW0gZ2V0dGluZyBhIGtlcm5lbCBwYW5pYy4gSSBhbSBub3QgYWJsZSB0byBkZWJ1ZyBp
-dCBhcyB0aGVyZSBpcyBubyBsb2dnaW5nIG9mIGFueSBpbmZvcm1hdGlvbiByZWxhdGVkIHRvIGtl
-cm5lbCBwYW5pYyBpbiB0aGUgbG9nIGZpbGVzICgvdmFyL2xvZy9tZXNzYWdlcyBvciAvdmFyL2xv
-Zy9kbWVzZykgd2hlbiBJIHJlYm9vdCB0aGUgc3lzdGVtLiBJIGhhdmUgYXR0YWNoZWQgdGhlIGxv
-ZyBiZWxvdyBhdmFpbGFibGUgb24gdGhlIHNjcmVlbi48YnI+DQpDYW4gYW55b25lIHBsZWFzZSBo
-ZWxwIG1lIGluIHdoYXQgY2FuIGJlIHBvc3NpYmxlIGVycm9yIGJ5IGxvb2tpbmcgYXQgdGhlIGxv
-ZyA/PC9mb250Pjxicj4NCjxmb250IHNpemU9IjQiIGZhY2U9IlRpbWVzIE5ldyBSb21hbiI+SSB3
-aWxsIGdyZWF0bHkgYXBwcmVjaWF0ZSBhbnkgaGVscCBpbiB0aGlzIG1hdHRlci48YnI+DQo8YnI+
-DQpSZWdhcmRzLDxicj4NCi1OaXJhbmphbjxicj4NClJlc2VhcmNoIEFzc2lzdGFudCwgVU1BU1Mu
-PC9mb250Pjxicj4NCjxmb250IHNpemU9IjQiIGZhY2U9IlRpbWVzIE5ldyBSb21hbiI+PGJyPg0K
-TG9nIGF2YWlsYWJsZSBvbiB0aGUgc2NyZWVuOjxicj4NCjxicj4NCi4uLi4uLjxicj4NCi4uLi4u
-Ljxicj4NCjxjMDFmNTg1MD4gIGRldl9xdWV1ZV94bWl0ICAgICAgICAgICBba2VybmVsXSAgICAg
-ICAgICAgIDB4MjEwICAoMHhjMDM0ZGUwNCkpPGJyPg0KPGMwMWY5OGVjPiAgIG5laWdoX3Jlc29s
-dmVfb3V0cHV0ICAgIFtrZXJuZWxdICAgICAgICAgICAgMHhlYyAgICAgKDB4YzAzNGRlMWMpKTxi
-cj4NCiAgICAgICAgICAgICAgICAgICAgICAgIG5laWdoX3VwZGF0ZTxicj4NCiAgICAgICAgICAg
-ICAgICAgICAgICAgIG5laWdoX2xvb2t1cDxicj4NCiAgICAgICAgICAgICAgICAgICAgICAgIGFy
-cF9wcm9jZXNzPGJyPg0KICAgICAgICAgICAgICAgICAgICAgICAgbmV0aWZfcmVjZWl2ZV9za2I8
-YnI+DQogICAgICAgICAgICAgICAgICAgICAgICBwcm9jZXNzX2JhY2tsb2c8YnI+DQogICAgICAg
-ICAgICAgICAgICAgICAgICBuZXRfcnhfYWN0aW9uPGJyPg0KICAgICAgICAgICAgICAgICAgICAg
-ICAgZG9fc29mdGlycTxicj4NCiAgICAgICAgICAgICAgICAgICAgICAgIGRvX0lSUTxicj4NCiAg
-ICAgICAgICAgICAgICAgICAgICAgIGNhbGxfZG9fSVJRPGJyPg0KICAgICAgICAgICAgICAgICAg
-ICAgICAgZHVtcF9mcHU8YnI+DQogICAgICAgICAgICAgICAgICAgICAgICBhcG1fYmlvc19jYWxs
-X3NpbXBsZTxicj4NCiAgICAgICAgICAgICAgICAgICAgICAgIGFwbV9kb19pZGxlPGJyPg0KICAg
-ICAgICAgICAgICAgICAgICAgICAgYXBtX2NwdV9pZGxlPGJyPg0KICAgICAgICAgICAgICAgICAg
-ICAgICAgYXBtX2NwdV9pZGxlPGJyPg0KICAgICAgICAgICAgICAgICAgICAgICAgZGVmYXVsdF9p
-ZGxlPGJyPg0KICAgICAgICAgICAgICAgICAgICAgICBjcHVfaWRsZTxicj4NCjxjMDEwMTUwMDA+
-IHN0ZXh0ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBba2VybmVsXSAgICAgICAgICAgIDB4
-MCAgICAgICgweGMwMzRkZmUwKSkNCiANCkNvZGU6ICAgMGYgMGIgZTIgM2YgZDcgMjUgYzAgZTkg
-NzcgZmQgZmYgZmYgOGQgYjQgMjYgMDAgMDAgMDAgMDANCiA8MD5LZXJuZWwgUGFuaWM6IEFpZWUs
-IGtpbGxpbmcgaW50ZXJydXB0IGhhbmRsZXIhPC9mb250Pg0KSW4gaW50ZXJydXB0IGhhbmRsZXIg
-4oCTIG5vdCBzeW5jaW5nDQpEbyB5b3UgWWFob28hPw0KWWFob28hIEZpbmFuY2U6IDxhIGhyZWY9
-Imh0dHA6Ly91cy5yZC55YWhvby5jb20vZXZ0PTIyMDU1LypodHRwOi8vdGF4ZXMueWFob28uY29t
-L2ZpbGluZy5odG1sIj5HZXQgeW91ciByZWZ1bmQgZmFzdCBieSBmaWxpbmcgb25saW5lPC9hPg0K
-DQoNCjwvYm9keT48L2h0bWw+
+> that doesnt exist in cache yet - try on some fake address on a directly
+> connected subnet (make sure you pick a host that doesnt exist and
+> therefore will never be reached).
 
+	I did it during my initial tests and now I tested it
+again, looks as expected.
 
---1__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50--
+> > 	Yes, requestor can be in PROBE state sending unicasts
+> > but for us the target can be already unreachable.
+>
+> This is true; what i am saying is for this to happen more than likely
+> something odd must have happened ex: the cable towards the target may
+> have been pulled.i.e the chances of this happening just because the
+> arp cache expired are low. The arp cache would exist because the
+> initial states would have created it.
 
+	Yes, target can exist in the cache in NUD_FAILED without
+timer. But it is possible if we send probe to receive answer.
+So, before calling neigh_event_send we can see that the target entry
+is in one of these states:
 
---0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50
-Content-type: image/gif;
-	name="pic03043.gif"
-Content-Disposition: inline; filename="pic03043.gif"
-Content-ID: <10__=07BBE4A4DF954A508f9e8a93df938@us.ibm.com>
-Content-transfer-encoding: base64
+a) NUD_NONE - just created, nobody uses it, will go to NUD_INCOMPLETE
+	with timer on neigh_event_send
+b) NUD_INCOMPLETE - we are probing it with broadcasts, timer is running,
+	will continue with the probes
+c) NUD_FAILED - no timer pending, will go to NUD_INCOMPLETE to refresh
+	the state
+d) NUD_VALID - stale/probed/delayed/reachable (probably start delay+probe
+process). STALE looks like valid state but can be outdated - the
+routing cache can keep it for minutes. We can only hope that the
+user has all timeouts configured properly and this period is short.
 
-R0lGODlhWABDALP/AAAAAK04Qf79/o+Gm7WuwlNObwoJFCsoSMDAwGFsmIuezf///wAAAAAAAAAA
-AAAAACH5BAEAAAgALAAAAABYAEMAQAT/EMlJq704682770RiFMRinqggEUNSHIchG0BCfHhOjAuh
-EDeUqTASLCbBhQrhG7xis2j0lssNDopE4jfIJhDaggI8YB1sZeZgLVA9YVCpnGagVjV171aRVrYR
-RghXcAGFhoUETwYxcXNyADJ3GlcSKGAwLwllVC1vjIUHBWsFilKQdI8GA5IcpApeJQt8L09lmgkH
-LZikoU5wjqcyAMMFrJIDPAKvCFletKSev1HBw8KrxtjZ2tvc3d5VyKtCKW3jfz4uMKmq3xu4N0nK
-BVoJQmx2LGVOmrqNjjJf2hHAQo/eDwJGTKhQMcgQEEAnEjFS98+RnW3smGkZU6ncCWav/4wYOnAI
-TihRL/4FEwbp28BXMMcoscQCVxlepL4IGDSCyJyVQOu0o7CjmLN50OZlqWmyFy5/6yBBuji0AxFR
-M00oQAqNIstqI6qKHUsWRAEAvagsmfUEAImyxgbmUpJk3IklNUtJOUAVLoUr1+wqDGTE4zk+T6FG
-uQb3SizBCwatiiUgCBN8vrz+zFjVyQ8FWkOlg4NQiZMB5QS8QO3mpOaKnL0Z2EKvNMSILEThKhCg
-zMKPVxYJh23qm9KNW7pArPynMqZDiErsTMqI+LRi3QAgkFUbXpuFKhSYZALd0O5RKa2z9EYKBbpb
-qxIKsjUPRgD7I2XYV6wyrOw92ykExP8NW4URhknC5dKGE4v4NENQj2jXjmfNgOZDaXb5glRmXQ33
-YEWQYNcZFnrYcIQLNzyTFDQNkXIff0ExVlY4srziQk43inZgL4rwxxINMvpFFAz1KOODHiu+4aEw
-NEjFl5B3JIKWKF3k6I9bfUGp5ZZcdunll5IA4cuHvQQJ5gcsoCWOOUwgltIwAKRxJgbIkJAQZEq0
-2YliZnpZZ4BH3CnYOXldOUOfQoYDqF1LFHbXCrO8xmRsfoXDXJ6ChjCAH3QlhJcT6VWE6FCkfCco
-CgrMFsROrIEX3o2whVjWDjoJccN3LdggSGXLCdLEgHr1lyU3O3QxhgohNKXJCWv8JQr/PDdaqd6w
-2rj1inLiGeiCJoDspAoQlYE6QWLSECehcWIYxIQES6zhbn1iImTHEQyqJ4eIxJJoUBc+3CbBuwZE
-V5cJPPkIjFDdeEabQbd6WgICTxiiz0f5dBKquXF6k4senwEhYGnKEFJeGrxUZy8dB8gmAXI/sPvH
-ESfCwVt5hTgYiqQqtdRNHQIU1PJ33ZqmzgE90OwLaoJcnMop1WiMmgkPHQRIrwgFuNV90A3doNKT
-mrKIN07AnGcI9BQjhCBN4RfA1qIZnMqorJCogKfGQnxSCDilTVIA0yl5ciTovgLuBDKFUDE9aQcw
-9SA+rjSNf9/M1gxrj6VwDTS0IUSElMzBfsj0NFXR2kwsV1A5IF1grLgLL/r1R40BZEnuBWgmQEyb
-jqRwSAt6bqMCOFkvKFN2GPPkUzIm/SCF8z8pVzpbjVnMsy0vOr1hw3SaSRUhpY09v0z0J1FnwzPl
-fmh+xl4WtR0zGu24I4KbMQm3lnVu2oNWxI9W/lcyzA+mCKF4DBikxb/+UWtOGRiFP8qEwAayIgIA
-Ow==
+	So, if the entry is not valid we can check if ->probes
+ensures at least "2 brd probes sent" (probes >= ucast_probes+2).
+This means "we have no answer for the 1st probe" and allows us
+to stop queueing requests. So, we need to queue requests
+only if probes < ucast_probes+2 (cases a, c and sometimes b).
+Of course, if the entry is valid we will queue the brd requests.
+Do you like such checks instead of adding new flag? Or the wishes
+are already too many to continue with this patch?
 
---0__=07BBE4A4DF954A508f9e8a93df938690918c07BBE4A4DF954A50--
+	If you prefer you can take the 20 lines of code from
+http://www.ssi.bg/~ja/tmp/arp_proxy-2.6.2-1.diff and to write
+a pseudo-C example how you feel the handling should be.
+
+	For now I'm adding this:
+
+out_delay:
+	/*
+	 * Do not enqueue requests after sending the 2nd brd probe,
+	 * assume the target will be down for long time
+	 */
+	if (delay && atomic_read(&n->probes) < n->parms->ucast_probes + 2) {
+		pneigh_enqueue(&arp_tbl, in_dev->arp_parms, skb);
+		skb = NULL;
+	}
+	goto out;
+
+> > 2. we lie and send false answers to unicast probes, for long time
+> > after target becomes unreachable
+>
+> This is current behavior; i wouldnt say we lie rather we send educated
+> response back.
+
+	To clear this issue, do you mean this case 2 is for entry in
+STALE state? And because we are not probing it its state in our cache is
+outdated. You prefer in this case to send answer, right? Because I
+do not see a good reason to send answer for FAILED/INCOMPLETE/NONE.
+And because STALE is part of VALID we always will send answer,
+no matter brd/uni. I do not see where we need to send ARP reply
+for !NUD_VALID.
+
+> > I can agree with you (for case 2) only if the requestor is
+> > not going to send unicast probes forever.
+>
+> Thats why i asked if you are trying to catch insane implementation.
+> In my case everything is Linux. Ok, theres some pollution with
+> a CISCO upstream, but that seems to have a sane arp too.
+> Leave #2 with a flag to ask for for neigh_event_send() to be used
+> when needed.
+
+	I only worry if you want to send replies to unicast
+probes in FAILED/INCOMPLETE/NONE state. If we have valid neighbour,
+even STALE one, we can send reply no matter the uni/brd type.
+brd/uni are differently treated only for the delay but we should
+ignore both uni and brd requests if the entry is !VALID.
+
+	I think, it is not enough the flag to control whether
+neigh_event_send is used, if the flag is 0 you want also to
+send replies in !VALID state (as before) because nobody will
+send us IP traffic without receiving answer from us - only
+IP traffic can originate resolution in such case. For now, I
+see that the flag can be only in this way (on output interface?):
+
+- 0: (default, as before): send answers in !VALID, do not use
+neigh_event_send. The problem with the old behaviour is that
+we always send answer, even in !VALID.
+
+- 1: (new): do not send answers in !VALID, use neigh_event_send
+
+	do you mean the same?
+
+> I dont question the validity of this portion of your patch.
+> i.e it is an improvement in certain cases - the cost is only an extra
+> neigh_event_send(). But because it is not needed 100% of the time given
+
+	And I do not see any cost in using neigh_event_send,
+you are always going to fire the resolution process, now with ARP
+probes or later with IP traffic in the default mode. The ARP
+traffic to/from target will be equal in both cases.
+
+> the educated assumption being made right now, i think the behavior
+> should be configurable. For me #2 breaks only if the target dissapeares
+> (cable gone or target removed).
+
+	I hope you can clarify your idea with pseudo-C example :)
+
+> > > Exactly my setup. So in this case i think this feature should stay.
+> >
+> > 	So, how are we going to support it? Additional flag?
+> > If we do not support it we are going to drop the first request
+> > and to answer the next one. Or may be we can introduce delay?
+>
+> We should support it. It should just be turned off by default.
+> It seems to me it should be per device flag with ability to turn it off
+> for all devices too, no?
+
+	Yes, the flag can be (all/flag || iface/flag), no problem with
+that :)
+
+> cheers,
+> jamal
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
