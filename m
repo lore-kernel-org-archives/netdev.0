@@ -1,74 +1,72 @@
-From: Andreas Jellinghaus <aj@dungeon.inka.de>
-Subject: Re: ipsec without interface
-Date: 01 Jul 2003 15:33:24 +0200
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: [patch][bonding] Fix change active for ALB/TLB
+Date: Tue, 1 Jul 2003 16:44:11 +0300 (IDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1057066404.4054.9.camel@simulacron>
-References: <1054235787.605.21.camel@simulacron>
-	 <20030701125808.GA19408@outpost.ds9a.nl>
+Message-ID: <Pine.LNX.4.33.0307011628160.7001-100000@jrslxjul1.npdj.intel.com>
+Reply-To: Shmulik Hen <shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Amir Noam <amir.noam@intel.com>, Noam Marom <noam.marom@intel.com>,
+   Shmulik Hen <shmulik.hen@intel.com>,
+   Tsippy Mendelson <tsippy.mendelson@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20030701125808.GA19408@outpost.ds9a.nl>
+To: bond-devel <bonding-devel@lists.sourceforge.net>,
+   "Chad N. Tindel" <ctindel@calma.pair.com>, Jay Vosburgh <fubar@us.ibm.com>,
+   Jeff Garzik <jgarzik@pobox.com>, linux-netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2003-07-01 at 14:58, bert hubert wrote:
-> On Thu, May 29, 2003 at 09:16:27PM +0200, Andreas Jellinghaus wrote:
-> > sure, the simple configurations work fine with kernel 2.5.* ipsec.
-> > But I miss the interface and things I did with it. How are these
-> > setups supposed to work without an interface?
-> > 
-> > a) in iptables allow everything coming from ipsec0,
-> >    allow only ssh and ipsec on eth0.
-> 
-> iptables can filter on ESP/AH presence.
+Hi,
 
-the packet is seen once as ESP/AH and once as normal (e.g. TCP)
-packet. where is the connection? how can you see that a packet
-came in first as ESP/AH packet and was then decrypted, and did
-not came in without ipsec?
+	The following patch fixes bonding's change active interface
+operation for ALB/TLB modes. It used to incorrectly set the old active
+interface's state to BACKUP (which is required only for active-backup
+mode) and would cause that slave not to take part in load sharing.
 
-with freeswan that was easy: drop everything, unless it is from
-interface ipsec0. And you always new, packets from ipsec0 came
-in with valid ipsec encryption, that was easy to make sure.
+It should be applied on latest net-drivers-2.4 BK tree.
 
-and now? use fwmark? even if that works, its not as easy.
+-- 
+| Shmulik Hen                             |
+| Israel Design Center (Jerusalem)        |
+| LAN Access Division                     |
+| Intel Communications Group, Intel corp. |
 
-> 
-> > b) source address selection. put the default route on ipsec0,
-> 
-> Do you need a separate source address?
 
-I'm a "road warrior", so the local wireless lan gives me a
-192.168.* address. For my ipsec tunnel to $company gateway
-I need get an official address assigned, so I can use that
-to access the company network, or even the internet (if I don't
-trust the local network, and don't want unencrypted connections
-to the internet). I think such a setup will be quite common.
+diff -Nuarp linux-2.4.22-pre1-netdrvr1/drivers/net/bonding/bond_main.c linux-2.4.22-pre1-netdrvr1-devel/drivers/net/bonding/bond_main.c
+--- linux-2.4.22-pre1-netdrvr1/drivers/net/bonding/bond_main.c	Mon Jun 30 15:29:56 2003
++++ linux-2.4.22-pre1-netdrvr1-devel/drivers/net/bonding/bond_main.c	Mon Jun 30 15:29:57 2003
+@@ -385,6 +385,9 @@
+  *	- In conjunction with fix for ifenslave -c, in
+  *	  bond_change_active(), changing to the already active slave
+  *	  is no longer an error (it successfully does nothing).
++ *
++ * 2003/06/30 - Amir Noam <amir.noam at intel dot com>
++ * 	- Fixed bond_change_active() for ALB/TLB modes.
+  */
 
-local lan			some nat	company gateway	
-192.168.0.* <-> 192.168.0.1			<->  1.2.3.4
-ipsec tunnel
-1.2.3.5 		<->				1.2.3.4 
+ #include <linux/config.h>
+@@ -429,8 +432,8 @@
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
 
-connetion will use 1.2.3.5 <-> 1.2.3.80 (e.g. company file server,
-allowing access from 1.2.3.*).
+-#define DRV_VERSION		"2.2.13"
+-#define DRV_RELDATE		"June 25, 2003"
++#define DRV_VERSION		"2.2.14"
++#define DRV_RELDATE		"June 30, 2003"
+ #define DRV_NAME		"bonding"
+ #define DRV_DESCRIPTION		"Ethernet Channel Bonding Driver"
 
-ip route del default
-ip route add default gw 192.168.0.1 src 1.2.3.5
-
-yes, that works. but it's not nice.
-also company getway needs a 
-	ip route add 1.2.3.5 dev eth0/1/2/whatever
-even though no packet to "1.2.3.5" will ever be on any
-wire - the packet will be alway encrypted and have a final
-ip address somewhere in the internet or wireless network.
-
-hmm. I haven't tried to use an explicit ipip tunnel.
-did anyone use ESP in transport mode to encrypt packets
-of an IPIP tunnel? that might help me.
-
-Regards, Andreas
+@@ -1761,8 +1764,11 @@ static int bond_change_active(struct net
+ 	    (oldactive != NULL)&&
+ 	    (newactive->link == BOND_LINK_UP)&&
+ 	    IS_UP(newactive->dev)) {
+-		bond_set_slave_inactive_flags(oldactive);
+-		bond_set_slave_active_flags(newactive);
++		if (bond_mode == BOND_MODE_ACTIVEBACKUP) {
++			bond_set_slave_inactive_flags(oldactive);
++			bond_set_slave_active_flags(newactive);
++		}
++
+ 		bond_mc_update(bond, newactive, oldactive);
+ 		bond_assign_current_slave(bond, newactive);
+ 		printk("%s : activate %s(old : %s)\n",
