@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (0/7) device_probe enhancement
-Date: Tue, 23 Sep 2003 14:47:21 -0700
+Subject: [PATCH] (2/7) ni65 dynamic allocation
+Date: Tue, 23 Sep 2003 14:53:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030923144721.6001c598.shemminger@osdl.org>
+Message-ID: <20030923145312.4a8be9fc.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,123 +12,188 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This comes from Al Viro's net device patchset and is updated for 2.6.0-test5 latest.
-It adds a second probe list for network devices that are compiled into the kernel,
-but allocate their own network device rather than being handed a device.
-
-It is part of the incremental changes to have all network devices using dynamic
-allocation.
+Originally from Al Viro's NE14-ni65 patch
+	* switched ni65 to dynamic allocation
+	* ni65: fixed ->irq and ->dma clobbering on autoprob
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Sep 23 12:56:25 2003
-+++ b/drivers/net/Space.c	Tue Sep 23 12:56:25 2003
-@@ -111,6 +111,11 @@
- 	int status;	/* non-zero if autoprobe has failed */
- };
- 
-+struct devprobe2 {
-+	struct net_device *(*probe)(int unit);
-+	int status;	/* non-zero if autoprobe has failed */
+--- a/drivers/net/Space.c	Tue Sep 23 12:58:33 2003
++++ b/drivers/net/Space.c	Tue Sep 23 12:58:33 2003
+@@ -71,7 +71,7 @@
+ extern int e2100_probe(struct net_device *);
+ extern int ni5010_probe(struct net_device *);
+ extern int ni52_probe(struct net_device *);
+-extern int ni65_probe(struct net_device *);
++extern struct net_device *ni65_probe(int unit);
+ extern int sonic_probe(struct net_device *);
+ extern int SK_init(struct net_device *);
+ extern int seeq8005_probe(struct net_device *);
+@@ -290,6 +290,10 @@
+ #ifdef CONFIG_NI52
+ 	{ni52_probe, 0},
+ #endif
++	{NULL, 0},
 +};
 +
- /*
-  * probe_list walks a list of probe functions and calls each so long
-  * as a non-zero ioaddr is given, or as long as it hasn't already failed 
-@@ -136,6 +141,21 @@
- 	return -ENODEV;
- }
- 
-+static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
-+{
-+	struct net_device *dev;
-+	for (; p->probe; p++) {
-+		if (autoprobe && p->status)
-+			continue;
-+		dev = p->probe(unit);
-+		if (!IS_ERR(dev))
-+			return 0;
-+		if (autoprobe)
-+			p->status = PTR_ERR(dev);
-+	}
-+	return -ENODEV;
-+}
-+
- /*
-  * This is a bit of an artificial separation as there are PCI drivers
-  * that also probe for EISA cards (in the PCI group) and there are ISA
-@@ -376,6 +396,16 @@
- 	return err;
- 
- }
-+ 
-+static void __init ethif_probe2(int unit)
-+{
-+	unsigned long base_addr = netdev_boot_base("eth", unit);
-+
-+	if (base_addr == 1)
-+		return;
-+
-+	return;	/* nothing yet */
-+}
- 
- #ifdef CONFIG_TR
- /* Token-ring device probe */
-@@ -445,9 +475,12 @@
- 		if (trif_probe(num))
- 			break;
++static struct devprobe2 isa_probes2[] __initdata = {
+ #ifdef CONFIG_NI65
+ 	{ni65_probe, 0},
  #endif
--	for (num = 0; num < 8; ++num)
-+	for (num = 0; num < 8; ++num) {
- 		if (ethif_probe(num))
- 			break;
-+		ethif_probe2(num);
-+	}
-+
- #ifdef CONFIG_COPS
- 	cops_probe(0);
- 	cops_probe(1);
-diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
---- a/include/linux/netdevice.h	Tue Sep 23 12:56:25 2003
-+++ b/include/linux/netdevice.h	Tue Sep 23 12:56:25 2003
-@@ -498,6 +498,7 @@
- extern void		probe_old_netdevs(void);
- extern int			netdev_boot_setup_add(char *name, struct ifmap *map);
- extern int 			netdev_boot_setup_check(struct net_device *dev);
-+extern unsigned long		netdev_boot_base(const char *prefix, int unit);
- extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
- extern void		dev_add_pack(struct packet_type *pt);
- extern void		dev_remove_pack(struct packet_type *pt);
-diff -Nru a/net/core/dev.c b/net/core/dev.c
---- a/net/core/dev.c	Tue Sep 23 12:56:25 2003
-+++ b/net/core/dev.c	Tue Sep 23 12:56:25 2003
-@@ -375,6 +375,30 @@
+@@ -403,6 +407,7 @@
+ 	if (base_addr == 1)
+ 		return;
+ 
++	probe_list2(unit, isa_probes2, base_addr == 0) &&
+ 	probe_list2(unit, parport_probes, base_addr == 0);
+ }
+ 
+diff -Nru a/drivers/net/ni65.c b/drivers/net/ni65.c
+--- a/drivers/net/ni65.c	Tue Sep 23 12:58:33 2003
++++ b/drivers/net/ni65.c	Tue Sep 23 12:58:33 2003
+@@ -343,29 +343,64 @@
  	return 0;
  }
  
-+
-+/**
-+ *	netdev_boot_base	- get address from boot time settings
-+ *	@prefix: prefix for network device
-+ *	@unit: id for network device
-+ *
-+ * 	Check boot time settings for the base address of device.
-+ *	The found settings are set for the device to be used
-+ *	later in the device probing.
-+ *	Returns 0 if no settings found.
-+ */
-+unsigned long netdev_boot_base(const char *prefix, int unit)
++static void cleanup_card(struct net_device *dev)
 +{
-+	const struct netdev_boot_setup *s = dev_boot_setup;
-+	char name[IFNAMSIZ];
-+	int i;
-+
-+	sprintf(name, "%s%d", prefix, unit);
-+	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++)
-+		if (!strcmp(name, s[i].name))
-+			return s[i].map.base_addr;
-+	return 0;
++	struct priv *p = (struct priv *) dev->priv;
++	disable_dma(dev->dma);
++	free_dma(dev->dma);
++	release_region(dev->base_addr, cards[p->cardno].total_size);
++	ni65_free_buffer(p);
 +}
 +
++/* set: io,irq,dma or set it when calling insmod */
++static int irq;
++static int io;
++static int dma;
++
  /*
-  * Saves at boot time configured settings for any netdevice.
+  * Probe The Card (not the lance-chip)
   */
+-#ifdef MODULE
+-static
+-#endif
+-int __init ni65_probe(struct net_device *dev)
++struct net_device * __init ni65_probe(int unit)
+ {
+-	int *port;
++	struct net_device *dev = alloc_etherdev(0);
+ 	static int ports[] = {0x360,0x300,0x320,0x340, 0};
++	int *port;
++	int err = 0;
+ 
+-	if (dev->base_addr > 0x1ff)          /* Check a single specified location. */
+-		 return ni65_probe1(dev, dev->base_addr);
+-	else if (dev->base_addr > 0)         /* Don't probe at all. */
+-		 return -ENXIO;
++	if (!dev)
++		return ERR_PTR(-ENOMEM);
+ 
+-	for (port = ports; *port; port++)
+-	{
+-		if (ni65_probe1(dev, *port) == 0)
+-			 return 0;
+-	}
+-
+-	return -ENODEV;
++	if (unit >= 0) {
++		sprintf(dev->name, "eth%d", unit);
++		netdev_boot_setup_check(dev);
++		irq = dev->irq;
++		dma = dev->dma;
++	} else {
++		dev->base_addr = io;
++	}
++
++	if (dev->base_addr > 0x1ff) { /* Check a single specified location. */
++		err = ni65_probe1(dev, dev->base_addr);
++	} else if (dev->base_addr > 0) { /* Don't probe at all. */
++		err = -ENXIO;
++	} else {
++		for (port = ports; *port && ni65_probe1(dev, *port); port++)
++			;
++		if (!*port)
++			err = -ENODEV;
++	}
++	if (err)
++		goto out;
++
++	err = register_netdev(dev);
++	if (err)
++		goto out1;
++	return dev;
++out1:
++	cleanup_card(dev);
++out:
++	free_netdev(dev);
++	return ERR_PTR(err);
+ }
+ 
+ /*
+@@ -377,6 +412,9 @@
+ 	struct priv *p;
+ 	unsigned long flags;
+ 
++	dev->irq = irq;
++	dev->dma = dma;
++
+ 	for(i=0;i<NUM_CARDS;i++) {
+ 		if(!request_region(ioaddr, cards[i].total_size, cards[i].cardname))
+ 			continue;
+@@ -521,9 +559,6 @@
+ 	dev->watchdog_timeo	= HZ/2;
+ 	dev->get_stats		= ni65_get_stats;
+ 	dev->set_multicast_list = set_multicast_list;
+-
+-	ether_setup(dev);
+-
+ 	return 0; /* everything is OK */
+ }
+ 
+@@ -1213,12 +1248,7 @@
+ }
+ 
+ #ifdef MODULE
+-static struct net_device dev_ni65 = { .base_addr = 0x360, .irq = 9, .init = ni65_probe };
+-
+-/* set: io,irq,dma or set it when calling insmod */
+-static int irq;
+-static int io;
+-static int dma;
++static struct net_device *dev_ni65;
+ 
+ MODULE_PARM(irq, "i");
+ MODULE_PARM(io, "i");
+@@ -1229,26 +1259,15 @@
+ 
+ int init_module(void)
+ {
+-	dev_ni65.irq = irq;
+-	dev_ni65.dma = dma;
+-	dev_ni65.base_addr = io;
+-	if (register_netdev(&dev_ni65) != 0)
+-		return -EIO;
+-	return 0;
++ 	dev_ni65 = ni65_probe(-1);
++	return IS_ERR(dev_ni65) ? PTR_ERR(dev_ni65) : 0;
+ }
+ 
+ void cleanup_module(void)
+ {
+-	struct priv *p;
+-	p = (struct priv *) dev_ni65.priv;
+-	if(!p)
+-		BUG();
+-	disable_dma(dev_ni65.dma);
+-	free_dma(dev_ni65.dma);
+-	unregister_netdev(&dev_ni65);
+-	release_region(dev_ni65.base_addr,cards[p->cardno].total_size);
+-	ni65_free_buffer(p);
+-	dev_ni65.priv = NULL;
++ 	unregister_netdev(dev_ni65);
++ 	cleanup_card(dev_ni65);
++ 	free_netdev(dev_ni65);
+ }
+ #endif /* MODULE */
+ 
