@@ -1,101 +1,50 @@
 From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH 2.6] natsemi.c NAPI
-Date: Mon, 27 Sep 2004 11:11:48 +0200
+Subject: Re: [6/6]: jenkins hash for neigh
+Date: Mon, 27 Sep 2004 11:29:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927091148.GF3236@sunbeam.de.gnumonks.org>
-References: <20040919163642.GC1307@sunbeam.de.gnumonks.org> <4155D781.8050700@colorfullife.com>
+Message-ID: <20040927092933.GG3236@sunbeam.de.gnumonks.org>
+References: <20040923225158.23c2d502.davem@davemloft.net> <20040924085234.GE3236@sunbeam.de.gnumonks.org> <20040924142702.62a2b23d.davem@davemloft.net> <20040925064406.GL3236@sunbeam.de.gnumonks.org> <20040925005623.2faf8faf.davem@davemloft.net> <20040925090933.GU3236@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="QMcAIMJS2LNMCtSQ"
+	protocol="application/pgp-signature"; boundary="OKO3D2de3c6Y4EaB"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <4155D781.8050700@colorfullife.com>
+In-Reply-To: <20040925090933.GU3236@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---QMcAIMJS2LNMCtSQ
+--OKO3D2de3c6Y4EaB
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-[resend, went to wrong list address]
+On Sat, Sep 25, 2004 at 11:09:33AM +0200, Harald Welte wrote:
 
-Manfred, thanks for your comments.
+> Please note that I guess I won't have any results until late Sunday/Monda=
+y.
 
-[explicit Cc to jamal becuase of NAPI-related stuff below]
+Ok, there you go.  I've tested a kernel with your 6-patch-set for
+cleanup/jenkins/..., and the four patch set, including
 
-On Sat, Sep 25, 2004 at 10:39:29PM +0200, Manfred Spraul wrote:
-> >+config NATSEMI_NAPI
-> >+	bool "Use Rx Polling (NAPI) (EXPERIMENTAL)"
-> >=20
-> I'm not a big fan on config options for drivers. I'd prefer a runtime=20
-> option.
+> > 4) The controversial/RFC patch, dorking with neigh_forced_gc()
 
-I see.
+It performed perfectly, I wasn't able to reproduce those overflows
+anymore (testing with two /16 networks and about 200kpps incoming
+packets to unresolved and non-existant neighbours)
 
-> >	TODO:
-> >	* big endian support with CFG:BEM instead of cpu_to_le32
-> >	* support for an external PHY
-> >-	* NAPI
-> >=20
-> >
-> Hmm. Actually all TODO points are done: CFG:BEM is unusable because it=20
-> swaps data words.
-> External PHYs are supported. You are closing the last point.
+> I'll do tests with and without INCOMPLETE check. No results until late
+> Sunday/Monday, as indicated above.
 
-Ok, I'll remove all three with my next patch
+I didn't even bother doing the INCOMPLETE check since Yoshifuji
+indicated that this caused problems with IPv6.... and it already works
+for me while the INCOMPLETE check is still in place.  If you still want
+me to run it, I'll give it a go.
 
-> Additional registers. You didn't mention that in the changelog.=20
-> Changelogs should mention every change, please do not piggypack=20
-> unrelated changes.
-
-ack.
-
-> >+	long ioaddr =3D dev->base_addr;
-> >+	int boguscnt =3D max_interrupt_work;
-> >+
-> This doesn't compile: you've removed max_interrupt_work.
-
-mh, apparently I've sent an outdated patch then.  I'll repost an updated
-version once I know what the solution for IntrStatus is
-
-> >+	/* We cannot read IntrStatus since this would acknowledge
-> >+	 * all interrupt sources. Thus we just blindly assume that
-> >+	 * the interrupt really was for us -HW! */
-
-> Huge problem - this is not acceptable. It means the driver is unusable=20
-> for shared interrupts. We must find a solution.
-
-yes, I know :(  Luckily on my embedded boards, there are no shared
-interrupts - but this is obviously a special case.
-
-I think this overall problem can be solved if there was some per-device
-variable that saves the IntrStatus until the NAPI callback gets
-scheduled. What do you think?  This wouldn't even need some locking,
-since interrupts would be disabled before the field is updated, and not
-re-enabled before the field is read by the NAPI callback?
-
-I was surprised that this solution is not suggested in the NAPI-HOWTO.txt, =
-so I though there must be an error in my proposal...
-
-By using such a scheme, isn't it also possible to only offload RX into
-the NAPI callback with clear-on-read devices?
-
-> IRQ_NONE would be definitively wrong: The kernel disables interrupt=20
-> sources if it can't find a handler. If our handler returns IRQ_NONE and=
-=20
-> the irq is not shared, then the kernel will disable the irq after a=20
-> short while.
-
-ok.
-
-> Also missing in the changelog.
-
-is related to the register definitions above.
-
->    Manfred
+Please also note my next mail, where I'll publish some neighbour cache
+statistics similar to rt_cache_stat
 
 --=20
 - Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
@@ -106,7 +55,7 @@ is related to the register definitions above.
 Programming is like sex: One mistake and you have to support it your lifeti=
 me
 
---QMcAIMJS2LNMCtSQ
+--OKO3D2de3c6Y4EaB
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 Content-Disposition: inline
@@ -114,9 +63,9 @@ Content-Disposition: inline
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.5 (GNU/Linux)
 
-iD8DBQFBV9lUXaXGVTD0i/8RAt9CAJsHefOfhWgj96DYYeX5A1kbjR5Y0QCeP/eT
-/I4V9bIhKQ+k5bZ3yuMo7/U=
-=jA+9
+iD8DBQFBV919XaXGVTD0i/8RAjUaAJ902dTXDxsoJETdqJF43z45IYinZACfczio
+flsJxYBHx9TXL696lCZf4zc=
+=f7ND
 -----END PGP SIGNATURE-----
 
---QMcAIMJS2LNMCtSQ--
+--OKO3D2de3c6Y4EaB--
