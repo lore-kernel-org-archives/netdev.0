@@ -1,31 +1,35 @@
-From: kuznet@ms2.inr.ac.ru
+From: Chris Friesen <cfriesen@nortelnetworks.com>
 Subject: Re: PATCH Re: udp weirdness
-Date: Tue, 1 Oct 2002 18:40:12 +0400 (MSD)
+Date: Tue, 01 Oct 2002 10:52:55 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210011440.SAA19721@sex.inr.ac.ru>
-References: <3D99B07B.7050901@nortelnetworks.com>
+Message-ID: <3D99B6C7.3010302@nortelnetworks.com>
+References: <200210011440.SAA19721@sex.inr.ac.ru>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: hadi@cyberus.CA, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cfriesen@nortelnetworks.com (Chris Friesen)
-In-Reply-To: <3D99B07B.7050901@nortelnetworks.com> from "Chris Friesen" at Oct 1, 2 10:26:03 am
+To: kuznet@ms2.inr.ac.ru
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+kuznet@ms2.inr.ac.ru wrote:
 
-> If I'm looping on a sendto() with a blocking socket, I would expect the 
-> syscall to block until the packet has been handed off to the device 
-> driver.  This may mean blocking until local congestion backs off.
+> Feel free to implement. :-)
 
-Feel free to implement. :-)
+I may have to poke around...if nothing else I'll learn more about the 
+networking code...
 
+> What? If your applications is enough clever to handle ENOBUFS right,
+> set IP_RECVERR and live in peace.
 
-> The way we do it now means that we can chew up massive amounts of cpu 
-> creating packets in userspace and throwing them away in the kernel, with 
-> no way of knowing from userspace that it is happening.
+The original poster was complaining about messages being silently 
+dropped when there is congestion.  If IP_RECVERR is turned on, would 
+sendto() then return -1 so I know to try and read the error messages? 
+I'm assuming I get ENOBUFS back in the ee_code field?  Or can I get away 
+with reading errno and ignoring the error queue?
 
-What? If your applications is enough clever to handle ENOBUFS right,
-set IP_RECVERR and live in peace.
+I've never used IP_RECVERR and there doesn't seem to be a lot of 
+documentation about it.
 
-Alexey
+Chris
