@@ -1,178 +1,131 @@
-From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH] [bonding 2.4] fix creating/destroying the /proc/net/bonding dir
-Date: Thu, 23 Oct 2003 17:39:42 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: iproute2 not compiling anymore
+Date: Fri, 24 Oct 2003 12:34:01 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310231739.42556.amir.noam@intel.com>
+Message-ID: <20031024.123401.08140647.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.44.0310050940160.27815-100000@logos.cnet>
+	<20031005130044.GA8861@pcw.home.local>
+	<20031005071152.49c35297.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>, jgarzik@pobox.com
+To: davem@redhat.com
+In-Reply-To: <20031005071152.49c35297.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch makes bonding create the /proc/net/bonding directory only
-if it exists (and destroy it only if it's empty).
+In article <20031005071152.49c35297.davem@redhat.com> (at Sun, 5 Oct 2003 07:11:52 -0700), "David S. Miller" <davem@redhat.com> says:
 
-Synchronization with the NETDEV_CHANGENAME event is achieved through
-the RTNL semaphore.
+> On Sun, 5 Oct 2003 15:00:44 +0200
+> Willy TARREAU <willy@w.ods.org> wrote:
+> 
+> > /usr/src/linux/include/linux/in.h:147: field `gsr_group' has incomplete type
+> 
+> I'll happily fix this, thanks for reporting this.
+> 
+> Can you please in the future report such things on the networking
+> development list netdev@oss.sgi.com?  Thanks.
 
-The patch applies on 2.4.23-pre8, after applying the patch that
-restores backward compatibility sent by Shmulik on 2003/10/12.
+I believe that 2.6 also needs this fix:
 
-Amir
+D: [NET]: Fix userland iproute2 build problems introduced by mcast changes.
 
-
-diff -Narup a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Oct 23 14:47:31 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Oct 23 17:04:52 2003
-@@ -3574,6 +3574,62 @@ static void bond_destroy_proc_info(struc
- 		bond->bond_proc_file = NULL;
- 	}
- }
-+
-+/* Create the bonding directory under /proc/net, if doesn't exist yet.
-+ * Caller must hold rtnl_lock.
-+ */
-+static void bond_create_proc_dir(void)
-+{
-+	int len = strlen(DRV_NAME);
-+
-+	for (bond_proc_dir = proc_net->subdir; bond_proc_dir;
-+	     bond_proc_dir = bond_proc_dir->next) {
-+		if ((bond_proc_dir->namelen == len) &&
-+		    !memcmp(bond_proc_dir->name, DRV_NAME, len)) {
-+			break;
-+		}
-+	}
-+
-+	if (!bond_proc_dir) {
-+		bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
-+		if (bond_proc_dir) {
-+			bond_proc_dir->owner = THIS_MODULE;
-+		} else {
-+			printk(KERN_WARNING DRV_NAME
-+				": Warning: cannot create /proc/net/%s\n",
-+				DRV_NAME);
-+		}
-+	}
-+}
-+
-+/* Destroy the bonding directory under /proc/net, if empty.
-+ * Caller must hold rtnl_lock.
-+ */
-+static void bond_destroy_proc_dir(void)
-+{
-+	struct proc_dir_entry *de;
-+
-+	if (!bond_proc_dir) {
-+		return;
-+	}
-+
-+	/* verify that the /proc dir is empty */
-+	for (de = bond_proc_dir->subdir; de; de = de->next) {
-+		/* ignore . and .. */
-+		if (*(de->name) != '.') {
-+			break;
-+		}
-+	}
-+
-+	if (de) {
-+		if (bond_proc_dir->owner == THIS_MODULE) {
-+			bond_proc_dir->owner = NULL;
-+		}
-+	} else {
-+		remove_proc_entry(DRV_NAME, proc_net);
-+		bond_proc_dir = NULL;
-+	}
-+}
- #endif /* CONFIG_PROC_FS */
+===== include/linux/in.h 1.7 vs edited =====
+--- 1.7/include/linux/in.h	Wed Apr 16 17:45:42 2003
++++ edited/include/linux/in.h	Fri Oct 24 11:39:37 2003
+@@ -140,29 +140,29 @@
  
- /*
-@@ -3829,6 +3885,9 @@ static struct notifier_block bond_netdev
- 	.notifier_call = bond_netdev_event,
+ struct group_req
+ {
+-	__u32			gr_interface;	/* interface index */
+-	struct sockaddr_storage	gr_group;	/* group address */
++	__u32				 gr_interface;	/* interface index */
++	struct __kernel_sockaddr_storage gr_group;	/* group address */
  };
  
-+/* De-initialize device specific data.
-+ * Caller must hold rtnl_lock.
+ struct group_source_req
+ {
+-	__u32			gsr_interface;	/* interface index */
+-	struct sockaddr_storage	gsr_group;	/* group address */
+-	struct sockaddr_storage	gsr_source;	/* source address */
++	__u32				 gsr_interface;	/* interface index */
++	struct __kernel_sockaddr_storage gsr_group;	/* group address */
++	struct __kernel_sockaddr_storage gsr_source;	/* source address */
+ };
+ 
+ struct group_filter
+ {
+-	__u32			gf_interface;	/* interface index */
+-	struct sockaddr_storage	gf_group;	/* multicast address */
+-	__u32			gf_fmode;	/* filter mode */
+-	__u32			gf_numsrc;	/* number of sources */
+-	struct sockaddr_storage	gf_slist[1];	/* interface index */
++	__u32				 gf_interface;	/* interface index */
++	struct __kernel_sockaddr_storage gf_group;	/* multicast address */
++	__u32				 gf_fmode;	/* filter mode */
++	__u32				 gf_numsrc;	/* number of sources */
++	struct __kernel_sockaddr_storage gf_slist[1];	/* interface index */
+ };
+ 
+ #define GROUP_FILTER_SIZE(numsrc) \
+-	(sizeof(struct group_filter) - sizeof(struct sockaddr_storage) \
+-	+ (numsrc) * sizeof(struct sockaddr_storage))
++	(sizeof(struct group_filter) - sizeof(struct __kernel_sockaddr_storage) \
++	+ (numsrc) * sizeof(struct __kernel_sockaddr_storage))
+ 
+ struct in_pktinfo
+ {
+===== include/linux/socket.h 1.9 vs edited =====
+--- 1.9/include/linux/socket.h	Tue May 13 06:35:19 2003
++++ edited/include/linux/socket.h	Fri Oct 24 11:42:52 2003
+@@ -1,6 +1,21 @@
+ #ifndef _LINUX_SOCKET_H
+ #define _LINUX_SOCKET_H
+ 
++/*
++ * Desired design of maximum size and alignment (see RFC2553)
 + */
- static inline void bond_deinit(struct net_device *dev)
- {
- 	struct bonding *bond = dev->priv;
-@@ -3840,6 +3899,9 @@ static inline void bond_deinit(struct ne
- #endif
- }
- 
-+/* Unregister and free all bond devices.
-+ * Caller must hold rtnl_lock.
-+ */
- static void bond_free_all(void)
- {
- 	struct bonding *bond, *nxt;
-@@ -3847,16 +3909,13 @@ static void bond_free_all(void)
- 	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
- 		struct net_device *dev = bond->device;
- 
--		unregister_netdev(dev);
-+		unregister_netdevice(dev);
- 		bond_deinit(dev);
- 		free_netdev(dev);
- 	}
- 
- #ifdef CONFIG_PROC_FS
--	if (bond_proc_dir) {
--		remove_proc_entry(DRV_NAME, proc_net);
--		bond_proc_dir = NULL;
--	}
-+	bond_destroy_proc_dir();
- #endif
- }
- 
-@@ -4234,18 +4293,12 @@ static int __init bonding_init(void)
- 		primary = NULL;
- 	}
- 
-+	rtnl_lock();
++#define _K_SS_MAXSIZE	128	/* Implementation specific max size */
++#define _K_SS_ALIGNSIZE	(__alignof__ (struct sockaddr *))
++				/* Implementation specific desired alignment */
 +
- #ifdef CONFIG_PROC_FS
--	bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
--	if (bond_proc_dir == NULL)  {
--		printk(KERN_WARNING
--		       "bonding_init(): can not create /proc/net/" DRV_NAME);
--	} else {
--		bond_proc_dir->owner = THIS_MODULE;
--	}
-+	bond_create_proc_dir();
- #endif
++struct __kernel_sockaddr_storage {
++	unsigned short	ss_family;		/* address family */
++	/* Following field(s) are implementation specific */
++	char		__data[_K_SS_MAXSIZE - sizeof(unsigned short)];
++				/* space to achieve desired size, */
++				/* _SS_MAXSIZE value minus size of ss_family */
++} __attribute__ ((aligned(_K_SS_ALIGNSIZE)));	/* force desired alignment */
++
+ #if defined(__KERNEL__) || !defined(__GLIBC__) || (__GLIBC__ < 2)
  
--	rtnl_lock();
+ #include <linux/config.h>		/* for CONFIG_COMPAT */
+@@ -27,20 +42,7 @@
+ 	int		l_linger;	/* How long to linger for	*/
+ };
+ 
+-/*
+- * Desired design of maximum size and alignment (see RFC2553)
+- */
+-#define _SS_MAXSIZE	128	/* Implementation specific max size */
+-#define _SS_ALIGNSIZE	(__alignof__ (struct sockaddr *))
+-				/* Implementation specific desired alignment */
 -
- 	err = 0;
- 	for (no = 0; no < max_bonds; no++) {
- 		struct net_device *dev;
-@@ -4288,18 +4341,21 @@ static int __init bonding_init(void)
- 	return 0;
+-struct sockaddr_storage {
+-	sa_family_t	ss_family;		/* address family */
+-	/* Following field(s) are implementation specific */
+-	char		__data[_SS_MAXSIZE - sizeof(sa_family_t)];
+-				/* space to achieve desired size, */
+-				/* _SS_MAXSIZE value minus size of ss_family */
+-} __attribute__ ((aligned(_SS_ALIGNSIZE)));	/* force desired alignment */
++#define sockaddr_storage __kernel_sockaddr_storage
  
- out_err:
--	rtnl_unlock();
--
- 	/* free and unregister all bonds that were successfully added */
- 	bond_free_all();
- 
-+	rtnl_unlock();
-+
- 	return err;
- }
- 
- static void __exit bonding_exit(void)
- {
- 	unregister_netdevice_notifier(&bond_netdev_notifier);
-+
-+	rtnl_lock();
- 	bond_free_all();
-+	rtnl_unlock();
- }
- 
- module_init(bonding_init);
+ /*
+  *	As we do 4.4BSD message passing we use a 4.4BSD message passing
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
