@@ -1,64 +1,35 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: 2.6.6: IPv6 initialisation bug
-Date: Mon, 28 Jun 2004 18:47:58 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040628184758.C9214@flint.arm.linux.org.uk>
-References: <20040628010200.A15067@flint.arm.linux.org.uk> <20040629.020627.76560474.yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: old NLMSG_OK fix
+Date: Mon, 28 Jun 2004 11:22:58 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040628112258.31ed64f1.davem@redhat.com>
+References: <20040627205133.11d37f0c.davem@redhat.com>
+	<E1Besfp-0004hd-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265099AbUF1RsG@vger.kernel.org>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20040629.020627.76560474.yoshfuji@linux-ipv6.org>; from yoshfuji@linux-ipv6.org on Tue, Jun 29, 2004 at 02:06:27AM +0900
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hch@lst.de, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1Besfp-0004hd-00@gondolin.me.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 29, 2004 at 02:06:27AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
-> In article <20040628010200.A15067@flint.arm.linux.org.uk> (at Mon, 28 Jun 2004 01:02:01 +0100), Russell King <rmk+lkml@arm.linux.org.uk> says:
+On Mon, 28 Jun 2004 19:43:37 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> David S. Miller <davem@redhat.com> wrote:
+> > On Sun, 27 Jun 2004 19:15:52 +0200
+> > Christoph Hellwig <hch@lst.de> wrote:
+> > 
+> >> http://oss.sgi.com/projects/netdev/archive/2000-09/msg00001.html
+> > 
+> > It works because there is always 16 bytes of scratch at the end of an
+> > SKB more than was allocated for the actual data.  So blindly deref'ing
+> > the nlmsg_len value is fine here.
 > 
-> > Ok, I've just tried 2.6.7 out on my root-NFS'd firewall with IPv6 built
-> > in, and it doesn't work because of the problem I described below.
-> :
-> > What's the solution?
-> 
-> Bring lo up before bring others up.
-> What does prevent you from doing this?
-> (Do we need some bits to do this automatically?)
+> Yes but this is also used by user-space appliations where this scratch
+> space may not exist.  NETLINK messages can travel from one application
+> to another so exploits are possible.
 
-When you use root-NFS, the kernel itself brings up the interfaces,
-and IPv6 immediately comes in and tries to configure itself to them,
-trying to create the routes.
-
-Unfortunately, the kernel doesn't bring up lo first because it
-doesn't know to do that.
-
-> > Is there a good reason why IPv6 uses the loopback device for local
-> > routes?
-> 
-> IPv6 creates kernel routes for local addresses on lo to receive
-> packets for local address.
-> 
-> Well, someone probably wants to have
-> static local routes on ethX + temprary (cache) local routes on lo
-> (as IPv4 does; correct me if I'm wrong.)
-
-This would be preferable I think - it certainly would stop systems
-exploding when you take lo down for whatever reason, even temporarily.
-Currently, if you do that, all your IPv6 local routes die off and
-you're left trying to forward your own local address out various
-itnerfaces.
-
-> But this won't work because IPv6 does DAD when we make some interface up.
-> We need lo anyway.
-
-Sorry, I don't understand how this has a bearing on which device the
-local routes are attached to.
-
-How come IPv4 can be happy having local routes attached to the
-individual interface, yet IPv6 can't be?
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+You're right, thanks for pointing this out.  I'll add it to my tree.
