@@ -1,11 +1,10 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.4.28-rc3] tulip: make tulip_stop_rxtx() wait for DMA to fully stop
-Date: Wed, 17 Nov 2004 15:15:53 -0500
-Message-ID: <20041117151553.C31363@tuxdriver.com>
+Subject: [patch 2.6.10-rc2] 3c59x: reload EEPROM values at rmmod for needy cards
+Date: Wed, 17 Nov 2004 16:01:22 -0500
+Message-ID: <20041117160122.A4824@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, grant.grundler@hp.com,
-        charlie.brett@hp.com
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linux-kernel@vger.kernel.org
 Content-Disposition: inline
@@ -13,148 +12,51 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-tulip_stop_rxtx() doesn't wait for DMA to fully stop like the function
-call name implies.
+Enable reload of EEPROM values in reset at rmmod for cards that need
+it, similar to old EEPROM_NORESET flag but in reverse.
 
-Acked-by: Grant Grundler <grant.grundler@hp.com>
-Acked-by: Charlie Brett <charlie.brett@hp.com>
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
-This was submitted through my employer -- I am not the original author
-of this patch.  However, I passed it by Jeff Garizk and he expressed
-interest in having it upstream.
+3c905 cards need an additional bit unmasked in the reset at rmmod or
+else they don't get reinitialized properly when the driver is reloaded.
 
- drivers/net/tulip/21142.c      |    2 +-
- drivers/net/tulip/eeprom.c     |    1 +
- drivers/net/tulip/interrupt.c  |    2 +-
- drivers/net/tulip/media.c      |    1 +
- drivers/net/tulip/pnic.c       |    1 +
- drivers/net/tulip/pnic2.c      |    2 +-
- drivers/net/tulip/timer.c      |    1 +
- drivers/net/tulip/tulip.h      |   15 ++++++++++++++-
- drivers/net/tulip/tulip_core.c |    2 +-
- 9 files changed, 22 insertions(+), 5 deletions(-)
+This is a repost -- the previous patch appears to have been lost
+in the shuffle.  This is the combination of the two patches posted
+previously regarding EEPROM_NORESET.
 
---- tulip_stop_rxtx-2.4/drivers/net/tulip/tulip_core.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/tulip_core.c
-@@ -20,8 +20,8 @@
+ drivers/net/3c59x.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
+
+--- 3c59x-reset-2.6/drivers/net/3c59x.c.orig
++++ 3c59x-reset-2.6/drivers/net/3c59x.c
+@@ -417,7 +417,7 @@ enum {	IS_VORTEX=1, IS_BOOMERANG=2, IS_C
+ 	HAS_PWR_CTRL=0x20, HAS_MII=0x40, HAS_NWAY=0x80, HAS_CB_FNS=0x100,
+ 	INVERT_MII_PWR=0x200, INVERT_LED_PWR=0x400, MAX_COLLISION_RESET=0x800,
+ 	EEPROM_OFFSET=0x1000, HAS_HWCKSM=0x2000, WNO_XCVR_PWR=0x4000,
+-	EXTRA_PREAMBLE=0x8000, };
++	EXTRA_PREAMBLE=0x8000, EEPROM_RESET=0x10000, };
  
- #include <linux/config.h>
- #include <linux/module.h>
--#include "tulip.h"
- #include <linux/pci.h>
-+#include "tulip.h"
- #include <linux/init.h>
- #include <linux/etherdevice.h>
- #include <linux/delay.h>
---- tulip_stop_rxtx-2.4/drivers/net/tulip/media.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/media.c
-@@ -18,6 +18,7 @@
- #include <linux/mii.h>
- #include <linux/init.h>
- #include <linux/delay.h>
-+#include <linux/pci.h>
- #include "tulip.h"
+ enum vortex_chips {
+ 	CH_3C590 = 0,
+@@ -505,9 +505,9 @@ static struct vortex_chip_info {
+ 	{"3c900B-FL Cyclone 10base-FL",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+ 	{"3c905 Boomerang 100baseTx",
+-	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII, 64, },
++	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
+ 	{"3c905 Boomerang 100baseT4",
+-	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII, 64, },
++	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
+ 	{"3c905B Cyclone 100baseTx",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
  
- 
---- tulip_stop_rxtx-2.4/drivers/net/tulip/21142.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/21142.c
-@@ -14,8 +14,8 @@
- 
- */
- 
--#include "tulip.h"
- #include <linux/pci.h>
-+#include "tulip.h"
- #include <linux/delay.h>
- 
- 
---- tulip_stop_rxtx-2.4/drivers/net/tulip/timer.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/timer.c
-@@ -14,6 +14,7 @@
- 
- */
- 
-+#include <linux/pci.h>
- #include "tulip.h"
- 
- 
---- tulip_stop_rxtx-2.4/drivers/net/tulip/tulip.h.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/tulip.h
-@@ -146,6 +146,9 @@ enum status_bits {
- 	TxIntr = 0x01,
- };
- 
-+/* bit mask for CSR5 TX/RX process state */
-+#define CSR5_TS	0x00700000
-+#define CSR5_RS	0x000e0000
- 
- enum tulip_mode_bits {
- 	TxThreshold		= (1 << 22),
-@@ -484,9 +487,19 @@ static inline void tulip_stop_rxtx(struc
- 	u32 csr6 = inl(ioaddr + CSR6);
- 
- 	if (csr6 & RxTx) {
-+		unsigned i=1300/10;
- 		outl(csr6 & ~RxTx, ioaddr + CSR6);
- 		barrier();
--		(void) inl(ioaddr + CSR6); /* mmio sync */
-+		/* wait until in-flight frame completes.
-+		 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
-+		 * Typically expect this loop to end in < 50us on 100BT.
-+		 */
-+		while (--i && (inl(ioaddr + CSR5) & (CSR5_TS|CSR5_RS))) 
-+			udelay(10);
-+
-+		if (!i)
-+			printk (KERN_DEBUG "%s: tulip_stop_rxtx() failed\n",
-+					tp->pdev->slot_name);
+@@ -3169,7 +3169,8 @@ static void __devexit vortex_remove_one 
+ 			pci_restore_state(VORTEX_PCI(vp));
  	}
- }
+ 	/* Should really use issue_and_wait() here */
+-	outw(TotalReset|0x14, dev->base_addr + EL3_CMD);
++	outw(TotalReset | ((vp->drv_flags & EEPROM_RESET) ? 0x04 : 0x14),
++	     dev->base_addr + EL3_CMD);
  
---- tulip_stop_rxtx-2.4/drivers/net/tulip/pnic.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/pnic.c
-@@ -15,6 +15,7 @@
- */
- 
- #include <linux/kernel.h>
-+#include <linux/pci.h>
- #include "tulip.h"
- 
- 
---- tulip_stop_rxtx-2.4/drivers/net/tulip/pnic2.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/pnic2.c
-@@ -76,8 +76,8 @@
- 
- 
- 
--#include "tulip.h"
- #include <linux/pci.h>
-+#include "tulip.h"
- #include <linux/delay.h>
- 
- 
---- tulip_stop_rxtx-2.4/drivers/net/tulip/eeprom.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/eeprom.c
-@@ -14,6 +14,7 @@
- 
- */
- 
-+#include <linux/pci.h>
- #include "tulip.h"
- #include <linux/init.h>
- #include <asm/unaligned.h>
---- tulip_stop_rxtx-2.4/drivers/net/tulip/interrupt.c.orig
-+++ tulip_stop_rxtx-2.4/drivers/net/tulip/interrupt.c
-@@ -14,10 +14,10 @@
- 
- */
- 
-+#include <linux/pci.h>
- #include "tulip.h"
- #include <linux/config.h>
- #include <linux/etherdevice.h>
--#include <linux/pci.h>
- 
- 
- int tulip_rx_copybreak;
+ 	pci_free_consistent(pdev,
+ 						sizeof(struct boom_rx_desc) * RX_RING_SIZE
