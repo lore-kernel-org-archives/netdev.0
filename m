@@ -1,62 +1,141 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [RFC 2.6.10 3/22] xfrm: Add offload management routines
-Date: Sat, 22 Jan 2005 01:00:35 -0500
-Message-ID: <1106373635.3691.51.camel@ori.thedillows.org>
-References: <20041230035000.11@ori.thedillows.org>
-	 <20041230035000.12@ori.thedillows.org>
-	 <20050121144738.7155893e.davem@davemloft.net>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: [PATCH] Use netdev_priv in the 3c515 driver
+Date: Sat, 22 Jan 2005 11:21:20 +0100
+Message-ID: <20050122102120.GA6476@bayes.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development Mailing List <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050121144738.7155893e.davem@davemloft.net>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[ Sorry, David, if you get this multiple times. Had a doh! moment... ]
+Use netdev_priv in the 3c515 driver.
 
-On Fri, 2005-01-21 at 14:47 -0800, David S. Miller wrote: 
-> On Thu, 30 Dec 2004 03:48:35 -0500
-> David Dillow <dave@thedillows.org> wrote:
-> 
-> > +static inline struct xfrm_offload *
-> > +xfrm_offload_alloc(int sizeof_priv, struct net_device *dev)
-> 
-> This whole scheme looks buggy.  The intent is to 8-byte align
-> the object, but look at what the code is actually doing.
-> 
-> Whatever kmalloc() returns to xfrm_offload_alloc() is directly
-> used as the xfrm_offload pointer, and the members are initialized.
-> 
-> Then xfrm_offload_priv() does the alignments.
+Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 
-Right, I'm not worried about the alignment of the xfrm_offload, as I'm
-assuming that kmalloc will give us something suitable. However, I do
-want to make sure that the private section used by the driver is 8 byte
-aligned in the face of a potentially oddly sized xfrm_offload struct.
-
-Am I making a bad assumption that kmalloc() will give me a suitable
-alignment for the base struct?
-
-> It is clear that kmalloc() is always giving you 8-byte aligned
-> data else the first time xfrm_offload_priv() is used you'd
-> get a bogus pointer since xfrm_offload_alloc() initialized
-> the object without first aligning the pointer.
-
-The driver calls xfrm_offload_alloc(), then calls xfrm_offload_priv() to
-get it's private struct, and inits that. I just want to make sure the
-private struct is 8 byte aligned, which I assume (wrongly?) will be
-sufficient to prevent misaligned accesses.
-
-> We do something similar when we allocate netdevs, so have a look
-> at how net/core/dev.c:alloc_netdev() works.
-
-I copied part of that code to xfrm_offload_alloc(), removing the part
-that aligned the base xfrm_offload struct. 32 byte alignment seemed a
-bit much, do you think it is needed? I'll be happy to add that if you
-want.
--- 
-David Dillow <dave@thedillows.org>
+--- vanilla-2.6.11-rc1/drivers/net/3c515.c	Wed Jan 12 11:56:16 2005
++++ linux-2.6.11-rc1/drivers/net/3c515.c	Wed Jan 19 21:08:20 2005
+@@ -472,7 +472,7 @@
+ 
+ static void cleanup_card(struct net_device *dev)
+ {
+-	struct corkscrew_private *vp = (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	list_del_init(&vp->list);
+ 	if (dev->dma)
+ 		free_dma(dev->dma);
+@@ -570,7 +570,7 @@
+ static void corkscrew_setup(struct net_device *dev, int ioaddr,
+ 			    struct pnp_dev *idev, int card_number)
+ {
+-	struct corkscrew_private *vp = (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	unsigned int eeprom[0x40], checksum = 0;	/* EEPROM contents */
+ 	int i;
+ 	int irq;
+@@ -696,8 +696,7 @@
+ static int corkscrew_open(struct net_device *dev)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct corkscrew_private *vp =
+-	    (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	union wn3_config config;
+ 	int i;
+ 
+@@ -862,7 +861,7 @@
+ {
+ #ifdef AUTOMEDIA
+ 	struct net_device *dev = (struct net_device *) data;
+-	struct corkscrew_private *vp = (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 	int ok = 0;
+@@ -954,8 +953,7 @@
+ static void corkscrew_timeout(struct net_device *dev)
+ {
+ 	int i;
+-	struct corkscrew_private *vp =
+-	    (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 
+ 	printk(KERN_WARNING
+@@ -994,8 +992,7 @@
+ static int corkscrew_start_xmit(struct sk_buff *skb,
+ 				struct net_device *dev)
+ {
+-	struct corkscrew_private *vp =
+-	    (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 
+ 	/* Block a timer-based transmit from overlapping. */
+@@ -1123,14 +1120,13 @@
+ {
+ 	/* Use the now-standard shared IRQ implementation. */
+ 	struct net_device *dev = dev_id;
+-	struct corkscrew_private *lp;
++	struct corkscrew_private *lp = netdev_priv(dev);
+ 	int ioaddr, status;
+ 	int latency;
+ 	int i = max_interrupt_work;
+ 
+ 	ioaddr = dev->base_addr;
+ 	latency = inb(ioaddr + Timer);
+-	lp = (struct corkscrew_private *) dev->priv;
+ 
+ 	spin_lock(&lp->lock);
+ 	
+@@ -1262,7 +1258,7 @@
+ 
+ static int corkscrew_rx(struct net_device *dev)
+ {
+-	struct corkscrew_private *vp = (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	int i;
+ 	short rx_status;
+@@ -1329,8 +1325,7 @@
+ 
+ static int boomerang_rx(struct net_device *dev)
+ {
+-	struct corkscrew_private *vp =
+-	    (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	int entry = vp->cur_rx % RX_RING_SIZE;
+ 	int ioaddr = dev->base_addr;
+ 	int rx_status;
+@@ -1420,8 +1415,7 @@
+ 
+ static int corkscrew_close(struct net_device *dev)
+ {
+-	struct corkscrew_private *vp =
+-	    (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	int i;
+ 
+@@ -1476,7 +1470,7 @@
+ 
+ static struct net_device_stats *corkscrew_get_stats(struct net_device *dev)
+ {
+-	struct corkscrew_private *vp = (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 	unsigned long flags;
+ 
+ 	if (netif_running(dev)) {
+@@ -1496,8 +1490,7 @@
+ 	*/
+ static void update_stats(int ioaddr, struct net_device *dev)
+ {
+-	struct corkscrew_private *vp =
+-	    (struct corkscrew_private *) dev->priv;
++	struct corkscrew_private *vp = netdev_priv(dev);
+ 
+ 	/* Unlike the 3c5x9 we need not turn off stats updates while reading. */
+ 	/* Switch to the stats window, and read everything. */
