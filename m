@@ -1,57 +1,169 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: 2.6.11 on AMD64 traps
-Date: Tue, 08 Mar 2005 19:35:41 +0100
-Message-ID: <422DF07D.7010908@tomt.net>
-References: <200503081900.18686.vanco@satro.sk>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: netif_rx packet dumping
+Date: 08 Mar 2005 17:02:01 -0500
+Message-ID: <1110319320.1078.97.camel@jzny.localdomain>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
+	 <20050303125556.6850cfe5.davem@davemloft.net>
+	 <1109884688.1090.282.camel@jzny.localdomain>
+	 <20050303132143.7eef517c@dxpl.pdx.osdl.net>
+	 <1109885065.1098.285.camel@jzny.localdomain>
+	 <20050303133237.5d64578f.davem@davemloft.net>
+	 <20050303135416.0d6e7708@dxpl.pdx.osdl.net>
+	 <Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu>
+	 <1109888811.1092.352.camel@jzny.localdomain>
+	 <20050303151606.3587394f@dxpl.pdx.osdl.net>  <4227A23C.5050300@ev-en.org>
+	 <1109907956.1092.476.camel@jzny.localdomain>  <42282098.8010506@ev-en.org>
+	 <1110203711.1088.1393.camel@jzny.localdomain>  <422DCB14.1040805@ev-en.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
-To: Michal Vanco <vanco@satro.sk>
-In-Reply-To: <200503081900.18686.vanco@satro.sk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-6YeoS9RYbwAs2WPMZJ1Y"
+Cc: Stephen Hemminger <shemminger@osdl.org>, John Heffner <jheffner@psc.edu>,
+        "David S. Miller" <davem@davemloft.net>, rhee@eos.ncsu.edu,
+        Yee-Ting.Li@nuim.ie, netdev@oss.sgi.com
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <422DCB14.1040805@ev-en.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[just adding netdev to CC, from LKML]
 
-Michal Vanco wrote:
-> Hello,
+--=-6YeoS9RYbwAs2WPMZJ1Y
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+On Tue, 2005-03-08 at 10:56, Baruch Even wrote:
+> jamal wrote:
+> > 
+> > Were the processors tied to NICs? 
 > 
-> I see this problem running 2.6.11 on dual AMD64:
+> No. These are single CPU machines (with HT).
 > 
-> Running quagga routing daemon (ospf+bgp) and issuing "netstat -rn |wc -l" command
-> while quagga tries to load more than 154000 routes from its bgp neighbours causes this trap:
+
+You have SMP.
+
+> > In other words the whole queue was infact dedicated just for your one
+> > flow - thats why you can call this queue a transient burst queue. 
 > 
-> Unable to handle kernel paging request at 00000000007f5c60 RIP:
-> <ffffffff8041be35>{fib_get_next+181}
-> PGD 3a112067 PUD 3a115067 PMD 0
-> Oops: 0000 [1] SMP
-> CPU 1
-> Modules linked in:
-> Pid: 2537, comm: netstat Not tainted 2.6.11-mv
-> RIP: 0010:[<ffffffff8041be35>] <ffffffff8041be35>{fib_get_next+181}
-> RSP: 0018:ffff81003a13fe90  EFLAGS: 00010206
-> RAX: ffff81003a74c000 RBX: 0000000000000000 RCX: ffff81003a13ff50
-> RDX: 00000000007f5c60 RSI: 0000000000000000 RDI: ffff81003a004d00
-> RBP: ffff81003a13fed8 R08: ffff81003f3ff7c0 R09: 0000000000000800
-> R10: 00007fffffffefe0 R11: 0000000000000246 R12: ffff810002231480
-> R13: 00002aaaaab08000 R14: 0000000000000400 R15: ffff8100022314a8
-> FS:  00002aaaaae00620(0000) GS:ffffffff806195c0(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 00000000007f5c60 CR3: 000000003a12e000 CR4: 00000000000006e0
-> Process netstat (pid: 2537, threadinfo ffff81003a13e000, task ffff81003a66a760)
-> Stack: ffffffff8041bf0f ffff810002231480 ffff81003a67ac80 0000000000000000
-> ffffffff8019576b 0000000000000000 ffff81003a13ff50 00002aaaaab08000
-> 00000000000006f7 00000000000006f8
-> Call Trace:<ffffffff8041bf0f>{fib_seq_start+63} <ffffffff8019576b>{seq_read+219}
-> <ffffffff8017497f>{vfs_read+191} <ffffffff80174c53>{sys_read+83}
-> <ffffffff8010d1ba>{system_call+126}
+> Indeed, For a router or a web server handling several thousand flows it 
+> might be different, but I don't expect it handles a single packet in one 
+> ms (or more) as it happens for the current end-system ack handling code.
 > 
-> Code: 48 8b 0a 0f 18 09 48 8b 72 10 48 8b 06 0f 18 08 48 8d 42 10
-> RIP <ffffffff8041be35>{fib_get_next+181} RSP <ffff81003a13fe90>
-> CR2: 00000000007f5c60
+
+I think it would be interesting as well to see more than one flow;
+maybe go upto 16 (1, 2, 4, 8, 16) and if theres anything to observe you
+should see it.
+
+> > Do you still have the data that shows how many packets were dropped
+> > during this period. Do you still have the experimental data? I am
+> > particulary interested in seeing the softnet stats as well as tcp
+> > netstats.
 > 
-> I saw the same issue on 2.6.10 before. I'm not a kernel hacker but it sounds like
-> locking problem. But may be I'm totally wrong in this.
+> No, These tests were not run by me, I'll probably rerun similar tests as 
+> well to base my work on, send me in private how do I get the stats from 
+> the kernel and I'll add it to my test scripts.
 > 
-> michal
+
+I will be more than happy to help. Let me know when you are ready.
+
+> > I think your main problem was the huge amounts of SACK on the writequeue
+> > and the resultant processing i.e section 1.1 and how you resolved that.
+> 
+> That is my main guess as well, the original work was done rather 
+> quickly, we are now reorganizing thoughts and redoing the tests in a 
+> more orderly fashion.
+> 
+
+I have attached the little patch i forgot to last time where you can
+adjust. Adjust the lo_cong parameter in /proc to tune the number of
+packets in which the congestion valve gets opened. Make sure you 
+are within range of the other parameters like no_cong etc.
+Or you can change that check to be using no_cong instead.
+
+> > I dont see any issue in dropping ACKs, many of them even for such large
+> > windows as you have - TCPs ACKs are cummulative. It is true if you drop
+> > "large" enough amounts of ACKS, you will end up in timeouts - but large
+> > enough in your case must be in the minimal 1000 packets. And to say you
+> > dropped a 1000 packets while processing 300 means you were taking too
+> > long processing the 300.
+> 
+> With the current code SACK processing takes a long time, so it is 
+> possible that it happened to drop more than a thousand packets while 
+> handling 300. I think that after the fixing of the SACK code, the rest 
+> might work without getting to much into the ingress queue. But that 
+> might still change when we go to even higher speeds.
+> 
+
+Sure. I am not questioning fixing the SACK code - I dont think it was
+envisioned that someone was going to have 1000 outstanding SACKs in 
+_one_ flow.  But an interesting test case would be to fix the SACK
+processing then retest without getting rid of the congestion valve.
+Again, shall i repeat you really should be using NAPI? ;->
+
+> > Then what would be really interesting is to see the perfomance you get
+> > from multiple flows with and without congestion.
+> 
+> We'd need to get a very high speed link for multiple high speed flows.
+> 
+
+Get a couple of PCs and hook them back to back.
+
+> > I am not against a the benchmarky nature of the single flow and tuning
+> > for that, but we should also look at a wider scope at the effect before
+> > you handwave based on the result of one testcase.
+> 
+> I can't say I didn't handwave, but then, there is little experimentation 
+> done to see if the other claims are correct and that AFQ is really 
+> needed so early in the packet receive stage. There are also voices that 
+> say AFQ sucks and causes more damage than good, I don't remember details 
+> currently.
+> 
+
+Its not totaly AFQ,
+The idea is that code is measuring (based on history) how busy the
+system is. What Stephen and I were discussing is that you may wanna
+totaly punish new flows coming in instead of the one flow that already
+is flowing when the going gets tough (i.e congestion detected). However,
+this maybe too big unneeded a hack when we have NAPI which will do just
+fine for you.
+
+> > So if i was you i would repeat 1.2 with the fix from 1.1 as well as
+> > tying the NIC to one CPU. And it would be a good idea to present more
+> > detailed results - not just tcp windows fluctuating (you may not need
+> > them for the paper, but would be useful to see for debugging purposes
+> > other parameters).
+> 
+> I'd be happy to hear what other benchmarks you would like to see, I 
+> currently intend to add some ack processing time analysis and oprofile 
+> information. With possibly showing the size of the ingress queue as a 
+> measure as well.
+> 
+> Making it as thorough as possible is one of my goals. Input is always 
+> welcome.
+> 
+
+Good - and thanks for not being defensive; your work can only get better
+this way. Ping me when you have ported to 2.6.11 and are ready to do the
+testing.
+
+cheers,
+jamal
+
+--=-6YeoS9RYbwAs2WPMZJ1Y
+Content-Disposition: attachment; filename=cong_p
+Content-Type: text/plain; name=cong_p; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- 2611-mod/net/core/dev.c	2005/03/07 12:26:21	1.1
++++ 2611-mod/net/core/dev.c	2005/03/07 12:30:19
+@@ -1742,6 +1742,9 @@
+ 		if (work >= quota || jiffies - start_time > 1)
+ 			break;
+ 
++		if (queue->throttle && work >= lo_cong)
++			queue->throttle = 0;
++
+ 	}
+ 
+ 	backlog_dev->quota -= work;
+
+--=-6YeoS9RYbwAs2WPMZJ1Y--
