@@ -1,35 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
-Date: Sun, 12 Sep 2004 17:03:23 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040912170323.65eadc38.davem@davemloft.net>
-References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+Subject: Re: [PATCH] [RFC] Support for wccp version 1 and 2 in ip_gre.c
+Date: Sun, 12 Sep 2004 17:05:05 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040912170505.62916147.davem@davemloft.net>
+References: <20040911194108.GS28258@stingr.sgu.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@oss.sgi.com, rusty@rustcorp.com.au
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S264299AbUIMAGj@vger.kernel.org>
+To: Paul P Komkoff Jr <i@stingr.net>
+In-Reply-To: <20040911194108.GS28258@stingr.sgu.ru>
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Sep 2004 10:53:53 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Sat, 11 Sep 2004 23:41:08 +0400
+Paul P Komkoff Jr <i@stingr.net> wrote:
 
-> 	This is a resend/resync for v2.6.9-rc1-bk17: change the
-> way the ip_nat_ftp helper manipulates the packets:
-> 
-> - no manips => no fixup
-> 
-> - check the direction, do manip once and at the same time when the
-> headers are changed
-> 
-> 	This is needed mostly for IPVS setups and I hope we do not
-> create troubles for other setups or FTP software.
-> 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Some time ago I posted the following patch.
+> It indeed adds support for wccp version 1 and 2 decapsulation in
+> ip_gre.c. But there is an open question.
+> I surrounded all decapsulation stuff in if (1).
+> Which knob I should use instead of that 1 to make this change
+> acceptable into mainline kernel?
 
-Harald and/or Rusty, please ACK/NACK this for me.
+What are the rules for IP_GRE in general for when
+to apply this transformation?
+
+Please do me a favor also, and redo your patch by putting
+ETH_P_WCCP into include/linux/if_ether.h where it belongs.
 
 Thanks.
