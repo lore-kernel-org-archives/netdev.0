@@ -1,27 +1,26 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: af_packet.c bug?
-Date: Mon, 28 Mar 2005 12:33:37 -0800
-Message-ID: <20050328123337.6dbd4870.davem@davemloft.net>
-References: <424858D4.8060604@candelatech.com>
-	<20050328195557.GF3086@postel.suug.ch>
-	<4248642E.40304@candelatech.com>
-	<20050328121806.3208ac40.davem@davemloft.net>
-	<42486961.9060609@candelatech.com>
+From: Roland Dreier <roland@topspin.com>
+Subject: Re: Topic:  Remote DMA network technologies
+Date: Mon, 28 Mar 2005 12:36:32 -0800
+Message-ID: <52ekdzwlrj.fsf@topspin.com>
+References: <E1DG0uC-0004vM-00@w-gerrit.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: open-iscsi@googlegroups.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <42486961.9060609@candelatech.com>
+To: Gerrit Huizenga <gh@us.ibm.com>
+In-Reply-To: <E1DG0uC-0004vM-00@w-gerrit.beaverton.ibm.com> (Gerrit
+ Huizenga's message of "Mon, 28 Mar 2005 12:32:12 -0800")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Mar 2005 12:30:25 -0800
-Ben Greear <greearb@candelatech.com> wrote:
+    Gerrit> [ Can we start updating the Subject line occasionally when
+    Gerrit> we have a specific topic, like above.  And no, I'm not
+    Gerrit> top-posting, I'm commenting on the Subject:.  ;-) --gerrit ]
 
-> It would be nice to have a list of all of these sockets so we could get info
-> on them similar to the 'netstat -an' output anyway...
+Sorry -- your point is well taken, but everyone else was having so
+much fun discussing iSCSI specifics under the old Subject line that I
+just went with the flow ;)
 
-/proc/net/packet is insufficient?
+ - Roland
