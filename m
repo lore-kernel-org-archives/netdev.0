@@ -1,302 +1,176 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/4) bridge forwarding table RCU
-Date: Wed, 28 Jul 2004 16:24:23 -0700
-Sender: bridge-bounces@lists.osdl.org
-Message-ID: <20040728162423.6e4f8bb9@dell_ss3.pdx.osdl.net>
+From: Pasi Sjoholm <ptsjohol@cc.jyu.fi>
+Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe
+ RLT-8139 related)
+Date: Thu, 29 Jul 2004 03:46:10 +0300 (EEST)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0407290315240.5763-100000@silmu.st.jyu.fi>
+References: <16647.61953.158512.433946@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============30422491057718992=="
-Cc: netdev@oss.sgi.com, bridge@osdl.org
-Return-path: <bridge-bounces@lists.osdl.org>
-To: "David S. Miller" <davem@redhat.com>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.osdl.org>
-List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
-Errors-To: bridge-bounces@lists.osdl.org
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	H?ctor Mart?n <hector@marcansoft.com>,
+	Linux-Kernel <linux-kernel@vger.kernel.org>, <akpm@osdl.org>,
+	<netdev@oss.sgi.com>, <brad@brad-x.com>, <shemminger@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267393AbUG2BFE@vger.kernel.org>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16647.61953.158512.433946@robur.slu.se>
 List-Id: netdev.vger.kernel.org
 
---===============30422491057718992==
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+On Wed, 28 Jul 2004, Robert Olsson wrote:
 
-Convert the bridge forwarding database over to using RCU.
-This avoids a read_lock and atomic_inc/dec in the fast path
-of output.
+>> It would be nice that one could use the full capacity of his/her com=
+puter.
+>> This is not a big problem for everyday use for a workstation but pre=
+vents=20
+>> 2.6-series to be used in production-enviroments in the servers.
+>> But hey.. we need to do some work and maybe we will resolve this. =3D=
+)
+> this now. But it does not address userland starvation so if you your =
+workload=20
+> can give reproduceably results wrt starvation (Alexey's app) we can d=
+o some
+> tests. First I think should be collect data from current system and c=
+heck=20
+> that results a reproduceable.=20
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+It takes about 2 minutes to reproduce the symptoms so it's not a proble=
+m=20
+anymore when I know exactly what I have to do.
+=20
+> Below is a patch to monitor softirq's it uses fastroute stats in soft=
+net_stat
+> you may have to hack it.
 
-diff -Nru a/include/linux/list.h b/include/linux/list.h
---- a/include/linux/list.h	2004-07-28 15:30:04 -07:00
-+++ b/include/linux/list.h	2004-07-28 15:30:04 -07:00
-@@ -678,6 +678,24 @@
- 	     pos && ({ n = pos->next; 1; }) && 				 \
- 		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
- 	     pos = n)
-+
-+/**
-+ * hlist_for_each_entry_rcu - iterate over rcu list of given type
-+ * @pos:	the type * to use as a loop counter.
-+ * @pos:	the &struct hlist_node to use as a loop counter.
-+ * @head:	the head for your list.
-+ * @member:	the name of the hlist_node within the struct.
-+ *
-+ * This list-traversal primitive may safely run concurrently with
-+ * the _rcu list-mutation primitives such as hlist_add_rcu()
-+ * as long as the traversal is guarded by rcu_read_lock().
-+ */
-+#define hlist_for_each_entry_rcu(tpos, pos, head, member)		 \
-+	for (pos = (head)->first;					 \
-+	     pos && ({ prefetch(pos->next); 1;}) &&			 \
-+		({ tpos = hlist_entry(pos, typeof(*tpos), member); 1;}); \
-+	     pos = pos->next, ({ smp_read_barrier_depends(); 0; }) )
-+
- #else
- #warning "don't include kernel headers in userspace"
- #endif /* __KERNEL__ */
-diff -Nru a/net/bridge/br_device.c b/net/bridge/br_device.c
---- a/net/bridge/br_device.c	2004-07-28 15:30:04 -07:00
-+++ b/net/bridge/br_device.c	2004-07-28 15:30:04 -07:00
-@@ -43,10 +43,9 @@
- 	rcu_read_lock();
- 	if (dest[0] & 1) 
- 		br_flood_deliver(br, skb, 0);
--	else if ((dst = br_fdb_get(br, dest)) != NULL) {
-+	else if ((dst = __br_fdb_get(br, dest)) != NULL)
- 		br_deliver(dst->dst, skb);
--		br_fdb_put(dst);
--	} else
-+	else
- 		br_flood_deliver(br, skb, 0);
- 
- 	rcu_read_unlock();
-diff -Nru a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
---- a/net/bridge/br_fdb.c	2004-07-28 15:30:04 -07:00
-+++ b/net/bridge/br_fdb.c	2004-07-28 15:30:04 -07:00
-@@ -73,7 +73,7 @@
- 
- static __inline__ void fdb_delete(struct net_bridge_fdb_entry *f)
- {
--	hlist_del(&f->hlist);
-+	hlist_del_rcu(&f->hlist);
- 	if (!f->is_static)
- 		list_del(&f->age_list);
- 
-@@ -85,7 +85,7 @@
- 	struct net_bridge *br = p->br;
- 	int i;
- 	
--	write_lock_bh(&br->hash_lock);
-+	spin_lock_bh(&br->hash_lock);
- 
- 	/* Search all chains since old address/hash is unknown */
- 	for (i = 0; i < BR_HASH_SIZE; i++) {
-@@ -117,7 +117,7 @@
- 	fdb_insert(br, p, newaddr, 1);
- 
- 
--	write_unlock_bh(&br->hash_lock);
-+	spin_unlock_bh(&br->hash_lock);
- }
- 
- void br_fdb_cleanup(unsigned long _data)
-@@ -126,7 +126,7 @@
- 	struct list_head *l, *n;
- 	unsigned long delay;
- 
--	write_lock_bh(&br->hash_lock);
-+	spin_lock_bh(&br->hash_lock);
- 	delay = hold_time(br);
- 
- 	list_for_each_safe(l, n, &br->age_list) {
-@@ -144,14 +144,14 @@
- 			break;
- 		}
- 	}
--	write_unlock_bh(&br->hash_lock);
-+	spin_unlock_bh(&br->hash_lock);
- }
- 
- void br_fdb_delete_by_port(struct net_bridge *br, struct net_bridge_port *p)
- {
- 	int i;
- 
--	write_lock_bh(&br->hash_lock);
-+	spin_lock_bh(&br->hash_lock);
- 	for (i = 0; i < BR_HASH_SIZE; i++) {
- 		struct hlist_node *h, *g;
- 		
-@@ -182,33 +182,42 @@
- 		skip_delete: ;
- 		}
- 	}
--	write_unlock_bh(&br->hash_lock);
-+	spin_unlock_bh(&br->hash_lock);
- }
- 
--struct net_bridge_fdb_entry *br_fdb_get(struct net_bridge *br, unsigned char *addr)
-+/* No locking or refcounting, assumes caller has no preempt (rcu_read_lock) */
-+struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
-+					  const unsigned char *addr)
- {
- 	struct hlist_node *h;
-+	struct net_bridge_fdb_entry *fdb;
- 
--	read_lock_bh(&br->hash_lock);
--		
--	hlist_for_each(h, &br->hash[br_mac_hash(addr)]) {
--		struct net_bridge_fdb_entry *fdb
--			= hlist_entry(h, struct net_bridge_fdb_entry, hlist);
--
-+	hlist_for_each_entry_rcu(fdb, h, &br->hash[br_mac_hash(addr)], hlist) {
- 		if (!memcmp(fdb->addr.addr, addr, ETH_ALEN)) {
--			if (has_expired(br, fdb))
--				goto ret_null;
--
--			atomic_inc(&fdb->use_count);
--			read_unlock_bh(&br->hash_lock);
-+			if (unlikely(has_expired(br, fdb)))
-+				break;
- 			return fdb;
- 		}
- 	}
-- ret_null:
--	read_unlock_bh(&br->hash_lock);
-+
- 	return NULL;
- }
- 
-+/* Interface used by ATM hook that keeps a ref count */
-+struct net_bridge_fdb_entry *br_fdb_get(struct net_bridge *br, 
-+					unsigned char *addr)
-+{
-+	struct net_bridge_fdb_entry *fdb;
-+
-+	rcu_read_lock();
-+	fdb = __br_fdb_get(br, addr);
-+	if (fdb) 
-+		atomic_inc(&fdb->use_count);
-+	rcu_read_unlock();
-+	return fdb;
-+}
-+
-+
- void br_fdb_put(struct net_bridge_fdb_entry *ent)
- {
- 	if (atomic_dec_and_test(&ent->use_count))
-@@ -229,9 +238,9 @@
- 
- 	memset(buf, 0, maxnum*sizeof(struct __fdb_entry));
- 
--	read_lock_bh(&br->hash_lock);
-+	rcu_read_lock();
- 	for (i = 0; i < BR_HASH_SIZE; i++) {
--		hlist_for_each_entry(f, h, &br->hash[i], hlist) {
-+		hlist_for_each_entry_rcu(f, h, &br->hash[i], hlist) {
- 			if (num >= maxnum)
- 				goto out;
- 
-@@ -255,7 +264,7 @@
- 	}
- 
-  out:
--	read_unlock_bh(&br->hash_lock);
-+	rcu_read_unlock();
- 
- 	return num;
- }
-@@ -309,7 +318,7 @@
- 
- 	memcpy(fdb->addr.addr, addr, ETH_ALEN);
- 	atomic_set(&fdb->use_count, 1);
--	hlist_add_head(&fdb->hlist, &br->hash[hash]);
-+	hlist_add_head_rcu(&fdb->hlist, &br->hash[hash]);
- 
- 	if (!timer_pending(&br->gc_timer)) {
- 		br->gc_timer.expires = jiffies + hold_time(br);
-@@ -332,8 +341,8 @@
- {
- 	int ret;
- 
--	write_lock_bh(&br->hash_lock);
-+	spin_lock_bh(&br->hash_lock);
- 	ret = fdb_insert(br, source, addr, is_local);
--	write_unlock_bh(&br->hash_lock);
-+	spin_unlock_bh(&br->hash_lock);
- 	return ret;
- }
-diff -Nru a/net/bridge/br_if.c b/net/bridge/br_if.c
---- a/net/bridge/br_if.c	2004-07-28 15:30:04 -07:00
-+++ b/net/bridge/br_if.c	2004-07-28 15:30:04 -07:00
-@@ -149,7 +149,7 @@
- 
- 	br->lock = SPIN_LOCK_UNLOCKED;
- 	INIT_LIST_HEAD(&br->port_list);
--	br->hash_lock = RW_LOCK_UNLOCKED;
-+	br->hash_lock = SPIN_LOCK_UNLOCKED;
- 
- 	br->bridge_id.prio[0] = 0x80;
- 	br->bridge_id.prio[1] = 0x00;
-diff -Nru a/net/bridge/br_input.c b/net/bridge/br_input.c
---- a/net/bridge/br_input.c	2004-07-28 15:30:04 -07:00
-+++ b/net/bridge/br_input.c	2004-07-28 15:30:04 -07:00
-@@ -83,19 +83,17 @@
- 		goto out;
- 	}
- 
--	dst = br_fdb_get(br, dest);
-+	dst = __br_fdb_get(br, dest);
- 	if (dst != NULL && dst->is_local) {
- 		if (!passedup)
- 			br_pass_frame_up(br, skb);
- 		else
- 			kfree_skb(skb);
--		br_fdb_put(dst);
- 		goto out;
- 	}
- 
- 	if (dst != NULL) {
- 		br_forward(dst->dst, skb);
--		br_fdb_put(dst);
- 		goto out;
- 	}
- 
-diff -Nru a/net/bridge/br_private.h b/net/bridge/br_private.h
---- a/net/bridge/br_private.h	2004-07-28 15:30:04 -07:00
-+++ b/net/bridge/br_private.h	2004-07-28 15:30:04 -07:00
-@@ -86,7 +86,7 @@
- 	struct list_head		port_list;
- 	struct net_device		*dev;
- 	struct net_device_stats		statistics;
--	rwlock_t			hash_lock;
-+	spinlock_t			hash_lock;
- 	struct hlist_head		hash[BR_HASH_SIZE];
- 	struct list_head		age_list;
- 
-@@ -136,8 +136,10 @@
- extern void br_fdb_cleanup(unsigned long arg);
- extern void br_fdb_delete_by_port(struct net_bridge *br,
- 			   struct net_bridge_port *p);
-+extern struct net_bridge_fdb_entry *__br_fdb_get(struct net_bridge *br,
-+						 const unsigned char *addr);
- extern struct net_bridge_fdb_entry *br_fdb_get(struct net_bridge *br,
--					unsigned char *addr);
-+					       unsigned char *addr);
- extern void br_fdb_put(struct net_bridge_fdb_entry *ent);
- extern int br_fdb_fillbuf(struct net_bridge *br, void *buf, 
- 			  unsigned long count, unsigned long off);
+Ok, I had to do some modifications but here are the results:
 
---===============30422491057718992==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+while true; cat /proc/net/softnet_stat | tee -a log.txt; sleep 5; done
 
-_______________________________________________
-Bridge mailing list
-Bridge@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/bridge
+The first log is when running exact same patch you sent.
 
---===============30422491057718992==--
+--
+000401f1 00000000 00000000 00000000 000002ec 000000d8 00084026
+0004495c 00000000 00000000 00000000 00000326 000000d8 0008ae93
+0004820b 00000000 00000000 00000000 0000034a 000000d8 00090755
+0004a613 00000000 00000000 00000000 00000358 000000d8 00093f0f
+0004ca12 00000000 00000000 00000000 00000370 000000da 000976c9
+000500f2 00000000 00000000 00000000 0000045e 000000da 0009cf4b
+0005417b 00000000 00000000 00000000 000005f8 000000da 000a36b5
+00056a66 00000000 00000000 00000000 0000064c 000000da 000a7619
+0005a94b 00000000 00000000 00000000 000007bf 000000da 000ad9da
+0005d9b7 00000000 00000000 00000000 00000816 000000db 000b1fff
+00060286 00000000 00000000 00000000 00000834 000000db 000b5dee
+00064ffb 00000000 00000000 00000000 00000a0c 000000db 000bd33c
+00069498 00000000 00000000 00000000 00000b97 000000db 000c3d62
+0006cdf1 00000000 00000000 00000000 00000cc5 000000db 000c972b
+0006f9cc 00000000 00000000 00000000 00000d43 000000db 000cde12
+0007280d 00000000 00000000 00000000 00000dea 000000db 000d268d
+00074f33 00000000 00000000 00000000 00000e3e 000000db 000d655b
+00078271 00000000 00000000 00000000 00000f45 000000db 000db849
+0007beee 00000000 00000000 00000000 0000106e 000000db 000e18ae
+0007e402 00000000 00000000 00000000 00001086 000000db 000e513b
+000815c4 00000000 00000000 00000000 0000114d 000000db 000e9d33
+00082abc 00000000 0000076c 00000000 000011f0 000001ad 000ec552
+00082abc 00000000 00001180 00000000 000014e8 00000207 000ecc14
+00082abc 00000000 00001b44 00000000 000014e8 00000257 000ed588
+00082abc 00000000 0000251c 00000000 000018bc 000002bb 000edb28
+00082abc 00000000 00002ee0 00000000 00001970 0000033d 000ee3b6
+00082abc 00000000 000038e0 00000000 00001eac 0000038d 000ee82a
+00082abc 00000000 0000443e 00000000 00002244 00000405 000eef78
+00082abc 00000000 00004e02 00000000 000024c4 00000469 000ef658
+00082abc 00000000 000057c6 00000000 000026cc 000004c3 000efdba
+00082abc 00000000 000061da 00000000 00002910 00000513 000f053a
+00082abc 00000000 00006bbc 00000000 00002b2c 0000056d 000f0ca6
+00082abe 00000000 000075c6 00000000 00002e10 000005d1 000f1368
+00082abe 00000000 00007f9e 00000000 000030a4 00000635 000f1a48
+00082abe 00000000 000089da 00000000 00003338 000006a3 000f2182
+00082abe 00000000 00009420 00000000 00003554 000006fd 000f2952
+00082abe 00000000 00009e70 00000000 00003c34 00000829 000f2b96
+00082ac0 00000000 0000a8c0 00000000 000044cc 00000991 000f2be6
+00082ac0 00000000 0000b2e8 00000000 00004814 00000fd1 000f2c86
+00082ac0 00000000 0000bcfc 00000000 00004814 0000199f 000f2ccc
+00082ac0 00000000 0000c72e 00000000 00004814 00002377 000f2d26
+00082ac2 00000000 0000d142 00000000 00004864 00002c19 000f2e48
+00082ac2 00000000 0000db56 00000000 00004864 0000358d 000f2ee8
+00082ac2 00000000 0000e574 00000000 00004864 00003f33 000f2f60
+00082ac2 00000000 0000ef9c 00000000 0000497c 000047e9 000f2fba
+00082ac2 00000000 0000f9b0 00000000 0000497c 000051ad 000f300a
+00082ac2 00000000 000103ce 00000000 0000497c 00005b7b 000f305a
+00082ac4 00000000 00010dec 00000000 0000497c 00006549 000f30aa
+00082ac4 00000000 0001180a 00000000 0000497c 00006f17 000f30fa
+00082ac4 00000000 0001225a 00000000 00004a94 00007809 000f3140
+--
+
+and the second one is when that if-condition is true (just wanted to tr=
+y=20
+if that would make any difference):
+
+#if 1
+        /* Avoid softirq's from DoS'ing user apps incl. RCU's etc */
+
+--
+00000082 00000000 00000000 00000000 00000010 00000116 0001fe40
+00000082 00000000 00000000 00000000 00000010 00000119 000211f9
+0000094d 00000000 00000000 00000000 00000014 0000011b 00022e69
+00004ab8 00000000 00000000 00000000 00000032 0000011d 0002877e
+00006b19 00000000 00000000 00000000 0000003f 0000011f 0002cb8e
+0000c7a0 00000000 00000000 00000000 00000073 00000122 0003409e
+0001334a 00000000 00000000 00000000 000000d6 00000124 0003dd4e
+00017537 00000000 00000000 00000000 00000113 00000127 00044598
+0001b528 00000000 00000000 00000000 0000015a 00000129 0004acb5
+0001ec8f 00000000 00000000 00000000 000001ae 0000012b 0005024a
+00021186 00000000 00000000 00000000 000001c1 0000012e 00053ace
+000236f1 00000000 00000000 00000000 00000205 0000012e 000575c7
+00026980 00000000 00000000 00000000 0000032b 0000012e 0005c601
+0002a70a 00000000 00000000 00000000 000004aa 0000012e 0006258f
+0002e715 00000000 00000000 00000000 00000664 0000012e 00068ddc
+00030c8b 00000000 00000000 00000000 00000690 0000012e 0006c872
+0003303e 00000000 00000000 00000000 000006a3 0000012e 0006ffc6
+00036172 00000000 00000000 00000000 00000786 0000012e 00074e6d
+0003a3c8 00000000 00000000 00000000 0000096a 0000012e 0007b998
+0003d62b 00000000 00000000 00000000 00000a85 0000012e 000808b0
+000401ab 00000000 00000000 00000000 00000aa4 0000012e 000847bf
+000426ba 00000000 00000000 00000000 00000ab5 0000012e 0008807b
+00046099 00000000 00000000 00000000 00000c57 0000012e 0008dd31
+0004a27a 00000000 00000000 00000000 00000e0b 0000012e 00094686
+0004c2dc 00000000 00000122 00000000 00000e2c 000001b0 000979c8
+0004c2dc 00000000 00000bae 00000000 00000e2c 00000228 000983dc
+0004c2dc 00000000 00001568 00000000 00001084 00000282 00098ae4
+0004c2dc 00000000 00001f0e 00000000 00001084 000002f0 0009941c
+0004c2dc 00000000 00002968 00000000 00001084 00000368 00099dfe
+0004c2dc 00000000 00003354 00000000 00001426 000003ae 0009a402
+0004c2dc 00000000 00003d04 00000000 0000150c 0000041c 0009ac5e
+0004c2dc 00000000 00004790 00000000 00001548 00000494 0009b636
+0004c2dc 00000000 00005140 00000000 00001548 00000502 0009bf78
+0004c2de 00000000 00005b68 00000000 00001548 0000057a 0009c928
+0004c2e0 00000000 000065ae 00000000 00001598 000005e8 0009d2b0
+0004c2e2 00000000 00006f4a 00000000 00001598 00000660 0009dbd4
+0004c2e2 00000000 000079a4 00000000 00001660 000006ce 0009e4f8
+0004c2e2 00000000 000083d6 00000000 00001660 00000746 0009eeb2
+0004c2e2 00000000 00008e08 00000000 00001764 000007b4 0009f772
+0004c2ee 00000000 00009858 00000000 00001764 0000082c 000a014a
+0004c2f6 00000000 0000a1fe 00000000 00001764 0000089a 000a0a82
+0004c2fc 00000000 0000abcc 00000000 0000182c 000008f4 000a132e
+0004c2fc 00000000 0000b626 00000000 0000182c 000011aa 000a14d2
+0004c302 00000000 0000c03a 00000000 00001872 00001aec 000a155e
+--
+
+and it did not make any difference. I have cut out the output of "cat=20
+softnet_stat to show columns from 1 to 7.=20
+
+- When the ksoftirqd starts to eat cpu-time time_squeeze-value (3rd=20
+column) starts growing (in both cases it's same thing).=20
+
+- We are also getting more hits from SIRQ_FROM_KSOFTIRQD=20
+immediately after that. (6th column)
+
+- Total-column's value stops growing although network file transfers=20
+are still on. (1st column)
+=20
+> And maybe we should take the experiment disussions off the list.
+
+I think that we should leave netdev as Francois requested it in first=20
+place but we can drop the lkml if you want to.
+
+--
+Pasi Sj=F6holm
