@@ -1,54 +1,49 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri,  6 Sep 2002 09:21:23 -0700
+Date: Fri, 06 Sep 2002 09:29:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1031329283.3d78d603ba4c3@imap.linux.ibm.com>
-References: <20020905.235159.128049953.davem@redhat.com> <46202575.1031297360@[10.10.2.3]> <3D78CBF6.10609@us.ibm.com>
+Message-ID: <53430559.1031304588@[10.10.2.3]>
+References: <3D78C9BD.5080905@us.ibm.com>
+Reply-To: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>,
-   "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
-   tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
+   tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   Nivedita Singhvi <niv@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Dave Hansen <haveblue@us.ibm.com>
-In-Reply-To: <3D78CBF6.10609@us.ibm.com>
+In-Reply-To: <3D78C9BD.5080905@us.ibm.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting Dave Hansen <haveblue@us.ibm.com>:
+> I thought that I already tried to explain this to you.  (although 
+> it could have been on one of those too-much-coffee-days :)
 
-> No, no.  Bad Martin!  Throughput didn't drop, "Specweb compliance"
-> dropped. Those are two very, very different things.  I've found that
-> the server can produce a lot more throughput, although it doesn't
-> have the characteristics that Specweb considers compliant.  
-> Just have Troy enable mod-status and look at the throughput that
-> Apache tells you that it is giving during a run.  
-> _That_ is real throughput, not number of compliant connections.
+You told me, but I'm far from convinced this is the problem. I think
+it's more likely this is a side-effect of a server issue - something
+like a lot of dropped packets and retransmits, though not necessarily
+that.
 
-> _And_ NAPI is for receive only, right?  Also, my compliance drop
-> occurs with the NAPI checkbox disabled.  There is something else in
-> the new driver that causes our problems.
+> Something strange happens to the clients when NAPI is enabled on 
+> the Specweb clients.  Somehow the start using a lot more CPU.  
+> The increased idle time on the server is because the _clients_ are 
+> CPU maxed.  I have some preliminary oprofile data for the clients, 
+> but it appears that this is another case of Specweb code just 
+> really sucking.
 
-Thanks, Dave, you saved me a bunch of typing...
+Hmmm ... if you change something on the server, and all the clients
+go wild, I'm suspicious of whatever you did to the server. You need
+to have a lot more data before leaping to the conclusion that it's
+because the specweb client code is crap.
 
-Just looking at a networking benchmark result is worse than
-useless. You really need to look at the stats, settings,
-and the profiles. eg, for most of the networking stuff:
+Troy - I think your UP clients weren't anywhere near maxed out on 
+CPU power, right? Can you take a peek at the clients under NAPI load?
 
-ifconfig -a 
-netstat -s
-netstat -rn
-/proc/sys/net/ipv4/
-/proc/sys/net/core/
+Dave - did you ever try running 4 specweb clients bound to each of
+the 4 CPUs in an attempt to make the clients scale better? I'm 
+suspicious that you're maxing out 4 4-way machines, and Troy's
+16 UPs are cruising along just fine.
 
-before and after the run. 
-
-Dave, although in your setup the clients are maxed out,
-not sure thats the case for Mala and Troy's clients. (Dont
-know, of course). But I'm fairly sure they arent using
-single quad NUMAs and they may not be seeing the same
-effects..
-
-thanks,
-Nivedita
+M.
