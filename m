@@ -1,36 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: confuzed bit flags
-Date: Thu, 08 May 2003 15:41:43 -0700 (PDT)
+Subject: Re: [PATCH 2.5.69] IPV4/6 inetsw using RCU
+Date: Thu, 08 May 2003 15:43:20 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030508.154143.88024940.davem@redhat.com>
-References: <20030508153032.06e7c98a.rddunlap@osdl.org>
+Message-ID: <20030508.154320.128592193.davem@redhat.com>
+References: <20030508153307.73d16f5e.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rddunlap@osdl.org
-In-Reply-To: <20030508153032.06e7c98a.rddunlap@osdl.org>
+To: shemminger@osdl.org
+In-Reply-To: <20030508153307.73d16f5e.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: "Randy.Dunlap" <rddunlap@osdl.org>
-   Date: Thu, 8 May 2003 15:30:32 -0700
-   
-   I'm confused or the source code is or both.
-   
-   net/ipv6/ndisc.c sets
-   
-   	rt->rt6i_flags    = RTF_LOCAL;
-   
-Any time you see some absolutely strange handling inside of ipv6
-routing, it usually indicates a place where ipv4 routing does things
-one way and the ipv6 side cannot implement things in that way for one
-reason or another.  Yet, some ipv4'lets remain in the ipv6 code,
-almost as a marker to be mindful of this difference.
+   From: Stephen Hemminger <shemminger@osdl.org>
+   Date: Thu, 8 May 2003 15:33:07 -0700
 
-This RTF_LOCAL thing is just such a case.
+   This is a revised version of the earlier brlock removal patch, and
+   addresses all comments received so far. It is stable and works
+   reliably, but Dave, you may want to wait for any additional
+   comments before applying.
 
-In many ways the ipv6 routing code is lacking in features that
-ipv4 routing has.  I'm in fact right now killing on of them,
-rtnetlink route metrics are ignored by ipv6.
+Okie dokie.  The patch looks fine to me.  Just let me know when
+it's ready to go in.
