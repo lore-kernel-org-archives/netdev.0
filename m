@@ -1,31 +1,29 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: IPv6 multicast (MLD,IGMP) code bypasses netfilter hooks
-Date: Sun, 23 Nov 2003 15:43:44 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] 2.6.0-test9-bk27-netdrvr-exp1 - r8169 update
+Date: Mon, 24 Nov 2003 00:40:23 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031123154344.3e2b0b1a.davem@redhat.com>
-References: <20031122090330.GB2745@obroa-skai.de.gnumonks.org>
+Message-ID: <20031124004023.A1140@electric-eye.fr.zoreil.com>
+References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <3FC14058.4010600@mcve.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20031122090330.GB2745@obroa-skai.de.gnumonks.org>
+To: Brad House <brad@mcve.com>
+Content-Disposition: inline
+In-Reply-To: <3FC14058.4010600@mcve.com>; from brad@mcve.com on Sun, Nov 23, 2003 at 06:18:48PM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 22 Nov 2003 10:03:30 +0100
-Harald Welte <laforge@netfilter.org> wrote:
+Brad House <brad@mcve.com> :
+> cool. Did those previous patches you posted get merged into the
+> current netdrvr-exp1, or do those need to be applied as well ?
 
-> At least to me it was not known (until very recently) that the IPv6
-> multicast code in net/ipv6/mcast.c bypasses the netfilter hooks - but it
-> does.
- ...
-> Dave: I think this would be post 2.6.0 stuff, wouldn't it?
+It is built on top of 2.6.0-test9-bk27 + (latest) netdrvr-exp:
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test9-bk25-netdrvr-exp1.patch.bz2
 
-If the fix is simple enough (1 or 2 one-liner changes) and easy
-to verify, I would consider it for 2.6.0
+> I'm going to see if I can test this out tonight...
 
-I may even look into this myself.
+There is still a pile of code from realtek to merge. Tomorrow.
 
-Thanks Harald.
+--
+Ueimor
