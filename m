@@ -1,71 +1,79 @@
-From: dcn@sgi.com (Dean Nelson)
-Subject: [PATCH 0/3] SGI Altix cross partition functionality (2nd
- revision)
-Date: Wed, 23 Mar 2005 13:29:21 -0600
-Message-ID: <4241C391.mailxHNA15A8V0@aqua.americas.sgi.com>
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
+Date: Wed, 23 Mar 2005 19:33:12 +0000
+Message-ID: <4241C478.5030309@dsl.pipex.com>
+References: <1107123123.8021.80.camel@jzny.localdomain>	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>	 <1107174142.8021.121.camel@jzny.localdomain>	 <00c301c524b4$938cd240$6e69690a@RIMAS>	 <1110379135.1091.143.camel@jzny.localdomain>	 <1110416767.1111.76.camel@jzny.localdomain>	 <025501c52552$2dbf87c0$6e69690a@RIMAS>	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>	 <1111410890.1092.195.camel@jzny.localdomain>	 <423F41AD.3010902@dsl.pipex.com>	 <1111444869.1072.51.camel@jzny.localdomain>	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>	 <42408998.5000202@dsl.pipex.com> <1111550254.1089.21.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-ia64@vger.kernel.org, netdev@oss.sgi.com
-To: tony.luck@intel.com
-Sender: linux-ia64-owner@vger.kernel.org
+Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
+        Remus <rmocius@auste.elnet.lt>, netdev@oss.sgi.com,
+        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1111550254.1089.21.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> Ok, Andy - I have tested this and should all work.
+> Can you double check on your side before i push kernel patch to Dave? I
+> tested on ubuntu distro on an AMD athlon.
+> Attached tar.gz with necessary patches. I only bothered to do 2 out of 3
+> tests. The second one covers the third. iptables libraries at runtime:
+> 1.3.1
 
-    Terminology
+OK rebuilt with those versions and patches.
 
-The term 'partition', adopted by the SGI hardware designers and which
-perculated up into the software, is used in reference to a single SSI
-when multiple SSIs are running on a single Altix. An Altix running
-multiple SSIs is said to be 'partitioned', whereas one that is running
-only a single SSI is said to be 'unpartitioned'.
+> TEST1:
+> 
+> Check if ipt works on its own and stats are fixed.
+> 
+> tc qdisc del dev eth0 ingress
+> tc qdisc add dev eth0 ingress
+> 
+> tc filter add dev eth0 parent ffff: protocol ip prio 6 u32 \
+> match ip src 10.0.2.24/32 flowid 1:16 \
+> action ipt -j TOS --set-tos Maximize-Reliability
 
-The term '[a]cross partition' refers to a functionality that spans between
-two SSIs on a multi-SSI Altix. ('XP' is its abbreviation.)
+Yes this works OK
 
+> TEST2:
+> - check if ipt followed by another action works.
+> - check if mirred works
+> 
+> tc qdisc del dev eth0 ingress
+> tc qdisc add dev eth0 ingress
+> 
+> tc filter add dev eth0 parent ffff: protocol ip prio 6 \
+> u32 match ip src 10.0.2.24/32 flowid 1:16 \
+> action ipt -j TOS --set-tos Maximize-Reliability \
+> action mirred egress redirect dev lo
 
-    Introduction
+Also works OK
 
-This feature provides cross partition functionality when running multiple
-partitions on a single SGI Altix.
+> bantu:~# tc -s filter ls dev eth0 parent ffff:
 
-This functionality includes such things as a pseudo-ethernet driver and
-memory sharing, which are provided by functional support modules that sit
-on top of a low-level communication module.
+didn't get bash prompt back after doing this till <ctrl><c> but works 
+and looks OK. Works if I direct to dummy0 aswell :-)
 
-The communication module provides channels for point-to-point communication
-between the partitions. There is support for eight channels between any
-two partitions (currently only two channels are in use, the remainder are
-available for possible future expansion). A functional support module uses
-the same channel number for all of its cross partition communication across
-the entire Altix.
+The thing that still fails is trying to use MARK - but I guess that's 
+not to do with mirred as I don't get any mention of it anymore.
 
-There is a shim module that acts as an interface between the functional
-support modules and the communication module. Its sole purpose is to allow
-for the communication module to be rmmod'd/insmod'd without 'disturbing'
-the functional support modules and the user processes utilizing them. The
-shim module has also proven itself to be invaluable for debugging.
+[root@amd /home/andy/Qos]# tc qdisc del dev eth0 ingress
+RTNETLINK answers: No such file or directory
+[root@amd /home/andy/Qos]# tc qdisc add dev eth0 ingress
+[root@amd /home/andy/Qos]# tc filter add dev eth0 parent ffff: protocol 
+ip prio 6 \
+ > u32 match ip src 10.0.2.24/32 flowid 1:16 \
+ > action ipt -j MARK --set-mark 1
+tablename: mangle hook: NF_IP_PRE_ROUTING
+         target: MARK set 0x1  index 0
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
 
-This feature is being submitted as three separate quilt patches:
+I get exactly the same error if I also add action mirred egress redirect 
+dev lo - before I would get different.
 
-    XP       - shim module
-    XPC      - cross partition (low-level) communication module
-    XPNET    - cross partition pseudo-ethernet driver functional support module
-
-(When time permits a patch will be submitted to add XPMEM, which is the
-functional support module that provides cross partition memory sharing.)
-
-This patch set is dependent upon the following patches:
-
-	[patch - 2.6.11-rc5-mm1] genalloc - general purpose allocator
-	[patch - 2.6.11-rc5-mm1] mspec ia64 memory special driver
-	[patch 1/2] Altix: Shub2 BTE support
-	[patch 2/2] Altix: Shub2 BTE support - BTE recovery code
-	[PATCH] move cnodeid_to_nasid_table out of pda
-	[PATCH] move nodepda pointer out of pda
-	[PATCH] Export node_online_map and node_possible_map
-	[PATCH] convert some sn SAL_CALLs to ia64_sal_oemcall calls
-	[PATCH] Define some additional SHub1 and Shub2 register symbols
-	[PATCH] Add some needed externs currently not defined
-
-( The netdev folks only need to review the XPNET patch. )
+Andy.
