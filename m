@@ -1,28 +1,23 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
-Subject: Problem with 2.4.24 e1000 and keepalived
-Date: Wed, 7 Jan 2004 20:05:56 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040107200556.0d553c40.skraw@ithnet.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Add 32bit emulation for cmsg SO_TIMESTAMP
+Date: Wed, 7 Jan 2004 12:12:58 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040107121258.722a7f16.davem@redhat.com>
+References: <20040107100743.1c0b18c2.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-kernel <linux-kernel@vger.kernel.org>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040107100743.1c0b18c2.ak@suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello all,
+On Wed, 7 Jan 2004 10:07:43 +0100
+Andi Kleen <ak@suse.de> wrote:
 
-I am looking for confirmation for the following problem.
-Setup is a simple pair of routers with 2 nics each, all e1000. If you start a
-vrrp setup with keepalived and interface state is down during keepalived
-startup, then the failover does not work. If the nics are UP during startup
-everything works well. Now the kernel part of the story: the exact same setup
-works with tulip cards.
-Is there a difference regarding UP/DOWN state handling/events in e1000 and
-tulip. e100 and eepro100 show the same problem btw.
+> Some traceroute versions use the SO_TIMESTAMP cmsg for time measurement.
+> This fixes them when running as 32bit on a 64bit x86-64 kernel.
 
-Any hints are welcome
-
-Regards,
-Stephan
+Applied, thanks Andi.
