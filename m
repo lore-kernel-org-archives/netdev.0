@@ -1,36 +1,26 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Tue, 15 Feb 2005 15:26:51 -0800
-Message-ID: <20050215152651.58f5ccc0.davem@davemloft.net>
-References: <0525M9211@server5.heliogroup.fr>
-	<20050211150420.74737b2e@dxpl.pdx.osdl.net>
-	<20050211170740.2608419b.davem@davemloft.net>
-	<20050212141641.GA27456@yakov.inr.ac.ru>
-	<20050212114132.5f7b7ffe.davem@davemloft.net>
-	<20050212200318.GB28895@yakov.inr.ac.ru>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-drivers-2.6 2/10] e1000: use netif_poll_{enable|disable}
+Date: Wed, 16 Feb 2005 00:30:20 +0100
+Message-ID: <20050215233020.GB1755@electric-eye.fr.zoreil.com>
+References: <468F3FDA28AA87429AD807992E22D07E04438B87@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, shemminger@osdl.org, hubert.tonneau@fullpliant.org,
-        romieu@fr.zoreil.com, niv@us.ibm.com, rick.jones2@hp.com,
-        netdev@oss.sgi.com
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20050212200318.GB28895@yakov.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>,
+        jgarzik@pobox.com, netdev@oss.sgi.com
+To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+Content-Disposition: inline
+In-Reply-To: <468F3FDA28AA87429AD807992E22D07E04438B87@orsmsx408>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 12 Feb 2005 23:03:18 +0300
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+Venkatesan, Ganesh <ganesh.venkatesan@intel.com> :
+> I agree that this causes our ISR to be called where no useful work will
+> be done -- netif_rx_schedule_prep() will fail till netif_poll_enable is
+> called.
+> However, there should not be any adverse side effects due to this.
 
-> Actually, that anti-MacOS never worked well. If segment with forced PSH
-> was not transmitted in time, even forced PSHs could be deleted.
-> Your patch with setting PSH right before (or in) tcp_transmit_skb() must
-> work. Unless these segments are not tso.
+Right, the irq does not need an extra ack. Sorry for the noise.
 
-Yes, it never did work well.  But now we understand more deeply the
-nature of this beast, we can probably refine it.
-
-In short, for properly working TCP stream with no drops and no
-reordering, Darwin delays ACKs until delack timer fires or PSH
-is seen :-)
+--
+Ueimor
