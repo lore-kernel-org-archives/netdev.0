@@ -1,70 +1,37 @@
-From: "Remus" <rmocius@auste.elnet.lt>
-Subject: Re: dummy as IMQ replacement
-Date: Thu, 10 Mar 2005 09:18:53 -0000
-Message-ID: <025501c52552$2dbf87c0$6e69690a@RIMAS>
-References: <1107123123.8021.80.camel@jzny.localdomain> <0fcf01c5077f$579e4b80$6e69690a@RIMAS> <1107174142.8021.121.camel@jzny.localdomain> <00c301c524b4$938cd240$6e69690a@RIMAS> <1110379135.1091.143.camel@jzny.localdomain> <1110416767.1111.76.camel@jzny.localdomain>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: Thu, 10 Mar 2005 11:10:07 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0503101102340.26065@filer.marasystems.com>
+References: <Pine.LNX.4.61.0503090009120.6780@filer.marasystems.com>
+ <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net> <20050306173145.GQ31837@postel.suug.ch>
+ <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net> <m1y8d0mss2.fsf@muc.de>
+ <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net> <422C0B50.20500@mrv.com>
+ <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net> <1110288879.1050.167.camel@jzny.localdomain>
+ <20050308135134.GA20607@atrey.karlin.mff.cuni.cz> <1110290300.1050.190.camel@jzny.localdomain>
+ <20050308140301.GC20607@atrey.karlin.mff.cuni.cz> <1110291470.1043.211.camel@jzny.localdomain>
+ <Pine.LNX.4.61.0503081937020.5332@filer.marasystems.com>
+ <1110316631.1084.57.camel@jzny.localdomain> <Pine.LNX.4.61.0503090009120.6780@filer.marasystems.com>
+ <E1D91Rz-0004wp-00@smtp01.mrf.mail.rcn.net> <1110377889.1090.124.camel@jzny.localdomain>
+ <d0n98a$icn$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="iso-8859-1";
-	reply-type=original
-Content-Transfer-Encoding: 7bit
-Cc: "jamal" <hadi@cyberus.ca>, <netdev@oss.sgi.com>,
-        "Nguyen Dinh Nam" <nguyendinhnam@gmail.com>,
-        "Andre Tomt" <andre@tomt.net>, <syrius.ml@no-log.org>,
-        "Andy Furniss" <andy.furniss@dsl.pipex.com>,
-        "Damion de Soto" <damion@snapgear.com>
-To: <hadi@znyx.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+To: Jason Lunz <lunz@falooley.org>
+In-Reply-To: <d0n98a$icn$1@sea.gmane.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Jamal,
+On Wed, 9 Mar 2005, Jason Lunz wrote:
 
-Thanks for the patch.
-That error is gone but I got a new error:
+> interfaces. I don't know whether policy routing gives enough control to
+> do this in a general fashion;
 
-ifconfig dummy0 up
-tc qdisc add dev eth2 ingress
-tc filter add dev eth2 parent ffff: protocol ip prio 10 u32 match u32 0 0 
-flowid 1:1 action ipt -j MARK --set-mark 1 action mirred egress redirect dev 
-dummy0
-iptables: calloc failed: Cannot allocate memory
+Not easily. The problem is to determine which path packets you send should 
+take if the destination is on both sides.
 
-I use 2.6.11.2 kernel patched with your dummy patch, iptables 1.3.1 and the 
-latest iproute2 patched with the pacth you sent yesterday.
-
+You can do some magics with connection tracking and CONNMARK and magic 
+routing tables infront of the local table and disabling the martian 
+checks, but not everything can be solved in this manner.
 
 Regards
-
-Remus
-
-
------ Original Message ----- 
-From: "Jamal Hadi Salim" <hadi@znyx.com>
-To: "Remus" <rmocius@auste.elnet.lt>
-Cc: <netdev@oss.sgi.com>; "Nguyen Dinh Nam" <nguyendinhnam@gmail.com>; 
-"Andre Tomt" <andre@tomt.net>; <syrius.ml@no-log.org>; "Andy Furniss" 
-<andy.furniss@dsl.pipex.com>; "Damion de Soto" <damion@snapgear.com>
-Sent: Thursday, March 10, 2005 1:06 AM
-Subject: Re: dummy as IMQ replacement
-
-
-> Hi Remus,
->
-> Please try this patch on top of latest iproute2. Credit to Patrick for
-> spoting it. I dont know when or who made this change - in any case it
-> doesnt matter if it works for you.
->
-> cheers,
->
-> On Wed, 2005-03-09 at 09:38, jamal wrote:
->
->> I have to go to work - so wont have time to look at this for sometime.
->> Maybe some of the netfilter folks like Patrick can solve it for you
->> before i get back.
->>
->> cheers,
->> jamal
->>
-> 
+Henrik
