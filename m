@@ -1,39 +1,53 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Mon, 27 Sep 2004 15:45:41 +1000
+Subject: [TCP] Fixed mss in tcp_init_cwnd
+Date: Mon, 27 Sep 2004 18:08:28 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927054541.GA8858@gondor.apana.org.au>
-References: <20040923164149.5368d291.davem@davemloft.net> <E1CBkIW-0001dF-00@gondolin.me.apana.org.au> <20040927025048.GA6723@gondor.apana.org.au> <20040926210029.22750d47.davem@davemloft.net>
+Message-ID: <20040927080828.GA12056@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@suse.de, niv@us.ibm.com, andy.grover@gmail.com, anton@samba.org,
-        netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="0F1p//8PRICkK4MW"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040926210029.22750d47.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 26, 2004 at 09:00:29PM -0700, David S. Miller wrote:
-> 
-> The very next time we check to see if we can
-> make forward progress on the send queue we'll call tcp_current_mss()
-> which causes the right things to happen.
 
-tcp_current_mss() doesn't call tcp_sync_mss() unless the PMTU changes.
+--0F1p//8PRICkK4MW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> Something else is wrong.  I think part of it is that we need to
-> make tcp_clean_rtx_queue() return FLAG_DATA_ACKED even when a
-> partial TSO packet is ACK'd by the other end.  This will make
-> RTO etc. calculations actually occur, among other things.  But
-> I have no idea if that will clear up the performance problems
-> TSO is having with the new code.
+Hi Dave:
 
-There probably is something else wrong, since this should only limit
-the TSO size.
+The MSS in tcp_init_cwnd should be the real one instead of the TSO value.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--0F1p//8PRICkK4MW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/tcp_input.c 1.73 vs edited =====
+--- 1.73/net/ipv4/tcp_input.c	2004-09-13 10:30:58 +10:00
++++ edited/net/ipv4/tcp_input.c	2004-09-27 17:00:32 +10:00
+@@ -799,10 +799,10 @@
+ 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+ 
+ 	if (!cwnd) {
+-		if (tp->mss_cache > 1460)
++		if (tp->mss_cache_std > 1460)
+ 			cwnd = 2;
+ 		else
+-			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
++			cwnd = (tp->mss_cache_std > 1095) ? 3 : 4;
+ 	}
+ 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+ }
+
+--0F1p//8PRICkK4MW--
