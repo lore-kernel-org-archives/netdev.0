@@ -1,66 +1,32 @@
-From: Andre Hedrick <andre@pyxtechnologies.com>
-Subject: Re: Update on e1000 troubles (over-heating!)
-Date: Sun, 6 Oct 2002 17:14:51 -0700 (PDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: VLAN patches
+Date: Sun, 06 Oct 2002 19:46:54 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.10.10210061700000.23945-100000@master.linux-ide.org>
-References: <Pine.GSO.4.30.0210061835350.1861-100000@shell.cyberus.ca>
+Message-ID: <20021006.194654.35505461.davem@redhat.com>
+References: <20021005.220549.15266753.davem@redhat.com>
+	<Pine.GSO.4.30.0210061839210.1861-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-   linux-kernel <linux-kernel@vger.kernel.org>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, Bjorn.Andersson@ebc.ericsson.se,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <Pine.GSO.4.30.0210061835350.1861-100000@shell.cyberus.ca>
+To: hadi@cyberus.ca
+In-Reply-To: <Pine.GSO.4.30.0210061839210.1861-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: jamal <hadi@cyberus.ca>
+   Date: Sun, 6 Oct 2002 18:47:50 -0400 (EDT)
+   
+   A packet with VLANid 0 and an 802.1p tag > 0 is legal. I
+   think its known as a "priority tagged" packet (not 100% sure
+   about the term). Therefore VLANid 0 MUST be accepted and ability to send
+   it should be there.
 
-However doing a data integrity test with a pattern buffer
-write-verify-read on multi-lun, multi-session, and multiple connections
-per session, while issuing load-balancing commands (ie thread tag) over
-each session to roast the bandwidth of the line should be enough.
+Great, I stand corrected, please send me a patch which therefore
+accepts VID 0 on create and destroy.
 
-Now toss in injected errors to randomly fail data pdu's and calling a
-sync-and-steering layer to scan the header and or data digests to execute
-a within connection recovery, regardless if the reason, should be enough
-to warm up the beast.
+   BTW, what about VLANid 0xFFF?
 
-If that is not enough, I can toss in multi-initiators all with the
-features above or invoke the interoperablity modes to add the cisco and
-ibm initiator (both limited to error recovery level zero, while pyx's is
-capable of error recovery level one and part of two).
-
-Please let me know if I need to throttle it harder.
-
-Cheers,
-
-On Sun, 6 Oct 2002, jamal wrote:
-
-> 
-> 
-> On Sat, 5 Oct 2002, Andre Hedrick wrote:
-> 
-> >
-> > I have a pair of Compaq e1000's which have never overheated, and I use
-> > them for heavy duty iSCSI testing and designing of drivers.  These are
-> > massive 66/64 cards but still nothing like what you are reporting.
-> >
-> > I will look some more at the issue soon.
-> >
-> 
-> It seems like the prerequisite to reproduce it is you beat the NIC heavily
-> with a lot of packets/sec and then run it at that sustained rate for at
-> least 30 minutes. isci would tend to use MTU sized packets which will
-> not be that effective.
-> 
-> cheers,
-> jamal
-> 
-> 
-> 
-> 
-
-Andre Hedrick
-iSCSI Software Solutions Provider
-http://www.PyXTechnologies.com/
+Your guess is as good as mine ;-)
