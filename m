@@ -1,52 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: QoS _put, _get and _delete class ops semantic
-Date: Thu, 11 Apr 2002 08:35:22 -0400 (EDT)
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: suggestion for routing code improvement
+Date: Thu, 11 Apr 2002 15:01:03 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0204101918200.24339-100000@shell.cyberus.ca>
-References: <Pine.LNX.4.10.10204091332410.15162-100000@luxik.cdi.cz>
+Message-ID: <15541.35087.61146.809057@robur.slu.se>
+References: <15541.29604.537736.704406@robur.slu.se>
+	<Pine.LNX.4.44.0204111451570.9056-100000@l>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Martin Devera <devik@cdi.cz>
-In-Reply-To: <Pine.LNX.4.10.10204091332410.15162-100000@luxik.cdi.cz>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0204111451570.9056-100000@l>
 List-Id: netdev.vger.kernel.org
 
 
-Hi Martin,
 
-On Tue, 9 Apr 2002, Martin Devera wrote:
+Hello!
 
-> Hi Jamal,
->
-> put and get seem to be simply reference counting on
-> class object.
+Julian Anastasov writes:
+ > 
+ > 	Well, I now see, it is used in gated. But only in one route table
+ > which is a drawback.
+ 
+ gated netlink code came from Alexey. I had to adjust the preference for 
+ "static" in gated to get the desired effect.
+ 
+ > 
+ > 	More correctly, the settings are more complex than the mentioned
+ > daemons can handle. Sticking with one route table is not enough in most
+ > of the cases. This is the main reason the mentioned patches for static
+ > routes to exist. They are more manageable (with scripts) for setups where
+ > routing protocols are not used.
 
-nod
+ Well we can be happy for the well-designed routing/netlink system Linux 
+ got and as you say routing software does not yet fully utilize this. 
+ But I think we agree that we shouldn't have kernel to compensate for this.
 
-> I'd expect thet class creation will call
-> get once to assure that it is locked in active state and
-> "tc class del" would call last put to release this last
-> reference (and class will destroy itself).
+ I did some benchmarking/profiling on the routing lookup/cache/garbage 
+ collection it seems to be well done too. Having listened to all fuzz 
+ about routing lookups at GIGE speeds. :-)
 
-actually sequence would be get();delete();put() whenever
-"tc class del" is invoked (theres other activity that may happen here as
-well instead of delete(), example attaching filters to class etc).
+ Cheers.
 
-I think what you do with the delete+put combo is specific
-to your needs though. So for example you could return 0
-in get() and your put() code will never be invoked.
-
-> Unfortunately there is delete class op which seems to do
-> almost the same as put.
-> Do you know rationale behind it ? Why we have both put
-> and delete and what tc framework expect from qdisc ?
-
-Alexey can give a better answer.
-Typically put() is the backup for delete. Should delete fail
-to destroy because of reference counts being non-zero, put will catch it.
-CBQ is an easier scheduler to see this. For a fun one look at the ATM
-scheduler.
-
-cheers,
-jamal
+						--ro
