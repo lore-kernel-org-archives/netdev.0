@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] depca: release resources on errors
-Date: Sat, 24 Jan 2004 22:31:09 -0800
+Subject: [janitor] dgrs: add iounmap()s to failure paths
+Date: Sat, 24 Jan 2004 22:32:22 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124223109.1c134ca1.rddunlap@osdl.org>
+Message-ID: <20040124223222.52a97b25.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -20,48 +20,60 @@ Thanks,
 --
 ~Randy
 
+
 From: Leann Ogasawara <ogasawara@osdl.org>
 
 
 Hi All,
 
-Inserts missing iounmap's and release_mem_region's.  Appreciate
-feedback.
+Insert missing iounmap's.  You know the drill, feedback wanted.
+
+diffed against 2.6.1
 
 Leann
 
-diffed against 2.6.1  
+===== drivers/net/dgrs.c 1.22 vs edited =====
 
-===== drivers/net/depca.c 1.20 vs edited =====
+diff -puN drivers/net/dgrs.c~dgrs_iounmap drivers/net/dgrs.c
 
-diff -puN drivers/net/depca.c~depca_iounmap drivers/net/depca.c
-
-diff -puN drivers/net/depca.c~depca_iounmap drivers/net/depca.c
+diff -puN drivers/net/dgrs.c~dgrs_iounmap drivers/net/dgrs.c
 
 
- linux-262-rc1-bk1-rddunlap/drivers/net/depca.c |    4 ++++
- 1 files changed, 4 insertions(+)
+ linux-262-rc1-bk1-rddunlap/drivers/net/dgrs.c |    8 +++++++-
+ 1 files changed, 7 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/depca.c~depca_iounmap drivers/net/depca.c
---- linux-262-rc1-bk1/drivers/net/depca.c~depca_iounmap	2004-01-23 15:49:48.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/drivers/net/depca.c	2004-01-23 15:49:48.000000000 -0800
-@@ -771,6 +771,8 @@ static int __init depca_hw_init (struct 
- 		status = -ENXIO;
- 		if (!irqnum) {
- 			printk(" and failed to detect IRQ line.\n");
-+			iounmap(lp->sh_mem);
-+			release_mem_region(mem_start, mem_len);
- 			goto out_priv;
- 		} else {
- 			for (dev->irq = 0, i = 0; (depca_irq[i]) && (!dev->irq); i++)
-@@ -781,6 +783,8 @@ static int __init depca_hw_init (struct 
+diff -puN drivers/net/dgrs.c~dgrs_iounmap drivers/net/dgrs.c
+--- linux-262-rc1-bk1/drivers/net/dgrs.c~dgrs_iounmap	2004-01-23 15:49:58.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/drivers/net/dgrs.c	2004-01-23 15:49:58.000000000 -0800
+@@ -322,8 +322,10 @@ check_board_dma(struct net_device *dev0)
+ 	 */
+ 	priv0->vplxdma[PLX_DMA0_MODE/4] = 0xFFFFFFFF;
+ 	x = priv0->vplxdma[PLX_DMA0_MODE/4];
+-	if (x != 0x00001FFF)
++	if (x != 0x00001FFF) {
++		iounmap((void *)priv0->vplxdma);
+ 		return (0);
++	}
  
- 			if (!dev->irq) {
- 				printk(" but incorrect IRQ line detected.\n");
-+				iounmap(lp->sh_mem);
-+				release_mem_region(mem_start, mem_len);
- 				return -ENXIO;
- 			}
+ 	return (1);
+ }
+@@ -1015,6 +1017,8 @@ dgrs_download(struct net_device *dev0)
+ 		if (!is)
+ 		{
+ 			printk("%s: Illegal IRQ %d\n", dev0->name, dev0->irq);
++			iounmap(priv0->vmem);
++			priv0->vmem = NULL;
+ 			return -ENXIO;
  		}
+ 		OUTB(dev0->base_addr + ES4H_AS_31_24,
+@@ -1096,6 +1100,8 @@ dgrs_download(struct net_device *dev0)
+ 	if (priv0->bcomm->bc_status < BC_RUN)
+ 	{
+ 		printk("%s: board not operating\n", dev0->name);
++		iounmap(priv0->vmem);
++		priv0->vmem = NULL;
+ 		return -ENXIO;
+ 	}
+ 
 
 _
