@@ -1,35 +1,80 @@
-From: Wichert Akkerman <wichert@wiggy.net>
-Subject: Re: ipv6 tunnel stops accepting input
-Date: Sat, 15 Jan 2005 13:44:11 +0100
-Message-ID: <20050115124411.GA20912@wiggy.net>
-References: <20050111125826.GA25169@wiggy.net> <20050115120323.GA20664@wiggy.net> <20050115122912.GA29331@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fwd: [2.6] ethertap and af_inet.c assertion failures
+Date: Sun, 16 Jan 2005 00:31:46 +1100
+Message-ID: <E1Cpo1q-0007lI-00@gondolin.me.apana.org.au>
+References: <41E44476.20303@tpack.net>
+Cc: simon.roscic@chello.at, netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20050115122912.GA29331@gondor.apana.org.au>
+To: tommy.christensen@tpack.net (Tommy Christensen)
+In-Reply-To: <41E44476.20303@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Previously Herbert Xu wrote:
-> Hmm, is it still happening now?
+Tommy Christensen <tommy.christensen@tpack.net> wrote:
+> 
+> netlink has messed up the send buffer accounting, when trimming a skb.
 
-Seems to work just fine now.
+You are spot on.  Dave, you were right too about checking for charged
+skb's in netlink_trim.
 
-> Are you using a SIT tunnel? Do you allow SIT traffic initiated
-> from the outside?
+Since the skb will be orphaned on its way to the destination anyway,
+let's simply do that before the trimming.  This shouldn't lead to
+skb leakage since the skb will either be charged to the destination
+socket or freed.
 
-Hmm, that might indeed be the problem and would explain the behaviour:
-generating outgoing traffic adds a connection and from that point
-incoming traffic would hit the RELATED accept rule.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I'll redo the firewall rules a bit and see if things improve.
+Simon, please check if this fixes your problem or not.
 
-Wichert.
-
+Thanks,
 -- 
-Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
-http://www.wiggy.net/                   It is hard to make things simple.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+===== net/netlink/af_netlink.c 1.66 vs edited =====
+--- 1.66/net/netlink/af_netlink.c	2005-01-14 15:41:06 +11:00
++++ edited/net/netlink/af_netlink.c	2005-01-16 00:24:20 +11:00
+@@ -629,7 +629,6 @@
+ 		}
+ 		return 1;
+ 	}
+-	skb_orphan(skb);
+ 	skb_set_owner_r(skb, sk);
+ 	return 0;
+ }
+@@ -663,14 +662,11 @@
+ 
+ static inline void netlink_trim(struct sk_buff *skb, int allocation)
+ {
+-	int delta = skb->end - skb->tail;
++	int delta;
+ 
+-	/* If the packet is charged to a socket, the modification
+-	 * of truesize below is illegal and will corrupt socket
+-	 * buffer accounting state.
+-	 */
+-	BUG_ON(skb->list != NULL);
++	skb_orphan(skb);
+ 
++	delta = skb->end - skb->tail;
+ 	if (delta * 2 < skb->truesize)
+ 		return;
+ 	if (pskb_expand_head(skb, 0, -delta, allocation))
+@@ -707,14 +703,12 @@
+ 	struct netlink_opt *nlk = nlk_sk(sk);
+ #ifdef NL_EMULATE_DEV
+ 	if (nlk->handler) {
+-		skb_orphan(skb);
+ 		nlk->handler(sk->sk_protocol, skb);
+ 		return 0;
+ 	} else
+ #endif
+ 	if (atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf &&
+ 	    !test_bit(0, &nlk->state)) {
+-                skb_orphan(skb);
+ 		skb_set_owner_r(skb, sk);
+ 		skb_queue_tail(&sk->sk_receive_queue, skb);
+ 		sk->sk_data_ready(sk, skb->len);
