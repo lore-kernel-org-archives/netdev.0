@@ -1,41 +1,37 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] yam: function needs a return
-Date: Wed, 27 Aug 2003 22:06:12 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6.0-test4][IPv6] ip6_flowlabel.c: timer cleanups
+Date: Wed, 27 Aug 2003 23:25:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827220612.52553e1d.rddunlap@osdl.org>
+Message-ID: <20030827232514.0854fc06.davem@redhat.com>
+References: <1061907882.1108.28.camel@lima.royalchallenge.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jpr@f6fbb.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Vinay K Nallamothu <vinay-rc@naturesoft.net>
+In-Reply-To: <1061907882.1108.28.camel@lima.royalchallenge.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On 26 Aug 2003 19:54:41 +0530
+Vinay K Nallamothu <vinay-rc@naturesoft.net> wrote:
 
-Hi,
-Please apply.
+> @@ -104,10 +105,9 @@
+>  			fl->opt = NULL;
+>  			kfree(opt);
+>  		}
+> -		if (!del_timer(&ip6_fl_gc_timer) ||
+> -		    (long)(ip6_fl_gc_timer.expires - ttd) > 0)
+> -			ip6_fl_gc_timer.expires = ttd;
+> -		add_timer(&ip6_fl_gc_timer);
+> +		if (!timer_pending(&ip6_fl_gc_timer) ||
+> +		    time_after(ip6_fl_gc_timer.expires, ttd))
+> +			mod_timer(&ip6_fl_gc_timer, ttd);
+>  	}
+>  }
+>  
 
-patch_name:	yam_retval.patch
-patch_version:	2003-08-27.18:19:03
-author:		Randy.Dunlap <rddunlap@osdl.org>
-description:	yam: function needs a return statement;
-product:	Linux
-product_versions: 260-test4
-maintainer:	jpr@f6fbb.org
-
-diff -Naur ./drivers/net/hamradio/yam.c~retval ./drivers/net/hamradio/yam.c
---- ./drivers/net/hamradio/yam.c~retval	Fri Aug 22 16:58:10 2003
-+++ ./drivers/net/hamradio/yam.c	Wed Aug 27 12:03:13 2003
-@@ -807,7 +807,7 @@
- 	seq_printf(seq, "  RxInt    %u\n", yp->nb_rxint);
- 	seq_printf(seq, "  RxOver   %lu\n", yp->stats.rx_fifo_errors);
- 	seq_printf(seq, "\n");
--
-+	return 0;
- }
- 
- static struct seq_operations yam_seqops = {
-
---
-~Randy
+This code is still racey.  This code needs to hold the
+toplevel ip6_fl_lock during the GC timer manipulations
+and tests.
