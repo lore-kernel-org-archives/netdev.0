@@ -1,35 +1,80 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: IPv4 and IPv6 stack multi-FIB, scalable in the million of
- entries.
-Date: Thu, 8 Apr 2004 11:33:50 -0700
+From: "Mathieu Giguere" <Mathieu.Giguere@ericsson.ca>
+Subject: RE: IPv4 and IPv6 stack multi-FIB, scalable in the million of entries.
+Date: Thu, 8 Apr 2004 15:53:50 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040408113350.03ef5b5c.davem@redhat.com>
-References: <1IJuR-8qH-39@gated-at.bofh.it>
-	<m3ptaiwfpq.fsf@averell.firstfloor.org>
-	<012201c41d94$cee1b400$0348858e@D4SF2B21>
+Message-ID: <019e01c41da3$36aae260$0348858e@D4SF2B21>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: ak@muc.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: <ak@muc.de>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Mathieu Giguere" <Mathieu.Giguere@ericsson.ca>
-In-Reply-To: <012201c41d94$cee1b400$0348858e@D4SF2B21>
+To: <linux-kernel@vger.kernel.org>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 8 Apr 2004 14:10:43 -0400
-"Mathieu Giguere" <Mathieu.Giguere@ericsson.ca> wrote:
+ Hi,
 
-> The main goal to remove the routing cache is to avoid to have 4096 routes
-> limitation
+     Just run the join script on your favorite 2.4 kernel.
 
-This 4K routes limitation is news to everyone who works on this
-code.
+ RTNETLINK answers: Cannot allocate memory
+ RTNETLINK answers: Cannot allocate memory
+ RTNETLINK answers: Cannot allocate memory
+ [root@tom tmp]# ip -6 route | wc -l
+    4094
+ [root@tom tmp]#
 
-When nexthop changes we _MUST_ flush PMTU etc. information because that
-could have changed.  If however, such information is locked into the
-route itself, it will propagate immediately into the routing cache
-entry once recreated.
 
-You seem to be talking about a lot of non-problems, but this may because
-you're not providing enough details.
+     And after 4094 IPv6 routes you will the get the same.
+
+     For the PMTU, the info can't be retain in the route himself.  The PTMU
+ is base on DIP not on the current network routing.  So it must be kept in a
+ separate hash struct with expire time.  _BUT_ you must not flush all the
+ entries each time a route is added or  deleted like in the current
+ implementation.
+
+ /mathieu
+
+
+ -------------------------------
+ #!/bin/csh
+ echo #!/bin/sh
+ set addr1=0
+ set addr2=1
+ while ($addr1 < 256)
+   while ($addr2 < 256)
+     echo ip -f inet6 route add 2000:${addr1}::${addr2}/128 dev eth0
+     @ addr2++
+   end
+   set addr2=0
+   @ addr1++
+ end
+
+
+ ----- Original Message ----- 
+ From: "David S. Miller" <davem@redhat.com>
+ To: "Mathieu Giguere" <Mathieu.Giguere@ericsson.ca>
+ Cc: <ak@muc.de>; <netdev@oss.sgi.com>; <linux-kernel@vger.kernel.org>
+ Sent: Thursday, April 08, 2004 2:33 PM
+ Subject: Re: IPv4 and IPv6 stack multi-FIB, scalable in the million of
+ entries.
+
+
+ > On Thu, 8 Apr 2004 14:10:43 -0400
+ > "Mathieu Giguere" <Mathieu.Giguere@ericsson.ca> wrote:
+ >
+ > > The main goal to remove the routing cache is to avoid to have 4096
+ routes
+ > > limitation
+ >
+ > This 4K routes limitation is news to everyone who works on this
+ > code.
+ >
+ > When nexthop changes we _MUST_ flush PMTU etc. information because that
+ > could have changed.  If however, such information is locked into the
+ > route itself, it will propagate immediately into the routing cache
+ > entry once recreated.
+ >
+ > You seem to be talking about a lot of non-problems, but this may because
+ > you're not providing enough details.
+ >
