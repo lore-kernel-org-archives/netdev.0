@@ -1,30 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Allow multiple dummy devices again
-Date: Thu, 27 Nov 2003 17:13:13 -0800
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Level One LXT1001 GE chip
+Date: Fri, 28 Nov 2003 02:14:39 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031127171313.04f89baa.davem@redhat.com>
-References: <20031128004445.GA2870@averell>
+Message-ID: <20031128021439.0f48de70.ak@suse.de>
+References: <3FC3FB99.70700@wanadoo.es>
+	<20031127010324.061cac3b.davem@redhat.com>
+	<20031127122021.3ac80a86.ak@suse.de>
+	<20031127122642.046d07ce.ak@suse.de>
+	<1069941123.1027.6.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Cc: davem@redhat.com, xose@wanadoo.es, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <20031128004445.GA2870@averell>
+To: hadi@cyberus.ca
+In-Reply-To: <1069941123.1027.6.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 Nov 2003 01:44:45 +0100
-Andi Kleen <ak@muc.de> wrote:
+On 27 Nov 2003 08:52:03 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-> In 2.6 the old trick of copying the dummy module to get multiple dummy
-> devices doesn't work anymore because the "dummy" device name is embedded
-> in the module. 
-> 
-> This patch adds a new module option that allows to specify how many
-> dummy devices you want.
+> Andi, is this the driver you were playing those neat tricks with
+> getting rid of some of the nastiness in eth_type_trans()?
 
-Jeff, FWIW I'm fine with this.
+Yep.
 
-Even though we generally frown upon module options for networking
-devices, I think it's wholly appropriate for this case.
+I didn't attempt to NAPIize it though. Also it is still somewhat buggy.
+
+-Andi
