@@ -1,40 +1,57 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [ROUTE] PMTU only works on half the time
-Date: Tue, 2 Dec 2003 16:07:38 -0800
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RTNETLINK] Provide real oif
+Date: 02 Dec 2003 19:08:17 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202160738.439f9f0d.davem@redhat.com>
-References: <20031201155005.1c515793.davem@redhat.com>
-	<Pine.LNX.4.44.0312030121130.1237-100000@u.domain.uli>
+Message-ID: <1070410097.1038.27.camel@jzny.localdomain>
+References: <E1ARHXF-0007cM-00@gondolin.me.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0312030121130.1237-100000@u.domain.uli>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1ARHXF-0007cM-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Dec 2003 01:40:06 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Tue, 2003-12-02 at 15:54, Herbert Xu wrote:
+> jamal <hadi@cyberus.ca> wrote:
+> > 
+> > Can you provide a real example (output of route display in user space)
+> > where this would be valuable?
+> 
+> Without the real oif you will see entries like this in the output of
+> ip r l c:
+> 
+> 192.168.0.7 dev eth0  src 192.168.0.6
+>     cache  mtu 1500 advmss 1460 metric10 64
+> 192.168.0.7 dev eth0  src 192.168.0.6
+>     cache  mtu 1500 advmss 1460 metric10 64
+> 
+> One of those has oif == 0 while the other one has oif == eth0.
+> 
 
-> 	Please review and edit if needed.
+They both seem to have an oif of eth0, no? 
 
-Thanks Julian, I will review your patch today.
+> To generate an entry with oif == eth0, just send a UDP packet and
+> bound to eth0.
 
-But I want to mention something about this.  TOS checks
-I think are pretty unreliable.
+Sorry, i am a bit slow - i think i may know where you are going with
+this but help me out; 
+By binding to eth0, you mean socket bind() or msg_dontroute of the udp
+packet via eth0?
+Is it unicast? Do you have a small sample proggie i could use to check
+this?
 
-TOS has meaning within a network realm, right?  This means
-that if we make a packet with TOS X, once it leaves our realm
-the TOS value may be arbitrarily changed so that the TOS in
-the packet has meaning within that new realm.
+> > whats wrong with the combo of RTA_OIF and RTA_SRC?
+> 
+> Both of those attributes are independent of the real oif.
+ 
+They are related in the rt selection.
+If you have a small program i can use to create the above cacheinfo
+i would appreaciate it. Is the same IP attached to multiple interfaces
+that you need to select a prefered OIF?  
 
-If a PMTU or other routing ICMP gets sent back to us after TOS changes
-have been made, there is absolutely no way to reliably match the
-routes properly for update.
-
-Therefore TOS based routes cannot handle ICMP messages reliably
-in the global internet.  In fact, it is possible and even likely
-to apply an ICMP for the wrong TOS variant of a given route when
-this TOS rewriting occurs.
+cheers,
+jamal
