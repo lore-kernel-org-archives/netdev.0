@@ -1,38 +1,43 @@
-From: cranium 2003 <cranium.2003@gmail.com>
-Subject: ethernet cache question
-Date: Mon, 31 Jan 2005 16:26:06 +0530
-Message-ID: <1d55641b050131025636a00d1e@mail.gmail.com>
-Reply-To: cranium 2003 <cranium.2003@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Return-path: <kernelnewbies-bounce@nl.linux.org>
-To: kernelnewbies@nl.linux.org, netdev@oss.sgi.com
-Sender: kernelnewbies-bounce@nl.linux.org
-Errors-to: kernelnewbies-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:kernelnewbies@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/kernelnewbies/>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 4138] New: ipsec with racoon in transport mode with esp and ah hangs (problem is in xfrm_state_add)
+Date: Mon, 31 Jan 2005 21:54:33 +1100
+Message-ID: <E1CvZCT-00017g-00@gondolin.me.apana.org.au>
+References: <20050130224404.5f78d28a.akpm@osdl.org>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: akpm@osdl.org (Andrew Morton), au@unterluggauer.org
+In-Reply-To: <20050130224404.5f78d28a.akpm@osdl.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-      By looking at structure hh_cache it is seen that hh_output is structure
-variable defined as
-unsigned long   hh_data[HH_DATA_ALIGN(LL_MAX_HEADER) / sizeof(long)];
-Then i want to know how its sufficient in linux kernel to copy cache ethernet
-header entry as
-memcpy(skb->data - 16, hh->hh_data, 16);
-other variable defined in hh_cache is not seen as copied to packet structure.
-How then ethernet header is copied to packet if ethernet header has cache
-entry stored in hh_cache structure defiend in /usr/src/include/netdevice.h
-regards,
-cranium
+Andrew Morton <akpm@osdl.org> wrote:
+>  
+> the SAD entries for ah and esp have the same km.seq!   
 
---
-Kernelnewbies: Help each other learn about the Linux kernel.
-Archive:       http://mail.nl.linux.org/kernelnewbies/
-FAQ:           http://kernelnewbies.org/faq/
+Sounds like a racoon bug.  The kernel will assign different
+sequence numbers to the two SAs.  It will also send SADB_ACQUIRE
+messages to racoon with those sequence numbers.  So if racoon is
+sending two SADB_ADD commands with the same sequence number back
+then it's broken.
+
+Could you get a dump of the messages that racoon has received
+and sent? That should tell us exactly what's happening.
+  
+> Workaround:  
+> I comment the if (x->km.seq) { ... } out. than it works vor me. but I know  
+> thats not a solution. 
+
+Well without the check we would have silently ignored the sequence
+number which is why you wouldn't have noticed the problem with racoon
+before.
+
+However, for those who need to use the sequence number this check is
+necessary.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
