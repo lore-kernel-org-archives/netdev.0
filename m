@@ -1,72 +1,183 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: Re: [Bonding-devel] Re: [PATCH 2/10] [bonding 2.6] fix monitoring functions
-Date: Sun, 2 Nov 2003 16:53:51 +0200
+Subject: Re: [Bonding-devel] [PATCH] [bonding 2.4] fix creating/destroying the /proc/net/bonding dir
+Date: Sun, 2 Nov 2003 16:55:15 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311021653.51194.amir.noam@intel.com>
-References: <E6F7D288B394A64585E67497E5126BA601F99145@hasmsx403.iil.intel.com>
+Message-ID: <200311021655.15498.amir.noam@intel.com>
+References: <E6F7D288B394A64585E67497E5126BA601F99146@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 8bit
-Cc: "Jeff Garzik" <jgarzik@pobox.com>, <davem@redhat.com>,
-        <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Cc: <jgarzik@pobox.com>, <bonding-devel@lists.sourceforge.net>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Jay Vosburgh" <fubar@us.ibm.com>
-In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F99145@hasmsx403.iil.intel.com>
+To: "Jay Vosburgh" <fubar@us.ibm.com>, "David S. Miller" <davem@redhat.com>
+In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F99146@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 30 October 2003 07:12 pm, Jay Vosburgh wrote:
-> >However, the following patch that restores backward
-> > compatibility with old ifenslave is still needed for 2.6. I
-> > see that it's already been applied by David Miller to 2.4.
->
->         I thought we were dropping the ancient
-> (SIOCDEVPRIVATE) backwards compatibility in 2.6.
+On Friday 31 October 2003 10:10 pm, Jay Vosburgh wrote:
+>         Jeff, can you apply Amir's patch, as it seems to work
+> just fine except for this ignorable problem?  I'll append the
+> patch below for your convenience.
 
-This patch restores compatibility with old ifenslave versions that
-still use the SIOCBONDSETHWADDR command, not necessarily the
-SIOCDEVPRIVATE ioctls, so this patch is definitely needed for now. If
-we really want to remove backward compatibility in 2.6 we should do
-it for all bonding commands and replace them with the new interface.
+That patch also applies to 2.6 (after the "restore backward
+compatibility" patch) with an offset of one line per chunk.
 
-The problem is, since 2.6 is in effect in code freeze I'm not sure if
-we can actually replace the bonding<->ifenslave interface at this time
-(as much as I'd like to do it).
-
-
-Jeff, David,
-We haven't heard from either one of you on this issue: We want to drop
-support for SIOCDEVPRIVATE in 2.6. As a side effect this will force
-users to upgrade their user land tools anyway, so we might as well
-use this opportunity to insert the new interface to replace the
-current one. (Obviously, it would be preferable for such a change to
-take effect before 2.6.0 is made final)
-
-What do you think about making changes to the 2.6 bonding that will
-force users to upgrade their ifenslave application? (this new 
-ifenslave will be, of course, backward compatible with 2.4 bonding).
-
-
-For now, however, this patch that restores backward compatibility is
-still needed for 2.6. I've noticed I'd sent out the wrong patch
-before (on 2003/10/30), so here is the corrected patch.
-Sorry for the mix up.
+I've appended it here again, against 2.6, just in case you want it to
+apply cleanly with no warnings.
 
 Amir
 
 
 diff -Naurp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Oct 30 10:38:34 2003
-+++ b/drivers/net/bonding/bond_main.c	Sun Nov  2 15:14:21 2003
-@@ -3047,6 +3047,10 @@ static int bond_ioctl(struct net_device 
- 		case SIOCBONDRELEASE:	
- 			ret = bond_release(master_dev, slave_dev); 
- 			break;
-+		case BOND_SETHWADDR_OLD:
-+		case SIOCBONDSETHWADDR:
-+			ret = bond_sethwaddr(master_dev, slave_dev);
+--- a/drivers/net/bonding/bond_main.c	Sun Nov  2 15:06:08 2003
++++ b/drivers/net/bonding/bond_main.c	Sun Nov  2 15:06:18 2003
+@@ -3573,6 +3573,62 @@ static void bond_destroy_proc_info(struc
+ 		bond->bond_proc_file = NULL;
+ 	}
+ }
++
++/* Create the bonding directory under /proc/net, if doesn't exist yet.
++ * Caller must hold rtnl_lock.
++ */
++static void bond_create_proc_dir(void)
++{
++	int len = strlen(DRV_NAME);
++
++	for (bond_proc_dir = proc_net->subdir; bond_proc_dir;
++	     bond_proc_dir = bond_proc_dir->next) {
++		if ((bond_proc_dir->namelen == len) &&
++		    !memcmp(bond_proc_dir->name, DRV_NAME, len)) {
 +			break;
- 		case BOND_CHANGE_ACTIVE_OLD:
- 		case SIOCBONDCHANGEACTIVE:
- 			if (USES_PRIMARY(bond_mode)) {
++		}
++	}
++
++	if (!bond_proc_dir) {
++		bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
++		if (bond_proc_dir) {
++			bond_proc_dir->owner = THIS_MODULE;
++		} else {
++			printk(KERN_WARNING DRV_NAME
++				": Warning: cannot create /proc/net/%s\n",
++				DRV_NAME);
++		}
++	}
++}
++
++/* Destroy the bonding directory under /proc/net, if empty.
++ * Caller must hold rtnl_lock.
++ */
++static void bond_destroy_proc_dir(void)
++{
++	struct proc_dir_entry *de;
++
++	if (!bond_proc_dir) {
++		return;
++	}
++
++	/* verify that the /proc dir is empty */
++	for (de = bond_proc_dir->subdir; de; de = de->next) {
++		/* ignore . and .. */
++		if (*(de->name) != '.') {
++			break;
++		}
++	}
++
++	if (de) {
++		if (bond_proc_dir->owner == THIS_MODULE) {
++			bond_proc_dir->owner = NULL;
++		}
++	} else {
++		remove_proc_entry(DRV_NAME, proc_net);
++		bond_proc_dir = NULL;
++	}
++}
+ #endif /* CONFIG_PROC_FS */
+ 
+ /*
+@@ -3828,6 +3884,9 @@ static struct notifier_block bond_netdev
+ 	.notifier_call = bond_netdev_event,
+ };
+ 
++/* De-initialize device specific data.
++ * Caller must hold rtnl_lock.
++ */
+ static inline void bond_deinit(struct net_device *dev)
+ {
+ 	struct bonding *bond = dev->priv;
+@@ -3839,6 +3898,9 @@ static inline void bond_deinit(struct ne
+ #endif
+ }
+ 
++/* Unregister and free all bond devices.
++ * Caller must hold rtnl_lock.
++ */
+ static void bond_free_all(void)
+ {
+ 	struct bonding *bond, *nxt;
+@@ -3846,16 +3908,13 @@ static void bond_free_all(void)
+ 	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
+ 		struct net_device *dev = bond->device;
+ 
+-		unregister_netdev(dev);
++		unregister_netdevice(dev);
+ 		bond_deinit(dev);
+ 		free_netdev(dev);
+ 	}
+ 
+ #ifdef CONFIG_PROC_FS
+-	if (bond_proc_dir) {
+-		remove_proc_entry(DRV_NAME, proc_net);
+-		bond_proc_dir = NULL;
+-	}
++	bond_destroy_proc_dir();
+ #endif
+ }
+ 
+@@ -4233,18 +4292,12 @@ static int __init bonding_init(void)
+ 		primary = NULL;
+ 	}
+ 
++	rtnl_lock();
++
+ #ifdef CONFIG_PROC_FS
+-	bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
+-	if (bond_proc_dir == NULL)  {
+-		printk(KERN_WARNING
+-		       "bonding_init(): can not create /proc/net/" DRV_NAME);
+-	} else {
+-		bond_proc_dir->owner = THIS_MODULE;
+-	}
++	bond_create_proc_dir();
+ #endif
+ 
+-	rtnl_lock();
+-
+ 	err = 0;
+ 	for (no = 0; no < max_bonds; no++) {
+ 		struct net_device *dev;
+@@ -4287,18 +4340,21 @@ static int __init bonding_init(void)
+ 	return 0;
+ 
+ out_err:
+-	rtnl_unlock();
+-
+ 	/* free and unregister all bonds that were successfully added */
+ 	bond_free_all();
+ 
++	rtnl_unlock();
++
+ 	return err;
+ }
+ 
+ static void __exit bonding_exit(void)
+ {
+ 	unregister_netdevice_notifier(&bond_netdev_notifier);
++
++	rtnl_lock();
+ 	bond_free_all();
++	rtnl_unlock();
+ }
+ 
+ module_init(bonding_init);
