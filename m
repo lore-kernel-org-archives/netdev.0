@@ -1,59 +1,57 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: 6to4/SIT and IP DF
-Date: Wed, 15 Oct 2003 00:15:21 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFBD470C6E.206063CD-ON88256DC0.0025444B@us.ibm.com>
+From: Florian Zwoch <zwoch@backendmedia.com>
+Subject: Re: why does netfilter make upload very slow? (was: Re: e1000 ->
+ 82540EM on linux 2.6.0-test[45] very slow in one direction)
+Date: Wed, 15 Oct 2003 10:28:50 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3F8D0542.1060101@backendmedia.com>
+References: <20031008131320.GD16964@favonius> <20031008153237.GC25743@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: r.venning@telstra.com, <nate@thebog.net>, <davem@redhat.com>,
-        <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <20031008153237.GC25743@sunbeam.de.gnumonks.org>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Harald Welte wrote:
+>>Would somebody like to explain why netfilter (in kernel, but not in use)
+>>makes upload go very slow? I am by no means a network guru, but eager to
+>>learn :-)
+> 
+> 
+> let's get this straight.  There are five possible cases
+> 
+> a) CONFIG_NETFILTER disabled.  you won't even have the netfilter hooks
+>    in the network stack (so certainly no netfilter-using modules loaded)
 
+no problem
 
+> b) CONFIG_NETFILTER enabled, but _no_ modules (iptable_filter,
+>    ip_conntrack, ...) attached to the netfilter hook
 
+no problem
 
-Pekka Savola writes:
->Seems like a good idea.  The only thing I'm worried about is when someone
->is attached to a network of at least 1500 MTU (at IPv6 level), and uses
->6to4 -- then basically every IPv6 packet over 1480 bytes will be
->fragmented in the network, even though it could potentially be chopped to
->smaller pieces already in the end-nodes.
->
->Just wondering how our 6to4 implementation handles this case at the
->moment..
+> c) CONFIG_NETFILTER enabled and iptable_filter.o (which pulls ip_tables.o)
+>    loaded, NO RULES in the table
 
-The tunnel device does subtract the enscapsulating header, so v6-only PMTU
-should work
-up to the tunnel endpoint, and a v6 source should only generate 1480
-(because that's what the
-tunnel endpoint MTU would be) if the entire path is 1500.
+no problem
 
-But if the destination path is something less than the tunnel endpoint's
-MTU, then I expect
-every packet bigger than that PMTU would be fragmented. I'm concerned that
-with DF set, as
-it is now, every packet in that range would be dropped, if the IPv4
-Frag-Needed-But-DF-Set (FNBDFS :-))
-does not include enough v6 header & payload  to identify the v6 sender.
+> d) CONFIG_NETFILTER enabled and iptable_filter.o (which pulls ip_tables.o)
+>    loaded, RULES in the table
 
-I haven't looked enough at the this code to see what's done (if anything)
-with PMTU in this case--
-for example, if it tries to adjust the tunnel endpoint MTU, or translate
-the v4 PMTU to v6 when there
-is enough included. Or trigger a v6 PMTU message based on a v4 route's PMTU
-and not the
-tunnel's MTU.
+no problem (as long as i dont load any rules that require ip_conntrack)
 
-I really don't know what it does now for this case, and it may be good
-already, or some of those
-options may be more appropriate-- really just seeing if anyone's been
-through this already. :-)
-The technical violation of setting DF may be better than not setting it, if
-the right goodies are
-already there-- anybody know?
+> e) CONFIG_NETFILTER enabled and ip_conntrack.o loaded, iptable_filter
+>    loaded or not, rules or not
 
-                  +-DLS
+*boink*
+
+whenever i try to load ip_conntrack the nic performance drops from 5mb/s 
+to 200k/s.
+
+still using 2.6.0-test6.
+
+regards,
+Florian
