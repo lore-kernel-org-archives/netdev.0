@@ -1,87 +1,203 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] enhanced version of net_random()
-Date: Mon, 23 Aug 2004 10:05:47 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040823100547.33b7a448@dell_ss3.pdx.osdl.net>
-References: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
-	<20040820175952.GI5806@certainkey.com>
-	<20040820185956.GV8967@schnapps.adilger.int>
-	<Pine.LNX.4.53.0408201518250.25319@chaos>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
+Date: Mon, 23 Aug 2004 19:11:01 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <412A2525.9010606@trash.net>
+References: <200408221504.i7MF4Z719895@d1o404.telia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Dilger <adilger@clusterfs.com>,
-	Jean-Luc Cooke <jlcooke@certainkey.com>,
-	"David S. Miller" <davem@redhat.com>,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>, netdev@oss.sgi.com,
-	Linux kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265973AbUHWRHI@vger.kernel.org>
-To: root@chaos.analogic.com
-In-Reply-To: <Pine.LNX.4.53.0408201518250.25319@chaos>
+Content-Type: multipart/mixed;
+ boundary="------------090406090109010602040601"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Voluspa <lista4@comhem.se>
+In-Reply-To: <200408221504.i7MF4Z719895@d1o404.telia.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------090406090109010602040601
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The attached code will certainly work on Intel machines. It is
-> in the public domain, having been modified by myself to produce
-> a very long sequence...
-> 
-> I wouldn't suggest converting it to 'C' because the rotation
-> takes many CPU instructions when one tries to do the test, shift,
-> and OR in 'C',
-> 
-> Cheers,
-> Dick Johnson
-> Penguin : Linux version 2.4.26 on an i686 machine (5570.56 BogoMips).
->             Note 96.31% of all statistics are fiction.
-> 
-> 
+Voluspa wrote:
 
-My choice of PRNG was not random. I am not a mathematician (IANAM),
-but what I was looking for was:
+>Greetings,
+>
+>NOTE
+>I wrote the text below just prior to the posting of
+>01-2.6-cbq-leaks.diff but applying it doesn't change the
+>situation here. I still get the same Oops as below. Slight
+>changes in memory address but the Call Trace is identical.
+>So, different problem?
+>ENDNOTE
+>  
+>
 
-+ well researched
-+ fast
-+ good distribution
-+ small seed (since per cpu)
-+ Free and open
+Did you also apply this patch ? If not, please try it and tell us
+if it helps.
 
-The second version uses tausworthe because it was the fastest in the GNU scientific
-library and had good properties.
+Regards
+Patrick
 
-See:
+>Yes, saw the same thing on eth0 but had a confusing time to catch a
+>clean error situation. Having been used to stable kernels for a long
+>time I've disabled all debugging options and compile for size. So
+>when 2.6.8[.1] threw an Oops at the end of every "shutdown -r now"
+>the feedback was useless ("halt" gave no Oops). What looked to be
+>the same Oops came when doing a "rmmod 8139too". 2.6.7 has no such
+>issues.
+>
+>Turning on CONFIG_KALLSYMS (and CONFIG_CC_OPTIMIZE_FOR_SIZE off), with
+>CONFIG_FRAME_POINTER, a slew of other debug options and the
+>CONFIG_MAGIC_SYSRQ, hid the Oops and gave the result Nuno Silva
+>has described.
+>
+>To make a long story short, I didn't trust my very old system enough
+>to report.
+>
+>But now I've seen the QoS/wshaper connection and achieved a good Oops
+>with only CONFIG_KALLSYMS and CONFIG_FRAME_POINTER set.
+>
+>Typing it here in case it has some kind of value (hand-copied):
+>
+>[...]
+>Unmounting local filesystems...
+>Flushing filesystem buffers...
+>Please stand by while rebooting...
+>Unable to handle kernel paging request at virtual address 8bc289a9
+> printing eip:
+>c02ae9c0
+>*pde = 00000000
+>Ooops: 0000 [#1]
+>PREEMPT
+>Modules linked in: 8139too crc32
+>CPU:    0
+>EIP:    0060:[<c02ae9c0>]   Not tainted
+>EFLAGS: 00010286   (2.6.8-debug)
+>EIP is at fib_sync_down+0x50/0xb0
+>eax: cfaee800 ebx: 948bff0d ecx: 8bc28955 edx: c0267eb8
+>esi: 00000001 edi: 00000000 ebp: cf0a1ea4 esp: cf0a1e8c
+>de: 007b es: 007b ss: 0068
+>Process reboot (pid: 151, threadinfo=cf0a1000 task=cfa3e090)
+>Stack:
+>000000ff 00000001 cfaee800 cfaee800 cfaee800 00000002 cf0a1eb0 c02ad8d1
+>c033affc cf0a1ebc c02ad9b9 c033affc cf0a1ed0 c0121508 cfaee800 00000002
+>00001003 cf0a1ee0 c025dadf cfaee800 00000002 cf0a1ef8 c025ef32 00000000
+>Call Trace:
+> [<c0104d7a>] show_stack+0x7a/0x90
+> [<c0104ef9>] show_registers+0x149/0x1a0
+> [<c010508d>] die+0x8d/0x100
+> [<c0111b45>] do_page_fault+0x1e5/0x569
+> [<c0104a15>] error_code+0x2d/0x38
+> [<c02ad8d1>] fib_disable_ip+0x11/0x30
+> [<c02ad9b9>] fib_netdev_event+0x69/0x80
+> [<c0121508>] notifier_call_chain+0x28/0x50
+> [<c025dadf>] dev_close+0x8f/0xa0
+> [<c025ef32>] dev_change_flags+0x52/0x120
+> [<c02a82f5>] devinet_ioctl+0x245/0x590
+> [<c02aa573>] inet_ioctl+0x63/0xb0
+> [<c0255b82>] sock_ioctl+0xe2/0x230
+> [<c0159a95>] sys_ioctl+0x105/0x260
+> [<c010400b>] syscall_call+0x7/0xb
+>Code: 8b 41 54 85 c0 74 19 8d 51 58 31 f6 8b 5a 04 f6 c3 01 74 2c
+>/etc/rc.d/rc.6: line 49: 151 Segmentation fault /sbin/reboot -d -f -i
+>INIT: no more processes left in this runlevel
+><5>portmap: server localhost not responding, timed out
+>RPC: failed to contact portmap (errno -5).
+>portmap: server localhost not responding, timed out
+>RPC: failed to contact portmap (errno -5).
+>--endOops--
+>
+>The -i parametre to reboot (which is a symlink to halt) means to shut
+>down all network interfaces. My halt command doesn't use the -i, hence
+>the lack of Oops.
+>
+>Mvh
+>Mats Johannesson
+>
+>
+>
+>  
+>
 
-http://www1.physik.tu-muenchen.de/~gammel/matpack/html/LibDoc/Numbers/Random.html
-----------
-Returns integer pseudorandom numbers uniformly distributed within [0,4294967295].
-The period length is approximately 288 (which is 3*1026).
 
-This is Pierre L'Ecuyer's 1996 three-component Tausworthe generator "taus88"
+--------------090406090109010602040601
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-This generator is very fast and passes all standard statistical tests.
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/08/15 19:33:16-07:00 kaber@trash.net 
+#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+# net/sched/sch_api.c
+#   2004/08/15 19:32:59-07:00 kaber@trash.net +13 -8
+#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c	2004-08-23 19:06:53 +02:00
++++ b/net/sched/sch_api.c	2004-08-23 19:06:53 +02:00
+@@ -389,7 +389,8 @@
+ {
+ 	int err;
+ 	struct rtattr *kind = tca[TCA_KIND-1];
+-	struct Qdisc *sch = NULL;
++	void *p = NULL;
++	struct Qdisc *sch;
+ 	struct Qdisc_ops *ops;
+ 	int size;
+ 
+@@ -407,12 +408,18 @@
+ 	if (ops == NULL)
+ 		goto err_out;
+ 
+-	size = sizeof(*sch) + ops->priv_size;
++	/* ensure that the Qdisc and the private data are 32-byte aligned */
++	size = ((sizeof(*sch) + QDISC_ALIGN_CONST) & ~QDISC_ALIGN_CONST);
++	size += ops->priv_size + QDISC_ALIGN_CONST;
+ 
+-	sch = kmalloc(size, GFP_KERNEL);
++	p = kmalloc(size, GFP_KERNEL);
+ 	err = -ENOBUFS;
+-	if (!sch)
++	if (!p)
+ 		goto err_out;
++	memset(p, 0, size);
++	sch = (struct Qdisc *)(((unsigned long)p + QDISC_ALIGN_CONST)
++	                       & ~QDISC_ALIGN_CONST);
++	sch->padded = (char *)sch - (char *)p;
+ 
+ 	/* Grrr... Resolve race condition with module unload */
+ 
+@@ -420,8 +427,6 @@
+ 	if (ops != qdisc_lookup_ops(kind))
+ 		goto err_out;
+ 
+-	memset(sch, 0, size);
+-
+ 	INIT_LIST_HEAD(&sch->list);
+ 	skb_queue_head_init(&sch->q);
+ 
+@@ -470,8 +475,8 @@
+ 
+ err_out:
+ 	*errp = err;
+-	if (sch)
+-		kfree(sch);
++	if (p)
++		kfree(p);
+ 	return NULL;
+ }
+ 
 
-P. L'Ecuyer, Maximally equidistributed combined Tausworthe generators, Mathematics of Computation 65, 203-213 (1996), see Figure 4.
-P. L'Ecuyer, Random number generation, chapter 4 of the Handbook on Simulation, Ed. Jerry Banks, Wiley, 1997.
---------
-http://www.gnu.org/software/gsl/manual/gsl-ref_17.html
-
-Performance
-The following table shows the relative performance of a selection the available random number generators. The fastest simulation quality generators are taus, gfsr4 and mt19937. The generators which offer the best mathematically-proven quality are those based on the RANLUX algorithm.
-
-1754 k ints/sec,    870 k doubles/sec, taus
-1613 k ints/sec,    855 k doubles/sec, gfsr4
-1370 k ints/sec,    769 k doubles/sec, mt19937
- 565 k ints/sec,    571 k doubles/sec, ranlxs0
- 400 k ints/sec,    405 k doubles/sec, ranlxs1
- 490 k ints/sec,    389 k doubles/sec, mrg
- 407 k ints/sec,    297 k doubles/sec, ranlux
- 243 k ints/sec,    254 k doubles/sec, ranlxd1
- 251 k ints/sec,    253 k doubles/sec, ranlxs2
- 238 k ints/sec,    215 k doubles/sec, cmrg
- 247 k ints/sec,    198 k doubles/sec, ranlux389
- 141 k ints/sec,    140 k doubles/sec, ranlxd2
-
-1852 k ints/sec,    935 k doubles/sec, ran3
- 813 k ints/sec,    575 k doubles/sec, ran0
- 787 k ints/sec,    476 k doubles/sec, ran1
- 379 k ints/sec,    292 k doubles/sec, ran2
+--------------090406090109010602040601--
