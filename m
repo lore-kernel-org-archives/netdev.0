@@ -1,27 +1,35 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] wanrouter: kill netdevice_t, do as all the rest of the
- tree, use struct net_device
-Date: Thu, 15 May 2003 17:27:01 -0700 (PDT)
+Subject: Re: [PATCH 1/2] Sysfs net class - infrastructure
+Date: Thu, 15 May 2003 17:58:10 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030515.172701.26515926.davem@redhat.com>
-References: <20030515215243.GC12303@conectiva.com.br>
+Message-ID: <20030515.175810.42792746.davem@redhat.com>
+References: <20030515162717.477fb84b.shemminger@osdl.org>
+	<20030516002023.GA11926@kroah.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: shemminger@osdl.org, mochel@osdl.org, netdev@oss.sgi.com,
+   jkenisto@us.ibm.com, lkessler@us.ibm.com, dsteklof@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br
-In-Reply-To: <20030515215243.GC12303@conectiva.com.br>
+To: greg@kroah.com
+In-Reply-To: <20030516002023.GA11926@kroah.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-   Date: Thu, 15 May 2003 18:52:43 -0300
+   From: Greg KH <greg@kroah.com>
+   Date: Thu, 15 May 2003 17:20:23 -0700
 
-   	Please consider pulling from:
+   On Thu, May 15, 2003 at 04:27:17PM -0700, Stephen Hemminger wrote:
+   > +#ifdef CONFIG_NET_SYSFS
    
-   bk://kernel.bkbits.net/acme/net-2.5
-   
-   	Now there are two outstanding changesets in this tree.
+   No, do not make this a config option.
 
-I've pulled both of your cleanups, thanks.
+I agree.
+   > +	/* statistics object */
+   > +	struct kobject		stats_kobj;
+   
+   What is this needed for?  I don't remember seeing this in your previous
+   patches :)
+
+He provides a sub-directory containing statistic value files.
+I have no problem with this.
