@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 4/10] [bonding 2.6] Decouple promiscuous handling from multicast mode setting
-Date: Thu, 11 Sep 2003 17:40:09 +0300
+Subject: [PATCH 5/10] [bonding 2.6] Add support for changing HW address and MTU
+Date: Thu, 11 Sep 2003 17:40:58 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309111740.09480.amir.noam@intel.com>
+Message-ID: <200309111740.58110.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -13,209 +13,171 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:23 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:24 2003
-@@ -1151,23 +1151,22 @@ static inline int dmi_same(struct dev_mc
- } 
+--- a/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:26 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:27 2003
+@@ -592,6 +592,11 @@ static struct slave *find_best_interface
  
- /*
-- * Push the promiscuity flag down to all slaves
-+ * Push the promiscuity flag down to appropriate slaves
-  */
- static void bond_set_promiscuity(bonding_t *bond, int inc)
- { 
- 	slave_t *slave; 
--	switch (multicast_mode) {
--	case BOND_MULTICAST_ACTIVE :
--		/* write lock already acquired */
--		if (bond->current_slave != NULL)
+ 
+ /* #define BONDING_DEBUG 1 */
++#ifdef BONDING_DEBUG
++#define dprintk(x...) printk(x...)
++#else /* BONDING_DEBUG */
++#define dprintk(x...) do {} while (0)
++#endif /* BONDING_DEBUG */
+ 
+ /* several macros */
+ 
+@@ -3021,10 +3026,6 @@ static int bond_ioctl(struct net_device 
+ 		case SIOCBONDRELEASE:	
+ 			ret = bond_release(master_dev, slave_dev); 
+ 			break;
+-		case BOND_SETHWADDR_OLD:
+-		case SIOCBONDSETHWADDR:	
+-			ret = bond_sethwaddr(master_dev, slave_dev);
+-			break;
+ 		case BOND_CHANGE_ACTIVE_OLD:
+ 		case SIOCBONDCHANGEACTIVE:
+ 			if (USES_PRIMARY(bond_mode)) {
+@@ -3464,6 +3465,132 @@ static int bond_read_proc(char *buf, cha
+ }
+ #endif /* CONFIG_PROC_FS */
+ 
 +
-+	if (USES_PRIMARY(bond_mode)) {
-+		if (bond->current_slave) {
- 			dev_set_promiscuity(bond->current_slave->dev, inc);
--		break;
--	case BOND_MULTICAST_ALL :
--		for (slave = bond->prev; slave != (slave_t*)bond; slave = slave->prev)
-+		}
++/*
++ * Change HW address
++ *
++ * Note that many devices must be down to change the HW address, and
++ * downing the master releases all slaves.  We can make bonds full of
++ * bonding devices to test this, however.
++ */
++static inline int
++bond_set_mac_address(struct net_device *dev, void *addr)
++{
++	struct bonding *bond = dev->priv;
++	struct sockaddr *sa = addr, tmp_sa;
++	struct slave *slave;
++	int error;
 +
-+	} else { 
-+		for (slave = bond->prev; slave != (slave_t*)bond;
-+		     slave = slave->prev) {
- 			dev_set_promiscuity(slave->dev, inc);
--		break;
--	case BOND_MULTICAST_DISABLED :
--		break;
-+		}
- 	}
- } 
- 
-@@ -1213,20 +1212,23 @@ static void set_multicast_list(struct ne
- 	bonding_t *bond = master->priv;
- 	struct dev_mc_list *dmi;
- 
--	if (multicast_mode == BOND_MULTICAST_DISABLED)
--		return;
--	/*
--	 * Lock the private data for the master
--	 */
- 	write_lock_bh(&bond->lock);
- 
--	/* set promiscuity flag to slaves */
-+	/*
-+	 * Do promisc before checking multicast_mode
-+	 */
- 	if ( (master->flags & IFF_PROMISC) && !(bond->flags & IFF_PROMISC) )
- 		bond_set_promiscuity(bond, 1); 
- 
- 	if ( !(master->flags & IFF_PROMISC) && (bond->flags & IFF_PROMISC) ) 
- 		bond_set_promiscuity(bond, -1); 
- 
-+	if (multicast_mode == BOND_MULTICAST_DISABLED) {
-+		bond->flags = master->flags;
-+		write_unlock_bh(&bond->lock);
-+		return;
++	dprintk(KERN_INFO "bond_set_mac_address %p %s\n", dev,
++	       dev->name);
++
++	if (!is_valid_ether_addr(sa->sa_data)) {
++		return -EADDRNOTAVAIL;
 +	}
 +
- 	/* set allmulti flag to slaves */ 
- 	if ( (master->flags & IFF_ALLMULTI) && !(bond->flags & IFF_ALLMULTI) ) 
- 		bond_set_allmulti(bond, 1); 
-@@ -1258,32 +1260,40 @@ static void set_multicast_list(struct ne
- 
- /*
-  * Update the mc list and multicast-related flags for the new and 
-- * old active slaves (if any) according to the multicast mode
-+ * old active slaves (if any) according to the multicast mode, and
-+ * promiscuous flags unconditionally.
-  */
- static void bond_mc_update(bonding_t *bond, slave_t *new, slave_t *old)
++	for (slave = bond->prev; slave != (struct slave *)bond;
++	     slave = slave->prev) {
++		dprintk(KERN_INFO "bond_set_mac: slave %p %s\n", slave,
++			slave->dev->name);
++		if (slave->dev->set_mac_address == NULL) {
++			error = -EOPNOTSUPP;
++			dprintk(KERN_INFO "bond_set_mac EOPNOTSUPP %s\n",
++				slave->dev->name);
++			goto unwind;
++		}
++
++		error = slave->dev->set_mac_address(slave->dev, addr);
++		if (error) {
++			/* TODO: consider downing the slave 
++			 * and retry ?
++			 * User should expect communications
++			 * breakage anyway until ARP finish
++			 * updating, so...
++			 */
++			dprintk(KERN_INFO "bond_set_mac err %d %s\n",
++				error, slave->dev->name);
++			goto unwind;
++		}
++	}
++
++	/* success */
++	memcpy(dev->dev_addr, sa->sa_data, dev->addr_len);
++	return 0;
++
++unwind:
++	memcpy(tmp_sa.sa_data, dev->dev_addr, dev->addr_len);
++	tmp_sa.sa_family = dev->type;
++
++	for (slave = slave->next; slave != bond->next;
++	     slave = slave->next) {
++		int tmp_error;
++
++		tmp_error = slave->dev->set_mac_address(slave->dev, &tmp_sa);
++		if (tmp_error) {
++			dprintk(KERN_INFO "bond_set_mac_address: "
++				"unwind err %d dev %s\n",
++				tmp_error, slave->dev->name);
++		}
++	}
++
++	return error;
++}
++
++/*
++ * Change the MTU of all of a master's slaves to match the master
++ */
++static inline int
++bond_change_mtu(struct net_device *dev, int newmtu)
++{
++	bonding_t *bond = dev->priv;
++	slave_t *slave;
++	int error;
++
++	dprintk(KERN_INFO "CM: b %p nm %d\n", bond, newmtu);
++	for (slave = bond->prev; slave != (slave_t *)bond;
++	     slave = slave->prev) {
++		dprintk(KERN_INFO "CM: s %p s->p %p c_m %p\n", slave,
++			slave->prev, slave->dev->change_mtu);
++		if (slave->dev->change_mtu) {
++			error = slave->dev->change_mtu(slave->dev, newmtu);
++		} else {
++			slave->dev->mtu = newmtu;
++			error = 0;
++		}
++
++		if (error) {
++			/* If we failed to set the slave's mtu to the new value
++			 * we must abort the operation even in ACTIVE_BACKUP
++			 * mode, because if we allow the backup slaves to have
++			 * different mtu values than the active slave we'll
++			 * need to change their mtu when doing a failover. That
++			 * means changing their mtu from timer context, which
++			 * is probably not a good idea.
++			 */
++			dprintk(KERN_INFO "bond_change_mtu err %d %s\n",
++			       error, slave->dev->name);
++			goto unwind;
++		}
++	}
++
++	dev->mtu = newmtu;
++	return 0;
++
++
++unwind:
++	for (slave = slave->next; slave != bond->next;
++	     slave = slave->next) {
++
++		if (slave->dev->change_mtu) {
++			slave->dev->change_mtu(slave->dev, dev->mtu);
++		} else {
++			slave->dev->mtu = dev->mtu;
++		}
++	}
++
++	return error;
++}
++
+ static int bond_event(struct notifier_block *this, unsigned long event, 
+ 			void *ptr)
  {
- 	struct dev_mc_list *dmi;
- 
--	switch(multicast_mode) {
--	case BOND_MULTICAST_ACTIVE :		
-+	if (USES_PRIMARY(bond_mode)) {
- 		if (bond->device->flags & IFF_PROMISC) {
--			if (old != NULL && new != old)
-+			if (old)
- 				dev_set_promiscuity(old->dev, -1);
--			dev_set_promiscuity(new->dev, 1);
-+			if (new)
-+				dev_set_promiscuity(new->dev, 1);
- 		}
-+	}
-+
-+	switch(multicast_mode) {
-+	case BOND_MULTICAST_ACTIVE :		
- 		if (bond->device->flags & IFF_ALLMULTI) {
--			if (old != NULL && new != old)
-+			if (old)
- 				dev_set_allmulti(old->dev, -1);
--			dev_set_allmulti(new->dev, 1);
-+			if (new)
-+				dev_set_allmulti(new->dev, 1);
- 		}
- 		/* first remove all mc addresses from old slave if any,
- 		   and _then_ add them to new active slave */
--		if (old != NULL && new != old) {
-+		if (old) {
- 			for (dmi = bond->device->mc_list; dmi != NULL; dmi = dmi->next)
- 				dev_mc_delete(old->dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
- 		}
--		for (dmi = bond->device->mc_list; dmi != NULL; dmi = dmi->next)
--			dev_mc_add(new->dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
-+		if (new) {
-+			for (dmi = bond->device->mc_list; dmi != NULL; dmi = dmi->next)
-+				dev_mc_add(new->dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
-+		}
- 		break;
- 	case BOND_MULTICAST_ALL :
- 		/* nothing to do: mc list is already up-to-date on all slaves */
-@@ -1445,11 +1455,19 @@ static int bond_enslave(struct net_devic
- 		}
- 	}
- 
--	if (multicast_mode == BOND_MULTICAST_ALL) {
--		/* set promiscuity level to new slave */ 
--		if (master_dev->flags & IFF_PROMISC)
-+	/* set promiscuity level to new slave */ 
-+	if (master_dev->flags & IFF_PROMISC) {
-+		/* If the mode USES_PRIMARY, then the new slave gets the
-+		 * master's promisc (and mc) settings only if it becomes the
-+		 * current_slave, and that is taken care of later when calling
-+		 * bond_change_active()
-+		 */
-+		if (!USES_PRIMARY(bond_mode)) {
- 			dev_set_promiscuity(slave_dev, 1); 
-+		}
-+	}
-  
-+	if (multicast_mode == BOND_MULTICAST_ALL) {
- 		/* set allmulti level to new slave */
- 		if (master_dev->flags & IFF_ALLMULTI) 
- 			dev_set_allmulti(slave_dev, 1); 
-@@ -2024,16 +2042,22 @@ static int bond_release(struct net_devic
- 		return -EINVAL;
- 	}
- 
-+	/* unset promiscuity level from slave */
-+	if (master->flags & IFF_PROMISC) {
-+		/* If the mode USES_PRIMARY, then we should only remove its
-+		 * promisc settings if it was the current_slave, but that was
-+		 * already taken care of above when we detached the slave
-+		 */
-+		if (!USES_PRIMARY(bond_mode)) {
-+			dev_set_promiscuity(slave, -1); 
-+		}
-+	}
-+
- 	/* undo settings and restore original values */
--	
- 	if (multicast_mode == BOND_MULTICAST_ALL) {
- 		/* flush master's mc_list from slave */ 
- 		bond_mc_list_flush (slave, master); 
- 
--		/* unset promiscuity level from slave */
--		if (master->flags & IFF_PROMISC) 
--			dev_set_promiscuity(slave, -1); 
+@@ -3556,7 +3683,8 @@ static int __init bond_init(struct net_d
+ 	dev->stop = bond_close;
+ 	dev->set_multicast_list = set_multicast_list;
+ 	dev->do_ioctl = bond_ioctl;
 -
- 		/* unset allmulti level from slave */ 
- 		if (master->flags & IFF_ALLMULTI)
- 			dev_set_allmulti(slave, -1); 
-@@ -2129,17 +2153,17 @@ static int bond_release_all(struct net_d
- 		 */
- 		write_unlock_bh(&bond->lock);
- 
--		if (multicast_mode == BOND_MULTICAST_ALL 
--		    || (multicast_mode == BOND_MULTICAST_ACTIVE 
--			&& old_current == our_slave)) {
-+		/* unset promiscuity level from slave */
-+		if (master->flags & IFF_PROMISC) {
-+			if (!USES_PRIMARY(bond_mode)) {
-+				dev_set_promiscuity(slave_dev, -1); 
-+			}
-+		}
- 
-+		if (multicast_mode == BOND_MULTICAST_ALL) {
- 			/* flush master's mc_list from slave */ 
- 			bond_mc_list_flush (slave_dev, master); 
- 
--			/* unset promiscuity level from slave */
--			if (master->flags & IFF_PROMISC) 
--				dev_set_promiscuity(slave_dev, -1); 
--
- 			/* unset allmulti level from slave */ 
- 			if (master->flags & IFF_ALLMULTI)
- 				dev_set_allmulti(slave_dev, -1); 
-@@ -3634,6 +3658,12 @@ static int __init bonding_init(void)
- 			       mode == NULL ? "NULL" : mode);
- 			return -EINVAL;
- 		}
-+	}
-+
-+	if (USES_PRIMARY(bond_mode)) {
-+		multicast_mode = BOND_MULTICAST_ACTIVE;
-+	} else {
-+		multicast_mode = BOND_MULTICAST_ALL;
- 	}
- 
- 	if (multicast) {
++	dev->change_mtu = bond_change_mtu;
++	dev->set_mac_address = bond_set_mac_address;
+ 	dev->tx_queue_len = 0;
+ 	dev->flags |= IFF_MASTER|IFF_MULTICAST;
+ #ifdef CONFIG_NET_FASTROUTE
