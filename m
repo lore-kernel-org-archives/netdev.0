@@ -1,38 +1,36 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: IPv6 MIB:ipv6PrefixTable implementation
-Date: Tue, 2 Dec 2003 16:33:13 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [ROUTE] PMTU only works on half the time
+Date: Tue, 2 Dec 2003 16:39:02 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFD75AA082.D0EE04A4-ON87256DF1.00005FF4@us.ibm.com>
+Message-ID: <20031202163902.2deb43a7.davem@redhat.com>
+References: <20031201155005.1c515793.davem@redhat.com>
+	<Pine.LNX.4.44.0312030121130.1237-100000@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: mashirle@us.ibm.com, netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0312030121130.1237-100000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 3 Dec 2003 01:40:06 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
+> - ip_rt_frag_needed now provides interface index
 
+I disagree with this.
 
+There is no connection between the route (and thus output
+device) we used to send a packet and the interface on which
+an ICMP for that packet comes back upon.  Think assymetric
+routes.
 
-Hi, Alexy,
+You changes mean that for routes with specific output interfaces,
+we will ignore ICMPs for those routes that arrive on other interfaces
+due to assymetric routing.
 
-> preferred time is not an attribute of a prefix at all,
-> it is attribute of address, is not it? Unless the prefix is used
-> to install local address it does not make sense, right?
-
-The new IPv6 MIBs said that the preferred time is saved in the prefix
-table,
-not in the address table.
-Also, not every onlink prefix is saved in the routing table, for example,
-if there
-is already a manual address configured for an interface with the same
-prefix.
-
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
+Why don't you create a seperate patch that just has the TOS masking
+changes?  That's much less controversial and thus something I'm likely
+to apply.
