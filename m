@@ -1,32 +1,53 @@
-From: Andi Kleen <ak@colin2.muc.de>
-Subject: Re: [PATCH] Convert pppoe to new style protocol
-Date: 18 Jun 2003 14:51:59 +0200
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: IPv6 bugs introduced in 2.4.21
+Date: 18 Jun 2003 16:10:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030618125159.GA15238@colin2.muc.de>
-References: <20030617220420.GA1169@averell> <20030617.150751.52901849.davem@redhat.com> <20030618080118.GC23037@wotan.suse.de> <20030618092126.A28100@almesberger.net>
+Message-ID: <1055945454.7480.184.camel@slurv.ws.pasop.tomt.net>
+References: <1055793048.24660.160.camel@slurv.ws.pasop.tomt.net>
+	 <20030618.224257.130940019.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, ak@muc.de, netdev@oss.sgi.com,
-   mostrows@speakeasy.net, paulus@au.ibm.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, usagi-users@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Wed, 18 Jun 2003 14:51:59 +0200
-To: Werner Almesberger <wa@almesberger.net>
-Content-Disposition: inline
-In-Reply-To: <20030618092126.A28100@almesberger.net>
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030618.224257.130940019.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 18, 2003 at 09:21:26AM -0300, Werner Almesberger wrote:
-> On Tue, Jun 17, 2003 at 03:07:51PM -0700, David S. Miller wrote:
-> > Please don't add new skb_linearize() users, I'm trying
-> > to make that only local to net/core/dev.c
-> 
-> I know you find documentation unmanly, but maybe ...
+On ons, 2003-06-18 at 15:42, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
+> In article <1055793048.24660.160.camel@slurv.ws.pasop.tomt.net> (at 16 =
+Jun 2003 21:50:48 +0200), Andre Tomt <andre@skjellin.no> says:
+>=20
+> > I mailed you guys a little while ago on the "unable to use
+> > SOMENETWORK::0000 as a nexthop gateway" bug in 2.4.21-pre/rc a while
+> > ago. It is still present in 2.4.21, rendering the "first" /128 of a
+> > arbitrary prefixlen unusable - :0000. This is especially bad with /12=
+7
+> > tunnels, rendering :0000 and :0001 unusable). But! There is one more
+> :
+>=20
+> This is NOT the bug but by the spec.
+> prefix:: is an anycast address, not a unicast;
+> you cannot use it like an unicast address.
 
-But what is the replacement? For moving over whole subsystems to 
-non linear skbs it's a bit late in the release...
+Ok, that probably is correct. It works in 2.4.20, that does not mean
+it's correct behavior though ;-)
 
-And the "legacy protocol" setting cannot be used anymore because
-it triggers a printk for every packet on a SMP kernel.
+> Well...
+>=20
+> Do you really need to assign global address on the point-to-point devic=
+e?
 
--Andi
+Yes.
+
+> If yes, you should not use /127 prefix; please use /64 instead.
+
+No one in their right mind assigns /64's for a linknetwork with two
+peers. It's a pointopoint-link. All people I know use either /128
+pointopoint or pointomultipoint semantics (BSD, KAME), or /127's as
+Linux refuses to use the traditional pointopoint or peer parameter in
+ifconfig and iproute for ipv6.
+
+The /127 matches both 2a and 2b, why does it end up at localhost?
