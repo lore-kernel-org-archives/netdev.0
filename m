@@ -1,44 +1,35 @@
-From: Petri Passila <Petri.Passila@vtt.fi>
-Subject: UDP Lite Implementation
-Date: Fri, 11 Mar 2005 13:34:39 +0200
-Message-ID: <5.1.0.14.2.20050311133309.00ab5f10@elemail.ele.vtt.fi>
+From: CaT <cat@zip.com.au>
+Subject: ipv6 and ipv4 interaction weirdness
+Date: Fri, 11 Mar 2005 23:16:55 +1100
+Message-ID: <20050311121655.GE14146@zip.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, pekkas@netcore.fi, yoshfuji@linux-ipv6.org
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I just had some issues with ssh and trying to get it to bind to all ipv6
+and ipv4 addresses to it via :: and 0.0.0.0. The problem was that it'd
+only let one succeed. If 0.0.0.0:22 was successful then :: port 22 could
+not happen and neither could my ipv6 addy port 22 as it would get the
+'address already in use' error from bind(). The reverse was also true.
+If it bound to :: port 22 then 0.0.0.0:22 would fail.
 
-Hello !
+On the other hand if I got it to bind to each address individually then
+both ipv4 (2 addresses) and ipv6 (1 address) binds would succeed.
 
-I am doing my bachelors thesis here in Recearch center of Finland (VTT 
-Electronics) in Oulu. The meaning of the thesis is to compare UDP and UDP 
-Lite using multimedia streaming. The part of my job is to implement UDP 
-Lite into the Linux protocol stack (or FreeBSDs). And I have encountered 
-some difficulties during my way.
+Maybe I'm just looking at it wrong but shouldn't ipv4 and ipv6 interfere
+with each other?
 
-I am investigating the operation of the Linux protocol stack and the udp.c 
-file tells that you are the athors for the UDP. And I am courious to know 
-if you might know something about implementing the UDP Lite. So I wonder if 
-you could possibly help me in my thesis. If you had some information about 
-porting, which could help me, or the whole implementation I would be 
-grateful to hear about it. Or, do you know someone who might know about the 
-issue?
+I'm using kernel 2.6.11-ac2 with OpenSSH_3.8.1p1 Debian-8.sarge.4,
+OpenSSL 0.9.7e 25 Oct 2004 and glibc 2.3.2 (debian version
+2.3.2.ds1-20).
 
-Our platform is constructed of a FreeBSD 5.1 and Linux RH9 (kernel 2.4.20) 
-machine(s).
-
-
-Sincerely yours
-
-
-
-Petri Passila
-VTT Electronics
-Telecommunication Systems
-Wireless Services group
-
-Work Tel. 040-5425526
-GSM +35840-731 0109
-mail: petri.passila@vtt.fi
+-- 
+    "It goes against the grain of modern education to teach children to
+    program. What fun is there in making plans, acquiring discipline in
+    organising thoughts, devoting attention to detail and learning to be
+    self-critical?" -- Alan Perlis
