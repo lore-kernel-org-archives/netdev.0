@@ -1,40 +1,60 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.70] net-sysfs parent ref count
-Date: Tue, 10 Jun 2003 13:35:08 -0700
+From: "CIT/Paul" <xerox@foonet.net>
+Subject: RE: Route cache performance tests
+Date: Tue, 10 Jun 2003 16:36:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030610133508.3d0bfffc.shemminger@osdl.org>
+Message-ID: <00e001c32f90$016072c0$4a00000a@badass>
+References: <20030610071638.R37090@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: <ralph+d@istop.com>, "'David S. Miller'" <davem@redhat.com>,
+   <fw@deneb.enyo.de>, <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "'Jamal Hadi'" <hadi@shell.cyberus.ca>,
+   "'Simon Kirby'" <sim@netnation.com>
+In-Reply-To: <20030610071638.R37090@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When creating network sysfs entries, we grab an extra reference to the parent.
-Not a big deal now, since it just gets blown away on unregister anyway, but when
-kobject reference counts are used for release, things break.
+I'd be happy to set up a repository ftp site or maybe even some cvs
+servers so all of us can test 
+All these things and share data.  We are an ISP so it wouldn't be too
+hard to just pop up another server
+To store all this :>  Let me know 
 
-diff -Nru a/net/core/net-sysfs.c b/net/core/net-sysfs.c
---- a/net/core/net-sysfs.c	Tue Jun 10 11:11:42 2003
-+++ b/net/core/net-sysfs.c	Tue Jun 10 11:11:42 2003
-@@ -299,17 +299,11 @@
- 		    goto out_unreg;
- 	}
- 
--	
- 	net->stats_kobj.parent = NULL;
- 	if (net->get_stats) {
- 		struct kobject *k = &net->stats_kobj;
- 
--		k->parent = kobject_get(&class_dev->kobj);
--		if (!k->parent) {
--			ret = -EBUSY;
--			goto out_unreg;
--		}
--
-+		k->parent = &class_dev->kobj;
- 		strlcpy(k->name, "statistics", KOBJ_NAME_LEN);
- 		k->ktype = &netstat_ktype;
- 
+Paul xerox@foonet.net http://www.httpd.net
+
+
+-----Original Message-----
+From: Jamal Hadi [mailto:hadi@shell.cyberus.ca] 
+Sent: Tuesday, June 10, 2003 7:23 AM
+To: Simon Kirby
+Cc: ralph+d@istop.com; CIT/Paul; 'David S. Miller'; fw@deneb.enyo.de;
+netdev@oss.sgi.com; linux-net@vger.kernel.org
+Subject: Re: Route cache performance tests
+
+
+
+
+On Tue, 10 Jun 2003, Simon Kirby wrote:
+
+[some good stuff deleted]
+
+Simon,
+I havent looked at your data in details; i will. Someone like Robert
+would be able to snuff it much faster than i do. I just wanna say thanks
+for the effort, I will spend time catching up with you folks. It is
+clear that our next hurudle is gc. Do you have profiles for your data?
+Profiles would be nice to collect as well.
+
+> In any case, setting gc_min_interval to 0 definitely helped, but I 
+> suspect Dave's patches will make a bigger difference.  Next up is 
+> 2.5.70-bk14 and 2.5.70-bk14+davem's stuff from yesterday.
+>
+
+Also since you are doing all that work post the kernels somewhere so
+people like foo can grab them and test as well.
+
+cheers,
+jamal
