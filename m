@@ -1,36 +1,42 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH] [2.4] forcedeth network driver
-Date: Sat, 24 Jan 2004 20:02:10 +0100
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: FW: Submission for S2io 10GbE driver
+Date: Sat, 24 Jan 2004 11:52:16 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4012C132.5090508@colorfullife.com>
-References: <4012A738.2060009@gmx.net> <20040124195951.A1304@electric-eye.fr.zoreil.com>
+Message-ID: <002401c3e2b3$94038d70$0400a8c0@S2IOtech.com>
+References: <1074966855.1732.8.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>,
-        marcelo.tosatti@cyclades.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040124195951.A1304@electric-eye.fr.zoreil.com>
+To: <hadi@cyberus.ca>, "'Andi Kleen'" <ak@suse.de>
+In-Reply-To: <1074966855.1732.8.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
 
->-> get_npriv() can still dereference a NULL pointer.
->  
->
-Ups, I think I fixed that. It seems the fix got lost. Sorry.
+> Leonid,
+> 
+> What would also be interesting to see is a packet that never
+> leaves the kernel such is in forwarding. If theres a way you 
+> can stash two of those cards in a box and just have them 
+> forward packets coming in from one to another - would be nice 
+> to see the numbers with varying packet size example { 
+> 64,256,512,1518, 4K, 9K} 
+> 
+> cheers,
+> jamal
 
->+       if (!dev->base_addr)
->+               goto out_disable;
->                     ^^^^^^^^^^^
->-> shouldn't it be out_relreg ?
->  
->
-Ok, thanks.
 
---
-    Manfred
+Hi Jamal, 
+Are you suggesting to run a benchmark between two back-to-back hosts,
+and then run the same benchmark between the two hosts via a third box
+(with two 10GbE cards) that would just forward traffic, and compare the
+results? 
+Or you had a different setup in mind? 
+Not sure what the application for something like this would be (I think
+10GbE will be mainly deployed in a datacenter for a while), but we can
+probably run something like that and get the numbers; I'll let you know.
+
+Thanks, Leonid
