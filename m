@@ -1,36 +1,29 @@
-From: george anzinger <george@mvista.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: System crash in tcp_fragment()
-Date: Mon, 20 May 2002 17:26:29 -0700
+Date: Mon, 20 May 2002 17:18:19 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <acc4cs$fvl$2@main.gmane.org>
+Message-ID: <20020520.171819.71992193.davem@redhat.com>
 References: <200205210011.EAA04286@sex.inr.ac.ru>
+	<3CE99434.20E7479C@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   davem@redhat.com, ak@muc.de, pekkas@netcore.fi
+Cc: kuznet@ms2.inr.ac.ru, ak@suse.de, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, ak@muc.de, pekkas@netcore.fi
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: george@mvista.com
+In-Reply-To: <3CE99434.20E7479C@mvista.com>
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
-> 
-> Hello!
-> 
-> > It's unfortunately the truth. Even in_interrupt() is buggy current
-> > on SMP preemptive.
-> 
-> And why folks working on preemtive kernel do not repair this?
-> To all that I remember it is well known issue.
-> 
-Ah, but we have.  in_interrupt() was fixed about a month
-ago.  I think Robert got it into all the patches.  Whats
-more, it is a bit faster too :)
+   From: george anzinger <george@mvista.com>
+   Date: Mon, 20 May 2002 17:26:29 -0700
 
--- 
-George Anzinger   george@mvista.com
-High-res-timers: 
-http://sourceforge.net/projects/high-res-timers/
-Real time sched:  http://sourceforge.net/projects/rtsched/
-Preemption patch:
-http://www.kernel.org/pub/linux/kernel/people/rml
+   Ah, but we have.  in_interrupt() was fixed about a month
+   ago.  I think Robert got it into all the patches.  Whats
+   more, it is a bit faster too :)
+
+Well, back to the main point, this code is pretty stable by
+any measurement.
+
+I truly believe it is some side effect of either a preemption
+gotcha or a driver bug.
