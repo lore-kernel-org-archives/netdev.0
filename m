@@ -1,75 +1,55 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Fix locking bug in lltx path
-Date: 13 Sep 2004 21:43:24 -0400
+Subject: Re: [RFC] Extend netlink error codes
+Date: 13 Sep 2004 22:00:23 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095126203.1056.7.camel@jzny.localdomain>
-References: <m3vfei9gzv.fsf@averell.firstfloor.org>
+Message-ID: <1095127223.1057.25.camel@jzny.localdomain>
+References: <20040910225158.GO20088@postel.suug.ch>
+	 <20040911155839.GN4431@wotan.suse.de>
+	 <20040911162433.GC21181@postel.suug.ch>
+	 <3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
+	 <1094937035.2344.189.camel@jzny.localdomain>
+	 <20040913203657.GF23686@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        arjanv@redhat.com
+Cc: Sam Leffler <sam@errno.com>, Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <m3vfei9gzv.fsf@averell.firstfloor.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20040913203657.GF23686@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2004-09-13 at 16:36, Thomas Graf wrote:
+> * jamal <1094937035.2344.189.camel@jzny.localdomain> 2004-09-11 17:10
+> > just reuse skb->cb[] and intepret it in rtnetlink in the case of
+> > failures.
+> 
+> Good idea, however it means to change a lot of APIs used by modules
+> to provide the skb or a pointer to the error string buffer.
+> 
+> I still think it would be best to transport the error code via
+> the return value in order to not change any static APIs, but
+> I guess that 32bit is not enough to store errno and the id
+> your propose below.
 
-Finaly got around to testing today and got bitten by this (was planning
-to send patch);->
+The problem with using the return codes is you have to know somehow all
+the error variants within netlink code itself. If you return a TLV
+skb->cb[] then the netlink code could blindly forward it to user space.
+I dont think theres a lot of changes to APIs. the calls from netlink
+already pass the skb to all modules. The dumps are speacial since the
+->cb[] is actually used.
+Of course you could do it with return codes, probably do some smart
+things in the netlink code without making it too knowledgeable
+but you may need to have a global table.
 
-In any case, some good news: one of the NICs tested was e1000 with and
-without LLTX pure forwarding (eth0->eth1 and eth1->eth0, 64 byte packets
-beating up the interfaces at 1/48Mpps): did not see
-much difference between the two. There did seem to be some latency
-improvements (in the range of 50 microsecs or so for the LLTX but could
-be experimental error, needs more validation). 
-I think perhaps a case where multi processors fanning into one NIC would
-be a better test to see the value of LLTX.
-The good news (for me) is it doesnt seem to affect things negatively.
+> Idea: Make user space applications poll on the socket and
+> just print the errors async. This would allow netlink users to
+> use it for more than just error handling.
 
-[We saw some corrupt netpoll packets but that could be something else
-broken].
+I think i agree with what  Dave says in his other email - we should
+probably just borrow any useful ideas they have wirthout complicating
+things on our part. It does seem too tangential after reading it.
 
 cheers,
 jamal
-
-On Mon, 2004-09-13 at 14:11, Andi Kleen wrote:
-> Thanks to Arjan's spinlock debug kernel for finding it.
-> 
-> This fixes a silly missing spin lock in the relock path. For some 
-> reason it seems to still work when you don't have spinlock debugging
-> enabled.
-> 
-> Please apply.
-> 
-> -Andi
-> 
-> --------------------------------------------------------------------
-> 
-> Fix missing spin lock in lltx path.
-> 
-> Thanks to Arjan's spinlock debug kernel for finding it.
-> 
-> Signed-off-by: Andi Kleen <ak@muc.de>
-> 
-> diff -u linux-2.6.9rc1-bk19/net/sched/sch_generic.c-X linux-2.6.9rc1-bk19/net/sched/sch_generic.c
-> --- linux-2.6.9rc1-bk19/net/sched/sch_generic.c-X	2004-09-13 08:51:46.000000000 +0200
-> +++ linux-2.6.9rc1-bk19/net/sched/sch_generic.c	2004-09-13 19:22:50.000000000 +0200
-> @@ -153,8 +153,10 @@
->  					spin_lock(&dev->queue_lock);
->  					return -1;
->  				}
-> -				if (ret == -1 && nolock)
-> +				if (ret == -1 && nolock) {
-> +					spin_lock(&dev->queue_lock);
->  					goto collision; 
-> +				}
->  			}
->  
->  			/* Release the driver */
-> 
-> 
-> 
