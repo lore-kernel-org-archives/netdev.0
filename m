@@ -1,8 +1,8 @@
 From: "James Kelty" <jamesk@everbase.net>
 Subject: RE: amd or autofos?
-Date: Tue, 16 Apr 2002 13:46:34 -0700
+Date: Tue, 16 Apr 2002 13:48:10 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <a9i2lg$38k$2@main.gmane.org>
+Message-ID: <a9i2s2$3ir$2@main.gmane.org>
 References: <1018961918.1358.29.camel@x2.vil.ite.mee.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -13,11 +13,17 @@ To: <linux-net@vger.kernel.org>, <linux-admin@vger.kernel.org>
 In-Reply-To: <1018961918.1358.29.camel@x2.vil.ite.mee.com>
 List-Id: netdev.vger.kernel.org
 
-If you just want to mount the NFS shares at boot and keep them there, you
-can
-just edit the /etc/fstab file to reflect that.
+The edit would look like this.
+
+<snip>
+
+192.168.10.23:/export   /nfs/local/mount/directory     nfs     defaults
+0 0
+
+<snip>
 
 -James
+
 
 -----Original Message-----
 From: linux-admin-owner@vger.kernel.org
