@@ -1,35 +1,35 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
  <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
-Date: Thu, 31 Oct 2002 18:08:53 +0900 (JST)
+Subject: Re: [PATCH] IPv6: Privacy Extensions for Stateless Address
+ Autoconfiguration in IPv6
+Date: Thu, 31 Oct 2002 18:17:55 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021031.180853.380251036.yoshfuji@linux-ipv6.org>
-References: <20021031.174442.846937513.takamiya@po.ntts.co.jp>
-	<Pine.LNX.4.44.0210311053570.19356-100000@netcore.fi>
+Message-ID: <20021031.181755.739870345.yoshfuji@linux-ipv6.org>
+References: <20021031.124459.66300488.yoshfuji@linux-ipv6.org>
+	<13640000.1036050643@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: takamiya@po.ntts.co.jp, ajtuomin@morphine.tml.hut.fi, davem@redhat.com,
-   kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-   torvalds@transmeta.com, jagana@us.ibm.com, yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0210311053570.19356-100000@netcore.fi>
+To: pb@bieringer.de
+In-Reply-To: <13640000.1036050643@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0210311053570.19356-100000@netcore.fi> (at Thu, 31 Oct 2002 10:55:56 +0200 (EET)), Pekka Savola <pekkas@netcore.fi> says:
+In article <13640000.1036050643@localhost> (at Thu, 31 Oct 2002 08:50:43 +0100), Peter Bieringer <pb@bieringer.de> says:
 
-> > (7) Source Address Selection of MN
-> > 	When host acts as MN, your implementation always select HoA as the
-> > 	source address. The source address should be a CoA. 
+> > This patch is against linux-2.5.44+bk2 snapshot.
 > 
-> No, draft-ietf-ipv6-default-addr-select-09.txt Rule 4 says home addresses 
-> should be preferred, except via a possible API interaction.
+> Do you plan also to release a patch for 2.4.20+?
 
-Yes, we know.
+<http://www.linux-ipv6.org/cvsweb/~checkout~/usagi-backport/linux24-FIX_2_4_20_pre11_ADDRCONF_PRIVACY-20021026.patch>
 
-What we meant was there are some cases that we need to use actual 
-address on the device, not HoA.
+You need to apply the following patch too.
+<http://www2.linux-ipv6.org/cvsweb/~checkout~/usagi-backport/linux24-FIX_2_4_20_pre11_ADDRCONF_TIMER-20021027.patch>
 
----yoshfuji
+Thanks.
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
