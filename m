@@ -1,26 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] some condition check error in ipsec v6
-Date: Thu, 10 Jun 2004 22:11:47 -0700
+Subject: Re: Allow IP header alignment to be overriden
+Date: Thu, 10 Jun 2004 22:35:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040610221147.2bef231d.davem@redhat.com>
-References: <OF3E88B8EA.382D75F6-ON87256E5C.00272BAC-88256E5C.0027A5ED@us.ibm.com>
-	<200403311326.43647.mashirle@us.ibm.com>
-	<200405261308.54281.mashirle@us.ibm.com>
-	<200406091629.17365.mashirle@us.ibm.com>
+Message-ID: <20040610223549.5e9ad025.davem@redhat.com>
+References: <20040611012727.GA27672@krispykreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, xma@us.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200406091629.17365.mashirle@us.ibm.com>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20040611012727.GA27672@krispykreme>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Jun 2004 16:29:17 -0700
-Shirley Ma <mashirle@us.ibm.com> wrote:
+On Fri, 11 Jun 2004 11:27:27 +1000
+Anton Blanchard <anton@samba.org> wrote:
 
-> Here is a small patch for condition checking in ah6.c and esp6.c. This patch 
-> is against 2.6.6 kernel.
+> The following patch creates skb_align and allows an architecture to
+> override it. Thoughts?
 
-Applied, thanks a lot!
+This transformation is not valid for a lot of drivers, that "2"
+in the reserve exists elsewhere in other calculations in the
+drivers.  For example, it is added to the RX skb allocation
+size.  Sometimes this '2' is there in non-trivial or hard to
+see ways (ie. it's implicitly in some DMA alignment value)
+
+That's the only reason I'm against this patch.
