@@ -1,35 +1,56 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH] convert ip6_tunnel to per-cpu data
-Date: Sun, 31 Aug 2003 15:14:46 +0300 (EEST)
+From: "Hen, Shmulik" <shmulik.hen@intel.com>
+Subject: RE: [bonding][2/3] Synchronizing 2.4-2.6
+Date: Sun, 31 Aug 2003 15:19:39 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0308311506080.24254-100000@rhea.tcs.hut.fi>
-References: <20030831031556.6d8ee0e8.davem@redhat.com>
+Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C94EB@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Christoph Hellwig <hch@lst.de>, <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030831031556.6d8ee0e8.davem@redhat.com>
+content-class: urn:content-classes:message
+To: "Hen, Shmulik" <shmulik.hen@intel.com>, "Jeff Garzik" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 31 Aug 2003, David S. Miller wrote:
+> -----Original Message-----
+> From: Hen, Shmulik 
+> Sent: Saturday, August 30, 2003 10:40 PM
+> To: Jeff Garzik
+> Cc: bonding-devel@lists.sourceforge.net; netdev@oss.sgi.com
+> Subject: Re: [bonding][2/3] Synchronizing 2.4-2.6
+> 
+> On Thursday 28 August 2003 07:02 pm, Jeff Garzik wrote:
+> > Hen, Shmulik wrote:
+> > > After patch set 1, It should be as easy as just copying all the
+> > > bonding related files from 2.4 to 2.6. I guess I can do that on
+> > > Sunday if someone hasn't already done it before.
+> >
+> > I had hoped to preserve the revision history.  Simply copying the
+> > files over does not do that :(
+> >
+> > What I mean by preserving revision history is, changes should be
+> > submitted to 2.6 in the same granularity as they were to 2.4...
+> >
+> 
+> Amir, on the other hand, understood exactly what you intended, so 
+> there should be something ready for tomorrow that brings 2.6 to the 
+> same point as 2.4 after set 1, in small steps. After that, sets 2 and 
+> 3 could be applied the same way for 2.4 and 2.6.
+> 
 
-> On Sun, 31 Aug 2003 12:06:21 +0200
-> Christoph Hellwig <hch@lst.de> wrote:
->
-> > Code looks like copy & pasted from icmpv6 :)
->
-> Hold on this one, we're in the process of killing
-> the sockets from this code.
+May have spoken a bit too soon. It seems it won't be possible
+to get sets 2 and 3 to apply the same way for 2.4 and 2.6.
+In 2.6, things like MOD_{INC|DEC}_USE_COUNT are already gone,
+and struct initializers have already been converted to c99
+style. Probably some other things as well. Since we don't want
+the code to have ugly ifdefs in it, we'll need to either split
+the code :(, or backport more stuff from 2.6 to 2.4 :).
 
-Yes, I've been running socketless tunnels for a couple of days now and
-everything seems to work all right. I'll send the patch shortly...
+We'll have to get back to that later this week (probably
+not before Wednesday, since there is a pressing internal
+deadline for us due by Tuesday).
 
 
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+	Shmulik.
