@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] remove unneeded casts in generic drivers/net/
-Date: Sun, 29 Feb 2004 14:57:50 -0800
+Subject: Re: [janitor] remove unneeded casts in lance drivers
+Date: Sun, 29 Feb 2004 14:53:18 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040229145750.3afe6034.rddunlap@osdl.org>
+Message-ID: <20040229145318.2a88771e.rddunlap@osdl.org>
 References: <20040229142516.3d218ed0.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -15,267 +15,280 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-
 From: Carlo Perassi <carlo@linux.it>
 
 
- drivers/net/ethertap.c     |   10 +++++-----
- drivers/net/isa-skeleton.c |   14 +++++++-------
- drivers/net/loopback.c     |    2 +-
- drivers/net/plip.c         |   20 ++++++++++----------
- drivers/net/tun.c          |    6 +++---
- 5 files changed, 26 insertions(+), 26 deletions(-)
+ drivers/net/7990.c          |    8 ++++----
+ drivers/net/a2065.c         |    6 +++---
+ drivers/net/atari_pamsnet.c |   12 ++++++------
+ drivers/net/bagetlance.c    |    2 +-
+ drivers/net/declance.c      |    2 +-
+ drivers/net/hplance.c       |    4 ++--
+ drivers/net/sun3lance.c     |   14 +++++++-------
+ drivers/net/sunlance.c      |    4 ++--
+ 8 files changed, 26 insertions(+), 26 deletions(-)
 
-diff -puN drivers/net/ethertap.c~net_generic_casts drivers/net/ethertap.c
---- linux-263-229/drivers/net/ethertap.c~net_generic_casts	2004-02-29 14:02:00.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/ethertap.c	2004-02-29 14:02:00.000000000 -0800
-@@ -150,7 +150,7 @@ static unsigned ethertap_mc_hash(__u8 *d
- static void set_multicast_list(struct net_device *dev)
+diff -puN drivers/net/7990.c~net_lance_casts drivers/net/7990.c
+--- linux-263-229/drivers/net/7990.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/7990.c	2004-02-29 14:02:29.000000000 -0800
+@@ -216,7 +216,7 @@ static int init_restart_lance (struct la
+ 
+ static int lance_reset (struct net_device *dev)
  {
- 	unsigned groups = ~0;
+-        struct lance_private *lp = (struct lance_private *)dev->priv;
++        struct lance_private *lp = dev->priv;
+         int status;
+         DECLARE_LL;
+     
+@@ -401,7 +401,7 @@ static irqreturn_t
+ lance_interrupt (int irq, void *dev_id, struct pt_regs *regs)
+ {
+         struct net_device *dev = (struct net_device *)dev_id;
+-        struct lance_private *lp = (struct lance_private *)dev->priv;
++        struct lance_private *lp = dev->priv;
+         int csr0;
+         DECLARE_LL;
+ 
+@@ -457,7 +457,7 @@ lance_interrupt (int irq, void *dev_id, 
+ 
+ int lance_open (struct net_device *dev)
+ {
+-        struct lance_private *lp = (struct lance_private *)dev->priv;
++        struct lance_private *lp = dev->priv;
+ 	int res;
+         DECLARE_LL;
+         
+@@ -499,7 +499,7 @@ void lance_tx_timeout(struct net_device 
+ 
+ int lance_start_xmit (struct sk_buff *skb, struct net_device *dev)
+ {
+-        struct lance_private *lp = (struct lance_private *)dev->priv;
++        struct lance_private *lp = dev->priv;
+         volatile struct lance_init_block *ib = lp->init_block;
+         int entry, skblen, len;
+         static int outs;
+diff -puN drivers/net/a2065.c~net_lance_casts drivers/net/a2065.c
+--- linux-263-229/drivers/net/a2065.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/a2065.c	2004-02-29 14:02:29.000000000 -0800
+@@ -481,7 +481,7 @@ struct net_device *last_dev = 0;
+ 
+ static int lance_open (struct net_device *dev)
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	volatile struct lance_regs *ll = lp->ll;
+ 	int ret;
+ 
+@@ -522,7 +522,7 @@ static int lance_close (struct net_devic
+ 
+ static inline int lance_reset (struct net_device *dev)
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	volatile struct lance_regs *ll = lp->ll;
+ 	int status;
+     
+@@ -556,7 +556,7 @@ static void lance_tx_timeout(struct net_
+ 
+ static int lance_start_xmit (struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	volatile struct lance_regs *ll = lp->ll;
+ 	volatile struct lance_init_block *ib = lp->init_block;
+ 	int entry, skblen, len;
+diff -puN drivers/net/atari_pamsnet.c~net_lance_casts drivers/net/atari_pamsnet.c
+--- linux-263-229/drivers/net/atari_pamsnet.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/atari_pamsnet.c	2004-02-29 14:02:29.000000000 -0800
+@@ -667,7 +667,7 @@ struct net_device * __init pamsnet_probe
+  */
+ static int
+ pamsnet_open(struct net_device *dev) {
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
  
- 	if (!(dev->flags&(IFF_NOARP|IFF_PROMISC|IFF_ALLMULTI))) {
- 		struct dev_mc_list *dmi;
-@@ -176,7 +176,7 @@ static void set_multicast_list(struct ne
-  
- static int ethertap_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
+ 	if (pamsnet_debug > 0)
+ 		printk("pamsnet_open\n");
+@@ -696,7 +696,7 @@ pamsnet_open(struct net_device *dev) {
+ 
+ static int
+ pamsnet_send_packet(struct sk_buff *skb, struct net_device *dev) {
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
- #ifdef CONFIG_ETHERTAP_MC
- 	struct ethhdr *eth = (struct ethhdr*)skb->data;
- #endif
-@@ -234,7 +234,7 @@ static int ethertap_start_xmit(struct sk
+ 	unsigned long flags;
  
- static __inline__ int ethertap_rx_skb(struct sk_buff *skb, struct net_device *dev)
- {
+ 	/* Block a timer-based transmit from overlapping.  This could better be
+@@ -742,7 +742,7 @@ pamsnet_send_packet(struct sk_buff *skb,
+  */
+ static void
+ pamsnet_poll_rx(struct net_device *dev) {
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
- #ifdef CONFIG_ETHERTAP_MC
- 	struct ethhdr *eth = (struct ethhdr*)(skb->data + 2);
- #endif
-@@ -320,7 +320,7 @@ static void ethertap_rx(struct sock *sk,
- 
- static int ethertap_close(struct net_device *dev)
- {
+ 	int boguscount;
+ 	int pkt_len;
+ 	struct sk_buff *skb;
+@@ -817,7 +817,7 @@ pamsnet_poll_rx(struct net_device *dev) 
+ static void
+ pamsnet_tick(unsigned long data) {
+ 	struct net_device	 *dev = (struct net_device *)data;
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
- 	struct sock *sk = lp->nl;
  
- 	if (ethertap_debug > 2)
-@@ -338,7 +338,7 @@ static int ethertap_close(struct net_dev
+ 	if( pamsnet_debug > 0 && (lp->open_time++ & 7) == 8 )
+ 		printk("pamsnet_tick: %ld\n", lp->open_time);
+@@ -832,7 +832,7 @@ pamsnet_tick(unsigned long data) {
+  */
+ static int
+ pamsnet_close(struct net_device *dev) {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = dev->priv;
  
- static struct net_device_stats *ethertap_get_stats(struct net_device *dev)
+ 	if (pamsnet_debug > 0)
+ 		printk("pamsnet_close, open_time=%ld\n", lp->open_time);
+@@ -859,7 +859,7 @@ pamsnet_close(struct net_device *dev) {
+  */
+ static struct net_device_stats *net_get_stats(struct net_device *dev) 
  {
 -	struct net_local *lp = (struct net_local *)dev->priv;
 +	struct net_local *lp = dev->priv;
  	return &lp->stats;
  }
  
-diff -puN drivers/net/isa-skeleton.c~net_generic_casts drivers/net/isa-skeleton.c
---- linux-263-229/drivers/net/isa-skeleton.c~net_generic_casts	2004-02-29 14:02:00.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/isa-skeleton.c	2004-02-29 14:02:00.000000000 -0800
-@@ -326,7 +326,7 @@ out:
+diff -puN drivers/net/bagetlance.c~net_lance_casts drivers/net/bagetlance.c
+--- linux-263-229/drivers/net/bagetlance.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/bagetlance.c	2004-02-29 14:02:29.000000000 -0800
+@@ -1247,7 +1247,7 @@ static int lance_close( struct net_devic
+ static struct net_device_stats *lance_get_stats( struct net_device *dev )
  
- static void net_tx_timeout(struct net_device *dev)
- {
--	struct net_local *np = (struct net_local *)dev->priv;
-+	struct net_local *np = dev->priv;
- 
- 	printk(KERN_WARNING "%s: transmit timed out, %s?\n", dev->name,
- 	       tx_done(dev) ? "IRQ conflict" : "network cable problem");
-@@ -361,7 +361,7 @@ static void net_tx_timeout(struct net_de
- static int
- net_open(struct net_device *dev)
- {
--	struct net_local *np = (struct net_local *)dev->priv;
-+	struct net_local *np = dev->priv;
- 	int ioaddr = dev->base_addr;
- 	/*
- 	 * This is used if the interrupt line can turned off (shared).
-@@ -399,7 +399,7 @@ net_open(struct net_device *dev)
-  */
- static int net_send_packet(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_local *np = (struct net_local *)dev->priv;
-+	struct net_local *np = dev->priv;
- 	int ioaddr = dev->base_addr;
- 	short length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
- 	unsigned char *buf = skb->data;
-@@ -465,7 +465,7 @@ static int net_send_packet(struct sk_buf
-  */
- void net_tx(struct net_device *dev)
- {
--	struct net_local *np = (struct net_local *)dev->priv;
-+	struct net_local *np = dev->priv;
- 	int entry;
- 
- 	/* This protects us from concurrent execution of
-@@ -539,7 +539,7 @@ out:
- static void
- net_rx(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	int ioaddr = dev->base_addr;
- 	int boguscount = 10;
- 
-@@ -591,7 +591,7 @@ net_rx(struct net_device *dev)
- static int
- net_close(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	int ioaddr = dev->base_addr;
- 
- 	lp->open_time = 0;
-@@ -620,7 +620,7 @@ net_close(struct net_device *dev)
-  */
- static struct net_device_stats *net_get_stats(struct net_device *dev)
- {
--	struct net_local *lp = (struct net_local *)dev->priv;
-+	struct net_local *lp = dev->priv;
- 	short ioaddr = dev->base_addr;
- 
- 	/* Update the statistics from the device registers. */
-diff -puN drivers/net/loopback.c~net_generic_casts drivers/net/loopback.c
---- linux-263-229/drivers/net/loopback.c~net_generic_casts	2004-02-29 14:02:00.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/loopback.c	2004-02-29 14:02:00.000000000 -0800
-@@ -123,7 +123,7 @@ static void emulate_large_send_offload(s
-  */
- static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
-+	struct net_device_stats *stats = dev->priv;
- 
- 	skb_orphan(skb);
- 
-diff -puN drivers/net/plip.c~net_generic_casts drivers/net/plip.c
---- linux-263-229/drivers/net/plip.c~net_generic_casts	2004-02-29 14:02:00.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/plip.c	2004-02-29 14:02:00.000000000 -0800
-@@ -323,7 +323,7 @@ plip_init_netdev(struct net_device *dev)
- static void
- plip_kick_bh(struct net_device *dev)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 
- 	if (nl->is_deferred)
- 		schedule_work(&nl->immediate);
-@@ -366,7 +366,7 @@ static plip_func connection_state_table[
- static void
- plip_bh(struct net_device *dev)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 	struct plip_local *snd = &nl->snd_data;
- 	struct plip_local *rcv = &nl->rcv_data;
- 	plip_func f;
-@@ -384,7 +384,7 @@ plip_bh(struct net_device *dev)
- static void
- plip_timer_bh(struct net_device *dev)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 	
- 	if (!(atomic_read (&nl->kill_timer))) {
- 		plip_interrupt (-1, dev, NULL);
-@@ -961,7 +961,7 @@ plip_interrupt(int irq, void *dev_id, st
- static int
- plip_tx_packet(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 	struct plip_local *snd = &nl->snd_data;
- 
- 	if (netif_queue_stopped(dev))
-@@ -1021,7 +1021,7 @@ plip_hard_header(struct sk_buff *skb, st
-                  unsigned short type, void *daddr,
- 	         void *saddr, unsigned len)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 	int ret;
- 
- 	if ((ret = nl->orig_hard_header(skb, dev, type, daddr, saddr, len)) >= 0)
-@@ -1057,7 +1057,7 @@ int plip_hard_header_cache(struct neighb
- static int
- plip_open(struct net_device *dev)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 	struct in_device *in_dev;
- 
- 	/* Grab the port */
-@@ -1116,7 +1116,7 @@ plip_open(struct net_device *dev)
- static int
- plip_close(struct net_device *dev)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 	struct plip_local *snd = &nl->snd_data;
- 	struct plip_local *rcv = &nl->rcv_data;
- 
-@@ -1163,7 +1163,7 @@ static int
- plip_preempt(void *handle)
- {
- 	struct net_device *dev = (struct net_device *)handle;
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 
- 	/* Stand our ground if a datagram is on the wire */
- 	if (nl->connection != PLIP_CN_NONE) {
-@@ -1179,7 +1179,7 @@ static void
- plip_wakeup(void *handle)
- {
- 	struct net_device *dev = (struct net_device *)handle;
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 
- 	if (nl->port_owner) {
- 		/* Why are we being woken up? */
-@@ -1207,7 +1207,7 @@ plip_wakeup(void *handle)
- static struct net_device_stats *
- plip_get_stats(struct net_device *dev)
- {
--	struct net_local *nl = (struct net_local *)dev->priv;
-+	struct net_local *nl = dev->priv;
- 	struct net_device_stats *r = &nl->enet_stats;
- 
- 	return r;
-diff -puN drivers/net/tun.c~net_generic_casts drivers/net/tun.c
---- linux-263-229/drivers/net/tun.c~net_generic_casts	2004-02-29 14:02:00.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/tun.c	2004-02-29 14:02:00.000000000 -0800
-@@ -70,7 +70,7 @@ static int tun_net_close(struct net_devi
- /* Net device start xmit */
- static int tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct tun_struct *tun = (struct tun_struct *)dev->priv;
-+	struct tun_struct *tun = dev->priv;
- 
- 	DBG(KERN_INFO "%s: tun_net_xmit %d\n", tun->dev->name, skb->len);
- 
-@@ -113,14 +113,14 @@ static void tun_net_mclist(struct net_de
- 
- static struct net_device_stats *tun_net_stats(struct net_device *dev)
- {
--	struct tun_struct *tun = (struct tun_struct *)dev->priv;
-+	struct tun_struct *tun = dev->priv;
- 	return &tun->stats;
+ {	
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	return &lp->stats;
  }
  
- /* Initialize net device. */
- static void tun_net_init(struct net_device *dev)
+diff -puN drivers/net/declance.c~net_lance_casts drivers/net/declance.c
+--- linux-263-229/drivers/net/declance.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/declance.c	2004-02-29 14:02:29.000000000 -0800
+@@ -1287,7 +1287,7 @@ static void __exit dec_lance_cleanup(voi
  {
--	struct tun_struct *tun = (struct tun_struct *)dev->priv;
-+	struct tun_struct *tun = dev->priv;
-    
- 	switch (tun->flags & TUN_TYPE_MASK) {
- 	case TUN_TUN_DEV:
+ 	while (root_lance_dev) {
+ 		struct net_device *dev = root_lance_dev;
+-		struct lance_private *lp = (struct lance_private *)dev->priv;
++		struct lance_private *lp = dev->priv;
+ 		unregister_netdev(dev);
+ #ifdef CONFIG_TC
+ 		if (lp->slot >= 0)
+diff -puN drivers/net/hplance.c~net_lance_casts drivers/net/hplance.c
+--- linux-263-229/drivers/net/hplance.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/hplance.c	2004-02-29 14:02:29.000000000 -0800
+@@ -195,7 +195,7 @@ static unsigned short hplance_readrdp(vo
+ static int hplance_open(struct net_device *dev)
+ {
+         int status;
+-        struct hplance_private *lp = (struct hplance_private *)dev->priv;
++        struct hplance_private *lp = dev->priv;
+         struct hplance_reg *hpregs = (struct hplance_reg *)lp->base;
+         
+         status = lance_open(dev);                 /* call generic lance open code */
+@@ -209,7 +209,7 @@ static int hplance_open(struct net_devic
+ 
+ static int hplance_close(struct net_device *dev)
+ {
+-        struct hplance_private *lp = (struct hplance_private *)dev->priv;
++        struct hplance_private *lp = dev->priv;
+         struct hplance_reg *hpregs = (struct hplance_reg *)lp->base;
+         out_8(&(hpregs->status), 8);              /* disable interrupts at boardlevel */
+         lance_close(dev);
+diff -puN drivers/net/sun3lance.c~net_lance_casts drivers/net/sun3lance.c
+--- linux-263-229/drivers/net/sun3lance.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/sun3lance.c	2004-02-29 14:02:29.000000000 -0800
+@@ -402,7 +402,7 @@ static int __init lance_probe( struct ne
+ 
+ static int lance_open( struct net_device *dev )
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	int i;
+ 
+ 	DPRINTK( 2, ( "%s: lance_open()\n", dev->name ));
+@@ -439,7 +439,7 @@ static int lance_open( struct net_device
+ 
+ static void lance_init_ring( struct net_device *dev )
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	int i;
+ 
+ 	lp->lock = 0;
+@@ -499,7 +499,7 @@ static void lance_init_ring( struct net_
+ 
+ static int lance_start_xmit( struct sk_buff *skb, struct net_device *dev )
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	int entry, len;
+ 	struct lance_tx_head *head;
+ 	unsigned long flags;
+@@ -772,7 +772,7 @@ static irqreturn_t lance_interrupt( int 
+ /* get packet, toss into skbuff */
+ static int lance_rx( struct net_device *dev )
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	int entry = lp->new_rx;
+ 
+ 	/* If we own the next entry, it's a new packet. Send it up. */
+@@ -870,7 +870,7 @@ static int lance_rx( struct net_device *
+ 
+ static int lance_close( struct net_device *dev )
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 
+ 	netif_stop_queue(dev);
+ 
+@@ -888,7 +888,7 @@ static int lance_close( struct net_devic
+ 
+ static struct net_device_stats *lance_get_stats( struct net_device *dev )
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 
+ 	return &lp->stats;
+ }
+@@ -904,7 +904,7 @@ static struct net_device_stats *lance_ge
+ /* completely untested on a sun3 */
+ static void set_multicast_list( struct net_device *dev )
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 
+ 	if(netif_queue_stopped(dev))
+ 		/* Only possible if board is already started */
+diff -puN drivers/net/sunlance.c~net_lance_casts drivers/net/sunlance.c
+--- linux-263-229/drivers/net/sunlance.c~net_lance_casts	2004-02-29 14:02:29.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/sunlance.c	2004-02-29 14:02:29.000000000 -0800
+@@ -816,7 +816,7 @@ out:
+ static irqreturn_t lance_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+ {
+ 	struct net_device *dev = (struct net_device *)dev_id;
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	int csr0;
+     
+ 	sbus_writew(LE_CSR0, lp->lregs + RAP);
+@@ -915,7 +915,7 @@ struct net_device *last_dev = 0;
+ 
+ static int lance_open(struct net_device *dev)
+ {
+-	struct lance_private *lp = (struct lance_private *)dev->priv;
++	struct lance_private *lp = dev->priv;
+ 	volatile struct lance_init_block *ib = lp->init_block;
+ 	int status = 0;
+ 
 
 _
+
 
 --
 ~Randy
