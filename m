@@ -1,39 +1,25 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] TCP Vegas for 2.6
-Date: Tue, 9 Mar 2004 11:03:23 -0800
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040309110323.1295cf92@dell_ss3.pdx.osdl.net>
-References: <20040309180331.GC11604@wotan.suse.de>
-	<Pine.NEB.4.33.0403091307090.5230-100000@dexter.psc.edu>
-	<20040309102206.33c1720c@dell_ss3.pdx.osdl.net>
-	<404E1374.5050600@us.ibm.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: ip addr flush hangs
+Date: Tue, 9 Mar 2004 11:25:29 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040309112529.4c013b9c.davem@redhat.com>
+References: <20040309144824.GD14419@suse.de>
+	<20040309150730.GE14419@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: John Heffner <jheffner@psc.edu>, Andi Kleen <ak@suse.de>,
-	linux-net <linux-net@vger.kernel.org>, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <404E1374.5050600@us.ibm.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20040309150730.GE14419@suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 09 Mar 2004 10:56:52 -0800
-Nivedita Singhvi <niv@us.ibm.com> wrote:
+On Tue, 9 Mar 2004 16:07:30 +0100
+Olaf Kirch <okir@suse.de> wrote:
 
-> Stephen Hemminger wrote:
-> 
-> > Every case I tested has vegas faster than the default reno.  It is especially
-> > noticeable over the DSL.  The current implementation is not ready to be turned
-> > on by default though.
-> 
-> Stephen, just a question regarding your testing.
-> (To save me some effort ;-)). What tests did you
-> run, which testcases, and if it wasn't some standard
-> benchmark, will you consider inclusion of those tests into
-> the LTP or equivalent?
+> The attached patch disables reporting of multicast and anycast
+> addresses in inet6_dump_ifaddr
 
-I used ttcp and netperf, but the tests aren't as interesting as setting up the
-toplogies, like 1G Ethernet; Ethernet -> PPP -> Ethernet and Ethernet -> IRDA -> Ethernet
-and DSL connections through SSH.   Plus, LTP (and are local automated test machines)
-don't seem to be setup for multi-machine tests.
-
+Better to fix /sbin/ip, Andi Kleen posted a patch for that tool
+in a thread on linux-kernel about this very issue.
