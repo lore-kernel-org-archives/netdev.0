@@ -1,44 +1,44 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
-Date: Wed, 2 Mar 2005 13:18:17 -0800
-Message-ID: <20050302131817.2e61805f.akpm@osdl.org>
-References: <20050223014233.6710fd73.akpm@osdl.org>
-	<20050226113123.GJ3311@stusta.de>
-	<42256078.1040002@pobox.com>
-	<20050302140833.GD4608@stusta.de>
-	<42261004.4000501@pobox.com>
-	<20050302123829.51dbc44b.akpm@osdl.org>
-	<42262B08.2040401@pobox.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] remove dead extern's in netdevice.h
+Date: 02 Mar 2005 16:36:49 -0500
+Message-ID: <1109799408.1098.193.camel@jzny.localdomain>
+References: <20050302105902.72f2b983@dxpl.pdx.osdl.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42262B08.2040401@pobox.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        Jeff Garzik <jgarzik@pobox.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050302105902.72f2b983@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->
-> > Thing is, CRYPTO_AES on only selectable on x86.
+
+If you want to do this, you might as well kill hardware flow control.
+I dont remember what the last decision was when we last pinged people.
+Jeff?
+
+cheers,
+jamal
+
+On Wed, 2005-03-02 at 13:59, Stephen Hemminger wrote:
+> The following definitions are historical relics.
 > 
->  You're thinking about CRYPTO_AES_586.  But looking at crypto/Kconfig, 
->  the dependencies are a bit weird:
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 > 
->  config CRYPTO_AES
->           tristate "AES cipher algorithms"
->           depends on CRYPTO && !(X86 && !X86_64)
->  config CRYPTO_AES_586
->           tristate "AES cipher algorithms (i586)"
->           depends on CRYPTO && (X86 && !X86_64)
-
-That's pretty broken, isn't it?
-
-Would be better to just do:
-
-config CRYPTO_AES
-	select CRYPTO_AES_586 if (X86 && !X86_64)
-	select CRYPTO_AES_OTHER if !(X86 && !X86_64)
-
-and hide CRYPTO_AES_586 and CRYPTO_AES_OTHER from the outside world.
+> diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
+> --- a/include/linux/netdevice.h	2005-03-02 10:53:22 -08:00
+> +++ b/include/linux/netdevice.h	2005-03-02 10:53:22 -08:00
+> @@ -921,8 +921,6 @@
+>  extern void		dev_mcast_init(void);
+>  extern int		netdev_max_backlog;
+>  extern int		weight_p;
+> -extern unsigned long	netdev_fc_xoff;
+> -extern atomic_t netdev_dropping;
+>  extern int		netdev_set_master(struct net_device *dev, struct net_device *master);
+>  extern int skb_checksum_help(struct sk_buff *skb, int inward);
+>  /* rx skb timestamps */
+> 
+> 
