@@ -1,33 +1,97 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Sharing /proc file
-Date: Fri, 20 Feb 2004 14:29:14 -0800
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.6.3] pcnet32.c non-mii errors with ethtool
+Date: Fri, 20 Feb 2004 14:29:30 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040220142914.2f405104@dell_ss3.pdx.osdl.net>
-References: <20040220221506.9945.qmail@web40712.mail.yahoo.com>
+Message-ID: <200402202229.i1KMTVe07355@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Niranjan <niranjan_cs2905@yahoo.com>
-In-Reply-To: <20040220221506.9945.qmail@web40712.mail.yahoo.com>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Feb 2004 14:15:06 -0800 (PST)
-Niranjan <niranjan_cs2905@yahoo.com> wrote:
+pcnet32 devices which do not contain an mii respond incorrectly to
+ethtool commands.
 
-> Hi,
-> Is it possible to share a /proc file between two
-> kernel modules?
-> Also, what is the best way to share a structure
-> between two kernel modules ?
-> 
-> Regards,
-> -Niranjan
+Reported by VANDROVE@vc.cvut.cz and Thomas Munck Steenholdt.
 
-If the two modules are so interrelated, why have them separate?
-You can use EXPORT_SYMBOL() to share globals between modules.
-I can't see a good reason to ever share a single /proc file.
-The module that defines the symbol must be the one that manages
-the /proc interaction with that structure.
+--- linux-2.6.3/drivers/net/clean.pcnet32.c	Fri Feb 20 10:59:38 2004
++++ linux-2.6.3/drivers/net/pcnet32.c	Fri Feb 20 14:21:27 2004
+@@ -474,22 +474,28 @@
+ {
+ 	struct pcnet32_private *lp = dev->priv;
+ 	unsigned long flags;
++	int r = -EOPNOTSUPP;
+ 
+-	spin_lock_irqsave(&lp->lock, flags);
+-	mii_ethtool_gset(&lp->mii_if, cmd);
+-	spin_unlock_irqrestore(&lp->lock, flags);
+-	return 0;
++	if (lp->mii) {
++	    spin_lock_irqsave(&lp->lock, flags);
++	    mii_ethtool_gset(&lp->mii_if, cmd);
++	    spin_unlock_irqrestore(&lp->lock, flags);
++	    r = 0;
++	}
++	return r;
+ }
+ 
+ static int pcnet32_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct pcnet32_private *lp = dev->priv;
+ 	unsigned long flags;
+-	int r;
++	int r = -EOPNOTSUPP;
+ 
+-	spin_lock_irqsave(&lp->lock, flags);
+-	r = mii_ethtool_sset(&lp->mii_if, cmd);
+-	spin_unlock_irqrestore(&lp->lock, flags);
++	if (lp->mii) {
++	    spin_lock_irqsave(&lp->lock, flags);
++	    r = mii_ethtool_sset(&lp->mii_if, cmd);
++	    spin_unlock_irqrestore(&lp->lock, flags);
++	}
+ 	return r;
+ }
+ 
+@@ -509,11 +515,13 @@
+ {
+ 	struct pcnet32_private *lp = dev->priv;
+ 	unsigned long flags;
+-	int r;
++	int r = 1;
+ 
+-	spin_lock_irqsave(&lp->lock, flags);
+-	r = mii_link_ok(&lp->mii_if);
+-	spin_unlock_irqrestore(&lp->lock, flags);
++	if (lp->mii) {
++	    spin_lock_irqsave(&lp->lock, flags);
++	    r = mii_link_ok(&lp->mii_if);
++	    spin_unlock_irqrestore(&lp->lock, flags);
++	}
+ 	return r;
+ }
+ 
+@@ -533,11 +541,13 @@
+ {
+ 	struct pcnet32_private *lp = dev->priv;
+ 	unsigned long flags;
+-	int r;
++	int r = -EOPNOTSUPP;
+ 
+-	spin_lock_irqsave(&lp->lock, flags);
+-	r = mii_nway_restart(&lp->mii_if);
+-	spin_unlock_irqrestore(&lp->lock, flags);
++	if (lp->mii) {
++	    spin_lock_irqsave(&lp->lock, flags);
++	    r = mii_nway_restart(&lp->mii_if);
++	    spin_unlock_irqrestore(&lp->lock, flags);
++	}
+ 	return r;
+ }
+ 
+
+-- 
+Don Fry
+brazilnut@us.ibm.com
