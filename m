@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] allow modular mv64340_eth
-Date: Tue, 6 Jul 2004 12:36:45 +0200
+Subject: [PATCH] fix compiler warnings in mv64340_eth
+Date: Tue, 6 Jul 2004 12:52:15 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706103645.GA14521@lst.de>
+Message-ID: <20040706105215.GA14731@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
@@ -12,113 +12,57 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Only tested together with some additional patches to make the driver
-work on PPC that need more work, but the changes are obvious.
+The driver was trying to do pointer arithmetic on integers but forgot
+half of the casts..
+
+Let's just do normal integer arithmetics instead.
 
 
---- a/drivers/net/Kconfig~	2004-07-06 14:32:32.380761120 +0200
-+++ b/drivers/net/Kconfig	2004-07-06 14:32:40.494527640 +0200
-@@ -2132,7 +2132,7 @@
- 	  will be called tg3.  This is recommended.
+--- drivers/net/mv64340_eth.c~	2004-07-06 14:26:47.163242160 +0200
++++ drivers/net/mv64340_eth.c	2004-07-06 14:48:31.053020784 +0200
+@@ -752,9 +752,8 @@
+ 		p_rx_desc[i].byte_cnt = 0x0000;
+ 		p_rx_desc[i].cmd_sts =
+ 			ETH_BUFFER_OWNED_BY_DMA | ETH_RX_ENABLE_INTERRUPT;
+-		p_rx_desc[i].next_desc_ptr =
+-			(struct eth_rx_desc *) mp->rx_desc_dma +
+-				(i + 1) % rx_desc_num;
++		p_rx_desc[i].next_desc_ptr = mp->rx_desc_dma +
++			((i + 1) % rx_desc_num) * sizeof(struct eth_rx_desc);
+ 		p_rx_desc[i].buf_ptr = buffer_addr;
  
- config MV64340_ETH
--	bool "MV-64340 Ethernet support"
-+	tristate "MV-64340 Ethernet support"
- 	depends on MOMENCO_OCELOT_C || MOMENCO_JAGUAR_ATX
- 	help
- 	  This driver supports the gigabit Ethernet on the Marvell MV64340
---- a/drivers/net/mv64340_eth.c~	2004-07-06 14:26:47.163242160 +0200
-+++ b/drivers/net/mv64340_eth.c	2004-07-06 14:32:15.198373240 +0200
-@@ -1316,7 +1316,7 @@
-  * Input : number of port to initialize
-  * Output : -ENONMEM if failed , 0 if success
-  */
--static int mv64340_eth_init(int port_num)
-+static struct net_device *mv64340_eth_init(int port_num)
- {
- 	struct mv64340_private *mp;
- 	struct net_device *dev;
-@@ -1324,7 +1324,7 @@
- 
- 	dev = alloc_etherdev(sizeof(struct mv64340_private));
- 	if (!dev)
--		return -ENOMEM;
-+		return NULL;
- 
- 	mp = netdev_priv(dev);
- 
-@@ -1395,14 +1395,27 @@
- 	printk("RX NAPI Enabled \n");
- #endif
- 
--	return 0;
-+	return dev;
- 
- out_free_dev:
- 	free_netdev(dev);
- 
--	return err;
-+	return NULL;
-+}
-+
-+static void mv64340_eth_remove(struct net_device *dev)
-+{
-+	struct mv64340_private *mp = netdev_priv(dev);
-+
-+	unregister_netdev(dev);
-+	flush_scheduled_work();
-+	free_netdev(dev);
- }
- 
-+static struct net_device *mv64340_dev0;
-+static struct net_device *mv64340_dev1;
-+static struct net_device *mv64340_dev2;
-+
- /*
-  * mv64340_init_module
-  *
-@@ -1415,20 +1428,24 @@
- static int __init mv64340_init_module(void)
- {
- 	printk(KERN_NOTICE "MV-64340 10/100/1000 Ethernet Driver\n");
-+
- #ifdef CONFIG_MV64340_ETH_0
--	if (mv64340_eth_init(0)) {
-+	mv64340_dev0 = mv64340_eth_init(0);
-+	if (!mv64340_dev0) {
- 		printk(KERN_ERR
- 		       "Error registering MV-64360 ethernet port 0\n");
+ 		mp->rx_skb[i] = NULL;
+@@ -818,9 +817,8 @@
+ 		p_tx_desc[i].byte_cnt	= 0x0000;
+ 		p_tx_desc[i].l4i_chk	= 0x0000;
+ 		p_tx_desc[i].cmd_sts	= 0x00000000;
+-		p_tx_desc[i].next_desc_ptr =
+-			(struct eth_tx_desc *) mp->tx_desc_dma +
+-			(i + 1) % tx_desc_num;
++		p_tx_desc[i].next_desc_ptr = mp->tx_desc_dma +
++			((i + 1) % tx_desc_num) * sizeof(struct eth_tx_desc);
+ 		p_tx_desc[i].buf_ptr	= 0x00000000;
+ 		mp->tx_skb[i]		= NULL;
  	}
- #endif
- #ifdef CONFIG_MV64340_ETH_1
--	if (mv64340_eth_init(1)) {
-+	mv64340_dev1 = mv64340_eth_init(1);
-+	if (!mv64340_dev1) {
- 		printk(KERN_ERR
- 		       "Error registering MV-64360 ethernet port 1\n");
- 	}
- #endif
- #ifdef CONFIG_MV64340_ETH_2
--	if (mv64340_eth_init(2)) {
-+	mv64340_dev2 = mv64340_eth_init(2);
-+	if (!mv64340_dev2) {
- 		printk(KERN_ERR
- 		       "Error registering MV-64360 ethernet port 2\n");
- 	}
-@@ -1445,9 +1462,14 @@
-  *
-  * Output : N/A
-  */
--static void __init mv64340_cleanup_module(void)
-+static void __exit mv64340_cleanup_module(void)
- {
--	/* Nothing to do here ! it's not a removable module */
-+	if (mv64340_dev2)
-+		mv64340_eth_remove(mv64340_dev2);
-+	if (mv64340_dev1)
-+		mv64340_eth_remove(mv64340_dev1);
-+	if (mv64340_dev0)
-+		mv64340_eth_remove(mv64340_dev0);
- }
+@@ -2329,8 +2349,8 @@
+                 first_descriptor->cmd_sts = command_status;
+                 first_descriptor->byte_cnt = p_pkt_info->byte_cnt;
+                 first_descriptor->buf_ptr = p_pkt_info->buf_ptr;
+-                first_descriptor->next_desc_ptr =
+-			(struct eth_tx_desc *) mp->tx_desc_dma + tx_next_desc;
++                first_descriptor->next_desc_ptr = mp->tx_desc_dma +
++			tx_next_desc * sizeof(struct eth_tx_desc);
+ 		wmb();
+         } else {
+                 tx_first_desc = mp->tx_first_desc_q;
+@@ -2343,8 +2363,8 @@
+                         current_descriptor->next_desc_ptr = 0x00000000;
+                 else {
+                         command_status |= ETH_BUFFER_OWNED_BY_DMA;
+-                        current_descriptor->next_desc_ptr =
+-			  (struct eth_tx_desc *) mp->tx_desc_dma + tx_next_desc;
++                        current_descriptor->next_desc_ptr = mp->tx_desc_dma +
++				tx_next_desc * sizeof(struct eth_tx_desc);
+                 }
+         }
  
- module_init(mv64340_init_module);
