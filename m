@@ -1,39 +1,62 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
-Date: 22 Dec 2004 08:33:15 -0500
-Message-ID: <1103722395.1090.77.camel@jzny.localdomain>
-References: <20041221002218.GA1487@electric-eye.fr.zoreil.com>
-	 <20041221005521.GD5974@waste.org>
-	 <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com>
-	 <20041221123727.GA13606@electric-eye.fr.zoreil.com>
-	 <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com>
-	 <20041221204853.GA20869@electric-eye.fr.zoreil.com>
-	 <20041221212737.GK5974@waste.org>
-	 <20041221225831.GA20910@electric-eye.fr.zoreil.com>
-	 <41C93FAB.9090708@trash.net> <41C9525F.4070805@trash.net>
-	 <20041222123940.GA4241@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
+Date: 22 Dec 2004 08:32:46 -0500
+Message-ID: <1103722366.1089.75.camel@jzny.localdomain>
+References: <20041219203050.GK17998@postel.suug.ch>
+	 <41C68CEF.3030803@trash.net> <1103552215.1048.333.camel@jzny.localdomain>
+	 <20041220200739.GX17998@postel.suug.ch> <41C7F833.4000909@trash.net>
+	 <20041222003142.GB7884@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Matt Mackall <mpm@selenic.com>,
-	Mark Broadbent <markb@wetlettuce.com>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261963AbULVNdY@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041222123940.GA4241@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041222003142.GB7884@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-12-22 at 07:39, Francois Romieu wrote:
+On Tue, 2004-12-21 at 19:31, Thomas Graf wrote:
+> * Patrick McHardy <41C7F833.4000909@trash.net> 2004-12-21 11:17
+> > Could you make your patchset available somehow ?
+> 
+> http://people.suug.ch/~tgr/patches/queue/
+> 
+> Unfinished and untested.
 
-> If I am not mistaken, a failure on spin_trylock + the test on
-> xmit_lock_owner imply that it is safe to directly handle the
-> queue. It means that qdisc_run() has been interrupted on the
-> current cpu and the other paths seem fine as well. Counter-example
-> is welcome (no joke).
+I just took a quick glimpse. 
 
-Think more than 2 processors ;-> 
+1)Recall: Policer will have to die at some point - only reason for its
+existence is for backward compat.
+New iproute2 code sooner than later stop using that inteface so we can
+kill it. I suspect we can kill it in a year or two and definetely the
+day 2.7 comes out.
+
+2) The name tcf_attrs doesnt sound right - attributes are normally
+data pieces not methods. Cant think of a good name.
+
+3) What can i say? dang - this indev thing is getting out of control ;->
+If you are going to go this far for beautification sake then
+kill the .indev thing please before it becomes a beast. Do what we
+discussed a while back:
+- have a generic very basic extended generic match API which indev uses
+that gets invoked from  the classifier. It should take no more than one
+page to write the indev extension - if it exceeds that you are doing
+something wrong. There should be capability to mix and match these
+extenders so i can say in u32 something like:
+ match ip src X
+ match extend indev src eth0
+ match protocol tcp
+ match extended metadata fwmark 0x10
+
+etc.
+
+I think its time we did this right than defering.
+
+Of course all backward compatibility rules apply ;->
 
 cheers,
 jamal
