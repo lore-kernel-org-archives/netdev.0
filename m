@@ -1,41 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Sat, 24 Jul 2004 23:27:05 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [AH6] Rearrange routing headers
+Date: Sun, 25 Jul 2004 18:03:47 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724232705.237396b4.davem@redhat.com>
-References: <40F34740.5040100@trash.net>
-	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
-	<20040712205037.573411c0.davem@redhat.com>
-	<40F4862D.3070802@trash.net>
-	<40F4AC8B.40706@trash.net>
-	<20040721143110.4ab944bf.davem@redhat.com>
-	<41004F76.1080807@trash.net>
-	<20040722171752.341d2476.davem@redhat.com>
-	<41006150.9000702@trash.net>
-	<41014788.4070301@trash.net>
-	<20040723135459.2ee5c42c.davem@redhat.com>
-	<41019CDA.9050401@trash.net>
+Message-ID: <20040725080347.GA20251@gondor.apana.org.au>
+References: <20040724083709.GA9416@gondor.apana.org.au> <200407250410.03741.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41019CDA.9050401@trash.net>
+To: Kazunori Miyazawa <kazunori@miyazawa.org>
+Content-Disposition: inline
+In-Reply-To: <200407250410.03741.kazunori@miyazawa.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 24 Jul 2004 01:18:50 +0200
-Patrick McHardy <kaber@trash.net> wrote:
-
-> > I'm going to apply your patch and delete the Alpha parts.
-> > Meanwhile, ping Richard Henderson (rth@redhat.com) or one
-> > of the other Alpha experts for me to get confirmation on
-> > this stuff.
+On Sun, Jul 25, 2004 at 04:10:03AM +0900, Kazunori Miyazawa wrote:
 > 
-> Even better.
+> To process routing header correctly, we should fix the codes which
+> calls ip6_dst_lookup in ipv6 because there is difference of destinatio 
+> addresses for routing resolution and looking up xfrm_policy.
 
-Let me know if you get feedback or not.
+What do you mean? Isn't the code in icmp.c/raw.c/tcp_ipv6.c/udp.c
+that sets fl.fl6_dst using opt->srcrt enough?
 
-For now I'm pushing to Linus with Alpha removed from the
-list.
+If not then we'll need to change IPv4 as well.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
