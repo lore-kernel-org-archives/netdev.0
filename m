@@ -1,60 +1,36 @@
-From: "Rask Ingemann Lambertsen" <rask@sygehus.dk>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [EXPERIMENTAL PATCH] 2.4 tulip jumbo frames
-Date: Wed, 10 Dec 2003 00:40:02 +0100
+Date: Tue, 09 Dec 2003 11:45:42 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031209224906.M53356@sygehus.dk>
-References: <20031209160632.D1345@sygehus.dk> <3FD5FC36.5090405@pobox.com> <20031209223214.A1855@sygehus.dk> <3FD64EC9.6010203@candelatech.com>
+Message-ID: <3FD5FC36.5090405@pobox.com>
+References: <20031209160632.D1345@sygehus.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3FD64EC9.6010203@candelatech.com>
+To: Rask Ingemann Lambertsen <rask@sygehus.dk>
+In-Reply-To: <20031209160632.D1345@sygehus.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 09 Dec 2003 14:38:01 -0800, Ben Greear wrote
-> Rask Ingemann Lambertsen wrote:
-> 
-> > What do you propose? Do we need something like
-> > 
-> > int vlan_adjust_mtu (int mtu)
-> > {
-> > #ifdef CONFIG_VLANN_8021Q
-> > 	return (mtu - VLAN_HLEN);
-> > #else
-> > 	return (mtu);
-> > #endif
-> > }
-> I was thinking the check could be made run-time, but in reality, 
-> this is a very minor detail.
+Two questions and a comment...
 
-You could use something like
+Would you split this into two patches?  The first simply adds, and uses, 
+tp->rx_buf_sz.  The second adds PKT_BUF_SZ_MAX and mtu-related changes.
 
-        if (dev->priv_flags & IFF_802_1Q_VLAN)
-                return (mtu - VLAN_HLEN);
-        else
-                return (mtu);
+Have you looked at Donald Becker's changes to tulip.c?  He went through 
+most of his drivers and made the changes necessary to support larger 
+MTUs.  IIRC his tulip.c changes (which should be easily translate-able 
+to 2.6.x tulip) were a bit more minimal than your patch, but still 
+served the purpose.
 
-but then you have a problem if the MTU is set to the maximum with VLAN 
-disabled and someone decides to enable VLAN on the device afterwards. A 
-possible solution would be to set NETIF_F_VLAN_CHALLENGED when VLAN_HLEN
-extra bytes are not available.
+For the comment:  I am curious why a VLAN_xxx constant is included in 
+the calculation of max MTU, in the ->change_mtu hook?  IMO ->change_mtu 
+simply needs to bind the MTU to the min and max h/w limits.  If 
+VLAN_ETH_HLEN ever figures into the calculations, those calculations 
+should occur elsewhere, not in ->change_mtu.
 
-That said, even checking CONFIG_VLAN_8021Q is probably flawed too, because 
-ideally, even when building a kernel without VLAN support, you should be able 
-to use the bridging support in a VLAN environment. IMHO. I mean, if this is 
-not the case, please remind me why we need VLAN patches in the first place 
-since setting an MTU of 1496 bytes works with every Ethernet board and driver.
+Thanks!
 
-> I don't like the patch above, I'd rather see the
-> #ifdef when checking for the maximum hardware limit, if anywhere.
-
-I was thinking that there could be other reasons than VLAN for reducing the 
-MTU and that vlan_adjust_mtu() could take these into account as well. PPPoE 
-comes to my mind, but I have no clue how that is implemented in Linux (or any 
-other system).
-
--- 
-Regards,
-Rask Ingemann Lambertsen
+	Jeff
