@@ -1,49 +1,67 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: RFC:  Redirect-Device
-Date: Thu, 31 Mar 2005 14:35:31 -0800
-Message-ID: <20050331143531.30f4eb8f.davem@davemloft.net>
-References: <424C6089.1080507@candelatech.com>
-	<1112303627.1073.71.camel@jzny.localdomain>
-	<424C6B10.6030200@candelatech.com>
-	<1112306031.1073.109.camel@jzny.localdomain>
-	<424C7813.4000101@candelatech.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] netif_rx: receive path optimization
+Date: Thu, 31 Mar 2005 14:42:36 -0800
+Message-ID: <424C7CDC.8050801@hp.com>
+References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>	<20050331120410.7effa94d@dxpl.pdx.osdl.net>	<1112303431.1073.67.camel@jzny.localdomain> <424C6A98.1070509@hp.com> <1112305084.1073.94.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <424C7813.4000101@candelatech.com>
+To: netdev <netdev@oss.sgi.com>
+In-Reply-To: <1112305084.1073.94.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Mar 2005 14:22:11 -0800
-Ben Greear <greearb@candelatech.com> wrote:
-
-> > [root@jzny root]# tc
-> > Usage: tc [ OPTIONS ] OBJECT { COMMAND | help }
-> > where  OBJECT := { qdisc | class | filter }
-> >        OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -b[atch] file
-> > }
+>>At the risk of again chewing on my toes (yum), if multiple CPUs are pulling 
+>>packets from the per-device queue there will be packet reordering. 
 > 
-> My personal opinion is that netlink sockets are a pain in the ass to deal
-> with, and there is no way I want to try to programatically parse the tc
-> input or output.
 > 
-> And probably not so easy to manipulate from a kernel module.
+> ;-> This happens already _today_ on Linux on non-NAPI.
 > 
-> And BNF cannot be more powerful than a c/c++ program with a byte-buffer
-> representing the entire ethernet frame.
+> Take the following scenario in non-NAPI. 
+> -packet 1 arrives 
+> -interupt happens, NIC bound to CPU0
+> - in the meantime packets 2,3 arrive
+> - 3 packets put on queue for CPU0
+> - interupt processing done
+> 
+> - packet 4 arrives, interupt, CPU1 is bound to NIC
+> - in the meantime packets 5,6 arrive
+> - CPU1 backlog queue used.
+> - interupt processing done
+> 
+> Assume CPU0 is overloaded with other systenm work and CPU1 rx processing
+> kicks in first ... 
+> TCP sees packet 4, 5, 6 before 1, 2, 3 ..
 
-So you're not even going to give Jamal's suggestion a try?
+I "never" see that because I always bind a NIC to a specific CPU :)  Just about 
+every networking-intensive benchmark report I've seen has done the same.
 
-If we have the infrastructure to do what you want, we should use it,
-not add "yet another way" to do something we can do already.
+> Note Linux is quiet resilient to reordering compared to other OSes (as
+> you may know) but avoiding this is a better approach - hence my
+> suggestion to use NAPI when you want to do serious TCP.
 
-If adding some clean abstraction layer helps out your cause, that's
-fine too.  We could even hack tc to output things in a format that
-you might find easier to parse.
+Would the same apply to NIC->CPU interrupt assignments? That is, bind the NIC to 
+a single CPU.
 
-'tc' is very powerful, and very shamefully under-utilizied.  You're task
-seems the perfect match for it's use.
+>> HP-UX 10.0 
+>>did just that and it was quite nasty even at low CPU counts (<=4).  It was 
+>>changed by HP-UX 10.20 (ca 1995) to per-CPU queues with queue selection computed 
+>>from packet headers (hash the IP and TCP/UDP header to pick a CPU) It was called 
+>>IPS for Inbound Packet Scheduling.  11.0 (ca 1998) later changed that to "find 
+>>where the connection last ran and queue to that CPU" That was called TOPS - 
+>>Thread Optimized Packet Scheduling.
+>>
+> 
+> 
+> Dont think we can do that unfortunately: We are screwed by the APIC
+> architecture on x86.
+
+The IPS and TOPS stuff was/is post-NIC-interrupt. Low-level driver processing 
+still happened/s on a specific CPU, it is the higher-level processing which is 
+done on another CPU.  The idea - with TOPS at least, is to try to access the ULP 
+(TCP, UDP etc) structures on the same CPU as last accessed by the app to 
+minimize that cache to cache migration.
+
+rick jones
