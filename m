@@ -1,53 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: netif_rx packet dumping
-Date: Thu, 3 Mar 2005 15:16:06 -0800
-Message-ID: <20050303151606.3587394f@dxpl.pdx.osdl.net>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
-	<20050303125556.6850cfe5.davem@davemloft.net>
-	<1109884688.1090.282.camel@jzny.localdomain>
-	<20050303132143.7eef517c@dxpl.pdx.osdl.net>
-	<1109885065.1098.285.camel@jzny.localdomain>
-	<20050303133237.5d64578f.davem@davemloft.net>
-	<20050303135416.0d6e7708@dxpl.pdx.osdl.net>
-	<Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu>
-	<1109888811.1092.352.camel@jzny.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Heffner <jheffner@psc.edu>, "David S. Miller"
- <davem@davemloft.net>,
-        rhee@eos.ncsu.edu, Yee-Ting.Li@nuim.ie, baruch@ev-en.org,
-        netdev@oss.sgi.com
-To: hadi@cyberus.ca
-In-Reply-To: <1109888811.1092.352.camel@jzny.localdomain>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH REPOST 2.6.11-rc4-netdev1] bonding: don't drop non-VLAN traffic
+Date: Thu, 03 Mar 2005 15:33:11 -0800
+Message-ID: <200503032333.j23NXBh3017684@death.nxdomain.ibm.com>
+Cc: Olaf Kirch <okir@suse.de>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 03 Mar 2005 17:26:51 -0500
-jamal <hadi@cyberus.ca> wrote:
 
-> On Thu, 2005-03-03 at 17:02, John Heffner wrote:
-> > On Thu, 3 Mar 2005, Stephen Hemminger wrote:
-> > > Maybe a simple Random Exponential Drop (RED) would be more friendly.
-> > 
-> > That would probably not be appropriate.  This queue is only for absorbing
-> > micro-scale bursts.  It should not hold any data in steady state like a
-> > router queue can.  The receive window can handle the macro scale flow
-> > control.
-> 
-> recall this is a queue that is potentially shared by many many flows
-> from potentially many many interfaces i.e it deals with many many
-> micro-scale bursts.
-> Clearly, the best approach is to have lots and lots of memmory and to
-> make that queue real huge so it can cope with all of them all the time.
-> We dont have that luxury - If you restrict the queue size, you will have
-> to drop packets... Which ones?
-> Probably simplest solution is to leave it as is right now and just
-> adjust the contraints based on your system memmory etc.
+	Change the bonding driver to not drop non-VLAN traffic when a
+VLAN is configured above it.  Originally fixed by Olaf Kirch
+<okir@suse.de>; I changed his patch slightly to update comments.
 
-Another alternative would be some form of adaptive threshold,
-something like adaptive drop tail described in this paper.
-http://www.ee.cityu.edu.hk/~gchen/pdf/ITC18.pdf
+	-J
 
-Since netif_rx is running at interrupt time, it has to be simple/quick.
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+--- linux-2.6.11-rc4-netdev1-virgin/drivers/net/bonding/bond_main.c	2005-02-15 11:31:40.000000000 -0800
++++ linux-2.6.11-rc4-netdev1/drivers/net/bonding/bond_main.c	2005-02-15 16:09:10.000000000 -0800
+@@ -793,29 +793,20 @@
+  * @skb: hw accel VLAN tagged skb to transmit
+  * @slave_dev: slave that is supposed to xmit this skbuff
+  * 
+- * When the bond gets an skb to tarnsmit that is
++ * When the bond gets an skb to transmit that is
+  * already hardware accelerated VLAN tagged, and it
+  * needs to relay this skb to a slave that is not
+  * hw accel capable, the skb needs to be "unaccelerated",
+  * i.e. strip the hwaccel tag and re-insert it as part
+  * of the payload.
+- * 
+- * Assumption - once a VLAN device is created over the bond device, all
+- * packets are going to be hardware accelerated VLAN tagged since the IP
+- * binding is done over the VLAN device
+  */
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev)
+ {
+ 	unsigned short vlan_id;
+-	int res;
+ 
+ 	if (!list_empty(&bond->vlan_list) &&
+-	    !(slave_dev->features & NETIF_F_HW_VLAN_TX)) {
+-		res = vlan_get_tag(skb, &vlan_id);
+-		if (res) {
+-			return -EINVAL;
+-		}
+-
++	    !(slave_dev->features & NETIF_F_HW_VLAN_TX) &&
++	    vlan_get_tag(skb, &vlan_id) == 0) {
+ 		skb->dev = slave_dev;
+ 		skb = vlan_put_tag(skb, vlan_id);
+ 		if (!skb) {
