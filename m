@@ -1,72 +1,66 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] kill rtnl_exlock stubs
-Date: 29 Jul 2004 10:43:04 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1091112184.1022.26.camel@jzny.localdomain>
-References: <20040727095057.78c7419c@dell_ss3.pdx.osdl.net>
-	 <1091106988.1045.654.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: RE: [PATCH] (3/4) bridge linkstate handling
+Date: Thu, 29 Jul 2004 11:11:02 -0400
+Sender: bridge-bounces@lists.osdl.org
+Message-ID: <C0170D0AF1277849A4B4518034F855DD0CFC3A@aiexchange.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        Alexey <kuznet@ms2.inr.ac.ru>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <1091106988.1045.654.camel@jzny.localdomain>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============83809984108808=="
+Cc: netdev@oss.sgi.com, bridge@osdl.org,
+   Stephen Hemminger <shemminger@osdl.org>
+Return-path: <bridge-bounces@lists.osdl.org>
+Content-class: urn:content-classes:message
+To: <hadi@cyberus.ca>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.osdl.org>
+List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
+Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-07-29 at 09:16, Jamal Hadi Salim wrote:
-> On Tue, 2004-07-27 at 12:50, Stephen Hemminger wrote:
+--===============83809984108808==
+Content-class: urn:content-classes:message
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+
+> -----Original Message-----
+> From: jamal [mailto:hadi@cyberus.ca] 
 > 
-> > @@ -404,13 +402,8 @@
-> >  		return -1;
-> >  	}
-> >  
-> > -	if (kind != 2) {
-> > -		if (rtnl_exlock_nowait()) {
-> > -			*errp = 0;
-> > -			return -1;
-> > -		}
-> > +	if (kind != 2) 
-> >  		exclusive = 1;
-> > -	}
-> >  
-> >  	memset(&rta, 0, sizeof(rta));
-> >  
-> > @@ -439,14 +432,10 @@
-> >  		goto err_inval;
-> >  	err = link->doit(skb, nlh, (void *)&rta);
-> >  
-> > -	if (exclusive)
-> > -		rtnl_exunlock();
-> >  	*errp = err;
-> >  	return err;
-> >  
-> >  err_inval:
-> > -	if (exclusive)
-> > -		rtnl_exunlock();
-> >  	*errp = -EINVAL;
-> >  	return -1;
-> >  }
+> On Thu, 2004-07-29 at 09:24, Eble, Dan wrote:
+> > Even if STP were implemented in user space, this part 
+> should be done in
+> > the kernel to make sure that there is no window of time for 
+> a packet to
+> > be received or transmitted after the link state changes.  
 > 
-> This piece is the only one i would worry about.
-> I dont remember the historical reasoning for rtnl_ex* I know its not
-> useful as is right now. OTOH, if it was useful then the above code would
-> have meant something. Dave/Alexey?
+> Your main problem there would be STP convergence time. Transfering the
+> packet to user space and reacting should be several factors 
+> of magnitude
+> faster than it takes STP to converge.
+> The STP state should stay in the kernel. Control of it and 
+> BPDU handling
+> is what i am suggesting to take out.
 
-I think i may have figured it out.
-The rtnl_ex* seems to have been intended as more fine grain exclusive
-writer locking to the ->doit() functions which do make modifications to
-data. In other words if there are several rtnetlink sockets trying to
-modify the routing table, this would act as a serialization point.
+Is the time it takes STP to converge really the issue in this case?
+When a port loses and then regains carrier, it needs to enter the
+Blocking state without delay.  If the carrier state change were handled
+by a daemon, the bridge driver would have some time to transmit or
+receive packets via that port before the daemon could tell it to block
+the port, wouldn't it?
 
-At the moment, the RTNL_SEM (grabbed around rtnetlink_rcv() 
-viartnl_shlock_nowait ) seems to protect on this but its too 
-fat a lock. So at some point we may need to clean it.
 
-Before you take my word on it, lets wait to hear from Alexey/Dave.
+--===============83809984108808==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-cheers,
-jamal
+_______________________________________________
+Bridge mailing list
+Bridge@lists.osdl.org
+http://lists.osdl.org/mailman/listinfo/bridge
+
+--===============83809984108808==--
