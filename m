@@ -1,40 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Wed, 10 Dec 2003 14:51:49 -0800
+Subject: Re: [PATCH] use after free in AF_ROSE
+Date: Wed, 10 Dec 2003 14:53:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031210145149.2bd89e9b.davem@redhat.com>
-References: <Pine.LNX.4.44.0312102301550.1285-100000@u.domain.uli>
-	<3FD79FF1.8000505@us.ibm.com>
+Message-ID: <20031210145326.6d1d9b81.davem@redhat.com>
+References: <20031210100851.4b4a6927.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg, ak@suse.de, ruddk@us.ibm.com, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com, chester.f.johnson@intel.com
+Cc: ralf@linux-mips.org, netdev@oss.sgi.com, linux-hams@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <3FD79FF1.8000505@us.ibm.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031210100851.4b4a6927.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 10 Dec 2003 10:08:51 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Here is my take on this, as far as Linux is concerned.
+> Doing multiple protocol testing and get crashes with simple
+> socket/close combo with AF_ROSE.  The problem is that it
+> dereferences the socket in rose_release after it has already been
+> freed by rose_destroy_socket.
+> 
+> This patch fixes that problem, and also uses sock_put to handle the
+> case where rose_destroy_socket is called with sk_refcnt > 1 which
+> might be possible if data comes in during close.
 
-I agree with the three behaviors proposed by Julian.
-However I have some slight trouble with the ignore-TOS-for-
-PMTU idea, implementation wise.
-
-Walking the routing hash table for each possible TOS value
-is going to be computationally expensive, and is inviting
-computational complexity DDoS attacks by bombing the machine
-with PMTU ICMP messages.
-
-That is the most obvious implementation, and I'm not saying there
-are not others.  I just have no alternatives in mind right now :)
-
-But once that issue is resolved I'm more than happy to put a patch
-in which does this stuff.
-
-We even have been speaking about this in other threads on netdev
-wrt. Julian's patches.  TOS is truly a value with only network local
-meaning and hops are going to modify the value on us.  I'm actually
-surprised this is the first time the issue has been seriously hit.
+Applied, thanks a lot Stephen.
