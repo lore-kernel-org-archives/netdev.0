@@ -1,34 +1,94 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Move eth_mac_addr and eth_change_mtu
-Date: Fri, 11 Jul 2003 16:57:21 -0400
+From: "peter lawson" <plawson@applelinks.net>
+Subject: GOOD   NEWS
+Date: Mon, 14 Jul 2003 09:16:07 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0F24B1.5050200@pobox.com>
-References: <20030711181946.GG20424@parcelfarce.linux.theplanet.co.uk> <20030711182330.GC16037@gtf.org> <20030711182530.GH20424@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <web-305519020@mail.maclaunch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthew Wilcox <willy@debian.org>
-In-Reply-To: <20030711182530.GH20424@parcelfarce.linux.theplanet.co.uk>
+To: plawson@applelinks.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> On Fri, Jul 11, 2003 at 02:23:30PM -0400, Jeff Garzik wrote:
-> 
->>On Fri, Jul 11, 2003 at 07:19:46PM +0100, Matthew Wilcox wrote:
->>
->>>Move eth_mac_addr() and eth_change_mtu() from drivers/net/net_init.c
->>>to net/ethernet/eth.c
->>
->>Why?  It's not used outside of net_init.c AFAICS.
-> 
-> 
-> Preparation for the next stage of netdev_ops
+ Dear Friend.
+
+As you read this, I don't want you to feel sorry for
+me, because, I believe everyone will die someday.
 
 
-Well, I don't see/understand this next-stage, so elaboration would be 
-nice.  As-is, I do not support merging this patch.
+My name is Peter Lawson, a merchant in Dubai, in the
+U.A.E.I have been diagnosed with Esophageal Cancer
+which was discovered very late, due to my laxity in
+carrying for my health. It has defiled all forms of
+medicine, and right now I have only about a few
+months to live, according to medical experts.
 
-	Jeff
+
+I have not particularly lived my life so well, as I
+never really cared for anyone not even myself but my
+business. Though I am very rich, I was never
+generous, I was always hostile to people and only
+focus on my business as that was the only thing I
+cared for. But now I regret all this as I now know
+that there is more to life than just wanting to have
+or make all the money in the world. I believe when God
+gives me a second chance to come to this world I would
+live my life a different way from how I have lived it.
+
+
+
+Now that God ! has called me, I have willed and given
+most of my properties and assets to my immediate and
+extended family members and as well as a few close
+friends. I want God to be merciful to me and accept my
+soul and so, I have decided to give arms to charity
+organizations and give succour and confort to the less
+priviledged in our societies, as I want this to be one
+of the last good deeds I do on earth. 
+
+
+So far, I have distributed money to some charity
+organizations in the U.A.E, Algeria and Malaysia. Now
+that my health has deteriorated so badly, I cannot do
+this my self anymore. I once asked members of my
+family to close one of my accounts and distribute the
+money which I have there to charity organization and
+to the less priviledged in Bulgaria and Pakistan, they
+refused and kept the money to themselves. Hence, I do
+not trust them anymore, as they seem not to be
+contended with what I have left for them. 
+
+
+The last of my money which no one knows of is the huge
+cash deposit of twenty four million dollars that I
+have with a Security Company in Europe for safe
+keeping. I will want you to help me collect this
+deposit and disburse it to some charity organizations
+and to the less priviledged.
+
+
+Please send me a mail to indicate if you will assist
+me in this disbursement.
+
+
+I have set aside 10% for you for your time and
+patience.
+
+
+You can e-mail me at:plawson@thisiscyberia.coma
+ 
+
+While I await to hear from you, may God be with you
+and your entire family.
+
+Remain blessed.
+
+Peter Lawson
+---------------------------------------------------------------
+---------------------------------------------------------------
+The Think Different Store
+http://www.thinkdifferentstore.com/
+For All Your Mac Gear
+---------------------------------------------------------------
+---------------------------------------------------------------
