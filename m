@@ -1,49 +1,52 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Fw: [PATCH][2.6] propogate rx errors from raw_rcv_skb
-Date: Wed, 16 Jul 2003 19:53:45 -0700
+From: N N Ashok <nalkunda@egr.msu.edu>
+Subject: Re: Kernel locking up in module
+Date: Thu, 17 Jul 2003 00:18:10 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030716195345.21b9b9fc.davem@redhat.com>
+Message-ID: <200307170018.11043.nalkunda@egr.msu.edu>
+References: <OFF7117350.353FDF6E-ON88256D64.00016172@us.ibm.com> <200307142031.15122.nalkunda@egr.msu.edu> <200307152128.34341.nalkunda@egr.msu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: zwane@arm.linux.org.uk
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: Krishna Kumar <kumarkr@us.ibm.com>
+In-Reply-To: <200307152128.34341.nalkunda@egr.msu.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Forwarded...
+<snipped...>
+>
+>         From what I read in "Understanding the Linux Kernel", the timer
+> routine that I setup is executed from the bottom half. Also in the book it
+> says that data structures accessed in deferrable functions (which a bottom
+> handler is I think), there is no need of any kind of locking/protection
+> required for uniprocessor machines. Also it says that if we try to acquire
+> a spin_lock on a uniprocessor in the kernel, then the kernel control path
+> that does have the lock will not get a chance to release the lock and hence
+> we will have a deadlock.
+>        In this context, I am unable to understand whether I should use
+> locking and if so which kind. Do I need to disable the IRQs (_irq) when I
+> take the lock? Or do I disable the bottom halves (_bh) ? Please help me in
+> understanding and resolving the problem as it is required for my thesis.
+>
+> Thanks and Regards,
+> Ashok
 
-Zwane, please posting networking patches to the "networking"
-lists, thanks.
+Hi,
+   I understand that on uniprocessor machines, spin locks are just empty. Is 
+that true? The code that I was looking at from include/linux/spinlock.h was 
+(although there are 2-3 other definitions for these but they also essentially 
+are not doing much):
 
-Begin forwarded message:
+ #define rwlock_init(lock)	do { } while(0)
+#define read_lock(lock)		(void)(lock) /* Not "unused variable". */
+#define read_unlock(lock)	do { } while(0)
+#define write_lock(lock)	(void)(lock) /* Not "unused variable". */
+#define write_unlock(lock)	do { } while(0)
 
-Date: Wed, 16 Jul 2003 22:46:59 -0400 (EDT)
-From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-To: Linux Kernel <linux-kernel@vger.kernel.org>
-Cc: "David S. Miller" <davem@redhat.com>
-Subject: [PATCH][2.6] propogate rx errors from raw_rcv_skb
+Can somebody confirm this? If so then how do we protect data structures in 
+kernel control paths?
 
-
-Hi David,
-	This looks somewhat sane, ipv6 doesn't seem to need it as it 
-always returns 0
-
-Index: linux-2.6.0-test1-mm1/net/ipv4/raw.c
-===================================================================
-RCS file: /build/cvsroot/linux-2.6.0-test1-mm1/net/ipv4/raw.c,v
-retrieving revision 1.1.1.1
-diff -u -p -B -r1.1.1.1 raw.c
---- linux-2.6.0-test1-mm1/net/ipv4/raw.c	16 Jul 2003 06:37:19 -0000	1.1.1.1
-+++ linux-2.6.0-test1-mm1/net/ipv4/raw.c	16 Jul 2003 16:11:50 -0000
-@@ -252,8 +252,7 @@ int raw_rcv(struct sock *sk, struct sk_b
- 
- 	skb_push(skb, skb->data - skb->nh.raw);
- 
--	raw_rcv_skb(sk, skb);
--	return 0;
-+	return raw_rcv_skb(sk, skb);
- }
- 
- static int raw_send_hdrinc(struct sock *sk, void *from, int length,
+Thanks,
+Ashok
