@@ -1,24 +1,40 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 1/3] IPV6: clean-up DAD vs tentative address
-Date: Fri, 6 Feb 2004 15:30:14 -0800
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: some bluetooth fixes
+Date: Sat, 07 Feb 2004 00:30:08 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040206153014.61b5286d.davem@redhat.com>
-References: <20040206.181003.68972716.yoshfuji@linux-ipv6.org>
+Message-ID: <1076110207.14418.53.camel@pegasus>
+References: <20040206050042.20a2b3b0.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        viro@zenII.linux.org.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040206.181003.68972716.yoshfuji@linux-ipv6.org>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040206050042.20a2b3b0.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 06 Feb 2004 18:10:03 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+Hi Andi,
 
-> [PATCH 1/3] IPV6: clean-up DAD vs tentative address
-> 
-> D: clean-up NS (including DAD) vs tentative address
+> diff -u linux-2.6.2-work32/net/bluetooth/rfcomm/tty.c-o linux-2.6.2-work32/net/bluetooth/rfcomm/tty.c
+> --- linux-2.6.2-work32/net/bluetooth/rfcomm/tty.c-o	2003-09-28 10:53:25.000000000 +0200
+> +++ linux-2.6.2-work32/net/bluetooth/rfcomm/tty.c	2004-02-06 04:58:28.000000000 +0100
+> @@ -549,8 +549,10 @@
+>  
+>  	BT_DBG("dev %p dst %s channel %d opened %d", dev, batostr(&dev->dst), dev->channel, dev->opened);
+>  
+> -	if (dev->opened++ != 0)
+> +	if (dev->opened++ != 0) {
+> +		rfcomm_dev_put(dev);
+>  		return 0;
+> +	}
+>  
+>  	dlc = dev->dlc;
 
-Applied, thanks Yoshfuji.
+this part is wrong, because it is not an error case. It is success and
+the refcount must stay increased.
+
+Regards
+
+Marcel
