@@ -1,55 +1,54 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Wed, 12 Jun 2002 09:08:55 +0300 (EEST)
+Date: Tue, 11 Jun 2002 23:26:40 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae6oqa$fga$2@main.gmane.org>
-References: <20020612012004.A15773@mark.mielke.cc>
+Message-ID: <ae6prl$isk$2@main.gmane.org>
+References: <Pine.LNX.4.44.0206120905510.29780-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Mark Mielke <mark@mark.mielke.cc>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Mark Mielke <mark@mark.mielke.cc>
-In-Reply-To: <20020612012004.A15773@mark.mielke.cc>
+To: Pekka Savola <pekkas@netcore.fi>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 12 Jun 2002, Mark Mielke wrote:
 
-> On Tue, Jun 11, 2002 at 11:57:26PM -0400, Richard Guy Briggs wrote:
-> > On Tue, Jun 11, 2002 at 08:41:19PM -0700, David S. Miller wrote:
-> > >    From: Bill Davidsen <davidsen@tmr.com>
-> > >    Date: Tue, 11 Jun 2002 18:41:16 -0400 (EDT)
-> > >      Actually your arguments sound like you have a solution to your problem
-> > >    and you want everyone to use it even if it doesn't help them. Have you
-> > >    some emotional tie to SNMP, like being an author?
-> > Basically Bill, if you don't like this policy, fork the code.  That is
-> > one of the strengths (and weaknesses) of open source.  If your tree
-> > works better and gets wider use, then something about it must be better.
-> > If not, then maybe it wasn't.  This community works on reputation
-> > capital (and some diplomacy).
-> 
-> To some degree (i.e. I know it is not intentional), this comes across as
-> blackmail.
-> 
-> Sorta like "if you want to play ball with me, you play by my rules,
-> otherwise you can go find your own diamond and your own friends to
-> play with."
-> 
-> I would still like to see David's logic as to why the approach is bad.
-> 
-> So far it amounts to 1) David doesn't like it, 2) David doesn't see a need
-> for it, or can see other less adequate methods of approximating the same
-> effect, and 3) David suspects that it will effect the performance of all
-> users to provide a limited gain for some applications.
 
-Just to chime in my support (not that I don't think anyone needs it), I 
-think socket-based counters are An Extremely Bad Idea.  
+Pekka Savola wrote:
 
-They might be useful in some rather specific debugging scenarios (like 
-100's on debugging printk's too!), but definitely not something we want to 
-be cluttering the main tree with, _especially_ before they've shown their 
-worth (doubtful).
+
+> Just to chime in my support (not that I don't think anyone needs it), I 
+> think socket-based counters are An Extremely Bad Idea.  
+
+
+Several folks have produced arguments with details showing how they
+can use the counters to better their product and/or debugging.  Just
+waving your hands and saying you don't like it does not invalidate
+their claims.  Please go back and read the thread and then, if you're
+able, put forth some valid arguments for how to accomplish the goals
+in some other manner, or show the negatives of including the feature.
+
+If they are useful to some people, and have zero performance affect on others
+(due to being a configurable kernel feature), then what is your
+complaint?
+
+I see two reasons left to dislike this feature:
+
+1)  General increase in #ifdef'd code.  This actually seems like
+    a pretty good argument, but I haven't seen anyone mention it
+    specifically.
+
+2)  General dislike for a feature that one personally has no use for.
+    Seems to be Dave's main (professed) excuse.
+
+
+Please add to this list, but back up your claims.
+
+Thanks,
+Ben
 
 -- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
