@@ -1,32 +1,38 @@
 From: Matt Mackall <mpm@selenic.com>
-Subject: [PATCH 6/6] netpoll: handle xmit_lock recursion similarly
-Date: Thu, 17 Feb 2005 23:25:19 -0600
-Message-ID: <7.378217222@selenic.com>
-References: <6.378217222@selenic.com>
+Subject: [PATCH 1/6] netpoll: shorten carrier detect timeout
+Date: Thu, 17 Feb 2005 23:25:18 -0600
+Message-ID: <2.378217222@selenic.com>
+References: <1.378217222@selenic.com>
 Cc: netdev@oss.sgi.com, Jeff Moyer <jmoyer@redhat.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <6.378217222@selenic.com>
+In-Reply-To: <1.378217222@selenic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Handle possible recursion on xmit_lock while we're at it.
+Shorten carrier detect timeout to 4 seconds.
 
 Signed-off-by: Matt Mackall <mpm@selenic.com>
 
-Index: rc4/net/core/netpoll.c
+Index: tiny-new/net/core/netpoll.c
 ===================================================================
---- rc4.orig/net/core/netpoll.c	2005-02-17 22:40:05.000000000 -0600
-+++ rc4/net/core/netpoll.c	2005-02-17 22:40:07.000000000 -0600
-@@ -247,8 +247,9 @@
- 		return;
- 	}
+--- tiny-new.orig/net/core/netpoll.c	2004-11-17 00:05:28.000000000 -0800
++++ tiny-new/net/core/netpoll.c	2004-12-02 11:51:15.775256063 -0800
+@@ -584,7 +584,7 @@
+ 		rtnl_shunlock();
  
--	/* avoid ->poll recursion */
--	if(np->poll_owner == __smp_processor_id()) {
-+	/* avoid recursion */
-+	if(np->poll_owner == __smp_processor_id() ||
-+	   np->dev->xmit_lock_owner == __smp_processor_id()) {
- 		if (np->drop)
- 			np->drop(skb);
- 		else
+ 		atleast = jiffies + HZ/10;
+- 		atmost = jiffies + 10*HZ;
++ 		atmost = jiffies + 4*HZ;
+ 		while (!netif_carrier_ok(ndev)) {
+ 			if (time_after(jiffies, atmost)) {
+ 				printk(KERN_NOTICE
+@@ -597,7 +597,7 @@
+ 
+ 		if (time_before(jiffies, atleast)) {
+ 			printk(KERN_NOTICE "%s: carrier detect appears flaky,"
+-			       " waiting 10 seconds\n",
++			       " waiting 4 seconds\n",
+ 			       np->name);
+ 			while (time_before(jiffies, atmost))
+ 				cond_resched();
