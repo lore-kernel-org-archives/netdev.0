@@ -1,47 +1,81 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Adrian Bunk <bunk@fs.tum.de>
 Subject: Re: [patch] Re: Gigabit Kconfig problems with yesterday's update
-Date: Sun, 30 May 2004 13:51:33 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40BA1F25.4080402@pobox.com>
-References: <40B8A37D.1090802@myrealbox.com>	<20040530134544.GE13111@fs.tum.de>	<20040530143734.GA24627@dth.net> <20040530094120.61b22d2e.rddunlap@osdl.org>
+Date: Sun, 30 May 2004 21:37:06 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040530193706.GG13111@fs.tum.de>
+References: <40B8A37D.1090802@myrealbox.com> <20040530134544.GE13111@fs.tum.de> <20040530143734.GA24627@dth.net> <20040530094120.61b22d2e.rddunlap@osdl.org> <40BA1F25.4080402@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000106000903050204030600"
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, Danny ter Haar <dth@dth.net>,
-	wa1ter@myrealbox.com, dth@ncc1701.cistron.net,
-	Netdev <netdev@oss.sgi.com>, Andrew Morton <akpm@osdl.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264278AbUE3Rvu@vger.kernel.org>
-To: bunk@fs.tum.de, linux-kernel@vger.kernel.org
-In-Reply-To: <20040530094120.61b22d2e.rddunlap@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, "Randy.Dunlap" <rddunlap@osdl.org>,
+        Danny ter Haar <dth@dth.net>, wa1ter@myrealbox.com,
+        dth@ncc1701.cistron.net, Netdev <netdev@oss.sgi.com>,
+        Andrew Morton <akpm@osdl.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40BA1F25.4080402@pobox.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000106000903050204030600
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Sun, May 30, 2004 at 01:51:33PM -0400, Jeff Garzik wrote:
 
-NET_GIGE is rightly dependent on NET_ETHERNET, as it is a subset.
+> NET_GIGE is rightly dependent on NET_ETHERNET, as it is a subset.
+> 
+> I wonder if the attached patch "fixes" peoples config problems :)
+> 
+> ===== drivers/net/Kconfig 1.74 vs edited =====
+> --- 1.74/drivers/net/Kconfig	2004-05-27 16:42:40 -04:00
+> +++ edited/drivers/net/Kconfig	2004-05-30 13:49:48 -04:00
+> @@ -163,7 +163,7 @@
+>  	depends on NETDEVICES
+>  
+>  config NET_ETHERNET
+> -	bool "Ethernet (10 or 100Mbit)"
+> +	bool "Ethernet (10/100/1000/10000 Mbit)"
+>  	---help---
+>  	  Ethernet (also called IEEE 802.3 or ISO 8802-2) is the most common
+>  	  type of Local Area Network (LAN) in universities and companies.
 
-I wonder if the attached patch "fixes" peoples config problems :)
 
---------------000106000903050204030600
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch"
+This is not sufficient since it's still under the
+"Ethernet (10 or 100Mbit)" menu.
 
-===== drivers/net/Kconfig 1.74 vs edited =====
---- 1.74/drivers/net/Kconfig	2004-05-27 16:42:40 -04:00
-+++ edited/drivers/net/Kconfig	2004-05-30 13:49:48 -04:00
-@@ -163,7 +163,7 @@
- 	depends on NETDEVICES
+What about the patch below?
+
+cu
+Adrian
+
+--- linux-2.6.7-rc2-full/drivers/net/Kconfig.old	2004-05-30 21:29:46.000000000 +0200
++++ linux-2.6.7-rc2-full/drivers/net/Kconfig	2004-05-30 21:34:42.000000000 +0200
+@@ -159,11 +159,8 @@
+ #	Ethernet
+ #
  
+-menu "Ethernet (10 or 100Mbit)"
+-	depends on NETDEVICES
+-
  config NET_ETHERNET
 -	bool "Ethernet (10 or 100Mbit)"
 +	bool "Ethernet (10/100/1000/10000 Mbit)"
  	---help---
  	  Ethernet (also called IEEE 802.3 or ISO 8802-2) is the most common
  	  type of Local Area Network (LAN) in universities and companies.
-
---------------000106000903050204030600--
+@@ -188,6 +185,9 @@
+ 	  kernel: saying N will just cause the configurator to skip all
+ 	  the questions about Ethernet network cards. If unsure, say N.
+ 
++menu "Ethernet (10/100 Mbit)"
++	depends on NET_ETHERNET
++
+ config MII
+ 	tristate "Generic Media Independent Interface device support"
+ 	depends on NET_ETHERNET
+@@ -1875,7 +1875,7 @@
+ #
+ 
+ menu "Gigabit Ethernet (1000/10000 Mbit)"
+-	depends on NETDEVICES
++	depends on NET_ETHERNET
+ 
+ config NET_GIGE
+ 	bool "Gigabit Ethernet (1000/10000 Mbit) controller support"
