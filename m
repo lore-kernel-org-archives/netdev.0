@@ -1,32 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [RFC] Support for wccp version 1 and 2 in ip_gre.c
-Date: Sun, 12 Sep 2004 17:05:05 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040912170505.62916147.davem@davemloft.net>
-References: <20040911194108.GS28258@stingr.sgu.ru>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: Sun, 12 Sep 2004 20:06:51 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <4144E49B.80400@pobox.com>
+References: <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>	 <20040908072408.GI27886@wotan.suse.de>	 <1094629677.1089.155.camel@jzny.localdomain>	 <20040908134713.1bcd46d3.davem@davemloft.net>	 <1094823215.1121.129.camel@jzny.localdomain>	 <20040911142116.GL4431@wotan.suse.de>	 <1094933731.2343.109.camel@jzny.localdomain>	 <20040911174535.2acbb957.davem@davemloft.net>	 <20040912100114.GB11484@havoc.gtf.org>	 <20040912102529.GA27096@wotan.suse.de>	 <20040912161604.GA23366@havoc.gtf.org> <1095010469.2344.215.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S264299AbUIMAGj@vger.kernel.org>
-To: Paul P Komkoff Jr <i@stingr.net>
-In-Reply-To: <20040911194108.GS28258@stingr.sgu.ru>
+Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@davemloft.net>,
+        herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1095010469.2344.215.camel@jzny.localdomain>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Sep 2004 23:41:08 +0400
-Paul P Komkoff Jr <i@stingr.net> wrote:
+jamal wrote:
+> On Sun, 2004-09-12 at 12:16, Jeff Garzik wrote:
+> 
+> 
+>>Thanks, but still need a patch for return value constants, otherwise you
+>>are compounding rather than addressing a current problem.
+> 
+> 
+> Something along the lines of attached patch?
 
-> Some time ago I posted the following patch.
-> It indeed adds support for wccp version 1 and 2 decapsulation in
-> ip_gre.c. But there is an open question.
-> I surrounded all decapsulation stuff in if (1).
-> Which knob I should use instead of that 1 to make this change
-> acceptable into mainline kernel?
+Yep, thanks, ACK.
 
-What are the rules for IP_GRE in general for when
-to apply this transformation?
-
-Please do me a favor also, and redo your patch by putting
-ETH_P_WCCP into include/linux/if_ether.h where it belongs.
-
-Thanks.
+	Jeff
