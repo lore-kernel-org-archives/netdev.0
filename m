@@ -1,23 +1,146 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] Wireless extensions rethink
-Date: Tue, 08 Jun 2004 21:19:27 +1000
+From: Lewis Adam-CAL022 <Adam.Lewis@motorola.com>
+Subject: Linux Oops on skb_release_data()
+Date: Mon, 7 Jun 2004 16:00:34 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1BXedb-00076X-00@gondolin.me.apana.org.au>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF6214@orsmsx402.amr.corp.intel.com>
-Cc: netdev@oss.sgi.com
+Message-ID: <FD52892BD296D71183B400065BFCB6900AF770DE@il02exm12>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----_=_NextPart_000_01C44CD2.79F58ACE"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: scott.feldman@intel.com (Feldman, Scott)
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF6214@orsmsx402.amr.corp.intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Feldman, Scott <scott.feldman@intel.com> wrote:
->
-> 9) [Open] What to do about wireless events?  Any ideas?
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
 
-netlink
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+------_=_NextPart_000_01C44CD2.79F58ACE
+Content-Type: multipart/alternative;
+	boundary="----_=_NextPart_001_01C44CD2.79F58ACE"
+
+
+------_=_NextPart_001_01C44CD2.79F58ACE
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+
+Hi,
+ 
+I've written a WLAN driver that I am trying to debug now.  The problem occurs when I send lots of pings, really fast and force the driver to fragment the L3 and above payload.  It will always oops after about 400 pings or so.  When I run the oops through ksymoops, it always points me to skb_release_data(), ultimately the last thing it shows is __free_pages+c/50.
+ 
+I originally thought it was one of my calls to dev_free_skb() on the TX side, but I have since stubbed those out one-by-one to the point where I never call it in my code.  Hence I must believe that it is Linux that is calling it after I pass data up via netif_rx().  
+ 
+My first guess is that the RF on the WLAN might be passing me garbage, so I hard coded some sanity checks in (this is easy since I'm only doing ARP and ping).  Still it crashes, so I am at a loss.  It looks like what I am passing up to the upper layers is good.  The only other variable I can point to is that it seems to do this more when in bridge mode (e.g. I tie eth0 and wlan0 together).  When I do this from wlan0 to wlan0 on (on two stations) it seems to not occur.  
+ 
+Any ideas?
+ 
+Thanks,
+Adam
+
+------_=_NextPart_001_01C44CD2.79F58ACE
+Content-Type: text/html;
+	charset="ISO-8859-1"
+Content-Transfer-Encoding: base64
+
+PCFET0NUWVBFIEhUTUwgUFVCTElDICItLy9XM0MvL0RURCBIVE1MIDQuMCBUcmFuc2l0aW9uYWwv
+L0VOIj4NCjxIVE1MPjxIRUFEPg0KPE1FVEEgSFRUUC1FUVVJVj0iQ29udGVudC1UeXBlIiBDT05U
+RU5UPSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9SVNPLTg4NTktMSI+DQo8VElUTEU+R2xhY2llcjwvVElU
+TEU+DQoNCjxTVFlMRT5CT0RZIHsNCglNQVJHSU4tVE9QOiAyMHB4OyBGT05ULVNJWkU6IDEwcHQ7
+IE1BUkdJTi1MRUZUOiA1MHB4OyBDT0xPUjogIzAwNjY2NjsgRk9OVC1GQU1JTFk6IEFyaWFsLCBI
+ZWx2ZXRpY2ENCn0NCjwvU1RZTEU+DQoNCjxNRVRBIGNvbnRlbnQ9Ik1TSFRNTCA2LjAwLjI4MDAu
+MTQwMCIgbmFtZT1HRU5FUkFUT1I+PC9IRUFEPg0KPEJPRFkgYmFja2dyb3VuZD1jaWQ6MDIzMjY1
+MzIwQDA3MDYyMDA0LTM3MjY+DQo8RElWPjxTUEFOIGNsYXNzPTAyMzI2NTMyMC0wNzA2MjAwND5I
+aSw8L1NQQU4+PC9ESVY+DQo8RElWPjxTUEFOIGNsYXNzPTAyMzI2NTMyMC0wNzA2MjAwND48L1NQ
+QU4+Jm5ic3A7PC9ESVY+DQo8RElWPjxTUEFOIGNsYXNzPTAyMzI2NTMyMC0wNzA2MjAwND5JJ3Zl
+IHdyaXR0ZW4gYSBXTEFOIGRyaXZlciB0aGF0IEkgYW0gdHJ5aW5nIA0KdG8gZGVidWcgbm93LiZu
+YnNwOyBUaGUgcHJvYmxlbSBvY2N1cnMgd2hlbiBJIHNlbmQgbG90cyBvZiBwaW5ncywgcmVhbGx5
+IGZhc3QgDQphbmQgZm9yY2UgdGhlIGRyaXZlciB0byBmcmFnbWVudCB0aGUgTDMgYW5kIGFib3Zl
+IHBheWxvYWQuJm5ic3A7IEl0IHdpbGwgYWx3YXlzIA0Kb29wcyBhZnRlciBhYm91dCA0MDAgcGlu
+Z3Mgb3Igc28uJm5ic3A7IFdoZW4gSSBydW4gdGhlIG9vcHMgdGhyb3VnaCBrc3ltb29wcywgaXQg
+DQphbHdheXMgcG9pbnRzIG1lIHRvIHNrYl9yZWxlYXNlX2RhdGEoKSwgdWx0aW1hdGVseSB0aGUg
+bGFzdCB0aGluZyBpdCBzaG93cyBpcyANCl9fZnJlZV9wYWdlcytjLzUwLjwvU1BBTj48L0RJVj4N
+CjxESVY+PFNQQU4gY2xhc3M9MDIzMjY1MzIwLTA3MDYyMDA0PjwvU1BBTj4mbmJzcDs8L0RJVj4N
+CjxESVY+PFNQQU4gY2xhc3M9MDIzMjY1MzIwLTA3MDYyMDA0Pkkgb3JpZ2luYWxseSB0aG91Z2h0
+IGl0IHdhcyBvbmUgb2YgbXkgY2FsbHMgDQp0byBkZXZfZnJlZV9za2IoKSBvbiB0aGUgVFggc2lk
+ZSwgYnV0IEkgaGF2ZSBzaW5jZSBzdHViYmVkIHRob3NlIG91dCBvbmUtYnktb25lIA0KdG8gdGhl
+IHBvaW50IHdoZXJlIEkgbmV2ZXIgY2FsbCBpdCBpbiBteSBjb2RlLiZuYnNwOyBIZW5jZSBJIG11
+c3QgYmVsaWV2ZSB0aGF0IA0KaXQgaXMgTGludXggdGhhdCBpcyBjYWxsaW5nIGl0IGFmdGVyIEkg
+cGFzcyBkYXRhIHVwIHZpYSBuZXRpZl9yeCgpLiZuYnNwOyANCjwvU1BBTj48L0RJVj4NCjxESVY+
+PFNQQU4gY2xhc3M9MDIzMjY1MzIwLTA3MDYyMDA0PjwvU1BBTj4mbmJzcDs8L0RJVj4NCjxESVY+
+PFNQQU4gY2xhc3M9MDIzMjY1MzIwLTA3MDYyMDA0Pk15IGZpcnN0IGd1ZXNzIGlzIHRoYXQgdGhl
+IFJGIG9uIHRoZSBXTEFOIA0KbWlnaHQgYmUgcGFzc2luZyBtZSBnYXJiYWdlLCBzbyBJIGhhcmQg
+Y29kZWQgc29tZSBzYW5pdHkgY2hlY2tzIGluICh0aGlzIGlzIGVhc3kgDQpzaW5jZSBJJ20gb25s
+eSBkb2luZyBBUlAgYW5kIHBpbmcpLiZuYnNwOyBTdGlsbCBpdCBjcmFzaGVzLCBzbyBJIGFtIGF0
+IGEgDQpsb3NzLiZuYnNwOyBJdCBsb29rcyBsaWtlIHdoYXQgSSBhbSBwYXNzaW5nIHVwIHRvIHRo
+ZSB1cHBlciBsYXllcnMgaXMgDQpnb29kLiZuYnNwOyBUaGUgb25seSBvdGhlciB2YXJpYWJsZSBJ
+IGNhbiBwb2ludCB0byBpcyB0aGF0IGl0IHNlZW1zIHRvIGRvIHRoaXMgDQptb3JlIHdoZW4gaW4g
+YnJpZGdlIG1vZGUgKGUuZy4gSSB0aWUgZXRoMCBhbmQgd2xhbjAgdG9nZXRoZXIpLiZuYnNwOyBX
+aGVuIEkgZG8gDQp0aGlzIGZyb20gd2xhbjAgdG8gd2xhbjAgb24gKG9uIHR3byBzdGF0aW9ucykg
+aXQgc2VlbXMgdG8gbm90IG9jY3VyLiZuYnNwOyANCjwvU1BBTj48L0RJVj4NCjxESVY+PFNQQU4g
+Y2xhc3M9MDIzMjY1MzIwLTA3MDYyMDA0PjwvU1BBTj4mbmJzcDs8L0RJVj4NCjxESVY+PFNQQU4g
+Y2xhc3M9MDIzMjY1MzIwLTA3MDYyMDA0PkFueSBpZGVhcz88L1NQQU4+PC9ESVY+DQo8RElWPjxT
+UEFOIGNsYXNzPTAyMzI2NTMyMC0wNzA2MjAwND48L1NQQU4+Jm5ic3A7PC9ESVY+DQo8RElWPjxT
+UEFOIGNsYXNzPTAyMzI2NTMyMC0wNzA2MjAwND5UaGFua3MsPC9TUEFOPjwvRElWPg0KPERJVj48
+U1BBTiBjbGFzcz0wMjMyNjUzMjAtMDcwNjIwMDQ+QWRhbTwvU1BBTj48L0RJVj48L0JPRFk+PC9I
+VE1MPg0K
+
+------_=_NextPart_001_01C44CD2.79F58ACE--
+
+------_=_NextPart_000_01C44CD2.79F58ACE
+Content-Type: image/jpeg;
+	name="Glacier Bkgrd.jpg"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="Glacier Bkgrd.jpg"
+Content-ID: <023265320@07062004-3726>
+
+/9j/4AAQSkZJRgABAgEASABIAAD/7QSqUGhvdG9zaG9wIDMuMAA4QklNA+kAAAAAAHgAAwAAAEgA
+SAAAAAAC2gIo/+H/4QL5AkUDRwUoA/wAAgAAAEgASAAAAAAC2AIoAAEAAABkAAAAAQADAwMAAAAB
+Jw8AAQABAAAAAAAAAAAAAAAAYAgAGQGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4
+QklNA+0AAAAAABAASAAAAAEAAQBIAAAAAQABOEJJTQPzAAAAAAAIAAAAAAAAAAA4QklNBAoAAAAA
+AAEAADhCSU0nEAAAAAAACgABAAAAAAAAAAI4QklNA/UAAAAAAEgAL2ZmAAEAbGZmAAYAAAAAAAEA
+L2ZmAAEAoZmaAAYAAAAAAAEAMgAAAAEAWgAAAAYAAAAAAAEANQAAAAEALQAAAAYAAAAAAAE4QklN
+A/gAAAAAAHAAAP////////////////////////////8D6AAAAAD/////////////////////////
+////A+gAAAAA/////////////////////////////wPoAAAAAP//////////////////////////
+//8D6AAAOEJJTQQAAAAAAAACAAA4QklNBAIAAAAAAAIAADhCSU0ECAAAAAAAEAAAAAEAAAJAAAAC
+QAAAAAA4QklNBAkAAAAAApkAAAABAAAAgAAAAAEAAAGAAAABgAAAAn0AGAAB/9j/4AAQSkZJRgAB
+AgEASABIAAD//gAnRmlsZSB3cml0dGVuIGJ5IEFkb2JlIFBob3Rvc2hvcKggNC4wAP/uAA5BZG9i
+ZQBkgAAAAAH/2wCEAAwICAgJCAwJCQwRCwoLERUPDAwPFRgTExUTExgRDAwMDAwMEQwMDAwMDAwM
+DAwMDAwMDAwMDAwMDAwMDAwMDAwBDQsLDQ4NEA4OEBQODg4UFA4ODg4UEQwMDAwMEREMDAwMDAwR
+DAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDP/AABEIAAEAgAMBIgACEQEDEQH/3QAEAAj/xAE/
+AAABBQEBAQEBAQAAAAAAAAADAAECBAUGBwgJCgsBAAEFAQEBAQEBAAAAAAAAAAEAAgMEBQYHCAkK
+CxAAAQQBAwIEAgUHBggFAwwzAQACEQMEIRIxBUFRYRMicYEyBhSRobFCIyQVUsFiMzRygtFDByWS
+U/Dh8WNzNRaisoMmRJNUZEXCo3Q2F9JV4mXys4TD03Xj80YnlKSFtJXE1OT0pbXF1eX1VmZ2hpam
+tsbW5vY3R1dnd4eXp7fH1+f3EQACAgECBAQDBAUGBwcGBTUBAAIRAyExEgRBUWFxIhMFMoGRFKGx
+QiPBUtHwMyRi4XKCkkNTFWNzNPElBhaisoMHJjXC0kSTVKMXZEVVNnRl4vKzhMPTdePzRpSkhbSV
+xNTk9KW1xdXl9VZmdoaWprbG1ub2JzdHV2d3h5ent8f/2gAMAwEAAhEDEQA/APTqPon4/wAAir5X
+SQGyn6oSXyukip+qEl8rpJKfqhJfK6SSn6oSXyukkp+qEl8rpJKfqhJfK6SSn6oSXyukkp//2QA4
+QklNBAYAAAAAAAcABAAAAAEBAP/+ACdGaWxlIHdyaXR0ZW4gYnkgQWRvYmUgUGhvdG9zaG9wqCA0
+LjAA/+4ADkFkb2JlAGQAAAAAAf/bAIQABgQEBwUHCwYGCw4KCAoOEQ4ODg4RFhMTExMTFhEMDAwM
+DAwRDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAEHCQkTDBMiExMiFA4ODhQUDg4ODhQRDAwM
+DAwREQwMDAwMDBEMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM/8AAEQgAAwZAAwERAAIRAQMR
+Af/dAAQAyP/EAaIAAAAHAQEBAQEAAAAAAAAAAAQFAwIGAQAHCAkKCwEAAgIDAQEBAQEAAAAAAAAA
+AQACAwQFBgcICQoLEAACAQMDAgQCBgcDBAIGAnMBAgMRBAAFIRIxQVEGE2EicYEUMpGhBxWxQiPB
+UtHhMxZi8CRygvElQzRTkqKyY3PCNUQnk6OzNhdUZHTD0uIIJoMJChgZhJRFRqS0VtNVKBry4/PE
+1OT0ZXWFlaW1xdXl9WZ2hpamtsbW5vY3R1dnd4eXp7fH1+f3OEhYaHiImKi4yNjo+Ck5SVlpeYmZ
+qbnJ2en5KjpKWmp6ipqqusra6voRAAICAQIDBQUEBQYECAMDbQEAAhEDBCESMUEFURNhIgZxgZEy
+obHwFMHR4SNCFVJicvEzJDRDghaSUyWiY7LCB3PSNeJEgxdUkwgJChgZJjZFGidkdFU38qOzwygp
+0+PzhJSktMTU5PRldYWVpbXF1eX1RlZmdoaWprbG1ub2R1dnd4eXp7fH1+f3OEhYaHiImKi4yNjo
++DlJWWl5iZmpucnZ6fkqOkpaanqKmqq6ytrq+v/aAAwDAQACEQMRAD8A9N/vv+Lv+SWFhv5/7F37
+7/i7/kliu/n/ALFbJ63H/dv0+lTFd/P/AGKj++/y/wDkliu/n/sVa29Tl8fSn7fCn/JPfFIRH/AY
+GTv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Bi
+rv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/w
+GKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3
+/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd
+/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFX
+f8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gM
+Vd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+
+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8A
+gMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/
+4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq
+7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wAB
+irv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Bi
+rv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/w
+GKu/4DFXf8Birv8AgMVd/wABirv+AxV3/AYq7/gMVd/wGKu/4DFXf8Birv8AgMVd/wABirv+AxV3
+/AYq/wD/2Q==
+
+------_=_NextPart_000_01C44CD2.79F58ACE--
