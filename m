@@ -1,21 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Wake up km_waitq after changing policies
-Date: Mon, 30 Aug 2004 14:36:56 -0700
+Subject: Re: RFC/PATCH capture qdisc requeue event in stats
+Date: Mon, 30 Aug 2004 14:40:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040830143656.2b8ec69f.davem@redhat.com>
-References: <20040830152728.GA19086@lst.de>
+Message-ID: <20040830144033.2265a6e6.davem@redhat.com>
+References: <1093799632.1073.410.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-        kaber@trash.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20040830152728.GA19086@lst.de>
+To: hadi@cyberus.ca
+In-Reply-To: <1093799632.1073.410.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On 29 Aug 2004 13:13:52 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-kaber@trash.net will eventually work on this, it involves
-adding support for unresolved destination cache entries.
-It's a lot of complex work, so don't expect it any time soon.
+> Opinions welcome - If all is good, Dave please apply.
+
+tc_stats changes size, how will existing applications cope?
+Since it is just RTA_PUT() into userspace, will that just work
+or will existing apps bomb because they'll do a check of the
+size field of the rtnetlink attribute?
