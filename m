@@ -1,32 +1,39 @@
-From: "Alan Shih" <alan@storlinksemi.com>
-Subject: RE: Force client to receive MSS > PMTU ?
-Date: Tue, 17 Feb 2004 12:26:04 -0800
+From: James Morris <jmorris@redhat.com>
+Subject: Re: [PATCH] Fix checksum bug for multicast/broadcast packets on
+ postrouting hook
+Date: Tue, 17 Feb 2004 15:35:27 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <002501c3f594$443a6b30$7100a8c0@VALUED51C59791>
+Message-ID: <Xine.LNX.4.44.0402171529070.22129-100000@thoron.boston.redhat.com>
+References: <20040217155452.GA9464@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-In-Reply-To: 
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20040217155452.GA9464@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 17 Feb 2004, Harald Welte wrote:
 
------Original Message-----
-From: Alan Shih [mailto:alan@storlinksemi.com] 
-Sent: Tuesday, February 17, 2004 11:40 AM
-To: 'netdev@oss.sgi.com'
-Subject: Force client to receive MSS > PMTU ?
+> On Sun, Feb 15, 2004 at 01:09:23AM -0500, James Morris wrote:
 
-Hi all,
+> > If the netfilter core code is modified instead, we will end up adding
+> > skb_ip_make_writable() to nf_hook_slow() which will be called for every 
+> > packet with an output device which uses hardware checksums.
+> > 
+> > Not sure which is worse, but here's a proposed patch which does this.
+>  
+> Why can't we somehow check inside the netfilter hook if the packet is
+> at least multicast/broadcast (or even better: also locally generated)?
 
-I am experimenting with ip fragmentation.  I would like to force a
-generic client [unmodified Linux] to accept MSS that is larger than PMTU
-[like 4K]. Is that possible? Right now the negotiation always forces
-down to 1460.
+Well, we need to use skb_ip_make_writable() in any case (not just for
+mcast/bcast packets), as we are modifying a part of the packet which 
+may not be linear.  Note that this is only called for packets with an 
+outdev, and does nothing if the transport layer checksum is writeable.
 
-Thanks
 
-Al
+- James
+--
+James Morris
+<jmorris@redhat.com>
