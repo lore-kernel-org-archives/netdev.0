@@ -1,36 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6.5] Re: Fw: Stack sends SYN/ACKs even though accept
- queue is full
-Date: Sun, 2 May 2004 22:17:05 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] r8169 warning from 64 bit constant
+Date: Mon, 3 May 2004 11:05:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040502221705.4e7adef2.davem@redhat.com>
-References: <4092EAD7.5080207@us.ibm.com>
+Message-ID: <20040503110517.3a144b46@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, jan@ixiacom.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <4092EAD7.5080207@us.ibm.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Apr 2004 17:09:59 -0700
-Nivedita Singhvi <niv@us.ibm.com> wrote:
+Need 'ull' on end of a 64 bit constant to get rid of warning.
 
-> Normally, I think the expected behaviour was that connections
-> would be short-lived. This is a reasonable expectation for most
-> web-servers etc.
-
-I don't know how relevant the "lifespan" of a connection is in
-this case.
-
-Servers tend to sip from the accept queue in a seperate thread
-or approximate such behavior.  Therefore we have two time-frames,
-the incoming connection acceptq one and the one that actually
-deals with the established state data transation.  You're talking
-about the latter, and the behavior in question is about the
-former.
-
-I really haven't seen a convincing argument yet to change the behavior
-here, I think it's sane but I'm ready to be convinced otherwise :-)
+diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c	Mon May  3 11:02:57 2004
++++ b/drivers/net/r8169.c	Mon May  3 11:02:57 2004
+@@ -1156,7 +1156,7 @@
+ 
+ static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
+ {
+-	desc->addr = 0x0badbadbadbadbad;
++	desc->addr = 0x0badbadbadbadbadull;
+ 	desc->status &= ~cpu_to_le32(OWNbit | RsvdMask);
+ }
+ 
