@@ -1,49 +1,41 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4180] New: masquarade and source ip
-Date: Mon, 7 Feb 2005 11:18:22 -0800
-Message-ID: <20050207111822.65038881.akpm@osdl.org>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: ipsec (ipv4 tunnel mode) is broken
+Date: Mon, 7 Feb 2005 14:30:35 -0500 (EST)
+Message-ID: <Xine.LNX.4.44.0502071430130.28475-100000@thoron.boston.redhat.com>
+References: <Pine.LNX.4.58.0502071320400.12462@lacrosse.corp.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: spied@yandex.ru
-To: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+To: Matthew Galgoci <mgalgoci@redhat.com>
+In-Reply-To: <Pine.LNX.4.58.0502071320400.12462@lacrosse.corp.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 7 Feb 2005, Matthew Galgoci wrote:
+
+> 
+> I noticed as recenly as 2.6.11-rc3-bk3 that ipv4 ipsec is broken. I'm currently using
+> openswan as my ike daemon. This was working with the same ike daemon and config as 
+> (I think) recenrly as 2.6.11-rc2.
+> 
+> Before I go binary searching for the change that broke it, I was wondering if anyone
+> knows offhand what the issue might be from these error messages in my kernel log:
+> 
+> NET: Registered protocol family 15
+> ESP: md5 digestsize 16 != 0
+> ESP: md5 digestsize 16 != 0
+> ESP: md5 digestsize 16 != 0
+> ESP: md5 digestsize 16 != 0
+> 
+> openswan dies somewhere between phase 1 and phase 2 negotiation with an internal error.
+
+This patch should fix it (now in bk iirc):
+
+http://marc.theaimsgroup.com/?l=linux-netdev&m=110746335402355&w=2
 
 
-Begin forwarded message:
-
-Date: Mon, 7 Feb 2005 10:16:56 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4180] New: masquarade and source ip
-
-
-http://bugme.osdl.org/show_bug.cgi?id=4180
-
-           Summary: masquarade and source ip
-    Kernel Version: 2.6.10
-            Status: NEW
-          Severity: normal
-             Owner: laforge@gnumonks.org
-         Submitter: spied@yandex.ru
-
-
-i try next on router (eth0 - inernet, eth1 - localnet):
-
-ip addr add eth0 1.2.3.4
-ip addr add eth0 2.3.4.5
-
-ip route add default via 2.3.4.6 src 2.3.4.5
-
-iptables  -t nat -A POSTROUTING -s 10.0.0.0/8 -d ! 10.0.0.0/8 -j MASQUERADE
-
-if i do ping www.google.com from router source ip is 2.3.4.5, but if i do ping
-from local network source ip is 1.2.3.4 (i think it's wrong)
-
-with older kernel source ip is always set to 2.3.4.5
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
