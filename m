@@ -1,25 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NET] Fix ECN Encapsulation
-Date: Tue, 5 Oct 2004 22:20:47 -0700
+Subject: Re: [TCP] Fixed bug that hid sockets in tcp_diag
+Date: Tue, 5 Oct 2004 22:22:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041005222047.0c194f71.davem@davemloft.net>
-References: <20041006.113404.59652163.yoshfuji@linux-ipv6.org>
+Message-ID: <20041005222202.0d1d9be0.davem@davemloft.net>
+References: <20041006035801.GA15940@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@conectiva.com.br, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20041006.113404.59652163.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041006035801.GA15940@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 06 Oct 2004 11:34:04 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Wed, 6 Oct 2004 13:58:01 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> HEADLINE
-> --------
-> ChangeSet@1.2051, 2004-10-06 11:28:16+09:00, yoshfuji@linux-ipv6.org
->  [NET] ECN: Fix bug in tunnel ECN handling by recent changes.
+> This patch squashes a bug in tcp_diag which was created when the
+> sk_* loops replaced the original for loops.  It's a pity that these
+> sk_*/hlist_*/list_* loops don't take an arbitrary expression as an
+> argument for continue.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Patch applied, thank you.
+Thanks a lot for fixing this bug Herbert, patch applied.
+
+Did you send this patch to the original bug reporter for
+testing?  What was the result?
