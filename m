@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (7/23) sk98: basic ethtool support
-Date: Thu, 11 Nov 2004 15:55:03 -0800
-Message-ID: <20041111155503.6e0349b8@zqx3.pdx.osdl.net>
+Subject: [PATCH] (16/23) sk98: more efficient time OsGetTime
+Date: Thu, 11 Nov 2004 16:02:25 -0800
+Message-ID: <20041111160225.1185793e@zqx3.pdx.osdl.net>
 References: <4192C60A.1050205@designassembly.de>
 	<20041111154225.5cf85567@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
@@ -17,381 +17,107 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The basic stuff comes from the newer code from SysKonnect, but I redid
-it using ethtool_ops and a cleaner way of doing the stats (from e100)
+Avoid doing a gettimeofday to only get low resolution time.
+Can use jiffies_64 and internal 64 bit divide to get what is
+needed.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/drivers/net/sk98lin/Makefile b/drivers/net/sk98lin/Makefile
---- a/drivers/net/sk98lin/Makefile	2004-11-03 14:28:47 -08:00
-+++ b/drivers/net/sk98lin/Makefile	2004-11-03 14:28:47 -08:00
-@@ -13,6 +13,7 @@
- obj-$(CONFIG_SK98LIN) += sk98lin.o
- sk98lin-objs    :=	\
- 		skge.o		\
-+		skethtool.o	\
- 		skdim.o		\
- 		skaddr.o	\
- 		skgehwt.o	\
-diff -Nru a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
---- /dev/null	Wed Dec 31 16:00:00 196900
-+++ b/drivers/net/sk98lin/skethtool.c	2004-11-03 14:28:47 -08:00
-@@ -0,0 +1,330 @@
-+/******************************************************************************
-+ *
-+ * Name:        skethtool.c
-+ * Project:     GEnesis, PCI Gigabit Ethernet Adapter
-+ * Version:     $Revision: 1.7 $
-+ * Date:        $Date: 2004/09/29 13:32:07 $
-+ * Purpose:     All functions regarding ethtool handling
-+ *
-+ ******************************************************************************/
-+
-+/******************************************************************************
-+ *
-+ *	(C)Copyright 1998-2002 SysKonnect GmbH.
-+ *	(C)Copyright 2002-2004 Marvell.
-+ *
-+ *	Driver for Marvell Yukon/2 chipset and SysKonnect Gigabit Ethernet 
-+ *      Server Adapters.
-+ *
-+ *	Author: Ralph Roesler (rroesler@syskonnect.de)
-+ *	        Mirko Lindner (mlindner@syskonnect.de)
-+ *
-+ *	Address all question to: linux@syskonnect.de
-+ *
-+ *	The technical manual for the adapters is available from SysKonnect's
-+ *	web pages: www.syskonnect.com
-+ *	
-+ *	This program is free software; you can redistribute it and/or modify
-+ *	it under the terms of the GNU General Public License as published by
-+ *	the Free Software Foundation; either version 2 of the License, or
-+ *	(at your option) any later version.
-+ *
-+ *	The information in this file is provided "AS IS" without warranty.
-+ *
-+ *****************************************************************************/
-+
-+#include "h/skdrv1st.h"
-+#include "h/skdrv2nd.h"
-+#include "h/skversion.h"
-+
-+#include <linux/ethtool.h>
-+#include <linux/timer.h>
-+
-+/******************************************************************************
-+ *
-+ * Defines
-+ *
-+ *****************************************************************************/
-+
-+#define SUPP_COPPER_ALL (SUPPORTED_10baseT_Half  | SUPPORTED_10baseT_Full  | \
-+                         SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full | \
-+                         SUPPORTED_1000baseT_Half| SUPPORTED_1000baseT_Full| \
-+                         SUPPORTED_TP)
-+
-+#define ADV_COPPER_ALL  (ADVERTISED_10baseT_Half  | ADVERTISED_10baseT_Full  | \
-+                         ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full | \
-+                         ADVERTISED_1000baseT_Half| ADVERTISED_1000baseT_Full| \
-+                         ADVERTISED_TP)
-+
-+#define SUPP_FIBRE_ALL  (SUPPORTED_1000baseT_Full | \
-+                         SUPPORTED_FIBRE          | \
-+                         SUPPORTED_Autoneg)
-+
-+#define ADV_FIBRE_ALL   (ADVERTISED_1000baseT_Full | \
-+                         ADVERTISED_FIBRE          | \
-+                         ADVERTISED_Autoneg)
-+
-+
-+/******************************************************************************
-+ *
-+ * Local Functions
-+ *
-+ *****************************************************************************/
-+
-+/*****************************************************************************
-+ *
-+ * 	getSettings - retrieves the current settings of the selected adapter
-+ *
-+ * Description:
-+ *	The current configuration of the selected adapter is returned.
-+ *	This configuration involves a)speed, b)duplex and c)autoneg plus
-+ *	a number of other variables.
-+ *
-+ * Returns:    always 0
-+ *
-+ */
-+static int getSettings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+{
-+	const DEV_NET *pNet = netdev_priv(dev);
-+	int port = pNet->PortNr;
-+	const SK_AC *pAC = pNet->pAC;
-+	const SK_GEPORT *pPort = &pAC->GIni.GP[port];
-+
-+	static int DuplexAutoNegConfMap[9][3]= {
-+		{ -1                     , -1         , -1              },
-+		{ 0                      , -1         , -1              },
-+		{ SK_LMODE_HALF          , DUPLEX_HALF, AUTONEG_DISABLE },
-+		{ SK_LMODE_FULL          , DUPLEX_FULL, AUTONEG_DISABLE },
-+		{ SK_LMODE_AUTOHALF      , DUPLEX_HALF, AUTONEG_ENABLE  },
-+		{ SK_LMODE_AUTOFULL      , DUPLEX_FULL, AUTONEG_ENABLE  },
-+		{ SK_LMODE_AUTOBOTH      , DUPLEX_FULL, AUTONEG_ENABLE  },
-+		{ SK_LMODE_AUTOSENSE     , -1         , -1              },
-+		{ SK_LMODE_INDETERMINATED, -1         , -1              }
-+	};
-+	static int SpeedConfMap[6][2] = {
-+		{ 0                       , -1         },
-+		{ SK_LSPEED_AUTO          , -1         },
-+		{ SK_LSPEED_10MBPS        , SPEED_10   },
-+		{ SK_LSPEED_100MBPS       , SPEED_100  },
-+		{ SK_LSPEED_1000MBPS      , SPEED_1000 },
-+		{ SK_LSPEED_INDETERMINATED, -1         }
-+	};
-+	static int AdvSpeedMap[6][2] = {
-+		{ 0                       , -1         },
-+		{ SK_LSPEED_AUTO          , -1         },
-+		{ SK_LSPEED_10MBPS        , ADVERTISED_10baseT_Half   | ADVERTISED_10baseT_Full },
-+		{ SK_LSPEED_100MBPS       , ADVERTISED_100baseT_Half  | ADVERTISED_100baseT_Full },
-+		{ SK_LSPEED_1000MBPS      , ADVERTISED_1000baseT_Half | ADVERTISED_1000baseT_Full},
-+		{ SK_LSPEED_INDETERMINATED, -1         }
-+	};
-+
-+	ecmd->phy_address = port;
-+	ecmd->speed       = SpeedConfMap[pPort->PLinkSpeedUsed][1];
-+	ecmd->duplex      = DuplexAutoNegConfMap[pPort->PLinkModeStatus][1];
-+	ecmd->autoneg     = DuplexAutoNegConfMap[pPort->PLinkModeStatus][2];
-+	ecmd->transceiver = XCVR_INTERNAL;
-+
-+	if (pAC->GIni.GICopperType) {
-+		ecmd->port        = PORT_TP;
-+		ecmd->supported   = (SUPP_COPPER_ALL|SUPPORTED_Autoneg);
-+		if (pAC->GIni.GIGenesis) {
-+			ecmd->supported &= ~(SUPPORTED_10baseT_Half);
-+			ecmd->supported &= ~(SUPPORTED_10baseT_Full);
-+			ecmd->supported &= ~(SUPPORTED_100baseT_Half);
-+			ecmd->supported &= ~(SUPPORTED_100baseT_Full);
-+		} else {
-+			if (pAC->GIni.GIChipId == CHIP_ID_YUKON) {
-+				ecmd->supported &= ~(SUPPORTED_1000baseT_Half);
-+			} 
-+#ifdef CHIP_ID_YUKON_FE
-+			if (pAC->GIni.GIChipId == CHIP_ID_YUKON_FE) {
-+				ecmd->supported &= ~(SUPPORTED_1000baseT_Half);
-+				ecmd->supported &= ~(SUPPORTED_1000baseT_Full);
-+			}
-+#endif
-+		}
-+		if (pAC->GIni.GP[0].PLinkSpeed != SK_LSPEED_AUTO) {
-+			ecmd->advertising = AdvSpeedMap[pPort->PLinkSpeed][1];
-+			if (pAC->GIni.GIChipId == CHIP_ID_YUKON) {
-+				ecmd->advertising &= ~(SUPPORTED_1000baseT_Half);
-+			} 
-+		} else {
-+			ecmd->advertising = ecmd->supported;
-+		}
-+
-+		if (ecmd->autoneg == AUTONEG_ENABLE) 
-+			ecmd->advertising |= ADVERTISED_Autoneg;
-+	} else {
-+		ecmd->port        = PORT_FIBRE;
-+		ecmd->supported   = SUPP_FIBRE_ALL;
-+		ecmd->advertising = ADV_FIBRE_ALL;
-+	}
-+	return 0;
-+}
-+
-+/*****************************************************************************
-+ *
-+ *	setSettings - configures the settings of a selected adapter
-+ *
-+ * Description:
-+ *	Possible settings that may be altered are a)speed, b)duplex or 
-+ *	c)autonegotiation.
-+ *
-+ * Returns:
-+ *	0:	everything fine, no error
-+ *	<0:	the return value is the error code of the failure 
-+ */
-+static int setSettings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+{
-+	DEV_NET *pNet = netdev_priv(dev);
-+	SK_AC *pAC = pNet->pAC;
-+	u32 instance;
-+	char buf[4];
-+	int len = 1;
-+
-+	if (ecmd->speed != SPEED_10 && ecmd->speed != SPEED_100 
-+	    && ecmd->speed != SPEED_1000)
-+		return -EINVAL;
-+
-+	if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
-+		return -EINVAL;
-+
-+	if (ecmd->autoneg != AUTONEG_DISABLE && ecmd->autoneg != AUTONEG_ENABLE)
-+		return -EINVAL;
-+
-+	if (ecmd->autoneg == AUTONEG_DISABLE)
-+		*buf = (ecmd->duplex == DUPLEX_FULL) 
-+			? SK_LMODE_FULL : SK_LMODE_HALF;
-+	else
-+		*buf = (ecmd->duplex == DUPLEX_FULL) 
-+			? SK_LMODE_AUTOFULL : SK_LMODE_AUTOHALF;
-+	
-+	instance = 1 + (pAC->RlmtNets == 2) + pNet->PortNr;
-+	if (SkPnmiSetVar(pAC, pAC->IoBase, OID_SKGE_LINK_MODE, 
-+			   &buf, &len, instance, pNet->NetNr) != SK_PNMI_ERR_OK)
-+		return -EINVAL;
-+
-+	switch(ecmd->speed) {
-+	case SPEED_1000:
-+		*buf = SK_LSPEED_1000MBPS;
-+		break;
-+	case SPEED_100:
-+		*buf = SK_LSPEED_100MBPS;
-+		break;
-+	case SPEED_10:
-+		*buf = SK_LSPEED_10MBPS;
-+	}
-+
-+	if (SkPnmiSetVar(pAC, pAC->IoBase, OID_SKGE_SPEED_MODE, 
-+			 &buf, &len, instance, pNet->NetNr) != SK_PNMI_ERR_OK)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
-+/*****************************************************************************
-+ *
-+ * 	getDriverInfo - returns generic driver and adapter information
-+ *
-+ * Description:
-+ *	Generic driver information is returned via this function, such as
-+ *	the name of the driver, its version and and firmware version.
-+ *	In addition to this, the location of the selected adapter is 
-+ *	returned as a bus info string (e.g. '01:05.0').
-+ *	
-+ * Returns:	N/A
-+ *
-+ */
-+static void getDriverInfo(struct net_device *dev, struct ethtool_drvinfo *info)
-+{
-+	const DEV_NET	*pNet = netdev_priv(dev);
-+	const SK_AC *pAC = pNet->pAC;
-+	char vers[32];
-+
-+	snprintf(vers, sizeof(vers)-1, VER_STRING "(v%d.%d)",
-+		(pAC->GIni.GIPciHwRev >> 4) & 0xf, pAC->GIni.GIPciHwRev & 0xf);
-+
-+	strlcpy(info->driver, DRIVER_FILE_NAME, sizeof(info->driver));
-+	strcpy(info->version, vers);
-+	strcpy(info->fw_version, "N/A");
-+	strlcpy(info->bus_info, pAC->PciDev->slot_name, ETHTOOL_BUSINFO_LEN);
-+}
-+
-+/*
-+ * Ethtool statistics support.
-+ */
-+static const char StringsStats[][ETH_GSTRING_LEN] = {
-+	"rx_packets",	"tx_packets",
-+	"rx_bytes",	"tx_bytes",
-+	"rx_errors",	"tx_errors",	
-+	"rx_dropped",	"tx_dropped",
-+	"multicasts",	"collisions",	
-+	"rx_length_errors",		"rx_buffer_overflow_errors",
-+	"rx_crc_errors",		"rx_frame_errors",
-+	"rx_too_short_errors",		"rx_too_long_errors",
-+	"rx_carrier_extension_errors",	"rx_symbol_errors",
-+	"rx_llc_mac_size_errors",	"rx_carrier_errors",	
-+	"rx_jabber_errors",		"rx_missed_errors",
-+	"tx_abort_collision_errors",	"tx_carrier_errors",
-+	"tx_buffer_underrun_errors",	"tx_heartbeat_errors",
-+	"tx_window_errors",
-+};
-+
-+static int getStatsCount(struct net_device *dev)
-+{
-+	return ARRAY_SIZE(StringsStats);
-+}
-+
-+static void getStrings(struct net_device *dev, u32 stringset, u8 *data)
-+{
-+	switch(stringset) {
-+	case ETH_SS_STATS:
-+		memcpy(data, *StringsStats, sizeof(StringsStats));
-+		break;
-+	}
-+}
-+
-+static void getEthtoolStats(struct net_device *dev,
-+			    struct ethtool_stats *stats, u64 *data)
-+{
-+	const DEV_NET	*pNet = netdev_priv(dev);
-+	const SK_AC *pAC = pNet->pAC;
-+	const SK_PNMI_STRUCT_DATA *pPnmiStruct = &pAC->PnmiStruct;
-+
-+	*data++ = pPnmiStruct->Stat[0].StatRxOkCts;
-+	*data++ = pPnmiStruct->Stat[0].StatTxOkCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxOctetsOkCts;
-+	*data++ = pPnmiStruct->Stat[0].StatTxOctetsOkCts;
-+	*data++ = pPnmiStruct->InErrorsCts;
-+	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
-+	*data++ = pPnmiStruct->RxNoBufCts;
-+	*data++ = pPnmiStruct->TxNoBufCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxMulticastOkCts;
-+	*data++ = pPnmiStruct->Stat[0].StatTxSingleCollisionCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxRuntCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxFifoOverflowCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxFcsCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxFramingCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxShortsCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxTooLongCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxCextCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxSymbolCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxIRLengthCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxCarrierCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxJabberCts;
-+	*data++ = pPnmiStruct->Stat[0].StatRxMissedCts;
-+	*data++ = pAC->stats.tx_aborted_errors;
-+	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
-+	*data++ = pPnmiStruct->Stat[0].StatTxFifoUnderrunCts;
-+	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
-+	*data++ = pAC->stats.tx_window_errors;
-+}
-+
-+struct ethtool_ops SkGeEthtoolOps = {
-+	.get_settings		= getSettings,
-+	.set_settings		= setSettings,
-+	.get_drvinfo		= getDriverInfo,
-+	.get_strings		= getStrings,
-+	.get_stats_count	= getStatsCount,
-+	.get_ethtool_stats	= getEthtoolStats,
-+};
-diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
---- a/drivers/net/sk98lin/skge.c	2004-11-03 14:28:47 -08:00
-+++ b/drivers/net/sk98lin/skge.c	2004-11-03 14:28:47 -08:00
-@@ -255,6 +255,7 @@
- /* global variables *********************************************************/
- struct SK_NET_DEVICE *SkGeRootDev = NULL;
- static SK_BOOL DoPrintInterfaceChange = SK_TRUE;
-+extern  struct ethtool_ops SkGeEthtoolOps;
- 
- /* local variables **********************************************************/
- static uintptr_t TxQueueAddr[SK_MAX_MACS][2] = {{0x680, 0x600},{0x780, 0x700}};
-@@ -4951,6 +4952,7 @@
+diff -Nru a/drivers/net/sk98lin/h/skdrv1st.h b/drivers/net/sk98lin/h/skdrv1st.h
+--- a/drivers/net/sk98lin/h/skdrv1st.h	2004-11-03 17:06:12 -08:00
++++ b/drivers/net/sk98lin/h/skdrv1st.h	2004-11-03 17:06:12 -08:00
+@@ -96,9 +96,6 @@
+ #define SK_BIG_ENDIAN
  #endif
- 	dev->flags &= 		~IFF_RUNNING;
- 	SET_NETDEV_DEV(dev, &pdev->dev);
-+	SET_ETHTOOL_OPS(dev, &SkGeEthtoolOps);
  
- #ifdef SK_ZEROCOPY
- #ifdef USE_SK_TX_CHECKSUM
-@@ -5030,6 +5032,8 @@
- 		dev->do_ioctl           = &SkGeIoctl;
- 		dev->change_mtu         = &SkGeChangeMtu;
- 		dev->flags             &= ~IFF_RUNNING;
-+		SET_NETDEV_DEV(dev, &pdev->dev);
-+		SET_ETHTOOL_OPS(dev, &SkGeEthtoolOps);
+-/* we use gethrtime(), return unit: nanoseconds */
+-#define SK_TICKS_PER_SEC	100
+-
+ #define	SK_MEM_MAPPED_IO
  
- #ifdef SK_ZEROCOPY
- #ifdef USE_SK_TX_CHECKSUM
+ // #define SK_RLMT_SLOW_LOOKAHEAD
+diff -Nru a/drivers/net/sk98lin/h/skdrv2nd.h b/drivers/net/sk98lin/h/skdrv2nd.h
+--- a/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-03 17:06:12 -08:00
++++ b/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-03 17:06:12 -08:00
+@@ -56,7 +56,6 @@
+ 
+ extern SK_MBUF		*SkDrvAllocRlmtMbuf(SK_AC*, SK_IOC, unsigned);
+ extern void		SkDrvFreeRlmtMbuf(SK_AC*, SK_IOC, SK_MBUF*);
+-extern SK_U64		SkOsGetTime(SK_AC*);
+ extern int		SkPciReadCfgDWord(SK_AC*, int, SK_U32*);
+ extern int		SkPciReadCfgWord(SK_AC*, int, SK_U16*);
+ extern int		SkPciReadCfgByte(SK_AC*, int, SK_U8*);
+@@ -83,25 +82,28 @@
+ };
+ 
+ 
+-/*
+- * Time macros
+- */
+-#if SK_TICKS_PER_SEC == 100
+-#define SK_PNMI_HUNDREDS_SEC(t)	(t)
++/* Units used for timing measurements. */
++#define SK_TICKS_PER_SEC	HZ
++
++/* OS time value in HZ (1000 or 100) */
++static inline SK_U64 SkOsGetTime(const SK_AC *pAC)
++{
++	return get_jiffies_64();
++}
++
++/* Convert OS time units to hundredth's of sec */
++static inline SK_U64 jiffies_64_to_hsecs(u64 t)
++{
++#if (HZ % 100) == 0
++	do_div(t, HZ / 100);
+ #else
+-#define SK_PNMI_HUNDREDS_SEC(t)	((((unsigned long)t) * 100) / \
+-										(SK_TICKS_PER_SEC))
++	t *= 100;
++	do_div(x, HZ);
+ #endif
+-
+-/*
+- * New SkOsGetTime
+- */
+-#define SkOsGetTimeCurrent(pAC, pUsec) {\
+-	struct timeval t;\
+-	do_gettimeofday(&t);\
+-	*pUsec = ((((t.tv_sec) * 1000000L)+t.tv_usec)/10000);\
++	return t;
+ }
+ 
++#define SK_PNMI_HUNDREDS_SEC(t)	jiffies_64_to_hsecs(t)
+ 
+ /*
+  * ioctl definitions
+diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+--- a/drivers/net/sk98lin/skge.c	2004-11-03 17:06:12 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-03 17:06:12 -08:00
+@@ -4221,26 +4221,6 @@
+ 
+ /*****************************************************************************
+  *
+- *	SkOsGetTime - provide a time value
+- *
+- * Description:
+- *	This routine provides a time value. The unit is 1/HZ (defined by Linux).
+- *	It is not used for absolute time, but only for time differences.
+- *
+- *
+- * Returns:
+- *	Time value
+- */
+-SK_U64 SkOsGetTime(SK_AC *pAC)
+-{
+-	SK_U64	PrivateJiffies;
+-	SkOsGetTimeCurrent(pAC, &PrivateJiffies);
+-	return PrivateJiffies;
+-} /* SkOsGetTime */
+-
+-
+-/*****************************************************************************
+- *
+  *	SkPciReadCfgDWord - read a 32 bit value from pci config space
+  *
+  * Description:
