@@ -1,30 +1,28 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: 100 network limit
-Date: Thu, 28 Aug 2003 21:08:55 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: NAPI on 8139too
+Date: Thu, 28 Aug 2003 17:01:03 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030828210855.58759b69.ak@suse.de>
-References: <20030828180019.GH12541@krispykreme>
+Message-ID: <3F4E6D8F.6070003@pobox.com>
+References: <1062094999.3149.33.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20030828180019.GH12541@krispykreme>
+To: smarchetto1@tin.it
+In-Reply-To: <1062094999.3149.33.camel@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Aug 2003 04:00:19 +1000
-Anton Blanchard <anton@samba.org> wrote:
+Michele 'mydecay' Marchetto wrote:
+> I was wondering why NAPI hasn't been ported on 8139too yet..
 
 
-> Anyway as a short term fix Jamal suggested making a sysctl for this
-> maximum. If fixing this all properly is out of the question for 2.6,
-> would the sysctl approach be satisfactory? The other option is to just
-> bump the limit and recognise that the user is on his own if performance
-> sucks.
+I think it would be a good idea.  You can stuff a lot of 68-byte packets 
+into a 32K or 64K contiguous buffer.  Jes Sorensen wrote a patch a while 
+ago that sampling the incoming rate, and backed off if the rate was too 
+high -- basically a poor man's NAPI.
 
-You could just add a bitmap with a reasonable upper limit (1024?) and use 
-find_first_zero_bit()  I doubt doing that would be very intrusive.
+So, volunteers?  Just convert the RX path to NAPI, not all interrupt events.
 
--Andi
+	Jeff
