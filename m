@@ -1,57 +1,77 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
-Date: Tue, 31 Aug 2004 21:29:37 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C26pV-0000fW-00@gondolin.me.apana.org.au>
-References: <Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
-Cc: laforge@netfilter.org, davem@davemloft.net, netdev@oss.sgi.com,
-        rusty@rustcorp.com.au, netfilter-devel@lists.netfilter.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hno@marasystems.com (Henrik Nordstrom)
-In-Reply-To: <Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
-Errors-to: netdev-bounce@oss.sgi.com
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
+	else")
+Date: Tue, 31 Aug 2004 14:16:58 +0200
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040831121658.GE5824@sunbeam.de.gnumonks.org>
+References: <20040830191915.04d49268.davem@davemloft.net>
+	<E1C1yRs-00086x-00@gondolin.me.apana.org.au>
+	<20040830223920.1db0d5ae.davem@davemloft.net>
+	<Pine.LNX.4.58.0408310908120.4024@u.domain.uli>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="BDlG3CzP/kphk9YG"
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	Herbert Xu <herbert@gondor.apana.org.au>, rusty@rustcorp.com.au,
+	kuznet@ms2.inr.ac.ru
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Julian Anastasov <ja@ssi.bg>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0408310908120.4024@u.domain.uli>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Henrik Nordstrom <hno@marasystems.com> wrote:
-> 
-> Should only happen if the routing is screwed up, in principle..
 
-If only that were the case :)
- 
-> I think it would for most make more sense that the source IP assignment is 
-> based on routing using the original source address as key.
+--BDlG3CzP/kphk9YG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Doesn't work because we're trying to get the correct source address from
-the routing lookup.
+On Tue, Aug 31, 2004 at 09:48:07AM +0300, Julian Anastasov wrote:
 
-> What I don't get is why MASQUERADE needs to do a route lookup at all. 
-> Isn't the traffic already routed at this point, and shouldn't it simply 
-> use the source IP of the current selected route or the interface primary 
-> IP of no source IP set in the route?
+> 	So, if the input route for all packets selects dev1 before
+> NAT but MASQUERADE selects different device (nexthop) bad things
+> happen. It costs routing cache entries to provide oif key but almost
+> in any case the right gateway is selected (except when two nexthops
+> use same device).
 
-The problem is that we don't record the preferred source in struct rtable.
-It is available in the original FIB rule.  So by adding a new field in
-struct rtable we should be able to avoid this lookup.
+I am willing to compromise at that cost.  I cannot imagine a combination
+of dynamic IP with multiple nexthop on the same device.  Getting those
+policy routing / DSL / dynip / MASQUERADE cases right is definitely more
+important.
 
->> That is the presumption I am about to challenge.  Is the 'original'
->> interface really the one we want in this case?
-> 
-> If there is policy routing saying that packets with a given source 
-> should go out another interface my opinion is that they should.
+Any static IP case should be using SNAT, that's always been documented.
 
-Absolutely.
+> Regards
 
-> I have been using SNAT in quite many complex routing setups and so far has 
-> not run into any situation where routing gets wrong in an unmanageable and 
-> unintuitive manner due to SNAT. MASQUERADE should not be more complex.
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-Well I took that advice and ended up with tons of broken systems because
-SNAT is totally broken when your IP address is dynamic.  MASQUERADE
-flushes the conntrack rules automatically.  SNAT does not.
+--BDlG3CzP/kphk9YG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBNGw6XaXGVTD0i/8RAqk7AJ98tc9bjQFDS8TJeLVlIM6H2UwA5ACeJU7U
+eSZ7LFrulPDIrw22eT57D+M=
+=2hzH
+-----END PGP SIGNATURE-----
+
+--BDlG3CzP/kphk9YG--
