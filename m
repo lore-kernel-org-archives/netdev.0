@@ -1,28 +1,41 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] pkt_cls.h incompatiables
-Date: Sat, 24 Jul 2004 23:25:58 -0700
+Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
+Date: Sat, 24 Jul 2004 23:27:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724232558.7c4aea69.davem@redhat.com>
-References: <20040723135945.7f50b02c.davem@redhat.com>
-	<1090630154.1134.6.camel@jzny.localdomain>
-	<1090675993.1161.11.camel@jzny.localdomain>
-	<20040724.213323.61478122.yoshfuji@linux-ipv6.org>
+Message-ID: <20040724232705.237396b4.davem@redhat.com>
+References: <40F34740.5040100@trash.net>
+	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
+	<20040712205037.573411c0.davem@redhat.com>
+	<40F4862D.3070802@trash.net>
+	<40F4AC8B.40706@trash.net>
+	<20040721143110.4ab944bf.davem@redhat.com>
+	<41004F76.1080807@trash.net>
+	<20040722171752.341d2476.davem@redhat.com>
+	<41006150.9000702@trash.net>
+	<41014788.4070301@trash.net>
+	<20040723135459.2ee5c42c.davem@redhat.com>
+	<41019CDA.9050401@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: hadi@cyberus.ca, shemminger@osdl.org, arekm@pld-linux.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040724.213323.61478122.yoshfuji@linux-ipv6.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41019CDA.9050401@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 24 Jul 2004 21:33:23 -0400 (EDT)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Sat, 24 Jul 2004 01:18:50 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-> 1. is it okay to use unsigned long?
->    I'd rather prefer __u32 or __u64.
+> > I'm going to apply your patch and delete the Alpha parts.
+> > Meanwhile, ping Richard Henderson (rth@redhat.com) or one
+> > of the other Alpha experts for me to get confirmation on
+> > this stuff.
+> 
+> Even better.
 
-Me too, for public APIs use strictly sized types
-please.
+Let me know if you get feedback or not.
+
+For now I'm pushing to Linus with Alpha removed from the
+list.
