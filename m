@@ -1,38 +1,59 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: O/M flags against 2.6.0-test1
-Date: Wed, 30 Jul 2003 22:02:23 -0700
+From: Matthew Wilcox <willy@debian.org>
+Subject: Re: netdev_ops retraction
+Date: Thu, 31 Jul 2003 12:12:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030730220223.4c25fcfe.davem@redhat.com>
-References: <20030724000705.4662df54.davem@redhat.com>
-	<Pine.LNX.4.44.0307291659190.7490-100000@DYN318430>
+Message-ID: <20030731111241.GJ22222@parcelfarce.linux.theplanet.co.uk>
+References: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk> <20030730233541.GB7057@conectiva.com.br> <20030730164108.06062b72.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>, willy@debian.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <krkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0307291659190.7490-100000@DYN318430>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030730164108.06062b72.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Jul 2003 17:33:03 -0700 (PDT)
-Krishna Kumar <krkumar@us.ibm.com> wrote:
-
-> Since use_tempaddr can be -1, I am for the time being keeping all
-> the variables as s32. If this is changed to __u32, then some code in
-> addrconf.c needs to be modified.
-
-Ok, but then please use "__s32".
-
-> > I think something more like route metrics, ie. an array is more appropriate
+On Wed, Jul 30, 2003 at 04:41:08PM -0700, David S. Miller wrote:
+> I'm ok with the simplified ethtool-only version too.
 > 
-> I guess you mean only the user interface to use route type metrics, not
-> modify the existing cnf implementation to use this concept (eg remove the
-> structure and define cnf_metrics[] with code similar to RTAX_HOPLIMIT,
-> etc). So this patch doesn't change the usage in kernel, except now the
-> user interface returns the config params in an array format.
-> 
-> This patch applies on top of the prefix list patch.
+> Although I'm confused about what kind of problem there is with
+> netdev_ops being such a "large structure".
 
-I like the array scheme, but please you must define macros
-(like RTAX_*) that give meaning to the array[] indices.
+Hard to understand/keep track of is my main concern.  There was also
+a namespace collision -- two functions called get_stats.  It's now
+get_ethtool_stats.
+
+> This is the kind of thing there'd be _ONE_ copy of in each driver,
+> ala.
+> 
+> struct netdev_ops tg3_netdev_ops {
+>  ...
+> 	.foo	=	tg3_foo,
+>  ...
+> };
+> 
+> ...
+> 	tp->dev->netdev_ops = &tg3_netdev_ops;
+> ...
+> 
+> Right?
+
+I'm glad you mentioned tg3 as an example, since it's one of the ones where
+this isn't true.
+
+        if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700)
+                tp->dev->hard_start_xmit = tg3_start_xmit_4gbug;
+        else
+                tp->dev->hard_start_xmit = tg3_start_xmit;
+
+I fixed this with two netdev_ops structs, but imagine a driver with two
+or three more cases like this and everything starts to look quite nasty.
+I do think we want to do netdev_ops, but not now, and let's keep
+netdev_ops and ethtool_ops separate.
+
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
