@@ -1,37 +1,37 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [bonding][0/3] Synchronizing 2.4-2.6
-Date: Sat, 30 Aug 2003 22:05:45 +0300
+From: Marc Zyngier <mzyngier@freesurf.fr>
+Subject: Re: [PATCH][2.6] de4x5 cleanup
+Date: Sat, 30 Aug 2003 21:04:18 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308302205.45924.shmulik.hen@intel.com>
-References: <200308271958.52063.shmulik.hen@intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <wrpn0dr55n1.fsf@hina.wild-wind.fr.eu.org>
+References: <wrpad9r79g6.fsf@hina.wild-wind.fr.eu.org>
+	<3F50E3FD.1000703@pobox.com>
+Reply-To: mzyngier@freesurf.fr
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, linux-net@vger.kernel.org,
+   Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
-In-Reply-To: <200308271958.52063.shmulik.hen@intel.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F50E3FD.1000703@pobox.com> (Jeff Garzik's message of "Sat, 30
+ Aug 2003 13:50:53 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 27 August 2003 07:58 pm, Hen, Shmulik wrote:
->
-> Next in store are:
->  o Stephen Hemminger's converting bonding driver /proc interface to
->    seq_file, along with changing /proc/bond0/info to
->    /proc/bonding/bond0
+>>>>> "Jeff" == Jeff Garzik <jgarzik@pobox.com> writes:
 
-Forgot to mention free_netdev().
-Is it 2.4 compatible ?
+Jeff> It looks pretty good.  My big objection isn't the Space.c stuff
+Jeff> but de4x5 itself.  I had hoped it would be gone by now :) Oh
+Jeff> well, not your fault.
 
->  o cleanup of the 802.3ad code (was not included in this release
-> since it requires some code re-factoring first).
->  o lots of new stuff :)
+Well... I too, had hoped the tulip (and its dc21040 derivative)
+driver would be the only one. While it works nicely on modern stuff
+(2114[023]), it has some problems on a few of my test boxes (mostly
+Alphas with onboard 21040).
 
+And most of all, tulip doesn't support EISA :-).
 
+Thanks,
+
+        M.
 -- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+Places change, faces change. Life is so very strange.
