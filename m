@@ -1,30 +1,29 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Fw: [Bugme-new] [Bug 4138] New: ipsec with racoon in transport
- mode with esp and ah hangs (problem is in xfrm_state_add)
-Date: Mon, 31 Jan 2005 11:40:04 -0800
-Message-ID: <20050131114004.6c61cdc1.davem@davemloft.net>
-References: <20050130224404.5f78d28a.akpm@osdl.org>
-	<E1CvZCT-00017g-00@gondolin.me.apana.org.au>
+Subject: Re: SIOCGIFMAP silently broken?
+Date: Mon, 31 Jan 2005 11:46:40 -0800
+Message-ID: <20050131114640.7e002652.davem@davemloft.net>
+References: <41FE4745.4020003@fujitsu-siemens.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, au@unterluggauer.org, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CvZCT-00017g-00@gondolin.me.apana.org.au>
+To: Martin Wilck <martin.wilck@fujitsu-siemens.com>
+In-Reply-To: <41FE4745.4020003@fujitsu-siemens.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 31 Jan 2005 21:54:33 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, 31 Jan 2005 15:57:09 +0100
+Martin Wilck <martin.wilck@fujitsu-siemens.com> wrote:
 
-> Well without the check we would have silently ignored the sequence
-> number which is why you wouldn't have noticed the problem with racoon
-> before.
-> 
-> However, for those who need to use the sequence number this check is
-> necessary.
+> In both cases, the netdev->irq field isn't used anymore; perhaps it 
+> should be officially deprecated and/or removed?
 
-Yes, but the loop in the kernel must be prevented nevertheless,
-buggy userland or not.
+It is used for explicitly setting the IRQ value on hardware
+where doing so automatically via probing may not be %100
+reliable, such as on ISA.
+
+Another way to do what you're trying to do is to look for
+the string name of the device you are interested in within
+the output of /proc/interrupts.
