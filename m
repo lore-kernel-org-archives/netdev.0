@@ -1,17 +1,19 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [TG3] Initialise reset_task properly
-Date: Fri, 14 Nov 2003 20:00:37 -0500
+From: Mike_Phillips@URSCorp.com
+Subject: Re: [PATCH] ibmtr -- convert to new probeing
+Date: Fri, 14 Nov 2003 20:50:04 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FB57AB5.8050002@pobox.com>
-References: <20031112104833.GA15583@gondor.apana.org.au> <20031112104928.GA15629@gondor.apana.org.au>
+Message-ID: <OFC01F9F8F.2EDB286F-ON88256DDF.001A8469-88256DDF.001A8E8D@urscorp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20031112104928.GA15629@gondor.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied to 2.4 and 2.6
+
+Jeff,
+
+Thanks. I'll try this out over the weekend and provide the feedback.
+
+Mike
