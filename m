@@ -1,44 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Wed, 11 Feb 2004 16:53:20 +0200 (EET)
+From: chas williams (contractor) <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: prevent user-space compilation errors
+Date: Wed, 11 Feb 2004 09:25:57 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0402111643090.2809-100000@l>
-References: <1076506090.2268.252.camel@jzny.localdomain>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Message-ID: <200402111425.i1BEPtRr005772@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@oss.sgi.com, "Peter" <huisheng@angelfire.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1076506090.2268.252.camel@jzny.localdomain>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+the script used by redhat to generate glibc-kernheaders doesnt
+seem to handle #ifdef __KERNEL__/#else/#endif properly. it seems
+to remove the #ifdef/#else and leaves a dangling #endif.
 
-	Hello,
+this patch simplifies things a bit.  please apply to 2.6 and 2.4.
 
-On 11 Feb 2004, jamal wrote:
+thanks!
 
-> I agree with you. We may be saying the same thing. What i mean is [**]:
-> further below.
-
-	Yes, we better to talks with source code :)
-
-> [**] If a linux machine (which is sane ARP implementation) sent a unicast
-> probe to us, theres high likelihood that the target is in VALID state.
-> This is what i refered to as an educated guess.
-
-	Ah, this is not true :) Sane requestor as Linux will switch
-forever between STALE (delay+probe) and REACHABLE if target is STALE
-and we answer to these unicast requests without updating the
-target's state, for example, if there is only ARP traffic. In
-normal usage it can not occur but if someone is sending
-unicast requests without IP traffic we will hit it. IIRC, old
-arping versions do exactly this, 1 brd + many unicasts.
-
-> cheers,
-> jamal
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1315  -> 1.1316 
+#	include/linux/sonet.h	1.1     -> 1.2    
+#	include/linux/atmdev.h	1.12    -> 1.13   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/02/10	chas@relax.cmf.nrl.navy.mil	1.1316
+# [ATM]: prevent userspace compilation errors with glibc-kernheaders
+# --------------------------------------------
+#
+diff -Nru a/include/linux/atmdev.h b/include/linux/atmdev.h
+--- a/include/linux/atmdev.h	Tue Feb 10 16:13:55 2004
++++ b/include/linux/atmdev.h	Tue Feb 10 16:13:55 2004
+@@ -199,9 +199,7 @@
+     "SESSION",	"HASSAP",	"BOUND",	"CLOSE"
+ 
+ 
+-#ifndef __KERNEL__
+-#undef __AAL_STAT_ITEMS
+-#else
++#ifdef __KERNEL__
+ 
+ #include <linux/sched.h> /* wait_queue_head_t */
+ #include <linux/time.h> /* struct timeval */
+diff -Nru a/include/linux/sonet.h b/include/linux/sonet.h
+--- a/include/linux/sonet.h	Tue Feb 10 16:13:55 2004
++++ b/include/linux/sonet.h	Tue Feb 10 16:13:55 2004
+@@ -56,9 +56,7 @@
+ #define SONET_FRSENSE_SIZE 6		/* C1[3],H1[3] (0xff for unknown) */
+ 
+ 
+-#ifndef __KERNEL__
+-#undef __SONET_ITEMS
+-#else
++#ifdef __KERNEL__
+ 
+ #include <asm/atomic.h>
+ 
