@@ -1,41 +1,62 @@
-From: "James R. Leu" <jleu@mindspring.com>
-Subject: Re: Request: Allocate a Netlink Family Number for MPLS
-Date: Fri, 5 Dec 2003 11:35:32 -0600
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFR] new e100 driver
+Date: Fri, 05 Dec 2003 13:01:19 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031205173507.GB2241@mindspring.com>
-References: <Pine.SOL.4.40.0312011518440.25991-100000@gervaise.enst.fr> <20031201124532.3f6b6a65.davem@redhat.com>
-Reply-To: jleu@mindspring.com
+Message-ID: <3FD0C7EF.40305@pobox.com>
+References: <20031205063842.GA23843@gtf.org> <20031205164347.B1291@sygehus.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ramon Casellas <casellas@infres.enst.fr>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031201124532.3f6b6a65.davem@redhat.com>
+To: Rask Ingemann Lambertsen <rask@sygehus.dk>
+In-Reply-To: <20031205164347.B1291@sygehus.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 01, 2003 at 12:45:32PM -0800, David S. Miller wrote:
-> On Mon, 1 Dec 2003 15:36:26 +0100 (MET)
-> Ramon Casellas <casellas@infres.enst.fr> wrote:
+Rask Ingemann Lambertsen wrote:
+> On Fri, Dec 05, 2003 at 01:38:43AM -0500, Jeff Garzik wrote:
 > 
-> > We're working in porting mpls for linux to 2.6 and one of the planned
-> > features is to move from an IOCTL based approach to a Netlink based one
-> > for updating/querying the MPLS FTN/ILM/Label Mapping/... tables from
-> > userspace. Since netlink families are public, I would
-> > like to know if it is possible to reserve a family for MPLS, even though
-> > the MPLS patch is not part of the official kernel.
+>>e100 3.0.9_dev just got checked into net-drivers-2.5-exp queue.  As I do
+>>occasionally (especially for smaller drivers), I post them for review
+>>and comment.
 > 
-> You don't need a whole new netlink family.  Just create a dummy
-> address family for MPLS (ie. AF_MPLS) and then just use
-> NETLINK_ROUTE.
+> 
+> How would I build it? A patch for the Makefile is missing.
 
-Agreed.  One could also use AF_MPLS for applications to register for
-data associated with the router alert label.  I suppose one
-could also go completly nuts and allow an application to open stream
-connection that talks and listens on a specific label, but I think 
-that is a bit overboard.
+Download the net-drivers-2.5-exp patch I am about to post :)
 
--- 
-James R. Leu
-jleu@mindspring.com
+
+>>Patches welcome in addition to comments.
+>>
+>>One thing I am tempted to request is use of the new module_param()...
+> 
+> 
+> Does anybody have a macro that turns module_parm() into MODULE_PARM() for
+> 2.4 compatibility?
+
+Due to semantics of MODULE_PARM(), that's impossible AFAIK.
+
+
+
+>> *	References:
+>> *		Intel 8255x 10/100 Mbps Ethernet Controller Family,
+>> *		Open Source Software Developers Manual,
+>> *		http://sourceforge.net/projects/e1000
+> 
+> [cut]
+> 
+>> * 	Hardware padding of short packets to minimum packet size is
+>> * 	enabled.  82557 pads with 7Eh, while the later controllers pad
+>> * 	with 00h.
+> 
+> 
+> I would be nice if the documentation said so. A few days ago I spent half an
+> hour or so trying to figure out why frames sent by an 82558 were padded with
+> 0x00 rather than the documented 0x7e (with no sign of skb_padto(), memset()
+> or anything similiar in the driver).
+
+Do you mean the PDF documentation?  I dunno how much control Scott 
+Feldman and his team have over that.
+
+	Jeff
