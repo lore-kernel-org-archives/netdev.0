@@ -1,64 +1,44 @@
-From: =?iso-8859-1?q?nadia=20houziri?= <hona0005@yahoo.fr>
+From: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>
 Subject: Re: how to set the configuration EEPROM  back to the default setting
-Date: Mon, 3 Feb 2003 09:29:20 +0100 (CET)
+Date: Mon, 3 Feb 2003 13:24:19 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030203082920.38177.qmail@web13306.mail.yahoo.com>
+Message-ID: <Pine.LNX.4.44.0302031319240.27729-100000@kenzo.iwr.uni-heidelberg.de>
+References: <20030203082920.38177.qmail@web13306.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: =?iso-8859-1?q?nadia=20houziri?= <hona0005@yahoo.fr>
+In-Reply-To: <20030203082920.38177.qmail@web13306.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 3 Feb 2003, [iso-8859-1] nadia houziri wrote:
 
-=20
-=20
+>   1)how can i please Set the configuration EEPROM back 
 
+By using the DOS-based tool that you used to set it to coaxial :-)
 
-Hello  ,
+> 2)but how can i to explicitly set the media 
 
-i have COMBO 3COM900B Networkkarte  .=20=20
+The Scyld page that you mentioned exoplains this. IN /etc/modules.conf, 
+you need something like:
 
-I had tried a simple cross-linking under Linux SuSe7.2=20
+options 3c59x 3
 
-(Kernel 2.4.4.4-GB )  to finish , i use Coaxia cable like=20
+to select BNC.
 
-a Media type however it did not work, with twisted  cable it works very wel=
-l.
+> 3)how to change the EEPROM to switch?
 
-Then I have with the 3Com Tool floppy under DOS the following=20
+If you mean by this to just change the EEPROM every time you boot to 
+switch to a different media type, then you shouldn't do it !
+The EEPROM has a limited amount of writes and at some point you will not 
+be able to write to it anymore.
 
-conversion made:like a media type I select Coaxi cable
+-- 
+Bogdan Costescu
 
-and it have functioned however with the  twisted cable do not go.
-
-my quations are :=20
-
-  1)how can i please Set the configuration EEPROM=20
-back=20
-
-to the default setting, using themodule options from=20=20=20=20
-http://www.scyld.com/network/vortex.htmlwhat are those stage to follow?
-
-i know There is no way to reliably detect a connected 10base2 network=20
-cable,=20
-
-2)but how can i to explicitly set the media=20
-
-3)how to change the EEPROM to switch?
-
-thanks=20
-
-nadia,houziri
-
-yours sincerly
-
-
-
----------------------------------
-Do You Yahoo!? -- Une adresse @yahoo.fr gratuite et en fran=E7ais !
-Testez le nouveau Yahoo! Mail
-
-[[HTML alternate version deleted]]
+IWR - Interdisziplinaeres Zentrum fuer Wissenschaftliches Rechnen
+Universitaet Heidelberg, INF 368, D-69120 Heidelberg, GERMANY
+Telephone: +49 6221 54 8869, Telefax: +49 6221 54 8868
+E-mail: Bogdan.Costescu@IWR.Uni-Heidelberg.De
