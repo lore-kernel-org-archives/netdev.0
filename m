@@ -1,34 +1,39 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: 2.6.9-rc1+bk: assertion tcp_get_pcount failed at net/ipv4/tcp_input.c
-Date: Thu, 09 Sep 2004 23:39:57 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IP6IP6] Handle ECN correctly
+Date: Fri, 10 Sep 2004 17:02:42 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41414C3D.2090606@us.ibm.com>
-References: <20040909111233.GA3987@steel.home>	<20040910033055.GA26790@gondor.apana.org.au> <20040909222542.7a30c0e4.davem@davemloft.net>
+Message-ID: <20040910070242.GA28017@gondor.apana.org.au>
+References: <20040909034508.GA19547@gondor.apana.org.au> <20040908214023.08dec350.davem@davemloft.net> <20040909044336.GA19999@gondor.apana.org.au> <20040908214926.51b56a66.davem@davemloft.net> <20040909045415.GA20079@gondor.apana.org.au> <20040908220802.1c25b806.davem@davemloft.net> <20040910003158.GA25335@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, fork0@users.sourceforge.net,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040909222542.7a30c0e4.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040910003158.GA25335@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+On Fri, Sep 10, 2004 at 10:31:58AM +1000, herbert wrote:
+> 
+> Hmm, perhaps I'm still confused.  But it seems that the ability to
+> set the TOS to any value other than *1 is already there for ipip/ip_gre.
+> 
+> That feature is missing for SIT and IPsec though.
+> 
+> We may also want to use the TOS value from parms to decide whether we want
+> to encapsulate/decapsulate ECN.
+> 
+> Is my understanding correct?
 
-> Herbert did you see my division fix I made today for
-> tso_factor calculation?  I was dividing by the TSO mss
-> instead of the normal one :-)
+Obviously not.  Although we've got this stuff on the transmit side,
+we don't do this on the receive side.
 
-Dave, I'm just catching up with the most recent
-kernel (from 2.6.8.1 and a hiatus), and I believe
-the fixes you refer to as well as the change in
-tcp_init_cwnd (tso_factor etc) make TSO consistent
-with the standard now.
+I'll look into it.
 
-That correct? (And thanks, much appreciated, I was
-about to fiddle with the same stuff :)).
-
-thanks,
-Nivedita
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
