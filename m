@@ -1,23 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Eliminate MOD_ from wanrouter
-Date: Sat, 19 Jul 2003 21:48:43 -0700
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [2.6.0-test1-mm1] TCP connections over ipsec hang after a few
+ seconds
+Date: Sun, 20 Jul 2003 15:58:13 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030719214843.0dbf5f3c.davem@redhat.com>
-References: <20030718133512.434b1e70.shemminger@osdl.org>
+Message-ID: <Mutt.LNX.4.44.0307201552580.22965-100000@excalibur.intercode.com.au>
+References: <6uk7aeab33.fsf@zork.zork.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ncorbic@sangoma.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030718133512.434b1e70.shemminger@osdl.org>
+To: Sean Neakums <sneakums@zork.net>
+In-Reply-To: <6uk7aeab33.fsf@zork.zork.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Jul 2003 13:35:12 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Sat, 19 Jul 2003, Sean Neakums wrote:
 
-> Wan router register/unregister doesn't need MOD_INC/MOD_DEC because it
-> can't be unloaded as long as it's symbols are in use by the calling module.
+> twenty.  The problem seems unrelated to the amount of data
+> transferred; I've tried both bulk rsync transfers and ssh sessions.
+> I've also tested the same boxes over 100baseT; still happens.
 
-Applied, thanks.
+It sounds a bit like a pmtu problem related to the wireless bridge, but 
+that would be dependent on amount of data transferred and should not 
+happen on 100baseT.
+
+Transport mode (just blowfish encryption) looks to be working ok for me,
+I'm able to ftp uncompressed kernel tarballs between two boxes over 
+gigabit ethernet with no apparent problems.
+
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
