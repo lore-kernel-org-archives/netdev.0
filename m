@@ -1,50 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 2.6.11-rc4-netdev1 5/5] r8169: literate PCI ID
-Date: Tue, 22 Feb 2005 20:31:00 -0500
-Message-ID: <421BDCD4.3050705@pobox.com>
-References: <20050221235125.GD26248@electric-eye.fr.zoreil.com> <20050221235301.GA31723@electric-eye.fr.zoreil.com> <20050221235450.GB31723@electric-eye.fr.zoreil.com> <20050221235611.GC31723@electric-eye.fr.zoreil.com> <20050221235718.GD31723@electric-eye.fr.zoreil.com> <20050221235834.GE31723@electric-eye.fr.zoreil.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Bug-hunting
+Date: Tue, 22 Feb 2005 19:30:00 -0800
+Message-ID: <20050222193000.404ae6d2.davem@davemloft.net>
+References: <421B4AB7.9030003@rapidforum.com>
+	<20050222104448.31373a99.davem@davemloft.net>
+	<421B8563.9030608@rapidforum.com>
+	<20050222115114.0d0e568e.davem@davemloft.net>
+	<421BBE7B.1050009@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jdmason@us.ibm.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050221235834.GE31723@electric-eye.fr.zoreil.com>
+Cc: netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+In-Reply-To: <421BBE7B.1050009@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> De-obfuscate supported PCI ID
-> 
-> Non-hackers happen to read the sources too.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> 
-> diff -puN drivers/net/r8169.c~r8169-440 drivers/net/r8169.c
-> --- a/drivers/net/r8169.c~r8169-440	2005-02-21 23:42:21.193570455 +0100
-> +++ b/drivers/net/r8169.c	2005-02-21 23:42:21.200569312 +0100
-> @@ -174,8 +174,10 @@ const static struct {
->  #undef _R
->  
->  static struct pci_device_id rtl8169_pci_tbl[] = {
-> -	{0x10ec, 0x8169, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-> -	{0x1186, 0x4300, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-> +	{ PCI_VENDOR_ID_REALTEK, PCI_DEVICE_ID_REALTEK_8169,
-> +	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
-> +	{ PCI_VENDOR_ID_DLINK, PCI_DEVICE_ID_DLINK_DGE528T,
-> +	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+On Wed, 23 Feb 2005 00:21:31 +0100
+Christian Schmid <webmaster@rapidforum.com> wrote:
 
-Although I leave it up to you as maintainer, I encourage use of 
-PCI_VENDOR_ID_xxx and discourage use of PCI_DEVICE_ID_xxx.
+> To reproduce this, you would have to create a server which is sending data to 4000 non-blocking 
+> sockets. It doesnt matter what you send. You should realize a slow-down the more sockets you use. 
+> You need Gigabit for this to appear.
 
-Defining constants for each PCI device
-(a) endlessly patches pci_ids.h for little value, and
-(b) means that updates to a single driver are no longer self-contained.
+Please send us the exact test programs to run, not some general
+description of what "one should do" to reproduce the problem.
 
-For people pulling driver updates into distro kernels particularly, 
-pci_ids PCI_DEVICE_ID_xxx constants are a pain.
-
-I'm apply patches 1-4 to netdev right now -- please tell me if I should 
-apply patch #5 as-is, given my comments here.
-
-	Jeff
+This is exactly what is stalling this bug getting diagnosed properly
+and fixed.
