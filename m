@@ -1,39 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: kernel bug in socketpair()
-Date: Wed, 23 Jul 2003 12:56:25 -0700
+Subject: Re: Trivial cosmetic unimportant issue (urgent)
+Date: Wed, 23 Jul 2003 13:19:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030723125625.77eda939.davem@redhat.com>
-References: <200307231428.KAA15254@raptor.research.att.com>
-	<20030723074615.25eea776.davem@redhat.com>
-	<200307231656.MAA69129@raptor.research.att.com>
-	<20030723100043.18d5b025.davem@redhat.com>
-	<200307231724.NAA90957@raptor.research.att.com>
-	<20030723103135.3eac4cd2.davem@redhat.com>
-	<200307231814.OAA74344@raptor.research.att.com>
-	<20030723112307.5b8ae55c.davem@redhat.com>
-	<200307231854.OAA90112@raptor.research.att.com>
-	<20030723120457.206dc02d.davem@redhat.com>
-	<200307231911.PAA35164@raptor.research.att.com>
-	<20030723121436.10d53965.davem@redhat.com>
-	<200307231929.PAA77754@raptor.research.att.com>
+Message-ID: <20030723131928.324b1632.davem@redhat.com>
+References: <000901c3514e$59697bd0$7f0a0a0a@lappy7>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: gsf@research.att.com, dgk@research.att.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Glenn Fowler <gsf@research.att.com>
-In-Reply-To: <200307231929.PAA77754@raptor.research.att.com>
+To: "Sean" <seanlkml@rogers.com>
+In-Reply-To: <000901c3514e$59697bd0$7f0a0a0a@lappy7>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Jul 2003 15:29:03 -0400 (EDT)
-Glenn Fowler <gsf@research.att.com> wrote:
+On Wed, 23 Jul 2003 15:12:24 -0400
+"Sean" <seanlkml@rogers.com> wrote:
 
-> linux has ioctl(I_PEEK) for stream devices and recv() for sockets,
-> and neither of these work on pipes; if there is a linux alternative
-> for pipes then we'd be glad to use it
+>       Just a few days uptime and sysfs is reporting that i've transfered a _negative_ number of bytes!  Any chance this could be
+> unsigned output instead?    The display is created in a common net_device_stat_show but none of the others values should go negative
+> either.
 
-Alan mentioned the pure-socket namespace we have for named unix
-sockets, but I don't think you can actually use it for your
-problem unfortunately.
+This should fix it.
+
+--- net/core/net-sysfs.c.~1~	Wed Jul 23 12:20:15 2003
++++ net/core/net-sysfs.c	Wed Jul 23 12:20:24 2003
+@@ -186,7 +186,7 @@
+ 
+ static ssize_t net_device_stat_show(unsigned long var, char *buf)
+ {
+-	return sprintf(buf, "%ld\n", var);
++	return sprintf(buf, "%lu\n", var);
+ }
+ 
+ /* generate a read-only statistics attribute */
