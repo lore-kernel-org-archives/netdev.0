@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 13/16] HFSC: Use gnet_stats for class statistics
-Date: Thu, 21 Oct 2004 14:48:24 +0200
+Subject: [PATCH 14/16] HFSC: Use generic rate estimator
+Date: Thu, 21 Oct 2004 14:49:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021124824.GR21977@postel.suug.ch>
+Message-ID: <20041021124924.GS21977@postel.suug.ch>
 References: <20041021123209.GE21977@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,50 +14,44 @@ In-Reply-To: <20041021123209.GE21977@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Converts HTB class statistic counters to gnet_stats
-structures.
+Makes HFSC use the generic rate estimator.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.9-rc5.orig/net/sched/sch_hfsc.c	2004-10-21 11:07:46.000000000 +0200
-+++ linux-2.6.9-rc5/net/sched/sch_hfsc.c	2004-10-21 13:11:06.000000000 +0200
-@@ -122,7 +122,9 @@
- 	u32		classid;	/* class id */
- 	unsigned int	refcnt;		/* usage count */
+--- linux-2.6.9-rc5.orig/net/sched/sch_hfsc.c	2004-10-21 13:12:24.000000000 +0200
++++ linux-2.6.9-rc5/net/sched/sch_hfsc.c	2004-10-21 13:12:53.000000000 +0200
+@@ -1100,11 +1100,9 @@
+ 		sch_tree_unlock(sch);
  
--	struct tc_stats	stats;		/* generic statistics */
-+	struct gnet_stats_basic bstats;
-+	struct gnet_stats_queue qstats;
-+	struct gnet_stats_rate_est rate_est;
- 	spinlock_t	*stats_lock;
- 	unsigned int	level;		/* class level in hierarchy */
- 	struct tcf_proto *filter_list;	/* filter list */
-@@ -1686,7 +1688,7 @@
- 
- 	err = cl->qdisc->enqueue(skb, cl->qdisc);
- 	if (unlikely(err != NET_XMIT_SUCCESS)) {
--		cl->stats.drops++;
-+		cl->qstats.drops++;
- 		sch->qstats.drops++;
- 		return err;
+ #ifdef CONFIG_NET_ESTIMATOR
+-		if (tca[TCA_RATE-1]) {
+-			qdisc_kill_estimator(&cl->stats);
+-			qdisc_new_estimator(&cl->stats, cl->stats_lock,
+-					    tca[TCA_RATE-1]);
+-		}
++		if (tca[TCA_RATE-1])
++			gen_replace_estimator(&cl->bstats, &cl->rate_est,
++				cl->stats_lock, tca[TCA_RATE-1]);
+ #endif
+ 		return 0;
  	}
-@@ -1694,8 +1696,8 @@
- 	if (cl->qdisc->q.qlen == 1)
- 		set_active(cl, len);
+@@ -1162,8 +1160,8 @@
  
--	cl->stats.packets++;
--	cl->stats.bytes += len;
-+	cl->bstats.packets++;
-+	cl->bstats.bytes += len;
- 	sch->bstats.packets++;
- 	sch->bstats.bytes += len;
- 	sch->q.qlen++;
-@@ -1799,7 +1801,7 @@
- 			} else {
- 				list_move_tail(&cl->dlist, &q->droplist);
- 			}
--			cl->stats.drops++;
-+			cl->qstats.drops++;
- 			sch->qstats.drops++;
- 			sch->q.qlen--;
- 			return len;
+ #ifdef CONFIG_NET_ESTIMATOR
+ 	if (tca[TCA_RATE-1])
+-		qdisc_new_estimator(&cl->stats, cl->stats_lock,
+-				    tca[TCA_RATE-1]);
++		gen_new_estimator(&cl->bstats, &cl->rate_est,
++			cl->stats_lock, tca[TCA_RATE-1]);
+ #endif
+ 	*arg = (unsigned long)cl;
+ 	return 0;
+@@ -1188,7 +1186,7 @@
+ 	hfsc_destroy_filters(&cl->filter_list);
+ 	qdisc_destroy(cl->qdisc);
+ #ifdef CONFIG_NET_ESTIMATOR
+-	qdisc_kill_estimator(&cl->stats);
++	gen_kill_estimator(&cl->bstats, &cl->rate_est);
+ #endif
+ 	if (cl != &q->root)
+ 		kfree(cl);
