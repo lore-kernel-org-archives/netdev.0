@@ -1,34 +1,48 @@
-From: Mike Fedyk <mfedyk@matchmail.com>
-Subject: Fwd: Re: [2.6] nfs_rename: target $file busy, d_count=2
-Date: Thu, 15 Jan 2004 21:14:26 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040116051426.GG1748@srv-lnx2600.matchmail.com>
+From: Patrick Mau <mau@oscar.ping.de>
+Subject: Re: Fwd: Re: [2.6] nfs_rename: target $file busy, d_count=2
+Date: Fri, 16 Jan 2004 14:03:36 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040116130336.GA5220@oscar.prima.de>
+References: <20040116050642.GF1748@srv-lnx2600.matchmail.com>
+Reply-To: Patrick Mau <mau@oscar.ping.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
+Cc: Mike Fedyk <mfedyk@matchmail.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040116050642.GF1748@srv-lnx2600.matchmail.com>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 15, 2004 at 04:54:57PM -0800, Mike Fedyk wrote:
-> On Thu, Jan 15, 2004 at 04:03:46PM -0800, Mike Fedyk wrote:
-> > Both client and server are running the same 2.6.1-bk2 kernel with TCP-NFS.
-> > SMP, Highmem, & preempt.
+On Thu, Jan 15, 2004 at 09:06:42PM -0800, Mike Fedyk wrote:
+> On Thu, Jan 15, 2004 at 04:54:57PM -0800, Mike Fedyk wrote:
+> > On Thu, Jan 15, 2004 at 04:03:46PM -0800, Mike Fedyk wrote:
+> > > Both client and server are running the same 2.6.1-bk2 kernel with TCP-NFS.
+> > > SMP, Highmem, & preempt.
+> > 
+> > I have four clients that are all having this problem also, three 2.6, and
+> > one 2.4 client.
+> > 
+> > Using TCP-NFS they all have stale nfs handles even after a reboot (only
+> > rebooted one to try with 2.4.23), but changed one to UDP-NFS, and it didn't
+> > have the stale handles.
+> > 
+> > Will do more testing with UDP-NFS.
 > 
-> I have four clients that are all having this problem also, three 2.6, and
-> one 2.4 client.
+> No, TCP and UDP NFS both get stale file handles. :(
 > 
-> Using TCP-NFS they all have stale nfs handles even after a reboot (only
-> rebooted one to try with 2.4.23), but changed one to UDP-NFS, and it didn't
-> have the stale handles.
-> 
-> Will do more testing with UDP-NFS.
+> Can anyone reproduce?
 
-No, TCP and UDP NFS both get stale file handles. :(
+Hi,
 
-Can anyone reproduce?
+I was able to reproduce stale handles a long time ago.
+A workable solution for me was to export using 'no_subtree_check'
+on the server. Like this:
 
+/data \
+  tony.local.net(rw,sync,no_root_squash,no_subtree_check) \
 
------ End forwarded message -----
+Could you please try and reply to my address if t works ?
+
+Thanks,
+Patrick
