@@ -1,25 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH] 2.6 and 2.4 SCTP updates.
-Date: Fri, 4 Jun 2004 14:13:59 -0700
+Subject: Re: Broken? 2.6.6 + IP_ADD_SOURCE_MEMBERSHIP + SO_REUSEADDR
+Date: Fri, 4 Jun 2004 14:29:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040604141359.19511d4a.davem@redhat.com>
-References: <Pine.LNX.4.58.0406041104520.2786@localhost.localdomain>
+Message-ID: <20040604142928.0d9045ce.davem@redhat.com>
+References: <20040604155423.GA5656@muffin>
+	<20040605.015544.102223977.yoshfuji@linux-ipv6.org>
+	<20040604212916.GA6683@muffin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0406041104520.2786@localhost.localdomain>
+To: "Wesley W. Terpstra" <terpstra@gkec.tu-darmstadt.de>
+In-Reply-To: <20040604212916.GA6683@muffin>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 Jun 2004 11:44:12 -0700 (PDT)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On Fri, 4 Jun 2004 23:29:16 +0200
+"Wesley W. Terpstra" <terpstra@gkec.tu-darmstadt.de> wrote:
 
-> Please do a
->         bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work &
->         bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
-> to get the following bugfix csets to 2.6 and 2.4 SCTP.
+> I am amazed you fixed it so fast!
+> Will this make it into 2.6.7?
 
-Pulled, thanks Sridhar.
+Yes, and 2.4.27 hopefully as well.
