@@ -1,34 +1,58 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Andre Tomt <andre@tomt.net>
 Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Mon, 28 Feb 2005 02:28:28 +0900 (JST)
-Message-ID: <20050228.022828.120983354.yoshfuji@linux-ipv6.org>
+Date: Sun, 27 Feb 2005 18:40:07 +0100
+Message-ID: <422205F7.4080401@tomt.net>
 References: <200502270928.44402.Info@Quantum-Sci.com>
-	<20050228.011038.129063054.yoshfuji@linux-ipv6.org>
-	<200502271029.02532.Info@Quantum-Sci.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-To: Info@Quantum-Sci.com
-In-Reply-To: <200502271029.02532.Info@Quantum-Sci.com>
+Cc: netdev@oss.sgi.com
+To: Quantum Scientific <Info@Quantum-Sci.com>
+In-Reply-To: <200502270928.44402.Info@Quantum-Sci.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <200502271029.02532.Info@Quantum-Sci.com> (at Sun, 27 Feb 2005 10:29:02 -0600), Quantum Scientific <Info@Quantum-Sci.com> says:
+Quantum Scientific wrote:
+> After a week of intensive research and full-time study, it's become clear that 
+> IPV6 support, as it comes in standard Linux 2.6 kernels, is effectively 
+> non-functional.
+> 
+> I have a properly working firewall, but it appears there is no stateful 
+> filtering nor connection  tracking in the IPV6 stack.  I send out an 
+> echo-request, but have to open icmpv6-129 in order to get the response back.  
+> Same with http.  We can't open all our incoming ports.  There is no 
+> IP6_NF_CONNTRACK nor IP6_NF_MATCH_STATE in the kernel.  And if this 
+> functionality is supposed to be inherent in IPV6, it is not working.
 
-> And I have looked at every single file in the Split directory, and there are 
-> absolutely no .diff files.  .diff files are how patch files are identified in 
-> *nix, of course.  I thought, maybe I should copy the kernel files into my 
-> kernel tree by hand, for building.  But this doesn't make sense because the 
-> only file under usagi-split/kernel/usagi/net/ipv6 is utils.c .  This is not 
-> an IPV6 stack, nor ip6tables.  I see lots of apps, which likely have the 
-> USAGI improvements, but no kernel stack, patch, ipv6filters, etc.  And no 
-> mention of patching a non-USAGI kernel.  Split 20050214 appears to be 
-> utilities only.
+Connection tracking (as in stateful firewalling) do not a useful ipv6 
+stack make.. The stack works fine, at least the stack provided in 2.6 
+kernels. The 2.4 stack is severely out of date, however, but should "work".
 
-Don't you find diff files?! e.g:
-  ftp://ftp.linux-ipv6.org/pub/usagi/snap/split/usagi-linux26-s20050214-2.6.11-rc3.diff.bz2
-is patch against linux-2.6.11-rc3.
+Connection tracking is on the way, currently a implementation exists in 
+the netfilter.org patch-o-matic svn.
 
---yoshfuji
+<snip>
+
+> I must stay with the Debian kernel.
+
+Debian ships 2.6.8 with ipv6 enabled in Sarge. Not sure about Woody, but 
+its ought to be rather outdated by now ;-)
+
+> I can't believe the native kernel's IPV6 is so primitive.  I can't believe any 
+> kernel developers are actually using IPV6.  And I can't believe that anyone 
+> is actually using IPV6 with the Debian kernel.  The Debian IPV6 mailing list 
+> is full of spam, and brought viruses and scams to my door when I subscribed.  
+> No one I've asked questions of has mentioned any of this at all, so if there 
+> is an answer, it is clearly a secret.
+
+> So is there something I'm missing?  Am I completely fscked-up when I say that 
+> it doesn't work in practice, because there is no stateful packet filtering 
+> nor connection tracking?
+
+You seem to be fixed on the idea that a ipv6 stack has to have stateful 
+firewalling, or else its utter crap, correct? :-)
+
+Not all hosts need firewalling at all, or firewalling is provided by 
+routers/firewalls for them. I use ipv6 in production networks, on Linux, 
+without special patches.
