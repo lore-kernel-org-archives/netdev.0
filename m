@@ -1,37 +1,36 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: High CPU utilization with Bonding driver ?
-Date: Tue, 05 Apr 2005 13:31:26 -0700
-Message-ID: <200504052031.j35KVQiR027629@death.nxdomain.ibm.com>
-References: <ravinandan.arakali@neterion.com>
-Cc: "'Arthur Kepner'" <akepner@sgi.com>, netdev@oss.sgi.com,
-        bonding-devel@lists.sourceforge.net,
-        "'Leonid. Grossman (E-mail)'" <leonid.grossman@neterion.com>,
-        "'Raghavendra. Koushik (E-mail)'" <raghavendra.koushik@neterion.com>
+From: Sam Ravnborg <sam@ravnborg.org>
+Subject: Re: [PATCH] network configs: disconnect network options from drivers
+Date: Tue, 5 Apr 2005 23:04:06 +0200
+Message-ID: <20050405210406.GA10325@mars.ravnborg.org>
+References: <20050330234709.1868eee5.randy.dunlap@verizon.net> <20050331185226.GA8146@mars.ravnborg.org> <424C5745.7020501@osdl.org> <20050331203010.GA8034@mars.ravnborg.org> <4250B4C5.2000200@osdl.org> <20050404195051.GA12364@mars.ravnborg.org> <Pine.LNX.4.61.0504051033310.5053@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Randy.Dunlap" <rddunlap@osdl.org>, ioe-lkml@axxeo.de, matthew@wil.cx,
+        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+        hadi@cyberus.ca, cfriesen@nortel.com, tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-In-Reply-To: Message from "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
-   of "Tue, 05 Apr 2005 12:04:56 PDT." <002a01c53a12$5b876770$3a10100a@pc.s2io.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0504051033310.5053@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ravinandan Arakali <ravinandan.arakali@neterion.com> wrote:
+On Tue, Apr 05, 2005 at 10:42:25AM -0700, Sridhar Samudrala wrote:
+> On Mon, 4 Apr 2005, Sam Ravnborg wrote:
+> 
+> >
+> >Only bit that I am worried about is the statement in SCTP:
+> >	depends on IPV6 || IPV6=n
+> >
+> >That looked like a noop to me. It had the sideeffect that SCTP
+> >menu entries where idented an extra level which was not desireable
+> >with currect layout.
+> >
+> 
+> No. This is not a noop. This is required to restrict SCTP configured as
+> static when IPV6 is configured as module.
 
->The problem does not seem to be due to your patch because
->the bonding driver built without your patch crashes too on load.
->However, the pre-existing binary under /lib/modules/`uname -r`/...
->works fine.
->Any idea why this may be happening ?
->
->Given below is the output of trying to insmod the bonding driver.
->
->linux:/usr/src/linux-2.6.5-7.135/drivers/net/bonding # insmod bonding.ko
->mode=4 miimon=100
+I see now - thanks.
 
-	What's this kernel from, and do you have the config file
-available?
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+	Sam
