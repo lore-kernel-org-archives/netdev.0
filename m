@@ -1,188 +1,89 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2/2 2.6.6-rc1-bk5] pcnet32 timer to free tx skbs for 79C971/972
-Date: Tue, 20 Apr 2004 15:57:28 -0700 (PDT)
+From: Scott Feldman <scott.feldman@intel.com>
+Subject: Re: e100 NETDEV WATCHDOG transmit timeout since 2.6.4
+Date: Tue, 20 Apr 2004 16:04:26 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404202257.i3KMvSr13923@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <Pine.LNX.4.58.0404201559290.7794@snichols-desk.amr.corp.intel.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0103E9A4E6@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: Mike Keehan <mike_keehan@yahoo.com>, eamonn.hamilton@saic.com
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0103E9A4E6@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At the next opportunity to add new code to 2.6.6, please apply the following:
 
-This patch uses an on-chip timer to free completed transmit skb's for the
-79C971 and 972 versions which currently will leave completed transmit
-skb's on the transmit ring until new transmit traffic occurs.
 
---- linux-2.6.6-rc1-bk5/drivers/net/dump.pcnet32.c	Tue Apr 20 15:47:47 2004
-+++ linux-2.6.6-rc1-bk5/drivers/net/pcnet32.c	Tue Apr 20 15:48:49 2004
-@@ -237,6 +237,8 @@
-  *	   Thomas Munck Steenholdt <tmus@tmus.dk> non-mii ioctl corrections.
-  * v1.29   6 Apr 2004 Jim Lewis <jklewis@us.ibm.com> added physical
-  *	   identification code (blink led's) and register dump.
-+ *	   Don Fry added timer for 971/972 so skbufs don't remain on tx ring
-+ *	   forever.
-  */
- 
- 
-@@ -497,9 +499,9 @@
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void pcnet32_poll_controller(struct net_device *dev)
+On Tue, 20 Apr 2004, Mike Keehan wrote:
+
+> I am getting these too in recent kernels, but only on a
+> 10Mhz half-duplex network. I have to manually down
+> and up the interface to recover.
+>
+> On a 100Mhz switched network, the e100 is OK (at least 12hours+).
+
+
+Mike/Eamonn,
+
+Give this patch a try.  This adds a required workaround for ICH when
+working at 10/Half.  (Guessing you have an ICH system).
+
+--- linux-2.5/drivers/net/e100.c	2004-04-20 15:52:24.000000000 -0700
++++ linux-2.5/drivers/net/e100.c.mod	2004-04-20 15:55:32.000000000 -0700
+@@ -287,6 +287,7 @@ enum scb_cmd_hi {
+ };
+
+ enum scb_cmd_lo {
++	cuc_nop        = 0x00,
+ 	ruc_start      = 0x01,
+ 	ruc_load_base  = 0x06,
+ 	cuc_start      = 0x10,
+@@ -514,10 +515,11 @@ struct nic {
+ 	/* End: frequently used values: keep adjacent for cache effect */
+
+ 	enum {
+-		ich           = (1 << 0),
+-		promiscuous   = (1 << 1),
+-		multicast_all = (1 << 2),
+-		wol_magic     = (1 << 3),
++		ich                = (1 << 0),
++		promiscuous        = (1 << 1),
++		multicast_all      = (1 << 2),
++		wol_magic          = (1 << 3),
++		ich_10h_workaround = (1 << 4),
+ 	} flags					____cacheline_aligned;
+
+ 	enum mac mac;
+@@ -1225,6 +1227,12 @@ static void e100_watchdog(unsigned long
+ 		/* Issue a multicast command to workaround a 557 lock up */
+ 		e100_set_multicast_list(nic->netdev);
+
++	if(nic->flags & ich && cmd.speed==SPEED_10 && cmd.duplex==DUPLEX_HALF)
++		/* Need SW workaround for ICH[x] 10Mbps/half duplex Tx hang. */
++		nic->flags |= ich_10h_workaround;
++	else
++		nic->flags &= ~ich_10h_workaround;
++
+ 	mod_timer(&nic->watchdog, jiffies + E100_WATCHDOG_PERIOD);
+ }
+
+@@ -1244,7 +1252,17 @@ static inline void e100_xmit_prepare(str
+ static int e100_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
  {
--	disable_irq(dev->irq);
--	pcnet32_interrupt(0, dev, NULL);
--	enable_irq(dev->irq);
-+    disable_irq(dev->irq);
-+    pcnet32_interrupt(0, dev, NULL);
-+    enable_irq(dev->irq);
- }
- #endif
- 
-@@ -1105,6 +1107,13 @@
- 	ltint = 1;
-     }
- 
-+    if (ltint) {
-+	/* Enable timer to prevent skbuffs from remaining on the tx ring
-+	 * forever if no other tx being done.  Set timer period to about
-+	 * 122 ms */
-+	a->write_bcr(ioaddr, 31, 0x253b);
-+    }
+ 	struct nic *nic = netdev->priv;
+-	int err = e100_exec_cb(nic, skb, e100_xmit_prepare);
++	int err;
 +
-     dev = alloc_etherdev(0);
-     if (!dev) {
- 	if (pcnet32_debug & NETIF_MSG_PROBE)
-@@ -1451,6 +1460,11 @@
-     lp->a.write_csr (ioaddr, 4, 0x0915);
-     lp->a.write_csr (ioaddr, 0, 0x0001);
- 
-+    if (lp->ltint) {
-+	/* start the software timer */
-+	lp->a.write_csr(ioaddr, 7, 0x0400);	/* set STINTE */
-+    }
++	if(nic->flags & ich_10h_workaround) {
++		/* SW workaround for ICH[x] 10Mbps/half duplex Tx hang.
++		   Issue a NOP command followed by a 1us delay before
++		   issuing the Tx command. */
++		e100_exec_cmd(nic, cuc_nop, 0);
++		udelay(1);
++	}
 +
-     netif_start_queue(dev);
- 
-     /* If we have mii, print the link status and start the watchdog */
-@@ -1652,13 +1666,13 @@
-     int entry;
-     unsigned long flags;
- 
-+    spin_lock_irqsave(&lp->lock, flags);
-+
-     if (netif_msg_tx_queued(lp)) {
- 	printk(KERN_DEBUG "%s: pcnet32_start_xmit() called, csr0 %4.4x.\n",
- 	       dev->name, lp->a.read_csr(ioaddr, 0));
-     }
- 
--    spin_lock_irqsave(&lp->lock, flags);
--
-     /* Default status -- will not enable Successful-TxDone
-      * interrupt when that option is available to us.
-      */
-@@ -1719,7 +1733,7 @@
-     struct net_device *dev = dev_id;
-     struct pcnet32_private *lp;
-     unsigned long ioaddr;
--    u16 csr0,rap;
-+    u16 csr0, csr7, rap;
-     int boguscnt =  max_interrupt_work;
-     int must_restart;
- 
-@@ -1736,13 +1750,19 @@
-     spin_lock(&lp->lock);
- 
-     rap = lp->a.read_rap(ioaddr);
--    while ((csr0 = lp->a.read_csr (ioaddr, 0)) & 0x8600 && --boguscnt >= 0) {
-+    csr0 = lp->a.read_csr (ioaddr, 0);
-+    csr7 = lp->ltint ? lp->a.read_csr(ioaddr, 7) : 0;
-+
-+    while ((csr0 & 0x8600 || csr7 & 0x0800) && --boguscnt >= 0) {
- 	if (csr0 == 0xffff) {
- 	    break;			/* PCMCIA remove happened */
- 	}
- 	/* Acknowledge all of the current interrupt sources ASAP. */
- 	lp->a.write_csr (ioaddr, 0, csr0 & ~0x004f);
- 
-+	if (csr7 & 0x0800)
-+	    lp->a.write_csr(ioaddr, 7, csr7);
-+
- 	must_restart = 0;
- 
- 	if (netif_msg_intr(lp))
-@@ -1752,7 +1772,7 @@
- 	if (csr0 & 0x0400)		/* Rx interrupt */
- 	    pcnet32_rx(dev);
- 
--	if (csr0 & 0x0200) {		/* Tx-done interrupt */
-+	if (csr0 & 0x0200 || csr7 & 0x0800) {	/* Tx-done or Timer interrupt */
- 	    unsigned int dirty_tx = lp->dirty_tx;
- 	    int delta;
- 
-@@ -1859,6 +1879,9 @@
- 	    lp->a.write_csr (ioaddr, 0, 0x0004);
- 	    pcnet32_restart(dev, 0x0002);
- 	}
-+
-+	csr0 = lp->a.read_csr (ioaddr, 0);
-+	csr7 = lp->ltint ? lp->a.read_csr(ioaddr, 7) : 0;
-     }
- 
-     /* Clear any other interrupt, and set interrupt enable. */
-@@ -1945,6 +1968,7 @@
- 		    if (i > RX_RING_SIZE -2) {
- 			lp->stats.rx_dropped++;
- 			lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
-+			wmb();	/* Make sure adapter sees owner change */
- 			lp->cur_rx++;
- 		    }
- 		    break;
-@@ -2008,6 +2032,10 @@
-     /* We stop the PCNET32 here -- it occasionally polls memory if we don't. */
-     lp->a.write_csr (ioaddr, 0, 0x0004);
- 
-+    if (lp->ltint) {	/* Disable timer interrupts */
-+	lp->a.write_csr(ioaddr, 7, 0x0000);
-+    }
-+
-     /*
-      * Switch back to 16bit mode to avoid problems with dumb
-      * DOS packet driver after a warm reboot
-@@ -2018,9 +2046,12 @@
- 
-     free_irq(dev->irq, dev);
- 
-+    spin_lock_irqsave(&lp->lock, flags);
-+
-     /* free all allocated skbuffs */
-     for (i = 0; i < RX_RING_SIZE; i++) {
- 	lp->rx_ring[i].status = 0;
-+	wmb();		/* Make sure adapter sees owner change */
- 	if (lp->rx_skbuff[i]) {
- 	    pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i], PKT_BUF_SZ-2,
- 		    PCI_DMA_FROMDEVICE);
-@@ -2031,6 +2062,8 @@
-     }
- 
-     for (i = 0; i < TX_RING_SIZE; i++) {
-+	lp->tx_ring[i].status = 0;	/* CPU owns buffer */
-+	wmb();		/* Make sure adapter sees owner change */
- 	if (lp->tx_skbuff[i]) {
- 	    pci_unmap_single(lp->pci_dev, lp->tx_dma_addr[i],
- 		    lp->tx_skbuff[i]->len, PCI_DMA_TODEVICE);
-@@ -2040,6 +2073,8 @@
- 	lp->tx_dma_addr[i] = 0;
-     }
- 
-+    spin_unlock_irqrestore(&lp->lock, flags);
-+
-     return 0;
- }
- 
++	err = e100_exec_cb(nic, skb, e100_xmit_prepare);
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+ 	switch(err) {
+ 	case -ENOSPC:
