@@ -1,45 +1,33 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC/PATCH capture qdisc requeue event in stats
-Date: 28 Sep 2004 22:31:25 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Wed, 29 Sep 2004 12:30:51 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096425085.1041.107.camel@jzny.localdomain>
-References: <1093799632.1073.410.camel@jzny.localdomain>
-	 <1096413009.27967.1.camel@localhost.localdomain>
-	 <20040928161838.3d19a17d.davem@davemloft.net>
-	 <1096416101.27967.10.camel@localhost.localdomain>
-	 <20040928170315.760b9851.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040929023051.GA26716@gondor.apana.org.au>
+References: <20040927213607.GD7243@gondor.apana.org.au> <1096339407.8660.33.camel@jzny.localdomain> <20040928024614.GA9911@gondor.apana.org.au> <1096340772.8659.51.camel@jzny.localdomain> <20040928032321.GB10116@gondor.apana.org.au> <1096343125.8661.96.camel@jzny.localdomain> <20040928035921.GA10675@gondor.apana.org.au> <1096367787.8662.146.camel@jzny.localdomain> <4159D278.4060809@eurodev.net> <1096424914.1043.103.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040928170315.760b9851.davem@davemloft.net>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1096424914.1043.103.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-28 at 20:03, David S. Miller wrote:
-
-> > 
-> > Well it seems to work for me:
-> > 	  kernel
-> >         New	Old
-> > tc New  Ok      Ok(0)
-> >    Old  Ok(0)   Ok
-> > 
-> > Because tc correctly handles the returned TLV size.
+On Tue, Sep 28, 2004 at 10:28:34PM -0400, jamal wrote:
 > 
-> Because tc has all the length checking stuff added to
-> it, other applications using netlink might not.  The
-> whole world is not 'tc'.
-> 
-> I'm just rehashing how the most recent thread between
-> Jamal and myself ended about this topic.
+> Being able to prioritize control (errors and ACKs) would be valuable.
+> Would require mucking around with the socket queue. 
+> Something along what we do for a basic default 3 band queue (proabably
+> two band in this case) should work.
 
-Steve just kill it for now - Dave is right. I think maybe something
-based out of a cleaned gnet_stats patch i posted earlier would be the
-best path forward. I will try to clean it up.
+Obviously neither of you have taken my tip :)
 
-cheers,
-jamal
+You should never use your unicast socket to receive multicast messages.
+Otherwise you get to keep both pieces when it breaks.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
