@@ -1,37 +1,30 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [Openswan dev] Re: CONFIG_XFRM vs udp.c
-Date: Wed, 4 Aug 2004 07:27:53 +1000
-Sender: dev-bounces@lists.openswan.org
-Message-ID: <20040803212753.GA319@gondor.apana.org.au>
-References: <22093.1091561579@marajade.sandelman.ottawa.on.ca>
+From: Masahide Nakamura <nakam@linux-ipv6.org>
+Subject: [IPROUTE2] purging a directory
+Date: Tue, 3 Aug 2004 16:45:52 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040803164552.4b5cea87@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@oss.sgi.com>
-Return-path: <dev-bounces@lists.openswan.org>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-Content-Disposition: inline
-In-Reply-To: <22093.1091561579@marajade.sandelman.ottawa.on.ca>
-Cc: dev@lists.openswan.org
-List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=unsubscribe>
-List-Archive: <http://lists.openswan.org/pipermail/dev>
-List-Post: <mailto:dev@lists.openswan.org>
-List-Help: <mailto:dev-request@lists.openswan.org?subject=help>
-List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=subscribe>
-Errors-To: dev-bounces@lists.openswan.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, nakam@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 03, 2004 at 03:32:59PM -0400, Michael Richardson wrote:
-> 
-> It is it intentional that this part of XFRM can not be a module?
+Hi Stephen,
 
-As it is XFRM cannot be built as a module at all.  This is only one
-of the places in the IP stack that calls XFRM directly.
+I found a ChangeSet which seems to be an erroneous importing
+in your iproute2 tree. (That is a patch I sent.)
 
-Cheers,
+It causes directory problem; It creates new sub directory
+named "iproute2" which should be placed as parent one.
+
+It is unnecessary so please remove it or
+try below (it works fine for me in local testing):
+	bk -r prs -hr+ -nd:ROOTKEY: | grep '|iproute2' | bk csetprune
+
+Thanks,
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Masahide NAKAMURA
