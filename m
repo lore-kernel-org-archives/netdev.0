@@ -1,29 +1,53 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH wireless-2.6 2/10] hostap: Include asm/io.h
-Date: Tue, 22 Mar 2005 18:13:36 -0500
-Message-ID: <4240A6A0.8090509@pobox.com>
-References: <20050313001706.GA8253@jm.kir.nu> <20050313002940.GC8253@jm.kir.nu>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: [PATCH: 2.6.12-rc1] mii: GigE support bug fixes
+Date: Tue, 22 Mar 2005 16:15:08 -0700
+Message-ID: <20050322231508.GA27373@xyzzy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Jouni Malinen <jkmaline@cc.hut.fi>
-In-Reply-To: <20050313002940.GC8253@jm.kir.nu>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>
+To: Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jouni Malinen wrote:
-> Include asm/io.h into hostap_{pci,plx}.c since this seems to be needed
-> for ARM on Linux 2.6.x and this file is already included into
-> hostap_cs.c anyway.
-> 
-> Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
+This patch fixes a couple bugs in mii.c GigE support.
 
-Patch is correct, but description is incorrect:
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
+Acked-by: James Chapman <jchapman@katalix.com>
 
-asm/io.h is a required include for any driver that uses the bus IO 
-functions {in,out,read,write}[bwlq].  It's not just ARM, but instead is 
-required for all platforms.
-
-	Jeff
+Index: linux-2.5-enet/drivers/net/mii.c
+===================================================================
+--- linux-2.5-enet.orig/drivers/net/mii.c
++++ linux-2.5-enet/drivers/net/mii.c
+@@ -43,6 +43,9 @@
+ 	    (SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
+ 	     SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
+ 	     SUPPORTED_Autoneg | SUPPORTED_TP | SUPPORTED_MII);
++	if (mii->supports_gmii)
++		ecmd->supported |= SUPPORTED_1000baseT_Half |
++			SUPPORTED_1000baseT_Full;
+ 
+ 	/* only supports twisted-pair */
+ 	ecmd->port = PORT_MII;
+@@ -100,7 +103,7 @@
+ 	} else {
+ 		ecmd->autoneg = AUTONEG_DISABLE;
+ 
+-		ecmd->speed = ((bmcr2 & BMCR_SPEED1000 && 
++		ecmd->speed = ((bmcr & BMCR_SPEED1000 && 
+ 				(bmcr & BMCR_SPEED100) == 0) ? SPEED_1000 :
+ 			       (bmcr & BMCR_SPEED100) ? SPEED_100 : SPEED_10);
+ 		ecmd->duplex = (bmcr & BMCR_FULLDPLX) ? DUPLEX_FULL : DUPLEX_HALF;
+@@ -163,9 +166,9 @@
+ 			tmp |= ADVERTISE_100FULL;
+ 		if (mii->supports_gmii) {
+ 			if (ecmd->advertising & ADVERTISED_1000baseT_Half)
+-				advert2 |= ADVERTISE_1000HALF;
++				tmp2 |= ADVERTISE_1000HALF;
+ 			if (ecmd->advertising & ADVERTISED_1000baseT_Full)
+-				advert2 |= ADVERTISE_1000FULL;
++				tmp2 |= ADVERTISE_1000FULL;
+ 		}
+ 		if (advert != tmp) {
+ 			mii->mdio_write(dev, mii->phy_id, MII_ADVERTISE, tmp);
