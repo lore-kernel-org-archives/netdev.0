@@ -1,26 +1,30 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] pktgen: sprintf arg type warning
-Date: Sat, 9 Oct 2004 19:36:44 +0200
+From: Scott Feldman <sfeldma@pobox.com>
+Subject: Re: e1000 kick
+Date: Sat, 09 Oct 2004 10:38:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041009173644.GC30713@wotan.suse.de>
-References: <20041008203027.643a2a97.rddunlap@osdl.org> <20041008221934.42a6bc7a.davem@davemloft.net> <41682021.3080400@errno.com>
+Message-ID: <1097343522.3903.25.camel@sfeldma-mobl2.dsl-verizon.net>
+References: <20041008231713.1126.qmail@web80401.mail.yahoo.com>
+Reply-To: sfeldma@pobox.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "Randy.Dunlap" <rddunlap@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sam Leffler <sam@errno.com>
-Content-Disposition: inline
-In-Reply-To: <41682021.3080400@errno.com>
+To: Scott Huang <scott_z_huang@yahoo.com>
+In-Reply-To: <20041008231713.1126.qmail@web80401.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Other systems have addressed this problem by extending printf with 
-> portable %formats.
+On Fri, 2004-10-08 at 16:17, Scott Huang wrote:
+> Is there a way to force tx dma to start on e1000 after
+> the I fill up the tx ring to a certain level?
 
-Problem is that gcc -Wformat doesn't know the new format codes,
-and in Linux we still have to support old gcc versions.
+Just delay the write of the Tx tail index (TDT).  Writing to the Tx tail
+index signals hardware to start the DMA from Tx head index (TDH) to
+TDT.  See code for
 
-Standard trick is to cast to long.
+	E1000_WRITE_REG(&adapter->hw, TDT, i);
 
--Andi
+But don't delay too long...you'll trigger the tx_timeout reset.
+
+-scott
