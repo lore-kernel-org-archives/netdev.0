@@ -1,50 +1,39 @@
 From: Andy Fleming <afleming@freescale.com>
-Subject: [RFC] Patch to Abstract Ethernet PHY support (using driver model)
-Date: Thu, 23 Dec 2004 13:01:00 -0600
-Message-ID: <FC6D9B81-5514-11D9-8D51-000393C30512@freescale.com>
+Subject: Re: [RFC] Patch to Abstract Ethernet PHY support (using driver model)
+Date: Thu, 23 Dec 2004 15:00:13 -0600
+Message-ID: <A3A281FF-5525-11D9-80ED-000393C30512@freescale.com>
+References: <FC6D9B81-5514-11D9-8D51-000393C30512@freescale.com>
 Mime-Version: 1.0 (Apple Message framework v619)
-Content-Type: multipart/mixed; boundary=Apple-Mail-2-967209165
+Content-Type: multipart/mixed; boundary=Apple-Mail-2-974361640
 Cc: Kumar Gala <kumar.gala@freescale.com>,
         Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
 Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <FC6D9B81-5514-11D9-8D51-000393C30512@freescale.com>
 To: Netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Apple-Mail-2-967209165
+--Apple-Mail-2-974361640
 Content-Transfer-Encoding: 7bit
 Content-Type: text/plain;
 	charset=US-ASCII;
 	format=flowed
 
-Adds a Phy Abstraction Layer which allows ethernet controllers to 
-manage their PHYs without knowing the details of how the particular PHY 
-device operates.  This code steals heavily from BenH's  sungem driver, 
-and got some stuff out of Jason McMullan's patch.
+It has been suggested that I split the patch into 2 parts: gianfar 
+specific stuff, and PHY specific stuff.
 
-Primary features of the code:
-* Allows drivers to only use what they want (to a degree).  If you want 
-to handle it all yourself, but use some of the data structures and 
-functions, that's ok.  If you want to handle your own interrupts, 
-that's fine.  However, it also allows you to minimize PHY management 
-code.  See the gianfar driver patches (included for reference).
-* Integrates with current ethtool/mii defined fields.
-* Uses the driver model to manage binding PHY drivers to PHY devices, 
-and MDIO bus drivers to MDIO bus devices.
-* Doesn't affect drivers which don't use it.
-
-Here's the patch:
+Here is the result:
 
 
---Apple-Mail-2-967209165
+--Apple-Mail-2-974361640
 Content-Transfer-Encoding: 7bit
 Content-Type: application/octet-stream;
 	x-unix-mode=0644;
-	name="phy_12232004.patch"
+	name="gfar_12232004.patch"
 Content-Disposition: attachment;
-	filename=phy_12232004.patch
+	filename=gfar_12232004.patch
 
 diff -Nru a/arch/ppc/platforms/85xx/Makefile b/arch/ppc/platforms/85xx/Makefile
 --- a/arch/ppc/platforms/85xx/Makefile	2004-12-23 12:39:15 -06:00
@@ -365,90 +354,6 @@ diff -Nru a/drivers/base/platform.c b/drivers/base/platform.c
  EXPORT_SYMBOL_GPL(platform_get_resource);
 +EXPORT_SYMBOL_GPL(platform_get_irq_byname);
 +EXPORT_SYMBOL_GPL(platform_get_resource_byname);
-diff -Nru a/drivers/net/Kconfig b/drivers/net/Kconfig
---- a/drivers/net/Kconfig	2004-12-23 12:39:16 -06:00
-+++ b/drivers/net/Kconfig	2004-12-23 12:39:16 -06:00
-@@ -155,6 +155,8 @@
- 	source "drivers/net/arcnet/Kconfig"
- endif
- 
-+source "drivers/net/phy/Kconfig"
-+
- #
- #	Ethernet
- #
-@@ -188,14 +190,6 @@
- 	  kernel: saying N will just cause the configurator to skip all
- 	  the questions about Ethernet network cards. If unsure, say N.
- 
--config MII
--	tristate "Generic Media Independent Interface device support"
--	depends on NET_ETHERNET
--	help
--	  Most ethernet controllers have MII transceiver either as an external
--	  or internal device.  It is safe to say Y or M here even if your
--	  ethernet card lack MII.
--
- source "drivers/net/arm/Kconfig"
- 
- config MACE
-@@ -2079,17 +2073,6 @@
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called tg3.  This is recommended.
- 
--config GIANFAR
--	tristate "Gianfar Ethernet"
--	depends on 85xx
--	help
--	  This driver supports the Gigabit TSEC on the MPC85xx 
--	  family of chips, and the FEC on the 8540
--
--config GFAR_NAPI
--	bool "NAPI Support"
--	depends on GIANFAR
--
- config MV643XX_ETH
- 	tristate "MV-643XX Ethernet support"
- 	depends on MOMENCO_OCELOT_C || MOMENCO_JAGUAR_ATX
-@@ -2117,6 +2100,18 @@
- 	help
- 	  This enables support for Port 2 of the Marvell MV643XX Gigabit
- 	  Ethernet.
-+
-+config GIANFAR
-+	tristate "Gianfar Ethernet"
-+	depends on 85xx
-+	depends on MII
-+	help
-+	  This driver supports the Gigabit TSEC on the MPC85xx 
-+	  family of chips, and the FEC on the 8540
-+
-+config GFAR_NAPI
-+	bool "NAPI Support"
-+	depends on GIANFAR
- 
- endmenu
- 
-diff -Nru a/drivers/net/Makefile b/drivers/net/Makefile
---- a/drivers/net/Makefile	2004-12-23 12:39:15 -06:00
-+++ b/drivers/net/Makefile	2004-12-23 12:39:15 -06:00
-@@ -12,7 +12,7 @@
- obj-$(CONFIG_BONDING) += bonding/
- obj-$(CONFIG_GIANFAR) += gianfar_driver.o
- 
--gianfar_driver-objs := gianfar.o gianfar_ethtool.o gianfar_phy.o
-+gianfar_driver-objs := gianfar.o gianfar_ethtool.o gianfar_mii.o
- 
- #
- # link order important here
-@@ -63,6 +63,7 @@
- #
- 
- obj-$(CONFIG_MII) += mii.o
-+obj-$(CONFIG_MII) += phy/
- 
- obj-$(CONFIG_SUNDANCE) += sundance.o
- obj-$(CONFIG_HAMACHI) += hamachi.o
 diff -Nru a/drivers/net/gianfar.c b/drivers/net/gianfar.c
 --- a/drivers/net/gianfar.c	2004-12-23 12:39:15 -06:00
 +++ b/drivers/net/gianfar.c	2004-12-23 12:39:15 -06:00
@@ -2768,6 +2673,191 @@ diff -Nru a/drivers/net/gianfar_phy.h b/drivers/net/gianfar_phy.h
 -};
 -
 -#endif /* GIANFAR_PHY_H */
+diff -Nru a/include/asm-ppc/fsl_ocp.h b/include/asm-ppc/fsl_ocp.h
+--- a/include/asm-ppc/fsl_ocp.h	2004-12-23 12:39:16 -06:00
++++ b/include/asm-ppc/fsl_ocp.h	2004-12-23 12:39:16 -06:00
+@@ -17,6 +17,7 @@
+ #ifndef __ASM_FS_OCP_H__
+ #define __ASM_FS_OCP_H__
+ 
++#define GFAR_MII_OFFSET		0x520
+ /* A table of information for supporting the Gianfar Ethernet Controller
+  * This helps identify which enet controller we are dealing with,
+  * and what type of enet controller it is
+@@ -25,20 +26,18 @@
+ 	uint interruptTransmit;
+ 	uint interruptError;
+ 	uint interruptReceive;
+-	uint interruptPHY;
+ 	uint flags;
+-	uint phyid;
+-	uint phyregidx;
++	char *bus_id;
+ 	unsigned char mac_addr[6];
+ };
+ 
+ /* Flags in the flags field */
+-#define GFAR_HAS_COALESCE		0x20
+-#define GFAR_HAS_RMON			0x10
+-#define GFAR_HAS_MULTI_INTR		0x08
+-#define GFAR_FIRM_SET_MACADDR		0x04
+-#define GFAR_HAS_PHY_INTR		0x02	/* if not set use a timer */
+-#define GFAR_HAS_GIGABIT		0x01
++#define GIANFAR_HAS_COALESCE		0x20
++#define GIANFAR_HAS_RMON		0x10
++#define GIANFAR_HAS_MULTI_INTR		0x08
++#define GIANFAR_FIRM_SET_MACADDR	0x04
++#define GIANFAR_HAS_PHY_INTR		0x02	/* if not set use a timer */
++#define GIANFAR_HAS_GIGABIT		0x01
+ 
+ /* Data structure for I2C support.  Just contains a couple flags
+  * to distinguish various I2C implementations*/
+diff -Nru a/include/asm-ppc/mpc85xx.h b/include/asm-ppc/mpc85xx.h
+--- a/include/asm-ppc/mpc85xx.h	2004-12-23 12:39:16 -06:00
++++ b/include/asm-ppc/mpc85xx.h	2004-12-23 12:39:16 -06:00
+@@ -103,8 +103,18 @@
+ #define MPC85xx_CPM_SIZE	(0x40000)
+ #define MPC85xx_DMA_OFFSET	(0x21000)
+ #define MPC85xx_DMA_SIZE	(0x01000)
++#define MPC85xx_DMA0_OFFSET	(0x21100)
++#define MPC85xx_DMA0_SIZE	(0x00080)
++#define MPC85xx_DMA1_OFFSET	(0x21180)
++#define MPC85xx_DMA1_SIZE	(0x00080)
++#define MPC85xx_DMA2_OFFSET	(0x21200)
++#define MPC85xx_DMA2_SIZE	(0x00080)
++#define MPC85xx_DMA3_OFFSET	(0x21280)
++#define MPC85xx_DMA3_SIZE	(0x00080)
+ #define MPC85xx_ENET1_OFFSET	(0x24000)
+ #define MPC85xx_ENET1_SIZE	(0x01000)
++#define MPC85xx_MIIM_OFFSET	(0x24520)
++#define MPC85xx_MIIM_SIZE	(0x00018)
+ #define MPC85xx_ENET2_OFFSET	(0x25000)
+ #define MPC85xx_ENET2_SIZE	(0x01000)
+ #define MPC85xx_ENET3_OFFSET	(0x26000)
+@@ -138,6 +148,18 @@
+ #else
+ #define CCSRBAR BOARD_CCSRBAR
+ #endif
++
++enum fsl_devices {
++	MPC85xx_TSEC1,
++	MPC85xx_TSEC2,
++	MPC85xx_FEC,
++	MPC85xx_IIC1,
++	MPC85xx_DMA0,
++	MPC85xx_DMA1,
++	MPC85xx_DMA2,
++	MPC85xx_DMA3,
++	MPC85xx_MDIO,
++};
+ 
+ #endif /* CONFIG_85xx */
+ #endif /* __ASM_MPC85xx_H__ */
+diff -Nru a/include/linux/device.h b/include/linux/device.h
+--- a/include/linux/device.h	2004-12-23 12:39:16 -06:00
++++ b/include/linux/device.h	2004-12-23 12:39:16 -06:00
+@@ -382,6 +382,8 @@
+ 
+ extern struct resource *platform_get_resource(struct platform_device *, unsigned int, unsigned int);
+ extern int platform_get_irq(struct platform_device *, unsigned int);
++extern struct resource *platform_get_resource_byname(struct platform_device *, unsigned int, char *);
++extern int platform_get_irq_byname(struct platform_device *, char *);
+ extern int platform_add_devices(struct platform_device **, int);
+ 
+ extern struct platform_device *platform_device_register_simple(char *, unsigned int, struct resource *, unsigned int);
+
+--Apple-Mail-2-974361640
+Content-Transfer-Encoding: 7bit
+Content-Type: application/octet-stream;
+	x-unix-mode=0644;
+	name="phy_12232004.patch"
+Content-Disposition: attachment;
+	filename=phy_12232004.patch
+
+diff -Nru a/drivers/net/Kconfig b/drivers/net/Kconfig
+--- a/drivers/net/Kconfig	2004-12-23 12:39:16 -06:00
++++ b/drivers/net/Kconfig	2004-12-23 12:39:16 -06:00
+@@ -155,6 +155,8 @@
+ 	source "drivers/net/arcnet/Kconfig"
+ endif
+ 
++source "drivers/net/phy/Kconfig"
++
+ #
+ #	Ethernet
+ #
+@@ -188,14 +190,6 @@
+ 	  kernel: saying N will just cause the configurator to skip all
+ 	  the questions about Ethernet network cards. If unsure, say N.
+ 
+-config MII
+-	tristate "Generic Media Independent Interface device support"
+-	depends on NET_ETHERNET
+-	help
+-	  Most ethernet controllers have MII transceiver either as an external
+-	  or internal device.  It is safe to say Y or M here even if your
+-	  ethernet card lack MII.
+-
+ source "drivers/net/arm/Kconfig"
+ 
+ config MACE
+@@ -2079,17 +2073,6 @@
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called tg3.  This is recommended.
+ 
+-config GIANFAR
+-	tristate "Gianfar Ethernet"
+-	depends on 85xx
+-	help
+-	  This driver supports the Gigabit TSEC on the MPC85xx 
+-	  family of chips, and the FEC on the 8540
+-
+-config GFAR_NAPI
+-	bool "NAPI Support"
+-	depends on GIANFAR
+-
+ config MV643XX_ETH
+ 	tristate "MV-643XX Ethernet support"
+ 	depends on MOMENCO_OCELOT_C || MOMENCO_JAGUAR_ATX
+@@ -2117,6 +2100,18 @@
+ 	help
+ 	  This enables support for Port 2 of the Marvell MV643XX Gigabit
+ 	  Ethernet.
++
++config GIANFAR
++	tristate "Gianfar Ethernet"
++	depends on 85xx
++	depends on MII
++	help
++	  This driver supports the Gigabit TSEC on the MPC85xx 
++	  family of chips, and the FEC on the 8540
++
++config GFAR_NAPI
++	bool "NAPI Support"
++	depends on GIANFAR
+ 
+ endmenu
+ 
+diff -Nru a/drivers/net/Makefile b/drivers/net/Makefile
+--- a/drivers/net/Makefile	2004-12-23 12:39:15 -06:00
++++ b/drivers/net/Makefile	2004-12-23 12:39:15 -06:00
+@@ -12,7 +12,7 @@
+ obj-$(CONFIG_BONDING) += bonding/
+ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
+ 
+-gianfar_driver-objs := gianfar.o gianfar_ethtool.o gianfar_phy.o
++gianfar_driver-objs := gianfar.o gianfar_ethtool.o gianfar_mii.o
+ 
+ #
+ # link order important here
+@@ -63,6 +63,7 @@
+ #
+ 
+ obj-$(CONFIG_MII) += mii.o
++obj-$(CONFIG_MII) += phy/
+ 
+ obj-$(CONFIG_SUNDANCE) += sundance.o
+ obj-$(CONFIG_HAMACHI) += hamachi.o
 diff -Nru a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
 --- /dev/null	Wed Dec 31 16:00:00 196900
 +++ b/drivers/net/phy/Kconfig	2004-12-23 12:39:16 -06:00
@@ -5180,98 +5270,6 @@ diff -Nru a/drivers/net/phy/qsemi.c b/drivers/net/phy/qsemi.c
 +
 +module_init(qs6612_init);
 +module_exit(qs6612_exit);
-diff -Nru a/include/asm-ppc/fsl_ocp.h b/include/asm-ppc/fsl_ocp.h
---- a/include/asm-ppc/fsl_ocp.h	2004-12-23 12:39:16 -06:00
-+++ b/include/asm-ppc/fsl_ocp.h	2004-12-23 12:39:16 -06:00
-@@ -17,6 +17,7 @@
- #ifndef __ASM_FS_OCP_H__
- #define __ASM_FS_OCP_H__
- 
-+#define GFAR_MII_OFFSET		0x520
- /* A table of information for supporting the Gianfar Ethernet Controller
-  * This helps identify which enet controller we are dealing with,
-  * and what type of enet controller it is
-@@ -25,20 +26,18 @@
- 	uint interruptTransmit;
- 	uint interruptError;
- 	uint interruptReceive;
--	uint interruptPHY;
- 	uint flags;
--	uint phyid;
--	uint phyregidx;
-+	char *bus_id;
- 	unsigned char mac_addr[6];
- };
- 
- /* Flags in the flags field */
--#define GFAR_HAS_COALESCE		0x20
--#define GFAR_HAS_RMON			0x10
--#define GFAR_HAS_MULTI_INTR		0x08
--#define GFAR_FIRM_SET_MACADDR		0x04
--#define GFAR_HAS_PHY_INTR		0x02	/* if not set use a timer */
--#define GFAR_HAS_GIGABIT		0x01
-+#define GIANFAR_HAS_COALESCE		0x20
-+#define GIANFAR_HAS_RMON		0x10
-+#define GIANFAR_HAS_MULTI_INTR		0x08
-+#define GIANFAR_FIRM_SET_MACADDR	0x04
-+#define GIANFAR_HAS_PHY_INTR		0x02	/* if not set use a timer */
-+#define GIANFAR_HAS_GIGABIT		0x01
- 
- /* Data structure for I2C support.  Just contains a couple flags
-  * to distinguish various I2C implementations*/
-diff -Nru a/include/asm-ppc/mpc85xx.h b/include/asm-ppc/mpc85xx.h
---- a/include/asm-ppc/mpc85xx.h	2004-12-23 12:39:16 -06:00
-+++ b/include/asm-ppc/mpc85xx.h	2004-12-23 12:39:16 -06:00
-@@ -103,8 +103,18 @@
- #define MPC85xx_CPM_SIZE	(0x40000)
- #define MPC85xx_DMA_OFFSET	(0x21000)
- #define MPC85xx_DMA_SIZE	(0x01000)
-+#define MPC85xx_DMA0_OFFSET	(0x21100)
-+#define MPC85xx_DMA0_SIZE	(0x00080)
-+#define MPC85xx_DMA1_OFFSET	(0x21180)
-+#define MPC85xx_DMA1_SIZE	(0x00080)
-+#define MPC85xx_DMA2_OFFSET	(0x21200)
-+#define MPC85xx_DMA2_SIZE	(0x00080)
-+#define MPC85xx_DMA3_OFFSET	(0x21280)
-+#define MPC85xx_DMA3_SIZE	(0x00080)
- #define MPC85xx_ENET1_OFFSET	(0x24000)
- #define MPC85xx_ENET1_SIZE	(0x01000)
-+#define MPC85xx_MIIM_OFFSET	(0x24520)
-+#define MPC85xx_MIIM_SIZE	(0x00018)
- #define MPC85xx_ENET2_OFFSET	(0x25000)
- #define MPC85xx_ENET2_SIZE	(0x01000)
- #define MPC85xx_ENET3_OFFSET	(0x26000)
-@@ -138,6 +148,18 @@
- #else
- #define CCSRBAR BOARD_CCSRBAR
- #endif
-+
-+enum fsl_devices {
-+	MPC85xx_TSEC1,
-+	MPC85xx_TSEC2,
-+	MPC85xx_FEC,
-+	MPC85xx_IIC1,
-+	MPC85xx_DMA0,
-+	MPC85xx_DMA1,
-+	MPC85xx_DMA2,
-+	MPC85xx_DMA3,
-+	MPC85xx_MDIO,
-+};
- 
- #endif /* CONFIG_85xx */
- #endif /* __ASM_MPC85xx_H__ */
-diff -Nru a/include/linux/device.h b/include/linux/device.h
---- a/include/linux/device.h	2004-12-23 12:39:16 -06:00
-+++ b/include/linux/device.h	2004-12-23 12:39:16 -06:00
-@@ -382,6 +382,8 @@
- 
- extern struct resource *platform_get_resource(struct platform_device *, unsigned int, unsigned int);
- extern int platform_get_irq(struct platform_device *, unsigned int);
-+extern struct resource *platform_get_resource_byname(struct platform_device *, unsigned int, char *);
-+extern int platform_get_irq_byname(struct platform_device *, char *);
- extern int platform_add_devices(struct platform_device **, int);
- 
- extern struct platform_device *platform_device_register_simple(char *, unsigned int, struct resource *, unsigned int);
 diff -Nru a/include/linux/phy.h b/include/linux/phy.h
 --- /dev/null	Wed Dec 31 16:00:00 196900
 +++ b/include/linux/phy.h	2004-12-23 12:39:16 -06:00
@@ -5632,12 +5630,29 @@ diff -Nru a/include/linux/phy.h b/include/linux/phy.h
 +extern struct phy_driver genphy_driver;
 +#endif /* __PHY_H */
 
---Apple-Mail-2-967209165
+--Apple-Mail-2-974361640
 Content-Transfer-Encoding: 7bit
 Content-Type: text/plain;
 	charset=US-ASCII;
 	format=flowed
 
 
-Andy Fleming
---Apple-Mail-2-967209165--
+
+On Dec 23, 2004, at 13:01, Andy Fleming wrote:
+
+> Adds a Phy Abstraction Layer which allows ethernet controllers to 
+> manage their PHYs without knowing the details of how the particular 
+> PHY device operates.  This code steals heavily from BenH's  sungem 
+> driver, and got some stuff out of Jason McMullan's patch.
+>
+> Primary features of the code:
+> * Allows drivers to only use what they want (to a degree).  If you 
+> want to handle it all yourself, but use some of the data structures 
+> and functions, that's ok.  If you want to handle your own interrupts, 
+> that's fine.  However, it also allows you to minimize PHY management 
+> code.  See the gianfar driver patches (included for reference).
+> * Integrates with current ethtool/mii defined fields.
+> * Uses the driver model to manage binding PHY drivers to PHY devices, 
+> and MDIO bus drivers to MDIO bus devices.
+> * Doesn't affect drivers which don't use it.
+--Apple-Mail-2-974361640--
