@@ -1,46 +1,48 @@
-From: olof@austin.ibm.com
-Subject: [2.4] e1000 leaking pci mappings on rx errors?
-Date: Mon, 12 Jan 2004 10:42:36 -0600 (CST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [bonding] Add basic support for dynamic configuration of bond
+ interfaces
+Date: Sat, 10 Jan 2004 20:34:48 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.A41.4.44.0401121023310.30020-100000@forte.austin.ibm.com>
+Message-ID: <4000A838.5040808@pobox.com>
+References: <200401081819.54484.amir.noam@intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: cramerj@intel.com, <scott.feldman@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>, bonding-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Amir Noam <amir.noam@intel.com>
+In-Reply-To: <200401081819.54484.amir.noam@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-We have a machine here (running a RHEL 2.4.21-based kernel), that started
-showing leakage of PCI mappings when the driver was upgraded from 5.1.11
-to 5.2.20.
-
-The system is a large-config ppc64 machine with 8 interfaces, each running
-at or near full load. NAPI is enabled, frame size is 1500. We're seeing RX
-errors on eth0, which is the only interface that is leaking TCE entries
-(pci mappings).
-
-The system is also running at full cpu load, with each interface having
-it's irq bound to an individual CPU. It's always the interface being bound
-to cpu0 that's showing errors (could possibly be because of rx ring
-overruns?).
-
-With the previous version (5.1.11), we were still seeing the RX errors,
-but no TCE leaks.
-
-As far as I can tell, the driver is leaking less than one mapping per
-error, since there are more RX errors than total allocated TCE entries for
-the interface. Number of errors after a run is in the range of 15-20k,
-while number of used entries are in the range of 3-4k.
-
-Has anyone else seen anything like this? I noticed there's a slightly
-newer e1000 driver available, but I saw no changes that seemed relevant.
+Amir Noam wrote:
+> The following patch sets provide basic support for future bonding 
+> operations (specifically for dynamic configuration of bonding 
+> interfaces).
+> 
+> This is done by adding two new bonding ioctls: one for deviceless 
+> commands (an ioctl hook) and one for device oriented commands. Like 
+> ethtool, the first u32 value in the data structure will indicate the 
+> exact sub-command to be executed.
+> 
+> The sets are against the latest netdev-2.4 and net-drivers-2.5-exp 
+> trees.
 
 
--Olof
+I don't disagree with the overall goal of these patches, but I think we 
+might need to pause a bit, and consider how best to configure, add, and 
+remove bonding interfaces, if we are coming up with a new interface.
 
-Olof Johansson                                        Office: 4F005/905
-Linux on Power Development                            IBM Systems Group
-Email: olof@austin.ibm.com                          Phone: 512-838-9858
-All opinions are my own and not those of IBM
+For configuration tasks that occur outside the scope of a single bonding 
+interface (i.e. a single struct net_device), you need a separate entity 
+from a socket ioctl.  It's not ideal at all to configure N objects using 
+a special ioctl ... when opening one of said objects :)
+
+I would suggest a simple character device (misc_register), and let the 
+userland application configure settings unrelated to a single object.
+
+For a configuring state related to a _single_ bonding interface (i.e. a 
+single net_device), socket ioctls are OK.
+
+	Jeff
