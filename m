@@ -1,166 +1,129 @@
-From: "qconfirm" <webmaster-qconfirm-ddfaa155141b682ab501e4a5dcd6855f@tenberry.com>
-Subject: Please confirm your message
-Date: 4 Jun 2004 12:03:52 -0000
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: RFC: Linux wireless extensions and WPA support
+Date: Mon, 7 Jun 2004 17:26:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040604120352.6515.qmail@tenberry.com>
+Message-ID: <20040608002659.GA18087@bougret.hpl.hp.com>
+References: <20040607023455.GA10424@jm.kir.nu>
+Reply-To: jt@hpl.hp.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+Content-Disposition: inline
+In-Reply-To: <20040607023455.GA10424@jm.kir.nu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello, this is the Tenberry anti-SPAM program (qconfirm).
-Because of the volume of SPAM sent to 'webmaster@tenberry.com',
-we have decided to require confirmation that incoming
-message(s) are legitimate and not junk-mail.
+On Sun, Jun 06, 2004 at 07:34:55PM -0700, Jouni Malinen wrote:
+> 
+> I started working on WPA extension for the Linux wireless extensions
+> based on our earlier discussion. This patch file for V16 shows my
+> current work version. It is not yet ready to be merged into any tree and
+> is here mainly to allow review of the changes and generate some
+> discussion (and well, to describe the changes without me having to write
+> a long email doing that ;-).
 
-One or more messages to 'webmaster@tenberry.com' from you
-are being held because your address is not yet recorded
-as valid.
+	Thanks a lot for that, Jouni !
 
-To release your pending message(s) for delivery, and to
-insure that any future messages from you are not held up,
-please reply to this email.  Your reply will not be read,
-so an empty message is fine.  So is hitting the 'reply'
-and then 'send' buttons in your email client.
+> This has not yet been tested, but I'm starting to add support for it
+> into the wireless-2.6 version of Host AP driver and wpa_supplicant. I'll
+> make an updated patch available once everything seems to be working.
+> 
+> To avoid using much more ioctl numbers, I extended the previously
+> defined SIOCSIWENCODE/SIOCGIWENCODE and SIOCSIWSCAN instead of defining
+> new ioctls.
 
-If you do not reply to this email, your message(s) will
-eventually be returned to you, and will never be
-delivered to 'webmaster@tenberry.com'.
+	Actually, I don't like the extension of SIOC*IWENCODE. This
+ioctl is already messy/complex enough as it is, and I think we would
+benefit greatly in separating the two code paths, therefore using a
+new iotcl for it. It's not like we are short of ioctls.
+	I'm worried about new-style driver returning extended
+definition to old style tools, or new style tool sending extended
+definitions to old style driver, or other stuff like that. Also,
+driver author may thank us for keeping thing clearer.
 
-Regards, the Tenberry anti-SPAM program.
+	The extension of SIOCSIWSCAN was always something desired, but
+I never got sure of which way it was supposed to be done (look at the
+unused IW_SCAN_* flags in wireless.h).
+	Do you think that ESSID is the only request filter that is
+worthwhile ? Another option would be to allow an "iwevent" structure
+allow to specify any kind of filter.
+	If we decide that we will only ever filter on ESSID, then I
+still don't understand the way you plan to use iw_scan_req. It doesn't
+fit in 16 bytes, so it will be used with a struct
+iw_point/IW_HEADER_TYPE_POINT. In such a case, the "ssid_len" is
+redundant with "length" in iw_point. If we remove "ssid_len", then the
+format is exactly the same as SIOCSIWESSID, which make things nice and
+simple.
 
+> Similarily, SIOCSIWAUTH/SIOCGIWAUTH uses one pair of ioctls
+> to allow configuring multiple (4096) different parameters.
 
---- Below this line is the top of a message from you.
+	It took me a while to understand how this one is supposed to
+works (which means that it may need better documentation). It's a
+sub-ioctl kind of thing, right ? The SET accept two 32 bit integers,
+the GET accept one and return one.
+	You current definition doesn't work, because you are using
+IW_HEADER_TYPE_PARAM that carry only a single 32bit integer. There are
+two solutions. The first is fit the IW_AUTH_INDEX in the 16 bits of
+iw_param->flags. The second is to use IW_HEADER_TYPE_UINT.
 
-Received: (qmail 6776 invoked from network); 31 May 2004 11:22:08 -0000
-Received: from unknown (HELO tenberry.com) (61.95.203.76)
-  by tenberry.com with SMTP; 31 May 2004 11:22:08 -0000
-From: netdev@oss.sgi.com
-To: webmaster@tenberry.com
-Subject: 
-Date: Mon, 31 May 2004 16:49:31 +0530
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_0016----=_NextPart_000_0016"
-X-Priority: 3
-X-MSMail-Priority: Normal
+	Also, all the constant used for this command should have the
+IW_AUTH_* prefix (IW_CIPHER_NONE => IW_AUTH_CIPHER_NONE), so that we
+can see clearly that they apply to this command. I would even go
+futher and have common prefixes between request and values :
+---
+#define IW_AUTH_WPA_VERSION	0
+---
+#define IW_AUTH_WPA_VERSION_DISABLED	0
+#define IW_AUTH_WPA_VERSION_WPA		1
+#define IW_AUTH_WPA_VERSION_WPA2	2
+---
+#define IW_AUTH_CIPHER_PAIRWISE	1
+#define IW_AUTH_CIPHER_GROUP	2
+---
+#define IW_AUTH_CIPHER_NONE	0
+#define IW_AUTH_CIPHER_WEP40	1
+#define IW_AUTH_CIPHER_TKIP	2
+#define IW_AUTH_CIPHER_CCMP	4
+#define IW_AUTH_CIPHER_WEP104	5
+---
+	I think this would read much better, and avoid the need to
+extra documentation.
 
-This is a multi-part message in MIME format.
+> supported_features bit field in struct iw_range will be used by the WPA
+> Supplicant to determine which modes can be used with the current driver.
 
-------=_NextPart_000_0016----=_NextPart_000_0016
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 7bit
+	I think that "supported_feature" is too generic a name for
+what you are using it now. As there are other "supported_feature" type
+of fields in iw_range (pm_capa, txpower_capa, retry_capa), I would
+suggest to use a more descriptive name, such as "enc_features" or
+"enc_capa".
 
+> Comments are very much welcome, especially from other authors of
+> wireless device driver. I went through the wpa_supplicant driver
+> interface and tried to include everything needed here. However, I did
+> not yet verify whether some of the existing driver interfaces would
+> benefit from additional fields in wireless extensions.
 
+	Well, this is where we hope the "extension" part of "wireless
+extensions" works as advertised, and hopefully we can just add the
+necessary features later on.
 
+> +/* IEEE 802.11 MLME requests */
+> +#define SIOCSIWMLME	0x8B30		/* request MLME operation */
 
-------=_NextPart_000_0016----=_NextPart_000_0016
-Content-Type: application/octet-stream;
-	name="details.zip"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="details.zip"
+	I don't see a struct for it, so I assume the format of that is
+defined somewhere in the 802.11 spec ? May be worth documenting where
+to look for it.
 
-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
-YI
+> Jouni Malinen
+
+	I hope I did not sound too "picky", but I hope that my
+suggestion are not too difficult to implement while adding some
+value. Tell me what you think ;-)
+
+	Have fun...
+
+	Jean
