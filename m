@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: [3/6]: Move neigh hash masks
-Date: Thu, 23 Sep 2004 22:49:57 -0700
+Subject: [4/6]: Add nodev neigh lookup for decnet
+Date: Thu, 23 Sep 2004 22:50:41 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923224957.624361a6.davem@davemloft.net>
+Message-ID: <20040923225041.4a388eb0.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -13,100 +13,135 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-This actually moves the mask macros into
-net/core/neighbour.c
+It was the one and only tbl->hash() call site outside
+of net/core/neighbour.c
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/09/23 16:47:26-07:00 davem@nuts.davemloft.net 
-#   [NET]: Privatize {P,}NEIGH_HASHMASK.
+#   2004/09/23 16:52:29-07:00 davem@nuts.davemloft.net 
+#   [NET]: Create neigh_lookup_nodev for decnet.
 #   
 #   Signed-off-by: David S. Miller <davem@davemloft.net>
 # 
+# net/decnet/dn_route.c
+#   2004/09/23 16:51:55-07:00 davem@nuts.davemloft.net +1 -1
+#   [NET]: Create neigh_lookup_nodev for decnet.
+# 
+# net/decnet/dn_neigh.c
+#   2004/09/23 16:51:55-07:00 davem@nuts.davemloft.net +0 -21
+#   [NET]: Create neigh_lookup_nodev for decnet.
+# 
 # net/core/neighbour.c
-#   2004/09/23 16:46:50-07:00 davem@nuts.davemloft.net +23 -0
-#   [NET]: Privatize {P,}NEIGH_HASHMASK.
+#   2004/09/23 16:51:55-07:00 davem@nuts.davemloft.net +18 -0
+#   [NET]: Create neigh_lookup_nodev for decnet.
 # 
 # include/net/neighbour.h
-#   2004/09/23 16:46:50-07:00 davem@nuts.davemloft.net +2 -5
-#   [NET]: Privatize {P,}NEIGH_HASHMASK.
+#   2004/09/23 16:51:55-07:00 davem@nuts.davemloft.net +2 -0
+#   [NET]: Create neigh_lookup_nodev for decnet.
 # 
+# include/net/dn_neigh.h
+#   2004/09/23 16:51:55-07:00 davem@nuts.davemloft.net +0 -1
+#   [NET]: Create neigh_lookup_nodev for decnet.
+# 
+diff -Nru a/include/net/dn_neigh.h b/include/net/dn_neigh.h
+--- a/include/net/dn_neigh.h	2004-09-23 22:26:40 -07:00
++++ b/include/net/dn_neigh.h	2004-09-23 22:26:40 -07:00
+@@ -18,7 +18,6 @@
+ 
+ extern void dn_neigh_init(void);
+ extern void dn_neigh_cleanup(void);
+-extern struct neighbour *dn_neigh_lookup(struct neigh_table *tbl, const void *ptr);
+ extern int dn_neigh_router_hello(struct sk_buff *skb);
+ extern int dn_neigh_endnode_hello(struct sk_buff *skb);
+ extern void dn_neigh_pointopoint_hello(struct sk_buff *skb);
 diff -Nru a/include/net/neighbour.h b/include/net/neighbour.h
---- a/include/net/neighbour.h	2004-09-23 22:26:24 -07:00
-+++ b/include/net/neighbour.h	2004-09-23 22:26:24 -07:00
-@@ -140,9 +140,6 @@
- 	u8			key[0];
- };
- 
--#define NEIGH_HASHMASK		0x1F
--#define PNEIGH_HASHMASK		0xF
--
- /*
-  *	neighbour table manipulation
-  */
-@@ -176,8 +173,8 @@
- 	struct neigh_parms	*parms_list;
- 	kmem_cache_t		*kmem_cachep;
- 	struct neigh_statistics	stats;
--	struct neighbour	*hash_buckets[NEIGH_HASHMASK+1];
--	struct pneigh_entry	*phash_buckets[PNEIGH_HASHMASK+1];
-+	struct neighbour	**hash_buckets;
-+	struct pneigh_entry	**phash_buckets;
- };
- 
- /* flags for neigh_update() */
+--- a/include/net/neighbour.h	2004-09-23 22:26:40 -07:00
++++ b/include/net/neighbour.h	2004-09-23 22:26:40 -07:00
+@@ -189,6 +189,8 @@
+ extern struct neighbour *	neigh_lookup(struct neigh_table *tbl,
+ 					     const void *pkey,
+ 					     struct net_device *dev);
++extern struct neighbour *	neigh_lookup_nodev(struct neigh_table *tbl,
++						   const void *pkey);
+ extern struct neighbour *	neigh_create(struct neigh_table *tbl,
+ 					     const void *pkey,
+ 					     struct net_device *dev);
 diff -Nru a/net/core/neighbour.c b/net/core/neighbour.c
---- a/net/core/neighbour.c	2004-09-23 22:26:24 -07:00
-+++ b/net/core/neighbour.c	2004-09-23 22:26:24 -07:00
-@@ -47,6 +47,9 @@
- #define NEIGH_PRINTK2 NEIGH_PRINTK
- #endif
- 
-+#define NEIGH_HASHMASK		0x1F
-+#define PNEIGH_HASHMASK		0xF
-+
- static void neigh_timer_handler(unsigned long arg);
- #ifdef CONFIG_ARPD
- static void neigh_app_notify(struct neighbour *n);
-@@ -1205,6 +1208,7 @@
- void neigh_table_init(struct neigh_table *tbl)
- {
- 	unsigned long now = jiffies;
-+	unsigned long hsize, phsize;
- 
- 	atomic_set(&tbl->parms.refcnt, 1);
- 	INIT_RCU_HEAD(&tbl->parms.rcu_head);
-@@ -1220,6 +1224,18 @@
- 	if (!tbl->kmem_cachep)
- 		panic("cannot create neighbour cache");
- 
-+	hsize = (NEIGH_HASHMASK + 1) * sizeof(struct neighbour *);
-+	tbl->hash_buckets = kmalloc(hsize, GFP_KERNEL);
-+
-+	phsize = (PNEIGH_HASHMASK + 1) * sizeof(struct pneigh_entry *);
-+	tbl->phash_buckets = kmalloc(phsize, GFP_KERNEL);
-+
-+	if (!tbl->hash_buckets || !tbl->phash_buckets)
-+		panic("cannot allocate neighbour cache hashes");
-+
-+	memset(tbl->hash_buckets, 0, hsize);
-+	memset(tbl->phash_buckets, 0, phsize);
-+
- 	tbl->lock	       = RW_LOCK_UNLOCKED;
- 	init_timer(&tbl->gc_timer);
- 	tbl->gc_timer.data     = (unsigned long)tbl;
-@@ -1260,6 +1276,13 @@
- 		}
- 	}
- 	write_unlock(&neigh_tbl_lock);
-+
-+	kfree(tbl->hash_buckets);
-+	tbl->hash_buckets = NULL;
-+
-+	kfree(tbl->phash_buckets);
-+	tbl->phash_buckets = NULL;
-+
- 	return 0;
+--- a/net/core/neighbour.c	2004-09-23 22:26:40 -07:00
++++ b/net/core/neighbour.c	2004-09-23 22:26:40 -07:00
+@@ -307,6 +307,23 @@
+ 	return n;
  }
  
++struct neighbour *neigh_lookup_nodev(struct neigh_table *tbl, const void *pkey)
++{
++	struct neighbour *n;
++	int key_len = tbl->key_len;
++	u32 hash_val = tbl->hash(pkey, NULL) & NEIGH_HASHMASK;
++
++	read_lock_bh(&tbl->lock);
++	for (n = tbl->hash_buckets[hash_val]; n; n = n->next) {
++		if (!memcmp(n->primary_key, pkey, key_len)) {
++			neigh_hold(n);
++			break;
++		}
++	}
++	read_unlock_bh(&tbl->lock);
++	return n;
++}
++
+ struct neighbour *neigh_create(struct neigh_table *tbl, const void *pkey,
+ 			       struct net_device *dev)
+ {
+@@ -2068,6 +2085,7 @@
+ EXPORT_SYMBOL(neigh_event_ns);
+ EXPORT_SYMBOL(neigh_ifdown);
+ EXPORT_SYMBOL(neigh_lookup);
++EXPORT_SYMBOL(neigh_lookup_nodev);
+ EXPORT_SYMBOL(neigh_parms_alloc);
+ EXPORT_SYMBOL(neigh_parms_release);
+ EXPORT_SYMBOL(neigh_rand_reach_time);
+diff -Nru a/net/decnet/dn_neigh.c b/net/decnet/dn_neigh.c
+--- a/net/decnet/dn_neigh.c	2004-09-23 22:26:40 -07:00
++++ b/net/decnet/dn_neigh.c	2004-09-23 22:26:40 -07:00
+@@ -359,27 +359,6 @@
+  * basically does a neigh_lookup(), but without comparing the device
+  * field. This is required for the On-Ethernet cache
+  */
+-struct neighbour *dn_neigh_lookup(struct neigh_table *tbl, const void *ptr)
+-{
+-	struct neighbour *neigh;
+-	u32 hash_val;
+-
+-	hash_val = tbl->hash(ptr, NULL);
+-
+-	read_lock_bh(&tbl->lock);
+-	for(neigh = tbl->hash_buckets[hash_val]; neigh != NULL; neigh = neigh->next) {
+-		if (memcmp(neigh->primary_key, ptr, tbl->key_len) == 0) {
+-			atomic_inc(&neigh->refcnt);
+-			read_unlock_bh(&tbl->lock);
+-			return neigh;
+-		}
+-	}
+-	read_unlock_bh(&tbl->lock);
+-
+-	return NULL;
+-}
+-
+-
+ /*
+  * Any traffic on a pointopoint link causes the timer to be reset
+  * for the entry in the neighbour table.
+diff -Nru a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+--- a/net/decnet/dn_route.c	2004-09-23 22:26:40 -07:00
++++ b/net/decnet/dn_route.c	2004-09-23 22:26:40 -07:00
+@@ -996,7 +996,7 @@
+ 		 * here
+ 		 */
+ 		if (!try_hard) {
+-			neigh = dn_neigh_lookup(&dn_neigh_table, &fl.fld_dst);
++			neigh = neigh_lookup_nodev(&dn_neigh_table, &fl.fld_dst);
+ 			if (neigh) {
+ 				if ((oldflp->oif && 
+ 				    (neigh->dev->ifindex != oldflp->oif)) ||
