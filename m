@@ -1,46 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM]: Always reroute in tunnel mode
-Date: Thu, 17 Feb 2005 22:36:54 +1100
-Message-ID: <20050217113654.GA10346@gondor.apana.org.au>
-References: <4214381F.5020507@trash.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] string matching based packet classification/filtering
+Date: Thu, 17 Feb 2005 14:31:14 +0100
+Message-ID: <20050217133114.GU31837@postel.suug.ch>
+References: <20050215203211.GL31837@postel.suug.ch>
+	<42126C9B.5060406@eurodev.net>
+	<20050216223038.GQ31837@postel.suug.ch>
+	<4213ECC9.30502@eurodev.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Maillist netdev <netdev@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+Cc: netdev@oss.sgi.com,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
+	Harald Welte <laforge@gnumonks.org>
+To: Pablo Neira <pablo@eurodev.net>
 Content-Disposition: inline
-In-Reply-To: <4214381F.5020507@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <4213ECC9.30502@eurodev.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 17, 2005 at 07:22:23AM +0100, Patrick McHardy wrote:
->
-> #   Tunnel mode packets are rerouted if the tunnel destination
-> #   address is different from the original destination address,
-> #   otherwise the old route is used. This is inconsistent, the
-> #   old route might have been selected for a given output device
-> #   or using routing by tos/fwmark. Always choose a new route
-> #   in tunnel mode.
+> >The matching algorithm would parse the array as a finite automation
+> >eating up byte by byte in the text.
+> >
+> 
+> Looks good but Boyer-Moore algorithm doesn't need this at all. BM 
+> doesn't support wildcards like '*' because of the shiftings that it uses 
+> to look for matches. This issue together with memory consumption are two 
+> limitations that we have to live with if we want to use BM. Anyway I 
+> think it's worth it because we can perform search in O(n/m).
 
-I understand the inconsistency and agree that it should be fixed.
-However, I think the way you did it has created a new inconsistency.
-
-Tunnel mode SAs are not always used to carry subnets.  It can also
-be used for host-to-host configurations where the aim is to protect
-the IP header.  Therefore it would be inconsistent to look up a
-new route for host-to-host tunnel mode SAs.
-
-Perhaps we can simply expand the check to include local as well,
-i.e.,
-
-	if (local != fl->fl4_src || remote != fl->fl4_dst) {
-
-What do you think?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This would be _additional_ to BM/KMP/naive/finite automata/you name it.
+The benefit of libqsearch is hide various algorithms behind a single
+interface, isn't it? It's argueable whether it would make sense to try
+and rule out bad shifts while parsing a chain of non-wildcard regular
+expression tokens but I guess that would be over the top.
