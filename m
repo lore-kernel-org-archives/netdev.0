@@ -1,154 +1,72 @@
-From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [zatm] eliminate pci_find_device() (from Francois Romieu <romieu@fr.zoreil.com>)
-Date: Thu, 21 Oct 2004 07:28:57 -0400
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH][ATM]: [ambassador] eliminate pci_find_device()
+Date: Thu, 21 Oct 2004 12:38:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410211128.i9LBSt4W008894@ginger.cmf.nrl.navy.mil>
-Cc: davem@redhat.com, romieu@fr.zoreil.com
+Message-ID: <20041021113841.GA3720@infradead.org>
+References: <200410211126.i9LBQbFT008844@ginger.cmf.nrl.navy.mil>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Content-Disposition: inline
+In-Reply-To: <200410211126.i9LBQbFT008844@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6
+>    // Did one of our cards generate the interrupt?
+> -  while (dev) {
+> +  list_for_each(p, &amb_devs) {
+> +    dev = list_entry(p, struct amb_dev, entry);
+>      if (dev == dev_id)
+>        break;
+> -    dev = dev->prev;
+> +    dev = NULL;
+>    }
+>    // impossible - unless we add the device to our list after both
+>    // registering the IRQ handler for it and enabling interrupts, AND
 
-thanks!
+this debug check is superflous.
 
-Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+>    
+> @@ -1554,19 +1556,19 @@
+>  
+>  /********** housekeeping **********/
+>  static void do_housekeeping (unsigned long arg) {
+> -  amb_dev * dev = amb_devs;
+> +  amb_dev * dev;
+> +  struct list_head *p;
+>    // data is set to zero at module unload
+>    (void) arg;
+>    
+>    if (housekeeping.data) {
+> -    while (dev) {
+> +    list_for_each(p, &amb_devs) {
+> +      dev = list_entry(p, struct amb_dev, entry);
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/10/18 16:30:49-04:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [zatm] eliminate pci_find_device() (from Francois Romieu <romieu@fr.zoreil.com>)
-# 
-# drivers/atm/zatm.c
-#   2004/10/18 16:30:32-04:00 chas@relax.cmf.nrl.navy.mil +65 -37
-#   [ATM]: [zatm] eliminate pci_find_device() (from Francois Romieu <romieu@fr.zoreil.com>)
-# 
-diff -Nru a/drivers/atm/zatm.c b/drivers/atm/zatm.c
---- a/drivers/atm/zatm.c	2004-10-18 16:52:06 -04:00
-+++ b/drivers/atm/zatm.c	2004-10-18 16:52:06 -04:00
-@@ -46,6 +46,8 @@
-  *  - OAM
-  */
- 
-+#define ZATM_COPPER	1
-+
- #if 0
- #define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
- #else
-@@ -1577,51 +1579,77 @@
- 	.change_qos	= zatm_change_qos,
- };
- 
--static int __init zatm_module_init(void)
-+static int __devinit zatm_init_one(struct pci_dev *pci_dev,
-+				   const struct pci_device_id *ent)
- {
- 	struct atm_dev *dev;
- 	struct zatm_dev *zatm_dev;
--	int devs,type;
-+	int ret = -ENOMEM;
- 
--	zatm_dev = (struct zatm_dev *) kmalloc(sizeof(struct zatm_dev),
--	    GFP_KERNEL);
--	if (!zatm_dev) return -ENOMEM;
--	devs = 0;
--	for (type = 0; type < 2; type++) {
--		struct pci_dev *pci_dev;
--
--		pci_dev = NULL;
--		while ((pci_dev = pci_find_device(PCI_VENDOR_ID_ZEITNET,type ?
--		    PCI_DEVICE_ID_ZEITNET_1225 : PCI_DEVICE_ID_ZEITNET_1221,
--		    pci_dev))) {
--			if (pci_enable_device(pci_dev)) break;
--			dev = atm_dev_register(DEV_LABEL,&ops,-1,NULL);
--			if (!dev) break;
--			zatm_dev->pci_dev = pci_dev;
--			dev->dev_data = zatm_dev;
--			zatm_dev->copper = type;
--			if (zatm_init(dev) || zatm_start(dev)) {
--				atm_dev_deregister(dev);
--				break;
--			}
--			zatm_dev->more = zatm_boards;
--			zatm_boards = dev;
--			devs++;
--			zatm_dev = (struct zatm_dev *) kmalloc(sizeof(struct
--			    zatm_dev),GFP_KERNEL);
--			if (!zatm_dev) {
--				printk(KERN_EMERG "zatm.c: memory shortage\n");
--				goto out;
--			}
--		}
--	}
-+	zatm_dev = (struct zatm_dev *) kmalloc(sizeof(*zatm_dev), GFP_KERNEL);
-+	if (!zatm_dev) {
-+		printk(KERN_EMERG "%s: memory shortage\n", DEV_LABEL);
-+		goto out;
-+	}
-+
-+	dev = atm_dev_register(DEV_LABEL, &ops, -1, NULL);
-+	if (!dev)
-+		goto out_free;
-+
-+	ret = pci_enable_device(pci_dev);
-+	if (ret < 0)
-+		goto out_deregister;
-+
-+	ret = pci_request_regions(pci_dev, DEV_LABEL);
-+	if (ret < 0)
-+		goto out_disable;
-+
-+	zatm_dev->pci_dev = pci_dev;
-+	ZATM_DEV(dev) = zatm_dev;
-+	zatm_dev->copper = (int)ent->driver_data;
-+	if ((ret = zatm_init(dev)) || (ret = zatm_start(dev)))
-+		goto out_release;
-+
-+	pci_set_drvdata(pci_dev, dev);
-+	zatm_dev->more = zatm_boards;
-+	zatm_boards = dev;
-+	ret = 0;
- out:
--	kfree(zatm_dev);
-+	return ret;
- 
--	return 0;
-+out_release:
-+	pci_release_regions(pci_dev);
-+out_disable:
-+	pci_disable_device(pci_dev);
-+out_deregister:
-+	atm_dev_deregister(dev);
-+out_free:
-+	kfree(zatm_dev);
-+	goto out;
- }
- 
-+
- MODULE_LICENSE("GPL");
- 
--module_init(zatm_module_init);
-+static struct pci_device_id zatm_pci_tbl[] __devinitdata = {
-+	{ PCI_VENDOR_ID_ZEITNET, PCI_DEVICE_ID_ZEITNET_1221,
-+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, ZATM_COPPER },
-+	{ PCI_VENDOR_ID_ZEITNET, PCI_DEVICE_ID_ZEITNET_1225,
-+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
-+	{ 0, }
-+};
-+MODULE_DEVICE_TABLE(pci, zatm_pci_tbl);
-+
-+static struct pci_driver zatm_driver = {
-+	.name =		DEV_LABEL,
-+	.id_table =	zatm_pci_tbl,
-+	.probe =	zatm_init_one,
-+};
-+
-+static int __init zatm_init_module(void)
-+{
-+	return pci_module_init(&zatm_driver);
-+}
-+
-+module_init(zatm_init_module);
- /* module_exit not defined so not unloadable */
+this really should be a per-device timer - or even better using
+schedule_delayed_work()
+
+With these two changes you could get rid of amb_devs easily.  If you still
+want to keep it for some reason at least use list_for_each_entry.
+
+> +	list_del(&dev->entry);
+> +    
+> +	PRINTD(DBG_INFO|DBG_INIT, "closing %p (atm_dev = %p)", dev, dev->atm_dev);
+> +	// the drain should not be necessary
+> +	drain_rx_pools(dev);
+> +	interrupts_off(dev);
+> +	amb_reset(dev, 0);
+> +	free_irq(dev->irq, dev);
+> +	pci_disable_device(pci_dev);
+> +	destroy_queues(dev);
+> +	atm_dev_deregister(dev->atm_dev);
+> +	kfree(dev);
+> +	pci_release_region(pci_dev, 1);
+
+this doesn't look correct (without knowing the atm subsystem in detail), in
+general you need to unregister from the subsystem first so you don't get
+new work, and then you can start tearing the hardware down.
+
+Also disabling the device before releasing the regions doesn't make too much
+sense to me, even if it may be valid.
