@@ -1,102 +1,89 @@
-From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Subject: RE: e1000: driver reboot/kexec bug.
-Date: Thu, 17 Feb 2005 09:04:12 -0800
-Message-ID: <468F3FDA28AA87429AD807992E22D07E044A12A0@orsmsx408>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: e1000: driver reboot/kexec bug.
+Date: 17 Feb 2005 10:57:47 -0700
+Message-ID: <m1is4rt6g4.fsf@ebiederm.dsl.xmission.com>
+References: <468F3FDA28AA87429AD807992E22D07E044A1285@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
 Cc: <jgarzik@pobox.com>,
         "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>,
         <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        <eric@ebiederm.dsl.xmission.com>
+To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+In-Reply-To: <468F3FDA28AA87429AD807992E22D07E044A1285@orsmsx408>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Eric:
+"Venkatesan, Ganesh" <ganesh.venkatesan@intel.com> writes:
 
-Please send me 'ethtool -e eth?' for the interface corresponding to one
-of the 8086:1079 devices.
+> Hi Eric:
+> 
+> Could you send us 'lspci -vvv' output for 3:4.0? Could you also help us
+> with some more information on the platform you are using?
 
-Ganesh.
+> Please send me 'ethtool -e eth?' for the interface corresponding to one
+> of the 8086:1079 devices.
 
->-----Original Message-----
->From: Venkatesan, Ganesh
->Sent: Thursday, February 17, 2005 9:02 AM
->To: 'eric@ebiederm.dsl.xmission.com'
->Cc: jgarzik@pobox.com; Chilakala, Mallikarjuna; netdev@oss.sgi.com
->Subject: RE: e1000: driver reboot/kexec bug.
->
->Hi Eric:
->
->Could you send us 'lspci -vvv' output for 3:4.0? Could you also help us
->with some more information on the platform you are using?
->
->Thanks,
->Ganesh.
->
->>-----Original Message-----
->>From: eric@ebiederm.dsl.xmission.com
->>[mailto:eric@ebiederm.dsl.xmission.com] On Behalf Of Eric W. Biederman
->>Sent: Wednesday, February 16, 2005 4:26 AM
->>To: Chilakala, Mallikarjuna
->>Cc: jgarzik@pobox.com; netdev
->>Subject: e1000: driver reboot/kexec bug.
->>
->>
->>When I kexec a new kernel on hardware that includes
->>some revs of the e1000 (see below for lscpi -n) the
->>e1000 driver is not able to reinitialize the NIC.  I
->>have seen this in both 2.4.29 and 2.6.10.
->>
->>Tracking it down it appears to be some side effect to powering down
->>the nic.  If I remove the pci_set_power_state call in e1000_suspend
->>or I simply apply the attached patch so I get that affect when
->>rebooting everything works.  pci_enable_device brings the device
->>up to full power before the driver initialization code does anything
->>else so I don't have a clue what is really going on but it is.
->>
->>
->>Boot messages on failure:
->>> Intel(R) PRO/1000 Network Driver - version 5.6.10.1-k1
->>> Copyright (c) 1999-2004 Intel Corporation.
->>> PCI: Enabling device 03:04.0 (0000 -> 0003)
->>> e1000: 03:04.0: e1000_probe: The EEPROM Checksum Is Not Valid
->>> PCI: Enabling device 03:04.1 (0000 -> 0003)
->>> e1000: 03:04.1: e1000_probe: The EEPROM Checksum Is Not Valid
->>
->>lspci -n of the problem onboard e1000 NIC.
->>> 03:04.0 Class 0200: 8086:1079 (rev 03)
->>> 03:04.1 Class 0200: 8086:1079 (rev 03)
->>
->>
->>Patch which avoids the problem.
->>diff -uNrX linux-exclude-files linux-2.4.29-kexec-apic-virtwire-on-
->>shutdownx86_64/drivers/net/e1000/e1000_main.c linux-2.4.29-
->>kexec7.build.x86_64/drivers/net/e1000/e1000_main.c
->>--- linux-2.4.29-kexec-apic-virtwire-on-
->>shutdownx86_64/drivers/net/e1000/e1000_main.c	Tue Feb 15 14:17:09 2005
->>+++ linux-2.4.29-kexec7.build.x86_64/drivers/net/e1000/e1000_main.c
-Wed
->>Feb 16 04:58:18 2005
->>@@ -2777,7 +2777,7 @@
->> 	case SYS_POWER_OFF:
->> 		while((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID,
-pdev))) {
->> 			if(pci_dev_driver(pdev) == &e1000_driver)
->>-				e1000_suspend(pdev, 3);
->>+				e1000_suspend(pdev, (event ==
-SYS_DOWN)?0:3);
->> 		}
->> 	}
->> 	return NOTIFY_DONE;
->>
->>
->>Any help to track down why this is happening so we can apply
->>a clean fix would be appreciated.
->>
->>Eric
+The motherboard is an Intel Jarell motherboard with the Lindenhurst
+aka E7520 chipset.  I have seen the same symptoms on a recent
+Supermicro system as well.
+
+Do you know enough about kexec to attempt to reproduce this problem
+that way?
+
+Anyway hopefully this is enough to get you started.
+
+Eric
+
+
+03:04.0 Ethernet controller: Intel Corp.: Unknown device 1079 (rev 03)
+	Subsystem: Intel Corp.: Unknown device 1079
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr+ Stepping- SERR+ FastB2B-
+	Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64 (63750ns min), cache line size 10
+	Interrupt: pin A routed to IRQ 54
+	Region 0: Memory at fe000000 (64-bit, non-prefetchable) [size=128K]
+	Region 4: I/O ports at 1000 [size=64]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+	Capabilities: [e4] #07 [0002]
+	Capabilities: [f0] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
+		Address: 0000000000000000  Data: 0000
+
+
+ethtool -e eth0
+Offset		Values
+------		------
+0x0000		00 02 b3 e8 fa c8 b0 0c ff ff ff ff ff ff ff ff 
+0x0010		00 00 00 00 08 46 1a 34 86 80 79 10 86 80 e8 b2 
+0x0020		0c c3 00 00 00 00 05 01 88 1c ff ff ff ff ff ff 
+0x0030		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0040		0c c3 21 00 0c 28 05 01 86 0c ff ff ff ff ff ff 
+0x0050		ff ff ff ff ff ff ff ff ff ff ff ff ff ff 02 06 
+0x0060		0c 01 00 40 13 12 ff ff 0c 01 00 40 08 11 ff ff 
+0x0070		ff ff ff ff ff ff ff ff ff ff ff ff ff ff 5e 37 
+0x0080		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0090		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x00a0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x00b0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x00c0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x00d0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x00e0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x00f0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0100		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0110		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0120		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0130		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0140		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0150		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0160		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0170		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0180		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x0190		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x01a0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x01b0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x01c0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x01d0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
+0x01e0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 6f 
+0x01f0		ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 
