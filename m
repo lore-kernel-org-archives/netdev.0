@@ -1,68 +1,50 @@
-From: Vinay K Nallamothu <vinay-rc@naturesoft.net>
-Subject: [PATCH 2.6.0-test4][NET] ni5010.c: remove cli/sti
-Date: 24 Aug 2003 20:37:04 +0530
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: Re: [Bonding-devel] RE: [PATCH] convering bonding driver /proc interface to seq_file
+Date: Sun, 24 Aug 2003 17:50:21 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1061737624.1288.9.camel@lima.royalchallenge.com>
+Message-ID: <200308241750.21391.shmulik.hen@intel.com>
+References: <E791C176A6139242A988ABA8B3D9B38A014C94BF@hasmsx403.iil.intel.com> <3F489659.6040507@free.fr>
+Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Laurent Deniel <laurent.deniel@free.fr>
+In-Reply-To: <3F489659.6040507@free.fr>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sunday 24 August 2003 01:41 pm, Laurent Deniel wrote:
+> Hen, Shmulik wrote:
+> > Guys,
+> >
+> > Could everyone please hold off the bonding modifications for
+> > only a short while until we get this sorted out? We have a
+> > bunch of other patch sets in queue that add lots of new stuff
+> > and they all depend on that first set being accepted.
+>
+> Could you give a short description of what is pending ? this
+> could avoid duplicate efforts, or worst, incompatible ones ...
 
-drivers/net/ni5010.c:
-This patch replaces cli/sti with spinlocks. Compiles fine though
-untested.
+Mostly I referred to the 3 patch sets already sent to the lists two 
+weeks ago. These patch sets handled back porting stuff from 2.6 to 
+2.4, correctly handle propagation of settings from a bond device to 
+its slaves and lots of code cleanup. These patches are currently in 
+Jeff's net-drivers queue, and hopefully they'll be merged into 2.4 
+and from there into 2.6 again, getting 2.6 bonding fully updated.
 
-Vinay
+In the near future, among other things, we are planning to consolidate 
+VLAN support over all teaming modes, add support for multiple bonds 
+with different modes, add the ability to dynamically add and remove 
+bond devices and add the ability to dynamically change bond params. 
+Further into the future, we intend to add support for hardware 
+offloading stuff like zero copy, checksumming and VLAN, so owners of 
+newer adapters can benefit from increased banwidth, etc.
 
---- linux-2.6.0-test4/drivers/net/ni5010.c	2003-07-15 17:22:18.000000000 +0530
-+++ linux-2.6.0-test4-nvk/drivers/net/ni5010.c	2003-08-24 20:29:35.000000000 +0530
-@@ -96,6 +96,7 @@
- 	struct net_device_stats stats;
- 	int o_pkt_size;
- 	int i_pkt_size;
-+	spinlock_t tx_lock;
- };
- 
- /* Index to functions, as function prototypes. */
-@@ -280,11 +281,16 @@
- 	/* DMA is not supported (yet?), so no use detecting it */
- 
- 	if (dev->priv == NULL) {
-+		struct ni5010_local* lp;
-+
- 		dev->priv = kmalloc(sizeof(struct ni5010_local), GFP_KERNEL|GFP_DMA);
- 		if (dev->priv == NULL) {
- 			printk(KERN_WARNING "%s: Failed to allocate private memory\n", dev->name);
- 			return -ENOMEM;
- 		}
-+
-+		lp = (struct ni5010_local*)dev->priv;
-+		spin_lock_init(&lp->tx_lock);
- 	}
- 
- 	PRINTK2((KERN_DEBUG "%s: I/O #10 passed!\n", dev->name));
-@@ -693,8 +699,7 @@
-         buf_offs = NI5010_BUFSIZE - length - pad;
-         lp->o_pkt_size = length + pad;
- 
--	save_flags(flags);	
--	cli();
-+	spin_lock_irqsave(&lp->tx_lock, flags);
- 
- 	outb(0, EDLC_RMASK);	/* Mask all receive interrupts */
- 	outb(0, IE_MMODE);	/* Put Xmit buffer on system bus */
-@@ -712,7 +717,7 @@
- 	outb(MM_EN_XMT | MM_MUX, IE_MMODE); /* Begin transmission */
- 	outb(XM_ALL, EDLC_XMASK); /* Cause interrupt after completion or fail */
- 
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&lp->tx_lock, flags);
- 
- 	netif_wake_queue(dev);
- 	
+-- 
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
