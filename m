@@ -1,97 +1,95 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
-Date: Sat, 26 Feb 2005 12:31:23 +0100
-Message-ID: <20050226113123.GJ3311@stusta.de>
-References: <20050223014233.6710fd73.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	jgarzik@pobox.com
-Content-Disposition: inline
-In-Reply-To: <20050223014233.6710fd73.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: =?ISO-2022-JP?B?GyRCJTglZSVdJTglZSVdJEhINCQtOjkkNxsoQg==?= <marina@yuri.m-blue.org>
+Subject: =?ISO-2022-JP?B?GyRCJTklbCVzJUAhPCRKM2QkSyRPJFckSyRlJEMkSCQ3JD8/SEJOGyhC?=
+Date: Sat, 26 Feb 2005 22:12:01 +0900 (KST)
+Message-ID: <20050226131201.08604520DE@rental3.fields-server.net>
+To: netdev@oss.sgi.com
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 23, 2005 at 01:42:33AM -0800, Andrew Morton wrote:
->...
-> Changes since 2.6.11-rc3-mm1:
->...
->  bk-netdev.patch
->...
 
-
-Some of the options that needlessly wrote in their help text which 
-options they do selct (patch already sent) didn't obey the most 
-important rule of select
-
-  If you select something, you have to ensure that the dependencies
-  of what you do select are fulfilled.
-
-resulting in the following compile error:
-
-
-<--  snip  -->
-
-...
-  LD      .tmp_vmlinux1
-crypto/built-in.o(.init.text+0x31b): In function `aes_init':
-: undefined reference to `crypto_register_alg'
-crypto/built-in.o(.init.text+0x326): In function `michael_mic_init':
-: undefined reference to `crypto_register_alg'
-crypto/built-in.o(.exit.text+0x6): In function `aes_fini':
-: undefined reference to `crypto_unregister_alg'
-crypto/built-in.o(.exit.text+0x16): In function `michael_mic_exit':
-: undefined reference to `crypto_unregister_alg'
-net/built-in.o(.text+0x5ba52): In function `ieee80211_ccmp_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5ba94): In function `ieee80211_ccmp_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5bab7): In function `ieee80211_ccmp_deinit':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c5c2): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5c5d5): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5c623): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c62a): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c65e): In function `ieee80211_tkip_deinit':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c665): In function `ieee80211_tkip_deinit':
-: undefined reference to `crypto_free_tfm'
-make: *** [.tmp_vmlinux1] Error 1
-
-<--  snip  -->
-
-
-This patch adds the missing selects of CRYPTO.
-
-
---- linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig.old	2005-02-26 12:12:44.000000000 +0100
-+++ linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig	2005-02-26 12:13:47.000000000 +0100
-@@ -42,10 +42,11 @@
- 	"ieee80211_crypt_wep".
+■■A-MOTION■■■□■■■□■■■□■■■□■■■□■メールマガジン
+∴∵:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵∴
+　　 ◆              ☆□□□                                 □□□☆             ◆
+　◆■◆・・・・・・■■■　　　艶やかに濡れて光る　　　■■■・・・・・・◆■◆
+　　 ◆              ☆□□□　　　　　                      □□□☆             ◆
+☆*∵∴:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵
+■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
+                                          
+===========================================================
+　新┃着┃特┃集┃　http://stadium.puchiphoto.org/?8djjtoaqj7
+　━┛━┛━┛━┛・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
+■■■第１弾
+■■■　【【【カラダが疼いて眠れないぃ～】】】。oO○Oo。oO○Oo。
+■■　　　　　                                                                      　　   │。　
+■　　　◆女の子だってＨは大好き☆............................................       　　＿ ＿人＿ ＿　　　　　　　　　　　　　　　　　　　　　
+■　　　　　　たっぷり濃厚な愛撫に、カラダがとろけそ～ぅ♪♪♪       ＊Ｙ
+ 　   │。　                                                                          　　   │
+＿＿人＿＿　　　◆パックリ開いたキレイなアソコから滴る液体…。....................
+    ＊Ｙ　　　　　　　　蔵出し秘蔵ムービー一挙公開！！
+　    │
+　　　　　　◆禁断のチョーヤバ画像の数々...........................................................
+   　　　　　　　他では見ることの出来ないレアな画像や動画の宝庫
  
- config IEEE80211_CRYPT_CCMP
- 	tristate "IEEE 802.11i CCMP support"
- 	depends on IEEE80211
-+	select CRYPTO
- 	select CRYPTO_AES
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i 
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
- 	networks.
-@@ -54,10 +55,11 @@
- 	"ieee80211_crypt_ccmp".
+      http://stadium.puchiphoto.org/?8djjtoaqj7
+===========================================================
+　新┃着┃特┃集┃・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
+　━┛━┛━┛━┛
+■■■第２弾
+■■■　　【【【究極のフェティッシュワールド】】】。oO○Oo。oO○Oo。
+■■　　　
+■　　　　 ◆美乳・爆乳大集合！！！...........................................
+■　　　　　　　手のひらからこぼれ落ちそうな爆乳・美乳大特集！
+　　　　　　　　　やわらかそうなフニフニのオッパイめしあがれっ♪
+　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+　　　　　　◆むき栗くらべ..................................................          　　　　│。
+                         可愛い女の子たちの小さなつぼみを ＿ ＿人＿ ＿
+　　　　　　　　　　　アノ手コノ手でいじり倒します。　　　　　　　＊Ｙ
+　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　　│　
+　　　http://stadium.puchiphoto.org/?8djjtoaqj7
+・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
+★その他見所満載！！！
+         
+　　　　　　　　　◆集団痴漢盗撮........................................................
+　　　　　　　　　　　　狭い空間でうごめく痴漢師たちの実態を盗撮。
+　　　　　　　　　　　　　　もみくちゃにされながら必死で抵抗するが、
+　　　　　　　　　　　　　なすすべもなくオモチャにされる女の子たち…。　　　　 
  
- config IEEE80211_CRYPT_TKIP
- 	tristate "IEEE 802.11i TKIP encryption"
- 	depends on IEEE80211
-+	select CRYPTO
- 	select CRYPTO_MICHAEL_MIC
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i 
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled 
- 	networks.
+　　　　　　　◆野外露出パラダイス..................................................
+　　　　　　　　　　ゲームで負けた女の子がバツゲームとして
+　　　　　　　　　　ハダカでコンビニに行き買い物をさせられちゃう。
+　　　　　　　　　　今回は新人のサトミちゃんが挑戦
+ 
+　　　http://stadium.puchiphoto.org/?8djjtoaqj7
+ 
+★などなど大好評の特集以外にも、ヌキどころ満載 でお届けしまぁ～す★
+ 
+┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓
+■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
+
+【会員の皆様へ】
+      
+    ・ 『A-MOTION』はメールマガジンの配信スタンドとなっており、無料でご登録会員様に
+　　　定期的にメールマガジンを配信しております。
+
+    ・当局のメールマガジンより配信される情報の利用に関しては、
+　　 ご購読者個人の責任においてご利用していただくことを
+　　目的としており情報の内容に関しては発行者におまかせしております。
+ 
+　　・当局はご紹介先のサイトにおけるいかなるトラブルや損害に対しても
+　　 一切の責任を負いかねます。
+　　
+　　・掲載情報に関してのご質問には応じておりませんので
+　　　予めご了承下さい。
+　　　　
+　  ・当メールマガジンに掲載された記事の一部または全部を
+　　　許可なく転載することを禁止致します。
+
+  　・ 身に覚えのない配信はいたずらの可能性がございます
+　　　購読解除をご希望の方は、お手数ですが下記のアドレスよりログインし、
+　　　ご自身でお手続き下さい。
+
+    http://yuri.m-blue.org/a-motion/
+■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
+┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛
