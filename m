@@ -1,65 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
-Date: Fri, 05 Nov 2004 18:26:42 +0100
-Message-ID: <418BB7D2.6060908@trash.net>
-References: <418B4C7C.8000402@crocom.com.pl> <20041105115430.GP19714@rei.reeler.org> <418B4C7C.8000402@crocom.com.pl> <20041105141640.GQ19714@rei.reeler.org> <418BA66A.60804@trash.net> <20041105163951.GY12289@postel.suug.ch>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Fw: [Bugme-new] [Bug 3706] New: Kernel build fails on sungem
+ driver compile.
+Date: Fri, 5 Nov 2004 16:09:58 -0800
+Message-ID: <20041105160958.7e169484.davem@davemloft.net>
+References: <20041105153040.564f1c2a.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com, spam@crocom.com.pl,
-        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041105163951.GY12289@postel.suug.ch>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20041105153040.564f1c2a.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
 
->* Patrick McHardy <418BA66A.60804@trash.net> 2004-11-05 17:12
->  
->
->>Nice catch. I can't understand how you triggered that oops,
->>though. The noop- and noqueue-qdiscs used without qdisc_create_*
->>are not refcounted, so I would expect:
->>
->>void qdisc_destroy(struct Qdisc *qdisc)
->>{
->>       if (!atomic_dec_and_test(&qdisc->refcnt))
->>               return;
->>
->>to underflow and return until refcnt finally reaches 0 again.
->>Can you explain, please ?
->>    
->>
->
->Right, this is indeed the case. This doesn't fix the oops reported
->but will prevent the oops you are referring to which was triggerd
->after 2h stress testing on my machine. I haven't had the time to
->check if incrementing the refcnt of builtin qdiscs causes
->any problems but initializing the list is good in any case.
->  
->
-Either refcnt them or add add some kind of flag to qdiscs created
-by qdisc_create/qdisc_create_default and check for that flag.
-Initializing the lists doesn't fix all problems, directly using
-noop/noqueue doesn't increment the device refcnt, so is must not
-be dropped it __qdisc_destroy.
+I fixed this in my tree as follows:
 
->I found huge locking problems from qidsc_destroy calling contexts though.
->Almost all calling paths to qdisc_destroy invoked from qdiscs are messed up.
->I am resolving those now. I have a theoretical path that could cause the
->reported oops which is htb_put -> htb_destroy_class -> qdisc_destroy
->not bh locking dev->queue_lock and thus the list unlinking could
->take place during a walk/lookup and thus lead to POISON value in the
->next pointer. I could not reproduce this so far though.
->  
->
-ops->put seems to be safe even without holding dev->queue_lock.
-The class refcnt is only changed from userspace, and always under
-the rtnl semaphore. get/put are always balanced, so pratically a
-class can never get destroyed by put.
-
-Regards
-Patrick
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/11/05 15:57:06-08:00 davem@nuts.davemloft.net 
+#   [SUNGEM]: Use CONFIG_PPC_PMAC throughout.
+#   
+#   Fixes some build failures ala bugme bugzilla #3706
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# drivers/net/sungem.c
+#   2004/11/05 15:56:15-08:00 davem@nuts.davemloft.net +1 -1
+#   [SUNGEM]: Use CONFIG_PPC_PMAC throughout.
+# 
+diff -Nru a/drivers/net/sungem.c b/drivers/net/sungem.c
+--- a/drivers/net/sungem.c	2004-11-05 15:57:28 -08:00
++++ b/drivers/net/sungem.c	2004-11-05 15:57:28 -08:00
+@@ -2681,7 +2681,7 @@
+ 	return rc;
+ }
+ 
+-#if (!defined(__sparc__) && !defined(CONFIG_PPC))
++#if (!defined(__sparc__) && !defined(CONFIG_PPC_PMAC))
+ /* Fetch MAC address from vital product data of PCI ROM. */
+ static void find_eth_addr_in_vpd(void __iomem *rom_base, int len, unsigned char *dev_addr)
+ {
