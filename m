@@ -1,18 +1,33 @@
-From: =?iso-8859-1?q?an7?= <an3h0ny@yahoo.fr>
-Subject: tcp checksumming
-Date: Tue, 4 Nov 2003 14:36:15 +0100 (CET)
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Fwd: tcp checksumming
+Date: Tue, 4 Nov 2003 14:28:39 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031104133615.86082.qmail@web11102.mail.yahoo.com>
+Message-ID: <20031104142839.C2207@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: davem@redhat.com, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+Not my problem.
+
+Please ensure that replies are directed at the appropriate address
+(ie not me.)
+
+Thanks.
+
+
+----- Forwarded message from an7 <an3h0ny@yahoo.fr> -----
+Date: Tue, 4 Nov 2003 15:17:59 +0100 (CET)
+From: an7 <an3h0ny@yahoo.fr>
+Subject: tcp checksumming=20
+
+Hello, i am sorry russel, but i asked many times on
+netdev without having the answer, i tried to
+understand by myself during two weeks..please help me
 
 In tcp_rcv_established(), when you are in fast path,
 you use checksum and copy (the first function in the
@@ -42,8 +57,14 @@ That is to say, it is like a side effect of keeping
 data in a buffer with a bad checksum.(maybe it is
 removed after ? i don't think so)
 
-
-
 ___________________________________________________________
 Do You Yahoo!? -- Une adresse @yahoo.fr gratuite et en fran=E7ais !
 Yahoo! Mail : http://fr.mail.yahoo.com
+
+----- End forwarded message -----
+
+--=20
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
