@@ -1,70 +1,85 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] s390: claw network device driver
-Date: Tue, 29 Mar 2005 00:02:39 -0800
-Message-ID: <20050329000239.6346d73e.akpm@osdl.org>
-References: <200503290533.j2T5XEYT028850@hera.kernel.org>
-	<4248FBFD.5000809@pobox.com>
-	<20050328230830.5e90396f.akpm@osdl.org>
-	<20050329071210.GA16409@havoc.gtf.org>
-	<20050328232359.4f1e04b9.akpm@osdl.org>
-	<42490763.5010008@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, schwidefsky@de.ibm.com, netdev@oss.sgi.com
+From: =?ISO-2022-JP?B?GyRCPWkhOSQ3JC9DOCQkJSolXiF7JTMbKEI=?= <omaoma@hana.onbeet.com>
+Subject: =?ISO-2022-JP?B?GyRCIVY1JDt9JEElJCUkJUMhKiFXJEg0NiQ4JF4kLyRqISobKEI=?=
+Date: Tue, 29 Mar 2005 16:53:24 +0900 (KST)
+Message-ID: <20050329075324.20608441A0@rental2.fields-server.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42490763.5010008@pobox.com>
+To: netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->
-> Andrew Morton wrote:
-> > Jeff Garzik <jgarzik@pobox.com> wrote:
-> > 
-> >> > Was cc'ed to linux-net last Thursday, but it looks like the messages was
-> >> > too large and the vger server munched it.
-> >>
-> >> This also brings up a larger question... why was a completely unreviewed
-> >> net driver merged?
-> > 
-> > 
-> > Because nobody noticed that it didn't make it to the mailing list,
-> > obviously.
-> 
-> That's ducking the question.  Let me rephrase.
-> 
-> Why was a complete lack of response judged to be an ACK?
 
-That's not uncommon.  I don't ask people "are you reading the mailing list
-which you should be reading" unless I think it's someone who doesn't read
-the mailing lists which they should be reading.
+■■■■--ＭＡＧＡ　ＷＯＲＬＤ------------------------------------☆ 
+■■---------------------------------------------------------☆ 
+■　　　　素足・パンスト・ハイヒール
+■　　　　　　　　　　　　～めくるめくフェチ画像・動画の宝庫～--------------☆
 
-> For new drivers, that's a -horrible- precedent.  You are quite skilled 
-> at poking random hackers :)  why not poke somebody to ack a new drivers? 
+　　┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏
+　　　http://densetu.candyhos.com/?gmzg1ppiyq
+●・・・・・・・・・・・・特集１　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　 　  
+┏━━━━━━━━━　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　■■■
+┃ふぇちずむ第２弾★
+┃　　　　スカートからすらりと伸びた美脚やむっちりしたオシリ画像満載！
+　　　　　　　　∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞
+　　　　　　　　　　　　　ハ○撮りフェチムービー★
+　　　　　　　　　　　　　　　いろいろなコスチュームを着た女の子たちと入り乱れてのＨ大会
+　　　　　　　　　　　　　　　乱れたコスプレがそそります
 
-In this case I didn't think about it very hard, sorry - figured it was s390
-stuff and it hence falls under the "if it breaks, it's the s390 team's
-problem" exemption.
+●・・・・・・・・・・・・・特集２
+┏━━━━━━━━━　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　■■■
+┃社内セクハラ・不倫現場盗撮★
+┃　　　　様々な角度から、入り乱れた性の実態を盗撮！普段は決して
+　　　　　見せない恍惚の表情がたまりませんっ。
+　　　　　　　∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞　　　　　　　
+　　　　　　　　　　　  　　お姉さんの露出遊び★
+　　　　　　　　　　　　　　  　大人気の露出シリーズ第３弾
+　　　　　　　　　　　　　  　　今回は都内某所にて、オンナの子３対男２の露出プレイを決行
+　　　　　　　　　　　　　　  　ハプニングあり、乱交ありのハチャメチャ大騒動☆
 
->   It's not like this driver (or many of the other new drivers) 
-> desperately need to get into the kernel ASAP, so desperate that a lack 
-> of review was OK.
+●・・・・・・・・・・・・・特集３　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　
+┏━━━━━━━━━　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　■■■
+┃痴漢さんいらっしゃぁ～い★
+┃　　　　触りたい男と触られたいオンナ…今回の獲物は某ネイルスクールに通うという２１歳の
+　　　　　わかなちゃん♪総勢２０人の男たちに囲まれてのドキドキ痴漢体験！！
+　　　　　　　∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞　
+　　　
+　　　　　http://densetu.candyhos.com/?gmzg1ppiyq　　　
+ 
+　　┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏┏
+　　　 ┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛┛
+┃　前回に引き続いて今回も大好評の露出シリーズの第３弾が早くも登場！！
+┃　動画もさらにパワーアップするなど、見どころ満載☆
+┃　抽選で使用済みコスチュームが当たる、懸賞も実施中♪♪♪
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+   ■
+■■■■--ＭＡＧＡ　ＷＯＲＬＤ-------------------------------------☆ 
+   ■------------------------------お知らせ---------------------☆  　　　　　　　　　
+ 
+　■ＭＡＧＡ　ＷＯＲＬＤのご利用にあたって
+ 
+　　・ 『ＭＡＧＡ　ＷＯＲＬＤ』は情報メールマガジンの配信スタンドとなっており、
+　　　　無料でご登録会員様に定期的にメールマガジンを配信しております。
 
-True.  But it's not as if we can't fix stuff up after it's merged up.  The
-reasons for holding off on a merge would be:
+    ・当局のメールマガジンより配信される情報の利用に関しては、
+　　 　ご購読者個人の責任においてご利用していただくことを目的としており
+　　　情報の内容に関しては発行者におまかせしております。
+ 
+　　・当局はご紹介先のサイトにおけるいかなるトラブルや損害に対しても
+　　 一切の責任を負いかねます。
+　　
+　　・掲載情報に関してのご質問には応じておりませんので
+　　　予めご了承下さい。
+　　　　
+　  ・当メールマガジンに掲載された記事の一部または全部を
+　　　許可なく転載することを禁止致します。
+--------------------------------------------------------------☆ 
+  　■ 身に覚えのない配信
+ 
+　　　　いたずらの可能性がございます。購読解除をご希望の方は、
+　　　　お手数ですが下記のアドレスよりログインし、ご自身でお手続き下さい。
 
-a) We're not sure that the feature should be merged at all
-
-b) Holding off on a merge is a tool we use to motivate the submitter to
-   fix the code up
-
-c) The merge breaks existing stuff.
-
-I don't think any of those things apply here.  The only downside is the
-increased bk patch volume.
-
-That being said, if there had been review comments I would have delayed the
-merge.
+　　 http://hana.onbeet.com/world/
+----------------------------------------------------------- ■ 
+-----------------------------------------ＭＡＧＡ　ＷＯＲＬＤ--■■■■
+　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　  　　■
