@@ -1,59 +1,98 @@
-From: Alessandro Selli <dhatarattha@route-add.net>
-Subject: Vanilla kernel >=2.4.28-rc2 incompatibility with ADSL modem Dlink
- DSL-G300+
-Date: Sun, 06 Mar 2005 17:58:38 +0100
-Message-ID: <422B36BE.90809@route-add.net>
+From: Zdenek Radouch <zdenek@rcn.com>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: Sun, 06 Mar 2005 12:01:50 -0500
+Message-ID: <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net>
+References: <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net>
+ <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net> <20050306095642.GA1352@ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: netdev@oss.sgi.com
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: Martin Mares <mj@ucw.cz>
+In-Reply-To: <20050306095642.GA1352@ucw.cz>
+References: <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net>
+ <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  Hello,
-I found a problem having to to with the plain vanilla 2.4.28-rc2 and 
-2.4.29 kernels when I try to use a Dlink DSL-300G+ ethernet ADSL modem 
-on a SS5 machine.
+At 10:56 AM 3/6/05 +0100, Martin Mares wrote:
+>Hello!
+>
+>> Unfortunately, this does not work with the Linux stack, because the
+>> 127 net is treated (for good reasons I suppose) as a special net.
+>
+>Is it really?
 
-The domain "route-add.net" is running on a Sun SparcStation 5 machine, 
-equipped with a Micro-SPARCII, 85 MHz processor. This machine has beeing 
-running the domain (web, smtp, ssh, imap, telnet, gopher, finger, 
-auth/ident, dns) for a year. The machine has two "le" (10 base T) 
-ethernet ports, one is connected to the ADSL modem, the other to the LAN.
-The OS is Debian stable (Woody, 3.0).
-The kernel is a plain vanilla one, downloaded from 
-ftp.it.kernel.org/pub/linux/kernel/v2.4 with no patches applied to it.
+Well, at least it looks that way to me:
 
-The problem showed up after updating to kernel 2.4.28: the ADSL 
-connection would never outlive the fifteenth minute.  Even though the 
-modem still sensed the ADSL carrier and could be reached into its 
-web-based internal control panel over the same ethernet connection that 
-served the data exchanged with the ISP, after fifteen minutes it could 
-first reach the ISP gateway the connection failed and no packets could 
-be neither sent nor received with any host outside the LAN.  The 
-connection would be available again after a period varying from a few 
-minutes to several hours, three quarters of an hour on the average.
-A script that was let running from Jannuary 18th to February 3rd (data 
-from Jannuary 29th was lost) produced the following data:
+    svfx:~# netstat -rn
+    Kernel IP routing table
+    Destination     Gateway         Genmask         Flags   MSS Window
+irtt Iface
+    192.168.13.0    0.0.0.0         255.255.255.0   U         0 0
+0 eth0
+    0.0.0.0         192.168.13.254  0.0.0.0         UG        0 0
+0 eth0
+    svfx:~# 
 
-http://route-add.net/ping-noping.txt ("riuscito" = success, "fallito" = 
-failed)
-http://route-add.net/ping-noping_18012005-28012005.txt
-http://route-add.net/ping-noping_07012005-17012005.txt ("persa" = lost 
-[connection], "tornata" = [coonection is] back)
+Hmmm, I don't seem to have the loopback interface...
+This table implies that 127.0.0.1 should go out via eth0
+to a gateway 192.168.13.264.  That's hard to believe.
 
-I tried changing the wiring, I swapped the ethernet ports the LAN and 
-ADSL modem where connected to, I swapped the modem with an identical one 
-from a colleague of mine, I upgraded to kernel 2.4.29 all to no avail.
-   I then tried the 2.4.28-rc{1,2,3} kernels, and I found the 2.4.28-rc1 
-not to exhibit the problem, that manifests itself on the 2.4.28-rc{2,3} 
-kernels.
-   The problem is sparc-specific, a PC with the very same configuration 
-(Debian stable, plain vanilla kernels etc.) did not suffer any 
-connection drops.
+    svfx:~# ping -c 1 127.0.0.1
+    PING 127.0.0.1 (127.0.0.1): 56 data bytes
+    64 bytes from 127.0.0.1: icmp_seq=0 ttl=255 time=0.2 ms
 
--- 
-Alessandro Selli
-Tel: 340.839.73.05
-http://alessandro.route-add.net
+    --- 127.0.0.1 ping statistics ---
+    1 packets transmitted, 1 packets received, 0% packet loss
+    round-trip min/avg/max = 0.2/0.2/0.2 ms
+
+Looks like I do have the loopback interface after all. It just
+seems to be hidden, i.e., it actually is treated in a special way
+by one of the entities I am perusing.
+Let's see if I can delete the route anyway.
+
+    svfx:~# route del -net 127.0.0.0 netmask 255.0.0.0 dev lo
+    SIOCDELRT: No such process
+    svfx:~# 
+
+Looks like I can't, maybe it's not there?
+
+>I've just tried
+>
+>	ip addr del 127.0.0.1/8 dev lo
+>	ip addr add 127.0.0.1/24 dev lo
+>
+>and `ping 127.1.2.3' is then happily sent along the default route.
+>
+
+I don't have iproute around, so I will install it now.
+...
+and try your method:
+
+    svfx:~# ip addr del 127.0.0.1/8 dev lo
+    Cannot send dump request: Connection refused
+    svfx:~# 
+
+That actually looks like some compatibility issue if I had to guess.
+I never used the iproute tools, so I'll ignore that for now.
+[Anyone knows what this means?]
+
+Something just crossed my mind - maybe the 127 processing
+and/or the netstat/route/iproute tools are in flux, i.e., being
+changed in a major way to the point that I really need to pay
+attention to what kernel I am running.  I have done the above tests
+on my "stable" machine, which runs 2.2.20 (common Debian stable
+release). I'll go and retest everything on my embedded target
+which is running the 2.4.25 kernel.
+
+Can someone comment on the stability of the tools in question
+or any implementation changes in this area that would explain
+the above behavior?
+
+But point well taken, perhaps I just need a bit more imagination
+when I'm testing these things.  It may very well work, it just may
+look like it does not.  Thanks for the suggestions!
+
+Regards,
+-Zdenek
