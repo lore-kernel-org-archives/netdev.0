@@ -1,52 +1,38 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] atalk: remove gcc warning when PROC_FS=n
-Date: Tue, 25 Jan 2005 22:21:26 -0800
-Message-ID: <41F736E6.6000901@osdl.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
+Date: Tue, 25 Jan 2005 22:27:05 -0800
+Message-ID: <20050125222705.1ee878fd.davem@davemloft.net>
+References: <527jmu8nbw.fsf@topspin.com>
+	<5cac192f0501030907c755135@mail.gmail.com>
+	<20050103171227.GD7370@esmail.cup.hp.com>
+	<1104812294.1085.53.camel@jzny.localdomain>
+	<20050119144711.3fdd3d93.davem@davemloft.net>
+	<20050119151853.259de49a@dxpl.pdx.osdl.net>
+	<20050119164640.6c67bdfa.davem@davemloft.net>
+	<52r7kgu5n5.fsf@topspin.com>
+	<20050119230526.393a5184.davem@davemloft.net>
+	<20050120085611.33f9485e@dxpl.pdx.osdl.net>
+	<20050121105452.GA12988@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030706060002050505060002"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, roland@topspin.com, hadi@cyberus.ca, iod00d@hp.com,
+        eric.lemoine@gmail.com, netdev@oss.sgi.com, ak@suse.de,
+        openib-general@openib.org, kaber@trash.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br, davem@davemloft.net, netdev <netdev@oss.sgi.com>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20050121105452.GA12988@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030706060002050505060002
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Fri, 21 Jan 2005 11:54:52 +0100
+Lennert Buytenhek <buytenh@wantstofly.org> wrote:
 
+> If multiple CPUs can call into the tunneling drivers without taking
+> any locks, we'd need some extra locking in there, or just do what
+> Alexey describes and keep track of recursion in the skb.
 
-appletalk: Fix gcc warning.
-
-with CONFIG_PROC_FS=n, gcc complains:
-net/appletalk/ddp.c:1893: warning: statement with no effect
-
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
-
-diffstat:=
-  include/linux/atalk.h |    2 +-
-  1 files changed, 1 insertion(+), 1 deletion(-)
-
---------------030706060002050505060002
-Content-Type: text/x-patch;
- name="atalk_procfs.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="atalk_procfs.patch"
-
-
-diff -Naurp ./include/linux/atalk.h~atalk_procfs ./include/linux/atalk.h
---- ./include/linux/atalk.h~atalk_procfs	2005-01-24 13:00:23.000000000 -0800
-+++ ./include/linux/atalk.h	2005-01-25 19:43:22.647935760 -0800
-@@ -229,7 +229,7 @@ extern void atalk_unregister_sysctl(void
- extern int atalk_proc_init(void);
- extern void atalk_proc_exit(void);
- #else
--#define atalk_proc_init()	0
-+#define atalk_proc_init()	({ 0; })
- #define atalk_proc_exit()	do { } while(0)
- #endif /* CONFIG_PROC_FS */
- 
-
---------------030706060002050505060002--
+Another idea is that, just like how loopback made it's statistics
+per-cpu for LLTX support, this recursion variable could be per-cpu
+as well.
