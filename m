@@ -1,34 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] Move dst->child loop from dst_ifdown to xfrm_dst_ifdown
-Date: Tue, 8 Feb 2005 12:29:29 +1100
-Message-ID: <20050208012929.GA30659@gondor.apana.org.au>
-References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au> <20050204221344.247548cb.davem@davemloft.net> <20050205064643.GA29758@gondor.apana.org.au> <20050205201044.1b95f4e8.davem@davemloft.net> <20050206065117.GC16057@gondor.apana.org.au>
+Subject: Re: [IPSEC] Move dst->child loop from dst_ifdown to xfrm_dst_ifdown
+Date: Tue, 8 Feb 2005 12:31:40 +1100
+Message-ID: <20050208013140.GB30659@gondor.apana.org.au>
+References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au> <20050204221344.247548cb.davem@davemloft.net> <20050205064643.GA29758@gondor.apana.org.au> <20050205201044.1b95f4e8.davem@davemloft.net> <20050206065117.GC16057@gondor.apana.org.au> <20050208012929.GA30659@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="nFreZHaLTZJo0R7j"
-Cc: mirko.parthey@informatik.tu-chemnitz.de,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	yoshfuji@linux-ipv6.org, shemminger@osdl.org
+Content-Type: multipart/mixed; boundary="8GpibOaaTibBMecb"
+Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050206065117.GC16057@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050208012929.GA30659@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---nFreZHaLTZJo0R7j
+--8GpibOaaTibBMecb
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Sun, Feb 06, 2005 at 05:51:17PM +1100, herbert wrote:
+On Tue, Feb 08, 2005 at 12:29:29PM +1100, herbert wrote:
 > 
-> The idea is to move the check into dst->ops->ifdown.  By definition
-> ipv6_dst_ifdown will only see rt6_info entries.  So dst_dev_event
-> will become
+> This one moves the dst->child processing from dst_ifdown into
+> xfrm_dst_ifdown.
 
-Here are the patches to do this.  Do they look sane?
-
-This one moves the dst->child processing from dst_ifdown into
-xfrm_dst_ifdown.
+This patch adds a net_device argument to ifdown.  After all,
+it's a bit silly to notify someone of an ifdown event without
+telling them what which device it was for :)
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -39,97 +37,127 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---nFreZHaLTZJo0R7j
+--8GpibOaaTibBMecb
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=dst-patch-1
+Content-Disposition: attachment; filename=dst-patch-2
 
-===== net/core/dst.c 1.26 vs edited =====
---- 1.26/net/core/dst.c	2005-02-06 14:23:59 +11:00
-+++ edited/net/core/dst.c	2005-02-08 12:11:39 +11:00
-@@ -220,31 +220,26 @@
+===== include/net/dst.h 1.25 vs edited =====
+--- 1.25/include/net/dst.h	2005-02-06 14:23:59 +11:00
++++ edited/include/net/dst.h	2005-02-08 12:14:10 +11:00
+@@ -89,7 +89,8 @@
+ 	int			(*gc)(void);
+ 	struct dst_entry *	(*check)(struct dst_entry *, __u32 cookie);
+ 	void			(*destroy)(struct dst_entry *);
+-	void			(*ifdown)(struct dst_entry *, int how);
++	void			(*ifdown)(struct dst_entry *,
++					  struct net_device *dev, int how);
+ 	struct dst_entry *	(*negative_advice)(struct dst_entry *);
+ 	void			(*link_failure)(struct sk_buff *);
+ 	void			(*update_pmtu)(struct dst_entry *dst, u32 mtu);
+===== net/core/dst.c 1.27 vs edited =====
+--- 1.27/net/core/dst.c	2005-02-08 12:12:21 +11:00
++++ edited/net/core/dst.c	2005-02-08 12:15:03 +11:00
+@@ -220,12 +220,14 @@
   *
   * Commented and originally written by Alexey.
   */
--static void dst_ifdown(struct dst_entry *dst, int unregister)
-+static inline void dst_ifdown(struct dst_entry *dst, int unregister)
+-static inline void dst_ifdown(struct dst_entry *dst, int unregister)
++static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
++			      int unregister)
  {
- 	struct net_device *dev = dst->dev;
- 
-+	if (dst->ops->ifdown)
-+		dst->ops->ifdown(dst, unregister);
+-	struct net_device *dev = dst->dev;
+-
+ 	if (dst->ops->ifdown)
+-		dst->ops->ifdown(dst, unregister);
++		dst->ops->ifdown(dst, dev, unregister);
 +
++	if (dev != dst->dev)
++		return;
+ 
  	if (!unregister) {
  		dst->input = dst_discard_in;
- 		dst->output = dst_discard_out;
--	}
--
--	do {
--		if (unregister) {
--			dst->dev = &loopback_dev;
--			dev_hold(&loopback_dev);
-+	} else {
-+		dst->dev = &loopback_dev;
-+		dev_hold(&loopback_dev);
-+		dev_put(dev);
-+		if (dst->neighbour && dst->neighbour->dev == dev) {
-+			dst->neighbour->dev = &loopback_dev;
- 			dev_put(dev);
--			if (dst->neighbour && dst->neighbour->dev == dev) {
--				dst->neighbour->dev = &loopback_dev;
--				dev_put(dev);
--				dev_hold(&loopback_dev);
--			}
-+			dev_hold(&loopback_dev);
+@@ -252,8 +254,7 @@
+ 	case NETDEV_DOWN:
+ 		spin_lock_bh(&dst_lock);
+ 		for (dst = dst_garbage_list; dst; dst = dst->next) {
+-			if (dst->dev == dev)
+-				dst_ifdown(dst, event != NETDEV_DOWN);
++			dst_ifdown(dst, dev, event != NETDEV_DOWN);
  		}
--
--		if (dst->ops->ifdown)
--			dst->ops->ifdown(dst, unregister);
--	} while ((dst = dst->child) && dst->flags & DST_NOHASH &&
--		 dst->dev == dev);
-+	}
+ 		spin_unlock_bh(&dst_lock);
+ 		break;
+===== net/ipv4/route.c 1.101 vs edited =====
+--- 1.101/net/ipv4/route.c	2005-02-03 07:43:48 +11:00
++++ edited/net/ipv4/route.c	2005-02-08 12:14:11 +11:00
+@@ -138,7 +138,8 @@
+ 
+ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie);
+ static void		 ipv4_dst_destroy(struct dst_entry *dst);
+-static void		 ipv4_dst_ifdown(struct dst_entry *dst, int how);
++static void		 ipv4_dst_ifdown(struct dst_entry *dst,
++					 struct net_device *dev, int how);
+ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
+ static void		 ipv4_link_failure(struct sk_buff *skb);
+ static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
+@@ -1342,11 +1343,12 @@
+ 	}
  }
  
- static int dst_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
-===== net/xfrm/xfrm_policy.c 1.63 vs edited =====
---- 1.63/net/xfrm/xfrm_policy.c	2005-01-19 07:08:19 +11:00
-+++ edited/net/xfrm/xfrm_policy.c	2005-02-08 12:10:47 +11:00
-@@ -1027,6 +1027,20 @@
+-static void ipv4_dst_ifdown(struct dst_entry *dst, int how)
++static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
++			    int how)
+ {
+ 	struct rtable *rt = (struct rtable *) dst;
+ 	struct in_device *idev = rt->idev;
+-	if (idev && idev->dev != &loopback_dev) {
++	if (dev != &loopback_dev && idev && idev->dev == dev) {
+ 		struct in_device *loopback_idev = in_dev_get(&loopback_dev);
+ 		if (loopback_idev) {
+ 			rt->idev = loopback_idev;
+===== net/ipv6/route.c 1.105 vs edited =====
+--- 1.105/net/ipv6/route.c	2005-01-15 19:44:48 +11:00
++++ edited/net/ipv6/route.c	2005-02-08 12:14:11 +11:00
+@@ -84,7 +84,8 @@
+ static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
+ static struct dst_entry *ip6_negative_advice(struct dst_entry *);
+ static void		ip6_dst_destroy(struct dst_entry *);
+-static void		ip6_dst_ifdown(struct dst_entry *, int how);
++static void		ip6_dst_ifdown(struct dst_entry *,
++				       struct net_device *dev, int how);
+ static int		 ip6_dst_gc(void);
+ 
+ static int		ip6_pkt_discard(struct sk_buff *skb);
+@@ -153,12 +154,13 @@
+ 	}	
+ }
+ 
+-static void ip6_dst_ifdown(struct dst_entry *dst, int how)
++static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
++			   int how)
+ {
+ 	struct rt6_info *rt = (struct rt6_info *)dst;
+ 	struct inet6_dev *idev = rt->rt6i_idev;
+ 
+-	if (idev != NULL && idev->dev != &loopback_dev) {
++	if (dev != &loopback_dev && idev != NULL && idev->dev == dev) {
+ 		struct inet6_dev *loopback_idev = in6_dev_get(&loopback_dev);
+ 		if (loopback_idev != NULL) {
+ 			rt->rt6i_idev = loopback_idev;
+===== net/xfrm/xfrm_policy.c 1.64 vs edited =====
+--- 1.64/net/xfrm/xfrm_policy.c	2005-02-08 12:12:21 +11:00
++++ edited/net/xfrm/xfrm_policy.c	2005-02-08 12:15:35 +11:00
+@@ -1027,10 +1027,9 @@
  	dst->xfrm = NULL;
  }
  
-+static void xfrm_dst_ifdown(struct dst_entry *dst, int unregister)
-+{
-+	struct net_device *dev = dst->dev;
-+
-+	if (!unregister)
-+		return;
-+
-+	while ((dst = dst->child) && dst->xfrm && dst->dev == dev) {
-+		dst->dev = &loopback_dev;
-+		dev_hold(&loopback_dev);
-+		dev_put(dev);
-+	}
-+}
-+
- static void xfrm_link_failure(struct sk_buff *skb)
+-static void xfrm_dst_ifdown(struct dst_entry *dst, int unregister)
++static void xfrm_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
++			    int unregister)
  {
- 	/* Impossible. Such dst must be popped before reaches point of failure. */
-@@ -1150,6 +1164,8 @@
- 			dst_ops->check = xfrm_dst_check;
- 		if (likely(dst_ops->destroy == NULL))
- 			dst_ops->destroy = xfrm_dst_destroy;
-+		if (likely(dst_ops->ifdown == NULL))
-+			dst_ops->ifdown = xfrm_dst_ifdown;
- 		if (likely(dst_ops->negative_advice == NULL))
- 			dst_ops->negative_advice = xfrm_negative_advice;
- 		if (likely(dst_ops->link_failure == NULL))
-@@ -1181,6 +1197,7 @@
- 			dst_ops->kmem_cachep = NULL;
- 			dst_ops->check = NULL;
- 			dst_ops->destroy = NULL;
-+			dst_ops->ifdown = NULL;
- 			dst_ops->negative_advice = NULL;
- 			dst_ops->link_failure = NULL;
- 			dst_ops->get_mss = NULL;
+-	struct net_device *dev = dst->dev;
+-
+ 	if (!unregister)
+ 		return;
+ 
 
---nFreZHaLTZJo0R7j--
+--8GpibOaaTibBMecb--
