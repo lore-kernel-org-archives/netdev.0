@@ -1,42 +1,36 @@
-From: Florian Zwoch <zwoch@backendmedia.com>
-Subject: Re: 82540EM very slow on 2.6.0-test[45]
-Date: Sun, 14 Sep 2003 19:23:32 +0200
+From: Ricardo C Gonzalez <ricardoz@us.ibm.com>
+Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
+Date: Sun, 14 Sep 2003 14:08:28 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <bk286l$31r$1@sea.gmane.org>
-References: <20030910233512.GB18056@rushmore>
+Message-ID: <OF72607111.CD0234C8-ON85256DA1.0068861B-86256DA1.0068FF60@us.ibm.com>
+References: <20030912204947.5267e3aa.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII
+Cc: hadi@cyberus.ca, greearb@candelatech.com, jgarzik@pobox.com,
+   scott.feldman@intel.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20030910233512.GB18056@rushmore>
+In-Reply-To: <20030912204947.5267e3aa.davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-rwhron@earthlink.net wrote:
-> ftp'ing a multi-megabyte file gives about 16-20k/second
-> throughput.  I first noticed this on 2.6.0-test4, but
-> the slowness may have existed longer.   The destination
-> machine was running Solaris 8.
-> 
 
-same behaviour confimed here. test5 and test4 (can not confirm on 
-earlier). both suffer from real bad network send performance on the 
-82540EM Gigabit Ethernet Controller (rev 02).
 
-i did not test ftp but scp suffers from exactly the same mentioned 
-above. scp from this device resulted in about 80k/s to a local linux 
-2.4.x machine. scp to this device gives about 4.5mb/s.
 
-samba copy between the two machines is fast in both directions.
 
-irc dcc protocol stalls down to about 1k/s (host specific?).
 
-nothing has changed between a normal operating 2.4.20 kernel. i suppose 
-something is broken atm. i did not set up any specific duplex mode, but 
-it is detected as 100 mbps full duplex - as expected (like the 2.4 kernel).
+David Miller wrote:
 
-maybe someone can look into this?
+>Back to the main topic, maybe we should set dev->tx_queue_len to
+>1000 by default for all ethernet devices.
 
---
-Florian Zwoch
+
+I definately agree with setting the dev->tx_queue_len to 1000 as a default
+for all ethernet adapters. All adapters will benefit from this change.
+
+
+regards,
+
+----------------------------------------------------------------------------------
+
+***  ALWAYS THINK POSITIVE ***
