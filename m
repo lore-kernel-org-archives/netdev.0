@@ -1,36 +1,45 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] SMP support on 3c527 net driver for 2.6
-Date: Wed, 29 Oct 2003 15:09:58 -0500
+From: Andi Kleen <ak@suse.de>
+Subject: Re: SOMAXCONN too low
+Date: Wed, 29 Oct 2003 20:47:07 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FA01E96.8070006@pobox.com>
-References: <Pine.LNX.4.21.0310212004550.588-300000@ps2.local>	<3FA018D4.30006@pobox.com> <20031029115951.7d7e6c12.akpm@osdl.org>
+Message-ID: <20031029204707.67f9a2e1.ak@suse.de>
+References: <200310290658.h9T6w04k015302@napali.hpl.hp.com>
+	<20031029105809.0a1f27a1.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rnp@paradise.net.nz, felipewd@terra.com.br, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
+Cc: davidm@hpl.hp.com, davidm@napali.hpl.hp.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20031029115951.7d7e6c12.akpm@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031029105809.0a1f27a1.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Jeff Garzik <jgarzik@pobox.com> wrote:
+On Wed, 29 Oct 2003 10:58:09 -0800
+"David S. Miller" <davem@redhat.com> wrote:
+
+> On Tue, 28 Oct 2003 22:58:00 -0800
+> David Mosberger <davidm@napali.hpl.hp.com> wrote:
 > 
->>applied both patches to my net-drivers-2.5-exp queue.
->>
+> > You obviously want some control over how big the listen queue can
+> > grow, but it seems to me that a sysctl would be in place.  I found
+> > this patch to do that, but no reaction to it:
+> > 
+> >   http://www.ussg.iu.edu/hypermail/linux/kernel/0205.0/1287.html
 > 
+> I think I'm going to apply this patch.
 > 
-> Which patches?   I have three.  Attached.
+> People can then set the limit to what they want, the default
+> stays at 128, and the SOMAXCONN define itself does not change.
+> 
+> Ok David?
 
+Can I respectfully ask to name the sysctl net/core/somaxconn  ? 
 
-The two patches that were attached to Richard's message, 
-"jeff-to-andrew" and "race".
+That is the name used in the SuSE/UL kernels and has been shipping for some time
+and already has a big user base, and there is no reason to break compatibility
+for them.
 
-I'll go out on a limb and guess that I still need -module-license from 
-your list.
+Thanks,
 
-I'll take a look...
-
-	Jeff
+-Andi
