@@ -1,40 +1,29 @@
-From: Pekka =?iso-8859-15?Q?Pietik=E4inen?= <Pekka.Pietikainen@nixu.com>
-Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Sun, 9 Jun 2002 17:47:40 +0300
+From: Lightweight patch manager <patch@luckynet.dynu.com>
+Subject: [PATCH][2.5] list_move_tail for network core (1 occ)
+Date: Sun, 9 Jun 2002 09:02:43 -0600 (MDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020609144740.GA7805@netppl.fi>
-References: <3CFFB9F8.54455B6E@nortelnetworks.com> <20020606.202108.52904668.davem@redhat.com> <3D01307C.4090503@candelatech.com> <20020608170511.B26821@mark.mielke.cc>
+Message-ID: <advqr3$drk$2@main.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Ben Greear <greearb@candelatech.com>, "David S. Miller" <davem@redhat.com>,
-   cfriesen@nortelnetworks.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Networking Team <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Mark Mielke <mark@mark.mielke.cc>
-Content-Disposition: inline
-In-Reply-To: <20020608170511.B26821@mark.mielke.cc>
+To: Linux Network <linux-net@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 08, 2002 at 05:05:11PM -0400, Mark Mielke wrote:
-> Datagram sockets are more straight forward to implement this for, but
-> that does not mean that TCP/IP does not have similar potential.
-> 
-> I am not certain what the exact requirement is for in Chris' cases,
-> but I do know that in his field, he is writing something far more
-> complicated and resource intensive than a telnet server.
-Have you guys checked out if the TCP_INFO getsockopt() would 
-work for your needs? (obviously, it'll only work for TCP connections
-). It gives you quite a bit of detail about what's happening 
-in your TCP connection (retransmissions, window sizes etc.).
+This uses the newly introduced list_move_tail macro in net/core/dev.c
 
-  printf("unacked: %d sacked: %d lost: %d retrans: %d fackets: %d\n",
-                info.tcpi_unacked,info.tcpi_sacked,info.tcpi_lost,
-                info.tcpi_retrans,info.tcpi_fackets);
-  printf("pmtu: %d rcv_ssthresh: %d rtt: %d rttvar: %d snd_ssthresh:
-%d\nsnd_cwnd: %d advmss:
-%d reordering: %d\n",info.tcpi_pmtu,info.tcpi_rcv_ssthresh,
-	 info.tcpi_rtt,info.tcpi_rttvar,info.tcpi_snd_ssthresh,info.tcpi_snd_cwnd,info.tcpi_advmss,
-         info.tcpi_reordering);
+--- linus-2.5/net/core/dev.c	Sun Jun  9 04:17:32 2002
++++ thunder-2.5/net/core/dev.c	Sun Jun  9 07:41:55 2002
+@@ -1596,8 +1596,7 @@
+ 
+ 		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+ 			local_irq_disable();
+-			list_del(&dev->poll_list);
+-			list_add_tail(&dev->poll_list, &queue->poll_list);
++			list_move_tail(&dev->poll_list, &queue->poll_list);
+ 			if (dev->quota < 0)
+ 				dev->quota += dev->weight;
+ 			else
 
 -- 
-M.Sc. (Eng.) Pekka Pietikainen, Nixu Oy
+Lightweight patch manager using pine. If you have any objections, tell me.
