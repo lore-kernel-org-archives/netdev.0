@@ -1,34 +1,30 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
-Subject: Re: "Close NETIF_F_LLTX race conditions" problem
-Date: Sun, 23 Jan 2005 17:16:53 +0100
-Message-ID: <5cac192f05012308167a78efa6@mail.gmail.com>
-References: <871xcc5oef.fsf@devron.myhome.or.jp>
-Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/5] sis900 printk audit
+Date: Sun, 23 Jan 2005 17:16:47 +0100
+Message-ID: <20050123161647.GA1917@electric-eye.fr.zoreil.com>
+References: <20050122214657.18649.66345@localhost.localdomain> <20050122222640.GB24461@electric-eye.fr.zoreil.com> <20050123085229.GD31816@gateway.milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-In-Reply-To: <871xcc5oef.fsf@devron.myhome.or.jp>
+To: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@oss.sgi.com>
+Content-Disposition: inline
+In-Reply-To: <20050123085229.GD31816@gateway.milesteg.arr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 23 Jan 2005 21:19:04 +0900, OGAWA Hirofumi
-<hirofumi@mail.parknet.co.jp> wrote:
-> Hi,
-> 
-> I got the following warning. The cause of this warning is the context
-> of ->hard_start_xmit() was changed. Before that patch the IRQ was
-> enableing, but now it was disabled.
-> 
-> With this change, the assumption of some drivers was changed, so now
-> some drivers need to change the ->hard_start_xmit().
-> (e.g, dev_kfree_skb() -> dev_kfree_skb_irq(), spin_lock_irq() -> spin_lock()).
+Daniele Venzano <webvenza@libero.it> :
+[...]
+> Is that a suggestion that I make some global variable or macro to avoid
+> repeating that declaration in almost every function of the driver ?
 
-This is a known issue (in 2.6.11-rc2). Linus' tree should certainly
-include the revert patch at this time.
+It suggests turning:
+
+	struct sis900_private *sis_priv = net_dev->priv;
+
+into:
+
+	struct sis900_private *sis_priv = netdev_priv(net_dev);
 
 --
-Eric
+Ueimor
