@@ -1,39 +1,37 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 2.6.9-rc3] 3c59x: reload EEPROM values at rmmod for
- needy cards
-Date: Fri, 15 Oct 2004 14:12:50 -0700
+From: Bob Wirka <bobwirka@rtcworks.com>
+Subject: NFS and Network Driver Question
+Date: Fri, 15 Oct 2004 16:31:04 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015141250.3920ab2f.akpm@osdl.org>
-References: <20040928145455.C12480@tuxdriver.com>
-	<Pine.LNX.4.44.0409291253510.1746-100000@training.scyld.com>
-	<20040930091407.A10417@tuxdriver.com>
-	<20041007134601.B29517@tuxdriver.com>
-	<20041008123955.E14378@tuxdriver.com>
-	<4170260D.9010905@pobox.com>
+Message-ID: <41704198.8000206@rtcworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        becker@scyld.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4170260D.9010905@pobox.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->
-> John W. Linville wrote:
->  > Enable reload of EEPROM values in reset at rmmod for cards that need
->  > it, similar to old EEPROM_NORESET flag but in reverse.
->  > 
->  > Signed-of-by: John W. Linville <linville@tuxdriver.com>
-> 
->  Andrew... ack/nak?
+Hello,
 
-I queued it up.
+I'm trying to build a kernel that mounts a NFS root file system. This is 
+an embedded system; it uses an SMSC LAN91C111 network chip that is 
+hardwired to I/O addres 0x300 and IRQ 5. I've been using the driver (as 
+supplied by SMSC) as a module, and it works fine. Now I'm trying to 
+incorporate it into the kernel build so that I can mount an NFS file 
+system when the system boots.
 
->  Seems OK to me, provided that it chills out in -mm for a while for 
->  people to test.
+I've added the source code to the kernel tree, and modified the 
+Makefile(s) and Config.in files so that the driver <<appears>> to be 
+compiled into the kernel. The kernel will load, but the chip is not 
+initialized and the NFS fails.
 
-Yes, it takes some time for problems in this area to be shaken out.
+Since I don't know how to pass the io address and irq number to the 
+kernel, I've hard-coded them into the driver's init function (which I 
+don't see being called).
+
+If someone could point me in the right direction, I'd appreciate it.
+
+Thank you,
+
+Bob Wirka
+Realtime Control Works
