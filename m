@@ -1,68 +1,34 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: primary and secondary ip addresses
-Date: Thu, 16 Dec 2004 13:02:42 +0200
-Message-ID: <200412161302.42357.hasso@estpak.ee>
-References: <41912F7A.6000408@redhat.com> <200412161153.51251.hasso@estpak.ee> <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Re: [PATCH] e1000 poll behavior
+Date: Thu, 16 Dec 2004 13:02:06 +0100
+Message-ID: <16833.31038.665676.278498@robur.slu.se>
+References: <1103104917.41c00b9533464@www.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>,
-	Neil Horman <nhorman@redhat.com>, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Henrik Nordstrom <hno@marasystems.com>
-In-Reply-To: <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Cc: gandalf@wlug.westbo.se, robert.olsson@data.slu.se, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jchapman@katalix.com
+In-Reply-To: <1103104917.41c00b9533464@www.katalix.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Henrik Nordstrom wrote:
-> On Thu, 16 Dec 2004, Hasso Tepper wrote:
-> > And why I can't even choose which address is primary?
->
-> It is the first you add in a subnet.
 
-Yes, but to change the primary I have remove old primary (and therefore all 
-secondaries) and assign new primary to the interface and then all 
-secondaries etc. I can't just tell "make this address which is secondary at 
-the moment, primary".
+jchapman@katalix.com writes:
+ > Is there any advantage in exiting NAPI polled state as soon as
+ > possible with the work_done < work_to_do test? Why not stay in
+ > polled mode until no rx or tx work is done, i.e. only exit polled
+ > state if work_done is zero? 
 
-> > Primary
-> > =======
-> >
-> > Configure this address to be the primary address of the protocol on
-> > the interface. If the logical unit has more than one address, the
-> > primary address is used by default as the source address when packets
-> > originate from the interface and the destination does not indicate
-> > the subnet (ie. multicast destination for example).
->
-> This is what the primary addresses is used for, indirectly via the
-> automatically created route entries.
+ Yes it's a variant.
 
-No. There is only one primary address per interface and it is used if 
-destination address doesn't indicate which source address to use. Ie. if 
-packet is sent over eth1 to the address 224.0.0.6 and eth1 has addresses 
-192.168.0.1/24 and 10.10.10.1/24 which one choose for source address?
+ > When working on e100 a while ago, I found better and more consistent
+ > pps numbers by staying in polled mode until the interface went idle.
+ > See current e100 code. Unfortunately I don't have e1000 hardware to
+ > test if the same is true for e1000.
+ 
+ I'll try this with the forwarding setup when I got a chance but I'll 
+ think server-like setups are more interesting to test.
 
-> > Preferred
-> > =========
-> >
-> > Configure this address to be the preferred address on the interface.
-> > If you configure more than one address on the same subnet, the
-> > preferred source address is chosen by default as the source address
-> > when you originate packets to destinations on the subnet.
->
-> What is the difference from primary here?
-
-This has same meaning as primary in the Linux. There is as many preferred 
-addresses on the interfaces as there is subnets - every subnet has one 
-preferred address. Preferred aadress is used if next hop indicates subnet - 
-if packet is sent to the 192.168.0.2, 192.168.0.1 is used as source; if 
-packet is sent to the 10.10.10.28, 10.10.10.1 is used as source.
-
-
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+						--ro
