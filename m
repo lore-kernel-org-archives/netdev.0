@@ -1,36 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP
- 16-way)
-Date: Mon, 20 Dec 2004 16:15:52 -0800
-Message-ID: <20041220161552.2b88aa3d.davem@davemloft.net>
-References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
+Date: Tue, 21 Dec 2004 01:22:18 +0100
+Message-ID: <20041221002218.GA1487@electric-eye.fr.zoreil.com>
+References: <59719.192.102.214.6.1103214002.squirrel@webmail.wetlettuce.com> <20041216211024.GK2767@waste.org> <34721.192.102.214.6.1103274614.squirrel@webmail.wetlettuce.com> <20041217215752.GP2767@waste.org> <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com> <20041220211419.GC5974@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Broadbent <markb@wetlettuce.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Peter Chubb <peterc@gelato.unsw.edu.au>
-In-Reply-To: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU>
+To: Matt Mackall <mpm@selenic.com>
+Content-Disposition: inline
+In-Reply-To: <20041220211419.GC5974@waste.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Dec 2004 11:12:23 +1100
-Peter Chubb <peterc@gelato.unsw.edu.au> wrote:
-
-> The problem is that the driver gives up before the switch that the NIC
-> is connected to has finished the negotiation phase.
+Matt Mackall <mpm@selenic.com> :
+> On Mon, Dec 20, 2004 at 09:42:08AM -0000, Mark Broadbent wrote:
+> > 
+> > Exactly the same happens, I still get a 'NMI Watchdog detected LOCKUP'
+> > with the r8169 device using the above patch on top of 2.6.10-rc3-bk10.
 > 
-> Here's a simple patch.  I changed the way the loop works too, because
-> tg3_readphys() sets *val to 0xffffffff if it fails.
+> Ok, that suggests a problem localized to netpoll itself. Do you have
+> spinlock debugging turned on by any chance? 
 
-This patch shouldn't be needed.  This waiting loop is just an
-optimization in case we can negotiation quickly.
+Any chance of:
+1 dev_queue_xmit
+2 dev->xmit_lock taken
+3 interruption
+4 printk
+5 netconsole write
+6 dev->xmit_lock again
+7 lockup
 
-If the loop fails, we just wait for the chip to interrupt us
-when the link status changes next (or we notice a link status
-change via timer based polling which we use on chips which can't
-provide the interrupt based notification properly), at which
-time we'll call tg3_setup_copper_phy() from the interrupt handler.
+?
 
-You need to figure out why that isn't working correctly.
+This is probably the silly question of the day.
+
+--
+Ueimor
