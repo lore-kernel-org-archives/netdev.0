@@ -1,79 +1,79 @@
-From: linux-os <linux-os@chaos.analogic.com>
-Subject: Re: Open hardware wireless cards
-Date: Wed, 5 Jan 2005 15:48:46 -0500 (EST)
-Message-ID: <Pine.LNX.4.61.0501051533470.12237@chaos.analogic.com>
-References: <20050105192447.GJ5159@ruslug.rutgers.edu>
- <20050105200526.GL5159@ruslug.rutgers.edu> <20050105201434.GB30311@csclub.uwaterloo.ca>
-Reply-To: linux-os@analogic.com
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 3992] New: Bondig. Not correct work function
+ ARP Monitoring. Broken link.
+Date: Wed, 5 Jan 2005 13:35:25 -0800
+Message-ID: <20050105133525.2bab2e09.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: prism54-devel@prism54.org, prism54-users@prism54.org,
-        Netdev <netdev@oss.sgi.com>, linux-kernel@vger.kernel.org,
-        Jeff Garzik <jgarzik@pobox.com>,
-        Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: lsorense@csclub.uwaterloo.ca
-In-Reply-To: <20050105201434.GB30311@csclub.uwaterloo.ca>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 5 Jan 2005 lsorense@csclub.uwaterloo.ca wrote:
 
-> On Wed, Jan 05, 2005 at 03:05:26PM -0500, Luis R. Rodriguez wrote:
->> I'd also like to add...
->>
->> For those of you frustrated about our current wireless driver situation
->> in open platforms --
->>
->> I think we probably will have this trouble with most modern hardware for a while
->> (graphics cards, wireless driver, etc). A lot of has to do with patent
->> infringement issues, "intellectual property" protection, and other
->> business-oriented excuses.
->>
->> What I think we probably will have to do is just work torwards seeing if
->> we can come up with our own open wireless hardware. I know there was
->> a recent thread on lkml about an open video card -- anyone know where
->> that ended up?
->>
->> If we can't come up with our own project to work on open hardware we can
->> also just see if its feasible to purchase hardware companies on the
->> verge of going backrupt and buy them out and release the specs/etc (a la
->> blender). Can someone do the math here? I'm lazy.
->
-> Being open doesn't mean you aren't violating some stupid patent.
-> Software patents really are an incredibly stupid idea.  Algorithms are
-> pushing it.  After all what does the algorithm do on it's own?  Can you
-> show it working and doing something?
->
-> Len Sorensen
 
-Well its mostly about making boards just a bit too cheap.
+Begin forwarded message:
 
-If the vendors would just put in a serial EPROM that loads the
-proprietary stuff to their PLD upon startup, then there is
-no "proprietary" code to worry about. You have the generic
-published interface like a PLX chip, plus the specific published
-register functions of their PLD chip. How the device actually
-makes smoke and mirrors is hidden even from the programmer.
+Date: Wed, 5 Jan 2005 07:59:17 -0800
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 3992] New: Bondig. Not correct work function AR=
+P Monitoring. Broken link.
 
-But, by eliminating the US$0.50 cost of a EPROM, they want to supply
-a sack of bits that needs to be uploaded to the PLD by software. This
-sack of bits can be reverse-engineered so companies are not going
-to supply these (you can extract those bits from a Win-Modem dll so
-this gets a bit too ridiculous for some devices).
 
-In most cases it's not some algorithm that needs to be protected.
-Instead its the 400-or-so engineering man-hours used to develop the
-contents of the PLD (notice I did not use the words "Gate-Arrays"
-until now. There are many kinds of Programmable Logic Devices).
+http://bugme.osdl.org/show_bug.cgi?id=3D3992
 
-Until vendors stop being penny-wise-pound-foolish, we will continue
-to have these kinds of problems. Vendor education will ultimately
-be the fix, I predict.
+           Summary: Bondig. Not correct work function ARP Monitoring. Bro=
+ken
+                    link.
+    Kernel Version: 2.6.10
+            Status: NEW
+          Severity: normal
+             Owner: jgarzik@pobox.com
+         Submitter: stanislav@muhachev.petro.ru
 
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.6.10 on an i686 machine (5537.79 BogoMips).
-  Notice : All mail here is now cached for review by Dictator Bush.
-                  98.36% of all statistics are fiction.
+
+Distribution:
+Hardware Environment:
+Vmware GSX machine
+Software Environment:
+Gentoo
+Problem Description:
+bonding interface going down and down slave link
+
+
+Steps to reproduce:
+
+2 virtual pc
+identical gentoo linux (copy)
+1 nic for both virtual pc
+up 2 openvpn link trouch nic to another virtual pc (tap0 and tap1)[ethern=
+et=20
+bridge]
+link both vpn1 and vpn2 - ok!(independing link like:192.168.1.1-192.168.1=
+.2=20
+and 192.168.2.1-192.168.2.2)
+
+bonding vpn1 & vpn2 =F2=EE bond0 (bonding default setup -> nothing failov=
+er=20
+setings)
+link =EE=EA!(192.168.100.1-192.168.100.2)
+
+setting arp monitor in bonding (TUN/TAP driver not support Mii status)
+link down!
+
+arp request go from bond0(machine1)[from tap0 & tap1] to bond0(machine2) =
+- ok.
+arp answer bond0(machine2) interface - ok!
+!!! bond0(machine2) -> tap0(tap1)(machine2) - noting!!!(arp answer broken=
+)
+resultat arp request not complite
+
+situation analog both side
+
+for monitoring use TCPDUMP
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
