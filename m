@@ -1,33 +1,120 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] add likely/unlikely to pskb_may_pull
-Date: Wed, 30 Jul 2003 16:18:54 -0700
+From: =?koi8-r?Q?=22?=phased=?koi8-r?Q?=22=20?=<phased@mail.ru>
+Subject: wierd netstat(/proc/net) behaviour
+Date: Thu, 31 Jul 2003 03:23:46 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030730161854.3cb03258.shemminger@osdl.org>
+Message-ID: <E19i0IM-000Mrl-00.phased-mail-ru@f9.mail.ru>
+Reply-To: =?koi8-r?Q?=22?=phased=?koi8-r?Q?=22=20?=<phased@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+	boundary="----JCeecgNp-TbYPINj0y99GJLqb:1059607426"
+Cc: linux-net@vger.kernel.org, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+   jmorris@intercode.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Code that deals with received headers needs to be robust and use pskb_may_pull in many
-places, but except in the case of DOS attacks, the packets are always correctly formed
-so optimize for that case.
 
-diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
---- a/include/linux/skbuff.h	Wed Jul 30 15:50:31 2003
-+++ b/include/linux/skbuff.h	Wed Jul 30 15:50:31 2003
-@@ -904,9 +904,9 @@
- 
- static inline int pskb_may_pull(struct sk_buff *skb, unsigned int len)
- {
--	if (len <= skb_headlen(skb))
-+	if (likely(len <= skb_headlen(skb)))
- 		return 1;
--	if (len > skb->len)
-+	if (unlikely(len > skb->len))
- 		return 0;
- 	return __pskb_pull_tail(skb, len-skb_headlen(skb)) != NULL;
- }
+------JCeecgNp-TbYPINj0y99GJLqb:1059607426
+Content-Type: text/plain; charset=koi8-r
+Content-Transfer-Encoding: 8bit
+
+Whilst testing the 2.6.0-test1 kernel (I am sorry I am currently on dialup and have not had chance to test it on test2 yet) I experienced some very odd behaviour, namely entries vanishing from the list of established tcp connections.  Please read the attached file, if this interests you, it is just one transcript of the behaviour although I have experienced it several times.
+
+I do not beleive the host has been compromised, I have compared the md5sum of netstat on both mine and a friends installation of Debian woody and both produce the same, as far as I am aware no one has developed kernel level malware for this version of the kernel in the form of lkms yet and the irratic behavour seems inconsistent of what a compromise may result in.
+
+fd2c999a20b1e9bbb395ee8389208923  /bin/netstat
+-rwxr-xr-x    1 root     root        86892 Nov 24  2001 /bin/netstat
+
+I appologise if this is the wrong place to send such a bug, could you please forward it to the appropriate person.
+
+Regards
+
+phased
+
+
+------JCeecgNp-TbYPINj0y99GJLqb:1059607426
+Content-Type: application/octet-stream; name="netstatbug"
+Content-Disposition: attachment; filename="netstatbug"
+Content-Transfer-Encoding: base64
+
+ClF1aWNrIG92ZXJ2aWV3IG9mIHdpZXJkIGNvbm5lY3Rpb24gbW9uaXRvcmluZyBiZWhhdmlvdXIK
+YnkgbWlzdGVyeAoKVXNpbmcga2VybmVsIDIuNi4wLXRlc3QxCgpjdXJyZW50bHkgdGhlcmUgaXMg
+YSBicm93c2VyIG9wZW4gdG8gMjA3LjE2Ni4yMDMuMTYwCmFuZCBhbiBJUkMgY29ubmVjdGlvbiB0
+byAxOTUuNzEuOTkuMjEzCmJ1dCB0aGVyZSBpcyBhbHNvIGEgYm5jIGNvbm5lY3Rpb24gdG8gcG9y
+dCAxIG9mIDIxNi4xNDIuMjM3LjgwIG9mIHdoaWNoCmlzIG5vdyBzaG93aW5nIGluIHRoZSBsaXN0
+CgpiaWdib3k6L2hvbWUvbWlzdGVyeCMgbmV0c3RhdCAtYW4gfCBncmVwIEVTVEFCCnRjcCAgICAg
+ICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQzOTA1ICAgICAgMjA3LjE2Ni4yMDMuMTYwOjgwICAg
+ICAgRVNUQUJMSVNIRUQgCnRjcCAgICAgICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQzOTEzICAg
+ICAgMTk1LjcxLjk5LjIxMzo2NjY3ICAgICAgRVNUQUJMSVNIRUQgCmJpZ2JveTovaG9tZS9taXN0
+ZXJ4IyAKCgpvayBsZXRzIGNsb3NlIGFsbCBjb25uZWN0aW9ucwoKYmlnYm95Oi9ob21lL21pc3Rl
+cngjIG5ldHN0YXQgLWFuIHwgZ3JlcCBFU1RBQgpiaWdib3k6L2hvbWUvbWlzdGVyeCMgCgpJIG9w
+ZW4gYW4gc3NoIGNvbm5lY3Rpb24gdG8gYSByZW1vdGUgc3lzdGVtCgpiaWdib3k6L2hvbWUvbWlz
+dGVyeCMgbmV0c3RhdCAtYW4gfCBncmVwIEVTVEFCCnRjcCAgICAgICAgMCAgICAgIDAgMTkyLjE2
+OC40MS4yOjQzOTE2ICAgICAgMTkyLjE2OC40MS45OjIyICAgICAgICAgRVNUQUJMSVNIRUQgCmJp
+Z2JveTovaG9tZS9taXN0ZXJ4IyAKCm5vdyBpIGFkZCBhIGNvbm5lY3Rpb24gdG8gcG9ydCAxMzUg
+b24gYSBkaWZmZXJlbnQgc3lzdGVtCgpiaWdib3k6L2hvbWUvbWlzdGVyeCMgbmV0c3RhdCAtYW4g
+fCBncmVwIEVTVEFCCnRjcCAgICAgICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQzOTE3ICAgICAg
+MTkyLjE2OC40MS4xOjEzNSAgICAgICAgRVNUQUJMSVNIRUQgCnRjcCAgICAgICAgMCAgICAgIDAg
+MTkyLjE2OC40MS4yOjQzOTE2ICAgICAgMTkyLjE2OC40MS45OjIyICAgICAgICAgRVNUQUJMSVNI
+RUQgCmJpZ2JveTovaG9tZS9taXN0ZXJ4IyAKCk5vdyBJIG9wZW4gYW5vdGhlciBjb25uZWN0aW9u
+IHRvIDE5Mi4xNjguNDEuOSBhbmQgMTkyLjE2OC40MS4xIG9uIHBvcnRzIDIyCmFuZCAxMzUsIHRo
+ZW4gY2xvc2UgdGhlbSBhbmQgd2FpdCBhIHdoaWxlCgpvayBsZXRzIHRyeSBuZXRzdGF0IGFnYWlu
+CgpiaWdib3k6L2hvbWUvbWlzdGVyeCMgbmV0c3RhdCAtYW4gfCBncmVwIEVTVEFCCnRjcCAgICAg
+ICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQzOTE2ICAgICAgMTkyLjE2OC40MS45OjIyICAgICAg
+ICAgRVNUQUJMSVNIRUQgCgpXaGVyZSBoYXMgdGhlIGNvbm5lY3Rpb24gdG8gcG9ydCAxMzUgZ29u
+ZSwgdGhlIGNsaWVudCBpcyBzdGlsbCBvcGVuCjE5Mi4xNjguNDEuOToyMiBoYXMgdGltZWQgb3V0
+IG5vdywgbGV0cyBkbyBuZXRzdGF0IGFnYWluCgpiaWdib3k6L2hvbWUvbWlzdGVyeCMgbmV0c3Rh
+dCAtYW4gfCBncmVwIEVTVEFCCnRjcCAgICAgICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQzOTE3
+ICAgICAgMTkyLjE2OC40MS4xOjEzNSAgICAgICAgRVNUQUJMSVNIRUQgCgpUaGUgY29ubmVjdGlv
+biB0byAxOTIuMTY4LjQxLjEgb24gcG9ydCAxMzUgaGFzIHJlYXBwZWFyZWQKSSBjb25uZWN0IHRv
+IGFuIElSQyBzZXJ2ZXIKCmJpZ2JveTovaG9tZS9taXN0ZXJ4IyBuZXRzdGF0IC1hbiB8IGdyZXAg
+RVNUQUIKdGNwICAgICAgICAwICAgICAgMCAxOTIuMTY4LjQxLjI6NDM5MjQgICAgICAyMTMuNDgu
+MTUwLjE6NjY2NyAgICAgICBFU1RBQkxJU0hFRCAKdGNwICAgICAgICAwICAgICAgMCAxOTIuMTY4
+LjQxLjI6NDM5MjIgICAgICAxOTIuMTY4LjQxLjE6MTM1ICAgICAgICBFU1RBQkxJU0hFRCAKYmln
+Ym95Oi9ob21lL21pc3RlcngjIAoKbmV0c3RhdCBvdXRwdXQgaXMgYXMgd2UgZXhwZWN0CkkgdGhl
+biBjb25uZWN0IHRvIGFub3RoZXIgaXJjIHNlcnZlciwgaXJjLm9mdGMubmV0IG9uIHBvcnQgNjY2
+NyBhbHNvCgpiaWdib3k6L2hvbWUvbWlzdGVyeCMgbmV0c3RhdCAtYW4gfCBncmVwIEVTVEFCCnRj
+cCAgICAgICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQzOTI0ICAgICAgMjEzLjQ4LjE1MC4xOjY2
+NjcgICAgICAgRVNUQUJMSVNIRUQgCnRjcCAgICAgICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQz
+OTI1ICAgICAgMTk1LjcxLjk5LjIxMzo2NjY3ICAgICAgRVNUQUJMSVNIRUQgCmJpZ2JveTovaG9t
+ZS9taXN0ZXJ4IyAKCk9rLCB3aGVyZXMgdGhhdCAxMzUgZ29uZSBhZ2FpbiEKSSBvcGVuIGEgY29u
+bmVjdGlvbiB0byBhIGhvc3Qgb24gcG9ydCAyMiBhZ2FpbiwgdGhhdHMgdGhlcmUgb2sKCmJpZ2Jv
+eTovaG9tZS9taXN0ZXJ4IyBuZXRzdGF0IC1hbiB8IGdyZXAgRVNUQUIKdGNwICAgICAgICAwICAg
+ICAgMCAxOTIuMTY4LjQxLjI6NDM5MjQgICAgICAyMTMuNDguMTUwLjE6NjY2NyAgICAgICBFU1RB
+QkxJU0hFRCAKdGNwICAgICAgICAwICAgICAgMCAxOTIuMTY4LjQxLjI6NDM5MjUgICAgICAxOTUu
+NzEuOTkuMjEzOjY2NjcgICAgICBFU1RBQkxJU0hFRCAKdGNwICAgICAgICAwICAgICAgMCAxOTIu
+MTY4LjQxLjI6NDM5MjYgICAgICAxOTIuMTY4LjQxLjk6MjIgICAgICAgICBFU1RBQkxJU0hFRCAK
+YmlnYm95Oi9ob21lL21pc3RlcngjIAoKSSB0aGVuIGNsb3NlIGl0CgpiaWdib3k6L2hvbWUvbWlz
+dGVyeCMgbmV0c3RhdCAtYW4gfCBncmVwIEVTVEFCCnRjcCAgICAgICAgMCAgICAgIDAgMTkyLjE2
+OC40MS4yOjQzOTI0ICAgICAgMjEzLjQ4LjE1MC4xOjY2NjcgICAgICAgRVNUQUJMSVNIRUQgCnRj
+cCAgICAgICAgMCAgICAgIDAgMTkyLjE2OC40MS4yOjQzOTI1ICAgICAgMTk1LjcxLjk5LjIxMzo2
+NjY3ICAgICAgRVNUQUJMSVNIRUQgCmJpZ2JveTovaG9tZS9taXN0ZXJ4IyAKCkFsbCBzZWVtcyBp
+biBvcmRlciwgYnV0IDEzNSdzIGNsaWVudCBpcyBzdGlsbCBvcGVuLCB0aGUgYm94IGl0IGlzIGNv
+bm5lY3RpbmdmCnRvIHNob3cgaXQsIGluIGl0cyBvd24gbmV0c3RhdCBhcyBlc3RhYmxpc2hlZAoK
+bWlzdGVyeEBiaWdib3k6fiQgZGF0ZQpUaHUgSnVsIDMxIDAwOjI3OjE3IEJTVCAyMDAzCm1pc3Rl
+cnhAYmlnYm95On4kIAoKSW4gdGhpcyB0aHJlZSBtaW51dGUgcHJlcmlvZCBJIGNvbm5lY3RlZCB0
+byBzaGVsbDEuY2Izcm9iLm5ldCBvbiBwb3J0IDIzCmFuZCB3d3cuY2Izcm9iLm5ldCBvbiBwb3J0
+IDgwIGFuZCBlbmcubWFpbC5ydSBvbiBwb3J0IDgwLCBhbGwgbmV0c3RhdHMKd2VyZSBmaW5lIHdo
+aWxzdCBvbiB0aGVzZSBzaXRlcywgd2hlbiBpIGRpc2Nvbm5lY3RlZCBmcm9tIGVuZy5tYWlsLnJ1
+CkkgZ290IHRoaXMKCm1pc3RlcnhAYmlnYm95On4kIGRhdGUKVGh1IEp1bCAzMSAwMDozMDo1NSBC
+U1QgMjAwMwptaXN0ZXJ4QGJpZ2JveTp+JCAKCmJpZ2JveTovaG9tZS9taXN0ZXJ4IyBuZXRzdGF0
+IC1hbiB8IGdyZXAgRVNUQUIKdGNwICAgICAgICAwICAgICAgMCAxOTIuMTY4LjQxLjI6NDM5MjQg
+ICAgICAyMTMuNDguMTUwLjE6NjY2NyAgICAgICBFU1RBQkxJU0hFRCAKdGNwICAgICAgICAwICAg
+ICAgMCAxOTIuMTY4LjQxLjI6NDM5MjIgICAgICAxOTIuMTY4LjQxLjE6MTM1ICAgICAgICBFU1RB
+QkxJU0hFRCAKYmlnYm95Oi9ob21lL21pc3RlcngjIAoKVEh0YSBwb3J0IDEzNSBoYXMgYXBwZWFy
+ZWQgYWdhaW4sIGFuZCBvZnRjLm5ldCBoYXMgdmFubmlzaGVkIGV2ZW4gdGhvdWdoCkxldHMgc2Vu
+ZCBteXNlbGYgYSBwaW5nIG9uIElSQyB0byBzZWUgaWYgaSBhbSBzdGlsbCB0aGVyZQoKW2N0Y3Ao
+bWlzdGVyeCldIFBJTkcKPj4+IG1pc3RlcnggW35taXN0ZXJ4QDIxMy4xMjIuMTM1LjExN10gcmVx
+dWVzdGVkIFBJTkcgMTA1OTYwODAwMiAyOTAwMDIgZnJvbQogICAgICAgICAgbWlzdGVyeAoKYmln
+Ym95Oi9ob21lL21pc3RlcngjIG5ldHN0YXQgLWFuIHwgZ3JlcCBFU1RBQgp0Y3AgICAgICAgIDAg
+ICAgICAwIDE5Mi4xNjguNDEuMjo0MzkyNCAgICAgIDIxMy40OC4xNTAuMTo2NjY3ICAgICAgIEVT
+VEFCTElTSEVEIAp0Y3AgICAgICAgIDAgICAgICAwIDE5Mi4xNjguNDEuMjo0MzkyNSAgICAgIDE5
+NS43MS45OS4yMTM6NjY2NyAgICAgIEVTVEFCTElTSEVEIApiaWdib3k6L2hvbWUvbWlzdGVyeCMg
+CgpOb3cgbmV0c3RhdCBoYXMgY2hhbmdlZCBhZ2FpbiBhbmQgMTM1IGhhcyB2YW5uaXNoZWQgZXZl
+biB0aG91Z2h0IGl0IGlzCnN0aWxsIG9wZW4sIGlzIHRoZSBrZXJuZWwgZHJvcHBpbmcgImlkbGUi
+IGNvbm5lY3Rpb25zIG9mZiB0aGUgbGlzdCBldmVuCnRob3VnaCB0aGV5IGFyZSBzdGlsbCBhY3R1
+YWxseSBjb25uZWN0ZWQ/CgpUaGlzIGlzIGp1c3Qgb25lIHRyYW5zY3JpcHQgb2Ygd2llcmQgYmVo
+YXZpb3IKCg==
+
+------JCeecgNp-TbYPINj0y99GJLqb:1059607426--
