@@ -1,72 +1,91 @@
-From: 보지연구실 <sora01@hanmail.net>
-Subject: =?ISO-8859-1?Q?=BA=B8=C1=F6=20=BF=AC=B1=B8=BD=C7=C0=BA?=
-	=?ISO-8859-1?Q?=B7=B0=BC=C5=B8=AE=20=C7=D5=B4=CF=B4=D9.=20=BA=B8=C1=F6?=
-	=?ISO-8859-1?Q?=C5=BD=B1=B8=BB=FD=C8=B0!?= (gasi)
-Date: Sat, 15 May 2004 16:42:28 +0900
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: [PATCH] Re: ethernet/b44: Bug in b44.c:v0.93 (Mar, 2004) ethernet driver in 2.6.6
+Date: Sat, 15 May 2004 15:05:19 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405150742.i4F7gS411524@ns1.my7.net>
-Content-Type: text/html
+Message-ID: <20040515120518.GA9480@ee.oulu.fi>
+References: <lzekpnlxwl.fsf@nimiumvax.nimium.local> <20040514130206.GA9583@ee.oulu.fi>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Cc: linux-kernel@vger.kernel.org, pavel@ucw.cz, netdev@oss.sgi.com,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: nestea@obc.co.kr, NET@OURTOWNUSA.NET, net2u@orgio.net, netbattle@orgio.net,
-        netblue@orgio.net, netcall@orgio.net, netcop@orgio.net,
-        netcrazy@orgio.net, netdev@oss.sgi.com, netdo@orgio.net,
-        netfu@orgio.net, netgo@o8h7w25.co.kr.sgi.com, netguy98@orgio.net,
-        netherlip@orgio.net, netian@o8015.co.kr.sgi.com,
-        netian@ohk55.net.sgi.com, netian@oi.co.kr, netian@osmcsn.com.sgi.com,
-        neticus@orgio.net, netion2@orgio.net
+To: Miroslav Zubcic <mvz@nimium.com>
+Content-Disposition: inline
+In-Reply-To: <20040514130206.GA9583@ee.oulu.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html><head>
+On Fri, May 14, 2004 at 04:02:06PM +0300, Pekka Pietikainen wrote:
+> haven't put that much effort in tracking the reason what magic
+> "break b44 bit" bit broadcom drivers  set. I suppose I could give it a few 
+> hours this weekend tho... On some machines (I think dells) the timeout
+Could you try this patch? It makes the b44 after bcm4400 scenario work for
+me. What was happening is that the broadcom driver sets a "power off MAC"
+bit, and we didn't remove that when initializing the chip.
+Also added some (a bit ugly, I know :-) ) logic to clear up the address
+filter stuff, which is what recent broadcom drivers do...
 
-      <meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
-
-    
-<STYLE TYPE="text/css">
-<!--
-BODY,TR,TD{font-size:9pt;font-family:굴림,Tahoma,Verdana,MS Sans Serif,Courier New; line-height:140%;}
--->
-</style>
-</head><body bgcolor=#ffffff>
-<li> [Name] - 보지연구실 
-<li> [Mail] - <a href=mailto:sora01@hanmail.net>sora01@hanmail.net</a> 
-<li> [From] - <a href=http://www.tmkorea2000.com>http://www.tmkorea2000.com</a> (gasi) 
-<li> 2004/5/15(토) 16:42 , 68.144.149.134<hr color=#5588dd width=70%  align=left><br>
-<font size=3><b> 보지 연구실은 럭셔리 합니다. 보지 탐구생활!</b></font><br>
-<html>
-  <head>
-    <title></title>
-  </head>
-  <body bgcolor=111111>
- <font color=white><b>---그림이 안보이면 [이미지보기]-를 클릭 해 주세요 -<br>
-<a href=http://www.mbc119.com target=_blank>http://www.mbc119.com <br>
-http://www.mbc119.com<br></b></font></a>
-    <table align="center" cellpadding="0" cellspacing="0" width="600" bordercolordark="white" bordercolorlight="black">
-      <tr>
-        <td>
-            <form name="f" method="post" action="http://www.mbc119.com" target=_blank>
-             <button type='submit' style="width: 600px; height: 500px; background-color: #cccccc; background-image: url('http://my.netian.com/~wodkfjsla/0202.gif'); background-repeat: no-repeat; background-position: 0px 50%" href="">
-              </button>
-            </form>
-        </td>
-      </tr>
-      <tr>
-        <td>
-            <p>&nbsp;</p>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>
-
-
-
- <br> 
- <br> 
-
- <br> 
-<hr align=left color=#5588dd width=70%>
-<img src=./image/userimage/technote.gif border=0 align=left>
-원하는건 뭐든지...<br>
-<b>통합CGI 테크노트2001</b><BR>
-<a href=http://technote.co.kr>http://technote.co.kr</a></body></html>
+--- linux-2.6.5-1.358/drivers/net/b44.c.orig	2004-05-15 13:59:57.000000000 +0300
++++ linux-2.6.5-1.358/drivers/net/b44.c	2004-05-15 14:59:39.794720368 +0300
+@@ -27,8 +27,8 @@
+ 
+ #define DRV_MODULE_NAME		"b44"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"0.94"
+-#define DRV_MODULE_RELDATE	"May 4, 2004"
++#define DRV_MODULE_VERSION	"0.95"
++#define DRV_MODULE_RELDATE	"May 15, 2004"
+ 
+ #define B44_DEF_MSG_ENABLE	  \
+ 	(NETIF_MSG_DRV		| \
+@@ -1187,8 +1187,9 @@
+ 	b44_chip_reset(bp);
+ 	b44_phy_reset(bp);
+ 	b44_setup_phy(bp);
+-	val = br32(B44_MAC_CTRL);
+-	bw32(B44_MAC_CTRL, val | MAC_CTRL_CRC32_ENAB);
++
++	/* Enable CRC32, set proper LED modes and power on MAC */
++	bw32(B44_MAC_CTRL, MAC_CTRL_CRC32_ENAB | MAC_CTRL_PHY_LEDCTRL);
+ 	bw32(B44_RCV_LAZY, (1 << RCV_LAZY_FC_SHIFT));
+ 
+ 	/* This sets the MAC address too.  */
+@@ -1337,7 +1338,7 @@
+ 	return nstat;
+ }
+ 
+-static void __b44_load_mcast(struct b44 *bp, struct net_device *dev)
++static int __b44_load_mcast(struct b44 *bp, struct net_device *dev)
+ {
+ 	struct dev_mc_list *mclist;
+ 	int i, num_ents;
+@@ -1347,12 +1348,15 @@
+ 	for (i = 0; mclist && i < num_ents; i++, mclist = mclist->next) {
+ 		__b44_cam_write(bp, mclist->dmi_addr, i + 1);
+ 	}
++	return i+1;
+ }
+ 
+ static void __b44_set_rx_mode(struct net_device *dev)
+ {
+ 	struct b44 *bp = dev->priv;
+ 	u32 val;
++	int i=0;
++	unsigned char zero[6] = {0,0,0,0,0,0};
+ 
+ 	val = br32(B44_RXCONFIG);
+ 	val &= ~(RXCONFIG_PROMISC | RXCONFIG_ALLMULTI);
+@@ -1365,8 +1369,11 @@
+ 		if (dev->flags & IFF_ALLMULTI)
+ 			val |= RXCONFIG_ALLMULTI;
+ 		else
+-			__b44_load_mcast(bp, dev);
+-
++			i=__b44_load_mcast(bp, dev);
++		
++		for(;i<64;i++) {
++			__b44_cam_write(bp, zero, i);			
++		}
+ 		bw32(B44_RXCONFIG, val);
+         	val = br32(B44_CAM_CTRL);
+ 	        bw32(B44_CAM_CTRL, val | CAM_CTRL_ENABLE);
