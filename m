@@ -1,40 +1,47 @@
-From: David Coulson <david@davidcoulson.net>
-Subject: Re: skb_checksum_help
-Date: Mon, 24 Jan 2005 10:27:47 -0500
-Message-ID: <41F513F3.7000708@davidcoulson.net>
-References: <20050124005348.GL23931@postel.suug.ch> <E1Cst4o-0007bD-00@gondolin.me.apana.org.au> <20050123202715.281ac87c.davem@davemloft.net> <20050124121610.GP23931@postel.suug.ch> <41F50B6C.6010107@davidcoulson.net> <20050124151510.GV23931@postel.suug.ch>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] kernel-api.sgml references removed file net_init.c
+Date: Mon, 24 Jan 2005 20:36:24 +0100
+Message-ID: <20050124193624.GS3515@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, kaber@trash.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesper Juhl <juhl-lkml@dif.dk>, linux-kernel@vger.kernel.org,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050124151510.GV23931@postel.suug.ch>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
 
-> After inspecting your iptables rule set I think it is a general UDP DNAT
-> problem under some circumstances. Some defragmentation weirdness in
-> prerouting might be invovled. It would definitely help to have a dump
-> of a complete ip fragments sequence causing this bug but I can't tell
-> what exactly is the cause just now so yes it might be a good idea to
-> limit the dump to the above subnet and hope the dodgy traffic comes
-> from the same subnet again.
+This patch by Jesper Juhl is still required in 2.6.11-rc2-mm1.
 
-cr1:~# tcpdump -nxxli vlan102 net 211.32.117.0/24 and port 53 > tcpdump.txt
 
-I assume that 'xx' is sufficient to dump all of the packet/link 
-information we need?
+make mandocs fails with these errors in 2.6.10-bk2 : 
 
-David
+juhl@dragon:~/download/kernel/linux-2.6.10-bk2$ make mandocs
+  DOCPROC Documentation/DocBook/kernel-api.sgml
+docproc: /home/juhl/download/kernel/linux-2.6.10-bk2/drivers/net/net_init.c: No such file or directory
+/bin/sh: line 1:  4845 Segmentation fault      
+SRCTREE=/home/juhl/download/kernel/linux-2.6.10-bk2/ scripts/basic/docproc doc Documentation/DocBook/kernel-api.tmpl >Documentation/DocBook/kernel-api.sgml
+make[1]: *** [Documentation/DocBook/kernel-api.sgml] Error 139
+make: *** [mandocs] Error 2
 
--- 
-David J. Coulson
-email: david@davidcoulson.net
-web: http://www.davidcoulson.net/
-phone: (216) 920-3100 / (216) 258-4942
+removing the reference to net_init.c makes it continue a bit further but 
+it still ends up failing with these errors : 
+
+make[1]: *** [Documentation/DocBook/kernel-api.sgml] Error 1
+make: *** [mandocs] Error 2
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.10-bk2-orig/Documentation/DocBook/kernel-api.tmpl	2004-12-24 22:33:48.000000000 +0100
++++ linux-2.6.10-bk2/Documentation/DocBook/kernel-api.tmpl	2004-12-31 01:33:53.000000000 +0100
+@@ -143,7 +143,6 @@
+   <chapter id="netdev">
+      <title>Network device support</title>
+      <sect1><title>Driver Support</title>
+-!Edrivers/net/net_init.c
+ !Enet/core/dev.c
+      </sect1>
+      <sect1><title>8390 Based Network Cards</title>
