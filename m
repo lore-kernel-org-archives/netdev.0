@@ -1,43 +1,77 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: tulip NAPI patch that works with 2.4.20-pre9 or so?
-Date: Tue, 22 Oct 2002 20:54:48 -0400 (EDT)
+From: aaaaaaaab73<aaaaaaaab73@korea.com>
+Subject: =?ISO-8859-1?Q?=C1=F8=C2=A5=20=BF=DC=B1=B9=20=C6=F7=B8=A3=B3=EB?=
+	=?ISO-8859-1?Q?=BB=E7=C0=CC=C6=AE=C0=D4=B4=CF=B4=D9.?=
+	=?ISO-8859-1?Q?=B9=CC=BC=BA=B3=E2=C0=DA?=
+	=?ISO-8859-1?Q?=C0=FD=B4=EB=B0=FC=B6=F7=BA=D2=B0=A1!!?=
+Date: Wed, 23 Oct 2002 09:08:55 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210222049440.24323-100000@shell.cyberus.ca>
-References: <3DB44966.1070402@candelatech.com>
+Message-ID: <200210230106.g9N16KuR021340@oss.sgi.com>
+Reply-To: aaaaaaaab73@korea.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/html; charset="euc-kr"
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DB44966.1070402@candelatech.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-On Mon, 21 Oct 2002, Ben Greear wrote:
-
-> jamal wrote:
-> > Theres a 2419 patch that should work for you at:
-> > http://www.cyberus.ca/~hadi/tulip-2419-napi-nifd.gz
-
-Links were wrong, prefix is:
-http://www.cyberus.ca/~hadi/patches
-
-> Do you have any descriptions of what this feed patch does differently
-> from other drivers?
-
-Id rather not tell you since we are still evaluating its usefullness
-and it may not be there next week.
-
-Anyways, i put a patched driver - so you only need to pick the extra
-patch:
-http://www.cyberus.ca/~hadi/patches/tulip-feed-patched.tgz
-this + the core patch from Roberts site.
-
-Make sure you edit tulip.h and edit the number of CPUS you have
-to avoid NR_CPU stupidity.
-
-cheers,
-jamal
+PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT7B+MKlIL/csbkgxve4o7PrILvnwMzGrsDUtM+02S4g
+ucy8urPiwNogwP2067D8tve60rChISE8L3RpdGxlPg0KPG1ldGEgaHR0cC1lcXVpdj0iY29u
+dGVudC10eXBlIiBjb250ZW50PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9ZXVjLWtyIj4NCjxzdHls
+ZT4NCjwhLS0NCmJvZHksdGFibGUsdHIsdGQgeyBmb250LXNpemU6IDlwdDsgZm9udC1mYW1p
+bHk6sby4sixhcmlhbDsgbGluZS1oZWlnaHQ6MTMwJTsgY29sb3I6I0ZGRkZGRjt9DQphOmxp
+bmsgeyB0ZXh0LWRlY29yYXRpb246bm9uZSB9DQphOnZpc2l0ZWQgeyB0ZXh0LWRlY29yYXRp
+b246bm9uZSB9DQphOmFjdGl2ZSB7IHRleHQtZGVjb3JhdGlvbjpub25lIH0NCmE6aG92ZXIg
+eyB0ZXh0LWRlY29yYXRpb246bm9uZSB9DQotLT4NCjwvc3R5bGU+DQo8L2hlYWQ+DQo8Ym9k
+eSBhTGluaz0id2hpdGUiIGJnY29sb3I9ImJsYWNrIiBsaW5rPSJ3aGl0ZSIgdGV4dD0id2hp
+dGUiIHZsaW5rPSJ3aGl0ZSIgb25sb2FkPSJqYXZhc2NyaXB0OndpbmRvdy5vcGVuKCdodHRw
+Oi8vMjEwLjIxOS4yNTIuMTczL35zYW5nZGR1ay9jZ2ktYmluL2luZGV4LmNnaT9JRD0zNDE4
+MjkzJywnZGR1aycsJ3Rvb2xiYXI9eWVzLGxvY2F0aW9uPXllcyxkaXJlY3Rvcmllcz1ubyxz
+dGF0dXM9bm8sbWVudWJhcj1ubyxzY3JvbGxiYXJzPXllcyxyZXNpemFibGU9eWVzLGNvcHlo
+aXN0b3J5PW5vJyk7Ij4NCjx0YWJsZSB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBhbGln
+bj0iY2VudGVyIiBiZ2NvbG9yPSJibGFjayI+DQo8dHI+PHRkPg0KPGNlbnRlcj4NCjx0YWJs
+ZSB3aWR0aD0iOTAlIiBoZWlnaHQ9IjUwIj4NCjx0cj4NCjx0ZCBhbGlnbj0iY2VudGVyIj4N
+CjxhIGhyZWY9Imh0dHA6Ly8yMTAuMjE5LjI1Mi4xNzMvfnNhbmdkZHVrL2NnaS1iaW4vaW5k
+ZXguY2dpP0lEPTM0MTgyOTMiIHRhcmdldD0iX2JsYW5rIj48Zm9udCBzaXplPSIyIiBjb2xv
+cj0icmVkIj4NCsf2wOcguri9w7TCILvnwMzGrrTCIL/PwPwgv9yxuSDG97ijs+sgu+fAzMau
+wNS0z7TZLiC5zLy6s+LA2rTCIMD9tOvD4sDUwLs8YnI+DQqx3cfPuOcgwMy3sSC758DMxq6/
+oSDH+L/AsKjAzCDA1sC4vcUgutDAuiC52bfOILvowabHz7+pIMHWvcq9w7/ALjwvZm9udD48
+L2E+DQo8L3RkPg0KPC90cj4NCjwvdGFibGU+DQo8dGFibGUgd2lkdGg9IjkwJSI+DQo8dHI+
+DQo8dGQgYWxpZ249ImNlbnRlciI+DQo8YSBocmVmPSJodHRwOi8vMjEwLjIxOS4yNTIuMTcz
+L35zYW5nZGR1ay9jZ2ktYmluL2luZGV4LmNnaT9JRD0zNDE4MjkzIiB0YXJnZXQ9Il9ibGFu
+ayI+PGltZyBzcmM9Imh0dHA6Ly93d3cuZGR1a2tpbmcuY29tL2ltYWdlcy9yZWcwMS5naWYi
+IGJvcmRlcj0iMCI+PC9hPg0KPC90ZD4NCjx0ZCBhbGlnbj0iY2VudGVyIj4NCjxhIGhyZWY9
+Imh0dHA6Ly8yMTAuMjE5LjI1Mi4xNzMvfnNhbmdkZHVrL2NnaS1iaW4vaW5kZXguY2dpP0lE
+PTM0MTgyOTMiIHRhcmdldD0iX2JsYW5rIj48aW1nIHNyYz0iaHR0cDovL3d3dy5kZHVra2lu
+Zy5jb20vaW1hZ2VzL3JlZzAyLmdpZiIgYm9yZGVyPSIwIj48L2E+DQo8L3RkPg0KPHRkIGFs
+aWduPSJjZW50ZXIiPg0KPGEgaHJlZj0iaHR0cDovLzIxMC4yMTkuMjUyLjE3My9+c2FuZ2Rk
+dWsvY2dpLWJpbi9pbmRleC5jZ2k/SUQ9MzQxODI5MyIgdGFyZ2V0PSJfYmxhbmsiPjxpbWcg
+c3JjPSJodHRwOi8vd3d3LmRkdWtraW5nLmNvbS9pbWFnZXMvcmVnMDMuZ2lmIiBib3JkZXI9
+IjAiPjwvYT48YnI+DQo8L3RkPg0KPC90cj4NCjwvdGFibGU+PHA+DQo8YSBocmVmPSJodHRw
+Oi8vMjEwLjIxOS4yNTIuMTczL35zYW5nZGR1ay9jZ2ktYmluL2luZGV4LmNnaT9JRD0zNDE4
+MjkzIiB0YXJnZXQ9Il9ibGFuayI+PGZvbnQgc2l6ZT0iMyIgY29sb3I9InllbGxvdyI+tPUg
+wMy78yC4u8DMIMfKv+Qgvvi9wLTPtNkuIMDPtNwgxay4r8fPvLy/5C4gu/W3zr/uILv1u/PA
+zCDG7sPEwf20z7TZLjwvZm9udD48L2E+PHA+DQo8L2NlbnRlcj4NCjxhIGhyZWY9Imh0dHA6
+Ly8yMTAuMjE5LjI1Mi4xNzMvfnNhbmdkZHVrL2NnaS1iaW4vaW5kZXguY2dpP0lEPTM0MTgy
+OTMiIHRhcmdldD0iX2JsYW5rIj48Zm9udCBjb2xvcj0id2hpdGUiPg0KursgwKW758DMxq60
+wiDAzsXNs90gvLrAziDA/LmuIMb3uKOz6yC758DMxq63ziwguf3A+8C4t84gwMy3r8fRILO7
+v+vAuyC/rbb3x9IgvPYgvvi0wiC4uCAyMLy8wMcgv6y3ySC5zLi4wMyzqiDAzL/NsLDAuiDA
+vbb1x9Egs7u/67+hILDFus6wqMC7ILCutMIgu+e297XpwLogwNTA5cC7ILHdx9W0z7TZLjxi
+cj4NCrbHx9Egursgu+fAzMautMIguf3A+8C4t84gwM7FzbPdv6G8rSDAvbb1ubDAuyDA/Lzb
+x8+0wiCwzcDMILHdwfa1yCDB9r+qwMyzqiCxubChuKYgtOu788C4t84gx8+0wiC8rbrxvbqw
+oSC+xrTUwLsgueDI/LTPtNkuIMCnwMcgu+fH17+hILW/wMfHz8H2IL7KtMK02bjpIMD9tOu3
+ziC16b7uv8DB9iC4tr3KvcO/wC48cD4NClRoaXMgd2ViIHNpdGUgY29udGFpbnMgc2V4dWFs
+bHkgb3JpZW50ZWQgYWR1bHQgbWF0ZXJpYWwgd2hpY2ggaXMgbm90IHN1aXRhYmxlIGZvciB0
+aG9zZSB3aG8gYXJlIHVuZGVyIHRoZSBhZ2Ugb2YgMjAuIElmIHlvdQ0KYXJlIHVuZGVyIHRo
+ZSBhZ2Ugb2YgMjAgb3IgZmluZCBtYXRlcmlhbCBvZiBhbiBhZHVsdCBuYXR1cmUgb2ZmZW5z
+aXZlLCBvciBpZiB5b3UgYXJlIGFjY2Vzc2luZyB0aGlzIHNpdGUgZnJvbSBhIGNvdW50cnkg
+d2hlcmUgYWR1bHQgbWF0ZXJpYWwgaXMgc3BlY2lmaWNhbGx5IHByb2hpYml0ZWQgYnkgbGF3
+LCBwbGVhc2UgbGVhdmUgdGhpcyBzaXRlIGltbWVkaWF0ZWx5LiBCeSBlbnRlcmluZyB0aGlz
+IHdlYiBwYWdlIHlvdSBhcmUgYWNrbm93bGVkZ2luZyB0aGF0IHlvdSBhcmUgaW4gZmFjdCAy
+MCB5ZWFycyBvZiBhZ2Ugb3Igb2xkZXIsIGFuZCB0aGVyZWZvcmUgd2Ugd2lsbCBob2xkIG5v
+IHJlc3BvbnNpYmlsaXR5IGZvciBhbnkgYWR1bHQgbWF0ZXJpYWwgeW91IGZpbmQgb24gdGhp
+cyB3ZWIgc2l0ZS4gQWxsIG1vZGVscyBvbiB0aGlzIHNpdGUgYXJlIDIwIHllYXJzIG9mIGFn
+ZSBvciBvbGRlci4gV2UgZG8gbm90IHByb21vdGUgdmlvbGVudCwgbWFsaWduYW50LCBvciBj
+aGlsZCBwb3Jub2dyYXBoeS4gSWYgeW91IHVuZGVyc3RhbmQgYW5kIGFjY2VwdCB0aGVzZSB0
+ZXJtcyB5b3UgbWF5IGVudGVyLg0KPC9mb250Pg0KPC9hPg0KPC90ZD48L3RyPjwvdGFibGU+
+DQo8L2JvZHk+DQo8L2h0bWw+DQoNCg0K
