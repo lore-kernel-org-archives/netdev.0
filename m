@@ -1,56 +1,49 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: [ANN] removal of certain net drivers coming soon: eepro100, xircom_tulip_cb, iph5526
-Date: Sat, 29 Jan 2005 20:42:33 +0000 (UTC)
-Message-ID: <ctgsfp$hpa$1@sea.gmane.org>
-References: <41F952F4.7040804@pobox.com>
+From: "Guthrie, Jeremy" <jeremy.guthrie@berbee.com>
+Subject: RE: Linux Routing Performance Update
+Date: Sat, 29 Jan 2005 16:21:39 -0600
+Message-ID: <D078DAD578D48A46A67AB71E6D2324940FC7DB@CTG-MSNEXC01.staff.berbee.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-class: urn:content-classes:message
+To: "Florian Weimer" <fw@deneb.enyo.de>,
+        "Glen Turner" <glen.turner@aarnet.edu.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-["Followup-To:" header set to gmane.linux.kernel.]
-jgarzik@pobox.com said:
-> 3) eepro100
->
-> Unmaintained; users should use e100.
->
-> When I last mentioned eepro100 was going away, I got a few private 
-> emails saying complaining about issues not yet taken care of in e100. 
-> eepro100 will not be removed until these issues are resolved.
-
-I have an intel eepro100 card in an old PII 266. With eepro100, it gets
-~9Mbit, but e100 struggles to keep its head above 1Mbit, and is very
-erratic.
-
-Also, drivers/net/Kconfig still claims that E100_NAPI exists, but the
-option to disable napi has long since been removed from the driver.
-
-Jason
-
---- linux-2.6.10/drivers/net/Kconfig.pre	2005-01-29 15:40:48.000000000 -0500
-+++ linux-2.6.10/drivers/net/Kconfig	2005-01-29 15:41:01.000000000 -0500
-@@ -1435,23 +1435,6 @@
- 	  <file:Documentation/networking/net-modules.txt>.  The module
- 	  will be called e100.
+-----Original Message-----
+From: netdev-bounce@oss.sgi.com on behalf of Florian Weimer
+Sent: Sat 1/29/2005 12:50 PM
+To: Glen Turner
+Cc: Robert Olsson; netdev@oss.sgi.com
+Subject: Re: Linux Routing Performance Update
  
--config E100_NAPI
--	bool "Use Rx Polling (NAPI)"
--	depends on E100
--	help
--	  NAPI is a new driver API designed to reduce CPU and interrupt load
--	  when the driver is receiving lots of packets from the card. It is
--	  still somewhat experimental and thus not yet enabled by default.
--
--	  If your estimated Rx load is 10kpps or more, or if the card will be
--	  deployed on potentially unfriendly networks (e.g. in a firewall),
--	  then say Y here.
--
--	  See <file:Documentation/networking/NAPI_HOWTO.txt> for more
--	  information.
--
--	  If in doubt, say N.
--
- config LNE390
- 	tristate "Mylex EISA LNE390A/B support (EXPERIMENTAL)"
- 	depends on NET_PCI && EISA && EXPERIMENTAL
+* Glen Turner:
+
+>> Finally time for some more testing with a somewhat upgraded equipment.
+>
+> Thanks very much for the interesting results.
+
+Indeed.
+
+> I'm sure other network engineers have experienced software routers where
+> the pps has dramatically slowed down upon reasonable ACLs and queuing
+> (Cisco 7500, etc),
+
+Cisco 7500 with proper configuration would do quite well in this test,
+too, even with ACLs.  Only if you have more than a few thousand new
+flows per second, things start to look rather bleak.  (Forwarding
+decisions are performed once per flow on this platform.)
+-----------
+
+Depends if you are using standard route caching or Cisco Express Forwarding.  The 7500s should support dCEF if memory strikes me correctly.  In any case, when CEF is available it should be used.  Comparing any Cisco router w/o CEF or MLS wouldn't exactly be a fair comparison.  MLS will care about new flows but CEF will not.
+
+> so some results with netfilter and tc running would be appreciated,
+> as would tests for any packet re-ordering in output flows.
+
+I'd also like to see tests with random source/destination
+combinations, just to keep things in perspective. 8-)
