@@ -1,83 +1,67 @@
-From: Krishna Kumar <kkumar@us.ibm.com>
-Subject: [PATCH AND RFC_PATCH] 1. Leak corking option in ipv4 2. ipv6 opt
- panic
-Date: Tue, 9 Mar 2004 18:05:48 -0800 (PST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Centrino wireless review
+Date: Tue, 09 Mar 2004 21:47:59 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0403091754440.6308-100000@linux-009047018241>
+Message-ID: <404E81DF.9020400@pobox.com>
+References: <404E3DB8.1000000@pobox.com> <404E795A.9050906@linux.co.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, KK <krkumar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>, Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: James Ketrenos <jketreno@linux.co.intel.com>
+In-Reply-To: <404E795A.9050906@linux.co.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+James Ketrenos wrote:
+> Jeff Garzik wrote:
+> 
+>>
+>> Thanks much to you and Intel for publishing this!
+> 
+> 
+> Wow.  Quick review turn around :)
 
-Patch1 :
---------
-I think every socket can leak memory when it allocates a cork.opt and
-calls ip_append_data()/ip_push_pending_frames(). This get released in
-ip_flush_pending_frames() which may not get called.
-
-
-Patch2 :
----------
-I am not sure about this possible bug which is the RFC part of the
-subject. In IPv6 ip6_append_data(), if it is possible to add extra ipv6
-options during multiple calls to append_data(), then the check for
-cork.opt could end up panicing the system because it is allocated
-for a smaller size of options. If this is a problem, then ipv4 might have
-a similar issue too. Note: Patch2 has a question embedded in it, I can
-send a better patch if you think the idea is right.
-
-Both patches are over my previous patch.
-
-PS : Both these patches are not as a result of any problem I got while
-testing.
-
-Thanks,
-
-- KK
-
-Patch1 :
---------
-diff -ruN linux-2.6.4-rc2-bk5.org/net/ipv4/ip_output.c linux-2.6.4-rc2-bk5/net/ipv4/ip_output.c
---- linux-2.6.4-rc2-bk5.org/net/ipv4/ip_output.c	2004-03-09 13:36:43.000000000 -0800
-+++ linux-2.6.4-rc2-bk5/net/ipv4/ip_output.c	2004-03-09 16:43:41.000000000 -0800
-@@ -1187,6 +1187,10 @@
-
- out:
- 	inet->cork.flags &= ~IPCORK_OPT;
-+	if (inet->cork.opt) {
-+		kfree(inet->cork.opt);
-+		inet->cork.opt = NULL;
-+	}
- 	if (inet->cork.rt) {
- 		ip_rt_put(inet->cork.rt);
- 		inet->cork.rt = NULL;
+I've been hoping a Centrino wireless driver would appear for a while now ;-)
 
 
-Patch2 :
---------
-diff -ruN linux-2.6.4-rc2-bk5.org/net/ipv6/ip6_output.c linux-2.6.4-rc2-bk5/net/ipv6/ip6_output.c
---- linux-2.6.4-rc2-bk5.org/net/ipv6/ip6_output.c	2004-03-09 13:36:43.000000000 -0800
-+++ linux-2.6.4-rc2-bk5/net/ipv6/ip6_output.c	2004-03-09 16:53:52.000000000 -0800
-@@ -816,7 +816,16 @@
- 		 * setup for corking
- 		 */
- 		if (opt) {
--			if (np->cork.opt == NULL) {
-+			if (np->cork.opt == NULL || np->cork.opt->tot_len <
-+						opt->tot_len) {
-+				/* No options or option size increased */
-+				if (np->cork.opt) {
-+					/* Should existing data be sent with
-+					 * old options first ?
-+					 */
-+					ip6_push_pending_frames(sk);
-+					kfree(np->cork.opt);
-+				}
- 				np->cork.opt = kmalloc(opt->tot_len,
- 						       sk->sk_allocation);
- 				if (unlikely(np->cork.opt == NULL))
+>> 0) is the firmware blob truly a firmware blob, and not an x86 ELF 
+>> blob?  In other words, will this firmware work on non-x86?
+> 
+> 
+> The firmware data is just loaded from disk and handed off to the ipw2100 
+> hardware; no linking with the kernel or running on the CPU.  To make 
+> firmware loader work on an architecture w/ endian issues would require 
+> some tweaks, but the firmware image itself wouldn't change (none of it 
+> is executed by the CPU)
+> 
+> Or am I missing what you're asking?
+
+Nope, that answered my question.  Thanks.
+
+
+>> 24) I don't see that you need to list all 1001 (or so:)) PCI subsystem 
+>> vendor ids...  just list the PCI vendor and device id.  (unless I'm 
+>> missing something?)
+> 
+> 
+> Apparently we have other cards that match the PCI vendor and device, but 
+> are not IPW 2100[A]s, so the subsystem ids had to be added.
+
+Sigh.
+
+
+>> 26) I'm curious, what is the locking/exclusion on the ipw2100_wx_xxx() 
+>> functions?
+> 
+> 
+> Locking is lacking in a few places in the wx code.  Any data that needs 
+> to be protected will end up being wrapped with the priv->low_lock 
+> spinlock.  Is there something you saw in how we have it that might be 
+> problematic?
+
+In general I saw a lack of locking in the wx module, but I admit I could 
+have missed these low_lock uses.
+
+	jeff
