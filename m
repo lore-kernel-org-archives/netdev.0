@@ -1,28 +1,29 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: SCTP sockopt discrepancy between 2.4 and 2.6.
-Date: Mon, 02 Feb 2004 18:43:03 +0000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: SCTP sockopt discrepancy between 2.4 and 2.6.
+Date: Mon, 2 Feb 2004 11:03:40 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1075747382.786.366.camel@hades.cambridge.redhat.com>
+Message-ID: <20040202110340.3f4cdabd.davem@redhat.com>
+References: <1075747382.786.366.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net
+Cc: netdev@oss.sgi.com, marcelo.tosatti@cyclades.com,
+        lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, marcelo.tosatti@cyclades.com
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1075747382.786.366.camel@hades.cambridge.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The 2.4 and 2.6 SCTP code have _different_ values for the SCTP_*
-sockopts. The 2.4 version claims to implement
-draft-ietf-tsvwg-sctpsocket-04.txt while the 2.6 version implements
-draft-ietf-tsvwg-sctpsocket-07.txt.
+On Mon, 02 Feb 2004 18:43:03 +0000
+David Woodhouse <dwmw2@infradead.org> wrote:
 
-This means that tools compiled with the current libraries and header
-files cannot work on the 2.4 kernel.
+> Am I missing something -- like perhaps the existence of a patch to
+> update the 2.4 kernel -- or is the SCTP implementation in 2.4 no longer
+> being maintained, and no longer compatible with 2.6 and its userspace?
 
-Am I missing something -- like perhaps the existence of a patch to
-update the 2.4 kernel -- or is the SCTP implementation in 2.4 no longer
-being maintained, and no longer compatible with 2.6 and its userspace?
+Good catch David, this does need to be synchronized and fixed.
 
--- 
-dwmw2
+I believe the 2.4.x SCTP code was a port of some older 2.6.x incantation
+and then the 2.6.x line kept being updated yet such updates never were
+merged 2.4.x'ward.
