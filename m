@@ -1,25 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Fix 64bit bugs in dscc44.c
-Date: Wed, 8 Oct 2003 08:42:05 -0700
+Subject: Re: [PATCH] dvb-net -- allocate network device structures
+Date: Wed, 8 Oct 2003 08:43:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008084205.5c81faac.davem@redhat.com>
-References: <20031007175953.GA1802@averell>
+Message-ID: <20031008084346.457e927b.davem@redhat.com>
+References: <20031007172257.7dff3075.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ncorbic@sangoma.com, netdev@oss.sgi.com
+Cc: kraxel@bytesex.org, video4linux-list@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <20031007175953.GA1802@averell>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031007172257.7dff3075.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Oct 2003 19:59:53 +0200
-Andi Kleen <ak@muc.de> wrote:
+On Tue, 7 Oct 2003 17:22:57 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> ioremap_nocache returns unsigned long, not u32. This makes a difference
-> on 64bit hosts.
+> This patch to 2.6.0-test6 converts the DVB net driver to allocate network
+> devices structures in a manner similar to other network devices in 2.6 by
+> using alloc_netdev.  Instead of an array of structures, and array of pointers
+> is used.
 
-Incorrect, like ioremap() it returns "void *".
-
-Even your x86_64 implementation does this.
+Applied, thanks.
