@@ -1,89 +1,90 @@
 From: Chris Wright <chrisw@osdl.org>
-Subject: [RFC][PATCH 2/3] netlink check sender, audit
-Date: Sat, 12 Feb 2005 01:05:04 -0800
-Message-ID: <20050212010504.X24171@build.pdx.osdl.net>
-References: <20050212010109.V24171@build.pdx.osdl.net> <20050212010243.W24171@build.pdx.osdl.net>
+Subject: [RFC][PATCH 3/3] netlink check sender, rtnetlink
+Date: Sat, 12 Feb 2005 01:06:32 -0800
+Message-ID: <20050212010632.Y24171@build.pdx.osdl.net>
+References: <20050212010109.V24171@build.pdx.osdl.net> <20050212010243.W24171@build.pdx.osdl.net> <20050212010504.X24171@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, jmorris@redhat.com, sds@epoch.ncsc.mil,
         serue@us.ibm.com
 To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050212010243.W24171@build.pdx.osdl.net>; from chrisw@osdl.org on Sat, Feb 12, 2005 at 01:02:43AM -0800
+In-Reply-To: <20050212010504.X24171@build.pdx.osdl.net>; from chrisw@osdl.org on Sat, Feb 12, 2005 at 01:05:04AM -0800
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add audit_check_sender() function for audit netlink messages.  This can also
-be used to set the loginuid, although I left that off for the moment.
+Add rtnetlink_check_sender() function to validate rtnetlink messages in
+sender context.  Invalid messages (due to content or sender privileges)
+will be rejected before queued to socket.
 
-===== kernel/audit.c 1.9 vs edited =====
---- 1.9/kernel/audit.c	2005-01-30 22:33:47 -08:00
-+++ edited/kernel/audit.c	2005-02-11 22:25:33 -08:00
-@@ -309,27 +309,36 @@ nlmsg_failure:			/* Used by NLMSG_PUT */
-  * Check for appropriate CAP_AUDIT_ capabilities on incoming audit
-  * control messages.
-  */
--static int audit_netlink_ok(kernel_cap_t eff_cap, u16 msg_type)
-+static int audit_check_sender(struct sk_buff *skb)
- {
--	int err = 0;
-+	struct nlmsghdr *nlh;
-+	u16 msg_type;
-+	int err = -EINVAL;
+===== net/core/rtnetlink.c 1.33 vs edited =====
+--- 1.33/net/core/rtnetlink.c	2005-01-10 13:42:22 -08:00
++++ edited/net/core/rtnetlink.c	2005-02-12 00:13:46 -08:00
+@@ -462,8 +462,32 @@ static int rtnetlink_done(struct netlink
+ static struct rtattr **rta_buf;
+ static int rtattr_max;
  
+-/* Process one rtnetlink message. */
++static int rtnetlink_check_sender(struct sk_buff *skb)
++{
++	struct nlmsghdr *nlh;
++	int kind;
++	int type;
++
 +	if (skb->len < NLMSG_LENGTH(0))
-+		goto out;
++		return -EINVAL;
 +
 +	nlh = (struct nlmsghdr *)skb->data;
-+	msg_type = nlh->nlmsg_type;
++	type = nlh->nlmsg_type;
 +
-+	err = 0;
- 	switch (msg_type) {
- 	case AUDIT_GET:
- 	case AUDIT_LIST:
- 	case AUDIT_SET:
- 	case AUDIT_ADD:
- 	case AUDIT_DEL:
--		if (!cap_raised(eff_cap, CAP_AUDIT_CONTROL))
-+		if (!capable(CAP_AUDIT_CONTROL))
- 			err = -EPERM;
- 		break;
- 	case AUDIT_USER:
--		if (!cap_raised(eff_cap, CAP_AUDIT_WRITE))
-+		if (!capable(CAP_AUDIT_WRITE))
- 			err = -EPERM;
- 		break;
- 	default:  /* bad msg */
- 		err = -EINVAL;
- 	}
--
-+out:
- 	return err;
- }
++	/* Unknown message: reply with EINVAL */
++	if (type > RTM_MAX)
++		return -EINVAL;
++
++	type -= RTM_BASE;
++	kind = type&3;
  
-@@ -338,14 +347,10 @@ static int audit_receive_msg(struct sk_b
- 	u32			uid, pid, seq;
- 	void			*data;
- 	struct audit_status	*status_get, status_set;
--	int			err;
-+	int			err = 0;
- 	struct audit_buffer	*ab;
- 	u16			msg_type = nlh->nlmsg_type;
- 
--	err = audit_netlink_ok(NETLINK_CB(skb).eff_cap, msg_type);
--	if (err)
--		return err;
--
- 	pid  = NETLINK_CREDS(skb)->pid;
- 	uid  = NETLINK_CREDS(skb)->uid;
- 	seq  = nlh->nlmsg_seq;
-@@ -551,7 +556,7 @@ int __init audit_init(void)
++	if (kind != 2 && !capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	return 0;
++}
++
++/* Process one rtnetlink message. */
+ static __inline__ int
+ rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh, int *errp)
  {
- 	printk(KERN_INFO "audit: initializing netlink socket (%s)\n",
- 	       audit_default ? "enabled" : "disabled");
--	audit_sock = netlink_kernel_create(NETLINK_AUDIT, audit_receive);
-+	audit_sock = netlink_kernel_create_check(NETLINK_AUDIT, audit_receive, audit_check_sender);
- 	if (!audit_sock)
- 		audit_panic("cannot initialize netlink socket");
+@@ -485,10 +509,6 @@ rtnetlink_rcv_msg(struct sk_buff *skb, s
+ 	if (type < RTM_BASE)
+ 		return 0;
  
+-	/* Unknown message: reply with EINVAL */
+-	if (type > RTM_MAX)
+-		goto err_inval;
+-
+ 	type -= RTM_BASE;
+ 
+ 	/* All the messages must have at least 1 byte length */
+@@ -509,11 +529,6 @@ rtnetlink_rcv_msg(struct sk_buff *skb, s
+ 	sz_idx = type>>2;
+ 	kind = type&3;
+ 
+-	if (kind != 2 && security_netlink_recv(skb)) {
+-		*errp = -EPERM;
+-		return -1;
+-	}
+-
+ 	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
+ 		u32 rlen;
+ 
+@@ -690,7 +705,8 @@ void __init rtnetlink_init(void)
+ 	if (!rta_buf)
+ 		panic("rtnetlink_init: cannot allocate rta_buf\n");
+ 
+-	rtnl = netlink_kernel_create(NETLINK_ROUTE, rtnetlink_rcv);
++	rtnl = netlink_kernel_create_check(NETLINK_ROUTE, rtnetlink_rcv,
++					   rtnetlink_check_sender);
+ 	if (rtnl == NULL)
+ 		panic("rtnetlink_init: cannot initialize rtnetlink\n");
+ 	netlink_set_nonroot(NETLINK_ROUTE, NL_NONROOT_RECV);
