@@ -1,8 +1,8 @@
 From: Shmulik Hen <hshmulik@intel.com>
-Subject: [patch] (3/8) Add 802.3ad support to bonding
-Date: Thu, 20 Mar 2003 17:16:01 +0200 (IST)
+Subject: [patch] (4/8) Add 802.3ad support to bonding
+Date: Thu, 20 Mar 2003 17:16:25 +0200 (IST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0303201627280.10351-100000@jrslxjul4.npdj.intel.com>
+Message-ID: <Pine.LNX.4.44.0303201635460.10351-100000@jrslxjul4.npdj.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -14,97 +14,131 @@ To: Bonding Developement list <bonding-devel@lists.sourceforge.net>,
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a hang when enslaving a new slave while incoming traffic 
-is running, that looks like a deadlock between the BR_NETPROTO_LOCK,
-dev->xmit_lock and the bond lock (happens on quad processor machines,
-but KDB back trace wasn't clear enough).
+This patch adds support for getting slave's speed and duplex via ethtool 
+(Needed for 802.3ad and other future modes).
 
 This patch is against bonding 2.4.20-20030317.
 
 diff -Nuarp linux-2.4.20-bonding-20030317/drivers/net/bonding.c linux-2.4.20-bonding-20030317-devel/drivers/net/bonding.c
---- linux-2.4.20-bonding-20030317/drivers/net/bonding.c	2003-03-18 17:03:25.000000000 +0200
-+++ linux-2.4.20-bonding-20030317-devel/drivers/net/bonding.c	2003-03-18 17:03:26.000000000 +0200
-@@ -295,6 +295,10 @@
-  *	- Fixed hang in bond_release() while traffic is running.		
-  *	  netdev_set_master() must not be called from within the bond lock.
-  *
-+ * 2003/03/18 - Tsippy Mendelson <tsippy.mendelson at intel dot com> and
-+ *		Shmulik Hen <shmulik.hen at intel dot com>
-+ *	- Fixed hang in bond_enslave(): netdev_set_master() must not be
-+ *	  called from within the bond lock while traffic is running.
+--- linux-2.4.20-bonding-20030317/drivers/net/bonding.c	2003-03-18 17:03:26.000000000 +0200
++++ linux-2.4.20-bonding-20030317-devel/drivers/net/bonding.c	2003-03-18 17:03:27.000000000 +0200
+@@ -299,6 +299,10 @@
+  *		Shmulik Hen <shmulik.hen at intel dot com>
+  *	- Fixed hang in bond_enslave(): netdev_set_master() must not be
+  *	  called from within the bond lock while traffic is running.
++ *
++ * 2003/03/18 - Amir Noam <amir.noam at intel dot com>
++ *	- Added support for getting slave's speed and duplex via ethtool.
++ *	  Needed for 802.3ad and other future modes.
   */
  
  #include <linux/config.h>
-@@ -1066,14 +1070,12 @@ static int bond_enslave(struct net_devic
- 			"Warning : no link monitoring support for %s\n",
- 			slave_dev->name);
- 	}
--	write_lock_irqsave(&bond->lock, flags);
+@@ -649,6 +653,59 @@ bond_attach_slave(struct bonding *bond, 
+ 	set_fs(fs);			\
+ 	ret; })
  
- 	/* not running. */
- 	if ((slave_dev->flags & IFF_UP) != IFF_UP) {
- #ifdef BONDING_DEBUG
- 		printk(KERN_CRIT "Error, slave_dev is not running\n");
- #endif
--		write_unlock_irqrestore(&bond->lock, flags);
- 		return -EINVAL;
- 	}
- 
-@@ -1082,12 +1084,10 @@ static int bond_enslave(struct net_devic
- #ifdef BONDING_DEBUG
- 		printk(KERN_CRIT "Error, Device was already enslaved\n");
- #endif
--		write_unlock_irqrestore(&bond->lock, flags);
- 		return -EBUSY;
- 	}
- 		   
- 	if ((new_slave = kmalloc(sizeof(slave_t), GFP_ATOMIC)) == NULL) {
--		write_unlock_irqrestore(&bond->lock, flags);
- 		return -ENOMEM;
- 	}
- 	memset(new_slave, 0, sizeof(slave_t));
-@@ -1100,9 +1100,7 @@ static int bond_enslave(struct net_devic
- #ifdef BONDING_DEBUG
- 		printk(KERN_CRIT "Error %d calling netdev_set_master\n", err);
- #endif
--		kfree(new_slave);
--		write_unlock_irqrestore(&bond->lock, flags);
--		return err;      
-+		goto err_free;
- 	}
- 
- 	new_slave->dev = slave_dev;
-@@ -1121,6 +1119,8 @@ static int bond_enslave(struct net_devic
- 			dev_mc_add (slave_dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
- 	}
- 
-+	write_lock_irqsave(&bond->lock, flags);
++/*
++ * Get link speed and duplex from the slave's base driver
++ * using ethtool. If for some reason the call fails or the
++ * values are invalid, fake speed and duplex to 100/Full
++ * and return error.
++ */
++static int bond_update_speed_duplex(struct slave *slave)
++{
++	struct net_device *dev = slave->dev;
++	static int (* ioctl)(struct net_device *, struct ifreq *, int);
++	struct ifreq ifr;
++	struct ethtool_cmd etool;
++
++	ioctl = dev->do_ioctl;
++	if (ioctl) {
++		etool.cmd = ETHTOOL_GSET;
++		ifr.ifr_data = (char*)&etool;
++		if (IOCTL(dev, &ifr, SIOCETHTOOL) == 0) {
++			slave->speed = etool.speed;
++			slave->duplex = etool.duplex;
++		} else {
++			goto err_out;
++		}
++	} else {
++		goto err_out;
++	}
++
++	switch (slave->speed) {
++		case SPEED_10:
++		case SPEED_100:
++		case SPEED_1000:
++			break;
++		default:
++			goto err_out;
++	}
 +	
- 	bond_attach_slave(bond, new_slave);
- 	new_slave->delay = 0;
- 	new_slave->link_failure_count = 0;
-@@ -1259,7 +1259,11 @@ static int bond_enslave(struct net_devic
- 		new_slave->state == BOND_STATE_ACTIVE ? "n active" : " backup",
- 		new_slave->link == BOND_LINK_UP ? "n up" : " down");
- 
-+	//enslave is successfull
- 	return 0;
-+err_free:
-+	kfree(new_slave);
-+	return err;
- }
- 
++	switch (slave->duplex) {
++		case DUPLEX_FULL:
++		case DUPLEX_HALF:
++			break;
++		default:
++			goto err_out;
++	}
++	
++	return 0;
++	
++err_out:
++	//Fake speed and duplex
++	slave->speed = SPEED_100;
++	slave->duplex = DUPLEX_FULL;
++	return -1;
++}
++
  /* 
-@@ -1607,6 +1611,9 @@ static int bond_release_all(struct net_d
+  * if <dev> supports MII link status reporting, check its link status.
+  *
+@@ -1173,6 +1230,13 @@ static int bond_enslave(struct net_devic
+ 		new_slave->link  = BOND_LINK_DOWN;
+ 	}
  
- 		kfree(our_slave);
++	if (bond_update_speed_duplex(new_slave) && (new_slave->link == BOND_LINK_UP) ) {
++		printk(KERN_WARNING
++		       "bond_enslave(): failed to get speed/duplex from %s, "
++		       "speed forced to 100Mbps, duplex forced to Full.\n",
++		       new_slave->dev->name);
++	}
++	
+ 	/* if we're in active-backup mode, we need one and only one active
+ 	 * interface. The backup interfaces will have their NOARP flag set
+ 	 * because we need them to be completely deaf and not to respond to
+@@ -1821,6 +1885,9 @@ static void bond_mii_monitor(struct net_
+ 			}
+ 			break;
+ 		} /* end of switch */
++		
++		bond_update_speed_duplex(slave);
++		
+ 	} /* end of while */
  
-+		/* Can be safely called from inside the bond lock
-+		   since traffic and timers have already stopped
-+		*/
- 		netdev_set_master(slave_dev, NULL);
+ 	/* 
+diff -Nuarp linux-2.4.20-bonding-20030317/include/linux/if_bonding.h linux-2.4.20-bonding-20030317-devel/include/linux/if_bonding.h
+--- linux-2.4.20-bonding-20030317/include/linux/if_bonding.h	2003-03-18 17:03:26.000000000 +0200
++++ linux-2.4.20-bonding-20030317-devel/include/linux/if_bonding.h	2003-03-18 17:03:27.000000000 +0200
+@@ -11,6 +11,9 @@
+  *	This software may be used and distributed according to the terms
+  *	of the GNU Public License, incorporated herein by reference.
+  * 
++ * 2003/03/18 - Amir Noam <amir.noam at intel dot com>
++ *	- Added support for getting slave's speed and duplex via ethtool.
++ *	  Needed for 802.3ad and other future modes.
+  */
  
- 		/* only restore its RUNNING flag if monitoring set it down */
+ #ifndef _LINUX_IF_BONDING_H
+@@ -89,6 +92,8 @@ typedef struct slave {
+ 	char   state;   /* one of BOND_STATE_XXXX */
+ 	unsigned short original_flags;
+ 	u32 link_failure_count;
++	u16    speed;
++	u8     duplex;
+ } slave_t;
+ 
+ /*
 
 -- 
 | Shmulik Hen                                    |
