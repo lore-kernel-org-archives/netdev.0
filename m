@@ -1,29 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] bugtrap for network drivers that don't register
- properly.
-Date: Thu, 16 Oct 2003 16:32:59 -0700
+From: Petr Vandrovec <vandrove@vc.cvut.cz>
+Subject: Re: [PATCH?] Fix sniffing of ARP replies
+Date: Fri, 17 Oct 2003 01:48:47 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031016163259.231a6817.davem@redhat.com>
-References: <20031016110417.0774e1c7.shemminger@osdl.org>
+Message-ID: <20031016234847.GA17048@vana.vc.cvut.cz>
+References: <32A9D366A0B@vcnet.vc.cvut.cz> <20031016152136.50e2a389.davem@redhat.com> <1066344060.2232.9.camel@localhost.localdomain> <20031016154537.2bcf7404.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Joe Perches <joe@perches.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031016110417.0774e1c7.shemminger@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031016154537.2bcf7404.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Oct 2003 11:04:17 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
-
-> This patch adds checks for network devices that set there statistics pointer
-> after registration.  It is a common error and has already burned netdev sysfs
-> unregister a couple of times.  Rather than trapping it on module unload which
-> is infrequent and unlikely to be tested on all devices, this patch traps it
-> when the device is brought up.
+On Thu, Oct 16, 2003 at 03:45:37PM -0700, David S. Miller wrote:
+> On Thu, 16 Oct 2003 15:41:00 -0700
+> Joe Perches <joe@perches.com> wrote:
 > 
-> Tested on 2.6.0-test7 by buggering the e100 driver.
+> > On Thu, 2003-10-16 at 15:21, David S. Miller wrote:
+> > vmware wasn't just trying to influence, it used the implementation.
+> 
+> It just so happened to be usable in this way.
+> 
 
-Applied, thanks Stephen.
+I do not understand. At least on hardware and configurations I tested
+code still works if I set af_packet_priv member to some non-NULL value.
+It looked to me like that it is not intentional that ARP replies are not
+delivered to the sniffer - from your reply it looks to me like that
+only allowed user  of whole packet_type, not only af_packet_priv member,
+is AF_PACKET, and that for correct functionality af_packet_priv member
+must be non-NULL. Otherwise semantic of this call is ungrokable by
+me (it is ungrokable anyway as vital information where checksum should
+be placed is lost, but you already said that it is intentional that tcpdump
+sees it wrong).
+
+For now I understand that I should set af_packet_priv to non-NULL value.
+						Best regards,
+							Petr Vandrovec
+							vandrove@vc.cvut.cz
