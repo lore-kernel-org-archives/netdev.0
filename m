@@ -1,53 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: neigh_create/inetdev_destroy race?
-Date: Tue, 31 Aug 2004 20:41:39 +1000
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
+ else")
+Date: Tue, 31 Aug 2004 13:54:21 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040831104139.GA2124@gondor.apana.org.au>
-References: <20040814005411.GA18350@gondor.apana.org.au> <20040814012513.GA721@gondor.apana.org.au> <20040814013030.GA2042@gondor.apana.org.au> <20040814050848.GA11874@gondor.apana.org.au> <20040814062703.GA4806@gondor.apana.org.au> <20040815191450.77532d5d.davem@redhat.com> <20040816105131.GA11299@gondor.apana.org.au> <20040828234201.79556f6e.davem@davemloft.net> <20040829065031.GA786@gondor.apana.org.au> <20040830230820.7514985d.davem@davemloft.net>
+Message-ID: <Pine.LNX.4.44.0408311326540.4022-100000@l>
+References: <20040831101203.GA1951@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, <laforge@netfilter.org>,
+        <netfilter-devel@lists.netfilter.org>, <rusty@rustcorp.com.au>,
+        <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040830230820.7514985d.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040831101203.GA1951@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 30, 2004 at 11:08:20PM -0700, David S. Miller wrote:
-> On Sun, 29 Aug 2004 16:50:31 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > > Secondly, until neigh_create() takes the tbl lock, it is not in
-> > > the hash tables and therefore neigh_ifdown() could not see it.
-> > 
-> > That part I agree with :) That's in fact what this race is about:
-> > neigh_ifdown does not guarantee that the hash table will be without
-> > references to idev.
-> 
-> I think we can clear this by putting neigh_parms_release() into an
-> RCU handler.  It can't be in in_dev_rcu_put.
 
-Yes that should go a long way in resolving this problem.  However it
-is still tricky because the neighbour table doesn't refer to idev
-directly.  So we'll need to go through contortions to make sure that
-the corresponding idev is still alive when we add a neighbour with
-its neigh_parms to the hash table.  Or better yet we should ref count
-the neigh_parms directly.
+	Hello,
 
-> I also now believe that these sorts of races you are mentioning percolate
-> out into ip_mc_destroy_dev().
+On Tue, 31 Aug 2004, Herbert Xu wrote:
 
-Well last time I looked at it I concluded that it was safe.  It seems
-that the references are either held by timers who are all taken down
-at the very start of the destruction, or they're taken at places which
-are under spin locks.
+> I knew it can't be that easy :)
+>
+> So let's go back to the previous idea of using inet_select_addr?
+> Can you find any problems with this? In fact, it seems that the
+> 2.2 compatibility code does exactly this.
 
-Did I miss something else?
+	Yes, 2.2 worked somehow, until some users wanted more
+control from the routing. Now ip_fw_compat_masq.c has such call,
+it can be fast in some setups with small number of IPs but may
+be now there some setups using nfmark for selecting maddr from
+ISP-specific routing tables. I'm not sure we can avoid the routing
+and the cache pollution, we have to live with the old behavoir, not
+the current one.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	I have some related work, you can check it for more ideas:
+
+http://www.ssi.bg/~ja/#routes
+see dgd-usage.txt
+
+	In short, I use the mpath route as a nexthop selector (on
+first packet), the next packets do not hit the mpath route, they feed the 
+routing with the maddr already bound to the NAT connection. This survives
+cache expiration. May be using connmark is a better idea:
+assign nfmark to connection and route it always via same GW. But
+may be the oif key remains, I'm not sure.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
