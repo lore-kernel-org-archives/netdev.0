@@ -1,79 +1,51 @@
-From: Michal Vanco <vanco@satro.sk>
-Subject: Re: 2.6.11 on AMD64 traps
-Date: Thu, 10 Mar 2005 00:50:05 +0100
-Message-ID: <200503100050.05582.vanco@satro.sk>
-References: <200503081900.18686.vanco@satro.sk> <200503092217.01106.vanco@satro.sk> <422F8649.8050707@trash.net>
+From: Boian Bonev <boian@bonev.com>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: Thu, 10 Mar 2005 01:51:21 +0200
+Message-ID: <20050309235122.7541.qmail@orange.bonev.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1432720.iW0JzFStEf";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>
-To: netdev@oss.sgi.com
-In-Reply-To: <422F8649.8050707@trash.net>
+Content-Type: multipart/mixed; boundary="=_1_1110412282_7539"
+Content-Transfer-Encoding: 8bit
+Cc: linux-net@vger.kernel.org
+To: Jason Lunz <lunz@falooley.org>, netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1432720.iW0JzFStEf
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-On Thursday 10 March 2005 00:27, Patrick McHardy wrote:
-> Michal Vanco wrote:
-> > On Wednesday 09 March 2005 22:05, Patrick McHardy wrote:
-> >>>Sure. Can (or will) this ever be fixed to any usable state also with
-> >>>netstat? Is this problem related only to AMD64?
-> >>
-> >>Maybe. To start dumping entries of an open hashed hash-table at a
-> >>specific position we need to skip all entries before that position by
-> >>walking over them. This results in quadratic time complexity. It might
-> >>be possible to improve this by cacheing the last position in
-> >>fib_iter_state even between ->stop() and ->start() calls and using
-> >>generation IDs for invalidation.
->
-> And here it is. Could you redo your timing-test with this patch please?
+--=_1_1110412282_7539
+Content-Type: text/plain; charset=windows-1251
+Content-Transfer-Encoding: 7bit
 
-Wonderfull:
+> The question, though, is: *How* do you configure the nodes within the
+> chassis such that the internal IPs (whatever they are) _stay_ internal,
+> and any non-127/8 addressing can be used for the external interfaces?
+> 
+> I've done something similar, for example, using policy routing and the
+> arp sysctls. Suppose you have a machine with 2 interfaces, and you want
+> IP routing to happen on each of the two interfaces as independently as
+> possible. My solution involves using the "iif" modifier in your routing
+> rules ("ip rule" rules) to send packets to two completely different
+> routing tables, and making sure arp doesn't bleed across the two
+> interfaces. I don't know whether policy routing gives enough control to
+> do this in a general fashion; i did it only for very specific types of
+> traffic. But I suspect you could come up with something workable.
 
-# time ip route show | wc -l; time netstat -rn | wc -l
-155991
+you can do that but you omit the interface addresses - suppose ext net is 10.20.10.1/24,
+internal is 10.10.10.1/24, no matter what routing policies and rules you put, both interface
+ips will be visible from both interfaces. now imagine you have another external net 10.30.10.1/24
+and customer wants to route e.g. 10.10.0.0/16 from 10.20.10.1/24 via 10.30.10.5...
+at least host 10.10.10.1 will not route but arrive locally to your blade host
 
-real    0m1.110s
-user    0m0.441s
-sys     0m1.100s
-155991
+btw. i have seen recently on iptables' patch-o-matic some module that could by condition route
+traffic to local addresses to another host. anyway the whole thing is doable with any kind of 
+addresses but just imagine what nightmare startup ruleset you will have on each box; then
+modify your custom rules to conform that hell ruleset and... imho it will be much more easy to
+create a custom transport over ethernet (in case your ext network could share addresses form
+that protocol also) and forget about ipv4 for internal implementation. thus you'd have at least
+better security between worlds ;-)
 
-real    0m1.435s
-user    0m1.026s
-sys     0m0.436s
+b.
 
-It seems that netlink is still little bit faster than /proc, but it doesn't=
-=20
-make any sense in case like this.
-Will this patch be included in future kernels?
-
-Great job. Thank you for help.
-
-Best regards,
-=2D-=20
-Ing. Michal Van=C4=8Do
-Network Engineer
-SATRO s.r.o.
-e-mail: vanco@satro.sk
-
---nextPart1432720.iW0JzFStEf
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.0 (GNU/Linux)
-
-iD8DBQBCL4utSBxxqpMaGkMRAqPHAJ4mGD7K/P+/Ay9JEcMzRMHMmmUv6ACgk3d2
-aRMFyFDVbqG8s8dSMSmJgNc=
-=Ep8t
------END PGP SIGNATURE-----
-
---nextPart1432720.iW0JzFStEf--
+--=_1_1110412282_7539--
