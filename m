@@ -1,150 +1,91 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] netfilter: propogate return values
-Date: Sat, 24 Jan 2004 22:23:37 -0800
+From: akpm@osdl.org
+Subject: [patch 8/18] gcc-3.5: irda
+Date: Sun, 25 Jan 2004 03:07:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124222337.752a768a.rddunlap@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com
+Message-ID: <200401251107.i0PB7So25081@mail.osdl.org>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
-Please apply to 2.6.current.
 
-Thanks,
---
-~Randy
+include/net/irda/timer.h:87: sorry, unimplemented: inlining failed in call to 'irlmp_start_discovery_timer': function body not available
 
 
-From: Daniele Bellucci <bellucda@tiscali.it>
 
+---
 
-Patch apply cleany (against 2.6.1-mm3) and compile good to me.
+ include/net/irda/irlmp_frame.h |    2 +-
+ include/net/irda/timer.h       |   18 +++++++++---------
+ net/irda/af_irda.c             |    4 ++--
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
-Please Apply.
-
-diff -puN net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval net/ipv4/netfilter/ipt_CLASSIFY.c
-
-diff -puN net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval net/ipv4/netfilter/ipt_CLASSIFY.c
-
-
- linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_CLASSIFY.c |    5 +----
- linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_DSCP.c     |    5 +----
- linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_ECN.c      |    5 +----
- linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_LOG.c      |    5 +----
- linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_MARK.c     |    5 +----
- linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_REJECT.c   |    4 +---
- linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_TOS.c      |    5 +----
- 7 files changed, 7 insertions(+), 27 deletions(-)
-
-diff -puN net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval net/ipv4/netfilter/ipt_CLASSIFY.c
---- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_CLASSIFY.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_CLASSIFY.c	2004-01-23 15:46:14.000000000 -0800
-@@ -71,10 +71,7 @@ static struct ipt_target ipt_classify_re
+diff -puN include/net/irda/timer.h~gcc-35-irda include/net/irda/timer.h
+--- 25/include/net/irda/timer.h~gcc-35-irda	2004-01-23 17:48:57.000000000 -0800
++++ 25-akpm/include/net/irda/timer.h	2004-01-23 17:48:57.000000000 -0800
+@@ -74,19 +74,19 @@ typedef void (*TIMER_CALLBACK)(void *);
+ void irda_start_timer(struct timer_list *ptimer, int timeout, void* data,
+ 		      TIMER_CALLBACK callback);
  
- static int __init init(void)
- {
--	if (ipt_register_target(&ipt_classify_reg))
--		return -EINVAL;
--
--	return 0;
-+	return ipt_register_target(&ipt_classify_reg);
- }
+-inline void irlap_start_slot_timer(struct irlap_cb *self, int timeout);
+-inline void irlap_start_query_timer(struct irlap_cb *self, int timeout);
+-inline void irlap_start_final_timer(struct irlap_cb *self, int timeout);
+-inline void irlap_start_wd_timer(struct irlap_cb *self, int timeout);
+-inline void irlap_start_backoff_timer(struct irlap_cb *self, int timeout);
++void irlap_start_slot_timer(struct irlap_cb *self, int timeout);
++void irlap_start_query_timer(struct irlap_cb *self, int timeout);
++void irlap_start_final_timer(struct irlap_cb *self, int timeout);
++void irlap_start_wd_timer(struct irlap_cb *self, int timeout);
++void irlap_start_backoff_timer(struct irlap_cb *self, int timeout);
  
- static void __exit fini(void)
-diff -puN net/ipv4/netfilter/ipt_DSCP.c~ipt_register_target_retval net/ipv4/netfilter/ipt_DSCP.c
---- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_DSCP.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_DSCP.c	2004-01-23 15:46:14.000000000 -0800
-@@ -91,10 +91,7 @@ static struct ipt_target ipt_dscp_reg = 
+ void irlap_start_mbusy_timer(struct irlap_cb *self, int timeout);
+ void irlap_stop_mbusy_timer(struct irlap_cb *);
  
- static int __init init(void)
- {
--	if (ipt_register_target(&ipt_dscp_reg))
--		return -EINVAL;
--
--	return 0;
-+	return ipt_register_target(&ipt_dscp_reg);
- }
+-inline void irlmp_start_watchdog_timer(struct lsap_cb *, int timeout);
+-inline void irlmp_start_discovery_timer(struct irlmp_cb *, int timeout);
+-inline void irlmp_start_idle_timer(struct lap_cb *, int timeout);
+-inline void irlmp_stop_idle_timer(struct lap_cb *self); 
++void irlmp_start_watchdog_timer(struct lsap_cb *, int timeout);
++void irlmp_start_discovery_timer(struct irlmp_cb *, int timeout);
++void irlmp_start_idle_timer(struct lap_cb *, int timeout);
++void irlmp_stop_idle_timer(struct lap_cb *self);
  
- static void __exit fini(void)
-diff -puN net/ipv4/netfilter/ipt_ECN.c~ipt_register_target_retval net/ipv4/netfilter/ipt_ECN.c
---- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_ECN.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_ECN.c	2004-01-23 15:46:14.000000000 -0800
-@@ -155,10 +155,7 @@ static struct ipt_target ipt_ecn_reg = {
+ #endif
  
- static int __init init(void)
- {
--	if (ipt_register_target(&ipt_ecn_reg))
--		return -EINVAL;
--
--	return 0;
-+	return ipt_register_target(&ipt_ecn_reg);
- }
+diff -puN include/net/irda/irlmp_frame.h~gcc-35-irda include/net/irda/irlmp_frame.h
+--- 25/include/net/irda/irlmp_frame.h~gcc-35-irda	2004-01-23 17:48:57.000000000 -0800
++++ 25-akpm/include/net/irda/irlmp_frame.h	2004-01-23 17:48:57.000000000 -0800
+@@ -40,7 +40,7 @@
  
- static void __exit fini(void)
-diff -puN net/ipv4/netfilter/ipt_LOG.c~ipt_register_target_retval net/ipv4/netfilter/ipt_LOG.c
---- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_LOG.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_LOG.c	2004-01-23 15:46:14.000000000 -0800
-@@ -404,10 +404,7 @@ static struct ipt_target ipt_log_reg = {
+ #define CONTROL_BIT    0x80
  
- static int __init init(void)
- {
--	if (ipt_register_target(&ipt_log_reg))
--		return -EINVAL;
--
--	return 0;
-+	return ipt_register_target(&ipt_log_reg);
- }
+-inline void irlmp_send_data_pdu(struct lap_cb *self, __u8 dlsap, __u8 slsap, 
++void irlmp_send_data_pdu(struct lap_cb *self, __u8 dlsap, __u8 slsap,
+ 				int expedited, struct sk_buff *skb);
+ void irlmp_send_lcf_pdu(struct lap_cb *self, __u8 dlsap, __u8 slsap, 
+ 			__u8 opcode, struct sk_buff *skb);
+diff -puN net/irda/af_irda.c~gcc-35-irda net/irda/af_irda.c
+--- 25/net/irda/af_irda.c~gcc-35-irda	2004-01-23 20:12:21.000000000 -0800
++++ 25-akpm/net/irda/af_irda.c	2004-01-23 20:15:11.000000000 -0800
+@@ -1089,7 +1089,7 @@ static int irda_create(struct socket *so
+ 		return -ENOMEM;
  
- static void __exit fini(void)
-diff -puN net/ipv4/netfilter/ipt_MARK.c~ipt_register_target_retval net/ipv4/netfilter/ipt_MARK.c
---- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_MARK.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_MARK.c	2004-01-23 15:46:14.000000000 -0800
-@@ -59,10 +59,7 @@ static struct ipt_target ipt_mark_reg = 
+ 	/* Allocate IrDA socket */
+-	self = irda_sk(sk) = kmalloc(sizeof(struct irda_sock), GFP_ATOMIC);
++	self = sk->sk_protinfo = kmalloc(sizeof(struct irda_sock), GFP_ATOMIC);
+ 	if (self == NULL) {
+ 		sk_free(sk);
+ 		return -ENOMEM;
+@@ -1208,7 +1208,7 @@ static int irda_release(struct socket *s
+ 	/* Destroy IrDA socket */
+ 	irda_destroy_socket(irda_sk(sk));
+ 	/* Prevent sock_def_destruct() to create havoc */
+-	irda_sk(sk) = NULL;
++	sk->sk_protinfo = NULL;
  
- static int __init init(void)
- {
--	if (ipt_register_target(&ipt_mark_reg))
--		return -EINVAL;
--
--	return 0;
-+	return ipt_register_target(&ipt_mark_reg);
- }
- 
- static void __exit fini(void)
-diff -puN net/ipv4/netfilter/ipt_REJECT.c~ipt_register_target_retval net/ipv4/netfilter/ipt_REJECT.c
---- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_REJECT.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_REJECT.c	2004-01-23 15:46:14.000000000 -0800
-@@ -449,9 +449,7 @@ static struct ipt_target ipt_reject_reg 
- 
- static int __init init(void)
- {
--	if (ipt_register_target(&ipt_reject_reg))
--		return -EINVAL;
--	return 0;
-+	return ipt_register_target(&ipt_reject_reg);
- }
- 
- static void __exit fini(void)
-diff -puN net/ipv4/netfilter/ipt_TOS.c~ipt_register_target_retval net/ipv4/netfilter/ipt_TOS.c
---- linux-262-rc1-bk1/net/ipv4/netfilter/ipt_TOS.c~ipt_register_target_retval	2004-01-23 15:46:14.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/net/ipv4/netfilter/ipt_TOS.c	2004-01-23 15:46:14.000000000 -0800
-@@ -84,10 +84,7 @@ static struct ipt_target ipt_tos_reg = {
- 
- static int __init init(void)
- {
--	if (ipt_register_target(&ipt_tos_reg))
--		return -EINVAL;
--
--	return 0;
-+	return ipt_register_target(&ipt_tos_reg);
- }
- 
- static void __exit fini(void)
+ 	sock_orphan(sk);
+ 	sock->sk   = NULL;
 
 _
