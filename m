@@ -1,27 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPV6: note on shared socket options
-Date: Wed, 4 Feb 2004 23:21:09 -0800
+Subject: Re: [PATCH] atm/idt77252: correct printk of dma_addr_t
+Date: Wed, 4 Feb 2004 23:22:56 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040204232109.0ad8d5b9.davem@redhat.com>
-References: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
+Message-ID: <20040204232256.0857bc5c.davem@redhat.com>
+References: <20040203153448.5c81e49d.rddunlap@osdl.org>
+	<200402041904.i14J4xRr017789@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: rddunlap@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
+To: chas williams (contractor) <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200402041904.i14J4xRr017789@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 04 Feb 2004 20:37:39 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Wed, 04 Feb 2004 14:05:00 -0500
+chas williams (contractor) <chas@cmf.nrl.navy.mil> wrote:
 
-> There're several socket options for multicast
-> shared between IPv4 and IPv6.
-> Add a note that some range is already used for them.
+> dave, please apply the following to the 2.6 and 2.4 trees.
 
-Applied, thanks Yoshfuji.
-
-As others noted, this in kernel internal headers, our own namespace,
-and it's documentation so it's fine.
+Done, thanks Randy/Chas.
