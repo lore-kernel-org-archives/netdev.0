@@ -1,251 +1,79 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 4/4] cls_u32: Use generic routines for class binding and police/action config/dump
-Date: Fri, 29 Oct 2004 16:09:31 +0200
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Asynchronous crypto layer.
+Date: Fri, 29 Oct 2004 18:36:06 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029140931.GS12289@postel.suug.ch>
-References: <20041029140612.GO12289@postel.suug.ch>
+Message-ID: <20041029183606.0b1a0538@zanzibar.2ka.mipt.ru>
+References: <1099030958.4944.148.camel@uganda>
+	<1099053738.1024.104.camel@jzny.localdomain>
+	<20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
+	<41824D9A.3070407@logix.cz>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041029140612.GO12289@postel.suug.ch>
+To: Michal Ludvig <michal@logix.cz>
+In-Reply-To: <41824D9A.3070407@logix.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On Fri, 29 Oct 2004 16:03:06 +0200
+Michal Ludvig <michal@logix.cz> wrote:
 
---- linux-2.6.10-rc1-bk7.orig/net/sched/cls_u32.c	2004-10-28 22:03:29.000000000 +0200
-+++ linux-2.6.10-rc1-bk7/net/sched/cls_u32.c	2004-10-29 12:04:11.000000000 +0200
-@@ -156,18 +156,9 @@
+> Evgeniy Polyakov told me that:
+> > On 29 Oct 2004 08:42:18 -0400
+> > jamal <hadi@cyberus.ca> wrote:
+> > 
+> >>>I am very curious if you see perfomance improvements over old scheme
+> >>in the case of a single crypto chip in a fast CPU.
+> >>It has been shown in the past that with a xeon in the range of 2Ghz the
+> >>context setup and the big lock (and lack of async) implied that
+> >>performance enhancement using a crypto chip was negligible.
+> >>IIRC, the only time it started showing anything useful was when a
+> >>compute intensive alg like 3DES was chewing packets >= 1000 bytes.
+> >>
+> >>My suspicion is you will show it is better to use a crypto chip with
+> >>async;-> In the minimal you should show some improvement.
+> > 
+> > 
+> > If we have a hardware accelerator chip, than we _already_ have improvements 
+> > with even the worst async crypto layer, since software and hardware 
+> > will work in parrallel.
+> > I agree that multigigahertz box will beat my HIFN card, 
+> > but I doubt it can beat 1gghz VIA.
+> 
+> I have a very preliminary driver for FastCrypt PCI board for 3DES at
+> http://www.logix.cz/michal/devel/fcrypt/
+> For now it works with some very ugly hacks in the current cryptoapi, but
+> I can give it a try with your acrypto and report the results.
+
+It would be very appreciated>
  
- 				*res = n->res;
- #ifdef CONFIG_NET_CLS_IND
--				/* yes, i know it sucks but the feature is 
--				** optional dammit! - JHS */
--				if (0 != n->indev[0]) {
--					if  (NULL == skb->input_dev) {
--						n = n->next;
--						goto next_knode;
--					} else {
--						if (0 != strcmp(n->indev, skb->input_dev->name)) {
--							n = n->next;
--							goto next_knode;
--						}
--					}
-+				if (!tcf_match_indev(skb, n->indev)) {
-+					n = n->next;
-+					goto next_knode;
- 				}
- #endif
- #ifdef CONFIG_CLS_U32_PERF
-@@ -346,10 +337,7 @@
+> I admit I haven't read your sources too deeply yet so excuse me a dumb
+> question - does acrypto replace or extend cryptoapi? Once I get it
+> running will it take over e.g. encryption for IPsec?
+
+They are both an addendum to each other, 
+any crypto layer can be "tunrned into compatibility mode" - 
+i.e. anyone can write bridges like attached sha1_provider.c (it is bridge
+from async into sync mode). So I can not answer - but in _current_ 
+implementation without any kind of bridges it is an extension.
+
+If you compile this sources then you will still have old sync behaviour, 
+IPsec and any other old-style application should be rewritten(like 
+attached consumer.c) to use new asynchronous crypto layer features.
  
- static int u32_destroy_key(struct tcf_proto *tp, struct tc_u_knode *n)
- {
--	unsigned long cl;
--
--	if ((cl = __cls_set_class(&n->res.class, 0)) != 0)
--		tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
-+	tcf_unbind_filter(tp, &n->res);
- #ifdef CONFIG_NET_CLS_ACT
- 	if (n->action) {
- 		tcf_action_destroy(n->action, TCA_ACT_UNBIND);
-@@ -495,15 +483,11 @@
- 	return handle|(i>0xFFF ? 0xFFF : i);
- }
- 
--static int u32_set_parms(struct Qdisc *q, unsigned long base,
-+static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
- 			 struct tc_u_hnode *ht,
- 			 struct tc_u_knode *n, struct rtattr **tb,
- 			 struct rtattr *est)
- {
--#ifdef CONFIG_NET_CLS_ACT
--	struct tc_action *act = NULL;
--	int ret;
--#endif
- 	if (tb[TCA_U32_LINK-1]) {
- 		u32 handle = *(u32*)RTA_DATA(tb[TCA_U32_LINK-1]);
- 		struct tc_u_hnode *ht_down = NULL;
-@@ -519,88 +503,43 @@
- 			ht_down->refcnt++;
- 		}
- 
--		sch_tree_lock(q);
-+		tcf_tree_lock(tp);
- 		ht_down = xchg(&n->ht_down, ht_down);
--		sch_tree_unlock(q);
-+		tcf_tree_unlock(tp);
- 
- 		if (ht_down)
- 			ht_down->refcnt--;
- 	}
- 	if (tb[TCA_U32_CLASSID-1]) {
--		unsigned long cl;
--
- 		n->res.classid = *(u32*)RTA_DATA(tb[TCA_U32_CLASSID-1]);
--		sch_tree_lock(q);
--		cl = __cls_set_class(&n->res.class, q->ops->cl_ops->bind_tcf(q, base, n->res.classid));
--		sch_tree_unlock(q);
--		if (cl)
--			q->ops->cl_ops->unbind_tcf(q, cl);
-+		tcf_bind_filter(tp, &n->res, base);
- 	}
- #ifdef CONFIG_NET_CLS_ACT
--	/*backward compatibility */
--	if (tb[TCA_U32_POLICE-1])
--	{
--		act = kmalloc(sizeof(*act),GFP_KERNEL);
--		if (NULL == act)
--			return -ENOMEM;
--
--		memset(act,0,sizeof(*act));
--		ret = tcf_action_init_1(tb[TCA_U32_POLICE-1], est,act,"police", TCA_ACT_NOREPLACE, TCA_ACT_BIND);
--		if (0 > ret){
--			tcf_action_destroy(act, TCA_ACT_UNBIND);
--			return ret;
--		}
--		act->type = TCA_OLD_COMPAT;
--
--		sch_tree_lock(q);
--		act = xchg(&n->action, act);
--		sch_tree_unlock(q);
--
--		tcf_action_destroy(act, TCA_ACT_UNBIND);
--
-+	if (tb[TCA_U32_POLICE-1]) {
-+		int err = tcf_change_act_police(tp, &n->action, tb[TCA_U32_POLICE-1], est);
-+		if (err < 0)
-+			return err;
- 	}
- 
--	if(tb[TCA_U32_ACT-1]) {
--		act = kmalloc(sizeof(*act),GFP_KERNEL);
--		if (NULL == act)
--			return -ENOMEM;
--		memset(act,0,sizeof(*act));
--		ret = tcf_action_init(tb[TCA_U32_ACT-1], est,act,NULL,TCA_ACT_NOREPLACE, TCA_ACT_BIND);
--		if (0 > ret) {
--			tcf_action_destroy(act, TCA_ACT_UNBIND);
--			return ret;
--		}
--
--		sch_tree_lock(q);
--		act = xchg(&n->action, act);
--		sch_tree_unlock(q);
--
--		tcf_action_destroy(act, TCA_ACT_UNBIND);
-+	if (tb[TCA_U32_ACT-1]) {
-+		int err = tcf_change_act(tp, &n->action, tb[TCA_U32_ACT-1], est);
-+		if (err < 0)
-+			return err;
- 	}
--
--
- #else
- #ifdef CONFIG_NET_CLS_POLICE
- 	if (tb[TCA_U32_POLICE-1]) {
--		struct tcf_police *police = tcf_police_locate(tb[TCA_U32_POLICE-1], est);
--		sch_tree_lock(q);
--		police = xchg(&n->police, police);
--		sch_tree_unlock(q);
--		tcf_police_release(police, TCA_ACT_UNBIND);
-+		int err = tcf_change_police(tp, &n->police, tb[TCA_U32_POLICE-1], est);
-+		if (err < 0)
-+			return err;
- 	}
- #endif
- #endif
- #ifdef CONFIG_NET_CLS_IND
--	n->indev[0] = 0;
--	if(tb[TCA_U32_INDEV-1]) {
--		struct rtattr *input_dev = tb[TCA_U32_INDEV-1];
--		if (RTA_PAYLOAD(input_dev) >= IFNAMSIZ) {
--			printk("cls_u32: bad indev name %s\n",(char*)RTA_DATA(input_dev));
--			/* should we clear state first? */
--			return  -EINVAL;
--		}
--		sprintf(n->indev, "%s", (char*)RTA_DATA(input_dev));
--		printk("got IND %s\n",n->indev);
-+	if (tb[TCA_U32_INDEV-1]) {
-+		int err = tcf_change_indev(tp, n->indev, tb[TCA_U32_INDEV-1]);
-+		if (err < 0)
-+			return err;
- 	}
- #endif
- 
-@@ -630,7 +569,7 @@
- 		if (TC_U32_KEY(n->handle) == 0)
- 			return -EINVAL;
- 
--		return u32_set_parms(tp->q, base, n->ht_up, n, tb, tca[TCA_RATE-1]);
-+		return u32_set_parms(tp, base, n->ht_up, n, tb, tca[TCA_RATE-1]);
- 	}
- 
- 	if (tb[TCA_U32_DIVISOR-1]) {
-@@ -718,7 +657,7 @@
- 	}
- 	n->fshift = i;
- }
--	err = u32_set_parms(tp->q, base, ht, n, tb, tca[TCA_RATE-1]);
-+	err = u32_set_parms(tp, base, ht, n, tb, tca[TCA_RATE-1]);
- 	if (err == 0) {
- 		struct tc_u_knode **ins;
- 		for (ins = &ht->ht[TC_U32_HASH(handle)]; *ins; ins = &(*ins)->next)
-@@ -806,49 +745,18 @@
- 		if (n->ht_down)
- 			RTA_PUT(skb, TCA_U32_LINK, 4, &n->ht_down->handle);
- #ifdef CONFIG_NET_CLS_ACT
--		/* again for backward compatible mode - we want
--		*  to work with both old and new modes of entering
--		*  tc data even if iproute2  was newer - jhs 
--		*/
--		if (n->action) {
--			struct rtattr * p_rta = (struct rtattr*)skb->tail;
--
--			if (n->action->type != TCA_OLD_COMPAT) {
--				RTA_PUT(skb, TCA_U32_ACT, 0, NULL);
--				if (tcf_action_dump(skb,n->action, 0, 0) < 0) {
--					goto rtattr_failure;
--				}
--			} else {
--				RTA_PUT(skb, TCA_U32_POLICE, 0, NULL);
--				if (tcf_action_dump_old(skb,n->action,0,0) < 0) {
--					goto rtattr_failure;
--				}
--			}
--
--			p_rta->rta_len = skb->tail - (u8*)p_rta;
--		}
--
-+		if (tcf_dump_act(skb, n->action, TCA_U32_ACT, TCA_U32_POLICE) < 0)
-+			goto rtattr_failure;
- #else
- #ifdef CONFIG_NET_CLS_POLICE
--		if (n->police) {
--			struct rtattr * p_rta = (struct rtattr*)skb->tail;
--			RTA_PUT(skb, TCA_U32_POLICE, 0, NULL);
--	 
--			if (tcf_police_dump(skb, n->police) < 0)
--				goto rtattr_failure;
--
--			p_rta->rta_len = skb->tail - (u8*)p_rta;
--
--		}
-+		if (tcf_dump_police(skb, n->police, TCA_U32_POLICE) < 0)
-+			goto rtattr_failure;
- #endif
- #endif
- 
- #ifdef CONFIG_NET_CLS_IND
--		if(strlen(n->indev)) {
--			struct rtattr * p_rta = (struct rtattr*)skb->tail;
-+		if(strlen(n->indev))
- 			RTA_PUT(skb, TCA_U32_INDEV, IFNAMSIZ, n->indev);
--			p_rta->rta_len = skb->tail - (u8*)p_rta;
--		}
- #endif
- #ifdef CONFIG_CLS_U32_PERF
- 		RTA_PUT(skb, TCA_U32_PCNT, 
+> Michal Ludvig
+> -- 
+> * A mouse is a device used to point at the xterm you want to type in.
+> * Personal homepage - http://www.logix.cz/michal
+> _______________________________________________
+> 
+> Subscription: http://lists.logix.cz/mailman/listinfo/cryptoapi
+> List archive: http://lists.logix.cz/pipermail/cryptoapi
+
+
+	Evgeniy Polyakov
+
+Only failure makes us experts. -- Theo de Raadt
