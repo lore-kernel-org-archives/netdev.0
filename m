@@ -1,250 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: netdev-2.6 queue updated
-Date: Mon, 20 Sep 2004 15:48:42 -0400
+From: Arkadiusz Miskiewicz <arekm@pld-linux.org>
+Subject: Re: netdev-2.6 queue updated
+Date: Mon, 20 Sep 2004 22:14:45 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920194842.GA21782@havoc.gtf.org>
-Reply-To: netdev@oss.sgi.com
+Message-ID: <200409202214.45202.arekm@pld-linux.org>
+References: <20040920194842.GA21782@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-2"
 Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+In-Reply-To: <20040920194842.GA21782@havoc.gtf.org>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Monday 20 of September 2004 21:48, Jeff Garzik wrote:
 
-BK users:
-bk pull bk://gkernel.bkbits.net/netdev-2.6
+> Pavel Machek:
+>   o swsuspend for ne2k-pci cards
+I was always wondering what these changelogs are saying ?=20
 
-Patch:
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.9=
--rc2-bk6-netdev1.patch.bz2
+For example Pavel is not author for this change - =C9ric Brunet is.
 
-This will update the following files:
-
- arch/cris/arch-v10/drivers/ethernet.c     |  140 ++----
- drivers/ieee1394/eth1394.c                |   95 +---
- drivers/media/dvb/dvb-core/dvb_net.c      |    9=20
- drivers/net/3c509.c                       |  151 ++-----
- drivers/net/8139cp.c                      |   80 ++-
- drivers/net/8139too.c                     |   14=20
- drivers/net/Kconfig                       |   21 -
- drivers/net/acenic.c                      |  163 +++----
- drivers/net/acenic.h                      |   23 -
- drivers/net/amd8111e.c                    |  248 +++++------
- drivers/net/atp.c                         |    2=20
- drivers/net/b44.c                         |  102 ++--
- drivers/net/b44.h                         |  113 -----
- drivers/net/defxx.c                       |  144 +++---
- drivers/net/defxx.h                       |    2=20
- drivers/net/dl2k.c                        |  267 +++++-------
- drivers/net/e100.c                        |   12=20
- drivers/net/e1000/e1000.h                 |    2=20
- drivers/net/e1000/e1000_ethtool.c         |    6=20
- drivers/net/e1000/e1000_hw.c              |  115 +++++
- drivers/net/e1000/e1000_main.c            |   41 -
- drivers/net/e1000/e1000_osdep.h           |    6=20
- drivers/net/eepro100.c                    |  425 +++++++++-----------
- drivers/net/ewrk3.c                       |  326 +++++++--------
- drivers/net/forcedeth.c                   |  111 +----
- drivers/net/hamachi.c                     |  157 +++----
- drivers/net/hamradio/hdlcdrv.c            |    2=20
- drivers/net/ibmlana.c                     |    9=20
- drivers/net/iseries_veth.c                |   81 +--
- drivers/net/ixgb/ixgb_ethtool.c           |  494 +++++++----------------
- drivers/net/ixgb/ixgb_main.c              |   24 -
- drivers/net/mac8390.c                     |    4=20
- drivers/net/meth.c                        |   26 -
- drivers/net/natsemi.c                     |  273 +++++--------
- drivers/net/ne2k-pci.c                    |   31 +
- drivers/net/ns83820.c                     |   61 --
- drivers/net/pcmcia/smc91c92_cs.c          |  181 ++++----
- drivers/net/r8169.c                       |  606 +++++++++++++++++++++--=
------
- drivers/net/sis900.c                      |  258 ++++++------
- drivers/net/sk_mca.c                      |    9=20
- drivers/net/smc91x.h                      |   43 ++
- drivers/net/starfire.c                    |  191 ++++-----
- drivers/net/sundance.c                    |  187 ++++----
- drivers/net/tulip/de4x5.c                 |    2=20
- drivers/net/tulip/tulip_core.c            |   34 -
- drivers/net/tulip/winbond-840.c           |    2=20
- drivers/net/tulip/xircom_tulip_cb.c       |  194 ++++-----
- drivers/net/typhoon.c                     |  245 +++++------
- drivers/net/wan/lmc/lmc_main.c            |    9=20
- drivers/net/wireless/airo.c               |   45 +-
- drivers/net/wireless/netwave_cs.c         |   12=20
- drivers/net/wireless/prism54/isl_38xx.c   |   15=20
- drivers/net/wireless/prism54/isl_38xx.h   |    4=20
- drivers/net/wireless/prism54/isl_ioctl.c  |  629 +++++++++++++++++++++++=
-+++----
- drivers/net/wireless/prism54/isl_ioctl.h  |    2=20
- drivers/net/wireless/prism54/isl_oid.h    |    9=20
- drivers/net/wireless/prism54/islpci_dev.c |   35 -
- drivers/net/wireless/prism54/islpci_dev.h |    4=20
- drivers/net/wireless/prism54/islpci_eth.c |    5=20
- drivers/net/wireless/prism54/oid_mgt.c    |  121 +++++
- drivers/net/wireless/prism54/oid_mgt.h    |    3=20
- drivers/net/wireless/wavelan.c            |   19=20
- drivers/net/wireless/wavelan.p.h          |    3=20
- drivers/net/wireless/wavelan_cs.c         |  181 +++-----
- drivers/net/wireless/wavelan_cs.p.h       |    3=20
- drivers/net/wireless/wl3501_cs.c          |   53 --
- drivers/net/yellowfin.c                   |   62 +-
- drivers/usb/gadget/ether.c                |   73 +--
- drivers/usb/net/catc.c                    |  122 +----
- drivers/usb/net/kaweth.c                  |   34 -
- drivers/usb/net/pegasus.c                 |  297 +++++---------
- drivers/usb/net/rtl8150.c                 |  186 +++-----
- include/linux/netdevice.h                 |    4=20
- include/linux/wireless.h                  |   64 ++-
- include/net/iw_handler.h                  |   60 ++
- net/core/dev.c                            |    2=20
- net/core/wireless.c                       |  212 ++++++----
- net/irda/irlan/irlan_client.c             |    2=20
- 78 files changed, 4075 insertions(+), 3927 deletions(-)
-
-through these ChangeSets:
-
-<davem:davemloft.net>:
-  o eepro100.c iomap conversion
-
-<jolt:tuxbox.org>:
-  o [netdrvr b44] clean up SiliconBackplane definitions/functions
-  o [netdrvr b44] ignore carrier lost errors
-
-Alexander Viro:
-  o (27/27) catc ethtool conversion
-  o (26/27) kaweth ethtool conversion
-  o (25/27) pegasus ethtool conversion
-  o (24/27) rtl8150 ethtool conversion
-  o (23/27) gadget ethtool conversion
-  o (22/27) amd8111e ethtool conversion
-  o (21/27) dl2k ethtool conversion
-  o (20/27) eepro100 ethtool conversion
-  o (19/27) ewrk3 ethtool conversion
-  o (18/27) forcedeth ethtool conversion
-  o (17/27) hamachi ethtool conversion
-  o (16/27) veth ethtool conversion
-  o (15/27) natsemi ethtool conversion
-  o (14/27) ns83820 ethtool conversion
-  o (13/27) starfire ethtool conversion
-  o (12/27) sundance ethtool conversion
-  o (11/27) typhoon ethtool conversion
-  o (10/27) yellowfin ethtool conversion
-  o (9/27) wl3501_cs ethtool conversion
-  o (8/27) wavelan ethtool conversion
-  o (7/27) xircom ethtool conversion
-  o (6/27) tulip ethtool conversion
-  o (5/27) smc91c92_cs ethtool conversion
-  o (4/27) 3c509 ethtool conversion
-  o (3/27) ixgb ethtool conversion
-  o (2/27) cris ethtool conversion
-  o (1/27) eth1394 ethtool conversion
-  o [netdrvr starfire] use netdev_priv
-  o [netdrvr starfire] fix unregister_netdev call site
-  o [netdrvr] use netdev_priv in dl2k, hamachi
-  o [netdrvr] netdev_priv for sundance, typhoon, yellowfin
-  o [netdrvr] netdev_priv for ewrk3, xircom_tulip_cb, wavelan_cs
-  o [netdrvr usb] use netdev_priv
-  o [netdrvr eth1394] use netdev_priv
-
-Andrew Morton:
-  o pegasus.c fixes
-  o de4x5 warning fix
-
-Daniele Venzano:
-  o [netdrvr sis900] whitespace and codingstyle updates
-
-David Dillow:
-  o PCI cleanups and convert to ethtool_ops
-
-Fran=E7ois Romieu:
-  o via-velocity: wrong module name in Kconfig documentation
-  o r8169: default on disabling PCIDAC
-  o r8169: Mac identifier extracted from Realtek's driver v2.2
-  o r8169: TSO support
-  o r8169: hint for Tx flow control
-  o r8169: miscalculation of available Tx descriptors
-  o 8139cp: SG support fixes
-  o r8169: vlan support
-  o r8169: Rx checksum support
-  o r8169: advertise DMA to high memory
-  o r8169: Tx checksum offload
-  o r8169: comment a gcc 2.95.x bug
-  o r8169: sync the names of a few bits with the 8139cp driver
-  o r8169: bump version number
-  o r8169: enable MWI
-  o r8169: code cleanup
-  o r8169: per device receive buffer size
-  o r8169: add ethtool_ops.{get_regs_len/get_regs}
-
-Ganesh Venkatesan:
-  o e1000 - Ethtool -- 82545 do not support WoL
-  o e1000 - Polarity reversal workaround for 10F/10H links
-  o e1000 - Fix VLAN filter setup errors (while running on PPC)
-  o e1000 Check value returned by from pci_enable_device
-  o e1000 - Removed support for advanced TCO features
-  o e1000 - use pci_device_name for syslog messages till registering netd=
-evice.
-  o e100 driver version number update
-  o e100 - use NET_IP_ALIGN to set rx data buffer alignment
-  o e100 - Use pci_device_name for syslog messages till registering netde=
-vice
-
-Jean Tourrilhes:
-  o wireless-drivers-update-for-we-17.patch
-  o wireless-extension-v17-for-linus.patch
-
-Jeff Garzik:
-  o [netdrvr eepro100] fix pci_iomap() args and info msg that follows
-  o [netdrvr b44] update MODULE_AUTHORS
-  o [netdrvr 8139cp] TSO support
-  o [netdev] Remove no-op in-driver implementations of ->set_config()
-
-Kenji Kaneshige:
-  o add missing pci_disable_device for e1000
-
-Maciej W. Rozycki:
-  o defxx device name fixes
-  o defxx trivial updates
-
-Marc Singer:
-  o adding smc91x ethernet to lpd7a40x
-
-Margit Schubert-While:
-  o prism54 fix wpa_supplicant frequency parsing
-  o prism54 initial WPA support
-  o prism54 add WE17 support
-  o prism54 remove module params
-  o prism54 Code cleanup
-
-Mika Kukkonen:
-  o sparse: fix warnings in net/irda/*
-
-Olaf Hering:
-  o remove old version check from mac8390
-
-Pavel Machek:
-  o swsuspend for ne2k-pci cards
-
-Pekka Pietik=E4inen:
-  o b44: use bounce buffers to workaround chip DMA bug/limitations
-
-Ralf B=E4chle:
-  o Stop queue on close in hdlcdrv
-
-Rene Herman:
-  o 8139too Interframe Gap Time
-
-Roger Luethi:
-  o mc_filter on big-endian arch
-
-Stephen Hemminger:
-  o 8139cp - module_param
-  o (4/4) acenic - don't spin forever in hard_start_xmit
-  o (3/4) acenic - __iomem warnings cleanup
-  o (2/4) acenic - eliminate MAX_SKB_FRAGS #if
-  o (1/4) acenic - use netdev_priv
+It seems that bk changelog quite often lies.
+--=20
+Arkadiusz Mi=B6kiewicz                    PLD/Linux Team
+http://www.t17.ds.pwr.wroc.pl/~misiek/  http://ftp.pld-linux.org/
