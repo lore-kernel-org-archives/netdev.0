@@ -1,75 +1,36 @@
-From: "Alexander Zapatka" <alexzapatka@hotmail.com>
-Subject: Re: suggested forcedeth updates....
-Date: Wed, 19 Nov 2003 10:06:13 -0500
+From: Petr Vandrovec <vandrove@vc.cvut.cz>
+Subject: Re: af_packet & CHECKSUM_HW
+Date: Wed, 19 Nov 2003 16:11:49 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <BAY2-F153s0m7nz605N0001807b@hotmail.com>
+Message-ID: <20031119151149.GA30100@vana.vc.cvut.cz>
+References: <20031115024434.GA12276@gondor.apana.org.au> <Xine.LNX.4.44.0311160841500.31201-100000@thoron.boston.redhat.com> <20031116205146.GA8477@gondor.apana.org.au> <20031117194452.GB18448@vana.vc.cvut.cz> <20031117123047.55377d3a.davem@redhat.com> <20031118132137.GA23732@vana.vc.cvut.cz> <20031118174612.48c0854e.davem@redhat.com> <20031119123535.GA11108@vana.vc.cvut.cz> <1069254105.1025.26.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, herbert@gondor.apana.org.au,
+        jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rask@sygehus.dk, jgarzik@pobox.com
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1069254105.1025.26.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-thats a great idea!  except i dont know how to implement it in a patch :)=
- =20
-hope it makes it in to the next version.
+On Wed, Nov 19, 2003 at 10:01:45AM -0500, jamal wrote:
+> 
+> I think this sort of stuff will greatly benefit from the tc extensions
+> that i have been working on. 
+> instead of hacking on ptype you can instead write little modules that
+> do speacilized work (like computing checksums) or dropping packets
+> or setting these flags that can be later used for doing extra work.
+> The code executes before the ptype level execution and using the u32
+> classifier you can grop any part of the packet. I can send you a patch
+> if you want to give it a shot.
 
-
-
-      -o)
-      /\\    Message void if penguin violated
-     _\_V    Don't mess with the penguin
-
-
-
-
-
-
-----Original Message Follows----
-From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-To: Alexander Zapatka <alexzapatka@hotmail.com>
-CC: netdev@oss.sgi.com
-Subject: Re: suggested forcedeth updates....
-Date: Wed, 19 Nov 2003 12:48:45 +0100
-MIME-Version: 1.0
-Received: from 0x50a14406.albnxx15.adsl-dhcp.tele.dk ([80.161.68.6]) by=20
-mc7-f27.hotmail.com with Microsoft SMTPSVC(5.0.2195.6713); Wed, 19 Nov 20=
-03=20
-03:51:36 -0800
-Received: by 0x50a14406.albnxx15.adsl-dhcp.tele.dk (Postfix, from userid=20
-500)id A24BC42B3; Wed, 19 Nov 2003 12:48:45 +0100 (CET)
-X-Message-Info: JGTYoYF78jH14zHqGtQ8WJps3LyBHhOo
-Message-ID: <20031119124845.B7622@sygehus.dk>
-References: <BAY2-F101QTmReozTIA0001027c@hotmail.com>
-User-Agent: Mutt/1.2.5.1i
-In-Reply-To: <BAY2-F101QTmReozTIA0001027c@hotmail.com>; from=20
-alexzapatka@hotmail.com on Mon, Nov 17, 2003 at 11:07:15PM -0500
-Return-Path: rask@sygehus.dk
-X-OriginalArrivalTime: 19 Nov 2003 11:51:53.0303 (UTC)=20
-FILETIME=3D[864B8E70:01C3AE93]
-
-On Mon, Nov 17, 2003 at 11:07:15PM -0500, Alexander Zapatka wrote:
-
- > that way you can modprobe/insmod with debug=3D1 and debuging works... =
-or=20
-you
- > can just load it, or load it with debug=3D0 and no debuging info is=20
-printed.
- >
- > just thought it might be a nice addition.
-
-Even better would be to use the NETIF_MSG_* flags defined in
-linux/netdevice.c and to be able to use ethtool to change the setting at
-runtime.
-
---
-Regards,
-Rask Ingemann Lambertsen
-
-_________________________________________________________________
-Say =93goodbye=94 to busy signals and slow downloads with a high-speed In=
-ternet=20
-connection! Prices start at less than $1 a day average. =20
-https://broadband.msn.com (Prices may vary by service area.)
+I'll gladly look at it. From your short description it looks like that
+it could solve also our second longstanding problem: we cannot block 
+host->guest packets from hitting wire, and if guest communicates only 
+with host (this traffic does not hit wire as it is injected as if 
+received from network card) then switches on the network do not know 
+where guest lives, and these packets then flood whole network.
+					Thanks,
+						Petr Vandrovec
