@@ -1,135 +1,150 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: Re: [PATCH] [TRY2] Use nfmark as a key in u32 classifier
-Date: Tue, 9 Nov 2004 15:46:21 +0200 (EET)
-Message-ID: <Pine.LNX.4.61.0411091543220.7105@webhosting.rdsbv.ro>
-References: <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro>
- <20041109133035.GH31969@postel.suug.ch>
+From: Colin Leroy <colin.lkml@colino.net>
+Subject: [(broken) PATCH] Sungem and wake_on_lan
+Date: Tue, 9 Nov 2004 15:11:54 +0100
+Message-ID: <20041109151154.43c897dd.colin.lkml@colino.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-193533873-1100007861=:7366"
-Cc: davem@davemloft.net, linux-net@vger.kernel.org,
-	lartc@mailman.ds9a.nl, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041109133035.GH31969@postel.suug.ch>
-Content-ID: <Pine.LNX.4.61.0411091544290.7366@webhosting.rdsbv.ro>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261475AbUKIONU@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Hi everyone,
 
----1646943047-193533873-1100007861=:7366
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; format=flowed
-Content-ID: <Pine.LNX.4.61.0411091544291.7366@webhosting.rdsbv.ro>
+I'm trying to implement wake_on_lan in sungem. I did it by mimicking the
+Darwin AppleGMACEthernet driver. 
+I have some problems with it; not only it doesn't work (pinging the
+target machine does not wake it up, nor does ether-wake.c), but also the
+normal resume crashes instead of working - before powering screen up,
+so no log available...
 
-> * Catalin(ux aka Dino) BOIE <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro> 2004-11-09 14:27
->> This is the try number two.
->> What was changed:
->> - Added selectable choice in Kconfig file (thanks Jamal!)
->> - Don't abuse tc_u32_sel to not break backward compatibility (thanks
->> Patrick!).
->
-> Your patchs looks fine except for missing dependcy on CONFIG_NETFILTER.
-> Either make CLS_U32_MARK dependant on it or #ifdef the references
-> to skb->nfmark.
+My laptop has a BCM5221 PHY, I suppose it supports WOL but did not
+check. Anyway it shouldn't crash on normal resume, as Darwin's driver
+doesn't seem to have special cases depending on PHYs.
 
-Patch updated and attached.
+Before putting the laptop to sleep, I issue a 'sudo ethtool -s eth0 wol p'
+to enable gp->wake_on_lan.
 
-> It might be fair to tell you that this code is likely to be removed
-> again once we have the metadata match.
+Here's the patch, in case anyone (BenH, David Miller ? :)) has an idea
+about something i do wrong. 
+Thanks,
+-- 
+Colin
 
-Jamal already warned me about this.
-Is somebody already working on it?
-
-> Cheers
-
-Thank you!
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
----1646943047-193533873-1100007861=:7366
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="net-match-nfmark-in-u32-try3.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.61.0411091544210.7366@webhosting.rdsbv.ro>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="net-match-nfmark-in-u32-try3.patch"
-
-LS0tIGxpbnV4Lm9yaWcvbmV0L3NjaGVkL0tjb25maWcJMjAwNC0xMC0xOSAw
-MDo1NTowNi4wMDAwMDAwMDAgKzAzMDANCisrKyBsaW51eC9uZXQvc2NoZWQv
-S2NvbmZpZwkyMDA0LTExLTA5IDE1OjM5OjQ3LjAwMDAwMDAwMCArMDIwMA0K
-QEAgLTMzNCw2ICszMzQsMTggQEAgY29uZmlnIE5FVF9DTFNfSU5EDQogCSAg
-UmVxdWlyZXMgYSBuZXcgaXByb3V0ZTINCiAJICBZb3UgTVVTVCBOT1QgdHVy
-biB0aGlzIG9uIGlmIHlvdSBkb250IGhhdmUgYW4gdXBkYXRlIGlwcm91dGUy
-Lg0KIA0KK2NvbmZpZyBDTFNfVTMyX01BUksNCisJYm9vbCAiVXNlIG5mbWFy
-ayBhcyBhIGtleSBpbiBVMzIgY2xhc3NpZmllciINCisJZGVwZW5kcyBvbiBO
-RVRfQ0xTX1UzMiAmJiBORVRGSUxURVINCisJaGVscA0KKwkgIFRoaXMgYWxs
-b3dzIHlvdSB0byBtYXRjaCBtYXJrIGluIGEgdTMyIGZpbHRlci4NCisJICBF
-eGFtcGxlOg0KKwkgIHRjIGZpbHRlciBhZGQgZGV2IGV0aDAgcHJvdG9jb2wg
-aXAgcGFyZW50IDE6MCBwcmlvIDUgdTMyIFwNCisJCW1hdGNoIG1hcmsgMHgw
-MDkwIDB4ZmZmZiBcDQorCQltYXRjaCBpcCBkc3QgNC40LjQuNCBcDQorCQlm
-bG93aWQgMTo5MA0KKwkgIFlvdSBtdXN0IHVzZSBhIG5ldyBpcHJvdXRlMiB0
-byB1c2UgdGhpcyBmZWF0dXJlLg0KKw0KIGNvbmZpZyBORVRfQ0xTX1JTVlAN
-CiAJdHJpc3RhdGUgIlNwZWNpYWwgUlNWUCBjbGFzc2lmaWVyIg0KIAlkZXBl
-bmRzIG9uIE5FVF9DTFMgJiYgTkVUX1FPUw0KLS0tIGxpbnV4Lm9yaWcvbmV0
-L3NjaGVkL2Nsc191MzIuYwkyMDA0LTEwLTE5IDAwOjUzOjQ1LjAwMDAwMDAw
-MCArMDMwMA0KKysrIGxpbnV4L25ldC9zY2hlZC9jbHNfdTMyLmMJMjAwNC0x
-MS0wOSAxMzo1Njo0Mi4wMDAwMDAwMDAgKzAyMDANCkBAIC0yNyw2ICsyNyw3
-IEBADQogICoJSkhTOiBXZSBzaG91bGQgcmVtb3ZlIHRoZSBDT05GSUdfTkVU
-X0NMU19JTkQgZnJvbSBoZXJlDQogICoJZXZlbnR1YWxseSB3aGVuIHRoZSBt
-ZXRhIG1hdGNoIGV4dGVuc2lvbiBpcyBtYWRlIGF2YWlsYWJsZQ0KICAqDQor
-ICoJbmZtYXJrIG1hdGNoIGFkZGVkIGJ5IENhdGFsaW4odXggYWthIERpbm8p
-IEJPSUUgPGNhdGFiIGF0IHVtYnJlbGxhLnJvPg0KICAqLw0KIA0KICNpbmNs
-dWRlIDxhc20vdWFjY2Vzcy5oPg0KQEAgLTU3LDYgKzU4LDEzIEBADQogI2lu
-Y2x1ZGUgPG5ldC9wa3Rfc2NoZWQuaD4NCiANCiANCitzdHJ1Y3QgdGNfdTMy
-X21hcmsNCit7DQorCV9fdTMyCQl2YWw7DQorCV9fdTMyCQltYXNrOw0KKwlf
-X3UzMgkJc3VjY2VzczsNCit9Ow0KKw0KIHN0cnVjdCB0Y191X2tub2RlDQog
-ew0KIAlzdHJ1Y3QgdGNfdV9rbm9kZQkqbmV4dDsNCkBAIC03OCw2ICs4Niw5
-IEBAIHN0cnVjdCB0Y191X2tub2RlDQogI2lmZGVmIENPTkZJR19DTFNfVTMy
-X1BFUkYNCiAJc3RydWN0IHRjX3UzMl9wY250CSpwZjsNCiAjZW5kaWYNCisj
-aWZkZWYgQ09ORklHX0NMU19VMzJfTUFSSw0KKwlzdHJ1Y3QgdGNfdTMyX21h
-cmsJbWFyazsNCisjZW5kaWYNCiAJc3RydWN0IHRjX3UzMl9zZWwJc2VsOw0K
-IH07DQogDQpAQCAtMTM5LDYgKzE1MCwxNiBAQCBuZXh0X2tub2RlOg0KIAkJ
-bi0+cGYtPnJjbnQgKz0xOw0KIAkJaiA9IDA7DQogI2VuZGlmDQorDQorI2lm
-ZGVmIENPTkZJR19DTFNfVTMyX01BUksNCisJCWlmICgoc2tiLT5uZm1hcmsg
-JiBuLT5tYXJrLm1hc2spICE9IG4tPm1hcmsudmFsKSB7DQorCQkJbiA9IG4t
-Pm5leHQ7DQorCQkJZ290byBuZXh0X2tub2RlOw0KKwkJfSBlbHNlIHsNCisJ
-CQluLT5tYXJrLnN1Y2Nlc3MrKzsNCisJCX0NCisjZW5kaWYNCisNCiAJCWZv
-ciAoaSA9IG4tPnNlbC5ua2V5czsgaT4wOyBpLS0sIGtleSsrKSB7DQogDQog
-CQkJaWYgKCgqKHUzMiopKHB0citrZXktPm9mZisob2ZmMiZrZXktPm9mZm1h
-c2spKV5rZXktPnZhbCkma2V5LT5tYXNrKSB7DQpAQCAtNjE1LDYgKzYzNiw3
-IEBAIHN0YXRpYyBpbnQgdTMyX2NoYW5nZShzdHJ1Y3QgdGNmX3Byb3RvICoN
-CiAJc3RydWN0IHRjX3VfaG5vZGUgKmh0Ow0KIAlzdHJ1Y3QgdGNfdV9rbm9k
-ZSAqbjsNCiAJc3RydWN0IHRjX3UzMl9zZWwgKnM7DQorCXN0cnVjdCB0Y191
-MzJfbWFyayAqbWFyazsNCiAJc3RydWN0IHJ0YXR0ciAqb3B0ID0gdGNhW1RD
-QV9PUFRJT05TLTFdOw0KIAlzdHJ1Y3QgcnRhdHRyICp0YltUQ0FfVTMyX01B
-WF07DQogCXUzMiBodGlkOw0KQEAgLTcxOCw2ICs3NDAsMTYgQEAgc3RhdGlj
-IGludCB1MzJfY2hhbmdlKHN0cnVjdCB0Y2ZfcHJvdG8gKg0KIAl9DQogCW4t
-PmZzaGlmdCA9IGk7DQogfQ0KKw0KKyNpZmRlZiBDT05GSUdfQ0xTX1UzMl9N
-QVJLDQorCWlmICh0YltUQ0FfVTMyX01BUkstMV0gPT0gMCB8fA0KKwkJUlRB
-X1BBWUxPQUQodGJbVENBX1UzMl9NQVJLLTFdKSA8IHNpemVvZihzdHJ1Y3Qg
-dGNfdTMyX21hcmspKQ0KKwkJcmV0dXJuIC1FSU5WQUw7DQorCW1hcmsgPSBS
-VEFfREFUQSh0YltUQ0FfVTMyX01BUkstMV0pOw0KKwltZW1jcHkoJm4tPm1h
-cmssIG1hcmssIHNpemVvZihzdHJ1Y3QgdGNfdTMyX21hcmspKTsNCisJbi0+
-bWFyay5zdWNjZXNzID0gMDsNCisjZW5kaWYNCisNCiAJZXJyID0gdTMyX3Nl
-dF9wYXJtcyh0cC0+cSwgYmFzZSwgaHQsIG4sIHRiLCB0Y2FbVENBX1JBVEUt
-MV0pOw0KIAlpZiAoZXJyID09IDApIHsNCiAJCXN0cnVjdCB0Y191X2tub2Rl
-ICoqaW5zOw0KQEAgLTgwNSw2ICs4MzcsMTIgQEAgc3RhdGljIGludCB1MzJf
-ZHVtcChzdHJ1Y3QgdGNmX3Byb3RvICp0cA0KIAkJCVJUQV9QVVQoc2tiLCBU
-Q0FfVTMyX0NMQVNTSUQsIDQsICZuLT5yZXMuY2xhc3NpZCk7DQogCQlpZiAo
-bi0+aHRfZG93bikNCiAJCQlSVEFfUFVUKHNrYiwgVENBX1UzMl9MSU5LLCA0
-LCAmbi0+aHRfZG93bi0+aGFuZGxlKTsNCisNCisjaWZkZWYgQ09ORklHX0NM
-U19VMzJfTUFSSw0KKwkJaWYgKG4tPm1hcmsudmFsIHx8IG4tPm1hcmsubWFz
-aykNCisJCQlSVEFfUFVUKHNrYiwgVENBX1UzMl9NQVJLLCBzaXplb2Yobi0+
-bWFyayksICZuLT5tYXJrKTsNCisjZW5kaWYNCisNCiAjaWZkZWYgQ09ORklH
-X05FVF9DTFNfQUNUDQogCQkvKiBhZ2FpbiBmb3IgYmFja3dhcmQgY29tcGF0
-aWJsZSBtb2RlIC0gd2Ugd2FudA0KIAkJKiAgdG8gd29yayB3aXRoIGJvdGgg
-b2xkIGFuZCBuZXcgbW9kZXMgb2YgZW50ZXJpbmcNCi0tLSBsaW51eC5vcmln
-L2luY2x1ZGUvbGludXgvcGt0X2Nscy5oCTIwMDQtMTAtMTkgMDA6NTM6MDcu
-MDAwMDAwMDAwICswMzAwDQorKysgbGludXgvaW5jbHVkZS9saW51eC9wa3Rf
-Y2xzLmgJMjAwNC0xMS0wOSAwOTo1MDo0NS4wMDAwMDAwMDAgKzAyMDANCkBA
-IC0xOTAsNiArMTkwLDcgQEAgZW51bQ0KIAlUQ0FfVTMyX0FDVCwgICANCiAJ
-VENBX1UzMl9JTkRFViwNCiAJVENBX1UzMl9QQ05ULA0KKwlUQ0FfVTMyX01B
-UkssDQogCV9fVENBX1UzMl9NQVgNCiB9Ow0KIA0K
-
----1646943047-193533873-1100007861=:7366--
+diff -ur /tmp/linux-2.6.9/drivers/net/sungem.c drivers/net/sungem.c
+--- /tmp/linux-2.6.9/drivers/net/sungem.c	2004-10-18 23:55:28.000000000 +0200
++++ drivers/net/sungem.c	2004-11-09 14:40:04.000000000 +0100
+@@ -2132,7 +2132,29 @@
+ 	writel(mifcfg, gp->regs + MIF_CFG);
+ 
+ 	if (gp->wake_on_lan) {
+-		/* Setup wake-on-lan */
++		u32 val_wake_up;
++		u32 xif_cfg = readl(gp->regs + MAC_XIFCFG);
++		unsigned char *e = &gp->dev->dev_addr[0];
++
++		/* set these bits for multicast filtering */
++		writel(MAC_RXCFG_HFE|MAC_RXCFG_SFCS|MAC_RXCFG_ENAB, gp->regs + MAC_RXCFG);
++
++		/* write our MAC address */
++		writel((e[0] << 8) | e[1], gp->regs + MAC_WOL_MAGIC2);
++		writel((e[2] << 8) | e[3], gp->regs + MAC_WOL_MAGIC1);
++		writel((e[4] << 8) | e[5], gp->regs + MAC_WOL_MAGIC0);
++
++		/* write the pattern match count */
++		writel(PAT_MATCH_M | PAT_MATCH_N, gp->regs + PAT_MATCH_CFG);
++		
++		/* enable WOL */
++		val_wake_up = WOL_ENABLE;
++		if (!(xif_cfg & MAC_XIFCFG_GMII))
++			val_wake_up |= WOL_MODE_MII;
++		writel(val_wake_up, gp->regs + WOL_CSR_CFG);
++
++		/* sleep a bit, just to be sure */
++		msleep(10);
+ 	} else {
+ 		writel(0, gp->regs + MAC_RXCFG);
+ 		(void)readl(gp->regs + MAC_RXCFG);
+@@ -2159,7 +2181,7 @@
+ 	}
+ 
+ 	if (found_mii_phy(gp) && gp->phy_mii.def->ops->suspend)
+-		gp->phy_mii.def->ops->suspend(&gp->phy_mii, 0 /* wake on lan options */);
++		gp->phy_mii.def->ops->suspend(&gp->phy_mii, gp->wake_on_lan);
+ 
+ 	if (!gp->wake_on_lan) {
+ 		/* According to Apple, we must set the MDIO pins to this begnign
+@@ -2622,13 +2644,30 @@
+ 	struct gem *gp = dev->priv;
+ 	return gp->msg_enable;
+ }
+-  
++
+ static void gem_set_msglevel(struct net_device *dev, u32 value)
+ {
+ 	struct gem *gp = dev->priv;
+ 	gp->msg_enable = value;
+ }
+-  
++
++static void gem_get_wol (struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct gem *gp = dev->priv;
++	wol->wolopts   = 0; 
++	/* let's say we support this, altough I don't know what it is */
++	wol->supported = WAKE_PHY|WAKE_UCAST;
++	if (gp->wake_on_lan == 1)
++		wol->wolopts = wol->supported;
++}
++
++static int gem_set_wol (struct net_device *dev, struct ethtool_wolinfo *wol)
++{
++	struct gem *gp = dev->priv;
++	gp->wake_on_lan = (wol->wolopts != 0);
++	return 0;
++}
++
+ static struct ethtool_ops gem_ethtool_ops = {
+ 	.get_drvinfo		= gem_get_drvinfo,
+ 	.get_link		= ethtool_op_get_link,
+@@ -2637,6 +2676,8 @@
+ 	.nway_reset		= gem_nway_reset,
+ 	.get_msglevel		= gem_get_msglevel,
+ 	.set_msglevel		= gem_set_msglevel,
++	.get_wol		= gem_get_wol,
++	.set_wol		= gem_set_wol,
+ };
+ 
+ static int gem_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+diff -ur /tmp/linux-2.6.9/drivers/net/sungem.h drivers/net/sungem.h
+--- /tmp/linux-2.6.9/drivers/net/sungem.h	2004-10-18 23:54:32.000000000 +0200
++++ drivers/net/sungem.h	2004-11-09 10:10:46.000000000 +0100
+@@ -276,6 +276,9 @@
+  */
+ 
+ /* MAC Registers */
++#define MAC_WOL_MAGIC0	0x3000UL	/* six address bytes		*/
++#define MAC_WOL_MAGIC1	0x3004UL	
++#define MAC_WOL_MAGIC2	0x3008UL
+ #define MAC_TXRST	0x6000UL	/* TX MAC Software Reset Command*/
+ #define MAC_RXRST	0x6004UL	/* RX MAC Software Reset Command*/
+ #define MAC_SNDPAUSE	0x6008UL	/* Send Pause Command Register	*/
+@@ -750,6 +753,16 @@
+ #define PCS_SCTRL_TXZ	0x0000c000	/* PLL input to Serialink	*/
+ #define PCS_SCTRL_TXP	0x00030000	/* PLL input to Serialink	*/
+ 
++/* Pattern Match Count register. */
++#define PAT_MATCH_CFG	0x300CUL
++#define PAT_MATCH_N	0x0010UL
++#define PAT_MATCH_M	0x0000UL 	/* Darwin source notes (0<<8) !?*/
++
++/* Wake on Lan CSR Register */
++#define WOL_CSR_CFG	0x3010UL
++#define WOL_ENABLE	0x0001UL
++#define WOL_MODE_MII	0x0002UL
++
+ /* Shared Output Select Register.  For test and debug, allows multiplexing
+  * test outputs into the PROM address pins.  Set to zero for normal
+  * operation.
