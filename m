@@ -1,53 +1,52 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: reminder to netdriver authors
-Date: Sun, 04 Jul 2004 11:05:21 -0400
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH] Gigabit Ethernet support for forcedeth
+Date: Sun, 4 Jul 2004 20:27:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40E81CB1.5070403@pobox.com>
-References: <1088910801.1041.818.camel@jzny.localdomain>
+Message-ID: <20040704182755.GA7540@elf.ucw.cz>
+References: <40E25328.8020102@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1088910801.1041.818.camel@jzny.localdomain>
+To: Manfred Spraul <manfred@colorfullife.com>
+Content-Disposition: inline
+In-Reply-To: <40E25328.8020102@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> 1) When you have no space in your DMA 
-> 
-> Do NOT stash the packet in your ring
-> a) netif_stop_queue()
-> b) return 1
-> 
-> A _lot_ of drivers dont follow this rule. A good driver to copy
-> from if you are into cutnpaste is the e1000.
-> If you stash the packet in your ring then return 1 you are in deep 
-> doodoo friend. 
-> 
-> 2) return a 0 only when you have succesfully put things on DMA.
-> Returning 0 always is not a BadThing. Most drivers do this.
-> It is a little less efficient at the top layer for each batch of packets
-> sent to the driver and you end up stopping the netif at this point.
-> 
-> 3) In case of error probably return a 1 and dont try anything funny
-> with the skb. Dont put on your DMA or try to free it or muck with it in
-> any way. You probably should whine if you have too many errors in
-> sequence. 
-> 
-> Someone with more time than myself can audit the drivers - I have seen
-> these issues.
+Hi!
 
-FWIW some of this is related to my own lack of knowledge, long long ago, 
-and mistakes made long ago get cut-n-pasted into the present.
+> Attached is an update for the patch that adds support for the gigabit 
+> ethernet nic in the nForce 250 Gb chipset.
+> 
+> There were two changes from the previous patch:
+> - clear the PHY_HALF flag if the nic is in half duplex.
+> - remove the setflags / setlen helper functions: the ring entries are 
+> visible to the hardware, I don't like the read/modify/write cycles.
+> 
+> It passes my own tests with 100 MBit half duplex, 100 MB full duplex and 
+> 1 GBit full duplex.
 
-I will edit this email, and add it to 
-Documentation/networking/netdevices.txt.
+...
 
-Please (to all) consider netdevices.txt as a general text describing how 
-to (or how not to) write net drivers.  Any patches -- or even random 
-comments you would like me to turn into patches -- are accepted.  Share 
-the knowledge!
+> --- 2.6/drivers/net/forcedeth.c	2004-06-30 07:27:50.330753976 +0200
+> +++ build-2.6/drivers/net/forcedeth.c	2004-06-30 07:27:25.579516736 +0200
+> @@ -10,8 +10,11 @@
+>   * trademarks of NVIDIA Corporation in the United States and other
+>   * countries.
+>   *
+> - * Copyright (C) 2003 Manfred Spraul
+> + * Copyright (C) 2003,4 Manfred Spraul
+>   * Copyright (C) 2004 Andrew de Quincey (wol support)
+> + * Copyright (C) 2004 Carl-Daniel Hailfinger (invalid MAC handling, insane
+> + *		IRQ rate fixes, bigendian fixes, cleanups, verification)
+> + * Copyright (c) 2004 NVIDIA Corporation
 
-	Jeff
+NVidia has copyright on driver created by reverse engeneering their
+hardware? Funny ;-). If NVIDIA really cooperates, perhaps its time to
+make the name more friendly to them?
+								Pavel
+
+-- 
+People were complaining that M$ turns users into beta-testers...
+...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
