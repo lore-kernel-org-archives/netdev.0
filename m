@@ -1,33 +1,30 @@
-From: "=?ks_c_5601-1987?B?vvbAzrz2?=" <pricewarok@yahoo.co.kr>
-Subject: =?ks_c_5601-1987?B?KLGkLrDtKSBuZXRkZXa01CBoYW5reXVuZ2xpZmUuY28ua3I=?=
- =?ks_c_5601-1987?B?ILD8uK7A2sDUtM+02S4=?=
-Date: Sat, 18 Jan 2003 10:51:25 +0900
+From: Mauro Tortonesi <mauro@deepspace6.net>
+Subject: IPv6 packet forging
+Date: Sat, 18 Jan 2003 15:54:12 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <476.644471246068$1042854720@news.gmane.org>
-Reply-To: "=?ks_c_5601-1987?B?vvbAzrz2?=" <pricewarok@yahoo.co.kr>
+Message-ID: <Pine.LNX.4.51.0301181523070.3466@trantor.ferrara.linux.it>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Content-Disposition: inline
+To: Deep Space 6 Development Mailing List <ds6-devel@deepspace6.net>,
+   USAGI Users Mailing List <usagi-users@linux-ipv6.org>,
+   Linux Kernel Networking Stack Development Mailing List <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-=0D
-netdev=B4=D4~ =BE=C8=B3=E7=C7=CF=BC=BC=BF=E4 ^^=0D
-=0D
-netdev=B4=D4=C0=C7 =B8=DE=C0=CF=C1=D6=BC=D2(netdev@oss.sgi.com)=B4=C2 =BF=
-=A9=B1=E2=BF=A1=BC=AD =BA=B8=B0=D4=B5=C7=BE=FA=BD=C0=B4=CF=B4=D9.=0D
-=0D
-=BC=F6=BD=C5=B0=C5=BA=CE=B8=A6 =BF=F8=C7=CF=BD=C3=B8=E9 =BF=A9=B1=E2=B8=A6 =
-=C5=AC=B8=AF=C7=CF=B1=E2=B8=B8 =C7=CF=BC=BC=BF=E4~=0D
-=0D
-=C0=E7=B9=D5=B4=C2 =BB=E7=C0=CC=C6=AE=B8=A6 =B8=F0=BE=C6=BC=AD=C8=A8=C6=E4=
-=C0=CC=C1=F6=B8=A6 =B8=B8=B5=E9=BE=FA=BE=EE=BF=E4. =0D
-=0D
-http://www.hankyunglife.co.kr=C0=D4=B4=CF=B4=D9. =B1=B8=B0=E6=BF=C0=BC=BC=
-=BF=E4. =B2=C0=C0=CC=BF=E4 =0D
 
+hi to everybody,
 
-[[HTML alternate version deleted]]
+	i am writing an IPv6 packet forger for linux. until now, to inject
+packets on the net i have used link layer sockets, but i'd like to know if
+there are more portable ways to perform the same task. do you know if
+there is a BPF port for linux? or can i inject packets using tun/tap
+driver?
+
+-- 
+Aequam memento rebus in arduis servare mentem...
+
+Mauro Tortonesi			mauro@deepspace6.net
+				mauro@ferrara.linux.it
+Deep Space 6 - IPv6 on Linux	http://www.deepspace6.net
+Ferrara Linux Users Group	http://www.ferrara.linux.it
