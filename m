@@ -1,54 +1,52 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: 3c59x (was Route cache performance under stress)
-Date: Wed, 11 Jun 2003 12:38:33 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <16103.1705.531076.869230@robur.slu.se>
-References: <20030610.085600.71109220.davem@redhat.com>
-	<Pine.LNX.4.44.0306101815550.26879-100000@kenzo.iwr.uni-heidelberg.de>
-	<20030610164949.GB13246@wotan.suse.de>
-	<16102.64602.19145.131439@robur.slu.se>
-	<20030611100520.GB27119@oldwotan.suse.de>
+From: Jamal Hadi <hadi@shell.cyberus.ca>
+Subject: Was (Re: Route cache performance under stress
+Date: Wed, 11 Jun 2003 07:47:44 -0400 (EDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030611074007.S39760@shell.cyberus.ca>
+References: <008001c32eda$56760830$4a00000a@badass> <20030609195652.E35696@shell.cyberus.ca>
+ <Pine.LNX.4.51.0306092006420.12038@ns.istop.com> <20030609204257.L35799@shell.cyberus.ca>
+ <Pine.LNX.4.51.0306092200150.28167@ns.istop.com> <20030610061010.Y36963@shell.cyberus.ca>
+ <87el21wzb7.fsf@deneb.enyo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>,
-	"David S. Miller" <davem@redhat.com>, sim@netnation.com,
-	ralph+d@istop.com, hadi@shell.cyberus.ca, xerox@foonet.net,
-	fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20030611100520.GB27119@oldwotan.suse.de>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ralph+d@istop.com, CIT/Paul <xerox@foonet.net>,
+   "'Simon Kirby'" <sim@netnation.com>, "'David S. Miller'" <davem@redhat.com>,
+   "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+   "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Florian Weimer <fw@deneb.enyo.de>
+In-Reply-To: <87el21wzb7.fsf@deneb.enyo.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-Andi Kleen writes:
+On Tue, 10 Jun 2003, Florian Weimer wrote:
 
- > eth_type_trans checks the ethernet protocol ID and sets the broadcast/multicast/
- > unicast L2 type.
- > 
- > Some NICs have bits in the RX descriptor for most of them. They have a 
- > "packet is TCP or UDP or IP" bit and also a bit for unicast or sometimes
- > even multicast/broadcast. So when you have the RX descriptor you 
- > can just derive these values from there and put them into the skb
- > without calling eth_type_trans or looking at the cache cold header.
- > 
- > Then you do a prefetch on the header. When the packet reaches the 
- > network stack later the header has already reached cache  and it can be
- > processed without a memory round trip latency.
- > 
- > Caveats: 
- > On some cards it doesn't work for all packets or can be only done 
- > if you don't have any multicast addresses hashed (that's the case
- > for the e1000 if I read the header bits correctly). The lxt1001 
- > (old EOLed card) can do it for all packet types.
+> In general, the forwarding performance is nowadays specified in pps
+> and even flows per second if you look carefully at the data sheets.
 
- Thanks!
- 
- Yes. Like to give this a try when I got chance. It should be something 
- for the driver authors. Any patch handy? e1000?
+Ok, this is interesting. I have never seen the flows per second
+used for simple L3 forwading. I have seen them being used for NAT or
+firewalling.
+Looking at the sprint traffic patterns, i think flows/sec is a
+meaningful metric.
 
+> Most vendors have learnt that people want routers with comforting
+> worst-case behavior.  However, you have to read carefully, e.g. a
+> Catalyst 6500 with Supervisor Engine 1 (instead of 2) can only create
+> 650,000 flows per second, even if it has a much, much higher peak IP
+> forwarding rate.
+>
 
- Cheers.
-						--ro
+So 2Mpps of 650Kflows/sec ?
+
+> (The times of routers which died when confronted with a rapid ICMP
+> sweep across a /16 are gone for good, I hope.)
+
+We should be able to punish specific misbehaving flows. Do you know
+if any routers are implementing proper DOS tracebacks to allow for
+inserting drop filters?
+
+cheers,
+jamal
