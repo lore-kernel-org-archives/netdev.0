@@ -1,10 +1,10 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 5/22] xfrm: Attempt to offload bundled xfrm_states for outbound xfrms
-Date: Thu, 30 Dec 2004 03:48:35 -0500
-Message-ID: <20041230035000.14@ori.thedillows.org>
-References: <20041230035000.13@ori.thedillows.org>
+Subject: [RFC 2.6.10 17/22] typhoon: split out setting of offloaded tasks
+Date: Thu, 30 Dec 2004 03:48:37 -0500
+Message-ID: <20041230035000.26@ori.thedillows.org>
+References: <20041230035000.25@ori.thedillows.org>
 Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261580AbUL3Izc@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261630AbUL3JEf@vger.kernel.org>
 To: netdev@oss.sgi.com
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -12,118 +12,112 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/12/30 00:34:46-05:00 dave@thedillows.org 
-#   Plumb in offloading new bundles for outgoing packets.
+#   2004/12/30 00:57:35-05:00 dave@thedillows.org 
+#   Move the setting of the currently offloaded tasks to its own
+#   function, as we'll be making use of it to change the crypto
+#   offload status when adding/removing xfrms.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/xfrm/xfrm_policy.c
-#   2004/12/30 00:34:28-05:00 dave@thedillows.org +28 -0
-#   When we create a new bundle for an outbound flow, try to
-#   offload as much as the destination driver will allow.
-#   
-#   Don't forget to clean up....
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# include/net/xfrm.h
-#   2004/12/30 00:34:28-05:00 dave@thedillows.org +6 -0
-#   A convenience structure for offloading bundles.
-#   
-#   The dst->child field gives us a singly linked list
-#   from upper protocols to outer transforms. Drivers, however,
-#   will likely have a limited number of offloads they can
-#   perform on a particular packet, so they need to offload
-#   the bundle from the outside in. This list makes it easier
-#   for them.
+# drivers/net/typhoon.c
+#   2004/12/30 00:57:17-05:00 dave@thedillows.org +26 -15
+#   Move the setting of the currently offloaded tasks to its own
+#   function, as we'll be making use of it to change the crypto
+#   offload status when adding/removing xfrms.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# include/net/dst.h
-#   2004/12/30 00:34:28-05:00 dave@thedillows.org +1 -0
-#   Add a field to store the offload information for this part
-#   of the outgoing bundle (non-NULL if this dst is offloaded.)
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/include/net/dst.h b/include/net/dst.h
---- a/include/net/dst.h	2004-12-30 01:11:18 -05:00
-+++ b/include/net/dst.h	2004-12-30 01:11:18 -05:00
-@@ -65,6 +65,7 @@
- 	struct neighbour	*neighbour;
- 	struct hh_cache		*hh;
- 	struct xfrm_state	*xfrm;
-+	struct xfrm_offload	*xfrm_offload;
+diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+--- a/drivers/net/typhoon.c	2004-12-30 01:08:45 -05:00
++++ b/drivers/net/typhoon.c	2004-12-30 01:08:45 -05:00
+@@ -304,6 +304,7 @@
+ 	u16			xcvr_select;
+ 	u16			wol_events;
+ 	u32			offload;
++	spinlock_t		offload_lock;
  
- 	int			(*input)(struct sk_buff*);
- 	int			(*output)(struct sk_buff*);
-diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
---- a/include/net/xfrm.h	2004-12-30 01:11:18 -05:00
-+++ b/include/net/xfrm.h	2004-12-30 01:11:18 -05:00
-@@ -178,6 +178,12 @@
- 	atomic_t		refcnt;
- };
- 
-+struct xfrm_bundle_list
-+{
-+	struct list_head	node;
-+	struct dst_entry *	dst;
-+};
-+
- struct xfrm_type;
- struct xfrm_dst;
- struct xfrm_policy_afinfo {
-diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
---- a/net/xfrm/xfrm_policy.c	2004-12-30 01:11:18 -05:00
-+++ b/net/xfrm/xfrm_policy.c	2004-12-30 01:11:18 -05:00
-@@ -705,6 +705,31 @@
- 	};
+ 	u16			tx_sa_max;
+ 	u16			rx_sa_max;
+@@ -725,11 +726,28 @@
+ 	return err;
  }
  
-+static void xfrm_accel_bundle(struct dst_entry *dst)
++static int
++typhoon_set_offload(struct typhoon *tp)
 +{
-+	struct xfrm_bundle_list bundle, *xbl, *tmp;
-+	struct net_device *dev = dst->dev;
-+	INIT_LIST_HEAD(&bundle.node);
++	/* Caller should hold tp->offload_lock, or otherwise guarantee
++         * exclusitivity to this routine.
++         */
++	struct cmd_desc xp_cmd;
 +
-+	if (dev && netif_running(dev) && (dev->features & NETIF_F_IPSEC)) {
-+		while (dst) {
-+			xbl = kmalloc(sizeof(*xbl), GFP_ATOMIC);
-+			if (!xbl)
-+				goto out;
++	smp_rmb();
++	if(tp->card_state != Running)
++		return 0;
 +
-+			xbl->dst = dst;
-+			list_add_tail(&xbl->node, &bundle.node);
-+			dst = dst->child;
-+		}
-+
-+		dev->xfrm_bundle_add(dev, &bundle);
-+	}
-+
-+out:
-+	list_for_each_entry_safe(xbl, tmp, &bundle.node, node)
-+		kfree(xbl);
++	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_OFFLOAD_TASKS);
++	xp_cmd.parm2 = tp->offload;
++	xp_cmd.parm3 = tp->offload;
++	return typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
 +}
 +
- static int stale_bundle(struct dst_entry *dst);
- 
- /* Main function: finds/creates a bundle for given flow.
-@@ -833,6 +858,7 @@
- 		policy->bundles = dst;
- 		dst_hold(dst);
- 		write_unlock_bh(&policy->lock);
-+		xfrm_accel_bundle(dst);
- 	}
- 	*dst_p = dst;
- 	dst_release(dst_orig);
-@@ -1023,8 +1049,10 @@
+ static void
+ typhoon_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
  {
- 	if (!dst->xfrm)
- 		return;
-+	xfrm_offload_release(dst->xfrm_offload);
- 	xfrm_state_put(dst->xfrm);
- 	dst->xfrm = NULL;
-+	dst->xfrm_offload = NULL;
+ 	struct typhoon *tp = netdev_priv(dev);
+-	struct cmd_desc xp_cmd;
+ 	int err;
+ 
+ 	spin_lock_bh(&tp->state_lock);
+@@ -737,25 +755,16 @@
+ 		/* We've either been turned on for the first time, or we've
+ 		 * been turned off. Update the 3XP.
+ 		 */
++		spin_lock_bh(&tp->offload_lock);
+ 		if(grp)
+ 			tp->offload |= TYPHOON_OFFLOAD_VLAN;
+ 		else
+ 			tp->offload &= ~TYPHOON_OFFLOAD_VLAN;
++		err = typhoon_set_offload(tp);
++		spin_unlock_bh(&tp->offload_lock);
+ 
+-		/* If the interface is up, the runtime is running -- and we
+-		 * must be up for the vlan core to call us.
+-		 *
+-		 * Do the command outside of the spin lock, as it is slow.
+-		 */
+-		INIT_COMMAND_WITH_RESPONSE(&xp_cmd,
+-					TYPHOON_CMD_SET_OFFLOAD_TASKS);
+-		xp_cmd.parm2 = tp->offload;
+-		xp_cmd.parm3 = tp->offload;
+-		spin_unlock_bh(&tp->state_lock);
+-		err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
+ 		if(err < 0)
+ 			printk("%s: vlan offload error %d\n", tp->name, -err);
+-		spin_lock_bh(&tp->state_lock);
+ 	}
+ 
+ 	/* now make the change visible */
+@@ -1486,6 +1495,7 @@
+ 
+ 	spin_lock_init(&tp->command_lock);
+ 	spin_lock_init(&tp->state_lock);
++	spin_lock_init(&tp->offload_lock);
  }
  
- static void xfrm_link_failure(struct sk_buff *skb)
+ static void
+@@ -2218,12 +2228,13 @@
+ 	if(err < 0)
+ 		goto error_out;
+ 
++	/* tp->card_state != Running, so nothing will change this out
++	 * from under us.
++	 */
+ 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_OFFLOAD_TASKS);
+-	spin_lock_bh(&tp->state_lock);
+ 	xp_cmd.parm2 = tp->offload;
+ 	xp_cmd.parm3 = tp->offload;
+ 	err = typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL);
+-	spin_unlock_bh(&tp->state_lock);
+ 	if(err < 0)
+ 		goto error_out;
+ 
