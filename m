@@ -1,33 +1,33 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch netdev-2.6 0/2] r8169: vlan hwaccel fixes
-Date: Fri, 22 Oct 2004 21:51:12 -0400
+From: James Morris <jmorris@redhat.com>
+Subject: Re: TCP crashes when cycling loopback interface.
+Date: Fri, 22 Oct 2004 23:23:10 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041023015111.GC32031@tuxdriver.com>
-References: <20041022005737.GA1945@tuxdriver.com> <20041022202851.GB4216@electric-eye.fr.zoreil.com>
+Message-ID: <Xine.LNX.4.44.0410222322460.19110-100000@thoron.boston.redhat.com>
+References: <20041023012018.GA15257@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20041022202851.GB4216@electric-eye.fr.zoreil.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041023012018.GA15257@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 22, 2004 at 10:28:51PM +0200, Francois Romieu wrote:
-> John W. Linville <linville@tuxdriver.com> :
-> > Patch 2:
-> [nice explanation]
+On Sat, 23 Oct 2004, Herbert Xu wrote:
+
+> > KERNEL: assertion (!skb_queue_empty(&sk->sk_write_queue)) failed at net/ipv4/tcp_timer.c (322)
 > 
-> Any objection against me replacing the actual comment of patch #2 (i.e.
-> "why" instead of "how") and splitting the "if ((tp->>vlgrp = grp))" over
-> two lines ?
+> James, are you still getting this crash?
 
-Not quite sure which comment you mean, but I'm sure that's fine.
-I posted a third patch to fix-up that tricky if() -- you're right,
-it is a little TOO clever... :-)
+Yes.
 
-John
+> If so can you please apply this patch and see if it trips? If it
+> does then your problem has been found and fixed.
+
+Did not seem to trip during a crash in 2.6.9-mm1
+
+
+- James
 -- 
-John W. Linville
-linville@tuxdriver.com
+James Morris
+<jmorris@redhat.com>
