@@ -1,90 +1,109 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: in-driver QoS
-Date: Tue, 8 Jun 2004 11:48:31 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: PATCH: Re: tun device - bug or feature? WAS(Re: IMQ / new Dummy
+	device post.
+Date: 05 Jun 2004 09:24:56 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040608184831.GA18462@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <1086441896.1592.137.camel@jzny.localdomain>
+References: <wazza.87ad18jbdl.fsf@message.id>
+	 <1082427350.1034.70.camel@jzny.localdomain>
+	 <wazza.87fzayw1fy.fsf@message.id> <wazza.87fzaxmr6x.fsf@message.id>
+	 <wazza.87hdvddqxq.fsf@message.id>
+	 <1082639764.1059.81.camel@jzny.localdomain>
+	 <87oepjx65r.87n053x65r@87llknx65r.message.id>
+	 <1082719745.1057.27.camel@jzny.localdomain>
+	 <1082816083.1054.32.camel@jzny.localdomain>
+	 <1083007898.7788.276.camel@localhost>
+	 <1084017322.1041.30.camel@jzny.localdomain>
+	 <1084209482.758.15.camel@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="=-jsR7AYdCRp5xrNxzP/0m"
+Cc: netdev@oss.sgi.com, syrius.ml@no-log.org, Jeff Garzik <jgarzik@pobox.com>,
+        "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Max Krasnyansky <maxk@qualcomm.com>
+In-Reply-To: <1084209482.758.15.camel@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Vladimir Kondratiev wrote :
+
+--=-jsR7AYdCRp5xrNxzP/0m
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+
+Ok, trivial patch attached. Applies to both latest 2.6 and 2.4
+I will go hunting for more drivers that do this; for now, a good start
+here.
+
+cheers,
+jamal
+
+
+On Mon, 2004-05-10 at 13:18, Max Krasnyansky wrote:
+> On Sat, 2004-05-08 at 04:55, jamal wrote:
+> > Max, Dave, Jeff,
+> > 
+> > I get what was bothering me now - it took me a while to formulate it:
+> > 
+> > TUN_TUN_DEV dev->type is ARPHRD_PPP
+> > dev->type is really related to link layer header, perhaps at the low
+> > level if neighbor discovery works well then we have a link-headerless
+> > packet which gets manipulated with the correct header by some generic
+> > code. The combination of dev->type and dev->hard_header_len works
+> > together to achieve this.
+> > In the case of TUN_TUN_DEV, the header_len is 0 ;->
+> > To be of type ARPHRD_PPP, tun needs to have a header_len which is the
+> > size of the l2 ppp header.
+> > As an example, TUN_TAP_DEV is fine as type ARPHRD_ETHER and header_len
+> > of ETH_HLEN.
+> > 
+> > A lot of devices are abusing this system, tun is not the only one.
+> > 
+> > My suggestion is to change dev->type to ARPHRD_VOID for TUN_TUN_DEV or
+> > we introduce something like ARPHDR_NONE for devices with link layer
+> > headers of size 0.
+> > 
+> > thoughts?
 > 
-> In 802.11 network, there is TGe (or 802.11e), working group, developing QoS 
-> extensions for 802.11.
-
-	802.11e is about prioritisation of the traffic, not QoS. QoS
-is about bandwidth reservation and enforcement of policies, and
-802.11e does none of that.
-
-> Now, question is: how will we support these QoS features in network stack?
-
-	Simple : Linux driver should always send traffic at the
-highest priority, and never use the lowest priority. This way, we are
-guaranteed to always get the highest performance, and get higher
-benchmarks than Win32 or other OSes.
-
-> skb->priority help determining Tx queue, but fundamental problem is with 
-> single Tx queue from network stack.
-
-	Andi already corrected you about the fact that the net layer
-can offer multiple queue. If you look in .../net/sched/, you will see
-that skb->priority is used intensively, even for the generic
-scheduler. Most often, skb->priority is derived from sk->sk_priority,
-which is the socket priority.
-
-Andi Kleen wrote :
-> It already has that kind of in the form of arbitary qdiscs. The trick
-> will be only to do all queueing in the qdisc and keep the hardware
-> queue length as small as possible.
-
-	I fully agree with that statement. One of the advantage of TC
-is that it enforces policies, which is more like real QoS.
-	Note that the netdev queue is potentially larger than the
-hardware queue, especially with the recent increase due to Gigabit
-Ethernet, so there is more gain to be expected scheduling the netdev
-queue than the hardware queue in case of congestion.
-
-> Disadvantage will be more use of CPU time to refill driver
-> queues.
-
-	More precisely, you increase the Tx-done interrupt frequency,
-so the number of context switches. The time to refill the queues
-remain the same. But, interrupt mitigation seems like a good thing in
-general.
-
-> BTW the standard qdisc pfifo_fast already has three queues,
-> selected by the old TOS.
-
-	TOS is part of the IP header, and you don't want to read IP
-headers in the link layer, it's a clear layer violation. I think using
-skb->priority is a better way.
-
-Vladimir Kondratiev wrote :
+> I have no problem with that. I mean introducing new ARPHDR_ type.
+> ARPHDR_PPP was simply most appropriate for TUN that's why I picked it.
+> I vote for ARPHDR_NONE.
 > 
-> How could I use these multiple qdiscs?
+> Thanks
+> Max
+> 
+> 
+> 
+> 
 
-	You need to enable "advanced router" in ***config and check
-pointers in this excellent howto :
-		http://linux-ip.net/html/index.html
-		(see section I.1.12)
+--=-jsR7AYdCRp5xrNxzP/0m
+Content-Disposition: attachment; filename=tun24
+Content-Type: text/plain; name=tun24; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-> I.e. I have 4 queues in the driver, I want to fill it separately,
-> start/stop incoming queues from stack etc.
+--- /usr/src/2426/include/linux/if_arp.h	2002-02-25 14:38:13.000000000 -0500
++++ /usr/src/2426-mod/include/linux/if_arp.h	2004-06-04 15:10:15.000000000 -0400
+@@ -85,6 +85,7 @@
+ #define ARPHRD_IEEE80211_PRISM 802	/* IEEE 802.11 + Prism2 header  */
+ 
+ #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
++#define ARPHRD_NONE	  0xFFFE	/* zero header length */
+ 
+ /* ARP protocol opcodes. */
+ #define	ARPOP_REQUEST	1		/* ARP request			*/
+--- /usr/src/2426/drivers/net/tun.c	2002-08-02 20:39:44.000000000 -0400
++++ /usr/src/2426-mod/drivers/net/tun.c	2004-06-04 15:10:50.000000000 -0400
+@@ -138,8 +138,8 @@
+ 		dev->addr_len = 0;
+ 		dev->mtu = 1500;
+ 
+-		/* Type PPP seems most suitable */
+-		dev->type = ARPHRD_PPP; 
++		/* Zero header length */
++		dev->type = ARPHRD_NONE; 
+ 		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
+ 		dev->tx_queue_len = 10;
+ 		break;
 
-	The driver is not the one deciding the policy, the network
-stack is. Therefore the driver accept whatever packet the network
-scheduler decide to give it and store it in the most appropriate
-queue (based on some meta-information such as skb->priority).
-	This way the behavior of the driver is simple and predictable,
-you don't need to implement intserv/diffserv in the driver, and you
-can easily plug any scheduling you decide on top of it by
-reconfiguring the network stack.
-
-	Have fun...
-
-	Jean
+--=-jsR7AYdCRp5xrNxzP/0m--
