@@ -1,32 +1,59 @@
-From: Florian Weimer <fw@deneb.enyo.de>
-Subject: Re: tcp vulnerability? haven't seen anything on it here...
-Date: Thu, 22 Apr 2004 23:15:21 +0200
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: tcp vulnerability?  haven't seen anything on it here...
+Date: Thu, 22 Apr 2004 14:26:43 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <87r7ufu32u.fsf@deneb.enyo.de>
-References: <200404221738.i3MHcg7J005234@eeyore.valparaiso.cl>
+Message-ID: <Pine.LNX.4.58.0404221409570.12585@localhost.localdomain>
+References: <40869267.30408@nortelnetworks.com> <Pine.LNX.4.53.0404211153550.1169@chaos>
+ <4086A077.2000705@nortelnetworks.com> <20040421170340.GB24201@wohnheim.fh-wedel.de>
+ <20040421132047.026ab7f2.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=X-UNKNOWN
+Content-Transfer-Encoding: quoted-printable
+Cc: =?ISO-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>,
+        cfriesen@nortelnetworks.com, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Horst von Brand <vonbrand@inf.utfsm.cl>
-In-Reply-To: <200404221738.i3MHcg7J005234@eeyore.valparaiso.cl> (Horst von
- Brand's message of "Thu, 22 Apr 2004 13:38:42 -0400")
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040421132047.026ab7f2.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Horst von Brand <vonbrand@inf.utfsm.cl> writes:
+On Wed, 21 Apr 2004, David S. Miller wrote:
 
-> If everybody (or at least the bigger knots) filters spoofed traffic,
-> this ceases to be a problem. And that solves a shipload of other
-> problems, so...
+> On Wed, 21 Apr 2004 19:03:40 +0200
+> J=F6rn Engel <joern@wohnheim.fh-wedel.de> wrote:
+>
+> > Heise.de made it appear, as if the only news was that with tcp
+> > windows, the propability of guessing the right sequence number is not
+> > 1:2^32 but something smaller.  They said that 64k packets would be
+> > enough, so guess what the window will be.
+>
+> Yes, that is their major discovery.  You need to guess the ports
+> and source/destination addresses as well, which is why I don't
+> consider this such a serious issue personally.
+>
+> It is mitigated if timestamps are enabled, because that becomes
+> another number you have to guess.
 
-There isn't much incentive to deploy filters so that other people
-don't suffer.  So it takes a long time until it's almost universally
-implemented.  (We catch less backscatter from DDoS attacks than a few
-years ago, so the situation may actually be improving.)
+I am not sure if enabling timestamps will help.
+>From RFC1323,
+  It is recommended that RST segments NOT carry timestamps, and that RST
+  segments be acceptable regardless of their timestamp. Old duplicate RST
+  segments should be exceedingly unlikely, and their cleanup function sho=
+uld
+  take precedence over timestamps.
 
--- 
-Current mail filters: many dial-up/DSL/cable modem hosts, and the
-following domains: atlas.cz, bigpond.com, postino.it, tiscali.co.uk,
-tiscali.cz, tiscali.it, voila.fr.
+It looks like linux follows this recommendataion.
+tcp_input.c: tcp_rcv_established()
+        if (tcp_fast_parse_options(skb, th, tp) && tp->saw_tstamp &&
+            tcp_paws_discard(tp, skb)) {
+                if (!th->rst) {
+                        NET_INC_STATS_BH(PAWSEstabRejected);
+                        tcp_send_dupack(sk, skb);
+                        goto discard;
+                }
+                /* Reset is accepted even if it did not pass PAWS. */
+        }
+
+Thanks
+Sridhar
