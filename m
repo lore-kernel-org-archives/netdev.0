@@ -1,49 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PFKEY] Set family for state selector
-Date: Thu, 27 May 2004 20:44:45 +1000
+From: Jens =?iso-8859-1?q?K=FCbler?= <cleanerx@au.hadiko.de>
+Subject: Re: nforce2 keeps crashing with 2.4.27pre3
+Date: Thu, 27 May 2004 13:01:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040527104445.GA24976@gondor.apana.org.au>
+Message-ID: <200405271301.39344.cleanerx@au.hadiko.de>
+References: <200405261756.35333.cleanerx@au.hadiko.de> <20040526190735.A6244@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="SLDf9lqlvOQaIe6s"
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <20040526190735.A6244@electric-eye.fr.zoreil.com>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> [r8169 dysfunction on 2.4.27-pre3]
+> http://www.fr.zoreil.com/people/francois/misc/20040526-2.4.27-pre3-r816=
+9.c-
+>test.patch
+> Please report further success/failure on netdev@oss.sgi.com
 
---SLDf9lqlvOQaIe6s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi
 
-Hi Dave:
+I have applied the patch and my system is now stable even when heavy netw=
+ork=20
+traffic appears. I enabled NAPI for the card. The network througput is st=
+ill=20
+a bit low (~12MB/s) but I guess this is due to the unpatched endpoint whi=
+ch=20
+is also rtl8169 because bonnie told me both harddrives of the computers a=
+re=20
+capable of more than that.
+System temperature dropped by 13=B0 (from 55=B0) when idle for those inte=
+rested in=20
+test results.
 
-As the comment in the code suggests, nobody really uses this so nobody
-will notice the difference :) Still, let's make it correct while we're
-at it.
+Thanx for help
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---SLDf9lqlvOQaIe6s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/key/af_key.c 1.58 vs edited =====
---- 1.58/net/key/af_key.c	2004-05-26 06:09:13 +10:00
-+++ edited/net/key/af_key.c	2004-05-27 20:37:08 +10:00
-@@ -1059,7 +1059,7 @@
- 		struct sadb_address *addr = ext_hdrs[SADB_EXT_ADDRESS_PROXY-1];
- 
- 		/* Nobody uses this, but we try. */
--		pfkey_sadb_addr2xfrm_addr(addr, &x->sel.saddr);
-+		x->sel.family = pfkey_sadb_addr2xfrm_addr(addr, &x->sel.saddr);
- 		x->sel.prefixlen_s = addr->sadb_address_prefixlen;
- 	}
- 
-
---SLDf9lqlvOQaIe6s--
+Jens
