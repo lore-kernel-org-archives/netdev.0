@@ -1,43 +1,29 @@
-From: Ray Lehtiniemi <rayl@mail.com>
-Subject: Re: RE: how to tune a pair of e1000 cards on intel e7501-based system?
-Date: Wed, 8 Dec 2004 16:43:10 -0700
-Message-ID: <20041208234310.GE8649@mail.com>
-References: <C925F8B43D79CC49ACD0601FB68FF50C0293B459@orsmsx408>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: realtek r8169 + kernel 2.4.24 (openmosix)
+Date: Thu, 9 Dec 2004 01:50:15 +0100
+Message-ID: <20041209005015.GA25868@electric-eye.fr.zoreil.com>
+References: <20041205122414.GA22383@electric-eye.fr.zoreil.com> <200412051317.iB5DHrOL026570@kane.otenet.gr> <20041205135132.GA23262@electric-eye.fr.zoreil.com> <20041206234131.GA12838@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: Scott Feldman <sfeldma@pobox.com>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261358AbULIAvQ@vger.kernel.org>
+To: Nicholas Papadakos <panic@quake.gr>
 Content-Disposition: inline
-In-Reply-To: <C925F8B43D79CC49ACD0601FB68FF50C0293B459@orsmsx408>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20041206234131.GA12838@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu <romieu@fr.zoreil.com> :
+[unstable backport of the r8169 driver]
 
-hi jesse
+Nicholas, can you give a try at the patch below against vanilla 2.4.28 ?
+http://www.fr.zoreil.com/people/francois/misc/20041209-2.4.28-r8169.c-test.patch
 
+This patch does not trivially crash and you should be able to set the
+mtu around 7200 bytes.
 
-On Tue, Dec 07, 2004 at 05:10:26PM -0800, Brandeburg, Jesse wrote:
-> 
-> I'm not much of an expert, but one easy thing to try is to up your
-> receive stack resources, as they were particularly low on 2.4 series
-> kernels, leading to udp getting overrun pretty easily with gig nics.  I
-> think if you make the value go too high it just ignores it, so if you
-> see no change, try 256kB instead.
-> 
-> cat /proc/sys/net/core/rmem_default
-> cat /proc/sys/net/core/rmem_max 
-> 
-> echo -n 512000 > /proc/sys/net/core/rmem_default
-> echo -n 512000 > /proc/sys/net/core/rmem_max
+The detail of the (43) patches is available at:
+http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.28/r8169.
 
-sounds reasonable, i'll try this early next week when i have access
-to that test box again.
-
-
-thanks!
-
--- 
-----------------------------------------------------------------------
-     Ray L   <rayl@mail.com>
+--
+Ueimor
