@@ -1,66 +1,116 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
-Date: Fri, 5 Nov 2004 18:58:12 +0100
-Message-ID: <20041105175812.GZ12289@postel.suug.ch>
-References: <418B4C7C.8000402@crocom.com.pl> <20041105115430.GP19714@rei.reeler.org> <418B4C7C.8000402@crocom.com.pl> <20041105141640.GQ19714@rei.reeler.org> <418BA66A.60804@trash.net> <20041105163951.GY12289@postel.suug.ch> <418BB7D2.6060908@trash.net>
+From: Nishanth Aravamudan <nacc@us.ibm.com>
+Subject: Re: [PATCH]  net/gt96100eth: replace gt96100_delay() with msleep_interruptible()
+Date: Fri, 5 Nov 2004 09:46:25 -0800
+Message-ID: <20041105174625.GB1707__37542.1128971086$1099699327$gmane$org@us.ibm.com>
+References: <E1CO1vu-0002Lf-5c@sputnik> <4184C72F.8000905@pobox.com> <20041101190841.GB1730@us.ibm.com> <418B2FF6.8030907@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, spam@crocom.com.pl,
-        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
+Cc: netdev@oss.sgi.com, kernel-janitors@lists.osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <418BB7D2.6060908@trash.net>
+In-Reply-To: <418B2FF6.8030907@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <418BB7D2.6060908@trash.net> 2004-11-05 18:26
-> ops->put seems to be safe even without holding dev->queue_lock.
-> The class refcnt is only changed from userspace, and always under
-> the rtnl semaphore. get/put are always balanced, so pratically a
-> class can never get destroyed by put.
+On Fri, Nov 05, 2004 at 02:47:02AM -0500, Jeff Garzik wrote:
+> Nishanth Aravamudan wrote:
+> >On Sun, Oct 31, 2004 at 06:06:23AM -0500, Jeff Garzik wrote:
+> >
+> >>janitor@sternwelten.at wrote:
+> >>
+> >>>@@ -528,7 +517,7 @@ abort(struct net_device *dev, u32 abort_
+> >>>	// wait for abort to complete
+> >>>	while (GT96100ETH_READ(gp, GT96100_ETH_SDMA_COMM) & abort_bits) {
+> >>>		// snooze for 20 msec and check again
+> >>>-		gt96100_delay(1);
+> >>>+		msleep_interruptible(20);
+> >>>	
+> >>>		if (--timedout == 0) {
+> >>
+> >>
+> >>don't change the behavior of the driver, even if it disagrees with the 
+> >>comment.
+> >
+> >
+> >Ok, please find the corrected patch below.
+> >
+> >Description: Uses msleep_interruptible() instead of gt96100_delay()
+> >to guarantee the task delays as expected. Removes prototype and
+> >definition of now unused gt96100_delay() function. Corrects one comment
+> >to correspond to the code.
+> >
+> >Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> >
+> >
+> >--- 2.6.10-rc1-vanilla/drivers/net/gt96100eth.c	2004-10-30 
+> >15:33:30.000000000 -0700
+> >+++ 2.6.10-rc1/drivers/net/gt96100eth.c	2004-11-01 
+> >11:05:37.000000000 -0800
+> >@@ -59,7 +59,6 @@
+> > // prototypes
+> > static void* dmaalloc(size_t size, dma_addr_t *dma_handle);
+> > static void dmafree(size_t size, void *vaddr);
+> >-static void gt96100_delay(int msec);
+> > static int gt96100_add_hash_entry(struct net_device *dev,
+> > 				  unsigned char* addr);
+> > static void read_mib_counters(struct gt96100_private *gp);
+> >@@ -183,16 +182,6 @@ static void dmafree(size_t size, void *v
+> > 	free_pages((unsigned long)vaddr, get_order(size));
+> > }
+> > 
+> >-static void gt96100_delay(int ms)
+> >-{
+> >-	if (in_interrupt())
+> >-		return;
+> >-	else {
+> >-		current->state = TASK_INTERRUPTIBLE;
+> >-		schedule_timeout(ms*HZ/1000);
+> 
+> I'm still worried about this patch, because
+> 
+> 1) in_interrupt() check disappears, and
 
-You are right, this cannot be the problem. However, there is a
-potential risk in qdisc_destroy if dev->queue_lock is not held.
-I'm not sure but aren't all callers to qdisc_destroy holding
-qdisc_lock_tree(dev) such as dev_shutdown a potential risk to
-deadlocks because __qdisc_destroy tries to lock again?
+This is true... I have changed the patch significantly, leaving the
+gt96100_delay() function intact and simply replacing the else result
+with msleep_interruptible(). Does this newer patch look better to you?
+Thanks for all the input!
 
-> Either refcnt them or add add some kind of flag to qdiscs created
-> by qdisc_create/qdisc_create_default and check for that flag.
-> Initializing the lists doesn't fix all problems, directly using
-> noop/noqueue doesn't increment the device refcnt, so is must not
-> be dropped it __qdisc_destroy.
+> 2) does driver already include linux/delay.h ?
 
-I was irritated by the TCQ_F_BUILTIN check in __qdisc_destroy. None
-of the code in __qdisc_destroy should be applied to a builtin qdisc
-or am I missing something?
+Yes, it does.
 
-The patch below prevents builtin qdiscs from being destroyed and
-fixes a refcnt underflow whould lead to a bogus list unlinking
-and dev_put.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.10-rc1-bk14.orig/net/sched/sch_generic.c	2004-11-05 18:44:49.000000000 +0100
-+++ linux-2.6.10-rc1-bk14/net/sched/sch_generic.c	2004-11-05 18:43:52.000000000 +0100
-@@ -479,15 +479,15 @@
- 	module_put(ops->owner);
- 
- 	dev_put(qdisc->dev);
--	if (!(qdisc->flags&TCQ_F_BUILTIN))
--		kfree((char *) qdisc - qdisc->padded);
-+	kfree((char *) qdisc - qdisc->padded);
+Description: Uses msleep_interruptible() instead of schedule_timeout()
+in the gt96100_delay() function. Corrects one comment to correspond to
+the code.
+
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+
+
+--- 2.6.10-rc1-vanilla/drivers/net/gt96100eth.c	2004-11-05 09:42:37.000000000 -0800
++++ 2.6.10-rc1/drivers/net/gt96100eth.c	2004-11-05 09:45:48.000000000 -0800
+@@ -187,10 +187,8 @@ static void gt96100_delay(int ms)
+ {
+ 	if (in_interrupt())
+ 		return;
+-	else {
+-		current->state = TASK_INTERRUPTIBLE;
+-		schedule_timeout(ms*HZ/1000);
+-	}
++	else
++		msleep_interruptible(ms);
  }
  
- /* Under dev->queue_lock and BH! */
+ static int
+@@ -527,7 +525,7 @@ abort(struct net_device *dev, u32 abort_
  
- void qdisc_destroy(struct Qdisc *qdisc)
- {
--	if (!atomic_dec_and_test(&qdisc->refcnt))
-+	if (qdisc->flags & TCQ_F_BUILTIN ||
-+		!atomic_dec_and_test(&qdisc->refcnt))
- 		return;
- 	list_del(&qdisc->list);
- 	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
+ 	// wait for abort to complete
+ 	while (GT96100ETH_READ(gp, GT96100_ETH_SDMA_COMM) & abort_bits) {
+-		// snooze for 20 msec and check again
++		// snooze for 1 msec and check again
+ 		gt96100_delay(1);
+ 	
+ 		if (--timedout == 0) {
