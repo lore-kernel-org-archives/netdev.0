@@ -1,32 +1,28 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] tg3.h & b44.h ifndef ADVERTISE_PAUSE typo
-Date: Tue, 11 Jan 2005 15:07:13 -0500
-Message-ID: <41E431F1.8040401@pobox.com>
-References: <1105454553.4264.4.camel@dhollis-lnx.centricconsulting.com>	 <41E421A8.60203@pobox.com> <1105472929.6599.3.camel@dhollis-lnx.centricconsulting.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: ipv6 tunnel stops accepting input
+Date: Wed, 12 Jan 2005 07:36:37 +1100
+Message-ID: <E1CoSkn-00058Z-00@gondolin.me.apana.org.au>
+References: <20050111125826.GA25169@wiggy.net>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Hollis <dhollis@davehollis.com>
-In-Reply-To: <1105472929.6599.3.camel@dhollis-lnx.centricconsulting.com>
+To: wichert@wiggy.net (Wichert Akkerman)
+In-Reply-To: <20050111125826.GA25169@wiggy.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David Hollis wrote:
-> On Tue, 2005-01-11 at 13:57 -0500, Jeff Garzik wrote:
+Wichert Akkerman <wichert@wiggy.net> wrote:
 > 
+> but once I do a ping6 from my machine to the outside world:
 > 
->>Just kill the ifdef and add it to mii.h.
->>
->>	Jeff
->>
+> 13:39:53.264393 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 1
+> 13:39:53.299071 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 1
 > 
-> 
-> Attached patch moves those defines to mii.h and removes them from tg3.h
-> & b44.h.
+> the tunnel suddenly accepts incoming traffic:
 
-ACK, I'll merge this up David...
-
-	Jeff
+Do you have any netfilter rules?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
