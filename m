@@ -1,53 +1,44 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: register_netdevice return val fix
-Date: Sat, 18 Oct 2003 19:00:14 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [Bugme-new] [Bug 1360] New: Can't access /proc/self/fd/0 from
+ sshd when no pty allocated.
+Date: Sat, 18 Oct 2003 23:57:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031018190014.60ad6344.akpm@osdl.org>
+Message-ID: <20031018235735.52f5e15a.davem@redhat.com>
+References: <200310151142.h9FBgi5k029003@fire-1.osdl.org>
+	<20031018172736.417bf89d.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: dtucker@zip.com.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20031018172736.417bf89d.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 18 Oct 2003 17:27:36 -0700
+Andrew Morton <akpm@osdl.org> wrote:
 
+> This appears to be deliberate:
+> 
+> /*
+>  *	In theory you can't get an open on this inode, but /proc provides
+>  *	a back door. Remember to keep it shut otherwise you'll let the
+>  *	creepy crawlies in.
+>  */
+>   
+> static int sock_no_open(struct inode *irrelevant, struct file *dontcare)
+> {
+> 	return -ENXIO;
+> }
+> 
+> I do not know why; the comment is fairly useless.
 
-If the driver's init function returns an error code (most likely -ENODEV),
-register_netdevice will stomp on it and will always return -EIO.
+For many socket types there are no sane open() semantics.
 
-You end up always getting an "Input/Output error" from modprobe, which is
-confusing.
+If I open() a unconnected socket, what does that mean?
+Should it connect, of do something like a dup()?
 
-Fix register_netdevice() to return the init function's error code, if it
-looks sane.
-
-
-
- net/core/dev.c |   11 ++++++++---
- 1 files changed, 8 insertions(+), 3 deletions(-)
-
-diff -puN net/core/dev.c~register_netdevice-retval-fix net/core/dev.c
---- 25/net/core/dev.c~register_netdevice-retval-fix	2003-10-18 18:50:52.000000000 -0700
-+++ 25-akpm/net/core/dev.c	2003-10-18 18:51:39.000000000 -0700
-@@ -2652,9 +2652,14 @@ int register_netdevice(struct net_device
- 	dev->iflink = -1;
- 
- 	/* Init, if this function is available */
--	ret = -EIO;
--	if (dev->init && dev->init(dev))
--		goto out_err;
-+	if (dev->init) {
-+		ret = dev->init(dev);
-+		if (ret) {
-+			if (ret > 0)
-+				ret = -EIO;
-+			goto out_err;
-+		}
-+	}
- 
- 	dev->ifindex = dev_new_index();
- 	if (dev->iflink == -1)
-
-_
+This code has been this way for a long time, anyone who wants to
+change this needs to deal with and address all the aforementioned
+issues.
