@@ -1,124 +1,97 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [BK PATCH] 2.4 SCTP updates
-Date: Tue, 23 Mar 2004 12:15:41 -0800 (PST)
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Kernel 2.4.25 + VLAN + CBQ disc broken ?
+Date: Tue, 23 Mar 2004 23:56:37 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0403231214110.1818@localhost.localdomain>
+Message-ID: <4060C0A5.40402@trash.net>
+References: <4008E74134355D43998FFFC3D637BB030463DF@starsky.ncc.itgate.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------090502020107040702010806"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Gianfranco Delli Carri <gf.dellicarri@ncc.itgate.net>
+In-Reply-To: <4008E74134355D43998FFFC3D637BB030463DF@starsky.ncc.itgate.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+This is a multi-part message in MIME format.
+--------------090502020107040702010806
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Please do a
-        bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
-to get the following update to SCTP on top of linux 2.4.26-pre5
+Gianfranco Delli Carri wrote:
+> Greetigs,
+> 
+> seems that in a 2.4.25 kernel, with VLAN configured, if you try tu use CBQ disc on VLAN subIf no more traffic can be passed. (NO ARP, NO IP)
+> 
+> Just after: 
+> /sbin/tc qdisc add dev eth1.10 root handle 1 cbq bandwidth 100Mbit avpkt 1000 cell 8
+> 
+> traffic was dropped.
+> 
+> Seems that in the same server enviroment the CBQ disc attached to the untagged interface can work without problems.
+
+Please try this patch.
+
+Dave, the txqueuelen=0 fix for pfifo_fast apparently didn't went in
+2.4, this is the patch from 2.6, it applies with minor offset.
+
+Best regards
+Patrick
+
+--------------090502020107040702010806
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+ChangeSet 1.1561.2.5, 2004/02/18 13:18:53-08:00, kaber@trash.net
+
+	[PKTSCHED]: Use queue limit of 1 when tx_queue_len is zero.
+
 
 # This patch includes the following deltas:
-#	           ChangeSet	1.1309  -> 1.1311
-#	net/sctp/sm_make_chunk.c	1.4     -> 1.5
-#	 net/sctp/ulpevent.c	1.4     -> 1.5
-#	  net/sctp/Config.in	1.5     -> 1.6
+#	           ChangeSet	1.1561.2.4 -> 1.1561.2.5
+#	net/sched/sch_fifo.c	1.7     -> 1.8    
+#	net/sched/sch_gred.c	1.13    -> 1.14   
 #
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/03/23	sri@us.ibm.com	1.1310
-# [SCTP] Don't do any ppid byte-order conversions as it is opaque to SCTP.
-# --------------------------------------------
-# 04/03/23	sri@us.ibm.com	1.1311
-# [SCTP] Avoid the use of hacking CONFIG_IPV6_SCTP__ option.
-# --------------------------------------------
-#
-diff -Nru a/net/sctp/Config.in b/net/sctp/Config.in
---- a/net/sctp/Config.in	Tue Mar 23 11:54:53 2004
-+++ b/net/sctp/Config.in	Tue Mar 23 11:54:53 2004
-@@ -4,39 +4,38 @@
- mainmenu_option next_comment
- comment '   SCTP Configuration (EXPERIMENTAL)'
 
--if [ "$CONFIG_IPV6" != "n" ]; then
--   define_bool CONFIG_IPV6_SCTP__ $CONFIG_IPV6
-+if [ "$CONFIG_IPV6" = "n" ]; then
-+  tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP
- else
--   define_bool CONFIG_IPV6_SCTP__ y
-+  dep_tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP $CONFIG_IPV6
- fi
+ sch_fifo.c |    6 ++++--
+ sch_gred.c |    2 +-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
--dep_tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP $CONFIG_IPV6_SCTP__
- if [ "$CONFIG_IP_SCTP" != "n" ]; then
--   bool '    SCTP: Debug messages' CONFIG_SCTP_DBG_MSG
--   bool '    SCTP: Debug object counts' CONFIG_SCTP_DBG_OBJCNT
--fi
--if [ "$CONFIG_CRYPTO_HMAC" = "n" ]; then
--  choice '    SCTP: Cookie HMAC Algorithm' \
--        "HMAC-NONE		CONFIG_SCTP_HMAC_NONE" HMAC-NONE
--else
--  if [ "$CONFIG_CRYPTO_MD5" = "n" -a "$CONFIG_CRYPTO_SHA1" = "n" ]; then
-+  bool '    SCTP: Debug messages' CONFIG_SCTP_DBG_MSG
-+  bool '    SCTP: Debug object counts' CONFIG_SCTP_DBG_OBJCNT
-+  if [ "$CONFIG_CRYPTO_HMAC" = "n" ]; then
-     choice '    SCTP: Cookie HMAC Algorithm' \
--        "HMAC-NONE		CONFIG_SCTP_HMAC_NONE" HMAC-NONE
-+      "HMAC-NONE		CONFIG_SCTP_HMAC_NONE" HMAC-NONE
-   else
--    if [ "$CONFIG_CRYPTO_MD5" != "n" -a "$CONFIG_CRYPTO_SHA1" != "n" ]; then
-+    if [ "$CONFIG_CRYPTO_MD5" = "n" -a "$CONFIG_CRYPTO_SHA1" = "n" ]; then
-       choice '    SCTP: Cookie HMAC Algorithm' \
--        "HMAC-NONE		CONFIG_SCTP_HMAC_NONE \
--         HMAC-SHA1              CONFIG_SCTP_HMAC_SHA1 \
--         HMAC-MD5		CONFIG_SCTP_HMAC_MD5"	HMAC-SHA1
-+        "HMAC-NONE		CONFIG_SCTP_HMAC_NONE" HMAC-NONE
-     else
--      if [ "$CONFIG_CRYPTO_MD5" != "n" ]; then
--        choice 'SCTP: Cookie HMAC Algorithm' \
--        "HMAC-NONE		CONFIG_SCTP_HMAC_NONE \
--         HMAC-MD5		CONFIG_SCTP_HMAC_MD5"	HMAC-MD5
-+      if [ "$CONFIG_CRYPTO_MD5" != "n" -a "$CONFIG_CRYPTO_SHA1" != "n" ]; then
-+        choice '    SCTP: Cookie HMAC Algorithm' \
-+          "HMAC-NONE		CONFIG_SCTP_HMAC_NONE \
-+           HMAC-SHA1              CONFIG_SCTP_HMAC_SHA1 \
-+           HMAC-MD5		CONFIG_SCTP_HMAC_MD5"	HMAC-MD5
-       else
--        choice 'SCTP: Cookie HMAC Algorithm' \
--        "HMAC-NONE		CONFIG_SCTP_HMAC_NONE \
--         HMAC-SHA1		CONFIG_SCTP_HMAC_SHA1"	HMAC-SHA1
-+        if [ "$CONFIG_CRYPTO_MD5" != "n" ]; then
-+          choice 'SCTP: Cookie HMAC Algorithm' \
-+          "HMAC-NONE		CONFIG_SCTP_HMAC_NONE \
-+           HMAC-MD5		CONFIG_SCTP_HMAC_MD5"	HMAC-MD5
-+        else
-+          choice 'SCTP: Cookie HMAC Algorithm' \
-+          "HMAC-NONE		CONFIG_SCTP_HMAC_NONE \
-+           HMAC-SHA1		CONFIG_SCTP_HMAC_SHA1"	HMAC-SHA1
-+        fi
-       fi
-     fi
-   fi
-diff -Nru a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
---- a/net/sctp/sm_make_chunk.c	Tue Mar 23 11:54:53 2004
-+++ b/net/sctp/sm_make_chunk.c	Tue Mar 23 11:54:53 2004
-@@ -516,7 +516,7 @@
- 	 */
- 	dp.tsn = 0;
- 	dp.stream = htons(sinfo->sinfo_stream);
--	dp.ppid   = htonl(sinfo->sinfo_ppid);
-+	dp.ppid   = sinfo->sinfo_ppid;
 
- 	/* Set the flags for an unordered send.  */
- 	if (sinfo->sinfo_flags & MSG_UNORDERED) {
-diff -Nru a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
---- a/net/sctp/ulpevent.c	Tue Mar 23 11:54:53 2004
-+++ b/net/sctp/ulpevent.c	Tue Mar 23 11:54:53 2004
-@@ -663,7 +663,7 @@
- 	 * for and this information is passed opaquely by the SCTP stack from
- 	 * one end to the other.
- 	 */
--	info->sinfo_ppid = ntohl(chunk->subh.data_hdr->ppid);
-+	info->sinfo_ppid = chunk->subh.data_hdr->ppid;
+diff -Nru a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+--- a/net/sched/sch_fifo.c	Wed Feb 18 18:09:39 2004
++++ b/net/sched/sch_fifo.c	Wed Feb 18 18:09:39 2004
+@@ -141,10 +141,12 @@
+ 	struct fifo_sched_data *q = (void*)sch->data;
+ 
+ 	if (opt == NULL) {
++		unsigned int limit = sch->dev->tx_queue_len ? : 1;
++
+ 		if (sch->ops == &bfifo_qdisc_ops)
+-			q->limit = sch->dev->tx_queue_len*sch->dev->mtu;
++			q->limit = limit*sch->dev->mtu;
+ 		else	
+-			q->limit = sch->dev->tx_queue_len;
++			q->limit = limit;
+ 	} else {
+ 		struct tc_fifo_qopt *ctl = RTA_DATA(opt);
+ 		if (opt->rta_len < RTA_LENGTH(sizeof(*ctl)))
+diff -Nru a/net/sched/sch_gred.c b/net/sched/sch_gred.c
+--- a/net/sched/sch_gred.c	Wed Feb 18 18:09:39 2004
++++ b/net/sched/sch_gred.c	Wed Feb 18 18:09:39 2004
+@@ -110,7 +110,7 @@
+ 	unsigned long	qave=0;	
+ 	int i=0;
+ 
+-	if (!t->initd && skb_queue_len(&sch->q) < sch->dev->tx_queue_len) {
++	if (!t->initd && skb_queue_len(&sch->q) < (sch->dev->tx_queue_len ? : 1)) {
+ 		D2PRINTK("NO GRED Queues setup yet! Enqueued anyway\n");
+ 		goto do_enqueue;
+ 	}
 
- 	/* Sockets API Extensions for SCTP
- 	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+--------------090502020107040702010806--
