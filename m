@@ -1,37 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: status of ipchains in 2.6?
-Date: Tue, 28 Oct 2003 01:50:32 -0800
+From: Emmanuel Fleury <fleury@cs.auc.dk>
+Subject: Re: Announce: NetKeeper Firewall For Linux
+Date: Tue, 28 Oct 2003 11:07:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031028015032.734caf21.davem@redhat.com>
-References: <200310280127.h9S1RM5d002140@napali.hpl.hp.com>
+Message-ID: <1067335655.10628.7.camel@rade7.s.cs.auc.dk>
+References: <1067285612.552.9.camel@aphrodite.olympus.net>
+	 <20031028014223.129933be.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.or.sgi.com
+Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com, hadi@cyberus.ca,
+        Mikkel Christiansen <mixxel@cs.auc.dk>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davidm@hpl.hp.com
-In-Reply-To: <200310280127.h9S1RM5d002140@napali.hpl.hp.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031028014223.129933be.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Oct 2003 17:27:22 -0800
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
+Hi,
 
-> I recently discovered that ipchains is rather broken.  I noticed the
-> problem on ia64, but suspect that it's likely to affect all 64-bit
-> platforms (if not 32-bit platforms).  A more detailed description of
-> the problem I'm seeing is here:
+On Tue, 2003-10-28 at 10:42, David S. Miller wrote:
+> On Mon, 27 Oct 2003 21:13:32 +0100
+> Emmanuel Fleury <fleury@cs.auc.dk> wrote:
 > 
-> 	http://tinyurl.com/sm9d
+> > For more details check out the netkeeper web-site:
+> >     http://www.cs.auc.dk/~fleury/netkeeper/
 > 
-> Unlike ipchains, iptables works perfectly fine, so perhaps we just
-> need to update Kconfig to discourage ipchains on ia64 (and/or other
-> 64-bit platforms)?
+> You may want to have a look at:
+> 
+>   http://www.cyberus.ca/~hadi/patches/action/README
+> 
+> which I believe is the way to implement these kinds
+> of things.
 
-Might want to post this to the netfilter lists or netdev....
-Nah, that might actually get the bug fixed.
+Actually, that is exactly the direction which we have been aiming at.
 
-linux-kernel is always the wrong place to report networking
-problems, most networking developers do not read linux-kernel.
-They do read netdev@oss.sgi.com so please post things there.
+Thanks for this valuable input.
+
+Regards
+-- 
+Mikkel & Emmanuel
