@@ -1,66 +1,89 @@
-From: bert hubert <ahu@ds9a.nl>
+From: "John S. Denker" <jsd@monmouth.com>
 Subject: Re: ?completeness of IPsec feature-set
-Date: Thu, 27 Mar 2003 22:58:39 +0100
+Date: Thu, 27 Mar 2003 17:58:06 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030327215839.GA31029@outpost.ds9a.nl>
-References: <3E82DCF7.7090706@monmouth.com> <20030327133659.GA11820@outpost.ds9a.nl> <3E8371B5.7030200@monmouth.com>
+Message-ID: <3E8381FE.5050603@monmouth.com>
+References: <3E82DCF7.7090706@monmouth.com> <20030327133659.GA11820@outpost.ds9a.nl> <3E8371B5.7030200@monmouth.com> <20030327215839.GA31029@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "John S. Denker" <jsd@monmouth.com>
-Content-Disposition: inline
-In-Reply-To: <3E8371B5.7030200@monmouth.com>
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20030327215839.GA31029@outpost.ds9a.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 27, 2003 at 04:48:37PM -0500, John S. Denker wrote:
+On 03/27/2003 04:58 PM, bert hubert wrote:
+> 
+> Linux provides the RFC PF_KEY protocol and also uses
+> the RFC ioctls to support IPSEC. Any compliant IKE will work against it.
+ > That is how development works in the kernel.
 
-> I think before I did that I would throw away all the linux-2.5 built-in
-> IPsec features and use FreeS/WAN, which has a reasonably complete
-> feature-set.
+Saying it's not a kernel problem isn't the same
+as saying it's not a problem.  I was told this
+was the proper list to raise such questions.  If
+it isn't, please point me to a more-appropriate
+list.
 
-:-) 
+Certain parties are touting linux-2.5 IPsec as
+a complete and "integrated" solution.  Either
+the claims need to be toned down or (preferably)
+thelevel of integration needs to go up.  In any
+case a "status report" clarifying what remains
+to be done would be helpful.
 
-> It's amusing that some people flame FreeS/WAN, alleging "it's _not_
-> integrated, and this is a major problem" ... and alleging that the
-> linux-2.5 stuff solves this problem.  Somehow I don't understand how
-> telling people to write their own key-exchange daemon is the winning
-> "integrated" solution.
+>>For example, BSD provides an "enc0" device and documents using it to
+>>implement network security rules.  Alas I see no sign that linux-2.5
+>>provides this feature.  If I am overlooking something, please explain.
+> 
+> 'enc0' is an internal abstraction, do you need it? 
 
-I sense some... anger. Linux provides the RFC PF_KEY protocol and also uses
-the RFC ioctls to support IPSEC. Any compliant IKE will work against it.
-That is how development works in the kernel.
+We agree is an abstraction... but I wouldn't have
+called it "internal".  It is a documented interface,
+so the better half of it is external.
 
-> For example, BSD provides an "enc0" device and documents using it to
-> implement network security rules.  Alas I see no sign that linux-2.5
-> provides this feature.  If I am overlooking something, please explain.
+As to need, I get 1290 hits from
+   http://www.google.com/search?q=enc0
+so there is prima facie evidence that people use it.
 
-'enc0' is an internal abstraction, do you need it? 
+Uses include
+  -- mentioning it in packet-filtering rules.
+  -- using it to communicate with userspace about
+     things like MTU and default source address.
+  -- mentioning it in routing rules.
 
-> I ask again:  Is there a document somewhere listing the set of desirable
-> features and the status thereof?  Or otherwise is there something to
-> reassure would-be users that a complete feature-set will be provided?
+If you have evidence that everything that can be
+done with enc0 can be conveniently done without
+enc0, please share it.
 
-Right now, the kernel side of things is nearly complete. I sorely miss IPSEC
-NAT traversal which appears to be pretty patented.
+> Right now, the kernel side of things is nearly complete. I sorely miss IPSEC
+> NAT traversal which appears to be pretty patented.
 
-> http://www.monmouth.com/~jsd/vpn/ipsec+routing/feature-list.htm
+Do you mean these patents
+   http://www.ietf.org/ietf/IPR/SSH-NAT
+or others?
 
-This is mostly about userspace. The current attitude is that the kernel
-provides the hooks and we then hope people start coding against that
-interface. A large amount of the things you suggest can be implemented
-today.
+Also, I have heard reports that NAT-traversal
+was "coming soon" to linux-2.5.  Again, a
+coherent status report would be helpful.
 
-Some time ago I took a small shot at porting the freeswan ike to the
-standardised IPSEC ioctls add PF_KEY protocol but it differed too wildly. It
-may well be useful to continue this effort.
+>>http://www.monmouth.com/~jsd/vpn/ipsec+routing/feature-list.htm
+> 
+> 
+> This is mostly about userspace. The current attitude is that the kernel
+> provides the hooks and we then hope people start coding against that
+> interface. A large amount of the things you suggest can be implemented
+> today.
 
-Regards,
+A large amount, yes.  But perhaps not all;  the
+enc0 question is a case in point.
 
-bert
+Again: saying it's not a kernel problem isn't the
+same as saying it's not a problem.
 
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
-http://netherlabs.nl                         Consulting
+Commonly real-world usability and scalability depend
+on "making the whole offer".  Users really aren't
+interested in something that provides 60% or even 99%
+of a working solution if the remainder is not readily
+available.
