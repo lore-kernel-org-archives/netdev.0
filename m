@@ -1,116 +1,71 @@
-From: "Dan A. Dickey" <dan.dickey@savvis.net>
-Subject: TCP Hang (or close to it):  Windows XP -> Linux (w/tcp_bic)
-Date: Fri, 29 Oct 2004 09:25:48 -0500
+From: Esben Nielsen <simlo@phys.au.dk>
+Subject: Re: [patch 1/9] arcnet fixes
+Date: Fri, 29 Oct 2004 16:46:28 +0200 (METDST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410290925.48955.dan.dickey@savvis.net>
-Reply-To: dan.dickey@savvis.net
+Message-ID: <Pine.OSF.4.05.10410291603000.5037-100000@da410.ifa.au.dk>
+References: <20041028164111.5ffaca70.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: akpm@osdl.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20041028164111.5ffaca70.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-All,
-We are able to reproduce what appears to be a tcp hang with
-Windows XP sending to a Linux box (2.6.7 kernel) that has
-tcp_bic turned on.  At the moment, I'm unsure that tcp_bic
-has anything to do with it - I'll be testing with tcp_bic turned
-off today to see if I can reproduce this problem or not.
+On Thu, 28 Oct 2004, David S. Miller wrote:
 
-I'm looking for someone to help me determine what the
-cause of this hang is - I have a 3MB ethereal capture file
-that I can send if you think you can help out.  Let me know,
-and I'll send you the file and some more information about
-the application and what we are doing.
+> On Thu, 28 Oct 2004 00:19:38 -0700
+> akpm@osdl.org wrote:
+> 
+> I don't know what to do with this kind of thing.
+> Jeff, what do you think?  Do we have anyone in any
+> way active with Arcnet other than this guy?
+>
 
-Just in case this might help you to figure it out,
-here is a small portion of the display from ethereal at
-the point of failure.   192.168.168.126 is the Windows
-XP machine, and 192.168.168.25 is the Linux box.
+I know others probably haven't used ArcNet under the 2.6 kernel lately
+since it was completely broken in 2.6.8.1 (fixed in 2.6.9) and have been
+for some time when I try to trace it back. This means this patch will have
+a hard time breaking anything for anybody! It does fix the preemptive
+problem. I have even used it under Igno Molnar's realtime-patch which must
+be the ultimate check for preemptiveness :-)
 
-14:25:58.260109 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1101042 win 39272
-14:25:58.260116 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1102502 win 42192
-14:25:58.260133 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1102502:1103962(1460) ack 1 win 65535
-14:25:58.260143 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1103962 win 45112
-14:25:58.260147 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1103962:1105422(1460) ack 1 win 65535
-14:25:58.260155 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1105422 win 48032
-14:25:58.260184 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1105422:1106882(1460) ack 1 win 65535
-14:25:58.260191 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1106882:1108342(1460) ack 1 win 65535
-14:25:58.260206 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1108342:1109802(1460) ack 1 win 65535
-14:25:58.260228 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1106882 win 50952
-14:25:58.260252 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1108342 win 53872
-14:25:58.260273 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1109802 win 56792
-14:25:58.260279 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1111262 win 59712
-14:25:58.260286 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1112722 win 62632
-14:25:58.260293 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1114182 win 16
-14:25:58.260348 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1114506 win 16
-14:25:58.534331 IP 192.168.168.126.2451 > 192.168.168.25.15100: . 
-160:176(16) ack 1 win 65535
-14:25:58.534493 IP 192.168.168.25.15100 > 192.168.168.126.2451: . ack 
-176 win 16
-14:26:03.237624 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1114506:1114522(16) ack 1 win 65535
-14:26:03.237803 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1114522 win 16
-14:26:03.565752 IP 192.168.168.126.2451 > 192.168.168.25.15100: . 
-176:192(16) ack 1 win 65535
-14:26:03.565914 IP 192.168.168.25.15100 > 192.168.168.126.2451: . ack 
-192 win 16
-14:26:08.269049 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1114522:1114538(16) ack 1 win 65535
-14:26:08.269217 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1114538 win 16
-14:26:08.597185 IP 192.168.168.126.2451 > 192.168.168.25.15100: . 
-192:208(16) ack 1 win 65535
-14:26:08.597347 IP 192.168.168.25.15100 > 192.168.168.126.2451: . ack 
-208 win 16
-14:26:13.300469 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1114538:1114554(16) ack 1 win 65535
-14:26:13.300640 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1114554 win 16
-14:26:13.628603 IP 192.168.168.126.2451 > 192.168.168.25.15100: . 
-208:224(16) ack 1 win 65535
-14:26:13.628774 IP 192.168.168.25.15100 > 192.168.168.126.2451: . ack 
-224 win 16
-14:26:18.331909 IP 192.168.168.126.2519 > 192.168.168.25.15100: . 
-1114554:1114570(16) ack 1 win 65535
-14:26:18.332075 IP 192.168.168.25.15100 > 192.168.168.126.2519: . ack 
-1114570 win 16
-14:26:18.660013 IP 192.168.168.126.2451 > 192.168.168.25.15100: . 
-224:240(16) ack 1 win 65535
-14:26:18.660174 IP 192.168.168.25.15100 > 192.168.168.126.2451: . ack 
-240 win 16
+Seen from the Linux community point of view: The patch can't hurt anybody
+but ArcNet users but add to the value of Linux. There are very few people
+using these drivers and all the rest can just ignore them (especially if
+the below mistake is fixed *blush*) The more drivers Linux has the more
+attractive Linux is when you have to pick an OS. In fact I am telling
+others at work about how it only took me 2 hours to make ArcNet run under
+Linux on our StrongARM processor board whereas it took my co-worker
+month to make an driver for the commercial OS we usually run on the
+boards :-) (Ofcourse making the patch isn't included in the 2 hours.)
 
+> One problem with the patch though.
+> 
+> > diff -puN include/linux/if_ether.h~arcnet-fixes include/linux/if_ether.h
+> > --- 25/include/linux/if_ether.h~arcnet-fixes	2004-10-28 00:17:07.230704752 -0700
+> > +++ 25-akpm/include/linux/if_ether.h	2004-10-28 00:17:07.247702168 -0700
+> > @@ -91,6 +91,7 @@
+> >  #define ETH_P_IRDA	0x0017		/* Linux-IrDA			*/
+> >  #define ETH_P_ECONET	0x0018		/* Acorn Econet			*/
+> >  #define ETH_P_HDLC	0x0019		/* HDLC frames			*/
+> > +#define ETH_P_ARCNET	0x0020		/* ArcNet			*/
+> 
+> You should use 0x001a or similar, so you don't have
+> to do this next part of your patch, bumping NPROTO
+> in net.h
+> 
 
-I'm not sure how well this is going to come across, but as I said - I
-can send the capture file.  Please help!  Thanks in advance.
-(My concern is the window on the Linux side dropping from 62632
-to 16 at the 14:25:58.260293 point - this just doesn't seem right).
- -Dan
+Doh! I can't count in hex it seems. This would probably also mean I won't
+have to recompile the whole kernel but just the modules and I don't have 
+to reboot to make it work on a new machine - but just until somebody else
+picks the same protocol number ofcourse.
 
--- 
-Dan A. Dickey
-dan.dickey@savvis.net
+Do I have to fix the problem and resubmit? The number does itself
+does ofcourse matter to me - it is just used to avoid listening to
+ETH_P_ALL such the IP-frames are filtered out on the raw-socket I used to
+connect to user-space.
 
-SAVVIS
-Transforming Information Technology
+Esben (="this guy":-)
+
+> [...]
