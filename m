@@ -1,106 +1,155 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH PKT_SCHED 0/17]: tc action cleanup + fixes
-Date: Thu, 30 Dec 2004 15:16:42 +0100
-Message-ID: <41D40DCA.7090706@trash.net>
-References: <41D3785F.3040909@trash.net>	 <1104382562.1048.39.camel@jzny.localdomain>  <41D3F5EC.9050808@trash.net> <1104413400.1047.123.camel@jzny.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 8/9] PKT_SCHED: Remove old action/police helpers
+Date: Thu, 30 Dec 2004 13:35:41 +0100
+Message-ID: <20041230123541.GU32419@postel.suug.ch>
+References: <20041230122652.GM32419@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1104413400.1047.123.camel@jzny.localdomain>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041230122652.GM32419@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
->>>b)Other things which i have seen compilers whine about in the past of
->>>the form:
->>>
->>>a missing cast
->>>-       a->priv = (void *) p;
->>>+       a->priv = p;
->>
->>No need to cast a pointer to void *, except if a->priv
->>was of some different type.
->> 
-> So as long as lvalue was void you dont cast? p is certainly not void.
-
-Exactly.
-
->>>4) Some of those messages are actually still useful and dont really
->>>harm to leave around for a little while longer;
->>>-       if (tb[TCA_PEDIT_PARMS - 1] == NULL) {
->>>-               printk("BUG: tcf_pedit_init called with NULL params\n");
->>>
->>>I realize the fixes you have to return -ENOMEN/NOENT etc are an
->>>improvement but a little ascii puking wont harm for somebody writting
->>>a user space app until we get better netlink error propagation
->>>in place.
->>
->>Agreed for some messages, but those should be DEBUGs. Anyway,
->>I didn't want to judge for every message and possible convert
->>it, so I deleted all printks that got replaced by error codes.
->>
-> 
-> the printks are meant to help a little more (and are mostly on the slow
-> path); when the error propagation for netlink works well, those sorts of
-> ascii messages will probably be transported back to user space. On any
-> newer patches I suggest to just keep them.
-
-Ok.
-
-> Heres something else:
-> Re: [PATCH PKT_SCHED 15/17]: Remove checks for impossible conditions in
-> pedit action, you say:
-> 
-> 
->>Remove checks for impossible conditions in pedit action.
-> 
-> 
-> ________________________________________________________________________
-> [..]
-> -	if (p == NULL) {
-> 
->>-		printk("BUG: tcf_pedit_dump called with NULL params\n");
->>-		goto rtattr_failure;
->>-	}
->>-
-> 
-> 
-> You have these type changes all over. These are certainly artifacts of the 
-> development time, I may have have caught a bug or two via these checks at 
-> the time. It is highly likely those bugs are fixed in the code merged.
-
-Yes, I checked all paths before removing them.
-
-> If they happen, however, they are a BUG and the possibility of a bug is
-> still there ;-> i.e the word "impossible" is too strong a description. 
-> Having said that:
-> Is it better to have an oops catch this or have something print on the
-> console or syslog indicating a bug? This is more a philosphical question
-> and an answer could be "good practise is to let oops catch it". I am
-> actually indifferent if those checks go - however if i had caught them
-> myself i would have put unlikely() around them.
-
-I prefer an Oops because it gives a backtrace, without requiring
-additional checks in the code. The other reason I deleted them was
-that not all of them printed something on the console, so some
-bugs were just quietly ignored. And I didn't want to add more printks :)
-
-> I will wait for you to finish before i start working on the eactions.
-> 
-> So a general comment to all the patches. All look good - I would prefer
-> a check against size instead of EOPNOTSUPP for the two i pointed at.
-> And going forward, prefer you leave the printks i had for errors but fix
-> the return codes to be more meaningful. So only those two i pointed at
-> with EOPNOTSUPP i am not ACKing (my basic tests will break) - rest Dave
-> can push in.
-
-Thanks. Dave is on holidays until next week, I'll fix them
-up until then.
-
-Regards
-Patrick
+--- linux-2.6.10-bk1.orig/include/net/pkt_cls.h	2004-12-27 21:35:31.000000000 +0100
++++ linux-2.6.10-bk1/include/net/pkt_cls.h	2004-12-27 22:46:36.000000000 +0100
+@@ -149,88 +149,6 @@
+ extern int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
+ 	                       struct tcf_ext_map *map);
+ 
+-#ifdef CONFIG_NET_CLS_ACT
+-static inline int
+-tcf_change_act_police(struct tcf_proto *tp, struct tc_action **action,
+-	struct rtattr *act_police_tlv, struct rtattr *rate_tlv)
+-{
+-	int ret;
+-	struct tc_action *act;
+-
+-	act = tcf_action_init_1(act_police_tlv, rate_tlv, "police",
+-	                        TCA_ACT_NOREPLACE, TCA_ACT_BIND, &ret);
+-	if (act == NULL)
+-		return ret;
+-
+-	act->type = TCA_OLD_COMPAT;
+-
+-	if (*action) {
+-		tcf_tree_lock(tp);
+-		act = xchg(action, act);
+-		tcf_tree_unlock(tp);
+-
+-		tcf_action_destroy(act, TCA_ACT_UNBIND);
+-	} else
+-		*action = act;
+-
+-	return 0;
+-}
+-
+-static inline int
+-tcf_change_act(struct tcf_proto *tp, struct tc_action **action,
+-	struct rtattr *act_tlv, struct rtattr *rate_tlv)
+-{
+-	int ret;
+-	struct tc_action *act;
+-
+-	act = tcf_action_init(act_tlv, rate_tlv, NULL,
+-	                      TCA_ACT_NOREPLACE, TCA_ACT_BIND, &ret);
+-	if (act == NULL)
+-		return ret;
+-
+-	if (*action) {
+-		tcf_tree_lock(tp);
+-		act = xchg(action, act);
+-		tcf_tree_unlock(tp);
+-
+-		tcf_action_destroy(act, TCA_ACT_UNBIND);
+-	} else
+-		*action = act;
+-
+-	return 0;
+-}
+-
+-static inline int
+-tcf_dump_act(struct sk_buff *skb, struct tc_action *action,
+-	int act_type, int compat_type)
+-{
+-	/*
+-	 * again for backward compatible mode - we want
+-	 * to work with both old and new modes of entering
+-	 * tc data even if iproute2  was newer - jhs
+-	 */
+-	if (action) {
+-		struct rtattr * p_rta = (struct rtattr*) skb->tail;
+-
+-		if (action->type != TCA_OLD_COMPAT) {
+-			RTA_PUT(skb, act_type, 0, NULL);
+-			if (tcf_action_dump(skb, action, 0, 0) < 0)
+-				goto rtattr_failure;
+-		} else {
+-			RTA_PUT(skb, compat_type, 0, NULL);
+-			if (tcf_action_dump_old(skb, action, 0, 0) < 0)
+-				goto rtattr_failure;
+-		}
+-		
+-		p_rta->rta_len = skb->tail - (u8*)p_rta;
+-	}
+-	return 0;
+-
+-rtattr_failure:
+-	return -1;
+-}
+-#endif /* CONFIG_NET_CLS_ACT */
+-
+ #ifdef CONFIG_NET_CLS_IND
+ static inline int
+ tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *indev_tlv)
+@@ -260,44 +178,4 @@
+ }
+ #endif /* CONFIG_NET_CLS_IND */
+ 
+-#ifdef CONFIG_NET_CLS_POLICE
+-static inline int
+-tcf_change_police(struct tcf_proto *tp, struct tcf_police **police,
+-	struct rtattr *police_tlv, struct rtattr *rate_tlv)
+-{
+-	struct tcf_police *p = tcf_police_locate(police_tlv, rate_tlv);
+-
+-	if (*police) {
+-		tcf_tree_lock(tp);
+-		p = xchg(police, p);
+-		tcf_tree_unlock(tp);
+-
+-		tcf_police_release(p, TCA_ACT_UNBIND);
+-	} else
+-		*police = p;
+-
+-	return 0;
+-}
+-
+-static inline int
+-tcf_dump_police(struct sk_buff *skb, struct tcf_police *police,
+-	int police_type)
+-{
+-	if (police) {
+-		struct rtattr * p_rta = (struct rtattr*) skb->tail;
+-
+-		RTA_PUT(skb, police_type, 0, NULL);
+-
+-		if (tcf_police_dump(skb, police) < 0)
+-			goto rtattr_failure;
+-
+-		p_rta->rta_len = skb->tail - (u8*)p_rta;
+-	}
+-	return 0;
+-
+-rtattr_failure:
+-	return -1;
+-}
+-#endif /* CONFIG_NET_CLS_POLICE */
+-
+ #endif
