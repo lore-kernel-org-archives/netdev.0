@@ -1,30 +1,32 @@
-From: Sean Neakums <sneakums@zork.net>
-Subject: Re: STOP SPAM ( ex Re: YES! Receive 3.000+ valued VISITORS to your
- web - DAILY and FREE!)
-Date: Thu, 16 Jan 2003 11:06:31 +0000
+From: Mika Liljeberg <mika.liljeberg@welho.com>
+Subject: Re: SCTP path mtu support needs some ip layer support.
+Date: 14 Jan 2003 01:03:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <6uel7d2w20.fsf@zork.zork.net>
-References: <SmartMessage.4.44.0301160029560.3244>
+Message-ID: <1042498998.2610.8.camel@devil>
+References: <Pine.LNX.4.33.0301131417440.1691-100000@dyn9-47-18-98.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, Jon Grimm <jgrimm2@us.ibm.com>, davem@redhat.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <SmartMessage.4.44.0301160029560.3244> ("Lt.Cmd. Geordi
- LaForge"'s message of "Thu, 16 Jan 2003 00:32:42 +0100 (CET)")
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.33.0301131417440.1691-100000@dyn9-47-18-98.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-commence  Lt.Cmd. Geordi LaForge quotation:
+Hi,
 
-> Mailing List manager please close this list or use an antispam
-> software or an antispam system on mail server..
+I know this is not what the SCTP spec recommends with IPv4, but what
+prevents you from just fragmenting the IP packets at the source and
+setting the DF bit on each fragment (assuming you can't just repackage
+the data chunks)? This would be equivalent to the IPv6 behaviour and
+would keep PMTUD working perfectly.
 
-Or take charge of your life and install a spam filter at your end.  I
-find bogofitler works well.  I didn't even see the message you so
-helpfully quoted in its entirely.
+With IPv6 you don't have a DF bit to control, so you have only two
+options. Either use a maximum chunk size smaller than 1280, or fragment
+at the source.
 
--- 
- /                          |
-[|] Sean Neakums            | It's time we stopped just talking
-[|] <sneakums@zork.net>     | about freedom and started BLOGGING it.
- \                          |
+Regards,
+
+	MikaL
