@@ -1,85 +1,84 @@
 From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Sun, 19 Sep 2004 07:18:36 +0200
+Subject: [PATCH 2.6] fix zombie netlink socket in user space
+Date: Sun, 19 Sep 2004 07:28:15 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414D16AC.1070905@eurodev.net>
-References: <E1C8cPd-0006K8-00@gondolin.me.apana.org.au> <414D0CCD.90209@eurodev.net>
+Message-ID: <414D18EF.3080207@eurodev.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010200050301050308060704"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+ boundary="------------000100000407020505030203"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
-In-Reply-To: <414D0CCD.90209@eurodev.net>
+To: "David S. Miller" <davem@redhat.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>, jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------010200050301050308060704
+--------------000100000407020505030203
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Pablo Neira wrote:
+Hi Davem,
 
-> you are right, I missed that, but I prefer the patches attached to 
-> this email. 
+If you try to bind/connect to a non existant netlink socket, client 
+socket gets succesfully inserted as head in the socket list. The problem 
+is that the head can't be delete, so that socket stays in the list 
+forever (see sk_del_node_init).
 
-
-wrong 2.6 patch, consider this instead
+If I'm missing something, please let me know. I'll submit a 2.4 version
 
 regards,
 Pablo
 
---------------010200050301050308060704
+--------------000100000407020505030203
 Content-Type: text/x-patch;
- name="netlink-fix.patch"
+ name="netlink-fix-zombie.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="netlink-fix.patch"
+ filename="netlink-fix-zombie.patch"
 
-diff -u -r1.1.1.2 af_netlink.c
---- a/net/netlink/af_netlink.c	4 Sep 2004 17:34:06 -0000	1.1.1.2
-+++ b/net/netlink/af_netlink.c	19 Sep 2004 03:57:20 -0000
-@@ -629,18 +629,20 @@
- 				kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
- 
- 			if (!nlwork)
--				return -1;
-+				return 0;
- 		
- 			INIT_WORK(&nlwork->work, netlink_wq_handler, nlwork);
- 			nlwork->sk = sk;
- 			nlwork->len = skb->len;
- 			queue_work(netlink_wq, &nlwork->work);
--		} else 
-+		} else {
- 			sk->sk_data_ready(sk, skb->len);
-+			sock_put(sk);
-+		}
- 
--		return 0;
-+		return 1;
- 	}
--	return -1;
-+	return 0;
+diff -u -r1.2 af_netlink.c
+--- a/net/netlink/af_netlink.c	19 Sep 2004 04:41:12 -0000	1.2
++++ b/net/netlink/af_netlink.c	19 Sep 2004 05:20:51 -0000
+@@ -306,6 +306,19 @@
+ 	return 0;
  }
  
- int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, u32 pid,
-@@ -685,11 +687,11 @@
- 			failure = 1;
- 			sock_put(sk);
- 		} else if (netlink_broadcast_deliver(sk, skb2)) {
--			netlink_overrun(sk);
--			sock_put(sk);
--		} else {
- 			delivered = 1;
- 			skb2 = NULL;
-+		} else {
-+			netlink_overrun(sk);
-+			sock_put(sk);
- 		}
- 	}
++static inline int netlink_socket_exist(int protocol)
++{
++	/* Wanna bind to an non-existant netlink socket? */
++	netlink_table_grab();
++	if (!sk_head(&nl_table[protocol])) {
++		netlink_table_ungrab();
++		return 0;
++	}
++	netlink_table_ungrab();
++
++	return 1;
++}
++
+ static int netlink_autobind(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+@@ -351,6 +364,9 @@
+ 	if (nladdr->nl_family != AF_NETLINK)
+ 		return -EINVAL;
  
++        if (!netlink_socket_exist(sk->sk_protocol))
++		return -ENOENT;
++
+ 	/* Only superuser is allowed to listen multicasts */
+ 	if (nladdr->nl_groups && !netlink_capable(sock, NL_NONROOT_RECV))
+ 		return -EPERM;
+@@ -392,6 +408,9 @@
+ 	if (addr->sa_family != AF_NETLINK)
+ 		return -EINVAL;
+ 
++        if (!netlink_socket_exist(sk->sk_protocol))
++		return -ENOENT;
++
+ 	/* Only superuser is allowed to send multicasts */
+ 	if (nladdr->nl_groups && !netlink_capable(sock, NL_NONROOT_SEND))
+ 		return -EPERM;
 
---------------010200050301050308060704--
+--------------000100000407020505030203--
