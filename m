@@ -1,101 +1,60 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: 2.6.8.1 IPv6 Routing Problem
-Date: Sun, 19 Sep 2004 00:02:11 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 2.6.9-rc2-mm1 1/1] 3c59x: missing pci_disable_device
+Date: Sun, 19 Sep 2004 00:01:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040918220211.GI6005@sunbeam.de.gnumonks.org>
-References: <20040917230803.GJ2678@sunbeam.de.gnumonks.org> <20040918.084304.75142669.yoshfuji@linux-ipv6.org>
+Message-ID: <20040918220122.GA15528@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="va4/JQ6j8/8uipEp"
-Cc: netdev@oss.sgi.com, usagi-users@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobom.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+To: akpm@osdl.org
 Content-Disposition: inline
-In-Reply-To: <20040918.084304.75142669.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+It is possible to remove the device without calling pci_disable_device().
+A leak can take place during the init as well.
 
---va4/JQ6j8/8uipEp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-On Sat, Sep 18, 2004 at 08:43:04AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ w=
-rote:
+diff -puN drivers/net/3c59x.c~3c59x-00 drivers/net/3c59x.c
+--- linux-2.6.9-rc2/drivers/net/3c59x.c~3c59x-00	2004-09-18 22:20:43.000000000 +0200
++++ linux-2.6.9-rc2-fr/drivers/net/3c59x.c	2004-09-18 22:20:43.000000000 +0200
+@@ -1075,14 +1075,20 @@ static int __devinit vortex_init_one (st
+ 	int rc;
+ 
+ 	/* wake up and enable device */		
+-	if (pci_enable_device (pdev)) {
+-		rc = -EIO;
+-	} else {
+-		rc = vortex_probe1 (&pdev->dev, pci_resource_start (pdev, 0),
+-							pdev->irq, ent->driver_data, vortex_cards_found);
+-		if (rc == 0)
+-			vortex_cards_found++;
++	rc = pci_enable_device (pdev);
++	if (rc < 0)
++		goto out;
++
++	rc = vortex_probe1 (&pdev->dev, pci_resource_start (pdev, 0),
++						pdev->irq, ent->driver_data, vortex_cards_found);
++	if (rc < 0) {
++		pci_disable_device (pdev);
++		goto out;
+ 	}
++
++	vortex_cards_found++;
++
++out:
+ 	return rc;
+ }
+ 
+@@ -3163,6 +3169,7 @@ static void __devexit vortex_remove_one 
+ 		pci_set_power_state(VORTEX_PCI(vp), 0);	/* Go active */
+ 		if (vp->pm_state_valid)
+ 			pci_restore_state(VORTEX_PCI(vp), vp->power_state);
++		pci_disable_device(VORTEX_PCI(vp));
+ 	}
+ 	/* Should really use issue_and_wait() here */
+ 	outw(TotalReset|0x14, dev->base_addr + EL3_CMD);
 
-> > I'm experiencing some strange problems on a 2.6.8.1 vanilla kernel.  I
-> > tried to reproduce it with a minimal system:
-> :
-> > (intermixed with a 'ip6tables -A OUTPUT -j LOG' and '-A INPUT -j LOG'
-> > rules for diagnostics).
->=20
-> It is not minimum with ip6tables. :-)
-
-i just added ip6tables to get some log messages on incoming/outgoing
-packets (small embedded system with no tcpdump).
-
-> Anyway, please try the latest bk tree.
-> There are may fixes in it.
-
-In fact the problem disappeared with 2.6.9-rc2.  I thought the idea of
-2.6.8.x is to have real show-stopper bugfixes go into that series... and
-if something like this is severely broken in ipv6, I would say it
-rectifies a 2.6.8.2 release, don't you think?
-
-I have to admit that this is the first time that my linux ipv6 setup
-breaks within four years...
-
-Now I'm stuck with another issue:  The interfaces suddenly no logner
-get any link-local addresses:
-
-/proc/net # ip -6 addr
-2: eth1: <BROADCAST,MULTICAST,UP> mtu 1500 qlen 1000
-    inet6 3ffe:400:900:1100::1/64 scope global=20
-       valid_lft forever preferred_lft forever
-    inet6 3ffe:400:900:1100:207:e9ff:fe09:b920/64 scope global=20
-       valid_lft forever preferred_lft forever
-3: lo: <LOOPBACK,UP> mtu 16436=20
-    inet6 ::1/128 scope host=20
-       valid_lft forever preferred_lft forever
-4: eth0.2: <BROADCAST,MULTICAST,UP> mtu 1500=20
-    inet6 3ffe:400:900:1101::1/64 scope global=20
-       valid_lft forever preferred_lft forever
-    inet6 3ffe:400:900:1101:207:e9ff:fe09:b920/64 scope global=20
-       valid_lft forever preferred_lft forever
-5: eth0.3: <BROADCAST,MULTICAST,UP> mtu 1500=20
-    inet6 3ffe:400:900:9999::1/64 scope global=20
-       valid_lft forever preferred_lft forever
-    inet6 3ffe:400:900:9999:207:e9ff:fe09:b920/64 scope global=20
-       valid_lft forever preferred_lft forever
-8: tap0: <BROADCAST,MULTICAST,UP> mtu 1399 qlen 1000
-    inet6 3ffe:400:900:3001::2/64 scope global=20
-       valid_lft forever preferred_lft forever
-/proc/net # uname -r
-2.6.9-rc2
-
-Thanks!
-
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---va4/JQ6j8/8uipEp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBTLBjXaXGVTD0i/8RAjE1AKCtC8gWtcWurCmUF3bslFQd/HP5/ACfcY8z
-fR6CakIsZ65ssMPONoQEthc=
-=fN3p
------END PGP SIGNATURE-----
-
---va4/JQ6j8/8uipEp--
+_
