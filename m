@@ -1,64 +1,79 @@
-From: "Mala Anand" <manand@us.ibm.com>
-Subject: Re: Network oops
-Date: Mon, 10 Jun 2002 09:42:10 -0500
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: per-socket statistics on received/dropped packets
+Date: Mon, 10 Jun 2002 10:45:31 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <OFFF217683.8ACE4FCF-ON85256BD4.004D1229@raleigh.ibm.com>
+Message-ID: <Pine.GSO.4.30.0206101033450.22559-100000@shell.cyberus.ca>
+References: <20020610095702.A27037@mark.mielke.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@muc.de, "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
-   linux-net@vger.kernel.org, linux-net-owner@vger.kernel.org,
-   netdev@oss.sgi.com, pekkas@netcore.fi
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <ltd@cisco.com>,
+   <greearb@candelatech.com>, <cfriesen@nortelnetworks.com>,
+   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: george anzinger <george@mvista.com>
+To: Mark Mielke <mark@mark.mielke.cc>
+In-Reply-To: <20020610095702.A27037@mark.mielke.cc>
 List-Id: netdev.vger.kernel.org
 
->"David S. Miller" wrote:
->>
->> Also we need to know what network driver, if preemption is being
->> used (being from mvista I assume you are using preemption, and if
->> so make sure you have the preemption networking patches applied).
-
->Uh, are you saying there is a set of network patches?  If
->so, where might they be found?  And yes, we are testing
->preemption, trying to wring out the "last" bug :)  (Could
->you be referring to the patches we are developing?)
-
->The driver (from the system log):
->    <4>eepro100.c:v1.09j-t 9/29/99 Donald Becker
->http://cesdis.gsfc.nasa.gov/linux/drivers/eepro100.html
->    <4>eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by
->Andrey V. Savochkin <saw@saw.sw.com.sg> and others
->    <6>eth0: OEM i82557/i82558 10/100 Ethernet,
->00:03:47:BD:60:86, IRQ 21.
->    <6>  Board assembly fab600-000, Physical connectors
->present: RJ45
->    <6>  Primary interface chip i82555 PHY #1.
-> <6>  General self-test: passed.
->    <6>  Serial sub-system self-test: passed.
->    <6>  Internal registers self-test: passed.
->    <6>  ROM checksum self-test: passed (0xb874c1d3).
->    <6>eth1: OEM i82557/i82558 10/100 Ethernet,
->00:03:47:BD:60:87, IRQ 20.
->    <6>  Board assembly fab600-000, Physical connectors
->present: RJ45
->    <6>  Primary interface chip i82555 PHY #1.
->    <6>  General self-test: passed.
->    <6>  Serial sub-system self-test: passed.
->    <6>  Internal registers self-test: passed.
->    <6>  ROM checksum self-test: passed (0xb874c1d3).
-
->Looks like two NICs.
---
- I have see this problem with this NIC.  You need to increase
-the number of buffers in the RX and TX ring in eepro100.c file.
-Right now it is set to 32, change it to 256 or 128 this error
-will go away.
-
-Regards,
-    Mala
 
 
-   Mala Anand
-   E-mail:manand@us.ibm.com
-   Linux Technology Center - Performance
-   Phone:838-8088; Tie-line:678-8088
+On Mon, 10 Jun 2002, Mark Mielke wrote:
+
+> On Mon, Jun 10, 2002 at 08:24:44AM -0400, jamal wrote:
+> > I think i would agree with Dave for it to be an external patch. You
+> > really only need this during debugging. I had a similar patch when
+> > debugging NAPI about a year ago. I didnt find it that useful after
+> > a while because i could deduce the losses from SNMP/netstat output.
+>
+> In your case you found that you could solve it once by debugging the
+> application.
+>
+> This doesn't mean that other applications would not be better at
+> determining the code path to use at execution time.
+>
+> Just because eth1 is behaving perfectly (i.e. low overall dropped UDP
+> packets, or low TCP/IP retransmission) does not mean that a specific
+> socket currently on eth1 heading to China should assume that it can
+> take the 'average' observation as adequate for observing the specific
+> socket.
+>
+> There *are* applications that would benefit from making this decision
+> at run time on a socket-by-socket basis. It is not a common requirement
+> for most desktop users, but it remains a valid requirement.
+>
+
+I am confused as to which application needs this, do you have one in mind?
+AFAIK, UDP/RTP type apps already know how to determine packet loss
+on a per flow basis.
+
+> Providing it as a patch, can have the effect that it becomes more trouble
+> than it is worth to grant other people access to the feature, especially
+> from a corporate environment that has signed off on being able to release
+> patches made to Linux back to the Linux source tree.
+>
+
+You may be confusing technical merit to mean the same thing as corporate
+donation. In Linux its the later that counts.
+
+> Seems somewhat of a loss...
+
+Your mileage may vary. Consider this - you have the opp to at least
+make the patch available. Imagine trying to convince windriver.
+
+cheers,
+jamal
+
+>
+
+> mark
+>
+> --
+> mark@mielke.cc/markm@ncf.ca/markm@nortelnetworks.com __________________________
+> .  .  _  ._  . .   .__    .  . ._. .__ .   . . .__  | Neighbourhood Coder
+> |\/| |_| |_| |/    |_     |\/|  |  |_  |   |/  |_   |
+> |  | | | | \ | \   |__ .  |  | .|. |__ |__ | \ |__  | Ottawa, Ontario, Canada
+>
+>   One ring to rule them all, one ring to find them, one ring to bring them all
+>                        and in the darkness bind them...
+>
+>                            http://mark.mielke.cc/
+>
