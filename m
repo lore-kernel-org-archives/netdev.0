@@ -1,49 +1,91 @@
-From: Praveen Kumar Amritaluru <praveen@india.hp.com>
-Subject: zero window probes on linux (fwd)
-Date: Tue, 13 Apr 2004 15:43:29 +0530 (IST)
+From: Lauri Tarkkala <ltarkkala@safenet-inc.com>
+Subject: [PATCH] ip multicast, kernel 2.4.2*, 2.6.*
+Date: Wed, 14 Apr 2004 07:17:31 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404131013.PAA18883@shilpa.india.hp.com>
+Message-ID: <20040414041731.GA2010@safenet-inc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: praveen@shilpa.india.hp.com (Praveen Kumar Amritaluru)
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-	I am running a  client-server  program with client  running on a
-	linux machine with 2.4.18-14 kernel installed.
+There is an obnoxious problem in the sending of both ipv4 and ipv6
+multicast/broadcast packets in both the 2.4 and 2.6 series and
+netfilter modules.
 
-	When the server  announces  zero-window  to the  client,  client
-	starts  sending   zero-window   probes  which  are  nothing  but
-	unacceptable segments.
+The processing is roughly as follows:
+1. If packet is multicast/broadcast, duplicate it.
+2. Pass the duplicate packet through netfilter hooks using
+   NF_HOOK_SLOW(IP_POST_ROUTING).
+3. Set skb.type to PACKET_LOOPBACK in the netfilter hook callback
+   and pass the packet to netif_rx().
+4. Send the original packet out via NF_HOOK(IP_POST_ROUTING).
 
-	A short trace  obtained  using  tcpdump  and  interpreted  using
-	ethereal is shown below:
+The reason for this processing (my guess), is that the inbound
+(duplicate) packet will not be sent, unless the original
+passes the netfilter hooks. This has the side-effect that netfilter
+hooks have no way of detecting whether packets are intended to or are
+going to be looped back. The looped-back packet will of course still go
+through the inbound hooks.
+
+This is quite error-prone, both in terms of configuring policy for
+netfilter modules, not to mention optimization and implementation. There
+are also some cases that just can not be handled correctly.
+
+My first choice would be to simply change the behaviour so that
+the duplicate packet is not bassed through the IP_POST_ROUTING hook.
+Below is a patch that does exactly this.. The patch works against 
+recent 2.4.x and 2.6.x series kernels.
+
+I can not think of a (good) reason for the current behaviour. If someone
+with more history knowledge could enlighten me, I'd be grateful.
+
+Lauri
+
+-- 
+Lauri Tarkkala
+Safenet Inc. 
+http://www.safenet-inc.com/
 
 
-16:27:17.979349 e.f.g.h.33464 > a.b.c.d.40000: P Seq=76441951 Ack=802335667 Win 5840 len=1080
-16:27:18.040407 a.b.c.d.40000 > e.f.g.h.33464: . Seq=802335667 Ack=764413031 Win 0 len=0
-16:27:18.256213 e.f.g.h.33464 > a.b.c.d.40000: . Seq=764413030 Ack=802335667 Win 5840 len=0
-
-	This sequence  continues as per  retransmission  algorithm  with
-	same seq no.  and ack no on both ends of TCP connection.
-
-	It can be seen above that unacceptable  zero-length packets with
-	a  sequence  no.  already   unacknowledged   is  being  used  as
-	zero-window probes.
-
-	Zero  window  probes are defined in RFC 793 and  RFC1122 to be a
-	data  segment  containing  atleast  one byte of data  beyond the
-	window of the receiver who has closed the window.
-
-	This  seems  to be a bug.  Has it been  already  fixed in  later
-	kernel versions or is this how it is intended to remain?
-
-
-Regards,
-
-Praveen
+diff -aur -p linux-2.4.25/net/ipv4/ip_output.c linux-2.4.25-fixed/net/ipv4/ip_output.c
+--- linux-2.4.25/net/ipv4/ip_output.c	2004-04-14 06:00:52.000000000 +0300
++++ linux-2.4.25-fixed/net/ipv4/ip_output.c	2004-04-14 06:01:04.000000000 +0300
+@@ -233,9 +233,7 @@ int ip_mc_output(struct sk_buff *skb)
+ 		) {
+ 			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
+ 			if (newskb)
+-				NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
+-					newskb->dev, 
+-					ip_dev_loopback_xmit);
++			        ip_dev_loopback_xmit(newskb);
+ 		}
+ 
+ 		/* Multicasts with ttl 0 must not go beyond the host */
+@@ -249,8 +247,7 @@ int ip_mc_output(struct sk_buff *skb)
+ 	if (rt->rt_flags&RTCF_BROADCAST) {
+ 		struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
+ 		if (newskb)
+-			NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
+-				newskb->dev, ip_dev_loopback_xmit);
++		        ip_dev_loopback_xmit(newskb);
+ 	}
+ 
+ 	return ip_finish_output(skb);
+diff -aur -p linux-2.4.25/net/ipv6/ip6_output.c linux-2.4.25-fixed/net/ipv6/ip6_output.c
+--- linux-2.4.25/net/ipv6/ip6_output.c	2004-04-14 06:00:52.000000000 +0300
++++ linux-2.4.25-fixed/net/ipv6/ip6_output.c	2004-04-14 05:44:40.000000000 +0300
+@@ -118,9 +118,7 @@ int ip6_output(struct sk_buff *skb)
+ 			   is not supported in any case.
+ 			 */
+ 			if (newskb)
+-				NF_HOOK(PF_INET6, NF_IP6_POST_ROUTING, newskb, NULL,
+-					newskb->dev,
+-					ip6_dev_loopback_xmit);
++			        ip6_dev_loopback_xmit(newskb);
+ 
+ 			if (skb->nh.ipv6h->hop_limit == 0) {
+ 				kfree_skb(skb);
