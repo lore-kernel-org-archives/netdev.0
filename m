@@ -1,200 +1,324 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH] Prefix List against 2.4.21
-Date: Tue, 22 Jul 2003 16:52:24 -0700 (PDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] Fix bridge timer race
+Date: Tue, 22 Jul 2003 23:45:08 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307221650530.14683-100000@DYN318430.beaverton.ibm.com>
-References: <200307210155.FAA31320@dub.inr.ac.ru>
+Message-ID: <20030722234508.0af40e80.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: yoshfuji@linux-ipv6.org, <davem@redhat.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307210155.FAA31320@dub.inr.ac.ru>
+To: davem@redhat.com, Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+   Christian Mautner <linux@mautner.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The same patch against 2.4.21.
+This should fix several startup/shutdown timer races in the bridge
+driver.  Added some paranoia checks for dangling timers.
 
-thanks,
-
-- KK
-
-------------------------------------------------------------------------------
-
-diff -ruN linux-2.4.21.org/include/linux/ipv6_route.h linux-2.4.21.new/include/linux/ipv6_route.h
---- linux-2.4.21.org/include/linux/ipv6_route.h	1998-08-27 19:33:08.000000000 -0700
-+++ linux-2.4.21.new/include/linux/ipv6_route.h	2003-07-22 15:08:07.000000000 -0700
-@@ -25,6 +25,7 @@
- #define RTF_DEFAULT	0x00010000	/* default - learned via ND	*/
- #define RTF_ALLONLINK	0x00020000	/* fallback, no routers on link	*/
- #define RTF_ADDRCONF	0x00040000	/* addrconf route - RA		*/
-+#define RTF_PREFIX_RT	0x00080000	/* A prefix only route - RA	*/
-
- #define RTF_NONEXTHOP	0x00200000	/* route with no nexthop	*/
- #define RTF_EXPIRES	0x00400000
-diff -ruN linux-2.4.21.org/include/linux/rtnetlink.h linux-2.4.21.new/include/linux/rtnetlink.h
---- linux-2.4.21.org/include/linux/rtnetlink.h	2002-11-28 15:53:15.000000000 -0800
-+++ linux-2.4.21.new/include/linux/rtnetlink.h	2003-07-22 15:08:35.000000000 -0700
-@@ -167,6 +167,7 @@
- #define RTM_F_NOTIFY		0x100	/* Notify user of route change	*/
- #define RTM_F_CLONED		0x200	/* This route is cloned		*/
- #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
-+#define RTM_F_PREFIX		0x800	/* Prefix addresses		*/
-
- /* Reserved table identifiers */
-
-diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c linux-2.4.21.new/net/ipv6/addrconf.c
---- linux-2.4.21.org/net/ipv6/addrconf.c	2003-06-13 07:51:39.000000000 -0700
-+++ linux-2.4.21.new/net/ipv6/addrconf.c	2003-07-22 15:13:53.000000000 -0700
-@@ -101,7 +101,7 @@
-
- static int addrconf_ifdown(struct net_device *dev, int how);
-
--static void addrconf_dad_start(struct inet6_ifaddr *ifp);
-+static void addrconf_dad_start(struct inet6_ifaddr *ifp, int flags);
- static void addrconf_dad_timer(unsigned long data);
- static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
- static void addrconf_rs_timer(unsigned long data);
-@@ -889,7 +889,7 @@
- 	rtmsg.rtmsg_dst_len = 8;
- 	rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
- 	rtmsg.rtmsg_ifindex = dev->ifindex;
--	rtmsg.rtmsg_flags = RTF_UP|RTF_ADDRCONF;
-+	rtmsg.rtmsg_flags = RTF_UP;
- 	rtmsg.rtmsg_type = RTMSG_NEWROUTE;
- 	ip6_route_add(&rtmsg, NULL);
+diff -urN -X dontdiff linux-2.6.0-test1/net/bridge/br_device.c linux-2.5-bridge/net/bridge/br_device.c
+--- linux-2.6.0-test1/net/bridge/br_device.c	2003-07-20 19:21:47.000000000 -0400
++++ linux-2.5-bridge/net/bridge/br_device.c	2003-07-22 08:51:22.000000000 -0400
+@@ -110,23 +110,38 @@
+ 	return -1;
  }
-@@ -916,7 +916,7 @@
- 	struct in6_addr addr;
-
- 	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
--	addrconf_prefix_route(&addr, 64, dev, 0, RTF_ADDRCONF);
-+	addrconf_prefix_route(&addr, 64, dev, 0, 0);
- }
-
- static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
-@@ -1008,7 +1008,7 @@
- 		}
- 	} else if (pinfo->onlink && valid_lft) {
- 		addrconf_prefix_route(&pinfo->prefix, pinfo->prefix_len,
--				      dev, rt_expires, RTF_ADDRCONF|RTF_EXPIRES);
-+				      dev, rt_expires, RTF_ADDRCONF|RTF_EXPIRES|RTF_PREFIX_RT);
- 	}
- 	if (rt)
- 		dst_release(&rt->u.dst);
-@@ -1054,7 +1054,7 @@
- 				return;
- 			}
-
--			addrconf_dad_start(ifp);
-+			addrconf_dad_start(ifp, RTF_ADDRCONF|RTF_PREFIX_RT);
- 		}
-
- 		if (ifp && valid_lft == 0) {
-@@ -1166,7 +1166,7 @@
-
- 	ifp = ipv6_add_addr(idev, pfx, plen, scope, IFA_F_PERMANENT);
- 	if (!IS_ERR(ifp)) {
--		addrconf_dad_start(ifp);
-+		addrconf_dad_start(ifp, 0);
- 		in6_ifa_put(ifp);
- 		return 0;
- 	}
-@@ -1341,7 +1341,7 @@
-
- 	ifp = ipv6_add_addr(idev, addr, 64, IFA_LINK, IFA_F_PERMANENT);
- 	if (!IS_ERR(ifp)) {
--		addrconf_dad_start(ifp);
-+		addrconf_dad_start(ifp, 0);
- 		in6_ifa_put(ifp);
- 	}
- }
-@@ -1578,8 +1578,7 @@
- 		memset(&rtmsg, 0, sizeof(struct in6_rtmsg));
- 		rtmsg.rtmsg_type = RTMSG_NEWROUTE;
- 		rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
--		rtmsg.rtmsg_flags = (RTF_ALLONLINK | RTF_ADDRCONF |
--				     RTF_DEFAULT | RTF_UP);
-+		rtmsg.rtmsg_flags = (RTF_ALLONLINK | RTF_DEFAULT | RTF_UP);
-
- 		rtmsg.rtmsg_ifindex = ifp->idev->dev->ifindex;
-
-@@ -1593,7 +1592,7 @@
- /*
-  *	Duplicate Address Detection
-  */
--static void addrconf_dad_start(struct inet6_ifaddr *ifp)
-+static void addrconf_dad_start(struct inet6_ifaddr *ifp, int flags)
- {
- 	struct net_device *dev;
- 	unsigned long rand_num;
-@@ -1603,7 +1602,7 @@
- 	addrconf_join_solict(dev, &ifp->addr);
-
- 	if (ifp->prefix_len != 128 && (ifp->flags&IFA_F_PERMANENT))
--		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev, 0, RTF_ADDRCONF);
-+		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev, 0, flags);
-
- 	net_srandom(ifp->addr.s6_addr32[3]);
- 	rand_num = net_random() % (ifp->idev->cnf.rtr_solicit_delay ? : 1);
-diff -ruN linux-2.4.21.org/net/ipv6/route.c linux-2.4.21.new/net/ipv6/route.c
---- linux-2.4.21.org/net/ipv6/route.c	2003-06-13 07:51:39.000000000 -0700
-+++ linux-2.4.21.new/net/ipv6/route.c	2003-07-22 15:15:56.000000000 -0700
-@@ -1516,13 +1516,19 @@
- 			 struct in6_addr *src,
- 			 int iif,
- 			 int type, u32 pid, u32 seq,
--			 struct nlmsghdr *in_nlh)
-+			 struct nlmsghdr *in_nlh, int prefix)
- {
- 	struct rtmsg *rtm;
- 	struct nlmsghdr  *nlh;
- 	unsigned char	 *b = skb->tail;
- 	struct rta_cacheinfo ci;
-
-+	if (prefix) {	/* user wants prefix routes only */
-+		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
-+			/* success since this is not a prefix route */
-+			return 1;
-+		}
-+	}
- 	if (!pid && in_nlh) {
- 		pid = in_nlh->nlmsg_pid;
- 	}
-@@ -1603,10 +1609,17 @@
- static int rt6_dump_route(struct rt6_info *rt, void *p_arg)
- {
- 	struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
-+	struct rtmsg *rtm;
-+	int prefix;
+ 
++/* convert later to direct kfree */
++static void br_dev_free(struct net_device *dev)
++{
++	struct net_bridge *br = dev->priv;
 +
-+	rtm = NLMSG_DATA(arg->cb->nlh);
-+	if (rtm)
-+		prefix = (rtm->rtm_flags & RTM_F_PREFIX) != 0;
-+	else prefix = 0;
-
- 	return rt6_fill_node(arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
- 		     NETLINK_CB(arg->cb->skb).pid, arg->cb->nlh->nlmsg_seq,
--		     NULL);
-+		     NULL, prefix);
++	WARN_ON(!list_empty(&br->port_list));
++	WARN_ON(!list_empty(&br->age_list));
++
++	BUG_ON(timer_pending(&br->hello_timer));
++	BUG_ON(timer_pending(&br->tcn_timer));
++	BUG_ON(timer_pending(&br->topology_change_timer));
++	BUG_ON(timer_pending(&br->gc_timer));
++
++	kfree(dev);
++}
+ 
+ void br_dev_setup(struct net_device *dev)
+ {
+ 	memset(dev->dev_addr, 0, ETH_ALEN);
+ 
++	ether_setup(dev);
++
+ 	dev->do_ioctl = br_dev_do_ioctl;
+ 	dev->get_stats = br_dev_get_stats;
+ 	dev->hard_start_xmit = br_dev_xmit;
+ 	dev->open = br_dev_open;
+ 	dev->set_multicast_list = br_dev_set_multicast_list;
+-	dev->destructor = (void (*)(struct net_device *))kfree;
++	dev->destructor = br_dev_free;
+ 	SET_MODULE_OWNER(dev);
+ 	dev->stop = br_dev_stop;
+ 	dev->accept_fastpath = br_dev_accept_fastpath;
+ 	dev->tx_queue_len = 0;
+ 	dev->set_mac_address = NULL;
+ 	dev->priv_flags = IFF_EBRIDGE;
+-
+-	ether_setup(dev);
  }
-
- static int fib6_dump_node(struct fib6_walker_t *w)
-@@ -1757,7 +1770,7 @@
- 			    fl.nl_u.ip6_u.saddr,
- 			    iif,
- 			    RTM_NEWROUTE, NETLINK_CB(in_skb).pid,
--			    nlh->nlmsg_seq, nlh);
-+			    nlh->nlmsg_seq, nlh, 0);
- 	if (err < 0) {
- 		err = -EMSGSIZE;
- 		goto out_free;
-@@ -1783,7 +1796,7 @@
- 		netlink_set_err(rtnl, 0, RTMGRP_IPV6_ROUTE, ENOBUFS);
- 		return;
+diff -urN -X dontdiff linux-2.6.0-test1/net/bridge/br_if.c linux-2.5-bridge/net/bridge/br_if.c
+--- linux-2.6.0-test1/net/bridge/br_if.c	2003-07-20 19:21:47.000000000 -0400
++++ linux-2.5-bridge/net/bridge/br_if.c	2003-07-22 09:54:57.000000000 -0400
+@@ -41,6 +41,13 @@
+ static void destroy_nbp(void *arg)
+ {
+ 	struct net_bridge_port *p = arg;
++
++	p->dev->br_port = NULL;
++
++	BUG_ON(timer_pending(&p->message_age_timer));
++	BUG_ON(timer_pending(&p->forward_delay_timer));
++	BUG_ON(timer_pending(&p->hold_timer));
++
+ 	dev_put(p->dev);
+ 	kfree(p);
+ }
+@@ -53,16 +60,19 @@
+ 	br_stp_disable_port(p);
+ 
+ 	dev_set_promiscuity(dev, -1);
+-	dev->br_port = NULL;
+ 
+ 	list_del_rcu(&p->list);
+ 
+ 	br_fdb_delete_by_port(p->br, p);
+ 
++	del_timer(&p->message_age_timer);
++	del_timer(&p->forward_delay_timer);
++	del_timer(&p->hold_timer);
++	
+ 	call_rcu(&p->rcu, destroy_nbp, p);
+ }
+ 
+-static void del_ifs(struct net_bridge *br)
++static void del_br(struct net_bridge *br)
+ {
+ 	struct list_head *p, *n;
+ 
+@@ -71,6 +81,10 @@
+ 		del_nbp(list_entry(p, struct net_bridge_port, list));
  	}
--	if (rt6_fill_node(skb, rt, NULL, NULL, 0, event, 0, 0, nlh) < 0) {
-+	if (rt6_fill_node(skb, rt, NULL, NULL, 0, event, 0, 0, nlh, 0) < 0) {
- 		kfree_skb(skb);
- 		netlink_set_err(rtnl, 0, RTMGRP_IPV6_ROUTE, EINVAL);
- 		return;
+ 	spin_unlock_bh(&br->lock);
++
++	del_timer_sync(&br->gc_timer);
++
++ 	unregister_netdevice(br->dev);
+ }
+ 
+ static struct net_bridge *new_nb(const char *name)
+@@ -182,15 +196,14 @@
+ 		ret = -EBUSY;
+ 	} 
+ 
+-	else {
+-		del_ifs((struct net_bridge *) dev->priv);
+-		unregister_netdevice(dev);
+-	}
++	else 
++		del_br(dev->priv);
+ 
+ 	rtnl_unlock();
+ 	return ret;
+ }
+ 
++/* called under bridge lock */
+ int br_add_if(struct net_bridge *br, struct net_device *dev)
+ {
+ 	struct net_bridge_port *p;
+@@ -205,7 +218,6 @@
+ 		return -ELOOP;
+ 
+ 	dev_hold(dev);
+-	spin_lock_bh(&br->lock);
+ 	if ((p = new_nbp(br, dev)) == NULL) {
+ 		spin_unlock_bh(&br->lock);
+ 		dev_put(dev);
+@@ -218,26 +230,21 @@
+ 	br_fdb_insert(br, p, dev->dev_addr, 1);
+ 	if ((br->dev->flags & IFF_UP) && (dev->flags & IFF_UP))
+ 		br_stp_enable_port(p);
+-	spin_unlock_bh(&br->lock);
+ 
+ 	return 0;
+ }
+ 
++/* called under bridge lock */
+ int br_del_if(struct net_bridge *br, struct net_device *dev)
+ {
+ 	struct net_bridge_port *p;
+-	int retval = 0;
+ 
+-	spin_lock_bh(&br->lock);
+ 	if ((p = dev->br_port) == NULL || p->br != br)
+-		retval = -EINVAL;
+-	else {
+-		del_nbp(p);
+-		br_stp_recalculate_bridge_id(br);
+-	}
+-	spin_unlock_bh(&br->lock);
++		return -EINVAL;
+ 
+-	return retval;
++	del_nbp(p);
++	br_stp_recalculate_bridge_id(br);
++	return 0;
+ }
+ 
+ int br_get_bridge_ifindices(int *indices, int num)
+@@ -274,13 +281,8 @@
+ 	rtnl_lock();
+ 	for (dev = dev_base; dev; dev = nxt) {
+ 		nxt = dev->next;
+-		if (dev->priv_flags & IFF_EBRIDGE) {
+-			pr_debug("cleanup %s\n", dev->name);
+-
+-			del_ifs((struct net_bridge *) dev->priv);
+-			
+-			unregister_netdevice(dev);
+-		}
++		if (dev->priv_flags & IFF_EBRIDGE)
++			del_br(dev->priv);
+ 	}
+ 	rtnl_unlock();
+ 
+diff -urN -X dontdiff linux-2.6.0-test1/net/bridge/br_ioctl.c linux-2.5-bridge/net/bridge/br_ioctl.c
+--- linux-2.6.0-test1/net/bridge/br_ioctl.c	2003-07-20 19:21:47.000000000 -0400
++++ linux-2.5-bridge/net/bridge/br_ioctl.c	2003-07-21 21:33:04.000000000 -0400
+@@ -59,10 +59,12 @@
+ 		if (dev == NULL)
+ 			return -EINVAL;
+ 
++		spin_lock_bh(&br->lock);
+ 		if (cmd == BRCTL_ADD_IF)
+ 			ret = br_add_if(br, dev);
+ 		else
+ 			ret = br_del_if(br, dev);
++		spin_unlock_bh(&br->lock);
+ 
+ 		dev_put(dev);
+ 		return ret;
+diff -urN -X dontdiff linux-2.6.0-test1/net/bridge/br_notify.c linux-2.5-bridge/net/bridge/br_notify.c
+--- linux-2.6.0-test1/net/bridge/br_notify.c	2003-07-20 19:21:47.000000000 -0400
++++ linux-2.5-bridge/net/bridge/br_notify.c	2003-07-21 21:33:04.000000000 -0400
+@@ -38,39 +38,27 @@
+ 
+ 	br = p->br;
+ 
++	spin_lock_bh(&br->lock);
+ 	switch (event) 
+ 	{
+ 	case NETDEV_CHANGEADDR:
+-		spin_lock_bh(&br->lock);
+ 		br_fdb_changeaddr(p, dev->dev_addr);
+ 		br_stp_recalculate_bridge_id(br);
+-		spin_unlock_bh(&br->lock);
+-		break;
+-
+-	case NETDEV_GOING_DOWN:
+-		/* extend the protocol to send some kind of notification? */
+ 		break;
+ 
+ 	case NETDEV_DOWN:
+-		if (br->dev->flags & IFF_UP) {
+-			spin_lock_bh(&br->lock);
+-			br_stp_disable_port(p);
+-			spin_unlock_bh(&br->lock);
+-		}
++		br_stp_disable_port(p);
+ 		break;
+ 
+ 	case NETDEV_UP:
+-		if (!(br->dev->flags & IFF_UP)) {
+-			spin_lock_bh(&br->lock);
+-			br_stp_enable_port(p);
+-			spin_unlock_bh(&br->lock);
+-		}
++		br_stp_enable_port(p);
+ 		break;
+ 
+ 	case NETDEV_UNREGISTER:
+ 		br_del_if(br, dev);
+ 		break;
+ 	}
++	spin_unlock_bh(&br->lock);
+ 
+ 	return NOTIFY_DONE;
+ }
+diff -urN -X dontdiff linux-2.6.0-test1/net/bridge/br_stp_if.c linux-2.5-bridge/net/bridge/br_stp_if.c
+--- linux-2.6.0-test1/net/bridge/br_stp_if.c	2003-07-20 19:21:48.000000000 -0400
++++ linux-2.5-bridge/net/bridge/br_stp_if.c	2003-07-22 00:44:46.000000000 -0400
+@@ -43,8 +43,7 @@
+ 	struct net_bridge_port *p;
+ 
+ 	spin_lock_bh(&br->lock);
+-	br->hello_timer.expires = jiffies + br->hello_time;
+-	add_timer(&br->hello_timer);
++	mod_timer(&br->hello_timer, jiffies + br->hello_time);
+ 	br_config_bpdu_generation(br);
+ 
+ 	list_for_each_entry(p, &br->port_list, list) {
+@@ -74,8 +73,6 @@
+ 	del_timer_sync(&br->hello_timer);
+ 	del_timer_sync(&br->topology_change_timer);
+ 	del_timer_sync(&br->tcn_timer);
+-	del_timer_sync(&br->gc_timer);
+-
+ }
+ 
+ /* called under bridge lock */
+diff -urN -X dontdiff linux-2.6.0-test1/net/bridge/br_stp_timer.c linux-2.5-bridge/net/bridge/br_stp_timer.c
+--- linux-2.6.0-test1/net/bridge/br_stp_timer.c	2003-07-20 19:21:48.000000000 -0400
++++ linux-2.5-bridge/net/bridge/br_stp_timer.c	2003-07-22 10:08:46.000000000 -0400
+@@ -43,8 +43,7 @@
+ 	if (br->dev->flags & IFF_UP) {
+ 		br_config_bpdu_generation(br);
+ 
+-		br->hello_timer.expires = jiffies + br->hello_time;
+-		add_timer(&br->hello_timer);
++		mod_timer(&br->hello_timer, jiffies + br->hello_time);
+ 	}
+ 	spin_unlock_bh(&br->lock);
+ }
+@@ -73,6 +72,8 @@
+ 	 * check is redundant. I'm leaving it in for now, though.
+ 	 */
+ 	spin_lock_bh(&br->lock);
++	if (p->state == BR_STATE_DISABLED)
++		goto unlock;
+ 	was_root = br_is_root_bridge(br);
+ 
+ 	br_become_designated_port(p);
+@@ -80,6 +81,7 @@
+ 	br_port_state_selection(br);
+ 	if (br_is_root_bridge(br) && !was_root)
+ 		br_become_root_bridge(br);
++ unlock:
+ 	spin_unlock_bh(&br->lock);
+ }
+ 
+@@ -93,8 +95,8 @@
+ 	spin_lock_bh(&br->lock);
+ 	if (p->state == BR_STATE_LISTENING) {
+ 		p->state = BR_STATE_LEARNING;
+-		p->forward_delay_timer.expires = jiffies + br->forward_delay;
+-		add_timer(&p->forward_delay_timer);
++		mod_timer(&p->forward_delay_timer,
++			  jiffies + br->forward_delay);
+ 	} else if (p->state == BR_STATE_LEARNING) {
+ 		p->state = BR_STATE_FORWARDING;
+ 		if (br_is_designated_for_some_port(br))
+@@ -113,8 +115,7 @@
+ 	if (br->dev->flags & IFF_UP) {
+ 		br_transmit_tcn(br);
+ 	
+-		br->tcn_timer.expires = jiffies + br->bridge_hello_time;
+-		add_timer(&br->tcn_timer);
++		mod_timer(&br->tcn_timer,jiffies + br->bridge_hello_time);
+ 	}
+ 	spin_unlock_bh(&br->lock);
+ }
