@@ -1,36 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [IPV6]: Fix check if we're router.
-Date: Wed, 08 Dec 2004 10:44:56 +0100 (CET)
-Message-ID: <20041208.104456.103795781.yoshfuji@linux-ipv6.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: inter-packet gap in pktgen
+Date: Wed, 8 Dec 2004 11:21:54 +0100
+Message-ID: <16822.54722.755218.745451@robur.slu.se>
+References: <20041207222522.GA30266@xi.wantstofly.org>
+	<41B632F3.1090104@candelatech.com>
+	<20041208073858.GA4027@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Ben Greear <greearb@candelatech.com>,
+        Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041208073858.GA4027@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-Fix the check if we're router. against 2.6.10-rc3, for 2.6.10 queue.
+Lennert Buytenhek writes:
+ > 
+ > Another option is:
+ > 
+ > 	next_tx = get_time_in_ns();
+ > 	while (--count) {
+ > 		tx_packet();
+ > 		next_tx += 1e9/intended_pps;
+ > 		nanospin(next_tx - get_time_in_ns());
+ > 	}
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+ Hello!
 
-===== net/ipv6/ndisc.c 1.105 vs edited =====
---- 1.105/net/ipv6/ndisc.c	2004-11-10 15:57:03 +09:00
-+++ edited/net/ipv6/ndisc.c	2004-12-08 18:34:45 +09:00
-@@ -943,7 +943,7 @@
- 	}
+ I think this what Ben is doing with his userland app. Ev. adjusting
+ the ipg delay in runtime? A kind of control system. Even the device 
+ stats could possible be read.
+
  
- 	/* Don't accept RS if we're not in router mode */
--	if (!idev->cnf.forwarding || idev->cnf.accept_ra)
-+	if (!idev->cnf.forwarding)
- 		goto out;
+ > This should be relatively independent of system load.  OK, I know,
+ > time to show some code.
  
- 	/*
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+ Also an idea might be to have some kind of option to use pktgen w. 
+ existent qdisc/tc infrastructure for this type of tests. Ben did
+ you try this?
+ 
+						--ro
