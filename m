@@ -1,54 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: 22 Sep 2004 07:35:57 -0400
+From: Steven Blake <slblake@petri-meat.com>
+Subject: Re: [PATCH] Clean up fib_hash datastructures
+Date: Wed, 22 Sep 2004 07:56:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095852956.1048.47.camel@jzny.localdomain>
-References: <20040919215915.GB9573@gondor.apana.org.au>
-	 <1095633569.1047.107.camel@jzny.localdomain>
-	 <20040919231734.GA10124@gondor.apana.org.au>
-	 <1095647944.1046.206.camel@jzny.localdomain>
-	 <20040920025802.GA11567@gondor.apana.org.au>
-	 <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net>
-	 <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net>
-	 <1095821624.1045.6.camel@jzny.localdomain>
-	 <20040922034634.GA14928@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <1095854181.2342.2.camel@localhost.localdomain>
+References: <20040918203319.24004d6e.davem@davemloft.net>
+	 <1095645106.1048.190.camel@jzny.localdomain>
+	 <20040919195351.0b3560e6.davem@davemloft.net>
+	 <1095686672.1049.301.camel@jzny.localdomain>
+	 <20040920121123.70baf895.davem@davemloft.net>
+	 <20040921034212.GA28462@gondor.apana.org.au>
+	 <20040920231805.3f18479c.davem@davemloft.net>
+	 <20040921090423.GE8058@wotan.suse.de>
+	 <20040921093252.GA32545@gondor.apana.org.au>
+	 <1095764621.1049.14.camel@jzny.localdomain>
+	 <1095809938.2340.19.camel@localhost.localdomain>
+	 <1095822637.1048.23.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040922034634.GA14928@gondor.apana.org.au>
+To: hadi@cyberus.ca
+In-Reply-To: <1095822637.1048.23.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-21 at 23:46, Herbert Xu wrote:
+On Tue, 2004-09-21 at 23:10, jamal wrote:
+
+> On Tue, 2004-09-21 at 19:38, Steven Blake wrote:
 > 
-> Well I haven't seen any with IPsec.  Can you please provide a strace
-> of a failed tc dump so that I know what I'm looking for?
+> > RFC 1812 was written before TOS routes were pulled out of OSPFv2 (due to
+> > too fee independent implementations).  No one implements FIB lookup as
+> > described in RFC 1812 in the core.  What people do implement is PBR, as
+> > well as DSCP-based nexthop selection for MPLS DIFF-TE (RFC 3564).
+> 
+> What about edge?
 
-Try explicitly reducing the socket buffer size and see what happens
+I've seen no evidence that any HW-based router is doing this.
 
-Heres a script i use (you would need to compile tc action gact and have
-the latest iproute2):
+> The PBR nh selection is a post routing policy though. Do you see it 
+> valuable to have DSCP replace TOS for lookup? 
 
----
-#!/bin/sh
+No.  No protocol is distributing DSCP-based routes.
 
-tc qdisc del dev eth1 ingress
-tc qdisc add dev eth1 ingress
 
-for ((i = 1 ; i <= $1 ; i++))
-do
-        tc actions add action drop index $i
-done
-----
+Regards,
 
-set i to 10000 or a little more
-
-to dump: tc actions ls action drop
-
-cheers,
-jamal
+// Steve
