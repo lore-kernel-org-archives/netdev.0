@@ -1,43 +1,48 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Thu, 16 Sep 2004 20:58:49 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916205849.55ce05e5.rddunlap@osdl.org>
-References: <413116FF.7000701@pobox.com>
-	<002201c499b4$7c7b60c0$a010100a@S2IOtech.com>
+From: David Gibson <david@gibson.dropbear.id.au>
+Subject: [TRIVIAL] Fix recent bug in fib_semantics.c
+Date: Fri, 17 Sep 2004 16:20:42 +1000
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040917062042.GE6523@zax>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        raghavendra.koushik@s2io.com, rapuru.sriram@s2io.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: <ravinandan.arakali@s2io.com>
-In-Reply-To: <002201c499b4$7c7b60c0$a010100a@S2IOtech.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@redhat.com>, trivial@rustcorp.com.au,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268435AbUIQGdY@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004 10:09:53 -0700 Ravinandan Arakali wrote:
+Andrew, please apply:
 
-| Hi Jeff,
-| Attached is the patch with the first round comments incorporated.
-| In addition, this patch contains
-| Some fixes related to 32-bit systems.
-| Few fixes related to Rx path in NAPI.
-| 
-| Thanks to all for the comments.
-| 
-| Pls review this patch as well and come back with your comments.
+When fib_create_info() allocates new hash tables, it neglects to
+initialize them.  This leads to an oops during boot on at least
+machine I use.  This patch addresses the problem.
+
+Signed-off-by: David Gibson <dwg@au1.ibm.com>
+
+Index: working-2.6/net/ipv4/fib_semantics.c
+===================================================================
+--- working-2.6.orig/net/ipv4/fib_semantics.c	2004-09-17 09:20:04.000000000 +1000
++++ working-2.6/net/ipv4/fib_semantics.c	2004-09-17 16:24:42.634638304 +1000
+@@ -604,8 +604,12 @@
+ 		if (!new_info_hash || !new_laddrhash) {
+ 			fib_hash_free(new_info_hash, bytes);
+ 			fib_hash_free(new_laddrhash, bytes);
+-		} else
++		} else {
++			memset(new_info_hash, 0, bytes);
++			memset(new_laddrhash, 0, bytes);
++
+ 			fib_hash_move(new_info_hash, new_laddrhash, new_size);
++		}
+ 
+ 		if (!fib_hash_size)
+ 			goto failure;
 
 
-1.  typo?  first name is still used in source code:
 
--static char s2io_driver_version[] = "Version 1.0";
-+static char s2iO_driver_version[] = "Version 1.1";
-
-2.  don't init. globals to 0 -- it's done automatically for you.
-
-
-(more this weekend....)
-
---
-~Randy
+-- 
+David Gibson			| For every complex problem there is a
+david AT gibson.dropbear.id.au	| solution which is simple, neat and
+				| wrong.
+http://www.ozlabs.org/people/dgibson
