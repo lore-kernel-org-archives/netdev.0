@@ -1,14 +1,14 @@
 From: Harald Welte <laforge@netfilter.org>
-Subject: [PATCH 2.6] iptables CLUSTERIP target
-Date: Thu, 21 Oct 2004 00:38:28 +0200
+Subject: [PATCH 2.6] iptables hashlimit match
+Date: Thu, 21 Oct 2004 00:45:06 +0200
 Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
+Message-ID: <20041020224506.GQ19899@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="p6hDAtPN9q+ZnUca"
+	protocol="application/pgp-signature"; boundary="v6YRErhBvjoBjrPV"
 Cc: Linux Netdev List <netdev@oss.sgi.com>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-	lmb@suse.de
+	Markus Hennig <mhennig@astaro.com>, Gert Hansen <ghansen@astaro.com>
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
 To: David Miller <davem@davemloft.net>
 Content-Disposition: inline
@@ -23,31 +23,23 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
---p6hDAtPN9q+ZnUca
-Content-Type: multipart/mixed; boundary="OwXh6gFRjCd3qPCM"
+--v6YRErhBvjoBjrPV
+Content-Type: multipart/mixed; boundary="nHJAUhyIZkPvF01C"
 Content-Disposition: inline
 
 
---OwXh6gFRjCd3qPCM
+--nHJAUhyIZkPvF01C
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
 Hi Dave!
 
-This is the second patch, adding the 'CLUSTERIP' target to iptables. It
-depends on the first 'CONNMARK' patch.
+This is the third (and last, for now) patch, adding the 'hashlimit'
+match to iptables.  It was previously known as 'dstlimit', but has now
+been generalized one step further.
 
-This enables you to build a static load sharing cluster between multiple
-nodes - without the requirement to have a load balancer.  It uses a
-series of [evil] tricks like replying with linklayer multicast addresses
-to ARP requests, and using CONNMARK for stateful blocking all traffic
-not intended for the local node.
-
-Apart from the usual netfilter-specific file additions and
-Kconfig/Makefile patches, this needs to export proc_file_operations in
-order to get the reference counting of certain data objects right.  I
-hope this change is acceptable.
+Please apply, thanks.
 
 Signed-off-by: Harald Welte <laforge@netfilter.org>
 
@@ -61,865 +53,843 @@ Signed-off-by: Harald Welte <laforge@netfilter.org>
    architectural error that shows how much experimentation was going
    on while IP was being designed."                    -- Paul Vixie
 
---OwXh6gFRjCd3qPCM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="2.6.9-clusterip.patch"
+--nHJAUhyIZkPvF01C
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: attachment; filename="2.6.9-hashlimit.patch"
 Content-Transfer-Encoding: quoted-printable
 
 diff -Nru --exclude-from=3D/sunbeam/home/laforge/scripts/dontdiff linux-2.6=
-=2E9-connmark/fs/proc/generic.c linux-2.6.9-connmark-clusterip/fs/proc/gene=
-ric.c
---- linux-2.6.9-connmark/fs/proc/generic.c	2004-10-18 23:55:29.000000000 +0=
-200
-+++ linux-2.6.9-connmark-clusterip/fs/proc/generic.c	2004-10-21 00:22:29.12=
-3398903 +0200
-@@ -34,7 +34,7 @@
- 	return !memcmp(name, de->name, len);
- }
-=20
--static struct file_operations proc_file_operations =3D {
-+struct file_operations proc_file_operations =3D {
- 	.llseek		=3D proc_file_lseek,
- 	.read		=3D proc_file_read,
- 	.write		=3D proc_file_write,
-diff -Nru --exclude-from=3D/sunbeam/home/laforge/scripts/dontdiff linux-2.6=
-=2E9-connmark/fs/proc/root.c linux-2.6.9-connmark-clusterip/fs/proc/root.c
---- linux-2.6.9-connmark/fs/proc/root.c	2004-10-18 23:54:55.000000000 +0200
-+++ linux-2.6.9-connmark-clusterip/fs/proc/root.c	2004-10-21 00:22:29.12439=
-8868 +0200
-@@ -162,3 +162,4 @@
- EXPORT_SYMBOL(proc_net_stat);
- EXPORT_SYMBOL(proc_bus);
- EXPORT_SYMBOL(proc_root_driver);
-+EXPORT_SYMBOL(proc_file_operations);
-diff -Nru --exclude-from=3D/sunbeam/home/laforge/scripts/dontdiff linux-2.6=
-=2E9-connmark/include/linux/proc_fs.h linux-2.6.9-connmark-clusterip/includ=
-e/linux/proc_fs.h
---- linux-2.6.9-connmark/include/linux/proc_fs.h	2004-10-18 23:55:36.000000=
-000 +0200
-+++ linux-2.6.9-connmark-clusterip/include/linux/proc_fs.h	2004-10-21 00:22=
-:29.125398833 +0200
-@@ -117,6 +117,7 @@
- extern int proc_readdir(struct file *, void *, filldir_t);
- extern struct dentry *proc_lookup(struct inode *, struct dentry *, struct =
-nameidata *);
-=20
-+extern struct file_operations proc_file_operations;
- extern struct file_operations proc_kcore_operations;
- extern struct file_operations proc_kmsg_operations;
- extern struct file_operations ppc_htab_operations;
-diff -Nru --exclude-from=3D/sunbeam/home/laforge/scripts/dontdiff linux-2.6=
-=2E9-connmark/include/linux/netfilter_ipv4/ipt_CLUSTERIP.h linux-2.6.9-conn=
-mark-clusterip/include/linux/netfilter_ipv4/ipt_CLUSTERIP.h
---- linux-2.6.9-connmark/include/linux/netfilter_ipv4/ipt_CLUSTERIP.h	1970-=
-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.9-connmark-clusterip/include/linux/netfilter_ipv4/ipt_CLUSTER=
-IP.h	2004-10-21 00:22:29.094399911 +0200
-@@ -0,0 +1,32 @@
-+#ifndef _IPT_CLUSTERIP_H_target
-+#define _IPT_CLUSTERIP_H_target
+=2E9-connmark-clusterip/include/linux/netfilter_ipv4/ipt_hashlimit.h linux-=
+2.6.9-connmark-clusterip-hashlimit/include/linux/netfilter_ipv4/ipt_hashlim=
+it.h
+--- linux-2.6.9-connmark-clusterip/include/linux/netfilter_ipv4/ipt_hashlim=
+it.h	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.9-connmark-clusterip-hashlimit/include/linux/netfilter_ipv4/i=
+pt_hashlimit.h	2004-10-21 00:40:01.746818968 +0200
+@@ -0,0 +1,40 @@
++#ifndef _IPT_HASHLIMIT_H
++#define _IPT_HASHLIMIT_H
 +
-+enum clusterip_hashmode {
-+    CLUSTERIP_HASHMODE_SIP =3D 0,
-+    CLUSTERIP_HASHMODE_SIP_SPT,
-+    CLUSTERIP_HASHMODE_SIP_SPT_DPT,
++/* timings are in milliseconds. */
++#define IPT_HASHLIMIT_SCALE 10000
++/* 1/10,000 sec period =3D> max of 10,000/sec.  Min rate is then 429490
++   seconds, or one every 59 hours. */
++
++/* details of this structure hidden by the implementation */
++struct ipt_hashlimit_htable;
++
++#define IPT_HASHLIMIT_HASH_DIP	0x0001
++#define IPT_HASHLIMIT_HASH_DPT	0x0002
++#define IPT_HASHLIMIT_HASH_SIP	0x0004
++#define IPT_HASHLIMIT_HASH_SPT	0x0008
++
++struct hashlimit_cfg {
++	u_int32_t mode;	  /* bitmask of IPT_HASHLIMIT_HASH_* */
++	u_int32_t avg;    /* Average secs between packets * scale */
++	u_int32_t burst;  /* Period multiplier for upper limit. */
++
++	/* user specified */
++	u_int32_t size;		/* how many buckets */
++	u_int32_t max;		/* max number of entries */
++	u_int32_t gc_interval;	/* gc interval */
++	u_int32_t expire;	/* when do entries expire? */
 +};
 +
-+#define CLUSTERIP_HASHMODE_MAX CLUSTERIP_HASHMODE_SIP_SPT_DPT
++struct ipt_hashlimit_info {
++	char name [IFNAMSIZ];		/* name */
++	struct hashlimit_cfg cfg;
++	struct ipt_hashlimit_htable *hinfo;
 +
-+#define CLUSTERIP_MAX_NODES 8
-+
-+#define CLUSTERIP_FLAG_NEW 0x00000001
-+
-+struct clusterip_config;
-+
-+struct ipt_clusterip_tgt_info {
-+
-+	u_int32_t flags;
-+	struct clusterip_config *config;
-+=09
-+	/* only relevant for new ones */
-+	u_int8_t clustermac[6];
-+	u_int16_t num_total_nodes;
-+	u_int16_t num_local_nodes;
-+	u_int16_t local_nodes[CLUSTERIP_MAX_NODES];
-+	enum clusterip_hashmode hash_mode;
-+	u_int32_t hash_initval;
++	/* Used internally by the kernel */
++	union {
++		void *ptr;
++		struct ipt_hashlimit_info *master;
++	} u;
 +};
-+
-+#endif /*_IPT_CLUSTERIP_H_target*/
++#endif /*_IPT_HASHLIMIT_H*/
 diff -Nru --exclude-from=3D/sunbeam/home/laforge/scripts/dontdiff linux-2.6=
-=2E9-connmark/net/ipv4/netfilter/Kconfig linux-2.6.9-connmark-clusterip/net=
-/ipv4/netfilter/Kconfig
---- linux-2.6.9-connmark/net/ipv4/netfilter/Kconfig	2004-10-21 00:16:30.830=
-850002 +0200
-+++ linux-2.6.9-connmark-clusterip/net/ipv4/netfilter/Kconfig	2004-10-21 00=
+=2E9-connmark-clusterip/net/ipv4/netfilter/Kconfig linux-2.6.9-connmark-clu=
+sterip-hashlimit/net/ipv4/netfilter/Kconfig
+--- linux-2.6.9-connmark-clusterip/net/ipv4/netfilter/Kconfig	2004-10-21 00=
 :30:17.802111752 +0200
-@@ -628,6 +628,16 @@
++++ linux-2.6.9-connmark-clusterip-hashlimit/net/ipv4/netfilter/Kconfig	200=
+4-10-21 00:41:00.931762220 +0200
+@@ -361,6 +361,20 @@
  	  Documentation/modules.txt.  The module will be called
- 	  ipt_CONNMARK.o.  If unsure, say `N'.
+ 	  ipt_connmark.o.  If unsure, say `N'.
 =20
-+config IP_NF_TARGET_CLUSTERIP
-+	tristate "CLUSTERIP target support (EXPERIMENTAL)"
-+	depends on IP_NF_CONNTRACK_MARK && IP_NF_IPTABLES && EXPERIMENTAL
++config IP_NF_MATCH_HASHLIMIT
++	tristate  'hashlimit match support'
++	depends on IP_NF_IPTABLES
 +	help
-+	  The CLUSTERIP target allows you to build load-balancing clusters of
-+	  network servers without having a dedicated load-balancing
-+	  router/server/switch.
-+=09
-+	  To compile it as a module, choose M here.  If unsure, say N.
++	  This option adds a new iptables `hashlimit' match. =20
 +
- # raw + specific targets
- config IP_NF_RAW
- 	tristate  'raw table support (required for NOTRACK/TRACE)'
++	  As opposed to `limit', this match dynamically crates a hash table
++	  of limit buckets, based on your selection of source/destination
++	  ip addresses and/or ports.
++
++	  It enables you to express policies like `10kpps for any given
++	  destination IP' or `500pps from any given source IP'  with a single
++	  IPtables rule.
++
+ # `filter', generic and specific targets
+ config IP_NF_FILTER
+ 	tristate "Packet filtering"
 diff -Nru --exclude-from=3D/sunbeam/home/laforge/scripts/dontdiff linux-2.6=
-=2E9-connmark/net/ipv4/netfilter/Makefile linux-2.6.9-connmark-clusterip/ne=
-t/ipv4/netfilter/Makefile
---- linux-2.6.9-connmark/net/ipv4/netfilter/Makefile	2004-10-20 23:59:36.36=
-8103807 +0200
-+++ linux-2.6.9-connmark-clusterip/net/ipv4/netfilter/Makefile	2004-10-21 0=
+=2E9-connmark-clusterip/net/ipv4/netfilter/Makefile linux-2.6.9-connmark-cl=
+usterip-hashlimit/net/ipv4/netfilter/Makefile
+--- linux-2.6.9-connmark-clusterip/net/ipv4/netfilter/Makefile	2004-10-21 0=
 0:23:57.927312860 +0200
-@@ -86,6 +86,7 @@
- obj-$(CONFIG_IP_NF_TARGET_ULOG) +=3D ipt_ULOG.o
- obj-$(CONFIG_IP_NF_TARGET_TCPMSS) +=3D ipt_TCPMSS.o
- obj-$(CONFIG_IP_NF_TARGET_NOTRACK) +=3D ipt_NOTRACK.o
-+obj-$(CONFIG_IP_NF_TARGET_CLUSTERIP) +=3D ipt_CLUSTERIP.o
-=20
- # generic ARP tables
- obj-$(CONFIG_IP_NF_ARPTABLES) +=3D arp_tables.o
++++ linux-2.6.9-connmark-clusterip-hashlimit/net/ipv4/netfilter/Makefile	20=
+04-10-21 00:40:01.760818481 +0200
+@@ -46,6 +46,7 @@
+ # matches
+ obj-$(CONFIG_IP_NF_MATCH_HELPER) +=3D ipt_helper.o
+ obj-$(CONFIG_IP_NF_MATCH_LIMIT) +=3D ipt_limit.o
++obj-$(CONFIG_IP_NF_MATCH_HASHLIMIT) +=3D ipt_hashlimit.o
+ obj-$(CONFIG_IP_NF_MATCH_SCTP) +=3D ipt_sctp.o
+ obj-$(CONFIG_IP_NF_MATCH_MARK) +=3D ipt_mark.o
+ obj-$(CONFIG_IP_NF_MATCH_MAC) +=3D ipt_mac.o
 diff -Nru --exclude-from=3D/sunbeam/home/laforge/scripts/dontdiff linux-2.6=
-=2E9-connmark/net/ipv4/netfilter/ipt_CLUSTERIP.c linux-2.6.9-connmark-clust=
-erip/net/ipv4/netfilter/ipt_CLUSTERIP.c
---- linux-2.6.9-connmark/net/ipv4/netfilter/ipt_CLUSTERIP.c	1970-01-01 01:0=
-0:00.000000000 +0100
-+++ linux-2.6.9-connmark-clusterip/net/ipv4/netfilter/ipt_CLUSTERIP.c	2004-=
-10-21 00:35:03.690176796 +0200
-@@ -0,0 +1,712 @@
-+/* Cluster IP hashmark target=20
+=2E9-connmark-clusterip/net/ipv4/netfilter/ipt_hashlimit.c linux-2.6.9-conn=
+mark-clusterip-hashlimit/net/ipv4/netfilter/ipt_hashlimit.c
+--- linux-2.6.9-connmark-clusterip/net/ipv4/netfilter/ipt_hashlimit.c	1970-=
+01-01 01:00:00.000000000 +0100
++++ linux-2.6.9-connmark-clusterip-hashlimit/net/ipv4/netfilter/ipt_hashlim=
+it.c	2004-10-21 00:41:45.689206844 +0200
+@@ -0,0 +1,716 @@
++/* iptables match extension to limit the number of packets per second
++ * seperately for each hashbucket (sourceip/sourceport/dstip/dstport)
++ *
 + * (C) 2003-2004 by Harald Welte <laforge@netfilter.org>
-+ * based on ideas of Fabio Olive Leite <olive@unixforge.org>
 + *
-+ * Development of this code funded by SuSE Linux AG, http://www.suse.com/
++ * $Id: ipt_hashlimit.c 3244 2004-10-20 16:24:29Z laforge@netfilter.org $
 + *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
++ * Development of this code was funded by Astaro AG, http://www.astaro.com/
 + *
++ * based on ipt_limit.c by:
++ * J=E9r=F4me de Vivie	<devivie@info.enserb.u-bordeaux.fr>
++ * Herv=E9 Eychenne	<eychenne@info.enserb.u-bordeaux.fr>
++ * Rusty Russell	<rusty@rustcorp.com.au>
++ *
++ * The general idea is to create a hash table for every dstip and have a
++ * seperate limit counter per tuple.  This way you can do something like '=
+limit
++ * the number of syn packets for each of my internal addresses.
++ *
++ * Ideally this would just be implemented as a general 'hash' match, which=
+ would
++ * allow us to attach any iptables target to it's hash buckets.  But this =
+is
++ * not possible in the current iptables architecture.  As always, pkttable=
+s for
++ * 2.7.x will help ;)
 + */
 +#include <linux/module.h>
-+#include <linux/config.h>
-+#include <linux/proc_fs.h>
-+#include <linux/jhash.h>
 +#include <linux/skbuff.h>
-+#include <linux/ip.h>
++#include <linux/spinlock.h>
++#include <linux/random.h>
++#include <linux/jhash.h>
++#include <linux/slab.h>
++#include <linux/vmalloc.h>
 +#include <linux/tcp.h>
 +#include <linux/udp.h>
-+#include <linux/icmp.h>
-+#include <linux/if_arp.h>
++#include <linux/sctp.h>
 +#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
 +
-+#include <net/checksum.h>
-+
-+#include <linux/netfilter_arp.h>
++#define ASSERT_READ_LOCK(x)=20
++#define ASSERT_WRITE_LOCK(x)=20
++#include <linux/netfilter_ipv4/lockhelp.h>
++#include <linux/netfilter_ipv4/listhelp.h>
 +
 +#include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter_ipv4/ipt_CLUSTERIP.h>
++#include <linux/netfilter_ipv4/ipt_hashlimit.h>
++
++/* FIXME: this is just for IP_NF_ASSERRT */
 +#include <linux/netfilter_ipv4/ip_conntrack.h>
 +
-+#define CLUSTERIP_VERSION "0.5"
-+
-+#define DEBUG_CLUSTERIP
-+
-+#ifdef DEBUG_CLUSTERIP
-+#define DEBUGP	printk
-+#else
-+#define DEBUGP
-+#endif
++#define MS2JIFFIES(x) ((x*HZ)/1000)
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
-+MODULE_DESCRIPTION("iptables target for CLUSTERIP");
++MODULE_DESCRIPTION("iptables match for limiting per hash-bucket");
 +
-+struct clusterip_config {
-+	struct list_head list;			/* list of all configs */
-+	atomic_t refcount;			/* reference count */
++/* need to declare this at the top */
++static struct proc_dir_entry *hashlimit_procdir;
++static struct file_operations dl_file_ops;
 +
-+	u_int32_t clusterip;			/* the IP address */
-+	u_int8_t clustermac[ETH_ALEN];		/* the MAC address */
-+	struct net_device *dev;			/* device */
-+	u_int16_t num_total_nodes;		/* total number of nodes */
-+	u_int16_t num_local_nodes;		/* number of local nodes */
-+	u_int16_t local_nodes[CLUSTERIP_MAX_NODES];	/* node number array */
++/* hash table crap */
 +
-+#ifdef CONFIG_PROC_FS
-+	struct proc_dir_entry *pde;		/* proc dir entry */
-+#endif
-+	enum clusterip_hashmode hash_mode;	/* which hashing mode */
-+	u_int32_t hash_initval;			/* hash initialization */
++struct dsthash_dst {
++	u_int32_t src_ip;
++	u_int32_t dst_ip;
++	/* ports have to be consecutive !!! */
++	u_int16_t src_port;
++	u_int16_t dst_port;
 +};
 +
-+static LIST_HEAD(clusterip_configs);
++struct dsthash_ent {
++	/* static / read-only parts in the beginning */
++	struct list_head list;
++	struct dsthash_dst dst;
 +
-+/* clusterip_lock protects the clusterip_configs list _AND_ the configurab=
-le
-+ * data within all structurses (num_local_nodes, local_nodes[]) */
-+DECLARE_RWLOCK(clusterip_lock);
++	/* modified structure members in the end */
++	unsigned long expires;		/* precalculated expiry time */
++	struct {
++		unsigned long prev;	/* last modification */
++		u_int32_t credit;
++		u_int32_t credit_cap, cost;
++	} rateinfo;
++};
 +
-+#ifdef CONFIG_PROC_FS
-+static struct file_operations clusterip_proc_fops;
-+static struct proc_dir_entry *clusterip_procdir;
-+static int clusterip_proc_open(struct inode *inode, struct file *file);
-+static int clusterip_proc_release(struct inode *inode, struct file *file);
-+static int clusterip_proc_read(char *buffer, char **start, off_t offset,=
-=20
-+				int length, int *eof, void *data);
-+static int clusterip_proc_write(struct file *file, const char *input,=20
-+				unsigned long size, void *data);
++struct ipt_hashlimit_htable {
++	struct list_head list;		/* global list of all htables */
++	atomic_t use;
 +
-+#endif
++	struct hashlimit_cfg cfg;	/* config */
 +
-+static inline void
-+clusterip_config_get(struct clusterip_config *c) {
-+	atomic_inc(&c->refcount);
-+}
++	/* used internally */
++	spinlock_t lock;		/* lock for list_head */
++	u_int32_t rnd;			/* random seed for hash */
++	struct timer_list timer;	/* timer for gc */
++	atomic_t count;			/* number entries in table */
 +
-+static inline void
-+clusterip_config_put(struct clusterip_config *c) {
-+	if (atomic_dec_and_test(&c->refcount)) {
-+		WRITE_LOCK(&clusterip_lock);
-+		list_del(&c->list);
-+		WRITE_UNLOCK(&clusterip_lock);
-+		dev_mc_delete(c->dev, c->clustermac, ETH_ALEN, 0);
-+		dev_put(c->dev);
-+		kfree(c);
-+	}
-+}
++	/* seq_file stuff */
++	struct proc_dir_entry *pde;
 +
++	struct list_head hash[0];	/* hashtable itself */
++};
 +
-+static struct clusterip_config *
-+__clusterip_config_find(u_int32_t clusterip)
++DECLARE_RWLOCK(hashlimit_lock);		/* protects htables list */
++static LIST_HEAD(hashlimit_htables);
++static kmem_cache_t *hashlimit_cachep;
++
++static inline int dst_cmp(const struct dsthash_ent *ent, struct dsthash_ds=
+t *b)
 +{
-+	struct list_head *pos;
++	return (ent->dst.dst_ip =3D=3D b->dst_ip=20
++		&& ent->dst.dst_port =3D=3D b->dst_port
++		&& ent->dst.src_port =3D=3D b->src_port
++		&& ent->dst.src_ip =3D=3D b->src_ip);
++}
 +
-+	MUST_BE_READ_LOCKED(&clusterip_lock);
-+	list_for_each(pos, &clusterip_configs) {
-+		struct clusterip_config *c =3D list_entry(pos,=20
-+					struct clusterip_config, list);
-+		if (c->clusterip =3D=3D clusterip) {
-+			return c;
++static inline u_int32_t
++hash_dst(const struct ipt_hashlimit_htable *ht, const struct dsthash_dst *=
+dst)
++{
++	return (jhash_3words(dst->dst_ip, (dst->dst_port<<16 & dst->src_port),=20
++			     dst->src_ip, ht->rnd) % ht->cfg.size);
++}
++
++static inline struct dsthash_ent *
++__dsthash_find(const struct ipt_hashlimit_htable *ht, struct dsthash_dst *=
+dst)
++{
++	struct dsthash_ent *ent;
++	u_int32_t hash =3D hash_dst(ht, dst);
++	MUST_BE_LOCKED(&ht->lock);
++	ent =3D LIST_FIND(&ht->hash[hash], dst_cmp, struct dsthash_ent *, dst);
++	return ent;
++}
++
++/* allocate dsthash_ent, initialize dst, put in htable and lock it */
++static struct dsthash_ent *
++__dsthash_alloc_init(struct ipt_hashlimit_htable *ht, struct dsthash_dst *=
+dst)
++{
++	struct dsthash_ent *ent;
++
++	/* initialize hash with random val at the time we allocate
++	 * the first hashtable entry */
++	if (!ht->rnd)
++		get_random_bytes(&ht->rnd, 4);
++
++	if (ht->cfg.max &&
++	    atomic_read(&ht->count) >=3D ht->cfg.max) {
++		/* FIXME: do something. question is what.. */
++		if (net_ratelimit())
++			printk(KERN_WARNING=20
++				"ipt_hashlimit: max count of %u reached\n",=20
++				ht->cfg.max);
++		return NULL;
++	}
++
++	ent =3D kmem_cache_alloc(hashlimit_cachep, GFP_ATOMIC);
++	if (!ent) {
++		if (net_ratelimit())
++			printk(KERN_ERR=20
++				"ipt_hashlimit: can't allocate dsthash_ent\n");
++		return NULL;
++	}
++
++	atomic_inc(&ht->count);
++
++	ent->dst.dst_ip =3D dst->dst_ip;
++	ent->dst.dst_port =3D dst->dst_port;
++	ent->dst.src_ip =3D dst->src_ip;
++	ent->dst.src_port =3D dst->src_port;
++
++	list_add(&ent->list, &ht->hash[hash_dst(ht, dst)]);
++
++	return ent;
++}
++
++static inline void=20
++__dsthash_free(struct ipt_hashlimit_htable *ht, struct dsthash_ent *ent)
++{
++	MUST_BE_LOCKED(&ht->lock);
++
++	list_del(&ent->list);
++	kmem_cache_free(hashlimit_cachep, ent);
++	atomic_dec(&ht->count);
++}
++static void htable_gc(unsigned long htlong);
++
++static int htable_create(struct ipt_hashlimit_info *minfo)
++{
++	int i;
++	unsigned int size;
++	struct ipt_hashlimit_htable *hinfo;
++
++	if (minfo->cfg.size)
++		size =3D minfo->cfg.size;
++	else {
++		size =3D (((num_physpages << PAGE_SHIFT) / 16384)
++			 / sizeof(struct list_head));
++		if (num_physpages > (1024 * 1024 * 1024 / PAGE_SIZE))
++			size =3D 8192;
++		if (size < 16)
++			size =3D 16;
++	}
++	/* FIXME: don't use vmalloc() here or anywhere else -HW */
++	hinfo =3D vmalloc(sizeof(struct ipt_hashlimit_htable)
++			+ (sizeof(struct list_head) * size));
++	if (!hinfo) {
++		printk(KERN_ERR "ipt_hashlimit: Unable to create hashtable\n");
++		return -1;
++	}
++	minfo->hinfo =3D hinfo;
++
++	/* copy match config into hashtable config */
++	memcpy(&hinfo->cfg, &minfo->cfg, sizeof(hinfo->cfg));
++	hinfo->cfg.size =3D size;
++	if (!hinfo->cfg.max)
++		hinfo->cfg.max =3D 8 * hinfo->cfg.size;
++	else if (hinfo->cfg.max < hinfo->cfg.size)
++		hinfo->cfg.max =3D hinfo->cfg.size;
++
++	for (i =3D 0; i < hinfo->cfg.size; i++)
++		INIT_LIST_HEAD(&hinfo->hash[i]);
++
++	atomic_set(&hinfo->count, 0);
++	atomic_set(&hinfo->use, 1);
++	hinfo->rnd =3D 0;
++	hinfo->lock =3D SPIN_LOCK_UNLOCKED;
++	hinfo->pde =3D create_proc_entry(minfo->name, 0, hashlimit_procdir);
++	if (!hinfo->pde) {
++		vfree(hinfo);
++		return -1;
++	}
++	hinfo->pde->proc_fops =3D &dl_file_ops;
++	hinfo->pde->data =3D hinfo;
++
++	init_timer(&hinfo->timer);
++	hinfo->timer.expires =3D jiffies + MS2JIFFIES(hinfo->cfg.gc_interval);
++	hinfo->timer.data =3D (unsigned long )hinfo;
++	hinfo->timer.function =3D htable_gc;
++	add_timer(&hinfo->timer);
++
++	WRITE_LOCK(&hashlimit_lock);
++	list_add(&hinfo->list, &hashlimit_htables);
++	WRITE_UNLOCK(&hashlimit_lock);
++
++	return 0;
++}
++
++static int select_all(struct ipt_hashlimit_htable *ht, struct dsthash_ent =
+*he)
++{
++	return 1;
++}
++
++static int select_gc(struct ipt_hashlimit_htable *ht, struct dsthash_ent *=
+he)
++{
++	return (jiffies >=3D he->expires);
++}
++
++static void htable_selective_cleanup(struct ipt_hashlimit_htable *ht,
++		 		int (*select)(struct ipt_hashlimit_htable *ht,=20
++					      struct dsthash_ent *he))
++{
++	int i;
++
++	IP_NF_ASSERT(ht->cfg.size && ht->cfg.max);
++
++	/* lock hash table and iterate over it */
++	LOCK_BH(&ht->lock);
++	for (i =3D 0; i < ht->cfg.size; i++) {
++		struct dsthash_ent *dh, *n;
++		list_for_each_entry_safe(dh, n, &ht->hash[i], list) {
++			if ((*select)(ht, dh))
++				__dsthash_free(ht, dh);
 +		}
 +	}
++	UNLOCK_BH(&ht->lock);
++}
++
++/* hash table garbage collector, run by timer */
++static void htable_gc(unsigned long htlong)
++{
++	struct ipt_hashlimit_htable *ht =3D (struct ipt_hashlimit_htable *)htlong;
++
++	htable_selective_cleanup(ht, select_gc);
++
++	/* re-add the timer accordingly */
++	ht->timer.expires =3D jiffies + MS2JIFFIES(ht->cfg.gc_interval);
++	add_timer(&ht->timer);
++}
++
++static void htable_destroy(struct ipt_hashlimit_htable *hinfo)
++{
++	/* remove timer, if it is pending */
++	if (timer_pending(&hinfo->timer))
++		del_timer(&hinfo->timer);
++
++	/* remove proc entry */
++	remove_proc_entry(hinfo->pde->name, hashlimit_procdir);
++
++	htable_selective_cleanup(hinfo, select_all);
++	vfree(hinfo);
++}
++
++static struct ipt_hashlimit_htable *htable_find_get(char *name)
++{
++	struct ipt_hashlimit_htable *hinfo;
++
++	READ_LOCK(&hashlimit_lock);
++	list_for_each_entry(hinfo, &hashlimit_htables, list) {
++		if (!strcmp(name, hinfo->pde->name)) {
++			atomic_inc(&hinfo->use);
++			READ_UNLOCK(&hashlimit_lock);
++			return hinfo;
++		}
++	}
++	READ_UNLOCK(&hashlimit_lock);
 +
 +	return NULL;
 +}
 +
-+static inline struct clusterip_config *
-+clusterip_config_find_get(u_int32_t clusterip)
++static void htable_put(struct ipt_hashlimit_htable *hinfo)
 +{
-+	struct clusterip_config *c;
-+
-+	READ_LOCK(&clusterip_lock);
-+	c =3D __clusterip_config_find(clusterip);
-+	if (!c) {
-+		READ_UNLOCK(&clusterip_lock);
-+		return NULL;
++	if (atomic_dec_and_test(&hinfo->use)) {
++		WRITE_LOCK(&hashlimit_lock);
++		list_del(&hinfo->list);
++		WRITE_UNLOCK(&hashlimit_lock);
++		htable_destroy(hinfo);
 +	}
-+	atomic_inc(&c->refcount);
-+	READ_UNLOCK(&clusterip_lock);
-+
-+	return c;
 +}
 +
-+static struct clusterip_config *
-+clusterip_config_init(struct ipt_clusterip_tgt_info *i, u_int32_t ip,
-+			struct net_device *dev)
-+{
-+	struct clusterip_config *c;
-+	char buffer[16];
 +
-+	c =3D kmalloc(sizeof(*c), GFP_ATOMIC);
-+	if (!c)
-+		return NULL;
++/* The algorithm used is the Simple Token Bucket Filter (TBF)
++ * see net/sched/sch_tbf.c in the linux source tree
++ */
 +
-+	memset(c, 0, sizeof(*c));
-+	c->dev =3D dev;
-+	c->clusterip =3D ip;
-+	memcpy(&c->clustermac, &i->clustermac, ETH_ALEN);
-+	c->num_total_nodes =3D i->num_total_nodes;
-+	c->num_local_nodes =3D i->num_local_nodes;
-+	memcpy(&c->local_nodes, &i->local_nodes, sizeof(&c->local_nodes));
-+	c->hash_mode =3D i->hash_mode;
-+	c->hash_initval =3D i->hash_initval;
-+	atomic_set(&c->refcount, 1);
++/* Rusty: This is my (non-mathematically-inclined) understanding of
++   this algorithm.  The `average rate' in jiffies becomes your initial
++   amount of credit `credit' and the most credit you can ever have
++   `credit_cap'.  The `peak rate' becomes the cost of passing the
++   test, `cost'.
 +
-+#ifdef CONFIG_PROC_FS
-+	/* create proc dir entry */
-+	sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(ip));
-+	c->pde =3D create_proc_entry(buffer, 0,  clusterip_procdir);
-+	if (!c->pde) {
-+		kfree(c);
-+		return NULL;
-+	}
-+	c->pde->owner =3D THIS_MODULE;
-+	c->pde->data =3D c;
-+	c->pde->read_proc =3D clusterip_proc_read;
-+	c->pde->write_proc =3D clusterip_proc_write;
-+	c->pde->proc_fops =3D &clusterip_proc_fops;
-+#endif
++   `prev' tracks the last packet hit: you gain one credit per jiffy.
++   If you get credit balance more than this, the extra credit is
++   discarded.  Every time the match passes, you lose `cost' credits;
++   if you don't have that many, the test fails.
 +
-+	WRITE_LOCK(&clusterip_lock);
-+	list_add(&c->list, &clusterip_configs);
-+	WRITE_UNLOCK(&clusterip_lock);
++   See Alexey's formal explanation in net/sched/sch_tbf.c.
 +
-+	return c;
-+}
++   To get the maximum range, we multiply by this factor (ie. you get N
++   credits per jiffy).  We want to allow a rate as low as 1 per day
++   (slowest userspace tool allows), which means
++   CREDITS_PER_JIFFY*HZ*60*60*24 < 2^32 ie.
++*/
++#define MAX_CPJ (0xFFFFFFFF / (HZ*60*60*24))
 +
-+static int
-+clusterip_add_node(struct clusterip_config *c, u_int16_t nodenum)
-+{
-+	int i;
++/* Repeated shift and or gives us all 1s, final shift and add 1 gives
++ * us the power of 2 below the theoretical max, so GCC simply does a
++ * shift. */
++#define _POW2_BELOW2(x) ((x)|((x)>>1))
++#define _POW2_BELOW4(x) (_POW2_BELOW2(x)|_POW2_BELOW2((x)>>2))
++#define _POW2_BELOW8(x) (_POW2_BELOW4(x)|_POW2_BELOW4((x)>>4))
++#define _POW2_BELOW16(x) (_POW2_BELOW8(x)|_POW2_BELOW8((x)>>8))
++#define _POW2_BELOW32(x) (_POW2_BELOW16(x)|_POW2_BELOW16((x)>>16))
++#define POW2_BELOW32(x) ((_POW2_BELOW32(x)>>1) + 1)
 +
-+	WRITE_LOCK(&clusterip_lock);
++#define CREDITS_PER_JIFFY POW2_BELOW32(MAX_CPJ)
 +
-+	if (c->num_local_nodes >=3D CLUSTERIP_MAX_NODES
-+	    || nodenum > CLUSTERIP_MAX_NODES) {
-+		WRITE_UNLOCK(&clusterip_lock);
-+		return 1;
-+	}
-+
-+	/* check if we alrady have this number in our array */
-+	for (i =3D 0; i < c->num_local_nodes; i++) {
-+		if (c->local_nodes[i] =3D=3D nodenum) {
-+			WRITE_UNLOCK(&clusterip_lock);
-+			return 1;
-+		}
-+	}
-+
-+	c->local_nodes[c->num_local_nodes++] =3D nodenum;
-+
-+	WRITE_UNLOCK(&clusterip_lock);
-+	return 0;
-+}
-+
-+static int
-+clusterip_del_node(struct clusterip_config *c, u_int16_t nodenum)
-+{
-+	int i;
-+
-+	WRITE_LOCK(&clusterip_lock);
-+
-+	if (c->num_local_nodes <=3D 1 || nodenum > CLUSTERIP_MAX_NODES) {
-+		WRITE_UNLOCK(&clusterip_lock);
-+		return 1;
-+	}
-+	=09
-+	for (i =3D 0; i < c->num_local_nodes; i++) {
-+		if (c->local_nodes[i] =3D=3D nodenum) {
-+			int size =3D sizeof(u_int16_t)*(c->num_local_nodes-(i+1));
-+			memmove(&c->local_nodes[i], &c->local_nodes[i+1], size);
-+			c->num_local_nodes--;
-+			WRITE_UNLOCK(&clusterip_lock);
-+			return 0;
-+		}
-+	}
-+
-+	WRITE_UNLOCK(&clusterip_lock);
-+	return 1;
-+}
-+
++/* Precision saver. */
 +static inline u_int32_t
-+clusterip_hashfn(struct sk_buff *skb, struct clusterip_config *config)
++user2credits(u_int32_t user)
 +{
-+	struct iphdr *iph =3D skb->nh.iph;
-+	unsigned long hashval;
-+	u_int16_t sport, dport;
-+	struct tcphdr *th;
-+	struct udphdr *uh;
-+	struct icmphdr *ih;
++	/* If multiplying would overflow... */
++	if (user > 0xFFFFFFFF / (HZ*CREDITS_PER_JIFFY))
++		/* Divide first. */
++		return (user / IPT_HASHLIMIT_SCALE) * HZ * CREDITS_PER_JIFFY;
 +
-+	switch (iph->protocol) {
-+	case IPPROTO_TCP:
-+		th =3D (void *)iph+iph->ihl*4;
-+		sport =3D ntohs(th->source);
-+		dport =3D ntohs(th->dest);
-+		break;
-+	case IPPROTO_UDP:
-+		uh =3D (void *)iph+iph->ihl*4;
-+		sport =3D ntohs(uh->source);
-+		dport =3D ntohs(uh->dest);
-+		break;
-+	case IPPROTO_ICMP:
-+		ih =3D (void *)iph+iph->ihl*4;
-+		sport =3D ntohs(ih->un.echo.id);
-+		dport =3D (ih->type<<8)|ih->code;
-+		break;
-+	default:
-+		if (net_ratelimit()) {
-+			printk(KERN_NOTICE "CLUSTERIP: unknown protocol `%u'\n",
-+				iph->protocol);
-+		}
-+		sport =3D dport =3D 0;
-+	}
-+
-+	switch (config->hash_mode) {
-+	case CLUSTERIP_HASHMODE_SIP:
-+		hashval =3D jhash_1word(ntohl(iph->saddr),
-+				      config->hash_initval);
-+		break;
-+	case CLUSTERIP_HASHMODE_SIP_SPT:
-+		hashval =3D jhash_2words(ntohl(iph->saddr), sport,=20
-+				       config->hash_initval);
-+		break;
-+	case CLUSTERIP_HASHMODE_SIP_SPT_DPT:
-+		hashval =3D jhash_3words(ntohl(iph->saddr), sport, dport,
-+				       config->hash_initval);
-+		break;
-+	default:
-+		/* to make gcc happy */
-+		hashval =3D 0;
-+		/* This cannot happen, unless the check function wasn't called
-+		 * at rule load time */
-+		printk("CLUSTERIP: unknown mode `%u'\n", config->hash_mode);
-+		BUG();
-+		break;
-+	}
-+
-+	/* node numbers are 1..n, not 0..n */
-+	return ((hashval % config->num_total_nodes)+1);
++	return (user * HZ * CREDITS_PER_JIFFY) / IPT_HASHLIMIT_SCALE;
 +}
 +
-+static inline int
-+clusterip_responsible(struct clusterip_config *config, u_int32_t hash)
++static inline void rateinfo_recalc(struct dsthash_ent *dh, unsigned long n=
+ow)
 +{
-+	int i;
-+
-+	READ_LOCK(&clusterip_lock);
-+
-+	if (config->num_local_nodes =3D=3D 0) {
-+		READ_UNLOCK(&clusterip_lock);
-+		return 0;
-+	}
-+
-+	for (i =3D 0; i < config->num_local_nodes; i++) {
-+		if (config->local_nodes[i] =3D=3D hash) {
-+			READ_UNLOCK(&clusterip_lock);
-+			return 1;
-+		}
-+	}
-+
-+	READ_UNLOCK(&clusterip_lock);
-+
-+	return 0;
++	dh->rateinfo.credit +=3D (now - xchg(&dh->rateinfo.prev, now))=20
++					* CREDITS_PER_JIFFY;
++	if (dh->rateinfo.credit > dh->rateinfo.credit_cap)
++		dh->rateinfo.credit =3D dh->rateinfo.credit_cap;
 +}
 +
-+/***********************************************************************=
-=20
-+ * IPTABLES TARGET=20
-+ ***********************************************************************/
-+
-+static unsigned int
-+target(struct sk_buff **pskb,
-+       const struct net_device *in,
-+       const struct net_device *out,
-+       unsigned int hooknum,
-+       const void *targinfo,
-+       void *userinfo)
++static inline int get_ports(const struct sk_buff *skb, int offset,=20
++			    u16 ports[2])
 +{
-+	const struct ipt_clusterip_tgt_info *cipinfo =3D targinfo;
-+	enum ip_conntrack_info ctinfo;
-+	struct ip_conntrack *ct =3D ip_conntrack_get((*pskb), &ctinfo);
-+	u_int32_t hash;
++	union {
++		struct tcphdr th;
++		struct udphdr uh;
++		sctp_sctphdr_t sctph;
++	} hdr_u, *ptr_u;
 +
-+	/* don't need to clusterip_config_get() here, since refcount
-+	 * is only decremented by destroy() - and ip_tables guarantees
-+	 * that the ->target() function isn't called after ->destroy() */
++	/* Must not be a fragment. */
++	if (offset)
++		return 1;
 +
-+	if (!ct) {
-+		printk(KERN_ERR "CLUSTERIP: no conntrack!\n");
-+			/* FIXME: need to drop invalid ones, since replies
-+			 * to outgoing connections of other nodes will be=20
-+			 * marked as INVALID */
-+		return NF_DROP;
-+	}
++	/* Must be big enough to read ports (both UDP and TCP have
++	   them at the start). */
++	ptr_u =3D skb_header_pointer(skb, skb->nh.iph->ihl*4, 8, &hdr_u);=20
++	if (!ptr_u)
++		return 1;
 +
-+	/* special case: ICMP error handling. conntrack distinguishes between
-+	 * error messages (RELATED) and information requests (see below) */
-+	if ((*pskb)->nh.iph->protocol =3D=3D IPPROTO_ICMP
-+	    && (ctinfo =3D=3D IP_CT_RELATED=20
-+		|| ctinfo =3D=3D IP_CT_IS_REPLY+IP_CT_IS_REPLY))
-+		return IPT_CONTINUE;
-+
-+	/* ip_conntrack_icmp guarantees us that we only have ICMP_ECHO,=20
-+	 * TIMESTAMP, INFO_REQUEST or ADDRESS type icmp packets from here
-+	 * on, which all have an ID field [relevant for hashing]. */
-+
-+	hash =3D clusterip_hashfn(*pskb, cipinfo->config);
-+
-+	switch (ctinfo) {
-+		case IP_CT_NEW:
-+			ct->mark =3D hash;
++	switch (skb->nh.iph->protocol) {
++		case IPPROTO_TCP:
++			ports[0] =3D ptr_u->th.source;
++			ports[1] =3D ptr_u->th.dest;
 +			break;
-+		case IP_CT_RELATED:
-+		case IP_CT_RELATED+IP_CT_IS_REPLY:
-+			/* FIXME: we don't handle expectations at the
-+			 * moment.  they can arrive on a different node than
-+			 * the master connection (e.g. FTP passive mode) */
-+		case IP_CT_ESTABLISHED:
-+		case IP_CT_ESTABLISHED+IP_CT_IS_REPLY:
++		case IPPROTO_UDP:
++			ports[0] =3D ptr_u->uh.source;
++			ports[1] =3D ptr_u->uh.dest;
++			break;
++		case IPPROTO_SCTP:
++			ports[0] =3D ptr_u->sctph.source;
++			ports[1] =3D ptr_u->sctph.dest;
 +			break;
 +		default:
++			/* all other protocols don't supprot per-port hash
++			 * buckets */
++			ports[0] =3D ports[1] =3D 0;
 +			break;
 +	}
 +
-+#ifdef DEBUG_CLUSTERP
-+	DUMP_TUPLE(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
-+#endif
-+	DEBUGP("hash=3D%u ct_hash=3D%lu ", hash, ct->mark);
-+	if (!clusterip_responsible(cipinfo->config, hash)) {
-+		DEBUGP("not responsible\n");
-+		return NF_DROP;
++	return 0;
++}
++
++
++static int
++hashlimit_match(const struct sk_buff *skb,
++		const struct net_device *in,
++		const struct net_device *out,
++		const void *matchinfo,
++		int offset,
++		int *hotdrop)
++{
++	struct ipt_hashlimit_info *r =3D=20
++		((struct ipt_hashlimit_info *)matchinfo)->u.master;
++	struct ipt_hashlimit_htable *hinfo =3D r->hinfo;
++	unsigned long now =3D jiffies;
++	struct dsthash_ent *dh;
++	struct dsthash_dst dst;
++
++	/* build 'dst' according to hinfo->cfg and current packet */
++	memset(&dst, 0, sizeof(dst));
++	if (hinfo->cfg.mode & IPT_HASHLIMIT_HASH_DIP)
++		dst.dst_ip =3D skb->nh.iph->daddr;
++	if (hinfo->cfg.mode & IPT_HASHLIMIT_HASH_SIP)
++		dst.src_ip =3D skb->nh.iph->saddr;
++	if (hinfo->cfg.mode & IPT_HASHLIMIT_HASH_DPT
++	    ||hinfo->cfg.mode & IPT_HASHLIMIT_HASH_SPT) {
++		u_int16_t ports[2];
++		if (get_ports(skb, offset, ports)) {
++			/* We've been asked to examine this packet, and we
++		 	  can't.  Hence, no choice but to drop. */
++			*hotdrop =3D 1;
++			return 0;
++		}
++		if (hinfo->cfg.mode & IPT_HASHLIMIT_HASH_SPT)
++			dst.src_port =3D ports[0];
++		if (hinfo->cfg.mode & IPT_HASHLIMIT_HASH_DPT)
++			dst.dst_port =3D ports[1];
++	}=20
++
++	LOCK_BH(&hinfo->lock);
++	dh =3D __dsthash_find(hinfo, &dst);
++	if (!dh) {
++		dh =3D __dsthash_alloc_init(hinfo, &dst);
++
++		if (!dh) {
++			/* enomem... don't match =3D=3D DROP */
++			if (net_ratelimit())
++				printk(KERN_ERR "%s: ENOMEM\n", __FUNCTION__);
++			UNLOCK_BH(&hinfo->lock);
++			return 0;
++		}
++
++		dh->expires =3D jiffies + MS2JIFFIES(hinfo->cfg.expire);
++
++		dh->rateinfo.prev =3D jiffies;
++		dh->rateinfo.credit =3D user2credits(hinfo->cfg.avg *=20
++							hinfo->cfg.burst);
++		dh->rateinfo.credit_cap =3D user2credits(hinfo->cfg.avg *=20
++							hinfo->cfg.burst);
++		dh->rateinfo.cost =3D user2credits(hinfo->cfg.avg);
++
++		UNLOCK_BH(&hinfo->lock);
++		return 1;
 +	}
-+	DEBUGP("responsible\n");
 +
-+	/* despite being received via linklayer multicast, this is
-+	 * actually a unicast IP packet. TCP doesn't like PACKET_MULTICAST */
-+	(*pskb)->pkt_type =3D PACKET_HOST;
++	/* update expiration timeout */
++	dh->expires =3D now + MS2JIFFIES(hinfo->cfg.expire);
 +
-+	return IPT_CONTINUE;
++	rateinfo_recalc(dh, now);
++	if (dh->rateinfo.credit >=3D dh->rateinfo.cost) {
++		/* We're underlimit. */
++		dh->rateinfo.credit -=3D dh->rateinfo.cost;
++		UNLOCK_BH(&hinfo->lock);
++		return 1;
++	}
++
++       	UNLOCK_BH(&hinfo->lock);
++
++	/* default case: we're overlimit, thus don't match */
++	return 0;
 +}
 +
 +static int
-+checkentry(const char *tablename,
-+	   const struct ipt_entry *e,
-+           void *targinfo,
-+           unsigned int targinfosize,
-+           unsigned int hook_mask)
++hashlimit_checkentry(const char *tablename,
++		     const struct ipt_ip *ip,
++		     void *matchinfo,
++		     unsigned int matchsize,
++		     unsigned int hook_mask)
 +{
-+	struct ipt_clusterip_tgt_info *cipinfo =3D targinfo;
++	struct ipt_hashlimit_info *r =3D matchinfo;
 +
-+	struct clusterip_config *config;
++	if (matchsize !=3D IPT_ALIGN(sizeof(struct ipt_hashlimit_info)))
++		return 0;
 +
-+	if (targinfosize !=3D IPT_ALIGN(sizeof(struct ipt_clusterip_tgt_info))) {
-+		printk(KERN_WARNING "CLUSTERIP: targinfosize %u !=3D %Zu\n",
-+		       targinfosize,
-+		       IPT_ALIGN(sizeof(struct ipt_clusterip_tgt_info)));
++	/* Check for overflow. */
++	if (r->cfg.burst =3D=3D 0
++	    || user2credits(r->cfg.avg * r->cfg.burst) <=20
++	    				user2credits(r->cfg.avg)) {
++		printk(KERN_ERR "ipt_hashlimit: Overflow, try lower: %u/%u\n",
++		       r->cfg.avg, r->cfg.burst);
 +		return 0;
 +	}
 +
-+	if (cipinfo->hash_mode !=3D CLUSTERIP_HASHMODE_SIP &&
-+	    cipinfo->hash_mode !=3D CLUSTERIP_HASHMODE_SIP_SPT &&
-+	    cipinfo->hash_mode !=3D CLUSTERIP_HASHMODE_SIP_SPT_DPT) {
-+		printk(KERN_WARNING "CLUSTERIP: unknown mode `%u'\n",
-+			cipinfo->hash_mode);
++	if (r->cfg.mode =3D=3D 0=20
++	    || r->cfg.mode > (IPT_HASHLIMIT_HASH_DPT
++		          |IPT_HASHLIMIT_HASH_DIP
++			  |IPT_HASHLIMIT_HASH_SIP
++			  |IPT_HASHLIMIT_HASH_SPT))
 +		return 0;
 +
-+	}
-+	if (e->ip.dmsk.s_addr !=3D 0xffffffff
-+	    || e->ip.dst.s_addr =3D=3D 0) {
-+		printk(KERN_ERR "CLUSTERIP: Please specify destination IP\n");
++	if (!r->cfg.gc_interval)
++		return 0;
++=09
++	if (!r->cfg.expire)
++		return 0;
++
++	r->hinfo =3D htable_find_get(r->name);
++	if (!r->hinfo && (htable_create(r) !=3D 0)) {
 +		return 0;
 +	}
 +
-+	/* FIXME: further sanity checks */
-+
-+	config =3D clusterip_config_find_get(e->ip.dst.s_addr);
-+	if (!config) {
-+		if (!(cipinfo->flags & CLUSTERIP_FLAG_NEW)) {
-+			printk(KERN_WARNING "CLUSTERIP: no config found for %u.%u.%u.%u, need '=
-new'\n", NIPQUAD(e->ip.dst.s_addr));
-+			return 0;
-+		} else {
-+			struct net_device *dev;
-+
-+			if (e->ip.iniface[0] =3D=3D '\0') {
-+				printk(KERN_WARNING "CLUSTERIP: Please specify an interface name\n");
-+				return 0;
-+			}
-+
-+			dev =3D dev_get_by_name(e->ip.iniface);
-+			if (!dev) {
-+				printk(KERN_WARNING "CLUSTERIP: no such interface %s\n", e->ip.iniface=
-);
-+				return 0;
-+			}
-+
-+			config =3D clusterip_config_init(cipinfo,=20
-+							e->ip.dst.s_addr, dev);
-+			if (!config) {
-+				printk(KERN_WARNING "CLUSTERIP: cannot allocate config\n");
-+				dev_put(dev);
-+				return 0;
-+			}
-+			dev_mc_add(config->dev,config->clustermac, ETH_ALEN, 0);
-+		}
-+	}
-+
-+	cipinfo->config =3D config;
++	/* Ugly hack: For SMP, we only want to use one set */
++	r->u.master =3D r;
 +
 +	return 1;
 +}
 +
-+/* drop reference count of cluster config when rule is deleted */
-+static void destroy(void *matchinfo, unsigned int matchinfosize)
++static void
++hashlimit_destroy(void *matchinfo, unsigned int matchsize)
 +{
-+	struct ipt_clusterip_tgt_info *cipinfo =3D matchinfo;
++	struct ipt_hashlimit_info *r =3D (struct ipt_hashlimit_info *) matchinfo;
 +
-+	/* we first remove the proc entry and then drop the reference
-+	 * count.  In case anyone still accesses the file, the open/close
-+	 * functions are also incrementing the refcount on their own */
-+#ifdef CONFIG_PROC_FS
-+	remove_proc_entry(cipinfo->config->pde->name,
-+			  cipinfo->config->pde->parent);
-+#endif
-+	clusterip_config_put(cipinfo->config);
++	htable_put(r->hinfo);
 +}
 +
-+static struct ipt_target clusterip_tgt =3D {=20
-+	.name =3D "CLUSTERIP",
-+	.target =3D &target,=20
-+	.checkentry =3D &checkentry,=20
-+	.destroy =3D &destroy,
-+	.me =3D THIS_MODULE
++static struct ipt_match ipt_hashlimit =3D {=20
++	.name =3D "hashlimit",=20
++	.match =3D hashlimit_match,=20
++	.checkentry =3D hashlimit_checkentry,=20
++	.destroy =3D hashlimit_destroy,
++	.me =3D THIS_MODULE=20
 +};
 +
++/* PROC stuff */
 +
-+/***********************************************************************=
-=20
-+ * ARP MANGLING CODE=20
-+ ***********************************************************************/
-+
-+/* hardcoded for 48bit ethernet and 32bit ipv4 addresses */
-+struct arp_payload {
-+	u_int8_t src_hw[ETH_ALEN];
-+	u_int32_t src_ip;
-+	u_int8_t dst_hw[ETH_ALEN];
-+	u_int32_t dst_ip;
-+} __attribute__ ((packed));
-+
-+#ifdef CLUSTERIP_DEBUG
-+static void arp_print(struct arp_payload *payload)=20
++static void *dl_seq_start(struct seq_file *s, loff_t *pos)
 +{
-+#define HBUFFERLEN 30
-+	char hbuffer[HBUFFERLEN];
-+	int j,k;
-+	const char hexbuf[]=3D "0123456789abcdef";
++	struct proc_dir_entry *pde =3D s->private;
++	struct ipt_hashlimit_htable *htable =3D pde->data;
++	unsigned int *bucket;
 +
-+	for (k=3D0, j=3D0; k < HBUFFERLEN-3 && j < ETH_ALEN; j++) {
-+		hbuffer[k++]=3Dhexbuf[(payload->src_hw[j]>>4)&15];
-+		hbuffer[k++]=3Dhexbuf[payload->src_hw[j]&15];
-+		hbuffer[k++]=3D':';
-+	}
-+	hbuffer[--k]=3D'\0';
++	LOCK_BH(&htable->lock);
++	if (*pos >=3D htable->cfg.size)
++		return NULL;
 +
-+	printk("src %u.%u.%u.%u@%s, dst %u.%u.%u.%u\n",=20
-+		NIPQUAD(payload->src_ip), hbuffer,
-+		NIPQUAD(payload->dst_ip));
-+}
-+#endif
++	bucket =3D kmalloc(sizeof(unsigned int), GFP_KERNEL);
++	if (!bucket)
++		return ERR_PTR(-ENOMEM);
 +
-+static unsigned int
-+arp_mangle(unsigned int hook,
-+	   struct sk_buff **pskb,
-+	   const struct net_device *in,
-+	   const struct net_device *out,
-+	   int (*okfn)(struct sk_buff *))
-+{
-+	struct arphdr *arp =3D (*pskb)->nh.arph;
-+	struct arp_payload *payload;
-+	struct clusterip_config *c;
-+
-+	/* we don't care about non-ethernet and non-ipv4 ARP */
-+	if (arp->ar_hrd !=3D htons(ARPHRD_ETHER)
-+	    || arp->ar_pro !=3D htons(ETH_P_IP)
-+	    || arp->ar_pln !=3D 4 || arp->ar_hln !=3D ETH_ALEN)
-+		return NF_ACCEPT;
-+
-+	/* we only want to mangle arp replies */
-+	if (arp->ar_op !=3D htons(ARPOP_REPLY))
-+		return NF_ACCEPT;
-+
-+	payload =3D (void *)(arp+1);
-+
-+	/* if there is no clusterip configuration for the arp reply's=20
-+	 * source ip, we don't want to mangle it */
-+	c =3D clusterip_config_find_get(payload->src_ip);
-+	if (!c)
-+		return NF_ACCEPT;
-+
-+	/* normally the linux kernel always replies to arp queries of=20
-+	 * addresses on different interfacs.  However, in the CLUSTERIP case
-+	 * this wouldn't work, since we didn't subscribe the mcast group on
-+	 * other interfaces */
-+	if (c->dev !=3D out) {
-+		DEBUGP("CLUSTERIP: not mangling arp reply on different "
-+		       "interface: cip'%s'-skb'%s'\n", c->dev->name, out->name);
-+		clusterip_config_put(c);
-+		return NF_ACCEPT;
-+	}
-+
-+	/* mangle reply hardware address */
-+	memcpy(payload->src_hw, c->clustermac, arp->ar_hln);
-+
-+#ifdef CLUSTERIP_DEBUG
-+	DEBUGP(KERN_DEBUG "CLUSTERIP mangled arp reply: ");
-+	arp_print(payload);
-+#endif
-+
-+	clusterip_config_put(c);
-+
-+	return NF_ACCEPT;
++	*bucket =3D *pos;
++	return bucket;
 +}
 +
-+static struct nf_hook_ops cip_arp_ops =3D {
-+	.hook =3D arp_mangle,
-+	.pf =3D NF_ARP,
-+	.hooknum =3D NF_ARP_OUT,
-+	.priority =3D -1
-+};
-+
-+/***********************************************************************=
-=20
-+ * PROC DIR HANDLING=20
-+ ***********************************************************************/
-+
-+#ifdef CONFIG_PROC_FS
-+
-+static int clusterip_proc_open(struct inode *inode, struct file *file)
++static void *dl_seq_next(struct seq_file *s, void *v, loff_t *pos)
 +{
-+	struct proc_dir_entry *pde =3D PDE(inode);
-+	struct clusterip_config *c =3D pde->data;
++	struct proc_dir_entry *pde =3D s->private;
++	struct ipt_hashlimit_htable *htable =3D pde->data;
++	unsigned int *bucket =3D (unsigned int *)v;
 +
-+	clusterip_config_get(c);
++	*pos =3D ++(*bucket);
++	if (*pos >=3D htable->cfg.size) {
++		kfree(v);
++		return NULL;
++	}
++	return bucket;
++}
 +
++static void dl_seq_stop(struct seq_file *s, void *v)
++{
++	struct proc_dir_entry *pde =3D s->private;
++	struct ipt_hashlimit_htable *htable =3D pde->data;
++	unsigned int *bucket =3D (unsigned int *)v;
++
++	kfree(bucket);
++
++	UNLOCK_BH(&htable->lock);
++}
++
++static inline int dl_seq_real_show(struct dsthash_ent *ent, struct seq_fil=
+e *s)
++{
++	/* recalculate to show accurate numbers */
++	rateinfo_recalc(ent, jiffies);
++
++	return seq_printf(s, "%ld %u.%u.%u.%u:%u->%u.%u.%u.%u:%u %u %u %u\n",
++			(ent->expires - jiffies)/HZ,
++			NIPQUAD(ent->dst.src_ip), ntohs(ent->dst.src_port),
++			NIPQUAD(ent->dst.dst_ip), ntohs(ent->dst.dst_port),
++			ent->rateinfo.credit, ent->rateinfo.credit_cap,
++			ent->rateinfo.cost);
++}
++
++static int dl_seq_show(struct seq_file *s, void *v)
++{
++	struct proc_dir_entry *pde =3D s->private;
++	struct ipt_hashlimit_htable *htable =3D pde->data;
++	unsigned int *bucket =3D (unsigned int *)v;
++
++	if (LIST_FIND_W(&htable->hash[*bucket], dl_seq_real_show,
++		      struct dsthash_ent *, s)) {
++		/* buffer was filled and unable to print that tuple */
++		return 1;
++	}
 +	return 0;
 +}
 +
-+static int clusterip_proc_release(struct inode *inode, struct file *file)
++static struct seq_operations dl_seq_ops =3D {
++	.start =3D dl_seq_start,
++	.next  =3D dl_seq_next,
++	.stop  =3D dl_seq_stop,
++	.show  =3D dl_seq_show
++};
++
++static int dl_proc_open(struct inode *inode, struct file *file)
 +{
-+	struct proc_dir_entry *pde =3D PDE(inode);
-+	struct clusterip_config *c =3D pde->data;
++	int ret =3D seq_open(file, &dl_seq_ops);
 +
-+	clusterip_config_put(c);
-+
-+	return 0;
-+}
-+
-+static int=20
-+clusterip_proc_read(char *buffer, char **start, off_t offset, int length,=
-=20
-+		    int *eof, void *data)
-+{
-+	struct clusterip_config *c =3D data;
-+	int i, len =3D 0;
-+
-+	READ_LOCK(&clusterip_lock);
-+	for (i =3D 0; i < c->num_local_nodes; i++) {
-+		len +=3D sprintf(buffer+len, "%u,", c->local_nodes[i]);
++	if (!ret) {
++		struct seq_file *sf =3D file->private_data;
++		sf->private =3D PDE(inode);
 +	}
-+	READ_UNLOCK(&clusterip_lock);
-+
-+	if (len >=3D 1)
-+		*(buffer+len-1) =3D '\n';
-+=09
-+	if (length >=3D len)
-+		*eof =3D 1;
-+
-+	return len;
++	return ret;
 +}
 +
-+static int=20
-+clusterip_proc_write(struct file *file, const char *input,=20
-+		     unsigned long size, void *data)
++static struct file_operations dl_file_ops =3D {
++	.owner   =3D THIS_MODULE,
++	.open    =3D dl_proc_open,
++	.read    =3D seq_read,
++	.llseek  =3D seq_lseek,
++	.release =3D seq_release
++};
++
++static int init_or_fini(int fini)
 +{
-+	#define PROC_WRITELEN	10
-+	char buffer[PROC_WRITELEN+1];
-+	struct clusterip_config *c =3D data;
-+	unsigned long  nodenum;
-+
-+	if (copy_from_user(buffer, input, PROC_WRITELEN))
-+		return -EFAULT;
-+
-+	if (*buffer =3D=3D '+') {
-+		nodenum =3D simple_strtoul(buffer+1, NULL, 10);
-+		if (clusterip_add_node(c, nodenum))
-+			return -ENOMEM;
-+	} else if (*buffer =3D=3D '-') {
-+		nodenum =3D simple_strtoul(buffer+1, NULL, 10);
-+		if (clusterip_del_node(c, nodenum))
-+			return -ENOENT;
-+	} else
-+		return -EIO;
-+
-+	return size;
-+}
-+#endif /* CONFIG_PROC_FS */
-+
-+static int init_or_cleanup(int fini)
-+{
-+	int ret;
++	int ret =3D 0;
 +
 +	if (fini)
 +		goto cleanup;
 +
-+	if (ipt_register_target(&clusterip_tgt)) {
++	if (ipt_register_match(&ipt_hashlimit)) {
 +		ret =3D -EINVAL;
-+		goto cleanup_none;
++		goto cleanup_nothing;
 +	}
 +
-+	if (nf_register_hook(&cip_arp_ops) < 0) {
-+		ret =3D -EINVAL;
-+		goto cleanup_target;
-+	}
-+
-+#ifdef CONFIG_PROC_FS
-+	memcpy(&clusterip_proc_fops, &proc_file_operations, sizeof(clusterip_proc=
-_fops));
-+	clusterip_proc_fops.owner =3D THIS_MODULE;
-+	clusterip_proc_fops.open =3D clusterip_proc_open;
-+	clusterip_proc_fops.release =3D clusterip_proc_release;
-+	clusterip_procdir =3D proc_mkdir("ipt_CLUSTERIP", proc_net);
-+	if (!clusterip_procdir) {
-+		printk(KERN_ERR "CLUSTERIP: Unable to proc dir entry\n");
++	/* FIXME: do we really want HWCACHE_ALIGN since our objects are
++	 * quite small ? */
++	hashlimit_cachep =3D kmem_cache_create("ipt_hashlimit",
++					    sizeof(struct dsthash_ent), 0,
++					    SLAB_HWCACHE_ALIGN, NULL, NULL);
++	if (!hashlimit_cachep) {
++		printk(KERN_ERR "Unable to create ipt_hashlimit slab cache\n");
 +		ret =3D -ENOMEM;
-+		goto cleanup_hook;
++		goto cleanup_unreg_match;
 +	}
-+#endif /* CONFIG_PROC_FS */
 +
-+	printk(KERN_NOTICE "ClusterIP Version %s loaded successfully\n",
-+		CLUSTERIP_VERSION);
++	hashlimit_procdir =3D proc_mkdir("ipt_hashlimit", proc_net);
++	if (!hashlimit_procdir) {
++		printk(KERN_ERR "Unable to create proc dir entry\n");
++		ret =3D -ENOMEM;
++		goto cleanup_free_slab;
++	}
 +
-+	return 0;
++	return ret;
 +
 +cleanup:
-+	printk(KERN_NOTICE "ClusterIP Version %s unloading\n",
-+		CLUSTERIP_VERSION);
-+#ifdef CONFIG_PROC_FS
-+	remove_proc_entry(clusterip_procdir->name, clusterip_procdir->parent);
-+#endif
-+cleanup_hook:
-+	nf_unregister_hook(&cip_arp_ops);
-+cleanup_target:
-+	ipt_unregister_target(&clusterip_tgt);
-+cleanup_none:
-+	return -EINVAL;
++	remove_proc_entry("ipt_hashlimit", proc_net);
++cleanup_free_slab:
++	kmem_cache_destroy(hashlimit_cachep);
++cleanup_unreg_match:
++	ipt_unregister_match(&ipt_hashlimit);
++cleanup_nothing:
++	return ret;
++=09
 +}
 +
 +static int __init init(void)
 +{
-+	return init_or_cleanup(0);
++	return init_or_fini(0);
 +}
 +
 +static void __exit fini(void)
 +{
-+	init_or_cleanup(1);
++	init_or_fini(1);
 +}
 +
 +module_init(init);
 +module_exit(fini);
 
---OwXh6gFRjCd3qPCM--
+--nHJAUhyIZkPvF01C--
 
---p6hDAtPN9q+ZnUca
+--v6YRErhBvjoBjrPV
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 Content-Disposition: inline
@@ -927,9 +897,9 @@ Content-Disposition: inline
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.5 (GNU/Linux)
 
-iD8DBQFBdujkXaXGVTD0i/8RAnjYAKCMLgEkH3elU5FsxlIZO4IQvGJNvACeK8aw
-IR9pK46UUs3HAGbg03KmkBI=
-=Lp0Y
+iD8DBQFBdupyXaXGVTD0i/8RAigZAJ92jVUs/QqL+pQOB9DnUINnVs0cpwCgkMuY
++ThDszo03iEfrcYkIn++OOs=
+=p5c7
 -----END PGP SIGNATURE-----
 
---p6hDAtPN9q+ZnUca--
+--v6YRErhBvjoBjrPV--
