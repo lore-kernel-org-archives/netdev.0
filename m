@@ -1,48 +1,41 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Linux 2.6.0-test9
-Date: Sun, 26 Oct 2003 22:43:58 -0800
+Subject: Re: [2.6.0-test8/9] ethertap oops
+Date: Sun, 26 Oct 2003 23:48:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031026224358.233e6d1a.davem@redhat.com>
-References: <Pine.LNX.4.44.0310261607230.3157-100000@home.osdl.org>
-	<Pine.LNX.4.44.0310261623000.3157-100000@home.osdl.org>
+Message-ID: <20031026234828.2cb1f746.davem@redhat.com>
+References: <L1fo.3gb.9@gated-at.bofh.it>
+	<m3ekwz7h3z.fsf@averell.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, Andries.Brouwer@cwi.nl, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: simon.roscic@chello.at, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.44.0310261623000.3157-100000@home.osdl.org>
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <m3ekwz7h3z.fsf@averell.firstfloor.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 26 Oct 2003 16:28:11 -0800 (PST)
-Linus Torvalds <torvalds@osdl.org> wrote:
+On Sun, 26 Oct 2003 23:45:52 +0100
+Andi Kleen <ak@muc.de> wrote:
 
-> But reverting the change is clearly the "safer" thing to do, I just worry 
-> that Alexey might have had a real reason for tryign to avoid the EINTR in 
-> the first place (for non-URG data).
+> diff -u linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o linux-2.6.0test7mm1-averell/drivers/net/ethertap.c
+> --- linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o	2003-09-11 04:12:33.000000000 +0200
+> +++ linux-2.6.0test7mm1-averell/drivers/net/ethertap.c	2003-10-26 23:41:17.000000000 +0100
 
-I'd like to hear something from Alexey first.
+This part looks good, applied.
 
-The problem we were trying to deal with was that when data
-is available to read a lot of people were complaining that
-we return -EINTR and no other system does this.
+> diff -u linux-2.6.0test7mm1-averell/net/netlink/af_netlink.c-o linux-2.6.0test7mm1-averell/net/netlink/af_netlink.c
+> --- linux-2.6.0test7mm1-averell/net/netlink/af_netlink.c-o	2003-10-09 00:29:02.000000000 +0200
+> +++ linux-2.6.0test7mm1-averell/net/netlink/af_netlink.c	2003-10-26 23:42:44.000000000 +0100
+> @@ -777,6 +777,7 @@
+>  	if (input)
+>  		nlk_sk(sk)->data_ready = input;
+>  
+> +	sk->sk_protocol = unit;
+>  	netlink_insert(sk, 0);
+>  	return sk;
+>  }
 
-This is heavily inconsistent with how we handle every other
-type of socket error.  In all other cases, a read() when data
-is available will succeed until the very last byte is sucked
-out of the socket, then any subsequent read() call after the
-queue is emptied will return the error.
+This part is not needed, netlink_create() does this for us :-)
 
-But I am starting to see that URG is different.  It is not like
-other socket errors that halt the socket and make no new data
-arrive after it happens.  Rather, URG can happen just about anywhere
-and more data can continue to flow into the socket buffers.
-
-In fact, this means that our change can result in an application
-can never see the error if data continues to arrive faster than
-the application can pull it out, see?
-
-Alexey, I think we did not understand this case fully when making this
-change.
+Thanks Andi.
