@@ -1,32 +1,68 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: [PATCH 2.6] e100: remove reference to NAPI config option
-Date: Mon, 31 Jan 2005 18:04:28 -0800
-Message-ID: <1107223468.3366.21.camel@sfeldma-mobl.dsl-verizon.net>
-References: <1107220952.3366.4.camel@sfeldma-mobl.dsl-verizon.net>
-	 <20050201014358.GD15786@krispykreme.ozlabs.ibm.com>
-Reply-To: sfeldma@pobox.com
+From: Bastian Blank <waldi@debian.org>
+Subject: [RFC] device types for s390 network devices
+Date: Tue, 1 Feb 2005 09:21:39 +0100
+Message-ID: <20050201082139.GB31992@wavehammer.waldi.eu.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20050201014358.GD15786@krispykreme.ozlabs.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="H1spWtNR+x+ondvy"
+Cc: netdev@oss.sgi.com, davem@davemloft.net
+To: linux-kernel@vger.kernel.org, pavlic@de.ibm.com
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-31 at 17:43, Anton Blanchard wrote:
-> We have seen issues with NAPI on ppc64 on various cards in the past.
-> Its possibly due to missing memory barriers; the interrupt and read of
-> the interrupt status provide syncronization with DMA on the non NAPI
-> case. Without this you need to be very careful to order reads (eg
-> between reading the ring status and the packet data).
 
-Anton, do you think this is the same issue Russel King is reporting
-against ARM?
+--H1spWtNR+x+ondvy
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=110686676829392&w=2
+The s390 network devices specifies device types which does not match the
+reality.
 
-What happens in the ppc64 case?  Do you have a fix for the ppc64 case?
+ctc
+=3D=3D=3D
 
--scott
+This device is currently specified as ARPHRD_SLIP. If I see it
+correctly, SLIP is an IP-only transport. ctc is more, the link level
+header contains the ethernet protocoll type, so it is some sort of
+pointopoint ethernet (which is sometimes crippled to IPv4-only for
+compatiblity reasons).
+
+qeth
+=3D=3D=3D=3D
+
+This device is currently specified as the corresponding real device
+type if it is a real adapter, or ARPHRD_ETHER if it is a virtual one.
+The virtual device behaves different in different modi:
+- "layer2": In this mode, the device behaves like a real layer 2 device.
+- "fake_ll": The kernel prepends a faked link level header.
+- default: The kernel processes the IP-packages.  This is the most used
+  mode, in whom it is impossible to use a standard libpcap as it parses
+  the IP-headers as Ethernet. (IBM suggests to patch libpcap, but I
+  think that changing the device type to something more matching is the
+  correct solution.)
+
+At least the last part needs some fix, but I don't know how to fix if
+properly.
+
+Bastian
+
+--=20
+The more complex the mind, the greater the need for the simplicity of play.
+		-- Kirk, "Shore Leave", stardate 3025.8
+
+--H1spWtNR+x+ondvy
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iEYEARECAAYFAkH/PBMACgkQnw66O/MvCNF2kACfZfwLIsQfwOQN1FttPlez0RP1
+1b4Ani15xbP7UoHepA/yvwXBP2a1Kxjy
+=38zD
+-----END PGP SIGNATURE-----
+
+--H1spWtNR+x+ondvy--
