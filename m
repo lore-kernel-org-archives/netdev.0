@@ -1,28 +1,31 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: skb_checksum_help
-Date: Mon, 24 Jan 2005 06:07:31 +0100
-Message-ID: <41F48293.9050301@trash.net>
-References: <20050124005348.GL23931@postel.suug.ch> <E1Cst4o-0007bD-00@gondolin.me.apana.org.au> <20050123202715.281ac87c.davem@davemloft.net> <20050124045635.GA30372@gondor.apana.org.au>
+From: Harsh <hanemade@gmail.com>
+Subject: help in using eth_change_mtu
+Date: Mon, 24 Jan 2005 14:29:27 +0530
+Message-ID: <cfc9593605012400595e529682@mail.gmail.com>
+Reply-To: Harsh <hanemade@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, tgraf@suug.ch,
-        david@davidcoulson.net, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050124045635.GA30372@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+Hello,
+         If some extra information is required to be sent with each
+packet then does that require to change Ethernet MTU 1500 to
+1500-(Bytes in extra info) or its ok with 1500 value of MTU? While
+checking source code of net_init.c in drivers/net dir i found one
+function eth_change_mtu. I want to know does that helps? why its given
+there in source code?
+regards,
+Harsh.
 
->Another possibility is some bogus netfilter module that the
->reporter is using.  His backtrace was showing an ipq_kill which
->isn't in the main tree.
->
-I was fooled by the name too, ipq_kill doesn't belong to ip_queue but
-to net/ipv4/ip_fragment.c.
-
-Regards
-Patrick
+static int eth_change_mtu(struct net_device *dev, int new_mtu)
+ {
+        if ((new_mtu < 68) || (new_mtu > 1500))
+                 return -EINVAL;
+        dev->mtu = new_mtu;
+        return 0;
+ }
