@@ -1,68 +1,67 @@
-From: jamal <hadi@cyberus.ca>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: dummy as IMQ replacement
-Date: 01 Feb 2005 08:13:33 -0500
-Message-ID: <1107263612.1095.598.camel@jzny.localdomain>
-References: <20050131135810.GC31837@postel.suug.ch>
-	 <1107181169.7840.184.camel@jzny.localdomain>
-	 <20050131151532.GE31837@postel.suug.ch>
-	 <1107186044.1076.11.camel@jzny.localdomain>
-	 <20050131155929.GF31837@postel.suug.ch>
-	 <1107189625.1076.77.camel@jzny.localdomain>
-	 <20050131181553.GG31837@postel.suug.ch>
-	 <1107202715.1075.559.camel@jzny.localdomain>
-	 <20050131225328.GI31837@postel.suug.ch>
-	 <1107259361.1095.584.camel@jzny.localdomain>
-	 <20050201125147.GK31837@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+Date: Tue, 1 Feb 2005 14:31:38 +0100
+Message-ID: <20050201133138.GM31837@postel.suug.ch>
+References: <1107123123.8021.80.camel@jzny.localdomain> <20050131135810.GC31837@postel.suug.ch> <1107181169.7840.184.camel@jzny.localdomain> <20050131151532.GE31837@postel.suug.ch> <41FED514.7060702@dsl.pipex.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com,
+        Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
         Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050201125147.GK31837@postel.suug.ch>
+        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+To: Andy Furniss <andy.furniss@dsl.pipex.com>
+Content-Disposition: inline
+In-Reply-To: <41FED514.7060702@dsl.pipex.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-02-01 at 07:51, Thomas Graf wrote:
-> > Why bother putting extra classifier functionality into a qdisc? 
-> > you should be able to rip off the classifier from sfq so you dont depend
-> > on it; you can then select one of n queues (eaction meta set class 1:X
-> > based on result of sfq classifier - or you can have it set the classids
-> > based on resulting hash index) 
+> >>  X =  ----------------------------------------------------------
+> >>       R*sqrt(2*b*p/3) + (t_RTO * (3*sqrt(3*b*p/8) * p * (1+32*p^2)))
+> >>
+> >>Where:
+> >>
+> >>     X is the transmit rate in bytes/second.
+> >>     s is the packet size in bytes.
+> >>     R is the round trip time in seconds.
+> >>     p is the loss event rate, between 0 and 1.0, of the number of loss
+> >>       events as a fraction of the number of packets transmitted.
+> >>     t_RTO is the TCP retransmission timeout value in seconds.
+> >>     b is the number of packets acknowledged by a single TCP
+> >>       acknowledgement.
 > 
-> Excellent idea, this would allow for various hash functions to be used
-> in a single sfq. We can use skb->tc_index for it so we can easly combine
+> WRT policers I never figured out where you would put the effects of 
+> playing with the burst size parameter and it's effects with few/many 
+> connections and any burstiness caused into an equasion like that.
 
-Let the meta action do that. Just set the skb->tc_classid in my opinion;
-recall we can change classid now ..
+A burst buffer has impact on R on later packets, it can "smooth" R
+and X and thus results in more stable rates. Depending on the actual
+burst, it can avoid retransmits which stabilizes the rate as well.
 
-> it with a underlying dsmark. The hardest part is to find a intuitive
-> form to define the hash, it should be possible to for example define
-> a hash based on daddr + hproto only completely ignoring saddr. The
-> perutrbation must be made optional, sometimes the hash will not produce
-> any unwanted collisions (hash based on dscp for example) so modifying it
-> wouldn't make sense. We can fork sfq and make a gsfq which takes the
-> hash from tc_index and disabled perturbation if it is set to 0.
-> Thoughts?
+> This sounds cool. For me in someways I think it could be nicer (in the 
+> case of shaping from the wrong end of a slow link) to delay the real 
+> packets - that way the tcps of the clients get to see the smoothed 
+> version of the traffic and you can delay udp aswell.
 
-You can let the user define that via tc but have a default;
-eg: 
-tc dev eth0 add sfq ematch
-tc dev eth0 set sfq pertub xxx
+It's impossible to never drop anything, for udp we can either drop
+it or use ECN and hope the other ip stack takes care of it or the
+application implements its own cc algorithm. Basically you can already
+do that with (G)RED. Most UDP users which provide a continous stream
+such as video streams, implement some kind of key datagram which contains
+the number of datagrams received since the last key datagram and the
+application throttles down based on that so dropping is often the only
+way to achieve a general working solution. Delaying UDP packets and
+then drop them if the buffer is full is very dangerous, often the
+protocols based on UDP rely on the assumption that datagrams get lost
+randomly and not succcessive. We can think about precicse policing
+for UDP again once the current poor application level cc algorithms
+have failed and the industry accepted ECN as the right thing. For
+now most of them still suffer from the NIH syndrom in this area.
 
-match u32 ...
-ematch sfq
-ematch meta classid 1:2 
-eaction meta set tcindex 101
-eaction meta set fwmark ..
+> How intelligent and how much, if any, per connection state do you/could 
+> you keep?
 
-etc
-
-I have to run, havent looked at the rest of your email - will later.
-
-cheers,
-jamal 
+I keep a rate estimator for every flow on ingress in a hash table and
+lookup it up on egress with the flow parameters reversed. It gets
+pretty expensive on huge amounts of connection usually one doesn't
+want to do per connection policing on such boxes. ;->
