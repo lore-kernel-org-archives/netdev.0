@@ -1,50 +1,50 @@
-From: Paul Jackson <pj@sgi.com>
-Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
-Date: Tue, 1 Mar 2005 12:40:41 -0800
-Message-ID: <20050301124041.2403d641.pj@sgi.com>
-References: <42168D9E.1010900@sgi.com>
-	<20050218171610.757ba9c9.akpm@osdl.org>
-	<421993A2.4020308@ak.jp.nec.com>
-	<421B955A.9060000@sgi.com>
-	<421C2B99.2040600@ak.jp.nec.com>
-	<421CEC38.7010008@sgi.com>
-	<421EB299.4010906@ak.jp.nec.com>
-	<20050224212839.7953167c.akpm@osdl.org>
-	<20050227094949.GA22439@logos.cnet>
-	<4221E548.4000008@ak.jp.nec.com>
-	<20050227140355.GA23055@logos.cnet>
-	<42227AEA.6050002@ak.jp.nec.com>
-	<1109575236.8549.14.camel@frecb000711.frec.bull.fr>
-	<20050227233943.6cb89226.akpm@osdl.org>
-	<1109592658.2188.924.camel@jzny.localdomain>
+From: Elliott Mitchell <ehem@m5p.com>
+Subject: Re: (usagi-users 03226) Re: support of IPv6 by NFS
+Date: Tue, 1 Mar 2005 13:37:52 -0800 (PST)
+Message-ID: <200503012137.j21LbqmL005962@m5p.com>
+References: <200503011256.25282.Info@quantum-sci.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, guillaume.thouvenin@bull.net, kaigai@ak.jp.nec.com,
-        marcelo.tosatti@cyclades.com, davem@redhat.com, jlan@sgi.com,
-        lse-tech@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, elsa-devel@lists.sourceforge.net
-To: hadi@cyberus.ca
-In-Reply-To: <1109592658.2188.924.camel@jzny.localdomain>
+Cc: netdev@oss.sgi.com, Jeroen Massar <jeroen@unfix.org>
+In-Reply-To: <200503011256.25282.Info@quantum-sci.com>
+To: usagi-users@linux-ipv6.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal wrote:
-> What was wrong with just going ahead and just always
-> invoking your netlink_send()? 
+>From: Quantum Scientific <Info@quantum-sci.com>
+> On Tuesday 01 March 2005 9:08, Jeroen Massar wrote:
+> > On Tue, 2005-03-01 at 07:44 -0600, Quantum Scientific wrote: 
+> > >On Tuesday 01 March 2005 4:10, Gilles Quillard wrote:
+> > >> This works but this needs that the kernel has been compiled with IPv6, 
+> > >> which is not mandotary. A lot of people in the Linux community do not 
+> > >> have experience with IPv6 yet and are not ready to use it. So making it 
+> > >> mandatory for NFS, even in a pure IPv4 network, is not easy.
+> > >
+> > >My experience is that IPV6 is extremely difficult to figure out how to set 
+> up 
+> > >securely, for the time being, due to lack of connection-sharing.
+> > 
+> > NAT is not a firewall. Get that into your brain.
+> 
+> Jeroen, was this addressed to me, or to Giles?  Never mind, it doesn't matter;  your 
+> words show that you are an uneducated man.
 
-I think the hope was to reduce the cost of the accounting hook in fork
-to "next-to-zero" if accounting is not being used on that system.
+Though I was planning to be more polite, I was going to write a similar
+message. If you're depending on a firewall as a main defense, you're
+already dead. If you wish your hosts to be secure, they MUST be secure
+even if they didn't have a firewall!
 
-See Andrew's query earlier:
-> b) they are next-to-zero cost if something is listening on the netlink
->    socket but no accounting daemon is running.
+The already mentioned approach works quite well. Filter packets with
+only the SYN bit set, no incoming connections will work, outgoing
+connections will be unaffected. No state needed. Though important for a
+firewall, stateful filtering isn't a critical feature to state the IPv6
+stack is working.
 
-Presumably sending an ignored packet costs something, quite possibly
-more than "next-to-zero".
 
 -- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.650.933.1373, 1.925.600.0401
+(\___(\___(\______          --=> 8-) EHM <=--          ______/)___/)___/)
+ \   (    |         EHeM@gremlin.m5p.com PGP 8881EF59         |    )   /
+  \_  \   |  _____  -O #include <stddisclaimer.h> O-   _____  |   /  _/
+    \___\_|_/82 04 A1 3C C7 B1 37 2A*E3 6E 84 DA 97 4C 40 E6\_|_/___/
