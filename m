@@ -1,60 +1,79 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 1/7] [au1000]: Use netif_carrier_* instead of IFF_RUNNING
-Date: Mon, 28 Mar 2005 02:06:58 +0200
-Message-ID: <20050328000658.GO3086@postel.suug.ch>
-References: <20050328000610.GN3086@postel.suug.ch>
+Subject: [PATCHSET] IFF_RUNNING related fixes
+Date: Mon, 28 Mar 2005 02:06:10 +0200
+Message-ID: <20050328000610.GN3086@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, source@mvista.com
+Cc: netdev@oss.sgi.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20050328000610.GN3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/03/28 00:06:22+02:00 tgraf@suug.ch 
-#   [au1000]: Use netif_carrier_* instead of IFF_RUNNING
-#   
-#   Signed-off-by: Thomas Graf <tgraf@suug.ch>
-# 
-# drivers/net/au1000_eth.c
-#   2005/03/28 00:06:10+02:00 tgraf@suug.ch +2 -8
-#   [au1000]: Use netif_carrier_* instead of IFF_RUNNING
-# 
-diff -Nru a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
---- a/drivers/net/au1000_eth.c	2005-03-28 01:08:16 +02:00
-+++ b/drivers/net/au1000_eth.c	2005-03-28 01:08:16 +02:00
-@@ -1681,10 +1681,6 @@
- 		control |= MAC_FULL_DUPLEX;
- 	}
- 
--	/* fix for startup without cable */
--	if (!link) 
--		dev->flags &= ~IFF_RUNNING;
--
- 	aup->mac->control = control;
- 	aup->mac->vlan1_tag = 0x8100; /* activate vlan support */
- 	au_sync();
-@@ -1709,16 +1705,14 @@
- 	if_port = dev->if_port;
- 	if (aup->phy_ops->phy_status(dev, aup->phy_addr, &link, &speed) == 0) {
- 		if (link) {
--			if (!(dev->flags & IFF_RUNNING)) {
-+			if (!netif_carrier_ok) {
- 				netif_carrier_on(dev);
--				dev->flags |= IFF_RUNNING;
- 				printk(KERN_INFO "%s: link up\n", dev->name);
- 			}
- 		}
- 		else {
--			if (dev->flags & IFF_RUNNING) {
-+			if (netif_carrier_ok) {
- 				netif_carrier_off(dev);
--				dev->flags &= ~IFF_RUNNING;
- 				dev->if_port = 0;
- 				printk(KERN_INFO "%s: link down\n", dev->name);
- 			}
+Fixes various drivers still relying on IFF_RUNNING. I don't have
+any of these cards so all patches completely untested.
+
+Unresolved broken users of IFF_RUNNING are:
+
+  drivers/wan/syncppp.c
+     The stats update based on IFF_RUNNING has been broken
+     for a long time. I'm not sure whether it should be
+     changed to check netif_running or carrier_ok so I
+     left it as-is for now.
+
+  drivers/s390/net/*
+     Various usages I'm not sure about the intention of the
+     original code. Authors contacted but no reply so far.
+
+Please do a
+
+	bk pull bk://kernel.bkbits.net/tgraf/netdev-2.6-iff_running
+
+This will update the following files:
+
+ drivers/net/au1000_eth.c       |   10 ++--------
+ drivers/net/bmac.c             |    2 --
+ drivers/net/sk98lin/skge.c     |    8 +++-----
+ drivers/net/tlan.c             |    4 ++--
+ drivers/net/tokenring/ibmtr.c  |   11 +++--------
+ drivers/net/wan/lmc/lmc_main.c |    8 ++------
+ include/linux/if.h             |    2 +-
+ 7 files changed, 13 insertions(+), 32 deletions(-)
+
+through these ChangeSets:
+
+<tgraf@suug.ch> (05/03/28 1.2039)
+   [NET]: Change comment to describe the real meaning of IFF_RUNNING
+   
+   Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+<tgraf@suug.ch> (05/03/28 1.2038)
+   [sk98lin]: Use netif_carrier_* instead of IFF_RUNNING and remove obsolete usage of IFF_RUNNING
+   
+   Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+<tgraf@suug.ch> (05/03/28 1.2037)
+   [ibmtr]: Use netif_carrier_* instead of IFF_RUNNING and remove obsolete usage of IFF_RUNNING
+   
+   Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+<tgraf@suug.ch> (05/03/28 1.2036)
+   [lmc]: Use netif_carrier_* instead of IFF_RUNNING
+   
+   Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+<tgraf@suug.ch> (05/03/28 1.2035)
+   [tlan]: Use netif_carrier_* intead of IFF_RUNNING
+   
+   Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+<tgraf@suug.ch> (05/03/28 1.2034)
+   [bmac]: Remove obsolete usage of IFF_RUNING
+   
+   Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+<tgraf@suug.ch> (05/03/28 1.2033)
+   [au1000]: Use netif_carrier_* instead of IFF_RUNNING
+   
+   Signed-off-by: Thomas Graf <tgraf@suug.ch>
