@@ -1,7 +1,7 @@
 From: janitor@sternwelten.at
-Subject: [patch 11/18]  net/pcnet32: replace 	schedule_timeout() with msleep_interruptible()
-Date: Sun, 31 Oct 2004 00:42:53 +0200
-Message-ID: <E1CO1vx-0002OW-FJ@sputnik>
+Subject: [patch 09/18]  net/ewrk3: replace schedule_timeout() with 	msleep_interruptible()
+Date: Sun, 31 Oct 2004 00:42:46 +0200
+Message-ID: <E1CO1vq-0002HF-E8@sputnik>
 Cc: netdev@oss.sgi.com, janitor@sternwelten.at, nacc@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
@@ -12,29 +12,31 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Any comments would be appreciated.
+Any comments would be, as always, appreciated.
 
-Description: Use msleep_interruptible() instead of schedule_timeout() to
-guarantee the task delays as expected.
+-Nish
+
+Description: Uses msleep() instead of schedule_timeout() to guarantee
+the task delays as expected.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
 ---
 
- linux-2.6.10-rc1-max/drivers/net/pcnet32.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ linux-2.6.10-rc1-max/drivers/net/ewrk3.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32 drivers/net/pcnet32.c
---- linux-2.6.10-rc1/drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32	2004-10-24 17:05:14.000000000 +0200
-+++ linux-2.6.10-rc1-max/drivers/net/pcnet32.c	2004-10-24 17:05:14.000000000 +0200
-@@ -847,7 +847,7 @@ static int pcnet32_phys_id(struct net_de
-     if ((!data) || (data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ)))
-     data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
+diff -puN drivers/net/ewrk3.c~msleep_interruptible-drivers_net_ewrk3 drivers/net/ewrk3.c
+--- linux-2.6.10-rc1/drivers/net/ewrk3.c~msleep_interruptible-drivers_net_ewrk3	2004-10-24 17:06:20.000000000 +0200
++++ linux-2.6.10-rc1-max/drivers/net/ewrk3.c	2004-10-24 17:06:20.000000000 +0200
+@@ -1655,8 +1655,7 @@ static int ewrk3_phys_id(struct net_devi
  
--    schedule_timeout(data * HZ);
-+    msleep_interruptible(data * 1000);
-     del_timer_sync(&lp->blink_timer);
+ 		/* Wait a little while */
+ 		spin_unlock_irqrestore(&lp->hw_lock, flags);
+-		set_current_state(TASK_UNINTERRUPTIBLE);
+-		schedule_timeout(HZ>>2);
++		msleep(250);
+ 		spin_lock_irqsave(&lp->hw_lock, flags);
  
-     /* Restore the original value of the bcrs */
+ 		/* Exit if we got a signal */
 _
