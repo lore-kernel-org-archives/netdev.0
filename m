@@ -1,39 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
-Date: Tue, 01 Apr 2003 20:02:25 -0800 (PST)
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: Intel 1000 MT slow to restart
+Date: Tue, 1 Apr 2003 20:19:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030401.200225.88014087.davem@redhat.com>
-References: <20030402.122518.62753078.yoshfuji@linux-ipv6.org>
-	<20030401.193429.64279267.davem@redhat.com>
-	<20030402.130232.78951283.yoshfuji@linux-ipv6.org>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010107D332@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: toml@us.ibm.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030402.130232.78951283.yoshfuji@linux-ipv6.org>
+To: "Patrick R. McManus" <mcmanus@ducksong.com>, netdev@oss.sgi.com
+content-class: urn:content-classes:message
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Wed, 02 Apr 2003 13:02:32 +0900 (JST)
+> I'm running intel's e1000 driver (versions 4.4.12 and tried 
+> 4.6.11) for a 1000/MT (dual) nic on a 2.4.19 kernel.
+> 
+> for normal operations, everything is fine.. however if I do a 
+> "ifconfig eth0 down; ifconfig eth0 up" 20 or 30 seconds 
+> passes where I can't do any traffic. the ifconfig up comes 
+> back quickly, and ifconfig reports the driver as up (and 
+> netlink thinks its up if I try and add another one).. I just 
+> can't move any traffic. no rx's and my tx's only move 
+> counters in the driver - they don't actually make it to the wire. 
+> 
+> if I do "ifconfig eth0 down; sleep 30; ifconfig eth0 up" all 
+> is well immediately after the up.. The driver doesn't seem to 
+> be doing anything different in either case - its as if the 
+> NIC itself is enforcing some kind of quiet period. 
+> 
+> I'm really writing to see if I'm crazy and hoping someone 
+> else can corroborate this is what they've seen too.
 
-   In article <20030401.193429.64279267.davem@redhat.com> (at Tue, 01 Apr 2003 19:34:29 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
-   
-   >    How about just removing 8 bytes from struct {ip,ipv6}_esp_hdr
-   >    like this?
-   >    
-   > Sure, but does anyone need the 8 bytes there?  I thought so, which is
-   > why I didn't think about your suggestion :-)
-   
-   Let's define
-     #define IPV6_ESP_MINDATA  8
-   
-   and put "(sizeof(struct ip6_esp_hdr) + IPV6_ESP_MINDATA)" in such places.
+Do you have spanning tree turned on on your switch?  This could cause
+such delays.
 
-I just checked, nobody cares about the 8 bytes in enc_data.
-
-Therefore, I think you're idea of enc_data[0] is the best.
-
-Someone please double check my claims and submit a patch. :-)
+-scott
