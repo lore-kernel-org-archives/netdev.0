@@ -1,33 +1,81 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC: IPSEC patch 0 for netlink events
-Date: Wed, 30 Mar 2005 23:27:17 +1000
-Message-ID: <20050330132717.GA11163@gondor.apana.org.au>
-References: <1111864971.1092.904.camel@jzny.localdomain> <20050326194707.GA9872@gondor.apana.org.au> <1111867875.1089.915.camel@jzny.localdomain> <20050327081848.GA13428@gondor.apana.org.au> <1111950449.1089.938.camel@jzny.localdomain> <20050330125518.GA10853@gondor.apana.org.au> <1112188704.1088.170.camel@jzny.localdomain>
+From: emann@mrv.com (Eran Mann)
+Subject: [PATCH 2.6.11.6-bk2] e100: Use EEPROM config for Auto MDI/MDI-X
+Date: Wed, 30 Mar 2005 15:42:12 +0200
+Message-ID: <424AACB4.9040600@mrv.com>
+References: <4240E35C.2090203@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1112188704.1088.170.camel@jzny.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------040907020301060902010002"
+Cc: Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	linux.nics@intel.com,
+	Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261891AbVC3Nk4@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4240E35C.2090203@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 30, 2005 at 08:18:25AM -0500, jamal wrote:
-> 
-> we let the km make the call; pfkey already had these calls and i believe
-> they are the ones that should go in order to be generic. Actually more
-> like split into two. But thats defered for later (if it ever gets done).
+This is a multi-part message in MIME format.
+--------------040907020301060902010002
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yes you're right.  I thought you were putting it into xfrm_state_insert
-but that's not the case.
+Current e100.c doesn't follow the EEPROM configuration regarding Auto 
+MDI/MDI-X switching, instead it is enabled unconditionally for the 
+relevant chips.
+This is especially bad since according to Intel's errata this feature is 
+no-longer supported.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Signed-off-by: Eran Mann <emann@mrv.com>
+
+--------------040907020301060902010002
+Content-Type: text/x-patch;
+ name="e100-mdix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="e100-mdix.patch"
+
+--- linux-2.6.11.6-bk2/drivers/net/e100.c	2005-03-29 19:57:10.000000000 +0200
++++ linux-2.6.11.6-bk2-patched/drivers/net/e100.c	2005-03-29 19:28:52.000000000 +0200
+@@ -1072,13 +1072,17 @@
+ 		mdio_write(netdev, nic->mii.phy_id, MII_NSC_CONG, cong);
+ 	}
+ 
+-	if((nic->mac >= mac_82550_D102) || ((nic->flags & ich) && 
+-		(mdio_read(netdev, nic->mii.phy_id, MII_TPISTATUS) & 0x8000) && 
+-		(nic->eeprom[eeprom_cnfg_mdix] & eeprom_mdix_enabled)))
+-		/* enable/disable MDI/MDI-X auto-switching */
+-		mdio_write(netdev, nic->mii.phy_id, MII_NCONFIG,
+-			nic->mii.force_media ? 0 : NCONFIG_AUTO_SWITCH);
+-
++	if(((nic->mac >= mac_82550_D102) || ((nic->flags & ich) &&
++		(mdio_read(netdev, nic->mii.phy_id, MII_TPISTATUS) &
++			0x8000)))) {
++		/* Enable/Disable Auto MDI/MDI-X Switching */
++		if ((nic->eeprom[eeprom_cnfg_mdix] & eeprom_mdix_enabled) &&
++		    !nic->mii.force_media)
++			mdio_write(netdev, nic->mii.phy_id, MII_NCONFIG,
++			   		NCONFIG_AUTO_SWITCH);
++		else
++                	mdio_write(netdev, nic->mii.phy_id, MII_NCONFIG, 0);
++		}
+ 	return 0;
+ }
+ 
+@@ -2245,11 +2249,11 @@
+ 		goto err_out_iounmap;
+ 	}
+ 
+-	e100_phy_init(nic);
+-
+ 	if((err = e100_eeprom_load(nic)))
+ 		goto err_out_free;
+ 
++	e100_phy_init(nic);
++
+ 	memcpy(netdev->dev_addr, nic->eeprom, ETH_ALEN);
+ 	if(!is_valid_ether_addr(netdev->dev_addr)) {
+ 		DPRINTK(PROBE, ERR, "Invalid MAC address from "
+
+--------------040907020301060902010002--
