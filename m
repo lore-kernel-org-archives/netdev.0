@@ -1,30 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [ANNOUNCE] NF-HIPAC: High Performance Packet Classification
- for Netfilter
-Date: Thu, 26 Sep 2002 13:52:59 -0700 (PDT)
+Subject: Re: [PATCH] IPv6: Don't Process ND Messages with Invalid Options
+Date: Thu, 26 Sep 2002 14:31:31 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020926.135259.62665945.davem@redhat.com>
-References: <20020925.224001.99456805.davem@redhat.com>
-	<Mutt.LNX.4.44.0209270122570.12511-100000@blackbird.intercode.com.au>
+Message-ID: <20020926.143131.52117281.davem@redhat.com>
+References: <20020925.133031.538200492.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, nf@hipac.org, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
-In-Reply-To: <Mutt.LNX.4.44.0209270122570.12511-100000@blackbird.intercode.com.au>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20020925.133031.538200492.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: James Morris <jmorris@intercode.com.au>
-   Date: Fri, 27 Sep 2002 01:27:41 +1000 (EST)
-   
-   So, this could be used for generic network layer encapsulation, and be 
-   used for GRE tunnels, SIT etc. without the kinds of kludges currently in 
-   use?  Sounds nice.
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Wed, 25 Sep 2002 13:30:31 +0900 (JST)
 
-Such IPIP tunnels have very real problems though, since only 64-bits
-of packet quoting are required in ICMP errors, it is often impossible
-to deal with PMTU requests properly, see "#ifndef
-I_WISH_WORLD_WERE_PERFECT" in net/ipv4/ip_gre.c
+   Linux happened to process invalid ND messages with invalid options
+   such as
+    - length of ND options is 0
+    - length of ND options is not enough
+   Specification says that such messages must be silently discarded.
+   This patch parses/checks ND options before it changes state of
+   neighbour / address etc. and ignores such messages.
+   
+   Following patch is against linux-2.4.19.
+
+Patch applied to 2.4.x and 2.5.x, thanks a lot.
+
+Let us hope more patches like this one are coming :-)
