@@ -1,118 +1,44 @@
-From: Laudney Ren <ttcplinux@yahoo.com>
-Subject: T/TCP for Linux Website Major Update Completed
-Date: Mon, 1 Apr 2002 06:57:30 -0800 (PST)
+From: "Napanda. C. Pemmaiah" <pemmaiah@cc.usu.edu>
+Subject: Confirmation!
+Date: Mon, 01 Apr 2002 18:43:54 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020401145730.14109.qmail@web21302.mail.yahoo.com>
+Message-ID: <3CABC1F5@webmail.usu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
 To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, everyone:
+Hello,
+       How are you? I am Anup Pemmaiah doing my masters in computer science at 
+Utah State University -USA. I have a linux box running Red Hat 7.2 (kernel 
+version 2.4). My ethernet driver is 3c59x. I had two questions regarding 3c59x 
+module installation.
 
-   "T/TCP for Linux" has seen major updates during the
-last one month:
+1)  When the system is booted the module gets installed. I was curious from 
+where does this installation takes place. As far i learnt from the 
+documentation, this is done because of the entry "alias eth0 3c59x" in the 
+/etc/modules.conf file. But even if I delete this entry and reboot the system 
+still the module gets installed.
 
-1) A new mirror site opened at
-http://ttcplinux.tripod.com
-   The project home is still at
-http://ttcplinux.sourceforge.net
+2)          I removed the module by "rmmod 3c59x" and again installed it by 
+"insmod /lib/modules/...../net/3c59x.o". The module got installed but in the 
+/proc/modules it shows "3c59x    0(unused)". And from /etc/rc.d/init.d if I 
+start the network by saying "./network start" the eth0 conncetion does not 
+come up. Is it because of some options setting to be done during insmod. I 
+searched and tried a lot but I could not figure out the above two problems.
 
-2) "Tools"
-   a) Sock
-      Sock is a network program written by W. Richard
-Stevens. It can
-      be used both as a client and as a server and can
-send both TCP and
-      UDP packets.
+            It will be really great if you can give the solution for the above 
+problems. I will be eagerly waiting for your reply. I am sorry for disturbing 
+you. Have a nice day.
 
-   b) TCPdump
-      Tcpdump is originally written by Van Jacobson,
-Craig Leres and
-      Steven McCanne, all of whom come from Lawrence
-Berkeley Laboratory.
-      Tcpdump sets the network interfaces in
-"promiscuous" mode to sniff
-      every packet received by the interfaces.
-Tcpdump-3.3 is able to
-      print out CC, CC_NEW and CC_ECHO options
-introduced by T/TCP.
+Thank you,
+Anup Pemmaiah
 
-   c) SSH_tunnel
-      SSH_tunnel is a perl script. If you are using
-ssh behind a firewall
-      or a proxy, you can use this script to direct
-your ssh traffic through
-      the proxy.
-
-3) "Join us"
-   If you are interested, you can join as an end-user,
-andience or developer.
-   You will see how to do so on this page.
-
-4) "Documents"
-   This is the part that has seen most drastic
-updates. There have been about
-   20 flowgraphs to outline TCP/IP stack in an easy
-manner or describe methods
-   call sequence in details. You can browse the docs
-online or download a zipped
-   version at
-http://prdownloads.sourceforge.net/ttcplinux/Docs_2_4_2.zip.
-   All the documents are divided into six parts:
-
-Part one: Linux Kernel TCP/IP Stack Analyses
-   You will see everything, from mostly involved
-structures to all the methods
-   called during the sending and receiving process and
-state transition graph,
-   that are both important and foundamental. Anyone
-that is interested in the
-   understanding of TCP/IP stack of Linux kernel can
-find useful information here.
-
-Part two: Introduction to T/TCP defined in RFC 1644
-   Here you see detailed introductions to T/TCP, eg.
-what modifications does T/TCP
-   bring to standard TCP?
-
-Part three: Design and Implementation Approach 
-   This part is the longest one. It's about
-implementation approaches. Lies here the
-   answer to "How T/TCP add new functions to TCP with
-being able to fall back to
-   TCP automatically or manually?"
-
-Part four: Known Problems with T/TCP defined in RFC
-1644
-   T/TCP has been around for some time. But it's been
-rejected for its serious security
-   problems. A detailed breakdown of those problems
-and "crack methods" are described
-   here. Maybe the biggest mission of "T/TCP for
-Linux" is to handle the security
-   problems and come up with a new RFC. Of course,
-with the necessary involvement of
-   each of you around.
-
-Part five: Current Patches Performance Testing
-Information 
-Part six: Current Patches Debugging and Fixing
-Information 
-   These two parts are not started since the debugging
-process have yet started.Information
-   will be updated lively on these two parts.
-
-5) "Contact"
-   If you have any comment or question, contact us.
-Email addresses can be found on
-   the contact page. Or, simply post to our mailing
-lists and forum. We'll try the best
-   to give instant replies.
-
---laudney@21cn.com
-
-__________________________________________________
-Do You Yahoo!?
-Yahoo! Greetings - send holiday greetings for Easter, Passover
-http://greetings.yahoo.com/
+-------------------------------------------------
+N.C.Pemmaiah (Anup)
+620E, 700N, Apt# 2
+Logan, UT-84321,USA.
+email: pemmaiah@cc.usu.edu, anup_pemmaiah@yahoo.com
+Ph: 435-512-0935(mob.), 435-752-5976 (Res.)
+-------------------------------------------------
