@@ -1,35 +1,43 @@
-From: Cedric Gavage <cedric.gavage@unixtech.be>
-Subject: Re: [Fwd: kernel 2.4.21]
-Date: Mon, 28 Jul 2003 09:39:11 +0200
+From: Antonio Dolcetta <zagarna@yahoo.com>
+Subject: b44 module problems
+Date: Mon, 28 Jul 2003 11:43:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F24D31F.5050904@unixtech.be>
-References: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>	<20030719191723.0821227f.davem@redhat.com>	<3F1E53F7.5000803@unixtech.be>	<20030723023528.76b0f69c.davem@redhat.com>	<3F1E58EE.5010109@unixtech.be>	<20030723024648.2e4b6a62.davem@redhat.com>	<3F1E7435.4060308@unixtech.be> <20030727163422.28e44736.davem@redhat.com>
+Message-ID: <20030728114302.1cbb6f70.zagarna@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030727163422.28e44736.davem@redhat.com>
+To: pp@ee.oulu.fi
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Wed, 23 Jul 2003 13:40:37 +0200
-> Cedric Gavage <cedric.gavage@unixtech.be> wrote:
-> 
-> 
->>Ok, now it's e100 driver, I will wait some hours to see if we have again 
->>problems, thanks for your help.
-> 
-> 
-> Any problems yet?
-> 
+Hi, I'm having problems with the new b44 module on linux-2.6-test1 patched
+with the same patch that evenually got into test-2
 
-It's ok now... I was waiting some hours (days) to see if it was really ok ;)
+this is how i can reproduce the problem:
 
-Thanks for your help.
+1 ) boot and load the module, don't plug in the ethernet cable
+2 ) try to configure the card via dhcp, it times out
+3 ) rmmod b44
+
+at this point I get cpu at 90% 
+new istances of lsmod and rmmod hang during execution
+i get the following kernel events:
+
+unregister_netdevice: waiting for eth0 to become free. Usage count = 1
+
+every few seconds, 
+is there any more testing i can do for you?
+
+the module works flawlessly otherwise
+thank you
+
+	Antonio Dolcetta
 
 -- 
-  Cedric Gavage <cedric.gavage@unixtech.be>
-  http://unixtech.be - http://gavage.com - OpenPGP: 0xED325C64
+Speaking just for me, I don't think I have Linux blinders on my eyes.
+I can see other platforms, but I *choose* to ignore them on the theory
+that if I ignore them hard enough they will go away.
+This theory is obviously crazy. However, it also appears to be working.
+                -- Eric S. Raymond
