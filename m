@@ -1,28 +1,47 @@
-From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-Subject: Re: How to count tx and rx bytes?
-Date: Tue, 16 Dec 2003 14:38:16 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031216143816.A1546@sygehus.dk>
-References: <3FDE13AE.3050402@candelatech.com>
+From: Stephen Smalley <sds@epoch.ncsc.mil>
+Subject: Re: [RFC] SO_PEERSEC - security credentials for Unix stream sockets
+Date: Tue, 16 Dec 2003 08:47:31 -0500
+Sender: linux-security-module-bounces@wirex.com
+Message-ID: <1071582451.32407.12.camel@moss-spartans.epoch.ncsc.mil>
+References: <Xine.LNX.4.44.0312160816350.16300-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <3FDE13AE.3050402@candelatech.com>; from greearb@candelatech.com on Mon, Dec 15, 2003 at 12:03:58PM -0800
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>,
+	Chris Wright <chrisw@osdl.org>,
+	lsm <linux-security-module@wirex.com>, netdev@oss.sgi.com,
+	kuznet@ms2.inr.ac.ru
+Return-path: <linux-security-module-bounces@wirex.com>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0312160816350.16300-100000@thoron.boston.redhat.com>
+List-Unsubscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=unsubscribe>
+List-Archive: <http://mail.immunix.com/pipermail/linux-security-module>
+List-Post: <mailto:linux-security-module@mail.wirex.com>
+List-Help: <mailto:linux-security-module-request@mail.wirex.com?subject=help>
+List-Subscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=subscribe>
+Errors-To: linux-security-module-bounces@wirex.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 15, 2003 at 12:03:58PM -0800, Ben Greear wrote:
-> 
-> Is there an agreed upon standard for exactly what ethernet drivers
-> should be counting for rx-bytes and tx-bytes?  For example, should the
-> counters include the 4-byte FCS?  Should they include the ethernet header?
+On Tue, 2003-12-16 at 08:19, James Morris wrote:
+> It's not reliable: the required buffer size could change between calls.  
+> Do you know of any examples of syscalls which do this?
 
-Should they include the frame padding in tx-bytes? Some do, some don't.
-IMHO they should, because you do actually transmit those bytes on the wire.
+getxattr(2).  From the man page:
+
+       An empty buffer of size zero can be passed into these calls  to  return
+       the  current size of the named extended attribute, which can be used to
+       estimate the size of a buffer which is sufficiently large to  hold  the
+       value associated with the extended attribute.
+                                                                                
+       The  interface  is  designed to allow guessing of initial buffer sizes,
+       and to enlarge buffers when the return value indicates that the  buffer
+       provided was too small.
+
+The SELinux getfilecon(3) function (libselinux/src/getfilecon.c) uses
+getxattr(2) in this manner.
 
 -- 
-Regards,
-Rask Ingemann Lambertsen
+Stephen Smalley <sds@epoch.ncsc.mil>
+National Security Agency
