@@ -1,49 +1,58 @@
-From: Thomas Spatzier <thomas.spatzier@de.ibm.com>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Wed, 15 Dec 2004 16:03:08 +0100
-Message-ID: <OF28701C56.81E1D26E-ONC1256F6B.00513EDD-C1256F6B.0052AF84@de.ibm.com>
-References: <1103118626.1076.53.camel@jzny.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] PKT_SCHED: Provide compat policer stats in action policer
+Date: Wed, 15 Dec 2004 16:22:52 +0100
+Message-ID: <20041215152252.GM8493@postel.suug.ch>
+References: <20041215130128.GK8493@postel.suug.ch> <1103119774.1077.74.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, jgarzik@pobox.com,
-        netdev@oss.sgi.com, Paul Jakma <paul@clubi.ie>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <1103118626.1076.53.camel@jzny.localdomain>
-To: hadi@cyberus.ca
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1103119774.1077.74.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* jamal <1103119774.1077.74.camel@jzny.localdomain> 2004-12-15 09:09
+> 
+> Hopefully this makes my point to Patrick earlier about regression
+> testing? ;-> Good effort Thomas.
 
+I generally agree with you but I also understand patrick's point. The
+testsuite doesn't replace manual testing for explict changes but rather
+helps to catch the easly forgotten cases.
 
+I made some significant changes to the testsuite and I'm still adding
+lots of tests. I already found a few minor bugs such as unhandled policer
+results, unhandled error cases in action configuration which I will
+push patches for once 2.6.10 is out.
 
+The architecture currently looks like this:
 
-jamal <hadi@cyberus.ca> wrote on 15.12.2004 14:50:27:
+ qdisc specific and generic tests
+ foreach classful-qdisc
+   classifier specific and generic tests
+   foreach classifier
+     action/policer/indev tests
 
-> When you netif_stop_queue you should never receive packets anymore
-> at the device level. If you receive any its a bug and you should drop
-> them and bitch violently. In other words i think what you have at the
-> moment is bandaid not the solution.
+generic tests include:
+ - add,dump,delete,add,delete basic tests
+ - stress tests (adding/dumping/deleting a few hundred objects)
+ - statistics tests
 
-When we do a netif_stop_queue, we do not get any more packets.
-So this behaviour is ok. The problem is that the socket write
-queues fill up then and get blocked as soon as they are full.
+So for example indev is tested K*I*N*M times where K is the number of
+kernels available in my testing enviroment, I is the number of
+iproute2 versions, N is the number of classful qdiscs and M is the
+number of classifiers supporting indev.  This helps to catch bugs
+specific to a certain module and can be used to check consistency
+between various iproute2 modules.
 
-> Can you describe how your driver uses the netif_start/stop/wake
-> interfaces?
+/proc/conf.gz gets splitted up and is provided to the test scripts
+as enviroment variables so they can easly check if the kernel is
+capable of for example indev and if not check if it properly returns
+an error code.
 
-Before the patch we are talking about:
-When we detect a cable pull (or something like this) we call
-netif_stop_queue and set switch off the IFF_RUNNING flag.
-Then when we detect that the cable is plugged in again, we
-call netif_wake_queue and switch the IFF_RUNNING flag on.
-
-And with the patch:
-On cable pull we switch off IFF_RUNNING and call
-netif_carrier_off. We still get packets but drop them.
-When the cable is plugged in we switch on IFF_RUNNING and
-call netif_carrier_on.
-
-Regard,
-Thomas.
+I will publish the latest testsuite as soon as I've finished writing
+the most urgent tests.
