@@ -1,49 +1,26 @@
-From: josef Jeff Sipek <jeffpc@optonline.net>
-Subject: [PATCH/RFC 2.6] NET: 64-bit network statistics
-Date: Fri, 03 Sep 2004 13:06:55 -0400
+From: <Rezwanul_Kabir@Dell.com>
+Subject: ioctl() to get MAC address from EEPROM
+Date: Fri, 3 Sep 2004 12:06:02 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409031307.01240.jeffpc@optonline.net>
+Message-ID: <06226F23984D7A49A694576CF06603F908BBCC@ausx2kmpc106.aus.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
 
-I've created a patch that monitors changes to the network statistics variables 
-and keeps internal 64-bit counter. I decided to split it into two parts 
-(patches are to follow in next emails):
- 1) generic variable monitoring system (watch64)
+Hi
 
-The watch64 system allows the programmer to specify the approximate interval 
-at which he wants his variables checked. If he tries to specify shorter 
-interval than the minimum a default value of HZ/10 is used. To minimize 
-locking, RCU and seqlock are used. On 64-bit systems, all is optimized away. 
+    There seems to be no standard way to retrieve the MAC address of a NIC stored in the EEPROM ( ETHTOOL_GEEPROM ioctl may be used to do such thing but there's a need for a more direct standard interface).This is sometimes necessary when the MAC address in EEPROM may differ from the one associated with the software interface (i.e. dev_addr in struct net_device).For example, in some modes of channel bonding , the MAC address of the active NIC is duplicated on the rest of the members of the specific bond/team. How to fetch the "permanent" MAC address in this case?
+    Any plan to include such commands in ethtool ioctls? Is there  a better way to do this?
+    Any suggestions would be appreciated..
+    Thanks..
+         --rez
 
- 2) network statistics specific patch (64network)
 
-Upon registration of a network device, all the statistics variables are 
-registered with watch64. Additionally, a new proc file is 
-created /proc/net/dev64 displays the 64-bit values as supposed 
-to /proc/net/dev which is left to display the original 32-bit variables for 
-backward compatibility. The sysfs interface 
-(/sys/class/net/<interface>/statistics/*) displays the 64-bit values only. On 
-64-bit systems, all is optimized away through watch64.
-
-Josef "Jeff" Sipek.
-
-- -- 
-*NOTE: This message is ROT-13 encrypted twice for extra protection*
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBOKSzwFP0+seVj/4RAkz7AJ0Ut21nPMkHGKv1dXK17yoA5hQ1+ACglpMq
-IHh+tYW3innmwjlA7EU2x78=
-=LnHg
------END PGP SIGNATURE-----
+ 
