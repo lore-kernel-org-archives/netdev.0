@@ -1,37 +1,44 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: kernel BUG at page_alloc.c:98 -- compiling with distcc
-Date: Thu, 29 Apr 2004 14:28:07 -0700
+From: "Fleischer, Julie N" <julie.n.fleischer@intel.com>
+Subject: [announce] Carrier Grade Linux v3.0 Standards early draft available
+Date: Thu, 29 Apr 2004 14:30:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040429142807.1fa4c5ea.akpm@osdl.org>
-References: <382320000.1082759593@taltos.ny.ficc.gs.com>
-	<16527.4259.174536.629347@segfault.boston.redhat.com>
-	<20040429210951.GB20453@logos.cnet>
+Message-ID: <CA95C29D57188841ABB072EA7357C00D048CF9C0@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jmoyer@redhat.com, carson@taltos.org, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, andrea@suse.de, davem@redhat.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-In-Reply-To: <20040429210951.GB20453@logos.cnet>
+Content-class: urn:content-classes:message
+To: <usagi-users@linux-ipv6.org>, <netdev@oss.sgi.com>,
+        <mipl@list.mipl.mediapoli.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Marcelo Tosatti <marcelo.tosatti@cyclades.com> wrote:
->
-> > Andrea fixed this in his tree by deferring the page free to process context
-> > instead of BUG()ing on PageLRU(page).
-> 
-> Yeap, his fix looks OK.
+I wanted to let this mailing list know about the availability of an
+early public draft of the Carrier Grade Linux v3.0 Standards
+specification, available at
+http://www.osdl.org/docs/carrier_grade_linux_standards_apis_specs_requir
+ements_definition.pdf.  This is an early draft document containing
+references to useful and necessary existing standards and interface
+specifications (POSIX, IETF) referenced in other CGL v3.0 section
+specifications.
 
-It does.
+Past OSDL Carrier Grade Linux technical documents have contained all
+requirements in a single document.  For OSDL CGL v3.0 draft releases, we
+are releasing them as more granular sections, roughly split on
+functional boundaries.  These boundaries are Standards (this document),
+Availability, Clustering, Hardware, Performance, Security, and
+Serviceability.
 
-It would be nice to change
+More information on Carrier Grade Linux and the Carrier Grade Linux
+Working Group can be found at
+http://osdl.org/lab_activities/carrier_grade_linux/.
 
-	if (in_interrupt())
+Feel free to direct any comments on the spec to me directly at
+julie.n.fleischer@intel.com or to the CGL Discussion mailing list at
+cgl_discussion@osdl.org.
 
-to
+Thanks.
+- Julie Fleischer
 
-	if (in_interrupt() || ((count++ % 10000) == 0))
-
-just to exercise that code path a bit more.
+**These views are not necessarily those of my employer.**
