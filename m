@@ -1,25 +1,24 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 19/39] net/dev: replace schedule_timeout() with msleep()
-Date: Tue, 8 Feb 2005 16:52:09 -0800
-Message-ID: <20050208165209.0481fb9d.davem@davemloft.net>
-References: <20050120235352.GH2600@us.ibm.com>
+Subject: Re: [2.6 patch] kill xfrm_export.c
+Date: Tue, 8 Feb 2005 16:48:57 -0800
+Message-ID: <20050208164857.1c51656e.davem@davemloft.net>
+References: <20050119091715.GQ1841@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	kernel-janitors@lists.osdl.org
-To: Nishanth Aravamudan <nacc@us.ibm.com>
-In-Reply-To: <20050120235352.GH2600@us.ibm.com>
-Sender: linux-net-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050119091715.GQ1841@stusta.de>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jan 2005 15:53:52 -0800
-Nishanth Aravamudan <nacc@us.ibm.com> wrote:
+On Wed, 19 Jan 2005 10:17:15 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
-> Description: Use msleep() instead of schedule_timeout() to guarantee the task
-> delays as expected. The current code uses TASK_INTERRUPTIBLE, but does not
-> respond to signals, so msleep() should be ok.
+> This patch removes xfrm_export.c and moves the EXPORT_SYMBOL{,_GPL}'s to 
+> the files where the actual functions are.
 > 
-> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Applied, thanks Nishanth.
+Applied, thanks Adrian.
