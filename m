@@ -1,80 +1,41 @@
-From: "CIT/Paul" <xerox@foonet.net>
-Subject: RE: Route cache performance under stress
-Date: Sun, 8 Jun 2003 19:55:58 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <001001c32e19$81bc7ea0$4a00000a@badass>
-References: <20030608234926.GA9453@netnation.com>
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: Re: [PATCH][IPV6] keeping dst refcnt correctly with using xfrm
+Date: Mon, 9 Jun 2003 09:49:18 +0900
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030609094918.3c26d296.kazunori@miyazawa.org>
+References: <20030606144925.29ad2a9f.kazunori@miyazawa.org>
+	<Mutt.LNX.4.44.0306090145030.3907-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "'Simon Kirby'" <sim@netnation.com>,
-	"'Florian Weimer'" <fw@deneb.enyo.de>
-In-Reply-To: <20030608234926.GA9453@netnation.com>
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, usagi@linux-ipv6.org,
+   netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: James Morris <jmorris@intercode.com.au>
+In-Reply-To: <Mutt.LNX.4.44.0306090145030.3907-100000@excalibur.intercode.com.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The problem with the route cache as it stands is that it adds every new
-packet that isn't in the route cache to the cache, say you have 
-A denial of service attack going on, OR you just have millions of hosts
-going through the router (if you were an ISP).  Anything with seeminly
-Random source ips (something like juno-z.101f.c will generate worst case
-scenario for forwarding packets) will cause the cache to constantly
-Add new entries at pretty much the rate of the attack.. This can stifle
-just about any linux router with a measly 10 megabits/second of traffic
-unless
-The router is tuned up to a large degree (NAPI, certain nics, route
-cache timings, etc.) and even then it can still be destroyed no matter
-what
-The cpu is with less than 100,000 packets per second and in mosts cases
-less than 30k.. That's why it's just no acceptable for companies using
-it as a replacement for say a cisco 7200 VXR series (npe300,400 nsf-1,
-etc.) which can do 300K+ packet per second of routing (and yes it can
-even route juno-z.101f.c at 300kpps, I have tested it).   Linux has no
-problem doing 300kpps from a single source to a single destination
-provided you have NAPI or ITR or something limiting the interrupts.. The
-overhead is the route cache and the related systems that use it and also
-netfilter is very slow :/  One of these days they will fix it..... If
-anyone has any ideas or needs a test-bed to try out code on or would
-like me to test some of their code I would be happy to test it on our
-development platforms (single and dual processor with intel e1000
-82545/6 and above, also e100 and tulip). 
+On Mon, 9 Jun 2003 01:47:52 +1000 (EST)
+James Morris <jmorris@intercode.com.au> wrote:
 
-Thanks for your time
+> On Fri, 6 Jun 2003, Kazunori Miyazawa wrote:
+> 
+> > In output functions, dst is changed by xfrm_lookup if there is 
+> > any matching policy. Therefore original dst which is held before
+> > calling xfrm_lookup will be never released.
+> > When xfrm_lookup scceeds and dst is changed, original dst should
+> > be release.
+> 
+> It is released in xfrm_lookup():
+> 
+>         *dst_p = dst;
+>         ip_rt_put(rt);
+>         xfrm_pol_put(policy);
+>         return 0;
+> 
+> 
 
-P.S. to answer your iteration question.. It does not seem to be such
-overhead on the cpu even if the route-cache is 600,000 in size.. I have
-tested this and while there is a definite increase in cpu it comes
-nothing close to the code that has to add every new arriving packet to
-the list.  IMHO the best way to do this would be like CEF w/ adjacency
-lists and not have it add every new packet that comes along 
+I overlooked it. Thank you. 
 
-Paul xerox@foonet.net http://www.httpd.net
-
-
------Original Message-----
-From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
-Behalf Of Simon Kirby
-Sent: Sunday, June 08, 2003 7:49 PM
-To: Florian Weimer
-Cc: netdev@oss.sgi.com; linux-net@vger.kernel.org
-Subject: Re: Route cache performance under stress
-
-
-On Sun, Jun 08, 2003 at 03:10:25PM +0200, Florian Weimer wrote:
-
-> Further parameters which could be tweaked is the kind of adjacency 
-> information (where to store the L2 information, whether to include the
-
-> prefix length in the adjacency record etc.).
-
-What is the problem with the current approach?  Does the overhead come
-from having to iterate through the hashes for each prefix?
-
-Simon-
-
-[        Simon Kirby        ][        Network Operations        ]
-[     sim@netnation.com     ][   NetNation Communications Inc.  ]
-[  Opinions expressed are not necessarily those of my employer. ]
-
+--Kazunori Miyazawa (Yokogawa Electric Corporation)
