@@ -1,34 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6 0/7]: assorted fixes
-Date: Mon, 04 Oct 2004 01:38:10 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/3] NET: Generic rate estimator
+Date: Mon, 4 Oct 2004 01:57:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41608D62.4030200@trash.net>
-References: <41606B47.9040703@trash.net> <20041003152924.27f97e27.davem@davemloft.net>
+Message-ID: <20041003235737.GO14344@postel.suug.ch>
+References: <20041003213124.GG14344@postel.suug.ch> <20041003213954.GI14344@postel.suug.ch> <20041003161436.50293f9a.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041003152924.27f97e27.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041003161436.50293f9a.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+* David S. Miller <20041003161436.50293f9a.davem@davemloft.net> 2004-10-03 16:14
+> First, how does this new thing ever get built into the tree?
 
->On Sun, 03 Oct 2004 23:12:39 +0200
->Patrick McHardy <kaber@trash.net> wrote:
->
->
->>following are 6 assorted fixes and one small cleanup patch.
->>You can pull all patches from bk://212.42.230.204/net-2.6
->>I'll send 2.4 versions later.
->>
->
->All looks great, so I pulled in your changes, thanks.
->
+I misunderstood you before and didn't realize I missed to diff the
+Makefile part. Sorry about that.
 
-Thanks. All bugs were only in 2.6, so no 2.4 patches.
-
-Regards
-Patrick
+--- linux-2.6.9-rc3.orig/net/core/Makefile	2004-10-04 01:55:37.000000000 +0200
++++ linux-2.6.9-rc3/net/core/Makefile	2004-09-30 21:30:42.000000000 +0200
+@@ -2,7 +2,7 @@
+ # Makefile for the Linux networking core.
+ #
+ 
+-obj-y := sock.o skbuff.o iovec.o datagram.o stream.o scm.o
++obj-y := sock.o skbuff.o iovec.o datagram.o stream.o scm.o gen_stats.o gen_estimator.o
+ 
+ obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
+ 
