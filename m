@@ -1,72 +1,109 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: TxDescriptors -> 1024 default. Please not for every NIC!
-Date: 05 Jun 2004 10:37:57 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086446277.1592.205.camel@jzny.localdomain>
-References: <Pine.LNX.4.44.0406021235200.17290-100000@fast2.cs.caltech.edu>
-Reply-To: hadi@cyberus.ca
+From: Russell Leighton <russ@elegant-software.com>
+Subject: Re: Fw: F_SETSIG broken/changed in 2.6 for UDP and TCP sockets?
+Date: Sat, 05 Jun 2004 11:14:11 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <40C1E343.8080105@elegant-software.com>
+References: <20040531151843.7144dfce.akpm@osdl.org> <40BFDD4F.5080408@elegant-software.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Marc Herbert <marc.herbert@free.fr>,
-        "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Cheng Jin <chengjin@cs.caltech.edu>
-In-Reply-To: <Pine.LNX.4.44.0406021235200.17290-100000@fast2.cs.caltech.edu>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S261179AbUFEPK0@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+In-Reply-To: <40BFDD4F.5080408@elegant-software.com>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-06-02 at 15:49, Cheng Jin wrote:
-> Marc,
-> 
-> In general, I very much agree with what you have stated about not having
-> a large txqueuelen.  Txqueuelen should be something that alleviates
-> the mismatch between CPU speed and NIC transmission speed,
+Last issue resolved. I am posting so there is a complete thread for 
+anyone that stumbles on this in the future.
 
-Thats the theory. More interesting of course are bus speeds, arbitration
-schemes,  RAM latencies and throughput and other dynamic bottlenecks
-like system loads. 
+F_SETSIG IS working...what is NOT working (as it did in 2.4) is the 
+interaction between clone() and getpid() in child processes.
+This issue altered the control of my program and made it look like I was 
+not receiving signals.
 
->  temporarily.
-> As long as the txqueuelne is greater than zero, say 10 just to be safe, 
-> NIC will be running at full speed (unless there were inefficiencies in 
-> scheduling) so there is no incentive in setting it to be an excessively 
-> large value like 1000.
+I'll send another email to the kernel mailing list w/a test program that 
+demonstrates this.
 
-In theory as well, the only time you even need to queue is when theres
-congestion..
-In reality, totaly different ballgame. In other words its not a simple
-system that you can throw Littles theorems at.
+Russell Leighton wrote:
 
-Marc, good email, at least you didnt hand wave and declare the wind was
-blowing towards the south today.
-
-My opinion:
-I agree that the 1000 qlen is excessive for 10/100 - infact i think the
-value should dynamically adjust itself even for gige capable NICs
-(example if a gige NIC negotiates a 10Mbps speed with link partner, then
-you should adjust the qlen)[1]. That wont be trivial to do - but more
-importantly motivation lacks because i dont think the situation we have
-right now is devastating. To clarify:
-A single TCP flow will fill in any pipe you give it under proper
-conditions (proper congestion control algorithms, buffer etc)[2]. 
-Most apps using TCP dont care very much about latency; the only
-exception would be some scientific clustering technologies using TCP for
-control messaging. And for those type of apps, you should be able to 
-tune the qlen to your liking using tc or ip utilities (I claim they
-shouldnt be using tcp to begin with, but thats another discussion). If
-you dont want to take that extra step to tune then you dont care, and
-IMO you shouldnt complain.
-
-Having said all that: i still think theres value in maybe issuing a
-warning or making the default qlen selection a compile time config.
-
-
-cheers,
-jamal
-
-[1] I think it would make a nice project for someone with time. I can
-consult for anyone interested.
-[2] Looking at the recent patches on BIC, it does seem pretty agressive
-and should have no problem filling a 10Gige pipe with proper processing
-power.
+>
+> Thanks to all that helped me troubleshoot.
+>
+> Of the 2 issues I had with FedoraCore2, one problem is solved:
+>
+>    * Multicast issues were solved by using another NIC. It seems that
+>      the driver for the NatSemi DP8381[56] does not receive mutlicast
+>      properly.
+>    * F_SETSIG still seems broken for TCP for me when my process sets up
+>      more than a few fd's...I will try the latest kernel to see if this
+>      goes away
+>
+>
+> Russ
+>
+> Andrew Morton wrote:
+>
+>> Begin forwarded message:
+>>
+>> Date: Mon, 31 May 2004 14:45:08 -0400
+>> From: Russell Leighton <russ@elegant-software.com>
+>> To: linux-kernel@vger.kernel.org
+>> Subject: F_SETSIG broken/changed in 2.6 for UDP and TCP sockets?
+>>
+>>
+>>
+>> I have a program that works fine under stock rh9 (2.4.2-8) but has 
+>> issues getting signaled under FedoraCore2 (2.6.5-1.358)
+>> using SETSIG to a Posix RT signal.
+>>
+>> The program does the standard:
+>>
+>>  /* hook to process */
+>>  if ( fcntl(fdcallback->fd, F_SETOWN, mon->handler_q.thread->pid) == 
+>> -1 ) {
+>>    aw_log(fdcallback->handler->logger, AW_ERROR_LOG_LEVEL,
+>>       "cannot set owner on fd (%s)",
+>>       strerror(errno));
+>>  }/* end if */
+>>
+>>  /* make async */
+>>  if ( fcntl(fdcallback->fd, F_SETFL, (O_NONBLOCK | O_ASYNC) ) == -1 ) {
+>>    aw_log(fdcallback->handler->logger, AW_ERROR_LOG_LEVEL,
+>>       "cannot set async on fd (%s)",
+>>       strerror(errno));
+>>  }/* end if */
+>>
+>>  /* hook to signal */
+>>  if ( fcntl(fdcallback->fd, F_SETSIG, AW_SIG_FD) == -1 ) {
+>>    aw_log(fdcallback->handler->logger, AW_ERROR_LOG_LEVEL,
+>>       "cannot set signal on fd (%s)",
+>>       strerror(errno));
+>>  }/* end if */
+>>
+>> Under Fedora things work well for raw sockets (much lower latency 
+>> than in 2.4!) but are inconsistent with udp or tcp sockets.
+>>
+>> In the udp case, I when I listen for multicast packets my app only 
+>> receives them when I am running a tcpdump (bizarre!).
+>>
+>> In the tcp case, I don't get signaled if I do the F_SETSIG on more 
+>> than 1 fd.
+>>
+>> Any tips on tracking this down would be much appreciated.
+>>
+>> Thx
+>>
+>> Russ
+>>
+>> -
+>> To unsubscribe from this list: send the line "unsubscribe 
+>> linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+>>
+>>
+>>  
+>>
+>
+>
