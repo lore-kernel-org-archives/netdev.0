@@ -1,38 +1,74 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Wrong UIDs reported in /proc/net/tcp
-Date: Thu, 18 Nov 2004 13:27:00 -0800
-Message-ID: <20041118132700.29c23d00@zqx3.pdx.osdl.net>
-References: <20041109205358.GA64015@calma.pair.com>
-	<E1CRdBr-0001P2-00@gondolin.me.apana.org.au>
-	<20041118190257.GA7084@calma.pair.com>
-	<20041118210307.GA9557@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Chad N. Tindel" <chad@tindel.net>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
+From: Koushik <raghavendra.koushik@s2io.com>
+Subject: [PATCH 2.6.9-rc2 1/1] S2io: fixes in free_shared_mem function
+Date: Thu, 18 Nov 2004 13:35:06 -0800 (PST)
+Message-ID: <20041118213506.1081C32887@linux.site>
+Cc: rapuru.sriram@s2io.com, leonid.grossman@s2io.com, alicia.pena@s2io.com,
+        ravinandan.arakali@s2io.com, raghavendra.koushik@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041118210307.GA9557@gondor.apana.org.au>
+To: jgarzik@pobox.com, netdev@oss.sgi.com, kumarkr@us.ibm.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Nov 2004 08:03:07 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Hello All,
+	As per KK's review comment received on Nov 8 about the free_shared_mem function, Iam sending the following patch.
 
-> On Thu, Nov 18, 2004 at 02:02:57PM -0500, Chad N. Tindel wrote:
-> > 
-> > OK, so just out of sheer morbid curiousity, I added an ioctl which will
-> > accept 4 parameters (the address/port pairs), and will return the user id
-> > associated with that socket.  I also changed pidentd to call this ioctl
-> > instead of looking at /proc/net/tcp.  This should theoretically get rid
-> > of all race conditions.
-> 
-> Please show us the code of your ioctl.
-> 
-> Have you tried netlink yet? Does it exhibit the same problem?
+The change log includes:
 
-It could also be the sockets are shared between processes with uid's or that
-the real/effective uid or different or even the uid is that of the original
-creator and the file was inherited across exec.
+1. Break from the main 'for loop' if ba[i] is NULL.
+
+2. In the second level 'for loop', if ba[i][j] is NULL, instead of 
+continuing as was done previously, we now free the ba[i] pointer and 
+break from the main 'for loop'.
+
+3. In the 'while loop' inside the second tier 'for loop', if any of the 
+three pointers (ba or ba->ba_0_org or ba->ba_1_org) is found to be NULL, 
+then ba[i], ba[i][j] and the non NULL buffer pointer if any 
+(ba_0_org or ba_1_org) is freed and break from the main 'for loop'.
+
+Signed-off-by: Koushik <raghavendra.koushik@s2io.com>
+Signed-off-by: Ravi <ravinandan.arakali@s2io.com>
+---
+diff -urN vanilla_linux/drivers/net/s2io.c linux-2.6.8.1/drivers/net/s2io.c
+--- vanilla_linux/drivers/net/s2io.c	2004-11-16 16:42:16.429560736 -0800
++++ linux-2.6.8.1/drivers/net/s2io.c	2004-11-18 10:07:47.553183896 -0800
+@@ -560,21 +560,35 @@
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+ 		blk_cnt =
+ 		    config->rx_cfg[i].num_rxd / (MAX_RXDS_PER_BLOCK + 1);
++		if (!nic->ba[i])
++			goto end_free;
+ 		for (j = 0; j < blk_cnt; j++) {
+ 			int k = 0;
+-			if (!nic->ba[i][j])
+-				continue;
++			if (!nic->ba[i][j]) {
++				kfree(nic->ba[i]);
++				goto end_free;
++			}
+ 			while (k != MAX_RXDS_PER_BLOCK) {
+ 				buffAdd_t *ba = &nic->ba[i][j][k];
++				if (!ba || !ba->ba_0_org || !ba->ba_1_org)
++				{
++					kfree(nic->ba[i]);
++					kfree(nic->ba[i][j]);
++					if(ba->ba_0_org)
++						kfree(ba->ba_0_org);
++					if(ba->ba_1_org)
++						kfree(ba->ba_1_org);
++					goto end_free;
++				}
+ 				kfree(ba->ba_0_org);
+ 				kfree(ba->ba_1_org);
+ 				k++;
+ 			}
+ 			kfree(nic->ba[i][j]);
+ 		}
+-		if (nic->ba[i])
+-			kfree(nic->ba[i]);
++		kfree(nic->ba[i]);
+ 	}
++end_free:
+ #endif
+ 
+ 	if (mac_control->stats_mem) {
