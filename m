@@ -1,45 +1,48 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: Re: [RFT][PATCH] cleanup net/atm/br2684.c
-Date: Tue, 12 Aug 2003 12:44:32 -0400
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: [PATCH] tun driver use private linked list.
+Date: Tue, 12 Aug 2003 09:48:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308121644.h7CGiVsG001282@ginger.cmf.nrl.navy.mil>
-References: <20030811114823.5b81474c.shemminger@osdl.org>
-Reply-To: chas3@users.sourceforge.net
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Message-ID: <5.1.0.14.2.20030812092213.08dc6ea0@unixmail.qualcomm.com>
+References: <20030808113404.0e9e1e6d.shemminger@osdl.org>
+ <200308051630.28552.bellucda@tiscali.it>
+ <20030805090647.691daa7e.shemminger@osdl.org>
+ <200308051910.55823.bellucda@tiscali.it>
+ <20030807154524.4794ad45.shemminger@osdl.org>
+ <20030807155901.49f1a424.davem@redhat.com>
+ <20030808113404.0e9e1e6d.shemminger@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-reply-to: Your message of "Mon, 11 Aug 2003 11:48:23 PDT."
-             <20030811114823.5b81474c.shemminger@osdl.org>
+To: "David S. Miller" <davem@redhat.com>,
+   Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030809011801.3258f7af.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->	- Get rid of all the MOD_INC stuff. MOD_INC is not a spinlock or semaph
->ore
->	  and don't use it like that!  Have driver clean itself up properly on
->	  unload.
+At 01:18 AM 8/9/2003, David S. Miller wrote:
+>On Fri, 8 Aug 2003 11:34:04 -0700
+>Stephen Hemminger <shemminger@osdl.org> wrote:
+>
+>> Less grotty version, applies over earlier patch.
+>>       - keep a private list.  
+>>       - fix debug format strings.
+>>       - drop the name entry in the private data structure since it already
+>>         has a pointer to netdev that has name.
+>
+>Applied, thanks for following up on this Stephen.
 
-i actually have a patch for that already.  pppoatm has the same problem.
-since both are now holding semaphores during ioctl most of the MOD_* stuff
-can go away.  however, one pair needs to kept around in br2684 to keep the
-module from being removed while the user space process is keeping the
-vcc's in place.  this will go away when everything is converted to netlink.
+Folks,
 
->+	netdev = alloc_netdev(sizeof(struct br2684_dev),
->+			      ni.ifname[0] ? ni.ifname : "nas%d",
->+			      br2684_setup);
->+	if (!netdev)
->+		return -ENOMEM;
->...
->+
->+	write_lock_irq(&devs_lock);
->+	brdev->number = list_empty(&br2684_devs) ? 1 :
->+	    list_entry_brdev(br2684_devs.prev)->number + 1;
->+	list_add_tail(&brdev->br2684_devs, &br2684_devs);
->+	write_unlock_irq(&devs_lock);
-> 	return 0;
+Sorry for jumping in late. 
+I didn't implement cleanup logic in module_exit() because TUN module is not supposed 
+to be unloaded if it has network devices, _even if those devices are down_.
+TUN registers net device only when user application asks for it.
+        fd = open("/dev/net/tun") -> ioctl(fd, CREATE_TUN_DEV) -> read(fd)/write(fd);
+Net device must not be destroyed while fd is open.
 
-this is a little different than the old code.  if the user didnt
-provide an ifname, then brdev->number is used to determine the
-name of the interface instead of letting the network stack choose
-the next available interface name.  not sure if this really matters
-to anyone.
+So instead of cleaning up in tun_module_exit() we should fix misc driver to do refcounting 
+for misc devices so that we could bump ref count for tun driver when application creates
+net device.
+
+Max
