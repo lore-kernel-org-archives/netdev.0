@@ -1,52 +1,69 @@
-From: Petr Vandrovec <vandrove@vc.cvut.cz>
-Subject: 2.6.2 crash after network link failure
-Date: Mon, 9 Feb 2004 14:01:34 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: 09 Feb 2004 10:01:15 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209130134.GA14136@vana.vc.cvut.cz>
+Message-ID: <1076338874.1026.36.camel@jzny.localdomain>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-  on Saturday our network switch lost power due to scheduled
-Power outage, and unfortunately one of systems connected to the switch
-(mine :-( ) did not survive it. When I came to the system's console today, 
-I found (written by hand, made a bit shorter...) on screen:
 
-e100: eth0 NIC Link is Up 100Mbps Full Duplex
-kernel/sched.c:1802: spin_is_locked on uninitialized spinlock d6e74e18
-Unable to handle NULL kernel pointer dereference at virtual address 00000000
-...
-EIP: C0120AF1  <__wake_up_common + 0x17/0x57>
-...
-EAX: D6E74E30   EBX: D6E74E18    ECX: 00000001    EDX: 00000000
-ESI: 00000001   EDI: 00000001    EBP: C9F3DEDC    ESP: C9F3DEC0
-...
-Call Trace:
-   __wake_up + 0x7B/0x139
-   sock_def_write_space + 0x8C/0x94
-   sock_wfree + 0x4B/0x4D
-   __kfree_skb + 0x5C/0xD9
-   net_tx_action + 0x3E/0x210
-   do_softirq + 0x92/0x94
-   do_IRQ + 0x207/0x360
-   common_interrupt + 0x18/0x20
+On Sun, 2004-02-08 at 15:44, Julian Anastasov wrote:
+> 	Hello,
+> 
+> 	Appended is a patch that modifies proxy_arp to check
+> the target's neighbour state before reporting any information
+> to requestors. The benefit is that the availability of the target
+> host is properly reported to the requestor, we prefer not to send
+> replies when target is unreachable. 
 
+It should probably be a sysctl example proxy_arp_validate_neigh.
+I am happy with the way it is right now in the situation i use it in.
 
-It looks to me like that we've got skb on completion_queue which was connected
-to a bit unhappy socket - one which had sk->sk_sleep uninitialized. Only problem 
-is that only af_unix sets skb->destructor to sock_wfree, so I somehow miss how 
-this could be triggered by e100 link change.
+> The changes:
+> 
+> - now pneigh_lookup has more priority compared to arp_fwd_proxy
+>
+> - neigh_event_ns is called only once per request, not twice
 
-Kernel is approx 2.6.2-bk2, UP, APIC, IOAPIC, no-preempt, all DEBUG options except
-CONFIG_FRAME_POINTER enabled.
+Could the neighbor be removed while we have the packet in the proxy
+queue?
+It doesnt seem like theres any harm done in redoing the neigh_event_ns
+twice.
 
-System is 1.6GHz P4/512MB RAM.
-						Best regards,
-							Petr Vandrovec
-							vandrove@vc.cvut.cz
+> - the 'skb->pkt_type == PACKET_HOST' check has no semantic anymore,
+> the requestor should have same information no matter the packet
+> type. In all cases we add response delay for all requests, broadcast
+> or unicast, to help other authoritative hosts to reply before us.
+> 
+
+So far we havent been delaying responses to unicast because their
+state is typically sane. I should say we are taking for granted
+the sender's state machine is sane and would send a valid unicast
+probe. Are you protecting against insane implementations?
+Other than Linux what other OS actually sends unicast probes?
+
+> - the RTCF_DNAT case is not delayed anymore (may be it is not used
+> anymore, IIRC)
+> 
+
+Looking at 2.6.1 CONFIG_IP_ROUTE_NAT RTCF_NAT is still in use. Recommend
+leaving it.
+
+> Remaining questions:
+> 
+> - do we need to delay the pneigh_lookup case? Now it is still delayed
+> as before.
+
+Didnt follow.
+
+cheers,
+jamal
