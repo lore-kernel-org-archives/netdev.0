@@ -1,30 +1,39 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [PATCH] s390: qeth tcp segmentation offload
-Date: Mon, 28 Mar 2005 23:09:29 -0800
-Message-ID: <20050328230929.639e51f3.akpm@osdl.org>
-References: <200503290533.j2T5X0ZZ028790@hera.kernel.org>
-	<4248FD8D.6030208@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] s390: claw network device driver
+Date: Tue, 29 Mar 2005 02:10:02 -0500
+Message-ID: <20050329071002.GA16204@havoc.gtf.org>
+References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org, schwidefsky@de.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4248FD8D.6030208@pobox.com>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050328230830.5e90396f.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->
-> Please help me understand:  why add all this TSO code (zerocopy), if you 
->  are adding memcpy() under the hood?
+On Mon, Mar 28, 2005 at 11:08:30PM -0800, Andrew Morton wrote:
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+> >
+> > Linux Kernel Mailing List wrote:
+> >  > ChangeSet 1.2231.1.122, 2005/03/28 19:50:29-08:00, richtera@us.ibm.com
+> >  > 
+> >  > 	[PATCH] s390: claw network device driver
+> >  > 	
+> >  > 	Add support for claw network devices.
+> >  > 	
+> >  > 	Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> >  > 	Signed-off-by: Andrew Morton <akpm@osdl.org>
+> >  > 	Signed-off-by: Linus Torvalds <torvalds@osdl.org>
+> > 
+> >  Grumpity grump grump grump.  How tough is it to send new net drivers to 
+> >  netdev and me for review?
 > 
->  Was this reviewed on netdev?  or by any network developer?
-> 
->  Overall this patch adds a whole lot of code that must be VERY intimate 
->  with the net stack, a huge maintenance burden that is likely to be rife 
->  with out-of-date code and bugs over time.
-> 
+> Was cc'ed to linux-net last Thursday, but it looks like the messages was
+> too large and the vger server munched it.
 
-There was some dicussion on linux-net last Thursday.
+As mentioned in the email, you want netdev, not linux-net...
+
+	Jeff
