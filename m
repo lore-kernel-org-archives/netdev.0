@@ -1,42 +1,51 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Thu, 22 Jul 2004 18:03:17 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC] Missing unlock in policy timer
+Date: Fri, 23 Jul 2004 21:06:26 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040722180317.0b2ae203.davem@redhat.com>
-References: <40F34740.5040100@trash.net>
-	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
-	<20040712205037.573411c0.davem@redhat.com>
-	<40F4862D.3070802@trash.net>
-	<40F4AC8B.40706@trash.net>
-	<20040721143110.4ab944bf.davem@redhat.com>
-	<41004F76.1080807@trash.net>
-	<20040722171752.341d2476.davem@redhat.com>
-	<41006150.9000702@trash.net>
-	<41006344.3070402@trash.net>
+Message-ID: <20040723110626.GA31264@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
+Content-Type: multipart/mixed; boundary="EeQfGwPcQSOJBaQU"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41006344.3070402@trash.net>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jul 2004 03:00:52 +0200
-Patrick McHardy <kaber@trash.net> wrote:
 
-> Patrick McHardy wrote:
-> > David S. Miller wrote:
-> >> We could bug check this in psched calibration, in fact I think
-> >> we should.
-> > 
-> > 
-> > Done by this patch. I used BUG_ON instead of just printing a warning
-> > because using packet schedulers after this error will cause a division
-> > by zero.
-> 
-> Please drop this patch, psched_calibrate_clock already checks if
-> rdelay > delay a couple of lines above.
+--EeQfGwPcQSOJBaQU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Ok.
+Hi Dave:
+
+This is one of those cases where the cure is worse than the disease :)
+I added read locks in the policy timer to close an unlikely race, but
+I missed an unlock on the expire path which leads to all sort of weird
+things.
+
+I'll stay away from the timers for a while :)
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--EeQfGwPcQSOJBaQU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/xfrm/xfrm_policy.c 1.51 vs edited =====
+--- 1.51/net/xfrm/xfrm_policy.c	2004-05-30 05:45:43 +10:00
++++ edited/net/xfrm/xfrm_policy.c	2004-07-23 21:00:52 +10:00
+@@ -204,6 +204,7 @@
+ 	return;
+ 
+ expired:
++	read_unlock(&xp->lock);
+ 	km_policy_expired(xp, dir, 1);
+ 	xfrm_policy_delete(xp, dir);
+ 	xfrm_pol_put(xp);
+
+--EeQfGwPcQSOJBaQU--
