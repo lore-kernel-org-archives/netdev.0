@@ -1,21 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RESEND 3/3] clean up /proc/net/{anycast6,igmp6}
-Date: Thu, 11 Sep 2003 16:34:27 -0700
+Subject: Re: [Linux-ATM-General] [PATCH] ATM - remove unnecessary GFP_ATOMIC
+ allocation
+Date: Thu, 11 Sep 2003 16:39:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911163427.705d316b.davem@redhat.com>
-References: <20030904004638.1d4b001d.davem@redhat.com>
-	<Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net>
-	<20030906.160458.39800982.yoshfuji@linux-ipv6.org>
-	<20030910.115356.107533747.yoshfuji@linux-ipv6.org>
+Message-ID: <20030911163936.2bb13af3.davem@redhat.com>
+References: <20030905115308.GA96209@compsoc.man.ac.uk>
+	<200309051252.h85CqKSa005300@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: chas@cmf.nrl.navy.mil, levon@movementarian.org,
+   linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030910.115356.107533747.yoshfuji@linux-ipv6.org>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200309051252.h85CqKSa005300@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 05 Sep 2003 08:52:22 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
+
+> dave, please apply to 2.6 (and 2.4) --thanks
+> 
+> [ATM]: remove unnecessary GFP_ATOMIC allocation (from levon@movementarian.org)
 
 Applied, thanks.
