@@ -1,31 +1,34 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Mailling list archive URL broken?
-Date: Mon, 16 Dec 2002 17:10:45 +0100
+From: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>
+Subject: 2.4.20, tg3 , and 5704
+Date: Mon, 16 Dec 2002 12:59:54 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <70060000.1040055045@worker.muc.bieringer.de>
+Message-ID: <7BFCE5F1EF28D64198522688F5449D5A03C0CE@xchangeserver2.storigen.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maillist netdev <netdev@oss.sgi.com>
-Content-Disposition: inline
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+
 Hi,
 
-some time ago I found this archive URL:
+I got a preproduction Dell server with 2 5704 NICs
+onboard. 2.4.20 w/tg3 doesn't want to work. When loaded
+the link light on the switch just goes on-off-on-off ...
+seeming like it is reinitializing all the time. 
 
-http://oss.sgi.com/projects/netdev/archive/
+I just did get the current Broadcom drivers sources and
+it seems to work ok (ping and ftp works on 100Mb ...)
+built against 2.4.20.
 
-Unfortunately, it's broken (forbidden). Temp failure or is archive
-moved? If second, pls. send me the new URL.
+I prefer to use tg3 even though I have to backport
+to 2.4.18 (not a big fan of the Broadcom code and
+it's not part of linux).
 
-Thank you very much,
-        Peter
+thanks for any help
 
----
-Dr. Peter Bieringer
-mailto: pb at bieringer dot de
-http://www.bieringer.de/pb/
-Key 0x958F422D : B501 24F4 9418 23E2 C0F3  F833 7B57 AA7B 958F 422D
+larry
