@@ -1,43 +1,62 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: Re: [RFC] IPSEC failover and replay detection sequence numbers
-Date: Fri, 29 Oct 2004 15:24:37 +0200
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Asynchronous crypto layer.
+Date: Fri, 29 Oct 2004 18:06:52 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1099056277.2888.71.camel@nienna.balabit>
-References: <1099045435.2888.47.camel@nienna.balabit>
-	 <1099054721.1027.118.camel@jzny.localdomain>
+Message-ID: <20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
+References: <1099030958.4944.148.camel@uganda>
+	<1099053738.1024.104.camel@jzny.localdomain>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, ipsec-tools-devel@lists.sourceforge.net,
-        vpn-failover@lists.balabit.hu
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz
 Return-path: <netdev-bounce@oss.sgi.com>
 To: hadi@cyberus.ca
-In-Reply-To: <1099054721.1027.118.camel@jzny.localdomain>
+In-Reply-To: <1099053738.1024.104.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On 29 Oct 2004 08:42:18 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-  Hi,
+> On Fri, 2004-10-29 at 02:22, Evgeniy Polyakov wrote:
+> > I'm pleased to announce asynchronous crypto layer for Linux kernel 2.6.
+> > It support following features:
+> > - multiple asynchronous crypto device queues
+> > - crypto session routing
+> > - crypto session binding
+> > - modular load balancing
+> > - crypto session batching genetically implemented by design
+> > - crypto session priority
+> > - different kinds of crypto operation(RNG, asymmetrical crypto, HMAC and
+> > any other)
+> > 
+> 
+> Very nice.
+> I am very curious if you see perfomance improvements over old scheme
+> in the case of a single crypto chip in a fast CPU.
+> It has been shown in the past that with a xeon in the range of 2Ghz the
+> context setup and the big lock (and lack of async) implied that
+> performance enhancement using a crypto chip was negligible.
+> IIRC, the only time it started showing anything useful was when a
+> compute intensive alg like 3DES was chewing packets >= 1000 bytes.
+> 
+> My suspicion is you will show it is better to use a crypto chip with
+> async;-> In the minimal you should show some improvement.
 
-2004-10-29, p keltez=E9ssel 14:58-kor jamal ezt =EDrta:
-> To take a rough estimate of 5K users, how often do you think
-> these replay messages will be generated?
->=20
-> Is there a (clever) way to avoid transporting them and still achieve
-> an accurate failover?
+If we have a hardware accelerator chip, than we _already_ have improvements 
+with even the worst async crypto layer, since software and hardware 
+will work in parrallel.
+I agree that multigigahertz box will beat my HIFN card, 
+but I doubt it can beat 1gghz VIA.
+And what about random numbers, async crypto, TPM?
+They all requires some kind of generalization.
 
-  There is, provided that you do not want replay detection to work after
-a failover. The more often you would send sequence number updates the
-smaller the possible replay window will be. If you sacrifice scalability
-you get more accurate replay detection.
+> 
+> cheers,
+> jamal
 
-  To play with numbers: say that you have 5K users, so let's suppose
-there are at most 20K IPSEC SAs. If you decide to send an update per
-second, that would mean 20K updates/second. If each update message is 20
-bytes long, that means that on Ethernet you can transmit all of them in
-about 280 packets. That's not too much. (I suppose the 20K pfkey
-messages would be much more of a problem, though...)
 
---=20
- Regards,
-   Krisztian KOVACS
+	Evgeniy Polyakov
+
+Only failure makes us experts. -- Theo de Raadt
