@@ -1,57 +1,40 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: LLTX fix proposal
-Date: Sun, 30 Jan 2005 18:18:54 -0800
-Message-ID: <20050130181854.7f088a95.davem@davemloft.net>
+Subject: Re: ip -6 route shows incorrect route expiry times
+Date: Sun, 30 Jan 2005 18:37:22 -0800
+Message-ID: <20050130183722.279ec566.davem@davemloft.net>
+References: <20050130160840.C25000@flint.arm.linux.org.uk>
+	<20050131.012910.117562374.yoshfuji@linux-ipv6.org>
+	<41FD14E4.8010305@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, rmk@arm.linux.org.uk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41FD14E4.8010305@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sun, 30 Jan 2005 18:09:56 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-Ok, how about we do this for 2.6.11 before it goes out and
-do something more sophisticated (if necessary) later.
+> >Kernel exports in USER_HZ.
+> >iproute2 seem to convert it again; workaround is to do "export HZ=100".
+> >
+> I've sent this fix to Stephen yesterday.
 
-The BUG() we're trying to catch in the ->hard_start_xmit()
-routines is the illegal state:
+"HZ" should be defined in userspace as 100.
+Only the kernel should ever be able to see other settings.
+That is true even if userspace includes kernel headers.  For example,
+on sparc64 asm/param.h does this:
 
-	driver_tx_queue_empty() && !netif_queue_stopped(dev)
+#ifdef __KERNEL__
+# define HZ		1000	/* Internal kernel timer frequency */
+# define USER_HZ	100	/* .. some user interfaces are in "ticks" */
+# define CLOCKS_PER_SEC (USER_HZ)
+#endif
 
-Therefore we could handle the race, and avoid the printk() in
-the race case but not in the BUG() case above.  The test in
-tg3.c is currently:
-
-	/* This is a hard error, log it. */
-	if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
-		netif_stop_queue(dev);
-		spin_unlock_irqrestore(&tp->tx_lock, flags);
-		printk(KERN_ERR PFX "%s: BUG! Tx Ring full when queue awake!\n",
-		       dev->name);
-		return NETDEV_TX_BUSY;
-	}
-
-and I'm proposing we change it to something like:
-
-	if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
-		/* We can race with queue processing on another
-		 * cpu due to LLTX.  If the queue is not stopped,
-		 * that is a hard error, log it.
-		 */
-		if (!netif_queue_stopped(dev)) {
-			netif_stop_queue(dev);
-			printk(KERN_ERR PFX "%s: BUG! Tx Ring full when "
-			       "queue awake!\n",
-			       dev->name);
-		}
-		spin_unlock_irqrestore(&tp->tx_lock, flags);
-		return NETDEV_TX_BUSY;
-	}
-
-Any objections?
-
-Again, I'm not saying %100 this is what we should do long-term.
-It's meant to be correct and eliminate the bogus log messages
-when the LLTX race is hit.
+#ifndef HZ
+#define HZ 100
+#endif
