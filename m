@@ -1,62 +1,36 @@
-From: Greg KH <gregkh@suse.de>
-Subject: [07/08] [TCP] Fix BIC congestion avoidance algorithm error
-Date: Tue, 5 Apr 2005 09:47:59 -0700
-Message-ID: <20050405164758.GH17299@kroah.com>
-References: <20050405164539.GA17299@kroah.com>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: Netlink Connector / CBUS
+Date: Tue, 5 Apr 2005 12:54:05 -0400 (EDT)
+Message-ID: <Xine.LNX.4.44.0504051252480.12117-100000@thoron.boston.redhat.com>
+References: <1112684596.28858.4.camel@uganda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, <netdev@oss.sgi.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, <rml@novell.com>,
+        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, stable@kernel.org
-Content-Disposition: inline
-In-Reply-To: <20050405164539.GA17299@kroah.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <1112684596.28858.4.camel@uganda>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 5 Apr 2005, Evgeniy Polyakov wrote:
 
--stable review patch.  If anyone has any objections, please let us know.
+> On Tue, 2005-04-05 at 01:05 -0400, James Morris wrote: 
+> > Evgeniy,
+> > 
+> > Please send networking patches to netdev@oss.sgi.com.
+> 
+> It was sent there two times.
 
-------------------
+I googled around quite a lot to track the origin of the patches down but
+didn't do the obvious and look in the netdev archives, sorry.
 
-Since BIC is the default congestion control algorithm
-enabled in every 2.6.x kernel out there, fixing errors
-in it becomes quite critical.
 
-A flaw in the loss handling caused it to not perform
-the binary search regimen of the BIC algorithm
-properly.
 
-The fix below from Stephen Hemminger has been heavily
-verified.
-
-[TCP]: BIC not binary searching correctly
-
-While redoing BIC for the split up version, I discovered that the existing
-2.6.11 code doesn't really do binary search. It ends up being just a slightly
-modified version of Reno.  See attached graphs to see the effect over simulated
-1mbit environment.
-
-The problem is that BIC is supposed to reset the cwnd to the last loss value
-rather than ssthresh when loss is detected.  The correct code (from the BIC
-TCP code for Web100) is in this patch.
-
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Chris Wright <chrisw@osdl.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
-
---- 1.92/net/ipv4/tcp_input.c	2005-02-22 10:45:31 -08:00
-+++ edited/net/ipv4/tcp_input.c	2005-03-23 10:55:18 -08:00
-@@ -1653,7 +1653,10 @@
- static void tcp_undo_cwr(struct tcp_sock *tp, int undo)
- {
- 	if (tp->prior_ssthresh) {
--		tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh<<1);
-+		if (tcp_is_bic(tp))
-+			tp->snd_cwnd = max(tp->snd_cwnd, tp->bictcp.last_max_cwnd);
-+		else
-+			tp->snd_cwnd = max(tp->snd_cwnd, tp->snd_ssthresh<<1);
- 
- 		if (undo && tp->prior_ssthresh > tp->snd_ssthresh) {
- 			tp->snd_ssthresh = tp->prior_ssthresh;
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
