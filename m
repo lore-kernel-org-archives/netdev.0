@@ -1,52 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] Change MAC without bringing interface down
-Date: Mon, 18 Aug 2003 15:51:53 -0300
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Mon, 18 Aug 2003 20:21:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818185153.GA1559@conectiva.com.br>
-References: <20030818091312.GA4889@lapdog> <20030818041911.358c3437.davem@redhat.com> <1061208824.16010.2119.camel@jzny.localdomain> <20030818051227.4f35f2f3.davem@redhat.com> <20030818160422.GB1793@lapdog> <20030818090654.7f44a16e.davem@redhat.com> <20030818171144.GC1793@lapdog>
+Message-ID: <3F41979C.3070408@candelatech.com>
+References: <Pine.LNX.3.96.1030818171100.2101C-100000@gatekeeper.tmr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, Willy Tarreau <willy@w.ods.org>,
+   alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com, lamont@scriptkiddie.org,
+   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommi Virtanen <tv@debian.org>
-Content-Disposition: inline
-In-Reply-To: <20030818171144.GC1793@lapdog>
+To: Bill Davidsen <davidsen@tmr.com>
+In-Reply-To: <Pine.LNX.3.96.1030818171100.2101C-100000@gatekeeper.tmr.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Mon, Aug 18, 2003 at 08:11:44PM +0300, Tommi Virtanen escreveu:
-> +void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev)
-> +{
-> +	int i;
-> +
-> +	write_lock_bh(&tbl->lock);
-> +
-> +	for (i=0; i<=NEIGH_HASHMASK; i++) {
+Bill Davidsen wrote:
 
+> Okay, I'll show my ignorance and ask... the Documentation for arp_filter
+> says source routing must be used. Is there some flag I'm missing, or a way
+> to avoid having a rule per address, or is the 8 bit rule number larger in
+> 2.6, or ??? Or is having a lot of IPs on one machine not an imaginable
+> case?
 
-spaces before and after operators, please
+Last response I got was that one would have to hack the netlink api to get
+a bigger index because the design (and rfc, unfortunately) describe the
+field as only 8 bits.  I never did hear a response to my comment that this
+was inadequate in this age of vlans...
 
-> +struct notifier_block arp_netdev_notifier = {
-> +	arp_netdev_event,
-> +	NULL,
-> +	0
-> +};
-
-c99 style please, that is:
-
-struct notifier_block arp_netdev_notifier = {
-	.notifier_call = arp_netdev_event,
-}
-
-> +struct notifier_block ndisc_netdev_notifier = {
-> +	ndisc_netdev_event,
-> +	NULL,
-> +	0
-> +};
-
-ditto
-
-
-Thanks,
-
-- Arnaldo
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
