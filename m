@@ -1,161 +1,65 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [BK PATCH] 2.6 and 2.4 SCTP updates
-Date: Thu, 30 Dec 2004 16:53:56 -0800 (PST)
-Message-ID: <Pine.LNX.4.58.0412301645380.6939@w-sridhar.beaverton.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/9] PKT_SCHED: tc filter extension API
+Date: Fri, 31 Dec 2004 02:01:06 +0100
+Message-ID: <41D4A4D2.4000109@trash.net>
+References: <20041230122652.GM32419@postel.suug.ch> <20041230123023.GO32419@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jamal Hadi Salim <hadi@cyberus.ca>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041230123023.GO32419@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Thomas Graf wrote:
 
-Please do a
-	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work &
-	bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
+> +int
+> +tcf_exts_validate(struct tcf_proto *tp, struct rtattr **tb,
+> +	          struct rtattr *rate_tlv, struct tcf_exts *exts,
+> +	          struct tcf_ext_map *map)
+> +{
+> +	memset(exts, 0, sizeof(*exts));
+> +	
+> +#ifdef CONFIG_NET_CLS_ACT
+> +	int err;
+> +	struct tc_action *act;
+> +
+> +	if (map->police && tb[map->police-1] && rate_tlv) {
+> +		act = tcf_action_init_1(tb[map->police-1], rate_tlv, "police",
+> +			TCA_ACT_NOREPLACE, TCA_ACT_BIND, &err);
+> +		if (NULL == act)
 
-to get the following SCTP updates to 2.6 and 2.4.
+Please use act == NULL
 
-The 2.4 csets include a patch that gets rid of sk_xxx macros that were
-causing backporting issues for other networking components.
 
-Thanks
-Sridhar
+> +void
+> +tcf_exts_change(struct tcf_proto *tp, struct tcf_exts *dst,
+> +	        struct tcf_exts *src)
+> +{
+> +#ifdef CONFIG_NET_CLS_ACT
+> +	if (src->action) {
+> +		if (dst->action) {
+> +			struct tc_action *act;
+> +
+> +			tcf_tree_lock(tp);
+> +			act = xchg(&dst->action, src->action);
+> +			tcf_tree_unlock(tp);
+> +
+> +			tcf_action_destroy(act, TCA_ACT_UNBIND);
+> +		} else
+> +			dst->action = src->action;
 
-# ChangeSet
-#   2004/12/30 15:50:53-08:00 sri@us.ibm.com
-#   [SCTP] Fix sctp_getladdrs() to return valid local addresses on an endpoint
-#   that is bound to INADDR_ANY or inaddr6_any.
-#
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/socket.c
-#
-# ChangeSet
-#   2004/12/29 11:35:11-08:00 sri@us.ibm.com
-#   [SCTP] Fix misc. issues in SCTP_PEER_ADDR_PARAMS set socket option.
-#
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/transport.c
-# net/sctp/socket.c
-# net/sctp/sm_sideeffect.c
-# net/sctp/associola.c
-# include/net/sctp/structs.h
-#
-# ChangeSet
-#   2004/12/28 17:04:30-08:00 sri@us.ibm.com
-#   [SCTP] Fix bug in setting ephemeral port in the bind address.
-#
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/socket.c
-#
-# ChangeSet
-#   2004/12/28 16:22:41-08:00 sri@us.ibm.com
-#   [SCTP] Clean up the T3_rtx timer when deleting a transport.
-#
-#   Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/transport.c
-#
-# ChangeSet
-#   2004/12/28 16:03:30-08:00 sri@us.ibm.com
-#   [SCTP] Implementation of SCTP Implementer's Guide Section 2.35.
-#   This code checks that the verification tag, source port and
-#   destination port in the SCTP header matches the information
-#   contained in the state cookie.
-#
-#   Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/sm_make_chunk.c
-# net/sctp/associola.c
-# include/net/sctp/structs.h
-# include/net/sctp/constants.h
-#
-# ChangeSet
-#   2004/12/28 15:47:51-08:00 sri@us.ibm.com
-#   [SCTP] Validate and respond to invalid chunk/parameter lengths.
-#
-#   Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/sm_statefuns.c
-# net/sctp/sm_make_chunk.c
-# net/sctp/inqueue.c
-# net/sctp/input.c
-# net/sctp/endpointola.c
-# net/sctp/associola.c
-# include/net/sctp/sm.h
-# include/net/sctp/sctp.h
-# include/linux/sctp.h
-#
-# ChangeSet
-#   2004/12/27 14:13:06-08:00 sri@us.ibm.com
-#   [SCTP] Treat ICMP protocol unreachable errors from non-SCTP capable hosts as ABORTs.
-#
-#   Signed-off-by: Jerome Forrissier <jerome.forrissier@hp.com>
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/sm_statetable.c
-# net/sctp/sm_statefuns.c
-# net/sctp/ipv6.c
-# net/sctp/input.c
-# net/sctp/debug.c
-# include/net/sctp/sm.h
-# include/net/sctp/sctp.h
-# include/net/sctp/constants.h
-#
-# ChangeSet
-#   2004/12/27 10:51:01-08:00 sri@us.ibm.com
-#   [SCTP] Code cleanup: remove unused code and make needlessly global code static
-#
-#   Signed-off-by: Adrian Bunk <bunk@stutsa.de>
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/ulpqueue.c
-# net/sctp/ulpevent.c
-# net/sctp/tsnmap.c
-# net/sctp/transport.c
-# net/sctp/ssnmap.c
-# net/sctp/socket.c
-# net/sctp/sm_statetable.c
-# net/sctp/sm_statefuns.c
-# net/sctp/sm_sideeffect.c
-# net/sctp/sm_make_chunk.c
-# net/sctp/protocol.c
-# net/sctp/proc.c
-# net/sctp/outqueue.c
-# net/sctp/objcnt.c
-# net/sctp/ipv6.c
-# net/sctp/inqueue.c
-# net/sctp/input.c
-# net/sctp/endpointola.c
-# net/sctp/debug.c
-# net/sctp/command.c
-# net/sctp/chunk.c
-# net/sctp/bind_addr.c
-# net/sctp/associola.c
-# include/net/sctp/ulpqueue.h
-# include/net/sctp/ulpevent.h
-# include/net/sctp/tsnmap.h
-# include/net/sctp/structs.h
-# include/net/sctp/sm.h
-# include/net/sctp/sctp.h
-# include/net/sctp/constants.h
-# include/net/sctp/command.h
-#
-# ChangeSet
-#   2004/12/24 22:33:13-08:00 sri@us.ibm.com
-#   [SCTP] Fix potential null pointer dereference in sctp_err_lookup().
-#
-#   Signed-off-by: Vladislav Yasevich <vladislav.yasevich@hp.com>
-#   Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-#
-# net/sctp/input.c
-#
+This isn't right (its also wrong in the current code). If the
+CPU reorders stores and another CPU looks at dst->action at
+the wrong time it might see an inconsistent structure. So at
+least smp_wmb is required for the unlocked case, but I think
+you should just remove it completely. I also wonder if anyone
+actually knows why we need the xchg (here and in all the other
+places), it looks totally useless.
+
+Regards
+Patrick
