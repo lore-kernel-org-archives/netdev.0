@@ -1,83 +1,53 @@
 From: "Leonid Grossman" <leonid.grossman@s2io.com>
 Subject: RE: The ultimate TOE design
-Date: Wed, 15 Sep 2004 16:29:45 -0700
+Date: Wed, 15 Sep 2004 16:37:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409152329.i8FNTsqG025184@guinness.s2io.com>
-References: <20040915142926.7bc456a4.davem@davemloft.net>
+Message-ID: <200409152337.i8FNbDqG026335@guinness.s2io.com>
+References: <Xine.LNX.4.44.0409151914400.32649-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <alan@lxorguk.ukuu.org.uk>, <paul@clubi.ie>, <netdev@oss.sgi.com>,
-        <linux-kernel@vger.kernel.org>
+Cc: "'Netdev'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'David S. Miller'" <davem@davemloft.net>,
-        "'Jeff Garzik'" <jgarzik@pobox.com>
-In-Reply-To: <20040915142926.7bc456a4.davem@davemloft.net>
+To: "'James Morris'" <jmorris@redhat.com>, "'John Heffner'" <jheffner@psc.edu>
+In-Reply-To: <Xine.LNX.4.44.0409151914400.32649-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I think Jeff's "ultimate TOE card" based upon generic embedded CPU is doable
-at GbE, but we may not see such a product because it's too late for it to
-succeed.
-
-TOE is a pretty questionable product in itself; one of the main reasons
-people build TOE cards is to put RDMA on top of it and end up with an RNIC
-(NIC+TOE+RDMA) Ethernet card.
-The hope is to eventually run all three types of server traffic (network,
-storage, IPC) over an RNIC, and get rid of two other HBAs in a system.
-
-For this "fabric conversion" over Ethernet to happen it has to be at 10GbE
-not GbE, since storage (FiberChannel) is already at 4Gb.
-And at 10GbE, embedded CPUs just don't cut it - it has to be custom ASIC
-(granted, with some means to simplify debugging and reduce the risk of hw
-bugs and TCP changes).
-
-On some other points on the thread:
-
-WRT the TOE price, I suspect that when RNICs come out they will command
-little premium over conventional NICs - it will be just a technology
-upgrade.
-
-WRT larger MTU - going to bigger MTUs helps a lot, but it will be years
-before the infrastructure moves beyond 9600 byte MTU. Even right now, usage
-of 9600 byte Jumbos is not universal.
-
-WRT TSO, for applications that don't require RDMA TSO indeed helps a lot on
-the transmit side for 1500 MTU - 10GbE cards are innevitably CPU bound, and
-we are seeing ~3x throughput improvement with normal frames.
-
-This leaves receive offload schemes in Linux as a biggest improvement (short
-of supporting TOE) to make.
-It will be great to see such receive schemes defined and implemented, as I
-stated in an earlier thread we will be willing to participate in such work
-and put the support in S2io 10GbE ASIC and drivers.
-
-
-
+ 
 
 > -----Original Message-----
-> From: David S. Miller [mailto:davem@davemloft.net] 
-> Sent: Wednesday, September 15, 2004 2:29 PM
-> To: Jeff Garzik
-> Cc: alan@lxorguk.ukuu.org.uk; paul@clubi.ie; 
-> netdev@oss.sgi.com; leonid.grossman@s2io.com; 
-> linux-kernel@vger.kernel.org
+> From: James Morris [mailto:jmorris@redhat.com] 
+> Sent: Wednesday, September 15, 2004 4:16 PM
+> To: John Heffner
+> Cc: Netdev; leonid.grossman@s2io.com
 > Subject: Re: The ultimate TOE design
 > 
-> On Wed, 15 Sep 2004 17:23:49 -0400
-> Jeff Garzik <jgarzik@pobox.com> wrote:
+> On Wed, 15 Sep 2004, John Heffner wrote:
 > 
-> > The typical definition of TOE is "offload 90+% of the net 
-> stack", as 
-> > opposed to "TCP assist", which is stuff like TSO.
+> > The other (much nicer) solution to case (b) is to just USE 
+> A BIGGER MTU.
+> > 1500 bytes is ridiculously small.  Even with a 9k MTU, the 
+> benefits of 
+> > TOE or TSO are nearly vanishing.
 > 
-> I think a better goal is "offload 90+% of the net stack cost" 
-> which is effectively what TSO does on the send side.
+> Do you have any figures on (large) MTU size vs performance on 
+> a current commidity system?
+
+It's very system-dependent. Say on 2-way Xeon our card goes from ~2Gbps to
+~6Gbps, on 64-bit systems the delta is obviously less.
+
+For 9k MTU, the delta goes down of course but it is still ~10% on 2.6
+systems - say on 2-way Opterons we go from 7Gbps to 7.6Gbps.
+
+Leonid
+
 > 
-> This is why these discussions are so circular.
 > 
-> If we want to discuss something specific, like receive 
-> offload schemes, that is a very different matter.  And I'm 
-> sure folks like Rusty have a lot to contribute in this area :-)
+> - James
+> --
+> James Morris
+> <jmorris@redhat.com>
+> 
 > 
