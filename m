@@ -1,34 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: patch: tc action cleanups
-Date: 16 Jan 2005 13:41:53 -0500
-Message-ID: <1105900913.1090.803.camel@jzny.localdomain>
-References: <1105899636.1090.794.camel@jzny.localdomain>
-	 <41EAB296.3090504@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] meta ematch
+Date: Sun, 16 Jan 2005 19:47:51 +0100
+Message-ID: <20050116184751.GY26856@postel.suug.ch>
+References: <20050110211747.GA26856@postel.suug.ch> <1105394738.1085.63.camel@jzny.localdomain> <20050113174111.GP26856@postel.suug.ch> <41E6C3E5.2020908@trash.net> <20050113192047.GQ26856@postel.suug.ch> <41E71CC4.3020102@trash.net> <20050114151407.GR26856@postel.suug.ch> <1105891871.1097.647.camel@jzny.localdomain> <20050116163212.GW26856@postel.suug.ch> <1105895936.1090.717.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41EAB296.3090504@trash.net>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1105895936.1090.717.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-01-16 at 13:29, Patrick McHardy wrote:
-> jamal wrote:
+* jamal <1105895936.1090.717.camel@jzny.localdomain> 2005-01-16 12:18
+> On Sun, 2005-01-16 at 11:32, Thomas Graf wrote:
+> > Not really as long as iproute2 uses the same byte ordering. It has the
+> > same issues as all other rtnetlink users.
 > 
-> >Heres one i think you didnt resurect Patrick. If ok, Dave please apply.
-> >Other than that i cant seem to find anything at issue with the core
-> >(havent looked at the individual actions other than to follow changed
-> >code from the core).
-> >
-> bindcnt/refcnt changes are protected by the rtnl, no need for extra locking.
-> The lock only needs to protect data shared with the "act" function.
+> wont harm to do a quick test if you have hardware. pedit for example 
+> still has some occasional issues some issues with big endian which i
+> havent had time to chase.
 
-Very clever ;-> maybe add a comment then to that effect in your next
-batch? Dave ignore that patch.
+Uhmm.. yes. The endianess comes in at sutff like skb->protocol. Leaving
+it to userspace makes comparison beyond simple equals quite difficult.
+Providing a method to transform in kernel space adds more complexity.
 
-cheers,
-jamal
+
+> > > > +	return (v + (FIXED_1/200)) >> FSHIFT;
+> > > 
+> > > 200 has some magic connotation to it - a define somewhere perhaps?
+> > 
+> > I coped this from the code for procfs ;->
+> 
+> know why they have that number? It must have some significance - or
+> maybe someone just stuck their hand in the air and measured 200? ;->
+
+It is some kind of factor and has almost no impact in our case because
+it only changes the first 4 bits in the exp part and I'm only interested
+in the integer part. It might be a good idea to take a few bits in from
+the exp part and provide the load as *10^n where n is either 2 or 3,
+i.e. a load of 1.9 would be 190. I have to think a little more about
+this.
