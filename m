@@ -1,24 +1,30 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPCOMP6] Exclude IPCOMP header from props.header_len
-Date: Sat, 10 Jul 2004 13:36:41 +0900 (JST)
+From: James Morris <jmorris@redhat.com>
+Subject: Re: [IPSEC] Move generic encap code into xfrm4_output
+Date: Sat, 10 Jul 2004 02:34:36 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040710.133641.132032007.yoshfuji@linux-ipv6.org>
-References: <20040710033209.GA14316@gondor.apana.org.au>
+Message-ID: <Xine.LNX.4.44.0407100233170.6775-100000@thoron.boston.redhat.com>
+References: <20040710005146.GA11023@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kuznet@ms2.inr.ac.ru, <davem@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au, davem@redhat.com
-In-Reply-To: <20040710033209.GA14316@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040710005146.GA11023@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040710033209.GA14316@gondor.apana.org.au> (at Sat, 10 Jul 2004 13:32:09 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+On Sat, 10 Jul 2004, Herbert Xu wrote:
 
-> Now that the IPv4 encap stuff is out of the way, I'll be sending you
-> the IPv6 versions.
+> Hi:
+> 
+> I've finally finished merging the general encapsulation code for IPv4.
+> Here is the patch.
 
-Looks good.
+This looks fine to me so far, also tests ok with various tunneled 
+configurations.
 
---yoshfuji
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
