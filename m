@@ -1,54 +1,33 @@
-From: Pete Clements <clem@clem.clem-digital.net>
-Subject: Re: 2.6.0-test10: Badness in local_bh_enable at kernel/softirq.c:121
-Date: Wed, 26 Nov 2003 10:27:22 -0500 (EST)
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH] rmmod pcnet32 OOPS with 2.6.0-test10
+Date: Wed, 26 Nov 2003 10:49:09 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311261527.KAA00655@clem.clem-digital.net>
-References: <20031126055258.7526a09d.akpm@osdl.org>
+Message-ID: <200311261849.hAQIn9V10044@dyn318364bld.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: corwin@amber.kn-bremen.de, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20031126055258.7526a09d.akpm@osdl.org> from Andrew Morton at "Nov 26, 2003  5:52:58 am"
-To: akpm@osdl.org (Andrew Morton)
+To: tsbogend@alpha.franken.de
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting Andrew Morton
-  > Christian Schlittchen <corwin@amber.kn-bremen.de> wrote:
-  > >
-  > > 
-  > > When trying to establish a ppp/pppoe connection I get the following
-  > > and the connection fails:
-  > > 
-  > > Badness in local_bh_enable at kernel/softirq.c:121
-  > > Call Trace:
-  > > [<c011feac>] local_bh_enable+0x8c/0x90
-  > > [<e096ccae>] ppp_sync_push+0x6e/0x1a0 [ppp_synctty]
-  > > [<c015cdc0>] __lookup_hash+0x70/0xd0
-  > > [<e096c651>] ppp_sync_wakeup+0x31/0x70 [ppp_synctty]
-  > > [<c0207b79>] pty_unthrottle+0x59/0x60
-  > > [<c02043ba>] check_unthrottle+0x3a/0x40
-  > > [<c0204463>] n_tty_flush_buffer+0x13/0x60
-  > > [<c0207f6d>] pty_flush_buffer+0x6d/0x70
-  > > [<c0200c0e>] do_tty_hangup+0x3fe/0x460
-  > 
-  > The warning is a pest, and is due to do_tty_hangup() bogusly disabling
-  > interrupts in the hope that it does something useful.  It needs to be fixed
-  > up.
-  > 
-  > But it is unrelated to the PPP failure.  I'm afraid it is so long since I
-  > used PPP and pppd that I cannot suggest how you should set about gathering
-  > extra info on that.
-  > 
-What network card? Multi-cards? Is the card detected?
+When trying to rmmod pcnet32 multiple pci_unregister_driver calls causes
+a null pointer to be dereferenced.  Fix tested with 2.6.0-test10-bk2.
 
-Around 2.5.71 the 3c509 init/detect changed such that the
-second card is not detected.  Will get the badness when attempting
-to bring up ppp/ppoe on a non-existent card.  
 
-The 3c509 multi card breakage still exists at test10. I replace the
-driver with 2.5.7x version to get my pppoe.
+--- linux-2.6.0-test10-bk2/drivers/net/pcnet32.c	Sun Nov 23 17:31:27 2003
++++ linux-2.6.0-test10-bk2p/drivers/net/pcnet32.c	Wed Nov 26 10:40:35 2003
+@@ -1766,8 +1766,6 @@
+ 	next_dev = lp->next;
+ 	unregister_netdev(pcnet32_dev);
+ 	release_region(pcnet32_dev->base_addr, PCNET32_TOTAL_SIZE);
+-	if (lp->pci_dev)
+-	    pci_unregister_driver(&pcnet32_driver);
+ 	pci_free_consistent(lp->pci_dev, sizeof(*lp), lp, lp->dma_addr);
+ 	free_netdev(pcnet32_dev);
+ 	pcnet32_dev = next_dev;
+
 -- 
-Pete Clements 
+Don Fry
+brazilnut@us.ibm.com
