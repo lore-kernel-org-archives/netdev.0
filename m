@@ -1,39 +1,29 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6 PKT_SCHED]: Fix overflow on 64bit in times reported
- to userspace by tc actions
-Date: Thu, 11 Nov 2004 15:03:14 -0800
-Message-ID: <20041111150314.576ce699.davem@davemloft.net>
-References: <41908D1D.50405@trash.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Problems with TCP + netem packet loss simulation
+Date: Thu, 11 Nov 2004 15:28:34 -0800
+Message-ID: <20041111152834.5a7b1f79@dxpl.pdx.osdl.net>
+References: <200411112115.23269.epx@altoriopreto.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41908D1D.50405@trash.net>
+To: Elvis =?ISO-8859-1?B?UGb8dHplbnJldXRlcg==?= <epx@altoriopreto.com.br>
+In-Reply-To: <200411112115.23269.epx@altoriopreto.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 09 Nov 2004 10:25:49 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Thu, 11 Nov 2004 21:15:23 -0200
+Elvis Pf=FCtzenreuter <epx@altoriopreto.com.br> wrote:
 
-> This patch fixes on overflow in tc actions times reported to
-> userspace on 64 bit architectures. struct tcf_t only contains
-> 32-bit timestamps, but they are initialized to jiffies. When
-> jiffies is larger than 2^32-1 only the low 32 bit are saved,
-> and the diff between jiffies and the current timestamp becomes
-> very large. This happens immediately after boottime since jiffies
-> is initialized to 2^32-300. It was invisible until now because
-> only the lower 32bit were reported to userspace, but with the
-> USER_HZ conversion the reported times start somewhere around
-> 4294967s.
-> 
-> This patch extends the timestamps to 64bit. It breaks userspace
-> compatibility for actions, but considering that most of this is
-> not even in iproute yet this should be acceptable.
+> Hi,
+>=20
+> I am experiencing a strange problem when I try to simulate a lossy chan=
+nel=20
+> with netem scheduler module. Whatever the packet loss %, all TCP connec=
+tions=20
+> eventually stall.=20
 
-I agree, and since Jamal also ACK'd it, I've applied
-this patch.
-
-Thanks.
+Netem might be buggy, try doing lots of pings and see if the rate you
+expected is correct.  The scaling of percent to u32 is probably the issue.
