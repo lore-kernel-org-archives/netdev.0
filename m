@@ -1,110 +1,28 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: [PATCH] WAN drivers fix: N2, C101, PCI200SYN - quite fatal
-Date: Tue, 01 Mar 2005 02:54:25 +0100
-Message-ID: <m37jksi10u.fsf@defiant.localdomain>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-Cc: Jeff Garzik <jgarzik@pobox.com>
-To: <netdev@oss.sgi.com>
+From: Patattenboerken <potatoehead@fusionphp.net>
+Subject: Visit FusionPHP.net TODAY, We are back for good !!!
+Date: Mon, 28 Feb 2005 21:24:55 -0500
+Message-ID: <E1D5x4B-0004de-3o@sh60.surpasshosting.com>
+Reply-To: patattenboerken@gmail.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=-=-=
 
-Hi,
+Visit FusionPHP.NET today, fullfilling your PHP needs!!!
 
-The last change to drivers/wan/hd6457x.c was a bit fatal to drivers
-using it - the attached patch fixes NULL pointer dereference on RX.
+Great news everyone, our proud host http://www.priorweb.be/ will never disconnect our server again for "spamming", since the mail is not being sent from our server with them. They can't trace it back to us, so we are building huge lists and very soon FusionPhp.net will be the absolute largest php scripting site on this planet. If you need a bulletproof host, come to our great webhosting service http://www.priorweb.be/ .
 
-I've updated URLs in MAINTAINERS and wan/Kconfig as well.
+http://www.fusionphp.net/
 
-Please apply to 2.6.
-It would be nice if it's included in 2.6.11.
+We have the BEST free php news script in the world. Please click on the GOOGLE AdSense ads at the top of the page ONCE per day, Every day to keep our site online and pay for our hosting!!!
 
-Thanks.
+Please spread the word about our website and our scripts!!! Forward this email to 250 people and we'll pay you $10.00 US dollars via paypal. We just upp'ed the payout to $10.00 per 250 users you send this message to due to our overwhelming success.
 
-Signed-off-by: Krzysztof Halasa <khc@pm.waw.pl>
--- 
-Krzysztof Halasa
+Thank you,
+Patattenboerken
+http://www.fusionphp.net/
+patattenboerken@gmail.com
+webmaster@fusionphp.net
 
---=-=-=
-Content-Type: text/x-patch
-Content-Disposition: inline; filename=hdlc-skb-dev.patch
-
---- linux/drivers/net/wan/hd6457x.c	28 Oct 2004 06:16:08 -0000	1.15
-+++ linux/drivers/net/wan/hd6457x.c	1 Mar 2005 00:58:08 -0000
-@@ -315,7 +315,7 @@
- #endif
- 	stats->rx_packets++;
- 	stats->rx_bytes += skb->len;
--	skb->dev->last_rx = jiffies;
-+	dev->last_rx = jiffies;
- 	skb->protocol = hdlc_type_trans(skb, dev);
- 	netif_rx(skb);
- }
---- linux/drivers/net/wan/Kconfig	15 Jan 2005 23:46:55 -0000	1.25
-+++ linux/drivers/net/wan/Kconfig	1 Mar 2005 00:58:08 -0000
-@@ -155,7 +155,8 @@
- 	  Network) card supported by this driver and you are planning to
- 	  connect the box to a WAN.
- 
--	  You will need supporting software from <http://hq.pm.waw.pl/hdlc/>.
-+	  You will need supporting software from
-+	  <http://www.kernel.org/pub/linux/utils/net/hdlc/>.
- 	  Generic HDLC driver currently supports raw HDLC, Cisco HDLC, Frame
- 	  Relay, synchronous Point-to-Point Protocol (PPP) and X.25.
- 
-@@ -225,7 +226,7 @@
- 	  Driver for PCI200SYN cards by Goramo sp. j.
- 
- 	  If you have such a card, say Y here and see
--	  <http://hq.pm.waw.pl/hdlc/>.
-+	  <http://www.kernel.org/pub/linux/utils/net/hdlc/>.
- 
- 	  To compile this as a module, choose M here: the
- 	  module will be called pci200syn.
-@@ -239,7 +240,7 @@
- 	  Driver for wanXL PCI cards by SBE Inc.
- 
- 	  If you have such a card, say Y here and see
--	  <http://hq.pm.waw.pl/hdlc/>.
-+	  <http://www.kernel.org/pub/linux/utils/net/hdlc/>.
- 
- 	  To compile this as a module, choose M here: the
- 	  module will be called wanxl.
-@@ -292,7 +293,7 @@
- 	  SDL Communications Inc.
- 
- 	  If you have such a card, say Y here and see
--	  <http://hq.pm.waw.pl/hdlc/>.
-+	  <http://www.kernel.org/pub/linux/utils/net/hdlc/>.
- 
- 	  Note that N2csu and N2dds cards are not supported by this driver.
- 
-@@ -308,7 +309,7 @@
- 	  Driver for C101 SuperSync ISA cards by Moxa Technologies Co., Ltd.
- 
- 	  If you have such a card, say Y here and see
--	  <http://hq.pm.waw.pl/pub/hdlc/>
-+	  <http://www.kernel.org/pub/linux/utils/net/hdlc/>.
- 
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called c101.
---- linux/MAINTAINERS	26 Jan 2005 16:47:14 -0000	1.332
-+++ linux/MAINTAINERS	1 Mar 2005 00:58:08 -0000
-@@ -910,10 +910,10 @@
- W:	http://www.icp-vortex.com/
- S:	Supported
- 
--GENERIC HDLC DRIVER, N2 AND C101 DRIVERS
-+GENERIC HDLC DRIVER, N2, C101, PCI200SYN and WANXL DRIVERS
- P:	Krzysztof Halasa
- M:	khc@pm.waw.pl
--W:	http://hq.pm.waw.pl/hdlc/
-+W:	http://www.kernel.org/pub/linux/utils/net/hdlc/
- S:	Maintained
- 
- HAYES ESP SERIAL DRIVER
-
---=-=-=--
+Remember to Click on the Google AdSense ads ONCE per day at least, multiple clicks per day don't matter as much as ONCE per day. Thank you very much.
