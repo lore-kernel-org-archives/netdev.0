@@ -1,50 +1,38 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.5.66-mm3+debug] traces.
-Date: Fri, 04 Apr 2003 18:27:16 -0800 (PST)
+From: "qiutian" <qiutian@hotmail.com>
+Subject: =?GB2312?B?zfjC57Dsuassu6XBqs34yrG0+rXE1+680dGh1PEh?=
+Date: Sun, 6 Apr 2003 00:18:32 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030404.182716.06393733.davem@redhat.com>
-References: <20030404172927.2b449167.akpm@digeo.com>
-	<20030404.173538.03688224.davem@redhat.com>
-	<20030404181427.5cf0c127.akpm@digeo.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <200304051618.h35GIeDI024518@oss.sgi.com>
+Reply-To: qiutian@hotmail.com
+Content-Type: text/plain;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@digeo.com
-In-Reply-To: <20030404181427.5cf0c127.akpm@digeo.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andrew Morton <akpm@digeo.com>
-   Date: Fri, 4 Apr 2003 18:14:27 -0800
+    
+    欢迎访问力天软件网站:　http://202.104.219.144/soft/default.htm
 
-   "David S. Miller" <davem@redhat.com> wrote:
-   >
-   > You simply cannot take BH locks inside of IRQ disabling
-   > ones, this is true 2.4.x too it just doesn't BUG() on you there
-   > (you get a potential deadlock instead).
-   
-   I don't recall seeing a description or discussion of this deadlock.
-   Any pointers?
+    最新推出基于internet的web进销存系统，促销期间，仅售800元。
 
-Search the archives for the subject "BUG or not? GFP_KERNEL with
-interrupts disabled."  unfortunately it appears a lot of that
-thread got privatized and I don't have any logs.
+    最新推荐力天2003 E-office 网络办公系统,功能更强,使用更方便.价格:1200 元,提供源代码,方便二次开发.
+    
+    力天2003 E-office 网络办公系统最新获得深圳市第三届电子商务优选项目.
+    
+    金领2001办公系统： 1200元  (包括一年技术支持,系统开发文档资料,系统源代码)
 
-The long and short of it is:
+    力天2003 E-office 网络办公系统测试:　http://202.104.219.144/oa
 
-	spin_lock_irq();
+    金领2001办公系统演示地址:　http://myoa.shopok.com.cn
 
-		anything which does local_bh_{enable,disable}()
+    Supercrm客户管理管理软件测试地址:  http://202.104.219.144/supercrm
 
-	spin_unlock_irq();
+超低价格:1500元,提供源代码,方便您二次开发!
 
-and similar are illegal.
+    通用网上销售系统,无须技术人员,也可以开设网上商店! 
 
-local_bh_enable() invokes do_softirq() if softints are pending,
-do_softirq() enables cpu interrupts, which would result in a deadlock
-in the above case (because an interrupt could arrive and try to take
-the IRQ spinlock taken by spin_lock_irq()).
+    联系人：李先生 
 
-Therefore it's a bug, and it's a bug everywhere BUG() check or not. :-)
+    电 话：0755-26793513  26374510     传真：0755-26793513
+
+    E-mail:  myplan@163.com     
