@@ -1,57 +1,76 @@
-From: "Joseph Conlin" <JCONLIN@novell.com>
-Subject: Replace the Nagle Algorithm
-Date: Mon, 20 Oct 2003 12:58:19 -0600
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Changing bonding <-> ifenslave interface [was: Problem with current /proc entries]
+Date: Mon, 20 Oct 2003 12:12:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <sf93dbf5.079@prv-mail20.provo.novell.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <jrd@cc.usu.edu>
+Message-ID: <200310201912.h9KJCo7A027272@death.ibm.com>
+References: <shmulik.hen@intel.com>
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Content-Disposition: inline
+To: shmulik.hen@intel.com
+In-Reply-To: Message from Shmulik Hen <shmulik.hen@intel.com>
+   of "Mon, 20 Oct 2003 20:20:57 +0200." <200310202020.57503.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I see in the archives and the code that I have looked at (2.4.22,
-2.6.0-test8) that the Minshall algorithm is being used to reduce the
-effects of Nagle/delayed ACK interaction.  I haven't seen any mention of
-the following solution, proposed as an IETF draft RFC by Joe Doupnik
-(jrd@cc.usu.edu).
 
-http://netlab1.usu.edu/pub/misc/draft-doupnik-tcpimpl-nagle-mode-00.txt
+[...]
+>Based on the above assumptions, and on the fact that removing 
+>SIOCDEVPRIVATE support from bonding in 2.6 already breaks 
+>compatibility with existing ifenslave apps, we thought the sensible 
+>thing to do would be to drop all support of old interfaces from 
+>bonding in 2.6 (including the current SIOCBOND* ioctls), and thus 
+>force users that upgrade to 2.6 to use a new ifenslave (that can be 
+>found either in the 2.6 kernel tree or at sourceforge). This new 
+>ifenslave will also support any 2.4 bonding.
+>
+>After a while, we will probably backport the new interface into the 
+>2.4 bonding module, so it too will benefit from the its new 
+>capabilities.
 
+	I was leaning towards supporting existing 2.4 ifenslaves (not
+the ancient ones using SIOCDEVPRIVATE, but more recent versions) so
+that end users could hypothetically dabble with the 2.6 bonding
+without messing with their 2.4 user space.  In that way, the 2.6 (or
+"new ifenslave," if you prefer) ifenslave wouldn't have all of the old
+2.4-style bonding API stuff in it.
 
-I quote the following from the abstract.
+	Anyway, I can live with the above; it does require an
+ifenslave upgrade to dabble with 2.6, but as long as the 2.4
+reliability isn't affected, I don't see a problem with it.
 
-A new TCP transmission policy is discussed in this memo which uses
-  information known only to the transmitter about when to send
-  segments. It groups octets based on filling segments and sending a
-  small segment when the application indicates no more data are
-  immediately available, not on arrival of ACKs. It works well with
-and
-  avoids deadlocks with delayed ACKs. It is automatic and does not
-need
-  to be turned off. It is a suitable replacement for Nagle mode.
+[...]
+>The thing to note here is that there is no "2.6 ifenslave" and "2.4 
+>ifenslave" per se. The ifenslave app lives in several places: the 
+>kernel source tree, the bonding sourceforge site, the iputils RPM, 
+>etc. The important thing is that updating this app should not require 
+>a kernel upgrade.
 
-I also point you to the following location, which shows the code
-changes for FreeBSD 3.2, Linux 2.2.5-15, and also has the client
-software used for the testing mentioned in the document.
+	I'm having a thought here... Would it be both feasible and
+reasonable to pull ifenslave.c out of the kernel source, and maintain
+a separate bonding-utils package, wherein the shiny new API has some
+knowledge of ifenslave versions?  In this way, the bonding kernel
+driver could enforce version requirements for ifenslave, possibly at a
+per-feature granularity (e.g., "need ifenslave version X for
+frog-blending mode").  In this way, we'd have just one ifenslave
+development line (not two), and somewhat better upgrade prospects over
+time.
 
-http://netlab1.usu.edu/pub/misc/newpolicy.sources/
+	In the past, I'd thought this (a bonding-utils package for
+ifenslave) wasn't an especially good idea, because I didn't really see
+much advantage for us in doing it.  Now, it looks like it is to our
+advantage to have just one ifenslave development line, distinct from
+the kernel development line (if the single ifenslave will be going
+both ways there's no reason to keep two separate copies in the 2.4 and
+2.6 kernel trees).
 
-If anyone is interested, I have an Excel spreadsheet that shows some
-testing I did with FreeBSD using Nagle-off, Nagle-on, and Doupnik using
-HTTP requests.  It shows that Doupnik gets the same packet-size
-efficiency as Nagle-on while getting better throughput than having
-Nagle-off.  Let me know if you would like a copy.
+	I really do like having ifenslave right there in the kernel
+source, it's very handy, but it may be better overall to pull it out
+and distribute it separately.
 
-I have asked Joe Doupnik for his approval to ask this community to look
-at his algorithm.  He said that he would be happy to answer any
-questions that anyone has on his algorithm, and if it looks like there
-is a good chance that it will be included in Linux, he could code the
-patch as well (from the looks of things, tcp.h has changed enough from
-2.2.5-15 to current to warrant another pass to make sure the algorithm
-is correctly implemented).
+	Comments?  Chad, you out there?  I know you really like having
+ifenslave in the kernel source; what do you think about this?
 
-Joseph Conlin
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
