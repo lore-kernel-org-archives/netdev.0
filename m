@@ -1,23 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6.5] bridge - replace CLEAR_BITMAP with memset
-Date: Fri, 16 Apr 2004 14:24:15 -0700
+Subject: Re: [PATCH] MLDV2: Use IANA icmpv6 type for MLDv2 Report
+Date: Fri, 16 Apr 2004 14:52:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040416142415.07572f56.davem@redhat.com>
-References: <20040413151630.710042e3@dell_ss3.pdx.osdl.net>
-	<20040414120434.2029b567@dell_ss3.pdx.osdl.net>
+Message-ID: <20040416145229.265a741c.davem@redhat.com>
+References: <20040415.073324.44957072.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040414120434.2029b567@dell_ss3.pdx.osdl.net>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040415.073324.44957072.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Apr 2004 12:04:34 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 15 Apr 2004 07:33:24 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> It looks like a recent patch to 2.6.5 got rid of CLEAR_BITMAP.
+> IANA has finally assigned an ICMPv6 type for MLDv2 Report.
+> (See: <http://www.iana.org/assignments/icmpv6-parameters>)
+> 
+> Patch also applies to 2.4.
 
-Applied.
+Applied, thanks.
