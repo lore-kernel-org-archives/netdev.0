@@ -1,29 +1,34 @@
-From: James Morris <jmorris@intercode.com.au>
+From: Michal Ostrowski <mostrows@speakeasy.net>
 Subject: Re: [PATCH 2.5.72] (1/3) PPPoE cleanup [TRIVIAL]
-Date: Mon, 23 Jun 2003 01:59:46 +1000 (EST)
+Date: 22 Jun 2003 19:26:06 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0306230157140.578-100000@excalibur.intercode.com.au>
-References: <20030620173139.01f935c7.shemminger@osdl.org>
+Message-ID: <1056324366.26751.123.camel@brick.watson.ibm.com>
+References: <Mutt.LNX.4.44.0306230157140.578-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>,
-   Michal Ostrowski <mostrows@styx.uwaterloo.ca>, <netdev@oss.sgi.com>,
-   <mostrows@speakeasy.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030620173139.01f935c7.shemminger@osdl.org>
+To: James Morris <jmorris@intercode.com.au>
+In-Reply-To: <Mutt.LNX.4.44.0306230157140.578-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Jun 2003, Stephen Hemminger wrote:
-
-> This is a cleanup patch, no change in functionality.
->   - Get rid of debug macro's that aren't used anywhere in the code.
-
-I'm guessing that Michal wants to leave these in for future debugging?
+Debugging stuff can go.  I kept it in for future debugging but haven't
+found it of much use.
 
 
-- James
+
+On Sun, 2003-06-22 at 11:59, James Morris wrote:
+> On Fri, 20 Jun 2003, Stephen Hemminger wrote:
+> 
+> > This is a cleanup patch, no change in functionality.
+> >   - Get rid of debug macro's that aren't used anywhere in the code.
+> 
+> I'm guessing that Michal wants to leave these in for future debugging?
+> 
+> 
+> - James
 -- 
-James Morris
-<jmorris@intercode.com.au>
+Michal Ostrowski <mostrows@speakeasy.net>
