@@ -1,23 +1,14 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH,RFC] explicit connection confirmation
-Date: Thu, 7 Nov 2002 08:36:28 -0500 (EST)
+From: "Jacky Hsiao" <jacky@jackyhsiao.idv.tw>
+Subject: test
+Date: Thu, 7 Nov 2002 21:54:43 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0211070834130.11358-100000@shell.cyberus.ca>
-References: <20021107120956.GA10832@gnu.org>
+Message-ID: <IPECJEDLICDCHLJIMDENKEBNCEAA.jacky@jackyhsiao.idv.tw>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: bert hubert <ahu@ds9a.nl>, <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="big5"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@gnu.org>
-In-Reply-To: <20021107120956.GA10832@gnu.org>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-Could you not have used netfilter for this? You have the app
-sending controls to add netfilter policies and delete them when not
-needed.
-
-cheers,
-jamal
