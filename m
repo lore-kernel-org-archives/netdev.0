@@ -1,37 +1,38 @@
-From: jamal <hadi@cyberus.ca>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: "Loopback" route through two cards?
-Date: Tue, 3 Sep 2002 07:30:46 -0400 (EDT)
+Date: Tue, 3 Sep 2002 16:54:44 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209030729370.7754-100000@shell.cyberus.ca>
+Message-ID: <200209031254.QAA02008@sex.inr.ac.ru>
 References: <20020903050441.4052F2C414@lists.samba.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>, <anton@samba.org>
+Cc: netdev@oss.sgi.com, anton@samba.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rusty Russell <rusty@rustcorp.com.au>@shell.cyberus.ca@shell.cyberus.ca
-In-Reply-To: <20020903050441.4052F2C414@lists.samba.org>
+To: rusty@rustcorp.com.au (Rusty Russell)
+In-Reply-To: <20020903050441.4052F2C414@lists.samba.org> from "Rusty Russell" at Sep 3, 2 03:04:47 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
+> 	I know this is an FAQ, but I never saw an answer I liked.
 
-Unless you are trying to stress test NAT, i wouldnt go the NAT path.
-Have you looked at the packet generator in 2.4.19? With it you can
-bypass IP totaly.
+And what kind of answers do you like? :-)
 
-cheers,
-jamal
+> still impossible
 
-On Tue, 3 Sep 2002, Rusty Russell wrote:
+It depends on sense which you put to "impossible".
 
-> Hi all,
->
-> 	I know this is an FAQ, but I never saw an answer I liked.  We
-> want to stress-test a couple of gigabit NICs by connecting them to
-> each other and routing packets out one and into the other.  Is this
-> still impossible without nat?
->
-> Rusty.
-> --
->   Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
->
+There are two problems with this:
+
+1. You cannot send to local address via any device but loopback.
+
+   The only way to override this is to use explicit SO_BINDTODEVICE
+   on sending socket. Hence, it is "impossible" not changing application. 
+
+2. You cannot receive packets with local address from any device
+   but loopback.
+
+   This is impossible, but wthis time without not editing kernel,
+   removing the check for local addresses in fib_validate_source().
+
+Alexey
