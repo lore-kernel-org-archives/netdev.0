@@ -1,43 +1,55 @@
-From: Petr Vandrovec <vandrove@vc.cvut.cz>
-Subject: [PATCH?] Fix sniffing of ARP replies
-Date: Wed, 15 Oct 2003 19:11:12 +0200
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] init_netdev missing locking
+Date: Wed, 15 Oct 2003 11:05:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015171112.GA2469@vana.vc.cvut.cz>
+Message-ID: <20031015110520.0206e327.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
-  after recent changes in packet_type interface I stopped setting
-af_packet_priv - as you told that it is only for AF_PACKET, for nobody
-else. And - things stopped working.
 
-  After some debugging I found that there are skb's with ->sk == NULL -
-namely ARP replies - and if af_packet_priv == NULL, these skbs are not
-delivered to the registered ptype.
+It looks like the call to dev_alloc_name() in init_netdev()
+isn't protected by the required locking.
+This patch adds rtnl_lock/unlock around the call to dev_alloc_name().
 
-  Is change below correct, or should I simple set af_packet_priv to
-non-NULL value, like I did before (and like I have to do it again for
-older kernels, in the light of problems I'm seeing now)?
-					Thanks,
-						Petr Vandrovec
+Comments?  or please apply.
+
+--
+~Randy
 
 
-diff -urdN linux/net/core/dev.c linux/net/core/dev.c
---- linux/net/core/dev.c	2003-10-15 14:05:23.000000000 +0000
-+++ linux/net/core/dev.c	2003-10-15 16:52:41.000000000 +0000
-@@ -942,7 +942,8 @@
- 		 * they originated from - MvS (miquels@drinkel.ow.org)
- 		 */
- 		if ((ptype->dev == dev || !ptype->dev) &&
--		    (struct sock *)ptype->af_packet_priv != skb->sk) {
-+		    (ptype->af_packet_priv == NULL ||
-+		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
- 			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
- 			if (!skb2)
- 				break;
+description:	add required locking to init_netdev()'s call to
+		dev_alloc_name()
+patch_name:	netinit_alloc_lock.patch
+product_versions: Linux 2.6.0-test7
+maintainer:	davem@redhat.com
+author:		Randy.Dunlap <rddunlap@osdl.org>
+patch_version:	2003-10-15.10:55:51
+
+diffstat:=
+ drivers/net/net_init.c |    3 +++
+ 1 files changed, 3 insertions(+)
+
+diff -Naurp ./drivers/net/net_init.c~dev_alloc_lock ./drivers/net/net_init.c
+--- ./drivers/net/net_init.c~dev_alloc_lock	2003-10-15 10:53:02.000000000 -0700
++++ ./drivers/net/net_init.c	2003-10-15 10:53:34.000000000 -0700
+@@ -148,11 +148,14 @@ static struct net_device *init_netdev(st
+ 	 
+ 	if (dev->name[0] == '\0' || dev->name[0] == ' ') {
+ 		strcpy(dev->name, mask);
++		rtnl_lock();
+ 		if (dev_alloc_name(dev, mask)<0) {
++			rtnl_unlock();
+ 			if (new_device)
+ 				kfree(dev);
+ 			return NULL;
+ 		}
++		rtnl_unlock();
+ 	}
+ 
+ 	netdev_boot_setup_check(dev);
