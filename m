@@ -1,66 +1,40 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: suggestion for routing code improvement
-Date: Thu, 11 Apr 2002 18:24:51 +0300 (EEST)
+From: Martin Devera <devik@cdi.cz>
+Subject: Re: QoS _put, _get and _delete class ops semantic
+Date: Thu, 11 Apr 2002 15:41:30 +0200 (CEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0204111813500.5560-100000@l>
-References: <15541.41833.773161.740744@robur.slu.se>
+Message-ID: <Pine.LNX.4.10.10204111453020.15162-100000@luxik.cdi.cz>
+References: <Pine.GSO.4.30.0204101918200.24339-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <owner-netdev@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <15541.41833.773161.740744@robur.slu.se>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <Pine.GSO.4.30.0204101918200.24339-100000@shell.cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
+> > Unfortunately there is delete class op which seems to do
+> > almost the same as put.
+> > Do you know rationale behind it ? Why we have both put
+> > and delete and what tc framework expect from qdisc ?
+> 
+> Alexey can give a better answer.
 
-	Hello,
+probably he could step in here ;)
 
-On Thu, 11 Apr 2002, Robert Olsson wrote:
+> Typically put() is the backup for delete. Should delete fail
+> to destroy because of reference counts being non-zero, put will catch it.
 
->  > 	If you use another hash function for the route cache you can
->  > even get better :) In my tests with many hosts i got 8% increase in
->  > performance.
->
->  Interesting. At what rate of new connections/s did you test?
+So that if I understand it correctly: delete can only assure
+that class is "invisible" from now to subsequent gets/walks
+and other uses and leave actual destroy to the last put.
+Do you think that it is reasonable ?
 
-	It was on 100mbit, I already don't remember the exact tests
-and number of clients, etc. The patch is archived ..., here it is.
-You can try it yourself:
+> CBQ is an easier scheduler to see this. For a fun one look at the ATM
+> scheduler.
 
+I looked at them but I hate to blindly copy-n-paste code without
+in-depth knowledge of interface's expectation. Especially when
+yesterday (after year of flawless operation) someone made my
+code oops during class deletion under high load ;-\
 
---- net/ipv4/route.c.orig	Wed Jun  6 17:51:49 2001
-+++ net/ipv4/route.c	Wed Jun  6 18:25:45 2001
-@@ -203,11 +203,9 @@
-
- static __inline__ unsigned rt_hash_code(u32 daddr, u32 saddr, u8 tos)
- {
--	unsigned hash = ((daddr & 0xF0F0F0F0) >> 4) |
--			((daddr & 0x0F0F0F0F) << 4);
--	hash ^= saddr ^ tos;
--	hash ^= (hash >> 16);
--	return (hash ^ (hash >> 8)) & rt_hash_mask;
-+	unsigned hash = (saddr + daddr + tos);
-+	hash = ntohl(hash) * 2654435761UL;
-+	return hash & rt_hash_mask;
- }
-
- static int rt_cache_get_info(char *buffer, char **start, off_t offset,
-
-
-
-I'm using attacking program with configurable number of client IPs:
-
-http://www.linuxvirtualserver.org/~julian/#testlvs
-
-	Sorry that it does not have flood rate limits, use QoS in
-the flooding host :) You can try the patch with different tools,
-of course.
-
->  Cheers	.
->
-> 						--ro
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+thanks, Martin
