@@ -1,30 +1,35 @@
 From: kuznet@ms2.inr.ac.ru
 Subject: Re: [PATCH] repairing rtcache killer
-Date: Wed, 6 Aug 2003 21:58:09 +0400 (MSD)
+Date: Wed, 6 Aug 2003 22:06:45 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308061758.VAA01743@dub.inr.ac.ru>
-References: <16177.13435.45921.229742@robur.slu.se>
+Message-ID: <200308061806.WAA01763@dub.inr.ac.ru>
+References: <16177.14760.612648.582063@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: davem@redhat.com, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Robert.Olsson@data.slu.se (Robert Olsson)
-In-Reply-To: <16177.13435.45921.229742@robur.slu.se> from "Robert Olsson" at Aug 06, 2003 07:01:47 PM
+In-Reply-To: <16177.14760.612648.582063@robur.slu.se> from "Robert Olsson" at Aug 06, 2003 07:23:52 PM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
->  Crap. We are back to the dst cache overflow again even with routing tables 
->  loaded. Well test is now on SMP and 2.6.0-test1. Undo the min_score test 
->  and give it retry?
+> +		if (in_hit < in_slow_tot) {
+> +			/* Aggressive  */
+> +			if(ip_rt_gc_elasticity2 > 1) 
+> +				ip_rt_gc_elasticity2 >>= 1;
+> +		}
+> +		else 
+> +			if(ip_rt_gc_elasticity2 < 2*ip_rt_gc_elasticity) {
+> +				ip_rt_gc_elasticity2 <<= 1;
+> +			}
 
-No. This patch is not related to RCU problem at all. It just sanitizes
-craziness of balancing introduced by chain truncation,
-that's why the subject is different. :-)
+It is the system with positive feedback. Reduction of chain length
+results in increasing amount of misses and so on. Under normal load
+it has the only stable state, zero chain length and will never leave it.
 
-I think you did not apply patch, which is responsible for repairing
-rcu troubles.
+hits/misses is wrong feedback, unless you use it to increase chain length. :-)
 
 Alexey
