@@ -1,43 +1,47 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Make netif_rx_ni preempt-safe
-Date: Wed, 20 Oct 2004 21:58:40 -0700
+Subject: Re: [XFRM] Allow transport SAs even when there is no policy
+Date: Wed, 20 Oct 2004 22:02:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020215840.40f0bacc.davem@davemloft.net>
-References: <1098230132.23628.28.camel@krustophenia.net>
-	<200410202256.56636.vda@port.imtp.ilyichevsk.odessa.ua>
-	<1098303951.2268.8.camel@krustophenia.net>
-	<200410202332.33583.vda@port.imtp.ilyichevsk.odessa.ua>
-	<20041020171508.0e947d08.davem@davemloft.net>
-	<20041021003503.GA10391@gondor.apana.org.au>
+Message-ID: <20041020220255.0d2c6014.davem@davemloft.net>
+References: <4172943B.8050904@trash.net>
+	<20041017212317.GA28615@gondor.apana.org.au>
+	<4172F1AB.4020305@trash.net>
+	<20041017231258.GA29294@gondor.apana.org.au>
+	<417428CF.2050802@trash.net>
+	<20041018214326.GA6589@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: vda@port.imtp.ilyichevsk.odessa.ua, rlrevell@joe-job.com, akpm@osdl.org,
-        linux-kernel@vger.kernel.org, linux-kernel@gondor.apana.org.au,
-        maxk@qualcomm.com, irda-users@lists.sourceforge.net,
-        netdev@oss.sgi.com, alain@parkautomat.net
+Cc: kaber@trash.net, davem@redhat.com, netdev@oss.sgi.com,
+        ipsec-tools-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041021003503.GA10391@gondor.apana.org.au>
+In-Reply-To: <20041018214326.GA6589@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004 10:35:03 +1000
+On Tue, 19 Oct 2004 07:43:26 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> On Wed, Oct 20, 2004 at 05:15:08PM -0700, David S. Miller wrote:
-> >  
-> > +int netif_rx_ni(struct sk_buff *skb)
-> > +{
-> > +       int err = netif_rx(skb);
-> > +
-> > +       preempt_disable();
-> > +       if (softirq_pending(smp_processor_id()))
-> > +               do_softirq();
+> On Mon, Oct 18, 2004 at 10:34:23PM +0200, Patrick McHardy wrote:
+> > 
+> > > More importantly that it'll stick out like a sore thumb in terms of
+> > >
+> > > its semantics.
+> > 
+> > __xfrm_policy_check already rejects packets without a matching policy
+> > and skb->sp set, but it is skipped while the policy list is empty.
+> > What, from a semantics point of view, would be wrong with making
+> > xfrm_policy_check behave the same way ?
 > 
-> You need to move the netif_rx call inside the disable as otherwise
-> you might be checking the pending flag on the wrong CPU.
+> Good catch.  That was a bug introduced by yours truly :)
+> 
+> What I meant to say is all packets with tunnel mode SAs should be
+> rejected since we don't allow optional tunnel transforms for security
+> reasons.
+> 
+> This patch fixes it.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Good catch, I've made that fix in my tree.
-
-Thanks.
+Applied, thanks Herbert.
