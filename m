@@ -1,26 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: TOE brain dump
-Date: Wed, 6 Aug 2003 01:22:18 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: (usagi-core 14846) [PATCH] IPv6: No fragmentation of packets
+ with length <= mtu
+Date: Wed, 06 Aug 2003 19:28:24 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030806012218.4012d9e4.davem@redhat.com>
-References: <3F2CAE61.7070401@pobox.com>
-	<5.1.0.14.2.20030806181359.02bf9570@mira-sjcm-3.cisco.com>
+Message-ID: <20030806.192824.129498139.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.44.0308061039550.1401-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andre@linux-ide.org, jgarzik@pobox.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org, werner@almesberger.net, niv@us.ibm.com
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lincoln Dale <ltd@cisco.com>
-In-Reply-To: <5.1.0.14.2.20030806181359.02bf9570@mira-sjcm-3.cisco.com>
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <Pine.LNX.4.44.0308061039550.1401-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 06 Aug 2003 18:20:06 +1000
-Lincoln Dale <ltd@cisco.com> wrote:
+In article <Pine.LNX.4.44.0308061039550.1401-200000@rhea.tcs.hut.fi> (at Wed, 6 Aug 2003 13:00:41 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
 
-> secondly, why would a router or switch even be touching the data at layer-4 
-> (TCP), let alone recalculating a CRC?
+> I noticed ip6_append_data() always reserves space for the fragment header
+> at the cost of the payload data. This leads to the unnecessary
+> fragmentation of packets with lengths close (or equal) to the link-mtu.
+> This can for example be seen with ping6 -s 1448 (on an ethernet link).
+> 
+> My attached patch _seems_ to fix the problem without breaking anything
+> else, but can you still verify this?
 
-To make sure emails about Falun Gong and other undesirable topics
-don't make it into China.
+Well, your patch breaks something; the idea of append_data.
+User may "push" multiple times to generate a packet.
+
+I'm chasing this bug.
+Since this bug is not grave, we do not need to fix this ASAP;
+We need to fix a grave issue with UDPv6 with MSG_MORE flag 
+before this.
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
