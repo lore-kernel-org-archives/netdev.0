@@ -1,9 +1,9 @@
-From: "Universo Online" <uol@uol.com.br>
+From: "Universo Online" <cobranca@uol.com.br>
 Subject: Assine UOL!
-Date: 27 Nov 2002 18:03:10 -0300
+Date: 27 Nov 2002 19:09:46 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <B0058101580@www3.infolink.com.br>
-Reply-To: "Universo Online" <uol@uol.com.br>
+Message-ID: <B0058112254@www3.infolink.com.br>
+Reply-To: "Universo Online" <cobranca@uol.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
