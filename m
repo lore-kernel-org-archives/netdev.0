@@ -1,32 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (1/5) get rid of useless hashbin in irtty
-Date: Sat, 16 Aug 2003 05:20:48 -0700
+Subject: Re: [PATCH] ibmtr - get rid of MOD_INC/DEC
+Date: Sat, 16 Aug 2003 07:38:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030816052048.5858d68a.davem@redhat.com>
-References: <20030815154608.56cf0551.shemminger@osdl.org>
-	<20030815230546.GA31831@bougret.hpl.hp.com>
+Message-ID: <20030816073804.2464c5e2.davem@redhat.com>
+References: <20030813174658.2c5125af.shemminger@osdl.org>
+	<20030814205747.5fcd83d0.davem@redhat.com>
+	<3F3CE05D.5080306@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jt@bougret.hpl.hp.com, shemminger@osdl.org,
-   irda-users@lists.sourceforge.net, netdev@oss.sgi.com, lists@mdiehl.de
+Cc: shemminger@osdl.org, mikep@linuxtr.net, linux-tr@linuxtr.net,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20030815230546.GA31831@bougret.hpl.hp.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F3CE05D.5080306@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Aug 2003 16:05:46 -0700
-Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
+On Fri, 15 Aug 2003 09:30:05 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> On Fri, Aug 15, 2003 at 03:46:08PM -0700, Stephen Hemminger wrote:
-> >
-> > Working on converting IRDA to new netdevice semantics,
+> David S. Miller wrote:
+> > Can't we lose the MODULE ifdefs too?
 > 
-> 	I hope you realised that this is most likely 2.7.X
-> material.
+> Doubtful for ibmtr, which requires some of them for ibmtr_cs (which 
+> #includes it).
 
-Without moving to the new netdevice semantics, you're
-drivers will be broken.
+Indeed.
 
-This isn't a happy cleanup change, it is necessary.
+Patch applied, thanks Stephen.
