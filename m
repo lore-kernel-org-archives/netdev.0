@@ -1,28 +1,39 @@
-From: Jamal Hadi <hadi@shell.cyberus.ca>
-Subject: Re: [PATCH 0/2] Sysfs net class .
-Date: Mon, 19 May 2003 15:46:35 -0400 (EDT)
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: the change from spinlock to rcu_read_lock in the bridge code
+Date: Mon, 19 May 2003 21:46:35 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030519154502.D39024@shell.cyberus.ca>
-References: <20030513150303.A2406@DYN318281.beaverton.ibm.com>
- <200305131657.03508.dsteklof@us.ibm.com> <20030514142023.0e411f34.shemminger@osdl.org>
- <200305141443.57169.dsteklof@us.ibm.com> <20030515162712.61cd153e.shemminger@osdl.org>
+Message-ID: <200305192146.35133.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, Patrick Mochel <mochel@osdl.org>,
-   netdev@oss.sgi.com, greg@kroah.com, jkenisto@us.ibm.com,
-   lkessler@us.ibm.com, Daniel Stekloff <dsteklof@us.ibm.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030515162712.61cd153e.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
-Hi Stephen,
+The 2.5 bridge code now uses (as you ofcourse know) rcu_read_lock to protect a 
+function's local data.
+The use of a bridge r/w spinlock had the advantage that all netfilter modules 
+registered on a bridge hook were guaranteed that the bridge ports wouldn't 
+vanish while the code was executed.
+If I understand things correctly, the del_nbp() function can now put the 
+br_port member of a net_device on NULL any time while another processor is 
+bridging a frame. If so, then all bridge netfilter modules will have to check 
+on NULL and use smp_read_barrier_depends() when they want to read the struct 
+net_bridge_port. For example, br_netfilter.c will need extra code to deal 
+with this.
 
-Not too familiar with sysfs but make sure it doesnt break netlink or
-even ioctl. BTW, did i misread that or are you allowing restoring things
-like ifindex in that patch?
+Also, what about this hypothetical situation: the user removes eth0 from br0 
+and adds eth0 as a port of br1. If this is done fast enough, the same skb can 
+have a different input bridge device on different times.
 
+Is using rcu really that much faster in the bridge case, considering extra 
+checking code will have to be added?
+
+-- 
 cheers,
-jamal
+Bart
