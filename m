@@ -1,97 +1,154 @@
-From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
-Date: Fri, 28 Nov 2003 10:54:33 +0100
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
+ device
+Date: Fri, 28 Nov 2003 12:34:12 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1070013272.2144.4.camel@teapot.felipe-alfaro.com>
-References: <1069974209.5349.7.camel@teapot.felipe-alfaro.com>
-	 <20031128.092326.39861126.yoshfuji@linux-ipv6.org>
-	 <20031128.092642.47232575.yoshfuji@linux-ipv6.org>
-	 <20031128.094022.106776635.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.58.0311281146560.9203@rhea.tcs.hut.fi>
+References: <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi>
+ <20031125.035531.94714784.yoshfuji@linux-ipv6.org>
+ <Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi>
+ <20031127.193910.96333709.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
 Content-Transfer-Encoding: quoted-printable
-Cc: rmk+lkml@arm.linux.org.uk, davem@redhat.com,
-        Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
+Cc: =?iso-8859-15?Q?YOSHIFUJI_Hideaki_=2F_=B5=C8=C6=A3=B1=D1=CC=C0?= <yoshfuji@linux-ipv6.org>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031128.094022.106776635.yoshfuji@linux-ipv6.org>
+To: davem@redhat.com
+In-Reply-To: <20031127.193910.96333709.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2003-11-28 at 01:40, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
-=B1=E6=98=8E wrote:
-> In article <20031128.092642.47232575.yoshfuji@linux-ipv6.org> (at Fri, =
-28 Nov 2003 09:26:42 +0900 (JST)), YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
-=E8=8B=B1=E6=98=8E <yoshfuji@linux-ipv6.org> says:
->=20
-> > >  3)   if (len)
-> > >          strncpy(dst, src, len - 1);
-> > >       dst[len] =3D 0;
->=20
-> grr, another mistake...:
->=20
->           if (len) {
->              strncpy(dst, src, len - 1);
->              dst[len - 1];
->           }
->=20
-> ----------------
-> 1) use strlcpy0(dst, src, len)
->=20
-> size_t strlcpy0(char *dst, const char *src, size_t maxlen)
-> {
->   size_t len =3D strlcpy(dst, src, maxlen);
->   if (likely(maxlen !=3D 0) && len < maxlen - 1)
->     memset(dst + len + 1, 0, maxlen - len - 1);
-> }
->=20
-> 2a) use strncpy0(dst, src, len)
->=20
-> char *strncpy0(char *dst, const char *src, size_t maxlen)
-> {
->   memset(dst, 0, maxlen);
->   if (likely(maxlen !=3D 0))
->     strncpy(dst, src, maxlen - 1);
-> }
->=20
-> 2b) fix strncpy() to zero-out rest of destination buffer=20
->     and use strncpy0(dst, src, len)
->=20
-> char *strncpy0(char *dst, const char *src, size_t maxlen)
-> {
->   if (likely(maxlen !=3D 0)) {
->     strncpy(dst, src, maxlen - 1);
->     dst[maxlen - 1] =3D 0;
->   }
-> }
->=20
->=20
-> I prefer 1 > 2b >> 2a.
+On Thu, 27 Nov 2003, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
+=CC=C0 wrote:
 
-What about coding a new function str0cpy()?
+> In article <Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi> (at Thu, =
+27 Nov 2003 12:31:58 +0200 (EET)), Ville Nuorvala <vnuorval@tcs.hut.fi> s=
+ays:
+>
+> > here is a new version. I made some other minor changes to it too.
+>
+> looks fine.
+> --yoshfuji
 
-/**
- * str0cpy - Copy a length-limited, %NUL-terminated string
- * @dest: Where to copy the string to
- * @src: Where to copy the string from
- * @count: The maximum number of bytes to copy
- */
-char * str0cpy(char * dest,const char *src,size_t count)
-{
-        if (count) {
-                char *tmp =3D dest;
+Hi Dave, Yoshifuji-san is now ok with this patch :) Would you apply it?
 
-                count--;
-                while (count) {
-                        if ((*tmp =3D *src) !=3D 0) src++;
-                        tmp++;
-                        count--;
-                }
-                *tmp =3D 0;
-        }
-        return dest;
-}
+Its purpose is to enable autoconfiguration of link-local addresses on
+the ip6-ip6 tunnel devices.
 
-It behaves like strncpy() but correctly null-terminates the string in
-every case.
+Thanks,
+Ville
+
+=3D=3D=3D=3D=3D net/ipv6/ip6_tunnel.c 1.12.1.2 vs 1.16 =3D=3D=3D=3D=3D
+--- 1.12.1.2/net/ipv6/ip6_tunnel.c	Wed Nov  5 22:36:56 2003
++++ 1.16/net/ipv6/ip6_tunnel.c	Thu Nov  6 17:00:52 2003
+@@ -821,6 +821,8 @@
+ 	else
+ 		dev->flags &=3D ~IFF_POINTOPOINT;
+
++	dev->iflink =3D p->link;
++
+ 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
+ 		struct rt6_info *rt =3D rt6_lookup(&p->raddr, &p->laddr,
+ 						 p->link, 0);
+@@ -829,8 +831,6 @@
+ 			return;
+
+ 		if (rt->rt6i_dev) {
+-			dev->iflink =3D rt->rt6i_dev->ifindex;
+-
+ 			dev->hard_header_len =3D rt->rt6i_dev->hard_header_len +
+ 				sizeof (struct ipv6hdr);
+
+@@ -1040,7 +1040,6 @@
+ 	dev->hard_header_len =3D LL_MAX_HEADER + sizeof (struct ipv6hdr);
+ 	dev->mtu =3D ETH_DATA_LEN - sizeof (struct ipv6hdr);
+ 	dev->flags |=3D IFF_NOARP;
+-	dev->iflink =3D 0;
+ 	dev->addr_len =3D sizeof(struct in6_addr);
+ }
+
+=3D=3D=3D=3D=3D net/ipv6/addrconf.c 1.74.1.3 vs 1.79 =3D=3D=3D=3D=3D
+--- 1.74.1.3/net/ipv6/addrconf.c	Wed Nov 26 03:06:32 2003
++++ 1.79/net/ipv6/addrconf.c	Thu Nov 27 11:14:09 2003
+@@ -1809,6 +1809,54 @@
+ 		sit_route_add(dev);
+ }
+
++static inline int
++ipv6_inherit_linklocal(struct inet6_dev *idev, struct net_device *link_d=
+ev)
++{
++	struct in6_addr lladdr;
++
++	if (!ipv6_get_lladdr(link_dev, &lladdr)) {
++		addrconf_add_linklocal(idev, &lladdr);
++		return 0;
++	}
++	return -1;
++}
++
++static void ip6_tnl_add_linklocal(struct inet6_dev *idev)
++{
++	struct net_device *link_dev;
++
++	/* first try to inherit the link-local address from the link device */
++	if (idev->dev->iflink &&
++	    (link_dev =3D __dev_get_by_index(idev->dev->iflink))) {
++		if (!ipv6_inherit_linklocal(idev, link_dev))
++			return;
++	}
++	/* then try to inherit it from any device */
++	for (link_dev =3D dev_base; link_dev; link_dev =3D link_dev->next) {
++		if (!ipv6_inherit_linklocal(idev, link_dev))
++			return;
++	}
++	printk(KERN_DEBUG "init ip6-ip6: add_linklocal failed\n");
++}
++
++/*
++ * Autoconfigure tunnel with a link-local address so routing protocols,
++ * DHCPv6, MLD etc. can be run over the virtual link
++ */
++
++static void addrconf_ip6_tnl_config(struct net_device *dev)
++{
++	struct inet6_dev *idev;
++
++	ASSERT_RTNL();
++
++	if ((idev =3D addrconf_add_dev(dev)) =3D=3D NULL) {
++		printk(KERN_DEBUG "init ip6-ip6: add_dev failed\n");
++		return;
++	}
++	ip6_tnl_add_linklocal(idev);
++	addrconf_add_mroute(dev);
++}
+
+ int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 		    void * data)
+@@ -1822,7 +1870,9 @@
+ 		case ARPHRD_SIT:
+ 			addrconf_sit_config(dev);
+ 			break;
+-
++		case ARPHRD_TUNNEL6:
++			addrconf_ip6_tnl_config(dev);
++			break;
+ 		case ARPHRD_LOOPBACK:
+ 			init_loopback(dev);
+ 			break;
+@@ -2121,6 +2171,7 @@
+ 	 */
+
+ 	if (ifp->idev->cnf.forwarding =3D=3D 0 &&
++	    ifp->idev->cnf.rtr_solicits > 0 &&
+ 	    (dev->flags&IFF_LOOPBACK) =3D=3D 0 &&
+ 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
+ 		struct in6_addr all_routers;
+
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
