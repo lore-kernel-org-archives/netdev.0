@@ -1,68 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPv4]: More fib_alias insertion fixes
-Date: Sun, 26 Sep 2004 18:14:49 +1000
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [6/6]: jenkins hash for neigh
+Date: Sun, 26 Sep 2004 19:11:27 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CBUBF-00034F-00@gondolin.me.apana.org.au>
-References: <Pine.LNX.4.58.0409260857510.1151@u.domain.uli>
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Message-ID: <20040926.191127.96477984.yoshfuji@linux-ipv6.org>
+References: <20040924142702.62a2b23d.davem@davemloft.net>
+	<20040925064406.GL3236@sunbeam.de.gnumonks.org>
+	<20040925005623.2faf8faf.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ja@ssi.bg (Julian Anastasov)
-In-Reply-To: <Pine.LNX.4.58.0409260857510.1151@u.domain.uli>
+To: davem@davemloft.net
+In-Reply-To: <20040925005623.2faf8faf.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Julian Anastasov <ja@ssi.bg> wrote:
+In article <20040925005623.2faf8faf.davem@davemloft.net> (at Sat, 25 Sep 2004 00:56:23 -0700), "David S. Miller" <davem@davemloft.net> says:
+
+> So let's discuss #4.  It is the first idea I had to combat the
+> "problem", but honestly right now I am beginning to think that
+> the real solution is to simply remove the INCOMPLETE checks
+> altogether.
 > 
->        But it still needs one exception: the entries with TOS 0
-> must be at tail to allow fn_hash_lookup to match by TOS. With
-> random TOS insertion this is not guaranteed, the entries with
-> TOS=0 (wildcard) will match before the others.
+> Neighbours are a sub-cache of the routing cache.  Therefore when
+> a neigh entry has a singular refcount, no routing cache entry
+> points to it.  No routing cache entry, we're not sending packets
+> to that neighbour any time soon, so there is no reason (especially
+> during strong pressure) to hold onto such entries.
 
-Good point.
+First, in IPv6, we usually do not create cache entries for now.
+(I assume it is rt6_info with RTF_CACHE flag set.)
+We create one if we receives
+ - redirect
+or
+ - too big (for pmtu).
 
->                prev_fa = NULL;
->                list_for_each_entry(fa, head, fa_list) {
->                        if (fa->fa_tos != tos)
-> -                               continue;
-> +                       {
-> +                               if (!prev_fa && fa->fa_tos)
-> +                                       continue;
-> +                               /* Stop at TOS 0 or after entries from our TOS */
-> +                               return fa;
-> +                       }
+Personally, I agree to change this; always to create routing cache.
 
-Well if we're doing this then we might as well keep it sorted by TOS.
-It makes the code simpler, right?
+Second, we should free only STALE entries first for specification
+conformity; lifetime of stale entries is not standardized,
+but ones of others are.
+We will be broken especially for neighbour-cache reachable-time is
+longer than routing-cache lifetime) case.
 
-Cheers,
+So, I would say
+ - stage 1: if num_entries > low_thresh,
+             try purge STALE entries (with refcnt == 1).
+             if not enough, schedule flushing routing cache.
+ - stage 2: if num_entries > high_thresh,
+             try to purge all states (except for permanent entries, 
+             but including 1 second-old INCOMPLETE entries.)
+             if not enough, schedule flushing routing cache.
+ - stage 3: if num_entries > ultimate_thresh, we fail.
+or something.
+
+So, I cannot agree simiply removing the "INCOMPLETE" test.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-===== net/ipv4/fib_hash.c 1.26 vs edited =====
---- 1.26/net/ipv4/fib_hash.c	2004-09-24 06:19:43 +10:00
-+++ edited/net/ipv4/fib_hash.c	2004-09-26 18:12:57 +10:00
-@@ -442,9 +442,11 @@
- 
- 		prev_fa = NULL;
- 		list_for_each_entry(fa, head, fa_list) {
--			if (fa->fa_tos != tos)
--				continue;
-+			if (fa->fa_tos < tos)
-+				break;
- 			prev_fa = fa;
-+			if (fa->fa_tos > tos)
-+				continue;
- 			if (prio <= fa->fa_info->fib_priority)
- 				break;
- 		}
-@@ -506,6 +508,7 @@
- 	 */
- 
- 	if (fa &&
-+	    fa->fa_tos == tos &&
- 	    fa->fa_info->fib_priority == fi->fib_priority) {
- 		struct fib_alias *fa_orig;
- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
