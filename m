@@ -1,25 +1,45 @@
-From: Mike_Phillips@URSCorp.com
-Subject: Re: Token Ring Hardware Address in ARP
-Date: Thu, 25 Apr 2002 12:22:06 -0500
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <OFB41AEBD7.9D970803-ON86256BA6.005FEDC4@urscorp.com>
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: Tigon 3 driver & Netgear GA302T
+Date: Fri, 26 Apr 2002 20:14:47 +1000 (EST)
+Sender: owner-netdev@oss.sgi.com
+Message-ID: <Mutt.LNX.4.44.0204262009460.17951-100000@blackbird.intercode.com.au>
+References: <Mutt.LNX.4.44.0204250152190.11349-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: root <jberna@disc.ua.es>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+Return-path: <owner-netdev@oss.sgi.com>
+To: Jes Sorensen <jes@wildopensource.com>
+In-Reply-To: <Mutt.LNX.4.44.0204250152190.11349-100000@blackbird.intercode.com.au>
 List-Id: netdev.vger.kernel.org
 
->                I want to know which is the format for token ring 
-hardware address to
->set entries in the ARP table. I tried the Ethernet one
->(00:00:00:00:00:00) but doesn't work. Any idea ??
+On Thu, 25 Apr 2002, James Morris wrote:
 
-Token ring mac addresses are the same as ethernet, but the high order bits 
-have special meaning. You have to ensure the address adheres to these 
-requirements.
+> On 24 Apr 2002, Jes Sorensen wrote:
+> 
+> > >>>>> "James" == James Morris <jmorris@intercode.com.au> writes:
+> > 
+> > James> Does the tg3 driver support the Netgear GA302T card (which I
+> > James> think uses the Altima AC1000 chip) ?
+> > 
+> > If it's the Altima then I guess so, otherwise I'd expect the 83820
+> > driver to run it.
+> > 
+> 
+> It appears to be the Altima, from the Freebsd cvs log comments & 
+> associated changes for their bge driver.
+> 
 
-Mike
-Linux Token Ring Project
-http://www.linuxtr.net
+Confirmed:
 
+eth2: Tigon3 [partno(BAC91000A1) rev 7104 PHY(5411)] (PCI:33MHz:32-bit) 10/100/1000BaseT Ethernet 00:40:f4:35:f1:77
+eth2: Link is up at 100 Mbps, full duplex.
+eth2: Flow control is off for TX and off for RX.
+
+Unfortunately, it's not successfully transmitting or receiving any 
+packets.
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
