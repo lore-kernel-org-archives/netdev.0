@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 3/5] TCP Westwood+ support
-Date: Fri, 18 Mar 2005 16:24:12 -0800
-Message-ID: <20050318162412.189ccf9c@dxpl.pdx.osdl.net>
+Subject: [PATCH 4/5] TCP Vegas support
+Date: Fri, 18 Mar 2005 16:26:26 -0800
+Message-ID: <20050318162626.3eab2b8b@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,55 +11,79 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add TCP Westwood+ support back in as a separate pluggable algorithm.
-The mechanism and policy is unchanged from existing code.
+Add TCP Vegas support back as a configurable algorithm.
+Since it has issues that make it perform poorly in many environments
+make it default to off.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 
 diff -Nru a/net/ipv4/Kconfig b/net/ipv4/Kconfig
---- a/net/ipv4/Kconfig	2005-03-18 16:10:43 -08:00
-+++ b/net/ipv4/Kconfig	2005-03-18 16:10:43 -08:00
-@@ -382,6 +382,20 @@
- 	increase provides TCP friendliness.
- 	See http://www.csc.ncsu.edu/faculty/rhee/export/bitcp/
+--- a/net/ipv4/Kconfig	2005-03-18 16:11:05 -08:00
++++ b/net/ipv4/Kconfig	2005-03-18 16:11:05 -08:00
+@@ -396,6 +396,16 @@
+ 	TCP Westwood+ significantly increases fairness wrt TCP Reno in 
+ 	wired networks and throughput over wireless links.   
  
-+config TCP_CONG_WESTWOOD
-+	tristate "TCP Westwood+"
-+	default y
++config TCP_CONG_VEGAS
++	tristate "TCP Vegas"
++	default n
 +	---help---
-+	TCP Westwood+ is a sender-side only modification of the TCP Reno 
-+	protocol stack that optimizes the performance of TCP congestion 
-+	control. It is based on end-to-end bandwidth estimation to set 
-+	congestion window and slow start threshold after a congestion 
-+	episode. Using this estimation, TCP Westwood+ adaptively sets a 
-+	slow start threshold and a congestion window which takes into 
-+	account the bandwidth used  at the time congestion is experienced. 
-+	TCP Westwood+ significantly increases fairness wrt TCP Reno in 
-+	wired networks and throughput over wireless links.   
++	TCP Vegas is a sender-side only change to TCP that anticipates
++	the onset of congestion by estimating the bandwidth. TCP Vegas
++	adjusts the sending rate by modifying the congestion
++	window. TCP Vegas should provide less packet loss, but it is
++	not as aggressive as TCP Reno.
 +
  endmenu
  
  source "net/ipv4/ipvs/Kconfig"
 diff -Nru a/net/ipv4/Makefile b/net/ipv4/Makefile
---- a/net/ipv4/Makefile	2005-03-18 16:10:43 -08:00
-+++ b/net/ipv4/Makefile	2005-03-18 16:10:43 -08:00
-@@ -25,6 +25,7 @@
- obj-$(CONFIG_IP_VS) += ipvs/
+--- a/net/ipv4/Makefile	2005-03-18 16:11:05 -08:00
++++ b/net/ipv4/Makefile	2005-03-18 16:11:05 -08:00
+@@ -26,6 +26,7 @@
  obj-$(CONFIG_IP_TCPDIAG) += tcp_diag.o 
  obj-$(CONFIG_TCP_CONG_BIC) += tcp_bic.o
-+obj-$(CONFIG_TCP_CONG_WESTWOOD) += tcp_westwood.o
+ obj-$(CONFIG_TCP_CONG_WESTWOOD) += tcp_westwood.o
++obj-$(CONFIG_TCP_CONG_VEGAS) += tcp_vegas.o
  
  obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
  		      xfrm4_output.o
-diff -Nru a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
+diff -Nru a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
 --- /dev/null	Wed Dec 31 16:00:00 196900
-+++ b/net/ipv4/tcp_westwood.c	2005-03-18 16:10:43 -08:00
-@@ -0,0 +1,349 @@
++++ b/net/ipv4/tcp_vegas.c	2005-03-18 16:11:05 -08:00
+@@ -0,0 +1,409 @@
 +/*
-+ * TCP Westwood+
++ * TCP Vegas congestion control
 + *
-+ *	Angelo Dell'Aera:	TCP Westwood+ support
++ * This is based on the congestion detection/avoidance scheme described in
++ *    Lawrence S. Brakmo and Larry L. Peterson.
++ *    "TCP Vegas: End to end congestion avoidance on a global internet."
++ *    IEEE Journal on Selected Areas in Communication, 13(8):1465--1480,
++ *    October 1995. Available from:
++ *	ftp://ftp.cs.arizona.edu/xkernel/Papers/jsac.ps
++ *
++ * See http://www.cs.arizona.edu/xkernel/ for their implementation.
++ * The main aspects that distinguish this implementation from the
++ * Arizona Vegas implementation are:
++ *   o We do not change the loss detection or recovery mechanisms of
++ *     Linux in any way. Linux already recovers from losses quite well,
++ *     using fine-grained timers, NewReno, and FACK.
++ *   o To avoid the performance penalty imposed by increasing cwnd
++ *     only every-other RTT during slow start, we increase during
++ *     every RTT during slow start, just like Reno.
++ *   o Largely to allow continuous cwnd growth during slow start,
++ *     we use the rate at which ACKs come back as the "actual"
++ *     rate, rather than the rate at which data is sent.
++ *   o To speed convergence to the right rate, we set the cwnd
++ *     to achieve the right ("actual") rate when we exit slow start.
++ *   o To filter out the noise caused by delayed ACKs, we use the
++ *     minimum RTT sample observed during the last RTT to calculate
++ *     the actual rate.
++ *   o When the sender re-starts from idle, it waits until it has
++ *     received ACKs for an entire flight of new data before making
++ *     a cwnd adjustment decision. The original Vegas implementation
++ *     assumed senders never went idle.
 + */
 +
 +#include <linux/config.h>
@@ -67,341 +91,374 @@ diff -Nru a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
 +#include <linux/module.h>
 +#include <linux/skbuff.h>
 +#include <linux/tcp_diag.h>
++
 +#include <net/tcp.h>
 +
-+/* TCP Westwood structure */
-+struct westwood_ca {
-+	u32    bw_ns_est;        /* first bandwidth estimation..not too smoothed 8) */
-+	u32    bw_est;           /* bandwidth estimate */
-+	u32    rtt_win_sx;       /* here starts a new evaluation... */
-+	u32    bk;
-+	u32    snd_una;          /* used for evaluating the number of acked bytes */
-+	u32    cumul_ack;
-+	u32    accounted;
-+	u32    rtt;
-+	u32    rtt_min;          /* minimum observed RTT */
++/* Default values of the Vegas variables, in fixed-point representation
++ * with V_PARAM_SHIFT bits to the right of the binary point.
++ */
++#define V_PARAM_SHIFT 1
++static int alpha = 1<<V_PARAM_SHIFT;
++static int beta  = 3<<V_PARAM_SHIFT;
++static int gamma = 1<<V_PARAM_SHIFT;
++
++module_param(alpha, int, 0644);
++MODULE_PARM_DESC(alpha, "lower bound of packets in network (scale by 2)");
++module_param(beta, int, 0644);
++MODULE_PARM_DESC(beta, "upper bound of packets in network (scale by 2)");
++module_param(gamma, int, 0644);
++MODULE_PARM_DESC(gamma, "limit on increase (scale by 2)");
++
++
++/* Vegas variables */
++struct vegas_ca {
++	u32	beg_snd_nxt;	/* right edge during last RTT */
++	u32	beg_snd_una;	/* left edge  during last RTT */
++	u32	beg_snd_cwnd;	/* saves the size of the cwnd */
++	u8	doing_vegas_now;/* if true, do vegas for this RTT */
++	u16	cntRTT;		/* # of RTTs measured within last RTT */
++	u32	minRTT;		/* min of RTTs measured within last RTT (in usec) */
++	u32	baseRTT;	/* the min of all Vegas RTT measurements seen (in usec) */
 +};
 +
-+
-+/* TCP Westwood functions and constants */
-+#define TCP_WESTWOOD_INIT_RTT  (20*HZ)           /* maybe too conservative?! */
-+#define TCP_WESTWOOD_RTT_MIN   (HZ/20)           /* 50ms */
-+
-+/*
-+ * @tcp_westwood_create
-+ * This function initializes fields used in TCP Westwood+. We can't
-+ * get no information about RTTmin at this time so we simply set it to
-+ * TCP_WESTWOOD_INIT_RTT. This value was chosen to be too conservative
-+ * since in this way we're sure it will be updated in a consistent
-+ * way as soon as possible. It will reasonably happen within the first
-+ * RTT period of the connection lifetime.
++/* There are several situations when we must "re-start" Vegas:
++ *
++ *  o when a connection is established
++ *  o after an RTO
++ *  o after fast recovery
++ *  o when we send a packet and there is no outstanding
++ *    unacknowledged data (restarting an idle connection)
++ *
++ * In these circumstances we cannot do a Vegas calculation at the
++ * end of the first RTT, because any calculation we do is using
++ * stale info -- both the saved cwnd and congestion feedback are
++ * stale.
++ *
++ * Instead we must wait until the completion of an RTT during
++ * which we actually receive ACKs.
 + */
-+static void tcp_westwood_start(struct tcp_sock *tp)
++static void tcp_vegas_enable(struct tcp_sock *tp)
 +{
-+	struct westwood_ca *w = tcp_ca(tp);
++	struct vegas_ca *vegas = tcp_ca(tp);
 +
-+        w->bw_ns_est = 0;
-+        w->bw_est = 0;
-+        w->accounted = 0;
-+        w->cumul_ack = 0;
-+        w->rtt_win_sx = tcp_time_stamp;
-+        w->rtt = TCP_WESTWOOD_INIT_RTT;
-+        w->rtt_min = TCP_WESTWOOD_INIT_RTT;
-+        w->snd_una = tp->snd_una;
++	/* Begin taking Vegas samples next time we send something. */
++	vegas->doing_vegas_now = 1;
++
++	/* Set the beginning of the next send window. */
++	vegas->beg_snd_nxt = tp->snd_nxt;
++
++	vegas->cntRTT = 0;
++	vegas->minRTT = 0x7fffffff;
 +}
 +
-+/*
-+ * @westwood_do_filter
-+ * Low-pass filter. Implemented using constant coefficents.
++/* Stop taking Vegas samples for now. */
++static inline void tcp_vegas_disable(struct tcp_sock *tp)
++{
++	struct vegas_ca *vegas = tcp_ca(tp);
++
++	vegas->doing_vegas_now = 0;
++}
++
++static void tcp_vegas_start(struct tcp_sock *tp)
++{
++	struct vegas_ca *vegas = tcp_ca(tp);
++
++	vegas->baseRTT = 0x7fffffff;
++	tcp_vegas_enable(tp);
++}
++
++/* Do RTT sampling needed for Vegas.
++ * Basically we:
++ *   o min-filter RTT samples from within an RTT to get the current
++ *     propagation delay + queuing delay (we are min-filtering to try to
++ *     avoid the effects of delayed ACKs)
++ *   o min-filter RTT samples from a much longer window (forever for now)
++ *     to find the propagation delay (baseRTT)
 + */
-+static inline u32 westwood_do_filter(u32 a, u32 b)
++static void tcp_vegas_rtt_calc(struct tcp_sock *tp, u32 rtt)
 +{
-+	return (((7 * a) + b) >> 3);
++	struct vegas_ca *vegas = tcp_ca(tp);
++	u32 vrtt = rtt + 1; /* Never allow zero rtt or baseRTT */
++
++	/* Filter to find propagation delay: */
++	if (vrtt < vegas->baseRTT)
++		vegas->baseRTT = vrtt;
++
++	/* Find the min RTT during the last RTT to find
++	 * the current prop. delay + queuing delay:
++	 */
++	vegas->minRTT = min(vegas->minRTT, vrtt);
++	vegas->cntRTT++;
 +}
 +
-+static inline void westwood_filter(struct westwood_ca *w, u32 delta)
++static void tcp_vegas_ca_state(struct tcp_sock *tp, u8 ca_state)
 +{
-+	w->bw_ns_est = westwood_do_filter(w->bw_ns_est, w->bk / delta);
-+	w->bw_est = westwood_do_filter(w->bw_est, w->bw_ns_est);
-+}
-+
-+/*
-+ * @westwood_update_rttmin
-+ * It is used to update RTTmin. In this case we MUST NOT use
-+ * WESTWOOD_RTT_MIN minimum bound since we could be on a LAN!
-+ */
-+static inline u32 westwood_update_rttmin(const struct westwood_ca *w)
-+{
-+	u32 rttmin = w->rtt_min;
-+
-+	if (w->rtt != 0 &&
-+	    (w->rtt < w->rtt_min || !rttmin))
-+		rttmin = w->rtt;
-+
-+	return rttmin;
-+}
-+
-+static void tcp_westwood_sample_rtt(struct tcp_sock *tp, u32 rtt)
-+{
-+	struct westwood_ca *w = tcp_ca(tp);
-+	w->rtt = tp->srtt >> 3;
-+}
-+
-+/*
-+ * @westwood_acked
-+ * Evaluate increases for dk.
-+ */
-+static inline u32 westwood_acked(struct tcp_sock *tp)
-+{
-+	struct westwood_ca *w = tcp_ca(tp);
-+	return tp->snd_una - w->snd_una;
-+}
-+
-+/*
-+ * @westwood_new_window
-+ * It evaluates if we are receiving data inside the same RTT window as
-+ * when we started.
-+ * Return value:
-+ * It returns 0 if we are still evaluating samples in the same RTT
-+ * window, 1 if the sample has to be considered in the next window.
-+ */
-+static inline int westwood_new_window(const struct tcp_sock *tp)
-+{
-+	struct westwood_ca *w = tcp_ca(tp);
-+	u32 left_bound;
-+	u32 rtt;
-+	int ret = 0;
-+
-+	left_bound = w->rtt_win_sx;
-+	rtt = max(w->rtt, (u32) TCP_WESTWOOD_RTT_MIN);
-+
-+	/*
-+	 * A RTT-window has passed. Be careful since if RTT is less than
-+	 * 50ms we don't filter but we continue 'building the sample'.
-+	 * This minimum limit was choosen since an estimation on small
-+	 * time intervals is better to avoid...
-+	 * Obvioulsy on a LAN we reasonably will always have
-+	 * right_bound = left_bound + WESTWOOD_RTT_MIN
-+         */
-+
-+	if ((left_bound + rtt) < tcp_time_stamp)
-+		ret = 1;
-+
-+	return ret;
++	if (ca_state == TCP_CA_Open)
++		tcp_vegas_enable(tp);
++	else
++		tcp_vegas_disable(tp);
 +}
 +
 +/*
-+ * @westwood_update_window
-+ * It updates RTT evaluation window if it is the right moment to do
-+ * it. If so it calls filter for evaluating bandwidth.
++ * If the connection is idle and we are restarting,
++ * then we don't want to do any Vegas calculations
++ * until we get fresh RTT samples.  So when we
++ * restart, we reset our Vegas state to a clean
++ * slate. After we get acks for this flight of
++ * packets, _then_ we can make Vegas calculations
++ * again.
 + */
-+static void westwood_update_window(struct tcp_sock *tp, u32 now)
++static void tcp_vegas_cwnd_event(struct tcp_sock *tp, enum tcp_ca_event event)
 +{
-+	struct westwood_ca *w = tcp_ca(tp);
-+	if (westwood_new_window(tp)) {
-+		u32 delta = now - w->rtt_win_sx;
-+
-+		if (delta) {
-+			if (w->rtt)
-+				westwood_filter(w, delta);
-+
-+			w->bk = 0;
-+			w->rtt_win_sx = tcp_time_stamp;
-+		}
-+	}
++	if (event == CA_EVENT_CWND_RESTART || event == CA_EVENT_TX_START)
++		tcp_vegas_enable(tp);
 +}
 +
-+/*
-+ * @tcp_westwood_fast_bw
-+ * It is called when we are in fast path. In particular it is called when
-+ * header prediction is successfull. In such case infact update is
-+ * straight forward and doesn't need any particular care.
-+ */
-+static void tcp_westwood_fast_bw(struct tcp_sock *tp)
++static void tcp_vegas_cong_avoid(struct tcp_sock *tp, u32 ack,
++				 u32 seq_rtt, u32 in_flight, int flag)
 +{
-+	struct westwood_ca *w = tcp_ca(tp);
-+	westwood_update_window(tp, tcp_time_stamp);
++	struct vegas_ca *vegas = tcp_ca(tp);
 +
-+	w->bk += westwood_acked(tp);
-+	w->snd_una = tp->snd_una;
-+	w->rtt_min = westwood_update_rttmin(w);
-+}
-+
-+/*
-+ * @westwood_acked_count
-+ * This function evaluates cumul_ack for evaluating dk in case of
-+ * delayed or partial acks.
-+ */
-+static u32 westwood_acked_count(struct tcp_sock *tp)
-+{
-+	struct westwood_ca *w = tcp_ca(tp);
-+
-+	w->cumul_ack = westwood_acked(tp);
-+
-+        /* If cumul_ack is 0 this is a dupack since it's not moving
-+         * tp->snd_una.
-+         */
-+        if (!w->cumul_ack) {
-+		w->accounted += tp->mss_cache_std;
-+		w->cumul_ack = tp->mss_cache_std;
++	if (!vegas->doing_vegas_now) {
++		tcp_reno_cong_avoid(tp, ack, seq_rtt, in_flight, flag);
++		return;
 +	}
 +
-+        if (w->cumul_ack > tp->mss_cache_std) {
-+		/* Partial or delayed ack */
-+		if (w->accounted >= w->cumul_ack) {
-+			w->accounted -= w->cumul_ack;
-+			w->cumul_ack = tp->mss_cache_std;
++	/* The key players are v_beg_snd_una and v_beg_snd_nxt.
++	 *
++	 * These are so named because they represent the approximate values
++	 * of snd_una and snd_nxt at the beginning of the current RTT. More
++	 * precisely, they represent the amount of data sent during the RTT.
++	 * At the end of the RTT, when we receive an ACK for v_beg_snd_nxt,
++	 * we will calculate that (v_beg_snd_nxt - v_beg_snd_una) outstanding
++	 * bytes of data have been ACKed during the course of the RTT, giving
++	 * an "actual" rate of:
++	 *
++	 *     (v_beg_snd_nxt - v_beg_snd_una) / (rtt duration)
++	 *
++	 * Unfortunately, v_beg_snd_una is not exactly equal to snd_una,
++	 * because delayed ACKs can cover more than one segment, so they
++	 * don't line up nicely with the boundaries of RTTs.
++	 *
++	 * Another unfortunate fact of life is that delayed ACKs delay the
++	 * advance of the left edge of our send window, so that the number
++	 * of bytes we send in an RTT is often less than our cwnd will allow.
++	 * So we keep track of our cwnd separately, in v_beg_snd_cwnd.
++	 */
++
++	if (after(ack, vegas->beg_snd_nxt)) {
++		/* Do the Vegas once-per-RTT cwnd adjustment. */
++		u32 old_wnd, old_snd_cwnd;
++
++
++		/* Here old_wnd is essentially the window of data that was
++		 * sent during the previous RTT, and has all
++		 * been acknowledged in the course of the RTT that ended
++		 * with the ACK we just received. Likewise, old_snd_cwnd
++		 * is the cwnd during the previous RTT.
++		 */
++		old_wnd = (vegas->beg_snd_nxt - vegas->beg_snd_una) /
++			tp->mss_cache_std;
++		old_snd_cwnd = vegas->beg_snd_cwnd;
++
++		/* Save the extent of the current window so we can use this
++		 * at the end of the next RTT.
++		 */
++		vegas->beg_snd_una  = vegas->beg_snd_nxt;
++		vegas->beg_snd_nxt  = tp->snd_nxt;
++		vegas->beg_snd_cwnd = tp->snd_cwnd;
++
++		/* Take into account the current RTT sample too, to
++		 * decrease the impact of delayed acks. This double counts
++		 * this sample since we count it for the next window as well,
++		 * but that's not too awful, since we're taking the min,
++		 * rather than averaging.
++		 */
++		tcp_vegas_rtt_calc(tp, seq_rtt);
++
++		/* We do the Vegas calculations only if we got enough RTT
++		 * samples that we can be reasonably sure that we got
++		 * at least one RTT sample that wasn't from a delayed ACK.
++		 * If we only had 2 samples total,
++		 * then that means we're getting only 1 ACK per RTT, which
++		 * means they're almost certainly delayed ACKs.
++		 * If  we have 3 samples, we should be OK.
++		 */
++
++		if (vegas->cntRTT <= 2) {
++			/* We don't have enough RTT samples to do the Vegas
++			 * calculation, so we'll behave like Reno.
++			 */
++			if (tp->snd_cwnd > tp->snd_ssthresh)
++				tp->snd_cwnd++;
 +		} else {
-+			w->cumul_ack -= w->accounted;
-+			w->accounted = 0;
++			u32 rtt, target_cwnd, diff;
++
++			/* We have enough RTT samples, so, using the Vegas
++			 * algorithm, we determine if we should increase or
++			 * decrease cwnd, and by how much.
++			 */
++
++			/* Pluck out the RTT we are using for the Vegas
++			 * calculations. This is the min RTT seen during the
++			 * last RTT. Taking the min filters out the effects
++			 * of delayed ACKs, at the cost of noticing congestion
++			 * a bit later.
++			 */
++			rtt = vegas->minRTT;
++
++			/* Calculate the cwnd we should have, if we weren't
++			 * going too fast.
++			 *
++			 * This is:
++			 *     (actual rate in segments) * baseRTT
++			 * We keep it as a fixed point number with
++			 * V_PARAM_SHIFT bits to the right of the binary point.
++			 */
++			target_cwnd = ((old_wnd * vegas->baseRTT)
++				       << V_PARAM_SHIFT) / rtt;
++
++			/* Calculate the difference between the window we had,
++			 * and the window we would like to have. This quantity
++			 * is the "Diff" from the Arizona Vegas papers.
++			 *
++			 * Again, this is a fixed point number with
++			 * V_PARAM_SHIFT bits to the right of the binary
++			 * point.
++			 */
++			diff = (old_wnd << V_PARAM_SHIFT) - target_cwnd;
++
++			if (tp->snd_cwnd < tp->snd_ssthresh) {
++				/* Slow start.  */
++				if (diff > gamma) {
++					/* Going too fast. Time to slow down
++					 * and switch to congestion avoidance.
++					 */
++					tp->snd_ssthresh = 2;
++
++					/* Set cwnd to match the actual rate
++					 * exactly:
++					 *   cwnd = (actual rate) * baseRTT
++					 * Then we add 1 because the integer
++					 * truncation robs us of full link
++					 * utilization.
++					 */
++					tp->snd_cwnd = min(tp->snd_cwnd,
++							   (target_cwnd >>
++							    V_PARAM_SHIFT)+1);
++
++				}
++			} else {
++				/* Congestion avoidance. */
++				u32 next_snd_cwnd;
++
++				/* Figure out where we would like cwnd
++				 * to be.
++				 */
++				if (diff > beta) {
++					/* The old window was too fast, so
++					 * we slow down.
++					 */
++					next_snd_cwnd = old_snd_cwnd - 1;
++				} else if (diff < alpha) {
++					/* We don't have enough extra packets
++					 * in the network, so speed up.
++					 */
++					next_snd_cwnd = old_snd_cwnd + 1;
++				} else {
++					/* Sending just as fast as we
++					 * should be.
++					 */
++					next_snd_cwnd = old_snd_cwnd;
++				}
++
++				/* Adjust cwnd upward or downward, toward the
++				 * desired value.
++				 */
++				if (next_snd_cwnd > tp->snd_cwnd)
++					tp->snd_cwnd++;
++				else if (next_snd_cwnd < tp->snd_cwnd)
++					tp->snd_cwnd--;
++			}
 +		}
++
++		/* Wipe the slate clean for the next RTT. */
++		vegas->cntRTT = 0;
++		vegas->minRTT = 0x7fffffff;
 +	}
 +
-+	w->snd_una = tp->snd_una;
++	/* The following code is executed for every ack we receive,
++	 * except for conditions checked in should_advance_cwnd()
++	 * before the call to tcp_cong_avoid(). Mainly this means that
++	 * we only execute this code if the ack actually acked some
++	 * data.
++	 */
 +
-+	return w->cumul_ack;
++	/* If we are in slow start, increase our cwnd in response to this ACK.
++	 * (If we are not in slow start then we are in congestion avoidance,
++	 * and adjust our congestion window only once per RTT. See the code
++	 * above.)
++	 */
++	if (tp->snd_cwnd <= tp->snd_ssthresh)
++		tp->snd_cwnd++;
++
++	/* to keep cwnd from growing without bound */
++	tp->snd_cwnd = min_t(u32, tp->snd_cwnd, tp->snd_cwnd_clamp);
++
++	/* Make sure that we are never so timid as to reduce our cwnd below
++	 * 2 MSS.
++	 *
++	 * Going below 2 MSS would risk huge delayed ACKs from our receiver.
++	 */
++	tp->snd_cwnd = max(tp->snd_cwnd, 2U);
 +}
-+
-+
-+/*
-+ * @tcp_westwood_slow_bw
-+ * It is called when something is going wrong..even if there could
-+ * be no problems! Infact a simple delayed packet may trigger a
-+ * dupack. But we need to be careful in such case.
-+ */
-+static void tcp_westwood_slow_bw(struct tcp_sock *tp)
-+{
-+	struct westwood_ca *w = tcp_ca(tp);
-+
-+	westwood_update_window(tp, tcp_time_stamp);
-+
-+	w->bk += westwood_acked_count(tp);
-+	w->rtt_min = westwood_update_rttmin(w);
-+}
-+
-+static inline u32 tcp_westwood_bw_rttmin(const struct tcp_sock *tp)
-+{
-+	struct westwood_ca *w = tcp_ca(tp);
-+
-+        return max((w->bw_est) * (w->rtt_min) / (u32) (tp->mss_cache_std),
-+		   2U);
-+}
-+
-+static inline u32 tcp_westwood_ssthresh(struct tcp_sock *tp)
-+{
-+	u32 ssthresh = tcp_westwood_bw_rttmin(tp);
-+	if (ssthresh)
-+		tp->snd_ssthresh = ssthresh;
-+
-+	return (ssthresh != 0);
-+}
-+
-+static inline int tcp_westwood_cwnd(struct tcp_sock *tp)
-+{
-+	u32 cwnd = 0;
-+
-+	cwnd = tcp_westwood_bw_rttmin(tp);
-+	if (cwnd)
-+		tp->snd_cwnd = cwnd;
-+
-+	return (cwnd != 0);
-+}
-+
-+/*
-+ * TCP Westwood
-+ * Here limit is evaluated as BWestimation*RTTmin (for obtaining it
-+ * in packets we use mss_cache). If sysctl_tcp_westwood is off
-+ * tcp_westwood_bw_rttmin() returns 0. In such case snd_ssthresh is
-+ * still used as usual. It prevents other strange cases in which
-+ * BWE*RTTmin could assume value 0. It should not happen but...
-+ */
-+static u32 tcp_westwood_cwnd_min(struct tcp_sock *tp)
-+{
-+	u32 limit;
-+
-+	limit = tcp_westwood_bw_rttmin(tp);
-+	if (limit == 0)
-+		limit = tp->snd_ssthresh/2;
-+	return limit;
-+}
-+
-+static void tcp_westwood_event(struct tcp_sock *tp, enum tcp_ca_event event)
-+{
-+	switch(event) {
-+	case CA_EVENT_CWND_RESTART:
-+		break;
-+
-+	case CA_EVENT_COMPLETE_CWR:
-+		if (tcp_westwood_cwnd(tp))
-+			tp->snd_ssthresh = tp->snd_cwnd;
-+		break;
-+
-+	case CA_EVENT_FRTO:
-+		if (!tcp_westwood_ssthresh(tp))
-+			tp->snd_ssthresh = tcp_westwood_ssthresh(tp);
-+		break;
-+
-+	case CA_EVENT_FAST_ACK:
-+		tcp_westwood_fast_bw(tp);
-+		break;
-+
-+	case CA_EVENT_SLOW_ACK:
-+		tcp_westwood_slow_bw(tp);
-+		break;
-+
-+	default:
-+		break;
-+	}
-+}
-+
 +
 +/* Extract info for Tcp socket info provided via netlink. */
-+static void tcp_westwood_info(struct tcp_sock *tp, u32 ext,
-+			      struct sk_buff *skb)
++static void tcp_vegas_get_info(struct tcp_sock *tp, u32 ext, 
++			       struct sk_buff *skb)
 +{
-+
 +	if (ext & (1<<(TCPDIAG_VEGASINFO-1))) {
 +		struct tcpvegas_info *info
 +			= tcpdiag_put(skb, TCPDIAG_VEGASINFO, sizeof(*info));
 +		if (info) {
-+			struct westwood_ca *ca = tcp_ca(tp);
-+			info->tcpv_enabled = 1;
-+			info->tcpv_rttcnt = 0;
-+			info->tcpv_rtt = jiffies_to_usecs(ca->rtt);
-+			info->tcpv_minrtt = jiffies_to_usecs(ca->rtt_min);
++			struct vegas_ca *ca = tcp_ca(tp);
++			info->tcpv_enabled = ca->doing_vegas_now;
++			info->tcpv_rttcnt = ca->cntRTT;
++			info->tcpv_rtt = jiffies_to_usecs(ca->baseRTT);
++			info->tcpv_minrtt = jiffies_to_usecs(ca->minRTT);
 +		}
 +	}
 +}
 +
-+
-+static struct tcp_ca_type tcp_westwood = {
-+	.start		= tcp_westwood_start,
++static struct tcp_ca_type tcp_vegas = {
++	.start		= tcp_vegas_start,
 +	.ssthresh	= tcp_reno_ssthresh,
-+	.rtt_sample	= tcp_westwood_sample_rtt,
-+	.cong_avoid	= tcp_reno_cong_avoid,
-+	.min_cwnd	= tcp_westwood_cwnd_min,
-+	.cwnd_event	= tcp_westwood_event,
-+	.get_info	= tcp_westwood_info,
++	.min_cwnd	= tcp_reno_cwnd_min,
++	.cong_avoid	= tcp_vegas_cong_avoid,
++	.rtt_sample	= tcp_vegas_rtt_calc,
++	.set_state	= tcp_vegas_ca_state,
++	.cwnd_event	= tcp_vegas_cwnd_event,
++	.get_info	= tcp_vegas_get_info,
 +
 +	.owner		= THIS_MODULE,
-+	.name		= "westwood"
++	.name		= "vegas",
 +};
 +
-+static int __init tcp_westwood_init(void)
++static int __init tcp_vegas_init(void)
 +{
-+	BUG_ON(sizeof(struct westwood_ca) > TCP_CA_PRIV_SIZE);
-+	tcp_ca_register(&tcp_westwood);
++	BUG_ON(sizeof(struct vegas_ca) > TCP_CA_PRIV_SIZE);
++	tcp_ca_register(&tcp_vegas);
 +	return 0;
 +}
 +
-+static void __exit tcp_westwood_exit(void)
++static void __exit tcp_vegas_exit(void)
 +{
-+	tcp_ca_unregister(&tcp_westwood);
++	tcp_ca_unregister(&tcp_vegas);
 +}
 +
-+module_init(tcp_westwood_init);
-+module_exit(tcp_westwood_exit);
++module_init(tcp_vegas_init);
++module_exit(tcp_vegas_exit);
 +
-+MODULE_AUTHOR("Stephen Hemminger, Angelo Del'Aera");
++MODULE_AUTHOR("Stephen Hemminger");
 +MODULE_LICENSE("GPL");
-+MODULE_DESCRIPTION("TCP Westwood+");
++MODULE_DESCRIPTION("TCP Vegas");
