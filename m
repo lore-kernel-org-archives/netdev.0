@@ -1,39 +1,22 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: udp weirdness
-Date: Mon, 30 Sep 2002 07:09:56 -0400 (EDT)
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
+Date: 30 Sep 2002 13:23:05 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209300703411.11444-100000@shell.cyberus.ca>
-References: <20020930084903.GA359@hookipa>
+Message-ID: <1033388585.16337.9.camel@irongate.swansea.linux.org.uk>
+References: <20020926054721.GA6039@samba.org>
+	<200209261309.RAA17837@sex.inr.ac.ru>
+	<20020926.134608.31605412.davem@redhat.com>
+	<20020930095909.GA8063@toey.sourcefrog.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru, ak@muc.de,
+   netdev@oss.sgi.com, Alan.Cox@linux.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Lemoine <Eric.Lemoine@sun.com>
-In-Reply-To: <20020930084903.GA359@hookipa>
+To: Martin Pool <mbp@samba.org>
+In-Reply-To: <20020930095909.GA8063@toey.sourcefrog.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-On Mon, 30 Sep 2002, Eric Lemoine wrote:
-
-> > Ok, understood. Actually we already seem to have enobufs being returned.
-> >
-> > Eric,
-> > Does the attached patch fix it? Not tested or even compiled.
-> > Someone going to change the manpages?
->
-> protinfo.af_inet.recverr is a flag (1-bit variable) to enable the
-> "extended reliable error message passing"; I dont see any reason
-> for modifying it here. Setting this flag is the user's responsability,
-> isn't it?
-
-I dont see any reason for modifying it there either - it is used for
-mostly for incoming ICMP errors; but the original piece of code was
-modifying it so i left it as is; however, thats not what you were chasing
-and i dont see how what you just posted is solving your problem.
-Did you even bother to test what i sent you? Or for that matter
-bother testing what you posted?
-
-cheers,
-jamal
+Well if Dave can't test it and isnt doing any 2.2 who wants to be the
+2.2 networking maintainer ?
