@@ -1,79 +1,27 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: [PATCH] Add ssleep_interruptible()
-Date: Mon, 22 Nov 2004 11:48:05 +0900
-Message-ID: <20041122024804.GD4146@verge.net.au>
-References: <E1CO1vc-00022t-N2@sputnik> <20041101200749.GF1730@us.ibm.com> <20041117013059.GA4218@us.ibm.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: send to self patch
+Date: Mon, 22 Nov 2004 15:55:53 +1100
+Message-ID: <20041122045553.GB32312@krispykreme.ozlabs.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: janitor@sternwelten.at, netdev@oss.sgi.com, jgarzik@pobox.com,
-        linux-kernel@vger.kernel.org, kernel-janitors@lists.osdl.org
+Cc: ja@ssi.bg
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nishanth Aravamudan <nacc@us.ibm.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20041117013059.GA4218@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 16, 2004 at 05:30:59PM -0800, Nishanth Aravamudan wrote:
-> On Mon, Nov 01, 2004 at 12:07:49PM -0800, Nishanth Aravamudan wrote:
-> > Description: Adds ssleep_interruptible() to allow longer delays to occur
-> > in TASK_INTERRUPTIBLE, similarly to ssleep(). To be consistent with
-> > msleep_interruptible(), ssleep_interruptible() returns the remaining time
-> > left in the delay in terms of seconds. This required dividing the return
-> > value of msleep_interruptible() by 1000, thus a cast to (unsigned long)
-> > to prevent any floating point issues.
-> > 
-> > Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-> > 
-> > --- 2.6.10-rc1-vanilla/include/linux/delay.h	2004-10-30 
-> > 15:34:03.000000000 -0700
-> > +++ 2.6.10-rc1/include/linux/delay.h	2004-11-01 12:06:11.000000000 -0800
-> > @@ -46,4 +46,9 @@ static inline void ssleep(unsigned int s
-> > 	msleep(seconds * 1000);
-> > }
-> > 
-> > +static inline unsigned long ssleep_interruptible(unsigned int seconds)
-> > +{
-> > +	return (unsigned long)(msleep_interruptible(seconds * 1000) / 1000);
-> > +}
-> > +
-> > #endif /* defined(_LINUX_DELAY_H) */
-> 
-> After a discussion on IRC, I believe it is pretty clear that this
-> function has serious issues. Mainly, that if I request a delay of 1
-> second, but msleep_interruptible() returns after 1 millisecond, then
-> ssleep_interruptible() will return 0, claiming the entire delay was
-> used (due to rounding).
-> 
-> Perhaps we should just be satisfied with milliseconds being the grossest
-> (in contrast to fine) measure of time, at least in terms of
-> interruptible delays. ssleep() is unaffected by this problem, of course.
-> 
-> Please revert this patch, if applied, as well as any of the other
-> patches I sent using ssleep_interruptible() [only a handful].
 
-Would making sure that the time slept was always rounded up to
-the nearest second resolve this problem. I believe that rounding
-up is a common approach to resolving this type of problem when
-changing clock resolution.
+Hi,
 
-I am thinking of something like this.
+We've been using Julian Anastasov's send to self patch quite a lot. It
+has been useful for a number of things including POWER5 system test
+(where we stress a single system with a number of networks) through to
+e1000 TSO testing more recently.
 
-===== include/linux/delay.h 1.6 vs edited =====
---- 1.6/include/linux/delay.h	2004-09-03 18:08:32 +09:00
-+++ edited/include/linux/delay.h	2004-11-22 11:47:03 +09:00
-@@ -46,4 +46,10 @@ static inline void ssleep(unsigned int s
- 	msleep(seconds * 1000);
- }
- 
-+static inline unsigned long ssleep_interruptible(unsigned int seconds)
-+{
-+	return (unsigned long)((msleep_interruptible(seconds * 1000) + 999) / 
-+			1000);
-+}
-+
- #endif /* defined(_LINUX_DELAY_H) */
+Are there any hopes of getting it merged? :)
 
--- 
-Horms
+http://www.ssi.bg/~ja/#loop
+
+Anton
