@@ -1,32 +1,45 @@
-From: "Christopher K. Johnson" <ckjohnson@gwi.net>
-Subject: IPsec tunnel mode bug - malformed, misaddressed packets
-Date: Sun, 17 Oct 2004 07:52:21 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC] Yield in netlink_broadcast when congested
+Date: Sun, 17 Oct 2004 22:42:10 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41725CF5.2010606@gwi.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Message-ID: <E1CJAMU-0006eR-00@gondolin.me.apana.org.au>
+References: <20041017110807.GV21977@postel.suug.ch>
+Cc: herbert@gondor.apana.org.au, pablo@eurodev.net, hadi@cyberus.ca,
+        davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: tgraf@suug.ch (Thomas Graf)
+In-Reply-To: <20041017110807.GV21977@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-There is an ipsec bug in FC2 kernel 2.6.8-1.521 for ipsec tunnel mode.
-I have proven with a packet trace that some packets are
-misaddressed.  Specifically it constructs a packet of the form:
- IP header1 | AH header | IP header2 | ESP
-The IP header1 has an incorrect destination address of the host in the
-remote tunneled subnet instead of the remote vpn partner, whereas IP
-header2 has the correct destination address of the remote vpn partner.
+Thomas Graf <tgraf@suug.ch> wrote:
+> 
+> Assuming there is only a few listeners per process. I tried it out and
+> my UP system could handle 7 listeners in the same process but would
+> sporadically overrun above. I couldn't reproduce it with 1 listener
+> per process anymore.
 
-For an host in local ipsec subnet contacting a web server in remote
-ipsec subnet the initial syn and response of syn,ack are tunnelled
-successfuly, but the encrypted ack goes out malformed as indicated above,
-thus is never delivered.
+Please recall what I said in my original message:
 
-Packet trace and setkey config are attached to bugzilla entry at 
-http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=132832
+: Before we start please bear in mind that netlink is fundamentally
+: an *unreliable* protocol.  This is the price we pay in order to use
+: it in all the contexts that we do.  So what we're looking for here
+: is not how to make netlink 100% reliable, but what we can do to
+: improve the quality of its implementation.
 
-Your help in resolving this bug so ipsec is usable would be appreciated greatly.
+Having 7 listeners in the same process isn't really the killer application
+I was looking for :)
 
-Chris
+> Therefore I guess this is fine for now, the problem might appear again
+> if someone finally writes the netlink daemon to solve the locking
+> problems.
+
+I don't think I understand what you are referring to.  Could you
+please elaborte?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
