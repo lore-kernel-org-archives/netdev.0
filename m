@@ -1,65 +1,71 @@
-From: Nuno Silva <nuno.silva@vgertech.com>
-Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
- to become free. Usage count = 1
-Date: Fri, 13 Aug 2004 21:35:49 +0100
+From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+Subject: Re: 8390.c workaround for interrupt storm
+Date: Fri, 13 Aug 2004 17:07:37 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411D2625.2070908@vgertech.com>
-References: <411BC284.6080807@vgertech.com> <20040813080334.GA13337@tentacle.sectorb.msk.ru>
+Message-ID: <20040813200737.GC29875@logos.cnet>
+References: <20040813153047.GC28640@logos.cnet> <411D21DE.2050804@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-In-Reply-To: <20040813080334.GA13337@tentacle.sectorb.msk.ru>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <411D21DE.2050804@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Fri, Aug 13, 2004 at 04:17:34PM -0400, Jeff Garzik wrote:
+> Marcelo Tosatti wrote:
+> >Hi netdev, 
+> >
+> >We've been seeing an interrupt storm on our 
+> >embedded PowerPC systems with Linksys PCMLM56 (network+modem) 
+> >PCMCIA cards (network part of it driven by pcnet_cs.c) as soon as the 
+> >network cable is  pluged/unpluged and after some activity on the serial
+> >line. 
+> >
+> >The card goes nuts, and doesnt stop sending interrupts. 
+> >
+> >So I hacked up this patch which resets the 8390 chip
+> >as soon as 256 empty interrupts are triggered. Works fine,
+> >the card comes back to sanity after resetting.
+> >
+> >Not sure if its specific to our boards, but I believe
+> >it might happen on other archs also, so I'm posting it 
+> >here in the hope it might be useful for someone with the
+> >same problem.
+> >
+> >Not likely to be included in mainline driver, but hey, why not,
+> >its protection against hardware insanity.
 
-Vladimir B. Savkin wrote:
-| On Thu, Aug 12, 2004 at 08:18:28PM +0100, Nuno Silva wrote:
-|
-|>Hi!
-|>
-|>With 2.6.8-rc4-bk1 I get "Aug 12 17:33:10 puma kernel:
-|>unregister_netdevice: waiting for ppp0 to become free. Usage count = 1"
-|>in the logs after pppd exit.
-|>
-|>Also, the box won't reboot and print that message forever in the
-|>console. sysrq-U && sysrq-R did it :-)
-|>
-|>The last version I tried was 2.6.8-rc2-bk11 and, wrt this prob, is
-|>running fine. So, the problem is in that window and the changelog for
-|>rc4 mentions something about ppp:
-|>http://kernel.org/pub/linux/kernel/v2.6/testing/ChangeLog-2.6.8-rc4
-|>
-|>If someone requires more information or tests feel free to ask!
-|
-|
-| I saw this too, with 2.6.7-rc3-mm1.
-| I have discovered that it happens because of idle TCP socket
-| holds a reference to a network device.
-| After killing associated process, device was freed immediately.
-|
+Hi Jeff!
 
-I waited for 5 mins before sysrq-U && sysrq-R.
-Anyway, if I 'killall pppd' and then issue 'ifconfig -a' the ifconfig
-command will hang.
+> You have stumbled on a common class of problems, I think.
+> 
+> IMO interrupt storms are almost always caused by the platform or bus.  I 
+> see tons of bug reports for ethernet drivers which turn out to be 
+> interrupt routing, interrupt handling, or interrupt storms unrelated to 
+> the ethernet driver itself.
+> 
+> Yes, you can sometimes work around this in the driver, but that tends to 
+> wind up hiding the problem.
 
-This didn't happen with 2.6.8-rc2-bk11 (the one I'm running now), so
-something changed... I'm I the only one with ppp/pppd/pppoe who tried
-2.6.8-rc4-bk1? :-) Any success reports?
+I see. So, following your thoughts, what is causing the interrupt storm 
+here is not the card itself, but the bus/platform/irq controller? That is,
+those interrupts are not coming from the card.
 
-Regards,
-Nuno Silva
+Or that something on the bus/platform/irq controller triggers the card
+into insanity, and the card really is sending those interrupts? 
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+Since resetting the 8390 stops it from madness, its likely that 
+the card itself is sending the interrupts, no?
 
-iD8DBQFBHSYlOPig54MP17wRAs1NAJ0dMRd7tqnpRk/tnxZj7xSeoUL3UgCgrk50
-tnzeT6sy3CauOI5WK7HF16o=
-=mkWf
------END PGP SIGNATURE-----
+Interesting...
+
+> PCMCIA debugging isn't fun, to be sure, maybe RMK has some ideas?
+
+This is a MontaVista v2.4.17 kernel patched up, so I doubt he will care much.
+
+I'll ask him anyway.
+
+Thanks for answering!!
