@@ -1,39 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6]: Fix policy update bug when increasing priority of
- last policy
-Date: Wed, 20 Oct 2004 22:05:58 -0700
+Subject: Re: [PATCH][ATM]: use RCV_SHUTDOWN to exit skb_recv_datagram()
+Date: Wed, 20 Oct 2004 22:07:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020220558.36427a06.davem@davemloft.net>
-References: <E1CJhER-0001vk-00@gondolin.me.apana.org.au>
-	<4175238C.7010907@trash.net>
+Message-ID: <20041020220716.29c7d10b.davem@davemloft.net>
+References: <200410182056.i9IKuL2s022173@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, davem@redhat.com, netdev@oss.sgi.com
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4175238C.7010907@trash.net>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200410182056.i9IKuL2s022173@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Oct 2004 16:24:12 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Mon, 18 Oct 2004 16:56:22 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-> Herbert Xu wrote:
-> 
-> >Patrick McHardy <kaber@trash.net> wrote:
-> >
-> >>This patch checks for *p != NULL before continuing the loop.
-> >>    
-> >>
-> >
-> >Unfortunately that doesn't fix it completely.  The real bug is
-> >the fact that we continue with a bogus p pointing to the deleted
-> >element.  So what we should do is continue without updating p
-> >at all.
-> >  
-> >
-> You're right, your patch is better. I've tested
-> it and it works fine.
+> this patch makes the svc socket protocol act a little more like
+> a connection oriented protocol.  please apply to 2.6.
 
-I applied Herbert's version of the fix, thanks guys.
+Applied, thanks Chas.
+
+Feel free to provide "Signed-off-by: Chas Williams <chas@....>"
+lines in the future.
+
+Thanks again.
