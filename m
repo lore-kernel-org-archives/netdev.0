@@ -1,39 +1,39 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] net/decnet/: misc possible cleanups
-Date: Sat, 18 Dec 2004 01:50:27 +0100
-Message-ID: <20041218005027.GC21288@stusta.de>
-References: <20041214125838.GC23151@stusta.de> <20041214133235.GB10131@souterrain.chygwyn.com>
+Subject: Re: [2.6 patch] net/sched/: possible cleanups
+Date: Sat, 18 Dec 2004 02:00:25 +0100
+Message-ID: <20041218010024.GD21288@stusta.de>
+References: <20041215012754.GH12937@stusta.de> <41BF9A95.5050902@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: patrick@tykepenguin.com, Steve Whitehouse <SteveW@ACM.org>,
-	linux-decnet-user@lists.sourceforge.net, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262803AbULRAut@vger.kernel.org>
-To: Steven Whitehouse <steve@chygwyn.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Content-Disposition: inline
-In-Reply-To: <20041214133235.GB10131@souterrain.chygwyn.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <41BF9A95.5050902@conectiva.com.br>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 14, 2004 at 01:32:35PM +0000, Steven Whitehouse wrote:
+On Tue, Dec 14, 2004 at 11:59:49PM -0200, Arnaldo Carvalho de Melo wrote:
+> 
+> Adrian Bunk wrote:
+> >The patch below contans the following possible cleanups:
+> >- make some needlessly global code static
+> >- sch_htb.c: #undef HTB_DEBUG
+> >
+> >
+> >diffstat output:
+> > include/net/act_api.h   |    3 ---
+> 
+> Adrian, may I suggest that you post the networking related patches
+> only to netdev?
 
-> Hi,
+Until now I thought it's never a bad idea to Cc linux-kernel on any 
+patches. Is there a specific reason why you consider this being a bad 
+thing (well, bandwith shouldn't be that much of an issue considering how 
+high-volume linux-kernel is...)?
 
-Hi Steven,
-
->...
-> Also, when I was writing the routing code - a lot of the design was "borrowed"
-> from the ipv4 routing code. It might be worth doing a comparison to see where
-> the two have diverged (something I used to do now and again) to pick up any
-> bugs I'd inadvertently copied over, if you are working on clean ups in this
-> area,
-
-unfortunately, I'm not working especially in this area.
-
-I'm currently going through the complete kernel sources searching for 
-global code that can be made static or even removed.
-
-> Steve.
+> - Arnaldo
 
 cu
 Adrian
