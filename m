@@ -1,9 +1,9 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Mon, 10 Jun 2002 10:45:31 -0400 (EDT)
+Date: Mon, 10 Jun 2002 10:56:36 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0206101033450.22559-100000@shell.cyberus.ca>
-References: <20020610095702.A27037@mark.mielke.cc>
+Message-ID: <Pine.GSO.4.30.0206101055370.22559-100000@shell.cyberus.ca>
+References: <Pine.GSO.4.30.0206101033450.22559-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: "David S. Miller" <davem@redhat.com>, <ltd@cisco.com>,
@@ -11,69 +11,17 @@ Cc: "David S. Miller" <davem@redhat.com>, <ltd@cisco.com>,
    <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
 To: Mark Mielke <mark@mark.mielke.cc>
-In-Reply-To: <20020610095702.A27037@mark.mielke.cc>
+In-Reply-To: <Pine.GSO.4.30.0206101033450.22559-100000@shell.cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
 
 
-On Mon, 10 Jun 2002, Mark Mielke wrote:
+On Mon, 10 Jun 2002, jamal wrote:
 
-> On Mon, Jun 10, 2002 at 08:24:44AM -0400, jamal wrote:
-> > I think i would agree with Dave for it to be an external patch. You
-> > really only need this during debugging. I had a similar patch when
-> > debugging NAPI about a year ago. I didnt find it that useful after
-> > a while because i could deduce the losses from SNMP/netstat output.
->
-> In your case you found that you could solve it once by debugging the
-> application.
->
-> This doesn't mean that other applications would not be better at
-> determining the code path to use at execution time.
->
-> Just because eth1 is behaving perfectly (i.e. low overall dropped UDP
-> packets, or low TCP/IP retransmission) does not mean that a specific
-> socket currently on eth1 heading to China should assume that it can
-> take the 'average' observation as adequate for observing the specific
-> socket.
->
-> There *are* applications that would benefit from making this decision
-> at run time on a socket-by-socket basis. It is not a common requirement
-> for most desktop users, but it remains a valid requirement.
->
+> You may be confusing technical merit to mean the same thing as corporate
+> donation. In Linux its the later that counts.
 
-I am confused as to which application needs this, do you have one in mind?
-AFAIK, UDP/RTP type apps already know how to determine packet loss
-on a per flow basis.
-
-> Providing it as a patch, can have the effect that it becomes more trouble
-> than it is worth to grant other people access to the feature, especially
-> from a corporate environment that has signed off on being able to release
-> patches made to Linux back to the Linux source tree.
->
-
-You may be confusing technical merit to mean the same thing as corporate
-donation. In Linux its the later that counts.
-
-> Seems somewhat of a loss...
-
-Your mileage may vary. Consider this - you have the opp to at least
-make the patch available. Imagine trying to convince windriver.
+Sorry meant the former.
 
 cheers,
 jamal
-
->
-
-> mark
->
-> --
-> mark@mielke.cc/markm@ncf.ca/markm@nortelnetworks.com __________________________
-> .  .  _  ._  . .   .__    .  . ._. .__ .   . . .__  | Neighbourhood Coder
-> |\/| |_| |_| |/    |_     |\/|  |  |_  |   |/  |_   |
-> |  | | | | \ | \   |__ .  |  | .|. |__ |__ | \ |__  | Ottawa, Ontario, Canada
->
->   One ring to rule them all, one ring to find them, one ring to bring them all
->                        and in the darkness bind them...
->
->                            http://mark.mielke.cc/
->
