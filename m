@@ -1,28 +1,83 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PACTH][IPV6] Introduce ip6_append_data
-Date: Wed, 16 Apr 2003 21:03:06 -0700 (PDT)
+From: Catalin BOIE <util@deuroconsult.ro>
+Subject: Re: [PATCH] qdisc oops fix
+Date: Thu, 17 Apr 2003 08:13:26 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030416.210306.110472553.davem@redhat.com>
-References: <20030417130231.179c7f00.kazunori@miyazawa.org>
+Message-ID: <Pine.LNX.4.53.0304170801460.23586@hosting.rdsbv.ro>
+References: <20030415084706.O1131@shell.cyberus.ca>
+ <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro> <20030416072952.E4013@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Catalin BOIE <util@deuroconsult.ro>, Tomas Szepe <szepe@pinerecords.com>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, manfred@colorfullife.com,
+   kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kazunori@miyazawa.org
-In-Reply-To: <20030417130231.179c7f00.kazunori@miyazawa.org>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <20030416072952.E4013@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi!
 
-You take direct page_address() of page, this is in general illegal.
+> This is a different problem from previous one posted.
+Same oops in slab.c:1128. Why do you think is different.
 
-Generally you must kmap the page to access it in the kernel as it may
-be a HIGHMEM page.
+> Theres a small window (exposed given that you are provisioning a lot
+> of qdiscs  and running traffic at the same time) that an incoming packet
+> interupt will cause the BUG().
+>
+> GFP_ATOMIC will fix it, but i wonder if it appropriate.
+>
+> Alexey or Manfred?
+>
+> cheers,
+> jamal
+>
+> PS:- 15mbits is not a lot of traffic ;->
+Yes, I know. I was comparing 15mbit with almost no traffic on the machine
+running same qdiscs/filters/classes... :)
 
-I know that right now you control all the allocations with
-alloc_page() and sk->allocation cannot currently allow highmem pages,
-but let us not start with the assumptions right now :-)
+>
+> On Wed, 16 Apr 2003, Catalin BOIE wrote:
+>
+> > > -       sch = kmalloc(size, GFP_KERNEL);
+> > > +       sch = kmalloc(size, GFP_ATOMIC);
+> > >
+> > > mysteriously fixes the problem? Could the problem be elsewhere?
+> > > Can you repost what the issue was? I am not on lk and i just saw the
+> > > posting on a web page.
+> >
+> > With many rules (~5000 classes and ~3500 qdiscs and ~50000 filters)
+> > the kernel oopses in slab.c:1128.
+> > It happens on high rates (~15mbit).
+> > On low rates, doesn't.
+> >
+> > Seems that an interrupt come and broke the memory allocation.
+> >
+> >
+> > >>EIP; c0127ab4 <kmem_cache_grow+44/1d8>   <=====
+> >
+> > >>EAX; ffffffff <END_OF_CODE+3fd31247/????>
+> > >>EBX; c12c52c0 <END_OF_CODE+ff6508/????>
+> > >>EDI; c12c52c0 <END_OF_CODE+ff6508/????>
+> > >>ESP; ceab1c60 <END_OF_CODE+e7e2ea8/????>
+> >
+> > Trace; c0127e0f <kmalloc+eb/110>
+> > Trace; c01d3cac <qdisc_create_dflt+20/bc>
+> > Trace; d081ecc7 <END_OF_CODE+1054ff0f/????>
+> > Trace; c01d5265 <tc_ctl_tclass+1cd/214>
+> > Trace; d0820600 <END_OF_CODE+10551848/????>
+> > Trace; c01d27e4 <rtnetlink_rcv+298/3bc>
+> > Trace; c01d0605 <__neigh_event_send+89/1b4>
+> > Trace; c01d7cd4 <netlink_data_ready+1c/60>
+> > Trace; c01d7730 <netlink_unicast+230/278>
+> > Trace; c01d7b73 <netlink_sendmsg+1fb/20c>
+> > Trace; c01c79d5 <sock_sendmsg+69/88>
+> > Trace; c01c8b48 <sys_sendmsg+18c/1e8>
+> > Trace; c0120010 <map_user_kiobuf+8/f8>
+> >
+> >
+>
 
-As soon as you write udp6_sendfile() you will need to handle
-this, that is for sure.
+---
+Catalin(ux) BOIE
+catab@deuroconsult.ro
