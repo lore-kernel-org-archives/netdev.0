@@ -1,55 +1,51 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: Sun, 2 Jan 2005 01:13:38 +0100
-Message-ID: <20050102001338.GV32419@postel.suug.ch>
-References: <20041230174313.GB32419@postel.suug.ch> <1104469111.1049.219.camel@jzny.localdomain> <20041231110836.GD32419@postel.suug.ch> <1104505142.1048.262.camel@jzny.localdomain> <20041231153930.GN32419@postel.suug.ch> <1104511494.1048.303.camel@jzny.localdomain> <20041231181153.GP32419@postel.suug.ch> <1104526311.1047.379.camel@jzny.localdomain> <20050101183230.GT32419@postel.suug.ch> <1104622934.1047.460.camel@jzny.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: patch: tunnels not setting inputdev
+Date: Sun, 02 Jan 2005 01:24:08 +0100
+Message-ID: <41D73F28.3090206@trash.net>
+References: <1104513392.1048.316.camel@jzny.localdomain>	 <41D5941C.8060001@trash.net> <1104523892.1047.338.camel@jzny.localdomain>	 <41D6CB87.8040205@trash.net> <1104622406.1049.450.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        Wichert Akkerman <wichert@wiggy.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1104622934.1047.460.camel@jzny.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1104622406.1049.450.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1104622934.1047.460.camel@jzny.localdomain> 2005-01-01 18:42
-> what happened to the good old SEL TLV (which i believe we called SEL2
-> now); or maybe thats what contains this TLV?
+jamal wrote:
+> I want to understand the repurcasssions instead of blindly setting. Let
+> users complain, thats why the printk exists. For example what does
+> input_dev mean for netbios or a 802.3ad interface? You already saw one,
+> xfrm, where there was no need to reset.
 
-Please look at the patch I posted in the other post. I think
-we missudnerstand each other.
+What's special about netbios ? For 802.3ad, I would expect input_dev
+to hold the virtual device through which the packet entered the stack,
+just what iptables -i would match. For xfrm - there is no need but its
+also not wrong.
 
-> > So we can put more into the selector if needed without breaking
-> > compatibility. TCA_EMATCH_TREE_HDR currently contains `nmatches'
-> > specifying N and progid holding the PID you talked about.
+>>I can't see the problem with
+>>redirected packets, just set skb->input_dev = skb->dev in
+>>netif_receive_skb, this should have exactly the same effect as
+>>setting it in the drivers or the mirred action.
 > 
-> Ok, so i think you may be saying the old selector stays intact then
-> (sans the matches)?
+> in some cases the pointers are swapped. You cant just blindly
+> set skb->input_dev = skb->dev at the input - that would be violating the
+> intent; think reinjecting packets (and look at mirred as a sample of
+> apps to come that do this).
 
-Right, old selector TLV statys as-is. Although I have to look
-u32 closely before I can make final statements.
+I don't know your intent, but I assumed it was to match the incoming
+interface as the networking stack sees it. Why would the pointers be
+swapped ? Please give me an example. mirred does:
 
-> Why do you need to specify "nmatches".
+         skb2->dev = dev;
+         skb2->input_dev = skb->dev;
 
-It's mainly a shortcut to validate precedence jumps so I
-can avoid traversing the RTA chain twice. It could be
-avoided but is quite handy to speed things up and
-also acts for validation purposes to check consistency of
-the match list.
+So on input input_dev is the incoming interface of the original packet,
+on output it is the outgoing interface of the original packet. Doesn't
+make much sense to me, the original packet came the same way both times.
 
-> What is TCA_EMATCH_TREE_LIST for? Looks like another TLV nesting. Not
-> needed, you just plumb the T=1,..T=N right after the header.
-
-No, what if we need some more stuff in the selector TLV? We can't
-modify the header TLV w/o breaking backwards compatibility. Adding
-this addtional nesting allows to simply add stuff after TREE_LIST
-TLV.
-
-> I think the way you have it is fine - and believe it is the way the
-> action code has it for the list.
-
-You're using a maximum prio aren't you? I use a RTA_OK() loop
-supporting unlimited number of matches without the need to
-allocate rtattr pointer array.
+Regards
+Patrick
