@@ -1,30 +1,28 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (2/3) llc - need to set owner on created sockets.
-Date: Fri, 29 Aug 2003 10:48:57 -0700
+Subject: [PATCH] econet - set socket owner field
+Date: Fri, 29 Aug 2003 11:18:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829104857.027a8c6f.shemminger@osdl.org>
+Message-ID: <20030829111855.1425b7aa.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-   "David S. Miller" <davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-LLC needs to set owner field on sockets it creates, otherwise
-it is possible to remove module with detached sockets still
-outstanding.
+All sockets created by a protocol need to have owner field set
+to prevent problems with orphaned sockets during module unload.
 
-diff -Nru a/net/llc/llc_main.c b/net/llc/llc_main.c
---- a/net/llc/llc_main.c	Fri Aug 29 09:27:28 2003
-+++ b/net/llc/llc_main.c	Fri Aug 29 09:27:28 2003
-@@ -229,6 +229,7 @@
- 	if (llc_sk_init(sk))
- 		goto outsk;
- 	sock_init_data(NULL, sk);
+diff -Nru a/net/econet/af_econet.c b/net/econet/af_econet.c
+--- a/net/econet/af_econet.c	Fri Aug 29 11:15:12 2003
++++ b/net/econet/af_econet.c	Fri Aug 29 11:15:12 2003
+@@ -562,6 +562,7 @@
+ 	sk->sk_reuse = 1;
+ 	sock->ops = &econet_ops;
+ 	sock_init_data(sock,sk);
 +	sk_set_owner(sk, THIS_MODULE);
- #ifdef LLC_REFCNT_DEBUG
- 	atomic_inc(&llc_sock_nr);
- 	printk(KERN_DEBUG "LLC socket %p created in %s, now we have %d alive\n", sk,
+ 
+ 	eo = ec_sk(sk) = kmalloc(sizeof(*eo), GFP_KERNEL);
+ 	if (!eo)
