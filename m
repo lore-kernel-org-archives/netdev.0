@@ -1,56 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Fw: hfsc and huge set of rules
-Date: Sun, 01 Aug 2004 19:56:04 +0200
+From: James Drabb <JDrabb@tampabay.rr.com>
+Subject: forcedeth
+Date: Sun, 01 Aug 2004 14:16:23 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410D2EB4.1060205@trash.net>
-References: <Pine.LNX.4.33.0407301752250.1421-100000@devix>
+Message-ID: <410D3377.3030505@tampabay.rr.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca, netdev@oss.sgi.com,
-        tomasz.paszkowski@e-wro.pl
+Cc: c-d.hailfinger.kernel.2004@gmx.net, manfred@colorfullife.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: devik <devik@cdi.cz>
-In-Reply-To: <Pine.LNX.4.33.0407301752250.1421-100000@devix>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-devik wrote:
+I am having some issues with the forcedeth driver.
 
->Also IIRC class lookup is done before each remove. With
->hashing size a few tens of buckets the complexity
->starts to be very near to O(n^2).
->  
->
-I think the hash size of HTB, HFSC and CBQ should be increased,
-the hash function performs well even with 2^16. With HFSC using
-many classes doesn't scale well right now, but with the rbtree patches
-it will.
+jim@keelie $ modinfo forcedeth
+parm:           max_interrupt_work:forcedeth maximum events handled per 
+interrupt
+author:         Manfred Spraul <manfred@colorfullife.com>
+description:    Reverse Engineered nForce ethernet driver
+license:        GPL
+vermagic:       2.6.7-1 686 REGPARM gcc-3.3
+depends:
+alias:          pci:v000010DEd000001C3sv*sd*bc*sc*i*
+alias:          pci:v000010DEd00000066sv*sd*bc*sc*i*
+alias:          pci:v000010DEd000000D6sv*sd*bc*sc*i*
 
-Regards
-Patrick
+jim@keelie $ uname -a
+Linux keelie 2.6.7-1 #1 Thu Jul 22 11:42:58 CEST 2004 i686 athlon i386 
+GNU/Linux
 
->devik
->
->On Fri, 30 Jul 2004, Patrick McHardy wrote:
->
->  
->
->>David S. Miller wrote:
->>    
->>
->>>Looks like qdisc destruction has some expensive algorithms.
->>>Any quick ideas about the root culprit at least in the hfsc
->>>case?  He says htb does it too.
->>>      
->>>
->>hfsc_destroy_qdisc takes O(n) time wrt. the number of classes,
->>but 5-6 seconds is still long. If all these classes contain inner
->>qdiscs other than the default, I guess removing the classes from
->>dev->qdisc_list in qdisc_destroy takes up most of the time, with
->>n O(n) operations. The __qdisc_destroy rcu callback also calls
->>reset before destroy, I don't know any qdisc where this is really
->>neccessary. Without inner qdiscs, I need to see the script first to
->>judge what's going wrong. Tomasz ?
->>    
->>
+My system is an Athlon XP 2800+, on an MSI K7N2 Delta Mobo based on the 
+NForce 2 chipset.  I have a dual boot with WinXP and Fedora Core 2 and 
+spend 99% of my time in FC2.  Once in a while I shut the system down. 
+When I boot from a cold boot right into FC2, the forcedeth driver 
+appears not to work.  I am not able to get to the net over my cable 
+mode.  Bringing eth0 up and down, unplugging the network cable does 
+nothing.  However, if I reboot into WinXP, and then reboot right away 
+back into FC2, the forcedeth driver works like a champ.
+
+Is there anything I can do to look into what might be causing this 
+issue?  Any more information I may be able to send to help?
+
+Thanks for any help,
+
+-- 
+James Drabb
+Senior Programmer
+Davenport, FL USA
