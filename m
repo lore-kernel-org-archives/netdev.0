@@ -1,37 +1,43 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
-Date: Mon, 30 Aug 2004 09:57:10 +0200
+From: Peter Bieringer <pb@bieringer.de>
+Subject: sysctl net.ipv6.conf.eth0.use_tempaddr only recogniced on interface
+ start?
+Date: Mon, 30 Aug 2004 10:09:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040830075709.GA28454@suse.de>
-References: <412A8FB5.4080700@trash.net> <OFE08A3DF5.09BCA1C4-ON88256EFA.00806C05-88256EFA.0080E98F@us.ibm.com> <20040828231529.051a73cc.davem@davemloft.net> <4132303C.2060807@trash.net>
+Message-ID: <F5812425CD96109163291692@worker.muc.bieringer.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        David Stevens <dlstevens@us.ibm.com>, davem@redhat.com,
-        laforge@netfilter.org, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: Maillist USAGI-users <usagi-users@linux-ipv6.org>,
+        Maillist netdev <netdev@oss.sgi.com>,
+        Maillist initscripts-ipv6 <initscripts-ipv6@deepspace6.net>
 Content-Disposition: inline
-In-Reply-To: <4132303C.2060807@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 29, 2004 at 09:36:28PM +0200, Patrick McHardy wrote:
-> David S. Miller wrote:
-> 
-> >I think I agree with David now that I've read through this a few
-> >times.  Can someone send me a patch which does this?
-> > 
-> Attached. The first patch still crashed, we need to prevent new
-> fragments from getting queued after the queue is flushed until the
-> hook in unregistered.
+Hi,
 
-I was actually going to test-drive my patch today, but you were
-faster. Thanks!
+during playing around with RFC3041 capability in Linux kernel, I recognized
+that the toggle (e.g. net.ipv6.conf.eth0.use_tempaddr) in sysctl is only
+recognized if interface state changes from down to up, which means you
+can't enable RFC3041 on an already running interface.
 
-Olad
+Is this 
+
+a) by design
+b) temporary issue, will be solved later
+c) bug, will be solved soon
+
+I would need an answer because I want to implement support for this feature
+in initscripts-ipv6, and it has a major impact on the location where to put
+the related scripting code.
+
+In case of a) -> before interface goes up, "ifup" needs to be extended
+In case of b),c) -> "ifup-ipv6" can be extended
+
+Thank you very much for any hint,
+        Peter
 -- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
