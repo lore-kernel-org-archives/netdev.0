@@ -1,11 +1,17 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Andrew Grover <andy.grover@gmail.com>
 Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 22 Sep 2004 13:07:08 -0700
+Date: Wed, 22 Sep 2004 13:12:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4151DB6C.8050906@us.ibm.com>
-References: <20040920063012.GL2825@krispykreme> <20040920203021.GD4242@wotan.suse.de> <20040921155835.18aee381.davem@davemloft.net> <20040922140000.GD27432@wotan.suse.de> <20040922111209.7887df53.davem@davemloft.net> <20040922195515.GA2619@wotan.suse.de>
+Message-ID: <c0a09e5c04092213126ba5f29d@mail.gmail.com>
+References: <20040920063012.GL2825@krispykreme>
+	 <20040920203021.GD4242@wotan.suse.de>
+	 <20040921155835.18aee381.davem@davemloft.net>
+	 <20040922140000.GD27432@wotan.suse.de>
+	 <20040922111209.7887df53.davem@davemloft.net>
+	 <20040922195515.GA2619@wotan.suse.de>
+Reply-To: Andrew Grover <andy.grover@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, anton@samba.org,
         netdev@oss.sgi.com
@@ -15,20 +21,17 @@ In-Reply-To: <20040922195515.GA2619@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-
+On Wed, 22 Sep 2004 21:55:15 +0200, Andi Kleen <ak@suse.de> wrote:
 > With tso off i get the same performance as on 2.6.5.
 > 
 > I must add that this is a CSA e1000 (directly integrated into
-> the chipset and doesn't use PCI) and TSO doesn't seem to be 
+> the chipset and doesn't use PCI) and TSO doesn't seem to be
 > bring any advantage. On 2.6.5 the performance is the same
 > with both TSO on or off.
 
-Andi, was that with a netperf TCP stream test? I
-would not have thought there would be no difference
-prior to the changes DaveM made recently (now we
-obey congestion window). We certainly got quite a bit
-of a difference running SPECWeb etc, but that was on
-the e1000s.
+I think this is caused by the congestion changes added between
+2.6.9-rc1 and rc2. I am seeing good performance with rc1 and tso on
+(or off), but bad performance with rc2 and bk-latest only if tso is
+on.
 
-Nivedita
+Regards -- Andy
