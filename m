@@ -1,55 +1,30 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: James Morris <jmorris@redhat.com>
 Subject: Re: Bug somewhere in crypto or ipsec stuff
-Date: Thu, 30 Oct 2003 12:17:32 +0900 (JST)
+Date: Wed, 29 Oct 2003 22:22:50 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031030.121732.12858700.yoshfuji@linux-ipv6.org>
-References: <16288.30574.745348.194005@cargo.ozlabs.ibm.com>
+Message-ID: <Xine.LNX.4.44.0310292221320.23405-100000@thoron.boston.redhat.com>
+References: <20031030.121732.12858700.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com,
-        jmorris@redhat.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Cc: paulus@samba.org, <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
+        <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: paulus@samba.org
-In-Reply-To: <16288.30574.745348.194005@cargo.ozlabs.ibm.com>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031030.121732.12858700.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <16288.30574.745348.194005@cargo.ozlabs.ibm.com> (at Thu, 30 Oct 2003 13:29:02 +1100), Paul Mackerras <paulus@samba.org> says:
-
-> I get this oops in strcmp, called from crypto_alg_lookup, when I run
-> the "spi" command from a freeswan snapshot from 13 October this year.
-> The kernel is 2.6.0-test9.
-> 
-> Oops: kernel access of bad area, sig: 11 [#1]
-:
-> Call trace:
->  [c00cf058] crypto_alloc_tfm+0x1c/0x104
->  [cd97fb34] ipcomp_init_state+0x90/0x118 [ipcomp]
-:
-
-> The problem is basically that crypto_alg_lookup gets called with NULL
-> for the `name' parameter.
-
-I would just disallow name == NULL,
-well, what algorithm do you expect?
-
-===== crypto/api.c 1.30 vs edited =====
---- 1.30/crypto/api.c	Sat Mar 29 20:16:58 2003
-+++ edited/crypto/api.c	Thu Oct 30 12:07:43 2003
-@@ -36,6 +36,9 @@
- struct crypto_alg *crypto_alg_lookup(const char *name)
- {
- 	struct crypto_alg *q, *alg = NULL;
-+
-+	if (!name)
-+		return NULL;
- 	
- 	down_read(&crypto_alg_sem);
- 	
+On Thu, 30 Oct 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
 
 
+> I would just disallow name == NULL,
+> well, what algorithm do you expect?
+
+Good question.  It seems to me to be a bug in the calling code if it is 
+trying to look up nothing -- I'd rather not paper that over.
+
+
+- James
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+James Morris
+<jmorris@redhat.com>
