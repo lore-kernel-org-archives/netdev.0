@@ -1,42 +1,52 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Fw: [Bugme-new] [Bug 3747] New: HTB causes machine lockups
-Date: Tue, 16 Nov 2004 00:38:06 +0100
-Message-ID: <20041115233806.GC31969@postel.suug.ch>
-References: <20041115122059.4cfcd213.akpm@osdl.org>
+From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
+Subject: RE: [PATCH 2.6.9-rc2 12/12] S2io: styling
+Date: Mon, 15 Nov 2004 15:51:07 -0800
+Message-ID: <001601c4cb6d$fa341e90$9810100a@S2IOtech.com>
+References: <41992ED8.7080906@pobox.com>
+Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <raghavendra.koushik@s2io.com>, <romieu@fr.zoreil.com>,
+        <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: alchemyx@uznam.net.pl
-Content-Disposition: inline
-In-Reply-To: <20041115122059.4cfcd213.akpm@osdl.org>
+To: "'Jeff Garzik'" <jgarzik@pobox.com>
+In-Reply-To: <41992ED8.7080906@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Date: Mon, 15 Nov 2004 04:46:38 -0800
-> From: bugme-daemon@osdl.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 3747] New: HTB causes machine lockups
-> 
-> I have some network traffic shaping rules used on a Linux box. For example I
-> have hundreds of them on eth1. I am using HTB in all cases (sometimes attaching
-> SFQ to HTB rules). Everything works fine, until I issue:
-> 
-> tc qdisc del dev eth1 root
-> 
-> Which causes a machine lockup. Sometimes it happens day after day, but sometimes
-> once a month. There are no traces in logs, no oopses, and so on. Machine just
-> freezes (you see login on your screen, but can't type anything, can't ping that
-> machine, ctrl-alt-del or sysrq doesn't work). Problem was on kernels from 2.4.21
-> up to 2.4.26. Haven't tried 2.4.27 and 2.6.x on that box yet.
->
-> Steps to reproduce:
-> Hard to tell really. You need to set up a script creating hunderds of HTB rules
-> and regenerating them every (let say) 15 minutes, issuing 'tc qdisc del dev
-> ethX' everytime.
+Jeff,
+You have not missed any of the patches.
+I guess the changes will appear in a future release since I don't
+see it yet in 2.6.10rc2.
+We will send one more patch to address Krishna Kumar's comments.
 
-Did you ever experience the same problems with other classful qdiscs such as
-CBQ? Would it be possible for you to run a similar CBQ setup on a dummy device
-and see if it happens as well? Is anything going on at the time of the
-deadlocks like an interface going down etc.?
+Thanks,
+Ravi
+
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com]
+Sent: Monday, November 15, 2004 2:34 PM
+To: ravinandan.arakali@s2io.com
+Cc: raghavendra.koushik@s2io.com; romieu@fr.zoreil.com;
+netdev@oss.sgi.com; leonid.grossman@s2io.com
+Subject: Re: [PATCH 2.6.9-rc2 12/12] S2io: styling
+
+
+Ravinandan Arakali wrote:
+> Jeff,
+> We received couple of comments from Krishna Kumar. Other than that
+> we are waiting for further comments. If there are no other, we can
+> submit one final patch to address Krishna Kumar's comments.
+> 
+> In one of your earlier mails(on 10/28), you mentioned "patches pass 
+> review".
+> Pls let us know.
+
+See attached for the list of patches I've applied.
+
+If I am missing any, please let me know.
+
+	Jeff
