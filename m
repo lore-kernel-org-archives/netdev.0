@@ -1,36 +1,50 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Lee Revell <rlrevell@joe-job.com>
 Subject: Re: tun.c patch to fix "smp_processor_id() in preemptible code"
-Date: Tue, 19 Oct 2004 15:33:08 -0700
+Date: Tue, 19 Oct 2004 18:42:11 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041019153308.488d34c1.davem@davemloft.net>
+Message-ID: <1098225729.23628.2.camel@krustophenia.net>
 References: <E1CK1e6-0004F3-00@gondolin.me.apana.org.au>
-	<1098222676.23367.18.camel@krustophenia.net>
-	<20041019215401.GA16427@gondor.apana.org.au>
-	<1098223857.23367.35.camel@krustophenia.net>
+	 <1098222676.23367.18.camel@krustophenia.net>
+	 <20041019215401.GA16427@gondor.apana.org.au>
+	 <1098223857.23367.35.camel@krustophenia.net>
+	 <20041019153308.488d34c1.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: herbert@gondor.apana.org.au, vda@port.imtp.ilyichevsk.odessa.ua,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org, maxk@qualcomm.com,
+        Linux Network Development <netdev@oss.sgi.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>, maxk@qualcomm.com,
         irda-users@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lee Revell <rlrevell@joe-job.com>
-In-Reply-To: <1098223857.23367.35.camel@krustophenia.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041019153308.488d34c1.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Oct 2004 18:10:58 -0400
-Lee Revell <rlrevell@joe-job.com> wrote:
-
->   /*
->    * Since receiving is always initiated from a tasklet (in iucv.c),
->    * we must use netif_rx_ni() instead of netif_rx()
->    */
+On Tue, 2004-10-19 at 18:33, David S. Miller wrote:
+> On Tue, 19 Oct 2004 18:10:58 -0400
+> Lee Revell <rlrevell@joe-job.com> wrote:
 > 
-> This implies that the author thought it was a matter of correctness to
-> use netif_rx_ni vs. netif_rx.  But it looks like the only difference is
-> that the former sacrifices preempt-safety for performance.
+> >   /*
+> >    * Since receiving is always initiated from a tasklet (in iucv.c),
+> >    * we must use netif_rx_ni() instead of netif_rx()
+> >    */
+> > 
+> > This implies that the author thought it was a matter of correctness to
+> > use netif_rx_ni vs. netif_rx.  But it looks like the only difference is
+> > that the former sacrifices preempt-safety for performance.
+> 
+> You can't really delete netif_rx_ni(), so if there is a preemptability
+> issue, just add the necessary preemption protection around the softirq
+> checks.
+> 
 
-You can't really delete netif_rx_ni(), so if there is a preemptability
-issue, just add the necessary preemption protection around the softirq
-checks.
+Why not?  AIUI the only valid reason to use preempt_disable/enable is in
+the case of per-CPU data.  This is not "real" per-CPU data, it's a
+performance hack.  Therefore it would be incorrect to add the preemption
+protection, the fix is not to manually call do_softirq but to let the
+softirq run by the normal mechanism.
+
+Am I missing something?
+
+Lee
