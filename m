@@ -1,63 +1,54 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Subject: Re: loopback behaviour under high load ...
-Date: Wed, 2 Apr 2003 14:47:04 -0800 (PST)
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: RE: [Bonding-devel] [patch] (2/8) Add 802.3ad support to bonding
+Date: Wed, 02 Apr 2003 17:01:03 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.50.0304021049510.1758-100000@blue1.dev.mcafeelabs.com>
-References: <Pine.LNX.4.50.0304011826340.1932-100000@blue1.dev.mcafeelabs.com>
-  <Pine.LNX.4.50.0304020821250.1758-100000@blue1.dev.mcafeelabs.com>
- <1049304194.25168.56.camel@tux.rsn.bth.se>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   "" <netdev@oss.sgi.com>
+Message-ID: <200304030101.h33113tc015107@death.ibm.com>
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin Josefsson <gandalf@wlug.westbo.se>
-In-Reply-To: <1049304194.25168.56.camel@tux.rsn.bth.se>
+To: "Hen, Shmulik" <shmulik.hen@intel.com>,
+   "Marom, Noam" <noam.marom@intel.com>,
+   "Feldman, Scott" <scott.feldman@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Apr 2003, Martin Josefsson wrote:
 
-> On Wed, 2003-04-02 at 18:23, Davide Libenzi wrote:
-> > On Tue, 1 Apr 2003, Davide Libenzi wrote:
-> >
-> > > And netstat shows Recv-Q=0 for the server socket, and Send-Q=N for the
-> > > client socket. This has been tested on 2.5.66 vanilla.
-> >
-> > An update on this. Kernel 2.4.20+epoll does not have this problem.
->
-> I see something similar with 2.5.64-bk10 (seen with earlier 2.5 kernels
-> as well).
->
-> I use distcc on my machine which is running 2.5.64-bk10 and using two
-> remote servers running 2.4.20 to do the compiling.
->
-> Sometimes I see a ~120s stall in the middle of a connection with
-> Recv-Q=0 on the server (2.4.20) and Send-Q=N on the client (2.5.64-bk10)
-> (it's the client that's sending data to the server)
->
-> x.x.x.x = client
-> y.y.y.y = server
->
-> As you can see there's a long delay between 16:02:09 and 16:04:24
->
-> There's some packetloss here (probably a congested interface in the
-> router on the way). The dump was made on the client.
+	I've been trying various things with the 802.3ad patch, and am
+seeing a behavior that seems erroneous, but it could be that I'm
+missing something (in the standard, for example) that explains it.
 
-Hmm, we don't see any dropped packet at interface ( loopback ) level here:
+	I have two systems, connected via an 802.3ad capable switch.
+System A has 4 10/100 ethernets connected to the switch, which are all
+ifenslaved into a single 802.3ad mode bond (with miimon=100).  System
+B has a single 10/100 connected to the switch.
 
-$ cat /proc/net/softnet_stat
-002a0c14 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+	As a traffic generator, I telnet from System A to System B's
+chargen service, and let it run.  I see activity on two of the bond's
+four links (which is expected, one for incoming, one for outgoing).
 
-$ ifconfig
-lo        Link encap:Local Loopback
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:1349417 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:1349417 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
+	If I unplug either of the active cables from the switch,
+bonding notices immediately and transfers the connection to a
+different interface.
 
+	If, however, I use "ifenslave -d bond0 ethX" (where ethX is
+one of the active interfaces, by which I mean one with traffic flowing
+over it), it takes a considerable amount of real time for bonding to
+recover and transfer the connection to a new interface.  It appears
+that the deleted interface must be either the transmitting or
+receiving interface (I'm not sure which), as sometimes it recovers
+immediately.  Removing an idle interface from the bond does not appear
+to cause any stalls.
 
+	Also, curiously, if I "ifenslave bond0 ethX" where ethX is an
+already enslaved interface, I get an EBUSY error printed by ifenslave,
+but the data transmission stalls for a period of time.  Presumably
+this is due to some of the prepatory work done by ifenslave, but I
+have not yet investigated precisely what it is.  Ifenslave also seems
+to leave the interface in a down state, which may be the cause of the
+stall (if the interface is removed from the bond because it's down).
 
+	Any thoughts?
 
-- Davide
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
