@@ -1,26 +1,41 @@
-From: Danny <dannydaemonic@gmail.com>
-Subject: Re: profile path bug again (was Re: mm kernel oops with r8169 & named, PREEMPT)
-Date: Sat, 16 Oct 2004 08:52:05 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <9625752b041016085257a62ed@mail.gmail.com>
-References: <9625752b041013091772e26739@mail.gmail.com>
-	 <200410131129.05657.jdmason@us.ltcfwd.linux.ibm.com>
-	 <20041013181840.GA30852@electric-eye.fr.zoreil.com>
-	 <9625752b04101313417be4cf90@mail.gmail.com>
-	 <20041013205433.GC30761@electric-eye.fr.zoreil.com>
-	 <9625752b04101314595f72f84a@mail.gmail.com>
-	 <9625752b04101415043a078b93@mail.gmail.com>
-	 <20041015161818.GA2577@electric-eye.fr.zoreil.com>
-	 <9625752b04101514073f6dab24@mail.gmail.com>
-	 <20041016100125.GA15833@electric-eye.fr.zoreil.com>
-Reply-To: Danny <dannydaemonic@gmail.com>
+From: Jan Killius <jkillius@arcor.de>
+Subject: r8169: page allocation failure
+Date: Sat, 16 Oct 2004 20:04:17 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200410162004.17573.jkillius@arcor.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268760AbUJPPwI@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041016100125.GA15833@electric-eye.fr.zoreil.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thanks for your help.  Live and learn. :)
+Hello,
+I'm getting a page allocation failure under high net load.
+Here is the error:
+swapper: page allocation failure. order:3, mode:0x20
+[<c013131e>]
+[<c0131458>]
+[<c0134337>]
+[<c0134eaa>]
+[<c013510d>]
+[<c01354cc>]
+[<c01ff9b2>]
+[<c0204584>]
+[<e09731b8>]
+[<c020d9d5>]
+
+This problem happens while a ftp transfer. The kernel version is 2.6.9-rc4 but 
+I'm using the r8169 driver and the netdev snapshot from 2.6.9-rc4-mm1.
+
+ethtool -k:
+Offload parameters for eth2:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: on
+-- 
+        Jan
