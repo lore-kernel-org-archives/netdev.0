@@ -1,28 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] add SCTP to xfrm_flowi_{sport,dport}()
-Date: Tue, 24 Aug 2004 11:48:45 -0700
+Subject: Re: RFC: pskb_expand_head instead of skb_copy in skb_checksum_help
+Date: Tue, 24 Aug 2004 11:55:41 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040824114845.497eadb2.davem@redhat.com>
-References: <20040824.230409.21312009.yoshfuji@linux-ipv6.org>
+Message-ID: <20040824115541.52955b2a.davem@redhat.com>
+References: <20040824110532.GA10241@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040824.230409.21312009.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040824110532.GA10241@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Aug 2004 23:04:09 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Tue, 24 Aug 2004 21:05:32 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> (I'm not sure if ipsec is fully supported for sctp, but anyway,)
+> The idea is simple.  None of the callers of skb_checksum are passing it
+> skb's which are shared.  They may be cloned however.  But the application
+> checksum is always in the skb header so there is no need to linearise it.
 
-It should work.  It should have xfrm checks in sctp input path
-and everything.  Well, at least I cannot think of reason why it
-should not work :)
+What about looping back of multicast packets via netif_rx(),
+is that handled correctly too?
 
-> I should not have made regression here.
+I only mention it because that is the case that causes
+problems elsewhere.
 
-Patch applied, thank you.
+I'm going to think over this later today some more.
