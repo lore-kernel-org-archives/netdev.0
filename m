@@ -1,90 +1,171 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] Re: [PATCH 2.6] e100: use NAPI mode all the time
-Date: Sun, 06 Jun 2004 23:39:52 -0700
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: [PATCH] PPC64 iSeries virtual ethernet proc files
+Date: Mon, 7 Jun 2004 16:43:12 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406070639.i576drvF026556@death.nxdomain.ibm.com>
-References: <jgarzik@pobox.com>
-Cc: Tim Mattox <tmattox@engr.uky.edu>, sfeldma@pobox.com, netdev@oss.sgi.com,
-        bonding-devel@lists.sourceforge.net,
-        Scott Feldman <scott.feldman@intel.com>
+Message-ID: <20040607164312.258a9f99.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="pgp-sha1";
+ boundary="Signature=_Mon__7_Jun_2004_16_43_13_+1000_rI7AdqH.jktRpZ4z"
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        ppc64-dev
+ <linuxppc64-dev@lists.linuxppc.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: Message from Jeff Garzik <jgarzik@pobox.com>
-   of "Sun, 06 Jun 2004 22:33:26 EDT." <40C3D3F6.6010103@pobox.com>
+To: Andrew Morton <akpm@osdl.org>, Linus <torvalds@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
+--Signature=_Mon__7_Jun_2004_16_43_13_+1000_rI7AdqH.jktRpZ4z
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
->Tim Mattox wrote:
->> The problem is caused by the order packets are delivered to the TCP
->> stack on the receiving machine.  In normal round-robin bonding mode,
->> the packets are sent out one per NIC in the bond.  For simplicity
->> sake, lets say we have two NICs in a bond, eth0 and eth1.  When
->> sending packets, eth0 will handle all the even packets, and eth1 all
->> the odd packets.  Similarly when receiving, eth0 would get all
->> the even packets, and eth1 all the odd packets from a particular
->> TCP stream.
+Hi Andrew,
 
->Ethernet drivers have _always_ processed multiple packets per
->interrupt, since before the days of NAPI, and before the days of
->hardware mitigation.
+From: David Gibson <david@gibson.dropbear.id.au>
 
-	There was a discussion about this behavior (round-robin mode out
-of order delivery) on bonding-devel in February 2003.  The archives can
-be found here:
+This patch just adds back some of the iserires_veth proc files to provide
+information to user space (particularly Kudzu) to allow the virtual
+ethernets to be discovered.  These files existed in a 2.4 version of this
+driver that was shipped by some distros.
 
-http://sourceforge.net/mailarchive/forum.php?forum_id=2094&max_rows=25&style=ultimate&viewmonth=200302
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
-	The messages on Feb 19 relate to the effects of packet
-coalescing, and Feb 17 to general out of order delivery problems.
-Somewhere in there are the results of some testing I did, and analysis
-of how tcp_ordering effects things.  As I recall, I even used e100s for
-my testing, so it may be a fair apples to apples comparsion.
+diff -ruN 2.6.7-rc2-bk7/drivers/net/iseries_veth.c 2.6.7-rc2-bk7.veth.proc.1/drivers/net/iseries_veth.c
+--- 2.6.7-rc2-bk7/drivers/net/iseries_veth.c	2004-06-07 13:35:47.000000000 +1000
++++ 2.6.7-rc2-bk7.veth.proc.1/drivers/net/iseries_veth.c	2004-06-07 15:28:40.000000000 +1000
+@@ -165,6 +165,7 @@
+ static HvLpIndex this_lp;
+ static struct veth_lpar_connection *veth_cnx[HVMAXARCHITECTEDLPS]; /* = 0 */
+ static struct net_device *veth_dev[HVMAXARCHITECTEDVIRTUALLANS]; /* = 0 */
++struct proc_dir_entry *veth_proc_root; /* = NULL */
+ 
+ static int veth_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static void veth_recycle_msg(struct veth_lpar_connection *, struct veth_msg *);
+@@ -1328,6 +1329,91 @@
+ }
+ 
+ /*
++ * procfs code (used by userspace for discovery)
++ */
++static int proc_veth_dump_port(char *page, char **start, off_t off, int count,
++			int *eof, void *data)
++{
++	char *out = page;
++	struct net_device *dev = data;
++	struct veth_port *port = dev->priv;
++	long len;
++	int i;
++
++	BUG_ON(port == NULL);
++
++	out += sprintf(out, "Net device name:\t%s\n", dev->name);
++	out += sprintf(out, "Address:\t%012lX\n", port->mac_addr >> 16);
++
++	read_lock_irq(&port->mcast_gate);
++	out += sprintf(out, "Promiscuous:\t%d\n", port->promiscuous);
++	out += sprintf(out, "All multicast:\t%d\n", port->all_mcast);
++	out += sprintf(out, "Number multicast:\t%d\n", port->num_mcast);
++
++	for (i = 0; i < port->num_mcast; ++i)
++		out += sprintf(out, "   %012lX\n", port->mcast_addr[i] >> 16);
++	read_unlock_irq(&port->mcast_gate);
++
++	len = (out - page) - off;
++	if (len < count)
++		*eof = 1;
++	else
++		len = count;
++
++	if (len <= 0)
++		len = 0;
++	else
++		*start = page + off;
++	return len;
++}
++
++static void veth_proc_init(void)
++{
++	int i;
++
++	veth_proc_root = proc_mkdir("iSeries/veth", NULL);
++	if (veth_proc_root == NULL)
++		return;
++
++	for (i = 0; i < HVMAXARCHITECTEDVIRTUALLANS; i++) {
++		struct proc_dir_entry *ent;
++		char name[10];
++
++		if (veth_dev[i] == NULL)
++			continue;
++
++		sprintf(name, "veth%d", i);
++		ent = create_proc_entry(name, S_IFREG | S_IRUSR,
++					veth_proc_root);
++		if (ent == NULL)
++			return;
++
++		ent->nlink = 1;
++		ent->owner = THIS_MODULE;
++		ent->data = veth_dev[i];
++		ent->read_proc = proc_veth_dump_port;
++		ent->write_proc = NULL;
++	}
++}
++
++static void veth_proc_delete(void)
++{
++	int i;
++
++	for (i = 0; i < HVMAXARCHITECTEDVIRTUALLANS; i++) {
++		char name[10];
++
++		if (veth_dev[i] == NULL)
++			continue;
++
++		sprintf(name, "veth%d", i);
++		remove_proc_entry(name, veth_proc_root);
++	}
++
++	remove_proc_entry("iSeries/veth", NULL);
++}
++
++/*
+  * Module initialization/cleanup
+  */
+ 
+@@ -1335,6 +1421,8 @@
+ {
+ 	int i;
+ 
++	veth_proc_delete();
++
+ 	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i)
+ 		veth_destroy_connection(i);
+ 
+@@ -1394,6 +1482,8 @@
+ 		if (veth_cnx[i])
+ 			veth_kick_statemachine(veth_cnx[i]);
+ 
++	veth_proc_init();
++
+ 	return 0;
+ }
+ module_init(veth_module_init);
 
-	When I tested this (on 4 100Mbps ethernets), even after
-adjusting tcp_reordering I could only get TCP single stream throughput
-of about 235 Mb/sec out of a theoretical 375 or so (400 minus about 6%
-for headers and whatnot).  UDP would run in the mid to upper 300's,
-depending upon datagram size.  The tests did not examine UDP delivery
-order.
+--Signature=_Mon__7_Jun_2004_16_43_13_+1000_rI7AdqH.jktRpZ4z
+Content-Type: application/pgp-signature
 
-	The round-robin mode will, for all practical purposes, always
-deliver some large percentage of packets out of order.  You can fiddle
-with the tcp_reordering parameter to mitigate the effects to some
-degree, but there's no way it's going away entirely.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-	I'm curious as to what types of systems the beowulf / HPC people
-(mentioned by Tim in an earlier message) are using that they don't see
-out of order problems with round robin, even without NAPI.
+iD8DBQFAxA6BFG47PeJeR58RAiYFAJ9Lu7T3X9XuAyz7AxQXC/c1zBOIZwCg13/K
+RRnDHqJY7GNOR/6682jTN0U=
+=NID2
+-----END PGP SIGNATURE-----
 
->Therefore, this is mainly an argument against using overly simplistic
->load balancing schemes that _create_ this problem :)  It's much
->smarter to load balance based on flows, for example.  I think the ALB
->mode does this?
-
-	The round robin mode is unique in that it is the only mode that
-will attempt (however stupidly) to stripe single connections (flows)
-across multiple interfaces.  The other (smarter) modes, 802.3ad, alb,
-and tlb, will try to keep particular connections generally on a
-particular interface (for 802.3ad, it's required by the standard to
-behave that way).  This means that a given single TCP/IP connection
-won't get more than one interface worth of throughput.  With
-round-robin, you can get more than one interface worth, but not very
-efficiently.
-
->> I have NO problems with NAPI itself, I think it's a wonderful development.
->> I would even advocate for making NAPI the default across the board.
->> But for bonding, until I see otherwise, I want to be able to not use NAPI.
->> As I indicated, I will have a new cluster that I can directly test this
->> NAPI vs Bonding issue very soon.
-
-	After taking into account the effects of delivering multiple
-packets per interrupt and the scheduling order of network device
-interrupts (potentially on different CPUs), I'm not really sure there's
-much room for NAPI to make round-robin any worse than it already is.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+--Signature=_Mon__7_Jun_2004_16_43_13_+1000_rI7AdqH.jktRpZ4z--
