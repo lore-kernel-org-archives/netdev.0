@@ -1,35 +1,35 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
-Subject: Re: [SUNGEM] LLTX support
-Date: Wed, 15 Sep 2004 17:55:52 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: generic 802.11 stack
+Date: Wed, 15 Sep 2004 08:55:26 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5cac192f040915085516b0fc63@mail.gmail.com>
-References: <5cac192f04091423453ae3cb@mail.gmail.com>
-	 <20040915083559.6c36759f.davem@davemloft.net>
-Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
+Message-ID: <20040915085526.2c0d2904.davem@davemloft.net>
+References: <4145352F.4040807@pobox.com>
+	<20040915030545.GA25307@havoc.gtf.org>
+	<20040915031732.GL7839@ruslug.rutgers.edu>
+	<200409150844.45242.vkondra@mail.ru>
+	<41485608.3040509@atheros.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: vkondra@mail.ru, mcgrof@studorgs.rutgers.edu,
+        acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jgarzik@pobox.com,
+        mcgrof@studorgs.rutgers.edu, netdev@oss.sgi.com,
+        prism54-devel@prism54.org, sam@errno.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040915083559.6c36759f.davem@davemloft.net>
+To: greg chesson <greg@atheros.com>
+In-Reply-To: <41485608.3040509@atheros.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004 08:35:59 -0700, David S. Miller <davem@davemloft.net> wrote:
-> On Wed, 15 Sep 2004 08:45:21 +0200
-> Eric Lemoine <eric.lemoine@gmail.com> wrote:
-> 
-> > The attached patch adds LLTX support to SunGEM NAPI. The tx_lock patch
-> > I just sent must be applied first.
-> 
-> Also applied, thanks Eric.
-> 
-> I remember you mentioning yesterday that Harald's sungem NAPI
-> patch had netpoll support, can you cook up a patch that adds
-> it for current sungem?
+On Wed, 15 Sep 2004 07:47:36 -0700
+greg chesson <greg@atheros.com> wrote:
 
-Can't do it right now but will do it soon...
+> Vladimir Kondratiev wrote:
+> > Let me answer to the set of questions raised:
+> > 
+> > - dual licensing: I am not ready to answer for legal. I will discuss with 
+> > proper people and answer.
+> end the end it is your choice.
 
--- 
-Eric
+He has to also ask the person who wrote the code he is
+basing his work upon, and that would be me :-)
