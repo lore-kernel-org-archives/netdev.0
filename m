@@ -1,90 +1,40 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: 3Com PCI 3c905C Tornado  problems (no network sometimes)
-Date: Mon, 30 Dec 2002 07:59:00 -0500 (EST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Another holiday tg3 release
+Date: Mon, 30 Dec 2002 12:52:37 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0212300742240.29812-100000@beohost.scyld.com>
-References: <002d01c2affa$0e76d9b0$0b00050a@deian>
+Message-ID: <20021230175237.GA2547@gtf.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: andrewm@uow.edu.au, <netdev@oss.sgi.com>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   <vortex@scyld.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Deian Chepishev <deian@blue-edge.bg>
-In-Reply-To: <002d01c2affa$0e76d9b0$0b00050a@deian>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Dec 2002, Deian Chepishev wrote:
 
-> for about a year and a half i have problems with network cards 3Com PCI
-> 3c905C Tornado
-...
-> Log entries while loading driver 3c90x are:
-> 
-> Dec 19 16:03:35 oboroten kernel: 3c59x: Donald Becker and others.
-> www.scyld.com/network/vortex.html
-> Dec 19 16:03:35 oboroten kernel: 01:03.0:     at 0xc000. Vers LK1.1.18-ac
+Another holiday, another set of tg3 releases.
 
-Are there other messages?  Something has apparently removed the
-important log message of that identified the board and the current
-transceiver setting.
+first, there is an official, production update of tg3, version 1.2a:
+http://people.redhat.com/jgarzik/tg3/tg3-1.2a/		(source code)
+http://people.redhat.com/jgarzik/tg3/tg3-1.2a/rpms/	(red hat rpms)
 
-> ... (the switch is 3COM office connect DualSpeedSwitch 16).
+second, for people still having problems, there are three experimental
+sets of rpms, to be tried in this order:
+http://people.redhat.com/jgarzik/tg3/tg3-1.2a/exp1-rpms/
+http://people.redhat.com/jgarzik/tg3/tg3-1.2a/exp2-rpms/
+http://people.redhat.com/jgarzik/tg3/tg3-1.2a/exp3-rpms/
 
-Which model?  What era?  A few of the early 3Com switches did have
-autonegotiation timing flaws.  Most are managed switches, and the proper
-work-around is to set them to forced 100baseTx half duplex operation.
+experiment #1 - better irq mask/unmask for better speed and stability
+		(test this!)
+experiment #2 - ultra-safe version of #1, with less experimental stuff
+experiment #3 - the riskiest of the bunch, but potentially faster
 
-> In order to fix the problem i must unplug the power cord(there is no other
-> way to copletely stop powering the computer) wait a few seconds plug it
+I would prefer that everyone who can try experiment #1, and back down to
+experiment #2 if that doesn't work.
 
-This is because of the Wake-On-LAN capability of the board.  It
-continues link beat in soft-power-off mode.  Depending on the
-motherboard (if standby-power is supplied through the PCI connector),
-you might be able to change the behavior by disconnecting the WOL
-cable.  But that's not a solution.
+There is more information on the files in this directory in
+http://people.redhat.com/jgarzik/tg3/tg3-1.2a/version-notes.txt
 
-> again and start the computer from the button and check to see if the led is
-> blinking if yes reapeat this action as much times as is necessary for the
-> led to stop blinking. The interesting part is that if the NIC is blinking
-> and i load windows the things are working just fine i think that windows
-> driver has some initialisation (the led stops blinking) which the linux
-> driver does not have but these are just suppositions.
-
-The Windows driver likely resets the transceiver.  The 3c59x driver
-avoids doing this.  Rapidly resetting the link results in bad behavior
-from some switches, and some Linux configurations results in rapid
-restarts of the driver.
-
-> Notice that i have some lines in the messages log "working situation" which
-> looks like this:
-> 
-> ping -f some.host
-> Dec 30 12:52:01 oboroten kernel: eth0: vortex_error(), status=0xe081
-
-You have the debug/message level turned up past the default, and the
-driver is reporting that statistics overflowed.  Check the error counts
-in /proc/net/dev.  This is likely unrelated.
-
-> i have running 4 machines with the same HW configuration and the problem is
-> reproducable on all of them. I have noticed this problem since kernel 2.4.2
-> and it is here by now.
-
-Try the driver release from
-   http://www.scyld.com/network/vortex.html
-      ftp://ftp.scyld.com/pub/network/test/3c59x.c
-
-> I have this problem often when we have power failure and my boss is not very
-> happy the servers to be down when i am not in the office after power
-> failure.
-> I have executed and the diagnostic programs mii-diag and vortex-diag their
-> logs are attached to the mail too.
-
-Does 'mii-diag --reset' result in a working link?
-
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+Disclaimer:  These are unofficial rpms created by myself.  They are not
+officially released by Red Hat, so do not use them in production, etc.
