@@ -1,60 +1,69 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: Re: [RFC] IPSEC failover and replay detection sequence numbers
-Date: Fri, 29 Oct 2004 18:15:47 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] sk98lin: Driver update v7.09
+Date: Fri, 29 Oct 2004 09:26:03 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41826CB3.2080306@balabit.hu>
-References: <1099045435.2888.47.camel@nienna.balabit>	 <1099054721.1027.118.camel@jzny.localdomain>	 <1099056277.2888.71.camel@nienna.balabit> <1099062095.1023.14.camel@jzny.localdomain>
+Message-ID: <20041029092603.0aab72de@zqx3.pdx.osdl.net>
+References: <417907C1.6050407@syskonnect.de>
+	<20041027102519.0fc3c7a9@guest-251-240.pdx.osdl.net>
+	<4182812D.8020407@syskonnect.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, ipsec-tools-devel@lists.sourceforge.net,
-        vpn-failover@lists.balabit.hu
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, rroesler@syskonnect.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1099062095.1023.14.camel@jzny.localdomain>
+To: Mirko Lindner <mlindner@syskonnect.de>
+In-Reply-To: <4182812D.8020407@syskonnect.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 29 Oct 2004 19:43:09 +0200
+Mirko Lindner <mlindner@syskonnect.de> wrote:
 
-   Hi,
-
-jamal wrote:
-> ok. It should still get better in a short period of time though.
-> Moral in my point is i hope you make it an optional feature.
-
-   Definitely.
-
->>  To play with numbers: say that you have 5K users, so let's suppose
->>there are at most 20K IPSEC SAs. If you decide to send an update per
->>second, that would mean 20K updates/second. If each update message is 20
->>bytes long, that means that on Ethernet you can transmit all of them in
->>about 280 packets. 
+> Stephen,
 > 
-> Are you batching? 
-
-   Of course! I think it is a must, especially if we use such tiny 
-messages. But this is dependant on the user-space code of course.
-
-> In my count: Assuming 20bytes is in a packet of its own - your numbers
-> translate to 20Kpps which is > 10Mbps ;-> 
-> I suppose SAs will be much lower rate. So you need probably a dedicated
-> 100Mbps just for the syncing. I would also say SA updates should be
-> prioritized over replay messages.
-
-   I think a dedicated 100mbps/1Gbps interface is not a problem anyway...
-
->>That's not too much. (I suppose the 20K pfkey
->>messages would be much more of a problem, though...)
+> thank You for the help! Should we help you in any case to check or 
+> change the defines?
 > 
-> Why not use the netlink events (you mention pfkey).
+> We have the problem that the Linux driver consists of multiple files 
+> which are also used for other drivers running on other OSes
+> (e.g. Sun, HP-UX, MacOS X, *BSD, Windows, PXE, AIX, Unixware...).
 > 
-> Batching them with a timeout should help.
+> This is for instance the reason why we must use redefines for the
+> different data types (e.g. SK_U32). Can you please explain what you mean 
+> with "UglyReDefineTheWorld"? Are there any special defines you do not 
+> like? I am wondering why the style plays such an important role when 
+> looking at the driver source. I am not sure what redefines you are 
+> referring to, but the datatype redefines for example have been in the 
+> kernel tree for years without any complains.
 
-   Agreed. However, for the initial tests I chose pfkey because racoon 
-uses pfkey only, so it would be good enough for me as a prototype. I 
-think it would not be too much work to implement the netlink interface 
-as well - with batching included.
+Style matters especially things like:
 
--- 
-  Regards,
-   Krisztian KOVACS
+#define SK_NET_DEVICE	net_device
+#define SK_IOC			char __iomem *
+
+because it means that source code inspection tools like cscope will
+not easily pickup all usages of the structure when developers need to
+do audit's to change interfaces.
+
+My goal is to make all the linux only pieces look as close to linux style
+as possible without going to the extreme of changing variable names and
+function names.
+
+The common parts will not be touched at all. My plan will be to make
+one of the patch steps up these in one chunk.
+
+
+> If you could send us a list about the requested changes you'd like to 
+> perform, we can help you or provide additional support. We would really 
+> appreciate it, if you could inform us in advance about those changes,
+> because the driver was tested extensively in our test&verification 
+> department and by a considerably amount of OEM vendors. Changing now 
+> parts of the code may break the driver functionality or the 
+> functionality of the driver files used on other OSes.
+> 
+> Cheers
+>   Mirko
+
+So far I have about 10 patches done, and most of the way through getting ethtool
+working using your code. EMany ethtool functions needed minor work to resolve
+issues like not checking parameters and error handling.
