@@ -1,41 +1,54 @@
-From: Kyle McMartin <kyle@debian.org>
-Subject: Re: [PATCH] IPsec: add support for Twofish and Serpent
-Date: Fri, 15 Aug 2003 13:42:43 -0400
+From: Mark Huth <mhuth@mvista.com>
+Subject: Re: [PATCH] network device renaming sysfs fix
+Date: Fri, 15 Aug 2003 11:09:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030815174243.GC3119@imladris.debian.net>
-References: <20030814180857.GA4205@netppl.fi> <Pine.LNX.4.44.0308142324310.29579-100000@netcore.fi> <20030814191259.435945cf.davem@redhat.com>
+Message-ID: <3F3D21DE.50906@mvista.com>
+References: <20030815111514.GA5228@callisto.yi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Net-Dev <netdev@oss.sgi.com>, "David S. Miller"
+ <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030814191259.435945cf.davem@redhat.com>
+To: Dan Aloni <da-x@gmx.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 14, 2003 at 07:12:59PM -0700, David S. Miller wrote:
-> I totally disagree, choice is everything.
-> 
-> That's why we allow NULL crypto algorithms.  Not doing
-> so turns this into a political thing, which I decidedly
-> do not want our IPSEC implementation to be all about.
->
-> And therefore I will add the patch.
->
-Thank you, David. I completely agree with allowing users to choose
-which algorithms they wish to deploy. 
- 
-> When using pfkeyv2 sockets, yes you have to assign a number and then
-> the APP has to be aware of it.  This just shows how bogus it is to use
-> fixed numbers instead of strings to select crypto algorithms.
->
-Again, I agree. Especially given the limitations of using the
-private ESP id space, since there is no new RFC delegating
-additions yet.
+Agreed.  We had not yet found the class_device_rename.
+Hopefully, this is no longer in HTML format.
+By all means, help not to look like a bozo :-)  - a tall order, I realize.
 
-Regards,
--- 
-Kyle McMartin <kyle@debian.org>
-1024D/191FCD8A - 331A 9468 C04D 3A76 5C56  BA68 7EB7 92DF 191F CD8A
-2048R/F515317D -   68 A9 0D 28 1B DF 8D 42  0F CC AF 98 A8 D5 A4 04
+Mark Huth
+
+Dan Aloni wrote:
+
+>(repost, now will hopefully reach the mailing list)
+>
+>I believe this is a better approach for fixing the sysfs renaming
+>discrepancy. Later I'll also look into fixing the same issue 
+>with sysctl.
+>
+>--- linux/net/core/dev.c	2003-08-15 12:47:50.000000000 +0300
+>+++ linux/net/core/dev.c	2003-08-15 12:47:59.000000000 +0300
+>@@ -2347,10 +2347,14 @@
+> 				return -EEXIST;
+> 			memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
+> 			dev->name[IFNAMSIZ - 1] = 0;
+>-			strlcpy(dev->class_dev.class_id, dev->name, BUS_ID_SIZE);
+>+
+>+			err = class_device_rename(&dev->class_dev, dev->name);
+>+			if (err) 
+>+				printk(KERN_DEBUG "SIOCSIFNAME: error renaming class_device (%d)\n", err);
+>+
+> 			notifier_call_chain(&netdev_chain,
+> 					    NETDEV_CHANGENAME, dev);
+>-			return 0;
+>+			return err;
+> 
+> 		/*
+> 		 *	Unknown or private ioctl
+>
+>
+>
+>  
+>
