@@ -1,31 +1,25 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
-Subject: Re: forcedeth 0xa2 event
-Date: Mon, 22 Dec 2003 04:43:26 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPV6 debug printk error and missing release in error
+ path
+Date: Mon, 22 Dec 2003 00:16:03 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FE6685E.1040504@gmx.net>
-References: <32820.194.237.241.213.1071357424.squirrel@mail2.fbab.net>
+Message-ID: <20031222001603.2830ff0d.davem@redhat.com>
+References: <20031219132431.37980ccb.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Magnus Naeslund(w)" <mag@fbab.net>
-In-Reply-To: <32820.194.237.241.213.1071357424.squirrel@mail2.fbab.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031219132431.37980ccb.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Magnus Naeslund(w) wrote:
-> I tried out the forcedeth driver, and so far it has worked very good
-> attached to my ADSL router.
-> I saw a message printed:
-> "eth0: received irq with unknown events 0xa2. Please report"
-> So i'm reporting it.
+On Fri, 19 Dec 2003 13:24:31 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Does this message appear often? (There should be nothing to worry.) Do you
-have an idea what might have caused it, e.g. the ADSL router powering up,
-unplugging a cable or someting like that?
+> A couple of small fixes for IPV6 network discovery:
+>   * A NPRINTK2 in ndisc_parse_options would not compile if ND_DEBUG level was up to 3
+>   * missing dst_release in ndisc_send_rs error path if skb_alloc fails.
 
-
-Carl-Daniel
--- 
-http://www.hailfinger.org/
+Applied, thanks Stephen.
