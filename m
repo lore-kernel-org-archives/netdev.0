@@ -1,59 +1,34 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: patch: introduce simple actions
-Date: 20 Mar 2005 15:17:34 -0500
-Message-ID: <1111349853.1093.136.camel@jzny.localdomain>
-References: <1111345551.1095.82.camel@jzny.localdomain>
-	 <423DCD8C.6030100@trash.net> <1111347345.1094.98.camel@jzny.localdomain>
-	 <423DD5E6.2020708@trash.net>
-Reply-To: hadi@znyx.com
+Date: Sun, 20 Mar 2005 21:18:36 +0100
+Message-ID: <20050320201836.GW3086@postel.suug.ch>
+References: <1111345551.1095.82.camel@jzny.localdomain> <20050320194408.GU3086@postel.suug.ch> <1111349426.1092.128.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Thomas Graf <tgraf@suug.ch>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <423DD5E6.2020708@trash.net>
+        Patrick McHardy <kaber@trash.net>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1111349426.1092.128.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-03-20 at 14:58, Patrick McHardy wrote:
-> Jamal Hadi Salim wrote:
-> > On Sun, 2005-03-20 at 14:22, Patrick McHardy wrote:
-> >
-> >>One of the next things I wanted to do in this area was
-> >>moving all the large inline functions to act_generic.c,
-> >>so if possible I would prefer not to put these in a header
-> >>file.
+> > > +
+> > > +struct tc_defact
+> > > +{
+> > > +	tc_gen;
+> > > +};
 > > 
-> > These are small functions. Take a look at the simple action i attached.
-> > If you can give me the same functionality and still move things
-> > de_inlined to act_generic.c i would be fine with it.
+> > tcf_defact, tc_defact, .. quite easy to get this wrong. Maybe
+> > it would a good idea to rename tcf_defact to tcf_defact_parm?
+> > 
 > 
-> The functions are not inlined anyway, so the question is whether any
-> #define magic is done as with pkt_act.h, otherwise there is no reason
-> to have them in a header file. Looking at your patch, it seems
-> tc_defact.h uses the redefined pkt_act.h functions, so it does need to
-> be in a header file, but frankly, I find this horrible. The patch
-> doesn't conflict with cleanup of pkt_act.h, but it means more work when
-> doing it, so I think this is what should be done first. Especially
-> since this is only an example, not useful for users, but it will be
-> possibly used to create more actions that also need to be changed
-> afterwards.
+> sigh. another LinuxWay(tm). Unfortunately this is all over the net/sched
+> code to imply something thats user specific vs kernel specific. If
+> you feel strongly about it i will change it - otherwise maybe we can
+> leave it till some day some brave person will clean up the whole thing?
 
-Unfortunately code "augmentation"( as opposed to inheritance - cant
-think of a better word) is much easier to do this way. The benefit of it
-is the user gets a very simple programming interface - which is the main
-reason this was written to begin with. The standard interface exists,
-and more versed people or someone wanting to write something complex can
-go that path. At some point i would like to document all this stuff.
-
-How about this:
-I submit this patch (with Thomas cleanup) and the simple action. I will
-hold onto the 4 other actions i already have some of them complete until
-you get around to moving things around and then i will redo them to
-conform. This gets it off my back and we dont have any miscommunication
-of what you are trying to do. sounds fair?
-
-cheers,
-jamal
+Yes I know and I don't feel that strong about it. I just tend to dislike
+it a tiny bit, I do like the struct rta_kern style better. Let's wait for
+the brave knight to appear someday.
