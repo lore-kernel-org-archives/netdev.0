@@ -1,61 +1,21 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH] Uninitialized timer in ip_mc_down
-Date: Thu, 25 Mar 2004 13:57:55 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040325125755.GA8500@suse.de>
+From: Abhinav Gupta <kernelnetworkguy@hotpop.com>
+Subject: Accessing time
+Date: Thu, 25 Mar 2004 12:41:19 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <406335DF.6060309@hotpop.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="n8g4imXOkfNTN/H1"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Can anyone please give me pointers to accessing system time? I need to 
+timestamp each tcp-packet that I receive over the network. I have tried 
+using sys_gettimeoftheday() but due to frequent calls, the function 
+doesn't always return a correct return value.
 
---n8g4imXOkfNTN/H1
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: inline
+Thanks in advance.
 
-Hi,
+Abhinav.
 
-if you do the following on a downed interface on 2.6, you get two
-"uninitialized timer" messages from the kernel, along with a stack trace.
-
-	ip addr add 1.2.3.4 dev eth1
-	ip addr del 1.2.3.4 dev eth1
-
-The reason is that inetdev_create calls ip_mc_up if and only if the device
-is up. However, inetdev_destroy calls ip_mc_destroy_dev unconditionally,
-so that del_timer gets called for the two multicast timers which are
-uninitialized.
-
-The attached patch seems to fix this. An alternative patch would
-be to add a check to ip_mc_down to see whether the timers are
-actually active before deleting them.
-
-Olaf
--- 
-Olaf Kirch     |  Stop wasting entropy - start using predictable
-okir@suse.de   |  tempfile names today!
----------------+ 
-
---n8g4imXOkfNTN/H1
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: attachment; filename=ipv4-mcast-timer
-
---- ../linux-2.6.4.orig/net/ipv4/devinet.c	2004-03-12 12:17:31.000000000 +0100
-+++ ../linux-2.6.4/net/ipv4/devinet.c	2004-03-25 13:07:24.000000000 +0100
-@@ -183,7 +183,10 @@
- 
- 	in_dev->dead = 1;
- 
--	ip_mc_destroy_dev(in_dev);
-+	/* If the device isn't up, the multicast info isn't
-+	 * initialized. */
-+	if (in_dev->dev->flags & IFF_UP)
-+		ip_mc_destroy_dev(in_dev);
- 
- 	while ((ifa = in_dev->ifa_list) != NULL) {
- 		inet_del_ifa(in_dev, &in_dev->ifa_list, 0);
-
---n8g4imXOkfNTN/H1--
