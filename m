@@ -1,36 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Mon, 9 Feb 2004 12:19:26 -0800
+Subject: Re: [BK PATCH] 2.6.2 SCTP updates
+Date: Mon, 9 Feb 2004 12:39:37 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209121926.6f016ebf.davem@redhat.com>
-References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
+Message-ID: <20040209123937.7c2a3e3d.davem@redhat.com>
+References: <Pine.LNX.4.58.0402061649001.10831@localhost.localdomain>
+	<20040206194518.56787717.davem@redhat.com>
+	<Pine.LNX.4.58.0402091155070.10043@localhost.localdomain>
+	<20040209122647.1e8df80a.davem@redhat.com>
+	<Pine.LNX.4.58.0402091228320.10748@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0402091228320.10748@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 8 Feb 2004 22:44:05 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Mon, 9 Feb 2004 12:34:06 -0800 (PST)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> - the 'skb->pkt_type == PACKET_HOST' check has no semantic anymore,
-> the requestor should have same information no matter the packet
-> type. In all cases we add response delay for all requests, broadcast
-> or unicast, to help other authoritative hosts to reply before us.
+> It is going on well. I hope to get it done by the end of this week. Do you
+> want me to wait for 2.4.25 release? Or can i submit it even in the -rc phase?
 
-Do we really want to reply to all the garbage tcpdump causes us
-to capture?
-
-That is what the pkt_type is dealing with.  If we're in promiscuous
-mode, we'll hear ARP requests meant not for any of our devices, we
-should not proxy for them right?
-
-RTCF_*NAT is dead wood, the existing route nating stuff is totally broken
-an unusable in 2.6.x, the eventual plan was to code up XFRM engine version
-of that feature but this is of course not done.  Since nobody is complaining
-about lack of routing NAT in 2.6.x, I think we should just kill off all references
-and if someone gets inspired they can code up the XFRM engine version.
+I would like to have it as soon as possible.  Not necessarily so that
+it gets merged into 2.4.25 (I don't think I'll try to do that) but moreso
+because I'd like to do review it now such that when 2.4.26-preX starts up
+I can just push it along.
