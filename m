@@ -1,33 +1,30 @@
-From: Jamie Lenehan <lenehan@twibble.org>
-Subject: Re: 2.5.69 IPv6 (modular) crash on boot
-Date: Thu, 8 May 2003 21:48:36 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv4 IPComp
+Date: Thu, 08 May 2003 08:03:23 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030508114836.GA1395@twibble.org>
-References: <20030506232037.GA5576@twibble.org> <20030506.201618.39175334.davem@redhat.com>
+Message-ID: <20030508.080323.58436808.davem@redhat.com>
+References: <87znlymypm.wl@karaba.org>
+	<Mutt.LNX.4.44.0305081052060.22346-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mk@linux-ipv6.org, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20030506.201618.39175334.davem@redhat.com>
+To: jmorris@intercode.com.au
+In-Reply-To: <Mutt.LNX.4.44.0305081052060.22346-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 06, 2003 at 08:16:18PM -0700, David S. Miller wrote:
-[...]
->    IPv6 worked fine in 2.5.68, but I get a crash in 2.5.69 on boot. I
->    haven't seen anyone else mention this though. This is a RedHat 8
->    systems with the new modutils added and pretty much everything built
->    modular:
->    
-> Yes, we know it's broken and we're thinking about how
+   From: James Morris <jmorris@intercode.com.au>
+   Date: Thu, 8 May 2003 10:53:55 +1000 (EST)
 
-Right. I saw all the modules related stuff but no mention of it
-actually being broken as is ;) Built in works fine (and I don't see
-any reaon not to build it in now that I think about it).
+   On Thu, 8 May 2003, Mitsuru KANDA / [ISO-2022-JP] 神田 充 wrote:
+   
+   > Could you check it?
+   
+   This looks correct.
+   
+   Dave, please apply.
 
-Thanks.
-
--- 
- Jamie Lenehan              Work Phone: +61 3 9843 8817
- lenehan@twibble.org        Work Email: jamie.lenehan@activcard.com.au
+Applied, thanks.
