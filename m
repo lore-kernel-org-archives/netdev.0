@@ -1,57 +1,79 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RTNETLINK] Provide real oif
-Date: 02 Dec 2003 19:08:17 -0500
+From: "Francois Baligant" <francois@baligant.net>
+Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
+Date: Wed, 3 Dec 2003 01:15:42 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1070410097.1038.27.camel@jzny.localdomain>
-References: <E1ARHXF-0007cM-00@gondolin.me.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <078f01c3b932$97919630$15fea8c0@fortress>
+References: <072501c3b874$2542ae70$15fea8c0@fortress><16332.27919.502097.988522@robur.slu.se> <20031202032606.28db927b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1ARHXF-0007cM-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2003-12-02 at 15:54, Herbert Xu wrote:
-> jamal <hadi@cyberus.ca> wrote:
-> > 
-> > Can you provide a real example (output of route display in user space)
-> > where this would be valuable?
-> 
-> Without the real oif you will see entries like this in the output of
-> ip r l c:
-> 
-> 192.168.0.7 dev eth0  src 192.168.0.6
->     cache  mtu 1500 advmss 1460 metric10 64
-> 192.168.0.7 dev eth0  src 192.168.0.6
->     cache  mtu 1500 advmss 1460 metric10 64
-> 
-> One of those has oif == 0 while the other one has oif == eth0.
-> 
+Thanks all for your suggestions.
 
-They both seem to have an oif of eth0, no? 
+Actually I have noticed that with 90k establish TCP sessions, I have around
+the double
+amount of entries in the routing cache. For each TCP session there is an
+inbound and outbond
+cache entry like this:
 
-> To generate an entry with oif == eth0, just send a UDP packet and
-> bound to eth0.
+39.125.111.131  81.64.64.96     39.125.111.129         1500 0          0
+eth0
+81.64.64.96   39.125.111.131  39.125.111.131  l         0 0          0 lo
 
-Sorry, i am a bit slow - i think i may know where you are going with
-this but help me out; 
-By binding to eth0, you mean socket bind() or msg_dontroute of the udp
-packet via eth0?
-Is it unicast? Do you have a small sample proggie i could use to check
-this?
+This system has accepted that many sessions before when running 2.4 and this
+problem surfaced
+with 2.6. Now, I can't be sure that traffic pattern are exactly the same so
+Im not drawing conclusions
+about 2.6
 
-> > whats wrong with the combo of RTA_OIF and RTA_SRC?
-> 
-> Both of those attributes are independent of the real oif.
- 
-They are related in the rt selection.
-If you have a small program i can use to create the above cacheinfo
-i would appreaciate it. Is the same IP attached to multiple interfaces
-that you need to select a prefered OIF?  
+I will try to raise gc_tresh and keep you informed.
 
-cheers,
-jamal
+Thanks,
+Francois
+
+----- Original Message ----- 
+From: "David S. Miller" <davem@redhat.com>
+To: "Robert Olsson" <Robert.Olsson@data.slu.se>
+Cc: <francois@baligant.net>; <netdev@oss.sgi.com>
+Sent: Tuesday, December 02, 2003 12:26 PM
+Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
+
+
+> On Tue, 2 Dec 2003 11:44:31 +0100
+> Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+>
+> > No experience with 90k TCP-flows but it seems GC is not able to free
+some
+> > the dst-entries for some reason. This will slowly kill your box with
+> > symptoms you describe. We have ask TCP-experts for timer settings to
+avoid
+> > pending sessions etc. Also check slab for any other objects growing as
+> > dst cache overflow is most likely secondary effect in your case. rtstat
+> > looks sane expect for the high number of dst-entries. Tuning is another
+> > story.
+>
+> Let us assume, for the sake of back of the envelope calculations, that
+> all 90k TCP connections speak to unique destinations.  Let us further
+> assume that all of them have at least one packet in flight.
+>
+> This means the routing cache must be able to hold at least 90k entries.
+> All of these routing cache entires will be referenced by the packets
+> in the TCP retransmission queues of all the sockets, and thus the
+> entries are unreclaimable.
+>
+> You are setting net.ipv4.route.max_size to 655360 which should be more
+> than enough.  But you also have to make the net.ipv4.route.gc_thresh
+> more reasonable as well, perhaps 90K as a test.
+>
+> If net.ipv4.route.gc_thresh is lower than 90K and my assertions above
+> hold, then the kernel will try to garbage collect too early, all the
+> routing cache entries will be in use and therefore uncollectable,
+> and you'll get the message you're seeing.
+>
+> Try to pump up gc_thresh and see if that helps.
+>
