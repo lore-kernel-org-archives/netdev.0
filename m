@@ -1,29 +1,47 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: re-clone netdev-2.6
-Date: Tue, 19 Oct 2004 19:24:02 -0400
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: [PATCH] Make netif_rx_ni preempt-safe
+Date: Tue, 19 Oct 2004 19:55:33 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4175A212.3040909@pobox.com>
+Message-ID: <1098230132.23628.28.camel@krustophenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>,
-        Al Viro <viro@parcelfarce.linux.theplanet.co.uk>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        vda@port.imtp.ilyichevsk.odessa.ua, linux-kernel@oss.sgi.com,
+        maxk@qualcomm.com, irda-users@lists.sourceforge.net,
+        Linux Network Development <netdev@oss.sgi.com>,
+        Alain Schroeder <alain@parkautomat.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
+To: Andrew Morton <akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This patch makes netif_rx_ni() preempt-safe.  The problem was reported
+by Alain Schroeder.  Here are the users:
 
-If you are a BK user tracking my netdev-2.6 queue, please delete it and 
-re-clone.
+drivers/s390/net/ctcmain.c
+drivers/s390/net/netiucv.c
+drivers/net/irda/vlsi_ir.c
+drivers/net/tun.c
 
-bk://gkernel.bkbits.net/netdev-2.6
-	or
-bk://kernel.bkbits.net/jgarzik/netdev-2.6
+As David S. Miller explained, the do_softirq (and therefore the preempt
+dis/enable) is required because there is no softirq check on the return
+path when netif_rx is called from non-interrupt context.
 
-(the tree may be locked for a few minutes still after this email is 
-sent, BTW, while the upload completes)
+Signed-Off-By: Lee Revell <rlrevell@joe-job.com>
 
-Thanks,
-
-	Jeff
+--- include/linux/netdevice.h~	2004-10-19 18:50:18.000000000 -0400
++++ include/linux/netdevice.h	2004-10-19 18:51:01.000000000 -0400
+@@ -696,9 +696,11 @@
+  */
+ static inline int netif_rx_ni(struct sk_buff *skb)
+ {
++       preempt_disable();
+        int err = netif_rx(skb);
+        if (softirq_pending(smp_processor_id()))
+                do_softirq();
++       preempt_enable();
+        return err;
+ }
+ 
