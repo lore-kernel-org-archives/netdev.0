@@ -1,56 +1,51 @@
-From: Stefan Rompf <srompf@isg.de>
-Subject: Patch: b44.c: Always restore pci config on resume
-Date: Wed, 26 May 2004 23:17:30 +0200
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: [PATCH] trivial patch for if_indextoname()
+Date: Wed, 26 May 2004 16:15:07 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405262317.32299.srompf@isg.de>
+Message-ID: <OFD3BD5C6F.D104319A-ON88256EA0.00798187-88256EA0.007A2D7C@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_slQtANxsvxnf7oo"
+Content-Type: multipart/mixed; boundary="=_mixed 007A2D6F88256EA0_="
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, davem@redhat.com
-Content-Disposition: inline
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--=_mixed 007A2D6F88256EA0_=
+Content-Type: text/plain; charset="US-ASCII"
 
---Boundary-00=_slQtANxsvxnf7oo
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+RFC3493 (section 4.2) specifies that an invalid interface name
+passed to if_indextoname() should return NULL with errno of ENXIO.
+The current code sets errno to ENODEV for this case.
 
-Hi,
+This could be remapped in glibc, but since the comment for
+kernel function dev_ifname() says it's specifically for
+if_indextoname(), maybe it should be fixed here.
 
-the Broadcom BCM4401 driver restores pci configuration on resume only when the 
-device is up. On my notebook, this leads to a failure when the device is down 
-during the S3 cycle. Short solution for now: Always restore pci config. Patch 
-against 2.6.7rc1 attached, please apply.
+                                        +-DLS
 
-Stefan
-
---Boundary-00=_slQtANxsvxnf7oo
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="b44-resume.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="b44-resume.diff"
-
---- linux-2.6.7rc1-orig/drivers/net/b44.c	2004-05-26 23:00:59.474435392 +0200
-+++ linux-2.6.7rc1/drivers/net/b44.c	2004-05-26 22:22:12.000000000 +0200
-@@ -1882,11 +1882,11 @@ static int b44_resume(struct pci_dev *pd
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct b44 *bp = dev->priv;
+--- net/core/dev.c.orig 2004-05-09 19:32:37.000000000 -0700
++++ net/core/dev.c      2004-05-26 14:54:37.378210416 -0700
+@@ -1927,7 +1927,7 @@
+        dev = __dev_get_by_index(ifr.ifr_ifindex);
+        if (!dev) {
+                read_unlock(&dev_base_lock);
+-               return -ENODEV;
++               return -ENXIO;
+        }
  
-+	pci_restore_state(pdev, bp->pci_cfg_state);
-+
- 	if (!netif_running(dev))
- 		return 0;
- 
--	pci_restore_state(pdev, bp->pci_cfg_state);
--
- 	spin_lock_irq(&bp->lock);
- 
- 	b44_init_rings(bp);
+        strcpy(ifr.ifr_name, dev->name);
 
---Boundary-00=_slQtANxsvxnf7oo--
+
+--=_mixed 007A2D6F88256EA0_=
+Content-Type: application/octet-stream; name="if_indextoname.patch"
+Content-Disposition: attachment; filename="if_indextoname.patch"
+Content-Transfer-Encoding: base64
+
+LS0tIG5ldC9jb3JlL2Rldi5jLm9yaWcJMjAwNC0wNS0wOSAxOTozMjozNy4wMDAwMDAwMDAgLTA3
+MDAKKysrIG5ldC9jb3JlL2Rldi5jCTIwMDQtMDUtMjYgMTQ6NTQ6MzcuMzc4MjEwNDE2IC0wNzAw
+CkBAIC0xOTI3LDcgKzE5MjcsNyBAQAogCWRldiA9IF9fZGV2X2dldF9ieV9pbmRleChpZnIuaWZy
+X2lmaW5kZXgpOwogCWlmICghZGV2KSB7CiAJCXJlYWRfdW5sb2NrKCZkZXZfYmFzZV9sb2NrKTsK
+LQkJcmV0dXJuIC1FTk9ERVY7CisJCXJldHVybiAtRU5YSU87CiAJfQogCiAJc3RyY3B5KGlmci5p
+ZnJfbmFtZSwgZGV2LT5uYW1lKTsK
+--=_mixed 007A2D6F88256EA0_=--
