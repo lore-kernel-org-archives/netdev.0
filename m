@@ -1,45 +1,50 @@
-From: Matthias Welk <welk@fokus.gmd.de>
-Subject: Re: PROBLEM: udp not delivered on special socket receive buffer size
-Date: Wed, 10 Jul 2002 12:44:15 +0200
+From: Jason Lunz <lunz@falooley.org>
+Subject: [ANNOUNCE] NAPI patches for 2.4.19-rc1
+Date: Wed, 10 Jul 2002 18:32:37 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200207101244.15458.welk@fokus.gmd.de>
-References: <200207100856.MAA25289@sex.inr.ac.ru>
+Message-ID: <20020710223237.GA7995@orr.falooley.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, davem@redhat.com, pekkas@netcore.fi,
-   gober@fokus.gmd.de
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="azLHFNyN32YCQGCU"
+Cc: Robert.Olsson@data.slu.se, greearb@candelatech.com,
+   garzik@mandrakesoft.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200207100856.MAA25289@sex.inr.ac.ru>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 10 July 2002 10:56, kuznet@ms2.inr.ac.ru wrote:
 
->> The probles is, that I did not receive any udp packets (224 bytes), if the=
->> =20
->> receive buffer size (SO_RCVBUF) of the socket is set to a value below 
-831=20
->> (??) bytes.
->
->Apparently, 831 is not enough to allow to queue such buffer.
->
->Tune value of "rx_copybreak" for ethernet to value sort of 1000.
->It is module parameter for most of drivers.
->
+--azLHFNyN32YCQGCU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-But shouldn't it not be working without tuning via kernel module parameters ?
-And where is the relation between the "rx_copybreak" -value and the socket, I 
-mean why is it working if I increase receive buffer size ?
-And shouldn't the minimum size set to a minum working value ?
 
-Thanks, Matthias.
--- 
----------------------------------------------------------------
-From: Matthias Welk                   office:  +49-30-3463-7272
-      FHG Fokus                       mobile:  +49-179- 1144752
-      Kaiserin-Augusta-Allee 31       fax   :  +49-30-3463-8672
-      10589 Berlin		      email : welk@fokus.fhg.de
-----------------------------------------------------------------
+I've backported the most recent napi sources I could find to 2.4.19-rc1.
+The patches are available at http://orr.falooley.org/pub/linux/net/.
+
+Testing and suggestions are welcome. Currently backported napi drivers
+are e1000, eepro100, tulip, and 3c59x. I intend to backport dl2k and
+sundance at some point, but I have no dl2k cards and I'm working with
+Donald Becker to get the sundance driver working on the card I have.
+
+Does anyone know of more recent NAPI conversions? Robert Olsson tells me
+Jeff Garzik has a more recent tulip conversion, but there are _no_ napi
+net drivers in 2.5.25 and I haven't found any others except for those
+mentioned at the NAPI ftp site.
+
+Jason
+
+--azLHFNyN32YCQGCU
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
+
+iD8DBQE9LLYFaDU3zTAC0GcRAiP+AJwOEmMKfXW2fBWFq0r+u7OK636OYQCcC/FT
+TAq5A0OiWJ+LSuZEP1DqXLU=
+=PlFN
+-----END PGP SIGNATURE-----
+
+--azLHFNyN32YCQGCU--
