@@ -1,44 +1,25 @@
-From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
-Subject: [margitsw@t-online.de: Re: 2.6.7]
-Date: Fri, 18 Jun 2004 20:47:33 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC] Wireless extensions rethink
+Date: Thu, 17 Jun 2004 15:11:54 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040619004733.GO6253@ruslug.rutgers.edu>
+Message-ID: <40D1ECFA.9090801@pobox.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com> <40CF263E.70009@home.nl> <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <40D08769.3070106@home.nl> <20040616204248.GA23617@bougret.hpl.hp.com> <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com> <20040617174717.GA30460@bougret.hpl.hp.com> <40D1E185.2010201@pobox.com> <20040617185605.GA32216@bougret.hpl.hp.com> <40D1EC54.8000904@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Gertjan van Wingerde <gwingerde@home.nl>, sfeldma@pobox.com,
+        netdev@oss.sgi.com, jkmaline@cc.hut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
-Content-Disposition: inline
+To: jt@hpl.hp.com
+In-Reply-To: <40D1EC54.8000904@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------ Forwarded message from Margit Schubert-While <margitsw@t-online.de> -----
+Jeff Garzik wrote:
+> Yes, but...  that's the way the Linux kernel works.
 
-To: Jeff Garzik <jgarzik@pobox.com>
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: Re: 2.6.7
-Cc: mcgrof@ruslug.rutgers.edu
-X-Seen: false
-X-ID: JJZ8SoZCoeNm0ZKpFt7gnqPVLuUHqcF0KrWHwMtdRUCyEDfz0rbq6Q
+Er, I meant to say, that's NOT the way the kernel works.
 
-Forward to NETDEV
-At 17:00 18.06.2004 -0400, you wrote:
->Margit Schubert-While wrote:
->>Forward to NETDEV
->>Hi Jeff,
->>2.6.7-bk1 does not include changes. Why ?
->
->
->Linus only pulled an hour or so ago.
+Talk about a Freudian slip :)
 
-Your push was done according to mail :
-http://marc.theaimsgroup.com/?l=linux-netdev&m=108743421315453&w=2
-
-Why did it miss ?
-
-Margit
-
-
------ End forwarded message -----
-
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+	Jeff
