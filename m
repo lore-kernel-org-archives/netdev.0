@@ -1,64 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] netem: restart device after inserting packets
-Date: Tue, 14 Dec 2004 13:11:13 -0800
-Message-ID: <20041214131113.32d080fb@dxpl.pdx.osdl.net>
-References: <20041208123103.4cc6b005@dxpl.pdx.osdl.net>
-	<20041208210031.63f0963f.davem@davemloft.net>
-	<41B91901.3070304@trash.net>
-	<20041214113249.0725a655.davem@davemloft.net>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] net/key/af_key.c: make pfkey_table static
+Date: Wed, 15 Dec 2004 01:42:54 +0100
+Message-ID: <20041215004254.GG23151@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netem@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041214113249.0725a655.davem@davemloft.net>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-2.4 version of the netem wakeup patch. Also fixes the qlen
-in a couple of places. This makes code basically same as 2.6
+The patch below makes the needlessly global pfkey_table static.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
---- a/net/sched/sch_netem.c	2004-12-14 13:10:18 -08:00
-+++ b/net/sched/sch_netem.c	2004-12-14 13:10:18 -08:00
-@@ -259,12 +259,13 @@
- {
- 	struct Qdisc *sch = (struct Qdisc *)arg;
- 	struct netem_sched_data *q = qdisc_priv(sch);
-+	struct net_device *dev = sch->dev;
- 	struct sk_buff *skb;
- 	psched_time_t now;
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.10-rc3-mm1-full/net/key/af_key.c.old	2004-12-14 20:22:24.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/key/af_key.c	2004-12-14 20:22:31.000000000 +0100
+@@ -35,7 +35,7 @@
  
- 	pr_debug("netem_watchdog: fired @%lu\n", jiffies);
  
--	spin_lock_bh(&sch->dev->queue_lock);
-+	spin_lock_bh(&dev->queue_lock);
- 	PSCHED_GET_TIME(now);
- 
- 	while ((skb = skb_peek(&q->delayed)) != NULL) {
-@@ -284,8 +285,11 @@
- 
- 		if (q->qdisc->enqueue(skb, q->qdisc))
- 			sch->stats.drops++;
-+		else
-+			sch->q.qlen++;
- 	}
--	spin_unlock_bh(&sch->dev->queue_lock);
-+	qdisc_run(dev);
-+	spin_unlock_bh(&dev->queue_lock);
- }
- 
- static void netem_reset(struct Qdisc *sch)
-@@ -505,7 +509,7 @@
- 	sch_tree_lock(sch);
- 	*old = xchg(&q->qdisc, new);
- 	qdisc_reset(*old);
--	sch->q.qlen = q->delayed.qlen;
-+	sch->q.qlen = 0;
- 	sch_tree_unlock(sch);
- 
- 	return 0;
+ /* List of all pfkey sockets. */
+-HLIST_HEAD(pfkey_table);
++static HLIST_HEAD(pfkey_table);
+ static DECLARE_WAIT_QUEUE_HEAD(pfkey_table_wait);
+ static rwlock_t pfkey_table_lock = RW_LOCK_UNLOCKED;
+ static atomic_t pfkey_table_users = ATOMIC_INIT(0);
