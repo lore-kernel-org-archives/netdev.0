@@ -1,72 +1,52 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: WEXT quality specification
-Date: Fri, 4 Feb 2005 22:38:54 -0800
-Message-ID: <20050205063854.GE9685@jm.kir.nu>
-References: <Pine.LNX.4.58.0502042136060.1614@devserv.devel.redhat.com> <20050205052744.GD9685@jm.kir.nu> <Pine.LNX.4.58.0502050043300.7817@devserv.devel.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
+Date: Sat, 5 Feb 2005 17:46:43 +1100
+Message-ID: <20050205064643.GA29758@gondor.apana.org.au>
+References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au> <20050204221344.247548cb.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jt@hpl.hp.com, netdev@oss.sgi.com
-To: Dan Williams <dcbw@redhat.com>
+Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0502050043300.7817@devserv.devel.redhat.com>
+In-Reply-To: <20050204221344.247548cb.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 05, 2005 at 01:04:42AM -0500, Dan Williams wrote:
+On Fri, Feb 04, 2005 at 10:13:44PM -0800, David S. Miller wrote:
+> 
+> But Herbert, let's take a step back real quick because I want
+> to point something out.  IPv6 does try to handle the dangling
+> mismatched idev's, in route.c:ip6_dst_ifdown(), this is called
+> via net/core/dst.c:dst_ifdown(), and this releases the ipv6
+> idev correctly in the split device case.
+> 
+> Did your analysis of this bridging release bug take this into
+> account?  That's why we added this dst->ops method, specifically
+> to handle this problem.
 
-> Reporting received signal strength in RSSI and noise level in dBm won't really 
-> work well.  Manufacturers usually provide an RSSI->dBm conversion, but where 
-> they don't, the driver needs to be able to provide a MAX_RSSI value.  Otherwise, 
-> there is no way for user applications to know the bounds of these values and 
-> determine a signal quality % from them.  Again, this is all about consistency, 
-> and we need a stable, well-defined API that doesn't depend on user-applications 
-> special-casing drivers just to get usable information out of them.  If the 
-> driver cannot provide usable information of some sort, it shouldn't even be 
-> trying to provide that information at all really.
+This doesn't work because net/core/dst.c can only search based
+on dst->dev.  For the split device case, dst->dev is set to
+loopback_dev while rt6i_idev is set to the real device.
 
-Agreed, there should be no special cases based on driver in user space.
-However, the API definition should not make it too difficult for the
-drivers to implement the interface. If many cards use dBm for noise and
-RSSI for received frames, it would sound like the API definition should
-take this into account and not require the drivers either not to report
-values or do some conversion which may not always be that clear.
+Therefore net/core/dst.c stands no chance of finding the correct
+local address routes that it needs to process.
 
-> qual.qual must be linear (because it should be able to be converted to a 
-> percentage value, its a _subjective_ measure of quality composed of a number of 
-> different quality statistics).  qual.level & qual.noise may not necessarily be 
-> linear since they are measures of electrical power (either RSSI or dBm).
+If we wanted to preserve the split device semantics, then we
+can create a local GC list in IPv6 so that it can search based
+on rt6i_idev as well as the other keys.  Alternatively we can
+remove the dst->dev == dev check in dst_dev_event and dst_ifdown
+and move that test down to the individual ifdown functions.
 
-How would this value be determined for cards that have RSSI for received
-packets and noise floor in dBm? Using a table of values?
+However, IMHO the split device semantics is inconsistent with
+the philosphy that addresses belong to the host and not the
+interface.  So it doesn't really make sense in the current
+networking stack.
 
-> The current WEXT API provides _no_ way to specify whether the returned values 
-> are in dBm or RSSI, other than using max_qual.level == 0 (dBm) and 
-> max_qual.level != 0 (RSSI).  That's just the way the API is at this time.  I've 
-> brought that up with Jean and he's agreed that it may need some clarification.  
-> There isn't really a "qual.type = dBm" bit anywhere in the quality structures, 
-> though that would be quite helpful (and was my suggestion).
-
-> See above, technically you could have a noise floor of 0 I guess, and the 
-> current WEXT API has no way of specifying different units for use in noise and 
-> level at this time.  Hence, the noise value can actually mean something when 
-> using dBm as your unit, unlike max_qual.level when using dBm (as it must be 0).
-
-Isn't the 'max_qual.level == 0 means dBm' similar to saying
-'max_qual.noise == 0 means dBm' for noise. In other words,
-max_qual.level == 70 and max_qual.noise == 0 could mean RSSI for signal
-strength and dBm for noise. Using max_qual.noise to report global noise
-value (noise floor?) sound somewhat confusing.
-
-> This is really an attempt to clarify the rules as I understand them (and after a 
-> couple discussions with Jean about the quality stuff).  I've looked over almost 
-> every wireless/802.11 driver that exists for Linux, and none of them 
-> implement the standard correctly, probably becuase its a bit ambiguous and 
-> nobody could quite understand what they were supposed to do in the quality 
-> space.  We need to bring some coherency to drivers in this regard, if only so 
-> that people can get their pretty little signal bars in the UI.
-
-Agreed.
-
+Cheers,
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
