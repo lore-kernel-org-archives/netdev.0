@@ -1,127 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET] Fix neighbour tbl->entries race
-Date: Sun, 7 Nov 2004 19:08:39 +1100
-Message-ID: <20041107080839.GA26158@gondor.apana.org.au>
-References: <20041102112651.GA8633@gondor.apana.org.au> <1099404823.1021.15.camel@jzny.localdomain> <20041102203720.GA12108@gondor.apana.org.au> <20041102210259.GA12642@gondor.apana.org.au> <20041102220603.GA13312@gondor.apana.org.au> <20041103155438.07a219ad.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
+Date: Sun, 07 Nov 2004 09:57:34 +0100
+Message-ID: <418DE37E.2050504@trash.net>
+References: <20041105141640.GQ19714@rei.reeler.org> <418BA66A.60804@trash.net> <20041105163951.GY12289@postel.suug.ch> <418BB7D2.6060908@trash.net> <20041105175812.GZ12289@postel.suug.ch> <418BC40E.8080402@trash.net> <20041105194303.GA12289@postel.suug.ch> <20041106011843.GI12289@postel.suug.ch> <418C2D40.9020300@trash.net> <20041106015931.GA28715@postel.suug.ch> <20041106145036.GB28715@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com, spam@crocom.com.pl,
+        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041103155438.07a219ad.davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041106145036.GB28715@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Thomas Graf wrote:
 
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+>So using the RCU protected list only enforces the unlinking
+>to be safe while within a list walk  and the rcu callback
+>to be deferred until the list walk is complete but may
+>be executed right after qdisc_lookup and then may free the
+>entry that was returned.
+>
+>So we must either rcu_read_lock all codeblocks that use
+>a result of a qdisc_lookup which is not trivial or ensure
+>that all rcu callbacks have finished before the next rtnetlink
+>message is processed.
+>
+>Maybe the easiest would be to have a refcnt which is
+>incremented when a rcu callback is set up and decremented
+>when it finishs and sleep on it after processing a
+>rtnetlink message until it reaches 0 again.
+>
+>Thoughts?
+>  
+>
+Before the RCU change distruction of the qdisc and all inner
+qdiscs happend immediately and under the rtnl semaphore. This
+made sure nothing holding the rtnl semaphore could end up with
+invalid memory. This is not true anymore, qdiscs found on
+dev->qdisc_list can be suddenly destroyed.
 
-On Wed, Nov 03, 2004 at 03:54:38PM -0800, David S. Miller wrote:
-> 
-> Can you cook up a 2.4.x version of this Herbert?  The new neighbour
-> code is now there too.
+dev->qdisc_list is protected by qdisc_tree_lock everywhere but in
+qdisc_lookup, this is also the only structure that is consistently
+protected by this lock. To fix the list corruption we can either
+protect qdisc_lookup with qdisc_tree_lock or use rcu-list macros
+and remove all read_lock(&qdisc_tree_locks) (and replace it by
+a spinlock).
 
-Sure.  BTW this bug is a lot older than the new neighbours code.
-It's in the very first revision of neighbour.c :)
+Unfortunately, since we can not rely on the rtnl protection for
+memory anymore, it seems we need to refcount all uses of
+dev->qdisc_list that before relied on this protection and can't
+use rcu_read_lock. To make this safe, we need to atomically
+atomic_dec_and_test/list_del in qdisc_destroy and atomically do
+list_for_each_entry/atomic_inc in qdisc_lookup, so we should
+should simply keep the non-rcu lists and use qdisc_tree_lock
+in qdisc_lookup.
 
-Here is a patch for 2.4.  I simply used atomic_read instead of
-doing atomic_inc_return as in 2.6 since I thought that the
-downside of going a bit over gc_thresh3 wasn't worth the
-trouble of back-porting all the atomic_*_return work.
+I'm working on a patch, but it will take a few days.
 
-Of course if that ever gets backported then we can do what 2.6
-does here too.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---HlL+5n6rz5pIUxbD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== include/net/neighbour.h 1.4 vs edited =====
---- 1.4/include/net/neighbour.h	2004-10-06 04:22:37 +10:00
-+++ edited/include/net/neighbour.h	2004-11-07 19:03:05 +11:00
-@@ -174,7 +174,7 @@
- 	struct timer_list 	gc_timer;
- 	struct timer_list 	proxy_timer;
- 	struct sk_buff_head	proxy_queue;
--	int			entries;
-+	atomic_t		entries;
- 	rwlock_t		lock;
- 	unsigned long		last_rand;
- 	struct neigh_parms	*parms_list;
-===== net/core/neighbour.c 1.14 vs edited =====
---- 1.14/net/core/neighbour.c	2004-10-06 04:40:25 +10:00
-+++ edited/net/core/neighbour.c	2004-11-07 19:04:24 +11:00
-@@ -257,11 +257,11 @@
- 	struct neighbour *n;
- 	unsigned long now = jiffies;
- 
--	if (tbl->entries > tbl->gc_thresh3 ||
--	    (tbl->entries > tbl->gc_thresh2 &&
-+	if (atomic_read(&tbl->entries) > tbl->gc_thresh3 ||
-+	    (atomic_read(&tbl->entries) > tbl->gc_thresh2 &&
- 	     now - tbl->last_flush > 5*HZ)) {
- 		if (neigh_forced_gc(tbl) == 0 &&
--		    tbl->entries > tbl->gc_thresh3)
-+		    atomic_read(&tbl->entries) > tbl->gc_thresh3)
- 			return NULL;
- 	}
- 
-@@ -282,7 +282,7 @@
- 	n->timer.data = (unsigned long)n;
- 	NEIGH_CACHE_STAT_INC(tbl, allocs);
- 	neigh_glbl_allocs++;
--	tbl->entries++;
-+	atomic_inc(&tbl->entries);
- 	n->tbl = tbl;
- 	atomic_set(&n->refcnt, 1);
- 	n->dead = 1;
-@@ -428,7 +428,7 @@
- 	hash_val = tbl->hash(pkey, dev) & tbl->hash_mask;
- 
- 	write_lock_bh(&tbl->lock);
--	if (tbl->entries > (tbl->hash_mask + 1))
-+	if (atomic_read(&tbl->entries) > (tbl->hash_mask + 1))
- 		neigh_hash_grow(tbl, (tbl->hash_mask + 1) << 1);
- 	for (n1 = tbl->hash_buckets[hash_val]; n1; n1 = n1->next) {
- 		if (dev == n1->dev &&
-@@ -583,7 +583,7 @@
- 	NEIGH_PRINTK2("neigh %p is destroyed.\n", neigh);
- 
- 	neigh_glbl_allocs--;
--	neigh->tbl->entries--;
-+	atomic_dec(&neigh->tbl->entries);
- 	kmem_cache_free(neigh->tbl->kmem_cachep, neigh);
- }
- 
-@@ -1306,7 +1306,7 @@
- 	del_timer_sync(&tbl->proxy_timer);
- 	pneigh_queue_purge(&tbl->proxy_queue);
- 	neigh_ifdown(tbl, NULL);
--	if (tbl->entries)
-+	if (atomic_read(&tbl->entries))
- 		printk(KERN_CRIT "neighbour leakage\n");
- 	write_lock(&neigh_tbl_lock);
- 	for (tp = &neigh_tables; *tp; tp = &(*tp)->next) {
-@@ -1858,7 +1858,7 @@
- 
- 	seq_printf(seq, "%08x  %08lx %08lx %08lx  %08lx %08lx  %08lx  "
- 			"%08lx %08lx  %08lx %08lx\n",
--		   tbl->entries,
-+		   atomic_read(&tbl->entries),
- 
- 		   st->allocs,
- 		   st->destroys,
-
---HlL+5n6rz5pIUxbD--
+Regards
+Patrick
