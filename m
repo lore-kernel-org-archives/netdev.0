@@ -1,77 +1,53 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC:  Redirect-Device
-Date: 31 Mar 2005 16:53:51 -0500
-Message-ID: <1112306031.1073.109.camel@jzny.localdomain>
-References: <424C6089.1080507@candelatech.com>
-	 <1112303627.1073.71.camel@jzny.localdomain>
-	 <424C6B10.6030200@candelatech.com>
-Reply-To: hadi@cyberus.ca
+From: Andrea Arcangeli <andrea@suse.de>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
+Date: Thu, 31 Mar 2005 19:09:23 +0200
+Message-ID: <20050331170923.GA6546@g5.random>
+References: <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie> <1112130512.1077.107.camel@jzny.localdomain> <20050330152208.GB12672@muc.de> <20050330153313.GD32111@g5.random> <20050330153948.GE12672@muc.de> <20050330154418.GE32111@g5.random> <20050330160255.GG12672@muc.de> <20050330161522.GH32111@g5.random> <20050331115012.GP24804@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
+        James Bottomley <James.Bottomley@HansenPartnership.com>,
+        Rik van Riel <riel@redhat.com>, mpm@selenic.com, michaelc@cs.wisc.edu,
+        open-iscsi@googlegroups.com, ksummit-2005-discuss@thunk.org,
+        netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <424C6B10.6030200@candelatech.com>
+To: Andi Kleen <ak@muc.de>
+Content-Disposition: inline
+In-Reply-To: <20050331115012.GP24804@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-03-31 at 16:26, Ben Greear wrote:
-> jamal wrote:
-> > On Thu, 2005-03-31 at 15:41, Ben Greear wrote:
-> 
-> > I must be missing something: What is it that this device can do that the
-> > mirred action cant do? 
-> > Or in general the action framework on the ingress side?
-> > We can redirect to any arbitrary device; we can mirror to any arbitray
-> > device; we can drop, mangle packets identified via classification rules
-> > in any arbitrary way etc
-> 
-> I can operate on these devices with normal socket calls from user-space, and
-> can treat them as normal net_devices from kernel modules.  I do not have to
-> parse or manage the mirrored action logic, and I know that I absolutely have
-> total control over packets with my user-space language of choice.  (I am not
-> sure how easy it is to use your classification rules and mangling operations
-> in an arbitrary manner.)
-> 
+On Thu, Mar 31, 2005 at 01:50:12PM +0200, Andi Kleen wrote:
+> This could still starve on the RX ring level of the hardware which
+> you cant control.
 
-You can configure actions using sockets (netlink sockets).
-Thats what tc does for example. As a matter of fact you already have a
-"language" - its what tc is, sample BNF grammar of the language:
+It may be inefficient in the recovery, but the point is that it can
+recover.
 
----
-[root@jzny root]# tc
-Usage: tc [ OPTIONS ] OBJECT { COMMAND | help }
-where  OBJECT := { qdisc | class | filter }
-       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -b[atch] file
-}
----
+> But it might be an improvement, agreed. The problem is that you
+> need lots of infrastructure to tell the driver about TCP connections -
+> it is pretty much near all the work needed for zero copy RX.
 
-You can write a little API on top of netlink that could ease the
-intricacies of netlink. Thats what libnetlink in iproute2(that tc use)
-and what Thomas is writting are attempting to do.
+The driver only need to have a ring of mempools attached, OK each one is
+attached to the tcp connection, but the driver won't be required to
+parse the TCP/IP. After GFP_ATOMIC fails, the driver interurpt handler
+will pick a skb from a random mempool.
 
-So - you have a lot of control ..
+> Even with all that work it is  not the 100% solution some people on this thread
+> seem to be lusting for. 
 
-A few people have written "languages" to improve on tc. The most
-prominent being Werner Almesbergers tcng http://tcng.sourceforge.net/
+I thought it was more than enough, all they care about is not to
+deadlock anymore, I don't think anybody cares about the performance of
+the deadlock-scenario.
 
-> I can also create a nice little set of virtual interfaces
-> and connections  rdd0 <-> rdd1  |bridge|  rdd2 <-> rdd3.  I can then send traffic
-> from rdd0 to rdd3 across the bridge, etc.  Now, this last bit is fairly
-> contrived, but it happens to help me with some testing on my laptop which
-> lacks a lot of external ethernet interfaces :)
-> 
+I agree with Jamal that his suggestion to use an high-per ring is
+very good (I didn't even know some card supported this feature), so if
+somebody wants the deadlock scenario not to run in "degraded mode", they
+will have to use some more advanced hardware the way Jamal is suggesting
+(or get rid of TCP all together and use TCP/IP offload with the security
+risks it introduces or RDMA or whatever other point to point high perf
+DMA technology like quadrix etc..).
 
-So your goal is to define a path that the packet takes inside the kernel
-across multiple devices? i.e some form of loose source routing?
-
-> To be honest, I didn't dig into the actions.  It would be much harder for
-> me to manage things in that manner, whereas virtual interfaces just work
-> for me.
-
-Understood - just not empathized ;->
-
-cheers,
-jamal
+I suspect the deadlock scenario is infrequent enough that it won't
+matter how fast it recovers as long as it eventually does.
