@@ -1,8 +1,8 @@
 From: janitor@sternwelten.at
-Subject: [patch 4/8]  irda/sir_dev: replace schedule_timeout() 	with msleep()
-Date: Wed, 01 Sep 2004 23:05:39 +0200
+Subject: [patch 5/8]  irda/tekram-sir: replace 	schedule_timeout() with msleep()
+Date: Wed, 01 Sep 2004 23:05:45 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C2cIW-000816-6g@sputnik>
+Message-ID: <E1C2cIb-00081o-MO@sputnik>
 Cc: jgarzik@pobox.com, jt@hpl.hp.com, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -29,29 +29,21 @@ Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
 ---
 
- linux-2.6.9-rc1-bk7-max/drivers/net/irda/sir_dev.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ linux-2.6.9-rc1-bk7-max/drivers/net/irda/tekram-sir.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN drivers/net/irda/sir_dev.c~msleep-drivers_net_irda_sir_dev drivers/net/irda/sir_dev.c
---- linux-2.6.9-rc1-bk7/drivers/net/irda/sir_dev.c~msleep-drivers_net_irda_sir_dev	2004-09-01 19:35:32.000000000 +0200
-+++ linux-2.6.9-rc1-bk7-max/drivers/net/irda/sir_dev.c	2004-09-01 19:35:32.000000000 +0200
-@@ -15,6 +15,7 @@
- #include <linux/kernel.h>
- #include <linux/init.h>
- #include <linux/smp_lock.h>
-+#include <linux/delay.h>
+diff -puN drivers/net/irda/tekram-sir.c~msleep-drivers_net_irda_tekram-sir drivers/net/irda/tekram-sir.c
+--- linux-2.6.9-rc1-bk7/drivers/net/irda/tekram-sir.c~msleep-drivers_net_irda_tekram-sir	2004-09-01 19:35:32.000000000 +0200
++++ linux-2.6.9-rc1-bk7-max/drivers/net/irda/tekram-sir.c	2004-09-01 19:35:32.000000000 +0200
+@@ -210,8 +210,7 @@ static int tekram_reset(struct sir_dev *
+ 	sirdev_set_dtr_rts(dev, FALSE, TRUE); 
  
- #include <net/irda/irda.h>
- #include <net/irda/wrapper.h>
-@@ -73,8 +74,7 @@ int sirdev_raw_write(struct sir_dev *dev
- 	spin_lock_irqsave(&dev->tx_lock, flags);	/* serialize with other tx operations */
- 	while (dev->tx_buff.len > 0) {			/* wait until tx idle */
- 		spin_unlock_irqrestore(&dev->tx_lock, flags);
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(msecs_to_jiffies(10));
-+		msleep(10);
- 		spin_lock_irqsave(&dev->tx_lock, flags);
- 	}
+ 	/* Should sleep 1 ms */
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(msecs_to_jiffies(1));
++	msleep(1);
  
+ 	/* Set DTR, Set RTS */
+ 	sirdev_set_dtr_rts(dev, TRUE, TRUE);
 
 _
