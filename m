@@ -1,70 +1,59 @@
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: Re: [PATCH 6/17 linux-2.6.7-rc2] prism54: Kernel compatibility
-Date: Thu, 03 Jun 2004 17:31:43 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20040603172343.00acf4a8@pop.t-online.de>
-References: <5.1.0.14.2.20040602221238.00adfbf8@pop.t-online.de>
- <200405310213.53280.margitsw@t-online.de>
- <200405310213.53280.margitsw@t-online.de>
- <5.1.0.14.2.20040602221238.00adfbf8@pop.t-online.de> <40BE386A.1080201@pobox.com>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: Prism54 WPA Support - wpa_supplicant - Linux general wpa support
+Date: Thu, 3 Jun 2004 09:52:33 -0700
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Message-ID: <20040603165233.GC8770@bougret.hpl.hp.com>
+References: <20040602071449.GJ10723@ruslug.rutgers.edu>
+	<20040602132313.GB7341@jm.kir.nu>
+	<20040602155542.GC24822@ruslug.rutgers.edu>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <40BE386A.1080201@pobox.com>
-References: <5.1.0.14.2.20040602221238.00adfbf8@pop.t-online.de>
- <200405310213.53280.margitsw@t-online.de>
- <200405310213.53280.margitsw@t-online.de>
- <5.1.0.14.2.20040602221238.00adfbf8@pop.t-online.de>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Netdev <netdev@oss.sgi.com>, hostap@shmoo.com,
+	prism54-devel@prism54.org, Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20040602155542.GC24822@ruslug.rutgers.edu>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-At 16:28 02.06.2004 -0400, you wrote:
->Margit Schubert-While wrote:
->>At 16:03 02.06.2004 -0400, you wrote:
->>
->>>Margit Schubert-While wrote:
->>>
->>>>2004-03-20      Margit Schubert-While <margitsw@t-online.de>
->>>>* isl_38xx.[ch], isl_ioctl.c, islpci_dev.[ch], islpci_eth.c
->>>>   islpci_hotplug.c, islpci_mgt.[ch], oid_mgt.c, prismcompat.h:
->>>>   Adopt new prism54 kernel compatibility.
->>>>   Remove remaining kernel version ifdefs.
->>>
->>>
->>>
->>>>@@ -325,11 +320,7 @@
->>>>         printk(KERN_DEBUG "%s: uploading firmware...\n", 
->>>> priv->ndev->name);
->>>>
->>>>         rc = isl38xx_upload_firmware(priv->firmware,
->>>>-#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,5,75))
->>>>-               &priv->pdev->dev,
->>>>-#else
->>>>-               pci_name(priv->pdev),
->>>>-#endif
->>>
->>>
->>>Rejected, both 2.4 and 2.6 should use pci_name() directly in the code
->>>
->>>Please resend patches 6 through 17, after fixing patches 6, 12, and 14.
->>>
->>>         Jeff
->>Absolutely not !
->>Parameter for 2.4 = char *, param for for 2.6 = struct dev *
->>LOL
->>Margit
->
->[jgarzik@sata repo]$ grep -w pci_name linux-2.[46]/include/linux/pci.h
->linux-2.4/include/linux/pci.h:static inline char *pci_name(struct pci_dev 
->*pdev)
->linux-2.6/include/linux/pci.h:static inline char *pci_name(struct pci_dev 
->*pdev)
+On Wed, Jun 02, 2004 at 11:55:42AM -0400, Luis R. Rodriguez wrote:
+> On Wed, Jun 02, 2004 at 06:23:14AM -0700, Jouni Malinen wrote:
+> > 
+> > The first thing I would like to see is an addition to  Linux wireless
+> > extensions for WPA/WPA2 so that we can get rid of the private ioctls in
+> > the drivers. Even though these can often be similar, it would be nice to
+> > just write one driver interface code in wpa_supplicant and have it
+> > working with all Linu drivers.. I hope to find some time to write a
+> > proposal for this.
+> 
+> I agree :). Jean? *poke*
+> 
+> 	Luis
 
-I was not talking about pci_name, I was talking about the 3rd param to
-request_firmware which is char * in 2.4, struct dev * in 2.6.
-Patch 16 cleans this area up.
-If it makes it easier, I can put together patches 5 and 16. Your call.
+	The initial plan was for me to get more familiar with WPA, but
+this keep slipping (partly due to family matters). HP did follow my
+suggestions and use IPsec internally, which also explain why I'm in no
+hurry. There was some stuff I wanted to "improve" in the API design,
+but I guess that if I can't deliver a patch, I'd better shut up and
+try to avoid being a bottleneck.
+	At this point, I think that Jouni is our best expert on the
+subject, and the fact that many driver has reused his API means that
+his API is sensible and flexible enough.
+	So, the plan would be to take Jouni's API as is (or with minor
+modifications) and stuff that in wireless.h. I don't believe that the
+tools themselves need to be modified, because wpa_supplicant is the
+sole user of those ioctls.
+	If you are all happy with that, then I'll just do it.
 
-Errm, what's wrong with patches 12 and 14 ?
+	Have fun...
+
+	Jean
