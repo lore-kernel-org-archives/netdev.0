@@ -1,112 +1,115 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: send-to-self (was Re: routing bug report for 2.4)
-Date: Tue, 01 Jul 2003 15:07:12 -0700
+From: Jason Lunz <lunz@falooley.org>
+Subject: [PATCH 2.4.22-bk] dev->promiscuity refcounting broken in af_packet.c
+Date: Tue, 1 Jul 2003 21:51:23 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F020610.2080109@candelatech.com>
-References: <Pine.LNX.4.44.0307020030170.1076-100000@u.domain.uli>
+Message-ID: <slrnbg40jp.vfk.lunz@stoli.localnet>
+References: <C2E3E72093950249A1ED5534473788D7A8A7@baltic.tablus.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0307020030170.1076-100000@u.domain.uli>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Julian Anastasov wrote:
-> 	Hello,
-> 
-> On Mon, 30 Jun 2003, Ben Greear wrote:
-> 
-> 
->>You should be able to easily test most of the changes your code
->>if you have a machine with two ethernet interfaces and a loopback
->>cable...
-> 
-> 
-> 	ok, tested the 2.5 version, the patch files are updated:
-> 
-> http://www.ssi.bg/~ja/#loop
-> 
-> - added missing dev_put on ENETDOWN
-> - removed the checks that ignore oif for local routes as Alexey suggests
-> 
-> 	I have tried simple tests: ICMP, telnet. What I see
-> is that the 2.5 rt_set_nexthop() does not set sysctl_ip_default_ttl if
-> res->fi is NULL and that causes the icmp echo packets to use
-> ttl=0. May be there are still some noisy places like arp_set_predefined,
-> it will need further investigation. I'm stopping here, for now.
+niz@vencraft.com said:
+> A number of people have mentioned that they get a weird situation
+> where when they *start* a program that does promiscuous network reads
+> (with, say, =91tcpdump =96i eth0=92). They then get a kernel message
+> =93left promiscuous mode=94 when the program starts and the message
+> =93entered promiscuous mode=94 when it exits =96 the exact opposite of
+> what should happen.
 
-How did you get telnet to bind to a particular local interface?  Also, what
-ping syntax did you use?  Did you have to modify either of these applications
-to get them to work?
+Thanks for finding this! This has been happening to me for over a year,
+but always so rarely that I never bothered to really track it down.
 
-I looked at the patch...but don't have a good enough grasp of the routing
-code to provide a useful critique.  I believe my patch _is_ smaller though ;)
+Your patch isn't really correct, though. Aside from the whitespace
+damage, it doesn't really address the problem. Clamping the refcount at
+zero only stops the bleeding.
 
-Thanks,
-Ben
+The problem is that packet sockets are calling dev_set_promiscuity too
+many times. For example, if I take an unconfigured interface and do:
 
-> 
-> 
->>My requirements are:
->>
->>1)  Both ethernet ports communicate over the exernal link, UDP & IP traffic.
-> 
-> 
-> 	Done
-> 
-> 
->>     Third-party programs if possible, thus I set the flag on the interface in
->>     my patch, not on an individual socket, though I do have to BINDTODEVICE and
->>     policy-base base route to get things working right...
-> 
-> 
-> 	Now you have 2 options:
-> 
-> - bind to src IP: the app needs to be aware for that
-> 
-> - ip route replace local IP2 dev DEV2 ... src IP1 table local: the app
-> does not need to be aware to use this feature
-> 
-> 	Now using BINDTODEVICE can cause problems with this feature,
-> because we do not ignore oif for local destinations, you risk to
-> miss the local route and arp_filter to break the things or worse (not
-> tested)
-> 
-> 
->>1b)  Allow both same-subnet comm (eth1 & eth2 are on same subnet), and also
->>      routed traffic (eth1 & eth2 have their own default router, similar to the
->>      previously discussed routing setup)
-> 
-> 
-> 	all other routes remain unchanged, I hope
-> 
-> 
->>2)  Allow normal non-looped communication on the ports, including policy-based routing
->>     based on source addr.
-> 
-> 
-> 	hm, you better know what you mean. As expected, this feature
-> has its drawbacks. The safe way is to teach some apps to bind to
-> IP1 and the apps that are unaware for these loops to use the prefsrc
-> and thus to use lo. There is no much space for improvement here but
-> I'm open for suggestions.
-> 
-> 
->>Thanks,
->>Ben
-> 
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
+halfoat:~ # ip link show eth1
+9: eth1: <BROADCAST,MULTICAST> mtu 1500 qdisc pfifo_fast qlen 100
+    link/ether 00:30:48:41:62:12 brd ff:ff:ff:ff:ff:ff
+halfoat:~ # ip link set up eth1
+halfoat:~ # tcpdump -i eth1 &
+[1] 457
+tcpdump: WARNING: eth1: no IPv4 address assigned
+tcpdump: listening on eth1
+halfoat:~ # ip link set down eth1
+tcpdump: pcap_loop: recvfrom: Network is down
+[1]+  Exit 1                  tcpdump -i eth1
+halfoat:~ # ip link show eth1
+9: eth1: <BROADCAST,MULTICAST,PROMISC> mtu 1500 qdisc pfifo_fast qlen 100
+    link/ether 00:30:48:41:62:12 brd ff:ff:ff:ff:ff:ff
+
+eth1 is now in promiscuous mode because dev->promiscuity is -1 (!=3D 0).
+
+When the interface goes down, dev_change_flags calls dev_close, which
+sends NETDEV_DOWN down the netdev notifier chain. Because tcpdump has a
+packet socket open, packet_notifier calls packet_dev_mclist ->
+packet_dev_mc -> dev_set_promiscuity.
+
+When tcpdump gets ENETDOWN, it aborts, closing the packet socket.
+af_packet.c's proto_ops->release cleanup method is packet_release.  On
+close(), packet_release calls packet_flush_mclist, which again
+decrements dev->promiscuity, so when tcpdump exits, dev promiscuity is
+left at -1.
+
+I can't see any reason to be mucking about with the device promiscuity
+on NETDEV_DOWN and NETDEV_UP events in the first place. The attached
+patch seems to fix all the cases I can think of. It works properly in
+both of the above cases, and has also been verified to do the right
+thing with NETDEV_UNREGISTER events.
+
+Jason
 
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Index: linux-2.4/net/packet/af_packet.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+RCS file: /home/cvs/linux-2.4/net/packet/af_packet.c,v
+retrieving revision 1.11
+diff -u -p -r1.11 af_packet.c
+--- linux-2.4/net/packet/af_packet.c	12 Jun 2002 23:10:34 -0000	1.11
++++ linux-2.4/net/packet/af_packet.c	1 Jul 2003 20:17:51 -0000
+@@ -1378,8 +1378,13 @@ static int packet_notifier(struct notifi
+ 		po =3D sk->protinfo.af_packet;
+=20
+ 		switch (msg) {
+-		case NETDEV_DOWN:
+ 		case NETDEV_UNREGISTER:
++#ifdef CONFIG_PACKET_MULTICAST
++			if (po->mclist)
++				packet_dev_mclist(dev, po->mclist, -1);
++			// fallthrough
++#endif
++		case NETDEV_DOWN:
+ 			if (dev->ifindex =3D=3D po->ifindex) {
+ 				spin_lock(&po->bind_lock);
+ 				if (po->running) {
+@@ -1396,10 +1401,6 @@ static int packet_notifier(struct notifi
+ 				}
+ 				spin_unlock(&po->bind_lock);
+ 			}
+-#ifdef CONFIG_PACKET_MULTICAST
+-			if (po->mclist)
+-				packet_dev_mclist(dev, po->mclist, -1);
+-#endif
+ 			break;
+ 		case NETDEV_UP:
+ 			spin_lock(&po->bind_lock);
+@@ -1409,10 +1410,6 @@ static int packet_notifier(struct notifi
+ 				po->running =3D 1;
+ 			}
+ 			spin_unlock(&po->bind_lock);
+-#ifdef CONFIG_PACKET_MULTICAST
+-			if (po->mclist)
+-				packet_dev_mclist(dev, po->mclist, +1);
+-#endif
+ 			break;
+ 		}
+ 	}
