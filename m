@@ -1,45 +1,29 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [PATCH] ibmtr init section usage
-Date: Mon, 8 Mar 2004 09:01:54 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] always set westwood rtt (trivial)
+Date: Mon, 8 Mar 2004 10:17:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040308090154.721ea21a.rddunlap@osdl.org>
-References: <OF771FE017.1DA04DD7-ON85256E51.0050720A-85256E51.00508E13@urscorp.com>
+Message-ID: <20040308101726.4d08467a@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mike_Phillips@URSCorp.com
-In-Reply-To: <OF771FE017.1DA04DD7-ON85256E51.0050720A-85256E51.00508E13@urscorp.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Mar 2004 09:39:52 -0500 Mike_Phillips@URSCorp.com wrote:
+It is faster just to update the rtt even if we never use it.
 
-| 
-| >probe functions can be __devinit.
-| 
-| > Patch is to 2.6.4-rc2.  Please apply.
-| 
-| Will this blow up the pcmcia ibmtr_cs. It links in ibmtr and uses the probe
-| functions.
-
-Should be OK.  See:
-
-#ifdef CONFIG_HOTPLUG
-#define __devinit
-#define __devinitdata
-#define __devexit
-#define __devexitdata
-#else
-#define __devinit __init
-#define __devinitdata __initdata
-#define __devexit __exit
-#define __devexitdata __exitdata
-#endif
-
-
-and PCMCIA/CardBus depends on HOTPLUG being enabled.
-
---
-~Randy
+diff -Nru a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	Mon Mar  8 10:10:57 2004
++++ b/include/net/tcp.h	Mon Mar  8 10:10:57 2004
+@@ -2030,8 +2030,7 @@
+ 
+ static inline void tcp_westwood_update_rtt(struct tcp_opt *tp, __u32 rtt_seq)
+ {
+-        if (sysctl_tcp_westwood)
+-                tp->westwood.rtt = rtt_seq;
++	tp->westwood.rtt = rtt_seq;
+ }
+ 
+ void __tcp_westwood_fast_bw(struct sock *, struct sk_buff *);
