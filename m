@@ -1,54 +1,78 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: Re: tun.c patch to fix "smp_processor_id() in preemptible code"
-Date: Tue, 19 Oct 2004 18:10:58 -0400
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 2.6.9]: Fix netdevice/inet6_dev reference leaks in ip6_route_add
+ error paths
+Date: Wed, 20 Oct 2004 00:13:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098223857.23367.35.camel@krustophenia.net>
-References: <E1CK1e6-0004F3-00@gondolin.me.apana.org.au>
-	 <1098222676.23367.18.camel@krustophenia.net>
-	 <20041019215401.GA16427@gondor.apana.org.au>
+Message-ID: <417591A2.4090201@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: vda@port.imtp.ilyichevsk.odessa.ua,
-        Linux Network Development <netdev@oss.sgi.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>, maxk@qualcomm.com,
-        irda-users@lists.sourceforge.net
+Content-Type: multipart/mixed;
+ boundary="------------040705080908040609060609"
+Cc: netdev@oss.sgi.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041019215401.GA16427@gondor.apana.org.au>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-10-19 at 17:54, Herbert Xu wrote:
-> On Tue, Oct 19, 2004 at 05:51:17PM -0400, Lee Revell wrote:
-> > 
-> > Ok, here is the correct patch.  If this is really just a matter of
-> > performance, and not required for correctness, disabling preemption is
-> > broken, right?
-> 
-> No if you're doing this then you should get rid of netif_rx_ni()
-> altogether.  But before you do that please ask all the people who
-> call it.
+This is a multi-part message in MIME format.
+--------------040705080908040609060609
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-There are not a lot of them:
+The recent changes to ip6_route_add added multiple leaks in
+error paths. This patch should fix them.
 
-drivers/s390/net/ctcmain.c
-drivers/s390/net/netiucv.c
-drivers/net/irda/vlsi_ir.c
-drivers/net/tun.c
+Regards
+Patrick
 
->From netiuvc.c:
 
-  /*
-   * Since receiving is always initiated from a tasklet (in iucv.c),
-   * we must use netif_rx_ni() instead of netif_rx()
-   */
+--------------040705080908040609060609
+Content-Type: text/plain;
+ name="p2"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="p2"
 
-This implies that the author thought it was a matter of correctness to
-use netif_rx_ni vs. netif_rx.  But it looks like the only difference is
-that the former sacrifices preempt-safety for performance.
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/10/19 23:46:56+02:00 kaber@coreworks.de 
+#   [IPV6]: Fix netdevice/inet6_dev reference leaks in ip6_route_add error paths
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv6/route.c
+#   2004/10/19 23:46:17+02:00 kaber@coreworks.de +8 -3
+#   [IPV6]: Fix netdevice/inet6_dev reference leaks in ip6_route_add error paths
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c	2004-10-19 23:52:23 +02:00
++++ b/net/ipv6/route.c	2004-10-19 23:52:23 +02:00
+@@ -798,8 +798,10 @@
+ 
+ 	rt = ip6_dst_alloc();
+ 
+-	if (rt == NULL)
+-		return -ENOMEM;
++	if (rt == NULL) {
++		err = -ENOMEM;
++		goto out;
++	}
+ 
+ 	rt->u.dst.obsolete = -1;
+ 	rt->rt6i_expires = clock_t_to_jiffies(rtmsg->rtmsg_info);
+@@ -962,7 +964,10 @@
+ out:
+ 	if (dev)
+ 		dev_put(dev);
+-	dst_free((struct dst_entry *) rt);
++	if (idev)
++		in6_dev_put(idev);
++	if (rt)
++		dst_free((struct dst_entry *) rt);
+ 	return err;
+ }
+ 
 
-I could not find maintainers for the two s390 drivers, or a specific
-maintainer for vlsi_ir.
-
-Lee
+--------------040705080908040609060609--
