@@ -1,44 +1,41 @@
-From: Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>
-Subject: r8169 - dac testing (was: [mini-RFT] r8169 and amd64)
-Date: Thu, 21 Oct 2004 01:11:07 +0000 (UTC)
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: way of figuring out total number of retransmitted packets on
+ a TCP socket?
+Date: Wed, 20 Oct 2004 22:18:03 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410221112.18575.sriharivijayaraghavan@yahoo.com.au>
+Message-ID: <41770E4B.1040906@conectiva.com.br>
+References: <20041020130134.GC24757@xi.wantstofly.org>	<20041020151448.51209278.davem@davemloft.net>	<20041020223547.GJ29583@xi.wantstofly.org>	<20041020155352.1c9b70f6.davem@davemloft.net>	<20041020230405.GE995@wotan.suse.de>	<20041020160728.1d5a337e.davem@davemloft.net>	<20041020232719.GG995@wotan.suse.de> <20041020164241.5f29cea5.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: Andi Kleen <ak@suse.de>, buytenh@wantstofly.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri, 22 Oct 2004 11:12:18 +1000
-Content-Disposition: inline
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041020164241.5f29cea5.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Francois,
 
-I read your email with a subject "[mini-RFT] r8169 and amd64" at LKML 
-(archive). Since I am not subscribed to LKML I am unable to answer to that 
-thread. Sorry.
 
-Anyway, I have applied your patch at 
-http://www.fr.zoreil.com/people/francois/misc/20041020-2.6.9-r8169.c-test.patch 
-to vanilla 2.6.9, and tested it on my AMD64.
+David S. Miller wrote:
+> On Thu, 21 Oct 2004 01:27:19 +0200
+> Andi Kleen <ak@suse.de> wrote:
+> 
+> 
+>>ok. good. I remember the times when you made jokes about the size
+>>of TCBs in some other OSes. I bet we beat them all now in bloat, but it's 
+>>good that things are shrinking again.
+> 
+> 
+> Nope, Solaris's TCB is still 3 times the size of ours.
+> 
+> BSD's is about the same size, yet they lack most of the
+> congestion control and ECN functionality we have.
 
-In its default configuration, ie, without use_dac=1 parameter, it works great. 
-But OTOH with that parameter kernel displays these messages:
+<joke>
+That doesn't mean we should keep trying to get to their level ;)
+</joke>
 
-eth0: Identified chip type is 'RTL8169s/8110s'.
-eth0: RTL8169 at 0xffffff0000040000, 00:0d:61:15:23:e6, IRQ 18
-r8169: eth0: PCI error (cmd = 0x0017, status = 0x22b0).
-eth1: link up, 100Mbps, full-duplex, lpa 0x45E1
+/me goes back to his pile of sk_buff layer header pointers patches :-)
 
-And the network card does not work, as I cannot ping another host (DSL 
-modem/router) on the network.
-
-(Once I load the module with that parameter, unloading and reloading it 
-without that parameter does not bring the network card back to its working 
-configuration.)
-
-Thank you.
-Hari.
+- Arnaldo
