@@ -1,51 +1,42 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: "deadlock" between smc91x driver and link_watch
-Date: Tue, 23 Nov 2004 15:31:58 -0800
-Message-ID: <20041123153158.6f20a7d7.akpm@osdl.org>
-References: <1101230194.14370.12.camel@icampbell-debian>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] ipconfig schedule fix
+Date: Tue, 23 Nov 2004 15:45:13 -0800
+Message-ID: <20041123154513.0c950033.davem@davemloft.net>
+References: <aec7e5c3041123145030b75d14@mail.gmail.com>
+	<20041123151855.1864659a.davem@davemloft.net>
+	<aec7e5c304112315426594dc72@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nico@cam.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ian Campbell <icampbell@arcom.com>
-In-Reply-To: <1101230194.14370.12.camel@icampbell-debian>
+To: Magnus Damm <magnus.damm@gmail.com>
+In-Reply-To: <aec7e5c304112315426594dc72@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ian Campbell <icampbell@arcom.com> wrote:
->
-> Hi,
-> 
-> I'm seeing a deadlock in linkwatch_event() when bringing down an
-> Ethernet interface using the smc91x driver (drivers/net/smc91x.c).
-> 
-> What I am seeing is that smc_close() is calling netif_carrier_off which
-> has the call chain:
-> 	netif_carrier_off
-> 	-> linkwatch_fire_event
-> 	   -> schedule_work or schedule_delayed_work
-> The function that is scheduled is linkwatch_event().
-> 
-> smc_close() then goes on to call flush_scheduled_work() in order to
-> ensure that it's own pending workqueue stuff (smc_phy_configure()) is
-> completed before powering down the PHY.
-> 
-> What I am seeing is that linkwatch_event() is deadlocking trying take
-> rtnl_sem via rtnl_shlock(). The lock appears to already be held by a
-> call to rtnl_lock() from devinet_ioctl().
-> 
-> Any ideas? Perhaps smc_phy_configure calls could just check that the
-> interface is up before continuing, then there would be no need to flush
-> the queue to get rid of it.
-> 
+On Wed, 24 Nov 2004 00:42:17 +0100
+Magnus Damm <magnus.damm@gmail.com> wrote:
 
-linkwatch probably doesn't need the flush_scheduled_work(), because it
-correctly does refcounting on the device.  Presumably that
-flush_scheduled_work() in smc_close() is there to force out any pending
-calls to smc_phy_configure().
+> On Tue, 23 Nov 2004 15:18:55 -0800, David S. Miller <davem@davemloft.net> wrote:
+> > On Tue, 23 Nov 2004 23:50:35 +0100
+> > 
+> > 
+> > Magnus Damm <magnus.damm@gmail.com> wrote:
+> > 
+> > > This simple patch makes the DHCP/BOOTP/RARP code sleep with
+> > > schedule_timeout() instead of hogging the cpu with cpu_relax() in a
+> > > loop. This comes handy when a guest kernel is booted inside QEMU.
+> > > Without the patch, the host operating system will consume cpu time
+> > > busy waiting.
+> > 
+> > There are two similar loops involving CONF_PRE_OPEN and CONF_POST_OPEN,
+> > you may wish to hit those while you're at it.
+> 
+> Huh? You mean _removing_ the timeouts involving CONF_PRE/POST_OPEN? I
+> thought my patch converted all busy waits into schedule_timeout()...
+> What am I missing?
 
-One possible fix would be to remove that flush_scheduled_work() and to do
-refcounting around smc_phy_configure(): dev_hold() when scheduling the work
-(if schedule_work() returned true), dev_put() in the handler.
+No, not removing them, but transforming them likewise into
+schedule_timeout() calls.
