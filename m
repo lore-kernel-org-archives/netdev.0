@@ -1,39 +1,60 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: Re: 3c59x 2.4.18 userspace seeing UDP packets with bad checksum?
-Date: Tue, 30 Jul 2002 16:12:37 +0200
+From: "Filip Sneppe (Cronos)" <filip.sneppe@cronos.be>
+Subject: Re: TODO list before feature freeze
+Date: 30 Jul 2002 17:54:20 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020730141237.GA26712@outpost.ds9a.nl>
-References: <20020730134908.GA26100@outpost.ds9a.nl> <Pine.LNX.4.44.0207301002370.1266-100000@beohost.scyld.com>
+Message-ID: <1028044460.381.127.camel@xbox>
+References: <Pine.GSO.4.30.0207300818480.15727-100000@shell.cyberus.ca>
+	<1028034504.12617.135.camel@tux>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, akpm@zip.com.au,
-   jgarzik@mandrakesoft.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, Patrick Schaaf <bof@bof.de>,
+   Andi Kleen
+	 <ak@suse.de>, Rusty Russell <rusty@rustcorp.com.au>,
+   Netfilter-devel
+	 <netfilter-devel@lists.netfilter.org>, netdev@oss.sgi.com,
+   netfilter-core@lists.netfilter.org
 Return-path: <owner-netdev@oss.sgi.com>
-To: Donald Becker <becker@scyld.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0207301002370.1266-100000@beohost.scyld.com>
+To: Martin Josefsson <gandalf@wlug.westbo.se>
+In-Reply-To: <1028034504.12617.135.camel@tux>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 30, 2002 at 10:09:13AM -0400, Donald Becker wrote:
-
-> > We fixed the bug already :-) Signed/unsigned arithmetic problems.
+On Tue, 2002-07-30 at 15:08, Martin Josefsson wrote:
+> On Tue, 2002-07-30 at 14:29, jamal wrote:
 > 
-> Were the arithmetic problems in your code, or the kernels checksumming?
-> (The latter seems unlikely.)
+> > If i was to use instinct i would say
+> > the last two items you list are probably the things you may want to chase.
+> 
+> Here's two small patches.
+> 
+> The first is a small patch to avoid updating the per-connection timer
+> for every packet. With this patch you get one update per second per
+> connection. Things are complicated by the fact that connections can
+> change timeouts. This patch isn't verified for correctness, YMMV.
+> (the pptp helper needs updating to work in combination with this patch)
+> 
+> The second patch changes the hashtable lookup slightly so we don't hash
+> the tuple each iteration, once is enough.
+> 
+> I don't have any numbers for these patches and I can't find the url to
+> the tests one of the netfilter-devel people has done.
+> 
 
-We fixed *our* bug. I would never want to rely on checksums for input
-validation :-) Our code should handle everything people care to throw at it
-and I think that right now, it will.
+Hi Martin,
 
-> This is a good time to fix your application data validity checking.
+These may be the patches I did some very basic testing (and readprofile
+profiling) on.
 
-Has been done. Watch freshmeat for the update :-)
+http://www.filip.sneppe.yucom.be/linux/netfilter/performance/benchmarks.htm
+
+I don't have a lot to add to the discussion except that I can make time
+to test patches/ideas provided someone tells me *how* to test, what to
+look for, etc. For instance, a lot of the current numbers on that page
+with the varying mtu sizes are, in retrospect, basically stupid tests
+that don't reveal a lot of new stuff :-/.
 
 Regards,
+Filip
 
-bert
-
--- 
-http://www.PowerDNS.com          Versatile DNS Software & Services
-http://www.tk                              the dot in .tk
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+Regards,
+Filip
