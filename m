@@ -1,80 +1,128 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: ethernet QoS support?
-Date: Sat, 10 Jul 2004 11:58:41 +0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407101158.58089.vkondra@mail.ru>
-References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com> <200407092126.43021.vkondra@mail.ru> <200407091534.53166.sam@errno.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [2.6 patch] net/hamradio/dmascc: remove inlines
+Date: Sat, 10 Jul 2004 13:00:55 -0400
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <40F020C7.5010608@pobox.com>
+References: <20040710010414.GX28324@fs.tum.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Sam Leffler <sam@errno.com>, hadi@cyberus.ca,
-        Jeff Garzik <jgarzik@pobox.com>, Kumar Gala <kumar.gala@freescale.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <200407091534.53166.sam@errno.com>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Adrian Bunk <bunk@fs.tum.de>
+In-Reply-To: <20040710010414.GX28324@fs.tum.de>
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Adrian Bunk wrote:
+> Trying to compile drivers/scsi/ips.c with gcc 3.4 and
+>   # define inline         __inline__ __attribute__((always_inline))
+> results in compile errors starting with the following:
+> 
+> <--  snip  -->
+> 
+> ...
+>   CC      drivers/net/hamradio/dmascc.o
+> drivers/net/hamradio/dmascc.c: In function `scc_isr':
+> drivers/net/hamradio/dmascc.c:250: sorry, unimplemented: inlining failed 
+> in call to 'z8530_isr': function body not available
+> drivers/net/hamradio/dmascc.c:969: sorry, unimplemented: called from here
+> drivers/net/hamradio/dmascc.c:250: sorry, unimplemented: inlining failed 
+> in call to 'z8530_isr': function body not available
+> drivers/net/hamradio/dmascc.c:978: sorry, unimplemented: called from here
+> make[3]: *** [drivers/net/hamradio/dmascc.o] Error 1
+> 
+> <--  snip  -->
+> 
+> 
+> The patch below removes all inlines from dmascc.c .
+> 
+> 
+> diffstat output:
+>  drivers/net/hamradio/dmascc.c |   20 ++++++++++----------
+>  1 files changed, 10 insertions(+), 10 deletions(-)
+> 
+> 
+> Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
+> 
+> --- linux-2.6.7-mm7-full-gcc3.4/drivers/net/hamradio/dmascc.c.old	2004-07-10 02:51:07.000000000 +0200
+> +++ linux-2.6.7-mm7-full-gcc3.4/drivers/net/hamradio/dmascc.c	2004-07-10 03:00:43.000000000 +0200
+> @@ -247,7 +247,7 @@
+>  static int scc_set_mac_address(struct net_device *dev, void *sa);
+>  
+>  static irqreturn_t scc_isr(int irq, void *dev_id, struct pt_regs * regs);
+> -static inline void z8530_isr(struct scc_info *info);
+> +static void z8530_isr(struct scc_info *info);
+>  static void rx_isr(struct scc_priv *priv);
+>  static void special_condition(struct scc_priv *priv, int rc);
+>  static void rx_bh(void *arg);
+> @@ -255,11 +255,11 @@
+>  static void es_isr(struct scc_priv *priv);
+>  static void tm_isr(struct scc_priv *priv);
+>  
+> -static inline void tx_on(struct scc_priv *priv);
+> -static inline void rx_on(struct scc_priv *priv);
+> -static inline void rx_off(struct scc_priv *priv);
+> +static void tx_on(struct scc_priv *priv);
+> +static void rx_on(struct scc_priv *priv);
+> +static void rx_off(struct scc_priv *priv);
+>  static void start_timer(struct scc_priv *priv, int t, int r15);
+> -static inline unsigned char random(void);
+> +static unsigned char random(void);
+>  
+>  
+>  /* Initialization variables */
+> @@ -981,7 +981,7 @@
+>  }
+>  
+>  
+> -static inline void z8530_isr(struct scc_info *info) {
+> +static void z8530_isr(struct scc_info *info) {
+>    int is, i = 100;
+>  
+>    while ((is = read_scc(&info->priv[0], R3)) && i--) {
+> @@ -1294,7 +1294,7 @@
+>  }
+>  
+>  
+> -static inline void tx_on(struct scc_priv *priv) {
+> +static void tx_on(struct scc_priv *priv) {
+>    int i, n;
+>    unsigned long flags;
+>  
+> @@ -1330,7 +1330,7 @@
+>  }
+>  
+>  
+> -static inline void rx_on(struct scc_priv *priv) {
+> +static void rx_on(struct scc_priv *priv) {
+>    unsigned long flags;
+>  
+>    /* Clear RX FIFO */
+> @@ -1364,7 +1364,7 @@
+>  }
+>  
+>  
+> -static inline void rx_off(struct scc_priv *priv) {
+> +static void rx_off(struct scc_priv *priv) {
+>    /* Disable receiver */
+>    write_scc(priv, R3, Rx8);
+>    /* Disable DREQ / RX interrupt */
+> @@ -1397,7 +1397,7 @@
+>  }
+>  
+>  
+> -static inline unsigned char random(void) {
+> +static unsigned char random(void) {
+>    /* See "Numerical Recipes in C", second edition, p. 284 */
+>    rand = rand * 1664525L + 1013904223L;
+>    return (unsigned char) (rand >> 24);
 
-On Saturday 10 July 2004 01:34, Sam Leffler wrote:
-> On Friday 09 July 2004 11:26 am, Vladimir Kondratiev wrote:
-> > > So what do you do now?
-> >
-> > Waiting. If no support will exist, it simply means we will be unable to
-> > use QoS provided by modern 802.11. Depending on market development,
-> > impact may range from being slightly slower relating to Windows clients,
-> > to being almost completely unable to communicate for traffic like VOIP.
-> > Later will be the case if most access points will implement QoS as in
-> > TGE.
-> >
-> > I can now deliver packets accordingly to skb->priority, but if stack have
-> > different idea for what is proper proportion between different sorts of
-> > traffic, driver's Tx path will be flooded with low priority frames.
-> >
-> > Situation is much worser for streams with admission control. I have no
-> > mechanism to communicate with stack for such traffic establishment and
-> > tear down.
->
-> FWIW the madwifi net80211 layer parses TOS to calculate priority and sticks
-> it in the skb.  It also calculates the WME AC to form the QoS frame matter.
-Sam,
-I think, to use skb->priority is more proper then parse TOS. Several points 
-for this:
-1. by default, IP code do it for you - it sets skb->priority equal to TOS;
-2. stack may have better idea of what priority should be assigned. For this, 
-it have all queuing/classifiers stuff with qdiscs.
-3. it is layer violation to use information above MAC. It may be non-IP stack 
-above you.
-> This is then handed to drivers below.  The Atheros driver supports multiple
-> tx queues in h/w with appropriate scheduling (for 5212 MACs); it uses the
-> AC to set packets on the appropriate queue.
->
-> Clearly it'd be better if upper layers did the TOS stuff.  Whatever is done
-> however should consider the case where the driver (nee h/w) has it's own
-> queueing/scheduling facilities.
->
-I also do something similar. But, to be honest, this is not working. If stack 
-feeds you with different mixture of high and low priority streams, you can do 
-nothing. All you can do by doing additional in-driver queuing is to smooth 
-short spikes.
 
-What will you do for TGE? HCCA TSPECS and EDCA categories with admission 
-control?
 
-I continue to insist that for true MAC layer QoS, we need several Tx queues.
 
-Anyway, I see we are on the same page with you, as we are facing same 
-problems.
+It seems like you are going directly against the intent of the author, 
+with this patch.
 
-Vladimir
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+	Jeff
 
-iD8DBQFA76/Rqxdj7mhC6o0RAvyMAJ0UafCsb2P94oo5FVbNoIZ3+qVXEACfTI3D
-l9a0YAXR9xPvlpz0wZMlWdQ=
-=BrFw
------END PGP SIGNATURE-----
+
