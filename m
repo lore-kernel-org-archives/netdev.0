@@ -1,45 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: deleting a conntrack record
-Date: Thu, 17 Jun 2004 18:42:35 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <40D1C9FB.1070802@trash.net>
-References: <876ef97a0406170807663b89e0@mail.gmail.com> <40D1C088.4090307@trash.net> <876ef97a04061709173c8f1a09@mail.gmail.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become
+ free. Usage count = 1
+Date: Thu, 17 Jun 2004 10:10:16 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040617101016.44512cb1.davem@redhat.com>
+References: <20040614015013.GA11048@gondor.apana.org.au>
+	<20040613210725.70dbd016.davem@redhat.com>
+	<20040614042216.GA28669@gondor.apana.org.au>
+	<20040614102858.GA12343@gondor.apana.org.au>
+	<20040614124402.GA28519@gondor.apana.org.au>
+	<20040616193731.GB29781@ms2.inr.ac.ru>
+	<20040616130950.6aadde3c.davem@redhat.com>
+	<20040616203748.GA30675@ms2.inr.ac.ru>
+	<20040616134711.499209c9.davem@redhat.com>
+	<20040617081722.GA8559@gondor.apana.org.au>
+	<20040617083303.GA8810@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>, linux-net <linux-net@vger.kernel.org>,
-	netfilter <netfilter-devel@lists.netfilter.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Tobias DiPasquale <codeslinger@gmail.com>
-In-Reply-To: <876ef97a04061709173c8f1a09@mail.gmail.com>
+Cc: kuznet@ms2.inr.ac.ru, schwab@suse.de, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040617083303.GA8810@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tobias DiPasquale wrote:
-> On Thu, 17 Jun 2004 18:02:16 +0200, Patrick McHardy <kaber@trash.net> wrote:
-> 
->>The function passed to ip_ct_selective_cleanup is supposed to decide
->>if a conntrack should be destroyed by returning 0/1, not to do it
->>itself. ip_ct_selective_cleanup tries to destroy the already destroyed
->>conntrack.
-> 
-> This results in a memory leak in the conntrack slab cache. If you
-> don't call ip_conntrack_put(), the conntrack entry leaves the
-> ip_ct_selective_cleanup() function with a value >0 and thus is a
-> permanent part of the scenery in RAM. As well, its been removed from
-> the conntrack hash table, so it no longer appears in
-> /proc/net/ip_conntrack, but you can see the effects by viewing
-> /proc/slabinfo.
 
-Now I remember - the reason why ctnetlink called ip_conntrack_put
-in ctnetlink_kill is because it uses ip_conntrack_find_get before,
-which increments the reference count. This is wrong because the
-conntrack is then destroyed immediately after returning 1 to
-ip_ct_selective_cleanup, but still used for comparing the tuple.
-You (and ctnetlink) need to call ip_conntrack_put after the
-call to ip_ct_selective_cleanup. In fact you shouldn't use
-ip_ct_selective_cleanup at all but destroy it yourself. You
-already have a reference, so there is no need to iterate through
-the entire hash.
+Herbert, you still don't understand what the synchronize_kernel() is
+for.
 
-Regards
-Patrick
+It is to make sure that anyone (other cpus using the dst) who "saw"
+the old dst->dev is done doing whatever they were doing _BEFORE_
+we put the device reference.
+
+The best we could do is accumulate devices to be put onto
+some kind of list, then at the end of dst_ifdown() do one
+synchronize_kernel() then walk the list putting all the
+devices.
