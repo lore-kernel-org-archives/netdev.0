@@ -1,48 +1,71 @@
-From: "Hal Rosenstock" <halr@voltaire.com>
-Subject: RE: [PATCH][v3][17/21] Add IPoIB
-	(IP-over-InfiniBand)driver
-Date: Mon, 13 Dec 2004 22:19:09 +0200
-Message-ID: <5CE025EE7D88BA4599A2C8FEFCF226F5175B0C@taurus.voltaire.com>
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: a question about XFRM_POLICY_FWD
+Date: Tue, 14 Dec 2004 08:50:03 +0900
+Message-ID: <41BE2AAB.1070904@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-Content-class: urn:content-classes:message
-To: "Roland Dreier" <roland@topspin.com>,
-	<linux-kernel@vger.kernel.org>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com, herbert@gondor.apana.org.au
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Roland,
+Hello,
 
-[You wrote:]
-> The IPoIB protocol/encapsulation is described in the Internet-Drafts
->  =
-http://www.ietf.org/internet-drafts/draft-ietf-ipoib-architecture-04.txt
->  =
-http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-0=
-7.txt
+I would like to ask about meaning of XFRM_POLICY_FWD,
+although a question may have been asked before.
 
-The latest I-D is now =
-http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-0=
-8.txt
+I configured IPsec tunnel and thought XFRM_POLICY_FWD
+might be confusing.
 
-Also, isn't DHCP over IB =
-(http://www.ietf.org/internet-drafts/draft-ietf-ipoib-dhcp-over-infiniban=
-d-07.txt)=20
-also supported ? If so, is that part of this or some other patch being =
-submitted ?
+A forwarding policy which is represent with XFRM_POLICY_FWD
+in the kernel affects only in-comming forwarding packet.
+The policy does not affect out-going forwarding packet and
+input packet to a security gateway itself.
 
-Thanks.
+If we want to connect network 2001:DB8:1::/64 and 2001:DB8:3::/64
+with SGW(A) and SGW(B),
 
--- Hal
+---------------SGW(A)==================SGW(B)---------
+2001:DB8:1::/64        2001:DB8:2::/64        2001:DB8:3::/64
+
+=== represents IPsec tunnel
+--- represents a network behind SGW.
+
+The addresses of each SGW are:
+
+SGW(A) internal address 2001:DB8:1::A/64
+SGW(A) external address 2001:DB8:2::A/64
+SGW(B) external address 2001:DB8:2::B/64
+SGW(B) internal address 2001:DB8:3::B/64
+
+We need to configure policies in SGW(A) which are represent with setkey command are
+spdadd 2001:DB8:1::/64 2001:DB8:3::/64 any -P out ipsec esp/tunnel/2001:DB8:2::A-2001:DB82::B/require;
+spdadd 2001:DB8:3::/64 2001:DB8:1::/64 any -P fwd ipsec esp/tunnel/2001:DB8:2::B-2001:DB82::A/require;
+
+However, the above policies does not allow SGW(A) to receive packest from 2001:DB8:3::/64 to
+2001:DB8:1::A/64 because there is no policy for "INPUT".
+
+To let the packet reach 2001:DB8:1::A, we needs an additional policy
+spdadd 2001:DB8:3::/64 2001:DB8:1::A/128 any -P in ipsec esp/tunnel/2001:DB8:2::B-2001:DB82::A/require;
+
+Totally, we need three policies for the configuration in a SGW.
+
+I think , from the point of view of user or administrator, why forward does not allow the packet instead
+2001:DB8:1::A is included in network 2001:DB8:1::/64. And I also think why I can not configure out-going
+forward policy with "fwd". Anyway XFRM_POLICY_FWD or "fwd" might be confusing.
+
+What does XFRM_POLICY_FWD or direction="forward" means in the architecture design?
+
+Of course I know the implementation :-p
+
+P.S.
+IMHO,
+We should remove or obsolete XFRM_POLICY_FORWARD and use XFRM_POLICY_IN instead of it.
+or
+We should lookup out-going forwarding packet with XFRM_POLICY_FORWARD.
+
+--
+Kazunori Miyazawa
