@@ -1,60 +1,37 @@
-From: Werner Almesberger <werner@almesberger.net>
-Subject: Re: TOE brain dump
-Date: Wed, 6 Aug 2003 02:13:04 -0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Make XFRM optional
+Date: Tue, 5 Aug 2003 23:08:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030806021304.E5798@almesberger.net>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net> <m1fzkiwnru.fsf@frodo.biederman.org> <20030804162433.L5798@almesberger.net> <m1u18wuinm.fsf@frodo.biederman.org>
+Message-ID: <20030805230837.5609f130.davem@redhat.com>
+References: <20030804125022.GA8167@averell>
+	<20030804.215801.124854897.yoshfuji@linux-ipv6.org>
+	<20030804130408.GA36367@colin2.muc.de>
+	<20030804114507.6e496c77.davem@redhat.com>
+	<20030804203524.GA15874@colin2.muc.de>
+	<20030804165137.40d744c5.davem@redhat.com>
+	<20030805135315.GB63394@colin2.muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Nivedita Singhvi <niv@us.ibm.com>,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Content-Disposition: inline
-In-Reply-To: <m1u18wuinm.fsf@frodo.biederman.org>; from ebiederm@xmission.com on Tue, Aug 05, 2003 at 11:19:09AM -0600
+To: Andi Kleen <ak@colin2.muc.de>
+In-Reply-To: <20030805135315.GB63394@colin2.muc.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Eric W. Biederman wrote:
-> MPI is not a transport.  It an interface like the Berkeley sockets
-> layer.
+On 5 Aug 2003 15:53:15 +0200
+Andi Kleen <ak@colin2.muc.de> wrote:
 
-Hmm, but doesn't it also unify transport semantics (i.e. chop
-TCP streams into messages), maybe add reliability to transports
-that don't have it, and provide addressing ? Okay, perhaps you
-wouldn't call this a transport in the OSI sense, but it still
-seems to have considerably more functionality than just
-providing an API.
+> Here is a new patch that includes the missing file.
 
-> Mostly I think the that is less true, at least if they can stand the
-> process of severe code review and cleaning up their code.
+Something is still wrong, in particular it seems the net/ipv6/Makefile
+changes are wrong resulting in:
 
-Hmm, people putting dozens of millions into building clusters
-can't afford to have what is probably their most essential
-infrastructure code reviewed and cleaned up ? Oh dear.
+*** Warning: "xfrm6_fini" [net/ipv6/ipv6.ko] undefined!
+*** Warning: "xfrm6_init" [net/ipv6/ipv6.ko] undefined!
+*** Warning: "xfrm6_rcv" [net/ipv6/ipv6.ko] undefined!
 
-> But of course to get through the peer review process people need
-> to understand what they are doing.
+When IPV6 is built modular.
 
-A good point :-)
-
-> So store and forward of packets in a 3 layer switch hierarchy, at 1.3 us
-> per copy.
-
-But your switch could just do cut-through, no ? Or do they
-need to recompute checksums ?
-
-> A lot of the NICs which are used for MPI tend to be smart for two
-> reasons.  1) So they can do source routing. 2) So they can safely
-> export some of their interface to user space, so in the fast path
-> they can bypass the kernel.
-
-The second part could be interesting for TOE, too. Only that
-the interface exported would just be the socket interface.
-
-- Werner
-
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+Please fix, thanks.
