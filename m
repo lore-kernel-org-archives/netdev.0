@@ -1,34 +1,37 @@
-From: Danny <dannydaemonic@gmail.com>
-Subject: Re: mm kernel oops with r8169 & named, PREEMPT
-Date: Wed, 13 Oct 2004 13:44:02 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <9625752b04101313445a67923@mail.gmail.com>
-References: <9625752b041012230068619e68@mail.gmail.com>
-	 <9625752b041013091772e26739@mail.gmail.com>
-	 <9625752b04101309182a96fbd2@mail.gmail.com>
-	 <200410131129.05657.jdmason@us.ltcfwd.linux.ibm.com>
-	 <20041013181840.GA30852@electric-eye.fr.zoreil.com>
-Reply-To: Danny <dannydaemonic@gmail.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] work around 5701 misalignment
+Date: Wed, 13 Oct 2004 16:57:28 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <416D96B8.5090204@pobox.com>
+References: <200410131554.19845.jbarnes@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269837AbUJMUoO@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <20041013181840.GA30852@electric-eye.fr.zoreil.com>
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jesse Barnes <jbarnes@sgi.com>
+In-Reply-To: <200410131554.19845.jbarnes@sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 13 Oct 2004 20:18:40 +0200, Francois Romieu wrote:
-> Danny, can your drop the r8169 driver from 2.6.9-rc4-mm1 into vanilla
-> 2.6.9-rc4 and confirm that it works (preempt should not matter) ?
+Jesse Barnes wrote:
+> --- a/linux/drivers/net/tg3.c	2004-10-13 15:25:03.000000000 -0500
+> +++ b/linux/drivers/net/tg3.c	2004-10-13 15:14:45.000000000 -0500
+> @@ -2352,7 +2352,12 @@
+>  
+>  		len = ((desc->idx_len & RXD_LEN_MASK) >> RXD_LEN_SHIFT) - 4; /* omit crc */
+>  
+> -		if (len > RX_COPY_THRESHOLD) {
+> +		if (len > RX_COPY_THRESHOLD
+> +#if defined(CONFIG_UNALIGNED_EXPENSIVE)
+> +                                && tp->rx_offset == 2
+> +#endif
 
-I see how the timing on the installation of the r8169 could have just
-been bad.  Since preempt shouldn't matter, I'm going to test that
-and acpi etc first (because it's easier to test heh).
 
-See, well, I'm going to need reiser4 for the vanilla.  I found patches here:
-ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.9-rc4/2.6.9-rc4-mm1/broken-out/
+hmmm, the normal solution is to give RX_COPY_THRESHOLD a per-arch value. 
+  Grep for 'rx_copybreak' in bunches of net drivers.
 
-But can someone point out which patches I will need?  Do I only need
-reiser4-only.patch or is it safer for my fs if I have all the other
-reiser4 patches?
+DaveM might squirm a bit but IMHO RX_COPY_THRESHOLD really is 
+platform-dependent.
+
+	Jeff
