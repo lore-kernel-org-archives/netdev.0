@@ -1,24 +1,46 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 5/5] schedule() bug in xfrm_lookup()
-Date: Tue, 13 Jan 2004 23:27:22 -0800
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] support for large number of network devices.
+Date: Tue, 13 Jan 2004 23:54:56 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040113232722.2c04bc03.davem@redhat.com>
-References: <Pine.LNX.4.44.0401131319510.25742-100000@linux-udp14999547uds>
-	<Pine.LNX.4.44.0401131324340.25742-100000@linux-udp14999547uds>
+Message-ID: <4004F5D0.7040106@candelatech.com>
+References: <20040113154610.38f5934c.shemminger@osdl.org>	<40048BFD.4010303@candelatech.com>	<20040113163828.64ec4743.shemminger@osdl.org>	<4004A194.3030602@candelatech.com> <20040113231825.700e534f.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, krkumar@us.ibm.com
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <krkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0401131324340.25742-100000@linux-udp14999547uds>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040113231825.700e534f.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Jan 2004 13:26:21 -0800 (PST)
-Krishna Kumar <krkumar@us.ibm.com> wrote:
+David S. Miller wrote:
 
-> When xfrm_tmpl_resolve fails, schedule() before retrying. Also, cleaned
-> up the set_task_* routines to use set_current_*, etc.
+> Therefore, I think it's wise to just do this right from the start and use a hash.
+> Stephen can you test up and submit the netdev name hash patch you have?
+> 
 
-Applied, thanks Krishna.
+In case it proves useful, here's the hash I used before.  It makes some
+assumptions based on the fact that the last two characters of a device name
+are often numbers, especially when you have lots of devices.  Someone
+did a mapping of this and found it worked well for vlans, at least.
+
+
+int fdl_calc_name_idx(const char* dev_name) {
+  int tmp = 0;
+  int i;
+
+  for (i = 0; dev_name[i]; i++) {
+    tmp += (int)(dev_name[i]);
+  }
+  if (i > 3) {
+    tmp += (dev_name[i-2] * 10); /* might add a little spread to the hash */
+    tmp += (dev_name[i-3] * 100); /* might add a little spread to the hash */
+  }
+  return (tmp % FDL_HASH_LEN);
+}
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
