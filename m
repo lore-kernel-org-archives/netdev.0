@@ -1,43 +1,36 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Subject: Re: [PATCH] SLAB_PANIC cleanup
-Date: Wed, 18 Aug 2004 01:24:05 -0300
+Date: Wed, 18 Aug 2004 01:28:00 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040818042404.GB1007@conectiva.com.br>
-References: <Xine.LNX.4.44.0408170237020.7736-100000@dhcp83-76.boston.redhat.com> <20040817.155942.51047516.yoshfuji@linux-ipv6.org>
+Message-ID: <20040818042800.GC1007@conectiva.com.br>
+References: <20040817100755.A20489@infradead.org> <Xine.LNX.4.44.0408170933240.9207-100000@dhcp83-76.boston.redhat.com> <20040817150739.A22153@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jmorris@redhat.com, davem@redhat.com, netdev@oss.sgi.com
+Cc: James Morris <jmorris@redhat.com>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+To: Christoph Hellwig <hch@infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20040817.155942.51047516.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040817150739.A22153@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Aug 17, 2004 at 03:59:42PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
-> In article <Xine.LNX.4.44.0408170237020.7736-100000@dhcp83-76.boston.redhat.com> (at Tue, 17 Aug 2004 02:43:38 -0400 (EDT)), James Morris <jmorris@redhat.com> says:
+Em Tue, Aug 17, 2004 at 03:07:39PM +0100, Christoph Hellwig escreveu:
+> On Tue, Aug 17, 2004 at 09:38:16AM -0400, James Morris wrote:
+> > Yes, although I'm not clear on what should be done.  Returning an error
+> > via an initcall does not do anything, so if these were built statically,
+> > then the kernel would go on running after they failed.  This is a general
+> > problem.  e.g. IPv6, which is commonly built as a module, will panic if
+> > kmem_cache_create() fails during module load in several places.
 > 
-> It generally seems okay. Just a few things for readability.
+> The ipv6 behaviour is definnitly bad.  OOM situations shouldn't panic
+> the kernel.
 > 
-> > diff -urN -X dontdiff linux-2.6.8.1-mm1.o/net/core/neighbour.c linux-2.6.8.1-mm1.w/net/core/neighbour.c
-> > --- linux-2.6.8.1-mm1.o/net/core/neighbour.c	2004-06-16 01:18:56.000000000 -0400
-> > +++ linux-2.6.8.1-mm1.w/net/core/neighbour.c	2004-08-17 02:57:22.888296160 -0400
-> > @@ -1165,12 +1165,9 @@
-> >  	if (!tbl->kmem_cachep)
-> >  		tbl->kmem_cachep = kmem_cache_create(tbl->id,
-> >  						     tbl->entry_size,
-> > -						     0, SLAB_HWCACHE_ALIGN,
-> > +						     0, SLAB_HWCACHE_ALIGN|
-> > +						     SLAB_PANIC,
-> 
-> I rather prefer
-> 						     tbl->entry_size, 0,
-> 						     SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+> If something is can be built modular it surely isn't important enough to
+> panic the kernel on bootup if it can't initialize - after all people can
+> run a kernel without the module loaded just fine.
 
-I rather prefer:
-
-                                                     SLAB_HWCACHE_ALIGN | SLAB_PANIC,
-
-Regards,
+Agreed, not because it is "not important", but because panicing at module
+load, even in very rare cases is unnacceptable IMHO.
 
 - Arnaldo
