@@ -1,88 +1,45 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: BUG: dst underflow (again)
-Date: Fri, 5 Nov 2004 16:23:19 -0800
-Message-ID: <20041105162319.6e2917c5.davem@davemloft.net>
-References: <4178AB0D.6060107@pobox.com>
-	<20041022.155159.98771450.yoshfuji@linux-ipv6.org>
-	<20041022075947.GA15795@xi.wantstofly.org>
-	<1099577717.1039.155.camel@jzny.localdomain>
-	<20041104221801.584c8f11.davem@davemloft.net>
-	<20041105091427.GB28112@xi.wantstofly.org>
-	<418B4B1A.8@conectiva.com.br>
-	<20041105101513.GA28779@xi.wantstofly.org>
+Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
+Date: Fri, 5 Nov 2004 16:36:50 -0800
+Message-ID: <20041105163650.19a487d6.davem@davemloft.net>
+References: <418B4C7C.8000402@crocom.com.pl>
+	<20041105115430.GP19714@rei.reeler.org>
+	<418B4C7C.8000402@crocom.com.pl>
+	<20041105141640.GQ19714@rei.reeler.org>
+	<418BA66A.60804@trash.net>
+	<20041105163951.GY12289@postel.suug.ch>
+	<418BB7D2.6060908@trash.net>
+	<20041105175812.GZ12289@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, hadi@cyberus.ca, yoshfuji@linux-ipv6.org,
-        jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: kaber@trash.net, netdev@oss.sgi.com, spam@crocom.com.pl,
+        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041105101513.GA28779@xi.wantstofly.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041105175812.GZ12289@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 5 Nov 2004 11:15:13 +0100
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+On Fri, 5 Nov 2004 18:58:12 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> On Fri, Nov 05, 2004 at 07:42:50AM -0200, Arnaldo Carvalho de Melo wrote:
+> I was irritated by the TCQ_F_BUILTIN check in __qdisc_destroy. None
+> of the code in __qdisc_destroy should be applied to a builtin qdisc
+> or am I missing something?
 > 
-> > >IPSEC.. not that I know of.  So unless my distro does stuff behind
-> > >my back, no.  How do I make sure?
-> > 
-> > setkey -DP
+> The patch below prevents builtin qdiscs from being destroyed and
+> fixes a refcnt underflow whould lead to a bogus list unlinking
+> and dev_put.
 > 
-> Thanks.  Both machines I'm seeing this problem on have:
-> 
-> # setkey -DP
-> No SPD entries.
-> # 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Well, xfrm_lookup() is returning an error somehow, that's the only
-way to execute dst_release() in udpv6_sendmsg().  And xfrm_lookup()
-only returns errors if IPSEC policies have been configured either
-globally or locally for the socket.
+I'll apply this, along with the builting qdisc list initializer
+change too just for cleanliness, thanks Thomas.
 
-Full proof from xfrm_lookup():
+Ingo Molnar noticed this refcount underflow condition in qdisc_destroy()
+a couple weeks ago.  At the time I didn't connect it to being a builting
+qdisc issue.  Now we know the true cause.
 
-	policy = NULL;
-	if (sk && sk->sk_policy[1])
-		policy = xfrm_sk_policy_lookup(sk, XFRM_POLICY_OUT, fl);
-
-
-Unless socket IPSEC policy has been set via setsockopt(), policy will
-be NULL here.
-
-	if (!policy) {
-		/* To accelerate a bit...  */
-		if ((dst_orig->flags & DST_NOXFRM) || !xfrm_policy_list[XFRM_POLICY_OUT])
-			return 0;
-
-		policy = flow_cache_lookup(fl, family,
-					   policy_to_flow_dir(XFRM_POLICY_OUT),
-					   xfrm_policy_lookup);
-	}
-
-Unless some IPSEC policies have been installed, flow_cache_lookup() will
-return NULL, thus policy will be NULL here.
-
-	if (!policy)
-		return 0;
-
-And thus we always return zero.
-
-Back in udpv6_sendmsg() we have exactly one dst_release() call which is:
-
-	if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0) {
-		dst_release(dst);
-		goto out;
-	}
-
-So, Lennert's traces make no sense, since without IPSEC policies installed
-xfrm_lookup() can never return non-zero.
-
-This could mean memory corruption or some kind, or perhaps something installed
-some IPSEC policies behind his back, but his setkey -DP command shows that this
-is not currently the case at least.
-
-I hope Jeff or Lennert get newer traces soon.
+Thanks again.
