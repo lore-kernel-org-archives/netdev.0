@@ -1,42 +1,49 @@
-From: Jon Grimm <jgrimm2@us.ibm.com>
-Subject: [PATCH] Fix ip6_build_xmit bug
-Date: Fri, 21 Mar 2003 18:21:18 -0600
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Patch: minor nit in ip_options_compile()
+Date: Fri, 21 Mar 2003 19:56:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E7BAC7E.AEC59251@us.ibm.com>
+Message-ID: <200303211956.50921.niv@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: kuznet@ms2.inr.ac.ru, davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Wanting to play a bit with v6 fragmentation I started using ping6 to
-send various message sizes.  Noticed that messages of sizes just under
-where fragmentation would kick in, segfaulted in ip6_build_xmit().
+In the following else clause, we check for opt->is_data, which 
+should always be set for this case, and if not, current code will
+lead to a null ptr dereference because skb is always null in 
+this case..
 
-Looks like ip6_build_xmit does not allocate room for the
-dev->hard_header_len on the non-fragmentation path as is done in other
-places.  The hard header len gets reserved even though room was not
-allocated for it.  Consequenetly, the put of the raw data can overflow
-the skb. 
+Figured its better to fall down to returning EINVAL..
+Look reasonable? 
 
-Patch below for your consideration.
-
-Best Regards,
-Jon Grimm
+thanks,
+Nivedita
 
 
---- lksctp-2.5/net/ipv6/ip6_output.c	Fri Mar 21 17:27:00 2003
-+++ lksctp-2.5.work/net/ipv6/ip6_output.c	Fri Mar 21 17:24:38 2003
-@@ -643,7 +643,8 @@
- 		if (flags&MSG_PROBE)
- 			goto out;
- 		/* alloc skb with mtu as we do in the IPv4 stack for IPsec */
--		skb = sock_alloc_send_skb(sk, mtu, flags & MSG_DONTWAIT, &err);
-+		skb = sock_alloc_send_skb(sk, mtu + dev->hard_header_len + 15,
-+					  flags & MSG_DONTWAIT, &err);
+--- /usr/src/linux-2.5.65/net/ipv4/ip_options.c	Mon Mar 17 13:44:21 2003
++++ /usr/src/linux-2.5.65ref1/net/ipv4/ip_options.c	Fri Mar 21 18:16:05 2003
+@@ -245,7 +245,7 @@
+ int ip_options_compile(struct ip_options * opt, struct sk_buff * skb)
+ {
+ 	int l;
+-	unsigned char * iph;
++	unsigned char * iph = NULL;
+ 	unsigned char * optptr;
+ 	int optlen;
+ 	unsigned char * pp_ptr = NULL;
+@@ -259,7 +259,9 @@
+ 		optptr = iph + sizeof(struct iphdr);
+ 		opt->is_data = 0;
+ 	} else {
+-		optptr = opt->is_data ? opt->__data : (unsigned char*)&(skb->nh.iph[1]);
++		/* Only caller here is ip_options_get(), sets up opt, no skb */  
++		if ((optptr = opt->__data) == 0)
++			goto error; 
+ 		iph = optptr - sizeof(struct iphdr);
+ 	}
  
- 		if (skb == NULL) {
- 			IP6_INC_STATS(Ip6OutDiscards);
