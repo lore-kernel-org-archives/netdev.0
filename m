@@ -1,105 +1,30 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC/PATCH] network configs: disconnect network options from drivers
-Date: Thu, 31 Mar 2005 20:22:28 +0200
-Message-ID: <20050331182228.GV3086@postel.suug.ch>
-References: <20050330234709.1868eee5.randy.dunlap@verizon.net>
+Subject: Re: [PATCH] [IPV4]: Exclude "All deletion of equal addresses only differing by prefix length."
+Date: Thu, 31 Mar 2005 20:26:19 +0200
+Message-ID: <20050331182619.GW3086@postel.suug.ch>
+References: <20050331124747.GT3086@postel.suug.ch> <Pine.LNX.4.61.0503312047110.26294@netcore.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ioe-lkml@axxeo.de, matthew@wil.cx, lkml <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <randy.dunlap@verizon.net>
+To: Pekka Savola <pekkas@netcore.fi>
 Content-Disposition: inline
-In-Reply-To: <20050330234709.1868eee5.randy.dunlap@verizon.net>
+In-Reply-To: <Pine.LNX.4.61.0503312047110.26294@netcore.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Randy.Dunlap <20050330234709.1868eee5.randy.dunlap@verizon.net> 2005-03-30 23:47
+* Pekka Savola <Pine.LNX.4.61.0503312047110.26294@netcore.fi> 2005-03-31 20:48
+> On Thu, 31 Mar 2005, Thomas Graf wrote:
+> >The address deletion fix is no longer needed since a better fix
+> >has made it into iproute2. Better in terms of same hack but in
+> >userspace so we don't confuse other netlink users.
 > 
-> RFC:  This is a work-in-progress (WIP), not yet completed.
-> 
-> A few people dislike that the Networking Options menu is inside
-> the Device Drivers/Networking menu.  This patch moves the
-> Networking Options menu to immediately before the Device Drivers menu,
-> renames it to "Networking options and protocols", & moves most
-> protocols to more logical places (IMHOOC).
+> So, does that mean that all the users are expected to always run the 
+> latest iproute2, so there's no need for backward-compat in the kernel?
 
-Definitely a good idea.
-
-> The reasons that it is still WIP are:
-> - I'd like to see all of the sub-menus done in the same style;
-
-Further suggestions:
-
- - Introduce sub menus on separate pages for TCP/IP, DECNet,
-   ATM, ... i.e. like it is done for SCTP.
-
- - Separate things into top categories
-     Socket Families (maybe separate page)
-       - PF_PACKET
-       - PF_UNIX
-       - PF_KEY
-     Protocols (separate page)
-       - TCP/IP networking (separate page)
-          - IPv6 (affecting choices below)
-             - Privary extensions
-          - multicasting
-          - routing
-             - advanced router
-                - policy routing
-                   - use nfmark with chaching support
-                - multipath routing
-                   - cached
-                      - rrd
-                      - random
-                      - ...
-             - multicast routing
-                - pim v1
-                - pim v2
-             - verbose route monitoring
-          - auto configuration
-             - dhcp
-             - boop
-             - rarp
-          - tunneling
-             - IPv4
-                - IPIP
-                - GRE
-                   - broadcast
-             - IPv6
-                - IPv6oIPv6
-          - transformations
-             - IPv4
-                - AH
-                - ESP
-                - IPComp
-             - IPv6
-                - AH
-                - ESP
-                - IPComp
-          - ARP daemon
-          - TCP
-             - Diagnostics
-             - Syn Cookies
-       - SCTP
-       - ATM
-       - 802.1d
-       - 802.1q
-       - DECnet
-       - 802.2 LLC
-       - IPX
-       - Appletalk
-       - X.25
-       - LAPB
-       - Econet
-     <<Good title here>>
-       - Netfilter
-       - IPsec
-       - LVS
-       - Frame Diverter
-       - QoS & Fair Queueing
-       - Network testing
-       - WAN Router
-
-Thoughts?
+The actual challenge in this rather trivial problem is that many scripts
+rely on this wrong behaviour by doing ip a a 1.1.1.1/24 dev lo;
+ip a d 1.1.1.1 dev lo; and nobody wants to break them. So even with the
+kernel fix we had, old iproute2 versions still did it wrong but it gave
+newer iproute2 versions a chance to work around the issue.
