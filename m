@@ -1,257 +1,201 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (21/42) sk_mca
-Date: Wed, 12 Nov 2003 16:43:48 -0800
+Subject: [PATCH] (23/42) 3c523
+Date: Wed, 12 Nov 2003 16:44:08 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311130043.hAD0hmV30812@mail.osdl.org>
+Message-ID: <200311130044.hAD0i8G30878@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NE45-sk_mca
-	* switched sk-mca to dynamic allocation
-	* sk-mca: switched to embedded ->priv
-	* sk-mca: fixed order of freeing bugs
-	* sk-mca: fixed resource leaks on failure exits
+NE47-3c523 from viro
+	* switched 3c523 to dynamic allocation
+	* 3c523: switched to embedded ->priv
+	* 3c523: fixed order of freeing bugs
+	* 3c523: fixed resource leaks on failure exits
 
-diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Nov 11 13:50:15 2003
-+++ b/drivers/net/Space.c	Tue Nov 11 13:50:15 2003
-@@ -61,7 +61,7 @@
- extern struct net_device *arlan_probe(int unit);
- extern struct net_device *el16_probe(int unit);
- extern int elmc_probe(struct net_device *);
--extern int skmca_probe(struct net_device *);
-+extern struct net_device *skmca_probe(int unit);
- extern struct net_device *elplus_probe(int unit);
- extern int ac3200_probe(struct net_device *);
- extern int es_probe(struct net_device *);
-@@ -187,6 +187,10 @@
- #ifdef CONFIG_ELMC_II		/* 3c527 */
- 	{mc32_probe, 0},
- #endif
-+	{NULL, 0},
-+};
-+
-+static struct devprobe2 mca_probes2[] __initdata = {
- #ifdef CONFIG_SKMC              /* SKnet Microchannel */
-         {skmca_probe, 0},
- #endif
-@@ -394,6 +398,7 @@
- 	if (base_addr == 1)
- 		return;
+diff -Nru a/drivers/net/3c523.c b/drivers/net/3c523.c
+--- a/drivers/net/3c523.c	Tue Nov 11 13:50:42 2003
++++ b/drivers/net/3c523.c	Tue Nov 11 13:50:42 2003
+@@ -410,7 +410,7 @@
  
-+	probe_list2(unit, mca_probes2, base_addr == 0) &&
- 	probe_list2(unit, isa_probes2, base_addr == 0) &&
- 	probe_list2(unit, parport_probes, base_addr == 0);
- }
-diff -Nru a/drivers/net/sk_mca.c b/drivers/net/sk_mca.c
---- a/drivers/net/sk_mca.c	Tue Nov 11 13:50:15 2003
-+++ b/drivers/net/sk_mca.c	Tue Nov 11 13:50:15 2003
-@@ -1022,18 +1022,39 @@
+ /*****************************************************************/
  
- static int startslot;		/* counts through slots when probing multiple devices */
- 
--int __init skmca_probe(struct net_device *dev)
-+static void cleanup_card(struct net_device *dev)
+-int __init elmc_probe(struct net_device *dev)
++static int __init do_elmc_probe(struct net_device *dev)
  {
-+	skmca_priv *priv = dev->priv;
-+	DeinitBoard(dev);
-+	if (dev->irq != 0)
-+		free_irq(dev->irq, dev);
-+	mca_mark_as_unused(priv->slot);
-+	mca_set_adapter_procfn(priv->slot, NULL, NULL);
+ 	static int slot;
+ 	int base_addr = dev->base_addr;
+@@ -420,7 +420,7 @@
+ 	int i = 0;
+ 	unsigned int size = 0;
+ 	int retval;
+-	struct priv *pr;
++	struct priv *pr = dev->priv;
+ 
+ 	SET_MODULE_OWNER(dev);
+ 	if (MCA_bus == 0) {
+@@ -455,10 +455,9 @@
+ 	}
+ 
+ 	/* we didn't find any 3c523 in the slots we checked for */
+-	if (slot == MCA_NOTFOUND) {
+-		retval = ((base_addr || irq) ? -ENXIO : -ENODEV);
+-		goto err_out;
+-	}
++	if (slot == MCA_NOTFOUND)
++		return ((base_addr || irq) ? -ENXIO : -ENODEV);
++
+ 	mca_set_adapter_name(slot, "3Com 3c523 Etherlink/MC");
+ 	mca_set_adapter_procfn(slot, (MCA_ProcFn) elmc_getinfo, dev);
+ 
+@@ -497,13 +496,7 @@
+ 		break;
+ 	}
+ 
+-	pr = dev->priv = kmalloc(sizeof(struct priv), GFP_KERNEL);
+-	if (dev->priv == NULL) {
+-		retval = -ENOMEM;
+-		goto err_out;
+-	}
+ 	memset(pr, 0, sizeof(struct priv));
+-
+ 	pr->slot = slot;
+ 
+ 	printk(KERN_INFO "%s: 3Com 3c523 Rev 0x%x at %#lx\n", dev->name, (int) revision,
+@@ -530,8 +523,6 @@
+ 	if (!check586(dev, dev->mem_start, size)) {
+ 		printk(KERN_ERR "%s: memprobe, Can't find memory at 0x%lx!\n", dev->name,
+ 		       dev->mem_start);
+-		kfree(dev->priv);
+-		dev->priv = NULL;
+ 		retval = -ENODEV;
+ 		goto err_out;
+ 	}
+@@ -573,8 +564,6 @@
+ #endif
+ 	dev->ethtool_ops = &netdev_ethtool_ops;
+ 	
+-	ether_setup(dev);
+-
+ 	/* note that we haven't actually requested the IRQ from the kernel.
+ 	   That gets done in elmc_open().  I'm not sure that's such a good idea,
+ 	   but it works, so I'll go with it. */
+@@ -585,9 +574,41 @@
+ 
+ 	return 0;
+ err_out:
++	mca_set_adapter_procfn(slot, NULL, NULL);
+ 	release_region(dev->base_addr, ELMC_IO_EXTENT);
+ 	return retval;
+ }
++ 
++static void cleanup_card(struct net_device *dev)
++{
++	mca_set_adapter_procfn(((struct priv *) (dev->priv))->slot, NULL, NULL);
++	release_region(dev->base_addr, ELMC_IO_EXTENT);
 +}
 +
-+struct net_device * __init skmca_probe(int unit)
++struct net_device * __init elmc_probe(int unit)
 +{
-+	struct net_device *dev;
- 	int force_detect = 0;
- 	int junior, slot, i;
- 	int base = 0, irq = 0;
- 	skmca_priv *priv;
- 	skmca_medium medium;
++	struct net_device *dev = alloc_etherdev(sizeof(struct priv));
 +	int err;
- 
- 	/* can't work without an MCA bus ;-) */
- 
- 	if (MCA_bus == 0)
--		return -ENODEV;
-+		return ERR_PTR(-ENODEV);
 +
-+	dev = alloc_etherdev(sizeof(skmca_priv));
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
 +
-+	if (unit >= 0) {
-+		sprintf(dev->name, "eth%d", unit);
-+		netdev_boot_setup_check(dev);
-+	}
- 
- 	SET_MODULE_OWNER(dev);
- 
-@@ -1044,37 +1065,24 @@
- 
- 	/* search through slots */
- 
--	if (dev != NULL) {
--		base = dev->mem_start;
--		irq = dev->irq;
--	}
--	slot = dofind(&junior, startslot);
--
--	while (slot != -1) {
-+	base = dev->mem_start;
-+	irq = dev->base_addr;
-+	for (slot = startslot; (slot = dofind(&junior, slot)) != -1; slot++) {
- 		/* deduce card addresses */
- 
- 		getaddrs(slot, junior, &base, &irq, &medium);
- 
- 		/* slot already in use ? */
- 
--		if (mca_is_adapter_used(slot)) {
--			slot = dofind(&junior, slot + 1);
-+		if (mca_is_adapter_used(slot))
- 			continue;
--		}
- 
- 		/* were we looking for something different ? */
- 
--		if ((dev->irq != 0) || (dev->mem_start != 0)) {
--			if ((dev->irq != 0) && (dev->irq != irq)) {
--				slot = dofind(&junior, slot + 1);
--				continue;
--			}
--			if ((dev->mem_start != 0)
--			    && (dev->mem_start != base)) {
--				slot = dofind(&junior, slot + 1);
--				continue;
--			}
--		}
-+		if (dev->irq && dev->irq != irq)
-+			continue;
-+		if (dev->mem_start && dev->mem_start != base)
-+			continue;
- 
- 		/* found something that matches */
- 
-@@ -1083,8 +1091,10 @@
- 
- 	/* nothing found ? */
- 
--	if (slot == -1)
--		return ((base != 0) || (irq != 0)) ? ENXIO : ENODEV;
-+	if (slot == -1) {
-+		free_netdev(dev);
-+		return (base || irq) ? ERR_PTR(-ENXIO) : ERR_PTR(-ENODEV);
-+	}
- 
- 	/* make procfs entries */
- 
-@@ -1102,17 +1112,14 @@
- 	       junior ? "Junior MC2" : "MC2+", slot + 1);
- 
- 	/* allocate structure */
--	priv = dev->priv =
--	    (skmca_priv *) kmalloc(sizeof(skmca_priv), GFP_KERNEL);
--	if (!priv)
--		return -ENOMEM;
-+	priv = dev->priv;
- 	priv->slot = slot;
- 	priv->macbase = base + 0x3fc0;
- 	priv->ioregaddr = base + 0x3ff0;
- 	priv->ctrladdr = base + 0x3ff2;
- 	priv->cmdaddr = base + 0x3ff3;
- 	priv->medium = medium;
--	memset(&(priv->stat), 0, sizeof(struct net_device_stats));
-+	memset(&priv->stat, 0, sizeof(struct net_device_stats));
- 	spin_lock_init(&priv->lock);
- 
- 	/* set base + irq for this device (irq not allocated so far) */
-@@ -1146,9 +1153,6 @@
- 	dev->set_multicast_list = skmca_set_multicast_list;
- 	dev->flags |= IFF_MULTICAST;
- 
--	/* generic setup */
--	ether_setup(dev);
--
- 	/* copy out MAC address */
- 	for (i = 0; i < 6; i++)
- 		dev->dev_addr[i] = SKMCA_READB(priv->macbase + (i << 1));
-@@ -1167,7 +1171,13 @@
- 
- 	startslot = slot + 1;
- 
--	return 0;
++	sprintf(dev->name, "eth%d", unit);
++	netdev_boot_setup_check(dev);
++
++	err = do_elmc_probe(dev);
++	if (err)
++		goto out;
 +	err = register_netdev(dev);
-+	if (err) {
-+		cleanup_card(dev);
-+		free_netdev(dev);
-+		dev = ERR_PTR(err);
-+	}
++	if (err)
++		goto out1;
 +	return dev;
- }
++out1:
++	cleanup_card(dev);
++out:
++	free_netdev(dev);
++	return ERR_PTR(err);
++}
  
- /* ------------------------------------------------------------------------
-@@ -1179,51 +1189,34 @@
+ /**********************************************
+  * init the chip (elmc-interrupt should be disabled?!)
+@@ -1245,7 +1266,7 @@
+ /* Increase if needed ;) */
+ #define MAX_3C523_CARDS 4
  
- #define DEVMAX 5
+-static struct net_device dev_elmc[MAX_3C523_CARDS];
++static struct net_device *dev_elmc[MAX_3C523_CARDS];
+ static int irq[MAX_3C523_CARDS];
+ static int io[MAX_3C523_CARDS];
+ MODULE_PARM(irq, "1-" __MODULE_STRING(MAX_3C523_CARDS) "i");
+@@ -1258,16 +1279,24 @@
+ 	int this_dev,found = 0;
  
--static struct net_device moddevs[DEVMAX] = {
--	{ .name = "    ", .init = skmca_probe },
--	{ .name = "    ", .init = skmca_probe },
--	{ .name = "    ", .init = skmca_probe },
--	{ .name = "    ", .init = skmca_probe },
--	{ .name = "    ", .init = skmca_probe }
--};
--
--int irq;
--int io;
-+static struct net_device *moddevs[DEVMAX];
- 
- int init_module(void)
- {
--	int z, res;
-+	int z;
- 
- 	startslot = 0;
- 	for (z = 0; z < DEVMAX; z++) {
--		strcpy(moddevs[z].name, "     ");
--		res = register_netdev(moddevs + z);
--		if (res != 0)
--			return (z > 0) ? 0 : -EIO;
-+		struct net_device *dev = skmca_probe(-1);
-+		if (IS_ERR(dev))
+ 	/* Loop until we either can't find any more cards, or we have MAX_3C523_CARDS */	
+-	for(this_dev=0; this_dev<MAX_3C523_CARDS; this_dev++) 
+-		{
+-		struct net_device *dev = &dev_elmc[this_dev];
++	for(this_dev=0; this_dev<MAX_3C523_CARDS; this_dev++) {
++		struct net_device *dev = alloc_etherdev(sizeof(struct priv));
++		if (!dev)
 +			break;
-+		moddevs[z] = dev;
+ 		dev->irq=irq[this_dev];
+ 		dev->base_addr=io[this_dev];
+-		dev->init=elmc_probe;
+-		if(register_netdev(dev)!=0) {
+-			if(io[this_dev]==0) break;
+-			printk(KERN_WARNING "3c523.c: No 3c523 card found at io=%#x\n",io[this_dev]);
+-		} else found++;
++		if (do_elmc_probe(dev) == 0) {
++			if (register_netdev(dev) == 0) {
++				dev_elmc[this_dev] = dev;
++				found++;
++				continue;
++			}
++			cleanup_card(dev);
++		}
++		free_netdev(dev);
++		if (io[this_dev]==0)
++			break;
++		printk(KERN_WARNING "3c523.c: No 3c523 card found at io=%#x\n",io[this_dev]);
  	}
--
-+	if (!z)
-+		return -EIO;
- 	return 0;
- }
  
+ 	if(found==0) {
+@@ -1279,31 +1308,12 @@
  void cleanup_module(void)
  {
--	struct net_device *dev;
--	skmca_priv *priv;
- 	int z;
- 
- 	for (z = 0; z < DEVMAX; z++) {
--		dev = moddevs + z;
--		if (dev->priv != NULL) {
--			priv = (skmca_priv *) dev->priv;
--			DeinitBoard(dev);
--			if (dev->irq != 0)
+ 	int this_dev;
+-	for(this_dev=0; this_dev<MAX_3C523_CARDS; this_dev++) {
+-
+-		struct net_device *dev = &dev_elmc[this_dev];
+-		if(dev->priv) {
+-			/* shutdown interrupts on the card */
+-			elmc_id_reset586();
+-			if (dev->irq != 0) {
+-				/* this should be done by close, but if we failed to
+-				   initialize properly something may have gotten hosed. */
 -				free_irq(dev->irq, dev);
--			dev->irq = 0;
-+		struct net_device *dev = moddevs[z];
+-				dev->irq = 0;
+-			}
+-			if (dev->base_addr != 0) {
+-				release_region(dev->base_addr, ELMC_IO_EXTENT);
+-				dev->base_addr = 0;
+-			}
+-			irq[this_dev] = 0;
+-			io[this_dev] = 0;
++	for (this_dev=0; this_dev<MAX_3C523_CARDS; this_dev++) {
++		struct net_device *dev = dev_elmc[this_dev];
 +		if (dev) {
  			unregister_netdev(dev);
--			mca_mark_as_unused(priv->slot);
--			mca_set_adapter_procfn(priv->slot, NULL, NULL);
+-
+-			mca_set_adapter_procfn(((struct priv *) (dev->priv))->slot,
+-			       NULL, NULL);
+-
 -			kfree(dev->priv);
 -			dev->priv = NULL;
 +			cleanup_card(dev);
@@ -259,14 +203,32 @@ diff -Nru a/drivers/net/sk_mca.c b/drivers/net/sk_mca.c
  		}
  	}
  }
-diff -Nru a/drivers/net/sk_mca.h b/drivers/net/sk_mca.h
---- a/drivers/net/sk_mca.h	Tue Nov 11 13:50:15 2003
-+++ b/drivers/net/sk_mca.h	Tue Nov 11 13:50:15 2003
-@@ -178,7 +178,4 @@
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Tue Nov 11 13:50:42 2003
++++ b/drivers/net/Space.c	Tue Nov 11 13:50:42 2003
+@@ -60,7 +60,7 @@
+ extern struct net_device *wavelan_probe(int unit);
+ extern struct net_device *arlan_probe(int unit);
+ extern struct net_device *el16_probe(int unit);
+-extern int elmc_probe(struct net_device *);
++extern struct net_device *elmc_probe(int unit);
+ extern struct net_device *skmca_probe(int unit);
+ extern struct net_device *elplus_probe(int unit);
+ extern int ac3200_probe(struct net_device *);
+@@ -181,13 +181,13 @@
+ #ifdef CONFIG_NE2_MCA
+ 	{ne2_probe, 0},
+ #endif
+-#ifdef CONFIG_ELMC		/* 3c523 */
+-	{elmc_probe, 0},
+-#endif
+ 	{NULL, 0},
+ };
  
- #endif				/* _SK_MCA_DRIVER_ */
- 
--extern int skmca_probe(struct net_device *);
--
--
- #endif	/* _SK_MCA_INCLUDE_ */
+ static struct devprobe2 mca_probes2[] __initdata = {
++#ifdef CONFIG_ELMC		/* 3c523 */
++	{elmc_probe, 0},
++#endif
+ #ifdef CONFIG_ELMC_II		/* 3c527 */
+ 	{mc32_probe, 0},
+ #endif
