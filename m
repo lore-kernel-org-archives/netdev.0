@@ -1,7 +1,7 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.6 3/3] e100: Update driver version number
-Date: Thu, 6 Jan 2005 17:01:55 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061411180.7330-100000@isotope.jf.intel.com>
+Subject: [PATCH 2.6 0/3] e100: driver update
+Date: Thu, 6 Jan 2005 17:01:27 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061031450.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,17 +11,7 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-
-diff -up net-drivers-2.6/drivers/net/e100.c net-drivers-2.6/drivers/net/e100.c.new
---- net-drivers-2.6/drivers/net/e100.c	2004-12-02 10:09:34.000000000 -0800
-+++ net-drivers-2.6/drivers/net/e100.c.new	2004-12-02 10:09:36.000000000 -0800
-@@ -155,7 +155,7 @@
- 
- #define DRV_NAME		"e100"
- #define DRV_EXT		"-NAPI"
--#define DRV_VERSION		"3.2.3-k2"DRV_EXT
-+#define DRV_VERSION		"3.3.6-k2"DRV_EXT
- #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
- #define DRV_COPYRIGHT		"Copyright(c) 1999-2004 Intel Corporation"
- #define PFX			DRV_NAME ": "
+1 Replace locally implemented delay routines with call to msleep 
+(nacc@us.ibm.com)
+2 Sort device ids
+3 Update driver version number
