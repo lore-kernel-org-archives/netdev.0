@@ -1,246 +1,76 @@
-From: Vinay K Nallamothu <vinay.nallamothu@gsecone.com>
-Subject: Re: [PATCH 2.6.0-test6][X25] timer cleanup
-Date: Sun, 05 Oct 2003 19:39:39 +0530
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: Re: [RFC] add rtnl semaphore to linux-atm
+Date: Mon, 6 Oct 2003 02:03:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1065362979.4370.34.camel@lima.royalchallenge.com>
-References: <1065018387.7194.336.camel@lima.royalchallenge.com>
-	 <20031001155623.06b89258.akpm@osdl.org>
-	 <1065078208.4340.3.camel@lima.royalchallenge.com>
-	 <20031002013620.6d8b6f10.davem@redhat.com>
+Message-ID: <20031006090304.GD4651@gaz.sfgoth.com>
+References: <20031004194242.GC94203@gaz.sfgoth.com> <200310051252.h95CqvkT022363@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031002013620.6d8b6f10.davem@redhat.com>
+To: chas williams <chas@cmf.nrl.navy.mil>
+Content-Disposition: inline
+In-Reply-To: <200310051252.h95CqvkT022363@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+chas williams wrote:
+> i am not sure the negotiation should be handled by the kernel.
+> we will cross this bridge when we get there.  i dont see a
+> rush of people trying to add dsl drivers.  in fact, the
+> community seems to be pretty stingy with documentation about
+> the dsl hardware.
 
-On Thu, 2003-10-02 at 14:06, David S. Miller wrote:
-> Please find a way to at least minimally test the protocols
-> you are changing then, or find someone else who can.
-I have tested the patch using LAPB over Ethernet (I do not have real
-hardware) under linux-2.6.0-test5-uml1 and it works fine for me.
+Yeah, I've been trying to get that resolved but so far noone is
+anwering my emails.  There are two DSL drivers in some state of
+completion that could be merged if the companies involved to
+just release them.
 
-I used the x25_utils available at 
-http://www.baty.hanse.de/linux-x25/utils/x25_utils-2.3.93.tar.gz
+> >> people who use ATM_ITF_ANY are going to pay a penalty
+> >Exactly - its a userspace problem.
+> 
+> so the idea is to fix it minimally.  people who use it should be
+> encouraged to change.  i would either get rid of completely or
+> make it work as before.  not change the way it works.
 
-and have been successfully able to run X.25 telnet application.
+I don't think there are any current users that would be broken by
+a "just pick the first interface" policy.  I just don't want to
+entirely remove it in case someone is using '*.0.50' in their clip
+configs or something.
 
-I have updated the patch to fix a locking bug in x25_accept I
-encountered while testing.
+There are no users inside the atm tools that need ATM_ITF_ANY.  Anyone
+using it directly in a PVC address is already broken and non-determanistic
+if they have more than one interface, so I'm not worried if the semantics
+in that case are only 90% identical instead of 100%
 
-Thanks
-Vinay
+> i dont believe any of the smp problems have come from open/close/change_qos.
 
-1. Replace del_timer, mod_timer sequences with mod_timer.
-2. Add missing lock_sock/release_sock in x25_accept
+I doubt many crashes happen there (in practice mostly those operations
+will be serialized by userland - it's rare to have multiple threads
+opening/closing vccs at once) but that doesn't mean that races aren't
+hiding.  Again, there's zero performance implication to serializing
+them so we might as well make the driver API a little more foolproof.
 
+> well the linear seach is already fairly efficient for most people since
+> most people dont have more than a handful of vcc's open at a time.
 
- af_x25.c    |   15 +++++++++------
- x25_link.c  |   16 ++++++----------
- x25_timer.c |   47 +++++++++++++++--------------------------------
- 3 files changed, 30 insertions(+), 48 deletions(-)
+Yes, but the worst-case is unacceptable.  There are at least some people
+who have used the code to terminate VCCs coming from DSL customers (a
+project like that is actually what got me started with hacking on
+linux-atm 5 years ago :-).  They could have hundreds of VCCs active at
+once.
 
-diff -urN linux-2.6.0-test6/net/x25/af_x25.c linux-2.6.0-test6-nvk/net/x25/af_x25.c
---- linux-2.6.0-test6/net/x25/af_x25.c	2003-09-09 11:12:07.000000000 +0530
-+++ linux-2.6.0-test6-nvk/net/x25/af_x25.c	2003-10-05 19:23:45.000000000 +0530
-@@ -345,10 +345,8 @@
- 	if (atomic_read(&sk->sk_wmem_alloc) ||
- 	    atomic_read(&sk->sk_rmem_alloc)) {
- 		/* Defer: outstanding buffers */
--		init_timer(&sk->sk_timer);
- 		sk->sk_timer.expires  = jiffies + 10 * HZ;
- 		sk->sk_timer.function = x25_destroy_timer;
--		sk->sk_timer.data     = (unsigned long)sk;
- 		add_timer(&sk->sk_timer);
- 	} else {
- 		/* drop last reference so sock_put will free */
-@@ -463,6 +461,8 @@
- 	goto out;
- }
- 
-+void x25_init_timers(struct sock *sk);
-+
- static int x25_create(struct socket *sock, int protocol)
- {
- 	struct sock *sk;
-@@ -481,7 +481,7 @@
- 	sock_init_data(sock, sk);
- 	sk_set_owner(sk, THIS_MODULE);
- 
--	init_timer(&x25->timer);
-+	x25_init_timers(sk);
- 
- 	sock->ops    = &x25_proto_ops;
- 	sk->sk_protocol = protocol;
-@@ -537,7 +537,7 @@
- 	x25->facilities = ox25->facilities;
- 	x25->qbitincl   = ox25->qbitincl;
- 
--	init_timer(&x25->timer);
-+	x25_init_timers(sk);
- out:
- 	return sk;
- }
-@@ -760,13 +760,14 @@
- 	if (sk->sk_type != SOCK_SEQPACKET)
- 		goto out;
- 
-+	lock_sock(sk);
- 	rc = x25_wait_for_data(sk, sk->sk_rcvtimeo);
- 	if (rc)
--		goto out;
-+		goto out2;
- 	skb = skb_dequeue(&sk->sk_receive_queue);
- 	rc = -EINVAL;
- 	if (!skb->sk)
--		goto out;
-+		goto out2;
- 	newsk		 = skb->sk;
- 	newsk->sk_pair   = NULL;
- 	newsk->sk_socket = newsock;
-@@ -779,6 +780,8 @@
- 	newsock->sk    = newsk;
- 	newsock->state = SS_CONNECTED;
- 	rc = 0;
-+out2:
-+	release_sock(sk);
- out:
- 	return rc;
- }
-diff -urN linux-2.6.0-test6/net/x25/x25_link.c linux-2.6.0-test6-nvk/net/x25/x25_link.c
---- linux-2.6.0-test6/net/x25/x25_link.c	2003-09-09 11:12:07.000000000 +0530
-+++ linux-2.6.0-test6-nvk/net/x25/x25_link.c	2003-10-01 19:50:04.000000000 +0530
-@@ -51,15 +51,9 @@
- /*
-  *	Linux set/reset timer routines
-  */
--static void x25_start_t20timer(struct x25_neigh *nb)
-+static inline void x25_start_t20timer(struct x25_neigh *nb)
- {
--	del_timer(&nb->t20timer);
--
--	nb->t20timer.data     = (unsigned long)nb;
--	nb->t20timer.function = &x25_t20timer_expiry;
--	nb->t20timer.expires  = jiffies + nb->t20;
--
--	add_timer(&nb->t20timer);
-+	mod_timer(&nb->t20timer, jiffies + nb->t20);
- }
- 
- static void x25_t20timer_expiry(unsigned long param)
-@@ -71,12 +65,12 @@
- 	x25_start_t20timer(nb);
- }
- 
--static void x25_stop_t20timer(struct x25_neigh *nb)
-+static inline void x25_stop_t20timer(struct x25_neigh *nb)
- {
- 	del_timer(&nb->t20timer);
- }
- 
--static int x25_t20timer_pending(struct x25_neigh *nb)
-+static inline int x25_t20timer_pending(struct x25_neigh *nb)
- {
- 	return timer_pending(&nb->t20timer);
- }
-@@ -291,6 +285,8 @@
- 	skb_queue_head_init(&nb->queue);
- 
- 	init_timer(&nb->t20timer);
-+	nb->t20timer.data     = (unsigned long)nb;
-+	nb->t20timer.function = &x25_t20timer_expiry;
- 
- 	dev_hold(dev);
- 	nb->dev      = dev;
-diff -urN linux-2.6.0-test6/net/x25/x25_timer.c linux-2.6.0-test6-nvk/net/x25/x25_timer.c
---- linux-2.6.0-test6/net/x25/x25_timer.c	2003-09-09 11:12:07.000000000 +0530
-+++ linux-2.6.0-test6-nvk/net/x25/x25_timer.c	2003-10-01 19:50:04.000000000 +0530
-@@ -43,15 +43,22 @@
- static void x25_heartbeat_expiry(unsigned long);
- static void x25_timer_expiry(unsigned long);
- 
--void x25_start_heartbeat(struct sock *sk)
-+void x25_init_timers(struct sock *sk)
- {
--	del_timer(&sk->sk_timer);
-+	struct x25_opt *x25 = x25_sk(sk);
- 
-+	init_timer(&x25->timer);
-+	x25->timer.data     = (unsigned long)sk;
-+	x25->timer.function = &x25_timer_expiry;
-+
-+	/* initialized by sock_init_data */
- 	sk->sk_timer.data     = (unsigned long)sk;
- 	sk->sk_timer.function = &x25_heartbeat_expiry;
--	sk->sk_timer.expires  = jiffies + 5 * HZ;
-+}
- 
--	add_timer(&sk->sk_timer);
-+void x25_start_heartbeat(struct sock *sk)
-+{
-+	mod_timer(&sk->sk_timer, jiffies + 5 * HZ);
- }
- 
- void x25_stop_heartbeat(struct sock *sk)
-@@ -63,52 +70,28 @@
- {
- 	struct x25_opt *x25 = x25_sk(sk);
- 
--	del_timer(&x25->timer);
--
--	x25->timer.data     = (unsigned long)sk;
--	x25->timer.function = &x25_timer_expiry;
--	x25->timer.expires  = jiffies + x25->t2;
--
--	add_timer(&x25->timer);
-+	mod_timer(&x25->timer, jiffies + x25->t2);
- }
- 
- void x25_start_t21timer(struct sock *sk)
- {
- 	struct x25_opt *x25 = x25_sk(sk);
- 
--	del_timer(&x25->timer);
--
--	x25->timer.data     = (unsigned long)sk;
--	x25->timer.function = &x25_timer_expiry;
--	x25->timer.expires  = jiffies + x25->t21;
--
--	add_timer(&x25->timer);
-+	mod_timer(&x25->timer, jiffies + x25->t21);
- }
- 
- void x25_start_t22timer(struct sock *sk)
- {
- 	struct x25_opt *x25 = x25_sk(sk);
- 
--	del_timer(&x25->timer);
--
--	x25->timer.data     = (unsigned long)sk;
--	x25->timer.function = &x25_timer_expiry;
--	x25->timer.expires  = jiffies + x25->t22;
--
--	add_timer(&x25->timer);
-+	mod_timer(&x25->timer, jiffies + x25->t22);
- }
- 
- void x25_start_t23timer(struct sock *sk)
- {
- 	struct x25_opt *x25 = x25_sk(sk);
- 
--	del_timer(&x25->timer);
--
--	x25->timer.data     = (unsigned long)sk;
--	x25->timer.function = &x25_timer_expiry;
--	x25->timer.expires  = jiffies + x25->t23;
--
--	add_timer(&x25->timer);
-+	mod_timer(&x25->timer, jiffies + x25->t23);
- }
- 
- void x25_stop_timer(struct sock *sk)
+> >I don't think that's the case at all - you could safely remove the vcc from
+> >the list at ->close time (but not free its memory until the last reference
+> >disappears)  Then an ->open would see the vpi/vci as free immediately (which
+> >should be safe)
+> 
+> not sure about this.  the fore200e seems to have a problem with
+> reopening on a vcc while there still might be outstanding skb's on a
+> vcc from a previos open/close.
+
+Hmmmm... ok.  I really believe that we need to sleep in close until the
+VCC is truly free.  If userland can't do a close followed immediately by
+an open on the same vci then something is busted.
+
+-Mitch
