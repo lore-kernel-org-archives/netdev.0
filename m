@@ -1,44 +1,53 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] netem: restart device after inserting packets
-Date: Mon, 13 Dec 2004 11:08:28 -0800
-Message-ID: <20041213110828.2af5d0e1@dxpl.pdx.osdl.net>
-References: <20041208123103.4cc6b005@dxpl.pdx.osdl.net>
-	<20041208210031.63f0963f.davem@davemloft.net>
-	<41B91901.3070304@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [RFC] tcf_bind_filter failure handling
+Date: Mon, 13 Dec 2004 20:12:40 +0100
+Message-ID: <41BDE9A8.9080505@trash.net>
+References: <20041110010113.GJ31969@postel.suug.ch> <41916A91.3080107@trash.net> <20041110012251.GK31969@postel.suug.ch> <41916F0B.5010809@trash.net> <20041110013941.GL31969@postel.suug.ch> <41917330.6090002@trash.net> <20041212175736.GA8493@postel.suug.ch> <41BC8819.7040501@trash.net> <20041213165302.GE8493@postel.suug.ch> <41BDDB5A.9000907@trash.net> <20041213185203.GF8493@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netem@osdl.org,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41B91901.3070304@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041213185203.GF8493@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Dec 2004 04:33:21 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+Thomas Graf wrote:
 
-> David S. Miller wrote:
-> 
-> >On Wed, 8 Dec 2004 12:31:03 -0800
-> >Stephen Hemminger <shemminger@osdl.org> wrote:
-> >  
-> >
-> >>The version of netem in 2.6.10 moves packets from the delayed queue
-> >>to the qdisc in a timer interrupt. But it forgot to force the device to
-> >>pick them up.
-> >>
-> >>Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> >>
-> >
-> >Good spotting.  Applied, thanks Stephen.
-> >
-> The patch is incomplete, netem may dequeue multiple packets from
-> the delayed queue at once and feed them to the inner queue, but
-> qdisc_restart will only dequeue one packet from the inner queue.
-> This patch moves qdisc_run back to include/net/pkt_sched.h and
-> replaces qdisc_restart by qdisc_run in netem_watchdog.
+>* Patrick McHardy <41BDDB5A.9000907@trash.net> 2004-12-13 19:11
+>  
+>
+>>You should just fix tcindex not to care about errors in tcf_bind_filter.
+>>bind_tcf already locks the class. Some qdiscs (like prio) map bind_filter
+>>to get, but others (HTB, HFSC, CBQ) use a seperate counter because it is
+>>legal to end up with a refcnt > 0 after delete. When a class with filters
+>>pointing to it is tried to destroy they return -EBUSY, which can't be done
+>>by looking at the refcnt.
+>>    
+>>
+>
+>Little misunderstanding here. I'm not aiming at replacing tcf_bind_filter
+>with get.  My question is rather whether to regard tcf_bind_filter not setting
+>tcf_result->class as an error or ignore it. 
+>
+>I'm all for ignoring it in tcindex, it requires some changes because
+>it checks tcf_result.class field to see if hash bucket is non-empty if
+>perfect hash is used but is not a problem at all.
+>
+>The tcf_class_get/put would be required to ensure proper locking during
+>validation of parameters if validating the classid being last before
+>changing things doesn't make sense due to the need to undo expensive
+>operations required before binding.
+>
+>I will fix tcindex, since you also agree on simply ignoring it and regard
+>the binding as an ptional locking and performance increase possibility
+>given to userspace.
+>
+Yes, it should be ignored, otherwise you can't point a filter to a class
+you will add later.
 
-Yes, I wasn't running big enough delays to notice.
+Regards
+Patrick
