@@ -1,59 +1,32 @@
-From: aris@cathedrallabs.org (Aristeu Sergio Rozanski Filho)
-Subject: [patch] 3c509: don't return if request_region fails
-Date: Tue, 7 Oct 2003 21:27:16 -0300
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] spinlock badness in last dongle changes.
+Date: Tue, 7 Oct 2003 19:03:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008002715.GA31225@cathedrallabs.org>
+Message-ID: <20031008020331.GA19007@bougret.hpl.hp.com>
+References: <20031006222631.1934f8e1.shemminger@osdl.org>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="gBBFr7Ir9EOA20Yy"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
+In-Reply-To: <20031006222631.1934f8e1.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Oct 06, 2003 at 10:26:31PM -0700, Stephen Hemminger wrote:
+> On 2.6.0-test6 bk latest, rmmod of irda hangs on SMP...
+> 
+> A couple of locking problems happened when converted from using
+> hashbin lock outside of irqueue.  First, the lock was never initialized;
+> Second, the lock was being unlocked after the hashbin was free.
+> 
+> Since the hashbin of dongles should be empty (ie all dongle unregistered)
+> don't really need locking there, so just warn if we find anything...
 
---gBBFr7Ir9EOA20Yy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+	I've recompiled my kernel with this patch and the trouble
+modprobing the dongle driver went away.
+	Thanks !
 
-hi,
-	this makes el3_probe don't return if request_region fails
-	while trying to detect pnp cards. it would leave the
-	other pnp cards attached.
-
--- 
-aris
-
-
---gBBFr7Ir9EOA20Yy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="3c509-pnpprobe.patch"
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#                  ChangeSet    1.1375  -> 1.1376
-#        drivers/net/3c509.c    1.43    -> 1.44
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/10/07      aris@cathedrallabs.org  1.1376
-# o 3c509: don't return if request_region fails
-# --------------------------------------------
-#
-diff -Nru a/drivers/net/3c509.c b/drivers/net/3c509.c
---- a/drivers/net/3c509.c       Tue Oct  7 21:19:05 2003
-+++ b/drivers/net/3c509.c       Tue Oct  7 21:19:05 2003
-@@ -404,7 +404,7 @@
-                        ioaddr = pnp_port_start(idev, 0);
-                        if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509 PnP")) {
-                                pnp_device_detach(idev);
--                               return -EBUSY;
-+                               continue;
-                        }
-                        irq = pnp_irq(idev, 0);
-                        if (el3_debug > 3)
-
---gBBFr7Ir9EOA20Yy--
+	Jean
