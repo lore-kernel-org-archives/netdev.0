@@ -1,37 +1,32 @@
-From: Richard Gooch <rgooch@ras.ucalgary.ca>
-Subject: Re: Poor gige performance with 2.4.20-pre*
-Date: Sun, 29 Sep 2002 18:53:18 -0600
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [BK PATCH] Make eth.c independent of dev->hard_header_len
+Date: Sun, 29 Sep 2002 17:56:39 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209300053.g8U0rI420299@vindaloo.ras.ucalgary.ca>
-References: <200209282257.g8SMvta32527@vindaloo.ras.ucalgary.ca>
-	<002f01c2675d$b642b640$f5f2010a@weixl>
-	<200209290634.g8T6Y2o08439@vindaloo.ras.ucalgary.ca>
-	<20020929204510.A26826@redhat.com>
-Cc: "Xiaoliang (David) Wei" <weixl@caltech.edu>, netdev@oss.sgi.com
+Message-ID: <20020929.175639.12656717.davem@redhat.com>
+References: <3D974A3D.40207@pobox.com>
+	<Pine.LNX.4.44.0209291406410.28578-100000@chaos.physics.uiowa.edu>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Benjamin LaHaise <bcrl@redhat.com>
-In-Reply-To: <20020929204510.A26826@redhat.com>
+To: kai-germaschewski@uiowa.edu
+In-Reply-To: <Pine.LNX.4.44.0209291406410.28578-100000@chaos.physics.uiowa.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Benjamin LaHaise writes:
-> On Sun, Sep 29, 2002 at 12:34:02AM -0600, Richard Gooch wrote:
-> > This is all on a LAN (of course; expecting good performance from a WAN
-> > is pretty futile). I use a buffer size of 256 KiB.
-> 
-> From my experience tuning on a 550MHz P3 Xeon, you're better off
-> using a buffer size of 8-16KB that stays in the L1 cache.  Of
-> course, that was without actually doing anything useful with the
-> data being transferred.  Gige really does need a faster cpu in the
-> ghz+ range.  As for ns83820, it's a work in progress.  Some of the
-> recent bugfixes may have reduced performance, so it may need to be
-> retuned.
+   From: Kai Germaschewski <kai-germaschewski@uiowa.edu>
+   Date: Sun, 29 Sep 2002 14:09:11 -0500 (CDT)
 
-Using 8 KiB buffer reduces performance, 16 KiB is almost the same as
-using 256 KiB.
+   On Sun, 29 Sep 2002, Jeff Garzik wrote:
+   
+   > Kai Germaschewski wrote:
+   > > --- a/drivers/net/hamachi.c	Sun Sep 29 13:10:36 2002
+   > > +++ b/drivers/net/hamachi.c	Sun Sep 29 13:10:36 2002
+   > 
+   > I would prefer to keep the code inside TX_CHECKSUM in hamachi.c, hoping 
+   > somebody will complete it, not rip it out :)
+   
+   I didn't really rip out anything.
 
-				Regards,
-
-					Richard....
-Permanent: rgooch@atnf.csiro.au
-Current:   rgooch@ras.ucalgary.ca
+Jeff I think his patch is OK, please confirm.
