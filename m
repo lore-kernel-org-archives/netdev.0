@@ -1,23 +1,37 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: Linux problems with hundreds of interfaces/routes
-Date: Fri, 27 Sep 2002 18:49:00 +0400 (MSD)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: udp weirdness
+Date: Fri, 27 Sep 2002 10:53:00 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209271449.SAA21026@sex.inr.ac.ru>
-References: <20020927114309.GR2655@pasky.ji.cz>
+Message-ID: <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
+References: <20020927120223.GH343@hookipa>
 Mime-Version: 1.0
-Cc: pekkas@netcore.fi, netdev@oss.sgi.com, xs26-dev@xs26.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pasky@xs26.net (Petr Baudis)
-In-Reply-To: <20020927114309.GR2655@pasky.ji.cz> from "Petr Baudis" at Sep 27, 2 01:43:09 pm
+To: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+In-Reply-To: <20020927120223.GH343@hookipa>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> 2002/09/27 11:11:03 ZEBRA: netlink-listen error: No buffer space available, type=RTM_NEWROUTE(24), seq=426, pid=0
 
-This means that you exceeded limit on size of neighbour table,
-which is quite predictable when you have lots of interfaces.
-Tune neighbour table size, it is net/ipv6/neigh/default/gc_thresh3 mostly.
+On Fri, 27 Sep 2002, Eric Lemoine wrote:
 
-Alexey
+> I figured out that packets can be dropped in pfifo_fast_enqueue()
+> [the default qdisc's enqueue func], even though the driver/kernel
+> flow control has triggered.
+>
+> And sendto does not notify the user when packet gets dropped because
+> the output queue overflows (as indicated in sendto manpage).
+>
+> Why doesn't the kernel just put the process into sleep instead of
+> dropping packets?
+>
+
+What trigger do you suggest to wake up the process again?
+A better idea maybe to return something to the socket so it can
+manage things instead -- not sure what to return though that wouldnt
+break some standard;
+
+cheers,
+jamal
