@@ -1,81 +1,77 @@
-From: Chas Williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: Remove modules.txt in drivers/atm/Kconfig (Nicolas Kaiser <nikai@nikai.net>)
-Date: Mon, 29 Sep 2003 10:04:51 -0400
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: RFC: [2.6 patch] disallow modular IPv6
+Date: Mon, 29 Sep 2003 11:15:48 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309291404.h8TE4qkT027322@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com
+Message-ID: <20030929141548.GS1039@conectiva.com.br>
+References: <20030928225941.GW15338@fs.tum.de> <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de> <20030928233909.GG1039@conectiva.com.br> <20030929001439.GY15338@fs.tum.de> <20030929003229.GM1039@conectiva.com.br> <1064826174.29569.13.camel@hades.cambridge.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Adrian Bunk <bunk@fs.tum.de>, netdev@oss.sgi.com, davem@redhat.com,
+        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: David Woodhouse <dwmw2@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1064826174.29569.13.camel@hades.cambridge.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6 -- thanks
+Em Mon, Sep 29, 2003 at 10:02:55AM +0100, David Woodhouse escreveu:
+> On Sun, 2003-09-28 at 21:32 -0300, Arnaldo Carvalho de Melo wrote:
+> > Em Mon, Sep 29, 2003 at 02:14:39AM +0200, Adrian Bunk escreveu:
+> > > On Sun, Sep 28, 2003 at 08:39:10PM -0300, Arnaldo Carvalho de Melo wrote:
+> > > What about the following solution (the names and help texts for the
+> > > config options might not be optimal, I hope you understand the
+> > > intention):
+> > > 
+> > > config IPV6_SUPPORT
+> > > 	bool "IPv6 support"
+> > > 
+> > > config IPV6_ENABLE
+> > > 	tristate "enable IPv6"
+> > > 	depends on IPV6_SUPPORT
+> > > 
+> > > IPV6_SUPPORT changes structs etc. and IPV6_ENABLE is responsible for 
+> > > ipv6.o .
+> > 
+> > Humm, and the idea is? This seems confusing, could you elaborate on why such
+> > scheme is a good thing?
+> 
+> The idea is that you then have ifdefs on CONFIG_IPV6_SUPPORT not on
+> CONFIG_IPV6_MODULE.
 
+That part I understood :)
+ 
+> The underlying point being that your static kernel should not change if
+> you change an option from 'n' to 'm'.
 
-[ATM]: Remove modules.txt in drivers/atm/Kconfig (Nicolas Kaiser <nikai@nikai.net>)
+But that will only happen if CONFIG_IPV6_SUPPORT is always enabled, no?
 
---- trivial-2.6.0-test5-bk10/drivers/atm/Kconfig.orig	2003-09-24 12:27:31.000000000 +1000
-+++ trivial-2.6.0-test5-bk10/drivers/atm/Kconfig	2003-09-24 12:27:31.000000000 +1000
-@@ -32,9 +32,8 @@
- 	  The driver works with MMF (-MF or ...F) and UTP-5 (-U5 or ...D)
- 	  adapters.
- 
--	  This driver is also available as a module.  If you want to compile
--	  it as a module, say M here and read
--	  <file:Documentation/modules.txt>.  The module will be called eni.
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called eni.
- 
- config ATM_ENI_DEBUG
- 	bool "Enable extended debugging"
-@@ -138,10 +137,8 @@
- 	  Driver for the Fujitsu FireStream 155 (MB86697) and
- 	  FireStream 50 (MB86695) ATM PCI chips.
- 
--	  This driver is also available as a module.  If you want to compile
--	  it as a module, say M here and read
--	  <file:Documentation/modules.txt>.  The module will be called
--	  firestream.
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called firestream.
- 
- config ATM_ZATM
- 	tristate "ZeitNet ZN1221/ZN1225"
-@@ -150,9 +147,8 @@
- 	  Driver for the ZeitNet ZN1221 (MMF) and ZN1225 (UTP-5) 155 Mbps ATM
- 	  adapters.
- 
--	  This driver is also available as a module.  If you want to compile
--	  it as a module, say M here and read
--	  <file:Documentation/modules.txt>.  The module will be called zatm.
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called zatm.
- 
- config ATM_ZATM_DEBUG
- 	bool "Enable extended debugging"
-@@ -176,10 +172,8 @@
- 	  25 and for 155 Mbps, including IDT cards and the Fore ForeRunnerLE
- 	  series. Say Y if you have one of those.
- 
--	  This driver is also available as a module.  If you want to compile
--	  it as a module, say M here and read
--	  <file:Documentation/modules.txt>. The module will be called
--	  nicstar.
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called nicstar.
- 
- config ATM_NICSTAR_USE_SUNI
- 	bool "Use suni PHY driver (155Mbps)"
-@@ -209,9 +203,8 @@
- 	help
- 	  Driver for the IDT 77252 ATM PCI chips.
- 
--	  This driver is also available as a module.  If you want to compile
--	  it as a module, say M here and read
--	  <file:Documentation/modules.txt>. The module will be called idt77252
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called idt77252.
- 
- config ATM_IDT77252_DEBUG
- 	bool "Enable debugging messages"
+> It should only affect the kernel image if you change options to/from 'y'.
+
+That is a good goal, yes, so lets remove all the ifdefs around EXPORT_SYMBOL,
+etc, i.e.: add bloat for the simple case were I want a minimal kernel.
+
+Humm, so the user will have, in this case, these choices:
+
+1. "I don't want IPV6 at all, not now, not ever":
+	CONFIG_IPV6_SUPPORT=N
+	CONFIG_IPV6=N  (this is implicit as this depends on
+			CONFIG_IPV6_SUPPORT)
+	
+2. "I think I may well want it the future, who knows? but not now...":
+	CONFIG_IPV6_SUPPORT=Y
+	CONFIG_IPV6=N
+	
+3. "Nah, some of the users of this pre-compiled kernel will need it":
+	CONFIG_IPV6_SUPPORT=Y
+	CONFIG_IPV6=M
+	
+4. "Yeah, IPV6 is COOL, how can somebody not use this piece of art?":
+	CONFIG_IPV6_SUPPORT=Y
+	CONFIG_IPV6=Y
+
+Isn't this confusing for the I-wanna-triple-my-kernel-performance-by-compiling-
+the-kernel-for-exactly-what-I-have hordes of users?
+
+- Arnaldo
