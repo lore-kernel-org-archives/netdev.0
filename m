@@ -1,43 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IP6IP6] Handle ECN correctly
-Date: Fri, 10 Sep 2004 14:58:22 -0700
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: [PATCH] r8169 cleanup
+Date: Fri, 10 Sep 2004 16:59:00 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910145822.09b58835.davem@davemloft.net>
-References: <20040909034508.GA19547@gondor.apana.org.au>
-	<20040908214023.08dec350.davem@davemloft.net>
-	<20040909044336.GA19999@gondor.apana.org.au>
-	<20040908214926.51b56a66.davem@davemloft.net>
-	<20040909045415.GA20079@gondor.apana.org.au>
-	<20040908220802.1c25b806.davem@davemloft.net>
-	<20040910003158.GA25335@gondor.apana.org.au>
-	<20040910070242.GA28017@gondor.apana.org.au>
+Message-ID: <200409101659.00322.jdmason@us.ltcfwd.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: romieu@fr.zoreil.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040910070242.GA28017@gondor.apana.org.au>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Sep 2004 17:02:42 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Removal of unnecessary code.  
 
-> On Fri, Sep 10, 2004 at 10:31:58AM +1000, herbert wrote:
-> > 
-> > Hmm, perhaps I'm still confused.  But it seems that the ability to
-> > set the TOS to any value other than *1 is already there for ipip/ip_gre.
-> > 
-> > That feature is missing for SIT and IPsec though.
-> > 
-> > We may also want to use the TOS value from parms to decide whether we want
-> > to encapsulate/decapsulate ECN.
-> > 
-> > Is my understanding correct?
-> 
-> Obviously not.  Although we've got this stuff on the transmit side,
-> we don't do this on the receive side.
+In the first part, the double not is not necessary.  In the second part, Tx 
+timeouts are already logged and this line is not needed.  Finally, a bit of 
+code beautification (though it may only be for my eyes).
 
-That's right, on decap we don't provide a way to choose
-the TOS selection.
+Thanks,
+Jon
+
+--- /usr/src/linux-2.6.9-rc1-mm4/drivers/net/r8169.c    2004-09-10 
+11:16:57.535521016 -0500
++++ r8169.c     2004-09-10 16:06:49.398539048 -0500
+@@ -654,7 +654,7 @@ static u32 rtl8169_get_rx_csum(struct ne
+ {
+        struct rtl8169_private *tp = netdev_priv(dev);
+
+-       return !!(tp->cp_cmd & RxChkSum);
++       return (tp->cp_cmd & RxChkSum);
+ }
+
+ static int rtl8169_set_rx_csum(struct net_device *dev,  u32 data)
+@@ -1694,7 +1694,6 @@ rtl8169_tx_timeout(struct net_device *de
+        void *ioaddr = tp->mmio_addr;
+        u8 tmp8;
+
+-       printk(KERN_INFO "%s: TX Timeout\n", dev->name);
+        /* disable Tx, if not already */
+        tmp8 = RTL_R8(ChipCmd);
+        if (tmp8 & CmdTxEnb)
+@@ -1779,8 +1778,7 @@ static int rtl8169_start_xmit(struct sk_
+        struct TxDesc *txd = tp->TxDescArray + entry;
+        void *ioaddr = tp->mmio_addr;
+        dma_addr_t mapping;
+-       u32 status, len;
+-       u32 opts1;
++       u32 status, len, opts1;
+        int ret = 0;
+
+        if (unlikely(TX_BUFFS_AVAIL(tp) < skb_shinfo(skb)->nr_frags)) {
