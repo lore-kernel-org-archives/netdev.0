@@ -1,26 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [patch 2.6.9 4/11] b44: Add MODULE_VERSION
-Date: Wed, 20 Oct 2004 21:25:38 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020212538.19eb607c.davem@davemloft.net>
-References: <20041020141146.C8775@tuxdriver.com>
-	<20041020141753.G8775@tuxdriver.com>
-	<20041020143639.R8775@tuxdriver.com>
+Subject: Re: [PATCH 2.6] iptables CONNMARK match+target
+Date: Wed, 20 Oct 2004 21:30:40 -0700
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20041020213040.6b38df65.davem@davemloft.net>
+References: <20041020222102.GO19899@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "John W. Linville" <linville@tuxdriver.com>
-In-Reply-To: <20041020143639.R8775@tuxdriver.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	hno@marasystems.com
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20041020222102.GO19899@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Oct 2004 14:36:39 -0400
-"John W. Linville" <linville@tuxdriver.com> wrote:
 
-> Add MODULE_VERSION to b44 driver.
-> 
-> Signed-off-by: John W. Linville <linville@tuxdriver.com>
-
-Also applied, thanks John.
+Applied, thanks a lot Harald.
