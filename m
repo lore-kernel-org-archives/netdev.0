@@ -1,39 +1,82 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: ipw2100 wireless driver
-Date: Wed, 11 Aug 2004 18:01:25 -0400
+Subject: wireless-2.6 queue updated
+Date: Wed, 11 Aug 2004 18:01:07 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411A9735.5010006@pobox.com>
-References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz> <20040810113439.A15100@infradead.org> <20040811121735.GA31171@elf.ucw.cz> <411A5D3B.3010808@pobox.com> <20040811202704.GD1550@openzaurus.ucw.cz>
+Message-ID: <20040811220107.GA1923@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pavel Machek <pavel@ucw.cz>, Christoph Hellwig <hch@infradead.org>,
-        Jeff Chua <jeffchua@silk.corp.fedex.com>,
-        Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
-        kernel list <linux-kernel@vger.kernel.org>,
-        Jouni Malinen <jkmaline@cc.hut.fi>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@suse.cz>
-In-Reply-To: <20040811202704.GD1550@openzaurus.ucw.cz>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pavel Machek wrote:
-> Hi!
-> 
-> 
->>>Hmm, strange, one merge in last 8 weeks. That's not too active
->>>project. Are you sure this is the right tree to work against?
->>
->>
->>It's the right tree, but wireless development hasn't coalesced yet on 
->>that tree it appears.  It sounds like the Intel folks are interested 
->>in working on that tree, and others have mentioned they are 
->>interested as well.
-> 
-> 
-> Is there way to access that tree without bk? Daily patches maybe?
 
-Just posted to netdev.  No regular snapshots, though.
+Just updated to latest kernel.  No new changes committed.
 
-	Jeff
+BK users:
+
+	bk pull bk://gkernel.bkbits.net/wireless-2.6
+
+Patch:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.8-rc4-bk1-wireless1.patch.bz2
+
+This will update the following files:
+
+ MAINTAINERS                                     |    7 
+ drivers/net/wireless/Kconfig                    |    2 
+ drivers/net/wireless/Makefile                   |    2 
+ drivers/net/wireless/hostap/Kconfig             |  101 
+ drivers/net/wireless/hostap/Makefile            |    8 
+ drivers/net/wireless/hostap/hostap.c            | 1178 ++++++++
+ drivers/net/wireless/hostap/hostap.h            |   57 
+ drivers/net/wireless/hostap/hostap_80211.h      |  107 
+ drivers/net/wireless/hostap/hostap_80211_rx.c   | 1066 +++++++
+ drivers/net/wireless/hostap/hostap_80211_tx.c   |  510 +++
+ drivers/net/wireless/hostap/hostap_ap.c         | 3227 +++++++++++++++++++++
+ drivers/net/wireless/hostap/hostap_ap.h         |  271 +
+ drivers/net/wireless/hostap/hostap_common.h     |  556 +++
+ drivers/net/wireless/hostap/hostap_config.h     |   86 
+ drivers/net/wireless/hostap/hostap_crypt.c      |  167 +
+ drivers/net/wireless/hostap/hostap_crypt.h      |   50 
+ drivers/net/wireless/hostap/hostap_crypt_ccmp.c |  486 +++
+ drivers/net/wireless/hostap/hostap_crypt_tkip.c |  696 ++++
+ drivers/net/wireless/hostap/hostap_crypt_wep.c  |  281 +
+ drivers/net/wireless/hostap/hostap_cs.c         |  771 +++++
+ drivers/net/wireless/hostap/hostap_download.c   |  758 +++++
+ drivers/net/wireless/hostap/hostap_hw.c         | 3525 ++++++++++++++++++++++++
+ drivers/net/wireless/hostap/hostap_info.c       |  469 +++
+ drivers/net/wireless/hostap/hostap_ioctl.c      | 3468 +++++++++++++++++++++++
+ drivers/net/wireless/hostap/hostap_pci.c        |  413 ++
+ drivers/net/wireless/hostap/hostap_plx.c        |  598 ++++
+ drivers/net/wireless/hostap/hostap_proc.c       |  466 +++
+ drivers/net/wireless/hostap/hostap_wlan.h       | 1074 +++++++
+ 28 files changed, 20400 insertions(+)
+
+through these ChangeSets:
+
+<jkmaline@cc.hut.fi> (04/06/03 1.1722.86.2)
+   [PATCH] fix hostap crypto bugs
+   
+   On Wed, Jun 02, 2004 at 09:36:34PM -0700, David S. Miller wrote:
+   
+   > You cannot invoke virt_to_page() on addresses on the kernel stack,
+   > and that is what the various HostAP crypto modules are doing.
+   >
+   > This happens to work on some platforms, but it is going to explode
+   > on others.
+   
+   Thanks! I have not updated my non-x86 platforms to 2.6 kernels, so I had
+   not yet had a change to explode anything with this..
+   
+   > Allocate these little header scratch area blobs in the per-crypto-instance
+   > structs you kmalloc instead.
+   
+   This patch (for wireless-2.6) should do this. I used separate buffers
+   for RX and TX because they could be in theory called concurrently.
+   Better to get this first working, but it might be worthwhile to consider
+   the memory use at some point. This version uses 112 bytes of additional
+   scratch buffers per key for CCMP.
+
+<jkmaline@cc.hut.fi> (04/06/02 1.1722.86.1)
+   Add HostAP wireless driver.
