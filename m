@@ -1,35 +1,34 @@
-From: Christian Axelsson <smiler@lanil.mine.nu>
-Subject: Re: [OOPS] less /proc/net/igmp
-Date: Tue, 26 Aug 2003 08:41:31 +0200
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: b44 driver in Linux 2.4.22
+Date: Tue, 26 Aug 2003 10:00:55 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4B011B.6080300__38795.0870594524$1061881174@lanil.mine.nu>
-References: <20030825163206.GA1340@penguin.penguin>
+Message-ID: <20030826070055.GA19639@ee.oulu.fi>
+References: <Pine.LNX.4.55.0308260936140.17569@dodo>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-15
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Resent-Message-Id: <20030826.155759.59651991.yoshfuji@wide.ad.jp>
-To: Marcel Sebek <sebek64@post.cz>
-In-Reply-To: <20030825163206.GA1340@penguin.penguin>
+To: David Antliff <dave.antliff@paradise.net.nz>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.55.0308260936140.17569@dodo>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Tue, Aug 26, 2003 at 09:38:45AM +1200, David Antliff wrote:
+> 
+> Hi,
+> 
+> Does the b44 driver you wrote in Linux 2.4.22 support magic
+> packet Wake-On-Lan?
+Hi
 
-I can verify this on 2.6.0-test4-mm1 and 2.6.0-test3-mm4
-
-- --
-Christan Axelsson
-smiler@lanil.mine.nu
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
-
-iD8DBQE/SwEbyqbmAWw8VdkRAg6SAJ98RVCbWmsVTH/vtg0McK7vSshn4QCffiI9
-q7B10AWRBqYC64JD0UHG6LQ=
-=lpLs
------END PGP SIGNATURE-----
-
-
+Not in the current version. Doesn't look that difficult to add though, 
+so I might at some point have a go at implementing it. Just need to figure
+out how to test it, I assume there's ACPI hell involved :/
+ 
+> Also, just out of curiosity, is this driver based on Michael Chan's
+> Broadcom bcm4400 driver?
+Dave would know best since he wrote the beast, but I believe it's 
+written using bcm4400 as "documentation" and really based on the
+generic Linux ethernet driver template (so tg3.c with tg3 bits changed 
+into b44 bits :-) )
