@@ -1,45 +1,43 @@
-From: Mirko Lindner <mlindner@syskonnect.de>
-Subject: Re: [PATCH 2.6.9-rc3] sk98lin - register the driver with hotplug
-Date: Fri, 01 Oct 2004 13:59:58 +0200
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: e1000 patchlet
+Date: 01 Oct 2004 08:25:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415D46BE.3080904@syskonnect.de>
-References: <415C8322.7030005@stud.feec.vutbr.cz>
+Message-ID: <1096633537.1041.87.camel@jzny.localdomain>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-5j0yS34gsvXTv80xkOnb"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
-In-Reply-To: <415C8322.7030005@stud.feec.vutbr.cz>
+To: Jeff Garzik <jgarzik@pobox.com>, john.ronciak@intel.com,
+        ganesh.venkatesan@intel.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Michal,
 
-thanks for the patch. I'll include the changes into the driver.
+--=-5j0yS34gsvXTv80xkOnb
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 
-Cheers,
-Mirko
 
-Michal Schmidt wrote:
-> Hello,
-> 
-> The attached patch allows the sk98lin module to be loaded automatically 
-> by hotplug.
-> 
-> Michal Schmidt
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> --- linux-2.6.9-rc3.orig/drivers/net/sk98lin/skge.c	2004-09-30 23:38:44.181252712 +0200
-> +++ linux-2.6.9-rc3/drivers/net/sk98lin/skge.c	2004-09-30 21:02:04.000000000 +0200
-> @@ -5169,6 +5169,8 @@ static struct pci_device_id skge_pci_tbl
->  	{ 0, }
->  };
->  
-> +MODULE_DEVICE_TABLE(pci, skge_pci_tbl);
-> +
->  static struct pci_driver skge_driver = {
->  	.name		= "skge",
->  	.id_table	= skge_pci_tbl,
+ attached
+
+cheers,
+jamal
+
+--=-5j0yS34gsvXTv80xkOnb
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=e1000p1
+Content-Type: text/plain; name=e1000p1; charset=ISO-8859-1
+
+--- a/drivers/net/e1000/e1000_main.c	2004/10/01 12:09:51	1.1
++++ b/drivers/net/e1000/e1000_main.c	2004/10/01 12:12:48
+@@ -1773,7 +1773,6 @@
+ 	unsigned int mss = 0;
+ 	int count = 0;
+ 	unsigned int f;
+-	nr_frags = skb_shinfo(skb)->nr_frags;
+ 	len -= skb->data_len;
+ 
+ 	if(unlikely(skb->len <= 0)) {
+
+--=-5j0yS34gsvXTv80xkOnb--
