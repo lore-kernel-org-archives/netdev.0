@@ -1,43 +1,182 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
-Date: Wed, 6 Apr 2005 16:03:43 +1000
-Message-ID: <20050406060343.GA14059@gondor.apana.org.au>
-References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au> <1112766901.7488.16.camel@mylaptop>
+From: Wang Jian <lark@linux.net.cn>
+Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
+Date: Wed, 06 Apr 2005 14:45:37 +0800
+Message-ID: <20050406143842.026B.LARK@linux.net.cn>
+References: <20050405213023.0256.LARK@linux.net.cn> <1112717495.1076.22.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@davemloft.net
+Content-Type: multipart/mixed; boundary="------_425383F105F906134008_MULTIPART_MIXED_"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dmitry Yusupov <dmitry_yus@yahoo.com>
-Content-Disposition: inline
-In-Reply-To: <1112766901.7488.16.camel@mylaptop>
+To: hadi@cyberus.ca
+In-Reply-To: <1112717495.1076.22.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 05, 2005 at 10:55:01PM -0700, Dmitry Yusupov wrote:
+--------_425383F105F906134008_MULTIPART_MIXED_
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+
+Hi jamal,
+
+
+On 05 Apr 2005 12:11:35 -0400, jamal <hadi@cyberus.ca> wrote:
+
+> Hi Wang,
 > 
-> main reason for this is to have clear way to notify netlink user that
-> new socket created and bound.
+> On Tue, 2005-04-05 at 10:18, Wang Jian wrote:
+> 
+> > I am not saying that we must use jenkins. We may use a less expensive
+> > hash function than jenkins, but better than & 0xFF.
+> > 
+> 
+> Sure; point is as long as it doesnt destroy the common use in place.
+> 
+> >Anyway, I have done userspace test for jhash. The following test 
+> > is done in a AMD Athlon 800MHz without other CPU load.
+> > 
+> 
+> No, the test i was asking for is to show distribution of the
+> hash not how long it took (which is also an ok test).
 
-Why do you want to exclude sockets that listen to multicast
-messages? They can still do unicast transactions.
- 
-> one reason is for consistency with sock interface. sk_allocation is
-> equal to GFP_KERNEL by default, so nothing changed. but. in some cases
-> application might require non-blocking kmalloc behavior. one real life
-> example is networking block device used for swap partition. this way any
-> GFP_KERENL allocation on recovery path might lead to deadlock condition.
+Sorry, the test is not on the AMD Athlon 800MHz, but a 2.4G Pentium4! I
+didn't notice that. So the jhash's performance is not fast enough.
 
-Setting of sk_allocation is controlled by the protocol itself.  In this
-case this is af_netlink.c.  As you can see, we never set this to anything
-other than GFP_KERNEL.
+On AMD 800Mhz
 
-Using sk_allocation will only confuse those who are not familiar with
-netlink into thinking that this can be atomic.
+line speed @ 1000Mbps
 
-Cheers,
+[root@home ~]# time ./a.out 
+0.31user 0.00system 0:00.32elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+83minor)pagefaults 0swaps
+
+line speed @ 100Mbps
+
+[root@home ~]# time ./a.out 
+0.03user 0.00system 0:00.03elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
+0inputs+0outputs (0major+83minor)pagefaults 0swaps
+
+
+> 
+> i.e if you fed the jenkins hash with 256 buckets - lets pick the number 1024 
+> samples of the data you showed earlier for how fwmark looks like,
+> how well would the result look like. 
+> And what if you fed it with something like 1024 incremental fwmark from 
+> say 1..1024?
+> 
+
+The test result looks not good. See attached file.
+
+So let's find a better way.
+
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+  lark
+
+--------_425383F105F906134008_MULTIPART_MIXED_
+Content-Type: application/octet-stream;
+ name="jhash-dist.txt"
+Content-Disposition: attachment;
+ filename="jhash-dist.txt"
+Content-Transfer-Encoding: base64
+
+JFZBUjEgPSB7CiAgICAgICAgICAnMzInID0+IDEsCiAgICAgICAgICAnMTI3JyA9PiAzLAogICAg
+ICAgICAgJzkwJyA9PiA2LAogICAgICAgICAgJzExOCcgPT4gMywKICAgICAgICAgICcyMDYnID0+
+IDIsCiAgICAgICAgICAnNzEnID0+IDIsCiAgICAgICAgICAnMTAyJyA9PiA3LAogICAgICAgICAg
+JzIwMCcgPT4gNCwKICAgICAgICAgICcxOCcgPT4gNywKICAgICAgICAgICcxMjUnID0+IDQsCiAg
+ICAgICAgICAnMTYnID0+IDgsCiAgICAgICAgICAnNDQnID0+IDIsCiAgICAgICAgICAnNTUnID0+
+IDQsCiAgICAgICAgICAnODQnID0+IDYsCiAgICAgICAgICAnMjcnID0+IDQsCiAgICAgICAgICAn
+MTkwJyA9PiA1LAogICAgICAgICAgJzIzMycgPT4gNCwKICAgICAgICAgICcxNjEnID0+IDksCiAg
+ICAgICAgICAnNTcnID0+IDIsCiAgICAgICAgICAnMTk0JyA9PiAzLAogICAgICAgICAgJzk1JyA9
+PiA1LAogICAgICAgICAgJzIyMCcgPT4gMiwKICAgICAgICAgICcyMCcgPT4gMiwKICAgICAgICAg
+ICcxNjMnID0+IDIsCiAgICAgICAgICAnMjMxJyA9PiAxLAogICAgICAgICAgJzEwOScgPT4gNCwK
+ICAgICAgICAgICcyNDMnID0+IDMsCiAgICAgICAgICAnMTUxJyA9PiAzLAogICAgICAgICAgJzg5
+JyA9PiAzLAogICAgICAgICAgJzE3NScgPT4gMywKICAgICAgICAgICcxNDgnID0+IDcsCiAgICAg
+ICAgICAnMzEnID0+IDIsCiAgICAgICAgICAnMzUnID0+IDIsCiAgICAgICAgICAnMTEnID0+IDUs
+CiAgICAgICAgICAnMjA4JyA9PiA1LAogICAgICAgICAgJzc4JyA9PiA0LAogICAgICAgICAgJzkz
+JyA9PiAyLAogICAgICAgICAgJzEwNicgPT4gMSwKICAgICAgICAgICcxNTcnID0+IDUsCiAgICAg
+ICAgICAnNjUnID0+IDMsCiAgICAgICAgICAnMjknID0+IDUsCiAgICAgICAgICAnMTk3JyA9PiA3
+LAogICAgICAgICAgJzIwMycgPT4gMiwKICAgICAgICAgICcxMzgnID0+IDEsCiAgICAgICAgICAn
+MTE0JyA9PiA0LAogICAgICAgICAgJzE5OScgPT4gNiwKICAgICAgICAgICcyMjYnID0+IDIsCiAg
+ICAgICAgICAnNTgnID0+IDcsCiAgICAgICAgICAnMTUnID0+IDMsCiAgICAgICAgICAnMTUzJyA9
+PiAxLAogICAgICAgICAgJzIxMScgPT4gNSwKICAgICAgICAgICcxMzcnID0+IDEsCiAgICAgICAg
+ICAnODEnID0+IDUsCiAgICAgICAgICAnNjAnID0+IDMsCiAgICAgICAgICAnNzMnID0+IDIsCiAg
+ICAgICAgICAnMTAxJyA9PiA1LAogICAgICAgICAgJzc2JyA9PiA1LAogICAgICAgICAgJzg2JyA9
+PiA2LAogICAgICAgICAgJzYyJyA9PiA2LAogICAgICAgICAgJzI0NycgPT4gMiwKICAgICAgICAg
+ICc2NycgPT4gNCwKICAgICAgICAgICcyMDQnID0+IDMsCiAgICAgICAgICAnMjQxJyA9PiAzLAog
+ICAgICAgICAgJzE2NScgPT4gNywKICAgICAgICAgICcxMzknID0+IDYsCiAgICAgICAgICAnMTk4
+JyA9PiA2LAogICAgICAgICAgJzEyOScgPT4gNywKICAgICAgICAgICcyJyA9PiAzLAogICAgICAg
+ICAgJzE3JyA9PiA1LAogICAgICAgICAgJzE4NicgPT4gNCwKICAgICAgICAgICc4MicgPT4gNiwK
+ICAgICAgICAgICcxMTAnID0+IDIsCiAgICAgICAgICAnMTQ3JyA9PiA5LAogICAgICAgICAgJzIy
+OCcgPT4gMiwKICAgICAgICAgICcyMzYnID0+IDQsCiAgICAgICAgICAnMjQ5JyA9PiAzLAogICAg
+ICAgICAgJzIwMicgPT4gNiwKICAgICAgICAgICcxNjgnID0+IDMsCiAgICAgICAgICAnMjE4JyA9
+PiAxLAogICAgICAgICAgJzE0JyA9PiAxLAogICAgICAgICAgJzEzNScgPT4gMywKICAgICAgICAg
+ICcxODQnID0+IDUsCiAgICAgICAgICAnNjknID0+IDUsCiAgICAgICAgICAnMTEyJyA9PiA3LAog
+ICAgICAgICAgJzE3MicgPT4gMywKICAgICAgICAgICcxNDUnID0+IDQsCiAgICAgICAgICAnNDkn
+ID0+IDQsCiAgICAgICAgICAnMTc4JyA9PiAzLAogICAgICAgICAgJzI0JyA9PiA1LAogICAgICAg
+ICAgJzIyNCcgPT4gMywKICAgICAgICAgICcxNDAnID0+IDcsCiAgICAgICAgICAnMTg3JyA9PiA0
+LAogICAgICAgICAgJzIyMycgPT4gNSwKICAgICAgICAgICcxMjQnID0+IDEsCiAgICAgICAgICAn
+MTA0JyA9PiAzLAogICAgICAgICAgJzEzMScgPT4gNSwKICAgICAgICAgICcxODEnID0+IDIsCiAg
+ICAgICAgICAnMjM0JyA9PiA0LAogICAgICAgICAgJzc5JyA9PiAzLAogICAgICAgICAgJzEyMScg
+PT4gNCwKICAgICAgICAgICcyMTInID0+IDMsCiAgICAgICAgICAnMTU0JyA9PiA2LAogICAgICAg
+ICAgJzAnID0+IDUsCiAgICAgICAgICAnMjMnID0+IDEsCiAgICAgICAgICAnOTYnID0+IDcsCiAg
+ICAgICAgICAnMTI2JyA9PiAzLAogICAgICAgICAgJzIzOCcgPT4gMywKICAgICAgICAgICcxNTkn
+ID0+IDYsCiAgICAgICAgICAnMjUxJyA9PiAzLAogICAgICAgICAgJzI1MycgPT4gMiwKICAgICAg
+ICAgICcxNjAnID0+IDYsCiAgICAgICAgICAnMTc2JyA9PiAyLAogICAgICAgICAgJzQ3JyA9PiA3
+LAogICAgICAgICAgJzgnID0+IDYsCiAgICAgICAgICAnOTgnID0+IDQsCiAgICAgICAgICAnMjA5
+JyA9PiA0LAogICAgICAgICAgJzIxNicgPT4gNCwKICAgICAgICAgICczNycgPT4gNCwKICAgICAg
+ICAgICcxMTcnID0+IDIsCiAgICAgICAgICAnNDMnID0+IDQsCiAgICAgICAgICAnMTk1JyA9PiA3
+LAogICAgICAgICAgJzUnID0+IDQsCiAgICAgICAgICAnMTcwJyA9PiA0LAogICAgICAgICAgJzMz
+JyA9PiA1LAogICAgICAgICAgJzYzJyA9PiA1LAogICAgICAgICAgJzIxJyA9PiA2LAogICAgICAg
+ICAgJzcnID0+IDUsCiAgICAgICAgICAnMjI3JyA9PiAzLAogICAgICAgICAgJzgwJyA9PiA0LAog
+ICAgICAgICAgJzI2JyA9PiA0LAogICAgICAgICAgJzE5MycgPT4gMSwKICAgICAgICAgICcxMTkn
+ID0+IDMsCiAgICAgICAgICAnOTknID0+IDEsCiAgICAgICAgICAnMTgwJyA9PiAzLAogICAgICAg
+ICAgJzI0NCcgPT4gNCwKICAgICAgICAgICcxNjInID0+IDIsCiAgICAgICAgICAnNzInID0+IDQs
+CiAgICAgICAgICAnMTc5JyA9PiAzLAogICAgICAgICAgJzI1NScgPT4gMywKICAgICAgICAgICcy
+NDYnID0+IDMsCiAgICAgICAgICAnNzQnID0+IDQsCiAgICAgICAgICAnMjQwJyA9PiA1LAogICAg
+ICAgICAgJzE4MicgPT4gMiwKICAgICAgICAgICc2MScgPT4gNSwKICAgICAgICAgICcyMzAnID0+
+IDQsCiAgICAgICAgICAnMTA4JyA9PiAyLAogICAgICAgICAgJzExNScgPT4gNiwKICAgICAgICAg
+ICc5MicgPT4gNSwKICAgICAgICAgICcxMDMnID0+IDUsCiAgICAgICAgICAnMjAxJyA9PiAyLAog
+ICAgICAgICAgJzIzMicgPT4gNCwKICAgICAgICAgICcxMCcgPT4gMywKICAgICAgICAgICcxMTMn
+ID0+IDYsCiAgICAgICAgICAnMTUyJyA9PiAyLAogICAgICAgICAgJzE4OScgPT4gNiwKICAgICAg
+ICAgICcyMjUnID0+IDMsCiAgICAgICAgICAnMjA3JyA9PiAyLAogICAgICAgICAgJzE0MicgPT4g
+NSwKICAgICAgICAgICc5MScgPT4gMSwKICAgICAgICAgICcxNjcnID0+IDUsCiAgICAgICAgICAn
+NDgnID0+IDYsCiAgICAgICAgICAnMTA3JyA9PiA0LAogICAgICAgICAgJzg3JyA9PiAzLAogICAg
+ICAgICAgJzc3JyA9PiAyLAogICAgICAgICAgJzE3NCcgPT4gNiwKICAgICAgICAgICcyMTQnID0+
+IDQsCiAgICAgICAgICAnMTMzJyA9PiA0LAogICAgICAgICAgJzE0OScgPT4gMywKICAgICAgICAg
+ICcxMjMnID0+IDQsCiAgICAgICAgICAnMjIxJyA9PiAyLAogICAgICAgICAgJzUwJyA9PiA3LAog
+ICAgICAgICAgJzM5JyA9PiAxLAogICAgICAgICAgJzIxMCcgPT4gMiwKICAgICAgICAgICc2NCcg
+PT4gMiwKICAgICAgICAgICc5NycgPT4gNSwKICAgICAgICAgICc0MScgPT4gNCwKICAgICAgICAg
+ICcxMicgPT4gNCwKICAgICAgICAgICc1MicgPT4gNCwKICAgICAgICAgICcxNzMnID0+IDEsCiAg
+ICAgICAgICAnNTYnID0+IDMsCiAgICAgICAgICAnMjI5JyA9PiAyLAogICAgICAgICAgJzY2JyA9
+PiA0LAogICAgICAgICAgJzQ1JyA9PiA2LAogICAgICAgICAgJzE5JyA9PiA0LAogICAgICAgICAg
+JzU0JyA9PiA0LAogICAgICAgICAgJzIzNycgPT4gMiwKICAgICAgICAgICc3MCcgPT4gNCwKICAg
+ICAgICAgICcxODgnID0+IDQsCiAgICAgICAgICAnNjgnID0+IDQsCiAgICAgICAgICAnMTY2JyA9
+PiAyLAogICAgICAgICAgJzEnID0+IDIsCiAgICAgICAgICAnMTM2JyA9PiA2LAogICAgICAgICAg
+JzExNicgPT4gOCwKICAgICAgICAgICc4OCcgPT4gMiwKICAgICAgICAgICczMCcgPT4gMiwKICAg
+ICAgICAgICcxNDEnID0+IDQsCiAgICAgICAgICAnMTQ0JyA9PiA1LAogICAgICAgICAgJzEwMCcg
+PT4gNCwKICAgICAgICAgICcyMjInID0+IDYsCiAgICAgICAgICAnMTI4JyA9PiAzLAogICAgICAg
+ICAgJzI1JyA9PiA1LAogICAgICAgICAgJzI1MicgPT4gMywKICAgICAgICAgICcyOCcgPT4gNSwK
+ICAgICAgICAgICcxMjAnID0+IDIsCiAgICAgICAgICAnNzUnID0+IDIsCiAgICAgICAgICAnODMn
+ID0+IDUsCiAgICAgICAgICAnNDAnID0+IDIsCiAgICAgICAgICAnMTM0JyA9PiA1LAogICAgICAg
+ICAgJzE1NicgPT4gNSwKICAgICAgICAgICcxOTInID0+IDYsCiAgICAgICAgICAnMjUwJyA9PiA4
+LAogICAgICAgICAgJzU5JyA9PiA3LAogICAgICAgICAgJzIxNScgPT4gNCwKICAgICAgICAgICcy
+NTQnID0+IDMsCiAgICAgICAgICAnMTc3JyA9PiAyLAogICAgICAgICAgJzE1MCcgPT4gMywKICAg
+ICAgICAgICcxMzAnID0+IDMsCiAgICAgICAgICAnMTU1JyA9PiA0LAogICAgICAgICAgJzUzJyA9
+PiA0LAogICAgICAgICAgJzIxNycgPT4gNiwKICAgICAgICAgICcyNDUnID0+IDQsCiAgICAgICAg
+ICAnMjM5JyA9PiA0LAogICAgICAgICAgJzEyMicgPT4gMSwKICAgICAgICAgICcxNDMnID0+IDYs
+CiAgICAgICAgICAnMjA1JyA9PiAyLAogICAgICAgICAgJzQyJyA9PiAzLAogICAgICAgICAgJzE1
+OCcgPT4gNSwKICAgICAgICAgICcyMicgPT4gNCwKICAgICAgICAgICc0NicgPT4gOSwKICAgICAg
+ICAgICcyMTknID0+IDUsCiAgICAgICAgICAnMTMnID0+IDIsCiAgICAgICAgICAnMTA1JyA9PiAz
+LAogICAgICAgICAgJzIzNScgPT4gOSwKICAgICAgICAgICc2JyA9PiAxLAogICAgICAgICAgJzg1
+JyA9PiA0LAogICAgICAgICAgJzE4NScgPT4gNSwKICAgICAgICAgICczJyA9PiA1LAogICAgICAg
+ICAgJzM2JyA9PiA1LAogICAgICAgICAgJzE4MycgPT4gNiwKICAgICAgICAgICc5NCcgPT4gNywK
+ICAgICAgICAgICcyMTMnID0+IDUsCiAgICAgICAgICAnMjQ4JyA9PiA1LAogICAgICAgICAgJzE0
+NicgPT4gNCwKICAgICAgICAgICcxMTEnID0+IDUsCiAgICAgICAgICAnOScgPT4gNiwKICAgICAg
+ICAgICczOCcgPT4gNSwKICAgICAgICAgICc0JyA9PiA2LAogICAgICAgICAgJzM0JyA9PiA5LAog
+ICAgICAgICAgJzEzMicgPT4gMywKICAgICAgICAgICcxNjknID0+IDcsCiAgICAgICAgICAnMTY0
+JyA9PiA2LAogICAgICAgICAgJzE5NicgPT4gNSwKICAgICAgICAgICcxNzEnID0+IDQsCiAgICAg
+ICAgICAnMjQyJyA9PiA1CiAgICAgICAgfTsK
+--------_425383F105F906134008_MULTIPART_MIXED_--
