@@ -1,33 +1,28 @@
-From: Donald Becker <becker@scyld.com>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: raw ipv6 broken in 2.4.19
-Date: Wed, 14 Aug 2002 08:15:47 -0400 (EDT)
+Date: Wed, 14 Aug 2002 17:13:21 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0208140812570.3936-100000@beohost.scyld.com>
-References: <200208132006.AAA21878@sex.inr.ac.ru>
+Message-ID: <200208141313.RAA23897@sex.inr.ac.ru>
+References: <Pine.LNX.4.44.0208140812570.3936-100000@beohost.scyld.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Martin Josefsson <gandalf@wlug.westbo.se>, <netdev@oss.sgi.com>
+Cc: gandalf@wlug.westbo.se, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200208132006.AAA21878@sex.inr.ac.ru>
+To: becker@scyld.com (Donald Becker)
+In-Reply-To: <Pine.LNX.4.44.0208140812570.3936-100000@beohost.scyld.com> from "Donald Becker" at Aug 14, 2 08:15:47 am
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Aug 2002 kuznet@ms2.inr.ac.ru wrote:
+Hello!
 
-> Actually, tulip is really different of another cards, this creature
-> generates badly aligned packets. F.e. it is possible a checksumming routine
-> folds some bytes beyond end of frame. :-) I have lots of verious tulips here,
-> but have never seen such a shit. :-)
+> I'm not certain what you mean by this: there are many NIC chips that have
+> alignment requirements similar to the Tulip design.
 
-I'm not certain what you mean by this: there are many NIC chips that have
-alignment requirements similar to the Tulip design.
+Comparing to _his_ ones.
 
-Note that the Tulip is no more likely than other cards to trigger
-motherboard PCI implementation bugs.  It's just that there are far more
-NIC chip types supported by the Tulip driver than other drivers.
 
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+> Note that the Tulip is no more likely than other cards to trigger
+> motherboard PCI implementation bugs.
+
+Donald, it was brain attack. When speaking about alignment we have
+already switched to investigation of our checksumming routines.
+
+Alexey
