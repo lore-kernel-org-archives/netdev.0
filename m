@@ -1,24 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@wide.ad.jp>
 Subject: Re: IPv6 went away?
-Date: Mon, 14 Mar 2005 15:01:51 -0800
-Message-ID: <20050314150151.0a2abda6.davem@davemloft.net>
+Date: Tue, 15 Mar 2005 08:10:33 +0900 (JST)
+Message-ID: <20050315.081033.106923337.yoshfuji@wide.ad.jp>
 References: <42361510.2080902@pobox.com>
+	<20050315.080325.14561230.yoshfuji@wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42361510.2080902@pobox.com>
+To: jgarzik@pobox.com
+In-Reply-To: <20050315.080325.14561230.yoshfuji@wide.ad.jp>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Mar 2005 17:49:52 -0500
-Jeff Garzik <jgarzik@pobox.com> wrote:
+In article <20050315.080325.14561230.yoshfuji@wide.ad.jp> (at Tue, 15 Mar 2005 08:03:25 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@wide.ad.jp> says:
 
-> Has anything major been done to ipv6 recently?
+> In article <42361510.2080902@pobox.com> (at Mon, 14 Mar 2005 17:49:52 -0500), Jeff Garzik <jgarzik@pobox.com> says:
+> 
+> > Has anything major been done to ipv6 recently?
+> 
+> I don't think so.
 
-Yes, it was changed with several updates from USAGI to
-make it pass the "ipv6 ready" requirements.  The
-experimental Kconfig tag was also removed, perhaps for this
-reason it was not included in your build?
+To clarify: I interpreted "recently" as "between bk9 and bk10."
+In that means, I don't think there're major changes.
+
+--yoshfuji
