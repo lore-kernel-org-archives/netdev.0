@@ -1,25 +1,35 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: asymmetry with MSG_DONTWAIT in sendmsg() and recvmsg()
-Date: Wed, 07 Jul 2004 09:42:06 -0400
+From: James Morris <jmorris@redhat.com>
+Subject: Re: pskb change in dst->output
+Date: Wed, 7 Jul 2004 10:58:21 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40EBFDAE.8070903@nortelnetworks.com>
+Message-ID: <Xine.LNX.4.44.0407071013080.26759-100000@thoron.boston.redhat.com>
+References: <20040707130652.GA26822@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040707130652.GA26822@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have a SOCK_STREAM PF_UNIX socket with no special options enabled using fcntl().
+On Wed, 7 Jul 2004, Herbert Xu wrote:
 
-The default with sendmsg() and recvmsg() is to block.
+> In doing so I'm wondering why you changed dst->output to take a
+> struct sk_buff ** from a struct sk_buff *.
 
-With sndmsg(), I can use the MSG_DONTWAIT flag to enable non-blocking operation 
-for that one call.
+This was because skb_checksum_help() was changed to potentially replace 
+the skb in the output path.
 
-How do I do the equivalent for recvmsg()?
+>  All of the dst->output functions already assumed that they have
+> exclusive access to the skb. This is justified because all callers to
+> dst_output() makes sure that the packet is neither shared nor cloned.
 
-Thanks,
+Cloned skbs are regularly passed to dst_output(), thus we need to use the 
+double pointer for skb_checksum_help() in case the skb is replaced.
 
-Chris
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
