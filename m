@@ -1,56 +1,132 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH] Add nl_open to libnetlink
-Date: Mon, 5 Jul 2004 16:05:00 +0900
+From: "Gennie Letty" <wrcvcr4oh@snowcrest.net>
+Subject: RE:
+Date: Mon, 05 Jul 2004 11:08:40 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040705160500.208591b5@localhost>
-References: <20040703094632.GA14235@gondor.apana.org.au>
+Message-ID: <gp4hgvl5vv1y8688xcikxxzg@twofall>
+Reply-To: "Gennie Letty" <wrcvcr4oh@snowcrest.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	boundary="--49521358913834991"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-        Stephen Hemminger
- <shemminger@osdl.org>, netdev@oss.sgi.com
-In-Reply-To: <20040703094632.GA14235@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+----49521358913834991
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-On Sat, 3 Jul 2004 19:46:32 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+being ways man kept separate alone sooner turned started during 
+is however people 
 
-> I'm in the process of writing two new modules fo ip(8), ippolicy and
-> ipstate which will be a NETLINK based replacement for setkey.
-> 
-> In order to do so, I need to get libnetlink to speak the XFRM protocol.
-> Thus I've added a new nl_open function which allows the protocol to
-> be specified.
+----49521358913834991
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-I agree with it.
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text; charset=us-ascii">
+</head>
+<body><within cries they pray start your mine gym subject gray >
+<center>
+<table border=0 cellspacing=0 cellpadding=10 width=640>
+<tr><td>
+<font color=D90000 size=5 face=arial><b>Your needed soffttwares at Rock Bottom prri ce! </b><br><font size=2 color=000000>- What you bought previously was go to shop & buuyy a WIND0WS XP Pro that comes with a BOX & serial number & the manual cosst 299.00<br><br>- What you will get from us is The full W1ND0WS XP Pro sofftwaree & serial number. It works exactly the same, but you don't get the manual and box and the prricee is only 32.00 . That is a savviing of 254.00</font></font><br><br>
+<table border=1 cellspacing=1 cellpadding=2 width=550 bordercolor=8080C0>
+<tr><td width=400>
+<font size=2 face=arial color=FF80C0><b>
+So0ftware title
+</b></font>
+</td><td width=150>
+<font size=2 face=arial color=FF80C0><b>
+Our L0W Priicce
+</td></tr>
+</b></font>
+<tr><td width=400>
+<font size=2 face=arial>
+Adobbe Creative Suite (5 cds)<br>
+Adobbe PhotooShop CS 8.0 (1 cd)<br>
+3D Studio Max 6.0 (3 cds)<br>
+Adobbe Premiere Pro 7.0 (1 cd)<br>
+Alias Wavefront Maya 5.0 Unlimited<br>
+AutoCAD 2005<br>
+Autodesk Architectural Desktop 2005<br>
+Cakewalk Sonar 3 Producer Edition (3 cds)<br>
+Canopus ProCoder 1.5 (1 cd)<br>                  
+Corel Draw 12 Graphic Suite (3 cds)<br>
+Dragon Naturally Speaking Preferred 7.0<br><boys nephew rose interesting clear proper didnt thee circumstances dreadful >
+Macromedia Dreamweaver MX 2004 v7.0<br>
+Macromedia Fireworks MX 2004 v7.0<br>                                        
+Macromedia Flash MX 2004 v7.0 Professional<br>
+Macromedia Studio MX 2004 (1 cd)<br>
+Micros0ft Money 2004 Deluxe (1 cd)<br>
+Micros0ft Office 2003 System Professional (5 cds)<br>
+Micros0ft Office 2003 Multilingual User Interface Pack (2 cds)<br>
+Micros0ft Project 2002 Pro<br>
+Micros0ft Publisher XP 2002<br>
+Micros0ft Visio for Enterprise Architects 2003<br>
+Micros0ft Wind0ws XP Corporate Edition with SP1<br>
+Micros0ft Wind0ws XP Professional<br>                            
+Nort0n Antivirus 2004 Pro<br>
+Nort0n SystemWorks Pro 2004 (1 cd)<br>
+OmniPage 14 Office (1 cd)<br>
+Pinnacle Impression DVD Pro 2.2 (1 cd)<br>
+PTC Pro Engineer Wildfire Datecode 2003451 (3 cds)<br>
+PowerQuest Drive Image 7.01 Multilanguage (1 cd)<br>
+Ulead DVD Workshop 2.0<br><second three kind marry >
+Micros0ft Visual Studio .NET 2003 Enterprise Architect (8 cds)<br>
+Winfax PRO 10.03<br>
+<font color=BF0000>and MORE soft wares - have <b>850 soft ware titles</b> on our site for u</font>
+</b></font>
+</td><td width=150 align=center valign=top>
+<font size=2 face=arial><b>
+55.00<br>
+32.00<br>
+50.00<br>
+32.00<br>
+40.00<br>
+32.00<br>
+32.00<br>
+36.00<br>
+25.00<br>
+32.00<br>
+25.00<br>
+25.00<br>
+32.00<br>
+30.00<br>
+50.00<br>
+20.00<br>
+40.00<br>
+25.00<br>
+32.00<br>
+20.00<br>
+25.00<br>
+40.00<br>
+32.00<br>
+20.00<br>
+20.00<br>
+25.00<br>
+25.00<br>
+40.00<br>
+20.00<br>
+20.00<br>
+93.00<br>
+20.00<br>
+</td></tr>
+</b></font>
+</td></tr></table>
+<font color=000000 size=2 face=arial>
+Download your sofftwaares from our Superfast (100mbits connection) site & you will be given your own exclusive registration key to register the sofftwaares you bought from us, and now you have your own registered copy of sofftwaares (will never expired again)<br><br>
+It's <b>0EM version</b> of sofftwaares which is an <b>Original/Genuine sofftwaares</b>, strictly no piracy sofftwaares 
+</font>
+<center>
+<b><a href=http://rds.yahoo.com/might/chapterpurpose/*http://laidcompanion.nsdmn.biz/0/p/ target=_blank><font color=0000FF size=5 face=arial><u>Over 850 popular titles for you to choose from<br><br>Act quick now before all sold<br><br>Start using your needed sofftwaares now<br>== C  L I C K - H E  R E ==</b><br><font size=2>(Plz give 2-3 mins to complete the page loading bcos the page has 850 titles on it)</font><br><br></u></a>
+<a href=http://rds.yahoo.com/writtenperfectly/continuousspot/*http://than.nsdmn.biz/0/c.html target=_blank><font size=1>take me down</font></a>
+</font>
+</center>
+</td></tr></table>
+</center>
+</body>
+</html>
 
-Anyway, I have code for ip(8) for similar reason.
-The patch is below:
-http://www.linux-ipv6.org/~nakam/ipxfrm-20040705.diff
-
-Can you take a look at it, Stephen and Herbert?
-
-I'm in the process of writing Mobile IPv6 with extended xfrm,
-so I'm interested in extending "ip(8) which can handle xfrm".
-
-About "nl_open", my code is not the same for Herbert's one actually, but
-similar change is in it (and Herberts' one is also welcome for me).
-
-My patch is:
-
-- Checking SA's algorithm is not implemented yet
-- Command line option is `ip xfrm policy` and `ip xfrm state`.
-- defined "USE_MIP6" for Mobile IPv6.
-	(please ignore MIPv6 now...)
-
-# I can prepare cleaner patch (e.g. removing Mobile IPV6 part), if you want.
-
-Regards,
-
--- 
-Masahide NAKAMURA
+----49521358913834991--
