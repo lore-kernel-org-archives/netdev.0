@@ -1,35 +1,50 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
-Date: Thu, 27 Nov 2003 17:33:20 +0900 (JST)
+From: Xose Vazquez Perez <xose@wanadoo.es>
+Subject: Level One LXT1001 GE chip
+Date: Wed, 26 Nov 2003 02:02:17 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031127.173320.19253188.yoshfuji@linux-ipv6.org>
-References: <1069920883.2476.1.camel@teapot.felipe-alfaro.com>
+Message-ID: <3FC3FB99.70700@wanadoo.es>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org,
-        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: felipe_alfaro@linuxmail.org
-In-Reply-To: <1069920883.2476.1.camel@teapot.felipe-alfaro.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <1069920883.2476.1.camel@teapot.felipe-alfaro.com> (at Thu, 27 Nov 2003 09:14:44 +0100), Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> says:
+hi,
 
-> Attached is a patch against 2.6.0-test11 to convert all strcpy() calls
-> to their corresponding strlcpy() for IPv6. Compiled and tested.
+Months ago I sent a question to netdev to know if SMC TigerCard 1000
+(SMC9462SX) was supported under LiNUX. Today I know that the answer
+is NO, officially. Maybe because it's little extended and it's an strange
+chip with only a few clone boards out there, smc dlink planex...
 
-I don't like this coding style.
+I got more info from FreeBSD:
 
-diff -uNr linux-2.6.0-test11.orig/net/ipv6/ip6_tunnel.c linux-2.6.0-test11/net/ipv6/ip6_tunnel.c
---- linux-2.6.0-test11.orig/net/ipv6/ip6_tunnel.c	2003-11-26 21:42:56.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv6/ip6_tunnel.c	2003-11-27 00:27:09.000000000 +0100
--	strcpy(t->parms.name, dev->name);
-+	strlcpy(t->parms.name, dev->name, IFNAMSIZ);
-                                          sizeof(t->parms.name)
+"The lge driver provides support for various NICs based on the Level 1
+LXT1001 NetCellerator gigabit ethernet controller chip, including the
+following:
 
-or something like that.
+o SMC TigerCard 1000 (SMC9462SX)
+o D-Link DGE-500SX
 
---yoshfuji
+These NICs are capable of 1000mbps speeds over fiber optic cable. The
+LXT1001 also supports a GMII port for use with 10/100/1000 copper PHYs,
+however there aren't currently any NICs on the market that use this fea-
+ture."
+
+Searching arround NET I found the LXT1001 Developer Manual:
+http://people.freebsd.org/~wpaul/Level1/LXT1001SRM.pdf
+and an unofficial LiNUX 2.4 driver, 2002/01/22, v 1.04.05, under an
+ugly URL:
+http://tsd.dlink.com.tw/info.nsf/80d023dbef05f90048256adf002a91be/ee44db010731cedb48256c9f00248656?OpenDocument
+
+'wpaul' looks like the official ethernet drivers writer for *BSD
+and he has _lot of NET manuals/docs_ under his $HOME:
+http://people.freebsd.org/~wpaul/
+
+If someone complains about this NIC, he/she already has information
+to write a better driver. I only use intel NICs ;-)
+
+-thanks for your time-
+--
+HTML mails are going to trash automagically
