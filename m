@@ -1,26 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: net-2.6.12
-Date: Sat, 5 Mar 2005 21:45:38 -0800
-Message-ID: <20050305214538.05dfc3cf.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [patch 1/3] fix buggy IEEE80211_CRYPT_* selects
+Date: Sun, 6 Mar 2005 20:09:36 +1100
+Message-ID: <20050306090936.GA31890@gondor.apana.org.au>
+References: <200503041237.j24Cbb69026470@shell0.pdx.osdl.net> <42289BDF.1080409@pobox.com> <20050304221014.GJ3327@stusta.de> <4228DF62.4000205@pobox.com> <20050304230718.GL3327@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, akpm@osdl.org, davem@davemloft.net,
+        netdev@oss.sgi.com
+To: Adrian Bunk <bunk@stusta.de>
+Content-Disposition: inline
+In-Reply-To: <20050304230718.GL3327@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Mar 05, 2005 at 12:07:18AM +0100, Adrian Bunk wrote:
+> 
+> The way kconfig currently works, you have to ensure that the 
+> dependencies of what you select are fulfilled.
 
-I just pushed all of that work to Linus, this tree is at:
+Yes Adrian's right.  In the other places where we select CRYPTO
+symbols, we always make sure that CRYPTO itself is selected.  See
+net/ipv4/Kconfig for example.
 
-	bk://kernel.bkbits.net/davem/net-2.6
-
-I'll start working on the backlog which has accumulated
-over the past few days starting tomorrow.  Today was
-mega-merge day since I have a bunch of VM layer API
-changes and Sparc64 bug fixes to push to Linus today
-as well.
-
-So, there is no need to resend any patches.  Either it's
-in the that tree I pushed to Linus, or I'll get to it
-tomorrow :-)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
