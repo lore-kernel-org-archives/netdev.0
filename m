@@ -1,8 +1,8 @@
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH 1/2 2.6] e100: fix NAPI race with watchdog
-Date: Wed, 22 Sep 2004 12:25:44 -0700 (PDT)
+Subject: [PATCH 2/2 2.6] e100: whitespace and DPRINTKS
+Date: Wed, 22 Sep 2004 12:27:44 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0409221217010.7544-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0409221226020.7544-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
@@ -11,61 +11,54 @@ To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-While polling in NAPI mode, we were occassionally getting interrupts 
-re-enabled by the watchdog trying to generate a software interrupt.  Fix 
-is to add a spinlock around that shared hardware register to allow a 
-read-modify-write operation.  This was nasty nasty.  I don't like the 
-spinlock in the hot path but i see no other way.  Comments are welcome.
-Updates the driver version as well.
+This is a short patch to add a couple of new DPRINTKS and fix some 
+whitespace issues.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
 --- netdev-2.6/drivers/net/e100.c	2004-09-21 13:54:33.000000000 -0700
-+++ /home/jbrandeb/netdev-2.6/drivers/net/e100.c.watchdog.patch	2004-09-22 11:49:05.000000000 -0700
-@@ -155,7 +155,7 @@
++++ /home/jbrandeb/netdev-2.6/drivers/net/e100.c.msg.patch	2004-09-22 11:55:01.000000000 -0700
+@@ -1305,6 +1305,7 @@ static int e100_xmit_frame(struct sk_buf
+ 	switch(err) {
+ 	case -ENOSPC:
+ 		/* We queued the skb, but now we're out of space. */
++		DPRINTK(TX_ERR, DEBUG, "No space for CB\n");
+ 		netif_stop_queue(netdev);
+ 		break;
+ 	case -ENOMEM:
+@@ -1469,7 +1470,7 @@ static inline int e100_rx_indicate(struc
  
- #define DRV_NAME		"e100"
- #define DRV_EXT		"-NAPI"
--#define DRV_VERSION		"3.1.4"DRV_EXT
-+#define DRV_VERSION		"3.1.4-k2"DRV_EXT
- #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
- #define DRV_COPYRIGHT		"Copyright(c) 1999-2004 Intel Corporation"
- #define PFX			DRV_NAME ": "
-@@ -575,13 +575,21 @@ static inline void e100_write_flush(stru
+ 	/* If data isn't ready, nothing to indicate */
+ 	if(unlikely(!(rfd_status & cb_complete)))
+-       		return -EAGAIN;
++		return -EAGAIN;
  
- static inline void e100_enable_irq(struct nic *nic)
- {
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&nic->cmd_lock, flags);
- 	writeb(irq_mask_none, &nic->csr->scb.cmd_hi);
-+	spin_unlock_irqrestore(&nic->cmd_lock, flags);
- 	e100_write_flush(nic);
+ 	/* Get actual data size */
+ 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
+@@ -1761,7 +1762,7 @@ static int e100_loopback_test(struct nic
+ 
+ 	if(memcmp(nic->rx_to_clean->skb->data + sizeof(struct rfd),
+ 	   skb->data, ETH_DATA_LEN))
+-       		err = -EAGAIN;
++		err = -EAGAIN;
+ 
+ err_loopback_none:
+ 	mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR, 0);
+@@ -1960,6 +1961,8 @@ static int e100_set_ringparam(struct net
+ 	rfds->count = min(rfds->count, rfds->max);
+ 	cbs->count = max(ring->tx_pending, cbs->min);
+ 	cbs->count = min(cbs->count, cbs->max);
++	DPRINTK(DRV, INFO, "Ring Param settings: rx: %d, tx %d\n",
++	        rfds->count, cbs->count);
+ 	if(netif_running(netdev))
+ 		e100_up(nic);
+ 
+@@ -2352,7 +2355,7 @@ static int __init e100_init_module(void)
+ 		printk(KERN_INFO PFX "%s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
+ 		printk(KERN_INFO PFX "%s\n", DRV_COPYRIGHT);
+ 	}
+-        return pci_module_init(&e100_driver);
++	return pci_module_init(&e100_driver);
  }
  
- static inline void e100_disable_irq(struct nic *nic)
- {
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&nic->cmd_lock, flags);
- 	writeb(irq_mask_all, &nic->csr->scb.cmd_hi);
-+	spin_unlock_irqrestore(&nic->cmd_lock, flags);
- 	e100_write_flush(nic);
- }
- 
-@@ -1254,8 +1262,13 @@ static void e100_watchdog(unsigned long 
- 	mii_check_link(&nic->mii);
- 
- 	/* Software generated interrupt to recover from (rare) Rx
--	 * allocation failure */
--	writeb(irq_sw_gen, &nic->csr->scb.cmd_hi);
-+	* allocation failure.
-+	* Unfortunately have to use a spinlock to not re-enable interrupts
-+	* accidentally, due to hardware that shares a register between the
-+	* interrupt mask bit and the SW Interrupt generation bit */
-+	spin_lock_irq(&nic->cmd_lock);
-+	writeb(readb(&nic->csr->scb.cmd_hi) | irq_sw_gen,&nic->csr->scb.cmd_hi);
-+	spin_unlock_irq(&nic->cmd_lock);
- 	e100_write_flush(nic);
- 
- 	e100_update_stats(nic);
+ static void __exit e100_cleanup_module(void)
