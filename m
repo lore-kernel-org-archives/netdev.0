@@ -1,29 +1,36 @@
-From: Arkadiusz Miskiewicz <arekm@pld-linux.org>
-Subject: 3c59x.c NAPI
-Date: Thu, 17 Jun 2004 01:06:39 +0200
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: ip6_tables warning (was: Re: Linux 2.4.27-pre6)
+Date: Thu, 17 Jun 2004 12:06:17 +0200 (MEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406170106.39586.arekm@pld-linux.org>
+Message-ID: <Pine.GSO.4.58.0406171139020.22919@waterleaf.sonytel.be>
+References: <20040616183343.GA9940@logos.cnet>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
+        "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040616183343.GA9940@logos.cnet>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Is anyone working on converting 3c59x.c driver to NAPI?
+This is not a new problem, but I never bothered to report it before:
 
-It seems that there was patch for 2.6 doing that conversion but it has no=
-t=20
-been merged
-http://www.spinics.net/lists/linux-net/msg08757.html (probably because it=
-=20
-doesn't look good).
+| ip6_tables.c: In function `tcp_match':
+| ip6_tables.c:1596: warning: implicit declaration of function `ipv6_skip_exthdr'
+It needs to include <net/ipv6.h> to kill the warning.
 
---=20
-Arkadiusz Mi=B6kiewicz     CS at FoE, Wroclaw University of Technology
-arekm.pld-linux.org, 1024/3DB19BBD, JID: arekm.jabber.org, PLD/Linux
+Sorry, no patch, since my development machine is offline.
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
