@@ -1,37 +1,65 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Thu, 16 Sep 2004 20:52:50 -0400
+From: Tim Gardner <timg@tpi.com>
+Subject: CBQ quits when HZ=1000
+Date: Thu, 16 Sep 2004 21:04:12 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414A3562.2090803@pobox.com>
-References: <005001c49c50$c06b9810$a010100a@S2IOtech.com>
+Message-ID: <1095390252.3932.38.camel@tim.rtg.net>
+Reply-To: timg@tpi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
-        rapuru.sriram@s2io.com
+Content-Type: multipart/mixed; boundary="=-vAEaIfk+1qDMsT9RzRZi"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@s2io.com
-In-Reply-To: <005001c49c50$c06b9810$a010100a@S2IOtech.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ravinandan Arakali wrote:
-> Jeff,
-> We tried it out with 2.6.7. Can you pls specify the kernel version
-> on which you tried and we will send a patch which works for that version.
-> We will also send a more detailed description of the changes along with
-> that.
 
+--=-vAEaIfk+1qDMsT9RzRZi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-Always diff against the latest version of the kernel.  You can find out 
-the latest version by going to http://www.kernel.org/  You'll typically 
-want the latest snapshot (preferably), or the latest pre-patch.
+I have a reasonably simple setup that shapes traffic to/from one address
+on a bridge. When HZ=100, everything works great. When HZ=1000, CBQ
+stops all traffic to this address forever as soon as throughput hits the
+CBQ limit, 1Mbit in this case. See attached rules. Has anyone else
+observed similar behavior?
 
-Standard patch submission format is described at 
-http://linux.yyz.us/patch-format.html and in 
-Documentation/SubmittingPatches.
+The kernel is 2.4.22 on an SC1100 (x86).
+PSCHED_CLOCK_SOURCE==PSCHED_JIFFIES
 
-When submitting a series of patches, it is normal patches to depend on 
-preceding patches.
+rtg
+-- 
+timg@tpi.com http://www.tpi.com
+406-443-5357(MT) 503-601-0234(OR)
 
-	Jeff
+--=-vAEaIfk+1qDMsT9RzRZi
+Content-Disposition: attachment; filename=cbqsetup
+Content-Type: text/x-sh; name=cbqsetup; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+#!/bin/sh
+#
+tc qdisc del dev eth0 root > /dev/null 2>&1
+tc qdisc del dev eth1 root > /dev/null 2>&1
+tc qdisc del dev eth0 ingress > /dev/null 2>&1
+tc qdisc del dev eth1 ingress > /dev/null 2>&1
+# ===============================
+#download ********************************************************************
+tc qdisc add dev eth0 root handle 1:0 cbq bandwidth 100Mbit avpkt 1024 cell 8 mpu 64
+tc class add dev eth0 parent 1:0 classid 1:10 cbq bandwidth 100Mbit rate 100Mbit isolated weight 1Mbit prio 5 allot 1514 cell 8 maxburst 100 avpkt 1024 bounded mpu 64 minburst 2 minidle 20
+# ===============================
+tc qdisc add dev eth0 parent 1:10 handle 10: sfq perturb 5
+# Client 1 Download **********************************************************
+tc class add dev eth0 parent 1:10 classid 1:101 cbq bandwidth 100Mbit bounded isolated rate 1024Kbit weight 102Kbit prio 5 allot 1522 cell 8 maxburst 102 avpkt 1024 mpu 64 minburst 10 minidle 51
+tc qdisc add dev eth0 parent 1:101 handle 101: sfq perturb 5
+tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 match ip dst 10.0.2.4 flowid 1:101
+# ===============================
+#upload **********************************************************************
+tc qdisc add dev eth1 root handle 1:0 cbq bandwidth 7Mbit avpkt 1024 cell 8 mpu 64
+tc class add dev eth1 parent 1:0 classid 1:10 cbq bandwidth 7Mbit rate 7Mbit isolated weight 0.7Mbit prio 5 allot 1514 cell 8 maxburst 100 avpkt 1024 bounded mpu 64 minburst 2 minidle 20
+# ===============================
+tc qdisc add dev eth1 parent 1:10 handle 10: sfq perturb 5
+# Client 1 Upload ************************************************************
+tc class add dev eth1 parent 1:10 classid 1:101 cbq bandwidth 7Mbit bounded isolated rate 1024Kbit weight 102Kbit prio 5 allot 1522 cell 8 maxburst 102 avpkt 1024 mpu 64 minburst 10 minidle 51
+tc qdisc add dev eth1 parent 1:101 handle 101: sfq perturb 5
+tc filter add dev eth1 parent 1:0 protocol ip prio 1 u32 match ip src 10.0.2.4 flowid 1:101
+
+--=-vAEaIfk+1qDMsT9RzRZi--
