@@ -1,422 +1,373 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: [PATCH 2.6.10-rc2] forcedeth: add ethtool get/set_settings support
-Date: Fri, 19 Nov 2004 19:13:15 +0100 (CET)
-Message-ID: <Pine.LNX.4.44.0411191906280.32505-100000@dbl.q-ag.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] (23/25) sk98: eliminate Pnmi scratchpad
+Date: Fri, 19 Nov 2004 10:43:31 -0800
+Message-ID: <20041119104331.70a45312@zqx3.pdx.osdl.net>
+References: <20041115155832.264aa86f@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Mirko Lindner <demon@pro-linux.de>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+In-Reply-To: <20041115155832.264aa86f@zqx3.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+(Resend to deal with line wrap and other issues)
+Get rid of 44K of space in the driver structure which was just
+being used as a scratch pad when making the calls to read stats.
+PnmiStruct can just be kmalloc'd/kfree in those cases.
 
-The patch adds ethtool get_ and set_settings support to the forcedeth nic
-driver. This allows to force a certain link speed with ethtool -s.
+PNMI initialization can be done in one place using existing
+macro's for consitency
 
-Supported link speeds: 10 HD&FD, 100 HD&FD, 1000 FD
+Don't need to cast and mask when converting u64 to u32.
 
-1000 HD is not supported (probably a hardware restriction), 1000 FD is
-only supported with autonegotiation enabled.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Changelog:
-- Code reorganization: move ethtool functions further down in forcedeth.c
-  (no code changes within the existing ethtool functions)
-- add support for setting the link setting bits in the nic with
-autodetection in the PHY disabled (i.e. use a netdev_priv() variable
-instead of querying the PHY)
-- implement get_settings and set_settings ethtool functions.
-
-Signed-Off-By: Manfred Spraul <manfred@colorfullife.com>
-
-// Kernel Version:
-//  VERSION = 2
-//  PATCHLEVEL = 6
-//  SUBLEVEL = 10
-//  EXTRAVERSION =-rc1
---- 2.6/drivers/net/forcedeth.c	2004-11-14 14:50:21.000000000 +0100
-+++ build-2.6/drivers/net/forcedeth.c	2004-11-17 05:55:13.440930446 +0100
-@@ -79,6 +79,8 @@
-  *	0.30: 25 Sep 2004: rx checksum support for nf 250 Gb. Add rx reset
-  *			   into nv_close, otherwise reenabling for wol can
-  *			   cause DMA to kfree'd memory.
-+ *	0.31: 14 Nov 2004: ethtool support for getting/setting link
-+ *	                   capabilities.
-  *
-  * Known bugs:
-  * We suspect that on some hardware no TX done interrupts are generated.
-@@ -90,7 +92,7 @@
-  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
-  * superfluous timer interrupts from the nic.
-  */
--#define FORCEDETH_VERSION		"0.30"
-+#define FORCEDETH_VERSION		"0.31"
- #define DRV_NAME			"forcedeth"
-
- #include <linux/module.h>
-@@ -210,6 +212,7 @@ enum {
- #define NVREG_LINKSPEED_10	1000
- #define NVREG_LINKSPEED_100	100
- #define NVREG_LINKSPEED_1000	50
-+#define NVREG_LINKSPEED_MASK	(0xFFF)
- 	NvRegUnknownSetupReg5 = 0x130,
- #define NVREG_UNKSETUP5_BIT31	(1<<31)
- 	NvRegUnknownSetupReg3 = 0x13c,
-@@ -441,6 +444,8 @@ struct fe_priv {
- 	int in_shutdown;
- 	u32 linkspeed;
- 	int duplex;
-+	int autoneg;
-+	int fixed_mode;
- 	int phyaddr;
- 	int wolenabled;
- 	unsigned int phy_oui;
-@@ -765,50 +770,6 @@ static struct net_device_stats *nv_get_s
- 	return &np->stats;
- }
-
--static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
--{
--	struct fe_priv *np = get_nvpriv(dev);
--	strcpy(info->driver, "forcedeth");
--	strcpy(info->version, FORCEDETH_VERSION);
--	strcpy(info->bus_info, pci_name(np->pci_dev));
--}
--
--static void nv_get_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
--{
--	struct fe_priv *np = get_nvpriv(dev);
--	wolinfo->supported = WAKE_MAGIC;
--
--	spin_lock_irq(&np->lock);
--	if (np->wolenabled)
--		wolinfo->wolopts = WAKE_MAGIC;
--	spin_unlock_irq(&np->lock);
--}
--
--static int nv_set_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
--{
--	struct fe_priv *np = get_nvpriv(dev);
--	u8 __iomem *base = get_hwbase(dev);
--
--	spin_lock_irq(&np->lock);
--	if (wolinfo->wolopts == 0) {
--		writel(0, base + NvRegWakeUpFlags);
--		np->wolenabled = 0;
--	}
--	if (wolinfo->wolopts & WAKE_MAGIC) {
--		writel(NVREG_WAKEUPFLAGS_ENABLE, base + NvRegWakeUpFlags);
--		np->wolenabled = 1;
--	}
--	spin_unlock_irq(&np->lock);
--	return 0;
--}
--
--static struct ethtool_ops ops = {
--	.get_drvinfo = nv_get_drvinfo,
--	.get_link = ethtool_op_get_link,
--	.get_wol = nv_get_wol,
--	.set_wol = nv_set_wol,
--};
--
- /*
-  * nv_alloc_rx: fill rx ring entries.
-  * Return 1 if the allocations for the skbs failed and the
-@@ -1286,6 +1247,25 @@ static int nv_update_linkspeed(struct ne
- 		goto set_speed;
- 	}
-
-+	if (np->autoneg == 0) {
-+		dprintk(KERN_DEBUG "%s: nv_update_linkspeed: autoneg off, PHY set to 0x%04x.\n",
-+				dev->name, np->fixed_mode);
-+		if (np->fixed_mode & LPA_100FULL) {
-+			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_100;
-+			newdup = 1;
-+		} else if (np->fixed_mode & LPA_100HALF) {
-+			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_100;
-+			newdup = 0;
-+		} else if (np->fixed_mode & LPA_10FULL) {
-+			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
-+			newdup = 1;
-+		} else {
-+			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
-+			newdup = 0;
-+		}
-+		retval = 1;
-+		goto set_speed;
-+	}
- 	/* check auto negotiation is complete */
- 	if (!(mii_status & BMSR_ANEGCOMPLETE)) {
- 		/* still in autonegotiation - configure nic for 10 MBit HD and wait. */
-@@ -1303,7 +1283,7 @@ static int nv_update_linkspeed(struct ne
-
- 		if ((control_1000 & ADVERTISE_1000FULL) &&
- 			(status_1000 & LPA_1000FULL)) {
--		dprintk(KERN_DEBUG "%s: nv_update_linkspeed: GBit ethernet detected.\n",
-+			dprintk(KERN_DEBUG "%s: nv_update_linkspeed: GBit ethernet detected.\n",
- 				dev->name);
- 			newls = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_1000;
- 			newdup = 1;
-@@ -1362,9 +1342,9 @@ set_speed:
- 	phyreg &= ~(PHY_HALF|PHY_100|PHY_1000);
- 	if (np->duplex == 0)
- 		phyreg |= PHY_HALF;
--	if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_100)
-+	if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_100)
- 		phyreg |= PHY_100;
--	else if ((np->linkspeed & 0xFFF) == NVREG_LINKSPEED_1000)
-+	else if ((np->linkspeed & NVREG_LINKSPEED_MASK) == NVREG_LINKSPEED_1000)
- 		phyreg |= PHY_1000;
- 	writel(phyreg, base + NvRegPhyInterface);
-
-@@ -1500,6 +1480,227 @@ static void nv_do_nic_poll(unsigned long
- 	enable_irq(dev->irq);
- }
-
-+static void nv_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
-+{
-+	struct fe_priv *np = get_nvpriv(dev);
-+	strcpy(info->driver, "forcedeth");
-+	strcpy(info->version, FORCEDETH_VERSION);
-+	strcpy(info->bus_info, pci_name(np->pci_dev));
-+}
+diff -Nru a/drivers/net/sk98lin/h/skdrv2nd.h b/drivers/net/sk98lin/h/skdrv2nd.h
+--- a/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-19 10:38:39 -08:00
++++ b/drivers/net/sk98lin/h/skdrv2nd.h	2004-11-19 10:38:39 -08:00
+@@ -404,9 +404,9 @@
+ 	spinlock_t	SlowPathLock;	/* Normal IRQ lock */
+ 	struct timer_list BlinkTimer;	/* for LED blinking */
+ 	int		LedsOn;
+-	SK_PNMI_STRUCT_DATA PnmiStruct;	/* structure to get all Pnmi-Data */
+-	int			RlmtMode;	/* link check mode to set */
+-	int			RlmtNets;	/* Number of nets */
 +
-+static void nv_get_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
-+{
-+	struct fe_priv *np = get_nvpriv(dev);
-+	wolinfo->supported = WAKE_MAGIC;
-+
-+	spin_lock_irq(&np->lock);
-+	if (np->wolenabled)
-+		wolinfo->wolopts = WAKE_MAGIC;
-+	spin_unlock_irq(&np->lock);
-+}
-+
-+static int nv_set_wol(struct net_device *dev, struct ethtool_wolinfo *wolinfo)
-+{
-+	struct fe_priv *np = get_nvpriv(dev);
-+	u8 __iomem *base = get_hwbase(dev);
-+
-+	spin_lock_irq(&np->lock);
-+	if (wolinfo->wolopts == 0) {
-+		writel(0, base + NvRegWakeUpFlags);
-+		np->wolenabled = 0;
-+	}
-+	if (wolinfo->wolopts & WAKE_MAGIC) {
-+		writel(NVREG_WAKEUPFLAGS_ENABLE, base + NvRegWakeUpFlags);
-+		np->wolenabled = 1;
-+	}
-+	spin_unlock_irq(&np->lock);
-+	return 0;
-+}
-+
-+static int nv_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+{
-+	struct fe_priv *np = netdev_priv(dev);
-+	int adv;
-+
-+	spin_lock_irq(&np->lock);
-+	ecmd->port = PORT_MII;
-+	if (!netif_running(dev)) {
-+		/* We do not track link speed / duplex setting if the
-+		 * interface is disabled. Force a link check */
-+		nv_update_linkspeed(dev);
-+	}
-+	switch(np->linkspeed & (NVREG_LINKSPEED_MASK)) {
-+		case NVREG_LINKSPEED_10:
-+			ecmd->speed = SPEED_10;
-+			break;
-+		case NVREG_LINKSPEED_100:
-+			ecmd->speed = SPEED_100;
-+			break;
-+		case NVREG_LINKSPEED_1000:
-+			ecmd->speed = SPEED_1000;
-+			break;
-+	}
-+	ecmd->duplex = DUPLEX_HALF;
-+	if (np->duplex)
-+		ecmd->duplex = DUPLEX_FULL;
-+
-+	ecmd->autoneg = np->autoneg;
-+
-+	ecmd->advertising = ADVERTISED_MII;
-+	if (np->autoneg) {
-+		ecmd->advertising |= ADVERTISED_Autoneg;
-+		adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
-+	} else {
-+		adv = np->fixed_mode;
-+	}
-+	if (adv & ADVERTISE_10HALF)
-+		ecmd->advertising |= ADVERTISED_10baseT_Half;
-+	if (adv & ADVERTISE_10FULL)
-+		ecmd->advertising |= ADVERTISED_10baseT_Full;
-+	if (adv & ADVERTISE_100HALF)
-+		ecmd->advertising |= ADVERTISED_100baseT_Half;
-+	if (adv & ADVERTISE_100FULL)
-+		ecmd->advertising |= ADVERTISED_100baseT_Full;
-+	if (np->autoneg && np->gigabit == PHY_GIGABIT) {
-+		adv = mii_rw(dev, np->phyaddr, MII_1000BT_CR, MII_READ);
-+		if (adv & ADVERTISE_1000FULL)
-+			ecmd->advertising |= ADVERTISED_1000baseT_Full;
-+	}
-+
-+	ecmd->supported = (SUPPORTED_Autoneg |
-+		SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
-+		SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
-+		SUPPORTED_MII);
-+	if (np->gigabit == PHY_GIGABIT)
-+		ecmd->supported |= SUPPORTED_1000baseT_Full;
-+
-+	ecmd->phy_address = np->phyaddr;
-+	ecmd->transceiver = XCVR_EXTERNAL;
-+
-+	/* ignore maxtxpkt, maxrxpkt for now */
-+	spin_unlock_irq(&np->lock);
-+	return 0;
-+}
-+
-+static int nv_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+{
-+	struct fe_priv *np = netdev_priv(dev);
-+
-+	if (ecmd->port != PORT_MII)
-+		return -EINVAL;
-+	if (ecmd->transceiver != XCVR_EXTERNAL)
-+		return -EINVAL;
-+	if (ecmd->phy_address != np->phyaddr) {
-+		/* TODO: support switching between multiple phys. Should be
-+		 * trivial, but not enabled due to lack of test hardware. */
-+		return -EINVAL;
-+	}
-+	if (ecmd->autoneg == AUTONEG_ENABLE) {
-+		u32 mask;
-+
-+		mask = ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
-+			  ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full;
-+		if (np->gigabit == PHY_GIGABIT)
-+			mask |= ADVERTISED_1000baseT_Full;
-+
-+		if ((ecmd->advertising & mask) == 0)
-+			return -EINVAL;
-+
-+	} else if (ecmd->autoneg == AUTONEG_DISABLE) {
-+		/* Note: autonegotiation disable, speed 1000 intentionally
-+		 * forbidden - noone should need that. */
-+
-+		if (ecmd->speed != SPEED_10 && ecmd->speed != SPEED_100)
-+			return -EINVAL;
-+		if (ecmd->duplex != DUPLEX_HALF && ecmd->duplex != DUPLEX_FULL)
-+			return -EINVAL;
-+	} else {
-+		return -EINVAL;
-+	}
-+
-+	spin_lock_irq(&np->lock);
-+	if (ecmd->autoneg == AUTONEG_ENABLE) {
-+		int adv, bmcr;
-+
-+		np->autoneg = 1;
-+
-+		/* advertise only what has been requested */
-+		adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
-+		adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
-+		if (ecmd->advertising & ADVERTISED_10baseT_Half)
-+			adv |= ADVERTISE_10HALF;
-+		if (ecmd->advertising & ADVERTISED_10baseT_Full)
-+			adv |= ADVERTISE_10FULL;
-+		if (ecmd->advertising & ADVERTISED_100baseT_Half)
-+			adv |= ADVERTISE_100HALF;
-+		if (ecmd->advertising & ADVERTISED_100baseT_Full)
-+			adv |= ADVERTISE_100FULL;
-+		mii_rw(dev, np->phyaddr, MII_ADVERTISE, adv);
-+
-+		if (np->gigabit == PHY_GIGABIT) {
-+			adv = mii_rw(dev, np->phyaddr, MII_1000BT_CR, MII_READ);
-+			adv &= ~ADVERTISE_1000FULL;
-+			if (ecmd->advertising & ADVERTISED_1000baseT_Full)
-+				adv |= ADVERTISE_1000FULL;
-+			mii_rw(dev, np->phyaddr, MII_1000BT_CR, adv);
-+		}
-+
-+		bmcr = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
-+		bmcr |= (BMCR_ANENABLE | BMCR_ANRESTART);
-+		mii_rw(dev, np->phyaddr, MII_BMCR, bmcr);
-+
-+	} else {
-+		int adv, bmcr;
-+
-+		np->autoneg = 0;
-+
-+		adv = mii_rw(dev, np->phyaddr, MII_ADVERTISE, MII_READ);
-+		adv &= ~(ADVERTISE_ALL | ADVERTISE_100BASE4);
-+		if (ecmd->speed == SPEED_10 && ecmd->duplex == DUPLEX_HALF)
-+			adv |= ADVERTISE_10HALF;
-+		if (ecmd->speed == SPEED_10 && ecmd->duplex == DUPLEX_FULL)
-+			adv |= ADVERTISE_10FULL;
-+		if (ecmd->speed == SPEED_100 && ecmd->duplex == DUPLEX_HALF)
-+			adv |= ADVERTISE_100HALF;
-+		if (ecmd->speed == SPEED_100 && ecmd->duplex == DUPLEX_FULL)
-+			adv |= ADVERTISE_100FULL;
-+		mii_rw(dev, np->phyaddr, MII_ADVERTISE, adv);
-+		np->fixed_mode = adv;
-+
-+		if (np->gigabit == PHY_GIGABIT) {
-+			adv = mii_rw(dev, np->phyaddr, MII_1000BT_CR, MII_READ);
-+			adv &= ~ADVERTISE_1000FULL;
-+			mii_rw(dev, np->phyaddr, MII_1000BT_CR, adv);
-+		}
-+
-+		bmcr = mii_rw(dev, np->phyaddr, MII_BMCR, MII_READ);
-+		bmcr |= ~(BMCR_ANENABLE|BMCR_SPEED100|BMCR_FULLDPLX);
-+		if (adv & (ADVERTISE_10FULL|ADVERTISE_100FULL))
-+			bmcr |= BMCR_FULLDPLX;
-+		if (adv & (ADVERTISE_100HALF|ADVERTISE_100FULL))
-+			bmcr |= BMCR_SPEED100;
-+		mii_rw(dev, np->phyaddr, MII_BMCR, bmcr);
-+
-+		if (netif_running(dev)) {
-+			/* Wait a bit and then reconfigure the nic. */
-+			udelay(10);
-+			nv_linkchange(dev);
-+		}
-+	}
-+	spin_unlock_irq(&np->lock);
-+
-+	return 0;
-+}
-+
-+static struct ethtool_ops ops = {
-+	.get_drvinfo = nv_get_drvinfo,
-+	.get_link = ethtool_op_get_link,
-+	.get_wol = nv_get_wol,
-+	.set_wol = nv_set_wol,
-+	.get_settings = nv_get_settings,
-+	.set_settings = nv_set_settings,
-+};
-+
- static int nv_open(struct net_device *dev)
++	int		RlmtMode;	/* link check mode to set */
++	int		RlmtNets;	/* Number of nets */
+ 	
+ 	SK_IOC		IoBase;		/* register set of adapter */
+ 	int		BoardLevel;	/* level of active hw init (0-2) */
+@@ -445,7 +445,6 @@
+ #ifdef SK_DIAG_SUPPORT
+ 	SK_U32		DiagModeActive;		/* is diag active?	*/
+ 	SK_BOOL		DiagFlowCtrl;		/* for control purposes	*/
+-	SK_PNMI_STRUCT_DATA PnmiBackup;		/* backup structure for all Pnmi-Data */
+ 	SK_BOOL         WasIfUp[SK_MAX_MACS];   /* for OpenClose while 
+ 						 * DIAG is busy with NIC 
+ 						 */
+diff -Nru a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
+--- a/drivers/net/sk98lin/skethtool.c	2004-11-19 10:38:39 -08:00
++++ b/drivers/net/sk98lin/skethtool.c	2004-11-19 10:38:39 -08:00
+@@ -261,9 +261,26 @@
+ static void sk98_get_ethstats(struct net_device *dev,
+ 			    struct ethtool_stats *stats, u64 *data)
  {
- 	struct fe_priv *np = get_nvpriv(dev);
-@@ -1550,9 +1751,6 @@ static int nv_open(struct net_device *de
- 		base + NvRegRingSizes);
-
- 	/* 5) continue setup */
--	np->linkspeed = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
--	np->duplex = 0;
--
- 	writel(np->linkspeed, base + NvRegLinkSpeed);
- 	writel(NVREG_UNKSETUP3_VAL1, base + NvRegUnknownSetupReg3);
- 	writel(np->desc_ver, base + NvRegTxRxControl);
-@@ -1866,6 +2064,11 @@ static int __devinit nv_probe(struct pci
- 		phy_init(dev);
- 	}
-
-+	/* set default link speed settings */
-+	np->linkspeed = NVREG_LINKSPEED_FORCE|NVREG_LINKSPEED_10;
-+	np->duplex = 0;
-+	np->autoneg = 1;
+-	const DEV_NET	*pNet = netdev_priv(dev);
+-	const SK_AC *pAC = pNet->pAC;
+-	const SK_PNMI_STRUCT_DATA *pPnmiStruct = &pAC->PnmiStruct;
++	DEV_NET	*pNet = netdev_priv(dev);
++	SK_AC *pAC = pNet->pAC;
++	unsigned long flags;
++	unsigned int size;
++	int err;
++	SK_PNMI_STRUCT_DATA *pPnmiStruct;
 +
- 	err = register_netdev(dev);
- 	if (err) {
- 		printk(KERN_INFO "forcedeth: unable to register netdev: %d\n", err);
++
++	pPnmiStruct = kmalloc(sizeof(*pPnmiStruct), GFP_KERNEL);
++	if (!pPnmiStruct)
++		return;
++
++	memset(pPnmiStruct, 0, sizeof(*pPnmiStruct));
++	size = sizeof(*pPnmiStruct);
++	spin_lock_irqsave(&pAC->SlowPathLock, flags);
++	err = SkPnmiGetStruct(pAC, pAC->IoBase, pPnmiStruct, &size, pNet->NetNr);
++	spin_unlock_irqrestore(&pAC->SlowPathLock, flags);
++
++	if (err)
++		return;
+ 
+ 	*data++ = pPnmiStruct->Stat[0].StatRxOkCts;
+ 	*data++ = pPnmiStruct->Stat[0].StatTxOkCts;
+diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+--- a/drivers/net/sk98lin/skge.c	2004-11-19 10:38:39 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-19 10:38:39 -08:00
+@@ -205,7 +205,7 @@
+ static void	ClearTxRing(SK_AC*, TX_PORT*);
+ static int	SkGeChangeMtu(struct net_device *dev, int new_mtu);
+ static void	PortReInitBmu(SK_AC*, int);
+-static int	SkGeIocMib(DEV_NET*, unsigned int, int);
++static unsigned int SkGeIocMib(DEV_NET*, SK_PNMI_STRUCT_DATA *,unsigned int, int);
+ static int	SkGeInitPCI(SK_AC *pAC);
+ static void	StartDrvCleanupTimer(SK_AC *pAC);
+ static void	StopDrvCleanupTimer(SK_AC *pAC);
+@@ -1356,10 +1356,6 @@
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+ 		("SkGeClose: done "));
+ 
+-	SK_MEMSET(&(pAC->PnmiBackup), 0, sizeof(SK_PNMI_STRUCT_DATA));
+-	SK_MEMCPY(&(pAC->PnmiBackup), &(pAC->PnmiStruct), 
+-			sizeof(SK_PNMI_STRUCT_DATA));
+-
+ 	pAC->MaxPorts--;
+ 
+ 	return (0);
+@@ -2736,13 +2732,18 @@
+ SK_AC	*pAC = pNet->pAC;
+ SK_PNMI_STRUCT_DATA *pPnmiStruct;       /* structure for all Pnmi-Data */
+ SK_PNMI_STAT    *pPnmiStat;             /* pointer to virtual XMAC stat. data */
+-SK_PNMI_CONF    *pPnmiConf;             /* pointer to virtual link config. */
+ unsigned int    Size;                   /* size of pnmi struct */
+ unsigned long	Flags;			/* for spin lock */
+ 
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+ 		("SkGeStats starts now...\n"));
+-	pPnmiStruct = &pAC->PnmiStruct;
++
++ 	pPnmiStruct = kmalloc(sizeof(*pPnmiStruct), GFP_ATOMIC);
++ 	if (!pPnmiStruct)
++ 		goto out;
++ 
++ 	memset(pPnmiStruct, 0, sizeof(*pPnmiStruct));
++	Size = sizeof(*pPnmiStruct);
+ 
+ #ifdef SK_DIAG_SUPPORT
+         if ((pAC->DiagModeActive == DIAG_NOTACTIVE) &&
+@@ -2758,7 +2759,6 @@
+ #endif
+ 
+         pPnmiStat = &pPnmiStruct->Stat[0];
+-        pPnmiConf = &pPnmiStruct->Conf[0];
+ 
+ 	pAC->stats.rx_packets = (SK_U32) pPnmiStruct->RxDeliveredCts & 0xFFFFFFFF;
+ 	pAC->stats.tx_packets = (SK_U32) pPnmiStat->StatTxOkCts & 0xFFFFFFFF;
+@@ -2797,7 +2797,9 @@
+ 	pAC->stats.tx_heartbeat_errors = (SK_U32) pPnmiStat->StatTxCarrierCts & 0xFFFFFFFF;
+ 	pAC->stats.tx_window_errors = (SK_U32) 0;
+ 
+-	return(&pAC->stats);
++	kfree(pPnmiStruct);
++  out:
++	return &pAC->stats;
+ } /* SkGeStats */
+ 
+ 
+@@ -2821,9 +2823,7 @@
+ void		*pMemBuf;
+ struct pci_dev  *pdev = NULL;
+ SK_GE_IOCTL	Ioctl;
+-unsigned int	Err = 0;
+-int		Size = 0;
+-int             Ret = 0;
++int		Err = 0;
+ unsigned int	Length = 0;
+ int		HeaderLength = sizeof(SK_U32) + sizeof(SK_U32);
+ 
+@@ -2842,27 +2842,35 @@
+ 	case SK_IOCTL_PRESETMIB:
+ 		if (!capable(CAP_NET_ADMIN)) return -EPERM;
+  	case SK_IOCTL_GETMIB:
+-		if(copy_from_user(&pAC->PnmiStruct, Ioctl.pData,
+-			Ioctl.Len<sizeof(pAC->PnmiStruct)?
+-			Ioctl.Len : sizeof(pAC->PnmiStruct))) {
+-			return -EFAULT;
+-		}
+-		Size = SkGeIocMib(pNet, Ioctl.Len, cmd);
+-		if(copy_to_user(Ioctl.pData, &pAC->PnmiStruct,
+-			Ioctl.Len<Size? Ioctl.Len : Size)) {
+-			return -EFAULT;
+-		}
+-		Ioctl.Len = Size;
+-		if(copy_to_user(rq->ifr_data, &Ioctl, sizeof(SK_GE_IOCTL))) {
++	{
++		SK_PNMI_STRUCT_DATA *pPnmiStruct;
++
++		pPnmiStruct = kmalloc(sizeof(*pPnmiStruct), GFP_KERNEL);
++		if (!pPnmiStruct)
++			return -ENOMEM;
++
++		memset(pPnmiStruct, 0, sizeof(*pPnmiStruct));
++
++		if (copy_from_user(pPnmiStruct, Ioctl.pData, 
++				   min(sizeof(*pPnmiStruct), Ioctl.Len)))
+ 			return -EFAULT;
++
++		Length = SkGeIocMib(pNet, pPnmiStruct, Ioctl.Len, cmd);
++		if (copy_to_user(Ioctl.pData, pPnmiStruct, 
++				 min(Length, Ioctl.Len)))
++			Err = -EFAULT;
++		else {
++			Ioctl.Len = Length;
++			if (copy_to_user(rq->ifr_data, &Ioctl, 
++					 sizeof(SK_GE_IOCTL))) 
++				Err = -EFAULT;
+ 		}
++		kfree(pPnmiStruct);
+ 		break;
++	}
+ 	case SK_IOCTL_GEN:
+-		if (Ioctl.Len < (sizeof(pAC->PnmiStruct) + HeaderLength)) {
+-			Length = Ioctl.Len;
+-		} else {
+-			Length = sizeof(pAC->PnmiStruct) + HeaderLength;
+-		}
++		Length = min(Ioctl.Len, SK_PNMI_STRUCT_SIZE + HeaderLength);
++
+ 		if (NULL == (pMemBuf = kmalloc(Length, GFP_KERNEL))) {
+ 			return -ENOMEM;
+ 		}
+@@ -2870,16 +2878,16 @@
+ 			Err = -EFAULT;
+ 			goto fault_gen;
+ 		}
+-		if ((Ret = SkPnmiGenIoctl(pAC, pAC->IoBase, pMemBuf, &Length, 0)) < 0) {
++		if ((Err = SkPnmiGenIoctl(pAC, pAC->IoBase, pMemBuf, &Length, 0)) < 0) {
+ 			Err = -EFAULT;
+ 			goto fault_gen;
+ 		}
+-		if(copy_to_user(Ioctl.pData, pMemBuf, Length) ) {
++		if (copy_to_user(Ioctl.pData, pMemBuf, Length) ) {
+ 			Err = -EFAULT;
+ 			goto fault_gen;
+ 		}
+ 		Ioctl.Len = Length;
+-		if(copy_to_user(rq->ifr_data, &Ioctl, sizeof(SK_GE_IOCTL))) {
++		if (copy_to_user(rq->ifr_data, &Ioctl, sizeof(SK_GE_IOCTL))) {
+ 			Err = -EFAULT;
+ 			goto fault_gen;
+ 		}
+@@ -2889,15 +2897,14 @@
+ #ifdef SK_DIAG_SUPPORT
+        case SK_IOCTL_DIAG:
+ 		if (!capable(CAP_NET_ADMIN)) return -EPERM;
+-		if (Ioctl.Len < (sizeof(pAC->PnmiStruct) + HeaderLength)) {
+-			Length = Ioctl.Len;
+-		} else {
+-			Length = sizeof(pAC->PnmiStruct) + HeaderLength;
+-		}
++
++		Length = min(Ioctl.Len, SK_PNMI_STRUCT_SIZE + HeaderLength);
++
+ 		if (NULL == (pMemBuf = kmalloc(Length, GFP_KERNEL))) {
+ 			return -ENOMEM;
+ 		}
+-		if(copy_from_user(pMemBuf, Ioctl.pData, Length)) {
++
++		if (copy_from_user(pMemBuf, Ioctl.pData, Length)) {
+ 			Err = -EFAULT;
+ 			goto fault_diag;
+ 		}
+@@ -2933,7 +2940,6 @@
+ 
+ } /* SkGeIoctl */
+ 
+-
+ /*****************************************************************************
+  *
+  * 	SkGeIocMib - handle a GetMib, SetMib- or PresetMib-ioctl message
+@@ -2951,8 +2957,9 @@
+  * Returns:
+  *	returned size from PNMI call
+  */
+-static int SkGeIocMib(
++static unsigned int SkGeIocMib(
+ DEV_NET		*pNet,	/* pointer to the adapter context */
++SK_PNMI_STRUCT_DATA *pPnmiStruct,       /* structure for all Pnmi-Data */
+ unsigned int	Size,	/* length of ioctl data */
+ int		mode)	/* flag for set/preset */
+ {
+@@ -2966,16 +2973,13 @@
+ 	spin_lock_irqsave(&pAC->SlowPathLock, Flags);
+ 	switch(mode) {
+ 	case SK_IOCTL_GETMIB:
+-		SkPnmiGetStruct(pAC, pAC->IoBase, &pAC->PnmiStruct, &Size,
+-			pNet->NetNr);
++		SkPnmiGetStruct(pAC, pAC->IoBase, pPnmiStruct, &Size, pNet->NetNr);
+ 		break;
+ 	case SK_IOCTL_PRESETMIB:
+-		SkPnmiPreSetStruct(pAC, pAC->IoBase, &pAC->PnmiStruct, &Size,
+-			pNet->NetNr);
++		SkPnmiPreSetStruct(pAC, pAC->IoBase, pPnmiStruct, &Size, pNet->NetNr);
+ 		break;
+ 	case SK_IOCTL_SETMIB:
+-		SkPnmiSetStruct(pAC, pAC->IoBase, &pAC->PnmiStruct, &Size,
+-			pNet->NetNr);
++		SkPnmiSetStruct(pAC, pAC->IoBase, pPnmiStruct, &Size, pNet->NetNr);
+ 		break;
+ 	default:
+ 		break;
+@@ -4386,9 +4390,6 @@
+ 	DEV_NET *pNet = netdev_priv(pAc->dev[0]);
+ 	SK_AC   *pAC  = pNet->pAC;
+ 
+-	SK_MEMCPY(&(pAc->PnmiBackup), &(pAc->PnmiStruct), 
+-			sizeof(SK_PNMI_STRUCT_DATA));
+-
+ 	pAC->DiagModeActive = DIAG_ACTIVE;
+ 	if (pAC->BoardLevel > SK_INIT_DATA) {
+ 		if (netif_running(pAC->dev[0])) {
+@@ -4430,8 +4431,6 @@
+ int SkDrvLeaveDiagMode(
+ SK_AC   *pAc)   /* pointer to adapter control context */
+ { 
+-	SK_MEMCPY(&(pAc->PnmiStruct), &(pAc->PnmiBackup), 
+-			sizeof(SK_PNMI_STRUCT_DATA));
+ 	pAc->DiagModeActive    = DIAG_NOTACTIVE;
+ 	pAc->Pnmi.DiagAttached = SK_DIAG_IDLE;
+         if (pAc->WasIfUp[0] == SK_TRUE) {
+@@ -4823,9 +4822,6 @@
+ 	/* Set driver globals */
+ 	pAC->Pnmi.pDriverFileName    = DRIVER_FILE_NAME;
+ 	pAC->Pnmi.pDriverReleaseDate = DRIVER_REL_DATE;
+-
+-	memset(&pAC->PnmiBackup, 0, sizeof(SK_PNMI_STRUCT_DATA));
+-	memcpy(&pAC->PnmiBackup, &pAC->PnmiStruct, sizeof(SK_PNMI_STRUCT_DATA));
+ 
+ #ifdef USE_SK_RX_CHECKSUM
+ 	pAC->RxPort[0].UseRxCsum = SK_TRUE;
+diff -Nru a/drivers/net/sk98lin/skproc.c b/drivers/net/sk98lin/skproc.c
+--- a/drivers/net/sk98lin/skproc.c	2004-11-19 10:38:39 -08:00
++++ b/drivers/net/sk98lin/skproc.c	2004-11-19 10:38:39 -08:00
+@@ -63,33 +63,26 @@
+ 	struct net_device *dev = seq->private;
+ 	DEV_NET			*pNet = netdev_priv(dev);
+ 	SK_AC			*pAC = pNet->pAC;
+-	SK_PNMI_STRUCT_DATA 	*pPnmiStruct = &pAC->PnmiStruct;
++	SK_PNMI_STRUCT_DATA 	*pPnmiStruct;
+ 	unsigned long		Flags;	
+ 	unsigned int		Size;
+ 	char			sens_msg[50];
+ 	int 			t;
+ 	int 			i;
+ 
++	pPnmiStruct = kmalloc(sizeof(*pPnmiStruct), GFP_KERNEL);
++	if (!pPnmiStruct)
++		return -ENOMEM;
++
+ 	/* NetIndex in GetStruct is now required, zero is only dummy */
+ 	for (t=pAC->GIni.GIMacsFound; t > 0; t--) {
+ 		if ((pAC->GIni.GIMacsFound == 2) && pAC->RlmtNets == 1)
+ 			t--;
+ 
++		memset(pPnmiStruct, 0, sizeof(*pPnmiStruct));
+ 		spin_lock_irqsave(&pAC->SlowPathLock, Flags);
+ 		Size = SK_PNMI_STRUCT_SIZE;
+-#ifdef SK_DIAG_SUPPORT
+-		if (pAC->BoardLevel == SK_INIT_DATA) {
+-			SK_MEMCPY(&(pAC->PnmiStruct), &(pAC->PnmiBackup), sizeof(SK_PNMI_STRUCT_DATA));
+-			if (pAC->DiagModeActive == DIAG_NOTACTIVE) {
+-				pAC->Pnmi.DiagAttached = SK_DIAG_IDLE;
+-			}
+-		} else {
+-			SkPnmiGetStruct(pAC, pAC->IoBase, pPnmiStruct, &Size, t-1);
+-		}
+-#else
+-		SkPnmiGetStruct(pAC, pAC->IoBase, 
+-				pPnmiStruct, &Size, t-1);
+-#endif
++		SkPnmiGetStruct(pAC, pAC->IoBase, pPnmiStruct, &Size, t-1);
+ 		spin_unlock_irqrestore(&pAC->SlowPathLock, Flags);
+ 	
+ 		if (pAC->dev[t-1] == dev) {
+@@ -243,6 +236,7 @@
+ 				
+ 		}
+ 	}
++	kfree(pPnmiStruct);
+ 	return 0;
+ }
+ 
