@@ -1,9 +1,9 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH 2.6.10-rc1 11/15] wireless/orinoco: Clean up firmware
-	version & capability detection
-Date: Tue, 26 Oct 2004 15:18:31 -0400
+Subject: [PATCH 2.6.10-rc1 12/15] wireless/orinoco: Use netif routines
+	rather than keeping link state ourselves
+Date: Tue, 26 Oct 2004 15:20:29 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098818311.3663.81.camel@dcbw.boston.redhat.com>
+Message-ID: <1098818429.3663.84.camel@dcbw.boston.redhat.com>
 References: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,258 +19,141 @@ Update in-kernel orinoco wireless drivers to upstream CVS.
 None of this is original code by Dan Williams, simply a
 broken down patch set split-out from upstream orinoco CVS.
 
-o Clean up firmware version & capability detection
+o Use netif routines rather than keeping link state ourselves
 
 Signed-off-by: Dan Williams <dcbw@redhat.com>
 
---- a/drivers/net/wireless/orinoco.c.11-firmware-fixes	2004-10-26 15:15:11.454350912 -0400
-+++ b/drivers/net/wireless/orinoco.c	2004-10-26 15:15:11.456350608 -0400
-@@ -1452,7 +1452,7 @@
- 		return err;
+--- a/drivers/net/wireless/orinoco.c.12-netif	2004-10-26 13:09:22.313994688 -0400
++++ b/drivers/net/wireless/orinoco.c	2004-10-26 13:20:51.649199808 -0400
+@@ -851,7 +851,7 @@
+ 		return 1;
+ 	}
  
- 	err = hermes_allocate(hw, priv->nicbuf_size, &priv->txfid);
--	if (err == -EIO) {
-+	if (err == -EIO && priv->nicbuf_size > TX_NICBUF_SIZE_BUG) {
- 		/* Try workaround for old Symbol firmware bug */
- 		printk(KERN_WARNING "%s: firmware ALLOC bug detected "
- 		       "(old Symbol firmware?). Trying to work around... ",
-@@ -2098,39 +2098,54 @@
- /* Initialization                                                   */
- /********************************************************************/
+-	if (! priv->connected) {
++	if (! netif_carrier_ok(dev)) {
+ 		/* Oops, the firmware hasn't established a connection,
+                    silently drop the packet (this seems to be the
+                    safest approach). */
+@@ -966,8 +966,6 @@
+ 			printk(KERN_WARNING "%s: Allocate event on unexpected fid (%04X)\n",
+ 			       dev->name, fid);
+ 		return;
+-	} else {
+-		netif_wake_queue(dev);
+ 	}
  
--struct sta_id {
-+struct comp_id {
- 	u16 id, variant, major, minor;
- } __attribute__ ((packed));
+ 	hermes_write_regn(hw, ALLOCFID, DUMMY_FID);
+@@ -980,6 +978,8 @@
  
--static int determine_firmware_type(struct net_device *dev, struct sta_id *sta_id)
-+static inline fwtype_t determine_firmware_type(struct comp_id *nic_id)
- {
--	/* FIXME: this is fundamentally broken */
--	unsigned int firmver = ((u32)sta_id->major << 16) | sta_id->minor;
--	
--	if (sta_id->variant == 1)
-+	if (nic_id->id < 0x8000)
- 		return FIRMWARE_TYPE_AGERE;
--	else if ((sta_id->variant == 2) &&
--		   ((firmver == 0x10001) || (firmver == 0x20001)))
-+	else if (nic_id->id == 0x8000 && nic_id->major == 0)
- 		return FIRMWARE_TYPE_SYMBOL;
- 	else
- 		return FIRMWARE_TYPE_INTERSIL;
+ 	stats->tx_packets++;
+ 
++	netif_wake_queue(dev);
++
+ 	hermes_write_regn(hw, TXCOMPLFID, DUMMY_FID);
  }
  
--static void determine_firmware(struct net_device *dev)
-+/* Set priv->firmware type, determine firmware properties */
-+static int determine_firmware(struct net_device *dev)
- {
- 	struct orinoco_private *priv = netdev_priv(dev);
- 	hermes_t *hw = &priv->hw;
+@@ -1006,6 +1006,8 @@
+ 	
+ 	stats->tx_errors++;
+ 
++	netif_wake_queue(dev);
++
+ 	hermes_write_regn(hw, TXCOMPLFID, DUMMY_FID);
+ }
+ 
+@@ -1338,6 +1340,7 @@
+ 	case HERMES_INQ_LINKSTATUS: {
+ 		struct hermes_linkstatus linkstatus;
+ 		u16 newstatus;
++		int connected;
+ 
+ 		if (len != sizeof(linkstatus)) {
+ 			printk(KERN_WARNING "%s: Unexpected size for linkstatus frame (%d bytes)\n",
+@@ -1345,24 +1348,26 @@
+ 			break;
+ 		}
+ 
+-		hermes_read_words(hw, HERMES_DATA1, (void *) &linkstatus,
+-				  len / 2);
++		err = hermes_bap_pread(hw, IRQ_BAP, &linkstatus, len,
++				       infofid, sizeof(info));
++		if (err)
++			break;
++
+ 		newstatus = le16_to_cpu(linkstatus.linkstatus);
+ 
+-		if ( (newstatus == HERMES_LINKSTATUS_CONNECTED)
++		connected = (newstatus == HERMES_LINKSTATUS_CONNECTED)
+ 		     || (newstatus == HERMES_LINKSTATUS_AP_CHANGE)
+-		     || (newstatus == HERMES_LINKSTATUS_AP_IN_RANGE) )
+-			priv->connected = 1;
+-		else if ( (newstatus == HERMES_LINKSTATUS_NOT_CONNECTED)
+-			  || (newstatus == HERMES_LINKSTATUS_DISCONNECTED)
+-			  || (newstatus == HERMES_LINKSTATUS_AP_OUT_OF_RANGE)
+-			  || (newstatus == HERMES_LINKSTATUS_ASSOC_FAILED) )
+-			priv->connected = 0;
++		     || (newstatus == HERMES_LINKSTATUS_AP_IN_RANGE);
+ 
+-		if (newstatus != priv->last_linkstatus)
+-			print_linkstatus(dev, newstatus);
++		if (connected)
++			netif_carrier_on(dev);
++		else if (!ignore_disconnect)
++			netif_carrier_off(dev);
+ 
+-		priv->last_linkstatus = newstatus;
++		if (newstatus != priv->last_linkstatus) {
++			priv->last_linkstatus = newstatus;
++			print_linkstatus(dev, newstatus);
++		}
+ 	}
+ 	break;
+ 	default:
+@@ -1389,6 +1394,8 @@
+ 	struct hermes *hw = &priv->hw;
  	int err;
--	struct sta_id sta_id;
-+	struct comp_id nic_id, sta_id;
- 	unsigned int firmver;
- 	char tmp[SYMBOL_MAX_VER_LEN+1];
  
-+	/* Get the hardware version */
-+	err = HERMES_READ_RECORD(hw, USER_BAP, HERMES_RID_NICID, &nic_id);
-+	if (err) {
-+		printk(KERN_ERR "%s: Cannot read hardware identity: error %d\n",
-+		       dev->name, err);
-+		return err;
-+	}
++	netif_carrier_off(dev); /* just to make sure */
 +
-+	le16_to_cpus(&nic_id.id);
-+	le16_to_cpus(&nic_id.variant);
-+	le16_to_cpus(&nic_id.major);
-+	le16_to_cpus(&nic_id.minor);
-+	printk(KERN_DEBUG "%s: Hardware identity %04x:%04x:%04x:%04x\n",
-+	       dev->name, nic_id.id, nic_id.variant,
-+	       nic_id.major, nic_id.minor);
-+
-+	priv->firmware_type = determine_firmware_type(&nic_id);
-+
- 	/* Get the firmware version */
- 	err = HERMES_READ_RECORD(hw, USER_BAP, HERMES_RID_STAID, &sta_id);
+ 	err = __orinoco_program_rids(dev);
  	if (err) {
- 		printk(KERN_ERR "%s: Cannot read station identity: error %d\n",
- 		       dev->name, err);
--		memset(&sta_id, 0, sizeof(sta_id));
-+		return err;
+ 		printk(KERN_ERR "%s: Error %d configuring card\n",
+@@ -1435,8 +1442,8 @@
  	}
+ 	
+ 	/* firmware will have to reassociate */
++	netif_carrier_off(dev);
+ 	priv->last_linkstatus = 0xffff;
+-	priv->connected = 0;
  
- 	le16_to_cpus(&sta_id.id);
-@@ -2141,8 +2156,23 @@
- 	       dev->name, sta_id.id, sta_id.variant,
- 	       sta_id.major, sta_id.minor);
- 
--	if (! priv->firmware_type)
--		priv->firmware_type = determine_firmware_type(dev, &sta_id);
-+	switch (sta_id.id) {
-+	case 0x15:
-+		printk(KERN_ERR "%s: Primary firmware is active\n",
-+		       dev->name);
-+		return -ENODEV;
-+	case 0x14b:
-+		printk(KERN_ERR "%s: Tertiary firmware is active\n",
-+		       dev->name);
-+		return -ENODEV;
-+	case 0x1f:	/* Intersil, Agere, Symbol Spectrum24 */
-+	case 0x21:	/* Symbol Spectrum24 Trilogy */
-+		break;
-+	default:
-+		printk(KERN_NOTICE "%s: Unknown station ID, please report\n",
-+		       dev->name);
-+		break;
-+	}
- 
- 	/* Default capabilities */
- 	priv->has_sensitivity = 1;
-@@ -2158,9 +2188,8 @@
- 	case FIRMWARE_TYPE_AGERE:
- 		/* Lucent Wavelan IEEE, Lucent Orinoco, Cabletron RoamAbout,
- 		   ELSA, Melco, HP, IBM, Dell 1150, Compaq 110/210 */
--		printk(KERN_DEBUG "%s: Looks like a Lucent/Agere firmware "
--		       "version %d.%02d\n", dev->name,
--		       sta_id.major, sta_id.minor);
-+		snprintf(priv->fw_name, sizeof(priv->fw_name) - 1,
-+			 "Lucent/Agere %d.%02d", sta_id.major, sta_id.minor);
- 
- 		firmver = ((unsigned long)sta_id.major << 16) | sta_id.minor;
- 
-@@ -2203,16 +2232,19 @@
- 			tmp[SYMBOL_MAX_VER_LEN] = '\0';
- 		}
- 
--		printk(KERN_DEBUG "%s: Looks like a Symbol firmware "
--		       "version [%s] (parsing to %X)\n", dev->name,
--		       tmp, firmver);
-+		snprintf(priv->fw_name, sizeof(priv->fw_name) - 1,
-+			 "Symbol %s", tmp);
- 
- 		priv->has_ibss = (firmver >= 0x20000);
- 		priv->has_wep = (firmver >= 0x15012);
- 		priv->has_big_wep = (firmver >= 0x20000);
--		priv->has_pm = (firmver >= 0x20000) && (firmver < 0x22000);
-+		priv->has_pm = (firmver >= 0x20000 && firmver < 0x22000) || 
-+			       (firmver >= 0x29000 && firmver < 0x30000) ||
-+			       firmver >= 0x31000;
- 		priv->has_preamble = (firmver >= 0x20000);
- 		priv->ibss_port = 4;
-+		priv->broken_disableport = (firmver == 0x25013) ||
-+					   (firmver >= 0x30000 && firmver <= 0x31000);
- 		/* Tested with Intel firmware : 0x20015 => Jean II */
- 		/* Tested with 3Com firmware : 0x15012 & 0x22001 => Jean II */
- 		break;
-@@ -2222,9 +2254,9 @@
- 		 * different and less well tested */
- 		/* D-Link MAC : 00:40:05:* */
- 		/* Addtron MAC : 00:90:D1:* */
--		printk(KERN_DEBUG "%s: Looks like an Intersil firmware "
--		       "version %d.%d.%d\n", dev->name,
--		       sta_id.major, sta_id.minor, sta_id.variant);
-+		snprintf(priv->fw_name, sizeof(priv->fw_name) - 1,
-+			 "Intersil %d.%d.%d", sta_id.major, sta_id.minor,
-+			 sta_id.variant);
- 
- 		firmver = ((unsigned long)sta_id.major << 16) |
- 			((unsigned long)sta_id.minor << 8) | sta_id.variant;
-@@ -2242,9 +2274,11 @@
- 			priv->ibss_port = 1;
- 		}
- 		break;
--	default:
--		break;
- 	}
-+	printk(KERN_DEBUG "%s: Firmware determined as %s\n", dev->name,
-+	       priv->fw_name);
-+
-+	return 0;
+ 	return 0;
  }
+@@ -1957,7 +1964,7 @@
  
- static int orinoco_init(struct net_device *dev)
-@@ -2263,14 +2297,19 @@
- 	priv->nicbuf_size = IEEE802_11_FRAME_LEN + ETH_HLEN;
+ 	priv->hw_unavailable++;
+ 	priv->last_linkstatus = 0xffff; /* firmware will have to reassociate */
+-	priv->connected = 0;
++	netif_carrier_off(dev);
  
- 	/* Initialize the firmware */
--	err = hermes_init(hw);
-+	err = orinoco_reinit_firmware(dev);
- 	if (err != 0) {
- 		printk(KERN_ERR "%s: failed to initialize firmware (err = %d)\n",
- 		       dev->name, err);
- 		goto out;
- 	}
+ 	orinoco_unlock(priv, &flags);
  
--	determine_firmware(dev);
-+	err = determine_firmware(dev);
-+	if (err != 0) {
-+		printk(KERN_ERR "%s: Incompatible firmware, aborting\n",
-+		       dev->name);
-+		goto out;
-+	}
+@@ -2493,8 +2500,8 @@
+ 				   * hardware */
+ 	INIT_WORK(&priv->reset_work, (void (*)(void *))orinoco_reset, dev);
  
- 	if (priv->has_port3)
- 		printk(KERN_DEBUG "%s: Ad-hoc demo mode supported\n", dev->name);
-@@ -2391,31 +2430,12 @@
- 	/* By default use IEEE/IBSS ad-hoc mode if we have it */
- 	priv->prefer_port3 = priv->has_port3 && (! priv->has_ibss);
- 	set_port_type(priv);
--	priv->channel = 10; /* default channel, more-or-less arbitrary */
-+	priv->channel = 0; /* use firmware default */
++	netif_carrier_off(dev);
+ 	priv->last_linkstatus = 0xffff;
+-	priv->connected = 0;
  
- 	priv->promiscuous = 0;
- 	priv->wep_on = 0;
- 	priv->tx_key = 0;
+ 	return dev;
  
--	err = hermes_allocate(hw, priv->nicbuf_size, &priv->txfid);
--	if (err == -EIO) {
--		/* Try workaround for old Symbol firmware bug */
--		printk(KERN_WARNING "%s: firmware ALLOC bug detected "
--		       "(old Symbol firmware?). Trying to work around... ",
--		       dev->name);
--		
--		priv->nicbuf_size = TX_NICBUF_SIZE_BUG;
--		err = hermes_allocate(hw, priv->nicbuf_size, &priv->txfid);
--		if (err)
--			printk("failed!\n");
--		else
--			printk("ok.\n");
--	}
--	if (err) {
--		printk("%s: Error %d allocating Tx buffer\n", dev->name, err);
--		goto out;
--	}
--
- 	/* Make the hardware available, as long as it hasn't been
- 	 * removed elsewhere (e.g. by PCMCIA hot unplug) */
- 	orinoco_spin_lock(priv);
---- a/drivers/net/wireless/orinoco.h.11-firmware-fixes	2004-10-26 15:15:11.454350912 -0400
-+++ b/drivers/net/wireless/orinoco.h	2004-10-26 15:15:11.456350608 -0400
-@@ -36,6 +36,12 @@
- 	char data[ORINOCO_MAX_KEY_SIZE];
- } __attribute__ ((packed));
+--- a/drivers/net/wireless/orinoco.h.12-netif	2004-10-26 13:09:29.785858792 -0400
++++ b/drivers/net/wireless/orinoco.h	2004-10-26 13:09:38.486536088 -0400
+@@ -54,7 +54,6 @@
+ 	/* driver state */
+ 	int open;
+ 	u16 last_linkstatus;
+-	int connected;
  
-+typedef enum {
-+	FIRMWARE_TYPE_AGERE,
-+	FIRMWARE_TYPE_INTERSIL,
-+	FIRMWARE_TYPE_SYMBOL
-+} fwtype_t;
-+
- struct orinoco_private {
- 	void *card;	/* Pointer to card dependent structure */
- 	int (*hard_reset)(struct orinoco_private *);
-@@ -60,12 +66,9 @@
- 	u16 txfid;
- 
- 	/* Capabilities of the hardware/firmware */
--	int firmware_type;
--#define FIRMWARE_TYPE_AGERE 1
--#define FIRMWARE_TYPE_INTERSIL 2
--#define FIRMWARE_TYPE_SYMBOL 3
-+	fwtype_t firmware_type;
-+	char fw_name[32];
- 	int ibss_port;
--	int has_ibss_any;
- 	int nicbuf_size;
- 	u16 channel_mask;
- 
+ 	/* Net device stuff */
+ 	struct net_device *ndev;
