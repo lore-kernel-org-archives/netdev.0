@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] remove unneeded casts in net/wan/
-Date: Sun, 29 Feb 2004 14:40:34 -0800
+Subject: Re: [janitor] remove unneeded casts in net/pcmcia/
+Date: Sun, 29 Feb 2004 14:38:37 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040229144034.2a99c7a7.rddunlap@osdl.org>
+Message-ID: <20040229143837.50d9fa1d.rddunlap@osdl.org>
 References: <20040229142516.3d218ed0.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -18,112 +18,295 @@ List-Id: netdev.vger.kernel.org
 From: Carlo Perassi <carlo@linux.it>
 
 
- drivers/net/wan/comx-hw-locomx.c |    6 +++---
- drivers/net/wan/comx-hw-munich.c |    6 +++---
- drivers/net/wan/comx.c           |    2 +-
- drivers/net/wan/cosa.c           |    2 +-
- drivers/net/wan/lapbether.c      |    2 +-
- 5 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/pcmcia/3c574_cs.c    |   18 +++++++++---------
+ drivers/net/pcmcia/3c589_cs.c    |   14 +++++++-------
+ drivers/net/pcmcia/com20020_cs.c |    2 +-
+ drivers/net/pcmcia/fmvj18x_cs.c  |   14 +++++++-------
+ drivers/net/pcmcia/ibmtr_cs.c    |    2 +-
+ drivers/net/pcmcia/smc91c92_cs.c |    8 ++++----
+ 6 files changed, 29 insertions(+), 29 deletions(-)
 
-diff -puN drivers/net/wan/comx.c~net_wan_casts drivers/net/wan/comx.c
---- linux-263-229/drivers/net/wan/comx.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/wan/comx.c	2004-02-29 13:57:19.000000000 -0800
-@@ -379,7 +379,7 @@ int comx_rx(struct net_device *dev, stru
- 
- static struct net_device_stats *comx_stats(struct net_device *dev)
+diff -puN drivers/net/pcmcia/3c574_cs.c~net_pcmcia_casts drivers/net/pcmcia/3c574_cs.c
+--- linux-263-229/drivers/net/pcmcia/3c574_cs.c~net_pcmcia_casts	2004-02-29 13:55:31.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/pcmcia/3c574_cs.c	2004-02-29 13:55:31.000000000 -0800
+@@ -733,7 +733,7 @@ static void mdio_write(ioaddr_t ioaddr, 
+ /* Reset and restore all of the 3c574 registers. */
+ static void tc574_reset(struct net_device *dev)
  {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = dev->priv;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	int i, ioaddr = dev->base_addr;
+ 	unsigned long flags;
  
- 	return ch->current_stats;
- }
-diff -puN drivers/net/wan/comx-hw-locomx.c~net_wan_casts drivers/net/wan/comx-hw-locomx.c
---- linux-263-229/drivers/net/wan/comx-hw-locomx.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/wan/comx-hw-locomx.c	2004-02-29 13:57:19.000000000 -0800
-@@ -97,7 +97,7 @@ static void locomx_rx(struct z8530_chann
+@@ -814,7 +814,7 @@ static void tc574_reset(struct net_devic
  
- static int LOCOMX_send_packet(struct net_device *dev, struct sk_buff *skb) 
+ static int el3_open(struct net_device *dev)
  {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = dev->priv;
- 	struct locomx_data *hw = ch->HW_privdata;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	dev_link_t *link = &lp->link;
  
- 	if (ch->debug_flags & DEBUG_HW_TX) {
-@@ -376,7 +376,7 @@ static int locomx_write_proc(struct file
+ 	if (!DEV_OK(link))
+@@ -837,7 +837,7 @@ static int el3_open(struct net_device *d
  
- static int LOCOMX_init(struct net_device *dev) 
+ static void el3_tx_timeout(struct net_device *dev)
  {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = dev->priv;
- 	struct locomx_data *hw;
- 	struct proc_dir_entry *new_file;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	ioaddr_t ioaddr = dev->base_addr;
+ 	
+ 	printk(KERN_NOTICE "%s: Transmit timed out!\n", dev->name);
+@@ -852,7 +852,7 @@ static void el3_tx_timeout(struct net_de
  
-@@ -449,7 +449,7 @@ cleanup_HW_privdata:
- 
- static int LOCOMX_exit(struct net_device *dev)
+ static void pop_tx_status(struct net_device *dev)
  {
--	struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+	struct comx_channel *ch = dev->priv;
- 
- 	ch->HW_access_board = NULL;
- 	ch->HW_release_board = NULL;
-diff -puN drivers/net/wan/comx-hw-munich.c~net_wan_casts drivers/net/wan/comx-hw-munich.c
---- linux-263-229/drivers/net/wan/comx-hw-munich.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/wan/comx-hw-munich.c	2004-02-29 13:57:19.000000000 -0800
-@@ -933,7 +933,7 @@ static int slicecom_reset(struct net_dev
- 
- static int MUNICH_send_packet(struct net_device *dev, struct sk_buff *skb)
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	ioaddr_t ioaddr = dev->base_addr;
+ 	int i;
+     
+@@ -877,7 +877,7 @@ static void pop_tx_status(struct net_dev
+ static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
--    struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+    struct comx_channel *ch = dev->priv;
-     struct slicecom_privdata *hw = ch->HW_privdata;
+ 	ioaddr_t ioaddr = dev->base_addr;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	unsigned long flags;
  
-     /* Send it to the debug facility too if needed: */
-@@ -2656,7 +2656,7 @@ static int init_escape(struct comx_chann
+ 	DEBUG(3, "%s: el3_start_xmit(length = %ld) called, "
+@@ -1074,7 +1074,7 @@ reschedule:
  
- static int BOARD_init(struct net_device *dev)
+ static struct net_device_stats *el3_get_stats(struct net_device *dev)
  {
--    struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+    struct comx_channel *ch = dev->priv;
-     struct slicecom_privdata *hw;
-     struct proc_dir_entry *new_file;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
  
-@@ -2772,7 +2772,7 @@ static int BOARD_init(struct net_device 
+ 	if (netif_device_present(dev)) {
+ 		unsigned long flags;
+@@ -1091,7 +1091,7 @@ static struct net_device_stats *el3_get_
   */
- static int BOARD_exit(struct net_device *dev)
+ static void update_stats(struct net_device *dev)
  {
--    struct comx_channel *ch = (struct comx_channel *)dev->priv;
-+    struct comx_channel *ch = dev->priv;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	ioaddr_t ioaddr = dev->base_addr;
+ 	u8 rx, tx, up;
  
-     /* Free private data area */
- //    board = hw->boardnum + (ch->hardware == &pcicomhw ? pcicom_boards : slicecom_boards);
-diff -puN drivers/net/wan/cosa.c~net_wan_casts drivers/net/wan/cosa.c
---- linux-263-229/drivers/net/wan/cosa.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/wan/cosa.c	2004-02-29 13:57:19.000000000 -0800
-@@ -1205,7 +1205,7 @@ static int cosa_sppp_ioctl(struct net_de
- 	int cmd)
+@@ -1128,7 +1128,7 @@ static void update_stats(struct net_devi
+ 
+ static int el3_rx(struct net_device *dev, int worklimit)
  {
- 	int rv;
--	struct channel_data *chan = (struct channel_data *)dev->priv;
-+	struct channel_data *chan = dev->priv;
- 	rv = cosa_ioctl_common(chan->cosa, chan, cmd, (unsigned long)ifr->ifr_data);
- 	if (rv == -ENOIOCTLCMD) {
- 		return sppp_do_ioctl(dev, ifr, cmd);
-diff -puN drivers/net/wan/lapbether.c~net_wan_casts drivers/net/wan/lapbether.c
---- linux-263-229/drivers/net/wan/lapbether.c~net_wan_casts	2004-02-29 13:57:19.000000000 -0800
-+++ linux-263-229-rddunlap/drivers/net/wan/lapbether.c	2004-02-29 13:57:19.000000000 -0800
-@@ -269,7 +269,7 @@ static void lapbeth_disconnected(struct 
-  */
- static struct net_device_stats *lapbeth_get_stats(struct net_device *dev)
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	ioaddr_t ioaddr = dev->base_addr;
+ 	short rx_status;
+ 	
+@@ -1190,7 +1190,7 @@ static struct ethtool_ops netdev_ethtool
+ /* Provide ioctl() calls to examine the MII xcvr state. */
+ static int el3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  {
--	struct lapbethdev *lapbeth = (struct lapbethdev *)dev->priv;
-+	struct lapbethdev *lapbeth = dev->priv;
- 	return &lapbeth->stats;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = dev->priv;
+ 	ioaddr_t ioaddr = dev->base_addr;
+ 	u16 *data = (u16 *)&rq->ifr_data;
+ 	int phy = lp->phys & 0x1f;
+diff -puN drivers/net/pcmcia/3c589_cs.c~net_pcmcia_casts drivers/net/pcmcia/3c589_cs.c
+--- linux-263-229/drivers/net/pcmcia/3c589_cs.c~net_pcmcia_casts	2004-02-29 13:55:31.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/pcmcia/3c589_cs.c	2004-02-29 13:55:31.000000000 -0800
+@@ -526,7 +526,7 @@ static u16 read_eeprom(ioaddr_t ioaddr, 
+ */
+ static void tc589_set_xcvr(struct net_device *dev, int if_port)
+ {
+-    struct el3_private *lp = (struct el3_private *)dev->priv;
++    struct el3_private *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     
+     EL3WINDOW(0);
+@@ -648,7 +648,7 @@ static int el3_config(struct net_device 
+ 
+ static int el3_open(struct net_device *dev)
+ {
+-    struct el3_private *lp = (struct el3_private *)dev->priv;
++    struct el3_private *lp = dev->priv;
+     dev_link_t *link = &lp->link;
+     
+     if (!DEV_OK(link))
+@@ -672,7 +672,7 @@ static int el3_open(struct net_device *d
+ 
+ static void el3_tx_timeout(struct net_device *dev)
+ {
+-    struct el3_private *lp = (struct el3_private *)dev->priv;
++    struct el3_private *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     
+     printk(KERN_WARNING "%s: Transmit timed out!\n", dev->name);
+@@ -687,7 +687,7 @@ static void el3_tx_timeout(struct net_de
+ 
+ static void pop_tx_status(struct net_device *dev)
+ {
+-    struct el3_private *lp = (struct el3_private *)dev->priv;
++    struct el3_private *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     int i;
+     
+@@ -906,7 +906,7 @@ reschedule:
+ 
+ static struct net_device_stats *el3_get_stats(struct net_device *dev)
+ {
+-    struct el3_private *lp = (struct el3_private *)dev->priv;
++    struct el3_private *lp = dev->priv;
+     unsigned long flags;
+     dev_link_t *link = &lp->link;
+ 
+@@ -928,7 +928,7 @@ static struct net_device_stats *el3_get_
+ */
+ static void update_stats(struct net_device *dev)
+ {
+-    struct el3_private *lp = (struct el3_private *)dev->priv;
++    struct el3_private *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+ 
+     DEBUG(2, "%s: updating the statistics.\n", dev->name);
+@@ -955,7 +955,7 @@ static void update_stats(struct net_devi
+ 
+ static int el3_rx(struct net_device *dev)
+ {
+-    struct el3_private *lp = (struct el3_private *)dev->priv;
++    struct el3_private *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     int worklimit = 32;
+     short rx_status;
+diff -puN drivers/net/pcmcia/com20020_cs.c~net_pcmcia_casts drivers/net/pcmcia/com20020_cs.c
+--- linux-263-229/drivers/net/pcmcia/com20020_cs.c~net_pcmcia_casts	2004-02-29 13:55:31.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/pcmcia/com20020_cs.c	2004-02-29 13:55:31.000000000 -0800
+@@ -492,7 +492,7 @@ static int com20020_event(event_t event,
+             pcmcia_request_configuration(link->handle, &link->conf);
+             if (link->open) {
+ 		int ioaddr = dev->base_addr;
+-		struct arcnet_local *lp = (struct arcnet_local *)dev->priv;
++		struct arcnet_local *lp = dev->priv;
+ 		ARCRESET;
+             }
+         }
+diff -puN drivers/net/pcmcia/fmvj18x_cs.c~net_pcmcia_casts drivers/net/pcmcia/fmvj18x_cs.c
+--- linux-263-229/drivers/net/pcmcia/fmvj18x_cs.c~net_pcmcia_casts	2004-02-29 13:55:31.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/pcmcia/fmvj18x_cs.c	2004-02-29 13:55:31.000000000 -0800
+@@ -862,7 +862,7 @@ static irqreturn_t fjn_interrupt(int irq
+ 
+ static void fjn_tx_timeout(struct net_device *dev)
+ {
+-    struct local_info_t *lp = (struct local_info_t *)dev->priv;
++    struct local_info_t *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+ 
+     printk(KERN_NOTICE "%s: transmit timed out with status %04x, %s?\n",
+@@ -892,7 +892,7 @@ static void fjn_tx_timeout(struct net_de
+ 
+ static int fjn_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-    struct local_info_t *lp = (struct local_info_t *)dev->priv;
++    struct local_info_t *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     short length = skb->len;
+     
+@@ -966,7 +966,7 @@ static int fjn_start_xmit(struct sk_buff
+ 
+ static void fjn_reset(struct net_device *dev)
+ {
+-    struct local_info_t *lp = (struct local_info_t *)dev->priv;
++    struct local_info_t *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     int i;
+ 
+@@ -1052,7 +1052,7 @@ static void fjn_reset(struct net_device 
+ 
+ static void fjn_rx(struct net_device *dev)
+ {
+-    struct local_info_t *lp = (struct local_info_t *)dev->priv;
++    struct local_info_t *lp = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     int boguscount = 10;	/* 5 -> 10: by agy 19940922 */
+ 
+@@ -1181,7 +1181,7 @@ static int fjn_config(struct net_device 
+ 
+ static int fjn_open(struct net_device *dev)
+ {
+-    struct local_info_t *lp = (struct local_info_t *)dev->priv;
++    struct local_info_t *lp = dev->priv;
+     dev_link_t *link = &lp->link;
+ 
+     DEBUG(4, "fjn_open('%s').\n", dev->name);
+@@ -1206,7 +1206,7 @@ static int fjn_open(struct net_device *d
+ 
+ static int fjn_close(struct net_device *dev)
+ {
+-    struct local_info_t *lp = (struct local_info_t *)dev->priv;
++    struct local_info_t *lp = dev->priv;
+     dev_link_t *link = &lp->link;
+     ioaddr_t ioaddr = dev->base_addr;
+ 
+@@ -1252,7 +1252,7 @@ static struct net_device_stats *fjn_get_
+ static void set_rx_mode(struct net_device *dev)
+ {
+     ioaddr_t ioaddr = dev->base_addr;
+-    struct local_info_t *lp = (struct local_info_t *)dev->priv;
++    struct local_info_t *lp = dev->priv;
+     u_char mc_filter[8];		 /* Multicast hash filter */
+     u_long flags;
+     int i;
+diff -puN drivers/net/pcmcia/ibmtr_cs.c~net_pcmcia_casts drivers/net/pcmcia/ibmtr_cs.c
+--- linux-263-229/drivers/net/pcmcia/ibmtr_cs.c~net_pcmcia_casts	2004-02-29 13:55:31.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/pcmcia/ibmtr_cs.c	2004-02-29 13:55:31.000000000 -0800
+@@ -256,7 +256,7 @@ static void ibmtr_detach(dev_link_t *lin
+ 	unregister_netdev(dev);
+ 
+     {
+-	struct tok_info *ti = (struct tok_info *)dev->priv;
++	struct tok_info *ti = dev->priv;
+ 	del_timer_sync(&(ti->tr_timer));
+     }
+     if (link->state & DEV_CONFIG)
+diff -puN drivers/net/pcmcia/smc91c92_cs.c~net_pcmcia_casts drivers/net/pcmcia/smc91c92_cs.c
+--- linux-263-229/drivers/net/pcmcia/smc91c92_cs.c~net_pcmcia_casts	2004-02-29 13:55:31.000000000 -0800
++++ linux-263-229-rddunlap/drivers/net/pcmcia/smc91c92_cs.c	2004-02-29 13:55:31.000000000 -0800
+@@ -1460,7 +1460,7 @@ static int smc_start_xmit(struct sk_buff
+ 
+ static void smc_tx_err(struct net_device * dev)
+ {
+-    struct smc_private *smc = (struct smc_private *)dev->priv;
++    struct smc_private *smc = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     int saved_packet = inw(ioaddr + PNR_ARR) & 0xff;
+     int packet_no = inw(ioaddr + FIFO_PORTS) & 0x7f;
+@@ -1657,7 +1657,7 @@ irq_done:
+ 
+ static void smc_rx(struct net_device *dev)
+ {
+-    struct smc_private *smc = (struct smc_private *)dev->priv;
++    struct smc_private *smc = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     int rx_status;
+     int packet_length;	/* Caution: not frame length, rather words
+@@ -1725,7 +1725,7 @@ static void smc_rx(struct net_device *de
+ 
+ static struct net_device_stats *smc_get_stats(struct net_device *dev)
+ {
+-    struct smc_private *smc = (struct smc_private *)dev->priv;
++    struct smc_private *smc = dev->priv;
+     /* Nothing to update - the 91c92 is a pretty primative chip. */
+     return &smc->stats;
  }
+@@ -1830,7 +1830,7 @@ static int s9k_config(struct net_device 
+ */
+ static void smc_set_xcvr(struct net_device *dev, int if_port)
+ {
+-    struct smc_private *smc = (struct smc_private *)dev->priv;
++    struct smc_private *smc = dev->priv;
+     ioaddr_t ioaddr = dev->base_addr;
+     u_short saved_bank;
  
 
 _
-
 
 --
 ~Randy
