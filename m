@@ -1,38 +1,37 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: v6-in-v4 IPsec and NAT traversal
-Date: Sat, 13 Mar 2004 11:43:04 +0200 (EET)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: v6-in-v4 IPsec and NAT traversal
+Date: Sat, 13 Mar 2004 21:06:01 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Message-ID: <E1B261p-0006gI-00@gondolin.me.apana.org.au>
+References: <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: pekkas@netcore.fi (Pekka Savola), netdev@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Pekka Savola <pekkas@netcore.fi> wrote:
+> 
+> I'm interested whether Linux IPsec implementations support:
+> 
+> 1) IPv6 payload inside IPv4 IPsec tunnel/transport?
 
-I'm interested whether Linux IPsec implementations support:
+It's not supported directly by the IPsec stack.  However, you can
+setup an SIT tunnel over a transport IPv4 IPsec SA.
 
- 1) IPv6 payload inside IPv4 IPsec tunnel/transport?
+> 2) NAT-traversal? (There are at least some patches in OpenSWAN, etc. 
+> for this).  This could be very handy combined with the above.
 
- That is, when the intermediate network doesn't support IPv6, you
-could do IPv6, secured, without first encapsulating in IPv6-over-IPv4
-tunnel and then running IPv6 IPsec.
+Yes.  In particular Non-ESP UDP encapsulation is supported.
 
- 2) NAT-traversal? (There are at least some patches in OpenSWAN, etc. 
-for this).  This could be very handy combined with the above.
+I believe that OpenSWAN has the code to work with the Linux stack.
 
-[[ 3) Some feasible key management method, such as certificates.  I 
-think this exists, and doesn't require support in the kernel. ]]
+> [[ 3) Some feasible key management method, such as certificates.  I 
+> think this exists, and doesn't require support in the kernel. ]]
 
-I'm considering how viable this kind of NAT -traversal supporting
-v6-in-v4 IPsec would be as an IPv6 tunneling/transition mechanism.
-
-What's the status (implementations, planned or future) of these 
-features?
-
+OpenSWAN supports that.
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
