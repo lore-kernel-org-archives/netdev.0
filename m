@@ -1,49 +1,33 @@
-From: N N Ashok <nalkunda@egr.msu.edu>
-Subject: Difference between (struct tc_stats) and (struct net_device_stats)
-Date: Fri, 18 Jul 2003 23:55:30 -0400
+From: Anders Gustafsson <andersg@0x63.nu>
+Subject: Re: OOPS in ip6_output2
+Date: Fri, 18 Jul 2003 11:46:15 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307182355.30867.nalkunda@egr.msu.edu>
+Message-ID: <20030718094615.GD5964@h55p111.delphi.afb.lu.se>
+References: <20030717151354.GA10640@h55p111.delphi.afb.lu.se> <20030718.114012.60686118.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20030718.114012.60686118.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi All,
-   The tc_stats and net_device_stats are defined as below:
-struct tc_stats
-{
-	__u64	bytes;			/* NUmber of enqueues bytes */
-	__u32	packets;		/* Number of enqueued packets	*/
-	__u32	drops;			/* Packets dropped because of lack of resources */
-	__u32	overlimits;		/* Number of throttle events when this
-<snip>
-};
-struct net_device_stats
-{
-	unsigned long	rx_packets;		/* total packets received	*/
-	unsigned long	tx_packets;		/* total packets transmitted	*/
-	unsigned long	rx_bytes;		/* total bytes received 	*/
-	unsigned long	tx_bytes;		/* total bytes transmitted	*/
-	unsigned long	rx_errors;		/* bad packets received		*/
-	unsigned long	tx_errors;		/* packet transmit problems	*/
-	unsigned long	rx_dropped;		/* no space in linux buffers	*/
-	unsigned long	tx_dropped;		/* no space available in linux	*/
-	unsigned long	multicast;		/* multicast packets received	*/
-	unsigned long	collisions;
-<snip>
-};
+On Fri, Jul 18, 2003 at 11:40:12AM +0200, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> In article <20030717151354.GA10640@h55p111.delphi.afb.lu.se> (at Thu, 17 Jul 2003 17:13:54 +0200), Anders Gustafsson <andersg@0x63.nu> says:
+> 
+> > I don't follow netdev so maybe this is old stuff, but I got this oops when
+> > trying to ssh to a ipv6-host.
+> 
+> What version are you using?
+> (Current tree may have fix for this.)
+> Thanks.
 
-      I add an estimator to one of my interfaces and if I observe, the 
-bytes,packets in tc_stats for the estimator are not the same as rx_packets, 
-rx_bytes of net_device_stats obtainted by get_stats(dev) of the same 
-interface at almost the same time. Is there a difference in the meaning/range 
-of the two structure fields? In net_device_stats, we have counts for drops, 
-errors but no such fields for tc_stats. Are these counts also included in the 
-bytes, packets fields of tc_stats?
+Latest bk as of wednesday I think.
 
-Thanks,
-Ashok
+It did just happen once in that kernel, so I don't really know if it's
+solved in latest bk which I run now.
+
+-- 
+Anders Gustafsson - andersg@0x63.nu - http://0x63.nu/
