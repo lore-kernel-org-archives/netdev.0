@@ -1,47 +1,60 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: [RFC] TCP burst control
-Date: Tue, 06 Jul 2004 19:20:59 -0700
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH] Add nl_open to libnetlink
+Date: Wed, 7 Jul 2004 13:09:50 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40EB5E0B.1030407@us.ibm.com>
-References: <200407070009.i6709wiA026673@ms-smtp-03-eri0.southeast.rr.com>
+Message-ID: <20040707130950.0112edf6@localhost>
+References: <20040703094632.GA14235@gondor.apana.org.au>
+	<20040705160500.208591b5@localhost>
+	<20040706140550.2d483dc8@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@redhat.com>,
-        "'Stephen Hemminger'" <shemminger@osdl.org>, netdev@oss.sgi.com,
-        rhee@ncsu.edu, lxu2@ncsu.edu
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Injong Rhee <rhee@eos.ncsu.edu>
-In-Reply-To: <200407070009.i6709wiA026673@ms-smtp-03-eri0.southeast.rr.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040706140550.2d483dc8@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Injong Rhee wrote:
-> Hi David and Stephen,
+On Tue, 6 Jul 2004 14:05:50 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
+
+> On Mon, 5 Jul 2004 16:05:00 +0900
+> Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
 > 
-> We tested this rate halving. In fact, rate having in fact degrades the
-> performance quite a bit. We can send you more information about it. Our test
-> indicates that this feature introduces many timeouts (because of bursts),
-> and also cause unnecessary cwnd backoff to reduce the transmission
-> unjustifiably low -- so there are many (I will repeat, many) window and
-> transmission oscillations during packet losses. We fix this problem
+> > Hello,
+> > 
+> > On Sat, 3 Jul 2004 19:46:32 +1000
+> > Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > 
+> > > I'm in the process of writing two new modules fo ip(8), ippolicy and
+> > > ipstate which will be a NETLINK based replacement for setkey.
+> > > 
+> > > In order to do so, I need to get libnetlink to speak the XFRM protocol.
+> > > Thus I've added a new nl_open function which allows the protocol to
+> > > be specified.
+> > 
+> > I agree with it.
+> > 
+> > Anyway, I have code for ip(8) for similar reason.
+> > The patch is below:
+> > http://www.linux-ipv6.org/~nakam/ipxfrm-20040705.diff
+> 
+> This code won't build with current kernel headers. There is no xfrmsel_icmp_type
+> in current 2.6 definition of struct xfrm_selector.
 
-Could you point me to a paper or summary of your info?
+I've made another patch which can build with 2.6.7 kernel headers.
+(And I removed some unnecessary code for the kernel.)
 
-> completely using our own special burst control. It is very simple and easy
-> technique to implement. If you need some data to back up our claims, I will
-> send you more. Once we implemented our burst control, we don't have any
-> timeouts and not much fluctuation other than congestion control related.
-> Currently with rate having, current Linux tcp stack is full of hacks that in
-> fact, hurt the performance of linux tcp (sorry to say this). Our burst
-> control, in fact, simplifies a lot of that and makes sure cwnd to follow
-> very closely to whatever congestion control algorithm is intended it to
-> behave. The Linux Reno burst control in fact interferes with the original
-> congestion control (in fact, it tries to do its own), and its performance is
-> very hard to predict.
+Try below:
+http://www.linux-ipv6.org/~nakam/ipxfrm-20040707.diff
 
-Can you characterize the workload/traffic/error rate that each
-would be best suited for?
 
-thanks,
-Nivedita
+BTW, The definition in previous patch is for understanding ICMP
+type/code by xfrm_selector. I wrote the kernel feature and I'm
+testing it. Anyway, I'll send it to the list, too.
+
+Thanks,
+
+-- 
+Masahide NAKAMURA
