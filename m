@@ -1,24 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
-Date: Thu, 19 Aug 2004 07:18:46 -0700
+Subject: Re: [1/2] Use xfrm4_rcv in xfrm4_tunnel
+Date: Thu, 19 Aug 2004 07:23:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040819071846.2d0d6120.davem@redhat.com>
-References: <20040818091352.GB6507@suse.de>
-	<20040819101159.GC3921@sunbeam.de.gnumonks.org>
+Message-ID: <20040819072337.394abc67.davem@redhat.com>
+References: <20040819113841.GA13872@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: okir@suse.de, netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20040819101159.GC3921@sunbeam.de.gnumonks.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040819113841.GA13872@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Aug 2004 12:11:59 +0200
-Harald Welte <laforge@netfilter.org> wrote:
+On Thu, 19 Aug 2004 21:38:41 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Dave, is this fine with you?  What solution would you prefer?
+> This is a trivial patch to use xfrm4_rcv in xfrm4_tunnel.  It doesn't
+> need the extra argument provided by xfrm4_rcv_encap.
 
-I haven't been shown the patches so I can't generate an
-opinion. :-)
+Applied.
