@@ -1,50 +1,48 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] remove secure_ipv6_id
-Date: Tue, 7 Sep 2004 17:17:53 +0200
+Subject: [PATCH] mark inet_family_ops static
+Date: Tue, 7 Sep 2004 17:19:18 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907151753.GA9735@lst.de>
+Message-ID: <20040907151918.GB9735@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
+To: davem@redhat.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-looks like the ipv6 code doesn't need this one anymore
+except for a stale extern in net/sctp/protocol.c it's not referenced
+anywhere outside af_inet.c
 
 
---- 1.54/drivers/char/random.c	2004-09-03 11:08:21 +02:00
-+++ edited/drivers/char/random.c	2004-09-07 15:51:23 +02:00
-@@ -2279,19 +2279,7 @@
- 	return seq;
- }
- EXPORT_SYMBOL(secure_tcpv6_sequence_number);
--
--__u32 secure_ipv6_id(__u32 *daddr)
--{
--	struct keydata *keyptr;
--
--	keyptr = check_and_rekey(get_seconds());
--
--	return halfMD4Transform(daddr, keyptr->secret);
--}
--
--EXPORT_SYMBOL(secure_ipv6_id);
- #endif
--
+--- 1.74/net/ipv4/af_inet.c	2004-07-07 07:01:31 +02:00
++++ edited/net/ipv4/af_inet.c	2004-09-07 13:47:22 +02:00
+@@ -837,7 +837,7 @@
+ 	.sendpage =	inet_sendpage,
+ };
  
- __u32 secure_tcp_sequence_number(__u32 saddr, __u32 daddr,
- 				 __u16 sport, __u16 dport)
---- 1.3/include/linux/random.h	2003-09-21 23:50:34 +02:00
-+++ edited/include/linux/random.h	2004-09-07 14:07:58 +02:00
-@@ -67,8 +67,6 @@
- extern __u32 secure_tcpv6_sequence_number(__u32 *saddr, __u32 *daddr,
- 					  __u16 sport, __u16 dport);
+-struct net_proto_family inet_family_ops = {
++static struct net_proto_family inet_family_ops = {
+ 	.family = PF_INET,
+ 	.create = inet_create,
+ 	.owner	= THIS_MODULE,
+@@ -1157,7 +1157,6 @@
+ EXPORT_SYMBOL(inet_bind);
+ EXPORT_SYMBOL(inet_dgram_connect);
+ EXPORT_SYMBOL(inet_dgram_ops);
+-EXPORT_SYMBOL(inet_family_ops);
+ EXPORT_SYMBOL(inet_getname);
+ EXPORT_SYMBOL(inet_ioctl);
+ EXPORT_SYMBOL(inet_listen);
+--- 1.72/net/sctp/protocol.c	2004-08-13 01:41:13 +02:00
++++ edited/net/sctp/protocol.c	2004-09-07 13:47:08 +02:00
+@@ -81,8 +81,6 @@
+ kmem_cache_t *sctp_chunk_cachep;
+ kmem_cache_t *sctp_bucket_cachep;
  
--extern __u32 secure_ipv6_id(__u32 *daddr);
+-extern struct net_proto_family inet_family_ops;
 -
- #ifndef MODULE
- extern struct file_operations random_fops, urandom_fops;
- #endif
+ extern int sctp_snmp_proc_init(void);
+ extern int sctp_snmp_proc_exit(void);
+ extern int sctp_eps_proc_init(void);
