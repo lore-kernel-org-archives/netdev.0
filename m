@@ -1,42 +1,64 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Thu, 7 Oct 2004 23:45:05 +0200
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 2.6.7 tulip performance (with NAPI)
+Date: Thu, 07 Oct 2004 14:47:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041007214505.GB31558@wotan.suse.de>
-References: <20041006232544.53615761@jack.colino.net> <20041006214322.GG31237@waste.org> <20041007075319.6b31430d@jack.colino.net> <20041006234912.66bfbdcc.davem@davemloft.net> <20041007160532.60c3f26b@pirandello> <20041007112846.5c85b2d9.davem@davemloft.net> <20041007224422.1c1bea95@jack.colino.net>
+Message-ID: <4165B981.8060703@candelatech.com>
+References: <41633174.7070805@candelatech.com>	<16740.17875.574967.11417@robur.slu.se>	<41646587.7070401@candelatech.com>	<41649425.1010102@candelatech.com> <16741.45331.743721.822091@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, mpm@selenic.com, akpm@osdl.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Colin Leroy <colin@colino.net>
-Content-Disposition: inline
-In-Reply-To: <20041007224422.1c1bea95@jack.colino.net>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16741.45331.743721.822091@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 07, 2004 at 10:44:22PM +0200, Colin Leroy wrote:
-> On 07 Oct 2004 at 11h10, David S. Miller wrote:
+Robert Olsson wrote:
+> Ben Greear writes:
 > 
-> Hi again, 
+>  > 
+>  > int pg_notify_queue_woken(struct net_device* dev) {
+>  > 	struct pktgen_interface_info* info = dev->nqw_data;
+>  > 	if (info && info->pg_thread->sleeping) {
+>  > 		if (getRelativeCurNs() > (info->next_tx_ns - 1000)) {
+>  > 			/* See if we should wake up the thread, wake
+>  > 			 * slightly early (1000 ns)
+>  > 			 */
+>  > 			info->pg_thread->sleeping = 0;
+>  > 			wake_up_interruptible(&(info->pg_thread->queue));
+>  > 		}
+>  > 	}
+>  > 	return 0;
+>  > }
 > 
-> > So, netpoll needs to have the NETIF_F_LLTX stuff added to it.
 > 
-> This patch should do that. It works OK for me, but I'd like it checked
-> before sent upstream...
+>  Interesting... I got requests for higher performance in flow/DoS testing
+>  to be really useful. Probably only preallocation will help here.
 > 
-> However, it doesn't fix the hang. it looks like this hang is really
-> coming from sungem.
+>  To be really aggressive we could hack the driver TX handling so at TX 
+>  interrupt also refills/refresh the ring but it's not a general solution. 
+>  I guess you can use an existing qdisc via dev_queue_xmit() or something 
+>  to save CPU in your case.
+>  
+>  I was sending wire rate from 10 GIGE NIC's from a DUAL XEON w. HT
 
-IMHO it's not needed. Taking xmit_lock is harmless even when
-the NETIF_F_LLTX flag is set. 
+You must have several PCI-X busses on that system?  From what I can tell,
+my dual-xeon system (2.8Ghz, X5DPA-GG motherboard) just can't handle the
+PCI bandwidth.  I still have processing power it appears, and I see lots
+of hard-start-xmit errors out of the pro/1000 NICs, so I assume I am
+able to drive them as hard as they can go...  It may be that receiving
+the pkts, as I am doing, also decreases transmit in more than a linear fashion.
 
-(or at least it was with my original patchkit. In theory it's 
-possible someone changed their driver to take xmit_lock in hard_start_xmit,
-but if they did that I would just consider it a driver bug) 
+One thing I forgot to mention earlier:  I set the pktgen thread to real-time
+scheduling with a user-space app.  This helps make sure it wakes up promptly.
 
-The only drawback is that there won't be a reply when the driver try
-lock fails, but netpoll doesn't have a queue for that anyways. You could
-probably poll then, but I'm not sure it's a good idea.
+>  I'm interested if anyone has done any pktgen performance tests with
+>  w. S2IO or other 10G card we need to upgrade the lab equipment. 
+>  Both 64 byte pkts and MTU sized pkts is interesting.  Anyone?
 
--Andi
+Not I, but would be interested as well!
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
