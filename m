@@ -1,29 +1,37 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Announce: NetKeeper Firewall For Linux
-Date: Tue, 28 Oct 2003 01:42:23 -0800
+Subject: Re: status of ipchains in 2.6?
+Date: Tue, 28 Oct 2003 01:50:32 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031028014223.129933be.davem@redhat.com>
-References: <1067285612.552.9.camel@aphrodite.olympus.net>
+Message-ID: <20031028015032.734caf21.davem@redhat.com>
+References: <200310280127.h9S1RM5d002140@napali.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com, hadi@cyberus.ca
+Cc: davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.or.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Emmanuel Fleury <fleury@cs.auc.dk>
-In-Reply-To: <1067285612.552.9.camel@aphrodite.olympus.net>
+To: davidm@hpl.hp.com
+In-Reply-To: <200310280127.h9S1RM5d002140@napali.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 27 Oct 2003 17:27:22 -0800
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
-On Mon, 27 Oct 2003 21:13:32 +0100
-Emmanuel Fleury <fleury@cs.auc.dk> wrote:
+> I recently discovered that ipchains is rather broken.  I noticed the
+> problem on ia64, but suspect that it's likely to affect all 64-bit
+> platforms (if not 32-bit platforms).  A more detailed description of
+> the problem I'm seeing is here:
+> 
+> 	http://tinyurl.com/sm9d
+> 
+> Unlike ipchains, iptables works perfectly fine, so perhaps we just
+> need to update Kconfig to discourage ipchains on ia64 (and/or other
+> 64-bit platforms)?
 
-> For more details check out the netkeeper web-site:
->     http://www.cs.auc.dk/~fleury/netkeeper/
+Might want to post this to the netfilter lists or netdev....
+Nah, that might actually get the bug fixed.
 
-You may want to have a look at:
-
-  http://www.cyberus.ca/~hadi/patches/action/README
-
-which I believe is the way to implement these kinds
-of things.
+linux-kernel is always the wrong place to report networking
+problems, most networking developers do not read linux-kernel.
+They do read netdev@oss.sgi.com so please post things there.
