@@ -1,9 +1,9 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [XFRM] Probe selected algorithm only
-Date: Fri, 21 Jan 2005 21:19:38 +1100
-Message-ID: <20050121101938.GA1133@gondor.apana.org.au>
+Subject: [IPSEC] Stop using dst->xfrm
+Date: Fri, 21 Jan 2005 21:23:19 +1100
+Message-ID: <20050121102319.GA3160@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="G4iJoqBmSsgzjUCe"
+Content-Type: multipart/mixed; boundary="82I3+IH0IqGh5yIs"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Content-Disposition: inline
@@ -12,277 +12,186 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---G4iJoqBmSsgzjUCe
+--82I3+IH0IqGh5yIs
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi Dave:
 
-This patch removes an annoying problem in xfrm_user.  As it is every
-time an SA is added it probes every known algorithm in the universe.
-Now if they all existed it would be OK.  However, for the ones which
-don't actually exist this causes multiple /sbin/modprobe processes to
-be spawned which slows the system down when you're adding hundreds of
-SAs.
+Here is a precursor to the xfrm dst consolidation that I talked about.
+In order to be able to store multiple SAs in one dst, we need to stop
+using dst->xfrm directly.
 
-Since we know the type of algorithm required when we're adding a new
-SA, we can get away with only probing the selected algorithms.  This
-is what the following patch does for xfrm_user.
+The following patch does that for the ->output() functions.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---G4iJoqBmSsgzjUCe
+--82I3+IH0IqGh5yIs
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+Content-Disposition: attachment; filename="xfrm.patch"
 
-===== include/linux/crypto.h 1.31 vs edited =====
---- 1.31/include/linux/crypto.h	2004-12-01 17:00:21 +11:00
-+++ edited/include/linux/crypto.h	2005-01-21 21:11:45 +11:00
-@@ -16,6 +16,7 @@
- #ifndef _LINUX_CRYPTO_H
- #define _LINUX_CRYPTO_H
- 
-+#include <linux/config.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/types.h>
-@@ -121,7 +122,14 @@
- /*
-  * Algorithm query interface.
-  */
-+#ifdef CONFIG_CRYPTO
- int crypto_alg_available(const char *name, u32 flags);
-+#else
-+static inline int crypto_alg_available(const char *name, u32 flags)
-+{
-+	return 0;
-+}
-+#endif
- 
- /*
-  * Transforms: user-instantiated objects which encapsulate algorithms
 ===== include/net/xfrm.h 1.73 vs edited =====
 --- 1.73/include/net/xfrm.h	2004-12-28 14:49:57 +11:00
-+++ edited/include/net/xfrm.h	2005-01-21 21:02:36 +11:00
-@@ -873,9 +873,9 @@
- extern struct xfrm_algo_desc *xfrm_aalg_get_byid(int alg_id);
- extern struct xfrm_algo_desc *xfrm_ealg_get_byid(int alg_id);
- extern struct xfrm_algo_desc *xfrm_calg_get_byid(int alg_id);
--extern struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name);
--extern struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name);
--extern struct xfrm_algo_desc *xfrm_calg_get_byname(char *name);
-+extern struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name, int probe);
-+extern struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe);
-+extern struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe);
- 
- struct crypto_tfm;
- typedef void (icv_update_fn_t)(struct crypto_tfm *, struct scatterlist *, unsigned int);
++++ edited/include/net/xfrm.h	2005-01-21 11:10:16 +11:00
+@@ -212,7 +212,7 @@
+ 	void			(*destructor)(struct xfrm_state *);
+ 	int			(*input)(struct xfrm_state *, struct xfrm_decap_state *, struct sk_buff *skb);
+ 	int			(*post_input)(struct xfrm_state *, struct xfrm_decap_state *, struct sk_buff *skb);
+-	int			(*output)(struct sk_buff *pskb);
++	int			(*output)(struct xfrm_state *, struct sk_buff *pskb);
+ 	/* Estimate maximal size of result of transformation of a dgram */
+ 	u32			(*get_max_size)(struct xfrm_state *, int size);
+ };
 ===== net/ipv4/ah4.c 1.40 vs edited =====
 --- 1.40/net/ipv4/ah4.c	2004-08-22 15:00:07 +10:00
-+++ edited/net/ipv4/ah4.c	2005-01-21 21:03:39 +11:00
-@@ -236,7 +236,7 @@
- 	 * we need for AH processing.  This lookup cannot fail here
- 	 * after a successful crypto_alloc_tfm().
- 	 */
--	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
-+	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 	BUG_ON(!aalg_desc);
++++ edited/net/ipv4/ah4.c	2005-01-21 11:10:27 +11:00
+@@ -53,11 +53,9 @@
+ 	return 0;
+ }
  
- 	if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+-static int ah_output(struct sk_buff *skb)
++static int ah_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x  = dst->xfrm;
+ 	struct iphdr *iph, *top_iph;
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
 ===== net/ipv4/esp4.c 1.54 vs edited =====
 --- 1.54/net/ipv4/esp4.c	2004-08-22 15:00:07 +10:00
-+++ edited/net/ipv4/esp4.c	2005-01-21 21:04:37 +11:00
-@@ -392,7 +392,7 @@
- 			goto error;
- 		esp->auth.icv = esp_hmac_digest;
++++ edited/net/ipv4/esp4.c	2005-01-21 11:11:30 +11:00
+@@ -17,11 +17,9 @@
+ 	__u8		proto;
+ };
  
--		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
-+		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 		BUG_ON(!aalg_desc);
- 
- 		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+-static int esp_output(struct sk_buff *skb)
++static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x  = dst->xfrm;
+ 	struct iphdr *top_iph;
+ 	struct ip_esp_hdr *esph;
+ 	struct crypto_tfm *tfm;
 ===== net/ipv4/ipcomp.c 1.30 vs edited =====
 --- 1.30/net/ipv4/ipcomp.c	2004-09-11 07:36:51 +10:00
-+++ edited/net/ipv4/ipcomp.c	2005-01-21 21:04:40 +11:00
-@@ -472,7 +472,7 @@
- 			goto error_tunnel;
- 	}
++++ edited/net/ipv4/ipcomp.c	2005-01-21 11:11:37 +11:00
+@@ -154,11 +154,9 @@
+ 	return err;
+ }
  
--	calg_desc = xfrm_calg_get_byname(x->calg->alg_name);
-+	calg_desc = xfrm_calg_get_byname(x->calg->alg_name, 0);
- 	BUG_ON(!calg_desc);
- 	ipcd->threshold = calg_desc->uinfo.comp.threshold;
- 	x->data = ipcd;
+-static int ipcomp_output(struct sk_buff *skb)
++static int ipcomp_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x = dst->xfrm;
+ 	struct iphdr *iph;
+ 	struct ip_comp_hdr *ipch;
+ 	struct ipcomp_data *ipcd = x->data;
+===== net/ipv4/xfrm4_output.c 1.5 vs edited =====
+--- 1.5/net/ipv4/xfrm4_output.c	2004-10-26 09:10:25 +10:00
++++ edited/net/ipv4/xfrm4_output.c	2005-01-21 11:12:23 +11:00
+@@ -116,7 +116,7 @@
+ 
+ 	xfrm4_encap(skb);
+ 
+-	err = x->type->output(skb);
++	err = x->type->output(x, skb);
+ 	if (err)
+ 		goto error;
+ 
+===== net/ipv4/xfrm4_tunnel.c 1.18 vs edited =====
+--- 1.18/net/ipv4/xfrm4_tunnel.c	2004-08-21 06:54:06 +10:00
++++ edited/net/ipv4/xfrm4_tunnel.c	2005-01-21 11:12:43 +11:00
+@@ -9,7 +9,7 @@
+ #include <net/ip.h>
+ #include <net/protocol.h>
+ 
+-static int ipip_output(struct sk_buff *skb)
++static int ipip_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct iphdr *iph;
+ 	
 ===== net/ipv6/ah6.c 1.41 vs edited =====
 --- 1.41/net/ipv6/ah6.c	2004-08-22 15:00:07 +10:00
-+++ edited/net/ipv6/ah6.c	2005-01-21 21:04:45 +11:00
-@@ -375,7 +375,7 @@
- 	 * we need for AH processing.  This lookup cannot fail here
- 	 * after a successful crypto_alloc_tfm().
- 	 */
--	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
-+	aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 	BUG_ON(!aalg_desc);
++++ edited/net/ipv6/ah6.c	2005-01-21 11:14:03 +11:00
+@@ -154,12 +154,10 @@
+ 	return 0;
+ }
  
- 	if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
+-static int ah6_output(struct sk_buff *skb)
++static int ah6_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+ 	int extlen;
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x  = dst->xfrm;
+ 	struct ipv6hdr *top_iph;
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
 ===== net/ipv6/esp6.c 1.37 vs edited =====
 --- 1.37/net/ipv6/esp6.c	2004-08-22 15:00:07 +10:00
-+++ edited/net/ipv6/esp6.c	2005-01-21 21:04:48 +11:00
-@@ -329,7 +329,7 @@
- 			goto error;
- 		esp->auth.icv = esp_hmac_digest;
-  
--		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name);
-+		aalg_desc = xfrm_aalg_get_byname(x->aalg->alg_name, 0);
- 		BUG_ON(!aalg_desc);
-  
- 		if (aalg_desc->uinfo.auth.icv_fullbits/8 !=
++++ edited/net/ipv6/esp6.c	2005-01-21 11:14:13 +11:00
+@@ -37,12 +37,10 @@
+ #include <net/ipv6.h>
+ #include <linux/icmpv6.h>
+ 
+-static int esp6_output(struct sk_buff *skb)
++static int esp6_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	int err;
+ 	int hdr_len;
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x  = dst->xfrm;
+ 	struct ipv6hdr *top_iph;
+ 	struct ipv6_esp_hdr *esph;
+ 	struct crypto_tfm *tfm;
 ===== net/ipv6/ipcomp6.c 1.19 vs edited =====
 --- 1.19/net/ipv6/ipcomp6.c	2004-09-11 07:36:51 +10:00
-+++ edited/net/ipv6/ipcomp6.c	2005-01-21 21:04:51 +11:00
-@@ -468,7 +468,7 @@
- 			goto error_tunnel;
- 	}
- 
--	calg_desc = xfrm_calg_get_byname(x->calg->alg_name);
-+	calg_desc = xfrm_calg_get_byname(x->calg->alg_name, 0);
- 	BUG_ON(!calg_desc);
- 	ipcd->threshold = calg_desc->uinfo.comp.threshold;
- 	x->data = ipcd;
-===== net/xfrm/xfrm_algo.c 1.15 vs edited =====
---- 1.15/net/xfrm/xfrm_algo.c	2004-12-28 13:33:32 +11:00
-+++ edited/net/xfrm/xfrm_algo.c	2005-01-21 21:17:12 +11:00
-@@ -13,6 +13,7 @@
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/pfkeyv2.h>
-+#include <linux/crypto.h>
- #include <net/xfrm.h>
- #if defined(CONFIG_INET_AH) || defined(CONFIG_INET_AH_MODULE) || defined(CONFIG_INET6_AH) || defined(CONFIG_INET6_AH_MODULE)
- #include <net/ah.h>
-@@ -346,58 +347,48 @@
- 	return NULL;
++++ edited/net/ipv6/ipcomp6.c	2005-01-21 11:14:29 +11:00
+@@ -139,11 +139,9 @@
+ 	return err;
  }
  
--struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name)
-+static struct xfrm_algo_desc *xfrm_get_byname(struct xfrm_algo_desc *list,
-+					      int entries, char *name,
-+					      int probe)
+-static int ipcomp6_output(struct sk_buff *skb)
++static int ipcomp6_output(struct xfrm_state *x, struct sk_buff *skb)
  {
--	int i;
-+	int i, status;
+ 	int err;
+-	struct dst_entry *dst = skb->dst;
+-	struct xfrm_state *x = dst->xfrm;
+ 	struct ipv6hdr *top_iph;
+ 	int hdr_len;
+ 	struct ipv6_comp_hdr *ipch;
+===== net/ipv6/xfrm6_output.c 1.7 vs edited =====
+--- 1.7/net/ipv6/xfrm6_output.c	2004-11-16 13:52:34 +11:00
++++ edited/net/ipv6/xfrm6_output.c	2005-01-21 11:14:37 +11:00
+@@ -116,7 +116,7 @@
  
- 	if (!name)
- 		return NULL;
+ 	xfrm6_encap(skb);
  
--	for (i=0; i < aalg_entries(); i++) {
--		if (strcmp(name, aalg_list[i].name) == 0) {
--			if (aalg_list[i].available)
--				return &aalg_list[i];
--			else
--				break;
--		}
-+	for (i = 0; i < entries; i++) {
-+		if (!strcmp(name, list[i].name))
-+			continue;
-+
-+		if (list[i].available)
-+			return &list[i];
-+
-+		if (!probe)
-+			break;
-+
-+		status = crypto_alg_available(name, 0);
-+		if (!status)
-+			break;
-+
-+		list[i].available = status;
-+		return &list[i];
- 	}
- 	return NULL;
- }
- 
--struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name)
-+struct xfrm_algo_desc *xfrm_aalg_get_byname(char *name, int probe)
- {
--	int i;
--
--	if (!name)
--		return NULL;
--
--	for (i=0; i < ealg_entries(); i++) {
--		if (strcmp(name, ealg_list[i].name) == 0) {
--			if (ealg_list[i].available)
--				return &ealg_list[i];
--			else
--				break;
--		}
--	}
--	return NULL;
-+	return xfrm_get_byname(aalg_list, aalg_entries(), name, probe);
- }
- 
--struct xfrm_algo_desc *xfrm_calg_get_byname(char *name)
-+struct xfrm_algo_desc *xfrm_ealg_get_byname(char *name, int probe)
- {
--	int i;
--
--	if (!name)
--		return NULL;
-+	return xfrm_get_byname(ealg_list, ealg_entries(), name, probe);
-+}
- 
--	for (i=0; i < calg_entries(); i++) {
--		if (strcmp(name, calg_list[i].name) == 0) {
--			if (calg_list[i].available)
--				return &calg_list[i];
--			else
--				break;
--		}
--	}
--	return NULL;
-+struct xfrm_algo_desc *xfrm_calg_get_byname(char *name, int probe)
-+{
-+	return xfrm_get_byname(calg_list, calg_entries(), name, probe);
- }
- 
- struct xfrm_algo_desc *xfrm_aalg_get_byidx(unsigned int idx)
-===== net/xfrm/xfrm_user.c 1.51 vs edited =====
---- 1.51/net/xfrm/xfrm_user.c	2004-12-28 13:33:32 +11:00
-+++ edited/net/xfrm/xfrm_user.c	2005-01-21 21:05:50 +11:00
-@@ -156,7 +156,7 @@
- }
- 
- static int attach_one_algo(struct xfrm_algo **algpp, u8 *props,
--			   struct xfrm_algo_desc *(*get_byname)(char *),
-+			   struct xfrm_algo_desc *(*get_byname)(char *, int),
- 			   struct rtattr *u_arg)
- {
- 	struct rtattr *rta = u_arg;
-@@ -168,7 +168,7 @@
- 
- 	ualg = RTA_DATA(rta);
- 
--	algo = get_byname(ualg->alg_name);
-+	algo = get_byname(ualg->alg_name, 1);
- 	if (!algo)
- 		return -ENOSYS;
- 	*props = algo->desc.sadb_alg_id;
-@@ -272,8 +272,6 @@
- 	err = verify_newsa_info(p, (struct rtattr **) xfrma);
+-	err = x->type->output(skb);
++	err = x->type->output(x, skb);
  	if (err)
- 		return err;
--
--	xfrm_probe_algs();
+ 		goto error;
  
- 	x = xfrm_state_construct(p, (struct rtattr **) xfrma, &err);
- 	if (!x)
+===== net/ipv6/xfrm6_tunnel.c 1.9 vs edited =====
+--- 1.9/net/ipv6/xfrm6_tunnel.c	2005-01-14 15:41:06 +11:00
++++ edited/net/ipv6/xfrm6_tunnel.c	2005-01-21 11:14:47 +11:00
+@@ -343,7 +343,7 @@
+ 
+ EXPORT_SYMBOL(xfrm6_tunnel_free_spi);
+ 
+-static int xfrm6_tunnel_output(struct sk_buff *skb)
++static int xfrm6_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
+ {
+ 	struct ipv6hdr *top_iph;
+ 
 
---G4iJoqBmSsgzjUCe--
+--82I3+IH0IqGh5yIs--
