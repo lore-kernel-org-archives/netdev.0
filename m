@@ -1,47 +1,33 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: inter-packet gap in pktgen
-Date: Wed, 8 Dec 2004 11:21:54 +0100
-Message-ID: <16822.54722.755218.745451@robur.slu.se>
-References: <20041207222522.GA30266@xi.wantstofly.org>
-	<41B632F3.1090104@candelatech.com>
-	<20041208073858.GA4027@xi.wantstofly.org>
+From: Daniele Venzano <webvenza@libero.it>
+Subject: [PATCH 0/5] sis900 printk and stack usage audit
+Date: Wed, 8 Dec 2004 11:47:21 +0100
+Message-ID: <20041208104721.GA31707@picchio.gall.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-        Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
-        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041208073858.GA4027@xi.wantstofly.org>
+To: NetDev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This patchset brings the debug output of the sis900 driver up to date,
+making it actually useful.
+There is also a rework of the code to avoid unnede calls to
+sis630_set_eq and to remove repeated calls to pci_read_config_byte.
 
-Lennert Buytenhek writes:
- > 
- > Another option is:
- > 
- > 	next_tx = get_time_in_ns();
- > 	while (--count) {
- > 		tx_packet();
- > 		next_tx += 1e9/intended_pps;
- > 		nanospin(next_tx - get_time_in_ns());
- > 	}
+All the patches are made against latest netdev-2.6 tree (linus' sis900
++ altimata PHY patch)
 
- Hello!
+I've tested all patches and the runtime debug parameter and everything
+works as expected.
 
- I think this what Ben is doing with his userland app. Ev. adjusting
- the ipg delay in runtime? A kind of control system. Even the device 
- stats could possible be read.
+As usual all patches are available from
+http://teg.homeunix.org/sis900.html
 
- 
- > This should be relatively independent of system load.  OK, I know,
- > time to show some code.
- 
- Also an idea might be to have some kind of option to use pktgen w. 
- existent qdisc/tc infrastructure for this type of tests. Ben did
- you try this?
- 
-						--ro
+Thanks.
+
+-- 
+-----------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
