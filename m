@@ -1,40 +1,55 @@
-From: Dorn Hetzel <kernel@dorn.hetzel.org>
-Subject: Re: r8169.c
-Date: Thu, 25 Nov 2004 17:02:33 -0500
-Message-ID: <20041125220233.GA23850@lilah.hetzel.org>
-References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com> <20041122181307.GA3625@lilah.hetzel.org> <20041123144901.GA19005@lilah.hetzel.org> <20041123194740.GA32210@electric-eye.fr.zoreil.com>
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH] Deadlock in af_packet/packet_rcv
+Date: Thu, 25 Nov 2004 21:55:03 +0100
+Message-ID: <20041125205503.GA18083@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dorn Hetzel <kernel@dorn.hetzel.org>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20041123194740.GA32210@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 23, 2004 at 08:47:40PM +0100, Francois Romieu wrote:
-> Dorn Hetzel <kernel@dorn.hetzel.org> :
 
-> > Stacked on these 4 patches and things seem much better :)
-> 
-> Did you change the compiler as well ?
-> 
-> If yes, it would be nice to know if the system performs correctly when built with
-> the previous compiler (feel free to answer #1 only if you are busy :o) ).
->
+Before introduction of lock-less loopback, all of netdev_xmit_nit was
+running with bottom halves disabled, and some code seems to rely on
+this. One of them is af_packet's packet_rcv handler, which is called
+from the receive path via netdev_xmit_nit.  It takes a spin lock,
+and if an interrupt occurs and calls netdev_xmit during this time,
+the CPU deadlocks.
 
-I went ahead and remotely rebuilt using gcc 2.95.4 and upon reboot it
-worked long enough to ssh in and then it failed.  So it sounds like the
-version of gcc DOES make a difference :)
+The patch below disables BHs while in the TX path for loopback and
+similar devices.
 
-I will report further details when I get home and can access the box
-again ;)
+An alternative, less conservative fix would be to just use spin_lock_bh
+in af_packet.c.
 
--Dorn
+Signed-off-by: Olaf Kirch <okir@suse.de>
+
+
+Index: linux-2.6.9/net/core/dev.c
+===================================================================
+--- linux-2.6.9.orig/net/core/dev.c
++++ linux-2.6.9/net/core/dev.c
+@@ -1222,6 +1222,7 @@ int __skb_linearize(struct sk_buff *skb,
+ }
  
-> --
-> Ueimor
-> -
+ #define HARD_TX_LOCK(dev, cpu) {			\
++	local_disable_bh();				\
+ 	if ((dev->features & NETIF_F_LLTX) == 0) {	\
+ 		spin_lock(&dev->xmit_lock);		\
+ 		dev->xmit_lock_owner = cpu;		\
+@@ -1233,6 +1234,7 @@ int __skb_linearize(struct sk_buff *skb,
+ 		dev->xmit_lock_owner = -1;		\
+ 		spin_unlock(&dev->xmit_lock);		\
+ 	}						\
++	local_enable_bh();				\
+ }
+ 
+ static inline void qdisc_run(struct net_device *dev)
+
+-- 
+Olaf Kirch     | Things that make Monday morning interesting, #2:
+okir@suse.de   |        "We have 8,000 NFS mount points, why do we keep
+---------------+ 	 running out of privileged ports?"
