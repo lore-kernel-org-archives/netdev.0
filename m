@@ -1,99 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Fri, 4 Feb 2005 22:33:05 +1100
-Message-ID: <20050204113305.GA12764@gondor.apana.org.au>
-References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050203142705.GA11318@krispykreme.ozlabs.ibm.com> <20050203150821.2321130b.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: pointers in the sk_buff structure.
+Date: Fri, 4 Feb 2005 13:06:29 +0100
+Message-ID: <20050204120629.GB12630@xi.wantstofly.org>
+References: <d50018af05020314451010c5eb@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Anton Blanchard <anton@samba.org>, okir@suse.de, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@oss.sgi.com
+To: sudeep list <sudeep.list@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20050203150821.2321130b.davem@davemloft.net>
+In-Reply-To: <d50018af05020314451010c5eb@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 03, 2005 at 03:08:21PM -0800, David S. Miller wrote:
+On Thu, Feb 03, 2005 at 03:45:15PM -0700, sudeep list wrote:
+
+> hello,
+
+Hi,
+
+
+> I figured that the pointer sk_buff->tail points to the end of data in
+> the buffer attached to the sk_buff. What does the pointer sk_buff->end
+> point to ?
 > 
-> Ok, here goes nothing.  Can someone run with this?  It should
-> be rather complete, and require only minor editorial work.
+> Is there any data that lies between the two pointers, or they are two
+> pointers to the same address (end of data in the buffer area) ?
 
-Thanks.  It's a very nice piece of work.
- 
-> A missing memory barrier in the cases where they are required
-> by the atomic_t implementation above can have disasterous
-> results.  Here is an example, which follows a pattern occuring
-> frequently in the Linux kernel.  It is the use of atomic counters
-> to implement reference counting, and it works such that once
-> the counter falls to zero it can be guarenteed that no other
-> entity can be accessing the object.   Observe:
-> 
-> 	list_del(&obj->list);
-> 	if (atomic_dec_and_test(&obj->ref_count))
-> 		kfree(obj);
-> 
-> Here, the list (say it is some linked list on which object
-> searches are performed) creates the reference to the object.
-> The insertion code probably looks something like this:
-> 
-> 	atomic_inc(&obj->ref_count);
-> 	list_add(&obj->list, &global_obj_list);
+This is a snippet from some docs on the subject I wrote a while ago,
+hope it helps.  I should polish it up and submit it for inclusion.
 
-I think you should probably note that some sort of locking or RCU
-scheme is required to make this safe.  As it is the atomic_inc
-and the list_add can be reordered such that the atomic_inc occurs
-after the atomic_dec_and_test.
 
-Either that or you can modify the example to add an
-smp_mb__after_atomic_inc().  That'd be a good way to
-demonstrate its use.
+2. The sk_buff structure.
 
-> And searches look something like:
-> 
-> 	for_each(obj, &global_obj_list) {
-> 		if (key_compare(obj->key, key)) {
-> 			atomic_inc(&obj->ref_count);
-> 			return obj;
-> 		}
-> 	}
-> 	return NULL;
+The sk_buff structure ('skb') is actually only used for storing the
+metadata corresponding to a packet.  The packet's data is not stored
+inside the sk_buff structure itself, but in a separate buffer that is
+pointed to by skb->head.  The skb->end member points one byte past the
+end of this data buffer.
 
-Locking or RCU is definitely needed here.
+An important design requirement for sk_buffs is being able to add data
+at the end as well as at the front of the packet.  As a packet travels
+downwards through the network stack, each layer will usually want to
+add its own header in front of the packet, and it would be nice if we
+could avoid reallocating and/or copying the entire data portion of the
+packet around to make more space at the front of the buffer every time
+we want to do this.
 
-> the object is still visible for lookup on the linked list.  So
-> we'd get a bogus sequence like this:
-> 
-> 	cpu 0				cpu 1
-> 	list_del(&obj->list);
-> 	... visibility delayed ...
-> 					lookup and find obj on
-> 					global_obj_list
+To achieve this goal, the packet data is not necessarily stored at the
+front of the data buffer, but some space between the front of the buffer
+and the front of the packet is left unused.  skb->data and skb->tail
+are two extra pointers that point to the beginning and one byte past
+the end of the currently used portion of the data buffer, respectively.
+Both are guaranteed to point somewhere within the data buffer.
+('skb->head <= skb->data <= skb->tail <= skb->end')
 
-The visibility only needs to be delayed up until this point for
-the crash to occur.
+        +----------+-------------------------------------+--------------+
+        | headroom | packet data                         | tailroom     |
+        +----------+-------------------------------------+--------------+
+        ^          ^ skb->data                           ^     skb->end ^
+        |                                                |
+        + skb->head                                      + skb->tail
 
-> 	atomic_dec_and_test();
-> 	obj refcount hits zero, this
-> 	is visible globally
-> 					atomic_inc()
-> 					obj refcount incremented
-> 					to one
-> 	list_del() becomes visible
-> 
-> 	kfree(obj);
-> 					obj is now freed up memory
-> 					--> CRASH
-> 
-> With the memory barrier semantics required of the atomic_t
-> operations which return values, the above sequence of memory
-> visibility can never happen.
+The function skb_headroom(skb) calculates 'skb->data - skb->head', and
+indicates how many bytes we can add to the front of the packet without
+having to reallocate the buffer.  Similarly, skb_tailroom(skb) calculates
+'skb->end - skb->tail' and indicates how many bytes we can add to the
+end of the packet before having to reallocate.
 
-So this isn't exactly correct.
+Adding data to and removing data from the front of the buffer is done
+with skb_push and skb_pull, respectively.  These wrappers do some sanity
+checks to make sure the relevant constraints on the four pointers are
+maintained.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+When an sk_buff is allocated by alloc_skb, skb->{head,data,tail} are all
+initialised to point to the start of the data buffer.  Depending on what
+the skb will be used for, the caller will usually want to reserve some
+headroom in anticipation of expansion of the data buffer towards the
+front.  This is done by calling skb_reserve().
