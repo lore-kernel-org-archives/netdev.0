@@ -1,63 +1,41 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] [NET]: Fix deletion of local addresses only varying in prefix length
-Date: Fri, 4 Mar 2005 14:14:19 +0100
-Message-ID: <20050304131419.GE31837@postel.suug.ch>
-References: <20050304012003.GA31837@postel.suug.ch> <E1D78DN-0002te-00@gondolin.me.apana.org.au>
+Subject: Re: [PATCH] iproute2 updates
+Date: Fri, 4 Mar 2005 14:26:53 +0100
+Message-ID: <20050304132653.GF31837@postel.suug.ch>
+References: <20050304023520.GD31837@postel.suug.ch> <1109908154.1091.486.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <E1D78DN-0002te-00@gondolin.me.apana.org.au>
+In-Reply-To: <1109908154.1091.486.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Herbert Xu <E1D78DN-0002te-00@gondolin.me.apana.org.au> 2005-03-04 19:31
-> Thomas Graf <tgraf@suug.ch> wrote:
-> > The deletion of local addresses via netlink doesn't take the
-> > prefix length into account resulting in the deletion of
-> > the address that was added first given multiple addresses
-> > exist only varying in the prefix length.
+* jamal <1109908154.1091.486.camel@jzny.localdomain> 2005-03-03 22:49
+> On Thu, 2005-03-03 at 21:35, Thomas Graf wrote:
+> > Stephen,
+> > 
+> > You may pull the following changes from bk://tgr.bkbits.net/iproute2-tgr-fix
 > 
-> This has the potential of breaking user-space scripts.  For example,
-> this won't work anymore:
-> 
-> ip a a dev eth0 192.168.0.1/24
-> ip a d dev eth0 192.168.0.1
+> Other than NPROBES change, shouldnt the other changes be reflective of
+> whats in the kernel? This is the cost of keeping private headers. My
+> suggestions would be to let Steve on every major release to just sync
+> the header files.
 
-Yes I know.
+Well, these are not exact copies, all the __KERNEL__ stuff is missing, a
+few CONFIG ifdefs must be cut out and a few extra bits such as u32 mark
+structures. I updated them because some of the structures were outdated.
+I do not care how it is done but it required an update.
 
-> 
-> > tgr:axs ~ ip -4 addr show dev lo
-> > 1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue 
-> >    inet 127.0.0.1/8 scope host lo
-> >    inet 1.1.1.1/1 scope global lo
-> >    inet 1.1.1.1/2 scope global lo
-> 
-> Do we really need to handle this case? If we do then would it be better
-> to consider ifa_prefixlen only when there are multiple addresses present
-> which match but differ by prefix length?
+> PS:- Also on you 1/2 changes - I notice one bug fix, the rest seems
+> cosmetic - what does that buy you? Does it make the code more readable
+> etc?
 
-I do not agree but I might have a better idea. Let's change iproute2
-to provide a prefixlength of 0 if no prefix was specified and only
-compare the prefixes if it is non zero. This allows for accurate
-deletion, no scripts will break (except for really really broken ones).
-Given there are multiple matching addresses only varying in prefix
-length and no prefix was specified the first one will get deleted but
-this is well defined.
-
---- linux-2.6.11.orig/net/ipv4/devinet.c	2005-03-04 14:08:14.000000000 +0100
-+++ linux-2.6.11/net/ipv4/devinet.c	2005-03-04 14:06:33.000000000 +0100
-@@ -396,8 +396,10 @@
- 	for (ifap = &in_dev->ifa_list; (ifa = *ifap) != NULL;
- 	     ifap = &ifa->ifa_next) {
- 		if ((rta[IFA_LOCAL - 1] &&
-+		     ((ifm->ifa_prefixlen &&
-+		      ifm->ifa_prefixlen != ifa->ifa_prefixlen) ||
- 		     memcmp(RTA_DATA(rta[IFA_LOCAL - 1]),
--			    &ifa->ifa_local, 4)) ||
-+			    &ifa->ifa_local, 4))) ||
- 		    (rta[IFA_LABEL - 1] &&
- 		     rtattr_strcmp(rta[IFA_LABEL - 1], ifa->ifa_label)) ||
- 		    (rta[IFA_ADDRESS - 1] &&
+Yes, it improves readability a lot, I first thought the neighbour code
+had a bug until I read the code bit by bit from the top and there was
+quite some logic in it that one wouldn't expect such as parallel code
+paths for errors and normal execution. I replacted the rta_len checks
+with RTA_PAYLOAD and adapted the logic to be like the rest of the
+rtnetlink handle code.
