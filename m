@@ -1,28 +1,20 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Boro King <boroking@gmx.net>
 Subject: Re: VLAN patches
-Date: Mon, 07 Oct 2002 05:09:06 -0700 (PDT)
+Date: Mon, 07 Oct 2002 23:01:16 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021007.050906.62369710.davem@redhat.com>
-References: <3DA13332.4080109@mrv.com>
-	<Pine.GSO.4.30.0210070757520.1861-100000@shell.cyberus.ca>
+Message-ID: <5.1.0.14.0.20021007230057.00b5b198@pop.gmx.net>
+References: <20021005.220549.15266753.davem@redhat.com>
+ <Pine.GSO.4.30.0210061839210.1861-100000@shell.cyberus.ca>
+ <20021006.194654.35505461.davem@redhat.com>
+ <3DA1010A.8020202@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: emann@mrv.com, greearb@candelatech.com, Bjorn.Andersson@ebc.ericsson.se,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
+   Bjorn.Andersson@ebc.ericsson.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <Pine.GSO.4.30.0210070757520.1861-100000@shell.cyberus.ca>
+To: Eran Mann <emann@mrv.com>, Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3DA13332.4080109@mrv.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: jamal <hadi@cyberus.ca>
-   Date: Mon, 7 Oct 2002 08:05:07 -0400 (EDT)
-
-   I never liked Bens patches that much compared to the other VLAN
-   imp. -- would have prefered a marriage of the two.
-
-There is a long thread deep in the archives for these lists
-saying why Ben's code went it.
-
-Please, let's not duplicate that conversation ok?
+please take me of the mailing list!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
