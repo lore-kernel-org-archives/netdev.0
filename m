@@ -1,99 +1,54 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH-2.6.0-tiny] "uninline" {lock,release}_sock
-Date: Sun, 28 Dec 2003 05:54:27 -0200
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [PATCH-2.6.0-tiny] "uninline" {lock,release}_sock
+Date: Sun, 28 Dec 2003 00:23:07 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031228075426.GB24351@conectiva.com.br>
+Message-ID: <Pine.LNX.4.58.0312280017060.2274@home.osdl.org>
+References: <20031228075426.GB24351@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Matt Mackall <mpm@selenic.com>,
+        Linux Networking Development Mailing List <netdev@oss.sgi.com>,
         Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-Content-Disposition: inline
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20031228075426.GB24351@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Matt,
 
-	Please apply on top of your 2.6.0-tiny1 tree, CC to netdev for
-eventual comments.
 
-	With this patch we save more 3.321 bytes. At a first compilation
-on top of plain 2.6.0 I thought I had seen it save more, will perhaps check
-this later... if you optimized some of the kernel primitives that are called
-by the current lock_sock/release_sock... Nah, too sleepy now :)
+On Sun, 28 Dec 2003, Arnaldo Carvalho de Melo wrote:
+> 
+> 	Please apply on top of your 2.6.0-tiny1 tree, CC to netdev for
+> eventual comments.
 
-	Will test too with lock_sock/release_sock as an inline (or not if
-CONFIG_NET_SMALL is selected) and not as a macro as it is today, does anybody
-knows why it isn't already inline? Dave? /me must be missing something here...
+Please don't do it this way.
 
-   text    data     bss     dec     hex filename  patch        savings
- 858052  163460   65068 1086580  109474 vmlinux   2.6.0-tiny1
- 854697  163494   65068 1083259  10877b vmlinux   lock_sock       3321
+This is quite possibly faster even _normally_, so it might make more sense 
+to just do it globally instead of having a CONFIG_NEX_SMALL.
 
-Best Regards,
+Basically, inline functions tend to win only when inlining them is smaller
+and simpler than actually calling a function. The most common cause of
+that is that some argument is commonly constant (and thus gets simplified
+away by inlining), or the function itself literally expands to just a few 
+instructions (the list functions, the inline asms for things like "cli" 
+etc).
 
-- Arnaldo
+We use a lot too many inline functions for other reasons: one reason to 
+use them is that they are sometimes more convenient than it is to find a 
+good place for the non-inline version. Another common reason is that the 
+thing started out smaller than it eventually became - and the inline just 
+stuck around.
 
-diff -urp linux-2.6.0.tiny.orig/include/net/sock.h linux-2.6.0.tiny.acme/include/net/sock.h
---- linux-2.6.0.tiny.orig/include/net/sock.h	2003-12-18 00:59:15.000000000 -0200
-+++ linux-2.6.0.tiny.acme/include/net/sock.h	2003-12-28 01:32:50.000000000 -0200
-@@ -542,7 +542,7 @@ static inline struct inode *SOCK_INODE(s
- extern void __lock_sock(struct sock *sk);
- extern void __release_sock(struct sock *sk);
- #define sock_owned_by_user(sk)	((sk)->sk_lock.owner)
--#define lock_sock(__sk) \
-+#define _lock_sock(__sk) \
- do {	might_sleep(); \
- 	spin_lock_bh(&((__sk)->sk_lock.slock)); \
- 	if ((__sk)->sk_lock.owner) \
-@@ -551,7 +551,7 @@ do {	might_sleep(); \
- 	spin_unlock_bh(&((__sk)->sk_lock.slock)); \
- } while(0)
- 
--#define release_sock(__sk) \
-+#define _release_sock(__sk) \
- do {	spin_lock_bh(&((__sk)->sk_lock.slock)); \
- 	if ((__sk)->sk_backlog.tail) \
- 		__release_sock(__sk); \
-@@ -561,6 +561,14 @@ do {	spin_lock_bh(&((__sk)->sk_lock.sloc
- 	spin_unlock_bh(&((__sk)->sk_lock.slock)); \
- } while(0)
- 
-+#ifdef CONFIG_NET_SMALL
-+extern void lock_sock(struct sock *sk);
-+extern void release_sock(struct sock *sk);
-+#else
-+#define lock_sock(__sk) _lock_sock(__sk)
-+#define release_sock(__sk) _release_sock(__sk)
-+#endif
-+
- /* BH context may only use the following locking interface. */
- #define bh_lock_sock(__sk)	spin_lock(&((__sk)->sk_lock.slock))
- #define bh_unlock_sock(__sk)	spin_unlock(&((__sk)->sk_lock.slock))
-diff -urp linux-2.6.0.tiny.orig/net/core/sock.c linux-2.6.0.tiny.acme/net/core/sock.c
---- linux-2.6.0.tiny.orig/net/core/sock.c	2003-12-18 00:59:15.000000000 -0200
-+++ linux-2.6.0.tiny.acme/net/core/sock.c	2003-12-28 01:32:50.000000000 -0200
-@@ -1119,6 +1119,22 @@ void sock_init_data(struct socket *sock,
- 	atomic_set(&sk->sk_refcnt, 1);
- }
- 
-+#ifdef CONFIG_NET_SMALL
-+void lock_sock(struct sock *sk)
-+{
-+	_lock_sock(sk);
-+}
-+
-+EXPORT_SYMBOL(lock_sock);
-+
-+void release_sock(struct sock *sk)
-+{
-+	_release_sock(sk);
-+}
-+
-+EXPORT_SYMBOL(release_sock);
-+#endif
-+
- EXPORT_SYMBOL(__lock_sock);
- EXPORT_SYMBOL(__release_sock);
- EXPORT_SYMBOL(sk_alloc);
+But if you do things like this for a CONFIG_SMALL, then the convenience 
+argument obviously isn't true any more, and you'd be a lot better off just 
+unconditionally making it a real function call.
+
+Function calls aren't all that expensive, especially with FASTCALL() etc 
+to show that you don't have to follow the common calling conventions. 
+Right now I think FASTCALL() only matters on x86, but some other 
+architectures could make it mean "smaller call clobbered list" or similar.
+
+Have you benchmarked with the smaller kernel? 
+
+		Linus
