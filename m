@@ -1,23 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] Add NAPI support to sungem.c
-Date: Tue, 14 Sep 2004 12:43:15 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040914124315.716e9c68.davem@davemloft.net>
-References: <20040914153537.GE8434@sunbeam.de.gnumonks.org>
+From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Subject: Re: Kernel stack overflow on 2.6.9-rc2
+Date: Tue, 14 Sep 2004 22:43:55 +0300
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <200409142243.55949.vda@port.imtp.ilyichevsk.odessa.ua>
+References: <200409141723.35009.vda@port.imtp.ilyichevsk.odessa.ua> <20040914163347.GE3197@schnapps.adilger.int> <Pine.LNX.4.53.0409141340540.4262@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linuxppc-dev@lists.linuxppc.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040914153537.GE8434@sunbeam.de.gnumonks.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Linux kernel <linux-kernel@vger.kernel.org>,
+	Trond Myklebust <trond.myklebust@fys.uio.no>,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269755AbUINTsA@vger.kernel.org>
+To: root@chaos.analogic.com, Andreas Dilger <adilger@clusterfs.com>
+In-Reply-To: <Pine.LNX.4.53.0409141340540.4262@chaos>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
+On Tuesday 14 September 2004 20:55, Richard B. Johnson wrote:
+> Has anybody ever explained why there is an attempt to
+> minimize the size of the kernel stack? Temporary data
+> allocation on the stack is FREE! The compiler just
+> adjusts offsets for data. Even dynamic data-allocation
+> takes only one instruction, (subl %reg, %esp).
 
-Harald.... check current BK it has NAPI support added
-to the sungem.c driver already, it was written by Eric Lemoine
-with some fixes by myself and benh :-)
-
-I guess these are one of the old mails you're resending today
-after your outage.
+IIRC it is done in order to be able to support large number
+of threads on 32-bit machines and to avoid needing to do
+a order-1 allocation at fork().
+--
+vda
