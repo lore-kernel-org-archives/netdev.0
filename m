@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 9/22] xfrm offload v2: Split AH header initialization from zeroing of mutable fields
-Date: Mon, 10 Jan 2005 10:37:00 -0500
-Message-ID: <20040110014300.18@ori.thedillows.org>
-References: <20040110014300.17@ori.thedillows.org>
+Subject: [RFC BK 4/22] xfrm offload v2: Try to offload inbound xfrm_states
+Date: Mon, 10 Jan 2005 10:36:59 -0500
+Message-ID: <20040110014300.13@ori.thedillows.org>
+References: <20040110014300.12@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,77 +13,81 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:49:43-05:00 dave@thedillows.org 
-#   Seperate AH header initialization from the zeroing of mutable
-#   IP header fields in preparation for offloading the crypto
-#   processing of the packet.
+#   2005/01/10 00:08:02-05:00 dave@thedillows.org 
+#   Plumb in offloading of inbound xfrm_states.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/ipv4/ah4.c
-#   2005/01/10 00:49:27-05:00 dave@thedillows.org +18 -12
-#   Seperate AH header initialization from the zeroing of mutable
-#   IP header fields in preparation for offloading the crypto
-#   processing of the packet.
+# net/xfrm/xfrm_state.c
+#   2005/01/10 00:07:45-05:00 dave@thedillows.org +26 -1
+#   Try to offload an inbound xfrm_state when it is added or updated.
+#   Since it could potentially come in from any interface, try to
+#   offload it on all devices that support it.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/net/ipv4/ah4.c b/net/ipv4/ah4.c
---- a/net/ipv4/ah4.c	2005-01-10 01:19:00 -05:00
-+++ b/net/ipv4/ah4.c	2005-01-10 01:19:00 -05:00
-@@ -69,6 +69,20 @@
- 	top_iph = skb->nh.iph;
- 	iph = &tmp_iph.iph;
+diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+--- a/net/xfrm/xfrm_state.c	2005-01-10 01:20:02 -05:00
++++ b/net/xfrm/xfrm_state.c	2005-01-10 01:20:02 -05:00
+@@ -401,6 +401,24 @@
+ 	spin_unlock_bh(&xfrm_state_lock);
+ }
  
-+	ah = (struct ip_auth_hdr *)((char *)top_iph+top_iph->ihl*4);
-+	ah->nexthdr = top_iph->protocol;
-+
-+	top_iph->tot_len = htons(skb->len);
-+	top_iph->protocol = IPPROTO_AH;
-+
-+	ahp = x->data;
-+	ah->hdrlen  = (XFRM_ALIGN8(sizeof(struct ip_auth_hdr) + 
-+				   ahp->icv_trunc_len) >> 2) - 2;
-+
-+	ah->reserved = 0;
-+	ah->spi = x->id.spi;
-+	ah->seq_no = htonl(x->replay.oseq + 1);
-+
- 	iph->tos = top_iph->tos;
- 	iph->ttl = top_iph->ttl;
- 	iph->frag_off = top_iph->frag_off;
-@@ -81,23 +95,11 @@
- 			goto error;
- 	}
- 
--	ah = (struct ip_auth_hdr *)((char *)top_iph+top_iph->ihl*4);
--	ah->nexthdr = top_iph->protocol;
--
- 	top_iph->tos = 0;
--	top_iph->tot_len = htons(skb->len);
- 	top_iph->frag_off = 0;
- 	top_iph->ttl = 0;
--	top_iph->protocol = IPPROTO_AH;
- 	top_iph->check = 0;
- 
--	ahp = x->data;
--	ah->hdrlen  = (XFRM_ALIGN8(sizeof(struct ip_auth_hdr) + 
--				   ahp->icv_trunc_len) >> 2) - 2;
--
--	ah->reserved = 0;
--	ah->spi = x->id.spi;
--	ah->seq_no = htonl(++x->replay.oseq);
- 	ahp->icv(ahp, skb, ah->auth_data);
- 
- 	top_iph->tos = iph->tos;
-@@ -108,6 +110,10 @@
- 		memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
- 	}
- 
-+	/* Delay incrementing the replay sequence until we know we're going
-+	 * to send this packet to prevent gaps.
++static void xfrm_state_inbound_accel(struct xfrm_state *x)
++{
++	/* Only called for an inbound xfrm_state. Since it could
++	 * possibly arrive on any interface, try to offload it
++	 * on all devices that are capable.
 +	 */
-+	x->replay.oseq++;
- 	ip_send_check(top_iph);
++	struct net_device *dev;
++
++	rtnl_lock();
++	dev = dev_base;
++	while (dev) {
++		if (netif_running(dev) && (dev->features & NETIF_F_IPSEC))
++			dev->xfrm_state_add(dev, x);
++		dev = dev->next;
++	}
++	rtnl_unlock();
++}
++
+ static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq);
  
+ int xfrm_state_add(struct xfrm_state *x)
+@@ -447,6 +465,9 @@
+ 	spin_unlock_bh(&xfrm_state_lock);
+ 	xfrm_state_put_afinfo(afinfo);
+ 
++	if (!err && x->dir == XFRM_STATE_DIR_IN)
++		xfrm_state_inbound_accel(x);
++
+ 	if (x1) {
+ 		xfrm_state_delete(x1);
+ 		xfrm_state_put(x1);
+@@ -458,7 +479,7 @@
+ int xfrm_state_update(struct xfrm_state *x)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+-	struct xfrm_state *x1;
++	struct xfrm_state *x1, *accel = NULL;
+ 	int err;
+ 
+ 	afinfo = xfrm_state_get_afinfo(x->props.family);
+@@ -482,6 +503,7 @@
+ 
+ 	if (x1->km.state == XFRM_STATE_ACQ) {
+ 		__xfrm_state_insert(x);
++		accel = x;
+ 		x = NULL;
+ 	}
  	err = 0;
+@@ -492,6 +514,9 @@
+ 
+ 	if (err)
+ 		return err;
++
++	if (accel && accel->dir == XFRM_STATE_DIR_IN)
++		xfrm_state_inbound_accel(accel);
+ 
+ 	if (!x) {
+ 		xfrm_state_delete(x1);
