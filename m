@@ -1,33 +1,43 @@
-From: Jon D Mason <jonmason@us.ibm.com>
-Subject: Re: [patch] 2.6.6-rc3 - r8169 rediff
-Date: Sat, 15 May 2004 16:07:30 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFDCE62C5E.567F9BD2-ON87256E95.0071618C-86256E95.00740B1C@us.ibm.com>
-References: <20040515015241.A12010@electric-eye.fr.zoreil.com>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] remove comx drivers from tree
+Date: Sat, 15 May 2004 23:41:59 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <m3sme1cqqg.fsf@defiant.pm.waw.pl>
+References: <20040507111725.GA11575@lst.de> <40A50292.3070601@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040515015241.A12010@electric-eye.fr.zoreil.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@lst.de>, netdev@oss.sgi.com,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>, Pete Popov <ppopov@mvista.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264741AbUEOVpo@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <40A50292.3070601@pobox.com> (Jeff Garzik's message of "Fri, 14
+ May 2004 13:32:02 -0400")
 List-Id: netdev.vger.kernel.org
 
->Do you have an SMP system where you could try the patch below on top of 
-the
->usual stuff ?
+Jeff Garzik <jgarzik@pobox.com> writes:
 
-I tested the latest driver (including the Tx Lock Removal patch) on a 4way 
-1.2GHz PPC64 system, and it works fine.  I'll leaving it running over the 
-weekend to verify that there are no problems, but my 30 minutes worth of 
-tests didn't show any problems at all.
+> I have applied this to my netdev-2.6 tree, and so it should show up in
+> -mm sometime.
+>
+>   drivers/net/wan/Kconfig           |  113 -
+>   drivers/net/wan/Makefile          |    8
+>   drivers/net/wan/comx-hw-comx.c    | 1449 -------------------
+>   drivers/net/wan/comx-hw-locomx.c  |  495 ------
+>   drivers/net/wan/comx-hw-mixcom.c  |  959 ------------
+>   drivers/net/wan/comx-hw-munich.c  | 2853
+>   --------------------------------------
+>   drivers/net/wan/comx-proto-fr.c   | 1013 -------------
+>   drivers/net/wan/comx-proto-lapb.c |  550 -------
+>   drivers/net/wan/comx-proto-ppp.c  |  268 ---
+>   drivers/net/wan/comx.c            | 1127 ---------------
+>   drivers/net/wan/comx.h            |  231 ---
+>   drivers/net/wan/comxhw.h          |  112 -
 
-FYI, In order to stress the adapter, I ran some quick performance tests (5 
-and 10 second runs with netperf3).  I am getting about 200Mbps throughput. 
- I checked the stock 2.6.5 driver, the latest driver (sans Tx Lock Removal 
-patch), and the latest driver with Tx Lock Removal patch.  They all get 
-roughly the same throughput numbers (with the Tx Lock Removal being 
-slightly faster). 
-
-Thanks,
-Jon
+While obviously I don't object (we should list removed things along
+with kernel version somewhere, though)... I could possibly port
+the drivers to my generic HDLC code, if someone sends me the hardware
+in question. Sure, I will never send it back, and it has to have V.35
+or V.24 interface, so I can connect it to something.
+-- 
+Krzysztof Halasa, B*FH
