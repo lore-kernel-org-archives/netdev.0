@@ -1,46 +1,29 @@
-From: Simon Kirby <sim@netnation.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Sun, 8 Jun 2003 23:52:11 -0700
+Date: Sun, 08 Jun 2003 23:49:46 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030609065211.GB20613@netnation.com>
-References: <20030608.224446.78724665.davem@redhat.com> <001501c32e4b$35d67d60$4a00000a@badass> <20030608.230332.48514434.davem@redhat.com>
+Message-ID: <20030608.234946.35677224.davem@redhat.com>
+References: <20030608234926.GA9453@netnation.com>
+	<001001c32e19$81bc7ea0$4a00000a@badass>
+	<20030609064719.GA20613@netnation.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: xerox@foonet.net, fw@deneb.enyo.de, netdev@oss.sgi.com,
 	linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030608.230332.48514434.davem@redhat.com>
+To: sim@netnation.com
+In-Reply-To: <20030609064719.GA20613@netnation.com>
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 08, 2003 at 11:03:32PM -0700, David S. Miller wrote:
+   From: Simon Kirby <sim@netnation.com>
+   Date: Sun, 8 Jun 2003 23:47:19 -0700
+   
+   Really, though, shouldn't the route cache overhead be fairly small in
+   comparison to everything else involved in forwarding?
 
->    I'd love to test this out.. If it could do full gigabit line rate with
->    random ips that would be soooooooo nice :>
+If GC is just doing dumb things, it is possible.
 
-Agreed. :)
-
-> It isn't impossible with the current design, that I am
-> quire sure of.
-> 
-> Here is a simple idea, make the routing cache miss case steal
-> an entry sitting at the end of the hash chain this new one will
-> map to.  It only steals entries which have not been recently used.
-
-I just asked whether this was possible in a previous email, but you must
-have missed it.  I am seeing a lot of memory management stuff in
-profiles, so I think recycling routing cache entries (if only when the
-table is full and the garbage collector would otherwise need to run)
-would be very helpful.
-
-Is it possible to get a good guess of what cache entry to recycle without
-walking for a while or without some kind of LRU?
-
-> The big problem area on SMP is fib_validate_source.  I'm sure some
-> clear thinking can wipe that off the profiles too.
-
-Not running the important stuff with SMP yet, so I don't care about this
-at the moment. O:)
-
-Simon-
+These costs can be hidden in non-rtcache places in the form of cache
+misses and displacement on rtcache objects which can show up as higher
+costs in other places.
