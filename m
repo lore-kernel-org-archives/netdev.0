@@ -1,48 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Mitchell Blank Jr <mitch@sfgoth.com>
 Subject: Re: do_gettimeofday
-Date: Fri, 3 Oct 2003 01:27:54 -0700
+Date: Fri, 3 Oct 2003 01:48:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003012754.23de3f66.davem@redhat.com>
-References: <3F7C6F3B.6070502@sgi.com>
-	<20031002125625.72b8c0a7.shemminger@osdl.org>
-	<20031003004133.3148c39a.davem@redhat.com>
-	<20031003082642.GF42593@gaz.sfgoth.com>
+Message-ID: <20031003084847.GH42593@gaz.sfgoth.com>
+References: <3F7C6F3B.6070502@sgi.com> <20031002125625.72b8c0a7.shemminger@osdl.org> <20031003004133.3148c39a.davem@redhat.com> <20031003082642.GF42593@gaz.sfgoth.com> <20031003012754.23de3f66.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: <20031003082642.GF42593@gaz.sfgoth.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031003012754.23de3f66.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 3 Oct 2003 01:26:42 -0700
-Mitchell Blank Jr <mitch@sfgoth.com> wrote:
+David S. Miller wrote:
+> Doesn't work as-is.  You'd have to not only store the timestamp and
+> the cpu it was stored on, but also cross-call to that cpu to compute
+> the correct timeval.
 
-> Are there any common cases where skb->stamp is looked at more than
-> once?
+That's definately the worst case.  You could have each CPU periodically
+store its current {tsc,timeval} tuple in a per-cpu location and extrapolate
+from that.
 
-Yes, the packet scheduler can cause this to happen.
+> That's really expensive and probably
+> do_gettimeofday() is going to be faster in the long run compared to
+> such a scheme.
 
->If so I might recommend changing the API to be more like:
-> 
-> 	const struct timeval *skb_timestamp(struct skbuff *skb);
+It all depends on what percentage of skb's have ->stamp computed on a
+CPU different from the one they came it on.  For the common users of
+->stamp won't they have stayed on the same CPU?  The worst case of
+doing a cross-cpu-call should only happen relatively rarely.
 
-Please no, making this a SKB or networking specific interface
-make it nearly valueless and we might as well just stay with the
-stuff we have.
-
-
-> > Platforms with inter-cpu TSC synchronization issues will have some
-> > troubles doing the same trick too, because one must handle properly
-> > the case where the fast timestamp is converted to a timeval on a different
-> > cpu on which the fast timestamp was recorded.
-> 
-> Yeah, you'd probably have something like
-
-Doesn't work as-is.  You'd have to not only store the timestamp and
-the cpu it was stored on, but also cross-call to that cpu to compute
-the correct timeval.  That's really expensive and probably
-do_gettimeofday() is going to be faster in the long run compared to
-such a scheme.
+-Mitch
