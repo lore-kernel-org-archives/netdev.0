@@ -1,83 +1,36 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] bluetooth/cmtp/capi.c: make a function static
-Date: Sun, 19 Dec 2004 17:34:21 +0100
-Message-ID: <20041219163421.GB21288@stusta.de>
-References: <20041214041352.GZ23151@stusta.de> <1103009649.2143.65.camel@pegasus> <20041219160758.GY21288@stusta.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: LLTX and netif_stop_queue
+Date: 19 Dec 2004 14:31:15 -0500
+Message-ID: <1103484675.1050.158.camel@jzny.localdomain>
+References: <52llbwoaej.fsf@topspin.com>
+	<20041217214432.07b7b21e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Max Krasnyansky <maxk@qualcomm.com>, bluez-devel@lists.sourceforge.net,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Network Development Mailing List <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcel Holtmann <marcel@holtmann.org>
-Content-Disposition: inline
-In-Reply-To: <20041219160758.GY21288@stusta.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041217214432.07b7b21e.davem@davemloft.net>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-The patch below makes a needlessly global function static.
+On Sat, 2004-12-18 at 00:44, David S. Miller wrote:
 
+> Perhaps one way to fix this is to add a pointer to a spinlock to
+> the netdev struct, and have hold that the upper level grab that
+> when NETIF_F_LLTX when doing queue state checks.  Actually, that
+> could end up being racy too.
 
-diffstat output:
- net/bluetooth/cmtp/capi.c |   28 +++++++++++++---------------
- net/bluetooth/cmtp/cmtp.h |    1 -
- 2 files changed, 13 insertions(+), 16 deletions(-)
+How about releasing the qlock only when the LLTX transmit lock is
+grabbed? That should bring it to par with what it was originally.
 
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/cmtp.h.old	2004-12-18 01:44:36.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/cmtp.h	2004-12-18 02:28:40.000000000 +0100
-@@ -120,7 +120,6 @@
- void cmtp_detach_device(struct cmtp_session *session);
- 
- void cmtp_recv_capimsg(struct cmtp_session *session, struct sk_buff *skb);
--void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb);
- 
- static inline void cmtp_schedule(struct cmtp_session *session)
- {
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/capi.c.old	2004-12-18 01:44:43.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/capi.c	2004-12-19 17:09:00.000000000 +0100
-@@ -139,6 +139,19 @@
- 	return session->msgnum;
- }
- 
-+static void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb)
-+{
-+	struct cmtp_scb *scb = (void *) skb->cb;
-+
-+	BT_DBG("session %p skb %p len %d", session, skb, skb->len);
-+
-+	scb->id = -1;
-+	scb->data = (CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3);
-+
-+	skb_queue_tail(&session->transmit, skb);
-+
-+	cmtp_schedule(session);
-+}
- 
- static void cmtp_send_interopmsg(struct cmtp_session *session,
- 					__u8 subcmd, __u16 appl, __u16 msgnum,
-@@ -337,21 +350,6 @@
- 	capi_ctr_handle_message(ctrl, appl, skb);
- }
- 
--void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb)
--{
--	struct cmtp_scb *scb = (void *) skb->cb;
--
--	BT_DBG("session %p skb %p len %d", session, skb, skb->len);
--
--	scb->id = -1;
--	scb->data = (CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3);
--
--	skb_queue_tail(&session->transmit, skb);
--
--	cmtp_schedule(session);
--}
--
--
- static int cmtp_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
- {
- 	BT_DBG("ctrl %p data %p", ctrl, data);
+cheers,
+jamal
