@@ -1,39 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
-Date: Tue, 01 Apr 2003 19:34:29 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030401.193429.64279267.davem@redhat.com>
-References: <1049234673.5116.11.camel@tomlt2.tomloffice.austin.ibm.com>
-	<20030401.140727.73666851.davem@redhat.com>
-	<20030402.122518.62753078.yoshfuji@linux-ipv6.org>
+From: Donald Becker <becker@scyld.com>
+Subject: Re: Must dev->set_multicast_list() complete before returning?
+Date: Tue, 1 Apr 2003 22:50:07 -0500 (EST)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0304012242360.1685-100000@beohost.scyld.com>
+References: <3e89cbe235cd78.41777977@not right>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: toml@us.ibm.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030402.122518.62753078.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-net@vger.kernel.org, <netdev@oss.sgi.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Rask Ingemann Lambertsen <rask@sygehus.dk>
+In-Reply-To: <3e89cbe235cd78.41777977@not right>
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Wed, 02 Apr 2003 12:25:18 +0900 (JST)
+On Tue, 1 Apr 2003, Rask Ingemann Lambertsen wrote:
 
-   In article <20030401.140727.73666851.davem@redhat.com> (at Tue, 01 Apr 2003 14:07:27 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
-   
-   >    From: Tom Lendacky <toml@us.ibm.com>
-   >    Date: 01 Apr 2003 16:04:32 -0600
-   >    
-   >    Please review and let me know if any changes are required.
-   > 
-   > Ok, now that I look at this I realize my suggestions from the other
-   > day were wrong.
-   > 
-   > These expressions are huge, it's almost less readable.  Let's compact
-   > this, by creating a struct named {ip,ipv6}_esp_header_no_enc_data.
-   
-   How about just removing 8 bytes from struct {ip,ipv6}_esp_hdr
-   like this?
-   
-Sure, but does anyone need the 8 bytes there?  I thought so, which is
-why I didn't think about your suggestion :-)
+> Must dev->set_multicast_list() complete the configuration of a network
+> device before returning? 
+
+The promiscuous setting must complete before return, but there are
+several drivers where the updated multicast filter does not immediately
+take effect.
+
+I have not seen hardware where setting promiscuous mode is a queued
+command.  If you have such hardware, you may have to do some extra
+software filtering and accept missing some packets during transitions.
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Scyld Beowulf cluster system
+Annapolis MD 21403			410-990-9993
+
