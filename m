@@ -1,32 +1,54 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] tiny af_packet.c cleanup
-Date: Mon, 15 Sep 2003 22:41:19 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030915224119.454578a7.davem@redhat.com>
-References: <20030913055033.GB94744@gaz.sfgoth.com>
-	<20030913093559.A23840@electric-eye.fr.zoreil.com>
-	<20030913080252.GE94744@gaz.sfgoth.com>
-	<20030913110353.B23840@electric-eye.fr.zoreil.com>
-	<20030913201559.GI94744@gaz.sfgoth.com>
-	<20030914125549.A7790@electric-eye.fr.zoreil.com>
-	<20030914112628.GD42531@gaz.sfgoth.com>
-	<20030915155652.3e5e89a0.davem@redhat.com>
-	<20030916031355.GC7982@gaz.sfgoth.com>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: Tue, 16 Sep 2003 08:05:07 +0200
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <200309160805.08171.bdschuym@pandora.be>
+References: <200309022116.41697.bdschuym@pandora.be> <200309132159.37834.bdschuym@pandora.be> <20030915155903.12a3f95d.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: <20030916031355.GC7982@gaz.sfgoth.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: laforge@netfilter.org, acme@conectiva.com.br,
+	netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030915155903.12a3f95d.davem@redhat.com>
+Content-Disposition: inline
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Sep 2003 20:13:55 -0700
-Mitchell Blank Jr <mitch@sfgoth.com> wrote:
+On Tuesday 16 September 2003 00:59, David S. Miller wrote:
+> > -	char physindev[IFNAMSIZ];
+> > +	char physindev[IFNAMSIZ] __attribute__ ((aligned (__alignof__(unsigned
+> > int))));
+>
+> I have to reject the fix for this problem again.
+>
+> You can't change the struct exported to userspace in any way
+> without breaking the tools.  I tried to explain this in the
+> first revision of your change.
 
-> How about something like the following.  It expands the comment but turns
-> that bit of code into an inline function so we onlt have to explain it
-> once.
+On Thursday 04 September 2003 05:05, you wrote:
+<quote>
+As I mentioned in another email, this patch can't be used, it
+breaks in mixed 32/64 bit environments.
+<unquote>
 
-Looks good, applied.
+I guess I'm a bit on the slow side but I didn't quite read the above text like 
+that.
+Anyway, this rule about not changing structs exported to userspace truly 
+sucks, IMHO. If someone decides to compile her own kernel this person should 
+not expect every userspace tool to keep working, again IMHO. Adding a new 
+module to the kernel results in the user having to upgrade her tools, 
+recompiling won't even do. Why on earth do you allow adding modules.
+But I'm sure some nice volunteer will come along and downgrade that code 
+fragment.
+
+Bart
