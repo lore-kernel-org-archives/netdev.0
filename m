@@ -1,43 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [EXPERIMENTAL PATCH] 2.4 tulip jumbo frames
-Date: Fri, 19 Dec 2003 22:22:34 -0800
+From: Zoltan Farkas <zfarkas@lutra.sztaki.hu>
+Subject: Re: [RFC] multiple eth0 mixed PCI/ISA init
+Date: Sat, 20 Dec 2003 12:33:34 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FE3EAAA.6020608@candelatech.com>
-References: <20031209160632.D1345@sygehus.dk> <3FD5FC36.5090405@pobox.com> <20031209223214.A1855@sygehus.dk> <3FD64EC9.6010203@candelatech.com> <20031209224906.M53356@sygehus.dk> <20031219153242.B1390@sygehus.dk>
+Message-ID: <Pine.GS4.4.33.0312201232460.28011-100000@lutra.sztaki.hu>
+References: <20031219151415.1cfdbe66.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, Alexander Viro <aviro@redhat.com>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <20031219153242.B1390@sygehus.dk>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031219151415.1cfdbe66.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rask Ingemann Lambertsen wrote:
-> On Wed, Dec 10, 2003 at 12:40:02AM +0100, Rask Ingemann Lambertsen wrote:
-> 
-> 
->>That said, even checking CONFIG_VLAN_8021Q is probably flawed too, because 
->>ideally, even when building a kernel without VLAN support, you should be able 
->>to use the bridging support in a VLAN environment. IMHO. I mean, if this is 
->>not the case, please remind me why we need VLAN patches in the first place 
->>since setting an MTU of 1496 bytes works with every Ethernet board and driver.
-> 
-> 
-> Further, why is it not the responsibility of vconfig to ensure that the MTU
-> of the VLAN device is 4 lower than that of the underlying, "bare" Ethernet
-> device?
+On Fri, 19 Dec 2003, Stephen Hemminger wrote:
 
-Because correctly patched drivers can have eth0 with MTU 1500 and vlan eth0.5 with
-MTU of 1500 as well.  I do not want to add artificial policy in vconfig or the
-kernel,though of course users can hack up the MTU settings manually as
-desired...
+> PCI is getting initialized before the old ISA probing code, so your PCI card
+> is grabbing eth0 before the ISA card gets started.
+>
+> You might be able workaround the problem probably by doing:
+> 	netdev=0,1,0,0,eth0
+> which should cause the ISA probe code to skip eth0 and go on to eth1
+>
+> This patch should fix 2.6.0 (have similar but different fix for net-drivers-2.5-exp).
+> I don't have an ISA card to actually test this code path.
+>
+> diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+> --- a/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
+> +++ b/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
+> @@ -350,7 +350,7 @@
+>  	 * Backwards compatibility - historically an I/O base of 1 was
+>  	 * used to indicate not to probe for this ethN interface
+>  	 */
+> -	if (dev->base_addr == 1) {
+> +	if (__dev_get_by_name(dev->name) || dev->base_addr == 1) {
+>  		free_netdev(dev);
+>  		return -ENXIO;
+>  	}
+>
+Thanks a lot! This has fixed my problem. Now my ISA card initializes as
+eth1.
+Cheers,
 
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>          <Ben_Greear@excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+	Zoltan
