@@ -1,224 +1,48 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 1/6] PKT_SCHED: Add generic classifier routines
-Date: Fri, 29 Oct 2004 02:22:29 +0200
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] sctp/outqueue.c: remove an unused function
+Date: Fri, 29 Oct 2004 02:22:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029002229.GZ12289@postel.suug.ch>
-References: <20041029002113.GY12289@postel.suug.ch>
+Message-ID: <20041029002201.GQ29142@stusta.de>
+References: <20041028230353.GW3207@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca
+Cc: lksctp-developers@lists.sourceforge.net, davem@davemloft.net,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: sri@us.ibm.com
 Content-Disposition: inline
-In-Reply-To: <20041029002113.GY12289@postel.suug.ch>
+In-Reply-To: <20041028230353.GW3207@stusta.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adds generic routines used by classifier to:
- - bind/unbind to classes
- - configure action/police/indev
- - dump action/police
+[ this time without the problems due to a digital signature... ]
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+The patch below removes an unused function from net/sctp/outqueue.c
 
---- linux-2.6.10-rc1-bk7.orig/include/net/pkt_cls.h	2004-10-28 22:03:20.000000000 +0200
-+++ linux-2.6.10-rc1-bk7/include/net/pkt_cls.h	2004-10-28 23:53:05.000000000 +0200
-@@ -3,6 +3,7 @@
- 
- #include <linux/pkt_cls.h>
- #include <net/sch_generic.h>
-+#include <net/act_api.h>
- 
- /* Basic packet classifier frontend definitions. */
- 
-@@ -41,4 +42,190 @@
- 	return old_cl;
+
+diffstat output:
+ net/sctp/outqueue.c |   10 ----------
+ 1 files changed, 10 deletions(-)
+
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+--- linux-2.6.10-rc1-mm1-full/net/sctp/outqueue.c.old	2004-10-28 23:52:37.000000000 +0200
++++ linux-2.6.10-rc1-mm1-full/net/sctp/outqueue.c	2004-10-28 23:52:50.000000000 +0200
+@@ -98,16 +98,6 @@
+ 	return;
  }
  
-+static inline void
-+tcf_bind_filter(struct tcf_proto *tp, struct tcf_result *r, unsigned long base)
-+{
-+	unsigned long cl;
-+
-+	cl = tp->q->ops->cl_ops->bind_tcf(tp->q, base, r->classid);
-+	cl = cls_set_class(tp, &r->class, cl);
-+	if (cl)
-+		tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
-+}
-+
-+static inline void
-+tcf_unbind_filter(struct tcf_proto *tp, struct tcf_result *r)
-+{
-+	unsigned long cl;
-+
-+	if ((cl = __cls_set_class(&r->class, 0)) != 0)
-+		tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
-+}
-+
-+#ifdef CONFIG_NET_CLS_ACT
-+static inline int
-+tcf_change_act_police(struct tcf_proto *tp, struct tc_action **action,
-+	struct rtattr *act_police_tlv, struct rtattr *rate_tlv)
-+{
-+	int ret;
-+	struct tc_action *act;
-+
-+	act = kmalloc(sizeof(*act), GFP_KERNEL);
-+	if (NULL == act)
-+		return -ENOMEM;
-+	memset(act, 0, sizeof(*act));
-+	
-+	ret = tcf_action_init_1(act_police_tlv, rate_tlv, act, "police",
-+		TCA_ACT_NOREPLACE, TCA_ACT_BIND);
-+	if (ret < 0) {
-+		tcf_action_destroy(act, TCA_ACT_UNBIND);
-+		return ret;
-+	}
-+
-+	act->type = TCA_OLD_COMPAT;
-+
-+	if (*action) {
-+		tcf_tree_lock(tp);
-+		act = xchg(action, act);
-+		tcf_tree_unlock(tp);
-+
-+		tcf_action_destroy(act, TCA_ACT_UNBIND);
-+	} else
-+		*action = act;
-+
-+	return 0;
-+}
-+
-+static inline int
-+tcf_change_act(struct tcf_proto *tp, struct tc_action **action,
-+	struct rtattr *act_tlv, struct rtattr *rate_tlv)
-+{
-+	int ret;
-+	struct tc_action *act;
-+
-+	act = kmalloc(sizeof(*act), GFP_KERNEL);
-+	if (NULL == act)
-+		return -ENOMEM;
-+	memset(act, 0, sizeof(*act));
-+
-+	ret = tcf_action_init(act_tlv, rate_tlv, act, NULL,
-+		TCA_ACT_NOREPLACE, TCA_ACT_BIND);
-+	if (ret < 0) {
-+		tcf_action_destroy(act, TCA_ACT_UNBIND);
-+		return ret;
-+	}
-+
-+	if (*action) {
-+		tcf_tree_lock(tp);
-+		act = xchg(action, act);
-+		tcf_tree_unlock(tp);
-+
-+		tcf_action_destroy(act, TCA_ACT_UNBIND);
-+	} else
-+		*action = act;
-+
-+	return 0;
-+}
-+
-+static inline int
-+tcf_dump_act(struct sk_buff *skb, struct tc_action *action,
-+	int act_type, int compat_type)
-+{
-+	/*
-+	 * again for backward compatible mode - we want
-+	 * to work with both old and new modes of entering
-+	 * tc data even if iproute2  was newer - jhs
-+	 */
-+	if (action) {
-+		struct rtattr * p_rta = (struct rtattr*) skb->tail;
-+
-+		if (action->type != TCA_OLD_COMPAT) {
-+			RTA_PUT(skb, act_type, 0, NULL);
-+			if (tcf_action_dump(skb, action, 0, 0) < 0)
-+				goto rtattr_failure;
-+		} else {
-+			RTA_PUT(skb, compat_type, 0, NULL);
-+			if (tcf_action_dump_old(skb, action, 0, 0) < 0)
-+				goto rtattr_failure;
-+		}
-+		
-+		p_rta->rta_len = skb->tail - (u8*)p_rta;
-+	}
-+	return 0;
-+
-+rtattr_failure:
-+	return -1;
-+}
-+
-+#ifdef CONFIG_NET_CLS_IND
-+static inline int
-+tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *indev_tlv)
-+{
-+	if (RTA_PAYLOAD(indev_tlv) >= IFNAMSIZ) {
-+		printk("cls: bad indev name %s\n", (char *) RTA_DATA(indev_tlv));
-+		return -EINVAL;
-+	}
-+
-+	memset(indev, 0, IFNAMSIZ);
-+	sprintf(indev, "%s", (char *) RTA_DATA(indev_tlv));
-+
-+	return 0;
-+}
-+
-+static inline int
-+tcf_match_indev(struct sk_buff *skb, char *indev)
-+{
-+	if (0 != indev[0]) {
-+		if  (NULL == skb->input_dev)
-+			return 0;
-+		else if (0 != strcmp(indev, skb->input_dev->name))
-+			return 0;
-+	}
-+
-+	return 1;
-+}
-+#endif /* CONFIG_NET_CLS_IND */
-+#endif /* CONFIG_NET_CLS_ACT */
-+
-+
-+#ifdef CONFIG_NET_CLS_POLICE
-+static inline int
-+tcf_change_police(struct tcf_proto *tp, struct tcf_police **police,
-+	struct rtattr *police_tlv, struct rtattr *rate_tlv)
-+{
-+	struct tcf_police *p = tcf_police_locate(police_tlv, rate_tlv);
-+
-+	if (*police) {
-+		tcf_tree_lock(tp);
-+		p = xchg(police, p);
-+		tcf_tree_unlock(tp);
-+
-+		tcf_police_release(p, TCA_ACT_UNBIND);
-+	} else
-+		*police = p;
-+
-+	return 0;
-+}
-+
-+static inline int
-+tcf_dump_police(struct sk_buff *skb, struct tcf_police *police,
-+	int police_type)
-+{
-+	if (police) {
-+		struct rtattr * p_rta = (struct rtattr*) skb->tail;
-+
-+		RTA_PUT(skb, police_type, 0, NULL);
-+
-+		if (tcf_police_dump(skb, police) < 0)
-+			goto rtattr_failure;
-+
-+		p_rta->rta_len = skb->tail - (u8*)p_rta;
-+	}
-+	return 0;
-+
-+rtattr_failure:
-+	return -1;
-+}
-+#endif /* CONFIG_NET_CLS_POLICE */
-+
- #endif
+-/* Insert a chunk behind chunk 'pos'. */
+-static inline void sctp_outq_insert_data(struct sctp_outq *q,
+-					 struct sctp_chunk *ch,
+-					 struct sctp_chunk *pos)
+-{
+-	__skb_insert((struct sk_buff *)ch, (struct sk_buff *)pos->prev,
+-		     (struct sk_buff *)pos, pos->list);
+-	q->out_qlen += ch->skb->len;
+-}
+-
+ /*
+  * SFR-CACC algorithm:
+  * D) If count_of_newacks is greater than or equal to 2
