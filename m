@@ -1,31 +1,25 @@
-From: "James H. Cloos Jr." <cloos@jhcloos.com>
-Subject: e100 in 2.5.59 through 2.5.61
-Date: 16 Feb 2003 17:25:06 -0500
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: e100 in 2.5.59 through 2.5.61
+Date: Sun, 16 Feb 2003 21:06:59 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3lm0fdfst.fsf@lugabout.jhcloos.org>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E01780B72@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "James H. Cloos Jr." <cloos@jhcloos.com>, netdev@oss.sgi.com
+content-class: urn:content-classes:message
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have been unable to get the e100 on the (actiontec) mini-pci card in
-my laptop to work at 100baseT.  It was fine when I last booted a 2.4
-kernel, and from fiddling with ethtool I've found that it works fine
-at 10baseT half or full duplex, provided I configure autoneg off.
+> The switch is fine with other 100 devices, such as the 
+> printer and the 802.11 gateway.  It is also happy with the 
+> 3com card in the laptop's port duplicator.
 
-The switch is fine with other 100 devices, such as the printer and the
-802.11 gateway.  It is also happy with the 3com card in the laptop's
-port duplicator.
+Switch vendor/model?
+ 
+> Both the e100 and the eepro100 modules fail at 100baseT.
 
-The cables say they are verified for gigabit ethernet, so I doubt they
-are the problem.
+Is the switch port forced or autoneg?
 
-Both the e100 and the eepro100 modules fail at 100baseT.
-
-Has anyone else seen this?  Any thoughts on it?
-
-I've no real need right now for 100, but it is a bit of a pain....
-
--JimC
+-scott
