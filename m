@@ -1,37 +1,71 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
-Date: Sun, 6 Feb 2005 17:53:40 +1100
-Message-ID: <20050206065340.GE16057@gondor.apana.org.au>
-References: <20050205201044.1b95f4e8.davem@davemloft.net> <20050206.133723.124822665.yoshfuji@linux-ipv6.org> <20050205210411.7e18b8e6.davem@davemloft.net> <20050206.143107.39728239.yoshfuji@linux-ipv6.org>
+Date: Sun, 6 Feb 2005 17:51:17 +1100
+Message-ID: <20050206065117.GC16057@gondor.apana.org.au>
+References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au> <20050204221344.247548cb.davem@davemloft.net> <20050205064643.GA29758@gondor.apana.org.au> <20050205201044.1b95f4e8.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, mirko.parthey@informatik.tu-chemnitz.de,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shemminger@osdl.org
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050206.143107.39728239.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20050205201044.1b95f4e8.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 06, 2005 at 02:31:07PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+On Sat, Feb 05, 2005 at 08:10:44PM -0800, David S. Miller wrote:
 > 
-> Here, lo is going down.
-> rt->rt6i_dev = lo and rt->rt6i_idev = ethX.
-> I think we already see dst->dev == dev (==lo)  now.
-> So, I doubt that fix the problem.
+> > Alternatively we can
+> > remove the dst->dev == dev check in dst_dev_event and dst_ifdown
+> > and move that test down to the individual ifdown functions.
 > 
-> The source of problem is entry (*) which still on routing entry,
-> not on gc list. And, the owner of entry is not routing table but
-> unicast/anycast address structure(s).
-> We need to "kill" active address on the other interfaces.
+> I think there is a hole in this idea.... maybe.
 > 
-> *: rt->rt6i_dev = lo and rt->rt6i_idev = ethX
+> If the idea is to scan dst_garbage_list down in ipv6 specific code,
+> you can't do that since 'dst' objects from every pool in the kernel
+> get put onto the dst_garbage_list.   It is generic.
 
-Sorry I don't think this is right.  Although lo going down is
-required to cause those symptoms, it is not the trigger.
+The idea is to move the check into dst->ops->ifdown.  By definition
+ipv6_dst_ifdown will only see rt6_info entries.  So dst_dev_event
+will become
 
-The problem only occurs when eth0 itself is unregistered.
+for (dst = dst_garbage_list; dst; dst = dst->next) {
+	dst_ifdown(dst, event != NETDEV_DOWN);
+}
+
+dst_ifdown will become
+
+...
+
+do {
+	if (dst->dev == dev && unregister) {
+		...
+	}
+
+	dst->ops->ifdown(dst, dev, unregister);
+} while ((dst = dst->child) && dst->flags & DST_NOHASH);
+
+...
+
+Note the extra dev argument to ifdown.  ipv6_dst_ifdown will be
+
+static void ip6_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+			   int how)
+{
+	struct rt6_info *rt = (struct rt6_info *)dst;
+	struct inet6_dev *idev = rt->rt6i_idev;
+
+	if (idev != NULL && idev->dev != &loopback_dev && idev->dev == dev) {
+		struct inet6_dev *loopback_idev = in6_dev_get(&loopback_dev);
+		if (loopback_idev != NULL) {
+			rt->rt6i_idev = loopback_idev;
+			in6_dev_put(idev);
+		}
+	}
+}
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
