@@ -1,51 +1,62 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: 2.6.10-rc3-mm1 FIONREAD breakge
-Date: Fri, 17 Dec 2004 13:07:16 -0800
-Message-ID: <20041217130716.1464a068@dxpl.pdx.osdl.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.10-rc3-mm1 FIONREAD breakge
+Date: Fri, 17 Dec 2004 13:26:48 -0800
+Message-ID: <20041217132648.41f3c97b.akpm@osdl.org>
+References: <20041217130716.1464a068@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: akpm@digeo.com, cliffw@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@digeo.com>, cliff white <cliffw@osdl.org>,
-        netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041217130716.1464a068@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Latest -mm kernel broke FIONREAD on UDP sockets. This stopped STP in it's tracks
-because then names don't resolve.
+Stephen Hemminger <shemminger@osdl.org> wrote:
+>
+>  Latest -mm kernel broke FIONREAD on UDP sockets.
 
-The following works on 2.6.10-rc3 but breaks on 2.6.10-rc3-mm1
-=====================================
-/* Did FIONREAD break on UDP? */
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+yup, you'll need this:
 
-int main(int argc, char **argv)
-{
-	int s;
-	static struct sockaddr_in sin = { AF_INET };
-	int len;
-
-	s = socket(AF_INET, SOCK_DGRAM, 0);
-	if (bind(s, (struct sockaddr *) &sin, sizeof(sin)) < 0) 
-		perror("bind");
-
-	len = sizeof(sin);
-	getsockname(s, (struct sockaddr *) &sin, &len);
-	printf("Bound to %s.%d\n", 
-	       inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
-	for(;;) {
-		unsigned long count;
-		fflush(stdout);
-		if (ioctl(s, FIONREAD, &count) < 0)
-			perror("ioctl(FIONREAD)");
-
-		printf("nread = %ld\n", count);
-		sleep(5);
-	}
-}
+--- 25/fs/ioctl.c~ioctl-cleanups-broke-fionread-et-al	2004-12-13 11:12:37.687951760 -0800
++++ 25-akpm/fs/ioctl.c	2004-12-13 11:12:37.690951304 -0800
+@@ -91,10 +91,8 @@ asmlinkage long sys_ioctl(unsigned int f
+ 			int block;
+ 			int res;
+ 
+-			if (!S_ISREG(inode->i_mode)) {
+-				error = -ENOTTY;
+-				goto done;
+-			}
++			if (!S_ISREG(inode->i_mode))
++				break;
+ 			/* do we support this mess? */
+ 			if (!mapping->a_ops->bmap) {
+ 				error = -EINVAL;
+@@ -112,19 +110,15 @@ asmlinkage long sys_ioctl(unsigned int f
+ 			goto done;
+ 		}
+ 	case FIGETBSZ:
+-		if (!S_ISREG(inode->i_mode)) {
+-			error = -ENOTTY;
+-			goto done;
+-		}
++		if (!S_ISREG(inode->i_mode))
++			break;
+ 		error = -EBADF;
+ 		if (inode->i_sb)
+ 			error = put_user(inode->i_sb->s_blocksize, p);
+ 		goto done;
+ 	case FIONREAD:
+-		if (!S_ISREG(inode->i_mode)) {
+-			error = -ENOTTY;
+-			goto done;
+-		}
++		if (!S_ISREG(inode->i_mode))
++			break;
+ 		error = put_user(i_size_read(inode) - filp->f_pos, p);
+ 		goto done;
+ 	}
+_
