@@ -1,33 +1,49 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]: Check for leaf-class when classifying by priority
-Date: Tue, 18 Nov 2003 17:37:00 -0800
+Subject: Re: af_packet & CHECKSUM_HW
+Date: Tue, 18 Nov 2003 17:46:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031118173700.213b646b.davem@redhat.com>
-References: <3FB39CA2.401@trash.net>
+Message-ID: <20031118174612.48c0854e.davem@redhat.com>
+References: <20031115024434.GA12276@gondor.apana.org.au>
+	<Xine.LNX.4.44.0311160841500.31201-100000@thoron.boston.redhat.com>
+	<20031116205146.GA8477@gondor.apana.org.au>
+	<20031117194452.GB18448@vana.vc.cvut.cz>
+	<20031117123047.55377d3a.davem@redhat.com>
+	<20031118132137.GA23732@vana.vc.cvut.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: devik@cdi.cz, netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <3FB39CA2.401@trash.net>
+To: Petr Vandrovec <vandrove@vc.cvut.cz>
+In-Reply-To: <20031118132137.GA23732@vana.vc.cvut.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Nov 2003 16:00:50 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Tue, 18 Nov 2003 14:21:37 +0100
+Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
 
-> this patch makes htb_classify check if a class is a leaf when classifying
-> by priority. It also adds a check from cbq to skip htb_find if the majors
-> of skb->priority and sch->handle differ.
+> On Mon, Nov 17, 2003 at 12:30:47PM -0800, David S. Miller wrote:
+> > Remind me again why the vmnet driver can't just run skb_checksum()
+> > on packets that have CHECKSUM_HW set?
+> 
+> Because vmnet driver (for bridged networking) is hooked through dev_add_pack.
+> Place where to put checksum is defined as skb->h.raw + skb->csum, and what 
+> to checksum as skb->h.raw ... skb->data + skb->len. But unfortunately
+> dev_queue_xmit_nit replaces skb2->h.raw with skb2->nh.raw - and so hook
+> has to look at the packet contents to compute h.raw from packet data and
+> protocol type.
 
-I'm going to hold on this patch for two reasons:
+Thanks so much for reminding me.
 
-1) To allow Martin to respond and review it.
-2) I want the OOPS'er we have pending on the HTB scheduler
-   resolved first.
+I'd like to resolve this.  One solution is evident, let me know
+what you think about the following idea.
 
-Martin, have you made any progress with that HTB 2.6.x oops
-issue yet?
+How about we add a flag the the packet_type structure, called
+PTYPE_FLAG_NEEDCHECKSUM.  If it is set, we run skb_checksum() on
+CHECKSUM_HW SKBs and do not mangle the skb2->h.raw etc. pointers, then
+we pass it into ptype->func().
 
-Thanks guys.
+In this way all existing ptype->func() implementations get what
+they expect.  Only if the flag is set will the new behavior occur.
+
+Comments?
