@@ -1,36 +1,33 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Patch: Idea for RFC2863 conform OperStatus
-Date: Tue, 15 Oct 2002 22:49:36 -0400 (EDT)
+From: Richard Gooch <rgooch@ras.ucalgary.ca>
+Subject: Re: cheap 4-port tulip-based cards available
+Date: Tue, 15 Oct 2002 22:29:49 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210152245390.2762-100000@shell.cyberus.ca>
-References: <3DABE5A2.71542192@isg.de>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Message-ID: <200210160429.g9G4Tnn14232@vindaloo.ras.ucalgary.ca>
+References: <slrnaqpajf.2ph.lunz@stoli.localnet>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <3DABE5A2.71542192@isg.de>
+To: Jason Lunz <lunz@falooley.org>
+In-Reply-To: <slrnaqpajf.2ph.lunz@stoli.localnet>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jason Lunz writes:
+> I figure a few people on this list will be interested in this:
+> 
+> http://www.softwareandstuff.com/h_comp_inet4.html
 
+Bastards won't ship out of the U.S.A. if the order is less than $500.
+I want 2 cards, not 17 :-(
 
-On Tue, 15 Oct 2002, Stefan Rompf wrote:
+> anyway, knowing the problems people are having with the sundance
+> 580-TX and the unavailability of other cheap 4-port nic options, i
+> though I'd let folks here know. A good 4-port tulip card for $30 is
+> a nice deal.
 
-> Hi Jamal,
->
-> attached is the latest version of the patch. Changes:
->
-> -Try to use a static struct lw_event for an event. For systems without
-> slave devices, this will avoid memory allocation in most cases. But,
-> adding code and data it permanently takes as much memory as about ten of
-> the additional pointers you didn't want to have in the net_device
-> structure ;-)
->
+Indeed. Pity about the shipping restriction, though.
 
-That lw_event is still bothering me ;-> But i dont wanna push it any
-further ;-> I think we got some good stuff. Dave and Alexey should make
-the call now.
+				Regards,
 
-cheers,
-jamal
+					Richard....
+Permanent: rgooch@atnf.csiro.au
+Current:   rgooch@ras.ucalgary.ca
