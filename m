@@ -1,61 +1,51 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP 16-way)
-Date: Tue, 21 Dec 2004 12:11:40 +1100
-Message-ID: <16839.30796.413939.333935@wombat.chubb.wattle.id.au>
-References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU>
-	<20041220161552.2b88aa3d.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 20 Dec 2004 20:19:42 -0500
+Message-ID: <41C77A2E.3090000@pobox.com>
+References: <OF28701C56.81E1D26E-ONC1256F6B.00513EDD-C1256F6B.0052AF84@de.ibm.com>	 <1103484552.1046.155.camel@jzny.localdomain>  <41C600D7.70005@tpack.net>	 <1103497516.1046.231.camel@jzny.localdomain>  <41C612BC.5070909@tpack.net> <1103551830.1047.316.camel@jzny.localdomain> <41C71FFD.7090308@pobox.com> <41C76AA0.7020800@tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041220161552.2b88aa3d.davem@davemloft.net>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <41C76AA0.7020800@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> "David" == David S Miller <davem@davemloft.net> writes:
+Tommy Christensen wrote:
+> Jeff Garzik wrote:
+> 
+>> I haven't heard anything to convince me that the same change should be 
+>> deployed across NNN drivers.  The drivers already signal the net core 
+>> that the link is down; to me, that implies there should be code in 
+>> _one_ place that handles this condition, not NNN places.
+> 
+> 
+> AFAICS only a handful of (newer) drivers call netif_stop_queue() directly.
+> Others may do this indirectly if the MAC stops taking packets from the
+> DMA ringbuffer. At least some MAC's/drivers certainly don't.
 
-David> On Tue, 21 Dec 2004 11:12:23 +1100 Peter Chubb
-David> <peterc@gelato.unsw.edu.au> wrote:
+Incorrect.  Use of netif_stop_queue() is -required- to signal that the 
+hardware cannot accept any more skbs from the system.
 
->> The problem is that the driver gives up before the switch that the
->> NIC is connected to has finished the negotiation phase.
->> 
->> Here's a simple patch.  I changed the way the loop works too,
->> because tg3_readphys() sets *val to 0xffffffff if it fails.
-
-David> This patch shouldn't be needed.  This waiting loop is just an
-David> optimization in case we can negotiation quickly.
-
-David> You need to figure out why that isn't working correctly.
-
-It doesn't work because tg3_readphy sets bmsr to 0xffffffff even if it
-can't read the value.  This breaks that loop early; and because
-BBMSR_LSTATUS is set, all sorts of things happen before the card is ready.
+Far more than a "handful" and required for all but a few very strange 
+drivers.
 
 
-Why is tg3_readphys returning 0xffffffff if it can't read a value anyway?
+> OK, another view on this: isn't is problematic to have skb's stuck in
+> the network stack "indefinitely" ?
+> They hold references to a dst_entry and a sock (and probably more).
+> So how about this for the FAQ:
+>  Q: Why can't I unload the af_packet module?
+>  A: Ohh, you'll have to plug in the darn cable to eth0 first!
+> *Please* tell me, I've got this all wrong.
 
-Here's another possible fix.
+You've got this all wrong.
 
-===== drivers/net/tg3.c 1.222 vs edited =====
-Index: linux-2.6.10-rc3/drivers/net/tg3.c
-===================================================================
---- linux-2.6.10-rc3.orig/drivers/net/tg3.c	2004-12-21 00:25:34.000000000 +0000
-+++ linux-2.6.10-rc3/drivers/net/tg3.c	2004-12-21 01:00:56.586108274 +0000
-@@ -1554,10 +1554,11 @@
- 		}
- 	}
- 
--	bmsr = 0;
-+
- 	for (i = 0; i < 100; i++) {
- 		tg3_readphy(tp, MII_BMSR, &bmsr);
--		tg3_readphy(tp, MII_BMSR, &bmsr);
-+		if (tg3_readphy(tp, MII_BMSR, &bmsr))
-+			bmsr = 0;
- 		if (bmsr & BMSR_LSTATUS)
- 			break;
- 		udelay(40);
+	Jeff
