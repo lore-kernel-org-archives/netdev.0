@@ -1,38 +1,44 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: Allow IP header alignment to be overriden
-Date: Fri, 11 Jun 2004 11:43:55 +1000
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 4/x: [NETDRV] Merge register_netdev calls
+Date: Fri, 11 Jun 2004 12:08:55 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040611014355.GB27672@krispykreme>
-References: <20040611012727.GA27672@krispykreme> <20040611013522.GA9809@wotan.suse.de>
+Message-ID: <20040611020855.GA5480@gondor.apana.org.au>
+References: <20040313025859.GA8186@gondor.apana.org.au> <405C294D.5040508@pobox.com> <20040520111937.GA21804@gondor.apana.org.au> <20040522074435.GA9628@gondor.apana.org.au> <20040529084109.GA13032@gondor.apana.org.au> <40BE3778.1020404@pobox.com> <20040605052737.GA27406@gondor.apana.org.au> <40C8F824.50904@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040611013522.GA9809@wotan.suse.de>
+In-Reply-To: <40C8F824.50904@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-> > +#ifndef ARCH_HAS_SKB_ALIGN
-> > +#define skb_align(SKB, LEN)	skb_reserve((SKB), (LEN))
-> > +#endif
+On Thu, Jun 10, 2004 at 08:09:08PM -0400, Jeff Garzik wrote:
 > 
-> But where does this come from? There's no clear asm/ include in skbuff.h
-> matching it, and relying on indirect ones is probably not a good idea.
+> Unfortunately this and patch #5 are moving in the opposition direction 
+> from what we want to be doing, I think.
+> 
+> AFAICS these patches move register_netdev() to points in each driver 
+> earlier in the probe phase, when the driver is not fully set up and 
+> ready to receive packets.
+> 
+> Am I missing something?
 
-Yeah I wasnt particularly happy about where I put the override.
-skbuff.h directly includes:
+The only change made by these two patches is moving the call to
+register_netdev() from the outer probe() function to the inner
+probe() function where the the printk's are.
 
-#include <asm/atomic.h>
-#include <asm/types.h>
+There is absolutely no code in between the two locations.  That is,
+the driver would've immediately called register_netdev after the inner
+probe() has succeeded.
 
-...
+In fact it's really making these ISA/MCA probe() functions more
+like the ones we have for PCI.
 
-#include <asm/system.h>
-
-system.h gets included way down in the file, so I picked system.h as the 
-most reasonable of the three. Im open to ideas as to how to make this neater.
-
-Anton
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
