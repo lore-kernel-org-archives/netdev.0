@@ -1,43 +1,61 @@
-From: Sven Schuster <schuster.sven@gmx.de>
-Subject: Linux <---> Unixware slow networking with e100
-Date: Thu, 06 Nov 2003 08:31:33 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3FA9F8D5.9020601@gmx.de>
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Fw: issues with SO_PRIORITY and IP_TOS
+Date: Thu, 6 Nov 2003 12:31:28 +0300 (MSK)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200311060931.MAA14771@yakov.inr.ac.ru>
+References: <3FA7DBB5.1090500@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org
+Cc: davem@redhat.com (David S. Miller), jmorris@redhat.com, hadi@znyx.com,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: cfriesen@nortelnetworks.com (Chris Friesen)
+In-Reply-To: <3FA7DBB5.1090500@nortelnetworks.com> from "Chris Friesen" at Nov 04, 2003 12:02:45 PM
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-Hello everybody,
+> If that were the case, I'd be happy.  However, when you set the TOS bits 
+> (which really sets the whole 8-bit field, rather than just the 4 TOS 
+> bits),
 
-we have a little problem here with networking between linux
-(redhat AS 2.1 2.4.9-e.27smp) and unixware 7.1.1 . The network
-card is a Intel 82557 Ethernet Pro 100 (lspci output) on a 100 mbit
-network. When doing data transfers between two linux machines,
-everything works fine, we have transfer rates of about 10 MB/s.
-But when _receiving_ data from one of the unixware machines, we
-just get a few kB/s, max. about 100 kB/s. When _sending_ data to
-a unixware machine, the transfer rate is fine too. Are there any
-known issues between linux and unixware (except the SCO thing
-;-) ) ??
-At first we used the eepro100 driver, but this gave us poor
-performance on receive with every other machine, whether it was
-unixware or linux.
-
-Another thing on that machine is, that there's a Intel 82544GC
-copper gigabit card in it. When using this one with the e1000 driver,
-it also gave us bad performance on receive (also just around max.
-100 kB/s). Maxbe there are some options for module loading for
-the e1000 driver??
-
-Thanks in advance for any tips!!!
+It was not our choice. :-)
 
 
+> the kernel also sets the socket priority but only uses the TOS 
+> bits to do so. 
 
-Sven
+Look at straces of your telnet, ftp and ssh. You will understand why
+it is made and why it would be better not to change this. It affects
+local queuing in right way in default situation.
 
 
+>      If we're going to set the whole 8-bit field, wouldn't it 
+> make sense to use the priority bits to set the priority?
+
+There are no "priority" bits in this field. Priority is defined
+by outgoing device.
+
+
+> If root wants to send out a packet with particular DSCP settings, 
+> doesn't it make sense to make that option available?  It's a field in 
+> the IP packet header, we should be able to set it with an IP option.
+
+IP_TOS. :-)
+
+I feel there is some misunderstanding about sk->priority thing.
+It is the lowest significance hint about priority, when no other
+classification is supplied. Read: when the node is dumb and is not aware
+about any such things.
+
+I would agree with you if this field had opposite priority:
+i.e. overrided all the system-wide settings. It does not.
+
+What's about VLAN thing, this approach enforces you to use
+DSCP directly and never use skb->priority (well, to be more exact,
+to use it when you have no another hints available: in this case
+our skb->priority is _right_ hint)
+
+Alexey
