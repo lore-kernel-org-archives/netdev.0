@@ -1,34 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: iproute2 and kernel headers
-Date: Tue, 3 Aug 2004 14:21:51 -0700
+Subject: Re: [PATCH 2.6] netem limit not returned correctly
+Date: Tue, 3 Aug 2004 14:24:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040803142151.11d130ee.davem@redhat.com>
-References: <20040802153805.487f832f@dell_ss3.pdx.osdl.net>
-	<20040802160445.5ef3b251.davem@redhat.com>
-	<20040803.005542.104434029.yoshfuji@linux-ipv6.org>
+Message-ID: <20040803142431.0d5d669a.davem@redhat.com>
+References: <20040803131111.6ce2c36c@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: shemminger@osdl.org, hadi@znyx.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040803.005542.104434029.yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040803131111.6ce2c36c@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 03 Aug 2004 00:55:42 -0700 (PDT)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Tue, 3 Aug 2004 13:11:11 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> In article <20040802160445.5ef3b251.davem@redhat.com> (at Mon, 2 Aug 2004 16:04:45 -0700), "David S. Miller" <davem@redhat.com> says:
+> Minor leftover from earlier code.  Netem scheduler is not reporting
+> correct limit (ie for 'tc qdisc ls') because it is returning devices limit
+> not it's own.
 > 
-> > > What headers really seem to change a lot? The obvious ones are:
-> > > 
-> > > 	linux/pkt_sched.h
-> > > 	linux/tcp_diag.h
-> > > 	linux/xfrm.h
-> > 
-> > I would add linux/rtnetlink.h
-> 
-> Then, linux/snmp.h.
+> Should apply to 2.4 as well (with fuzz)
 
-Agreed.
+Applied to both trees, thanks Stephen.
