@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/7) ipmr.c - convert to alloc_netdev
-Date: Wed, 25 Jun 2003 11:41:21 -0700
+Subject: [PATCH] (5/7) ipmr.c - use alloc_netdev
+Date: Wed, 25 Jun 2003 11:41:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030625114121.2597182c.shemminger@osdl.org>
+Message-ID: <20030625114125.0fef55ca.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,31 +12,63 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Use time_after to avoid potential for jiffies wrap in timer code.
-
+Rather than explicitly calling kmalloc, use the alloc_netdev infrastructure.
 
 diff -Nru a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
---- a/net/ipv4/ipmr.c	Wed Jun 25 11:30:03 2003
-+++ b/net/ipv4/ipmr.c	Wed Jun 25 11:30:03 2003
-@@ -342,9 +342,8 @@
- 	cp = &mfc_unres_queue;
+--- a/net/ipv4/ipmr.c	Wed Jun 25 11:30:19 2003
++++ b/net/ipv4/ipmr.c	Wed Jun 25 11:30:19 2003
+@@ -186,34 +186,23 @@
+ 	return (struct net_device_stats*)dev->priv;
+ }
  
- 	while ((c=*cp) != NULL) {
--		long interval = c->mfc_un.unres.expires - now;
+-static void vif_dev_destructor(struct net_device *dev)
++static void reg_vif_setup(struct net_device *dev)
+ {
+-	kfree(dev);
+-}
 -
--		if (interval > 0) {
-+		if (time_after(c->mfc_un.unres.expires, now)) {
-+			unsigned long interval = c->mfc_un.unres.expires - now;
- 			if (interval < expires)
- 				expires = interval;
- 			cp = &c->next;
-@@ -1291,7 +1290,8 @@
- 		       large chunk of pimd to kernel. Ough... --ANK
- 		     */
- 		    (mroute_do_pim || cache->mfc_un.res.ttls[true_vifi] < 255) &&
--		    jiffies - cache->mfc_un.res.last_assert > MFC_ASSERT_THRESH) {
-+		    time_after(jiffies, 
-+			       cache->mfc_un.res.last_assert + MFC_ASSERT_THRESH)) {
- 			cache->mfc_un.res.last_assert = jiffies;
- 			ipmr_cache_report(skb, true_vifi, IGMPMSG_WRONGVIF);
- 		}
+-static struct net_device *ipmr_reg_vif(struct vifctl *v)
+-{
+-	struct net_device  *dev;
+-	struct in_device *in_dev;
+-	int size;
+-
+-	size = sizeof(*dev) + sizeof(struct net_device_stats);
+-	dev = kmalloc(size, GFP_KERNEL);
+-	if (!dev)
+-		return NULL;
+-
+-	memset(dev, 0, size);
+-
+-	dev->priv = dev + 1;
+-
+-	strcpy(dev->name, "pimreg");
+-
+ 	dev->type		= ARPHRD_PIMREG;
+ 	dev->mtu		= 1500 - sizeof(struct iphdr) - 8;
+ 	dev->flags		= IFF_NOARP;
+ 	dev->hard_start_xmit	= reg_vif_xmit;
+ 	dev->get_stats		= reg_vif_get_stats;
+-	dev->destructor		= vif_dev_destructor;
++	dev->destructor		= (void (*)(struct net_device *)) kfree;
++}
++
++static struct net_device *ipmr_reg_vif(void)
++{
++	struct net_device *dev;
++	struct in_device *in_dev;
++
++	dev = alloc_netdev(sizeof(struct net_device_stats), "pimreg",
++			   reg_vif_setup);
+ 
+ 	if (register_netdevice(dev)) {
+ 		kfree(dev);
+@@ -403,7 +392,7 @@
+ 		 */
+ 		if (reg_vif_num >= 0)
+ 			return -EADDRINUSE;
+-		dev = ipmr_reg_vif(vifc);
++		dev = ipmr_reg_vif();
+ 		if (!dev)
+ 			return -ENOBUFS;
+ 		break;
