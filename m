@@ -1,41 +1,55 @@
-From: "Nivedita Singhvi" <nivedita@us.ibm.com>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
 Subject: Re: suggestion for routing code improvement
-Date: Wed, 10 Apr 2002 13:41:04 -0700
+Date: Wed, 10 Apr 2002 16:56:27 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <OF415414BF.765FDDD4-ON88256B97.0070C808@boulder.ibm.com>
+Message-ID: <3CB4A6FB.F9146FDB@nortelnetworks.com>
+References: <3CB47B90.B4CF1FAD@nortelnetworks.com> <15540.40277.772027.111512@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Friesen <cfriesen@nortelnetworks.com>, netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
 To: Robert Olsson <Robert.Olsson@data.slu.se>
 List-Id: netdev.vger.kernel.org
 
+Robert Olsson wrote:
+> 
+> Chris Friesen writes:
+>  > So, what do you guys think?  Is this a reasonable thing to do?  I think that it
+>  > makes the system nicely symmetrical, as opposed to the asymmetrical handling of
+>  > current kernels.
+> 
+>  Hello!
+> 
+>  Why not leave the routing policy job to a routing daemon?
 
+Because I've got static routes, and I know exactly what they are.
 
- > > So, what do you guys think?  Is this a reasonable thing
- > > to do?  I think that it
- > > makes the system nicely symmetrical, as opposed to the
- > > asymmetrical handling of current kernels.
+>  This Linux box has 110441 bgp routes. Internet routing is very much
+>  like a living organism. Routes comes and goes.
 
- > Hello!
+The box(es) which inspired this sit on a private network, and once they are
+brought into service, the routes never change.  However, there is a command from
+our gui to manually drop and raise the ethernet link (just in case something
+goes wrong and can't be handled automatically) and it would simplify our code
+greatly if the routes that are automatically deleted would be automatically put
+back.
 
- > Why not leave the routing policy job to a routing daemon?
+>  If the interface comes back the router daemon recalcs again and installs
+>  appropriate routes for this moment which may very well be different
+>  compared to before "link down".
 
- > There is risk of routing havoc if the kernel start acting
- > as one.
+In this case, my software *is* essentially the routing daemon, and I want it to
+be simpler to maintain.
 
- > L-uu1:/# ip route list | wc -l
- > 110441
+I think the concept is simple: I added some routes, and I think they should stay
+there until I remove them or the machine reboots.  Doesn't this seem like a
+logical behaviour?
 
- > This Linux box has 110441 bgp routes. Internet routing is
- > very much like a living organism. Routes comes and goes.
+Chris
 
- But is that the norm? Not all linux installations are large
- internet nodes..I'd say at least a significant minority of
- hosts typically have just a few static routes, not running
- a routing daemon, who would be helped by some mechanism to
- auto reinstall routes..(perhaps a generously configurable
- one)
-
-thanks,
-Nivedita
+-- 
+Chris Friesen                    | MailStop: 043/33/F10  
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
