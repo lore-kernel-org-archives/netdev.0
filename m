@@ -1,45 +1,25 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
-Date: Thu, 10 Jul 2003 14:42:44 +1000 (EST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPV6: ipv6-in-ipv6 tunnel using alloc_netdev
+Date: Wed, 09 Jul 2003 22:47:00 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0307101419080.15602-100000@excalibur.intercode.com.au>
-References: <3F0AFFE6.E85FF283@us.ibm.com>
+Message-ID: <20030709.224700.27801124.davem@redhat.com>
+References: <Pine.LNX.4.44.0307041614290.15229-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-   Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>,
-   Jeff Garzik <jgarzik@pobox.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-   Randy Dunlap <rddunlap@osdl.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jim Keniston <jkenisto@us.ibm.com>
-In-Reply-To: <3F0AFFE6.E85FF283@us.ibm.com>
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <Pine.LNX.4.44.0307041614290.15229-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Jul 2003, Jim Keniston wrote:
+   From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+   Date: Fri, 4 Jul 2003 23:23:44 +0300 (EEST)
 
-+       kerror_nl = netlink_kernel_create(NETLINK_KERROR, kerror_netlink_rcv);
-+       if (kerror_nl == NULL)
-+               panic("kerror_init: cannot initialize kerror_nl\n");
+   I finally had the time to fix ip6_tunnel.c so it also uses alloc_netdev()
+   for creating new tunnel devices.
+   
+   Tested by adding and deleting tunnel device. Patch as attachment...
 
-You can simply use NULL instead of passing the dummy kerror_netlink_rcv
-function.
-
-+struct kern_log_entry {
-+       __u16   log_kmagic;     /* always LOGREC_KMAGIC */
-+       __u16   log_kversion;   /* which version of this struct? */
-+       char    log_facility[FACILITY_MAXLEN];  /* e.g., driver name */
-
-These fields should generally be specified in ascending order to help with 
-alignment.
-
-It may also be worth looking at how the ULOG code batches messages to 
-improve peformance.
-
-
-
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Applied, thanks.
