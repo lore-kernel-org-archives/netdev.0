@@ -1,158 +1,342 @@
-From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: Re: [PATCH] [1/2] kernel error reporting (revised)
-Date: Thu, 17 Jul 2003 12:13:16 -0700
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: [PATCH 1/2] Prefix List and O/M flags against 2.5.73
+Date: Thu, 17 Jul 2003 14:12:37 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F16F54C.949A9299@us.ibm.com>
-References: <Mutt.LNX.4.44.0307131052420.2146-100000@excalibur.intercode.com.au>
-		<3F143D0A.A052F0B6@us.ibm.com> <20030715125121.315920a2.akpm@osdl.org>
+Message-ID: <Pine.LNX.4.44.0307171336430.1353-100000@DYN318430.beaverton.ibm.com>
+References: <200307170038.EAA12945@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------1C2AB73BB6D657AFF025223B"
-Cc: jmorris@intercode.com.au, davem@redhat.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk,
-   rddunlap@osdl.org, kuznet@ms2.inr.ac.ru, jkenisto@us.ibm.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: yoshfuji@linux-ipv6.org, <davem@redhat.com>, <netdev@oss.sgi.com>,
+   <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307170038.EAA12945@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------1C2AB73BB6D657AFF025223B
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 
-Andrew Morton wrote:
-> 
-> Jim Keniston <jkenisto@us.ibm.com> wrote:
-> >
-> > +int kernel_error_event_iov(const struct iovec *iov, unsigned int nseg,
-> > +     u32 groups)
-> > +{
-> > ...
-> > +
-> > +     return netlink_broadcast(kerror_nl, skb, 0, ~0, GFP_ATOMIC);
-> 
-> This appears to be deadlocky when called from interrupt handlers.
-> 
-> netlink_broadcast() does read_lock(&nl_table_lock).  But nl_table_lock is
-> not an irq-safe lock.
-> 
-> Possibly netlink_broadcast() can be made callable from hardirq context, but
-> it looks to be non trivial.  The various error and delivery handlers need
-> to be reviewed,
+> > This is sort of what I had originally, so I should be able to change
+> > it to do this quite easily. I didn't like the earlier suggestion of
+> > using existing RTM_xxxLINK with RTM_xxxIFACE (since it was dev
+generic),
+> > but having a new interface RTM_xxxIFACE sounds good to me.
 
-Yes indeed.  I believe this issue is resolved by detecting that we're in an
-interrupt handler and delaying the call to netlink_broadcast() via a tasklet.
-See the enclosed patch to the previously posted rev.  I'll update the full patch at
-http://prdownloads.sourceforge.net/evlog/kerror-2.5.75.patch?download
+> Actually, the original plan was to use ifli_family to query something
+> or to direct a request to a specific interface on some netdevice.
+> I wanted to reserve IFLI_PROTINFO attribute to encapsulate information
+> private for specific family. It was not realized mostly because of
+absense
+> of such information.
+>
+> Maybe, you will want to resurrect this.
 
-An issue remains: what, if anything, to tell the caller if the delayed
-netlink_broadcast() fails.  See below for further thoughts.
+I am sorry, but I have no idea what you are talking about :-)
 
-> the kfree_skb() calls should be thought about, etc.
+I am including patch with what was agreed upon yesterday by everyone. I
+have tested the prefix list retrieval by using ip (with slight changes to
+ip command,now I can dump prefix by "ip -f inet6 route prefix", with
+identical format to "ip -f inet6 route" command). For the O/M flags,  I am
+using a new RTM_GETIFFLAGS but if needed this can be changed to use
+RTM_GETLNKINFO (or something) with RTA_IFFLAGS, if multiple data needs to
+be returned. If that is needed, I can submit a (5 line?) patch to be
+applied after this is accepted..
 
-I've thought about them. :-)  Given the aforementioned solution, I don't think
-kfree_skb() is an issue, because it's called as needed by netlink_broadcast().
-If I'm missing something here, feel free to clarify.
+Thanks,
 
-Thanks.
-Jim
+- KK
 
-WHAT IF THE DELAYED netlink_broadcast() CALL FAILS?
-1. Can we detect from IRQ context that nobody is listening, and thereby
-return -ESRCH to the caller?  No, to do that would require perusing the
-nl_table[NETLINK_KERROR] list.  We can't do that for the same reason we
-can't call netlink_broadcast().  So kernel_error_event_iov() now returns
--EINPROGRESS if it had to delay the netlink_broadcast() call.
+diff -ruN linux-2.5.73.org/include/linux/ipv6_route.h test/linux-2.5.73/include/linux/ipv6_route.h
+--- linux-2.5.73.org/include/linux/ipv6_route.h	2003-06-22 11:32:36.000000000 -0700
++++ test/linux-2.5.73/include/linux/ipv6_route.h	2003-07-17 11:38:23.000000000 -0700
+@@ -16,6 +16,7 @@
+ #define RTF_DEFAULT	0x00010000	/* default - learned via ND	*/
+ #define RTF_ALLONLINK	0x00020000	/* fallback, no routers on link	*/
+ #define RTF_ADDRCONF	0x00040000	/* addrconf route - RA		*/
++#define RTF_PREFIX_RT	0x00080000	/* A prefix only route - RA	*/
 
-2. Could the tasklet report netlink_broadcast() failures back to the
-higher-level code?  Yes, we could implement a per-group callback to handle
-that.  Current thinking is that it's overkill.  But it would resolve
-the next issue...
+ #define RTF_NONEXTHOP	0x00200000	/* route with no nexthop	*/
+ #define RTF_EXPIRES	0x00400000
+diff -ruN linux-2.5.73.org/include/linux/rtnetlink.h test/linux-2.5.73/include/linux/rtnetlink.h
+--- linux-2.5.73.org/include/linux/rtnetlink.h	2003-06-22 11:33:07.000000000 -0700
++++ test/linux-2.5.73/include/linux/rtnetlink.h	2003-07-16 17:23:06.000000000 -0700
+@@ -47,7 +47,9 @@
+ #define	RTM_DELTFILTER	(RTM_BASE+29)
+ #define	RTM_GETTFILTER	(RTM_BASE+30)
 
-3. Given the above, what should the evlog.c caller do when
-kernel_error_event_iov() returns -EINPROGRESS?
-a. Nothing.  Figure the packet will probably get logged.
-b. Just to be safe, report it via printk, the same way we report dropped
-packets.
-We currently do (a).  (b) would mean that every event logged from IRQ
-context would be cc-ed to printk.
------
---------------1C2AB73BB6D657AFF025223B
-Content-Type: text/plain; charset=us-ascii;
- name="kerror.patch.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="kerror.patch.txt"
-
---- kerror.c.old	Thu Jul 17 10:53:19 2003
-+++ kerror.c	Thu Jul 17 10:54:55 2003
-@@ -3,10 +3,12 @@
-  * Copyright (C) 2003 David S. Miller (davem@redhat.com)
-  * June 2003 - Jim Keniston and Dan Stekloff (kenistoj and dsteklof@us.ibm.com)
-  *	Fixed a couple of bugs and added iovec interface.
-+ * July 2003 - Jim Keniston - Added handling of packets logged from IRQ context.
-  */
- 
- #include <linux/kernel.h>
- #include <linux/types.h>
-+#include <linux/interrupt.h>
- #include <linux/skbuff.h>
- #include <linux/socket.h>
- #include <linux/netlink.h>
-@@ -17,6 +19,33 @@
- 
- static struct sock *kerror_nl;
- 
-+/* Packets logged from IRQ context are queued for broadcast by a tasklet. */
-+static struct sk_buff_head delayed_pkts;
-+static void broadcast_delayed_pkts(unsigned long);
-+static DECLARE_TASKLET(delayed_pkts_tasklet, broadcast_delayed_pkts, 0);
+-#define	RTM_MAX		(RTM_BASE+31)
++#define	RTM_GETIFFLAGS	(RTM_BASE+34)
 +
-+/**
-+ * delayed_broadcast() - Schedule a tasklet to broadcast a packet.
-+ * We want to broadcast the indicated packet, but can't because we're
-+ * in a hardware interrupt and so can't call netlink_broadcast().
-+ * Schedule a tasklet to do the job.
-+ *
-+ * @skb: the socket buffer to broadcast
-+ */
-+static void delayed_broadcast(struct sk_buff *skb)
++#define	RTM_MAX		(RTM_GETIFFLAGS+1)
+
+ /*
+    Generic structure for encapsulation of optional route information.
+@@ -61,6 +63,13 @@
+ 	unsigned short	rta_type;
+ };
+
++/* Structure to return per interface device flags */
++struct ifp_if6info
 +{
-+	skb_queue_tail(&delayed_pkts, skb);
-+	tasklet_schedule(&delayed_pkts_tasklet);
-+}
++	int ifindex;
++	int flags;
++};
 +
-+static void broadcast_delayed_pkts(unsigned long ignored)
-+{
-+	struct sk_buff *skb;
-+	while ((skb = skb_dequeue(&delayed_pkts)) != NULL) {
-+		(void) netlink_broadcast(kerror_nl, skb, 0, ~0, GFP_ATOMIC);
-+	}
-+}
-+
- /**
-  * kernel_error_event_iov() - Broadcast packet to NETLINK_KERROR sockets.
-  * @iov: the packet's data
-@@ -54,6 +83,11 @@
- 
- 	NETLINK_CB(skb).dst_groups = groups;
- 
-+	if (in_irq()) {
-+		delayed_broadcast(skb);
-+		return -EINPROGRESS;
-+	}
-+
- 	return netlink_broadcast(kerror_nl, skb, 0, ~0, GFP_ATOMIC);
- 
- nlmsg_failure:
-@@ -85,6 +119,7 @@
- 	if (kerror_nl == NULL)
- 		panic("kerror_init: cannot initialize kerror_nl\n");
- 
-+	skb_queue_head_init(&delayed_pkts);
- 	return 0;
+ /* Macros to handle rtattributes */
+
+ #define RTA_ALIGNTO	4
+@@ -168,6 +177,7 @@
+ #define RTM_F_NOTIFY		0x100	/* Notify user of route change	*/
+ #define RTM_F_CLONED		0x200	/* This route is cloned		*/
+ #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
++#define RTM_F_PREFIX		0x800	/* Prefix addresses		*/
+
+ /* Reserved table identifiers */
+
+diff -ruN linux-2.5.73.org/include/net/if_inet6.h test/linux-2.5.73/include/net/if_inet6.h
+--- linux-2.5.73.org/include/net/if_inet6.h	2003-06-22 11:33:32.000000000 -0700
++++ test/linux-2.5.73/include/net/if_inet6.h	2003-07-16 17:23:24.000000000 -0700
+@@ -17,6 +17,8 @@
+
+ #include <net/snmp.h>
+
++#define IF_RA_OTHERCONF	0x80
++#define IF_RA_MANAGED	0x40
+ #define IF_RA_RCVD	0x20
+ #define IF_RS_SENT	0x10
+
+diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrconf.c
+--- linux-2.5.73.org/net/ipv6/addrconf.c	2003-06-22 11:33:17.000000000 -0700
++++ test/linux-2.5.73/net/ipv6/addrconf.c	2003-07-17 11:40:48.000000000 -0700
+@@ -129,7 +129,7 @@
+
+ static int addrconf_ifdown(struct net_device *dev, int how);
+
+-static void addrconf_dad_start(struct inet6_ifaddr *ifp);
++static void addrconf_dad_start(struct inet6_ifaddr *ifp, int flags);
+ static void addrconf_dad_timer(unsigned long data);
+ static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
+ static void addrconf_rs_timer(unsigned long data);
+@@ -715,7 +715,7 @@
+ 	ift->prefered_lft = tmp_prefered_lft;
+ 	ift->tstamp = ifp->tstamp;
+ 	spin_unlock_bh(&ift->lock);
+-	addrconf_dad_start(ift);
++	addrconf_dad_start(ift, 0);
+ 	in6_ifa_put(ift);
+ 	in6_dev_put(idev);
+ out:
+@@ -1211,7 +1211,7 @@
+ 	rtmsg.rtmsg_dst_len = 8;
+ 	rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
+ 	rtmsg.rtmsg_ifindex = dev->ifindex;
+-	rtmsg.rtmsg_flags = RTF_UP|RTF_ADDRCONF;
++	rtmsg.rtmsg_flags = RTF_UP;
+ 	rtmsg.rtmsg_type = RTMSG_NEWROUTE;
+ 	ip6_route_add(&rtmsg, NULL, NULL);
  }
- 
+@@ -1238,7 +1238,7 @@
+ 	struct in6_addr addr;
 
---------------1C2AB73BB6D657AFF025223B--
+ 	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
+-	addrconf_prefix_route(&addr, 64, dev, 0, RTF_ADDRCONF);
++	addrconf_prefix_route(&addr, 64, dev, 0, 0);
+ }
+
+ static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
+@@ -1330,7 +1330,8 @@
+ 		}
+ 	} else if (pinfo->onlink && valid_lft) {
+ 		addrconf_prefix_route(&pinfo->prefix, pinfo->prefix_len,
+-				      dev, rt_expires, RTF_ADDRCONF|RTF_EXPIRES);
++				      dev, rt_expires,
++				      RTF_ADDRCONF|RTF_EXPIRES|RTF_PREFIX_RT);
+ 	}
+ 	if (rt)
+ 		dst_release(&rt->u.dst);
+@@ -1378,7 +1379,7 @@
+ 			}
+
+ 			create = 1;
+-			addrconf_dad_start(ifp);
++			addrconf_dad_start(ifp, RTF_ADDRCONF|RTF_PREFIX_RT);
+ 		}
+
+ 		if (ifp && valid_lft == 0) {
+@@ -1529,7 +1530,7 @@
+
+ 	ifp = ipv6_add_addr(idev, pfx, plen, scope, IFA_F_PERMANENT);
+ 	if (!IS_ERR(ifp)) {
+-		addrconf_dad_start(ifp);
++		addrconf_dad_start(ifp, 0);
+ 		in6_ifa_put(ifp);
+ 		return 0;
+ 	}
+@@ -1704,7 +1705,7 @@
+
+ 	ifp = ipv6_add_addr(idev, addr, 64, IFA_LINK, IFA_F_PERMANENT);
+ 	if (!IS_ERR(ifp)) {
+-		addrconf_dad_start(ifp);
++		addrconf_dad_start(ifp, 0);
+ 		in6_ifa_put(ifp);
+ 	}
+ }
+@@ -1943,8 +1944,7 @@
+ 		memset(&rtmsg, 0, sizeof(struct in6_rtmsg));
+ 		rtmsg.rtmsg_type = RTMSG_NEWROUTE;
+ 		rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
+-		rtmsg.rtmsg_flags = (RTF_ALLONLINK | RTF_ADDRCONF |
+-				     RTF_DEFAULT | RTF_UP);
++		rtmsg.rtmsg_flags = (RTF_ALLONLINK | RTF_DEFAULT | RTF_UP);
+
+ 		rtmsg.rtmsg_ifindex = ifp->idev->dev->ifindex;
+
+@@ -1958,7 +1958,7 @@
+ /*
+  *	Duplicate Address Detection
+  */
+-static void addrconf_dad_start(struct inet6_ifaddr *ifp)
++static void addrconf_dad_start(struct inet6_ifaddr *ifp, int flags)
+ {
+ 	struct net_device *dev;
+ 	unsigned long rand_num;
+@@ -1968,7 +1968,7 @@
+ 	addrconf_join_solict(dev, &ifp->addr);
+
+ 	if (ifp->prefix_len != 128 && (ifp->flags&IFA_F_PERMANENT))
+-		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev, 0, RTF_ADDRCONF);
++		addrconf_prefix_route(&ifp->addr, ifp->prefix_len, dev, 0, flags);
+
+ 	net_srandom(ifp->addr.s6_addr32[3]);
+ 	rand_num = net_random() % (ifp->idev->cnf.rtr_solicit_delay ? : 1);
+@@ -2451,6 +2451,42 @@
+ 	netlink_broadcast(rtnl, skb, 0, RTMGRP_IPV6_IFADDR, GFP_ATOMIC);
+ }
+
++int inet6_dump_linkflags(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	int ifindex, flags;
++	struct net_device *dev;
++	struct inet6_dev *idev;
++	struct nlmsghdr *nlh;
++	struct ifp_if6info *ifp = NLMSG_DATA(cb->nlh);
++	unsigned char *org_tail = skb->tail;
++
++	ifindex = ifp->ifindex;
++	if ((dev = dev_get_by_index(ifindex)) == NULL)
++		goto out;
++	if ((idev = in6_dev_get(dev)) != NULL) {
++		flags = idev->if_flags;
++		in6_dev_put(idev);
++	} else
++		flags = 0;
++	dev_put(dev);
++
++	nlh = NLMSG_PUT(skb, NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq,
++			RTM_GETIFFLAGS, sizeof(*ifp));
++	ifp = NLMSG_DATA(nlh);
++	ifp->flags = flags;
++	ifp->ifindex = ifindex;    /* duplicate info for user to verify */
++
++	nlh->nlmsg_len = skb->tail - org_tail;
++	return skb->len;
++
++nlmsg_failure:
++	printk(KERN_INFO "inet6_dump_linkflags:skb size not enough\n");
++	skb_trim(skb, org_tail - skb->data);
++
++out:
++	return -1;
++}
++
+ static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX - RTM_BASE + 1] = {
+ 	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
+ 	[RTM_DELADDR - RTM_BASE] = { .doit	= inet6_rtm_deladdr, },
+@@ -2459,6 +2495,7 @@
+ 	[RTM_DELROUTE - RTM_BASE] = { .doit	= inet6_rtm_delroute, },
+ 	[RTM_GETROUTE - RTM_BASE] = { .doit	= inet6_rtm_getroute,
+ 				      .dumpit	= inet6_dump_fib, },
++	[RTM_GETIFFLAGS - RTM_BASE] = {.dumpit	= inet6_dump_linkflags, },
+ };
+
+ static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+diff -ruN linux-2.5.73.org/net/ipv6/ndisc.c test/linux-2.5.73/net/ipv6/ndisc.c
+--- linux-2.5.73.org/net/ipv6/ndisc.c	2003-06-22 11:32:56.000000000 -0700
++++ test/linux-2.5.73/net/ipv6/ndisc.c	2003-07-14 15:06:14.000000000 -0700
+@@ -1036,6 +1036,16 @@
+ 		 */
+ 		in6_dev->if_flags |= IF_RA_RCVD;
+ 	}
++	/*
++	 * Remember the managed/otherconf flags from most recently
++	 * receieved RA message (RFC 2462) -- yoshfuji
++	 */
++	in6_dev->if_flags = (in6_dev->if_flags & ~(IF_RA_MANAGED|
++				IF_RA_OTHERCONF)) |
++				(ra_msg->icmph.icmp6_addrconf_managed ?
++					IF_RA_MANAGED : 0) |
++				(ra_msg->icmph.icmp6_addrconf_other ?
++					IF_RA_OTHERCONF : 0);
+
+ 	lifetime = ntohs(ra_msg->icmph.icmp6_rt_lifetime);
+
+diff -ruN linux-2.5.73.org/net/ipv6/route.c test/linux-2.5.73/net/ipv6/route.c
+--- linux-2.5.73.org/net/ipv6/route.c	2003-06-22 11:33:05.000000000 -0700
++++ test/linux-2.5.73/net/ipv6/route.c	2003-07-16 10:42:01.000000000 -0700
+@@ -1400,13 +1400,20 @@
+ 			 struct in6_addr *src,
+ 			 int iif,
+ 			 int type, u32 pid, u32 seq,
+-			 struct nlmsghdr *in_nlh)
++			 struct nlmsghdr *in_nlh, int prefix)
+ {
+ 	struct rtmsg *rtm;
+ 	struct nlmsghdr  *nlh;
+ 	unsigned char	 *b = skb->tail;
+ 	struct rta_cacheinfo ci;
+
++	if (prefix) {	/* user wants prefix routes only */
++		if (!(rt->rt6i_flags & RTF_PREFIX_RT)) {
++			/* success since this is not a prefix route */
++			return 1;
++		}
++	}
++
+ 	if (!pid && in_nlh) {
+ 		pid = in_nlh->nlmsg_pid;
+ 	}
+@@ -1487,10 +1494,16 @@
+ static int rt6_dump_route(struct rt6_info *rt, void *p_arg)
+ {
+ 	struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
++	struct rtmsg *rtm;
++	int prefix;
+
++	rtm = NLMSG_DATA(arg->cb->nlh);
++	if (rtm)
++		prefix = (rtm->rtm_flags & RTM_F_PREFIX) != 0;
++	else prefix = 0;
+ 	return rt6_fill_node(arg->skb, rt, NULL, NULL, 0, RTM_NEWROUTE,
+ 		     NETLINK_CB(arg->cb->skb).pid, arg->cb->nlh->nlmsg_seq,
+-		     NULL);
++		     NULL, prefix);
+ }
+
+ static int fib6_dump_node(struct fib6_walker_t *w)
+@@ -1638,7 +1651,7 @@
+ 			    &fl.fl6_dst, &fl.fl6_src,
+ 			    iif,
+ 			    RTM_NEWROUTE, NETLINK_CB(in_skb).pid,
+-			    nlh->nlmsg_seq, nlh);
++			    nlh->nlmsg_seq, nlh, 0);
+ 	if (err < 0) {
+ 		err = -EMSGSIZE;
+ 		goto out_free;
+@@ -1664,7 +1677,7 @@
+ 		netlink_set_err(rtnl, 0, RTMGRP_IPV6_ROUTE, ENOBUFS);
+ 		return;
+ 	}
+-	if (rt6_fill_node(skb, rt, NULL, NULL, 0, event, 0, 0, nlh) < 0) {
++	if (rt6_fill_node(skb, rt, NULL, NULL, 0, event, 0, 0, nlh, 0) < 0) {
+ 		kfree_skb(skb);
+ 		netlink_set_err(rtnl, 0, RTMGRP_IPV6_ROUTE, EINVAL);
+ 		return;
