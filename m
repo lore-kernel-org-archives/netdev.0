@@ -1,51 +1,30 @@
-From: Paul Jackson <pj@sgi.com>
-Subject: Re: [PATCH 2.6.11-rc4-mm1] connector: Add a fork connector
-Date: Wed, 2 Mar 2005 07:50:55 -0800
-Message-ID: <20050302075055.53207b1b.pj@sgi.com>
-References: <1109240677.1738.196.camel@frecb000711.frec.bull.fr>
-	<1109753292.8422.117.camel@frecb000711.frec.bull.fr>
+From: Matt Porter <mporter@kernel.crashing.org>
+Subject: Re: [PATCH] emac: filter illegal frame sizes
+Date: Wed, 2 Mar 2005 09:29:18 -0700
+Message-ID: <20050302092918.A30946@cox.net>
+References: <20050218101245.D11439@cox.net> <4216FD64.9020509@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, johnpol@2ka.mipt.ru,
-        elsa-devel@lists.sourceforge.net, jlan@engr.sgi.com, gh@us.ibm.com,
-        efocht@hpce.nec.com, netdev@oss.sgi.com, kaigai@ak.jp.nec.com
-To: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
-In-Reply-To: <1109753292.8422.117.camel@frecb000711.frec.bull.fr>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linuxppc-embedded@ozlabs.org
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <4216FD64.9020509@pobox.com>; from jgarzik@pobox.com on Sat, Feb 19, 2005 at 03:48:36AM -0500
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In addition to worrying about performance and scaling, with accounting
-enabled or disabled, one should also try to minimize code clutter in key
-kernel files, such as fork.c
+On Sat, Feb 19, 2005 at 03:48:36AM -0500, Jeff Garzik wrote:
+> Matt Porter wrote:
+> > Fix to drop frames that are too large for the current MTU.
+> 
+> What is this fixing?
+> 
+> You should be passing all frames up to the software stack.
 
-For example, one might, instead of adding 40 lines os fork_connector()
-code to kernel/fork.c, instead add something like just the #include
-<linux/connector.h> and the "fork_connector(current->pid, p->pid)" call
-to kernel/fork.c, where include/linux/connector.h had something like:
+I was originally fixing the issue where the driver was only allocating
+rx buffers big enough for the configured MTU and got a bit
+overzealous. I pulled out the filtering hunks so we always allocate
+skbs large enough to handle a full size jumbo frame and pass everything
+up to the stack...new patch to follow.
 
-	#ifdef CONFIG_FORK_CONNECTOR
-	static inline void fork_connector(pid_t parent, pid_t child)
-	{
-		if (cn_fork_enable)
-			__fork_connector(parent, child);
-	}
-	#else
-	static inline void fork_connector(pid_t parent, pid_t child) {}
-	#endif
-
-Then bury the interesting code in the implementation of __fork_connector(),
-in drivers/connector/cn_fork.c or some such place.
-
-This adds a real function call in the case that cn_fork_enable is set.
-That code path requires more than that anyway (and it makes kernel stack
-backtraces more transparent).
-
-But it removes 40 lines of fork_connector detail from fork.c.  And it
-avoids marking a 40 line routine as inline ...
-
--- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.650.933.1373, 1.925.600.0401
+-Matt
