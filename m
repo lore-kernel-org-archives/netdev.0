@@ -1,24 +1,64 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Paul Wagland <paul@kungfoocoder.org>
 Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Thu, 13 May 2004 15:19:16 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40A3CA34.60202@pobox.com>
-References: <40A26FFA.4030701@pobox.com>	<20040512193349.GA14936@elte.hu>	<200405121947.i4CJlJm5029666@turing-police.cc.vt.edu>	<Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com>	<200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu>	<20040512202807.GA16849@elte.hu>	<20040512203500.GA17999@elte.hu>	<20040512205028.GA18806@elte.hu>	<20040512140729.476ace9e.akpm@osdl.org>	<20040512211748.GB20800@elte.hu>	<20040512221823.GK1397@holomorphy.com>	<61D92BA6-A504-11D8-BD91-000A95CD704C@wagland.net> <20040513121141.37f32035.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Date: Thu, 13 May 2004 21:50:41 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <D0659356-A516-11D8-BD91-000A95CD704C@kungfoocoder.org>
+References: <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com> <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu> <20040512202807.GA16849@elte.hu> <20040512203500.GA17999@elte.hu> <20040512205028.GA18806@elte.hu> <20040512140729.476ace9e.akpm@osdl.org> <20040512211748.GB20800@elte.hu> <20040512221823.GK1397@holomorphy.com> <61D92BA6-A504-11D8-BD91-000A95CD704C@wagland.net> <20040513121141.37f32035.akpm@osdl.org>
+Mime-Version: 1.0 (Apple Message framework v613)
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-46-943942460"
 Content-Transfer-Encoding: 7bit
-Cc: wli@holomorphy.com, greg@kroah.com, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, davidel@xmailserver.org,
-	Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264453AbUEMTga@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>, Paul Wagland <paul@wagland.net>,
-	mingo@elte.hu
+Cc: greg@kroah.com, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        jgarzik@pobox.com, netdev@oss.sgi.com, wli@holomorphy.com,
+        davidel@xmailserver.org, Valdis.Kletnieks@vt.edu
+Return-path: <netdev-bounce@oss.sgi.com>
 In-Reply-To: <20040513121141.37f32035.akpm@osdl.org>
+To: Andrew Morton <akpm@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-For whomever winds up doing this work, I have two requests:
+--Apple-Mail-46-943942460
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 
-* use a type-safe inline rather than purely a macro, as some drivers do
-* replace msecs_to_jiffies() occurrences as well as MSECS_TO_JIFFIES() 
-(and ditto for jiffies_to_msecs)
+
+On May 13, 2004, at 21:11, Andrew Morton wrote:
+
+> Paul Wagland <paul@wagland.net> wrote:
+>>  This changes behaviour when HZ==(z)000
+>>
+>>  JIFFIES_TO_MSECS  goes from
+>>  ((x) * 1000) / (z)000  to (((x) + (z) - 1)/(z))
+>>
+>>  i.e. for x=1, z=2 this goes from ((1)*1000)/2000)=0 to 
+>> (((1)+(2)-1)/2)=1
+>
+> hm, so you're saying that we now round 0.5 up to 1 rather than down to 
+> zero?
+
+More precisely, we round .x up, where before it was rounded down, but 
+yeah, _and_ only when HZ is a multiple of 1000, and greater than 1000. 
+This is also only the case for the patch as proposed by wli, currently 
+I don't know of any architectures that have a HZ of 2000 or more... but 
+I just note that it _is_ a behaviour change in those cases, whether or 
+not it is important is for other people to decide :-)
+
+Cheers,
+Paul
+
+--Apple-Mail-46-943942460
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: This is a digitally signed message part
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (Darwin)
+
+iD8DBQFAo9GRtch0EvEFvxURAhORAJ4gYSRI0mv2qgrEBqqWSAsJ9IVVoACgl9eP
+801yhelPMICs2UkqMg82H4s=
+=snV2
+-----END PGP SIGNATURE-----
+
+--Apple-Mail-46-943942460--
