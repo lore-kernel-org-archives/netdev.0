@@ -1,38 +1,34 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: Re: [PATCH] iphase fix.
-Date: Thu, 15 May 2003 12:32:58 +0100
+From: Alex Davis <alex14641@yahoo.com>
+Subject: Re: link error building kernel with gcc-3.3
+Date: Thu, 15 May 2003 07:56:33 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030515113258.GA31078@suse.de>
-References: <200305150417.h4F4HTRA025809@hera.kernel.org> <3EC3359D.5050207@pobox.com> <3EC336FE.1030805@pobox.com>
+Message-ID: <20030515145633.37071.qmail@web40506.mail.yahoo.com>
+References: <20030514.224214.42791773.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com
+Cc: alex14641@yahoo.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <3EC336FE.1030805@pobox.com>
+To: "David S. Miller" <davem@redhat.com>, jmorris@intercode.com.au
+In-Reply-To: <20030514.224214.42791773.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 15, 2003 at 02:43:10AM -0400, Jeff Garzik wrote:
- > Jeff Garzik wrote:
- > >>         dev_kfree_skb(skb);
- > >>-    else
- > >>-        netif_wake_queue(dev);
- > >>+    netif_wake_queue(dev);
- > >>     LEAVE("iph5526_send_packet");
- > >
- > >This appears to revert a fix.
- > >You only want to wake the queue if you have room to queue another skb.
- > 
- > Actually, I'm wrong.
- > 
- > But it could still use some looking-at.  You don't want to stop_queue at 
- > the beginning of send_packet and wake_queue at the end.  Instead, the 
- > queue should be awakened in the Tx completion routine, and the 
- > stop_queue should be moved from the beginning to the end of the function.
+Can you push it to 2.4.x as well?
 
-Bring it up with whoever merged it into 2.4..
+-Alex
 
-		Dave
+--- "David S. Miller" <davem@redhat.com> wrote:
+>    From: James Morris <jmorris@intercode.com.au>
+>    Date: Thu, 15 May 2003 15:38:15 +1000 (EST)
+>    
+>    I wonder, does this mean that the compiler failed to inline the function?
+>    
+>    Removing __inline__ is not the correct solution.
+>    
+> I already posted what the correct fix is :-)  And this is already
+> pushed to 2.5.x
+
+__________________________________
+Do you Yahoo!?
+The New Yahoo! Search - Faster. Easier. Bingo.
+http://search.yahoo.com
