@@ -1,30 +1,44 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] remove historic entries in Documentation/Changes
-Date: Wed, 29 Oct 2003 01:45:27 +0900 (JST)
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Subject: Re: status of ipchains in 2.6?
+Date: Tue, 28 Oct 2003 09:56:58 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031029.014527.102655902.yoshfuji@linux-ipv6.org>
-References: <20031028081816.10d1ebce.davem@redhat.com>
-	<20031029.013249.103429560.yoshfuji@linux-ipv6.org>
-	<20031028083132.6b30dbf8.davem@redhat.com>
+Message-ID: <16286.44522.275791.73904@napali.hpl.hp.com>
+References: <200310280127.h9S1RM5d002140@napali.hpl.hp.com>
+	<20031028015032.734caf21.davem@redhat.com>
+Reply-To: davidm@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davidm@hpl.hp.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.or.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20031028083132.6b30dbf8.davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031028015032.734caf21.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20031028083132.6b30dbf8.davem@redhat.com> (at Tue, 28 Oct 2003 08:31:32 -0800), "David S. Miller" <davem@redhat.com> says:
+>>>>> On Tue, 28 Oct 2003 01:50:32 -0800, "David S. Miller" <davem@redhat.com> said:
 
-> and he is the boss :-)
+  DaveM> On Mon, 27 Oct 2003 17:27:22 -0800 David Mosberger
+  DaveM> <davidm@napali.hpl.hp.com> wrote:
 
-:-)
+  >> I recently discovered that ipchains is rather broken.  I noticed
+  >> the problem on ia64, but suspect that it's likely to affect all
+  >> 64-bit platforms (if not 32-bit platforms).  A more detailed
+  >> description of the problem I'm seeing is here:
 
-> Please just collect them and resubmit after 2.6.0-final.
+  >> http://tinyurl.com/sm9d
 
-Yup.
+  >> Unlike ipchains, iptables works perfectly fine, so perhaps we
+  >> just need to update Kconfig to discourage ipchains on ia64
+  >> (and/or other 64-bit platforms)?
 
---yoshfuji
+  DaveM> Might want to post this to the netfilter lists or netdev....
+  DaveM> Nah, that might actually get the bug fixed.
+
+$ fgrep -i ipchain MAINTAINERS
+$
+
+Might want to consider updating the MAINTAINERS file?
+
+	--david
