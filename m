@@ -1,31 +1,43 @@
-From: Eric Lemoine <Eric.Lemoine@Sun.COM>
-Subject: Re: simple change to qdisc_restart()
-Date: Mon, 26 May 2003 11:15:19 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030526091519.GD343@udine>
-References: <20030520082217.GC978@udine>
- <20030520.012824.85398613.davem@redhat.com> <20030520085724.GD978@udine>
- <16074.1339.3673.938923@robur.slu.se> <20030520112109.GE978@udine>
- <16074.7787.988583.56689@robur.slu.se> <20030520083020.N40924@shell.cyberus.ca>
+From: Florian Weimer <fw@deneb.enyo.de>
+Subject: Re: Route cache performance under stress
+Date: Mon, 26 May 2003 11:29:02 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <87y90u5a5d.fsf@deneb.enyo.de>
+References: <20030520011053.GB10419@netnation.com>
+	<20030519.181405.35017608.davem@redhat.com>
+	<20030521000936.GA19077@netnation.com>
+	<20030520.171358.28794219.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-reply-to: <20030520083020.N40924@shell.cyberus.ca>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: sim@netnation.com, hadi@shell.cyberus.ca, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030520.171358.28794219.davem@redhat.com> (David S. Miller's
+ message of "Tue, 20 May 2003 17:13:58 -0700 (PDT)")
 List-Id: netdev.vger.kernel.org
 
-> His patch should be interesting. I have seen NICs showing up in the market
-> with multiple DMA rings/channels and you can map flows to channels.
-> Locking the device on egress just because one of the rings is full doesnt
-> make sense. Such boards maybe the perfect pktgen board for you, btw ;->
-> Can you post your patch Eric?
+"David S. Miller" <davem@redhat.com> writes:
 
-I'm working on being authorized to give out my code. It may take some
-time...
+>    From: Simon Kirby <sim@netnation.com>
+>    Date: Tue, 20 May 2003 17:09:36 -0700
+>    
+>    It's rather difficult to follow, but I don't see any "h4r h4r, expl0it
+>    th3 L1nux h4sh" comments or anything in the code that seems to attempt to
+>    exploit the hash algorithms in (older) Linux.
+>
+> Look at the vc[] table and how it uses this in rndip().
 
--- 
-Eric
+The vc[] table is used to generate packets which don't fall victim to
+widely implemented source address checks (e.g. "ip verify unicast
+source reachable-via any" on recent Cisco routers).
+
+I've checked the generated packets and they appear to be distributed
+rather evenly among about 3,000 of the 8,192 hash buckets (with the
+old hash function, of course), so juno-z.101f.c does not specifically
+choose source addresses to trigger collisions.
+
+(BTW, that's the reason why I consider the hash collision DoS attack
+not too relevant in practice -- anybody who wants to DoS my machine
+can probably send lots of packets to it.  juno-z.101f.c just works
+well enough, even if it doesn't saturate all available bandwidth.)
