@@ -1,27 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 3/3] IPV6: use cheaper ipv6_addr_any() where appropriate
-Date: Fri, 6 Feb 2004 15:33:21 -0800
+Subject: Re: some bluetooth fixes
+Date: Fri, 6 Feb 2004 15:34:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040206153321.07ca91b0.davem@redhat.com>
-References: <20040206.181014.40584753.yoshfuji@linux-ipv6.org>
+Message-ID: <20040206153401.49238aa2.davem@redhat.com>
+References: <20040206050042.20a2b3b0.ak@suse.de>
+	<1076110207.14418.53.camel@pegasus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ak@suse.de, bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        viro@zenII.linux.org.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040206.181014.40584753.yoshfuji@linux-ipv6.org>
+To: Marcel Holtmann <marcel@holtmann.org>
+In-Reply-To: <1076110207.14418.53.camel@pegasus>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 06 Feb 2004 18:10:14 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> [PATCH 3/3] IPV6: use cheaper ipv6_addr_any() where appropriate
-> 
-> D: Use cheaper ipv6_addr_any() where appropriate.
-
-Also applied.  Guess you didn't get all of these cases the other
-week when you were making similar changes. :-)
+Marcelo/Andi, I assume you guys will work things out and send
+me a final patch?
 
 Thanks.
