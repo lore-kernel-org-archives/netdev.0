@@ -1,66 +1,60 @@
-From: Thayne Harbaugh <tharbaugh@lnxi.com>
-Subject: Re: [PATCH] abysmal e1000 performance (DITR)
-Date: Thu, 26 Aug 2004 15:28:57 -0600
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH]: Remove duplicate declarations from netlink.h
+Date: Fri, 27 Aug 2004 14:59:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1093555737.20769.135.camel@tubarao>
-References: <468F3FDA28AA87429AD807992E22D07E014CEF36@orsmsx408>
-	 <1093542930.1027.124.camel@jzny.localdomain>
-	 <1093550644.20769.130.camel@tubarao>  <412E478A.2000806@pobox.com>
-Reply-To: tharbaugh@lnxi.com
+Message-ID: <412F304B.7080804@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Content-Type: multipart/mixed;
+ boundary="------------010607040205020002070909"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <412E478A.2000806@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-08-26 at 16:26 -0400, Jeff Garzik wrote:
-> Thayne Harbaugh wrote:
-> > On Thu, 2004-08-26 at 13:55 -0400, jamal wrote:
-> > 
-> >>Ganesh,
-> >>
-> >>Can you please make this feature off by default and perhaps
-> >>accesible via ethtool for peopel who want to turn it on.
-> >>I just wasted a few hours and was bitten by this performance-wise.
-> >>Please consider disabling it.
-> > 
-> > 
-> > This is a *horrible* problem.  Even though it's fixable by passing a
-> > module parameter, the default bites those that *know* about it.  We have
-> > had customers bitten by this and customers that have insisted in
-> > swapping all the NICs in a cluster to Broadcom TG3 NICs.
-> > 
-> > It's a black eye for Intel and a loss of business - that's the opinion
-> > of our customers.
-> 
-> 
-> If it's so bad we should disable it by default, either via the module 
-> parameter or via a kernel CONFIG_xxx option.
+This is a multi-part message in MIME format.
+--------------010607040205020002070909
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yes, it is so bad.  The dynamic interrupt setting should be deprecated
-by the use of NAPI.
+This patch removes some duplicate delarations from netlink.h.
 
-This is a simple way to disable it, yet still keep the code so that
-someone can enable it if they really wanted it.  I, however, would just
-as soon see all of the DITR code ripped out.
 
-There are other ways that might be better for dealing with it, yet still
-keeping the DITR code viable.
+--------------010607040205020002070909
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---- drivers/net/e1000/e1000_param.c.broken_ditr 2004-08-26 15:40:34.436456736 -0600
-+++ drivers/net/e1000/e1000_param.c     2004-08-26 15:49:07.186506880 -0600
-@@ -212,7 +212,7 @@
- #define MAX_TXABSDELAY            0xFFFF
- #define MIN_TXABSDELAY                 0
-  
--#define DEFAULT_ITR                    1
-+#define DEFAULT_ITR                 8000
- #define MAX_ITR                   100000
- #define MIN_ITR                      100
-  
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/08/27 14:35:59+02:00 kaber@coreworks.de 
+#   [NETLINK]: Remove duplicate declarations
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# include/linux/netlink.h
+#   2004/08/27 14:35:21+02:00 kaber@coreworks.de +0 -7
+#   [NETLINK]: Remove duplicate declarations
+# 
+diff -Nru a/include/linux/netlink.h b/include/linux/netlink.h
+--- a/include/linux/netlink.h	2004-08-27 14:46:19 +02:00
++++ b/include/linux/netlink.h	2004-08-27 14:46:19 +02:00
+@@ -134,13 +134,6 @@
+ void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
+ int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol);
+ 
+-/* finegrained unicast helpers: */
+-struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid);
+-struct sock *netlink_getsockbyfilp(struct file *filp);
+-int netlink_attachskb(struct sock *sk, struct sk_buff *skb, int nonblock, long timeo);
+-void netlink_detachskb(struct sock *sk, struct sk_buff *skb);
+-int netlink_sendskb(struct sock *sk, struct sk_buff *skb, int protocol);
+-
+ /*
+  *	skb should fit one page. This choice is good for headerless malloc.
+  *
+
+--------------010607040205020002070909--
