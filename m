@@ -1,16 +1,16 @@
 From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Re: [PATCH 0/14] prism54: bring up to sync with prism54.org cvs rep
-Date: Thu, 27 May 2004 16:04:14 -0400
+Subject: Re: WPA IE Attachment
+Date: Thu, 27 May 2004 16:21:08 -0400
 Sender: prism54-devel-admin@prism54.org
-Message-ID: <20040527200414.GY3330@ruslug.rutgers.edu>
-References: <20040524083003.GA3330@ruslug.rutgers.edu> <20040524085727.GR3330@ruslug.rutgers.edu> <40B62F29.6090101@pobox.com> <20040527192733.GB14186@logos.cnet> <40B6424D.7030203@pobox.com> <20040527194513.GV3330@ruslug.rutgers.edu> <40B647DB.4090109@pobox.com>
+Message-ID: <20040527202108.GA3330@ruslug.rutgers.edu>
+References: <00e901c443cd$4b45aa70$0cc8a8c0@navaneeth>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="P8euesIFFZ8+3pAQ"
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <prism54-devel-admin@prism54.org>
-To: netdev@oss.sgi.com, prism54-devel@prism54.org
+To: prism54-devel@prism54.org
 Content-Disposition: inline
-In-Reply-To: <40B647DB.4090109@pobox.com>
+In-Reply-To: <00e901c443cd$4b45aa70$0cc8a8c0@navaneeth>
 Errors-To: prism54-devel-admin@prism54.org
 List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
 List-Post: <mailto:prism54-devel@prism54.org>
@@ -21,55 +21,42 @@ List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
+On Thu, May 27, 2004 at 05:30:46PM +0800, navaneeth wrote:
+> Hi All,
+> 
+>      I have seen a problem with WPA IE attachment being discussed some time back in the mailing list.
+> 
+> I am facing the same issue.
+> 
+> I have done the following:
+> 
+> 1. Set DOT11_OID_MLMEAUTOLEVEL  to DOT11_MLME_EXTENDED
+> 
+> 2. Set DOT11_OID_PRIVACYINVOKED to 1.
+> 
+> 3. Set DOT11_OID_AUTHENABLE to 3 (Both).
+> 
+> 4. Set DOT11_OID_DEFKEYID to 0.
+> 
+> 5. Set Key Type for DOT11_OID_DEFKEY1 to 4 as TKIP.
+> 
+> 6. Generated the following IE
+>     dd 16 00 50 f2 01 01 00 00 50 f2 02 01 00 00 50 f2 02 01 00 00 50 f2 02
+> 
+> 7. Set DOT11_OID_EXUNENCRYPTED to 1.
+> 
+> 8. Set DOT11_OID_DOT1XENABLE to 1.
+> 
+> 9. Set DOT11_OID_ATTACHMENT 
+>     Type = 0x00  (All Management Frames) . I also tried 0x80 (Beacon Alone)
+>     ID     = 0
+>     Data  = IE shown above
+>     Length = 24 (Length of the above IE)
+> 
+> But the attachment simply refuses to go in the Beacon. I captured the Beacons . But I failed to see the attachment.
 
---P8euesIFFZ8+3pAQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+WPA has not been completed. I've started working on it. I'll reply once
+I get somewhere.
 
-On Thu, May 27, 2004 at 03:56:11PM -0400, Jeff Garzik wrote:
-> Luis R. Rodriguez wrote:
-> >Great. I'll fix all those patches up again for you and Marcelo. For futu=
-re
-> >development I've asked other prism54 developers to first send patches to
->=20
-> For what it's worth, you may send a "one big patch" to add the driver to=
-=20
-> 2.4, since the individual changes to that point will be in 2.6.x=20
-> BitKeeper changelog.
-
-Will do. My plan was for us to get the pathes for 2.6 all set. Once we
-were all happy and our trees in sync we'd send a large 2.4 patch for
-inclusion in 2.4
-
-> Once the driver is merged, I do request split-up patches just like 2.6.x.
-
-OK. Sure thing.
-
-> >netdev for review/approval. Maybe we *should* do away with prism54-devel=
-=20
-> >mailing list and just use netdev as was once suggested by someone...
->=20
-> Up to you :)
-
-I think we should. Anyone against this? Please reply or else we'll just
-move to netdev.
-
-	Luis
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---P8euesIFFZ8+3pAQ
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAtkm+at1JN+IKUl4RAvaGAKCCwbWsyuCDOdqf4DtF//PzfMFwzQCgjjZf
-pv8IAspFW86MdsmXVXBAHTI=
-=H3Sj
------END PGP SIGNATURE-----
-
---P8euesIFFZ8+3pAQ--
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
