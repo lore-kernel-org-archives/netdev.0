@@ -1,120 +1,78 @@
-From: Paul.Hampson@anu.edu.au (Paul Hampson)
-Subject: Kernel Oops (sig11) near vlan_dev_ioctl in 2.6.8.1
-Date: Tue, 21 Sep 2004 16:08:24 +1000
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: unregister_netdevice: waiting for tun6to4 to become free.
+Date: Tue, 21 Sep 2004 08:24:47 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040921060824.GA14840@keitarou.bubblesworth.net>
+Message-ID: <414FC92F.6090009@tomt.net>
+References: <20040920212453.GA15392@ee.oulu.fi> <414F7CD9.3090008@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="LZvS9be/3tNcYl/X"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Pietikainen <pp@ee.oulu.fi>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <414F7CD9.3090008@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik wrote:
+> I hit this _once_ on my gateway (NAT'ing firewall IPv4, now also IPv6 
+> router).
+> 
+> No idea why it went away, I just assumed a more recent kernel fixed 
+> something.
 
---LZvS9be/3tNcYl/X
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+We've been seeing this all the time on 2.6.8.1 + "critical fixes". 
+Pretty much anytime a router with tunneling interfaces is taken down for 
+shutdown or reboot, it hangs spinning waiting for the tunnel devices to 
+get freed, as ifdown gets run.
 
-I recently tried to upgrade my PowerPC machine (NewWorld G4) to
-2.6.8.1 from 2.6.5.
+It also happens when ifdown'ing them by themselfes.
 
-I am seeing a Kernel Oops (as detailed below) during the
-init.d stage of the boot sequence.
+It's rather annoying, as doing a sysrq-boot is pretty much the only way 
+out. Not good at all on a router :-)
 
-The kernel is 2.6.8.1 + usagi-linux26-s20040816-2.6.8.1.diff.bz2
-+ CONNMARK + imq supprt (none of which touch vlan or sungem as I
-can see.) w/CONFIG_VLAN support and a sungem e1000 NIC.
+I'm having some problems getting this reproduced in the lab setup, but I 
+did get a sysrq-t out of one of the affected production routers:
 
-My initial thought was the change in buffer size for sungem from
-ETH_FRAME_LEN to max(mtu + ETH_HLEN + VLAN_HLEN, VLAN_ETH_FRAME_LEN)
-but I've satisfied myself that's not it as my mtu is 1500 so the new
-buffer size is _bigger_ than the old one. The VLans have an mtu of
-1496 which should the same buffer size as in 2.6.5. (These mtu
-settings are from the 2.6.5 kernel, but I expect they came out the
-same when I booted 2.6.8.1)
+| Sep 18 00:53:36 ed-gw1 kernel: ip            S C0350720     0  1725 
+1723                     (NOTLB)
+| Sep 18 00:53:36 ed-gw1: dd02ceb4 00000082 dd678190 c0350720 0000007c 
+dec44400 dd02c000 e00fddae
+| Sep 18 00:53:36 ed-gw1 kernel:        e25ac5eb 0000007c c14b36f0 
+00000199 0f055c16 0000007d dd678338 000351bf
+| Sep 18 00:53:36 ed-gw1 kernel:        dd02cec8 dec44400 dd02c000 
+c026cb73 dd02cec8 000351bf e0038d9c c0356380
+| Sep 18 00:53:36 ed-gw1 kernel: Call Trace:
+| Sep 18 00:53:36 ed-gw1 kernel:  [pg0+534273454/1070096384] 
+addrconf_ifdown+0x3e/0x250 [ipv6]
+| Sep 18 00:53:36 ed-gw1 kernel:  [schedule_timeout+99/192] 
+schedule_timeout+0x63/0xc0
+| Sep 18 00:53:36 ed-gw1 kernel:  [process_timeout+0/16] 
+process_timeout+0x0/0x10
+| Sep 18 00:53:36 ed-gw1 kernel:  [netdev_wait_allrefs+85/288] 
+netdev_wait_allrefs+0x55/0x120
+| Sep 18 00:53:36 ed-gw1 kernel:  [netdev_run_todo+237/512] 
+netdev_run_todo+0xed/0x200
+| Sep 18 00:53:36 ed-gw1 kernel:  [dev_ioctl+438/752] dev_ioctl+0x1b6/0x2f0
+| Sep 18 00:53:36 ed-gw1 kernel:  [sock_ioctl+544/560] 
+sock_ioctl+0x220/0x230
+| Sep 18 00:53:36 ed-gw1 kernel:  [sys_ioctl+201/576] sys_ioctl+0xc9/0x240
+| Sep 18 00:53:36 ed-gw1 kernel:  [sysenter_past_esp+82/113] 
+sysenter_past_esp+0x52/0x71
 
-Hence, I expected it's the addition of vlan_dev_ioctl. It's hard
-for me to debug as the machine is a production server and I _hate_
-taking it down for more than the few minutes a reboot seems to
-take. However, upon closer inspection, that seems to be fine too. A
-brief glance at snmpd's code appears to be calling either SIOCGMIIPHY
-or SIOCGMIIREG.
+The tunnel is defined like this in /etc/network/interfaces (Debian Sarge)
+| auto vid
+| iface vid inet6 v4tunnel
+|         address 2001:730:f:ffff::11
+|         netmask 126
+|         endpoint <remote ip>
+|         local <local ip>
+|         up /sbin/ip -6 route add 2001:730:f:12::/64 dev vid metric 1
+|         up /sbin/ip -6 tunnel change vid ttl 255
 
-So I'm left looking at the call to down() at sungem.c:2521... This's
-the point where I get left behind, and decided to punt to a mailing
-list. I'm not _positive_ it's a netdev bug, but someone else reported
-an oops with 2.6.8.1 last week, with the e1000 driver, also upon
-recipt of an ioctl that gets to vlan_dev_ioctl, and Ben Greer said
-that there were locking changes in the VLAN code which broke and then
-someone subsequently fixed, but didn't say if the fix had made it into
-any -rc versions or otherwise. I don't see anything immediately useful
-in 2.6.9-rc2. >_<
+Next time I'm doing anything I'll be sure I run ifdown in verbose mode, 
+but my best guess is it failing at "ip tunnel del %iface%"
 
-(http://oss.sgi.com/archives/netdev/2004-09/msg00428.html)
-
-Anyway, here's the oops. I'm not subscribed to netdev, so please CC
-me on any discussion, and feel free to ask me difficult questions
-about my setup or anything else I've not included sufficiently in
-this email. I've never reported a kernel oops before, usually someone
-else hits it first and fixes it before I get this far. ^_^
-
-Sep 14 02:21:08 obiwan kernel: Oops: kernel access of bad area, sig: 11 [#1]
-Sep 14 02:21:08 obiwan kernel: NIP: C0019D3C LR: C01C9A80 SP: D9C47D80 REGS=
-: d9c47cd0 TRAP: 0300    Not tainted
-Sep 14 02:21:08 obiwan kernel: MSR: 00001032 EE: 0 PR: 0 FP: 0 ME: 1 IR/DR:=
- 11
-Sep 14 02:21:08 obiwan kernel: DAR: 00000000, DSISR: 42000000
-Sep 14 02:21:08 obiwan kernel: TASK =3D dba17320[1860] 'snmpd' THREAD: d9c4=
-6000Last syscall: 54
-Sep 14 02:21:08 obiwan kernel: GPR00: 00001032 D9C47D80 DBA17320 DB2B3240 D=
-9C47D9C 00008947 65B4CB56 00000000
-Sep 14 02:21:08 obiwan kernel: GPR08: 00000000 00009032 00000004 00000000 2=
-8002482 1001E368 00000000 100C0000
-Sep 14 02:21:08 obiwan kernel: GPR16: 00000000 7FFFEA88 100D20A8 0FF1A184 0=
-FF1A138 00000000 0FF1A138 00000000
-Sep 14 02:21:08 obiwan kernel: GPR24: 00989680 D9C47E20 D9C47D90 D9C47E20 D=
-B2B3240 DBA17320 DB2B323C DB2B323C
-Sep 14 02:21:08 obiwan kernel: NIP [c0019d3c] add_wait_queue_exclusive+0x28=
-/0x38
-Sep 14 02:21:08 obiwan kernel: LR [c01c9a80] __down+0x54/0xe8
-Sep 14 02:21:08 obiwan kernel: Call trace:
-Sep 14 02:21:08 obiwan kernel:  [de1a3610] gem_ioctl+0x144/0x148 [sungem]
-Sep 14 02:21:08 obiwan kernel:  [c01c9258] vlan_dev_ioctl+0xb4/0xd4
-Sep 14 02:21:08 obiwan kernel:  [c013bfac] dev_ifsioc+0x390/0x400
-Sep 14 02:21:08 obiwan kernel:  [c013c1e8] dev_ioctl+0x1cc/0x3ac
-Sep 14 02:21:08 obiwan kernel:  [c0180224] inet_ioctl+0xb8/0xcc
-Sep 14 02:21:08 obiwan kernel:  [c01304f4] sock_ioctl+0xd8/0x2e0
-Sep 14 02:21:08 obiwan kernel:  [c006f730] sys_ioctl+0xdc/0x2f4
-Sep 14 02:21:08 obiwan kernel:  [c0007ce0] ret_from_syscall+0x0/0x44
-
---=20
------------------------------------------------------------
-Paul "TBBle" Hampson, MCSE
-7th year CompSci/Asian Studies student, ANU
-The Boss, Bubblesworth Pty Ltd (ABN: 51 095 284 361)
-Paul.Hampson@Anu.edu.au
-
-"No survivors? Then where do the stories come from I wonder?"
--- Capt. Jack Sparrow, "Pirates of the Caribbean"
-
-This email is licensed to the recipient for non-commercial
-use, duplication and distribution.
------------------------------------------------------------
-
---LZvS9be/3tNcYl/X
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBT8VYexDuohKLFuARAii0AKCRBIwhHi/yT2jI5lBETcHxOjdtTgCgniaG
-Cbj22KK3AGNDiXDK4akgRpQ=
-=85Df
------END PGP SIGNATURE-----
-
---LZvS9be/3tNcYl/X--
+The kernel does not have NAT and/or connection tracking loaded on this 
+router. Connection tracking is available as modules, but not loaded. NAT 
+is not enabled at all.
