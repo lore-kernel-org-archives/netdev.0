@@ -1,42 +1,39 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 2.6.7 tulip performance (with NAPI)
-Date: Wed, 06 Oct 2004 14:37:11 -0700
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Wed, 6 Oct 2004 16:43:22 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41646587.7070401@candelatech.com>
-References: <41633174.7070805@candelatech.com> <16740.17875.574967.11417@robur.slu.se>
+Message-ID: <20041006214322.GG31237@waste.org>
+References: <20041006232544.53615761@jack.colino.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16740.17875.574967.11417@robur.slu.se>
+To: Colin Leroy <colin@colino.net>
+Content-Disposition: inline
+In-Reply-To: <20041006232544.53615761@jack.colino.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
-> Ben Greear writes:
+On Wed, Oct 06, 2004 at 11:25:44PM +0200, Colin Leroy wrote:
+> Hi,
 > 
->  > I tried setting the NICE level of pktgen to -10 and softirq to -18.  I
->  > still see way more packets transmitted than received.
+> this patch fixes a (quite big) problem with netpoll: when link is down,
+> it hangs.
 > 
->  If you have "max_before_softirq" in your version pktgen you can try it
->  to balance your load. HZ=1000 in 2.6 can make scheduling different.
+> This patch fixes it. Tested with no carrier (no more hang) and with
+> carrier (same behaviour as before).
 
-Yes, I was able to get it to smooth out by doing something like that.  I
-also got better desktop performance by simply decreasing the niceness of
-the pktgen thread to 0 instead of -10.
+[cc:ed to netdev]
 
-On a related note, I am now working on a way to use a hook in the
-netif_wake_queue callback to wake up pktgen.  This should allow me to
-have a pktgen that does not need to spin in a tight loop like it does
-now.  So far, I was able to saturate two GigE ports using about 3% of
-the CPU (as reported by top), using 1514 byte pkts.  Still tweaking
-to fix some corner cases...
+Well this doesn't look unreasonable, but I haven't run into it with
+the NICs I've tested. Nor have I seen this reported before. Which NICs
+is this with?
+ 
+> -	if(!np || !np->dev || !netif_running(np->dev)) {
+> +	if(!np || !np->dev || !netif_running(np->dev) || 
+> +	   !netif_carrier_ok(np->dev)) {
 
-Thanks,
-Ben
+I wonder if netif_running is redundant if netif_carrier_ok.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Mathematics is the supreme nostalgia of our time.
