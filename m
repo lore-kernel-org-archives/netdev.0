@@ -1,26 +1,19 @@
-From: Benjamin LaHaise <bcrl@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [Question] SMP for TCP/IP Stack
-Date: Tue, 24 Sep 2002 22:35:01 -0400
+Date: Tue, 24 Sep 2002 20:11:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020924223501.K2531@redhat.com>
+Message-ID: <3D912974.7010308@candelatech.com>
 References: <20020925112731.A19934@toad.postech.ac.kr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Hyochang Nam <cannon@postech.ac.kr>
-Content-Disposition: inline
-In-Reply-To: <20020925112731.A19934@toad.postech.ac.kr>; from cannon@postech.ac.kr on Wed, Sep 25, 2002 at 11:27:31AM +0900
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Have you made sure each nic is on a separate interrrupt and that those 
-interrupts are bound to different cpus?
-
-		-ben
-
-On Wed, Sep 25, 2002 at 11:27:31AM +0900, Hyochang Nam wrote:
-> 
+Hyochang Nam wrote:
 > Can Linux Kernel 2.4.X handle two IP Packets at the same time
 > in a SMP machine which has two CPUs?
 > I have a SMP machine which equips two Intel Xeon CPUs and two
@@ -37,5 +30,18 @@ On Wed, Sep 25, 2002 at 11:27:31AM +0900, Hyochang Nam wrote:
 > Hyochang Nam
 > 
 
+I will be interested to hear if your tests can generate heavy traffic
+for more than a few hours...my machine keeps crashing when doing this
+kind of test.
+
+How many packets are you trying to send?
+
+Also, try loading the NIC with TxDescriptors=4096 RxDescriptors=1024
+
+Enjoy,
+Ben
+
 -- 
-GMS rules.
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
