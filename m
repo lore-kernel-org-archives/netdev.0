@@ -1,53 +1,65 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.10-rc1 4/5] dscc4: removal of unneeded casts
-Date: Fri, 14 Jan 2005 01:13:18 +0100
-Message-ID: <20050114001318.GD2219@electric-eye.fr.zoreil.com>
-References: <20050114000732.GA28864@electric-eye.fr.zoreil.com> <20050114000941.GA2219@electric-eye.fr.zoreil.com> <20050114001054.GB2219@electric-eye.fr.zoreil.com> <20050114001212.GC2219@electric-eye.fr.zoreil.com>
+Subject: [patch 2.6.10-rc1 2/5] dscc4: code factorisation
+Date: Fri, 14 Jan 2005 01:10:54 +0100
+Message-ID: <20050114001054.GB2219@electric-eye.fr.zoreil.com>
+References: <20050114000732.GA28864@electric-eye.fr.zoreil.com> <20050114000941.GA2219@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <20050114001212.GC2219@electric-eye.fr.zoreil.com>
+In-Reply-To: <20050114000941.GA2219@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Removal of unneeded casts.
+Small code factorization.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff -puN drivers/net/wan/dscc4.c~dscc4-030 drivers/net/wan/dscc4.c
---- linux-2.6.11-rc1/drivers/net/wan/dscc4.c~dscc4-030	2005-01-14 00:54:54.446168638 +0100
-+++ linux-2.6.11-rc1-fr/drivers/net/wan/dscc4.c	2005-01-14 00:54:54.449168149 +0100
-@@ -750,7 +750,7 @@ static int __devinit dscc4_init_one(stru
- 	if (rc < 0)
- 	        goto err_iounmap_3;
+diff -puN drivers/net/wan/dscc4.c~dscc4-010 drivers/net/wan/dscc4.c
+--- linux-2.6.11-rc1/drivers/net/wan/dscc4.c~dscc4-010	2005-01-14 00:54:44.287823008 +0100
++++ linux-2.6.11-rc1-fr/drivers/net/wan/dscc4.c	2005-01-14 00:54:44.291822356 +0100
+@@ -892,17 +892,14 @@ static int dscc4_found1(struct pci_dev *
  
--	priv = (struct dscc4_pci_priv *)pci_get_drvdata(pdev);
-+	priv = pci_get_drvdata(pdev);
- 
- 	rc = request_irq(pdev->irq, dscc4_irq, SA_SHIRQ, DRV_NAME, priv->root);
- 	if (rc < 0) {
-@@ -892,8 +892,7 @@ static int dscc4_found1(struct pci_dev *
- 	struct dscc4_dev_priv *root;
- 	int i, ret = -ENOMEM;
- 
--	root = (struct dscc4_dev_priv *)
--		kmalloc(dev_per_card*sizeof(*root), GFP_KERNEL);
-+	root = kmalloc(dev_per_card*sizeof(*root), GFP_KERNEL);
- 	if (!root) {
- 		printk(KERN_ERR "%s: can't allocate data\n", DRV_NAME);
- 		goto err_out;
-@@ -906,7 +905,7 @@ static int dscc4_found1(struct pci_dev *
+ 	for (i = 0; i < dev_per_card; i++) {
+ 		root[i].dev = alloc_hdlcdev(root + i);
+-		if (!root[i].dev) {
+-			while (i--)
+-				free_netdev(root[i].dev);
++		if (!root[i].dev)
  			goto err_free_dev;
+-		}
  	}
  
--	ppriv = (struct dscc4_pci_priv *) kmalloc(sizeof(*ppriv), GFP_KERNEL);
-+	ppriv = kmalloc(sizeof(*ppriv), GFP_KERNEL);
+ 	ppriv = (struct dscc4_pci_priv *) kmalloc(sizeof(*ppriv), GFP_KERNEL);
  	if (!ppriv) {
  		printk(KERN_ERR "%s: can't allocate private data\n", DRV_NAME);
- 		goto err_free_dev;
+-		goto err_free_dev2;
++		goto err_free_dev;
+ 	}
+ 	memset(ppriv, 0, sizeof(struct dscc4_pci_priv));
+ 
+@@ -958,15 +955,15 @@ static int dscc4_found1(struct pci_dev *
+ 	return ret;
+ 
+ err_unregister:
+-	while (--i >= 0) {
++	while (i-- > 0) {
+ 		dscc4_release_ring(root + i);
+ 		unregister_hdlc_device(dscc4_to_dev(&root[i]));
+ 	}
+ 	kfree(ppriv);
+-err_free_dev2:
+-	for (i = 0; i < dev_per_card; i++)
+-		free_netdev(root[i].dev);
++	i = dev_per_card;
+ err_free_dev:
++	while (i-- > 0)
++		free_netdev(root[i].dev);
+ 	kfree(root);
+ err_out:
+ 	return ret;
 
 _
