@@ -1,45 +1,58 @@
-From: Andrew de Quincey <adq@lidskialf.net>
-Subject: Re: wol support in forcedeth v25
-Date: Tue, 20 Apr 2004 00:07:59 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: IMQ / new Dummy device post.
+Date: 19 Apr 2004 22:15:50 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404200007.59345.adq@lidskialf.net>
-References: <Pine.GHP.4.44.0404192205070.11806-100000@elektron.its.tudelft.nl>
+Message-ID: <1082427350.1034.70.camel@jzny.localdomain>
+References: <wazza.87ad18jbdl.fsf@message.id>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: a.verweij@student.tudelft.nl
-In-Reply-To: <Pine.GHP.4.44.0404192205070.11806-100000@elektron.its.tudelft.nl>
-Content-Disposition: inline
+To: syrius.ml@no-log.org
+In-Reply-To: <wazza.87ad18jbdl.fsf@message.id>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 19 April 2004 21:11, Arjen Verweij wrote:
-> Hi,
->
-> Is the wol support in forcedeth v25 complete yet? I was trying it with the
-> 2.6.5 kernel it came with, tried the new forcedeth driver with a 2.6.3
-> kernel (because firewire seems broken in 2.6.5) however, my box will not
-> wake up as of yet.
+On Mon, 2004-04-19 at 10:22, syrius.ml@no-log.org wrote:
 
-You're right! It _was_ working with patch-forced-0.25, but it ain't in 2.6.5. 
-I'll see if I can spot the problem.
+[..]
+If you already marked the packets before they hit egress then you
+dont need use the ipt mark action. So what you are doing is correct
 
-> According to the source there is a FIXME with a comment about powering
-> down the NIC. Does this mean that support for wol is incomplete for now?
-> Mind you, I am just curious, this is in no way meant as criticism.
+> $TC qdisc add dev ppp0 root handle 1: prio
+> $TC filter add dev ppp0 parent 1:0 protocol ip prio 10 u32 \
+>     match u32 0 0 flowid 1:1 action mirred egress redirect dev dummy0
 
-That would only be for when WOL is NOT used; I think it has to leave the NIC 
-powered up for WOL to work... and as you say it ain't implemented yet.
+Note: this will do for ipv4; if you want ipv6 add a new rule,
+in addition to above if you want ipv4, with "protocol ip" replaced by
+"protocol ipv6"
 
-> On another note, Carl-Daniel mentioned that DEV_NEED_TIMERIRQ might be
-> removed from future releases. Is this still the case? Feedback would be
-> much appreciated, so I can keep my humble audience up to date on what's
-> going on at the wol front.
->
-> Thank you guys for your excellent work,
->
-> Arjen
-> http://atlas.et.tudelft.nl/verwei90/nforce2/index.html
+> $TC qdisc add dev tun0 root handle 1: prio
+> $TC filter add dev tun0 parent 1:0 protocol ip prio 10 u32 \
+>     match u32 0 0 flowid 1:1 action mirred egress redirect dev dummy0
+> 
+> $TC qdisc add dev sit1 root handle 1: prio
+> $TC filter add dev sit1 parent 1:0 protocol ipv6 prio 10 u32 \
+>     match u32 0 0 flowid 1:1 action mirred egress redirect dev dummy0
+
+not sure if you need the above but i dont know your setup sufficiently
+to be 100%
+
+> but it doesn't work with ipv6 traffic.
+> If I try to ping6 somehost, i sometimes get "ping: sendmsg: No buffer
+> space available" messages
+> anyway, there's nothing going out on sit1.
+> 
+> Is it the correct way to do it ?
+
+Seems right. Try adding the new ipv6 rule on ppp0 and if you are still
+having problems try dumping some stats for the filters and see if they 
+are incrementing. eg
+tc -s filter show parent 1:0  dev ppp0
+
+also a ifconfig on the dummy0 should show starts going up
+
+cheers,
+jamal
