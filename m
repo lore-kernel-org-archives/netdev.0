@@ -1,81 +1,60 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] remove sdla from setup.c
-Date: Wed, 28 May 2003 13:06:58 +0200
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: oops in tcp_v4_rcv.
+Date: Thu, 29 May 2003 03:15:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030528110658.GA26411@lst.de>
+Message-ID: <3ED55F4D.1070306@colorfullife.com>
+References: <3ED54DBC.4020203@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Andrew Morton <akpm@digeo.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <3ED54DBC.4020203@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-sdla had calls from both Space.c and setup.c.  Leave the Space.c one
-alone as per previous discussion but move over the setup.c one to
-initcalls.  (and remove the prototype for a third one from setup.c!)
+[netdev added to cc list]
+
+I think I understand now what causes the crash:
+The tcp_ehash assumes that the entries are of the type 'struct inet_sock'.
+But the actual entry is of the type tcp_tw_bucket. And 'sk->inet.daddr' 
+is not shared between both structures.
 
 
---- 1.14/drivers/net/setup.c	Tue May 27 01:32:22 2003
-+++ edited/drivers/net/setup.c	Tue May 27 14:36:58 2003
-@@ -13,8 +13,6 @@
- 
- extern int scc_enet_init(void); 
- extern int fec_enet_init(void); 
--extern int sdla_setup(void); 
--extern int sdla_c_setup(void); 
- 
- /*
-  *	Devices in this list must do new style probing. That is they must
-@@ -35,9 +33,6 @@
- #if defined(CONFIG_DMASCC)
- 	{dmascc_init, 0},
- #endif	
--#if defined(CONFIG_SDLA)
--	{sdla_c_setup, 0},
--#endif
- #if defined(CONFIG_SCC_ENET)
-         {scc_enet_init, 0},
- #endif
-===== drivers/net/wan/sdla.c 1.10 vs edited =====
---- 1.10/drivers/net/wan/sdla.c	Sun May 18 17:18:07 2003
-+++ edited/drivers/net/wan/sdla.c	Tue May 27 15:07:49 2003
-@@ -1667,20 +1667,20 @@
- 	.name = "sdla0",
- 	.init = sdla_init
- };
-+#endif /* MODULE */
- 
--MODULE_LICENSE("GPL");
--
--int init_module(void)
-+static int __init init_sdla(void)
- {
--	int result;
-+	int result = 0;
- 
- 	sdla_c_setup();
--	if ((result = register_netdev(&sdla0)) != 0)
--		return result;
--	return 0;
-+#ifdef MODULE
-+	result = register_netdev(&sdla0);
-+#endif
-+	return result;
- }
- 
--void cleanup_module(void)
-+static void __exit exit_sdla(void)
- {
- 	unregister_netdev(&sdla0);
- 	if (sdla0.priv)
-@@ -1688,4 +1688,8 @@
- 	if (sdla0.irq)
- 		free_irq(sdla0.irq, &sdla0);
- }
--#endif /* MODULE */
-+
-+MODULE_LICENSE("GPL");
-+
-+module_init(init_sdla);
-+module_exit(exit_sdla);
+ << net/ipv4/tcp_ipv4, line 510:
+        /* Must check for a TIME_WAIT'er before going to listener hash. */
+        for (sk = (head + tcp_ehash_size)->chain; sk; sk = sk->next)
+               if (TCP_IPV4_MATCH(sk, acookie, saddr, daddr, ports, dif))
+                    goto hit;
+<<
+preprocessor output:
+<<
+for (sk = (head + (tcp_hashinfo.__tcp_ehash_size))->chain; sk; sk = 
+sk->next)
+      if ((((&((struct inet_sock *)sk)->inet)->daddr == (saddr)) &&
+           ((&((struct inet_sock *)sk)->inet)->rcv_saddr == (daddr)) &&
+           ((*((__u32 *)&((&((struct inet_sock *)sk)->inet)->dport)))== 
+(ports)) &&
+           (!((sk)->bound_dev_if) || ((sk)->bound_dev_if == (dif)))))
+                       goto hit;
+<<
+
+
+Manfred Spraul wrote:
+
+> Hi,
+>
+> I'm looking at crashes that occur during network stress testing with 
+> the CONFIG_DEBUG_PAGEALLOC from -mm: Pages that are not in use are 
+> immediately unmapped from the linear mapping, and thus reading stale 
+> pointer causes an immediate oops.
+>
+> I've now analyzed one crash:
+> the oops is in __tcp_v4_lookup_established, in the 2nd look [i.e. 
+> looking at TIME_WAIT sockets. Easy to identify due to the access to 
+> __tcp_ehash_size].
+>
+> The entry in the hash table is an tcp_tw_bucket, and that structure is 
+> only ~88 bytes long. The oops is caused by an access to objp+0x168, 
+> which doesn't exist.
