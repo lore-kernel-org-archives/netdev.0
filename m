@@ -1,41 +1,40 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: patches for PROC_FS=n (2.6.0-test7)
-Date: Sat, 11 Oct 2003 20:24:33 -0700
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
+Date: Sun, 12 Oct 2003 12:00:09 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011202433.72fcbd38.rddunlap@osdl.org>
-References: <20031010141646.779f10bb.rddunlap@osdl.org>
-	<20031011120852.13fa8ec4.davem@redhat.com>
-	<20031011194008.GA2395@mars.ravnborg.org>
+Message-ID: <3F892629.7090206@tpack.net>
+References: <3F87430D.2040000@tpack.net>	<3F87464B.1020908@candelatech.com>	<3F874A30.6010700@tpack.net>	<3F885418.3090407@candelatech.com> <20031011120339.0da631e6.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sam Ravnborg <sam@ravnborg.org>
-In-Reply-To: <20031011194008.GA2395@mars.ravnborg.org>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Oct 2003 21:40:08 +0200 Sam Ravnborg <sam@ravnborg.org> wrote:
+David S. Miller wrote:
 
-| On Sat, Oct 11, 2003 at 12:08:52PM -0700, David S. Miller wrote:
-| > On Fri, 10 Oct 2003 14:16:46 -0700
-| > "Randy.Dunlap" <rddunlap@osdl.org> wrote:
-| > 
-| > > http://developer.osdl.org/rddunlap/patches/atmprocfs_260t7.patch
-| > 
-| > How can this be needed?  When procfs is disabled then
-| > remove_proc_entry() is defined as "do { } while (0)", ie. a nop.
-| 
-| Due to this - the real offender:
-| 
-| from: net/atm/clip.c:
-| #ifdef CONFIG_PROC_FS
-| #include <linux/proc_fs.h>
-| #include <linux/seq_file.h>
-| #endif
+> The current code is correct and handles shared SKBs properly,
+> so I don't think it's worth playing around with this much more.
 
-ugh, thanks.
+No, it is still not right.
 
---
-~Randy
+Bear with me, but this is how I understand it:
+
+  - The sk_buff *structure* is read-only on a shared SKB.
+    skb_share_check(skb) breaks the sharing, thus allowing
+    updates of skb->dev, skb->len etc.
+    But the SKB still points at the same data buffer.
+
+  - The *data* buffer is read-only on a cloned SKB.
+    skb_cow() or skb_copy() or ... gives us a writeable buffer.
+
+The tcpdump problem was caused by violating the second rule,
+this is now fixed.
+
+But the code still doesn't follow the first rule, which is
+what this patch fixes.
+
+
+-Tommy
