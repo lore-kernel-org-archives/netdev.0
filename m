@@ -1,60 +1,39 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.9-rc2-mm1 1/1] 3c59x: missing pci_disable_device
-Date: Sun, 19 Sep 2004 00:01:22 +0200
+From: Olaf Hering <olh@suse.de>
+Subject: [PATCH] remove leading space in linux/skbuff.h
+Date: Sun, 19 Sep 2004 00:38:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040918220122.GA15528@electric-eye.fr.zoreil.com>
+Message-ID: <20040918223832.GA28730@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobom.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
+To: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It is possible to remove the device without calling pci_disable_device().
-A leak can take place during the init as well.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+unifdef complains about the leading space.
 
-diff -puN drivers/net/3c59x.c~3c59x-00 drivers/net/3c59x.c
---- linux-2.6.9-rc2/drivers/net/3c59x.c~3c59x-00	2004-09-18 22:20:43.000000000 +0200
-+++ linux-2.6.9-rc2-fr/drivers/net/3c59x.c	2004-09-18 22:20:43.000000000 +0200
-@@ -1075,14 +1075,20 @@ static int __devinit vortex_init_one (st
- 	int rc;
- 
- 	/* wake up and enable device */		
--	if (pci_enable_device (pdev)) {
--		rc = -EIO;
--	} else {
--		rc = vortex_probe1 (&pdev->dev, pci_resource_start (pdev, 0),
--							pdev->irq, ent->driver_data, vortex_cards_found);
--		if (rc == 0)
--			vortex_cards_found++;
-+	rc = pci_enable_device (pdev);
-+	if (rc < 0)
-+		goto out;
-+
-+	rc = vortex_probe1 (&pdev->dev, pci_resource_start (pdev, 0),
-+						pdev->irq, ent->driver_data, vortex_cards_found);
-+	if (rc < 0) {
-+		pci_disable_device (pdev);
-+		goto out;
- 	}
-+
-+	vortex_cards_found++;
-+
-+out:
- 	return rc;
- }
- 
-@@ -3163,6 +3169,7 @@ static void __devexit vortex_remove_one 
- 		pci_set_power_state(VORTEX_PCI(vp), 0);	/* Go active */
- 		if (vp->pm_state_valid)
- 			pci_restore_state(VORTEX_PCI(vp), vp->power_state);
-+		pci_disable_device(VORTEX_PCI(vp));
- 	}
- 	/* Should really use issue_and_wait() here */
- 	outw(TotalReset|0x14, dev->base_addr + EL3_CMD);
+Signed-off-by: Olaf Hering <olh@suse.de>
 
-_
+
+diff -purN linux-2.6.8/include/linux/skbuff.h linux-2.6.8.xxx/include/lin=
+ux/skbuff.h
+--- linux-2.6.8/include/linux/skbuff.h	2004-09-19 00:11:39.094174840 +020=
+0
++++ linux-2.6.8.xxx/include/linux/skbuff.h	2004-09-19 00:30:14.332978660 =
++0200
+@@ -271,7 +271,7 @@ struct sk_buff {
+ #ifdef CONFIG_NET_CLS_ACT
+ 	__u32           tc_verd;               /* traffic control verdict */
+ 	__u32           tc_classid;            /* traffic control classid */
+- #endif
++#endif
+=20
+ #endif
+=20
+--=20
+USB is for mice, FireWire is for men!
+
+sUse lINUX ag, n=C3=9CRNBERG
