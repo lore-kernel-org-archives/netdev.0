@@ -1,23 +1,39 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] post-sysfs netdev cleanup
-Date: Sun, 25 May 2003 19:22:12 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030525.192212.28810694.davem@redhat.com>
-References: <3ECD6E2D.5090000@rogers.com>
+Subject: Re: Route cache performance under stress
+Date: Sun, 25 May 2003 19:29:04 -0700 (PDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030525.192904.23037779.davem@redhat.com>
+References: <20030522.034058.71558626.davem@redhat.com>
+	<1053602138.9475.34.camel@tux.rsn.bth.se>
+	<20030523174156.210d7f94.akpm@digeo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: muizelaar@rogers.com
-In-Reply-To: <3ECD6E2D.5090000@rogers.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: gandalf@wlug.westbo.se, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: akpm@digeo.com
+In-Reply-To: <20030523174156.210d7f94.akpm@digeo.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Jeff Muizelaar <muizelaar@rogers.com>
-   Date: Thu, 22 May 2003 20:41:17 -0400
+   From: Andrew Morton <akpm@digeo.com>
+   Date: Fri, 23 May 2003 17:41:56 -0700
+   
+   a) mips64 and cris seem to have forgotten to implement it.
+   
+I consider these platforms unmaintained in 2.5.x currently :-)
 
-   The attached patch removes the struct device from struct net_device
-   and sets net_device.class_dev.dev directly.
+Without it, several generic things simply don't build.
+SCSI tape is one.  Admittedly the rest of the spots are in
+obscure or arch specific places.
 
-Applied, thanks.
+   b) ppc and ia64 just had to sneak a bit of asm into their version
+   
+These are just optimizations, and I'm surprised x86 doesn't use
+some clever instructions too.
+
+   I get the feeling that we need just a single copy of this guy, in
+   <linux/bitops.h>
+   
+True, I really doubt this is worth optimizing except to be cute.
+
