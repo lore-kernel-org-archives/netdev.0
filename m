@@ -1,57 +1,111 @@
-From: Arthur Kepner <akepner@sgi.com>
-Subject: Re: [PATCH] preempt count regression w/ lockless loopback patch
-Date: Tue, 22 Jun 2004 13:46:07 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] [sparse] get rid of warnings about #if DEBUG
+Date: Tue, 22 Jun 2004 13:52:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.SGI.4.56.0406221344380.1357620@neteng.engr.sgi.com>
-References: <200406210510.i5L5A340018849@hera.kernel.org>
- <20040621035702.6114bdbe.akpm@osdl.org> <Pine.SGI.4.56.0406220913010.1334066@neteng.engr.sgi.com>
- <20040622123931.50d5ac05.davem@redhat.com>
+Message-ID: <20040622135253.43a9acde@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1072017398-688446164-1087937167=:1357620"
-Cc: akpm@osdl.org, netdev@oss.sgi.com, chrisw@osdl.org, gillb4@telusplanet.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040622123931.50d5ac05.davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+Several drivers use '#if DEBUG' which is a warning under the sparse checker.
 
----1072017398-688446164-1087937167=:1357620
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-On Tue, 22 Jun 2004, David S. Miller wrote:
-
-> ....
-> Can you instead give a patch relative to Andrew's?  His is
-> applied already and in fact pushed into Linus's tree.
->
-
-Yes. It is in the attachment.
-
---
-
-Arthur
----1072017398-688446164-1087937167=:1357620
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="patch.rel_akpm"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.SGI.4.56.0406221346070.1357620@neteng.engr.sgi.com>
-Content-Description: patch relative to akpm
-Content-Disposition: attachment; filename="patch.rel_akpm"
-
-LS0tIGxpbnV4LmFrcG0vZHJpdmVycy9uZXQvbG9vcGJhY2suYwkyMDA0LTA2
-LTIyIDEzOjM1OjEzLjAwMDAwMDAwMCAtMDcwMA0KKysrIGxpbnV4L2RyaXZl
-cnMvbmV0L2xvb3BiYWNrLmMJMjAwNC0wNi0yMiAxMzo0MjoyNy4wMDAwMDAw
-MDAgLTA3MDANCkBAIC0xNzMsMTIgKzE3MywxMSBAQA0KIA0KIAkJaWYgKCFj
-cHVfcG9zc2libGUoaSkpIA0KIAkJCWNvbnRpbnVlOw0KLQkJbGJfc3RhdHMg
-PSAmcGVyX2NwdShsb29wYmFja19zdGF0cywgZ2V0X2NwdSgpKTsNCisJCWxi
-X3N0YXRzID0gJnBlcl9jcHUobG9vcGJhY2tfc3RhdHMsIGkpOw0KIAkJc3Rh
-dHMtPnJ4X2J5dGVzICAgKz0gbGJfc3RhdHMtPnJ4X2J5dGVzOw0KIAkJc3Rh
-dHMtPnR4X2J5dGVzICAgKz0gbGJfc3RhdHMtPnR4X2J5dGVzOw0KIAkJc3Rh
-dHMtPnJ4X3BhY2tldHMgKz0gbGJfc3RhdHMtPnJ4X3BhY2tldHM7DQogCQlz
-dGF0cy0+dHhfcGFja2V0cyArPSBsYl9zdGF0cy0+dHhfcGFja2V0czsNCi0J
-CXB1dF9jcHUoKTsNCiAJfQ0KIAkJCQkNCiAJcmV0dXJuIHN0YXRzOw0K
-
----1072017398-688446164-1087937167=:1357620--
+diff -Nru a/drivers/net/acenic.c b/drivers/net/acenic.c
+--- a/drivers/net/acenic.c	2004-06-22 13:47:25 -07:00
++++ b/drivers/net/acenic.c	2004-06-22 13:47:25 -07:00
+@@ -1634,7 +1634,7 @@
+ 	cur_size = atomic_read(&ap->cur_rx_bufs);
+ 	if ((cur_size < RX_LOW_STD_THRES) &&
+ 	    !test_and_set_bit(0, &ap->std_refill_busy)) {
+-#if DEBUG
++#ifdef DEBUG
+ 		printk("refilling buffers (current %i)\n", cur_size);
+ #endif
+ 		ace_load_std_rx_ring(ap, RX_RING_SIZE - cur_size);
+@@ -1644,7 +1644,7 @@
+ 		cur_size = atomic_read(&ap->cur_mini_bufs);
+ 		if ((cur_size < RX_LOW_MINI_THRES) &&
+ 		    !test_and_set_bit(0, &ap->mini_refill_busy)) {
+-#if DEBUG
++#ifdef DEBUG
+ 			printk("refilling mini buffers (current %i)\n",
+ 			       cur_size);
+ #endif
+@@ -1655,7 +1655,7 @@
+ 	cur_size = atomic_read(&ap->cur_jumbo_bufs);
+ 	if (ap->jumbo && (cur_size < RX_LOW_JUMBO_THRES) &&
+ 	    !test_and_set_bit(0, &ap->jumbo_refill_busy)) {
+-#if DEBUG
++#ifdef DEBUG
+ 		printk("refilling jumbo buffers (current %i)\n", cur_size);
+ #endif
+ 		ace_load_jumbo_rx_ring(ap, RX_JUMBO_SIZE - cur_size);
+@@ -2255,7 +2255,7 @@
+ 		if (cur_size < RX_LOW_STD_THRES) {
+ 			if ((cur_size < RX_PANIC_STD_THRES) &&
+ 			    !test_and_set_bit(0, &ap->std_refill_busy)) {
+-#if DEBUG
++#ifdef DEBUG
+ 				printk("low on std buffers %i\n", cur_size);
+ #endif
+ 				ace_load_std_rx_ring(ap,
+@@ -2270,7 +2270,7 @@
+ 				if ((cur_size < RX_PANIC_MINI_THRES) &&
+ 				    !test_and_set_bit(0,
+ 						      &ap->mini_refill_busy)) {
+-#if DEBUG
++#ifdef DEBUG
+ 					printk("low on mini buffers %i\n",
+ 					       cur_size);
+ #endif
+@@ -2286,7 +2286,7 @@
+ 				if ((cur_size < RX_PANIC_JUMBO_THRES) &&
+ 				    !test_and_set_bit(0,
+ 						      &ap->jumbo_refill_busy)){
+-#if DEBUG
++#ifdef DEBUG
+ 					printk("low on jumbo buffers %i\n",
+ 					       cur_size);
+ #endif
+diff -Nru a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
+--- a/drivers/net/ixgb/ixgb.h	2004-06-22 13:47:25 -07:00
++++ b/drivers/net/ixgb/ixgb.h	2004-06-22 13:47:25 -07:00
+@@ -77,7 +77,7 @@
+ #include "ixgb_ee.h"
+ #include "ixgb_ids.h"
+ 
+-#if _DEBUG_DRIVER_
++#ifdef _DEBUG_DRIVER_
+ #define IXGB_DBG(args...) printk(KERN_DEBUG "ixgb: " args)
+ #else
+ #define IXGB_DBG(args...)
+diff -Nru a/drivers/net/wan/sbni.h b/drivers/net/wan/sbni.h
+--- a/drivers/net/wan/sbni.h	2004-06-22 13:47:25 -07:00
++++ b/drivers/net/wan/sbni.h	2004-06-22 13:47:25 -07:00
+@@ -6,7 +6,7 @@
+ #ifndef SBNI_H
+ #define SBNI_H
+ 
+-#if SBNI_DEBUG
++#ifdef SBNI_DEBUG
+ #define DP( A ) A
+ #else
+ #define DP( A )
+diff -Nru a/drivers/net/yellowfin.c b/drivers/net/yellowfin.c
+--- a/drivers/net/yellowfin.c	2004-06-22 13:47:25 -07:00
++++ b/drivers/net/yellowfin.c	2004-06-22 13:47:25 -07:00
+@@ -65,7 +65,7 @@
+ static int bogus_rx;
+ static int dma_ctrl = 0x004A0263; 			/* Constrained by errata */
+ static int fifo_cfg = 0x0020;				/* Bypass external Tx FIFO. */
+-#elif YF_NEW					/* A future perfect board :->.  */
++#elif defined(YF_NEW)					/* A future perfect board :->.  */
+ static int dma_ctrl = 0x00CAC277;			/* Override when loading module! */
+ static int fifo_cfg = 0x0028;
+ #else
