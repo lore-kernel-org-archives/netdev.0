@@ -1,24 +1,23 @@
-From: steve@themovieglobe.com
-Subject: Welcome to  "The Movie Globe" Mailing List
-Date: Sat, 22 Mar 2003 23:34:03 -0800 (PST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] (Updated) IPSec: IPv6 source address not set correctly
+ in xfrm_state
+Date: Sun, 23 Mar 2003 01:16:14 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030323073403.6B2A6188E90@bidoc.vc.bravenet.com>
+Message-ID: <20030323.011614.34129941.davem@redhat.com>
+References: <1048268391.1244.2.camel@tomlt2.tomloffice.austin.ibm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: toml@us.ibm.com
+In-Reply-To: <1048268391.1244.2.camel@tomlt2.tomloffice.austin.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-You have been added to the list.  Thank you.
+   From: Tom Lendacky <toml@us.ibm.com>
+   Date: 21 Mar 2003 11:39:50 -0600
+   
+   Here is the updated patch.
 
-
-If you wish to UNSUBSCRIBE please visit www.themovieglobe.com and;
-
-1. Enter your email address to the Mailing List Box
-2. Click "Unsubscribe"
-3. Click "Go"
-
-You will automatically be removed from the mailing list.
-
-
-
------------------------------------------------------------------------
+Applied, thanks a lot Tom.
