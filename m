@@ -1,59 +1,94 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
-Subject: Re: [PATCH] LLTX for tg3
-Date: Sun, 12 Sep 2004 19:06:26 +0200
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
+Date: 12 Sep 2004 13:27:29 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5cac192f040912100616feb28a@mail.gmail.com>
-References: <20040907121841.GA4398@wotan.suse.de>
-Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
+Message-ID: <1095010048.2342.204.camel@jzny.localdomain>
+References: <20040910200644.GJ20088@postel.suug.ch>
+	 <20040910201302.GA16556@bougret.hpl.hp.com>
+	 <20040910202235.GK20088@postel.suug.ch>
+	 <20040910203203.GA17078@bougret.hpl.hp.com>
+	 <20040910204348.GL20088@postel.suug.ch>
+	 <1094857082.1041.19.camel@jzny.localdomain>
+	 <20040910231726.GP20088@postel.suug.ch>
+	 <1094868070.1042.77.camel@jzny.localdomain>
+	 <20040911134409.GA21181@postel.suug.ch>
+	 <1094932793.2344.82.camel@jzny.localdomain>
+	 <20040911220614.GF21181@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: jt@hpl.hp.com, "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040907121841.GA4398@wotan.suse.de>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20040911220614.GF21181@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Add LLTX suppor to tg3.  Locking was already safe for it, so only
-> trivial changes.
+On Sat, 2004-09-11 at 18:06, Thomas Graf wrote:
+> * jamal <1094932793.2344.82.camel@jzny.localdomain> 2004-09-11 15:59
+> > So my suggestion is making your code the exception.
+> > i.e something along the lines of:
+> > 
+> > addrchg = 1;
+> > 
+> > if (mtu/weight/name related)
+> > 	addrchng = 0;
+> > if (!err & addrchang)
+> > 	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+> 
+> OK, however I'd prefer to invert the concept. See patch
+> below. This would send out the following updates:
 
-tg3_set_rx_mode() (dev->set_multicast_list()) and tg3_start_xmit()
-used to synchronise thanks to dev->lock_xmit. With your LLTX patches
-they don't synchronise anymore (I don't think tg3_set_rx_mode() grabs
-tp->tx_lock) ; isn't it an issue?
+Guess it wont make difference in number of lines of code, so fine.
 
-PS: your LLTX patch to e1000 seems to have the needed extra locking in
-e1000_set_multi() though.
+> ififlags - NETDEV_(UP|DOWN) if IFF_UP has changed
+> IFLA_MAP - none
+> IFLA_ADDRESS|IFLA_BROADCAST - NETDEV_CHANGEADDR
+> IFLA_MTU - NETDEV_CHANGEMTU
+> IFLA_WEIGHT - none
+> IFLA_IFNAME - NETDEVCHANGENAME
+> 
+> PATCH:
+> Only send NETDEV_CHANGEADDR notifies for address and broadcast changes.
+> Notify is also sent out if only one of the 2 changes is successful.
 
-> Depends on the LLTX patch sent earlier.
-> 
-> diff -u linux-2.6.8/drivers/net/tg3.c-o linux-2.6.8/drivers/net/tg3.c
-> --- linux-2.6.8/drivers/net/tg3.c-o     2004-09-04 13:10:46.000000000 +0000
-> +++ linux-2.6.8/drivers/net/tg3.c       2004-09-07 08:17:36.000000000 +0000
-> @@ -3036,7 +3036,11 @@
->          * So we really do need to disable interrupts when taking
->          * tx_lock here.
->          */
-> -       spin_lock_irqsave(&tp->tx_lock, flags);
-> +       local_irq_save(flags);
-> +       if (!spin_trylock(&tp->tx_lock)) {
-> +               local_irq_restore(flags);
-> +               return -1;
-> +       }
-> 
->         /* This is a hard error, log it. */
->         if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
-> @@ -8255,6 +8259,7 @@
-> 
->         if (pci_using_dac)
->                 dev->features |= NETIF_F_HIGHDMA;
-> +       dev->features |= NETIF_F_LLTX;
->  #if TG3_VLAN_TAG_USED
->         dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
->         dev->vlan_rx_register = tg3_vlan_rx_register;
-> 
-> 
+This one is sort of grey area. 
+Sigh. In any case, i think that this is ok for now. So patch should go
+in - we can revisit the whole atomicity where applicable in kernel at
+some later point.
+Dave please go ahead and apply the patch.
 
--- 
-Eric
+> 
+> > Also note, the semantics of netlink are all-or-nothing transaction. i.e
+> > if one of the things requested for fails then you undo the rest. We can
+> > probably loosely say that unles the ATOMIC flag is set you dont need to
+> > undo that .. something to think about (summary is you probably dont want
+> > to send progress update to user space unless the transaction is
+> > successful; you however want to report progress of where failure happens
+> > - as we are discussing at the moment in the error code thread).
+> 
+> Agreed, I think undo should happen from user space though. In the
+> example of do_setlink, you can see that while it would be quite easy to
+> do the sanity checks before actually doing something you can't catch
+> all errors if you don't want to implement the name/mtu/addr change
+> routines yourself. Keeping in mind that those sanity checks will
+> probably only fail during the development of a application it doesn't
+> really help. That's why I implemented it this way.
+
+sure. The hard part i think is you cant force every one wanting to make
+changes to link parameters to go via setlink. If you could then it
+should be doable to not make changes until after the attributes are all
+known (and therefore make it easy to undo).
+
+> I'm experimenting with a commit/fallback netlink library which basically
+> fetches the subject of change and stores the netlink message to be used
+> in case of fallback. NLM_F_ATOMIC makes it even more useable but is
+> quite expensive. A netlink change daemon would probably solve the
+> problem better.
+
+Daemon seems to be the only way to do it. Lets discuss this at some
+later point.
+
+cheers,
+jamal
