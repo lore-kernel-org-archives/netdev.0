@@ -1,84 +1,41 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: PATCH: [SKBUFF] remove some ethernet header related magic numbers
-Date: Tue, 05 Oct 2004 15:53:05 -0300
+From: Andrea Arcangeli <andrea@novell.com>
+Subject: Re: gettimeofday scalability
+Date: Tue, 5 Oct 2004 20:55:53 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4162ED91.20605@conectiva.com.br>
+Message-ID: <20041005185553.GG26820@dualathlon.random>
+References: <4162CD76.4070204@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030406070407000204070009"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Ingo Molnar <mingo@elte.hu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: P@draigBrady.com
+Content-Disposition: inline
+In-Reply-To: <4162CD76.4070204@draigBrady.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030406070407000204070009
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, Oct 05, 2004 at 05:36:06PM +0100, P@draigBrady.com wrote:
+> I've seen various gettimeofday locking speedup patches floating
+> around for 2.4. There is a version from Stephen and Andrea
+> that uses frlock, claiming 18%, and one from ingo that uses brlock.
+> 2.6.8.1 uses seqlock, which contains the comment
+> that it's not as cache friendly as brlock.
 
-Hi David,
+seqlock and frlock are the same thing. I don't see how the brlock can
+work well given the fact you'll have to take it in write mode at every
+timer irq. Maybe it works on a 2-way, sure not more than that. brlock
+should be totally replaced by RCU anyways. brlock can also starve the
+writer, which make it a security DoS (at least for some architecture,
+there were two implementations, maybe one is safe).
 
-	Plesase consider pulling from:
+> So can anyone summarise the relative merits of these locking
+> mechanisms, before I start benchmarking?
 
-bk://kernel.bkbits.net/acme/sk_buff-2.6
+frlock/seqlock (2.4/2.6 respectively) is the way to go, no write
+starvation, and zero cacheline bouncing. 
 
-	Now there are twelve outstanding changesets in this
-tree.
+upgrade to x86-64, there I implemented gettimeofday with vsyscalls which
+also avoids entering exiting userspace which becomes the by far biggest
+overhead after using seqlock. (speedup is tenfold or so)
 
-Best Regards,
-
-- Arnaldo
-
---------------030406070407000204070009
-Content-Type: text/plain;
- name="ethhdr_magic_numbers.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ethhdr_magic_numbers.patch"
-
-===================================================================
-
-
-ChangeSet@1.2041, 2004-10-05 15:45:31-03:00, acme@conectiva.com.br
-  [SKBUFF] remove some ethernet header related magic numbers
-  
-  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-  Signed-off-by: David S. Miller <davem@redhat.com>
-
-
- drivers/net/loopback.c |    2 +-
- net/core/pktgen.c      |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-
-diff -Nru a/drivers/net/loopback.c b/drivers/net/loopback.c
---- a/drivers/net/loopback.c	2004-10-05 15:50:11 -03:00
-+++ b/drivers/net/loopback.c	2004-10-05 15:50:11 -03:00
-@@ -85,7 +85,7 @@
- 		if (!nskb)
- 			break;
- 		skb_reserve(nskb, 32);
--		nskb->mac.raw = nskb->data - 14;
-+		nskb->mac.raw = nskb->data - ETH_HLEN;
- 		nskb->nh.raw = nskb->data;
- 		iph = nskb->nh.iph;
- 		memcpy(nskb->data, skb->nh.raw, doffset);
-diff -Nru a/net/core/pktgen.c b/net/core/pktgen.c
---- a/net/core/pktgen.c	2004-10-05 15:50:11 -03:00
-+++ b/net/core/pktgen.c	2004-10-05 15:50:11 -03:00
-@@ -515,8 +515,8 @@
- 	iph->tot_len = htons(iplen);
- 	iph->check = 0;
- 	iph->check = ip_fast_csum((void *) iph, iph->ihl);
--	skb->protocol = __constant_htons(ETH_P_IP);
--	skb->mac.raw = ((u8 *)iph) - 14;
-+	skb->protocol = htons(ETH_P_IP);
-+	skb->mac.raw = ((u8 *)iph) - ETH_ALEN;
- 	skb->dev = odev;
- 	skb->pkt_type = PACKET_HOST;
- 
-
-===================================================================
-
---------------030406070407000204070009--
+Hope this helps.
