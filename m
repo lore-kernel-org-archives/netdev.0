@@ -1,63 +1,95 @@
 From: Ingo Molnar <mingo@elte.hu>
 Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 22:28:07 +0200
+Date: Wed, 12 May 2004 22:50:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040512202807.GA16849@elte.hu>
-References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com> <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu>
+Message-ID: <20040512205028.GA18806@elte.hu>
+References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com> <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu> <20040512202807.GA16849@elte.hu> <20040512203500.GA17999@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="bg08WKrSYDhXBjb5"
+Content-Type: multipart/mixed; boundary="NzB8fVQJ5HfG6fxh"
 Cc: Davide Libenzi <davidel@xmailserver.org>, Jeff Garzik <jgarzik@pobox.com>,
         Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>,
         linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Valdis.Kletnieks@vt.edu
 Content-Disposition: inline
-In-Reply-To: <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu>
+In-Reply-To: <20040512203500.GA17999@elte.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---bg08WKrSYDhXBjb5
+--NzB8fVQJ5HfG6fxh
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 
-* Valdis.Kletnieks@vt.edu <Valdis.Kletnieks@vt.edu> wrote:
+* Ingo Molnar <mingo@elte.hu> wrote:
 
-> The problem is that even for the i386 family, there's no inherent
-> reason why the value of HZ is nailed to 1000 [...]
+> new patch attached - this adopts the overflow-safe variant from
+> sctp.h, removes it from sctp.h and moves it into a generic include
+> file and also does the HZ=1000 simplification.
 
-The code is 100% correct, but not 100% clean, and definitely not
-documented. The reason for the change was to avoid unnecessary integer
-multiplications and divisions in sched.c.
-
-the attached patch (against BK-curr) cleans this up and makes the
-defines generic and arch-independent.
+yet another patch - this time it's: complete, covers irda, accelerates
+HZ=100, unifies the slightly differing namespaces and compiles/boots as
+well.
 
 	Ingo
 
---bg08WKrSYDhXBjb5
+--NzB8fVQJ5HfG6fxh
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="hz-cleanup-2.6.6-A0"
+Content-Disposition: attachment; filename="hz-cleanup-2.6.6-A2"
 
 --- linux/include/linux/time.h.orig	
 +++ linux/include/linux/time.h	
-@@ -177,6 +177,15 @@ struct timezone {
+@@ -177,6 +177,24 @@ struct timezone {
  	(SH_DIV((MAX_JIFFY_OFFSET >> SEC_JIFFIE_SC) * TICK_NSEC, NSEC_PER_SEC, 1) - 1)
  
  #endif
 +
++/*
++ * Convert jiffies to milliseconds and back.
++ *
++ * Avoid unnecessary multiplications/divisions in the
++ * two most common HZ cases:
++ */
 +#if HZ == 1000
-+# define JIFFIES_TO_MSEC(x)	(x)
-+# define MSEC_TO_JIFFIES(x)	(x)
++# define JIFFIES_TO_MSECS(x)	(x)
++# define MSECS_TO_JIFFIES(x)	(x)
++#elif HZ == 100
++# define JIFFIES_TO_MSECS(x)	((x) * 10)
++# define MSECS_TO_JIFFIES(x)	((x) / 10)
 +#else
-+# define JIFFIES_TO_MSEC(x)	((x) * 1000 / HZ)
-+# define MSEC_TO_JIFFIES(x)	((x) * HZ / 1000)
++# define JIFFIES_TO_MSECS(x)	((x) * 1000 / HZ)
++# define MSECS_TO_JIFFIES(x)	((x) * HZ / 1000)
 +#endif
 +
  /*
   * The TICK_NSEC - 1 rounds up the value to the next resolution.  Note
   * that a remainder subtract here would not do the right thing as the
+--- linux/include/net/irda/irda.h.orig	
++++ linux/include/net/irda/irda.h	
+@@ -83,8 +83,6 @@ if(!(expr)) do { \
+ #define MESSAGE(args...) printk(KERN_INFO args)
+ #define ERROR(args...)   printk(KERN_ERR args)
+ 
+-#define MSECS_TO_JIFFIES(ms) (((ms)*HZ+999)/1000)
+-
+ /*
+  *  Magic numbers used by Linux-IrDA. Random numbers which must be unique to 
+  *  give the best protection
+--- linux/include/net/sctp/sctp.h.orig	
++++ linux/include/net/sctp/sctp.h	
+@@ -116,11 +116,6 @@
+ #define SCTP_STATIC static
+ #endif
+ 
+-#define MSECS_TO_JIFFIES(msec) \
+-	(((msec / 1000) * HZ) + ((msec % 1000) * HZ) / 1000)
+-#define JIFFIES_TO_MSECS(jiff) \
+-	(((jiff / HZ) * 1000) + ((jiff % HZ) * 1000) / HZ)
+-
+ /*
+  * Function declarations.
+  */
 --- linux/include/asm-i386/param.h.orig	
 +++ linux/include/asm-i386/param.h	
 @@ -5,8 +5,6 @@
@@ -85,5 +117,14 @@ Content-Disposition: attachment; filename="hz-cleanup-2.6.6-A0"
  /*
   * These are the 'tuning knobs' of the scheduler:
   *
+@@ -1880,7 +1873,7 @@ static void rebalance_tick(int this_cpu,
+ 			interval *= sd->busy_factor;
+ 
+ 		/* scale ms to jiffies */
+-		interval = MSEC_TO_JIFFIES(interval);
++		interval = MSECS_TO_JIFFIES(interval);
+ 		if (unlikely(!interval))
+ 			interval = 1;
+ 
 
---bg08WKrSYDhXBjb5--
+--NzB8fVQJ5HfG6fxh--
