@@ -1,68 +1,75 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [KJ] Re: [PATCH 6/28] net/e1000_osdep: replace schedule_timeout()
-	with msleep()
-Date: Fri, 7 Jan 2005 13:37:44 -0800
-Message-ID: <20050107213744.GE2924@us.ibm.com>
-References: <20050107001931.GH3055@us.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Followup to netpoll issues
+Date: Fri, 7 Jan 2005 22:42:54 +0100
+Message-ID: <20050107214254.GA17317@electric-eye.fr.zoreil.com>
+References: <1105045914.7687.3.camel@tigger> <20050106234610.GT2940@waste.org> <20050107011547.GE27896@electric-eye.fr.zoreil.com> <20050107170118.GU2940@waste.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============94234515700612187=="
-Cc: linux-net@vger.kernel.org, kernel-janitors@lists.osdl.org,
-   netdev@oss.sgi.com
-Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: cramerj@intel.com, john.ronciak@intel.com, ganesh.venkatesan@intel.com
-In-Reply-To: <20050107001931.GH3055@us.ibm.com>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.osdl.org
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Broadbent <markb@wetlettuce.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Matt Mackall <mpm@selenic.com>
+Content-Disposition: inline
+In-Reply-To: <20050107170118.GU2940@waste.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============94234515700612187==
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Thu, Jan 06, 2005 at 04:19:31PM -0800, Nishanth Aravamudan wrote:
-> Hi,
+Matt Mackall <mpm@selenic.com> :
+[...]
+> printk("debug: at point A");
+> do_something_that_sends_a_packet_B();
+> printk("debug: at point C");
 > 
-> Description: Use msleep() instead of schedule_timeout() to guarantee the task
-> delays as expected.
+> Depending on locking and queueing, we might see on our network dump B,
+> A, C, and wrongly conclude that whatever did B was not between A and C.
+> That's a bad way for printk to work.
+
+I completely agree that it is not perfect.
+
+However netconsole is currently unable to guarantee that you will
+always see both A and B (currently = assuming the skb is dropped
+when netconsole fails trylock as suggested by Jamal). So there is
+an issue with the reliability of the delivery as well.
+
+I won't push harder on the queuing side as I believe that it will
+be possible to add it as an extra choice to the user whatever form
+netconsole takes to stop deadlocking.
+
+[...]
+> The bugs I'm talking about are identical to the xmit_lock deadlock
+> except with locks we can't see outside the driver. In other words,
+
+Right, it's clearer now. Thanks for the reminder.
+
+User space takes device's private lock -> printks -> netconsole.write
+-> hard_start_xmit -> device's private lock -> splat. Same thing from
+interrupt context (in_irq() can probably help though).
+
+So we ought to check rtnl_sem as well (dev_base_lock anyone ?).
+
+/me scratches neck...
+
+> this patch addresses the easy part of larger problem by adding a bunch
+> of complexity that doesn't help in the larger problem. To me, that's a
+> hint that it's the wrong fix.
+
+Too big. It won't bite. :o)
+
+[...]
+> > I am not convinced that people will be satisfied with a rule which
+> > states that printk _from anywhere_ are lost as soon as a CPU enters
+> > in the xmit_lock zone but, hey, it's just me.
 > 
-> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-> 
-> 
-> --- 2.6.10-v/drivers/net/e1000/e1000_osdep.h	2004-12-24 13:34:26.000000000 -0800
-> +++ 2.6.10/drivers/net/e1000/e1000_osdep.h	2005-01-04 14:57:49.000000000 -0800
-> @@ -46,8 +46,7 @@
->  				/* Don't mdelay in interrupt context! */ \
->  	                	BUG(); \
->  			} else { \
-> -				set_current_state(TASK_UNINTERRUPTIBLE); \
-> -				schedule_timeout((x * HZ)/1000 + 2); \
-> +				msleep(x);
->  			} } while(0)
->  /* Some workarounds require millisecond delays and are run during interrupt
->   * context.  Most notably, when establishing link, the phy may need tweaking
+> It should only be dropped on the CPU holding the lock, with a loud
+> warning to follow shortly.
 
-Please ignore this patch, as there is already a more correct one in the
-2.6.10-kj patchset. Sorry for the noise.
+Sorry if I was not clear: "from anywhere" meant printk issued from
+any part of the kernel which can interrupt the xmit_locked section
+of a qdisc_run(), i.e. printk from irq handlers. 
 
-Thanks,
-Nish
+If I read correctly the suggested design, the remaining CPUs should
+loop in netpoll_send_skb() when they notice that they can not take
+the lock and that their CPU do not own it, right ?
 
---===============94234515700612187==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Kernel-janitors mailing list
-Kernel-janitors@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/kernel-janitors
-
---===============94234515700612187==--
+--
+Ueimor
