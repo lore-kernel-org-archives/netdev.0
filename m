@@ -1,39 +1,37 @@
-From: Scott Mcdermott <smcdermott@questra.com>
-Subject: Re: [IPSEC] Too many SADs!
-Date: Tue, 22 Mar 2005 21:55:22 -0800
-Message-ID: <20050323055520.GH13092@questra.com>
-References: <200503220052.52756.wolfgang.walter@studentenwerk.mhn.de> <20050322224819.GB4924@questra.com> <20050323003310.GE8725@ns.snowman.net>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: register_dev
+Date: Mon, 28 Mar 2005 14:56:41 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0503281451090.25430@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050323003310.GE8725@ns.snowman.net>
-Resent-Message-Id: <20050328102302.AD87C13DE9@lujuria.roc.questra.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Frost on Tue 22/03 19:33 -0500:
-> Sounds like I may need to check out strongswan/openswan.
-> I can tell you I wasn't exactly a fan of freeswan for a
-> variety of reasons.
+Hello!
 
-What reasons? The userspace code with it is great (i.e. the
-IKE daemon).  The kernel stuff may be a different matter.
-You could use the native IPSEC code in the kernel instead.
+I have a little problem.
 
-I don't know what distribution you're using but I found it
-simple to adapt the openswan .spec file to make a source RPM
-for strongswan.
+I do a register_netdev inside a _init function of a home made qdisc.
 
-As I understand it, the Openswan project is motivated by
-commercial interests, whereas Strongswan is in it for
-security and correctness.  I had difficulty using Openswan
-with AES (it wasn't accepting custom ciphers and DH groups
-specified in the config file, and was sending bogus IKE
-proposals with 65535 in all the fields of the first listed
-transform) until I switched to Strongswan.  And if you are
-doing anything with X.509, the author of that patch is the
-one that forked Strongswan.  It has been very solid for me
-since I switched off Racoon.
+2 cases:
+
+1. Modprobe before working with it
+ 	Everything works ok.
+2. the module is not loaded and I let tc trigger module loading
+ 	tc blocks on modprobe
+ 	modprobe blocks on register_netdev
+ 	Very probably that rtnl_sem is taken by netlink in kernel and
+ 	register_nedev tries to aquire the sem, too.
+
+If I use register_netdevice, seems ok but in case 1, the is no sem 
+protection anymore.
+How I can resolve this problem?
+
+Thank you!
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
