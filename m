@@ -1,37 +1,42 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] remove broken bitfield use from via-rhine
-Date: Sun, 23 May 2004 01:11:17 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040522231117.GA3416@infradead.org>
+From: Vadim Lobanov <vadim@cs.washington.edu>
+Subject: [PATCH] Trivial patch in /net/core/net-sysfs.c
+Date: Sun, 23 May 2004 01:48:45 -0700 (PDT)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040523014005.R31528-100000@attu2.cs.washington.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262351AbUEWIst@vger.kernel.org>
+To: netdev@oss.sgi.com, <linux-kernel@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
-From: Debian kernel package, author probably Herbert Xu
+Hello,
 
+Here is a trivial patch to /net/core/net-sysfs.c, to remove 3 unnecessary 
+word lengths from memory. Diffed against the base 2.6.6 tree. Please note 
+that this is a first stab at attempting to submit a patch, so let me know if
+something's not quite right, so that I can rework it. :)
 
-we're using it to assign if_port to it only anyway so it should have the
-same type.
+=========================================================================
 
-
-
- * Fixed size of default_port in drivers/net/via-rhine.c
-
-diff -urN kernel-source-2.6.6/drivers/net/via-rhine.c kernel-source-2.6.6-1/drivers/net/via-rhine.c
---- kernel-source-2.6.6/drivers/net/via-rhine.c	2004-05-10 19:47:56.000000000 +1000
-+++ kernel-source-2.6.6-1/drivers/net/via-rhine.c	2004-05-10 22:21:34.000000000 +1000
-@@ -523,8 +523,8 @@
- 	u16 chip_cmd;						/* Current setting for ChipCmd */
+--- linux-2.6.6/net/core/net-sysfs.c    2004-05-09 19:33:19.000000000 
+-0700
++++ linux-2.6.6/net/core/net-sysfs.c    2004-05-23 01:33:57.000000000 
+-0700
+@@ -20,9 +20,9 @@
+ #define to_class_dev(obj) container_of(obj,struct class_device,kobj)
+ #define to_net_dev(class) container_of(class, struct net_device, 
+class_dev)
  
- 	/* These values are keep track of the transceiver/media in use. */
--	unsigned int default_port:4;		/* Last dev->if_port value. */
- 	u8 tx_thresh, rx_thresh;
-+	unsigned int default_port;		/* Last dev->if_port value. */
+-static const char *fmt_hex = "%#x\n";
+-static const char *fmt_dec = "%d\n";
+-static const char *fmt_ulong = "%lu\n";
++static const char fmt_hex[] = "%#x\n";
++static const char fmt_dec[] = "%d\n";
++static const char fmt_ulong[] = "%lu\n";
  
- 	/* MII transceiver section. */
- 	unsigned char phys[MAX_MII_CNT];			/* MII device addresses. */
+ static inline int dev_isalive(const struct net_device *dev) 
+ {
+
+========================================================================
+
+-Vadim Lobanov
