@@ -1,39 +1,40 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Update on e1000 troubles (over-heating!) (problem solved)
-Date: Tue, 08 Oct 2002 18:10:44 -0700
+From: Derek Fawcus <dfawcus@cisco.com>
+Subject: Re: [PATCH] IPv6: Fix Prefix Length of Link-local Addresses
+Date: Wed, 9 Oct 2002 17:00:18 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DA38214.9050607@candelatech.com>
-References: <Pine.GSO.4.30.0210070753400.1861-100000@shell.cyberus.ca>
+Message-ID: <20021009170018.H29133@edinburgh.cisco.com>
+References: <20021008.000559.17528416.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andre Hedrick <andre@pyxtechnologies.com>,
-   linux-kernel <linux-kernel@vger.kernel.org>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20021008.000559.17528416.yoshfuji@linux-ipv6.org>; from yoshfuji@linux-ipv6.org on Tue, Oct 08, 2002 at 12:05:59AM +0900
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+On Tue, Oct 08, 2002 at 12:05:59AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
+> Hi,
 > 
-> It does seem like you need a lot of packets over a period of time
-> to recreate it. So if what you are trying to do can achieve that,
-> you should reproduce it. How many connections and sessions can you
-> support? BTW, does iscsi call for a zero-copy receive?
+> Prefix length for link-local address should be 64, not 10.
+> This patch fixes prefix length of link-local address.
+> 
+> Following patch is against 2.4.19.
 
-I ran it at top speed for 4+ hours today with no problems.  I was
-actively cooling the cards with an extra p-IV cpu fan sitting
-precariously on top of the cards.
+Huh?
 
-So, my problems were definately heat related.  I have yet to try
-to see if the same things makes the tg3 nics behave better, as
-they ran even hotter than the e1000s.
+Without reading the kernel routing table code a bit more,  I'm not certain
+what that change does,  but it looks as if it might be changing the
+connected route for a link local from fe80::/10 to fe80::/64.
 
-Thanks,
-Ben
+I'd actually say that is wrong.
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+All link local's are currently supposed to have those top bits
+('tween 10 and 64) zero'd,  however any address within the link local
+prefix _is_ on link / connected and should go to the interface.
+
+i.e. it's perfectly valid for me to assign a link local of fe80:1910::10
+     to an interface and expect it to be work,  likewise for a packet
+     destined to any link local address to trigger ND.
+
+DF
