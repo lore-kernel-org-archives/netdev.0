@@ -1,32 +1,30 @@
-From: Casey Carter <Casey@Carter.net>
-Subject: Re: finding out what NIC a socket connection came in on
-Date: Tue, 09 Apr 2002 21:26:21 -0500
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3CB3A2CD.8040404@Carter.net>
-References: <20020410001830.64699.qmail@mail.com>
+From: Balazs Scheidler <bazsi@balabit.hu>
+Subject: netlink question
+Date: Wed, 10 Apr 2002 13:20:25 +0200
+Sender: owner-netdev@oss.sgi.com
+Message-ID: <20020410132025.A8595@balabit.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hahn@physics.mcmaster.ca, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Lee Chin <leechin@mail.com>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <owner-netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Lee Chin wrote:
+Hi,
 
->Hi,
->I have a box with 2 NICs.  I have a server that does a socket accept.  I would like to know which NIC a new socket connection originated from.  How can I do this?
->
->Thanks
->Lee
->
-man 2 accept
+As I need to communicate between two parts of the kernel (a core TCP part,
+and a loaded module), Andi suggested to use netlink for this purpose.
+
+Since I'm not too familiar with Netlink (and I saw only userspace-kernel
+communication using netlink), I'd need some introductory material about
+netlink. Is some information about the subject available? Sample code would
+be sufficient as well.
+
+I've tried google but didn't find too much until now, so some help would be
+appreciated.
+
+TIA,
 
 -- 
-Casey Carter
-Casey@Carter.net
-ccarter@uiuc.edu
-AIM: cartec69
-
-
-
+Bazsi
+PGP info: KeyID 9AF8D0A9 Fingerprint CD27 CFB0 802C 0944 9CFD 804E C82C 8EB1
