@@ -1,78 +1,159 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH] IPv6: (5/5+1) Autoconfig link-local addr to IPv6 tunnels
-Date: Wed, 3 Sep 2003 09:10:34 +0300 (EEST)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: /proc/net/* read drops data
+Date: Wed, 03 Sep 2003 16:07:33 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309030900530.14208-100000@netcore.fi>
-References: <Pine.LNX.4.44.0309021854500.1730-100000@rhea.tcs.hut.fi>
+Message-ID: <20030903.160733.06230402.yoshfuji@linux-ipv6.org>
+References: <Pine.GSO.4.33.0308271658370.7750-100000@sweetums.bluetronic.net>
+	<Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <yoshfuji@linux-ipv6.org>,
-   <usagi-core@linux-ipv6.org>, <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org,
+   davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0309021854500.1730-100000@rhea.tcs.hut.fi>
+To: Ricky Beam <jfbeam@bluetronic.net>, jfbeam@bluetronic.net
+In-Reply-To: <Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2 Sep 2003, Ville Nuorvala wrote:
-> On Tue, 2 Sep 2003, Pekka Savola wrote:
+Hello.
+
+In article <Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net> (at Wed, 27 Aug 2003 19:58:17 -0400 (EDT)), Ricky Beam <jfbeam@bluetronic.net> says:
+
+> On Wed, 27 Aug 2003, Ricky Beam wrote:
+> >This smells like a simple "off by one" bug, but I've been too busy to go
+> >look at the code.
 > 
-> > Two comments:
-> >
-> > +       /* try to inherit EUI64 from another device */
-> > +       for (dev = dev_base; dev; dev = dev->next) {
-> > +               if (!ipv6_generate_eui64(addr.s6_addr + 8, dev)) {
-> > +                       addrconf_add_linklocal(idev, &addr);
-> > +                       return;
-> > +
-> >
-> > ==> does this really inherit _EUI64_, *or* MAC address (or something like
-> > it) to derive an EUI64?  Note that there is a significant difference when
-> > you've configured manually e.g. 3ffe:ffff:f00:ba::1 on a device, and the
-> > case when you've auto-configured the interface identifier from the MAC
-> > address of the device.
+> Ah hah!  it's a block size problem... netstat reads 1024 at a time.
 > 
-> ipv6_generate_eui64() derives the interface identifier from the MAC
-> address on ARPHRD_{ETHER,FDDI,IEEE802_TR,ARCNET} interfaces, but doesn't
-> do anything for other types of devices
-
-Ok, but then the command should be:
-
-/* try to inherit MAC address from another device, to build an EUI64 */
-
-> > ==> my question is: as the former method to steal an EUI64 should succeed
-> > pretty much always, is it useful to add basically dead code which never
-> > gets executed here?  I certainly can't think of any scenario where you'd
-> > have no interface to steal the MAC address/EUI64 from and you'd have to
-> > fall back to random identifiers?
+> Using dd...
 > 
-> If the node doesn't have an Ethernet (etc.) NIC it won't get a valid
-> identifier from ipv6_generate_eui64() and has to resort to something
-> else, for example generating a random address.
+> [root:pts/5{9}]gir:~/[7:55pm]:dd if=/proc/net/udp bs=1024 | wc
+> 2+1 records in
+> 2+1 records out
+>      18     216    2304
+> [root:pts/5{9}]gir:~/[7:56pm]:dd if=/proc/net/udp bs=2048 | wc
+> 1+1 records in
+> 1+1 records out
+>      19     228    2432
+:
 
-And exactly how often does this happen? Eth (all variants), FDDI, TR, 
-ARCnet.. what's missing?  Does IPv6 even work with any other physical 
-interfaces? :-)
+Please try this patch.
+
+D: Fixing a bug that reading /proc/net/{udp,udp6} may drop some data
+
+Index: linux-2.6/net/ipv4/udp.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv4/udp.c,v
+retrieving revision 1.38
+diff -u -r1.38 udp.c
+--- linux-2.6/net/ipv4/udp.c	14 Aug 2003 06:00:04 -0000	1.38
++++ linux-2.6/net/ipv4/udp.c	3 Sep 2003 05:30:52 -0000
+@@ -1349,64 +1349,65 @@
+ /* ------------------------------------------------------------------------ */
+ #ifdef CONFIG_PROC_FS
  
-> An alternative would be to use ipv6_inherit_eui64(), which just copies the
-> 64-bit suffix from the first link-local address it can find. This includes
-> both manually and auto-configured addresses, which means the risk of
-> duplicate addresses might be (I assume) greater than in the random address
-> case.
-
-A possible twist here could be to copy only those whose universal/local 
-bits indicate that that address was NOT manually configured, i.e..:
-
-2001:708:10:40:207:e9ff:fe7b:259
-               ^
-            this one
-
-.. but as stated, I'm not sure this is really necessary anyway either.
-
-Note: it is desirable to have link-local addresses reasonably stable.  
-Randomizing them may not be the right choice.
+-static __inline__ struct sock *udp_get_bucket(struct seq_file *seq, loff_t *pos)
++static struct sock *udp_get_first(struct seq_file *seq)
+ {
+-	int i;
+ 	struct sock *sk;
+-	struct hlist_node *node;
+-	loff_t l = *pos;
+ 	struct udp_iter_state *state = seq->private;
+ 
+-	for (; state->bucket < UDP_HTABLE_SIZE; ++state->bucket) {
+-		i = 0;
++	for (state->bucket = 0; state->bucket < UDP_HTABLE_SIZE; ++state->bucket) {
++		struct hlist_node *node;
+ 		sk_for_each(sk, node, &udp_hash[state->bucket]) {
+-			if (sk->sk_family != state->family) {
+-				++i;
+-				continue;
+-			}
+-			if (l--) {
+-				++i;
+-				continue;
+-			}
+-			*pos = i;
+-			goto out;
++			if (sk->sk_family == state->family)
++				goto found;
+ 		}
+ 	}
+ 	sk = NULL;
+-out:
++found:
+ 	return sk;
+ }
+ 
++static struct sock *udp_get_next(struct seq_file *seq, struct sock *sk)
++{
++	struct udp_iter_state *state = seq->private;
++
++	do {
++		sk = sk_next(sk);
++try_again:
++		;
++	} while (sk && sk->sk_family != state->family);
++
++	if (!sk && ++state->bucket < UDP_HTABLE_SIZE) {
++		sk = sk_head(&udp_hash[state->bucket]);
++		goto try_again;
++	}
++	return sk;
++}
++
++static struct sock *udp_get_idx(struct seq_file *seq, loff_t pos)
++{
++	struct sock *sk = udp_get_first(seq);
++
++	if (sk)
++		while(pos && (sk = udp_get_next(seq, sk)) != NULL)
++			--pos;
++	return pos ? NULL : sk;
++}
++
+ static void *udp_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	read_lock(&udp_hash_lock);
+-	return *pos ? udp_get_bucket(seq, pos) : (void *)1;
++	return *pos ? udp_get_idx(seq, *pos-1) : (void *)1;
+ }
+ 
+ static void *udp_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	struct sock *sk;
+-	struct hlist_node *node;
+-	struct udp_iter_state *state;
+-
+-	if (v == (void *)1) {
+-		sk = udp_get_bucket(seq, pos);
+-		goto out;
+-	}
+ 
+-	state = seq->private;
++	if (v == (void *)1)
++		sk = udp_get_idx(seq, 0);
++	else
++		sk = udp_get_next(seq, v);
+ 
+-	sk = v;
+-	sk_for_each_continue(sk, node)
+-		if (sk->sk_family == state->family)
+-			goto out;
+-
+-	if (++state->bucket >= UDP_HTABLE_SIZE) 
+-		goto out;
+-
+-	*pos = 0;
+-	sk = udp_get_bucket(seq, pos);
+-out:
+ 	++*pos;
+ 	return sk;
+ }
 
 -- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
