@@ -1,98 +1,28 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Sat, 18 Sep 2004 20:25:49 +1000
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <E1C8cPd-0006K8-00@gondolin.me.apana.org.au>
-References: <412F1269.8090303@eurodev.net>
-Cc: davem@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com,
-	kaber@trash.net
-Return-path: <linux-net-owner@vger.kernel.org>
-To: pablo@eurodev.net (Pablo Neira)
-In-Reply-To: <412F1269.8090303@eurodev.net>
+From: Jon Smirl <jonsmirl@gmail.com>
+Subject: Re: [TRIVIAL] Fix recent bug in fib_semantics.c
+Date: Sat, 18 Sep 2004 11:28:00 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <9e47339104091808282df3dfe8@mail.gmail.com>
+References: <9e47339104091717215e9be08b@mail.gmail.com>
+	 <E1C8T4t-0006ug-00@gondolin.me.apana.org.au>
+	 <9e473391040917183726113e91@mail.gmail.com>
+	 <20040918041627.GA12356@gondor.apana.org.au>
+	 <20040917233108.561c88d6.davem@davemloft.net>
+Reply-To: Jon Smirl <jonsmirl@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, david@gibson.dropbear.id.au,
+        akpm@osdl.org, trivial@rustcorp.com.au, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040917233108.561c88d6.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira <pablo@eurodev.net> wrote:
-> 
-> thanks, I fixed, I shouldn't type at 5 a.m. If any other problem, please 
-> let me know.
+The last patch fixes things so that I can boot. The net is working too.
 
-Sorry I should've reviewed this patch sooner.  It finally caught my
-attention as I went to update the 2.4 IPsec backport.
-
-Firstly there is a sock leak there.  The following patch fixes it.
-The white space damage is not mine :)
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Secondly, I'm dubious about the patch as a whole.  For instance, what
-exactly is the wake_up_process() bit trying to do? Surely that process
-would've been woken up multiple times already if its queue is full.  If
-it can't empty the queue fast enough, what is this extra wake up going
-to achieve?
-
-And what is it going to do with thread groups?
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-===== net/netlink/af_netlink.c 1.52 vs edited =====
---- 1.52/net/netlink/af_netlink.c	2004-08-28 10:11:04 +10:00
-+++ 2.6/net/netlink/af_netlink.c	2004-09-18 20:09:20 +10:00
-@@ -630,7 +630,8 @@
- 
- 			if (!nlwork)
- 				return -1;
--		
-+
-+			sock_hold(sk);
- 			INIT_WORK(&nlwork->work, netlink_wq_handler, nlwork);
- 			nlwork->sk = sk;
- 			nlwork->len = skb->len;
-@@ -683,14 +684,13 @@
- 			netlink_overrun(sk);
- 			/* Clone failed. Notify ALL listeners. */
- 			failure = 1;
--			sock_put(sk);
- 		} else if (netlink_broadcast_deliver(sk, skb2)) {
- 			netlink_overrun(sk);
--			sock_put(sk);
- 		} else {
- 			delivered = 1;
- 			skb2 = NULL;
- 		}
-+		sock_put(sk);
- 	}
- 
- 	netlink_unlock_table();
---
-===== net/netlink/af_netlink.c 1.15 vs edited =====
---- 1.15/net/netlink/af_netlink.c	2004-08-31 10:04:34 +10:00
-+++ 2.4/net/netlink/af_netlink.c	2004-09-18 20:25:29 +10:00
-@@ -549,7 +549,8 @@
- 		
- 			if  (!nlwork) 
- 				return -EAGAIN;
--		
-+
-+			sock_hold(sk);
- 			INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
- 			nlwork->sk = sk;
- 			nlwork->len = skb->len;
-@@ -601,12 +602,11 @@
- 			netlink_overrun(sk);
- 			/* Clone failed. Notify ALL listeners. */
- 			failure = 1;
--			sock_put(sk);
- 		} else if (netlink_broadcast_deliver(sk, skb2)) {
- 			netlink_overrun(sk);
--			sock_put(sk);
- 		} else
- 			skb2 = NULL;
-+		sock_put(sk);
- 	}
- 
- 	netlink_unlock_table();
+Jon Smirl
+jonsmirl@gmail.com
