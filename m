@@ -1,35 +1,42 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Dave Hansen <haveblue@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 6 Sep 2002 17:38:19 +0200
+Date: Fri, 06 Sep 2002 08:38:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15736.52203.840229.604858@robur.slu.se>
-References: <15736.38178.445310.714015@robur.slu.se>
-	<46676537.1031297834@[10.10.2.3]>
+Message-ID: <3D78CBF6.10609@us.ibm.com>
+References: <20020905.235159.128049953.davem@redhat.com> <46202575.1031297360@[10.10.2.3]>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   "David S. Miller" <davem@redhat.com>, akpm@zip.com.au, hadi@cyberus.ca,
+Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
    tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
    niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
-In-Reply-To: <46676537.1031297834@[10.10.2.3]>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Martin J. Bligh wrote:
+>>Stupid question, are you sure you have CONFIG_E1000_NAPI enabled?
+>>
+>>NAPI is also not the panacea to all problems in the world.
+> 
+> No, but I didn't expect throughput to drop by 40% or so either,
+> which is (very roughly) what happened. Interrupts are a pain to
+> manage and do affinity with, so NAPI should (at least in theory)
+> be better for this kind of setup ... I think.
 
-Martin J. Bligh writes:
+No, no.  Bad Martin!  Throughput didn't drop, "Specweb compliance" dropped. 
+  Those are two very, very different things.  I've found that the server 
+can produce a lot more throughput, although it doesn't have the 
+characteristics that Specweb considers compliant.  Just have Troy enable 
+mod-status and look at the throughput that Apache tells you that it is 
+giving during a run.  _That_ is real throughput, not number of compliant 
+connections.
 
+_And_ NAPI is for receive only, right?  Also, my compliance drop occurs 
+with the NAPI checkbox disabled.  There is something else in the new driver 
+that causes our problems.
 
- > We are running from 2.5.latest ... any updates needed for NAPI for the
- > driver in the current 2.5 tree, or is that OK?
-
- Should be OK. Get latest kernel e1000 to get Intel's and maintainers latest 
- work and apply the e1000 NAPI patch. RH includes this patch?
-
- And yes there are plenty of room for improvements...
-
-
- Cheers.
-						--ro
+-- 
+Dave Hansen
+haveblue@us.ibm.com
