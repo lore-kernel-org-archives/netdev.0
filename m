@@ -1,43 +1,45 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV6: Fixed fragment check in ip6_output.c:ip6_fragment()
-Date: Thu, 26 Jun 2003 20:55:40 +0900 (JST)
+From: Daniel Egger <degger@fhm.edu>
+Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
+Date: 26 Jun 2003 15:38:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030626.205540.83592923.yoshfuji@linux-ipv6.org>
+Message-ID: <1056634720.5423.83.camel@sonja>
+References: <200306252248.44224.nf@hipac.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, miyazawa@linux-ipv6.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-W3mKwm6MRxqAiREzWcJx"
+Cc: Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Michael Bellion and Thomas Heinz <nf@hipac.org>
+In-Reply-To: <200306252248.44224.nf@hipac.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-MTU / alignment check in ip6_fragment() was wrong;
-first_len was not correct.
+--=-W3mKwm6MRxqAiREzWcJx
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-Thanks.
+Am Mit, 2003-06-25 um 22.48 schrieb Michael Bellion and Thomas Heinz:
 
-Index: linux-2.5/net/ipv6/ip6_output.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv6/ip6_output.c,v
-retrieving revision 1.29
-diff -u -p -r1.29 ip6_output.c
---- linux-2.5/net/ipv6/ip6_output.c	21 Jun 2003 16:20:41 -0000	1.29
-+++ linux-2.5/net/ipv6/ip6_output.c	26 Jun 2003 10:28:17 -0000
-@@ -939,7 +939,7 @@ static int ip6_fragment(struct sk_buff *
- 	mtu = dst_pmtu(&rt->u.dst) - hlen - sizeof(struct frag_hdr);
- 
- 	if (skb_shinfo(skb)->frag_list) {
--		int first_len = 0;
-+		int first_len = skb_pagelen(skb);
- 
- 		if (first_len - hlen > mtu ||
- 		    ((first_len - hlen) & 7) ||
+>      - libnfhipac: netlink library for kernel-user communication
 
+Is this library actually usable for applications which need to control
+the firewall or is it equally braindead to libiptables?
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+--=20
+Servus,
+       Daniel
+
+--=-W3mKwm6MRxqAiREzWcJx
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: Dies ist ein digital signierter Nachrichtenteil
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQA++vdfchlzsq9KoIYRAqL5AJ9bIwghJoehKAENHLZ+oZeTfo9JuACgiC9w
+PwTOwvadXnrvQ7ULVypqw9g=
+=mr4I
+-----END PGP SIGNATURE-----
+
+--=-W3mKwm6MRxqAiREzWcJx--
