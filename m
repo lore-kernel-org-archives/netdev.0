@@ -1,52 +1,38 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: RE: The ultimate TOE design
-Date: Thu, 16 Sep 2004 13:34:44 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] inet_opt space saving?
+Date: Thu, 16 Sep 2004 13:44:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409162034.i8GKYq39023185@guinness.s2io.com>
-References: <4149BCE9.7040501@us.ibm.com>
+Message-ID: <20040916134405.4093e659.davem@redhat.com>
+References: <20040914151232.115c3eca@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Andi Kleen'" <ak@suse.de>, "'David S. Miller'" <davem@davemloft.net>,
-        "'John Heffner'" <jheffner@psc.edu>, <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Nivedita Singhvi'" <niv@us.ibm.com>
-In-Reply-To: <4149BCE9.7040501@us.ibm.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040914151232.115c3eca@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
+On Tue, 14 Sep 2004 15:12:32 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> -----Original Message-----
-> From: Nivedita Singhvi [mailto:niv@us.ibm.com] 
-> Sent: Thursday, September 16, 2004 9:19 AM
-> To: Leonid Grossman
-> Cc: 'Andi Kleen'; 'David S. Miller'; 'John Heffner'; 
-> netdev@oss.sgi.com
-> Subject: Re: The ultimate TOE design
-> 
-> Leonid Grossman wrote:
-> 
-> > We can dream about benefits of huge MTUs, but the reality is that 
-> > moving beyond 9k MTU is years away. Reasons - mainly 
-> infrastructure, 
-> > plus MTU above ~10k may loose checksum protection (granted, this 
-> > depends whether the errors are simple or complex, and also this may 
-> > not be a showstopper for some people).
-> > Even 9k MTU is very far from being universally accepted, 
-> eight years 
-> > after our Alteon spec went out :-).
-> 
-> One other factor is TCP congestion control, and congestion 
-> windows we obey. Most of the time, you just can't send that much.
+> It looks like there are lots of wasted bytes in the inet information
+> per socket. Does this look right? 
 
-It's a bit painful to setup, but in general with 9k jumbos and TSO we were
-able to get close to pci-x 133 limit - both in LAN and WAN tests.
-Leonid
+I see one error at least.
 
-> 
-> thanks,
-> Nivedita
-> 
-> 
+> +				cmsg_flags: 4,
+
+There are 5 bits, not 4.
+
+#define IP_CMSG_PKTINFO		1
+#define IP_CMSG_TTL		2
+#define IP_CMSG_TOS		4
+#define IP_CMSG_RECVOPTS	8
+#define IP_CMSG_RETOPTS		16
+
+This is also the number of right shifts, plus one, made
+by ip_cmsg_recv().
+
+The rest of your transformations look perfectly fine.
