@@ -1,19 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Unneeded memory barrier in net/irda code
-Date: Sat, 20 Sep 2003 13:57:18 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3F6C94FE.4040008@pobox.com>
-References: <3F676A46.2000304@terra.com.br>
+Subject: Re: [PATCH] replace sppp_of macro with inline
+Date: Sat, 20 Sep 2003 13:57:54 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3F6C9522.2060206@pobox.com>
+References: <20030916165537.310229e6.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: irda-users@lists.sourceforge.net, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Felipe W Damasio <felipewd@terra.com.br>
-In-Reply-To: <3F676A46.2000304@terra.com.br>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030916165537.310229e6.shemminger@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 applied
-
-
