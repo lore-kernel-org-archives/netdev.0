@@ -1,7 +1,8 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.4 4/10] e1000: Delay clean-up of last Tx buffer
-Date: Tue, 15 Feb 2005 13:34:06 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0502151145070.30336-100000@isotope.jf.intel.com>
+Subject: [PATCH net-drivers-2.4 5/10] e1000: Fix WOL settings in 82544 based
+ adapters
+Date: Tue, 15 Feb 2005 13:34:30 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0502151145460.30336-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -10,78 +11,51 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-4 Delay clean-up of last Tx buffer to fix pre-mature writeback of Tx descriptors.
+5 Fix WOL settings in 82544 based adapters
 Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
 diff -up net-drivers-2.4/drivers/net/e1000/e1000.h net-drivers-2.4/drivers/net/e1000.new/e1000.h
 --- net-drivers-2.4/drivers/net/e1000/e1000.h	2005-02-01 23:21:49.120102160 -0800
 +++ net-drivers-2.4/drivers/net/e1000.new/e1000.h	2005-02-01 23:21:50.386909576 -0800
-@@ -211,6 +211,7 @@ struct e1000_adapter {
+@@ -140,6 +140,7 @@ struct e1000_adapter;
+ #define E1000_RX_BUFFER_WRITE	16	/* Must be power of 2 */
  
- 	/* TX */
- 	struct e1000_desc_ring tx_ring;
-+	struct e1000_buffer previous_buffer_info;
- 	spinlock_t tx_lock;
- 	uint32_t txd_cmd;
- 	uint32_t tx_int_delay;
+ #define AUTO_ALL_MODES       0
++#define E1000_EEPROM_82544_APM 0x0004
+ #define E1000_EEPROM_APME    0x0400
+ 
+ #ifndef E1000_MASTER_SLAVE
 diff -up net-drivers-2.4/drivers/net/e1000/e1000_main.c net-drivers-2.4/drivers/net/e1000.new/e1000_main.c
 --- net-drivers-2.4/drivers/net/e1000/e1000_main.c	2005-02-01 23:21:49.122101856 -0800
 +++ net-drivers-2.4/drivers/net/e1000.new/e1000_main.c	2005-02-01 23:21:50.517889664 -0800
-@@ -1093,6 +1093,7 @@ e1000_unmap_and_free_tx_resource(struct 
- 			struct e1000_buffer *buffer_info)
- {
- 	struct pci_dev *pdev = adapter->pdev;
-+
- 	if(buffer_info->dma) {
- 		pci_unmap_page(pdev,
- 			       buffer_info->dma,
-@@ -1121,6 +1122,11 @@ e1000_clean_tx_ring(struct e1000_adapter
+@@ -416,6 +416,7 @@ e1000_probe(struct pci_dev *pdev,
+ 	int i;
+ 	int err;
+ 	uint16_t eeprom_data;
++	uint16_t eeprom_apme_mask = E1000_EEPROM_APME;
  
- 	/* Free all the Tx ring sk_buffs */
+ 	if((err = pci_enable_device(pdev)))
+ 		return err;
+@@ -583,6 +584,11 @@ e1000_probe(struct pci_dev *pdev,
+ 	case e1000_82542_rev2_1:
+ 	case e1000_82543:
+ 		break;
++	case e1000_82544:
++		e1000_read_eeprom(&adapter->hw,
++			EEPROM_INIT_CONTROL2_REG, 1, &eeprom_data);
++		eeprom_apme_mask = E1000_EEPROM_82544_APM;
++		break;
+ 	case e1000_82546:
+ 	case e1000_82546_rev_3:
+ 		if((E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_FUNC_1)
+@@ -597,7 +603,7 @@ e1000_probe(struct pci_dev *pdev,
+ 			EEPROM_INIT_CONTROL3_PORT_A, 1, &eeprom_data);
+ 		break;
+ 	}
+-	if(eeprom_data & E1000_EEPROM_APME)
++	if(eeprom_data & eeprom_apme_mask)
+ 		adapter->wol |= E1000_WUFC_MAG;
  
-+	if (likely(adapter->previous_buffer_info.skb != NULL)) {
-+		e1000_unmap_and_free_tx_resource(adapter, 
-+				&adapter->previous_buffer_info);
-+	}
-+
- 	for(i = 0; i < tx_ring->count; i++) {
- 		buffer_info = &tx_ring->buffer_info[i];
- 		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
-@@ -2195,11 +2201,34 @@ e1000_clean_tx_irq(struct e1000_adapter 
- 	eop_desc = E1000_TX_DESC(*tx_ring, eop);
- 
- 	while(eop_desc->upper.data & cpu_to_le32(E1000_TXD_STAT_DD)) {
-+		/* pre-mature writeback of Tx descriptors     */
-+		/* clear (free buffers and unmap pci_mapping) */
-+		/* previous_buffer_info                       */
-+		if (likely(adapter->previous_buffer_info.skb != NULL)) {
-+			e1000_unmap_and_free_tx_resource(adapter, 
-+					&adapter->previous_buffer_info);
-+		}
-+
- 		for(cleaned = FALSE; !cleaned; ) {
- 			tx_desc = E1000_TX_DESC(*tx_ring, i);
- 			buffer_info = &tx_ring->buffer_info[i];
-+			cleaned = (i == eop);
-+
-+			/* pre-mature writeback of Tx descriptors */
-+			/* save the cleaning of the this for the  */
-+			/* next iteration                         */
-+			if (cleaned) {
-+				memcpy(&adapter->previous_buffer_info,
-+					buffer_info,
-+					sizeof(struct e1000_buffer));
-+				memset(buffer_info,
-+					0,
-+					sizeof(struct e1000_buffer));
-+			} else {
-+				e1000_unmap_and_free_tx_resource(adapter, 
-+							buffer_info);
-+			}
- 
--			e1000_unmap_and_free_tx_resource(adapter, buffer_info);
- 			tx_desc->buffer_addr = 0;
- 			tx_desc->lower.data = 0;
- 			tx_desc->upper.data = 0;
+ 	/* reset the hardware with the new settings */
 	
