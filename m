@@ -1,28 +1,26 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: TCP Retx per tcp-flow
-Date: Fri, 21 Nov 2003 23:00:55 -0800
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: 2.6.0-test9 : bridge freezes
+Date: Sat, 22 Nov 2003 08:20:40 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBF09A7.208@us.ibm.com>
-References: <20031122020527.3f98f772.bedboi@gmx.net>
+Message-ID: <Pine.LNX.4.44.0311220819260.2379-100000@home.osdl.org>
+References: <200311221527.UAA29684@eis.iisc.ernet.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bedboi <bedboi@gmx.net>
-In-Reply-To: <20031122020527.3f98f772.bedboi@gmx.net>
+To: SVR Anand <anand@eis.iisc.ernet.in>
+In-Reply-To: <200311221527.UAA29684@eis.iisc.ernet.in>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-bedboi wrote:
-> Hi guys. I'm comparing TCP with a new congestion control algorithm and i need to get the number
-> of segments retransmitted for a specific TCP flow. Is there a way to do this? (please don't tell
-> man tcpdump...ok you'll tell it)
 
+On Sat, 22 Nov 2003, SVR Anand wrote:
+> 
+> The problem is : After 3 to 4 hours of functioning, the bridge stops working 
+> and the machine becomes unusable where it doesn't respond to keyboard, and 
+> there is no video display.
 
-Tried tcp_info.tcpi_retransmits?
-getsockopt() at SOL_TCP level and option TCP_INFO.
+Sounds like a memory leak somewhere. It would probably be interesting to 
+watch /proc/slabinfo every five minutes or so, and see what happens..
 
-
-thanks,
-Nivedita
+		Linus
