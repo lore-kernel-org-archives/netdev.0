@@ -1,57 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.10-rc1 1/5] dscc4: use of uncompletely initialized struct
-Date: Fri, 14 Jan 2005 01:09:41 +0100
-Message-ID: <20050114000941.GA2219@electric-eye.fr.zoreil.com>
-References: <20050114000732.GA28864@electric-eye.fr.zoreil.com>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: [RFC] Patch to Abstract Ethernet PHY support (using driver model)
+Date: Thu, 13 Jan 2005 17:00:16 -0800
+Message-ID: <20050114010016.GA16635@gate.ebshome.net>
+References: <FC6D9B81-5514-11D9-8D51-000393C30512@freescale.com> <A3A281FF-5525-11D9-80ED-000393C30512@freescale.com> <20050106070245.GA6539@gate.ebshome.net> <61A37C72-659C-11D9-8D70-000393C30512@freescale.com> <20050113212152.GA16041@gate.ebshome.net> <20050113215808.GA15124@wohnheim.fh-wedel.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Andy Fleming <afleming@freescale.com>,
+        Kumar Gala <kumar.gala@freescale.com>, Netdev <netdev@oss.sgi.com>,
+        Embedded PPC Linux list <linuxppc-embedded@ozlabs.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: J?rn Engel <joern@wohnheim.fh-wedel.de>
 Content-Disposition: inline
-In-Reply-To: <20050114000732.GA28864@electric-eye.fr.zoreil.com>
+In-Reply-To: <20050113215808.GA15124@wohnheim.fh-wedel.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-dscc4_set_quartz() is issued with an argument in an unitialized state and
-the kernel does not like it.
+On Thu, Jan 13, 2005 at 10:58:08PM +0100, J?rn Engel wrote:
+> On Thu, 13 January 2005 13:21:52 -0800, Eugene Surovegin wrote:
+> > 
+> > It's a standard, period. If there is a PHY which isn't compliant I
+> > guess it will not work anyway, but in this case, yes, we can use
+> > PHY-specific link detection, but only in this case. I suspect you'll
+> > have a hard time finding such PHY :)
+> 
+> http://www.broadcom.com/collateral/pb/5325-PB05-R.pdf
+> 
+> With some thinking and very little code, you can use this neat chip
+> almost like a normal phy.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Yeah, but why would I want to? If you connect your MAC to any 5 PHYs 
+my statement still stands, if directly to MII you don't need any PHY 
+stuff at all, because link is always ON and speed/duplex is fixed.
 
-diff -puN drivers/net/wan/dscc4.c~dscc4-000 drivers/net/wan/dscc4.c
---- linux-2.6.11-rc1/drivers/net/wan/dscc4.c~dscc4-000	2005-01-13 23:57:53.017533390 +0100
-+++ linux-2.6.11-rc1-fr/drivers/net/wan/dscc4.c	2005-01-14 00:06:01.600966142 +0100
-@@ -905,9 +905,7 @@ static int dscc4_found1(struct pci_dev *
- 		goto err_free_dev2;
- 	}
- 	memset(ppriv, 0, sizeof(struct dscc4_pci_priv));
--	ret = dscc4_set_quartz(root, quartz);
--	if (ret < 0)
--		goto err_free_priv;
-+
- 	ppriv->root = root;
- 	spin_lock_init(&ppriv->lock);
- 
-@@ -951,6 +949,11 @@ static int dscc4_found1(struct pci_dev *
- 			goto err_unregister;
- 	        }
- 	}
-+
-+	ret = dscc4_set_quartz(root, quartz);
-+	if (ret < 0)
-+		goto err_unregister;
-+
- 	pci_set_drvdata(pdev, ppriv);
- 	return ret;
- 
-@@ -959,7 +962,6 @@ err_unregister:
- 		dscc4_release_ring(root + i);
- 		unregister_hdlc_device(dscc4_to_dev(&root[i]));
- 	}
--err_free_priv:
- 	kfree(ppriv);
- err_free_dev2:
- 	for (i = 0; i < dev_per_card; i++)
+In fact, we use different switch chips connected to PPC4xx directly. 
+In this situation, in my NAPI IBM EMAC driver I just have special 
+"PHY-less" case which is trivial "fixed settings" one. And all this 
+PHY lib is completely unneeded bloat.
 
-_
+--
+Eugene
