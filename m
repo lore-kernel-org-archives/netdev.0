@@ -1,38 +1,40 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: pskb change in dst->output
-Date: Fri, 9 Jul 2004 12:36:08 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040709123608.1f9f9265.davem@redhat.com>
-References: <20040709081443.GA11101@gondor.apana.org.au>
-	<Xine.LNX.4.44.0407091001460.3887-100000@thoron.boston.redhat.com>
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: preliminary conclusions regarding window size issues
+Date: Fri, 9 Jul 2004 22:24:49 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040709202449.GA21348@outpost.ds9a.nl>
+References: <20040707232757.GA14471@outpost.ds9a.nl> <1089323824.27085.6.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0407091001460.3887-100000@thoron.boston.redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>,
+	Stephen Hemminger <shemminger@osdl.org>, jamie@shareable.org,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	LKML Mailinglist <linux-kernel@vger.kernel.org>,
+	ALESSANDRO.SUARDI@ORACLE.COM
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Redeeman <lkml@metanurb.dk>
+Content-Disposition: inline
+In-Reply-To: <1089323824.27085.6.camel@localhost>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Jul 2004 10:02:25 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
+On Thu, Jul 08, 2004 at 11:57:04PM +0200, Redeeman wrote:
+> hey bert, a little update on things.
+> for 2 days ago, when we chatted on irc first, i could reach lkml.org,
+> however, i had played abit with various settings.. i cant get that
+> working now, neither can i get tcpdump to give me info....
 
-> On Fri, 9 Jul 2004, Herbert Xu wrote:
-> 
-> > On Thu, Jul 08, 2004 at 02:02:35PM +1000, herbert wrote:
-> > > 
-> > > That's only because the dst->output() functions are calling
-> > > skb_checksum_help().  Since those same functions assume the
-> > > skb to be "uncloned" anyway (they modify it directly by adding
-> > > headers etc.), they only need to call a version of
-> > > skb_checksum_help() that does not do a copy of the skb.
-> > 
-> > If there are no objections, I'd like to create a version of
-> > skb_checksum_help() that doesn't copy the packet, and call
-> > that version from ah_output()/esp_output()/ipcomp_output().
-> 
-> This will break when cloned packets are passed to these functions.
+This has been resolved as an IPv6 routing issue - lkml.org also has an AAAA
+record but Redeeman's IPv6 is not fully functional.
 
-James is right Herbert.  TCP will send clones down into these routines
-all the time.
+Regarding the packages.gentoo.org kernel, 'NQWOLK' has been coined :-)
+
+Alessandro, shall we try the MSS clamp route to further determine what is
+going on? With packages.gentoo.org the TCP behaviour confirmed that a 'smart
+firewall' was to blame and not something that stamped over the wscale,
+perhaps we can narrow down your problem as well.
+
+Thanks.
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
