@@ -1,24 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: patch: Mirred action
-Date: Tue, 19 Oct 2004 22:02:13 -0700
+Subject: Re: [PATCH] Remove bogus #ifdef CONFIG_SYSCTL in TCP
+Date: Tue, 19 Oct 2004 22:07:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041019220213.0eeee916.davem@davemloft.net>
-References: <1097498972.15075.7.camel@jzny.localdomain>
+Message-ID: <20041019220702.052aa0a4.davem@davemloft.net>
+References: <20041012163806.GA4223@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1097498972.15075.7.camel@jzny.localdomain>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20041012163806.GA4223@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 11 Oct 2004 08:49:32 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Tue, 12 Oct 2004 18:38:06 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-> I am gonna start trickling these actions/driver patches to you.
+> Modular IPv6 needs these variables always exported, even when 
+> CONFIG_SYSCTL is not enabled.
 > 
-> signed off by me
+> Signed-off-by: Andi Kleen <ak@suse.de>
 
-Applied, thanks Jamal.
+Applied, thanks Andi.
