@@ -1,48 +1,26 @@
-From: Russ Housley <housley@vigilsec.com>
-Subject: RE: tunneling in linux (was: Re: [PATCH][RFC] etherip:
-  Ethernet-i n-IPv4 tunneling)
-Date: Tue, 18 Jan 2005 11:57:28 -0500
-Message-ID: <6.2.0.14.2.20050118115647.05617eb0@mail.binhost.com>
-References: <046F43A8D79C794FA4733814869CDF07057840@dul1wnexmb01.vcorp.ad.vrsn.com> <046F43A8D79C794FA4733814869CDF07057840@dul1wnexmb01.vcorp.
- ad.vrsn.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] [IPV6]: Ensure to learn link-layer address from RA.
+Date: Tue, 18 Jan 2005 13:23:28 -0800
+Message-ID: <20050118132328.07cd3cab.davem@davemloft.net>
+References: <20050118.223718.112287192.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-        "'Pekka Savola'" <pekkas@netcore.fi>,
-        "'shemminger@osdl.org'" <shemminger@osdl.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Hollenbeck, Scott" <shollenbeck@verisign.com>,
-        "'Lennert Buytenhek'" <buytenh@wantstofly.org>,
-        "'jamal'" <hadi@cyberus.ca>
-In-Reply-To: <046F43A8D79C794FA4733814869CDF07057840@dul1wnexmb01.vcorp.
- ad.vrsn.com>
-References: <046F43A8D79C794FA4733814869CDF07057840@dul1wnexmb01.vcorp.ad.vrsn.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050118.223718.112287192.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The protocol is also used in one of the BSD distributions as part of a VPN 
-tunnelling solution.
+On Tue, 18 Jan 2005 22:37:18 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-Russ
+> Here's a patch to ensure to learn link-layer address from RA.
+> 
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-At 07:54 AM 1/18/2005, Hollenbeck, Scott wrote:
-> > > BTW, in one of your emails i
-> > > noticed you cced the authors of that RFC - did they
-> > respond? Whats their
-> > > deployment experiences?
-> >
-> > The @rsa.. address bounces, the other address is still in the CC list
-> > and I didn't hear from him yet :-)
->
->The correct current address for Russ is housley@vigilsec.com.  I've cc'd him
->here.
->
->So what do you want to hear?  As the RFC says, etherIP documents work that
->Russ and I did at Xerox during the early 1990s.  It was developed and
->deployed for use in conjunction with the Xerox Encryption Unit (XEU), a
->layer 2 (Ethernet/802.3) network encryption device.  As the XEU was never a
->big seller etherIP never really got "out there", either, but it certainly
->worked in the environment for which it was intended.
->
->-Scott-
+Looks good, applied.
+
+Thanks.
