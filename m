@@ -1,30 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPSEC] Merge xfrm4_bundle_ok/xfrm6_bundle_ok/stale_bundle
-Date: Tue, 15 Feb 2005 14:17:43 -0800
-Message-ID: <20050215141743.1010f2e6.davem@davemloft.net>
-References: <20050129123803.GA17390@gondor.apana.org.au>
+From: Chris Wright <chrisw@osdl.org>
+Subject: Re: [RFC][PATCH 2/3] netlink check sender, audit
+Date: Tue, 15 Feb 2005 14:22:46 -0800
+Message-ID: <20050215222246.GI15867@shell0.pdx.osdl.net>
+References: <20050212010109.V24171@build.pdx.osdl.net> <20050212010243.W24171@build.pdx.osdl.net> <20050212010504.X24171@build.pdx.osdl.net> <420E334B.8060805@eurodev.net> <420E77FA.6080007@eurodev.net> <20050215001334.GB27645@shell0.pdx.osdl.net> <42115E7E.6050909@eurodev.net> <20050215034708.GG27645@shell0.pdx.osdl.net> <4212757D.5070401@eurodev.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050129123803.GA17390@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com, davem@davemloft.net,
+        jmorris@redhat.com, sds@epoch.ncsc.mil, serue@us.ibm.com
+To: Pablo Neira <pablo@eurodev.net>
+Content-Disposition: inline
+In-Reply-To: <4212757D.5070401@eurodev.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 Jan 2005 23:38:03 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> This patch merges __xfrm4_bundle_ok/__xfrm6_bundle_ok/stale_bundle
-> so that when I add MTU verification code I don't have to put it in
-> three places.
+* Pablo Neira (pablo@eurodev.net) wrote:
 > 
-> It also moves the tests on dst->dev and dst->obsolete outside the
-> loop since the former is identical throughout the bundle and the
-> latter can only be positive on the final element which also happens
-> to be dst->path.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> I agree, maybe something like the example patch attached. Hope that helps.
 
-Applied to my 2.6.12-pending tree.  Thanks a lot.
+This is better, but...
+
+> -netlink_kernel_create(int unit, void (*input)(struct sock *sk, int len))
+> +netlink_kernel_create(int unit, struct netlink_ops *nlops)
+
+...this is exported interface, so would probably require a new function.
+
+thanks,
+-chris
+-- 
+Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
