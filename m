@@ -1,37 +1,25 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: IPv6 MIB:ipv6PrefixTable implementation
-Date: Tue, 2 Dec 2003 15:40:07 +0300 (MSK)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
+Date: 02 Dec 2003 07:47:03 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200312021240.PAA01536@yakov.inr.ac.ru>
-References: <200311191621.38087.mashirle@us.ibm.com>
+Message-ID: <1070369223.1027.34.camel@jzny.localdomain>
+References: <072501c3b874$2542ae70$15fea8c0@fortress>
+	 <16332.27919.502097.988522@robur.slu.se>
+	 <20031202032606.28db927b.davem@redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, xma@us.ibm.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, francois@baligant.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mashirle@us.ibm.com (Shirley Ma)
-In-Reply-To: <200311191621.38087.mashirle@us.ibm.com> from "Shirley Ma" at Ноя 19, 2003 04:21:38 
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031202032606.28db927b.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> One implementation detail question, do you think I need to save all the o=
-> ther=20
-> Prefix Objects: Type, Origin(addrconf, manually, dhcp, others),
+With that many flows the neighbor cache gc may also be killing him.
 
-These two things should be stored right now. Existing implementation is
-quite a mess, but we definitely want to remember origin of each route
-in "protocol" and another flags, they are of common interest.
-
-
-> AutonomoueFlag, AdvPreferredLiftTime and ValidLifeTime
-
-ValidLifeTime is "expires" on this route.
-
-What's about AdvPreferredLiftTime I am puzzled a little,
-preferred time is not an attribute of a prefix at all,
-it is attribute of address, is not it? Unless the prefix is used
-to install local address it does not make sense, right?
-
-Alexey
+cheers,
+jamal
