@@ -1,41 +1,92 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: Tue, 11 Jan 2005 00:30:47 +0100
-Message-ID: <20050110233047.GC26856@postel.suug.ch>
-References: <20050105110048.GO26856@postel.suug.ch> <1104931991.1117.152.camel@jzny.localdomain> <20050105144514.GQ26856@postel.suug.ch> <1105019225.2312.7.camel@jzny.localdomain> <20050106194102.GW26856@postel.suug.ch> <1105105511.1046.77.camel@jzny.localdomain> <20050108145457.GZ26856@postel.suug.ch> <1105363582.1041.162.camel@jzny.localdomain> <20050110211747.GA26856@postel.suug.ch> <1105394738.1085.63.camel@jzny.localdomain>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH[ via-ircc: fix exit section usage
+Date: Mon, 10 Jan 2005 16:43:54 -0800
+Message-ID: <20050111004354.GO14400@bougret.hpl.hp.com>
+References: <20050106230803.00714c45.rddunlap@osdl.org>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, jgarzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <1105394738.1085.63.camel@jzny.localdomain>
+In-Reply-To: <20050106230803.00714c45.rddunlap@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1105394738.1085.63.camel@jzny.localdomain> 2005-01-10 17:05
-> On Mon, 2005-01-10 at 16:17, Thomas Graf wrote:
-> > * jamal <1105363582.1041.162.camel@jzny.localdomain> 2005-01-10 08:26
-> > > I think its _a hack_ Thomas ;-> Mostly because it has dependency on u32.
-> > > off2 doesnt exist on any other classifier and the basic ematch should be
-> > > usable by any classifier.
-> > 
-> > It does not, u32 does have a dependency on em_u32 but not vice versa.
-> > em_u32 is perfectly useful even without nexthdr functionality since
-> > this is the way it is used today in 90% of the cases and it should be
-> > a little bit faster than em_cmp but also a bit less powerful. On top
-> > of that, rsvp could provide this information as well so one could
-> > extend rsvp with em_u32 ematches. I think we should not think of it
-> > as being dependant on off2 but rather as it is able to use information
-> > from a underlying layer.
+On Thu, Jan 06, 2005 at 11:08:03PM -0800, Randy.Dunlap wrote:
 > 
-> Ok, you make a convincing arguement ;-> No more concerns from my side.
-> Churn that code!
+> Fix exit section usage, starting with this Error
+> from reference_discarded.pl (make buildcheck):
+> Error: ./drivers/net/irda/via-ircc.o .data refers to 000000f8 R_386_32          .exit.text
+> 
+> Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
 
-I started testing via the basic classifier but will do the cls_u32
-changes soon and then remerge and do the final tests once all the
-other pkt_sched changes have made it into linus's tree and I can
-work from a fresh bk tree. I'll also try to find the time this week
-to do the iproute2 changes for the tcf_exts changset so iproute2 is
-actually capable of configuring actions for all classifiers.
+	Sounds good to me ;-)
+
+	Jean
+
+> diffstat:=
+>  drivers/net/irda/via-ircc.c |   12 ++++++------
+>  1 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff -Naurp ./drivers/net/irda/via-ircc.c~irda_via_devexit ./drivers/net/irda/via-ircc.c
+> --- ./drivers/net/irda/via-ircc.c~irda_via_devexit	2004-12-24 13:33:47.000000000 -0800
+> +++ ./drivers/net/irda/via-ircc.c	2005-01-06 21:18:49.742203456 -0800
+> @@ -83,7 +83,7 @@ static struct via_ircc_cb *dev_self[] = 
+>  
+>  /* Some prototypes */
+>  static int via_ircc_open(int i, chipio_t * info, unsigned int id);
+> -static int __exit via_ircc_close(struct via_ircc_cb *self);
+> +static int via_ircc_close(struct via_ircc_cb *self);
+>  static int via_ircc_dma_receive(struct via_ircc_cb *self);
+>  static int via_ircc_dma_receive_complete(struct via_ircc_cb *self,
+>  					 int iobase);
+> @@ -111,7 +111,7 @@ static void hwreset(struct via_ircc_cb *
+>  static int via_ircc_dma_xmit(struct via_ircc_cb *self, u16 iobase);
+>  static int upload_rxdata(struct via_ircc_cb *self, int iobase);
+>  static int __devinit via_init_one (struct pci_dev *pcidev, const struct pci_device_id *id);
+> -static void __exit via_remove_one (struct pci_dev *pdev);
+> +static void __devexit via_remove_one (struct pci_dev *pdev);
+>  
+>  /* FIXME : Should use udelay() instead, even if we are x86 only - Jean II */
+>  static void iodelay(int udelay)
+> @@ -140,7 +140,7 @@ static struct pci_driver via_driver = {
+>  	.name		= VIA_MODULE_NAME,
+>  	.id_table	= via_pci_tbl,
+>  	.probe		= via_init_one,
+> -	.remove		= via_remove_one,
+> +	.remove		= __devexit_p(via_remove_one),
+>  };
+>  
+>  
+> @@ -273,7 +273,7 @@ static int __devinit via_init_one (struc
+>   *    Close all configured chips
+>   *
+>   */
+> -static void __exit via_ircc_clean(void)
+> +static void via_ircc_clean(void)
+>  {
+>  	int i;
+>  
+> @@ -285,7 +285,7 @@ static void __exit via_ircc_clean(void)
+>  	}
+>  }
+>  
+> -static void __exit via_remove_one (struct pci_dev *pdev)
+> +static void __devexit via_remove_one (struct pci_dev *pdev)
+>  {
+>  	IRDA_DEBUG(3, "%s()\n", __FUNCTION__);
+>  
+> @@ -468,7 +468,7 @@ static __devinit int via_ircc_open(int i
+>   *    Close driver instance
+>   *
+>   */
+> -static int __exit via_ircc_close(struct via_ircc_cb *self)
+> +static int via_ircc_close(struct via_ircc_cb *self)
+>  {
+>  	int iobase;
+>  
+> 
+> ---
