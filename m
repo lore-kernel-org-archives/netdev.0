@@ -1,8 +1,8 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] kill drivers/net/setup.c
-Date: Wed, 4 Jun 2003 20:16:27 +0200
+Subject: [PATCH] switch skfp over to initcalls
+Date: Wed, 4 Jun 2003 20:18:09 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030604181627.GA24733@lst.de>
+Message-ID: <20030604181809.GA24779@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -11,166 +11,194 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The last two drivers are ppc 8xx system devices and Paul (ppc
-maintainer) said I should just send this patch along, the 8xx
-guys will have to deal with a possible breakage when brining
-up their port for 2.5/2.6 again.  (Not that I expect anything
-bad to happen..)
+This is a PCI driver and has no business in Space.c.  Also
+allows to kill all the fddi code in there (and the stale
+reference to the long gone apfddi driver)
 
 
---- 1.8/arch/ppc/8260_io/enet.c	Sun Apr 27 13:56:50 2003
-+++ edited/arch/ppc/8260_io/enet.c	Tue Jun  3 22:08:59 2003
-@@ -608,7 +608,7 @@
+--- 1.20/drivers/net/Space.c	Wed May 21 03:56:26 2003
++++ edited/drivers/net/Space.c	Tue Jun  3 22:17:09 2003
+@@ -105,9 +105,6 @@
+ /* Detachable devices ("pocket adaptors") */
+ extern int de620_probe(struct net_device *);
  
- /* Initialize the CPM Ethernet on SCC.
-  */
--int __init scc_enet_init(void)
-+static int __init scc_enet_init(void)
- {
- 	struct net_device *dev;
- 	struct scc_enet_private *cep;
-@@ -860,3 +860,4 @@
- 	return 0;
+-/* FDDI adapters */
+-extern int skfp_probe(struct net_device *dev);
+-
+ /* Fibre Channel adapters */
+ extern int iph5526_probe(struct net_device *dev);
+ 
+@@ -401,29 +398,6 @@
+ 	return -ENODEV;
  }
  
-+module_init(scc_enet_init);
---- 1.9/arch/ppc/8260_io/fcc_enet.c	Sun Apr 27 13:56:50 2003
-+++ edited/arch/ppc/8260_io/fcc_enet.c	Tue Jun  3 22:08:59 2003
-@@ -1323,7 +1323,7 @@
- 
- /* Initialize the CPM Ethernet on FCC.
-  */
--int __init fec_enet_init(void)
-+static int __init fec_enet_init(void)
- {
- 	struct net_device *dev;
- 	struct fcc_enet_private *cep;
-@@ -1394,6 +1394,7 @@
- 
- 	return 0;
- }
-+module_init(fec_enet_init);
- 
- /* Make sure the device is shut down during initialization.
- */
---- 1.10/arch/ppc/8xx_io/enet.c	Mon Sep 16 06:51:56 2002
-+++ edited/arch/ppc/8xx_io/enet.c	Tue Jun  3 22:08:59 2003
-@@ -639,7 +639,7 @@
-  * transmit and receive to make sure we don't catch the CPM with some
-  * inconsistent control information.
-  */
--int __init scc_enet_init(void)
-+static int __init scc_enet_init(void)
- {
- 	struct net_device *dev;
- 	struct scc_enet_private *cep;
-@@ -964,3 +964,5 @@
- 
- 	return 0;
- }
-+
-+module_init(scc_enet_init);
---- 1.13/arch/ppc/8xx_io/fec.c	Tue Dec 31 22:10:48 2002
-+++ edited/arch/ppc/8xx_io/fec.c	Tue Jun  3 22:09:00 2003
-@@ -1566,7 +1566,7 @@
- 
- /* Initialize the FEC Ethernet on 860T.
-  */
--int __init fec_enet_init(void)
-+static int __init fec_enet_init(void)
- {
- 	struct net_device *dev;
- 	struct fec_enet_private *fep;
-@@ -1782,6 +1782,7 @@
- 
- 	return 0;
- }
-+module_init(fec_enet_init);
- 
- /* This function is called to start or restart the FEC during a link
-  * change.  This only happens when switching between half and full
---- 1.16/drivers/net/setup.c	Wed Jun  4 07:13:57 2003
-+++ edited/drivers/net/setup.c	Tue Jun  3 22:12:10 2003
-@@ -1,54 +0,0 @@
--
--/*
-- *	New style setup code for the network devices
-- */
-- 
--#include <linux/config.h>
--#include <linux/netdevice.h>
--#include <linux/errno.h>
--#include <linux/init.h>
--#include <linux/netlink.h>
--
--extern int scc_enet_init(void); 
--extern int fec_enet_init(void); 
--
--/*
-- *	Devices in this list must do new style probing. That is they must
-- *	allocate their own device objects and do their own bus scans.
-- */
--
--struct net_probe
+-#ifdef CONFIG_FDDI
+-static int __init fddiif_probe(struct net_device *dev)
 -{
--	int (*probe)(void);
--	int status;	/* non-zero if autoprobe has failed */
--};
-- 
--static struct net_probe pci_probes[] __initdata = {
--	/*
--	 *	Early setup devices
--	 */
--#if defined(CONFIG_SCC_ENET)
--        {scc_enet_init, 0},
+-    unsigned long base_addr = dev->base_addr;
+-
+-    if (base_addr == 1)
+-	    return 1;		/* ENXIO */
+-
+-    if (1
+-#ifdef CONFIG_APFDDI
+-	&& apfddi_init(dev)
 -#endif
--#if defined(CONFIG_FEC_ENET)
--        {fec_enet_init, 0},
+-#ifdef CONFIG_SKFP
+-	&& skfp_probe(dev)
 -#endif
--	{NULL, 0},
--};
--
--
--/*
-- *	Run the updated device probes. These do not need a device passed
-- *	into them.
-- */
-- 
--void __init net_device_init(void)
--{
--	struct net_probe *p = pci_probes;
--
--	while (p->probe != NULL)
--	{
--		p->status = p->probe();
--		p++;
--	}
+-	&& 1 ) {
+-	    return 1;	/* -ENODEV or -EAGAIN would be more accurate. */
+-    }
+-    return 0;
 -}
---- 1.83/net/core/dev.c	Mon May 26 07:16:23 2003
-+++ edited/net/core/dev.c	Tue Jun  3 22:12:01 2003
-@@ -2861,15 +2861,8 @@
-  *	unhooks any devices that fail to initialise (normally hardware not
-  *	present) and leaves us with a valid list of present and active devices.
-  *
-- */
--
--extern void net_device_init(void);
--extern void ip_auto_config(void);
+-#endif
 -
 -
--/*
-- *       This is called single threaded during boot, so no need
-- *       to take the rtnl semaphore.
-+ *	This is called single threaded during boot, so no need
-+ *	to take the rtnl semaphore.
-  */
- static int __init net_dev_init(void)
+ #ifdef CONFIG_NET_FC
+ static int fcif_probe(struct net_device *dev)
  {
-@@ -3003,7 +2996,6 @@
- 	 *	Initialise network devices
- 	 */
+@@ -614,52 +588,6 @@
+ #define      NEXT_DEV        (&tr0_dev)
  
--	net_device_init();
- 	rc = 0;
- out:
- 	return rc;
+ #endif 
+-
+-#ifdef CONFIG_FDDI
+-static struct net_device fddi7_dev = {
+-	.name		= "fddi7",
+-	.next		=  NEXT_DEV,
+-	.init		= fddiif_probe
+-};
+-static struct net_device fddi6_dev = {
+-	.name		= "fddi6",
+-	.next		= &fddi7_dev,
+-	.init		= fddiif_probe
+-};
+-static struct net_device fddi5_dev = {
+-	.name		= "fddi5",
+-	.next		= &fddi6_dev,
+-	.init		= fddiif_probe
+-};
+-static struct net_device fddi4_dev = {
+-	.name		= "fddi4",
+-	.next		= &fddi5_dev,
+-	.init		= fddiif_probe
+-};
+-static struct net_device fddi3_dev = {
+-	.name		= "fddi3",
+-	.next		= &fddi4_dev,
+-	.init		= fddiif_probe
+-};
+-static struct net_device fddi2_dev = {
+-	.name		= "fddi2",
+-	.next		= &fddi3_dev,
+-	.init		= fddiif_probe
+-};
+-static struct net_device fddi1_dev = {
+-	.name		= "fddi1",
+-	.next		= &fddi2_dev,
+-	.init		= fddiif_probe
+-};
+-static struct net_device fddi0_dev = {
+-	.name		= "fddi0",
+-	.next		= &fddi1_dev,
+-	.init		= fddiif_probe
+-};
+-#undef	NEXT_DEV
+-#define	NEXT_DEV	(&fddi0_dev)
+-#endif 
+-
+ 
+ #ifdef CONFIG_NET_FC
+ static struct net_device fc1_dev = {
+--- 1.12/drivers/net/skfp/skfddi.c	Fri May  9 02:40:17 2003
++++ edited/drivers/net/skfp/skfddi.c	Tue Jun  3 22:19:04 2003
+@@ -2539,72 +2539,25 @@
+ }				// drv_reset_indication
+ 
+ 
+-
+-//--------------- functions for use as a module ----------------
+-
+-#ifdef MODULE
+-/************************
+- *
+- * Note now that module autoprobing is allowed under PCI. The
+- * IRQ lines will not be auto-detected; instead I'll rely on the BIOSes
+- * to "do the right thing".
+- *
+- ************************/
+-#define LP(a) ((struct s_smc*)(a))
+ static struct net_device *mdev;
+ 
+-/************************
+- *
+- * init_module
+- *
+- *  If compiled as a module, find
+- *  adapters and initialize them.
+- *
+- ************************/
+-int init_module(void)
++static int __init skfd_init(void)
+ {
+ 	struct net_device *p;
+ 
+-	PRINTK(KERN_INFO "FDDI init module\n");
+ 	if ((mdev = insert_device(NULL, skfp_probe)) == NULL)
+ 		return -ENOMEM;
+ 
+-	for (p = mdev; p != NULL; p = LP(p->priv)->os.next_module) {
+-		PRINTK(KERN_INFO "device to register: %s\n", p->name);
++	for (p = mdev; p != NULL; p = ((struct s_smc *)p->priv)->os.next_module) {
+ 		if (register_netdev(p) != 0) {
+ 			printk("skfddi init_module failed\n");
+ 			return -EIO;
+ 		}
+ 	}
+ 
+-	PRINTK(KERN_INFO "+++++ exit with success +++++\n");
+ 	return 0;
+-}				// init_module
++}
+ 
+-/************************
+- *
+- * cleanup_module
+- *
+- *  Release all resources claimed by this module.
+- *
+- ************************/
+-void cleanup_module(void)
+-{
+-	PRINTK(KERN_INFO "cleanup_module\n");
+-	while (mdev != NULL) {
+-		mdev = unlink_modules(mdev);
+-	}
+-	return;
+-}				// cleanup_module
+-
+-
+-/************************
+- *
+- * unlink_modules
+- *
+- *  Unregister devices and release their memory.
+- *
+- ************************/
+ static struct net_device *unlink_modules(struct net_device *p)
+ {
+ 	struct net_device *next = NULL;
+@@ -2638,5 +2591,11 @@
+ 	return next;
+ }				// unlink_modules
+ 
++static void __exit skfd_exit(void)
++{
++	while (mdev)
++		mdev = unlink_modules(mdev);
++}
+ 
+-#endif				/* MODULE */
++module_init(skfd_init);
++module_exit(skfd_exit);
