@@ -1,31 +1,52 @@
-From: Praveen Kumar Amritaluru <praveen@india.hp.com>
-Subject: Re: zero window probes on linux (fwd)
-Date: Wed, 14 Apr 2004 14:27:09 +0530 (IST)
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] ip multicast, kernel 2.4.2*, 2.6.*
+Date: Wed, 14 Apr 2004 02:06:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404140857.OAA03903@shilpa.india.hp.com>
-References: <20040413205035.447c925c.ak@suse.de>
+Message-ID: <OF0F96BFF9.CF0962DF-ON88256E76.0030A322-88256E76.003206F4@us.ibm.com>
+References: <20040414041731.GA2010@safenet-inc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="US-ASCII"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20040413205035.447c925c.ak@suse.de> from Andi Kleen at Apr "13," 2004 "08:50:35" pm
+In-Reply-To: <20040414041731.GA2010@safenet-inc.com>
+To: Lauri Tarkkala <ltarkkala@safenet-inc.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > 	This  seems  to be a bug.  Has it been  already  fixed in  later
-> > 	kernel versions or is this how it is intended to remain?
-> 
-> iirc this was intentional. The RFC suggested method doesn't work when talking to 
-> some stacks.
-> 
+Lauri Tarkkala wrote on 04/13/2004 09:17:31 PM:
 
-	But  that  cannot  be  valid  enough   justification  for  doing
-	something against RFC right?
+> The reason for this processing (my guess), is that the inbound
+> (duplicate) packet will not be sent, unless the original
+> passes the netfilter hooks. This has the side-effect that netfilter
+> hooks have no way of detecting whether packets are intended to or are
+> going to be looped back. The looped-back packet will of course still go
+> through the inbound hooks.
 
-	Is there anyone who is aware/confirm the  reason/history?  Is it
-	the above reason mentioned by Andy?
+If a packet doesn't pass the outbound hooks, won't your patch still
+deliver it locally? Isn't that wrong?
 
+I think the reason it creates a duplicate is because there are two
+cases-- one to be sent to the interface and one to be delivered
+locally. The one going out the interface should pass the outbound
+checks (only) and the one delivered locally should pass (I think)
+first the outbound filter and then the inbound filter. Right?
 
-> -Andi
+Whether a particular multicast packet should be looped back or not
+is not static-- it's determined by the sender (and different senders
+may have different IP_MULTICAST_LOOP settings for the same group on
+the same machine). So, there is no answer for netfilter that applies
+to all multicast packets or even for all for a particular <group,intf>.
+
+Under what circumstances does netfilter need to "detect whether packets
+are intended to or are going to be looped back?"
+
+> This is quite error-prone, both in terms of configuring policy for
+> netfilter modules, not to mention optimization and implementation. There
+> are also some cases that just can not be handled correctly.
+
+What does it break? Can you give an example?
+
+I'm not saying I disagree (or agree) with your patch yet-- haven't looked
+at it enough. Just trying to understand what it fixes.
+
+                                                +-DLS
