@@ -1,59 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.6.0-test9] QoS HTB crash...
-Date: Thu, 30 Oct 2003 13:08:59 -0800
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Linux kernel updates and ip_crossover patch
+Date: Fri, 31 Oct 2003 04:16:02 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031030130859.605f856d.davem@redhat.com>
-References: <26412.1067530225@www3.gmx.net>
-	<Pine.LNX.4.33.0310302047440.11221-100000@devix>
+Message-ID: <20031031041602.0fc4f8b1.ak@suse.de>
+References: <OF5B9BCA99.0441857B-ON65256DCF.004761FF-65256DCF.004828A5@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: daniel.blueman@gmx.net, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        linux-kernel@vger.kernel.org
+Cc: olh@suse.de, aprasad@in.ibm.com, kaena@us.ibm.com, mfrueh@suse.de,
+        olaf@suse.de, netdev@oss.sgi.com, mehul.patel@in.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: devik <devik@cdi.cz>
-In-Reply-To: <Pine.LNX.4.33.0310302047440.11221-100000@devix>
+To: Mehulkumar J Patel <mehul.patel@in.ibm.com>
+In-Reply-To: <OF5B9BCA99.0441857B-ON65256DCF.004761FF-65256DCF.004828A5@in.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Oct 2003 20:50:16 +0100 (CET)
-devik <devik@cdi.cz> wrote:
+On Thu, 30 Oct 2003 18:33:57 +0530
+Mehulkumar J Patel <mehul.patel@in.ibm.com> wrote:
 
-> thanks for the report. I know that there is an issue regarding
-> HTB in 2.6.x. Please send me net/sched/sch_htb.o,
-> net/sched/sch_htb.c (just to be sure) and be sure that you
-> build the kernel with debugging symbols (see debugging section
-> of menuconfig/xconfig).
+> Any update on this.
+> 
+> Basically we need IP CROSSOVER patch to be part of pseries kernel.
 
-I think the problem is the changes that were made
-in 2.5.x to htb_next_rb_node().  It used to be:
+I don't think it will happen anytime soon.  But the ip_crossover patch
+just create a single file which is a self contained module. You can compile
+that file outside the kernel tree and load it into your running kernel.
 
-static void htb_next_rb_node(rb_node_t **n)
-{
-        rb_node_t *p;
-        if ((*n)->rb_right) {
-                /* child at right. use it or its leftmost ancestor */
-                *n = (*n)->rb_right;
-                while ((*n)->rb_left)
-                        *n = (*n)->rb_left;
-                return;
-        }
-        while ((p = (*n)->rb_parent) != NULL) {
-                /* if we've arrived from left child then we have next node */
-                if (p->rb_left == *n) break;
-                *n = p;
-        }
-        *n = p;
-}
+See http://www.kernelnewbies.org etc. on how to build external modules.
 
-But it was changed into:
-
-static void htb_next_rb_node(struct rb_node **n)
-{
-        *n = rb_next(*n);
-}
-
-This is wrong, the new code has much different side effects
-than the original code.
-
-This looks like the problem, devik what do you think?
+-Andi
