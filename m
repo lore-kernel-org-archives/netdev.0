@@ -1,53 +1,135 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [Fwd: [E1000] NAPI re-insertion w/ changes]
-Date: Sat, 22 Mar 2003 16:34:01 +0100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPv6: use "const" qualifier
+Date: Sun, 23 Mar 2003 01:35:28 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15996.33385.784192.430037@robur.slu.se>
-References: <3E7B25AC.5030604@pobox.com>
+Message-ID: <20030323.013528.19572208.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3E7B25AC.5030604@pobox.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
+Specify some arguments of IPv6 address manipulation / testing functions
+"const" qualifier.
 
-Jeff Garzik writes:
- > For review by the list... The other e100/e1000 changes are in the 2.5 
+Patch is against linux-2.5.64 + ChangeSet 1.1188.
+This should be suitable for linux-2.4.x.
 
- > +#ifdef CONFIG_E1000_NAPI
- > +	/* Don't disable interrupts - rely on h/w interrupt
- > +	 * moderation to keep interrupts low.  netif_rx_schedule
- > +	 * is NOP if already polling. */
- > +	netif_rx_schedule(netdev);
- > +#else
+Thanks in advance.
 
+Index: include/net/addrconf.h
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux25/include/net/addrconf.h,v
+retrieving revision 1.1.1.4
+retrieving revision 1.1.1.4.4.1
+diff -u -r1.1.1.4 -r1.1.1.4.4.1
+--- include/net/addrconf.h	22 Mar 2003 01:52:43 -0000	1.1.1.4
++++ include/net/addrconf.h	22 Mar 2003 15:05:07 -0000	1.1.1.4.4.1
+@@ -175,7 +175,7 @@
+  *	Hash function taken from net_alias.c
+  */
+ 
+-static __inline__ u8 ipv6_addr_hash(struct in6_addr *addr)
++static __inline__ u8 ipv6_addr_hash(const struct in6_addr *addr)
+ {	
+ 	__u32 word;
+ 
+@@ -195,7 +195,7 @@
+  *	compute link-local solicited-node multicast address
+  */
+ 
+-static inline void addrconf_addr_solict_mult(struct in6_addr *addr,
++static inline void addrconf_addr_solict_mult(const struct in6_addr *addr,
+ 					     struct in6_addr *solicited)
+ {
+ 	ipv6_addr_set(solicited,
+@@ -219,7 +219,7 @@
+ 		      __constant_htonl(0x2));
+ }
+ 
+-static inline int ipv6_addr_is_multicast(struct in6_addr *addr)
++static inline int ipv6_addr_is_multicast(const struct in6_addr *addr)
+ {
+ 	return (addr->s6_addr32[0] & __constant_htonl(0xFF000000)) == __constant_htonl(0xFF000000);
+ }
+Index: include/net/ipv6.h
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux25/include/net/ipv6.h,v
+retrieving revision 1.1.1.4
+retrieving revision 1.1.1.4.30.1
+diff -u -r1.1.1.4 -r1.1.1.4.30.1
+--- include/net/ipv6.h	9 Jan 2003 11:14:19 -0000	1.1.1.4
++++ include/net/ipv6.h	22 Mar 2003 14:56:24 -0000	1.1.1.4.30.1
+@@ -226,21 +226,21 @@
+ 					   unsigned int, unsigned int);
+ 
+ 
+-extern int		ipv6_addr_type(struct in6_addr *addr);
++extern int		ipv6_addr_type(const struct in6_addr *addr);
+ 
+-static inline int ipv6_addr_scope(struct in6_addr *addr)
++static inline int ipv6_addr_scope(const struct in6_addr *addr)
+ {
+ 	return ipv6_addr_type(addr) & IPV6_ADDR_SCOPE_MASK;
+ }
+ 
+-static inline int ipv6_addr_cmp(struct in6_addr *a1, struct in6_addr *a2)
++static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
+ {
+-	return memcmp((void *) a1, (void *) a2, sizeof(struct in6_addr));
++	return memcmp((const void *) a1, (const void *) a2, sizeof(struct in6_addr));
+ }
+ 
+-static inline void ipv6_addr_copy(struct in6_addr *a1, struct in6_addr *a2)
++static inline void ipv6_addr_copy(struct in6_addr *a1, const struct in6_addr *a2)
+ {
+-	memcpy((void *) a1, (void *) a2, sizeof(struct in6_addr));
++	memcpy((void *) a1, (const void *) a2, sizeof(struct in6_addr));
+ }
+ 
+ #ifndef __HAVE_ARCH_ADDR_SET
+@@ -255,7 +255,7 @@
+ }
+ #endif
+ 
+-static inline int ipv6_addr_any(struct in6_addr *a)
++static inline int ipv6_addr_any(const struct in6_addr *a)
+ {
+ 	return ((a->s6_addr32[0] | a->s6_addr32[1] | 
+ 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
+Index: net/ipv6/addrconf.c
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux25/net/ipv6/addrconf.c,v
+retrieving revision 1.1.1.8
+retrieving revision 1.1.1.8.4.2
+diff -u -r1.1.1.8 -r1.1.1.8.4.2
+--- net/ipv6/addrconf.c	22 Mar 2003 01:52:23 -0000	1.1.1.8
++++ net/ipv6/addrconf.c	22 Mar 2003 15:01:28 -0000	1.1.1.8.4.2
+@@ -172,7 +172,7 @@
+ const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+ const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
+ 
+-int ipv6_addr_type(struct in6_addr *addr)
++int ipv6_addr_type(const struct in6_addr *addr)
+ {
+ 	int type;
+ 	u32 st;
+@@ -486,7 +486,7 @@
+ /* On success it returns ifp with increased reference count */
+ 
+ static struct inet6_ifaddr *
+-ipv6_add_addr(struct inet6_dev *idev, struct in6_addr *addr, int pfxlen,
++ipv6_add_addr(struct inet6_dev *idev, const struct in6_addr *addr, int pfxlen,
+ 	      int scope, unsigned flags)
+ {
+ 	struct inet6_ifaddr *ifa;
 
-It's clean but I have some concerns...
-
-I think this will add interrupts when resources are fully utilized.
-In other words a decrease in top performance. I say "think" because I have 
-no numbers. 
-
-At GIGE rate we have ~1 k interrupts/sec using interrupt delay. (it depend 
-of ring sizes etc). We are now seeing Linux boxes with ~10 GIGE interfaces. 
-So any effects gets multiplied.
-
-It makes the use zero latency RX complicated. We see Ethernet getting
-used for "new" applications as SCSI, filesystems etc. In current e1000 
-we just can set the desired interrupt delay and relax.
-
-If/when PCI-X uses message signalled interrupts (MSI) we have this "un-
-necessary" load over PCI too with bus arbitrations etc.
-
-
-IMO believe your old plan having e1000 irq disable and with mitigation as 
-default feels better but testing is needed.
-
-Cheers.
-
-						--ro
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
