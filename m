@@ -1,68 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4451] New: VIA Rhine II: media detection fails
- on reboot.
-Date: Wed, 6 Apr 2005 14:22:32 -0700
-Message-ID: <20050406142232.7a8803fe.akpm@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Thu, 7 Apr 2005 07:29:07 +1000
+Message-ID: <20050406212906.GA24775@gondor.apana.org.au>
+References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au> <42540CF3.7070501@cs.wisc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: rl@hellgate.ch, thomas@easyspeedy.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Yusupov <dmitry_yus@yahoo.com>, netdev@oss.sgi.com,
+        davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Mike Christie <michaelc@cs.wisc.edu>
+Content-Disposition: inline
+In-Reply-To: <42540CF3.7070501@cs.wisc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Apr 06, 2005 at 09:23:15AM -0700, Mike Christie wrote:
+> 
+> It is due to where it is being used. open-iscsi uses netlink
+> sockets for communication in a block (scsi specificically)
+> driver that has pushed much of its code to usersapce. Forcing
+> open-iscsi to use GFP_KERNEL causes a couple of problems. The
+> worst would be where a GFP_KERNEL allocation causes a write,
+> and that write is to an iscsi disk that open-iscsi is managing.
+> The write could then hit the same code path and cause another
+> GFP_KERNEL allocation and we could loop like that until the
+> system locks up.
 
-
-Begin forwarded message:
-
-Date: Wed, 6 Apr 2005 05:35:33 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4451] New: VIA Rhine II: media detection fails on reboot.
-
-
-http://bugme.osdl.org/show_bug.cgi?id=4451
-
-           Summary: VIA Rhine II: media detection fails on reboot.
-    Kernel Version: 2.6.9
-            Status: NEW
-          Severity: normal
-             Owner: jgarzik@pobox.com
-         Submitter: thomas@easyspeedy.com
-
-
-Distribution: Fedora Core 3 / RIP Linux 11.8 / RIP Linux 12.3   
-Hardware Environment: DFI PM12-TL   
-Software Environment: Kernel 2.6.9+   
-Problem Description: The changes introduced in 2.6.9 cause media detection to   
-fail after reboot on DFI PM12-TL. Doing a halt -p results in the same problem  
-on next boot. It is necessary to disconnect power completely to restore the  
-chip to a working state.  
-  
-Snip from changelog:  
------------------------------------  
-<rl@hellgate.ch>  
-	[PATCH] Restructure reset code  
-	  
-	Restructure code to make it easier to maintain.  
-	  
-	rhine_hw_init: resets chip, reloads eeprom  
-	rhine_chip_reset: chip reset + what used to be wait_for_reset  
-	rhine_reload_eeprom: reload eeprom, re-enable MMIO, disable  
-EEPROM-controlled  
-		WOL  
-	  
-	Note: Chip reset clears a bunch of registers that should be reloaded  
-	from EEPROM (which turns off MMIO). Deal with that later.  
-	  
-	Signed-off-by: Roger Luethi <rl@hellgate.ch>  
----------------------------------  
- 
-Kernels tested: 2.6.9, 2.6.11.6, 2.6.12-rc2 
-   
-Steps to reproduce: Boot 2.6.9 or later on DFI PM12-TL and reboot.
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+In that case it's not enough to just use sk_allocation here.
+You'll need a way to actually set it to GFP_ATOMIC.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
