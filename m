@@ -1,66 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: 8169 driver with NetGear GA511 card.
-Date: Thu, 28 Oct 2004 09:48:27 +0200
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [patch 8/9] AES: allow modular build
+Date: Thu, 28 Oct 2004 10:04:31 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028074827.GA3572@electric-eye.fr.zoreil.com>
-References: <41802CA8.8070900@candelatech.com>
+Message-ID: <20041028090431.GA8193@infradead.org>
+References: <200410280721.i9S7Lk908015@mail.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: davem@redhat.com, jgarzik@pobox.com, netdev@oss.sgi.com,
+        pluto@pld-linux.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
+To: akpm@osdl.org
 Content-Disposition: inline
-In-Reply-To: <41802CA8.8070900@candelatech.com>
+In-Reply-To: <200410280721.i9S7Lk908015@mail.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear <greearb@candelatech.com> :
-[...]
-> I tried stressing it, and it can handle about 30Mbps bi-directional
-> (1514 byte pkts).  I was hoping for better...but not too bad.
-
-There is a direction for which a 2x factor has been reported.
-It does not look like a completely dysfunctional setup.
-
-[...]
-> Kernel is 2.6.9 + my networking patches, compiled for pentium-M
->   NAPI for 8169 is enabled.
+On Thu, Oct 28, 2004 at 12:19:47AM -0700, akpm@osdl.org wrote:
 > 
-> hardware is nx5000 laptop
+> From: <pluto@pld-linux.org>
 > 
-> My thanks to the 8169 driver writer(s).  I will continue to debug
+> 
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
+> ---
+> 
+>  25-akpm/arch/i386/crypto/Makefile |    2 +-
+>  1 files changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff -puN arch/i386/crypto/Makefile~aes-allow-modular-build arch/i386/crypto/Makefile
+> --- 25/arch/i386/crypto/Makefile~aes-allow-modular-build	2004-10-28 00:17:08.598496816 -0700
+> +++ 25-akpm/arch/i386/crypto/Makefile	2004-10-28 00:17:08.603496056 -0700
+> @@ -6,4 +6,4 @@
+>  
+>  obj-$(CONFIG_CRYPTO_AES_586) += aes-i586.o
+>  
+> -aes-i586-y := aes-i586-asm.o aes.o
+> +aes-i586-objs := aes-i586-asm.o aes.o
 
-Many people help.
+This doesn't make any sense to me.
 
-> this, and will be happy to try any suggestions for improving performance
-> and/or stability of this NIC.
+foo-objs and foo-y are treated equivalent by the build system, and not
+related to modular builds at all.  In fact -y is preffered these days
+as it allows to build parts of the multi-object module conditionally using
+expressions like:
 
-The r8169 in -mm and in -netdev includes some extra buzzword-compliant
-features (TX csum/SG and TSO mainly). The changes are isolated in a
-single patch against 2.6.9 available at:
-http://www.fr.zoreil.com/people/francois/misc/20041020-2.6.9-r8169.c-test.patch
-
-I will not claim it is as stable as vanilla 2.6.9 should be.
-
-The frequency of requests for jumbo frames went higher lately ("Realtek
-driver does it"). There is some code I need to test before it is pushed to
--mm. 
-
-Btw:
-[...]
-> I recompiled w/out NAPI and no more problems, though performance is
-> horrible (about 5Mbps bi-directional).
-
-Please send the usuals 'lspci -vx' + /proc/interrupts contents during
-activity + complete dmesg + short description of the generated traffic.
-I will hardly dissect it before the week end but there is a problem. :o(
-
-> If the developer/maintainer could use one of these cardbus NICs, I'm
-> willing to donate one to help further development and stability.
-
-I work with the plain PCI version of the GA 511 but I can use a laptop
-for testing. Please contact me offline if you can send an adapter and
-accept euro.
-
---
-Ueimor
+  foo-y			+= foo_main.o
+  foo-$(CONFIG_FOO_BAR) += foo_bar.o
