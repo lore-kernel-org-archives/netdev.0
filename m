@@ -1,31 +1,27 @@
-From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
-Subject: Re: kern-25-net-core-bug
-Date: Wed, 1 May 2002 20:35:37 +0200 (MET DST)
+From: "Xiaoning He" <xiaoning@docomolabs-usa.com>
+Subject: Neighbor cache
+Date: Thu, 2 May 2002 15:54:16 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.05.10205012032520.23254-100000@mausmaki.cosy.sbg.ac.at>
-References: <200205011800.g41I0WwJ029694@oss.sgi.com>
+Message-ID: <000001c1f22c$4a894f00$4e6015ac@VAIO>
+References: <Mutt.LNX.4.44.0204250152190.11349-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: d_vangreg <d.vangreg@inwind.it>
-In-Reply-To: <200205011800.g41I0WwJ029694@oss.sgi.com>
+To: <netdev@oss.sgi.com>
+In-Reply-To: <Mutt.LNX.4.44.0204250152190.11349-100000@blackbird.intercode.com.au>
 List-Id: netdev.vger.kernel.org
 
---snip/snip
+Hi All
 
-> I guessed (as errata):     ret=handle_diverter(skb);
-> 
-> & tried  (as corrige):     handle_diverter(skb);
+I have a question related to the Neighbor cache. I am currently trying
+to modify the neighbor cache but I can not find where the code in the
+IPv6 kernel. 
 
-well, a cleaner thing would be to set ret=0 or ret=
-... but on the other hand, the return value for netif_receive_skb
-isn't checked (at least in process_backlog)
+Could you please let me know in the IPv6 kernel, where the Neighbor
+cache is maintained and which file contains them?
 
-btw. is someone auditing the network code?
-- like check all return values from functions which could fail.
+Thank you very much.
 
-	++dent
-
--- 
-in some way i do, and in some way i don't.
+Xiaoning He
