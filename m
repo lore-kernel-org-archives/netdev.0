@@ -1,65 +1,70 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Werner Almesberger <werner@almesberger.net>
 Subject: Re: TOE brain dump
-Date: Sat, 02 Aug 2003 10:32:55 -0700
+Date: Sat, 2 Aug 2003 15:06:00 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F2BF5C7.90400@us.ibm.com>
-References: <20030802140444.E5798@almesberger.net>
+Message-ID: <20030802150600.F5798@almesberger.net>
+References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Werner Almesberger <werner@almesberger.net>
-In-Reply-To: <20030802140444.E5798@almesberger.net>
+To: Nivedita Singhvi <niv@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <3F2BF5C7.90400@us.ibm.com>; from niv@us.ibm.com on Sat, Aug 02, 2003 at 10:32:55AM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Werner Almesberger wrote:
+Nivedita Singhvi wrote:
+> Also, most profiles of networking applications show the
+> largest blip is essentially the user<->kernel transfer, and
+> that would still remain the unaddressed bottleneck.
 
-> (*) The InfiniBand people unfortunately call also their TCP/IP
->     bypass "TOE" (for which they promptly get shouted down,
->     every time they use that word). This is misleading, because
+I have some hope that sendfile plus a NUMA-like approach will be
+sufficient for keeping transfers away from buses and memory they
+don't need to touch.
 
-Thank you! Yes! All in favor say Aye..AYE!!! Motion passes,
-the infiniband people don't get to call it TOE anymore..
+> The thing is, all the TOE efforts are propietary ones, to
+> my limited knowledge.
 
-> While I'm not entirely convinced about the usefulness of TOE in
-> all the cases it's been suggested for, I can see value in certain
-> areas, e.g. when TCP per-packet overhead becomes an issue.
+Many companies default to "closed" designs if they're not given a
+convincing reason for going "open". The approach I've described
+may provide that reason.
 
-Ditto, but I see it being used to rollout the idea and process,
-rather than anything of value now, and the lessons are being
-learned for the future, when we reach 20Gb, 40Gb, even faster
-networks of tommorow. The processors might keep up, but nothing
-else will, for sure.
+There are also historicial reasons, e.g. if you want to interface
+with the stack of Windows, or any proprietary Unix, you probably
+need to obtain some of their source under NDA, and use some of
+that information in your own drivers or firmware. Of course, none
+of this is an issue here.
 
-> However, I consider the approach of putting a new or heavily
-> modified stack, which duplicates a considerable amount of the
-> functionality in the main kernel, on a separate piece of hardware
-> questionable at best. Some of the issues:
-> 
->  - if this stack is closed source or generally hard to modify,
->    security fixes will be slowed down
+Since we're talking about 1-2 years of development time anyway,
+legacy hardware (i.e. hardware choices influenced by information
+obtained under an NDA) will be quite obsolete by then and doesn't
+matter.
 
-as will bug fixes, and debugging becomes a right royal pain.
+> Or is this not so needed?
 
-Also, most profiles of networking applications show the
-largest blip is essentially the user<->kernel transfer, and
-that would still remain the unaddressed bottleneck.
+Exactly. The "NUMA" approach would avoid the "common TOE design"
+problem.
 
-> So, how to do better ? Easy: use the Source, Luke. Here's my
-> idea:
-> 
->  - instead of putting a different stack on the TOE, a
->    general-purpose processor (probably with some enhancements,
->    and certainly with optimized data paths) is added to the NIC
+All you need is a reasonably well documented "general-purpose"
+CPU (that doesn't mean it has to be an off-the-shelf design, but
+most likely, the core would be an off-the-shelf one), plus some
+NIC hardware. Now, if that NIC in turn has some hidden secrets,
+this isn't an issue as long as one can still write a GPLed driver
+for it.
 
-The thing is, all the TOE efforts are propietary ones, to
-my limited knowledge. Thus all the design is occurring in
-confidential, vendor internal forums. How will they/we
-come up with really the needed, _common_ design approach?
+Of course, there would be elements in such a system that vendors
+would like to keep secret. But then, there always are, and so far,
+we've found reasonable compromises most of the time, so I don't
+see why this couldn't happen here, too.
 
-Or is this not so needed?
+Also, if "classical TOE" patches keep getting rejected, but an
+open and maintainable approach makes it into the mainstream
+kernel, also the business aspects should become fairly clear.
 
-thanks,
-Nivedita
+- Werner
+
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
