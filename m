@@ -1,32 +1,28 @@
-From: Chris Friesen <cfriesen@nortel.com>
-Subject: Re: [RFC/PATCH] network configs: disconnect network options from
- drivers
-Date: Thu, 31 Mar 2005 10:46:45 -0600
-Message-ID: <424C2975.2090009@nortel.com>
-References: <20050330234709.1868eee5.randy.dunlap@verizon.net>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH] [IPV4]: Exclude "All deletion of equal addresses only
+ differing by prefix length."
+Date: Thu, 31 Mar 2005 20:48:05 +0300 (EEST)
+Message-ID: <Pine.LNX.4.61.0503312047110.26294@netcore.fi>
+References: <20050331124747.GT3086@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ioe-lkml@axxeo.de, matthew@wil.cx,
-	lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261556AbVCaQrf@vger.kernel.org>
-To: "Randy.Dunlap" <randy.dunlap@verizon.net>
-In-Reply-To: <20050330234709.1868eee5.randy.dunlap@verizon.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050331124747.GT3086@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Randy.Dunlap wrote:
+On Thu, 31 Mar 2005, Thomas Graf wrote:
+> The address deletion fix is no longer needed since a better fix
+> has made it into iproute2. Better in terms of same hack but in
+> userspace so we don't confuse other netlink users.
 
-> A few people dislike that the Networking Options menu is inside
-> the Device Drivers/Networking menu.  This patch moves the
-> Networking Options menu to immediately before the Device Drivers menu,
-> renames it to "Networking options and protocols", & moves most
-> protocols to more logical places (IMHOOC).
+So, does that mean that all the users are expected to always run the 
+latest iproute2, so there's no need for backward-compat in the kernel?
 
-<snip>
-
-> Any comments?
-
-Makes sense to me...
-
-Chris
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
