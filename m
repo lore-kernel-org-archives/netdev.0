@@ -1,82 +1,98 @@
-From: Mika Liljeberg <mika.liljeberg@welho.com>
-Subject: [PATCH] IPv6: Fix broken anycast usage
-Date: 12 Jul 2003 11:13:10 +0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1057997590.1142.31.camel@hades>
+From: Jan Rychter <jan@rychter.com>
+Subject: Re: networking bugs and bugme.osdl.org
+Date: Sat, 12 Jul 2003 10:07:42 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <m2vfu765cx.fsf@tnuctip.rychter.com>
+References: <1056755336.5459.16.camel@dhcp22.swansea.linux.org.uk> <20030627.172123.78713883.davem@redhat.com>
+ <1056827972.6295.28.camel@dhcp22.swansea.linux.org.uk>
+ <20030628.150328.74739742.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-z/elxEQiE2HR9qGdA6GJ"
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha1; protocol="application/pgp-signature"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
---=-z/elxEQiE2HR9qGdA6GJ
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-This is against 2.5.75.
-
-The patch fixes several places where anycast addresses should be treated
-equivalently with unicast addresses. In particular, this includes
-tunnels and routes pointing to anycast addresses.
-
-I modified ipv6_addr_type() to return IPV6_ADDR_UNICAST also for anycast
-addresses. IPV6_ADDR_ANYCAST is now added as an additional flag when the
-address is one of the known anycast addresses.
-
-I looked very hard at neighbor discovery and didn't see anything that
-needs to be changed, but you might want to have a second look. One small
-difference is that ND will now also try respond to neighbor
-solicitations coming from known anycast addresses (very unlikely). IMHO,
-this doesn't need to be policed. In general, there is no reliable way to
-check if a remote address is anycast, anyway. From RFC2461:
-
-                 Note that an anycast address is syntactically
-                 indistinguishable from a unicast address.  Thus, nodes
-                 sending packets to anycast addresses don't generally
-                 know that an anycast address is being used.  Throughout
-                 the rest of this document, references to unicast
-                 addresses also apply to anycast addresses in those
-                 cases where the node is unaware that a unicast address
-                 is actually an anycast address.
-
-Thanks,
-
-	MikaL
-
-
---=-z/elxEQiE2HR9qGdA6GJ
-Content-Disposition: attachment; filename=2.5.75-anycast.udiff
-Content-Type: text/x-patch; name=2.5.75-anycast.udiff; charset=ISO-8859-15
+--=-=-=
 Content-Transfer-Encoding: quoted-printable
 
-diff -ur orig/linux-2.5.75/net/ipv6/addrconf.c linux-2.5.75/net/ipv6/addrco=
-nf.c
---- orig/linux-2.5.75/net/ipv6/addrconf.c	2003-07-10 23:14:49.000000000 +03=
-00
-+++ linux-2.5.75/net/ipv6/addrconf.c	2003-07-12 10:01:57.000000000 +0300
-@@ -208,16 +208,15 @@
- 				break;
- 		};
- 		return type;
--	}
-+	} else
-+		type =3D IPV6_ADDR_UNICAST;
-+
- 	/* check for reserved anycast addresses */
--=09
- 	if ((st & htonl(0xE0000000)) &&
- 	    ((addr->s6_addr32[2] =3D=3D htonl(0xFDFFFFFF) &&
- 	    (addr->s6_addr32[3] | htonl(0x7F)) =3D=3D (u32)~0) ||
- 	    (addr->s6_addr32[2] =3D=3D 0 && addr->s6_addr32[3] =3D=3D 0)))
--		type =3D IPV6_ADDR_ANYCAST;
--	else
--		type =3D IPV6_ADDR_UNICAST;
-+		type |=3D IPV6_ADDR_ANYCAST;
-=20
- 	/* Consider all addresses with the first three bits different of
- 	   000 and 111 as finished.
+>>>>> "David" =3D=3D David S Miller <davem@redhat.com> writes:
+ David> From: Alan Cox <alan@lxorguk.ukuu.org.uk> Date: 28 Jun 2003
+ David> 20:19:32 +0100
 
---=-z/elxEQiE2HR9qGdA6GJ--
+ David> On Sad, 2003-06-28 at 01:21, David S. Miller wrote:
+ >> I respond to private reports with "please send this to the lists,
+ >> what if I were on vacation for the next month?"  I never actually
+ >> process or analyze such reports.
+=20=20=20
+ David> Which means you miss stuff.
+
+ David> Not my problem Alan.  If the user gives a crap about their
+ David> report mattering, they'll do what I ask them to do.  If users
+ David> send their report to the wrong place, it will get lost, just
+ David> like if their cat their report into /dev/null.  I have no reason
+ David> to feel bad about the information getting lost.
+
+ David> If it's too much for them to do as I ask, it's too much for me
+ David> to consider their report.
+[...]
+
+I think this is one of the largest problems of the current Linux
+development model.
+
+Many people seem to divide people into 'users' (who aren't particularly
+useful) and 'developers', who actually do something. People (like me),
+who can devote a _little_ time to narrowing down and reporting bugs fall
+into the 'user-whiner' class. And get ignored.
+
+What results is that you only get bug reports from active
+developers. Which means that rare bugs don't get fixed.
+
+ David> It is not a dream, it works perfectly fine and has done so for
+ David> 5+ years of Linux maintainence.
+
+It hasn't. The result is a system that works for you (and other active
+developers), but not for everyone. As an example -- try running Linux on
+a modern laptop, connecting some USB devices, using ACPI, or
+bluetooth. Observe the resulting problems and crashes. You'll hit loads
+of obscure bugs that have been reported, but never got looked at in
+detail. I certainly have hit them and reported most, and most got
+dropped in various places.
+
+Does this mean these are unimportant bugs? No. This does indeed mean
+(following your thinking) that these aren't important bugs for me. I
+have worked around them in various ways, some involving actually buying
+new hardware, or not using certain features at all. And the cycle will
+go on -- others will hit the bugs, report them once, see them dropped,
+move on.
+
+ David> Let's see, what makes more sense from my perspective.  Should I
+ David> reward and put forth effort for the people who fart a bug report
+ David> onto the lists and expect everyone to stop what they're doing
+ David> and fix the bug, or should I reward and put forth effort for the
+ David> guy who spent the time to put together a stellar bug report and
+ David> also doesn't mind retransmitting it from time to time whilst
+ David> everyone is busy?
+
+Interesting you should think you're 'rewarding' people. I thought your
+goal was to have fun working on cool software and making it
+better. I also thought I had the same goal as a bug-reporter.
+
+When I write software, I care about every bug report and consider people
+doing the reporting a very valuable resource.
+
+=2D-J.
+
+--=-=-=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQA/EEBjLth4/7/QhDoRAra7AKDtnJwjGSrjhkFYu4jPKWcdBD/uagCcCl1c
+J0eXeqyfh5xI4A8QMxI5PkE=
+=MxwA
+-----END PGP SIGNATURE-----
+--=-=-=--
+
