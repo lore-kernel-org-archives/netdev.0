@@ -1,27 +1,53 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [PATCH] Avoid gettimeofday when not needed
-Date: 31 Mar 2004 17:10:47 +0200
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: [PATCH 2.6] reference count cleanup continued -IPv6
+Date: Wed, 31 Mar 2004 07:33:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040331151047.GA6033@colin2.muc.de>
-References: <200403311201.i2VC13D19579@zero.aec.at> <Pine.LNX.4.58.0403311552070.19615@rhea.tcs.hut.fi> <20040331135449.GB62402@colin2.muc.de> <Pine.LNX.4.58.0403311705460.19615@rhea.tcs.hut.fi>
+Message-ID: <406AE4AC.6020309@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@muc.de>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Wed, 31 Mar 2004 17:10:47 +0200
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0403311705460.19615@rhea.tcs.hut.fi>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 31, 2004 at 05:24:47PM +0300, Ville Nuorvala wrote:
-> There just doesn't seem to be any general flag field in sk_buff that we
-> might use at this moment. Should one be added, or should we just hide the
-> flag inside the cb field using the likes of inet_skb_parm and
-> inet6_skb_parm?
+Continuing the reference count clean up, this time
+in tcp_v6_rcv().  We should not be doing a sock_put()
+on a socket in TIMEWAIT state.
 
-There are no free bits indeed. I think ->cb is the best choice then.
+Applies to 2.6.4. Should apply to current bits as
+well.
 
+thanks,
+Nivedita
 
--Andi
+diff -urN linux-2.6.4/net/ipv6/tcp_ipv6.c linux-2.6.4mc6/net/ipv6/tcp_ipv6.c
+--- linux-2.6.4/net/ipv6/tcp_ipv6.c	2004-03-10 18:55:28.000000000 -0800
++++ linux-2.6.4mc6/net/ipv6/tcp_ipv6.c	2004-03-30 10:34:25.000000000 -0800
+@@ -1639,7 +1639,7 @@
+
+   no_tcp_socket:
+   	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+-		goto discard_and_relse;
++		goto discard_it;
+
+   	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
+   bad_packet:
+@@ -1662,12 +1662,14 @@
+   	goto discard_it;
+
+   do_time_wait:
+-	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
+-		goto discard_and_relse;
++	if (!xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb)) {
++		tcp_tw_put((struct tcp_tw_bucket *) sk);
++		goto discard_it;
++	}
+
+   	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
+   		TCP_INC_STATS_BH(TcpInErrs);
+-		sock_put(sk);
++		tcp_tw_put((struct tcp_tw_bucket *) sk);	
+   		goto discard_it;
+   	}
