@@ -1,26 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-drivers-2.6 2/10] e1000: use netif_poll_{enable|disable}
-Date: Wed, 16 Feb 2005 00:30:20 +0100
-Message-ID: <20050215233020.GB1755@electric-eye.fr.zoreil.com>
-References: <468F3FDA28AA87429AD807992E22D07E04438B87@orsmsx408>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [IPSEC] Merge xfrm4_bundle_ok/xfrm6_bundle_ok/stale_bundle
+Date: Tue, 15 Feb 2005 15:31:04 -0800
+Message-ID: <20050215153104.419b1b84.davem@davemloft.net>
+References: <20050129123803.GA17390@gondor.apana.org.au>
+	<20050215141743.1010f2e6.davem@davemloft.net>
+	<20050215225442.GA28142@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Chilakala, Mallikarjuna" <mallikarjuna.chilakala@intel.com>,
-        jgarzik@pobox.com, netdev@oss.sgi.com
-To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Content-Disposition: inline
-In-Reply-To: <468F3FDA28AA87429AD807992E22D07E04438B87@orsmsx408>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050215225442.GA28142@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Venkatesan, Ganesh <ganesh.venkatesan@intel.com> :
-> I agree that this causes our ISR to be called where no useful work will
-> be done -- netif_rx_schedule_prep() will fail till netif_poll_enable is
-> called.
-> However, there should not be any adverse side effects due to this.
+On Wed, 16 Feb 2005 09:54:42 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Right, the irq does not need an extra ack. Sorry for the noise.
+> > Applied to my 2.6.12-pending tree.  Thanks a lot.
+> 
+> Sorry Dave, but that patch has a critical error in stale_bundle
+> where I forgot to add an exclamation mark.
 
---
-Ueimor
+So the relative fix is to just add a "!" to the return statement
+of stale_bundle() so that it reads:
+
+	return !xfrm_bundle_ok((struct xfrm_dst *)dst, NULL, AF_UNSPEC);
+
+right?  If so, I'll just add that to my tree.
