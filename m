@@ -1,41 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch 10/13] net/socket.c::sys_bind() cleanup.
-Date: Thu, 25 Nov 2004 21:19:51 +1100
-Message-ID: <E1CXGj9-00068Z-00@gondolin.me.apana.org.au>
-References: <OFF45FF067.1B428792-ON88256F56.0078D794-88256F56.007926F9@us.ibm.com>
-Cc: lcapitulino@conectiva.com.br, akpm@osdl.org, davem@davemloft.net,
-        jgarzik@pobox.com, netdev@oss.sgi.com
+Subject: Re: Fw: ipsec hang
+Date: Thu, 25 Nov 2004 21:22:41 +1100
+Message-ID: <E1CXGlt-00069n-00@gondolin.me.apana.org.au>
+References: <Xine.LNX.4.44.0411241729550.19791-100000@thoron.boston.redhat.com>
+Cc: kaber@trash.net, akpm@osdl.org, netdev@oss.sgi.com, mg@iceni.pl,
+        bill@crowellsystems.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dlstevens@us.ibm.com (David Stevens)
-In-Reply-To: <OFF45FF067.1B428792-ON88256F56.0078D794-88256F56.007926F9@us.ibm.com>
+To: jmorris@redhat.com (James Morris)
+In-Reply-To: <Xine.LNX.4.44.0411241729550.19791-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David Stevens <dlstevens@us.ibm.com> wrote:
-> It's just a style issue, so maybe you'll disagree, but I prefer:
+James Morris <jmorris@redhat.com> wrote:
+> On Wed, 24 Nov 2004, Patrick McHardy wrote:
 > 
->        if (!sock)
->                return err;
+>> This patch fixes it. When a policy with a priority lower than an
+>> existing policy is inserted, it loops forever on the existing policy.
 > 
-> to your
-> 
->        if (!sock)
->                goto out;
-> ...
-> out:
->        return err;
-> 
->        I think "return err" is more readable than "goto out/return err" 
-> for
-> that path and having another "return err" for the out-with-put case isn't 
-> a
-> terrible thing.
+> I wonder if it's the same bug as 
+> http://bugme.osdl.org/show_bug.cgi?id=3796
 
-When used in isolation you would be right.  However when there
-are multiple exit points then the goto is better because it
-means that we have only one exit path.  When you have multiple
-exit paths it's very easy to get memory leaks and missing unlock's.
+Quite likely.
+
+Bill, can you please try the latest BK tree and see if you can
+still reproduce the hang?
+
+Thanks,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
