@@ -1,25 +1,42 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: Bug in 2.6.10
-Date: Fri, 28 Jan 2005 20:27:53 +0100
-Message-ID: <41FA9239.4010401@rapidforum.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: design for TSO performance fix
+Date: Fri, 28 Jan 2005 11:28:38 -0800
+Message-ID: <20050128112838.21e53b6c.davem@davemloft.net>
+References: <20050127163146.33b01e95.davem@davemloft.net>
+	<E1CuKzJ-0001mY-00@gondolin.me.apana.org.au>
+	<20050127211940.31f97ed3.davem@davemloft.net>
+	<20050128054441.GA8260@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050128054441.GA8260@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, 28 Jan 2005 16:44:41 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-In 2.6.10 there has been a "bug" introduced. You may also call it a feature, but its a crappy 
-feature for big servers. It seems the kernel is dynamically adjusting the buffer-space available for 
-sockets. Even if send-buffer has been set to 1024 KB, the kernel blocks at less if there are enough 
-sockets in use. If you have 10 sockets with 1024 KB each, they do not block at all, using full 1024 
-KB. If you have 4000 sockets, they only use 200 KB. So it seems its blocking at 800 MB. This is 
-good, if you have a 1/3 system, because else the kernel would run out of low mem. But I have a 2/2 
-system and I need them for buffers. So what can I do? Where can I adjust the "pool"?
+> Colour me confused then.  How are you going to remember the
+> packet boundaries which we need to do if we're going to keep
+> counting packets instead of bytes?
 
-Best regards,
-Christian Schmid - RapidTec
+It's just like how the code was before I added all of
+that tcp_pcount_t code.  The retransmit queue only
+ever contains normal MSS sized frames.
+
+When we decide to send something off the queue, we try
+to build them up into TSO frames.
+
+Congestion control etc. decisions are still made by packet
+counting.
+
+When we get ACKs and SACKs back, we can just trim and mark the
+retransmit queue in the simplest way since we don't have
+TSO packets in there anymore.
+
+TSO packets only exist in the tcp_transmit_skb() path,
+nothing else in the stack sees them.
