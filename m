@@ -1,7 +1,7 @@
 From: koushik <raghavendra.koushik@s2io.com>
-Subject: [PATCH 2.6.9-rc2 2/12] S2io: sw bug fixes
-Date: Fri, 5 Nov 2004 05:05:41 -0800
-Message-ID: <200411050505.41343.raghavendra.koushik@s2io.com>
+Subject: [PATCH 2.6.9-rc2 4/12] S2io: hardware fixes
+Date: Fri, 5 Nov 2004 05:07:24 -0800
+Message-ID: <200411050507.24903.raghavendra.koushik@s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -17,218 +17,336 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-Attached is the second patch in this submission. It contains the following
-software bug fixes.
+Following are the code changes addressing the hardware errata mentioned in user guide.
 
-1. In free_rx_buffers clearing out RxDs not owned by Xena.
-
-2. In alarm_intr_handler, when a serr error occurs, schedule a task to reset the card rather than stopping Tx queue.
-
-3. In s2io_close freeing IRQ before calling s2io_reset also added a new call to flush queued tasks. This is not done if the
-s2io_close itself is called from a queued task like s2io_restart_nic.
-
-4. read_eeprom function has been changed such that data to be returned is sent as an input argument and the return value represents
-a pass/fail. The previous implementation as Randy had pointed out was error prone as on failure it returned -1 which can be
-interpreted as all ff's, so any data area which contained ff's in the eeprom was likely to be treated as an error.
-
-5. Added a flag "task_flag" to track if the call to s2io_close is coming from the s2io_restart_nic function or from the ifconfig
-<I/F> down called by user.
-
-6. Moved register_netdev call from just after setting entry points to the end of the s2io_init_nic function.
-
-7. In s2io.h field added a new member into the s2io_nic structure called "task_flag".
-
+1. Xena3's with a set of subsystem IDs had Link LED problems, fixed that specifically for  
+   them. 
+2. To write into the Keyed Mac_Cfg register to enable broadcast, writing two 32 bit writes 
+   into it along with a write to the key register rather than a single write to key and a 64 
+   bit write to mac_cfg. This is necessary on 32 bit systems where a writeq(64 bit write) is 
+   actually two writel (32 bit writes). 
+3. Writes to some special registers mentioned in UG is being done by a special macro which 
+   defines which 32 bits of the 64 bit register is to be written first. Again this applies 
+   only on 32 bit systems. 
+4. Configured pause frame related water marks and a shared_split value which describes the 
+   Max TXDMA related split transaction that can be used without giving room for the Rx 
+   transactions. 
+5. The mac_rmac_err_reg R1 register will be cleared in  the interrupt handler itself rather 
+   than in the scheduled task as was being done previously. 
+6. Even on PCC_FB_ECC error the card will be reset by disabling adapter enable bit.  
 
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
 Signed-off-by: Ravinandan Arakali <ravinandan.arakali@s2io.com>
 ---
 diff -urN vanilla-linux/drivers/net/s2io.c linux-2.6.8.1/drivers/net/s2io.c
---- vanilla-linux/drivers/net/s2io.c	2004-10-06 15:18:10.000000000 -0700
-+++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-06 16:19:52.821420504 -0700
-@@ -1525,6 +1525,11 @@
- 				blk++;
+--- vanilla-linux/drivers/net/s2io.c	2004-10-07 11:44:04.000000000 -0700
++++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-07 11:45:41.000000000 -0700
+@@ -71,6 +71,15 @@
+ static char s2io_driver_name[] = "s2io";
+ static char s2io_driver_version[] = "Version 1.7.5.1";
+ 
++/* 
++ * Cards with following subsystem_id have a link state indication
++ * problem, 600B, 600C, 600D, 640B, 640C and 640D.
++ * macro below identifies these cards given the subsystem_id.
++ */
++#define CARDS_WITH_FAULTY_LINK_INDICATORS(subid) \
++		(((subid >= 0x600B) && (subid <= 0x600D)) || \
++		 ((subid >= 0x640B) && (subid <= 0x640D))) ? 1 : 0
++
+ #define LINK_IS_UP(val64) (!(val64 & (ADAPTER_STATUS_RMAC_REMOTE_FAULT | \
+ 				      ADAPTER_STATUS_RMAC_LOCAL_FAULT)))
+ #define TASKLET_IN_USE test_and_set_bit(0, \
+@@ -563,10 +572,13 @@
+ 	schedule_timeout(HZ / 2);
+ 
+ 	/*  Enable Receiving broadcasts */
++	add = (void *) &bar0->mac_cfg;
+ 	val64 = readq(&bar0->mac_cfg);
+ 	val64 |= MAC_RMAC_BCAST_ENABLE;
+ 	writeq(RMAC_CFG_KEY(0x4C0D), &bar0->rmac_cfg_key);
+-	writeq(val64, &bar0->mac_cfg);
++	writel((u32) val64, add);
++	writeq(RMAC_CFG_KEY(0x4C0D), &bar0->rmac_cfg_key);
++	writel((u32) (val64 >> 32), (add + 4));
+ 
+ 	/* Read registers in all blocks */
+ 	val64 = readq(&bar0->mac_int_mask);
+@@ -598,8 +610,8 @@
+ 				dtx_cnt++;
+ 				goto mdio_cfg;
  			}
- 
-+			if (!(rxdp->Control_1 & RXD_OWN_XENA)) {
-+				memset(rxdp, 0, sizeof(RxD_t));
-+				continue;
-+			}
-+
- 			skb =
- 			    (struct sk_buff *) ((unsigned long) rxdp->
- 						Host_Control);
-@@ -1887,7 +1892,7 @@
- 	if (val64 & SERR_SOURCE_ANY) {
- 		DBG_PRINT(ERR_DBG, "%s: Device indicates ", dev->name);
- 		DBG_PRINT(ERR_DBG, "serious error!!\n");
--		netif_stop_queue(dev);
-+		schedule_work(&nic->rst_timer_task);
- 	}
- 
- 	/* Other type of interrupts are not being handled now,  TODO */
-@@ -2205,6 +2210,17 @@
- 	}
- 	tasklet_kill(&sp->task);
- 
-+	/*  Free the Registered IRQ */
-+	free_irq(dev->irq, dev);
-+
-+	/* Flush all scheduled tasks */
-+	if (sp->task_flag == 1) {
-+		DBG_PRINT(INFO_DBG, "%s: Calling close from a task\n",
-+			  dev->name);
-+	} else {
-+		flush_scheduled_work();
-+	}
-+
- 	/* Check if the device is Quiescent and then Reset the NIC */
- 	do {
- 		val64 = readq(&bar0->adapter_status);
-@@ -2225,9 +2241,6 @@
- 	} while (1);
- 	s2io_reset(sp);
- 
--	/*  Free the Registered IRQ */
--	free_irq(dev->irq, dev);
--
- 	/* Free all Tx Buffers waiting for transmission */
- 	free_tx_buffers(sp);
- 
-@@ -2982,9 +2995,10 @@
-  */
- 
- #define S2IO_DEV_ID		5
--static u32 read_eeprom(nic_t * sp, int off)
-+static int read_eeprom(nic_t * sp, int off, u32 * data)
- {
--	u32 data = -1, exit_cnt = 0;
-+	int ret = -1;
-+	u32 exit_cnt = 0;
- 	u64 val64;
- 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
- 
-@@ -2996,7 +3010,8 @@
- 	while (exit_cnt < 5) {
- 		val64 = readq(&bar0->i2c_control);
- 		if (I2C_CONTROL_CNTL_END(val64)) {
--			data = I2C_CONTROL_GET_DATA(val64);
-+			*data = I2C_CONTROL_GET_DATA(val64);
-+			ret = 0;
- 			break;
+-			writeq(default_dtx_cfg[dtx_cnt],
+-			       &bar0->dtx_control);
++			SPECIAL_REG_WRITE(default_dtx_cfg[dtx_cnt],
++					  &bar0->dtx_control, UF);
+ 			val64 = readq(&bar0->dtx_control);
+ 			dtx_cnt++;
  		}
- 		set_current_state(TASK_UNINTERRUPTIBLE);
-@@ -3004,7 +3019,7 @@
- 		exit_cnt++;
- 	}
+@@ -609,8 +621,8 @@
+ 				mdio_cnt++;
+ 				goto dtx_cfg;
+ 			}
+-			writeq(default_mdio_cfg[mdio_cnt],
+-			       &bar0->mdio_control);
++			SPECIAL_REG_WRITE(default_mdio_cfg[mdio_cnt],
++					  &bar0->mdio_control, UF);
+ 			val64 = readq(&bar0->mdio_control);
+ 			mdio_cnt++;
+ 		}
+@@ -873,6 +885,47 @@
+ 	writel((u32) (val64 >> 32), (add + 4));
+ 	val64 = readq(&bar0->mac_cfg);
  
--	return data;
-+	return ret;
++	/* 
++	 * Set the time value to be inserted in the pause frame 
++	 * generated by xena.
++	 */
++	val64 = readq(&bar0->rmac_pause_cfg);
++	val64 &= ~(RMAC_PAUSE_HG_PTIME(0xffff));
++	val64 |= RMAC_PAUSE_HG_PTIME(nic->mac_control.rmac_pause_time);
++	writeq(val64, &bar0->rmac_pause_cfg);
++
++	/* 
++	 * Set the Threshold Limit for Generating the pause frame
++	 * If the amount of data in any Queue exceeds ratio of
++	 * (mac_control.mc_pause_threshold_q0q3 or q4q7)/256
++	 * pause frame is generated
++	 */
++	val64 = 0;
++	for (i = 0; i < 4; i++) {
++		val64 |=
++		    (((u64) 0xFF00 | nic->mac_control.
++		      mc_pause_threshold_q0q3)
++		     << (i * 2 * 8));
++	}
++	writeq(val64, &bar0->mc_pause_thresh_q0q3);
++
++	val64 = 0;
++	for (i = 0; i < 4; i++) {
++		val64 |=
++		    (((u64) 0xFF00 | nic->mac_control.
++		      mc_pause_threshold_q4q7)
++		     << (i * 2 * 8));
++	}
++	writeq(val64, &bar0->mc_pause_thresh_q4q7);
++
++	/* 
++	 * TxDMA will stop Read request if the number of read split has 
++	 * exceeded the limit pointed by shared_splits
++	 */
++	val64 = readq(&bar0->pic_control);
++	val64 |= PIC_CNTL_SHARED_SPLITS(0);
++	writeq(val64, &bar0->pic_control);
++
+ 	return SUCCESS;
  }
  
- /**
-@@ -3073,8 +3088,7 @@
- 		eeprom->len = XENA_EEPROM_SPACE - eeprom->offset;
+@@ -1227,7 +1280,7 @@
+ 	 */
+ 	val64 = readq(&bar0->mc_rldram_mrs);
+ 	val64 |= MC_RLDRAM_QUEUE_SIZE_ENABLE | MC_RLDRAM_MRS_ENABLE;
+-	writeq(val64, &bar0->mc_rldram_mrs);
++	SPECIAL_REG_WRITE(val64, &bar0->mc_rldram_mrs, UF);
+ 	val64 = readq(&bar0->mc_rldram_mrs);
  
- 	for (i = 0; i < eeprom->len; i += 4) {
--		data = read_eeprom(sp, eeprom->offset + i);
--		if (data < 0) {
-+		if (read_eeprom(sp, (eeprom->offset + i), &data)) {
- 			DBG_PRINT(ERR_DBG, "Read of EEPROM failed\n");
- 			return -EFAULT;
- 		}
-@@ -3213,7 +3227,8 @@
+ 	set_current_state(TASK_UNINTERRUPTIBLE);
+@@ -1291,13 +1344,13 @@
+ 	 * force link down. Since link is already up, we will get
+ 	 * link state change interrupt after this reset
+ 	 */
+-	writeq(0x80010515001E0000ULL, &bar0->dtx_control);
++	SPECIAL_REG_WRITE(0x80010515001E0000ULL, &bar0->dtx_control, UF);
+ 	val64 = readq(&bar0->dtx_control);
+ 	udelay(50);
+-	writeq(0x80010515001E00E0ULL, &bar0->dtx_control);
++	SPECIAL_REG_WRITE(0x80010515001E00E0ULL, &bar0->dtx_control, UF);
+ 	val64 = readq(&bar0->dtx_control);
+ 	udelay(50);
+-	writeq(0x80070515001F00E4ULL, &bar0->dtx_control);
++	SPECIAL_REG_WRITE(0x80070515001F00E4ULL, &bar0->dtx_control, UF);
+ 	val64 = readq(&bar0->dtx_control);
+ 	udelay(50);
  
- static int s2io_eeprom_test(nic_t * sp, uint64_t * data)
- {
--	int fail = 0, ret_data;
-+	int fail = 0;
-+	u32 ret_data;
+@@ -1884,6 +1937,7 @@
  
- 	/* Test Write Error at offset 0 */
- 	if (!write_eeprom(sp, 0, 0, 3))
-@@ -3222,7 +3237,7 @@
- 	/* Test Write at offset 4f0 */
- 	if (write_eeprom(sp, 0x4F0, 0x01234567, 3))
- 		fail = 1;
--	if ((ret_data = read_eeprom(sp, 0x4F0)) < 0)
-+	if (read_eeprom(sp, 0x4F0, &ret_data))
- 		fail = 1;
- 
- 	if (ret_data != 0x01234567)
-@@ -3238,7 +3253,7 @@
- 	/* Test Write Request at offset 0x7fc */
- 	if (write_eeprom(sp, 0x7FC, 0x01234567, 3))
- 		fail = 1;
--	if ((ret_data = read_eeprom(sp, 0x7FC)) < 0)
-+	if (read_eeprom(sp, 0x7FC, &ret_data))
- 		fail = 1;
- 
- 	if (ret_data != 0x01234567)
-@@ -3811,7 +3826,9 @@
- 	struct net_device *dev = (struct net_device *) data;
- 	nic_t *sp = dev->priv;
- 
-+	sp->task_flag = 1;
- 	s2io_close(dev);
-+	sp->task_flag = 0;
- 	sp->device_close_flag = TRUE;
- 	s2io_open(dev);
- 	DBG_PRINT(ERR_DBG,
-@@ -4275,18 +4292,13 @@
- 	INIT_WORK(&sp->set_link_task,
- 		  (void (*)(void *)) s2io_set_link, sp);
- 
--	if (register_netdev(dev)) {
--		DBG_PRINT(ERR_DBG, "Device registration failed\n");
--		goto register_failed;
--	}
--
- 	pci_save_state(sp->pdev, sp->config_space);
- 
- 	/* Setting swapper control on the NIC, for proper reset operation */
- 	if (s2io_set_swapper(sp)) {
- 		DBG_PRINT(ERR_DBG, "%s:swapper settings are wrong\n",
- 			  dev->name);
--		goto register_failed;
-+		goto set_swap_failed;
+ 	/* Handling link status change error Intr */
+ 	err_reg = readq(&bar0->mac_rmac_err_reg);
++	writeq(err_reg, &bar0->mac_rmac_err_reg);
+ 	if (err_reg & RMAC_LINK_STATE_CHANGE_INT) {
+ 		schedule_work(&nic->set_link_task);
+ 	}
+@@ -1896,6 +1950,22 @@
+ 		schedule_work(&nic->rst_timer_task);
  	}
  
- 	/* Fix for all "FFs" MAC address problems observed on Alpha platforms */
-@@ -4363,6 +4375,11 @@
- 
- 	sp->rx_csum = 1;	/* Rx chksum verify enabled by default */
- 
-+	if (register_netdev(dev)) {
-+		DBG_PRINT(ERR_DBG, "Device registration failed\n");
-+		goto register_failed;
++	/*
++	 * Also as mentioned in the latest Errata sheets if the PCC_FB_ECC
++	 * Error occurs, the adapter will be recycled by disabling the
++	 * adapter enable bit and enabling it again after the device 
++	 * becomes Quiescent.
++	 */
++	val64 = readq(&bar0->pcc_err_reg);
++	writeq(val64, &bar0->pcc_err_reg);
++	if (val64 & PCC_FB_ECC_DB_ERR) {
++		u64 ac = readq(&bar0->adapter_control);
++		ac &= ~(ADAPTER_CNTL_EN);
++		writeq(ac, &bar0->adapter_control);
++		ac = readq(&bar0->adapter_control);
++		schedule_work(&nic->set_link_task);
 +	}
 +
- 	/* 
- 	 * Make Link state as off at this point, when the Link change 
- 	 * interrupt comes the state will be automatically changed to 
-@@ -4373,9 +4390,8 @@
+ 	/* Other type of interrupts are not being handled now,  TODO */
+ }
  
- 	return 0;
+@@ -2870,12 +2940,13 @@
  
--      set_swap_failed:
--	unregister_netdev(dev);
-       register_failed:
-+      set_swap_failed:
- 	iounmap(sp->bar1);
-       bar1_remap_failed:
- 	iounmap(sp->bar0);
-diff -urN vanilla-linux/drivers/net/s2io.h linux-2.6.8.1/drivers/net/s2io.h
---- vanilla-linux/drivers/net/s2io.h	2004-10-06 15:15:03.000000000 -0700
-+++ linux-2.6.8.1/drivers/net/s2io.h	2004-10-06 16:19:52.829419288 -0700
-@@ -668,6 +668,8 @@
- 	u16 last_link_state;
- #define	LINK_DOWN	1
- #define	LINK_UP		2
+ static int s2io_ethtool_idnic(struct net_device *dev, u32 data)
+ {
+-	u64 val64 = 0;
++	u64 val64 = 0, last_gpio_ctrl_val;
+ 	nic_t *sp = dev->priv;
+ 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
+ 	u16 subid;
+ 
+ 	subid = sp->pdev->subsystem_device;
++	last_gpio_ctrl_val = readq(&bar0->gpio_control);
+ 	if ((subid & 0xFF) < 0x07) {
+ 		val64 = readq(&bar0->adapter_control);
+ 		if (!(val64 & ADAPTER_CNTL_EN)) {
+@@ -2897,6 +2968,11 @@
+ 		schedule_timeout(MAX_SCHEDULE_TIMEOUT);
+ 	del_timer_sync(&sp->id_timer);
+ 
++	if (CARDS_WITH_FAULTY_LINK_INDICATORS(subid)) {
++		writeq(last_gpio_ctrl_val, &bar0->gpio_control);
++		last_gpio_ctrl_val = readq(&bar0->gpio_control);
++	}
 +
-+	int task_flag;
- } nic_t;
+ 	return 0;
+ }
  
- #define RESET_ERROR 1;
+@@ -2983,7 +3059,7 @@
+ 	val64 = I2C_CONTROL_DEV_ID(S2IO_DEV_ID) | I2C_CONTROL_ADDR(off) |
+ 	    I2C_CONTROL_BYTE_CNT(0x3) | I2C_CONTROL_READ |
+ 	    I2C_CONTROL_CNTL_START;
+-	writeq(val64, &bar0->i2c_control);
++	SPECIAL_REG_WRITE(val64, &bar0->i2c_control, LF);
+ 
+ 	while (exit_cnt < 5) {
+ 		val64 = readq(&bar0->i2c_control);
+@@ -3024,7 +3100,7 @@
+ 	val64 = I2C_CONTROL_DEV_ID(S2IO_DEV_ID) | I2C_CONTROL_ADDR(off) |
+ 	    I2C_CONTROL_BYTE_CNT(cnt) | I2C_CONTROL_SET_DATA(data) |
+ 	    I2C_CONTROL_CNTL_START;
+-	writeq(val64, &bar0->i2c_control);
++	SPECIAL_REG_WRITE(val64, &bar0->i2c_control, LF);
+ 
+ 	while (exit_cnt < 5) {
+ 		val64 = readq(&bar0->i2c_control);
+@@ -3352,10 +3428,10 @@
+ 
+ 	val64 = readq(&bar0->mc_rldram_mrs);
+ 	val64 |= MC_RLDRAM_QUEUE_SIZE_ENABLE;
+-	writeq(val64, &bar0->mc_rldram_mrs);
++	SPECIAL_REG_WRITE(val64, &bar0->mc_rldram_mrs, UF);
+ 
+ 	val64 |= MC_RLDRAM_MRS_ENABLE;
+-	writeq(val64, &bar0->mc_rldram_mrs);
++	SPECIAL_REG_WRITE(val64, &bar0->mc_rldram_mrs, UF);
+ 
+ 	while (iteration < 2) {
+ 		val64 = 0x55555555aaaa0000ULL;
+@@ -3757,8 +3833,10 @@
+ 	nic_t *nic = (nic_t *) data;
+ 	struct net_device *dev = nic->dev;
+ 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) nic->bar0;
+-	register u64 val64, err_reg;
++	register u64 val64;
++	u16 subid;
+ 
++	subid = nic->pdev->subsystem_device;
+ 	/* 
+ 	 * Allow a small delay for the NICs self initiated 
+ 	 * cleanup to complete.
+@@ -3768,16 +3846,19 @@
+ 
+ 	val64 = readq(&bar0->adapter_status);
+ 	if (verify_xena_quiescence(val64, nic->device_enabled_once)) {
+-		/* Acknowledge Intr and clear R1 register. */
+-		err_reg = readq(&bar0->mac_rmac_err_reg);
+-		writeq(err_reg, &bar0->mac_rmac_err_reg);
+-
+ 		if (LINK_IS_UP(val64)) {
+ 			val64 = readq(&bar0->adapter_control);
+ 			val64 |= ADAPTER_CNTL_EN;
+ 			writeq(val64, &bar0->adapter_control);
+-			val64 |= ADAPTER_LED_ON;
+-			writeq(val64, &bar0->adapter_control);
++			if (CARDS_WITH_FAULTY_LINK_INDICATORS(subid)) {
++				val64 = readq(&bar0->gpio_control);
++				val64 |= GPIO_CTRL_GPIO_0;
++				writeq(val64, &bar0->gpio_control);
++				val64 = readq(&bar0->gpio_control);
++			} else {
++				val64 |= ADAPTER_LED_ON;
++				writeq(val64, &bar0->adapter_control);
++			}
+ 			val64 = readq(&bar0->adapter_status);
+ 			if (!LINK_IS_UP(val64)) {
+ 				DBG_PRINT(ERR_DBG, "%s:", dev->name);
+@@ -3791,6 +3872,12 @@
+ 			}
+ 			s2io_link(nic, LINK_UP);
+ 		} else {
++			if (CARDS_WITH_FAULTY_LINK_INDICATORS(subid)) {
++				val64 = readq(&bar0->gpio_control);
++				val64 &= ~GPIO_CTRL_GPIO_0;
++				writeq(val64, &bar0->gpio_control);
++				val64 = readq(&bar0->gpio_control);
++			}
+ 			s2io_link(nic, LINK_DOWN);
+ 		}
+ 	} else {		/* NIC is not Quiescent. */
+@@ -3917,6 +4004,7 @@
+ 	return SUCCESS;
+ }
+ 
++
+ /**
+  *  s2io_link - stops/starts the Tx queue.
+  *  @sp : private member of the device structure, which is a pointer to the
+diff -urN vanilla-linux/drivers/net/s2io.h linux-2.6.8.1/drivers/net/s2io.h
+--- vanilla-linux/drivers/net/s2io.h	2004-10-07 11:44:04.000000000 -0700
++++ linux-2.6.8.1/drivers/net/s2io.h	2004-10-08 15:20:09.316690064 -0700
+@@ -693,6 +693,27 @@
+ 	writel((u32) (val), addr);
+ 	writel((u32) (val >> 32), (addr + 4));
+ }
++
++/* In 32 bit modes, some registers have to be written in a 
++ * particular order to expect correct hardware operation. The
++ * macro SPECIAL_REG_WRITE is used to perform such ordered 
++ * writes. Defines UF (Upper First) and LF (Lower First) will 
++ * be used to specify the required write order.
++ */
++#define UF	1
++#define LF	2
++static inline void SPECIAL_REG_WRITE(u64 val, void *addr, int order)
++{
++	if (order == LF) {
++		writel((u32) (val), addr);
++		writel((u32) (val >> 32), (addr + 4));
++	} else {
++		writel((u32) (val >> 32), (addr + 4));
++		writel((u32) (val), addr);
++	}
++}
++#else
++#define SPECIAL_REG_WRITE(val, addr, dummy) writeq(val, addr)
+ #endif
+ 
+ /*  Interrupt related values of Xena */
 
 
 -------------------------------------------------------
