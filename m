@@ -1,108 +1,103 @@
 From: =?iso-8859-1?Q?H=E5kon?= Bugge <Hakon.Bugge@scali.com>
 Subject: non-growing tcp window size
-Date: Tue, 21 Jan 2003 17:45:10 +0100
+Date: Tue, 21 Jan 2003 17:48:32 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.2.0.9.0.20030121173952.02919b30@mail.scali.no>
+Message-ID: <5.2.0.9.0.20030121174648.029028c0@mail.scali.no>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
-	boundary="=====================_26722436==_"
+	boundary="=====================_26925641==_"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=====================_26722436==_
-Content-Type: text/html; charset="iso-8859-1"
+--=====================_26925641==_
+Content-Type: text/plain; charset="iso-8859-1"; format=flowed
 Content-Transfer-Encoding: quoted-printable
 
-<html>
-<body>
-To whom it might concern,<br><br>
-We have observed bandwidth problems of TCP when running benchmarks which
-gradually increase its payload and having (most of its) data flowing
-unidirectional. The degradation is observed between two dual XEON/E7500
-machines, using Gbe and a cross-over cable. The Gbe is eth1 and has an
-MTU of 9000. eth0 is a FE with an MTU of 1500. The machines is running
-linux 2.4.20, and the NIC in question is an Intel Corp. 82544GC Gigabit
-Ethernet Controller (rev 02).<br><br>
-During an attempt to change TCP parameter settings, and also
-systematically changing socket rx/tx buffer sizes, I discovered that once
-in a while, the benchmark ran well. The OK run was not deterministic, and
-had nothing to do with change of the parameter settings. Hence, I let the
-machine work during the week-end, and took tcpdumps which I saved for the
-successful run. An analysis of the &quot;OK&quot; run vs. the
-&quot;BAD&quot; run, discovers a couple of interesting things. The
-problem is that the advertised window of the receiver does not increase.
-The second problem, which also affects the &quot;OK&quot; run, is that
-the ratio of packets sent (from src to dst) and the number of packets
-received (#advertisements) is 1 for the &quot;BAD&quot; scenario
-(actually this is probably a consequence of the window being only ~2xMTU
-size). Surprisingly, it is as large as 0.5 for the &quot;OK&quot;
-scenario. IMHO, this violates RFC813, which states:<br><br>
-<dl>
-<dd>&nbsp;&nbsp; There are two reasons&nbsp; for&nbsp; prompt&nbsp;
-acknowledgement.&nbsp;&nbsp;&nbsp; One&nbsp; is&nbsp; to=20
-<dd>prevent&nbsp; retransmission.&nbsp; We will discuss later how to
-determine whether=20
-<dd>unnecessary&nbsp; retransmission&nbsp; is&nbsp;
-occurring.&nbsp;&nbsp;&nbsp; The&nbsp; other&nbsp;&nbsp;
-reason&nbsp;&nbsp; one=20
-<dd>acknowledges&nbsp; promptly&nbsp; is&nbsp; to permit further data to
-be sent.&nbsp; However,=20
-<dd>the previous section makes quite clear that it is not&nbsp;
-always&nbsp; desirable=20
-<dd>to send a little bit of data, even though the receiver may have room
-for=20
-<dd>it.&nbsp;&nbsp;&nbsp; Therefore,&nbsp; one&nbsp; can&nbsp;
-state&nbsp; a&nbsp; general&nbsp; rule&nbsp; that&nbsp; under normal=20
-<dd>operation, <font color=3D"#FF0000">the receiver of data need not,&nbsp;
-and&nbsp; for&nbsp; efficiency&nbsp; reasons=20
-<dd>should&nbsp; not,&nbsp; acknowledge&nbsp; the data unless either the
-acknowledgement is=20
-<dd>intended to produce an increased useable window</font>, is
-necessary&nbsp; in&nbsp; order=20
-<dd>to&nbsp; prevent&nbsp; retransmission&nbsp; or&nbsp; is&nbsp;
-being&nbsp; sent&nbsp; as&nbsp; part&nbsp; of a reverse=20
-<dd>direction segment being sent for some other reason.&nbsp; We will
-consider an=20
-<dd>algorithm to achieve these goals.=20
-</dl>The two tcpdumps has been analyzed by a simple awk scripts, which
-gives information for every 1/10 of a second of the runtime:<br><br>
-time: elapsed time relative to the first packet<br>
-MB/s: sum of TCP payload (based on TCP sequence numbers) *1e-6 / delta
-time<br>
-avg_len: average packet length (TCP payload) sent<br>
-nsent: no of packets sent from src to dst<br>
-avg_win: average window size advertised by the src<br>
-adv/sent: ratio between #advertisements (sum of prompt acks and
-piggybacked acks) and #packets sent<br><br>
-The extract of the analysis is enclosed as &quot;ok.txt&quot; and
-&quot;bad.txt&quot;. Also, the information is presented as graphs in
-&quot;bw_winsiz.png&quot; and &quot;bw_adv-sent.png&quot;. In the graphs,
-the &quot;OK&quot; data uses the bottom x-axis, the &quot;BAD&quot; data
-uses the upper x-axis (the &quot;BAD&quot; run-time is longer due to the
-lower bandwidth). Bandwidth uses the left y-axes, whereas the average
-advertised window size and the ratio of the #advertisements and #packets
-sent uses the rightmost x-axis.<br><br>
-I do hope this information is useful 4u and that the problem can be
-fixed. Since I do not read the mailing lists, I would appreciate a note
-back by email of someone triggers on this.<br><br>
-Cheers, H=E5kon<br><br>
-<x-sigsep><p></x-sigsep>
---<br>
-H=E5kon Bugge; VP Product Development; Scali AS;<br>
-<a href=3D"mailto:hob@scali.no" eudora=3D"autourl">mailto:hob@scali.no</a>;
-<a href=3D"http://www.scali.com/" eudora=3D"autourl">http://www.scali.com</=
-a>;
-fax: +47 22 62 89 51;<br>
-Voice: +47 22 62 89 50; Cellular (Europe+US): +47 924 84 514;<br>
-Visiting Addr: Olaf Helsets vei 6, Bogerud, N-0621 Oslo, Norway;<br>
-Mail Addr:&nbsp; Scali AS, Postboks 150, Oppsal, N-0619&nbsp; Oslo,
-Norway;<br>
-</body>
-</html>
+To whom it might concern,
 
---=====================_26722436==_
+We have observed bandwidth problems of TCP when running benchmarks which=20
+gradually increase its payload and having (most of its) data flowing=20
+unidirectional. The degradation is observed between two dual XEON/E7500=20
+machines, using Gbe and a cross-over cable. The Gbe is eth1 and has an MTU=
+=20
+of 9000. eth0 is a FE with an MTU of 1500. The machines is running linux=20
+2.4.20, and the NIC in question is an Intel Corp. 82544GC Gigabit Ethernet=
+=20
+Controller (rev 02).
+
+During an attempt to change TCP parameter settings, and also systematically=
+=20
+changing socket rx/tx buffer sizes, I discovered that once in a while, the=
+=20
+benchmark ran well. The OK run was not deterministic, and had nothing to do=
+=20
+with change of the parameter settings. Hence, I let the machine work during=
+=20
+the week-end, and took tcpdumps which I saved for the successful run. An=20
+analysis of the "OK" run vs. the "BAD" run, discovers a couple of=20
+interesting things. The problem is that the advertised window of the=20
+receiver does not increase. The second problem, which also affects the "OK"=
+=20
+run, is that the ratio of packets sent (from src to dst) and the number of=
+=20
+packets received (#advertisements) is 1 for the "BAD" scenario (actually=20
+this is probably a consequence of the window being only ~2xMTU size).=20
+Surprisingly, it is as large as 0.5 for the "OK" scenario. IMHO, this=20
+violates RFC813, which states:
+
+    There are two reasons  for  prompt  acknowledgement.    One  is  to
+prevent  retransmission.  We will discuss later how to determine whether
+unnecessary  retransmission  is  occurring.    The  other   reason   one
+acknowledges  promptly  is  to permit further data to be sent.  However,
+the previous section makes quite clear that it is not  always  desirable
+to send a little bit of data, even though the receiver may have room for
+it.    Therefore,  one  can  state  a  general  rule  that  under normal
+operation, the receiver of data need not,  and  for  efficiency  reasons
+should  not,  acknowledge  the data unless either the acknowledgement is
+intended to produce an increased useable window, is necessary  in  order
+to  prevent  retransmission  or  is  being  sent  as  part  of a reverse
+direction segment being sent for some other reason.  We will consider an
+algorithm to achieve these goals.
+The two tcpdumps has been analyzed by a simple awk scripts, which gives=20
+information for every 1/10 of a second of the runtime:
+
+time: elapsed time relative to the first packet
+MB/s: sum of TCP payload (based on TCP sequence numbers) *1e-6 / delta time
+avg_len: average packet length (TCP payload) sent
+nsent: no of packets sent from src to dst
+avg_win: average window size advertised by the src
+adv/sent: ratio between #advertisements (sum of prompt acks and piggybacked=
+=20
+acks) and #packets sent
+
+The extract of the analysis is enclosed as "ok.txt" and "bad.txt". Also,=20
+the information is presented as graphs in "bw_winsiz.png" and=20
+"bw_adv-sent.png". In the graphs, the "OK" data uses the bottom x-axis, the=
+=20
+"BAD" data uses the upper x-axis (the "BAD" run-time is longer due to the=
+=20
+lower bandwidth). Bandwidth uses the left y-axes, whereas the average=20
+advertised window size and the ratio of the #advertisements and #packets=20
+sent uses the rightmost x-axis.
+
+I do hope this information is useful 4u and that the problem can be fixed.=
+=20
+Since I do not read the mailing lists, I would appreciate a note back by=20
+email of someone triggers on this.
+
+Cheers, H=E5kon
+
+
+--
+H=E5kon Bugge; VP Product Development; Scali AS;
+mailto:hob@scali.no; http://www.scali.com; fax: +47 22 62 89 51;
+Voice: +47 22 62 89 50; Cellular (Europe+US): +47 924 84 514;
+Visiting Addr: Olaf Helsets vei 6, Bogerud, N-0621 Oslo, Norway;
+Mail Addr:  Scali AS, Postboks 150, Oppsal, N-0619  Oslo, Norway;
+
+--=====================_26925641==_
 Content-Type: image/png; name="bw_adv-sent.png";
  x-mac-type="504E4766"; x-mac-creator="6D646F73"
 Content-Transfer-Encoding: base64
@@ -407,7 +402,7 @@ lndGSR6/ehxUTX/h+gxsNGSj6525Oo9fPZNIyRidosGZNyqy0PJyKMjDSUFB
 PgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAL/AfxnE0CFXWhCAAAAAElF
 TkSuQmCC
 
---=====================_26722436==_
+--=====================_26925641==_
 Content-Type: text/plain; name="bad.txt";
  x-mac-type="42494E41"; x-mac-creator="74747874"
 Content-Transfer-Encoding: base64
@@ -604,7 +599,7 @@ LjcgICAxNC4zICAgIDg3NjcgICAxNjMgMTc2ODguMCAgIDEuMAojIHRvdCBz
 ZW50OiAyNDkwNTkgLCB0b3RfcmVjdmQ6IDExODY4MywgdG90X290aGVyczog
 Mgo=
 
---=====================_26722436==_
+--=====================_26925641==_
 Content-Type: image/png; name="bw_winsiz.png";
  x-mac-type="504E4766"; x-mac-creator="6D646F73"
 Content-Transfer-Encoding: base64
@@ -887,7 +882,7 @@ O29BEx9TLbwVTRyD3t8zG6CFuyi18xYg6O1tWARtoGc2wP3vSEtvAYLe3gbO
 g0Y0sB/Rzlvw8OO/FtrAlUQxd0/bNTFBM7Xk5uobeBHubUNQewsvBwAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAQDn/B4vl715W9/02AAAAAElFTkSuQmCC
 
---=====================_26722436==_
+--=====================_26925641==_
 Content-Type: text/plain; name="ok.txt";
  x-mac-type="42494E41"; x-mac-creator="74747874"
 Content-Transfer-Encoding: base64
@@ -1018,4 +1013,4 @@ MCAgIDAuNQogICAgICAgICAgMTAuOCAgICAwLjAgICAgICAgMCAgICAgMyA1
 MDQzMi4wICAgMC4zCiMgdG90IHNlbnQ6IDI3MTYzMCAsIHRvdF9yZWN2ZDog
 MTAwNjQzLCB0b3Rfb3RoZXJzOiAwCg==
 
---=====================_26722436==_--
+--=====================_26925641==_--
