@@ -1,29 +1,40 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][ATM]: [ioctl][1/8] move vcc_ioctl() to ioctl.c (from
- levon@movementarian.org)
-Date: Fri, 26 Sep 2003 07:05:50 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (1/3) sk98lin -- build on smp fix
+Date: Fri, 26 Sep 2003 11:17:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030926070550.3707e3f2.davem@redhat.com>
-References: <20030925205530.2a166ccc.davem@redhat.com>
-	<200309261348.h8QDm2kT022888@ginger.cmf.nrl.navy.mil>
+Message-ID: <20030926111747.27199054.shemminger@osdl.org>
+References: <20030904160658.5ae22c0d.shemminger@osdl.org>
+	<1220606764.18887.129.camel@mlindner-lin>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mitch@sfgoth.com, levon@movementarian.org, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, Ralph Roesler <rroesler@syskonnect.de>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas williams <chas@cmf.nrl.navy.mil>
-In-Reply-To: <200309261348.h8QDm2kT022888@ginger.cmf.nrl.navy.mil>
+To: Mirko Lindner <mlindner@syskonnect.de>
+In-Reply-To: <1220606764.18887.129.camel@mlindner-lin>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Sep 2003 09:48:03 -0400
-chas williams <chas@cmf.nrl.navy.mil> wrote:
+There is no exported variable called smp_num_cpus! so this driver
+won't build on SMP.  Since the local variable is never used anyway
+just get rid of it.
 
-> that seems very reasonable.  i believe the following attached patch
-> will provide the initial backend interface that mitch's patchset
-> depends on (its really just name changes).  mitch, perhaps you could
-> just submit this as patch 0/N when you are ready to submit your
-> atm_backend changes.
+This applies against 2.6.0-test5-bk13 which has the last vendor
+driver update.
 
-Wait a bit for Linus to suck in the stuff I applied last night,
-then you guys can unload the next set of patches on me. :)
+diff -Nru a/drivers/net/sk98lin/skdim.c b/drivers/net/sk98lin/skdim.c
+--- a/drivers/net/sk98lin/skdim.c	Fri Sep 26 11:01:04 2003
++++ b/drivers/net/sk98lin/skdim.c	Fri Sep 26 11:01:04 2003
+@@ -318,11 +318,6 @@
+ 	unsigned int  TotalTime   = 0;
+ 	unsigned int  UsedTime    = 0;
+ 	unsigned int  SystemLoad  = 0;
+-#ifdef CONFIG_SMP
+-	unsigned int  SKNumCpus   = smp_num_cpus;
+-#else
+-	unsigned int  SKNumCpus   = 1;
+-#endif
+ 
+ 	/* unsigned int  NbrCpu      = 0; */
+ 
