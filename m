@@ -1,47 +1,34 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Andi Kleen <ak@muc.de>
 Subject: Re: System crash in tcp_fragment()
-Date: Mon, 20 May 2002 17:34:16 -0700 (PDT)
+Date: Tue, 21 May 2002 02:39:19 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <acc5in$hjg$2@main.gmane.org>
-References: <3CE9960D.15D41380@mvista.com>
-	<200205210041.EAA04407@sex.inr.ac.ru>
+Message-ID: <acc5l2$hn3$2@main.gmane.org>
+References: <200205210011.EAA04286@sex.inr.ac.ru> <3CE99434.20E7479C@mvista.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: george@mvista.com, ak@suse.de, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, ak@muc.de, pekkas@netcore.fi
+Content-Type: text/plain; charset=us-ascii
+Cc: kuznet@ms2.inr.ac.ru, Andi Kleen <ak@suse.de>, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, davem@redhat.com, ak@muc.de, pekkas@netcore.fi
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200205210041.EAA04407@sex.inr.ac.ru>
+To: george anzinger <george@mvista.com>
+Content-Disposition: inline
+In-Reply-To: <3CE99434.20E7479C@mvista.com>
 List-Id: netdev.vger.kernel.org
 
-   From: kuznet@ms2.inr.ac.ru
-   Date: Tue, 21 May 2002 04:41:39 +0400 (MSD)
+On Tue, May 21, 2002 at 02:26:29AM +0200, george anzinger wrote:
+> kuznet@ms2.inr.ac.ru wrote:
+> > 
+> > Hello!
+> > 
+> > > It's unfortunately the truth. Even in_interrupt() is buggy current
+> > > on SMP preemptive.
+> > 
+> > And why folks working on preemtive kernel do not repair this?
+> > To all that I remember it is well known issue.
+> > 
+> Ah, but we have.  in_interrupt() was fixed about a month
+> ago.  I think Robert got it into all the patches.  Whats
+> more, it is a bit faster too :)
 
-   +Two similar problems arise. An example code snippet:
-   +
-   +       struct this_needs_locking tux[NR_CPUS];
-   +       tux[smp_processor_id()] = some_value;
-   +       /* task is preempted here... */
-   +       something = tux[smp_processor_id()];
-   
-   If you are not going to break all the kernel just make sure that
-   tasks preempted in the kernel do not migrate. That's all, simple & stupid.
-   
-Such rule does not even make this piece of code legal.  Consider:
+It's not fixed in 2.5.15/16.  I don't know about your patches.
 
-task1:cpu0:	x = counters[smp_processor_id()];
-      cpu0:	PREEMPT
-task2:cpu0:	x = counters[smp_processor_id()];
-task2:cpu0:	counters[smp_processor_id()] = x + 1;
-      cpu0:	PREEMPT
-task1:cpu0:	counters[smp_processor_id()] = x + 1;
-		full garbage
-
-But it does bring up important point, preemption people need to
-fully audit entire networking.
-
-It is totally broken by preemption the more I think about it.
-
-At the very beginning, all the SNMP counter bumping tricks will
-totally fail with preemption enabled.
+-Andi
