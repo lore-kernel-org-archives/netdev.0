@@ -1,9 +1,9 @@
 From: rask@sygehus.dk (Rask Ingemann Lambertsen)
-Subject: Re:  Is a driver allowed to modify dev->flags?
-Date: Wed, 2 Apr 2003 15:01:49 +0200
+Subject: Re: Must dev->set_multicast_list() complete before returning?
+Date: Wed, 2 Apr 2003 15:09:14 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <44003.7703760483$1049288519@news.gmane.org>
-References: <3e89c32348ce76.94538914@not right>
+Message-ID: <5893.16517948664$1049291483@news.gmane.org>
+References: <Pine.LNX.4.44.0304012242360.1685-100000@beohost.scyld.com>
 Reply-To: rask@sygehus.dk
 Mime-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
@@ -13,14 +13,16 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-I wrote: 
+Donald Becker wrote:
 
-> Is a network device driver allowed to modify dev->flags? For example:
+> The promiscuous setting must complete before return, but there are
+> several drivers where the updated multicast filter does not immediately
+> take effect.
 > 
-> if (dev->flags & IFF_ALLMULTI)
->         dev->flags |= IFF_PROMISC;
+> I have not seen hardware where setting promiscuous mode is a queued
+> command.
 
-Maybe the right question is: Is it necessary for the driver to set the IFF_PROMISC flag if the device enters promiscuous mode because it doesn't support all-multicast mode?
+Intel i82586, i82596 and, as far as I can tell from other drivers, several other Intel i825xx Ethernet chips. IIRC, the function must not sleep. That means busy-wait for it to complete. :-(
 
 Regards,
 Rask Ingemann Lambertsen
