@@ -1,70 +1,34 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
-	Topics
-Date: 30 Mar 2005 11:55:09 -0500
-Message-ID: <1112201709.1090.418.camel@jzny.localdomain>
-References: <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>
-	 <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie>
-	 <1112130512.1077.107.camel@jzny.localdomain>
-	 <20050330152208.GB12672@muc.de> <20050330153313.GD32111@g5.random>
-	 <20050330153948.GE12672@muc.de> <20050330154418.GE32111@g5.random>
-	 <20050330160255.GG12672@muc.de>  <20050330161522.GH32111@g5.random>
-Reply-To: hadi@cyberus.ca
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
+Date: Wed, 30 Mar 2005 10:07:16 -0700
+Message-ID: <20050330170716.GB30849@colo.lackof.org>
+References: <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com> <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave> <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie> <1112130512.1077.107.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@muc.de>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Dmitry Yusupov <dmitry_yus@yahoo.com>, Andi Kleen <ak@muc.de>,
         James Bottomley <James.Bottomley@HansenPartnership.com>,
-        Rik van Riel <riel@redhat.com>, mpm@selenic.com, michaelc@cs.wisc.edu,
-        open-iscsi@googlegroups.com, ksummit-2005-discuss@thunk.org,
-        netdev <netdev@oss.sgi.com>
+        Rik van Riel <riel@redhat.com>, mpm@selenic.com, andrea@suse.de,
+        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
+        ksummit-2005-discuss@thunk.org, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrea Arcangeli <andrea@suse.de>
-In-Reply-To: <20050330161522.GH32111@g5.random>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1112130512.1077.107.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-03-30 at 11:15, Andrea Arcangeli wrote:
+On Tue, Mar 29, 2005 at 04:08:32PM -0500, jamal wrote:
+> On a slightly related topic: is SCSI (not iscsi) considered a reliable
+> protocol?
 
-> > The problem with you algorithm is that you cannot control
-> > how to NIC puts incoming packets into RX rings (and then 
-> > actually if the packets you are interested in do actually arrive from
-> > the net ,-)
-> 
-> All I care about is to assign a mempool ID to the skb (ID being unique
-> identifier for the tcp connection I don't care how the implementation
-> is). 
+Yes and No. "SCSI" covers several layers of the ISO networking model.
+Parallel SCSI transport is reliable.
 
-Mechanisms are in place today.
+> If yes, why would you wanna run a reliable protocol inside another
+> reliable protocol (TCP)?
 
-> If while moving up the stack the skb data doesn't match to the
-> sock->mempool id, we'll just free the packet and put it back in the
-> mempool.
-> 
+Think of SCSI command protocol more like NFS: Just a way to send
+commands/data to a "storage device".
 
-I think you may need to reserve some small amount of buffers per NIC 
-(<= RX DMA ring size) that are used as temporary buffers before the
-decision is made to reassign to the higher priority memory or drop. 
-The decision, if s/ware only, would need to consult a classifier at the
-ingress (hopefully you are using NAPI and kick this only on overload).
-The upgrade implies restoring the temporary buffer to the NIC.
-The NIC rx side only makes progress if temp buffers are available.
-Since they are restored a short distance after they are allocated
-(whether you drop or upgrade) progress will always happen
-
-> > "We have an enterprise class OS with iSCSI which can only
-> > support four swap devices"
-> 
-
-You forgot "carrier-grade" or is that supposed to conflict with
-"enteprise class"? Cant you be both? ;->
-
-> ;) I agree the hardware solution isn't appealing.
-
-Well, if a realtek NIC (read: elcheapo, commodity) has such features -
-in the minimal (regarless of the iscsi problem)- we need to support
-those features.
-
-cheers,
-jamal
+grant
