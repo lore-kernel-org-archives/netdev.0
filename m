@@ -1,8 +1,8 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [Patch 3/3 2.4] e1000: Update Documentation/networking/e1000.txt
-Date: Fri, 15 Oct 2004 06:49:57 -0700 (PDT)
+Subject: [Patch 1/3 2.5] e1000: Configuration and user guide update
+Date: Fri, 15 Oct 2004 06:50:20 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0410150507590.31227-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0410150515070.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,10 +11,10 @@ To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/e1000.txt
---- old/Documentation/networking/e1000.txt	2004-10-07 15:34:48.000000000 -0700
-+++ new/Documentation/networking/e1000.txt	2004-10-07 15:35:11.000000000 -0700
-@@ -1,7 +1,7 @@
+diff -Nuarp old/linux-2.5/Documentation/networking/e1000.txt new/linux-2.5/Documentation/networking/e1000.txt
+--- old/linux-2.5/Documentation/networking/e1000.txt	2004-10-07 15:50:44.000000000 -0700
++++ new/linux-2.5/Documentation/networking/e1000.txt	2004-10-07 15:51:15.000000000 -0700
+@@ -1,14 +1,14 @@
  Linux* Base Driver for the Intel(R) PRO/1000 Family of Adapters
  ===============================================================
  
@@ -23,7 +23,15 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  
  
  Contents
-@@ -20,62 +20,29 @@ In This Release
+ ========
+ 
+ - In This Release
+-- Supported Adapters
++- Identifying Your Adapter
+ - Command Line Parameters
+ - Speed and Duplex Configuration
+ - Additional Configurations
+@@ -20,63 +20,29 @@ In This Release
  ===============
  
  This file describes the Linux* Base Driver for the Intel(R) PRO/1000 Family
@@ -36,7 +44,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
 +supplied with your Intel PRO/1000 adapter. All hardware requirements listed 
 +apply to use with Linux.
  
-+Native VLANs are now available with supported kernels.
+ Native VLANs are now available with supported kernels.
  
 -
 -Supported Adapters
@@ -97,7 +105,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  Command Line Parameters
  =======================
  
-@@ -91,15 +58,25 @@ For example, with two PRO/1000 PCI adapt
+@@ -92,27 +58,39 @@ For example, with two PRO/1000 PCI adapt
  
       insmod e1000 TxDescriptors=80,128
  
@@ -129,12 +137,13 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  
  AutoNeg (adapters using copper connections only)
  Valid Range: 0x01-0x0F, 0x20-0x2F
-@@ -107,11 +84,13 @@ Default Value: 0x2F
+ Default Value: 0x2F
      This parameter is a bit mask that specifies which speed and duplex
      settings the board advertises. When this parameter is used, the Speed and
-     Duplex parameters must not be specified.  
+-    Duplex parameters must not be specified.  
++    Duplex parameters must not be specified.
 +    NOTE: Refer to the Speed and Duplex section of this readme for more 
-+          information on the AutoNeg parameter.
++          information on the AutoNeg parameter.  
  
  Duplex (adapters using copper connections only)
  Valid Range: 0-2 (0=auto-negotiate, 1=half, 2=full)
@@ -144,7 +153,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
      or two-directional. If both Duplex and the link partner are set to auto-
      negotiate, the board auto-detects the correct duplex. If the link partner
      is forced (either full or half), Duplex defaults to half-duplex.
-@@ -124,22 +103,46 @@ Default: Read flow control settings from
+@@ -125,22 +103,46 @@ Default: Read flow control settings from
  
  InterruptThrottleRate
  Valid Range: 100-100000 (0=off, 1=dynamic)
@@ -194,7 +203,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
      This value is the number of receive descriptors allocated by the driver. 
      Increasing this value allows the driver to buffer more incoming packets. 
      Each descriptor is 16 bytes.  A receive buffer is also allocated for each
-@@ -148,6 +151,9 @@ Default Value: 80
+@@ -149,6 +151,9 @@ Default Value: 80
  
      NOTE: MTU designates the frame size. It only needs to be set for Jumbo 
            Frames.
@@ -204,7 +213,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  
  RxIntDelay
  Valid Range: 0-65535 (0=off)
-@@ -167,11 +173,11 @@ Default Value: 0
+@@ -168,11 +173,11 @@ Default Value: 0
               restoring the network connection. To eliminate the potential for
               the hang ensure that RxIntDelay is set to 0.
  
@@ -218,7 +227,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
      this value ensures that an interrupt is generated after the initial 
      packet is received within the set amount of time.  Proper tuning,
      along with RxIntDelay, may improve traffic throughput in specific network
-@@ -187,12 +193,16 @@ Default Value: 0 (auto-negotiate at all 
+@@ -188,12 +193,16 @@ Default Value: 0 (auto-negotiate at all 
  
  TxDescriptors
  Valid Range: 80-256 for 82542 and 82543-based adapters
@@ -236,7 +245,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  TxIntDelay
  Valid Range: 0-65535 (0=off)
  Default Value: 64
-@@ -202,7 +212,7 @@ Default Value: 64
+@@ -203,7 +212,7 @@ Default Value: 64
      system is reporting dropped transmits, this value may be set too high
      causing the driver to run out of available transmit descriptors.
  
@@ -245,7 +254,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  Valid Range: 0-65535 (0=off)
  Default Value: 64
      This value, in units of 1.024 microseconds, limits the delay in which a 
-@@ -218,7 +228,6 @@ Default Value: 1
+@@ -219,7 +228,6 @@ Default Value: 1
      A value of '1' indicates that the driver should enable IP checksum
      offload for received packets (both UDP and TCP) to the adapter hardware.
  
@@ -253,7 +262,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  Speed and Duplex Configuration
  ==============================
  
-@@ -250,6 +259,10 @@ Bit            7      6      5       4  
+@@ -251,6 +259,10 @@ Bit            7      6      5       4  
  Speed (Mbps)   N/A    N/A    1000    N/A     100    100    10      10
  Duplex                       Full            Full   Half   Full    Half
  
@@ -264,7 +273,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  Note that setting AutoNeg does not guarantee that the board will link at the 
  highest specified speed or duplex mode, but the board will link at the 
  highest possible speed/duplex of the link partner IF the link partner is also
-@@ -260,6 +273,38 @@ adapter MUST be forced to the same speed
+@@ -261,6 +273,38 @@ adapter MUST be forced to the same speed
  Additional Configurations
  =========================
  
@@ -303,7 +312,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
    Jumbo Frames
    ------------
  
-@@ -277,6 +322,51 @@ Additional Configurations
+@@ -278,6 +322,51 @@ Additional Configurations
    10 or 100 Mbps may result in poor performance or loss of link.
  
  
@@ -355,7 +364,7 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  Known Issues
  ============
  
-@@ -284,9 +374,9 @@ Known Issues
+@@ -285,9 +374,9 @@ Known Issues
    -------------------------------
  
    Memory allocation failures have been observed on Linux systems with 64 MB 
@@ -368,3 +377,38 @@ diff -Nuarp old/Documentation/networking/e1000.txt new/Documentation/networking/
  
  
  Support
+diff -Nuarp old/linux-2.5/drivers/net/Kconfig new/linux-2.5/drivers/net/Kconfig
+--- old/linux-2.5/drivers/net/Kconfig	2004-10-07 15:52:11.000000000 -0700
++++ new/linux-2.5/drivers/net/Kconfig	2004-10-07 15:52:27.000000000 -0700
+@@ -1933,29 +1933,8 @@ config E1000
+ 	depends on PCI
+ 	---help---
+ 	  This driver supports Intel(R) PRO/1000 gigabit ethernet family of
+-	  adapters, which includes:
+-
+-	  Controller  Adapter Name                         Board IDs
+-	  ----------  ------------                         ---------
+-	  82542       PRO/1000 Gigabit Server Adapter      700262-xxx,
+-	  717037-xxx
+-	  82543       PRO/1000 F Server Adapter            738640-xxx,
+-	  A38888-xxx
+-	  82543       PRO/1000 T Server Adapter            A19845-xxx,
+-	  A33948-xxx
+-	  82544       PRO/1000 XT Server Adapter           A51580-xxx
+-	  82544       PRO/1000 XF Server Adapter           A50484-xxx
+-	  82544       PRO/1000 T Desktop Adapter           A62947-xxx
+-	  82540       PRO/1000 MT Desktop Adapter          A78408-xxx
+-	  82541       PRO/1000 MT Desktop Adapter          C91016-xxx
+-	  82545       PRO/1000 MT Server Adapter           A92165-xxx
+-	  82546       PRO/1000 MT Dual Port Server Adapter A92111-xxx
+-	  82545       PRO/1000 MF Server Adapter           A91622-xxx
+-	  82545       PRO/1000 MF Server Adapter(LX)       A91624-xxx
+-	  82546       PRO/1000 MF Dual Port Server Adapter A91620-xxx 
+-
+-	  For more information on how to identify your adapter, go to the
+-	  Adapter & Driver ID Guide at:
++	  adapters.  For more information on how to identify your adapter, go 
++	  to the Adapter & Driver ID Guide at:
+ 
+ 	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+ 
