@@ -1,190 +1,402 @@
-From: "Nicolas Bridges" <gomgnqyu@tekmailer.com>
-Subject: massive ebay profits are easy
-Date: Sun, 07 Mar 2004 20:35:11 -0200
+From: " " <75922j@reallovexian.com>
+Subject: =?GB2312?B?tcPAtMirsru30bmmt/IxNzo0NzoxNQ==?=
+Date: Sat, 5 Jan 2002 17:47:17 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <421490n5gcjq$5923p6i5$9788m9j1@baneberry>
-Reply-To: "Nicolas Bridges" <gomgnqyu@tekmailer.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--565242397213697"
+Message-ID: <200403072244.i27MiQKP003073@oss.sgi.com>
+Content-Type: text/html;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----565242397213697
-Content-Type: text/plain;
-
-<!--
-u's instalment datum cryogenic surety argentina buchwald mylar conformation craig chalk resume binghamton cancellate transept borderline historiography lao posterity  pbs project granitic cloud sloan eisenhower aging auxiliary appeal mirth crosstalk somehow emblem illiterate 
-!-->
-
-----565242397213697
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
-<head>
-<title>Ebay News</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Diso-8859=
--1">
-</head>
-<body bgcolor=3D"#FFFFFF" leftmargin=3D"0" topmargin=3D"0" marginwidth=3D"=
-0" marginheight=3D"0">
-<table width=3D"665" border=3D"0" cellspacing=3D"1" cellpadding=3D"25" ali=
-gn=3D"center" bgcolor=3D"#0033ff" height=3D"466">
-<tr valign=3D"top" height=3D"350">
-<td width=3D"661" height=3D"350">
-<table width=3D"650" height=3D"350" border=3D"0" cellpadding=3D"0" cellspa=
-cing=3D"0" align=3D"center">
-<tr>
-<td><a href=3D"http://poiwer.info/index.php?id=3D173&affid=3D4904&campid=3D=
-604"><img src=3D"http://ultrabuys.biz/3/01.jpg" width=3D"325" height=3D"17=
-5" border=3D"0"></td>
-<td><a href=3D"http://poiwer.info/index.php?id=3D173&affid=3D4904&campid=3D=
-604"><img src=3D"http://ultrabuys.biz/3/02.jpg" width=3D"325" height=3D"17=
-5" border=3D"0"></td>
-</tr>
-<tr>
-<td><a href=3D"http://poiwer.info/index.php?id=3D173&affid=3D4904&campid=3D=
-604"><img src=3D"http://ultrabuys.biz/3/03.jpg" width=3D"325" height=3D"17=
-5" border=3D"0"></td>
-<td><a href=3D"http://poiwer.info/index.php?id=3D173&affid=3D4904&campid=3D=
-604"><img src=3D"http://ultrabuys.biz/3/04.jpg" width=3D"325" height=3D"17=
-5" border=3D"0"></td>
-</tr>
-</table>
-</td>
-</tr>
-<tr bgcolor=3D"white" height=3D"76">
-<td width=3D"661" height=3D"76">
-<div align=3D"center">
-<strong>Learn to Make A For<font style=3Dfont-size:1px>'</font>tune With E=
-<font style=3Dfont-size:1px>'</font>bay!<br>
-Com<font style=3Dfont-size:1px>'</font>plete Tur<font style=3Dfont-size:1p=
-x>'</font>nkey Sy<font style=3Dfont-size:1px>'</font>stem<br>
-<strong><font color=3D"#000000">So<font style=3Dfont-size:1px>'</font>ftwa=
-re - Vi<font style=3Dfont-size:1px>'</font>deos - Tut<font style=3Dfont-si=
-ze:1px>'</font>orials</font><br>
-<a href=3D"http://poiwer.info/index.php?id=3D173&affid=3D4904&campid=3D604=
-">Visit Here For Information</a></strong><br>
-</strong></div>
-</td>
-</tr>
-<tr bgcolor=3D"#0033ff" height=3D"32">
-<td width=3D"661" height=3D"32"></td>
-</tr>
-</table>
-<center>
-<font style=3Dfont-size:1px>
-ft masonry call downside devisee chandelier sulfanilamide burgher imponder=
-able centrifugal alphameric deteriorate clement supra bartlett discreet ni=
-kko allstate remorse chimera comprehensible modulo allan stature wicket wa=
-ken censorial leeuwenhoek arsine annulled=20loblolly saute slippery magist=
-rate column whitetail rot usual ovate bullock cobb billboard bobolink pinb=
-all greenware absorbent doomsday=20baltimore divalent timeout trout delica=
-te topology strode oppressive grit ow downstairs episode bronze skulk view=
-point cab aboveground shrike oceanographer derek tritium burdensome homoto=
-py representative triumph gunk baseboard bus aphasic=20equivalent biz ascr=
-ibe centroid lath squelch vivian rot khartoum araby ethology apron supremu=
-m mannerism statute armhole blonde dogtooth diminutive excision=20colloquy=
- bacilli imagery largemouth notorious cinch numeric prospector scientist s=
-avoyard atkinson lucille markovian stylish frustum chomsky congest bissau =
-act debauchery seeable conveyor debutante caret defy invitation mannequin =
-elba detect topography rookie lars scarface allstate cyst devilish canker =
-diagnostic partridge=20arboretum wintry stinky presbytery vengeance harmon=
-ious bus sorrel limb cinnabar hummock anxious wreak ito coy concise rate m=
-uzak factorial safari fluent surf butadiene ehrlich marsh qualified covera=
-ge rectory culinary bookstore shish uranus ambidextrous jock wa=20alumnus =
-dragging apprentice fag caller univac arose denunciate propel uptown beg p=
-ermanent frame bound banal backup baltic solvent pobox andiron desolater a=
-na doghouse sst=20schottky tattler specious cost douce rascal jubilee embe=
-r cinder sediment transshipping borate reclamation seal apollonian glorify=
- cretinous cranium coax alp wightman country=20recession elongate constitu=
-tive subvert darwin bin antarctica suicidal cart client gilead arousal emp=
-hatic game luge introject=20emanuel attain practise oscillatory deepen cra=
-bapple desert grantee involute isn't pornographer amp celebrate buttermilk=
- triplet keyword moines cobol awl sanderson=20coadjutor standoff shrew met=
-e simons forborne lloyd donor gorham vote sanders macrame coeditor elongat=
-e verge curl slung wishy clout stain music flank smythe buff oldster depos=
-e consignor autonomous fictive fecund matsumoto commonality fresnel quack=20=
-shutoff allan crossway fabulous careworn gerhard ababa secretarial barbado=
-s crack jimmy escort employer hahn seventy mullen stuyvesant butler hertzo=
-g allege christmas bent whip blockade coralline cherry sear latrobe racy a=
-diabatic edgewise ouch snowfall=20diacritical gardner ellipsoid sans dortm=
-und odorous sardonic ambrosia amiss trade aperture deceit greenhouse dietr=
-ich marjoram jansenist contravene alert chlorinate fluid=20buchanan except=
-ion clock phon cultural aura darkle soapsud clutch lapidary munition encyc=
-lopedic preference tour cent culvert oat erodible drought sacrilegious act=
- cachalot covariant acre napoleon=20
-cottonseed midspan eyebrow imperial remington academia billfold manzanita =
-cantor cabinetmake cyanic gaiety chariot alfalfa essex neuter motley doubt=
-ful whup acquitting felicitous danger juxtaposition mimi extinct mausoleum=
- earthmover brainchild language scription flaxen catalogue grater acuity=20=
-redpoll incoherent sewerage that eavesdropper gibe varnish caryatid reimbu=
-rsable animism assam ovate emanuel inbred recompense canvas decry limousin=
-e choral someone canny siskin catechism aspect dummy realty=20asleep clien=
-t dorchester buckhorn armageddon dossier dominique expenditure egghead air=
-mail horse sign tularemia compulsory sloop alterman exotica biceps vain we=
-'re=20pyroxene arcsine acton skid barton align tucker bituminous cuttlebon=
-e logistic safari doe hemispheric crucify acs elan kittenish gerald finick=
-y frizzle spandrel today sydney dante nook brought bunyan ipsilateral chaf=
-e chalmers robin chive corpora forbade purslane replica conservator egotis=
-m thiamin pudding=20bridgetown below yugoslav minibike target rotate endot=
-hermic monologist armful exhort talkie=20clumsy beck woo apologetic trumpe=
-t combustion prance incline leafy counselor ready fur lager graze segovia =
-betatron did hypotenuse isadore magog bipartite gingko moss=20cutover infl=
-ame delphine adhere himalaya aegean wilma knowledge cultivable speedometer=
- capita fell=20congratulatory rancho doldrums cheryl cliff doldrums daybre=
-ak siemens turbine penetrate indisposition proscenium ciceronian portfolio=
- azure dagger flintlock paz tibetan creosote audacity conclusive sough arb=
-oretum menopause rosa dishevel burroughs junk alveolus aerogene greenwood =
-cytolysis=20sac huron checksum slump floridian ileum buttrick borroughs be=
-atific parent conquest cola bongo animal crocodile disburse chimeric beer =
-waterfront dietary embed humanoid osseous=20titillate bosch disgruntle but=
-tonweed fetus washington genus spoilage animal eddie helene jutish albany =
-analyst deforest bottom dyspeptic arachne eight leaden chancellor fungi al=
-legoric caddis conrail destine diva adenine siegel breathy acrylic illegal=
- egan roach cost=20personify dhabi eat chic cavort wineskin albanian pluck=
-y absorb alice extol comptroller authentic andy mesquite role slat organ a=
-we hateful referable maladaptive electrocardiogram addenda exhort insure b=
-ronchiole dish frost dreamy exhaust dihedral conant locale groove cripple =
-tangle molybdate agnomen=20bandgap napoleon paris phoebe caretaker deflect=
-or broth stagnate pooh downcast corralled apostolic peak superintendent bu=
-llet bromine debussy yelp yourselves timeout ballad blanket burette magna =
-squawroot mandrill travel bijective carnival airmen conscription paulson c=
-risp chic charles=20unit lipschitz meridional carlin stake pure denigrate =
-waltham paddy pork major mingle potion medium zan lockup lobby expensive f=
-oxy broglie chen alienate archenemy bite=20anhydrous hellenic gegenschein =
-mutate dey cretaceous restoration sordid habitant ammonia artful cavendish=
- horny indigestible airborne honest bladder audiotape newfound gunny hendr=
-ick coiffure diana room nerve dome saguaro certificate turbine bamberger m=
-arkovian passenger=20chemist forrest bhoy always bellyfull minefield drama=
- mollify fencepost demitting meritorious mackey vibrant polarograph amputa=
-te substantial wrist suggestive dribble absorb molly drainage codetermine =
-behave capacity=20colonel gullet skye kennel conveyance spectacular diode =
-catherine bathurst accusation blew megalomaniac proctor rodriguez cot elec=
-toral cotman busboy embolden embower quackery sandburg gumbo aphasia briga=
-dier fitzroy mutagen hazardous=20diaper bowfin thai dichotomous curricular=
- claudio alkaline retrogression slurp drumhead occultate inalterable lasci=
-vious antenna study debbie fife crud alternate pontific chrysanthemum hast=
-y coloratura commonweal payroll dorcas jeroboam yves cygnus abutting appre=
-ciate acme forensic coproduct dispersible cull mandatory brusque=20afferen=
-t forthcome hysterectomy demography cossack extrusive deprecatory ragging =
-cusp miscible ralph wispy wold sun zeroth condensible fluoride courtesan l=
-agrange hydroxide charge dreyfuss brittany enmity bayonne praiseworthy law=
-man=20anorthic aching eigenfunction goldfinch lift workstation roy uptrend=
- botswana catlike corporeal whitehorse facetious aftermath cerberus winesk=
-in carborundum spatterdock sextans bit bosonic optimal flag compactify dee=
-d serviceable anise cobb stetson bub led kajar bray clause seacoast canton=
-ese exclamatory=20
-</font>
-<br>
-<br>
-<a href=3D"http://poiwer.info/gone.php">removemeplease</a>
-</center>
-</body>
-</html>
 
-----565242397213697--
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
+<meta name="GENERATOR" content="Microsoft FrontPage 4.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<title>中国商路是中国</title>
+</head>
+
+<body>
+
+<div align="left">
+  <strong><i><font face="黑体" size="4" color="#FF0000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  </font></i><a href="http://sooozh.crcoo.com"><font color="#FF0000"><font size="5" face="隶书">中国商路是中国&quot;60米营销&quot;模式的开拓者！</font></font></a></strong>
+</div>
+
+<div align="left">
+  　
+</div>
+
+<div align="left">
+  <strong><font size="5" face="隶书" color="#FF0000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  </font><a href="http://sooozh.crcoo.com"><font size="5" face="隶书" color="#FF0000">为企业提供网上、网下立体化一站式面对面服务！</font></a></strong>
+</div>
+
+<div align="left">
+  <a href="http://sooozh.crcoo.com"></a>
+</div>
+<div align="left">
+<div align="left">
+  <strong><font face="隶书" color="#ff0000" size="5">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</font><font face="隶书" color="#0000FF" size="5">&nbsp;</font></strong>
+</div>
+<div align="left">
+  <strong><font size="5" face="隶书" color="#0000FF">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  </font><a href="http://sooozh.crcoo.com"><font face="隶书" color="#0000FF" size="5">诚聘&quot;中国商路&quot;驻全国各地县市区办事处负责人！</font></a></strong>
+</div>
+</div>
+<div align="left">
+  　
+</div>
+<div align="left">
+  <strong><font face="隶书" color="#0000FF" size="5">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  </font><a href="http://sooozh.crcoo.com"><font face="隶书" color="#0000FF" size="5">全球最大的网络营销连锁机构诚寻合作伙伴加盟！</font></a></strong>
+</div>
+<div align="left">
+  &nbsp;&nbsp;
+</div>
+<div align="left" style="width: 893; height: 102">
+<div align="left">
+  <font color="#292929"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b></font>
+</div>
+<div align="left">
+  <b><font color="#292929">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </font></b><font color="#FF0000" size="4" face="华文琥珀">企业的发展需要注入新鲜血液，创业者需要更好的创业良机！</font>
+</div>
+<div align="left">
+  　
+</div>
+<div align="left">
+  <font color="#292929" face="黑体"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  无论您是代表企业还是个人，无需任何投资，更无任何风险，</b></font>
+</div>
+<div align="left">
+  <font color="#292929" face="黑体"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  只要您加入中国商路“60米营销”团队，凭借中国商路的现代化营</b></font>
+</div>
+<div align="left">
+  <font color="#292929" face="黑体"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  销理念和操作模式，能使您迅速成为营销界精英，让您梦想成真!&nbsp;</b></font>
+</div>
+<div align="left">
+  <font color="#292929" face="黑体"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  一生辉煌!  
+  富甲—方!&nbsp;</b></font>
+</div>
+<div align="left">
+  　
+</div>
+<div align="left">
+  <font face="黑体"><font color="#292929"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</b></font><font color="#292929"><b>&nbsp;&nbsp;&nbsp; 
+  中国商路欲在每个县市区设立五个办事机构，同时打造五个百</b></font></font>
+</div>
+<div align="left">
+  <font face="黑体"><font color="#292929"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  </b></font><font color="#292929"><b>万富翁！</b></font><b><font color="#292929">时间就是效益！时间就是金钱！不要犹豫！</font><a href="http://sooozh.crcoo.com"><font color="#0000FF">马上行动吧！</font></a></b></font>
+</div>
+  <p>
+  <font face="宋体" color="#ff0000" size="5"><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  <u>商 路 文 化</u></strong></font>
+</div>
+<div align="left">
+  　
+</div>
+<div align="left">
+  <b><font color="#FF0000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  </font><font color="#008000">以诚信合作结识天下伙伴，以志同伙伴建设营销团队；</font></b>
+</div>
+<div align="left">
+  <b><font color="#008000"><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  以创业团队塑造企业精神，以创新精神开拓泱泱商路；</font></b>
+</div>
+<div align="left">
+  <b><font color="#008000"><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  以繁荣商路打造民族品牌，以优秀品牌创造企业财富；</font></b>
+</div>
+<div align="left">
+  <b><font color="#008000"><br>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  以无限财富凝聚营销精英，以热血精英演义辉煌商路。</font></b>
+</div>
+<div align="left">
+  　
+</div>
+<div align="left">
+  　
+</div>
+<div align="left">
+  <font color="#FF0000"><b>办事处享受的优惠待遇</b></font><b><font color="#FF0000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+  </font></b><b><a href="http://sooozh.crcoo.com"><font size="6" face="华文彩云" color="#FF0000">我要加盟！</font></a></b>
+</div>
+<div align="left">
+  　
+</div>
+<div align="left">
+  <table>
+    <tr>
+      <td width="32"></td>
+      <td class="zl">
+        <table cellSpacing="0" cellPadding="0" width="100%" border="0">
+          <tbody>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">1.</font></td>
+              <td class="zl"><font color="#292929">提供办事处以当地为核心辐射全国的业务开展权，提供办事处经营授权书。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">2.</font></td>
+              <td class="zl"><font color="#292929">提供国内各加盟企业在当地的独家业务开展权，为企业直接负责本地市场的营销工</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20">&nbsp;</td>
+              <td class="zl" vAlign="top"><font color="#292929">作，收费及提成由您办事处自己获得。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">3.</font></td>
+              <td class="zl"><font color="#292929">提供异地企业增设驻地办事机构的优先权，业务经费由办事处自己获得。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">4.</font></td>
+              <td class="zl"><font color="#292929">提供当地加盟企业每年交纳的会员费50%的获得权。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">5.</font></td>
+              <td class="zl"><font color="#292929">提供一个与总站数据库共享的中国商路分站，便于在当地进行宣传招商。功能强大的</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20">&nbsp;</td>
+              <td class="zl" vAlign="top"><font color="#292929">后台管理，更好地为当地企业商家服务。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">6.</font></td>
+              <td class="zl"><font color="#292929">提供一个独立的自助型企业推广网站，用于办事处宣传推广自己或代理的产品。终身</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20">&nbsp;</td>
+              <td class="zl" vAlign="top"><font color="#292929">免收主机空间使用费、网络维护费、技术支持费。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">7.</font></td>
+              <td class="zl"><font color="#292929">提供12000多家商路所属机构联网网站的最新供求信息发布、查询、管理及经营权。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20">&nbsp;</td>
+              <td class="zl" vAlign="top"><font color="#292929">各地办事处可直接为当地企业、商家、客户、需求者发布信息及进行招商工作；对于</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20">&nbsp;</td>
+              <td class="zl" vAlign="top"><font color="#292929">外地的所有信息，也将全部由当地办事处负责接洽及管理，本地客户则可直接与您办</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20">&nbsp;</td>
+              <td class="zl" vAlign="top"><font color="#292929">事处进行联系、洽谈及订购，所有收入为办事处自己获得。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">8.</font></td>
+              <td class="zl"><font color="#292929">提供钻石企业会员加盟费的30%获得权。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">9.</font></td>
+              <td class="zl"><font color="#292929">提供钻石企业会员入网销售的产品在全国市场全年销售总额0.5%的年终分红获得权。</font></td>
+            </tr>
+            <tr>
+              <td class="zl" width="20" height="18"><font color="#292929">10.</font></td>
+              <td class="zl"><font color="#292929">提供整套代表中国商路企业文化及形象的胸牌、办公用品和礼品等。</font></td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </table>
+          <table>
+            <tr>
+              <td class="zl">
+              </td>
+            </table>
+  </div>
+          <div align="left">
+            <font color="#FF0000"><b>巨大的市场空间和利润空间——即效益分析&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+            </b></font><b><a href="http://sooozh.crcoo.com"><font size="6" face="华文彩云" color="#FF0000">我要加盟！</font></a></b>
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            <table>
+              <tr>
+                <td class="zl" height="18"><strong><font color="#292929">A、年终分红</font></strong></td>
+              </tr>
+              <tr>
+                <td class="zl"><font color="#292929">　　您每月联系了本地2家企业的产品入网，您将获得这些产品在全国总销量千分之五的年终</font>
+                  <p><font color="#292929">分红。假设每家企业在每个县市的月销售量仅1万元，商路设在全国的12000多个营销机构中的</font></p>
+                  <p><font color="#292929">2400个代理办事处同时开展开了营销工作，您办事处一年的利润如下：</font></p>
+                  <p><font color="#292929">
+                  第一个月收入为：1万元×2家×2400个县市×0.5% = <font color="#ff0000">24</font>万&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+                  第二个月收入为：1万元×4家×2400个县市×0.5% = <font color="#ff0000">48</font>万<br> 
+                  第三个月收入为：1万元×6家×2400个县市×0.5% = <font color="#ff0000">72</font>万</font></p> 
+                </td>
+              </tr>
+              <tr>
+                <td class="zl" height="20"><strong><a class="zllink" href="http://sooozh.crcoo.com"><font color="#0000FF">全年每月收入详见网站</font></a></strong></td>
+              </tr>
+              <tr>
+                <td class="zl" height="25">
+                  <p><font color="#292929"><strong>B、代理产品收入&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</strong></font></p>
+                </td>
+              </tr>
+              <tr>
+                <td class="zl"><font color="#292929">　　假设一家企业在您本地市场的月销量仅1万元，您每月把外地5家入网企业的产品在本地配</font>
+                  <p><font color="#292929">货给当地的总经销商、分销商，您将获得厂家提供的本地总销量30%的业务提成，您办事处一年</font></p>
+                  <p><font color="#292929">的利润如下：</font></p>
+                  <p><font color="#292929">第一个月收入为：1万元× 5家×30% = 1.5万<br> 
+                  第二个月收入为：1万元×10家×30% = 3.0万<br> 
+                  第三个月收入为：1万元×15家×30% = 4.5万</font> 
+                </td>
+              </tr>
+              <tr>
+                <td class="zl" height="20"><strong><a href="http://sooozh.crcoo.com"><font color="#0000FF">全年每月收入详见网站</font></a></strong></td>
+              </tr>
+              <tr>
+                <td class="zl" height="25">
+                  <p><font color="#292929"><strong>C、会费收入&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</strong></font></p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <table cellSpacing="0" cellPadding="0" width="100%" border="0">
+                    <tbody>
+                      <tr class="zl">
+                        <td width="25" height="18">1、</td>
+                        <td><font color="#292929">您当地的企业成为中国商路正式诚信会员，每家企业会员的年服务费是500元，所</font><font color="#292929">收年费的</font>
+                          <p><font color="#292929">50%归您办事处获得。</font></p>
+                        </td>
+                      </tr>
+                      <tr class="zl">
+                        <td>
+                          <div align="center">
+                          </div>
+                        </td>
+                        <td vAlign="top"></td>
+                      </tr>
+                      <tr class="zl">
+                        <td>
+                          <div align="center">
+                          </div>
+                        </td>
+                        <td></td>
+                      </tr>
+                      <tr class="zl">
+                        <td height="18">
+                          <div align="center">
+                          </div>
+                        </td>
+                        <td><font color="#292929">假设通过总部和您的共同努力在本地每月新增诚信会员30家，因会员费是按年收取的，所</font>
+                          <p><font color="#292929">以您每年的收入会逐步递增，您将直接获得的业务提成如下：</font></p>
+                          <p><font color="#292929">
+                          第一年收入为：500元×30家×12个月×50% = 9万<br> 
+                          第二年收入为：500元×60家×12个月×50% = 18万<br> 
+                          第三年收入为：500元×90家×12个月×50% = 27万<br> 
+                          逐年以此类推……</font></p>
+                        </td>
+                      </tr>
+                      <tr class="zl">
+                        <td height="18">
+                          <div align="center">
+                            　
+                          </div>
+                          <div align="center">
+                            <font color="#292929">2、</font>
+                          </div>
+                          <div align="center">
+                            　
+                          </div>
+                        </td>
+                        <td><font color="#292929">您当地的企业成为中国商路钻石会员，每家企业会员的年服务费是10000元，所收</font><font color="#292929">年费的30%</font>
+                          <p><font color="#292929">归您办事处获得。</font></p>
+                        </td>
+                      </tr>
+                      <tr class="zl">
+                        <td height="18">
+                          <div align="center">
+                          </div>
+                        </td>
+                        <td vAlign="top"></td>
+                      </tr>
+                      <tr class="zl">
+                        <td height="18">
+                          <div align="center">
+                          </div>
+                        </td>
+                        <td><font color="#292929">假设通过您的努力在本地每月新增钻石会员2家，因会员费是按年收取的，所以您每年的收</font>
+                          <p><font color="#292929">入会逐步递增，您将获得总部返还的业务提成如下：</font></p>
+                          <p><font color="#292929">
+                          第一年收入为：10000元×2家×12个月×30% =  
+                          7.2万<br>
+                          第二年收入为：10000元×4家×12个月×30% =  
+                          14.4万<br>
+                          第三年收入为：10000元×6家×12个月×30% =  
+                          21.6万&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br>
+                          逐年以此类推……&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</font></p>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td class="zl" height="25"><p><font color="#292929"><strong>D、其他收入更为客观&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+                  </strong></font><b><a href="http://sooozh.crcoo.com"><font size="6" face="华文彩云" color="#FF0000">我要加盟！</font></a></b></p>
+                </td>
+              </tr>
+              <tr>
+                <td class="zl"><font color="#292929">　　为保证办事处的切身利益，便于日后顺利开展工作，在效益分析中仅仅是提到几点未涉及</font>
+                  <p><font color="#292929">到商业秘密的收入来源，还有大量收入方式在办事处分站后台明列。</font>
+                </td>
+              </tr>
+            </table>
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            <b><a href="http://sooozh.crcoo.com">
+            <font color="#0000FF" size="5">详情请登陆中国商路网站：http://sooozh.crcoo.com</font>
+            </a></b>
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            <b><a href="http://sooozh.crcoo.com"><font size="5" color="#0000FF">加盟热线：0756-2111601 
+            2111602&nbsp; 6691319&nbsp; 13112315963</font></a></b>
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            <b><a href="http://sooozh.crcoo.com"><font size="5" color="#0000FF">客 
+            服 QQ：125935503&nbsp;&nbsp; 客服E话通：115457251</font></a></b>
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            　
+          </div>
+          <div align="left">
+            <font color="#292929">　　</font><font face="宋体" color="#0000ff" size="2"><br>
+            </font>
+          </div>
+
+        </body>
+
+      </html>
