@@ -1,45 +1,45 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 2] IPV6: Don't change indexes depends on configuration
-Date: Thu, 15 Jan 2004 21:46:45 +0900 (JST)
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH|RFC] IPv6 netfilter: a module for complete proxy ND
+ support
+Date: Thu, 15 Jan 2004 15:00:24 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115.214645.54863143.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.58.0401141726490.24125@rhea.tcs.hut.fi>
+References: <Pine.LNX.4.58.0401141250470.24125@rhea.tcs.hut.fi>
+ <20040114.210427.104284595.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Content-Transfer-Encoding: quoted-printable
+Cc: netfilter-devel@lists.netfilter.org, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040114.210427.104284595.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, 14 Jan 2004, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
+=CC=C0 wrote:
 
-The DEVCONF_xxx are part of kernel - user interface.
-It should have been constant even if the kernel config changed.
+> I don't think so. Proxy should not depend on netfilter.
 
-This patch depends on the "[PATCH] IPV6: added sysctl for maximum number 
-of addresses" patch.
+That's not very constructive criticism, Yoshifuji-san ;)
 
-Thanks.
+There aren't that many ways of doing this "hack" cleanly.
 
---- linux26+maxaddresses/include/linux/ipv6.h	Thu Jan 15 21:38:08 2004
-+++ linux26+maxaddresses+devconf/include/linux/ipv6.h	Thu Jan 15 21:38:17 2004
-@@ -159,13 +159,11 @@
- 	DEVCONF_RTR_SOLICITS,
- 	DEVCONF_RTR_SOLICIT_INTERVAL,
- 	DEVCONF_RTR_SOLICIT_DELAY,
--#ifdef CONFIG_IPV6_PRIVACY
- 	DEVCONF_USE_TEMPADDR,
- 	DEVCONF_TEMP_VALID_LFT,
- 	DEVCONF_TEMP_PREFERED_LFT,
- 	DEVCONF_REGEN_MAX_RETRY,
- 	DEVCONF_MAX_DESYNC_FACTOR,
--#endif
- 	DEVCONF_MAX_ADDRESSES,
- 	DEVCONF_MAX
- };
+The fact of the matter is: the proxy needs to scan through the unicast
+packets to filter out the Neighbor Discovery packets, if it supports NUD.
 
+I think a netfilter module is the cleanest way of doing this. It doesn't
+change any interfaces either inside the kernel, or to userspace. As a
+module this feature is also easy to turn on if you want it, and it doesn'=
+t
+cause any preformance penalties if you don't.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+What kind of solution do you propose for this problem?
+
+Regards,
+Ville
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
