@@ -1,34 +1,63 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2.5.72] Red Creek VPN update
-Date: Fri, 5 Sep 2003 18:37:24 +0200
+From: John Levon <levon@movementarian.org>
+Subject: [PATCH] ATM - kill __free_atm_dev()
+Date: Fri, 5 Sep 2003 18:12:23 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905183724.A8467@electric-eye.fr.zoreil.com>
-References: <20030617163116.1f7b6d78.shemminger@osdl.org> <Pine.LNX.4.53.0309050906170.20033@netmonster.pakint.net>
+Message-ID: <20030905171223.GA37920@compsoc.man.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Matthew G. Marsh" <mgm@paktronix.com>
+To: linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.53.0309050906170.20033@netmonster.pakint.net>; from mgm@paktronix.com on Fri, Sep 05, 2003 at 09:08:58AM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Matthew G. Marsh <mgm@paktronix.com> :
-[...]
-> Hi - sorry for the late response - I have 57 of these in production. I am
-> now trying to get together a 2.6test machine and this is one of the first
-> parts I will test.
-> 
-> How would you like bug reports? I will try to gen patches where possible
-> but I don't have bk.
 
-You will find an history of the changes applied during the 2.5 serie at:
-http://linux.bkbits.net:8080/linux-2.5/related/drivers/net/rcpci45.c?nav=index.html|src/.|src/drivers|src/drivers/net
+Apply the "Levonov abstraction penalty" - the wrapping of kfree()
+is pure obfuscation.
 
-If something goes wrong, the latest changes are not necessarily the most
-suspect.
+regards
+john
 
---
-Ueimor
+
+diff -Naurp -X dontdiff linux-cvs/net/atm/resources.c linux-fixes/net/atm/resources.c
+--- linux-cvs/net/atm/resources.c	2003-06-23 23:08:56.000000000 +0100
++++ linux-fixes/net/atm/resources.c	2003-09-05 18:35:02.000000000 +0100
+@@ -42,11 +42,6 @@ static struct atm_dev *__alloc_atm_dev(c
+ 	return dev;
+ }
+ 
+-static void __free_atm_dev(struct atm_dev *dev)
+-{
+-	kfree(dev);
+-}
+-
+ static struct atm_dev *__atm_dev_lookup(int number)
+ {
+ 	struct atm_dev *dev;
+@@ -88,7 +83,7 @@ struct atm_dev *atm_dev_register(const c
+ 		if ((inuse = __atm_dev_lookup(number))) {
+ 			atm_dev_put(inuse);
+ 			spin_unlock(&atm_dev_lock);
+-			__free_atm_dev(dev);
++			kfree(dev);
+ 			return NULL;
+ 		}
+ 		dev->number = number;
+@@ -119,7 +114,7 @@ struct atm_dev *atm_dev_register(const c
+ 			spin_lock(&atm_dev_lock);
+ 			list_del(&dev->dev_list);
+ 			spin_unlock(&atm_dev_lock);
+-			__free_atm_dev(dev);
++			kfree(dev);
+ 			return NULL;
+ 		}
+ 	}
+@@ -154,7 +149,7 @@ void atm_dev_deregister(struct atm_dev *
+                 }
+         }
+ 
+-	__free_atm_dev(dev);
++	kfree(dev);
+ }
+ 
+ void shutdown_atm_dev(struct atm_dev *dev)
