@@ -1,89 +1,202 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH] dst allocation problem in ndisc
-Date: Thu, 10 Jun 2004 14:05:35 -0600
+From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
+Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
+Date: Thu, 10 Jun 2004 22:08:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFCE4F5928.1D42CFA2-ON87256EAF.006E4EBF-07256EAF.006E5443@us.ibm.com>
-References: <20040610.111228.77019042.yoshfuji@linux-ipv6.org>
+Message-ID: <1086898126.2542.0.camel@teapot.felipe-alfaro.com>
+References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>
+	 <20040608124215.291a7072@dell_ss3.pdx.osdl.net>
+	 <1086725369.1806.1.camel@teapot.felipe-alfaro.com>
+	 <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>
+	 <1086794282.1706.2.camel@teapot.felipe-alfaro.com>
+	 <20040610083652.6f3ba3a6@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_mixed 006E543B07256EAF_="
-Cc: davem@redhat.com, mashirle@us.ibm.com, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: multipart/mixed; boundary="=-RnxxLieq1EmsPewn9/I0"
+Cc: NetDev Mailinglist <netdev@oss.sgi.com>,
+        Kernel Mailinglist <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040610.111228.77019042.yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040610083652.6f3ba3a6@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=_mixed 006E543B07256EAF_=
-Content-Type: multipart/alternative; boundary="=_alternative 006E543B07256EAF_="
 
+--=-RnxxLieq1EmsPewn9/I0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
---=_alternative 006E543B07256EAF_=
-Content-Type: text/plain; charset="US-ASCII"
+On Thu, 2004-06-10 at 08:36 -0700, Stephen Hemminger wrote:
+> On Wed, 09 Jun 2004 17:18:02 +0200
+> Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
+> 
+> > On Tue, 2004-06-08 at 14:02 -0700, Stephen Hemminger wrote:
+> > > On Tue, 08 Jun 2004 22:09:29 +0200
+> > > Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
+> > > 
+> > > > On Tue, 2004-06-08 at 12:42 -0700, Stephen Hemminger wrote:
+> > > > > On Tue, 08 Jun 2004 21:18:30 +0200
+> > > > > Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
+> > > > > 
+> > > > > > Hi!
+> > > > > > 
+> > > > > > On my laptop, when using a CardBus 3c59x-based NIC, I need to run
+> > > > > > "cardctl eject" so the system won't freeze when resuming. "cardctl
+> > > > > > eject" worked fine in 2.6.7-rc2-mm2, even when there were programs with
+> > > > > > network sockets opened (for example, Evolution mantaining a connection
+> > > > > > against an IMAP server): the card is ejected (well, not physically),
+> > > > > > even when there are ESTABLISHED connections.
+> > > > > > 
+> > > > > > However, starting with 2.6.7-rc3, "cardctl eject" hangs if a program
+> > > > > > holds any socket open. After a while the "unregister_netdevice: waiting
+> > > > > > for eth0 to become free" message starts appearing on the kernel message
+> > > > > > ring. The only apparent solution is killing that program, ejecting the
+> > > > > > card from its slot and wait until 3c59x.o usage count reaches zero.
+> > > > > > 
+> > > > > > Can someone tell me what's going on here?
+> > > > > > Thank you very much.
+> > > > > 
+> > > > > What protocols are you running? Is IPV6 loaded?
+> > > > 
+> > > > I'm using IPv4, IPv6 and IPSec ESP with AES/CBC.
+> > > > Do you want .config?
+> > > 
+> > > Not really, could you see if it is an IPv6 vs IPSec problem by not running/loading
+> > > one or the other.
+> > > 
+> > > What is happening is that some subsystem is holding a reference to the device (calling dev_hold())
+> > > but not cleaning up (calling dev_put).  It can be a hard to track which of the many
+> > > things routing, etc are not being cleared properly.  Look for routes that still
+> > > get stuck (ip route) and neighbor cache entries.  Most of these end up being
+> > > protocol bugs.
+> > 
+> > The two attached patches, one for net/ipv4/route.c, the other for net/
+> > ipv6/route.c fix all my problems when running "cardctl eject" while a
+> > program mantains an open network socket (ESTABLISHED).
+> > 
+> > Both patches apply cleanly against 2.6.7-rc3 and 2.6.7-rc3-mm1.
+> > I'm not completely sure what has changed in 2.6.7-rc3 that is breaking
+> > cardctl for me, as it Just Worked(TM) fine in 2.6.7-rc2.
+> > 
+> > Hope this can throw some light at this issue.
+> 
+> Since you effectively remove rth->idev, why not remove it from the structure
+> to make sure no code is still expecting it to be set.
 
-Here it is.
+What about the following one? Tested on 2.6.7-rc3-mm1.
 
+--=-RnxxLieq1EmsPewn9/I0
+Content-Disposition: attachment; filename=ip-route-fix-refcount.patch
+Content-Type: text/x-patch; name=ip-route-fix-refcount.patch; charset=utf-8
+Content-Transfer-Encoding: 7bit
 
+diff -uNr linux-2.6.7-rc3-mm1.old/include/net/route.h linux-2.6.7-rc3-mm1/include/net/route.h
+--- linux-2.6.7-rc3-mm1.old/include/net/route.h	2004-06-10 21:22:15.877298171 +0200
++++ linux-2.6.7-rc3-mm1/include/net/route.h	2004-06-10 21:09:34.000000000 +0200
+@@ -55,8 +55,6 @@
+ 		struct rtable		*rt_next;
+ 	} u;
+ 
+-	struct in_device	*idev;
+-	
+ 	unsigned		rt_flags;
+ 	unsigned		rt_type;
+ 
+diff -uNr linux-2.6.7-rc3-mm1.old/net/ipv4/route.c linux-2.6.7-rc3-mm1/net/ipv4/route.c
+--- linux-2.6.7-rc3-mm1.old/net/ipv4/route.c	2004-06-10 21:22:16.042259029 +0200
++++ linux-2.6.7-rc3-mm1/net/ipv4/route.c	2004-06-10 21:18:14.280624151 +0200
+@@ -1040,8 +1040,6 @@
+ 				rt->u.dst.child		= NULL;
+ 				if (rt->u.dst.dev)
+ 					dev_hold(rt->u.dst.dev);
+-				if (rt->idev)
+-					in_dev_hold(rt->idev);
+ 				rt->u.dst.obsolete	= 0;
+ 				rt->u.dst.lastuse	= jiffies;
+ 				rt->u.dst.path		= &rt->u.dst;
+@@ -1323,17 +1321,11 @@
+ {
+ 	struct rtable *rt = (struct rtable *) dst;
+ 	struct inet_peer *peer = rt->peer;
+-	struct in_device *idev = rt->idev;
+ 
+ 	if (peer) {
+ 		rt->peer = NULL;
+ 		inet_putpeer(peer);
+ 	}
+-
+-	if (idev) {
+-		rt->idev = NULL;
+-		in_dev_put(idev);
+-	}
+ }
+ 
+ static void ipv4_link_failure(struct sk_buff *skb)
+@@ -1496,7 +1488,6 @@
+ 	rth->fl.iif	= dev->ifindex;
+ 	rth->u.dst.dev	= &loopback_dev;
+ 	dev_hold(rth->u.dst.dev);
+-	rth->idev	= in_dev_get(rth->u.dst.dev);
+ 	rth->fl.oif	= 0;
+ 	rth->rt_gateway	= daddr;
+ 	rth->rt_spec_dst= spec_dst;
+@@ -1706,7 +1697,6 @@
+ 	rth->fl.iif	= dev->ifindex;
+ 	rth->u.dst.dev	= out_dev->dev;
+ 	dev_hold(rth->u.dst.dev);
+-	rth->idev	= in_dev_get(rth->u.dst.dev);
+ 	rth->fl.oif 	= 0;
+ 	rth->rt_spec_dst= spec_dst;
+ 
+@@ -1786,7 +1776,6 @@
+ 	rth->fl.iif	= dev->ifindex;
+ 	rth->u.dst.dev	= &loopback_dev;
+ 	dev_hold(rth->u.dst.dev);
+-	rth->idev	= in_dev_get(rth->u.dst.dev);
+ 	rth->rt_gateway	= daddr;
+ 	rth->rt_spec_dst= spec_dst;
+ 	rth->u.dst.input= ip_local_deliver;
+@@ -2170,7 +2159,6 @@
+ 	rth->rt_iif	= oldflp->oif ? : dev_out->ifindex;
+ 	rth->u.dst.dev	= dev_out;
+ 	dev_hold(dev_out);
+-	rth->idev	= in_dev_get(dev_out);
+ 	rth->rt_gateway = fl.fl4_dst;
+ 	rth->rt_spec_dst= fl.fl4_src;
+ 
+diff -uNr linux-2.6.7-rc3-mm1.old/net/ipv6/route.c linux-2.6.7-rc3-mm1/net/ipv6/route.c
+--- linux-2.6.7-rc3-mm1.old/net/ipv6/route.c	2004-06-10 21:22:16.068252861 +0200
++++ linux-2.6.7-rc3-mm1/net/ipv6/route.c	2004-06-10 00:07:10.000000000 +0200
+@@ -584,14 +584,14 @@
+ 	if (unlikely(rt == NULL))
+ 		goto out;
+ 
+-	dev_hold(dev);
++	if(dev)
++		dev_hold(dev);
+ 	if (neigh)
+ 		neigh_hold(neigh);
+ 	else
+ 		neigh = ndisc_get_neigh(dev, addr);
+ 
+ 	rt->rt6i_dev	  = dev;
+-	rt->rt6i_idev     = in6_dev_get(dev);
+ 	rt->rt6i_nexthop  = neigh;
+ 	rt->rt6i_expires  = 0;
+ 	rt->rt6i_flags    = RTF_LOCAL;
+@@ -882,7 +882,6 @@
+ 	if (!rt->u.dst.metrics[RTAX_ADVMSS-1])
+ 		rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_pmtu(&rt->u.dst));
+ 	rt->u.dst.dev = dev;
+-	rt->rt6i_idev = in6_dev_get(dev);
+ 	return rt6_ins(rt, nlh, _rtattr);
+ 
+ out:
+@@ -1301,7 +1300,6 @@
+ 	rt->u.dst.input = ip6_input;
+ 	rt->u.dst.output = ip6_output;
+ 	rt->rt6i_dev = &loopback_dev;
+-	rt->rt6i_idev = in6_dev_get(&loopback_dev);
+ 	rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(rt->rt6i_dev);
+ 	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_pmtu(&rt->u.dst));
+ 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = ipv6_get_hoplimit(rt->rt6i_dev);
 
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
---=_alternative 006E543B07256EAF_=
-Content-Type: text/html; charset="US-ASCII"
-
-
-<br><font size=2 face="sans-serif">Here it is.</font>
-<br>
-<br>
-<br><font size=2 face="sans-serif"><br>
-Thanks<br>
-Shirley Ma<br>
-IBM Linux Technology Center<br>
-15300 SW Koll Parkway<br>
-Beaverton, OR 97006-6063<br>
-Phone: (503) 578-7638<br>
-FAX: &nbsp; &nbsp; &nbsp;(503) 578-3228</font>
---=_alternative 006E543B07256EAF_=--
-
---=_mixed 006E543B07256EAF_=
-Content-Type: application/octet-stream; name="linux-2.6.7-rc3.dst.patch"
-Content-Disposition: attachment; filename="linux-2.6.7-rc3.dst.patch"
-Content-Transfer-Encoding: base64
-
-ZGlmZiAtdXJOIGxpbnV4LTIuNi43LXJjMy9uZXQvaXB2Ni9uZGlzYy5jIGxpbnV4LTIuNi43LXJj
-My5kc3QvbmV0L2lwdjYvbmRpc2MuYwotLS0gbGludXgtMi42LjctcmMzL25ldC9pcHY2L25kaXNj
-LmMJMjAwNC0wNi0wOSAxNjo0Mjo1NS4wMDAwMDAwMDAgLTA3MDAKKysrIGxpbnV4LTIuNi43LXJj
-My5kc3QvbmV0L2lwdjYvbmRpc2MuYwkyMDA0LTA2LTEwIDEyOjUxOjM5LjAwMDAwMDAwMCAtMDcw
-MApAQCAtMzk1LDcgKzM5NSw3IEBACiAKIAluZGlzY19mbG93X2luaXQoJmZsLCBORElTQ19ORUlH
-SEJPVVJfQURWRVJUSVNFTUVOVCwgc3JjX2FkZHIsIGRhZGRyKTsKIAotCWRzdCA9IG5kaXNjX2Rz
-dF9hbGxvYyhkZXYsIG5laWdoLCBkYWRkciwgaXA2X291dHB1dDIpOworCWRzdCA9IG5kaXNjX2Rz
-dF9hbGxvYyhkZXYsIG5laWdoLCBkYWRkciwgaXA2X291dHB1dCk7CiAJaWYgKCFkc3QpCiAJCXJl
-dHVybjsKIApAQCAtNDg2LDcgKzQ4Niw3IEBACiAKIAluZGlzY19mbG93X2luaXQoJmZsLCBORElT
-Q19ORUlHSEJPVVJfU09MSUNJVEFUSU9OLCBzYWRkciwgZGFkZHIpOwogCi0JZHN0ID0gbmRpc2Nf
-ZHN0X2FsbG9jKGRldiwgbmVpZ2gsIGRhZGRyLCBpcDZfb3V0cHV0Mik7CisJZHN0ID0gbmRpc2Nf
-ZHN0X2FsbG9jKGRldiwgbmVpZ2gsIGRhZGRyLCBpcDZfb3V0cHV0KTsKIAlpZiAoIWRzdCkKIAkJ
-cmV0dXJuOwogCkBAIC01NjIsNyArNTYyLDcgQEAKIAogCW5kaXNjX2Zsb3dfaW5pdCgmZmwsIE5E
-SVNDX1JPVVRFUl9TT0xJQ0lUQVRJT04sIHNhZGRyLCBkYWRkcik7CiAKLQlkc3QgPSBuZGlzY19k
-c3RfYWxsb2MoZGV2LCBOVUxMLCBkYWRkciwgaXA2X291dHB1dDIpOworCWRzdCA9IG5kaXNjX2Rz
-dF9hbGxvYyhkZXYsIE5VTEwsIGRhZGRyLCBpcDZfb3V0cHV0KTsKIAlpZiAoIWRzdCkKIAkJcmV0
-dXJuOwogCmRpZmYgLXVyTiBsaW51eC0yLjYuNy1yYzMvbmV0L2lwdjYvcm91dGUuYyBsaW51eC0y
-LjYuNy1yYzMuZHN0L25ldC9pcHY2L3JvdXRlLmMKLS0tIGxpbnV4LTIuNi43LXJjMy9uZXQvaXB2
-Ni9yb3V0ZS5jCTIwMDQtMDYtMDkgMTY6NDI6NTUuMDAwMDAwMDAwIC0wNzAwCisrKyBsaW51eC0y
-LjYuNy1yYzMuZHN0L25ldC9pcHY2L3JvdXRlLmMJMjAwNC0wNi0xMCAxMjo1MzozMC4wMDAwMDAw
-MDAgLTA3MDAKQEAgLTU3Myw2ICs1NzMsOCBAQAogCiAvKiBQcm90ZWN0ZWQgYnkgcnQ2X2xvY2su
-ICAqLwogc3RhdGljIHN0cnVjdCBkc3RfZW50cnkgKm5kaXNjX2RzdF9nY19saXN0Oworc3RhdGlj
-IGludCBpcHY2X2dldF9tdHUoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7CitzdGF0aWMgaW5saW5l
-IHVuc2lnbmVkIGludCBpcHY2X2Fkdm1zcyh1bnNpZ25lZCBpbnQgbXR1KTsKIAogc3RydWN0IGRz
-dF9lbnRyeSAqbmRpc2NfZHN0X2FsbG9jKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIAogCQkJCSAg
-c3RydWN0IG5laWdoYm91ciAqbmVpZ2gsCkBAIC01OTgsNiArNjAwLDggQEAKIAlydC0+cnQ2aV9t
-ZXRyaWMgICA9IDA7CiAJYXRvbWljX3NldCgmcnQtPnUuZHN0Ll9fcmVmY250LCAxKTsKIAlydC0+
-dS5kc3QubWV0cmljc1tSVEFYX0hPUExJTUlULTFdID0gMjU1OworCXJ0LT51LmRzdC5tZXRyaWNz
-W1JUQVhfTVRVLTFdID0gaXB2Nl9nZXRfbXR1KHJ0LT5ydDZpX2Rldik7CisJcnQtPnUuZHN0Lm1l
-dHJpY3NbUlRBWF9BRFZNU1MtMV0gPSBpcHY2X2Fkdm1zcyhkc3RfcG10dSgmcnQtPnUuZHN0KSk7
-CiAJcnQtPnUuZHN0Lm91dHB1dCAgPSBvdXRwdXQ7CiAKIAl3cml0ZV9sb2NrX2JoKCZydDZfbG9j
-ayk7Cg==
---=_mixed 006E543B07256EAF_=--
+--=-RnxxLieq1EmsPewn9/I0--
