@@ -1,30 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]dump interface IPv6 multicast/anycast addresses through
- netlink
-Date: Sat, 3 Apr 2004 14:45:40 -0800
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Luca Deri's paper: Improving Passive Packet Capture: Beyond
+	Device Polling
+Date: 03 Apr 2004 18:02:12 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040403144540.7f201bc1.davem@redhat.com>
-References: <OF8F6A9EBE.82E160C6-ON87256E69.001BB337-88256E69.001D33A3@us.ibm.com>
-	<200404011028.13048.mashirle@us.ibm.com>
+Message-ID: <1081033332.2037.61.camel@jzny.localdomain>
+References: <20040330142354.GA17671@outblaze.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: xma@us.ibm.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-        yoshfuji@cerberus.hongo.wide.ad.jp
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200404011028.13048.mashirle@us.ibm.com>
+To: Yusuf Goolamabbas <yusufg@outblaze.com>
+In-Reply-To: <20040330142354.GA17671@outblaze.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Apr 2004 10:28:12 -0800
-Shirley Ma <mashirle@us.ibm.com> wrote:
+On Tue, 2004-03-30 at 09:23, Yusuf Goolamabbas wrote:
+> Maybe this might be of interest to netdev hackers
+> 
+> Luca Deri's paper
+>   Improving Passive Packet Capture: Beyond Device Polling
+> 
+> http://www.net-security.org/dl/articles/Ring.pdf
+> 
 
-> Here is the new patch. It has been tested against linux 2.6.4 kernel.
+Thanks for posting this.
+I am a little suprised at some of the results especially with
+NAPI + packet mmap. 
+I have had no problem at all handling wire rate 100mbps with 
+tulip-NAPI in 2.4.x using packet mmap on a p3 or maybe it was a p2; This
+is zero drops at 148.8Kpps.
+Jason Lunz actually seemed to have been doing more work on this and
+e1000 - he could provide better perfomance numbers.
+It should also be noted that infact packet mmap already uses rings.
 
-I'm Ok with this patch and I believe Yoshfuji et al. are too.
-
-But this patch will not apply cleanly to current 2.6.x sources,
-please rediff.
-
-Thanks.
+cheers,
+jamal
