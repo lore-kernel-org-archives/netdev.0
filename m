@@ -1,40 +1,84 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Wed, 26 Jan 2005 14:25:12 +0100
-Message-ID: <20050126132512.GA18220@xi.wantstofly.org>
-References: <20050103171227.GD7370@esmail.cup.hp.com> <1104812294.1085.53.camel@jzny.localdomain> <20050119144711.3fdd3d93.davem@davemloft.net> <20050119151853.259de49a@dxpl.pdx.osdl.net> <20050119164640.6c67bdfa.davem@davemloft.net> <52r7kgu5n5.fsf@topspin.com> <20050119230526.393a5184.davem@davemloft.net> <20050120085611.33f9485e@dxpl.pdx.osdl.net> <20050121105452.GA12988@xi.wantstofly.org> <20050125222705.1ee878fd.davem@davemloft.net>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Linux Routing Performance Update
+Date: Wed, 26 Jan 2005 14:27:10 +0100
+Message-ID: <16887.39598.648724.421160@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, roland@topspin.com, hadi@cyberus.ca, iod00d@hp.com,
-        eric.lemoine@gmail.com, netdev@oss.sgi.com, ak@suse.de,
-        openib-general@openib.org, kaber@trash.net
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, davem@davemloft.net, Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050125222705.1ee878fd.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 25, 2005 at 10:27:05PM -0800, David S. Miller wrote:
 
-> > If multiple CPUs can call into the tunneling drivers without taking
-> > any locks, we'd need some extra locking in there, or just do what
-> > Alexey describes and keep track of recursion in the skb.
-> 
-> Another idea is that, just like how loopback made it's statistics
-> per-cpu for LLTX support, this recursion variable could be per-cpu
-> as well.
+Hello!
 
-I've thought about this a bit, and the only sane way of doing recursion
-detection that doesn't involve 'struct net_device' would be to keep track
-of the recursion depth (perhaps per-CPU as you suggest) and tossing the
-packet when it exceeds some random value, right?
+Finally time for some more testing with a somewhat upgraded equipment.
 
-To reproduce the current behaviour more closely you'd have to keep a
-small per-CPU array of 'struct net_device *' pointers as a kind of
-recursion stack, and toss the packet when you hit a net_device that's
-already on the list.  But that seems like slight overkill.
+Linux:  Vanilla 2.6.10 plus e1000 patch brewed from input from Scott feldman, 
+         Lennert Buytenhek and others. 
+         ftp://robur.slu.se/pub/Linux/net-development/tmp/e1000-new-tx-4.pat
+
+System: Dual Opteron 250 (2.4 GHz) all boards dual e1000 w 82546GB.
+
+-------------------------------------------------------------------------------
+Experiment 1: Single flow on UP 
+
+Input rate 1.488  Mpps
+
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 7132981 4056792 4056792 2867019      5      0      0      0 BRU
+eth1   1500   0      1      0      0      0 7131234      0      0      0 BRU
+eth2   1500   0      0      0      0      0      5      0      0      0 BRU
+eth3   1500   0      0      0      0      0      5      0      0      0 BRU
+
+           CPU0       
+ 24:        108   IO-APIC-level  eth1
+ 27:        107   IO-APIC-level  eth0
+ 28:        109   IO-APIC-level  eth2
+ 29:        109   IO-APIC-level  eth3
+
+006cd736 00000000 00005ce0 00000000 00000000 00000000 00000000 00000000 00000000
+
+Full DoS of 10 Mpackets now at 1.488 Mpps. We route 71.3%.
+
+Routing t-put 1061 kpps. So we passed 1 Mpps...
+
+Note there are no RX interrupts (NAPI) Also as the e1000 cleans the skb's at 
+hard_xmit so we see no TX interrupts either. 
+
+-------------------------------------------------------------------------------
+Experiment 2: SMP/(NUMA)
+
+Even more exciting. Same as above but input 2 * 1.430 Mpps (max from the
+pktgen box it's a DUAL XEON 2.67 GHz) 
+
+Note! 
+Routing is setup so pkts on eth0->eth1 on CPU0. and irq's for eth0/eth1 goes
+to CPU0. The other flow on eth2/eth3 on CPU1 is handled similar.
 
 
---L
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 7231782 4282705 4282705 2768218      5      0      0      0 BRU
+eth1   1500   0      4      0      0      0 7230466      0      0      0 BRU
+eth2   1500   0 7671898 4723762 4723762 2328102      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0 7670181      0      0      0 BRU
+
+           CPU0       CPU1       
+ 24:        143          1   IO-APIC-level  eth1
+ 27:        138          1   IO-APIC-level  eth0
+ 28:         19        121   IO-APIC-level  eth2
+ 29:         19        121   IO-APIC-level  eth3
+
+006e592a 00000000 00005e29 00000000 00000000 00000000 00000000 00000000 00000000
+0075105b 00000000 000063e4 00000000 00000000 00000000 00000000 00000000 00000000
+
+Few interrupts and balanced as it was setup. /proc/net/softnet_stat show both
+CPU were involved forwarding.
+
+An aggregated routing performance of 2.1 Mpps. Enjoy.
+
+
+						--ro
