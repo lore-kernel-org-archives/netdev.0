@@ -1,7 +1,7 @@
 From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: mv643xx(18/20): Isolate the PHY at device close
-Date: Mon, 28 Mar 2005 16:59:26 -0700
-Message-ID: <20050328235926.GR29098@xyzzy>
+Subject: mv643xx(19/20): Ensure NAPI poll routine only clears IRQs it handles
+Date: Mon, 28 Mar 2005 17:00:24 -0700
+Message-ID: <20050329000023.GS29098@xyzzy>
 References: <20050328233807.GA28423@xyzzy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,33 +18,21 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: James Chapman <jchapman@katalix.com>
-Acked-by: Dale Farnsworth <dale@farnsworth.org>
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
 
 Index: linux-2.5-enet/drivers/net/mv643xx_eth.c
 ===================================================================
 --- linux-2.5-enet.orig/drivers/net/mv643xx_eth.c
 +++ linux-2.5-enet/drivers/net/mv643xx_eth.c
-@@ -591,6 +591,12 @@
- 	mv643xx_eth_write_smi_reg(dev, MII_BMCR, phy_reg_data | BMCR_RESET);
- }
+@@ -1635,9 +1635,9 @@
  
-+static void mv643xx_eth_phy_isolate(struct net_device *dev)
-+{
-+	/* Isolate the PHY (force link down) */
-+	mv643xx_eth_write_smi_reg(dev, MII_BMCR, BMCR_PDOWN | BMCR_ISOLATE);
-+}
-+
- /*
-  * This function prepares the ethernet port to start its activity:
-  * 1) Completes the ethernet port driver struct initialization toward port
-@@ -2210,6 +2216,9 @@
- 
- 	mv643xx_eth_real_stop(dev);
- 
-+	/* Isolate the PHY from the network (force link down) */
-+	mv643xx_eth_phy_isolate(dev);
-+
- 	free_irq(dev->irq, dev);
- 	spin_unlock_irq(&mp->lock);
- 
+ 	if (done) {
+ 		spin_lock_irqsave(&mp->lock, flags);
++		mv643xx_eth_write(MV643XX_ETH_INTERRUPT_CAUSE_REG(port_num),
++				  ~0x0007fffd);
+ 		__netif_rx_complete(dev);
+-		mv643xx_eth_write(MV643XX_ETH_INTERRUPT_CAUSE_REG(port_num), 0);
+-		mv643xx_eth_write(MV643XX_ETH_INTERRUPT_CAUSE_EXTEND_REG(port_num), 0);
+ 		mv643xx_eth_write(MV643XX_ETH_INTERRUPT_MASK_REG(port_num),
+ 				  INT_CAUSE_UNMASK_ALL);
+ 		mv643xx_eth_write(MV643XX_ETH_INTERRUPT_EXTEND_MASK_REG(port_num),
