@@ -1,52 +1,47 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: RE: Please ignore the corrupt patches sent earlier.
-Date: Mon, 8 Nov 2004 09:55:31 -0800
-Message-ID: <000a01c4c5bc$241c8970$9810100a@S2IOtech.com>
-References: <418D059D.7010803@pobox.com>
-Reply-To: <ravinandan.arakali@s2io.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: PROBLEM: IProute hangs after running traffic shaping scripts
+Date: Mon, 8 Nov 2004 19:33:00 +0100
+Message-ID: <20041108183300.GF31969@postel.suug.ch>
+References: <418B4C7C.8000402@crocom.com.pl> <418EA032.7050507@trash.net> <418ECE85.9090203@trash.net> <20041108135431.GE31969@postel.suug.ch> <418F9AD0.1040701@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'koushik'" <raghavendra.koushik@s2io.com>, <romieu@fr.zoreil.com>,
-        <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>,
-        <rapuru.sriram@s2io.com>, <alicia.pena@s2io.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Szymon Miotk <spam@crocom.com.pl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>
-In-Reply-To: <418D059D.7010803@pobox.com>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <418F9AD0.1040701@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff,
-All the 12 patches were sent by Koushik on Fri evening. We(Rapuru,
-myself) have received it.
-mailq shows the following error for your address "Sender address
-rejected: Domain not found". Is there an alternate address where
-we can send the patches ?
+* Patrick McHardy <418F9AD0.1040701@trash.net> 2004-11-08 17:12
+> Thomas Graf wrote:
+> 
+> >>+	/* unlink inner qdiscs from dev->qdisc_list immediately */
+> >>+	if (qdisc->ops->cl_ops != NULL)
+> >>+		list_add(&qdisc->list, &cql);
+> >>   
+> >>
+> >
+> >I think you should extend the above to:
+> >
+> >if (qdisc->ops->cl_ops != NULL && !list_empty(&qdisc->list))
+> >
+> >Otherwise you might unlink entries just added before the
+> >rcu callback and it prevents an unneeded attempt to delete
+> >qdiscs for inner classful qdiscs
+> > 
+> >
+> There is some optimization possible, I will do this for the final
+> patch. But I don't understand the problem you refer to, can you
+> please explain ?
 
-Can anybody on the netdev list confirm if they got the patches ?
+I don't have the time to verify this at the moment but:
 
-Regards,
-Ravi
+1) qdisc_destroy unlinking all the lists
+2) RTM_NEWQDISC creating a new qdisc with the same major classid as the old one
+   which will suceed since the old one cannot be found anymore.
+3) rcu callback __qdisc_destroy -> qdisc_destroy looking through qdisc_list
+   again and then deleting the new entries because their major classid matches.
 
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com]
-Sent: Saturday, November 06, 2004 9:11 AM
-To: ravinandan.arakali@s2io.com
-Cc: 'koushik'; romieu@fr.zoreil.com; netdev@oss.sgi.com;
-leonid.grossman@s2io.com; rapuru.sriram@s2io.com; alicia.pena@s2io.com
-Subject: Re: Please ignore the corrupt patches sent earlier.
-
-
-Ravinandan Arakali wrote:
-> Jeff,
-> Thanks for the excellent suggestion. We have used this method to send all
-> the 12 patches. Note that since our mail server went down and came back
-> up during this process, the mail containing patch3 has appeared twice. 
-> Pls ignore the duplicate.
-
-Alas, I'm still waiting for the patches...  Does 'mailq' show messages 
-waiting to be delivered?
-
-	Jeff
+I might be missing something though.
