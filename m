@@ -1,272 +1,66 @@
-From: ravinandan.arakali@neterion.com
-Subject: [KJ] [PATCH 2.6.12-rc4-bk1 2/3] S2io: h/w initialization fixes
-Date: Tue, 29 Mar 2005 15:10:44 -0800 (PST)
-Message-ID: <20050329231044.C429C5BB36@linux.site>
-Content-Type: multipart/mixed; boundary="===============32916648661802883=="
-Cc: raghavendra.koushik@neterion.com, ravinandan.arakali@neterion.com,
-   leonid.grossman@neterion.com, rapuru.sriram@neterion.com
-Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: jgarzik@pobox.com, netdev@oss.sgi.com, kernel-janitors@lists.osdl.org
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.osdl.org
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
+	Topics
+Date: 29 Mar 2005 18:30:00 -0500
+Message-ID: <1112139000.1091.44.camel@jzny.localdomain>
+References: <20050327054831.GA15453@waste.org>
+	 <1111905181.4753.15.camel@mylaptop>
+	 <20050326224621.61f6d917.davem@davemloft.net>
+	 <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>
+	 <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>
+	 <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie>
+	 <1112130512.1077.107.camel@jzny.localdomain>
+	 <Pine.LNX.4.61.0503291659290.15625@chimarrao.boston.redhat.com>
+	 <20050329221743.GK15453@waste.org>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Rik van Riel <riel@redhat.com>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
+        Andi Kleen <ak@muc.de>,
+        James Bottomley <James.Bottomley@HansenPartnership.com>,
+        andrea@suse.de, michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
+        ksummit-2005-discuss@thunk.org, netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20050329221743.GK15453@waste.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============32916648661802883==
+On Tue, 2005-03-29 at 17:17, Matt Mackall wrote:
 
-Hello,
-Below patch addresses couple of issues w.r.t h/w initialization.
+> I'm sure Rik realizes this, but it's important to note here that
+> "making progress" may require M acknowledgements to N packets
+> representing a single IO. So we need separate send and acknowledge
+> pools for each SO_MEMALLOC socket so that we don't find ourselves
+> wedged with M-1 available mempool slots when we're waiting on ACKs. So
+> accounting ACK packets to the appropriate receiver once we've figured
+> out what socket an ACK is intended for is critical.
+> 
 
-1. The SWAPPER_CTRL register is now initialized as per recommended
-   procedure from h/w team. This register when initialized correctly
-   ensures correct access to other registers on big-endian and
-   little-endian systems.
-2. Enabling the Continuous interrupt feature by default on Tx at
-   a rate of 250 interrupts/sec. 
+Is this idea discussed or posted somewhere? I just subscribed to the
+list.
+Sounds like what the NICs i described do on rx - some strict priority
+scheme.
+Seems to me the TX side needs to be done early perhaps at the socket
+layer.
+The RX side needs to be done at the NIC or ingress qdisc.
 
-Thanks,
-Ravi
+I think there may be need for multiple levels of granularity of
+priorities for mem allocation pools 8 or more if you want to have 
+different levels of importantance in apps.
+The deal with strict prio is the most important apps can eat all the
+memory if they needed it; so you may need some form of deficit based
+scheduling or kick in the algorithm only when a certain threshold is 
+crossed system wide.
 
-Signed-off-by: Ravinandan Arakali <ravinandan.arakali@neterion.com>
----
-diff -urN statsfix1/drivers/net/s2io.c hwfixes2/drivers/net/s2io.c
---- statsfix1/drivers/net/s2io.c	2005-03-25 05:53:57.000000000 -0800
-+++ hwfixes2/drivers/net/s2io.c	2005-03-25 08:37:33.000000000 -0800
-@@ -620,79 +620,15 @@
- 	mac_info_t *mac_control;
- 	struct config_param *config;
- 	int mdio_cnt = 0, dtx_cnt = 0;
--	unsigned long long print_var, mem_share;
-+	unsigned long long mem_share;
- 
- 	mac_control = &nic->mac_control;
- 	config = &nic->config;
- 
--	/* 
--	 * Set proper endian settings and verify the same by 
--	 * reading the PIF Feed-back register.
--	 */
--#ifdef  __BIG_ENDIAN
--	/*
--	 * The device by default set to a big endian format, so 
--	 * a big endian driver need not set anything.
--	 */
--	writeq(0xffffffffffffffffULL, &bar0->swapper_ctrl);
--	val64 = (SWAPPER_CTRL_PIF_R_FE |
--		 SWAPPER_CTRL_PIF_R_SE |
--		 SWAPPER_CTRL_PIF_W_FE |
--		 SWAPPER_CTRL_PIF_W_SE |
--		 SWAPPER_CTRL_TXP_FE |
--		 SWAPPER_CTRL_TXP_SE |
--		 SWAPPER_CTRL_TXD_R_FE |
--		 SWAPPER_CTRL_TXD_W_FE |
--		 SWAPPER_CTRL_TXF_R_FE |
--		 SWAPPER_CTRL_RXD_R_FE |
--		 SWAPPER_CTRL_RXD_W_FE |
--		 SWAPPER_CTRL_RXF_W_FE |
--		 SWAPPER_CTRL_XMSI_FE |
--		 SWAPPER_CTRL_XMSI_SE |
--		 SWAPPER_CTRL_STATS_FE | SWAPPER_CTRL_STATS_SE);
--	writeq(val64, &bar0->swapper_ctrl);
--#else
--	/* 
--	 * Initially we enable all bits to make it accessible by 
--	 * the driver, then we selectively enable only those bits 
--	 * that we want to set.
--	 */
--	writeq(0xffffffffffffffffULL, &bar0->swapper_ctrl);
--	val64 = (SWAPPER_CTRL_PIF_R_FE |
--		 SWAPPER_CTRL_PIF_R_SE |
--		 SWAPPER_CTRL_PIF_W_FE |
--		 SWAPPER_CTRL_PIF_W_SE |
--		 SWAPPER_CTRL_TXP_FE |
--		 SWAPPER_CTRL_TXP_SE |
--		 SWAPPER_CTRL_TXD_R_FE |
--		 SWAPPER_CTRL_TXD_R_SE |
--		 SWAPPER_CTRL_TXD_W_FE |
--		 SWAPPER_CTRL_TXD_W_SE |
--		 SWAPPER_CTRL_TXF_R_FE |
--		 SWAPPER_CTRL_RXD_R_FE |
--		 SWAPPER_CTRL_RXD_R_SE |
--		 SWAPPER_CTRL_RXD_W_FE |
--		 SWAPPER_CTRL_RXD_W_SE |
--		 SWAPPER_CTRL_RXF_W_FE |
--		 SWAPPER_CTRL_XMSI_FE |
--		 SWAPPER_CTRL_XMSI_SE |
--		 SWAPPER_CTRL_STATS_FE | SWAPPER_CTRL_STATS_SE);
--	writeq(val64, &bar0->swapper_ctrl);
--#endif
--
--	/* 
--	 * Verifying if endian settings are accurate by 
--	 * reading a feedback register.
--	 */
--	val64 = readq(&bar0->pif_rd_swapper_fb);
--	if (val64 != 0x0123456789ABCDEFULL) {
--		/* Endian settings are incorrect, calls for another dekko. */
--		print_var = (unsigned long long) val64;
--		DBG_PRINT(INIT_DBG, "%s: Endian settings are wrong",
--			  dev->name);
--		DBG_PRINT(ERR_DBG, ", feedback read %llx\n", print_var);
--
--		return FAILURE;
-+	/* Initialize swapper control register */
-+	if (s2io_set_swapper(nic)) {
-+		DBG_PRINT(ERR_DBG,"ERROR: Setting Swapper failed\n");
-+		return -1;
- 	}
- 
- 	/* Remove XGXS from reset state */
-@@ -920,11 +856,15 @@
- 	 * Initializing the Transmit and Receive Traffic Interrupt 
- 	 * Scheme.
- 	 */
--	/* TTI Initialization */
--	val64 = TTI_DATA1_MEM_TX_TIMER_VAL(0xFFF) |
-+	/* TTI Initialization. Default Tx timer gets us about
-+	 * 250 interrupts per sec. Continuous interrupts are enabled
-+	 * by default.
-+	 */
-+	val64 = TTI_DATA1_MEM_TX_TIMER_VAL(0x2078) |
- 	    TTI_DATA1_MEM_TX_URNG_A(0xA) |
- 	    TTI_DATA1_MEM_TX_URNG_B(0x10) |
--	    TTI_DATA1_MEM_TX_URNG_C(0x30) | TTI_DATA1_MEM_TX_TIMER_AC_EN;
-+	    TTI_DATA1_MEM_TX_URNG_C(0x30) | TTI_DATA1_MEM_TX_TIMER_AC_EN |
-+		TTI_DATA1_MEM_TX_TIMER_CI_EN;
- 	writeq(val64, &bar0->tti_data1_mem);
- 
- 	val64 = TTI_DATA2_MEM_TX_UFC_A(0x10) |
-@@ -2508,23 +2448,74 @@
- {
- 	struct net_device *dev = sp->dev;
- 	XENA_dev_config_t __iomem *bar0 = sp->bar0;
--	u64 val64;
-+	u64 val64, valt, valr;
- 
- 	/* 
- 	 * Set proper endian settings and verify the same by reading
- 	 * the PIF Feed-back register.
- 	 */
-+
-+	val64 = readq(&bar0->pif_rd_swapper_fb);
-+	if (val64 != 0x0123456789ABCDEFULL) {
-+		int i = 0;
-+		u64 value[] = { 0xC30000C3C30000C3ULL,   /* FE=1, SE=1 */
-+				0x8100008181000081ULL,  /* FE=1, SE=0 */
-+				0x4200004242000042ULL,  /* FE=0, SE=1 */
-+				0};                     /* FE=0, SE=0 */
-+
-+		while(i<4) {
-+			writeq(value[i], &bar0->swapper_ctrl);
-+			val64 = readq(&bar0->pif_rd_swapper_fb);
-+			if (val64 == 0x0123456789ABCDEFULL)
-+				break;
-+			i++;
-+		}
-+		if (i == 4) {
-+			DBG_PRINT(ERR_DBG, "%s: Endian settings are wrong, ",
-+				dev->name);
-+			DBG_PRINT(ERR_DBG, "feedback read %llx\n",
-+				(unsigned long long) val64);
-+			return FAILURE;
-+		}
-+		valr = value[i];
-+	} else {
-+		valr = readq(&bar0->swapper_ctrl);
-+	}
-+
-+	valt = 0x0123456789ABCDEFULL;
-+	writeq(valt, &bar0->xmsi_address);
-+	val64 = readq(&bar0->xmsi_address);
-+
-+	if(val64 != valt) {
-+		int i = 0;
-+		u64 value[] = { 0x00C3C30000C3C300ULL,  /* FE=1, SE=1 */
-+				0x0081810000818100ULL,  /* FE=1, SE=0 */
-+				0x0042420000424200ULL,  /* FE=0, SE=1 */
-+				0};                     /* FE=0, SE=0 */
-+
-+		while(i<4) {
-+			writeq((value[i] | valr), &bar0->swapper_ctrl);
-+			writeq(valt, &bar0->xmsi_address);
-+			val64 = readq(&bar0->xmsi_address);
-+			if(val64 == valt)
-+				break;
-+			i++;
-+		}
-+		if(i == 4) {
-+			DBG_PRINT(ERR_DBG, "Write failed, Xmsi_addr ");
-+			DBG_PRINT(ERR_DBG, "reads:0x%llx\n",val64);
-+			return FAILURE;
-+		}
-+	}
-+	val64 = readq(&bar0->swapper_ctrl);
-+	val64 &= 0xFFFF000000000000ULL;
-+
- #ifdef  __BIG_ENDIAN
- 	/* 
- 	 * The device by default set to a big endian format, so a 
- 	 * big endian driver need not set anything.
- 	 */
--	writeq(0xffffffffffffffffULL, &bar0->swapper_ctrl);
--	val64 = (SWAPPER_CTRL_PIF_R_FE |
--		 SWAPPER_CTRL_PIF_R_SE |
--		 SWAPPER_CTRL_PIF_W_FE |
--		 SWAPPER_CTRL_PIF_W_SE |
--		 SWAPPER_CTRL_TXP_FE |
-+	val64 |= (SWAPPER_CTRL_TXP_FE |
- 		 SWAPPER_CTRL_TXP_SE |
- 		 SWAPPER_CTRL_TXD_R_FE |
- 		 SWAPPER_CTRL_TXD_W_FE |
-@@ -2542,12 +2533,7 @@
- 	 * driver, then we selectively enable only those bits that 
- 	 * we want to set.
- 	 */
--	writeq(0xffffffffffffffffULL, &bar0->swapper_ctrl);
--	val64 = (SWAPPER_CTRL_PIF_R_FE |
--		 SWAPPER_CTRL_PIF_R_SE |
--		 SWAPPER_CTRL_PIF_W_FE |
--		 SWAPPER_CTRL_PIF_W_SE |
--		 SWAPPER_CTRL_TXP_FE |
-+	val64 |= (SWAPPER_CTRL_TXP_FE |
- 		 SWAPPER_CTRL_TXP_SE |
- 		 SWAPPER_CTRL_TXD_R_FE |
- 		 SWAPPER_CTRL_TXD_R_SE |
-@@ -2564,6 +2550,7 @@
- 		 SWAPPER_CTRL_STATS_FE | SWAPPER_CTRL_STATS_SE);
- 	writeq(val64, &bar0->swapper_ctrl);
- #endif
-+	val64 = readq(&bar0->swapper_ctrl);
- 
- 	/* 
- 	 * Verifying if endian settings are accurate by reading a 
-diff -urN statsfix1/drivers/net/s2io.h hwfixes2/drivers/net/s2io.h
---- statsfix1/drivers/net/s2io.h	2005-03-25 05:56:40.000000000 -0800
-+++ hwfixes2/drivers/net/s2io.h	2005-03-28 07:16:29.000000000 -0800
-@@ -753,6 +753,7 @@
- static int verify_xena_quiescence(u64 val64, int flag);
- static struct ethtool_ops netdev_ethtool_ops;
- static void s2io_set_link(unsigned long data);
-+static int s2io_set_swapper(nic_t * sp);
- static void s2io_card_down(nic_t * nic);
- static int s2io_card_up(nic_t * nic);
- 
+> Note that ACK here is the application layer command result that needs
+> to be propagated back to the driver (and possibly higher in the case
+> of things like CD writing over iSCSI) and not simply a bit in the TCP
+> header.
 
---===============32916648661802883==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+I got that (given TCP is stream based).
 
-_______________________________________________
-Kernel-janitors mailing list
-Kernel-janitors@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/kernel-janitors
-
---===============32916648661802883==--
+cheers,
+jamal
