@@ -1,175 +1,186 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 1/4] 2.6.5-rc2 - epic100 fixup
-Date: Tue, 23 Mar 2004 00:51:14 +0100
+Subject: [PATCH 2/4] 2.6.5-rc2 - epic100 napi
+Date: Tue, 23 Mar 2004 00:52:18 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040323005114.B1715@electric-eye.fr.zoreil.com>
-References: <20040320152109.A31118@electric-eye.fr.zoreil.com> <20040323005021.A1715@electric-eye.fr.zoreil.com>
+Message-ID: <20040323005218.C1715@electric-eye.fr.zoreil.com>
+References: <20040320152109.A31118@electric-eye.fr.zoreil.com> <20040323005021.A1715@electric-eye.fr.zoreil.com> <20040323005114.B1715@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040323005021.A1715@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Tue, Mar 23, 2004 at 12:50:21AM +0100
+In-Reply-To: <20040323005114.B1715@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Tue, Mar 23, 2004 at 12:51:14AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-- extra pci_disable_device() to balance invocation of pci_enable_device()
-  in epic_init_one() (-> error path + epic_remove_one());
-- lazy return status in epic_init_one(), tsss...;
-- memory dedicated to Rx descriptors was not freed after failure of
-  register_netdev() in epic_init_one();
-- use of epic_pause() in epic_close() offers a small window for a late
-  interruption just before the final free_irq(). Let's close the window to
-  avoid two epic_rx() threads racing with each other.
+Isolate the classical TX part of epic_interrupt. Innocent code shuffling.
 
 
- drivers/net/epic100.c |   59 +++++++++++++++++++++++++++++++++-----------------
- 1 files changed, 40 insertions(+), 19 deletions(-)
+ drivers/net/epic100.c |  137 +++++++++++++++++++++++++++-----------------------
+ 1 files changed, 76 insertions(+), 61 deletions(-)
 
-diff -puN drivers/net/epic100.c~epic100-fixup drivers/net/epic100.c
---- linux-2.6.5-rc2/drivers/net/epic100.c~epic100-fixup	2004-03-22 22:53:16.000000000 +0100
-+++ linux-2.6.5-rc2-fr/drivers/net/epic100.c	2004-03-22 22:53:16.000000000 +0100
-@@ -378,7 +378,7 @@ static int __devinit epic_init_one (stru
- 	int irq;
- 	struct net_device *dev;
- 	struct epic_private *ep;
--	int i, option = 0, duplex = 0;
-+	int i, ret, option = 0, duplex = 0;
- 	void *ring_space;
- 	dma_addr_t ring_dma;
- 
-@@ -392,29 +392,33 @@ static int __devinit epic_init_one (stru
- 	
- 	card_idx++;
- 	
--	i = pci_enable_device(pdev);
--	if (i)
--		return i;
-+	ret = pci_enable_device(pdev);
-+	if (ret)
-+		goto out;
- 	irq = pdev->irq;
- 
- 	if (pci_resource_len(pdev, 0) < pci_id_tbl[chip_idx].io_size) {
- 		printk (KERN_ERR "card %d: no PCI region space\n", card_idx);
--		return -ENODEV;
-+		ret = -ENODEV;
-+		goto err_out_disable;
- 	}
- 	
- 	pci_set_master(pdev);
- 
-+	ret = pci_request_regions(pdev, DRV_NAME);
-+	if (ret < 0)
-+		goto err_out_disable;
-+
-+	ret = -ENOMEM;
-+
- 	dev = alloc_etherdev(sizeof (*ep));
- 	if (!dev) {
- 		printk (KERN_ERR "card %d: no memory for eth device\n", card_idx);
--		return -ENOMEM;
-+		goto err_out_free_res;
- 	}
- 	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
--	if (pci_request_regions(pdev, DRV_NAME))
--		goto err_out_free_netdev;
--
- #ifdef USE_IO_OPS
- 	ioaddr = pci_resource_start (pdev, 0);
- #else
-@@ -422,7 +426,7 @@ static int __devinit epic_init_one (stru
- 	ioaddr = (long) ioremap (ioaddr, pci_resource_len (pdev, 1));
- 	if (!ioaddr) {
- 		printk (KERN_ERR DRV_NAME " %d: ioremap failed\n", card_idx);
--		goto err_out_free_res;
-+		goto err_out_free_netdev;
- 	}
- #endif
- 
-@@ -544,9 +548,9 @@ static int __devinit epic_init_one (stru
- 	dev->watchdog_timeo = TX_TIMEOUT;
- 	dev->tx_timeout = &epic_tx_timeout;
- 
--	i = register_netdev(dev);
--	if (i)
--		goto err_out_unmap_tx;
-+	ret = register_netdev(dev);
-+	if (ret < 0)
-+		goto err_out_unmap_rx;
- 
- 	printk(KERN_INFO "%s: %s at %#lx, IRQ %d, ",
- 		   dev->name, pci_id_tbl[chip_idx].name, ioaddr, dev->irq);
-@@ -554,19 +558,24 @@ static int __devinit epic_init_one (stru
- 		printk("%2.2x:", dev->dev_addr[i]);
- 	printk("%2.2x.\n", dev->dev_addr[i]);
- 
--	return 0;
-+out:
-+	return ret;
- 
-+err_out_unmap_rx:
-+	pci_free_consistent(pdev, RX_TOTAL_SIZE, ep->rx_ring, ep->rx_ring_dma);
- err_out_unmap_tx:
- 	pci_free_consistent(pdev, TX_TOTAL_SIZE, ep->tx_ring, ep->tx_ring_dma);
- err_out_iounmap:
- #ifndef USE_IO_OPS
- 	iounmap(ioaddr);
--err_out_free_res:
--#endif
--	pci_release_regions(pdev);
- err_out_free_netdev:
-+#endif
- 	free_netdev(dev);
--	return -ENODEV;
-+err_out_free_res:
-+	pci_release_regions(pdev);
-+err_out_disable:
-+	pci_disable_device(pdev);
-+	goto out;
+diff -puN drivers/net/epic100.c~epic100-napi-00 drivers/net/epic100.c
+--- linux-2.6.5-rc2/drivers/net/epic100.c~epic100-napi-00	2004-03-22 22:53:18.000000000 +0100
++++ linux-2.6.5-rc2-fr/drivers/net/epic100.c	2004-03-22 22:53:18.000000000 +0100
+@@ -1045,6 +1045,79 @@ static int epic_start_xmit(struct sk_buf
+ 	return 0;
  }
- 
- /* Serial EEPROM section. */
-@@ -592,6 +601,13 @@ err_out_free_netdev:
- #define EE_READ256_CMD	(6 << 8)
- #define EE_ERASE_CMD	(7 << 6)
  
-+static void epic_disable_int(struct net_device *dev, struct epic_private *ep)
++static void epic_tx_error(struct net_device *dev, struct epic_private *ep,
++			  int status)
 +{
-+	long ioaddr = dev->base_addr;
++	struct net_device_stats *stats = &ep->stats;
 +
-+	outl(0x00000000, ioaddr + INTMASK);
++#ifndef final_version
++	/* There was an major error, log it. */
++	if (debug > 1)
++		printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
++		       dev->name, status);
++#endif
++	stats->tx_errors++;
++	if (status & 0x1050)
++		stats->tx_aborted_errors++;
++	if (status & 0x0008)
++		stats->tx_carrier_errors++;
++	if (status & 0x0040)
++		stats->tx_window_errors++;
++	if (status & 0x0010)
++		stats->tx_fifo_errors++;
 +}
 +
- static int __devinit read_eeprom(long ioaddr, int location)
- {
- 	int i;
-@@ -1276,9 +1292,13 @@ static int epic_close(struct net_device 
- 			   dev->name, (int)inl(ioaddr + INTSTAT));
++static void epic_tx(struct net_device *dev, struct epic_private *ep)
++{
++	unsigned int dirty_tx, cur_tx;
++
++	/*
++	 * Note: if this lock becomes a problem we can narrow the locked
++	 * region at the cost of occasionally grabbing the lock more times.
++	 */
++	spin_lock(&ep->lock);
++	cur_tx = ep->cur_tx;
++	for (dirty_tx = ep->dirty_tx; cur_tx - dirty_tx > 0; dirty_tx++) {
++		struct sk_buff *skb;
++		int entry = dirty_tx % TX_RING_SIZE;
++		int txstatus = le32_to_cpu(ep->tx_ring[entry].txstatus);
++
++		if (txstatus & DescOwn)
++			break;	/* It still hasn't been Txed */
++
++		if (likely(txstatus & 0x0001)) {
++			ep->stats.collisions += (txstatus >> 8) & 15;
++			ep->stats.tx_packets++;
++			ep->stats.tx_bytes += ep->tx_skbuff[entry]->len;
++		} else
++			epic_tx_error(dev, ep, txstatus);
++
++		/* Free the original skb. */
++		skb = ep->tx_skbuff[entry];
++		pci_unmap_single(ep->pci_dev, ep->tx_ring[entry].bufaddr, 
++				 skb->len, PCI_DMA_TODEVICE);
++		dev_kfree_skb_irq(skb);
++		ep->tx_skbuff[entry] = 0;
++	}
++
++#ifndef final_version
++	if (cur_tx - dirty_tx > TX_RING_SIZE) {
++		printk(KERN_WARNING
++		       "%s: Out-of-sync dirty pointer, %d vs. %d, full=%d.\n",
++		       dev->name, dirty_tx, cur_tx, ep->tx_full);
++		dirty_tx += TX_RING_SIZE;
++	}
++#endif
++	ep->dirty_tx = dirty_tx;
++	if (ep->tx_full && cur_tx - dirty_tx < TX_QUEUE_LEN - 4) {
++		/* The ring is no longer full, allow new TX entries. */
++		ep->tx_full = 0;
++		netif_wake_queue(dev);
++	}
++	spin_unlock(&ep->lock);
++}
++
++
+ /* The interrupt handler does all of the Rx thread work and cleans up
+    after the Tx thread. */
+ static irqreturn_t epic_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
+@@ -1072,66 +1145,8 @@ static irqreturn_t epic_interrupt(int ir
+ 		if (status & (RxDone | RxStarted | RxEarlyWarn | RxOverflow))
+ 			epic_rx(dev);
  
- 	del_timer_sync(&ep->timer);
--	epic_pause(dev);
-+
-+	epic_disable_int(dev, ep);
-+
- 	free_irq(dev->irq, dev);
+-		if (status & (TxEmpty | TxDone)) {
+-			unsigned int dirty_tx, cur_tx;
+-
+-			/* Note: if this lock becomes a problem we can narrow the locked
+-			   region at the cost of occasionally grabbing the lock more
+-			   times. */
+-			spin_lock(&ep->lock);
+-			cur_tx = ep->cur_tx;
+-			dirty_tx = ep->dirty_tx;
+-			for (; cur_tx - dirty_tx > 0; dirty_tx++) {
+-				struct sk_buff *skb;
+-				int entry = dirty_tx % TX_RING_SIZE;
+-				int txstatus = le32_to_cpu(ep->tx_ring[entry].txstatus);
+-
+-				if (txstatus & DescOwn)
+-					break;			/* It still hasn't been Txed */
+-
+-				if ( ! (txstatus & 0x0001)) {
+-					/* There was an major error, log it. */
+-#ifndef final_version
+-					if (debug > 1)
+-						printk(KERN_DEBUG "%s: Transmit error, Tx status %8.8x.\n",
+-							   dev->name, txstatus);
+-#endif
+-					ep->stats.tx_errors++;
+-					if (txstatus & 0x1050) ep->stats.tx_aborted_errors++;
+-					if (txstatus & 0x0008) ep->stats.tx_carrier_errors++;
+-					if (txstatus & 0x0040) ep->stats.tx_window_errors++;
+-					if (txstatus & 0x0010) ep->stats.tx_fifo_errors++;
+-				} else {
+-					ep->stats.collisions += (txstatus >> 8) & 15;
+-					ep->stats.tx_packets++;
+-					ep->stats.tx_bytes += ep->tx_skbuff[entry]->len;
+-				}
+-
+-				/* Free the original skb. */
+-				skb = ep->tx_skbuff[entry];
+-				pci_unmap_single(ep->pci_dev, ep->tx_ring[entry].bufaddr, 
+-						 skb->len, PCI_DMA_TODEVICE);
+-				dev_kfree_skb_irq(skb);
+-				ep->tx_skbuff[entry] = 0;
+-			}
+-
+-#ifndef final_version
+-			if (cur_tx - dirty_tx > TX_RING_SIZE) {
+-				printk(KERN_WARNING "%s: Out-of-sync dirty pointer, %d vs. %d, full=%d.\n",
+-					   dev->name, dirty_tx, cur_tx, ep->tx_full);
+-				dirty_tx += TX_RING_SIZE;
+-			}
+-#endif
+-			ep->dirty_tx = dirty_tx;
+-			if (ep->tx_full
+-				&& cur_tx - dirty_tx < TX_QUEUE_LEN - 4) {
+-				/* The ring is no longer full, allow new TX entries. */
+-				ep->tx_full = 0;
+-				spin_unlock(&ep->lock);
+-				netif_wake_queue(dev);
+-			} else
+-				spin_unlock(&ep->lock);
+-		}
++		if (status & (TxEmpty | TxDone))
++			epic_tx(dev, ep);
  
-+	epic_pause(dev);
-+
- 	/* Free all the skbuffs in the Rx queue. */
- 	for (i = 0; i < RX_RING_SIZE; i++) {
- 		skb = ep->rx_skbuff[i];
-@@ -1476,6 +1496,7 @@ static void __devexit epic_remove_one (s
- #endif
- 	pci_release_regions(pdev);
- 	free_netdev(dev);
-+	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
- 	/* pci_power_off(pdev, -1); */
- }
+ 		/* Check uncommon events all at once. */
+ 		if (status & (CntFull | TxUnderrun | RxOverflow | RxFull |
+@@ -1149,7 +1164,7 @@ static irqreturn_t epic_interrupt(int ir
+ 				/* Restart the transmit process. */
+ 				outl(RestartTx, ioaddr + COMMAND);
+ 			}
+-			if (status & RxOverflow) {		/* Missed a Rx frame. */
++			if (status & RxOverflow) {	/* Missed a Rx frame. */
+ 				ep->stats.rx_errors++;
+ 			}
+ 			if (status & (RxOverflow | RxFull))
 
 _
