@@ -1,43 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] sdla non-module build fix.
-Date: Mon, 8 Sep 2003 13:36:44 -0400
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: any plans for a really lowlevel netfilter hook?
+Date: Mon, 08 Sep 2003 15:43:26 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030908173644.GA22629@gtf.org>
-References: <20030908095708.107b98c4.shemminger@osdl.org> <Pine.LNX.4.44.0309081030310.15082-100000@home.osdl.org>
+Message-ID: <3F5CDBDE.8000604@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0309081030310.15082-100000@home.osdl.org>
+To: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 08, 2003 at 10:32:26AM -0700, Linus Torvalds wrote:
-> 
-> On Mon, 8 Sep 2003, Stephen Hemminger wrote:
-> >
-> > Last round of changes broke sdla build if not a module.
-> 
-> This patch can't be right. It may fix the compile, but it looks like 
-> init/exit_sdla is never registered at all if it's built-in.
-> 
-> I suspect the whole #ifdef should go away. A driver that does things 
-> differently depending on whether it is a module or not is generally a 
-> _broken_ driver.
 
-Nope, this is one of those weird two-ways-of-initialization things, like
-drivers/net/Space.c or drivers/video/fbmem.c.  If you look at the sdla
-code, just above where Stephen's patch's context ends, you see
-"sdla_init" which is called by both modular and non-modular code.
+I've got a wn2k session running in vmware configured with bridged 
+ethernet.  In this mode, windows accessses the hardware and gets a 
+separate IP address from the linux host.  I assume that it's done 
+through a packet socket or something like that.
 
-So -- with the exception of #ifdef'ing out MODULE_LICENSE, Stephen's
-patch is ok.
+Anyways, I had been hoping to be able to filter the packets, but it 
+seems that they get pulled off before they hit the ip stack, and so 
+iptables is useless.
 
-Now that said, this situation is only temporary, until we get all the
-network device structs being allocated dynamically, and interface
-ordering issues are resolved.  Once that happens, you are absolutely
-right:  sdla's #ifdef MODULE should be removed.
+ebtables seems to only affect bridged stuff, so I don't think that it 
+would be applicable either.
 
-	Jeff
+What I'd like would be some kind of netfilter hook really early and 
+really late (before and after packet sockets, respectively).  Any plans 
+for such?
+
+Chris
+
+-- 
+Chris Friesen                    | MailStop: 043/33/F10
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
