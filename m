@@ -1,44 +1,41 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [RTNETLINK] Tunnel config via netlink (Was Re: Convert RTM_* to
- enum)
-Date: Thu, 16 Sep 2004 14:13:40 +0300 (EEST)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [Routing] Performance Comparison between 2.6 and 2.4 kernel
+Date: 16 Sep 2004 07:30:58 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0409161412290.32720-100000@netcore.fi>
-References: <Pine.LNX.4.58.0409161129590.24531@rhea.tcs.hut.fi>
+Message-ID: <1095334258.1065.158.camel@jzny.localdomain>
+References: <1094868693.1041.86.camel@jzny.localdomain>
+	 <20040915180603.98079.qmail@web40007.mail.yahoo.com>
+	 <20040915110858.125cea28.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@davemloft.net>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-        James Morris <jmorris@redhat.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Song Wang <wsonguci@yahoo.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.58.0409161129590.24531@rhea.tcs.hut.fi>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040915110858.125cea28.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Sep 2004, Ville Nuorvala wrote:
-> While designing the netlink interface it might perhaps be a good idea to
-> take a look at draft-ietf-ipv6-inet-tunnel-mib-02.txt, which is currently
-> in IESG processing. The IPv6 specific tunnel encapsulation limit (below)
-> is still missing from the draft but will be included in the RFC.
+On Wed, 2004-09-15 at 14:08, David S. Miller wrote:
+> On Wed, 15 Sep 2004 11:06:03 -0700 (PDT)
+> Song Wang <wsonguci@yahoo.com> wrote:
 > 
-> tunnelIfEncapsLimit OBJECT-TYPE
->     SYNTAX     Integer32 (-1 | 0..255)
->     MAX-ACCESS read-write
->     STATUS     current
->     DESCRIPTION
->             "The maximum number of additional encapsulations permitted
->             for packets undergoing encapsulation at this node.  A value
->             of -1 indicates that no limit is present (except as a result
->             of the packet size)."
->     REFERENCE  "RFC 2473, section 4.1.1"
->     ::= { tunnelIfEntry 11 }
+> > The mips CPU on the board is MIPS32 compatible.
+> > I don't think it's NAPI based.
+> 
+> NAPI is an attribute of the network adapter, not
+> the cpu.
+> 
+> Although I would very much anticipate this being
+> a MIPS or network adapter specific problem since
+> on x86 routing is pretty fast in 2.6.x
 
-FWIW, I've always viewed this as a mostly unnecessary feature that
-nobody bothers to implement, but YMMV.
+Note, I could hit 4-500Kpps on a bcom sb1250 800Mhz; trying to simulate
+Andis gettimeofday changes (which are in 2.6 since i havent seen a 2.6
+port for that board ) gives another 100Kpps. Theres still room for
+improvement just havent had time.
+You are right though it could be a 2.6.x arch specific issue. Bacchus?
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+cheers,
+jamal
