@@ -1,44 +1,31 @@
 From: Olaf Hering <olh@suse.de>
 Subject: Re: [PATCH] compat bug in sys_recvmsg, MSG_CMSG_COMPAT check missing
-Date: Sat, 5 Jun 2004 23:14:09 +0200
+Date: Sat, 5 Jun 2004 23:17:01 +0200
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040605211409.GC1134@suse.de>
-References: <20040605204334.GA1134@suse.de>
+Message-ID: <20040605211701.GD1134@suse.de>
+References: <20040605204334.GA1134@suse.de> <20040605140153.6c5945a0.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Olaf Hering <olh@suse.de>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262422AbUFEVOR@vger.kernel.org>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262451AbUFEVRO@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20040605204334.GA1134@suse.de>
+In-Reply-To: <20040605140153.6c5945a0.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
- On Sat, Jun 05, Olaf Hering wrote:
+ On Sat, Jun 05, David S. Miller wrote:
 
->=20
-> packet_recvmsg() gets the flags from the compat_sys_socketcall(), but=
- it
-> does not check for the active MSG_CMSG_COMPAT bit. As a result, it
-> returns -EINVAL and makes the user rather unhappy
+> I can't see a reason, can anyone else?  If there is no reason, the
+> right fix is simply to mask it out at the top level, for both
+> sendmsg and recvmsg.
 
-possible related bugs are in:
+I did it first this way, but the result was a long delay until the dhcp
+server replied, the patch sent earlier leads to a fast reply.
 
-ipx_sendmsg
-pfkey_recvmsg
-x25_sendmsg
-ax25_sendmsg
-irda_sendmsg
-irda_sendmsg_dgram
-irda_sendmsg_ultra
-rose_sendmsg
-atalk_sendmsg
-dn_recvmsg
-dn_sendmsg
-econet_sendmsg
-wanpipe_sendmsg
-nr_sendmsg
-
+    err =3D sock_recvmsg(sock, &msg_sys, total_len, flags & ~MSG_CMSG_C=
+OMPAT);
+=20
 
 --=20
 USB is for mice, FireWire is for men!
