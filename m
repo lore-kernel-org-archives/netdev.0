@@ -1,26 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: major bonding bug?
-Date: Tue, 30 Dec 2003 11:31:15 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031230163115.GA10216@gtf.org>
-References: <E791C176A6139242A988ABA8B3D9B38A014C965E@hasmsx403.iil.intel.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: [patch] clean up tcp_sk(), 2.6.0
+Date: Tue, 30 Dec 2003 17:32:30 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20031230163230.GA12553@elte.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Noam, Amir" <amir.noam@intel.com>, "Marom, Noam" <noam.marom@intel.com>,
-        netdev@oss.sgi.com, fubar@us.ibm.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Hen, Shmulik" <shmulik.hen@intel.com>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A014C965E@hasmsx403.iil.intel.com>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hmmm...
 
-It looks like a lot of code now depends on global variable "bond_mode".
+i recently wasted a few hours on a bug where i used "tcp_sk(sock)"
+instead of "tcp_sk(sock->sk)" - the former, while being blatantly
+incorrect, compiles just fine on 2.6.0. The patch below is equivalent to
+the define but is also type-safe. Compiles cleanly & boots fine on
+2.6.0.
 
-This looks very wrong...  bonding mode should be per-interface, not
-global to the entire driver.  What happens when a user wants
-BOND_MODE_ROUNDROBIN on bond0, and BOND_MODE_TLB on bond1?
+	Ingo
 
-	Jeff
+--- linux/include/linux/tcp.h.orig
++++ linux/include/linux/tcp.h
+@@ -386,7 +386,10 @@ struct tcp_sock {
+ 	struct tcp_opt	  tcp;
+ };
+ 
+-#define tcp_sk(__sk) (&((struct tcp_sock *)__sk)->tcp)
++static inline struct tcp_opt * tcp_sk(const struct sock *__sk)
++{
++	return &((struct tcp_sock *)__sk)->tcp;
++}
+ 
+ #endif
+ 
