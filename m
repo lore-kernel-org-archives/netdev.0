@@ -1,36 +1,97 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] pci_get_slot()
-Date: Wed, 15 Oct 2003 15:55:48 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <3F8DA644.50403@pobox.com>
-References: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk> <20031015184104.GA22373@kroah.com> <20031015185053.GH16535@parcelfarce.linux.theplanet.co.uk> <20031015193455.GA23727@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Matthew Wilcox <willy@debian.org>,
-	Linus Torvalds <torvalds@osdl.org>,
-	"David S. Miller" <davem@redhat.com>,
-	linux-pci@atrey.karlin.mff.cuni.cz, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
-In-Reply-To: <20031015193455.GA23727@kroah.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (1/6) tokenring probing change
+Date: Wed, 15 Oct 2003 13:47:55 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200310152047.h9FKltw11805@mail.osdl.org>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jgarzik@pobox.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Greg KH wrote:
-> On Wed, Oct 15, 2003 at 07:50:53PM +0100, Matthew Wilcox wrote:
->>The only real way to do it is to inline pci_get_slot() into tg3.  Since I
->>also have a need for it in sym2, that doesn't seem like a sensible idea.
->>It would also be racy since it wouldn't take the pci_bus_lock.
-> 
-> 
-> Ok, fair enough.  I'll add it to my tree to be sent to Linus after 2.6.0
-> is out, if Jeff and David agree it's an ok tg3.c patch.
+Convert ISA token ring drivers to the new probe2 infrastructure
+that allows driver to allocate network device in the same way
+for both modular and non-modular cases.
 
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Mon Oct 13 13:08:06 2003
++++ b/drivers/net/Space.c	Mon Oct 13 13:08:06 2003
+@@ -430,26 +430,6 @@
+ 	{NULL, 0},
+ };
+ 
+-static __init int trif_probe(int unit)
+-{
+-	struct net_device *dev;
+-	int err = -ENODEV;
+-	
+-	dev = alloc_trdev(0);
+-	if (!dev)
+-		return -ENOMEM;
+-
+-	sprintf(dev->name, "tr%d", unit);
+-	netdev_boot_setup_check(dev);
+-	if (
+-	    0 ) 
+-		err = register_netdev(dev);
+-		
+-	if (err)
+-		free_netdev(dev);
+-	return err;
+-
+-}
+ 
+ static void __init trif_probe2(int unit)
+ {
+@@ -484,8 +464,7 @@
+ #endif
+ #ifdef CONFIG_TR
+ 	for (num = 0; num < 8; ++num)
+-		if (!trif_probe(num))
+-			trif_probe2(num);
++		trif_probe2(num);
+ #endif
+ 	for (num = 0; num < 8; ++num)
+ 		if (!ethif_probe(num))
+This applies against net-2.5-exp
 
-I'm OK with it...   I guess we'll be shipping tg3 and sym2 known-broken 
-on PCI domain boxes?
-
-Admittedly it's an uncommon case for tg3...
-
-	Jeff
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Fri Oct 10 11:27:32 2003
++++ b/drivers/net/Space.c	Fri Oct 10 11:27:32 2003
+@@ -414,6 +414,10 @@
+ extern int proteon_probe(struct net_device *);
+ extern int smctr_probe(struct net_device *);
+ 
++static struct devprobe2 tr_probes2[] __initdata = {
++	{NULL, 0},
++};
++
+ static __init int trif_probe(int unit)
+ {
+ 	struct net_device *dev;
+@@ -446,6 +450,15 @@
+ 	return err;
+ 
+ }
++
++static void __init trif_probe2(int unit)
++{
++	unsigned long base_addr = netdev_boot_base("tr", unit);
++
++	if (base_addr == 1)
++		return;
++	probe_list2(unit, tr_probes2, base_addr == 0);
++}
+ #endif
+ 
+ 	
+@@ -471,7 +484,8 @@
+ #endif
+ #ifdef CONFIG_TR
+ 	for (num = 0; num < 8; ++num)
+-		trif_probe(num);
++		if (!trif_probe(num))
++			trif_probe2(num);
+ #endif
+ 	for (num = 0; num < 8; ++num)
+ 		if (!ethif_probe(num))
