@@ -1,36 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Mon, 09 Jun 2003 06:22:17 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609.062217.48383829.davem@redhat.com>
-References: <20030609080430.I34540@shell.cyberus.ca>
-	<20030609.053218.54202815.davem@redhat.com>
-	<20030609091907.Y34702@shell.cyberus.ca>
+From: Jamal Hadi <hadi@shell.cyberus.ca>
+Subject: RE: Route cache performance under stress
+Date: Mon, 9 Jun 2003 09:26:55 -0400 (EDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030609092400.J34718@shell.cyberus.ca>
+References: <001001c32e19$81bc7ea0$4a00000a@badass> <20030608230300.X33412@shell.cyberus.ca>
+ <Pine.LNX.4.51.0306090900520.9313@ns.istop.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xerox@foonet.net, sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@shell.cyberus.ca
-In-Reply-To: <20030609091907.Y34702@shell.cyberus.ca>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: CIT/Paul <xerox@foonet.net>, 'Simon Kirby' <sim@netnation.com>,
+	'Florian Weimer' <fw@deneb.enyo.de>,
+	"netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>,
+	sales@znyx.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: ralph+d@istop.com
+In-Reply-To: <Pine.LNX.4.51.0306090900520.9313@ns.istop.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Jamal Hadi <hadi@shell.cyberus.ca>
-   Date: Mon, 9 Jun 2003 09:22:11 -0400 (EDT)
-   
-   I dont think youll see much benefit with 1 or 2 entries. I was thinking
-   more along the lines of people with over 100K entries total;
 
-You simply don't want the chains to get that long.  In my experience,
-even with prefetching tricks, past 2 or 3 entry deep hash chains you
-run into serious problems.
 
-TCP has the same issue BTW, in fact DoS-like behavior is the common
-thing there.  Every time you create a new TCP connection on a server
-it's exactly like a routing cache miss.
+On Mon, 9 Jun 2003, Ralph Doncaster wrote:
 
-   Let me run with this and get back to you.
+> On Sun, 8 Jun 2003, Jamal Hadi wrote:
+>
+> > I am sure there are people who will like to sell you linux devices
+> > at half the cisco prices doing Millions of PPS via hardware assists.
+> > Support these linux supporting companies instead ;->
+>
+> Are you serious?
 
-Ok.
+indeed.
+
+> Who is making these boxes?
+
+http://www.znyx.com/products/hardware/
+Take one of these devices, plug it into a 1U box and run.
+And i have absolutely no relationship with them at all ;->
+
+cheers,
+jamal
