@@ -1,63 +1,36 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [9/9][PATCH 2.6] Restructure reset code
-Date: Wed, 2 Jun 2004 22:30:26 +0200
+From: Scott Feldman <scott.feldman@intel.com>
+Subject: [PATCH 2.4] e1000: fix napi crash on ifdown during traffic
+Date: Thu, 3 Jun 2004 18:18:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040602203026.GB31791@k3.hellgate.ch>
-References: <20040602115920.GA17634@k3.hellgate.ch> <40BE2DE0.4040102@pobox.com>
+Message-ID: <Pine.LNX.4.44.0406031804340.4336-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40BE2DE0.4040102@pobox.com>
+To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 02 Jun 2004 15:43:28 -0400, Jeff Garzik wrote:
-> Roger Luethi wrote:
-> >Restructure code to make it easier to maintain.
-> >
-> >rhine_hw_init: resets chip, reloads eeprom
-> >rhine_chip_reset: chip reset + what used to be wait_for_reset
-> >rhine_reload_eeprom: reload eeprom, re-enable MMIO, disable 
-> >EEPROM-controlled
-> >	WOL
-> >
-> >Note: Chip reset clears a bunch of registers that should be reloaded
-> >from EEPROM (which turns off MMIO). Deal with that later.
-> 
-> 
-> Rejected, two reasons:
-> 
-> 1) dev->dev_addr[] should be loaded from eeprom only once, at probe 
-> time, not once for each hw init.  [this value should be written to the 
-> chip's MAC address registers upon each dev->open() call]
 
-We are in violent agreement, you are describing what the driver
-does with and without patch 9 (unless I seriously botched the
-splitting). Incidentally, rhine_hw_init gets called only once, at probe
-time (further calls are to rhine_chip_reset).
+Signed off by: Jesse Brandeburg
 
-The remaining problem with the reset stuff is this: Years ago, soft
-resets were added to via-rhine in the vain hope it would fix something,
-but soft resets overwrite some registers that need to be reloaded
-from somewhere (it's more than just the MAC address). The proper fix
-for this is to remove unnecessary soft resets (i.e. all but the one at
-probe time) and/or restore the registers affected by a soft reset. But
-that would go beyond a simple clean-up patch.
-
-> 2) Your "Note:" worries me...  why not deal with this now?  :)
-
-Mainly because I don't have all the information needed to positively
-determine the proper solution -- not yet. "Dealing with it" will likely
-mean removing two soft reset calls and documenting registers that are
-clobbered by soft reset (just in case), but that doesn't fit into a
-clean-up patch anyway.
-
-In summary, patch 9 is simply what all conceivable solutions have in
-common -- code clean-up.
-
-Thanks for the review.
-
-Roger
+diff -Naurp linux-2.4/drivers/net/e1000/e1000_main.c linux-2.4/drivers/net/e1000.mod/e1000_main.c
+--- linux-2.4/drivers/net/e1000/e1000_main.c	2004-06-03 18:00:32.000000000 -0700
++++ linux-2.4/drivers/net/e1000.mod/e1000_main.c	2004-06-03 18:01:11.000000000 -0700
+@@ -52,7 +52,7 @@
+ 
+ char e1000_driver_name[] = "e1000";
+ char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
+-char e1000_driver_version[] = "5.2.52-k1";
++char e1000_driver_version[] = "5.2.52-k3";
+ char e1000_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
+ 
+ /* e1000_pci_tbl - PCI Device ID Table
+@@ -2143,6 +2143,7 @@ e1000_clean(struct net_device *netdev, i
+ 	if(work_done < work_to_do || !netif_running(netdev)) {
+ 		netif_rx_complete(netdev);
+ 		e1000_irq_enable(adapter);
++		return 0;
+ 	}
+ 
+ 	return (work_done >= work_to_do);
