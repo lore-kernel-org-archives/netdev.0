@@ -1,1185 +1,536 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/6) ipvs -- use list_for_each_entry macro's
-Date: Tue, 16 Sep 2003 14:17:50 -0700
+Subject: [PATCH] convert wan/lmc to device model
+Date: Tue, 16 Sep 2003 14:36:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030916141750.53bbb04e.shemminger@osdl.org>
+Message-ID: <20030916143627.51a08be0.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang
- <wensong@linux-vs.org>, lvs-users@LinuxVirtualServer.org,
-   netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-There are many places where list_for_each_entry macro can be used in IPVS
-code.
+This patch converts drivers/net/wan/lmc for 2.6.0-test5
+	- use pci_device model
+	- get rid of MOD_INC/DEC
+	- use alloc_netdev and dev->priv for private data
 
-diff -Nru a/net/ipv4/ipvs/ip_vs_app.c b/net/ipv4/ipvs/ip_vs_app.c
---- a/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:08:39 2003
-@@ -214,18 +214,14 @@
-  */
- void unregister_ip_vs_app(struct ip_vs_app *app)
- {
--	struct ip_vs_app *inc;
--	struct list_head *l = &app->incs_list;
-+	struct ip_vs_app *inc, *nxt;
+Builds and loads but don't have real hardware.
+
+diff -Nru a/drivers/net/wan/lmc/lmc_main.c b/drivers/net/wan/lmc/lmc_main.c
+--- a/drivers/net/wan/lmc/lmc_main.c	Tue Sep 16 14:33:16 2003
++++ b/drivers/net/wan/lmc/lmc_main.c	Tue Sep 16 14:33:16 2003
+@@ -78,30 +78,20 @@
+ #include "lmc_debug.h"
+ #include "lmc_proto.h"
  
- 	down(&__ip_vs_app_mutex);
- 
--	while (l->next != l) {
--		inc = list_entry(l->next, struct ip_vs_app, a_list);
-+	list_for_each_entry_safe(inc, nxt, &app->incs_list, a_list) {
- 		ip_vs_app_inc_release(inc);
- 	}
- 
--	list_del(&app->a_list);
 -
- 	up(&__ip_vs_app_mutex);
+-static int Lmc_Count = 0;
+-static struct net_device *Lmc_root_dev = NULL;
+-static u8 cards_found = 0;
+-
+ static int lmc_first_load = 0;
  
- 	/* decrease the module use count */
-@@ -239,13 +235,11 @@
-  */
- struct ip_vs_app *ip_vs_app_get_by_name(char *appname)
- {
--	struct list_head *p;
- 	struct ip_vs_app *app, *a = NULL;
+-int LMC_PKT_BUF_SZ = 1542;
++static int LMC_PKT_BUF_SZ = 1542;
  
- 	down(&__ip_vs_app_mutex);
+-#ifdef MODULE
+ static struct pci_device_id lmc_pci_tbl[] = {
+-    { 0x1011, 0x009, 0x1379, PCI_ANY_ID, 0, 0, 0},
+-    { 0, }
++	{ CORRECT_VENDOR_ID, CORRECT_DEV_ID, PCI_VENDOR_LMC, PCI_ANY_ID },
++	{ CORRECT_VENDOR_ID, CORRECT_DEV_ID, PCI_ANY_ID, PCI_VENDOR_LMC },
++	{ 0 }
+ };
  
--	list_for_each (p, &ip_vs_app_list) {
--		app = list_entry(p, struct ip_vs_app, a_list);
-+	list_for_each_entry(ent, &ip_vs_app_list, a_list) {
- 		if (strcmp(app->name, appname))
- 			continue;
+ MODULE_DEVICE_TABLE(pci, lmc_pci_tbl);
+-
+ MODULE_LICENSE("GPL");
+-#endif
  
-@@ -485,18 +479,15 @@
+ 
+-int lmc_probe_fake(struct net_device *dev);
+-static struct net_device *lmc_probe1(struct net_device *dev, unsigned long ioaddr, unsigned int irq,
+-				 int chip_id, int subdevice, int board_idx);
+ static int lmc_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static int lmc_start_xmit(struct sk_buff *skb, struct net_device *dev);
+ static int lmc_rx (struct net_device *dev);
+@@ -115,12 +105,9 @@
+ static void lmc_running_reset(struct net_device *dev);
+ static int lmc_ifdown(struct net_device * const);
+ static void lmc_watchdog(unsigned long data);
+-static int lmc_init(struct net_device * const);
+ static void lmc_reset(lmc_softc_t * const sc);
+ static void lmc_dec_reset(lmc_softc_t * const sc);
+ static void lmc_driver_timeout(struct net_device *dev);
+-int lmc_setup(void);
+-
+ 
  /*
-  *	/proc/net/ip_vs_app entry function
-  */
+  * linux reserves 16 device specific IOCTLs.  We call them
+@@ -815,67 +802,77 @@
+ 
+ }
+ 
+-static int lmc_init(struct net_device * const dev) /*fold00*/
++static void lmc_setup(struct net_device * const dev) /*fold00*/
+ {
+-    lmc_trace(dev, "lmc_init in");
+-    lmc_trace(dev, "lmc_init out");
+-	
+-    return 0;
++    lmc_trace(dev, "lmc_setup in");
 +
- static struct ip_vs_app *ip_vs_app_idx(loff_t pos)
++    dev->type = ARPHRD_HDLC;
++    dev->hard_start_xmit = lmc_start_xmit;
++    dev->open = lmc_open;
++    dev->stop = lmc_close;
++    dev->get_stats = lmc_get_stats;
++    dev->do_ioctl = lmc_ioctl;
++    dev->set_config = lmc_set_config;
++    dev->tx_timeout = lmc_driver_timeout;
++    dev->watchdog_timeo = (HZ); /* 1 second */
++    
++    lmc_trace(dev, "lmc_setup out");
+ }
+ 
+-/* This initializes each card from lmc_probe() */
+-static struct net_device *lmc_probe1 (struct net_device *dev, unsigned long ioaddr, unsigned int irq, /*fold00*/
+-                                  int chip_id, int subdevice, int board_idx)
++
++static int __devinit lmc_init_one(struct pci_dev *pdev,
++				  const struct pci_device_id *ent)
  {
--	loff_t off = 0;
--	struct list_head *e, *i;
-+	struct ip_vs_app *app, *inc;
- 
--	list_for_each(e, &ip_vs_app_list) {
--		struct ip_vs_app *app
--			= list_entry(e, struct ip_vs_app, a_list);
--		list_for_each (i, &app->incs_list) {
--			if (off == pos)
--				return list_entry(i, struct ip_vs_app, a_list);
--			++off;
-+	list_for_each_entry(app, &ip_vs_app_list, a_list) {
-+		list_for_each_entry(inc, &app->incs_list, a_list) {
-+			if (pos-- == 0)
-+				return inc;
- 		}	
- 	}
- 	return NULL;
-@@ -513,7 +504,7 @@
- static void *ip_vs_app_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	struct ip_vs_app *inc, *app;
--	struct list_head *i, *e;
-+	struct list_head *e;
- 
- 	++*pos;
- 	if (v == SEQ_START_TOKEN)
-@@ -522,14 +513,14 @@
- 	inc = v;
- 	app = inc->app;
- 
--	if ((i = inc->a_list.next) != &app->incs_list)
--		return list_entry(i, struct ip_vs_app, a_list);
-+	if ((e = inc->a_list.next) != &app->incs_list)
-+		return list_entry(e, struct ip_vs_app, a_list);
- 
- 	/* go on to next application */
- 	for (e = app->a_list.next; e != &ip_vs_app_list; e = e->next) {
- 		app = list_entry(e, struct ip_vs_app, a_list);
--		list_for_each (i, &app->incs_list) {
--			return list_entry(i, struct ip_vs_app, a_list);
-+		list_for_each_entry(inc, &app->incs_list, a_list) {
-+			return inc;
- 		}
- 	}
- 	return NULL;
-diff -Nru a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
---- a/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:08:39 2003
-@@ -189,14 +189,12 @@
- {
- 	unsigned hash;
- 	struct ip_vs_conn *cp;
--	struct list_head *e;
- 
- 	hash = ip_vs_conn_hashkey(protocol, s_addr, s_port);
- 
- 	ct_read_lock(hash);
- 
--	list_for_each(e, &ip_vs_conn_tab[hash]) {
--		cp = list_entry(e, struct ip_vs_conn, c_list);
-+	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (s_addr==cp->caddr && s_port==cp->cport &&
- 		    d_port==cp->vport && d_addr==cp->vaddr &&
- 		    protocol==cp->protocol) {
-@@ -242,7 +240,6 @@
- {
- 	unsigned hash;
- 	struct ip_vs_conn *cp, *ret=NULL;
--	struct list_head *e;
- 
- 	/*
- 	 *	Check for "full" addressed entries
-@@ -251,8 +248,7 @@
- 
- 	ct_read_lock(hash);
- 
--	list_for_each(e, &ip_vs_conn_tab[hash]) {
--		cp = list_entry(e, struct ip_vs_conn, c_list);
-+	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (d_addr == cp->caddr && d_port == cp->cport &&
- 		    s_port == cp->dport && s_addr == cp->daddr &&
- 		    protocol == cp->protocol) {
-@@ -618,19 +614,17 @@
- 
- static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
- {
--	struct list_head *e;
- 	int idx;
--	loff_t off = 0;
-+	struct ip_vs_conn *cp;
- 	
- 	for(idx = 0; idx < IP_VS_CONN_TAB_SIZE; idx++) {
- 		ct_read_lock_bh(idx);
--		list_for_each(e, &ip_vs_conn_tab[idx]) {
--			if (off == pos) {
-+		list_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
-+			if (pos-- == 0) {
- 				seq->private = &ip_vs_conn_tab[idx];
--				return list_entry(e, struct ip_vs_conn, c_list);
-+				return cp;
- 			}
--			++off;
--		}	
-+		}
- 		ct_read_unlock_bh(idx);
- 	}
- 
-@@ -662,9 +656,9 @@
- 
- 	while (++idx < IP_VS_CONN_TAB_SIZE) {
- 		ct_read_lock_bh(idx);
--		list_for_each(e, &ip_vs_conn_tab[idx]) {
-+		list_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
- 			seq->private = &ip_vs_conn_tab[idx];
--			return list_entry(e, struct ip_vs_conn, c_list);
-+			return cp;
- 		}	
- 		ct_read_unlock_bh(idx);
- 	}
-@@ -769,7 +763,6 @@
- {
- 	int idx;
- 	struct ip_vs_conn *cp;
--	struct list_head *e;
- 	struct ip_vs_conn *ct;
- 
- 	/*
-@@ -783,8 +776,7 @@
- 		 */
- 		ct_write_lock(hash);
- 
--		list_for_each(e, &ip_vs_conn_tab[hash]) {
--			cp = list_entry(e, struct ip_vs_conn, c_list);
-+		list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
- 			if (!cp->cport && !(cp->flags & IP_VS_CONN_F_NO_CPORT))
- 				/* connection template */
- 				continue;
-@@ -836,7 +828,6 @@
- {
- 	int idx;
- 	struct ip_vs_conn *cp;
--	struct list_head *e;
- 	struct ip_vs_conn *ct;
- 
-   flush_again:
-@@ -846,8 +837,7 @@
- 		 */
- 		ct_write_lock_bh(idx);
- 
--		list_for_each(e, &ip_vs_conn_tab[idx]) {
--			cp = list_entry(e, struct ip_vs_conn, c_list);
-+		list_for_each_entry(cp, &ip_vs_conn_tab[idx], c_list) {
- 			atomic_inc(&cp->refcnt);
- 			ct_write_unlock(idx);
- 
-diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
---- a/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:39 2003
-@@ -279,7 +279,7 @@
- static __inline__ unsigned
- ip_vs_svc_hashkey(unsigned proto, __u32 addr, __u16 port)
- {
--	unsigned porth = ntohs(port);
-+	register unsigned porth = ntohs(port);
- 
- 	return (proto^ntohl(addr)^(porth>>IP_VS_SVC_TAB_BITS)^porth)
- 		& IP_VS_SVC_TAB_MASK;
-@@ -363,14 +363,11 @@
- {
- 	unsigned hash;
- 	struct ip_vs_service *svc;
--	struct list_head *l,*e;
- 
- 	/* Check for "full" addressed entries */
- 	hash = ip_vs_svc_hashkey(protocol, vaddr, vport);
- 
--	l = &ip_vs_svc_table[hash];
--	for (e=l->next; e!=l; e=e->next) {
--		svc = list_entry(e, struct ip_vs_service, s_list);
-+	list_for_each_entry(svc, &ip_vs_svc_table[hash], s_list){
- 		if ((svc->addr == vaddr)
- 		    && (svc->port == vport)
- 		    && (svc->protocol == protocol)) {
-@@ -391,14 +388,11 @@
- {
- 	unsigned hash;
- 	struct ip_vs_service *svc;
--	struct list_head *l,*e;
- 
- 	/* Check for fwmark addressed entries */
- 	hash = ip_vs_svc_fwm_hashkey(fwmark);
- 
--	l = &ip_vs_svc_fwm_table[hash];
--	for (e=l->next; e!=l; e=e->next) {
--		svc = list_entry(e, struct ip_vs_service, f_list);
-+	list_for_each_entry(svc, &ip_vs_svc_fwm_table[hash], f_list) {
- 		if (svc->fwmark == fwmark) {
- 			/* HIT */
- 			atomic_inc(&svc->usecnt);
-@@ -482,7 +476,7 @@
-  */
- static __inline__ unsigned ip_vs_rs_hashkey(__u32 addr, __u16 port)
- {
--	unsigned porth = ntohs(port);
-+	register unsigned porth = ntohs(port);
- 
- 	return (ntohl(addr)^(porth>>IP_VS_RTAB_BITS)^porth)
- 		& IP_VS_RTAB_MASK;
-@@ -535,7 +529,6 @@
- {
- 	unsigned hash;
- 	struct ip_vs_dest *dest;
--	struct list_head *l,*e;
- 
- 	/*
- 	 *	Check for "full" addressed entries
-@@ -543,11 +536,8 @@
- 	 */
- 	hash = ip_vs_rs_hashkey(daddr, dport);
- 
--	l = &ip_vs_rtable[hash];
+-    lmc_softc_t *sc = NULL;
++    struct net_device *dev;
++    lmc_softc_t *sc;
++    u16 subdevice;
+     u_int16_t AdapModelNum;
 -
- 	read_lock(&__ip_vs_rs_lock);
--	for (e=l->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, d_list);
-+	list_for_each_entry(dest, &ip_vs_rtable[hash], d_list) {
- 		if ((dest->addr == daddr)
- 		    && (dest->port == dport)
- 		    && ((dest->protocol == protocol) ||
-@@ -569,14 +559,11 @@
- ip_vs_lookup_dest(struct ip_vs_service *svc, __u32 daddr, __u16 dport)
- {
- 	struct ip_vs_dest *dest;
--	struct list_head *l, *e;
- 
- 	/*
- 	 * Find the destination for the given service
- 	 */
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		if ((dest->addr == daddr) && (dest->port == dport)) {
- 			/* HIT */
- 			return dest;
-@@ -600,16 +587,12 @@
- static struct ip_vs_dest *
- ip_vs_trash_get_dest(struct ip_vs_service *svc, __u32 daddr, __u16 dport)
- {
--	struct ip_vs_dest *dest;
--	struct list_head *l, *e;
-+	struct ip_vs_dest *dest, *nxt;
- 
- 	/*
- 	 * Find the destination in trash
- 	 */
--	l = &ip_vs_dest_trash;
+-    /*
+-     * Allocate our own device structure
+-     */
 -
--	for (e=l->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry_safe(dest, nxt, &ip_vs_dest_trash, n_list) {
- 		IP_VS_DBG(3, "Destination %u/%u.%u.%u.%u:%u still in trash, "
- 			  "refcnt=%d\n",
- 			  dest->vfwmark,
-@@ -634,7 +617,6 @@
- 				  "from trash\n",
- 				  dest->vfwmark,
- 				  NIPQUAD(dest->addr), ntohs(dest->port));
--			e = e->prev;
- 			list_del(&dest->n_list);
- 			ip_vs_dst_reset(dest);
- 			__ip_vs_unbind_svc(dest);
-@@ -657,13 +639,9 @@
-  */
- static void ip_vs_trash_cleanup(void)
- {
--	struct ip_vs_dest *dest;
--	struct list_head *l;
+-    dev = kmalloc (sizeof (struct net_device)+8, GFP_KERNEL);
+-    if (dev == NULL){
+-        printk (KERN_ERR "lmc: kmalloc for device failed\n");
+-        return NULL;
+-    }
+-    memset (dev, 0, sizeof (struct net_device));
 -
--	l = &ip_vs_dest_trash;
-+	struct ip_vs_dest *dest, *nxt;
++    int err = -ENOMEM;
++    static int cards_found;
+ #ifndef GCOM
+-    /*
+-     *	Switch to common hdlc%d naming. We name by type not by vendor
+-     */
+-    
+-    dev_alloc_name(dev, "hdlc%d");
++    /* We name by type not by vendor */
++    static const char lmcname[] = "hdlc%d";
+ #else
+-    /*
++    /* 
+      * GCOM uses LMC vendor name so that clients can know which card
+      * to attach to.
+      */
+-    dev_alloc_name(dev, "lmc%d");
++    static const char lmcname[] = "lmc%d";
+ #endif
  
--	while (l->next != l) {
--		dest = list_entry(l->next, struct ip_vs_dest, n_list);
-+	list_for_each_entry_safe(dest, nxt, &ip_vs_dest_trash, n_list) {
- 		list_del(&dest->n_list);
- 		ip_vs_dst_reset(dest);
- 		__ip_vs_unbind_svc(dest);
-@@ -1198,8 +1176,7 @@
-  */
- static void __ip_vs_del_service(struct ip_vs_service *svc)
- {
--	struct list_head *l;
--	struct ip_vs_dest *dest;
-+	struct ip_vs_dest *dest, *nxt;
- 	struct ip_vs_scheduler *old_sched;
- 
- 	ip_vs_num_services--;
-@@ -1220,9 +1197,7 @@
- 	/*
- 	 *    Unlink the whole destination list
- 	 */
--	l = &svc->destinations;
--	while (l->next != l) {
--		dest = list_entry(l->next, struct ip_vs_dest, n_list);
-+	list_for_each_entry_safe(dest, nxt, &svc->destinations, n_list) {
- 		__ip_vs_unlink_dest(svc, dest, 0);
- 		__ip_vs_del_dest(dest);
- 	}
-@@ -1279,16 +1254,13 @@
- static int ip_vs_flush(void)
- {
- 	int idx;
--	struct ip_vs_service *svc;
--	struct list_head *l;
-+	struct ip_vs_service *svc, *nxt;
- 
- 	/*
- 	 * Flush the service table hashed by <protocol,addr,port>
- 	 */
- 	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		l = &ip_vs_svc_table[idx];
--		while (l->next != l) {
--			svc = list_entry(l->next,struct ip_vs_service,s_list);
-+		list_for_each_entry_safe(svc, nxt, &ip_vs_svc_table[idx], s_list) {
- 			write_lock_bh(&__ip_vs_svc_lock);
- 			ip_vs_svc_unhash(svc);
- 			/*
-@@ -1304,9 +1276,8 @@
- 	 * Flush the service table hashed by fwmark
- 	 */
- 	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		l = &ip_vs_svc_fwm_table[idx];
--		while (l->next != l) {
--			svc = list_entry(l->next,struct ip_vs_service,f_list);
-+		list_for_each_entry_safe(svc, nxt, 
-+					 &ip_vs_svc_fwm_table[idx], f_list) {
- 			write_lock_bh(&__ip_vs_svc_lock);
- 			ip_vs_svc_unhash(svc);
- 			/*
-@@ -1336,12 +1307,10 @@
- 
- static int ip_vs_zero_service(struct ip_vs_service *svc)
- {
--	struct list_head *l;
- 	struct ip_vs_dest *dest;
- 
- 	write_lock_bh(&__ip_vs_svc_lock);
--	list_for_each (l, &svc->destinations) {
--		dest = list_entry(l, struct ip_vs_dest, n_list);
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		ip_vs_zero_stats(&dest->stats);
- 	}
- 	ip_vs_zero_stats(&svc->stats);
-@@ -1352,19 +1321,16 @@
- static int ip_vs_zero_all(void)
- {
- 	int idx;
--	struct list_head *l;
- 	struct ip_vs_service *svc;
- 
- 	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		list_for_each (l, &ip_vs_svc_table[idx]) {
--			svc = list_entry(l, struct ip_vs_service, s_list);
-+		list_for_each_entry(svc, &ip_vs_svc_table[idx], s_list) {
- 			ip_vs_zero_service(svc);
- 		}
- 	}
- 
- 	for(idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		list_for_each (l, &ip_vs_svc_fwm_table[idx]) {
--			svc = list_entry(l, struct ip_vs_service, f_list);
-+		list_for_each_entry(svc, &ip_vs_svc_fwm_table[idx], f_list) {
- 			ip_vs_zero_service(svc);
- 		}
- 	}
-@@ -1540,26 +1506,26 @@
- {
- 	struct ip_vs_iter *iter = seq->private;
- 	int idx;
--	struct list_head *e;
-+	struct ip_vs_service *svc;
- 
- 	/* look in hash by protocol */
- 	for (idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		list_for_each(e, &ip_vs_svc_table[idx]) {
-+		list_for_each_entry(svc, &ip_vs_svc_table[idx], s_list) {
- 			if (pos-- == 0){
- 				iter->table = ip_vs_svc_table;
- 				iter->bucket = idx;
--				return list_entry(e, struct ip_vs_service, s_list);
-+				return svc;
- 			}
- 		}
- 	}
- 
- 	/* keep looking in fwmark */
- 	for (idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		list_for_each(e, &ip_vs_svc_fwm_table[idx]) {
-+		list_for_each_entry(svc, &ip_vs_svc_fwm_table[idx], f_list) {
- 			if (pos-- == 0) {
- 				iter->table = ip_vs_svc_fwm_table;
- 				iter->bucket = idx;
--				return list_entry(e, struct ip_vs_service, f_list);
-+				return svc;
- 			}
- 		}
- 	}
-@@ -1595,8 +1561,9 @@
- 
- 
- 		while (++iter->bucket < IP_VS_SVC_TAB_SIZE) {
--			list_for_each(e, &ip_vs_svc_table[iter->bucket]) {
--				return list_entry(e, struct ip_vs_service, s_list);
-+			list_for_each_entry(svc,&ip_vs_svc_table[iter->bucket],
-+					    s_list) {
-+				return svc;
- 			}
- 		}
- 
-@@ -1611,8 +1578,9 @@
- 
-  scan_fwmark:
- 	while (++iter->bucket < IP_VS_SVC_TAB_SIZE) {
--		list_for_each(e, &ip_vs_svc_fwm_table[iter->bucket]) 
--			return list_entry(e, struct ip_vs_service, f_list);
-+		list_for_each_entry(svc, &ip_vs_svc_fwm_table[iter->bucket],
-+				    f_list) 
-+			return svc;
- 	}
- 
- 	return NULL;
-@@ -1962,15 +1930,13 @@
- {
- 	int idx, count=0;
- 	struct ip_vs_service *svc;
--	struct list_head *l;
- 	struct ip_vs_service_entry entry;
- 	int ret = 0;
- 
- 	for (idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		list_for_each (l, &ip_vs_svc_table[idx]) {
-+		list_for_each_entry(svc, &ip_vs_svc_table[idx], s_list) {
- 			if (count >= get->num_services)
- 				goto out;
--			svc = list_entry(l, struct ip_vs_service, s_list);
- 			ip_vs_copy_service(&entry, svc);
- 			if (copy_to_user(&uptr->entrytable[count],
- 					 &entry, sizeof(entry))) {
-@@ -1982,10 +1948,9 @@
- 	}
- 
- 	for (idx = 0; idx < IP_VS_SVC_TAB_SIZE; idx++) {
--		list_for_each (l, &ip_vs_svc_fwm_table[idx]) {
-+		list_for_each_entry(svc, &ip_vs_svc_fwm_table[idx], f_list) {
- 			if (count >= get->num_services)
- 				goto out;
--			svc = list_entry(l, struct ip_vs_service, f_list);
- 			ip_vs_copy_service(&entry, svc);
- 			if (copy_to_user(&uptr->entrytable[count],
- 					 &entry, sizeof(entry))) {
-@@ -2014,14 +1979,12 @@
- 	if (svc) {
- 		int count = 0;
- 		struct ip_vs_dest *dest;
--		struct list_head *l, *e;
- 		struct ip_vs_dest_entry entry;
- 
--		l = &svc->destinations;
--		for (e=l->next; e!=l; e=e->next) {
-+		list_for_each_entry(dest, &svc->destinations, n_list) {
- 			if (count >= get->num_dests)
- 				break;
--			dest = list_entry(e, struct ip_vs_dest, n_list);
+-    lmc_trace(dev, "lmc_probe1 in");
 +
- 			entry.addr = dest->addr;
- 			entry.port = dest->port;
- 			entry.conn_flags = atomic_read(&dest->conn_flags);
-diff -Nru a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
---- a/net/ipv4/ipvs/ip_vs_lblc.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_lblc.c	Tue Sep 16 14:08:39 2003
-@@ -246,15 +246,12 @@
- {
- 	unsigned hash;
- 	struct ip_vs_lblc_entry *en;
--	struct list_head *l,*e;
- 
- 	hash = ip_vs_lblc_hashkey(addr);
--	l = &tbl->bucket[hash];
- 
- 	read_lock(&tbl->lock);
- 
--	for (e=l->next; e!=l; e=e->next) {
--		en = list_entry(e, struct ip_vs_lblc_entry, list);
-+	list_for_each_entry(en, &tbl->bucket[hash], list) {
- 		if (en->addr == addr) {
- 			/* HIT */
- 			read_unlock(&tbl->lock);
-@@ -274,14 +271,11 @@
- static void ip_vs_lblc_flush(struct ip_vs_lblc_table *tbl)
- {
- 	int i;
--	struct list_head *l;
--	struct ip_vs_lblc_entry *en;
-+	struct ip_vs_lblc_entry *en, *nxt;
- 
- 	for (i=0; i<IP_VS_LBLC_TAB_SIZE; i++) {
- 		write_lock(&tbl->lock);
--		for (l=&tbl->bucket[i]; l->next!=l; ) {
--			en = list_entry(l->next,
--					struct ip_vs_lblc_entry, list);
-+		list_for_each_entry_safe(en, nxt, &tbl->bucket[i], list) {
- 			ip_vs_lblc_free(en);
- 			atomic_dec(&tbl->entries);
- 		}
-@@ -294,21 +288,17 @@
- {
- 	unsigned long now = jiffies;
- 	int i, j;
--	struct list_head *l, *e;
--	struct ip_vs_lblc_entry *en;
-+	struct ip_vs_lblc_entry *en, *nxt;
- 
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
--		e = l = &tbl->bucket[j];
++    /*
++     * Allocate our own device structure
++     */
++    dev = alloc_netdev(sizeof(lmc_softc_t), lmcname, lmc_setup);
++    if (!dev) {
++        printk (KERN_ERR "lmc:alloc_netdev for device failed\n");
++	goto out1;
++    }
++ 
++    lmc_trace(dev, "lmc_init_one in");
 +
- 		write_lock(&tbl->lock);
--		while (e->next != l) {
--			en = list_entry(e->next,
--					struct ip_vs_lblc_entry, list);
-+		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
- 			if ((now - en->lastuse) <
--			    sysctl_ip_vs_lblc_expiration) {
--				e = e->next;
-+			    sysctl_ip_vs_lblc_expiration) 
- 				continue;
--			}
++    err = pci_enable_device(pdev);
++    if (err) {
++	    printk(KERN_ERR "lmc: pci enable failed:%d\n", err);
++	    goto out2;
++    }
+     
+-    Lmc_Count++;
++    if (pci_request_regions(pdev, "lmc")) {
++	    printk(KERN_ERR "lmc: pci_request_region failed\n");
++	    err = -EIO;
++	    goto out3;
++    }
 +
- 			ip_vs_lblc_free(en);
- 			atomic_dec(&tbl->entries);
- 		}
-@@ -335,8 +325,7 @@
- 	unsigned long now = jiffies;
- 	int goal;
- 	int i, j;
--	struct list_head *l, *e;
--	struct ip_vs_lblc_entry *en;
-+	struct ip_vs_lblc_entry *en, *nxt;
++    pci_set_drvdata(pdev, dev);
  
- 	tbl = (struct ip_vs_lblc_table *)data;
- 
-@@ -358,15 +347,12 @@
- 
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
--		e = l = &tbl->bucket[j];
-+
- 		write_lock(&tbl->lock);
--		while (e->next != l) {
--			en = list_entry(e->next,
--					struct ip_vs_lblc_entry, list);
--			if ((now - en->lastuse) < ENTRY_TIMEOUT) {
--				e = e->next;
-+		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
-+			if ((now - en->lastuse) < ENTRY_TIMEOUT) 
- 				continue;
--			}
-+
- 			ip_vs_lblc_free(en);
- 			atomic_dec(&tbl->entries);
- 			goal--;
-@@ -452,7 +438,6 @@
- static inline struct ip_vs_dest *
- __ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
- {
--	register struct list_head *l, *e;
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
- 
-@@ -473,10 +458,7 @@
- 	 * The server with weight=0 is quiesced and will not receive any
- 	 * new connection.
- 	 */
+     if(lmc_first_load == 0){
+-        printk(KERN_INFO "Lan Media Corporation WAN Driver Version %d.%d.%d\n",DRIVER_MAJOR_VERSION, DRIVER_MINOR_VERSION,DRIVER_SUB_VERSION);
++        printk(KERN_INFO "Lan Media Corporation WAN Driver Version %d.%d.%d\n",
++	       DRIVER_MAJOR_VERSION, DRIVER_MINOR_VERSION,DRIVER_SUB_VERSION);
+         lmc_first_load = 1;
+     }
+     
+-    /*
+-     * Allocate space for the private data structure
+-     */
 -
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		least = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(least, &svc->destinations, n_list) {
- 		if (least->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 		if (atomic_read(&least->weight) > 0) {
-@@ -491,9 +473,7 @@
- 	 *    Find the destination with the least load.
- 	 */
-   nextstage:
--	for (e=e->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
--
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
+-    sc = kmalloc (sizeof (lmc_softc_t), GFP_KERNEL);
+-    if (sc == NULL) {
+-        printk (KERN_WARNING "%s: Cannot allocate memory for device state\n",
+-                dev->name);
+-        return (NULL);
+-    }
+-    memset (sc, 0, sizeof (lmc_softc_t));
+-    dev->priv = sc;
++    sc = dev->priv;
+     sc->lmc_device = dev;
+     sc->name = dev->name;
  
-@@ -525,12 +505,9 @@
- is_overloaded(struct ip_vs_dest *dest, struct ip_vs_service *svc)
- {
- 	if (atomic_read(&dest->activeconns) > atomic_read(&dest->weight)) {
--		register struct list_head *l, *e;
- 		struct ip_vs_dest *d;
- 
--		l = &svc->destinations;
--		for (e=l->next; e!=l; e=e->next) {
--			d = list_entry(e, struct ip_vs_dest, n_list);
-+		list_for_each_entry(d, &svc->destinations, n_list) {
- 			if (atomic_read(&d->activeconns)*2
- 			    < atomic_read(&d->weight)) {
- 				return 1;
-diff -Nru a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
---- a/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:08:39 2003
-@@ -171,7 +171,7 @@
- /* get weighted least-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- {
--	struct ip_vs_dest_list *e;
-+	register struct ip_vs_dest_list *e;
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
- 
-@@ -226,7 +226,7 @@
- /* get weighted most-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- {
--	struct ip_vs_dest_list *e;
-+	register struct ip_vs_dest_list *e;
- 	struct ip_vs_dest *dest, *most;
- 	int moh, doh;
- 
-@@ -432,15 +432,12 @@
- {
- 	unsigned hash;
- 	struct ip_vs_lblcr_entry *en;
--	struct list_head *l,*e;
- 
- 	hash = ip_vs_lblcr_hashkey(addr);
--	l = &tbl->bucket[hash];
- 
- 	read_lock(&tbl->lock);
- 
--	for (e=l->next; e!=l; e=e->next) {
--		en = list_entry(e, struct ip_vs_lblcr_entry, list);
-+	list_for_each_entry(en, &tbl->bucket[hash], list) {
- 		if (en->addr == addr) {
- 			/* HIT */
- 			read_unlock(&tbl->lock);
-@@ -460,14 +457,11 @@
- static void ip_vs_lblcr_flush(struct ip_vs_lblcr_table *tbl)
- {
- 	int i;
--	struct list_head *l;
--	struct ip_vs_lblcr_entry *en;
-+	struct ip_vs_lblcr_entry *en, *nxt;
- 
- 	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
- 		write_lock(&tbl->lock);
--		for (l=&tbl->bucket[i]; l->next!=l; ) {
--			en = list_entry(l->next,
--					struct ip_vs_lblcr_entry, list);
-+		list_for_each_entry_safe(en, nxt, &tbl->bucket[i], list) {
- 			ip_vs_lblcr_free(en);
- 			atomic_dec(&tbl->entries);
- 		}
-@@ -480,19 +474,15 @@
- {
- 	unsigned long now = jiffies;
- 	int i, j;
--	struct list_head *l, *e;
--	struct ip_vs_lblcr_entry *en;
-+	struct ip_vs_lblcr_entry *en, *nxt;
- 
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
--		e = l = &tbl->bucket[j];
+@@ -883,8 +880,12 @@
+     /* An ioctl can cause a subsequent detach for raw frame interface */
+     sc->if_type = LMC_PPP;
+     sc->check = 0xBEAFCAFE;
+-    dev->base_addr = ioaddr;
+-    dev->irq = irq;
++    dev->base_addr = pci_resource_start(pdev, 0);
++    dev->irq = pdev->irq;
 +
- 		write_lock(&tbl->lock);
--		while (e->next != l) {
--			en = list_entry(e->next,
--					struct ip_vs_lblcr_entry, list);
-+		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
- 			if ((now - en->lastuse) <
- 			    sysctl_ip_vs_lblcr_expiration) {
--				e = e->next;
- 				continue;
- 			}
- 			ip_vs_lblcr_free(en);
-@@ -521,8 +511,7 @@
- 	unsigned long now = jiffies;
- 	int goal;
- 	int i, j;
--	struct list_head *l, *e;
--	struct ip_vs_lblcr_entry *en;
-+	struct ip_vs_lblcr_entry *en, *nxt;
- 
- 	tbl = (struct ip_vs_lblcr_table *)data;
- 
-@@ -544,15 +533,12 @@
- 
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
--		e = l = &tbl->bucket[j];
++    SET_MODULE_OWNER(dev);
++    SET_NETDEV_DEV(dev, &pdev->dev);
 +
- 		write_lock(&tbl->lock);
--		while (e->next != l) {
--			en = list_entry(e->next,
--					struct ip_vs_lblcr_entry, list);
--			if ((now - en->lastuse) < ENTRY_TIMEOUT) {
--				e = e->next;
-+		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
-+			if ((now - en->lastuse) < ENTRY_TIMEOUT) 
- 				continue;
--			}
+     /*
+      * This will get the protocol layer ready and do any 1 time init's
+      * Must have a valid sc and dev structure
+@@ -893,19 +894,6 @@
+ 
+     lmc_proto_attach(sc);
+ 
+-    /* Just fill in the entries for the device */
+-
+-    dev->init = lmc_init;
+-    dev->type = ARPHRD_HDLC;
+-    dev->hard_start_xmit = lmc_start_xmit;
+-    dev->open = lmc_open;
+-    dev->stop = lmc_close;
+-    dev->get_stats = lmc_get_stats;
+-    dev->do_ioctl = lmc_ioctl;
+-    dev->set_config = lmc_set_config;
+-    dev->tx_timeout = lmc_driver_timeout;
+-    dev->watchdog_timeo = (HZ); /* 1 second */
+-    
+     /*
+      * Why were we changing this???
+      dev->tx_queue_len = 100;
+@@ -914,27 +902,28 @@
+     /* Init the spin lock so can call it latter */
+ 
+     spin_lock_init(&sc->lmc_lock);
++    pci_set_master(pdev);
+ 
+-    printk ("%s: detected at %lx, irq %d\n", dev->name, ioaddr, dev->irq);
++    printk ("%s: detected at %lx, irq %d\n", dev->name,
++	    dev->base_addr, dev->irq);
+ 
+     if (register_netdev (dev) != 0) {
+         printk (KERN_ERR "%s: register_netdev failed.\n", dev->name);
+-        lmc_proto_detach(sc);
+-        kfree (dev->priv);
+-        kfree (dev);
+-        return NULL;
++	goto out4;
+     }
+ 
+-    /*
+-     * Request the region of registers we need, so that
+-     * later on, no one else will take our card away from
+-     * us.
+-     */
+-    request_region (ioaddr, LMC_REG_RANGE, dev->name);
+-
+     sc->lmc_cardtype = LMC_CARDTYPE_UNKNOWN;
+     sc->lmc_timing = LMC_CTL_CLOCK_SOURCE_EXT;
+ 
++    /*
++     *
++     * Check either the subvendor or the subdevice, some systems reverse
++     * the setting in the bois, seems to be version and arch dependent?
++     * Fix the error, exchange the two values 
++     */
++    if ((subdevice = pdev->subsystem_device) == PCI_VENDOR_LMC)
++	    subdevice = pdev->subsystem_vendor;
 +
- 			ip_vs_lblcr_free(en);
- 			atomic_dec(&tbl->entries);
- 			goal--;
-@@ -583,7 +569,6 @@
- 	struct ip_vs_lblcr_table *tbl;
- 	unsigned long now = jiffies;
- 	int i;
--	struct list_head *l, *e;
- 	struct ip_vs_lblcr_entry *en;
+     switch (subdevice) {
+     case PCI_PRODUCT_LMC_HSSI:
+         printk ("%s: LMC HSSI\n", dev->name);
+@@ -996,10 +985,7 @@
+      */
+     LMC_CSR_WRITE (sc, csr_gp_timer, 0xFFFFFFFFUL);
  
- 	tbl = lblcr_table_list;
-@@ -593,13 +578,11 @@
- 	len += size;
- 
- 	for (i=0; i<IP_VS_LBLCR_TAB_SIZE; i++) {
--		l = &tbl->bucket[i];
- 		read_lock_bh(&tbl->lock);
--		for (e=l->next; e!=l; e=e->next) {
-+		list_for_each_entry(en, &tbl->bucket[i], list) {
- 			char tbuf[16];
- 			struct ip_vs_dest_list *d;
- 
--			en = list_entry(e, struct ip_vs_lblcr_entry, list);
- 			sprintf(tbuf, "%u.%u.%u.%u", NIPQUAD(en->addr));
- 			size = sprintf(buffer+len, "%8lu %-16s ",
- 				       now-en->lastuse, tbuf);
-@@ -708,7 +691,6 @@
- static inline struct ip_vs_dest *
- __ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
- {
--	register struct list_head *l, *e;
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
- 
-@@ -729,10 +711,7 @@
- 	 * The server with weight=0 is quiesced and will not receive any
- 	 * new connection.
- 	 */
+-    sc->board_idx = board_idx;
 -
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		least = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(least, &svc->destinations, n_list) {
- 		if (least->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
+-    memset (&sc->stats, 0, sizeof (struct lmc_statistics));
+-
++    sc->board_idx = cards_found++;
+     sc->stats.check = STATCHECK;
+     sc->stats.version_size = (DRIVER_VERSION << 16) +
+         sizeof (struct lmc_statistics);
+@@ -1008,105 +994,40 @@
+     sc->lmc_ok = 0;
+     sc->last_link_status = 0;
  
-@@ -748,8 +727,7 @@
- 	 *    Find the destination with the least load.
- 	 */
-   nextstage:
--	for (e=e->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
+-    lmc_trace(dev, "lmc_probe1 out");
+-
+-    return dev;
+-}
+-
+-
+-/* This is the entry point.  This is what is called immediately. */
+-/* This goes out and finds the card */
++    lmc_trace(dev, "lmc_init_one out");
++    return 0;
  
-@@ -781,12 +759,9 @@
- is_overloaded(struct ip_vs_dest *dest, struct ip_vs_service *svc)
+-int lmc_probe_fake(struct net_device *dev) /*fold00*/
+-{
+-    lmc_probe(NULL);
+-    /* Return 1 to unloaded bogus device */
+-    return 1;
++ out4:
++    lmc_proto_detach(sc);
++ out3:
++    if (pdev) {
++	    pci_release_regions(pdev);
++	    pci_set_drvdata(pdev, NULL);
++    }
++ out2:
++    free_netdev(dev);
++ out1:
++    return err;
+ }
+ 
+-int lmc_probe (struct net_device *dev) /*fold00*/
++/*
++ * Called from pci when removing module.
++ */
++static void __devexit lmc_remove_one (struct pci_dev *pdev)
  {
- 	if (atomic_read(&dest->activeconns) > atomic_read(&dest->weight)) {
--		register struct list_head *l, *e;
- 		struct ip_vs_dest *d;
+-    int pci_index = 0;
+-    unsigned long pci_ioaddr;
+-    unsigned int pci_irq_line;
+-    u16 vendor, subvendor, device, subdevice;
+-    u32 foundaddr = 0;
+-    u8 intcf = 0;
+-    struct pci_dev *pdev = NULL;
+-
+-    /* Loop basically until we don't find anymore. */
+-    while ((pdev = pci_find_class (PCI_CLASS_NETWORK_ETHERNET << 8, pdev))) {
+-	if (pci_enable_device(pdev))
+-		break;
+-
+-        vendor = pdev->vendor;
+-        device = pdev->device;
+-        pci_irq_line = pdev->irq;
+-        pci_ioaddr = pci_resource_start (pdev, 0);
+-	subvendor = pdev->subsystem_vendor;
+-	subdevice = pdev->subsystem_device;
+-
+-	pci_set_master (pdev);
+-
+-        /*
+-         * Make sure it's the correct card.  CHECK SUBVENDOR ID!
+-         * There are lots of tulip's out there.
+-         * Also check the region of registers we will soon be
+-         * poking, to make sure no one else has reserved them.
+-         * This prevents taking someone else's device.
+-         *
+-         * Check either the subvendor or the subdevice, some systems reverse
+-         * the setting in the bois, seems to be version and arch dependent?
+-         * Fix the two variables
+-         *
+-         */
+-        if (!(check_region (pci_ioaddr, LMC_REG_RANGE)) &&
+-            (vendor == CORRECT_VENDOR_ID) &&
+-            (device == CORRECT_DEV_ID) &&
+-            ((subvendor == PCI_VENDOR_LMC)  || (subdevice == PCI_VENDOR_LMC))){
+-            struct net_device *cur, *prev = NULL;
+-
+-            /* Fix the error, exchange the two values */
+-            if(subdevice == PCI_VENDOR_LMC){
+-                subdevice = subvendor;
+-                subvendor = PCI_VENDOR_LMC ;
+-            }
+-
+-            /* Make the call to actually setup this card */
+-            dev = lmc_probe1 (dev, pci_ioaddr, pci_irq_line,
+-                              device, subdevice, cards_found);
+-            if (dev == NULL) {
+-                printk ("lmc_probe: lmc_probe1 failed\n");
+-                goto lmc_probe_next_card;
+-            }
+-            /* insert the device into the chain of lmc devices */
+-            for (cur = Lmc_root_dev;
+-                 cur != NULL;
+-                 cur = ((lmc_softc_t *) cur->priv)->next_module) {
+-                prev = cur;
+-            }
+-
+-            if (prev == NULL)
+-                Lmc_root_dev = dev;
+-            else
+-                ((lmc_softc_t *) prev->priv)->next_module = dev;
+-
+-            ((lmc_softc_t *) dev->priv)->next_module = NULL;
+-            /* end insert */
+-
+-            foundaddr = dev->base_addr;
+-
+-            cards_found++;
+-            intcf++;
+-        }
+-    lmc_probe_next_card:
+-        pci_index++;
++    struct net_device *dev = pci_get_drvdata(pdev);
++    
++    if (dev) {
++	    lmc_softc_t *sc = dev->priv;
++	    
++	    printk("%s: removing...\n", dev->name);
++	    lmc_proto_detach(sc);
++	    unregister_netdev(dev);
++	    free_netdev(dev);
++	    pci_release_regions(pdev);
++	    pci_disable_device(pdev);
++	    pci_set_drvdata(pdev, NULL);
+     }
+-
+-    if (cards_found < 1)
+-        return -1;
+-
+-    return foundaddr;
+ }
  
--		l = &svc->destinations;
--		for (e=l->next; e!=l; e=e->next) {
--			d = list_entry(e, struct ip_vs_dest, n_list);
-+		list_for_each_entry(d, &svc->destinations, n_list) {
- 			if (atomic_read(&d->activeconns)*2
- 			    < atomic_read(&d->weight)) {
- 				return 1;
-diff -Nru a/net/ipv4/ipvs/ip_vs_lc.c b/net/ipv4/ipvs/ip_vs_lc.c
---- a/net/ipv4/ipvs/ip_vs_lc.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_lc.c	Tue Sep 16 14:08:39 2003
-@@ -65,7 +65,6 @@
- static struct ip_vs_dest *
- ip_vs_lc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+ /* After this is called, packets can be sent.
+@@ -1181,8 +1102,6 @@
+     
+     sc->stats.tx_tbusy0++ ;
+ 
+-    MOD_INC_USE_COUNT;
+-
+     /*
+      * select what interrupts we want to get
+      */
+@@ -1352,7 +1271,6 @@
+ 
+     lmc_trace(dev, "lmc_ifdown out");
+ 
+-    MOD_DEC_USE_COUNT;
+     return 0;
+ }
+ 
+@@ -1850,12 +1768,11 @@
+ 
+ static struct net_device_stats *lmc_get_stats (struct net_device *dev) /*fold00*/
  {
--	struct list_head *l, *e;
- 	struct ip_vs_dest *dest, *least;
- 	unsigned int loh, doh;
+-    lmc_softc_t *sc;
++    lmc_softc_t *sc = dev->priv;
+     unsigned long flags;
  
-@@ -80,9 +79,7 @@
- 	 * served, but no new connection is assigned to the server.
- 	 */
+     lmc_trace(dev, "lmc_get_stats in");
  
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		least = list_entry (e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(least, &svc->destinations, n_list) {
- 		if (least->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 		if (atomic_read(&least->weight) > 0) {
-@@ -96,8 +93,7 @@
- 	 *    Find the destination with the least load.
- 	 */
-   nextstage:
--	for (e=e->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		if ((dest->flags & IP_VS_DEST_F_OVERLOAD) ||
- 		    atomic_read(&dest->weight) == 0)
- 			continue;
-diff -Nru a/net/ipv4/ipvs/ip_vs_nq.c b/net/ipv4/ipvs/ip_vs_nq.c
---- a/net/ipv4/ipvs/ip_vs_nq.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_nq.c	Tue Sep 16 14:08:39 2003
-@@ -81,7 +81,6 @@
- static struct ip_vs_dest *
- ip_vs_nq_schedule(struct ip_vs_service *svc, struct iphdr *iph)
- {
--	register struct list_head *l, *e;
- 	struct ip_vs_dest *dest, *least;
- 	unsigned int loh, doh;
+-    sc = dev->priv;
  
-@@ -100,9 +99,7 @@
- 	 * new connections.
- 	 */
+     spin_lock_irqsave(&sc->lmc_lock, flags);
  
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		least = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(least, &svc->destinations, n_list) {
- 		if (!(least->flags & IP_VS_DEST_F_OVERLOAD) &&
- 		    atomic_read(&least->weight) > 0) {
- 			loh = ip_vs_nq_dest_overhead(least);
-@@ -120,8 +117,7 @@
- 	 *    Find the destination with the least load.
- 	 */
-   nextstage:
--	for (e=e->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
+@@ -1868,58 +1785,21 @@
+     return (struct net_device_stats *) &sc->stats;
+ }
  
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
-diff -Nru a/net/ipv4/ipvs/ip_vs_proto_tcp.c b/net/ipv4/ipvs/ip_vs_proto_tcp.c
---- a/net/ipv4/ipvs/ip_vs_proto_tcp.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_proto_tcp.c	Tue Sep 16 14:08:39 2003
-@@ -479,22 +479,19 @@
- static int tcp_register_app(struct ip_vs_app *inc)
- {
- 	struct ip_vs_app *i;
--	struct list_head *t, *p;
- 	__u16 hash, port = inc->port;
- 	int ret = 0;
- 
- 	hash = tcp_app_hashkey(port);
--	t = &tcp_apps[hash];
- 
- 	spin_lock_bh(&tcp_app_lock);
--	for (p = t->next; p != t; p = p->next) {
--		i = list_entry(p, struct ip_vs_app, p_list);
-+	list_for_each_entry(i, &tcp_apps[hash], p_list) {
- 		if (i->port == port) {
- 			ret = -EEXIST;
- 			goto out;
- 		}
- 	}
--	list_add(&inc->p_list, t);
-+	list_add(&inc->p_list, &tcp_apps[hash]);
- 	atomic_inc(&ip_vs_protocol_tcp.appcnt);
- 
-   out:
-@@ -516,7 +513,6 @@
- static int
- tcp_app_conn_bind(struct ip_vs_conn *cp)
- {
--	struct list_head *t, *p;
- 	int hash;
- 	struct ip_vs_app *inc;
- 	int result = 0;
-@@ -527,11 +523,9 @@
- 
- 	/* Lookup application incarnations and bind the right one */
- 	hash = tcp_app_hashkey(cp->vport);
--	t = &tcp_apps[hash];
- 
- 	spin_lock(&tcp_app_lock);
--	for (p = t->next; p != t; p = p->next) {
--		inc = list_entry(p, struct ip_vs_app, p_list);
-+	list_for_each_entry(inc, &tcp_apps[hash], p_list) {
- 		if (inc->port == cp->vport) {
- 			if (unlikely(!ip_vs_app_inc_get(inc)))
- 				break;
-diff -Nru a/net/ipv4/ipvs/ip_vs_proto_udp.c b/net/ipv4/ipvs/ip_vs_proto_udp.c
---- a/net/ipv4/ipvs/ip_vs_proto_udp.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_proto_udp.c	Tue Sep 16 14:08:39 2003
-@@ -245,22 +245,20 @@
- static int udp_register_app(struct ip_vs_app *inc)
- {
- 	struct ip_vs_app *i;
--	struct list_head *t, *p;
- 	__u16 hash, port = inc->port;
- 	int ret = 0;
- 
- 	hash = udp_app_hashkey(port);
--	t = &udp_apps[hash];
++static struct pci_driver lmc_driver = {
++	.name		= "lmc",
++	.id_table	= lmc_pci_tbl,
++	.probe		= lmc_init_one,
++	.remove		= __devexit_p(lmc_remove_one),
++};
 +
- 
- 	spin_lock_bh(&udp_app_lock);
--	for (p = t->next; p != t; p = p->next) {
--		i = list_entry(p, struct ip_vs_app, p_list);
-+	list_for_each_entry(i, &udp_apps[hash], p_list) {
- 		if (i->port == port) {
- 			ret = -EEXIST;
- 			goto out;
- 		}
- 	}
--	list_add(&inc->p_list, t);
-+	list_add(&inc->p_list, &udp_apps[hash]);
- 	atomic_inc(&ip_vs_protocol_udp.appcnt);
- 
-   out:
-@@ -281,7 +279,6 @@
- 
- static int udp_app_conn_bind(struct ip_vs_conn *cp)
+ static int __init init_lmc(void)
  {
--	struct list_head *t, *p;
- 	int hash;
- 	struct ip_vs_app *inc;
- 	int result = 0;
-@@ -292,11 +289,9 @@
- 
- 	/* Lookup application incarnations and bind the right one */
- 	hash = udp_app_hashkey(cp->vport);
--	t = &udp_apps[hash];
- 
- 	spin_lock(&udp_app_lock);
--	for (p = t->next; p != t; p = p->next) {
--		inc = list_entry(p, struct ip_vs_app, p_list);
-+	list_for_each_entry(inc, &udp_apps[hash], p_list) {
- 		if (inc->port == cp->vport) {
- 			if (unlikely(!ip_vs_app_inc_get(inc)))
- 				break;
-diff -Nru a/net/ipv4/ipvs/ip_vs_rr.c b/net/ipv4/ipvs/ip_vs_rr.c
---- a/net/ipv4/ipvs/ip_vs_rr.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_rr.c	Tue Sep 16 14:08:39 2003
-@@ -57,7 +57,7 @@
- static struct ip_vs_dest *
- ip_vs_rr_schedule(struct ip_vs_service *svc, struct iphdr *iph)
- {
--	register struct list_head *p, *q;
-+	struct list_head *p, *q;
- 	struct ip_vs_dest *dest;
- 
- 	IP_VS_DBG(6, "ip_vs_rr_schedule(): Scheduling...\n");
-@@ -73,12 +73,12 @@
- 			continue;
- 		}
- 		
-+	
- 		dest = list_entry(q, struct ip_vs_dest, n_list);
- 		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
- 		    atomic_read(&dest->weight) > 0)
- 			/* HIT */
- 			goto out;
--		q = q->next;
- 	} while (q != p);
- 	write_unlock(&svc->sched_lock);
- 	return NULL;
-diff -Nru a/net/ipv4/ipvs/ip_vs_sched.c b/net/ipv4/ipvs/ip_vs_sched.c
---- a/net/ipv4/ipvs/ip_vs_sched.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_sched.c	Tue Sep 16 14:08:39 2003
-@@ -106,18 +106,13 @@
- static struct ip_vs_scheduler *ip_vs_sched_getbyname(const char *sched_name)
- {
- 	struct ip_vs_scheduler *sched;
--	struct list_head *l, *e;
- 
- 	IP_VS_DBG(2, "ip_vs_sched_getbyname(): sched_name \"%s\"\n",
- 		  sched_name);
- 
--	l = &ip_vs_schedulers;
+-    printk ("lmc: module loaded\n");
 -
- 	read_lock_bh(&__ip_vs_sched_lock);
- 
--	for (e=l->next; e!=l; e=e->next) {
--		sched = list_entry(e, struct ip_vs_scheduler, n_list);
+-    /* Have lmc_probe search for all the cards, and allocate devices */
+-    if (lmc_probe (NULL) < 0)
+-        return -EIO;
 -
-+	list_for_each_entry(sched, &ip_vs_schedulers, n_list) {
- 		/*
- 		 * Test and get the modules atomically
- 		 */
-diff -Nru a/net/ipv4/ipvs/ip_vs_sed.c b/net/ipv4/ipvs/ip_vs_sed.c
---- a/net/ipv4/ipvs/ip_vs_sed.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_sed.c	Tue Sep 16 14:08:39 2003
-@@ -85,7 +85,6 @@
- static struct ip_vs_dest *
- ip_vs_sed_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+-    return 0;
++    return pci_module_init(&lmc_driver);
+ }
+ 
+ static void __exit exit_lmc(void)
  {
--	register struct list_head *l, *e;
- 	struct ip_vs_dest *dest, *least;
- 	unsigned int loh, doh;
- 
-@@ -104,9 +103,7 @@
- 	 * new connections.
- 	 */
- 
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		least = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(least, &svc->destinations, n_list) {
- 		if (!(least->flags & IP_VS_DEST_F_OVERLOAD) &&
- 		    atomic_read(&least->weight) > 0) {
- 			loh = ip_vs_sed_dest_overhead(least);
-@@ -119,9 +116,7 @@
- 	 *    Find the destination with the least load.
- 	 */
-   nextstage:
--	for (e=e->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
+-    struct net_device *dev, *next;
+-    lmc_softc_t *sc;
 -
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 		doh = ip_vs_sed_dest_overhead(dest);
-diff -Nru a/net/ipv4/ipvs/ip_vs_wlc.c b/net/ipv4/ipvs/ip_vs_wlc.c
---- a/net/ipv4/ipvs/ip_vs_wlc.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_wlc.c	Tue Sep 16 14:08:39 2003
-@@ -73,7 +73,6 @@
- static struct ip_vs_dest *
- ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
- {
--	register struct list_head *l, *e;
- 	struct ip_vs_dest *dest, *least;
- 	unsigned int loh, doh;
- 
-@@ -92,9 +91,7 @@
- 	 * new connections.
- 	 */
- 
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		least = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(least, &svc->destinations, n_list) {
- 		if (!(least->flags & IP_VS_DEST_F_OVERLOAD) &&
- 		    atomic_read(&least->weight) > 0) {
- 			loh = ip_vs_wlc_dest_overhead(least);
-@@ -107,9 +104,7 @@
- 	 *    Find the destination with the least load.
- 	 */
-   nextstage:
--	for (e=e->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
+-    /* we have no pointer to our devices, since they are all dynamically
+-     * allocated.  So, here we loop through all the network devices
+-     * looking for ours.  When found, dispose of them properly.
+-     */
 -
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 		doh = ip_vs_wlc_dest_overhead(dest);
-diff -Nru a/net/ipv4/ipvs/ip_vs_wrr.c b/net/ipv4/ipvs/ip_vs_wrr.c
---- a/net/ipv4/ipvs/ip_vs_wrr.c	Tue Sep 16 14:08:39 2003
-+++ b/net/ipv4/ipvs/ip_vs_wrr.c	Tue Sep 16 14:08:39 2003
-@@ -56,25 +56,22 @@
+-    for (dev = Lmc_root_dev;
+-         dev != NULL;
+-         dev = next )
+-    {
+-
+-        next = ((lmc_softc_t *) dev->priv)->next_module; /* get it now before we deallocate it */
+-        printk ("%s: removing...\n", dev->name);
+-
+-        /* close the syncppp stuff, and release irq. Close is run on unreg net */
+-        lmc_close (dev);
+-	sc = dev->priv;
+-        if (sc != NULL)
+-            lmc_proto_detach(sc);
+-
+-        /* Remove the device from the linked list */
+-        unregister_netdev (dev);
+-
+-        /* Let go of the io region */;
+-        release_region (dev->base_addr, LMC_REG_RANGE);
+-
+-        /* free our allocated structures. */
+-        kfree (dev->priv);
+-        dev->priv = NULL;
+-
+-        free_netdev (dev);
+-        dev = NULL;
+-    }
+-
+-
+-    Lmc_root_dev = NULL;
+-    printk ("lmc module unloaded\n");
++    pci_unregister_driver(&lmc_driver);
+ }
  
- static int ip_vs_wrr_gcd_weight(struct ip_vs_service *svc)
- {
--	register struct list_head *l, *e;
- 	struct ip_vs_dest *dest;
- 	int weight;
- 	int g = 1;
+ module_init(init_lmc);
+@@ -2326,8 +2206,3 @@
  
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		weight = atomic_read(&dest->weight);
- 		if (weight > 0) {
- 			g = weight;
--			break;
-+			goto search_gcd;
- 		}
- 	}
--	if (e == l)
--		return g;
  
--	for (e=e->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	return g;
+ }
+-
+-int lmc_setup(void) { /*FOLD00*/
+-   return lmc_probe(NULL);
+-}
+-
+diff -Nru a/drivers/net/wan/lmc/lmc_var.h b/drivers/net/wan/lmc/lmc_var.h
+--- a/drivers/net/wan/lmc/lmc_var.h	Tue Sep 16 14:33:16 2003
++++ b/drivers/net/wan/lmc/lmc_var.h	Tue Sep 16 14:33:16 2003
+@@ -390,7 +390,7 @@
+ 	struct timer_list	timer;
+ 	lmc_ctl_t		ictl;
+ 	u_int32_t		TxDescriptControlInit;  
+-	struct net_device		*next_module;   /* Link to the next module  */
 +
-+ search_gcd:
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		weight = atomic_read(&dest->weight);
- 		if (weight > 0)
- 			g = gcd(weight, g);
-@@ -89,13 +86,10 @@
-  */
- static int ip_vs_wrr_max_weight(struct ip_vs_service *svc)
- {
--	register struct list_head *l, *e;
- 	struct ip_vs_dest *dest;
- 	int weight = 0;
- 
--	l = &svc->destinations;
--	for (e=l->next; e!=l; e=e->next) {
--		dest = list_entry(e, struct ip_vs_dest, n_list);
-+	list_for_each_entry(dest, &svc->destinations, n_list) {
- 		if (atomic_read(&dest->weight) > weight)
- 			weight = atomic_read(&dest->weight);
- 	}
+ 	int                     tx_TimeoutInd; /* additional driver state */
+ 	int                     tx_TimeoutDisplay;
+ 	unsigned int		lastlmc_taint_tx;
