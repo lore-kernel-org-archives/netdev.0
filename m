@@ -1,79 +1,33 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
-Date: Mon, 28 Feb 2005 11:04:36 +0300
-Message-ID: <1109577876.28266.9.camel@uganda>
-References: <42168D9E.1010900@sgi.com>
-	 <20050218171610.757ba9c9.akpm@osdl.org> <421993A2.4020308@ak.jp.nec.com>
-	 <421B955A.9060000@sgi.com> <421C2B99.2040600@ak.jp.nec.com>
-	 <421CEC38.7010008@sgi.com> <421EB299.4010906@ak.jp.nec.com>
-	 <20050224212839.7953167c.akpm@osdl.org> <20050227094949.GA22439@logos.cnet>
-	 <4221E548.4000008@ak.jp.nec.com> <20050227140355.GA23055@logos.cnet>
-	 <42227AEA.6050002@ak.jp.nec.com>
-	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
-	 <20050227233943.6cb89226.akpm@osdl.org>
-Reply-To: johnpol@2ka.mipt.ru
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: pppoe and receive checksum offload
+Date: Mon, 28 Feb 2005 12:21:30 +0300
+Message-ID: <20050228092130.GA26076@yakov.inr.ac.ru>
+References: <20050224155906.73890361@dxpl.pdx.osdl.net> <20050227202011.5ccefb22.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-FTo98wD54o5/gw974zAM"
-Cc: Guillaume Thouvenin <guillaume.thouvenin@bull.net>, kaigai@ak.jp.nec.com,
-        marcelo.tosatti@cyclades.com, davem@redhat.com, jlan@sgi.com,
-        lse-tech@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, elsa-devel@lists.sourceforge.net
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050227233943.6cb89226.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, mostrows@speakeasy.net,
+        kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050227202011.5ccefb22.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
---=-FTo98wD54o5/gw974zAM
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> Changing or expanding the link level headers should only mess
+> up the hw checksum if you are using CHECKSUM_HW, is that what
+> your skge driver is using?
 
-On Sun, 2005-02-27 at 23:39 -0800, Andrew Morton wrote:
-> Guillaume Thouvenin <guillaume.thouvenin@bull.net> wrote:
-> >
-> >    Ok the protocol is maybe too "basic" but with this mechanism the use=
-r
-> >  space application that uses the fork connector can start and stop the
-> >  send of messages. This implementation needs somme improvements because
-> >  currently, if two application are using the fork connector one can
-> >  enable it and the other don't know if it is enable or not, but the ide=
-a
-> >  is here I think.
->=20
-> Yes.  But this problem can be solved in userspace, with a little library
-> function and a bit of locking.
->=20
-> IOW: use the library to enable/disable the fork connector rather than
-> directly doing syscalls.
->=20
-> It has the problem that if a client of that library crashes, the counter
-> gets out of whack, but really, it's not all _that_ important, and to hand=
-le
-> this properly in-kernel each client would need an open fd against some
-> object so we can do the close-on-exit thing properly.  You'd need to crea=
-te
-> a separate netlink socket for the purpose.
+Well, even if this driver uses CHECKSUM_UNNECESSARY, the bug is still
+apparently present for another devices which use CHECKSUM_HW.
 
-Why dont just extend protocol a bit?
-Add header after cn_msg, which will have get/set field and that is all.
-Properly using seq/ack fields userspace can avoid locks.
+Actually, the bug is in ppp_input(). It is responsible for setting correct
+ip_summed before doing netif_rx(). It could even optimize subtracting
+checksum of stripped ppp header from ip_summed (f.e. ipgre_rcv() do this)
 
---=20
-        Evgeniy Polyakov
+But suggested fix is still correct. Unless there are another users of
+ppp_input() with the same problem.
 
-Crash is better than data corruption -- Arthur Grabowski
-
---=-FTo98wD54o5/gw974zAM
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBCItCUIKTPhE+8wY0RAjszAJ9EWkRLT5e/B2IsghRvFg/dWsYbMwCdGmoi
-Gl6xamHltDiX087q/rr05hw=
-=g7P/
------END PGP SIGNATURE-----
-
---=-FTo98wD54o5/gw974zAM--
+Alexey
