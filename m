@@ -1,45 +1,24 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: Re: [2.6.12-rc1-mm4] swapped memset arguments
-Date: Sun, 3 Apr 2005 00:38:54 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0504030035190.2525@dragon.hyggekrogen.localhost>
-References: <74334709.20050402233007@dns.toxicfilms.tv>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: ICS1883 LAN PHY not detected
+Date: Sat, 02 Apr 2005 20:25:04 -0500
+Message-ID: <424F45F0.1000504@pobox.com>
+References: <424EF19B.7030105@cogweb.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "James P. Ketrenos" <ipw2100-admin@linux.intel.com>,
-	netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: venza@brownhat.org, netdev@oss.sgi.com,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261292AbVDBWgj@vger.kernel.org>
-To: Maciej Soltysiak <solt2@dns.toxicfilms.tv>
-In-Reply-To: <74334709.20050402233007@dns.toxicfilms.tv>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261413AbVDCBZb@vger.kernel.org>
+To: David Liontooth <liontooth@cogweb.net>
+In-Reply-To: <424EF19B.7030105@cogweb.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2 Apr 2005, Maciej Soltysiak wrote:
-
-> Hi,
-> 
-> out of boredom I grepped 2.6.12-rc1-mm4 for swapped memset arguments.
-> I found one:
-> 
-> # grep -nr "memset.*\,\(\ \|\)0\(\ \|\));" *
-> net/ieee80211/ieee80211_tx.c:226:       memset(txb, sizeof(struct ieee80211_txb), 0);  
-> 
-And here's a patch : 
+David Liontooth wrote:
+> 0000:02:0b.0 Ethernet controller: Marvell Technology Group Ltd. Yukon 
+> Gigabit Ethernet 10/100/1000Base-T Adapter (rev 13)
 
 
-Fix swapped memset() arguments in  net/ieee80211/ieee80211_tx.c  
-found by Maciej Soltysiak.
+You want the sk98lin or skge drivers.
 
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
-
---- linux-2.6.12-rc1-mm4-orig/net/ieee80211/ieee80211_tx.c	2005-03-31 21:20:08.000000000 +0200
-+++ linux-2.6.12-rc1-mm4/net/ieee80211/ieee80211_tx.c	2005-04-03 00:34:22.000000000 +0200
-@@ -223,7 +223,7 @@ struct ieee80211_txb *ieee80211_alloc_tx
- 	if (!txb)
- 		return NULL;
- 
--	memset(txb, sizeof(struct ieee80211_txb), 0);
-+	memset(txb, 0, sizeof(struct ieee80211_txb));
- 	txb->nr_frags = nr_frags;
- 	txb->frag_size = txb_size;
- 
+	Jeff
