@@ -1,97 +1,64 @@
 From: Lorenzo =?ISO-8859-1?Q?Hern=E1ndez_?= =?ISO-8859-1?Q?Garc=EDa-Hierro?= <lorenzo@gnu.org>
 Subject: Re: [PATCH] OpenBSD Networking-related randomization port
-Date: Fri, 28 Jan 2005 19:31:50 +0100
-Message-ID: <1106937110.3864.5.camel@localhost.localdomain>
+Date: Fri, 28 Jan 2005 19:36:13 +0100
+Message-ID: <1106937373.3864.10.camel@localhost.localdomain>
 References: <1106932637.3778.92.camel@localhost.localdomain>
-	 <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net>
+	 <1106935677.7776.29.camel@laptopd505.fenrus.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Y21AUM5I1YFNeKUSUniW"
-Cc: netdev@oss.sgi.co,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-DiYfYfHaSOb0nEIQMp5W"
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        torvalds@osdl.org, netdev@oss.sgi.com, Chris Wright <chrisw@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net>
+To: Arjan van de Ven <arjan@infradead.org>
+In-Reply-To: <1106935677.7776.29.camel@laptopd505.fenrus.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-Y21AUM5I1YFNeKUSUniW
+--=-DiYfYfHaSOb0nEIQMp5W
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: quoted-printable
 
-El vie, 28-01-2005 a las 10:02 -0800, Stephen Hemminger escribi=F3:
+El vie, 28-01-2005 a las 19:07 +0100, Arjan van de Ven escribi=F3:
+> On Fri, 2005-01-28 at 18:17 +0100, Lorenzo Hern=E1ndez Garc=EDa-Hierro
+> wrote:
+> > Hi,
+> >=20
 > > Attached you can find a split up patch ported from grSecurity [1], as
 > > Linus commented that he wouldn't get a whole-sale patch, I was working
 > > on it and also studying what features of grSecurity can be implemented
 > > without a development or maintenance overhead, aka less-invasive
 > > implementations.
-> >=20
-> > It adds support for advanced networking-related randomization, in
-> > concrete it adds support for TCP ISNs randomization, RPC XIDs
-> > randomization, IP IDs randomization and finally a sub-key under the
-> > Cryptographic options menu for Linux PRNG [2] enhancements (useful now
-> > and also for future patch submissions), which currently has an only-one
-> > option for poll sizes increasing (x2).
-> >=20
-> > As it's impact is minimal (in performance and development/maintenance
-> > terms), I recommend to merge it, as it gives a basic prevention for the
-> > so-called system fingerprinting (which is used most by "kids" to know
-> > how old and insecure could be a target system, many time used as the
-> > first, even only-one, data to decide if attack or not the target host)
-> > among other things.
-> >=20
-> > There's only a missing feature that is present on grSecurity, the
-> > sources ports randomization which seems achieved now by some changes
-> > that can be checked out in the Linux BKBits repository:
-> > http://linux.bkbits.net:8080/linux-2.6/diffs/net/ipv4/tcp_ipv4.c@1.105?=
-nav=3Dindex.html|src/|src/net|src/net/ipv4|hist/net/ipv4/tcp_ipv4.c
-> > (net/ipv4/tcp_ipv4.c@1.105)
-> >=20
-> > I'm not sure of the effectiveness of that changes, but I just prefer to
-> > keep it as most simple as possible.If there are thoughts on reverting t=
-o
-> > the old schema, and using obsd_rand.c code instead, just drop me a line
-> > and I will modify the patch.
 >=20
-> Okay, but:
-> * Need to give better explanation of why this is required,=20
->   existing randomization code in network is compromise between
->   performance and security. So you need to quantify the performance
->   impact of this, and the security threat reduction.
-
-Performance impact is none AFAIK.
-I've explained them in an early reply to Adrian [1].
-
-> * Why are the OpenBSD random functions better? because they have more
->   security coolness factor?
-
-I'm not an OpenBSD user, and no intention to being a one.
-I just recognize that the functions do the same job better, as explained
-in the Kconfig diffs.
-
-> * It is hard to have two levels of security based on config options.
->   Think of a distro vendor, do they ship the fast or the secure system??
 >=20
-> As always:
-> * Send networking stuff to netdev@oss.sgi.com
+> why did you make it a config option? This is the kind of thing that is
+> either good or isn't... at which point you can get rid of a lot of, if
+> not all the ugly ifdefs the patch adds.
 
-Added to CC list.
+I will remove the ifdef's, I've made it just from the usability POV,
+users may want the standard "randomization" schema, dunno.
+Anyway, I will remove those ifdef's and make it enabled-by-default.
 
-> * Please split up patches.
+> Also, why does it need to enhance the random driver this much, the
+> random driver already has a facility to provide pseudorandom numbers
+> good enough for networking use (eg the PRNG rekeys often enough with
+> real entropy that brute forcing it shouldn't be possible).
 
-If you talk about removing the pool sizes increasing, then i will do it,
-but i would like to know if this has any chances to get merged.
+I will also remove the pool sizes increasing diffs from the patch.
 
-[1]: http://lkml.org/lkml/2005/1/28/139
+> If you can fix those 2 things the patch will look a lot cleaner and has
+> a lot higher chance to be merged.
+
+Sure, many thanks for pointing out that clearly.
+It will take a few minutes and then re-send the patch.
 
 Cheers,
 --=20
 Lorenzo Hern=E1ndez Garc=EDa-Hierro <lorenzo@gnu.org>=20
 [1024D/6F2B2DEC] & [2048g/9AE91A22][http://tuxedo-es.org]
 
---=-Y21AUM5I1YFNeKUSUniW
+--=-DiYfYfHaSOb0nEIQMp5W
 Content-Type: application/pgp-signature; name=signature.asc
 Content-Description: Esta parte del mensaje =?ISO-8859-1?Q?est=E1?= firmada
 	digitalmente
@@ -99,9 +66,9 @@ Content-Description: Esta parte del mensaje =?ISO-8859-1?Q?est=E1?= firmada
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQBB+oUWDcEopW8rLewRAv0sAKCzfxCJAD/tbDg4V+mAYIaFn3UYSgCfXsXH
-BiBdnJqOOEnVcsLqhHApLw0=
-=SOGW
+iD8DBQBB+oYdDcEopW8rLewRAgDjAJ9fLotSjAya06xCoxQqjfgEFS1ErACg1OI3
+fTIcghUC06DTIb10Tyg3YZ0=
+=vmpI
 -----END PGP SIGNATURE-----
 
---=-Y21AUM5I1YFNeKUSUniW--
+--=-DiYfYfHaSOb0nEIQMp5W--
