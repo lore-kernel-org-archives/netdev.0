@@ -1,50 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: network interface cards native vlans support in linux kernel?
-Date: Fri, 11 Jul 2003 10:11:57 -0700
+Date: Fri, 11 Jul 2003 13:18:58 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0EEFDD.8050300@candelatech.com>
-References: <Pine.LNX.4.44.0307111754220.6646-100000@hl.kauneta.net>
+Message-ID: <20030711171858.GI2210@gtf.org>
+References: <Pine.LNX.4.44.0307111754220.6646-100000@hl.kauneta.net> <3F0EEFDD.8050300@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrius Kasparavicius <andrius@andrius.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrius Kasparavicius <andrius@andrius.org>
-In-Reply-To: <Pine.LNX.4.44.0307111754220.6646-100000@hl.kauneta.net>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <3F0EEFDD.8050300@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrius Kasparavicius wrote:
-> on vanilla linux kernel, eepro doesn't work, and with 1496 mtu, 8139too
-> works with any mtu (and 1500).
-> 
-> which is recommended to use, e100 or eepro100?
+On Fri, Jul 11, 2003 at 10:11:57AM -0700, Ben Greear wrote:
+> eepro100 does not seem to be updated in the kernel anymore, though if you 
+> go figure
+> out how to install Becker's drivers, he may have it working with vlans
+> by now.
 
-As I mentioned, the e100 (intel's driver) is the one I recommend.
+I won't say for sure, but I'm fairly certain he does.  Most of his
+drivers got a "slightly larger than normal MTU" pass-over a while ago.
 
-eepro100 does not seem to be updated in the kernel anymore, though if you go figure
-out how to install Becker's drivers, he may have it working with vlans
-by now.
+I objected to the eepro100 patch, because all it did was change one
+magic number to another, in the configuration data.  I had absolutely no
+basis for evaluation other than "I hope it works", so it was rejected.
 
-Ben
+If someone wants to look at his eepro100 and merge in new changes (vlan
+or otherwise), that'd be great.  His tulip MTU (aka vlan) changes also
+want pulling into mainline kernel, since his changes are _much_ better
+than the tulip vlan patch floating around.
 
-> 
-> Andrius.
-> 
-> On Wed, 9 Jul 2003, Ben Greear wrote:
-> 
-> 
->>>is there any problems to include full vlans support?
->>
->>Intel's e100 driver (and all NICs supported by it) support vlans
->>fine, as do most of the GigE NICs.  Tulip does not, last I hear, though
->>a work-around patch has been around forever.  Realtek worked at one time,
->>not sure about now though...
-> 
-> 
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+	Jeff
