@@ -1,51 +1,122 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [Patch 2.4 2/2] e1000: Update to Configure.help
-Date: Mon, 18 Oct 2004 03:22:09 -0700 (PDT)
+Subject: [Patch 2.5 3/3] ixgb: Configuration and user guide update
+Date: Mon, 18 Oct 2004 03:23:13 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0410180249540.20965-100000@isotope.jf.intel.com>
-References: <Pine.LNX.4.44.0410150506380.31227-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0410180301190.20965-100000@isotope.jf.intel.com>
+References: <Pine.LNX.4.44.0410150521010.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "jgarzik@pobox.com" <jgarzik@pobox.com>,
         Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0410150506380.31227-100000@isotope.jf.intel.com>
+In-Reply-To: <Pine.LNX.4.44.0410150521010.31227-100000@isotope.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 
-diff -Nuarp old/Documentation/Configure.help new/Documentation/Configure.help
---- old/Documentation/Configure.help	2004-10-07 15:33:24.000000000 -0700
-+++ new/Documentation/Configure.help	2004-10-07 15:33:53.000000000 -0700
-@@ -12219,28 +12219,7 @@ CONFIG_E100
- Intel(R) PRO/1000 Gigabit Ethernet support
- CONFIG_E1000
-   This driver supports Intel(R) PRO/1000 gigabit ethernet family of
--  adapters, which includes:
--
--     Controller  Adapter Name                         Board IDs
--     ----------  ------------                         ---------
--     82542       PRO/1000 Gigabit Server Adapter      700262-xxx,
--                                                      717037-xxx
--     82543       PRO/1000 F Server Adapter            738640-xxx,
--                                                      A38888-xxx
--     82543       PRO/1000 T Server Adapter            A19845-xxx,
--                                                      A33948-xxx
--     82544       PRO/1000 XT Server Adapter           A51580-xxx
--     82544       PRO/1000 XF Server Adapter           A50484-xxx
--     82544       PRO/1000 T Desktop Adapter           A62947-xxx
--     82540       PRO/1000 MT Desktop Adapter          A78408-xxx
--     82541       PRO/1000 MT Desktop Adapter          C91016-xxx
--     82545       PRO/1000 MT Server Adapter           A92165-xxx
--     82546       PRO/1000 MT Dual Port Server Adapter A92111-xxx
--     82545       PRO/1000 MF Server Adapter           A91622-xxx
--     82545       PRO/1000 MF Server Adapter(LX)       A91624-xxx
--     82546       PRO/1000 MF Dual Port Server Adapter A91620-xxx 
--
--  For more information on how to identify your adapter, go to the
-+  adapters. For more information on how to identify your adapter, go to the
-   Adapter & Driver ID Guide at:
+diff -Nuarp old/Documentation/networking/ixgb.txt new/Documentation/networking/ixgb.txt
+--- old/Documentation/networking/ixgb.txt	2004-10-07 15:50:50.000000000 -0700
++++ new/Documentation/networking/ixgb.txt	2004-10-07 15:51:47.000000000 -0700
+@@ -1,14 +1,14 @@
+ Linux* Base Driver for the Intel(R) PRO/10GbE Family of Adapters
+ ================================================================
  
-    <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+-January 06, 2003
++September 13, 2004
+ 
+ 
+ Contents
+ ========
+ 
+ - In This Release
+-- Supported Adapters
++- Identifying Your Adapter
+ - Command Line Parameters
+ - Improving Performance
+ - Support
+@@ -18,36 +18,23 @@ In This Release
+ ===============
+ 
+ This file describes the Linux* Base Driver for the Intel(R) PRO/10GbE Family 
+-of Adapters, version 1.0.x. This driver is intended for 2.4.x kernels; it is 
+-known to build properly on 2.4.x kernels through 2.4.18. Intel focused 
+-testing on Intel architectures running kernels 2.4.18. This driver includes 
+-support for Itanium(TM)-based systems.
++of Adapters, version 1.0.x.  This driver includes support for Itanium(TM)2 and
++EM64T systems.
+ 
+ For questions related to hardware requirements, refer to the documentation 
+ supplied with your Intel PRO/10GbE adapter. All hardware requirements listed 
+ apply to use with Linux.
+ 
+-
+-Supported Adapters
+-==================
+-
+-The following Intel network adapters are compatible with the drivers in this 
+-release:
+-
+-   Controller  Adapter Name                           Board IDs
+-   ----------  ------------                           ---------
+-
+-   82597EX     Intel(R) PRO/10GbE LR Server Adapter   A82505-xxx
+-
++Identifying Your Adapter
++========================
+ 
+ To verify your Intel adapter is supported, find the board ID number on the 
+ adapter. Look for a label that has a barcode and a number in the format  
+-A12345-001. Match this to the list of numbers above.
++A12345-001. 
+ 
+-For more information on how to identify your adapter, go to the Adapter & 
+-Driver ID Guide at:
++Use the above information and the Adapter & Driver ID Guide at:
+ 
+-    http://support.intel.com/support/network/adapter/pro100/21397.htm
++  http://support.intel.com/support/network/adapter/pro100/21397.htm
+ 
+ For the latest Intel network drivers for Linux, go to:
+ 
+@@ -72,8 +59,9 @@ loads the ixgb driver with 80 TX resourc
+ resources for the second adapter.
+ 
+ The default value for each parameter is generally the recommended setting,
+-unless otherwise noted.
+-
++unless otherwise noted. Also, if the driver is statically built into the
++kernel, the driver is loaded with the default values for all the parameters.
++Ethtool can be used to change some of the parameters at runtime.
+ 
+ FlowControl
+ Valid Range: 0-3 (0=none, 1=Rx only, 2=Tx only, 3=Rx&Tx)
+@@ -125,7 +113,6 @@ Default Value: 1
+     offload for transmitted packets (both UDP and TCP) to the adapter 
+     hardware.
+ 
+-
+ Improving Performance
+ =====================
+ 
+diff -Nuarp old/drivers/net/Kconfig new/drivers/net/Kconfig
+--- old/drivers/net/Kconfig	2004-10-07 15:52:11.000000000 -0700
++++ new/drivers/net/Kconfig	2004-10-07 15:52:27.000000000 -0700
+@@ -2132,14 +2132,8 @@ config IXGB
+ 	depends on PCI
+ 	---help---
+ 	  This driver supports Intel(R) PRO/10GbE family of
+-	  adapters, which includes:
+-
+-	  Controller  Adapter Name                           Board IDs
+-	  ----------  ------------                           ---------
+-	  82597EX     Intel(R) PRO/10GbE LR Server Adapter   A82505-xxx
+-
+-	  For more information on how to identify your adapter, go to the
+-	  Adapter & Driver ID Guide at:
++	  adapters.  For more information on how to identify your adapter, go
++	  to the Adapter & Driver ID Guide at:
+ 
+ 	  <http://support.intel.com/support/network/adapter/pro100/21397.htm>
+ 
