@@ -1,124 +1,35 @@
-From: Ravikiran G Thirumalai <kiran@in.ibm.com>
-Subject: Re: [patch] Change Networking mibs to use kmalloc_percpu -- 3/3
-Date: Wed, 4 Dec 2002 18:09:22 +0530
+From: jamal <hadi@cyberus.ca>
+Subject: Re: synchronization between bottom half and user context
+Date: Wed, 4 Dec 2002 07:51:34 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021204180922.E17375@in.ibm.com>
-References: <20021204180510.C17375@in.ibm.com>
+Message-ID: <Pine.GSO.4.30.0212040749090.2731-100000@shell.cyberus.ca>
+References: <Pine.LNX.4.44.0212030038030.1334-100000@bobbidi.cs.virginia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@oss.sgi.com>, "David S. Miller " <davem@redhat.com>,
-   Andrew Morton <akpm@digeo.com>, dipankar@in.ibm.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20021204180510.C17375@in.ibm.com>; from kiran@in.ibm.com on Wed, Dec 04, 2002 at 06:05:10PM +0530
+To: Ronghua Zhang <rz5b@cs.virginia.edu>
+In-Reply-To: <Pine.LNX.4.44.0212030038030.1334-100000@bobbidi.cs.virginia.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch is 3 of 3
- 
-D: Name: sctpmibs-2.5.50-1.patch
-D: Author: Ravikiran Thirumalai
-D: Description: Changes sctp stats to use kmalloc_percpu from the traditional
-D:              padded NR_CPUS arrays
 
 
- include/net/sctp/sctp.h |    2 +-
- net/sctp/protocol.c     |   44 +++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 44 insertions(+), 2 deletions(-)
+On Tue, 3 Dec 2002, Ronghua Zhang wrote:
 
+> Can someone tell me when lock should be used to synchronize bh and user
+> context?
+>
+> For examle: in tcp_accept(), lock_sock() is called to avoid any change
+> made by net_bh during its operation. But if tcp_accept() is called, it's
+> impossilbe that net_bh is also executing. (i think this is true for UP,
+> what about SMP?), then why need lock_sock()?
+>
 
-diff -ruN -X dontdiff linux-2.5.50/include/net/sctp/sctp.h mibstats-2.5.50/include/net/sctp/sctp.h
---- linux-2.5.50/include/net/sctp/sctp.h	Thu Nov 28 04:05:53 2002
-+++ mibstats-2.5.50/include/net/sctp/sctp.h	Wed Dec  4 12:13:33 2002
-@@ -203,7 +203,7 @@
- #define SCTP_SOCK_SLEEP_POST(sk) SOCK_SLEEP_POST(sk)
- 
- /* SCTP SNMP MIB stats handlers */
--extern struct sctp_mib sctp_statistics[NR_CPUS * 2];
-+DECLARE_SNMP_STAT(struct sctp_mib, sctp_statistics);
- #define SCTP_INC_STATS(field)		SNMP_INC_STATS(sctp_statistics, field)
- #define SCTP_INC_STATS_BH(field)	SNMP_INC_STATS_BH(sctp_statistics, field)
- #define SCTP_INC_STATS_USER(field)	SNMP_INC_STATS_USER(sctp_statistics, field)
-diff -ruN -X dontdiff linux-2.5.50/net/sctp/protocol.c mibstats-2.5.50/net/sctp/protocol.c
---- linux-2.5.50/net/sctp/protocol.c	Thu Nov 28 04:06:05 2002
-+++ mibstats-2.5.50/net/sctp/protocol.c	Wed Dec  4 12:13:33 2002
-@@ -59,7 +59,7 @@
- /* Global data structures. */
- sctp_protocol_t sctp_proto;
- struct proc_dir_entry	*proc_net_sctp;
--struct sctp_mib sctp_statistics[NR_CPUS * 2];
-+DEFINE_SNMP_STAT(struct sctp_mib, sctp_statistics);
- 
- /* This is the global socket data structure used for responding to
-  * the Out-of-the-blue (OOTB) packets.  A control sock will be created
-@@ -597,6 +597,40 @@
- 	}
- }
- 
-+static int __init init_sctp_mibs(void)
-+{
-+	int i;
-+	
-+	sctp_statistics[0] = kmalloc_percpu(sizeof (struct sctp_mib),
-+					    GFP_KERNEL);
-+	if (!sctp_statistics[0])
-+		return -ENOMEM;
-+	sctp_statistics[1] = kmalloc_percpu(sizeof (struct sctp_mib),
-+					    GFP_KERNEL);
-+	if (!sctp_statistics[1]) {
-+		kfree_percpu(sctp_statistics[0]);
-+		return -ENOMEM;
-+	}
-+
-+	/* Zero all percpu versions of the mibs */
-+	for (i = 0; i < NR_CPUS; i++) {
-+		if (cpu_possible(i)) {
-+			memset(per_cpu_ptr(sctp_statistics[0], i), 0,
-+					sizeof (struct sctp_mib));
-+			memset(per_cpu_ptr(sctp_statistics[1], i), 0,
-+					sizeof (struct sctp_mib));
-+		}
-+	}
-+	return 0;
-+	
-+}
-+
-+static void cleanup_sctp_mibs(void)
-+{
-+	kfree_percpu(sctp_statistics[0]);
-+	kfree_percpu(sctp_statistics[1]);
-+}
-+
- /* Initialize the universe into something sensible.  */
- int sctp_init(void)
- {
-@@ -610,6 +644,11 @@
- 	/* Add SCTP to inetsw linked list.  */
- 	inet_register_protosw(&sctp_protosw);
- 
-+	/* Allocate and initialise sctp mibs.  */
-+	status = init_sctp_mibs();
-+	if (status) 
-+		goto err_init_mibs;
-+		
- 	/* Initialize proc fs directory.  */
- 	sctp_proc_init();
- 
-@@ -745,6 +784,8 @@
- err_ahash_alloc:
- 	sctp_dbg_objcnt_exit();
- 	sctp_proc_exit();
-+	cleanup_sctp_mibs();
-+err_init_mibs:	
- 	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
- 	inet_unregister_protosw(&sctp_protosw);
- 	return status;
-@@ -774,6 +815,7 @@
- 
- 	sctp_dbg_objcnt_exit();
- 	sctp_proc_exit();
-+	cleanup_sctp_mibs();
- 
- 	inet_del_protocol(&sctp_protocol, IPPROTO_SCTP);
- 	inet_unregister_protosw(&sctp_protosw);
+to serialize packets towards the socket; The linux network stack
+is threaded, you can have upto n packets to the same socket coming up the
+stack in parallel on an n-SMP machine; think of that and the fact that TCP
+data must be sequenced.
+
+cheers,
+jamal
