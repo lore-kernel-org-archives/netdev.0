@@ -1,88 +1,81 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Kernel 2.6.7-rc3
-Date: Wed, 23 Jun 2004 09:40:55 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040623134055.GD6253@ruslug.rutgers.edu>
-References: <20040610161535.GA3025@aragorn.home.lxtec.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: 2.6.7-bk6 fails module compile -- iptable_raw.c
+Date: Wed, 23 Jun 2004 22:42:03 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040623.224203.122414746.yoshfuji@linux-ipv6.org>
+References: <200406231256.IAA28505@clem.clem-digital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>
-Return-path: <prism54-devel-bounces@prism54.org>
-To: prism54-devel@prism54.org
-Content-Disposition: inline
-In-Reply-To: <20040610161535.GA3025@aragorn.home.lxtec.de>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com, clem@clem.clem-digital.net
+In-Reply-To: <200406231256.IAA28505@clem.clem-digital.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 10, 2004 at 06:15:35PM +0200, Elimar Riesebieter wrote:
-> Hi all,
-> 
-> I had some troble with the the drivers out of vanilla 2.6.7-rc3 and
-> 2.6.7-rc2-mm2. Please notice that this happens running on ppc
-> plattform!
-> 
-> This is from dmesg 2.6.7-rc3
-> ----------------------------
-> 
-> eth1: islpci_open()
-> eth1: resetting device...
-> eth1: uploading firmware...
-> eth1: firmware uploaded done, now triggering reset...
-> eth1: errant PIMFOR application frame
-> eth1: timeout waiting for mgmt response 1000, trigging device
-> eth1: timeout waiting for mgmt response
-> eth1: Out of memory, cannot handle oid 0x5f746567
-> eth1: timeout waiting for mgmt response 1000, trigging device
-> eth1: timeout waiting for mgmt response
-> eth1: errant PIMFOR application frame
-> eth1: timeout waiting for mgmt response 1000, trigging device
-> eth1: timeout waiting for mgmt respon1se
-> eth1: mgt_commit has failed. Restart the device 
-> 
-> This is a backtrace running 2.6.7-rc3
-> -------------------------------------
-> Jun 10 17:45:48 aragorn kernel: Bad page state at prep_new_page (in process 'cc1', page c070d020)
-> Jun 10 17:45:48 aragorn kernel: flags:0x00000000 mapping:00070000 mapcount:0 count:0
-> Jun 10 17:45:48 aragorn kernel: Backtrace:
-> Jun 10 17:45:48 aragorn kernel: Call trace:
-> Jun 10 17:45:48 aragorn kernel:  [c000b854] dump_stack+0x18/0x28
-> Jun 10 17:45:48 aragorn kernel:  [c003cdb0] bad_page+0x5c/0xa4
-> Jun 10 17:45:48 aragorn kernel:  [c003d16c] prep_new_page+0x50/0x84
-> Jun 10 17:45:48 aragorn kernel:  [c003d7b4] buffered_rmqueue+0x110/0x1b4
-> Jun 10 17:45:48 aragorn kernel:  [c003d918] __alloc_pages+0xc0/0x388
-> Jun 10 17:45:48 aragorn kernel:  [c0049b34] do_anonymous_page+0x70/0x1ac
-> Jun 10 17:45:48 aragorn kernel:  [c0049cdc] do_no_page+0x6c/0x37c
-> Jun 10 17:45:48 aragorn kernel:  [c004a1c0] handle_mm_fault+0xf4/0x174
-> Jun 10 17:45:48 aragorn kernel:  [c0014bf4] do_page_fault+0x140/0x398
-> Jun 10 17:45:48 aragorn kernel:  [c0008118] handle_page_fault+0xc/0x80
-> Jun 10 17:45:48 aragorn kernel: Trying to fix it up, but a reboot is needed
-> 
-> The version out of 2.6.7-rc2-mm1 runs perfect!
-> 
-> Ciao
-> 
-> Elimar
-> 
-> -- 
->   Numeric stability is probably not all that 
->   important when you're guessing;-)
+In article <200406231256.IAA28505@clem.clem-digital.net> (at Wed, 23 Jun 2004 08:56:08 -0400 (EDT)), Pete Clements <clem@clem.clem-digital.net> says:
 
+> FYI:  (gcc version 2.95.4)
+> 
+>   CC [M]  net/ipv4/netfilter/iptable_raw.o
+> net/ipv4/netfilter/iptable_raw.c:57: unknown field `target_size' specified in initializer
+> net/ipv4/netfilter/iptable_raw.c:57: warning: missing braces around initializer
+> net/ipv4/netfilter/iptable_raw.c:57: warning: (near initialization for `initial_table.entries[0].target.target.u')
+> net/ipv4/netfilter/iptable_raw.c:71: unknown field `target_size' specified in initializer
+> net/ipv4/netfilter/iptable_raw.c:85: unknown field `user' specified in initializer
+> net/ipv4/netfilter/iptable_raw.c:87: unknown field `name' specified in initializer
+> net/ipv4/netfilter/iptable_raw.c:87: warning: excess elements in union initializer
+> net/ipv4/netfilter/iptable_raw.c:87: warning: (near initialization for `initial_table.term.target.target.u')
+> make[3]: *** [net/ipv4/netfilter/iptable_raw.o] Error 1
+> make[2]: *** [net/ipv4/netfilter] Error 2
+> make[1]: *** [net/ipv4] Error 2
+> make: *** [net] Error 2
 
-Try 2.6.7-bk6 and if no problems occur then this has been fixed. If not
-please submit a bug report. Please note that mgt timeout is a known bug.
-This could be related to bug 88. 
+Please try this.
 
-http://prism54.org/cgi-bin/bugzilla/show_bug.cgi?id=88
-
-It is actually currently affecting WPA too but I'll send out another
-e-mail regarding that.
+===== net/ipv4/netfilter/iptable_raw.c 1.2 vs edited =====
+--- 1.2/net/ipv4/netfilter/iptable_raw.c	2004-06-22 06:39:19 +09:00
++++ edited/net/ipv4/netfilter/iptable_raw.c	2004-06-23 22:35:44 +09:00
+@@ -54,7 +54,9 @@
+ 		     },
+ 		     .target = { 
+ 			  .target = { 
+-				  .u.target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
++				  .u = {
++					  .target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
++				  },
+ 			  },
+ 			  .verdict = -NF_ACCEPT - 1,
+ 		     },
+@@ -68,7 +70,9 @@
+ 		     },
+ 		     .target = {
+ 			     .target = {
+-				     .u.target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
++				     .u = {
++					     .target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
++				     },
+ 			     },
+ 			     .verdict = -NF_ACCEPT - 1,
+ 		     },
+@@ -82,9 +86,11 @@
+ 		},
+ 		.target = {
+ 			.target = {
+-				.u.user = {
+-					.target_size = IPT_ALIGN(sizeof(struct ipt_error_target)), 
+-					.name = IPT_ERROR_TARGET,
++				.u = {
++					.user = {
++						.target_size = IPT_ALIGN(sizeof(struct ipt_error_target)), 
++						.name = IPT_ERROR_TARGET,
++					},
+ 				},
+ 			},
+ 			.errorname = "ERROR",
 
 -- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
