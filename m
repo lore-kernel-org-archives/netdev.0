@@ -1,33 +1,30 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH 2.6.X] SIOCSIFNAME wilcard suppor & name validation
-Date: Tue, 13 Jan 2004 14:27:45 -0800
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040113222745.GA12147@bougret.hpl.hp.com>
-References: <20040112234332.GA1785@bougret.hpl.hp.com> <20040113142204.0b41403b.shemminger@osdl.org>
-Reply-To: jt@hpl.hp.com
+From: tanmay ganacharya <ganachar@usc.edu>
+Subject: Units of the value in t_rtttime and t_rxtcur
+Date: Tue, 13 Jan 2004 14:38:42 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <837c3083b839.83b839837c30@usc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-	"David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-	Linux kernel mailing list <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
+Content-Transfer-Encoding: 7BIT
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-language: en
 Content-Disposition: inline
-In-Reply-To: <20040113142204.0b41403b.shemminger@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 13, 2004 at 02:22:04PM -0800, Stephen Hemminger wrote:
-> Here is an enhanced version of the previous patch.
-> It adds both the wildcard support that Jean did, and validation of network
-> device names.
+Hello,
+I am working on a project in which I need to find the instantaneous RTT's and RTO's over a period of 20 Minutes of a TCP connection.
+I was able to get the RTT and RTO values from the t_rtttime and t_rxtcur variables in the tcp block structure but am not able to figure out the units of the values.
+I need to get both in same units.
+I think RTO's are in ticks. But am not very sure about RTT.
+Please could you help me with the same. I would really be grateful.
+Also I found that 1 TCP tick = 224 miliseconds. I just wanted to confim whether it is correct. I am using FreeBSD 4.9 Stable.
+I am sending a sample of the values I have collected.
 
-	Excellent. Your patch looks much cleaner.
+t_rtttime = 354397342, t_srtt = 68069, t_rxtcur = 1689
 
-> It doesn't check the error return from class_device_rename because
-> that will not fail unless object or name are null.
-
-	I was not 100% sure if this would remain true.
-
-	Thanks !
-
-	Jean
+Waiting for your reply.
+Thanking you,
+Yours truly,
+Tanmay Ganacharya
