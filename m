@@ -1,77 +1,69 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Move inetdev/ifa over to RCU
-Date: Fri, 13 Aug 2004 09:38:38 -0700
+From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+Subject: 8390.c workaround for interrupt storm
+Date: Fri, 13 Aug 2004 12:30:47 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040813093838.6961c0d4.davem@redhat.com>
-References: <20040812165954.00429e65.davem@redhat.com>
-	<20040813090314.448c971d@dell_ss3.pdx.osdl.net>
+Message-ID: <20040813153047.GC28640@logos.cnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040813090314.448c971d@dell_ss3.pdx.osdl.net>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi netdev, 
 
-Thanks guys.  This patch should fix both problems.
+We've been seeing an interrupt storm on our 
+embedded PowerPC systems with Linksys PCMLM56 (network+modem) 
+PCMCIA cards (network part of it driven by pcnet_cs.c) as soon as the network 
+cable is  pluged/unpluged and after some activity on the serial
+line. 
 
-Herbert, if we check inetdev->dead when trying to grab
-a reference it fixes the RCU destroy race you mentioned.
-I really don't want to put that ref drop into the
-RCU callback as that would kill performance.
+The card goes nuts, and doesnt stop sending interrupts. 
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/08/13 09:17:07-07:00 davem@nuts.davemloft.net 
-#   [IPV4]: Fix two bugs in inetdev RCU handling.
-#   
-#   - Two missing smp_read_barrier_depends() noticed by
-#     Stephen Hemminger.
-#   - Fix RCU inetdev destroy race spotted by Herbert Xu.
-#     Check in_dev->dead when trying to grab a reference.
-#   
-#   Signed-off-by: David S. Miller <davem@redhat.com>
-# 
-# net/ipv4/devinet.c
-#   2004/08/13 09:15:41-07:00 davem@nuts.davemloft.net +1 -0
-#   [IPV4]: Fix two bugs in inetdev RCU handling.
-# 
-# include/linux/inetdevice.h
-#   2004/08/13 09:15:41-07:00 davem@nuts.davemloft.net +7 -2
-#   [IPV4]: Fix two bugs in inetdev RCU handling.
-# 
-diff -Nru a/include/linux/inetdevice.h b/include/linux/inetdevice.h
---- a/include/linux/inetdevice.h	2004-08-13 09:20:01 -07:00
-+++ b/include/linux/inetdevice.h	2004-08-13 09:20:01 -07:00
-@@ -143,9 +143,14 @@
- 	struct in_device *in_dev;
- 
- 	rcu_read_lock();
-+	smp_read_barrier_depends();
- 	in_dev = dev->ip_ptr;
--	if (in_dev)
--		atomic_inc(&in_dev->refcnt);
-+	if (in_dev) {
-+		if (in_dev->dead)
-+			in_dev = NULL;
-+		else
-+			atomic_inc(&in_dev->refcnt);
-+	}
- 	rcu_read_unlock();
- 	return in_dev;
- }
-diff -Nru a/net/ipv4/devinet.c b/net/ipv4/devinet.c
---- a/net/ipv4/devinet.c	2004-08-13 09:20:01 -07:00
-+++ b/net/ipv4/devinet.c	2004-08-13 09:20:01 -07:00
-@@ -210,6 +210,7 @@
- int inet_addr_onlink(struct in_device *in_dev, u32 a, u32 b)
+So I hacked up this patch which resets the 8390 chip
+as soon as 256 empty interrupts are triggered. Works fine,
+the card comes back to sanity after resetting.
+
+Not sure if its specific to our boards, but I believe
+it might happen on other archs also, so I'm posting it 
+here in the hope it might be useful for someone with the
+same problem.
+
+Not likely to be included in mainline driver, but hey, why not,
+its protection against hardware insanity.
+
+--- 8390.c.orig 2004-08-13 11:54:28.000000000 -0300
++++ 8390.c      2004-08-13 11:54:07.000000000 -0300
+@@ -411,6 +411,8 @@
+  * needed.
+  */
+  
++int interrupt_cnt = 0;
++
+ void ei_interrupt(int irq, void *dev_id, struct pt_regs * regs)
  {
- 	rcu_read_lock();
-+	smp_read_barrier_depends();
- 	for_primary_ifa(in_dev) {
- 		if (inet_ifa_match(a, ifa)) {
- 			if (!b || inet_ifa_match(b, ifa)) {
+        struct net_device *dev = dev_id;
+@@ -493,6 +495,22 @@
+  
+                outb_p(E8390_NODMA+E8390_PAGE0+E8390_START, e8390_base + E8390_CMD);
+        }
++
++       /*
++        * Workaround infinite interrupt storm caused by Linksys combocard
++        * on embedded PowerPC. Other cards/platform can suffer
++        * from the same. Reset the device if we get more than 256
++        * empty interrupts.
++        */
++       if (!nr_serviced)
++               interrupt_cnt++;
++       else
++               interrupt_cnt = 0;
++
++       if (interrupt_cnt > 256) {
++               ei_status.reset_8390(dev);
++               interrupt_cnt = 0;
++       }
+      
+        if (interrupts && ei_debug)
+        {
