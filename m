@@ -1,46 +1,43 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: Patch: Idea for RFC2863 conform OperStatus
-Date: Mon, 14 Oct 2002 13:50:53 +0200
+Date: Mon, 14 Oct 2002 09:01:50 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15786.44957.210354.599290@robur.slu.se>
-References: <3DA82269.CBB65E89@isg.de>
-	<20021014103855.GA19962@outpost.ds9a.nl>
-	<15786.42910.601886.468716@robur.slu.se>
-	<20021014111155.GB20397@outpost.ds9a.nl>
+Message-ID: <Pine.GSO.4.30.0210140851220.26803-100000@shell.cyberus.ca>
+References: <200210132204.CAA09385@sex.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20021014111155.GB20397@outpost.ds9a.nl>
+To: <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <200210132204.CAA09385@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-bert hubert writes:
 
- > With a bgp full view? 100kpps is not all that impressive in itself isn't it? 
- > We benchmarked our nameserver at 120kpps recently and linux seemed
- > unimpressed :-)
+On Mon, 14 Oct 2002 kuznet@ms2.inr.ac.ru wrote:
 
+> Hello!
+>
+> > Actually the extra flags are only valid when IFF_RUNNING is not set.
+>
+> Even so...
+>
+> Well, then I am inclined not to agree to give even one of those valuable
+> 16 spare bits for this. :-)
+>
+> I cannot imagine how much should I drink to consider states descibed
+> in this rfc as a valid abstraction. Device can be working and can be dead
+> by thousands of reasons. The best which I can propose is to show a string
+> somewhere in /proc (well, or as a _string_ attribute in RTM_NEWLINK),
+> explaining why device is not alive and let snmpd to translate this string
+> to these bogus states to generate traps.
 
- For me yes. :-) It connects one the major ftp sites... Box can handle 350 
- kpps w/o filter and connection tracking. With current traffic pattern we have 
- 160 kpps for wire speed at GIGE.
- 
+;-> Believe it or not people use these things to draw nice GUI
+representations (search for lowerLayerDown at cisco for example);
+how we represent them shouldnt matter whether its via ifi_flags, /proc
+etc. Infact it should also be fine if we dont propagate them to user space
+for now, but the abstraction should stay in the kernel at least.
 
- Yes full BGP. Well even full BGP from 2 peers plus some handful prefixes from 
- other BGP peers.
-
- ip route | wc -l 
- 115670
- 
- Gated has 41 MB of BGP routes. With Zebra this would be ~75 MB. 
-
- ps aux 
- root       232  0.0  7.9 41392 40876  ?  S   Aug 15  36:54 gated 
-
-
- Cheers.
-						--ro
+cheers,
+jamal
