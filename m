@@ -1,39 +1,36 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH] MII bus API for PHY devices
-Date: Fri, 19 Nov 2004 21:18:19 +0100
-Message-ID: <419E550B.7030107@colorfullife.com>
+From: "Chad N. Tindel" <chad@tindel.net>
+Subject: Re: Wrong UIDs reported in /proc/net/tcp
+Date: Fri, 19 Nov 2004 16:01:56 -0500
+Message-ID: <20041119210156.GA6513@calma.pair.com>
+References: <20041109205358.GA64015@calma.pair.com> <E1CRdBr-0001P2-00@gondolin.me.apana.org.au> <20041118190257.GA7084@calma.pair.com> <20041118210307.GA9557@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Fleming <afleming@freescale.com>,
-        Jason McMullan <jason.mcmullan@timesys.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20041118210307.GA9557@gondor.apana.org.au>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+> > OK, so just out of sheer morbid curiousity, I added an ioctl which will
+> > accept 4 parameters (the address/port pairs), and will return the user id
+> > associated with that socket.  I also changed pidentd to call this ioctl
+> > instead of looking at /proc/net/tcp.  This should theoretically get rid
+> > of all race conditions.
+> 
+> Please show us the code of your ioctl.
 
-I don't like the polling/interrupt setup part:
-- for a nic driver, there is no irq line that could be requested by 
-mii_phy_irq_enable().
-- if the mii bus driver uses it's own timers, then locking within the 
-nics will be more difficult.
+Hi-
 
-Could you make that part optional? For a nic driver, I would prefer if I 
-could just call the ->startup part without the request_irq. If the nic 
-irq handler notices that the nic got an event, then it would call an 
-appropriate mii_bus function.
+I found the problem... it was a bug in my pidentd changes where I wasn't 
+properly handling an ioctl failure.  So, using an ioctl to do a direct hash
+table lookup makes the userid mismatches go away.  We've been running tests for
+12 hours without any failures.
 
-This also applies for something like /dev/phy/xy: With natsemi, it would 
-be very tricky to add proper locking. The nic as an internal phy and an 
-external mii bus. The internal phy is partially visible on the external 
-bus and any accesses to the phy id of the internal phy on the external 
-bus cause lockups. No big deal, I just move the internal phy around [the 
-phy id doesn't matter], but I would prefer if I have to do that just for 
-ethtool, not for multiple interfaces.
+> Have you tried netlink yet? Does it exhibit the same problem?
 
---
-    Manfred
+Only so many test systems to go around.  ;-)  Will start these tests tonight
+and report back.
+
+Chad
