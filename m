@@ -1,9 +1,9 @@
 From: Fedor Karpelevitch <fedor@karpelevitch.net>
 Subject: Re: [PATCH] Re: ifconfig up/down problem
-Date: Wed, 10 Sep 2003 07:52:18 -0700
+Date: Wed, 10 Sep 2003 09:00:01 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309100752.19594.fedor@karpelevitch.net>
-References: <Pine.LNX.4.56.0309090004100.24700@space.comunit.de> <200309091635.58748.fedor@karpelevitch.net> <200309092308.48099.fedor@karpelevitch.net>
+Message-ID: <200309100900.01865.fedor@karpelevitch.net>
+References: <Pine.LNX.4.56.0309090004100.24700@space.comunit.de> <200309092308.48099.fedor@karpelevitch.net> <200309100752.19594.fedor@karpelevitch.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
@@ -12,36 +12,51 @@ Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>,
    Andrew Morton <akpm@digeo.com>, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>, Sven-Haegar Koch <haegar@sdinet.de>
-In-Reply-To: <200309092308.48099.fedor@karpelevitch.net>
+In-Reply-To: <200309100752.19594.fedor@karpelevitch.net>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Fedor Karpelevitch wrote:
 > Fedor Karpelevitch wrote:
-> > Jeff Garzik wrote:
-> > > Sven-Haegar Koch wrote:
-> > > > Kernel 2.4.20-pre2-ac3 is ok (my last kernel, running for
-> > > > month')
+> > Fedor Karpelevitch wrote:
+> > > Jeff Garzik wrote:
+> > > > Sven-Haegar Koch wrote:
+> > > > > Kernel 2.4.20-pre2-ac3 is ok (my last kernel, running for
+> > > > > month')
+> > > >
+> > > > Does the attached patch fix it?
+> > > >
+> > > > 	Jeff
 > > >
-> > > Does the attached patch fix it?
+> > > does not help me (assuming I have the same problem). I have a
+> > > total lockup a few seconds after setting up the interface (not
+> > > immidiately).
 > > >
-> > > 	Jeff
+> > > Fedor.
 > >
-> > does not help me (assuming I have the same problem). I have a
-> > total lockup a few seconds after setting up the interface (not
-> > immidiately).
+> > actually it seemed to have helped with 2.6.0-test5 where I was
+> > apparently having the same issue. Not with 2.4.23-pre3 however...
 > >
 > > Fedor.
 >
-> actually it seemed to have helped with 2.6.0-test5 where I was
-> apparently having the same issue. Not with 2.4.23-pre3 however...
+> I am really sorry for giving all this misleading information but
+> now it works fine for me with 2.4.23-pre3 as well, but I bet it did
+> lock up the first time I tried it. So there may be something wrong
+> with me or it is some other random problem I am seeing...
 >
-> Fedor.
+> Fedor
 
-I am really sorry for giving all this misleading information but now 
-it works fine for me with 2.4.23-pre3 as well, but I bet it did lock 
-up the first time I tried it. So there may be something wrong with me 
-or it is some other random problem I am seeing...
+shit, it DOES happen. somehow, when network cable is unplugged it 
+seems to never happen, when I am plugged in at home I believe I could 
+have gotten that lockup once or twice, but when I am plugged in to 
+the network at my office it seems to happen 100% of the time. I use 
+DHCP in either case. I wonder if it could be related to the noise 
+traffic on the network or what. I get it with both 2.4.23-pre3 and 
+2.6.0-test5 with your patch. It does not seem to occur at any 
+particular time - just some time (seconds to minute or two) after the 
+boot up.
 
-Fedor
+Could you suggest any way to at least trace this problem down?
+
+Fedor.
