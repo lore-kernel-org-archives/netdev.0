@@ -1,76 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] [NETFILTER] Fix "undefined reference" error if
- CONFIG_SYSCTL=n
-Date: Fri, 10 Sep 2004 15:38:43 +0900 (JST)
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20040910.153843.62140098.yoshfuji@linux-ipv6.org>
-References: <20040910.153135.121099678.yoshfuji@linux-ipv6.org>
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: 2.6.9-rc1+bk: assertion tcp_get_pcount failed at net/ipv4/tcp_input.c
+Date: Thu, 09 Sep 2004 23:39:57 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <41414C3D.2090606@us.ibm.com>
+References: <20040909111233.GA3987@steel.home>	<20040910033055.GA26790@gondor.apana.org.au> <20040909222542.7a30c0e4.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: davem@davemloft.net
-In-Reply-To: <20040910.153135.121099678.yoshfuji@linux-ipv6.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, fork0@users.sourceforge.net,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040909222542.7a30c0e4.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040910.153135.121099678.yoshfuji@linux-ipv6.org> (at Fri, 10 Sep 2004 15:31:35 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+David S. Miller wrote:
 
-> +unsigned int ip_ct_log_invalid = 0;
-> +
->  static int kill_proto(const struct ip_conntrack *i, void *data)
->  {
->  	return (i->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum == 
-> @@ -522,7 +524,6 @@
->  extern unsigned long ip_ct_generic_timeout;
->  
->  /* Log invalid packets of a given protocol */
-> -unsigned int ip_ct_log_invalid = 0;
->  static int log_invalid_proto_min = 0;
->  static int log_invalid_proto_max = 255;
+> Herbert did you see my division fix I made today for
+> tso_factor calculation?  I was dividing by the TSO mss
+> instead of the normal one :-)
 
-Or, you may prefer to move related things as well.
+Dave, I'm just catching up with the most recent
+kernel (from 2.6.8.1 and a hiatus), and I believe
+the fixes you refer to as well as the change in
+tcp_init_cwnd (tso_factor etc) make TSO consistent
+with the standard now.
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+That correct? (And thanks, much appreciated, I was
+about to fiddle with the same stuff :)).
 
-===== net/ipv4/netfilter/ip_conntrack_standalone.c 1.40 vs edited =====
---- 1.40/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-09-01 00:27:37 +09:00
-+++ edited/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-09-10 15:32:44 +09:00
-@@ -48,6 +48,11 @@
- extern atomic_t ip_conntrack_count;
- DECLARE_PER_CPU(struct ip_conntrack_stat, ip_conntrack_stat);
- 
-+/* Log invalid packets of a given protocol */
-+unsigned int ip_ct_log_invalid = 0;
-+static int log_invalid_proto_min = 0;
-+static int log_invalid_proto_max = 255;
-+
- static int kill_proto(const struct ip_conntrack *i, void *data)
- {
- 	return (i->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum == 
-@@ -520,11 +525,6 @@
- 
- /* From ip_conntrack_proto_icmp.c */
- extern unsigned long ip_ct_generic_timeout;
--
--/* Log invalid packets of a given protocol */
--unsigned int ip_ct_log_invalid = 0;
--static int log_invalid_proto_min = 0;
--static int log_invalid_proto_max = 255;
- 
- static struct ctl_table_header *ip_ct_sysctl_header;
- 
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+thanks,
+Nivedita
