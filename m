@@ -1,63 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Sat, 5 Feb 2005 21:41:35 +0100
-Message-ID: <20050205204135.GA13986@electric-eye.fr.zoreil.com>
-References: <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com> <41F250D1.8000207@phekda.gotadsl.co.uk> <41F26FD1.2060407@phekda.gotadsl.co.uk> <20050122230156.GC24461@electric-eye.fr.zoreil.com> <41F3F632.3060800@phekda.gotadsl.co.uk> <20050125214725.GA6093@electric-eye.fr.zoreil.com> <4204C981.6050102@phekda.gotadsl.co.uk>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
+Date: Sat, 5 Feb 2005 17:14:39 -0800
+Message-ID: <20050205171439.4e825155.davem@davemloft.net>
+References: <20050131102920.GC4170@suse.de>
+	<E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
+	<20050203142705.GA11318@krispykreme.ozlabs.ibm.com>
+	<20050203203010.GA7081@gondor.apana.org.au>
+	<20050203141901.5ce04c92.davem@davemloft.net>
+	<20050203235044.GA8422@gondor.apana.org.au>
+	<20050203164922.2627a112.davem@davemloft.net>
+	<20050204012053.GA8949@gondor.apana.org.au>
+	<20050203172357.670c3402.davem@davemloft.net>
+	<20050204015539.GA9727@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Content-Disposition: inline
-In-Reply-To: <4204C981.6050102@phekda.gotadsl.co.uk>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: anton@samba.org, okir@suse.de, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050204015539.GA9727@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Richard Dawe <rich@phekda.gotadsl.co.uk> :
-[...]
-> Applied to 2.6.11-rc3. It seems to work fine. I've passed ~20GB of data 
-> at 100Mbps full-duplex with no errors (compared MD5 sums on files). My 
+On Fri, 4 Feb 2005 12:55:39 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-So it can be considered that the link detection issue is gone.
-Ok, I'll ask Jeff to submit it for mainline.
-
-> data rate test (sftp of Linux kernel source tarball) gave about the same 
-> data rate as 1.6LK + PHY patch - ~7.1MB/sec.
-
-If this test is (sys) CPU bound, then you should see a difference when
-SG and TX csum is enabled.
-
-> It works fine setting the speed & duplex using "ethtool -s eth0 autoneg 
-> off speed <speed> duplex <duplex>".
-
-Nice.
-Does it stand an 'ethtool -s eth0 autoneg on' after this point ?
-
-> I haven't tested the VLAN or jumbo(ish) frames. Let me know if you'd 
-> like me to test those too. Although I'm not sure if I can test jumbo 
-> frames with the equipment I have.
-
-Hardly.
-
-If you can do an extra test, I'd like to know if you can safely bring
-the r8169 interface down on your computer once the patch below if applied:
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.11-rc3/r8169/patches/r8169-380.patch
-
-(it should apply correctly on top of you current setup)
-
-> One more thing:
+> OK, here is the patch to do that.  Let's get rid of kfree_skb_fast
+> while we're at it since it's no longer used.
 > 
-> With 1.6LK + my PHY patch, I see the message "eth0: PHY reset until link 
-> up" every 5 seconds or so, when there is no Ethernet cable plugged in. 
-> This is annoying. I think it should only log it once.
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Hmmm... One could argue that 1) syslog will cope and 2) the printk level
-of the console can be lowered. Some event kamasutra can probably be done
-from userspace too so I am a bit reluctant to special case this code
-(read as: I'd welcome more requests/complaints).
-
-Is it enough for you if I salt the code with a few netif_msg_xxx() here
-and there to control the messages ?
-
---
-Ueimor
+I've queued this up for 2.6.x and 2.4.x, thanks everyone.
