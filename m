@@ -1,81 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: 2.6.7-bk6 fails module compile -- iptable_raw.c
-Date: Wed, 23 Jun 2004 22:42:03 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040623.224203.122414746.yoshfuji@linux-ipv6.org>
-References: <200406231256.IAA28505@clem.clem-digital.net>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Prism54 1.2 released
+Date: Wed, 23 Jun 2004 09:44:02 -0400
+Sender: prism54-users-bounces@prism54.org
+Message-ID: <20040623134402.GE6253@ruslug.rutgers.edu>
+References: <20040623064321.GX6253@ruslug.rutgers.edu>
+	<20040623091403.GA4999@fluff>
+	<346D1DC2D46433D94FB41A74@[192.168.1.22]>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, clem@clem.clem-digital.net
-In-Reply-To: <200406231256.IAA28505@clem.clem-digital.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@oss.sgi.com>
+Return-path: <prism54-users-bounces@prism54.org>
+To: prism54-users@prism54.org
+Content-Disposition: inline
+In-Reply-To: <346D1DC2D46433D94FB41A74@[192.168.1.22]>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-users>,
+	<mailto:prism54-users-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-users>
+List-Post: <mailto:prism54-users@prism54.org>
+List-Help: <mailto:prism54-users-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-users>,
+	<mailto:prism54-users-request@prism54.org?subject=subscribe>
+Errors-To: prism54-users-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-In article <200406231256.IAA28505@clem.clem-digital.net> (at Wed, 23 Jun 2004 08:56:08 -0400 (EDT)), Pete Clements <clem@clem.clem-digital.net> says:
-
-> FYI:  (gcc version 2.95.4)
+On Wed, Jun 23, 2004 at 11:29:58AM +0200, Claas Hilbrecht wrote:
+> --Am Mittwoch, 23. Juni 2004 11:14 +0200 Richard Atterer 
+> <richard@list04.atterer.net> schrieb:
 > 
->   CC [M]  net/ipv4/netfilter/iptable_raw.o
-> net/ipv4/netfilter/iptable_raw.c:57: unknown field `target_size' specified in initializer
-> net/ipv4/netfilter/iptable_raw.c:57: warning: missing braces around initializer
-> net/ipv4/netfilter/iptable_raw.c:57: warning: (near initialization for `initial_table.entries[0].target.target.u')
-> net/ipv4/netfilter/iptable_raw.c:71: unknown field `target_size' specified in initializer
-> net/ipv4/netfilter/iptable_raw.c:85: unknown field `user' specified in initializer
-> net/ipv4/netfilter/iptable_raw.c:87: unknown field `name' specified in initializer
-> net/ipv4/netfilter/iptable_raw.c:87: warning: excess elements in union initializer
-> net/ipv4/netfilter/iptable_raw.c:87: warning: (near initialization for `initial_table.term.target.target.u')
-> make[3]: *** [net/ipv4/netfilter/iptable_raw.o] Error 1
-> make[2]: *** [net/ipv4/netfilter] Error 2
-> make[1]: *** [net/ipv4] Error 2
-> make: *** [net] Error 2
+> >On Wed, Jun 23, 2004 at 02:43:21AM -0400, Luis R. Rodriguez wrote:
+> >>* A ton of bugs were fixed
+> >
+> >Does this include a fix for the problem reported by Claas Hilbrecht and
+> >me, that a prism54 host in master mode would take down the network once
+> >you tried to transmit more than a few kB/sec?
+> 
+> I don't think so, since the ChangeLog doesn't contain any reference to my 
+> bug report. And as you can see, none of the developers responded to my bug 
+> report yet: http://prism54.org/cgi-bin/bugzilla/show_bug.cgi?id=87
+> 
+> After the bug report I switch the network to Ad-hoc mode and didn't have 
+> any problems so far. So I really think this is a driver problem or firmware 
+> issue.
+> 
 
-Please try this.
+We'll have to reproduce first. We will look into it though.
 
-===== net/ipv4/netfilter/iptable_raw.c 1.2 vs edited =====
---- 1.2/net/ipv4/netfilter/iptable_raw.c	2004-06-22 06:39:19 +09:00
-+++ edited/net/ipv4/netfilter/iptable_raw.c	2004-06-23 22:35:44 +09:00
-@@ -54,7 +54,9 @@
- 		     },
- 		     .target = { 
- 			  .target = { 
--				  .u.target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
-+				  .u = {
-+					  .target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
-+				  },
- 			  },
- 			  .verdict = -NF_ACCEPT - 1,
- 		     },
-@@ -68,7 +70,9 @@
- 		     },
- 		     .target = {
- 			     .target = {
--				     .u.target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
-+				     .u = {
-+					     .target_size = IPT_ALIGN(sizeof(struct ipt_standard_target)),
-+				     },
- 			     },
- 			     .verdict = -NF_ACCEPT - 1,
- 		     },
-@@ -82,9 +86,11 @@
- 		},
- 		.target = {
- 			.target = {
--				.u.user = {
--					.target_size = IPT_ALIGN(sizeof(struct ipt_error_target)), 
--					.name = IPT_ERROR_TARGET,
-+				.u = {
-+					.user = {
-+						.target_size = IPT_ALIGN(sizeof(struct ipt_error_target)), 
-+						.name = IPT_ERROR_TARGET,
-+					},
- 				},
- 			},
- 			.errorname = "ERROR",
+	Luis
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
