@@ -1,33 +1,27 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: nfsd oops with 2.6.5-rc2-mm4
-Date: Sun, 28 Mar 2004 18:44:29 -0800 (PST)
+From: Grahame Bowland <grahame@angrygoats.net>
+Subject: SIOCGIFADDR and IPv6
+Date: Mon, 29 Mar 2004 11:44:20 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0403281840011.1096@ppc970.osdl.org>
-References: <20040327130757.GA6760@c9x.org>  <Pine.LNX.4.58.0403271816450.20100@ppc970.osdl.org>
- <1080511633.5553.29.camel@lade.trondhjem.org>
+Message-ID: <1080531859.3435.8.camel@anduril>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David S Miller <davem@redhat.com>, Neil Brown <neilb@cse.unsw.edu.au>,
-        Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Trond Myklebust <trond.myklebust@fys.uio.no>, Frank Denis <jedi@orbus.fr>
-In-Reply-To: <1080511633.5553.29.camel@lade.trondhjem.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+Hey all
 
-On Sun, 28 Mar 2004, Trond Myklebust wrote:
-> 
-> I'm not really that familiar with Neil's code, but looking at
-> encode_entry(), shouldn't it test for the buffer overflow condition
-> whereby pn >= cd->rqstp->rq_resused, and exit if it does? Neil?
+I've noticed that calling SIOCGIFADDR on an IPv6 socket to get the
+interface address always returns EINVAL. Would a patch to implement that
+feature be accepted?
 
-Ok, I took Neils patch, which touches the same function, but looks very 
-different.
+As far as I can see, it wasn't implemented in the USAGI tree because a
+struct ifreq couldn't fit an IPv6 address. However, the current kernel
+IPv6 has the struct in6_ifreq to support SIOCSIFADDR, which fixes that
+problem.
 
-Frank, can you test the current top-of-BK tree (or if not a BK user, try
-the snapshot tomorrow that should get build at 2AM tonight). It would be 
-good to get this thing confirmed.
-
-		Linus
+Cheers
+Grahame
