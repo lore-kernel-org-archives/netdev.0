@@ -1,7 +1,7 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.4] e1000: Documentation/networking/e1000.txt update
-Date: Thu, 6 Jan 2005 17:03:12 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061416230.7330-100000@isotope.jf.intel.com>
+Subject: [PATCH 2.6] e1000: Documentation/networking/e1000.txt update
+Date: Thu, 6 Jan 2005 17:03:45 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061417450.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -13,10 +13,10 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 
-diff -Nuar -u net-drivers-2.4/Documentation/networking/e1000.txt net-drivers-2.4.new/Documentation/networking/e1000.txt
---- net-drivers-2.4/Documentation/networking/e1000.txt	2004-11-18 04:11:17.000000000 -0800
-+++ net-drivers-2.4.new/Documentation/networking/e1000.txt	2005-01-06 11:01:03.000000000 -0800
-@@ -1,14 +1,14 @@
+diff -Nuar -u net-drivers-2.6/Documentation/networking/e1000.txt net-drivers-2.6.new/Documentation/networking/e1000.txt
+--- net-drivers-2.6/Documentation/networking/e1000.txt	2004-10-26 04:14:03.000000000 -0700
++++ net-drivers-2.6.new/Documentation/networking/e1000.txt	2005-01-06 11:01:12.000000000 -0800
+@@ -1,7 +1,7 @@
  Linux* Base Driver for the Intel(R) PRO/1000 Family of Adapters
  ===============================================================
  
@@ -25,14 +25,6 @@ diff -Nuar -u net-drivers-2.4/Documentation/networking/e1000.txt net-drivers-2.4
  
  
  Contents
- ========
- 
- - In This Release
--- Supported Adapters
-+- Identifying Your Adapter
- - Command Line Parameters
- - Speed and Duplex Configuration
- - Additional Configurations
 @@ -20,8 +20,7 @@
  ===============
  
@@ -58,7 +50,7 @@ diff -Nuar -u net-drivers-2.4/Documentation/networking/e1000.txt net-drivers-2.4
  
      NOTE: MTU designates the frame size. It only needs to be set for Jumbo 
            Frames.
-@@ -251,17 +252,18 @@
+@@ -251,17 +252,16 @@
    also be forced.
  
  The AutoNeg parameter is used when more control is required over the auto-
@@ -77,18 +69,16 @@ diff -Nuar -u net-drivers-2.4/Documentation/networking/e1000.txt net-drivers-2.4
 +must not be specified. The following table describes supported values for the 
 +AutoNeg parameter:
 +
-+
-+Speed (Mbps)             1000    100    100    10      10
-+Duplex                   Full    Full   Half   Full    Half
-+Value (in base 16)       0x20    0x08   0x04   0x02    0x01
-+
++Speed (Mbps)   		 1000      100    100    10     10
++Duplex                   Full      Full   Half   Full   Half
++Value (in base 16)       0x20      0x08   0x04   0x02   0x01
 +
 +Example: insmod e1000 AutoNeg=0x03, loads e1000 and specifies (10 full duplex, 
 +10 half duplex) for negotiation with the peer.
  
  Note that setting AutoNeg does not guarantee that the board will link at the 
  highest specified speed or duplex mode, but the board will link at the 
-@@ -333,11 +335,7 @@
+@@ -333,11 +333,7 @@
    version 1.6 or later is required for this functionality.
  
    The latest release of ethtool can be found from
