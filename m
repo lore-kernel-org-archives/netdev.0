@@ -1,33 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH, untested] Support for PPPOE on SMP
-Date: Wed, 25 Jun 2003 18:04:10 -0700 (PDT)
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH] (0/7) ipmr fixes
+Date: Thu, 26 Jun 2003 11:14:51 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030625.180410.74717146.davem@redhat.com>
-References: <1056547262.1945.1436.camel@brick.watson.ibm.com>
-	<20030625.143334.85380461.davem@redhat.com>
-	<1056578813.27267.8.camel@brick.watson.ibm.com>
+Message-ID: <Mutt.LNX.4.44.0306261112480.11878-100000@excalibur.intercode.com.au>
+References: <20030625114038.176ee030.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, paulus@samba.org, netdev@oss.sgi.com,
-   fcusack@samba.org, carlson@workingcode.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mostrows@watson.ibm.com
-In-Reply-To: <1056578813.27267.8.camel@brick.watson.ibm.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030625114038.176ee030.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Michal Ostrowski <mostrows@watson.ibm.com>
-   Date: 25 Jun 2003 18:06:54 -0400
+On Wed, 25 Jun 2003, Stephen Hemminger wrote:
 
-   Exactly this mechanism is what I had in mind.  
-   
-Great.
+> These patches fix ip multicast route (ipmr) on 2.5.73.
+> 
+> 1 - Trivial C99 initialization
+> 2 - Change functions/variables to static
+> 3 - Drop and reacquire RTNL in error path
+> 4 - Use time_after()
+> 5 - Use alloc_netdev
+> 6 - Fix OOPS on dropped packets
+> 7 - Get rid of skb_linearize
+> 
+> Tested on 8-way SMP by bringing up pimd.
 
-   The open question remaining is if there are any protocols which can be
-   affected by packets being processed out of order.  Some people have
-   suggested that there are.  If not, then there's not much to discuss. Can
-   anyone comment on this decisively, either way?
+Thanks, all applied to my net-patchmonkey tree at 
+bk://kernel.bkbits.net/jmorris/net-2.5
 
-TCP, as one example, is able to cope very well.  It is even able to
-distinguish reordering from true packet loss.
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
