@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 12/13] make ibmveth link always up
-Date: Sun, 21 Nov 2004 22:43:58 -0800
-Message-ID: <200411220644.iAM6iA900690@mail.osdl.org>
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, santil@us.ibm.com
+Subject: [patch 04/13] M68k HP300 DIO bus: Fix typo in dio_resource_len()
+Date: Sun, 21 Nov 2004 22:43:51 -0800
+Message-ID: <200411220644.iAM6i3900633@mail.osdl.org>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, geert@linux-m68k.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
@@ -10,29 +10,27 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-From: Santiago Leon <santil@us.ibm.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
 
-The attached patch makes the ibmveth driver indicate that its link is
-always up rather than always down, thus allowing the userspace side of
-booting to configure the network interface correctly.
+HP300 DIO bus: Fix typo in dio_resource_len()
 
-Signed-Off-By: Santiago Leon <santil@us.ibm.com>
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/drivers/net/ibmveth.c |    2 +-
+ 25-akpm/include/linux/dio.h |    2 +-
  1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/ibmveth.c~make-ibmveth-link-always-up drivers/net/ibmveth.c
---- 25/drivers/net/ibmveth.c~make-ibmveth-link-always-up	2004-11-21 22:42:53.895488880 -0800
-+++ 25-akpm/drivers/net/ibmveth.c	2004-11-21 22:42:53.898488424 -0800
-@@ -598,7 +598,7 @@ static void netdev_get_drvinfo (struct n
- }
+diff -puN include/linux/dio.h~m68k-hp300-dio-bus-fix-typo-in-dio_resource_len include/linux/dio.h
+--- 25/include/linux/dio.h~m68k-hp300-dio-bus-fix-typo-in-dio_resource_len	2004-11-21 22:42:52.782658056 -0800
++++ 25-akpm/include/linux/dio.h	2004-11-21 22:42:52.786657448 -0800
+@@ -254,7 +254,7 @@ static inline struct dio_driver *dio_dev
  
- static u32 netdev_get_link(struct net_device *dev) {
--	return 0;
-+	return 1;
- }
+ #define dio_resource_start(d) ((d)->resource.start)
+ #define dio_resource_end(d)   ((d)->resource.end)
+-#define dio_resource_len(d)   ((d)->resource.end-(z)->resource.start+1)
++#define dio_resource_len(d)   ((d)->resource.end-(d)->resource.start+1)
+ #define dio_resource_flags(d) ((d)->resource.flags)
  
- static struct ethtool_ops netdev_ethtool_ops = {
+ #define dio_request_device(d, name) \
 _
