@@ -1,55 +1,46 @@
-From: Shine Mohamed Jabbar <shinemohamed_j@naturesoft.net>
-Subject: [TRIVIAL PATCH]mistake in the comment in include/linux/wireless.h
-Date: Mon, 02 Aug 2004 19:11:03 +0530
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] Trivial ipv6 fix.
+Date: Mon, 02 Aug 2004 06:59:40 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1091454063.25300.109.camel@shine.naturesoft.com>
-Reply-To: shinemohamed_j@naturesoft.net
+Message-ID: <20040802.065940.86004622.yoshfuji@linux-ipv6.org>
+References: <1091434328.16469.5.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-kVZOS8vuCIva4VAmkT5m"
-Cc: jt@hpl.hp.com, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, pekkas@netcore.fi, linux-kernel@vger.kernel.org,
+        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: suckfish@ihug.co.nz
+In-Reply-To: <1091434328.16469.5.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <1091434328.16469.5.camel@localhost.localdomain> (at Mon, 02 Aug 2004 20:12:08 +1200), Ralph Loader <suckfish@ihug.co.nz> says:
 
---=-kVZOS8vuCIva4VAmkT5m
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> ipv6_addr_hash doesn't do what it's comment says.  The comment was
+> probably what was intended, not that it'll make much difference in
+> practice.
 
-[Resend - forgot to cc to netdev ML]
+Oops, David, please apply this.
 
-Hi Dave,
+> Signed-off-by: Ralph Loader <suckfish@ihug.co.nz>
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-There is a mistake in the comment given 
-in the include/linux/wireless.h. The given 
-patch will fix it. Please apply if its useful.
+===== include/net/addrconf.h 1.17 vs edited =====
+--- 1.17/include/net/addrconf.h	2004-07-29 02:00:50 +09:00
++++ edited/include/net/addrconf.h	2004-08-02 22:57:38 +09:00
+@@ -178,8 +178,8 @@
+ 	 * This will include the IEEE address token on links that support it.
+ 	 */
+ 
+-	word = addr->s6_addr[2] ^ addr->s6_addr32[3];
+-	word  ^= (word>>16);
++	word = addr->s6_addr32[2] ^ addr->s6_addr32[3];
++	word ^= (word >> 16);
+ 	word ^= (word >> 8);
+ 
+ 	return ((word ^ (word >> 4)) & 0x0f);
 
-Regards,
-Shine Mohamed Jabbar
-
---=-kVZOS8vuCIva4VAmkT5m
-Content-Description: 
-Content-Disposition: attachment; filename=diff.patch
-Content-Type: text/x-patch; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
---- linux-2.6.8-rc2-bk11/include/linux/wireless.h.orig	2004-08-02 17:39:11.891418904 +0530
-+++ linux-2.6.8-rc2-bk11/include/linux/wireless.h	2004-08-02 17:35:56.309151928 +0530
-@@ -47,12 +47,12 @@
-  *	# include/net/iw_handler.h
-  *
-  * Note as well that /proc/net/wireless implementation has now moved in :
-- *	# include/linux/wireless.c
-+ *	# net/core/wireless.c
-  *
-  * Wireless Events (2002 -> onward) :
-  * --------------------------------
-  * Events are defined at the end of this file, and implemented in :
-- *	# include/linux/wireless.c
-+ *	# net/core/wireless.c
-  *
-  * Other comments :
-  * --------------
-
---=-kVZOS8vuCIva4VAmkT5m--
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
