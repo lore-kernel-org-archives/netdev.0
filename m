@@ -1,51 +1,56 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] (4/25) sk98: change #define to typedef
-Date: Wed, 17 Nov 2004 15:01:34 +0000
-Message-ID: <20041117150133.GA8874@infradead.org>
-References: <419A231F.4020104@syskonnect.de>
+From: Nishanth Aravamudan <nacc@us.ibm.com>
+Subject: Re: [PATCH] Add ssleep_interruptible()
+Date: Tue, 16 Nov 2004 17:30:59 -0800
+Message-ID: <20041117013059.GA4218@us.ibm.com>
+References: <E1CO1vc-00022t-N2@sputnik> <20041101200749.GF1730@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, Jeff Garzik <jgarzik@pobox.com>,
-        Mirko Lindner <demon@pro-linux.de>, netdev@oss.sgi.com,
-        Ralph Roesler <rroesler@syskonnect.de>
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+        kernel-janitors@lists.osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mirko Lindner <mlindner@syskonnect.de>
+To: janitor@sternwelten.at
 Content-Disposition: inline
-In-Reply-To: <419A231F.4020104@syskonnect.de>
+In-Reply-To: <20041101200749.GF1730@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Note that the kernel BSD sk driver was _not_ written by SysKonnect and 
-> only supports Genesis and Yukon1; linux supports Genesis (single and 
-> dual), Yukon1, Yukon Plus, Yukon EC, Yukon FE and Yukon2 (single and 
-> dual).
-
-They have Yukon2 support for while - unlike Linux.
-
-> The BSD sk driver supports substantially less functionality than 
-> the Linux driver. For example, there is no link failover capability in 
-> the sk driver;
-
-Which isn't something that belongs into a driver anyway.  It also
-means you common code is obsfucated enough that no one noticed :)
-
-> For instance the symbol SK_IOC mentioned in your mail:
+On Mon, Nov 01, 2004 at 12:07:49PM -0800, Nishanth Aravamudan wrote:
+> Description: Adds ssleep_interruptible() to allow longer delays to occur
+> in TASK_INTERRUPTIBLE, similarly to ssleep(). To be consistent with
+> msleep_interruptible(), ssleep_interruptible() returns the remaining time
+> left in the delay in terms of seconds. This required dividing the return
+> value of msleep_interruptible() by 1000, thus a cast to (unsigned long)
+> to prevent any floating point issues.
 > 
-> > -#define SK_IOC char __iomem *
-> > +typedef void __iomem *SK_IOC;
+> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 > 
-> is used in a large number of OS independent driver files (e.g. skvpd.c).
-> The -for instance- file skvpd.c used by our Linux driver is used
-> at the same time without any changes by all our other drivers running
-> on other operating systems (e.g. Solaris, Windows).
+> --- 2.6.10-rc1-vanilla/include/linux/delay.h	2004-10-30 
+> 15:34:03.000000000 -0700
+> +++ 2.6.10-rc1/include/linux/delay.h	2004-11-01 12:06:11.000000000 -0800
+> @@ -46,4 +46,9 @@ static inline void ssleep(unsigned int s
+> 	msleep(seconds * 1000);
+> }
 > 
-> This is the reason why we need to redefine this symbol to the Linux
-> specific implementation (void __iomem).
+> +static inline unsigned long ssleep_interruptible(unsigned int seconds)
+> +{
+> +	return (unsigned long)(msleep_interruptible(seconds * 1000) / 1000);
+> +}
+> +
+> #endif /* defined(_LINUX_DELAY_H) */
 
-And you still haven't explained why your common code uses such
-a broken structure instead of having some semi-opaque private data
-passed around everywhere.
+After a discussion on IRC, I believe it is pretty clear that this
+function has serious issues. Mainly, that if I request a delay of 1
+second, but msleep_interruptible() returns after 1 millisecond, then
+ssleep_interruptible() will return 0, claiming the entire delay was
+used (due to rounding).
 
-Also note that we don't new drivers using such horrible "common code"
-anymore, you can be happy you sneaked it in at all a few years ago.
+Perhaps we should just be satisfied with milliseconds being the grossest
+(in contrast to fine) measure of time, at least in terms of
+interruptible delays. ssleep() is unaffected by this problem, of course.
+
+Please revert this patch, if applied, as well as any of the other
+patches I sent using ssleep_interruptible() [only a handful].
+
+Thanks,
+Nish
