@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/8) arlan -- trailing semicolons.
-Date: Thu, 25 Sep 2003 15:59:51 -0700
+Subject: [PATCH] (6/8) arlan -- add spinlock
+Date: Thu, 25 Sep 2003 16:00:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030925155951.32eeba17.shemminger@osdl.org>
+Message-ID: <20030925160014.1399184a.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,92 +12,124 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Get rid of extra trailing semicolons
+Convert bogus test_and_set local wait, to a real spin_lock so it
+has a chance of working on an SMP.  This also does the right thing
+and locks out interrupts while giving commands on UP;  maybe the
+comment in Kconfig was because there was never a proper mutex...
+
+Don't have real hardware to try this, but it can't be worse than
+the previous code.
 
 diff -Nru a/drivers/net/wireless/arlan-main.c b/drivers/net/wireless/arlan-main.c
---- a/drivers/net/wireless/arlan-main.c	Thu Sep 25 14:44:10 2003
-+++ b/drivers/net/wireless/arlan-main.c	Thu Sep 25 14:44:10 2003
-@@ -114,7 +114,7 @@
- 	struct timeval timev;
- 	do_gettimeofday(&timev);
- 	return ((long long) timev.tv_sec * 1000000 + timev.tv_usec);
--};
-+}
+--- a/drivers/net/wireless/arlan-main.c	Thu Sep 25 15:08:01 2003
++++ b/drivers/net/wireless/arlan-main.c	Thu Sep 25 15:08:01 2003
+@@ -44,7 +44,6 @@
+ static int mdebug;
+ #endif
  
- #ifdef ARLAN_ENTRY_EXIT_DEBUGGING
- #define ARLAN_DEBUG_ENTRY(name) \
-@@ -162,7 +162,7 @@
- 			netif_wake_queue (dev);
+-#if LINUX_VERSION_CODE > 0x20100
+ MODULE_PARM(irq, "i");
+ MODULE_PARM(mem, "i");
+ MODULE_PARM(probe, "i");
+@@ -87,10 +86,6 @@
+ MODULE_PARM_DESC(arlan_entry_and_exit_debug, "(ignored)");
+ #endif
+ 
+-#else
+-#define test_and_set_bit	set_bit
+-#endif
+-
+ struct arlan_conf_stru arlan_conf[MAX_ARLANS];
+ static int arlans_found;
+ 
+@@ -172,6 +167,7 @@
+ 	int udelayed = 0;
+ 	int i = 0;
+ 	long long time_mks = arlan_time();
++	unsigned long flags;
+ 
+ 	ARLAN_DEBUG_ENTRY("arlan_command");
+ 
+@@ -179,8 +175,8 @@
+ 		priv->card_polling_interval = 1;
+ 
+ 	if (arlan_debug & ARLAN_DEBUG_CHAIN_LOCKS)
+-		printk(KERN_DEBUG "arlan_command, %lx lock %lx  commandByte %x waiting %x incoming %x \n",
+-		jiffies, priv->command_lock, READSHMB(arlan->commandByte),
++		printk(KERN_DEBUG "arlan_command, %lx commandByte %x waiting %x incoming %x \n",
++		jiffies, READSHMB(arlan->commandByte),
+ 		       priv->waiting_command_mask, command_p);
+ 
+ 	priv->waiting_command_mask |= command_p;
+@@ -201,13 +197,8 @@
  	}
- 	return 1;
--};
-+}
  
+ 	/* Card access serializing lock */
++	spin_lock_irqsave(&priv->lock, flags);
  
- int arlan_command(struct net_device *dev, int command_p)
-@@ -314,7 +314,7 @@
- 		if (priv->tx_command_given || priv->rx_command_given)
- 		{
- 			printk(KERN_ERR "%s: Reset under tx or rx command \n", dev->name);
--		};
-+		}
- 		netif_stop_queue (dev);
- 		if (arlan_debug & ARLAN_DEBUG_RESET)
- 			printk(KERN_ERR "%s: Doing chip reset\n", dev->name);
-@@ -407,7 +407,7 @@
- 			{
- 				priv->waiting_command_mask &= ~ARLAN_COMMAND_TBUSY_CLEAR;
- 				netif_wake_queue (dev);
--			};
-+			}
- 	}
- 	else if (priv->waiting_command_mask & ARLAN_COMMAND_TX)
- 	{
-@@ -505,7 +505,7 @@
+-	if (test_and_set_bit(0, (void *) &priv->command_lock))
+-	{
+-		if (arlan_debug & ARLAN_DEBUG_CHAIN_LOCKS)
+-			printk(KERN_DEBUG "arlan_command: entered when command locked \n");
+-		goto command_busy_end;
+-	}
+ 	/* Check cards status and waiting */
+ 
+ 	if (priv->waiting_command_mask & (ARLAN_COMMAND_LONG_WAIT_NOW | ARLAN_COMMAND_WAIT_NOW))
+@@ -475,7 +466,7 @@
+ 		if (arlan_debug & ARLAN_DEBUG_CARD_STATE)
+ 			printk(KERN_ERR "card busy leaving command %x \n", priv->waiting_command_mask);
+ 
+-	priv->command_lock = 0;
++	spin_unlock_irqrestore(&priv->lock, flags);
  	ARLAN_DEBUG_EXIT("arlan_command");
- 	return 2;
+ 	priv->last_command_buff_free_time = jiffies;
+ 	return 0;
+@@ -486,24 +477,17 @@
  
--};
-+}
+ 	if (arlan_debug & ARLAN_DEBUG_CARD_STATE)
+ 		printk(KERN_ERR "%s arlan_command card busy end \n", dev->name);
+-	priv->command_lock = 0;
++	spin_unlock_irqrestore(&priv->lock, flags);
+ 	ARLAN_DEBUG_EXIT("arlan_command");
+ 	return 1;
+ 
+ bad_end:
+ 	printk(KERN_ERR "%s arlan_command bad end \n", dev->name);
+ 
+-	priv->command_lock = 0;
++	spin_unlock_irqrestore(&priv->lock, flags);
+ 	ARLAN_DEBUG_EXIT("arlan_command");
+ 
+ 	return -1;
+-
+-command_busy_end:
+-	if (arlan_debug & ARLAN_DEBUG_CARD_STATE)
+-		printk(KERN_ERR "%s arlan_command command busy end \n", dev->name);
+-	ARLAN_DEBUG_EXIT("arlan_command");
+-	return 2;
+-
+ }
  
  static inline void arlan_command_process(struct net_device *dev)
- {
-@@ -616,7 +616,7 @@
- 			jiffies - priv->tx_last_sent > 5*HZ ){
- 			arlan_command(dev, ARLAN_COMMAND_CLEAN_AND_RESET);		
- 			priv->tx_last_cleared = jiffies;
--		};
-+		}
- 	}
+@@ -1238,7 +1222,7 @@
+ 	memset(dev->broadcast, 0xff, 6);
+ 	dev->tx_queue_len = tx_queue_len;
+ 	priv->interrupt_processing_active = 0;
+-	priv->command_lock = 0;
++	spin_lock_init(&priv->lock);
  
+ 	netif_start_queue (dev);
  
-@@ -1018,7 +1018,7 @@
- 	if (check_mem_region(virt_to_phys((void *)memaddr),0x2000 )){
- 		// printk(KERN_WARNING "arlan: memory region %lx excluded from probing \n",virt_to_phys((void*)memaddr));
- 		return -ENODEV;
--	};
-+	}
- 	memcpy_fromio(tempBuf, arlan->textRegion, 29);
- 	tempBuf[30] = 0;
- 
-@@ -1358,7 +1358,7 @@
- 		priv->ReTransmitRequested++;
- 
- 	ARLAN_DEBUG_EXIT("arlan_queue_retransmit");
--};
-+}
- 
- static inline void RetryOrFail(struct net_device *dev)
- {
-diff -Nru a/drivers/net/wireless/arlan-proc.c b/drivers/net/wireless/arlan-proc.c
---- a/drivers/net/wireless/arlan-proc.c	Thu Sep 25 14:44:10 2003
-+++ b/drivers/net/wireless/arlan-proc.c	Thu Sep 25 14:44:10 2003
-@@ -108,7 +108,7 @@
- 		default:
- 			return "ERROR unknown Diagnostic info reply code ";
- 	  }
--};
-+}
- 
- static const char *arlan_hardware_type_string(struct net_device *dev)
- {
+diff -Nru a/drivers/net/wireless/arlan.h b/drivers/net/wireless/arlan.h
+--- a/drivers/net/wireless/arlan.h	Thu Sep 25 15:08:01 2003
++++ b/drivers/net/wireless/arlan.h	Thu Sep 25 15:08:01 2003
+@@ -367,7 +367,7 @@
+       volatile long long tx_last_cleared;
+       volatile int 	retransmissions;
+       volatile int 	interrupt_ack_requested;
+-      volatile long	command_lock;
++      spinlock_t lock;
+       volatile int	rx_command_needed;
+       volatile int	tx_command_needed;
+       volatile int 	waiting_command_mask;
