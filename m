@@ -1,380 +1,212 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: [2.6 patch] fix net/hamradio/dmascc with gcc 3.4
-Date: Tue, 3 Aug 2004 00:33:32 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040802223332.GP2746@fs.tum.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe RLT-8139 related)
+Date: Tue, 3 Aug 2004 00:35:15 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040803003515.A29885@electric-eye.fr.zoreil.com>
+References: <Pine.LNX.4.44.0408021234290.15888-100000@silmu.st.jyu.fi> <Pine.LNX.4.44.0408021301030.17420-100000@silmu.st.jyu.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@vger.kernel.org, Netdev <netdev@oss.sgi.com>,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Content-Type: multipart/mixed; boundary="bp/iNruPH9dso1Pn"
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        H?ctor Mart?n <hector@marcansoft.com>,
+        Linux-Kernel <linux-kernel@vger.kernel.org>, akpm@osdl.org,
+        netdev@oss.sgi.com, brad@brad-x.com, shemminger@osdl.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Pasi Sjoholm <ptsjohol@cc.jyu.fi>
 Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0408021301030.17420-100000@silmu.st.jyu.fi>; from ptsjohol@cc.jyu.fi on Mon, Aug 02, 2004 at 01:03:15PM +0300
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Trying to compile net/hamradio/dmascc.c in 2.6.8-rc2-mm2 with gcc 3.4  
-results in compile errors starting with the following:
+
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Pasi Sjoholm <ptsjohol@cc.jyu.fi> :
+> I forgot to mention that it was quite hard to crash the driver with that 
+> /* Clear out errors and receive interrupts */-patch. Took about 15minutes 
+> everytime, when normally it takes about 2mins.
+
+I have made a few changes. Please enable the DEBUG option and set msglvl
+to its maximal value via ethtool. You may test the patches separately if
+you find some time but the log once both r8139-10.patch and r8139-20.patch
+are applied would be enough.
+
+If the log fills too fast, you may comment out any message which does
+not belong to rtl8139_rx().
+
+--
+Ueimor
+
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="r8139-10.patch"
 
 
-<--  snip  -->
-
-...
-  CC      drivers/net/hamradio/dmascc.o
-drivers/net/hamradio/dmascc.c: In function `scc_isr':
-drivers/net/hamradio/dmascc.c:250: sorry, unimplemented: inlining 
-failed in call to 'z8530_isr': function body not available
-drivers/net/hamradio/dmascc.c:969: sorry, unimplemented: called from 
-here
-drivers/net/hamradio/dmascc.c:250: sorry, unimplemented: inlining 
-failed in call to 'z8530_isr': function body not available
-drivers/net/hamradio/dmascc.c:978: sorry, unimplemented: called from 
-here
-make[3]: *** [drivers/net/hamradio/dmascc.o] Error 1
-
-<--  snip  -->
+- read the interruption status word that the driver will ack before the
+  actual processing is done;
+- avoid a few heavy pci transactions when several packets are received at
+  the same time.
 
 
-The patch below moves all inline functions above their first caller.
+ drivers/net/8139too.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
 
-
-diffstat output:
- drivers/net/hamradio/dmascc.c |  290 ++++++++++++++++------------------
- 1 files changed, 144 insertions(+), 146 deletions(-)
-
-
-Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
-
---- linux-2.6.7-mm7-full-gcc3.4/drivers/net/hamradio/dmascc.c.old	2004-07-13 00:55:54.000000000 +0200
-+++ linux-2.6.7-mm7-full-gcc3.4/drivers/net/hamradio/dmascc.c	2004-07-13 01:01:06.000000000 +0200
-@@ -246,8 +246,14 @@
- static struct net_device_stats *scc_get_stats(struct net_device *dev);
- static int scc_set_mac_address(struct net_device *dev, void *sa);
+diff -puN drivers/net/8139too.c~r8139-10 drivers/net/8139too.c
+--- linux-2.6.8-rc2/drivers/net/8139too.c~r8139-10	2004-08-02 22:39:24.000000000 +0200
++++ linux-2.6.8-rc2-romieu/drivers/net/8139too.c	2004-08-02 23:08:00.000000000 +0200
+@@ -1934,12 +1934,15 @@ static int rtl8139_rx(struct net_device 
+ 	int received = 0;
+ 	unsigned char *rx_ring = tp->rx_ring;
+ 	unsigned int cur_rx = tp->cur_rx;
++	u16 status;
  
--static irqreturn_t scc_isr(int irq, void *dev_id, struct pt_regs * regs);
-+static inline void tx_on(struct scc_priv *priv);
-+static inline void rx_on(struct scc_priv *priv);
-+static inline void rx_off(struct scc_priv *priv);
-+static void start_timer(struct scc_priv *priv, int t, int r15);
-+static inline unsigned char random(void);
+ 	DPRINTK ("%s: In rtl8139_rx(), current %4.4x BufAddr %4.4x,"
+ 		 " free to %4.4x, Cmd %2.2x.\n", dev->name, cur_rx,
+ 		 RTL_R16 (RxBufAddr),
+ 		 RTL_R16 (RxBufPtr), RTL_R8 (ChipCmd));
+ 
++	status = RTL_R16 (IntrStatus) & RxAckBits;
 +
- static inline void z8530_isr(struct scc_info *info);
-+static irqreturn_t scc_isr(int irq, void *dev_id, struct pt_regs * regs);
- static void rx_isr(struct scc_priv *priv);
- static void special_condition(struct scc_priv *priv, int rc);
- static void rx_bh(void *arg);
-@@ -255,12 +261,6 @@
- static void es_isr(struct scc_priv *priv);
- static void tm_isr(struct scc_priv *priv);
+ 	while (netif_running(dev) && received < budget 
+ 	       && (RTL_R8 (ChipCmd) & RxBufEmpty) == 0) {
+ 		u32 ring_offset = cur_rx % RX_BUF_LEN;
+@@ -1947,7 +1950,6 @@ static int rtl8139_rx(struct net_device 
+ 		unsigned int rx_size;
+ 		unsigned int pkt_size;
+ 		struct sk_buff *skb;
+-		u16 status;
  
--static inline void tx_on(struct scc_priv *priv);
--static inline void rx_on(struct scc_priv *priv);
--static inline void rx_off(struct scc_priv *priv);
--static void start_timer(struct scc_priv *priv, int t, int r15);
--static inline unsigned char random(void);
+ 		rmb();
+ 
+@@ -1977,7 +1979,7 @@ static int rtl8139_rx(struct net_device 
+ 		 */
+ 		if (unlikely(rx_size == 0xfff0)) {
+ 			tp->xstats.early_rx++;
+-			goto done;
++			break;
+ 		}
+ 
+ 		/* If Rx err or invalid rx_size/rx_status received
+@@ -1989,7 +1991,8 @@ static int rtl8139_rx(struct net_device 
+ 			     (rx_size < 8) ||
+ 			     (!(rx_status & RxStatusOK)))) {
+ 			rtl8139_rx_err (rx_status, dev, tp, ioaddr);
+-			return -1;
++			received = -1;
++			goto out;
+ 		}
+ 
+ 		/* Malloc up new buffer, compatible with net-2e. */
+@@ -2024,21 +2027,20 @@ static int rtl8139_rx(struct net_device 
+ 
+ 		cur_rx = (cur_rx + rx_size + 4 + 3) & ~3;
+ 		RTL_W16 (RxBufPtr, (u16) (cur_rx - 16));
++	}
+ 
++	if (received > 0) {
+ 		/* Clear out errors and receive interrupts */
+-		status = RTL_R16 (IntrStatus) & RxAckBits;
+ 		if (likely(status != 0)) {
+ 			if (unlikely(status & (RxFIFOOver | RxOverflow))) {
+ 				tp->stats.rx_errors++;
+-				if (status & RxFIFOOver)
++			if (status & RxFIFOOver)
+ 					tp->stats.rx_fifo_errors++;
+ 			}
+ 			RTL_W16_F (IntrStatus, RxAckBits);
+ 		}
+ 	}
+ 
+- done:
 -
+ #if RTL8139_DEBUG > 1
+ 	DPRINTK ("%s: Done rtl8139_rx(), current %4.4x BufAddr %4.4x,"
+ 		 " free to %4.4x, Cmd %2.2x.\n", dev->name, cur_rx,
+@@ -2047,6 +2049,7 @@ static int rtl8139_rx(struct net_device 
+ #endif
  
- /* Initialization variables */
- 
-@@ -945,42 +945,115 @@
+ 	tp->cur_rx = cur_rx;
++out:
+ 	return received;
  }
  
- 
--static irqreturn_t scc_isr(int irq, void *dev_id, struct pt_regs * regs) {
--  struct scc_info *info = dev_id;
-+static inline void tx_on(struct scc_priv *priv) {
-+  int i, n;
-+  unsigned long flags;
- 
--  spin_lock(info->priv[0].register_lock);
--  /* At this point interrupts are enabled, and the interrupt under service
--     is already acknowledged, but masked off.
-+  if (priv->param.dma >= 0) {
-+    n = (priv->chip == Z85230) ? 3 : 1;
-+    /* Program DMA controller */
-+    flags = claim_dma_lock();
-+    set_dma_mode(priv->param.dma, DMA_MODE_WRITE);
-+    set_dma_addr(priv->param.dma, (int) priv->tx_buf[priv->tx_tail]+n);
-+    set_dma_count(priv->param.dma, priv->tx_len[priv->tx_tail]-n);
-+    release_dma_lock(flags);
-+    /* Enable TX underrun interrupt */
-+    write_scc(priv, R15, TxUIE);
-+    /* Configure DREQ */
-+    if (priv->type == TYPE_TWIN)
-+      outb((priv->param.dma == 1) ? TWIN_DMA_HDX_T1 : TWIN_DMA_HDX_T3,
-+	   priv->card_base + TWIN_DMA_CFG);
-+    else
-+      write_scc(priv, R1, EXT_INT_ENAB | WT_FN_RDYFN | WT_RDY_ENAB);
-+    /* Write first byte(s) */
-+    spin_lock_irqsave(priv->register_lock, flags);
-+    for (i = 0; i < n; i++)
-+      write_scc_data(priv, priv->tx_buf[priv->tx_tail][i], 1);
-+    enable_dma(priv->param.dma);
-+    spin_unlock_irqrestore(priv->register_lock, flags);
-+  } else {
-+    write_scc(priv, R15, TxUIE);
-+    write_scc(priv, R1, EXT_INT_ENAB | WT_FN_RDYFN | TxINT_ENAB);
-+    tx_isr(priv);
-+  }
-+  /* Reset EOM latch if we do not have the AUTOEOM feature */
-+  if (priv->chip == Z8530) write_scc(priv, R0, RES_EOM_L);
-+}
- 
--     Interrupt processing: We loop until we know that the IRQ line is
--     low. If another positive edge occurs afterwards during the ISR,
--     another interrupt will be triggered by the interrupt controller
--     as soon as the IRQ level is enabled again (see asm/irq.h).
- 
--     Bottom-half handlers will be processed after scc_isr(). This is
--     important, since we only have small ringbuffers and want new data
--     to be fetched/delivered immediately. */
-+static inline void rx_on(struct scc_priv *priv) {
-+  unsigned long flags;
- 
--  if (info->priv[0].type == TYPE_TWIN) {
--    int is, card_base = info->priv[0].card_base;
--    while ((is = ~inb(card_base + TWIN_INT_REG)) &
--	   TWIN_INT_MSK) {
--      if (is & TWIN_SCC_MSK) {
--	z8530_isr(info);
--      } else if (is & TWIN_TMR1_MSK) {
--	inb(card_base + TWIN_CLR_TMR1);
--	tm_isr(&info->priv[0]);
--      } else {
--	inb(card_base + TWIN_CLR_TMR2);
--	tm_isr(&info->priv[1]);
--      }
-+  /* Clear RX FIFO */
-+  while (read_scc(priv, R0) & Rx_CH_AV) read_scc_data(priv);
-+  priv->rx_over = 0;
-+  if (priv->param.dma >= 0) {
-+    /* Program DMA controller */
-+    flags = claim_dma_lock();
-+    set_dma_mode(priv->param.dma, DMA_MODE_READ);
-+    set_dma_addr(priv->param.dma, (int) priv->rx_buf[priv->rx_head]);
-+    set_dma_count(priv->param.dma, BUF_SIZE);
-+    release_dma_lock(flags);
-+    enable_dma(priv->param.dma);
-+    /* Configure PackeTwin DMA */
-+    if (priv->type == TYPE_TWIN) {
-+      outb((priv->param.dma == 1) ? TWIN_DMA_HDX_R1 : TWIN_DMA_HDX_R3,
-+	   priv->card_base + TWIN_DMA_CFG);
-     }
--  } else z8530_isr(info);
--  spin_unlock(info->priv[0].register_lock);
--  return IRQ_HANDLED;
-+    /* Sp. cond. intr. only, ext int enable, RX DMA enable */
-+    write_scc(priv, R1, EXT_INT_ENAB | INT_ERR_Rx |
-+	      WT_RDY_RT | WT_FN_RDYFN | WT_RDY_ENAB);
-+  } else {
-+    /* Reset current frame */
-+    priv->rx_ptr = 0;
-+    /* Intr. on all Rx characters and Sp. cond., ext int enable */
-+    write_scc(priv, R1, EXT_INT_ENAB | INT_ALL_Rx | WT_RDY_RT |
-+	      WT_FN_RDYFN);
-+  }
-+  write_scc(priv, R0, ERR_RES);
-+  write_scc(priv, R3, RxENABLE | Rx8 | RxCRC_ENAB);
-+}
-+
-+
-+static inline void rx_off(struct scc_priv *priv) {
-+  /* Disable receiver */
-+  write_scc(priv, R3, Rx8);
-+  /* Disable DREQ / RX interrupt */
-+  if (priv->param.dma >= 0 && priv->type == TYPE_TWIN)
-+    outb(0, priv->card_base + TWIN_DMA_CFG);
-+  else
-+    write_scc(priv, R1, EXT_INT_ENAB | WT_FN_RDYFN);
-+  /* Disable DMA */
-+  if (priv->param.dma >= 0) disable_dma(priv->param.dma);
-+}
-+
-+
-+static void start_timer(struct scc_priv *priv, int t, int r15) {
-+  unsigned long flags;
-+
-+  outb(priv->tmr_mode, priv->tmr_ctrl);
-+  if (t == 0) {
-+    tm_isr(priv);
-+  } else if (t > 0) {
-+    save_flags(flags);
-+    cli();
-+    outb(t & 0xFF, priv->tmr_cnt);
-+    outb((t >> 8) & 0xFF, priv->tmr_cnt);
-+    if (priv->type != TYPE_TWIN) {
-+      write_scc(priv, R15, r15 | CTSIE);
-+      priv->rr0 |= CTS;
-+    }
-+    restore_flags(flags);
-+  }
- }
- 
- 
-+static inline unsigned char random(void) {
-+  /* See "Numerical Recipes in C", second edition, p. 284 */
-+  rand = rand * 1664525L + 1013904223L;
-+  return (unsigned char) (rand >> 24);
-+}
-+
- static inline void z8530_isr(struct scc_info *info) {
-   int is, i = 100;
- 
-@@ -1009,6 +1082,42 @@
- }
- 
- 
-+static irqreturn_t scc_isr(int irq, void *dev_id, struct pt_regs * regs) {
-+  struct scc_info *info = dev_id;
-+
-+  spin_lock(info->priv[0].register_lock);
-+  /* At this point interrupts are enabled, and the interrupt under service
-+     is already acknowledged, but masked off.
-+
-+     Interrupt processing: We loop until we know that the IRQ line is
-+     low. If another positive edge occurs afterwards during the ISR,
-+     another interrupt will be triggered by the interrupt controller
-+     as soon as the IRQ level is enabled again (see asm/irq.h).
-+
-+     Bottom-half handlers will be processed after scc_isr(). This is
-+     important, since we only have small ringbuffers and want new data
-+     to be fetched/delivered immediately. */
-+
-+  if (info->priv[0].type == TYPE_TWIN) {
-+    int is, card_base = info->priv[0].card_base;
-+    while ((is = ~inb(card_base + TWIN_INT_REG)) &
-+	   TWIN_INT_MSK) {
-+      if (is & TWIN_SCC_MSK) {
-+	z8530_isr(info);
-+      } else if (is & TWIN_TMR1_MSK) {
-+	inb(card_base + TWIN_CLR_TMR1);
-+	tm_isr(&info->priv[0]);
-+      } else {
-+	inb(card_base + TWIN_CLR_TMR2);
-+	tm_isr(&info->priv[1]);
-+      }
-+    }
-+  } else z8530_isr(info);
-+  spin_unlock(info->priv[0].register_lock);
-+  return IRQ_HANDLED;
-+}
-+
-+
- static void rx_isr(struct scc_priv *priv) {
-   if (priv->param.dma >= 0) {
-     /* Check special condition and perform error reset. See 2.4.7.5. */
-@@ -1292,114 +1401,3 @@
-     break;
-   }
- }
--
--
--static inline void tx_on(struct scc_priv *priv) {
--  int i, n;
--  unsigned long flags;
--
--  if (priv->param.dma >= 0) {
--    n = (priv->chip == Z85230) ? 3 : 1;
--    /* Program DMA controller */
--    flags = claim_dma_lock();
--    set_dma_mode(priv->param.dma, DMA_MODE_WRITE);
--    set_dma_addr(priv->param.dma, (int) priv->tx_buf[priv->tx_tail]+n);
--    set_dma_count(priv->param.dma, priv->tx_len[priv->tx_tail]-n);
--    release_dma_lock(flags);
--    /* Enable TX underrun interrupt */
--    write_scc(priv, R15, TxUIE);
--    /* Configure DREQ */
--    if (priv->type == TYPE_TWIN)
--      outb((priv->param.dma == 1) ? TWIN_DMA_HDX_T1 : TWIN_DMA_HDX_T3,
--	   priv->card_base + TWIN_DMA_CFG);
--    else
--      write_scc(priv, R1, EXT_INT_ENAB | WT_FN_RDYFN | WT_RDY_ENAB);
--    /* Write first byte(s) */
--    spin_lock_irqsave(priv->register_lock, flags);
--    for (i = 0; i < n; i++)
--      write_scc_data(priv, priv->tx_buf[priv->tx_tail][i], 1);
--    enable_dma(priv->param.dma);
--    spin_unlock_irqrestore(priv->register_lock, flags);
--  } else {
--    write_scc(priv, R15, TxUIE);
--    write_scc(priv, R1, EXT_INT_ENAB | WT_FN_RDYFN | TxINT_ENAB);
--    tx_isr(priv);
--  }
--  /* Reset EOM latch if we do not have the AUTOEOM feature */
--  if (priv->chip == Z8530) write_scc(priv, R0, RES_EOM_L);
--}
--
--
--static inline void rx_on(struct scc_priv *priv) {
--  unsigned long flags;
--
--  /* Clear RX FIFO */
--  while (read_scc(priv, R0) & Rx_CH_AV) read_scc_data(priv);
--  priv->rx_over = 0;
--  if (priv->param.dma >= 0) {
--    /* Program DMA controller */
--    flags = claim_dma_lock();
--    set_dma_mode(priv->param.dma, DMA_MODE_READ);
--    set_dma_addr(priv->param.dma, (int) priv->rx_buf[priv->rx_head]);
--    set_dma_count(priv->param.dma, BUF_SIZE);
--    release_dma_lock(flags);
--    enable_dma(priv->param.dma);
--    /* Configure PackeTwin DMA */
--    if (priv->type == TYPE_TWIN) {
--      outb((priv->param.dma == 1) ? TWIN_DMA_HDX_R1 : TWIN_DMA_HDX_R3,
--	   priv->card_base + TWIN_DMA_CFG);
--    }
--    /* Sp. cond. intr. only, ext int enable, RX DMA enable */
--    write_scc(priv, R1, EXT_INT_ENAB | INT_ERR_Rx |
--	      WT_RDY_RT | WT_FN_RDYFN | WT_RDY_ENAB);
--  } else {
--    /* Reset current frame */
--    priv->rx_ptr = 0;
--    /* Intr. on all Rx characters and Sp. cond., ext int enable */
--    write_scc(priv, R1, EXT_INT_ENAB | INT_ALL_Rx | WT_RDY_RT |
--	      WT_FN_RDYFN);
--  }
--  write_scc(priv, R0, ERR_RES);
--  write_scc(priv, R3, RxENABLE | Rx8 | RxCRC_ENAB);
--}
--
--
--static inline void rx_off(struct scc_priv *priv) {
--  /* Disable receiver */
--  write_scc(priv, R3, Rx8);
--  /* Disable DREQ / RX interrupt */
--  if (priv->param.dma >= 0 && priv->type == TYPE_TWIN)
--    outb(0, priv->card_base + TWIN_DMA_CFG);
--  else
--    write_scc(priv, R1, EXT_INT_ENAB | WT_FN_RDYFN);
--  /* Disable DMA */
--  if (priv->param.dma >= 0) disable_dma(priv->param.dma);
--}
--
--
--static void start_timer(struct scc_priv *priv, int t, int r15) {
--  unsigned long flags;
--
--  outb(priv->tmr_mode, priv->tmr_ctrl);
--  if (t == 0) {
--    tm_isr(priv);
--  } else if (t > 0) {
--    save_flags(flags);
--    cli();
--    outb(t & 0xFF, priv->tmr_cnt);
--    outb((t >> 8) & 0xFF, priv->tmr_cnt);
--    if (priv->type != TYPE_TWIN) {
--      write_scc(priv, R15, r15 | CTSIE);
--      priv->rr0 |= CTS;
--    }
--    restore_flags(flags);
--  }
--}
--
--
--static inline unsigned char random(void) {
--  /* See "Numerical Recipes in C", second edition, p. 284 */
--  rand = rand * 1664525L + 1013904223L;
--  return (unsigned char) (rand >> 24);
--}
--
 
+_
+
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="r8139-20.patch"
+
+
+Let's be sure that the driver will make some progress/reset when
+crap hits the packet size descriptor.
+
+
+ drivers/net/8139too.c |   25 ++++++++++++++++++++++++-
+ 1 files changed, 24 insertions(+), 1 deletion(-)
+
+diff -puN drivers/net/8139too.c~r8139-20 drivers/net/8139too.c
+--- linux-2.6.8-rc2/drivers/net/8139too.c~r8139-20	2004-08-02 23:21:36.000000000 +0200
++++ linux-2.6.8-rc2-romieu/drivers/net/8139too.c	2004-08-03 00:13:56.000000000 +0200
+@@ -593,6 +593,7 @@ struct rtl8139_private {
+ 	int time_to_die;
+ 	struct mii_if_info mii;
+ 	unsigned int regs_len;
++	unsigned long fifo_copy_timeout;
+ };
+ 
+ MODULE_AUTHOR ("Jeff Garzik <jgarzik@pobox.com>");
+@@ -1937,7 +1938,7 @@ static int rtl8139_rx(struct net_device 
+ 	u16 status;
+ 
+ 	DPRINTK ("%s: In rtl8139_rx(), current %4.4x BufAddr %4.4x,"
+-		 " free to %4.4x, Cmd %2.2x.\n", dev->name, cur_rx,
++		 " free to %4.4x, Cmd %2.2x.\n", dev->name, (u16)cur_rx,
+ 		 RTL_R16 (RxBufAddr),
+ 		 RTL_R16 (RxBufPtr), RTL_R8 (ChipCmd));
+ 
+@@ -1978,10 +1979,24 @@ static int rtl8139_rx(struct net_device 
+ 		 * since EarlyRx is disabled.
+ 		 */
+ 		if (unlikely(rx_size == 0xfff0)) {
++			if (!tp->fifo_copy_timeout)
++				tp->fifo_copy_timeout = jiffies + 2;
++			else if (time_after(jiffies, tp->fifo_copy_timeout)) {
++				DPRINTK ("%s: hung FIFO. Reset.", dev->name);
++				rx_size = 0;
++				goto no_early_rx;
++			}
++			if (netif_msg_intr(tp)) {
++				printk(KERN_DEBUG "%s: fifo copy in progress.",
++				       dev->name);
++			}
+ 			tp->xstats.early_rx++;
+ 			break;
+ 		}
+ 
++no_early_rx:
++		tp->fifo_copy_timeout = 0;
++
+ 		/* If Rx err or invalid rx_size/rx_status received
+ 		 * (which happens if we get lost in the ring),
+ 		 * Rx process gets reset, so we abort any further
+@@ -2049,6 +2064,14 @@ static int rtl8139_rx(struct net_device 
+ #endif
+ 
+ 	tp->cur_rx = cur_rx;
++
++	/*
++	 * The receive buffer should be mostly empty.
++	 * Tell NAPI to reenable the Rx irq.
++	 */
++	if (tp->fifo_copy_timeout)
++		received = budget;
++
+ out:
+ 	return received;
+ }
+
+_
+
+--bp/iNruPH9dso1Pn--
