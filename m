@@ -1,42 +1,33 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [ANNOUNCE] Porting MPLS-Linux to 2.6 (2.6.0-test9-bk22)
-	comments welcome.
-Date: 19 Nov 2003 09:52:44 -0500
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: r8169 and tg3
+Date: Wed, 19 Nov 2003 19:44:57 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1069253564.1025.14.camel@jzny.localdomain>
-References: <Pine.SOL.4.40.0311180843180.20972-100000@gervaise.enst.fr>
-Reply-To: hadi@cyberus.ca
+Message-ID: <16315.47657.228084.388046@robur.slu.se>
+References: <47973.68.105.173.45.1069042089.squirrel@mail.mainstreetsoftworks.com>
+	<3FB9A277.70309@pobox.com>
+	<20031118135848.A2451@electric-eye.fr.zoreil.com>
+	<3FBBA76B.4070606@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mpls-linux-general@sf.net, "David S. Miller" <davem@redhat.com>,
+Cc: Francois Romieu <romieu@fr.zoreil.com>, Brad House <brad_mssw@gentoo.org>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ramon Casellas <casellas@infres.enst.fr>
-In-Reply-To: <Pine.SOL.4.40.0311180843180.20972-100000@gervaise.enst.fr>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3FBBA76B.4070606@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Ramon,
 
-Give me a few days; i need to get it to some sane level and would like
-to review with Dave first then James.
-Your interest is highly appreaciated.
+Jeff Garzik writes:
 
-cheers,
-jamal
+ > hehe.  I certainly don't object...  You probably want to look over the 
+ > r8169 v1.6 that Brad posted a link to, since it does have some improved 
+ > 8169 hardware support (modulo bugs, of course).
 
-On Tue, 2003-11-18 at 02:48, Ramon Casellas wrote:
-> On 17 Nov 2003, jamal wrote:
-> 
-> > code once it is deemed working. If you want to be on the list as well,
-> > let me know. I am sure you as will James will both have valuable input.
-> 
-> Hi Jamal,
-> 
-> I would appreciate it, thanks. On the other hand, if you both agree, I
-> would like to take a look at the new code, even if it does not even
-> compile (and your userspace parts) to start documenting.
-> 
-> Best regards,
-> R.
+ Yes r8169 can be interesting... I played with it a bit from my head the 
+ sending performance was about 900 kpps (pktgen) and RX very OK too about 
+ 780 kpps with just dropping the skb instead of doing netif_receive.
+
+ Cheers.
+						--ro
