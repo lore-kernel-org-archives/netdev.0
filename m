@@ -1,7 +1,7 @@
 From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: [PATCH wireless-2.6 5/12] Host AP: Fix hw address changing for wifi# interface
-Date: Sun, 7 Nov 2004 23:13:12 -0800
-Message-ID: <20041108071312.GF1076@jm.kir.nu>
+Subject: [PATCH wireless-2.6 6/12] Host AP: Prevent STAs from associating using AP address
+Date: Sun, 7 Nov 2004 23:13:45 -0800
+Message-ID: <20041108071345.GG1076@jm.kir.nu>
 References: <20041108070156.GA1076@jm.kir.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,24 +14,27 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Update wifi# interface MAC address when changing addresses. Without
-this, MAC address change does not work correctly with the new
-interface design (wifi#/wlan0#).
+Prevent STAs from authenticating with AP address (i.e., spoofing AP
+MAC address). The inner bridge implementation intercepts packets
+before they are passed to Linux net stack, so using AP MAC address
+would prevent AP from seeing the packet properly.
 
 Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
 
 
-diff -Nru a/drivers/net/wireless/hostap/hostap.c b/drivers/net/wireless/hostap/hostap.c
---- a/drivers/net/wireless/hostap/hostap.c	2004-11-07 22:38:26 -08:00
-+++ b/drivers/net/wireless/hostap/hostap.c	2004-11-07 22:38:26 -08:00
-@@ -808,6 +808,7 @@
- 		iface = list_entry(ptr, struct hostap_interface, list);
- 		memcpy(iface->dev->dev_addr, addr->sa_data, ETH_ALEN);
- 	}
-+	memcpy(local->dev->dev_addr, addr->sa_data, ETH_ALEN);
- 	read_unlock_bh(&local->iface_lock);
+diff -Nru a/drivers/net/wireless/hostap/hostap_ap.c b/drivers/net/wireless/hostap/hostap_ap.c
+--- a/drivers/net/wireless/hostap/hostap_ap.c	2004-11-07 22:38:35 -08:00
++++ b/drivers/net/wireless/hostap/hostap_ap.c	2004-11-07 22:38:35 -08:00
+@@ -1329,7 +1329,8 @@
+ 	status_code = __le16_to_cpu(*pos);
+ 	pos++;
  
- 	return 0;
+-	if (ap_control_mac_deny(&ap->mac_restrictions, hdr->addr2)) {
++	if (memcmp(dev->dev_addr, hdr->addr2, ETH_ALEN) == 0 ||
++	    ap_control_mac_deny(&ap->mac_restrictions, hdr->addr2)) {
+ 		txt = "authentication denied";
+ 		resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
+ 		goto fail;
 
 
 -- 
