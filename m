@@ -1,44 +1,80 @@
-From: "David S. Miller" <davem@redhat.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: TOE brain dump
-Date: Mon, 4 Aug 2003 12:26:32 -0700
+Date: 04 Aug 2003 15:42:29 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030804122632.65ba2122.davem@redhat.com>
-References: <20030802140444.E5798@almesberger.net>
-	<3F2BF5C7.90400@us.ibm.com>
-	<3F2C0C44.6020002@pobox.com>
-	<20030802184901.G5798@almesberger.net>
-	<m1fzkiwnru.fsf@frodo.biederman.org>
-	<20030804162433.L5798@almesberger.net>
+Message-ID: <1060026149.1102.411.camel@jzny.localdomain>
+References: <1060015518.1103.399.camel@jzny.localdomain>
+	 <3F2EAA78.60202@softhome.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, jgarzik@pobox.com, niv@us.ibm.com,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Werner Almesberger <werner@almesberger.net>
-In-Reply-To: <20030804162433.L5798@almesberger.net>
+To: "Ihar 'Philips' Filipau" <filia@softhome.net>
+In-Reply-To: <3F2EAA78.60202@softhome.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 4 Aug 2003 16:24:33 -0300
-Werner Almesberger <werner@almesberger.net> wrote:
-
-> Eric W. Biederman wrote:
-> > There is one place in low latency communications that I can think
-> > of where TCP/IP is not the proper solution.  For low latency
-> > communication the checksum is at the wrong end of the packet.
+On Mon, 2003-08-04 at 14:48, Ihar 'Philips' Filipau wrote:
+> jamal wrote:
+> > to nit: Its no longer about routing or bridging, friend. Thats like getting 
+> > fries at mcdonalds.
+> > 
 > 
-> That's one of the few things ATM's AAL5 got right.
+>    1GE/10GE - for $5?
+>    I'm first in the shoping queue!!!-)))
+> 
 
-Let's recall how long the IFF_TRAILERS hack from BSD :-)
+I thought you were talking about a 2 Gige interface doing routing, no?
+Do the math: Dell will happily sell you a (managed?) switch which has
+8Giges on it for about $300. It does wire rate on all 8 interfaces. All
+ready to go in a 1U form factor. How much do you think that chip costs?
+Lets say it doesnt do L3, how much more do you think it will cost to do
+L3 in quantities?
 
-> But in the end, I think it doesn't really matter.
+>    Since I see no reasonable out-come of this discussion I left it.
+> 
+>    TOE as I see - since my company utilizes several of them - are too 
+> different and too specialized to application/protocols. And yes - price 
+> of development/deployment maters too. Linux support for those protocols 
+> is inmature. It cannot handle or requirements even software-wise. I'm 
+> not talking about timing requirements - linux network in general is not 
+> (even soft) real-time.
+> 
 
-I tend to agree on this one.
+Now this is anti-social talk;-> Why do you need to have realtime for any
+of this stuff? 
 
-And on the transmit side if you have more than 1 pending TX frame, you
-can always be prefetching the next one into the fifo so that by the
-time the medium is ready all the checksum bits have been done.
+>    My personal flame-meter is out of scale ;-)
+>    I shall join the discussion back when I will see any real ideas.
+> 
 
-In fact I'd be surprised if current generation 1g/10g cards are not
-doing something like this.
+Please dont dissapear, a lot of questions need answers;->
+
+> 
+>  > If all you wanted was to do L3 - why not just buy a $5 chip that
+>  > can do this for a lot more interfaces? Why sweat over
+>  > optimizing L3 routing in a 3K space?
+> 
+>    We are doing not a teapot, and high level spec for this code takes 
+> around 15 pages.
+>    3k - it is not optimized - we have limit around 2GB ;-)
+
+I am really confused now. We must be talking about different class of
+devices. NPUs as i know them are very limited in how much code you can
+stash them. In the 10K ranges is already overkill.
+Do you have any URL i can look at on what you are describing?
+
+>    It just takes only 3k. And it handles some special (read - 
+> proprietary) functions too - some bugs of some other pieces of hardware. 
+> NPU does all stuff by itself, but sometimes we need to extract 
+> configuration information which is direct to us, for example.
+
+Please provide me a pointer if you can - I am very interested in the 2G
+code space you mention.
+
+cheers,
+jamal
+
+> 
