@@ -1,189 +1,78 @@
-From: DaMouse Networks <damouse@ntlworld.com>
-Subject: Re: [BUG] 2.6.1-rc1-mm1 with r8169 driver
-Date: Sun, 11 Jan 2004 13:59:00 +0000
+From: Amir Noam <amir.noam@intel.com>
+Subject: Re: [bonding] Add basic support for dynamic configuration of bond interfaces
+Date: Sun, 11 Jan 2004 16:28:07 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040111135900.1acb95b3@EozVul.WORKGROUP>
-References: <20040106214950.6901a5a1@EozVul.WORKGROUP>
-	<20040106232646.E4767@electric-eye.fr.zoreil.com>
-	<20040110153709.0df74309@EozVul.WORKGROUP>
-	<20040110213531.C4413@electric-eye.fr.zoreil.com>
-	<20040110210058.74e4fbca@EozVul.WORKGROUP>
-	<20040110224439.E4413@electric-eye.fr.zoreil.com>
-	<20040110215315.73d8953b@EozVul.WORKGROUP>
-	<20040110231546.F4413@electric-eye.fr.zoreil.com>
-	<20040111000920.A7396@electric-eye.fr.zoreil.com>
-	<20040111125428.7dfc6d54@EozVul.WORKGROUP>
-	<20040111141806.A19535@electric-eye.fr.zoreil.com>
+Message-ID: <200401111628.07930.amir.noam@intel.com>
+References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="Multipart=_Sun__11_Jan_2004_13_59_00_+0000__w4ZBaR2oW0h.mhe"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040111141806.A19535@electric-eye.fr.zoreil.com>
+To: "Jeff Garzik" <jgarzik@pobox.com>
+In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+On Sunday 11 January 2004 03:34 am, Jeff Garzik wrote:
+> Amir Noam wrote:
+> > The following patch sets provide basic support for future bonding
+> > operations (specifically for dynamic configuration of bonding
+> > interfaces).
+> >
+> > This is done by adding two new bonding ioctls: one for deviceless
+> > commands (an ioctl hook) and one for device oriented commands.
+> > Like ethtool, the first u32 value in the data structure will
+> > indicate the exact sub-command to be executed.
+> >
+> > The sets are against the latest netdev-2.4 and
+> > net-drivers-2.5-exp trees.
+>
+> I don't disagree with the overall goal of these patches, but I
+> think we might need to pause a bit, and consider how best to
+> configure, add, and remove bonding interfaces, if we are coming up
+> with a new interface.
+>
+>
+> For configuration tasks that occur outside the scope of a single
+> bonding interface (i.e. a single struct net_device), you need a
+> separate entity from a socket ioctl.  It's not ideal at all to
+> configure N objects using a special ioctl ... when opening one of
+> said objects :)
 
---Multipart=_Sun__11_Jan_2004_13_59_00_+0000__w4ZBaR2oW0h.mhe
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+That's not exactly what the new ioctls do.
 
-Same results for non-SMP kernel (kpanic after a few minutes of surfing and also when i ran ping -f). 
-Stock 2.6.1 runs fine with my 7000 (ping -f) packets to the router :).
-debug-stuff for 2.6.1-r8169 (2.6.1+the r8169 that we've applied so far) is attached.
+The new SIOCBONDING ioctl handles commands aimed for the bonding 
+module (and not to any specific bonding interface). This is done via 
+an ioctl hook that captures these commands at the socket level 
+(before dev_ioctl()) and passes it to the bonding code. Such commands 
+do not require opening a bonding interface at all, just a valid 
+socket to send the ioctl.
 
--DaMouse
+Also, such commands do not configure N other objects (like bonding 
+interfaces) at all. They are used explicitly for "deviceless" 
+commands, like dynamically adding and removing a bonding interface 
+from the system.
 
-On Sun, 11 Jan 2004 14:18:06 +0100
-Francois Romieu <romieu@fr.zoreil.com> wrote:
+> I would suggest a simple character device (misc_register), and let
+> the userland application configure settings unrelated to a single
+> object.
 
-> DaMouse Networks <damouse@ntlworld.com> :
-> > Ok, looks like my additional testing with ping -f is bringing out the bugs
-> > in this baby, once I'd got past the r8169-rx-fill-typo.patch it borked on
-> > "ping -f" with the kpanic I pictured last time. Looks like I shoulda tested
-> > that also last time :/. I have attached the files you requested any other
-> > stuff you need just ask :)
-> 
-> Fine. I'll dig it this evening.
-> 
-> (/me gives a quick sight...)
-> 
-> Hmmm... acpi + HT smp.
-> 
-> Can you (no more request until I cook something, no joke :o) ):
-> - check that plain 2.6.1 driver does not panic under 'ping -f' ?
-> - compile a non SMP enabled kernel and see if patched r8169 is stable
->   - during normal traffic
->   - during 'ping -f'
-> 
-> Please Cc: netdev@oss.sgi.com and include the relevant 'dmesg' output.
-> 
-> --
-> Ueimor
+I was trying to follow the example of several other network modules 
+(e.g. vlan, dlci, bridge) that use a socket level ioctl hook to 
+handle such deviceless commands.
 
---Multipart=_Sun__11_Jan_2004_13_59_00_+0000__w4ZBaR2oW0h.mhe
-Content-Type: application/octet-stream;
- name="debug.tar.bz2"
-Content-Disposition: attachment;
- filename="debug.tar.bz2"
-Content-Transfer-Encoding: base64
+Do you think that a char device is preferrable, given that other 
+similar modules use a socket ioctl hook?
 
-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
-ZqovJBog/GLeJwBqKJ/xdyRThQkCpHEcAA==
+> For a configuring state related to a _single_ bonding interface
+> (i.e. a single net_device), socket ioctls are OK.
 
---Multipart=_Sun__11_Jan_2004_13_59_00_+0000__w4ZBaR2oW0h.mhe--
+For such configuration commands (aimed at a specific bonding 
+interface) I've added the SIOCBONDDEVICE ioctl, which is designed to 
+be extendable to more commands in the future.
+
+-- 
+Amir
