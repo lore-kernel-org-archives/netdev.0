@@ -1,31 +1,27 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: chas williams (contractor) <chas@cmf.nrl.navy.mil>
 Subject: Re: Fw: [Kernel-janitors] net/atm/clip.c: check kmem_cache_create() #1
-Date: Thu, 5 Feb 2004 19:38:13 +0100
+Date: Thu, 05 Feb 2004 13:48:55 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040205193813.A4230@electric-eye.fr.zoreil.com>
-References: <romieu@fr.zoreil.com> <200402051222.i15CMcRr029937@ginger.cmf.nrl.navy.mil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, netdev@oss.sgi.com
+Message-ID: <200402051848.i15ImrRr005748@ginger.cmf.nrl.navy.mil>
+References: <romieu@fr.zoreil.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas williams <chas@cmf.nrl.navy.mil>
-Content-Disposition: inline
-In-Reply-To: <200402051222.i15CMcRr029937@ginger.cmf.nrl.navy.mil>; from chas@cmf.nrl.navy.mil on Thu, Feb 05, 2004 at 07:22:40AM -0500
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: Message from Francois Romieu <romieu@fr.zoreil.com>
+   of "Thu, 05 Feb 2004 19:38:13 +0100." <20040205193813.A4230@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-chas williams <chas@cmf.nrl.navy.mil> :
-[...]
-> how about the following instead?  we probably shouldnt register the
+In message <20040205193813.A4230@electric-eye.fr.zoreil.com>,Francois Romieu wr
+ites:
+>As long as the ugly-ifdef patrol does not bite, it's fine with me. :o)
 
-As long as the ugly-ifdef patrol does not bite, it's fine with me. :o)
+it would less ugly if people could accept a possibly unused stack
+variable for the !CONFIG_PROC_FS case.
 
-> proc entry until clip_tbl is going to be ready for use anyway (the
-> arp table iterators should probably also use clip_tbl instead of
-> clip_tbl_hook).
+>It would not hurt. Do you have a specific race in mind before I send
+>an update on top your patch for the clip_tbl_hook -> clip_tbl change ?
 
-It would not hurt. Do you have a specific race in mind before I send
-an update on top your patch for the clip_tbl_hook -> clip_tbl change ?
-
---
-Ueimor
+no particular race.  just that the arp /proc entry should not be available
+until clip gets initialized.  clip_tbl_hook should only be used by 
+net/ipv4/arp.c really.
