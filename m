@@ -1,129 +1,192 @@
-From: Kaigai Kohei <kaigai@ak.jp.nec.com>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Subject: Re: [PATCH 2.6.11-rc4-mm1] connector: Add a fork connector
-Date: Thu, 03 Mar 2005 12:18:25 +0900
-Message-ID: <42268201.80706@ak.jp.nec.com>
-References: <1109240677.1738.196.camel@frecb000711.frec.bull.fr> <1109753292.8422.117.camel@frecb000711.frec.bull.fr>
+Date: Thu, 3 Mar 2005 08:46:56 +0300
+Message-ID: <20050303084656.A15197@2ka.mipt.ru>
+References: <1109240677.1738.196.camel@frecb000711.frec.bull.fr> <1109753292.8422.117.camel@frecb000711.frec.bull.fr> <42268201.80706@ak.jp.nec.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060300030509070400060409"
-Cc: Andrew Morton <akpm@osdl.org>, lkml <linux-kernel@vger.kernel.org>,
-        Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
+        Andrew Morton <akpm@osdl.org>, lkml <linux-kernel@vger.kernel.org>,
         elsa-devel <elsa-devel@lists.sourceforge.net>,
         Jay Lan <jlan@engr.sgi.com>, Gerrit Huizenga <gh@us.ibm.com>,
         Erich Focht <efocht@hpce.nec.com>, Netlink List <netdev@oss.sgi.com>
-To: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
-In-Reply-To: <1109753292.8422.117.camel@frecb000711.frec.bull.fr>
+To: Kaigai Kohei <kaigai@ak.jp.nec.com>
+Content-Disposition: inline
+In-Reply-To: <42268201.80706@ak.jp.nec.com>; from kaigai@ak.jp.nec.com on Thu, Mar 03, 2005 at 12:18:25PM +0900
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060300030509070400060409
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-
-Hello, Guillaume
-
-I tried to measure the process-creation/destruction performance on 2.6.11-rc4-mm1 plus
-some extensiton(Normal/with PAGG/with Fork-Connector).
-But I received a following messages endlessly on system console with Fork-Connector extensiton.
-
-# on IA-64 environment / When an simple fork() iteration is run in parallel.
-skb does not have enough length: requested msg->len=10[28], nlh->nlmsg_len=48[32], skb->len=48[must be 30].
-skb does not have enough length: requested msg->len=10[28], nlh->nlmsg_len=48[32], skb->len=48[must be 30].
-skb does not have enough length: requested msg->len=10[28], nlh->nlmsg_len=48[32], skb->len=48[must be 30].
-  :
-
-Is's generated at drivers/connector/connector.c:__cn_rx_skb(), and this warn the length of msg's payload
-does not fit in nlmsghdr's length.
-This message means netlink packet is not sent to user space.
-I was notified occurence of fork() by printk(). :-(
-
-The attached simple *.c file can enable/disable fork-connector and listen the fork-notification.
-Because It's first experimence for me to write a code to use netlink, point out a right how-to-use
-if there's some mistakes at user side apprication.
-
-Thanks.
-
-P.S. I can't reproduce lockup on 367th-fork() with your latest patch.
-
-Guillaume Thouvenin wrote:
->   ChangeLog:
+On Thu, Mar 03, 2005 at 12:18:25PM +0900, Kaigai Kohei (kaigai@ak.jp.nec.com) wrote:
+> Hello, Guillaume
 > 
->     - Add parenthesis around sizeof(struct cn_msg) + CN_FORK_INFO_SIZE
->       in the CN_FORK_MSG_SIZE macro
->     - fork_cn_lock is declareed with DEFINE_SPINLOCK()
->     - fork_cn_lock is defined as static and local to fork_connector()
->     - Create a specific module cn_fork.c in drivers/connector to
->       register the callback.
->     - Improve the callback that turns on/off the fork connector
+> I tried to measure the process-creation/destruction performance on 2.6.11-rc4-mm1 plus
+> some extensiton(Normal/with PAGG/with Fork-Connector).
+> But I received a following messages endlessly on system console with Fork-Connector extensiton.
 > 
->   I also run the lmbench and results are send in response to another
-> thread "A common layer for Accounting packages". When fork connector is
-> turned off the overhead is negligible. This patch works with another
-> small patch that fix a problem in the connector. Without it, there is a
-> message that says "skb does not have enough length". It will be fix in
-> the next -mm tree I think.
+> # on IA-64 environment / When an simple fork() iteration is run in parallel.
+> skb does not have enough length: requested msg->len=10[28], nlh->nlmsg_len=48[32], skb->len=48[must be 30].
+> skb does not have enough length: requested msg->len=10[28], nlh->nlmsg_len=48[32], skb->len=48[must be 30].
+> skb does not have enough length: requested msg->len=10[28], nlh->nlmsg_len=48[32], skb->len=48[must be 30].
+>   :
+> 
+> Is's generated at drivers/connector/connector.c:__cn_rx_skb(), and this warn the length of msg's payload
+> does not fit in nlmsghdr's length.
+> This message means netlink packet is not sent to user space.
+> I was notified occurence of fork() by printk(). :-(
+
+No, lengths are correct, but skb can be dropped due to misaligned sizes check.
+
+> The attached simple *.c file can enable/disable fork-connector and listen the fork-notification.
+> Because It's first experimence for me to write a code to use netlink, point out a right how-to-use
+> if there's some mistakes at user side apprication.
+> 
+> Thanks.
+> 
+> P.S. I can't reproduce lockup on 367th-fork() with your latest patch.
+
+I've sent that patch to Guillaume and upstream, hopefully it will be
+integrated into next -mm release.
+
+> Guillaume Thouvenin wrote:
+> >   ChangeLog:
+> > 
+> >     - Add parenthesis around sizeof(struct cn_msg) + CN_FORK_INFO_SIZE
+> >       in the CN_FORK_MSG_SIZE macro
+> >     - fork_cn_lock is declareed with DEFINE_SPINLOCK()
+> >     - fork_cn_lock is defined as static and local to fork_connector()
+> >     - Create a specific module cn_fork.c in drivers/connector to
+> >       register the callback.
+> >     - Improve the callback that turns on/off the fork connector
+> > 
+> >   I also run the lmbench and results are send in response to another
+> > thread "A common layer for Accounting packages". When fork connector is
+> > turned off the overhead is negligible. This patch works with another
+> > small patch that fix a problem in the connector. Without it, there is a
+> > message that says "skb does not have enough length". It will be fix in
+> > the next -mm tree I think.
+> > 
+> > 
+> > Thanks everyone for the comments,
+> > Guillaume
+> 
+> -- 
+> Linux Promotion Center, NEC
+> KaiGai Kohei <kaigai@ak.jp.nec.com>
+
+> #include <stdio.h>
+> #include <stdlib.h>
+> #include <string.h>
+> #include <asm/types.h>
+> #include <sys/types.h>
+> #include <sys/socket.h>
+> #include <linux/netlink.h>
+> 
+> void usage(){
+>   puts("usage: fclisten <on|off>");
+>   puts("  Default -> listening fork-connector");
+>   puts("  on      -> fork-connector Enable");
+>   puts("  off     -> fork-connector Disable");
+>   exit(0);
+> }
+> 
+> #define MODE_LISTEN  (1)
+> #define MODE_ENABLE  (2)
+> #define MODE_DISABLE (3)
+> 
+> struct cb_id
+> {
+>   __u32                   idx;
+>   __u32                   val;
+> };
+> 
+> struct cn_msg
+> {
+>   struct cb_id            id;
+>   __u32                   seq;
+>   __u32                   ack;
+>   __u32                   len;            /* Length of the following data */
+>   __u8                    data[0];
+> };
 > 
 > 
-> Thanks everyone for the comments,
-> Guillaume
+> int main(int argc, char *argv[]){
+>   char buf[4096];
+>   int mode, sockfd, len;
+>   struct sockaddr_nl ad;
+>   struct nlmsghdr *hdr = (struct nlmsghdr *)buf;
+>   struct cn_msg *msg = (struct cn_msg *)(buf+sizeof(struct nlmsghdr));
+>   
+>   switch(argc){
+>   case 1:
+>     mode = MODE_LISTEN;
+>     break;
+>   case 2:
+>     if (strcasecmp("on",argv[1])==0) {
+>       mode = MODE_ENABLE;
+>     }else if (strcasecmp("off",argv[1])==0){
+>       mode = MODE_DISABLE;
+>     }else{
+>       usage();
+>     }
+>     break;
+>   default:
+>     usage();
+>     break;
+>   }
+>   
+>   if( (sockfd=socket(PF_NETLINK, SOCK_RAW, NETLINK_NFLOG)) < 0 ){
+>     fprintf(stderr, "Fault on socket().\n");
+>     return( 1 );
+>   }
+>   ad.nl_family = AF_NETLINK;
+>   ad.nl_pad = 0;
+>   ad.nl_pid = getpid();
+>   ad.nl_groups = -1;
+
+Group should be CN_FORK_IDX to receive only fork's messages.
+
+>   if( bind(sockfd, (struct sockaddr *)&ad, sizeof(ad)) ){
+>     fprintf(stderr, "Fault on bind to netlink.\n");
+>     return( 2 );
+>   }
+> 
+>   if (mode==MODE_LISTEN) {
+>     while(-1){
+>       len = recvfrom(sockfd, buf, 4096, 0, NULL, NULL);
+>       printf("%d-byte recv Seq=%d\n", len, hdr->nlmsg_seq);
+>     }
+>   }else{
+>     ad.nl_family = AF_NETLINK;
+>     ad.nl_pad = 0;
+>     ad.nl_pid = 0;
+>     ad.nl_groups = 1;
+>     
+>     hdr->nlmsg_len = sizeof(struct nlmsghdr) + sizeof(struct cn_msg) + sizeof(int);
+>     hdr->nlmsg_type = 0;
+>     hdr->nlmsg_flags = 0;
+>     hdr->nlmsg_seq = 0;
+>     hdr->nlmsg_pid = getpid();
+>     msg->id.idx = 0xfeed;
+>     msg->id.val = 0xbeef;
+>     msg->seq = msg->ack = 0;
+>     msg->len = sizeof(int);
+> 
+>     if (mode==MODE_ENABLE){
+>       (*(int *)(msg->data)) = 1;
+>     } else {
+>       (*(int *)(msg->data)) = 0;
+>     }
+>     sendto(sockfd, buf, sizeof(struct nlmsghdr)+sizeof(struct cn_msg)+sizeof(int),
+> 	   0, (struct sockaddr *)&ad, sizeof(ad));
+>   }
+> }
+
+Later today I will post finished connector.c with the all pending
+patches in, and simple test program for anyone, who wants 
+to test fork() performace with and without fork's connector enabled.
+
+Since Guillaume is busy, I will test it in my 2-way (1+1HT) CPU system.
 
 -- 
-Linux Promotion Center, NEC
-KaiGai Kohei <kaigai@ak.jp.nec.com>
-
---------------060300030509070400060409
-Content-Type: text/plain;
- name="fclisten.c"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="fclisten.c"
-
-I2luY2x1ZGUgPHN0ZGlvLmg+CiNpbmNsdWRlIDxzdGRsaWIuaD4KI2luY2x1ZGUgPHN0cmlu
-Zy5oPgojaW5jbHVkZSA8YXNtL3R5cGVzLmg+CiNpbmNsdWRlIDxzeXMvdHlwZXMuaD4KI2lu
-Y2x1ZGUgPHN5cy9zb2NrZXQuaD4KI2luY2x1ZGUgPGxpbnV4L25ldGxpbmsuaD4KCnZvaWQg
-dXNhZ2UoKXsKICBwdXRzKCJ1c2FnZTogZmNsaXN0ZW4gPG9ufG9mZj4iKTsKICBwdXRzKCIg
-IERlZmF1bHQgLT4gbGlzdGVuaW5nIGZvcmstY29ubmVjdG9yIik7CiAgcHV0cygiICBvbiAg
-ICAgIC0+IGZvcmstY29ubmVjdG9yIEVuYWJsZSIpOwogIHB1dHMoIiAgb2ZmICAgICAtPiBm
-b3JrLWNvbm5lY3RvciBEaXNhYmxlIik7CiAgZXhpdCgwKTsKfQoKI2RlZmluZSBNT0RFX0xJ
-U1RFTiAgKDEpCiNkZWZpbmUgTU9ERV9FTkFCTEUgICgyKQojZGVmaW5lIE1PREVfRElTQUJM
-RSAoMykKCnN0cnVjdCBjYl9pZAp7CiAgX191MzIgICAgICAgICAgICAgICAgICAgaWR4Owog
-IF9fdTMyICAgICAgICAgICAgICAgICAgIHZhbDsKfTsKCnN0cnVjdCBjbl9tc2cKewogIHN0
-cnVjdCBjYl9pZCAgICAgICAgICAgIGlkOwogIF9fdTMyICAgICAgICAgICAgICAgICAgIHNl
-cTsKICBfX3UzMiAgICAgICAgICAgICAgICAgICBhY2s7CiAgX191MzIgICAgICAgICAgICAg
-ICAgICAgbGVuOyAgICAgICAgICAgIC8qIExlbmd0aCBvZiB0aGUgZm9sbG93aW5nIGRhdGEg
-Ki8KICBfX3U4ICAgICAgICAgICAgICAgICAgICBkYXRhWzBdOwp9OwoKCmludCBtYWluKGlu
-dCBhcmdjLCBjaGFyICphcmd2W10pewogIGNoYXIgYnVmWzQwOTZdOwogIGludCBtb2RlLCBz
-b2NrZmQsIGxlbjsKICBzdHJ1Y3Qgc29ja2FkZHJfbmwgYWQ7CiAgc3RydWN0IG5sbXNnaGRy
-ICpoZHIgPSAoc3RydWN0IG5sbXNnaGRyICopYnVmOwogIHN0cnVjdCBjbl9tc2cgKm1zZyA9
-IChzdHJ1Y3QgY25fbXNnICopKGJ1ZitzaXplb2Yoc3RydWN0IG5sbXNnaGRyKSk7CiAgCiAg
-c3dpdGNoKGFyZ2MpewogIGNhc2UgMToKICAgIG1vZGUgPSBNT0RFX0xJU1RFTjsKICAgIGJy
-ZWFrOwogIGNhc2UgMjoKICAgIGlmIChzdHJjYXNlY21wKCJvbiIsYXJndlsxXSk9PTApIHsK
-ICAgICAgbW9kZSA9IE1PREVfRU5BQkxFOwogICAgfWVsc2UgaWYgKHN0cmNhc2VjbXAoIm9m
-ZiIsYXJndlsxXSk9PTApewogICAgICBtb2RlID0gTU9ERV9ESVNBQkxFOwogICAgfWVsc2V7
-CiAgICAgIHVzYWdlKCk7CiAgICB9CiAgICBicmVhazsKICBkZWZhdWx0OgogICAgdXNhZ2Uo
-KTsKICAgIGJyZWFrOwogIH0KICAKICBpZiggKHNvY2tmZD1zb2NrZXQoUEZfTkVUTElOSywg
-U09DS19SQVcsIE5FVExJTktfTkZMT0cpKSA8IDAgKXsKICAgIGZwcmludGYoc3RkZXJyLCAi
-RmF1bHQgb24gc29ja2V0KCkuXG4iKTsKICAgIHJldHVybiggMSApOwogIH0KICBhZC5ubF9m
-YW1pbHkgPSBBRl9ORVRMSU5LOwogIGFkLm5sX3BhZCA9IDA7CiAgYWQubmxfcGlkID0gZ2V0
-cGlkKCk7CiAgYWQubmxfZ3JvdXBzID0gLTE7CiAgaWYoIGJpbmQoc29ja2ZkLCAoc3RydWN0
-IHNvY2thZGRyICopJmFkLCBzaXplb2YoYWQpKSApewogICAgZnByaW50ZihzdGRlcnIsICJG
-YXVsdCBvbiBiaW5kIHRvIG5ldGxpbmsuXG4iKTsKICAgIHJldHVybiggMiApOwogIH0KCiAg
-aWYgKG1vZGU9PU1PREVfTElTVEVOKSB7CiAgICB3aGlsZSgtMSl7CiAgICAgIGxlbiA9IHJl
-Y3Zmcm9tKHNvY2tmZCwgYnVmLCA0MDk2LCAwLCBOVUxMLCBOVUxMKTsKICAgICAgcHJpbnRm
-KCIlZC1ieXRlIHJlY3YgU2VxPSVkXG4iLCBsZW4sIGhkci0+bmxtc2dfc2VxKTsKICAgIH0K
-ICB9ZWxzZXsKICAgIGFkLm5sX2ZhbWlseSA9IEFGX05FVExJTks7CiAgICBhZC5ubF9wYWQg
-PSAwOwogICAgYWQubmxfcGlkID0gMDsKICAgIGFkLm5sX2dyb3VwcyA9IDE7CiAgICAKICAg
-IGhkci0+bmxtc2dfbGVuID0gc2l6ZW9mKHN0cnVjdCBubG1zZ2hkcikgKyBzaXplb2Yoc3Ry
-dWN0IGNuX21zZykgKyBzaXplb2YoaW50KTsKICAgIGhkci0+bmxtc2dfdHlwZSA9IDA7CiAg
-ICBoZHItPm5sbXNnX2ZsYWdzID0gMDsKICAgIGhkci0+bmxtc2dfc2VxID0gMDsKICAgIGhk
-ci0+bmxtc2dfcGlkID0gZ2V0cGlkKCk7CiAgICBtc2ctPmlkLmlkeCA9IDB4ZmVlZDsKICAg
-IG1zZy0+aWQudmFsID0gMHhiZWVmOwogICAgbXNnLT5zZXEgPSBtc2ctPmFjayA9IDA7CiAg
-ICBtc2ctPmxlbiA9IHNpemVvZihpbnQpOwoKICAgIGlmIChtb2RlPT1NT0RFX0VOQUJMRSl7
-CiAgICAgICgqKGludCAqKShtc2ctPmRhdGEpKSA9IDE7CiAgICB9IGVsc2UgewogICAgICAo
-KihpbnQgKikobXNnLT5kYXRhKSkgPSAwOwogICAgfQogICAgc2VuZHRvKHNvY2tmZCwgYnVm
-LCBzaXplb2Yoc3RydWN0IG5sbXNnaGRyKStzaXplb2Yoc3RydWN0IGNuX21zZykrc2l6ZW9m
-KGludCksCgkgICAwLCAoc3RydWN0IHNvY2thZGRyICopJmFkLCBzaXplb2YoYWQpKTsKICB9
-Cn0K
---------------060300030509070400060409--
+	Evgeniy Polyakov ( s0mbre )
