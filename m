@@ -1,45 +1,39 @@
-From: kashyapv <kashyapv@us.ibm.com>
+From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: [PATCH] proportional share accept()
-Date: Wed, 25 Feb 2004 11:30:32 -0800 (PST)
+Date: Wed, 25 Feb 2004 12:03:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0402251119060.3691-100000@dyn319495.beaverton.ibm.com>
-References: <20040225111719.4b99403a.davem@redhat.com>
+Message-ID: <20040225120350.499bc573@dell_ss3.pdx.osdl.net>
+References: <20040225092116.2081ddfb@dell_ss3.pdx.osdl.net>
+	<Pine.WNT.4.44.0402251101300.1572-100000@w-vkashyap95.des.sequent.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: shemminger@osdl.org, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040225111719.4b99403a.davem@redhat.com>
+To: Vivek Kashyap <kashyapv@us.ibm.com>
+In-Reply-To: <Pine.WNT.4.44.0402251101300.1572-100000@w-vkashyap95.des.sequent.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Feb 2004, David S. Miller wrote:
+On Wed, 25 Feb 2004 11:04:13 -0800 (Pacific Standard Time)
+Vivek Kashyap <kashyapv@us.ibm.com> wrote:
 
-> On Wed, 25 Feb 2004 11:07:48 -0800 (PST)
-> kashyapv <kashyapv@us.ibm.com> wrote:
+> Stephen,
 > 
-> > Also, an in-kernel solution allows administrative control and tuning 
-> > without affecting the applications at all. The administrator can as per 
-> > the policy (which may change over time) modify the proportions using another
-> > interface. Otherwise, each application must provide a way to manage/modify 
-> > its scheduler.
-> 
-> Since all of the classification we're suggesting is via the kernel, the
-> administrator has the same kinds of controls and it is also without any
-> application modifications.
+> I've not understood your suggestion. How would you implement the solution?
 
-How do you change the scheduler's proportions? Not the classification
-itself which is controlled using iptables.
+I assume the goal is to provide some high level of resource control over network utilization
+in a system. The accept proposal is part of more general problem of how to virtualize
+the network infrastructure and services to provide different QoS based on a set of
+parameters.
 
-> 
-> We're saying, to classify packets so that they get prioritized however you
-> would have prioritized things in the accept queue (ie. mark SYN packets
-> with address X as having priority Y).  The let the packet scheduler or
-> netfilter take care of the rest.
+Your assumption that server application is blind to all this. But the kind of applications
+that would need this resource control are already pretty smart (databases and web servers).
+So wouldn't you want the application to be involved.  Imagine a database;  wouldn't you want
+connections that come in with high priority to be scheduled in the database with high priority?
 
-In the in-kernel accept queues the netfilter MARKs it and the packet
-is queued to the relevant accept queue. Where and how is the packet getting
-queued to a differnt socket (address mangling?)? 
+Your solution seems like having an express line to get into Disneyland, but still
+ending up waiting for all the rides...
 
-> 
-> 
+It just seems to add more complexity, complexity isn't always bad; just something
+that should be avoided if possible.
