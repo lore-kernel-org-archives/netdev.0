@@ -1,58 +1,30 @@
-From: <Aura@freemail.com.pk>
-Subject: Need Your Input - Impaired Risk
-Date: Wed, 22 May 0102 10:07:11 +0800
+From: conu8co@yahoo.com
+Subject: Septic system maintenance                   EXLGQHT
+Date: Wed, 22 May 2002 20:29:14 -1600
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <036e56a51c6b$3763e3b8$3dd15bd7@nciolv>
-Reply-To: <Aura@freemail.com.pk>
+Message-ID: <000049e32a24$000079e2$00002fa5@mx2.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_00A5_45C40B1B.E4415E87"
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: Impaired.Insurance.Perfessional@oss.sgi.com
+To: <Undisclosed.Recipients@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-------=_NextPart_000_00A5_45C40B1B.E4415E87
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: base64
+
+If your home is served by a septic system, you will be
+able to receive invaluable information on how to
+eliminate pump outs, maintain the system properly for FREE !!!
+
+Our packetge will cure problems such as backups, wet spots, odor, etc.
+
+You can start this FREE trial by checking out our SPC program at:
+
+   http://www.abc-holdings.info/spc/
+
+Please takes a mintuet to fill out the form, so we can send you the packetage.
 
 
-IA0KSSBmb3VuZCBhIGNvbXBhbnkgdGhhdCBwcm92aWRlcyBpbnN1cmFuY2Ug
-Zm9yIGluZGl2aWR1YWxzIHdobyBoYXZlIGhpZ2ggcmlzayBtZWRpY2FsDQpj
-b25kaXRpb25zIGluY2x1ZGluZyBidXQgbm90IGxpbWl0ZWQgdG8gaW5zdWxp
-biBkZXBlbmRlbnQgZGlhYmV0ZXMsIGNhcmRpYWMgY29uZGl0aW9ucywgc3Vi
-c3RhbmNlIGFidXNlLCBoZXBhdGl0aXMsIEhJViwgYW5kIG1hbnkgb3RoZXJz
-LiANCg0KDQpUaGV5IGFyZSBzdXBlcmlvciB0byB0aGVpciBjb21wZXRpdGlv
-biBiZWNhdXNlIHRoZXk6DQoNCiIJUXVpY2tseSBmaW5kIGEgbWFya2V0IGZv
-ciB0aGUgaGFyZCB0byBwbGFjZSBjYXNlcw0KIglSZWR1Y2UgeW91ciBhZ2Vu
-Y3kgY29zdCBieSBoZWxwaW5nIHlvdSBwcmVwYXJlIGNhc2VzIGFuZCBvYnRh
-aW4gY29tcGV0aXRpdmUgcXVvdGVzDQoiCUhhdmUgYW4gdW5kZXJ3cml0ZXIg
-b24gc3RhZmYgd2hvIGhhcyBvdmVyIDMwIHllYXJzIGV4cGVyaWVuY2UgaW4g
-dGhlIGltcGFpcmVkIHJpc2sgbWFya2V0DQoiCUFyZSBhIHBhcnRuZXJzaGlw
-IG9mIHNldmVyYWwgYnJva2VyYWdlIGZpcm1zIHdobyBoYXMgb3ZlciA3NSB5
-ZWFycyBleHBlcmllbmNlIGluIHRoaXMgbWFya2V0DQoNCg0KDQpUaGV5IGtu
-b3cgdGhlIGFuc3dlcnMghSBpZiB5b3UgYXJlIGV4cGVyaWVuY2luZyB0aGUg
-c2FtZSBmcnVzdHJhdGlvbnMgZmluZGluZyBhbiANCmFnZW5jeSB0aGF0IGlz
-IHF1aWNrIGFuZCBhY2N1cmF0ZSBnZXR0aW5nIHF1b3RlcyBmb3IgeW91ciBj
-bGllbnRzIHdobyBkb24ndCBxdWFsaWZ5IGZvcg0KIHRoZSBwcmVmZXJyZWQv
-c3RhbmRhcmQgcmF0ZXMuDQoNCg0KQW5kIGdldCBhICoqKioqICBGUkVFICoq
-KioqICJJbXBhaXJlZCBSaXNrIFRyYWNraW5nIFNvZnR3YXJlIiAgd2hlbiB5
-b3UgcGxhY2UgYnVzaW5lc3Mgd2l0aCB0aGVtIQ0KDQpUaGUgZnJlZSBpbXBh
-aXJlZCByaXNrIHNvZnR3YXJlIHByb2dyYW0gaGVscHMgeW91IGtlZXAgdHJh
-Y2sgb2YgeW91ciBjbGllbnRzIGluY2x1ZGluZyB0aGVpciBoZWFsdGggaW1w
-YWlybWVudHMuICANCg0KSXQgY29udGFpbnMgZWFzeSB0byB1bmRlcnN0YW5k
-IGltcGFpcm1lbnQgZGVmaW5pdGlvbnMgYW5kIGNsaWVudCBmcmllbmRseSBx
-dWVzdGlvbm5haXJlcy4gDQoNCg0KRnJlZSBTb2Z0d2FyZSBPZmZlciBnb29k
-IGZvciBhIGxpbWl0ZWQgdGltZSANCg0KU28gRW1haWwgdGhlbSBub3cgdXMg
-YXQgLS0tICBJbXBhaXJlZHJpc2tAYnRhbWFpbC5uZXQuY24gLS0tIHRvIHN1
-Ym1pdCBhIHJpc2sNCg0KVGhhbmsgeW91IEluIEFkdmFuY2UNCg0KQWxzbyAt
-IGlmIHlvdSBoYXZlIGFueSBxdWVzdGlvbiBlbWFpbCBNYXR0IGF0IEltcGFp
-cmVkcmlza0BidGFtYWlsLm5ldC5jbg0KDQoNCg0KDQoNCg0KVG8gYmUgcmVt
-b3ZlZCAtIHNpbXBseSByZXBseSB0byBJbXBhaXJlZFJpc2tAYnRhbWFpbC5u
-ZXQuY24gd2l0aCByZW1vdmUgIGluIHRoZSBzdWJqZWN0IGxpbmUuIFdlIGFy
-ZSBhZ2FpbnN0IHNwYW0gYW5kIGRvbid0IHdhbnQgYW55Ym9keSB0byByZWNl
-aXZlIA0Kb3VyIG1haWxpbmdzIHdobyBkb2VzIG5vdCB3aXNoIHRvIHJlY2Vp
-dmUgdGhlbS4gVGhpcyBpcyBub3Qgc3BhbS4gIFRoaXMgaXMgcHJvZmVzc2lv
-bmFsIGNvbW11bmljYXRpb24gc2VudCB0byBpbnN1cmFuY2UgcHJvZmVzc2lv
-bmFscy4NCg0KODc1MVpFT0ozLTQxM1JkS000NDczRkRCdTMtNDQ0SVNSdjQz
-MTd2SnR3NC0wNTlDZ1FxMjAyNE91T1MwLTcyOXpMWFE3MTc2bWw2OQ==
-------=_NextPart_000_00A5_45C40B1B.E4415E87--
+
+--------------------------------------------------------------------------------
+To be remove from furthe mailing submitt to our remove list here: http://www.abc-holdings.info/removeme.htm
