@@ -1,29 +1,25 @@
-From: "Tom Lendacky" <toml@us.ibm.com>
-Subject: Re: Flow cache flush oops
-Date: Wed, 18 Jun 2003 18:10:48 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.5.72] use alloc_netdev in bonding driver
+Date: Wed, 18 Jun 2003 16:30:57 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFF5CE2037.3D4C9104-ON86256D49.007EAEAD-86256D49.007F5519@pok.ibm.com>
+Message-ID: <20030618.163057.74745635.davem@redhat.com>
+References: <20030617113510.5ae6a5a9.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ctindel@users.sourceforge.net, fubar@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: shemminger@osdl.org
+In-Reply-To: <20030617113510.5ae6a5a9.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Stephen Hemminger <shemminger@osdl.org>
+   Date: Tue, 17 Jun 2003 11:35:10 -0700
 
-   If your compiler is producing anything like mine, then edi should be
-   smp_processor_id() which looks a bit weird.  Please send me your
-   net/core/flow.o file so that I can compare it.
+   This patch replaces the allocation of an array of bonding device
+   structures with allocating net_device's through alloc_netdev.  The
+   net_device, statistics, and net_device are created with one
+   allocation via alloc_netdev.
 
-   What compiler are you using? And how many CPUs?
-
-The compiler version output is:
-  gcc version 3.2 20020903 (Red Hat Linux 8.0 3.2-7)
-
-The system has 4 CPUs.
-
-Herbert, I'll send the flow.o file to you separately.
-
-Thanks,
-Tom
+Applied, thanks Stephen.
