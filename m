@@ -1,49 +1,44 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH,RFC] pktgen sleeping/timing rework
-Date: Sat, 11 Dec 2004 00:07:33 +0100
-Message-ID: <16826.11317.848178.621626@robur.slu.se>
-References: <20041210222058.GA5984@xi.wantstofly.org>
+From: Robin Holt <holt@sgi.com>
+Subject: Re: [RFC] Limit the size of the IPV4 route hash.
+Date: Fri, 10 Dec 2004 17:27:22 -0600
+Message-ID: <20041210232722.GC24468@lnx-holt.americas.sgi.com>
+References: <20041210190025.GA21116@lnx-holt.americas.sgi.com> <20041210114829.034e02eb.davem@davemloft.net> <20041210210006.GB23222@lnx-holt.americas.sgi.com> <20041210130947.1d945422.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@data.slu.se, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041210222058.GA5984@xi.wantstofly.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Robin Holt <holt@sgi.com>, davem@davemloft.net,
+	yoshfuji@linux-ipv6.org, hirofumi@parknet.co.jp, torvalds@osdl.org,
+	dipankar@ibm.com, laforge@gnumonks.org, bunk@stusta.de,
+	herbert@apana.org.au, paulmck@ibm.com, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org, gnb@sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261867AbULJX2T@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20041210130947.1d945422.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Dec 10, 2004 at 01:09:47PM -0800, Andrew Morton wrote:
+> Robin Holt <holt@sgi.com> wrote:
+> >  Can we agree that a linear calculation based on num_physpages is probably
+> >  not the best algorithm.  If so, should we make it a linear to a limit or
+> >  a logarithmically decreasing size to a limit?  How do we determine that
+> >  limit point?
+> 
+> An initial default of N + M * log2(num_physpages) would probably give a
+> saner result.
+> 
+> The big risk is that someone has a too-small table for some specific
+> application and their machine runs more slowly than it should, but they
+> never notice.  I wonder if it would be possible to put a little once-only
+> printk into the routing code: "warning route-cache chain exceeded 100
+> entries: consider using the rhash_entries boot option".
 
-Lennert Buytenhek writes:
- > 
- > Below is a patch against your latest pktgen devel version which does
- > the following:
- > - Remove usage of get_cycles(), mhz calibration, pg_cycles_per_*,
- >   getRelativeCur[UM]s(), and everything related to reading the CPU
- >   cycle counter directly.  For one, it can't work correctly on
- >   machines that can change clock frequency on the fly 
+Since the hash gets flushed every 10 seconds, what if we kept track of
+the maximum depth reached and when we reach a certain threshold, just
+allocate a larger hash and replace the old with the new.  I do like the
+printk idea so the admin can prevent inconsistent performance early in
+the run cycle for the system.  We could even scale the hash size up based
+upon demand.
 
- Yeep it's for fixed frequency. If it can be done for variable frequency
- w/o to much pain it's fine. Haven't even thought this thought.
-
- > - Fix up handling of inter-packet gap.  There was some code for
- >   enforcing a certain IPG, but the actual (CPU) cost of the sending
- >   of the packet was not substracted from that, so the effective IPG
- >   ended up being IPG+random_overhead.  This now works somewhat better
-
- Currently ipg is just a delay to hard_xmit and left to tester to tune.
- 
-
- > - When ipg is set close to the HW limit, behavior becomes a bit wonky.
- >   On my EPIA board I can generate ~110kpps when I set ipg=0, but when I
- >   set ipg=10000 (which would give 100kpps), I only get ~85kps.
- > - We should rename 'ipg' to something different since in our case it
- >   never was and never will be the same as what the ethernet folks mean
- >   with it.
- > 
- > Comments welcome.
-
- Let me play with it. Hopefully in the beginning of the week.
-
-						--ro
+Thanks,
+Robin
