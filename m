@@ -1,22 +1,66 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: 30 Sep 2002 13:23:05 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: udp weirdness
+Date: Mon, 30 Sep 2002 08:10:37 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1033388585.16337.9.camel@irongate.swansea.linux.org.uk>
-References: <20020926054721.GA6039@samba.org>
-	<200209261309.RAA17837@sex.inr.ac.ru>
-	<20020926.134608.31605412.davem@redhat.com>
-	<20020930095909.GA8063@toey.sourcefrog.net>
+Message-ID: <Pine.GSO.4.30.0209300753550.11444-100000@shell.cyberus.ca>
+References: <20020930084903.GA359@hookipa>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru, ak@muc.de,
-   netdev@oss.sgi.com, Alan.Cox@linux.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin Pool <mbp@samba.org>
-In-Reply-To: <20020930095909.GA8063@toey.sourcefrog.net>
+To: Eric Lemoine <Eric.Lemoine@sun.com>
+In-Reply-To: <20020930084903.GA359@hookipa>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Well if Dave can't test it and isnt doing any 2.2 who wants to be the
-2.2 networking maintainer ?
+
+
+On Mon, 30 Sep 2002, Eric Lemoine wrote:
+
+> > Ok, understood. Actually we already seem to have enobufs being returned.
+> >
+> > Eric,
+> > Does the attached patch fix it? Not tested or even compiled.
+> > Someone going to change the manpages?
+>
+> protinfo.af_inet.recverr is a flag (1-bit variable) to enable the
+> "extended reliable error message passing"; I dont see any reason
+> for modifying it here. Setting this flag is the user's responsability,
+> isn't it?
+>
+
+Ok, sorry, I didnt realize i was the one setting it; What i meant
+was to use sk->protinfo.af_inet.recverr only in the case of all is
+clean from the device layer.
+i.e do something along the lines of:
+
+--- ip_output.c	2002/09/29 08:50:36	1.1
++++ ip_output.c	2002/09/30 06:24:32
+@@ -603,8 +603,11 @@
+ 		err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
+ 			      skb->dst->dev, output_maybe_reroute);
+ 		if (err) {
+-			if (err > 0)
+-				err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
++			if (err > 0) {
++				err = net_xmit_errno(err);
++				if (!err && sk->protinfo.af_inet.recverr)
++				       err = sk->protinfo.af_inet.recverr;
++			}
+ 			if (err)
+ 				goto error;
+ 		}
+@@ -713,8 +716,11 @@
+
+ 	err = NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
+ 		      output_maybe_reroute);
+-	if (err > 0)
+-		err = sk->protinfo.af_inet.recverr ? net_xmit_errno(err) : 0;
++	if (err > 0) {
++		err = net_xmit_errno(err);
++		if (!err && sk->protinfo.af_inet.recverr)
++		       	 err = sk->protinfo.af_inet.recverr;
++	}
+ 	if (err)
+ 		goto error;
+ out:
