@@ -1,44 +1,30 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: [RFC] TCP Vegas for 2.6
-Date: Tue, 09 Mar 2004 11:36:34 -0800
+From: Andi Kleen <ak@suse.de>
+Subject: Re: ip addr flush hangs
+Date: Tue, 9 Mar 2004 20:44:26 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404E1CC2.1010300@us.ibm.com>
-References: <20040309180331.GC11604@wotan.suse.de>	<Pine.NEB.4.33.0403091307090.5230-100000@dexter.psc.edu>	<20040309102206.33c1720c@dell_ss3.pdx.osdl.net>	<404E1374.5050600@us.ibm.com> <20040309110323.1295cf92@dell_ss3.pdx.osdl.net>
+Message-ID: <20040309194426.GA12648@wotan.suse.de>
+References: <20040309144824.GD14419@suse.de> <20040309150730.GE14419@suse.de> <20040309112529.4c013b9c.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: John Heffner <jheffner@psc.edu>, Andi Kleen <ak@suse.de>,
-        linux-net <linux-net@vger.kernel.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Olaf Kirch <okir@suse.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040309110323.1295cf92@dell_ss3.pdx.osdl.net>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040309112529.4c013b9c.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+On Tue, Mar 09, 2004 at 11:25:29AM -0800, David S. Miller wrote:
+> On Tue, 9 Mar 2004 16:07:30 +0100
+> Olaf Kirch <okir@suse.de> wrote:
+> 
+> > The attached patch disables reporting of multicast and anycast
+> > addresses in inet6_dump_ifaddr
+> 
+> Better to fix /sbin/ip, Andi Kleen posted a patch for that tool
+> in a thread on linux-kernel about this very issue.
 
-> I used ttcp and netperf, but the tests aren't as interesting as setting up the
-> toplogies, like 1G Ethernet; Ethernet -> PPP -> Ethernet and Ethernet -> IRDA -> Ethernet
-> and DSL connections through SSH.   Plus, LTP (and are local automated test machines)
-> don't seem to be setup for multi-machine tests.
+The patch was buggy unfortunately - it fixed one case, but broke another.
+Fixing the root cause like Olaf proposes is better.
 
-I agree the environments are more interesting
-in this case - but not sure about just using ttcp
-and netperf in this case. Single stream, I presume?
-Both are blasting out data without disk I/O
-occurring. I'm concerned about enterprise
-server situations  seeing a hit due
-to the memory/cacheline impact - i.e. catch
-the environments where this is not going to be
-of help. We might be able to get some other
-performance benchmark run data (Specweb* ?).
-
-I'm trying to solve two problems - testing of
-the current mainline kernel for the new features
-that have gone in and also helping the testing
-guys with the automated testing of kernel.org
-kernels for networking stuff (solving that multi-
-machine problem if they haven't already)..
-
-thanks,
-Nivedita
+-Andi
