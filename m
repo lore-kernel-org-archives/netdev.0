@@ -1,51 +1,53 @@
-From: Fabio Massimo Di Nitto <fabbione@fabbione.net>
+From: Andrew McGregor <andrew@indranet.co.nz>
 Subject: Re: ipv6 stack seems to forget to send ACKs
-Date: Wed, 8 Jan 2003 19:05:36 +0100 (CET)
+Date: Thu, 09 Jan 2003 08:52:19 +1300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0301081849550.564@diapolon.int.fabbione.net>
-References: <20030108130850.GQ22951@wiggy.net>
+Message-ID: <74190000.1042055539@localhost.localdomain>
+References: <20030108150201.GA30490@wiggy.net>
+ <Pine.LNX.4.44.0301081718340.4542-100000@dns.toxicfilms.tv>
+ <20030108170139.GL22951@wiggy.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Maciej Soltysiak <solt@dns.toxicfilms.tv>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wichert Akkerman <wichert@wiggy.net>
-In-Reply-To: <20030108130850.GQ22951@wiggy.net>
+To: Wichert Akkerman <wichert@wiggy.net>, linux-kernel@vger.kernel.org
+In-Reply-To: <20030108170139.GL22951@wiggy.net>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Selective ACK is mandatory in IPv6 and uses a somewhat different algorithm, 
+so you shouldn't be seeing nearly as many ACKs as an IPv4 client would do 
+by default.
 
-I was able to reproduce the problem again. I have been using ethereal to
-sniff instead of tcpdump and gave out some more info.
+Andrew
 
-basically the icecast server at certain time (but i can't predict
-exactly in which situations) just send a FIN, ACK packet to the client.
-Basically to close the connection and after a few packets the client of
-course answer.What is strange that in the meanwhile there are still 3/4
-data packets coming from the server to the client.
+--On Wednesday, January 08, 2003 18:01:39 +0100 Wichert Akkerman 
+<wichert@wiggy.net> wrote:
 
-Regarding the network side I noticed the following:
-
-an average of 500ms to ping6 the server and 0 pkt loss
-few seconds before the FIN, ACK (server->client) and for about 6 pkts the
-average jumped to 2000ms
-
-I suspect that this network flap made the server thinking about
-<insert_here_whatever_term_is_more_appropriate> and decided to close
-the connection.
-
-The full ethereal dump is available at
-http://www.fabbione.net/ice-xmms-ipv6.dump.bz2
-
-but PLEASE note that it is a 10MB file and Im on a slow adsl line so be
-"nice".
-
-Fabio
-
-PS Im afraid/happy that anyway the problem is not related to the kernel
-version we are running.
-
--- 
-vega:~# apt-get install life
-Reading Package Lists... Done
-Building Dependency Tree... Done
-E: Couldn't find package life
+> Previously Maciej Soltysiak wrote:
+>> I seem to be getting better results than you, i think that it is not an
+>> issue of ipv6 implementation but simply the case of time sensitive
+>> traffic fighting with other Internet traffic over tunnels through ipv4
+>> networks.
+>
+> Actually, I don't follow this. How could any kind of traffic shaping
+> result in my client not sending ACKs, which is what the tcpdump
+> seems to indicate? I can understand packets being dropped which
+> would result in retransmits, but that is not the case here.
+>
+> Wichert.
+>
+> (usual I'm-no-network-guru-and-might-be-misreading-things disclaimer here)
+>
+> --
+> Wichert Akkerman <wichert@wiggy.net>           http://www.wiggy.net/
+> A random hacker
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
+>
