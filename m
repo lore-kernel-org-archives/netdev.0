@@ -1,33 +1,45 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: rtnetlink interface state monitoring problems.
-Date: Mon, 21 Oct 2002 19:57:50 +0100
+From: "manish bhatt" <bhattmanish1980@hotmail.com>
+Subject: project help needed
+Date: Mon, 21 Oct 2002 22:02:49 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <24818.1035226670@passion.cambridge.redhat.com>
-References: <Pine.GSO.4.30.0210210852130.17911-100000@shell.cyberus.ca>
+Message-ID: <F23fVwcdZ06YO4OPXok00001cc9@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: harshad_kulkarni@hotmail.com, sameer_sangawar@hotmail.com,
+   odemir@binghamton.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <Pine.GSO.4.30.0210210852130.17911-100000@shell.cyberus.ca> 
-To: jamal <hadi@cyberus.ca>
+To: yjing@cs.stanford.edu
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-hadi@cyberus.ca said:
-> I cant see anything on netlink and irda; i am also not very familiar
-> with either IrDA or Bluetooth. Regardless,  you dont need to be a net
-> device to use netlink. 
 
-IrDA devices are network devices. The core network code sends a RTM_NETLINK 
-message when they go up or down. All is well, and once the permission fix 
-gets into the kernel I'm using, my irda monitor applet no longer needs to 
-poll the state of the interface.
+hi everbody..
+i m a final year engg. student. i m working on a bandwidth management sys=
+tem=20
+on linux plaform as part of my final year project.it will allocate and=20
+monitor bandwidth on user, protocol and subnet basis.
+i plan to use netfilter architecture.plz guide whether to use iptables an=
+d=20
+work with tcpdump .ifyes where can i find good documentation for src code=
+ of=20
+these softwares.
+also can ethereal or squid help me in any way.
+if u have any previous experience on such project then u can be a great h=
+elp=20
+to me.i will be very thankfull for ur urgent help  as ineed to complete t=
+his=20
+project within a month coz of our semester schedule.
 
-But Bluetooth devices are not network devices, it seems. There exists no 
-current mechanism for notifying anyone of state changes. Should we invent a 
-new method of notification using netlink, or should Bluetooth interfaces in 
-fact be normal network devices just like IrDA devices are?
 
---
-dwmw2
+with regards
+manish bhatt
+
+
+
+
+
+_________________________________________________________________
+Unlimited Internet access for only $21.95/month.=A0 Try MSN!=20
+http://resourcecenter.msn.com/access/plans/2monthsfree.asp
