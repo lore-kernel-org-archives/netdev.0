@@ -1,36 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Make XFRM optional
-Date: Mon, 4 Aug 2003 11:45:07 -0700
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: RE: TOE brain dump
+Date: 04 Aug 2003 20:03:11 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030804114507.6e496c77.davem@redhat.com>
-References: <20030804125022.GA8167@averell>
-	<20030804.215801.124854897.yoshfuji@linux-ipv6.org>
-	<20030804130408.GA36367@colin2.muc.de>
+Message-ID: <1060023790.723.23.camel@dhcp22.swansea.linux.org.uk>
+References: <A20D5638D741DD4DBAAB80A95012C0AE3A9EB1@orsmsx409.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, ak@muc.de, netdev@oss.sgi.com
+Cc: Larry McVoy <lm@bitmover.com>, David Lang <david.lang@digitalinsight.com>,
+   Erik Andersen <andersen@codepoet.org>,
+   Werner Almesberger <werner@almesberger.net>,
+   Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   Nivedita Singhvi <niv@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@colin2.muc.de>
-In-Reply-To: <20030804130408.GA36367@colin2.muc.de>
+To: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>
+In-Reply-To: <A20D5638D741DD4DBAAB80A95012C0AE3A9EB1@orsmsx409.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 4 Aug 2003 15:04:08 +0200
-Andi Kleen <ak@colin2.muc.de> wrote:
+On Llu, 2003-08-04 at 19:36, Perez-Gonzalez, Inaky wrote:
+> > Why would I want to spend money on some silly offload card when I can get
+> > the whole PC for less than the card?
+> 
+> Because you want to stack 200 of those together in a huge
+> data center interconnecting whatever you want to interconnect
+> and you don't want your maintenance costs to go up to the sky?
 
-> Thanks for the feedback. Here is a new patch with the two hunks 
-> removed.
-
-Still broken in two areas:
-
-1) You moved inet_peer_idlock into net/xfrm/xfrm_exports.c, that
-   looks quite wrong.
-
-2) Your patch doesn't apply to Linus's current tree because
-   "secpath_dup" got added to net/netsyms.c since 2.6.0-test2 got
-   released.
-
-I wanted to merge this, but I can't until you fix the above problems.
-
-Thanks.
+17cm squared, fanless, network booting. Its not as big a cost as
+you might think, and TOE cards fail too, the difference being that if
+they are now out of production you have a nasty mess on your hands.
