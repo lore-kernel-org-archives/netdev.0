@@ -1,36 +1,48 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [RFC] Support for wccp version 1 and 2 in ip_gre.c
-Date: Mon, 13 Sep 2004 16:19:12 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040913161912.7dcc809f.davem@davemloft.net>
-References: <20040911194108.GS28258@stingr.sgu.ru>
-	<20040912170505.62916147.davem@davemloft.net>
-	<20040913051706.GB26337@stingr.sgu.ru>
+Subject: Re: generic 802.11 stack
+Date: Mon, 13 Sep 2004 16:21:53 -0700
+Sender: acx100-devel-admin@lists.sourceforge.net
+Message-ID: <20040913162153.33ff37ec.davem@davemloft.net>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
+	<200409122103.21770.vkondra@mail.ru>
+	<20040912171448.64ce7dbe.davem@davemloft.net>
+	<200409130839.15988.vkondra@mail.ru>
+	<4145352F.4040807@pobox.com>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: i@stingr.net, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269057AbUIMXVF@vger.kernel.org>
-To: Paul P Komkoff Jr <i@stingr.net>
-In-Reply-To: <20040913051706.GB26337@stingr.sgu.ru>
+Cc: vkondra@mail.ru, greg@atheros.com, netdev@oss.sgi.com,
+ acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jkmaline@cc.hut.fi,
+ prism54-devel@prism54.org, sam@errno.com,
+ vda@port.imtp.ilyichevsk.odessa.ua
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4145352F.4040807@pobox.com>
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004 09:17:06 +0400
-Paul P Komkoff Jr <i@stingr.net> wrote:
+On Mon, 13 Sep 2004 01:50:39 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> Replying to David S. Miller:
-> > What are the rules for IP_GRE in general for when
-> > to apply this transformation?
+> You are the one doing the work.  Which would you prefer?  :)
 > 
-> As you can see, I am applying it unconditionally when fits. For most
-> cases, this will be OK.
-> There can be situations when this is not wanted (for example, when 
-> debugging something), so in general, tuning knob will be useful, but 
-> I just don't know where to add it, maybe tunnel->parms.i_flags ...
+> You could always send patches to netdev@oss.sgi.com and CC 
+> jgarzik@pobox.com and davem@davemloft.net.  DaveM could review, and I 
+> could apply to wireless-2.6, then post a snapshot on kernel.org.
 
-I don't think adding such a knob is necessary, but yes i_flags
-would be the place to do it.
+That works for me.
 
-I will apply your patch with the "if(1)" simply removed.
 
-Thanks.
+-------------------------------------------------------
+This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
+Project Admins to receive an Apple iPod Mini FREE for your judgement on
+who ports your project to Linux PPC the best. Sponsored by IBM. 
+Deadline: Sept. 13. Go here: http://sf.net/ppc_contest.php
