@@ -1,48 +1,47 @@
-From: jamal <hadi@cyberus.ca>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
-Date: 07 Dec 2004 07:34:05 -0500
-Message-ID: <1102422845.1089.105.camel@jzny.localdomain>
-References: <20041206224107.GA8529@soohrt.org>
-	 <E1CbSf8-00047p-00@calista.eckenfels.6bone.ka-ip.net>
-	 <20041207002012.GB30674@quickstop.soohrt.org>
-	 <1102387595.1088.48.camel@jzny.localdomain>
-	 <20041207025456.GA525@soohrt.org>
-	 <1102389533.1089.51.camel@jzny.localdomain>
-	 <20041207032438.GA7767@soohrt.org>
-	 <1102390241.1093.59.camel@jzny.localdomain>
-	 <20041207040235.GA10501@soohrt.org>
-	 <20041207102132.GA28588@quickstop.soohrt.org>
-Reply-To: hadi@cyberus.ca
+Date: Tue, 7 Dec 2004 13:38:56 +0100
+Message-ID: <16821.42080.932184.167780@robur.slu.se>
+References: <20041206205305.GA11970@soohrt.org>
+	<20041206134849.498bfc93.davem@davemloft.net>
+	<20041206224107.GA8529@soohrt.org>
+	<41B58A58.8010007@draigBrady.com>
+	<20041207112139.GA3610@soohrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Bernd Eckenfels <ecki-news2004-05@lina.inka.de>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Karsten Desler <kdesler@soohrt.org>,
-        Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <20041207102132.GA28588@quickstop.soohrt.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: P@draigBrady.com, "David S. Miller" <davem@davemloft.net>,
+	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261799AbULGMjM@vger.kernel.org>
+To: Karsten Desler <kdesler@soohrt.org>
+In-Reply-To: <20041207112139.GA3610@soohrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-12-07 at 05:21, Karsten Desler wrote:
 
-> But looking and the int/s number, I'm not so sure anymore. Is there any
-> other way to find out?
-> 
 
-> # sar -I 169 5 5
-> 11:20:05         INTR    intr/s
-> 11:20:10          169  10401.40
+Hello!
 
-That doesnt seem to be too high. 
-You have a dual opteron 244. You are supposed to be kicking ass with
-that machine - not 200Kpps+ you are getting with all that CPU overload.
-Something is wrong with your setup. Unfortunately i cant afford such a
-machine so i cant see it right off the bat. I know Robert has at least
-one similar machine; maybe he could help. Robert?
+Well my experience is that it very hard not to say almost impossible to=
+=20
+extrapolate idle cpu into any network system capacity. I guess this is=20
+what you are trying to do?=20
 
-cheers,
-jamal 
+Rather load and overload the system with traffic having the characteris=
+tics
+you expect as a bonus you will get some kind proof of robustness and=20
+responsiveness a max load. There are tools for this type of tests.
+
+
+P=E1draig! Very funny... I started hacking 2 hours ago on idea I=20
+had for long time, This to do a light version of skb recycling based
+skb->users (the pktgen trick) with very minimal kernel change..
+
+
+> Anyway attached is a small patch that I used to make the e1000
+> "own" the packet buffers, and hence it does not alloc/free
+> per packet at all. Now this has only been tested in one
+> configuration where I was just sniffing the packets, so
+> definitely YMMV.
+
+						--ro
