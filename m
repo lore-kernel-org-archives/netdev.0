@@ -1,80 +1,55 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [2.6 PATCH] ipchains masquerade must select maddr correctly
-Date: Wed, 3 Dec 2003 01:55:28 +0200 (EET)
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [PATCH] (1/8) hdlc wan device disembedding
+Date: Wed, 03 Dec 2003 00:03:30 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0312030150080.1237-200000@u.domain.uli>
+Message-ID: <m3k75eddq5.fsf@defiant.pm.waw.pl>
+References: <20031202140103.6bb2deb4.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-1400563270-1070409328=:1237"
-Cc: Harald Welte <laforge@gnumonks.org>, "David S. Miller" <davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031202140103.6bb2deb4.shemminger@osdl.org> (Stephen
+ Hemminger's message of "Tue, 2 Dec 2003 14:01:03 -0800")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+Stephen Hemminger <shemminger@osdl.org> writes:
 
---1607745702-1400563270-1070409328=:1237
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+> Change the hdlc wan device's to not have the net_device structure embedded
+> inside the hdlc_device structure.  This won't work on 2.6 where the
+> net_device
+> structure may need to live after module unload due to sysfs.
+> Instead, use alloc_netdev and setup so that netdev->priv = hdlc 
+> and have hdlc->dev_data for device private data.
+
+Hmm... I always wanted dev->priv to be available for hw drivers (and
+yes, PPP proto doesn't currently meet that).
+
+Any other idea maybe?
 
 
-	Hello,
+It seems the whole WAN (drivers/net/wan) needs some major rewrite, as
+the recent patches (starting with last 2.5.x ones) have broken few
+things (at least for me) which are not all fixed.
 
-	The attached patch fixes ipchains masquerade to use
-correctly the routing. This bug-to-bug compatibility with 2.2
-is not valid from long time. Also, a missing unlock is added.
+First I would duplicate syncppp.c code in hdlc_ppp.c (removing Cisco HDLC
+support and polishing it to suit generic HDLC needs) so it no longer
+depends on syncppp (long-term I plan switching to generic PPP but it's
+certainly post-2.6 thing and I'm not even sure how to do it).
+This would result in few hundred lines of duplicated code, though.
 
-Regards
+The positive side is that I can test the generic HDLC + hw drivers for
+C101, N2, wanXL, PCI200SYN (being merged) and PC300.
 
---
-Julian Anastasov <ja@ssi.bg>
 
---1607745702-1400563270-1070409328=:1237
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ipchains-masq-1.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0312030155280.1237@u.domain.uli>
-Content-Description: ipchains maddr
-Content-Disposition: attachment; filename="ipchains-masq-1.diff"
+The other thing would be converting drivers using syncppp.c to use
+generic HDLC instead (it would add support for X.25, Frame-Relay and
+raw HDLC). While I can probably make a patch I can't test it.
 
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1MiAgLT4gMS4xMzUzIA0KIwlu
-ZXQvaXB2NC9uZXRmaWx0ZXIvaXBfZndfY29tcGF0X21hc3EuYwkxLjExICAg
-IC0+IDEuMTIgICANCiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2Vl
-cGVyIENoYW5nZVNldCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMgMDMvMTIvMDMJamFAc3NpLmJnCTEu
-MTM1Mw0KIyBbSVBDSEFJTlNdOiBtYXNxdWVyYWRlIG11c3Qgc2VsZWN0IG1h
-ZGRyIGNvcnJlY3RseQ0KIyANCiMgLSBJdCBpcyBmaXhlZCBpbiBMaW51eCAy
-LjIgZnJvbSBhZ2VzDQojIC0gQWRkIG1pc3NpbmcgV1JJVEVfVU5MT0NLIG9u
-IHJvdXRlIGVycm9yDQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tDQojDQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9uZXRm
-aWx0ZXIvaXBfZndfY29tcGF0X21hc3EuYyBiL25ldC9pcHY0L25ldGZpbHRl
-ci9pcF9md19jb21wYXRfbWFzcS5jDQotLS0gYS9uZXQvaXB2NC9uZXRmaWx0
-ZXIvaXBfZndfY29tcGF0X21hc3EuYwlXZWQgRGVjICAzIDAwOjMyOjA1IDIw
-MDMNCisrKyBiL25ldC9pcHY0L25ldGZpbHRlci9pcF9md19jb21wYXRfbWFz
-cS5jCVdlZCBEZWMgIDMgMDA6MzI6MDUgMjAwMw0KQEAgLTY3LDE4ICs2Nywy
-MyBAQA0KIAkvKiBTZXR1cCB0aGUgbWFzcXVlcmFkZSwgaWYgbm90IGFscmVh
-ZHkgKi8NCiAJaWYgKCFpbmZvLT5pbml0aWFsaXplZCkgew0KIAkJdV9pbnQz
-Ml90IG5ld3NyYzsNCi0JCXN0cnVjdCBmbG93aSBmbCA9IHsgLm5sX3UgPSB7
-IC5pcDRfdSA9IHsgLmRhZGRyID0gKCpwc2tiKS0+bmguaXBoLT5kYWRkciB9
-IH0gfTsNCisJCXN0cnVjdCBmbG93aSBmbCA9IHsgLm5sX3UgPSB7DQorCQkJ
-CQkuaXA0X3UgPSB7DQorCQkJCQkJLmRhZGRyID0gKCpwc2tiKS0+bmguaXBo
-LT5kYWRkciwNCisJCQkJCQkudG9zID0gUlRfVE9TKCgqcHNrYiktPm5oLmlw
-aC0+dG9zKSwNCisJCQkJCX0gfSwNCisJCQkJICAgIC5vaWYgPSAoKnBza2Ip
-LT5kc3QtPmRldi0+aWZpbmRleCB9Ow0KIAkJc3RydWN0IHJ0YWJsZSAqcnQ7
-DQogCQlzdHJ1Y3QgaXBfbmF0X211bHRpX3JhbmdlIHJhbmdlOw0KIA0KIAkJ
-LyogUGFzcyAwIGluc3RlYWQgb2Ygc2FkZHIsIHNpbmNlIGl0J3MgZ29pbmcg
-dG8gYmUgY2hhbmdlZA0KIAkJICAgYW55d2F5LiAqLw0KIAkJaWYgKGlwX3Jv
-dXRlX291dHB1dF9rZXkoJnJ0LCAmZmwpICE9IDApIHsNCisJCQlXUklURV9V
-TkxPQ0soJmlwX25hdF9sb2NrKTsNCiAJCQlERUJVR1AoImlwbmF0X3J1bGVf
-bWFzcXVlcmFkZTogQ2FuJ3QgcmVyb3V0ZS5cbiIpOw0KIAkJCXJldHVybiBO
-Rl9EUk9QOw0KIAkJfQ0KLQkJbmV3c3JjID0gaW5ldF9zZWxlY3RfYWRkcihy
-dC0+dS5kc3QuZGV2LCBydC0+cnRfZ2F0ZXdheSwNCi0JCQkJCSAgUlRfU0NP
-UEVfVU5JVkVSU0UpOw0KKwkJbmV3c3JjID0gcnQtPnJ0X3NyYzsNCiAJCWlw
-X3J0X3B1dChydCk7DQogCQlyYW5nZSA9ICgoc3RydWN0IGlwX25hdF9tdWx0
-aV9yYW5nZSkNCiAJCQkgeyAxLA0K
---1607745702-1400563270-1070409328=:1237--
+The remaining drivers use either Sangoma (sdla/dlci/wanpipe/wanrouter)
+or comx code. Not sure about their status, are they both maintained?
+
+Comments?
+-- 
+Krzysztof Halasa, B*FH
