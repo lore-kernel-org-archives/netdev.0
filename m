@@ -1,84 +1,64 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.4.28-pre3] 3c59x: reload EEPROM values at rmmod for needy cards
-Date: Fri, 8 Oct 2004 12:44:15 -0400
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 3527] New: ssh does not work with 2.6.9rc3
+Date: Fri, 8 Oct 2004 10:48:01 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041008124415.F14378@tuxdriver.com>
-References: <20040928145455.C12480@tuxdriver.com> <Pine.LNX.4.44.0409291253510.1746-100000@training.scyld.com> <20040930091407.A10417@tuxdriver.com> <20041007134601.B29517@tuxdriver.com>
+Message-ID: <20041008104801.0dd96536.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, akpm@osdl.org, jgarzik@pobox.com,
-        Donald Becker <becker@scyld.com>, marcelo.tosatti@cyclades.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20041007134601.B29517@tuxdriver.com>; from linville@tuxdriver.com on Thu, Oct 07, 2004 at 01:46:01PM -0400
+To: albie@alfarrabio.di.uminho.pt
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Enable reload of EEPROM values in reset at rmmod for cards that need
-it, similar to old EEPROM_NORESET flag but in reverse.
 
-Signed-of-by: John W. Linville <linville@tuxdriver.com>
----
-(Most?) 3c905 and (some?) 3c905B cards need an additional bit unmasked
-in the reset at rmmod or else they don't get reinitialized properly when
-the driver is reloaded.
+hrm.   Could you check to see if it starts working OK after the machine has been
+up for more than five minutes?
 
- drivers/net/3c59x.c |   17 +++++++++--------
- 1 files changed, 9 insertions(+), 8 deletions(-)
+Begin forwarded message:
 
-Please note that this depends on the "3c59x: resync with 2.6" patch
-which I posted earlier today.
+Date: Fri, 8 Oct 2004 09:26:51 -0700
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 3527] New: ssh does not work with 2.6.9rc3
 
---- linux-2.4/drivers/net/3c59x.c.orig
-+++ linux-2.4/drivers/net/3c59x.c
-@@ -413,7 +413,7 @@ enum {	IS_VORTEX=1, IS_BOOMERANG=2, IS_C
- 	HAS_PWR_CTRL=0x20, HAS_MII=0x40, HAS_NWAY=0x80, HAS_CB_FNS=0x100,
- 	INVERT_MII_PWR=0x200, INVERT_LED_PWR=0x400, MAX_COLLISION_RESET=0x800,
- 	EEPROM_OFFSET=0x1000, HAS_HWCKSM=0x2000, WNO_XCVR_PWR=0x4000,
--	EXTRA_PREAMBLE=0x8000, };
-+	EXTRA_PREAMBLE=0x8000, EEPROM_RESET=0x10000, };
- 
- enum vortex_chips {
- 	CH_3C590 = 0,
-@@ -502,16 +502,16 @@ static struct vortex_chip_info {
- 	{"3c900B-FL Cyclone 10base-FL",
- 	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
- 	{"3c905 Boomerang 100baseTx",
--	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII, 64, },
-+	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
- 	{"3c905 Boomerang 100baseT4",
--	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII, 64, },
-+	 PCI_USES_IO|PCI_USES_MASTER, IS_BOOMERANG|HAS_MII|EEPROM_RESET, 64, },
- 	{"3c905B Cyclone 100baseTx",
--	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
-+	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE|EEPROM_RESET, 128, },
- 
- 	{"3c905B Cyclone 10/100/BNC",
--	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
-+	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EEPROM_RESET, 128, },
- 	{"3c905B-FX Cyclone 100baseFx",
--	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
-+	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM|EEPROM_RESET, 128, },
- 	{"3c905C Tornado",
- 	PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
- 	{"3c920B-EMB-WNM (ATI Radeon 9100 IGP)",
-@@ -562,7 +562,7 @@ static struct vortex_chip_info {
- 	{"3c982 Hydra Dual Port B",
- 	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_HWCKSM|HAS_NWAY, 128, },
- 	{"3c905B-T4",
--	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE, 128, },
-+	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM|EXTRA_PREAMBLE|EEPROM_RESET, 128, },
- 	{"3c920B-EMB-WNM Tornado",
- 	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
- 
-@@ -3091,7 +3091,8 @@ static void __devexit vortex_remove_one 
- 			pci_restore_state(VORTEX_PCI(vp), vp->power_state);
- 	}
- 	/* Should really use issue_and_wait() here */
--	outw(TotalReset|0x14, dev->base_addr + EL3_CMD);
-+	outw(TotalReset | ((vp->drv_flags & EEPROM_RESET) ? 0x04 : 0x14),
-+	     dev->base_addr + EL3_CMD);
- 
- 	pci_free_consistent(pdev,
- 						sizeof(struct boom_rx_desc) * RX_RING_SIZE
+
+http://bugme.osdl.org/show_bug.cgi?id=3527
+
+           Summary: ssh does not work with 2.6.9rc3
+    Kernel Version: 2.6.9 RC 3
+            Status: NEW
+          Severity: normal
+             Owner: other_other@kernel-bugs.osdl.org
+         Submitter: albie@alfarrabio.di.uminho.pt
+
+
+Distribution: Slackware 10
+
+Problem Description:
+ Had kernel 2.6.7 working correctly. It had a bug with my sis ethernet card.
+Upgraded to 2.6.8.1, and had problems with sata (bug #3521). So, tried the 2.6.9
+RC 3. 
+
+ With this kernel, the sis ethernet bug is fixed (well, at least I can do a ping
+-f without losing packets), SATA works but... wonder... ssh doesn't.
+
+If I have a public key on other machine without passphrase, it works.
+If not....
+
+ssh_askpass: exec(/usr/libexec/ssh-askpass): No such file or directory
+Permission denied, please try again.
+ssh_askpass: exec(/usr/libexec/ssh-askpass): No such file or directory
+Permission denied, please try again.
+ssh_askpass: exec(/usr/libexec/ssh-askpass): No such file or directory
+Permission denied (publickey,password,keyboard-interactive).
+
+Now, that file really doesn't exist. But it isn't needed with the old kernel.
+So, what 2.6.9 rc 3 has that 2.6.7 don't?
+
+Thanks,
+Alberto
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
