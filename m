@@ -1,139 +1,108 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: [PATCH][RESEND] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
- device
-Date: Wed, 7 Jan 2004 11:22:57 +0200 (EET)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0401071034440.27524@rhea.tcs.hut.fi>
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Subject: 2.6.0 NFS-server low to 0 performance (fwd)
+Date: Wed, 7 Jan 2004 14:31:27 +0100 (CET)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0401071351080.4855-100000@poirot.grange>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: yoshfuji@linux-ipv6.org, pekkas@netcore.fi, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, <linux-net@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: nfs@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Sorry for cross-posting - wasn't sure which list would give the best
+chances.
 
-This patch, made against cset 1.1492, adds a link-local address to a
-ip6-ip6 tunnel interface when it is brougth up.
+I am forwarding a problem-report, sent yesterday to lkml with a bit more
+data.
 
-It also changes the router solicitation behavior slightly by checking that
-rtr_solicits is > 0, before sending a router solicitation after a
-successful DAD probe on the link-local address.
+Short: The NFS server on a PC with a 2.6.0 (release) kernel slows down to
+a crawl or stops completely.
 
-2.6.0 has been released, so would you apply this patch now? :)
+Searched archives - nothing fits exact enough.
 
-Thanks,
-Ville
+The server (PC1) is a 900MHz Duron with 384M RAM and a tulip 10/100
+(LinkSys) network card (Linksys Network Everywhere Fast Ethernet 10/100
+model NC100 (rev 17)).
 
-diff -Nru a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
---- a/net/ipv6/addrconf.c	Wed Jan  7 11:07:42 2004
-+++ b/net/ipv6/addrconf.c	Wed Jan  7 11:07:42 2004
-@@ -1809,6 +1809,54 @@
- 		sit_route_add(dev);
- }
+Clients:
+PC2 - Pentium 133MHz with 24M RAM and an onboard Lance 79C970 10mbps
+network card,
+a SA1100 platform (Tuxscreen / Shannon) with 16M RAM, PCMCIA Netgear
+10/100mbps ne2000-compatible (pcnet_cs + 8390) card
+a PXA250 platform (Inphinity / Triton starter-kit) with 64M RAM, onboard
+SMC91C11xFD (smc91x driver) 10/100 chip
 
-+static inline int
-+ipv6_inherit_linklocal(struct inet6_dev *idev, struct net_device *link_dev)
-+{
-+	struct in6_addr lladdr;
-+
-+	if (!ipv6_get_lladdr(link_dev, &lladdr)) {
-+		addrconf_add_linklocal(idev, &lladdr);
-+		return 0;
-+	}
-+	return -1;
-+}
-+
-+static void ip6_tnl_add_linklocal(struct inet6_dev *idev)
-+{
-+	struct net_device *link_dev;
-+
-+	/* first try to inherit the link-local address from the link device */
-+	if (idev->dev->iflink &&
-+	    (link_dev = __dev_get_by_index(idev->dev->iflink))) {
-+		if (!ipv6_inherit_linklocal(idev, link_dev))
-+			return;
-+	}
-+	/* then try to inherit it from any device */
-+	for (link_dev = dev_base; link_dev; link_dev = link_dev->next) {
-+		if (!ipv6_inherit_linklocal(idev, link_dev))
-+			return;
-+	}
-+	printk(KERN_DEBUG "init ip6-ip6: add_linklocal failed\n");
-+}
-+
-+/*
-+ * Autoconfigure tunnel with a link-local address so routing protocols,
-+ * DHCPv6, MLD etc. can be run over the virtual link
-+ */
-+
-+static void addrconf_ip6_tnl_config(struct net_device *dev)
-+{
-+	struct inet6_dev *idev;
-+
-+	ASSERT_RTNL();
-+
-+	if ((idev = addrconf_add_dev(dev)) == NULL) {
-+		printk(KERN_DEBUG "init ip6-ip6: add_dev failed\n");
-+		return;
-+	}
-+	ip6_tnl_add_linklocal(idev);
-+	addrconf_add_mroute(dev);
-+}
+In the tests below I was copying a 4M file from an NFS-mounted
+directory to a RAM-based fs (ramfs / tmpfs). Here are results:
 
- int addrconf_notify(struct notifier_block *this, unsigned long event,
- 		    void * data)
-@@ -1822,7 +1870,9 @@
- 		case ARPHRD_SIT:
- 			addrconf_sit_config(dev);
- 			break;
--
-+		case ARPHRD_TUNNEL6:
-+			addrconf_ip6_tnl_config(dev);
-+			break;
- 		case ARPHRD_LOOPBACK:
- 			init_loopback(dev);
- 			break;
-@@ -2121,6 +2171,7 @@
- 	 */
+server with 2.6.0 kernel:
 
- 	if (ifp->idev->cnf.forwarding == 0 &&
-+	    ifp->idev->cnf.rtr_solicits > 0 &&
- 	    (dev->flags&IFF_LOOPBACK) == 0 &&
- 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
- 		struct in6_addr all_routers;
-diff -Nru a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
---- a/net/ipv6/ip6_tunnel.c	Wed Jan  7 11:07:42 2004
-+++ b/net/ipv6/ip6_tunnel.c	Wed Jan  7 11:07:42 2004
-@@ -821,6 +821,8 @@
- 	else
- 		dev->flags &= ~IFF_POINTOPOINT;
+PC2:2.6.0-test11	2m21s (*)
+PC2:2.4.20		16.5s
+SA1100:2.4.19-rmk7	never finishes (*)
+PXA:2.4.21-rmk1-pxa1	as above
+PXA:2.6.0-rmk1-pxa	as above
 
-+	dev->iflink = p->link;
-+
- 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
- 		struct rt6_info *rt = rt6_lookup(&p->raddr, &p->laddr,
- 						 p->link, 0);
-@@ -829,8 +831,6 @@
- 			return;
+server: 2.4.21
 
- 		if (rt->rt6i_dev) {
--			dev->iflink = rt->rt6i_dev->ifindex;
--
- 			dev->hard_header_len = rt->rt6i_dev->hard_header_len +
- 				sizeof (struct ipv6hdr);
+PC2:2.6.0-test11	6s
+PC2:2.4.20		5s
+SA1100:2.4.19-rmk7	3.22s
+PXA:2.4.21-rmk1-pxa1	7s
+PXA:2.6.0-rmk2-pxa	1) 50s (**)
+(***)			2) 27s (**)
 
-@@ -1040,7 +1040,6 @@
- 	dev->hard_header_len = LL_MAX_HEADER + sizeof (struct ipv6hdr);
- 	dev->mtu = ETH_DATA_LEN - sizeof (struct ipv6hdr);
- 	dev->flags |= IFF_NOARP;
--	dev->iflink = 0;
- 	dev->addr_len = sizeof(struct in6_addr);
- }
+(*) Messages "NFS server not responding" / "NFS server OK", "mount version
+older than kernel" on mount
 
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+(**) Messages "NFS server not responding" / "NFS server OK", "mount version
+older than kernel" on mount, trafic shows as several peaks
+
+(***) 2.6.0-rmk2-pxa corresponds to the 2.6.0-rmk2 kernel with a PXA-patch
+forward-ported from diff-2.6.0-test2-rmk1-pxa1.
+
+The LinkSys card I bought recently, before I used a RTL (3c59x) card, only
+capable of 10mbps. Here are the results of today with this card:
+
+server: 2.6.0
+
+PC2: 2.6.0-test11	9s
+PC2: 2.4.20		4s
+SA1100: 2.4.19-rmk7	never finishes
+
+server: 2.4.21
+
+SA1100: 2.4.19-rmk7	6s
+
+Then I tried PC2 as a server with different kernels
+PC2: 2.6.0-test11
+
+PC1: 2.6.0		10s
+SA1100: 2.4.19-rmk7	never finishes
+
+server PC2: 2.4.20
+
+PC1: 2.6.0		6s
+SA1100: 2.4.19-rmk7	7s
+
+It is not just a problem of 2.6 with those specific network configurations
+- ftp / http / tftp transfers work fine. E.g. wget of the same file on the
+PXA with 2.6.0 from the PC1 with 2.4.21 over http takes about 2s. So, it
+is 2.6 + NFS. nfs-utils on both PC1 and PC2 version 1.0.6 (Debian Sarge).
+
+Is it fixed somewhere (2.6.1-rcx?), or what should I try / what further
+information is required?
+
+Sorry, I am not subscribed to any of these lists, so, please, CC.
+
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski
+
+
+
+
+
+
