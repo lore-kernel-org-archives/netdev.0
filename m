@@ -1,83 +1,35 @@
-From: Venkata Jagana <jagana@us.ibm.com>
-Subject: [ANNOUNCE] Linux DHCPv6 release available for download
-Date: Thu, 30 Jan 2003 17:05:56 -0800
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH] LSM networking: tcp hooks for 2.5.59 (8/8)
+Date: Sat, 1 Feb 2003 11:12:33 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF3F47AF4C.84072AF6-ON88256CBF.00044306@us.ibm.com>
+Message-ID: <Pine.LNX.4.44.0302011054440.4480-100000@blackbird.intercode.com.au>
+References: <20030130.161638.83467438.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kuznet@ms2.inr.ac.ru, <netdev@oss.sgi.com>,
+   <linux-security-module@wirex.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030130.161638.83467438.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 30 Jan 2003, David S. Miller wrote:
 
-The DHCPv6 (DHCP for IPv6) code (ver 0.1) is now available for
-download at SourceForge:
+> If you think this is implementable, then I'll happily accept the
+> net/socket.c stuff and even the af_unix hack, with the assumption
+> being that the rest can be handled by netfilter or something similar.
+> Oh yes, I'd also take the netlink capability thing too as long as it
+> was inlined properly for the no-security case.
 
-     http://www.sourceforge.net/projects/dhcpv6
+Explicitly labeled networking and the SELinux extended sockets API
+probably can't be supported with just these hooks and Netfilter.
 
-Linux DHCPv6 project is created to provide IETF standard conformant
-DHCPv6 protocol implementation for Linux.
-
-The current version of the code provides 'partial' Client/Server support
-for
-address assignment. Additional messages support is currently under
-development.
-
-The current status of the project, at a high level, is provided below but
-for further details, please visit the DHCPv6 project page at SourceForge.
+However, this subset of the networking hooks will still be very useful in
+general, and we'll rework the patch accordingly.
 
 
-On behalf of DHCPv6 team,
-
-Regards,
-Venkat
-
-----------------------------------------------------------------
-Venkata R Jagana
-IBM Linux Technology Center
-Beaverton
-jagana@us.ibm.com
-----------------------------------------------------------------
-
-
-Current Status:
-
-  Features implemented and validated
-
-    IPv6 address Assignment
-
-      - Server configuration file support
-      - Server lease file support for saving all the client's IPv6 address
-binding info
-      - Client IPv6 address assignment and temporary IPv6 address
-assignment support on the same link
-      - Supported Options: Rapid commit, Server Preference, Information
-Request
-         ClientID, ServerID , IA_NA , IA_TA , IA_ADDR , Status support
-      - Solicit/Request/Advertise/Reply/Infomation-request messages support
-
-  Features available but not validated:
-
-      - Renew/Rebind messages
-      - Prefix delegation option support
-      - DNS server option support
-      - Request option support
-
-  Features under development:
-
-      - Timer events support
-          T1(renew)/T2(rebind)/expired(address prefered-lifetime
-reached)/deleted(address valid-lifetime reached)
-      - Release/Decline/Confirm messages support
-      - Client configuration file support
-      - Client lease file support
-      - Merge prefix delegation configuration file and IPv6 address
-assignment file
-
-   Features to be addressed:
-
-      - Unicast/Elapsed time/Authentication/User Class/Vendor
-Class/Interface-ID option support
-      - Relay agent support.
-      - Reconfig/Relay messages support.
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
