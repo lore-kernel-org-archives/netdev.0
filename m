@@ -1,43 +1,42 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH 3/9] af_packet: use sock slab cache
-Date: Thu, 20 Jan 2005 00:04:14 -0200
-Message-ID: <41EF119E.4000404@conectiva.com.br>
+Subject: [PATCH 7/9] x25: use sock slab cache
+Date: Thu, 20 Jan 2005 00:04:38 -0200
+Message-ID: <41EF11B6.7030702@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------050307090103090905040701"
+ boundary="------------050703090608090704090009"
 Cc: Networking Team <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>,
+        Aristeu Rozanski <aris@cathedrallabs.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------050307090103090905040701
+--------------050703090608090704090009
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-David,
+Hi David, Aristeu,
 
-	Subject says it all.
-
-Regards,
+	Please read the log in the patch.
 
 - Arnaldo
 
 
---------------050307090103090905040701
+--------------050703090608090704090009
 Content-Type: text/plain;
- name="af_packet_sock.patch"
+ name="x25_sock.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="af_packet_sock.patch"
+ filename="x25_sock.patch"
 
 ===================================================================
 
 
-ChangeSet@1.2339, 2005-01-19 23:02:59-02:00, acme@toy.ghostprotocols.net
-  [AF_PACKET] use a private slab cache for socks
+ChangeSet@1.2343, 2005-01-19 23:06:19-02:00, acme@toy.ghostprotocols.net
+  [X25] use a private slab cache for socks
   
   Required to get rid of sk_protinfo and to introduce struct connection_sock,
   also for consistency with other protocol families implementations.
@@ -46,256 +45,456 @@ ChangeSet@1.2339, 2005-01-19 23:02:59-02:00, acme@toy.ghostprotocols.net
   Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
- af_packet.c |   69 ++++++++++++++++++++++++++++++++++--------------------------
- 1 files changed, 40 insertions(+), 29 deletions(-)
+ include/net/x25.h        |   10 ++++++---
+ net/x25/af_x25.c         |   50 +++++++++++++++++++++++++----------------------
+ net/x25/x25_facilities.c |    2 -
+ net/x25/x25_in.c         |   10 ++++-----
+ net/x25/x25_out.c        |    8 +++----
+ net/x25/x25_proc.c       |    2 -
+ net/x25/x25_subr.c       |   14 ++++++-------
+ net/x25/x25_timer.c      |   14 ++++++-------
+ 8 files changed, 59 insertions(+), 51 deletions(-)
 
 
-diff -Nru a/net/packet/af_packet.c b/net/packet/af_packet.c
---- a/net/packet/af_packet.c	2005-01-19 23:21:03 -02:00
-+++ b/net/packet/af_packet.c	2005-01-19 23:21:03 -02:00
-@@ -148,6 +148,8 @@
- static HLIST_HEAD(packet_sklist);
- static DEFINE_RWLOCK(packet_sklist_lock);
+diff -Nru a/include/net/x25.h b/include/net/x25.h
+--- a/include/net/x25.h	2005-01-19 23:47:43 -02:00
++++ b/include/net/x25.h	2005-01-19 23:47:43 -02:00
+@@ -10,6 +10,7 @@
+ #ifndef _X25_H
+ #define _X25_H 
+ #include <linux/x25.h>
++#include <net/sock.h>
  
-+static kmem_cache_t *packet_sk_slab;
-+
- static atomic_t packet_socks_nr;
+ #define	X25_ADDR_LEN			16
  
+@@ -129,7 +130,8 @@
+ 	atomic_t		refcnt;
+ };
  
-@@ -170,8 +172,9 @@
- 
- static void packet_flush_mclist(struct sock *sk);
- 
--struct packet_opt
--{
-+struct packet_sock {
-+	/* struct sock has to be the first member of packet_sock */
+-struct x25_opt {
++struct x25_sock {
 +	struct sock		sk;
- 	struct tpacket_stats	stats;
- #ifdef CONFIG_PACKET_MMAP
- 	char *			*pg_vec;
-@@ -199,7 +202,7 @@
+ 	struct x25_address	source_addr, dest_addr;
+ 	struct x25_neigh	*neighbour;
+ 	unsigned int		lci;
+@@ -141,7 +143,6 @@
+ 	struct sk_buff_head	fragment_queue;
+ 	struct sk_buff_head	interrupt_in_queue;
+ 	struct sk_buff_head	interrupt_out_queue;
+-	struct sock		*sk;		/* Backlink to socket */
+ 	struct timer_list	timer;
+ 	struct x25_causediag	causediag;
+ 	struct x25_facilities	facilities;
+@@ -149,7 +150,10 @@
+ 	unsigned long 		vc_facil_mask;	/* inc_call facilities mask */
+ };
  
- #ifdef CONFIG_PACKET_MMAP
- 
--static inline char *packet_lookup_frame(struct packet_opt *po, unsigned int position)
-+static inline char *packet_lookup_frame(struct packet_sock *po, unsigned int position)
- {
- 	unsigned int pg_vec_pos, frame_offset;
- 	char *frame;
-@@ -213,7 +216,10 @@
- }
- #endif
- 
--#define pkt_sk(__sk) ((struct packet_opt *)(__sk)->sk_protinfo)
-+static inline struct packet_sock *pkt_sk(struct sock *sk)
+-#define x25_sk(__sk) ((struct x25_opt *)(__sk)->sk_protinfo)
++static inline struct x25_sock *x25_sk(const struct sock *sk)
 +{
-+	return (struct packet_sock *)sk;
++	return (struct x25_sock *)sk;
 +}
  
- static void packet_sock_destruct(struct sock *sk)
- {
-@@ -225,8 +231,6 @@
- 		return;
- 	}
+ /* af_x25.c */
+ extern int  sysctl_x25_restart_request_timeout;
+diff -Nru a/net/x25/af_x25.c b/net/x25/af_x25.c
+--- a/net/x25/af_x25.c	2005-01-19 23:47:43 -02:00
++++ b/net/x25/af_x25.c	2005-01-19 23:47:43 -02:00
+@@ -60,6 +60,8 @@
+ HLIST_HEAD(x25_list);
+ DEFINE_RWLOCK(x25_list_lock);
  
--	if (pkt_sk(sk))
--		kfree(pkt_sk(sk));
- 	atomic_dec(&packet_socks_nr);
- #ifdef PACKET_REFCNT_DEBUG
- 	printk(KERN_DEBUG "PACKET socket %p is free, %d are alive\n", sk, atomic_read(&packet_socks_nr));
-@@ -440,7 +444,7 @@
- {
- 	struct sock *sk;
- 	struct sockaddr_ll *sll;
--	struct packet_opt *po;
-+	struct packet_sock *po;
- 	u8 * skb_head = skb->data;
- 	int skb_len = skb->len;
- 	unsigned snaplen;
-@@ -541,7 +545,7 @@
- static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,  struct packet_type *pt)
- {
- 	struct sock *sk;
--	struct packet_opt *po;
-+	struct packet_sock *po;
- 	struct sockaddr_ll *sll;
- 	struct tpacket_hdr *h;
- 	u8 * skb_head = skb->data;
-@@ -699,7 +703,7 @@
- 	 */
- 	 
- 	if (saddr == NULL) {
--		struct packet_opt *po = pkt_sk(sk);
-+		struct packet_sock *po = pkt_sk(sk);
++static kmem_cache_t *x25_sk_slab;
++
+ static struct proto_ops x25_proto_ops;
  
- 		ifindex	= po->ifindex;
- 		proto	= po->num;
-@@ -786,7 +790,7 @@
- static int packet_release(struct socket *sock)
+ static struct x25_address null_x25_address = {"               "};
+@@ -444,33 +446,23 @@
+ 
+ static struct sock *x25_alloc_socket(void)
  {
- 	struct sock *sk = sock->sk;
--	struct packet_opt *po;
-+	struct packet_sock *po;
+-	struct x25_opt *x25;
+-	struct sock *sk = sk_alloc(AF_X25, GFP_ATOMIC, 1, NULL);
++	struct x25_sock *x25;
++	struct sock *sk = sk_alloc(AF_X25, GFP_ATOMIC,
++				   sizeof(struct x25_sock), x25_sk_slab);
  
  	if (!sk)
- 		return 0;
-@@ -844,7 +848,7 @@
- 
- static int packet_do_bind(struct sock *sk, struct net_device *dev, int protocol)
- {
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 	/*
- 	 *	Detach an existing hook if present.
- 	 */
-@@ -961,7 +965,7 @@
- static int packet_create(struct socket *sock, int protocol)
- {
- 	struct sock *sk;
--	struct packet_opt *po;
-+	struct packet_sock *po;
- 	int err;
- 
- 	if (!capable(CAP_NET_RAW))
-@@ -976,7 +980,8 @@
- 	sock->state = SS_UNCONNECTED;
- 
- 	err = -ENOBUFS;
--	sk = sk_alloc(PF_PACKET, GFP_KERNEL, 1, NULL);
-+	sk = sk_alloc(PF_PACKET, GFP_KERNEL,
-+		      sizeof(struct packet_sock), packet_sk_slab);
- 	if (sk == NULL)
  		goto out;
  
-@@ -988,10 +993,7 @@
- 	sock_init_data(sock,sk);
+-	x25 = sk->sk_protinfo = kmalloc(sizeof(*x25), GFP_ATOMIC);
+-	if (!x25)
+-		goto frees;
+-
+-	memset(x25, 0, sizeof(*x25));
+-
+-	x25->sk = sk;
+-
+ 	sock_init_data(NULL, sk);
  	sk_set_owner(sk, THIS_MODULE);
  
--	po = sk->sk_protinfo = kmalloc(sizeof(*po), GFP_KERNEL);
--	if (!po)
--		goto out_free;
--	memset(po, 0, sizeof(*po));
-+	po = pkt_sk(sk);
- 	sk->sk_family = PF_PACKET;
- 	po->num = protocol;
- 
-@@ -1021,9 +1023,6 @@
- 	sk_add_node(sk, &packet_sklist);
- 	write_unlock_bh(&packet_sklist_lock);
- 	return(0);
--
--out_free:
--	sk_free(sk);
++	x25 = x25_sk(sk);
+ 	skb_queue_head_init(&x25->ack_queue);
+ 	skb_queue_head_init(&x25->fragment_queue);
+ 	skb_queue_head_init(&x25->interrupt_in_queue);
+ 	skb_queue_head_init(&x25->interrupt_out_queue);
  out:
- 	return err;
- }
-@@ -1141,7 +1140,7 @@
- {
- 	struct net_device *dev;
- 	struct sock *sk = sock->sk;
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 	struct sockaddr_ll *sll = (struct sockaddr_ll*)uaddr;
- 
- 	if (peer)
-@@ -1195,7 +1194,7 @@
- 
- static int packet_mc_add(struct sock *sk, struct packet_mreq *mreq)
- {
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 	struct packet_mclist *ml, *i;
- 	struct net_device *dev;
- 	int err;
-@@ -1274,7 +1273,7 @@
- 
- static void packet_flush_mclist(struct sock *sk)
- {
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 	struct packet_mclist *ml;
- 
- 	if (!po->mclist)
-@@ -1355,7 +1354,7 @@
- {
- 	int len;
- 	struct sock *sk = sock->sk;
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 
- 	if (level != SOL_PACKET)
- 		return -ENOPROTOOPT;
-@@ -1401,7 +1400,7 @@
- 
- 	read_lock(&packet_sklist_lock);
- 	sk_for_each(sk, node, &packet_sklist) {
--		struct packet_opt *po = pkt_sk(sk);
-+		struct packet_sock *po = pkt_sk(sk);
- 
- 		switch (msg) {
- 		case NETDEV_UNREGISTER:
-@@ -1504,7 +1503,7 @@
- 				poll_table *wait)
- {
- 	struct sock *sk = sock->sk;
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 	unsigned int mask = datagram_poll(file, sock, wait);
- 
- 	spin_lock_bh(&sk->sk_receive_queue.lock);
-@@ -1579,7 +1578,7 @@
- static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing)
- {
- 	char **pg_vec = NULL;
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 	int was_running, num, order = 0;
- 	int err = 0;
- 	
-@@ -1709,7 +1708,7 @@
- static int packet_mmap(struct file *file, struct socket *sock, struct vm_area_struct *vma)
- {
- 	struct sock *sk = sock->sk;
--	struct packet_opt *po = pkt_sk(sk);
-+	struct packet_sock *po = pkt_sk(sk);
- 	unsigned long size;
- 	unsigned long start;
- 	int err = -EINVAL;
-@@ -1839,7 +1838,7 @@
- 		seq_puts(seq, "sk       RefCnt Type Proto  Iface R Rmem   User   Inode\n");
- 	else {
- 		struct sock *s = v;
--		const struct packet_opt *po = pkt_sk(s);
-+		const struct packet_sock *po = pkt_sk(s);
- 
- 		seq_printf(seq,
- 			   "%p %-6d %-4d %04x   %-5d %1d %-6u %-6u %-6lu\n",
-@@ -1884,11 +1883,23 @@
- 	proc_net_remove("packet");
- 	unregister_netdevice_notifier(&packet_netdev_notifier);
- 	sock_unregister(PF_PACKET);
-+
-+	if (packet_sk_slab != NULL) {
-+		kmem_cache_destroy(packet_sk_slab);
-+		packet_sk_slab = NULL;
-+	}
- 	return;
+ 	return sk;
+-frees:
+-	sk_free(sk);
+-	sk = NULL;
+-	goto out;
  }
  
- static int __init packet_init(void)
+ void x25_init_timers(struct sock *sk);
+@@ -478,7 +470,7 @@
+ static int x25_create(struct socket *sock, int protocol)
  {
-+	packet_sk_slab = kmem_cache_create("packet_sock",
-+					   sizeof(struct packet_sock), 0,
-+					   SLAB_HWCACHE_ALIGN, NULL, NULL);
+ 	struct sock *sk;
+-	struct x25_opt *x25;
++	struct x25_sock *x25;
+ 	int rc = -ESOCKTNOSUPPORT;
+ 
+ 	if (sock->type != SOCK_SEQPACKET || protocol)
+@@ -519,7 +511,7 @@
+ static struct sock *x25_make_new(struct sock *osk)
+ {
+ 	struct sock *sk = NULL;
+-	struct x25_opt *x25, *ox25;
++	struct x25_sock *x25, *ox25;
+ 
+ 	if (osk->sk_type != SOCK_SEQPACKET)
+ 		goto out;
+@@ -557,7 +549,7 @@
+ static int x25_release(struct socket *sock)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct x25_opt *x25;
++	struct x25_sock *x25;
+ 
+ 	if (!sk)
+ 		goto out;
+@@ -644,7 +636,7 @@
+ 		       int addr_len, int flags)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	struct sockaddr_x25 *addr = (struct sockaddr_x25 *)uaddr;
+ 	struct x25_route *rt;
+ 	int rc = 0;
+@@ -802,7 +794,7 @@
+ {
+ 	struct sockaddr_x25 *sx25 = (struct sockaddr_x25 *)uaddr;
+ 	struct sock *sk = sock->sk;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	if (peer) {
+ 		if (sk->sk_state != TCP_ESTABLISHED)
+@@ -822,7 +814,7 @@
+ {
+ 	struct sock *sk;
+ 	struct sock *make;
+-	struct x25_opt *makex25;
++	struct x25_sock *makex25;
+ 	struct x25_address source_addr, dest_addr;
+ 	struct x25_facilities facilities;
+ 	struct x25_calluserdata calluserdata;
+@@ -935,7 +927,7 @@
+ 		       struct msghdr *msg, size_t len)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	struct sockaddr_x25 *usx25 = (struct sockaddr_x25 *)msg->msg_name;
+ 	struct sockaddr_x25 sx25;
+ 	struct sk_buff *skb;
+@@ -1112,7 +1104,7 @@
+ 		       int flags)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	struct sockaddr_x25 *sx25 = (struct sockaddr_x25 *)msg->msg_name;
+ 	size_t copied;
+ 	int qbit;
+@@ -1201,7 +1193,7 @@
+ static int x25_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ {
+ 	struct sock *sk = sock->sk;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	void __user *argp = (void __user *)arg;
+ 	int rc;
+ 
+@@ -1391,6 +1383,13 @@
+ 
+ static int __init x25_init(void)
+ {
++	x25_sk_slab = kmem_cache_create("x25_sock",
++					sizeof(struct x25_sock), 0,
++					SLAB_HWCACHE_ALIGN, NULL, NULL);
 +
-+	if (packet_sk_slab == NULL)
++	if (x25_sk_slab == NULL)
 +		return -ENOMEM;
 +
- 	sock_register(&packet_family_ops);
- 	register_netdevice_notifier(&packet_netdev_notifier);
- 	proc_net_fops_create("packet", 0, &packet_seq_fops);
+ 	sock_register(&x25_family_ops);
+ 
+ 	dev_add_pack(&x25_packet_type);
+@@ -1422,6 +1421,11 @@
+ 	dev_remove_pack(&x25_packet_type);
+ 
+ 	sock_unregister(AF_X25);
++
++	if (x25_sk_slab != NULL) {
++		kmem_cache_destroy(x25_sk_slab);
++		x25_sk_slab = NULL;
++	}
+ }
+ module_exit(x25_exit);
+ 
+diff -Nru a/net/x25/x25_facilities.c b/net/x25/x25_facilities.c
+--- a/net/x25/x25_facilities.c	2005-01-19 23:47:43 -02:00
++++ b/net/x25/x25_facilities.c	2005-01-19 23:47:43 -02:00
+@@ -158,7 +158,7 @@
+ int x25_negotiate_facilities(struct sk_buff *skb, struct sock *sk,
+ 			     struct x25_facilities *new)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	struct x25_facilities *ours = &x25->facilities;
+ 	struct x25_facilities theirs;
+ 	int len;
+diff -Nru a/net/x25/x25_in.c b/net/x25/x25_in.c
+--- a/net/x25/x25_in.c	2005-01-19 23:47:43 -02:00
++++ b/net/x25/x25_in.c	2005-01-19 23:47:43 -02:00
+@@ -34,7 +34,7 @@
+ static int x25_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
+ {
+ 	struct sk_buff *skbo, *skbn = skb;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	if (more) {
+ 		x25->fraglen += skb->len;
+@@ -89,7 +89,7 @@
+ 
+ 	switch (frametype) {
+ 		case X25_CALL_ACCEPTED: {
+-			struct x25_opt *x25 = x25_sk(sk);
++			struct x25_sock *x25 = x25_sk(sk);
+ 
+ 			x25_stop_timer(sk);
+ 			x25->condition = 0x00;
+@@ -165,7 +165,7 @@
+ {
+ 	int queued = 0;
+ 	int modulus;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	
+ 	modulus = (x25->neighbour->extended) ? X25_EMODULUS : X25_SMODULUS;
+ 
+@@ -295,7 +295,7 @@
+ 		case X25_RESET_REQUEST:
+ 			x25_write_internal(sk, X25_RESET_CONFIRMATION);
+ 		case X25_RESET_CONFIRMATION: {
+-			struct x25_opt *x25 = x25_sk(sk);
++			struct x25_sock *x25 = x25_sk(sk);
+ 
+ 			x25_stop_timer(sk);
+ 			x25->condition = 0x00;
+@@ -322,7 +322,7 @@
+ /* Higher level upcall for a LAPB frame */
+ int x25_process_rx_frame(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	int queued = 0, frametype, ns, nr, q, d, m;
+ 
+ 	if (x25->state == X25_STATE_0)
+diff -Nru a/net/x25/x25_out.c b/net/x25/x25_out.c
+--- a/net/x25/x25_out.c	2005-01-19 23:47:43 -02:00
++++ b/net/x25/x25_out.c	2005-01-19 23:47:43 -02:00
+@@ -54,7 +54,7 @@
+ 	unsigned char header[X25_EXT_MIN_LEN];
+ 	int err, frontlen, len;
+ 	int sent=0, noblock = X25_SKB_CB(skb)->flags & MSG_DONTWAIT;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	int header_len = x25->neighbour->extended ? X25_EXT_MIN_LEN :
+ 						    X25_STD_MIN_LEN;
+ 	int max_len = x25_pacsize_to_bytes(x25->facilities.pacsize_out);
+@@ -116,7 +116,7 @@
+  */
+ static void x25_send_iframe(struct sock *sk, struct sk_buff *skb)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	if (!skb)
+ 		return;
+@@ -139,7 +139,7 @@
+ 	struct sk_buff *skb, *skbn;
+ 	unsigned short start, end;
+ 	int modulus;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	if (x25->state != X25_STATE_3)
+ 		return;
+@@ -212,7 +212,7 @@
+ 
+ void x25_enquiry_response(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	if (x25->condition & X25_COND_OWN_RX_BUSY)
+ 		x25_write_internal(sk, X25_RNR);
+diff -Nru a/net/x25/x25_proc.c b/net/x25/x25_proc.c
+--- a/net/x25/x25_proc.c	2005-01-19 23:47:43 -02:00
++++ b/net/x25/x25_proc.c	2005-01-19 23:47:43 -02:00
+@@ -134,7 +134,7 @@
+ static int x25_seq_socket_show(struct seq_file *seq, void *v)
+ {
+ 	struct sock *s;
+-	struct x25_opt *x25;
++	struct x25_sock *x25;
+ 	struct net_device *dev;
+ 	const char *devname;
+ 
+diff -Nru a/net/x25/x25_subr.c b/net/x25/x25_subr.c
+--- a/net/x25/x25_subr.c	2005-01-19 23:47:43 -02:00
++++ b/net/x25/x25_subr.c	2005-01-19 23:47:43 -02:00
+@@ -33,7 +33,7 @@
+  */
+ void x25_clear_queues(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	skb_queue_purge(&sk->sk_write_queue);
+ 	skb_queue_purge(&x25->ack_queue);
+@@ -51,7 +51,7 @@
+ void x25_frames_acked(struct sock *sk, unsigned short nr)
+ {
+ 	struct sk_buff *skb;
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	int modulus = x25->neighbour->extended ? X25_EMODULUS : X25_SMODULUS;
+ 
+ 	/*
+@@ -89,7 +89,7 @@
+  */
+ int x25_validate_nr(struct sock *sk, unsigned short nr)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	unsigned short vc = x25->va;
+ 	int modulus = x25->neighbour->extended ? X25_EMODULUS : X25_SMODULUS;
+ 
+@@ -108,7 +108,7 @@
+  */
+ void x25_write_internal(struct sock *sk, int frametype)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	struct sk_buff *skb;
+ 	unsigned char  *dptr;
+ 	unsigned char  facilities[X25_MAX_FAC_LEN];
+@@ -248,7 +248,7 @@
+ int x25_decode(struct sock *sk, struct sk_buff *skb, int *ns, int *nr, int *q,
+ 	       int *d, int *m)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 	unsigned char *frame = skb->data;
+ 
+ 	*ns = *nr = *q = *d = *m = 0;
+@@ -315,7 +315,7 @@
+ void x25_disconnect(struct sock *sk, int reason, unsigned char cause,
+ 		    unsigned char diagnostic)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	x25_clear_queues(sk);
+ 	x25_stop_timer(sk);
+@@ -342,7 +342,7 @@
+  */
+ void x25_check_rbuf(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	if (atomic_read(&sk->sk_rmem_alloc) < (sk->sk_rcvbuf / 2) &&
+ 	    (x25->condition & X25_COND_OWN_RX_BUSY)) {
+diff -Nru a/net/x25/x25_timer.c b/net/x25/x25_timer.c
+--- a/net/x25/x25_timer.c	2005-01-19 23:47:43 -02:00
++++ b/net/x25/x25_timer.c	2005-01-19 23:47:43 -02:00
+@@ -31,7 +31,7 @@
+ 
+ void x25_init_timers(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	init_timer(&x25->timer);
+ 	x25->timer.data     = (unsigned long)sk;
+@@ -54,28 +54,28 @@
+ 
+ void x25_start_t2timer(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	mod_timer(&x25->timer, jiffies + x25->t2);
+ }
+ 
+ void x25_start_t21timer(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	mod_timer(&x25->timer, jiffies + x25->t21);
+ }
+ 
+ void x25_start_t22timer(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	mod_timer(&x25->timer, jiffies + x25->t22);
+ }
+ 
+ void x25_start_t23timer(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	mod_timer(&x25->timer, jiffies + x25->t23);
+ }
+@@ -87,7 +87,7 @@
+ 
+ unsigned long x25_display_timer(struct sock *sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	if (!timer_pending(&x25->timer))
+ 		return 0;
+@@ -138,7 +138,7 @@
+  */
+ static inline void x25_do_timer_expiry(struct sock * sk)
+ {
+-	struct x25_opt *x25 = x25_sk(sk);
++	struct x25_sock *x25 = x25_sk(sk);
+ 
+ 	switch (x25->state) {
+ 
 
 
 
---------------050307090103090905040701--
+--------------050703090608090704090009--
