@@ -1,39 +1,37 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/17) pppoe -- size_t in send/recvmsg
-Date: Fri, 9 Jan 2004 13:42:15 -0800
+Subject: [PATCH] (5/17) ddp -- size_t for send/recvmsg
+Date: Fri, 9 Jan 2004 13:44:36 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040109134215.14fbcf8a@linux.local>
+Message-ID: <20040109134436.6aa8fe1f@linux.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Michal Ostrowski <mostrows@styx.uwaterloo.ca>
+Cc: netdev@oss.sgi.com, acme@conectiva.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert PPPoe for size_t in send/recv msg
+Change send/recvmsg to match prototype change in sock.h
 
-diff -Nru a/drivers/net/pppoe.c b/drivers/net/pppoe.c
---- a/drivers/net/pppoe.c	Mon Dec  8 16:19:40 2003
-+++ b/drivers/net/pppoe.c	Mon Dec  8 16:19:40 2003
-@@ -775,8 +775,8 @@
+diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+--- a/net/appletalk/ddp.c	Mon Dec  8 16:19:43 2003
++++ b/net/appletalk/ddp.c	Mon Dec  8 16:19:43 2003
+@@ -1552,7 +1552,7 @@
  }
  
- 
--static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
--		  int total_len)
-+static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock, 
-+		  struct msghdr *m, size_t total_len)
- {
- 	struct sk_buff *skb = NULL;
- 	struct sock *sk = sock->sk;
-@@ -939,7 +939,7 @@
- };
- 
- static int pppoe_recvmsg(struct kiocb *iocb, struct socket *sock,
--		  struct msghdr *m, int total_len, int flags)
-+		  struct msghdr *m, size_t total_len, int flags)
+ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+-			 int len)
++			 size_t len)
  {
  	struct sock *sk = sock->sk;
- 	struct sk_buff *skb = NULL;
+ 	struct atalk_sock *at = at_sk(sk);
+@@ -1712,7 +1712,7 @@
+ }
+ 
+ static int atalk_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
+-			 int size, int flags)
++			 size_t size, int flags)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct sockaddr_at *sat = (struct sockaddr_at *)msg->msg_name;
