@@ -1,181 +1,84 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: purpose of the skb head pool
-Date: Tue, 29 Apr 2003 16:21:02 +0200
+From: Daniel McNeil <daniel@osdl.org>
+Subject: [PATCH 2.5.68] net/ipv6 missing kmem_cache_destroy
+Date: 29 Apr 2003 09:21:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030429162102.A23898@lst.de>
-References: <16046.31242.923044.59711@robur.slu.se> <20030429.060834.48374026.davem@redhat.com> <20030429161608.A23708@lst.de> <20030429.061249.123996896.davem@redhat.com>
+Message-ID: <1051633278.2446.103.camel@ibm-c.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert.Olsson@data.slu.se, ak@suse.de, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-0IQSK81vzug9fKned0fJ"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030429.061249.123996896.davem@redhat.com>; from davem@redhat.com on Tue, Apr 29, 2003 at 06:12:49AM -0700
+To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 29, 2003 at 06:12:49AM -0700, David S. Miller wrote:
->    Robert's first reply on this subject had it attached..
->    
-> I deleted it, can someone resend me a copy?
-> 
-> When I ask for a patch, it usually means that I've
-> /dev/null'd the entire thread already.
 
-Lazy bastard.. ;)
+--=-0IQSK81vzug9fKned0fJ
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
+While trying to get ipv6 to work as a module with the new module
+reference code, I notice that ipv6 is missing the kmem_cache_destroy()
+calls that the init functions created.
 
---- linux/net/core/skbuff.c.030428	2003-04-01 13:24:14.000000000 +0200
-+++ linux/net/core/skbuff.c	2003-04-28 16:53:54.000000000 +0200
-@@ -20,7 +20,7 @@
-  *		Ray VanTassle	:	Fixed --skb->lock in free
-  *		Alan Cox	:	skb_copy copy arp field
-  *		Andi Kleen	:	slabified it.
-+ *		Robert Olsson	:	Removed skb_head_pool
-  *
-  *	NOTE:
-  *		The __skb_ routines should be called with interrupts
-@@ -64,15 +64,8 @@
- #include <asm/uaccess.h>
- #include <asm/system.h>
- 
--int sysctl_hot_list_len = 128;
--
- static kmem_cache_t *skbuff_head_cache;
- 
--static union {
--	struct sk_buff_head	list;
--	char			pad[SMP_CACHE_BYTES];
--} skb_head_pool[NR_CPUS];
--
- /*
-  *	Keep out-of-line to prevent kernel bloat.
-  *	__builtin_return_address is not used because it is not always
-@@ -110,44 +103,6 @@
- 	BUG();
+Another problem with ipv6 is that it creates sockets in the init
+routine, so there are reference to the module which will prevent it
+from being unloaded.  I tried adding a module_put for every
+socket created in the init routines, but ran into a problem with
+inet6_exit() calling sock_unregister(PF_INET6) as the very first thing.
+This caused a problem when the cleanup routines were called and
+the did a sock_release().
+
+Any ideas on how to fix this so ipv6 can be a module?
+init routines creating sockets makes things difficult.
+
+I've attached a patch to 2.5.68 to add the missing kmem_cache_destroy
+calls.
+
+BTW, how does one get on the netdev mailing list?
+
+Thanks,
+
+-- 
+Daniel McNeil <daniel@osdl.org>
+
+--=-0IQSK81vzug9fKned0fJ
+Content-Disposition: attachment; filename=patch.2.5.68-ipv6.kmem
+Content-Type: text/x-patch; name=patch.2.5.68-ipv6.kmem; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+diff -rupN -X /home/daniel/dontdiff linux-2.5.68/net/ipv6/af_inet6.c linux-2.5.68-sock/net/ipv6/af_inet6.c
+--- linux-2.5.68/net/ipv6/af_inet6.c	Sat Apr 19 19:49:56 2003
++++ linux-2.5.68-sock/net/ipv6/af_inet6.c	Tue Apr 29 09:03:08 2003
+@@ -871,6 +871,9 @@ static void inet6_exit(void)
+ 	ipv6_sysctl_unregister();	
+ #endif
+ 	cleanup_ipv6_mibs();
++	kmem_cache_destroy(tcp6_sk_cachep);
++	kmem_cache_destroy(udp6_sk_cachep);
++	kmem_cache_destroy(raw6_sk_cachep);
  }
- 
--static __inline__ struct sk_buff *skb_head_from_pool(void)
--{
--	struct sk_buff_head *list;
--	struct sk_buff *skb = NULL;
--	unsigned long flags;
--
--	local_irq_save(flags);
--
--	list = &skb_head_pool[smp_processor_id()].list;
--
--	if (skb_queue_len(list))
--		skb = __skb_dequeue(list);
--
--	local_irq_restore(flags);
--	return skb;
--}
--
--static __inline__ void skb_head_to_pool(struct sk_buff *skb)
--{
--	struct sk_buff_head *list;
--	unsigned long flags;
--
--	local_irq_save(flags);
--
--	list = &skb_head_pool[smp_processor_id()].list;
--
--	if (skb_queue_len(list) < sysctl_hot_list_len) {
--		__skb_queue_head(list, skb);
--		local_irq_restore(flags);
--
--		return;
--	}
--
--	local_irq_restore(flags);
--	kmem_cache_free(skbuff_head_cache, skb);
--}
--
--
- /* 	Allocate a new skbuff. We do this ourselves so we can fill in a few
-  *	'private' fields and also do memory statistics to find all the
-  *	[BEEP] leaks.
-@@ -182,13 +137,10 @@
- 	}
- 
- 	/* Get the HEAD */
--	skb = skb_head_from_pool();
--	if (!skb) {
--		skb = kmem_cache_alloc(skbuff_head_cache,
-+	skb = kmem_cache_alloc(skbuff_head_cache,
- 				       gfp_mask & ~__GFP_DMA);
- 		if (!skb)
- 			goto out;
--	}
- 
- 	/* Get the DATA. Size must match skb_add_mtu(). */
- 	size = SKB_DATA_ALIGN(size);
-@@ -207,7 +159,7 @@
- out:
- 	return skb;
- nodata:
--	skb_head_to_pool(skb);
-+	kmem_cache_free(skbuff_head_cache, skb);
- 	skb = NULL;
- 	goto out;
- }
-@@ -257,7 +209,7 @@
- void kfree_skbmem(struct sk_buff *skb)
+ module_exit(inet6_exit);
+ #endif /* MODULE */
+diff -rupN -X /home/daniel/dontdiff linux-2.5.68/net/ipv6/ip6_fib.c linux-2.5.68-sock/net/ipv6/ip6_fib.c
+--- linux-2.5.68/net/ipv6/ip6_fib.c	Sat Apr 19 19:50:37 2003
++++ linux-2.5.68-sock/net/ipv6/ip6_fib.c	Tue Apr 29 09:03:30 2003
+@@ -1241,6 +1241,8 @@ void __init fib6_init(void)
+ void fib6_gc_cleanup(void)
  {
- 	skb_release_data(skb);
--	skb_head_to_pool(skb);
-+	kmem_cache_free(skbuff_head_cache, skb);
+ 	del_timer(&ip6_fib_timer);
++	if (fib6_node_kmem)
++		kmem_cache_destroy(fib6_node_kmem);
  }
+ #endif
  
- /**
-@@ -327,13 +279,10 @@
- 
- struct sk_buff *skb_clone(struct sk_buff *skb, int gfp_mask)
- {
--	struct sk_buff *n = skb_head_from_pool();
-+	struct sk_buff *n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
- 
--	if (!n) {
--		n = kmem_cache_alloc(skbuff_head_cache, gfp_mask);
--		if (!n)
--			return NULL;
--	}
-+	if (!n) 
-+		return NULL;
- 
- #define C(x) n->x = skb->x
- 
-@@ -1240,7 +1189,4 @@
- 					      NULL, NULL);
- 	if (!skbuff_head_cache)
- 		panic("cannot create skbuff cache");
--
--	for (i = 0; i < NR_CPUS; i++)
--		skb_queue_head_init(&skb_head_pool[i].list);
+diff -rupN -X /home/daniel/dontdiff linux-2.5.68/net/ipv6/route.c linux-2.5.68-sock/net/ipv6/route.c
+--- linux-2.5.68/net/ipv6/route.c	Sat Apr 19 19:50:34 2003
++++ linux-2.5.68-sock/net/ipv6/route.c	Tue Apr 29 09:04:29 2003
+@@ -1897,5 +1897,6 @@ void ip6_route_cleanup(void)
+ 	xfrm6_fini();
+ 	rt6_ifdown(NULL);
+ 	fib6_gc_cleanup();
++	kmem_cache_destroy(ip6_dst_ops.kmem_cachep);
  }
---- linux/net/core/sysctl_net_core.c.030428	2003-03-24 23:00:18.000000000 +0100
-+++ linux/net/core/sysctl_net_core.c	2003-04-28 16:59:05.000000000 +0200
-@@ -28,7 +28,6 @@
- 
- extern int sysctl_core_destroy_delay;
- extern int sysctl_optmem_max;
--extern int sysctl_hot_list_len;
- 
- #ifdef CONFIG_NET_DIVERT
- extern char sysctl_divert_version[];
-@@ -150,14 +149,6 @@
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec
- 	},
--	{
--		.ctl_name	= NET_CORE_HOT_LIST_LENGTH,
--		.procname	= "hot_list_length",
--		.data		= &sysctl_hot_list_len,
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= &proc_dointvec
--	},
- #ifdef CONFIG_NET_DIVERT
- 	{
- 		.ctl_name	= NET_CORE_DIVERT_VERSION,
+ #endif	/* MODULE */
+
+--=-0IQSK81vzug9fKned0fJ--
