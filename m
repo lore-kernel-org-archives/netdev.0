@@ -1,27 +1,65 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: System crash in tcp_fragment()
-Date: Mon, 20 May 2002 22:29:37 +0200
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: [PATCH] RFC save a few atomics in tcp_memory_schedule()
+Date: Mon, 20 May 2002 13:52:55 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <acbn1j$otc$2@main.gmane.org>
-References: <3CE95190.75C52E2D@mvista.com>
+Message-ID: <Pine.LNX.4.33.0205201347400.7881-100000@w-nivedita2.des.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org, davem@redhat.com, ak@muc.de,
-   kuznet@ms2.inr.ac.ru, pekkas@netcore.fi
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <owner-netdev@oss.sgi.com>
-To: george anzinger <george@mvista.com>
-Content-Disposition: inline
-In-Reply-To: <3CE95190.75C52E2D@mvista.com>
+To: <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-> Incase you can not see this, it appears that the addresses
-> of each skb are alright, so the assumption is that the skb
-> passed to tcp_fragment() has been unlinked while
-> tcp_fragment() was doing its thing.  This implies a need for
-> locking at some higher level and we don't know enough about
-> the tcp code to divine where this might best be done.
+The patch below tries to save a few atomic reads,
+based on the assumption that we can tolerate slightly
+stale data here, given that actions are "relaxed".
+(Otherwise we should be locking whole thing anyway)..
 
-2.4 TCP should in theory already have enough locking to prevent this
-(the socket lock that is aquired by timers and user context socket users) 
+Would this be reasonable, or what am I missing?
 
--Andi
+thanks,
+Nivedita
+
+
+diff -urN linux-2.4.18/net/ipv4/tcp.c linux-2.4.18new/net/ipv4/tcp.c
+--- linux-2.4.18/net/ipv4/tcp.c	Fri Dec 21 09:42:05 2001
++++ linux-2.4.18new/net/ipv4/tcp.c	Mon May 20 12:40:00 2002
+@@ -286,25 +286,27 @@
+ int tcp_mem_schedule(struct sock *sk, int size, int kind)
+ {
+ 	int amt = TCP_PAGES(size);
++	int allocated;
+ 
+ 	sk->forward_alloc += amt*TCP_MEM_QUANTUM;
+ 	atomic_add(amt, &tcp_memory_allocated);
++	allocated = atomic_read(&tcp_memory_allocated);
+ 
+ 	/* Under limit. */
+-	if (atomic_read(&tcp_memory_allocated) < sysctl_tcp_mem[0]) {
++	if (allocated < sysctl_tcp_mem[0]) {
+ 		if (tcp_memory_pressure)
+ 			tcp_memory_pressure = 0;
+ 		return 1;
+ 	}
+ 
+ 	/* Over hard limit. */
+-	if (atomic_read(&tcp_memory_allocated) > sysctl_tcp_mem[2]) {
++	if (allocated > sysctl_tcp_mem[2]) {
+ 		tcp_enter_memory_pressure();
+ 		goto suppress_allocation;
+ 	}
+ 
+ 	/* Under pressure. */
+-	if (atomic_read(&tcp_memory_allocated) > sysctl_tcp_mem[1])
++	if (allocated > sysctl_tcp_mem[1])
+ 		tcp_enter_memory_pressure();
+ 
+ 	if (kind) {
+@@ -316,7 +318,7 @@
+ 	}
+ 
+ 	if (!tcp_memory_pressure ||
+-	    sysctl_tcp_mem[2] > atomic_read(&tcp_sockets_allocated)
++	    sysctl_tcp_mem[2] > allocated
+ 	    * TCP_PAGES(sk->wmem_queued+atomic_read(&sk->rmem_alloc)+
+ 			sk->forward_alloc))
+ 		return 1;
