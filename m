@@ -1,29 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: 2.4.x IPSEC backport available
-Date: Sun, 11 May 2003 14:46:21 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030511.144621.35018826.davem@redhat.com>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: pppoe handles MOD_DEC_USE_COUNT incorrectly
+Date: Sun, 11 May 2003 22:57:12 -0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030512015712.GE8880@conectiva.com.br>
+References: <20030511202728.GA9018@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com,
-	kuznet@ms2.inr.ac.ru, jmorris@intercode.com.au
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Olaf Hering <olh@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20030511202728.GA9018@suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Em Sun, May 11, 2003 at 10:27:28PM +0200, Olaf Hering escreveu:
+> Hi,
+> 
+> it seems pppoe does increase its usage count with each reconnect, but it
+> never releases it when the ppp connection dies.
 
-There is a 2.4.x backport of IPSEC available.  However there is a
-STRONG caveat about using these changes in that we absolutely refuse
-to take bug reports against this release, 2.5.x is where the active
-development is taking place and thus where the testing is supposed to
-take place.
+I'm looking at this right now, thanks for reporting.
 
-This patch is a convenience for people, and nothing more.
-
-Fetch it from:
-
-	ftp://ftp.kernel.org/pub/linux/kernel/davem/IPSEC/linux-2.4.21-ipsec.patch
-	bk://kernel.bkbits.net/davem/ipsec-2.4/
-
-Enjoy.
+- Arnaldo
