@@ -1,30 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Allow nested IPv6 encapsulations on same node
-Date: Wed, 27 Aug 2003 06:45:14 -0700
+From: "James H. Cloos Jr." <cloos@jhcloos.com>
+Subject: Re: tcp socket missing from /proc/net/tcp
+Date: 27 Aug 2003 01:41:53 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827064514.7c060a64.davem@redhat.com>
-References: <20030827042036.3a00aca8.davem@redhat.com>
-	<Pine.LNX.4.44.0308271441390.7839-100000@rhea.tcs.hut.fi>
+Message-ID: <m3isojpsgu.fsf@lugabout.jhcloos.org>
+References: <m3lltk17er.fsf@lugabout.jhcloos.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0308271441390.7839-100000@rhea.tcs.hut.fi>
+Resent-Message-ID: <m3fzjnpkdd.fsf@lugabout.jhcloos.org>
+To: "James H. Cloos Jr." <cloos@jhcloos.com>
+In-Reply-To: <m3lltk17er.fsf@lugabout.jhcloos.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Aug 2003 16:22:38 +0300 (EEST)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+A further update:
 
-> On Wed, 27 Aug 2003, David S. Miller wrote:
-> > Why do you need to use sockets?  Just send the packets out normally.
-> 
-> Well ok, I don't need to use sockets, but I do need to use socks :)
+The socket does not need to be open when sit1 is taked down; I've a
+rsync now that is showing the same symptom, but was started well
+after a 'ifconfig sit1 down'.
 
-You don't need socks either.
+After an ssh occured and closed, the rsync started showing up.
 
-Using sockets is just a waste of memory, and you're only using
-them because of an interface problem.  Do you see what I'm trying
-to say?
+Perhaps there is an off-by-one error?
+
+-JimC
