@@ -1,93 +1,44 @@
-From: Lauri Tarkkala <ltarkkala@safenet-inc.com>
-Subject: Re: [PATCH] ip multicast, kernel 2.4.2*, 2.6.*
-Date: Thu, 15 Apr 2004 05:45:35 +0300
+From: Praveen Kumar Amritaluru <praveen@india.hp.com>
+Subject: Re: zero window probes on linux (fwd)
+Date: Wed, 14 Apr 2004 17:35:33 +0530 (IST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040415024535.GA28612@safenet-inc.com>
-References: <20040414041731.GA2010@safenet-inc.com> <OF0F96BFF9.CF0962DF-ON88256E76.0030A322-88256E76.003206F4@us.ibm.com>
+Message-ID: <200404141205.RAA06111@shilpa.india.hp.com>
+References: <20040414134106.3f36c629.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF0F96BFF9.CF0962DF-ON88256E76.0030A322-88256E76.003206F4@us.ibm.com>
+To: ak@suse.de
+In-Reply-To: <20040414134106.3f36c629.ak@suse.de> from Andi Kleen at Apr "14," 2004 "01:41:06" pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 14, 2004 at 02:06:17AM -0700, David Stevens wrote:
-> > The reason for this processing (my guess), is that the inbound
-> > (duplicate) packet will not be sent, unless the original
-> > passes the netfilter hooks. This has the side-effect that netfilter
-> > hooks have no way of detecting whether packets are intended to or are
-> > going to be looped back. The looped-back packet will of course still go
-> > through the inbound hooks.
+Andi,
+
+> > > > 	This  seems  to be a bug.  Has it been  already  fixed in  later
+> > > > 	kernel versions or is this how it is intended to remain?
+> > > 
+> > > iirc this was intentional. The RFC suggested method doesn't work when talking to 
+> > > some stacks.
+> > > 
+> > 
+> > 	But  that  cannot  be  valid  enough   justification  for  doing
+> > 	something against RFC right?
 > 
-> If a packet doesn't pass the outbound hooks, won't your patch still
-> deliver it locally? Isn't that wrong?
+> Of course it is. Welcome to the real world. RFC1122 has a lot of bugs and sometimes
+> does not describe really implemented practice (e.g. BSD set the defacto standard
+> in many behaviours and it does not always follow 1122) 
 
-This boils down to how one feels about the following questions.
+	So do u consider mandating definition of zero-window probes as defined
+	in RFC793 as a bug in RFC1122?
 
-A)
-  Should it be possible to send multicast packets through a netfilter
-  module in such a manner that a local listener receives them, but the
-  packet does not enter the network?
+	Or else r u saying this bug is introduced in linux to take care of
+	faulty stacks existing in the world. zero-window probes as defined
+	in RFC1122 is not buggy right?
 
-B)
-  Should A netfilter module know if the packet it is processing
-  is destined for the network, or for the local stack?
+-Praveen
 
-Personally I feel that the answer to question "B" should be YES. I
-do not feel so strongly about "A", but I think that should also be
-a YES.
-
-I do not see much breaking, if a multicast packet is sent to the local stack
-even if it the network-bound packet was dropped by a packet filter. Note
-that even after my proposed patch is applied, having this style of
-behaviour is possible by putting proper processing in the inbound hooks
-(drop similar multicast packets that have skb.type == PACKET_LOOPBACK set
- and that are not on the loopback interface).
-
-> I think the reason it creates a duplicate is because there are two
-> cases-- one to be sent to the interface and one to be delivered
-> locally. The one going out the interface should pass the outbound
-> checks (only) and the one delivered locally should pass (I think)
-> first the outbound filter and then the inbound filter. Right?
-
-This is my interpretation also.
-
-> Under what circumstances does netfilter need to "detect whether packets
-> are intended to or are going to be looped back?"
-
-Well, for one thing a module can use (in the outbound case) in
-a netfilter hook the "skb->dev->flags & IFF_LOOPBACK" case to detect
-whether we are on the loopback stack. 
-
-> > This is quite error-prone, both in terms of configuring policy for
-> > netfilter modules, not to mention optimization and implementation. There
-> > are also some cases that just can not be handled correctly.
 > 
-> What does it break? Can you give an example?
-
-Trivial case:
-
-+ Statistics counter in netfilter module counting amount of packets
-  sent out via an interface through the module.
-
-More complicated case:
-
-+ Netfilter module has a policy of not allowing multicast packets to the
-  network, but would like them to be received by a listener bound to the
-  same interface. If the module is actively manipulating the packet
-  instead of just passively filtering, this can be a serious problem.
-
-Hypotethically:
-
-+ Any case where the processing tries to factor into account
-  the intended destination of the packet into the policy decision.
-
-Lauri
-
--- 
-Lauri Tarkkala
-Safenet Inc. 
-http://www.safenet-inc.com/
+> -Andi
+> 
