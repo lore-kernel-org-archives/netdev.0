@@ -1,56 +1,94 @@
-From: jamal <hadi@cyberus.ca>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: NAPI:  dev.c change to net_rx_action algorithm.
-Date: Fri, 8 Nov 2002 23:58:07 -0500 (EST)
+Date: Fri, 08 Nov 2002 21:30:37 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0211082351540.16986-100000@shell.cyberus.ca>
-References: <3DCC9535.3050506@candelatech.com>
+Message-ID: <3DCC9D7D.6020005@candelatech.com>
+References: <Pine.GSO.4.30.0211082351540.16986-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DCC9535.3050506@candelatech.com>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> 
+> On Fri, 8 Nov 2002, Ben Greear wrote: 
+>>I'm looking for the real cause.
+> No you are not. You are looking for something that will give you some
+> quick fix given your current setup.
 
+Guilty, and as soon as I get this particular config optomized, I will
+move on to the next scenario.  If the next scenario is better by some
+other hack, then I will figure out how to reconcile the two, or make
+the algorithms dynamic if I have to.
 
-On Fri, 8 Nov 2002, Ben Greear wrote:
+> Be systematic about and prove where things are wrong. I even made some
+> suggestions to you a while back.
 
-> I'm looking for the real cause.
+Things are wrong:  I can't tx and rx 8kpps (50Mbps) on 4 ports simultaneously.
+I have fiddled with every magic static constant I could find, so now I'm
+fidling with algoritms.  Primary culprit is rx-drop, which means the NIC
+is not getting serviced in time, if I understand correctly.  I have 1024
+rx-ring, which most agree is too large already, and yet it fills before
+I can empty it.
 
-No you are not. You are looking for something that will give you some
-quick fix given your current setup.
+Btw, and you'll love this one, if I change the priority of the irq thread
+to -18, things get even better ;)
 
-> The current code does not work
-> as I want it to.  So, I'm changing things.  I would love to try
-> out any patch you might feel like contributing.
+>> From what I can tell, the old code punishes interfaces who are
+>>running slower at any given time.
+> 
+> 
+> You are totaly wrong. Go and read the paper on DRR.
 
-Be systematic about and prove where things are wrong. I even made some
-suggestions to you a while back.
+I read the code.  It's likely I'm confused, but here is how
+I interpret it.
 
->
->  From what I can tell, the old code punishes interfaces who are
-> running slower at any given time.
+#  If we are out of quota, refill quota but do not poll.
+#    Why shouldn't we poll here?  We wouldn't be in this list
+#    If there was nothing to poll, eh?
 
-You are totaly wrong. Go and read the paper on DRR.
+#  If we have quota, poll, but only refill quota if we still have
+#  more work to do.  Busy devices have more work to do.  Slow ones
+#  will not.  So, slow devices will have < dev->weight quota much of
+#  the time.  If the formerly slow device suddenly gets a large burst of
+#  traffic, it's first poll will likely be for a quota smaller than
+#  dev->weight.  Why would this be good?
 
-> My change, I believe, will
-> allow slower interfaces to gather a bit more quota so that when
-> they are hit with a burst of traffic, they can spend a little
-> extra time to clear their buffers.
->
-> I would also welcome any argument as to why my code is worse
-> than the existing code.  And theoretical papers be damned,
->
+#  If we have quota, but do not not have more work to do after polling,
+#  then pop out of the queue.  Note quota is not refilled in this case,
+#  again punishing devices that are running slower.
 
-You havent proved anything up to this point other than handwaving.
-So i dont think you should be damning anything.
+		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+			local_irq_disable();
+			list_del(&dev->poll_list);
+			list_add_tail(&dev->poll_list, &queue->poll_list);
+			if (dev->quota < 0)
+                                 dev->quota += dev->weight;
+                         else
+                                 dev->quota = dev->weight;
+		} else {
+			dev_put(dev);
+			local_irq_disable();
+		}
 
-> I see better results with the change below.  Why is that?
->
+>>I see better results with the change below.  Why is that?
+>>
+> 
+> 
+> You tell me.
 
-You tell me.
+I think my algorithm is better, at least for this case.  It may
+be worse for others, though I'm not sure why it would be.  The
+one thing you can be certain of is that I'll let you know if
+I figure it out :)
 
-cheers,
-jamal
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
