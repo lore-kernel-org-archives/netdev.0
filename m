@@ -1,45 +1,42 @@
-From: Daniel Egger <degger@fhm.edu>
+From: Michael Bellion and Thomas Heinz <nf@hipac.org>
 Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
-Date: 26 Jun 2003 15:38:41 +0200
+Date: Thu, 26 Jun 2003 16:20:51 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1056634720.5423.83.camel@sonja>
-References: <200306252248.44224.nf@hipac.org>
+Message-ID: <3EFB0143.7000606@hipac.org>
+References: <200306252248.44224.nf@hipac.org> <1056634720.5423.83.camel@sonja>
+Reply-To: Michael Bellion and Thomas Heinz <nf@hipac.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-W3mKwm6MRxqAiREzWcJx"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Bellion and Thomas Heinz <nf@hipac.org>
-In-Reply-To: <200306252248.44224.nf@hipac.org>
+To: Daniel Egger <degger@fhm.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Daniel
 
---=-W3mKwm6MRxqAiREzWcJx
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+You wrote:
+>>     - libnfhipac: netlink library for kernel-user communication
+> 
+> Is this library actually usable for applications which need to control
+> the firewall or is it equally braindead to libiptables?
 
-Am Mit, 2003-06-25 um 22.48 schrieb Michael Bellion and Thomas Heinz:
+The library _is_ intended to be used by other applications than
+the nf-hipac userspace tool, too. It hides the netlink communication
+from the user who is only required to construct the command
+data structure sent to the kernel which contains at most one single
+nf-hipac rule. This is very straightforward and the kernel returns
+detailed errors if the packet is misconstructed.
 
->      - libnfhipac: netlink library for kernel-user communication
+Taking a look at nfhp_com.h and evt. nf-hipac.c gives you some clue
+on how to build valid command packets.
 
-Is this library actually usable for applications which need to control
-the firewall or is it equally braindead to libiptables?
 
---=20
-Servus,
-       Daniel
+Regards,
 
---=-W3mKwm6MRxqAiREzWcJx
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: Dies ist ein digital signierter Nachrichtenteil
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQA++vdfchlzsq9KoIYRAqL5AJ9bIwghJoehKAENHLZ+oZeTfo9JuACgiC9w
-PwTOwvadXnrvQ7ULVypqw9g=
-=mr4I
------END PGP SIGNATURE-----
-
---=-W3mKwm6MRxqAiREzWcJx--
++-----------------------+----------------------+
+|   Michael Bellion     |     Thomas Heinz     |
+| <mbellion@hipac.org>  |  <creatix@hipac.org> |
++-----------------------+----------------------+
