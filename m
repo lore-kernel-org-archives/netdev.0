@@ -1,36 +1,32 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: RFC2292(bis) checksum support
-Date: Mon, 20 May 2002 07:51:37 +0400 (MSD)
+From: Andras Kis-Szabo <kisza@securityaudit.hu>
+Subject: IPv6 RFC2292, 1883 and 2460 (was: RFC2292(bis))
+Date: 20 May 2002 11:55:27 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200205200351.HAA01589@sex.inr.ac.ru>
-References: <20020520120406A.yoshfuji@linux-ipv6.org>
+Message-ID: <1021888528.8107.25.camel@hoi>
 Mime-Version: 1.0
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
-In-Reply-To: <20020520120406A.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at May 20, 2 12:04:06 pm
+To: Netdev <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi,
 
-> Checksum for ICMPv6 is mandatory like ones for TCP and UDP (for IPv6) are.
-> We should not (be able to) disable checksum for TCP, UDP AND ICMPv6,
-> should we?
+The RFC2292 based on the RFC1883 (and the Linux network (api/libc level)
+implementation, too).
+The RFC1883 obsolated by the RFC2460.
+The Type0 routing header has changed between the two version: the S/L
+bits were removed from it. (Changes 01.3) (And the address limit was
+deleted, too)
 
-It is mandatory on _network level_, not on api level.
-F.e. checksum is mandatory for ICMPv4 too, however, we used to calculate it
-in user space and nobody cries about this.
+Do the other implementations support the S/L bits?
+(The current Netfilter implementation based on the RFC2460.)
 
-Do you see what is the mistake in the rfc? Authors did a wrong sillogism
-and had to write several paragraphs of meaningless text to explain the mess.
+regards
 
-Shortly, you may consider this as a compatible extension of standard API.
-(which costs deleting several lines of code. :-))
+	kisza
 
-
-> yes.  I just forgot to delete that original line while making this patch;
-> sorry.
-
-OK.
-
-Alexey
+-- 
+    Andras Kis-Szabo       Security Development, Design and Audit
+-------------------------/        Zorp, NetFilter and IPv6
+ kisza@SecurityAudit.hu /-----Member of the BUTE-MIS-SEARCHlab------>
