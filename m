@@ -1,33 +1,39 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6]: keep fragment queues private to each user
-Date: Tue, 25 Jan 2005 22:57:03 +1100
-Message-ID: <E1CtPJf-0005RG-00@gondolin.me.apana.org.au>
-References: <41F5D1CB.9050804@trash.net>
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+From: David Coulson <david@davidcoulson.net>
+Subject: Re: skb_checksum_help
+Date: Tue, 25 Jan 2005 07:05:43 -0500
+Message-ID: <41F63617.8090307@davidcoulson.net>
+References: <41F50B6C.6010107@davidcoulson.net>	<20050124151510.GV23931@postel.suug.ch>	<20050124225423.GA15405@gondor.apana.org.au>	<20050124234515.GA31837@postel.suug.ch>	<20050125000759.GA15883@gondor.apana.org.au>	<20050124164049.3b939791.davem@davemloft.net>	<20050125014538.GB31837@postel.suug.ch>	<20050125014838.GA16637@gondor.apana.org.au>	<20050125020118.GC31837@postel.suug.ch>	<20050124180354.63ae600d.davem@davemloft.net>	<20050125022431.GD31837@postel.suug.ch> <20050124194328.20a106de.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, herbert@gondor.apana.org.au, kaber@trash.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kaber@trash.net (Patrick McHardy)
-In-Reply-To: <41F5D1CB.9050804@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050124194328.20a106de.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
-> 
-> This patch keeps fragment queues private to each ip_defrag user to avoid
-> skbs jumping between different callers. It shouldn't change any wanted
-> behaviour, the only questionable one was ip_call_ra_chain, but the RA
-> option is included in each fragment. If you're fine with the patch I'm going
-> to send a 2.4 version later.
+David S. Miller wrote:
+> For example, it probably only works properly when HW vlan assist
+> is being used on TX.  It's likely that the chips which don't support
+> VLAN assist also can't handle VLAN headers in their TX checksumming
+> engine.
 
-Patch looks good.
+This is in acenic.c - ACENIC_DO_VLAN is a check to see if 8021q is 
+compiled into the kernel or available as a module.
 
-However, I think this is still not enough.  What about fragments
-that come from different interfaces? Fragments with different
-security paths?
+#if ACENIC_DO_VLAN
+         dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+         dev->vlan_rx_register = ace_vlan_rx_register;
+         dev->vlan_rx_kill_vid = ace_vlan_rx_kill_vid;
+#endif
 
-Cheers,
+David
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+David J. Coulson
+email: david@davidcoulson.net
+web: http://www.davidcoulson.net/
+phone: (216) 920-3100 / (216) 258-4942
