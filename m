@@ -1,175 +1,245 @@
-From: Shmuel Hen <shmulik.hen@intel.com>
-Subject: [PATCH] [NET 2.4] split arp_send into arp_create and arp_xmit
-Date: Thu, 19 Feb 2004 12:11:05 +0200
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH] 2.6.3 pcnet32.c change to use ethtool_ops
+Date: Thu, 19 Feb 2004 15:32:54 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402191211.07879.shmulik.hen@intel.com>
+Message-ID: <200402192332.i1JNWsI05667@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-netdev" <netdev@oss.sgi.com>,
-        "bonding-devel" <bonding-devel@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, "Jeff Garzik" <jgarzik@pobox.com>
-Content-Disposition: inline
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Now, that 2.4.25 is out, I'm resending the enhancements for VLAN over bonding.
-Tested for patch application and compilation against linux-2.4.25.
+This changes the driver to use ethtool_ops to be more modular.  There is a
+net delta of just a one line between the two implementations, but permission
+checking and copying to/from user space, etc. is all done in a consistent
+manner by ethtool.c
 
-Summary:
-Enable intermediate network drivers like bonding to create an ARP 
-packet and modify it to their needs before sending it, while avoiding 
-code duplication. It does not affect any other place in the kernel 
-that uses arp_send. 
-
--- 
-| Shmulik Hen   Advanced Network Services  | 
-| Israel Design Center, Jerusalem          | 
-| LAN Access Division, Platform Networking | 
-| Intel Communications Group, Intel corp.  | 
-
-
-diff -Nuarp a/include/net/arp.h b/include/net/arp.h
---- a/include/net/arp.h	Wed Jan 21 16:54:53 2004
-+++ b/include/net/arp.h	Wed Jan 21 16:54:54 2004
-@@ -5,6 +5,8 @@
- #include <linux/if_arp.h>
- #include <net/neighbour.h>
+--- linux-2.6.3/drivers/net/net.pcnet32.c	Thu Feb 19 14:42:25 2004
++++ linux-2.6.3/drivers/net/pcnet32.c	Thu Feb 19 14:54:57 2004
+@@ -465,6 +465,101 @@
  
-+#define HAVE_ARP_CREATE
+ 
+ 
++static int pcnet32_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	struct pcnet32_private *lp = dev->priv;
++	unsigned long flags;
 +
- extern struct neigh_table arp_tbl;
- 
- extern void	arp_init(void);
-@@ -19,6 +21,12 @@ extern int	arp_bind_neighbour(struct dst
- extern int	arp_mc_map(u32 addr, u8 *haddr, struct net_device *dev, int dir);
- extern void	arp_ifdown(struct net_device *dev);
- 
-+extern struct sk_buff *arp_create(int type, int ptype, u32 dest_ip,
-+				  struct net_device *dev, u32 src_ip,
-+				  unsigned char *dest_hw, unsigned char *src_hw,
-+				  unsigned char *target_hw);
-+extern void arp_xmit(struct sk_buff *skb);
-+
- extern struct neigh_ops arp_broken_ops;
- 
- #endif	/* _ARP_H */
-diff -Nuarp a/net/ipv4/arp.c b/net/ipv4/arp.c
---- a/net/ipv4/arp.c	Wed Jan 21 16:54:53 2004
-+++ b/net/ipv4/arp.c	Wed Jan 21 16:54:54 2004
-@@ -66,6 +66,10 @@
-  *		Alexey Kuznetsov:	new arp state machine;
-  *					now it is in net/core/neighbour.c.
-  *		Krzysztof Halasa:	Added Frame Relay ARP support.
-+ *		Shmulik Hen:		Split arp_send to arp_create and
-+ *					arp_xmit so intermediate drivers like
-+ *					bonding can change the skb before
-+ *					sending (e.g. insert 8021q tag).
-  */
- 
- #include <linux/types.h>
-@@ -481,34 +485,26 @@ static inline int arp_fwd_proxy(struct i
-  */
- 
- /*
-- *	Create and send an arp packet. If (dest_hw == NULL), we create a broadcast
-+ *	Create an arp packet. If (dest_hw == NULL), we create a broadcast
-  *	message.
-  */
--
--void arp_send(int type, int ptype, u32 dest_ip, 
--	      struct net_device *dev, u32 src_ip, 
--	      unsigned char *dest_hw, unsigned char *src_hw,
--	      unsigned char *target_hw)
-+struct sk_buff *arp_create(int type, int ptype, u32 dest_ip,
-+			   struct net_device *dev, u32 src_ip,
-+			   unsigned char *dest_hw, unsigned char *src_hw,
-+			   unsigned char *target_hw)
- {
- 	struct sk_buff *skb;
- 	struct arphdr *arp;
- 	unsigned char *arp_ptr;
- 
- 	/*
--	 *	No arp on this interface.
--	 */
--	
--	if (dev->flags&IFF_NOARP)
--		return;
--
--	/*
- 	 *	Allocate a buffer
- 	 */
- 	
- 	skb = alloc_skb(sizeof(struct arphdr)+ 2*(dev->addr_len+4)
- 				+ dev->hard_header_len + 15, GFP_ATOMIC);
- 	if (skb == NULL)
--		return;
-+		return NULL;
- 
- 	skb_reserve(skb, (dev->hard_header_len+15)&~15);
- 	skb->nh.raw = skb->data;
-@@ -588,12 +584,46 @@ void arp_send(int type, int ptype, u32 d
- 	arp_ptr+=dev->addr_len;
- 	memcpy(arp_ptr, &dest_ip, 4);
- 
--	/* Send it off, maybe filter it using firewalling first.  */
--	NF_HOOK(NF_ARP, NF_ARP_OUT, skb, NULL, dev, dev_queue_xmit);
--	return;
-+	return skb;
- 
- out:
- 	kfree_skb(skb);
-+	return NULL;
++	spin_lock_irqsave(&lp->lock, flags);
++	mii_ethtool_gset(&lp->mii_if, cmd);
++	spin_unlock_irqrestore(&lp->lock, flags);
++	return 0;
 +}
 +
-+/*
-+ *	Send an arp packet.
-+ */
-+void arp_xmit(struct sk_buff *skb)
++static int pcnet32_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
 +{
-+	/* Send it off, maybe filter it using firewalling first.  */
-+	NF_HOOK(NF_ARP, NF_ARP_OUT, skb, NULL, skb->dev, dev_queue_xmit);
++	struct pcnet32_private *lp = dev->priv;
++	unsigned long flags;
++	int r;
++
++	spin_lock_irqsave(&lp->lock, flags);
++	r = mii_ethtool_sset(&lp->mii_if, cmd);
++	spin_unlock_irqrestore(&lp->lock, flags);
++	return r;
 +}
 +
-+/*
-+ *	Create and send an arp packet.
-+ */
-+void arp_send(int type, int ptype, u32 dest_ip, 
-+	      struct net_device *dev, u32 src_ip, 
-+	      unsigned char *dest_hw, unsigned char *src_hw,
-+	      unsigned char *target_hw)
++static void pcnet32_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
 +{
-+	struct sk_buff *skb;
++	struct pcnet32_private *lp = dev->priv;
++  
++	strcpy (info->driver, DRV_NAME);
++	strcpy (info->version, DRV_VERSION);
++	if (lp->pci_dev)
++		strcpy (info->bus_info, pci_name(lp->pci_dev));
++	else
++		sprintf(info->bus_info, "VLB 0x%lx", dev->base_addr);
++}
 +
-+	/*
-+	 *	No arp on this interface.
-+	 */
-+	
-+	if (dev->flags&IFF_NOARP)
-+		return;
++static u32 pcnet32_get_link(struct net_device *dev)
++{
++	struct pcnet32_private *lp = dev->priv;
++	unsigned long flags;
++	int r;
 +
-+	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
-+			 dest_hw, src_hw, target_hw);
-+	if (skb == NULL) {
-+		return;
-+	}
++	spin_lock_irqsave(&lp->lock, flags);
++	r = mii_link_ok(&lp->mii_if);
++	spin_unlock_irqrestore(&lp->lock, flags);
++	return r;
++}
 +
-+	arp_xmit(skb);
++static u32 pcnet32_get_msglevel(struct net_device *dev)
++{
++	struct pcnet32_private *lp = dev->priv;
++	return lp->msg_enable;
++}
++  
++static void pcnet32_set_msglevel(struct net_device *dev, u32 value)
++{
++	struct pcnet32_private *lp = dev->priv;
++	lp->msg_enable = value;
++}
++  
++static int pcnet32_nway_reset(struct net_device *dev)
++{
++	struct pcnet32_private *lp = dev->priv;
++	unsigned long flags;
++	int r;
++
++	spin_lock_irqsave(&lp->lock, flags);
++	r = mii_nway_restart(&lp->mii_if);
++	spin_unlock_irqrestore(&lp->lock, flags);
++	return r;
++}
++
++static void pcnet32_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ering)
++{
++	struct pcnet32_private *lp = dev->priv;
++
++	ering->tx_max_pending = TX_RING_SIZE - 1;
++	ering->tx_pending = lp->cur_tx - lp->dirty_tx;
++	ering->rx_max_pending = RX_RING_SIZE - 1;
++	ering->rx_pending = lp->cur_rx & RX_RING_MOD_MASK;
++}
++
++static struct ethtool_ops pcnet32_ethtool_ops = {
++	.get_settings		= pcnet32_get_settings,
++	.set_settings		= pcnet32_set_settings,
++	.get_drvinfo		= pcnet32_get_drvinfo,
++	.get_msglevel		= pcnet32_get_msglevel,
++	.set_msglevel		= pcnet32_set_msglevel,
++	.nway_reset		= pcnet32_nway_reset,
++	.get_link		= pcnet32_get_link,
++	.get_ringparam		= pcnet32_get_ringparam,
++	.get_tx_csum		= ethtool_op_get_tx_csum,
++	.get_sg			= ethtool_op_get_sg,
++	.get_tso		= ethtool_op_get_tso,
++};
++
+ /* only probes for non-PCI devices, the rest are handled by 
+  * pci_register_driver via pcnet32_probe_pci */
+ 
+@@ -813,6 +908,7 @@
+     dev->get_stats = &pcnet32_get_stats;
+     dev->set_multicast_list = &pcnet32_set_multicast_list;
+     dev->do_ioctl = &pcnet32_ioctl;
++    dev->ethtool_ops = &pcnet32_ethtool_ops;
+     dev->tx_timeout = pcnet32_tx_timeout;
+     dev->watchdog_timeo = (5*HZ);
+ 
+@@ -1588,100 +1684,6 @@
+ 	lp->a.write_bcr(ioaddr, 33, phyaddr);
  }
  
- static void parp_redo(struct sk_buff *skb)
-diff -Nuarp a/net/netsyms.c b/net/netsyms.c
---- a/net/netsyms.c	Wed Jan 21 16:54:53 2004
-+++ b/net/netsyms.c	Wed Jan 21 16:54:54 2004
-@@ -261,6 +261,8 @@ EXPORT_SYMBOL(icmp_statistics);
- EXPORT_SYMBOL(icmp_err_convert);
- EXPORT_SYMBOL(ip_options_compile);
- EXPORT_SYMBOL(ip_options_undo);
-+EXPORT_SYMBOL(arp_create);
-+EXPORT_SYMBOL(arp_xmit);
- EXPORT_SYMBOL(arp_send);
- EXPORT_SYMBOL(arp_broken_ops);
- EXPORT_SYMBOL(__ip_select_ident);
+-static int pcnet32_ethtool_ioctl (struct net_device *dev, void *useraddr)
+-{
+-	struct pcnet32_private *lp = dev->priv;
+-	u32 ethcmd;
+-	int phyaddr = 0;
+-	int phy_id = 0;
+-	unsigned long ioaddr = dev->base_addr;
+-
+-	if (lp->mii) {
+-		phyaddr = lp->a.read_bcr (ioaddr, 33);
+-		phy_id = (phyaddr >> 5) & 0x1f;
+-		lp->mii_if.phy_id = phy_id;
+-	}
+-
+-	if (copy_from_user (&ethcmd, useraddr, sizeof (ethcmd)))
+-		return -EFAULT;
+-
+-	switch (ethcmd) {
+-	case ETHTOOL_GDRVINFO: {
+-		struct ethtool_drvinfo info = { ETHTOOL_GDRVINFO };
+-		strcpy (info.driver, DRV_NAME);
+-		strcpy (info.version, DRV_VERSION);
+-		if (lp->pci_dev)
+-			strcpy (info.bus_info, pci_name(lp->pci_dev));
+-		else
+-			sprintf(info.bus_info, "VLB 0x%lx", dev->base_addr);
+-		if (copy_to_user (useraddr, &info, sizeof (info)))
+-			return -EFAULT;
+-		return 0;
+-	}
+-
+-	/* get settings */
+-	case ETHTOOL_GSET: {
+-		struct ethtool_cmd ecmd = { ETHTOOL_GSET };
+-		spin_lock_irq(&lp->lock);
+-		mii_ethtool_gset(&lp->mii_if, &ecmd);
+-		spin_unlock_irq(&lp->lock);
+-		if (copy_to_user(useraddr, &ecmd, sizeof(ecmd)))
+-			return -EFAULT;
+-		return 0;
+-	}
+-	/* set settings */
+-	case ETHTOOL_SSET: {
+-		int r;
+-		struct ethtool_cmd ecmd;
+-		if (copy_from_user(&ecmd, useraddr, sizeof(ecmd)))
+-			return -EFAULT;
+-		spin_lock_irq(&lp->lock);
+-		r = mii_ethtool_sset(&lp->mii_if, &ecmd);
+-		spin_unlock_irq(&lp->lock);
+-		return r;
+-	}
+-	/* restart autonegotiation */
+-	case ETHTOOL_NWAY_RST: {
+-		int r;
+-		spin_lock_irq(&lp->lock);
+-		r = mii_nway_restart(&lp->mii_if);
+-		spin_unlock_irq(&lp->lock);
+-		return r;
+-	}
+-	/* get link status */
+-	case ETHTOOL_GLINK: {
+-		struct ethtool_value edata = {ETHTOOL_GLINK};
+-		spin_lock_irq(&lp->lock);
+-		edata.data = mii_link_ok(&lp->mii_if);
+-		spin_unlock_irq(&lp->lock);
+-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-			return -EFAULT;
+-		return 0;
+-	}
+-
+-	/* get message-level */
+-	case ETHTOOL_GMSGLVL: {
+-		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
+-		edata.data = lp->msg_enable;
+-		if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-			return -EFAULT;
+-		return 0;
+-	}
+-	/* set message-level */
+-	case ETHTOOL_SMSGLVL: {
+-		struct ethtool_value edata;
+-		if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-			return -EFAULT;
+-		lp->msg_enable = edata.data;
+-		return 0;
+-	}
+-	default:
+-		break;
+-	}
+-
+-	return -EOPNOTSUPP;
+-}
+-
+ static int pcnet32_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+     struct pcnet32_private *lp = dev->priv;	 
+@@ -1689,9 +1691,6 @@
+     int rc;
+     unsigned long flags;
+ 
+-    if (cmd == SIOCETHTOOL)
+-	return pcnet32_ethtool_ioctl(dev, (void *) rq->ifr_data);
+-
+     /* SIOC[GS]MIIxxx ioctls */
+     if (lp->mii) {
+ 	spin_lock_irqsave(&lp->lock, flags);
+
+-- 
+Don Fry
+brazilnut@us.ibm.com
