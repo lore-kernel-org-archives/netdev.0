@@ -1,57 +1,136 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Luca Deri's paper: Improving Passive Packet Capture: Beyond
-	Device Polling
-Date: 06 Apr 2004 10:18:46 -0400
+From: Klaus Rechert <klaus@rechert.de>
+Subject: 8139too problems
+Date: Tue, 06 Apr 2004 16:23:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1081261126.1047.6.camel@jzny.localdomain>
-References: <20040330142354.GA17671@outblaze.com>
-	 <1081033332.2037.61.camel@jzny.localdomain>  <c4rvvv$dbf$1@sea.gmane.org>
-Reply-To: hadi@cyberus.ca
+Message-ID: <4072BD45.6050907@rechert.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Luca Deri <deri@ntop.org>,
-        Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: multipart/mixed;
+ boundary="------------080706000502090501090600"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <c4rvvv$dbf$1@sea.gmane.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-04-05 at 12:03, Jason Lunz wrote:
+This is a multi-part message in MIME format.
+--------------080706000502090501090600
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Yes, I read the paper (but not his code). What stood out to me is that
-> the description of his custom socket implementation matches exactly what
-> packet-mmap already is.
+Hi,
 
-The problem is when you first glance at the paper you think its 
-something new. So that piece is a little misleading.
+i have problems with my 8139c card on a toshiba tecra 8000 since linux-2.6.
+lspci -vvv attached.
 
-> I noticed he only mentioned testing of libpcap-mmap, but did not use
-> mmap packet sockets directly -- maybe there's something about libpcap
-> that limits performance? I haven't looked.
+Call Trace:
+ [<c01b8cab>] kobject_register+0x5b/0x60
+ [<c01fdafa>] bus_add_driver+0x4a/0xb0
+ [<c01fdf7f>] driver_register+0x2f/0x40
+ [<c01c312c>] pci_register_driver+0x5c/0x90
+ [<ccca901b>] rtl8139_init_module+0x1b/0x27 [8139too]
+ [<c0137739>] sys_init_module+0x119/0x230
+ [<c010936b>] syscall_call+0x7/0xb
 
-More than likely turbo packet was used from some of Alexeys old patches-
-now obsoleted
 
-> What I can say for sure is that the napi + packet-mmap performance with
-> many small packets is almost surely limited by problems with irq/softirq
-> load. There was an excellent thread last week about this with Andrea
-> Arcangeli, Robert Olsson and others about the balancing of softirq and
-> userspace load; they eventually were beginning to agree that running
-> softirqs on return from hardirq and bh was a bigger load than expected
-> when there was lots of napi work to do. So despite NAPI, too much kernel
-> time is spent handling (soft)irq load with many small packets.
+Cheers
+    Klaus
 
-I didnt follow that discussion; archived for later entertaining reading.
-My take on it was it is 2.6.x related and in particular the misbehavior
-observed has to do with use of rcu in the route cache.
 
-> It appears this problem became worse in 2.6 with HZ=1000, because now
-> the napi rx softirq work is being done 10X as much on return from the
-> timer interrupt.  I'm not sure if a solution was reached.
 
-Robert?
+--------------080706000502090501090600
+Content-Type: text/plain;
+ name="lspci"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="lspci"
 
-cheers,
-jamal
+00:00.0 Host bridge: Intel Corp. 440BX/ZX/DX - 82443BX/ZX/DX Host bridge (AGP disabled) (rev 03)
+	Subsystem: Toshiba America Info Systems: Unknown device 0001
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort+ >SERR- <PERR+
+	Latency: 64
+	Region 0: Memory at e0000000 (32-bit, prefetchable) [size=256M]
+
+00:04.0 VGA compatible controller: Neomagic Corporation NM2200 [MagicGraph 256AV] (rev 12) (prog-if 00 [VGA])
+	Subsystem: Toshiba America Info Systems: Unknown device 0001
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64 (4000ns min, 63750ns max)
+	Interrupt: pin A routed to IRQ 11
+	Region 0: Memory at df000000 (32-bit, prefetchable) [size=16M]
+	Region 1: Memory at ff800000 (32-bit, non-prefetchable) [size=4M]
+	Region 2: Memory at ff700000 (32-bit, non-prefetchable) [size=1M]
+	Capabilities: <available only to root>
+
+00:05.0 Bridge: Intel Corp. 82371AB/EB/MB PIIX4 ISA (rev 02)
+	Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+
+00:05.1 IDE interface: Intel Corp. 82371AB/EB/MB PIIX4 IDE (rev 01) (prog-if 80 [Master])
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64
+	Region 4: I/O ports at 1000 [size=16]
+
+00:05.2 USB Controller: Intel Corp. 82371AB/EB/MB PIIX4 USB (rev 01) (prog-if 00 [UHCI])
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64
+	Interrupt: pin D routed to IRQ 11
+	Region 4: I/O ports at ffe0 [size=32]
+
+00:05.3 Bridge: Intel Corp. 82371AB/EB/MB PIIX4 ACPI (rev 02)
+	Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Interrupt: pin ? routed to IRQ 9
+
+00:09.0 Communication controller: Toshiba America Info Systems FIR Port (rev 23)
+	Subsystem: Toshiba America Info Systems: Unknown device 0001
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B- ParErr- DEVSEL=slow >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64
+	Interrupt: pin A routed to IRQ 11
+	Region 0: I/O ports at ff80 [size=32]
+
+00:0b.0 CardBus bridge: Toshiba America Info Systems ToPIC97 (rev 05)
+	Subsystem: Toshiba America Info Systems: Unknown device 0001
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=slow >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+	Interrupt: pin A routed to IRQ 11
+	Region 0: Memory at 10000000 (32-bit, non-prefetchable) [size=4K]
+	Bus: primary=00, secondary=01, subordinate=04, sec-latency=0
+	Memory window 0: 10400000-107ff000 (prefetchable)
+	Memory window 1: 10800000-10bff000
+	I/O window 0: 00004000-000040ff
+	I/O window 1: 00004400-000044ff
+	BridgeCtl: Parity- SERR- ISA- VGA- MAbort- >Reset- 16bInt+ PostWrite+
+	16-bit legacy interface ports at 0001
+
+00:0b.1 CardBus bridge: Toshiba America Info Systems ToPIC97 (rev 05)
+	Subsystem: Toshiba America Info Systems: Unknown device 0001
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=slow >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+	Interrupt: pin B routed to IRQ 11
+	Region 0: Memory at 10001000 (32-bit, non-prefetchable) [size=4K]
+	Bus: primary=00, secondary=05, subordinate=08, sec-latency=0
+	Memory window 0: 10c00000-10fff000 (prefetchable)
+	Memory window 1: 11000000-113ff000
+	I/O window 0: 00004800-000048ff
+	I/O window 1: 00004c00-00004cff
+	BridgeCtl: Parity- SERR- ISA- VGA- MAbort- >Reset- 16bInt- PostWrite+
+	16-bit legacy interface ports at 0001
+
+05:00.0 Ethernet controller: Abocom Systems Inc RTL8139 [FE2000VX] CardBus Fast Ethernet Attached Port Adapter (rev 10)
+	Subsystem: Abocom Systems Inc RTL8139 [FE2000VX] CardBus Fast Ethernet Attached Port Adapter
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64 (8000ns min, 16000ns max)
+	Interrupt: pin A routed to IRQ 11
+	Region 0: I/O ports at 4800 [size=256]
+	Region 1: Memory at 11000000 (32-bit, non-prefetchable) [size=512]
+	Capabilities: <available only to root>
+
+
+--------------080706000502090501090600--
