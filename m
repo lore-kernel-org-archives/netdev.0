@@ -1,73 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: neigh_create/inetdev_destroy race?
-Date: Sun, 29 Aug 2004 16:50:31 +1000
+From: Daniele Venzano <webvenza@libero.it>
+Subject: [PATCH] Add new PHY ID to sis900 driver
+Date: Sun, 29 Aug 2004 12:32:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040829065031.GA786@gondor.apana.org.au>
-References: <20040814003428.GA17760@gondor.apana.org.au> <20040813173924.6d05be15.davem@redhat.com> <20040814005411.GA18350@gondor.apana.org.au> <20040814012513.GA721@gondor.apana.org.au> <20040814013030.GA2042@gondor.apana.org.au> <20040814050848.GA11874@gondor.apana.org.au> <20040814062703.GA4806@gondor.apana.org.au> <20040815191450.77532d5d.davem@redhat.com> <20040816105131.GA11299@gondor.apana.org.au> <20040828234201.79556f6e.davem@davemloft.net>
+Message-ID: <20040829103226.GD5168@gateway.milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ALfTUftag+2gvp1h"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com, jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <20040828234201.79556f6e.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 28, 2004 at 11:42:01PM -0700, David S. Miller wrote:
-> On Mon, 16 Aug 2004 20:51:31 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > > > CPU0					CPU1
-> > > > neigh_create
-> > > > 					inet_del_ifa
-> > > > 						notifier_call_chain
-> > > > 							neigh_ifdown
-> > > > 						inetdev_destroy
-> > > > 	arp_constructor
-> > > > 		neigh->parms =
-> > > > 			in_dev->arp_parms
-> > > > 							in_dev->dead = 1
-> > > > 							in_dev->dev->ip_ptr =
-> > > > 								NULL
-> > > > 							neigh_parms_release
-> > > > 	n->parms->neigh_setup => BUG
->
-> > That maybe the case, but the race has nothing to do with neigh_setup.
-> > 
-> > Even if you remove neigh_setup altogether, the very next line in
-> > neigh_create will dereference n->parms by looking up base_reachable_time.
-> 
-> Wait a second, how can neigh_ifdown() even find this thing?
-> Firstly, neigh_create() takes a reference to the device, which
-> in turn holds onto the inetdev preventing inetdev_destroy().
 
-I'm not sure about this statement.  I can't see how holding a reference
-on dev prevents you from deleting the primary address on dev which will
-lead to the call chain on the right.
+--ALfTUftag+2gvp1h
+Content-Type: multipart/mixed; boundary="oLBj+sq0vYjzfsbl"
+Content-Disposition: inline
 
-> Secondly, until neigh_create() takes the tbl lock, it is not in
-> the hash tables and therefore neigh_ifdown() could not see it.
 
-That part I agree with :) That's in fact what this race is about:
-neigh_ifdown does not guarantee that the hash table will be without
-references to idev.
+--oLBj+sq0vYjzfsbl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Thirdly, arp_constructor() does in_dev_get() and checks the
-> return value.  If it fails, by racing with inetdev_destroy(),
-> neigh_create() will return an error and not do bogus derefing.
+Add new PHY from National (83847).
 
-In the above scenario, when arp_constructor() runs the in_dev is
-still alive and well.  It only gets destroyed afterwards.
+=46rom: Laurent <laurent@gobio2.net>
+Signed-off-by: Daniele Venzano <webvenza@libero.it>
 
-> I think that covers all the cases, right?
-> (please prove me wrong, this looks too easy :-)
+This patch is also available at: http://teg.homeunix.org/sis900.html
 
-Not quite :)
+--=20
+-----------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--oLBj+sq0vYjzfsbl
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sis900-new-national-phy.diff"
+
+Index: sis900.c
+===================================================================
+--- a/drivers/net/sis900.c	(revision 10)
++++ b/drivers/net/sis900.c	(revision 11)
+@@ -124,6 +124,7 @@
+ 	{ "AMD 79C901 HomePNA PHY",		0x0000, 0x6B90, HOME},
+ 	{ "ICS LAN PHY",			0x0015, 0xF440, LAN },
+ 	{ "NS 83851 PHY",			0x2000, 0x5C20, MIX },
++	{ "NS 83847 PHY",                       0x2000, 0x5C30, MIX },
+ 	{ "Realtek RTL8201 PHY",		0x0000, 0x8200, LAN },
+ 	{ "VIA 6103 PHY",			0x0101, 0x8f20, LAN },
+ 	{NULL,},
+
+--oLBj+sq0vYjzfsbl--
+
+--ALfTUftag+2gvp1h
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBMbC62rmHZCWzV+0RAlo1AKCm98bU/2Aht8MHsbrNi/jgplhDcQCghopj
+EJhoikQ0n/j+BJ3XC78VVfk=
+=pCMx
+-----END PGP SIGNATURE-----
+
+--ALfTUftag+2gvp1h--
