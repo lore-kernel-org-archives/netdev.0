@@ -1,142 +1,64 @@
-From: jamal <hadi@cyberus.ca>
-Subject: patch: annoying u32 double listing
-Date: 06 Feb 2005 14:49:04 -0500
-Message-ID: <1107719343.1055.22.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 4177] New: Please consider adding possibility
+ to have multiple PPPoE sessions with different MAC addresses
+Date: Sun, 6 Feb 2005 12:26:04 -0800
+Message-ID: <20050206122604.74a41796.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-hXDhNYmEsldW+1l6It/N"
-Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mh+kernel-bugzilla@zugschlus.de
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-hXDhNYmEsldW+1l6It/N
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+
+Begin forwarded message:
+
+Date: Sun, 6 Feb 2005 04:08:01 -0800
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 4177] New: Please consider adding possibility to have multiple PPPoE sessions with different MAC addresses
 
 
-bug is around since 2.1.x; never cared about chasing it until now
-because it is affecting someone i know.
-Dave, please apply. I will prepare a 2.4.x version.
+http://bugme.osdl.org/show_bug.cgi?id=4177
 
-To see the problem:
-
-tc qdisc add dev eth0 ingress
-#add two filters at different prio levels
-tc filter add dev eth0 parent ffff: protocol ip prio 6 \
-u32 match ip src 10.0.0.210/32 flowid 1:16
-#
-tc filter add dev eth0 parent ffff: protocol ip prio 7 \
-u32 match ip src 10.0.0.144/32 flowid 1:15 
-#now list them..
-root@jdev:/# tc -s filter show parent ffff: dev eth0 
-
-filter protocol ip pref 6 u32 
-filter protocol ip pref 6 u32 fh 801: ht divisor 1 
-filter protocol ip pref 6 u32 fh 801::800 order 2048 key ht 801 bkt 0
-flowid 1:15 
-  match 0a000090/ffffffff at 12
-filter protocol ip pref 6 u32 fh 800: ht divisor 1 
-filter protocol ip pref 6 u32 fh 800::800 order 2048 key ht 800 bkt 0
-flowid 1:16 
-  match 0a0000d2/ffffffff at 12
-filter protocol ip pref 7 u32 
-filter protocol ip pref 7 u32 fh 801: ht divisor 1 
-filter protocol ip pref 7 u32 fh 801::800 order 2048 key ht 801 bkt 0
-flowid 1:15 
-  match 0a000090/ffffffff at 12
-filter protocol ip pref 7 u32 fh 800: ht divisor 1 
-filter protocol ip pref 7 u32 fh 800::800 order 2048 key ht 800 bkt 0
-flowid 1:16 
-  match 0a0000d2/ffffffff at 12
-
-each filter is listed in each priority. So if you had 5 rules in 5 prios
-(which is where sherlock started) you see 25 outputs.
-
-AFTER FIX: 
----------
-
-root@jdev:/usr/src# tc -s filter show parent ffff: dev eth0
-filter protocol ip pref 6 u32
-filter protocol ip pref 6 u32 fh 800::800 order 2048 key ht 800 bkt 0
-flowid 1:16  
-  match 0a0000d2/ffffffff at 12 
-  filter protocol ip pref 7 u32
-  filter protocol ip pref 7 u32 fh 801::800 order 2048 key ht 801 bkt 0
-flowid 1:15  
-    match 0a000090/ffffffff at 12 
+           Summary: Please consider adding possibility to have multiple
+                    PPPoE sessions with different MAC addresses
+    Kernel Version: 2.6.current, 2.4.current
+            Status: NEW
+          Severity: low
+             Owner: acme@conectiva.com.br
+         Submitter: mh+kernel-bugzilla@zugschlus.de
 
 
-cheers,
-jamal
-
---=-hXDhNYmEsldW+1l6It/N
-Content-Disposition: attachment; filename=u32multi_p
-Content-Type: text/plain; name=u32multi_p; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-
---- 2611-rc3+bk3/net/sched/cls_api.c	2005/02/06 16:28:26	1.1
-+++ 2611-rc3+bk3/net/sched/cls_api.c	2005/02/06 16:41:47
-@@ -326,6 +326,7 @@
- {
- 	struct tcmsg *tcm;
- 	struct nlmsghdr  *nlh;
-+	int ret;
- 	unsigned char	 *b = skb->tail;
+This wishlist item is mostly relevant to German users. In 
+Germany, Deutsche Telekom has a near monopoly regarding DSL 
+connections to residential homes. They are, however, required, to 
+resell their network to other ISPs which has led to a rather 
+interesting combination of Internet tariffs and feature sets available 
+via Deutsche Telekom T-DSL connections. 
  
- 	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*tcm));
-@@ -339,8 +340,11 @@
- 	tcm->tcm_handle = fh;
- 	if (RTM_DELTFILTER != event) {
- 		tcm->tcm_handle = 0;
--		if (tp->ops->dump && tp->ops->dump(tp, fh, skb, tcm) < 0)
--			goto rtattr_failure;
-+		if (tp->ops->dump) {
-+			ret = tp->ops->dump(tp, fh, skb, tcm);
-+			if (ret < 0)
-+				goto rtattr_failure;
-+		}
- 	}
- 	nlh->nlmsg_len = skb->tail - b;
- 	return skb->len;
-@@ -348,6 +352,8 @@
- nlmsg_failure:
- rtattr_failure:
- 	skb_trim(skb, b - skb->data);
-+	if (ret == -ENOENT)
-+		return skb->len;
- 	return -1;
- }
+Technical Basis for the T-DSL customer interface is PPPoE over a 
+bridged ATM session, so it is technically possible to have multiple 
+PPPoE sessions on the same line, allowing concurrent use of more than 
+a single ISP which might be interesting with special interest services 
+like streaming, fixed IP address and/or flat rate. 
  
---- 2611-rc3+bk3/net/sched/cls_u32.c	2005/02/06 16:30:44	1.1
-+++ 2611-rc3+bk3/net/sched/cls_u32.c	2005/02/06 16:33:13
-@@ -76,6 +76,7 @@
- 	char                     indev[IFNAMSIZ];
- #endif
- 	u8			fshift;
-+	u32			prio;
- 	struct tcf_result	res;
- 	struct tc_u_hnode	*ht_down;
- #ifdef CONFIG_CLS_U32_PERF
-@@ -641,6 +642,7 @@
- 	memcpy(&n->sel, s, sizeof(*s) + s->nkeys*sizeof(struct tc_u32_key));
- 	n->ht_up = ht;
- 	n->handle = handle;
-+	n->prio = tp->prio;
- {
- 	u8 i = 0;
- 	u32 mask = s->hmask;
-@@ -736,6 +738,9 @@
- 	if (n == NULL)
- 		return skb->len;
+However, Deutsche Telekom technically forbids multiple PPPoE sessions 
+originating from a single MAC address, so one needs multiple network 
+interfaces to originate the PPPoE sessions from. 
  
-+	if (n->prio != tp->prio)
-+		return -ENOENT;
-+
- 	t->tcm_handle = n->handle;
+Sven Geggus has a patch against rp-pppoed, which allows to fake the 
+sending MAC address for additional PPPoE sessions, circumventing the 
+artificially introduced limitation of the T-DSL connection. The patch 
+is available on http://geggus.net/sven/rp-pppoe-fakemac.diff 
  
- 	rta = (struct rtattr*)b;
+Please consider adding that possibility to the kernel PPPoE code as well. 
+ 
+Greetings 
+Marc
 
---=-hXDhNYmEsldW+1l6It/N--
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
