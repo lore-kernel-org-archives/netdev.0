@@ -1,36 +1,51 @@
-From: Florian Weimer <fw@deneb.enyo.de>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Mon, 26 May 2003 09:18:19 +0200
+Date: Mon, 26 May 2003 00:29:34 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <87adda6uro.fsf@deneb.enyo.de>
-References: <Pine.LNX.4.51.0305191408490.1795@ns.istop.com>
-	<20030519154852.I39024@shell.cyberus.ca>
-	<20030520011053.GB10419@netnation.com>
-	<20030519.181405.35017608.davem@redhat.com>
+Message-ID: <20030526.002934.132904126.davem@redhat.com>
+References: <20030519.181405.35017608.davem@redhat.com>
 	<20030519212209.P39592@shell.cyberus.ca>
+	<87adda6uro.fsf@deneb.enyo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@shell.cyberus.ca, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030519212209.P39592@shell.cyberus.ca> (Jamal Hadi's message
- of "Mon, 19 May 2003 21:23:08 -0400 (EDT)")
+To: fw@deneb.enyo.de
+In-Reply-To: <87adda6uro.fsf@deneb.enyo.de>
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi <hadi@shell.cyberus.ca> writes:
+   From: Florian Weimer <fw@deneb.enyo.de>
+   Date: Mon, 26 May 2003 09:18:19 +0200
+   
+   Cisco IOS doesn't have this hash collisions problem, they have
+   moved away from hash tables ages ago.
+   
+Let their loss be our gain :-)  No, I am serious, their solution to
+misbehaving flows seems to be just using slow path always and
+continually optimize the slow path.
 
-> Also used to attack CISCOs by them kiddies btw. We stand much better
-> than any CISCO doing caching.
+   the data structure are changed when updated routing information is
+   encountered and not when packets are received which need to be
+   routed.
 
-Cisco IOS doesn't have this hash collisions problem, they have moved
-away from hash tables ages ago.  You are probably just seeing CPU
-starvation (Cisco routers aren't equipped with the fastest available
-CPUs *sigh*, and you lose if routing is not performed by other means).
+Yes, they say this in the marketing literature too. :)
 
-BTW, CEF is just a marketing term.  There's a plethora of
-implementations, ranging from software-only to ASICs to special memory
-chips (associative arrays with wildcards).  These implementations have
-vastly different implications for router performance.  Most notably,
-CEF is not a cache (not even in the software case), the data structure
-are changed when updated routing information is encountered and not
-when packets are received which need to be routed.
+Now, how about some real explanation about what they are actually
+doing?  Are they replicating the routing table all over the place?
+That's one possibility, and would match up to their saying that more
+router memory is required when using CEF.
+
+The other possibility is that it's a faster-trie thing generated
+from the normal routing tables.  Since CEF aparently works with QoS
+and other features, the key must be many bits wide.  Probably similar
+in size to our flowi's.
+
+So some bit branching trie based upon flow parameters.  There are
+hundreds of patented such schemes :-)
+
+Anyways, you keep saying that flow hashing is stupid, can you propose
+an alternative?  Really, I don't mean to be rude, but you do a lot of
+complaining about how what we have now sucks and zero of actually
+suggesting a usable alternative.
