@@ -1,64 +1,69 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV6: Deprecate All-on-link Assumption
-Date: Fri, 10 Sep 2004 10:48:30 +0900 (JST)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.9-rc1+bk: assertion tcp_get_pcount failed at net/ipv4/tcp_input.c
+Date: Fri, 10 Sep 2004 13:30:55 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910.104830.121402882.yoshfuji@linux-ipv6.org>
+Message-ID: <20040910033055.GA26790@gondor.apana.org.au>
+References: <20040909111233.GA3987@steel.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, netdev@oss.sgi.com, kunitake@linux-ipv6.org,
-        yoshfuji@linux-ipv6.org, aesop-core@kame.net
+Content-Type: multipart/mixed; boundary="UlVJffcvxoiEqYs2"
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: Alex Riesen <fork0@users.sourceforge.net>,
+        "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040909111233.GA3987@steel.home>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-If we don't have IPv6 default routes, we assume all ipv6 destinations 
-are on-link as specified in RFC2461. It, however, is considered harmful now;
-it is problematic with IPv6-capable nodes that do not have off-link
-IPv6 connectivity (eg no default routers) and such nodes will take
-a few seconds until they fall back to use IPv4.
+--UlVJffcvxoiEqYs2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-See <draft-ietf-v6ops-onlinkassumption-02.txt> for details.
+On Thu, Sep 09, 2004 at 11:12:33AM +0000, Alex Riesen wrote:
+> The box froze after being left for some time (some 10 hours) unattended.
+> The only thing in I could find in logs was:
+> 
+> Sep  8 22:30:18 steel kernel: KERNEL: assertion ((int)tcp_get_pcount(&tp->lost_out) >= 0) failed at net/ipv4/tcp_input.c (2422)
+> Sep  8 22:30:18 steel kernel: Leak l=4294967295 4
 
-Thanks.
+Looks like the factor isn't set early enough.  Can you please check
+that you had the changeset titled
 
-From: KUNITAKE Koichi <kunitake@anchor.jp>
-Signed-off-by: KUNITAKE Koichi <kunitake@anchor.jp>
-Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+[TCP]: Make sure SKB tso factor is setup early enough.
 
-===== net/ipv6/addrconf.c 1.106 vs edited =====
---- 1.106/net/ipv6/addrconf.c	2004-08-17 11:25:06 +09:00
-+++ edited/net/ipv6/addrconf.c	2004-09-10 01:49:17 +09:00
-@@ -2107,21 +2107,13 @@
- 
- 		ndisc_send_rs(ifp->idev->dev, &ifp->addr, &all_routers);
- 	} else {
--		struct in6_rtmsg rtmsg;
--
- 		spin_unlock(&ifp->lock);
--
-+		/*
-+		 * Note: we do not support deprecated "all on-link"
-+		 * assumption any longer.
-+		 */
- 		printk(KERN_DEBUG "%s: no IPv6 routers present\n",
- 		       ifp->idev->dev->name);
--
--		memset(&rtmsg, 0, sizeof(struct in6_rtmsg));
--		rtmsg.rtmsg_type = RTMSG_NEWROUTE;
--		rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
--		rtmsg.rtmsg_flags = (RTF_ALLONLINK | RTF_DEFAULT | RTF_UP);
--
--		rtmsg.rtmsg_ifindex = ifp->idev->dev->ifindex;
--
--		ip6_route_add(&rtmsg, NULL, NULL);
- 	}
- 
- out:
+from davem?
 
+If you did, then please apply the following patch and tell us what
+the resulting messages.
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--UlVJffcvxoiEqYs2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== include/net/tcp.h 1.87 vs edited =====
+--- 1.87/include/net/tcp.h	2004-09-10 01:51:02 +10:00
++++ edited/include/net/tcp.h	2004-09-10 13:24:25 +10:00
+@@ -30,6 +30,7 @@
+ #include <linux/slab.h>
+ #include <linux/cache.h>
+ #include <linux/percpu.h>
++#include <linux/rtnetlink.h>
+ #include <net/checksum.h>
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -1195,6 +1196,7 @@
+  */
+ static inline int tcp_skb_pcount(struct sk_buff *skb)
+ {
++	BUG_TRAP(TCP_SKB_CB(skb)->tso_factor);
+ 	return TCP_SKB_CB(skb)->tso_factor;
+ }
+ 
+
+--UlVJffcvxoiEqYs2--
