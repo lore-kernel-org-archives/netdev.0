@@ -1,83 +1,69 @@
-From: Ilya Pashkovsky <ilya.pashkovsky@gmail.com>
-Subject: [PATCH] port_reuse listen fix (allow simultaneous single listen + outgoing connects from same port)
-Date: Thu, 9 Dec 2004 13:25:26 +0200
-Message-ID: <fcb9aa29041209032521899698@mail.gmail.com>
-Reply-To: Ilya Pashkovsky <ilya.pashkovsky@gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6]: Fix oops in ipt action error path
+Date: 09 Dec 2004 07:14:32 -0500
+Message-ID: <1102594472.1048.50.camel@jzny.localdomain>
+References: <41B7892E.1080706@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261506AbULILZr@vger.kernel.org>
-To: netdev@oss.sgi.com,
-	=?UTF-8?Q?YOSHIFUJI_Hideaki_/_=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>, davem@redhat.com,
-	linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41B7892E.1080706@trash.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is the latest patch with removed bool > 1 check and ipv6 support.
-http://puding.mine.nu/patches/
-http://puding.mine.nu/patches/patch-reuse-bool-ipv6
+On Wed, 2004-12-08 at 18:07, Patrick McHardy wrote:
+> This patch fixes an oops when the ipt action is used with a
+> non-existant iptables target. It tries to log
+> t->u.kernel.target->name, u.kernel.target is part of a union
+> and as long as the target wasn't successfully loaded contains
+> the name of the target, using it as a pointer results in a
+> crash.
+> 
+> Oops captured in UML:
+> 
+> EIP: 0023:[<a01056e1>] CPU: 0 Not tainted ESP: 002b:a14b7514 EFLAGS: 
+> 00010297
+>     Not tainted
+> EAX: 414d4e56 EBX: 0000000a ECX: 414d4e56 EDX: fffffffe
+> ESI: a036acba EDI: 00000000 EBP: a036b09f DS: 002b ES: 002b
+> Call Trace:
+>  [<a004b96d>] notifier_call_chain+0x2d/0x50
+>  [<a0101186>] bust_spinlocks+0x46/0x50
+>  [<a0035cc1>] panic+0x71/0x120
+>  [<a01056e1>] vsnprintf+0x331/0x4d0
+>  [<a001ad6a>] segv+0x1fa/0x230
+>  [<a01056e1>] vsnprintf+0x331/0x4d0
+>  [<a01eaeb4>] sigemptyset+0x24/0x40
+>  [<a0018c65>] change_signals+0x65/0x90
+>  [<a001b1c0>] segv_handler+0xe0/0xf0
+>  [<a01056e1>] vsnprintf+0x331/0x4d0
+>  [<a001eccd>] sig_handler_common_tt+0x8d/0x120
+>  [<a001b1f7>] sig_handler+0x17/0x20
+>  [<a01ead88>] __restore+0x0/0x8
+>  [<a01056e1>] vsnprintf+0x331/0x4d0
+>  [<a01058ab>] vscnprintf+0x2b/0x40
+>  [<a0036df2>] vprintk+0xb2/0x320
+>  [<a0036d37>] printk+0x17/0x20
+>  [<a0163653>] tcf_ipt_init+0x533/0x750
+>  [<a015ea22>] tcf_action_init_1+0x92/0x1a0
+>  [<a0069219>] kmem_cache_alloc+0x39/0x60
+>  [<a01eaeb4>] sigemptyset+0x24/0x40
+>  [<a015ebd7>] tcf_action_init+0xa7/0x140
+> ...
+> 
+> Not very important right now since ipt support isn't merged in iproute
+> yet, but still should be fixed for 2.6.10.
+> 
 
-to check, you can use netcat (sets SO_REUSEADDR by default).
-on one host (host A): nc -v -l -p 9999
-on another/same host (host B): nc -v -l -p 9000
-on host A: nc -v -p 9999 host.B.ip.addr 9000
-on host B: nc -v host.A.ip.addr 9999
-
-nothing should fail.
-
---- linux/net/ipv4/tcp_ipv4.c.orig2004-12-07 14:54:12.597084704 +0200
-+++ linux/net/ipv4/tcp_ipv4.c2004-12-08 16:20:32.018896416 +0200
-@@ -50,6 +50,8 @@
-  *YOSHIFUJI Hideaki @USAGI and:Support IPV6_V6ONLY socket option, which
-  *Alexey Kuznetsovallow both IPv4 and IPv6 sockets to bind
-  *a single port at the same time.
-+ *Ilya Pashkovsky:fix TCP_LISTEN check on reuse
-+ *sk_reuse boolean fix
-  */
+I think it is valid to apply now; 
+Thanks Patrick. If you have more cleanups on ipt, please shoot them in
+as well. 
+I am going to resend the ipt iproute2 patch to Stephen now that he is
+awake.
  
- #include <linux/config.h>
-@@ -184,7 +186,8 @@ static inline int tcp_bind_conflict(stru
- const u32 sk_rcv_saddr = tcp_v4_rcv_saddr(sk);
- struct sock *sk2;
- struct hlist_node *node;
--int reuse = sk->sk_reuse;
-+unsigned char reuse = sk->sk_reuse;
-+unsigned char state = sk->sk_state;
- 
- sk_for_each_bound(sk2, node, &tb->owners) {
- if (sk != sk2 &&
-@@ -193,7 +196,7 @@ static inline int tcp_bind_conflict(stru
-      !sk2->sk_bound_dev_if ||
-      sk->sk_bound_dev_if == sk2->sk_bound_dev_if)) {
- if (!reuse || !sk2->sk_reuse ||
--    sk2->sk_state == TCP_LISTEN) {
-+    (state == TCP_LISTEN && sk2->sk_state == TCP_LISTEN)) {
- const u32 sk2_rcv_saddr = tcp_v4_rcv_saddr(sk2);
- if (!sk2_rcv_saddr || !sk_rcv_saddr ||
-     sk2_rcv_saddr == sk_rcv_saddr)
-@@ -259,8 +262,11 @@ static int tcp_v4_get_port(struct sock *
- goto tb_not_found;
- tb_found:
- if (!hlist_empty(&tb->owners)) {
--if (sk->sk_reuse > 1)
--goto success;
-+/*
-+ * sk_reuse is boolean
-+ * if (sk->sk_reuse > 1)
-+ *goto success;
-+ */
- if (tb->fastreuse > 0 &&
-     sk->sk_reuse && sk->sk_state != TCP_LISTEN) {
- goto success;
---- linux/net/ipv6/tcp_ipv6.c.orig2004-12-09 01:35:33.162353104 +0200
-+++ linux/net/ipv6/tcp_ipv6.c2004-12-09 01:34:38.162714320 +0200
-@@ -111,7 +111,7 @@ static inline int tcp_v6_bind_conflict(s
-      !sk2->sk_bound_dev_if ||
-      sk->sk_bound_dev_if == sk2->sk_bound_dev_if) &&
-     (!sk->sk_reuse || !sk2->sk_reuse ||
--     sk2->sk_state == TCP_LISTEN) &&
-+     (sk->sk_state == TCP_LISTEN && sk2->sk_state == TCP_LISTEN)) &&
-      ipv6_rcv_saddr_equal(sk, sk2))
- break;
- }
+cheers,
+jamal
