@@ -1,47 +1,52 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: RE: s2io: patch disposition
-Date: Mon, 18 Oct 2004 15:38:53 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6.9] 3c509: use module_param
+Date: Mon, 18 Oct 2004 13:41:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <001f01c4b563$3f6d8b70$9810100a@S2IOtech.com>
-References: <20041018222107.GA19990@electric-eye.fr.zoreil.com>
-Reply-To: <ravinandan.arakali@s2io.com>
+Message-ID: <20041018134112.3ba865c3@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Jeff Garzik'" <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
-        <leonid.grossman@s2io.com>, <raghavendra.koushik@s2io.com>,
-        <rapuru.sriram@s2io.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Francois Romieu'" <romieu@fr.zoreil.com>
-In-Reply-To: <20041018222107.GA19990@electric-eye.fr.zoreil.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Francois,
-When we resend the patches, they will be inlined in the e-mail.
+Another 3com card change to use module_param
 
-Ravi
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
------Original Message-----
-From: Francois Romieu [mailto:romieu@fr.zoreil.com]
-Sent: Monday, October 18, 2004 3:21 PM
-To: Ravinandan Arakali
-Cc: Jeff Garzik; netdev@oss.sgi.com; leonid.grossman@s2io.com;
-raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com
-Subject: Re: s2io: patch disposition
-
-
-Ravinandan Arakali <ravinandan.arakali@s2io.com> :
-[...]
-> We'll resend the original 8 patches, followed by patch to address
-> your comments. Is it okay to send a single patch to address your
-> comments or you want that to be split as well ?
-
-Dumb question: is there something which prevents your patches to be
-sent with an MUA which inlines patches ?
-
-Or is there any hope for you to run some Perl crap on your computer ? :o)
-
---
-Ueimor
+diff -Nru a/drivers/net/3c509.c b/drivers/net/3c509.c
+--- a/drivers/net/3c509.c	2004-10-18 13:32:47 -07:00
++++ b/drivers/net/3c509.c	2004-10-18 13:32:47 -07:00
+@@ -70,6 +70,7 @@
+ 
+ #include <linux/config.h>
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #ifdef CONFIG_MCA
+ #include <linux/mca.h>
+ #endif
+@@ -1535,16 +1536,17 @@
+ static int irq[] = {-1, -1, -1, -1, -1, -1, -1, -1};
+ static int xcvr[] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+ 
+-MODULE_PARM(debug,"i");
+-MODULE_PARM(irq,"1-8i");
+-MODULE_PARM(xcvr,"1-12i");
+-MODULE_PARM(max_interrupt_work, "i");
++module_param(debug, int, 0);
++static int num_params;
++module_param_array(irq, int, num_params, 0);
++module_param_array(xcvr, int, num_params, 0);
++module_param(max_interrupt_work, int, 0);
+ MODULE_PARM_DESC(debug, "debug level (0-6)");
+ MODULE_PARM_DESC(irq, "IRQ number(s) (assigned)");
+ MODULE_PARM_DESC(xcvr,"transceiver(s) (0=internal, 1=external)");
+ MODULE_PARM_DESC(max_interrupt_work, "maximum events handled per interrupt");
+ #if defined(__ISAPNP__)
+-MODULE_PARM(nopnp, "i");
++module_param(nopnp, int, 0);
+ MODULE_PARM_DESC(nopnp, "disable ISA PnP support (0-1)");
+ MODULE_DEVICE_TABLE(isapnp, el3_isapnp_adapters);
+ #endif	/* __ISAPNP__ */
