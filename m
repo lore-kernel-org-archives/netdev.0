@@ -1,49 +1,34 @@
-From: Ethan Sommer <sommere@ethanet.com>
-Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
-Date: Tue, 20 May 2003 00:07:33 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6 IPComp
+Date: Mon, 19 May 2003 23:35:32 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EC9B815.4000504@ethanet.com>
-References: <1053313298.3909.5.camel@rth.ninka.net>
- <20030519202756.I39498@shell.cyberus.ca>
+Message-ID: <20030519.233532.42779243.davem@redhat.com>
+References: <873cjebwn1.wl@karaba.org>
+	<20030516.140014.59676235.davem@redhat.com>
+	<871xyvqr7k.wl@karaba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, linux-net@vger.kernel.org,
-   netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-reply-to: <20030519202756.I39498@shell.cyberus.ca>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
+To: mk@linux-ipv6.org
+In-Reply-To: <871xyvqr7k.wl@karaba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi wrote:
+   From: Mitsuru KANDA / 神田 充 <mk@linux-ipv6.org>
+   Date: Mon, 19 May 2003 17:24:31 +0900
 
->Hi,
->
-...
+   I would like to try to configure xfrm4 ipip tunnel for testing.
+   What is the suitable tool?, setkey???
 
->BTW, i am not sure how efficient the stuff that Henry spencer
->wrote is in comparison to newer research on variants of boyer-moore
->for regex searches. comment?
->  
->
-I picked Spencer's mainly because it was a pain to port the glibc 
-version into kernel space. They are both basically the posix regexp 
-interface, so if someone wants to get another version working in kernel 
-space we can test and see which one performs better with real load 
-pretty easily.
+Unfortunately setkey is not powerful enough to do this
+currently.  Only the netlink based ipsec configuration can
+set these things up.
 
+However, all of the testing we did was via tunnel mode IPCOMP.
 
->The code also does seem inefficient but thats beside the point at the
->moment (ex you seem to malloc for every incoming packet so you can do a
->regex).
->  
->
-Yep. We haven't spent a lot of time on optimizations. Obviously that 
-example can be fixed pretty quickly... except I'm not sure we can avoid 
-it and stay thread safe? (linux can route multiple packets at the same 
-time on an smp box right? so we can't just use a staically defined 
-buffer...)
-
-Ethan Sommer
-http://l7-filter.sf.net
+Note that for xfrm6_tunnel.c you will need to use some kind
+of "u32 --> in6_addr" mapping table.  You can do this with
+a simple hash table of some kind.  Then you can use
+xfrm_state_lookup() just like xfrm4_tunnel.c does.
