@@ -1,65 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPv6: Fix Prefix Length of Link-local Addresses
-Date: Tue, 08 Oct 2002 00:05:59 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021008.000559.17528416.yoshfuji@linux-ipv6.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Update on e1000 troubles (over-heating!)
+Date: Mon, 07 Oct 2002 09:40:13 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3DA1B8ED.2000309@candelatech.com>
+References: <Pine.GSO.4.30.0210070749430.1861-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: usagi@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Andre Hedrick <andre@pyxtechnologies.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+jamal wrote:
+> 
+> On Sun, 6 Oct 2002, Ben Greear wrote:
+> 
+> 
+>>I can reproduce my crash using mtu sized pkts running only 50Mbps
+>>send + receive on 2 nics.  It took over-night to do it though.  Running
+>>as hard as I can with MTU packets will crash it as well, and much
+>>quicker.
+>>
+> 
+> 
+> So is there a correlation with packet count then?
 
-Prefix length for link-local address should be 64, not 10.
-This patch fixes prefix length of link-local address.
+No, running at slower speeds (50Mbps), the packet count was well over
+4 billion (ie it successfully wrapped 32-bits).  At higher speeds, it
+crashes before the 32-bit wrap, generally.  It also does not coorelate
+to bytes-sent/received, or anything else that I could think of to look at.
 
-Following patch is against 2.4.19.
+> 
+> 
+> 
+>>Interestingly enough, the tg3 NIC (netgear 302t), registered 57 deg C between
+>>the fins of it's heat sink in the 32-bit slots.  Makes me wonder if my PCI bus
+>>is running too hot :P
+> 
+> 
+> Does the problem happen with the tg3?
 
-Thanks in advance.
+As Dave mentioned, tg3 locks up almost immediately (like within 30 seconds),
+and in the meantime, it's spitting out errors that are 'impossible'.  The
+messages I sent a day or two ago.
 
--------------------------------------------------------------------
-Patch-Name: Fix Prefix Length of Link-local Addresses
-Patch-Id: FIX_2_4_19_LINKLOCAL_PREFIXLEN-20020928
-Patch-Author: YOSHIFUJI Hideaki / USAGI Project <yoshfuji@linux-ipv6.org>
-Credit: YOSHIFUJI Hideaki / USAGI Project <yoshfuji@linux-ipv6.org>
--------------------------------------------------------------------
-Index: net/ipv6/addrconf.c
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/addrconf.c,v
-retrieving revision 1.1.1.1
-retrieving revision 1.1.1.1.20.1
-diff -u -r1.1.1.1 -r1.1.1.1.20.1
---- net/ipv6/addrconf.c	2002/08/20 09:47:02	1.1.1.1
-+++ net/ipv6/addrconf.c	2002/09/27 17:17:06	1.1.1.1.20.1
-@@ -783,7 +783,7 @@
- 	struct in6_addr addr;
- 
- 	ipv6_addr_set(&addr,  __constant_htonl(0xFE800000), 0, 0, 0);
--	addrconf_prefix_route(&addr, 10, dev, 0, RTF_ADDRCONF);
-+	addrconf_prefix_route(&addr, 64, dev, 0, RTF_ADDRCONF);
- }
- 
- static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
-@@ -1158,7 +1158,7 @@
- 					flag |= IFA_HOST;
- 				}
- 				if (idev->dev->flags&IFF_POINTOPOINT)
--					plen = 10;
-+					plen = 64;
- 				else
- 					plen = 96;
- 
-@@ -1208,7 +1208,7 @@
- {
- 	struct inet6_ifaddr * ifp;
- 
--	ifp = ipv6_add_addr(idev, addr, 10, IFA_LINK, IFA_F_PERMANENT);
-+	ifp = ipv6_add_addr(idev, addr, 64, IFA_LINK, IFA_F_PERMANENT);
- 	if (ifp) {
- 		addrconf_dad_start(ifp);
- 		in6_ifa_put(ifp);
+I may have cooked my cards, or something like that, because one of
+the tg3's do not work in my other machine now.  Still trouble-shooting that one.
+
+Ben
+
+
+> 
+> cheers,
+> jamal
+> 
+> 
+
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
