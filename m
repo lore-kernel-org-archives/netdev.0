@@ -1,25 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: fealnx oopses (with [PATCH])
-Date: Wed, 31 Mar 2004 15:53:09 -0500
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] Use RCU for fib_rules
+Date: Wed, 31 Mar 2004 13:05:41 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <406B2FB5.9080302@pobox.com>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403311839.33202.vda@port.imtp.ilyichevsk.odessa.ua> <20040331192421.GA30048@scream.fjortis.info> <200403312238.46835.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040331130541.4b1e8b0d@dell_ss3.pdx.osdl.net>
+References: <20040331112839.02e8d4c2@dell_ss3.pdx.osdl.net>
+	<406B2828.7070800@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
-        Andreas Henriksson <andreas@fjortis.info>,
-        Francois Romieu <romieu@fr.zoreil.com>
+Cc: "David S. Miller" <davem@redhat.com>,
+        Paul McKenney
+ <Paul.McKenney@us.ibm.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <200403312238.46835.vda@port.imtp.ilyichevsk.odessa.ua>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <406B2828.7070800@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-FYI to those involved, I sent the TX patch upstream.
+On Wed, 31 Mar 2004 12:20:56 -0800
+Nivedita Singhvi <niv@us.ibm.com> wrote:
 
-When there is a minimal RX patch people are happy with, let me know... 
-further changes are fine, but I would like to split up the changes as 
-much as is reasonable.
+> Stephen Hemminger wrote:
+> 
+> > The IP forwarding rules, uses rwlock when it could use RCU.
+> > Don't know if this would help or hurt the recent discussions about
+> > large rulesets and DOS attacks.
+> > 
+> > Also, it increases the size of fib_rule slightly.
+> 
+> Stephen,
+> 
+> Any benchmarks or perf tests that quantify the gain here?
 
-	Jeff
+No, don't have enough rules or load in this area to cause an impact.
+But also, I don't have the test environment to really stress this
+(ie 1000's of rules).
