@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.70+] vlan network device using alloc_netdev
-Date: Mon, 9 Jun 2003 11:55:43 -0700
+Subject: [PATCH 2.5.70+] tun using alloc_netdev
+Date: Mon, 9 Jun 2003 11:58:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609115543.42092c96.shemminger@osdl.org>
+Message-ID: <20030609115857.38bb31d6.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,237 +12,187 @@ To: "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Change how vlan driver allocates private data so that it is like ether devices,
-and will support later changes for delayed free.
+Change how TUN allocates private data, to be like ethernet devices.
+This allows later changes that make network device structure persist if sysfs hooks are open.
 
-diff -Nru a/net/8021q/vlan.c b/net/8021q/vlan.c
---- a/net/8021q/vlan.c	Mon Jun  9 11:43:20 2003
-+++ b/net/8021q/vlan.c	Mon Jun  9 11:43:20 2003
-@@ -334,6 +334,33 @@
- 	return ret;
+Compiles and loads, but don't know how to test it.
+
+One gratitious change was to add C99 initializer for tun_miscdev.
+
+diff -Nru a/drivers/net/tun.c b/drivers/net/tun.c
+--- a/drivers/net/tun.c	Mon Jun  9 11:43:37 2003
++++ b/drivers/net/tun.c	Mon Jun  9 11:43:37 2003
+@@ -122,12 +122,6 @@
+    
+ 	DBG(KERN_INFO "%s: tun_net_init\n", tun->name);
+ 
+-	SET_MODULE_OWNER(dev);
+-	dev->open = tun_net_open;
+-	dev->hard_start_xmit = tun_net_xmit;
+-	dev->stop = tun_net_close;
+-	dev->get_stats = tun_net_stats;
+-
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case TUN_TUN_DEV:
+ 		/* Point-to-Point TUN Device */
+@@ -199,14 +193,14 @@
+ 	skb_reserve(skb, 2);
+ 	memcpy_fromiovec(skb_put(skb, len), iv, len);
+ 
+-	skb->dev = &tun->dev;
++	skb->dev = tun->dev;
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case TUN_TUN_DEV:
+ 		skb->mac.raw = skb->data;
+ 		skb->protocol = pi.proto;
+ 		break;
+ 	case TUN_TAP_DEV:
+-		skb->protocol = eth_type_trans(skb, &tun->dev);
++		skb->protocol = eth_type_trans(skb, tun->dev);
+ 		break;
+ 	};
+ 
+@@ -325,7 +319,7 @@
+ 			schedule();
+ 			continue;
+ 		}
+-		netif_start_queue(&tun->dev);
++		netif_start_queue(tun->dev);
+ 
+ 		ret = tun_put_user(tun, skb, (struct iovec *) iv, len);
+ 
+@@ -347,6 +341,24 @@
+ 	return tun_chr_readv(file, &iv, 1, pos);
  }
  
-+static void vlan_setup(struct net_device *new_dev)
++static void tun_setup(struct net_device *dev)
 +{
-+	SET_MODULE_OWNER(new_dev);
-+	    
-+	/* new_dev->ifindex = 0;  it will be set when added to
-+	 * the global list.
-+	 * iflink is set as well.
-+	 */
-+	new_dev->get_stats = vlan_dev_get_stats;
++	struct tun_struct *tun = dev->priv;
 +
-+	/* Make this thing known as a VLAN device */
-+	new_dev->priv_flags |= IFF_802_1Q_VLAN;
-+				
-+	/* Set us up to have no queue, as the underlying Hardware device
-+	 * can do all the queueing we could want.
-+	 */
-+	new_dev->tx_queue_len = 0;
++	skb_queue_head_init(&tun->readq);
++	init_waitqueue_head(&tun->read_wait);
 +
-+	/* set up method calls */
-+	new_dev->change_mtu = vlan_dev_change_mtu;
-+	new_dev->open = vlan_dev_open;
-+	new_dev->stop = vlan_dev_stop;
-+	new_dev->set_mac_address = vlan_dev_set_mac_address;
-+	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
-+	new_dev->destructor = (void (*)(struct net_device *)) kfree;
++	tun->owner = -1;
++	dev->init = tun_net_init;
++	tun->name = dev->name;
++	SET_MODULE_OWNER(dev);
++	dev->open = tun_net_open;
++	dev->hard_start_xmit = tun_net_xmit;
++	dev->stop = tun_net_close;
++	dev->get_stats = tun_net_stats;
++	dev->destructor = (void (*)(struct net_device *))kfree;
 +}
 +
- /*  Attach a VLAN device to a mac address (ie Ethernet Card).
-  *  Returns the device that was created, or NULL if there was
-  *  an error of some kind.
-@@ -344,8 +371,8 @@
- 	struct vlan_group *grp;
- 	struct net_device *new_dev;
- 	struct net_device *real_dev; /* the ethernet device */
--	int malloc_size = 0;
- 	int r;
-+	char name[IFNAMSIZ];
- 
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "%s: if_name -:%s:-	vid: %i\n",
-@@ -403,21 +430,6 @@
- 		goto out_unlock;
- 	}
- 
--	malloc_size = (sizeof(struct net_device));
--	new_dev = (struct net_device *) kmalloc(malloc_size, GFP_KERNEL);
--	VLAN_MEM_DBG("net_device malloc, addr: %p  size: %i\n",
--		     new_dev, malloc_size);
--
--	if (new_dev == NULL)
--		goto out_unlock;
--
--	memset(new_dev, 0, malloc_size);
--
--	/* Set us up to have no queue, as the underlying Hardware device
--	 * can do all the queueing we could want.
--	 */
--	new_dev->tx_queue_len = 0;
--
- 	/* Gotta set up the fields for the device. */
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "About to allocate name, vlan_name_type: %i\n",
-@@ -426,54 +438,44 @@
- 	switch (vlan_name_type) {
- 	case VLAN_NAME_TYPE_RAW_PLUS_VID:
- 		/* name will look like:	 eth1.0005 */
--		sprintf(new_dev->name, "%s.%.4i", real_dev->name, VLAN_ID);
-+		snprintf(name, IFNAMSIZ, "%s.%.4i", real_dev->name, VLAN_ID);
- 		break;
- 	case VLAN_NAME_TYPE_PLUS_VID_NO_PAD:
- 		/* Put our vlan.VID in the name.
- 		 * Name will look like:	 vlan5
- 		 */
--		sprintf(new_dev->name, "vlan%i", VLAN_ID);
-+		snprintf(name, IFNAMSIZ, "vlan%i", VLAN_ID);
- 		break;
- 	case VLAN_NAME_TYPE_RAW_PLUS_VID_NO_PAD:
- 		/* Put our vlan.VID in the name.
- 		 * Name will look like:	 eth0.5
- 		 */
--		sprintf(new_dev->name, "%s.%i", real_dev->name, VLAN_ID);
-+		snprintf(name, IFNAMSIZ, "%s.%i", real_dev->name, VLAN_ID);
- 		break;
- 	case VLAN_NAME_TYPE_PLUS_VID:
- 		/* Put our vlan.VID in the name.
- 		 * Name will look like:	 vlan0005
- 		 */
- 	default:
--		sprintf(new_dev->name, "vlan%.4i", VLAN_ID);
-+		snprintf(name, IFNAMSIZ, "vlan%.4i", VLAN_ID);
- 	};
- 		    
-+	new_dev = alloc_netdev(sizeof(struct vlan_dev_info), name,
-+			       vlan_setup);
-+	if (new_dev == NULL)
-+		goto out_unlock;
-+
- #ifdef VLAN_DEBUG
- 	printk(VLAN_DBG "Allocated new name -:%s:-\n", new_dev->name);
- #endif
--	/* set up method calls */
--	new_dev->init = vlan_dev_init;
--	new_dev->destructor = vlan_dev_destruct;
--	SET_MODULE_OWNER(new_dev);
--	    
--	/* new_dev->ifindex = 0;  it will be set when added to
--	 * the global list.
--	 * iflink is set as well.
--	 */
--	new_dev->get_stats = vlan_dev_get_stats;
--	    
- 	/* IFF_BROADCAST|IFF_MULTICAST; ??? */
- 	new_dev->flags = real_dev->flags;
- 	new_dev->flags &= ~IFF_UP;
- 
--	/* Make this thing known as a VLAN device */
--	new_dev->priv_flags |= IFF_802_1Q_VLAN;
--				
- 	/* need 4 bytes for extra VLAN header info,
- 	 * hope the underlying device can handle it.
- 	 */
- 	new_dev->mtu = real_dev->mtu;
--	new_dev->change_mtu = vlan_dev_change_mtu;
- 
- 	/* TODO: maybe just assign it to be ETHERNET? */
- 	new_dev->type = real_dev->type;
-@@ -484,24 +486,14 @@
- 		new_dev->hard_header_len += VLAN_HLEN;
- 	}
- 
--	new_dev->priv = kmalloc(sizeof(struct vlan_dev_info),
--				GFP_KERNEL);
- 	VLAN_MEM_DBG("new_dev->priv malloc, addr: %p  size: %i\n",
- 		     new_dev->priv,
- 		     sizeof(struct vlan_dev_info));
- 	    
--	if (new_dev->priv == NULL)
--		goto out_free_newdev;
--
--	memset(new_dev->priv, 0, sizeof(struct vlan_dev_info));
--
- 	memcpy(new_dev->broadcast, real_dev->broadcast, real_dev->addr_len);
- 	memcpy(new_dev->dev_addr, real_dev->dev_addr, real_dev->addr_len);
- 	new_dev->addr_len = real_dev->addr_len;
- 
--	new_dev->open = vlan_dev_open;
--	new_dev->stop = vlan_dev_stop;
--
- 	if (real_dev->features & NETIF_F_HW_VLAN_TX) {
- 		new_dev->hard_header = real_dev->hard_header;
- 		new_dev->hard_start_xmit = vlan_dev_hwaccel_hard_start_xmit;
-@@ -512,8 +504,6 @@
- 		new_dev->rebuild_header = vlan_dev_rebuild_header;
- 	}
- 	new_dev->hard_header_parse = real_dev->hard_header_parse;
--	new_dev->set_mac_address = vlan_dev_set_mac_address;
--	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
- 
- 	VLAN_DEV_INFO(new_dev)->vlan_id = VLAN_ID; /* 1 through VLAN_VID_MASK */
- 	VLAN_DEV_INFO(new_dev)->real_dev = real_dev;
-@@ -526,7 +516,7 @@
- #endif
- 	    
- 	if (register_netdevice(new_dev))
--		goto out_free_newdev_priv;
-+		goto out_free_newdev;
- 
- 	/* So, got the sucker initialized, now lets place
- 	 * it into our local structure.
-@@ -572,9 +562,7 @@
- 
- out_free_unregister:
- 	unregister_netdev(new_dev);
--
--out_free_newdev_priv:
--	kfree(new_dev->priv);
-+	goto out_put_dev;
- 
- out_free_newdev:
- 	kfree(new_dev);
-diff -Nru a/net/8021q/vlan.h b/net/8021q/vlan.h
---- a/net/8021q/vlan.h	Mon Jun  9 11:43:20 2003
-+++ b/net/8021q/vlan.h	Mon Jun  9 11:43:20 2003
-@@ -65,8 +65,6 @@
- int vlan_dev_set_mac_address(struct net_device *dev, void* addr);
- int vlan_dev_open(struct net_device* dev);
- int vlan_dev_stop(struct net_device* dev);
--int vlan_dev_init(struct net_device* dev);
--void vlan_dev_destruct(struct net_device* dev);
- int vlan_dev_set_ingress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
- int vlan_dev_set_egress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
- int vlan_dev_set_vlan_flag(char* dev_name, __u32 flag, short flag_val);
-diff -Nru a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
---- a/net/8021q/vlan_dev.c	Mon Jun  9 11:43:20 2003
-+++ b/net/8021q/vlan_dev.c	Mon Jun  9 11:43:20 2003
-@@ -766,28 +766,6 @@
- 	vlan_flush_mc_list(dev);
- 	return 0;
- }
--
--int vlan_dev_init(struct net_device *dev)
--{
--	/* TODO:  figure this out, maybe do nothing?? */
--	return 0;
--}
--
--void vlan_dev_destruct(struct net_device *dev)
--{
--	if (dev) {
--		vlan_flush_mc_list(dev);
--		if (dev->priv) {
--			if (VLAN_DEV_INFO(dev)->dent)
--				BUG();
--
--			kfree(dev->priv);
--			dev->priv = NULL;
--		}
--		kfree(dev);
--	}
--}
--
- /** Taken from Gleb + Lennert's VLAN code, and modified... */
- void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
+ static int tun_set_iff(struct file *file, struct ifreq *ifr)
  {
+ 	struct tun_struct *tun;
+@@ -367,30 +379,18 @@
+ 				return -EPERM;
+ 	} else {
+ 		char *name;
+-
+-		/* Allocate new device */
+-		if (!(tun = kmalloc(sizeof(struct tun_struct), GFP_KERNEL)) )
+-			return -ENOMEM;
+-		memset(tun, 0, sizeof(struct tun_struct));
+-
+-		skb_queue_head_init(&tun->readq);
+-		init_waitqueue_head(&tun->read_wait);
+-
+-		tun->owner = -1;
+-		tun->dev.init = tun_net_init;
+-		tun->dev.priv = tun;
+-		SET_MODULE_OWNER(&tun->dev);
++		unsigned long flags = 0;
+ 
+ 		err = -EINVAL;
+ 
+ 		/* Set dev type */
+ 		if (ifr->ifr_flags & IFF_TUN) {
+ 			/* TUN device */
+-			tun->flags |= TUN_TUN_DEV;
++			flags |= TUN_TUN_DEV;
+ 			name = "tun%d";
+ 		} else if (ifr->ifr_flags & IFF_TAP) {
+ 			/* TAP device */
+-			tun->flags |= TUN_TAP_DEV;
++			flags |= TUN_TAP_DEV;
+ 			name = "tap%d";
+ 		} else 
+ 			goto failed;
+@@ -398,12 +398,19 @@
+ 		if (*ifr->ifr_name)
+ 			name = ifr->ifr_name;
+ 
+-		if ((err = dev_alloc_name(&tun->dev, name)) < 0)
+-			goto failed;
+-		if ((err = register_netdevice(&tun->dev)))
++		dev = alloc_netdev(sizeof(struct tun_struct), name,
++				   tun_setup);
++		if (!dev)
++			return -ENOMEM;
++
++		tun = dev->priv;
++		tun->flags = flags;
++
++		if ((err = register_netdevice(tun->dev))) {
++			kfree(dev);
+ 			goto failed;
++		}
+ 	
+-		tun->name = tun->dev.name;
+ 	}
+ 
+ 	DBG(KERN_INFO "%s: tun_set_iff\n", tun->name);
+@@ -419,9 +426,7 @@
+ 
+ 	strcpy(ifr->ifr_name, tun->name);
+ 	return 0;
+-
+-failed:
+-	kfree(tun);
++ failed:
+ 	return err;
+ }
+ 
+@@ -548,10 +553,8 @@
+ 	/* Drop read queue */
+ 	skb_queue_purge(&tun->readq);
+ 
+-	if (!(tun->flags & TUN_PERSIST)) {
+-		dev_close(&tun->dev);
+-		unregister_netdevice(&tun->dev);
+-	}
++	if (!(tun->flags & TUN_PERSIST)) 
++		unregister_netdevice(tun->dev);
+ 
+ 	rtnl_unlock();
+ 
+@@ -574,11 +577,10 @@
+ 	.fasync = tun_chr_fasync		
+ };
+ 
+-static struct miscdevice tun_miscdev=
+-{
+-	TUN_MINOR,
+-	"net/tun",
+-	&tun_fops
++static struct miscdevice tun_miscdev = {
++	.minor = TUN_MINOR,
++	.name = "net/tun",
++	.fops = &tun_fops
+ };
+ 
+ int __init tun_init(void)
+diff -Nru a/include/linux/if_tun.h b/include/linux/if_tun.h
+--- a/include/linux/if_tun.h	Mon Jun  9 11:43:37 2003
++++ b/include/linux/if_tun.h	Mon Jun  9 11:43:37 2003
+@@ -40,7 +40,7 @@
+ 	wait_queue_head_t	read_wait;
+ 	struct sk_buff_head	readq;
+ 
+-	struct net_device	dev;
++	struct net_device	*dev;
+ 	struct net_device_stats	stats;
+ 
+ 	struct fasync_struct    *fasync;
