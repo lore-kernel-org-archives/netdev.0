@@ -1,97 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] [sparse] get rid of warnings from 8139too driver
-Date: Tue, 22 Jun 2004 13:51:22 -0700
+From: Arthur Kepner <akepner@sgi.com>
+Subject: Re: [PATCH] preempt count regression w/ lockless loopback patch
+Date: Tue, 22 Jun 2004 13:46:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040622135122.05be2be1@dell_ss3.pdx.osdl.net>
+Message-ID: <Pine.SGI.4.56.0406221344380.1357620@neteng.engr.sgi.com>
+References: <200406210510.i5L5A340018849@hera.kernel.org>
+ <20040621035702.6114bdbe.akpm@osdl.org> <Pine.SGI.4.56.0406220913010.1334066@neteng.engr.sgi.com>
+ <20040622123931.50d5ac05.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1072017398-688446164-1087937167=:1357620"
+Cc: akpm@osdl.org, netdev@oss.sgi.com, chrisw@osdl.org, gillb4@telusplanet.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040622123931.50d5ac05.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Get rid of sparse warnings from 8139too driver. 
-	* move start_thread which was inline into the open routine (only place called).
-	* handle #if constructs
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
- 
-diff -Nru a/drivers/net/8139too.c b/drivers/net/8139too.c
---- a/drivers/net/8139too.c	2004-06-22 13:45:03 -07:00
-+++ b/drivers/net/8139too.c	2004-06-22 13:45:03 -07:00
-@@ -613,7 +613,7 @@
- static int mdio_read (struct net_device *dev, int phy_id, int location);
- static void mdio_write (struct net_device *dev, int phy_id, int location,
- 			int val);
--static inline void rtl8139_start_thread(struct net_device *dev);
-+static int rtl8139_thread (void *data);
- static void rtl8139_tx_timeout (struct net_device *dev);
- static void rtl8139_init_ring (struct net_device *dev);
- static int rtl8139_start_xmit (struct sk_buff *skb,
-@@ -1359,7 +1359,19 @@
- 			dev->irq, RTL_R8 (MediaStatus),
- 			tp->mii.full_duplex ? "full" : "half");
- 
--	rtl8139_start_thread(dev);
-+
-+	tp->thr_pid = -1;
-+	tp->twistie = 0;
-+	tp->time_to_die = 0;
-+	if (tp->chipset == CH_8139_K)
-+		tp->twistie = 1;
-+	else if (!(tp->drv_flags & HAS_LNK_CHNG)) {
-+		tp->thr_pid = kernel_thread(rtl8139_thread, dev, CLONE_FS|CLONE_FILES);
-+		if (tp->thr_pid < 0) {
-+			printk (KERN_WARNING "%s: unable to start kernel thread\n",
-+				dev->name);
-+		}
-+	}
- 
- 	return 0;
- }
-@@ -1643,25 +1655,6 @@
- 	complete_and_exit (&tp->thr_exited, 0);
- }
- 
--static inline void rtl8139_start_thread(struct net_device *dev)
--{
--	struct rtl8139_private *tp = dev->priv;
--
--	tp->thr_pid = -1;
--	tp->twistie = 0;
--	tp->time_to_die = 0;
--	if (tp->chipset == CH_8139_K)
--		tp->twistie = 1;
--	else if (tp->drv_flags & HAS_LNK_CHNG)
--		return;
--
--	tp->thr_pid = kernel_thread(rtl8139_thread, dev, CLONE_FS|CLONE_FILES);
--	if (tp->thr_pid < 0) {
--		printk (KERN_WARNING "%s: unable to start kernel thread\n",
--			dev->name);
--	}
--}
--
- static inline void rtl8139_tx_clear (struct rtl8139_private *tp)
- {
- 	tp->cur_tx = 0;
-@@ -1960,7 +1953,7 @@
- 			printk(KERN_DEBUG "%s:  rtl8139_rx() status %4.4x, size %4.4x,"
- 				" cur %4.4x.\n", dev->name, rx_status,
- 			 rx_size, cur_rx);
--#if RTL8139_DEBUG > 2
-+#if defined(RTL8139_DEBUG) && RTL8139_DEBUG > 2
- 		{
- 			int i;
- 			DPRINTK ("%s: Frame contents ", dev->name);
-@@ -2039,7 +2032,7 @@
- 
-  done:
- 
--#if RTL8139_DEBUG > 1
-+#if defined(RTL8139_DEBUG) &&  RTL8139_DEBUG > 1
- 	DPRINTK ("%s: Done rtl8139_rx(), current %4.4x BufAddr %4.4x,"
- 		 " free to %4.4x, Cmd %2.2x.\n", dev->name, cur_rx,
- 		 RTL_R16 (RxBufAddr),
+---1072017398-688446164-1087937167=:1357620
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+On Tue, 22 Jun 2004, David S. Miller wrote:
+
+> ....
+> Can you instead give a patch relative to Andrew's?  His is
+> applied already and in fact pushed into Linus's tree.
+>
+
+Yes. It is in the attachment.
+
+--
+
+Arthur
+---1072017398-688446164-1087937167=:1357620
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="patch.rel_akpm"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.SGI.4.56.0406221346070.1357620@neteng.engr.sgi.com>
+Content-Description: patch relative to akpm
+Content-Disposition: attachment; filename="patch.rel_akpm"
+
+LS0tIGxpbnV4LmFrcG0vZHJpdmVycy9uZXQvbG9vcGJhY2suYwkyMDA0LTA2
+LTIyIDEzOjM1OjEzLjAwMDAwMDAwMCAtMDcwMA0KKysrIGxpbnV4L2RyaXZl
+cnMvbmV0L2xvb3BiYWNrLmMJMjAwNC0wNi0yMiAxMzo0MjoyNy4wMDAwMDAw
+MDAgLTA3MDANCkBAIC0xNzMsMTIgKzE3MywxMSBAQA0KIA0KIAkJaWYgKCFj
+cHVfcG9zc2libGUoaSkpIA0KIAkJCWNvbnRpbnVlOw0KLQkJbGJfc3RhdHMg
+PSAmcGVyX2NwdShsb29wYmFja19zdGF0cywgZ2V0X2NwdSgpKTsNCisJCWxi
+X3N0YXRzID0gJnBlcl9jcHUobG9vcGJhY2tfc3RhdHMsIGkpOw0KIAkJc3Rh
+dHMtPnJ4X2J5dGVzICAgKz0gbGJfc3RhdHMtPnJ4X2J5dGVzOw0KIAkJc3Rh
+dHMtPnR4X2J5dGVzICAgKz0gbGJfc3RhdHMtPnR4X2J5dGVzOw0KIAkJc3Rh
+dHMtPnJ4X3BhY2tldHMgKz0gbGJfc3RhdHMtPnJ4X3BhY2tldHM7DQogCQlz
+dGF0cy0+dHhfcGFja2V0cyArPSBsYl9zdGF0cy0+dHhfcGFja2V0czsNCi0J
+CXB1dF9jcHUoKTsNCiAJfQ0KIAkJCQkNCiAJcmV0dXJuIHN0YXRzOw0K
+
+---1072017398-688446164-1087937167=:1357620--
