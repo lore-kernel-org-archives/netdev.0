@@ -1,42 +1,43 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Move inetdev/ifa over to RCU
-Date: Sun, 15 Aug 2004 23:24:54 -0700
+Subject: Re: [RFC] enhanced version of net_random()
+Date: Sun, 15 Aug 2004 23:27:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040815232454.5d3fbf51.davem@redhat.com>
-References: <20040813090314.448c971d@dell_ss3.pdx.osdl.net>
-	<20040813093838.6961c0d4.davem@redhat.com>
-	<20040813215602.GA15870@gondor.apana.org.au>
-	<20040813151923.3311b4f0.davem@redhat.com>
-	<20040814003428.GA17760@gondor.apana.org.au>
-	<20040813173924.6d05be15.davem@redhat.com>
-	<20040814005411.GA18350@gondor.apana.org.au>
-	<20040814012513.GA721@gondor.apana.org.au>
-	<20040814014048.GA2746@gondor.apana.org.au>
-	<20040815200357.6593e861.davem@redhat.com>
-	<20040816032344.GA8666@gondor.apana.org.au>
+Message-ID: <20040815232754.2464e731.davem@redhat.com>
+References: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
+	<20040812124854.646f1936.davem@redhat.com>
+	<20040813115140.0f09d889@dell_ss3.pdx.osdl.net>
+	<20040813212857.7dd50320.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, alan@lxorguk.ukuu.org.uk, tytso@mit.edu,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        greearb@candelatech.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040816032344.GA8666@gondor.apana.org.au>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040813212857.7dd50320.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 16 Aug 2004 13:23:44 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 13 Aug 2004 21:28:57 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-> On Sun, Aug 15, 2004 at 08:03:57PM -0700, David S. Miller wrote:
-> > On Sat, 14 Aug 2004 11:40:48 +1000
-> > Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > 
-> > > Since nobody calls inet_free_ifa directly anymore, we can
-> > > perform the following simplification.
-> > 
-> > You need to redo this patch because the 3-arg call_rcu() bits
-> > are in there.
+> On Fri, 13 Aug 2004 11:51:40 -0700
+> Stephen Hemminger <shemminger@osdl.org> wrote:
 > 
-> Sorry.  Here it is again.
+> > Here is another alternative, using tansworthe generator.  It uses percpu
+> > state. The one small semantic change is the net_srandom() only affects
+> > the current cpu's seed.  The problem was that having it change all cpu's
+> > seed would mean adding locking 
+> 
+> I would just update the other CPUs without locking. Taking
+> a random number from a partially updated state shouldn't be a big 
+> issue.
 
-Thanks for fixing that up, applied.
+I personally don't think we need to touch the other cpus
+at all, and that having a different current seed on each
+cpu might actually be a good thing.
+
+Stephen, I like this one a lot, especially compared to
+what we had before.  I'm going to add this to my tree for
+the time being.
