@@ -1,47 +1,38 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: BUG: dst underflow (again)
-Date: Fri, 22 Oct 2004 09:59:47 +0200
+From: Eamonn Hamilton <EAMONN.HAMILTON@saic.com>
+Subject: Re: linux 2.6.9: r8169: eth0: PCI error (status: 0x8404). Device
+	disabled.
+Date: Fri, 22 Oct 2004 10:31:32 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041022075947.GA15795@xi.wantstofly.org>
-References: <4178AB0D.6060107@pobox.com> <20041022.155159.98771450.yoshfuji@linux-ipv6.org>
+Message-ID: <1098437493.5513.8.camel@ukabzc383.uk.saic.com>
+References: <1098269117.6631.5.camel@ukabzc383.uk.saic.com>
+	 <20041020121520.GA4004@electric-eye.fr.zoreil.com>
+	 <1098282567.6631.10.camel@ukabzc383.uk.saic.com>
+	 <20041020201010.GA13023@electric-eye.fr.zoreil.com>
+	 <1098350743.15528.40.camel@ukabzc383.uk.saic.com>
+	 <20041021120208.GA752@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20041022.155159.98771450.yoshfuji@linux-ipv6.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20041021120208.GA752@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 22, 2004 at 03:51:59PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+Hi Francois,
 
-> > As requested, I updated my kernel to see if the "BUG: dst underflow..." 
-> > messages disappeared.  Alas, they didn't.  dmesg and .config from 
-> > 2.6.9-final attached.
-> 
-> Okay, thanks, but hmm...
-> (We haven't met this issue... I really want to know tow to reproduce...)
+Testing 2.6.9 with just the untouched patch applied again fails :
 
-FWIW, I'm seeing loads of these on the kernel that comes with Fedora
-Core 2, also in the ipv6.ko module.  I have 6to4 enabled, if that matters
-anything.
+PCI error (cmd = 0x0017, status = 0x22b0)
 
-% dmesg | grep BUG | sort | uniq
-BUG: dst underflow -1: 3bcf9a80 at 42350024
-BUG: dst underflow 0: 3bcf9a80 at 423486d2
-BUG: dst underflow 0: 3bcf9a80 at 4235823d
-% cat /sys/module/ipv6/sections/.text
-0x42345000
+Testing the kernel with the error reset disabled just causes networking
+to stop, with no reported error after copying data from the box for a
+bit ( < 1GB )
 
-0x42350024 - 0x42345000 = 0xb024, corresponds to:
-	0000affa <ip6_dst_check>
+Tests were tried under 2.6.7 and 2.6.8, but the guy doing the testing
+reported odd problems under these kernels ( they were the pre-packaged
+debian ones, I'll run up a manual set today sometime ).
 
-0x423486d2 - 0x42345000 = 0x36d2, corresponds to:
-	0000339d <ip6_push_pending_frames>
-
-0x4235823d - 0x42345000 = 0x1323d, corresponds to:
-	00012c0d <udpv6_sendmsg>	(god, that's one big function btw)
-
-
---L
+Hope this helps,
+Eamonn
