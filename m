@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.9-rc4] dummy: use netdev_priv
-Date: Fri, 15 Oct 2004 15:32:30 -0700
+Subject: [PATCH 2.6.9-rc4 1/2] r8169: use module_param
+Date: Fri, 15 Oct 2004 15:36:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015153230.60e718af@zqx3.pdx.osdl.net>
+Message-ID: <20041015153637.15739e5a@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,28 +12,39 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Can use netdev_priv in dummy device.
+Use module_param instead of deprecated MDOULE_PARM
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/drivers/net/dummy.c b/drivers/net/dummy.c
---- a/drivers/net/dummy.c	2004-10-15 14:25:11 -07:00
-+++ b/drivers/net/dummy.c	2004-10-15 14:25:11 -07:00
-@@ -77,7 +77,7 @@
+diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c	2004-10-15 14:56:05 -07:00
++++ b/drivers/net/r8169.c	2004-10-15 14:56:05 -07:00
+@@ -44,6 +44,7 @@
+ */
  
- static int dummy_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	struct net_device_stats *stats = dev->priv;
-+	struct net_device_stats *stats = netdev_priv(dev);
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <linux/pci.h>
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+@@ -93,6 +94,7 @@
+ /* media options */
+ #define MAX_UNITS 8
+ static int media[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1 };
++static int num_media = 0;
  
- 	stats->tx_packets++;
- 	stats->tx_bytes+=skb->len;
-@@ -88,7 +88,7 @@
+ /* Maximum events (Rx packets, etc.) to handle at each interrupt. */
+ static int max_interrupt_work = 20;
+@@ -405,9 +407,9 @@
  
- static struct net_device_stats *dummy_get_stats(struct net_device *dev)
- {
--	return dev->priv;
-+	return netdev_priv(dev);
- }
+ MODULE_AUTHOR("Realtek");
+ MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+-MODULE_PARM(media, "1-" __MODULE_STRING(MAX_UNITS) "i");
+-MODULE_PARM(rx_copybreak, "i");
+-MODULE_PARM(use_dac, "i");
++module_param_array(media, int, num_media, 0);
++module_param(rx_copybreak, int, 0);
++module_param(use_dac, int, 0);
+ MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
+ MODULE_LICENSE("GPL");
  
- static struct net_device **dummies;
