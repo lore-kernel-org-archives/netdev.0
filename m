@@ -1,23 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] ipv6 compile fix, __FUNCTION__ pasting, 2.5.33
-Date: Sat, 31 Aug 2002 23:03:39 -0700 (PDT)
+From: "Evelin_S." <evelyn@ce2.time.net.my>
+Subject: Re: Grillen???
+Date: Sun, 1 Sep 2002 15:13:59 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020831.230339.121297948.davem@redhat.com>
-References: <Mutt.LNX.4.44.0209011201440.13950-100000@blackbird.intercode.com.au>
+Message-ID: <200209011309.g81D9mtG026166@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
-In-Reply-To: <Mutt.LNX.4.44.0209011201440.13950-100000@blackbird.intercode.com.au>
+To: Member-Update@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+ Hallo Karin,
 
-   From: James Morris <jmorris@intercode.com.au>
-   Date: Sun, 1 Sep 2002 12:05:13 +1000 (EST)
+> wollen wir heute noch grillen?
 
-   Another __FUNCTION__ pasting fix, for 2.5.33.
-   
-Applied to my tree.
+Klar, ich bringe Getr=E4nke und Kuchen mit. 18 Uhr ist o.k.
+
+> Hast Du den Link noch zu dieser "dunklen" Seite? Du wei=DFt schon,=20
+> wo wir das letzemal dar=FCber gesprochen haben..
+
+:-) Willst Du jetzt doch an den Typen schreiben? Na, viel Erfolg :-)
+
+Hier der Link[1]
+
+
+Wir sehen uns!
+Evelyn
+
+
+--- Links ---
+   1 http://claudia.xfiles24.com
