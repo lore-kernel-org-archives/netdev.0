@@ -1,63 +1,134 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: Re: [patch/RFC] networking menus
-Date: Tue, 16 Mar 2004 12:01:13 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403161201.15427.ioe-lkml@rameria.de>
-References: <20040314163327.53102f46.rddunlap@osdl.org> <20040314190724.1af1f11d.rddunlap@osdl.org> <20040314205438.3d7bcd34.rddunlap@osdl.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [PATCH] fix natsemi PCI mapping
+Date: Tue, 16 Mar 2004 13:06:31 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <40574227.8020302@pobox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, niv@us.ibm.com,
-        benh@kernel.crashing.org, davem@redhat.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <20040314205438.3d7bcd34.rddunlap@osdl.org>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------030201040708020304090607"
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, ralf@linux-mips.org,
+	sjhill@realitydiluted.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Netdev <netdev@oss.sgi.com>, Tim Hockin <thockin@sun.com>
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+This is a multi-part message in MIME format.
+--------------030201040708020304090607
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Hi,
 
-On Monday 15 March 2004 05:54, Randy.Dunlap wrote:
-> Does it make sense to anyone besides me to move protocol-related
-> modules like SLIP, PPP, and PLIP from Device Drivers/Network device(s)
-> to "Networking support"?
-> They feel more like protocols than device drivers to me....
+Somebody wanna review and/or test?
 
-Or just create sth. like:
+Changes:
+* Define RX_OFFSET constant (value==2) for uses related to SKB 
+allocation and skb_reserve() calls
 
-Stacks
-	+- IPv6
-	+- LLC
-	+- IrDA
-	+- Bluetooth
+* RX skb's are always allocated maximally-sized, since we don't know the 
+size of an RX packet in advance.  This means that we always alloc and 
+map RX skbs based on "np->rx_buf_sz + RX_OFFSET".  natsemi got this 
+really wrong in refill_rx(), where it mapped skb->len just after 
+dev_alloc_skb(), which was very incorrect.
 
-Protocols
-	+- PPP
-	+- SLIP
-	+- ...
+* call skb_reserve() in refill_rx(), our main skb allocation function, 
+just after dev_alloc_skb() returns successfully
 
-Routing
-	+- Multicast
-	+- Advanced router
 
-Filtering
-Devices
 
-Or similiar
+--------------030201040708020304090607
+Content-Type: text/plain;
+ name="patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch"
 
-Regards
+===== drivers/net/natsemi.c 1.58 vs edited =====
+--- 1.58/drivers/net/natsemi.c	Sun Mar 14 01:54:58 2004
++++ edited/drivers/net/natsemi.c	Tue Mar 16 13:02:04 2004
+@@ -175,6 +175,8 @@
+ #define DRV_VERSION	"1.07+LK1.0.17"
+ #define DRV_RELDATE	"Sep 27, 2002"
+ 
++#define RX_OFFSET	2
++
+ /* Updated to recommendations in pci-skeleton v2.03. */
+ 
+ /* The user-configurable values.
+@@ -1467,13 +1469,16 @@
+ 		struct sk_buff *skb;
+ 		int entry = np->dirty_rx % RX_RING_SIZE;
+ 		if (np->rx_skbuff[entry] == NULL) {
+-			skb = dev_alloc_skb(np->rx_buf_sz);
++			unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
++			skb = dev_alloc_skb(buflen);
+ 			np->rx_skbuff[entry] = skb;
+ 			if (skb == NULL)
+ 				break; /* Better luck next round. */
+ 			skb->dev = dev; /* Mark as being used by this device. */
++			/* 16 byte align the IP header */
++			skb_reserve(skb, RX_OFFSET);
+ 			np->rx_dma[entry] = pci_map_single(np->pci_dev,
+-				skb->data, skb->len, PCI_DMA_FROMDEVICE);
++				skb->tail, buflen, PCI_DMA_FROMDEVICE);
+ 			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
+ 		}
+ 		np->rx_ring[entry].cmd_status = cpu_to_le32(np->rx_buf_sz);
+@@ -1543,6 +1548,7 @@
+ static void drain_ring(struct net_device *dev)
+ {
+ 	struct netdev_private *np = dev->priv;
++	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
+ 	int i;
+ 
+ 	/* Free all the skbuffs in the Rx queue. */
+@@ -1551,7 +1557,7 @@
+ 		np->rx_ring[i].addr = 0xBADF00D0; /* An invalid address. */
+ 		if (np->rx_skbuff[i]) {
+ 			pci_unmap_single(np->pci_dev,
+-				np->rx_dma[i], np->rx_skbuff[i]->len,
++				np->rx_dma[i], buflen,
+ 				PCI_DMA_FROMDEVICE);
+ 			dev_kfree_skb(np->rx_skbuff[i]);
+ 		}
+@@ -1747,6 +1753,7 @@
+ 	int entry = np->cur_rx % RX_RING_SIZE;
+ 	int boguscnt = np->dirty_rx + RX_RING_SIZE - np->cur_rx;
+ 	s32 desc_status = le32_to_cpu(np->rx_head_desc->cmd_status);
++	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
+ 
+ 	/* If the driver owns the next entry it's a new packet. Send it up. */
+ 	while (desc_status < 0) { /* e.g. & DescOwn */
+@@ -1785,13 +1792,13 @@
+ 			/* Check if the packet is long enough to accept
+ 			 * without copying to a minimally-sized skbuff. */
+ 			if (pkt_len < rx_copybreak
+-			    && (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
++			    && (skb = dev_alloc_skb(pkt_len + RX_OFFSET)) != NULL) {
+ 				skb->dev = dev;
+ 				/* 16 byte align the IP header */
+-				skb_reserve(skb, 2);
++				skb_reserve(skb, RX_OFFSET);
+ 				pci_dma_sync_single_for_cpu(np->pci_dev,
+ 					np->rx_dma[entry],
+-					np->rx_skbuff[entry]->len,
++					buflen,
+ 					PCI_DMA_FROMDEVICE);
+ #if HAS_IP_COPYSUM
+ 				eth_copy_and_sum(skb,
+@@ -1803,12 +1810,11 @@
+ #endif
+ 				pci_dma_sync_single_for_device(np->pci_dev,
+ 					np->rx_dma[entry],
+-					np->rx_skbuff[entry]->len,
++					buflen,
+ 					PCI_DMA_FROMDEVICE);
+ 			} else {
+ 				pci_unmap_single(np->pci_dev, np->rx_dma[entry],
+-					np->rx_skbuff[entry]->len,
+-					PCI_DMA_FROMDEVICE);
++					buflen, PCI_DMA_FROMDEVICE);
+ 				skb_put(skb = np->rx_skbuff[entry], pkt_len);
+ 				np->rx_skbuff[entry] = NULL;
+ 			}
 
-Ingo Oeser
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAVt55U56oYWuOrkARAvGBAKCFh9DMVaKSlnj+X0CFuNFYgAc3CwCgv1vs
-uet2gOmSQSwXJSo7hjpes2s=
-=LfML
------END PGP SIGNATURE-----
+--------------030201040708020304090607--
