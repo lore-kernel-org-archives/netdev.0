@@ -1,35 +1,40 @@
-From: "Tong Lee" <leetong311@hotmail.com>
-Subject: An answer for "Scheduling in interrupt".
-Date: Tue, 09 Jul 2002 09:48:42 +0800
+From: Matthias Welk <welk@fokus.gmd.de>
+Subject: PROBLEM: udp not delivered on special socket receive buffer size
+Date: Wed, 10 Jul 2002 09:45:11 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <F14A97ZjvVtwBNIYBhZ0000cbef@hotmail.com>
+Message-ID: <200207100945.13002.welk@fokus.gmd.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gb2312; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+   Peter Gober <gober@fokus.gmd.de>
 Return-path: <owner-netdev@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-Dear Krishna Kumar,
+I reported the following problem allready to the linux-kernel mailinglist, but 
+did not receive any answer. I hope you are the right contacts for this.
 
-I have finally figured our what caused the "Scheduling in interrupt" pani=
-c.=20
-I didn't realize that ip_local_deliver is run within the bottom_half=20
-context, and I had used a semaphore there. It is that semaphore which had=
-=20
-induced a sleep and therefore a schedule.
+The probles is, that I did not receive any udp packets (224 bytes), if the 
+receive buffer size (SO_RCVBUF) of the socket is set to a value below 831 
+(??) bytes.
+Yes, you may ask why such a low value, but I have no influence on this, 
+because it is set in the Java Media Framework internally.
+You can check this behaviour with a small c-program too.
 
-However I now have a new problem to fight with: my kgdb became=20
-dysfunctional. Upon reaching a "return" statement and when I typed "next"=
-,=20
-it simply went off and never returned! Have you any comments on how to=20
-solve or bypass this problem?
+So my question is:
 
-Lee Tong
+Is this a bug or are there any reasons for this magic 831 bytes barrier ?
 
-
-_________________________________________________________________
-=D3=EB=C1=AA=BB=FA=B5=C4=C5=F3=D3=D1=BD=F8=D0=D0=BD=BB=C1=F7=A3=AC=C7=EB=CA=
-=B9=D3=C3 MSN Messenger:=20
-http://messenger.microsoft.com/cn/
+Thanks, Matthias.
+-- 
+---------------------------------------------------------------
+From: Matthias Welk                   office:  +49-30-3463-7272
+      FHG Fokus                       mobile:  +49-179- 1144752
+      Kaiserin-Augusta-Allee 31       fax   :  +49-30-3463-8672
+      10589 Berlin		      email : welk@fokus.fhg.de
+----------------------------------------------------------------
