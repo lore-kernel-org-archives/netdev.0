@@ -1,30 +1,28 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: in-driver QoS
-Date: Thu, 10 Jun 2004 11:45:37 +0900
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [0/3] mc_filter on big-endian arch
+Date: Mon, 7 Jun 2004 13:59:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040610024536.GB17334@verge.net.au>
-References: <20040608184831.GA18462@bougret.hpl.hp.com> <200406090851.40691.vkondra@mail.ru> <1086780010.1051.106.camel@jzny.localdomain> <200406092127.28477.vkondra@mail.ru>
+Message-ID: <20040607115921.GB32569@k3.hellgate.ch>
+References: <20040606165322.GA13247@k3.hellgate.ch> <1086575392.4731.9.camel@ori.thedillows.org> <20040607114832.GA32569@k3.hellgate.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, Vladimir Kondratiev <vkondra@mail.ru>
+To: David Dillow <dave@thedillows.org>
 Content-Disposition: inline
-In-Reply-To: <200406092127.28477.vkondra@mail.ru>
+In-Reply-To: <20040607114832.GA32569@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 09, 2004 at 09:27:28PM +0300, Vladimir Kondratiev wrote:
-> >
-> > Indeed.
-> > Looking at the transmit path code it seems doable.
-> > for each dev->id you also maintain a dev->id_state.
-> > We either use skb->fwmark or skb->priority to map to the different
-> BTW, what is fwmark? in 2.6.6 it is not present.
+One thing maybe worth mentioning: If you want to play with different
+addresses, remember that IP addresses are in decimal notation, ethernet
+in hex. So if you set
 
-The name in the kernel was changed to nfmark a while ago. 
-Though is seems to be still referenced as fwmark quite a lot
-in documentation. I believe its primary use is for the mark target
-and match in netfilter/iptables. 
+target# ip maddr add 01:00:5e:00:00:25 dev eth0
 
--- 
-Horms
+the test would be
+
+tester# ping -r -I eth0 -t 1 -c 2 224.0.0.37
+
+Roger
