@@ -1,70 +1,57 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [2.4,IPV6] UDPv6: use udpv6_queue_rcv_skb().
-Date: Wed, 16 Jun 2004 00:10:16 +0900 (JST)
+From: Alex Pankratov <ap@swapped.cc>
+Subject: Re: ENOBUFS and dev_queue_xmit()
+Date: Tue, 15 Jun 2004 08:39:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040616.001016.54016316.yoshfuji@linux-ipv6.org>
+Message-ID: <40CF182F.4060401@swapped.cc>
+References: <40CE818C.2090906@swapped.cc> <1087304060.1043.72.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: hadi@cyberus.ca
+In-Reply-To: <1087304060.1043.72.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+jamal wrote:
 
-Use udpv6_queue_rcv_skb() instead of sock_queue_rcv_skb()
-as we do in 2.6 for checksum, (ipsec and) statistics.
+> On Tue, 2004-06-15 at 00:56, Alex Pankratov wrote:
+> 
+>>I've been poking around rather weird problem today where send()
 
-===== net/ipv6/udp.c 1.14 vs edited =====
---- 1.14/net/ipv6/udp.c	2004-02-25 17:19:02 +09:00
-+++ edited/net/ipv6/udp.c	2004-06-15 23:50:47 +09:00
-@@ -586,34 +586,26 @@
- 				struct sk_buff *skb)
- {
- 	struct sock *sk, *sk2;
--	struct sk_buff *buff;
- 	int dif;
- 
- 	read_lock(&udp_hash_lock);
- 	sk = udp_hash[ntohs(uh->dest) & (UDP_HTABLE_SIZE - 1)];
- 	dif = skb->dev->ifindex;
- 	sk = udp_v6_mcast_next(sk, uh->dest, daddr, uh->source, saddr, dif);
--	if (!sk)
--		goto free_skb;
-+	if (!sk) {
-+		kfree_skb(skb);
-+		goto out;
-+	}
- 
--	buff = NULL;
- 	sk2 = sk;
- 	while((sk2 = udp_v6_mcast_next(sk2->next, uh->dest, daddr,
- 						  uh->source, saddr, dif))) {
--		if (!buff) {
--			buff = skb_clone(skb, GFP_ATOMIC);
--			if (!buff)
--				continue;
--		}
--		if (sock_queue_rcv_skb(sk2, buff) >= 0)
--			buff = NULL;
--	}
--	if (buff)
--		kfree_skb(buff);
--	if (sock_queue_rcv_skb(sk, skb) < 0) {
--free_skb:
--		kfree_skb(skb);
-+		struct sk_buff *buff = skb_clone(skb, GFP_ATOMIC);
-+		if (buff)
-+			udpv6_queue_rcv_skb(sk2, buff);
- 	}
-+	udpv6_queue_rcv_skb(sk, skb);
-+out:
- 	read_unlock(&udp_hash_lock);
- }
- 
+[snip]
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+>>meaning that the device's queue was stopped. The comment there
+>>implies that only a broken virtual device may end up $here,
+> 
+> 
+> How did you end up there with a real phy device?? Are you trying to
+> circumvent the qdisc subsystem? If yes, you are responsible for how
+> all this gets handled.
+
+Now that I looked at dev.c code again I ask myself the very same
+questions :) I am not circumventing qdisc, at least intentionally,
+and I don't do anything fancy with dev->qdisc. It must be a bug
+due to some of my changes, ignore the original question. Thanks
+for your help.
+
+>>
+>>Is this a known (pseudo?) issue ? ENOBUFS makes much more sense
+>>in this context. I can certainly check interface status (IFF_UP)
+>>on every ENETDOWN to see what's the real cause, but that's kind
+>>of ugly.
+> 
+> Did you mean when no space is left in the ring? Thats different
+> from ENOBUFF. If not, not sure i see how a driver xmit path gets
+> involved in kmallocing.
+> Look at the return code the driver returns. In case of a full ring, it
+> should return a busy signal and the top layer will retry later.
+> You dont have to worry about any of that if you are running the 
+> std linux semantics, of course. I have a feeling you have attempted to
+> bypass it otherwise the question becomes: how you even ended in this
+> situation. 
+> 
+
+I'm pretty sure you're right about breaking the semantics. I'll check
+it out, and re-complain if it's not my problem. Thanks again.
