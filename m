@@ -1,41 +1,31 @@
-From: John Heffner <jheffner@psc.edu>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 29 Sep 2004 17:51:22 -0400 (EDT)
+Date: Wed, 29 Sep 2004 14:50:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0409291744500.3434-100000@dexter.psc.edu>
-References: <20040929214350.GA26714@wotan.suse.de>
+Message-ID: <20040929145050.71afa1ac.davem@davemloft.net>
+References: <Pine.NEB.4.33.0409291648560.3434-100000@dexter.psc.edu>
+	<415B24C0.2020208@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, Nivedita Singhvi <niv@us.ibm.com>,
-        <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jheffner@psc.edu, ak@suse.de, herbert@gondor.apana.org.au,
+        andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040929214350.GA26714@wotan.suse.de>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <415B24C0.2020208@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Sep 2004, Andi Kleen wrote:
+On Wed, 29 Sep 2004 14:10:24 -0700
+Nivedita Singhvi <niv@us.ibm.com> wrote:
 
-> > I need to see the crash folks are seeing.  Does it only happen
-> > when you have tcpdump attached to the interface running the
-> > test?  Does it happen only on the sender or the receiver
->
-> It happens without tcpdump too.
+> I just crashed too, no backtrace. netperf tcp stream test,
+> and was on bk14 + dave's 5 patches, p4/e1000 -> Intel Pentium
+> M proc (1.7GHz). Going to repeat on slower SMPs with serial
+> console, get more info..
 
-Ditto.
+I can reproduce this now, it has to do with some weird combinations
+of packet loss and SACK'ing.  It's one of the BUG_ON() assertions
+triggering in tcp_tso_acked() as I suspected in Andi's first report.
 
-> > in the netperf test?  Those would be a good clues, indicating
->
-> The sender first gets slow, then eventually crashes.
-
-I managed to get a tcpdump of one flow.  I accidentally deleted it, but
-from memory what I saw was it ramped up to large virtual segments, then
-got a partial ack for it (all but the last real segment -- delayed ack
-here) then later after the full ack got back sent one small segment.
-This segment was acked, but it never seemed to recognize this ack and
-repeatedly retransmitted it after timeouts.  (Generating the retrans_out
-leaked messages when the d-sacks came back.)
-
-I can't conveniently get a backtrace of the crash right now.
-
-  -John
+Working on a fix.
