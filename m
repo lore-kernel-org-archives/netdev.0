@@ -1,50 +1,43 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] get_random_bytes returns the same on every boot
-Date: Fri, 23 Jul 2004 01:28:59 +0200
+Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
+Date: Fri, 23 Jul 2004 01:36:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41004DBB.5030801@trash.net>
-References: <Pine.LNX.4.58.0407222254440.3652@pingvin.fazekas.hu>
+Message-ID: <41004F76.1080807@trash.net>
+References: <40F34740.5040100@trash.net>	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>	<20040712205037.573411c0.davem@redhat.com>	<40F4862D.3070802@trash.net>	<40F4AC8B.40706@trash.net> <20040721143110.4ab944bf.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Balint Marton <cus@fazekas.hu>
-In-Reply-To: <Pine.LNX.4.58.0407222254440.3652@pingvin.fazekas.hu>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040721143110.4ab944bf.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Balint Marton wrote:
-> Hi, 
+David S. Miller wrote:
+> This looks great.
 > 
-> At boot time, get_random_bytes always returns the same random data, as if
-> there were a constant random seed. For example, if I use the kernel level
-> ip autoconfiguration with dhcp, the kernel will create a dhcp request
-> packet with always the same transaction ID. (If you have more than one
-> computers, and they are booting at the same time, then this is a big
-> problem)
+> As you mention some platforms return zero, for example sparc32,
+> for get_cycles().
 > 
-> That happens, because only the primary entropy pool is initialized with
-> the system time, in function rand_initialize. The secondary pool is only
-> cleared. In this early stage of booting, there is usually no user
-> interaction, or usable disk interrupts, so the kernel can't add any real
-> random bytes to the primary pool. And altough the system time is in the
-> primary pool, the kernel does not consider it real random data, so you
-> can't read from the primary pool, before at least a part of it will be
-> filled with some real randomness (interrupt timing).
-> Therefore all random data will come from the secondary pool, and the
-> kernel cannot reseed the secondary pool, because there is no real 
-> randomness in the primary one.
-> 
-> The solution is simple: Initialize not just the primary, but also the 
-> secondary pool with the system time. My patch worked for me with 
-> 2.6.8-rc2, but it was not tested too long. 
+> I suggest we just expand the dependency list for NET_SCH_CLK_TSC
+> to include SPARC64 PPC64 and perhaps some other easy to verify
+> as having a working get_cycles() implementation.  I believe that
+> as long as it increments at some rate >= jiffies, the psched
+> calibration will get things into a working state.
 
-Many network hashes use get_random_bytes() to initialize a secret
-value to avoid attacks on the hash function when first used.
-I assume if DHCP can get bad random, they can too. Is this patch
-enough to prevent get_random_bytes() from returning predictable
-data at boot time ?
+It needs to increment at slightly above 1Mhz, otherwise delay will
+be zero after this division and everything will fall apart:
+delay /= rdelay.
+
+> A lot of patches have been posted in this area and I'm losing
+> track of what to apply first etc.  Can you repost your work
+> one change at a time?  Thanks.
+
+The following two patches remove some dead timer code and
+change PSCHED_GET_TIME to use get_cycles. I'm going to send
+the configurable clock-source patch tomorrow after checking
+the arches.
 
 Regards
 Patrick
