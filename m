@@ -1,157 +1,116 @@
-From: Vivek Kashyap <kashyapv@us.ibm.com>
-Subject: Re: [Ipoverib] [PATCH] IPv6: Add correct padding
- to IPoIB link addr option
-Date: Wed, 19 Jan 2005 00:18:37 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501190011440.19427-100000@localhost.localdomain>
-References: <OF89EA98A0.9BCDAC57-ON87256F8E.00204D4F-65256F8E.002B4CC8@us.ibm.com>
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: [PATCH] 3c59x ethtool: provide NIC-specific stats
+Date: Wed, 19 Jan 2005 09:31:02 +0100
+Message-ID: <20050119083102.GD24947@gareth.mathematik.tu-chemnitz.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: YOSHIFUJI Hideaki / =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>,
-	netdev@oss.sgi.com, davem@davemloft.net, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Krishna Kumar <kumarkr@us.ibm.com>
-In-Reply-To: <OF89EA98A0.9BCDAC57-ON87256F8E.00204D4F-65256F8E.002B4CC8@us.ibm.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development Mailing List <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andrew Morton <akpm@osdl.org>, Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I suggest that the implementation discussion not be reflected on ipoverib. 
-I've bcc'd to ipoverib for this mail. Those interested in the details can 
-follow it on netdev/openib.
+With this patch get_ethtool_stats() provides the NIC-specific extra stats. 
 
-Thanks,
-	Vivek
+Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
 
-On Wed, 19 Jan 2005, Krishna Kumar wrote:
-
-> 
-> 
-> 
-> 
-> 
-> Hi Roland,
-> 
-> Couple of minor comments on this :
-> 
-> 1 : In  "+static int ndisc_addr_option_pad(unsigned short type)", change
-> the function
->      name to ndisc_lladdr_option_pad() and the argument name to addr_type,
-> to be
->      more precise ? addr_option seems confusing, unless it is known that
-> this is a LL
->      address option (not a big deal, though).
-> 
-> 2. I know memset has optimized check for count, but isn't it better to
-> check for pad
->     before this code since most of time it is going to be zero (unless you
-> are doing only
->     IB traffic) ?
-> 
-> +           if (pad) {
->                   memset(opt + 2, 0, pad);
->                   opt   += pad;
->                   space -= pad;
-> +           }
-> 
-> 3. I guess there is no clean way to avoid changing all consumers of ll_addr
-> to not worry
->     about the padding after the length and before the LL address, but it
-> would be nice if
->     that were possible (eg via the ndisc_parse_options).
-> 
-> Also, Dave/Yoshifuji, can't ndisc_options have just nd_opt_array[5] instead
-> of nd_opt_array[7],
-> with indices-1 being used to store/access the options ? In any case, I was
-> expecting 6 rather
-> than 7 in the current code, since there are 5 options with the array[0]
-> being unused.
-> 
-> thanks,
-> 
-> - KK
-> 
-> 
-> 
->                                                                        
->              YOSHIFUJI Hideaki                                         
->              / 吉藤英明                                      
->              <yoshfuji@linux-i                                          To
->              pv6.org>                  roland@topspin.com,             
->              Sent by:                  davem@davemloft.net             
->              netdev-bounce@oss                                          cc
->              .sgi.com                  netdev@oss.sgi.com,             
->                                        ipoverib@ietf.org,              
->                                        openib-general@openib.org       
->              01/19/2005 05:50                                      Subject
->              AM                        Re: [Ipoverib] [PATCH] IPv6: Add
->                                        correct padding to IPoIB link addr
->                                        option                          
->                                                                        
->                                                                        
->                                                                        
->                                                                        
->                                                                        
->                                                                        
-> 
-> 
-> 
-> 
-> David, let me tkink about this.
-> Thanks.
-> 
-> In article <528y6qej5w.fsf@topspin.com> (at Tue, 18 Jan 2005 09:33:47
-> -0800), Roland Dreier <roland@topspin.com> says:
-> 
-> > +++ linux-bk/net/ipv6/ndisc.c            2005-01-14 21:20:55.736745091
-> -0800
-> > @@ -169,12 +169,33 @@
-> >
-> >  #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
-> >
-> > -static u8 *ndisc_fill_option(u8 *opt, int type, void *data, int
-> data_len)
-> > +/*
-> > + * Return the padding between the option length and the start of the
-> > + * link addr.  Currently only IP-over-InfiniBand needs this, although
-> > + * if RFC 3831 IPv6-over-Fibre Channel is ever implemented it may
-> > + * also need a pad of 2.
-> > + */
-> > +static int ndisc_addr_option_pad(unsigned short type)
-> > +{
-> > +          switch (type) {
-> > +          case ARPHRD_INFINIBAND: return 2;
-> > +          default:                return 0;
-> > +          }
-> > +}
-> > +
-> > +static u8 *ndisc_fill_addr_option(u8 *opt, int type, void *data, int
-> data_len,
-> > +                                                unsigned short
-> addr_type)
-> >  {
-> >            int space = NDISC_OPT_SPACE(data_len);
-> > +          int pad   = ndisc_addr_option_pad(addr_type);
-> >
-> >            opt[0] = type;
-> >            opt[1] = space>>3;
-> > +
-> > +          memset(opt + 2, 0, pad);
-> > +          opt   += pad;
-> > +          space -= pad;
-> > +
-> >            memcpy(opt+2, data, data_len);
-> >            data_len += 2;
-> >            opt += data_len;
-> 
-> --
-> Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-> GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
-> 
-> 
+--- vanilla-2.6.11-rc1/drivers/net/3c59x.c	Wed Jan 12 11:56:16 2005
++++ linux-2.6.11-rc1/drivers/net/3c59x.c	Tue Jan 18 20:17:26 2005
+@@ -752,6 +752,12 @@
+ /* Chip features we care about in vp->capabilities, read from the EEPROM. */
+ enum ChipCaps { CapBusMaster=0x20, CapPwrMgmt=0x2000 };
+ 
++struct vortex_extra_stats {      
++        unsigned long tx_deferred;        
++        unsigned long tx_multiple_collisions;     
++        unsigned long rx_bad_ssd; 
++};
++
+ struct vortex_private {
+ 	/* The Rx and Tx rings should be quad-word-aligned. */
+ 	struct boom_rx_desc* rx_ring;
+@@ -763,7 +769,8 @@
+ 	struct sk_buff* tx_skbuff[TX_RING_SIZE];
+ 	unsigned int cur_rx, cur_tx;		/* The next free ring entry */
+ 	unsigned int dirty_rx, dirty_tx;	/* The ring entries to be free()ed. */
+-	struct net_device_stats stats;
++	struct net_device_stats stats;		/* Generic stats */
++	struct vortex_extra_stats xstats;	/* NIC-specific extra stats */
+ 	struct sk_buff *tx_skb;				/* Packet being eaten by bus master ctrl.  */
+ 	dma_addr_t tx_skb_dma;				/* Allocated DMA address for bus master ctrl DMA.   */
+ 
+@@ -854,18 +861,13 @@
+ static struct {
+ 	const char str[ETH_GSTRING_LEN];
+ } ethtool_stats_keys[] = {
+-	{ "rx_packets" },
+-	{ "tx_packets" },
+-	{ "rx_bytes" },
+-	{ "tx_bytes" },
+-	{ "collisions" },
+-	{ "tx_carrier_errors" },
+-	{ "tx_heartbeat_errors" },
+-	{ "tx_window_errors" },
++	{ "tx_deferred" },
++	{ "tx_multiple_collisions" },
++	{ "rx_bad_ssd" },
+ };
+ 
+ /* number of ETHTOOL_GSTATS u64's */
+-#define VORTEX_NUM_STATS      8
++#define VORTEX_NUM_STATS     3 
+ 
+ static int vortex_probe1(struct device *gendev, long ioaddr, int irq,
+ 				   int chip_idx, int card_idx);
+@@ -2871,23 +2873,23 @@
+ 	/* Switch to the stats window, and read everything. */
+ 	EL3WINDOW(6);
+ 	vp->stats.tx_carrier_errors		+= inb(ioaddr + 0);
+-	vp->stats.tx_heartbeat_errors	+= inb(ioaddr + 1);
+-	/* Multiple collisions. */		inb(ioaddr + 2);
++	vp->stats.tx_heartbeat_errors		+= inb(ioaddr + 1);
+ 	vp->stats.collisions			+= inb(ioaddr + 3);
+ 	vp->stats.tx_window_errors		+= inb(ioaddr + 4);
+ 	vp->stats.rx_fifo_errors		+= inb(ioaddr + 5);
+ 	vp->stats.tx_packets			+= inb(ioaddr + 6);
+ 	vp->stats.tx_packets			+= (inb(ioaddr + 9)&0x30) << 4;
+-	/* Rx packets	*/				inb(ioaddr + 7);   /* Must read to clear */
+-	/* Tx deferrals */				inb(ioaddr + 8);
++	/* Rx packets	*/			inb(ioaddr + 7);   /* Must read to clear */
+ 	/* Don't bother with register 9, an extension of registers 6&7.
+ 	   If we do use the 6&7 values the atomic update assumption above
+ 	   is invalid. */
+-	vp->stats.rx_bytes += inw(ioaddr + 10);
+-	vp->stats.tx_bytes += inw(ioaddr + 12);
+-	/* New: On the Vortex we must also clear the BadSSD counter. */
++	vp->stats.rx_bytes 			+= inw(ioaddr + 10);
++	vp->stats.tx_bytes 			+= inw(ioaddr + 12);
++	/* Extra stats for get_ethtool_stats() */
++	vp->xstats.tx_multiple_collisions	+= inb(ioaddr + 2);
++	vp->xstats.tx_deferred			+= inb(ioaddr + 8);
+ 	EL3WINDOW(4);
+-	inb(ioaddr + 12);
++	vp->xstats.rx_bad_ssd			+= inb(ioaddr + 12);
+ 
+ 	{
+ 		u8 up = inb(ioaddr + 13);
+@@ -2980,14 +2982,9 @@
+ 	update_stats(dev->base_addr, dev);
+ 	spin_unlock_irqrestore(&vp->lock, flags);
+ 
+-	data[0] = vp->stats.rx_packets;
+-	data[1] = vp->stats.tx_packets;
+-	data[2] = vp->stats.rx_bytes;
+-	data[3] = vp->stats.tx_bytes;
+-	data[4] = vp->stats.collisions;
+-	data[5] = vp->stats.tx_carrier_errors;
+-	data[6] = vp->stats.tx_heartbeat_errors;
+-	data[7] = vp->stats.tx_window_errors;
++	data[0] = vp->xstats.tx_deferred;
++	data[1] = vp->xstats.tx_multiple_collisions;
++	data[2] = vp->xstats.rx_bad_ssd;
+ }
+ 
+ 
