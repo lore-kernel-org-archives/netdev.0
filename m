@@ -1,104 +1,55 @@
-From: Arjen Verweij <a.verweij@student.tudelft.nl>
-Subject: Re: wol support in forcedeth v25
-Date: Wed, 08 Sep 2004 21:07:38 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 - panic and a fix
+Date: Wed, 8 Sep 2004 21:06:03 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <413F587A.70902@student.tudelft.nl>
-References: <Pine.GHP.4.44.0404201259390.24990-100000@elektron.its.tudelft.nl> <200404201236.41188.adq@lidskialf.net>
+Message-ID: <20040908190603.GA19634@electric-eye.fr.zoreil.com>
+References: <200409082224.23829.sriharivijayaraghavan@yahoo.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew de Quincey <adq@lidskialf.net>
-In-Reply-To: <200404201236.41188.adq@lidskialf.net>
+To: Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>
+Content-Disposition: inline
+In-Reply-To: <200409082224.23829.sriharivijayaraghavan@yahoo.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dear Andrew,
+Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au> :
+> As of 2.6.9-rc1-bk11, r8169 does not work on my Athlon 64 machine. It results 
+> in a panic :-(.
+[skb_over_panic]
 
-Today I upgraded to forcedeth v0.28. Looking at the Changelog, nothing 
-indicates additional changes have been made to WOL support. Is there 
-anything I can do to get this in motion again? I am willing to test 
-stuff when needed, and give feedback based on my system.
+Can you:
+- make drivers/net/r8169.s and send me the r8169.s file
+- objdump -S drivers/net/r8169.o and send me output
+- Re-apply the patch which test size(dma_arrd_t), apply the patch below
+  and report the (possibly oopsy) result ?
 
-For now I just change:
-#define DEV_NEED_TIMERIRQ       0x0008
-to
-#define DEV_NEED_TIMERIRQ       0x0000
 
-and use pci-config to set the involved bits of the chip to get to D3.
-
- From http://www.hailfinger.org/carldani/linux/patches/forcedeth/ I 
-gather that NVIDIA has contributed gigabit support. Maybe they can spill 
-some code to help get WOL support as well? From earlier emails with 
-NVIDIA engineers I was told that WOL support is not part of the Linux 
-driver, so it may be a long shit :)
-
-Thank you all for a great driver,
-
-Arjen
-
-Andrew de Quincey wrote:
-
->On Tuesday 20 April 2004 12:13, Arjen Verweij wrote:
->
->I found how I could get it going again, but its not the right way of doing 
->it.. In nv_close(), if you comment out the lines "nv_stop_rx(dev);" and "if 
->(np->wolenabled) nv_start_rx(dev);", WOL works. 
->
->However this isn't the right way to do it, which is why I haven't supplied a 
->patch. What its supposed to do it stop receiving, clear any buffers, then 
->restart receiving again. But this seems to break WOL for some reason. There 
->must be some extra operation required for it all to work properly... I'll 
->keep looking.
->
->  
->
->>OK, let me know if you need a guinea pig to test any patches you might
->>have.
->>
->>Regards,
->>
->>Arjen
->>
->>On Tue, 20 Apr 2004, Andrew de Quincey wrote:
->>    
->>
->>>On Monday 19 April 2004 21:11, Arjen Verweij wrote:
->>>      
->>>
->>>>Hi,
->>>>
->>>>Is the wol support in forcedeth v25 complete yet? I was trying it with
->>>>the 2.6.5 kernel it came with, tried the new forcedeth driver with a
->>>>2.6.3 kernel (because firewire seems broken in 2.6.5) however, my box
->>>>will not wake up as of yet.
->>>>        
->>>>
->>>You're right! It _was_ working with patch-forced-0.25, but it ain't in
->>>2.6.5. I'll see if I can spot the problem.
->>>
->>>      
->>>
->>>>According to the source there is a FIXME with a comment about powering
->>>>down the NIC. Does this mean that support for wol is incomplete for
->>>>now? Mind you, I am just curious, this is in no way meant as criticism.
->>>>        
->>>>
->>>That would only be for when WOL is NOT used; I think it has to leave the
->>>NIC powered up for WOL to work... and as you say it ain't implemented
->>>yet.
->>>
->>>      
->>>
->>>>On another note, Carl-Daniel mentioned that DEV_NEED_TIMERIRQ might be
->>>>removed from future releases. Is this still the case? Feedback would be
->>>>much appreciated, so I can keep my humble audience up to date on what's
->>>>going on at the wol front.
->>>>
->>>>Thank you guys for your excellent work,
->>>>
->>>>Arjen
->>>>http://atlas.et.tudelft.nl/verwei90/nforce2/index.html
->>>>        
->>>>
+--- drivers/net/r8169.c	2004-09-08 20:15:01.000000000 +0200
++++ dirvers/net/r8169.c	2004-09-08 20:49:58.000000000 +0200
+@@ -52,6 +52,7 @@ VERSION 1.2	<2002/11/30>
+ #define MODULENAME "r8169"
+ #define RTL8169_DRIVER_NAME   MODULENAME " Gigabit Ethernet driver " RTL8169_VERSION
+ #define PFX MODULENAME ": "
++#define RTL8169_DEBUG
+ 
+ #ifdef RTL8169_DEBUG
+ #define assert(expr) \
+@@ -1308,7 +1309,7 @@ rtl8169_hw_start(struct net_device *dev)
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+ 	// For gigabit rtl8169
+-	RTL_W16(RxMaxSize, RxPacketMaxSize);
++	RTL_W16(RxMaxSize, RX_BUF_SIZE);
+ 
+ 	// Set Rx Config register
+ 	i = rtl8169_rx_config |
+@@ -1698,6 +1699,7 @@ rtl8169_rx_interrupt(struct net_device *
+ 			pci_action(tp->pci_dev, le64_to_cpu(desc->addr),
+ 				   RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+ 
++			assert(pkt_size <= RX_BUF_SIZE);
+ 			skb_put(skb, pkt_size);
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 			rtl8169_rx_skb(skb);
