@@ -1,51 +1,17 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: Re: [PATCH] Do not include linux/irq.h from linux/netpoll.h
-Date: Tue, 16 Mar 2004 21:27:46 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [e100 2.6] update e100.txt
+Date: Tue, 16 Mar 2004 15:37:43 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040316202746.GO27056@fs.tum.de>
-References: <1079369568.19012.100.camel@icampbell-debian> <20040316001141.C29594@flint.arm.linux.org.uk> <20040316192247.A7886@flint.arm.linux.org.uk> <Pine.LNX.4.58.0403161133430.17272@ppc970.osdl.org>
+Message-ID: <40576597.2010503@pobox.com>
+References: <Pine.LNX.4.44.0403151221100.9305-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Russell King <rmk+lkml@arm.linux.org.uk>,
-        Ian Campbell <icampbell@arcom.com>, netdev@oss.sgi.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, calum.mackay@cdmnet.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0403161133430.17272@ppc970.osdl.org>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <Pine.LNX.4.44.0403151221100.9305-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 16, 2004 at 11:34:56AM -0800, Linus Torvalds wrote:
-> 
-> 
-> On Tue, 16 Mar 2004, Russell King wrote:
-> > > 
-> > > What are your thoughts on this?
-> > 
-> > So how do we solve this problem.  Should I just merge this change and
-> > ask you to pull it?  I think that's rather impolite though.
-> 
-> I didn't apply the patch because you said it was untested ;)
-> 
-> I'll happily remove that irq.h include if it really doesn't do anything 
-> but break things. I'd feel happier about it if somebody said it has been 
-> tested, though ;)
-
-I removed the irq.h from netpoll.h in a 2.6.5-rc1-mm1 that was compiled
-with a i386 .config that compiles as much as possible statically into
-the kernel.
-
-There were no compilation problems.
-
-> 		Linus
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+applied
