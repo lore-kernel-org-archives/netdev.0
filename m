@@ -1,54 +1,32 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: ethernet QoS support?
-Date: Fri, 9 Jul 2004 16:41:30 +0300
+From: James Morris <jmorris@redhat.com>
+Subject: Re: IPCOMP scratch buffer (was: [Openswan dev] IPComp)
+Date: Fri, 9 Jul 2004 10:03:21 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407091641.35651.vkondra@mail.ru>
-References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com> <200407091002.26410.vkondra@mail.ru> <1089379137.1047.242.camel@jzny.localdomain>
+Message-ID: <Xine.LNX.4.44.0407091002420.3887-100000@thoron.boston.redhat.com>
+References: <20040709100213.GA12215@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Kumar Gala <kumar.gala@freescale.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, hadi@cyberus.ca
-In-Reply-To: <1089379137.1047.242.camel@jzny.localdomain>
-Content-Disposition: inline
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040709100213.GA12215@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Fri, 9 Jul 2004, Herbert Xu wrote:
 
-On Friday 09 July 2004 16:18, jamal wrote:
-> On Fri, 2004-07-09 at 03:02, Vladimir Kondratiev wrote:
-> > -----BEGIN PGP SIGNED MESSAGE-----
-> > Hash: SHA1
-> >
-> > I guess, Kumar is asking for support for several Tx queues with different
-> > priorities. One need to start/stop these queues separately. This is
-> > dictated by presense of different priorities on physical layer.
->
-> Exactly. I referenced him to you. Have you started any work yet?
->
-> cheers,
-> jamal
-Yes, I do.
-So far, I have hardware related parts working. I rely on skb->priority to 
-determine traffic class and select proper queue.
+> > scratch buffer for each packet, based on the size of the packet.  IPComp
+> > is very slow path, and allocating 64k for each SA is optimizing for an
+> > uncommon worst case in a way which will potentially eat up a lot of memory
+> > (e.g. > 6MB for 100 tunnels).
+> 
+> What about a shared per-cpu buffer?
+> 
 
-All this worth nothing if one can't do separate queues. qdisc assignment for 
-driver is not in driver's hands, so it can't do any assumptions. Generic 
-in-kernel support needed here. Stack should allow driver to request 
-additional Tx queues, providing some classifiers for each one. I tried to 
-imagine how to work it around, but there is no good solution without those 
-several queues.
+You can try if you like.
 
-This mean, I will be able to deliver QoS support when network stack will make 
-it possible.
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFA7qCPqxdj7mhC6o0RAoFEAJ4j3a7ekravvh9vQC229M5a8PXcHACfY5Rp
-PuvymlVUopAiUyNGqbSMl/c=
-=gvWz
------END PGP SIGNATURE-----
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
