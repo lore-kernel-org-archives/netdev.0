@@ -1,51 +1,76 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV6: note on shared socket options
-Date: Wed, 04 Feb 2004 20:37:39 +0900 (JST)
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: Conntrack leak (2.6.2rc2)
+Date: Wed, 4 Feb 2004 10:20:37 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
+Message-ID: <20040204092037.GW25175@obroa-skai.de.gnumonks.org>
+References: <Pine.LNX.4.33.0402021121540.6508-100000@blackhole.kfki.hu> <Pine.LNX.4.58.0402021039540.5347@sorbus2.navaho>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="NgG1H2o5aFKkgPy/"
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Steve Hill <steve@navaho.co.uk>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0402021039540.5347@sorbus2.navaho>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
 
-There're several socket options for multicast
-shared between IPv4 and IPv6.
-Add a note that some range is already used for them.
+--NgG1H2o5aFKkgPy/
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-(Alternatevely, we could define other names like this:
- #define IPV6_MCAST_JOIN_GROUP   MCAST_JOIN_GROUP
- #define IPV6_MCAST_BLOCK_SOURCE MCAST_BLOCK_SOURCE
- /* bla, bla ... */
-)
+On Mon, Feb 02, 2004 at 10:48:08AM +0000, Steve Hill wrote:
 
-===== include/linux/in6.h 1.5 vs edited =====
---- 1.5/include/linux/in6.h	Fri Mar 21 14:23:30 2003
-+++ edited/include/linux/in6.h	Wed Feb  4 20:30:47 2004
-@@ -183,5 +183,17 @@
- #define IPV6_IPSEC_POLICY	34
- #define IPV6_XFRM_POLICY	35
- 
-+/*
-+ * Multicast:
-+ * Following socket options are shared between IPv4 and IPv6.
-+ *
-+ * MCAST_JOIN_GROUP		42
-+ * MCAST_BLOCK_SOURCE		43
-+ * MCAST_UNBLOCK_SOURCE		44
-+ * MCAST_LEAVE_GROUP		45
-+ * MCAST_JOIN_SOURCE_GROUP	46
-+ * MCAST_LEAVE_SOURCE_GROUP	47
-+ * MCAST_MSFILTER		48
-+ */
- 
- #endif
+> If fragmented packets do not lead to conntrack entries, how are their=20
+> connections tracked?  I was under the impression that fragmented packets=
+=20
+> were received by one NIC, defragged, pushed through all the netfilter cod=
+e=20
+> and then transmitted by another NIC (after being fragmented again if they=
+=20
+> are > MTU size)?
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Yes, this is indeed the case.  Whihc is not a contradiction to what
+Jozsef said.  They are defragmented before getting passed to conntrack,
+and thus look exactly the same like unfragmented packets throughout the
+network stack (until NF_IP_POST_ROUTING).
+
+> Machines 1 and 3 are running the 2.4 kernel for me, but that shouldn't be=
+=20
+> important.
+> Machine 2 is running 2.6.2rc2.
+> I am making > MTU sized pings from machine 1 to machine 3 and machine 2 i=
+s=20
+> showing the leak.
+
+Are you running any netfilter / networking related patches?  Anything
+else special about the setup?
+
+> - Steve Hill
+> Senior Software Developer                        Email: steve@navaho.co.uk
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--NgG1H2o5aFKkgPy/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQFAILllXaXGVTD0i/8RAn6DAJ48WL3Ieh9oU/HEtUppQT8SmDA0iQCgli9R
+NRjxIGqWbQ4icAqaOqCtR7c=
+=Pbe+
+-----END PGP SIGNATURE-----
+
+--NgG1H2o5aFKkgPy/--
