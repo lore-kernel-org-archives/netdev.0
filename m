@@ -1,32 +1,46 @@
-From: Jeff Garzik <jgarzik@redhat.com>
-Subject: Re: acenic lockup
-Date: Thu, 8 May 2003 13:27:35 -0400
+From: Ben Greear <greearb@candelatech.com>
+Subject: new networking features
+Date: Thu, 08 May 2003 10:48:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030508132735.J22565@devserv.devel.redhat.com>
-References: <200305072221.CAA00973@mops.inr.ac.ru> <20030508.090049.48375778.davem@redhat.com> <20030508131135.G22565@devserv.devel.redhat.com> <20030508.090954.94579344.davem@redhat.com>
+Message-ID: <3EBA9852.4030808@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, anton@samba.org, jes@trained-monkey.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030508.090954.94579344.davem@redhat.com>; from davem@redhat.com on Thu, May 08, 2003 at 09:09:54AM -0700
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 08, 2003 at 09:09:54AM -0700, David S. Miller wrote:
->    From: Jeff Garzik <jgarzik@redhat.com>
->    Date: Thu, 8 May 2003 13:11:35 -0400
->    
->    P.S. Can you please email @pobox.com for stuff that is not Red Hat
->    specific?
->    
-> My apologies, I will do this in the future.
-> 
-> How much will this affect latency though? :-)
+I have a little collection of networking features that may be of
+interest.  My patches are against 2.4.20...  If anyone thinks any of
+these are of interest, I will break them out and send them to the list
+for review/inclusion...
 
-Should improve it :)  I didn't check my redhat.com email all weekend
-this past weekend, for example.
+1)  send-to-self:  Add an IOCTL that allows an interface to be configured
+     so that it will answer arps from other interfaces on the same machine.
+     Also tweaks ip-v4 a bit.
+     Allows:  can send traffic from one interface to another interface on same machine
+      over an external network.  Tested with ipv4, may automatically work with ipv6
+      too.
 
-	Jeff
+2)  802.1Q VLAN:  Add an ioctl that can be used to verify that a device is indeed
+     an 802.1Q VLAN device (no more relying on name or luck).
+
+3)  MAC-VLANs:  (Upgraded patch that someone else sent me.)  Allows one to specify
+     VLAN-like devices based on source or destination MAC addresses (no extra padding
+     in the ethernet frame.)
+     This requires a hook in the skb-rx logic, near where the bridging logic has it's
+     hook.
+
+4)  Pktgen updates:  Allows receiving (and accounting) packets & threading changes.  Also requires
+     a hook in the skb-rx logic.  (Dave already said he didn't like it before, and I
+     assume he still doesn't, but including it here for completeness).
+
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
