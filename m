@@ -1,35 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: Pekka Savola <pekkas@netcore.fi>
 Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling broken
-Date: Fri, 11 Jul 2003 01:18:58 +0900 (JST)
+Date: Thu, 10 Jul 2003 19:19:57 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030711.011858.117900702.yoshfuji@linux-ipv6.org>
-References: <20030711.005542.04973601.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0307101906160.18224-100000@netcore.fi>
+Message-ID: <Pine.LNX.4.44.0307101918080.18224-100000@netcore.fi>
+References: <20030711.011858.117900702.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: cat@zip.com.au, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Cc: cat@zip.com.au, <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0307101906160.18224-100000@netcore.fi>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030711.011858.117900702.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0307101906160.18224-100000@netcore.fi> (at Thu, 10 Jul 2003 19:08:20 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
+On Fri, 11 Jul 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+> In article <Pine.LNX.4.44.0307101906160.18224-100000@netcore.fi> (at Thu, 10 Jul 2003 19:08:20 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
+> 
+> > While technically correct, I'm still not sure if this is (pragmatically) 
+> > the correct approach.  It's OK to set a default route to go to the 
+> > subnet routers anycast address (so, setting a route to prefix:: should 
+> > not give you EINVAL).
+> 
+> But, on the other side cannot use prefix::, and
+> the setting is rather non-sense.
 
-> While technically correct, I'm still not sure if this is (pragmatically) 
-> the correct approach.  It's OK to set a default route to go to the 
-> subnet routers anycast address (so, setting a route to prefix:: should 
-> not give you EINVAL).
+Not really.  From the host perspective:
 
-But, on the other side cannot use prefix::, and
-the setting is rather non-sense.
+"I want to set default route to SOME default router" 
 
-We should educate people not to use /127; use /64 instead.
-v6ops? :-)
+(there may be multiple routers in the LAN, while only one at a time is
+actively responding to the anycast address; if that one goes away, 
+another one takes its place.)
+ 
+> We should educate people not to use /127; use /64 instead.
+> v6ops? :-)
+
+That's another story..
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
