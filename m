@@ -1,42 +1,27 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] [sparse] dgrs -- cleanup warnings
-Date: Tue, 22 Jun 2004 14:27:22 -0700
+Subject: Re: [PATCH] [sparse] net drivers assignment in conditional context
+Date: Tue, 22 Jun 2004 14:34:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040622142722.343300b3@dell_ss3.pdx.osdl.net>
+Message-ID: <20040622143415.52ad9fcc@dell_ss3.pdx.osdl.net>
+References: <20040622142351.1857bb9b@dell_ss3.pdx.osdl.net>
+	<20040622212647.GA10589@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20040622212647.GA10589@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-DGRS driver sparse fixes.  Add annotation to ioctl structure and get rid of '#if XXX'
+On Tue, 22 Jun 2004 22:26:47 +0100
+Christoph Hellwig <hch@infradead.org> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> On Tue, Jun 22, 2004 at 02:23:51PM -0700, Stephen Hemminger wrote:
+> > Fix several warnings from sparse about assignment used in conditional
+> > context in net drivers
+> 
+> The patch is junk.  Fix sparse instead.
 
-diff -Nru a/drivers/net/dgrs.h b/drivers/net/dgrs.h
---- a/drivers/net/dgrs.h	2004-06-22 14:25:43 -07:00
-+++ b/drivers/net/dgrs.h	2004-06-22 14:25:43 -07:00
-@@ -26,7 +26,7 @@
- typedef struct dgrs_ioctl {
- 	unsigned short cmd;	/* Command to run */
- 	unsigned short len;	/* Length of the data buffer */
--	unsigned char  *data;	/* Pointer to the data buffer */
-+	unsigned char __user *data;/* Pointer to the data buffer */
- 	unsigned short	port;	/* port number for command, if needed */
- 	unsigned short	filter;	/* filter number for command, if needed */
- } DGRS_IOCTL;
-diff -Nru a/drivers/net/dgrs_asstruct.h b/drivers/net/dgrs_asstruct.h
---- a/drivers/net/dgrs_asstruct.h	2004-06-22 14:25:43 -07:00
-+++ b/drivers/net/dgrs_asstruct.h	2004-06-22 14:25:43 -07:00
-@@ -4,7 +4,7 @@
-  *	$Id: asstruct.h,v 1.1.1.1 1994/10/23 05:08:32 rick Exp $
-  */
- 
--#if ASSEMBLER
-+#ifdef ASSEMBLER
- 
- #	define MO(t,a)		(a)
- #	define VMO(t,a)		(a)
+Not according to Linus.  Convince him first.
