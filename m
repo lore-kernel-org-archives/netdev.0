@@ -1,45 +1,81 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
-Date: Thu, 13 Jan 2005 00:43:44 +0100
-Message-ID: <20050112234344.GM26856@postel.suug.ch>
-References: <20050112222437.GC14280@xi.wantstofly.org> <41E5A7E9.4030101@candelatech.com> <20050112224810.GE14280@xi.wantstofly.org> <41E5AEAC.8060706@candelatech.com> <20050112231615.GF14280@xi.wantstofly.org>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new]  [Bug 4027] New: assertion failed at
+ net/ipv6/addrconf.c, plus halt fails
+Date: Wed, 12 Jan 2005 15:57:41 -0800
+Message-ID: <20050112155741.193e1f37.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com,
-        shemminger@osdl.org, shollenbeck@verisign.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgoerzen@complete.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-Content-Disposition: inline
-In-Reply-To: <20050112231615.GF14280@xi.wantstofly.org>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Lennert Buytenhek <20050112231615.GF14280@xi.wantstofly.org> 2005-01-13 00:16
-> On Wed, Jan 12, 2005 at 03:11:40PM -0800, Ben Greear wrote:
-> 
-> > >>Also, could you add an ioctl that allowed one to query whether or not
-> > >>a particular device is an etherip device?  I had always wished I had added
-> > >>this earlier to the VLAN code :)
-> > >
-> > >Hmmm.  Bridge devices don't have this either, do they?  Can you name
-> > >an advantage of having this?
-> > 
-> > I got the request several times with regard to VLANs.  Lots of people
-> > (and applications) will want to know the interface type for various
-> > reasons.  If you don't give them a nice programatic thing like an
-> > IOCTL to call, they will undoubtedly start making assumptions based
-> > off of the device name...
-> 
-> Makes sense..
-> 
-> Unfortunately SIOCGETTUNNEL is (SIOCDEVPRIVATE + 3), otherwise we could
-> just say something like "If an ARPHRD_ETHER device supports SIOCGETTUNNEL,
-> it's an ether/ip tunnel."
-> 
-> Any better ideas?  I hate adding more ioctls.
 
-I think it should go into ip_tunnel_param, unforunately there are no
-unused fields. Maybe schedule this for 2.7 together with a clean up
-of all the tunnels so they share redundant code? Lots of gre related
-code and comments spread over non-gre tunnels that should go away.
+
+Begin forwarded message:
+
+Date: Wed, 12 Jan 2005 15:38:23 -0800
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new]  [Bug 4027] New: assertion failed at net/ipv6/addrconf.c, plus halt fails
+
+
+http://bugme.osdl.org/show_bug.cgi?id=4027
+
+           Summary: assertion failed at net/ipv6/addrconf.c, plus halt fails
+    Kernel Version: 2.6.9 & 2.6.10, kernel.org tree
+            Status: NEW
+          Severity: normal
+             Owner: yoshfuji@linux-ipv6.org
+         Submitter: jgoerzen@complete.org
+
+
+Distribution:
+Hardware Environment: Alpha 164LX 21164a 600MHz
+Software Environment: Debian unstable
+Problem Description:
+
+During bootup, I am getting multiple instances ofitems like this, typically when
+a daemon starts up:
+
+Jan 12 17:23:38 erwin kernel: RTNL: assertion failed at net/ipv6/addrconf.c (1992)
+
+Trace shows:
+
+Jan 12 17:23:38 erwin kernel: Trace:
+Jan 12 17:23:38 erwin kernel: [sk_free+324/336] sk_free+0x144/0x150
+Jan 12 17:23:38 erwin kernel: [inet_release+128/160] inet_release+0x80/0xa0
+Jan 12 17:23:38 erwin kernel: [sock_release+172/240] sock_release+0xac/0xf0
+Jan 12 17:23:38 erwin kernel: [sock_close+48/112] sock_close+0x30/0x70
+Jan 12 17:23:38 erwin kernel: [__fput+412/448] __fput+0x19c/0x1c0
+Jan 12 17:23:38 erwin kernel: [fput+72/96] fput+0x48/0x60
+Jan 12 17:23:38 erwin kernel: [filp_close+132/240] filp_close+0x84/0xf0
+Jan 12 17:23:38 erwin kernel: [close_files+172/224] close_files+0xac/0xe0
+Jan 12 17:23:38 erwin kernel: [put_files_struct+84/224] put_files_struct+0x54/0xe0
+Jan 12 17:23:39 erwin kernel: [do_exit+508/1424] do_exit+0x1fc/0x590
+Jan 12 17:23:39 erwin kernel: [do_group_exit+60/176] do_group_exit+0x3c/0xb0
+Jan 12 17:23:39 erwin kernel: [entSys+164/192] entSys+0xa4/0xc0
+
+The system appears to function normally after bootup.  
+
+However, when it comes time to halt the system, I cannot.  It stalls with:
+
+unregister_netdevice: waiting for sit1 to become free.  Usage count = 1
+
+This machine is acting as a firewall.  I have two Ethernet devices in it; one
+for the outside and one for the inside.  The outside speaks only IPv4.  Inside
+speaks IPv4 and IPv6.  IPv6 is routed to the outside via sit1, using the public
+6to4 router address.
+
+I will attach dmesg logs, ksymoops output, configurations, etc.
+
+This behavior was observed on both 2.6.9 and 2.6.10.
+
+Please ask if there is any other information you would need to resolve this
+problem.  I am quite happy to provide anything that may be of use.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
