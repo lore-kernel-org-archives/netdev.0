@@ -1,91 +1,54 @@
-From: Sami Farin <7atbggg02@sneakemail.com>
-Subject: 2.6.9-rc4 tcp_transmit_skb: BUG_ON(!tcp_skb_pcount(skb))
-Date: Thu, 14 Oct 2004 02:10:07 +0300
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20041013231006.GA14742@m.safari.iki.fi>
+From: carlo.altarelli@virgilio.it
+Subject: Unknown qdisc "netem"
+Date: Thu, 14 Oct 2004 01:29:21 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <41538C5B0002BF06@ims6b.cp.tin.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269907AbUJMXKm@vger.kernel.org>
-To: linux-kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux Networking Mailing List <netdev@oss.sgi.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 8bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-First I'd like to know is it safe to call get_random_bytes
-from net/ipv4/tcp_ipv4.c:tcp_v4_get_port() when I am using
-that fortuna [1] patch, which uses CryptoAPI...
-fortuna is calling the crypto funcs from softirq AFAICS.
-I tried 2.6.9-rc2-bk7 without fortuna and it did not seem
-to crash but there has also been some changes into network code...
+i'm tring to use netem under a 2.6.8.1 kernel,
+the error report is : "Unknown qdisc netem", 
+I've just rebuild the kernel with these options about QoS:
 
-I ran command
-nmap -vvv -O -p1-65535 -T Insane -sT 127.0.0.1
-and there are four services listening on that port range.
-nmap -sS does not seem to cause BUG.
+# QoS and/or fair queueing
+#
+CONFIG_NET_SCHED=y
+CONFIG_NET_SCH_CLK_JIFFIES=y
+# CONFIG_NET_SCH_CLK_GETTIMEOFDAY is not set
+# CONFIG_NET_SCH_CLK_CPU is not set
+CONFIG_NET_SCH_CBQ=y
+CONFIG_NET_SCH_HTB=y
+CONFIG_NET_SCH_HFSC=y
+CONFIG_NET_SCH_PRIO=y
+CONFIG_NET_SCH_RED=y
+CONFIG_NET_SCH_SFQ=y
+CONFIG_NET_SCH_TEQL=y
+CONFIG_NET_SCH_TBF=y
+CONFIG_NET_SCH_GRED=y
+CONFIG_NET_SCH_DSMARK=y
+CONFIG_NET_SCH_NETEM=y
+CONFIG_NET_SCH_INGRESS=y
+CONFIG_NET_QOS=y
+CONFIG_NET_ESTIMATOR=y
+CONFIG_NET_CLS=y
+CONFIG_NET_CLS_TCINDEX=y
+CONFIG_NET_CLS_ROUTE4=y
+CONFIG_NET_CLS_ROUTE=y
+CONFIG_NET_CLS_FW=m
+CONFIG_NET_CLS_U32=m
+# CONFIG_CLS_U32_PERF is not set
+# CONFIG_NET_CLS_IND is not set
+CONFIG_NET_CLS_RSVP=m
+CONFIG_NET_CLS_RSVP6=m
+# CONFIG_NET_CLS_ACT is not set
+CONFIG_NET_CLS_POLICE=y
 
-pencil-and-paper-in-180-seconds follows
+it's seems that the sch_netem is not present in the file system!
 
-tcp_output.c:277
-Invalid operand 0
-tcp_transmit_skb
-tcp_send_synack
-tcp_rcv_synsent_state_process
-tcp_rcv_state_process
-tcp_v4_do_rcv
-__release_sock
-inet_stream_connect
-sys_connect
-
-ohh, and I also have linux-2.6.7-voluntary-preemption.patch
-from Redhat Fedora's kernel-2.6.8-1.603.
-writing to disk causes max 25ms latency, however 8-|
-
-[1] http://jlcooke.ca/random/
-[2] http://safari.iki.fi/config-2.6.9-rc4-20041014-1.txt
-
-NOTE: scripts/ver_linux is buggy, it uses gcc found on PATH instead of
-CC from Makefile.  I used gcc-2.95.3 to compile the kernel.
-
-Linux safari.finland.fbi 2.6.9-rc4 #13 Wed Oct 13 23:27:26 EEST 2004 i686 i686 i386 GNU/Linux
- 
-Gnu C                  3.4.2
-Gnu make               3.80
-binutils               2.15.92.0.2
-util-linux             2.12
-mount                  2.12
-module-init-tools      3.1-pre5
-e2fsprogs              1.35
-jfsutils               1.0.24
-reiserfsprogs          3.6.18
-reiser4progs           line
-xfsprogs               2.3.9
-pcmcia-cs              3.2.7
-quota-tools            3.12.
-PPP                    2.4.2
-nfs-utils              1.0.6
-Linux C Library        2.3.3
-Dynamic linker (ldd)   2.3.3
-Procps                 3.2.3
-Net-tools              1.60
-Kbd                    1.12
-Sh-utils               5.2.1
-Modules Loaded         ip6t_LOG ip6table_filter sch_hfsc cls_fw cls_route
-	sch_ingress sch_red sch_tbf sch_teql sch_prio sch_gred cls_rsvp cls_rsvp6
-	cls_tcindex sch_cbq sch_dsmark ipt_ttl ipt_tos ipt_tcpmss ipt_sctp ipt_recent
-	ipt_pkttype ipt_physdev ipt_nth ipt_mark ipt_mac ipt_iprange ipt_helper ipt_esp
-	ipt_ecn ipt_dscp ipt_conntrack ipt_ah ipt_addrtype ipt_ULOG ipt_TTL ipt_TOS
-	ipt_TCPMSS ipt_SAME ipt_REDIRECT ipt_NOTRACK ipt_NETMAP ipt_MASQUERADE ipt_MARK
-	ipt_IPMARK ipt_DSCP ipt_CLASSIFY ip_queue ip_nat_tftp ip_nat_snmp_basic
-	ip_nat_irc ip_nat_ftp ip_nat_amanda ip_conntrack_tftp ip_conntrack_proto_sctp
-	ip_conntrack_irc ip_conntrack_ftp ip_conntrack_amanda arptable_filter
-	arpt_mangle arp_tables xfs ipv6 snd_seq_midi snd_seq_oss snd_seq_midi_event
-	snd_seq lp parport_pc parport w83781d i2c_sensor i2c_piix4 tuner tvaudio
-	msp3400 bttv video_buf i2c_algo_bit v4l2_common btcx_risc i2c_core videodev
-	ohci_hcd loop ipt_length ipt_connlimit dm_mod ipt_TARPIT ipt_ECN ipt_state
-	ipt_multiport ipt_owner cls_u32 sch_sfq sch_htb uhci_hcd ipt_REJECT ipt_LOG
-	ipt_limit iptable_raw iptable_mangle iptable_nat snd_ens1371 snd_rawmidi
-	ip_conntrack ip6_tables snd_seq_device snd_pcm_oss iptable_filter ip_tables
-	snd_mixer_oss snd_pcm snd_timer snd_page_alloc snd_ac97_codec snd soundcore
-	gameport irlan irda crc_ccitt 8139too mii floppy
-
--- 
+Tanks,
+Carlo Altarelli
