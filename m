@@ -1,27 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [IPv6] Add option to copy DSCP in decap in ip6_tunnel
-Date: Mon, 13 Sep 2004 20:55:04 +0900 (JST)
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] BSD Jail LSM (2/3)
+Date: Mon, 13 Sep 2004 11:56:39 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913.205504.46820949.yoshfuji@linux-ipv6.org>
-References: <20040913111943.GA26179@gondor.apana.org.au>
+Message-ID: <1095072996.14355.12.camel@localhost.localdomain>
+References: <1094847705.2188.94.camel@serge.austin.ibm.com>
+	 <1094847787.2188.101.camel@serge.austin.ibm.com>
+	 <1094844708.18107.5.camel@localhost.localdomain>
+	 <20040912233342.GA12097@escher.cs.wm.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Chris Wright <chrisw@osdl.org>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au, davem@davemloft.net
-In-Reply-To: <20040913111943.GA26179@gondor.apana.org.au>
+To: "Serge E. Hallyn" <serue@us.ibm.com>
+In-Reply-To: <20040912233342.GA12097@escher.cs.wm.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040913111943.GA26179@gondor.apana.org.au> (at Mon, 13 Sep 2004 21:19:43 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+On Llu, 2004-09-13 at 00:33, Serge E. Hallyn wrote:
+> Right now one must choose between either an ipv4 or ipv6 interface.
+> Is typical ipv6 usage such that it would be preferable to be able to
+> specify one of each?  
 
-> Here is a patch that allows the copying of the DSCP during decapsulation
-> for ip6_tunnel.  I've made it a separate option from the one that
-> determines the copying during encapsulation since the DSCP processing
-> may be asymmetric.  It also means that we preserve compatibility should
-> anyone be relying on the current behaviour.
+Its normal to have both yes.
 
-I agree.
-
---yoshfuji
+A more interesting question is whether all of the "which socket for
+which use" stuff could be addressed by netfilter chains run at
+bind/connect time ?
