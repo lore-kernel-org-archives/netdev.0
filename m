@@ -1,24 +1,24 @@
-From: "Ideal P. Smoother" <lutz@wartaponsel.com>
-Subject: See Parls HlLT0N getting slammed on tape h77OaGvW8ehiWon
-Date: Mon, 22 Dec 2003 03:54:15 -0500
+From: "Nicolas Wu" <nickwu2000@hotmail.com>
+Subject: kernel 2.6.0 dethforce :)
+Date: Mon, 22 Dec 2003 16:22:55 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <111001c3c869$5490e616$b9a047d3@wartaponsel.com>
+Message-ID: <Sea2-F40IpPeRaFc9YW0003a620@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Download the Parls HlLton stolen s-e-x video!
+hiya!
 
-This is the original private Parls HlLton sex video that Paris and Rick Soloman made that has been leaked out, 
-and is now available for you to download. 
-Get it while you can, the HiIton's family lawyers are doing everything they can to stop re-distribution of this video
+with the recent release of the 2.6 kernel, was wondering when / if there 
+would be any support from you guys for the nvidia based ethernet cards?
 
-http://www.crockolate.biz/paris/paris.html
+many thanks- yo'uve done a great job so far!
 
+nick
 
-
-h0H6MUdi3t
+_________________________________________________________________
+Find a cheaper internet access deal - choose one to suit you. 
+http://www.msn.co.uk/internetaccess
