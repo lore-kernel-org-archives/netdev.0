@@ -1,58 +1,44 @@
-From: Kazunori Miyazawa <kazunori@miyazawa.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH][IPv6] separation xfrm_lookup from ip6_dst_lookup
-Date: Tue, 03 Aug 2004 18:21:10 +0900
+Date: Tue, 3 Aug 2004 20:55:20 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410F5906.30402@miyazawa.org>
-References: <20040730171205.114f22ba.kazunori@miyazawa.org>	<20040801195135.16734846.davem@redhat.com> <20040803.020015.44364045.yoshfuji@linux-ipv6.org>
+Message-ID: <20040803105520.GA29077@gondor.apana.org.au>
+References: <20040730171205.114f22ba.kazunori@miyazawa.org> <20040802074147.GA16381@gondor.apana.org.au> <20040802190914.303ccfbe.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, herbert@gondor.apana.org.au, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kazunori@miyazawa.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org,
+        kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040803.020015.44364045.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040802190914.303ccfbe.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki wrote:
+On Mon, Aug 02, 2004 at 07:09:14PM -0700, David S. Miller wrote:
+> 
+> An intesting solution would be to use stacked destinations, which
+> do no actual encapsulation (or perhaps do the routing header work)
+> and merely represent the hop-by-hop path.  Then the PMTU propagation
+> machinery can be used, and route lookups will go through a slower path
+> to find these special stacked hop-by-hop routes.
 
-> In article <20040801195135.16734846.davem@redhat.com> (at Sun, 1 Aug 2004 19:51:35 -0700), "David S. Miller" <davem@redhat.com> says:
-> 
-> 
->>On Fri, 30 Jul 2004 17:12:05 +0900
->>Kazunori Miyazawa <kazunori@miyazawa.org> wrote:
->>
->>
->>>I consider copying flowi(fl_rt) uses too much stack at the moment.
->>>I'll re-send the fixed patch again.
->>
->>I agree, and let's defer this patch until we
->>resolve that.
-> 
-> 
-> Is the overhead for allocating memory okay?
-> Or, do we allcoate some per-cpu memory while ipv6.o initalization phase?
-> (check: lock? preemption?)
-> Or, will we allocate fl (and fl_rt) per sock{} (ipv6_pinfo{})?
-> (ditto.)
-> 
+Yes that's brilliant.
 
-My intention is not high art, just using struct in6_addr
-instead of struct flowi to store final destination.
+We can replace the current rt dst with an rthdr dst + an rt dst.
+The rt dst will be the same one pointing to the first hop.  The
+rthdr will contain MTU information for that exact path.
 
-> We have similar stack usage in other codes, and 
-> I would fix them at the same time.
-> 
+This will work since any ICMP messages we receive due to MTU
+issues must carry the entire IP header including the rthdr
+(or in the case of IPv4 the ?SR option).  We can then attribute
+that MTU to the rthdr dst.
 
-These might be my changes. I will fix them.
+The rthdr can even add the option/extension header as a transform.
 
-> 
-> Another question just for future reference: 
-> how many bytes (approx.) do we accept on stack?
-> 
-> Note: sizeof(struct flowi) is 72 bytes (on i386)
-> 
-> --yoshfuji
-
---Kazunori Miyazawa
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
