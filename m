@@ -1,92 +1,52 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
-Date: Mon, 6 Dec 2004 22:44:41 -0800
-Message-ID: <20041206224441.628e7885.akpm@osdl.org>
-References: <1102380430.6103.6.camel@buffy>
+From: =?UTF-8?B?TGVuYXIgTMO1aG11cw==?= <lenar@vision.ee>
+Subject: Re: status of via velocity in 2.6.9
+Date: Tue, 07 Dec 2004 10:44:53 +0200
+Message-ID: <41B56D85.9080105@vision.ee>
+References: <41B4F447.2060808@ccs.neu.edu> <41B56518.2070108@vision.ee> <20041207082106.GA24306@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, tgraf@suug.ch,
-        "David
- S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Cataldo <tomc@compaqnet.fr>
-In-Reply-To: <1102380430.6103.6.camel@buffy>
+To: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+In-Reply-To: <20041207082106.GA24306@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Cataldo <tomc@compaqnet.fr> wrote:
+Hi,
+
+Francois Romieu wrote:
+
+>Lenar L=C3=B5hmus <lenar@vision.ee> :
+>[...]
+> =20
 >
->  Tonight I upgraded to 2.6.10-rc3. Everything was fine until I started
->  wondershaper to setup my Qos rules :
-> 
->  wondershaper eth0 255 16
-> 
->  And the machine freezed hard. No magic sysrq working, no oops in my
->  logs.
-> 
->  The computer is an x86 smp (dual p3)
-> 
->  wondershaper was working fine with 2.6.9.
+>>the machine just locked up after ifconfig up. With 2.6.9, it doesn't=20
+>>lock up, but it doesn't work either (data seems to go to black hole
+>>or sth). But there seem to be some success reports too with this kernel.
+>>   =20
+>>
+>
+>Can you check if the computer hosts the latest bios from its vendor and
+> =20
+>
+At the time 2.6.9 was released it had latest bios.
 
-Me too, with your .config:
+>if booting with "acpi=3Doff" makes a difference ?
+> =20
+>
+If I remember correctly - i tried, but no difference.
 
-Using http://lartc.org/wondershaper/wondershaper-1.1a.tar.gz
+>The content of /proc/interrupts after a known number of TX packets could
+>give some hint (use ping or such and correlate ifconfig output with
+>/proc/interrupts).
+> =20
+>
+With that I can't help, although the machine is accessible to me, it is=20
+now 'in production' with 3Com NIC and so I
+can't test and play with it anymore. When I get my hands on another=20
+similar box and it still exhibits
+same problems, I'll be back reporting it, and hopefully I have time to=20
+test suggested things.
 
-vmm:/home/akpm/wondershaper-1.1a# ./wshaper eth0 255 16
-
-
-u32 classifier
-    Perfomance counters on
-    input device check on 
-    Actions configured    
-Unable to handle kernel NULL pointer dereference at virtual address 00000000
- printing eip:                                                              
-c0290b58      
-*pde = 00000000
-Oops: 0002 [#1]
-SMP            
-Modules linked in: police sch_ingress cls_u32 sch_sfq sch_cbq usbcore
-CPU:    1                                                            
-EIP:    0060:[<c0290b58>]    Not tainted VLI
-EFLAGS: 00010206   (2.6.10-rc3)             
-EIP is at _spin_lock_bh+0x10/0x20
-eax: cf690000   ebx: ce0d4d80   ecx: 00000008   edx: 00000000
-esi: cf691ba0   edi: 00000000   ebp: 00000000   esp: cf691b48
-ds: 007b   es: 007b   ss: 0068                               
-Process tc (pid: 2743, threadinfo=cf690000 task=cf07b520)
-Stack: c02372ab ce0d4d80 cd4d8800 cebd1c40 ce0d4d80 c0237346 ce0d4d80 00000008 
-       00000000 00000000 00000000 cf691ba0 cf691ba0 c02478d6 ce0d4d80 00000008 
-       00000000 cf691ba0 ce0d4d80 cf6a6070 30960094 cec44380 00000000 00019000 
-Call Trace:                                                                    
- [<c02372ab>] gnet_stats_start_copy_compat+0x1b/0x98
- [<c0237346>] gnet_stats_start_copy+0x1e/0x24       
- [<c02478d6>] tcf_action_copy_stats+0x26/0xa0
- [<c02473e2>] tcf_action_dump_old+0x36/0x3c  
- [<d0807174>] u32_dump+0x2c8/0x344 [cls_u32]
- [<d08071a6>] u32_dump+0x2fa/0x344 [cls_u32]
- [<c0246cf9>] tcf_fill_node+0x11d/0x170     
- [<c0246d9c>] tfilter_notify+0x50/0xa0 
- [<c0246bae>] tc_ctl_tfilter+0x542/0x570
- [<c0240705>] rtnetlink_rcv+0x23d/0x360 
- [<c0249f08>] netlink_data_ready+0x1c/0x54
- [<c02495c5>] netlink_sendskb+0x21/0x40   
- [<c024970b>] netlink_unicast+0xe3/0xec
- [<c0249d04>] netlink_sendmsg+0x27c/0x28c
- [<c02306d9>] sock_sendmsg+0xd5/0xf8     
- [<c02306d9>] sock_sendmsg+0xd5/0xf8
- [<c01c0a70>] copy_from_user+0x30/0x60
- [<c01c0a70>] copy_from_user+0x30/0x60
- [<c0127cfc>] autoremove_wake_function+0x0/0x40
- [<c0231db7>] sys_sendmsg+0x18f/0x1f4          
- [<c013c068>] handle_mm_fault+0x80/0x11c
- [<c010fc3b>] do_page_fault+0x1a3/0x554 
- [<c01c0a70>] copy_from_user+0x30/0x60 
- [<c02321bc>] sys_socketcall+0x1d8/0x1f4
- [<c01021cd>] sysenter_past_esp+0x52/0x71
-Code: 3a 00 7e f9 fa eb e9 c3 8d 76 00 fa f0 fe 08 79 09 f3 90 80 38 00 7e f9 eb f2 c3 89 c2 b8 00 e0 ff ff 21 e0 81 
- <0>Kernel panic - not syncing: Fatal exception in interrupt                                                        
-Somehow I don't think this is because "Performance" was misspelled ;)
-
-tcf_act_hdr.stats_lock is NULL in tcf_action_copy_stats()
+Lenar
