@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (2/11) netrom - shorten destroy timeout
-Date: Wed, 13 Aug 2003 15:39:20 -0700
+Subject: [PATCH] (3/11) netrom - drop buffers in write queue on close
+Date: Wed, 13 Aug 2003 15:39:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030813153920.68d52970.shemminger@osdl.org>
+Message-ID: <20030813153929.3fe71b60.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -15,17 +15,18 @@ List-Id: netdev.vger.kernel.org
 
 From: Jeroen Vreeken <pe1rxq@amsat.org>
 
-Expire sockets faster on close
+Free buffers in write queue on socket destroy
 
 diff -Nru a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
---- a/net/netrom/af_netrom.c	Wed Aug 13 11:58:31 2003
-+++ b/net/netrom/af_netrom.c	Wed Aug 13 11:58:31 2003
-@@ -269,7 +269,7 @@
+--- a/net/netrom/af_netrom.c	Wed Aug 13 11:58:59 2003
++++ b/net/netrom/af_netrom.c	Wed Aug 13 11:58:59 2003
+@@ -264,6 +264,9 @@
+ 
+ 		kfree_skb(skb);
+ 	}
++	while ((skb = skb_dequeue(&sk->sk_write_queue)) != NULL) {
++		kfree_skb(skb);
++	}
+ 
+ 	if (atomic_read(&sk->sk_wmem_alloc) ||
  	    atomic_read(&sk->sk_rmem_alloc)) {
- 		/* Defer: outstanding buffers */
- 		init_timer(&sk->sk_timer);
--		sk->sk_timer.expires  = jiffies + 10 * HZ;
-+		sk->sk_timer.expires  = jiffies + 2 * HZ;
- 		sk->sk_timer.function = nr_destroy_timer;
- 		sk->sk_timer.data     = (unsigned long)sk;
- 		add_timer(&sk->sk_timer);
