@@ -1,47 +1,62 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [PATCH] convering bonding driver /proc interface to seq_file
-Date: Sun, 24 Aug 2003 20:12:58 +0300
+From: Pete Zaitcev <zaitcev@redhat.com>
+Subject: Patch for oops in ctc
+Date: Sun, 24 Aug 2003 17:58:16 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308242012.58116.shmulik.hen@intel.com>
-References: <Mutt.LNX.4.44.0308250112470.21951-100000@excalibur.intercode.com.au>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <20030824175816.A872@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Pete Zaitcev <zaitcev@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
-In-Reply-To: <Mutt.LNX.4.44.0308250112470.21951-100000@excalibur.intercode.com.au>
+To: linux390@de.ibm.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 24 August 2003 06:15 pm, James Morris wrote:
->
-> Can you provide a pointer to this code?
->
+Martin & others:
 
-Please see my email from August 8th with subject:
-"[SET 1][PATCH 3/6][bonding] backport 2.6 changes to 2.4"
-sent to netdev@oss.sgi.com and bonding-devel@lists.sourceforge.net.
+the following bug is still with us. What's the deal?
+The matter is clear, calling dst_link_failure from an
+interrupt is illegal (and pointless).
 
-> seq_file is the standard and preferred way to do this kind of
-> thing.
+I have a separate patch which adds carrier control to ctc
+according to DaveM's suggestions, but let's at least fix
+the bug first.
 
-Yes, we know. We wanted to convert to seq_file too, but as it turns 
-out, in order to create a separate proc file for each bond device you 
-need to use the PDE(inode) macro which doesn't exist in 2.4 yet. 
-Since we wanted to maintain compatibility in the bonding module 
-between 2.4 and 2.6 as much as possible, we figured that as a first 
-step we'll start using bond_read_proc() instead of bond_get_info() to 
-allow just that.
+-- Pete
 
-BTW, we really like the change from /proc/net/bond0/info to 
-/proc/net/bonding/bond0. We thought we'll add that into our cleanup 
-patch set that should come out once the back porting set is accepted.
-
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+diff -ur -X dontdiff linux-2.6.0-test4/drivers/s390/net/ctcmain.c linux-2.6.0-test4-s390/drivers/s390/net/ctcmain.c
+--- linux-2.6.0-test4/drivers/s390/net/ctcmain.c	2003-08-24 14:24:50.000000000 -0700
++++ linux-2.6.0-test4-s390/drivers/s390/net/ctcmain.c	2003-08-24 14:53:25.000000000 -0700
+@@ -2441,14 +2441,12 @@
+ 
+ 	/**
+ 	 * If channels are not running, try to restart them
+-	 * notify anybody about a link failure and throw
+-	 * away packet. 
++	 * and throw away packet. 
+ 	 */
+ 	if (fsm_getstate(privptr->fsm) != DEV_STATE_RUNNING) {
+ 		fsm_event(privptr->fsm, DEV_EVENT_START, dev);
+ 		if (privptr->protocol == CTC_PROTO_LINUX_TTY)
+ 			return -EBUSY;
+-		dst_link_failure(skb);
+ 		dev_kfree_skb(skb);
+ 		privptr->stats.tx_dropped++;
+ 		privptr->stats.tx_errors++;
+diff -ur -X dontdiff linux-2.6.0-test4/drivers/s390/net/netiucv.c linux-2.6.0-test4-s390/drivers/s390/net/netiucv.c
+--- linux-2.6.0-test4/drivers/s390/net/netiucv.c	2003-08-24 14:24:50.000000000 -0700
++++ linux-2.6.0-test4-s390/drivers/s390/net/netiucv.c	2003-08-24 14:51:10.000000000 -0700
+@@ -1195,12 +1195,10 @@
+ 
+ 	/**
+ 	 * If connection is not running, try to restart it
+-	 * notify anybody about a link failure and throw
+-	 * away packet. 
++	 * and throw away packet. 
+ 	 */
+ 	if (fsm_getstate(privptr->fsm) != DEV_STATE_RUNNING) {
+ 		fsm_event(privptr->fsm, DEV_EVENT_START, dev);
+-		dst_link_failure(skb);
+ 		dev_kfree_skb(skb);
+ 		privptr->stats.tx_dropped++;
+ 		privptr->stats.tx_errors++;
