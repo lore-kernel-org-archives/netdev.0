@@ -1,38 +1,68 @@
 From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: [0/3] mc_filter on big-endian arch
-Date: Wed, 9 Jun 2004 23:09:53 -0600
+Date: Wed, 9 Jun 2004 22:45:26 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFCBC67DF9.898B09C6-ON88256EAF.001BFC9E-88256EAF.001C4AB8@us.ibm.com>
-References: <20040607115921.GB32569@k3.hellgate.ch>
+Message-ID: <OF72A3CA91.7584BEA0-ON88256EAF.001F34CA-88256EAF.001F8BE8@us.ibm.com>
+References: <OFCBC67DF9.898B09C6-ON88256EAF.001BFC9E-88256EAF.001C4AB8@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="US-ASCII"
 Cc: Andrew Morton <akpm@osdl.org>, David Dillow <dave@thedillows.org>,
         Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>,
-        netdev-bounce@oss.sgi.com
+        Roger Luethi <rl@hellgate.ch>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040607115921.GB32569@k3.hellgate.ch>
-To: Roger Luethi <rl@hellgate.ch>
+In-Reply-To: <OFCBC67DF9.898B09C6-ON88256EAF.001BFC9E-88256EAF.001C4AB8@us.ibm.com>
+To: David Stevens <dlstevens@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-netdev-bounce@oss.sgi.com wrote on 06/07/2004 04:59:21 AM:
+PS - Here's a trivial program that will join a group. If you run this on
+one side, then a ping to the multicast address will work when it's in
+the group, and stop answering when it exits. There are more general
+things that have been around for years for testing-- I just threw this
+together just now. (I hope it doesn't have any bugs! :-) ) Should be
+suitable for testing hardware multicast address filters...
 
-> One thing maybe worth mentioning: If you want to play with different
-> addresses, remember that IP addresses are in decimal notation, ethernet
-> in hex. So if you set
+                                        +-DLS
 
-> target# ip maddr add 01:00:5e:00:00:25 dev eth0
+#include <stdio.h>
 
-> the test would be
+#include <netinet/in.h>
 
-> tester# ping -r -I eth0 -t 1 -c 2 224.0.0.37
+int
+main(int argc, char *argv[])
+{
+        struct ip_mreqn mreqn;
+        int s;
 
-This will add "01:00:5e:00:00:25" to the device multicast address filter,
-which will mean the host will receive the packet. But because it doesn't
-join the group at the IP level, it'll be dropped and the ping won't be
-answered (it isn't for a local address).
-
-If you want the machine to answer, you need to join the group, which
-will conveniently add the hardware multicast address automatically. :-)
-
-                                +-DLS
+        if (argc != 3) {
+                fprintf(stderr, "usage: %s <dev> <group>\n", argv[0]);
+                exit(1);
+        }
+        s = socket(PF_INET, SOCK_DGRAM, 0);
+        if (s < 0) {
+                perror("socket");
+                exit(1);
+        }
+        memset(&mreqn, 0, sizeof(mreqn));
+        mreqn.imr_ifindex = if_nametoindex(argv[1]);
+        if (!mreqn.imr_ifindex) {
+                fprintf(stderr, "%s: \"%s\" invalid interface\n", argv[0],
+                        argv[1]);
+                exit(1);
+        }
+        if (inet_pton(AF_INET, argv[2], &mreqn.imr_multiaddr) <= 0) {
+                fprintf(stderr, "%s: \"%s\" invalid group address\n", 
+argv[0],
+                        argv[2]);
+                exit(1);
+        }
+        if (setsockopt(s, SOL_IP, IP_ADD_MEMBERSHIP, &mreqn,sizeof mreqn) 
+< 0) {
+                perror("IP_ADD_MEMBERSHIP");
+                exit(1);
+        }
+        printf("joined group %s on %s (pausing...)");
+        fflush(stdout);
+        pause();
+        exit(0);
+}
