@@ -1,171 +1,107 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH] IPv6: Add correct padding to IPoIB
-	link addr option
-Date: Tue, 18 Jan 2005 09:49:16 -0800
-Message-ID: <524qheeig3.fsf@topspin.com>
-References: <528y6qej5w.fsf@topspin.com>
+From: Frank Pavlic <PAVLIC@de.ibm.com>
+Subject: Re: [PATCH] ipv6: alternative version of S/390 shared NIC support
+Date: Tue, 18 Jan 2005 19:25:25 +0100
+Message-ID: <OF9CE4F704.A1A329E2-ON41256F8D.0065082C-41256F8D.0065346B@de.ibm.com>
+References: <200501181653.59041.christian@borntraeger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, openib-general@openib.org, ipoverib@ietf.org
-Return-path: <openib-general-bounces@openib.org>
-To: davem@davemloft.net
-In-Reply-To: <528y6qej5w.fsf@topspin.com> (Roland Dreier's message of "Tue,
-	18 Jan 2005 09:33:47 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@davemloft.net>, hadi@cyberus.ca,
+        Christoph Hellwig <hch@lst.de>, netdev@oss.sgi.com, waldi@debian.org
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <200501181653.59041.christian@borntraeger.net>
+To: Christian =?ISO-8859-1?Q?Borntr=E4ger?= <christian@borntraeger.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sorry, somehow I left out the description of the patch saying why you
-might want to apply it....
 
 
-Anand Parthasarathy pointed out that draft-ietf-ipoib-ip-over-infiniband-09.txt says:
 
-            [DISC] specifies the length of source/target option in
-            number of 8-octets as indicated by a length of '3' above.
-            Since the IPoIB link-layer address is only 20-octet long,
-            two octets of zero MUST be prepended to fill the total
-            option length of 24 octets.
 
-The current Linux neighbour discovery code puts the padding after the
-link address.  This patch fixes up ndisc.c to put the padding in the
-correct place by adding a general ndisc_addr_option_pad() function
-(which could be used in the future if someone ever implements RFC 3831
-IPv6-over-FC or some other encapsulation that requires padding).
 
-Signed-off-by: Roland Dreier <roland@topspin.com>
 
---- linux-bk.orig/net/ipv6/ndisc.c	2005-01-12 13:27:52.000000000 -0800
-+++ linux-bk/net/ipv6/ndisc.c	2005-01-14 21:20:55.736745091 -0800
-@@ -169,12 +169,33 @@
- 
- #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
- 
--static u8 *ndisc_fill_option(u8 *opt, int type, void *data, int data_len)
-+/*
-+ * Return the padding between the option length and the start of the
-+ * link addr.  Currently only IP-over-InfiniBand needs this, although
-+ * if RFC 3831 IPv6-over-Fibre Channel is ever implemented it may
-+ * also need a pad of 2.
-+ */
-+static int ndisc_addr_option_pad(unsigned short type)
-+{
-+	switch (type) {
-+	case ARPHRD_INFINIBAND: return 2;
-+	default:                return 0;
-+	}
-+}
-+
-+static u8 *ndisc_fill_addr_option(u8 *opt, int type, void *data, int data_len,
-+				  unsigned short addr_type)
- {
- 	int space = NDISC_OPT_SPACE(data_len);
-+	int pad   = ndisc_addr_option_pad(addr_type);
- 
- 	opt[0] = type;
- 	opt[1] = space>>3;
-+
-+	memset(opt + 2, 0, pad);
-+	opt   += pad;
-+	space -= pad;
-+
- 	memcpy(opt+2, data, data_len);
- 	data_len += 2;
- 	opt += data_len;
-@@ -453,7 +474,8 @@
- 	ipv6_addr_copy(&msg->target, solicited_addr);
- 
- 	if (inc_opt)
--		ndisc_fill_option(msg->opt, ND_OPT_TARGET_LL_ADDR, dev->dev_addr, dev->addr_len);
-+		ndisc_fill_addr_option(msg->opt, ND_OPT_TARGET_LL_ADDR, dev->dev_addr,
-+				       dev->addr_len, dev->type);
- 
- 	/* checksum */
- 	msg->icmph.icmp6_cksum = csum_ipv6_magic(src_addr, daddr, len, 
-@@ -536,7 +558,8 @@
- 	ipv6_addr_copy(&msg->target, solicit);
- 
- 	if (send_llinfo)
--		ndisc_fill_option(msg->opt, ND_OPT_SOURCE_LL_ADDR, dev->dev_addr, dev->addr_len);
-+		ndisc_fill_addr_option(msg->opt, ND_OPT_SOURCE_LL_ADDR, dev->dev_addr,
-+				       dev->addr_len, dev->type);
- 
- 	/* checksum */
- 	msg->icmph.icmp6_cksum = csum_ipv6_magic(&skb->nh.ipv6h->saddr,
-@@ -610,7 +633,8 @@
- 	opt = (u8*) (hdr + 1);
- 
- 	if (dev->addr_len)
--		ndisc_fill_option(opt, ND_OPT_SOURCE_LL_ADDR, dev->dev_addr, dev->addr_len);
-+		ndisc_fill_addr_option(opt, ND_OPT_SOURCE_LL_ADDR, dev->dev_addr,
-+				       dev->addr_len, dev->type);
- 
- 	/* checksum */
- 	hdr->icmp6_cksum = csum_ipv6_magic(&skb->nh.ipv6h->saddr, daddr, len,
-@@ -717,7 +741,8 @@
- 	}
- 
- 	if (ndopts.nd_opts_src_lladdr) {
--		lladdr = (u8*)(ndopts.nd_opts_src_lladdr + 1);
-+		lladdr = (u8*)(ndopts.nd_opts_src_lladdr + 1) +
-+			ndisc_addr_option_pad(dev->type);
- 		lladdrlen = ndopts.nd_opts_src_lladdr->nd_opt_len << 3;
- 		if (lladdrlen != NDISC_OPT_SPACE(dev->addr_len)) {
- 			ND_PRINTK2(KERN_WARNING
-@@ -874,7 +899,8 @@
- 		return;
- 	}
- 	if (ndopts.nd_opts_tgt_lladdr) {
--		lladdr = (u8*)(ndopts.nd_opts_tgt_lladdr + 1);
-+		lladdr = (u8*)(ndopts.nd_opts_tgt_lladdr + 1) +
-+			ndisc_addr_option_pad(dev->type);
- 		lladdrlen = ndopts.nd_opts_tgt_lladdr->nd_opt_len << 3;
- 		if (lladdrlen != NDISC_OPT_SPACE(dev->addr_len)) {
- 			ND_PRINTK2(KERN_WARNING
-@@ -964,7 +990,8 @@
- 	}
- 
- 	if (ndopts.nd_opts_src_lladdr) {
--		lladdr = (u8 *)(ndopts.nd_opts_src_lladdr + 1);
-+		lladdr = (u8 *)(ndopts.nd_opts_src_lladdr + 1) +
-+			ndisc_addr_option_pad(skb->dev->type);
- 		lladdrlen = ndopts.nd_opts_src_lladdr->nd_opt_len << 3;
- 		if (lladdrlen != NDISC_OPT_SPACE(skb->dev->addr_len))
- 			goto out;
-@@ -1130,7 +1157,8 @@
- 		u8 *lladdr = NULL;
- 		int lladdrlen;
- 		if (ndopts.nd_opts_src_lladdr) {
--			lladdr = (u8*)((ndopts.nd_opts_src_lladdr)+1);
-+			lladdr = (u8*)((ndopts.nd_opts_src_lladdr)+1) +
-+				ndisc_addr_option_pad(skb->dev->type);
- 			lladdrlen = ndopts.nd_opts_src_lladdr->nd_opt_len << 3;
- 			if (lladdrlen != NDISC_OPT_SPACE(skb->dev->addr_len)) {
- 				ND_PRINTK2(KERN_WARNING
-@@ -1250,7 +1278,8 @@
- 		return;
- 	}
- 	if (ndopts.nd_opts_tgt_lladdr) {
--		lladdr = (u8*)(ndopts.nd_opts_tgt_lladdr + 1);
-+		lladdr = (u8*)(ndopts.nd_opts_tgt_lladdr + 1) +
-+			ndisc_addr_option_pad(skb->dev->type);
- 		lladdrlen = ndopts.nd_opts_tgt_lladdr->nd_opt_len << 3;
- 		if (lladdrlen != NDISC_OPT_SPACE(skb->dev->addr_len)) {
- 			ND_PRINTK2(KERN_WARNING
-@@ -1379,7 +1408,8 @@
- 	 */
- 
- 	if (dev->addr_len)
--		opt = ndisc_fill_option(opt, ND_OPT_TARGET_LL_ADDR, neigh->ha, dev->addr_len);
-+		opt = ndisc_fill_addr_option(opt, ND_OPT_TARGET_LL_ADDR, neigh->ha,
-+					     dev->addr_len, dev->type);
- 
- 	/*
- 	 *	build redirect option and copy skb over to the new packet.
+
+Christian Borntr=E4ger <christian@borntraeger.net> wrote on 18.01.2005
+16:53:58:
+
+> Frank, please correct me, if I am wrong....
+
+It's all correct ....
+sorry Christian but I didn't make it to answer :-(
+
+>
+> jamal wrote:
+> > On Mon, 2005-01-17 at 18:37, Christian Borntr=E4ger wrote:
+> > > I am trying a small simplification here:
+> > > Each physical network adapter offers hundreds of device addresses.
+You
+> > > need 3 of them to have one logical network adapter(read,write,data).
+> >
+> > the "card" concept is what you call network adapter, correct?
+> > I take it that read and write are control channels and data is where
+the
+> > skb comes through?
+>
+> don't ask me about naming....
+>
+> > >  S/390 has
+> > > hardware supported virtualization. Therefore can then use the
+> > > hypervisor (LPAR or z/VM) to give specific LPARs or VM guests exact=
+ly
+3
+> > > device addresses out of these hundreds.
+> >
+> > Can you provision multiple of these cards per VM? if yes, is there so=
+me
+> > ID that will break it down to OSInstance:cardid?
+> > > The qeth driver has to register the IP address at the logical netwo=
+rk
+> > > card (using 3 device addresses) Afterwards the physical network car=
+d
+> > > knows which packet belongs to which device numbers.
+> >
+> > I think i understood  but confused: before you attach IP address
+though,
+> > you cant receive packets? Is there a concept of MAC address which you
+> > can pass to the hypervisor or can you run in promiscmous mode?
+>
+> Right, without registering the IP address, you can not receive any
+packet.
+> As the logical network interface has no own MAC address you actually
+speak
+> IP to the card. That also means, that without some additional effort,
+tools
+> like tcpdump fail and you need some patches in the dhcp tools.
+> You can define options for routers to get more than your own packages,
+but
+> IIRC you can only define a primary and secondary router per port.
+>
+> >
+> > Another question: When that driver runs for the physical card - it ru=
+ns
+>
+> The driver never ever runs for the physical card. It runs for 3 devices
+> addresses, which are already behind a layer of virtualization and
+represent
+> a logical IP stack in the physical card. To Linux it looks like a
+physical
+> card.
+>
+> > in the context of a specific VM, correct? In other words it would be
+> > impossible to see the "card" of another instance?
+>
+> By VM you mean virtual machine? Right. We are talking about real hardwa=
+re
+
+> emulation. Think about it as VMWARE in hardware or with hardware suppor=
+t.
+> So you have no access to logical cards of other Linuxes.
+> One difference to real hardware is, that multiple Linuxes have the same
+MAC
+> address. The physical OSA network card and z/VM ensure, that incoming
+> packets are delivered to the right Linux.
+>
+>
+> cheers
+> Christian
