@@ -1,65 +1,74 @@
-From: Tim Gardner <timg@tpi.com>
-Subject: CBQ quits when HZ=1000
-Date: Thu, 16 Sep 2004 21:04:12 -0600
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
+Date: Thu, 16 Sep 2004 20:07:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095390252.3932.38.camel@tim.rtg.net>
-Reply-To: timg@tpi.com
+Message-ID: <20040916200735.57909f02.rddunlap@osdl.org>
+References: <005001c49c50$c06b9810$a010100a@S2IOtech.com>
+	<414A3562.2090803@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-vAEaIfk+1qDMsT9RzRZi"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ravinandan.arakali@s2io.com, netdev@oss.sgi.com, leonid.grossman@s2io.com,
+        raghavendra.koushik@s2io.com, rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <414A3562.2090803@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 16 Sep 2004 20:52:50 -0400 Jeff Garzik wrote:
 
---=-vAEaIfk+1qDMsT9RzRZi
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+| Ravinandan Arakali wrote:
+| > Jeff,
+| > We tried it out with 2.6.7. Can you pls specify the kernel version
+| > on which you tried and we will send a patch which works for that version.
+| > We will also send a more detailed description of the changes along with
+| > that.
 
-I have a reasonably simple setup that shapes traffic to/from one address
-on a bridge. When HZ=100, everything works great. When HZ=1000, CBQ
-stops all traffic to this address forever as soon as throughput hits the
-CBQ limit, 1Mbit in this case. See attached rules. Has anyone else
-observed similar behavior?
+For splitting it up :), e.g.:
 
-The kernel is 2.4.22 on an SC1100 (x86).
-PSCHED_CLOCK_SOURCE==PSCHED_JIFFIES
+- 1 patch could be for renaming only, no code/logic changes
+  (like TxCfg to tx_cfg); maybe including comments/whitespace changes;
 
-rtg
--- 
-timg@tpi.com http://www.tpi.com
-406-443-5357(MT) 503-601-0234(OR)
+- 1 could be to eliminate (most/all) typedefs
 
---=-vAEaIfk+1qDMsT9RzRZi
-Content-Disposition: attachment; filename=cbqsetup
-Content-Type: text/x-sh; name=cbqsetup; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+- 1 could be for errata/workarounds
 
-#!/bin/sh
-#
-tc qdisc del dev eth0 root > /dev/null 2>&1
-tc qdisc del dev eth1 root > /dev/null 2>&1
-tc qdisc del dev eth0 ingress > /dev/null 2>&1
-tc qdisc del dev eth1 ingress > /dev/null 2>&1
-# ===============================
-#download ********************************************************************
-tc qdisc add dev eth0 root handle 1:0 cbq bandwidth 100Mbit avpkt 1024 cell 8 mpu 64
-tc class add dev eth0 parent 1:0 classid 1:10 cbq bandwidth 100Mbit rate 100Mbit isolated weight 1Mbit prio 5 allot 1514 cell 8 maxburst 100 avpkt 1024 bounded mpu 64 minburst 2 minidle 20
-# ===============================
-tc qdisc add dev eth0 parent 1:10 handle 10: sfq perturb 5
-# Client 1 Download **********************************************************
-tc class add dev eth0 parent 1:10 classid 1:101 cbq bandwidth 100Mbit bounded isolated rate 1024Kbit weight 102Kbit prio 5 allot 1522 cell 8 maxburst 102 avpkt 1024 mpu 64 minburst 10 minidle 51
-tc qdisc add dev eth0 parent 1:101 handle 101: sfq perturb 5
-tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 match ip dst 10.0.2.4 flowid 1:101
-# ===============================
-#upload **********************************************************************
-tc qdisc add dev eth1 root handle 1:0 cbq bandwidth 7Mbit avpkt 1024 cell 8 mpu 64
-tc class add dev eth1 parent 1:0 classid 1:10 cbq bandwidth 7Mbit rate 7Mbit isolated weight 0.7Mbit prio 5 allot 1514 cell 8 maxburst 100 avpkt 1024 bounded mpu 64 minburst 2 minidle 20
-# ===============================
-tc qdisc add dev eth1 parent 1:10 handle 10: sfq perturb 5
-# Client 1 Upload ************************************************************
-tc class add dev eth1 parent 1:10 classid 1:101 cbq bandwidth 7Mbit bounded isolated rate 1024Kbit weight 102Kbit prio 5 allot 1522 cell 8 maxburst 102 avpkt 1024 mpu 64 minburst 10 minidle 51
-tc qdisc add dev eth1 parent 1:101 handle 101: sfq perturb 5
-tc filter add dev eth1 parent 1:0 protocol ip prio 1 u32 match ip src 10.0.2.4 flowid 1:101
+- 1 could be for ethtool support (changes)
 
---=-vAEaIfk+1qDMsT9RzRZi--
+- 1 for NAPI support (changes)
+
+- 1 for 2BUFF mode
+
+etc...
+
+
+Q1:  why is this change needed?
+
+ static inline u64 readq(void *addr)
+ {
+ 	u64 ret = 0;
+ 	ret = readl(addr + 4);
+-	ret <<= 32;
+-	ret |= readl(addr);
++	(u64) ret <<= 32;
++	(u64) ret |= readl(addr);
+
+
+
+
+| 
+| Always diff against the latest version of the kernel.  You can find out 
+| the latest version by going to http://www.kernel.org/  You'll typically 
+| want the latest snapshot (preferably), or the latest pre-patch.
+| 
+| Standard patch submission format is described at 
+| http://linux.yyz.us/patch-format.html and in 
+| Documentation/SubmittingPatches.
+| 
+| When submitting a series of patches, it is normal patches to depend on 
+| preceding patches.
+
+
+--
+~Randy
