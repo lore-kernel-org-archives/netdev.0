@@ -1,29 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.70] Add release_netdev -- hook for sysfs/net device
- cleanup
-Date: Sat, 07 Jun 2003 02:05:28 -0700 (PDT)
+Subject: Re: [PATCH] fix esp6 extension headers handling
+Date: Sat, 07 Jun 2003 02:22:41 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030607.020528.68152135.davem@redhat.com>
-References: <20030606145835.3a263df8.shemminger@osdl.org>
+Message-ID: <20030607.022241.98862720.davem@redhat.com>
+References: <3EDF3EB4.8010105@tml.hut.fi>
+	<873cioqxch.wl@karaba.org>
+	<87wufzxe8p.wl@karaba.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com,
-   viro@parcelfarce.linux.theplanet.co.uk
+Cc: netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030606145835.3a263df8.shemminger@osdl.org>
+To: mk@linux-ipv6.org
+In-Reply-To: <87wufzxe8p.wl@karaba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Fri, 6 Jun 2003 14:58:35 -0700
+   From: Mitsuru KANDA / 神田 充 <mk@linux-ipv6.org>
+   Date: Sat, 07 Jun 2003 03:17:10 +0900
+
+   The attached diff fixes esp6 extension headers handling bug 
+   which reported by Henrik.
    
-   Phase I:  introduces release_netdev which is the hook to allow later
-      changes to hold onto the net device after the device has potentially
-      unloaded.  Includes patch for the easy to fix devices. 
+   I introduced ip6_find_1stfragopt() instead of get_offset().
+   
+   # ip6_found_nexthdr() is just renamed ip6_find_1stfragopt()
+   # in order to represent collect functionality.
 
-Besides naming (thought this was going to be named netdev_drop)
-I have no problems.
-
-Al?
+Patch applied, thank you.
