@@ -1,38 +1,35 @@
-From: Pekka Pietikainen <pp@netppl.fi>
-Subject: Re: [PATCH] IPsec: add support for Twofish and Serpent
-Date: Thu, 14 Aug 2003 21:08:57 +0300
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] (10/11) netrom - convert /proc interface to seq_file
+Date: Thu, 14 Aug 2003 11:30:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030814180857.GA4205@netppl.fi>
-References: <20030814164819.GA18948@imladris.debian.net>
+Message-ID: <20030814113025.2b40be14.shemminger@osdl.org>
+References: <20030813154635.376df59b.shemminger@osdl.org>
+	<20030814172539.GD1785@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: jmorris@intercode.com.au, netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, Jeroen Vreeken <pe1rxq@amsat.org>,
+   linux-hams@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kyle McMartin <kyle@debian.org>
-Content-Disposition: inline
-In-Reply-To: <20030814164819.GA18948@imladris.debian.net>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20030814172539.GD1785@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 14, 2003 at 12:48:19PM -0400, Kyle McMartin wrote:
+On Thu, 14 Aug 2003 14:25:39 -0300
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+
+> Em Wed, Aug 13, 2003 at 03:46:35PM -0700, Stephen Hemminger escreveu:
+> > Convert netrom /proc interface to seq_file.
+> > 
+> > diff -Nru a/include/net/netrom.h b/include/net/netrom.h
+> > --- a/include/net/netrom.h	Wed Aug 13 13:54:19 2003
+> > +++ b/include/net/netrom.h	Wed Aug 13 13:54:19 2003
+> > +		seq_printf(seq, "%-9s ", ax2asc(&nr->user_addr));
+> > +		seq_printf(seq, "%-9s ", ax2asc(&nr->dest_addr));
+> > +		seq_printf(seq, 
+> > +"%-9s %-3s  %02X/%02X %02X/%02X %2d %3d %3d %3d %3lu/%03lu %2lu/%02lu %3lu/%03lu %3lu/%03lu %2d/%02d %3d %5d %5d %ld\n",
 > 
-> This patch adds support for the use of twofish and serpent as
-> ESP algorithms. The ESP index numbers given are in accordance
-> with RFC2407, draft-ietf-ipsec-ciph-aes-cbc-00 (before Rijndael
-> was selected), and KAME which assigns 253 to twofishcbc.
+> <nitpick> why not just one seq_printf call? </nitpick>
 
-> Support for using twofish was requested on linux-kernel, and
-> since I noticed serpent was missing too, included that as well.
-Hi
-
-Nothing against twofish or serpent per se, but I have this feeling that 
-supporting every possible crypto algoritm known to man
-is not necessarily wise (see eg. Practical Cryptography for the rationale).
-
-There's absolutely no need to add complexity unless there are some technical
-arguments for doing so, say compatibility with legacy implementations
-which justifies bothering with DES/3DES/MD5 although they're inferior to 
-AES and SHA1 in just about every aspect.
-
--- 
-Pekka Pietikainen
+ax2asc() returns a pointer to static buffer.
