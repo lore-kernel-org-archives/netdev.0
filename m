@@ -1,59 +1,45 @@
-From: Matthew Wilcox <willy@debian.org>
-Subject: Re: netdev_ops retraction
-Date: Thu, 31 Jul 2003 12:12:41 +0100
+From: Rick Payne <rickp@rossfell.co.uk>
+Subject: multiple unicast mac address (was Re: netdev_ops retraction)
+Date: Thu, 31 Jul 2003 13:49:19 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030731111241.GJ22222@parcelfarce.linux.theplanet.co.uk>
-References: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk> <20030730233541.GB7057@conectiva.com.br> <20030730164108.06062b72.davem@redhat.com>
+Message-ID: <2147483647.1059659359@fozzy.rossfell.co.uk>
+References: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>, willy@debian.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk>
 Content-Disposition: inline
-In-Reply-To: <20030730164108.06062b72.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 30, 2003 at 04:41:08PM -0700, David S. Miller wrote:
-> I'm ok with the simplified ethtool-only version too.
-> 
-> Although I'm confused about what kind of problem there is with
-> netdev_ops being such a "large structure".
 
-Hard to understand/keep track of is my main concern.  There was also
-a namespace collision -- two functions called get_stats.  It's now
-get_ethtool_stats.
+--On Wednesday, July 30, 2003 7:44 pm +0100 Matthew Wilcox 
+<willy@debian.org> wrote:
 
-> This is the kind of thing there'd be _ONE_ copy of in each driver,
-> ala.
-> 
-> struct netdev_ops tg3_netdev_ops {
->  ...
-> 	.foo	=	tg3_foo,
->  ...
-> };
-> 
-> ...
-> 	tp->dev->netdev_ops = &tg3_netdev_ops;
-> ...
-> 
-> Right?
+> +       void    (*set_multicast_list)(struct net_device *dev);
+> +       int     (*set_mac_address)(struct net_device *dev, void *addr);
 
-I'm glad you mentioned tg3 as an example, since it's one of the ones where
-this isn't true.
+Talking of which - is there any appetite for a patch that allows multiple 
+unicast mac addresses to be set on an ethernet interface? Its certainly 
+much neater for things like VRRP and HA stuff if an ethernet device is able 
+to continue accepting packets for its original MAC address, as well as the 
+'virtual MAC address'.
 
-        if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700)
-                tp->dev->hard_start_xmit = tg3_start_xmit_4gbug;
-        else
-                tp->dev->hard_start_xmit = tg3_start_xmit;
+Obviously I'm not talking about generated packets (they will still take the 
+MAC address from dev->dev_addr) - I'm talking about the hardware filter on 
+the ethernet cards themselves. (In some cases, the software concerned may 
+want to set_mac_address - thus updating dev->dev_addr, and then also add 
+the original mac address to the 'unicast accept list' for instance).
 
-I fixed this with two netdev_ops structs, but imagine a driver with two
-or three more cases like this and everything starts to look quite nasty.
-I do think we want to do netdev_ops, but not now, and let's keep
-netdev_ops and ethtool_ops separate.
+Some ethernet cards seem to support this and don't care what MAC addresses 
+get put in the multicast list - and I've used that technique before (on 
+cards such as the eepro100 for instance). Others may have a different, not 
+currently used method to set multiple unicast MAC addresses. Finally, as a 
+worst last case - a card could go into promiscuous mode and filter in 
+software.
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+Should I just start on a patch and submit it here for comment?
+
+Rick
