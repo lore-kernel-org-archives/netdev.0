@@ -1,20 +1,21 @@
-From: jamal <hadi@cyberus.ca>
+From: Harald Welte <laforge@netfilter.org>
 Subject: Re: [PATCH 2.6] iptables CLUSTERIP target, seq_file version
-Date: 21 Oct 2004 13:44:11 -0400
+Date: Thu, 21 Oct 2004 20:03:24 +0200
 Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <1098380650.1031.82.camel@jzny.localdomain>
+Message-ID: <20041021180324.GL3551@sunbeam.de.gnumonks.org>
 References: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
 	<20041021163655.GK3551@sunbeam.de.gnumonks.org>
-Reply-To: hadi@cyberus.ca
+	<1098380650.1031.82.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="A2x6GFCQWVc4i5ud"
 Cc: Linux Netdev List <netdev@oss.sgi.com>,
 	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
 	lmb@suse.de
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20041021163655.GK3551@sunbeam.de.gnumonks.org>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1098380650.1031.82.camel@jzny.localdomain>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -26,48 +27,48 @@ Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
-Sorry, couldnt resist - so out of hiding for just a few seconds; should
-be able to achieve this much simpler with gact.
+--A2x6GFCQWVc4i5ud
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Example:
-Consider two machines with allowed to receive only packets for 10.0.0.3.
-A simple balance scheme is to have even src IPs being processed by one
-and odd by another.
+On Thu, Oct 21, 2004 at 01:44:11PM -0400, jamal wrote:
+>=20
+> Sorry, couldnt resist - so out of hiding for just a few seconds; should
+> be able to achieve this much simpler with gact.
 
-#add ingress qdisc to eth2
-# Accept arps destined for 10.0.0.3 but sourced from even numbered
-# src addresses
-tc filter add dev eth2 parent ffff: protocol arp prio 6 u32 match u32
-0xa000003 0xffffffff at 24 match u8 0x0 0x1 at 17 flowid 1:2 action ok
-# drop any other arps for 10.0.0.3
-tc filter add dev eth2 parent ffff: protocol arp prio 7 u32 match u32
-0xa000003 0xffffffff at 24 flowid 1:2 action drop
+One of the issues that CLUSTERIP needed to do is to work with
+locally-originated connections, i.e. every node within the cluster still
+has to be able to open tcp connections to anywhere.
 
-On a second machine which is doing odd just change the u8 to 0x1 0x1.
-No need to send fake ARPs using multicast with this. But if you wanted
-to be funky you could use pedit to create a virtual MAC address.
+We currently catch this with connection tracking, which will assign all
+reply packets to such outbound connections INVALID on all but the
+originating node in the cluster.
 
-We use this well with a lot more complex static rules and failover.
+Yes, I know, this sounds like a very strange setup.  Still it was one of
+the requirements for it's implementation.
 
-cheers,
-jamal (Back to work)
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-On Thu, 2004-10-21 at 12:36, Harald Welte wrote:
-> On Thu, Oct 21, 2004 at 12:38:28AM +0200, Harald Welte wrote:
-> Hi Dave!
-> 
-> This is the 'CLUSTERIP' target for iptables, this time no core kernel
-> changes required, please apply.
-> 
-> This enables you to build a static load sharing cluster between multiple
-> nodes - without the requirement to have a load balancer.  It uses a
-> series of [evil] tricks like replying with linklayer multicast addresses
-> to ARP requests, and using CONNMARK for stateful blocking all traffic
-> not intended for the local node.
-> 
-> Apart from the usual netfilter-specific file additions and
-> Kconfig/Makefile patches, this needs to export proc_file_operations in
-> order to get the reference counting of certain data objects right.  I
-> hope this change is acceptable.
-> 
-> Signed-off-by: Harald Welte <laforge@netfilter.org>
+--A2x6GFCQWVc4i5ud
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBd/nsXaXGVTD0i/8RAtsdAJ9wpvL5dCeNxqsj7+6DisrSS4JSfgCfUY4w
+qn2cFMew7dFBjw8GAqvnz9Y=
+=XKDz
+-----END PGP SIGNATURE-----
+
+--A2x6GFCQWVc4i5ud--
