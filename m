@@ -1,51 +1,45 @@
-From: Michael Renzmann <mrenzmann@web.de>
-Subject: Re: Where Linux 802.11x support needs work
-Date: Wed, 26 Jan 2005 08:17:10 +0100
-Message-ID: <41F743F6.2020008@web.de>
-References: <20050126024039.GA25326@bougret.hpl.hp.com> <Pine.LNX.4.58.0501252224000.4275@devserv.devel.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jean Tourrilhes <jt@hpl.hp.com>, netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC] Stop using dst->xfrm
+Date: Wed, 26 Jan 2005 18:21:04 +1100
+Message-ID: <E1CthU8-0001Uo-00@gondolin.me.apana.org.au>
+References: <1106373513.3691.49.camel@ori.thedillows.org>
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <Pine.LNX.4.58.0501252224000.4275@devserv.devel.redhat.com>
+To: dave@thedillows.org (David Dillow)
+In-Reply-To: <1106373513.3691.49.camel@ori.thedillows.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi.
+David Dillow <dave@thedillows.org> wrote:
+> 
+>> Here is a precursor to the xfrm dst consolidation that I talked about.
+>> In order to be able to store multiple SAs in one dst, we need to stop
+>> using dst->xfrm directly.
+> 
+> Can you tell me more about this? A quick search of google and the netdev
+> archives didn't turn up anything that looked relevant.
 
-Dan Williams wrote:
-> madwifi: doesn't seem to implement SIOCGIWSTATS
+My immediate goal is to store PMTU values for xfrm dst entries.
 
-It does. The SIOCGIWSTATS is used in tools/athstats.c (line 195 in 
-current CVS) for example to get the rssi (via qual.qual).
+I was toying with the idea of consolidating the xfrm dst's of a bundle
+into a single dst.  The rationale is that the current list of xfrm
+dst's doesn't provide any more info than what we would have in a single
+xfrm dst.
 
->>>o  Ad-Hoc mode support is quite flaky or absent from most drivers
->>	Low priority for most vendors, firwmares are only lightly tested.
-> Yeah, I don't expect much to happen here but it would be nice.  FWIW, at 
-> least madwifi and atmel seem to work OK here.
+However, this is not central to my plans so I won't pursue it
+straight away.
 
-Madwifi unfortunately has some known problems in Ad-hoc implementation. 
-Someone worked on that, but the patches have not been sent in as far as 
-I can tell.
+> I'd like to see where you're going, so I can meet you there. The xfrm
+> offload patches currently add dst->xfrm_offload to cache the info needed
+> to offload the crypto operations. It'll be slower, but I could lookup
+> that up each time if need be.
 
->>	Note that various other people have their own todo list. Jeff
->>also has things he has in minds. I have (few) patches on my web
->>pages. Driver authors also have their wishes.
-> True, but I'm not sure how many of those wishes/todo lists are actually 
-> well-known or public.  I don't really see any great momentum in the Linux 
-> 802.11x world, but more a hodge-podge of improvements.  I was hoping that 
-> the post today could help  direct a bit more attention and effort at Linux 
-> 802.11x stuff so we could try to clean it up and improve it.
+I'll take a look at your work first and get back to you.
 
-How about setting up a project that cares of finding, defining and 
-implementing such quasi-standards in the Linux 802.11 world? Most things 
-are very WLAN specific, so I think netdev isn't the best place to 
-discuss them. Of course this only works IMO when many (if not all) of 
-the wlan driver authors join in and help out.
-
-Comments?
-
-Bye, Mike
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
