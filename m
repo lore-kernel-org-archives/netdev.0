@@ -1,46 +1,65 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [PATCH 2.6] ixgb: fix ixgb_intr looping checks
-Date: Wed, 10 Nov 2004 17:51:47 +0000 (UTC)
-Message-ID: <Pine.LNX.4.44.0411101712080.16936-100000@localhost.localdomain>
-References: <20041108151048.4bf605c1.akpm@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETLINK] Fix mc_list operations
+Date: Thu, 11 Nov 2004 15:21:36 +1100
+Message-ID: <20041111042136.GA17076@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>, <netdev@oss.sgi.com>
+Content-Type: multipart/mixed; boundary="ReaqsoxgOBHFXBhH"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041108151048.4bf605c1.akpm@osdl.org>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Nov 2004, Andrew Morton wrote:
-> > This patch undoes a change that we believe will impact performance
-> adversely,
-> > by creating possibly too long a delay between servicing completions.
->=20
-> Maybe.=A0 But now take a look at how much additional pointless work wil=
-l be
-> done in the common case.=A0 For instance, every tx completion will incu=
-r a
-> call to ixgb_clean_rx_irq(), which then calls ixgb_alloc_rx_buffers().
 
-Is your common case transmits only? It seems there will always be more
-than just one transmit and one receive to service in an interrupt.  The
-issue with the current code is that the inner functions can loop
-(clean_[tx|rx]) over many packets on their own, so I describe the current
-code a little differently: "every group of tx completions, will then make
-sure to call clean_rx to balance tx/rx work."  The way that you proposed
-seems as if it may starve one side or the other if there are many packets
-going in one direction. If I'm missing something let me know.
+--ReaqsoxgOBHFXBhH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> There's quite a bit which can be optimised here.
+Hi Dave:
 
-Appreciate your input Andrew, currently we're just trying to keep the
-e1000 and ixgb drivers the same, however it is possible that your solutio=
-n
-is better.  We are going to do a little experiment here over the next
-couple of days to try performance with both your suggestion and with our
-old method.  We'll reply with our results.
+While doing the 2.4 version of the netlink patch, I noticed a bug
+in my mc_list code.  First of all it wasn't holding the table lock
+when adding nodes to the list.  It also didn't take the node off
+the list when multicast is switched off.
 
-Jesse
+The following patch fixes it for 2.6.  I will simply fix it in the
+2.4 version.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--ReaqsoxgOBHFXBhH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/netlink/af_netlink.c 1.61 vs edited =====
+--- 1.61/net/netlink/af_netlink.c	2004-11-06 18:49:54 +11:00
++++ edited/net/netlink/af_netlink.c	2004-11-11 15:09:40 +11:00
+@@ -471,9 +471,16 @@
+ 			return err;
+ 	}
+ 
+-	nlk->groups = nladdr->nl_groups;
+-	if (nladdr->nl_groups)
++	if (!nladdr->nl_groups && !nlk->groups)
++		return 0;
++
++	netlink_table_grab();
++	if (nlk->groups && !nladdr->nl_groups)
++		__sk_del_bind_node(sk);
++	else if (!nlk->groups && nladdr->nl_groups)
+ 		sk_add_bind_node(sk, &nl_table[sk->sk_protocol].mc_list);
++	nlk->groups = nladdr->nl_groups;
++	netlink_table_ungrab();
+ 
+ 	return 0;
+ }
+
+--ReaqsoxgOBHFXBhH--
