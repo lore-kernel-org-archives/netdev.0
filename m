@@ -1,52 +1,36 @@
-From: Olof Johansson <olof@austin.ibm.com>
-Subject: Re: [2.4] e1000 leaking pci mappings on rx errors?
-Date: Mon, 12 Jan 2004 14:47:41 -0600
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] bridge use read_lock when scanning device list
+Date: Mon, 12 Jan 2004 13:46:45 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <400307ED.3060900@austin.ibm.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDDC5@orsmsx402.jf.intel.com>
+Message-ID: <20040112134645.461f125e.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, cramerj <cramerj@intel.com>, milliner@us.ibm.com
+Cc: bridge@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDDC5@orsmsx402.jf.intel.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Feldman, Scott wrote:
->>We have a machine here (running a RHEL 2.4.21-based kernel), 
->>that started showing leakage of PCI mappings when the driver 
->>was upgraded from 5.1.11 to 5.2.20.
-> 
-> 
-> Olof, please try 5.1.13 and 5.2.16 from sf.net/projects/e1000 to help
-> narrow the diff.  I'm not seeing anything obvious in the diff between
-> 5.1.11 and 5.2.20 that would explain this.
-
-Scott,
-
-5.1.13 is OK, 5.2.16 is leaking.
-
-Also, I noticed it's leaking quite fast, and even before any RX errors 
-are shown. So my previous guess w.r.t. cause and effect might have been 
-wrong:
-
-[root@primerib linux-2.4.21-6.EL-olof]# netstat -i
-Kernel Interface table
-Iface       MTU Met    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP 
-TX-OVR Flg
-eth1       1500   0    54793      0      0      0    67048      0      0 
-      0 BMRU
-
-~6240 PCI mappings had been allocated with the above statistics (eth1 is 
-the problematic interface in our case).
+On 2.6.1, bridge is using rtnl_shlock which is equivalent to rtnl_lock when
+all it really needs to do is read_lock(&dev_base_lock).
 
 
--Olof
-
--- 
-Olof Johansson                                        Office: 4F005/905
-pSeries Linux Development                             IBM Systems Group
-Email: olof@austin.ibm.com                          Phone: 512-838-9858
-All opinions are my own and not those of IBM
+diff -Nru a/net/bridge/br_if.c b/net/bridge/br_if.c
+--- a/net/bridge/br_if.c	Mon Jan 12 13:45:44 2004
++++ b/net/bridge/br_if.c	Mon Jan 12 13:45:44 2004
+@@ -252,12 +252,12 @@
+ 	struct net_device *dev;
+ 	int i = 0;
+ 
+-	rtnl_shlock();
++	read_lock(&dev_base_lock);
+ 	for (dev = dev_base; dev && i < num; dev = dev->next) {
+ 		if (dev->priv_flags & IFF_EBRIDGE) 
+ 			indices[i++] = dev->ifindex;
+ 	}
+-	rtnl_shunlock();
++	read_unlock(&dev_base_lock);
+ 
+ 	return i;
+ }
