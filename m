@@ -1,59 +1,36 @@
-From: Michal Ludvig <mludvig@suse.cz>
-Subject: Re: 2.6.2 issues (IPSec+NAT, RFC2684 bridge)
-Date: Tue, 24 Feb 2004 11:23:25 +0100
+From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
+Subject: [IPSec] connect: Resource temporarily unavailable
+Date: Tue, 24 Feb 2004 14:48:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <403B261D.90000@suse.cz>
-References: <66187D861C1747499BE1365B74E036917B5F82@mdant.atkin.com>
+Message-ID: <1077630520.799.7.camel@teapot.felipe-alfaro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Samofatov, Nickolay" <Nickolay@BroadViewSoftware.com>
-In-Reply-To: <66187D861C1747499BE1365B74E036917B5F82@mdant.atkin.com>
+To: linux-kernel@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Samofatov, Nickolay told me that:
-> Here is a list of minor issues I encountered when migrated my AMD64
-> machine to 2.6.2 kernel (64-bit).
-> 
-> 1) Attempts to combine IPSec and NAT result in various kinds of
-> failures. The easiest to reproduce is reliable hard system lock-up when
-> IKE session needs to be initiated because of request from masqueraded
-> machine.
-> (workaround is to run cron job keeping IPSec connection active)
+When using Racoon to manage SAs between two IPv4/IPSec hosts running 2.6
+kernels and IPSec in transport mode with mandatory ESP/AH support, the
+first packet exchange between both hosts triggers IKE Phase 1 but,
+instead of queueing the userspace packet that triggered the IKE exchange
+until IKE Phase 2 has ended and the SA has been established, userspace
+receives the following errpr:
 
-You probably hit the same bug as I did. When a SPD policy expires the 
-notification to userspace fails. Please try the patch from here and let 
-me know if it helps:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=107761652405761&w=2
+connect: Resource temporarily unavailable
 
-> 2) I had to add following line to my routing rules to get IPSec working
-> locally:
-> --
-> route add -m 172.20.0.0 netmask 255.255.0.0 gw 172.21.113.1
-> --
-> 172.20.0.0 here is VPN subnet I'm interested in. 172.21.113.1 is the
-> address assigned to eth0 interface which is also IP address of this
-> machine in VPN.
-> Before I added this rule TCP connections from localhost failed with no
-> route to host. The result works for most applications, but not all. For
-> example, SSH fails.
-> (my workaround is to use SOCKS5 proxy running locally for local SSH
-> connections over IPSec tunnels)
+Any further attempt to exchange packets between both hosts succeeds
+after a while, (once the IKE Phase 2 ends and the SA has been correctly
+established).
 
-Try to specify source address as well:
-ip route add 172.20.0.0/16 via 172.21.113.1 src 172.21.x.x
+Is this a bug? Shouldn't the kernel queue (hold) userspace packets until
+IKE Phase 2 has completed (either successfully or with error)? Why am I
+receiving "connect: Resource temporarily unavailable" error when there
+is no SA set up?
 
-> If there is interest, I may provide as much information as required to
-> resolve the problems.
-
-If the IPsec issues still remain, send me more information so that I 
-could reproduce it here.
-
-Michal Ludvig
--- 
-SUSE Labs                    mludvig@suse.cz | Cray is the only computer
-(+420) 296.545.373        http://www.suse.cz | that runs an endless loop
-Personal homepage http://www.logix.cz/michal | in just four hours.
+This is reproducible by either pinging or telnetting the other peer or
+the IPSec link. Both hosts are running 2.6.3 kernels and ipsec-tools
+0.2.2. Once IKE Phase 2 ends, ping and telnet work with no error and
+tcpdump reveals that AH/ESP protocols are being used.
