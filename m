@@ -1,65 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (addendum) sk98: elimnate AllocFlag
-Date: Fri, 19 Nov 2004 11:52:33 -0800
-Message-ID: <20041119115233.0a41354f@zqx3.pdx.osdl.net>
-References: <20041115163616.17dfe933@zqx3.pdx.osdl.net>
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH] MII bus API for PHY devices
+Date: Fri, 19 Nov 2004 21:18:19 +0100
+Message-ID: <419E550B.7030107@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mirko Lindner <demon@pro-linux.de>, netdev@oss.sgi.com
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20041115163616.17dfe933@zqx3.pdx.osdl.net>
+To: Andy Fleming <afleming@freescale.com>,
+        Jason McMullan <jason.mcmullan@timesys.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Don't need AllocFlag in device structure since FreeResources only
-called in case where allocation was done.
+Hi,
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+I don't like the polling/interrupt setup part:
+- for a nic driver, there is no irq line that could be requested by 
+mii_phy_irq_enable().
+- if the mii bus driver uses it's own timers, then locking within the 
+nics will be more difficult.
 
-diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
---- a/drivers/net/sk98lin/skge.c	2004-11-19 11:49:15 -08:00
-+++ b/drivers/net/sk98lin/skge.c	2004-11-19 11:49:15 -08:00
-@@ -316,25 +316,13 @@
-  */
- static void FreeResources(struct net_device *dev)
- {
--SK_U32 AllocFlag;
--DEV_NET		*pNet;
--SK_AC		*pAC;
--
--	pNet = netdev_priv(dev);
--	pAC = pNet->pAC;
--	AllocFlag = pAC->AllocFlag;
--	if (pAC->PciDev) {
--		pci_release_regions(pAC->PciDev);
--	}
--	if (AllocFlag & SK_ALLOC_IRQ) {
--		free_irq(dev->irq, dev);
--	}
--	if (pAC->IoBase) {
--		iounmap(pAC->IoBase);
--	}
--	if (pAC->pDescrMem) {
--		BoardFreeMem(pAC);
--	}
-+	DEV_NET		*pNet = netdev_priv(dev);
-+	SK_AC		*pAC = pNet->pAC;
-+
-+	pci_release_regions(pAC->PciDev);
-+	free_irq(dev->irq, dev);
-+	iounmap(pAC->IoBase);
-+	BoardFreeMem(pAC);
- 	
- } /* FreeResources */
- 
-@@ -559,7 +547,6 @@
- 		       dev->irq);
- 		return -EAGAIN;
- 	}
--	pAC->AllocFlag |= SK_ALLOC_IRQ;
- 
- 	/* Alloc memory for this board (Mem for RxD/TxD) : */
- 	if(!BoardAllocMem(pAC)) {
+Could you make that part optional? For a nic driver, I would prefer if I 
+could just call the ->startup part without the request_irq. If the nic 
+irq handler notices that the nic got an event, then it would call an 
+appropriate mii_bus function.
+
+This also applies for something like /dev/phy/xy: With natsemi, it would 
+be very tricky to add proper locking. The nic as an internal phy and an 
+external mii bus. The internal phy is partially visible on the external 
+bus and any accesses to the phy id of the internal phy on the external 
+bus cause lockups. No big deal, I just move the internal phy around [the 
+phy id doesn't matter], but I would prefer if I have to do that just for 
+ethtool, not for multiple interfaces.
+
+--
+    Manfred
