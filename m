@@ -1,55 +1,48 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: Re: [PATCH] ipconfig schedule fix
-Date: Wed, 24 Nov 2004 01:02:33 +0100
-Message-ID: <aec7e5c3041123160259df1594@mail.gmail.com>
-References: <aec7e5c3041123145030b75d14@mail.gmail.com>
-	 <20041123151855.1864659a.davem@davemloft.net>
-	 <aec7e5c304112315426594dc72@mail.gmail.com>
-	 <20041123154513.0c950033.davem@davemloft.net>
-Reply-To: Magnus Damm <magnus.damm@gmail.com>
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [PATCH] move inline keywords nearer beginning of declaration in
+ skbuff.c to elliminate warning with gcc -W
+Date: Wed, 24 Nov 2004 01:16:05 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0411240106580.3389@dragon.hygekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041123154513.0c950033.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261618AbUKXAJl@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 23 Nov 2004 15:45:13 -0800, David S. Miller <davem@davemloft.net> wrote:
-> On Wed, 24 Nov 2004 00:42:17 +0100
-> 
-> 
-> Magnus Damm <magnus.damm@gmail.com> wrote:
-> 
-> > On Tue, 23 Nov 2004 15:18:55 -0800, David S. Miller <davem@davemloft.net> wrote:
-> > > On Tue, 23 Nov 2004 23:50:35 +0100
-> > >
-> > >
-> > > Magnus Damm <magnus.damm@gmail.com> wrote:
-> > >
-> > > > This simple patch makes the DHCP/BOOTP/RARP code sleep with
-> > > > schedule_timeout() instead of hogging the cpu with cpu_relax() in a
-> > > > loop. This comes handy when a guest kernel is booted inside QEMU.
-> > > > Without the patch, the host operating system will consume cpu time
-> > > > busy waiting.
-> > >
-> > > There are two similar loops involving CONF_PRE_OPEN and CONF_POST_OPEN,
-> > > you may wish to hit those while you're at it.
-> >
-> > Huh? You mean _removing_ the timeouts involving CONF_PRE/POST_OPEN? I
-> > thought my patch converted all busy waits into schedule_timeout()...
-> > What am I missing?
-> 
-> No, not removing them, but transforming them likewise into
-> schedule_timeout() calls.
 
-Yeah, but isn't the patch already doing that? I tried to find more
-occurances of CONF_PRE/POST_OPEN in the
-linux-2.6.10-rc2-mm3/net/ipv4/ipconfig.c but I think the patch covers
-all of them. Please point out what I am missing, maybe it is getting
-too late for me know...
+In order to get rid of 
+net/core/skbuff.c:1353: warning: `inline' is not at beginning of declaration
+net/core/skbuff.c:1374: warning: `inline' is not at beginning of declaration
+when building with gcc -W, I submit the patch below.
+There's no impact on the way the code works, so it is perfectly safe. It 
+just brings the count of warnings that I have to sift through down by two 
+(yes, I know the kernel is not normally build with -W, but I do it to 
+look for stuff that potentially needs review, and the less warnings I 
+have to sift through the better). I see no good reason not to apply this.
+Please apply.
 
-/ magnus
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+
+diff -up linux-2.6.10-rc2-bk6-orig/net/core/skbuff.c linux-2.6.10-rc2-bk6/net/core/skbuff.c
+--- linux-2.6.10-rc2-bk6-orig/net/core/skbuff.c	2004-11-17 01:20:32.000000000 +0100
++++ linux-2.6.10-rc2-bk6/net/core/skbuff.c	2004-11-24 01:05:32.000000000 +0100
+@@ -1350,7 +1350,7 @@ void skb_add_mtu(int mtu)
+ }
+ #endif
+ 
+-static void inline skb_split_inside_header(struct sk_buff *skb,
++static inline void skb_split_inside_header(struct sk_buff *skb,
+ 					   struct sk_buff* skb1,
+ 					   const u32 len, const int pos)
+ {
+@@ -1371,7 +1371,7 @@ static void inline skb_split_inside_head
+ 	skb->tail		   = skb->data + len;
+ }
+ 
+-static void inline skb_split_no_header(struct sk_buff *skb,
++static inline void skb_split_no_header(struct sk_buff *skb,
+ 				       struct sk_buff* skb1,
+ 				       const u32 len, int pos)
+ {
