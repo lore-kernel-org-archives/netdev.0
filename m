@@ -1,9 +1,9 @@
 From: "Paul Hernandez" <ph@digitalquake.com>
 Subject: RE: NIC on 2.4.19 SMP (mii-diag output)
-Date: Mon, 21 Oct 2002 08:16:23 -0700
+Date: Mon, 21 Oct 2002 09:33:44 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <FMEDJKFPPLANNCCEABDMCEKLCBAA.ph@digitalquake.com>
-References: <3DB1FD1A.4020109@pobox.com>
+Message-ID: <FMEDJKFPPLANNCCEABDMCEKNCBAA.ph@digitalquake.com>
+References: <FMEDJKFPPLANNCCEABDMCEKLCBAA.ph@digitalquake.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="us-ascii"
@@ -12,8 +12,20 @@ Cc: "Linux-net" <linux-net@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <linux-net-owner@vger.kernel.org>
 To: "Jeff Garzik" <jgarzik@pobox.com>,
 	"Felipe W Damasio" <felipewd@terra.com.br>
-In-Reply-To: <3DB1FD1A.4020109@pobox.com>
+In-Reply-To: <FMEDJKFPPLANNCCEABDMCEKLCBAA.ph@digitalquake.com>
 List-Id: netdev.vger.kernel.org
+
+lsmod shows its using e100. version .13a
+
+eepro100.c is v1.09j-t.
+
+-----Original Message-----
+From: Paul Hernandez [mailto:ph@digitalquake.com]
+Sent: Monday, October 21, 2002 8:16 AM
+To: Jeff Garzik; Felipe W Damasio
+Cc: Linux-net; netdev@oss.sgi.com
+Subject: RE: NIC on 2.4.19 SMP (mii-diag output)
+
 
 
 Jeff and Felipe,
