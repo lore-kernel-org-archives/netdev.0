@@ -1,33 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 0/12] remove sk_protinfo series
-Date: Tue, 25 Jan 2005 22:24:28 -0800
-Message-ID: <20050125222428.6b076cb1.davem@davemloft.net>
-References: <41F07497.4020109@conectiva.com.br>
+Subject: Re: [PATCH] Tcp port selection for IPV6.
+Date: Tue, 25 Jan 2005 22:25:08 -0800
+Message-ID: <20050125222508.09f49c72.davem@davemloft.net>
+References: <20050120164529.6d6a5f0b@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <41F07497.4020109@conectiva.com.br>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050120164529.6d6a5f0b@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005 01:18:47 -0200
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+On Thu, 20 Jan 2005 16:45:29 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> 	This series addresses Christoph and Jean concerns about the overhead
-> caused by private slab caches in every family, by making sk_alloc use kmalloc
-> if no slab cache is used, and as a transitional mechanism the zero_it
-> semantic is maintained, that is, if slab is NULL and zero_it is 1, use the
-> generic "slab" (sk_cachep) cache.
+> This patch makes TCP over IPV6 select ports the same way the current
+> TCPv4 code does. It uses a hash function to provide a starting offset
+> and a free running counter to provide seed.
+> 
+> This changes the port selection semantics to match TCPv4 as well.
+> If the port is in use but to a different remote address, it will get
+> reused. It looks like the TCPv6 code was not updated when the TCPv4
+> code changed. Now the code in ipv4/tcp_ipv4.c and ipv6/tcp_ipv6.c are
+> almost identical for tcp_hash_connect.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-I think we'll need to defer this to 2.6.12
+Looks good, sorry for taking so long to review.
 
-When I setup my 2.6.12 net pending queue tomorrow I'll pull from
-your tree.  I'll probably set this up tomorrow and it will be at:
-
-	bk://kernel.bkbits.net/davem/net-2.6.12
-
-I'll announce it.
+I think I'll push this into my 2.6.12 pending queue since 2.6.11
+is very much in a bug-fix-only type mode.
