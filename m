@@ -1,66 +1,83 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH] IPv6: (5/5) Allow IPv6 tunnels without own IPv6 address
-Date: Mon, 1 Sep 2003 11:18:30 +0300 (EEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Missing routes cause BUG() in icmpv6_xmit_lock().
+Date: Mon, 1 Sep 2003 01:30:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309010931420.27694-100000@rhea.tcs.hut.fi>
-References: <20030901.112409.61391981.yoshfuji@linux-ipv6.org>
+Message-ID: <20030901013020.189fe564.davem@redhat.com>
+References: <1062341789.2785.11.camel@imladris.demon.co.uk>
+	<20030831224454.349a6a53.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Cc: davem@redhat.com, <usagi-core@linux-ipv6.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: dwmw2@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030901.112409.61391981.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030831224454.349a6a53.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Sep 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+On Sun, 31 Aug 2003 22:44:54 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-> In article <Pine.LNX.4.44.0309010257390.26242-200000@rhea.tcs.hut.fi> (at Mon, 1 Sep 2003 03:11:58 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
->
-> > unless (link-local) protocols like DHCPv6 or MLD are run over the virtual
-> > link formed by IPv6 tunnels, the net_devices representing the tunnels
-> > don't necessarily need to have an IPv6 address configured specifically to
-> > them.
->
-> Wrong. All interfaces have a link-local address. (RFC2462)
+> I'll see what I can do about this one.
 
-Unfortunately the IPv6 tunneling spec (RFC2473) is broken on this point :(
-I should probably raise this issue on the IETF ipv6 WG mailing list.
+Ok, here is the fix I'm going to use.  I actually inadvertantly
+added this problem when I converted net/ipv6/icmp.c over to
+per-cpu sockets.
 
-The first problem is, that the way to generate the interface-identifier
-isn't currently specified in the tunnel spec.
+There is nothing we could do with such ICMP destination unreachable
+packets anyways, so dropping them is the right thing to do.
 
-The IPv6 over PPP spec (RFC2472) section 4.1 has some ideas:
-
-1) if available, reuse any IEEE EUI-48 or EUI-64 identifiers on the node
-2) use link-layer addresses, machine serial numbers, et cetera
-3) if none of these can be found, use random bits
-
-The second problem is, that this method alone doesn't yet guarantee
-unique identifiers to the two tunnel endpoints.
-
-In RFC2472 the IPv6 Control Protocol negotiates the identifiers between
-the two peers beforehand, but unfortunately we don't have a similar
-protocol in RFC2473.
-
-Like the other tunnels (ipip, ip_gre, sit) ip6_tunnel is fundamentally a
-IFF_NOARP device so you can't even use DAD to detect a duplicate address
-on the virtual link. (Besides, the link doesn't even exist before both
-devices have been brought up on the two separate nodes.)
-
-This is something for the ipv6 WG to think about, I guess.
-
-In the mean time, do we accept the in theory 1/2^64 (in practice of course
-bigger) chance of duplicate addresses occurring on the link?
-
-If yes, then I could (probably still later today) send a patch where the
-interface-identifiers for the IPv6 tunnels are generated like in the IPv6
-over PPP case above.
-
-Regards,
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1614  -> 1.1615 
+#	     net/ipv6/icmp.c	1.26    -> 1.27   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/09/01	davem@nuts.ninka.net	1.1615
+# [IPV6]: Do not BUG() on icmp6 socket contention, just drop.
+# --------------------------------------------
+#
+diff -Nru a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+--- a/net/ipv6/icmp.c	Mon Sep  1 01:36:39 2003
++++ b/net/ipv6/icmp.c	Mon Sep  1 01:36:39 2003
+@@ -95,8 +95,15 @@
+ static void icmpv6_xmit_lock(void)
+ {
+ 	local_bh_disable();
+-	if (unlikely(!spin_trylock(&icmpv6_socket->sk->lock.slock)))
+-		BUG();
++	if (unlikely(!spin_trylock(&icmpv6_socket->sk->lock.slock))) {
++		/* This can happen if the output path (f.e. SIT or
++		 * ip6ip6 tunnel) signals dst_link_failure() for an
++		 * outgoing ICMP6 packet.
++		 */
++		local_bh_enable();
++		return 1;
++	}
++	return 0;
+ }
+ 
+ static void icmpv6_xmit_unlock(void)
+@@ -340,7 +347,8 @@
+ 	fl.fl_icmp_type = type;
+ 	fl.fl_icmp_code = code;
+ 
+-	icmpv6_xmit_lock();
++	if (icmpv6_xmit_lock())
++		return;
+ 
+ 	if (!icmpv6_xrlim_allow(sk, type, &fl))
+ 		goto out;
+@@ -423,7 +431,8 @@
+ 	fl.oif = skb->dev->ifindex;
+ 	fl.fl_icmp_type = ICMPV6_ECHO_REPLY;
+ 
+-	icmpv6_xmit_lock();
++	if (icmpv6_xmit_lock())
++		return;
+ 
+ 	if (!fl.oif && ipv6_addr_is_multicast(&fl.fl6_dst))
+ 		fl.oif = np->mcast_oif;
