@@ -1,101 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
-Date: 25 Mar 2005 15:31:45 -0500
-Message-ID: <1111782705.1091.644.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <423B7BCB.10400@dsl.pipex.com> <1111410890.1092.195.camel@jzny.localdomain>
-	 <423F41AD.3010902@dsl.pipex.com>
-	 <1111444869.1072.51.camel@jzny.localdomain>
-	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>
-	 <42408998.5000202@dsl.pipex.com>
-	 <1111550254.1089.21.camel@jzny.localdomain>
-	 <4241C478.5030309@dsl.pipex.com>
-	 <1111607112.1072.48.camel@jzny.localdomain>
-	 <4241D764.2030306@dsl.pipex.com>
-	 <1111612042.1072.53.camel@jzny.localdomain>
-	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>
-	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>
-	 <1111663947.1037.24.camel@jzny.localdomain>
-	 <1111665450.1037.27.camel@jzny.localdomain>
-	 <4242DFB5.9040802@dsl.pipex.com>
-	 <1111749220.1092.457.camel@jzny.localdomain>
-	 <1111754346.1092.480.camel@jzny.localdomai
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Conntrack leak with raw sockets
+Date: Fri, 25 Mar 2005 21:37:01 +0100
+Message-ID: <4244766D.2020001@trash.net>
+References: <20050325201127.GA3400@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Harald Welte <laforge@gnumonks.org>, Remus <rmocius@auste.elnet.lt>,
-        netdev <netdev@oss.sgi.com>, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
-        Damion de Soto <damion@snapgear.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42446F7C.3000907@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+To: Phil Oester <kernel@linuxace.com>
+In-Reply-To: <20050325201127.GA3400@linuxace.com>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+Phil Oester wrote:
+> In the event a raw socket is created for sending purposes only, the creator
+> never bothers to check the socket's receive queue.  But we continue to
+> add skbs to its queue until it fills up.
+> 
+> Unfortunately, if ip_conntrack is loaded on the box, each skb we add to the
+> queue potentially holds a reference to a conntrack.  If the user attempts
+> to unload ip_conntrack, we will spin around forever since the queued skbs
+> are pinned.
 
->From the outset this looks fine. What would be a good test case?
-Something that will ensure we go beyond 4K(NLMSG_GOODSIZE) for a dump?
+Great work tracking this down. But I fear the problem will come back
+haunt us with this patch. The are more places where a packet can be
+queued indefinitely, for example stopped qdiscs. IMO the best fix
+is to drop the conntrack reference once the packet leaves IP, so we
+don't have to make any assumptions about what will happen to the
+packet - this would be in ip_finish_output2(). Could you send a patch
+that does this? While you're at it, you could also remove this part
+from ip_conntrack_standalone:
 
-cheers,
-jamal
+#if !defined(CONFIG_IP_NF_NAT) && !defined(CONFIG_IP_NF_NAT_MODULE)
+         /* Previously seen (loopback)?  Ignore.  Do this before
+            fragment check. */
+         if ((*pskb)->nfct)
+                 return NF_ACCEPT;
+#endif
 
-On Fri, 2005-03-25 at 15:07, Patrick McHardy wrote:
-> Patrick McHardy wrote:
-> > tcf_dump_walker() doesn't save the number of skipped entries, but
-> > the last order dumped, so it could dump the same entries again
-> > and again when they exceed the room in the skb.
-> 
-> How about this patch? It fixes two problems:
-> 
-> - off-by-one while skipping entries: index is incremented before the
->    comparison with s_i, so it will start dumping at entry s_i-1 instead
->    of s_i
-> - problem described above. n_i doesn't include how many empty hash
->    chains were skipped, so adding it to cb->args[0] is incorrect
-> 
-> Regards
-> Patrick
-> 
-> ______________________________________________________________________
-> 
-> ===== include/net/pkt_act.h 1.10 vs edited =====
-> --- 1.10/include/net/pkt_act.h	2005-01-10 22:54:01 +01:00
-> +++ edited/include/net/pkt_act.h	2005-03-25 20:58:28 +01:00
-> @@ -102,20 +102,21 @@
->  		p = tcf_ht[tcf_hash(i)];
->  
->  		for (; p; p = p->next) {
-> -			index++;
-> -			if (index < s_i)
-> +			if (index < s_i) {
-> +				index++;
->  				continue;
-> +			}
->  			a->priv = p;
->  			a->order = n_i;
->  			r = (struct rtattr*) skb->tail;
->  			RTA_PUT(skb, a->order, 0, NULL);
->  			err = tcf_action_dump_1(skb, a, 0, 0);
->  			if (0 > err) {
-> -				index--;
->  				skb_trim(skb, (u8*)r - skb->data);
->  				goto done;
->  			}
->  			r->rta_len = skb->tail - (u8*)r;
-> +			index++;
->  			n_i++;
->  			if (n_i >= TCA_ACT_MAX_PRIO) {
->  				goto done;
-> @@ -124,8 +125,7 @@
->  	}
->  done:
->  	read_unlock(&tcf_t_lock);
-> -	if (n_i)
-> -		cb->args[0] += n_i;
-> +	cb->args[0] = index;
->  	return n_i;
->  
->  rtattr_failure:
+Regards
+Patrick
