@@ -1,34 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 6to4/SIT and IP DF
-Date: Wed, 15 Oct 2003 22:27:12 -0700
+Subject: Re: [PATCH] init_netdev missing locking
+Date: Wed, 15 Oct 2003 22:33:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015222712.18d1434f.davem@redhat.com>
-References: <OF32DA07F2.CE83636D-ON88256DC1.001CC44C@us.ibm.com>
+Message-ID: <20031015223318.597494ed.davem@redhat.com>
+References: <20031015110520.0206e327.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, r.venning@telstra.com, nate@thebog.net,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF32DA07F2.CE83636D-ON88256DC1.001CC44C@us.ibm.com>
+To: "Randy.Dunlap" <rddunlap@osdl.org.sgi.com>
+In-Reply-To: <20031015110520.0206e327.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Oct 2003 22:21:37 -0700
-David Stevens <dlstevens@us.ibm.com> wrote:
+On Wed, 15 Oct 2003 11:05:20 -0700
+"Randy.Dunlap" <rddunlap@osdl.org> wrote:
 
-> That doesn't sound terrible, but won't it have to drop a minimum of
-> 2 packets per tunnel on an MTU change (or initial probe with a large
-> packet)?
+> It looks like the call to dev_alloc_name() in init_netdev()
+> isn't protected by the required locking.
+> This patch adds rtnl_lock/unlock around the call to dev_alloc_name().
+> 
+> Comments?  or please apply.
 
-Welcome to the real world where most routers don't quote enough
-information.  :) What we do is the only sane way to handle this
-problem.
+Your fix is correct, so I've applied it.  Stephen is working to
+deprecate the one thing that uses this function (init_etherdev()).
 
-All of our ipv4 tunnels work this way due to that quoting size issue.
-
-The "fragment but tell me about it" isn't such a great idea.  You'll
-run into all kinds of difficult decisions about behavior in the cases
-where a too-big packet overruns multiple hops on the path.  This is why
-the original implementors didn't put this into the RFCs.
+Please in the future properly root your patch, I had to fix this
+one up before my automated scripts would eat it :)
