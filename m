@@ -1,39 +1,29 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Still bug-hunting
-Date: Sat, 5 Mar 2005 10:57:06 -0800
-Message-ID: <20050305105706.2c8a6975.davem@davemloft.net>
-References: <4229F2EC.8090103@rapidforum.com>
-	<20050305102918.15fd422c.davem@davemloft.net>
-	<4229FC15.3070408@rapidforum.com>
-	<20050305104854.45106335.davem@davemloft.net>
-	<422A0079.4080806@rapidforum.com>
+From: Asim Shankar <asimshankar@gmail.com>
+Subject: Re: filtering packtes before OS takes care about them
+Date: Sat, 5 Mar 2005 12:58:23 -0600
+Message-ID: <7bca1cb505030510586aeb96c1@mail.gmail.com>
+References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
+	 <7bca1cb50502281209798e8a00@mail.gmail.com>
+	 <db95d40c0503050608e1e98d9@mail.gmail.com>
+Reply-To: Asim Shankar <asimshankar@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
-To: Christian Schmid <webmaster@rapidforum.com>
-In-Reply-To: <422A0079.4080806@rapidforum.com>
+To: Pedro Fortuna <pedro.fortuna@gmail.com>
+In-Reply-To: <db95d40c0503050608e1e98d9@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 05 Mar 2005 19:54:49 +0100
-Christian Schmid <webmaster@rapidforum.com> wrote:
+> I wasnt able to compile your packet_type_test.c : 
+> all I got was a huge list of errors
+> and warnings, and no .o compiled in the end.
 
-> You as an expert should know that this is no one-liner. It is a very complex server with 
-> multiplexing and forking like Apache. I dont feel like writing an apache-like program just for 
-> testing. I hope you understand that I prefered investing my time in acutally searching the bug and 
-> now its found. Now I hope that you can fix it or at least tell me your ideas.
+Can you send the specific errors you got?
+And is the kernel sources present in
+/lib/modules/`uname -r`/build?
 
-You could give us the program you actually used, no writing
-necessary.  Obviously you had this program, else you wouldn't
-have anything to report at all.
+Regards,
 
-There's nothing "to write", you have it already by implication.
-
-Instead, you told us "do something like this, or that" and lots
-of vague statements and brief incomplete code snippets, then
-expect us to figure out how the magic beans work and fix your
-problem.
-
-And you want respect and help from us? :-)
+-- Asim
