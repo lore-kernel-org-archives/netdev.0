@@ -1,29 +1,30 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: comment about struct tcp_tw_bucket in struct sock
-Date: Wed, 14 May 2003 10:32:36 +0200
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: Dump of TCP hang in established state
+Date: Wed, 14 May 2003 19:08:27 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030514083236.GD8290@Wotan.suse.de>
-References: <20030513210541.GA4415@suse.de> <20030513.163150.28800008.davem@redhat.com>
+Message-ID: <Mutt.LNX.4.44.0305141907210.9712-100000@excalibur.intercode.com.au>
+References: <1052841090.13492.20.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: olh@suse.de, marcelo@conectiva.com.br, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030513.163150.28800008.davem@redhat.com>
+To: Martin Josefsson <gandalf@wlug.westbo.se>
+In-Reply-To: <1052841090.13492.20.camel@tux.rsn.bth.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 13, 2003 at 04:31:50PM -0700, David S. Miller wrote:
->    From: Olaf Hering <olh@suse.de>
->    Date: Tue, 13 May 2003 23:05:41 +0200
-> 
->    we just hit this one. struct tcp_tw_bucket and stuct sock must match.
->    
->    Please apply.
-> 
-> It's documented in tcp.h already.
+On 13 May 2003, Martin Josefsson wrote:
 
-Just not everybody changing sock.h also reads tcp.h :-(
+> - There are those mysterious TCP hangs of established state sockets. 
+>   Someone has to get a good log in order for us to effectively debug this.
+> 
+> I think this is what I've seen a few times when using distcc.
 
--Andi
+Does anyone know if the other hangs are seen when the app is using 
+TCP_CORK (like distcc does) ?
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
