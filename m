@@ -1,36 +1,50 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC,PATCH] fastroute dead code...
-Date: Fri, 30 Jul 2004 17:11:03 -0400
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: gigabit trouble
+Date: Fri, 30 Jul 2004 23:41:20 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410AB967.2010202@pobox.com>
-References: <20040730060348.GA22854@havoc.gtf.org>	 <ea86ce220407301229522be64f@mail.gmail.com>	 <20040730193515.GA11365@havoc.gtf.org>	 <20040730131004.2be1274d.davem@redhat.com> <1091219266.1029.470.camel@jzny.localdomain>
+Message-ID: <20040730234120.A15536@electric-eye.fr.zoreil.com>
+References: <b71082d8040729094537e59a11@mail.gmail.com> <20040729210401.A32456@electric-eye.fr.zoreil.com> <b71082d80407291541f9d6f93@mail.gmail.com> <b71082d804073008157cf1d6c0@mail.gmail.com> <20040730205412.A15669@electric-eye.fr.zoreil.com> <b71082d804073014037bc5dd5a@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, tmattox@gmail.com,
-        netdev@oss.sgi.com, Ralf Baechle <ralf@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1091219266.1029.470.camel@jzny.localdomain>
+To: Bart Alewijnse <scarfboy@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <b71082d804073014037bc5dd5a@mail.gmail.com>; from scarfboy@gmail.com on Fri, Jul 30, 2004 at 11:03:29PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Fri, 2004-07-30 at 16:10, David S. Miller wrote:
->>I totally agree.  And people can always resurrect it from the
->>repository history or an old tarball if they wish.
+Bart Alewijnse <scarfboy@gmail.com> :
+> You are aware that this is a celeron at 400 mhz, and not whatever 400
+> is or possibly isn't in that annoying new naming scheme? (Just
+> checking...)
+
+Yes. It is good enough to handle some network traffic.
+
+[...]
+> Anyhow, on transmit from the celeron box, under extreme benchy
+> circumstrances, I've seen it around 16Kints/s on transmit and 13k on
+> receive. But under everyday nfs/samba, 6400 is about the best it does
+> either way.
+
+The figures does not seem bad.
+
+I am curious: which chipset does the motherboard include ?
+An 'lspci -vx' sums it quite well.
+
+[...]
+> This may be due to fiddling with said wmem, etc values, I set some of them
+
+It should not.
+
+> considerably larger. I did get a few percent apparent speed increase,
+> incidentally, though that may have been wishful thinking.
 > 
-> 
-> Patches are needed for the driver to use that code. So its not entirely
-> dead code i.e it is referenced from fastroute enabled drivers.
-> Sample (really old) code found at:
-> http://ftp.iasi.roedu.net/mirrors/ftp.inr.ac.ru/ip-routing/fastroute/
+> I guess I should try >= 2.6.8-rc2-mm1 next?
 
+Please. Do not compile in preempt/ipv6/smp. SMP is supposed to be safe
+but you do not need it and it will not make your r8169 faster if you have
+only one CPU. I'd welcome a 'vmstat 1' output as it gives the bi/bo.
 
-Actually the opposite...  the driver infrastructure is pretty much in 
-place.  It's the core IPv4 routing code that no longer does what people 
-think :)
-
-grep for RTCF_FAST in 2.4.x and then in 2.6.x...
-
-	Jeff
+--
+Ueimor
