@@ -1,36 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH|RFC] IPv6: have a proxy discard link-local traffic
-Date: Tue, 03 Feb 2004 17:19:52 +0900 (JST)
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: Conntrack leak (2.6.2rc2)
+Date: Tue, 3 Feb 2004 09:48:55 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040203.171952.105535895.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.44.0401170906160.9907-100000@netcore.fi>
-	<Pine.LNX.4.58.0401272259160.28384@rhea.tcs.hut.fi>
-	<20040128115910.0a83e906.davem@redhat.com>
+Message-ID: <Pine.LNX.4.33.0402030941100.11027-100000@blackhole.kfki.hu>
+References: <Pine.LNX.4.58.0402021039540.5347@sorbus2.navaho>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vnuorval@tcs.hut.fi, pekkas@netcore.fi, usagi-core@linux-ipv6.org,
-        netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20040128115910.0a83e906.davem@redhat.com>
+To: Steve Hill <steve@navaho.co.uk>
+In-Reply-To: <Pine.LNX.4.58.0402021039540.5347@sorbus2.navaho>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040128115910.0a83e906.davem@redhat.com> (at Wed, 28 Jan 2004 11:59:10 -0800), "David S. Miller" <davem@redhat.com> says:
+On Mon, 2 Feb 2004, Steve Hill wrote:
 
-> On Tue, 27 Jan 2004 23:11:20 +0200 (EET)
-> Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
-> 
-> > Dave, since even Pekka is now convinced this patch doesn't break anything,
-> > would you consider applying it? :)
-> 
-> Yoshfuji asked for some time, so let us give it to him so he
-> may analyze your change without rushing.
+> Just to confirm, you have your network set up like:
+>
+>     [ Machine 1 ]----[ Machine 2 ]----[Machine 3]
+>
+> Machines 1 and 3 are running the 2.4 kernel for me, but that shouldn't be
+> important.
+> Machine 2 is running 2.6.2rc2.
 
-David, I'm (or we're) ok with this patch. Please apply. Thanks.
-(But I still do not eat the proxy ND patch.)
+I created exactly the same setup (machine 1 and 3 are UMLs) and could not
+reproduce the problem. tcpdump shows that machine 1 sends fragmented ICMP
+echo requests and machine 3 sends ICMP echo reply back. On machine 2,
+ip_conntrack_max is lowered to 10, still there is no problem after
+hundreds of pings.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Do you have any extra patch applied on the top of 2.6.2rc2?
+
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlec@sunserv.kfki.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : KFKI Research Institute for Particle and Nuclear Physics
+          H-1525 Budapest 114, POB. 49, Hungary
