@@ -1,111 +1,205 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
-Subject: Re: sis900: eth0: NULL pointer encountered in Rx ring, skipping
-Date: Wed, 19 Jan 2005 21:52:35 +0100
-Message-ID: <5cac192f0501191252406a13f2@mail.gmail.com>
-References: <20050118101358.GA9335@xi.wantstofly.org>
-	 <20050118102139.GA9507@xi.wantstofly.org>
-Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
+From: Christian Borntraeger <cborntra@de.ibm.com>
+Subject: Re: [PATCH] ipv6: alternative version of S/390 shared NIC support
+Date: Wed, 19 Jan 2005 21:52:23 +0100
+Message-ID: <200501192152.23865.cborntra@de.ibm.com>
+References: <20050116115431.GA13617@lst.de> <200501181653.59041.christian@borntraeger.net> <1106142567.1049.970.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_264_30301378.1106167955403"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@lst.de>, "David S. Miller" <davem@davemloft.net>,
+        pavlic@de.ibm.com, waldi@debian.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050118102139.GA9507@xi.wantstofly.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1106142567.1049.970.camel@jzny.localdomain>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-------=_Part_264_30301378.1106167955403
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+jamal wrote:
+[...]
+> > > Can you provision multiple of these cards per VM? if yes, is there
+> > > some ID that will break it down to OSInstance:cardid?
+>
+> You did not answer this question.
+> Let me draw a diagram to show what i think the hierachy is:
+>
+>   Physical Card: MAC address X
+>
+>
+>      +--- OSInstance A
+>
+>      |        +-- "CARD" with IP A
+>      |        +-- "CARD" with IP B
+>      |        +-- "CARD" with IP C
+>      |        +-- "CARD" with IP D
+>
+>      .
+>      .
+>      .
+>
+>      +--- OSInstance N
+>
+>               +-- "CARD" with IP Z
+>
+>
+> Is the above reflective of what happens?
 
-On Tue, 18 Jan 2005 11:21:39 +0100, Lennert Buytenhek
-<buytenh@wantstofly.org> wrote:
-> On Tue, Jan 18, 2005 at 11:13:58AM +0100, Lennert Buytenhek wrote:
-> 
-> > I can make one of my machines, which has an on-board sis900 NIC, lose
-> > network connectivity within seconds by doing something like
-> > "nc -l -p 6666 > /dev/null" and then blasting some data towards it.  When
-> > this happens, syslog fills up with these messages:
-> >
-> >       eth0: NULL pointer encountered in Rx ring, skipping
-> 
-> Just before it starts spewing these it says:
-> 
->         eth0: Memory squeeze,deferring packet.
-> 
-> So apparently it just doesn't deal with OOM very well.
+No. Its in the simplest case a one level hierarchy, but always outside 
+Linux. 
+Just for demonstration purposes, just IMAGINE, that a cards has only one 
+device address (devno):
 
-There are dev_alloc_skb()'s failing due to memory shortage. I think
-anyhow that the sis9000 driver doesnt handle "memory squeeze"
-situations right. Why not throwing current rx packet away and reuse
-ring entry instead of leaving holes (null skb's) in the ring. I would
-suggest a patch to the sis900 driver around that attached.
+-----net-------\
+               ||
+            |hardware          |
+            \------------------/
+             |  | | | | |     | 
+  /--devno---/  | | | | |     |
+  |             | . . . .     |
+  |             |             |
+Linux1       Linux2  ....... Linuxn
 
-Warning: patch compiling but untested - dont have hardware handy.  
+> In other words, packet comes from the wire (with MAC address X); somehow
+> the hypervisor(?) or firmware figures based on IP address A (assuming no
+> other instance has that IP) it has to send packet to OSInstanceA.
 
--- 
-Eric
+Right. Basically, the card has a table:
+DEVNO  | IP address | ROUTER?
+0-ffff | ....       | primary, secondary 
 
-------=_Part_264_30301378.1106167955403
-Content-Type: application/octet-stream; name="sis900.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="sis900.patch"
+If then a packet arrives it has an IP address.
+The card looks this address up in this table:
 
-PT09PT0gZHJpdmVycy9uZXQvc2lzOTAwLmMgMS41NiB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuNTYv
-ZHJpdmVycy9uZXQvc2lzOTAwLmMJMjAwNC0wOC0yNSAwOToxNToyMCArMDI6MDAKKysrIGVkaXRl
-ZC9kcml2ZXJzL25ldC9zaXM5MDAuYwkyMDA1LTAxLTE5IDIxOjQ4OjI3ICswMTowMApAQCAtMTY1
-MCw3ICsxNjUwLDcgQEAKIAkJCS8qIHJlc2V0IGJ1ZmZlciBkZXNjcmlwdG9yIHN0YXRlICovCiAJ
-CQlzaXNfcHJpdi0+cnhfcmluZ1tlbnRyeV0uY21kc3RzID0gUlhfQlVGX1NJWkU7CiAJCX0gZWxz
-ZSB7Ci0JCQlzdHJ1Y3Qgc2tfYnVmZiAqIHNrYjsKKwkJCXN0cnVjdCBza19idWZmICogc2tiLCAq
-bmV3X3NrYjsKIAogCQkJLyogVGhpcyBzaXR1YXRpb24gc2hvdWxkIG5ldmVyIGhhcHBlbiwgYnV0
-IGR1ZSB0bwogCQkJICAgc29tZSB1bmtub3cgYnVncywgaXQgaXMgcG9zc2libGUgdGhhdApAQCAt
-MTY2MiwxMSArMTY2MiwzMCBAQAogCQkJCWJyZWFrOwogCQkJfQogCisJCQlza2IgPSBzaXNfcHJp
-di0+cnhfc2tidWZmW2VudHJ5XTsKKworCQkJaWYgKChuZXdfc2tiID0gZGV2X2FsbG9jX3NrYihS
-WF9CVUZfU0laRSkpID09IE5VTEwpIHsKKwkJCQlwcmludGsoS0VSTl9JTkZPICIlczogbWVtb3J5
-IHNob3J0YWdlLCByeCBwYWNrZXQgZHJvcHBlZFxuIiwKKwkJCQkJbmV0X2Rldi0+bmFtZSk7CisK
-KwkJCQlzaXNfcHJpdi0+cnhfcmluZ1tlbnRyeV0uY21kc3RzID0gUlhfQlVGX1NJWkU7CisJCQkJ
-c2lzX3ByaXYtPnN0YXRzLnJ4X2Ryb3BwZWQrKzsKKwkJCQlzaXNfcHJpdi0+ZGlydHlfcngrKzsg
-LyogZGlydHkgbm8gbG9uZ2VyIG5lZWRlZD8gKi8KKwkJCQlicmVhazsgLyogbmV4dCAqLworCQkJ
-fQorCiAJCQlwY2lfdW5tYXBfc2luZ2xlKHNpc19wcml2LT5wY2lfZGV2LCAKIAkJCQlzaXNfcHJp
-di0+cnhfcmluZ1tlbnRyeV0uYnVmcHRyLCBSWF9CVUZfU0laRSwgCiAJCQkJUENJX0RNQV9GUk9N
-REVWSUNFKTsKKworCQkJbmV3X3NrYi0+ZGV2ID0gbmV0X2RldjsKKwkJCXNpc19wcml2LT5yeF9z
-a2J1ZmZbZW50cnldID0gbmV3X3NrYjsKKwkJCXNpc19wcml2LT5yeF9yaW5nW2VudHJ5XS5jbWRz
-dHMgPSBSWF9CVUZfU0laRTsKKyAgICAgICAgICAgICAgICAJc2lzX3ByaXYtPnJ4X3JpbmdbZW50
-cnldLmJ1ZnB0ciA9IAorCQkJCXBjaV9tYXBfc2luZ2xlKHNpc19wcml2LT5wY2lfZGV2LCBuZXdf
-c2tiLT50YWlsLCAKKwkJCQkJUlhfQlVGX1NJWkUsIFBDSV9ETUFfRlJPTURFVklDRSk7CisKIAkJ
-CS8qIGdpdmUgdGhlIHNvY2tldCBidWZmZXIgdG8gdXBwZXIgbGF5ZXJzICovCi0JCQlza2IgPSBz
-aXNfcHJpdi0+cnhfc2tidWZmW2VudHJ5XTsKIAkJCXNrYl9wdXQoc2tiLCByeF9zaXplKTsKIAkJ
-CXNrYi0+cHJvdG9jb2wgPSBldGhfdHlwZV90cmFucyhza2IsIG5ldF9kZXYpOwogCQkJbmV0aWZf
-cngoc2tiKTsKQEAgLTE2NzgsMjkgKzE2OTcsNiBAQAogCQkJc2lzX3ByaXYtPnN0YXRzLnJ4X2J5
-dGVzICs9IHJ4X3NpemU7CiAJCQlzaXNfcHJpdi0+c3RhdHMucnhfcGFja2V0cysrOwogCi0JCQkv
-KiByZWZpbGwgdGhlIFJ4IGJ1ZmZlciwgd2hhdCBpZiB0aGVyZSBpcyBub3QgZW5vdWdodCBtZW1v
-cnkgZm9yCi0JCQkgICBuZXcgc29ja2V0IGJ1ZmZlciA/PyAqLwotCQkJaWYgKChza2IgPSBkZXZf
-YWxsb2Nfc2tiKFJYX0JVRl9TSVpFKSkgPT0gTlVMTCkgewotCQkJCS8qIG5vdCBlbm91Z2ggbWVt
-b3J5IGZvciBza2J1ZmYsIHRoaXMgbWFrZXMgYSAiaG9sZSIKLQkJCQkgICBvbiB0aGUgYnVmZmVy
-IHJpbmcsIGl0IGlzIG5vdCBjbGVhciBob3cgdGhlCi0JCQkJICAgaGFyZHdhcmUgd2lsbCByZWFj
-dCB0byB0aGlzIGtpbmQgb2YgZGVnZW5lcmF0ZWQKLQkJCQkgICBidWZmZXIgKi8KLQkJCQlwcmlu
-dGsoS0VSTl9JTkZPICIlczogTWVtb3J5IHNxdWVlemUsIgotCQkJCSAgICAgICAiZGVmZXJyaW5n
-IHBhY2tldC5cbiIsCi0JCQkJICAgICAgIG5ldF9kZXYtPm5hbWUpOwotCQkJCXNpc19wcml2LT5y
-eF9za2J1ZmZbZW50cnldID0gTlVMTDsKLQkJCQkvKiByZXNldCBidWZmZXIgZGVzY3JpcHRvciBz
-dGF0ZSAqLwotCQkJCXNpc19wcml2LT5yeF9yaW5nW2VudHJ5XS5jbWRzdHMgPSAwOwotCQkJCXNp
-c19wcml2LT5yeF9yaW5nW2VudHJ5XS5idWZwdHIgPSAwOwotCQkJCXNpc19wcml2LT5zdGF0cy5y
-eF9kcm9wcGVkKys7Ci0JCQkJYnJlYWs7Ci0JCQl9Ci0JCQlza2ItPmRldiA9IG5ldF9kZXY7Ci0J
-CQlzaXNfcHJpdi0+cnhfc2tidWZmW2VudHJ5XSA9IHNrYjsKLQkJCXNpc19wcml2LT5yeF9yaW5n
-W2VudHJ5XS5jbWRzdHMgPSBSWF9CVUZfU0laRTsKLSAgICAgICAgICAgICAgICAJc2lzX3ByaXYt
-PnJ4X3JpbmdbZW50cnldLmJ1ZnB0ciA9IAotCQkJCXBjaV9tYXBfc2luZ2xlKHNpc19wcml2LT5w
-Y2lfZGV2LCBza2ItPnRhaWwsIAotCQkJCQlSWF9CVUZfU0laRSwgUENJX0RNQV9GUk9NREVWSUNF
-KTsKIAkJCXNpc19wcml2LT5kaXJ0eV9yeCsrOwogCQl9CiAJCXNpc19wcml2LT5jdXJfcngrKzsK
-QEAgLTE3MDgsNiArMTcwNCw3IEBACiAJCXJ4X3N0YXR1cyA9IHNpc19wcml2LT5yeF9yaW5nW2Vu
-dHJ5XS5jbWRzdHM7CiAJfSAvLyB3aGlsZQogCisjaWYgMCAvKiBubyBuZWVkIHRvIHJlZmlsbCBz
-a2JzIGFyZSBhZGRlZCB0byB0aGUgcnggcmluZyBhcyBwYWNrZXRzIGFyZSByZWNlaXZlZCAqLwog
-CS8qIHJlZmlsbCB0aGUgUnggYnVmZmVyLCB3aGF0IGlmIHRoZSByYXRlIG9mIHJlZmlsbGluZyBp
-cyBzbG93ZXIgdGhhbiAKIAkgICBjb25zdW1pbmcgPz8gKi8KIAlmb3IgKDtzaXNfcHJpdi0+Y3Vy
-X3J4IC0gc2lzX3ByaXYtPmRpcnR5X3J4ID4gMDsgc2lzX3ByaXYtPmRpcnR5X3J4KyspIHsKQEAg
-LTE3MzUsNiArMTczMiw3IEBACiAJCQkJCVJYX0JVRl9TSVpFLCBQQ0lfRE1BX0ZST01ERVZJQ0Up
-OwogCQl9CiAJfQorI2VuZGlmCiAJLyogcmUtZW5hYmxlIHRoZSBwb3RlbnRpYWxseSBpZGxlIHJl
-Y2VpdmUgc3RhdGUgbWF0Y2hpbmUgKi8KIAlvdXRsKFJ4RU5BIHwgaW5sKGlvYWRkciArIGNyKSwg
-aW9hZGRyICsgY3IgKTsKIAo=
-------=_Part_264_30301378.1106167955403--
+   |
+   |
+   V
+is it registered             ----yes----> forward to the device number
+   |
+   |
+   V
+is there a primary router?   ----yes----> forward to device number of the
+   |                                      the primary router
+   |
+   |
+   V
+is there a secondary router? ----yes----> forward to device number of the
+   |                                      the secondary router
+   |
+   V
+drop packet. 
+
+> OSInstanceA then selects further the CARD based on something probably in
+> a descriptor?
+
+No. The packet arrives on one "CARD" and Linux gets an "interrupt" and 
+fetches the packet from that card.  You can of course have more cards per 
+linux by providing more device numbers in the profile of the virtual 
+machine. But that makes no sense unless you do some testing or the guest 
+operating system is a hypervisor itself and can dispatch the device 
+addresses to its virtual machines. 
+
+>
+> Let me get to the point:
+> I think it would make sense for the "CARD" to be just another netdevice
+> (call it "card" netdevice for this discussion).
+> The representation of the physical card in the OSInstance is also a
+> netdevice(call it physical netdevice for this discussion) as it is now
+> (excpet it has no IP address ever).
+> The "card netdevices" are stacked on top of the physical netdevice. This
+> would be like an upside down bridge stacking relationship of
+> netdevices....
+> It actually is no different from a few tunnel netdevices that sit on top
+> of say eth0 or multiple PPP devices on top of ethx in a PPPOE
+> relationship.
+> The demuxing for incoming packets is done at physical card netdevice
+> to select the "card" netdevice whose receive method is then called.
+> Reverse direction for transmit (we could go into details later, just
+> wanna make sure this is sensible to begin with).
+
+If I understood you right, you think that Linux has any control of the real 
+hardware device and the card itself is created in the qeth linux driver as 
+some obscure thing.  
+No, for Linux the device backed by the 3 device addresses is as real as you 
+and me. The qeth driver calls alloc_etherdev for the device represented by 
+the 3 device addresses and, therefore, creating a netdevice for this card. 
+Thats all we have. A card that only speaks IPv4 and IPv6 with us and that 
+handles ARP for magically. To make it worse, the card only cooperates if we 
+tell the card, which IP addresses we want to use. (by the way, the card 
+recognizes duplicates)
+
+
+> Does this sound reasonable? If yes, then if you do this you wont need to
+> hack anything like IPV6 etc in your driver - they become merely
+> netdevices. It should also allow for all standard features like ifconfig
+> up/down etc of the "card" and setting IP addresses, VLANS etc to work as
+> is. And you wont need to put any speacilized code in the driver.
+> If its off tangent, then i just wasted 1/2 a cup of coffee energy typing
+> away ;->
+
+Well, I think  you havent been fully aware of the way the card works. I hope 
+my explanation above makes it clearer. 
+In one sentence: our Linux qeth "CARDS" _are_ already netdevices. (We are 
+speaking about struct net_device, right?)
+
+Furthermore, as long as there is only one MAC address we need one hack for 
+IPv6, and Christophs version looks very nice and elegant. 
+
+>
+> > Right, without registering the IP address, you can not receive any
+> > packet.
+>
+> If this is firmware issue, it would be wise to fix it. You should be
+> able to register multiple MAC addresses hidden in the firmware (not at
+> the Linux level) and have your "cards" netdevice use them. i.e the
+> "card" netdevices would own those.
+
+Well,newer cards support something like this (see the hardware announcement) 
+http://www-306.ibm.com/common/ssi/fcgi-bin/ssialias?infotype=an&subtype=ca&supplier=897&appname=IBMLinkRedirect&letternum=ENUS104-346
+) its called Layer 2 support. Unfortunately this feature is only available 
+on a subset of cards and newer zSeries machines.
+
+Just for explanation, there is a good reason that you only see the packets 
+for your IP address: scalability of virtualization. Imagine you have a 
+gigabit card shared among 80 Linuxes (quite realistic numbers). If you dont 
+filter early, you have to forward all traffic to every guest system (which 
+then can discard unneeded packages).  Then you have to provide an internal 
+bandwith of 80 Gbit/sec. Not a good idea. Therefore you have to multiplex 
+very very early and cannot set every Linux in promiscous mode for 
+performance reasons. 
+
+Furthermore, it is not that easy to change the way the card works. There are 
+other operating systems like z/OS z/VSE or z/VM running on the same 
+hardware. You dont hastily change the behaviour of hardware, firmware and 
+operating systems which runs in lots of banks and insurance companies with 
+99.999% availability without making sure that everything works flawlessly. 
+
+
+> > As the logical network interface has no own MAC address you actually
+> > speak IP to the card. That also means, that without some additional
+> > effort, tools like tcpdump fail and you need some patches in the dhcp
+> > tools.
+>
+> Refer to above. If you actually have your virtual/"card" netdevice on
+> top of the physical netdevice have a MAC address, then all tools should
+> work as is with zero changes IMO.
+
+Right. Buts that just not the way the hardware works. 
+
+Pick almost any random linux driver to see ugly code to cicumvent a hardware 
+limitation. Have a look at the amount of traps in the kernel to fix cpu 
+"errata". There is no perfect hardware. 
+
+> > You can define options for routers to get more than your own packages,
+> > but IIRC you can only define a primary and secondary router per port.
+>
+> Ok, this is new information - what does a "router" mean in relation to a
+> port?
+
+see above. You can have one primary and one secondary router. 
+
+I hope that helps to understand the problem. If not, please dont hesitate to 
+ask. 
+
+Christian
