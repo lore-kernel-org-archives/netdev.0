@@ -1,44 +1,90 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: ZyXEL GN650-T
-Date: Fri, 12 Nov 2004 22:10:55 +0100
-Message-ID: <20041112211055.GA346@electric-eye.fr.zoreil.com>
-References: <20041107214427.20301.qmail@focomunicatii.ro> <20041107224803.GA29248@electric-eye.fr.zoreil.com> <20041109000006.GA14911@electric-eye.fr.zoreil.com> <20041109232510.GA5582@electric-eye.fr.zoreil.com> <20041110201010.18341.qmail@focomunicatii.ro> <20041110212835.GA23758@electric-eye.fr.zoreil.com> <20041110230853.GB23758@electric-eye.fr.zoreil.com> <20041111073754.27966.qmail@focomunicatii.ro> <20041111095102.GA2280@electric-eye.fr.zoreil.com> <20041112175911.24846.qmail@focomunicatii.ro>
+From: Daniele Venzano <webvenza@libero.it>
+Subject: [PATCH] convert sis900 to new style parameters
+Date: Fri, 12 Nov 2004 23:07:10 +0100
+Message-ID: <20041112220710.GB29980@gateway.milesteg.arr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: seby@focomunicatii.ro, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        alan@redhat.com, jgarzik@pobox.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="p4qYPpj5QlsIQJ0K"
+Cc: NetDev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sebastian.ionita@focomunicatii.ro
+To: Jeff Garzik <jgarzik@pobox.com>, Rusty Russell <rusty@rustcorp.com.au>
 Content-Disposition: inline
-In-Reply-To: <20041112175911.24846.qmail@focomunicatii.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-sebastian.ionita@focomunicatii.ro <sebastian.ionita@focomunicatii.ro> :
-[...]
-> Without vlan's it works but with vlan the behavier is just like with the 
-> old drivers. Shoud I give some param's to the module if want to have vlans ?
 
-I have modified the original patch. Does the network appliance allow you
-to configure some specific VID, say 68, 1028 or 1092 ?
+--p4qYPpj5QlsIQJ0K
+Content-Type: multipart/mixed; boundary="zYM0uCDKw75PZbzx"
+Content-Disposition: inline
 
-If yes, pick one and test the behavior of the three VID on the network adapter,
-ideally within their own insmod, config up, ping (from host and remote),
-config down and rmmod session.
 
-Provided the issue is only a matter of ordering of the VID, something should
-appear in the log/packet statistics when the VID overlap.
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-dmesg/kernel log messages as well as the serie of commands issued would be
-welcome. bzip2 is your friend.
+The attached patch converts MODULE_PARM() calls in module_param() calls.
+I've tested it and the expected files were created in sysfs.
 
-If the VID on the lan side is fixed for you, please send it so I'll see which
-values on the network adapter could match (the values above are not sensitive
-to endianness for instance).
+For now all parameters are read-only. After some check I'll probably
+change some of them to r/w.
 
-A patch against vanilla 2.4.18-rc2 is available at:
-http://www.fr.zoreil.com/people/francois/misc/20041112-2.4.28-rc2-via-velocity-backport.patch
+The patch is against 2.6.9 and if no issues are raised, I propose it for
+inclusion.
 
---
-Ueimor
+This patch is also available at http://teg.homeunix.org/sis900.html
+
+--=20
+-----------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
+
+
+--zYM0uCDKw75PZbzx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sis900-module-param.diff"
+Content-Transfer-Encoding: quoted-printable
+
+--- a/drivers/net/sis900.c	2004-11-12 16:26:50.000000000 +0100
++++ b/drivers/net/sis900.c	2004-11-12 16:33:20.000000000 +0100
+@@ -48,6 +48,7 @@
+ */
+=20
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <linux/kernel.h>
+ #include <linux/string.h>
+ #include <linux/timer.h>
+@@ -179,9 +180,9 @@
+ MODULE_DESCRIPTION("SiS 900 PCI Fast Ethernet driver");
+ MODULE_LICENSE("GPL");
+=20
+-MODULE_PARM(multicast_filter_limit, "i");
+-MODULE_PARM(max_interrupt_work, "i");
+-MODULE_PARM(debug, "i");
++module_param(multicast_filter_limit, int, 0444);
++module_param(max_interrupt_work, int, 0444);
++module_param(debug, int, 0444);
+ MODULE_PARM_DESC(multicast_filter_limit, "SiS 900/7016 maximum number of f=
+iltered multicast addresses");
+ MODULE_PARM_DESC(max_interrupt_work, "SiS 900/7016 maximum events handled =
+per interrupt");
+ MODULE_PARM_DESC(debug, "SiS 900/7016 debug level (2-4)");
+
+--zYM0uCDKw75PZbzx--
+
+--p4qYPpj5QlsIQJ0K
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBlTQO2rmHZCWzV+0RAlLKAJwNBqPurX3dsKcEVm6WOE/muEVPBQCcDaEK
+tpL36BohIy2G5AKUqsdHaFY=
+=VeE/
+-----END PGP SIGNATURE-----
+
+--p4qYPpj5QlsIQJ0K--
