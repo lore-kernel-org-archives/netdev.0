@@ -1,51 +1,50 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Tue, 21 Sep 2004 14:19:52 +0300 (EEST)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Advice needed on IP-over-InfiniBand driver
+Date: 21 Sep 2004 07:35:54 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0409211412580.1570-100000@netcore.fi>
-References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+Message-ID: <1095766554.1049.49.camel@jzny.localdomain>
+References: <52fz5esxx6.fsf@topspin.com>
+	 <20040919140133.60ea3fb3.davem@davemloft.net>
+	 <1095628759.1049.22.camel@jzny.localdomain>  <52y8j5r1d6.fsf@topspin.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Netdev List <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+To: Roland Dreier <roland@topspin.com>
+In-Reply-To: <52y8j5r1d6.fsf@topspin.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Sep 2004, Harald Welte wrote:
-> 1) should I try to use jhash for ipv6, too?
+On Mon, 2004-09-20 at 00:49, Roland Dreier wrote:
+>     jamal> Probably just easier to have his own private tables holding
+>     jamal> reference to neighbor entries instead of polluting the
+>     jamal> neighbor tables.  Listens to ARP events - on state
+>     jamal> transition to/from reachable state he queries his remote
+>     jamal> manager.
 > 
-> 2) Dave has indicated that there should be an upper limit for hash
->    buckets.  What is considered a reasonable upper bound, even for very
->    large systems?
-[...]
-> 5) What is the proposed solution for IPv6, when you have /48 or /64 bit
->    prefixes and systems become even more vulnerable to neighbour cache
->    attacks?  
+> This does seem neater, but I don't know how to implement it.  How does
+> one hook into ARP events?
 
-The situation with IPv6 is not much different than with IPv4.
+Are you doing the path manager from user space or kernel?
+Its easy to generate netlink events to user space; you could then
+have the manager create path from user space. 
 
-It's better in the sense that nobody will be portscanning the whole 
-address space or subnets as a means to look for nodes.  So, the 
-viruses, worms, exploits etc. will need to use other techniques, so 
-the practical need is lower. [and those nodes which try and fall over 
-from resource exhaustion .. well, they deserve it ;-)]
+>     jamal> Curious though if ARP still works even when that "path"
+>     jamal> thing hasnt been resolved.
+> 
+> ARP works because we can send broadcasts even without a path to a
+> specific destination.  (I'm leaving out the details of how IP
+> broadcast gets mapped to InfiniBand multicast)  When the system with
+> the IP we're looking for receives a broadcast ARP, it can use the HW
+> address in the ARP request to look up a path, so it can send an ARP
+> reply.
 
-It's worse in the sense that there is more space in each subnet for
-doing aggressive probing -- but this may not be a big issue with a
-good algorithm and a threshold.
+So the sending broadcast path is essentially existent already.
 
-In short, I don't think there needs to be anything special for IPv6.  
-Just the same mechanisms as for IPv4 -- at some threshold, start 
-garbage collecting more aggressively, using a "least-recently-used" 
-algorithm (or the like). 
+Like i said above, depending on how you do this remote manager; in
+kernel would be a little more involved.
 
-To constraint remote resource exhaustion exploits please make sure 
-that the algorithm is sufficiently can also deal with the threat 
-described at RFC 3756 section 4.3.2.
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+cheers,
+jamal
