@@ -1,25 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Prefix List patch against 2.5.70
-Date: Fri, 30 May 2003 23:32:57 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030530.233257.21920899.davem@redhat.com>
-References: <3ED80230.2030508@us.ibm.com>
-	<20030531.110249.12960077.yoshfuji@linux-ipv6.org>
+Subject: Re: netlink tester program
+Date: Fri, 30 May 2003 23:42:11 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030530.234211.102567405.davem@redhat.com>
+References: <20030530090015.7c435c9a.rddunlap@osdl.org>
+	<20030530.171111.71099698.davem@redhat.com>
+	<32804.4.64.196.31.1054351332.squirrel@www.osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: krkumar@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030531.110249.12960077.yoshfuji@linux-ipv6.org>
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: rddunlap@osdl.org
+In-Reply-To: <32804.4.64.196.31.1054351332.squirrel@www.osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Sat, 31 May 2003 11:02:49 +0900 (JST)
+   From: "Randy.Dunlap" <rddunlap@osdl.org>
+   Date: Fri, 30 May 2003 20:22:12 -0700 (PDT)
    
-   Again, what I proposed was to store prefix information on fib with 
-   some flags to represent advertised by routers and give user-space 
-   the RA information using new rtattr (RTA_RA6INFO or something like that).
+   Oh well, it's at this URL, bugs and all.
+   
+   http://www.xenotime.net/linux/ipv6/rtnl_test.c
+   
+I know you don't want to use libnetlink from iproute2, but I want to
+stress that it takes care of all of the minutae of netlink socket
+usage that you have to duplicate in your little test program and this
+duplication leads to bugs.
 
-This sounds very reasonable.
+Firstly, you needs to be fixed to call recvmsg() multiple times,
+you'll get one entry for each recvmsg call in the table you are
+querying.
+
+You really need something like rtnl_talk() or rtnl_dump_filter()
+from libnetlink to do this properly.
