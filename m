@@ -1,53 +1,32 @@
-From: Ming Zhang <mingz@ele.uri.edu>
-Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of
-	2005 Kernel Summit Proposed Topics)
-Date: Mon, 04 Apr 2005 08:58:20 -0400
-Message-ID: <1112619500.2880.7.camel@localhost.localdomain>
-References: <67D69596DDF0C2448DB0F0547D0F947E01781F2E@yogi.asicdesigners.com>
-	 <1112576171.4227.5.camel@mylaptop> <20050404063456.GB30855@colo.lackof.org>
-	 <20050404001000.5fa8f206.davem@davemloft.net>
-Reply-To: mingz@ele.uri.edu
+From: Aidas Kasparas <a.kasparas@gmc.lt>
+Subject: Re: [Ipsec-tools-devel] Re: IPSEC: on behavior of acquire
+Date: Mon, 04 Apr 2005 15:59:27 +0300
+Message-ID: <42513A2F.7020504@gmc.lt>
+References: <1112405303.1096.37.camel@jzny.localdomain>	 <424E454D.4090402@gmc.lt> <1112477326.1088.321.camel@jzny.localdomain>	 <424FA946.70809@gmc.lt> <1112538566.1096.391.camel@jzny.localdomain>	 <425067D9.9050603@gmc.lt> <1112618007.1096.465.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-        Dmitry Yusupov <dmitry_yus@yahoo.com>, mpm@selenic.com, andrea@suse.de,
-        michaelc@cs.wisc.edu, James.Bottomley@HansenPartnership.com,
-        ksummit-2005-discuss@thunk.org, netdev@oss.sgi.com
+Cc: ipsec-tools-devel@lists.sourceforge.net, netdev <netdev@oss.sgi.com>,
+        nakam@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: open-iscsi <open-iscsi@googlegroups.com>
-In-Reply-To: <20050404001000.5fa8f206.davem@davemloft.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1112618007.1096.465.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-04-04 at 03:10, David S. Miller wrote:
-> On Mon, 4 Apr 2005 00:34:56 -0600
-> Grant Grundler <grundler@parisc-linux.org> wrote:
-> 
-> > Yes and No. PCI-X isn't fast enough but the data only crosses
-> > the PCI-X bus once.  Think about the data flow:
-> > 	1) DMA to RAM
-> > 	2) load into CPU cache
-> > 	3) store back into RAM
-> > 
-> > We are down to 40% left...graphics folks won't like you.
-> 
-> But you're missing the point, which is that the memory system
-> always catches up to the networking technology.
-> 
-> We'll have that %60 back before you know it when we have
-> PCI-Z and DDR8 or whatever even in $500.00USD desktop machines.
-10G is supposed to be deployed in 2005 and 2006. while i did not see
-DDR4 come out yet.
 
 
-> 
-> And those systems will be present by the time we put together
-> this complicated infrastructure for RDMA.
-> 
-> RDMA is like cache coloring page allocators, it's for yesterday's
-> technology that we won't be using tomorrow. :-)
-> 
-> Those steps #2 and #3 in your data flow are powerful, it is what
-> gives us flexibility.  And in a general purpose OS that is important.
+jamal wrote:
+> I think i have made a bad case of explaining.
+> Yes, I know where acquires terminate. However this is not about where
+> acquires terminate. It is insufficient to assume that a succesful
+> acquire to user space equates to successful interaction to the KE server
+> which will do an update.
+
+Why?
+
+-- 
+Aidas Kasparas
+IT administrator
+GM Consult Group, UAB
