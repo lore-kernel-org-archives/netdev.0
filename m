@@ -1,34 +1,36 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: dummy as IMQ replacement
-Date: Mon, 31 Jan 2005 19:00:48 +0100
-Message-ID: <20050131180048.GA24851@xi.wantstofly.org>
-References: <1107123123.8021.80.camel@jzny.localdomain> <200501311614.31397.hasso@estpak.ee> <1107181551.7847.193.camel@jzny.localdomain> <200501311646.14322.hasso@estpak.ee>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Mon, 31 Jan 2005 19:06:40 +0100
+Message-ID: <16894.29616.137437.542900@robur.slu.se>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
+	<16879.58333.266843.335475@robur.slu.se>
+	<200501201114.49517.jeremy.guthrie@berbee.com>
+	<200501310937.30427.jeremy.guthrie@berbee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Hasso Tepper <hasso@estpak.ee>
-Content-Disposition: inline
-In-Reply-To: <200501311646.14322.hasso@estpak.ee>
+To: jeremy.guthrie@berbee.com
+In-Reply-To: <200501310937.30427.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 31, 2005 at 04:46:14PM +0200, Hasso Tepper wrote:
 
-> This is somewhat related to killing the chance to use iptables as well ... 
-> Iptables has better documentation and people use it just because of that.
+Jeremy M. Guthrie writes:
+ > Just wanted to verify that by the term linear search from rtstat/lnstat, you 
+ > mean a search of the buckets for a particular hash?
+ 
+ Yes.
 
-I'm afraid I have to agree on this one.  The idea behind iptables is
-easy to grasp, whereas tc isn't totally obvious, and all tc 'tutorials'
-out there just give you a long list of commands to type in but don't
-really explain you what goes on under the hood.
+ > We're going live tomorrow with the app.  Afterwards I'll load up the no route 
+ > caching patch and test that.
 
-And you can't just expect everyone to "Go look at the source."
+Ok! Look at the patch just posted to davem. We should able view and control 
+gc_min_interval better.
+ 
+net.ipv4.route.gc_min_interval_ms = 300
+net.ipv4.route.gc_min_interval = 0
 
-
---L
+						--ro
