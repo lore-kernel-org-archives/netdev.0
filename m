@@ -1,65 +1,49 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH 2.6] Prevent tulip cardbus cards from freezing machine
-Date: Thu, 27 May 2004 11:59:04 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [PFKEY] Set family for state selector
+Date: Thu, 27 May 2004 20:44:45 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040527095904.GG12225@suse.de>
+Message-ID: <20040527104445.GA24976@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="C7zPtVaVf+AK4Oqc"
+Content-Type: multipart/mixed; boundary="SLDf9lqlvOQaIe6s"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---C7zPtVaVf+AK4Oqc
+--SLDf9lqlvOQaIe6s
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Hi,
+Hi Dave:
 
-here's a patch that should prevent lockups with tulip cardbus cards
-after APM suspend/resume, or when pulling out the card.
+As the comment in the code suggests, nobody really uses this so nobody
+will notice the difference :) Still, let's make it correct while we're
+at it.
 
-The problem is that the status register seems to return 0xffffffff in
-this case, and tulip_poll thinks RxIntr is asserted all the time.
-
-Please review.
-
-Cheers
-Olaf
+Cheers,
 -- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---C7zPtVaVf+AK4Oqc
+--SLDf9lqlvOQaIe6s
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=tulip-pcmcia-remove
+Content-Disposition: attachment; filename=p
 
---- linux-2.6.5/drivers/net/tulip/interrupt.c.suspend	2004-04-04 05:36:48.000000000 +0200
-+++ linux-2.6.5/drivers/net/tulip/interrupt.c	2004-05-25 12:24:07.000000000 +0200
-@@ -113,6 +113,7 @@
- 	int entry = tp->cur_rx % RX_RING_SIZE;
- 	int rx_work_limit = *budget;
- 	int received = 0;
-+	int csr5;
+===== net/key/af_key.c 1.58 vs edited =====
+--- 1.58/net/key/af_key.c	2004-05-26 06:09:13 +10:00
++++ edited/net/key/af_key.c	2004-05-27 20:37:08 +10:00
+@@ -1059,7 +1059,7 @@
+ 		struct sadb_address *addr = ext_hdrs[SADB_EXT_ADDRESS_PROXY-1];
  
- 	if (!netif_running(dev))
- 		goto done;
-@@ -254,7 +255,12 @@
-                 * No idea how to fix this if "playing with fire" will fail
-                 * tomorrow (night 011029). If it will not fail, we won
-                 * finally: amount of IO did not increase at all. */
--       } while ((inl(dev->base_addr + CSR5) & RxIntr));
-+	       csr5 = inl(dev->base_addr + CSR5);
-+	       if (csr5 == 0xffffffff) {
-+		       printk(KERN_DEBUG "tulip_poll: hardware disappeared.\n");
-+		       break;
-+	       }
-+       } while (csr5 & RxIntr);
-  
- done:
-  
+ 		/* Nobody uses this, but we try. */
+-		pfkey_sadb_addr2xfrm_addr(addr, &x->sel.saddr);
++		x->sel.family = pfkey_sadb_addr2xfrm_addr(addr, &x->sel.saddr);
+ 		x->sel.prefixlen_s = addr->sadb_address_prefixlen;
+ 	}
+ 
 
---C7zPtVaVf+AK4Oqc--
+--SLDf9lqlvOQaIe6s--
