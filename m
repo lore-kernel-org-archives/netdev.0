@@ -1,40 +1,90 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: Oops in 2.6.0-test[89] in tcp_v4_get_port (kernel with IPv6
- enabled)
-Date: Sat, 01 Nov 2003 12:15:37 +0900 (JST)
+From: Christian <evil@g-house.de>
+Subject: ppc32 lockups with 2.6
+Date: Sat, 01 Nov 2003 05:30:58 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031101.121537.105697095.yoshfuji@linux-ipv6.org>
-References: <20031031145542.28e8b820.akpm@osdl.org>
+Message-ID: <3FA33702.60401@g-house.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, akpm@digeo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: raffaele.brancaleoni@sun.com
-In-Reply-To: <20031031145542.28e8b820.akpm@osdl.org>
+To: linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20031031145542.28e8b820.akpm@osdl.org> (at Fri, 31 Oct 2003 14:55:42 -0800), Andrew Morton <akpm@osdl.org> says:
+moin,
 
-> Date: Fri, 31 Oct 2003 12:30:06 +0100
-> From: Raffaele Brancaleoni <raffaele.brancaleoni@sun.com>
-> To: linux-kernel@vger.kernel.org
-> Subject: Oops in 2.6.0-test[89] in tcp_v4_get_port (kernel with IPv6 enabled)
-:
-> I just encountered a oops with kernels 2.6.0-test8 and -test9 (system
-> freezes the hard way, not even magic-key works). Problem does not exist
-> in 2.4.20.
-:
-> I found a thread about similar issue in the archive
-> (thread subject: "oops in inet_bind/tcp_v4_get_port"). Yoshifuji Hideaki 
->   provided a patch but unfortunately it causes some problems with 
-> ip_nat_helper and ip_nat_cores modules compilation (duplicate functions 
-> definitions)...
 
-Please try the latest bk tree (with IPv6 enable, of course).  Thanks.
+i have problems with my ppc32 (PReP) machine and 2.6.0-test* kernels.
+since this is some kind of home "server", i did not test any ealier
+versions, but 2.6.0-test{7|8|9}. all show the same behaviour, somewhere
+during the bootup, the machine just freezes. i found out, that upon
+configuring my thernet devices the lockups occur.
+
+so, i have 2 network cards, both are working under 2.4 with the 3c59x
+(eth0) and tulip (eth1, it's an on-board 21140).
+
+loading the drivers by using insmod / modprobe succeeds, the driver
+registers, some messages are printed.
+
+e.g.
+
+Linux Tulip driver version 1.1.13 (May 11, 2002)
+PCI: Enabling device 0000:00:04.0 (0000 -> 0003)
+tulip0:  EEPROM default media type Autosense.
+tulip0:  Index #0 - Media AUI (#2) described by a 21140 non-MII (0) block.
+tulip0:  Index #1 - Media MII (#11) described by a 21140 MII PHY (1) block.
+tulip0:  MII transceiver #8 config 3100 status 786b advertising 01e1.
+eth0: Digital DS21140 Tulip rev 34 at 0x1800, 08:00:3E:29:0B:B6, IRQ 9.
+
+or
+
+3c59x: Donald Becker and others. www.scyld.com/network/vortex.html
+See Documentation/networking/vortex.txt
+0000:00:06.0: 3Com PCI 3c905C Tornado at 0x1000. Vers LK1.1.19
+  00:01:02:f1:83:37, IRQ 11
+   product code 464a rev 00.13 date 11-12-00
+   Internal config register is 1800000, transceivers 0xa.
+   8K byte-wide RAM 5:3 Rx:Tx split, autoselect/Autonegotiate interface.
+   MII transceiver found at address 24, status 782d.
+   Enabling bus-master transmits and whole-frame receives.
+0000:00:06.0: scatter/gather enabled. h/w checksums enabled
+
+
+"ifconfig eth0" gives then an unconfigured eth0, ok. but using "ifconfig
+eth0 192.168.1.1" results in a lockup. no oops printed, no SysReq anymore.
+
+i tried with the "tulip" modul first, and could "strace" the ifconfig,
+until it freezes.
+
+    http://nerdbynature.de/bits/sheep/network/ifc-tulip.log
+
+the 3c59x module however acted somehow differently: upon using "ifconfig
+eth0 192.168.1.1" the screen filled with strange chars in some pattern,
+i've never seen before on a linux box (no, i was clean :-)) (ok, the
+pattern is probably not important, but it's on [1] anyway) then, the
+system locked up too.
+
+as you can see (http://nerdbynature.de/bits/sheep/network/config) i have
+then compiled some debug options into the kernel, i loaded the 3c59x
+module with "debug=6". also, i want to say that this is not my first
+build of a 2.6 kernel, i have a i386 running pretty stable with 2.6 for
+weeks now; some time ago i used to have an Alpha (AXP) with 2.5.x
+running 24x7.
+
+please let me know, i have forgotten something or where to look further.
+i will be glad to help with running tests and the like.
+
+i don't suspect hw errors here, because both cards are happy working
+under 2.4.
+
+some details about the PrEP machine:
+[1] http://nerdbynature.de/bits/
+
+Thank you,
+Christian.
+
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+BOFH excuse #396:
+
+Mail server hit by UniSpammer.
