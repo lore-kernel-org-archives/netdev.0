@@ -1,83 +1,52 @@
-From: David Schwartz <davids@webmaster.com>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Thu, 13 Jun 2002 03:10:35 -0700
+Date: Mon, 10 Jun 2002 15:28:14 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae9ra0$v9p$2@main.gmane.org>
-References: <5.1.0.14.2.20020613183120.03222cb8@mira-sjcm-3.cisco.com>
+Message-ID: <aea4au$fms$2@main.gmane.org>
+References: <Pine.GSO.4.30.0206101033450.22559-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: Horst von Brand <vonbrand@inf.utfsm.cl>,
-   "David S. Miller" <davem@redhat.com>, Ben Greear <greearb@candelatech.com>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-   jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: <ltd@cisco.com>
-In-Reply-To: <5.1.0.14.2.20020613183120.03222cb8@mira-sjcm-3.cisco.com>
+To: linux-kernel@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> 
+> On Mon, 10 Jun 2002, Mark Mielke wrote:
 
-On Thu, 13 Jun 2002 18:44:20 +1000, Lincoln Dale wrote:
+> > There *are* applications that would benefit from making this decision
+> > at run time on a socket-by-socket basis. It is not a common requirement
+> > for most desktop users, but it remains a valid requirement.
+> >
+> 
+> I am confused as to which application needs this, do you have one in mind?
+> AFAIK, UDP/RTP type apps already know how to determine packet loss
+> on a per flow basis.
 
->>You are being paid to deliver packets to their destination, not
->>to drop
->>them.
 
->ho hum.
->yes, that is typically true of a transit provider.
->however, the transit provider wants to charge the customer not just for
->what is delivered to layer-7, but also for packetization overhead at
->layer-2/layer-3/layer-4.  after all, the IP+TCP packet headers are
->delivered to the client as well, no?
+The purpose of this patch is to make it reallly easy to nail down exactly how
+many packets were dropped *per socket*, and for what reason.  For me, the
+information is then used to tune the application statically, but others could
+use it dynamically.  Incoming packets can be dropped at the device, at the
+device driver, in netif_rx, or at the socket buffer.  We've got stats on all of
+these except for the socket buffer, so why not add them?
 
-	Actually, the customer really only cares about payload. And if the overhead 
-is a constant ratio to the data, just adjust the rate and it all comes out in 
-the wash. The only reason to care is if you want to play games, such as 
-saying you charge the same rate 'per byte' as another provider when you 
-really don't.
+The cost in the normal case is incrementing a single variable in the socket
+struct (which is likely already in cache since we're playing with it).  I can't
+see this being that expensive.  In the failure path, we get a second increment. 
+Again, this is not going to be noticeable.
 
->this is just my point: there is NO method to account for those pesky 
->headers!
+Sure, you can try and figure out which applications had sockets open, and how
+many packets they missed, and subtract that from the snmp counters to give how
+many packets you missed.  But to do this you have to lock the box down--isn't it
+a lot easier to just *know* because you've been keeping track?
 
-	No is there any need to. Do you really need to differentially account for 
-customers who have more 'overhead bytes per data byte' than others? Or can 
-you just say it's 12% and raise/lower your rates 12%
+Chris
 
->also, think of the case where a HTTP Proxy _isn't_ in the path of
->traffic.  from this side of the Pacific, if there are TCP retransmissions,
->they are end-to-end retransmissions, across that really expensive piece of
->wet string otherwise known as an undersea cable.  _that_ is the most
->expensive hop and if a customer is congested on the last mile, they're
->still eating into the expensive bandwidth!
-
-	But accounting for the retransmissions won't help you, because you can't 
-tell retransmissions that the customer should rightly pay for versus 
-retransmissions that he shouldn't. So again, you can't do any better than to 
-just work it into the base price.
-
->discussions on the layer-8 (religion) or layer-9 (politics) aspects of
->whether it is correct to bill based on that is irrelevant.  what is
->relevant is that there isn't any mechanism to count the overhead of
->packetization or the overhead of using a "reliable stream transport" such
->as TCP.
-
-	I realize that, but I don't see what good it is. So yes, it's something 
-that's currently hard to do, but if there's no legitimate need, then it 
-doesn't matter whether it's hard or not. You pose problems and you pose a 
-solution, but unless you can show that the solution actually solves the 
-problem, the solution is of no value.
-
->i do have the code to do this.  its relatively trivial and consumes an
->extra 8 bytes of RAM per socket.
->it doesn't obfuscate the existing kernel code nor does it slow the code
->down by any tangible amount.
->it is a compile-time option so for those people who don't know or care
->about it, it doesn't impact them at all.
->yet, clearly, Dave and Jamal are vehemently opposed to it.
->alas, that means it stays as an out-of-kernel patch and will likely
->continue to suffer bit-rot as time goes by.  c'est la vie.
-
-	Well, show them a real-world problem that it solves. Show a case where you 
-can't bill fairly without it and you can bill fairly with it. ... If you can.
-
-	DS
+-- 
+Chris Friesen                    | MailStop: 043/33/F10  
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
