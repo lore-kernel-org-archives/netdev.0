@@ -1,22 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] e1000 ethtool_ops support
-Date: Mon, 19 Apr 2004 12:37:31 -0400
+Subject: Re: [PATCH 2.4.26-bk1] netdevice.h add netif_msg_init helper
+Date: Mon, 19 Apr 2004 12:44:56 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4084004B.50500@pobox.com>
-References: <20040416155449.0796053f@dell_ss3.pdx.osdl.net>
+Message-ID: <40840208.6060906@pobox.com>
+References: <200404162001.i3GK1Y806283@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Cramer <cramerj@intel.com>,
-        "Feldman, Scott" <scott.feldman@intel.com>,
-        Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com,
-        john.ronciak@intel.com, ganesh.venkatesan@intel.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040416155449.0796053f@dell_ss3.pdx.osdl.net>
+To: Don Fry <brazilnut@us.ibm.com>
+In-Reply-To: <200404162001.i3GK1Y806283@DYN318364BLD.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied to netdev-2.6 queue.
-
-In the future please CC the e1000 maintainer, as listed in MAINTAINERS.
+applied to 2.4
