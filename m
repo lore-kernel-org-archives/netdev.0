@@ -1,9 +1,8 @@
 From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: [e1000 2.6 2/4] force 1000/full on SERDES connected to back-plane
- switch
-Date: Thu, 25 Sep 2003 22:49:03 -0700 (PDT)
+Subject: [e1000 2.6 3/4] better propagation of error codes
+Date: Thu, 25 Sep 2003 22:51:34 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309252247010.6939-100000@localhost.localdomain>
+Message-ID: <Pine.LNX.4.44.0309252249040.6939-100000@localhost.localdomain>
 Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -14,74 +13,165 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-* Bug fix: SERDES devices might be connected to back-plan switch that
-  doesn't support auto-neg, so add the capability to force 1000/full.
+* Better propagation of error codes during probe/open paths.
+  {Janice Girouard (janiceg@us.ibm.com)]
 
--------------
+---------------
 
-diff -Naurp net-drivers-2.5/drivers/net/e1000/e1000_hw.c net-drivers-2.5/drivers/net/e1000.mod/e1000_hw.c
---- net-drivers-2.5/drivers/net/e1000/e1000_hw.c	2003-09-24 21:20:30.000000000 -0700
-+++ net-drivers-2.5/drivers/net/e1000.mod/e1000_hw.c	2003-09-24 21:23:48.000000000 -0700
-@@ -836,18 +836,16 @@ e1000_setup_fiber_serdes_link(struct e10
-         if(i == (LINK_UP_TIMEOUT / 10)) {
-             DEBUGOUT("Never got a valid link from auto-neg!!!\n");
-             hw->autoneg_failed = 1;
--            if(hw->media_type == e1000_media_type_fiber) {
--                /* AutoNeg failed to achieve a link, so we'll call
--                 * e1000_check_for_link. This routine will force the link up if
--                 * we detect a signal. This will allow us to communicate with
--                 * non-autonegotiating link partners.
--                 */
--                if((ret_val = e1000_check_for_link(hw))) {
--                    DEBUGOUT("Error while checking for link\n");
--                    return ret_val;
--                }
--                hw->autoneg_failed = 0;
-+            /* AutoNeg failed to achieve a link, so we'll call
-+             * e1000_check_for_link. This routine will force the link up if
-+             * we detect a signal. This will allow us to communicate with
-+             * non-autonegotiating link partners.
-+             */
-+            if((ret_val = e1000_check_for_link(hw))) {
-+                DEBUGOUT("Error while checking for link\n");
-+                return ret_val;
-             }
-+            hw->autoneg_failed = 0;
-         } else {
-             hw->autoneg_failed = 0;
-             DEBUGOUT("Valid Link Found\n");
-@@ -1456,10 +1454,10 @@ e1000_phy_force_speed_duplex(struct e100
-     }
+diff -Naurp net-drivers-2.5/drivers/net/e1000/e1000_main.c net-drivers-2.5/drivers/net/e1000.mod/e1000_main.c
+--- net-drivers-2.5/drivers/net/e1000/e1000_main.c	2003-09-24 21:24:23.000000000 -0700
++++ net-drivers-2.5/drivers/net/e1000.mod/e1000_main.c	2003-09-24 21:26:33.000000000 -0700
+@@ -250,6 +250,7 @@ int
+ e1000_up(struct e1000_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
++	int err;
  
-     /* Write back the modified PHY MII control register. */
--    udelay(1);
-     if((ret_val = e1000_write_phy_reg(hw, PHY_CTRL, mii_ctrl_reg)))
-         return ret_val;
+ 	/* hardware has been reset, we need to reload some things */
  
-+    usec_delay(1);
+@@ -262,9 +263,10 @@ e1000_up(struct e1000_adapter *adapter)
+ 	e1000_configure_rx(adapter);
+ 	e1000_alloc_rx_buffers(adapter);
  
-     /* The wait_autoneg_complete flag may be a little misleading here.
-      * Since we are forcing speed and duplex, Auto-Neg is not enabled.
-@@ -2046,9 +2044,10 @@ e1000_check_for_link(struct e1000_hw *hw
-      * auto-negotiation time to complete, in case the cable was just plugged
-      * in. The autoneg_failed flag does this.
-      */
--    else if((hw->media_type == e1000_media_type_fiber) &&
-+    else if((((hw->media_type == e1000_media_type_fiber) &&
-+            ((ctrl & E1000_CTRL_SWDPIN1) == signal)) ||
-+            (hw->media_type == e1000_media_type_internal_serdes)) &&
-             (!(status & E1000_STATUS_LU)) &&
--            ((ctrl & E1000_CTRL_SWDPIN1) == signal) &&
-             (!(rxcw & E1000_RXCW_C))) {
-         if(hw->autoneg_failed == 0) {
-             hw->autoneg_failed = 1;
-@@ -2075,7 +2074,8 @@ e1000_check_for_link(struct e1000_hw *hw
-      * Device Control register in an attempt to auto-negotiate with our link
-      * partner.
-      */
--    else if((hw->media_type == e1000_media_type_fiber) &&
-+    else if(((hw->media_type == e1000_media_type_fiber) ||
-+             (hw->media_type == e1000_media_type_internal_serdes)) &&
-               (ctrl & E1000_CTRL_SLU) &&
-               (rxcw & E1000_RXCW_C)) {
-         DEBUGOUT("RXing /C/, enable AutoNeg and stop forcing link.\r\n");
+-	if(request_irq(netdev->irq, &e1000_intr, SA_SHIRQ | SA_SAMPLE_RANDOM,
+-		       netdev->name, netdev))
+-		return -1;
++	if((err = request_irq(netdev->irq, &e1000_intr,
++		              SA_SHIRQ | SA_SAMPLE_RANDOM,
++		              netdev->name, netdev)))
++		return err;
+ 
+ 	mod_timer(&adapter->watchdog_timer, jiffies);
+ 	e1000_irq_enable(adapter);
+@@ -356,29 +358,32 @@ e1000_probe(struct pci_dev *pdev,
+ 	int mmio_len;
+ 	int pci_using_dac;
+ 	int i;
++	int err;
+ 	uint16_t eeprom_data;
+ 
+-	if((i = pci_enable_device(pdev)))
+-		return i;
++	if((err = pci_enable_device(pdev)))
++		return err;
+ 
+-	if(!(i = pci_set_dma_mask(pdev, PCI_DMA_64BIT))) {
++	if(!(err = pci_set_dma_mask(pdev, PCI_DMA_64BIT))) {
+ 		pci_using_dac = 1;
+ 	} else {
+-		if((i = pci_set_dma_mask(pdev, PCI_DMA_32BIT))) {
++		if((err = pci_set_dma_mask(pdev, PCI_DMA_32BIT))) {
+ 			E1000_ERR("No usable DMA configuration, aborting\n");
+-			return i;
++			return err;
+ 		}
+ 		pci_using_dac = 0;
+ 	}
+ 
+-	if((i = pci_request_regions(pdev, e1000_driver_name)))
+-		return i;
++	if((err = pci_request_regions(pdev, e1000_driver_name)))
++		return err;
+ 
+ 	pci_set_master(pdev);
+ 
+ 	netdev = alloc_etherdev(sizeof(struct e1000_adapter));
+-	if(!netdev)
++	if(!netdev) {
++		err = -ENOMEM;
+ 		goto err_alloc_etherdev;
++	}
+ 
+ 	SET_MODULE_OWNER(netdev);
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+@@ -393,8 +398,10 @@ e1000_probe(struct pci_dev *pdev,
+ 	mmio_len = pci_resource_len(pdev, BAR_0);
+ 
+ 	adapter->hw.hw_addr = ioremap(mmio_start, mmio_len);
+-	if(!adapter->hw.hw_addr)
++	if(!adapter->hw.hw_addr) {
++		err = -EIO;
+ 		goto err_ioremap;
++	}
+ 
+ 	for(i = BAR_1; i <= BAR_5; i++) {
+ 		if(pci_resource_len(pdev, i) == 0)
+@@ -432,7 +439,7 @@ e1000_probe(struct pci_dev *pdev,
+ 
+ 	/* setup the private structure */
+ 
+-	if(e1000_sw_init(adapter))
++	if((err = e1000_sw_init(adapter)))
+ 		goto err_sw_init;
+ 
+ 	if(adapter->hw.mac_type >= e1000_82543) {
+@@ -463,6 +470,7 @@ e1000_probe(struct pci_dev *pdev,
+ 
+ 	if(e1000_validate_eeprom_checksum(&adapter->hw) < 0) {
+ 		printk(KERN_ERR "The EEPROM Checksum Is Not Valid\n");
++		err = -EIO;
+ 		goto err_eeprom;
+ 	}
+ 
+@@ -471,8 +479,10 @@ e1000_probe(struct pci_dev *pdev,
+ 	e1000_read_mac_addr(&adapter->hw);
+ 	memcpy(netdev->dev_addr, adapter->hw.mac_addr, netdev->addr_len);
+ 
+-	if(!is_valid_ether_addr(netdev->dev_addr))
++	if(!is_valid_ether_addr(netdev->dev_addr)) {
++		err = -EIO;
+ 		goto err_eeprom;
++	}
+ 
+ 	e1000_read_part_num(&adapter->hw, &(adapter->part_num));
+ 
+@@ -545,7 +555,7 @@ err_ioremap:
+ 	kfree(netdev);
+ err_alloc_etherdev:
+ 	pci_release_regions(pdev);
+-	return -ENOMEM;
++	return err;
+ }
+ 
+ /**
+@@ -620,7 +630,7 @@ e1000_sw_init(struct e1000_adapter *adap
+ 
+ 	if (e1000_set_mac_type(hw)) {
+ 		E1000_ERR("Unknown MAC Type\n");
+-		return -1;
++		return -EIO;
+ 	}
+ 
+ 	/* initialize eeprom parameters */
+@@ -675,18 +685,19 @@ static int
+ e1000_open(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev->priv;
++	int err;
+ 
+ 	/* allocate transmit descriptors */
+ 
+-	if(e1000_setup_tx_resources(adapter))
++	if((err = e1000_setup_tx_resources(adapter)))
+ 		goto err_setup_tx;
+ 
+ 	/* allocate receive descriptors */
+ 
+-	if(e1000_setup_rx_resources(adapter))
++	if((err = e1000_setup_rx_resources(adapter)))
+ 		goto err_setup_rx;
+ 
+-	if(e1000_up(adapter))
++	if((err = e1000_up(adapter)))
+ 		goto err_up;
+ 
+ 	return 0;
+@@ -698,7 +709,7 @@ err_setup_rx:
+ err_setup_tx:
+ 	e1000_reset(adapter);
+ 
+-	return -EBUSY;
++	return err;
+ }
+ 
+ /**
