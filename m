@@ -1,42 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Christoph Hellwig <hch@infradead.org>
 Subject: Re: [PATCH] tulip: de2104x, fix init. sections
-Date: Wed, 02 Mar 2005 02:30:17 -0500
-Message-ID: <42256B89.2000104@pobox.com>
-References: <20050301214438.4653810e.randy.dunlap@verizon.net> <422558B2.6020105@pobox.com> <20050302072510.GA12464@infradead.org>
+Date: Wed, 2 Mar 2005 07:32:55 +0000
+Message-ID: <20050302073255.GA12859@infradead.org>
+References: <20050301214438.4653810e.randy.dunlap@verizon.net> <422558B2.6020105@pobox.com> <20050302072510.GA12464@infradead.org> <42256B89.2000104@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <randy.dunlap@verizon.net>, netdev@oss.sgi.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>,
+        "Randy.Dunlap" <randy.dunlap@verizon.net>, netdev@oss.sgi.com,
         torvalds <torvalds@osdl.org>, akpm <akpm@osdl.org>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20050302072510.GA12464@infradead.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <42256B89.2000104@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Wed, Mar 02, 2005 at 01:09:54AM -0500, Jeff Garzik wrote:
+On Wed, Mar 02, 2005 at 02:30:17AM -0500, Jeff Garzik wrote:
+> When someone proves this is possible, I will accept the code change.  I 
+> doubt this will ever happen, for two reasons:
 > 
->>Randy.Dunlap wrote:
->>
->>>tulip/de2104x: some __devinit functions were calling __init
->>> functions, made the latter __devinit also;
->>
->>Should go the other way:  all the stuff in de2104x should be __init, not 
->>__devinit.
->>
->>Nobody ever hotplugs a de2104x.
+> 1) Hotplug PCI slots are highly likely to choke on the 2104x's very 
+> early and slightly weird PCI hardware implementation.
 > 
-> 
-> How comes that you want to dictate what cards I put into my hotplug
-> PCI slots?
+> 2) It's an ancient card and nobody will ever bother trying to hotplug it.
 
-When someone proves this is possible, I will accept the code change.  I 
-doubt this will ever happen, for two reasons:
-
-1) Hotplug PCI slots are highly likely to choke on the 2104x's very 
-early and slightly weird PCI hardware implementation.
-
-2) It's an ancient card and nobody will ever bother trying to hotplug it.
-
-	Jeff
+No, it's a matter of correctness.  The pci core can call ->probe all the
+time and every driver must be prepared.  Even if no one tries it physically
+it's easily done with Greg's fake hotplug driver.
