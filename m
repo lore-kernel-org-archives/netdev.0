@@ -1,37 +1,36 @@
 From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: Replace the Nagle Algorithm
-Date: Sun, 2 Nov 2003 09:35:55 +0100
+Subject: Re: ppc32 lockups with 2.6 (maybe network related)
+Date: Sun, 2 Nov 2003 10:03:28 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031102083555.GG1536@sunbeam.de.gnumonks.org>
-References: <sf93dbf5.079@prv-mail20.provo.novell.com>
+Message-ID: <20031102090328.GI1536@sunbeam.de.gnumonks.org>
+References: <3FA10C2E.1000205@g-house.de>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="4ndw/alBWmZEhfcZ"
-Cc: netdev@oss.sgi.com, jrd@cc.usu.edu
+	protocol="application/pgp-signature"; boundary="k9xkV0rc9XGsukaG"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Joseph Conlin <JCONLIN@novell.com>
+To: Christian <evil@g-house.de>
 Content-Disposition: inline
-In-Reply-To: <sf93dbf5.079@prv-mail20.provo.novell.com>
+In-Reply-To: <3FA10C2E.1000205@g-house.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---4ndw/alBWmZEhfcZ
+--k9xkV0rc9XGsukaG
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, Oct 20, 2003 at 12:58:19PM -0600, Joseph Conlin wrote:
-> I see in the archives and the code that I have looked at (2.4.22,
-> 2.6.0-test8) that the Minshall algorithm is being used to reduce the
-> effects of Nagle/delayed ACK interaction.  I haven't seen any mention of
-> the following solution, proposed as an IETF draft RFC by Joe Doupnik
-> (jrd@cc.usu.edu).
+On Thu, Oct 30, 2003 at 02:03:42PM +0100, Christian wrote:
 >=20
-> http://netlab1.usu.edu/pub/misc/draft-doupnik-tcpimpl-nagle-mode-00.txt
+> I am not subscribed to netdev@oss.sgi.com, please CC me.
+> i posted to LKML too, but followed an advise better posting to this list.
 
-Interesting, but do you know why this has not been aprooved as RFC and
-never became more than a draft of the TCP implementation working group?
+Please consider mailing this to the linuxppc-dev list, since you have a
+ppc specific bug.
+
+> Thank you,
+> Christian.
 
 --=20
 - Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
@@ -42,16 +41,16 @@ never became more than a draft of the TCP implementation working group?
 Programming is like sex: One mistake and you have to support it your lifeti=
 me
 
---4ndw/alBWmZEhfcZ
+--k9xkV0rc9XGsukaG
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.3 (GNU/Linux)
 
-iD8DBQE/pMHrXaXGVTD0i/8RAvh+AKCSFS3PebGTt/FCcSXclZP8gs0nxACfcbgh
-XBIxvcDguLxJdDpMKxyCAvc=
-=H46q
+iD8DBQE/pMhgXaXGVTD0i/8RAs4NAJ0Q6fOTLM4QqehYkntKyP/ZOOJPxwCfaptc
+pdUrQwKH6ePphJ3MLBNjvas=
+=5L+m
 -----END PGP SIGNATURE-----
 
---4ndw/alBWmZEhfcZ--
+--k9xkV0rc9XGsukaG--
