@@ -1,112 +1,34 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC][bonding] Improve VLAN support on top of bonding
-Date: Tue, 15 Jul 2003 10:24:49 -0700
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Tue, 15 Jul 2003 20:29:11 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F1438E1.5000600@candelatech.com>
-References: <Pine.LNX.4.33.0307151503450.13870-100000@jrslxjul1.npdj.intel.com>
+Message-ID: <Pine.LNX.4.44.0307152025570.14070-100000@netcore.fi>
+References: <200307151446.SAA08540@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bond-devel <bonding-devel@lists.sourceforge.net>,
-   linux-net <linux-net@vger.kernel.org>, linux-netdev <netdev@oss.sgi.com>,
-   "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>,
-   Jay Vosburgh <fubar@us.ibm.com>, Amir Noam <amir.noam@intel.com>,
-   Noam Marom <noam.marom@intel.com>,
-   Tsippy Mendelson <tsippy.mendelson@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@redhat.com, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shmulik Hen <shmulik.hen@intel.com>
-In-Reply-To: <Pine.LNX.4.33.0307151503450.13870-100000@jrslxjul1.npdj.intel.com>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307151446.SAA08540@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Shmulik Hen wrote:
-> Hi All,
+On Tue, 15 Jul 2003 kuznet@ms2.inr.ac.ru wrote:
+> > "resolve" next-hops.  I.e., the requirement that the users/protocols will
+> > give you non-final nexthop information which you have to "resolve" to get
+> > the final nexthop (e.g. a global address -> a link-local address 
+> > obtained using Neighbor Discovery).
 > 
-> 	Currently, when using 8021q VLAN module to work on top of bonding,
-> everything seems to work OK, but there are some issues that will not work
-> according to our analysis. For example, any self-generated packets sent by
-> bonding itself (e.g. arp-mon, TLB learning packets, ALB arp replies, etc.)
-> do not have the VLAN id tag in them, and thus will not go through the
-> switch. Also, in order to configure a VLAN interface, the underlying
-> interface must be configured first to IP address 0.0.0.0. Since arp-mon
-> uses bond's IP address, this might cause further problems. Other issue
-> we've still not investigated, like what happens if bonding needs to parse
-> a tagged packet for layer2/layer3 data, might still create more problems.
-> 
-> 	We have come up with some possible solution we would like to get
-> comments on. First of all, our main guide line was not to duplicate code
-> segments that are in the VLAN module and put them in bonding. Further, we
-> figured bonding should not need to know about how the VLAN module handles
-> hardware acceleration. On the other hand, bonding does need to know what
-> VLAN tags are being used so it may send packets successfully through all
-> the switch ports, so some kind of policy needs to be defined.
-> 
-> So here is what we've come up with until now.
-> 
-> 1. Configuration
->    Need to decide between:
->    a. Block VLAN add/del operations when bond has no slaves.
->    b. Block enslave/release of slaves when bond has no VLAN tags (needs a
->       module parameter).
->    c. Remove limitation of IP 0.0.0.0.
-> 
-> 2. Indication
->    Need to decide between:
->    a. Add notification mechanism in VLAN module that bonding may register
->       to listen to, and thus keep track of VLAN tags added/removed.
->    b. Register to listen to net device register/unregister notifications
->       to monitor creation/destruction of VLAN devices. Requires support
->       for figuring out if a net device is a VLAN device, and also two vlan
->       calls like get_realdev() and get_vlan_id() exported.
+> No way to resolve exists, unless it already embedded to corresponding
+> protocol.
 
-b) sounds good to me.  There are flags that can let you know if it's a vlan
-device or not.
+Assume you're a host on a link with prefix 3FFE:FFFF:A:B::/64.  The router 
+is the one with interface ID one.
 
-if.h:#define IFF_802_1Q_VLAN 0x1             /* 802.1Q VLAN device.          */
-
->    c. Parse every packet going through bonding to collect VLAN tags.
-> 
-> 3. Monitoring
->    In order for bonding to be able to generate tagged packets on its own,
->    two major changes need to be done. One is split the vlan_start_xmit
->    function into insert_tag() and vlan_xmit(), so bonding may choose the
->    required tag on its own, and let 8021q to the transmit. A second change
->    is to split arp_send() into arp_create() and arp_send(), so bonding may
->    pass all the usual parameters for arp creation, get a complete arp
->    packet and then pass it to 8021q for tag insertion on transmission.
-> 
-> 
-> Hardware acceleration
-> =====================
-> 	When coming to analyze what is required for adding support for
-> VLAN hardware acceleration on top of bonding, other issues come to mind.
-> Since add/del operations are defined and handshakes are performed between
-> the VLAN module and the device driver, tracking VLAN tags is simpler and
-> commands should just be propagated to the slaves. Enslaving/releasing
-> slaves should also be simple and just require adding/removing existing
-> VLAN tags from them. The problem is how to handle configuration issues.
-
-I'd consider ignoring the HW accel unless you can prove it actually helps
-performance to a noticeable degree.  I have never seen results of any benchmarking
-related to this...
-
-> 
->   1. Since adding the first VLAN tag requires some additional handshake,
->      can bonding support that operation on a bond that already has slaves
->      and is running?
->   2. What about removing the last tag from a bond?
->   3. Should the bond device declare itself as "VLAN challenged" before
->      registering and remove that limitation only once it has slaves?
->   4. Should the bond declare itself as fully hardware acceleration capable
->      to benefit from "strong" slaves while performing regular VLAN
->      inserting/stripping for "weak" slaves?
->   5. How can bonding generate untagged packets and send them via
->      hardware acceleration capable slaves (e.g. 802.3ad LACPDU) ?
-> 
-> 
-
+What happens when you do "ping6 3FFE:FFFF:A:B::1" ? Seems to resolve a 
+link-local address for the router just fine.
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
