@@ -1,36 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169: page allocation failure
-Date: Sun, 17 Oct 2004 12:39:18 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] Yield in netlink_broadcast when congested
+Date: Sun, 17 Oct 2004 13:08:07 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041017103918.GA1517@electric-eye.fr.zoreil.com>
-References: <200410162004.17573.jkillius@arcor.de> <200410162323.01006.jkillius@arcor.de> <20041016214903.GC21849@electric-eye.fr.zoreil.com> <200410170940.28350.jkillius@arcor.de>
+Message-ID: <20041017110807.GV21977@postel.suug.ch>
+References: <20041016113006.GA12843@gondor.apana.org.au> <20041016235137.GE19714@rei.reeler.org> <20041017073957.GA21632@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@davemloft.net, jgarzik@pobox.com
+Cc: Pablo Neira <pablo@eurodev.net>, hadi@cyberus.ca,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jan Killius <jkillius@arcor.de>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <200410170940.28350.jkillius@arcor.de>
+In-Reply-To: <20041017073957.GA21632@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jan Killius <jkillius@arcor.de> :
-[scp test]
-> without TSO(1628MB  11.1MB/s   02:27):
->  1  0 166388  27716    332  97264    0    0 12300     0 12323  7616 37 45  0 18
->  1  0 166388  26108    332  99804    0    0 12880     4 12727  7975 39 52  0 9
->  1  0 166388  24612    336 102796    0    0 12720     0 12590  7900 38 48  0 15
-[...]
-> with TSO(1628MB  12.8MB/s   02:07):
->  1  0 166340  27672    376 120056    0    0 13740     0 11879  2041 36 58  6  0
->  1  0 166340  25352    384 122288    0    0 13968     4 12148  2072 41 55  3  1
->  1  0 166340  22924    376 124692    0    0 14028     0 12174  2050 36 60  4  0
+* Herbert Xu <20041017073957.GA21632@gondor.apana.org.au> 2004-10-17 17:39
+> On Sun, Oct 17, 2004 at 01:51:37AM +0200, Thomas Graf wrote:
+> > > So here is my proposal: if we detect signs of impending congestion
+> > > in netlink_broadcast(), and that we're in a sleepable context, then
+> > > we yield().
+> > 
+> > Up to how many receivers does that work? We would still see the
+> > effect if too many receivers are registered, right?
+> 
+> Assuming the scheduler is fair then every listener should get their
+> time slice to receive the messages.
 
-It could be done again now that M. Xu fixed the issue but the numbers seem
-consistent with the improvement I see here. TSO saves 5~8% of the cpu for
-this kind of setup.
+Assuming there is only a few listeners per process. I tried it out and
+my UP system could handle 7 listeners in the same process but would
+sporadically overrun above. I couldn't reproduce it with 1 listener
+per process anymore.
 
-Thanks for the testing.
-
---
-Ueimor
+Therefore I guess this is fine for now, the problem might appear again
+if someone finally writes the netlink daemon to solve the locking
+problems.
