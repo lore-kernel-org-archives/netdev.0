@@ -1,62 +1,54 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: [PATCH] net, ipv6: remove redundant NULL checks before kfree in
- ip6_flowlabel.c
-Date: Thu, 17 Mar 2005 00:36:35 +0100 (CET)
-Message-ID: <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost>
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: [PATCH,resent] reduce sizeof(struct inet_peer) from 128 to 64 bytes
+ on 64bits architectures
+Date: Thu, 17 Mar 2005 00:38:48 +0100
+Message-ID: <4238C388.5040303@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, Pekka Savola <pekkas@netcore.fi>,
-        netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        linux-kernel@vger.kernel.org
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: multipart/mixed;
+ boundary="------------060101080702030703080106"
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------060101080702030703080106
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-kfree() has no problems dealing with NULL pointers, so wrapping checks for 
-null round calls to it is redundant. This patch gets rid of two such 
-checks in net/ipv6/ip6_flowlabel.c
+Resent with diff file not tab/space mangled :(
 
-I considered also rewriting the 
-        if (fl)
-                fl_free(fl);
-bit as simply fl_free(fl) as well, but that if() potentially saves two 
-calls to kfree() inside fl_free as well as the call to fl_free itself, so 
-I guess that's worth the if().
+As peer_cachep uses kmem_cache_create("inet_peer_cache", ... SLAB_HWCACHE_ALIGN ...),
+better try to use exactly 64 bytes instead of 72 for struct inet_peer.
 
-Please consider applying.
+This also means that this structure fits in one cache line on x86_64.
 
 
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+Thank you
+Eric Dumazet
 
-diff -up linux-2.6.11-mm4-orig/net/ipv6/ip6_flowlabel.c linux-2.6.11-mm4/net/ipv6/ip6_flowlabel.c
---- linux-2.6.11-mm4-orig/net/ipv6/ip6_flowlabel.c	2005-03-02 08:37:50.000000000 +0100
-+++ linux-2.6.11-mm4/net/ipv6/ip6_flowlabel.c	2005-03-17 00:23:30.000000000 +0100
-@@ -87,8 +87,7 @@ static struct ip6_flowlabel * fl_lookup(
- 
- static void fl_free(struct ip6_flowlabel *fl)
+
+
+--------------060101080702030703080106
+Content-Type: text/plain;
+ name="diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="diff"
+
+diff -Nru linux-2.6.11/include/net/inetpeer.h linux-2.6.11-ed/include/net/inetpeer.h
+--- linux-2.6.11/include/net/inetpeer.h	2005-03-02 08:37:48.000000000 +0100
++++ linux-2.6.11-ed/include/net/inetpeer.h	2005-03-16 18:52:49.000000000 +0100
+@@ -19,9 +19,9 @@
  {
--	if (fl->opt)
--		kfree(fl->opt);
-+	kfree(fl->opt);
- 	kfree(fl);
- }
- 
-@@ -553,8 +552,7 @@ release:
- done:
- 	if (fl)
- 		fl_free(fl);
--	if (sfl1)
--		kfree(sfl1);
-+	kfree(sfl1);
- 	return err;
- }
- 
+ 	struct inet_peer	*avl_left, *avl_right;
+ 	struct inet_peer	*unused_next, **unused_prevp;
+-	atomic_t		refcnt;
+ 	unsigned long		dtime;		/* the time of last use of not
+ 						 * referenced entries */
++	atomic_t		refcnt;
+ 	__u32			v4daddr;	/* peer's address */
+ 	__u16			avl_height;
+ 	__u16			ip_id_count;	/* IP ID for the next packet */
 
-
-
--- 
-Jesper Juhl
-
-PS. Please CC me on replies from lists other than linux-kernel
+--------------060101080702030703080106--
