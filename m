@@ -1,106 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [AH6] Rearrange routing headers
-Date: Sat, 24 Jul 2004 18:37:09 +1000
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: [PATCH] pkt_cls.h incompatiables
+Date: 24 Jul 2004 08:16:39 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724083709.GA9416@gondor.apana.org.au>
+Message-ID: <1090671399.1160.0.camel@jzny.localdomain>
+References: <1090612669.1218.47.camel@jzny.localdomain>
+	 <20040723135945.7f50b02c.davem@redhat.com>
+	 <1090630154.1134.6.camel@jzny.localdomain>
+	 <20040723.214240.76745170.yoshfuji@linux-ipv6.org>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="3V7upXqbjpZ4EhLz"
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@redhat.com>, shemminger@osdl.org,
+        arekm@pld-linux.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-        Kazunori Miyazawa <kazunori@miyazawa.org>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040723.214240.76745170.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2004-07-23 at 21:42, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
+> In article <1090630154.1134.6.camel@jzny.localdomain> (at 23 Jul 2004 2=
+0:49:15 -0400), Jamal Hadi Salim <hadi@znyx.com> says:
+>=20
+> > I will take care of it next week when i get back.=20
+> > If 2.6.8 is coming out before end of next week, i would suggest undoi=
+ng
+> > Stephens patch.
+>=20
+> I've talked about this with Jamal.
+>=20
+> I believe it is very important to maintain th original (or=20
+> traditional) ABI, which has been used in -2.6.7(?).
+>=20
+> So, I'd rather say, let's remove (or disable) whole thing=20
+> until we find the way to avoid breaking ABIs.
 
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Just back out Stephens patch for now until i get back.
 
-Hi:
-
-This patch rearranges the IPv6 routing header so that the destination
-addresses appear in the order as they would on the destination.  This
-is specified in Appendix A2 of RFC 2402.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv6/ah6.c 1.34 vs edited =====
---- 1.34/net/ipv6/ah6.c	2004-07-24 14:52:21 +10:00
-+++ edited/net/ipv6/ah6.c	2004-07-24 18:35:47 +10:00
-@@ -31,6 +31,7 @@
- #include <net/ah.h>
- #include <linux/crypto.h>
- #include <linux/pfkeyv2.h>
-+#include <linux/string.h>
- #include <net/icmp.h>
- #include <net/ipv6.h>
- #include <net/xfrm.h>
-@@ -74,6 +75,45 @@
- 	return 0;
- }
- 
-+/**
-+ *	ipv6_rearrange_rthdr - rearrange IPv6 routing header
-+ *	@iph: IPv6 header
-+ *	@rthdr: routing header
-+ *
-+ *	Rearrange the destination address in @iph and the addresses in @rthdr
-+ *	so that they appear in the order they will at the final destination.
-+ *	See Appendix A2 of RFC 2402 for details.
-+ */
-+static void ipv6_rearrange_rthdr(struct ipv6hdr *iph, struct ipv6_rt_hdr *rthdr)
-+{
-+	int segments, segments_left;
-+	struct in6_addr *addrs;
-+	struct in6_addr final_addr;
-+
-+	segments_left = rthdr->segments_left;
-+	if (segments_left == 0)
-+		return;
-+	rthdr->segments_left = 0; 
-+
-+	/* The value of rthdr->hdrlen has been verified either by the system
-+	 * call if it is locally generated, or by ipv6_rthdr_rcv() for incoming
-+	 * packets.  So we can assume that it is even and that segments is
-+	 * greater than or equal to segments_left.
-+	 *
-+	 * For the same reason we can assume that this option is of type 0.
-+	 */
-+	segments = rthdr->hdrlen >> 1;
-+
-+	addrs = ((struct rt0_hdr *)rthdr)->addr;
-+	ipv6_addr_copy(&final_addr, addrs + segments - 1);
-+
-+	addrs += segments - segments_left;
-+	memmove(addrs + 1, addrs, (segments_left - 1) * sizeof(*addrs));
-+
-+	ipv6_addr_copy(addrs, &iph->daddr);
-+	ipv6_addr_copy(&iph->daddr, &final_addr);
-+}
-+
- static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len)
- {
- 	union {
-@@ -101,7 +141,7 @@
- 			break;
- 
- 		case NEXTHDR_ROUTING:
--			exthdr.rth->segments_left = 0; 
-+			ipv6_rearrange_rthdr(iph, exthdr.rth);
- 			break;
- 
- 		default :
-
---3V7upXqbjpZ4EhLz--
+cheers,
+jamal
