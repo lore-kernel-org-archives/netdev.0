@@ -1,41 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [1/3] [TCP] Create tcpdiag_dump_sock
-Date: Fri, 15 Oct 2004 07:30:30 +1000
+Subject: [2/3] [TCP] Make tcpdiag_bc_run take tcpdiag_entry
+Date: Fri, 15 Oct 2004 07:33:47 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041014213030.GA18433@gondor.apana.org.au>
-References: <4164F60C.6080807@cosmosbay.com> <E1CFTUz-0007V6-00@gondolin.me.apana.org.au>
+Message-ID: <20041014213347.GB18433@gondor.apana.org.au>
+References: <4164F60C.6080807@cosmosbay.com> <E1CFTUz-0007V6-00@gondolin.me.apana.org.au> <20041014213030.GA18433@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="xHFwDpU9dbj6ez1V"
+Content-Type: multipart/mixed; boundary="GID0FwUMdk1T2AWN"
 Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Eric Dumazet <dada1@cosmosbay.com>
 Content-Disposition: inline
-In-Reply-To: <E1CFTUz-0007V6-00@gondolin.me.apana.org.au>
+In-Reply-To: <20041014213030.GA18433@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---xHFwDpU9dbj6ez1V
+--GID0FwUMdk1T2AWN
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Thu, Oct 07, 2004 at 06:19:41PM +1000, Herbert Xu wrote:
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
-> >
-> > Of course, /proc/net/tcp on such machine is not an option (never 
-> > completes), so I cant list all connections for this machine. I really 
-> > *need* a working ss command.
-> > 
-> > Are they known problems ?
-> 
-> They are known now :) I'm working on a fix to these problems so
-> stay tuned.
+This patch adds a tcpdiag_entry struct and makes tcpdiag_bc_run use it
+instead of a struct sock.  This will allow us to use tcpdiag_bc_run on
+struct open_request in the next patch.
 
-OK, this series of patches should solve your problems.
-
-The first one move tcpdiag_bc_run calls into one place so that we can
-change its parameters next.
-
+Please note that I've left the CONFIG_IPV6 defines in as to support
+ipv6 modules we'll need to modularise tcpdiag itself.  I'll probably
+do that after this is all fixed.
+ 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Cheers,
@@ -45,82 +36,139 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---xHFwDpU9dbj6ez1V
+--GID0FwUMdk1T2AWN
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p1
+Content-Disposition: attachment; filename=p2
 
-===== net/ipv4/tcp_diag.c 1.19 vs 1.20 =====
---- 1.19/net/ipv4/tcp_diag.c	2004-10-06 15:01:14 +10:00
-+++ 1.20/net/ipv4/tcp_diag.c	2004-10-14 21:11:20 +10:00
-@@ -466,16 +466,26 @@
- 	return len == 0 ? 0 : -EINVAL;
+===== net/ipv4/tcp_diag.c 1.20 vs 1.21 =====
+--- 1.20/net/ipv4/tcp_diag.c	2004-10-14 21:11:20 +10:00
++++ 1.21/net/ipv4/tcp_diag.c	2004-10-14 21:15:04 +10:00
+@@ -29,6 +29,16 @@
+ 
+ #include <linux/tcp_diag.h>
+ 
++struct tcpdiag_entry
++{
++	u32 *saddr;
++	u32 *daddr;
++	u16 sport;
++	u16 dport;
++	u16 family;
++	u16 userlocks;
++};
++
+ static struct sock *tcpnl;
+ 
+ 
+@@ -324,11 +334,11 @@
  }
  
-+static int tcpdiag_dump_sock(struct sk_buff *skb, struct sock *sk,
-+			     struct netlink_callback *cb)
-+{
-+	struct tcpdiagreq *r = NLMSG_DATA(cb->nlh);
-+
-+	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
-+		struct rtattr *bc = (struct rtattr *)(r + 1);
-+		if (!tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
-+			return 0;
-+	}
-+
-+	return tcpdiag_fill(skb, sk, r->tcpdiag_ext, NETLINK_CB(cb->skb).pid,
-+			    cb->nlh->nlmsg_seq);
-+}
  
- static int tcpdiag_dump(struct sk_buff *skb, struct netlink_callback *cb)
+-static int tcpdiag_bc_run(const void *bc, int len, struct sock *sk)
++static int tcpdiag_bc_run(const void *bc, int len,
++			  const struct tcpdiag_entry *entry)
  {
- 	int i, num;
- 	int s_i, s_num;
- 	struct tcpdiagreq *r = NLMSG_DATA(cb->nlh);
--	struct rtattr *bc = NULL;
--
--	if (cb->nlh->nlmsg_len > 4+NLMSG_SPACE(sizeof(struct tcpdiagreq)))
--		bc = (struct rtattr*)(r+1);
+ 	while (len > 0) {
+ 		int yes = 1;
+-		struct inet_opt *inet = inet_sk(sk);
+ 		const struct tcpdiag_bc_op *op = bc;
  
- 	s_i = cb->args[1];
- 	s_num = num = cb->args[2];
-@@ -502,11 +512,7 @@
- 				if (r->id.tcpdiag_sport != inet->sport &&
- 				    r->id.tcpdiag_sport)
- 					goto next_listen;
--				if (bc && !tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
--					goto next_listen;
--				if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
--						 NETLINK_CB(cb->skb).pid,
--						 cb->nlh->nlmsg_seq) <= 0) {
-+				if (tcpdiag_dump_sock(skb, sk, cb) < 0) {
- 					tcp_listen_unlock();
- 					goto done;
- 				}
-@@ -546,11 +552,7 @@
- 				goto next_normal;
- 			if (r->id.tcpdiag_dport != inet->dport && r->id.tcpdiag_dport)
- 				goto next_normal;
--			if (bc && !tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
--				goto next_normal;
--			if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
--					 NETLINK_CB(cb->skb).pid,
--					 cb->nlh->nlmsg_seq) <= 0) {
-+			if (tcpdiag_dump_sock(skb, sk, cb) < 0) {
- 				read_unlock_bh(&head->lock);
- 				goto done;
+ 		switch (op->code) {
+@@ -338,19 +348,19 @@
+ 			yes = 0;
+ 			break;
+ 		case TCPDIAG_BC_S_GE:
+-			yes = inet->num >= op[1].no;
++			yes = entry->sport >= op[1].no;
+ 			break;
+ 		case TCPDIAG_BC_S_LE:
+-			yes = inet->num <= op[1].no;
++			yes = entry->dport <= op[1].no;
+ 			break;
+ 		case TCPDIAG_BC_D_GE:
+-			yes = ntohs(inet->dport) >= op[1].no;
++			yes = entry->dport >= op[1].no;
+ 			break;
+ 		case TCPDIAG_BC_D_LE:
+-			yes = ntohs(inet->dport) <= op[1].no;
++			yes = entry->dport <= op[1].no;
+ 			break;
+ 		case TCPDIAG_BC_AUTO:
+-			yes = !(sk->sk_userlocks & SOCK_BINDPORT_LOCK);
++			yes = !(entry->userlocks & SOCK_BINDPORT_LOCK);
+ 			break;
+ 		case TCPDIAG_BC_S_COND:
+ 		case TCPDIAG_BC_D_COND:
+@@ -360,7 +370,7 @@
+ 
+ 			if (cond->port != -1 &&
+ 			    cond->port != (op->code == TCPDIAG_BC_S_COND ?
+-					     inet->num : ntohs(inet->dport))) {
++					     entry->sport : entry->dport)) {
+ 				yes = 0;
+ 				break;
  			}
-@@ -571,11 +573,7 @@
- 				if (r->id.tcpdiag_dport != inet->dport &&
- 				    r->id.tcpdiag_dport)
- 					goto next_dying;
--				if (bc && !tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
--					goto next_dying;
--				if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
--						 NETLINK_CB(cb->skb).pid,
--						 cb->nlh->nlmsg_seq) <= 0) {
-+				if (tcpdiag_dump_sock(skb, sk, cb) < 0) {
- 					read_unlock_bh(&head->lock);
- 					goto done;
- 				}
+@@ -368,26 +378,14 @@
+ 			if (cond->prefix_len == 0)
+ 				break;
+ 
+-#ifdef CONFIG_IPV6
+-			if (sk->sk_family == AF_INET6) {
+-				struct ipv6_pinfo *np = inet6_sk(sk);
+-
+-				if (op->code == TCPDIAG_BC_S_COND)
+-					addr = (u32*)&np->rcv_saddr;
+-				else
+-					addr = (u32*)&np->daddr;
+-			} else
+-#endif
+-			{
+-				if (op->code == TCPDIAG_BC_S_COND)
+-					addr = &inet->rcv_saddr;
+-				else
+-					addr = &inet->daddr;
+-			}
++			if (op->code == TCPDIAG_BC_S_COND)
++				addr = entry->saddr;
++			else
++				addr = entry->daddr;
+ 
+ 			if (bitstring_match(addr, cond->addr, cond->prefix_len))
+ 				break;
+-			if (sk->sk_family == AF_INET6 &&
++			if (entry->family == AF_INET6 &&
+ 			    cond->family == AF_INET) {
+ 				if (addr[0] == 0 && addr[1] == 0 &&
+ 				    addr[2] == htonl(0xffff) &&
+@@ -472,8 +470,28 @@
+ 	struct tcpdiagreq *r = NLMSG_DATA(cb->nlh);
+ 
+ 	if (cb->nlh->nlmsg_len > 4 + NLMSG_SPACE(sizeof(*r))) {
++		struct tcpdiag_entry entry;
+ 		struct rtattr *bc = (struct rtattr *)(r + 1);
+-		if (!tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
++		struct inet_opt *inet = inet_sk(sk);
++
++		entry.family = sk->sk_family;
++#ifdef CONFIG_IPV6
++		if (entry.family == AF_INET6) {
++			struct ipv6_pinfo *np = inet6_sk(sk);
++
++			entry.saddr = np->rcv_saddr.s6_addr32;
++			entry.daddr = np->daddr.s6_addr32;
++		} else
++#endif
++		{
++			entry.saddr = &inet->rcv_saddr;
++			entry.daddr = &inet->daddr;
++		}
++		entry.sport = inet->num;
++		entry.dport = ntohs(inet->dport);
++		entry.userlocks = sk->sk_userlocks;
++
++		if (!tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), &entry))
+ 			return 0;
+ 	}
+ 
 
---xHFwDpU9dbj6ez1V--
+--GID0FwUMdk1T2AWN--
