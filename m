@@ -1,56 +1,47 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: RFC: Cisco HDLC bridging
-Date: Fri, 11 Jun 2004 23:29:08 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Plip ioctl bug
+Date: Fri, 11 Jun 2004 19:27:50 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3vfhxkcm3.fsf@defiant.pm.waw.pl>
-References: <C060DFCD9697A842B3189B458524FDC205D2C3@AIMAIL1.ai.aiinet.com>
+Message-ID: <40CA3FF6.1020408@pobox.com>
+References: <20040611231154.GA21485@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Nimrod Zimerman <zimerman@mailandnews.com>,
+        Niibe Yutaka <gniibe@mri.co.jp>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Eble, Dan" <DanE@aiinet.com>
-In-Reply-To: <C060DFCD9697A842B3189B458524FDC205D2C3@AIMAIL1.ai.aiinet.com> (Dan
- Eble's message of "Fri, 11 Jun 2004 09:01:20 -0400")
+To: jt@hpl.hp.com
+In-Reply-To: <20040611231154.GA21485@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"Eble, Dan" <DanE@aiinet.com> writes:
+Jean Tourrilhes wrote:
+> 	Hi all,
+> 
+> 	Plip should verify that it got the proper ioctl to avoid false
+> positive. User reported that plip suddenly was gaining wireless
+> capability ;-)
+> 	Have fun...
+> 
+> 	Jean
+> 
+> Signed-off-by: $me
+> ------------------------------------------
+> 
+> diff -u -p linux/drivers/net/plip.b0.c linux/drivers/net/plip.c
+> --- linux/drivers/net/plip.b0.c	Fri Jun 11 16:00:13 2004
+> +++ linux/drivers/net/plip.c	Fri Jun 11 16:03:14 2004
+> @@ -1219,6 +1219,11 @@ plip_ioctl(struct net_device *dev, struc
+>  	struct net_local *nl = netdev_priv(dev);
+>  	struct plipconf *pc = (struct plipconf *) &rq->ifr_data;
+>  
+> +	/* Respond only to our IOCTL, ignore other IOCTLs, such as
+> +	 * Ethtool and Wireless Extensions. Jean II */
+> +	if(cmd != SIOCDEVPLIP)
+> +		return -EOPNOTSUPP;
+> +
+>  	switch(pc->pcmd) {
+>  	case PLIP_GET_TIMEOUT:
+>  		pc->trigger = nl->trigger;
 
-> I am about to implement Ethernet/802.3 over Cisco HDLC.  My plan is to
-> enhance hdlc_cisco.c to provide a new ethernet-like device, "cbeX"
-> (cisco-bridged ethernet),
-
-I would rather call it "hdlcXsomething", "cbeX" would not be very
-obvious to newcomers. And I would make it conditional (for example,
-with CONFIG_ option _and_ runtime ioctl creating the slave device).
-
-> corresponding to the existing "hdlcX" device that
-> encapsulates the ethernet frames.  The "cbeX" device will suddenly appear
-> when "sethdlc hdlcX cisco ..." is run, and disappear when "hdlcX" is taken
-> out of Cisco mode.
-
-How are the packets encapsulated? What about 802.1q VLANs?
-
-> Using a separate device for the bridged frames provides a way to get
-> ethernet-like behavior without obscuring the Cisco nature of "hdlcX".  For
-> example, a tcpdump of "hdlcX" would still show SLARP keepalive frames and
-> other ciscoey stuff.
-
-... + Ethernet traffic with Cisco HDLC headers, that's it.
-
-However I don't feel like convinced to use the second network device.
-Certainly there is no problem with tcpdump/libpcap, we could have
-Cisco hdlcX device with SLARPs, Ethernet framing, regular IPv4/6
-and anything we want.
-
-The only problem I can see (a serious one, though) is the protocol
-"routing" in Linux. If we "ip addr add" IP address to hdlcX, does
-it mean we want native IP or IP/Ethernet? It would be nice to be able
-to:
-        ifconfig hdlc0 10.0.0.1/24 hw cisco-hdlc
-        ifconfig hdlc0 10.0.1.1/24 hw ether
-at a time.
-
-The same applies to Frame Relay (we have pvcX and ethpvcX).
--- 
-Krzysztof Halasa, B*FH
+already in the latest 2.6.x :)
