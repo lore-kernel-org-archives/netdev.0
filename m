@@ -1,39 +1,45 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [bonding] compatibilty issues
-Date: Tue, 30 Sep 2003 14:42:31 +0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Fw: Badness in local_bh_enable at kernel/softirq.c:119
+Date: Tue, 30 Sep 2003 04:53:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309301442.31991.shmulik.hen@intel.com>
-References: <E791C176A6139242A988ABA8B3D9B38A02A464F1@hasmsx403.iil.intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <20030930045306.5ac6be0d.davem@redhat.com>
+References: <20030929143642.18b491ba.akpm@osdl.org>
+	<20030929224929.4dc6ed4a.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com, cramerj@intel.com,
+        scott.feldman@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, "Jeff Garzik" <jgarzik@pobox.com>,
-        <chad@tindel.net>, "Jay Vosburgh" <fubar@us.ibm.com>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A02A464F1@hasmsx403.iil.intel.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030929224929.4dc6ed4a.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Guys,
+On Mon, 29 Sep 2003 22:49:29 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-I'm going to need a ruling here :)
-Re-creating those 19 trees each time is killing me and I would like to 
-reduce the number of iterations to a minimum.
-I'm currently working on putting back all compatibility stuff for 2.4. 
-I would like to also get any input/reservations about other issues 
-(besides compatibility and the multicast param) so I may get a chance 
-to get them all in at once.
+> On Mon, 29 Sep 2003 14:36:42 -0700
+> Andrew Morton <akpm@osdl.org> wrote:
+> 
+> > Oh, it's taking xmit_lock in a timer handler.  I give up.
+> 
+> I think e1000 should rethink what it is doing :-)
 
-Once we get that settled, I can start working on a 2.6 version that 
-also handles any compatibility issues (preferrably as the last patch 
-of the series). I'm working in the assumption that 2.4-2.6 similarity 
-is no longer an option for bonding.
+Sorry, in case it isn't painfully obvious, instead of hinting
+at it let me state explicitly that ->xmit_lock is a BH disabling
+lock not an IRQ disabling one.
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+Therefore, e1000's IRQ disabling when grabbing that lock is
+buggy and need to be changed to BH disabling.
+
+If it needs to disable IRQs for it's own internal locking, it
+needs to do so such that such IRQ disabling internal locks
+are not held while kfree_skb() is being invoked.
+
+Calling kfree_skb() with IRQs disabled in the e1000 driver is
+the cause of this bug.
+
+Jeff, if you pushed these e1000 updates that make it grap
+->xmit_lock() with disabling IRQs instead of BH into 2.4.x
+trees too, beware!
