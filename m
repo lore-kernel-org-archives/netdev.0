@@ -1,31 +1,34 @@
-From: Matt Porter <mporter@kernel.crashing.org>
-Subject: [PATCH] emac: fix mdio delay
-Date: Tue, 8 Feb 2005 22:43:45 -0700
-Message-ID: <20050208224345.B12821@cox.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [2/2] [NET] Add skb_header_cloned and use it in e1000/tg3
+Date: Wed, 9 Feb 2005 17:07:07 +1100
+Message-ID: <20050209060707.GA8180@gondor.apana.org.au>
+References: <20050122170533.GB11499@yakov.inr.ac.ru> <20050123071027.GA20296@gondor.apana.org.au> <20050126110043.GA29950@yakov.inr.ac.ru> <20050126222522.GA21670@gondor.apana.org.au> <20050127110946.GA20494@gondor.apana.org.au> <20050127111201.GB20494@gondor.apana.org.au> <20050128202542.GA23670@yakov.inr.ac.ru> <20050129031740.GA6130@gondor.apana.org.au> <20050129032210.GA7424@gondor.apana.org.au> <20050208210910.0ef6b8b6.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ralphs@netwinder.org, netdev@oss.sgi.com, linuxppc-embedded@ozlabs.org
-To: jgarzik@pobox.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20050208210910.0ef6b8b6.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fixes MDIO delay. Please apply.
+On Tue, Feb 08, 2005 at 09:09:10PM -0800, David S. Miller wrote:
+> 
+> These two patches look great.  I want to review them some more but
+> I do intend to try and get them into 2.6.11-final.
 
-Signed-off-by: Ralph Siemsen <ralphs@netwinder.org>
-Signed-off-by: Matt Porter <mporter@kernel.crashing.org>
+Actually I would've thought that this is the sort of patch that
+should wait until 2.6.12-pre is open.  The bug that it fixes
+isn't that serious.  All I've heard so far are tcpdump showing
+bogus results.
 
---- linux-2.6.10-orig/drivers/net/ibm_emac/ibm_emac_core.c	2005-01-20 15:45:28.576226303 -0500
-+++ linux-2.6.10/drivers/net/ibm_emac/ibm_emac_core.c	2005-01-20 15:25:10.430674655 -0500
-@@ -475,8 +479,9 @@
- 
- 	out_be32(&emacp->em0stacr, stacr);
- 
--	while (((stacr = in_be32(&emacp->em0stacr) & EMAC_STACR_OC) == 0)
--					&& (count++ < 5000))
-+	count = 0;
-+	while ((((stacr = in_be32(&emacp->em0stacr)) & EMAC_STACR_OC) == 0)
-+					&& (count++ < MDIO_DELAY))
- 		udelay(1);
- 	MDIO_DEBUG((" (count was %d)\n", count));
+The potential for breakage on the other side is much more
+significant.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
