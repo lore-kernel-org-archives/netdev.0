@@ -1,40 +1,75 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [bonding] Add basic support for dynamic configuration of bond
-	interfaces
-Date: 11 Jan 2004 13:30:51 -0500
+From: pollockd@magma.ca
+Subject: Re: Realtek 8169 Lock-ups
+Date: Tue, 13 Jan 2004 11:55:41 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1073845851.1115.297.camel@jzny.localdomain>
-References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com>
-	 <200401111628.07930.amir.noam@intel.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <1074012941.5886.12.camel@localhost>
+References: <200401111623.i0BGNg3O028990@webmail1.magma.ca>
+	 <4001A41C.3070205@pobox.com>
+Reply-To: dpollock@acm.org
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, bonding-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-AiLDoAMaC7ybRbg9RUED"
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
+        damouse@ntlworld.com, brad@mainstreetsoftworks.com,
+        kinetik@orcon.net.nz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Amir Noam <amir.noam@intel.com>
-In-Reply-To: <200401111628.07930.amir.noam@intel.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4001A41C.3070205@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2004-01-11 at 09:28, Amir Noam wrote:
 
-> 
-> > I would suggest a simple character device (misc_register), and let
-> > the userland application configure settings unrelated to a single
-> > object.
-> 
-> I was trying to follow the example of several other network modules 
-> (e.g. vlan, dlci, bridge) that use a socket level ioctl hook to 
-> handle such deviceless commands.
-> 
-> Do you think that a char device is preferrable, given that other 
-> similar modules use a socket ioctl hook?
+--=-AiLDoAMaC7ybRbg9RUED
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I think a netlink interface would be the better alternative.
-The L2C netlink socket protocol would be appropriate for bonding
-at least for 2.6.x. Bridging, VLAN should also move to this.
+On Sun, 2004-01-11 at 14:29, Jeff Garzik wrote:
+> Douglas Pollock wrote:
+> The kernel comes with "pktgen" which is a free packet generator you can=20
+> use for stressing kernels and LANs.  There is also ttcp, nttcp, various=20
+> filesystems tests over NFS (such as bonnie++), various block device=20
+> tests over nbd (network block device), ...
 
-cheers,
-jamal
+Thanks for that.  I should have remembered the packet generator.  Using
+pktgen, I am able to reproduce the problem.
+
+
+HARDWARE:
+Intel P4 with hyper-threading enabled
+Realtek 8169 (rev. 10)
+Switched 100Mbps network
+A second machine on the same network (to receive test packets)
+
+SOFTWARE:
+Kernel 2.6.0 or 2.6.1-rc1 (possibly others), with SMP for 2 processors,
+Realtek 8169 driver, and packet generator
+
+
+STEPS TO REPRODUCE:
+1.) Set up the ipg script to send to the second machine on the 8169 NIC.
+2.) pgset pkt_size 9014
+3.) pg
+
+
+OBSERVATIONS:
+Soon after step #3, the 8169 NIC will stop responding (note: the netdev
+watchdog reports a timeout in dmesg).  No packets get through.  However,
+everything else still works.  Disabling SMP in the kernel fixes this
+problem.
+
+
+
+Doug.
+
+--=-AiLDoAMaC7ybRbg9RUED
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQBABCMLLhh1LVU8SusRAtTXAJoCQdN5E8uvmbm6LeDVBfZD6DJ/DwCgrIsb
+wWWlcJD8EzfThXM3bVUX3Kk=
+=fKX6
+-----END PGP SIGNATURE-----
+
+--=-AiLDoAMaC7ybRbg9RUED--
