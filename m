@@ -1,29 +1,53 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (1/8) add probe_old_netdevs hook
-Date: Thu, 4 Sep 2003 09:06:02 -0700
+From: "Cornelia Huck" <COHUCK@de.ibm.com>
+Subject: Re: Bug in qeth in 2.6
+Date: Thu, 4 Sep 2003 18:01:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030904090602.12f73b5e.davem@redhat.com>
-References: <20030903164908.14705874.shemminger@osdl.org>
-	<3F568C88.4030303@pobox.com>
-	<20030903204150.14273da8.davem@redhat.com>
-	<20030904083124.2a6c795c.shemminger@osdl.org>
+Message-ID: <OF58BF7438.64133064-ONC1256D97.00578776-C1256D97.005801DC@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Utz Bacher <utz.bacher@de.ibm.com>,
+   Pete Zaitcev <zaitcev@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030904083124.2a6c795c.shemminger@osdl.org>
+To: Pete Zaitcev <zaitcev@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2003 08:31:24 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Hi,
 
-> Here is a patch that restores the original order.
-> Applies after original #3 patch
+sorry, I still don't see it...
 
-I already told you that I did the fix for you.
+> 2.4 was like this:
+>
+>            result = 0;
+>            for (all in list) {
+>                        if (something)
+>                                    result = QETH_VERIFY_IS_SOMETHING;
 
-Oh, the perils of doing work and replying before
-processing one's entire mailbox :)
+and it stops here if something...
+
+>            }
+
+... and here follows a second loop over the list, looking for foo().
+
+>
+> 2.6 is:
+>
+>            result = 0;
+>            for (all in list) {
+>                        result = (something)? QETH_VERIFY_IS_SOMETHING:
+foo();
+
+and here it stops if something or foo()...
+
+>            }
+
+...no second loop here.
+
+Since it's either something or foo(), this looks like the same behaviour to
+me.
+
+Best regards / Mit freundlichen Gruessen
+
+Cornelia Huck
+zLinux Developer
+Tel.: +49-7031-16-4837, Mail: cohuck@de.ibm.com
