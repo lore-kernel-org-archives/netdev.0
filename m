@@ -1,85 +1,30 @@
-From: Mark Smith <markzzzsmith@ozemail.com.au>
-Subject: [2.4.20] Frustrating DNS / UDP Socket flakeyness
-Date: 21 Apr 2003 02:05:32 +0930
+From: jamesm@samba.org
+Subject: [PATCH][TG3] fix tx timeout after setting mtu
+Date: Sun, 20 Apr 2003 16:40:42 +0000 (GMT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1050856532.1816.22.camel@dupy>
+Message-ID: <Pine.LNX.4.44.0304201632010.3657-100000@dp.samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+This patch against recent bk stops a tx timeout when setting the mtu.
 
-I'm having trouble with UDP based DNS queries when my 33.6 Kbps ppp link
-is under load eg while performing a TCP file transfer / HTTP etc.
+- James
+-- 
+James Morris
+<jamesm@samba.org>
 
-While a TCP download is running, the UDP / DNS queries are sent, a
-response comes back from the DNS server, but for some reason, in the
-kernel appears to have closed the UDP socket, and therefore generates an
-ICMP destination unreachable, port unreachable message back to the DNS
-server.
-
-The problem happens irrespective of whether I trigger the DNS lookup via
-phoenix, wget or the djb utility dnsip.
-
-There are no problems with these UDP / DNS queries if the link is not
-busy.
-
-I've stored some packet traces here :
-
-Full packet dump, including HTTP transfer :
-
-http://members.ozemail.com.au/~markzzzsmith/flakey-udpsocket.libpcap.gz
-
-Just the UDP DNS query, response, and corresponding ICMP dest
-unreachable.
-
-http://members.ozemail.com.au/~markzzzsmith/flakey-udpsocket-nontcp.libpcap.gz
-
-
-My system is running up-to-date debian 3.0, with a pure 2.4.20 kernel,
-with the following networking options :
-
---
-#
-# Networking options
-#
-CONFIG_PACKET=y
-CONFIG_PACKET_MMAP=y
-# CONFIG_NETLINK_DEV is not set
-# CONFIG_NETFILTER is not set
-# CONFIG_FILTER is not set
-CONFIG_UNIX=y
-CONFIG_INET=y
-# CONFIG_IP_MULTICAST is not set
-# CONFIG_IP_ADVANCED_ROUTER is not set
-# CONFIG_IP_PNP is not set
-# CONFIG_NET_IPIP is not set
-# CONFIG_NET_IPGRE is not set
-# CONFIG_ARPD is not set
-CONFIG_INET_ECN=y
-# CONFIG_SYN_COOKIES is not set
-# CONFIG_IPV6 is not set
-# CONFIG_KHTTPD is not set
-# CONFIG_ATM is not set
-# CONFIG_VLAN_8021Q is not set
-# CONFIG_IPX is not set
-# CONFIG_ATALK is not set
---
-
-Just in case it is useful, the full kernel config is here :
-
-http://www.nosense.org/2.4.20-dupy.netslim
-
-
-I normally compile about all the networking options into the kernel, the
-same problem was occurring. It also seemed to be present in 2.4.19.
-
-Please let me know if I can be of further assistance in diagnosing this
-problem. 
-
-Thanks,
-Mark.
+--- bk.orig/drivers/net/tg3.c	Thu Apr 10 08:37:14 2003
++++ bk.w1/drivers/net/tg3.c	Mon Apr 21 02:22:48 2003
+@@ -2769,6 +2769,7 @@
+ 	tg3_init_rings(tp);
+ 	tg3_init_hw(tp);
+ 
++	netif_wake_queue(tp->dev);
+ 	spin_unlock(&tp->tx_lock);
+ 	spin_unlock_irq(&tp->lock);
+ 	tg3_netif_start(tp);
