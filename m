@@ -1,63 +1,52 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Timothy Miller <miller@techsource.com>
 Subject: Re: TOE brain dump
-Date: 05 Aug 2003 11:25:57 -0600
+Date: Tue, 05 Aug 2003 15:28:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m1ptjkuica.fsf@frodo.biederman.org>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
-	<3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net>
-	<m1fzkiwnru.fsf@frodo.biederman.org>
-	<20030804162433.L5798@almesberger.net>
-	<20030804122632.65ba2122.davem@redhat.com>
+Message-ID: <3F300549.60800@techsource.com>
+References: <20030803194011.GA8324@work.bitmover.com> <Pine.LNX.4.44.0308031253240.24695-100000@dlang.diginsite.com> <20030803203051.GA9057@work.bitmover.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Werner Almesberger <werner@almesberger.net>
-	  jgarzik@pobox.com,
-   niv@us.ibm.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Lang <david.lang@digitalinsight.com>,
+   Erik Andersen
+ <andersen@codepoet.org>,
+   Werner Almesberger <werner@almesberger.net>,
+   Jeff
+ Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org, Nivedita Singhvi <niv@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030804122632.65ba2122.davem@redhat.com>
+To: Larry McVoy <lm@bitmover.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@redhat.com> writes:
 
-> On Mon, 4 Aug 2003 16:24:33 -0300
-> Werner Almesberger <werner@almesberger.net> wrote:
+
+Larry McVoy wrote:
+> On Sun, Aug 03, 2003 at 01:13:24PM -0700, David Lang wrote:
 > 
-> > Eric W. Biederman wrote:
-> > > There is one place in low latency communications that I can think
-> > > of where TCP/IP is not the proper solution.  For low latency
-> > > communication the checksum is at the wrong end of the packet.
-> > 
-> > That's one of the few things ATM's AAL5 got right.
+>>2. router nodes that have access to main memory (PCI card running linux
+>>acting as a router/firewall/VPN to offload the main CPU's)
 > 
-> Let's recall how long the IFF_TRAILERS hack from BSD :-)
-
-Putting the variable length headers on the end of a packet?  Or
-was that something other than RFC893?
-
-I think IPv6 solves that much more cleanly by simply deleting them.
-
-> > But in the end, I think it doesn't really matter.
 > 
-> I tend to agree on this one.
+> I can get an entire machine, memory, disk, > Ghz CPU, case, power supply,
+> cdrom, floppy, onboard enet extra net card for routing, for $250 or less,
+> quantity 1, shipped to my door.
 > 
-> And on the transmit side if you have more than 1 pending TX frame, you
-> can always be prefetching the next one into the fifo so that by the
-> time the medium is ready all the checksum bits have been done.
+> Why would I want to spend money on some silly offload card when I can get 
+> the whole PC for less than the card?
 
-For large data transmissions that happens.
- 
-> In fact I'd be surprised if current generation 1g/10g cards are not
-> doing something like this.
 
-Well at this point before I propose anything concrete I suspect I need
-to profile some actual application and see how things go.  But from a
-very latency sensitive perspective, I would be surprised if the
-problem goes away with faster technology.
+Physical space?  Power usage?  Heat dissipation?  Optimization for the 
+specific task?  Fast, low latency communication between CPU and device 
+(ie. local bus)?  Maintenance?
 
-For now I am happy just to insert the peculiar thought that latency
-across the entire cluster/lan is of great importance to some
-applications.
+Lots of reasons why one might pay more for the offload card.  If you're 
+cheap, you'll just use the software stack and a $10 NIC and just live 
+with the corresponding CPU usage.  If you're a performance freak, you'll 
+spend whatever you have to to squeeze out every last bit of performance 
+you can.
 
-Eric
+Mind you, another option is, if you're dealing with the kind of load 
+that requires that much network performance, is to use redundant 
+servers, like google.  No one server is exceptionally fast, but it not 
+many people are using it, it's fast enough.
