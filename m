@@ -1,55 +1,34 @@
-From: "John S. Denker" <jsd@monmouth.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: netlink tester program
-Date: Mon, 02 Jun 2003 23:20:56 -0400
+Date: Mon, 02 Jun 2003 20:22:33 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EDC1418.6080808@monmouth.com>
-References: <20030602140452.039248de.rddunlap@osdl.org>	<20030602.145619.71112623.davem@redhat.com>	<3EDC0915.1080109@monmouth.com> <20030602.193853.112598236.davem@redhat.com>
+Message-ID: <20030602.202233.39180859.davem@redhat.com>
+References: <3EDC0915.1080109@monmouth.com>
+	<20030602.193853.112598236.davem@redhat.com>
+	<3EDC1418.6080808@monmouth.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030602.193853.112598236.davem@redhat.com>
+To: jsd@monmouth.com
+In-Reply-To: <3EDC1418.6080808@monmouth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I wrote in part:
- >
- >    There's no point in writing code if few people
- >    use it.
+   From: "John S. Denker" <jsd@monmouth.com>
+   Date: Mon, 02 Jun 2003 23:20:56 -0400
+   
+   Mr. Miller is very smart and has spent years
+   getting up to speed in this area.  Is the code
+   to be open only to those who are equally smart
+   and willing to invest equally huge amounts of
+   time?
 
+Are legal rights only available to people who understand
+the law and have a legal degree?
 
-On 06/02/2003 10:38 PM, David S. Miller wrote:
-> 
-> People use this "undocumented" area of the kernel every
-> time their machine boots up.
+No, this is why we hire lawyers if we choose not to study
+law ourselves.
 
-That's not inconsistent with what I was saying.
-
-Mr. Miller said people use it.  That's true.  Some
-people use it.
-
-I said few people use it.  That's true.  The context
-of my original statement was:
-
-> Linux is hanging in there at a few
-> percent market share.  That's not going to grow
-> unless there is better documentation.
-
-This is supposed to be open-source software,
-n'est-ce pas?
-
-Software that is copylefted but not documented
-is open according to the letter of the law, but
-lacks the spirit of openness.
-
-Mr. Miller is very smart and has spent years
-getting up to speed in this area.  Is the code
-to be open only to those who are equally smart
-and willing to invest equally huge amounts of
-time?
-
-When people ask for help in understanding the
-code, it might mean they need help in understanding
-the code.
+Your logic is heavily flawed.
