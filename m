@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH] af_llc: initialize ->owner in llc_ui_family_ops
-Date: Sun, 27 Apr 2003 12:46:24 -0300
+Subject: [PATCH] appletalk: remove MOD_{INC,DEC}_USE_COUNT
+Date: Sun, 27 Apr 2003 13:10:56 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030427154624.GG15637@conectiva.com.br>
+Message-ID: <20030427161056.GI15637@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>
@@ -18,7 +18,7 @@ Hi David,
 
 bk://kernel.bkbits.net/acme/net-2.5
 
-	Now there are four outstanding changesets in this tree.
+	Now there are five outstanding changesets in this tree.
 
 - Arnaldo
 
@@ -28,49 +28,143 @@ You can import this changeset into BK by piping this whole message to:
 ===================================================================
 
 
-ChangeSet@1.1126, 2003-04-27 12:33:16-03:00, acme@conectiva.com.br
-  o af_llc: initialize ->owner in llc_ui_family_ops
+ChangeSet@1.1127, 2003-04-27 12:59:15-03:00, acme@conectiva.com.br
+  o appletalk: remove MOD_{INC,DEC}_USE_COUNT
   
-  The previous changeset for llc was enough when the BSD sockets interface
-  for AF_LLC was not selected, but this changeset is needed when it is
-  selected.
+  Now the core networking infrastructure will (finally) do that for the net
+  protocol families, its just a matter of setting the ->owner field in the
+  registered struct net_proto_family to THIS_MODULE.
 
 
- af_llc.c |    1 +
- 1 files changed, 1 insertion(+)
+ ddp.c |   29 +++++++++--------------------
+ 1 files changed, 9 insertions(+), 20 deletions(-)
 
 
-diff -Nru a/net/llc/af_llc.c b/net/llc/af_llc.c
---- a/net/llc/af_llc.c	Sun Apr 27 12:35:25 2003
-+++ b/net/llc/af_llc.c	Sun Apr 27 12:35:25 2003
-@@ -1013,6 +1013,7 @@
- static struct net_proto_family llc_ui_family_ops = {
- 	.family = PF_LLC,
- 	.create = llc_ui_create,
-+	.owner	= THIS_MODULE,
+diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+--- a/net/appletalk/ddp.c	Sun Apr 27 13:04:11 2003
++++ b/net/appletalk/ddp.c	Sun Apr 27 13:04:11 2003
+@@ -190,10 +190,9 @@
+ 	struct sock *sk = (struct sock *)data;
+ 
+ 	if (!atomic_read(&sk->wmem_alloc) &&
+-	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags)) {
++	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags))
+ 		sock_put(sk);
+-		MOD_DEC_USE_COUNT;
+-	} else {
++	else {
+ 		sk->timer.expires = jiffies + SOCK_DESTROY_TIME;
+ 		add_timer(&sk->timer);
+ 	}
+@@ -205,10 +204,9 @@
+ 	skb_queue_purge(&sk->receive_queue);
+ 
+ 	if (!atomic_read(&sk->wmem_alloc) &&
+-	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags)) {
++	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags))
+ 		sock_put(sk);
+-		MOD_DEC_USE_COUNT;
+-	} else {
++	else {
+ 		init_timer(&sk->timer);
+ 		sk->timer.expires = jiffies + SOCK_DESTROY_TIME;
+ 		sk->timer.function = atalk_destroy_timer;
+@@ -249,7 +247,6 @@
+ 			*iface = tmp->next;
+ 			kfree(tmp);
+ 			dev->atalk_ptr = NULL;
+-			MOD_DEC_USE_COUNT;
+ 		} else
+ 			iface = &tmp->next;
+ 	}
+@@ -259,13 +256,10 @@
+ static struct atalk_iface *atif_add_device(struct net_device *dev,
+ 					   struct atalk_addr *sa)
+ {
+-	struct atalk_iface *iface;
+-
+-	MOD_INC_USE_COUNT;
++	struct atalk_iface *iface = kmalloc(sizeof(*iface), GFP_KERNEL);
+ 
+-	iface = kmalloc(sizeof(*iface), GFP_KERNEL);
+ 	if (!iface)
+-		goto out_mem;
++		goto out;
+ 
+ 	iface->dev = dev;
+ 	dev->atalk_ptr = iface;
+@@ -278,9 +272,6 @@
+ 	write_unlock_bh(&atalk_interfaces_lock);
+ out:
+ 	return iface;
+-out_mem:
+-	MOD_DEC_USE_COUNT;
+-	goto out;
+ }
+ 
+ /* Perform phase 2 AARP probing on our tentative address */
+@@ -982,17 +973,16 @@
+ 	struct atalk_sock *at;
+ 	int rc = -ESOCKTNOSUPPORT;
+ 
+-	MOD_INC_USE_COUNT;
+ 	/*
+ 	 * We permit SOCK_DGRAM and RAW is an extension. It is trivial to do
+ 	 * and gives you the full ELAP frame. Should be handy for CAP 8) 
+ 	 */
+ 	if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
+-		goto decmod;
++		goto out;
+ 	rc = -ENOMEM;
+ 	sk = sk_alloc(PF_APPLETALK, GFP_KERNEL, 1, NULL);
+ 	if (!sk)
+-		goto decmod;
++		goto out;
+ 	at = at_sk(sk) = kmalloc(sizeof(*at), GFP_KERNEL);
+ 	if (!at)
+ 		goto outsk;
+@@ -1005,8 +995,6 @@
+ 	return rc;
+ outsk:
+ 	sk_free(sk);
+-decmod:
+-	MOD_DEC_USE_COUNT;
+ 	goto out;
+ }
+ 
+@@ -1785,6 +1773,7 @@
+ static struct net_proto_family atalk_family_ops = {
+ 	.family		= PF_APPLETALK,
+ 	.create		= atalk_create,
++	.owner		= THIS_MODULE,
  };
  
- static struct proto_ops llc_ui_ops = {
+ static struct proto_ops SOCKOPS_WRAPPED(atalk_dgram_ops) = {
 
 ===================================================================
 
 
 This BitKeeper patch contains the following changesets:
-1.1126
+1.1127
 ## Wrapped with gzip_uu ##
 
 
-M'XL( +WXJSX  ^V4;6^;,!#'7\>?XJ2^7$/\@"%!2I4^;:V:J572OD:.N114
-M@BOL)&K%AY\A6[MUD:9->3DP2/A\_[OS_? 1/%BLDY[2*R1'<&6L2WK:5*A=
-ML5&!-JM@47O#S!AO&.1FA8.SFT&%KL\#2;SE3CF=PP9KF_18(-YFW,LS)KW9
-MY9>'Z>F,D/$8SG-5/>(<'8S'Q)EZH\K,3I3+2U,%KE:57:'K8C9O2QM.*?>W
-M9+&@,FI81,.XT2QC3(4,,\K#8122-OW)Q[1_51$TY#&3_BT;$5+&R 6P@#$>
-M 14#&@YX#(PG0B0LZE.14 I[5>$3@SXE9W#8"LZ)!@-JF9:E3J"H"E>HLGA%
-MZ)^8;86UGP)O2M=%NE2KHGQ)S;/U/G[<YPC/-6X*L[:@N[C6;_+2U*T';)4%
-MK,SZ,8=MCA4XO_QL?@'6Z"=TU@L[K)=*HY=J?4X_I]/I>>=6&0<62U\_9L>P
-M6#OO7/P<PW]4B!EF.^FBG?$R/WP"<@,BE#$C=^_=)_V_O BABI*3_>UH/(H#
-M7V;[I&U)@=[MN!2,"B%YV @11[[GPU',N6;A4"Y&B/@'N5TG=F+?T1&"\D;2
-M*.(=SA]7ME0?-D6RT'4YJ3'+E>N@VI^<H!$;T2B433BB0G9<"_F1:LK_4WTX
-MJG<8W$*_WG;#4WKW&Q'_0/HUHTP"([V@VY_>&.ZOKN?IU]N+A^GE\?MYJW/4
-43W:]&F<>&C7T_\<W]+LJJ\H%    
+M'XL( 'O_JSX  ^U5;6^;.A3^C'_%N9I4)7<)L0%#R%6J;B';JO:V5;M\1JXQ
+M"3> (^,TZAWWOU\;IFZMNDV;^G& =,#/\?,<GQ?Q"E:-4#.'\4J@5_!!-GKF
+M<%D+KHL[YG)9N;?* -=2&F"RD968O#V;U$*//9<B@UPQS3=P)U0S<XCK/ZSH
+M^YV8.=?+]ZOS-]<(S>>PV+!Z+6Z$AOD<::GN6)DU)TQO2EF[6K&ZJ83N--L'
+MU];#V#,W)9&/:=B2$ =1RTE&" N(R+ 73,, V?!/GH;]F,7'@1<1ZOLD;/V 
+M1@0E0%Q"O BP/\'!Q+P0;T;C&:%C[,\PAF=9X36!,49OX65/L$ <)+#=KC0,
+MY78&2E3R3L#?ETGZZ?1B,4J6B__2U<TR75RN+CX:;_-<R /HC0 NE0!3DX-4
+MVZ)>0U'GBC5:[;G>&^10E"4,\J)F97D_A$R:34Q#+E6WVVPT7#LEM>2RA)Q5
+M15F(9@2%;N"??:.!0<6T%@ID#HW0VFK8G>-C>:C-<EZ(,C.J=M%0*;$N&N,N
+M,NB#L!)I)Y!V[/<F>?#QP^E-:HZW.E^ZZ Q\2@**KKYT"1K_Y(409A@=_Z P
+M)I3)0YHG6;9S^=<EBFG4FE:AI.51D$]%+/+<]_W,)\^WP[?X/K<;C;'7!F$8
+MQ=T(/./\XV'XY8C1+5?EB2F#J?;WF'QSAR3&81"T- Y-&;K1B)\.!O:^/Q@Q
+MC+W?D_'BD]&WSR6,U:%[3*=?/==)OS P"8E](.BT-PZ8ZP^F957P5 F6#8Z:
+M[?A85:)*38(D'\+1$6C1Z/2VT(.;R\59FBS?)"/H_/*2K9OAT))2\"QI:$E%
+MV0CXA!(/3ZU4;UY*RB/82GF$/)*BGOE,O- #WX!A8,'/"6<V86F1,R[@S][,
+M85MUHH.F^%?(?-"O#T?P_MU5>K:\OEB>#_^R?&%/VQ^D,XZS-L4#N=?684J,
+M8!)/J?6+8QO4:6\>^<4Q[1'Z%"'8I,?F+II&%G.[-G*<^==-,?KRW^4;P;?-
+2OIJ'TSCV!8O0_U5H>BW2!P  
  
