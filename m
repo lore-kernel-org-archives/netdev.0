@@ -1,24 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: gcc confused about static inline. - route.c
-Date: Mon, 28 Mar 2005 23:53:37 +0200
-Message-ID: <20050328215337.GA14089@electric-eye.fr.zoreil.com>
-References: <20050328132314.480b8b1d@es175>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: Re: [PATCH] rtnl_unlock/lock in sch_api.c
+Date: Tue, 29 Mar 2005 01:16:52 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0503290116210.13715@webhosting.rdsbv.ro>
+References: <Pine.LNX.4.62.0503281720430.20453@webhosting.rdsbv.ro>
+ <424819B8.8000201@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cliff white <cliffw@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050328132314.480b8b1d@es175>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <424819B8.8000201@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-cliff white <cliffw@osdl.org> :
-[...]
-> We are using gcc 3.4.2 right now, is there a way to fix this?
+On Mon, 28 Mar 2005, Patrick McHardy wrote:
 
-http://marc.theaimsgroup.com/?l=bk-commits-head&m=111188776823016&w=2
+> Catalin(ux aka Dino) BOIE wrote:
+>> Hello!
+>> 
+>> Trying to load a custom module (same for teql but I didn't tried it)
+>> whan the qdisc module is not loaded, makes tc hang.
+>> This is because qdisc_create aquires rtnl_sem and then tries to load a 
+>> module that tries to register_netdev (that tries to aquire the same 
+>> rtnl_sem).
+>> Applying this patch makes the problem go away.
+>
+> You open a race by dropping the lock and not replaying the request
+> after acquiring it again. This is Dave's original patch, please
+> simply fix this one up so it applies again.
+>
+> Regards
+> Patrick
 
---
-Ueimor
+Patrick,
+What to fix in Dave's patch? Seems ok to me.
+
+Thanks!
+
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
