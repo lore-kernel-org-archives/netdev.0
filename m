@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] Make XFRM optional
-Date: Mon, 4 Aug 2003 16:49:20 -0700
+Date: Mon, 4 Aug 2003 16:51:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030804164920.371d5afd.davem@redhat.com>
+Message-ID: <20030804165137.40d744c5.davem@redhat.com>
 References: <20030804125022.GA8167@averell>
 	<20030804.215801.124854897.yoshfuji@linux-ipv6.org>
 	<20030804130408.GA36367@colin2.muc.de>
@@ -21,7 +21,12 @@ List-Id: netdev.vger.kernel.org
 On 4 Aug 2003 22:35:24 +0200
 Andi Kleen <ak@colin2.muc.de> wrote:
 
-> Ok, here is a new patch again current BKCVS. It also moves the
-> inet_peer_idlock only inside netsyms.
+> Ok, here is a new patch again current BKCVS. It also moves the inet_peer_idlock
+> only inside netsyms.
 
-Appied, thanks Andi.
+This one is missing net/xfrm/xfrm_export.c :-(
+
+Andi, please be more careful with your patches.  I'd suggest use
+subversions or whatever source management system you like best to help
+avoid these problems in the future.  You seem to be chronicly making
+mistakes like this, as if you're rushing things.
