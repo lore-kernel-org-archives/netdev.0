@@ -1,30 +1,33 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4/2.6] ipvs: improve conn rehashing, other fixes
-Date: Wed, 24 Mar 2004 13:59:57 -0800
+Subject: Re: [PATCH] ipv6 possible opt panic in ip6_append_data()
+Date: Wed, 24 Mar 2004 14:07:25 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040324135957.0718c49b.davem@redhat.com>
-References: <20040321230703.408d2240.davem@redhat.com>
-	<Pine.LNX.4.44.0403230036130.3318-600000@penguin.linux-vs.org>
-	<20040322183641.68ecb8a3.davem@redhat.com>
-	<Pine.LNX.4.58.0403231027420.1157@u.domain.uli>
-	<20040323004006.14b2373e.davem@redhat.com>
-	<Pine.LNX.4.58.0403231045560.1157@u.domain.uli>
+Message-ID: <20040324140725.1c45cc58.davem@redhat.com>
+References: <20040310144758.5e0b4c7c.davem@redhat.com>
+	<Pine.LNX.4.44.0403241114130.16922-100000@DYN318430BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wensong@linux-vs.org, netdev@oss.sgi.com
+Cc: krkumar@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.58.0403231045560.1157@u.domain.uli>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0403241114130.16922-100000@DYN318430BLD.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 23 Mar 2004 10:48:40 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Wed, 24 Mar 2004 11:20:06 -0800 (PST)
+Krishna Kumar <krkumar@us.ibm.com> wrote:
 
-> > Sorry, wires got crossed.  Julian/Wensong, could you please resend
-> > that ip_vs_ctl.c locking change under seperate cover then?
-> 
-> 	I still keep them, attached.
+> [Old subject: Re: [PATCH AND RFC_PATCH] 1. Leak corking option in ipv4 2.
+> ipv6 opt panic]
+ ...
+> Following patch implements what you suggested.
+ ...
+> +			} else if (np->cork.opt->tot_len < opt->tot_len) {
+> +				printk(KERN_DEBUG "ip6_append_data: invalid option length\n");
+> +				return -EINVAL;
+>  			}
 
-Applied, thanks a lot.
+Perfect, thanks for following up on this Krishna.
+
+Patch applied.
