@@ -1,76 +1,52 @@
-From: Will Jhun <wjhun@cisco.com>
-Subject: Getting details about an 802.1q VLAN interface from userspace
-Date: Thu, 13 Feb 2003 14:39:21 -0800
+From: Martin Josefsson <gandalf@wlug.westbo.se>
+Subject: [PATCH] zero rt_cache_stat statistics at init
+Date: 14 Feb 2003 16:55:03 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030213143921.A21977@cisco.com>
+Message-ID: <1045238103.23312.70.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: greearb@candelatech.com, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Hi,
 
-As stated below, I'm looking for a way to get specifics about an 802.1q
-VLAN interface from userspace. Currently, I listen to NEWLINK messages
-over a netlink socket and classify the different types of interfaces. I
-identify these VLAN devices by their name (e.g. "eth0.10", admittedly
-not a good idea since the vlan netdev name formats can vary) and
-existence in /proc/net/vlan/config. This seems kind of gross.
+I'm running 2.5.58-mm1 with slab-debugging enabled and noticed this in
+/proc/net/rt_cache_stat (long line):
 
-Is there a better way to get this information via netlink or some
-ioctl()? Would it be useful if I (or someone) added an ioctl() type to
-get information about a VLAN interface? (vlan, ifindex of trunking
-(real_dev) interface, priority maps; basically the content of struct
-vlan_dev_info)
+000000ae  5b61f6cf 5ab13072 5a5a5a5a 5a5a5a5a 5a5d0c9a 5a5a5a7f 5a5a5aa6  5a61e025 5a5a961a 5a5a5aea 5a5a5a5a 5a5a5a5a 5a5a5a5a 5a5a5a5a
 
-Thanks,
-William
+Here's a patch against 2.5.58(-mm1) to memset() it at init, also
+includes a whitespace change to conform to the other sizeof's in
+ip_rt_init():
 
------ Forwarded message from Ben Greear <greearb@candelatech.com> -----
-
-Date: Thu, 13 Feb 2003 14:09:41 -0800
-From: Ben Greear <greearb@candelatech.com>
-To: Will Jhun <wjhun@cisco.com>
-Subject: Re: Determining if a new interface is an 802.1q VLAN interface
-
-Will Jhun wrote:
-> Ben,
-> 
-> I have a program that listens for netlink NEWLINK updates and keeps
-> track of interfaces in a system. I need to know if a new interface is an
-> 802.1q VLAN interface and also what its trunking interface and vlan are.
-> Right now, I'm just deducing these from the netdevice name and
-> /proc/net/vlan/config, since it looks like the netdev's priv_flags is
-> never exported to userspace, either by ioctl() or via netlink.
-> 
-> Is there a better way to do this?
-
-The flag that determines if an interface can handle VLAN is not currently
-exported to user-space through any ioctl that I know of.  Maybe we could
-talk DaveM into adding such an ioctl?
-
-The code would be simple enough if you could get Dave to accept it.
-
-Please ask Dave, and CC me.  (I didn't want to forward your
-email w/out permission...)
-
-Ben
-
-> 
-> Thanks,
-> William
-> 
-
+--- linux-2.5.58/net/ipv4/route.c.orig	2003-02-14 16:07:46.000000000 +0100
++++ linux-2.5.58/net/ipv4/route.c	2003-02-14 16:43:11.000000000 +0100
+@@ -2652,11 +2652,18 @@
+ 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
+ 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
+ 
+-	rt_cache_stat = kmalloc_percpu(sizeof (struct rt_cache_stat),
++	rt_cache_stat = kmalloc_percpu(sizeof(struct rt_cache_stat),
+ 					GFP_KERNEL);
+ 	if (!rt_cache_stat) 
+ 		goto out_enomem1;
+ 
++	for (i = 0; i < NR_CPUS; i++) {
++		if (!cpu_possible(i))
++			continue;
++		memset(per_cpu_ptr(rt_cache_stat, i), 0,
++		       sizeof(struct rt_cache_stat));
++	}
++
+ 	devinet_init();
+ 	ip_fib_init();
+ 
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+/Martin
 
-
-
------ End forwarded message -----
+Never argue with an idiot. They drag you down to their level, then beat you with experience.
