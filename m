@@ -1,67 +1,69 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: tcp flows hash function
-Date: Wed, 4 Dec 2002 08:17:46 -0500 (EST)
+From: Yan-Fa Li <yan@intruvert.com>
+Subject: RE: TG3 Performance Question
+Date: Tue, 3 Dec 2002 13:04:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0212040812180.2731-100000@shell.cyberus.ca>
-References: <200212040738.NAA02825@eis.iisc.ernet.in>
+Message-ID: <D71BEAC27500D51199DF0002B328BA8D4FBEA3@ivexs1.intruvert.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: SVR Anand <anand@eis.iisc.ernet.in>
-In-Reply-To: <200212040738.NAA02825@eis.iisc.ernet.in>
+To: "'Ben Greear'" <greearb@candelatech.com>, Yan-Fa Li <yan@intruvert.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Yes,
+
+lspci:
+
+00:08.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5701 Gigabit
+Ethernet (rev 15)
+        Subsystem: 3Com Corporation 3C996B-T 1000BaseTX
+        Flags: bus master, 66Mhz, medium devsel, latency 248, IRQ 10
+        Memory at f8200000 (64-bit, non-prefetchable) [size=64K]
+        Capabilities: [40] PCI-X non-bridge device.
+        Capabilities: [48] Power Management version 2
+        Capabilities: [50] Vital Product Data
+        Capabilities: [58] Message Signalled Interrupts: 64bit+ Queue=0/3
+Enable-
+
+would seem to indicate that it is 66/66.  The latency is my fault, I set it
+manually
+to see if it would help performance.  Unfortunately I don't think the E1000
+with
+will with the AMD chipset, and I don't think Intel will be releasing a fix
+somehow.
+Do you have access to an AMD760MPX ?  I would love it if someone could
+verify
+this is a working combination before I go out and spend more money.
+
+Y
+
+-----Original Message-----
+From: Ben Greear [mailto:greearb@candelatech.com] 
+Sent: Tuesday, December 03, 2002 12:45 PM
+To: Yan-Fa Li
+Cc: netdev@oss.sgi.com
+Subject: Re: TG3 Performance Question
+
+
+Yan-Fa Li wrote:
+> Hello
+> 
+> I'm trying to figure out some performance issues I have with the tg3 
+> driver.
+
+Are you sure your tg3 NIC is 66/64 PCI?  For 66/64, try an e1000 NIC, you
+should be able to get 800Mbps or better out of it on such a system.
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
 
 
 
-Anand,
-why dont you give a shot at the comparisons and post your results.
-You have already extracted the hashing function; so write a small program
-in user space that you feed headers from real world webservers for
-example to tcp_hashfn(); see how well the hashing is distributed
-amongst the hash buckets; this should give you the rough number of
-lookups needed in the linux hash function. Then try some of the trie
-schemes with the same data.
-I'd be interested in your results.
-
-cheers,
-jamal
-
-On Wed, 4 Dec 2002, SVR Anand wrote:
-
-> Hi,
->
-> I am writing a program that requires maintanence of per-connection statistics
-> of many tcp connections based on multi-field classification. The problem is
-> that of fast search and update when there are 1000s of connections. Couple of
-> questions.
->
-> 1. In many places of network code, I am seeing hashing being used. Can I also
-> use the same ?
->
-> >From the recently published literature on packet classification, people are
-> talking about some sort of trie variants. I would like to know if someone has
-> done performance comparison of the algorithm used in Linux against other
-> schemes.
->
->
-> 2. While going through tcp_ipv4.c, I happened to see tcp_hashfn. What is the
-> algorithm behind this ?
->
-> static __inline__ int tcp_hashfn(__u32 laddr, __u16 lport,
->                                  __u32 faddr, __u16 fport)
-> {
->         int h = ((laddr ^ lport) ^ (faddr ^ fport));
->         h ^= h>>16;
->         h ^= h>>8;
->         return h & (tcp_ehash_size - 1);
-> }
->
->
-> Any inputs from you will help me proceed further.
->
-> Anand
->
->
+[[HTML alternate version deleted]]
