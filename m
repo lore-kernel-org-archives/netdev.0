@@ -1,64 +1,32 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 3527] New: ssh does not work with 2.6.9rc3
-Date: Fri, 8 Oct 2004 10:48:01 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Fw: [Bugme-new] [Bug 3527] New: ssh does not work with 2.6.9rc3
+Date: Fri, 8 Oct 2004 20:10:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041008104801.0dd96536.akpm@osdl.org>
+Message-ID: <20041008181036.GC19714@rei.reeler.org>
+References: <20041008104801.0dd96536.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: albie@alfarrabio.di.uminho.pt
+Content-Disposition: inline
+In-Reply-To: <20041008104801.0dd96536.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+>  With this kernel, the sis ethernet bug is fixed (well, at least I can do a ping
+> -f without losing packets), SATA works but... wonder... ssh doesn't.
+> 
+> If I have a public key on other machine without passphrase, it works.
+> If not....
 
-hrm.   Could you check to see if it starts working OK after the machine has been
-up for more than five minutes?
+Could you provide your .config and a dump of the network
+traffic a few seconds before, during and after the ssh session?
+(tcpdump -s -w ...)
 
-Begin forwarded message:
+> Now, that file really doesn't exist. But it isn't needed with the old kernel.
+> So, what 2.6.9 rc 3 has that 2.6.7 don't?
 
-Date: Fri, 8 Oct 2004 09:26:51 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 3527] New: ssh does not work with 2.6.9rc3
-
-
-http://bugme.osdl.org/show_bug.cgi?id=3527
-
-           Summary: ssh does not work with 2.6.9rc3
-    Kernel Version: 2.6.9 RC 3
-            Status: NEW
-          Severity: normal
-             Owner: other_other@kernel-bugs.osdl.org
-         Submitter: albie@alfarrabio.di.uminho.pt
-
-
-Distribution: Slackware 10
-
-Problem Description:
- Had kernel 2.6.7 working correctly. It had a bug with my sis ethernet card.
-Upgraded to 2.6.8.1, and had problems with sata (bug #3521). So, tried the 2.6.9
-RC 3. 
-
- With this kernel, the sis ethernet bug is fixed (well, at least I can do a ping
--f without losing packets), SATA works but... wonder... ssh doesn't.
-
-If I have a public key on other machine without passphrase, it works.
-If not....
-
-ssh_askpass: exec(/usr/libexec/ssh-askpass): No such file or directory
-Permission denied, please try again.
-ssh_askpass: exec(/usr/libexec/ssh-askpass): No such file or directory
-Permission denied, please try again.
-ssh_askpass: exec(/usr/libexec/ssh-askpass): No such file or directory
-Permission denied (publickey,password,keyboard-interactive).
-
-Now, that file really doesn't exist. But it isn't needed with the old kernel.
-So, what 2.6.9 rc 3 has that 2.6.7 don't?
-
-Thanks,
-Alberto
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+I have the feeling that the bug is related to the calculation of
+some networking related threshold resultung in wrong values right
+after booting time.
