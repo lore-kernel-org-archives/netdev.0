@@ -1,38 +1,33 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: ip a flush problem on 2.6 kernels (fine on 2.4 kernels)
-Date: Wed, 10 Mar 2004 21:37:40 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 patch kernel 2.4.25
+Date: Wed, 10 Mar 2004 21:56:20 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403102137.40073.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200403040308.15880.arekm@pld-linux.org> <20040304141319.2d1cb112.ak@suse.de>
+Message-ID: <20040310215620.A31831@electric-eye.fr.zoreil.com>
+References: <20040308231303.C936@electric-eye.fr.zoreil.com> <404CF41C.2060807@netsite.com.br> <20040308235558.D936@electric-eye.fr.zoreil.com> <404D0363.9030407@netsite.com.br> <20040309010841.F936@electric-eye.fr.zoreil.com> <404D12C3.4000702@netsite.com.br> <20040309090747.A9256@electric-eye.fr.zoreil.com> <404DDB88.2080000@netsite.com.br> <20040310011358.A16937@electric-eye.fr.zoreil.com> <1078927570.1812.6.camel@territory>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>, Arkadiusz Miskiewicz <arekm@pld-linux.org>
-In-Reply-To: <20040304141319.2d1cb112.ak@suse.de>
+To: Marco Sinhoreli <msinhore@netsite.com.br>
 Content-Disposition: inline
+In-Reply-To: <1078927570.1812.6.camel@territory>; from msinhore@netsite.com.br on Wed, Mar 10, 2004 at 11:06:10AM -0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 04 March 2004 15:13, Andi Kleen wrote:
-> On Thu, 4 Mar 2004 03:08:15 +0100
->
-> Arkadiusz Miskiewicz <arekm@pld-linux.org> wrote:
-> > The problem is that
-> >
-> > ip a a 192.168.0.1/24 dev eth0
-> > ip link set eth0 down
-> > ip a flush dev eth0
-> >
-> > Here on my vanilla 2.6.2 it locks eating CPU - it does netlink
-> > communication over and over. This ,,hang'' doesn't happen when
-> > interface is in UP state. Also doesn't happen on 2.4 kernels.
->
-> I fixed it with this patch for iproute2 here. It's not clear to me at
-> all how it ever worked before. The loop seems to be just wrong.
+Marco Sinhoreli <msinhore@netsite.com.br> :
+[...]
+> I will be waiting the code of backport to drive r8169 for I test with
+> the rsync. 
 
-Does iproute2 have a homepage again? Where?
+Try that:
+http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.26-pre2/r8169-mammoth-attack.patch
+
+It should turn your 2.4.26-pre2 into a decently up-to-date/patched 2.6.x r8169
+driver (it does not include the misbehaving addr-high code). Please keep
+netdev Cced an provide a summary of your experiences.
+
+For the curious, the parts of the patch are in the same directory (not really
+different from the 2.6.x version actually).
+
 --
-vda
+Ueimor
