@@ -1,33 +1,44 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: pppoe and receive checksum offload
-Date: Mon, 28 Feb 2005 12:21:30 +0300
-Message-ID: <20050228092130.GA26076@yakov.inr.ac.ru>
-References: <20050224155906.73890361@dxpl.pdx.osdl.net> <20050227202011.5ccefb22.davem@davemloft.net>
+Date: Mon, 28 Feb 2005 22:31:06 +1100
+Message-ID: <20050228113106.GA3268@gondor.apana.org.au>
+References: <20050224155906.73890361@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, mostrows@speakeasy.net,
-        kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, mostrows@speakeasy.net,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20050227202011.5ccefb22.davem@davemloft.net>
+In-Reply-To: <20050224155906.73890361@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Thu, Feb 24, 2005 at 11:59:06PM +0000, Stephen Hemminger wrote:
+> 
+> Not sure if this is correct, but shouldn't pppoe be doing the following:
+> -----
+> diff -Nru a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+> --- a/drivers/net/pppoe.c	2005-02-24 15:40:10 -08:00
+> +++ b/drivers/net/pppoe.c	2005-02-24 15:40:10 -08:00
+> @@ -339,6 +339,7 @@
+>  		int len = ntohs(ph->length);
+>  		skb_pull(skb, sizeof(struct pppoe_hdr));
+>  		skb_trim(skb, len);
+> +		skb->ip_summed = CHECKSUM_NONE;
 
-> Changing or expanding the link level headers should only mess
-> up the hw checksum if you are using CHECKSUM_HW, is that what
-> your skge driver is using?
+This penalises CHECKSUM_HW.  We should have a generic helper
+function that does the checksum folding for CHECKSUM_HW and
+if otherwise set ip_summed to CHECKSUM_NONE.
 
-Well, even if this driver uses CHECKSUM_UNNECESSARY, the bug is still
-apparently present for another devices which use CHECKSUM_HW.
+In fact it looks like the current code in ip_gre is broken
+in this respect as well.
 
-Actually, the bug is in ppp_input(). It is responsible for setting correct
-ip_summed before doing netif_rx(). It could even optimize subtracting
-checksum of stripped ppp header from ip_summed (f.e. ipgre_rcv() do this)
+Let me whip up a patch tomorrow.
 
-But suggested fix is still correct. Unless there are another users of
-ppp_input() with the same problem.
-
-Alexey
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
