@@ -1,118 +1,125 @@
-From: rdbrown@mira.net
-Subject: Suggested patch to include attribution for faster CRC algorithm
-Date: Tue, 21 Oct 2003 00:32:08 +1000
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: Changing bonding <-> ifenslave interface [was: Problem with current /proc entries]
+Date: Mon, 20 Oct 2003 09:42:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031020143208.GA576@urtur>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rbrown64@csc.com.au
+Message-ID: <200310201642.h9KGgMXp027089@death.ibm.com>
+References: <amir.noam@intel.com>
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "Noam, Amir" <amir.noam@intel.com>
+In-Reply-To: Message from "Noam, Amir" <amir.noam@intel.com>
+   of "Sun, 19 Oct 2003 17:56:01 +0200." <E6F7D288B394A64585E67497E5126BA601EB5067@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch to include attribution for the faster CRC algorithm used in
-lib/crc32.c . As I read it Richard Black implied a BSD style license as
-long as the Copyright was included. The source was based on his code.
-I think http://research.microsoft.com/users/rjblack/ may be the right
-person if he should be contacted. I don't like the long line for the URL
-- I guess you could lose the section part if preferred.
-Source modified from 2.6.0-test4, untested as a comment change.
 
---- lib/crc32.c	Sat Aug 23 09:50:53 2003
-+++ lib/crc32.c	Sun Oct 19 23:40:32 2003
-@@ -1,6 +1,9 @@
- /* 
-  * Oct 15, 2000 Matt Domsch <Matt_Domsch@dell.com>
-  * Nicer crc32 functions/docs submitted by linux@horizon.com.  Thanks!
-+ * CRC_?E_BITS == 8 forms based on Algorithm 4 from
-+ * http://www.cl.cam.ac.uk/Research/SRG/bluebook/21/crc/node6.html#SECTION00064000000000000000
-+ * which is Copyright 1993 Richard Black, All rights reserved.
-  *
-  * Oct 12, 2000 Matt Domsch <Matt_Domsch@dell.com>
-  * Same crc32 function was used in 5 other places in the kernel.
-
+	The "To clarify, I'm interpreting" comments are mine (3 ">");
+Chad's are one up and down (2 and 4 ">").
 
-The statement from the web page (tex source) was
-\subsection{Algorithm four}
-
-This code is copyright~\copyright~1993 Richard Black. All rights are
-reserved. You may use this code only if it includes a statement to
-that effect.
-
-
-Following are excerpts from the mailing lists showing the history of
-the code.
-
-Following includes first use of Algorithm 4
-http://www.ussg.iu.edu/hypermail/linux/kernel/0211.2/1895.html
-Re: [PATCH 2.5] crc32 static initialization
-From: Brian Murphy (brian@murphy.dk)
-Date: Fri Nov 22 2002 - 15:25:22 EST
-
-Joakim Tjernlund wrote:
-
->Hi Brian
+>"Chad N. Tindel" <chad@tindel.net> wrote:
 >
->Would you please also add the CRC32 patch I sent you earlier?
->It is much faster.
+>>  > >I say that if people want to switch between 2.4 and 2.6, they can
+>>  > >write a script to create the appropriate ifenslave symbolic link.
+>>  > 
+>>  > 	To clarify, I'm interpreting this to mean:
+>>  > 
+>>  > 	2.4.X ifenslave (where "X" is recent enough that it doesn't
+>>  > use SIOCDEVPRIVATE) should work with 2.6.anything.
 >
+>I disagree. See below.
 >
+>>  > 	2.4.X ifenslave (where "X" is old and it uses SIOCDEVPRIVATE)
+>>  > need not work with 2.6.anything.
+>>  > 
+>>  > 	2.6.X ifenslave (where "X" is 0 or better) should work with
+>>  > any 2.6 later than the one it was shipped with.
 >
-Can you test the attached patch - especially on a big endian system. It
-should
-do the required thing, i.e. what you want and what I want :-)
-simultaneously.
+>Yes.
+>
+>>  > 	2.6.X ifenslave (where "X" is 0 or better) need not work with
+>>  > 2.4.anything.
+>
+>I disagree. I think that the latest version of ifenslave should work
+>with all versions of the bonding module that we can reasonably expect
+>people to use. This means that if ifenslave fails to use the new
+>interface it can try the old one. (This is how I understood Jeff's
+>position).
 
-/Brian 
+	When we discussed this previously, my understanding was:
 
-
-Earlier Algorithm 4
-http://www.ussg.iu.edu/hypermail/linux/kernel/0211.2/1525.html
-Early crc32 initialization
-From: Joakim Tjernlund (joakim.tjernlund@lumentis.se)
-Date: Thu Nov 21 2002 - 05:16:48 EST
-Brian Murphy posted this on 8-Oct with no response. Quoting:
+	An ifenslave only had to work forwards, it didn't need to go
+backwards.  So, an ifenslave from 2.4.X would run on that version, as
+well as any future 2.4.Y (where Y > X).  But, the reverse isn't true:
+ifenslave from 2.4.Y need not work on kernel 2.4.X (again, Y > X).
 
-Here is a patch to the crc32 library routine to allow explicit
-initialization of the tables used by the routines.
+	Applying this to 2.6, a 2.6 ifenslave shouldn't need to
+control a 2.4 bonding driver, but a 2.4 ifenslave should control a 2.6
+kernel (for reasonable ranges of 2.4.X, in particular excluding
+SIOCDEVPRIVATE).
 
-I need this to be able to use the crc routines in the early
-start up code for my platform which saves crc protected
-information (clock speed, machine type) in an eeprom.
+	I was thinking that the 2.4 ifenslave should work with 2.4 or
+2.6 (including the new shiny API, to make kernel upgrades less
+hassle), but the 2.6 ifenslave need not work with 2.4, so we could
+hopefully vacuum it clean of the various ABI gook once we have a new
+shiny interface.  The 2.6 ifenslave presumably won't be included in a
+distro until they ship a 2.6 kernel, so that would theoretically be
+sufficient.
 
-The option CONFIG_CRC32_EXPLICIT is defined for the platforms
-which need it in the config.in file.
+>However, I'm definitely in favor of dropping compatibility in the
+>*module* in 2.6. This is because most recent distributions (Red Hat 9,
+>for example) still use an antique version of ifenslave that still uses
+>the SIOCDEVPRIVATE ioctls. If we remove support for these ioctls in
+>2.6 (as we should), then the bonding module will break compatibility
+>with those ifenslave versions anyway. I see no point in trying to keep
+>compatibility with the ifenslave version that is in the 2.4 kernel
+>tree, while it is not yet in use by any distribution.
 
-I have removed dynamic allocation of memory because the
-memory subsystem is also not initialised at the stage where I
-need the crc functions.
+	When you say "dropping compatibility" are you just referring
+to the SIOCDEVPRIVATE ioctls, or the full "old style" ifenslave to
+bonding API (which would be replaced by the new shiny interface you
+were talking about earlier)?
 
-/Brian
+>>  My opinion is this.  What has worked in 2.4 in the past 
+>>  should always work
+>>  for 2.4.  Once you upgrade to 2.6, all bets for that are off.  
+>
+>I agree, except that I think that if you upgrade to 2.6, and update
+>your ifenslave accordingly, you shouldn't have to switch user space
+>utilities when you boot into different kernels. That's why I said that
+>once you update ifenslave it should work with old bonding as well.
 
-Hi Matt and Brian
+	As I said above, I don't think we need to put ourselves in the
+position of supporting both backwards compatibility (old ifenslave,
+new bonding) and forwards compatibility (new ifenslave, old bonding).
 
-I have doen an optimiztion that improves scan time in JFFS2 with more that 25% for
-my PPC custom board. This patch needs to use __cpu_to_be32()/__cpu_to_le32() on the
-tables. That may cause problems if a static table is to be used. See below:
+	I'm thinking we should give the 2.4 ifenslave the "shiny new
+API" stuff (which is only applicable to the 2.6 bonding driver) so
+that it'll run with 2.6 for the forseeable future, and then excise the
+existing API from 2.6 (realistically, at some point in the future,
+probably when 2.6 becomes "the standard").
 
- Jocke 
+	Comments?
 
-
-Explicit reference to algorithm 4
-http://lists.infradead.org/pipermail/linux-mtd/2002-November/006422.html
-crc32() optimization
-Joakim Tjernlund Joakim.Tjernlund at lumentis.se
-Sun Nov 10 21:04:11 GMT 2002
+>We can probably provide a version of bonding/ifenslave that works with
+>the new interface within two weeks (hopefully less). This is, of course,
+>assuming we reach a consensus on the compatibility issue.
 
-    * Previous message: crc32() optimization
-    * Next message: Building mkfs.jffs2
-    * Messages sorted by: [ date ] [ thread ] [ subject ] [ author ]
+	Would that be dependant upon the cleanup stuff, or not?
 
-hmm , maybe. I tried 16, 8 & 4 also, but 6 was a little faster for me.
-What would be great if someone that understands CRC better than me could
-take a look at Algorithm 4 at http://www.cl.cam.ac.uk/Research/SRG/bluebook/21/crc/node6.html#SECTION00060000000000000000
-and apply that on linux CRC32 code.  I tried but failed to get it correct.
+>>  > 	Am I nuts to want to get the new API stuff in for 2.6.0?  It'd
+>>  > be nice to not be locked in to supporting the current 
+>>  scheme because
+>>  > the first ifenslave in 2.6.0 uses it.
+>>  
+>>  I agree wholeheartedly.
+>
+>I also agree. The question is, can we really push such a change into
+>bonding in 2.6, now that Linus only accepts bug fixes?
 
-        Jocke
+	That I don't know.  Most of this is moot if we can't mess with
+2.6.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
