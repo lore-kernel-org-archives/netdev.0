@@ -1,69 +1,33 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: gettime: Was (Re: Route cache performance under stress
-Date: Wed, 11 Jun 2003 23:32:41 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Route cache performance under stress
+Date: Wed, 11 Jun 2003 23:31:22 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EE81E89.1040004@candelatech.com>
-References: <20030610.203325.41658167.davem@redhat.com>	<20030611065255.L39678@shell.cyberus.ca>	<20030611120803.GB22720@wotan.suse.de> <20030611.203015.104061804.davem@redhat.com>
+Message-ID: <20030611.233122.27808829.davem@redhat.com>
+References: <20030608.050500.28795668.davem@redhat.com>
+	<874r30r9z2.fsf@deneb.enyo.de>
+	<1055214346.1199.65.camel@photon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, hadi@shell.cyberus.ca, netdev@oss.sgi.com
+Cc: fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030611.203015.104061804.davem@redhat.com>
+To: slblake@petri-meat.com
+In-Reply-To: <1055214346.1199.65.camel@photon>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: Andi Kleen <ak@suse.de>
->    Date: Wed, 11 Jun 2003 14:08:03 +0200
-> 
->    Another way is to just store jiffies (= 10 or 1ms accuracy) 
->    
->    This should be nearly zero cost and accurate enough at least for TCP.
->    
-> TCP doesn't use it Andi.  SO_RECVSTAMP etc. uses it and that
-> MUST be accurate.
-> 
-> People, start approaching this from an actually implementable
-> angle, not one's that have no basis in reality :)
+   From: Steven Blake <slblake@petri-meat.com>
+   Date: 09 Jun 2003 23:05:47 -0400
 
-I think we need a generic method to get something like the
-TSC..ie very fast, very precise.
+   http://www.petri-meat.com/slblake/networking/refs/lpm_pkt-class/
+   
+Interesting link, thanks for mentioning it.
 
-Then, we need a way to turn this into the time-of-day.
+   IMHO, the best LPM algorithm (in terms of balancing lookup speed vs.
+   memory consumption vs. update rate) is CRT, described in the first paper
+   [ASIK].  It is patented, but there is hope that it might get released
+   under GPL in the near future.
 
-After that, we can calculate time-of-day in a lazy manner.
-
-Something like:
-
-/* In driver or as early as possible */
-skb->rx_stamp = getCurTSC();
-skb->flags |= (RX_STAMP_IS_NOT_YET_CONVERTED);
-....
-
-/* somebody wants to know what time of day rx-stamp was */
-if (skb->flags & (RX_STAMP_IS_NOT_YET_CONVERTED)) {
-   skb->rx_stamp = do_gettimeofday() - ((getCurTSC() - skb->rx_stamp) *
-                                        (magic-conversion-to-timeval-units));
-   skb->flags &= ~(RX_STAMP_IS_NOT_YET_CONVERTED);
-}
-/* rx_stamp is now relative to time-of-day */
-
-
-But, Dave mentioned TSC is not always good to use, and it won't work at all
-on older cpus, so the getCurTSC() thing probably needs to be a macro...
-Seems like this macro would be useful in lots of places...pktgen for
-instance :)
-
-Ben
-
-> 
->    
-> 
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+It would be nice if this actually was a "paper", but it's
+a patent entry, such things are always so cryptic.  Is there
+a real paper on this scheme?
