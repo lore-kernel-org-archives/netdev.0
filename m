@@ -1,141 +1,100 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: [2.6 patch] IPV6 addrconf.c: remove unused functions and variables
-Date: Sat, 13 Mar 2004 20:39:59 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040313193959.GB14833@fs.tum.de>
+From: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
+Subject: Prism54 in 2.6.4-bk2
+Date: Sat, 13 Mar 2004 17:15:29 -0500
+Sender: prism54-devel-admin@prism54.org
+Message-ID: <20040313221529.GC32439@ruslug.rutgers.edu>
+References: <5.1.0.14.2.20040313180709.00ab4250@pop.t-online.de> <1079199572.7111.0.camel@lapy.tuxslare.org> <20040313203058.GY32439@ruslug.rutgers.edu>
+Reply-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: roque@di.fc.ul.pt, kuznet@ms2.inr.ac.ru
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="T4IYkFBVPN84tP7K"
+Cc: prism54-devel@prism54.org, netdev@oss.sgi.com, jgarzik@redhat.com
+Return-path: <prism54-devel-admin@prism54.org>
+To: Linux kernel mailing list <linux-kernel@vger.kernel.org>
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040313203058.GY32439@ruslug.rutgers.edu>
+Errors-To: prism54-devel-admin@prism54.org
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
-The patch
 
-  [IPV6]: Do not report {multi,any}cast in inet6_dump_ifaddr().
+--T4IYkFBVPN84tP7K
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-in Linus' tree removed the only uses of two functions and two variables
-and therefore caused the following compile warnings:
+On Sat, Mar 13, 2004 at 03:30:58PM -0500, Luis R. Rodriguez wrote:
+> On Sat, Mar 13, 2004 at 05:39:32PM +0000, Andr? Ventura Lemos wrote:
+> > ChangeSet@1.1608.81.1, 2004-03-12 12:55:33-05:00, jgarzik@redhat.com
+> >   [wireless] Add new Prism54 wireless driver.
+> >=20
+> > :-)
+> >=20
+> > On Sat, 2004-03-13 at 17:08, Margit Schubert-While wrote:
+> > > In case nobody noticed, the driver is in 2.6.4-bk2 !
+> > >=20
+> > > Margit
+>=20
+> Hmm. Now what? Should we create a new set of automated patchsets against =
+the latest kernel
+> snapshot? Or just not worry about that and keep on happilly with our stab=
+le kernel
+> patches?
+>=20
+> The prism54 driver snapshot that went into bk2 could be marked as our
+> first testing snapshot... If so, we could also start a new ChangeLog.
+>=20
+> Ideas?
+>=20
+> 	Luis
 
-<--  snip  -->
+I just checked out the bk2 snapshot and its diffs with our latest
+prism54 tree. Here is the diff:
 
-...
-  CC      net/ipv6/addrconf.o
-net/ipv6/addrconf.c: In function `inet6_dump_ifaddr':
-net/ipv6/addrconf.c:2638: warning: unused variable `ifmca'
-net/ipv6/addrconf.c:2639: warning: unused variable `ifaca'
-net/ipv6/addrconf.c: At top level:
-net/ipv6/addrconf.c:2558: warning: `inet6_fill_ifmcaddr' defined but not used
-net/ipv6/addrconf.c:2595: warning: `inet6_fill_ifacaddr' defined but not used
-...
+http://prism54.org/~mcgrof/bk2-up.diff
 
-<--  snip  -->
+It seems jgarzik took a patch before 2004-03-09 changes and just nuked
+WDS code. It's great that it's already on some official kernel snapshot=20
+patch but prism54 driver project is a very active project and I think
+someone jumped the gun. We were preparing the driver for proper
+integration per the nevdev list discussion. Anyway, now onto dealing
+with it.
 
+Regarding WDS on prism54: on the netdev list we discussed this
+but no one got back to me as to whether we should really just nuke this
+code. Prism54 driver source *does* include WDS support because hey, the
+firmware does. Why wouldn't it go in the driver? We haven't given WDS
+much though anyway since it's also been low priority on our TODO list.
 
-The patch below removes these functions and variables.
+Is it already agreed among kdevelopers that even if certain chipsets
+support WDS at the hardware/firmware level that another layer is going
+to be used for it's support?
 
+Now that prism54 driver is in bk2 if we (prism54 team) want to submit
+patches for it, should we always patch against the latest bk snapshot?
 
-diffstat output: 
+Oh and if you get messages telling you your post is pending approval on
+the prism54 list because you're not registered, don't worry, we're quick.
 
-net/ipv6/addrconf.c |   76 --------------------------------------------
- 1 files changed, 76 deletions(-)
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
 
+--T4IYkFBVPN84tP7K
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-cu
-Adrian
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
+iD8DBQFAU4gBat1JN+IKUl4RApJSAJwJK3PDlK8aa7uWAY3AMSGjfRn+rgCcD+Hs
+3Lrmd7V9BpGYspRdky6bcJw=
+=kPvv
+-----END PGP SIGNATURE-----
 
---- linux-2.6.4-mm1-full/net/ipv6/addrconf.c.old	2004-03-13 20:27:45.000000000 +0100
-+++ linux-2.6.4-mm1-full/net/ipv6/addrconf.c	2004-03-13 20:35:20.000000000 +0100
-@@ -2553,80 +2553,6 @@
- 	return -1;
- }
- 
--static int inet6_fill_ifmcaddr(struct sk_buff *skb, struct ifmcaddr6 *ifmca,
--				u32 pid, u32 seq, int event)
--{
--	struct ifaddrmsg *ifm;
--	struct nlmsghdr  *nlh;
--	struct ifa_cacheinfo ci;
--	unsigned char	 *b = skb->tail;
--
--	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ifm));
--	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
--	ifm = NLMSG_DATA(nlh);
--	ifm->ifa_family = AF_INET6;	
--	ifm->ifa_prefixlen = 128;
--	ifm->ifa_flags = IFA_F_PERMANENT;
--	ifm->ifa_scope = RT_SCOPE_UNIVERSE;
--	if (ipv6_addr_scope(&ifmca->mca_addr)&IFA_SITE)
--		ifm->ifa_scope = RT_SCOPE_SITE;
--	ifm->ifa_index = ifmca->idev->dev->ifindex;
--	RTA_PUT(skb, IFA_ADDRESS, 16, &ifmca->mca_addr);
--	ci.cstamp = (__u32)(TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) / HZ
--		    * 100 + TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) % HZ
--		    * 100 / HZ);
--	ci.tstamp = (__u32)(TIME_DELTA(ifmca->mca_tstamp, INITIAL_JIFFIES) / HZ
--		    * 100 + TIME_DELTA(ifmca->mca_tstamp, INITIAL_JIFFIES) % HZ
--		    * 100 / HZ);
--	ci.ifa_prefered = INFINITY_LIFE_TIME;
--	ci.ifa_valid = INFINITY_LIFE_TIME;
--	RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
--	nlh->nlmsg_len = skb->tail - b;
--	return skb->len;
--
--nlmsg_failure:
--rtattr_failure:
--	skb_trim(skb, b - skb->data);
--	return -1;
--}
--
--static int inet6_fill_ifacaddr(struct sk_buff *skb, struct ifacaddr6 *ifaca,
--				u32 pid, u32 seq, int event)
--{
--	struct ifaddrmsg *ifm;
--	struct nlmsghdr  *nlh;
--	struct ifa_cacheinfo ci;
--	unsigned char	 *b = skb->tail;
--
--	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ifm));
--	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
--	ifm = NLMSG_DATA(nlh);
--	ifm->ifa_family = AF_INET6;	
--	ifm->ifa_prefixlen = 128;
--	ifm->ifa_flags = IFA_F_PERMANENT;
--	ifm->ifa_scope = RT_SCOPE_UNIVERSE;
--	if (ipv6_addr_scope(&ifaca->aca_addr)&IFA_SITE)
--		ifm->ifa_scope = RT_SCOPE_SITE;
--	ifm->ifa_index = ifaca->aca_idev->dev->ifindex;
--	RTA_PUT(skb, IFA_ADDRESS, 16, &ifaca->aca_addr);
--	ci.cstamp = (__u32)(TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) / HZ
--		    * 100 + TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) % HZ
--		    * 100 / HZ);
--	ci.tstamp = (__u32)(TIME_DELTA(ifaca->aca_tstamp, INITIAL_JIFFIES) / HZ
--		    * 100 + TIME_DELTA(ifaca->aca_tstamp, INITIAL_JIFFIES) % HZ
--		    * 100 / HZ);
--	ci.ifa_prefered = INFINITY_LIFE_TIME;
--	ci.ifa_valid = INFINITY_LIFE_TIME;
--	RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
--	nlh->nlmsg_len = skb->tail - b;
--	return skb->len;
--
--nlmsg_failure:
--rtattr_failure:
--	skb_trim(skb, b - skb->data);
--	return -1;
--}
--
- static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
- {
- 	int idx, ip_idx;
-@@ -2635,8 +2561,6 @@
- 	struct net_device *dev;
- 	struct inet6_dev *idev = NULL;
- 	struct inet6_ifaddr *ifa;
--	struct ifmcaddr6 *ifmca;
--	struct ifacaddr6 *ifaca;
- 	
- 	s_idx = cb->args[0];
- 	s_ip_idx = ip_idx = cb->args[1];
+--T4IYkFBVPN84tP7K--
