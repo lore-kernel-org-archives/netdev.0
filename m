@@ -1,87 +1,58 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169.c
-Date: Sat, 20 Nov 2004 01:29:46 +0100
-Message-ID: <20041120002946.GA18059__11377.2637247623$1100911401$gmane$org@electric-eye.fr.zoreil.com>
-References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: Assertions when lowering tcp_tso_win_divisor
+Date: Fri, 19 Nov 2004 18:00:21 -0800 (PST)
+Message-ID: <Pine.LNX.4.58.0411191755160.2567@w-sridhar.beaverton.ibm.com>
+References: <Pine.LNX.4.58.0411160931080.31882@w-sridhar.beaverton.ibm.com>
+ <E1CUAQ2-0002jT-00@gondolin.me.apana.org.au> <20041116163106.3b62a39a.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com.jgarzik@pobox.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Resent-Message-Id: <200411200040.iAK0eSFK021403@electric-eye.fr.zoreil.com>
-To: Dorn Hetzel <kernel@dorn.hetzel.org>
-Content-Disposition: inline
-In-Reply-To: <20041120003754.GA32133@lilah.hetzel.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041116163106.3b62a39a.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dorn Hetzel <kernel@dorn.hetzel.org> :
-[...]
-> Thank you very much for the pointers.  I have been using Linux for
-> ages (well, since 1993 anyway), but this is my first attempt at fixing
-> something in the kernel.  (first time I've needed to :) )
-> 
-> I'm off to look for and try the -mm patchkit after I write this?
-> Will it apply to 2.6.10-rc2?  (I had to get to rc2 to get my SATA controller
->  to work) :)
+On Tue, 16 Nov 2004, David S. Miller wrote:
 
-You have two options (or more) on top of 2.6.10-rc2:
-- ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.10-rc2/2.6.10-rc2-mm2/2.6.10-rc2-mm2.bz2
-- http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.10-rc2-netdev1.patch.bz2
-
-Once you have applied one of the patch above, the patch below will improve
-your "transmit timed out" (please apply in order and enable NAPI):
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-250.patch
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-255.patch
-
-If things perform better you may want to use bigger frames and apply as
-well r8169-260.patch and r8169-265.patch.
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-260.patch
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-265.patch
-
-
-[...]
-> with regard to the "original" version shipping with 2.6.10-rc2
-> (which seems to be identical to the version in 2.6.9)...
-
-Yes.
-I hope the current set of changes in -mm/-netdev will be merged in
-early post-2.6.10.
-
-> gcc version = 2.95.4  (happy to update that if you think it will help)
-
-You will be welcome to upgrade.
-
-[...]
-> > - realize that the so called version number in 2.6.9 has no meaning.
+> On Wed, 17 Nov 2004 07:59:18 +1100
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>
+> > Sridhar Samudrala <sri@us.ibm.com> wrote:
+> > > We are seeing following assertions when running specweb99 with
+> > > tcp_tso_win_divisor lowered to 4, 2 or 1 on linux 2.6.9 based kernels.
 > >
-> By this, do you mean that the comment of version number in the r8169.c
-> of 2.6.9 is no longer related to the version numbers at Realtek?
+> > 2.6.9 is known to have bugs in TCP book-keeping.  Please try 2.6.10-rc2
+> > instead.
+>
+> Actually, that's true.  I missed that this report was against
+> 2.6.9 vanilla, TCP is buggy as can be wrt TSO in that
+> release.
 
-Exactly.
+Unfortunately as we cannot upgrade to 2.6.10-rc2, i tried to locate all the
+TSO accounting related bugfixes that went in after 2.6.9 and came up with
+the following 4 patches.
 
-One year ago, Realtek's driver was split and merged in the kernel. That
-and the contributions of many people took several months to achieve a
-(imho) decently stable driver. At the same time, no change appeared on
-Realtek's side. Still some months later Realtek issues a new driver with
-a rev number bump (2.2). Its code suggests that it includes a partial
-merge from some of the changes made to the in-kernel driver as well as
-some internal experiments (hooks for missing code).
+[TCP]: Fix new packet len calc in tcp_fragment()
+http://linux.bkbits.net:8080/linux-2.5/cset@4175f423T1X-UctOUzkYgMxq16ODAw?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
 
-The drivers are now quite different. A change of version number is 
-included in the -mm/-netdev driver to protect the innocent but it seems
-I'll have to push weirder numbers. :o)
+[TCP]: Fix tcp_trim_head() calculations.
+http://linux.bkbits.net:8080/linux-2.5/cset@41789ca8a4gfwR352SuIgAl6GbQmbQ?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
 
-[...]
-> Yeah, I noticed just one version and no history, but to the good, it
-> does work for me, at least so far, after the minor patch :)
+[TCP]: Only re-set TSO size for packet which was TSO to begin with.
+http://linux.bkbits.net:8080/linux-2.5/cset@417982139wJw8yO-JClu818UQuoa_g?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
 
-1 - netif_stop_queue() race between the Tx xmit and the Tx IRQ handler.
-2 - "entry" can overflow in rtl8169_tx_interrupt() -> read of random
-    status and early free of Tx buffer.
+[TCP]: Handle real partial-ACKs of TSO frames correctly.
+http://linux.bkbits.net:8080/linux-2.5/cset@417dcb39pNYZ1fRBQTQES0JVcUji2g?nav=index.html|src/|src/net|src/net/ipv4|related/net/ipv4/tcp_output.c
 
-When the in-kernel version had similar code, it translated into "r8169
-hangs under load".
+Even with these 4 patches applied, we are still seeing the assertions.
 
---
-Ueimor
+Also, the webserver is started only after lowering tcp_tso_win_divisor and
+the value is is not changed again.
+
+Are there any other TSO related patches apart from the above 4 that went in
+after 2.6.9? Or could it be that this bug is still there?
+
+Thanks
+Sridhar
