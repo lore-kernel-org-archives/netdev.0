@@ -1,48 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH ] more eepro100 boards
-Date: Wed, 19 Nov 2003 12:18:57 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBBA601.3080709@pobox.com>
-References: <3FBA97E4.1060004@wanadoo.es>
+From: viro@parcelfarce.linux.theplanet.co.uk
+Subject: Re: [CFT] 2.6.x experimental net driver updates
+Date: Thu, 20 Nov 2003 05:47:29 +0000
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20031120054729.GC24159@parcelfarce.linux.theplanet.co.uk>
+References: <3FBBA954.6000601@pobox.com> <20031120025423.GB24159@parcelfarce.linux.theplanet.co.uk> <3FBC4FE0.2020705@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Xose Vazquez Perez <xose@wanadoo.es>
-In-Reply-To: <3FBA97E4.1060004@wanadoo.es>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <3FBC4FE0.2020705@pobox.com>
 List-Id: netdev.vger.kernel.org
 
-Xose Vazquez Perez wrote:
-> deleted PCI_DEVICE_ID_INTEL_82801BA_7, it's a  duplicate of 0x2449
+On Thu, Nov 20, 2003 at 12:23:44AM -0500, Jeff Garzik wrote:
+> viro@parcelfarce.linux.theplanet.co.uk wrote:
+> >On Wed, Nov 19, 2003 at 12:33:08PM -0500, Jeff Garzik wrote:
+> >
+> >>Ok, Al Viro's net driver refcounting work is pretty much complete, and 
+> >
+> >
+> >The hell it is.  We are through with legacy probes, we are through with
+> >init_etherdev(), we are practically through with static struct net_device.
 > 
-> and added five boards:
-> 
-> 0x1051
-> 0x1052
-> 0x1053
-> 0x1054
-> 0x1055
+> hehe :)  I don't mean to suggest that all is clean and pure :)
 > 
 > 
-> These should be deleted:
+> >However, we still have weird allocators (I've got almost all of them
+> >done by now, will submit in the next batch) and we still have struct
+> >net_device embedded as a field of other structures in several drivers.
 > 
-> 0x1035
-> 0x1036
-> 0x1037
-> 0x1227
-> 0x1228
-> 0x5200
-> 0x5201
-> 
-> Time ago, in conversation with some intel guys, they said me that
-> those boards are not compatibles with the driver.  Do anyone run
-> eepro100 with any of those boards?
+> Some of that will be interesting.  ns83820 for example embedded 
+> net_device on purpose...  Ben seemed to think at the time it gave him 
+> some speed, a few less pointer derefs and such.
 
+That's fine, but 83820 should be doing that the other way round.
 
-Indeed....  I would like to delay this patch, until we are confirmed 
-that these pci ids do indeed work with eepro100.c.  Once we get 
-confirmation, I am OK with applying.
+Note that for objects allocated by alloc_netdev() we have
+	(char*) dev->priv == (char *)dev + const
+and constant can be found at compile time _if_ we pad in front of
+net_device and add a pointer to allocated block into net_device.
 
-	Jeff
+So we can have exactly the same structure (modulo padding) and no extra
+dereferencing.  All we need is inlined void *net_priv(struct net_device *);
+
+That, BTW, would be a win for other drivers using alloc_...() and not
+reassigning ->priv (i.e. majority of those beasts).
