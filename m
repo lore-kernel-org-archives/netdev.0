@@ -1,42 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: BUG in tcp_timer.c:tcp_retransmit_timer()
-Date: Mon, 29 Mar 2004 20:09:54 -0800
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040329200954.7baac255.davem@redhat.com>
-References: <Pine.LNX.4.44.0403290222190.27795-100000@localhost.localdomain>
+Subject: Re: [PATCH] don't require ip_forwarding for reset on a bridge
+Date: Mon, 29 Mar 2004 20:30:25 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040329203025.4d272b55.davem@redhat.com>
+References: <200403292314.12855.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "Tomar, Nagendra" <nagendra_tomar@adaptec.com>
-In-Reply-To: <Pine.LNX.4.44.0403290222190.27795-100000@localhost.localdomain>
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200403292314.12855.bdschuym@pandora.be>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Mar 2004 02:39:01 +0530 (IST)
-Nagendra Singh Tomar <nagendra_tomar@adaptec.com> wrote:
+On Mon, 29 Mar 2004 23:14:12 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> While reading the code of tcp_retransmit_timer(), I came across something 
-> which looks liks a BUG.
+> Currently, to be able to send a reset in the FORWARD chain of iptables
+> for bridged traffic, ip forwarding must be enabled. This causes confusion
+> and in some situations people really don't want to enable ip forwarding.
+> The patch below lets the user send reset packets for bridged frames in
+> the FORWARD chain, with ip forwarding disabled (as long as there is a
+> route).
 
-It isn't, read below.
-
-> The following line 
-> 
-> if (tcp_retransmit_skb(sk, skb_peek(&sk->write_queue)) > 0)
-> 
-> should correctly read as
-> 
-> if (tcp_retransmit_skb(sk, skb_peek(&sk->write_queue)) < 0)
-
-Nope, it really does want greater than zero.  Less than zero
-means memory allocation error or something like that, but this is
-not what this code wants to check for.  Read the comment inside
-this code block, it says it is the code path for "local congestion"
-and the device output path indicates congestion via positive valued
-error codes.
-
-These codes are the NET_XMIT_* and NET_RX_* macros defined in
-linux/netdevice.h
-
-Thanks for the report though.
+I want an ACK from the netfilter folks before applying this one.
