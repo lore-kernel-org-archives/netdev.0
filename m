@@ -1,32 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Sevaral MLD Fixes
-Date: Fri, 18 Oct 2002 18:52:58 -0700 (PDT)
+From: Keith Owens <kaos@ocs.com.au>
+Subject: Re: [PATCH] LSM networking: skb hooks for 2.5.42 (2/7)
+Date: Sat, 19 Oct 2002 12:33:07 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021018.185258.27026815.davem@redhat.com>
-References: <20021018.125223.130322644.yoshfuji@linux-ipv6.org>
+Message-ID: <4301.1034994787@ocs3.intra.ocs.com.au>
+References: <20021015.131037.96602290.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20021018.125223.130322644.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com, linux-security-module@wirex.com
+In-reply-to: Your message of "Tue, 15 Oct 2002 13:10:37 MST."
+             <20021015.131037.96602290.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 15 Oct 2002 13:10:37 -0700 (PDT), 
+"David S. Miller" <davem@redhat.com> wrote:
+>   Yes, the size of the *.o files in the security directory can be shrunk a
+>   bit:
+>      text    data     bss     dec     hex filename
+>      6765     776       8    7549    1d7d built-in.o
+>      3280     392       4    3676     e5c capability.o
+>      1772     384       0    2156     86c dummy.o
+>      1713       0       4    1717     6b5 security.o
+>   
+>It's a whopping 32K on sparc64, and that is only counting
+>the security/*.o objects.
 
-I had to add the following to my tree after this patch,
-please watch for compiler warnings introducted by your
-changes.   Thanks :-)
-
---- net/ipv6/mcast.c.~1~	Fri Oct 18 18:55:04 2002
-+++ net/ipv6/mcast.c	Fri Oct 18 18:55:16 2002
-@@ -605,8 +605,6 @@
- 
- static void igmp6_leave_group(struct ifmcaddr6 *ma)
- {
--	int addr_type;
--
- 	if (IPV6_ADDR_MC_SCOPE(&ma->mca_addr) < IPV6_ADDR_SCOPE_LINKLOCAL ||
- 	    ipv6_addr_is_ll_all_nodes(&ma->mca_addr))
- 		return;
+<nitpick>
+Double counting: built-in.o == (capability.o + dummy.o + security.o)
+</nitpick>
