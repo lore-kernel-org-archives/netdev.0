@@ -1,38 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [TCP] Modular IPv6 support in tcpdiag
-Date: Wed, 3 Nov 2004 09:16:09 -0800
-Message-ID: <20041103091609.7f6d5d9c@zqx3.pdx.osdl.net>
-References: <20041103094451.GA20220@gondor.apana.org.au>
+From: "Anton meier" <Falko_M_Klein@gmx.de>
+Subject: Interviewing some Linux Developer
+Date: Wed, 3 Nov 2004 18:38:09 +0100 (MET)
+Message-ID: <7624.1099503489@www6.gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041103094451.GA20220@gondor.apana.org.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Nov 2004 20:44:51 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Hi!
 
-> Hi Dave:
-> 
-> This patch allows tcpdiag to support ipv6 work as a module when itself
-> is also a module.
-> 
-> I was planning for a more extensible method but now I think the effort
-> would be better directed at a new generic socket netlink interface than
-> the TCP-specific tcpdiag.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I'm doing my final thesis on "Coordination Mechanism and Coordination
+Success at Linux".  In order to complete it, I would like to interview so=
+me
+Linux Developers about project coordination, project structure, motivatio=
+n
+ect.
 
-I wanted to ask why all the work to make tcp_diag a module? If it is
-a module there are more possibilties of user problems. Any utilities
-that expect it would then have to deal with it not being loaded as well
-as the possiblity of building a kernel without it.
+The interview will be by email or by telephone (at my charge).
 
-Perhaps there ought to be a CONFIG_INET_EMBEDDED that is for those
-configurations that want more restricted and smaller networking (ie no
-cache's, smaller hash tables, less sysctl options, ...)
+Please send me an email if you are interested in participating.
+
+Kind regards,
+
+Falko Klein
+
+--=20
+NEU +++ DSL Komplett von GMX +++ http://www.gmx.net/de/go/dsl
+GMX DSL-Netzanschluss + Tarif zum superg=FCnstigen Komplett-Preis!
