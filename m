@@ -1,50 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: How can we bound one CPU to one Gigabit NIC?
-Date: Mon, 07 Oct 2002 11:24:28 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Fix Prefix Length of Link-local Addresses
+Date: Mon, 07 Oct 2002 11:55:30 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DA1D15C.1070309@candelatech.com>
-References: <Pine.GSO.4.30.0210070749430.1861-100000@shell.cyberus.ca> <03ab01c26e2d$06adeac0$f5f2010a@weixl>
+Message-ID: <20021007.115530.00078126.davem@redhat.com>
+References: <20021008.000559.17528416.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Xiaoliang (David) Wei" <weixl@caltech.edu>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20021008.000559.17528416.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Xiaoliang (David) Wei wrote:
-> Hi Everyone,
->       I am now doing some experiments on Dual CPU (2.4Ghz) with 2 Gigabit
-> cards. Can anyone tell me how to bound one CPU to each NIC so that we don't
-> need to care about the packet-reordering and the interrupt sharing problems?
->       Thank you very much.:)
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Tue, 08 Oct 2002 00:05:59 +0900 (JST)
 
-My experiments show you will still get re-ordered packets occasionally
-(but then again, I'm having other wierd problems, so maybe you wont).
+   Prefix length for link-local address should be 64, not 10.
+   This patch fixes prefix length of link-local address.
+   
+   Following patch is against 2.4.19.
 
-# Bind processor 2 (1<<1) to irq 11
-echo 2 > /proc/irq/11/smp_affinity
+Patch is applied, thank you.
 
-# Bind processor 1 (1<<0) to irq 19
-echo 1 > /proc/irq/9/smp_affinity
+BTW, we start to run into conflicts now and most of USAGI patches now
+I need to apply some parts by hand.  Here is one example, with this
+patch:
+   
+   @@ -783,7 +783,7 @@
+    	struct in6_addr addr;
+    
+    	ipv6_addr_set(&addr,  __constant_htonl(0xFE800000), 0, 0, 0);
+   -	addrconf_prefix_route(&addr, 10, dev, 0, RTF_ADDRCONF);
+   +	addrconf_prefix_route(&addr, 64, dev, 0, RTF_ADDRCONF);
+    }
+    
+    static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
 
+Note in this hunk the __constant_htonl() which was transformed
+to plain htonl() by already accepted USAGI patch.
 
-I will be interested to hear of your results, as I have been having
-heating problems with e1000 and other problems with tg3 based nics!
-
-Ben
-
-> 
-> 
-> 
-> Xiaoliang (David) Wei             Graduate Student in CS@Caltech
-> http://www.cs.caltech.edu/~weixl
-> ====================================================
-> 
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+It is not such a big deal now, but it may soon become larger as
+bigger USAGI patches are applied.  We will need to synchronize
+at some point.
