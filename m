@@ -1,86 +1,135 @@
-From: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
-Subject: Re: [PATCH] tcp: efficient port randomisation
-Date: Fri, 5 Nov 2004 12:03:58 +0200
-Message-ID: <200411051103.59032.michael.vittrup.larsen@ericsson.com>
-References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net> <200411020854.44745.michael.vittrup.larsen@ericsson.com> <20041104100104.570e67cd@dxpl.pdx.osdl.net>
+From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Subject: [PATCH] Use nfmark as a key for u32 classifier
+Date: Fri, 5 Nov 2004 13:38:33 +0200 (EET)
+Message-ID: <Pine.LNX.4.61.0411051317330.23651@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041104100104.570e67cd@dxpl.pdx.osdl.net>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1646943047-1849353369-1099654713=:19155"
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl,
+	netdev@oss.sgi.com
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 04 November 2004 19:01, Stephen Hemminger wrote:
-> But because of the hashing most ports will be scattered all over the po=
-rt
-> space, because they come from different hosts.
->
-> Also, Linux TCP will reuse ports if (saddr, daddr, sport) are different.
-> Look at __tcp_v4_check_established. =A0This means that the ports actual=
-ly
-> have to be in use with real connections to the same host.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-__tcp_v4_check_established is the linux version of the uniqueness test fr=
-om=20
-the draft, and of course ports ports can be reused when at least one of t=
-he=20
-other parameters (saddr, daddr, sport) are different.
+---1646943047-1849353369-1099654713=:19155
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 
-I focus on the situation where (saddr, daddr, sport) is constant since th=
-is is=20
-where we get collisions and need to try another port.  Not storing the po=
-rt=20
-found to be unused will result in situations like:
+Hello!
 
-tcp_rover_next is say 2000
+I am glad to announce a patch for u32 to allow matches on nfmark.
+The patch is non intrusive (few lines).
 
-Ports 2000-2010 are already used because you are browsing www.osdl.org
+Why I did this? Because fw classifier cannot be used together with u32. 
+For example, now, you cannot match a mark of 0x90 and a destination 
+port of 80. I know you can do it with iptables to do the marking, but if 
+you use Jamal actions to apply mark to policed packets, you need this.
 
-Your search will find 2011 to be unused after 10 retries and tcp_rover_ne=
-xt=20
-will be 2001.
+All stuff can be found at http://kernel.umbrella.ro/ also.
 
-Your next search (you continue to browse www.osdl.org) will result in 201=
-2 -=20
-again after 10 retries.
+Dave, please consider adding this patch.
 
-In a simple browsing scenario like this, you will usually not have holes=20
-because of TCP TIME-WAIT and your rover will continue to lag behind and y=
-ou=20
-will continue to make 10 retries on ports.
+Stephen, if Dave accepts the patch, please apply the iproute2 patch. Thank 
+you.
 
-The question is then, when do the rover begin to lack behind?
+Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
 
-Everytime you meet a long-lived connection in the port space your rover w=
-ill=20
-lag one port behind the real 'unused' rover.  Using wget and browsing=20
-www.osdl.org may easily produce this problem.
+Thank you for you time.
+---
+Catalin(ux aka Dino) BOIE
+catab at deuroconsult.ro
+http://kernel.umbrella.ro/
+---1646943047-1849353369-1099654713=:19155
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="iproute2-match-mark-in-u32.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.61.0411051338330.19155@webhosting.rdsbv.ro>
+Content-Description: 
+Content-Disposition: attachment; filename="iproute2-match-mark-in-u32.patch"
 
-I understand your argument for not holding the lock, and maybe the follow=
-ing=20
-algorithm is a compromise:
+LS0tIGlwcm91dGUyLTIuNi45L3RjL2ZfdTMyLmMub3JpZwkyMDA0LTExLTA0
+IDE1OjM4OjUzLjAwMDAwMDAwMCArMDIwMA0KKysrIGlwcm91dGUyLTIuNi45
+L3RjL2ZfdTMyLmMJMjAwNC0xMS0wNSAxMjoyMzo0NC4wMDAwMDAwMDAgKzAy
+MDANCkBAIC03LDYgKzcsNyBAQA0KICAqCQkyIG9mIHRoZSBMaWNlbnNlLCBv
+ciAoYXQgeW91ciBvcHRpb24pIGFueSBsYXRlciB2ZXJzaW9uLg0KICAqDQog
+ICogQXV0aG9yczoJQWxleGV5IEt1em5ldHNvdiwgPGt1em5ldEBtczIuaW5y
+LmFjLnJ1Pg0KKyAqCQlNYXRjaCBtYXJrIGFkZGVkIGJ5IENhdGFsaW4odXgg
+YWthIERpbm8pIEJPSUUgPGNhdGFiIGF0IHVtYnJlbGxhLnJvPiBbNSBub3Yg
+MjAwNF0NCiAgKg0KICAqLw0KIA0KQEAgLTMzLDcgKzM0LDcgQEAgc3RhdGlj
+IHZvaWQgZXhwbGFpbih2b2lkKQ0KIAlmcHJpbnRmKHN0ZGVyciwgIm9yICAg
+ICAgICAgdTMyIGRpdmlzb3IgRElWSVNPUlxuIik7DQogCWZwcmludGYoc3Rk
+ZXJyLCAiXG4iKTsNCiAJZnByaW50ZihzdGRlcnIsICJXaGVyZTogU0VMRUNU
+T1IgOj0gU0FNUExFIFNBTVBMRSAuLi5cbiIpOw0KLQlmcHJpbnRmKHN0ZGVy
+ciwgIiAgICAgICBTQU1QTEUgOj0geyBpcCB8IGlwNiB8IHVkcCB8IHRjcCB8
+IGljbXAgfCB1ezMyfDE2fDh9IH0gU0FNUExFX0FSR1NcbiIpOw0KKwlmcHJp
+bnRmKHN0ZGVyciwgIiAgICAgICBTQU1QTEUgOj0geyBpcCB8IGlwNiB8IHVk
+cCB8IHRjcCB8IGljbXAgfCB1ezMyfDE2fDh9IHwgbWFyayB9IFNBTVBMRV9B
+UkdTXG4iKTsNCiAJZnByaW50ZihzdGRlcnIsICIgICAgICAgRklMVEVSSUQg
+Oj0gWDpZOlpcbiIpOw0KIH0NCiANCkBAIC01OTAsNyArNTkxLDI3IEBAIGRv
+bmU6DQogCXJldHVybiByZXM7DQogfQ0KIA0KK3N0YXRpYyBpbnQgcGFyc2Vf
+bWFyayhpbnQgKmFyZ2NfcCwgY2hhciAqKiphcmd2X3AsIHN0cnVjdCB0Y191
+MzJfc2VsICpzZWwpDQorew0KKwlpbnQgcmVzID0gLTE7DQorCWludCBhcmdj
+ID0gKmFyZ2NfcDsNCisJY2hhciAqKmFyZ3YgPSAqYXJndl9wOw0KKw0KKwlp
+ZiAoYXJnYyA8PSAwKQ0KKwkJcmV0dXJuIC0xOw0KIA0KKwlpZiAoZ2V0X3Uz
+MigmcmVzLCAqYXJndiwgMCkpIHsNCisJCWZwcmludGYoc3RkZXJyLCAiSWxs
+ZWdhbCBcIm1hcmtcIlxuIik7DQorCQlyZXR1cm4gLTE7DQorCX0NCisJTkVY
+VF9BUkcoKTsNCisJc2VsLT5tYXJrID0gcmVzOw0KKwlyZXMgPSAwOw0KKw0K
+KwkqYXJnY19wID0gYXJnYzsNCisJKmFyZ3ZfcCA9IGFyZ3Y7DQorCXJldHVy
+biByZXM7DQorfQ0KIA0KIHN0YXRpYyBpbnQgcGFyc2Vfc2VsZWN0b3IoaW50
+ICphcmdjX3AsIGNoYXIgKioqYXJndl9wLCBzdHJ1Y3QgdGNfdTMyX3NlbCAq
+c2VsKQ0KIHsNCkBAIC02NDEsNiArNjYyLDEyIEBAIHN0YXRpYyBpbnQgcGFy
+c2Vfc2VsZWN0b3IoaW50ICphcmdjX3AsIGMNCiAJCXJlcyA9IHBhcnNlX2lj
+bXAoJmFyZ2MsICZhcmd2LCBzZWwpOw0KIAkJZ290byBkb25lOw0KIAl9DQor
+CWlmIChtYXRjaGVzKCphcmd2LCAibWFyayIpID09IDApIHsNCisJCU5FWFRf
+QVJHKCk7DQorCQlyZXMgPSBwYXJzZV9tYXJrKCZhcmdjLCAmYXJndiwgc2Vs
+KTsNCisJCWdvdG8gZG9uZTsNCisJfQ0KKw0KIAlyZXR1cm4gLTE7DQogDQog
+ZG9uZToNCkBAIC05NjksNiArOTk2LDggQEAgc3RhdGljIGludCB1MzJfcHJp
+bnRfb3B0KHN0cnVjdCBmaWx0ZXJfdQ0KIAkJc3RydWN0IHRjX3UzMl9rZXkg
+KmtleSA9IHNlbC0+a2V5czsNCiAJCWlmIChzaG93X3N0YXRzICYmIE5VTEwg
+IT0gcGYpDQogCQkJZnByaW50ZihmLCAiIChydWxlIGhpdCAlbGx1IHN1Y2Nl
+c3MgJWxsdSkiLHBmLT5yY250LHBmLT5yaGl0KTsNCisJCWlmIChzZWwtPm1h
+cmspDQorCQkJZnByaW50ZihmLCAiIG1hcmsgMHgleCIsIHNlbC0+bWFyayk7
+DQogCQlpZiAoc2VsLT5ua2V5cykgew0KIAkJCWZvciAoaT0wOyBpPHNlbC0+
+bmtleXM7IGkrKywga2V5KyspIHsNCiAJCQkJZnByaW50ZihmLCAiXG4gIG1h
+dGNoICUwOHgvJTA4eCBhdCAlcyVkIiwNCi0tLSBpcHJvdXRlMi0yLjYuOS9p
+bmNsdWRlL2xpbnV4L3BrdF9jbHMuaC5vcmlnCTIwMDQtMTEtMDQgMTU6NDI6
+MjcuMDAwMDAwMDAwICswMjAwDQorKysgaXByb3V0ZTItMi42LjkvaW5jbHVk
+ZS9saW51eC9wa3RfY2xzLmgJMjAwNC0xMS0wNSAxMToxMjoyMi4wMDAwMDAw
+MDAgKzAyMDANCkBAIC0yMDgsNiArMjA4LDcgQEAgc3RydWN0IHRjX3UzMl9z
+ZWwNCiAJdW5zaWduZWQgY2hhcgkJZmxhZ3M7DQogCXVuc2lnbmVkIGNoYXIJ
+CW9mZnNoaWZ0Ow0KIAl1bnNpZ25lZCBjaGFyCQlua2V5czsNCisJX191MzIJ
+CQltYXJrOw0KIA0KIAlfX3UxNgkJCW9mZm1hc2s7DQogCV9fdTE2CQkJb2Zm
+Ow0K
 
-1. Use the current algorithm that does not hold the lock
+---1646943047-1849353369-1099654713=:19155
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="net-match-nfmark-in-u32.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.61.0411051338331.19155@webhosting.rdsbv.ro>
+Content-Description: 
+Content-Disposition: attachment; filename="net-match-nfmark-in-u32.patch"
 
-2. If a port was found in first try, then exit (you have already
-   incremented tcp_rover_next by 1 so this is up to date as per
-   the old algorithm).
+LS0tIGxpbnV4Lm9yaWcvbmV0L3NjaGVkL2Nsc191MzIuYwkyMDA0LTEwLTE5
+IDAwOjUzOjQ1LjAwMDAwMDAwMCArMDMwMA0KKysrIGxpbnV4L25ldC9zY2hl
+ZC9jbHNfdTMyLmMJMjAwNC0xMS0wNSAxMjoxNDozMS4wMDAwMDAwMDAgKzAy
+MDANCkBAIC0yNyw2ICsyNyw3IEBADQogICoJSkhTOiBXZSBzaG91bGQgcmVt
+b3ZlIHRoZSBDT05GSUdfTkVUX0NMU19JTkQgZnJvbSBoZXJlDQogICoJZXZl
+bnR1YWxseSB3aGVuIHRoZSBtZXRhIG1hdGNoIGV4dGVuc2lvbiBpcyBtYWRl
+IGF2YWlsYWJsZQ0KICAqDQorICoJbmZtYXJrIG1hdGNoIGFkZGVkIGJ5IENh
+dGFsaW4odXggYWthIERpbm8pIEJPSUUgPGNhdGFiIGF0IHVtYnJlbGxhLnJv
+Pg0KICAqLw0KIA0KICNpbmNsdWRlIDxhc20vdWFjY2Vzcy5oPg0KQEAgLTEz
+OSw2ICsxNDAsMTEgQEAgbmV4dF9rbm9kZToNCiAJCW4tPnBmLT5yY250ICs9
+MTsNCiAJCWogPSAwOw0KICNlbmRpZg0KKwkJaWYgKChuLT5zZWwubWFyayA+
+IDApICYmIChuLT5zZWwubWFyayAhPSBza2ItPm5mbWFyaykpIHsNCisJCQlu
+ID0gbi0+bmV4dDsNCisJCQlnb3RvIG5leHRfa25vZGU7DQorCQl9DQorDQog
+CQlmb3IgKGkgPSBuLT5zZWwubmtleXM7IGk+MDsgaS0tLCBrZXkrKykgew0K
+IA0KIAkJCWlmICgoKih1MzIqKShwdHIra2V5LT5vZmYrKG9mZjIma2V5LT5v
+ZmZtYXNrKSlea2V5LT52YWwpJmtleS0+bWFzaykgew0KLS0tIGxpbnV4Lm9y
+aWcvaW5jbHVkZS9saW51eC9wa3RfY2xzLmgJMjAwNC0xMC0xOSAwMDo1Mzow
+Ny4wMDAwMDAwMDAgKzAzMDANCisrKyBsaW51eC9pbmNsdWRlL2xpbnV4L3Br
+dF9jbHMuaAkyMDA0LTExLTA1IDExOjAwOjI3LjAwMDAwMDAwMCArMDIwMA0K
+QEAgLTIwOCw2ICsyMDgsNyBAQCBzdHJ1Y3QgdGNfdTMyX3NlbA0KIAl1bnNp
+Z25lZCBjaGFyCQlmbGFnczsNCiAJdW5zaWduZWQgY2hhcgkJb2Zmc2hpZnQ7
+DQogCXVuc2lnbmVkIGNoYXIJCW5rZXlzOw0KKwl1MzIJCQltYXJrOw0KIA0K
+IAlfX3UxNgkJCW9mZm1hc2s7DQogCV9fdTE2CQkJb2ZmOw0K
 
-3. If more than one port try was necessary, compute the difference betwee=
-n
-   the initial rover to the current unused port, and atomic_add() this to
-   tcp_rover_next.
-
-The only drawback of this is, that tcp_rover_next may 'run' a little too =
-fast=20
-in contention cases, which only has theoretical impact on performance. Al=
-so,=20
-this only happens when we meet a long-lived connection, which we usually =
-do=20
-not have many of.
+---1646943047-1849353369-1099654713=:19155--
