@@ -1,26 +1,23 @@
-From: N N Ashok <nalkunda@egr.msu.edu>
-Subject: Resend: current bandwidth measurement
-Date: Sat, 24 May 2003 19:25:38 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] post-sysfs netdev cleanup
+Date: Sun, 25 May 2003 19:22:12 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200305241925.38061.nalkunda@egr.msu.edu>
+Message-ID: <20030525.192212.28810694.davem@redhat.com>
+References: <3ECD6E2D.5090000@rogers.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: muizelaar@rogers.com
+In-Reply-To: <3ECD6E2D.5090000@rogers.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Seems like my first mail didnt show up on the list.
+   From: Jeff Muizelaar <muizelaar@rogers.com>
+   Date: Thu, 22 May 2003 20:41:17 -0400
 
-Hi,
-   I wanted to know how the current flow rate for an interface is maintained
-in the kernel. I studied the tc_stats structure (include/linux/pkt_sched.h)
-but its bps and pps fields are not used anywhere except in net/sched/police.c
-(used "stats.bps" to search for the files).
-   Is it that the current bps and pps are maintained in the queue structures?
-If so, can you point me to the relevant files/structures/functions.
+   The attached patch removes the struct device from struct net_device
+   and sets net_device.class_dev.dev directly.
 
-Thanks in advance,
-Ashok
+Applied, thanks.
