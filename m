@@ -1,57 +1,53 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: IPv6 oops on ifup in latest BK
-Date: Mon, 23 Aug 2004 23:51:23 -0700
+Date: Tue, 24 Aug 2004 17:33:54 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040823235123.71f18c04.davem@redhat.com>
-References: <412ADB20.5000901@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Message-ID: <E1BzVoY-00018s-00@gondolin.me.apana.org.au>
+References: <20040823235123.71f18c04.davem@redhat.com>
+Cc: jgarzik@pobox.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <412ADB20.5000901@pobox.com>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20040823235123.71f18c04.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Aug 2004 02:07:28 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+David S. Miller <davem@redhat.com> wrote:
+> 
+> Maybe new code should be something like:
+> 
+>                if (dev && dev != &loopback_dev) {
 
-> Attached minicom.cap.txt gives the ksymoops output and dmesg output. 
-> Appears to die in ipv6_get_hoplimit.
+You want
+		 if (dev) {
+here.
 
-Yoshifuji-san, it is rt6i_dev changes.  The problem is that
-ipv6_get_hoplimit() gets called with NULL dev.
+>                        dev_put(dev);
+>                        in6_dev_put(idev);
+>                }
+>                dev = &loopback_dev;
+>                dev_hold(dev);
+>                idev = in6_dev_get(dev);
+>                if (!idev) {
+>                        err = -ENODEV;
+>                        goto out;
+>                }
+> 
+> What do you think?
 
-I believe it is an error in the logic for RTCF_REJECT
-processing.  If user does not specify a specific device
-index, and this is RTCF_REJECT, then we will end up
-with dev being NULL.
+Yes this would work.  But I think Yoshifuji-san is trying to avoid the
+unnecessary put/get in the case where dev is already loopback_dev.
+So something like this might work:
 
-It is this piece of code in ip6_route_add():
-
-		if (dev && dev != &loopback_dev) {
-
-It does not handle the case where dev == NULL correctly.
-Original code did do the right thing:
-
-		if (dev)
-			dev_put(dev);
-		dev = &loopback_dev;
-		dev_hold(dev);
-
-Maybe new code should be something like:
-
-		if (dev && dev != &loopback_dev) {
-			dev_put(dev);
-			in6_dev_put(idev);
+		if (dev != &loopback_dev) {
+			if (dev) {
+				dev_put(dev);
+				in6_dev_put(idev);
+			}
+			...
 		}
-		dev = &loopback_dev;
-		dev_hold(dev);
-		idev = in6_dev_get(dev);
-		if (!idev) {
-			err = -ENODEV;
-			goto out;
-		}
-
-What do you think?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
