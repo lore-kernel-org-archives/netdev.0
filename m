@@ -1,62 +1,37 @@
-From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: Patch for oops in ctc
-Date: Sun, 24 Aug 2003 17:58:16 -0400
+From: Jeroen Vreeken <pe1rxq@amsat.org>
+Subject: Re: [RFT][PATCH] ax25 using seq_file
+Date: Mon, 25 Aug 2003 00:35:35 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030824175816.A872@devserv.devel.redhat.com>
+Message-ID: <20030825003535.A25139@jeroen.pe1rxq.ampr.org>
+References: <20030812230951.E28977@jeroen.pe1rxq.ampr.org> <20030812153901.6e700dcb.shemminger@osdl.org> <20030813010301.K28977@jeroen.pe1rxq.ampr.org> <20030812172151.7de0c950.shemminger@osdl.org> <20030813031159.6c6c9629.davem@redhat.com> <20030813173446.A2604@jeroen.pe1rxq.ampr.org> <20030813084252.7b667fb8.davem@redhat.com> <20030820204518.C5568@jeroen.pe1rxq.ampr.org> <20030822131547.0d95fb16.shemminger@osdl.org> <20030824042911.785aff76.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Pete Zaitcev <zaitcev@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Stephen Hemminger <shemminger@osdl.org>, linux-hams@vger.kernel.org,
+   ralf@linux-mips.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux390@de.ibm.com
-Content-Disposition: inline
+To: "David S . Miller" <davem@redhat.com>
+In-Reply-To: <20030824042911.785aff76.davem@redhat.com>; from davem@redhat.com on Sun, Aug 24, 2003 at 13:29:11 +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Martin & others:
+On 2003.08.24 13:29:11 +0200 David S. Miller wrote:
+> On Fri, 22 Aug 2003 13:15:47 -0700
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+> 
+> > Convert AX25 to use the seq_file interface for it's /proc hook.
+> > 
+> > Jeroen could you test this with real hardware, since without hardware
+> > the table always comes up empty which is not a good enough test.
+> 
+> Meanwhile I've applied this.  If problems are found you can
+> send me fixes.
+> 
 
-the following bug is still with us. What's the deal?
-The matter is clear, calling dst_link_failure from an
-interrupt is illegal (and pointless).
+No problems so far.... 
+I gave it a try this evening and until now it keeps running fine with the
+seq_file patches. 
+I can read the /proc files as much as I like with varying connections going
+on.
 
-I have a separate patch which adds carrier control to ctc
-according to DaveM's suggestions, but let's at least fix
-the bug first.
-
--- Pete
-
-diff -ur -X dontdiff linux-2.6.0-test4/drivers/s390/net/ctcmain.c linux-2.6.0-test4-s390/drivers/s390/net/ctcmain.c
---- linux-2.6.0-test4/drivers/s390/net/ctcmain.c	2003-08-24 14:24:50.000000000 -0700
-+++ linux-2.6.0-test4-s390/drivers/s390/net/ctcmain.c	2003-08-24 14:53:25.000000000 -0700
-@@ -2441,14 +2441,12 @@
- 
- 	/**
- 	 * If channels are not running, try to restart them
--	 * notify anybody about a link failure and throw
--	 * away packet. 
-+	 * and throw away packet. 
- 	 */
- 	if (fsm_getstate(privptr->fsm) != DEV_STATE_RUNNING) {
- 		fsm_event(privptr->fsm, DEV_EVENT_START, dev);
- 		if (privptr->protocol == CTC_PROTO_LINUX_TTY)
- 			return -EBUSY;
--		dst_link_failure(skb);
- 		dev_kfree_skb(skb);
- 		privptr->stats.tx_dropped++;
- 		privptr->stats.tx_errors++;
-diff -ur -X dontdiff linux-2.6.0-test4/drivers/s390/net/netiucv.c linux-2.6.0-test4-s390/drivers/s390/net/netiucv.c
---- linux-2.6.0-test4/drivers/s390/net/netiucv.c	2003-08-24 14:24:50.000000000 -0700
-+++ linux-2.6.0-test4-s390/drivers/s390/net/netiucv.c	2003-08-24 14:51:10.000000000 -0700
-@@ -1195,12 +1195,10 @@
- 
- 	/**
- 	 * If connection is not running, try to restart it
--	 * notify anybody about a link failure and throw
--	 * away packet. 
-+	 * and throw away packet. 
- 	 */
- 	if (fsm_getstate(privptr->fsm) != DEV_STATE_RUNNING) {
- 		fsm_event(privptr->fsm, DEV_EVENT_START, dev);
--		dst_link_failure(skb);
- 		dev_kfree_skb(skb);
- 		privptr->stats.tx_dropped++;
- 		privptr->stats.tx_errors++;
+Jeroen
