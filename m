@@ -1,29 +1,31 @@
 From: James Morris <jmorris@redhat.com>
 Subject: Re: Asynchronous crypto layer.
-Date: Sun, 31 Oct 2004 01:43:56 -0400 (EDT)
-Message-ID: <Xine.LNX.4.44.0410310137310.28135-100000@thoron.boston.redhat.com>
-References: <20041030092036.4f954d89@zanzibar.2ka.mipt.ru>
+Date: Sun, 31 Oct 2004 01:09:34 -0500 (EST)
+Message-ID: <Xine.LNX.4.44.0410310103270.28198-100000@thoron.boston.redhat.com>
+References: <4182A175.8050706@errno.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, <cryptoapi@lists.logix.cz>
+Cc: johnpol@2ka.mipt.ru, jamal <hadi@cyberus.ca>, <netdev@oss.sgi.com>,
+        <cryptoapi@lists.logix.cz>, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20041030092036.4f954d89@zanzibar.2ka.mipt.ru>
+To: Sam Leffler <sam@errno.com>
+In-Reply-To: <4182A175.8050706@errno.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 30 Oct 2004, Evgeniy Polyakov wrote:
+On Fri, 29 Oct 2004, Sam Leffler wrote:
 
-> > Also, please consider EXPORT_SYMBOL_GPL instead of EXPORT_SYMBOL.
+> And a paper I wrote explains how I fixed many of the problems with the 
+> openbsd code in freebsd.
 > 
-> I'm not insisting, but why?
+> http://www.usenix.org/publications/library/proceedings/bsdcon03/tech/leffler_crypto/leffler_crpto_html/
 
-The existing crypto API uses EXPORT_SYMBOL_GPL, and I would hope that
-extensions to it do the same.  This area is contentious in general, but
-ultimately, I think we should document that these APIs are not intended to
-be used by proprietary modules to do things like plug into the kernel and
-extend it in proprietary ways.
+Thanks, that's a useful reference.
+
+For handling overload of crypto hardware, I was thinking of falling back
+to software processing (really, I guess this is just load balancing
+between hardware and software).
 
 
 - James
