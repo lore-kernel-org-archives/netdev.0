@@ -1,133 +1,98 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: [DOCUMENTATION PATCH] Missing net sysctls, some fixed, rest flagged
-Date: Wed, 9 Jun 2004 19:52:43 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040609175242.GA13875@outpost.ds9a.nl>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: in-driver QoS
+Date: Wed, 9 Jun 2004 10:40:21 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040609174021.GA26159@bougret.hpl.hp.com>
+References: <20040608184831.GA18462@bougret.hpl.hp.com> <1086722317.1023.18.camel@jzny.localdomain> <20040608195238.GA21089@bougret.hpl.hp.com> <1086728139.1023.71.camel@jzny.localdomain> <20040608220109.GA24536@bougret.hpl.hp.com> <1086752809.1049.62.camel@jzny.localdomain>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265850AbUFIRxZ@vger.kernel.org>
-To: davem@redhat.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
+In-Reply-To: <1086752809.1049.62.camel@jzny.localdomain>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave, Lists, 
+On Tue, Jun 08, 2004 at 11:46:49PM -0400, jamal wrote:
+> On Tue, 2004-06-08 at 18:01, Jean Tourrilhes wrote:
+> 
+> > 	Yep. This impact the contention process.
+> > 	This is similar to what was implemented in 100VG / IEEE
+> > 802.12, but in more elaborated.
+> 
+> so the only differentiation is on backoff and contention window
+> parameters. In other words, higher prio will get opportunity to be more
+> of a hog or aggressive?
 
-I ran the following (crappy) script:
+	Yep. It's like a fast pass to cut the line at DisneyWorld.
 
-for b in $(for a in $(find | grep -v eth0 | grep -v binfmt)
-                do 
-                        basename $a
-                done | sort -u); 
-                do 
-                        if rgrep -q $b ~/download/linux-2.6.6/Documentation/ 
-                        then
-                                touch /tmp/script
-                        else
-                                echo $b missing
-                        fi
-                done
+> > There is 4 FIFOs (or whichever number then want to configure)
+> > in parallel.
+> > Most likely, the FIFOs will share the same memory pool on the
+> > card, so when a FIFO is full, most likely the other FIFOs will be full
+> > or close to it.
+> 
+> How do you reach such a conclusion?
+> There maybe packets of the same priority for longs periods of time.
 
-In /proc/sys/ and found a host of undocumented sysctls. This patch documents
-a number of them, and at least mentions the rest as 'TODO'. Please verify my
-code-inspired documentation before applying!
+	If all the FIFO take from the same memory pool, when one FIFO
+is full, it means that the memory pool is exhausted. If the memory
+pool is exhausted, then you can't fill the other FIFOs.
 
---- linux-2.6.6/Documentation/networking/ip-sysctl.txt.ahu	2004-06-09 18:53:29.000000000 +0200
-+++ linux-2.6.6/Documentation/networking/ip-sysctl.txt	2004-06-09 19:46:15.000000000 +0200
-@@ -17,6 +17,16 @@
- 	Disable Path MTU Discovery.
- 	default FALSE
- 
-+min_pmtu - INTEGER
-+	default 562 - minimum discovered Path MTU
-+
-+mtu_expires - INTEGER
-+	FIXME: unknown
-+
-+min_adv_mss - INTEGER
-+	The advertised MSS depends on the first hop route MTU, but will
-+	never be lower than this setting
-+
- IP Fragmentation:
- 
- ipfrag_high_thresh - INTEGER
-@@ -340,6 +350,17 @@
- 	more rapidly.
- 	Default: 1
- 
-+
-+tcp_frto - BOOLEAN
-+	Enables F-RTO, an enhanced recovery algorithm for TCP retransmission
-+	timeouts
-+
-+somaxconn - INTEGER
-+	Limit of TCP listen backlog, known in userspace as SOMAXCONN.
-+	Defaults to 128
-+
-+IP Variables:
-+
- ip_local_port_range - 2 INTEGERS
- 	Defines the local port range that is used by TCP and UDP to
- 	choose the local port. The first number is the first, the 
-@@ -581,6 +602,19 @@
- 	The max value from conf/{all,interface}/arp_ignore is used
- 	when ARP request is received on the {interface}
- 
-+app_solicit - INTEGER
-+	The maximum number of probes to send to the user space ARP daemon
-+	via netlink before dropping back to multicast probes (see
-+	mcast_solicit).  Defaults to 0.
-+
-+disable_policy - BOOLEAN
-+	Disable IPSEC policy (SPD) for this interface
-+
-+disable_xfrm - BOOLEAN
-+	Disable IPSEC encryption on this interface, whatever the policy
-+
-+
-+
- tag - INTEGER
- 	Allows you to write a number, which can be used as required.
- 	Default value is 0.
-@@ -799,4 +833,25 @@
- 	Default: 1
- 
- 
-+UNDOCUMENTED:
-+
-+dev_weight FIXME
-+discovery_slots FIXME
-+discovery_timeout FIXME
-+fast_poll_increase FIXME
-+ip6_queue_maxlen FIXME
-+lap_keepalive_time FIXME
-+lo_cong FIXME
-+max_baud_rate FIXME
-+max_dgram_qlen FIXME
-+max_noreply_time FIXME
-+max_tx_data_size FIXME
-+max_tx_window FIXME
-+min_tx_turn_time FIXME
-+mod_cong FIXME
-+no_cong FIXME
-+no_cong_thresh FIXME
-+slot_timeout FIXME
-+warn_noreply_time FIXME
-+
- $Id: ip-sysctl.txt,v 1.20 2001/12/13 09:00:18 davem Exp $
---- linux-2.6.6/Documentation/filesystems/proc.txt.ahu	2004-06-09 19:31:17.000000000 +0200
-+++ linux-2.6.6/Documentation/filesystems/proc.txt	2004-06-09 19:32:09.000000000 +0200
-@@ -1628,7 +1628,8 @@
- 
- Writing to this file results in a flush of the routing cache.
- 
--gc_elastic, gc_interval, gc_min_interval, gc_tresh, gc_timeout
-+gc_elasticity, gc_interval, gc_min_interval, gc_tresh, gc_timeout,
-+gc_thresh, gc_thresh1, gc_thresh2, gc_thresh3
- --------------------------------------------------------------
- 
- Values to  control  the  frequency  and  behavior  of  the  garbage collection
+> But then you loose sync with the qdisc level scheduling.
+> Assume a burst of low prio packets arrive, they get drained to the low
+> prio FIFO in the driver. It gets full and now we lock the driver.
+> Next a burst of high prio packets come in and they cantt be sent to the
+> driver until all low prio packets already on FIFO are sent.
 
+	Yep. That's no worse than what we have today with a single
+FIFO in today's cards. Remember that amount of buffer on the card is
+limited, so we are not talking of an incredible number of packets in
+those FIFO. I'm 100% with Andy in suggesting to keep hardware FIFO as
+short as possible, precisely so that the TC scheduling is effective.
+	If you let the card scheduler take over, it will screw up your
+TC scheduling no matter what, unless the card scheduler use the exact
+same scheduling as TC (which is unlikely for complex TC policies).
+	If the card policy is to always drain the highest priority
+queue first, and you want to guarantee a minimum bandwidth for low
+priority traffic at the TC level, if you let the card scheduler do its
+business and always feed high priority traffic when it wants it, then
+there is no way you can guarantee your minimum bandwidth for low
+priority traffic.
 
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+> > But, we are talking there as if the hardware was going to have
+> > some incredibly smart scheduler across FIFOs. From my experience with
+> > wireless MAC implementations, the behaviour will be really simplistic
+> > (always send from the highest priority FIFO), if not totally
+> > broken. 
+> 
+> "Always send from highest priority" is fine.
+
+	No, it's fine only if TC policy is "Always send from highest
+priority". If TC policy is different, then it's not fine at all.
+
+> Its what the default linux
+> scheduler and the prio qdisc do. A lot of research and experienece has
+> gone into understanding their behaviors.
+> Perhaps you could tell users to configure such prioritization when using
+> these NICs.
+
+	You assume that the card scheduler will be configurable, and
+work as expected. Wait and see ;-)
+
+> We need to make chnages and do it properly. 
+> Your approach to use only one priority/FIFO is not sane. 
+> Of course the wireless people dont have to use it - Although that will
+> be a mistake. I have a NIC that has two DMA channels which i plan to map
+> to X priority levels at the the qdisc levels. 
+
+	Good luck ;-)
+
+> cheers,
+> jamal
+
+	Have fun...
+
+	Jean
