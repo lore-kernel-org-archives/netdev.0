@@ -1,104 +1,120 @@
-From: Paul Jakma <paul@clubi.ie>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 6 Dec 2004 18:44:09 +0000 (GMT)
-Message-ID: <Pine.LNX.4.61.0412061813220.16016@hibernia.jakma.org>
-References: <OFAF17275D.316533A1-ONC1256F5C.0026AFAD-C1256F5C.002877C1@de.ibm.com>
-  <Pine.LNX.4.61.0412050605550.21671@hibernia.jakma.org>
- <1102332479.1048.2243.camel@jzny.localdomain>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: 1.03Mpps on e1000 (was: Re: [E1000-devel] Transmission limit)
+Date: Mon, 6 Dec 2004 20:10:42 +0100
+Message-ID: <16820.44722.748743.6711@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Thomas Spatzier <thomas.spatzier@de.ibm.com>, jgarzik@pobox.com,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jamal <hadi@cyberus.ca>, Martin Josefsson <gandalf@wlug.westbo.se>,
+        Scott Feldman <sfeldma@pobox.com>,
+        Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
+        mellia@prezzemolo.polito.it,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1102332479.1048.2243.camel@jzny.localdomain>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 Dec 2004, jamal wrote:
 
-> Dont post networking related patches on other lists. I havent seen said
-> patch, but it seems someone is complaining about some behavior changing?
 
-I missed the beginning of the thread too, but saw Jeff's reply to 
-Thomas on netdev. It appears the original patch was to make the s390 
-network driver discard packets on link-down.
+Lennert Buytenhek writes:
+ > On Mon, Dec 06, 2004 at 08:11:02AM -0500, jamal wrote:
+ > 
+ > > Hopefully someone will beat me to testing to see if our forwarding
+ > > capacity now goes up with this new recipe.
 
-Jeff had replied to say this was bad, that queues are meant to fill 
-and that this was what other drivers (e1000, tg3) did.
 
-> In regards to link down and packets being queued. Agreed this is a 
-> little problematic for some apps/transports.
+Yes a breakthrough as we now can send small packets at GIGE wire speed this
+will make development and testing much easier... A first router test with 
+our setup below. Opteron 1.6 GHz SMP kernel. using 1 CPU. 82546 EB + 
+82456 GB and PCI-X 100 Mhz & 133 MHz. 
 
-Tis yes. Particularly for apps using raw and UDP+IP_HDRINCL sockets.
+pktgen performance is measured on router box. Remember Scotts patch uses 
+4096 TX buffers and w. pktgen we use clone_skb. So with real skb's we probably 
+see lower performance due to this. This may explain results below so routing
+performance doesn't follow pktgen performance as seen.
 
-This problem came to light when we got reports of ospfd blocking 
-because link was down, late in 2.4 with a certain version of the 
-(iirc) e100 driver. ospfd uses one single socket for all interfaces, 
-and relies on IP_HDRINCL to have the packet routed out right 
-interface. However this approach doesnt play well if the socket can 
-be blocked completely because of /one/ interface having its link 
-down. The behaviour we expected (and got up until now) is to receive 
-either ENOBUFS or else, if the kernel accepts the packet write, for 
-it to drop it if it can not be sent.
+T-PUT is routing performance. Also pktgen pure TX performance is given
+this on the router.
 
-We can work around that by moving to a socket/interface. However it 
-still leaves the problem of packets being queued indefinitely while 
-the link is down and being sent when link comes back. This is *not* 
-good for RIP, IPv4 IRDP and IPv6 RA.
 
-> In the case the netdevice is administratively downed both the qdisc 
-> and DMA ring packets are flushed.
+Input rate for routing test is 2*765 kpps for all three runs. Input 
+Packets input to eth0 is routed to eth1 and eth2 to eth3.
 
-What about any packets remaining in the socket buffer? (if that makes 
-sense - i dont know enough about internals sadly). Are those queued?
 
-> Newer packets will never be queued
+Vanilla. T-PUT 657 kpps. pktgen TX perf 818 kpps
+-------------------------------------------------
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 4312682 8253078 8253078 5687318      5      0      0      0 BRU
+eth1   1500   0      1      0      0      0 4312199      0      0      0 BRU
+eth2   1500   0 4311018 8386504 8386504 5688982      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0 4310791      0      0      0 BRU
 
-That no longer appears to be the case though. The socket blocks, and 
-/some/ packets are queued (presumably those which still were in the 
-socket buffer? i dont know exactly..).
+           CPU0       
+  0:     116665    IO-APIC-edge  timer
+  1:        208    IO-APIC-edge  i8042
+  8:          0    IO-APIC-edge  rtc
+  9:          0   IO-APIC-level  acpi
+ 14:      21943    IO-APIC-edge  ide0
+ 26:         66   IO-APIC-level  eth0
+ 27:      58638   IO-APIC-level  eth1
+ 28:         68   IO-APIC-level  eth2
+ 29:      58497   IO-APIC-level  eth3
+NMI:          0 
+LOC:     116605 
+ERR:          0
+MIS:          0
 
-> and you should quickly be able to find from your app that 
-> the device is down.
+e1000-TX-prefetch+scott tx patch. T-PUT 540 kpps. pktgen TX perf 1.48 Mpps
+--------------------------------------------------------------------------
 
-We can yes, via rtnetlink - but impossible to guarantee we'll know 
-the link is down before we try write a packet.
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 3533795 8618637 8618637 6466205      5      0      0      0 BRU
+eth1   1500   0      3      0      0      0 3533803      0      0      0 BRU
+eth2   1500   0 3535804 8697149 8697149 6464196      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0 3535321      0      0      0 BRU
 
-> In the case of netdevice being operationally down
+           CPU0       
+  0:    1372774    IO-APIC-edge  timer
+  1:        663    IO-APIC-edge  i8042
+  8:          0    IO-APIC-edge  rtc
+  9:          0   IO-APIC-level  acpi
+ 14:      22631    IO-APIC-edge  ide0
+ 26:        686   IO-APIC-level  eth0
+ 27:        693   IO-APIC-level  eth1
+ 28:        687   IO-APIC-level  eth2
+ 29:        682   IO-APIC-level  eth3
+NMI:          0 
+LOC:    1372804 
+ERR:          0
+MIS:          0
 
-?
 
-As in 'ip link set dev ... down'?
+e1000-TX-prefetch. T-PUT 657 kpps. pktgen TX perf 1.15 Mpps
+-----------------------------------------------------------
+Kernel Interface table
+Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
+eth0   1500   0 4311848 8288270 8288270 5688152      5      0      0      0 BRU
+eth1   1500   0      4      0      0      0 4311388      0      0      0 BRU
+eth2   1500   0 4309082 8400892 8400892 5690918      5      0      0      0 BRU
+eth3   1500   0      1      0      0      0 4308271      0      0      0 BRU
+lo    16436   0      0      0      0      0      0      0      0      0 LRU
+           CPU0       
+  0:     224310    IO-APIC-edge  timer
+  1:        250    IO-APIC-edge  i8042
+  8:          0    IO-APIC-edge  rtc
+  9:          0   IO-APIC-level  acpi
+ 14:      22055    IO-APIC-edge  ide0
+ 26:        122   IO-APIC-level  eth0
+ 27:      58001   IO-APIC-level  eth1
+ 28:        123   IO-APIC-level  eth2
+ 29:      57681   IO-APIC-level  eth3
+NMI:          0 
+LOC:     224251 
+ERR:          0
+MIS:          0
 
-> - I am hoping this is what the discussion is, having jumped on it -
 
-No, its for link-down, AIUI.
-
-> both queues stay intact. What you can do is certainly from user 
-> space admin down/up the device when you receive a netlink carrier 
-> off notification.
-
-That seems possible, but quite a hack. Something to work at a socket 
-level would possibly be nicer. (Socket being the primary handle our 
-application has).
-
-> I am struggling to see whether dropping the packet inside the tx 
-> path once it is operationaly down is so blasphemous ... need to get 
-> caffeine first.
-
-As long as reliable transports have some other transport specific 
-queue, shouldnt be a problem. For UDP and raw no reliability or 
-guarantees are expected by applications (least shouldnt be), and 
-queueing some packets on link-down interferes with application-layer 
-expectations.
-
-> cheers,
-> jamal
-
-regards,
--- 
-Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
-Fortune:
-The UPS doesn't have a battery backup.
+						--ro
