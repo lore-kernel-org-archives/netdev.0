@@ -1,70 +1,30 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] fix bridge <-> ATM compile error
-Date: Tue, 15 Mar 2005 13:19:30 +0100
-Message-ID: <20050315121930.GE3189__39666.5378976197$1110889422$gmane$org@stusta.de>
+From: Miika Komu <miika@iki.fi>
+Subject: Re: [Infrahip] Re: [PATCH] Host Identity Protocol
+Date: Tue, 15 Mar 2005 14:56:42 +0200 (EET)
+Message-ID: <Pine.GSO.4.58.0503151455280.23267@kekkonen.cs.hut.fi>
+References: <42369919.9010203@cs.helsinki.fi> <Pine.LNX.4.61.0503151035320.25585@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.co,
-        linux-kernel@vger.kernel.org
-Resent-Message-ID: <20050315122259.GG3189@stusta.de>
-To: shemminger@osdl.org, bridge@osdl.org, chas@cmf.nrl.navy.mil
-Content-Disposition: inline
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrei Gurtov <gurtov@cs.helsinki.fi>, netdev@oss.sgi.com,
+        infrahip@hiit.fi
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.61.0503151035320.25585@netcore.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch fixes the following compile error with CONFIG_BRIDGE=y and 
-CONFIG_ATM_LANE=m:
+On Tue, 15 Mar 2005, Pekka Savola wrote:
 
-<--  snip  -->
+> On Tue, 15 Mar 2005, Andrei Gurtov wrote:
+> > Please have a look at Host Identity Protocol, a better solution for secure
+> > mobility and multihoming than Mobile IP.
+> >
+> > http://hipl.hiit.fi/hipl/release/kernel-patches/linux-2.6.10-hipl-0.1.patch
+>
+> Please clean up the patch :).  It has tons of changes which have
+> nothing to do with HIP.  Maybe it was diffed against the wrong tree?
 
-...
-  LD      .tmp_vmlinux1
-net/built-in.o(.init.text+0x3ad1): In function `br_init':
-: undefined reference to `br_fdb_get_hook'
-net/built-in.o(.init.text+0x3adb): In function `br_init':
-: undefined reference to `br_fdb_put_hook'
-net/built-in.o(.exit.text+0xa2): In function `br_deinit':
-: undefined reference to `br_fdb_get_hook'
-net/built-in.o(.exit.text+0xac): In function `br_deinit':
-: undefined reference to `br_fdb_put_hook'
-make: *** [.tmp_vmlinux1] Error 1
+Fixed. I replaced the old patch with a clean one.
 
-<--  snip  -->
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
- net/bridge/br.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
---- linux-2.6.11-mm3-modular/net/bridge/br.c.old	2005-03-15 03:23:10.000000000 +0100
-+++ linux-2.6.11-mm3-modular/net/bridge/br.c	2005-03-15 03:24:05.000000000 +0100
-@@ -22,7 +22,7 @@
- 
- #include "br_private.h"
- 
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-+#if defined(CONFIG_ATM_LANE) || (defined(CONFIG_ATM_LANE_MODULE) && defined(MODULE))
- #include "../atm/lec.h"
- #endif
- 
-@@ -39,7 +39,7 @@
- 	brioctl_set(br_ioctl_deviceless_stub);
- 	br_handle_frame_hook = br_handle_frame;
- 
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-+#if defined(CONFIG_ATM_LANE) || (defined(CONFIG_ATM_LANE_MODULE) && defined(MODULE))
- 	br_fdb_get_hook = br_fdb_get;
- 	br_fdb_put_hook = br_fdb_put;
- #endif
-@@ -60,7 +60,7 @@
- 
- 	synchronize_net();
- 
--#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-+#if defined(CONFIG_ATM_LANE) || (defined(CONFIG_ATM_LANE_MODULE) && defined(MODULE))
- 	br_fdb_get_hook = NULL;
- 	br_fdb_put_hook = NULL;
- #endif
+-- 
+Miika Komu              miika@iki.fi          http://www.iki.fi/miika/
