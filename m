@@ -1,30 +1,31 @@
-From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Subject: [PATCH][2.6] fix compilation w/o CONFIG_XFRM
-Date: Sat, 18 Oct 2003 03:01:03 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [BK PATCH 2.6] repost, fix sysctl breakage during network
+ device renaming, for ipv4
+Date: Sat, 18 Oct 2003 00:01:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0310180300500.2831@montezuma.fsmlabs.com>
+Message-ID: <20031018000131.52a13c98.davem@redhat.com>
+References: <20030901164624.GA26886@callisto.yi.org>
+	<20030901094127.6a0f6878.davem@redhat.com>
+	<20030901165559.GA27099@callisto.yi.org>
+	<20030901113143.1ba34464.davem@redhat.com>
+	<20031017213235.GA5278@callisto.yi.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Dan Aloni <da-x@gmx.net>
+In-Reply-To: <20031017213235.GA5278@callisto.yi.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Index: linux-2.6.0-test8/net/ipv6/sit.c
-===================================================================
-RCS file: /build/cvsroot/linux-2.6.0-test8/net/ipv6/sit.c,v
-retrieving revision 1.1.1.1
-diff -u -p -B -r1.1.1.1 sit.c
---- linux-2.6.0-test8/net/ipv6/sit.c	18 Oct 2003 01:37:19 -0000	1.1.1.1
-+++ linux-2.6.0-test8/net/ipv6/sit.c	18 Oct 2003 04:13:21 -0000
-@@ -377,8 +377,10 @@ static int ipip6_rcv(struct sk_buff *skb
- 
- 	read_lock(&ipip6_lock);
- 	if ((tunnel = ipip6_tunnel_lookup(iph->saddr, iph->daddr)) != NULL) {
-+#ifdef CONFIG_XFRM
- 		secpath_put(skb->sp);
- 		skb->sp = NULL;
-+#endif
- 		skb->mac.raw = skb->nh.raw;
- 		skb->nh.raw = skb->data;
- 		memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+On Fri, 17 Oct 2003 23:32:35 +0200
+Dan Aloni <da-x@gmx.net> wrote:
+
+> Here is the patch. I've compiled and tested it.
+
+But not with ipv6 modular :-)  Please add the necessary
+module symbol export for net_sysctl_strdup() and resubmit
+the patch.
+
+Thank you.
