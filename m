@@ -1,43 +1,29 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: IPv6 on-link assumption considered harmful
-Date: Mon, 3 Nov 2003 09:26:36 +0200 (EET)
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: net/core/flow.c cpu handling?
+Date: Mon, 03 Nov 2003 21:26:40 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0311030922500.27508-100000@netcore.fi>
-References: <1067615762.3423.264.camel@hades.cambridge.redhat.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Message-ID: <20031103102829.E1C622C05E@lists.samba.org>
+References: <20031101225050.4de96a8b.davem@redhat.com>
+Cc: anton@samba.org, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1067615762.3423.264.camel@hades.cambridge.redhat.com>
+To: "David S. Miller" <davem@redhat.com>
+In-reply-to: Your message of "Sat, 01 Nov 2003 22:50:50 -0800."
+             <20031101225050.4de96a8b.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Oct 2003, David Woodhouse wrote:
-> On Thu, 2003-10-30 at 21:09 +0200, Pekka Savola wrote:
-> > Just to give a heads-up before this is finalized, to give people ability 
-> > to prepare or comment prior to this process is formalized in the IETF.
+In message <20031101225050.4de96a8b.davem@redhat.com> you write:
 > 
-> With corresponding changes to the route advertisement protocol as used
-> by radvd, so that routes can actually be advertised to autoconfigured
-> nodes? Or does that already exist and I just missed it when I was
-> looking?
+> Very likely, the code is how it is in order to make the
+> 2.4.x backport of this code and the 2.6.x version as
+> similar as humanly possible.
 
-Do you mean:
+Hmm, AFAICT the patch I sent should be easier, not harder to backport.
 
-http://www.ietf.org/internet-drafts/draft-ietf-ipv6-router-selection-02.txt
+Anyway, I'm carrying the patch as part of the hotplug CPU patches: we
+can discuss it once 2.6.0 is out.
 
-This has nothing to do with this subject (AFAICS), but one person just a 
-couple of days ago asked about this and wanted to know whether anyone else 
-is hacking this, and if not, whether he should go ahead.  We gave (as 
-radvd maintainers) a thumbs-up.
-
-If you're also interested in hacking this, contact me off-list, and I'll 
-ask the other person whether he'd like to get some help..
-
-(Obviously, the preferences will need support in the kernel too.)
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Thanks,
+Rusty.
+--
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
