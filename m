@@ -1,269 +1,145 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH][IPV6] fixed authentication error with TCP
-Date: Mon, 18 Aug 2003 10:45:41 +0300 (EEST)
+From: Tommi Virtanen <tv@debian.org>
+Subject: [PATCH] Change MAC without bringing interface down
+Date: Mon, 18 Aug 2003 12:13:12 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0308181029560.18400-200000@rhea.tcs.hut.fi>
-References: <200308172329.DAA14889@dub.inr.ac.ru>
+Message-ID: <20030818091312.GA4889@lapdog>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-377318441-404174682-1061192741=:18400"
-Cc: netdev@oss.sgi.com, <usagi@linux-ipv6.org>, <latten@austin.ibm.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru, "David S. Miller" <davem@redhat.com>,
-   <kazunori@miyazawa.org>
-In-Reply-To: <200308172329.DAA14889@dub.inr.ac.ru>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+	Hi. There are cases when you want to change your MAC address,
+	such as in Linux-HA when the other box fails, and your hot
+	standby activates itself.
 
----377318441-404174682-1061192741=:18400
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+	Some NICs, such as e100, e1000 and uml ;) allow you to do that
+	without bringing the interface down. Which is nice, because it
+	allows the link to stay up, and not make switches scratch their
+	head for up to a minute.
 
-On Mon, 18 Aug 2003 kuznet@ms2.inr.ac.ru wrote:
+	The problem is, if you do that, the old MAC address is stored
+	in the hh_cache entries, and used in future traffic also.
 
-> Hello!
->
-> > But I see a small area for improvement.  Look at the place inside
-> > of ip6_dst_lookup() where we do source address selection.  If this
-> > fails, we mark error to dst->error.
-> .....
-> > It seems to me that it is only OK for dst->error to be set on routes
-> > that may not be used validly for anything.
-> >
-> > Alexey, do I understand this stuff correctly?
->
-> I think you do. And this is rather severe bug than area for improvement.
-> It definitely corrupts routing table.
 
-Besides this, the patch also introduced dst_entry leaks in at least
-icmp.c, raw.c and udp.c.
->
-> Well, I think switching from function returning error code to a function
-> returning dst is not a very good idea. This never was convenient.
-> In the case of error, IPv6 used to return to caller a dummy reject route,
-> which is always -ENETRUNREACH. So, to do this we have to hold a route
-> for each errno. Returning int was just better.
+	Here's a patch that
 
-The attached patch reverts to the old ip6_dst_lookup() interface and and
-makes tcp_ipv6.c use that instead.
+	1. makes eth_header_cache_update also update the source MAC in
+	   hh_cache.
 
-As an added bonus neither tcp_v6_connect() nor udpv6_connect() needs to do
-source address selection anymore, since ip6_dst_lookup() already does this
-for them.
+	2. adds a NETDEV_CHANGEADDR notifier in net/core/neighbour.c
+	   that walks through all the neighbour entries and updates
+	   the hh_cache's for all the neighbour entries related to
+	   given device.
 
->
-> Alexey
+	3. adds neighbour_init() to allow registration of said notifier.
 
-I've tested the patch a bit and everything seems to work normally, so its
-probably safe to apply it :)
 
-Thanks,
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+	Please comment.
 
----377318441-404174682-1061192741=:18400
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ip6_dst_lookup.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0308181045410.18400@rhea.tcs.hut.fi>
-Content-Description: 
-Content-Disposition: attachment; filename="ip6_dst_lookup.patch"
 
-ZGlmZiAtTnVyIC0tZXhjbHVkZT1SQ1MgLS1leGNsdWRlPUNWUyAtLWV4Y2x1
-ZGU9U0NDUyAtLWV4Y2x1ZGU9Qml0S2VlcGVyIC0tZXhjbHVkZT1DaGFuZ2VT
-ZXQgbGludXgtMi41Lk9MRC9pbmNsdWRlL25ldC9pcHY2LmggbGludXgtMi41
-L2luY2x1ZGUvbmV0L2lwdjYuaA0KLS0tIGxpbnV4LTIuNS5PTEQvaW5jbHVk
-ZS9uZXQvaXB2Ni5oCU1vbiBBdWcgMTggMTA6MDQ6MDcgMjAwMw0KKysrIGxp
-bnV4LTIuNS9pbmNsdWRlL25ldC9pcHY2LmgJRnJpIEF1ZyAxNSAxMzoyOTow
-MCAyMDAzDQpAQCAtMzUzLDcgKzM1Myw5IEBADQogDQogZXh0ZXJuIHZvaWQJ
-CQlpcDZfZmx1c2hfcGVuZGluZ19mcmFtZXMoc3RydWN0IHNvY2sgKnNrKTsN
-CiANCi1leHRlcm4gc3RydWN0IGRzdF9lbnRyeSAqCWlwNl9kc3RfbG9va3Vw
-KHN0cnVjdCBzb2NrICpzaywgc3RydWN0IGZsb3dpICpmbCk7DQorZXh0ZXJu
-IGludAkJCWlwNl9kc3RfbG9va3VwKHN0cnVjdCBzb2NrICpzaywNCisJCQkJ
-CSAgICAgICBzdHJ1Y3QgZHN0X2VudHJ5ICoqZHN0LA0KKwkJCQkJICAgICAg
-IHN0cnVjdCBmbG93aSAqZmwpOw0KIA0KIC8qDQogICoJc2tiIHByb2Nlc3Np
-bmcgZnVuY3Rpb25zDQpkaWZmIC1OdXIgLS1leGNsdWRlPVJDUyAtLWV4Y2x1
-ZGU9Q1ZTIC0tZXhjbHVkZT1TQ0NTIC0tZXhjbHVkZT1CaXRLZWVwZXIgLS1l
-eGNsdWRlPUNoYW5nZVNldCBsaW51eC0yLjUuT0xEL25ldC9pcHY2L2ljbXAu
-YyBsaW51eC0yLjUvbmV0L2lwdjYvaWNtcC5jDQotLS0gbGludXgtMi41Lk9M
-RC9uZXQvaXB2Ni9pY21wLmMJTW9uIEF1ZyAxOCAxMDowNDoyMyAyMDAzDQor
-KysgbGludXgtMi41L25ldC9pcHY2L2ljbXAuYwlGcmkgQXVnIDE1IDEzOjI5
-OjAzIDIwMDMNCkBAIC0zNTUsOCArMzU1LDggQEANCiAJaWYgKCFmbC5vaWYg
-JiYgaXB2Nl9hZGRyX2lzX211bHRpY2FzdCgmZmwuZmw2X2RzdCkpDQogCQlm
-bC5vaWYgPSBucC0+bWNhc3Rfb2lmOw0KIA0KLQlkc3QgPSBpcDZfZHN0X2xv
-b2t1cChzaywgJmZsKTsNCi0JaWYgKGRzdC0+ZXJyb3IpIGdvdG8gb3V0Ow0K
-KwllcnIgPSBpcDZfZHN0X2xvb2t1cChzaywgJmRzdCwgJmZsKTsNCisJaWYg
-KGVycikgZ290byBvdXQ7DQogDQogCWlmIChobGltaXQgPCAwKSB7DQogCQlp
-ZiAoaXB2Nl9hZGRyX2lzX211bHRpY2FzdCgmZmwuZmw2X2RzdCkpDQpAQCAt
-NDM0LDkgKzQzNCw5IEBADQogCWlmICghZmwub2lmICYmIGlwdjZfYWRkcl9p
-c19tdWx0aWNhc3QoJmZsLmZsNl9kc3QpKQ0KIAkJZmwub2lmID0gbnAtPm1j
-YXN0X29pZjsNCiANCi0JZHN0ID0gaXA2X2RzdF9sb29rdXAoc2ssICZmbCk7
-DQorCWVyciA9IGlwNl9kc3RfbG9va3VwKHNrLCAmZHN0LCAmZmwpOw0KIA0K
-LQlpZiAoZHN0LT5lcnJvcikgZ290byBvdXQ7DQorCWlmIChlcnIpIGdvdG8g
-b3V0Ow0KIA0KIAlpZiAoaGxpbWl0IDwgMCkgew0KIAkJaWYgKGlwdjZfYWRk
-cl9pc19tdWx0aWNhc3QoJmZsLmZsNl9kc3QpKQ0KZGlmZiAtTnVyIC0tZXhj
-bHVkZT1SQ1MgLS1leGNsdWRlPUNWUyAtLWV4Y2x1ZGU9U0NDUyAtLWV4Y2x1
-ZGU9Qml0S2VlcGVyIC0tZXhjbHVkZT1DaGFuZ2VTZXQgbGludXgtMi41Lk9M
-RC9uZXQvaXB2Ni9pcDZfb3V0cHV0LmMgbGludXgtMi41L25ldC9pcHY2L2lw
-Nl9vdXRwdXQuYw0KLS0tIGxpbnV4LTIuNS5PTEQvbmV0L2lwdjYvaXA2X291
-dHB1dC5jCU1vbiBBdWcgMTggMTA6MDQ6MjMgMjAwMw0KKysrIGxpbnV4LTIu
-NS9uZXQvaXB2Ni9pcDZfb3V0cHV0LmMJRnJpIEF1ZyAxNSAxMzo1MToxMSAy
-MDAzDQpAQCAtMTEzNiwxNyArMTEzNiwxNiBAQA0KIAlyZXR1cm4gZXJyOw0K
-IH0NCiANCi1zdHJ1Y3QgZHN0X2VudHJ5ICppcDZfZHN0X2xvb2t1cChzdHJ1
-Y3Qgc29jayAqc2ssIHN0cnVjdCBmbG93aSAqZmwpDQoraW50IGlwNl9kc3Rf
-bG9va3VwKHN0cnVjdCBzb2NrICpzaywgc3RydWN0IGRzdF9lbnRyeSAqKmRz
-dCwgc3RydWN0IGZsb3dpICpmbCkNCiB7DQotCXN0cnVjdCBkc3RfZW50cnkg
-KmRzdCA9IE5VTEw7DQogCWludCBlcnIgPSAwOw0KIA0KIAlpZiAoc2spIHsN
-CiAJCXN0cnVjdCBpcHY2X3BpbmZvICpucCA9IGluZXQ2X3NrKHNrKTsNCiAJ
-DQotCQlkc3QgPSBfX3NrX2RzdF9jaGVjayhzaywgbnAtPmRzdF9jb29raWUp
-Ow0KLQkJaWYgKGRzdCkgew0KLQkJCXN0cnVjdCBydDZfaW5mbyAqcnQgPSAo
-c3RydWN0IHJ0Nl9pbmZvKilkc3Q7DQorCQkqZHN0ID0gX19za19kc3RfY2hl
-Y2soc2ssIG5wLT5kc3RfY29va2llKTsNCisJCWlmICgqZHN0KSB7DQorCQkJ
-c3RydWN0IHJ0Nl9pbmZvICpydCA9IChzdHJ1Y3QgcnQ2X2luZm8qKSpkc3Q7
-DQogCQ0KIAkJCQkvKiBZZXMsIGNoZWNraW5nIHJvdXRlIHZhbGlkaXR5IGlu
-IG5vdCBjb25uZWN0ZWQNCiAJCQkJICAgY2FzZSBpcyBub3QgdmVyeSBzaW1w
-bGUuIFRha2UgaW50byBhY2NvdW50LA0KQEAgLTExNzAsMzkgKzExNjksMzgg
-QEANCiAJCQkgICAgICBpcHY2X2FkZHJfY21wKCZmbC0+Zmw2X2RzdCwgJnJ0
-LT5ydDZpX2RzdC5hZGRyKSkNCiAJCQkgICAgICYmIChucC0+ZGFkZHJfY2Fj
-aGUgPT0gTlVMTCB8fA0KIAkJCQkgaXB2Nl9hZGRyX2NtcCgmZmwtPmZsNl9k
-c3QsIG5wLT5kYWRkcl9jYWNoZSkpKQ0KLQkJCSAgICB8fCAoZmwtPm9pZiAm
-JiBmbC0+b2lmICE9IGRzdC0+ZGV2LT5pZmluZGV4KSkgew0KLQkJCQlkc3Qg
-PSBOVUxMOw0KKwkJCSAgICB8fCAoZmwtPm9pZiAmJiBmbC0+b2lmICE9ICgq
-ZHN0KS0+ZGV2LT5pZmluZGV4KSkgew0KKwkJCQkqZHN0ID0gTlVMTDsNCiAJ
-CQl9IGVsc2UNCi0JCQkJZHN0X2hvbGQoZHN0KTsNCisJCQkJZHN0X2hvbGQo
-KmRzdCk7DQogCQl9DQogCX0NCiANCi0JaWYgKGRzdCA9PSBOVUxMKQ0KLQkJ
-ZHN0ID0gaXA2X3JvdXRlX291dHB1dChzaywgZmwpOw0KLQ0KLQlpZiAoZHN0
-LT5lcnJvcikNCi0JCXJldHVybiBkc3Q7DQorCWlmICgqZHN0ID09IE5VTEwp
-DQorCQkqZHN0ID0gaXA2X3JvdXRlX291dHB1dChzaywgZmwpOw0KIA0KKwlp
-ZiAoKGVyciA9ICgqZHN0KS0+ZXJyb3IpKSB7DQorCQlkc3RfcmVsZWFzZSgq
-ZHN0KTsNCisJCXJldHVybiBlcnI7DQorCX0NCiAJaWYgKGlwdjZfYWRkcl9h
-bnkoJmZsLT5mbDZfc3JjKSkgew0KLQkJZXJyID0gaXB2Nl9nZXRfc2FkZHIo
-ZHN0LCAmZmwtPmZsNl9kc3QsICZmbC0+Zmw2X3NyYyk7DQorCQllcnIgPSBp
-cHY2X2dldF9zYWRkcigqZHN0LCAmZmwtPmZsNl9kc3QsICZmbC0+Zmw2X3Ny
-Yyk7DQogDQogCQlpZiAoZXJyKSB7DQogI2lmIElQNl9ERUJVRyA+PSAyDQot
-CQkJcHJpbnRrKEtFUk5fREVCVUcgImlwNl9idWlsZF94bWl0OiAiDQorCQkJ
-cHJpbnRrKEtFUk5fREVCVUcgImlwNl9kc3RfbG9va3VwOiAiDQogCQkJICAg
-ICAgICJubyBhdmFpbGFibGUgc291cmNlIGFkZHJlc3NcbiIpOw0KICNlbmRp
-Zg0KLQkJCWRzdC0+ZXJyb3IgPSBlcnI7DQotCQkJcmV0dXJuIGRzdDsNCisJ
-CQlkc3RfcmVsZWFzZSgqZHN0KTsNCisJCQlyZXR1cm4gZXJyOw0KIAkJfQ0K
-IAl9DQotDQotICAgICAgICBpZiAoZHN0KSB7DQotCQlpZiAoKGVyciA9IHhm
-cm1fbG9va3VwKCZkc3QsIGZsLCBzaywgMCkpIDwgMCkgew0KLQkJCWRzdC0+
-ZXJyb3IgPSAtRU5FVFVOUkVBQ0g7DQotCQl9DQorCWlmICgoZXJyID0geGZy
-bV9sb29rdXAoZHN0LCBmbCwgc2ssIDApKSA8IDApIHsNCisJCWRzdF9yZWxl
-YXNlKCpkc3QpOw0KKwkJcmV0dXJuIC1FTkVUVU5SRUFDSDsNCiAgICAgICAg
-IH0NCiANCi0JcmV0dXJuIGRzdDsNCisJcmV0dXJuIDA7DQogfQ0KIA0KIGlu
-dCBpcDZfYXBwZW5kX2RhdGEoc3RydWN0IHNvY2sgKnNrLCBpbnQgZ2V0ZnJh
-Zyh2b2lkICpmcm9tLCBjaGFyICp0bywgaW50IG9mZnNldCwgaW50IGxlbiwg
-aW50IG9kZCwgc3RydWN0IHNrX2J1ZmYgKnNrYiksDQpkaWZmIC1OdXIgLS1l
-eGNsdWRlPVJDUyAtLWV4Y2x1ZGU9Q1ZTIC0tZXhjbHVkZT1TQ0NTIC0tZXhj
-bHVkZT1CaXRLZWVwZXIgLS1leGNsdWRlPUNoYW5nZVNldCBsaW51eC0yLjUu
-T0xEL25ldC9pcHY2L3Jhdy5jIGxpbnV4LTIuNS9uZXQvaXB2Ni9yYXcuYw0K
-LS0tIGxpbnV4LTIuNS5PTEQvbmV0L2lwdjYvcmF3LmMJTW9uIEF1ZyAxOCAx
-MDowNDoyNCAyMDAzDQorKysgbGludXgtMi41L25ldC9pcHY2L3Jhdy5jCUZy
-aSBBdWcgMTUgMTM6MzM6MTQgMjAwMw0KQEAgLTY1OCw4ICs2NTgsOCBAQA0K
-IAlpZiAoIWZsLm9pZiAmJiBpcHY2X2FkZHJfaXNfbXVsdGljYXN0KCZmbC5m
-bDZfZHN0KSkNCiAJCWZsLm9pZiA9IG5wLT5tY2FzdF9vaWY7DQogDQotCWRz
-dCA9IGlwNl9kc3RfbG9va3VwKHNrLCAmZmwpOw0KLQlpZiAoKGVyciA9IGRz
-dC0+ZXJyb3IpKQ0KKwllcnIgPSBpcDZfZHN0X2xvb2t1cChzaywgJmRzdCwg
-JmZsKTsNCisJaWYgKGVycikNCiAJCWdvdG8gb3V0Ow0KIA0KIAlpZiAoaGxp
-bWl0IDwgMCkgew0KZGlmZiAtTnVyIC0tZXhjbHVkZT1SQ1MgLS1leGNsdWRl
-PUNWUyAtLWV4Y2x1ZGU9U0NDUyAtLWV4Y2x1ZGU9Qml0S2VlcGVyIC0tZXhj
-bHVkZT1DaGFuZ2VTZXQgbGludXgtMi41Lk9MRC9uZXQvaXB2Ni90Y3BfaXB2
-Ni5jIGxpbnV4LTIuNS9uZXQvaXB2Ni90Y3BfaXB2Ni5jDQotLS0gbGludXgt
-Mi41Lk9MRC9uZXQvaXB2Ni90Y3BfaXB2Ni5jCU1vbiBBdWcgMTggMTA6MDQ6
-MjQgMjAwMw0KKysrIGxpbnV4LTIuNS9uZXQvaXB2Ni90Y3BfaXB2Ni5jCUZy
-aSBBdWcgMTUgMTc6MjQ6MDYgMjAwMw0KQEAgLTY2MywxOSArNjYzLDEyIEBA
-DQogCQlpcHY2X2FkZHJfY29weSgmZmwuZmw2X2RzdCwgcnQwLT5hZGRyKTsN
-CiAJfQ0KIA0KLQlkc3QgPSBpcDZfZHN0X2xvb2t1cChzaywgJmZsKTsNCisJ
-ZXJyID0gaXA2X2RzdF9sb29rdXAoc2ssICZkc3QsICZmbCk7DQogDQotCWlm
-ICgoZXJyID0gZHN0LT5lcnJvcikgIT0gMCkgew0KLQkJZHN0X3JlbGVhc2Uo
-ZHN0KTsNCisJaWYgKGVycikNCiAJCWdvdG8gZmFpbHVyZTsNCi0JfQ0KIA0K
-IAlpZiAoc2FkZHIgPT0gTlVMTCkgew0KLQkJZXJyID0gaXB2Nl9nZXRfc2Fk
-ZHIoZHN0LCAmbnAtPmRhZGRyLCAmZmwuZmw2X3NyYyk7DQotCQlpZiAoZXJy
-KSB7DQotCQkJZHN0X3JlbGVhc2UoZHN0KTsNCi0JCQlnb3RvIGZhaWx1cmU7
-DQotCQl9DQogCQlzYWRkciA9ICZmbC5mbDZfc3JjOw0KIAkJaXB2Nl9hZGRy
-X2NvcHkoJm5wLT5yY3Zfc2FkZHIsIHNhZGRyKTsNCiAJfQ0KQEAgLTc5MCwx
-MyArNzgzLDE0IEBADQogCQkJZmwuZmxfaXBfZHBvcnQgPSBpbmV0LT5kcG9y
-dDsNCiAJCQlmbC5mbF9pcF9zcG9ydCA9IGluZXQtPnNwb3J0Ow0KIA0KLQkJ
-CWRzdCA9IGlwNl9kc3RfbG9va3VwKHNrLCAmZmwpOw0KKwkJCWlmICgoZXJy
-ID0gaXA2X2RzdF9sb29rdXAoc2ssICZkc3QsICZmbCkpKSB7DQorCQkJCXNr
-LT5za19lcnJfc29mdCA9IC1lcnI7DQorCQkJCWdvdG8gb3V0Ow0KKwkJCX0N
-CiAJCX0gZWxzZQ0KIAkJCWRzdF9ob2xkKGRzdCk7DQogDQotCQlpZiAoZHN0
-LT5lcnJvcikgew0KLQkJCXNrLT5za19lcnJfc29mdCA9IC1kc3QtPmVycm9y
-Ow0KLQkJfSBlbHNlIGlmICh0cC0+cG10dV9jb29raWUgPiBkc3RfcG10dShk
-c3QpKSB7DQorCQlpZiAodHAtPnBtdHVfY29va2llID4gZHN0X3BtdHUoZHN0
-KSkgew0KIAkJCXRjcF9zeW5jX21zcyhzaywgZHN0X3BtdHUoZHN0KSk7DQog
-CQkJdGNwX3NpbXBsZV9yZXRyYW5zbWl0KHNrKTsNCiAJCX0gLyogZWxzZSBs
-ZXQgdGhlIHVzdWFsIHJldHJhbnNtaXQgdGltZXIgaGFuZGxlIGl0ICovDQpA
-QCAtODkxLDggKzg4NSw4IEBADQogCQkJaXB2Nl9hZGRyX2NvcHkoJmZsLmZs
-Nl9kc3QsIHJ0MC0+YWRkcik7DQogCQl9DQogDQotCQlkc3QgPSBpcDZfZHN0
-X2xvb2t1cChzaywgJmZsKTsNCi0JCWlmIChkc3QtPmVycm9yKQ0KKwkJZXJy
-ID0gaXA2X2RzdF9sb29rdXAoc2ssICZkc3QsICZmbCk7DQorCQlpZiAoZXJy
-KQ0KIAkJCWdvdG8gZG9uZTsNCiAJfQ0KIA0KQEAgLTEwMjAsOSArMTAxNCw3
-IEBADQogCWZsLmZsX2lwX3Nwb3J0ID0gdDEtPnNvdXJjZTsNCiANCiAJLyog
-c2sgPSBOVUxMLCBidXQgaXQgaXMgc2FmZSBmb3Igbm93LiBSU1Qgc29ja2V0
-IHJlcXVpcmVkLiAqLw0KLQlidWZmLT5kc3QgPSBpcDZfZHN0X2xvb2t1cChO
-VUxMLCAmZmwpOw0KLQ0KLQlpZiAoYnVmZi0+ZHN0LT5lcnJvciA9PSAwKSB7
-DQorCWlmICghaXA2X2RzdF9sb29rdXAoTlVMTCwgJmJ1ZmYtPmRzdCwgJmZs
-KSkgew0KIAkJaXA2X3htaXQoTlVMTCwgYnVmZiwgJmZsLCBOVUxMLCAwKTsN
-CiAJCVRDUF9JTkNfU1RBVFNfQkgoVGNwT3V0U2Vncyk7DQogCQlUQ1BfSU5D
-X1NUQVRTX0JIKFRjcE91dFJzdHMpOw0KQEAgLTEwODMsOSArMTA3NSw3IEBA
-DQogCWZsLmZsX2lwX2Rwb3J0ID0gdDEtPmRlc3Q7DQogCWZsLmZsX2lwX3Nw
-b3J0ID0gdDEtPnNvdXJjZTsNCiANCi0JYnVmZi0+ZHN0ID0gaXA2X2RzdF9s
-b29rdXAoTlVMTCwgJmZsKTsNCi0NCi0JaWYgKGJ1ZmYtPmRzdC0+ZXJyb3Ig
-PT0gMCkgew0KKwlpZiAoIWlwNl9kc3RfbG9va3VwKE5VTEwsICZidWZmLT5k
-c3QsICZmbCkpIHsNCiAJCWlwNl94bWl0KE5VTEwsIGJ1ZmYsICZmbCwgTlVM
-TCwgMCk7DQogCQlUQ1BfSU5DX1NUQVRTX0JIKFRjcE91dFNlZ3MpOw0KIAkJ
-cmV0dXJuOw0KQEAgLTEzMzEsMTEgKzEzMjEsOSBAQA0KIAkJZmwuZmxfaXBf
-ZHBvcnQgPSByZXEtPnJtdF9wb3J0Ow0KIAkJZmwuZmxfaXBfc3BvcnQgPSBp
-bmV0X3NrKHNrKS0+c3BvcnQ7DQogDQotCQlkc3QgPSBpcDZfZHN0X2xvb2t1
-cChzaywgJmZsKTsNCi0JfQ0KLQ0KLQlpZiAoZHN0LT5lcnJvcikNCi0JCWdv
-dG8gb3V0Ow0KKwkJaWYgKGlwNl9kc3RfbG9va3VwKHNrLCAmZHN0LCAmZmwp
-KQ0KKwkJCWdvdG8gb3V0Ow0KKwl9IA0KIA0KIAluZXdzayA9IHRjcF9jcmVh
-dGVfb3BlbnJlcV9jaGlsZChzaywgcmVxLCBza2IpOw0KIAlpZiAobmV3c2sg
-PT0gTlVMTCkNCkBAIC0xNzMwLDExICsxNzE4LDkgQEANCiAJCQlpcHY2X2Fk
-ZHJfY29weSgmZmwuZmw2X2RzdCwgcnQwLT5hZGRyKTsNCiAJCX0NCiANCi0J
-CWRzdCA9IGlwNl9kc3RfbG9va3VwKHNrLCAmZmwpOw0KKwkJZXJyID0gaXA2
-X2RzdF9sb29rdXAoc2ssICZkc3QsICZmbCk7DQogDQotCQlpZiAoZHN0LT5l
-cnJvcikgew0KLQkJCWVyciA9IGRzdC0+ZXJyb3I7DQotCQkJZHN0X3JlbGVh
-c2UoZHN0KTsNCisJCWlmIChlcnIpIHsNCiAJCQlzay0+c2tfcm91dGVfY2Fw
-cyA9IDA7DQogCQkJcmV0dXJuIGVycjsNCiAJCX0NCkBAIC0xNzczLDEyICsx
-NzU5LDExIEBADQogCWRzdCA9IF9fc2tfZHN0X2NoZWNrKHNrLCBucC0+ZHN0
-X2Nvb2tpZSk7DQogDQogCWlmIChkc3QgPT0gTlVMTCkgew0KLQkJZHN0ID0g
-aXA2X2RzdF9sb29rdXAoc2ssICZmbCk7DQorCQlpbnQgZXJyID0gaXA2X2Rz
-dF9sb29rdXAoc2ssICZkc3QsICZmbCk7DQogDQotCQlpZiAoZHN0LT5lcnJv
-cikgew0KLQkJCXNrLT5za19lcnJfc29mdCA9IC1kc3QtPmVycm9yOw0KLQkJ
-CWRzdF9yZWxlYXNlKGRzdCk7DQotCQkJcmV0dXJuIC1zay0+c2tfZXJyX3Nv
-ZnQ7DQorCQlpZiAoZXJyKSB7DQorCQkJc2stPnNrX2Vycl9zb2Z0ID0gLWVy
-cjsNCisJCQlyZXR1cm4gZXJyOw0KIAkJfQ0KIA0KIAkJaXA2X2RzdF9zdG9y
-ZShzaywgZHN0LCBOVUxMKTsNCmRpZmYgLU51ciAtLWV4Y2x1ZGU9UkNTIC0t
-ZXhjbHVkZT1DVlMgLS1leGNsdWRlPVNDQ1MgLS1leGNsdWRlPUJpdEtlZXBl
-ciAtLWV4Y2x1ZGU9Q2hhbmdlU2V0IGxpbnV4LTIuNS5PTEQvbmV0L2lwdjYv
-dWRwLmMgbGludXgtMi41L25ldC9pcHY2L3VkcC5jDQotLS0gbGludXgtMi41
-Lk9MRC9uZXQvaXB2Ni91ZHAuYwlNb24gQXVnIDE4IDEwOjA0OjI0IDIwMDMN
-CisrKyBsaW51eC0yLjUvbmV0L2lwdjYvdWRwLmMJRnJpIEF1ZyAxNSAxMzoz
-NDoyOCAyMDAzDQpAQCAtMzMwLDIxICszMzAsMTEgQEANCiAJCWlwdjZfYWRk
-cl9jb3B5KCZmbC5mbDZfZHN0LCBydDAtPmFkZHIpOw0KIAl9DQogDQotCWRz
-dCA9IGlwNl9yb3V0ZV9vdXRwdXQoc2ssICZmbCk7DQotDQotCWlmICgoZXJy
-ID0gZHN0LT5lcnJvcikgIT0gMCkgew0KLQkJZHN0X3JlbGVhc2UoZHN0KTsN
-CisJZXJyID0gaXA2X2RzdF9sb29rdXAoc2ssICZkc3QsICZmbCk7DQorCWlm
-IChlcnIpDQogCQlnb3RvIG91dDsNCi0JfQ0KLQ0KLQkvKiBnZXQgdGhlIHNv
-dXJjZSBhZGRyZXNzIHVzZWQgaW4gdGhlIGFwcHJvcHJpYXRlIGRldmljZSAq
-Lw0KIA0KLQllcnIgPSBpcHY2X2dldF9zYWRkcihkc3QsIGRhZGRyLCAmZmwu
-Zmw2X3NyYyk7DQotDQotCWlmIChlcnIpIHsNCi0JCWRzdF9yZWxlYXNlKGRz
-dCk7DQotCQlnb3RvIG91dDsNCi0JfQ0KKwkvKiBzb3VyY2UgYWRkcmVzcyBs
-b29rdXAgZG9uZSBpbiBpcDZfZHN0X2xvb2t1cCAqLw0KIA0KIAlpZiAoaXB2
-Nl9hZGRyX2FueSgmbnAtPnNhZGRyKSkNCiAJCWlwdjZfYWRkcl9jb3B5KCZu
-cC0+c2FkZHIsICZmbC5mbDZfc3JjKTsNCkBAIC05MzAsOCArOTIwLDggQEAN
-CiAJaWYgKCFmbC5vaWYgJiYgaXB2Nl9hZGRyX2lzX211bHRpY2FzdCgmZmwu
-Zmw2X2RzdCkpDQogCQlmbC5vaWYgPSBucC0+bWNhc3Rfb2lmOw0KIA0KLQlk
-c3QgPSBpcDZfZHN0X2xvb2t1cChzaywgJmZsKTsNCi0JaWYgKChlcnIgPSBk
-c3QtPmVycm9yKSkNCisJZXJyID0gaXA2X2RzdF9sb29rdXAoc2ssICZkc3Qs
-ICZmbCk7DQorCWlmIChlcnIpDQogCQlnb3RvIG91dDsNCiANCiAJaWYgKGhs
-aW1pdCA8IDApIHsNCg==
----377318441-404174682-1061192741=:18400--
+
+===== include/net/neighbour.h 1.1 vs edited =====
+--- 1.1/include/net/neighbour.h	Tue Feb  5 19:39:48 2002
++++ edited/include/net/neighbour.h	Mon Aug 18 11:17:25 2003
+@@ -275,6 +275,8 @@
+ 	return neigh_create(tbl, pkey, dev);
+ }
+ 
++extern void		neighbour_init(void);
++
+ #endif
+ #endif
+ 
+===== net/core/dev.c 1.36 vs edited =====
+--- 1.36/net/core/dev.c	Fri May 23 20:59:51 2003
++++ edited/net/core/dev.c	Mon Aug 18 11:54:30 2003
+@@ -93,6 +93,7 @@
+ #include <linux/if_bridge.h>
+ #include <linux/divert.h>
+ #include <net/dst.h>
++#include <net/neighbour.h>
+ #include <net/pkt_sched.h>
+ #include <net/profile.h>
+ #include <net/checksum.h>
+@@ -2849,6 +2850,7 @@
+ 	open_softirq(NET_RX_SOFTIRQ, net_rx_action, NULL);
+ 
+ 	dst_init();
++	neighbour_init();
+ 	dev_mcast_init();
+ 
+ #ifdef CONFIG_NET_SCHED
+===== net/core/neighbour.c 1.9 vs edited =====
+--- 1.9/net/core/neighbour.c	Thu Jun 12 09:24:41 2003
++++ edited/net/core/neighbour.c	Mon Aug 18 11:53:50 2003
+@@ -1558,3 +1558,46 @@
+ }
+ 
+ #endif	/* CONFIG_SYSCTL */
++
++static int neighbour_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
++{
++	struct net_device *dev = ptr;
++
++	switch (event) {
++		struct neigh_table *tbl;
++	case NETDEV_CHANGEADDR:
++		read_lock(&neigh_tbl_lock);
++		for (tbl = neigh_tables; tbl; tbl=tbl->next) {
++			int i;
++
++			for (i=0; i<=NEIGH_HASHMASK; i++) {
++				struct neighbour *n, **np;
++
++				np = &tbl->hash_buckets[i];
++				write_lock(&tbl->lock);
++
++				while ((n = *np) != NULL) {
++					if (n->dev == dev) {
++						neigh_update_hhs(n);
++					}
++					np = &n->next;
++				}
++				write_unlock(&tbl->lock);
++			}
++		}
++		read_unlock(&neigh_tbl_lock);
++		break;
++	}
++	return NOTIFY_DONE;
++}
++
++struct notifier_block neighbour_dev_notifier = {
++	neighbour_dev_event,
++	NULL,
++	0
++};
++
++void __init neighbour_init(void)
++{
++	register_netdevice_notifier(&neighbour_dev_notifier);
++}
+===== net/ethernet/eth.c 1.3 vs edited =====
+--- 1.3/net/ethernet/eth.c	Fri Jun 20 00:22:53 2003
++++ edited/net/ethernet/eth.c	Mon Aug 18 11:55:36 2003
+@@ -238,6 +238,11 @@
+ 
+ void eth_header_cache_update(struct hh_cache *hh, struct net_device *dev, unsigned char * haddr)
+ {
+-	memcpy(((u8*)hh->hh_data) + HH_DATA_OFF(sizeof(struct ethhdr)),
+-	       haddr, dev->addr_len);
++	struct ethhdr *eth;
++
++	eth = (struct ethhdr*)
++		(((u8*)hh->hh_data) + (HH_DATA_OFF(sizeof(*eth))));
++
++	memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
++	memcpy(eth->h_dest, haddr, dev->addr_len);
+ }
+
+
+-- 
+:(){ :|:&};:
