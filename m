@@ -1,66 +1,37 @@
-From: "Johnson, Chester F" <chester.f.johnson@intel.com>
-Subject: RE: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Wed, 10 Dec 2003 15:36:49 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] fix module netproto alias for bluetooth
+Date: Wed, 10 Dec 2003 15:58:36 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7E713DB94F47914DB5AAB80DE8EEA87501539908@fmsmsx410.fm.intel.com>
+Message-ID: <20031210155836.1c12d56a.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <niv@us.ibm.com>, <ak@suse.de>, <ruddk@us.ibm.com>, <kuznet@ms2.inr.ac.ru>,
-        <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "David S. Miller" <davem@redhat.com>, "Julian Anastasov" <ja@ssi.bg>
+To: Maxim Krasnyansky <maxk@qualcomm.com>,
+        Rusty Russell
+ <rusty@rustcorp.com.au>,
+        "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I'm trying to think through one potential issue with ignoring the TOS
-field. Would/should a route redirect have to match the same src-dst-tos
-hash?
+In 2.6.0-test11 the net-pf-31 alias gets associated with the bnep module
+rather than the bluetooth module that actually handles the protocol.
+It is mostly works because bnep depends on bluetooth so it gets loaded.
 
-1. Assume the network uses DSCP to make routing decisions.
-2. Assume the first hop routers are configured as passive and do not
-advertise routes to the supported subnets and presumes static routes
-configured on end hosts.
-3. The Linux host has multiple network interfaces for route diversity.
-
-The preferred route may send the frame to the wrong router and then
-ignore the icmp route redirect. Or would it?
-
-chet
-
------Original Message-----
-From: David S. Miller [mailto:davem@redhat.com] 
-Sent: Wednesday, December 10, 2003 3:21 PM
-To: Julian Anastasov
-Cc: niv@us.ibm.com; ak@suse.de; ruddk@us.ibm.com; kuznet@ms2.inr.ac.ru;
-netdev@oss.sgi.com; Johnson, Chester F
-Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-
-
-On Thu, 11 Dec 2003 01:15:06 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
-
-> It seems, there are no many users of OIF!=0 but if TOS is used as 
-> routing key we can see up to 8 entries with different TOS for same 
-> SADDR,DADDR. Of course, it looks difficult to walk 8 rows just to 
-> check all TOS variants, the common case is to see only one TOS value 
-> used. That is why I propose to eliminate the TOS as hash key and to 
-> walk one row. At first look, the risk of DoS is same, thanks to the 
-> random value.
-
-This is not my understanding at all.
-
-Consider the case where we generate routing cache entries for all 8 TOS
-values.  Currently we'll likely get a O(1) lookup for any one of those
-entries.
-
-Your proposal guarentees that all such entries will land to the same
-hash chain, since TOS is not an input for the hash any longer. Therefore
-the lookup in my example case will be O(8).
-
-And instead of just eating the complexity at ICMP PMTU handling time, we
-eat the complexity at every routing cache lookup.
-
-I really don't think we can consider this.
+diff -Nru a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+--- a/net/bluetooth/af_bluetooth.c	Wed Dec 10 15:55:50 2003
++++ b/net/bluetooth/af_bluetooth.c	Wed Dec 10 15:55:50 2003
+@@ -361,3 +361,4 @@
+ MODULE_AUTHOR("Maxim Krasnyansky <maxk@qualcomm.com>");
+ MODULE_DESCRIPTION("Bluetooth Core ver " VERSION);
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS_NETPROTO(PF_BLUETOOTH);
+diff -Nru a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+--- a/net/bluetooth/bnep/core.c	Wed Dec 10 15:55:50 2003
++++ b/net/bluetooth/bnep/core.c	Wed Dec 10 15:55:50 2003
+@@ -707,4 +707,3 @@
+ MODULE_DESCRIPTION("Bluetooth BNEP ver " VERSION);
+ MODULE_AUTHOR("David Libault <david.libault@inventel.fr>, Maxim Krasnyanskiy <maxk@qualcomm.com>");
+ MODULE_LICENSE("GPL");
+-MODULE_ALIAS_NETPROTO(PF_BLUETOOTH);
