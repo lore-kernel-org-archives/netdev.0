@@ -1,72 +1,59 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: [alessandro.suardi@oracle.com: TCP window scaling still bad in 2.6.7-bk17]
-Date: Sun, 4 Jul 2004 23:41:27 +0200
+From: Petr Vandrovec <vandrove@vc.cvut.cz>
+Subject: [PATCH] vlan code accesses released memory
+Date: Sun, 4 Jul 2004 23:41:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040704214127.GA24721@outpost.ds9a.nl>
+Message-ID: <20040704214152.GB7300@vana.vc.cvut.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Probably worth looking at:
+Hi Dave,
+  today I was experimenting with vlans, and I have noticed small problem with shutting
+down vlan interface with attached multicast addresses: it in its vlan_flush_mc_list() it
+first issues dev_mc_delete on list entry, and then it prints that entry to log. But
+dev_mc_delete can release memory which was used for multicast entry, and so in better
+case bogus MAC address is printed, in worse case kernel oopses (when built with PAGE_ALLOC
+debugging).
 
------ Forwarded message from Alessandro Suardi <alessandro.suardi@oracle.com> -----
+  Patch below is for 2.6.7, but 2.4.x seems to need it too.
+							Best regards,
+								Petr Vandrovec
+								
 
-Date: Sun, 04 Jul 2004 23:11:19 +0200
-From: Alessandro Suardi <alessandro.suardi@oracle.com>
-To: linux-kernel <linux-kernel@vger.kernel.org>
-Subject: TCP window scaling still bad in 2.6.7-bk17
-X-Mailing-List: linux-kernel@vger.kernel.org
+Before:
+  
+eth0.22: del 01:00:5e:00:00:01 mcast address from master interface
+eth0.22: del 6b:6b:6b:6b:6b:6b mcast address from vlan interface
 
-I have a tcpdump and a description of what happens here
+After:
 
-http://xoomer.virgilio.it/incident/tcpdump.out
-
-with www.kernel.org, but I'm mostly shut off the entire 'net.
-
-The _only_ site I found I can browse without disabling TCP
- window scaling is http://www.google.it.
-
-
-My system:
-
- RedHat 9 base distro
- 2.6.7-bk17 plus ACX100 out-of-kernel wireless driver (version
-  0.2.0-pre8_plus_fixes_13) from acx100.sf.net
- built with binutils 2.15.91.0.1 and GCC 3.4.0
-
-System behaved properly until 2.6.7-bk1, was bad since 2.6.7-bk7
- (haven't tried in-between kernels as I was on holiday).
-
-I also tried walking up to my router and connecting via eth0
- instead of wlan0 (to rule out the wireless driver) - still the
- connection to www.kernel.org hangs (always -bk17).
+eth0.22: del 01:00:5e:00:00:01 mcast address from vlan interface
+eth0.22: del 01:00:5e:00:00:01 mcast address from master interface
 
 
-I'm available for further digging, please CC: me on replies as I
- only read lkml from the USSG archives.
+Signed-off-by: Petr Vandrovec <vandrove@vc.cvut.cz>
 
-
-Thanks,
-
---alessandro
-
- "Practice is more important than theory. A _lot_ more important."
-    (Linus Torvalds on lkml, 1 June 2004)
-
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
-
-
------ End forwarded message -----
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+diff -urN linux/net/8021q/vlan_dev.c linux/net/8021q/vlan_dev.c
+--- linux/net/8021q/vlan_dev.c	2004-07-02 21:11:49.000000000 +0200
++++ linux/net/8021q/vlan_dev.c	2004-07-04 16:42:40.000000000 +0200
+@@ -727,7 +727,6 @@
+ 	struct dev_mc_list *dmi = dev->mc_list;
+ 
+ 	while (dmi) {
+-		dev_mc_delete(dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
+ 		printk(KERN_DEBUG "%s: del %.2x:%.2x:%.2x:%.2x:%.2x:%.2x mcast address from vlan interface\n",
+ 		       dev->name,
+ 		       dmi->dmi_addr[0],
+@@ -736,6 +735,7 @@
+ 		       dmi->dmi_addr[3],
+ 		       dmi->dmi_addr[4],
+ 		       dmi->dmi_addr[5]);
++		dev_mc_delete(dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
+ 		dmi = dev->mc_list;
+ 	}
+ 
