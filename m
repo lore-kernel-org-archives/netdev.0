@@ -1,66 +1,77 @@
-From: Mariusz Mazur <mmazur@kernel.pl>
-Subject: Re: iproute2 and kernel headers
-Date: Tue, 3 Aug 2004 19:14:40 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6] (1/3) add ethtool ioctl forwarding to vlan
+Date: Tue, 3 Aug 2004 10:50:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408031914.40751.mmazur@kernel.pl>
-References: <20040802153805.487f832f@dell_ss3.pdx.osdl.net> <20040803001459.GA8637@irc.pl> <20040803083142.5a4ccaad@dell_ss3.pdx.osdl.net>
+Message-ID: <20040803105017.0774e1db@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040803083142.5a4ccaad@dell_ss3.pdx.osdl.net>
-Content-Disposition: inline
+To: Ben Greear <greearb@candelatech.com>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On wtorek 03 sierpie=F1 2004 17:31, Stephen Hemminger wrote:
-> > > I am willing to put some headers (not all) in with the user level
-> > > code, provided they are copies since they I can easily update. I do=
-n't
-> > > want to get into keeping an edited set of headers in sync.
-> >
-> >  Aren't linux-libc-headers (*) sufficient?
-> >
-> > * - http://ep09.pld-linux.org/~mmazur/linux-libc-headers/
->
-> The theory of that is good, but in practice it would make the problem
-> worse. What iproute2 wants is to have the same kernel data structures a=
-s
-> the latest kernel. It is awkward enough making sure to get them from th=
-e
-> correct kernel sources, but doing it from a different package would mak=
-e
-> updating and keeping everything current worse.
+When network devices are used in bridges, the bridge does an ethtool
+ioctl to pick up the speed; this doesn't work with vlans.
+This patch makes any ethtool gets forwarded to the under lying
+real device.  It seemed to make sense to do MII as well.
 
-This message was forwarded to me (I'm the llh maintainer). Llh is being=20
-updated by generating a diff between incremental kernel releases, fixing =
-that=20
-diff and applying it to the last version of llh. I do have scripts to che=
-ck=20
-wether such an update doesn't break any headers. There is a slight=20
-possibility that such an update might omit some crucial changes, but (at=20
-least when it comes to network headers) co-developers of my distribution=20
-(PLD) will most likely detect that allmost instantly and notify me what's=
-=20
-wrong (in such a case I will release a fixed version of llh asap).
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Since removing all those glibc/linux-headers workarounds from=20
-iproute2/iptables was quite a pain for me I would really like to see buil=
-ding=20
-against llh at least as an option available from 'configure'.
-(In case you're wondering - yes, we've been building all the linux networ=
-k=20
-userland stuff against llh for about 8 months now without any problems...=
-=20
-quite the opposite actually)
-
-
---=20
-In the year eighty five ten
-God is gonna shake his mighty head
-He'll either say,
-"I'm pleased where man has been"
-Or tear it down, and start again
+diff -Nru a/net/8021q/vlan.c b/net/8021q/vlan.c
+--- a/net/8021q/vlan.c	2004-07-27 15:45:02 -07:00
++++ b/net/8021q/vlan.c	2004-07-27 15:45:02 -07:00
+@@ -358,6 +358,7 @@
+ 	new_dev->set_mac_address = vlan_dev_set_mac_address;
+ 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
+ 	new_dev->destructor = free_netdev;
++	new_dev->do_ioctl = vlan_dev_ioctl;
+ }
+ 
+ /*  Attach a VLAN device to a mac address (ie Ethernet Card).
+diff -Nru a/net/8021q/vlan.h b/net/8021q/vlan.h
+--- a/net/8021q/vlan.h	2004-07-27 15:45:02 -07:00
++++ b/net/8021q/vlan.h	2004-07-27 15:45:02 -07:00
+@@ -65,6 +65,7 @@
+ int vlan_dev_set_mac_address(struct net_device *dev, void* addr);
+ int vlan_dev_open(struct net_device* dev);
+ int vlan_dev_stop(struct net_device* dev);
++int vlan_dev_ioctl(struct net_device* dev, struct ifreq *ifr, int cmd);
+ int vlan_dev_set_ingress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
+ int vlan_dev_set_egress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
+ int vlan_dev_set_vlan_flag(char* dev_name, __u32 flag, short flag_val);
+diff -Nru a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c	2004-07-27 15:45:02 -07:00
++++ b/net/8021q/vlan_dev.c	2004-07-27 15:45:02 -07:00
+@@ -757,6 +757,30 @@
+ 	vlan_flush_mc_list(dev);
+ 	return 0;
+ }
++
++int vlan_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++{
++	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
++	int err = -EOPNOTSUPP;
++
++	switch(cmd) {
++	case SIOCGMIIPHY:
++	case SIOCGMIIREG:
++	case SIOCSMIIREG:
++		if (real_dev->do_ioctl && netif_device_present(real_dev)) {
++			strncpy(ifr->ifr_name, real_dev->name, IFNAMSIZ);
++			err = real_dev->do_ioctl(dev, ifr, cmd);
++		}
++		break;
++
++	case SIOCETHTOOL:
++		strncpy(ifr->ifr_name, real_dev->name, IFNAMSIZ);
++		err = dev_ethtool(ifr);
++	}
++
++	return err;
++}
++
+ /** Taken from Gleb + Lennert's VLAN code, and modified... */
+ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
+ {
