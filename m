@@ -1,44 +1,26 @@
 From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH][RFC/v1][11/12] Add InfiniBand
-	Documentation files
-Date: Mon, 22 Nov 2004 15:31:44 +0000
-Message-ID: <20041122153144.GA4821@infradead.org>
-References: <20041122714.taTI3zcdWo5JfuMd@topspin.com>
-	<20041122714.AyIOvRY195EGFTaO@topspin.com>
+Subject: Re: [PATCH][6/12][RFC/v1] Add IPoIB (IP-over-InfiniBand) driver
+Date: Mon, 22 Nov 2004 15:34:56 +0000
+Message-ID: <20041122153456.GA4905@infradead.org>
+References: <200411181046.6Dz1IPtDKfpgSXN9@topspin.com> <200411181046.Jj0jsF5E2KmiGN8f@topspin.com> <20041118200017.GA26976@infradead.org> <52sm71ex0l.fsf@topspin.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
+Cc: Christoph Hellwig <hch@infradead.org>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Roland Dreier <roland@topspin.com>
 Content-Disposition: inline
-In-Reply-To: <20041122714.AyIOvRY195EGFTaO@topspin.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+In-Reply-To: <52sm71ex0l.fsf@topspin.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> +  When the IPoIB driver is loaded, it creates one interface for each
-> +  port using the P_Key at index 0.  To create an interface with a
-> +  different P_Key, write the desired P_Key into the main interface's
-> +  /sys/class/net/<intf name>/create_child file.  For example:
-> +
-> +    echo 0x8001 > /sys/class/net/ib0/create_child
-> +
-> +  This will create an interface named ib0.8001 with P_Key 0x8001.  To
-> +  remove a subinterface, use the "delete_child" file:
-> +
-> +    echo 0x8001 > /sys/class/net/ib0/delete_child
-> +
-> +  The P_Key for any interface is given by the "pkey" file, and the
-> +  main interface for a subinterface is in "parent."
+> We can switch to dma_* (and in fact I see some reasons to do so).
+> However Greg KH suggested sticking with pci_* stuff until there's a
+> non-PCI device to deal with.
 
-Any reason this doesn't use an interface similar to the normal vlan code?
+That just means avoidable interface changes sooner or later.  The dma_
+interfaces also have the added benefit of allowing better control of the
+type of consistant allocation interface.
 
-And what is a P_Key?
+Note that pathscale already has direct to HT infiniband components, but
+it's not sure whether they'll ever be supported by the OpenIB codebase.
