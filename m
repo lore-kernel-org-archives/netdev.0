@@ -1,8 +1,8 @@
 From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH 4/4] Prefix List against 2.4.21
-Date: Mon, 14 Jul 2003 15:43:01 -0700 (PDT)
+Subject: [PATCH 3/4] Prefix List against 2.5.73
+Date: Mon, 14 Jul 2003 15:41:26 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307141541340.5140-100000@DYN318430.beaverton.ibm.com>
+Message-ID: <Pine.LNX.4.44.0307141539170.5140-100000@DYN318430.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: davem@redhat.com, <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>,
@@ -12,11 +12,11 @@ To: yoshfuji@linux-ipv6.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------------------- Prefix List against 2.4.21 ---------------------------
-diff -ruN linux-2.4.21.org/include/linux/ipv6_route.h PATCHES/linux-2.4.21/include/linux/ipv6_route.h
---- linux-2.4.21.org/include/linux/ipv6_route.h	1998-08-27 19:33:08.000000000 -0700
-+++ PATCHES/linux-2.4.21/include/linux/ipv6_route.h	2003-07-14 10:30:53.000000000 -0700
-@@ -53,4 +53,16 @@
+--------------- Prefix List against 2.5.73 ---------------------------
+diff -ruN linux-2.5.73.org/include/linux/ipv6_route.h PATCHES/linux-2.5.73/include/linux/ipv6_route.h
+--- linux-2.5.73.org/include/linux/ipv6_route.h	2003-06-22 11:32:36.000000000 -0700
++++ PATCHES/linux-2.5.73/include/linux/ipv6_route.h	2003-07-14 10:30:59.000000000 -0700
+@@ -44,4 +44,16 @@
  #define RTMSG_NEWROUTE		0x21
  #define RTMSG_DELROUTE		0x22
 
@@ -33,10 +33,10 @@ diff -ruN linux-2.4.21.org/include/linux/ipv6_route.h PATCHES/linux-2.4.21/inclu
 +};
 +
  #endif
-diff -ruN linux-2.4.21.org/include/linux/rtnetlink.h PATCHES/linux-2.4.21/include/linux/rtnetlink.h
---- linux-2.4.21.org/include/linux/rtnetlink.h	2002-11-28 15:53:15.000000000 -0800
-+++ PATCHES/linux-2.4.21/include/linux/rtnetlink.h	2003-07-14 12:32:49.000000000 -0700
-@@ -46,7 +46,9 @@
+diff -ruN linux-2.5.73.org/include/linux/rtnetlink.h PATCHES/linux-2.5.73/include/linux/rtnetlink.h
+--- linux-2.5.73.org/include/linux/rtnetlink.h	2003-06-22 11:33:07.000000000 -0700
++++ PATCHES/linux-2.5.73/include/linux/rtnetlink.h	2003-07-14 12:11:51.000000000 -0700
+@@ -47,7 +47,9 @@
  #define	RTM_DELTFILTER	(RTM_BASE+29)
  #define	RTM_GETTFILTER	(RTM_BASE+30)
 
@@ -46,25 +46,23 @@ diff -ruN linux-2.4.21.org/include/linux/rtnetlink.h PATCHES/linux-2.4.21/includ
 +#define	RTM_MAX		(RTM_GETPLIST+1)
 
  /*
-    Generic structure for encapsulation optional route information.
-@@ -198,10 +200,11 @@
- 	RTA_MULTIPATH,
- 	RTA_PROTOINFO,
+    Generic structure for encapsulation of optional route information.
+@@ -201,9 +203,10 @@
  	RTA_FLOW,
--	RTA_CACHEINFO
-+	RTA_CACHEINFO,
+ 	RTA_CACHEINFO,
+ 	RTA_SESSION,
 +	RTA_RA6INFO,	/* No support yet, send event on new prefix event */
  };
 
--#define RTA_MAX RTA_CACHEINFO
+-#define RTA_MAX RTA_SESSION
 +#define RTA_MAX RTA_RA6INFO
 
  #define RTM_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct rtmsg))))
  #define RTM_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct rtmsg))
-diff -ruN linux-2.4.21.org/include/net/ip6_route.h PATCHES/linux-2.4.21/include/net/ip6_route.h
---- linux-2.4.21.org/include/net/ip6_route.h	2003-06-13 07:51:39.000000000 -0700
-+++ PATCHES/linux-2.4.21/include/net/ip6_route.h	2003-07-14 12:49:45.000000000 -0700
-@@ -84,6 +84,7 @@
+diff -ruN linux-2.5.73.org/include/net/ip6_route.h PATCHES/linux-2.5.73/include/net/ip6_route.h
+--- linux-2.5.73.org/include/net/ip6_route.h	2003-06-22 11:32:37.000000000 -0700
++++ PATCHES/linux-2.5.73/include/net/ip6_route.h	2003-07-14 10:30:59.000000000 -0700
+@@ -87,6 +87,7 @@
  struct nlmsghdr;
  struct netlink_callback;
  extern int inet6_dump_fib(struct sk_buff *skb, struct netlink_callback *cb);
@@ -72,10 +70,10 @@ diff -ruN linux-2.4.21.org/include/net/ip6_route.h PATCHES/linux-2.4.21/include/
  extern int inet6_rtm_newroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg);
  extern int inet6_rtm_delroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg);
  extern int inet6_rtm_getroute(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg);
-diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/addrconf.c
---- linux-2.4.21.org/net/ipv6/addrconf.c	2003-06-13 07:51:39.000000000 -0700
-+++ PATCHES/linux-2.4.21/net/ipv6/addrconf.c	2003-07-14 12:21:50.000000000 -0700
-@@ -101,7 +101,7 @@
+diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c PATCHES/linux-2.5.73/net/ipv6/addrconf.c
+--- linux-2.5.73.org/net/ipv6/addrconf.c	2003-06-22 11:33:17.000000000 -0700
++++ PATCHES/linux-2.5.73/net/ipv6/addrconf.c	2003-07-14 12:22:07.000000000 -0700
+@@ -129,7 +129,7 @@
 
  static int addrconf_ifdown(struct net_device *dev, int how);
 
@@ -84,16 +82,25 @@ diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/add
  static void addrconf_dad_timer(unsigned long data);
  static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
  static void addrconf_rs_timer(unsigned long data);
-@@ -889,7 +889,7 @@
+@@ -715,7 +715,7 @@
+ 	ift->prefered_lft = tmp_prefered_lft;
+ 	ift->tstamp = ifp->tstamp;
+ 	spin_unlock_bh(&ift->lock);
+-	addrconf_dad_start(ift);
++	addrconf_dad_start(ift, 0);
+ 	in6_ifa_put(ift);
+ 	in6_dev_put(idev);
+ out:
+@@ -1211,7 +1211,7 @@
  	rtmsg.rtmsg_dst_len = 8;
  	rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
  	rtmsg.rtmsg_ifindex = dev->ifindex;
 -	rtmsg.rtmsg_flags = RTF_UP|RTF_ADDRCONF;
 +	rtmsg.rtmsg_flags = RTF_UP;
  	rtmsg.rtmsg_type = RTMSG_NEWROUTE;
- 	ip6_route_add(&rtmsg, NULL);
+ 	ip6_route_add(&rtmsg, NULL, NULL);
  }
-@@ -916,7 +916,7 @@
+@@ -1238,7 +1238,7 @@
  	struct in6_addr addr;
 
  	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
@@ -102,16 +109,16 @@ diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/add
  }
 
  static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
-@@ -1054,7 +1054,7 @@
- 				return;
+@@ -1378,7 +1378,7 @@
  			}
 
+ 			create = 1;
 -			addrconf_dad_start(ifp);
 +			addrconf_dad_start(ifp, RTF_ADDRCONF);
  		}
 
  		if (ifp && valid_lft == 0) {
-@@ -1166,7 +1166,7 @@
+@@ -1529,7 +1529,7 @@
 
  	ifp = ipv6_add_addr(idev, pfx, plen, scope, IFA_F_PERMANENT);
  	if (!IS_ERR(ifp)) {
@@ -120,7 +127,7 @@ diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/add
  		in6_ifa_put(ifp);
  		return 0;
  	}
-@@ -1341,7 +1341,7 @@
+@@ -1704,7 +1704,7 @@
 
  	ifp = ipv6_add_addr(idev, addr, 64, IFA_LINK, IFA_F_PERMANENT);
  	if (!IS_ERR(ifp)) {
@@ -129,7 +136,7 @@ diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/add
  		in6_ifa_put(ifp);
  	}
  }
-@@ -1578,8 +1578,7 @@
+@@ -1943,8 +1943,7 @@
  		memset(&rtmsg, 0, sizeof(struct in6_rtmsg));
  		rtmsg.rtmsg_type = RTMSG_NEWROUTE;
  		rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
@@ -139,7 +146,7 @@ diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/add
 
  		rtmsg.rtmsg_ifindex = ifp->idev->dev->ifindex;
 
-@@ -1593,7 +1592,7 @@
+@@ -1958,7 +1957,7 @@
  /*
   *	Duplicate Address Detection
   */
@@ -148,7 +155,7 @@ diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/add
  {
  	struct net_device *dev;
  	unsigned long rand_num;
-@@ -1603,7 +1602,7 @@
+@@ -1968,7 +1967,7 @@
  	addrconf_join_solict(dev, &ifp->addr);
 
  	if (ifp->prefix_len != 128 && (ifp->flags&IFA_F_PERMANENT))
@@ -157,47 +164,18 @@ diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c PATCHES/linux-2.4.21/net/ipv6/add
 
  	net_srandom(ifp->addr.s6_addr32[3]);
  	rand_num = net_random() % (ifp->idev->cnf.rtr_solicit_delay ? : 1);
-@@ -1987,6 +1986,36 @@
- 	{ inet6_rtm_delroute,	NULL,			},
- 	{ inet6_rtm_getroute,	inet6_dump_fib,		},
- 	{ NULL,			NULL,			},
-+
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+
-+	{ NULL,			NULL,			},
-+	{ NULL,			NULL,			},
-+	{ NULL,			inet6_dump_prefix	},
-+	{ NULL,			NULL,			},
+@@ -2459,6 +2458,7 @@
+ 	[RTM_DELROUTE - RTM_BASE] = { .doit	= inet6_rtm_delroute, },
+ 	[RTM_GETROUTE - RTM_BASE] = { .doit	= inet6_rtm_getroute,
+ 				      .dumpit	= inet6_dump_fib, },
++	[RTM_GETPLIST - RTM_BASE] = { .dumpit	= inet6_dump_prefix, },
  };
 
  static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
-diff -ruN linux-2.4.21.org/net/ipv6/route.c PATCHES/linux-2.4.21/net/ipv6/route.c
---- linux-2.4.21.org/net/ipv6/route.c	2003-06-13 07:51:39.000000000 -0700
-+++ PATCHES/linux-2.4.21/net/ipv6/route.c	2003-07-14 10:30:53.000000000 -0700
-@@ -1627,6 +1627,66 @@
+diff -ruN linux-2.5.73.org/net/ipv6/route.c PATCHES/linux-2.5.73/net/ipv6/route.c
+--- linux-2.5.73.org/net/ipv6/route.c	2003-06-22 11:33:05.000000000 -0700
++++ PATCHES/linux-2.5.73/net/ipv6/route.c	2003-07-14 10:30:59.000000000 -0700
+@@ -1511,6 +1511,66 @@
  	return 0;
  }
 
@@ -264,7 +242,7 @@ diff -ruN linux-2.4.21.org/net/ipv6/route.c PATCHES/linux-2.4.21/net/ipv6/route.
  static void fib6_dump_end(struct netlink_callback *cb)
  {
  	struct fib6_walker_t *w = (void*)cb->args[0];
-@@ -1648,7 +1708,8 @@
+@@ -1532,7 +1592,8 @@
  	return cb->done(cb);
  }
 
@@ -274,7 +252,7 @@ diff -ruN linux-2.4.21.org/net/ipv6/route.c PATCHES/linux-2.4.21/net/ipv6/route.
  {
  	struct rt6_rtnl_dump_arg arg;
  	struct fib6_walker_t *w;
-@@ -1675,7 +1736,10 @@
+@@ -1559,7 +1620,10 @@
  		RT6_TRACE("dump<%p", w);
  		memset(w, 0, sizeof(*w));
  		w->root = &ip6_routing_table;
@@ -286,7 +264,7 @@ diff -ruN linux-2.4.21.org/net/ipv6/route.c PATCHES/linux-2.4.21/net/ipv6/route.
  		w->args = &arg;
  		cb->args[0] = (long)w;
  		read_lock_bh(&rt6_lock);
-@@ -1702,6 +1766,16 @@
+@@ -1586,6 +1650,16 @@
  	return res;
  }
 
@@ -303,4 +281,4 @@ diff -ruN linux-2.4.21.org/net/ipv6/route.c PATCHES/linux-2.4.21/net/ipv6/route.
  int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void *arg)
  {
  	struct rtattr **rta = arg;
------------------------------------------------------------------------------
+------------------------------------------------------------------------------
