@@ -1,67 +1,31 @@
-From: Paul Wagland <paul@wagland.net>
-Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Sun, 16 May 2004 14:10:06 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <F812066A-A731-11D8-BD91-000A95CD704C@wagland.net>
-References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com> <20040512200305.GA16078@elte.hu> <Pine.LNX.4.58.0405121400360.11950@bigblue.dev.mdolabs.com> <20040512213913.GA16658@fieldses.org> <jevfj1nwe1.fsf@sykes.suse.de> <20040516034847.GA5774@taniwha.stupidest.org>
-Mime-Version: 1.0 (Apple Message framework v613)
-Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-65--971975887"
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] remove comx drivers from tree
+Date: Sun, 16 May 2004 17:54:35 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <40A7E31B.5020705@pobox.com>
+References: <20040507111725.GA11575@lst.de> <40A50292.3070601@pobox.com> <m3sme1cqqg.fsf@defiant.pm.waw.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, Davide Libenzi <davidel@xmailserver.org>,
-        Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>,
-        "J. Bruce Fields" <bfields@fieldses.org>,
-        Andreas Schwab <schwab@suse.de>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Ingo Molnar <mingo@elte.hu>, Greg KH <greg@kroah.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040516034847.GA5774@taniwha.stupidest.org>
-To: Chris Wedgwood <cw@f00f.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Christoph Hellwig <hch@lst.de>, netdev@oss.sgi.com,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>, Pete Popov <ppopov@mvista.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264829AbUEPVyw@vger.kernel.org>
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3sme1cqqg.fsf@defiant.pm.waw.pl>
 List-Id: netdev.vger.kernel.org
 
+Krzysztof Halasa wrote:
+> While obviously I don't object (we should list removed things along
+> with kernel version somewhere, though)... I could possibly port
+> the drivers to my generic HDLC code, if someone sends me the hardware
+> in question. Sure, I will never send it back, and it has to have V.35
+> or V.24 interface, so I can connect it to something.
 
---Apple-Mail-65--971975887
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Then, *bang*, it's gone :)
 
+We can resurrect if someone appears with hardware, and cares enough to 
+bring the driver back to life...  Older kernels are archived on the 
+Internet forever, after all :)
 
-On May 16, 2004, at 5:48, Chris Wedgwood wrote:
-
-> On Wed, May 12, 2004 at 11:55:18PM +0200, Andreas Schwab wrote:
->
->> Signed integer overflow is undefined in C, so the compiler is
->> allowed to assume it does not happen.
->
-> Really?
->
-> Just because something is undefined assuming it never happens is a bit
-> of a leap of faith IMO.
-
-More precisely, if something has undefined semantics then the compiler 
-is allowed to do whatever it likes. Normally the compiler will try to 
-do "what's right", but if they have an optimisation opportunity then 
-they will normally take it.
-
-In other words by assuming it "doesn't happen" they get to perform an 
-optimisation that they could not do otherwise, and they get to perform 
-"correctly" in an undefined way when the overflow would happen.
-
-Cheers,
-Paul
-
---Apple-Mail-65--971975887
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: This is a digitally signed message part
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (Darwin)
-
-iD8DBQFAp1oftch0EvEFvxURAjQHAKCtnHclFM/KKANPRZzRRzFTe6xp3ACgompl
-RJos9ShkK+bWPqs/guUZhAY=
-=fkYG
------END PGP SIGNATURE-----
-
---Apple-Mail-65--971975887--
+	Jeff
