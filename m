@@ -1,47 +1,57 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Bug-hunting
-Date: Tue, 22 Feb 2005 11:51:14 -0800
-Message-ID: <20050222115114.0d0e568e.davem@davemloft.net>
-References: <421B4AB7.9030003@rapidforum.com>
-	<20050222104448.31373a99.davem@davemloft.net>
-	<421B8563.9030608@rapidforum.com>
+From: "Leonid Grossman" <leonid.grossman@neterion.com>
+Subject: RE: Intel and TOE in the news
+Date: Tue, 22 Feb 2005 12:51:40 -0800
+Message-ID: <200502222052.j1MKqaDD022407@guinness.s2io.com>
+References: <20050222180711.GA84438@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Christian Schmid <webmaster@rapidforum.com>
-In-Reply-To: <421B8563.9030608@rapidforum.com>
+Cc: "'Leonid Grossman'" <leonid.grossman@neterion.com>, <hadi@cyberus.ca>,
+        "'rick jones'" <rick.jones2@hp.com>, <netdev@oss.sgi.com>,
+        "'Alex Aizman'" <alex@neterion.com>
+To: "'Andi Kleen'" <ak@muc.de>, "'Stephen Hemminger'" <shemminger@osdl.org>
+In-Reply-To: <20050222180711.GA84438@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Feb 2005 20:17:55 +0100
-Christian Schmid <webmaster@rapidforum.com> wrote:
 
-> No. This is a new thing and this wasnt there before. In 2.6.10-rc2 the kernel aborted programs with 
-> "Out of memory" when too many buffers are allocated and low memory was full. NOW it just shrinks the 
-> buffers dynamically. I don't want that. I have a 2/2 system and I want 1600 MB for buffers but you 
-> only allow around 700 MB for buffers. This is definetly NEW.
 
-It always shrinks the TCP socket buffer usage when the total socket
-memory used by TCP is over the threshold.  This code has been there
-for 3 years at least.
 
-If the behavior has changed, that's interesting and probably due to
-some other change.  It could even be a MM layer change that is causing
-things to behave differently now for you, and because things are
-being tweaked in the memory management all the time (particularly
-the handling of lowmem vs. highmem) this would not surprise me at
-all.
+> -----Original Message-----
+> From: Andi Kleen [mailto:ak@muc.de] 
+> Sent: Tuesday, February 22, 2005 10:07 AM
+> To: Stephen Hemminger
+> Cc: Leonid Grossman; hadi@cyberus.ca; 'rick jones'; 
+> netdev@oss.sgi.com; 'Alex Aizman'
+> Subject: Re: Intel and TOE in the news
+> 
+> > Be careful, this may have the same problems that original 
+> TSO code did.
+> > Make sure and force the PUSH flag on these jumbo receives 
+> or the TCP 
+> > "every other segment" ACK logic will be busted.  There are 
+> other parts of TCP
+> > that depend on packet count as well and this inverse TSO 
+> logic will break them.
 
-But the basic framework for shrinking socket buffers when total TCP
-memory usage crosses some threshold has been there and has been
-enabled for a long time.
 
-Anyways, we're stalled on figuring out exactly what is wrong due to
-lack of information and difficulty in reproducing.  The ball is still
-in your court.
+TSO case is probably different - TSO hardware just sets PSH on the last
+fragment only (and only if the flag was set on the original large tx
+packet). Receiver doesn't really know if the sender is TSO-capable or not
+and will ACK the same way - will it not?
+Anyway, with LRO we do change rx packet count so affecting parts of TCP that
+depend on packet count is indeed a concern; I guess we'll find out soon
+enough whether there are real issues with the approach :-)
 
-Why don't you put together a very simple test case that others can
-use to analyze and reproduce your bug?  I bet we'll fix it or figure
-out what is wrong with your app within 24 hours once you do that. :-)
+Leonid
+
+> 
+> Linux TCP RX path didn't care about PSH last time I checked. 
+> It should make no difference how PSH is set on RX or if it is 
+> set at all. At least unless Leonid wants to run his driver on 
+> Darwin too, but that would be someone else's problem.
+> 
+> -Andi
+> 
