@@ -1,24 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] mark dev_alloc as deprecated.
-Date: Tue, 14 Oct 2003 13:16:41 -0700
+Subject: Re: [PATCH][ATM][0/6] backports from 2.6
+Date: Tue, 14 Oct 2003 13:59:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031014131641.42c545b5.davem@redhat.com>
-References: <20031014111940.709280d7.shemminger@osdl.org>
+Message-ID: <20031014135904.0d150bd5.davem@redhat.com>
+References: <200310140342.h9E3gUkT005558@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031014111940.709280d7.shemminger@osdl.org>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200310140342.h9E3gUkT005558@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Oct 2003 11:19:40 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Mon, 13 Oct 2003 23:42:31 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> dev_alloc is an older way of getting a network device.  Most uses of it are gone,
-> and it was usually used in an unsafe way.  The remaining usage in 2.6.0-test7
-> are in arcnet devices.
+> the next set of patches are backports of changes
+> made in 2.6.  please apply to latest 2.4.
 
-Applied, thanks Stephen.
+Applied, thanks Chas.
