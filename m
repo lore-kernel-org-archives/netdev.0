@@ -1,26 +1,72 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][IPV6] fix ipv6 header handling of AH input.
-Date: Sun, 15 Jun 2003 06:15:00 -0700 (PDT)
+From: "Herman Dierks" <hdierks@us.ibm.com>
+Subject: Re: e1000 performance hack for ppc64 (Power4)
+Date: Sun, 15 Jun 2003 09:32:34 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030615.061500.78718230.davem@redhat.com>
-References: <20030615220632.0701a5cd.kazunori@miyazawa.org>
+Message-ID: <OF00A6394D.D41D5DDC-ON85256D46.004F9DFD@pok.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, usagi@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "Feldman, Scott" <scott.feldman@intel.com>,
+   "David S. Miller" <davem@redhat.com>, haveblue@us.ibm.com, dwg@au1.ibm.com,
+   linux-kernel@vger.kernel.org, "Nancy J Milliner" <milliner@us.ibm.com>,
+   "Ricardo C Gonzalez" <ricardoz@us.ibm.com>,
+   "Brian Twichell" <twichell@us.ibm.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kazunori@miyazawa.org
-In-Reply-To: <20030615220632.0701a5cd.kazunori@miyazawa.org>
+To: Anton Blanchard <anton@samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kazunori Miyazawa <kazunori@miyazawa.org>
-   Date: Sun, 15 Jun 2003 22:06:32 +0900
 
-   This patch fixes ipv6 header handling of ah input and moves
-   the routine to clear mutable options.
-   It reduces unnecessary header clearing when a packet has only ESP.
-   
-   This patch for linux-2.5.70 + CS1.1307
+Anton, I think the option described below is intended to cause the adapter
+to "get off on a cache line boundary" so when it restarts the DMA it will
+be aligned.   This is for cases when the adapter has to get off, for exampe
+due to FIFO full, etc.
+Some adapters would get off on any boundary and that then causes perf
+issues when the DMA is restarted.
+This is a good option, but I don't think it addresses what we need here as
+the host needs to ensure a DMA starts on a cache line.
+Different adapter anyway, but  I am just pointing out that even if e1000
+had this it would not be the solution.
 
-Thank you very much, I have applied your patch.
+
+Anton Blanchard <anton@samba.org> on 06/13/2003 07:03:42 PM
+
+To:    "Feldman, Scott" <scott.feldman@intel.com>
+cc:    "David S. Miller" <davem@redhat.com>,
+       haveblue@us.ltcfwd.linux.ibm.com, Herman Dierks/Austin/IBM@IBMUS,
+       dwg@au1.ibm.com, linux-kernel@vger.kernel.org, Nancy J
+       Milliner/Austin/IBM@IBMUS, Ricardo C Gonzalez/Austin/IBM@ibmus,
+       Brian Twichell/Austin/IBM@IBMUS, netdev@oss.sgi.com
+Subject:    Re: e1000 performance hack for ppc64 (Power4)
+
+
+
+
+> I thought the answer was no, so I double checked with a couple of
+> hardware guys, and the answer is still no.
+
+Hi Scott,
+
+Thats a pity, the e100 docs on sourceforge show it can do what we want,
+it would be nice if e1000 had this feature too :)
+
+4.2.2 Read Align
+
+The Read Align feature is aimed to enhance performance in cache line
+oriented systems. Starting a PCI transaction in these systems on a
+non-cache line aligned address may result in low  performance. To solve
+this performance problem, the controller can be configured to terminate
+Transmit DMA cycles on a cache line boundary, and start the next
+transaction on a cache line aligned address. This  feature is enabled
+when the Read Align Enable bit is set in device Configure command
+(Section 6.4.2.3, "Configure (010b)").
+
+If this bit is set, the device operates as follows:
+
+* When the device is close to running out of resources on the Transmit
+* DMA (in other words, the Transmit FIFO is almost full), it attempts to
+* terminate the read transaction on the nearest cache line boundary when
+* possible.
+
+* When the arbitration counters feature is enabled (maximum Transmit DMA
+* byte count value is set in configuration space), the device switches
+ * to other pending DMAs on cache line boundary only.
