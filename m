@@ -1,36 +1,34 @@
-From: Kosta Todorovic <kostodo@gmail.com>
-Subject: Re: Network card driver problem (znb.o/tulip)
-Date: Sat, 19 Mar 2005 14:29:14 +0400
-Message-ID: <efe3b0060503190229dff2a01@mail.gmail.com>
-References: <efe3b00605031021513b7268d1@mail.gmail.com>
-	 <423133F7.7040400@candelatech.com>
-	 <200503182333.51470.jdmason@us.ibm.com>
-Reply-To: Kosta Todorovic <kostodo@gmail.com>
+From: Alexander Nyberg <alexn@dsv.su.se>
+Subject: Re: Reproducible panics with tulip
+Date: Sat, 19 Mar 2005 12:29:45 +0100
+Message-ID: <1111231785.964.5.camel@localhost.localdomain>
+References: <1111178167.1147.9.camel@localhost.localdomain>
+	 <20050318215229.GA24509@electric-eye.fr.zoreil.com>
+	 <20050318223939.GB24509@electric-eye.fr.zoreil.com>
+	 <20050319031321.GA25554@waste.org>
+	 <20050318194751.3fade099.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, jgarzik@pobox.com,
-        tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
-To: Jon Mason <jdmason@us.ibm.com>
-In-Reply-To: <200503182333.51470.jdmason@us.ibm.com>
+Cc: Matt Mackall <mpm@selenic.com>, romieu@fr.zoreil.com, jgarzik@pobox.com,
+        netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050318194751.3fade099.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Problem is that all the adapters are currently in use in 32bit mode.
-It was my only solution. I'm hoping that will not be a permanent
-thing.
-Im just a little lost as in to what I should do.
-
-I've been told by ZNXY that they *might* provide the source code to
-the entire driver, so if there is someone that is willing to try make
-it work I would be eternally greatful.
-
+fre 2005-03-18 klockan 19:47 -0800 skrev David S. Miller:
+> On Fri, 18 Mar 2005 19:13:21 -
+> Matt Mackall <mpm@selenic.com> wrote:
 > 
-> Suck or not, it would be good to have these adapters working.  Some people
-> might not be willing to spend $400 on a new adapter.  Hopefully some generous
-> soul would be willing to spend their valuable time trying to make this work
-> (or send me an adapter and I'll give it a go).
+> > Please, cc: me on such things. I sent this fix a while back, but DaveM
+> > never acked it.
 > 
-> Jon
->
+> It's in my backlog, never fear :-)
+
+[so that everyone sees this]
+
+
+The patch Francois Romieu sent me fixes my panic issues.
+Thanks!
