@@ -1,55 +1,27 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH] - Wrong use of RTM_BASE in XFRM message types.
-Date: Fri, 23 May 2003 11:14:10 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: IPSec: IPv6 random failures
+Date: Fri, 23 May 2003 13:50:55 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3ECE64F2.5000300@us.ibm.com>
+Message-ID: <20030523.135055.104051001.davem@redhat.com>
+References: <OFD45FE8D2.BE223435-ON86256D2F.004DFD33-86256D2F.005647E2@pok.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, kuznet@ms2.inr.ac.ru
+To: toml@us.ibm.com
+In-Reply-To: <OFD45FE8D2.BE223435-ON86256D2F.004DFD33-86256D2F.005647E2@pok.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+   From: "Tom Lendacky" <toml@us.ibm.com>
+   Date: Fri, 23 May 2003 10:42:25 -0500
+   
+   I'll try and do some debugging and see if I can find the problem.
 
-I am using 2.5.68 and found XFRM_MSG_BASE being defined, but RTM_BASE used for
-all XFRM messages, changed it. Current mailer (hopefully) shouldn't screw up
-the tabs.
+Thanks.  It is possible that I broke something while transferring
+the flow cache into a generic location... but you did not see these
+hangs with plain 2.5.69 which had that change already.
 
-Thanks,
-
-- KK
-
-diff -ruN linux-2.5.68.org/include/linux/xfrm.h linux-2.5.68/include/linux/xfrm.h
---- linux-2.5.68.org/include/linux/xfrm.h	2003-05-23 11:02:27.000000000 -0700
-+++ linux-2.5.68/include/linux/xfrm.h	2003-05-23 11:04:02.000000000 -0700
-@@ -104,17 +104,17 @@
-  /* Netlink configuration messages.  */
-  #define XFRM_MSG_BASE		0x10
-
--#define XFRM_MSG_NEWSA		(RTM_BASE + 0)
--#define XFRM_MSG_DELSA		(RTM_BASE + 1)
--#define XFRM_MSG_GETSA		(RTM_BASE + 2)
--
--#define XFRM_MSG_NEWPOLICY	(RTM_BASE + 3)
--#define XFRM_MSG_DELPOLICY	(RTM_BASE + 4)
--#define XFRM_MSG_GETPOLICY	(RTM_BASE + 5)
--
--#define XFRM_MSG_ALLOCSPI	(RTM_BASE + 6)
--#define XFRM_MSG_ACQUIRE	(RTM_BASE + 7)
--#define XFRM_MSG_EXPIRE		(RTM_BASE + 8)
-+#define XFRM_MSG_NEWSA		(XFRM_MSG_BASE + 0)
-+#define XFRM_MSG_DELSA		(XFRM_MSG_BASE + 1)
-+#define XFRM_MSG_GETSA		(XFRM_MSG_BASE + 2)
-+
-+#define XFRM_MSG_NEWPOLICY	(XFRM_MSG_BASE + 3)
-+#define XFRM_MSG_DELPOLICY	(XFRM_MSG_BASE + 4)
-+#define XFRM_MSG_GETPOLICY	(XFRM_MSG_BASE + 5)
-+
-+#define XFRM_MSG_ALLOCSPI	(XFRM_MSG_BASE + 6)
-+#define XFRM_MSG_ACQUIRE	(XFRM_MSG_BASE + 7)
-+#define XFRM_MSG_EXPIRE		(XFRM_MSG_BASE + 8)
-
-  #define XFRM_MSG_MAX		(XFRM_MSG_EXPIRE+1)
+I'll be away for the weekend, so don't be alarmed if I am silent
+during this time :-)
