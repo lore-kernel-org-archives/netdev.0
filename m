@@ -1,77 +1,98 @@
-From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
-Subject: Re: [RFC 2.6.10 1/22] xfrm: Add direction information to xfrm_state
-Date: Thu, 30 Dec 2004 10:48:39 +0100
-Message-ID: <20041230094839.GX2460@lug-owl.de>
-References: <20041230035000.01@ori.thedillows.org> <20041230035000.10@ori.thedillows.org>
+From: David Dillow <dave@thedillows.org>
+Subject: Ethtool offload patch
+Date: Thu, 30 Dec 2004 03:54:55 -0500
+Message-ID: <1104396895.5845.1.camel@ori.thedillows.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="urKaCNvFwQ8jDQOg"
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=-NAzlHeonTRg6HEV7ZPqL"
+Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Dillow <dave@thedillows.org>
-Content-Disposition: inline
-In-Reply-To: <20041230035000.10@ori.thedillows.org>
+To: Netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---urKaCNvFwQ8jDQOg
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+--=-NAzlHeonTRg6HEV7ZPqL
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-On Thu, 2004-12-30 03:48:34 -0500, David Dillow <dave@thedillows.org>
-wrote in message <20041230035000.10@ori.thedillows.org>:
-> diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
-> --- a/include/net/xfrm.h	2004-12-30 01:12:08 -05:00
-> +++ b/include/net/xfrm.h	2004-12-30 01:12:08 -05:00
-> @@ -146,6 +146,9 @@
->  	/* Private data of this transformer, format is opaque,
->  	 * interpreted by xfrm_type methods. */
->  	void			*data;
-> +
-> +	/* Intended direction of this state, used for offloading */
-> +	int			dir;
->  };
-> =20
->  enum {
-> @@ -157,6 +160,12 @@
->  	XFRM_STATE_DEAD
->  };
-> =20
-> +enum {
-> +	XFRM_STATE_DIR_UNKNOWN,
-> +	XFRM_STATE_DIR_IN,
-> +	XFRM_STATE_DIR_OUT,
-> +};
+The attached patch allows the ethtool userspace tool to query and
+control IPSEC crypto offload.
 
-Any specific reason to first define such a nice enum and then using int
-in the struct?
+-- 
+David Dillow <dave@thedillows.org>
 
-MfG, JBG
+--=-NAzlHeonTRg6HEV7ZPqL
+Content-Disposition: attachment; filename=ethtool-offload.patch
+Content-Transfer-Encoding: base64
+Content-Type: text/x-patch; name=ethtool-offload.patch; charset=UTF-8
 
---=20
-Jan-Benedict Glaw       jbglaw@lug-owl.de    . +49-172-7608481             =
-_ O _
-"Eine Freie Meinung in  einem Freien Kopf    | Gegen Zensur | Gegen Krieg  =
-_ _ O
- fuer einen Freien Staat voll Freier B=C3=BCrger" | im Internet! |   im Ira=
-k!   O O O
-ret =3D do_actions((curr | FREE_SPEECH) & ~(NEW_COPYRIGHT_LAW | DRM | TCPA)=
-);
+ZGlmZiAtdXJOIGV0aHRvb2wtMi9ldGh0b29sLmMgZXRodG9vbC0yLWlwc2VjL2V0aHRvb2wuYw0K
+LS0tIGV0aHRvb2wtMi9ldGh0b29sLmMJMjAwNC0wNy0wMiAxMToyODo0OC4wMDAwMDAwMDAgLTA0
+MDANCisrKyBldGh0b29sLTItaXBzZWMvZXRodG9vbC5jCTIwMDQtMTEtMjEgMDM6MTU6NDYuMDAw
+MDAwMDAwIC0wNTAwDQpAQCAtMTE4LDcgKzExOCw4IEBADQogICoJCVsgcnggb258b2ZmIF0gXA0K
+ICAqCQlbIHR4IG9ufG9mZiBdIFwNCiAgKgkJWyBzZyBvbnxvZmYgXSBcDQotICoJCVsgdHNvIG9u
+fG9mZiBdDQorICoJCVsgdHNvIG9ufG9mZiBdIFwNCisgKgkJWyBpcHNlYyBvbnxvZmYgXQ0KICAq
+CWV0aHRvb2wgLXIgREVWTkFNRQ0KICAqCWV0aHRvb2wgLXAgREVWTkFNRSBbICVkIF0NCiAgKgll
+dGh0b29sIC10IERFVk5BTUUgWyBvbmxpbmV8b2ZmbGluZSBdDQpAQCAtMTkwLDcgKzE5MSw4IEBA
+DQogCQkiCQlbIHJ4IG9ufG9mZiBdIFxcXG4iDQogCQkiCQlbIHR4IG9ufG9mZiBdIFxcXG4iDQog
+CQkiCQlbIHNnIG9ufG9mZiBdIFxcXG4iDQotCQkiCQlbIHRzbyBvbnxvZmYgXVxuIg0KKwkJIgkJ
+WyB0c28gb258b2ZmIF0gXFxcbiINCisJCSIJCVsgaXBzZWMgb258b2ZmIF1cbiINCiAJCSIJZXRo
+dG9vbCAtciBERVZOQU1FXG4iDQogCQkiCWV0aHRvb2wgLXAgREVWTkFNRSBbICUlZCBdXG4iDQog
+CQkiCWV0aHRvb2wgLXQgREVWTkFNRSBbb25saW5lfChvZmZsaW5lKV1cbiINCkBAIC0yMzYsNiAr
+MjM4LDcgQEANCiBzdGF0aWMgaW50IG9mZl9jc3VtX3R4X3dhbnRlZCA9IC0xOw0KIHN0YXRpYyBp
+bnQgb2ZmX3NnX3dhbnRlZCA9IC0xOw0KIHN0YXRpYyBpbnQgb2ZmX3Rzb193YW50ZWQgPSAtMTsN
+CitzdGF0aWMgaW50IG9mZl9pcHNlY193YW50ZWQgPSAtMTsNCiANCiBzdGF0aWMgc3RydWN0IGV0
+aHRvb2xfcGF1c2VwYXJhbSBlcGF1c2U7DQogc3RhdGljIGludCBncGF1c2VfY2hhbmdlZCA9IDA7
+DQpAQCAtMzM5LDYgKzM0Miw3IEBADQogCXsgInR4IiwgQ01ETF9CT09MLCAmb2ZmX2NzdW1fdHhf
+d2FudGVkLCBOVUxMIH0sDQogCXsgInNnIiwgQ01ETF9CT09MLCAmb2ZmX3NnX3dhbnRlZCwgTlVM
+TCB9LA0KIAl7ICJ0c28iLCBDTURMX0JPT0wsICZvZmZfdHNvX3dhbnRlZCwgTlVMTCB9LA0KKwl7
+ICJpcHNlYyIsIENNRExfQk9PTCwgJm9mZl9pcHNlY193YW50ZWQsIE5VTEwgfSwNCiB9Ow0KIA0K
+IHN0YXRpYyBzdHJ1Y3QgY21kbGluZV9pbmZvIGNtZGxpbmVfcGF1c2VbXSA9IHsNCkBAIC0xMTc1
+LDE3ICsxMTc5LDE5IEBADQogCXJldHVybiAwOw0KIH0NCiANCi1zdGF0aWMgaW50IGR1bXBfb2Zm
+bG9hZCAoaW50IHJ4LCBpbnQgdHgsIGludCBzZywgaW50IHRzbykNCitzdGF0aWMgaW50IGR1bXBf
+b2ZmbG9hZCAoaW50IHJ4LCBpbnQgdHgsIGludCBzZywgaW50IHRzbywgaW50IGlwc2VjKQ0KIHsN
+CiAJZnByaW50ZihzdGRvdXQsDQogCQkicngtY2hlY2tzdW1taW5nOiAlc1xuIg0KIAkJInR4LWNo
+ZWNrc3VtbWluZzogJXNcbiINCiAJCSJzY2F0dGVyLWdhdGhlcjogJXNcbiINCi0JCSJ0Y3Agc2Vn
+bWVudGF0aW9uIG9mZmxvYWQ6ICVzXG4iLA0KKwkJInRjcCBzZWdtZW50YXRpb24gb2ZmbG9hZDog
+JXNcbiINCisJCSJJUFNFQyBjcnlwdG8gb2ZmbG9hZDogJXNcbiIsDQogCQlyeCA/ICJvbiIgOiAi
+b2ZmIiwNCiAJCXR4ID8gIm9uIiA6ICJvZmYiLA0KIAkJc2cgPyAib24iIDogIm9mZiIsDQotCQl0
+c28gPyAib24iIDogIm9mZiIpOw0KKwkJdHNvID8gIm9uIiA6ICJvZmYiLA0KKwkJaXBzZWMgPyAi
+b24iIDogIm9mZiIpOw0KIA0KIAlyZXR1cm4gMDsNCiB9DQpAQCAtMTQ0OSw3ICsxNDU1LDcgQEAN
+CiBzdGF0aWMgaW50IGRvX2dvZmZsb2FkKGludCBmZCwgc3RydWN0IGlmcmVxICppZnIpDQogew0K
+IAlzdHJ1Y3QgZXRodG9vbF92YWx1ZSBldmFsOw0KLQlpbnQgZXJyLCBhbGxmYWlsID0gMSwgcngg
+PSAwLCB0eCA9IDAsIHNnID0gMCwgdHNvID0gMDsNCisJaW50IGVyciwgYWxsZmFpbCA9IDEsIHJ4
+ID0gMCwgdHggPSAwLCBzZyA9IDAsIHRzbyA9IDAsIGlwc2VjID0gMDsNCiANCiAJZnByaW50Zihz
+dGRvdXQsICJPZmZsb2FkIHBhcmFtZXRlcnMgZm9yICVzOlxuIiwgZGV2bmFtZSk7DQogDQpAQCAt
+MTQ5MywxMiArMTQ5OSwyMiBAQA0KIAkJYWxsZmFpbCA9IDA7DQogCX0NCiANCisJZXZhbC5jbWQg
+PSBFVEhUT09MX0dJUFNFQzsNCisJaWZyLT5pZnJfZGF0YSA9IChjYWRkcl90KSZldmFsOw0KKwll
+cnIgPSBpb2N0bChmZCwgU0lPQ0VUSFRPT0wsIGlmcik7DQorCWlmIChlcnIpDQorCQlwZXJyb3Io
+IkNhbm5vdCBnZXQgZGV2aWNlIElQU0VDIG9mZmxvYWQgc2V0dGluZ3MiKTsNCisJZWxzZSB7DQor
+CQlpcHNlYyA9IGV2YWwuZGF0YTsNCisJCWFsbGZhaWwgPSAwOw0KKwl9DQorDQogCWlmIChhbGxm
+YWlsKSB7DQogCQlmcHJpbnRmKHN0ZG91dCwgIm5vIG9mZmxvYWQgaW5mbyBhdmFpbGFibGVcbiIp
+Ow0KIAkJcmV0dXJuIDgzOw0KIAl9DQogDQotCXJldHVybiBkdW1wX29mZmxvYWQocngsIHR4LCBz
+ZywgdHNvKTsNCisJcmV0dXJuIGR1bXBfb2ZmbG9hZChyeCwgdHgsIHNnLCB0c28sIGlwc2VjKTsN
+CiB9DQogDQogc3RhdGljIGludCBkb19zb2ZmbG9hZChpbnQgZmQsIHN0cnVjdCBpZnJlcSAqaWZy
+KQ0KQEAgLTE1NTMsNiArMTU2OSwxOCBAQA0KIAkJCXJldHVybiA4ODsNCiAJCX0NCiAJfQ0KKw0K
+KwlpZiAob2ZmX2lwc2VjX3dhbnRlZCA+PSAwKSB7DQorCQljaGFuZ2VkID0gMTsNCisJCWV2YWwu
+Y21kID0gRVRIVE9PTF9TSVBTRUM7DQorCQlldmFsLmRhdGEgPSAob2ZmX2lwc2VjX3dhbnRlZCA9
+PSAxKTsNCisJCWlmci0+aWZyX2RhdGEgPSAoY2FkZHJfdCkmZXZhbDsNCisJCWVyciA9IGlvY3Rs
+KGZkLCBTSU9DRVRIVE9PTCwgaWZyKTsNCisJCWlmIChlcnIpIHsNCisJCQlwZXJyb3IoIkNhbm5v
+dCBzZXQgZGV2aWNlIElQU0VFQyBvZmZsb2FkIHNldHRpbmdzIik7DQorCQkJcmV0dXJuIDg5Ow0K
+KwkJfQ0KKwl9DQogCWlmICghY2hhbmdlZCkgew0KIAkJZnByaW50ZihzdGRvdXQsICJubyBvZmZs
+b2FkIHNldHRpbmdzIGNoYW5nZWRcbiIpOw0KIAl9DQpkaWZmIC11ck4gZXRodG9vbC0yL2V0aHRv
+b2wtY29weS5oIGV0aHRvb2wtMi1pcHNlYy9ldGh0b29sLWNvcHkuaA0KLS0tIGV0aHRvb2wtMi9l
+dGh0b29sLWNvcHkuaAkyMDAzLTA3LTE5IDExOjE5OjUyLjAwMDAwMDAwMCAtMDQwMA0KKysrIGV0
+aHRvb2wtMi1pcHNlYy9ldGh0b29sLWNvcHkuaAkyMDA0LTExLTIxIDAyOjQ2OjAzLjAwMDAwMDAw
+MCAtMDUwMA0KQEAgLTI4Myw2ICsyODMsOCBAQA0KICNkZWZpbmUgRVRIVE9PTF9HU1RBVFMJCTB4
+MDAwMDAwMWQgLyogZ2V0IE5JQy1zcGVjaWZpYyBzdGF0aXN0aWNzICovDQogI2RlZmluZSBFVEhU
+T09MX0dUU08JCTB4MDAwMDAwMWUgLyogR2V0IFRTTyBlbmFibGUgKGV0aHRvb2xfdmFsdWUpICov
+DQogI2RlZmluZSBFVEhUT09MX1NUU08JCTB4MDAwMDAwMWYgLyogU2V0IFRTTyBlbmFibGUgKGV0
+aHRvb2xfdmFsdWUpICovDQorI2RlZmluZSBFVEhUT09MX0dJUFNFQwkJMHgwMDAwMDAyMCAvKiBH
+ZXQgSVBTRUMgZW5hYmxlIChldGh0b29sX3ZhbHVlKSAqLw0KKyNkZWZpbmUgRVRIVE9PTF9TSVBT
+RUMJCTB4MDAwMDAwMjEgLyogU2V0IElQU0VDIGVuYWJsZSAoZXRodG9vbF92YWx1ZSkgKi8NCiAN
+CiAvKiBjb21wYXRpYmlsaXR5IHdpdGggb2xkZXIgY29kZSAqLw0KICNkZWZpbmUgU1BBUkNfRVRI
+X0dTRVQJCUVUSFRPT0xfR1NFVA0K
 
---urKaCNvFwQ8jDQOg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFB0873Hb1edYOZ4bsRAtCuAJ9evP8DkQ142XphAFaMDulpbbu15gCgieXS
-cBCw52xCYS6wmYrHlrMGijM=
-=44jp
------END PGP SIGNATURE-----
-
---urKaCNvFwQ8jDQOg--
+--=-NAzlHeonTRg6HEV7ZPqL--
