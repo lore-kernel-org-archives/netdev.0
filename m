@@ -1,41 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [bernie@develer.com: Kernel 2.6 size increase]
-Date: Wed, 23 Jul 2003 12:09:01 -0700
+From: Glenn Fowler <gsf@research.att.com>
+Subject: Re: kernel bug in socketpair()
+Date: Wed, 23 Jul 2003 15:11:47 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030723120901.57746fd8.davem@redhat.com>
-References: <20030723195355.A27597@infradead.org>
-	<20030723195504.A27656@infradead.org>
-	<20030723115858.75068294.davem@redhat.com>
-	<20030723200658.A27856@infradead.org>
+Message-ID: <200307231911.PAA35164@raptor.research.att.com>
+References: <200307231428.KAA15254@raptor.research.att.com>  <20030723074615.25eea776.davem@redhat.com>  <200307231656.MAA69129@raptor.research.att.com>  <20030723100043.18d5b025.davem@redhat.com>  <200307231724.NAA90957@raptor.research.att.com>  <20030723103135.3eac4cd2.davem@redhat.com>  <200307231814.OAA74344@raptor.research.att.com>  <20030723112307.5b8ae55c.davem@redhat.com>  <200307231854.OAA90112@raptor.research.att.com> <20030723120457.206dc02d.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: dgk@research.att.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20030723200658.A27856@infradead.org>
+To: davem@redhat.com, gsf@research.att.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Jul 2003 20:06:58 +0100
-Christoph Hellwig <hch@infradead.org> wrote:
 
-> I know you absolutely disliked Andi's patch to make the xfrm subsystem
-> optional so we might need find other ways to make the code smaller
-> on those systems that need it.
+On Wed, 23 Jul 2003 12:04:57 -0700 David S. Miller wrote:
+> Is bash totally broken because of all this?  Or does the problem only
+> trigger when using (cmd) subprocesses in a certain way?
 
-I'm willing to reconsider it.
+bash uses pipe() so its ok
+using socketpair() instead of pipe() introduces the problem
+and we will now have to find an alternative to work around the
+linux /dev/fd/N implementation
 
-So basically we'd have a CONFIG_NET_XFRM, and things like
-AH/ESP/IPCOMP/AH6/ESP6/IPCOMP6 would say "select NET_XFRM"
-in the Kconfig where they are selected.
-
-Then when CONFIG_NET_XFRM is not set all the xfrm interfaces
-called from non-ipsec non-xfrm source files get NOP versions.
-
-Is this exactly what Andi's patch did?  Just send it on
-so we can integrate this.
-
-We actually lost a lot of code in other areas of the networking, for
-example Andrew Morton and I made many bogus function inlines
-undone because they made the code too large.
+thanks
