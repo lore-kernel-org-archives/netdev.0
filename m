@@ -1,32 +1,44 @@
-From: "Rask Ingemann Lambertsen" <rask@sygehus.dk>
-Subject: Re: A better way to get driver stats than parsing /proc/net/dev ?
-Date: Wed, 21 May 2003 18:39:17 +0100
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: Dump of TCP hang in established state
+Date: Wed, 21 May 2003 10:19:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030521173554.M92611@sygehus.dk>
-References: <3E967535.2000409@candelatech.com> <slrnb9dn9r.fef.lunz@stoli.localnet> <3E96FAE1.7030302@candelatech.com>
+Message-ID: <3ECBB522.9080101@us.ibm.com>
+References: <Mutt.LNX.4.44.0305141907210.9712-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Martin Josefsson <gandalf@wlug.westbo.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <3E96FAE1.7030302@candelatech.com>
+To: James Morris <jmorris@intercode.com.au>
+In-Reply-To: <Mutt.LNX.4.44.0305141907210.9712-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Apr 2003 10:26:57 -0700, Ben Greear wrote
-> Jason Lunz wrote:
-> > greearb@candelatech.com said:
-> > 
-> >>Is there an ioctl or some other binary means of getting the info that
-> >>/proc/net/dev provides?
-> > 
-> > You can do it with netlink sockets. See print_linkinfo() in the iproute2
-> > code.
+James Morris wrote:
+
+>>- There are those mysterious TCP hangs of established state sockets. 
+>>  Someone has to get a good log in order for us to effectively debug this.
+>>
+>>I think this is what I've seen a few times when using distcc.
 > 
-> Seems that a lot of code is needed just to read the stats :(
+> Does anyone know if the other hangs are seen when the app is using 
+> TCP_CORK (like distcc does) ?
 
-Maybe it is easier to parse the output from "ip -s -s link show [iface]". At 
-least you get all the counters, which you don't from /proc/net/dev.
+We had observed some hangs during SpecWeb99 benchmark runs.
+Unfortunately, we managed to burn down the machine and have
+yet to rerun the benchmark. No other workload seems to
+be observing them.
 
--- 
-Regards,
-Rask Ingemann Lambertsen
+I'm trying to excavate the one incomplete trace I had of
+that hang, if possible. IIRC it was using sendfile(), so
+probably also using TCP_CORK, though dont know that for
+sure.
+
+Can anyone tell me what to do to reproduce this?
+
+Also, I'd like to have this tracked in bugzilla, if noone
+objects (DaveM?), so we dont lose it..I had dropped some earlier
+reports of hangs. I'll file in BUGME..
+
+thanks,
+Nivedita
