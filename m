@@ -1,24 +1,28 @@
-From: Lan Xue <lanxue@soe.ucsc.edu>
-Subject: assign IP address to NIC
-Date: Thu, 18 Nov 2004 22:27:23 -0800 (PST)
-Message-ID: <Pine.GSO.4.58.0411182216000.13153@moondance.cse.ucsc.edu>
+From: Hendrik Wiese <7.e.Q@syncro-community.de>
+Subject: MOD_[INC|DEC]_USE_COUNT & Kernel 2.6
+Date: Fri, 19 Nov 2004 07:28:42 +0100
+Message-ID: <419D929A.9040906@syncro-community.de>
+References: <4199AFF4.60407@syncro-community.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Hendrik Wiese <7.e.Q@syncro-community.de>
+In-Reply-To: <4199AFF4.60407@syncro-community.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello there,
 
-I was wondering how does the Linux kernel assign IP addresses to NICs
-within the localhost. Say
-a host have multiple NICs, and it has got multiple IP addresses, how to
-map/bind the IP address to the corresponding adapter?   What
-are the APIs to achieve that? Basically, it's sth that ifconfig does
-internally...
+can somebody please explain me how to use 'usecount' with kernel 2.6 
+modules?
 
-Thanks,
+My compiler tells me that MOD_[INC|DEC]_USE_COUNT are deprecated. So how 
+to do this in kernel 2.6 (implementing a net_device)?
 
-Lan
+Thanks a lot
+
+Kind regards,
+Hendrik Wiese
