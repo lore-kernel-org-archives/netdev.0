@@ -1,21 +1,34 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Network oops
-Date: Sun, 09 Jun 2002 21:32:24 -0700 (PDT)
+Subject: Re: RFC: per-socket statistics on received/dropped packets
+Date: Sun, 09 Jun 2002 21:34:40 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae1ak5$13p$2@main.gmane.org>
-References: <200205202125.BAA03545@sex.inr.ac.ru>
-	<3D0390E2.1B80ADEE@mvista.com>
+Message-ID: <ae1ald$18a$2@main.gmane.org>
+References: <3D029DAF.5040006@candelatech.com>
+	<20020608.175108.84748597.davem@redhat.com>
+	<3D039D22.2010805@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   ak@muc.de, pekkas@netcore.fi
+Cc: mark@mark.mielke.cc, cfriesen@nortelnetworks.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: george@mvista.com
-In-Reply-To: <3D0390E2.1B80ADEE@mvista.com>
+To: greearb@candelatech.com
+In-Reply-To: <3D039D22.2010805@candelatech.com>
 List-Id: netdev.vger.kernel.org
 
+   From: Ben Greear <greearb@candelatech.com>
+   Date: Sun, 09 Jun 2002 11:23:30 -0700
+   
+   I need to account for packets on a per-session basis, where a
+   session endpoint is a UDP port.  So, knowing global protocol numbers is
+   good, but it is not very useful for the detailed accounting I
+   need.
 
-Also we need to know what network driver, if preemption is being
-used (being from mvista I assume you are using preemption, and if
-so make sure you have the preemption networking patches applied).
+Why can't you just disable the other UDP services, and then there is
+no question which UDP server/client is causing the drops.
+
+Every argument I hear is one out of lazyness.  And that is not a
+reason to add something.  Simply put, I don't want to add all of this
+per-socket counter bumping that only, at best, 1 tenth of 1 percent
+of people will use.  This means that the rest of the world eats the
+overhead just for this small group that actually uses it.
