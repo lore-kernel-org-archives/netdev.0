@@ -1,185 +1,165 @@
-From: Christoph Hellwig <hch@infradead.org>
+From: Matt Domsch <Matt_Domsch@dell.com>
 Subject: Re: RFC: [1/2] PPP MPPE module
-Date: Fri, 18 Jun 2004 17:15:58 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618161558.GA22913@infradead.org>
-References: <20040618161001.GE19269@lists.us.dell.com> <20040618161242.GG19269@lists.us.dell.com>
+Date: Mon, 21 Jun 2004 11:39:20 -0500
+Sender: linux-ppp-owner@vger.kernel.org
+Message-ID: <20040621163920.GB29472@lists.us.dell.com>
+References: <20040618161001.GE19269@lists.us.dell.com> <20040618161242.GG19269@lists.us.dell.com> <20040618161558.GA22913@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="XOIedfhf+7KOe/yw"
 Cc: netdev@oss.sgi.com, pptpclient-devel@lists.sourceforge.net,
-        paulus@samba.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Domsch <Matt_Domsch@dell.com>
+	paulus@samba.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>, linux-ppp@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20040618161242.GG19269@lists.us.dell.com>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040618161558.GA22913@infradead.org>
 List-Id: netdev.vger.kernel.org
 
-Last time I talked to Paul on MPPE he didn't like those hacks in
-the ppp core.
 
-> --- 1.45/drivers/net/ppp_generic.c	2004-04-09 18:21:06 -05:00
-> +++ edited/drivers/net/ppp_generic.c	2004-06-18 09:47:10 -05:00
-> @@ -1066,8 +1066,15 @@
->  	/* try to do packet compression */
->  	if ((ppp->xstate & SC_COMP_RUN) && ppp->xc_state != 0
->  	    && proto != PPP_LCP && proto != PPP_CCP) {
-> -		new_skb = alloc_skb(ppp->dev->mtu + ppp->dev->hard_header_len,
-> -				    GFP_ATOMIC);
-> +                int new_skb_size = ppp->dev->mtu + ppp->dev->hard_header_len;
-> +                int compressor_skb_size = ppp->dev->mtu + PPP_HDRLEN;
-> +
-> +                if (ppp->xcomp->compress_proto == CI_MPPE) {
-> +                        /* CCP [must have] reduced MTU by MPPE_PAD. */
-> +                        new_skb_size += MPPE_PAD;
-> +                        compressor_skb_size += MPPE_PAD;
-> +                }
-> +                new_skb = alloc_skb(new_skb_size, GFP_ATOMIC);
->  		if (new_skb == 0) {
->  			printk(KERN_ERR "PPP: no memory (comp pkt)\n");
->  			goto drop;
-> @@ -1079,15 +1086,27 @@
->  		/* compressor still expects A/C bytes in hdr */
->  		len = ppp->xcomp->compress(ppp->xc_state, skb->data - 2,
->  					   new_skb->data, skb->len + 2,
-> -					   ppp->dev->mtu + PPP_HDRLEN);
-> +                                           compressor_skb_size);
->  		if (len > 0 && (ppp->flags & SC_CCP_UP)) {
->  			kfree_skb(skb);
->  			skb = new_skb;
->  			skb_put(skb, len);
->  			skb_pull(skb, 2);	/* pull off A/C bytes */
-> -		} else {
-> +                } else if (len == 0) {
->  			/* didn't compress, or CCP not up yet */
->  			kfree_skb(new_skb);
-> +                } else {
-> +                        /*
-> +                         * (len < 0)
-> +                         * MPPE requires that we do not send unencrypted
-> +                         * frames.  The compressor will return -1 if we
-> +                         * should drop the frame.  We cannot simply test
-> +                         * the compress_proto because MPPE and MPPC share
-> +                         * the same number.
-> +                         */
-> +                        printk(KERN_ERR "ppp: compressor dropped pkt\n");
-> +                        kfree_skb(new_skb);
-> +                        goto drop;
->  		}
->  	}
->  
-> @@ -1596,7 +1615,7 @@
->  		goto err;
->  
->  	if (proto == PPP_COMP) {
-> -		ns = dev_alloc_skb(ppp->mru + PPP_HDRLEN);
-> +		ns = dev_alloc_skb(ppp->mru + 128 + PPP_HDRLEN);
->  		if (ns == 0) {
->  			printk(KERN_ERR "ppp_decompress_frame: no memory\n");
->  			goto err;
-> ===== include/linux/ppp-comp.h 1.4 vs edited =====
-> --- 1.4/include/linux/ppp-comp.h	2003-08-07 18:57:19 -05:00
-> +++ edited/include/linux/ppp-comp.h	2004-06-18 09:46:32 -05:00
-> @@ -191,6 +191,100 @@
->  #define DEFLATE_CHK_SEQUENCE	0
->  
->  /*
-> + * Definitions for MPPE.
-> + */
-> +
-> +#define CI_MPPE                        18      /* config option for MPPE */
-> +#define CILEN_MPPE             6       /* length of config option */
-> +
-> +#define MPPE_PAD               8       /* MPPE growth per frame */
-> +#define MPPE_MAX_KEY_LEN       16      /* largest key length (128-bit) */
-> +
-> +/* option bits for ccp_options.mppe */
-> +#define MPPE_OPT_40            0x01    /* 40 bit */
-> +#define MPPE_OPT_128           0x02    /* 128 bit */
-> +#define MPPE_OPT_STATEFUL      0x04    /* stateful mode */
-> +/* unsupported opts */
-> +#define MPPE_OPT_56            0x08    /* 56 bit */
-> +#define MPPE_OPT_MPPC          0x10    /* MPPC compression */
-> +#define MPPE_OPT_D             0x20    /* Unknown */
-> +#define MPPE_OPT_UNSUPPORTED (MPPE_OPT_56|MPPE_OPT_MPPC|MPPE_OPT_D)
-> +#define MPPE_OPT_UNKNOWN       0x40    /* Bits !defined in RFC 3078 were set */
-> +
-> +/*
-> + * This is not nice ... the alternative is a bitfield struct though.
-> + * And unfortunately, we cannot share the same bits for the option
-> + * names above since C and H are the same bit.  We could do a u_int32
-> + * but then we have to do a htonl() all the time and/or we still need
-> + * to know which octet is which.
-> + */
-> +#define MPPE_C_BIT             0x01    /* MPPC */
-> +#define MPPE_D_BIT             0x10    /* Obsolete, usage unknown */
-> +#define MPPE_L_BIT             0x20    /* 40-bit */
-> +#define MPPE_S_BIT             0x40    /* 128-bit */
-> +#define MPPE_M_BIT             0x80    /* 56-bit, not supported */
-> +#define MPPE_H_BIT             0x01    /* Stateless (in a different byte) */
-> +
-> +/* Does not include H bit; used for least significant octet only. */
-> +#define MPPE_ALL_BITS (MPPE_D_BIT|MPPE_L_BIT|MPPE_S_BIT|MPPE_M_BIT|MPPE_H_BIT)
-> +
-> +/* Build a CI from mppe opts (see RFC 3078) */
-> +#define MPPE_OPTS_TO_CI(opts, ci)              \
-> +    do {                                       \
-> +       u_char *ptr = ci; /* u_char[4] */       \
-> +                                               \
-> +       /* H bit */                             \
-> +       if (opts & MPPE_OPT_STATEFUL)           \
-> +           *ptr++ = 0x0;                       \
-> +       else                                    \
-> +           *ptr++ = MPPE_H_BIT;                \
-> +       *ptr++ = 0;                             \
-> +       *ptr++ = 0;                             \
-> +                                               \
-> +       /* S,L bits */                          \
-> +       *ptr = 0;                               \
-> +       if (opts & MPPE_OPT_128)                \
-> +           *ptr |= MPPE_S_BIT;                 \
-> +       if (opts & MPPE_OPT_40)                 \
-> +           *ptr |= MPPE_L_BIT;                 \
-> +       /* M,D,C bits not supported */          \
-> +    } while (/* CONSTCOND */ 0)
-> +
-> +/* The reverse of the above */
-> +#define MPPE_CI_TO_OPTS(ci, opts)              \
-> +    do {                                       \
-> +       u_char *ptr = ci; /* u_char[4] */       \
-> +                                               \
-> +       opts = 0;                               \
-> +                                               \
-> +       /* H bit */                             \
-> +       if (!(ptr[0] & MPPE_H_BIT))             \
-> +           opts |= MPPE_OPT_STATEFUL;          \
-> +                                               \
-> +       /* S,L bits */                          \
-> +       if (ptr[3] & MPPE_S_BIT)                \
-> +           opts |= MPPE_OPT_128;               \
-> +       if (ptr[3] & MPPE_L_BIT)                \
-> +           opts |= MPPE_OPT_40;                \
-> +                                               \
-> +       /* M,D,C bits */                        \
-> +       if (ptr[3] & MPPE_M_BIT)                \
-> +           opts |= MPPE_OPT_56;                \
-> +       if (ptr[3] & MPPE_D_BIT)                \
-> +           opts |= MPPE_OPT_D;                 \
-> +       if (ptr[3] & MPPE_C_BIT)                \
-> +           opts |= MPPE_OPT_MPPC;              \
-> +                                               \
-> +       /* Other bits */                        \
-> +       if (ptr[0] & ~MPPE_H_BIT)               \
-> +           opts |= MPPE_OPT_UNKNOWN;           \
-> +       if (ptr[1] || ptr[2])                   \
-> +           opts |= MPPE_OPT_UNKNOWN;           \
-> +       if (ptr[3] & ~MPPE_ALL_BITS)            \
-> +           opts |= MPPE_OPT_UNKNOWN;           \
-> +    } while (/* CONSTCOND */ 0)
-> +
-> +/*
->   * Definitions for other, as yet unsupported, compression methods.
->   */
->  
+--XOIedfhf+7KOe/yw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
----end quoted text---
+On Fri, Jun 18, 2004 at 05:15:58PM +0100, Christoph Hellwig wrote:
+> Last time I talked to Paul on MPPE he didn't like those hacks in
+> the ppp core.
+
+Adding the linux-ppp list to the discussion.
+
+Rather than have code in ppp_generic.c testing for CI_MPPE and doing
+code conditionally (which I agree was ugly), how about adding two new
+fields to struct compressor:
+
++	/* Extra skb space needed by the compressor algorithm */
++	unsigned int comp_skb_extra_space;
++	/* Extra skb space needed by the decompressor algorithm */
++	unsigned int decomp_skb_extra_space;
+
+which the compressor modules can fill in if needed?  Presently,
+bsd_comp.c and ppp_deflate.c don't need these, so they will be filled
+with zeros automatically at struct compressor instantiation.
+
+This hunk may still be contriversial though.  It adds a negative
+return value to the compress() method, which is only (presently) used
+by ppp_mppe (bsd_comp.c and ppp_deflate.c always return 0 if they
+couldn't compress), to indicate the frame should be dropped.
+
+-		} else {
++                } else if (len =3D=3D 0) {
+ 			/* didn't compress, or CCP not up yet */
+ 			kfree_skb(new_skb);
++                } else {
++                        /*
++                         * (len < 0)
++                         * MPPE requires that we do not send unencrypted
++                         * frames.  The compressor will return -1 if we
++                         * should drop the frame.  We cannot simply test
++                         * the compress_proto because MPPE and MPPC share
++                         * the same number.
++                         */
++                        printk(KERN_ERR "ppp: compressor dropped pkt\n");
++                        kfree_skb(new_skb);
++                        goto drop;
+
+Thoughts?
+
+Patch below against 2.6.7-bk ppp_generic.c and ppp-comp.h to add such,
+for comment only.
+
+Thanks,
+Matt
+
+--=20
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+
+=3D=3D=3D=3D=3D drivers/net/ppp_generic.c 1.45 vs edited =3D=3D=3D=3D=3D
+--- 1.45/drivers/net/ppp_generic.c	2004-04-09 18:21:06 -05:00
++++ edited/drivers/net/ppp_generic.c	2004-06-21 10:56:34 -05:00
+@@ -1066,8 +1066,9 @@
+ 	/* try to do packet compression */
+ 	if ((ppp->xstate & SC_COMP_RUN) && ppp->xc_state !=3D 0
+ 	    && proto !=3D PPP_LCP && proto !=3D PPP_CCP) {
+-		new_skb =3D alloc_skb(ppp->dev->mtu + ppp->dev->hard_header_len,
+-				    GFP_ATOMIC);
++                int new_skb_size =3D ppp->dev->mtu + ppp->xcomp->comp_skb_=
+extra_space + ppp->dev->hard_header_len;
++                int compressor_skb_size =3D ppp->dev->mtu + ppp->xcomp->co=
+mp_skb_extra_space + PPP_HDRLEN;
++                new_skb =3D alloc_skb(new_skb_size, GFP_ATOMIC);
+ 		if (new_skb =3D=3D 0) {
+ 			printk(KERN_ERR "PPP: no memory (comp pkt)\n");
+ 			goto drop;
+@@ -1079,15 +1080,27 @@
+ 		/* compressor still expects A/C bytes in hdr */
+ 		len =3D ppp->xcomp->compress(ppp->xc_state, skb->data - 2,
+ 					   new_skb->data, skb->len + 2,
+-					   ppp->dev->mtu + PPP_HDRLEN);
++                                           compressor_skb_size);
+ 		if (len > 0 && (ppp->flags & SC_CCP_UP)) {
+ 			kfree_skb(skb);
+ 			skb =3D new_skb;
+ 			skb_put(skb, len);
+ 			skb_pull(skb, 2);	/* pull off A/C bytes */
+-		} else {
++                } else if (len =3D=3D 0) {
+ 			/* didn't compress, or CCP not up yet */
+ 			kfree_skb(new_skb);
++                } else {
++                        /*
++                         * (len < 0)
++                         * MPPE requires that we do not send unencrypted
++                         * frames.  The compressor will return -1 if we
++                         * should drop the frame.  We cannot simply test
++                         * the compress_proto because MPPE and MPPC share
++                         * the same number.
++                         */
++                        printk(KERN_ERR "ppp: compressor dropped pkt\n");
++                        kfree_skb(new_skb);
++                        goto drop;
+ 		}
+ 	}
+=20
+@@ -1596,7 +1609,7 @@
+ 		goto err;
+=20
+ 	if (proto =3D=3D PPP_COMP) {
+-		ns =3D dev_alloc_skb(ppp->mru + PPP_HDRLEN);
++		ns =3D dev_alloc_skb(ppp->mru + ppp->rcomp->decomp_skb_extra_space + PPP=
+_HDRLEN);
+ 		if (ns =3D=3D 0) {
+ 			printk(KERN_ERR "ppp_decompress_frame: no memory\n");
+ 			goto err;
+
+
+=3D=3D=3D=3D=3D include/linux/ppp-comp.h 1.4 vs edited =3D=3D=3D=3D=3D
+--- 1.4/include/linux/ppp-comp.h	2003-08-07 18:57:19 -05:00
++++ edited/include/linux/ppp-comp.h	2004-06-21 10:59:44 -05:00
+@@ -111,6 +111,10 @@
+=20
+ 	/* Used in locking compressor modules */
+ 	struct module *owner;
++	/* Extra skb space needed by the compressor algorithm */
++	unsigned int comp_skb_extra_space;
++	/* Extra skb space needed by the decompressor algorithm */
++	unsigned int decomp_skb_extra_space;
+ };
+=20
+ /*
+
+--XOIedfhf+7KOe/yw
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+
+iD8DBQFA1w84Iavu95Lw/AkRAr1mAJ4u3/jwEeEaNuNzjNPTa2hDyGi3EgCglS9E
+WvLLynOS2WwhGYha+5ysAA0=
+=0xay
+-----END PGP SIGNATURE-----
+
+--XOIedfhf+7KOe/yw--
