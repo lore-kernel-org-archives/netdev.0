@@ -1,34 +1,43 @@
-From: "Ury N. Stankevich" <ury@bofh.homeunix.org>
-Subject: bug in 2.4.20
-Date: Fri, 11 Apr 2003 19:37:05 +0300
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: A better way to get driver stats than parsing /proc/net/dev ?
+Date: Fri, 11 Apr 2003 10:26:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030411193705.02eeea7f.ury@bofh.homeunix.org>
+Message-ID: <3E96FAE1.7030302@candelatech.com>
+References: <3E967535.2000409@candelatech.com> <slrnb9dn9r.fef.lunz@stoli.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jason Lunz <lunz@falooley.org>
+In-Reply-To: <slrnb9dn9r.fef.lunz@stoli.localnet>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hi
-i use 2.4.20xfs kernel on my box with 4 eth cards
-2 rtl8139 eth0, eth1
-2 rtl8029 eth2, eth3
+Jason Lunz wrote:
+> greearb@candelatech.com said:
+> 
+>>Is there an ioctl or some other binary means of getting the info that
+>>/proc/net/dev provides?
+> 
+> 
+> You can do it with netlink sockets. See print_linkinfo() in the iproute2
+> code.
 
-and one time samba fail use eth3 iface and i found...
-# ip n ls dev eth3
-..
-10.103.104.255  nud failed
-..
-broadcast address appear in arp table
-while i have C class network attached.
+Seems that a lot of code is needed just to read the stats :(
+And every man page I read says use libnetlink instead, but I can't find any docs
+on libnetlink itself (and the .ru ftp link for iproute2 seems down).
 
-after
-# ip l set eth3 dowm; ip l set eth3 up
-all become fine.
+Do you know of any pointers as to how to use libnetlink, or if it
+really makes netlink easier to use?
 
-any suggestions?
+
+> 
+> Jason
+> 
+
 
 -- 
-    Linux registered user #287505
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
