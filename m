@@ -1,69 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patch for common networking error messages
-Date: Tue, 17 Jun 2003 13:42:06 -0700 (PDT)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030617.134206.133917056.davem@redhat.com>
-References: <OF296D6F92.1C7252A9-ON85256D48.00713BCF@us.ibm.com>
+From: Simon Kirby <sim@netnation.com>
+Subject: Re: Route cache performance tests
+Date: Tue, 17 Jun 2003 13:51:01 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030617205101.GD25773@netnation.com>
+References: <20030617200721.GA25773@netnation.com> <1055881034.3199.43.camel@tux.rsn.bth.se> <20030617203703.GB25773@netnation.com> <20030617.133635.84366118.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: garzik@pobox.com, shemminger@osdl.org, Valdis.Kletnieks@vt.edu,
-	stekloff@us.ibm.com, lkessler@us.ibm.com,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: girouard@us.ibm.com
-In-Reply-To: <OF296D6F92.1C7252A9-ON85256D48.00713BCF@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: gandalf@wlug.westbo.se, Robert.Olsson@data.slu.se, ralph+d@istop.com,
+   hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030617.133635.84366118.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Janice Girouard <girouard@us.ibm.com>
-   Date: Tue, 17 Jun 2003 15:40:48 -0500
-   
-   From:  David S. Miller" <davem@redhat.com>
-         Date: 06/17/2003 03:27 PM
-   
-         On RX, clever RX buffer management is what we need.
-   
-   What RX buffer management are you proposing?  I'm having a hard time
-   understanding how  you'll get rid of the copy without support from the
-   card.
-   
-Sigh... someone write store email down somewhere for the next time
-someone asks about this.
+On Tue, Jun 17, 2003 at 01:36:35PM -0700, David S. Miller wrote:
 
-The "one true way (tm)" works like this:
+> I have no idea why they do this, it's the stupidest thing
+> you can possibly do by default.
+> 
+> If we thought it was a good idea to turn this on by default
+> we would have done so in the kernel.
+> 
+> Does anyone have some cycles to spare to try and urge whoever is
+> repsponsible for this in Debian to leave the kernel's default setting
+> alone?
 
-1) Chip has a "flow cache", LRU based, managed like routing caches
-    in many production router implementations.  Difference is
-    that it merely does flow watching.
+Sure, I can do this.  But why is this stupid?  It uses more CPU, but
+stops IP spoofing by default.  Specific firewall rules would have to be
+created otherwise.  And the overhead only really shows when the routing
+table is large, right?
 
-    Flow entries are keyed on saddr/daddr/sport/dport.  Flow misses
-    kill the oldest entry, and replace it with the new one.
-
-    Entries are only created in response to full sized data
-    packets.
-
-2) The receive buffering is segmented into small (256 byte) and
-    PAGE sized buffers.  IP/TCP/whatever headers (determined using
-    a simply programmable header parser logic, so you can do things
-    like RPC etc. headers for NFS) are put into the "small" buffers,
-    data portions for matching flows get accumulated into the PAGE
-    sized buffers.
-
-    It is implied that the card's flow cache keeps track of the
-    pointers into page it is currently trying to fill for that
-    flow.
-
-So the first time you see a flow, you add a entry and grab a page
-buffer and stick the data part into the page buffer and the
-TCP/IP/etc. headers into a "small" buffer.  You defer a configurable
-amount of time waiting for more TCP data packets (a packet train)
-to accumulate more into the PAGE buffer for that flow.
-
-Such receive buffers are presented to the stack as a linked list
-of packets, with some indicator that together their data parts are
-filling a page.
-
-Things like "sys_receivefile()" and NFS flip these things into the
-filesystem page cache.
-
-I'm surprised this isn't evident to more people...
+Simon-
