@@ -1,51 +1,54 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: TCP connection passing, version 3
-Date: Fri, 1 Nov 2002 18:21:23 -0300
+From: "Venkata Jagana" <jagana@us.ibm.com>
+Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.45
+Date: Fri, 1 Nov 2002 16:32:13 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021101182123.A30594@almesberger.net>
-References: <20021031000249.A20233@almesberger.net> <20021031045909.A15756@almesberger.net> <20021031200017.A21544@almesberger.net>
+Message-ID: <OF5B9EF40F.E3D52B05-ON88256C65.000191C7@boulder.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: yoshfuji@wide.ad.jp, kkumar@beaverton.ibm.com.sgi.com,
+   kuznet@ms2.inr.ac.ru, ajtuomin@tml.hut.fi, lpetande@tml.hut.fi,
+   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20021031200017.A21544@almesberger.net>; from wa@almesberger.net on Thu, Oct 31, 2002 at 08:00:17PM -0300
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Almost a whole day since the last update ! High time for something
-new:
 
-http://www.almesberger.net/tcpcp/tcpcp-3.tar.gz
 
-The main change this time is that restarting the connection is no 
-longer done by setting TCP_ICI, but by setting the new socket 
-option TCP_KICK. This avoids the "need to reconfigure firewall 
-within RTT or performance may suffer" race for applications.
 
-So this leaves mainly the difficult parts (OOO recovery and
-urgent data) to implement/fix.
+Hello Dave,
 
-- Werner
+>Just like a router changes and monitors routes, a home agent daemon
+>would change and monitor mipv6 state.  So for the same reason we don't
+>put OSPF routing databases into the kernel, we do not put the home
+>agent registration into the kernel :-)
 
------------------------------------ CHANGES -----------------------------------
+I absolutely understand your concerns about keeping the Home Agent
+registration in the kernel. However, I still believe that keeping
+this code in userspace would cause problems for handoffs. (btw, this
+code will never get executed on a regular host - only routers configured
+as Home Agents would be running this code as a module).
 
-Version 3 (1-NOV-2002)
-----------------------
+Currently, when a Home Agent receives a registration request during the
+Mobile Node's handoff mechanism, it needs to respond in a reasonably
+quick time period so that the sessions on the MN can continue without
+experiencing delays. Longer delays could be harmful for applications
+such as VoIP, for which the latencies are quite critical.
 
-- moved activation of dormant connection from TCP_ICI/tcpcp_create to new
-  socket option TCP_KICK and API function tcpcp_kick
-- tcpcp_getici now returns any errors pending in sk->err
-- API: added tcpcp_set_dst to set the destination address/port
-- added "install" and "uninstall" make targets
-- libtcpcp is now a shared library
-- dumpici: added option -V that prints version information
-- API: tcpcp_set_cong now sets errno
-- README.HANDOVER: documented single host case and added TCP_KICK
-- described not preserving error queue as feature, not bug
-- minor cleanup here and there
+By moving this registration process to userspace, we have no control
+over when the home registration would complete, since there are no
+guarantees when the home agent daemon would run. BTW, according to
+ongoing discussions at Mobile IP WG, it is believed that even few
+hundred millisecs of latencies are not acceptable to critical apps,
+during which time the IP packet transfer is completely stopped.
+With such latency issues, I still believe that moving the registration
+to userspace would create issues for the MN.
 
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+Thanks,
+Venkat
+
+----------------------------------------------------------------
+Venkata R Jagana
+IBM Linux Technology Centre, Beaverton
+jagana@us.ibm.com
+Tel: (503) 578 3430 T/L 775-3430
