@@ -1,143 +1,32 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: [PATCH 1/1] More ethtool support for sis900 (with locking)
-Date: Sat,  5 Mar 2005 22:07:45 +0100 (CET)
-Message-ID: <20050305210745.6763.6618@localhost.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Still bug-hunting
+Date: Sat, 5 Mar 2005 22:22:05 +0100
+Message-ID: <20050305212205.GC25116@electric-eye.fr.zoreil.com>
+References: <20050305102918.15fd422c.davem@davemloft.net> <4229FC15.3070408@rapidforum.com> <20050305104854.45106335.davem@davemloft.net> <422A0079.4080806@rapidforum.com> <20050305105706.2c8a6975.davem@davemloft.net> <422A0354.3080800@rapidforum.com> <20050305195712.GO31837@postel.suug.ch> <422A10BC.2060706@rapidforum.com> <20050305203216.GA25116@electric-eye.fr.zoreil.com> <422A1939.9000200@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; charset="us-ascii";
-	boundary="===============1998021209=="
-Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+Content-Disposition: inline
+In-Reply-To: <422A1939.9000200@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a MIME message, see the first attachment for the text
-and the second for the patch
---===============1998021209==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Christian Schmid <webmaster@rapidforum.com> :
+> In less-rude words: "No, this is not easy. No way, sorry."
 
+If you can not distinguish a factual answer from a flame, it is time
+to take a break.
 
+[...]
+> Thank you for this information. I have sent very detailed bug-reports to 
+> LKML. Maybe you have read already.
 
-Add support for using generic mii interface
-Add support for the following ethtool ops:
-        - get_link
-	- get_settings
-	- set_settings
-	- nway_reset
+Just done so but I fail to see if you provided N. Piggin with the data
+he requested. Anyway, I can return to more basic issues since he and
+the others will do a better job than me.
 
-
-
-Signed-off-by: Daniele Venzano <webvenza@libero.it>
-
-
---===============1998021209==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-
-Index: sis900.c
-===================================================================
---- a/drivers/net/sis900.c	(revision 95)
-+++ b/drivers/net/sis900.c	(revision 98)
-@@ -161,6 +161,7 @@
- 	struct mii_phy * mii;
- 	struct mii_phy * first_mii; /* record the first mii structure */
- 	unsigned int cur_phy;
-+	struct mii_if_info mii_info;
- 
- 	struct timer_list timer; /* Link status detection timer. */
- 	u8 autong_complete; /* 1: auto-negotiate complete  */
-@@ -199,7 +200,7 @@
- static int sis900_mii_probe (struct net_device * net_dev);
- static void sis900_init_rxfilter (struct net_device * net_dev);
- static u16 read_eeprom(long ioaddr, int location);
--static u16 mdio_read(struct net_device *net_dev, int phy_id, int location);
-+static int mdio_read(struct net_device *net_dev, int phy_id, int location);
- static void mdio_write(struct net_device *net_dev, int phy_id, int location, int val);
- static void sis900_timer(unsigned long data);
- static void sis900_check_mode (struct net_device *net_dev, struct mii_phy *mii_phy);
-@@ -468,7 +469,13 @@
- 		sis_priv->msg_enable = sis900_debug;
- 	else
- 		sis_priv->msg_enable = SIS900_DEF_MSG;
--	
-+
-+	sis_priv->mii_info.dev = net_dev;
-+	sis_priv->mii_info.mdio_read = mdio_read;
-+	sis_priv->mii_info.mdio_write = mdio_write;
-+	sis_priv->mii_info.phy_id_mask = 0x1f;
-+	sis_priv->mii_info.reg_num_mask = 0x1f;
-+
- 	ret = register_netdev(net_dev);
- 	if (ret)
- 		goto err_unmap_rx;
-@@ -507,6 +514,8 @@
- 		goto err_out_unregister;
- 	}
- 
-+	sis_priv->mii_info.phy_id = sis_priv->cur_phy;
-+
- 	/* save our host bridge revision */
- 	dev = pci_get_device(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_630, NULL);
- 	if (dev) {
-@@ -843,7 +852,7 @@
-  *	Please see SiS7014 or ICS spec
-  */
- 
--static u16 mdio_read(struct net_device *net_dev, int phy_id, int location)
-+static int mdio_read(struct net_device *net_dev, int phy_id, int location)
- {
- 	long mdio_addr = net_dev->base_addr + mear;
- 	int mii_cmd = MIIread|(phy_id<<MIIpmdShift)|(location<<MIIregShift);
-@@ -1943,10 +1952,47 @@
- 	sis_priv->msg_enable = value;
- }
- 
-+static u32 sis900_get_link(struct net_device *net_dev)
-+{
-+	struct sis900_private *sis_priv = net_dev->priv;
-+	return mii_link_ok(&sis_priv->mii_info);
-+}
-+
-+static int sis900_get_settings(struct net_device *net_dev,
-+				struct ethtool_cmd *cmd)
-+{
-+	struct sis900_private *sis_priv = net_dev->priv;
-+	spin_lock_irq(&sis_priv->lock);
-+	mii_ethtool_gset(&sis_priv->mii_info, cmd);
-+	spin_unlock_irq(&sis_priv->lock);
-+	return 0;
-+}
-+
-+static int sis900_set_settings(struct net_device *net_dev,
-+				struct ethtool_cmd *cmd)
-+{
-+	struct sis900_private *sis_priv = net_dev->priv;
-+	int rt;
-+	spin_lock_irq(&sis_priv->lock);
-+	rt = mii_ethtool_sset(&sis_priv->mii_info, cmd);
-+	spin_unlock_irq(&sis_priv->lock);
-+	return rt;
-+}
-+
-+static int sis900_nway_reset(struct net_device *net_dev)
-+{
-+	struct sis900_private *sis_priv = net_dev->priv;
-+	return mii_nway_restart(&sis_priv->mii_info);
-+}
-+
- static struct ethtool_ops sis900_ethtool_ops = {
- 	.get_drvinfo 	= sis900_get_drvinfo,
- 	.get_msglevel	= sis900_get_msglevel,
- 	.set_msglevel	= sis900_set_msglevel,
-+	.get_link	= sis900_get_link,
-+	.get_settings	= sis900_get_settings,
-+	.set_settings	= sis900_set_settings,
-+	.nway_reset	= sis900_nway_reset,
- };
- 
- /**
-
---===============1998021209==--
+--
+Ueimor
