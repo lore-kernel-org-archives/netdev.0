@@ -1,119 +1,64 @@
-From: Abraham van der Merwe <abz@frogfoot.net>
-Subject: Re: kernel panic: bug in sch_sfq.c
-Date: Tue, 11 Mar 2003 23:19:02 +0200
+From: "Raghurama 'REDDY'" <rreddy@psc.edu>
+Subject: Bug or feature: raw sockets ignores IP_DF when packet is bigger than pmtu
+Date: Tue, 11 Mar 2003 18:10:35 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030311211902.GA8699@oasis.frogfoot.net>
-References: <20030311155409.GB7641@oasis.frogfoot.net> <200303111608.TAA13074@sex.inr.ac.ru>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="BXVAT5kNtrzKuDFl"
-Cc: devik@cdi.cz, ahu@ds9a.nl, linux-kernel@vger.kernel.org,
-   david@uninetwork.co.za, netdev@oss.sgi.com
+Message-ID: <03031118103534.2221577a.8921380@psc.edu>
+Reply-To: rreddy@psc.edu
+Cc: RREDDY@vms.psc.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200303111608.TAA13074@sex.inr.ac.ru>
+To: NETDEV@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Please let me know if this is the expected behavior:
 
---BXVAT5kNtrzKuDFl
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+    I am running a linux 2.4.20 system.
 
-Hi kuznet!
+    The socket type is SOCK_RAW and the protocol is IPPROTO_RAW
 
-> > Also, if I compile the kernel with all debugging enabled (CONFIG_DEBUG_=
-SLAB,
-> > etc) I can reliably trigger the BUG() on line 1263 in mm/slab.c
->=20
-> How does backtrace oops look?
+    I am filling IP header myself.
 
-I didn't write down most of the BUG() panics, but here is one (unfortunately
-it doesn't have any QoS code in the stack trace):
+    IP_DF is set in the header.
 
-------------< snip <------< snip <------< snip <------------
-root@trillian:~/uni-qos# cat panic.txt
-c0192eb1
-c0176c8c
-c017718c
-c0176afa
-c010810f
-c01082b3
-c0105240
-c0105240
-c0105240
-c0105240
-c0105263
-c01052d2
-c0105000
-c0105027
+    I have experimented with and without IP_HDRINCL, and it did not make
+    difference.  It appears that on Linux, if the protocol and the
+    socket are RAW, it does assume the header is included.
 
-0f 0b ef 04 e0 87 1e c0 f7 c5 00 04 00 00 74 36 b8 a5 c2 0f
+For the test:
 
-EIP: 0010:c012642e
-ESP: c0221eb4
+    The interface MTU is 4470
 
-KERNEL BUG slab.c:1263
-root@trillian:~/uni-qos#
-------------< snip <------< snip <------< snip <------------
+    Next hop is router with an MTU of 1500
 
-A quick objdump through the kernel's vmlinux image reveals, that the stack
-trace above looks as follows:
+    Packet size being sent out is about 2000 bytes
 
-------------< snip <------< snip <------< snip <------------
-c0192eb1    alloc_skb
-c0176c8c    speedo_refill_rx_buf
-c017718c    speedo_rx
-c0176afa    speedo_interrupt
-c010810f    handle_IRQ_event
-c01082b3    do_IRQ
-c0105240    default_idle
-c0105240    default_idle
-c0105240    default_idle
-c0105240
-c0105263    default_idle
-c01052d2    cpu_idle
-c0105000    rest_init
-c0105027    rest_init
-------------< snip <------< snip <------< snip <------------
+What is observed on running a program like traceroute with "-M" option
+is:
 
-It crashes when it hits BUG(); in slab.c:
+    The first time I run it, I do get "Fragmentation required" message
+    as expected.  We can also observe in the tcpdump output that DF is
+    set.
 
-------------< snip <------< snip <------< snip <------------
-#if DEBUG
-    if (cachep->flags & SLAB_POISON)
-        if (kmem_check_poison_obj(cachep, objp))
-            BUG();
-------------< snip <------< snip <------< snip <------------
+    If I run the test again immediately, we can see in the tcpdump
+    output on the outging interface that IP fragments the message to
+    1500 bytes and sends them out with out setting the DF bit.  This is
+    because the route cache has path MTU stored as 1500.
 
---=20
+    If I wait for some (until cache expires), or explicitly flush the
+    cache with:
 
-Regards
- Abraham
+    	echo 1 > /proc/sys/net/ipv4/route/flush
 
-Nothing is so often irretrievably missed as a daily opportunity.
-		-- Ebner-Eschenbach
+    and rerun the test, it works as expected and returns "Fragmentation
+    required" packets.
 
-___________________________________________________
- Abraham vd Merwe - Frogfoot Networks CC
- 9 Kinnaird Court, 33 Main Street, Newlands, 7700
- Phone: +27 21 686 1674 Cell: +27 82 565 4451
- Http: http://www.frogfoot.net/ Email: abz@frogfoot.net
+So the conjecture is that IP on the "host" fragments the packets if it
+knows the path MTU is not large enough to send the packet with out
+fragmentation (even when DF bit is set)
 
+Apparently this is consistent with the IPv6 spec which says that the
+routers can not fragment packets, and that hosts may.
 
---BXVAT5kNtrzKuDFl
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+Thanks!
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.5 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQE+blLG0jJV70h31dERAiQ7AJ0b2vqj6ouXT7nlHnSGB2Y8JfLqawCfeKW7
-8CmtViJv+1OGwWaCRYR/M+k=
-=l040
------END PGP SIGNATURE-----
-
---BXVAT5kNtrzKuDFl--
+--rr
