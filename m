@@ -1,68 +1,82 @@
-From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
-Subject: Re: 2.6.11-rc2-mm1
-Date: Mon, 24 Jan 2005 15:58:40 +0100
-Message-ID: <20050124145840.GA10211@ens-lyon.fr>
-References: <20050124021516.5d1ee686.akpm@osdl.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] batched tc to improve change throughput
+Date: Mon, 24 Jan 2005 16:06:34 +0100
+Message-ID: <20050124150634.GT23931@postel.suug.ch>
+References: <20050117165626.GE26856@postel.suug.ch> <1106002197.1046.19.camel@jzny.localdomain> <20050118134406.GR26856@postel.suug.ch> <1106058592.1035.95.camel@jzny.localdomain> <20050118145830.GS26856@postel.suug.ch> <1106144009.1047.989.camel@jzny.localdomain> <20050119165421.GB26856@postel.suug.ch> <1106232168.1041.125.camel@jzny.localdomain> <20050120153559.GG26856@postel.suug.ch> <1106576005.1652.1292.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: Patrick McHardy <kaber@trash.net>, Stephen Hemminger <shemminger@osdl.org>,
+        netdev@oss.sgi.com, Werner Almesberger <werner@almesberger.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20050124021516.5d1ee686.akpm@osdl.org>
+In-Reply-To: <1106576005.1652.1292.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 24, 2005 at 02:15:16AM -0800, Andrew Morton wrote:
+* jamal <1106576005.1652.1292.camel@jzny.localdomain> 2005-01-24 09:13
+> On Thu, 2005-01-20 at 10:35, Thomas Graf wrote:
+> > > >  - Seq counter in netlink, increased evertime a netlink message
+> > > >    gets processed and returned in ack. A netlink request may contain
+> > > >    a flag and the expected sequence number and the request gets only
+> > > >    processed if they match, otherwise the request fails. (my favourite)
+> > 
+> > Do you have any objections on this?
 > 
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.11-rc1/2.6.11-rc1-mm1/
-> 
-> 
-> - Lots of updates and fixes all over the place.
-> 
-> - On my test box there is no flashing cursor on the vga console.  Known bug,
->   please don't report it.
-> 
->   Binary searching shows that the bug was introduced by
->   cleanup-vc-array-access.patch but that patch is, unfortunately, huge.
-> 
-> 
-> 
-> Changes since 2.6.11-rc1-mm2:
-> 
-> 
->  bk-netdev.patch
+> A seq number in netlink is infact a transaction identifier (as opposed
+> to a message identifier). We also have a window of 1 for a very good
+> reason - simplicty.
+> If what you are saying is we muck around seq numbers, i think its a bad
+> idea.
 
-Without the following patch, it doesn't compile with ip_conntrack and
-without ip_nat.
+I'm not talking of the nlmsg_seq but rather a a sequence number with
+global or nl_family scope. It gets increased whenever a netlink
+message of that family is processed and is returned with the ack. If
+a userspace application wants to enforce atomicy between two requests
+which cannot be batched because a answer is expected in between then
+it could provide the expected sequence number and the request is only
+fullfilled if this is true. Example:
 
-In file included from net/ipv4/netfilter/ip_conntrack_standalone.c:34:
-include/linux/netfilter_ipv4/ip_conntrack.h:306: error: parameter `manip' has incomplete type
-include/linux/netfilter_ipv4/ip_conntrack.h: In function `ip_nat_initialized':
-include/linux/netfilter_ipv4/ip_conntrack.h:307: error: `IP_NAT_MANIP_SRC' undeclared (first use in this function)
+--> RTM_NEWLINK
+<-- answer
+<-- ACK (seq = 222)
+--> RTM_SETLINK (expect = 222)
+<-- ACK
 
-regards,
+Now if another netlink app interfers:
 
-Benoit
+--> RTM_NEWLINK
+<-- answer
+<-- ACK (seq = 222)
 
-Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+-- other app --
+--> RTM_SETLINK
+<-- ACK (seq = 223)
 
+-- back to first app --
+--> RTM_SETLINK (expect = 222)
+<-- ERROR
 
---- linux-clean/include/linux/netfilter_ipv4/ip_conntrack.h	2005-01-24 12:44:29.000000000 +0100
-+++ linux/include/linux/netfilter_ipv4/ip_conntrack.h	2005-01-24 13:05:44.000000000 +0100
-@@ -301,6 +301,7 @@ struct ip_conntrack_stat
- 
- #define CONNTRACK_STAT_INC(count) (__get_cpu_var(ip_conntrack_stat).count++)
- 
-+#ifdef CONFIG_IP_NF_NAT_NEEDED
- static inline int ip_nat_initialized(struct ip_conntrack *conntrack,
- 				     enum ip_nat_manip_type manip)
- {
-@@ -308,5 +309,6 @@ static inline int ip_nat_initialized(str
- 		return test_bit(IPS_SRC_NAT_DONE_BIT, &conntrack->status);
- 	return test_bit(IPS_DST_NAT_DONE_BIT, &conntrack->status);
- }
-+#endif /* CONFIG_IP_NF_NAT_NEEDED */
- #endif /* __KERNEL__ */
- #endif /* _IP_CONNTRACK_H */
+The application can then retry it's operation a few times and
+finally give up.  The main problem I see is to extend nlmsghdr
+in a way it stays compatible.
+
+> My thoughts now are you need to build on top of libnetlink - another
+> library. Example, to administratively bring up a netdevice, one would
+> call something like
+> 
+> admin_up("eth0");
+> 
+> This is not to say you cant build a competing library to libnetlink, i
+> am just not sure it is worth the effort of having two competing
+> libraries doing almost the same thing (that need maintanance). 
+
+I think it is, the feedback is overwhelming and people are already
+contributing to support more netlink users. As I said, 95% of the
+functionality is in iproute2 itself and not libnetlink. It is vital
+to have some kind of library to abstract the low level netlink
+functionality in a simple form to other applications. Currently it's
+quite hard to for example access the tc class tree, one can use
+libnetlink to do the request and parse the answer but everyone needs
+to write their own TLV parsing routines.
