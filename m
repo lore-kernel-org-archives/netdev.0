@@ -1,8 +1,8 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] fix tcp_default_win_scale.
-Date: Tue, 6 Jul 2004 13:05:49 -0700
+Date: Tue, 6 Jul 2004 13:12:35 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040706130549.31daa8e0@dell_ss3.pdx.osdl.net>
+Message-ID: <20040706131235.10b5afa8.davem@redhat.com>
 References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org>
 	<20040629222751.392f0a82.davem@redhat.com>
 	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
@@ -16,7 +16,7 @@ References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, linux-net@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
 To: Jamie Lokier <jamie@shareable.org>
@@ -26,19 +26,49 @@ List-Id: netdev.vger.kernel.org
 On Tue, 6 Jul 2004 20:40:34 +0100
 Jamie Lokier <jamie@shareable.org> wrote:
 
-> Stephen Hemminger wrote:
-> > Recent TCP changes exposed the problem that there ar lots of really
-> > broken firewalls that strip or alter TCP options.  When the options
-> > are modified TCP gets busted now.  The problem is that when we
-> > propose window scaling, we expect that the other side receives the
-> > same initial SYN request that we sent.  If there is corrupting
-> > firewalls that strip it then the window we send is not correctly
-> > scaled; so the other side thinks there is not enough space to send.
-> 
 > If a firewall strips the window scaling option in both directions,
 > then window scaling is disabled (RFC 1323 section 2.2).
 > 
 > Are you saying there are broken firewalls which strip TCP options in
 > one direction only?
 
-It appears so.
+It is this specific case:
+
+1) SYN packet contains window scale option of ZERO.
+
+   This says two things, that the system will use a window
+   scale of ZERO and that it SUPPORTS send and receive window
+   scaling.
+
+   If the firewall were to delete this, we'd be OK, but it
+   does not.  It leaves the option with zero in there.
+
+2) SYN+ACK goes back out with non-zero window scale option.
+
+   Note that because of #1, it is impossible for the system
+   which sent the SYN packet to "refuse" the window scale
+   option sent in the SYN+ACK.
+
+   Here is where we have problems.  If the firewall patches
+   the scale to zero, which is what some of these things
+   are doing, it is then the firewall's responsibility to
+   scale the window to make it appear to be zero-scaled.
+
+   And this is not being done by these broken firewalls.
+
+BTW, this is why it is so important to get tcpdump traces
+at both ends of the connection to analyze problems like
+this.  If you look at only one side with dumps, you might
+not get the side that is getting packets edited by a
+firewall or other device.
+
+These machines are so broken that I absolutely refuse to change
+how we behave to work around them.
+
+If they want window scaling to be effectively disabled, they should
+patch out the window scale option in the "SYN" packet, this prevents
+the SYN+ACK sending system from advertising any window scaling support.
+
+What these broken devices are doing is effectively making window
+scaling unusable on the internet, and I refuse to swallow such
+crap.
