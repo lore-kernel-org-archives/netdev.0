@@ -1,81 +1,39 @@
-From: Oskar Andreasson <blueflux@koffein.net>
-Subject: [PATCH] proc.txt document fix of error_burst and error_cost
-Date: Thu, 7 Nov 2002 18:00:35 +0100 (CET)
+From: greear@candelatech.com
+Subject: Re: NAPI-ized tulip patch against 2.4.20-rc1
+Date: Thu, 7 Nov 2002 10:16:51 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0211071755470.5001-200000@laptop1.agatha>
+Message-ID: <Pine.LNX.4.44.0211071013150.31376-100000@grok.yi.org>
+References: <Pine.GSO.4.30.0211070823590.11358-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463810815-1804465649-1036688435=:5001"
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ben Greear <greearb@candelatech.com>, Donald Becker <becker@scyld.com>,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-   "Alexey N. Kuznetsov" <kuznet@ms2.inr.ac.ru>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <Pine.GSO.4.30.0211070823590.11358-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+On Thu, 7 Nov 2002, jamal wrote:
+> Trash the machines harder. Try using smaller packets;
 
----1463810815-1804465649-1036688435=:5001
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+They are already dropping packets, I thought I'd try to get a slower run 
+to work cleanly before trying something faster.  Precision is more
+important to me than absolute throughput at this point.
 
-Hi,
+Initial run with 256 sized rx-ring (and skb-recycle) shows better
+performance (than with 1024 rx-ring)
 
-Jamal asked me to direct this patch to you both. 
+Sent 6-mil packets (same setup as before), dropped 750 or so.  One NIC has 
+dropped 2000 in one direction and 1325 in the other though...
 
-In short, the patch fixes some bad documentation of the error_burst and 
-error_cost sysctl's in Documentation/filesystems/proc.txt. I have tried to 
-retain the old style of the document as much as possible, as well as 
-choice of words. 
+An over-night run with 1024 rx-ring passed 152mil packets, dropped 75k or 
+so.
 
-The patch should apply against both 2.4.19 and 2.5.45 without problems.
 
-Is there anything wrong with it, or may it be included? Suggestions? 
+Ben
 
 -- 
-----
-Oskar Andreasson
-http://www.frozentux.net
-http://iptables-tutorial.frozentux.net
-http://ipsysctl-tutorial.frozentux.net
-mailto:blueflux@koffein.net
-
----1463810815-1804465649-1036688435=:5001
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="2.4.19.docs.fs.proc.txt-2.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0211071800350.5001@laptop1.agatha>
-Content-Description: 
-Content-Disposition: attachment; filename="2.4.19.docs.fs.proc.txt-2.patch"
-
-ZGlmZiAtdXIgbGludXgtMi40LjE5L0RvY3VtZW50YXRpb24vZmlsZXN5c3Rl
-bXMvcHJvYy50eHQgbGludXgtMi40LjE5Lm5ldy9Eb2N1bWVudGF0aW9uL2Zp
-bGVzeXN0ZW1zL3Byb2MudHh0DQotLS0gbGludXgtMi40LjE5L0RvY3VtZW50
-YXRpb24vZmlsZXN5c3RlbXMvcHJvYy50eHQJV2VkIE5vdiAgNyAyMzozOToz
-NiAyMDAxDQorKysgbGludXgtMi40LjE5Lm5ldy9Eb2N1bWVudGF0aW9uL2Zp
-bGVzeXN0ZW1zL3Byb2MudHh0CVRodSBOb3YgIDcgMTc6Mzk6MjMgMjAwMg0K
-QEAgLTE1OTIsMTAgKzE1OTIsMTQgQEANCiBlcnJvcl9idXJzdCBhbmQgZXJy
-b3JfY29zdA0KIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQogDQotVGhl
-c2UgcGFyYW1ldGVycyAgYXJlIHVzZWQgdG8gbGltaXQgdGhlIHdhcm5pbmcg
-bWVzc2FnZXMgd3JpdHRlbiB0byB0aGUga2VybmVsDQotbG9nIGZyb20gIHRo
-ZSAgcm91dGluZyAgY29kZS4gIFRoZSAgaGlnaGVyIHRoZSBlcnJvcl9jb3N0
-IGZhY3RvciBpcywgdGhlIGZld2VyDQotbWVzc2FnZXMgd2lsbCAgYmUgd3Jp
-dHRlbi4gRXJyb3JfYnVyc3QgY29udHJvbHMgd2hlbiBtZXNzYWdlcyB3aWxs
-IGJlIGRyb3BwZWQuDQotVGhlIGRlZmF1bHQgc2V0dGluZ3MgbGltaXQgd2Fy
-bmluZyBtZXNzYWdlcyB0byBvbmUgZXZlcnkgZml2ZSBzZWNvbmRzLg0KK1Ro
-ZXNlICBwYXJhbWV0ZXJzICBhcmUgdXNlZCB0byBsaW1pdCBob3cgbWFueSBJ
-Q01QIGRlc3RpbmF0aW9uIHVucmVhY2hhYmxlIHRvIA0KK3NlbmQgIGZyb20g
-IHRoZSAgaG9zdCAgaW4gcXVlc3Rpb24uIElDTVAgZGVzdGluYXRpb24gdW5y
-ZWFjaGFibGUgbWVzc2FnZXMgYXJlIA0KK3NlbnQgIHdoZW4gIHdlIGNhbiBu
-b3QgcmVhY2ggdGhlIG5leHQgaG9wLCB3aGlsZSB0cnlpbmcgdG8gdHJhbnNt
-aXQgYSBwYWNrZXQuIA0KK0l0ICB3aWxsIGFsc28gcHJpbnQgc29tZSBlcnJv
-ciBtZXNzYWdlcyB0byBrZXJuZWwgbG9ncyBpZiBzb21lb25lIGlzIGlnbm9y
-aW5nIA0KK291ciAgIElDTVAgIHJlZGlyZWN0cy4gIFRoZSAgaGlnaGVyICB0
-aGUgIGVycm9yX2Nvc3QgIGZhY3RvciAgaXMsICB0aGUgIGZld2VyIA0KK2Rl
-c3RpbmF0aW9uICB1bnJlYWNoYWJsZSAgYW5kIGVycm9yIG1lc3NhZ2VzIHdp
-bGwgYmUgbGV0IHRocm91Z2guIEVycm9yX2J1cnN0IA0KK2NvbnRyb2xzICB3
-aGVuICBkZXN0aW5hdGlvbiAgdW5yZWFjaGFibGUgIG1lc3NhZ2VzIGFuZCBl
-cnJvciBtZXNzYWdlcyB3aWxsIGJlDQorZHJvcHBlZC4gVGhlIGRlZmF1bHQg
-c2V0dGluZ3MgbGltaXQgd2FybmluZyBtZXNzYWdlcyB0byBmaXZlIGV2ZXJ5
-IHNlY29uZC4NCiANCiBmbHVzaA0KIC0tLS0tDQo=
-
----1463810815-1804465649-1036688435=:5001--
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear 
