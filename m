@@ -1,29 +1,57 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Sun, 27 Feb 2005 13:35:17 -0800
-Message-ID: <20050227133517.578884df.davem@davemloft.net>
-References: <200502270928.44402.Info@Quantum-Sci.com>
-	<200502271310.59682.Info@quantum-sci.com>
-	<42222670.3090002@pobox.com>
-	<200502271410.39611.Info@quantum-sci.com>
+From: Richard Dawe <rich@phekda.gotadsl.co.uk>
+Subject: Re: [PATCH]: r8169: Expose hardware stats via ethtool
+Date: Sun, 27 Feb 2005 22:44:20 +0000
+Message-ID: <42224D44.6080904@phekda.gotadsl.co.uk>
+References: <42208D83.80803@phekda.gotadsl.co.uk> <20050226182658.GB13230@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Quantum Scientific <Info@quantum-sci.com>
-In-Reply-To: <200502271410.39611.Info@quantum-sci.com>
+Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com, jgarzik@pobox.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050226182658.GB13230@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Feb 2005 14:10:39 -0600
-Quantum Scientific <Info@quantum-sci.com> wrote:
+Hello.
 
-> I am skeptical about this assertion that the whole internet needs to be hashed 
-> if connection tracking.
+Francois Romieu wrote:
+> Richard Dawe <rich@phekda.gotadsl.co.uk> :
+> [...]
+> 
+>>@@ -1531,6 +1620,11 @@ static int rtl8169_open(struct net_devic
+>> 	if (retval < 0)
+>> 		goto err_free_rx;
+>> 
+>>+	tp->nic_stats = pci_alloc_consistent(pdev, R8169_STATS_BYTES,
+>>+					     &tp->nic_stats_addr);
+>>+	if (!tp->nic_stats)
+>>+		goto err_free_nic_stats;
+>>+
+>> 	INIT_WORK(&tp->task, NULL, dev);
+>> 
+>> 	rtl8169_hw_start(dev);
+>>@@ -1541,6 +1635,10 @@ static int rtl8169_open(struct net_devic
+>> out:
+>> 	return retval;
+>> 
+>>+err_free_nic_stats:
+>>+	pci_free_consistent(pdev, R8169_STATS_BYTES, tp->nic_stats,
+>>+			    tp->nic_stats_addr);
+>>+
+> 
+> 
+> You don't want to free it it was not allocated. Please undo the previous
+> step (init_ring probably) and:
+[snip]
 
-Connection tracking and NAT broke entirely the end-to-end host
-assumption that used to be valid on the internet.
+Oops, thanks for spotting that. I'll fix it for the next revision of the 
+patch.
 
-There are many very important optimizations we've had to disable
-by default just in TCP alone because of NAT.
+Thanks, bye, Rich =]
+
+-- 
+Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
+
+"You can't evaluate a man by logic alone."
+   -- McCoy, "I, Mudd", Star Trek
