@@ -1,48 +1,37 @@
-From: Jeroen Roodhart <jeroen@science.uva.nl>
-Subject: Forcedeth v18 Success!
-Date: Tue, 25 Nov 2003 17:35:03 +0100
+From: Rask Ingemann Lambertsen <rask@sygehus.dk>
+Subject: Re: [PATCH 3/3] rx_all e100 patch
+Date: Tue, 25 Nov 2003 17:56:11 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1069778103.29938.4.camel@knuth.science.uva.nl>
+Message-ID: <20031125175611.A1506@sygehus.dk>
+References: <3FC30AEE.7000005@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-ioqOJhyG6iHlqwQ9D+F4"
+Content-Type: text/plain; charset=us-ascii
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <3FC30AEE.7000005@candelatech.com>; from greearb@candelatech.com on Mon, Nov 24, 2003 at 11:55:26PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Nov 24, 2003 at 11:55:26PM -0800, Ben Greear wrote:
 
---=-ioqOJhyG6iHlqwQ9D+F4
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+> +		/* Discard over-runs */
+> +		if (bdp->config[6] & CB_CFIG_SAVE_OVERRUNS) {
+> +			bdp->config[6] &= !CB_CFIG_SAVE_OVERRUNS;
+> +			E100_CONFIG(bdp, 6);
+>  		}
+> -	}
+> +
+> +		/* Don't send CRC (FCS) to memory */
+> +		if (bdp->config[18] & CB_CFIG_CRC_IN_MEM) {
+> +			bdp->config[18] &= !CB_CFIG_CRC_IN_MEM;
+> +			E100_CONFIG(bdp, 18);
+> +		}
+> +        }
 
-Hi,
+I think you want ~CB_CFIG_XXX instead of !CB_CFIG_XXX.
 
-Just wanted to let you know:
-
-Your forcdeth v18 driver runs without problem thus far on
-an Asus A7N8X-X mobo, Arjan de Ven's 2.6 kernel (based on=20
-2.6-pre9++) on Fedora core 1. (gcc-3.3 compiled)
-
-Great job, thank you very much!
-
-Jeroen
---=20
-Jeroen Roodhart              University of Amsterdam    =20
-jeroen@science.uva.nl        Faculty of Science / ICT-Group  =20
-Systeem- en netwerkbeheer    Tel. 020 525 7203 / 06 51338165
---
-See http://www.science.uva.nl/~jeroen for openPGP public key=20
-
---=-ioqOJhyG6iHlqwQ9D+F4
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQA/w4S237AP1zFtDU0RAuGCAKDp5yES+U+GGWNhxxJJsyHtI5Y+AQCfSCkl
-ZBWSlcgrkW05LNgLNVgKELw=
-=ccFI
------END PGP SIGNATURE-----
-
---=-ioqOJhyG6iHlqwQ9D+F4--
+-- 
+Regards,
+Rask Ingemann Lambertsen
