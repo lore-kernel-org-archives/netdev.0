@@ -1,40 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Fix ipv6_ifa_notify race
-Date: Fri, 19 Nov 2004 11:36:58 -0500 (EST)
-Message-ID: <20041119.113658.109538461.yoshfuji@linux-ipv6.org>
-References: <4197AC20.6020707@pobox.com>
-	<E1CTR5h-0006ac-00@gondolin.me.apana.org.au>
-	<20041119094924.GA3726@gondor.apana.org.au>
+From: Jason McMullan <jason.mcmullan@timesys.com>
+Subject: Re: [PATCH] MII bus API for PHY devices
+Date: Fri, 19 Nov 2004 11:41:38 -0500
+Message-ID: <1100882498.14467.58.camel@jmcmullan>
+References: <069B6F33-341C-11D9-9652-000393DBC2E8@freescale.com>
+	 <9B0D9272-398A-11D9-96F6-000393C30512@freescale.com>
+	 <1100820391.25521.14.camel@gaston>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com, acme@conectiva.com.br,
-        jgarzik@pobox.com, yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20041119094924.GA3726@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Andy Fleming <afleming@freescale.com>, netdev@oss.sgi.com,
+	Linux Kernel list <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261478AbUKSQll@vger.kernel.org>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1100820391.25521.14.camel@gaston>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20041119094924.GA3726@gondor.apana.org.au> (at Fri, 19 Nov 2004 20:49:24 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+On Fri, 2004-11-19 at 10:26 +1100, Benjamin Herrenschmidt wrote:
+> The ethernet driver can instanciate the PHYs at it's childs, though the
+> case of several MACs sharing PHYs will be difficult to represent...
 
-> On Mon, Nov 15, 2004 at 07:35:17AM +1100, Herbert Xu wrote:
-> > 
-> > Could you please apply this patch and see if the warning triggers
-> > before the underflows start coming in? We already know that if it
-> > does then it can cause underflows but I want to make sure that
-> > this is what's causing your problems.
-> 
-> Well I think it's time to fix this bug so that we don't release
-> 2.6.10 with it.
-> 
-> This is only a temporary hack that should be rolled back once
-> the locking in addrconf.c is fixed properly.  At the moment
-> the locking is just too twisted to fix properly for 2.6.10 :(
+I think *requiring* a binding to ethernet devices is a bad idea. 
 
-This patch is wrong (dead is not protected appropriately).
-I have another idea to fix this.
-I'll send it tomorrow.
+For example, on many MPC8260 embedded systems, the MII bus is controlled
+by GPIO pins, not an ethernet MDIO system.
 
---yoshfuji
+Some applications may use the MII bus to control non-PHY devices, such
+as Broadcom ethernet switches. I'm working for a general MII bus that
+ethernet PHYs and other devices can all use.
+
+-- 
+Jason McMullan <jason.mcmullan@timesys.com>
