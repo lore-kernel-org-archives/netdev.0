@@ -1,39 +1,34 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [patch] do not readlock all buckets in /proc/net/tcp
-Date: Mon, 05 Jul 2004 21:25:22 +0900 (JST)
+Date: Mon, 05 Jul 2004 22:25:13 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040705.212522.126409437.yoshfuji@linux-ipv6.org>
-References: <E1BhRda-0001Rs-00@gondolin.me.apana.org.au>
-	<20040705113555.GA28665@suse.de>
-	<20040705120610.GA5728@gondor.apana.org.au>
+Message-ID: <20040705.222513.81999836.yoshfuji@linux-ipv6.org>
+References: <20040705120610.GA5728@gondor.apana.org.au>
+	<20040705.212522.126409437.yoshfuji@linux-ipv6.org>
+	<20040705124511.GA17193@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au, meissner@suse.de
-In-Reply-To: <20040705120610.GA5728@gondor.apana.org.au>
+To: meissner@suse.de
+In-Reply-To: <20040705124511.GA17193@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040705120610.GA5728@gondor.apana.org.au> (at Mon, 5 Jul 2004 22:06:10 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+In article <20040705124511.GA17193@suse.de> (at Mon, 5 Jul 2004 14:45:11 +0200), Marcus Meissner <meissner@suse.de> says:
 
-> On Mon, Jul 05, 2004 at 01:35:55PM +0200, Marcus Meissner wrote:
-> > 
-> > Oh, and NETLINK+TCP_DIAG seems to have the same readlock contention problem,
-> > see tcpdiag_dump().
-> 
-> Then you wouldn't mind adding this optimisation for tcp_diag as well,
-> right? :)
+> The second hlist_empty is bad, you should be checking &tcp_ehash[i +
+> tcp_ehash_size].chain ((head+tcp_ehash_size) I think).
 
-here it is. :-)
+Oops...
 
 Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
 ===== net/ipv4/tcp_diag.c 1.15 vs edited =====
 --- 1.15/net/ipv4/tcp_diag.c	2004-06-08 07:27:58 +09:00
-+++ edited/net/ipv4/tcp_diag.c	2004-07-05 21:18:17 +09:00
-@@ -522,9 +522,13 @@
++++ edited/net/ipv4/tcp_diag.c	2004-07-05 22:21:06 +09:00
+@@ -522,9 +522,14 @@
  		if (i > s_i)
  			s_num = 0;
  
@@ -42,7 +37,8 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
  		num = 0;
 +
 +		if (hlist_empty(&head->chain) &&
-+		    (!(r->tcpdiag_states&TCPF_TIME_WAIT) || hlist_empty(&head->chain)))
++		    (!(r->tcpdiag_states&TCPF_TIME_WAIT) || 
++		       hlist_empty(&(head + tcp_ehash_size)->chain)))
 +			continue;
 +
 +		read_lock_bh(&head->lock);
