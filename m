@@ -1,46 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.6: QoS scheduling not working with IP-over-IP
-Date: Wed, 18 Feb 2004 13:22:06 -0800
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: 2.6.3 iwspy oops
+Date: Wed, 18 Feb 2004 13:38:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040218132206.10c8b194.davem@redhat.com>
-References: <Pine.LNX.4.44.0402101324350.810-100000@atlantis.knm.org.pl>
-	<20040211200549.736fa8b3.davem@redhat.com>
-	<1076561489.1032.65.camel@jzny.localdomain>
-	<1076561998.1035.72.camel@jzny.localdomain>
-	<1076562282.1033.76.camel@jzny.localdomain>
-	<20040211211536.23e97997.davem@redhat.com>
-	<1076563502.1031.85.camel@jzny.localdomain>
-	<1076564638.1033.91.camel@jzny.localdomain>
-	<20040211215142.7f817513.davem@redhat.com>
-	<1076566176.1033.94.camel@jzny.localdomain>
-	<20040211222259.776ad818.davem@redhat.com>
-	<402D54D6.5070708@trash.net>
-	<20040213213606.5a13cc76.davem@redhat.com>
-	<1076762757.1060.4.camel@jzny.localdomain>
-	<1076763997.1059.13.camel@jzny.localdomain>
-	<1076766981.1059.16.camel@jzny.localdomain>
-	<20040214124958.499294a6.davem@redhat.com>
-	<402F4A2D.1070405@trash.net>
-	<20040217191011.012a749e.davem@redhat.com>
-	<40334AB2.30701@trash.net>
+Message-ID: <20040218213828.GA947@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, qnex@atlantis.knm.org.pl, netdev@oss.sgi.com,
-        shemminger@osdl.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <40334AB2.30701@trash.net>
+To: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com, Margit Schubert-While <margitsw@t-online.de>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Feb 2004 12:21:22 +0100
-Patrick McHardy <kaber@trash.net> wrote:
-
-> David S. Miller wrote:
-> > Patrick, "(x || 1)" is not the same as "(x ? x : 1)"
-> > :-)
+Margit Schubert-While wrote :
 > 
-> Doh! I must have been programming in perl before .. ;)
+> Working on a SSH WLAN connection OK (ca. 2 hours) until I entered "iwspy",
+> then system borked (not recoverable) :
 
-New patch applied, thanks Patrick.
+	Working here with 2.6.3 + airo.c.
+	Which driver and which version of it ? Which was the last
+version that worked ?
+	Thanks.
+
+	Jean
