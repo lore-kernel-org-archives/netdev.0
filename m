@@ -1,159 +1,211 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (2/2) Convert yam driver to seq_file
-Date: Wed, 13 Aug 2003 09:39:26 -0700
+Subject: [PATCH] (1/2) Convert YAM driver to dynamic net_device
+Date: Wed, 13 Aug 2003 09:39:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030813093926.7b267dd6.shemminger@osdl.org>
+Message-ID: <20030813093909.22de1915.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jean-Paul Roubelat <jpr@f6fbb.org>, "David S. Miller" <davem@redhat.com>,
-   Jeff Garzik <jgarzik@pobox.com>, linux-hams@vger.kernel.org,
-   netdev@oss.sgi.com
+   Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert the yam driver to use the new seq_file interface to /proc.
-This resolves potential issues with module owner and buffer sizes
-by using the common library.
-
+Convert hamradio/yam.c to dynamic allocation of net_device instead of allocating
+an array of structures containing net_device's.  
 
 This applies to 2.6.0-test3.  Since this driver will come up with out any actual
 hardware was able to test load/unload on SMP.
 
+To bad my license is way out of date ;-)
+
 diff -Nru a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
---- a/drivers/net/hamradio/yam.c	Wed Aug 13 09:31:31 2003
-+++ b/drivers/net/hamradio/yam.c	Wed Aug 13 09:31:31 2003
-@@ -72,6 +72,7 @@
+--- a/drivers/net/hamradio/yam.c	Wed Aug 13 09:31:17 2003
++++ b/drivers/net/hamradio/yam.c	Wed Aug 13 09:31:17 2003
+@@ -120,7 +120,7 @@
+ 	int irq;
+ 	int dupmode;
  
- #include <linux/kernel.h>
- #include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
+-	struct net_device dev;
++	struct net_device *dev;
  
- #include <linux/version.h>
- #include <asm/uaccess.h>
-@@ -765,56 +766,73 @@
- 	return IRQ_RETVAL(handled);
- }
+ 	/* Stats section */
  
--static int yam_net_get_info(char *buffer, char **start, off_t offset, int length)
-+#ifdef CONFIG_PROC_FS
-+
-+static void *yam_seq_start(struct seq_file *seq, loff_t *pos)
- {
--	int len = 0;
--	int i;
--	off_t pos = 0;
--	off_t begin = 0;
-+	return (*pos < NR_PORTS) ? yam_devs[*pos] : NULL;
-+}
+@@ -161,7 +161,7 @@
+ 	struct yam_mcs *next;
+ };
  
-+static void *yam_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+{
-+	++*pos;
-+	return (*pos < NR_PORTS) ? yam_devs[*pos] : NULL;
-+}
+-static struct yam_port yam_ports[NR_PORTS];
++static struct net_device *yam_devs[NR_PORTS];
  
--	for (i = 0; i < NR_PORTS; i++) {
--		if (yam_ports[i].iobase == 0 || yam_ports[i].irq == 0)
--			continue;
--		len += sprintf(buffer + len, "Device yam%d\n", i);
--		len += sprintf(buffer + len, "  Up       %d\n", netif_running(&yam_ports[i].dev));
--		len += sprintf(buffer + len, "  Speed    %u\n", yam_ports[i].bitrate);
--		len += sprintf(buffer + len, "  IoBase   0x%x\n", yam_ports[i].iobase);
--		len += sprintf(buffer + len, "  BaudRate %u\n", yam_ports[i].baudrate);
--		len += sprintf(buffer + len, "  IRQ      %u\n", yam_ports[i].irq);
--		len += sprintf(buffer + len, "  TxState  %u\n", yam_ports[i].tx_state);
--		len += sprintf(buffer + len, "  Duplex   %u\n", yam_ports[i].dupmode);
--		len += sprintf(buffer + len, "  HoldDly  %u\n", yam_ports[i].holdd);
--		len += sprintf(buffer + len, "  TxDelay  %u\n", yam_ports[i].txd);
--		len += sprintf(buffer + len, "  TxTail   %u\n", yam_ports[i].txtail);
--		len += sprintf(buffer + len, "  SlotTime %u\n", yam_ports[i].slot);
--		len += sprintf(buffer + len, "  Persist  %u\n", yam_ports[i].pers);
--		len += sprintf(buffer + len, "  TxFrames %lu\n", yam_ports[i].stats.tx_packets);
--		len += sprintf(buffer + len, "  RxFrames %lu\n", yam_ports[i].stats.rx_packets);
--		len += sprintf(buffer + len, "  TxInt    %u\n", yam_ports[i].nb_mdint);
--		len += sprintf(buffer + len, "  RxInt    %u\n", yam_ports[i].nb_rxint);
--		len += sprintf(buffer + len, "  RxOver   %lu\n", yam_ports[i].stats.rx_fifo_errors);
--		len += sprintf(buffer + len, "\n");
--
--		pos = begin + len;
--
--		if (pos < offset) {
--			len = 0;
--			begin = pos;
--		}
--		if (pos > offset + length)
--			break;
--	}
-+static void yam_seq_stop(struct seq_file *seq, void *v)
-+{
-+}
+ static struct yam_mcs *yam_data;
  
--	*start = buffer + (offset - begin);
--	len -= (offset - begin);
-+static int yam_seq_show(struct seq_file *seq, void *v)
-+{
-+	const struct net_device *dev = v;
-+	const struct yam_port *yp = dev->priv;
-+
-+	seq_printf(seq, "Device %s\n", dev->name);
-+	seq_printf(seq, "  Up       %d\n", netif_running(dev));
-+	seq_printf(seq, "  Speed    %u\n", yp->bitrate);
-+	seq_printf(seq, "  IoBase   0x%x\n", yp->iobase);
-+	seq_printf(seq, "  BaudRate %u\n", yp->baudrate);
-+	seq_printf(seq, "  IRQ      %u\n", yp->irq);
-+	seq_printf(seq, "  TxState  %u\n", yp->tx_state);
-+	seq_printf(seq, "  Duplex   %u\n", yp->dupmode);
-+	seq_printf(seq, "  HoldDly  %u\n", yp->holdd);
-+	seq_printf(seq, "  TxDelay  %u\n", yp->txd);
-+	seq_printf(seq, "  TxTail   %u\n", yp->txtail);
-+	seq_printf(seq, "  SlotTime %u\n", yp->slot);
-+	seq_printf(seq, "  Persist  %u\n", yp->pers);
-+	seq_printf(seq, "  TxFrames %lu\n", yp->stats.tx_packets);
-+	seq_printf(seq, "  RxFrames %lu\n", yp->stats.rx_packets);
-+	seq_printf(seq, "  TxInt    %u\n", yp->nb_mdint);
-+	seq_printf(seq, "  RxInt    %u\n", yp->nb_rxint);
-+	seq_printf(seq, "  RxOver   %lu\n", yp->stats.rx_fifo_errors);
-+	seq_printf(seq, "\n");
+@@ -628,8 +628,8 @@
+ 	int i;
  
--	if (len > length)
--		len = length;
-+}
-+
-+static struct seq_operations yam_seqops = {
-+	.start = yam_seq_start,
-+	.next = yam_seq_next,
-+	.stop = yam_seq_stop,
-+	.show = yam_seq_show,
-+};
+ 	for (i = 0; i < NR_PORTS; i++) {
+-		struct net_device *dev = &yam_ports[i].dev;
+-		if (netif_running(dev))
++		struct net_device *dev = yam_devs[i];
++		if (dev && netif_running(dev))
+ 			yam_arbitrate(dev);
+ 	}
+ 	yam_timer.expires = jiffies + HZ / 100;
+@@ -724,8 +724,8 @@
+ 	int handled = 0;
  
--	return len;
-+static int yam_info_open(struct inode *inode, struct file *file)
-+{
-+	return seq_open(file, &yam_seqops);
- }
+ 	for (i = 0; i < NR_PORTS; i++) {
+-		yp = &yam_ports[i];
+-		dev = &yp->dev;
++		dev = yam_devs[i];
++		yp = dev->priv;
  
-+static struct file_operations yam_info_fops = {
-+	.owner = THIS_MODULE,
-+	.open = yam_info_open,
-+	.read = seq_read,
-+	.llseek = seq_lseek,
-+	.release = seq_release,
-+};
-+
-+#endif
-+
-+
+ 		if (!netif_running(dev))
+ 			continue;
+@@ -882,8 +882,10 @@
+ 
+ 	/* Reset overruns for all ports - FPGA programming makes overruns */
+ 	for (i = 0; i < NR_PORTS; i++) {
+-		inb(LSR(yam_ports[i].dev.base_addr));
+-		yam_ports[i].stats.rx_fifo_errors = 0;
++		struct net_device *dev = yam_devs[i];
++		struct yam_port *yp = dev->priv;
++		inb(LSR(dev->base_addr));
++		yp->stats.rx_fifo_errors = 0;
+ 	}
+ 
+ 	printk(KERN_INFO "%s at iobase 0x%lx irq %u uart %s\n", dev->name, dev->base_addr, dev->irq,
+@@ -1070,14 +1072,26 @@
+ 
  /* --------------------------------------------------------------------- */
  
- static struct net_device_stats *yam_get_stats(struct net_device *dev)
-@@ -1153,7 +1171,7 @@
- 	yam_timer.expires = jiffies + HZ / 100;
- 	add_timer(&yam_timer);
+-static int yam_probe(struct net_device *dev)
++static void yam_setup(struct net_device *dev)
+ {
+-	struct yam_port *yp;
+-
+-	if (!dev)
+-		return -ENXIO;
++	struct yam_port *yp = dev->priv;
  
--	proc_net_create("yam", 0, yam_net_get_info);
-+	proc_net_fops_create("yam", S_IRUGO, &yam_info_fops);
+-	yp = (struct yam_port *) dev->priv;
++	yp->magic = YAM_MAGIC;
++	yp->bitrate = DEFAULT_BITRATE;
++	yp->baudrate = DEFAULT_BITRATE * 2;
++	yp->iobase = 0;
++	yp->irq = 0;
++	yp->dupmode = 0;
++	yp->holdd = DEFAULT_HOLDD;
++	yp->txd = DEFAULT_TXD;
++	yp->txtail = DEFAULT_TXTAIL;
++	yp->slot = DEFAULT_SLOT;
++	yp->pers = DEFAULT_PERS;
++	yp->dev = dev;
++
++	dev->base_addr = yp->iobase;
++	dev->irq = yp->irq;
++	SET_MODULE_OWNER(dev);
+ 
+ 	dev->open = yam_open;
+ 	dev->stop = yam_close;
+@@ -1104,50 +1118,35 @@
+ 	memcpy(dev->broadcast, ax25_bcast, 7);
+ 	memcpy(dev->dev_addr, ax25_test, 7);
+ 
+-	/* New style flags */
+-	dev->flags = 0;
+-
+-	return 0;
+ }
+ 
+-/* --------------------------------------------------------------------- */
+-
+ static int __init yam_init_driver(void)
+ {
+ 	struct net_device *dev;
+-	int i;
++	int i, err;
++	char name[IFNAMSIZ];
+ 
+ 	printk(yam_drvinfo);
+ 
+ 	for (i = 0; i < NR_PORTS; i++) {
+-		sprintf(yam_ports[i].dev.name, "yam%d", i);
+-		yam_ports[i].magic = YAM_MAGIC;
+-		yam_ports[i].bitrate = DEFAULT_BITRATE;
+-		yam_ports[i].baudrate = DEFAULT_BITRATE * 2;
+-		yam_ports[i].iobase = 0;
+-		yam_ports[i].irq = 0;
+-		yam_ports[i].dupmode = 0;
+-		yam_ports[i].holdd = DEFAULT_HOLDD;
+-		yam_ports[i].txd = DEFAULT_TXD;
+-		yam_ports[i].txtail = DEFAULT_TXTAIL;
+-		yam_ports[i].slot = DEFAULT_SLOT;
+-		yam_ports[i].pers = DEFAULT_PERS;
+-
+-		dev = &yam_ports[i].dev;
+-
+-		dev->priv = &yam_ports[i];
+-		dev->base_addr = yam_ports[i].iobase;
+-		dev->irq = yam_ports[i].irq;
+-		dev->init = yam_probe;
+-		dev->if_port = 0;
+-
+-		if (register_netdev(dev)) {
++		sprintf(name, "yam%d", i);
++		
++		dev = alloc_netdev(sizeof(struct yam_port), name,
++				   yam_setup);
++		if (!dev) {
++			printk(KERN_ERR "yam: cannot allocate net device %s\n",
++			       dev->name);
++			err = -ENOMEM;
++			goto error;
++		}
++		
++		err = register_netdev(dev);
++		if (err) {
+ 			printk(KERN_WARNING "yam: cannot register net device %s\n", dev->name);
+-			dev->priv = NULL;
+-			return -ENXIO;
++			goto error;
+ 		}
++		yam_devs[i] = dev;
+ 
+-		SET_MODULE_OWNER(dev);
+ 	}
+ 
+ 	yam_timer.function = yam_dotimer;
+@@ -1156,6 +1155,12 @@
+ 
+ 	proc_net_create("yam", 0, yam_net_get_info);
  	return 0;
-  error:
- 	while (--i >= 0) {
++ error:
++	while (--i >= 0) {
++		unregister_netdev(yam_devs[i]);
++		kfree(yam_devs[i]);
++	}
++	return err;
+ }
+ 
+ /* --------------------------------------------------------------------- */
+@@ -1167,12 +1172,11 @@
+ 
+ 	del_timer(&yam_timer);
+ 	for (i = 0; i < NR_PORTS; i++) {
+-		struct net_device *dev = &yam_ports[i].dev;
+-		if (!dev->priv)
+-			continue;
+-		if (netif_running(dev))
+-			yam_close(dev);
+-		unregister_netdev(dev);
++		struct net_device *dev = yam_devs[i];
++		if (dev) {
++			unregister_netdev(dev);
++			kfree(dev);
++		}
+ 	}
+ 
+ 	while (yam_data) {
