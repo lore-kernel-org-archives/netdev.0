@@ -1,43 +1,27 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [Bonding-devel] Re: [bonding][2/3] Synchronizing 2.4-2.6
-Date: Sat, 30 Aug 2003 17:26:37 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH/RFC] disallow vlan devices on top of a logical bridge
+ device
+Date: Sat, 30 Aug 2003 20:30:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F51168D.1010306@pobox.com>
-References: <E791C176A6139242A988ABA8B3D9B38A014C94E5@hasmsx403.iil.intel.com> <3F4E27A2.9060204@pobox.com> <200308302239.40237.shmulik.hen@intel.com>
+Message-ID: <20030830203043.0eb1a660.davem@redhat.com>
+References: <200308301504.03241.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, greearb@candelatech.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com
-In-Reply-To: <200308302239.40237.shmulik.hen@intel.com>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200308301504.03241.bdschuym@pandora.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Shmulik Hen wrote:
-> On Thursday 28 August 2003 07:02 pm, Jeff Garzik wrote:
-> 
->>Hen, Shmulik wrote:
->>
->>>After patch set 1, It should be as easy as just copying all the
->>>bonding related files from 2.4 to 2.6. I guess I can do that on
->>>Sunday if someone hasn't already done it before.
->>
->>I had hoped to preserve the revision history.  Simply copying the
->>files over does not do that :(
->>
->>What I mean by preserving revision history is, changes should be
->>submitted to 2.6 in the same granularity as they were to 2.4...
->>
-> 
-> 
-> God, I wish I was an English speaking person...  :(
-> Amir, on the other hand, understood exactly what you intended, so 
-> there should be something ready for tomorrow that brings 2.6 to the 
-> same point as 2.4 after set 1, in small steps. After that, sets 2 and 
-> 3 could be applied the same way for 2.4 and 2.6.
+On Sat, 30 Aug 2003 15:04:03 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
+> The patch below disables making vlan devices on top of bridge
+> devices, f.e. br0.12 would be impossible.
 
-No worries.  Even I don't understand myself sometimes.  :)
-
-	Jeff
+I don't think disallowing this merely for the sake of
+implementation convenience is such a good idea.  And
+from other people's comments, such setups might even
+be useful.
