@@ -1,83 +1,36 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: [PATCH] net/ipv4/ipmr.c fixes
-Date: Thu, 08 Jul 2004 04:25:26 +0900
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <877jtfmxg9.fsf@devron.myhome.or.jp>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: [PATCH] fix tcp_default_win_scale.
+Date: Wed, 7 Jul 2004 20:31:25 +0100
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040707193125.GA17266@mail.shareable.org>
+References: <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net> <20040706194034.GA11021@mail.shareable.org> <20040706131235.10b5afa8.davem@redhat.com> <20040706224453.GA6694@outpost.ds9a.nl> <20040706154907.422a6b73.davem@redhat.com> <20040707110653.7c49bef1@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, bert hubert <ahu@ds9a.nl>,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040707110653.7c49bef1@dell_ss3.pdx.osdl.net>
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger wrote:
+> But: isn't it better to have just one sysctl parameter set
+> (tcp_rmem) and set the window scale as needed rather than increasing
+> the already bewildering array of dials and knobs?  I can't see why
+> it would be advantageous to set a window scale of 7 if the largest
+> possible window ever offered is limited to a smaller value?
 
-- pim_protocol warning fix
+That's a fair question.
 
-- ipmr_vif_open() and ipmr_mfc_open() allocates the memory, so it
-  should use seq_release_private().
+It seems to me the only effects of a larger scale than necessary
+are (a) the buffer size can be increased after the connection is
+established, and (b) coarser granularity which can only degrade
+performance over low mss links.
 
-- ipmr_mfc_seq_xxx is using it->cache, in order to control whether
-  unlock should be do or not, but it->cache was not initialized in
-  ipmr_mfc_seq_start(). So it can point the previous state if user
-  did seek(). This become to the cause of twice unlock.
+So why do we set a larger window scale than necessary?
+Is it to support (a)?
 
-Signed-off-by: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
----
+-- Jamie
 
- net/ipv4/ipmr.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
-
-diff -puN net/ipv4/ipmr.c~ipmr-fixes net/ipv4/ipmr.c
---- linux-2.6.7/net/ipv4/ipmr.c~ipmr-fixes	2004-07-07 23:08:48.000000000 +0900
-+++ linux-2.6.7-hirofumi/net/ipv4/ipmr.c	2004-07-07 23:10:49.000000000 +0900
-@@ -109,7 +109,9 @@ static int ip_mr_forward(struct sk_buff 
- static int ipmr_cache_report(struct sk_buff *pkt, vifi_t vifi, int assert);
- static int ipmr_fill_mroute(struct sk_buff *skb, struct mfc_cache *c, struct rtmsg *rtm);
- 
-+#ifdef CONFIG_IP_PIMSM_V2
- static struct net_protocol pim_protocol;
-+#endif
- 
- static struct timer_list ipmr_expire_timer;
- 
-@@ -1702,7 +1704,7 @@ static struct file_operations ipmr_vif_f
- 	.open    = ipmr_vif_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_private,
- };
- 
- struct ipmr_mfc_iter {
-@@ -1737,6 +1739,9 @@ static struct mfc_cache *ipmr_mfc_seq_id
- 
- static void *ipmr_mfc_seq_start(struct seq_file *seq, loff_t *pos)
- {
-+	struct ipmr_mfc_iter *it = seq->private;
-+	it->cache = NULL;
-+	it->ct = 0;
- 	return *pos ? ipmr_mfc_seq_idx(seq->private, *pos - 1) 
- 		: SEQ_START_TOKEN;
- }
-@@ -1846,7 +1851,6 @@ static int ipmr_mfc_open(struct inode *i
- 	if (rc)
- 		goto out_kfree;
- 
--	memset(s, 0, sizeof(*s));
- 	seq = file->private_data;
- 	seq->private = s;
- out:
-@@ -1862,7 +1866,7 @@ static struct file_operations ipmr_mfc_f
- 	.open    = ipmr_mfc_open,
- 	.read    = seq_read,
- 	.llseek  = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_private,
- };
- #endif	
- 
-_
-
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
