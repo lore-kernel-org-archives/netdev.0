@@ -1,39 +1,63 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Fragment ID wrap workaround (read-only, untested).
-Date: Thu, 15 Jul 2004 11:27:17 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [CRYPTO] Fix stack overrun in crypt()
+Date: Thu, 15 Jul 2004 21:48:40 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040715092715.GA23131@wotan.suse.de>
-References: <1089871078.3571.56.camel@bach> <OF339FA69C.C0404720-ON88256ED2.002C1123-88256ED2.002E61B7@us.ibm.com>
+Message-ID: <20040715114840.GA1325@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Rusty Russell (IBM)" <rusty@au1.ibm.com>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="BOKacYhQ+x31HxR3"
+Cc: James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <OF339FA69C.C0404720-ON88256ED2.002C1123-88256ED2.002E61B7@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 15, 2004 at 02:28:05AM -0600, David Stevens wrote:
-> My idea for solving this problem is to create an estimator for the
-> reassembly timer. The fundamental problem as I see it is that the
-> reassembly timer is fixed, and about 6000 times too long on a
-> fast network (and worse the faster networks get).
 
-Won't that make the worst case behaviour on a congested link much worse?
+--BOKacYhQ+x31HxR3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-e.g. consider a very congested link with variable RTTs. Or a 
-link that works relatively smoothly and suddenly the RTT increases.
+Hi:
 
-Yes, running fragmentation over those is not a good idea, but
-still it should not be made worse.
+The stack allocation in crypt() is bogus as whether tmp_src/tmp_dst
+is used is determined by factors unrelated to nbytes and
+src->length/dst->length.
 
-Your variable timer even with a smoothing algorithm in the RTT 
-estimator will expire far too early and very likely drop a lot more 
-fragments in this scenario than before.
+Since the condition for whether tmp_src/tmp_dst are used is very
+complex, let's allocate them always instead of guessing.
 
-In general handling a link where the RTT increases would seem
-tricky with your scheme. Unlike TCP there is no retransmit
-to save the day.
+This fixes a number of weird crashes including those AES crashes
+that people have been seeing with the 2.4 backport + ipt_conntrack.
 
--Andi
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+PS I think someone should double-check the logic in the scatterwalk
+stuff, especially the whichbuf bits.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--BOKacYhQ+x31HxR3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== crypto/cipher.c 1.18 vs edited =====
+--- 1.18/crypto/cipher.c	2004-05-27 06:25:36 +10:00
++++ edited/crypto/cipher.c	2004-07-15 21:40:53 +10:00
+@@ -52,8 +52,8 @@
+ {
+ 	struct scatter_walk walk_in, walk_out;
+ 	const unsigned int bsize = crypto_tfm_alg_blocksize(tfm);
+-	u8 tmp_src[nbytes > src->length ? bsize : 0];
+-	u8 tmp_dst[nbytes > dst->length ? bsize : 0];
++	u8 tmp_src[bsize];
++	u8 tmp_dst[bsize];
+ 
+ 	if (!nbytes)
+ 		return 0;
+
+--BOKacYhQ+x31HxR3--
