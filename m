@@ -1,84 +1,80 @@
-From: "Michael T Kerrisk" <mtk-lists@gmx.net>
-Subject: Re: kernel-manpage inconsistency
-Date: Thu, 15 Jul 2004 14:51:35 +0200 (MEST)
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: [0/2] CARP implementation. HA master's failover.
+Date: Thu, 15 Jul 2004 17:35:23 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4407.1089895895@www4.gmx.net>
-References: <Pine.NEB.4.60.0407142202270.24397@ukato.freeshell.org>
+Message-ID: <1089898523.6114.865.camel@uganda>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-O7aaoy7k985PjxHfVPSj"
+Cc: netfilter-failover@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Toptygin <alexeyt@freeshell.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Alexey,
 
-> I don't know wether this is a kernel issue or a manpage issue, I just 
-> know that they disagree.
-> 
-> In recv(2) it says:
-> 
->      MSG_TRUNC
->  	Return  the  real  length of the packet, even when it was longer
->  	than the passed buffer. Only valid for packet sockets.
-> 
-> But this is not honored.
+--=-O7aaoy7k985PjxHfVPSj
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I don't know the details here, sorry.  A quick glance at the source
-(raw_recvmsg() in net/ipv4/raw.c) shows that MSG_TRUNC is used there.
+Hello, network developers.
 
-> Also, in udp(7), it says:
-> 
-> IOCTLS
->      These ioctls can be accessed using ioctl(2).  The correct syntax is:
-> 
->  	int value;
->  	error = ioctl(tcp_socket, ioctl_type, &value);
-> 
->      SIOCINQ
->  	Gets a pointer to an integer as argument. Returns  the  size  of
->  	the  next pending datagram in the integer in bytes, or 0 when no
->  	datagram is pending.
-> 
->      SIOCOUTQ
->  	Returns the number of data bytes in the local send  queue.  Only
->  	supported with Linux 2.4 and above.
-> 
-> These don't appear to be implemented. ( They're not in any headers and
-> they're not listed in ioctl_list(2). )
+I'm glad to introduce CARP failover mechanism implementation.
+It is based on OpenBSD's CARP protocol but is not compatible with it
+since OpenBSD's implementation does not contain protection against
+repeated message sending.
 
-They're names in the kernel source.  In userland, FIONREAD and TIOCOUTQ will
-do the trick for sockets.
+The main goal of the project is to implement CARP + firewall sync, but
+second part already implemented by Harald Welte <laforge@gnumonks.org> and=20
+KOVACS Krisztian <hidden@sch.bme.hu> in ct_sync.
 
-> Please tell me who I need to report this to to get it fixed.
+By design each node has it's own advertisement base and skew, node with
+the least timeval constructed from them became a master.
+It begins to advertise it's base and skew until shutdown or other node
+lower it's base+skew pair.
+CARP uses currently only IPv4 multicast, but can be easily changed to
+use IPv6.=20
+Each CARP packet contains unique 64bit counter with it's SHA1 hmac
+digest with 20byte secret key. By design this counter is incremented in
+both master and backup before sending and while receiving accordingly.
+If master and backup counters do not coincide with each other while
+receiving backup node drops this packet and thus preventing repeated
+sending attack.
+When after predefined interval master didn't send any packet or it's
+base+skew is bigger than that in the remote node those node becomes a
+master and begins to advertise.
 
-The latest Linux man pages can always be found at 
-ftp://ftp.win.tue.nl/pub/linux-local/manpages/ and the maintainer is 
-Andries Brouwer (Andries.Brouwer@cwi.nl) -- he'll take suitable new man 
-pages, or patches in "diff -u" format.
+CARP has 2 work queues for "became_master" and "became_backup" events.
+Such events may be easily registered in runtime by external modules.
+One of such event handlers may send netlink message to ct_sync and/or
+userspace daemon which will flush iptables rules, up/down interfaces and
+so on...
 
-> Also, if there is a way to get the length of the next incoming datagram,
-> I would love to know about it. 
+Please review and comment.
 
-FIONREAD on a datagram socket will do this.
+Code against 2.6 attached=20
+in next 2 e-mails since netfilter-failover@lists.netfilter.org doesn't acce=
+pt
+e-mail greater than 40kb.
 
-> Currently I'm resorting to:
-> 
-> while(1){
->  	recvmsg(..., MSG_PEEK);
->  	if ( flags & MSG_TRUNC ){
->  		double buffer size;
->  	} else {
->  		break;
->  	}
-> }
+Code also is available at
+http://www.2ka.mipt.ru/~johnpol/carp_latest.tar.gz
 
-Cheers,
+--=20
+	Evgeniy Polaykov ( s0mbre )
 
-Michael
+Crash is better than data corruption. -- Art Grabowski
 
--- 
-Michael Kerrisk
-mtk-lists@gmx.net
+--=-O7aaoy7k985PjxHfVPSj
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBA9ogbIKTPhE+8wY0RAuX7AJ4674eNuTtvoUVdQqkU42vRhU23vwCdFE6G
+K9Sno/av6js48cchFHTUxuI=
+=3Oms
+-----END PGP SIGNATURE-----
+
+--=-O7aaoy7k985PjxHfVPSj--
