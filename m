@@ -1,30 +1,37 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [22/*] [NETFILTER] Use correct IPsec MTU in TCPMSS
-Date: Sun, 20 Mar 2005 20:10:52 +0100
-Message-ID: <423DCABC.3030307@trash.net>
-References: <20050314102614.GA9610@gondor.apana.org.au>	 <20050314105313.GA21001@gondor.apana.org.au>	 <20050314111002.GA29156@gondor.apana.org.au>	 <20050315091904.GA6256@gondor.apana.org.au>	 <20050315095837.GA7130@gondor.apana.org.au>	 <20050318090310.GA28443@gondor.apana.org.au>	 <20050318091129.GA28658@gondor.apana.org.au>	 <20050318104013.57d65e99.davem@davemloft.net> <423D9ADA.6050407@trash.net>	 <423DA58D.4050406@protactive.nl> <20050320171707.GE4201@xi.wantstofly.org>	 <423DB7B7.1070604@trash.net> <423DBCCE.8090006@protactive.nl>	 <423DBF6A.1080907@trash.net> <1111344225.1093.68.camel@jzny.localdomain>
+From: Kosta Todorovic <kostodo@gmail.com>
+Subject: Re: Network card driver problem (znb.o/tulip)
+Date: Sun, 20 Mar 2005 23:18:14 +0400
+Message-ID: <efe3b006050320111879022bc2@mail.gmail.com>
+References: <efe3b00605031021513b7268d1@mail.gmail.com>
+	 <200503182333.51470.jdmason@us.ibm.com>
+	 <efe3b0060503190229dff2a01@mail.gmail.com>
+	 <200503190757.27727.jdmason@us.ibm.com>
+	 <20050319152354.GA4946@electric-eye.fr.zoreil.com>
+	 <1111327546.1094.47.camel@jzny.localdomain>
+	 <efe3b006050320110226b2dba1@mail.gmail.com>
+	 <1111345791.1095.86.camel@jzny.localdomain>
+Reply-To: Kosta Todorovic <kostodo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Ludo Stellingwerff <ludo@protactive.nl>, netdev@oss.sgi.com
+Cc: Francois Romieu <romieu@fr.zoreil.com>, Jon Mason <jdmason@us.ibm.com>,
+        Ben Greear <greearb@candelatech.com>, jgarzik@pobox.com,
+        tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
 To: hadi@cyberus.ca
-In-Reply-To: <1111344225.1093.68.camel@jzny.localdomain>
+In-Reply-To: <1111345791.1095.86.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> BTW, is there any reason the SPD couldnt have been implemented from day
-> one using netfilter classification ? Why did we need another speacilized
-> classifier? the actions are clearly implementable as targets.
+> I dont think mii-tool will tell you the truth with these cards.
+> Like i was saying earlier - they use SYM PHYs.
 
-IMO iptables isn't so great that one would actually want to do this.
-The entire ruleset needs to be one continous area in memory, so it can
-not be changed, only replaced. To make it useable over pfkey would mean
-many things that are currently done by iptables in userspace need to be
-done in the kernel. There are multiple other reasons, but I don't think
-its even worth discussing this. This of course doesn't mean I'm against
-reducing the number of different classification engines.
+Either way, no traffic moved across them when I tried.
 
-Regards
-Patrick
+
+> Does it work on 32 bit machines? I am assuming when you say "64 bit" you
+> mean the architecture not PCI bus.
+
+Yes it does work on 32bit machines, but with the actual znb.o driver
+thats supplied by ZNXY.
+And yes i am refering to architecture and NOT pci bus.
