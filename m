@@ -1,73 +1,41 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] ircomm - set owner get rid of MOD_INC/MOD_DEC
-Date: Mon, 18 Aug 2003 11:17:46 -0700
+Subject: [PATCH] set owner field on /proc/net/irda sub entries
+Date: Mon, 18 Aug 2003 11:19:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818111746.34b9e52b.shemminger@osdl.org>
+Message-ID: <20030818111942.6060b450.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: irda-users@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, irda-users@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ircomm in 2.6.0-test3 can just set the owner field in the tty structure
-like other drivers, and not mess with MOD_INC/MOD_DEC.
+common net/irda code in 2.6.0-test3 creates directory and sub entries,
+but forgets to set owner field on sub entries.
 
-
-diff -Nru a/net/irda/ircomm/ircomm_tty.c b/net/irda/ircomm/ircomm_tty.c
---- a/net/irda/ircomm/ircomm_tty.c	Mon Aug 18 11:07:15 2003
-+++ b/net/irda/ircomm/ircomm_tty.c	Mon Aug 18 11:07:15 2003
-@@ -117,6 +117,7 @@
- 		return -ENOMEM;
- 	}
+diff -Nru a/net/irda/irproc.c b/net/irda/irproc.c
+--- a/net/irda/irproc.c	Mon Aug 18 11:08:23 2003
++++ b/net/irda/irproc.c	Mon Aug 18 11:08:23 2003
+@@ -62,14 +62,18 @@
+ void __init irda_proc_register(void) 
+ {
+ 	int i;
++	struct proc_dir_entry *d;
  
-+	driver->owner		= THIS_MODULE;
- 	driver->driver_name     = "ircomm";
- 	driver->name            = "ircomm";
- 	driver->devfs_name      = "ircomm";
-@@ -363,10 +364,8 @@
+ 	proc_irda = proc_mkdir("net/irda", NULL);
+ 	if (proc_irda == NULL)
+ 		return;
+ 	proc_irda->owner = THIS_MODULE;
  
- 	IRDA_DEBUG(2, "%s()\n", __FUNCTION__ );
- 
--	MOD_INC_USE_COUNT;
- 	line = tty->index;
- 	if ((line < 0) || (line >= IRCOMM_TTY_PORTS)) {
--		MOD_DEC_USE_COUNT;
- 		return -ENODEV;
- 	}
- 
-@@ -377,7 +376,6 @@
- 		self = kmalloc(sizeof(struct ircomm_tty_cb), GFP_KERNEL);
- 		if (self == NULL) {
- 			ERROR("%s(), kmalloc failed!\n", __FUNCTION__);
--			MOD_DEC_USE_COUNT;
- 			return -ENOMEM;
- 		}
- 		memset(self, 0, sizeof(struct ircomm_tty_cb));
-@@ -503,7 +501,6 @@
- 	spin_lock_irqsave(&self->spinlock, flags);
- 
- 	if (tty_hung_up_p(filp)) {
--		MOD_DEC_USE_COUNT;
- 		spin_unlock_irqrestore(&self->spinlock, flags);
- 
- 		IRDA_DEBUG(0, "%s(), returning 1\n", __FUNCTION__ );
-@@ -530,7 +527,6 @@
- 		self->open_count = 0;
- 	}
- 	if (self->open_count) {
--		MOD_DEC_USE_COUNT;
- 		spin_unlock_irqrestore(&self->spinlock, flags);
- 
- 		IRDA_DEBUG(0, "%s(), open count > 0\n", __FUNCTION__ );
-@@ -572,8 +568,6 @@
- 
- 	self->flags &= ~(ASYNC_NORMAL_ACTIVE|ASYNC_CLOSING);
- 	wake_up_interruptible(&self->close_wait);
--
--	MOD_DEC_USE_COUNT;
+-	for (i=0; i<ARRAY_SIZE(dir); i++)
+-		create_proc_info_entry(dir[i].name,0,proc_irda,dir[i].fn);
++	for (i=0; i<ARRAY_SIZE(dir); i++) {
++		d = create_proc_info_entry(dir[i].name,0,proc_irda,dir[i].fn);
++		if (d)
++			d->owner = THIS_MODULE;
++	}
  }
  
  /*
