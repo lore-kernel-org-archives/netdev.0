@@ -1,58 +1,67 @@
-From: jamal <hadi@cyberus.ca>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
 Subject: Re: [E1000-devel] Transmission limit
-Date: 01 Dec 2004 07:25:44 -0500
-Message-ID: <1101903944.1042.29.camel@jzny.localdomain>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	 <41A73826.3000109@draigBrady.com>
-	 <1101483081.24742.174.camel@mellia.lipar.polito.it>
-	 <20041127092503.GA12592@sunbeam.de.gnumonks.org>
-	 <1101718412.14930.46.camel@verza.polito.it>
-	 <20041129145028.GC18788@xi.wantstofly.org>
-	 <1101804146.11111.23.camel@mellia.lipar.polito.it>
-Reply-To: hadi@cyberus.ca
+Date: Wed, 1 Dec 2004 16:24:33 +0100
+Message-ID: <20041201152433.GA12558@xi.wantstofly.org>
+References: <16807.20052.569125.686158@robur.slu.se> <1101484740.24742.213.camel@mellia.lipar.polito.it> <41A76085.7000105@draigBrady.com> <1101499285.1079.45.camel@jzny.localdomain> <16811.8052.678955.795327@robur.slu.se> <1101821501.1043.43.camel@jzny.localdomain> <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain> <20041201001107.GE4203@xi.wantstofly.org> <1101902900.1041.9.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-        Harald Welte <laforge@gnumonks.org>, P@draigBrady.com,
-        e1000-devel@lists.sourceforge.net,
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
+        mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
         Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
         Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mellia@prezzemolo.polito.it
-In-Reply-To: <1101804146.11111.23.camel@mellia.lipar.polito.it>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1101902900.1041.9.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-11-30 at 03:42, Marco Mellia wrote:
-> On Mon, 2004-11-29 at 15:50, Lennert Buytenhek wrote:
-> > On Mon, Nov 29, 2004 at 09:53:33AM +0100, Marco Mellia wrote:
-> > 
-> > > Th's our intuition too.
-> > > Notice that we get the same results with 3com (broadcom based) gigabit
-> > > cards.
-> > > We are thinking of sending packet in "bursts" instead of single
-> > > transfers. The only problem is to let the NIC know that there are more
-> > > than a packet in a burst...
-> > 
-> > Jamal implemented exactly this for e1000 already, he might be persuaded
-> > into posting his patch here.  Jamal? :)
+On Wed, Dec 01, 2004 at 07:08:20AM -0500, jamal wrote:
+
+[ per-CPU TX/RX rings ]
+> > You mean the management of qdiscs would be non-trivial?
 > 
-> I guess that saying that we are _very_ interested in this might help.
-> :-)
-> We can offer as "beta-testers" as well...
+> I mean it is useful in only the most ideal cases and if you want to
+> actually do something useful in most cases with it you will have to
+> muck around.
+> Take the case of forwarding (maybe with a little or almost no localhost
+> generated traffic) - then you end allocating in CPUA, processing and
+> queueing on egress. Tx softirq, which is what stashes the packet on tx
+> DMA eventually, is not guaranteed to run on the same CPU. Now add a
+> little latency between ingress and egress ..
+> The ideal case is where you end up processing to completion from ingress
+> to egress (which is known to happen in Linux when theres no congestion).
 
-Sorry missed this (I wasnt CCed so it went to a low priority queue which
-i read on a best effort basis).
-Let me clean up the patches a little bit this weekend. The patch is at
-least 4 months old; latest reincarnation was due to issue1 on my SUCON
-presentation. Would a patch against latest 2.6.x bitkeeper (whatever it
-is this weekend) be fine? If you are in a rush and dont mind a little
-ugliness then i will pass them as is.
+We disagreed on this topic at SUCON and I'm afraid we'll be disagreeing
+on it forever :)  IMHO, on 10GbE any kind of qdisc is a waste of cycles.
 
-BTW, Scott posted a interesting patch yesterday, you may wanna give that
-a shot as well. 
+I don't think it's very likely that you'll be using that single 10GbE NIC
+for forwarding packets, doing that with a PC at this point in the history
+of PCs is just silly.  If you do use it for forwarding, how likely is it
+that you'll be able to process an incoming burst of packets fast enough
+to require queueing on the egress interface?  You have to be able to send
+a burst of packets bigger than the NIC's TX FIFO at >10GbE in the first
+place for queueing to be effective/useful at all.
 
-cheers,
-jamal
+(Leaving the question of whether or not there'll be some room in the TX
+FIFO at TX time unanswered, what you're doing with per-CPU TX rings is
+basically just simulating the "N individual NICs each bound to its own
+CPU" case with a single NIC.)
+
+
+> > Probably the idea of these kinds of tricks is to skip the qdisc step
+> > altogether.
+> 
+> Which is preached by the BSD folks - bogus in my opinion. If you want to
+> do something as bland/boring as that you can probably afford a $500
+> DLINK router which can do it at wire rate with (with cost you being
+> locked in whatever features they have).
+
+That's an unfair comparison.  Just because I don't need CBQ doesn't mean
+my $500 DLINK router does everything I'd want it to -- advanced firewalling
+is one thing that comes to mind.  Last time I looked I couldn't load my
+own kernel modules on my DLINK router either.
+
+
+--L
