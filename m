@@ -1,78 +1,84 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH] Fix checksum bug for multicast/broadcast packets on postrouting hook
-Date: Tue, 17 Feb 2004 16:54:53 +0100
+From: Kai Makisara <Kai.Makisara@kolumbus.fi>
+Subject: e1000 lockup with Linux 2.6.3-rc4
+Date: Tue, 17 Feb 2004 21:16:20 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040217155452.GA9464@sunbeam.de.gnumonks.org>
-References: <402E71E2.1040508@kolumbus.fi> <Xine.LNX.4.44.0402142314580.7364-100000@thoron.boston.redhat.com>
+Message-ID: <Pine.LNX.4.58.0402172104020.1073@kai.makisara.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="LQksG6bCIzRHxTLp"
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: scott.feldman@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0402142314580.7364-100000@thoron.boston.redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This kernel locks up with one of my machines when bringing up the e1000 
+interface. Reverting the patch at the end of this message solves the 
+problem.
 
---LQksG6bCIzRHxTLp
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+The motherboard is Intel D875PBZLK and lspci gives the following
+information about the e1000:
 
-On Sun, Feb 15, 2004 at 01:09:23AM -0500, James Morris wrote:
-> On Sat, 14 Feb 2004, Mika Penttil=E4 wrote:
->=20
-> > James Morris wrote:
-> >=20
-> > >The proposed solution below is to copy the skb rather than clone it, t=
-o=20
-> > >ensure that the original and looped back packets are independent.
-> > >
-> >
-> > This is unneeded overhead for the common case. The right fix is to make=
-=20
-> > sure the modifier (netfilter etc) makes the copy if needed. Actually,=
-=20
-> > this is what skb_ip_make_writable() is doing.
->=20
-> The common case here will be only for locally generated multicast and=20
-> broadcast packets.
->=20
-> If the netfilter core code is modified instead, we will end up adding
-> skb_ip_make_writable() to nf_hook_slow() which will be called for every=
-=20
-> packet with an output device which uses hardware checksums.
->=20
-> Not sure which is worse, but here's a proposed patch which does this.
-=20
-Why can't we somehow check inside the netfilter hook if the packet is
-at least multicast/broadcast (or even better: also locally generated)?
+02:01.0 Ethernet controller: Intel Corp.: Unknown device 1019
+        Subsystem: Intel Corp.: Unknown device 3025
+        Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 18
+        Memory at fe9e0000 (32-bit, non-prefetchable) [size=128K]
+        I/O ports at 9c00 [size=32]
+        Capabilities: <available only to root>
 
-> - James
-> James Morris
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
 
---LQksG6bCIzRHxTLp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+The Changelog for 2.6.3-rc1 contains the following entry:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+<scott.feldman@intel.com>
+        [e1000] 82547 interrupt assert/de-assert re-ordering
+        
+        * 82547 needs interrupt disable/enable to keep interrupt assertion
+          state synced between 82547 and APIC.  82547 will re-order
+          assert and de-assert messages if hub link bus is busy (heavy
+          traffic).  Disabling interrupt on device works around re-
+          order issue.
 
-iD8DBQFAMjlMXaXGVTD0i/8RAp0tAJ0WeghJUFB2tUxVH8xcQsIfoRog3wCeJakS
-LMb3v6u1uEdlk7PWRmamgIw=
-=HvN6
------END PGP SIGNATURE-----
+which is the patch at the end of this message. Later there is the 
+following entry:
 
---LQksG6bCIzRHxTLp--
+<scott.feldman@intel.com>
+        [netdrvr e1000] back out CSA interrupt fix
+        
+        * 8086:1019 82547 CSA-based LOMs lock up the system with
+          this code, so let's revert back to what's in 2.6.0 until
+          we can figure out why this is causing problems.
+
+Is this patch missing from 2.6.3-rc4 or have I misread the logs?
+
+-- 
+Kai
+
+diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+--- a/drivers/net/e1000/e1000_main.c	Wed Feb  4 12:35:36 2004
++++ b/drivers/net/e1000/e1000_main.c	Wed Feb  4 12:35:36 2004
+@@ -2124,10 +2124,26 @@
+ 		__netif_rx_schedule(netdev);
+ 	}
+ #else
++        /* Writing IMC and IMS is needed for 82547.
++	   Due to Hub Link bus being occupied, an interrupt 
++	   de-assertion message is not able to be sent. 
++	   When an interrupt assertion message is generated later,
++	   two messages are re-ordered and sent out.
++	   That causes APIC to think 82547 is in de-assertion
++	   state, while 82547 is in assertion state, resulting 
++	   in dead lock. Writing IMC forces 82547 into 
++	   de-assertion state.
++        */
++	if(hw->mac_type == e1000_82547 || hw->mac_type == e1000_82547_rev_2)
++		e1000_irq_disable(adapter);
++
+ 	for(i = 0; i < E1000_MAX_INTR; i++)
+ 		if(!e1000_clean_rx_irq(adapter) &
+ 		   !e1000_clean_tx_irq(adapter))
+ 			break;
++
++	if(hw->mac_type == e1000_82547 || hw->mac_type == e1000_82547_rev_2)
++		e1000_irq_enable(adapter);
+ #endif
+ 
+ 	return IRQ_HANDLED;
