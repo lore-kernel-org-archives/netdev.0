@@ -1,36 +1,54 @@
-From: Sami Farin <7atbggg02@sneakemail.com>
-Subject: Re: 2.6.9-rc4 tcp_transmit_skb: BUG_ON(!tcp_skb_pcount(skb))
-Date: Fri, 15 Oct 2004 11:47:07 +0300
+From: Michael Renzmann <mrenzmann@web.de>
+Subject: Minor bug in tun.c
+Date: Fri, 15 Oct 2004 13:14:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015084707.GA29106@m.safari.iki.fi>
-References: <20041013231006.GA14742@m.safari.iki.fi> <E1CILsE-0005cJ-00@gondolin.me.apana.org.au>
+Message-ID: <416FB0F9.6040203@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <E1CILsE-0005cJ-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 15, 2004 at 04:47:34PM +1000, Herbert Xu wrote:
-> Sami Farin <7atbggg02@sneakemail.com> wrote:
-> > 
-> > tcp_output.c:277
-> > Invalid operand 0
-> > tcp_transmit_skb
-> > tcp_send_synack
-> > tcp_rcv_synsent_state_process
-> 
-> OK, this patch should fix it.
-> 
-> We weren't copying the TSO fields in skb_copy().
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Cheers,
+Hi all.
 
-Thank you!  I can't reproduce the BUG anymore.
-Hopefully this fix gets into 2.6.9-final.
+I'm currently trying to learn a bit more about driver programming, 
+therefore I'm working a little with tun.c (using the version that comes 
+with 2.6.7). I have some experience with C programming in general, but 
+I'm a newbie when it comes to kernel stuff.
 
--- 
+Have a look at the following code (taken from the function tun_net_xmit()):
+
+=== cut ===
+	/* Queue packet */
+	if (!(tun->flags & TUN_ONE_QUEUE)) {
+		/* Normal queueing mode.
+		 * Packet scheduler handles dropping. */
+		if (skb_queue_len(&tun->readq) >= TUN_READQ_SIZE)
+			netif_stop_queue(dev);
+	} else {
+		/* Single queue mode.
+		 * Driver handles dropping itself. */
+		if (skb_queue_len(&tun->readq) >= dev->tx_queue_len)
+			goto drop;
+	}
+	skb_queue_tail(&tun->readq, skb);
+=== cut ===
+
+Look at the code that is executed when TUN_ONE_QUEUE isn't set in 
+tun->flags. If the length of the queue has reached its maximum value 
+(given as TUN_READQ_SIZE), the current packet still is appended to the 
+queue, thereby exceeding the maximum length by 1.
+
+In my eyes the simplest way to correct that would be to change
+
+		if (skb_queue_len(&tun->readq) >= TUN_READQ_SIZE)
+
+to read
+
+		if (skb_queue_len(&tun->readq) >= TUN_READQ_SIZE - 1)
+
+Please correct me if I'm wrong.
+
+Bye, Mike
