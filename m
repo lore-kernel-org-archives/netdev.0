@@ -1,55 +1,138 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] tg3.h & b44.h ifndef ADVERTISE_PAUSE typo
-Date: Tue, 11 Jan 2005 13:57:44 -0500
-Message-ID: <41E421A8.60203@pobox.com>
-References: <1105454553.4264.4.camel@dhollis-lnx.centricconsulting.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (1/2) skfddi: initialization
+Date: Tue, 11 Jan 2005 11:19:17 -0800
+Message-ID: <20050111111917.52988b75@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Hollis <dhollis@davehollis.com>
-In-Reply-To: <1105454553.4264.4.camel@dhollis-lnx.centricconsulting.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David Hollis wrote:
-> tg3.h and b44.h define ADVERTISE_PAUSE_CAP if ADVERTISE_PAUSE
-> is not defined.  Both include a notation that these values should
-> be added to mii.h.  If ADVERTISE_PAUSE_CAP was added to mii.h,
-> these defines would break since they are checking for ADVERTISE_PAUSE
-> instead of ADVERTISE_PAUSE_CAP.
-> 
-> Signed-off-by: David Hollis <dhollis@davehollis.com>
-> 
->  drivers/net/b44.h |    2 +-
->  drivers/net/tg3.h |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> --- a/drivers/net/b44.h	2005-01-11 09:34:39.178739728 -0500
-> +++ b/drivers/net/b44.h	2005-01-11 09:34:54.215453800 -0500
-> @@ -303,7 +303,7 @@
->  #define  MII_TLEDCTRL_ENABLE	0x0040
->  
->  /* XXX Add this to mii.h */
-> -#ifndef ADVERTISE_PAUSE
-> +#ifndef ADVERTISE_PAUSE_CAP
->  #define ADVERTISE_PAUSE_CAP		0x0400
->  #endif
->  #ifndef ADVERTISE_PAUSE_ASYM
-> --- a/drivers/net/tg3.h	2005-01-11 09:34:43.562073360 -0500
-> +++ b/drivers/net/tg3.h	2005-01-11 09:35:00.786454856 -0500
-> @@ -1532,7 +1532,7 @@
->  #define MII_TG3_INT_ANEG_PAGE_RX	0x0400
->  
->  /* XXX Add this to mii.h */
-> -#ifndef ADVERTISE_PAUSE
-> +#ifndef ADVERTISE_PAUSE_CAP
->  #define ADVERTISE_PAUSE_CAP		0x0400
->  #endif
->  #ifndef ADVERTISE_PAUSE_ASYM
+When the skfddi driver was converted to the new PCI netdevice interface,
+it never got tested with real hardware. The initialization got broken, this
+should fix it.
 
-Just kill the ifdef and add it to mii.h.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-	Jeff
+diff -Nru a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
+--- a/drivers/net/skfp/skfddi.c	2004-12-14 11:08:07 -08:00
++++ b/drivers/net/skfp/skfddi.c	2004-12-14 11:08:07 -08:00
+@@ -205,7 +205,6 @@
+ {
+ 	struct net_device *dev;
+ 	struct s_smc *smc;	/* board pointer */
+-	unsigned long port, len;
+ 	void __iomem *mem;
+ 	int err;
+ 
+@@ -216,62 +215,43 @@
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err)
++		return err;
++
++	err = pci_request_regions(pdev, "skfddi");
++	if (err)
+ 		goto err_out1;
+ 
++	pci_set_master(pdev);
+ 
+ #ifdef MEM_MAPPED_IO
+ 	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
+ 		printk(KERN_ERR "skfp: region is not an MMIO resource\n");
+ 		err = -EIO;
+-		goto err_out1;
++		goto err_out2;
+ 	}
+-	port = pci_resource_start(pdev, 0);
+-	len = pci_resource_len(pdev, 0);
+ 
+-	if (len < 0x4000) {
+-		printk(KERN_ERR "skfp: Invalid PCI region size: %lu\n", len);
+-		err = -EIO;
+-		goto err_out1;
+-	}
++	mem = ioremap(pci_resource_start(pdev, 0), 0x4000);
+ #else
+ 	if (!(pci_resource_flags(pdev, 1) & IO_RESOURCE_IO)) {
+ 		printk(KERN_ERR "skfp: region is not PIO resource\n");
+ 		err = -EIO;
+-		goto err_out1;
++		goto err_out2;
+ 	}
+ 
+-	port = pci_resource_start(pdev, 1);
+-	len = pci_resource_len(pdev, 1);
+-	if (len < FP_IO_LEN) {
+-		printk(KERN_ERR "skfp: Invalid PCI region size: %d\n",
+-		       io_len);
++	mem = ioport_map(pci_resource_start(pdev, 1), FP_IO_LEN);
++#endif
++	if (!mem) {
++		printk(KERN_ERR "skfp:  Unable to map register, "
++				"FDDI adapter will be disabled.\n");
+ 		err = -EIO;
+-		goto err_out1;
++		goto err_out2;
+ 	}
+-#endif
+-	err = pci_request_regions(pdev, "skfddi");
+-	if (err)
+-		goto err_out1;
+-
+-	pci_set_master(pdev);
+ 
+ 	dev = alloc_fddidev(sizeof(struct s_smc));
+ 	if (!dev) {
+ 		printk(KERN_ERR "skfp: Unable to allocate fddi device, "
+ 				"FDDI adapter will be disabled.\n");
+ 		err = -ENOMEM;
+-		goto err_out2;
+-	}
+-
+-#ifdef MEM_MAPPED_IO
+-	mem = ioremap(port, len);
+-#else
+-	mem =ioport_map(port, len);
+-#endif
+-	if (!mem) {
+-		printk(KERN_ERR "skfp:  Unable to map register, "
+-				"FDDI adapter will be disabled.\n");
+-		err = -EIO;
+ 		goto err_out3;
+ 	}
+ 
+@@ -331,16 +311,17 @@
+ 	pci_free_consistent(pdev, MAX_FRAME_SIZE,
+ 			    smc->os.LocalRxBuffer, smc->os.LocalRxBufferDMA);
+ err_out4:
++	free_netdev(dev);
++err_out3:
+ #ifdef MEM_MAPPED_IO
+-	iounmap(smc->hw.iop);
++	iounmap(mem);
+ #else
+-	ioport_unmap(smc->hw.iop);
++	ioport_unmap(mem);
+ #endif
+-err_out3:
+-	free_netdev(dev);
+ err_out2:
+ 	pci_release_regions(pdev);
+ err_out1:
++	pci_disable_device(pdev);
+ 	return err;
+ }
+ 
+@@ -376,6 +357,7 @@
+ 	pci_release_regions(pdev);
+ 	free_netdev(p);
+ 
++	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+ }
+ 
