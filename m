@@ -1,47 +1,39 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6] convert ROSE to use module_param
-Date: Thu, 29 Jul 2004 11:35:22 -0700
+Subject: [PATCH 2.6] convert netrom to module_param
+Date: Thu, 29 Jul 2004 11:36:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040729113522.30add0e5@dell_ss3.pdx.osdl.net>
+Message-ID: <20040729113651.6517fe27@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, linux-hams@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, ralf@linux-mips.org
+To: "David S. Miller" <davem@redhat.com>, Ralf Baechel <ralf@linux-mips.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Switch to module_param and the hash list can be local.
+Convert Netrom to use module_param
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-diff -Nru a/net/rose/af_rose.c b/net/rose/af_rose.c
---- a/net/rose/af_rose.c	2004-07-23 13:33:31 -07:00
-+++ b/net/rose/af_rose.c	2004-07-23 13:33:31 -07:00
-@@ -11,6 +11,7 @@
+ 
+diff -Nru a/net/netrom/af_netrom.c b/net/netrom/af_netrom.c
+--- a/net/netrom/af_netrom.c	2004-07-23 13:27:52 -07:00
++++ b/net/netrom/af_netrom.c	2004-07-23 13:27:52 -07:00
+@@ -10,6 +10,7 @@
   */
  #include <linux/config.h>
  #include <linux/module.h>
 +#include <linux/moduleparam.h>
- #include <linux/init.h>
  #include <linux/errno.h>
  #include <linux/types.h>
-@@ -57,7 +58,7 @@
- int sysctl_rose_maximum_vcs             = ROSE_DEFAULT_MAXVC;
- int sysctl_rose_window_size             = ROSE_DEFAULT_WINDOW_SIZE;
+ #include <linux/socket.h>
+@@ -1451,8 +1452,7 @@
  
--HLIST_HEAD(rose_list);
-+static HLIST_HEAD(rose_list);
- spinlock_t rose_list_lock = SPIN_LOCK_UNLOCKED;
+ module_init(nr_proto_init);
  
- static struct proto_ops rose_proto_ops;
-@@ -1550,7 +1551,7 @@
- }
- module_init(rose_proto_init);
- 
--MODULE_PARM(rose_ndevs, "i");
-+module_param(rose_ndevs, int, 0);
- MODULE_PARM_DESC(rose_ndevs, "number of ROSE devices");
+-
+-MODULE_PARM(nr_ndevs, "i");
++module_param(nr_ndevs, int, 0);
+ MODULE_PARM_DESC(nr_ndevs, "number of NET/ROM devices");
  
  MODULE_AUTHOR("Jonathan Naylor G4KLX <g4klx@g4klx.demon.co.uk>");
