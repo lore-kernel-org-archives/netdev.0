@@ -1,60 +1,48 @@
-From: Julian Anastasov <ja@ssi.bg>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: suggestion for routing code improvement
-Date: Thu, 11 Apr 2002 15:08:23 +0300 (EEST)
+Date: Thu, 11 Apr 2002 08:18:50 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0204111451570.9056-100000@l>
-References: <15541.29604.537736.704406@robur.slu.se>
+Message-ID: <Pine.GSO.4.30.0204110805460.651-100000@shell.cyberus.ca>
+References: <Pine.LNX.4.44.0204111451570.9056-100000@l>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <15541.29604.537736.704406@robur.slu.se>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0204111451570.9056-100000@l>
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
 
-On Thu, 11 Apr 2002, Robert Olsson wrote:
+On Thu, 11 Apr 2002, Julian Anastasov wrote:
 
-> There is already RTPROT_KERNEL and proto RTPROT_STATIC is way for the
-> administrator to interact with the routing daemon even if is a you say
-> that this is not currently implemented by all daemons. I have used this
-> with gated.
-
-	Well, I now see, it is used in gated. But only in one route table
-which is a drawback.
-
-> IMHO even static routes implements a routing policy from some administrator
-> view and should therefore by configured, debugged etc. This job has to done
-> somewhere and a userland daemon seems most adequate at least in my eyes.
-
-	Agreed. Add to this that sometimes many such agents play with
-the routes but in its own area (different tables, etc) and the things
-become more complex. I still don't know for daemon that can work with
-multiple routing tables in Linux, some even don't recognize the
-preferred source IPs and the ip rules.
-
-> And with the current model the "network" comes up in a clean fashion. I think
-> it easier to just add the needed routes rather to check the old history and
-> deal with this. Probably we need to check is address, netmask changes etc
-> so the old routes will be installed in the same context.
 >
-> A very simple daemon for static routes would do the job we are talking about
-> here and should be easy to configure through config files or just via netlink.
-> And just replace it with zebra/gated/bird when the complexity requires it.
-
-	More correctly, the settings are more complex than the mentioned
-daemons can handle. Sticking with one route table is not enough in most
-of the cases. This is the main reason the mentioned patches for static
-routes to exist. They are more manageable (with scripts) for setups where
-routing protocols are not used.
-
-> Cheers.
+> 	Hello,
 >
-> 						--ro
+> On Thu, 11 Apr 2002, Robert Olsson wrote:
+>
+> > There is already RTPROT_KERNEL and proto RTPROT_STATIC is way for the
+> > administrator to interact with the routing daemon even if is a you say
+> > that this is not currently implemented by all daemons. I have used this
+> > with gated.
+>
+> 	Well, I now see, it is used in gated. But only in one route table
+> which is a drawback.
 
-Regards
+I thought gated was capable of using at least main and local.
+If i am not mistaken zebra is now capable of using more tables as well.
+It would probably be actually better policy to enter all static routes in
+one table.
+Robert, when you enter a static route from gated, is it registered as
+proto gated or proto static?
+While i like Julians patch (adding no complexity, IMO) I see that the
+functionality could be very easily moved outside the kernel where you
+could also do a lot more fancy things (very complex decision making
+example: based on which devs go down, what next multihops to use etc).
+Unfortunately, it does require extra code in user space.
+The question is: Would people who need this functionality be not very lazy
+and actually fetch this code and compile it? ;->
 
---
-Julian Anastasov <ja@ssi.bg>
+cheers,
+jamal
