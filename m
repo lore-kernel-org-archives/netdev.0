@@ -1,36 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [Bug 3610] New: kernel-2.6.9 breaks Amanda
-Date: Thu, 21 Oct 2004 15:44:51 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Allowing netlink_family to be any integer (was: [PATCH 2.6] iptables CLUSTERIP target)
+Date: Fri, 22 Oct 2004 00:53:15 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021154451.50b07f53.davem@davemloft.net>
-References: <20041021133752.67a386fb@zqx3.pdx.osdl.net>
-	<20041021142335.54f088ad.davem@davemloft.net>
-	<20041021151015.10738f8a@zqx3.pdx.osdl.net>
+Message-ID: <20041021225315.GH19714@rei.reeler.org>
+References: <20041021142527.GG3551@sunbeam.de.gnumonks.org> <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Harald Welte <laforge@netfilter.org>, lmb@suse.de, ahu@ds9a.nl,
+        hch@infradead.org, netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041021151015.10738f8a@zqx3.pdx.osdl.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004 15:10:15 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+* Herbert Xu <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au> 2004-10-22 07:31
+> Initially I considered an interface where kernel users can register
+> themselves using a string as the key.  But I soon realised that we
+> could simply allow the netlink_family field to be an arbitrary integer
+> that is used as a key to a hash table.
 
-> > If the bug reporter had provided an strace of the Amanda userland
-> > components, we'd know this already.
-> 
-> Reading the current source code: 
-> 	http://prdownloads.sourceforge.net/amanda/amanda-2.4.4p3.tar.gz?download
-> 
-> It does sendto() then close() in the udp_send path.
-> Also, it suffers from the select() and blocking rcvfrom() problem.
+Sounds like a good idea, converting nl_table and nl_nonroot into
+a hash table won't be much of a problem. The netlink device driver
+must probably be changed to create devices on the fly if we want
+modules to be able to register netlink families. The same goes
+for some selinux stuff but this is minor.
 
-Not to accuse the reporter or anything, but this may be a straw-man
-rigged up bug report to try and force our hands in changing the behavior
-of this case.
-
-If so, that's quite rude, because kernels have behaved that way
-forever, not just in 2.6.9.
+The only real problem I see is sk_protocol being only 8bit as
+limiting factor.
