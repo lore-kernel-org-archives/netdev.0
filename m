@@ -1,43 +1,46 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Current 2.6.x TSO state
-Date: Fri, 1 Oct 2004 17:04:56 -0700
+Subject: Re: generic 802.11 stack
+Date: Fri, 1 Oct 2004 17:11:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041001170456.3ec52222.davem@davemloft.net>
-References: <20040930213221.06a3f5b3.davem@davemloft.net>
-	<20041001121123.19511403.ak@suse.de>
-	<20041001124733.1ac4266a.davem@davemloft.net>
-	<20041001195146.GA23046@wotan.suse.de>
-	<20041001125643.30c6830f.davem@davemloft.net>
-	<20041001231939.GC23046@wotan.suse.de>
+Message-ID: <20041001171158.489e3cf1.davem@davemloft.net>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
+	<200410011630.59465.vkondra@mail.ru>
+	<20041001155310.515ee09e.davem@davemloft.net>
+	<200410020125.40669.vkondra@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@oss.sgi.com, jheffner@psc.edu,
-        herbert@gondor.apana.org.au
+Cc: netdev@oss.sgi.com, mcgrof@studorgs.rutgers.edu,
+        acx100-devel@lists.sourceforge.net, prism54-devel@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20041001231939.GC23046@wotan.suse.de>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+In-Reply-To: <200410020125.40669.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2 Oct 2004 01:19:39 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Sat, 2 Oct 2004 01:25:32 +0200
+Vladimir Kondratiev <vkondra@mail.ru> wrote:
 
-> > As mentioned, the TCP receive buffer auto-tuning takes care
-> > of all of this in 2.6.6 and later.  It's just 2.6.5 doesn't
+> DS> Next:
+> DS>
+> DS> +    dev->mtu                = 2304;
+> DS> +    dev->type               = ARPHRD_IEEE80211;
+> DS>
+> DS> Is this really the correct default MTU for wireless devices?
 > 
-> How do you explain the 2-4MB/s less with manually increased 
-> receive buffers? 
+> Yes, 802.11e (QoS) defines this value.
 
-Some scheduling differences, I suppose.
+All existing wireless drivers use the standard ethernet MTU.
+I really think it is supposed to be 1500.
 
-Frankly, I've done what I can with the TSO stuff at this point.
+That's why I left it at ether_setup()'s setting.
 
-All I get from you are "it's slower" and no code, I've had to
-write and fix and debug everything for you.  The performance
-is close or on-par to non-TSO and more importantly TSO abides
-by the congestion window and MSS values properly now.  That's
-10 times more important than 2-4MB/s performance difference.
+Upper layers really want to see a 1500 byte standard ethernet
+MTU by default.  It's OK to let people set this higher via
+netdev->change_mtu() configuration calls, but by default it
+should be something that makes sense for most networks and
+that is 1500.
 
-Or maybe I should revert all of the TSO work so that all SpecWEB
-submissions done with 2.6.x kernels get invalidated?
+Yes, btw, your tabs are all screwed up.  Please configure
+your editor to use real tab characters.  Your's is using
+spaces and using a tab-stop of 4 when it should be 8.
