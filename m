@@ -1,38 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Openswan Users] 	DPD Problem - message from kernel malformed:
-	unknown address family
-Date: Thu, 21 Oct 2004 09:15:35 +1000
-Sender: users-bounces@openswan.org
-Message-ID: <20041020231535.GA9469@gondor.apana.org.au>
-References: <417675C6.3040704@gmx.ch>
-	<E1CKOXc-0002Kq-00@gondolin.me.apana.org.au>
-	<20041020230929.GA9390@gondor.apana.org.au>
-	<20041020160849.085bb075.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
+Date: Thu, 21 Oct 2004 08:18:37 +0900 (JST)
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20041021.081837.99226422.yoshfuji@linux-ipv6.org>
+References: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <users-bounces@openswan.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041020160849.085bb075.davem@davemloft.net>
-Cc: users@openswan.org
-List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/users>,
-	<mailto:users-request@openswan.org?subject=unsubscribe>
-List-Archive: <http://lists.openswan.org/pipermail/users>
-List-Post: <mailto:users@openswan.org>
-List-Help: <mailto:users-request@openswan.org?subject=help>
-List-Subscribe: <http://lists.openswan.org/mailman/listinfo/users>,
-	<mailto:users-request@openswan.org?subject=subscribe>
-Errors-To: users-bounces@openswan.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+	netfilter-devel@lists.netfilter.org, lmb@suse.de
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: laforge@netfilter.org
+In-Reply-To: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 20, 2004 at 04:08:49PM -0700, David S. Miller wrote:
-> 
-> So why is the unknown address error occuring for this case?
+In article <20041020223828.GP19899@sunbeam.de.gnumonks.org> (at Thu, 21 Oct 2004 00:38:28 +0200), Harald Welte <laforge@netfilter.org> says:
 
-That's what I'm trying to figure out right now :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Apart from the usual netfilter-specific file additions and
+> Kconfig/Makefile patches, this needs to export proc_file_operations in
+> order to get the reference counting of certain data objects right.  I
+> hope this change is acceptable.
+
+Please use seq_file instead.  Thanks.
+
+--yoshfuji
