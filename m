@@ -1,72 +1,71 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: way of figuring out total number of retransmitted packets on a TCP socket?
-Date: Thu, 21 Oct 2004 11:01:01 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021090101.GD31265@xi.wantstofly.org>
-References: <20041020130134.GC24757@xi.wantstofly.org> <20041020151448.51209278.davem@davemloft.net> <20041020223547.GJ29583@xi.wantstofly.org> <20041020155352.1c9b70f6.davem@davemloft.net> <20041020230405.GE995@wotan.suse.de> <20041020234423.GB31265@xi.wantstofly.org> <20041020164451.7746b595.davem@davemloft.net>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
+Date: Thu, 21 Oct 2004 11:12:29 +0200
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20041021091229.GA3551@sunbeam.de.gnumonks.org>
+References: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
+	<20041021075530.GA1278@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@suse.de, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="3V7upXqbjpZ4EhLz"
+Cc: Linux Netdev List <netdev@oss.sgi.com>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Christoph Hellwig <hch@infradead.org>
 Content-Disposition: inline
-In-Reply-To: <20041020164451.7746b595.davem@davemloft.net>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20041021075530.GA1278@infradead.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 20, 2004 at 04:44:51PM -0700, David S. Miller wrote:
 
-> > My application is a large-ish streaming video and file download service,
-> > where I want to be able to automatically report on netblocks that are
-> > seeing unusual packet loss, and then use that data to alert our NOC
-> > and subsequently kick my transit providers with.
-> 
-> Isn't this what RSVP is for?  I realize that you may not be in
-> a position to use RSVP end-to-end as necessary, but watching for
-> retransmits by hand seems like simply a hackish way to do RSVP.
+--3V7upXqbjpZ4EhLz
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I'm approaching this from the other side.  There is no such thing as
-an honest internet transit provider, and an often-seen trick is to
-give ICMP packets a higher loss priority so that when you ping it all
-looks okay even though say 0.5% of all non-ICMP traffic is actually
-not making it to the other side because they're trying to stuff >10gbps
-of traffic down a 10gbps pipe and don't want to invest more money in
-their infrastructure to keep margins low.  They can then claim that
-their 99.9% or 99.99% or 99.999% (depending on the crappiness level
-of the provider) packet arrival guarantee is met because "ping from
-my workstation doesn't show anything wrong" (actual words of someone
-we've done business with.)
+On Thu, Oct 21, 2004 at 08:55:30AM +0100, Christoph Hellwig wrote:
+> btw, please stop crossposting to public and private lists, or even better
+> allow posting to netfiler-devel without subscription like every sane list
+> allows to.
 
-Regarding RSVP, at least in Europe people seem to prefer the
-'lots of bandwidth'-approach.  In edge networks, people'd rather throw
-an extra gig at the problem than to implement QoS.  And transit providers
-will never implement it if it will allow people to find out that their
-network really is underprovisioned.  I don't know of any provider that
-uses or advertises QoS-related stuff such as RSVP.
+We allow posting, your posting will just await moderator approval.  Our
+listmaster usuall checks more than once per day. =20
 
-RSVP is nice for stuff like research networks (Internet2, etc), but in
-the actual internet you typically have to cross two or three other
-providers to get to your destination and I really don't see each and
-every one of those cooperating to provide RSVP end-to-end.  I don't see
-end-to-end RSVP happening in the actual internet any time soon to be
-honest.  If it ever will, I'm sure someone will find a way to make their
-RSVP implementation lie to other providers about the true capacity of
-their network (and then say "Sorry, we misconfigured it." if you find
-out), at which point it becomes totally useless.
+Developers who happen to post more often (like davem) will be added to
+an explicit sender filter.
 
+Unfortunately wi didn't find any other reliable way to catch all the
+spam we receive, sorry.  And yes, we already run spamassassin, as well
+as mimetype-based and HTML filters.
 
-> Furthermore, non-timeout based retransmits are actually normal even
-> on local subnets when a gigabit switch drops a packet to prevent
-> internal deadlocks and stuff like that.  I've seen this quite a bit.
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-My crappy gigabit switch at home does this as well, but I've yet to
-see this happen on the more 'serious' network gear.
+--3V7upXqbjpZ4EhLz
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-A typical Amsterdam->LA single stream TCP test sees less than one in a
-million lost packets over a good provider, and anywhere between ~100
-and ~3000 per million over a crappy one.  The corresponding difference
-in price is a factor of about 5-10.  (For example, $30-$40 per mbps per
-month versus $5 assuming a reasonable traffic volume.)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
 
+iD8DBQFBd319XaXGVTD0i/8RAuZcAKCK1CJSlFGCJ09DsY7bOLpFbfvSlACgmajt
+uL86f+THZ5QD+MT+xEFwIZw=
+=dIGC
+-----END PGP SIGNATURE-----
 
---L
+--3V7upXqbjpZ4EhLz--
