@@ -1,41 +1,45 @@
-From: Doug McNaught <doug@mcnaught.org>
-Subject: Re: question about linux tcp request queue handling
-Date: 07 Jul 2003 18:25:17 -0400
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: disablenetwork() syscall?
+Date: Mon, 7 Jul 2003 19:33:35 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3brw6rn3m.fsf@varsoon.wireboard.com>
-References: <3F08858E.8000907@us.ibm.com.suse.lists.linux.kernel>
-	<001a01c3441c$6fe111a0$6801a8c0@oemcomputer.suse.lists.linux.kernel>
-	<3F08B7E2.7040208@us.ibm.com.suse.lists.linux.kernel>
-	<000d01c3444f$e6439600$6801a8c0@oemcomputer.suse.lists.linux.kernel>
-	<3F090A4F.10004@us.ibm.com.suse.lists.linux.kernel>
-	<001401c344df$ccbc63c0$6801a8c0@oemcomputer.suse.lists.linux.kernel>
-	<p73fzliqa91.fsf@oldwotan.suse.de>
+Message-ID: <20030707223334.GG5292@conectiva.com.br>
+References: <20030707194657.GA11328@gtf.org> <Pine.LNX.4.44.0307072250000.11843-100000@netcore.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Paul Albrecht" <palbrecht@qwest.net>, niv@us.ibm.com,
-   linux-kernel@vger.kernel.org, "netdev" <netdev@oss.sgi.com>
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: Andi Kleen's message of "07 Jul 2003 23:48:10 +0200"
+To: Pekka Savola <pekkas@netcore.fi>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0307072250000.11843-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen <ak@suse.de> writes:
-
-> "Paul Albrecht" <palbrecht@qwest.net> writes:
+Em Mon, Jul 07, 2003 at 10:52:15PM +0300, Pekka Savola escreveu:
+> On Mon, 7 Jul 2003, Jeff Garzik wrote:
+> > On Mon, Jul 07, 2003 at 10:40:02PM +0300, Pekka Savola wrote:
+> > > In a bugtraq thread, DJ Bernstein brought up an idea which I'm not sure 
+> > > has been brought up in the past.  I'm not sure whether it's feasible or 
+> > > not, but at least it (and other methods to limit the functions of a 
+> > > user-level code) might bear consideration.
+> > 
+> > What about some URLs to what you are describing?
+> > 
+> > The most information you provided was in $subject, whose content
+> > makes me a bit leery...
 > 
-> > This statement is inconsistent with the description of this scenario in
-> > Steven's TCP/IP Illustrated.  Specifically, continuing the handshake in the
-> > TCP layer, i.e., sending a syn/ack and moving to the syn_recd state, is
-> > incorrect if the limit of the server's socket backlog would be exceeded.
-> > How do you account for this discrepancy between linux and other
-> > berkeley-derived implementations?
+> Well, apart from the post scriptum, there was very little content about 
+> the feature/idea :-), and the details would seem to be up for everyone's 
+> imagination. 
 > 
-> The 4.4BSD-Lite code described in Stevens is long outdated. All modern
-> BSDs (and probably most other Unixes too) do it in a similar way to what 
-> Nivedita described. The keywords are "syn flood attack" and "DoS". 
+> FWIW, the body of the message is below:
 
-And furthermore, IIRC, the current Linux networking code is not
-Berkeley-derived, though an earlier version was.
+Incomplete, here is the part that he mention the disablenetwork syscall:
 
--Doug
+------------------------------------- 8< ------------------------------
+
+P.S. It's hard for a portable chroot tool to cut off a program's network
+access. Kernel designers should provide a disablenetwork() syscall, with
+the disabling inherited by children. Other kernel changes would be nice,
+but disablenetwork() is the only critical change.
+
+------------------------------------- 8< ------------------------------
