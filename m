@@ -1,62 +1,45 @@
-From: "Alan Shih" <alan@storlinksemi.com>
+From: "Perez-Gonzalez, Inaky" <inaky.perez-gonzalez@intel.com>
 Subject: RE: TOE brain dump
-Date: Mon, 4 Aug 2003 10:19:21 -0700
+Date: Mon, 4 Aug 2003 11:36:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <ODEIIOAOPGGCDIKEOPILEEOCDAAA.alan@storlinksemi.com>
-References: <20030804163606.Q639@nightmaster.csn.tu-chemnitz.de>
+Message-ID: <A20D5638D741DD4DBAAB80A95012C0AE3A9EB1@orsmsx409.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Nivedita Singhvi" <niv@us.ibm.com>,
-   "Werner Almesberger" <werner@almesberger.net>, <netdev@oss.sgi.com>,
-   <linux-kernel@vger.kernel.org>
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "Erik Andersen" <andersen@codepoet.org>,
+   "Werner Almesberger" <werner@almesberger.net>,
+   "Jeff Garzik" <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
+   <linux-kernel@vger.kernel.org>, "Nivedita Singhvi" <niv@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Ingo Oeser" <ingo.oeser@informatik.tu-chemnitz.de>,
-   "Jeff Garzik" <jgarzik@pobox.com>
-In-Reply-To: <20030804163606.Q639@nightmaster.csn.tu-chemnitz.de>
+content-class: urn:content-classes:message
+To: "Larry McVoy" <lm@bitmover.com>,
+   "David Lang" <david.lang@digitalinsight.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hmm,
 
-So would main processor still need a copy of the data for re-transmission?
-Won't that defeat the purpose?
+> From: Larry McVoy [mailto:lm@bitmover.com]
+>
+> > 2. router nodes that have access to main memory (PCI card running lin=
+ux
+> > acting as a router/firewall/VPN to offload the main CPU's)
+>=20
+> I can get an entire machine, memory, disk, > Ghz CPU, case, power suppl=
+y,
+> cdrom, floppy, onboard enet extra net card for routing, for $250 or les=
+s,
+> quantity 1, shipped to my door.
+>=20
+> Why would I want to spend money on some silly offload card when I can g=
+et
+> the whole PC for less than the card?
 
-Alan
+Because you want to stack 200 of those together in a huge
+data center interconnecting whatever you want to interconnect
+and you don't want your maintenance costs to go up to the sky?
 
------Original Message-----
-From: linux-kernel-owner@vger.kernel.org
-[mailto:linux-kernel-owner@vger.kernel.org]On Behalf Of Ingo Oeser
-Sent: Monday, August 04, 2003 7:36 AM
-To: Jeff Garzik
-Cc: Nivedita Singhvi; Werner Almesberger; netdev@oss.sgi.com;
-linux-kernel@vger.kernel.org
-Subject: Re: TOE brain dump
+I see your point, though :)
 
-
-Hi Jeff,
-
-On Sat, Aug 02, 2003 at 03:08:52PM -0400, Jeff Garzik wrote:
-> So, fix the other end of the pipeline too, otherwise this fast network
-> stuff is flashly but pointless.  If you want to serve up data from disk,
-> then start creating PCI cards that have both Serial ATA and ethernet
-> connectors on them :)  Cut out the middleman of the host CPU and host
-> memory bus instead of offloading portions of TCP that do not need to be
-> offloaded.
-
-Exactly what I suggested: sys_ioroute()
-
-"Providing generic pipelines and io routing as Linux service"
-Msg-ID: <20030718134235.K639@nightmaster.csn.tu-chemnitz.de>
-
-on linux-kernel and linux-fsdevel
-
-Be my guest.
-
-I know, that you mean doing it in hardware, but you cannot
-accelerate sth. which the kernel doesn't do ;-)
-
-Regards
-
-Ingo Oeser
+I=F1aky P=E9rez-Gonz=E1lez -- Not speaking for Intel -- all opinions are =
+my own (and my fault)
