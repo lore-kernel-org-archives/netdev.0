@@ -1,26 +1,28 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Submission #3  for S2io 10GbE driver
-Date: Tue, 02 Mar 2004 16:38:02 -0500
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: Submission #3  for S2io 10GbE driver
+Date: Tue, 2 Mar 2004 13:47:48 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4044FEBA.2050807@pobox.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDECB@orsmsx402.jf.intel.com> <4044FABE.9070408@pobox.com> <4044FD93.8030006@candelatech.com>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010222A08E@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Feldman, Scott" <scott.feldman@intel.com>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4044FD93.8030006@candelatech.com>
+content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>, "Ben Greear" <greearb@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> I see lots of hard-start-xmit errors for e1000 and e100 in 2.4.25,
-> and it's very nice to be able to retry.  Lets fix the broken callers
-> instead of making the drivers less useful.
+> Let's fix the broken drivers first.
 
-Let's fix the broken drivers first.
+Ok, e100 v3 is same model as tg3, and we think tg3 is correct, so we
+think e100 v3 is correct as well.
 
-Like I said, it's a BUG condition.
+Ben, e100 v3 probably isn't given you the effect you had with previous
+driver versions.  It'll stop the queue and never return a skb (unless we
+hit that BUG case).
 
-	Jeff
+e1000/ixgb need some work to bring them into this model.
+
+-scott
