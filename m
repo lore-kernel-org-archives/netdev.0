@@ -1,36 +1,42 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH][IPV6] keeping dst refcnt correctly with using xfrm
-Date: Mon, 9 Jun 2003 01:47:52 +1000 (EST)
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: Route cache performance under stress
+Date: Sun, 8 Jun 2003 20:58:57 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0306090145030.3907-100000@excalibur.intercode.com.au>
-References: <20030606144925.29ad2a9f.kazunori@miyazawa.org>
+Message-ID: <Pine.LNX.4.44.0306082054180.3737-100000@netcore.fi>
+References: <87he70re62.fsf@deneb.enyo.de>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com, <kuznet@ms2.inr.ac.ru>, <usagi@linux-ipv6.org>,
-   <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>,
+   <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kazunori Miyazawa <kazunori@miyazawa.org>
-In-Reply-To: <20030606144925.29ad2a9f.kazunori@miyazawa.org>
+To: Florian Weimer <fw@deneb.enyo.de>
+In-Reply-To: <87he70re62.fsf@deneb.enyo.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 Jun 2003, Kazunori Miyazawa wrote:
+On Sun, 8 Jun 2003, Florian Weimer wrote:
+> "David S. Miller" <davem@redhat.com> writes:
+> 
+> >    Of course, this will result in vastly decreased functionality (no
+> >    arbitary netmasks, no policy-based routing, code will be fine-tuned
+> >    for typical Internet routing tables), so this proposal definitely
+> >    comes at a price.
+> >
+> > As a general purpose operating system, where people DO in fact use
+> > these features quite regularly,
+> 
+> Even non-CIDR netmasks?  AFAIK, it's hard to find dedicated networking
+> devices (and routing protocols!) which support them. 8-/
 
-> In output functions, dst is changed by xfrm_lookup if there is 
-> any matching policy. Therefore original dst which is held before
-> calling xfrm_lookup will be never released.
-> When xfrm_lookup scceeds and dst is changed, original dst should
-> be release.
+Do you mean netmasks like "255.128.255.0" ?  Those are a real 
+abomination and probably not supported.. and I don't know of anything that 
+would require them.
 
-It is released in xfrm_lookup():
+Or do you mean netmasks such as 1.1.1.1/19?  I don't know of any credible 
+networking devices which wouldn't support them.  If so, please come out of 
+the cave.
 
-        *dst_p = dst;
-        ip_rt_put(rt);
-        xfrm_pol_put(policy);
-        return 0;
-
-
-- James
 -- 
-James Morris
-<jmorris@intercode.com.au>
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
