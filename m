@@ -1,24 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix "ethtool -S" for tg3
-Date: Wed, 12 May 2004 12:08:10 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040512120810.464aaee6.davem@redhat.com>
-References: <Pine.SGI.4.56.0405111251080.7038576@neteng.engr.sgi.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: MSEC_TO_JIFFIES is messed up...
+Date: Wed, 12 May 2004 21:33:49 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040512193349.GA14936@elte.hu>
+References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Arthur Kepner <akepner@sgi.com>
-In-Reply-To: <Pine.SGI.4.56.0405111251080.7038576@neteng.engr.sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265200AbUELTfa@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40A26FFA.4030701@pobox.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 May 2004 12:57:42 -0700
-Arthur Kepner <akepner@sgi.com> wrote:
 
-> --- linux/drivers/net/tg3.c     2004-05-11 12:11:45.000000000 -0700
-> +++ linux.orig/drivers/net/tg3.c        2004-05-11 12:34:47.000000000 -0700
+* Jeff Garzik <jgarzik@pobox.com> wrote:
 
-Patch doesn't apply, your mail client turned all the tabs
-into spaces.  Use attachments if necessary, thanks.
+> >Woah, that's new.  And wrong.  The code in include/asm-i386/param.h that
+> >says:
+> >	# define JIFFIES_TO_MSEC(x)     (x)
+> >	# define MSEC_TO_JIFFIES(x)     (x)
+> >
+> >Is not correct.  Look at kernel/sched.c for verification of this :)
+> 
+> 
+> Yes, that is _massively_ broken.
+
+why is it wrong?
+
+	Ingo
