@@ -1,25 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.6: net/core.c should export sysctl_optmem_max for modular
- IPV6
-Date: Thu, 26 Feb 2004 12:14:15 -0800
+Subject: Re: [PATCH]: ipv6_skip_exthdr() may refer invalid memory area
+Date: Thu, 26 Feb 2004 12:37:17 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040226121415.4836150a.davem@redhat.com>
-References: <20040226015907.GA10986@merlin.emma.line.org>
+Message-ID: <20040226123717.27bc62e8.davem@redhat.com>
+References: <200402200534.OAA04081@toshiba.co.jp>
+	<20040220093027.2c03f48c.davem@redhat.com>
+	<200402260349.MAA22692@toshiba.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthias Andree <matthias.andree@gmx.de>
-In-Reply-To: <20040226015907.GA10986@merlin.emma.line.org>
+To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+In-Reply-To: <200402260349.MAA22692@toshiba.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Feb 2004 02:59:07 +0100
-Matthias Andree <matthias.andree@gmx.de> wrote:
+On Thu, 26 Feb 2004 12:48:31 +0900 (JST)
+Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp> wrote:
 
-> IPv6 built as a module fails (in 2.6 BitKeeper tree) because it cannot
-> link to sysctl_optmem_max, trivial patch:
+> This patch is for linux 2.4.26-pre1 .
 
-Applied, thanks Matthias.
-(2.4.x is going to need this too so I added your change there too)
+Applied, thank you.
