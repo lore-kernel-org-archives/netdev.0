@@ -1,63 +1,50 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
-Date: Sat, 12 Jul 2003 01:37:44 +1000 (EST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: network interface cards native vlans support in linux kernel?
+Date: Fri, 11 Jul 2003 10:11:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0307120135120.21806-100000@excalibur.intercode.com.au>
-References: <3F0DB9A5.23723BE1@us.ibm.com>
+Message-ID: <3F0EEFDD.8050300@candelatech.com>
+References: <Pine.LNX.4.44.0307111754220.6646-100000@hl.kauneta.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-   Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>,
-   Jeff Garzik <jgarzik@pobox.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-   Randy Dunlap <rddunlap@osdl.org>, <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jim Keniston <jkenisto@us.ibm.com>
-In-Reply-To: <3F0DB9A5.23723BE1@us.ibm.com>
+To: Andrius Kasparavicius <andrius@andrius.org>
+In-Reply-To: <Pine.LNX.4.44.0307111754220.6646-100000@hl.kauneta.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Jul 2003, Jim Keniston wrote:
-
-> James Morris wrote:
-> > 
-> > On Tue, 8 Jul 2003, Jim Keniston wrote:
-> > 
-> > +       kerror_nl = netlink_kernel_create(NETLINK_KERROR, kerror_netlink_rcv);
-> > +       if (kerror_nl == NULL)
-> > +               panic("kerror_init: cannot initialize kerror_nl\n");
-> > 
-> > You can simply use NULL instead of passing the dummy kerror_netlink_rcv
-> > function.
+Andrius Kasparavicius wrote:
+> on vanilla linux kernel, eepro doesn't work, and with 1496 mtu, 8139too
+> works with any mtu (and 1500).
 > 
-> That begs the question: do we trust that nobody but the kernel will send
-> packets to a NETLINK_KERROR socket?  Ordinary users can't, but any root
-> application can.  Without kerror_netlink_rcv(), such packets don't get
-> dequeued.
+> which is recommended to use, e100 or eepro100?
 
-Indeed, the kernel socket buffer fills up.
+As I mentioned, the e100 (intel's driver) is the one I recommend.
 
-I think this needs to be addressed in the netlink code, per the patch 
-below.
+eepro100 does not seem to be updated in the kernel anymore, though if you go figure
+out how to install Becker's drivers, he may have it working with vlans
+by now.
 
-Comments?
+Ben
+
+> 
+> Andrius.
+> 
+> On Wed, 9 Jul 2003, Ben Greear wrote:
+> 
+> 
+>>>is there any problems to include full vlans support?
+>>
+>>Intel's e100 driver (and all NICs supported by it) support vlans
+>>fine, as do most of the GigE NICs.  Tulip does not, last I hear, though
+>>a work-around patch has been around forever.  Realtek worked at one time,
+>>not sure about now though...
+> 
+> 
 
 
-- James
 -- 
-James Morris
-<jmorris@intercode.com.au>
-
-diff -NurX dontdiff linux-2.5.75.orig/net/netlink/af_netlink.c linux-2.5.75.w1/net/netlink/af_netlink.c
---- linux-2.5.75.orig/net/netlink/af_netlink.c	2003-06-26 12:43:45.000000000 +1000
-+++ linux-2.5.75.w1/net/netlink/af_netlink.c	2003-07-12 01:23:49.708254261 +1000
-@@ -430,6 +430,10 @@
- 		goto no_dst;
- 	nlk = nlk_sk(sk);
- 
-+	/* Don't bother queuing skb if kernel socket has no input function */
-+        if (nlk->pid == 0 && !nlk->data_ready)
-+        	goto no_dst;
-+
- #ifdef NL_EMULATE_DEV
- 	if (nlk->handler) {
- 		skb_orphan(skb);
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
