@@ -1,67 +1,32 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: Disabling IPv6 accept_ra on just some interface
-Date: Mon, 27 Oct 2003 15:05:42 +0200 (EET)
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [2.6.0-test8/9] ethertap oops
+Date: Mon, 27 Oct 2003 13:26:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310271502110.9110-100000@netcore.fi>
-References: <20031027.215853.103522470.yoshfuji@linux-ipv6.org>
+Message-ID: <20031027122635.GB16013__12497.4818937064$1067271772@wotan.suse.de>
+References: <L1fo.3gb.9@gated-at.bofh.it> <m3ekwz7h3z.fsf@averell.firstfloor.org> <20031026234828.2cb1f746.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: netdev@oss.sgi.com, <sekiya@wide.ad.jp>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@muc.de>, simon.roscic@chello.at,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031027.215853.103522470.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031026234828.2cb1f746.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Oct 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> In article <Pine.LNX.4.44.0310231457110.3347-100000@netcore.fi> (at Thu, 23 Oct 2003 15:22:47 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
-> > So, my thought (comments welcome) is:
-> > 
-> >  1) when accept_ra changes from 0 -> 1, initiate the route 
-> >     solicitation process, likewise as one would when the interface is 
-> >     brought up.
-> > 
-> >     Makes sense?
-> > 
-> >  2) (probably not a good idea, but some food for thought..) when accept_ra 
-> >     changes from 1 -> 0, delete any autoconfigured routes or
-> >     prefixes.  (could be ugly / dangerous..)
+On Sun, Oct 26, 2003 at 11:48:28PM -0800, David S. Miller wrote:
+> On Sun, 26 Oct 2003 23:45:52 +0100
+> Andi Kleen <ak@muc.de> wrote:
 > 
-> Well, we'd propose to have another config "send_rs" or something like that
-> because accept_ra is also effective against unsolicited RAs.
-> It, "send_rs," tells kernel to start sending RS 
-> when the variable is changed 0 to 1 and/or 
-> when interface is going up.
+> > diff -u linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o linux-2.6.0test7mm1-averell/drivers/net/ethertap.c
+> > --- linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o	2003-09-11 04:12:33.000000000 +0200
+> > +++ linux-2.6.0test7mm1-averell/drivers/net/ethertap.c	2003-10-26 23:41:17.000000000 +0100
+> 
+> This part looks good, applied.
 
-I don't have any major objections to this model, I'm just worried that it
-might make the configuration more complex (we already have accept_ra and
-"autoconf" toggles which are confusing enough without documentation :-)
-with little gain.
+I don't know if it actually fixed the bug, I did not test it
+(sorry, should have stated that in the original mail)
+But at least it should printk now instead of crashing.
 
-That is, is there any case when you'd want to accept an RA but *not* send 
-RS?  I fail to see clear applicability for this, hence my proposal to 
-overload accept_ra :-)
-
-> Assume the node has eth0 and eth1.
-> Operation will be something like the following.
-> 
-> If you want to listen RA and to send RS on some interfaces,
->  sysctl -w net.ipv6.conf.default.accept_ra=0
->  sysctl -w net.ipv6.conf.default.send_rs=0
->  ifup -a
->  sysctl -w net.ipv6.conf.eth0.accept_ra=1
->  sysctl -w net.ipv6.conf.eth0.send_rs=1
-> 
-> If you want to listen RA on all interfaces, but do not want to send RS on 
-> some of them, 
->  sysctl -w net.ipv6.conf.default.accept_ra=1
->  sysctl -w net.ipv6.conf.default.send_rs=0
->  ifup -a
->  sysctl -w net.ipv6.cont.eth0.send_rs=1
-> 
-> 
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+-Andi
