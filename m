@@ -1,25 +1,24 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.11 PKT_SCHED]: ipt action: add back pskb_expand_head
- call
-Date: Sun, 6 Feb 2005 22:04:11 -0800
-Message-ID: <20050206220411.643e6afe.davem@davemloft.net>
-References: <4202E7BE.6050606@trash.net>
+Subject: Re: [IPV6]: Fix tunnel list locking in ip6_tunnel.c.
+Date: Sun, 6 Feb 2005 22:05:42 -0800
+Message-ID: <20050206220542.54fc6848.davem@davemloft.net>
+References: <20050205.015633.45798306.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4202E7BE.6050606@trash.net>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050205.015633.45798306.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 04 Feb 2005 04:10:54 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Sat, 05 Feb 2005 01:56:33 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Jamal asked me to add back the call to pskb_expand_head before 2.6.11.
-> This fixes a regression caused by my tc action cleanup patches, the
-> tc actions most not replace packets, so it must prevent netfilter from
-> doing so.
+> We need to fix tunnel list locking in ip6_tunnel.c as well.
+> Noticed by jean-mickael guerin <jean-mickael.guerin@6WIND.com>.
+> 
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Applied, thanks Patrick.
+Applied.  Arigato gozaimasu, Yoshifuji-san.
