@@ -1,32 +1,33 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: ZyXEL GN650-T
-Date: Wed, 10 Nov 2004 00:25:10 +0100
-Message-ID: <20041109232510.GA5582@electric-eye.fr.zoreil.com>
-References: <20041107214427.20301.qmail@focomunicatii.ro> <20041107224803.GA29248@electric-eye.fr.zoreil.com> <20041109000006.GA14911@electric-eye.fr.zoreil.com>
+Subject: Re: linux 2.6.9: r8169: eth0: PCI error (status: 0x8404). Device disabled.
+Date: Wed, 10 Nov 2004 00:43:53 +0100
+Message-ID: <20041109234353.GA6020@electric-eye.fr.zoreil.com>
+References: <1098269117.6631.5.camel@ukabzc383.uk.saic.com> <20041020121520.GA4004@electric-eye.fr.zoreil.com> <1098282567.6631.10.camel@ukabzc383.uk.saic.com> <20041020201010.GA13023@electric-eye.fr.zoreil.com> <1098350743.15528.40.camel@ukabzc383.uk.saic.com> <20041021120208.GA752@electric-eye.fr.zoreil.com> <1098437493.5513.8.camel@ukabzc383.uk.saic.com> <20041022105224.GA26714@electric-eye.fr.zoreil.com> <1099922587.16833.2.camel@ukabzc383.uk.saic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, alan@redhat.com,
-        jgarzik@pobox.com
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: seby@focomunicatii.ro
+To: Eamonn Hamilton <EAMONN.HAMILTON@saic.com>
 Content-Disposition: inline
-In-Reply-To: <20041109000006.GA14911@electric-eye.fr.zoreil.com>
+In-Reply-To: <1099922587.16833.2.camel@ukabzc383.uk.saic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> :
-> seby@focomunicatii.ro <seby@focomunicatii.ro> :
-> [...]
-> > I just bouth a zyxel GN650T network card .. and it sems that vlan's don't 
-> > work on this card .. anybody had this problems with this card .. 
+Eamonn Hamilton <EAMONN.HAMILTON@saic.com> :
+[...]
+> Anyway, The device was brought back to functioning order by removing the
+> module and re-inserting it. I have to confess, I forgot to try simply
+> downing/upping it, I'll ask my friend to try that should it happen
+> again. Bizarrely, the frequency of it happening seems to be down for
+> whatever reason - it took ~12GB traffic to cause it to happen this
+> afternoon.
 > 
-> Patch below against 2.6.10-rc1-bk15 + Jeff's netdev should convert the driver
-> to the in-kernel vlan API.
+> Anyway, hope this helps.
 
-Cr*p, the driver had not been backported to 2.4.x. Ok, instant patch (155 ko)
-against 2.4.28-rc2 available at:
-http://www.fr.zoreil.com/people/francois/misc/20041110-2.4.28-rc2-via-velocity-backport.patch
+Yes. It suggests that it should not be too hard to add a hack for recovery.
+
+I am a bit surprized with this isolated report though.
 
 --
 Ueimor
