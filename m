@@ -1,28 +1,37 @@
-From: Frank Denis <jedi@orbus.fr>
-Subject: Re: nfsd oops with 2.6.5-rc2-mm4
-Date: Sun, 28 Mar 2004 10:04:23 +0159
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: TCP hang in timewait processing
+Date: Sun, 28 Mar 2004 01:35:49 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403281005.01064.jedi@orbus.fr>
-References: <20040327130757.GA6760@c9x.org> <Pine.LNX.4.58.0403271816450.20100@ppc970.osdl.org> <20040327184840.20d9e282.akpm@osdl.org>
+Message-ID: <20040328013549.58c32b63.davem@redhat.com>
+References: <40660DF7.9090806@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Linus Torvalds <torvalds@osdl.org>, davem@redhat.com,
-        trond.myklebust@fys.uio.no, neilb@cse.unsw.edu.au, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, bkon@us.ibm.com, jgrimm@us.ibm.com, jgarvey@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20040327184840.20d9e282.akpm@osdl.org>
-Content-Disposition: inline
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <40660DF7.9090806@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Le dimanche 28 Mars 2004 04:48, Andrew Morton a =E9crit=A0:
-> This one might be the cuplrit:
-> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.5-rc2=
-/2.6
->.5-rc2-mm4/broken-out/knfsd-03-auth_error-formatting-fix.patch
+On Sat, 27 Mar 2004 15:27:51 -0800
+Nivedita Singhvi <niv@us.ibm.com> wrote:
 
-Bad pick, same oops when that one is reverted.
+> Any ideas, pointers would be very much appreciated!
 
-Let's try other ones...
+One thing that makes timewait bucket garbage collection interesting
+is that the node can be reached from two spots, the death row list
+and the TCP hash chains via packet input processing.
+
+So you have to see if scenerios like the following are possible:
+
+1) TW death worker thread choose tw X to be killed, drops tw_death_lock
+2) packet input hits tw X, packet is reset which kills the tw
+3) packet input thus tries to remove tw X from the death row list
+   too and put it
+
+You get the idea.
+
+We had a similar bug recently in the 2.6.x tree but that was due to
+a bug in the tw-kill-via-worker-thread code which is not in 2.4.x unless
+someone patched it into the 2.4.x tree you are using :-)
