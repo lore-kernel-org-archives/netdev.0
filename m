@@ -1,27 +1,38 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH][2.5.22] OOPS in tcp_v6_get_port
-Date: Wed, 19 Jun 2002 06:54:15 -0300
+From: Patrick McHardy <kaber@trash.net>
+Subject: kfree_skb: unnecessary check ?
+Date: Wed, 19 Jun 2002 18:53:18 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020619095415.GC5663@conectiva.com.br>
-References: <20020617.143319.54623892.davem@redhat.com> <200206180943.NAA12296@sex.inr.ac.ru> <20020618.025811.36457258.davem@redhat.com>
+Message-ID: <3D10B6FE.1050602@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20020618.025811.36457258.davem@redhat.com>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Tue, Jun 18, 2002 at 02:58:11AM -0700, David S. Miller escreveu:
->    From: kuznet@ms2.inr.ac.ru
->    Date: Tue, 18 Jun 2002 13:43:21 +0400 (MSD)
->    
->    I am afraid you speak about different bug.
-> 
-> It is different bug, indeed.  The oops looked very similar, it
-> tricked me :-)
+Hi everyone.
 
-I'll be looking at this while in Ottawa 8)
+In skbuff.h one sees:
 
-- Arnaldo
+static inline void kfree_skb(struct sk_buff *skb)
+{
+        if (atomic_read(&skb->users) == 1 || 
+atomic_dec_and_test(&skb->users))
+                __kfree_skb(skb);
+}
+
+Is atomic_dec_and_test really necessary ? atomic_dec_and_test only 
+returns true if its argument has hit zero, so it was 1 before.
+If atomic_dec is only a bit cheaper than atomic_dec_and_test (which i 
+guess it is), wouldn't it make more sense to use something like this:
+
+static inline void kfree_skb(struct sk_buff *skb)
+{
+    if (atomic_read(&skb->users) == 1)
+        __kfree(skb);
+    else
+        atomic_dec(&skb->users);
+}
+
+Bye,
+Patrick
