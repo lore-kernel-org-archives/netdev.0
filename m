@@ -1,124 +1,79 @@
-From: obong_o@telstra.com
-Subject: PARTNERSHIP BUSINESS
-Date: Sun, 18 Apr 2004 10:44:17 -0700
+From: psql2k@yahoo.com.tw
+Subject: =?big5?Q?=B0=EA=BB=DA=AF=C5 =A4=A4=AD^=A4=E5=B7|=ADp =BA[=B6i=BEP=A6s=B3n=C5=E9 (ERP)?=
+Date: Sun, 18 Apr 2004 11:34:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <2b2c32d2bc.2d2bc2b2c3@email.bigpond.com>
+Message-ID: <fwrKp3SuvbPuR@sky.seed.net.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
+Content-Type: multipart/related;
+	type="multipart/alternative";
+	boundary="----=_NextPart_bAw6QuoCF9N3XSxxxA9JLfp"
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-language: en
-Content-Disposition: inline
+To: 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
 
-FROM: OBONG OKILO
-ADEMOLA ADETOKUNBO STREET
-VICTORIA ISLAND
-LAGOS-NIGERIA	
-TEL/FAX: 234-1-7595071
-email: obongokilo@ummah.org  
-
-I am Obong Okilo a member of the Presidential
-Payment Verification Committee (PPVC) of the Federal
-Government Of Nigeria, West Africa and also a Director
-of Project Implementation with the NNPC. I am
-presently on assignment with my colleagues in the
-ministry of finance and the presidency carrying out
-routine verification of contractual claims on behalf
-of the NNPC 
-
-I apologize for using this medium to reach you for a
-transaction/business of this magnitude, but this is
-due to Confidentiality and prompt access reposed on
-this medium. In unfolding this proposal, I want to
-count on you,as a respected and honest person to
-handle this transaction with sincerity, trust and
-confidentiality.
+------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfp
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_bAw6QuoCF9N3XSxxxA9JLfpAA"
 
 
-I have decided to seek a confidential co-operation
-with you in the process of actualising our dreams
-described hereunder. For the benefit of all parties
-and hope you will keep it in confidence because of the
-nature of this transaction within the NNPC and
-Ministry of Finance(FMF), where I work as Director of
-ProjectImplementation.
+------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfpAA
+Content-Type: text/html;
+	charset="big5"
+Content-Transfer-Encoding: base64
 
-With the cooperation of four other top officials, we
-have in our possession overdue payment bills which we
-are presently verifying, to the tune of Twenty Six
-Million, Five Hundred Thousand United States Dollars
-(US$26,500,000.) which we want to transfer abroad with
-the assistance and cooperation of a foreign
-company/individual to receive the said fund on our
-behalf or a reliable foreign non-company account to
-receive such funds. 
-
-More so, we are handicapped in the circumstances, as
-the Civil Service Code of Conduct does not allow us to
-operate offshore account hence your importance in the
-whole transaction. 
-
-This amount $26.5m represents the balance of the total
-contract value executed on behalf of the Nigerian
-National Petroleum Corporation (NNPC) by a foreign
-contracting firm, which we the officials over-invoiced
-deliberately in the course of our verification
-exercise. Though the actual contract cost have been
-paid to the original contractor, leaving the balance
-in the tune of the said amount which we have in
-principle gotten approval to remit by Key Tested
-Telegraphic Transfer (K.T.T) to any foreign bank
-account you will provide by filing in an application
-to NNPC and the Ministry of Finance for the transfer
-of Rights and Privileges to the contractual sum to
-you/your account. 
-
-I have the authority of my partners involved to
-propose that should you be willing to assist us in the
-transaction, your share of the sum would  be 30% of
-the $26.5million, 60% for us. The business itself is
-100% safe, on your part provided you treat it with
-utmost secrecy and confidentiality. 
-
-Your area of specialization is not a hindrance to the
-successful execution of this transaction.I have
-reposed my confidence in you and hope that you
-would not disappoint me. 
-
-should you be interested or not in this transaction, 
-please notify me through this private
-email: obongokilo@ummah.org  or to the tel/fax number
-above.If not also let us know,so as to enable us
-enough time to scout for another credible foreign
-partner or not to help carry out this transaction.
-
-I assure you that my partners and I are in a position
-to make the payment of this claim possible provided
-you can give us a very strong assurance and guarantee
-that our share would be secured and please always
-remember to treat this matter with the utmost
-confidentiality, as any form of exposure would
-compromise our positions in this government,being
-active Government Civil Servants. 
-
-Once again, remember time is of great essence in this
-transaction. 
-
-I wait in anticipation of your fullest co-operation. 
-
-Yours faithfully, 
-
-Obong Okilo.
-	
+PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT5VbnRpdGxlZCBEb2N1bWVudDwvdGl0bGU+DQo8bWV0YSBo
+dHRwLWVxdWl2PSJDb250ZW50LVR5cGUiIGNvbnRlbnQ9InRleHQvaHRtbDsgY2hhcnNldD1iaWc1
+Ij4NCjwvaGVhZD4NCg0KPGJvZHkgYmdjb2xvcj0iI0ZGRkZGRiIgdGV4dD0iIzAwMDAwMCI+DQo8
+cCBjbGFzcz0iTXNvTm9ybWFsIj48Yj48Zm9udCBzaXplPSI0Ij5CcmluZyB5b3VyIEVudGVycHJp
+c2UgaW50byBJbnRlcm5hdGlvbiANCiAgPC9mb250PjwvYj48L3A+DQo8cCBjbGFzcz0iTXNvTm9y
+bWFsIj48Zm9udCBmYWNlPSJBcmlhbCI+PGZvbnQgc2l6ZT0iNCI+PGI+PGZvbnQgc2l6ZT0iMyI+
+UGxlYXNlIA0KICBjb250YWN0OjwvZm9udD48L2I+PC9mb250Pjxmb250IHNpemU9IjMiPjxicj4N
+CiAgPGI+VGFpd2FuOiArODg2IDIgMjc1NDEzMjYgTXIuIENsZXJrIFNoYXc8L2I+PC9mb250Pjxi
+cj4NCiAgPC9mb250PjwvcD4NCjxkaXYgYWxpZ249ImxlZnQiPg0KICA8cD48Zm9udCBmYWNlPSJB
+cmlhbCI+PGI+PGZvbnQgc2l6ZT0iNCI+QUNDUEFDIGZvciBXaW5kb3dzIDwvZm9udD48L2I+PGI+
+QUNDUEFDIA0KICAgILDqu9qvxSCkpK1epOW3fK1wILpbtmm+UKZzs27F6SZuYnNwOyA8L2I+IDxi
+cj4NCiAgICA8aT48Zm9udCBjb2xvcj0iI0ZGMDAwMCI+PGI+KKVArMmyxKRHpGqzbsXpvHSw0zog
+Q0EgKENvbXB1dGVyIEFzc29jaWF0ZXMprOO1bywgDQogIKX+snm2V7lMNTW4VaXOpOEpPC9iPjwv
+Zm9udD48L2k+PC9mb250PjwvcD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+IA0KICA8cD48
+Zm9udCBmYWNlPSJBcmlhbCI+Jmx0O7zSstUmZ3Q7p3TBYLFiKEdMKSDAs6assWK02ihBUikgwLOl
+SbFitNooQVApIKZzs2axsajuKElDKSC+ULDiqHSyzihPRSkgDQogICAgrXHByqh0ss4oUE8pPGJy
+Pg0KICAgIDwvZm9udD48Zm9udCBmYWNlPSJBcmlhbCI+Jmx0O6jkpUy80rLVJmd0O6d0JnF1b3Q7
+sU2u16aopbuxsajuJnF1b3Q7KFByb2plY3QgJmFtcDsgSm9iIA0KICAgIENvc3QpLCAmcXVvdDu7
+c7N5t36odLLOJnF1b3Q7KE1JU3lzKSwgJnF1b3Q7q8ik4bresnqodLLOJnF1b3Q7KENSTSkuLi4g
+taW1pS4gPC9mb250PjwvcD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+DQogIDxwPjxmb250
+IGZhY2U9IkFyaWFsIj48Yj4xLiC46q7Grnequr7jplihRzwvYj48YnI+DQogICAgsN+kQKVpvuOm
+WMP2s3Omobjqrsaud6FHUGVydmFzaXZlLlNRTCwgREIyLCBNUy1TUUwgJmFtcDsgT3JhY2xlIKq6
+sNO3frresnqzbsXpqHSyzqFBpdGp80RCMiwgTVMtU1FMIA0KICAgICZhbXA7IE9yYWNsZSZuYnNw
+O7jqrsaud6Sns0KyeqFBrmW2caFBpM663rJ6taW8danKoUGlu7Kjq36lab5Bpliko6ZQpGqkcKSn
+pfi3fqFBpL2lcaFBpua4ubWloUM8YnI+DQogICAgPC9mb250PjwvcD4NCiAgPHA+PGZvbnQgZmFj
+ZT0iQXJpYWwiPjxiPjIuIKZ3pf6pyrtQs8a0qanKoUc8L2I+PGJyPg0KICAgIKVpqU0gTWljcm9z
+b2Z0IElJUyA1LjUgvuOmWLSjqNGodLLOpnel/qFBu7e63cCzpc6zbsXppKelXK/goUM8YnI+DQog
+ICAgqOSw07d+ut6yerNuxemodLLOpKem+KpBvrmlQrFOpmK69LvauvS49CAoSW50ZXJuZXQppFe0
+o6jRt3ytcKFBut6yeqFBrHm1e6FBsbG63qFBuOqwVLWlpVyv4KFDPGJyPg0KICAgIDwvZm9udD48
+L3A+DQo8L2Rpdj4NCjxkaXYgYWxpZ249ImxlZnQiPg0KICA8cD48Zm9udCBmYWNlPSJBcmlhbCI+
+PGI+My4gvHWpyqq6s/iq7bKjpc2lXK/goUc8L2I+PGJyPg0KICAgIKR3vuOmWCBNUy1FeGNlbCCk
+ziBDcnlzdGFsIFJlcG9ydCC1paVcr+CxaqRqpKez+KrtsqOlzb65oUGlacBIrsmozKvIpOGkp7vd
+rW6hQatEsWC8danKpUKnWa7Jqrqyo6XNsXqp0rvdrW6kp6ZVpqGz+KrtoUM8YnI+DQogICAgPC9m
+b250PjwvcD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+DQogIDxwPjxmb250IGZhY2U9IkFy
+aWFsIj48Yj40LiC8danKpM6p9q3Xp++quqjPpc6qzKS2rbGhRzwvYj48YnI+DQogICAgtKOo0bZ9
+qfGmoajPpc6qzKS2rbGlraV4oUGoz6XOqsylaajMptukdqS9pXGxsbreoUG46q7Gs0KyerWlptum
+5q3Xp++lQqSju92t7KlsvVikzq2rt3O9c7/op1mlab7ep0ChQzxicj4NCiAgICA8L2ZvbnQ+PC9w
+Pg0KPC9kaXY+DQo8ZGl2IGFsaWduPSJsZWZ0Ij4NCiAgPHA+PGZvbnQgZmFjZT0iQXJpYWwiPjxi
+PjUuILZ9qfGmoaWtpXiodLLOoUc8L2I+PGJyPg0KICAgILSjqNG2fanxpqGodLLOpa2leKFBpWmk
+ubNcqM+lzqrMq9yuZan2pWmozKbbpua73ahEptO2fbVvu1Clu7Kjq36s27NzpKe80rLVpMazbsXp
+oUOlu7Kjq36kd6aztle5TCAxMDAgrmGw6rvaqr6mV7Nuxem8dLDTpl2ryKThpKeko6ZQoUGm07Sj
+qNGmVaahplW8y6SjplC73ahEpKes27NzsbW80rLVpMazbsXpoUM8YnI+DQogICAgPC9mb250Pjwv
+cD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+DQogIDxwPjxmb250IGZhY2U9IkFyaWFsIj48
+Yj42Lg0KICAgIKR3u1BNUy1FeGNlbL7jplihRzwvYj48YnI+DQogICAgtKOo0alNTVMtRXhjZWys
+27NzpKelXK/goUGoz6XOqsylaaVIptum5rNdrXGoz6XORXhjZWwgUmVwb3J0oUM8YnI+DQogICAg
+PC9mb250PjwvcD4NCjwvZGl2Pg0KPHA+oUA8L3A+DQo8cD48L3A+DQo8cD48c3BhbiBzdHlsZT0i
+dmVydGljYWwtYWxpZ246IG1pZGRsZTsgbGV0dGVyLXNwYWNpbmc6IDEiPjxmb250IGZhY2U9IkFy
+aWFsIj48YnI+DQo8L2ZvbnQ+PC9zcGFuPg0KPC9wPg0KPC9ib2R5Pg0KPC9odG1sPg==
 
 
+------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfpAA--
 
-
-
-
-
-
-                                                                      
+------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfp--
