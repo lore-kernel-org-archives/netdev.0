@@ -1,69 +1,210 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: BUG: dst underflow (again)
-Date: Fri, 05 Nov 2004 15:53:55 +0900 (JST)
-Message-ID: <20041105.155355.110780816.yoshfuji@linux-ipv6.org>
-References: <20041022075947.GA15795@xi.wantstofly.org>
-	<1099577717.1039.155.camel@jzny.localdomain>
-	<20041104221801.584c8f11.davem@davemloft.net>
+Date: Fri, 05 Nov 2004 02:05:41 -0500
+Message-ID: <418B2645.6080404@pobox.com>
+References: <4178AB0D.6060107@pobox.com>	<20041022.155159.98771450.yoshfuji@linux-ipv6.org>	<20041022075947.GA15795@xi.wantstofly.org>	<1099577717.1039.155.camel@jzny.localdomain> <20041104221801.584c8f11.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, buytenh@wantstofly.org, jgarzik@pobox.com,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: multipart/mixed;
+ boundary="------------060008080907010202080502"
+Cc: buytenh@wantstofly.org, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: "David S. Miller" <davem@davemloft.net>, hadi@cyberus.ca
 In-Reply-To: <20041104221801.584c8f11.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20041104221801.584c8f11.davem@davemloft.net> (at Thu, 4 Nov 2004 22:18:01 -0800), "David S. Miller" <davem@davemloft.net> says:
+This is a multi-part message in MIME format.
+--------------060008080907010202080502
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> > > 	00012c0d <udpv6_sendmsg>	(god, that's one big function btw)
-> 
-> The last one is the most interesting.  The only dst_release() call
-> that occurs in udpv6_sendmsg() is when xfrm_lookup() returns
-> an error.  The semantics of that function are a complete mess
-> (when it errors, it sometimes releases the DST, sometimes does not)
-> and I'll fix that up.
+David S. Miller wrote:
+> Jeff, could you similarly decode the ones that you seem to get?
+> That would be an incredibly useful datapoint.  If you've provided
+> this already, my bad and please point me at where you posted that.
 
-Oh,yes, something like this?
+I've compiled IPv6 into my router's kernel image, so next time I reboot, 
+I should be able to get at symbol info out of the BUGs a bit more easily.
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-===== net/ipv6/udp.c 1.76 vs edited =====
---- 1.76/net/ipv6/udp.c	2004-10-26 11:47:26 +09:00
-+++ edited/net/ipv6/udp.c	2004-11-05 15:42:00 +09:00
-@@ -631,7 +631,7 @@
- 	struct ipv6_txoptions *opt = NULL;
- 	struct ip6_flowlabel *flowlabel = NULL;
- 	struct flowi *fl = &inet->cork.fl;
--	struct dst_entry *dst;
-+	struct dst_entry *dst = NULL;
- 	int addr_len = msg->msg_namelen;
- 	int ulen = len;
- 	int hlimit = -1;
-@@ -797,10 +797,8 @@
- 	if (final_p)
- 		ipv6_addr_copy(&fl->fl6_dst, final_p);
- 
--	if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0) {
--		dst_release(dst);
-+	if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0)
- 		goto out;
--	}
- 
- 	if (hlimit < 0) {
- 		if (ipv6_addr_is_multicast(&fl->fl6_dst))
-@@ -846,6 +844,7 @@
- 		err = np->recverr ? net_xmit_errno(err) : 0;
- 	release_sock(sk);
- out:
-+	dst_release(dst);
- 	fl6_sock_release(flowlabel);
- 	if (!err) {
- 		UDP6_INC_STATS_USER(UDP_MIB_OUTDATAGRAMS);
+> But let me ask, do you have any IPSEC policies in the kernel
+> when these BUGs trigger?  If so, I'm pretty sure I know what
+> the problem may be.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+I know this question wasn't directed at me, but, I do always compile 
+ipsec stuff into my kernel, in addition to netfilter.  The relevant 
+options are attached for the curious.
+
+	Jeff
+
+
+P.S.  Jamal--  I cannot disable netfilter for a period of time long 
+enough to cause the BUGs to be produced, since that disables my NAT'ing.
+
+--------------060008080907010202080502
+Content-Type: text/plain;
+ name="config.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="config.txt"
+
+#
+CONFIG_PACKET=y
+# CONFIG_PACKET_MMAP is not set
+CONFIG_NETLINK_DEV=y
+CONFIG_UNIX=y
+CONFIG_NET_KEY=y
+CONFIG_INET=y
+CONFIG_IP_MULTICAST=y
+# CONFIG_IP_ADVANCED_ROUTER is not set
+# CONFIG_IP_PNP is not set
+CONFIG_NET_IPIP=m
+CONFIG_NET_IPGRE=m
+# CONFIG_NET_IPGRE_BROADCAST is not set
+# CONFIG_IP_MROUTE is not set
+# CONFIG_ARPD is not set
+# CONFIG_SYN_COOKIES is not set
+CONFIG_INET_AH=y
+CONFIG_INET_ESP=y
+CONFIG_INET_IPCOMP=y
+CONFIG_INET_TUNNEL=y
+
+#
+# IP: Virtual Server Configuration
+#
+# CONFIG_IP_VS is not set
+CONFIG_IPV6=m
+CONFIG_IPV6_PRIVACY=y
+CONFIG_INET6_AH=m
+CONFIG_INET6_ESP=m
+CONFIG_INET6_IPCOMP=m
+CONFIG_INET6_TUNNEL=m
+CONFIG_IPV6_TUNNEL=m
+CONFIG_NETFILTER=y
+# CONFIG_NETFILTER_DEBUG is not set
+
+#
+# IP: Netfilter Configuration
+#
+CONFIG_IP_NF_CONNTRACK=m
+# CONFIG_IP_NF_CT_ACCT is not set
+# CONFIG_IP_NF_CONNTRACK_MARK is not set
+# CONFIG_IP_NF_CT_PROTO_SCTP is not set
+CONFIG_IP_NF_FTP=m
+CONFIG_IP_NF_IRC=m
+CONFIG_IP_NF_TFTP=m
+CONFIG_IP_NF_AMANDA=m
+CONFIG_IP_NF_QUEUE=m
+CONFIG_IP_NF_IPTABLES=m
+CONFIG_IP_NF_MATCH_LIMIT=m
+CONFIG_IP_NF_MATCH_IPRANGE=m
+CONFIG_IP_NF_MATCH_MAC=m
+CONFIG_IP_NF_MATCH_PKTTYPE=m
+CONFIG_IP_NF_MATCH_MARK=m
+CONFIG_IP_NF_MATCH_MULTIPORT=m
+CONFIG_IP_NF_MATCH_TOS=m
+CONFIG_IP_NF_MATCH_RECENT=m
+CONFIG_IP_NF_MATCH_ECN=m
+CONFIG_IP_NF_MATCH_DSCP=m
+CONFIG_IP_NF_MATCH_AH_ESP=m
+CONFIG_IP_NF_MATCH_LENGTH=m
+CONFIG_IP_NF_MATCH_TTL=m
+CONFIG_IP_NF_MATCH_TCPMSS=m
+CONFIG_IP_NF_MATCH_HELPER=m
+CONFIG_IP_NF_MATCH_STATE=m
+CONFIG_IP_NF_MATCH_CONNTRACK=m
+CONFIG_IP_NF_MATCH_OWNER=m
+CONFIG_IP_NF_MATCH_ADDRTYPE=m
+CONFIG_IP_NF_MATCH_REALM=m
+# CONFIG_IP_NF_MATCH_SCTP is not set
+CONFIG_IP_NF_MATCH_COMMENT=m
+CONFIG_IP_NF_MATCH_HASHLIMIT=m
+CONFIG_IP_NF_FILTER=m
+CONFIG_IP_NF_TARGET_REJECT=m
+CONFIG_IP_NF_TARGET_LOG=m
+CONFIG_IP_NF_TARGET_ULOG=m
+CONFIG_IP_NF_TARGET_TCPMSS=m
+CONFIG_IP_NF_NAT=m
+CONFIG_IP_NF_NAT_NEEDED=y
+CONFIG_IP_NF_TARGET_MASQUERADE=m
+CONFIG_IP_NF_TARGET_REDIRECT=m
+CONFIG_IP_NF_TARGET_NETMAP=m
+CONFIG_IP_NF_TARGET_SAME=m
+# CONFIG_IP_NF_NAT_LOCAL is not set
+CONFIG_IP_NF_NAT_SNMP_BASIC=m
+CONFIG_IP_NF_NAT_IRC=m
+CONFIG_IP_NF_NAT_FTP=m
+CONFIG_IP_NF_NAT_TFTP=m
+CONFIG_IP_NF_NAT_AMANDA=m
+CONFIG_IP_NF_MANGLE=m
+CONFIG_IP_NF_TARGET_TOS=m
+CONFIG_IP_NF_TARGET_ECN=m
+CONFIG_IP_NF_TARGET_DSCP=m
+CONFIG_IP_NF_TARGET_MARK=m
+CONFIG_IP_NF_TARGET_CLASSIFY=m
+CONFIG_IP_NF_RAW=m
+# CONFIG_IP_NF_TARGET_NOTRACK is not set
+CONFIG_IP_NF_ARPTABLES=m
+CONFIG_IP_NF_ARPFILTER=m
+CONFIG_IP_NF_ARP_MANGLE=m
+# CONFIG_IP_NF_COMPAT_IPCHAINS is not set
+# CONFIG_IP_NF_COMPAT_IPFWADM is not set
+
+#
+# IPv6: Netfilter Configuration
+#
+CONFIG_IP6_NF_QUEUE=m
+CONFIG_IP6_NF_IPTABLES=m
+CONFIG_IP6_NF_MATCH_LIMIT=m
+CONFIG_IP6_NF_MATCH_MAC=m
+CONFIG_IP6_NF_MATCH_RT=m
+CONFIG_IP6_NF_MATCH_OPTS=m
+CONFIG_IP6_NF_MATCH_FRAG=m
+CONFIG_IP6_NF_MATCH_HL=m
+CONFIG_IP6_NF_MATCH_MULTIPORT=m
+CONFIG_IP6_NF_MATCH_OWNER=m
+CONFIG_IP6_NF_MATCH_MARK=m
+CONFIG_IP6_NF_MATCH_IPV6HEADER=m
+CONFIG_IP6_NF_MATCH_AHESP=m
+CONFIG_IP6_NF_MATCH_LENGTH=m
+CONFIG_IP6_NF_MATCH_EUI64=m
+CONFIG_IP6_NF_FILTER=m
+CONFIG_IP6_NF_TARGET_LOG=m
+CONFIG_IP6_NF_MANGLE=m
+CONFIG_IP6_NF_TARGET_MARK=m
+CONFIG_IP6_NF_RAW=m
+CONFIG_XFRM=y
+CONFIG_XFRM_USER=y
+
+#
+# SCTP Configuration (EXPERIMENTAL)
+#
+CONFIG_IP_SCTP=m
+# CONFIG_SCTP_DBG_MSG is not set
+# CONFIG_SCTP_DBG_OBJCNT is not set
+# CONFIG_SCTP_HMAC_NONE is not set
+CONFIG_SCTP_HMAC_SHA1=y
+# CONFIG_SCTP_HMAC_MD5 is not set
+# CONFIG_ATM is not set
+# CONFIG_BRIDGE is not set
+# CONFIG_VLAN_8021Q is not set
+# CONFIG_DECNET is not set
+CONFIG_LLC=y
+CONFIG_LLC2=y
+# CONFIG_IPX is not set
+# CONFIG_ATALK is not set
+# CONFIG_X25 is not set
+# CONFIG_LAPB is not set
+# CONFIG_NET_DIVERT is not set
+# CONFIG_ECONET is not set
+# CONFIG_WAN_ROUTER is not set
+
+#
+# QoS and/or fair queueing
+#
+# CONFIG_NET_SCHED is not set
+CONFIG_NET_CLS_ROUTE=y
+
+
+--------------060008080907010202080502--
