@@ -1,25 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6] fix zombie netlink socket in user space
-Date: Sun, 19 Sep 2004 18:02:52 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C8weq-0000bD-00@gondolin.me.apana.org.au>
-References: <414D18EF.3080207@eurodev.net>
-Cc: davem@redhat.com, herbert@gondor.apana.org.au, hadi@cyberus.ca,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: pablo@eurodev.net (Pablo Neira)
-In-Reply-To: <414D18EF.3080207@eurodev.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Sun, 19 Sep 2004 22:00:13 +1000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040919120013.GA5915@gondor.apana.org.au>
+References: <412DF807.2040703@eurodev.net> <E1C90Da-0001V7-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Pablo Neira <pablo@eurodev.net>
+Content-Disposition: inline
+In-Reply-To: <E1C90Da-0001V7-00@gondolin.me.apana.org.au>
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira <pablo@eurodev.net> wrote:
+On Sun, Sep 19, 2004 at 09:50:58PM +1000, Herbert Xu wrote:
 > 
-> If you try to bind/connect to a non existant netlink socket, client 
-> socket gets succesfully inserted as head in the socket list. The problem 
-> is that the head can't be delete, so that socket stays in the list 
-> forever (see sk_del_node_init).
+> Previously netlink requests had overhead comparable to that of an
+> ioctl.  Now you've added two full context switches to it.  There's
+> gotta be a better way to fix this dead-lock.
 
-Huh? Where does it say that the head can't be deleted?
+Worse still, previously if a netlink request blocked indefinitely it
+only did that in the context of the calling process.  Now it'll
+dead-lock the entire system because you're using the generic work
+queue.
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
