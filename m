@@ -1,172 +1,86 @@
-From: Andreas Henriksson <andreas@fjortis.info>
-Subject: Re: fealnx oopses
-Date: Mon, 29 Mar 2004 01:27:07 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Net module Realtek 8110S/8169S
+Date: Mon, 29 Mar 2004 01:24:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040328232707.GA17524@scream.fjortis.info>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403272328.51291.vda@port.imtp.ilyichevsk.odessa.ua> <20040328005533.A6117@electric-eye.fr.zoreil.com> <200403282219.56799.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040329012458.A24996@electric-eye.fr.zoreil.com>
+References: <HVAV6J$519DA0EE0F55619EB1C716E4E68CA99E@libero.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>, Jeff Garzik <jgarzik@pobox.com>,
-        Andreas Henriksson <andreas@fjortis.info>, netdev@oss.sgi.com
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+To: "markes.albert@libero.it" <markes.albert@libero.it>
 Content-Disposition: inline
-In-Reply-To: <200403282219.56799.vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <HVAV6J$519DA0EE0F55619EB1C716E4E68CA99E@libero.it>; from markes.albert@libero.it on Sun, Mar 28, 2004 at 08:54:19PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 28, 2004 at 10:19:56PM +0200, Denis Vlasenko wrote:
-> I tested on 2.4.25, patch applied with minimal manual correction
-> in last hunk (rediffed patch attached).
+markes.albert@libero.it <markes.albert@libero.it> :
+[...]
+>     after your e-mail, I redo the test with kernel 2.6.4-vanilla unchanged and
+> in console mode (without X) I have no problem. I don't understand because the
+> problem some day ago raise in console and with X. In my test the problem raise
+> always when I copy file in KDE to PC by smbclient. So I think the problem was X
+> but with kernel 2.6.3 the problem don't raise. The system hang and the only
+                      ^ -> 4 I guess ?
 
-I tested on 2.6.5-rc2-bk7 ... with both jeffs (which was exactly the
-same patch I had except for removing the return at the end of the void
-function) and francis patches...
+r8169 in 2.6.3 has a bug which is fixed in 2.6.4.
 
-Btw. I haven't seen any panics at all because of rx, just tx, and that
-problem seems solved. But I thought testing additional patches that
-is supposed to cure other problems won't hurt me.. ;)
+> option is hardware-reset, nothing ping not respond and led do not change nay more.
+>    I do the thing you told me with kernel unchanged
+>    dd if=/dev/hda  of=/dev/null bs=1024k.... go well
+>    dd if=/myfile of=/newfile ok
+>    transfer (console) ok
+
+Ok. Let's assume this rules out the disk susbsystem.
+
+>    Retry with X
+>    transfer KO
+
+With 2.6.4 or 2.6.3 (I am lost here) ?
+
+>    I recompile kernel as you told me.
+> > Processor type and features  --->
+> > [...]
+> >   x x[ ] Symmetric multi-processing support                               x x   
+> >   x x[ ] Preemptible Kernel                                               x x   
+> >   x x[*] Local APIC support on uniprocessors                              x x   
+> > 
+> > Enable as well:
+> > 
+> > Kernel hacking  --->
+> > [...]
+> >   x x            [*] Magic SysRq key                                      x x   
+>   retray test with KDE and the problem don't raise.
 
 > 
-> Patched driver oopses in allocate_rx_buffers() shortly after boot,
+> When the problem raised I saw in the kernel-changelog change in module r8169 so
+> I thoungh the problem was NIC-module, the only change from two configuration.
+> Now I only raise the problem (without your change) with KDE... I don't
+> understand if is NIC or X-KDE problem.
+> Can you help me to find who hang my system?
 
-It oops as soon as the first packet is sent out....
+1 - use at least 2.6.4 or (better for r8169) 2.6.5-rcX-mm-something
+2 - if something corrupts the descriptor rings of the r8169, it can lock the
+    computer really hard. You _should_ apply the patch I sent. If something
+    wicked happens, it may spit messages (dmesg/syslog). It is really
+    important for debugging that this patch is applied. I hope I made this
+    point clear :o)
+3 - if you can reproduce the bug with 2.6.5-rcX-mm + extra patch, nmi_watchdog
+    being enabled (do not forget to pass the "nmi_watchdog=1" option to the
+    command line and check that it works as suggested in the previous message),
+    nmi_watchdog may break some lock. Please report if the magic sysrq has any
+    effect on the locked machine. Verify that your syslog daemon does not
+    buffer writes and that it catches the kernel messages.
 
+If you have a serial cable, it can help.
 
-> --- fealnx.c.orig	Fri Nov 28 20:26:20 2003
-> +++ fealnx.c	Sun Mar 28 21:32:56 2004
-> @@ -1134,15 +1134,17 @@
->  		struct sk_buff *skb;
->  
->  		skb = dev_alloc_skb(np->rx_buf_sz);
-> -		np->lack_rxbuf->skbuff = skb;
-> -
->  		if (skb == NULL)
->  			break;	/* Better luck next round. */
->  
+> I attach dmeg and lspci
 
-np->lack_rxbuf == NULL here....
+[...]
+> 01:00.0 VGA compatible controller: nVidia Corporation NV17 [GeForce4 MX 440] (re
+v a3)
 
-(verified by inserting a "BUG_ON(np->lack_rxbuf==NULL);"...)
+Can you send 'lsmod' output once X is started (not necessarily with KDE) ?
 
-> +		while (np->lack_rxbuf->skbuff)
-
-and now we are dead.. ;(
-
-> +			np->lack_rxbuf = np->lack_rxbuf->next_desc_logical;
-> +		np->lack_rxbuf->skbuff = skb;
-> +
->  		skb->dev = dev;	/* Mark as being used by this device. */
->  		np->lack_rxbuf->buffer = pci_map_single(np->pci_dev, skb->tail,
->  			np->rx_buf_sz, PCI_DMA_FROMDEVICE);
-> -		np->lack_rxbuf = np->lack_rxbuf->next_desc_logical;
-> +		np->lack_rxbuf->status = RXOWN;
->  		++np->really_rx_count;
->  	}
->  }
-> @@ -1380,33 +1382,22 @@
->  	return 0;
->  }
->  
-> -
-> -void free_one_rx_descriptor(struct netdev_private *np)
-> -{
-> -	if (np->really_rx_count == RX_RING_SIZE)
-> -		np->cur_rx->status = RXOWN;
-> -	else {
-> -		np->lack_rxbuf->skbuff = np->cur_rx->skbuff;
-> -		np->lack_rxbuf->buffer = np->cur_rx->buffer;
-> -		np->lack_rxbuf->status = RXOWN;
-> -		++np->really_rx_count;
-> -		np->lack_rxbuf = np->lack_rxbuf->next_desc_logical;
-> -	}
-> -	np->cur_rx = np->cur_rx->next_desc_logical;
-> -}
-> -
-> -
->  void reset_rx_descriptors(struct net_device *dev)
->  {
->  	struct netdev_private *np = dev->priv;
-> +	struct fealnx_desc *cur = np->cur_rx;
-> +	int i;
->  
->  	stop_nic_rx(dev->base_addr, np->crvalue);
->  
-> -	while (!(np->cur_rx->status & RXOWN))
-> -		free_one_rx_descriptor(np);
-> -
->  	allocate_rx_buffers(dev);
->  
-> +	for (i = 0; i < RX_RING_SIZE; i++) {
-> +		if (cur->skbuff)
-> +			cur->status = RXOWN;
-> +		cur = cur->next_desc_logical;
-> +	}
-> +
->  	writel(np->rx_ring_dma + (np->cur_rx - np->rx_ring),
->  		dev->base_addr + RXLBA);
->  	writel(np->crvalue, dev->base_addr + TCRRCR);
-> @@ -1576,7 +1567,7 @@
->  	struct netdev_private *np = dev->priv;
->  
->  	/* If EOP is set on the next entry, it's a new packet. Send it up. */
-> -	while (!(np->cur_rx->status & RXOWN)) {
-> +	while (!(np->cur_rx->status & RXOWN) && np->cur_rx->skbuff) {
->  		s32 rx_status = np->cur_rx->status;
->  
->  		if (np->really_rx_count == 0)
-> @@ -1628,8 +1619,15 @@
->  					np->stats.rx_length_errors++;
->  
->  					/* free all rx descriptors related this long pkt */
-> -					for (i = 0; i < desno; ++i)
-> -						free_one_rx_descriptor(np);
-> +					for (i = 0; i < desno; ++i) {
-> +						if (!np->cur_rx->skbuff) {
-> +							printk(KERN_DEBUG
-> +								"%s: I'm scared\n", dev->name);
-> +							break;
-> +						}
-> +						np->cur_rx->status = RXOWN;
-> +						np->cur_rx = np->cur_rx->next_desc_logical;
-> +					}
->  					continue;
->  				} else {	/* something error, need to reset this chip */
->  					reset_rx_descriptors(dev);
-> @@ -1671,8 +1669,6 @@
->  			} else {
->  				skb_put(skb = np->cur_rx->skbuff, pkt_len);
->  				np->cur_rx->skbuff = NULL;
-> -				if (np->really_rx_count == RX_RING_SIZE)
-> -					np->lack_rxbuf = np->cur_rx;
->  				--np->really_rx_count;
->  			}
->  			skb->protocol = eth_type_trans(skb, dev);
-> @@ -1682,22 +1678,7 @@
->  			np->stats.rx_bytes += pkt_len;
->  		}
->  
-> -		if (np->cur_rx->skbuff == NULL) {
-> -			struct sk_buff *skb;
-> -
-> -			skb = dev_alloc_skb(np->rx_buf_sz);
-> -
-> -			if (skb != NULL) {
-> -				skb->dev = dev;	/* Mark as being used by this device. */
-> -				np->cur_rx->buffer = pci_map_single(np->pci_dev, skb->tail,
-> -					np->rx_buf_sz, PCI_DMA_FROMDEVICE);
-> -				np->cur_rx->skbuff = skb;
-> -				++np->really_rx_count;
-> -			}
-> -		}
-> -
-> -		if (np->cur_rx->skbuff != NULL)
-> -			free_one_rx_descriptor(np);
-> +		np->cur_rx = np->cur_rx->next_desc_logical;
->  	}			/* end of while loop */
->  
->  	/*  allocate skb for rx buffers */
-
-
-Regards,
-Andreas Henriksson
+--
+Ueimor
