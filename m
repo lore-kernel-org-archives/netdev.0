@@ -1,71 +1,43 @@
-From: Manfred Spraul <manfred@colorfullife.com>
+From: Tomas Szepe <szepe@pinerecords.com>
 Subject: Re: [PATCH] qdisc oops fix
-Date: Wed, 16 Apr 2003 17:23:06 +0200
+Date: Wed, 16 Apr 2003 18:06:06 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E9D755A.8060601@colorfullife.com>
-References: <20030415084706.O1131@shell.cyberus.ca> <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro> <20030416072952.E4013@shell.cyberus.ca>
+Message-ID: <20030416160606.GA32575@louise.pinerecords.com>
+References: <20030415084706.O1131@shell.cyberus.ca> <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro> <20030416072952.E4013@shell.cyberus.ca> <3E9D755A.8060601@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Catalin BOIE <util@deuroconsult.ro>, Tomas Szepe <szepe@pinerecords.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Catalin BOIE <util@deuroconsult.ro>,
    linux-kernel@vger.kernel.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <20030416072952.E4013@shell.cyberus.ca>
+To: Manfred Spraul <manfred@colorfullife.com>
+Content-Disposition: inline
+In-Reply-To: <3E9D755A.8060601@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+> [manfred@colorfullife.com]
+> 
+> >>Trace; c0127e0f <kmalloc+eb/110>
+> >>Trace; c01d3cac <qdisc_create_dflt+20/bc>
+> >>Trace; d081ecc7 <END_OF_CODE+1054ff0f/????>
+> >>Trace; c01d5265 <tc_ctl_tclass+1cd/214>
+> >>Trace; d0820600 <END_OF_CODE+10551848/????>
+> >>Trace; c01d27e4 <rtnetlink_rcv+298/3bc>
+> >>Trace; c01d0605 <__neigh_event_send+89/1b4>
+> >>Trace; c01d7cd4 <netlink_data_ready+1c/60>
+> >>Trace; c01d7730 <netlink_unicast+230/278>
+> >>Trace; c01d7b73 <netlink_sendmsg+1fb/20c>
+> >>Trace; c01c79d5 <sock_sendmsg+69/88>
+> >>Trace; c01c8b48 <sys_sendmsg+18c/1e8>
+> >>Trace; c0120010 <map_user_kiobuf+8/f8>
+> >>
+> I don't understand the backtrace. Were any modules loaded? Perhaps 
+> 0xd081ecc7 is a module.
 
->This is a different problem from previous one posted.
->
->Theres a small window (exposed given that you are provisioning a lot
->of qdiscs  and running traffic at the same time) that an incoming packet
->interupt will cause the BUG().
->
->GFP_ATOMIC will fix it, but i wonder if it appropriate.
->  
->
-This is a 2.4 kernel, correct?
+The original backtrace as provided by Martin Volf does not contain
+any weird addresses such as 0xd081ecc7 above:
 
->>With many rules (~5000 classes and ~3500 qdiscs and ~50000 filters)
->>the kernel oopses in slab.c:1128.
->>
-This check?
-       if (in_interrupt() && (flags & SLAB_LEVEL_MASK) != SLAB_ATOMIC)
-                BUG();
-It's triggered, because someone does something like
-    spin_lock_bh(&my_lock);
-    p = kmalloc(,GFP_KERNEL);
+http://marc.theaimsgroup.com/?l=linux-kernel&m=105013596721774&w=2
 
-I don't like the proposed fix: usually code that calls 
-kmalloc(,GFP_KERNEL) assumes that it runs at process space, e.g. uses 
-semaphores, or non-bh spinlocks, etc.
-slab just happens to contain a test that complains about illegal calls.
-
->>Trace; c0127e0f <kmalloc+eb/110>
->>Trace; c01d3cac <qdisc_create_dflt+20/bc>
->>Trace; d081ecc7 <END_OF_CODE+1054ff0f/????>
->>Trace; c01d5265 <tc_ctl_tclass+1cd/214>
->>Trace; d0820600 <END_OF_CODE+10551848/????>
->>Trace; c01d27e4 <rtnetlink_rcv+298/3bc>
->>Trace; c01d0605 <__neigh_event_send+89/1b4>
->>Trace; c01d7cd4 <netlink_data_ready+1c/60>
->>Trace; c01d7730 <netlink_unicast+230/278>
->>Trace; c01d7b73 <netlink_sendmsg+1fb/20c>
->>Trace; c01c79d5 <sock_sendmsg+69/88>
->>Trace; c01c8b48 <sys_sendmsg+18c/1e8>
->>Trace; c0120010 <map_user_kiobuf+8/f8>
->>
->>
->>    
->>
-I don't understand the backtrace. Were any modules loaded? Perhaps 
-0xd081ecc7 is a module.
-
-I'd add a
-    if(in_interrupt()) show_stack(NULL);
-into qdisc_create_dflt(), and try to reproduce the bug without modules.
-
---
-    Manfred
+-- 
+Tomas Szepe <szepe@pinerecords.com>
