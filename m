@@ -1,31 +1,45 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [2.6 patch] /net/ax25/: some cleanups
-Date: Tue, 28 Dec 2004 14:27:08 +0000
-Message-ID: <1104237408.20944.70.camel@localhost.localdomain>
-References: <20041212211339.GX22324@stusta.de>
-	 <20041227185151.2a7ceb71.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: patchlet
+Date: 28 Dec 2004 10:33:48 -0500
+Message-ID: <1104248027.1100.110.camel@jzny.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Adrian Bunk <bunk@stusta.de>, ralf@linux-mips.org,
-        linux-hams@vger.kernel.org, netdev@oss.sgi.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: multipart/mixed; boundary="=-6f9Mwp3iMWKucXOWo7fM"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041227185151.2a7ceb71.davem@davemloft.net>
+To: James Morris <jmorris@redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Maw, 2004-12-28 at 02:51, David S. Miller wrote:
-> On Sun, 12 Dec 2004 22:13:39 +0100
-> Adrian Bunk <bunk@stusta.de> wrote:
-> 
-> > The patch below contains the following cleanups:
-> > - make two needlessly global functions static
-> > - net/ax25/ax25_addr.c: remove the unused global function ax25digicmp
 
-Dave this function is only unused because a patch in 2.6.10 broke AX.25
-protocol support by removing the device and path checks. AX.25 is a link
-layer protocol it is supposed to check the devices and arguably the
-path. 
+--=-6f9Mwp3iMWKucXOWo7fM
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+James,
+
+Attached a small patchlet that looked obvious - untested.
+
+cheers,
+jamal
+
+--=-6f9Mwp3iMWKucXOWo7fM
+Content-Disposition: attachment; filename=secp
+Content-Type: text/plain; name=secp; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- 2610-bk1/security/selinux/nlmsgtab.c	2004/12/28 04:01:14	1.1
++++ 2610-bk1/security/selinux/nlmsgtab.c	2004/12/28 04:05:39
+@@ -56,6 +56,9 @@
+ 	{ RTM_NEWTFILTER,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+ 	{ RTM_DELTFILTER,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+ 	{ RTM_GETTFILTER,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
++	{ RTM_NEWACTION,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
++	{ RTM_DELACTION,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
++	{ RTM_GETACTION,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_NEWPREFIX,	NETLINK_ROUTE_SOCKET__NLMSG_WRITE },
+ 	{ RTM_GETPREFIX,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+ 	{ RTM_GETMULTICAST,	NETLINK_ROUTE_SOCKET__NLMSG_READ  },
+
+--=-6f9Mwp3iMWKucXOWo7fM--
