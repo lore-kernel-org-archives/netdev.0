@@ -1,53 +1,46 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Subject: [PATCH] Prevent "eth0: driver changed get_stats after register" lying
-Date: Sat, 18 Oct 2003 21:46:22 +0100
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [Bugme-new] [Bug 1371] New: kernel fails to compile with ipv6
+ error
+Date: Sat, 18 Oct 2003 16:08:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031018214622.B25375@flint.arm.linux.org.uk>
+Message-ID: <20031018160855.26fea7b8.akpm@osdl.org>
+References: <200310182118.h9ILIBMX001067@fire-1.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: simon@swat.me.uk
+In-Reply-To: <200310182118.h9ILIBMX001067@fire-1.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+bugme-daemon@osdl.org wrote:
+>
+> http://bugme.osdl.org/show_bug.cgi?id=1371
+> 
+>            Summary: kernel fails to compile with ipv6 error
+>     Kernel Version: 2.6.0-test8
+>             Status: NEW
+>           Severity: blocking
+>              Owner: bugme-janitors@lists.osdl.org
+>          Submitter: simon@swat.me.uk
+> 
+> 
+> The following error is produced when compiling the kernel:
+> 
+>   AR      arch/i386/lib/lib.a
+>   GEN     .version
+>   CHK     include/linux/compile.h
+>   UPD     include/linux/compile.h
+>   CC      init/version.o
+>   LD      init/built-in.o
+>   LD      .tmp_vmlinux1
+> net/built-in.o(.text+0x57987): In function `ipip6_rcv':
+> : undefined reference to `__secpath_destroy'
+> make: *** [.tmp_vmlinux1] Error 1
+> 
+> This problem did not occur with test7 or previous kernels.
+> 
 
-There appears to be a race condition between netdev_register_sysfs
-and hotplug.  I'm seeing the message in the subject upon initialisation
-of pcnet_cs.
-
-We set "dev->last_stats" after we have registered the class device.
-During class device registration, we trigger the hotplug scripts,
-which can in turn bring up the interface.  This in turn checks to
-see if "dev->last_stats == dev->get_stats", and, since we haven't
-set dev->last_stats yet, we complain.
-
-Here is a patch against 2.6.0-test8 which moves the initialisation
-of last_stats such that we avoid the race.
-
---- orig/net/core/net-sysfs.c	Sat Oct 18 00:00:38 2003
-+++ linux/net/core/net-sysfs.c	Sat Oct 18 21:23:15 2003
-@@ -408,6 +408,7 @@
- 
- 	class_dev->class = &net_class;
- 	class_dev->class_data = net;
-+	net->last_stats = net->get_stats;
- 
- 	strlcpy(class_dev->class_id, net->name, BUS_ID_SIZE);
- 	if ((ret = class_device_register(class_dev)))
-@@ -419,7 +420,6 @@
- 	}
- 
- 
--	net->last_stats = net->get_stats;
- 	if (net->get_stats &&
- 	    (ret = sysfs_create_group(&class_dev->kobj, &netstat_group)))
- 		goto out_unreg; 
-
-
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+Odd.  Please send your .config.
