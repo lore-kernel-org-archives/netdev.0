@@ -1,30 +1,42 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Refine IPv6 Address Validation Timer
-Date: Fri, 27 Sep 2002 18:20:01 -0700 (PDT)
+Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
+Date: Fri, 27 Sep 2002 18:28:33 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020927.182001.122314480.davem@redhat.com>
-References: <20020928.011439.108856769.yoshfuji@linux-ipv6.org>
-	<200209271639.UAA21514@sex.inr.ac.ru>
+Message-ID: <20020927.182833.66704359.davem@redhat.com>
+References: <20020928.001742.125874265.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   usagi@linux-ipv6.org
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org,
+   kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200209271639.UAA21514@sex.inr.ac.ru>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20020928.001742.125874265.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: kuznet@ms2.inr.ac.ru
-   Date: Fri, 27 Sep 2002 20:39:45 +0400 (MSD)
-   
-   > (do I need to resend complete patch?)
-   
-   No, I think. Deletion of bad debugging is easier to make after patching.
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Sat, 28 Sep 2002 00:17:42 +0900 (JST)
 
-I've applied the patch with the time_after() debugging check
-removed to both 2.4.x and 2.5.x
+Please redesign this structure.
 
-If, after discussion, the "HZ --> HZ/2" change needs to be made, just
-send another patch on top of previous one, thanks.
+   +struct addrselect_attrs {
+   +	struct inet6_ifaddr *ifp;
+   +	int	match;
+   +	int	deprecated;
+   +	int	home;
+   +	int	temporary;
+   +	int	device;
+   +	int	scope;
+   +	int	label;
+   +	int	matchlen;
+   +};
+
+This is much larger than it needs to be.  Please replace these "int"
+binary states with single "u32 flags;" and appropriate bit
+definitions.
+
+This structure sits on the stack, so it is important to be
+as small as we can easily make it.
+
+Otherwise I have no problems with the patch, Alexey?
