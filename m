@@ -1,35 +1,118 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: Re: [2.6 patch] atalk compile errors with SYSCTL=n
-Date: Thu, 12 Aug 2004 10:47:17 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040812084717.GY26174@fs.tum.de>
-References: <20040811224747.GQ26174@fs.tum.de> <20040811170101.69c140b6@dell_ss3.pdx.osdl.net>
+From: Suparna Bhattacharya <suparna@in.ibm.com>
+Subject: Re: net-AIO and real-time TCP (blue sky research)
+Date: Thu, 12 Aug 2004 17:37:10 +0530
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040812120710.GA4435@in.ibm.com>
+References: <20040801235102.K1276@almesberger.net> <20040810155148.GA4630@in.ibm.com> <20040811201829.T28020@almesberger.net>
+Reply-To: suparna@in.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: acme@conectiva.com.br, linux-kernel@vger.kernel.org,
-	davem@redhat.com, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268464AbUHLIrY@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Werner Almesberger <werner@almesberger.net>
 Content-Disposition: inline
-In-Reply-To: <20040811170101.69c140b6@dell_ss3.pdx.osdl.net>
+In-Reply-To: <20040811201829.T28020@almesberger.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 11, 2004 at 05:01:01PM -0700, Stephen Hemminger wrote:
+On Wed, Aug 11, 2004 at 08:18:29PM -0300, Werner Almesberger wrote:
+> Suparna Bhattacharya wrote:
+> > I was hoping all this while that someone with deeper knowledge
+> > in this area than me would respond, but well, maybe they were
+> > all quiet chuckles :) ?
+> 
+> Or they haven't stopped laughing yet ;-)
+> 
+> > Does your proposal require additional semantics on aio TCP socket
+> > reads and writes that differ from the synchronous TCP case, besides
+> > not blocking and indicating completion through aio_complete ?
+> 
+> Unfortunately, yes. First of all, we'd need a definition of where
+> in the stream the AIO operation is applied. Two possibilities:
+> 
+>  1) explicit: apply the concept of a "file position" to the stream,
+>     and make it visible to applications (through aio_offset)
+> 
+>  2) implicit: follow the existing principle that any read consumes
+>     just the next chunk of data, and internally assign positions
+>     based on the sequence number. As a consequence, AIOs would be
+>     ordered over time (in the case of individual aio_reads) and
+>     space (in the case of lio_listio).
+> 
+> In any case, it's a departure from existing API properties, i.e.
+> 1) would introduce an application-visible "stream position" for
+> TCP (which doesn't agree with TCP being able to send arbitrarily
+> long streams, but then, a nice 64 bit position is probably close
+> enough to near-infinity), and 2) adds ordering to AIO, which may
+> be undesirable in terms of consistency, and also in terms of
+> lock avoidance.
+> 
+> There's also the issue of whether an AIO read should complete
+> after retrieving less than aio_nbytes. Three possibilities:
+> 
+>  1) never (probably not a great idea)
+>  2) may always (like "read" does)
+>  3) only on the last AIO read returning data
+> 
+> 2) would be the most flexible approach, but requires either
+> application-settable positions (to fetch the missing part) or
+> automatic re-arranging of subsequent AIO reads.
+> 
+> 3) avoids the problems of 2), but doesn't work well if the
+> reader didn't correctly predict segment boundaries, and may
+> cause trouble (like in 2) if there are pending requests after
+> the one that was "short", and new data arrives.
+> 
+> Last but not least, aio_forget would have to tell TCP that we're
+> not only no longer interested in retrieving a certain piece of
+> data, but that we'll never be.
+> 
+> If positions are implicit, aio_cancel would actually have this
+> effect (since there would be no way to request the same range of
+> data again), so we wouldn't even need aio_forget.
+> 
+> > The notion of which segment to aio_forget on the Rx path 
+> > is a little hazy to me (were you were indeed referring
+> > to the receive side here ? I can see this more clearly for
+> > the send side when coupled with zero copy).
+> 
+> Yes, this is mainly about receiving. Similar things could be
+> done for sending, but that's largely a separate issue.
+> 
+> Let's say I'm issuing three AIOs:
+> 
+>  1: offset = 0, nbytes = 100
+>  2: offset = 100, nbytes = 100
+>  3: offset = 200, nbytes = 100
+> 
+> Now a segment arrives for 0-99, and another for 200-299.
+> Normal TCP will retry (by ACKing sequence 100) until also the
+> segment 100-199 has made it.
+> 
+> With AIO-TCP, if our application is happy with getting two
+> out of the three requests, it can now aio_forget the 2nd
+> request. TCP would notice that can now ACK up to sequence 200,
+> for the forgotten read, and even up to sequence 300, because
+> the 200-299 has been received. So it'll ACK sequence 300 now,
+> and happily move on, without caring whether segment 100-199
+> ever gets through.
 
-> I prefer to have the CONFIG stuff in the header file.
-> Here is an alternative that rearranges to put all function prototypes in atalk.h
-> and stubs if necessary. It gets all the #ifdef CONFIG_ stuff out of the
-> .c files.
->...
+OK, in the light of the change in semantics you described
+earlier, introducing the notion of an offset, this makes sense. 
+Thanks for clarifying.
 
-Compiles and looks good.
+Regards
+Suparna
 
-cu
-Adrian
+> 
+> - Werner
+> 
+> -- 
+>   _________________________________________________________________________
+>  / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
+> /_http://www.almesberger.net/____________________________________________/
 
 -- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+Suparna Bhattacharya (suparna@in.ibm.com)
+Linux Technology Center
+IBM Software Lab, India
