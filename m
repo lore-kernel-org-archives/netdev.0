@@ -1,112 +1,69 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Fw: [Kernel-janitors] old ioctl definitions in 2.5
-Date: Mon, 15 Sep 2003 15:52:25 -0700
+From: Roberto Nibali <ratz@drugphish.ch>
+Subject: Re: [PATCH] ipvs -- print statistics in decimal.
+Date: Tue, 16 Sep 2003 00:59:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030915155225.3cf90d79.rddunlap@osdl.org>
+Message-ID: <3F664436.6020709@drugphish.ch>
+References: <20030915144154.26b9bad5.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="Multipart_Mon__15_Sep_2003_15:52:25_-0700_097a8d78"
-Cc: janitor@sternwelten.at
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+   Wensong Zhang <wensong@linux-vs.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "LinuxVirtualServer.org users mailing list." <lvs-users@LinuxVirtualServer.org>
+In-Reply-To: <20030915144154.26b9bad5.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+Stephen Hemminger wrote:
+> Most of of us read decimal better than hex ;-)
 
---Multipart_Mon__15_Sep_2003_15:52:25_-0700_097a8d78
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+While I agree with your comment this will seriously break existing user 
+space applications, such as for example ipvsadm.
 
+> Assumes earlier seq_file patch.
+> diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+> --- a/net/ipv4/ipvs/ip_vs_ctl.c	Mon Sep 15 14:31:43 2003
+> +++ b/net/ipv4/ipvs/ip_vs_ctl.c	Mon Sep 15 14:31:43 2003
+> @@ -1716,22 +1716,22 @@
+>  #ifdef CONFIG_PROC_FS
+>  static int ip_vs_stats_show(struct seq_file *seq, void *v)
+>  {
+> +	static const char hfmt[]
+> +		= "%10s %10s %10s %20s %20s\n";
+>  
+> -/*               01234567 01234567 01234567 0123456701234567 0123456701234567 */
+> -	seq_puts(seq,
+> -		 "   Total Incoming Outgoing         Incoming         Outgoing\n");
+> -	seq_printf(seq, 	   
+> -		   "   Conns  Packets  Packets            Bytes            Bytes\n");
+> +	seq_printf(seq, hfmt, "Total", "Incoming", "Outgoing", 
+> +		   "Incoming" ,"Outgoing");
+> +	seq_printf(seq, hfmt, "Conns", "Packets","Packets","Bytes","Bytes");
+>  
+>  	spin_lock_bh(&ip_vs_stats.lock);
+> -	seq_printf(seq, "%8X %8X %8X %16LX %16LX\n\n", ip_vs_stats.conns,
+> +	seq_printf(seq, "%10u %10u %10u %20llu %20llu\n\n", 
+> +		   ip_vs_stats.conns,
+>  		   ip_vs_stats.inpkts, ip_vs_stats.outpkts,
+>  		   ip_vs_stats.inbytes, ip_vs_stats.outbytes);
 
-Hi Max,
+You break ipvsadm.
 
-I think that we need to ask the netdev people about this...
+> -/*                 01234567 01234567 01234567 0123456701234567 0123456701234567 */
+> -	seq_puts(seq,
+> -		   " Conns/s   Pkts/s   Pkts/s          Bytes/s          Bytes/s\n");
+> -	seq_printf(seq,"%8X %8X %8X %16X %16X\n",
+> +	seq_printf(seq, hfmt, "Conns/s", "Pkts/s","Pkts/s", 
+> +		   "Bytes/s","Bytes/s");
+> +	seq_printf(seq,"%10u %10u %10u %20u %20u\n",
+>  			ip_vs_stats.cps,
+>  			ip_vs_stats.inpps,
+>  			ip_vs_stats.outpps,
 
-Thanks,
-~Randy
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Ditto.
 
-Begin forwarded message:
-
-Date: Fri, 12 Sep 2003 13:49:52 +0200
-From: maximilian attems <janitor@sternwelten.at>
-To: kj <kernel-janitors@osdl.org>
-Cc: 
-Subject: [Kernel-janitors] old ioctl definitions in 2.5
-
-
-heyyy :)
-
-include/linux/if_bonding.h contains:
---- snipp
-/*
- * We can remove these ioctl definitions in 2.5.  People should use the
- * SIOC*** versions of them instead
-*/
-#define BOND_ENSLAVE_OLD                (SIOCDEVPRIVATE)
-#define BOND_RELEASE_OLD                (SIOCDEVPRIVATE + 1)
-#define BOND_SETHWADDR_OLD              (SIOCDEVPRIVATE + 2)
-#define BOND_SLAVE_INFO_QUERY_OLD       (SIOCDEVPRIVATE + 11)
-#define BOND_INFO_QUERY_OLD             (SIOCDEVPRIVATE + 12)
-#define BOND_CHANGE_ACTIVE_OLD          (SIOCDEVPRIVATE + 13)
----
-their use is very limited mostly in Documentation/networking/ifenslave.c
-and drivers/net/bonding/bond_main.c
-
-do you consider this as a kj case?
-shall they be removed?
-
-thx for your ansers!
-a++ maks
-
---Multipart_Mon__15_Sep_2003_15:52:25_-0700_097a8d78
-Content-Type: text/plain;
- name="00000000.mimetmp"
-Content-Disposition: attachment;
- filename="00000000.mimetmp"
-Content-Transfer-Encoding: 7bit
-
-heyyy :)
-
-include/linux/if_bonding.h contains:
---- snipp
-/*
- * We can remove these ioctl definitions in 2.5.  People should use the
- * SIOC*** versions of them instead
-*/
-#define BOND_ENSLAVE_OLD                (SIOCDEVPRIVATE)
-#define BOND_RELEASE_OLD                (SIOCDEVPRIVATE + 1)
-#define BOND_SETHWADDR_OLD              (SIOCDEVPRIVATE + 2)
-#define BOND_SLAVE_INFO_QUERY_OLD       (SIOCDEVPRIVATE + 11)
-#define BOND_INFO_QUERY_OLD             (SIOCDEVPRIVATE + 12)
-#define BOND_CHANGE_ACTIVE_OLD          (SIOCDEVPRIVATE + 13)
----
-their use is very limited mostly in Documentation/networking/ifenslave.c
-and drivers/net/bonding/bond_main.c
-
-do you consider this as a kj case?
-shall they be removed?
-
-thx for your ansers!
-a++ maks
-
-
-
-
-
-
---Multipart_Mon__15_Sep_2003_15:52:25_-0700_097a8d78
-Content-Type: application/pgp-signature;
- name="00000001.mimetmp"
-Content-Disposition: attachment;
- filename="00000001.mimetmp"
-Content-Transfer-Encoding: base64
-
-LS0tLS1CRUdJTiBQR1AgU0lHTkFUVVJFLS0tLS0KVmVyc2lvbjogR251UEcgdjEuMC42IChHTlUv
-TGludXgpCkNvbW1lbnQ6IEZvciBpbmZvIHNlZSBodHRwOi8vd3d3LmdudXBnLm9yZwoKaUQ4REJR
-RS9ZYkxnNi8va1NUTmpvWDBSQW9zNkFKOUIrS2djSjZnU083akVoc3RBd01Kb21HQnFHQUNmYXFs
-Ygp2VXhSM2h5RjdKYkpnbDk2bTBtNndSVT0KPXRSUzUKLS0tLS1FTkQgUEdQIFNJR05BVFVSRS0t
-LS0tCgo=
-
---Multipart_Mon__15_Sep_2003_15:52:25_-0700_097a8d78--
+Best regards,
+Roberto Nibali, ratz
+-- 
+echo '[q]sa[ln0=aln256%Pln256/snlbx]sb3135071790101768542287578439snlbxq'|dc
