@@ -1,38 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: link error building kernel with gcc-3.3
-Date: Wed, 14 May 2003 22:42:14 -0700 (PDT)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] iphase fix.
+Date: Thu, 15 May 2003 02:37:17 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030514.224214.42791773.davem@redhat.com>
-References: <20030514202941.39519.qmail@web40503.mail.yahoo.com>
-	<Mutt.LNX.4.44.0305151536280.12417-100000@excalibur.intercode.com.au>
+Message-ID: <3EC3359D.5050207@pobox.com>
+References: <200305150417.h4F4HTRA025809@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alex14641@yahoo.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
-In-Reply-To: <Mutt.LNX.4.44.0305151536280.12417-100000@excalibur.intercode.com.au>
+To: davej@codemonkey.org.uk
+In-Reply-To: <200305150417.h4F4HTRA025809@hera.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: James Morris <jmorris@intercode.com.au>
-   Date: Thu, 15 May 2003 15:38:15 +1000 (EST)
-   
-   I wonder, does this mean that the compiler failed to inline the function?
-   
-   Removing __inline__ is not the correct solution.
-   
-I already posted what the correct fix is :-)  And this is already
-pushed to 2.5.x
+Linux Kernel Mailing List wrote:
+> ChangeSet 1.1127, 2003/05/14 20:44:02-07:00, davej@codemonkey.org.uk
+> 
+> 	[PATCH] iphase fix.
+> 	
+> 	This went into 2.4 nearly a year back with the wonderfully
+> 	descriptive  "Fix from maintainer" comment.
 
-Inlining is not guarenteed, and:
+> diff -Nru a/drivers/net/fc/iph5526.c b/drivers/net/fc/iph5526.c
+> --- a/drivers/net/fc/iph5526.c	Wed May 14 21:17:37 2003
+> +++ b/drivers/net/fc/iph5526.c	Wed May 14 21:17:37 2003
+> @@ -2984,8 +2984,7 @@
+>  	 */
+>  	if ((type == ETH_P_ARP) || (status == 0))
+>  		dev_kfree_skb(skb);
+> -	else
+> -		netif_wake_queue(dev);
+> +	netif_wake_queue(dev);
+>  	LEAVE("iph5526_send_packet");
 
-extern inline ... foo(...)
 
-means "inline if you can, I have a compiled-in implementation
-in some object somewhere" whereas:
+This appears to revert a fix.
 
-static inline ... foo(...)
+You only want to wake the queue if you have room to queue another skb.
 
-means "inline if you can, if there is a case where you cannot
-emit this as a function into the current module"
+	Jeff
