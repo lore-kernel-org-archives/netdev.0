@@ -1,48 +1,48 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH] export xfrm_policy_delete
-Date: Sun, 21 Nov 2004 19:50:04 -0200
-Message-ID: <41A10D8C.2070607@conectiva.com.br>
+From: =?ISO-8859-2?Q?Micha=B3_Margula?= <alchemyx@uznam.net.pl>
+Subject: Re: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+Date: Sun, 21 Nov 2004 23:21:23 +0100
+Message-ID: <41A114E3.5070705@uznam.net.pl>
+References: <20041115122046.1413527e.akpm@osdl.org> <20041115124843.4c3dd72f.akpm@osdl.org> <419C8724.20006@uznam.net.pl> <200411211727.43320.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060906030903030105000001"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200411211727.43320.bdschuym@pandora.be>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060906030903030105000001
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Bart De Schuymer napisa=B3(a):
 
-Hi David,
+># cd /usr/src/linux-2.6.9/
+># patch -p1 < patch
+>When your system hangs again, the message "EBTABLES: BEFORE WRITE LOCK"
+>should be in your syslog, and check that it is not followed by "EBTABLES=
+:=20
+>AFTER WRITE LOCK".
+>
+> =20
+>
+I have just applied that patch. Tomorrow I will reboot a new kernel. So=20
+in about no more than two days, I should get some results.
 
-         In my DCCP work I'm closely following the TCP code,
-so I need this function exported, please consider applying.
+>Is the bridge still forwarding packets while it hangs?
+>
+> =20
+>
+No. Box is completly frozen.
 
-Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+>Perhaps try to link all network traffic to one cpu before doing your ebt=
+ables=20
+>updates...
+> =20
+>
+Could you give me more details about that? Should it be done before=20
+updating ebtables, and after that reverting? And most important - how? :).
 
 
---------------060906030903030105000001
-Content-Type: text/plain;
- name="xfrm_policy_delete.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="xfrm_policy_delete.patch"
-
-===== net/xfrm/xfrm_policy.c 1.58 vs edited =====
---- 1.58/net/xfrm/xfrm_policy.c	2004-11-09 22:44:26 -02:00
-+++ edited/net/xfrm/xfrm_policy.c	2004-11-21 19:43:19 -02:00
-@@ -548,6 +548,8 @@
- 	}
- }
- 
-+EXPORT_SYMBOL(xfrm_policy_delete);
-+
- int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
- {
- 	struct xfrm_policy *old_pol;
-
---------------060906030903030105000001--
+--=20
+Micha=B3 Margula, alchemyx@uznam.net.pl, http://alchemyx.uznam.net.pl/
+"W =BFyciu pi=EAkne s=B1 tylko chwile" [Ryszard Riedel]
