@@ -1,36 +1,28 @@
-From: Peter Mueller <pmueller@sidestep.com>
-Subject: RE: [PATCH] Convert ipvs to use seq_file.
-Date: Mon, 15 Sep 2003 14:56:59 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH][ATM]: [clip] fix race between modifying entry->vccs and
+ clip_start_xmit()
+Date: Mon, 15 Sep 2003 15:02:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <37328159548B4242A34141B1A69CDB73031BAAAE@exchange.sidestep.com>
+Message-ID: <20030915150217.06b03168.davem@redhat.com>
+References: <20030915225901.A22239@electric-eye.fr.zoreil.com>
+	<200309152159.h8FLx1Sa005910@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'LinuxVirtualServer.org users mailing list.'"
-	 <lvs-users@LinuxVirtualServer.org>,
-   "David S. Miller" <davem@redhat.com>,
-   "'Stephen Hemminger'" <shemminger@osdl.org>
+To: chas williams <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200309152159.h8FLx1Sa005910@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Stephen,
+On Mon, 15 Sep 2003 17:59:02 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> P.s: how come there is no MAINTAINER listed for IPVS?
+> this is triggered by vcc_destroy_sock(), which is part of vcc_release()
+> which is always going to be in user context.  its a bit subtle but
+> there is no path to unlink_clip_vcc() that isnt in user context.
 
-Wensong Zhang is the maintainer; where did you expect to see a maintainer
-listed at?  The LVS-developers that seem to be most active are:
-
-Wensong Zhang
-Julian Atanasaov
-Simon Horman ('Horms')
-Alexandre Cassen
-Roberto Nibali ('Ratz')
-Joseph Mack
-
-AFAIK Redhat takes the LVS-source and patches it up at their end for
-Pirahna, so patches should probably not go to RH.
-
-Hope it helps,
-
-Peter
+Are you really totally sure that no interrupt path can release
+a VCC?  That's not how I understood this stuff to work last time
+I looked at it.
