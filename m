@@ -1,57 +1,47 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4239] New: ARP sent with wrong MAC address
-Date: Tue, 22 Feb 2005 11:32:40 -0800
-Message-ID: <20050222113240.5e886c6a.akpm@osdl.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Bug-hunting
+Date: Tue, 22 Feb 2005 11:51:14 -0800
+Message-ID: <20050222115114.0d0e568e.davem@davemloft.net>
+References: <421B4AB7.9030003@rapidforum.com>
+	<20050222104448.31373a99.davem@davemloft.net>
+	<421B8563.9030608@rapidforum.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: agulati@nextone.com
-To: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+In-Reply-To: <421B8563.9030608@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 22 Feb 2005 20:17:55 +0100
+Christian Schmid <webmaster@rapidforum.com> wrote:
 
+> No. This is a new thing and this wasnt there before. In 2.6.10-rc2 the kernel aborted programs with 
+> "Out of memory" when too many buffers are allocated and low memory was full. NOW it just shrinks the 
+> buffers dynamically. I don't want that. I have a 2/2 system and I want 1600 MB for buffers but you 
+> only allow around 700 MB for buffers. This is definetly NEW.
 
-Begin forwarded message:
+It always shrinks the TCP socket buffer usage when the total socket
+memory used by TCP is over the threshold.  This code has been there
+for 3 years at least.
 
-Date: Tue, 22 Feb 2005 07:31:58 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4239] New: ARP sent with wrong MAC address
+If the behavior has changed, that's interesting and probably due to
+some other change.  It could even be a MM layer change that is causing
+things to behave differently now for you, and because things are
+being tweaked in the memory management all the time (particularly
+the handling of lowmem vs. highmem) this would not surprise me at
+all.
 
+But the basic framework for shrinking socket buffers when total TCP
+memory usage crosses some threshold has been there and has been
+enabled for a long time.
 
-http://bugme.osdl.org/show_bug.cgi?id=4239
+Anyways, we're stalled on figuring out exactly what is wrong due to
+lack of information and difficulty in reproducing.  The ball is still
+in your court.
 
-           Summary: ARP sent with wrong MAC address
-    Kernel Version: 2.6.10
-            Status: NEW
-          Severity: normal
-             Owner: acme@conectiva.com.br
-         Submitter: agulati@nextone.com
-
-
-Distribution:
-Hardware Environment: P4
-Software Environment: 2.6.10
-Problem Description: Turning ARP OFF and sending something out from that
-interface creates a NOARP entry in the ARP table which does not go away when you
-turn ARP back ON.
-
-ip link set eth0 arp off
-ping -I eth0 1.1.1.1              (creates ARP entry with own MAC address --
-1.1.1.1 dev eth0 lladdr <eth0's MAC address> nud noarp)
-
-This entry in arp table with 'nud noarp', stays there even after turning ARP on.
-ip link set eth0 arp on
-
-And ping 1.1.1.1 doesn't work after that since it considers that 'nud noarp'
-entry as valid and doesn't send ARP request but sends an ICMP request to its own
-MAC address!
-
-Shouldn't that entry be removed after enabling ARP on eth0?
-If not, is there a way to remove that entry (I tried 'ip -statistics neigh flush
-dev eth0 nud noarp', but that goes in a loop)
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+Why don't you put together a very simple test case that others can
+use to analyze and reproduce your bug?  I bet we'll fix it or figure
+out what is wrong with your app within 24 hours once you do that. :-)
