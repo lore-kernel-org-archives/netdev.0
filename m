@@ -1,37 +1,76 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: I/O operations
-Date: Thu, 21 Nov 2002 13:40:34 +0100
+From: "DR JOEL ODILI" <ODAFENG1@REDIFFMAIL.COM>
+Subject: APPEAL FOR URGENT ASSISTANCE/INVESTMENT
+Date: Thu, 21 Nov 2002 07:12:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15836.54338.135589.998015@robur.slu.se>
+Message-ID: <200211211510.gALFA7uR004509@oss.sgi.com>
+Reply-To: "DR JOEL ODILI" <INFOODILING1@KUKAMAIL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+                                                                         
+                                                            URGENT
+BUSINESS PROPOSAL
 
-While hacking with e1000...
+This letter may come to you as a surprise since it is coming from someone
+you have not met before.  However, we decided 
+to contact you based on satisfactory information we had about your
+businessperson as regard business information 
+concerning your country and the safety of our funds in a steady economy
+such as that of your country compared to our 
+country Nigeria Africa.
 
-For e1000 reading the interrupt control (ICR) register also acks it. 
-I guess the idea is to save I/O operations which are very slow in 
-comparison to CPU speed. So reading and acking is done atomically 
-in just one operation. 
+I am a civil adviser currently working with the monitoring committee
+overseeing the winding up of the petroleum trust fund  
+(PTF).Myself and my close and trusted colleagues need your assistance in
+the transfer of US$35 million into any reliable  
+Account you may nominate overseas.
 
-And it should be possible to extend this to even disable interrupts 
-(if ICR nonzero) in the same operation? 
+This fund was generated from over-invoicing of contracts executed by the
+PTF under the administration of the past military 
+government. These were discovered while we were reviewing the PTF accounts.
 
-At least for NAPI "type" drivers this seems useful...
+>From our discoveries, these contracts have been executed and the
+contractors in question were all paid. The difference of 
+US$35,000,000 being the over-invoiced amount is the funds, we want your
+corporate entity to help us receive.
 
-1) H/W generates interrupt which "indicates" work.
-2) Driver Reads/Acks/Disables-IRQ in one I/O operation and 
-   schedules work for softirq.
+What we want from you is a good and reliable company or personal Account
+into which we shall transfer this fund.
 
+Details should include the following:
 
+1. Name of Bank
+2. Address of Bank with Fax & Tel. No.
+3. Account Number
+4. Beneficiary/Signatory to Account (Account Name)
 
-Any chips capable of this already?
+Upon the Successful crediting of your Account.The fund will be shared as
+follows:
+1. 20% for you and your assistance
+2. 75% for myself & my Colleagues
+3. 5% for contingency expenses
 
-Cheers.
-						--ro
+Please after your first reply through e-mail,I will want us to continue
+further communication by fax and telephone for 
+confidential purpose. We wish to assure you that your involvement should
+you decide to assist us, will be well protected, 
+and also, this business, proposal is 100% risk free as we have put a whole
+lot into it.
+
+Thank you for your anticipated cooperation while we look forward to a
+mutually benefiting business relationship with you.
+
+Please when replying to my e-mail kindly include your telephone, fax
+number and mobile telephone numbers preferably 
+extremely private numbers where we can reach you any time of the day.
+Please be aware that a high level of confidentiality 
+and trust is required in this business.
+
+Best Regards,
+
+Dr GREG ADAMS
