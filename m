@@ -1,35 +1,42 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
-Date: Sun, 16 Jan 2005 20:02:27 +0100
-Message-ID: <20050116190227.GC21870@xi.wantstofly.org>
-References: <20050112222437.GC14280@xi.wantstofly.org> <Pine.LNX.4.61.0501130944270.19573@netcore.fi> <20050113092351.GA23170@xi.wantstofly.org> <1105897020.1091.736.camel@jzny.localdomain>
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: patch: namsiz
+Date: 16 Jan 2005 14:17:13 -0500
+Message-ID: <1105903033.1097.829.camel@jzny.localdomain>
+References: <1105900522.1090.798.camel@jzny.localdomain>
+	 <41EAB74F.6060507@trash.net>  <20050116185630.GZ26856@postel.suug.ch>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka Savola <pekkas@netcore.fi>, netdev@oss.sgi.com, shemminger@osdl.org,
-        shollenbeck@verisign.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1105897020.1091.736.camel@jzny.localdomain>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050116185630.GZ26856@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 16, 2005 at 12:37:00PM -0500, jamal wrote:
 
-> > > Is there a particular reason why GRE tunnel is not sufficient? 
-> > 
-> > No particular reason, apart from not being aware that GRE provides
-> > this functionality.
-> 
-> True that GRE can do all this (and they have thought out well the
-> broadcasting etc) but i dont think it will harm to push this into the
-> kernel if some odd OS like openbsd supports it. 
-
-Apparently they mis-read the RFC and write the etherip header as 0x0300
-instead of 0x3000 (they have the version nibble in the wrong place.)  This
-would likely prevent interoperability.
-
+On my part - theres one little change i made - just compiling it as we
+speak;
+I will post and stop there until you are done
 
 cheers,
-Lennert
+jamal
+
+On Sun, 2005-01-16 at 13:56, Thomas Graf wrote:
+> * Patrick McHardy <41EAB74F.6060507@trash.net> 2005-01-16 19:49
+> > Jamal Hadi Salim wrote:
+> > 
+> > >heres one ive wanted to do for a while - dissociate action name size
+> > >from ifnamsiz. for now set it to namize, but later may change it.
+> > >
+> > The same can be done for sch_api and cls_api. I'll add it to my tree
+> > when I'm done with the current fixes, unfortunately one of them has
+> > to touch basically all files in net/sched and I want to avoid clashes.
+> 
+> Go ahead, I have no changes in my tree except in a few header files
+> and the necessary iproute2 changes will occupy me for a while.
+> 
+> 
