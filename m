@@ -1,328 +1,255 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] iproute2: support generic statistics and add requeues statistics
-Date: Thu, 21 Oct 2004 21:42:16 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Fw: [Bug 3610] New: kernel-2.6.9 breaks Amanda
+Date: Thu, 21 Oct 2004 13:37:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021194216.GW21977@postel.suug.ch>
-References: <20041021123209.GE21977@postel.suug.ch>
+Message-ID: <20041021133752.67a386fb@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20041021123209.GE21977@postel.suug.ch>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen,
 
-Here is a patch for iproute2 adding support for the new statistic
-interface while still being backward compatible to the old statistic
-TLVs. Contains the following changes:
+http://bugme.osdl.org/show_bug.cgi?id=3610
 
-o Add linux/gen_stats.h to header files
-o Update linux/rtnetlink.h to contain TCA_STATS2 TLV type
-o Modify print_tcstats_attr to take a TLV array, prefix string and
-  xstats TLV result pointer. It will search for TCA_STATS2 in the
-  TLV array and eventually fall back to TCA_STATS. If TCA_STATS2 is
-  present it will look for TCA_STATS_APP and if present use it as
-  xstats, otherwise it falls back to TCA_XSTATS. The prefix is
-  printed on every new line to allow indenting properly.
-o Modify all callers to print_tcstats_attr and make them provide the
-  new attributes and a xstats result pointer if needed. The xstats
-  result pointer is checked for != NULL and used if true, otherwise it
-  falls back to TCA_XSTATS to handle the unlikely case when TCA_STATS
-  and TCA_STATS2 are not present but TCA_XSTATS is.
+           Summary: kernel-2.6.9 breaks Amanda
+    Kernel Version: 2.6.9
+            Status: NEW
+          Severity: normal
+             Owner: shemminger@osdl.org
+         Submitter: wralph@nswc.navy.mil
 
-I tried to stick to the old dumping format to not break too many
-scripts with the new requeues statistics.
 
-diff -Nru iproute2-2.6.9.orig/include/linux/gen_stats.h iproute2-2.6.9/include/linux/gen_stats.h
---- iproute2-2.6.9.orig/include/linux/gen_stats.h	1970-01-01 01:00:00.000000000 +0100
-+++ iproute2-2.6.9/include/linux/gen_stats.h	2004-10-21 18:17:31.000000000 +0200
-@@ -0,0 +1,62 @@
-+#ifndef __LINUX_GEN_STATS_H
-+#define __LINUX_GEN_STATS_H
-+
-+#include <linux/types.h>
-+
-+enum {
-+	TCA_STATS_UNSPEC,
-+	TCA_STATS_BASIC,
-+	TCA_STATS_RATE_EST,
-+	TCA_STATS_QUEUE,
-+	TCA_STATS_APP,
-+	__TCA_STATS_MAX,
-+};
-+#define TCA_STATS_MAX (__TCA_STATS_MAX - 1)
-+
-+/**
-+ * @bytes: number of seen bytes
-+ * @packets: number of seen packets
-+ */
-+struct gnet_stats_basic
-+{
-+	__u64	bytes;
-+	__u32	packets;
-+};
-+
-+/**
-+ * @bps: current byte rate
-+ * @pps: current packet rate
-+ */
-+struct gnet_stats_rate_est
-+{
-+	__u32	bps;
-+	__u32	pps;
-+};
-+
-+/**
-+ * @qlen: queue length
-+ * @backlog: backlog size of queue
-+ * @drops: number of dropped packets
-+ * @requeues: number of requeues
-+ */
-+struct gnet_stats_queue
-+{
-+	__u32	qlen;
-+	__u32	backlog;
-+	__u32	drops;
-+	__u32	requeues;
-+	__u32	overlimits;
-+};
-+
-+/**
-+ * @interval: sampling period
-+ * @ewma_log: the log of measurement window weight
-+ */
-+struct gnet_estimator
-+{
-+	signed char	interval;
-+	unsigned char	ewma_log;
-+};
-+
-+
-+#endif /* __LINUX_GEN_STATS_H */
-diff -Nru iproute2-2.6.9.orig/include/linux/rtnetlink.h iproute2-2.6.9/include/linux/rtnetlink.h
---- iproute2-2.6.9.orig/include/linux/rtnetlink.h	2004-10-19 22:49:02.000000000 +0200
-+++ iproute2-2.6.9/include/linux/rtnetlink.h	2004-10-21 18:17:44.000000000 +0200
-@@ -698,6 +698,7 @@
- 	TCA_XSTATS,
- 	TCA_RATE,
- 	TCA_FCNT,
-+	TCA_STATS2,
- 	__TCA_MAX
- };
- 
-diff -Nru iproute2-2.6.9.orig/tc/m_action.c iproute2-2.6.9/tc/m_action.c
---- iproute2-2.6.9.orig/tc/m_action.c	2004-10-19 22:49:02.000000000 +0200
-+++ iproute2-2.6.9/tc/m_action.c	2004-10-21 21:24:04.000000000 +0200
-@@ -261,10 +261,11 @@
- 	if (0 > err)
- 		return err;
- 
--	if (show_stats && tb[TCA_STATS]) {
--		fprintf(f, "\t");
--		print_tcstats_attr(f, tb[TCA_STATS]);
--		fprintf(f, "\n");
-+	if (show_stats) {
-+		if (tb[TCA_STATS] || tb[TCA_STATS2]) {
-+			print_tcstats_attr(f, tb, "\t", NULL);
-+			fprintf(f, "\n");
-+		}
- 	}
- 
- 	return 0;
-diff -Nru iproute2-2.6.9.orig/tc/tc_class.c iproute2-2.6.9/tc/tc_class.c
---- iproute2-2.6.9.orig/tc/tc_class.c	2004-10-19 22:49:02.000000000 +0200
-+++ iproute2-2.6.9/tc/tc_class.c	2004-10-21 21:21:33.000000000 +0200
-@@ -216,12 +216,14 @@
- 	}
- 	fprintf(fp, "\n");
- 	if (show_stats) {
--		if (tb[TCA_STATS]) {
--			print_tcstats_attr(fp, tb[TCA_STATS]);
-+		struct rtattr *xstats = NULL;
-+		
-+		if (tb[TCA_STATS] || tb[TCA_STATS2]) {
-+			print_tcstats_attr(fp, tb, " ", &xstats);
- 			fprintf(fp, "\n");
- 		}
--		if (q && tb[TCA_XSTATS] && q->print_xstats) {
--			q->print_xstats(q, fp, tb[TCA_XSTATS]);
-+		if (q && (xstats || tb[TCA_XSTATS]) && q->print_xstats) {
-+			q->print_xstats(q, fp, xstats ? : tb[TCA_XSTATS]);
- 			fprintf(fp, "\n");
- 		}
- 	}
-diff -Nru iproute2-2.6.9.orig/tc/tc_filter.c iproute2-2.6.9/tc/tc_filter.c
---- iproute2-2.6.9.orig/tc/tc_filter.c	2004-10-19 22:49:02.000000000 +0200
-+++ iproute2-2.6.9/tc/tc_filter.c	2004-10-21 21:22:27.000000000 +0200
-@@ -254,8 +254,8 @@
- 	}
- 	fprintf(fp, "\n");
- 
--	if (show_stats && tb[TCA_STATS]) {
--		print_tcstats_attr(fp, tb[TCA_STATS]);
-+	if (show_stats && (tb[TCA_STATS] || tb[TCA_STATS2])) {
-+		print_tcstats_attr(fp, tb, " ", NULL);
- 		fprintf(fp, "\n");
- 	}
- 
-diff -Nru iproute2-2.6.9.orig/tc/tc_qdisc.c iproute2-2.6.9/tc/tc_qdisc.c
---- iproute2-2.6.9.orig/tc/tc_qdisc.c	2004-10-19 22:49:02.000000000 +0200
-+++ iproute2-2.6.9/tc/tc_qdisc.c	2004-10-21 21:22:56.000000000 +0200
-@@ -168,36 +168,88 @@
- }
- 
- 
--void print_tcstats_attr(FILE *fp, const struct rtattr *rta)
-+void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats)
- {
--	struct tc_stats st;
- 	SPRINT_BUF(b1);
- 
--	/* handle case where kernel returns more/less than we know about */
--	memset(&st, 0, sizeof(st));
--	memcpy(&st, RTA_DATA(rta), MIN(RTA_PAYLOAD(rta), sizeof(st)));
--
--	fprintf(fp, " Sent %llu bytes %u pkts (dropped %u, overlimits %u) ",
--		(unsigned long long)st.bytes, st.packets, st.drops, 
--		st.overlimits);
--
--	if (st.bps || st.pps || st.qlen || st.backlog) {
--		fprintf(fp, "\n ");
--		if (st.bps || st.pps) {
--			fprintf(fp, "rate ");
--			if (st.bps)
--				fprintf(fp, "%s ", sprint_rate(st.bps, b1));
--			if (st.pps)
--				fprintf(fp, "%upps ", st.pps);
--		}
--		if (st.qlen || st.backlog) {
--			fprintf(fp, "backlog ");
--			if (st.backlog)
--				fprintf(fp, "%s ", sprint_size(st.backlog, b1));
--			if (st.qlen)
--				fprintf(fp, "%up ", st.qlen);
-+	if (tb[TCA_STATS2]) {
-+		struct rtattr *tbs[TCA_STATS_MAX + 1] = {0};
-+
-+		parse_rtattr(tbs, TCA_STATS_MAX, RTA_DATA(tb[TCA_STATS2]),
-+			RTA_PAYLOAD(tb[TCA_STATS2]));
-+
-+		if (tbs[TCA_STATS_BASIC]) {
-+			struct gnet_stats_basic bs = {0};
-+			memcpy(&bs, RTA_DATA(tbs[TCA_STATS_BASIC]), MIN(RTA_PAYLOAD(tbs[TCA_STATS_BASIC]), sizeof(bs)));
-+			fprintf(fp, "%sSent %llu bytes %u pkt",
-+				prefix, bs.bytes, bs.packets);
-+		}
-+
-+		if (tbs[TCA_STATS_QUEUE]) {
-+			struct gnet_stats_queue q = {0};
-+			memcpy(&q, RTA_DATA(tbs[TCA_STATS_QUEUE]), MIN(RTA_PAYLOAD(tbs[TCA_STATS_QUEUE]), sizeof(q)));
-+			fprintf(fp, " (dropped %u, overlimits %u requeues %u) ",
-+				q.drops, q.overlimits, q.requeues);
-+		}
-+				
-+		if (tbs[TCA_STATS_RATE_EST]) {
-+			struct gnet_stats_rate_est re = {0};
-+			memcpy(&re, RTA_DATA(tbs[TCA_STATS_RATE_EST]), MIN(RTA_PAYLOAD(tbs[TCA_STATS_RATE_EST]), sizeof(re)));
-+			fprintf(fp, "\n%srate %s %upps ",
-+				prefix, sprint_rate(re.bps, b1), re.pps);
-+		}
-+
-+		if (tbs[TCA_STATS_QUEUE]) {
-+			struct gnet_stats_queue q = {0};
-+			memcpy(&q, RTA_DATA(tbs[TCA_STATS_QUEUE]), MIN(RTA_PAYLOAD(tbs[TCA_STATS_QUEUE]), sizeof(q)));
-+			if (!tbs[TCA_STATS_RATE_EST])
-+				fprintf(fp, "\n%s", prefix);
-+			fprintf(fp, "backlog %s %up requeues %u ",
-+				sprint_size(q.backlog, b1), q.qlen, q.requeues);
-+		}
-+
-+		if (tbs[TCA_STATS_APP]) {
-+			if (xstats) 
-+				*xstats = tbs[TCA_STATS_APP];
-+		} else
-+			goto compat_xstats;
-+
-+		return;
-+	}
-+	/* backward compatibility */
-+	if (tb[TCA_STATS]) {
-+		struct tc_stats st;
-+
-+		/* handle case where kernel returns more/less than we know about */
-+		memset(&st, 0, sizeof(st));
-+		memcpy(&st, RTA_DATA(tb[TCA_STATS]), MIN(RTA_PAYLOAD(tb[TCA_STATS]), sizeof(st)));
-+
-+		fprintf(fp, "%sSent %llu bytes %u pkts (dropped %u, overlimits %u) ",
-+			prefix, (unsigned long long)st.bytes, st.packets, st.drops, 
-+			st.overlimits);
-+
-+		if (st.bps || st.pps || st.qlen || st.backlog) {
-+			fprintf(fp, "\n%s", prefix);
-+			if (st.bps || st.pps) {
-+				fprintf(fp, "rate ");
-+				if (st.bps)
-+					fprintf(fp, "%s ", sprint_rate(st.bps, b1));
-+				if (st.pps)
-+					fprintf(fp, "%upps ", st.pps);
-+			}
-+			if (st.qlen || st.backlog) {
-+				fprintf(fp, "backlog ");
-+				if (st.backlog)
-+					fprintf(fp, "%s ", sprint_size(st.backlog, b1));
-+				if (st.qlen)
-+					fprintf(fp, "%up ", st.qlen);
-+			}
- 		}
- 	}
-+
-+compat_xstats:
-+	if (tb[TCA_XSTATS] && xstats)
-+		*xstats = tb[TCA_XSTATS];
- }
- 
- static int filter_ifindex;
-@@ -264,13 +316,15 @@
- 	}
- 	fprintf(fp, "\n");
- 	if (show_stats) {
--		if (tb[TCA_STATS]) {
--			print_tcstats_attr(fp, tb[TCA_STATS]);
-+		struct rtattr *xstats = NULL;
-+
-+		if (tb[TCA_STATS] || tb[TCA_STATS2]) {
-+			print_tcstats_attr(fp, tb, " ", &xstats);
- 			fprintf(fp, "\n");
- 		}
- 
--		if (q && tb[TCA_XSTATS] && q->print_xstats) {
--			q->print_xstats(q, fp, tb[TCA_XSTATS]);
-+		if (q && (xstats || tb[TCA_XSTATS]) && q->print_xstats) {
-+			q->print_xstats(q, fp, xstats ? : tb[TCA_XSTATS]);
- 			fprintf(fp, "\n");
- 		}
- 	}
-diff -Nru iproute2-2.6.9.orig/tc/tc_util.h iproute2-2.6.9/tc/tc_util.h
---- iproute2-2.6.9.orig/tc/tc_util.h	2004-10-19 22:49:02.000000000 +0200
-+++ iproute2-2.6.9/tc/tc_util.h	2004-10-21 21:15:18.000000000 +0200
-@@ -4,6 +4,7 @@
- #define MAX_MSG 16384
- #include <linux/pkt_sched.h>
- #include <linux/pkt_cls.h>
-+#include <linux/gen_stats.h>
- #include "tc_core.h"
- 
- struct qdisc_util
-@@ -58,7 +59,7 @@
- extern char * sprint_usecs(__u32 usecs, char *buf);
- extern char * sprint_percent(__u32 percent, char *buf);
- 
--extern void print_tcstats_attr(FILE *fp, const struct rtattr *ts);
-+extern void print_tcstats_attr(FILE *fp, struct rtattr *tb[], char *prefix, struct rtattr **xstats);
- 
- extern int get_tc_classid(__u32 *h, const char *str);
- extern int print_tc_classid(char *buf, int len, __u32 h);
+Distribution: Fedora Core 2
+
+Hardware Environment: Pentium III @800MHz, 384 MB memory, Adaptec AIC-7892A U160
+SCSI controller, SEAGATE   Model: ST39204LW drive, Lite-ON LNE100TX NIC, Gateway
+GP 800 computer. This machine is the Amanda tape server.
+
+Software Environment: Amanda 2.4.4p2 Software, Fedora Core 2 environment with
+vanilla 2.6.9 kernel.
+
+Problem Description: Amanda clients exchanges UDP packets with the server giving
+it a TCP port number with which to connect in order to receive files to be
+dumped to tape. Under kernel-2.6.8.1 the sofware performs perfectly. Under
+kernel-2.6.9, with exactly the same Amanda software, the UDP packet exchange
+seems to occur, but no TCP connection between client and server occurs. The
+client eventually times out with messages like:
+
+sendbackup: time 0.000: stream_server: waiting for connection: 0.0.0.0.32951
+sendbackup: time 0.000: stream_server: waiting for connection: 0.0.0.0.32952
+sendbackup: time 0.000: stream_server: waiting for connection: 0.0.0.0.32953
+sendbackup: time 0.000: waiting for connect on 32951, then 32952, then 32953
+sendbackup: time 29.995: stream_accept: timeout after 30 seconds
+sendbackup: time 29.995: timeout on data port 32951
+sendbackup: time 59.990: stream_accept: timeout after 30 seconds
+sendbackup: time 59.990: timeout on mesg port 32952
+sendbackup: time 89.987: stream_accept: timeout after 30 seconds
+sendbackup: time 89.987: timeout on index port 32953
+sendbackup: time 89.987: pid 3008 finish time Thu Oct 21 12:30:38 2004
+
+Running tcpdump on both client and server shows no TCP traffic at all. I have
+completely disabled iptables in an effort to allow the traffic to pass. No
+effect. Re-compiling the Amanda software had no effect. Switching back to
+kernel-2.6.8.1 allows it to run normally.lspci -vvv
+00:00.0 Host bridge: Intel Corp. 440BX/ZX/DX - 82443BX/ZX/DX Host bridge (rev 03)
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B-
+        Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort+ >SERR- <PERR-
+        Latency: 64
+        Region 0: Memory at f8000000 (32-bit, prefetchable)
+        Capabilities: [a0] AGP version 1.0
+                Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans-
+64bit- FW- AGP3- Rate=x1,x2
+                Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
+
+00:01.0 PCI bridge: Intel Corp. 440BX/ZX/DX - 82443BX/ZX/DX AGP bridge (rev 03)
+(prog-if 00 [Normal decode])
+        Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV+ VGASnoop- ParErr-
+Stepping- SERR+ FastB2B-
+        Status: Cap- 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Latency: 128
+        Bus: primary=00, secondary=01, subordinate=01, sec-latency=64
+        I/O behind bridge: 0000f000-00000fff
+        Memory behind bridge: f5000000-f5ffffff
+        Prefetchable memory behind bridge: fc000000-fdffffff
+        BridgeCtl: Parity- SERR- NoISA+ VGA+ MAbort- >Reset- FastB2B+
+
+00:07.0 ISA bridge: Intel Corp. 82371AB/EB/MB PIIX4 ISA (rev 02)
+        Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+        Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Latency: 0
+
+00:07.1 IDE interface: Intel Corp. 82371AB/EB/MB PIIX4 IDE (rev 01) (prog-if 80
+[Master])
+        Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+        Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Latency: 64
+        Region 4: I/O ports at 1820 [size=16]
+
+00:07.2 USB Controller: Intel Corp. 82371AB/EB/MB PIIX4 USB (rev 01) (prog-if 00
+[UHCI])
+        Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+        Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Latency: 64
+        Interrupt: pin D routed to IRQ 9
+        Region 4: I/O ports at 1800 [size=32]
+
+00:07.3 Bridge: Intel Corp. 82371AB/EB/MB PIIX4 ACPI (rev 02)
+        Control: I/O+ Mem+ BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+        Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Interrupt: pin ? routed to IRQ 9
+
+00:0e.0 SCSI storage controller: Adaptec AIC-7892A U160/m (rev 02)
+        Subsystem: Adaptec 29160 Ultra160 SCSI Controller
+        Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-
+Stepping- SERR+ FastB2B-
+        Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Latency: 72 (10000ns min, 6250ns max), Cache Line Size 08
+        Interrupt: pin A routed to IRQ 11
+        BIST result: 00
+        Region 0: I/O ports at 1000 [disabled]
+        Region 1: Memory at f4000000 (64-bit, non-prefetchable) [size=4K]
+        Capabilities: [dc] Power Management version 2
+                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+PME(D0-,D1-,D2-,D3hot-,D3cold-)
+                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+00:10.0 Ethernet controller: Lite-On Communications Inc LNE100TX (rev 20)
+        Subsystem: Netgear FA310TX
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR+ FastB2B-
+        Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Latency: 64
+        Interrupt: pin A routed to IRQ 9
+        Region 0: I/O ports at 1400
+        Region 1: Memory at f4001000 (32-bit, non-prefetchable) [size=256]
+
+01:00.0 VGA compatible controller: nVidia Corporation NV5M64 [RIVA TNT2 Model
+64/Model 64 Pro] (rev 15) (prog-if 00 [VGA])
+        Subsystem: VISIONTEK: Unknown device 0002
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+Stepping- SERR- FastB2B-
+        Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort-
+<TAbort- <MAbort- >SERR- <PERR-
+        Latency: 64 (1250ns min, 250ns max)
+        Interrupt: pin A routed to IRQ 11
+        Region 0: Memory at f5000000 (32-bit, non-prefetchable)
+        Region 1: Memory at fc000000 (32-bit, prefetchable) [size=32M]
+        Capabilities: [60] Power Management version 1
+                Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA
+PME(D0-,D1-,D2-,D3hot-,D3cold-)
+                Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+        Capabilities: [44] AGP version 2.0
+                Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA- ITACoh- GART64- HTrans-
+64bit- FW- AGP3- Rate=x1,x2,x4
+                Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
+
+more /proc/cpuinfo
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 8
+model name      : Pentium III (Coppermine)
+stepping        : 3
+cpu MHz         : 795.899
+cache size      : 256 KB
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 2
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 sep mtrr pge mca cmov pat
+pse36 mmx fxsr sse
+bogomips        : 1572.86
+
+more /proc/modules
+uhci_hcd 29136 0 - Live 0xd8997000
+
+more /proc/iomem
+00000000-0009f3ff : System RAM
+0009f400-0009ffff : reserved
+000a0000-000bffff : Video RAM area
+000c0000-000cffff : Video ROM
+000d0000-000d65ff : Adapter ROM
+000e4000-000effff : Adapter ROM
+000f0000-000fffff : System ROM
+00100000-040fd7ff : System RAM
+  00100000-003296b0 : Kernel code
+  003296b1-003fbcbf : Kernel data
+040fd800-040ff7ff : ACPI Tables
+040ff800-040ffbff : ACPI Non-volatile Storage
+040ffc00-17ffffff : System RAM
+f4000000-f4000fff : 0000:00:0e.0
+  f4000000-f4000fff : aic7xxx
+f4001000-f40010ff : 0000:00:10.0
+  f4001000-f40010ff : tulip
+f5000000-f5ffffff : PCI Bus #01
+  f5000000-f5ffffff : 0000:01:00.0
+f8000000-fbffffff : 0000:00:00.0
+fc000000-fdffffff : PCI Bus #01
+  fc000000-fdffffff : 0000:01:00.0
+    fc000000-fc17ffff : vesafb
+fffe7000-ffffffff : reserved
+
+0000-001f : dma1
+0020-0021 : pic1
+0040-0043 : timer0
+0050-0053 : timer1
+0060-006f : keyboard
+0070-0077 : rtc
+0080-008f : dma page reg
+00a0-00a1 : pic2
+00c0-00df : dma2
+00f0-00ff : fpu
+0170-0177 : ide1
+01f0-01f7 : ide0
+02f8-02ff : serial
+0376-0376 : ide1
+03c0-03df : vesafb
+03f6-03f6 : ide0
+03f8-03ff : serial
+0cf8-0cff : PCI conf1
+1000-10ff : 0000:00:0e.0
+1400-14ff : 0000:00:10.0
+  1400-14ff : tulip
+1800-181f : 0000:00:07.2
+  1800-181f : uhci_hcd
+1820-182f : 0000:00:07.1
+  1820-1827 : ide0
+  1828-182f : ide1
+7000-701f : 0000:00:07.3
+8000-803f : 0000:00:07.3
+
+more /proc/scsi/scsi
+Attached devices:
+Host: scsi0 Channel: 00 Id: 00 Lun: 00
+  Vendor: SEAGATE  Model: ST39204LW        Rev: 0006
+  Type:   Direct-Access                    ANSI SCSI revision: 03
+Host: scsi0 Channel: 00 Id: 06 Lun: 00
+  Vendor: SEAGATE  Model: DAT    06240-XXX Rev: 8110
+  Type:   Sequential-Access                ANSI SCSI revision: 03
+
+
+
+Steps to reproduce: Run Amanda server on kernel-2.6.9.
+
+------- You are receiving this mail because: -------
+You are the assignee for the bug, or are watching the assignee.
