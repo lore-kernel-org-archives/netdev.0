@@ -1,57 +1,45 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: FW: Submission for S2io 10GbE driver
-Date: Thu, 5 Feb 2004 12:51:49 +1100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPV6: note on shared socket options
+Date: Thu, 05 Feb 2004 11:09:55 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040205015149.GN19011@krispykreme>
-References: <20040123232209.2739e6aa.ak@suse.de> <004201c3eb5f$ac4e9f00$740efea9@S2IOtech.com> <20040205023209.4abf2342.ak@suse.de>
+Message-ID: <20040205.110955.10680487.yoshfuji@linux-ipv6.org>
+References: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
+	<OF2F9C078B.064A8A19-ON87256E30.0077B005-88256E30.0077AF76@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Leonid Grossman <leonid.grossman@s2io.com>, netdev@oss.sgi.com,
-        raghava.vatsavayi@s2io.com, iod00d@hp.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040205023209.4abf2342.ak@suse.de>
+To: dlstevens@us.ibm.com
+In-Reply-To: <OF2F9C078B.064A8A19-ON87256E30.0077B005-88256E30.0077AF76@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <OF2F9C078B.064A8A19-ON87256E30.0077B005-88256E30.0077AF76@us.ibm.com> (at Wed, 4 Feb 2004 13:49:51 -0800), David Stevens <dlstevens@us.ibm.com> says:
 
-> > 1) We did't find quad word memory operations(writeq and readq) on PCI
-> > bus for PPC64 architecture.
-> 
-> That's a bug in ppc64 then. Can you complain to them?  I would go
-> ahead and just use them in the driver unconditionally and wait for the
-> ppc64 to fix it. Or just add them there, it's probably simple.
+>       These are defined by draft-ietf-magma-msf-api-03.txt to be in
+> netinet/in.h (no place else). What's the advantage of adding another
+> copy in in6.h (which currently isn't used by anything)? Portable user apps
+> must include netinet/in.h for them, and in-kernel code already does.
 
-Yep ppc64 should define them. If you are submitting a driver for
-inclusion in 2.6 leave these bits out, its my fault they arent defined
-and I'll get them added in.
+(I assume you're talking about the "alternatives.")
 
-Turns out lots of architectures are missing these, I'll fire an email
-off to linux-arch about it.
+Kernel do not use netinet/*.h.
 
-> > On a little endian m/c like IA32 also writel writes same values in a
-> > similar manner as shown above. 
-> > So the question is -
-> > Do all big endian machines with linux OS swap the values and write in
-> > little endian format?? 
-> 
-> I hope not.
+My main point is, do not let people (or myself) forget reserved 
+(or used) range.  So, it is enough for me to add a comment on that.
 
-Thats how all big endian platforms work. in* and out*, read* and write*
-byteswap. 
 
-> > 3)In PPC64 architecture dma_addr_t is u32, unlike remaining 64 bit
-> > architectures where it is defined as u64. Because
-> > of this we have to deal separately for PP64. 
-> > So any suggestions will be useful, .i.e. generally how PPC64 developers
-> > deal with this?
-> 
-> You could just use u64 in your structure definitions for now.
+Well, I really do not think that the name of MCAST_xxx is good.
+Numeric assignment of "MCAST_xxx" functionalities 
+is only required to be unique in that level in theory
+since we put MCAST_xxx at network level (IPPROTO_{IP,IPV6} for now).
+However, they are share just because of the name.
 
-Its up to the architecture as to what a dma_addr_t looks like. On our
-current machines we only support operating through the IOMMU, so all
-PCI bus address are in fact 32bit. Most drivers dont care how big a
-dma_addr_t is, is there something you are doing that does?
 
-Anton
+Anyway, what I want to add is some small note on shared range.
+Thanks.
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
