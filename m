@@ -1,35 +1,25 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPSec Oops when deleting an ip address
-Date: Tue, 25 May 2004 21:52:20 +1000
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040525115220.GA15236@gondor.apana.org.au>
-References: <20040510134958.13691.qmail@mason.oriente.labs.it> <20040521131950.GA20040@gondor.apana.org.au> <20040521144346.7887dbf0.davem@redhat.com> <20040524114751.GA28571@gondor.apana.org.au>
+Subject: [IPSEC] Update out-of-date comment in __xfrm_state_delete
+Date: Tue, 25 May 2004 22:00:16 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040525120016.GA15487@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="a8Wt8u1KmwUX3Y2C"
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
+Content-Type: multipart/mixed; boundary="UlVJffcvxoiEqYs2"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040524114751.GA28571@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---a8Wt8u1KmwUX3Y2C
+--UlVJffcvxoiEqYs2
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Mon, May 24, 2004 at 09:47:51PM +1000, herbert wrote:
-> 
-> Hence the problem is still a bug in the ref counting.  I think I've found
-> the real culprit now.  __xfrm?_find_acq() is missing an xfrm_state_hold
-> on the create path.  This also explains why I never see it myself since
-> Openswan never creates states through that code-path.
+Hi Dave:
 
-The same bug exists in xfrm_state_find.  This is actually used by
-Openswan.  However, the larval state never actually matures with
-Openswan so it only ever gets deleted by the timer which means that
-the timer crash can't happen :) It becomes a (possible) memory leak
-instead.
+The comment at the end of __xfrm_state_delete no longer matches the
+status quo.  This patch brings it up-to-date again.
 
 Cheers,
 -- 
@@ -38,44 +28,29 @@ Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---a8Wt8u1KmwUX3Y2C
+--UlVJffcvxoiEqYs2
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
-===== net/xfrm/xfrm_state.c 1.39 vs edited =====
---- 1.39/net/xfrm/xfrm_state.c	2004-05-22 17:32:10 +10:00
-+++ edited/net/xfrm/xfrm_state.c	2004-05-25 21:42:43 +10:00
-@@ -331,14 +331,8 @@
- 		}
- 	}
+===== net/xfrm/xfrm_state.c 1.40 vs edited =====
+--- 1.40/net/xfrm/xfrm_state.c	2004-05-25 21:54:27 +10:00
++++ edited/net/xfrm/xfrm_state.c	2004-05-25 21:58:06 +10:00
+@@ -221,13 +221,9 @@
+ 		if (atomic_read(&x->refcnt) > 2)
+ 			xfrm_flush_bundles();
  
--	if (best) {
--		xfrm_state_hold(best);
--		spin_unlock_bh(&xfrm_state_lock);
--		return best;
--	}
--
--	x = NULL;
--	if (!error && !acquire_in_progress &&
-+	x = best;
-+	if (!x && !error && !acquire_in_progress &&
- 	    ((x = xfrm_state_alloc()) != NULL)) {
- 		/* Initialize temporary selector matching only
- 		 * to current session. */
-@@ -363,10 +357,12 @@
- 			error = 1;
- 		}
+-		/* All xfrm_state objects are created by one of two possible
+-		 * paths:
+-		 *
+-		 * 2) xfrm_state_lookup --> xfrm_state_insert
+-		 *
+-		 * The xfrm_state_lookup or xfrm_state_alloc call gives a
+-		 * reference, and that is what we are dropping here.
++		/* All xfrm_state objects are created by xfrm_state_alloc.
++		 * The xfrm_state_alloc call gives a reference, and that
++		 * is what we are dropping here.
+ 		 */
+ 		atomic_dec(&x->refcnt);
  	}
--	spin_unlock_bh(&xfrm_state_lock);
--	if (!x)
-+	if (x)
-+		xfrm_state_hold(x);
-+	else
- 		*err = acquire_in_progress ? -EAGAIN :
- 			(error ? -ESRCH : -ENOMEM);
-+	spin_unlock_bh(&xfrm_state_lock);
- 	return x;
- }
- 
 
---a8Wt8u1KmwUX3Y2C--
+--UlVJffcvxoiEqYs2--
