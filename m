@@ -1,136 +1,76 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Fw: Re: 2.6.9-rc1-mm2
-Date: Tue, 31 Aug 2004 17:49:10 -0700
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
+Date: Tue, 31 Aug 2004 19:22:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41351C86.7000704@us.ibm.com>
-References: <20040831153450.4498282e.akpm@osdl.org>
+Message-ID: <20040901022205.GB7366@jm.kir.nu>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <4134C1A7.50600@pobox.com> <200408312214.44701.vkondra@mail.ru> <20040831213719.GH31207@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Rick Lindsley <ricklind@us.ibm.com>,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20040831153450.4498282e.akpm@osdl.org>
+To: Vladimir Kondratiev <vkondra@mail.ru>, netdev@oss.sgi.com,
+        Jeff Garzik <jgarzik@pobox.com>,
+        Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+        Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+        Jouni Malinen <jkmaline@cc.hut.fi>, acx100-devel@lists.sourceforge.net,
+        prism54-devel@prism54.org, davem@redhat.com
+Content-Disposition: inline
+In-Reply-To: <20040831213719.GH31207@ruslug.rutgers.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-
-> Getting an error of:
+On Tue, Aug 31, 2004 at 05:37:19PM -0400, Luis R. Rodriguez wrote:
+> On Tue, Aug 31, 2004 at 10:14:38PM +0300, Vladimir Kondratiev wrote:
+> > - Security is not up-to date either. We need .1x, EAS, TKIP etc. This need to 
+> > be done for modern cards to use this infrastructure.
 > 
-> net/built-in.o(.text+0x64047): In function `tcp_in_window':
-> net/ipv4/netfilter/ip_conntrack_proto_tcp.c:683: undefined reference to `ip_ct_log_invalid'
-> net/built-in.o(.text+0x6431f): In function `tcp_error':
-> net/ipv4/netfilter/ip_conntrack_proto_tcp.c:792: undefined reference to `ip_ct_log_invalid'
-> net/built-in.o(.text+0x64421):net/ipv4/netfilter/ip_conntrack_proto_tcp.c:817: undefined reference to `ip_ct_log_invalid'
-> net/built-in.o(.text+0x64450):net/ipv4/netfilter/ip_conntrack_proto_tcp.c:808: undefined reference to `ip_ct_log_invalid'
-> net/built-in.o(.text+0x64487):net/ipv4/netfilter/ip_conntrack_proto_tcp.c:784: undefined reference to `ip_ct_log_invalid'
-> net/built-in.o(.text+0x6478a):net/ipv4/netfilter/ip_conntrack_proto_tcp.c:877: more undefined references to `ip_ct_log_invalid' follow
-> 
-> The error is for all references of the LOG_INVALID macro in
-> ip_conntrack_proto_tcp.c.  My guess is that the declaration of
-> ip_ct_log_invalid in ip_conntrack_standalone.c landed under a new #define
-> that I'm not using in this set of patches, but I can't find where.
-> 
-> All-important config file appended below.  This is an older config file, but
-> make oldconfig was done first, per normal.
+> This is handled by hostap wpa_supplicant now, which is going to be part
+> of WE18. The question I think is whether somoene plans on re-doing it on
+> wireless-2.6, since as you mentioned it seems WE are being redone on
+> davem's patch.
 
->
-> # IP: Netfilter Configuration
-> #
-> # CONFIG_IP_NF_CONNTRACK is not set
-> # CONFIG_IP_NF_QUEUE is not set
-> # CONFIG_IP_NF_IPTABLES is not set
-> CONFIG_IP_NF_NAT_NEEDED=y
-> # CONFIG_IP_NF_ARPTABLES is not set
-> CONFIG_IP_NF_COMPAT_IPCHAINS=y
+This sounds somewhat confusing.. As far as WPA and IEEE 802.11i
+(RSN/WPA2) are concerned, there are number of different components
+involved.
 
-Woiks jes fine with latest default config. Might want to poke those
-automated builds to pick up the latest config as well. The connection
-tracking source files which include that symbol (ip_conntrack_proto_*.c,
-ip_conntrack_standalone.c) should only be included if you have
-CONFIG_IP_NF_CONNTRACK defined.
+One part is in IEEE 802.11 data frame handling (TKIP, CCMP). This is
+implemented, e.g., in the current Host AP RX/TX paths more or less
+completely. The current implementation is still hardcoded to do this in
+software, so it would need to be extended to support offloading
+encryption to the wlan card since many of the modern cards have hardware
+(or combination of hardware/firmware) implementation of TKIP and CCMP.
+In addition, IEEE 802.11e will add some small changes to TKIP/CCMP
+processing; Host AP code has places for this for TX (mainly, setting
+priority value in the header). RX needs some more work because of
+possible reordering of packets with different priorities. This all lives
+in the generic 802.11 stack of the kernel.
 
-You had NAT_NEEDED set, which does pull in the above files too,
-but are now dependent on CONNTRACK being set.
+In addition to data encryption, IEEE 802.11i defines key management
+protocol (4-Way/PTK handshake, 2-Way/Group Key handshake) and
+optimizations for full IEEE 802.1X authentication (PMKSA caching,
+pre-authentication). IEEE 802.1X and EAP authentication is on similar
+level. All these are done using EAPOL packet (own ethertype; one for
+EAPOL and one for pre-authentication). This could be done in kernel, but
+I don't see much point in that and have thus implemented these in user
+space. wpa_supplicant includes the Supplicant part both for IEEE 802.1X
+and IEEE 802.11i key handshakes. hostapd includes the Authenticator part
+for the same functionality.
 
-Tested with latest config and several permutations such as conntrack
-on/off, etc.
+Being able to keep authentication and key management separated from the
+data encryption. There needs to be an interface for configuring and
+getting event information. I would say this can be considered as
+separate design area. Currently, hostapd and wpa_supplicant are using
+combination of ioctls (WE and private, depending on the driver) for user
+space -> kernel configuration (e.g., encryption keys), wireless events
+(netlink) for getting event information (association/encryption
+error/etc.), network interfaces with or without IEEE 802.11 headers
+(e.g., hostapd includes IEEE 802.11 headers for management frames in a
+separate interface and wpa_supplicant uses just Ethernet header and
+normal data interface to get the two special ethertypes).
 
-Here is a sample config which built fine, just the netfilter section:
+This communication interface can be replaced with something different,
+if desired, without affecting the other parts of the implementation (the
+encryption of data frames itself or the authentication/key management
+protocols).
 
-
-# IP: Netfilter Configuration
-#
-CONFIG_IP_NF_CONNTRACK=m
-CONFIG_IP_NF_FTP=m
-CONFIG_IP_NF_IRC=m
-CONFIG_IP_NF_TFTP=m
-CONFIG_IP_NF_AMANDA=m
-CONFIG_IP_NF_QUEUE=m
-CONFIG_IP_NF_IPTABLES=m
-CONFIG_IP_NF_MATCH_LIMIT=m
-# CONFIG_IP_NF_MATCH_IPRANGE is not set
-CONFIG_IP_NF_MATCH_MAC=m
-CONFIG_IP_NF_MATCH_PKTTYPE=m
-CONFIG_IP_NF_MATCH_MARK=m
-CONFIG_IP_NF_MATCH_MULTIPORT=m
-CONFIG_IP_NF_MATCH_TOS=m
-CONFIG_IP_NF_MATCH_RECENT=m
-CONFIG_IP_NF_MATCH_ECN=m
-CONFIG_IP_NF_MATCH_DSCP=m
-CONFIG_IP_NF_MATCH_AH_ESP=m
-CONFIG_IP_NF_MATCH_LENGTH=m
-CONFIG_IP_NF_MATCH_TTL=m
-CONFIG_IP_NF_MATCH_TCPMSS=m
-CONFIG_IP_NF_MATCH_HELPER=m
-CONFIG_IP_NF_MATCH_STATE=m
-CONFIG_IP_NF_MATCH_CONNTRACK=m
-CONFIG_IP_NF_MATCH_OWNER=m
-CONFIG_IP_NF_FILTER=m
-CONFIG_IP_NF_TARGET_REJECT=m
-CONFIG_IP_NF_NAT=m
-CONFIG_IP_NF_NAT_NEEDED=y
-CONFIG_IP_NF_TARGET_MASQUERADE=m
-CONFIG_IP_NF_TARGET_REDIRECT=m
-# CONFIG_IP_NF_TARGET_NETMAP is not set
-# CONFIG_IP_NF_TARGET_SAME is not set
-# CONFIG_IP_NF_NAT_LOCAL is not set
-CONFIG_IP_NF_NAT_SNMP_BASIC=m
-CONFIG_IP_NF_NAT_IRC=m
-CONFIG_IP_NF_NAT_FTP=m
-CONFIG_IP_NF_NAT_TFTP=m
-CONFIG_IP_NF_NAT_AMANDA=m
-CONFIG_IP_NF_MANGLE=m
-CONFIG_IP_NF_TARGET_TOS=m
-CONFIG_IP_NF_TARGET_ECN=m
-CONFIG_IP_NF_TARGET_DSCP=m
-CONFIG_IP_NF_TARGET_MARK=m
-# CONFIG_IP_NF_TARGET_SAME is not set
-# CONFIG_IP_NF_NAT_LOCAL is not set
-CONFIG_IP_NF_NAT_SNMP_BASIC=m
-CONFIG_IP_NF_NAT_IRC=m
-CONFIG_IP_NF_NAT_FTP=m
-CONFIG_IP_NF_NAT_TFTP=m
-CONFIG_IP_NF_NAT_AMANDA=m
-CONFIG_IP_NF_MANGLE=m
-CONFIG_IP_NF_TARGET_TOS=m
-CONFIG_IP_NF_TARGET_ECN=m
-CONFIG_IP_NF_TARGET_DSCP=m
-CONFIG_IP_NF_TARGET_MARK=m
-# CONFIG_IP_NF_TARGET_CLASSIFY is not set
-CONFIG_IP_NF_TARGET_LOG=m
-CONFIG_IP_NF_TARGET_ULOG=m
-CONFIG_IP_NF_TARGET_TCPMSS=m
-CONFIG_IP_NF_ARPTABLES=m
-CONFIG_IP_NF_ARPFILTER=m
-CONFIG_IP_NF_ARP_MANGLE=m
-CONFIG_IP_NF_COMPAT_IPCHAINS=m
-CONFIG_IP_NF_COMPAT_IPFWADM=m
-# CONFIG_IP_NF_RAW is not set
-# CONFIG_IP_NF_MATCH_ADDRTYPE is not set
-# CONFIG_IP_NF_MATCH_REALM is not set
-# CONFIG_IP_NF_CT_ACCT is not set
-# CONFIG_IP_NF_MATCH_SCTP is not set
-# CONFIG_IP_NF_CT_PROTO_SCTP is not set
+-- 
+Jouni Malinen                                            PGP id EFC895FA
