@@ -1,29 +1,50 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/2] [NEIGH]: Provide number of probes to userspace
-Date: Fri, 04 Mar 2005 12:32:28 +0900 (JST)
-Message-ID: <20050304.123228.08284664.yoshfuji@linux-ipv6.org>
-References: <20050304023121.GC31837@postel.suug.ch>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: netif_rx packet dumping
+Date: 03 Mar 2005 22:45:56 -0500
+Message-ID: <1109907956.1092.476.camel@jzny.localdomain>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
+	 <20050303125556.6850cfe5.davem@davemloft.net>
+	 <1109884688.1090.282.camel@jzny.localdomain>
+	 <20050303132143.7eef517c@dxpl.pdx.osdl.net>
+	 <1109885065.1098.285.camel@jzny.localdomain>
+	 <20050303133237.5d64578f.davem@davemloft.net>
+	 <20050303135416.0d6e7708@dxpl.pdx.osdl.net>
+	 <Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu>
+	 <1109888811.1092.352.camel@jzny.localdomain>
+	 <20050303151606.3587394f@dxpl.pdx.osdl.net>  <4227A23C.5050300@ev-en.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: tgraf@suug.ch, davem@davemloft.net
-In-Reply-To: <20050304023121.GC31837@postel.suug.ch>
+Cc: Stephen Hemminger <shemminger@osdl.org>, John Heffner <jheffner@psc.edu>,
+        "David S. Miller" <davem@davemloft.net>, rhee@eos.ncsu.edu,
+        Yee-Ting.Li@nuim.ie, netdev@oss.sgi.com
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <4227A23C.5050300@ev-en.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050304023121.GC31837@postel.suug.ch> (at Fri, 4 Mar 2005 03:31:21 +0100), Thomas Graf <tgraf@suug.ch> says:
+On Thu, 2005-03-03 at 18:48, Baruch Even wrote:
 
-> Provides number of probes done so far to userspace, quite useful for debugging.
 > 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> The queue is there to handle short bursts of packets when the network 
+> stack cannot handle it. The bad behaviour was the throttling of the 
+> queue, 
 
-It might be useful to provide probe count per state; e.g.
-  in INCOMPLETE: probes
-  in PROBLE    : probes - (ucast_probes + app_probes)
-However, we can do this in userspace.
+Can you explain a little more? Why does the the throttling cause any
+bad behavior thats any different from the queue being full? In both
+cases, packets arriving during that transient will be dropped.
 
-Not strong opinion.
+> the smart schemes are not going to make it that much better if 
+> the hardware/software can't keep up.
 
---yoshfuji
+consider that this queue could be shared by as many as a few thousand
+unrelated TCP flows - not just one. It is also used for packets being
+forwarded. If you factor that the system has to react to protect itself
+then these schemes may make sense. The best place to do it is really in
+hardware, but the closer to the hardware as possible is the next besr
+possible spot. 
+
+cheers,
+jamal
