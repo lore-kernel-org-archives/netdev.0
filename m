@@ -1,27 +1,42 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [PATCH] tiny af_packet.c cleanup
-Date: Sun, 14 Sep 2003 04:26:28 -0700
+From: Florian Zwoch <zwoch@backendmedia.com>
+Subject: Re: 82540EM very slow on 2.6.0-test[45]
+Date: Sun, 14 Sep 2003 19:23:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030914112628.GD42531@gaz.sfgoth.com>
-References: <20030913055033.GB94744@gaz.sfgoth.com> <20030913093559.A23840@electric-eye.fr.zoreil.com> <20030913080252.GE94744@gaz.sfgoth.com> <20030913110353.B23840@electric-eye.fr.zoreil.com> <20030913201559.GI94744@gaz.sfgoth.com> <20030914125549.A7790@electric-eye.fr.zoreil.com>
+Message-ID: <bk286l$31r$1@sea.gmane.org>
+References: <20030910233512.GB18056@rushmore>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20030914125549.A7790@electric-eye.fr.zoreil.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20030910233512.GB18056@rushmore>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> See previously posted patch. Imho the non-trivial part isn't the locking
-> itself but the fact that the first test of sk->sk_filter is done _without_
-> lock.
+rwhron@earthlink.net wrote:
+> ftp'ing a multi-megabyte file gives about 16-20k/second
+> throughput.  I first noticed this on 2.6.0-test4, but
+> the slowness may have existed longer.   The destination
+> machine was running Solaris 8.
+> 
 
-OK, that was what I thought was going on.  I figured the short comment (along
-with the likely()) would explain this adequately (i.e. "we're now re-checking
-under lock so we get the authorative answer") but maybe it needs more
-explaination.
+same behaviour confimed here. test5 and test4 (can not confirm on 
+earlier). both suffer from real bad network send performance on the 
+82540EM Gigabit Ethernet Controller (rev 02).
 
--Mitch
+i did not test ftp but scp suffers from exactly the same mentioned 
+above. scp from this device resulted in about 80k/s to a local linux 
+2.4.x machine. scp to this device gives about 4.5mb/s.
+
+samba copy between the two machines is fast in both directions.
+
+irc dcc protocol stalls down to about 1k/s (host specific?).
+
+nothing has changed between a normal operating 2.4.20 kernel. i suppose 
+something is broken atm. i did not set up any specific duplex mode, but 
+it is detected as 100 mbps full duplex - as expected (like the 2.4 kernel).
+
+maybe someone can look into this?
+
+--
+Florian Zwoch
