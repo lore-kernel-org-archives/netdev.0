@@ -1,73 +1,57 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: IPv6 MTU of a tunnel: 2 different switches, which wins?
-Date: Mon, 02 Sep 2002 09:10:19 +0200
+From: "Mala Anand" <manand@us.ibm.com>
+Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
+Date: Mon, 2 Sep 2002 22:47:13 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <10010000.1030950619@localhost>
+Message-ID: <OF83A9561B.62B3A967-ON87256C29.001354D0@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Bill Hartner <bhartner@us.ibm.com>, davem@redhat.com,
+   linux-kernel@vger.kernel.org, Mala Anand <manand@us.ibm.com>,
+   netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maillist netdev <netdev@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-sure here anyone can help me:
-
-Let's say I have an internet connection via PPPoE through ppp0/eth1
-
-MTU eth1: 1500
-MTU ppp0: 1492
-
-Over this connection, an IPv6 (named tun6to4) tunnel will be
-established. Now I have 2 different switches to adjust the MTU of the
-tunnel.
-
-a) using utility ip
-b) using sysctl
-
-After unmodified MTU setup:
-
-a)
-# ip link show dev tun6to4 | grep -w mtu
-42: tun6to4@NONE: <NOARP,UP> mtu 1480 qdisc noqueue
-
-b)
-# sysctl -a| grep tun6to4 | grep mtu
-net.ipv6.conf.tun6to4.mtu = 1480
-
-But proper MTU will be
-
-MTU tun6to4: 1472   MTU(ppp0) - 20 for IPv4 header
 
 
-where to proper set now?
+>On Tue, 27 Aug 2002, Mala Anand wrote:
 
-1) via ip
-2) via sysctl in net.ipv6.conf.tun6to4.mtu
-3) both switches
+>> SPECweb99 profile shows that __kfree_skb is in the top 5 hot routines.
+We
+>> will test the skb recycle patch on SPECweb99 and add skbinit patch
+>> to that and see how it helps.  What I understand is that the skb recycle
+>> patch does not attempt to recycle if the skbs are allocated on CPU
+>> and freed on another CPU. Is that right? If so, skbinit patch will help
+>> those cases.
 
-BTW: host should act either as router or standalone.
+>yes it will. Not significant is my current thinking. i.e i wouldn't write
+>my mother to tell her about it.
+
+I have not looked at Robert's recycle skb patch yet. I couldn't
+find it in the link he sent me so I don't know how it works. However
+I thought about it a little more and realized that even when you
+recycle the skbs, they need to be initialized (cleaned up). I don't
+understand how
+can the recycle skb patch avoid calling constructors and destructors for
+the
+skb.  The skbs are given back to the driver instead of freeing to the skb
+hot list
+or to the slab. That does not eliminate the part of the code of kfree_skb
+which
+releases dst, initializes part of skb and executes destructor.
+Tell me if I am wrong but wouldn't it break the code. So I do think that
+recycle skb patch will not mitigate the benefits of the skb init
+patch.
 
 
-Thanks for any clarifies,
+Regards,
+    Mala
 
-        Peter
 
-
----
-Dr. Peter Bieringer
-mailto: pb at bieringer dot de
-http://www.bieringer.de/pb/
-Key 0x958F422D : B501 24F4 9418 23E2 C0F3  F833 7B57 AA7B 958F 422D
-
--- Attached file included as plaintext by Ecartis --
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-
-iD8DBQE9cw7ce1eqe5WPQi0RAt7BAKDbIkoPEImZ0lhlzSadipAn7AsZlACff1Cs
-Ap2x3BNiHfIxe6/sD7lqxDU=
-=8Ya4
------END PGP SIGNATURE-----
+   Mala Anand
+   IBM Linux Technology Center - Kernel Performance
+   E-mail:manand@us.ibm.com
+   http://www-124.ibm.com/developerworks/opensource/linuxperf
+   http://www-124.ibm.com/developerworks/projects/linuxperf
+   Phone:838-8088; Tie-line:678-8088
