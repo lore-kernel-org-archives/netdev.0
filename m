@@ -1,31 +1,55 @@
-From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-Subject: Re: [EXPERIMENTAL PATCH] 2.4 tulip jumbo frames
-Date: Fri, 19 Dec 2003 15:32:42 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: e100 in net-drivers-2.5-exp
+Date: Tue, 16 Dec 2003 17:36:20 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031219153242.B1390@sygehus.dk>
-References: <20031209160632.D1345@sygehus.dk> <3FD5FC36.5090405@pobox.com> <20031209223214.A1855@sygehus.dk> <3FD64EC9.6010203@candelatech.com> <20031209224906.M53356@sygehus.dk>
+Message-ID: <3FDF88E4.1060002@pobox.com>
+References: <20031216104326.70809423.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: multipart/mixed;
+ boundary="------------040106010807090306050509"
+Cc: "Feldman, Scott" <scott.feldman@intel.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <20031209224906.M53356@sygehus.dk>; from rask@sygehus.dk on Wed, Dec 10, 2003 at 12:40:02AM +0100
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031216104326.70809423.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 10, 2003 at 12:40:02AM +0100, Rask Ingemann Lambertsen wrote:
+This is a multi-part message in MIME format.
+--------------040106010807090306050509
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> That said, even checking CONFIG_VLAN_8021Q is probably flawed too, because 
-> ideally, even when building a kernel without VLAN support, you should be able 
-> to use the bridging support in a VLAN environment. IMHO. I mean, if this is 
-> not the case, please remind me why we need VLAN patches in the first place 
-> since setting an MTU of 1496 bytes works with every Ethernet board and driver.
+Stephen Hemminger wrote:
+> e100 in net-drivers-2.5-exp won't compile as a module.
+> 
+> Don't think the new module_param() works the way it is being used
+> in the new e100 driver.
+> 
+>   CC [M]  drivers/net/e100.o
+> drivers/net/e100.c:170: error: parse error before "int"
+> drivers/net/e100.c:170: warning: type defaults to `int' in declaration of `module_param'
+> drivers/net/e100.c:170: warning: function declaration isn't a prototype
+> drivers/net/e100.c:170: warning: data definition has no type or storage class
 
-Further, why is it not the responsibility of vconfig to ensure that the MTU
-of the VLAN device is 4 lower than that of the underlying, "bare" Ethernet
-device?
+Thanks, just checked in the attached patch to fix this.
 
--- 
-Regards,
-Rask Ingemann Lambertsen
+--------------040106010807090306050509
+Content-Type: text/plain;
+ name="patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch"
+
+===== drivers/net/e100.c 1.2 vs edited =====
+--- 1.2/drivers/net/e100.c	Tue Dec  9 15:38:42 2003
++++ edited/drivers/net/e100.c	Tue Dec 16 17:35:12 2003
+@@ -136,6 +136,7 @@
+ 
+ #include <linux/config.h>
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <linux/kernel.h>
+ #include <linux/types.h>
+ #include <linux/slab.h>
+
+--------------040106010807090306050509--
