@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 1/1] err1-67: lapb_unregister() locking fix
-Date: Fri, 02 Jul 2004 01:30:49 -0700
+Subject: [patch 1/1] err2-15: ax25_rt_add() locking fix
+Date: Fri, 02 Jul 2004 01:46:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407020831.i628VmG20814@mail.osdl.org>
+Message-ID: <200407020847.i628lLG23044@mail.osdl.org>
 Cc: netdev@oss.sgi.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,24 +11,25 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Fix deadlock identified by the Stanford locking checker.
+It can return with the lock held.
+
+Found by the Stanford locking checker
 
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/net/lapb/lapb_iface.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ 25-akpm/net/ax25/ax25_route.c |    1 +
+ 1 files changed, 1 insertion(+)
 
-diff -puN net/lapb/lapb_iface.c~err1-67-lapb_unregister-locking-fix net/lapb/lapb_iface.c
---- 25/net/lapb/lapb_iface.c~err1-67-lapb_unregister-locking-fix	2004-07-02 01:29:50.645438240 -0700
-+++ 25-akpm/net/lapb/lapb_iface.c	2004-07-02 01:29:55.717667144 -0700
-@@ -176,7 +176,7 @@ int lapb_unregister(struct net_device *d
- 	struct lapb_cb *lapb;
- 	int rc = LAPB_BADTOKEN;
- 
--	write_unlock_bh(&lapb_list_lock);
-+	write_lock_bh(&lapb_list_lock);
- 	lapb = __lapb_devtostruct(dev);
- 	if (!lapb)
- 		goto out;
+diff -puN net/ax25/ax25_route.c~err2-15-ax25_rt_add-locking-fix net/ax25/ax25_route.c
+--- 25/net/ax25/ax25_route.c~err2-15-ax25_rt_add-locking-fix	2004-07-02 01:45:20.234119280 -0700
++++ 25-akpm/net/ax25/ax25_route.c	2004-07-02 01:45:37.960424472 -0700
+@@ -122,6 +122,7 @@ static int ax25_rt_add(struct ax25_route
+ 					ax25_rt->digipeat->calls[i]    = route->digi_addr[i];
+ 				}
+ 			}
++			write_unlock(&ax25_route_lock);
+ 			return 0;
+ 		}
+ 		ax25_rt = ax25_rt->next;
 _
