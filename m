@@ -1,31 +1,99 @@
-From: Andrius Kasparavicius <andrius@andrius.org>
-Subject: Re: network interface cards native vlans support in linux kernel?
-Date: Fri, 11 Jul 2003 17:59:36 +0300 (GMT-3)
+From: =?ISO-8859-15?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Fri, 11 Jul 2003 18:16:09 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307111754220.6646-100000@hl.kauneta.net>
-References: <3F0C4DBD.8020007@candelatech.com>
+Message-ID: <3F0ED4B9.9000105@kolumbus.fi>
+References: <Pine.LNX.4.44.0307111446250.27865-100000@netcore.fi>	 <1057925366.896.24.camel@hades>  <3F0EB227.50403@kolumbus.fi>	 <1057930712.895.32.camel@hades>  <3F0EC96D.6080102@kolumbus.fi> <1057933954.695.6.camel@hades>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pekka Savola <pekkas@netcore.fi>, Andre Tomt <andre@tomt.net>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F0C4DBD.8020007@candelatech.com>
+To: Mika Liljeberg <mika.liljeberg@welho.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-on vanilla linux kernel, eepro doesn't work, and with 1496 mtu, 8139too
-works with any mtu (and 1500).
 
-which is recommended to use, e100 or eepro100?
+Mika Liljeberg wrote:
 
-Andrius.
-
-On Wed, 9 Jul 2003, Ben Greear wrote:
-
-> > is there any problems to include full vlans support?
+>Nope, since the tunnel interface will have 2002::/16. It seems to work
+>with the attached patch (against 2.4.21-ac4). A small fix to sit was
+>required as well. Look:
+>  
 >
-> Intel's e100 driver (and all NICs supported by it) support vlans
-> fine, as do most of the GigE NICs.  Tulip does not, last I hear, though
-> a work-around patch has been around forever.  Realtek worked at one time,
-> not sure about now though...
+ok, forgot that...looks ok to me.
+
+--Mika
+
+
+>hades:~# ifconfig 6to4
+>6to4      Link encap:IPv6-in-IPv4
+>          inet6 addr: ::213.243.180.94/128 Scope:Compat
+>          inet6 addr: 2002:d5f3:b45e::1/16 Scope:Global
+>          UP RUNNING NOARP  MTU:1480  Metric:1
+>          RX packets:4 errors:0 dropped:0 overruns:0 frame:0
+>          TX packets:4 errors:0 dropped:0 overruns:0 carrier:0
+>          collisions:0 txqueuelen:0
+>          RX bytes:416 (416.0 b)  TX bytes:496 (496.0 b)
+>
+>hades:~# ip -6 route list
+>::/96 via :: dev 6to4  metric 256  mtu 1480 advmss 1420
+>2002::/16 dev 6to4  proto kernel  metric 256  mtu 1480 advmss 1420
+>fe80::/64 dev eth0  proto kernel  metric 256  mtu 1500 advmss 1440
+>fe80::/64 dev 6to4  proto kernel  metric 256  mtu 1480 advmss 1420
+>ff00::/8 dev eth0  proto kernel  metric 256  mtu 1500 advmss 1440
+>ff00::/8 dev 6to4  proto kernel  metric 256  mtu 1480 advmss 1420
+>default via 2002:c058:6301:: dev 6to4  metric 1024  mtu 1480 advmss 1420
+>hades:~# ping6 -c4 -n www.ipv6.org
+>PING www.ipv6.org(2001:6b0:1:ea:a00:20ff:fe8f:708f) 56 data bytes
+>64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=1 ttl=250 time=207 ms
+>64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=2 ttl=250 time=206 ms
+>64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=3 ttl=250 time=177 ms
+>64 bytes from 2001:6b0:1:ea:a00:20ff:fe8f:708f: icmp_seq=4 ttl=250 time=78.5 ms
+>
+>--- www.ipv6.org ping statistics ---
+>4 packets transmitted, 4 received, 0% packet loss, time 3030ms
+>rtt min/avg/max/mdev = 78.547/167.637/207.698/52.821 ms
+>
+>Anyone see any problems with this?
+>
+>	MikaL
+>
+>  
+>
+>------------------------------------------------------------------------
+>
+>--- route.c.org	2003-07-11 16:41:55.000000000 +0300
+>+++ route.c	2003-07-11 16:42:16.000000000 +0300
+>@@ -743,7 +743,7 @@
+> 			   some exceptions. --ANK
+> 			 */
+> 			err = -EINVAL;
+>-			if (!(gwa_type&IPV6_ADDR_UNICAST))
+>+			if (!(gwa_type&(IPV6_ADDR_UNICAST|IPV6_ADDR_ANYCAST)))
+> 				goto out;
+> 
+> 			grt = rt6_lookup(gw_addr, NULL, rtmsg->rtmsg_ifindex, 1);
+>--- sit.c.org	2003-07-11 16:57:53.000000000 +0300
+>+++ sit.c	2003-07-11 17:17:42.000000000 +0300
+>@@ -495,10 +495,13 @@
+> 			addr_type = ipv6_addr_type(addr6);
+> 		}
+> 
+>-		if ((addr_type & IPV6_ADDR_COMPATv4) == 0)
+>-			goto tx_error_icmp;
+>+		if ((addr_type & IPV6_ADDR_COMPATv4))
+>+			dst = addr6->s6_addr32[3];
+>+		else
+>+			dst = try_6to4(addr6);
+> 
+>-		dst = addr6->s6_addr32[3];
+>+		if (!dst)
+>+			goto tx_error_icmp;
+> 	}
+> 
+> 	if (ip_route_output(&rt, dst, tiph->saddr, RT_TOS(tos), tunnel->parms.link)) {
+>  
+>
