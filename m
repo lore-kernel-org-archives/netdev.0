@@ -1,28 +1,65 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.9-rc1+bk: assertion tcp_get_pcount failed at net/ipv4/tcp_input.c
-Date: Fri, 10 Sep 2004 15:56:33 +1000
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040910055633.GA27539@gondor.apana.org.au>
-References: <20040909111233.GA3987@steel.home> <20040910033055.GA26790@gondor.apana.org.au> <20040909222542.7a30c0e4.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [NETFILTER] Fix "undefined reference" error if
+ CONFIG_SYSCTL=n
+Date: Fri, 10 Sep 2004 15:31:35 +0900 (JST)
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040910.153135.121099678.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: fork0@users.sourceforge.net, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263100AbUIJF4w@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040909222542.7a30c0e4.davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+	netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: davem@davemloft.net
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 09, 2004 at 10:25:42PM -0700, David S. Miller wrote:
-> 
-> Herbert did you see my division fix I made today for
-> tso_factor calculation?  I was dividing by the TSO mss
-> instead of the normal one :-)
+Hello.
 
-That would do it :)
+Fix the following error if CONFIG_SYSCTL=n.
+
+| net/built-in.o: In function `tcp_in_window':
+| net/built-in.o(.text+0x49571): undefined reference to `ip_ct_log_invalid'
+| net/built-in.o: In function `tcp_error':
+| net/built-in.o(.text+0x49715): undefined reference to `ip_ct_log_invalid'
+| net/built-in.o(.text+0x49756): undefined reference to `ip_ct_log_invalid'
+| net/built-in.o(.text+0x497f1): undefined reference to `ip_ct_log_invalid'
+| net/built-in.o(.text+0x49823): undefined reference to `ip_ct_log_invalid'
+| net/built-in.o(.text+0x49998): more undefined references to `ip_ct_log_invalid' follow
+| make: *** [.tmp_vmlinux1] Error 1
+
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+
+===== net/ipv4/netfilter/ip_conntrack_standalone.c 1.40 vs edited =====
+--- 1.40/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-09-01 00:27:37 +09:00
++++ edited/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-09-10 15:16:34 +09:00
+@@ -48,6 +48,8 @@
+ extern atomic_t ip_conntrack_count;
+ DECLARE_PER_CPU(struct ip_conntrack_stat, ip_conntrack_stat);
+ 
++unsigned int ip_ct_log_invalid = 0;
++
+ static int kill_proto(const struct ip_conntrack *i, void *data)
+ {
+ 	return (i->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum == 
+@@ -522,7 +524,6 @@
+ extern unsigned long ip_ct_generic_timeout;
+ 
+ /* Log invalid packets of a given protocol */
+-unsigned int ip_ct_log_invalid = 0;
+ static int log_invalid_proto_min = 0;
+ static int log_invalid_proto_max = 255;
+ 
+ 
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
