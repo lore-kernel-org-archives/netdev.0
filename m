@@ -1,28 +1,23 @@
-From: "David S. Miller" <davem@rth.ninka.net>
-Subject: Re: sendfile64() anyone? (was [RESEND] tuning linux for high
-	network performance?)
-Date: 24 Oct 2002 03:47:43 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Sysctl for ICMPv6 Rate Limitation
+Date: 24 Oct 2002 04:02:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1035456463.10555.7.camel@rth.ninka.net>
-References: <200210231218.18733.roy@karlsbakk.net>
-	<200210231542.48673.roy@karlsbakk.net>
-	<1035432669.9628.1.camel@rth.ninka.net>
-	<200210241230.46848.roy@karlsbakk.net>
+Message-ID: <1035457378.10555.21.camel@rth.ninka.net>
+References: <20021024.135055.10632889.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: bert hubert <ahu@ds9a.nl>, netdev@oss.sgi.com,
-   Kernel mailing list
-	 <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
-In-Reply-To: <200210241230.46848.roy@karlsbakk.net>
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?=
+	=?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20021024.135055.10632889.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2002-10-24 at 03:30, Roy Sigurd Karlsbakk wrote:
-> Are there any plans of implementing sendfile64() or sendfile() support for 
-> -D_FILE_OFFSET_BITS=64?
+On Wed, 2002-10-23 at 21:50, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
+> This patch add sysctl for icmp6 rate limit.
+> This patch is against 2.4.20-pre11 (see below).
 
-This is old hat, and appears in every current vendor kernel I am
-aware of and is in 2.5.x as well.
+I've applied this patch to my 2.4.x and 2.5.x trees, thank you.
