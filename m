@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (6/8) arlan -- add spinlock
-Date: Thu, 25 Sep 2003 16:00:14 -0700
+Subject: [PATCH] (5/8) arlan -- more set never used elements
+Date: Thu, 25 Sep 2003 15:59:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030925160014.1399184a.shemminger@osdl.org>
+Message-ID: <20030925155959.7f95e824.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,124 +12,126 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert bogus test_and_set local wait, to a real spin_lock so it
-has a chance of working on an SMP.  This also does the right thing
-and locks out interrupts while giving commands on UP;  maybe the
-comment in Kconfig was because there was never a proper mutex...
-
-Don't have real hardware to try this, but it can't be worse than
-the previous code.
+Still more places state is saved and never used.
 
 diff -Nru a/drivers/net/wireless/arlan-main.c b/drivers/net/wireless/arlan-main.c
---- a/drivers/net/wireless/arlan-main.c	Thu Sep 25 15:08:01 2003
-+++ b/drivers/net/wireless/arlan-main.c	Thu Sep 25 15:08:01 2003
-@@ -44,7 +44,6 @@
- static int mdebug;
- #endif
+--- a/drivers/net/wireless/arlan-main.c	Thu Sep 25 14:55:21 2003
++++ b/drivers/net/wireless/arlan-main.c	Thu Sep 25 14:55:21 2003
+@@ -156,7 +156,6 @@
+ 		TXHEAD(dev).offset = 0;
+ 		TXTAIL(dev).offset = 0;
+ 		priv->txLast = 0;
+-		priv->txOffset = 0;
+ 		priv->bad = 0;
+ 		if (!priv->under_reset && !priv->under_config)
+ 			netif_wake_queue (dev);
+@@ -549,7 +548,6 @@
+ 		}
+ 		else
+ 			IFDEBUG(ARLAN_DEBUG_TX_CHAIN) printk(KERN_ERR "ReTransmit buff empty");
+-		priv->txOffset = 0;
+ 		netif_wake_queue (dev);
+ 		return;
  
--#if LINUX_VERSION_CODE > 0x20100
- MODULE_PARM(irq, "i");
- MODULE_PARM(mem, "i");
- MODULE_PARM(probe, "i");
-@@ -87,10 +86,6 @@
- MODULE_PARM_DESC(arlan_entry_and_exit_debug, "(ignored)");
- #endif
+@@ -575,10 +573,6 @@
+ 	int bh_mark_needed = 0;
+ 	int next_tick = 1;
  
--#else
--#define test_and_set_bit	set_bit
--#endif
 -
- struct arlan_conf_stru arlan_conf[MAX_ARLANS];
- static int arlans_found;
- 
-@@ -172,6 +167,7 @@
- 	int udelayed = 0;
- 	int i = 0;
- 	long long time_mks = arlan_time();
-+	unsigned long flags;
- 
- 	ARLAN_DEBUG_ENTRY("arlan_command");
- 
-@@ -179,8 +175,8 @@
- 		priv->card_polling_interval = 1;
- 
- 	if (arlan_debug & ARLAN_DEBUG_CHAIN_LOCKS)
--		printk(KERN_DEBUG "arlan_command, %lx lock %lx  commandByte %x waiting %x incoming %x \n",
--		jiffies, priv->command_lock, READSHMB(arlan->commandByte),
-+		printk(KERN_DEBUG "arlan_command, %lx commandByte %x waiting %x incoming %x \n",
-+		jiffies, READSHMB(arlan->commandByte),
- 		       priv->waiting_command_mask, command_p);
- 
- 	priv->waiting_command_mask |= command_p;
-@@ -201,13 +197,8 @@
+-	priv->timer_chain_active = 1;
+-
+-
+ 	if (registrationBad(dev))
+ 	{
+ 		//debug=100;
+@@ -643,7 +637,6 @@
+ 		}
+ 		if (!(TXHEAD(dev).offset && TXTAIL(dev).offset))
+ 		{
+-			priv->txOffset = 0;
+ 			netif_wake_queue (dev);
+ 		}
+ 		priv->tx_done_delayed = 0;
+@@ -651,7 +644,6 @@
  	}
+ 	if (bh_mark_needed)
+ 	{
+-		priv->txOffset = 0;
+ 		netif_wake_queue (dev);
+ 	}
+ 	arlan_process_interrupt(dev);
+@@ -659,7 +651,6 @@
+ 	if (next_tick < priv->card_polling_interval)
+ 		next_tick = priv->card_polling_interval;
  
- 	/* Card access serializing lock */
-+	spin_lock_irqsave(&priv->lock, flags);
+-	priv->timer_chain_active = 0;
+ 	priv->timer.expires = jiffies + next_tick;
  
--	if (test_and_set_bit(0, (void *) &priv->command_lock))
--	{
--		if (arlan_debug & ARLAN_DEBUG_CHAIN_LOCKS)
--			printk(KERN_DEBUG "arlan_command: entered when command locked \n");
--		goto command_busy_end;
--	}
- 	/* Check cards status and waiting */
- 
- 	if (priv->waiting_command_mask & (ARLAN_COMMAND_LONG_WAIT_NOW | ARLAN_COMMAND_WAIT_NOW))
-@@ -475,7 +466,7 @@
- 		if (arlan_debug & ARLAN_DEBUG_CARD_STATE)
- 			printk(KERN_ERR "card busy leaving command %x \n", priv->waiting_command_mask);
- 
--	priv->command_lock = 0;
-+	spin_unlock_irqrestore(&priv->lock, flags);
- 	ARLAN_DEBUG_EXIT("arlan_command");
- 	priv->last_command_buff_free_time = jiffies;
- 	return 0;
-@@ -486,24 +477,17 @@
- 
- 	if (arlan_debug & ARLAN_DEBUG_CARD_STATE)
- 		printk(KERN_ERR "%s arlan_command card busy end \n", dev->name);
--	priv->command_lock = 0;
-+	spin_unlock_irqrestore(&priv->lock, flags);
- 	ARLAN_DEBUG_EXIT("arlan_command");
- 	return 1;
- 
- bad_end:
- 	printk(KERN_ERR "%s arlan_command bad end \n", dev->name);
- 
--	priv->command_lock = 0;
-+	spin_unlock_irqrestore(&priv->lock, flags);
- 	ARLAN_DEBUG_EXIT("arlan_command");
- 
- 	return -1;
--
--command_busy_end:
--	if (arlan_debug & ARLAN_DEBUG_CARD_STATE)
--		printk(KERN_ERR "%s arlan_command command busy end \n", dev->name);
--	ARLAN_DEBUG_EXIT("arlan_command");
--	return 2;
--
- }
- 
- static inline void arlan_command_process(struct net_device *dev)
-@@ -1238,7 +1222,7 @@
+ 	add_timer(&priv->timer);
+@@ -1245,7 +1236,6 @@
+ 	priv->reset = 0;
+ 	memcpy_fromio(dev->dev_addr, arlan->lanCardNodeId, 6);
  	memset(dev->broadcast, 0xff, 6);
+-	priv->txOffset = 0;
  	dev->tx_queue_len = tx_queue_len;
  	priv->interrupt_processing_active = 0;
--	priv->command_lock = 0;
-+	spin_lock_init(&priv->lock);
+ 	priv->command_lock = 0;
+@@ -1291,7 +1281,6 @@
  
- 	netif_start_queue (dev);
+ static int arlan_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct arlan_private *priv = dev->priv;
+ 	short length;
+ 	unsigned char *buf;
  
+@@ -1300,7 +1289,7 @@
+ 	length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
+ 	buf = skb->data;
+ 
+-	if (priv->txOffset + length + 0x12 > 0x800) {
++	if (length + 0x12 > 0x800) {
+ 		printk(KERN_ERR "TX RING overflow \n");
+ 		netif_stop_queue (dev);
+ 	}
+@@ -1313,13 +1302,11 @@
+ 	dev_kfree_skb(skb);
+ 
+ 	arlan_process_interrupt(dev);
+-	priv->tx_chain_active = 0;
+ 	ARLAN_DEBUG_EXIT("arlan_tx");
+ 	return 0;
+ 
+ bad_end:
+ 	arlan_process_interrupt(dev);
+-	priv->tx_chain_active = 0;
+ 	netif_stop_queue (dev);
+ 	ARLAN_DEBUG_EXIT("arlan_tx");
+ 	return 1;
+@@ -1417,7 +1404,6 @@
+ 				}
+ 				if (!TXHEAD(dev).offset || !TXTAIL(dev).offset)
+ 				{
+-					priv->txOffset = 0;
+ 					netif_wake_queue (dev);
+ 				}
+ 			}
 diff -Nru a/drivers/net/wireless/arlan.h b/drivers/net/wireless/arlan.h
---- a/drivers/net/wireless/arlan.h	Thu Sep 25 15:08:01 2003
-+++ b/drivers/net/wireless/arlan.h	Thu Sep 25 15:08:01 2003
-@@ -367,7 +367,7 @@
+--- a/drivers/net/wireless/arlan.h	Thu Sep 25 14:55:21 2003
++++ b/drivers/net/wireless/arlan.h	Thu Sep 25 14:55:21 2003
+@@ -358,7 +358,6 @@
+       char reTransmitBuff[0x800];
+       volatile int txLast;
+       volatile int txNew;
+-      volatile int txOffset;
+       volatile char ReTransmitRequested;
+       volatile unsigned long tx_done_delayed;
+       volatile long long registrationLastSeen;
+@@ -367,8 +366,6 @@
+       volatile long long tx_last_sent;
        volatile long long tx_last_cleared;
        volatile int 	retransmissions;
+-      volatile int	tx_chain_active;
+-      volatile int 	timer_chain_active;
        volatile int 	interrupt_ack_requested;
--      volatile long	command_lock;
-+      spinlock_t lock;
+       volatile long	command_lock;
        volatile int	rx_command_needed;
-       volatile int	tx_command_needed;
-       volatile int 	waiting_command_mask;
