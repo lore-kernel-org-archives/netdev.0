@@ -1,80 +1,303 @@
-From: Bart De Schuymer <bdschuym-LPO8gxj9N8aZIoH1IeqzKA@public.gmane.org>
-Subject: Re: [PATCH] 2.6.3 fix vlan-encapsulated fragmented IP traffic
-Date: Mon, 1 Mar 2004 08:06:29 +0100
-Sender: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Message-ID: <200403010806.29759.bdschuym@pandora.be>
-References: <200402291914.53578.bdschuym@pandora.be> <20040229215421.0ca987e8.davem@redhat.com>
+From: <raghavendra.koushik@wipro.com>
+Subject: RE: Submission #3  for S2io 10GbE driver
+Date: Mon, 1 Mar 2004 11:51:40 +0530
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <4223A04BF7D1B941A25246ADD0462FF50115AD10@blr-m3-msg.wipro.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org
-Return-path: <ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: "David S. Miller" <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-In-Reply-To: <20040229215421.0ca987e8.davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Content-Disposition: inline
-Errors-To: ebtables-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
-	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5ji9XKYC2TYK4Io4DoRGLOrNAH6kLmebB@public.gmane.org>
-List-Post: <mailto:ebtables-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5lLLH9aP38KF1pqr+6INuaA@public.gmane.org>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/ebtables-devel>,
-	<mailto:ebtables-devel-request-5NWGOfrQmneRv+LV9MX5utDmRdBvX5/5R9m/fhtKvoLKtGCp0j7rLg@public.gmane.org>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=ebtables-devel>
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>, <shemminger@osdl.org>, <hch@infradead.org>,
+        <ravinandan.arakali@s2io.com>, <raghavendra.koushik@s2io.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+content-class: urn:content-classes:message
+To: <jgarzik@pobox.com>, <leonid.grossman@s2io.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 01 March 2004 06:54, David S. Miller wrote:
-> Can you explain the 'mtu' fiddling a little bit?  I think it's correct...
-> but you know :)
+Jeff,
+ Regarding Point # 37
 
-Between the Ethernet header and the IP header, there will be put a 
-vlan-header. This is done in br_dev_queue_push_xmit(), with 
-nf_bridge_maybe_copy_header(). By changing the mtu we make sure the IP 
-packets arre small enough to allow the vlan header to be added.
+>>37) kill all of this:
+>>
+>>+/*  OS related system calls */
+>>+
+>>+#ifndef readq
+>>+static inline u64 read64(void *addr)
+>>+{
+>>+       u64 ret = 0;
+>>+       ret = readl(addr + 4);
+>>+       (u64) ret <<= 32;
+>>+       (u64) ret |= readl(addr);
+	[....]
 
-> The one case I'm concerned about is when the device does hw acceleration
-> of vlan tagging (ie. therefore things are transparent supposedly), is
-> the 'mtu' adjustment thing correct in that case?
+I agree that read/write(32,16,8) are not used so can be eliminated,
+but the read/write64 macros are essential because not all platforms
+have defined the readq and writeq system calls. i386 for example 
+doesn't have readq/writeq and to write into the 64 bit registers 
+of the NIC, I use 2 successive 32 bits (readl/writel) operation to 
+achieve the 64 bit equivalent. This procedure does work on all the 
+platforms that we have tested on.
 
-I don't think that's a problem. We only have this problem when the vlan-tagged 
-IP packet enters the bridge as a whole, so the incoming bridge port doesn't 
-strip the vlan header. Therefore, the outgoing bridge port shouldn't be 
-adding the vlan-header, as it's already supposed to be there.
-The difference between the slow_path and the normal path in ip_fragment() is 
-that in the normal path we can use the skbuffs of the fragments and these 
-already have enough space for the vlan header and the IP fragment size is 
-small enough. In the slow_path the skbuffs are constructed and then we need 
-these special measures.
 
-> I'm applying this for now, as I can't come up with a better fix either.
-> If we find a problem with this change, we'll fix that up.
->
-> I'm really concerned, btw, that this is going to propagate to other places
-> as well, what if something that gets handled this way gets sent over an
-> IPIP tunnel via some route, and then IPIP has to make all of these crazy
-> adjustments too?  That's going too far and we'll have to find a better
-> way if that is the case.
+Regards
 
-I'm not sure how IPIP tunnels are implemented, but I'm assuming they strip the 
-first IP header like the vlan code strips the vlan header when a vlan-packet 
-arrives on a vlan-enabled device. Then there should be no problem with this. 
-Even if it's done differently, I don't _think_ it will give a problem.
-The problem is caused purely by the fact that the bridge-nf code 
-(br_netfilter.c) skb_pulls the packet by 4 bytes if it's an IP packet inside 
-a vlan-header, allowing the IP packet to be filtered by iptables, and as far 
-as the IP code and iptables is concerned, there is no vlan-header. So we need 
-to give the IP code a little help.
-Extra code, analogous to the code for vlan, would need to be added in 
-nf_bridge_pad() if we were to allow filtering IP packets inside a bridged 
-IPIP packet, of course.
-
-cheers,
-Bart
+Koushik
 
 
 
--------------------------------------------------------
-SF.Net is sponsored by: Speed Start Your Linux Apps Now.
-Build and deploy apps & Web services for Linux with
-a free DVD software kit from IBM. Click Now!
-http://ads.osdn.com/?ad_id=1356&alloc_id=3438&op=click
+
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com] 
+Sent: Sunday, February 29, 2004 1:52 AM
+To: Leonid Grossman
+Cc: netdev@oss.sgi.com; 'Stephen Hemminger'; 'Christoph Hellwig'; 'ravinandan arakali'; raghavendra.koushik@s2io.com
+Subject: Re: Submission #3 for S2io 10GbE driver
+
+
+Looking a lot better.  A few merge issues remain, and some operational 
+ones as well.  There are 39 issues in this review, but IMO they are 
+mostly minor issues that don't require much thought or work.
+
+
+Comments:
+
+0) to repeat myself from an earlier review...  grumble...
+You CANNOT use NETIF_F_HW_CSUM, when your hardware does not provide the 
+checksum value.  You must use NETIF_F_IP_CSUM.  Your use of 
+NETIF_F_HW_CSUM + CHECKSUM_UNNECESSARY is flat out incorrect.
+
+1) the makefile is for out-of-tree stuff.  The proper makefile will be 
+much smaller.  So just submit a proper in-tree Makefile.
+
+2) (in general) we don't want the compatibility stuff in-tree, that's 
+for out-of-tree as well.
+
+3) just submit a patch to include/linux/pci_ids.h instead of the following
+
++/* VENDOR and DEVICE ID of XENA. */
++#ifndef PCI_VENDOR_ID_S2IO
++#define PCI_VENDOR_ID_S2IO      0x17D5
++#define PCI_DEVICE_ID_S2IO_WIN  0x5731
++#define PCI_DEVICE_ID_S2IO_UNI  0x5831
++#endif
+
+4) just delete the SET_NETDEV_DEV(), FREE_NETDEV, and IRQ_NONE 
+compatibility defines.  these are in 2.4 just like 2.6.
+
+5) Many PCI posting bugs remain.  FixMacAddress is an excellent 
+illustration:
+
++       write64(&bar0->gpio_control, 0x0040600000000000ULL);
++       udelay(10);
++       write64(&bar0->gpio_control, 0x0000600000000000ULL);
++       udelay(10);
++       write64(&bar0->gpio_control, 0x0020600000000000ULL);
++       udelay(10);
++       write64(&bar0->gpio_control, 0x0060600000000000ULL);
++       udelay(10);
+
+The delay is _not_ guaranteed at all, because you do not know when that 
+write64() will actually be sent to the PCI bus.  Only a read[bwl,64] is 
+guaranteed to flush the write to the PCI device.
+
+So, the above code does not function as you would expect, on all platforms.
+
+6) More examples of PCI posting bugs, in startNic:
+
++       write64(&bar0->mc_rldram_mrs, val64);
++       set_current_state(TASK_UNINTERRUPTIBLE);
++       schedule_timeout(HZ / 10);
+
+and
+
++       write64(&bar0->dtx_control, 0x8007051500000000ULL);
++       udelay(50);
++       write64(&bar0->dtx_control, 0x80070515000000E0ULL);
++       udelay(50);
++       write64(&bar0->dtx_control, 0x80070515001F00E4ULL);
++       udelay(50);
+
+7) for fragmented skb's, you should be using pci_map_page() not 
+pci_map_single().  Example in drivers/net/tg3.c.
+
+8) (style) in alarmIntrHandler, due to line wrapping, Lindent has 
+rendered the 'do' loop rather unreadable.
+
+9) you cannot sleep inside the interrupt handler.  Therefore the 
+schedule_timeout() in alarmIntrHandler is very wrong.
+
+10) never use a plain constant when calling schedule_timeout(), such as 
+in waitForCmdComplete.  Always calculate the desired delay based on the 
+HZ constant.  Otherwise, your delay varies depending on platform.  HZ 
+represents one second, in jiffies.  So half a second delay would be "HZ 
+/ 2", etc.  Also, when fixing, be careful that your HZ-based calculation 
+will never evaluate to zero.
+
+11) ditto s2io_reset
+
+12) ditto s2io_close.  etc.
+
+13) in s2io_xmit, kfree the skb (drop it) if you don't have enough free 
+space to queue it.  this is normally a BUG condition, since proper use 
+of netif_{start,stop,wake}_queue() will guarantee that s2io_xmit will 
+only be called when there is free space to queue another skb.
+
+14) spin_lock(), not spin_lock_irqsave(), in your interrupt handler. 
+spin_lock_irqsave() is normally used in any of three cases:  (1) don't 
+know whether you're in an ISR or not, (2) definitely not in an ISR, or 
+(3) your ISR is called from more than one hardware interrupt.  None of 
+these three is the case.
+
+15) does s2io_get_stats need locking?
+
+16) (style) If you are going to comment each function, you might as well 
+do it in the "kernel-doc" style, which allows the comments to be picked 
+up by automated tools.  The format is
+
+	/**
+	 *	function_name - short description
+	 *	@argument1: argument 1 description
+	 *	@argument2: argument 2 description
+	 *	...
+	 * SOMETHING:
+	 * blah blah blah
+	 * SOMETHING ELSE:
+	 * blah blah blah
+
+The "ALL_CAPS:" indicates a new section/paragraph, in the document.
+
+Once this is done, you may add a stub document to Documentation/DocBook/ 
+and then create your driver's nicely-formatted documentation using "make 
+pdfdocs", "make psdocs", or "make htmldocs".
+
+17) this define belongs in include/linux/ethtool.h, if it's not there 
+already...
++#define SPEED_10000 10000
+
+18) remove #ifdefs such as
++#if defined(ETHTOOL_GREGS)
++       info->regdump_len = XENA_REG_SPACE;
++#endif
+
+since this exists in both 2.4 and 2.6 kernels.
+
+19) ditto:
++#ifdef ETHTOOL_PHYS_ID
+
+20) for the ethtool EEPROM and register dumps, it would be nice to 
+submit a patch to me for ethtool (http://sf.net/projects/gkernel/), 
+which generates a verbose dump rather than a bunch of hex numbers 
+incomprehensible to the user.  This is a long, boring, but easy task 
+suitable to an intern, so I understand if it's not done immediately ;-)
+
+21) s2io_ethtool_nway_reset should restart PHY autonegotiation, not 
+reset the entire card
+
+22) eliminate s2io_ethtool_get_link, it duplicates a generic (and 
+equivalent) function in net/core/ethtool.c
+
+23) ditto, for the s2io_ethtool_{get,set}_{sg,rx,tx}_csum stuff
+
+24) don't explicitly set members to NULL in netdev_ethtool_ops
+
+25) the update to s2io_tx_watchdog still leaves something to be desired. 
+  You are no longer performing the could-take-a-long-time card reset 
+inside of spin_lock_bh()... you are now doing it inside the timer 
+interrupt :(  Move this to process context by using schedule_work() 
+[2.6] or schedule_task [2.4]
+
+27) Unconditional netif_wake_queue() in s2io_link() still unfixed.  You 
+must check for room for additional TX, before calling 
+netif_{start,wake}_queue().  Consider what happens if the link goes down 
+under the TX-full condition [netif_stop_queue]... instant bug.
+
+28) do NOT specify PCI latency timer value as non-zero. 
+pci_set_master() chooses an appropriate latency timer value.  It is 
+acceptable to leave this in as an option, as long as the module option's 
+default is zero:
+
++static u8 latency_timer = 0xff;
+
+29) (style) don't bother casting a void pointer:
+
++/*  Private member variable initialized to s2io NIC structure */
++       sp = (nic_t *) dev->priv;
+
+30) redundant assignment of 'sp':
+
++       dev->irq = pdev->irq;
++       dev->base_addr = (unsigned long) sp->bar0;
++       sp = (nic_t *) dev->priv;
+
+31) kill the #ifdef
+
++#ifdef SET_ETHTOOL_OPS
++       SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
++#endif
+
+This one is particularly silly, because SET_ETHTOOL_OPS() is -designed- 
+to eliminate ifdefs.  A driver wishing to be compatible will provide its 
+own SET_ETHTOOL_OPS definition, guaranteeing it can be used 
+unconditionally in the driver code here.
+
+32) mark s2io_starter with "__init"
+
+33) kill this:
+
++#ifndef ETH_ALEN
++#define ETH_ALEN    6
++#endif
+
+34) the definitions of SUCCESS and FAILURE are incorrect.  The driver 
+should return 0 on success, and a negative errno-based error code on 
+failure.  -EBUSY, -EOPNOTSUPP, etc.
+
+35) kill this:
+
++#ifndef SUPPORTED_10000baseT_Full
++#define SUPPORTED_10000baseT_Full (1 << 12)
++#endif
+
+36) (feature addition) you have a ton of NIC-specific statistics.  You 
+should make those available to users, via ethtool.
+
+37) kill all of this:
+
++/*  OS related system calls */
++
++#ifndef readq
++static inline u64 read64(void *addr)
++{
++       u64 ret = 0;
++       ret = readl(addr + 4);
++       (u64) ret <<= 32;
++       (u64) ret |= readl(addr);
++
++       return ret;
++}
++#else
++static inline u64 read64(void *addr)
++{
++       u64 ret = readq(addr);
++       return ret;
++}
++#endif
++#define read32(addr, ret)  ret =  readl(addr);
++#define read16(addr, ret)  ret =  readw(addr);
++#define read8(addr, ret)   ret =  readb(addr);
++
++#ifndef writeq
++static inline void write64(void *addr, u64 val)
++{
++       writel((u32) (val), addr);
++       writel((u32) (val >> 32), (addr + 4));
++}
++#else
++#define write64(addr, ret) writeq(ret,(void *)addr)
++#endif
++#define write32(addr, ret) writel(ret,(void *)addr);
++#define write16(addr, ret) writew(ret,(void *)addr);
++#define write8(addr, ret)  writeb(ret,(void *)addr);
+
+38) sysctl_xframe.conf belongs somewhere in Documentation/*
