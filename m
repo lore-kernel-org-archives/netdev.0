@@ -1,69 +1,147 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: Re: [BUG]:   problem when shutting down ppp connection since 2.5.70
-Date: Thu, 03 Jul 2003 01:17:09 -0400
-Sender: linux-ppp-owner@vger.kernel.org
-Message-ID: <3F03BC55.6050506@nortelnetworks.com>
-References: <3EFFA1EA.7090502@nortelnetworks.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: [PATCH] NET: fix SEGV/OOPS with /proc/net/{raw,igmp,...} (is Re:
+ [Bug 863] New: cat /proc/buddyinfo + netstat -a kills machine)
+Date: Thu, 03 Jul 2003 15:44:29 +0900 (JST)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20030703.154429.06241047.yoshfuji@linux-ipv6.org>
+References: <25670000.1057163262@[10.10.2.4]>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-ppp@vger.kernel.org,
-	shemminger@osdl.org, netdev@oss.sgi.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: paulus@samba.org
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	mbligh@aracnet.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: davem@redhat.com, jmorris@intercode.com.au, acme@conectiva.com.br
+In-Reply-To: <25670000.1057163262@[10.10.2.4]>
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-Well, I've upgraded to the latest 2.5.74 kernel and pppd version 2.4.2b3 
-(still using the rp-pppoe userspace software though).
+I'm not so sure if this is ralated to BUG#863, but anyway;
 
-Per Stephen's suggestion I also tried removing the ip address and 
-bringing down the ppp link before shuttind down the adsl connection.
+Following patch fixes segv/oops with /proc/net/{raw,igmp,mfilter,
+raw6,igmp6,mfilter6,anycast,ip6_flowlabel}.
 
-Makes no difference.
+I should be more careful about cast...; sorry...
 
-If I start a dsl connection at system init and then as soon as I get a 
-login prompt I shut the connection down, I get the following log:
+Thanks.
 
-Jul  3 00:59:26 doug adsl-stop: Killing pppd
-Jul  3 00:59:26 doug pppd[779]: Terminating on signal 15.
-Jul  3 00:59:26 doug adsl-stop: Killing adsl-connect
-Jul  3 00:59:26 doug pppd[779]: Connection terminated.
-Jul  3 00:59:26 doug pppd[779]: Connect time 1.5 minutes.
-Jul  3 00:59:26 doug pppd[779]: Sent 978 bytes, received 588 bytes.
-Jul  3 00:59:29 doug pppoe[781]: Session 511 terminated -- received PADT 
-from peer
-Jul  3 00:59:29 doug pppoe[781]: Sent PADT
-Jul  3 00:59:36 doug kernel: unregister_netdevice: waiting for ppp0 to 
-become free. Usage count = 1
-Jul  3 01:00:16 doug last message repeated 4 times
-
-
-If I start the connection up manually after I'm booted, I get the following:
-
-Jul  3 00:03:06 doug adsl-stop: Killing pppd
-Jul  3 00:03:06 doug pppd[1763]: Terminating on signal 15.
-Jul  3 00:03:06 doug adsl-stop: Killing adsl-connect
-Jul  3 00:03:06 doug pppd[1763]: Connection terminated.
-Jul  3 00:03:06 doug pppd[1763]: Connect time 0.4 minutes.
-Jul  3 00:03:06 doug pppd[1763]: Sent 64 bytes, received 70 bytes.
-Jul  3 00:03:06 doug pppoe[1769]: read (asyncReadFromPPP): Session 6990: 
-Input/output error
-Jul  3 00:03:06 doug pppoe[1769]: Sent PADT
-Jul  3 00:03:06 doug pppd[1763]: Exit.
-
-
-The main difference I see is that in the success case we don't seem to 
-be receiving a PADT message, but rather we get an error in asyncReadFromPPP.
-
-Any ideas where to look?  For those on the netdev list who have just 
-tuned in, this started happening with 2.5.70.
-
-Chris
+Index: linux-2.5/net/ipv4/igmp.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv4/igmp.c,v
+retrieving revision 1.29
+diff -u -r1.29 igmp.c
+--- linux-2.5/net/ipv4/igmp.c	1 Jul 2003 16:42:06 -0000	1.29
++++ linux-2.5/net/ipv4/igmp.c	3 Jul 2003 05:06:18 -0000
+@@ -2099,7 +2099,7 @@
+ 	struct in_device *in_dev;
+ };
+ 
+-#define	igmp_mc_seq_private(seq)	((struct igmp_mc_iter_state *)&seq->private)
++#define	igmp_mc_seq_private(seq)	((struct igmp_mc_iter_state *)(seq)->private)
+ 
+ static inline struct ip_mc_list *igmp_mc_get_first(struct seq_file *seq)
+ {
+@@ -2254,7 +2254,7 @@
+ 	struct ip_mc_list *im;
+ };
+ 
+-#define igmp_mcf_seq_private(seq)	((struct igmp_mcf_iter_state *)&seq->private)
++#define igmp_mcf_seq_private(seq)	((struct igmp_mcf_iter_state *)(seq)->private)
+ 
+ static inline struct ip_sf_list *igmp_mcf_get_first(struct seq_file *seq)
+ {
+Index: linux-2.5/net/ipv4/raw.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv4/raw.c,v
+retrieving revision 1.32
+diff -u -r1.32 raw.c
+--- linux-2.5/net/ipv4/raw.c	1 Jul 2003 16:42:06 -0000	1.32
++++ linux-2.5/net/ipv4/raw.c	3 Jul 2003 05:06:18 -0000
+@@ -687,7 +687,7 @@
+ 	int bucket;
+ };
+ 
+-#define raw_seq_private(seq) ((struct raw_iter_state *)&seq->private)
++#define raw_seq_private(seq) ((struct raw_iter_state *)(seq)->private)
+ 
+ static struct sock *raw_get_first(struct seq_file *seq)
+ {
+Index: linux-2.5/net/ipv6/anycast.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/anycast.c,v
+retrieving revision 1.4
+diff -u -r1.4 anycast.c
+--- linux-2.5/net/ipv6/anycast.c	1 Jul 2003 16:42:06 -0000	1.4
++++ linux-2.5/net/ipv6/anycast.c	3 Jul 2003 05:06:18 -0000
+@@ -441,7 +441,7 @@
+ 	struct inet6_dev *idev;
+ };
+ 
+-#define ac6_seq_private(seq)	((struct ac6_iter_state *)&seq->private)
++#define ac6_seq_private(seq)	((struct ac6_iter_state *)(seq)->private)
+ 
+ static inline struct ifacaddr6 *ac6_get_first(struct seq_file *seq)
+ {
+Index: linux-2.5/net/ipv6/ip6_flowlabel.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/ip6_flowlabel.c,v
+retrieving revision 1.5
+diff -u -r1.5 ip6_flowlabel.c
+--- linux-2.5/net/ipv6/ip6_flowlabel.c	1 Jul 2003 16:42:06 -0000	1.5
++++ linux-2.5/net/ipv6/ip6_flowlabel.c	3 Jul 2003 05:06:18 -0000
+@@ -559,7 +559,7 @@
+ 	int bucket;
+ };
+ 
+-#define ip6fl_seq_private(seq)	((struct ip6fl_iter_state *)&(seq)->private)
++#define ip6fl_seq_private(seq)	((struct ip6fl_iter_state *)(seq)->private)
+ 
+ static struct ip6_flowlabel *ip6fl_get_first(struct seq_file *seq)
+ {
+Index: linux-2.5/net/ipv6/mcast.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/mcast.c,v
+retrieving revision 1.25
+diff -u -r1.25 mcast.c
+--- linux-2.5/net/ipv6/mcast.c	1 Jul 2003 16:42:06 -0000	1.25
++++ linux-2.5/net/ipv6/mcast.c	3 Jul 2003 05:06:18 -0000
+@@ -2045,7 +2045,7 @@
+ 	struct inet6_dev *idev;
+ };
+ 
+-#define igmp6_mc_seq_private(seq)	((struct igmp6_mc_iter_state *)&seq->private)
++#define igmp6_mc_seq_private(seq)	((struct igmp6_mc_iter_state *)(seq)->private)
+ 
+ static inline struct ifmcaddr6 *igmp6_mc_get_first(struct seq_file *seq)
+ {
+@@ -2185,7 +2185,7 @@
+ 	struct ifmcaddr6 *im;
+ };
+ 
+-#define igmp6_mcf_seq_private(seq)	((struct igmp6_mcf_iter_state *)&seq->private)
++#define igmp6_mcf_seq_private(seq)	((struct igmp6_mcf_iter_state *)(seq)->private)
+ 
+ static inline struct ip6_sf_list *igmp6_mcf_get_first(struct seq_file *seq)
+ {
+Index: linux-2.5/net/ipv6/raw.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/raw.c,v
+retrieving revision 1.31
+diff -u -r1.31 raw.c
+--- linux-2.5/net/ipv6/raw.c	1 Jul 2003 16:42:06 -0000	1.31
++++ linux-2.5/net/ipv6/raw.c	3 Jul 2003 05:06:18 -0000
+@@ -913,7 +913,7 @@
+ 	int bucket;
+ };
+ 
+-#define raw6_seq_private(seq) ((struct raw6_iter_state *)&seq->private)
++#define raw6_seq_private(seq) ((struct raw6_iter_state *)(seq)->private)
+ 
+ static struct sock *raw6_get_first(struct seq_file *seq)
+ {
 
 -- 
-Chris Friesen                    | MailStop: 043/33/F10
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
-
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
