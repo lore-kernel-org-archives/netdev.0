@@ -1,36 +1,53 @@
-From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [fore200e] fix warnings related to dma_addr_t
-Date: Thu, 23 Sep 2004 14:44:02 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409231844.i8NIi0gD018156@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: davem@redhat.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: 2.6.9-rc2-mm2 fn_hash_insert oops
+Date: Thu, 23 Sep 2004 21:18:20 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040923191819.GA30482@elte.hu>
+References: <20040923103723.GA12145@mail.muni.cz> <E1CARaS-00071j-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Lukas Hejtmanek <xhejtman@mail.muni.cz>, akpm@osdl.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268218AbUIWTQh@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1CARaS-00071j-00@gondolin.me.apana.org.au>
 List-Id: netdev.vger.kernel.org
 
-dave,
 
-please apply to 2.6.
+* Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-thanks!
+> Lukas Hejtmanek <xhejtman@mail.muni.cz> wrote:
+> > 
+> > However there is still the issue with endless loop in fn_hash_delete :(
+> 
+> Same problem, same fix.  Can someone think of a generic fix to
+> list_for_each_*?
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/09/23 10:50:50-04:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [fore200e] fix warnings related to dma_addr_t
-# 
-diff -Nru a/drivers/atm/fore200e.h b/drivers/atm/fore200e.h
---- a/drivers/atm/fore200e.h	2004-09-23 14:39:11 -04:00
-+++ b/drivers/atm/fore200e.h	2004-09-23 14:39:11 -04:00
-@@ -565,7 +565,7 @@
- typedef struct chunk {
-     void* alloc_addr;    /* base address of allocated chunk */
-     void* align_addr;    /* base address of aligned chunk   */
--    u32   dma_addr;      /* DMA address of aligned chunk    */
-+    dma_addr_t dma_addr; /* DMA address of aligned chunk    */
-     int   direction;     /* direction of DMA mapping        */
-     u32   alloc_size;    /* length of allocated chunk       */
-     u32   align_size;    /* length of aligned chunk         */
+did the trick here too.
+
+on a related note, e100 ifup still gives:
+
+enable_irq(16) unbalanced from c021afa5
+ [<c01322a0>] enable_irq+0xd0/0xe0
+ [<c021afa5>] e100_up+0xf5/0x1e0
+ [<c021afa5>] e100_up+0xf5/0x1e0
+ [<c021a500>] e100_intr+0x0/0x130
+ [<c021c19d>] e100_open+0x2d/0x80
+ [<c014741a>] handle_mm_fault+0x14a/0x1f0
+ [<c02d9c55>] dev_open+0x85/0xa0
+ [<c02ddc04>] dev_mc_upload+0x24/0x40
+ [<c02db363>] dev_change_flags+0x53/0x130
+ [<c0314bcb>] devinet_ioctl+0x26b/0x6c0
+ [<c0317106>] inet_ioctl+0x66/0xb0
+ [<c02d1019>] sock_ioctl+0xc9/0x290
+ [<c0169eda>] sys_ioctl+0xca/0x230
+ [<c01140c0>] do_page_fault+0x0/0x6f0
+ [<c01044c9>] sysenter_past_esp+0x52/0x71
+
+this is with Andrew's current tree (x.bz2).
+
+	Ingo
