@@ -1,34 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Wed, 6 Oct 2004 22:20:01 +0200
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 2.6.7 tulip performance (with NAPI)
+Date: Wed, 06 Oct 2004 14:37:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041006202001.GA27663@electric-eye.fr.zoreil.com>
-References: <41597DA4.5040200@pobox.com> <003701c4abe1$132f8850$9810100a@S2IOtech.com> <20041006200930.GA19395@havoc.gtf.org>
+Message-ID: <41646587.7070401@candelatech.com>
+References: <41633174.7070805@candelatech.com> <16740.17875.574967.11417@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ravinandan Arakali <ravinandan.arakali@s2io.com>, netdev@oss.sgi.com,
-        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
-        rapuru.sriram@s2io.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20041006200930.GA19395@havoc.gtf.org>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16740.17875.574967.11417@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> :
-[...]
-> [PATCH 2.6.9-rc3 1/8] whitespace changes
-> [PATCH 2.6.9-rc3 2/8] fix 32bit issue
-> [PATCH 2.6.9-rc3 3/8] add a feature
-> [PATCH 2.6.9-rc3 4/8] etc...
+Robert Olsson wrote:
+> Ben Greear writes:
+> 
+>  > I tried setting the NICE level of pktgen to -10 and softirq to -18.  I
+>  > still see way more packets transmitted than received.
+> 
+>  If you have "max_before_softirq" in your version pktgen you can try it
+>  to balance your load. HZ=1000 in 2.6 can make scheduling different.
 
-<nit>
-[PATCH 2.6.9-rc3 1/8] S2io: whitespace changes
-[PATCH 2.6.9-rc3 2/8] S2io: fix 32bit issue
-[PATCH 2.6.9-rc3 3/8] S2io: add a feature
-[PATCH 2.6.9-rc3 4/8] S2io: etc...
-</nit>
+Yes, I was able to get it to smooth out by doing something like that.  I
+also got better desktop performance by simply decreasing the niceness of
+the pktgen thread to 0 instead of -10.
 
---
-Ueimor
+On a related note, I am now working on a way to use a hook in the
+netif_wake_queue callback to wake up pktgen.  This should allow me to
+have a pktgen that does not need to spin in a tight loop like it does
+now.  So far, I was able to saturate two GigE ports using about 3% of
+the CPU (as reported by top), using 1514 byte pkts.  Still tweaking
+to fix some corner cases...
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
