@@ -1,36 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC] TCP congestion schedulers
-Date: Mon, 21 Mar 2005 13:51:54 -0800
-Message-ID: <20050321135154.0bbeae85.davem@davemloft.net>
-References: <421CF5E5.1060606@ev-en.org>
-	<20050223135732.39e62c6c.davem@davemloft.net>
-	<421D1E66.5090301@osdl.org>
-	<421D30FA.1060900@ev-en.org>
-	<20050225120814.5fa77b13@dxpl.pdx.osdl.net>
-	<20050309210442.3e9786a6.davem@davemloft.net>
-	<4230288F.1030202@ev-en.org>
-	<20050310182629.1eab09ec.davem@davemloft.net>
-	<20050311120054.4bbf675a@dxpl.pdx.osdl.net>
-	<20050311201011.360c00da.davem@davemloft.net>
-	<20050314151726.532af90d@dxpl.pdx.osdl.net>
-	<m13bur5qyo.fsf@muc.de>
-	<Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [15/*] [INET] Fix IPsec calculation in ip_append_data/ip6_append_data
+Date: Tue, 22 Mar 2005 09:04:40 +1100
+Message-ID: <20050321220440.GA5868@gondor.apana.org.au>
+References: <20050307103536.GB7137@gondor.apana.org.au> <20050308102741.GA23468@gondor.apana.org.au> <20050314102614.GA9610@gondor.apana.org.au> <20050314105313.GA21001@gondor.apana.org.au> <20050314111002.GA29156@gondor.apana.org.au> <20050315091904.GA6256@gondor.apana.org.au> <20050316113149.GA10960@gondor.apana.org.au> <423EF2CF.7020403@kolumbus.fi> <20050321202804.GA3106@gondor.apana.org.au> <423F3CD6.7090109@kolumbus.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ak@muc.de, shemminger@osdl.org, baruch@ev-en.org, netdev@oss.sgi.com
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+To: Mika Penttil? <mika.penttila@kolumbus.fi>
+Content-Disposition: inline
+In-Reply-To: <423F3CD6.7090109@kolumbus.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Mar 2005 16:25:56 -0500 (EST)
-John Heffner <jheffner@psc.edu> wrote:
+On Mon, Mar 21, 2005 at 11:29:58PM +0200, Mika Penttil? wrote:
+>
+> ok I see it now, but this is really easy to get wrong...
 
-> Would you really expect a single extra indirect call per ack to have a
-> significant performance impact?  This is surprising to me.  Where does the
-> cost come from?  Replacing instruction cache lines?
+Well the rule is actually quite simple.  If IPsec can't be present,
+then you should always use dst_mtu(dst).  If IPsec may be present,
+then you should also use dst_mtu(dst) *unless* you're performing an
+operation such as fragmentation that has to be done after IPsec.
 
-Maybe not for ACK processing (that's very thick already) but
-perhaps for a lighter fast path definitely so.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
