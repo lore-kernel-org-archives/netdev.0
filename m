@@ -1,45 +1,70 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Sam Leffler <sam@errno.com>
 Subject: Re: [RFC] Extend netlink error codes
-Date: Sat, 11 Sep 2004 19:57:52 +0200
+Date: Sat, 11 Sep 2004 11:48:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040911175752.GE21181@postel.suug.ch>
-References: <20040910225158.GO20088@postel.suug.ch> <20040911155839.GN4431@wotan.suse.de> <20040911162433.GC21181@postel.suug.ch> <20040911165056.GQ4431@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Message-ID: <3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
+References: <20040910225158.GO20088@postel.suug.ch> <20040911155839.GN4431@wotan.suse.de> <20040911162433.GC21181@postel.suug.ch>
+Mime-Version: 1.0 (Apple Message framework v619)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040911165056.GQ4431@wotan.suse.de>
+In-Reply-To: <20040911162433.GC21181@postel.suug.ch>
+To: Thomas Graf <tgraf@suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Andi Kleen <20040911165056.GQ4431@wotan.suse.de> 2004-09-11 18:50
-> I was thinking about a variable length netlink packet
-> that contains it and that is sent back to the application.  
+On Sep 11, 2004, at 9:24 AM, Thomas Graf wrote:
 
-All solutions discussed so far are based on sending a netlink
-message back to the application. Changing the existing
-nlmsgerr.error or adding a TLV with an error message doesn't
-make much difference from an implementors view.
+> * Andi Kleen <20040911155839.GN4431@wotan.suse.de> 2004-09-11 17:58
+>> IMHO it would be far better to just pass text errors
+>> in a variable length packet back.  It's a bit plan9ish,
+>> but it would work nicely here and be a bit improvement
+>> (especially for the qdiscs)
+>
+> I had the same idea and the only good way to do so would
+> be to add a char * errbuf or alike to struct netlink_opt
+> and access it via skb.sk.sk_protinfo.
+>
+> The bad side is that the for example cls and sch api don't
+> provide the skb to the implementing modules and therefore
+> they can't access the error buffer. I don't want to change
+> all netlink users because of this.
+>
+> Changing all paths back to netlink_ack to provide a struct
+> containing the errno and an additional text error buffer is
+> no option for me either.
+>
+> Correct me if I'm wrong.
+>
+>> Otherwise you will end up with a mainteance nightmare of a
+>> long list of error codes that needs to be updated for every new
+>> subsystem.
+>
+> I would suggst to split them up and assign blocks of free codes
+> to subsystems.
+>
+>> And everybody who has a patch to add a new netlink
+>> user would always fight with conflicts in this file.
+>
+> This is indeed a problem.
+>
+>> I don't think an very specific error like
+>> "CFQ subsystem parameter X is FOO, can be only upto BAR"
+>> can be nicely put into a global error file.
+>
+> True, I would really like to have such error messages.
 
-> No need to store it anywhere else.
+A technique used for mbuf packet tags in FreeBSD is to define a 32-bit 
+cookie that uniquely identifies a module or ABI code and concatenate 
+this with the 16-bit tag number.  The ABI code is defined as the 
+date+time that the module is created, expressed as the number of 
+seconds since the epoch (e.g. the output of date -u +'%s').  Tag 
+numbers are meaningful only within the context of the module/ABI.  A 
+default/compatibility cookie is used for compatibility with previously 
+defined tag values.  This scheme effectively distributes management of 
+tags (so far there have been no collisions).
 
-Not storing it would mean to call netlink_ack from everywhere
-which requires knowledge of the original netlink skb and the
-original netlink message in order to get the pid and sequence
-number right. (We can't use the pid assigned to the peer's
-sock.) It would also mean to set a bit to avoid sending out
-the ack again. Wrong?
+Check the comments in sys/sys/mbuf.h on FreeBSD for more details.
 
-> On the other hand there are not 
-> that many sched/cls modules and some minor changes to them
-> are probably ok.
-
-True, but also think of xfrm, tcp_diag, netfilter, dnrmg. I haven't
-checked how much work it would actually be to improve better
-error messages for them but I plan to at least extend all
-error codes related to the data passed via a netlink socket.
-
-Will wait for some comments. I guess I would be swamped with
-something like discussed above.
+	Sam
