@@ -1,66 +1,57 @@
-From: jamal <hadi@cyberus.ca>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: 03 Jan 2005 10:55:26 -0500
-Message-ID: <1104767726.1049.591.camel@jzny.localdomain>
-References: <20041231110836.GD32419@postel.suug.ch>
-	 <1104505142.1048.262.camel@jzny.localdomain>
-	 <20041231153930.GN32419@postel.suug.ch>
-	 <1104511494.1048.303.camel@jzny.localdomain>
-	 <20041231181153.GP32419@postel.suug.ch>
-	 <1104526311.1047.379.camel@jzny.localdomain>
-	 <20050101121041.GR32419@postel.suug.ch>
-	 <1104622164.1048.444.camel@jzny.localdomain>
-	 <20050102000612.GU32419@postel.suug.ch>
-	 <1104763012.1047.524.camel@jzny.localdomain>
-	 <20050103150230.GC26856@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+Date: Mon, 3 Jan 2005 17:26:35 +0100
+Message-ID: <20050103162635.GD26856@postel.suug.ch>
+References: <20041231153930.GN32419@postel.suug.ch> <1104511494.1048.303.camel@jzny.localdomain> <20041231181153.GP32419@postel.suug.ch> <1104526311.1047.379.camel@jzny.localdomain> <20050101121041.GR32419@postel.suug.ch> <1104622164.1048.444.camel@jzny.localdomain> <20050102000612.GU32419@postel.suug.ch> <1104763012.1047.524.camel@jzny.localdomain> <20050103150230.GC26856@postel.suug.ch> <1104767726.1049.591.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050103150230.GC26856@postel.suug.ch>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1104767726.1049.591.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-03 at 10:02, Thomas Graf wrote:
+* jamal <1104767726.1049.591.camel@jzny.localdomain> 2005-01-03 10:55
+> Sorry, havent looked at the code yet. Is the patch you posted the same
+> as you have on the url earlier?
 
-> > ok. I realize its optional - but i wouldnt even give the writter of
-> > ematch the opportunity to write one. Want something more complex? write
-> > a classifier.
-> 
-> A classifier is at least 300 lines and you lose the ability to use the
-> logic relations.
+Yes, with a few minor fixes and I made it depend on
+CONFIG_NET_CLS_EMATCH and added nil macros when it's not defined.
+Those macros need some more work though.
 
-Sure, but simpler-than-classifier is where we started ;->
-I think in time we should revamp this a little more, but classifiers we
-have today already we just cant get rid of them now. Over time, I agree 
-we should revamp.
- 
-> > Again allowing for this may be overkill. Just send the same structure
-> > the ematch needs in exactly the same form it needs it and you dont need
-> > this. 
-> 
-> Compromise: If change/dump is not provided the api allocates and
-> memcpy's itself resptively dumps m->data. Simple ematches don't have to
-> care and can simple access m->data, more complex ematches can implement
-> their own change/dump. Does that sound beter?
+TODO:
+ - KConfig doc
+ - make change optional
+ - dump m->data if no dump implementation is provided
 
-Yes, indeed. A copy instead of reference is owned by the classifier.
-To me its a valid compromise. Dont want those matches to be shared
-in any case. Also dont want user to know shit about TLVs.
-Neither in the kernel, nor in user space. Simplicty.
+The question I'm yet unsure is whether to strictly return 1/0 or
+allow classifier return codes.
 
-Sorry, havent looked at the code yet. Is the patch you posted the same
-as you have on the url earlier?
+Given I'm done with the above, a minimal ematch will look  like:
 
-> > whats the .link for?
-> 
-> I use list.h to chain ematch_ops and it's better to have it initialized.
+static int sec_match(struct sk_buff *skb, struct tcf_ematch *m)
+{
+	return *(u32 *) m->data == skb->security;
+}
 
-I relaized that - but should the user know anything about this?
+static struct tcf_ematch_ops sec_ops = {
+	.kind = 11,
+	.match = sec_match,
+	.owner = THIS_MODULE
+}
 
-cheers,
-jamal
+... init/exit calling tcf_em_(un_register ...
+
+What do you think about checking RTA_PAYLOAD of the ematch data
+for < sizeof(unsigned long) and assign it to m->data without
+allocation? Would save us nonse allocations. The yet unused 8bit
+in tcf_ematch_hdr would hold a flag to indicate that m->data
+contains the data directly.
+
+> I relaized that - but should the user know anything about this?
+
+Actually no but initializing it in tcf_em_register wouldn't serve
+any purpose so we can either remove it or leave it there.
