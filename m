@@ -1,36 +1,37 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Fix 64bit bugs in dscc44.c II
-Date: Wed, 8 Oct 2003 09:31:53 -0700
+Subject: Re: [Bridge] RE: [VLAN] Re: [PATCH/RFC] Let {ip, arp}tables "see"
+ bridged VLAN tagged{I,AR}P packets
+Date: Wed, 8 Oct 2003 09:33:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008093153.3daaa6b3.davem@redhat.com>
-References: <20031007175953.GA1802@averell>
-	<20031008084205.5c81faac.davem@redhat.com>
-	<20031008155548.GB16937@wotan.suse.de>
-	<20031008090132.2b58c067.davem@redhat.com>
-	<20031008160859.GD16937@wotan.suse.de>
-	<20031008161149.GA8134@wotan.suse.de>
-	<20031008091050.11b2acb7.davem@redhat.com>
-	<20031008163345.GA28793@wotan.suse.de>
+Message-ID: <20031008093354.265b34a5.davem@redhat.com>
+References: <5B537508CDBED3118403009027745A210B8C14A1@knant18.kna.flextronics.com>
+	<3F843C8C.4030100@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, ak@muc.de, ncorbic@sangoma.com, netdev@oss.sgi.com
+Cc: vlan@wanfear.com, tommy.christensen@tpack.net, netdev@oss.sgi.com,
+        bridge@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20031008163345.GA28793@wotan.suse.de>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3F843C8C.4030100@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Oct 2003 18:33:45 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Wed, 08 Oct 2003 09:34:20 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> Just do that then when you apply the patch. Would have been faster
-> than to write all these emails ;-)
+> So, what good is skb_share_check then?
+> Maybe we should have a skb_share_or_cloned_check() ?
 
-I deleted the original patch, so you have to resend it to
-me anyways, so please make the fix I've suggested as you
-do this.
+What input handlers are supposed to do is first:
 
-When I ask you to do these small fixes, I don't do it to make your
-life miserable, I do it because it allows me to review and apply
-patches at a higher rate and scale better.
+	skb = skb_share_check(...);
+
+
+then look at packet contents etc., then if they need to write
+to the header do something like skb_cow().
+
+The best example, as usual, is ipv4 input.  Look at how ip_rcv()
+makes sure it can safely get at the packet header parts it needs
+to parse, then look at ip_forward and how it cows the IPV4 header
+so it can modify the TTL field.
