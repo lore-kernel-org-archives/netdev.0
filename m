@@ -1,75 +1,92 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.4]: Don't try to destroy builtin qdiscs
-Date: Fri, 05 Nov 2004 20:46:31 +0100
-Message-ID: <418BD897.5000409@trash.net>
+Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
+Date: Fri, 05 Nov 2004 19:18:54 +0100
+Message-ID: <418BC40E.8080402@trash.net>
+References: <418B4C7C.8000402@crocom.com.pl> <20041105115430.GP19714@rei.reeler.org> <418B4C7C.8000402@crocom.com.pl> <20041105141640.GQ19714@rei.reeler.org> <418BA66A.60804@trash.net> <20041105163951.GY12289@postel.suug.ch> <418BB7D2.6060908@trash.net> <20041105175812.GZ12289@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030606070008030700090802"
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com, spam@crocom.com.pl,
+        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041105175812.GZ12289@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030606070008030700090802
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Thomas Graf wrote:
 
-Backported from Thomas's patch, we also need this for 2.4.
+>* Patrick McHardy <418BB7D2.6060908@trash.net> 2004-11-05 18:26
+>  
+>
+>>ops->put seems to be safe even without holding dev->queue_lock.
+>>The class refcnt is only changed from userspace, and always under
+>>the rtnl semaphore. get/put are always balanced, so pratically a
+>>class can never get destroyed by put.
+>>    
+>>
+>
+>You are right, this cannot be the problem. However, there is a
+>potential risk in qdisc_destroy if dev->queue_lock is not held.
+>  
+>
+Yes, but there doesn't seem to be a path where this is true.
 
+>I'm not sure but aren't all callers to qdisc_destroy holding
+>qdisc_lock_tree(dev) such as dev_shutdown a potential risk to
+>deadlocks because __qdisc_destroy tries to lock again?
+>  
+>
+__qdisc_destroy is called from a rcu-callback, not directly from
+qdisc_destroy.
 
+>>Either refcnt them or add add some kind of flag to qdiscs created
+>>by qdisc_create/qdisc_create_default and check for that flag.
+>>Initializing the lists doesn't fix all problems, directly using
+>>noop/noqueue doesn't increment the device refcnt, so is must not
+>>be dropped it __qdisc_destroy.
+>>    
+>>
+>
+>I was irritated by the TCQ_F_BUILTIN check in __qdisc_destroy. None
+>of the code in __qdisc_destroy should be applied to a builtin qdisc
+>or am I missing something?
+>  
+>
+No, your patch looks fine.
 
+Regards
+Patrick
 
-
---------------030606070008030700090802
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/11/05 20:44:30+01:00 kaber@coreworks.de 
-#   [PKT_SCHED]: Don't try to destroy builtin qdiscs
-#   
-#   Backported from Thomas Graf's fix for 2.6.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/sched/sch_generic.c
-#   2004/11/05 20:44:28+01:00 kaber@coreworks.de +3 -3
-#   [PKT_SCHED]: Don't try to destroy builtin qdiscs
-#   
-#   Backported from Thomas Graf's fix for 2.6.
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/sched/sch_generic.c b/net/sched/sch_generic.c
---- a/net/sched/sch_generic.c	2004-11-05 20:44:43 +01:00
-+++ b/net/sched/sch_generic.c	2004-11-05 20:44:43 +01:00
-@@ -423,7 +423,8 @@
- {
- 	struct Qdisc_ops *ops = qdisc->ops;
- 
--	if (!atomic_dec_and_test(&qdisc->refcnt))
-+	if (qdisc->flags&TCQ_F_BUILTIN ||
-+	    !atomic_dec_and_test(&qdisc->refcnt))
- 		return;
- 	list_del(&qdisc->list);
- #ifdef CONFIG_NET_ESTIMATOR
-@@ -433,8 +434,7 @@
- 		ops->reset(qdisc);
- 	if (ops->destroy)
- 		ops->destroy(qdisc);
--	if (!(qdisc->flags&TCQ_F_BUILTIN))
--		kfree(qdisc);
-+	kfree(qdisc);
- }
- 
- 
-
---------------030606070008030700090802--
+>The patch below prevents builtin qdiscs from being destroyed and
+>fixes a refcnt underflow whould lead to a bogus list unlinking
+>and dev_put.
+>
+>Signed-off-by: Thomas Graf <tgraf@suug.ch>
+>
+>--- linux-2.6.10-rc1-bk14.orig/net/sched/sch_generic.c	2004-11-05 18:44:49.000000000 +0100
+>+++ linux-2.6.10-rc1-bk14/net/sched/sch_generic.c	2004-11-05 18:43:52.000000000 +0100
+>@@ -479,15 +479,15 @@
+> 	module_put(ops->owner);
+> 
+> 	dev_put(qdisc->dev);
+>-	if (!(qdisc->flags&TCQ_F_BUILTIN))
+>-		kfree((char *) qdisc - qdisc->padded);
+>+	kfree((char *) qdisc - qdisc->padded);
+> }
+> 
+> /* Under dev->queue_lock and BH! */
+> 
+> void qdisc_destroy(struct Qdisc *qdisc)
+> {
+>-	if (!atomic_dec_and_test(&qdisc->refcnt))
+>+	if (qdisc->flags & TCQ_F_BUILTIN ||
+>+		!atomic_dec_and_test(&qdisc->refcnt))
+> 		return;
+> 	list_del(&qdisc->list);
+> 	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
+>
+>
+>  
+>
