@@ -1,33 +1,49 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patricia tries vs. hash for routing?
-Date: Thu, 18 Sep 2003 20:17:43 -0700
+From: John Levon <levon@movementarian.org>
+Subject: [PATCH] SEQ_START_TOKEN for af_netlink.c
+Date: Thu, 18 Sep 2003 22:25:18 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030918201743.11d88366.davem@redhat.com>
-References: <20030918172910.GA22091@sirius.cs.pdx.edu>
+Message-ID: <20030918212518.GA86845@compsoc.man.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kristen Carlson <kristenc@cs.pdx.edu>
-In-Reply-To: <20030918172910.GA22091@sirius.cs.pdx.edu>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Sep 2003 10:29:10 -0700
-Kristen Carlson <kristenc@cs.pdx.edu> wrote:
 
-> I'm wondering if somebody has already written a patch that replaces the
-> current routing algorithm (hash) with one that is based on a trie based
-> algorithm?  I'm also wondering if anybody has done any performance 
-> comparisons with very large route tables to see which one scales better?
+Seems this got missed in the sweep.
 
-Patricia trees aren't going to help, most of the overhead in
-the routing lookup is in implementing the various fancy features
-our routing code supports.  For example, equal cost multi-pathing
-and other such things.
+regards
+john
 
-The front end routing cache is a straight hash and is thus the
-fastest way to lookup a route.  In the presence of well behaved
-traffic and routing tables that do not change too often, it is
-optimal.
+diff -Naurp -X dontdiff linux-cvs/net/netlink/af_netlink.c linux-fixes/net/netlink/af_netlink.c
+--- linux-cvs/net/netlink/af_netlink.c	2003-09-05 18:48:00.000000000 +0100
++++ linux-fixes/net/netlink/af_netlink.c	2003-09-18 22:45:19.000000000 +0100
+@@ -988,7 +988,7 @@ static struct sock *netlink_seq_socket_i
+ static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	read_lock(&nl_table_lock);
+-	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : (void *) 1;
++	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+ }
+ 
+ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+@@ -997,7 +997,7 @@ static void *netlink_seq_next(struct seq
+ 
+ 	++*pos;
+ 
+-	if (v == (void *) 1) 
++	if (v == SEQ_START_TOKEN)
+ 		return netlink_seq_socket_idx(seq, 0);
+ 		
+ 	s = sk_next(v);
+@@ -1023,7 +1023,7 @@ static void netlink_seq_stop(struct seq_
+ 
+ static int netlink_seq_show(struct seq_file *seq, void *v)
+ {
+-	if (v == (void *)1) 
++	if (v == SEQ_START_TOKEN)
+ 		seq_puts(seq,
+ 			 "sk       Eth Pid    Groups   "
+ 			 "Rmem     Wmem     Dump     Locks\n");
