@@ -1,44 +1,59 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: ifconfig TX/RX errors
-Date: Fri, 8 Nov 2002 20:21:26 -0500 (EST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: NAPI question
+Date: Fri, 08 Nov 2002 17:33:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0211082012160.13934-100000@beohost.scyld.com>
-References: <Pine.LNX.4.33L0.0211081456190.25749-100000@fast2.cs.caltech.edu>
+Message-ID: <3DCC65CD.6060009@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Cheng Jin <chengjin@cs.caltech.edu>
-In-Reply-To: <Pine.LNX.4.33L0.0211081456190.25749-100000@fast2.cs.caltech.edu>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 8 Nov 2002, Cheng Jin wrote:
+In dev.c, there is this code.  Please see my question by the ### marks.
 
-> What does a large number of RX/TX errors from ifconfig output generally
-> mean?  Does it also include drop/overruns/frame errors?
+static void net_rx_action(struct softirq_action *h)
+{
+	int this_cpu = smp_processor_id();
+	struct softnet_data *queue = &softnet_data[this_cpu];
+	unsigned long start_time = jiffies;
+	int budget = netdev_max_backlog;
 
-The 'ifconfig' program doesn't have a defined behavior.  It reads
-/proc/net/dev and sums some of the available error counts.  You should
-read /proc/net/dev directly to find out what is going wrong.
+	br_read_lock(BR_NETPROTO_LOCK);
+	local_irq_disable();
 
-The 'ifconfig' and 'netstat' programs follow the interface of their BSD
-predecessors.  BSD wasn't sophisticated about errors: it kept only very
-basic statistics.  Thus the tools only presented those numbers.
+	while (!list_empty(&queue->poll_list)) {
+		struct net_device *dev;
 
-[[ That's not to say I think 'ifconfig' should be changed: there is no
-compelling reason to break compatibility.  It's been 20 years since
-anyone thought that trailers were a good idea, but it doesn't hurt to
-ignore the flag. ]]
+		if (budget <= 0 || jiffies - start_time > 1)
+			goto softnet_break;
 
-> Is it an indication of bad packet on the link layer, which  probably means
-> faulty hardware?  I am assuming any kind of buffer overflow statistics are
-> kept under drop or overruns?
+		local_irq_enable();
 
-Check for kernel messages as well.
+		dev = list_entry(queue->poll_list.next, struct net_device, poll_list);
+
+		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
+			local_irq_disable();
+			list_del(&dev->poll_list);
+			list_add_tail(&dev->poll_list, &queue->poll_list);
+
+###  How can quota ever get negative?  In other words, why not just set it to dev->weight
+###  always?  Or, if the dev didn't use up all it's quota from the last round, why not
+###  increase it up to a max of 2 x weight or something like that?
+
+			if (dev->quota < 0)
+                                dev->quota += dev->weight;
+                         else
+                                dev->quota = dev->weight;
+		} else {
+			dev_put(dev);
+			local_irq_disable();
+		}
+	}
+
 
 -- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
