@@ -1,94 +1,75 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] pktgen handle netdev device getting full.
-Date: Thu, 16 Sep 2004 14:43:32 -0700
+From: Lincoln Dale <ltd@cisco.com>
+Subject: Re: The ultimate TOE design
+Date: Fri, 17 Sep 2004 08:37:17 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916144332.37f19fcb@dell_ss3.pdx.osdl.net>
+Message-ID: <5.1.0.14.2.20040917083305.04f4d008@171.71.163.14>
+References: <20040916133301.GA15562@wotan.suse.de>
+ <20040915141346.5c5e5377.davem@davemloft.net>
+ <4148991B.9050200@pobox.com>
+ <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
+ <1095275660.20569.0.camel@localhost.localdomain>
+ <4148A90F.80003@pobox.com>
+ <20040915140123.14185ede.davem@davemloft.net>
+ <20040915210818.GA22649@havoc.gtf.org>
+ <20040915141346.5c5e5377.davem@davemloft.net>
+ <5.1.0.14.2.20040916192213.04240008@171.71.163.14>
+ <1095337159.22739.7.camel@localhost.localdomain>
+ <20040916133301.GA15562@wotan.suse.de> <1095339466.22739.22.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jamal Hadi Salim <hadi@znyx.com>
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: Andi Kleen <ak@suse.de>, Jeff Garzik <jgarzik@pobox.com>,
+        "David S. Miller" <davem@davemloft.net>, paul@clubi.ie,
+        netdev@oss.sgi.com, leonid.grossman@s2io.com,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>,
-        "David S. Miller"
- <davem@redhat.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1095339466.22739.22.camel@localhost.localdomain>
+References: <20040916133301.GA15562@wotan.suse.de>
+ <20040915141346.5c5e5377.davem@davemloft.net>
+ <4148991B.9050200@pobox.com>
+ <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
+ <1095275660.20569.0.camel@localhost.localdomain>
+ <4148A90F.80003@pobox.com>
+ <20040915140123.14185ede.davem@davemloft.net>
+ <20040915210818.GA22649@havoc.gtf.org>
+ <20040915141346.5c5e5377.davem@davemloft.net>
+ <5.1.0.14.2.20040916192213.04240008@171.71.163.14>
+ <1095337159.22739.7.camel@localhost.localdomain>
+ <20040916133301.GA15562@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I was trying out pktgen on a NIC with an undersized ring, so 
-hard_start_xmit would always return non-zero when full.  This caused a slew
-of console messages.  Better to just have pktgen retry in this case.
+Hi Alan,
 
-Also, can use do_div to do the 64 bit divide rather than doing long string
-of if statements when computing results.
+At 10:57 PM 16/09/2004, Alan Cox wrote:
+>On Iau, 2004-09-16 at 14:33, Andi Kleen wrote:
+> > > At 1Ghz the Athlon Geode NX draws about 6W. Thats less than my SCSI
+> >
+> > Are you sure that's worst case, not average? Worst case is usually
+> > much worse on a big CPU like an Athlon, but the power supply
+> > has to be sized for it.
+>
+>You are correct - 6W average 9W TDP, still less than my scsicontroller
+>8)
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+sure -- ok -- that gets you the main processor.
+now add to that a Northbridge (perhaps AMD doesnt need that but i'm sure it 
+still does), Southbridge, DDR-SDRAM, ancilliary chips for doing MAC, PHY, ...
 
-diff -Nru a/net/core/pktgen.c b/net/core/pktgen.c
---- a/net/core/pktgen.c	2004-09-16 14:42:25 -07:00
-+++ b/net/core/pktgen.c	2004-09-16 14:42:25 -07:00
-@@ -589,7 +589,7 @@
- {
- 	struct net_device *odev = NULL;
- 	struct sk_buff *skb = NULL;
--	__u64 total = 0;
-+	__u32 total = 0;
- 	__u64 idle = 0;
- 	__u64 lcount = 0;
- 	int nr_frags = 0;
-@@ -636,28 +636,20 @@
- 		   
- 		if (!(odev->features & NETIF_F_LLTX))
- 			spin_lock_bh(&odev->xmit_lock);
--		if (!netif_queue_stopped(odev)) {
- 
-+		last_ok = 0;
-+		if (!netif_queue_stopped(odev)) {
- 			atomic_inc(&skb->users);
- 
--			if (odev->hard_start_xmit(skb, odev)) {
--
-+			if (odev->hard_start_xmit(skb, odev) == NETDEV_TX_OK) {
-+				last_ok = 1;	
-+				info->sofar++;
-+				info->seq_num++;
-+			} else {
-+				/* Device kicked us out :(
-+				   so retry again */
- 				atomic_dec(&skb->users);
--				if (net_ratelimit()) {
--				   printk(KERN_INFO "Hard xmit error\n");
--				}
--				info->errors++;
--				last_ok = 0;
- 			}
--			else {
--			   last_ok = 1;	
--			   info->sofar++;
--			   info->seq_num++;
--			}
--		}
--		else {
--			/* Re-try it next time */
--			last_ok = 0;
- 		}
- 		
- 		if (!(odev->features & NETIF_F_LLTX))
-@@ -733,15 +725,9 @@
- 	{
- 		char *p = info->result;
- 		__u64 bps, pps = 0;
--
--		if (total > 1000)
--			pps = (__u32)(info->sofar * 1000) / ((__u32)(total) / 1000);
--		else if(total > 100)
--			pps = (__u32)(info->sofar * 10000) / ((__u32)(total) / 100);
--		else if(total > 10)
--			pps = (__u32)(info->sofar * 100000) / ((__u32)(total) / 10);
--		else if(total > 1)
--			pps = (__u32)(info->sofar * 1000000) / (__u32)total;
-+		
-+		pps = info->sofar * 1000000;
-+		do_div(pps, total);
- 
- 		bps = pps * 8 * (info->pkt_size + 4); /* take 32bit ethernet CRC into account */
- 		p += sprintf(p, "OK: %llu(c%llu+d%llu) usec, %llu (%dbyte,%dfrags) %llupps %lluMb/sec (%llubps)  errors: %llu",
+couple that with the voltage of PCI where you're likely to need 
+step-up/step-down circuits (which aren't 100% efficient themselves), you're 
+still going to get very close to the limit, if not over it.
+
+... and after all that, the Geode is really designed to be an embedded 
+processor.
+Jeff was implying using garden-variety processors which seem to have large 
+heatsinks, not to mention cooling fans, not to mention quite significant 
+heat generation.
+
+we're not _quite_ at the stage of being able to take garden-variety 
+processors and build-your-own-blade-server using PCI _just_ yet. :-)
+
+
+cheers,
+
+lincoln.
