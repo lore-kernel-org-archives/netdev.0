@@ -1,59 +1,56 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: RE: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Tue, 28 Sep 2004 10:13:48 -0700
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [6/6]: jenkins hash for neigh / Statistics
+Date: Tue, 28 Sep 2004 19:06:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <002b01c4a57e$84da0700$a010100a@S2IOtech.com>
-References: <41597DA4.5040200@pobox.com>
-Reply-To: <ravinandan.arakali@s2io.com>
+Message-ID: <20040928170644.GL29961@sunbeam.de.gnumonks.org>
+References: <20040925005623.2faf8faf.davem@davemloft.net> <E1CBu70-00010X-00@gondolin.me.apana.org.au> <20040927121403.767e2308.davem@davemloft.net> <20040927222613.GE3236@sunbeam.de.gnumonks.org> <20040927160636.7741d973.davem@davemloft.net> <1096327658.1729.19.camel@localhost.localdomain> <16729.9326.93269.422940@robur.slu.se> <1096388857.21799.5.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>,
-        <raghavendra.koushik@s2io.com>, <rapuru.sriram@s2io.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="qse+WBH4guesipZ+"
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>
-In-Reply-To: <41597DA4.5040200@pobox.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <1096388857.21799.5.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff, Randy,
-We are sorry about that. We will split the first patch into multiple smaller
-patches and resubmit them one-by-one.
-We appreciate all your patience.
 
-Regards,
-Ravi
+--qse+WBH4guesipZ+
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com]
-Sent: Tuesday, September 28, 2004 8:05 AM
-To: ravinandan.arakali@s2io.com
-Cc: netdev@oss.sgi.com; leonid.grossman@s2io.com;
-raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com
-Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
+=20
+> I have the newer rtstat/ctstat queued for inclusion this week unless
+> Harald get's his newer one done sooner (hint, hint)
 
+well, the new version currently provides backwards compatibility for the
+old commands, but it doesn't support old kernels... I'll see how I can
+integrate that.
 
-Ravinandan Arakali wrote:
-> Hi,
-> Attached are the updated patches. It is designed to work on the latest
-> kernel. Also, this time the submission is split to 3 patches(they need
-> to applied in the order mentioned below).
->
-> s2io_styling_level1  - Contains
->                              a. styling related, function name changes.
->                              b. fix for 32-bit systems.
->                              c. modified Transmit descriptor allocation
-> strategy.
->                              d. miscellaneous fixes.
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
 
+--qse+WBH4guesipZ+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-When we say "separate logical changes", we mean it :)
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
 
-This means that your level1 patch should be split into at least 4 patches.
+iD8DBQFBWZokXaXGVTD0i/8RAvbBAJ9b2KR+CJ12RHX6LG+oOF2a5XAluwCgiBau
+rzwkovKFFNyXFq1iDGhFtus=
+=JRPQ
+-----END PGP SIGNATURE-----
 
-Second, send each patch in a separate email, as described in
-http://linux.yyz.us/patch-format.html (and
-Documentation/SubmittingPatches) rather than sending as a tarball.
-
-	Jeff
+--qse+WBH4guesipZ+--
