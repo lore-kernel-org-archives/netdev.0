@@ -1,41 +1,38 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Florian Weimer <fw@deneb.enyo.de>
 Subject: Re: Route cache performance under stress
-Date: Sun, 08 Jun 2003 05:05:00 -0700 (PDT)
+Date: Sun, 08 Jun 2003 15:10:25 +0200
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030608.050500.28795668.davem@redhat.com>
+Message-ID: <874r30r9z2.fsf@deneb.enyo.de>
 References: <87wuge59w2.fsf@deneb.enyo.de>
 	<20030526.233211.54217447.davem@redhat.com>
 	<87he70re62.fsf@deneb.enyo.de>
+	<20030608.050500.28795668.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: fw@deneb.enyo.de
-In-Reply-To: <87he70re62.fsf@deneb.enyo.de>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030608.050500.28795668.davem@redhat.com> (David S. Miller's
+ message of "Sun, 08 Jun 2003 05:05:00 -0700 (PDT)")
 List-Id: netdev.vger.kernel.org
 
-   From: Florian Weimer <fw@deneb.enyo.de>
-   Date: Sun, 08 Jun 2003 13:39:49 +0200
+"David S. Miller" <davem@redhat.com> writes:
 
-   "David S. Miller" <davem@redhat.com> writes:
-   
-   > As a general purpose operating system, where people DO in fact use
-   > these features quite regularly,
-   
-   Even non-CIDR netmasks?  AFAIK, it's hard to find dedicated networking
-   devices (and routing protocols!) which support them. 8-/
-   
-Yes, people use source based routing to block specific IPs and
-subnets, it's also needed to Mobile IPV4.
+> Although, I hope it's not "too similar" to what CEF does because
+> undoubtedly Cisco has a bazillion patents in this area.
 
-   Anyway, I've played a bit with something inspired by CEF (more
-   precisely speaking, one diagram in the IOS internals book and some IOS
-   diagnostic output).
-   
-Thanks, Alexey and myself will need to study this deeply.
+Most things in this area are patented, and the patents are extremely
+fuzzy (e.g. policy-based routing with hierarchical sequence of
+decisions has been patented countless times). 8-(
 
-Although, I hope it's not "too similar" to what CEF does because
-undoubtedly Cisco has a bazillion patents in this area.  This is
-actually an argument for coming up with out own algorithms without
-any knowledge of what CEF does or might do. :(
+> This is actually an argument for coming up with out own algorithms
+> without any knowledge of what CEF does or might do. :(
+
+The branchless variant is not described in the IOS book, and I can't
+tell if Cisco routers use it.  If this idea is really novel, we are in
+pretty good shape because we no longer use trees, tries or whatever,
+but a DFA. 8-)
+
+Further parameters which could be tweaked is the kind of adjacency
+information (where to store the L2 information, whether to include the
+prefix length in the adjacency record etc.).
