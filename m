@@ -1,124 +1,71 @@
-From: "Gargi D" <gargid@cdacindia.com>
-Subject: RE: NETLINK upcalls and wireless events
-Date: Wed, 24 Mar 2004 09:37:01 +0530
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Message-ID: <001d01c41155$759ca8f0$1006a8c0@rahul>
-References: <200403230212.i2N2CeRj069721@possum.icir.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: NETLINK upcalls and wireless events
+Date: 23 Mar 2004 23:52:25 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1080103945.1472.56.camel@jzny.localdomain>
+References: <20040323175717.GA32055@bougret.hpl.hp.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: "'Pavlin Radoslavov'" <pavlin@icir.org>, <hostap@shmoo.com>,
-	<netdev@oss.sgi.com>
-In-Reply-To: <200403230212.i2N2CeRj069721@possum.icir.org>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Cc: hostap@shmoo.com, netdev@oss.sgi.com, pavlin@icir.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jt@hpl.hp.com
+In-Reply-To: <20040323175717.GA32055@bougret.hpl.hp.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 2004-03-23 at 12:57, jt@bougret.hpl.hp.com wrote:
 
-I was wondering if you could help me in understanding the usage of
-netlink sockets.  Wireless events such as a signal that a new interface
-has been created, can anyway be read from 
+> > Checking whether the message contains the IFLA_WIRELESS field is
+> > probably not an option, because I may be compiling the code on a
+> > slightly older Linux box that doesn't have IFLA_WIRELESS defined.
+> > The only solution I have so far is to check whether the message
+> > contains the IFLA_IFNAME field, but this is more like a work-around
+> > rather than a solution. Any suggestions?
+> 
+> 	The method I personally use is that I keep a little database
+> of interfaces (I need it for other reasons). Therefore, I know if the
+> interface is new (not in my database) or already exist (present in my
+> database).
 
-/proc/net and var/lib/pcmcia/stab
+This is the best way to do it.
 
-Why would then want to use netlink sockets to get an indication of the
-same.
+> 	Note that in theory, RtNetlink messages may be lost (due to
+> memory pressure). Also, you won't only get NEWLINK when interface
+> register, but also when interface goes up and down, or when multicast
+> or promiscuous flags are changed. Which mean that in practice you want
+> to be much more clever than what you do now.
 
+If you maintain a database in userspace the real good check would be
+the ifindex since this would be unique for the device and persistent. 
+The name can be changed. 
+If you already have the ifindex in your database then clearly thats just
+an event announcement.
+Next thing to check would be the state of the flags/changemask to see if
+the admin status changed (eg ifconfig down ).
+And of course whatever the IFLA_* attribs (which are optionaly sent).
+Typically you can catch lost messages in netlink since the socket gets
+its error flag set. You can use that as an event to check for changes.
 
-Regards, 
+> 
+> 	Both methods you suggest would also work. If IFLA_WIRELESS
+> doesn't exist, just define it :
+> -----------------------------
+> #ifndef IFLA_WIRELESS
+> #define IFLA_WIRELESS	(IFLA_MASTER + 1)
+> #endif /* IFLA_WIRELESS */
+> -----------------------------
+> 
+> 	The latest method is to look at both ifi_flags and
+> ifi_change. If ifi_change is 0, it is usually a wireless event (but
+> not always).
 
-
-Miss. Gargi Dadhich 
-Member Technical Staff 
-Networking and Internet Software Group (NISG) 
-C-DAC, Pune 
-
-Tel:    020-25694000/1/2/3      Extn: 484 
-Fax:    020-25694059 
-
-
-
------Original Message-----
-From: hostap-bounces+gargid=cdacindia.com@shmoo.com
-[mailto:hostap-bounces+gargid=cdacindia.com@shmoo.com] On Behalf Of
-Pavlin Radoslavov
-Sent: Tuesday, March 23, 2004 7:43 AM
-To: hostap@shmoo.com; netdev@oss.sgi.com
-Cc: pavlin@icir.org
-Subject: NETLINK upcalls and wireless events
-
-
-[Apology for the cross-post, but I am not sure which is the right
-mailing list for this question]
-
-
-BACKGROUND:
-
-I am using Linux NETLINK sockets to monitor network interface events in
-the kernel such as "interface added/deleted", "address added/deleted",
-etc.
-
-The RTM_NEWLINK message type upcall from the kernel to user-space is
-used to signal that a new network interface has been created (e.g., a
-tunnel interface, a PC-Card has been inserted, etc). One of the
-attributes of that message (see rtnetlink(7)) is IFLA_IFNAME and is used
-to store the device name (e.g., "tun0", "eth0", etc).
-
-
-PROBLEM:
-
-So far everything worked fine on a desktop: whenever I add a tunnel, the
-kernel sends to user-space RTM_NEWLINK, I check the IFLA_IFNAME
-attribute to get the name of the new interface, etc.
-
-However, a fellow tried same software on a laptop in wireless
-environment, and then RTM_NEWLINK messages started to appear for no
-apparent reason. Those messages did not contain the IFLA_IFNAME
-attribute which was strange and I started to suspect that it could be a
-kernel bug. After some investigation I found that the RTM_NEWLINK
-message can be generated not only when there is a new interface, but in
-some other cases as well. Inside file linux/wireless.h (I am looking
-into version 15 from 12.7.02) I found the following comment: 
-
-/* ----------------------- WIRELESS EVENTS ----------------------- */
-/*
- * Wireless events are carried through the rtnetlink socket to user
- * space. They are encapsulated in the IFLA_WIRELESS field of
- * a RTM_NEWLINK message.
- */
-
-
-In other words, some wireless events may also generate RTM_NEWLINK
-message as well. I don't have a laptop with Linux to verify that myself,
-but I am quite sure that some wireless events do generate RTM_NEWLINK
-with no IFLA_IFNAME.
-
-
-QUESTION:
-
-If I receive an RTM_NEWLINK message, is there a reliable way to find-out
-whether the message is generated because of a wireless event or because
-indeed there is a new network interface installed in the kernel.
-
-Checking whether the message contains the IFLA_WIRELESS field is
-probably not an option, because I may be compiling the code on a
-slightly older Linux box that doesn't have IFLA_WIRELESS defined. The
-only solution I have so far is to check whether the message contains the
-IFLA_IFNAME field, but this is more like a work-around rather than a
-solution. Any suggestions?
-
-Thanks,
-Pavlin
-_______________________________________________
-HostAP mailing list
-HostAP@shmoo.com
-http://lists.shmoo.com/mailman/listinfo/hostap
+mask should really indicate that something new is in the flags so
+hopefuly it is not being arbitrarily set to 0 to indicate events.
+Not too familiar with IFLA_WIRELESS - but is this a link event or is 
+something conviniently using the link message? What kind of things does
+it announce/configure?
+ 
+cheers,
+jamal
