@@ -1,18 +1,27 @@
-From: Jack Steiner <steiner@sgi.com>
-Subject: FW: [PATCH] - Incorrect cpumask definition in net/core/flow.c
-Date: Fri, 7 Nov 2003 16:37:29 -0600
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [PATCH] - Incorrect cpumask definition in net/core/flow.c
+Date: Fri, 7 Nov 2003 15:43:55 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031107223729.GA20687@sgi.com>
+Message-ID: <20031107154355.74fe4fd4.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Jack Steiner <steiner@sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(I sent this to akpm earlier - I think I sent it to the wrong  list)
+One for you please Dave.
 
+
+Begin forwarded message:
+
+Date: Fri, 7 Nov 2003 15:08:48 -0600
+From: Jack Steiner <steiner@sgi.com>
+To: akpm@osdl.org, linux-kernel@vger.kernel.org
+Cc: Jesse Barnes <jbarnes@sgi.com>
+Subject: [PATCH] - Incorrect cpumask definition in net/core/flow.c
 
 
 This fixes a problem in net/core/flow.c. 
