@@ -1,49 +1,40 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: IPsec and Path MTU
-Date: Thu, 17 Jun 2004 00:23:41 +0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040616202341.GD29781@ms2.inr.ac.ru>
-References: <20040615124334.GA25164@gondor.apana.org.au> <20040616121026.GA1169@gondor.apana.org.au>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Re: [Prism54] CVS -> bk tree update
+Date: Wed, 16 Jun 2004 16:30:55 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <40D0ADFF.1040208@pobox.com>
+References: <20040614191651.GC6253@ruslug.rutgers.edu>
+	<40CE2754.1020109@pobox.com>
+	<20040616022008.GM6253@ruslug.rutgers.edu>
+	<40CFBA24.7030307@pobox.com>
+	<20040616051103.GN6253@ruslug.rutgers.edu>
+	<20040616064303.GO6253@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, jmorris@redhat.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20040616121026.GA1169@gondor.apana.org.au>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
+In-Reply-To: <20040616064303.GO6253@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Luis R. Rodriguez wrote:
+> Jeff,
+> 
+> Ok 2.6.7 is out, we missed it. Now what, send a group of patches against that then?
 
-> > So unless I'm missing something, we should get rid of dst->path and
-> > store the MTU in the xfrm dst's directly.
+Don't feel too bad, it was in release candidate status so any patches 
+submitted would not have gone into 2.6.7 anyway (unless they were 
+critical bug fixes).
 
-Yes, this is absolutely true. BTW we talked about this already.
+I'll reply to your other email after a yummy bowl of Ramen noodles...
 
-The problem here is pure technical. In any case pmtu on path
-going through tunnel is _lower_ than dst_path() and has to be
-recalculated when dst_path() changes. Because we do not hold
-any back references for dst's using dst->path, we cannot do this
-actively. dst_path() is enough to do this.
-
-But it is definitely not enough when pmtu is lowered on some
-policies by another reasons.
-
-So, holding pmtu at all the dst's is necessary and we have to sync
-those mtus with dst_path instead using it directly.
-
-
-> Now the problem with all this is that it looks pretty complicated.
-
-I am afraid I still did not understand your troubles completely.
-
-Actually, the last time when we discussed this we had only one
-but _damn_ ugly problem. We have to remember original packet content
-to reply with ICMP correctly, when encapsulating. Is it possible
-that you are confused with this? We do send invalid ICMP_FRAG_NEEDED
-from ip_fragment. PMTU discovery will work only if we reply to original,
-not transofrmed packet. See?
-
-
-Alexey
+	Jeff
