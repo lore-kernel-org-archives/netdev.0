@@ -1,46 +1,27 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: Marcin Kaminski <maxiu@man.poznan.pl>
 Subject: Re: socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6)
-Date: Wed, 12 Mar 2003 21:39:03 +0900 (JST)
+Date: Wed, 12 Mar 2003 13:51:53 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030312.213903.04850857.yoshfuji@linux-ipv6.org>
-References: <Pine.GSO.4.44.0303121313240.17866-100000@rose.man.poznan.pl>
+Message-ID: <Pine.GSO.4.44.0303121348470.23508-100000@rose.man.poznan.pl>
+References: <20030312.213903.04850857.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=iso-8859-2
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: maxiu@man.poznan.pl
-In-Reply-To: <Pine.GSO.4.44.0303121313240.17866-100000@rose.man.poznan.pl>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030312.213903.04850857.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.GSO.4.44.0303121313240.17866-100000@rose.man.poznan.pl> (at Wed, 12 Mar 2003 13:17:47 +0100 (CET)), Marcin Kaminski <maxiu@man.poznan.pl> says:
+On Wed, 12 Mar 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明
+wrote:
 
-> When I create socket like:
->     interfaceSocket = socket(PF_INET, SOCK_RAW, IPPROTO_ICMP);
-> I receive ICMPv4 packets with IP header, but when I use
->     interfaceSocket = socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
-> I receive ICMPv6 packets WITHOUT IPv6 header.
+> > What should I do in order to get full packet?
+>
+> There're no portable way to send/receive whole packet including
+> IPv6 header (and possible extension header(s)).
 
-It is because of the specification (RFC2292).
-
-
-> What should I do in order to get full packet?
-> Man pages of raw(7) tell:
-
-There're no portable way to send/receive whole packet including 
-IPv6 header (and possible extension header(s)).
-
-> What should I do in order to get full packet?
-> Man pages of raw(7) tell:
-> 
-> For receiving the IP header is always included in the packet.
-> 
-> But it is not true for IPv6 :(
-
-It is an error of that manpage.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+OK.
+Is there simplier method of obtaining source and destaination address of
+icmp packet (the only informations I need from ipv6 header) than setting
+IPV6_PKTINFO and receiving them with recvmsg?
