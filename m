@@ -1,34 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH][IPsec] fix process of error from crypto module
-Date: Thu, 27 Jan 2005 16:20:58 +1100
-Message-ID: <20050127052058.GB2060@gondor.apana.org.au>
-References: <E1Cttr8-0005S6-00@gondolin.me.apana.org.au> <41F87368.7060909@miyazawa.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [ATM] Fix flags type in lec_arp_expire_vcc
+Date: Wed, 26 Jan 2005 22:20:35 -0800
+Message-ID: <20050126222035.715ec67e.davem@davemloft.net>
+References: <20050126233820.GA24422@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kazunori Miyazawa <kazunori@miyazawa.org>
-Content-Disposition: inline
-In-Reply-To: <41F87368.7060909@miyazawa.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050126233820.GA24422@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 27, 2005 at 01:51:52PM +0900, Kazunori Miyazawa wrote:
->
-> BTW, esp6_destroy seem to be similar to esp_destroy.
-> Should we export esp_destroy and IPv4 and IPv6 use it?
-> Do we have any reason to define the functions separately?
+On Thu, 27 Jan 2005 10:38:20 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-esp_destroy is certainly not the only function that can be merged.
+> The variable flags in lec_arp_expire_vcc should be of type
+> unsigned long and not unsigned.  The following patch fixes
+> that typo.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-One of my dreams is to abstract out the family-dependent code
-from ah/esp/ipcomp so that we can have a family-independent code
-base.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Applied, thanks Herbert.
