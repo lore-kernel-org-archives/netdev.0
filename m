@@ -1,54 +1,51 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: ip a flush problem on 2.6 kernels (fine on 2.4 kernels)
-Date: Thu, 4 Mar 2004 14:13:19 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040304141319.2d1cb112.ak@suse.de>
-References: <200403040308.15880.arekm@pld-linux.org>
+From: Werner Almesberger <wa@almesberger.net>
+Subject: TCP connection passing, version 7
+Date: Thu, 4 Mar 2004 11:17:59 -0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040304111759.A22625@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Arkadiusz Miskiewicz <arekm@pld-linux.org>
-In-Reply-To: <200403040308.15880.arekm@pld-linux.org>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com, tcpcp-general@lists.sourceforge.net
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Mar 2004 03:08:15 +0100
-Arkadiusz Miskiewicz <arekm@pld-linux.org> wrote:
+Back among the living:
 
-> The problem is that
-> 
-> ip a a 192.168.0.1/24 dev eth0
-> ip link set eth0 down
-> ip a flush dev eth0
-> 
-> Here on my vanilla 2.6.2 it locks eating CPU - it does netlink 
-> communication over and over. This ,,hang'' doesn't happen when 
-> interface is in UP state. Also doesn't happen on 2.4 kernels.
+http://tcpcp.sourceforge.net/tcpcp-7.tar.gz
+md5sum 60a10b219ab363258d56d2f01f28edfa
 
-I fixed it with this patch for iproute2 here. It's not clear to me at 
-all how it ever worked before. The loop seems to be just wrong.
+tcpcp is a mechanism to pass ownership of a TCP connection endpoint
+from one application to another, without the knowledge of the other
+peer.
 
--Andi
+The project has been dormant for about a year, but now that I have
+the suitable testing tool with umlsim, it's time to restart it.
 
-diff -u iproute2/ip/ipaddress.c~ iproute2/ip/ipaddress.c
---- iproute2/ip/ipaddress.c~	2004-03-07 20:54:52.000000000 +0100
-+++ iproute2/ip/ipaddress.c	2004-03-07 21:02:12.000000000 +0100
-@@ -623,6 +623,9 @@
- 				fflush(stdout);
- 				return 0;
- 			}
-+#if 1
-+			break; 
-+#else
- 			round++;
- 			if (flush_update() < 0)
- 				exit(1);
-@@ -630,6 +633,7 @@
- 				printf("\n*** Round %d, deleting %d addresses ***\n", round, filter.flushed);
- 				fflush(stdout);
- 			}
-+#endif
- 		}
- 	}
- 
+This release updates the patch to the 2.6.3 kernel. I've also
+removed all the UML-related testing infrastructure, which is now
+obsolete.
+
+The complete list of changes is below.
+
+There's also a new Web site for the project, at
+http://tcpcp.sourceforge.net/
+
+- Werner
+
+----------------------------------- CHANGES -----------------------------------
+
+Version 7 (4-MAR-2004)
+----------------------
+
+- Makefile: changed upload target to SourceForge upload procedure
+- removed "umlrun" subsystem
+- removed UML build
+- upgraded to the 2.6.3 kernel
+- renamed original kernel source directory from *.orig to *-orig
+
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
