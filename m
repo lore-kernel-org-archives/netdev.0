@@ -1,33 +1,49 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
-Date: Fri, 10 Sep 2004 23:31:57 +0900 (JST)
+From: Lewis Adam-CAL022 <Adam.Lewis@motorola.com>
+Subject: RE: hard_start_xmit and Linux bridging
+Date: Fri, 10 Sep 2004 10:24:10 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910.233157.362649106.yoshfuji@linux-ipv6.org>
-References: <20040910133637.GA20088@postel.suug.ch>
-	<20040910.230038.322907649.yoshfuji@linux-ipv6.org>
-	<20040910142804.GC20088@postel.suug.ch>
+Message-ID: <FD52892BD296D71183B400065BFCB6900EE98AA3@il02exm12>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tgraf@suug.ch, davem@davemloft.net
-In-Reply-To: <20040910142804.GC20088@postel.suug.ch>
+To: Ben Greear <greearb@candelatech.com>,
+        Lewis Adam-CAL022
+	 <Adam.Lewis@motorola.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040910142804.GC20088@postel.suug.ch> (at Fri, 10 Sep 2004 16:28:04 +0200), Thomas Graf <tgraf@suug.ch> says:
 
-> > Please use sizeof(ifname) instead.
-> 
-> Thanks for the hint.
-> 
-> Allows changing of device name via rtnetlink. Last bit needed to do full
-> link configuration via rtnetlink.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Hi Ben,
 
-Thanks. Ack.
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> -----Original Message-----
+> From: Ben Greear [mailto:greearb@candelatech.com] 
+> Sent: Thursday, September 09, 2004 6:30 PM
+> To: Lewis Adam-CAL022
+> Cc: netdev@oss.sgi.com
+> Subject: Re: hard_start_xmit and Linux bridging
+> 
+> I added some ioctls to allow one to turn on the ability to 
+> receive the CRC, but I don't know of any drivers that include 
+> it by default.
 
---yoshfuji
+Right, this is what I would have expected since no other driver account for it.
+
+> 
+> What driver/hardware is your eth0 device?
+
+It is a custom board but a Xilinx PCORE and using a Montavista driver.  Based on what you said above, it seems that I might want to pursue this with them.
+
+> 
+> How are you determining the size, by the skb->len ?
+
+Exactly.  And not only does it include the FCS/CRC, but in the case of an ARP, there are an extra 14 trailing 0's.  I thought this was a bridging issue, now I'm thinking it's a xilinx/mvista issue.
+
+> 
+> Does tcpdump/ethereal show the extra 4 bytes if you sniff 
+> eth0 w/out bridging?
+
+Yeah.  And in the case of ARP it is even weirder, and extra 18 bytes, mostly zeros.  So case in point, it sounds like this is not proper operation?  I want to confirm before I bring it up with Xilinx and Montavista.
+
+Thanks!
+Adam
