@@ -1,20 +1,21 @@
 From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Subject: Re: Prism54 WPA Support - wpa_supplicant - Linux general wpa support
-Date: Thu, 3 Jun 2004 09:52:33 -0700
+Date: Thu, 3 Jun 2004 10:07:45 -0700
 Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Message-ID: <20040603165233.GC8770@bougret.hpl.hp.com>
+Message-ID: <20040603170745.GD8770@bougret.hpl.hp.com>
 References: <20040602071449.GJ10723@ruslug.rutgers.edu>
-	<20040602132313.GB7341@jm.kir.nu>
-	<20040602155542.GC24822@ruslug.rutgers.edu>
+	<20040602132313.GB7341@jm.kir.nu> <40BEA3CB.60908@pobox.com>
 Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@oss.sgi.com>, Jouni Malinen <jkmaline@cc.hut.fi>,
+	hostap@shmoo.com, "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	prism54-devel@prism54.org
 Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: Netdev <netdev@oss.sgi.com>, hostap@shmoo.com,
-	prism54-devel@prism54.org, Jeff Garzik <jgarzik@pobox.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040602155542.GC24822@ruslug.rutgers.edu>
+In-Reply-To: <40BEA3CB.60908@pobox.com>
 List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
 	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
 List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
@@ -25,34 +26,52 @@ List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
 Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 02, 2004 at 11:55:42AM -0400, Luis R. Rodriguez wrote:
-> On Wed, Jun 02, 2004 at 06:23:14AM -0700, Jouni Malinen wrote:
-> > 
-> > The first thing I would like to see is an addition to  Linux wireless
-> > extensions for WPA/WPA2 so that we can get rid of the private ioctls in
-> > the drivers. Even though these can often be similar, it would be nice to
-> > just write one driver interface code in wpa_supplicant and have it
-> > working with all Linu drivers.. I hope to find some time to write a
-> > proposal for this.
+On Thu, Jun 03, 2004 at 12:06:35AM -0400, Jeff Garzik wrote:
 > 
-> I agree :). Jean? *poke*
+> One of the things that is nice about wireless-2.6 is that is affords the 
+> opportunity to totally rethink the wireless extensions.
 > 
-> 	Luis
+> Although a lot of people would howl, since HostAP is essentially new 
+> code from the mainline kernel perspective, a new userland API (and new 
+> or updated tools) could come along with it.
+> 
+> I have mentioned in the past (no offense Jean!) that I do not like the 
+> overly-generic wireless handler structure.  It is less type-safe than is 
+> generally preferred in Linux, IMO.
+> 
+> A low-level wireless driver should not implement ioctls, it should 
+> implement callbacks in some sort of 'struct wireless_operations' as is 
+> done in other kernel subsystems.
+> 
+> ioctl details should be hidden from low-level drivers as much as 
+> possible, through type-safe interfaces.  Strive to make both the 
+> wireless driver API and the wireless userland API easy to change and 
+> evolve over time.
+> 
+> 	Jeff
 
-	The initial plan was for me to get more familiar with WPA, but
-this keep slipping (partly due to family matters). HP did follow my
-suggestions and use IPsec internally, which also explain why I'm in no
-hurry. There was some stuff I wanted to "improve" in the API design,
-but I guess that if I can't deliver a patch, I'd better shut up and
-try to avoid being a bottleneck.
-	At this point, I think that Jouni is our best expert on the
-subject, and the fact that many driver has reused his API means that
-his API is sensible and flexible enough.
-	So, the plan would be to take Jouni's API as is (or with minor
-modifications) and stuff that in wireless.h. I don't believe that the
-tools themselves need to be modified, because wpa_supplicant is the
-sole user of those ioctls.
-	If you are all happy with that, then I'll just do it.
+	Jeff, I'm amazed that you are so obsessed with this. Yes,
+Wireless Extension could be improved in millions ways, but at least
+it's working, whereas there are so many other areas where we have
+nothing at all. If you talk with most people developping wireless
+drivers, this doesn't even make their list. But I guess every one of
+us need to have his hot topic ;-)
+
+	I believe most people are concerned about :
+	o WPA support (and security API in general)
+	o SNAP encapsulation/decapsualtion in kernel
+	o handling 802.11 frames natively in kernel
+	o handling 802.11 management in kernel (association/deassociation, ...)
+
+	Personally, those are my priorities :
+	o getting more wireless drivers in the kernel
+	o RtNetlink API for Wireless Extensions
+
+	I also explained you how you could wrap around Wireless
+Extension trivially to introduce a new driver API without breaking the
+many user space tools, so that you can implement your proposal with
+maximum backward compatibility. Just because there is one aspect of
+the API you don't like, we don't need to throw away the good parts.
 
 	Have fun...
 
