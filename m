@@ -1,47 +1,41 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: Advice needed on IP-over-InfiniBand driver
-Date: Thu, 30 Sep 2004 11:41:07 -0700
-Sender: openib-general-bounces@openib.org
-Message-ID: <521xgj1tx8.fsf@topspin.com>
-References: <52fz5esxx6.fsf@topspin.com>
-	<20040919140133.60ea3fb3.davem@davemloft.net>
-	<52r7onc8ev.fsf@topspin.com>
-	<20040927215244.697aaa02.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Thu, 30 Sep 2004 13:20:31 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040930132031.3264000b.davem@davemloft.net>
+References: <Pine.NEB.4.33.0409291648560.3434-100000@dexter.psc.edu>
+	<415B24C0.2020208@us.ibm.com>
+	<20040929145050.71afa1ac.davem@davemloft.net>
+	<20040929215613.GC26714@wotan.suse.de>
+	<20040929162923.796d142e.davem@davemloft.net>
+	<20040930000515.GA10496@gondor.apana.org.au>
+	<20040929213310.40f5f33a.davem@davemloft.net>
+	<20040930092926.GA18353@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040927215244.697aaa02.davem@davemloft.net> (David S.
-	Miller's message of "Mon, 27 Sep 2004 21:52:44 -0700")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, ak@suse.de, niv@us.ibm.com, jheffner@psc.edu,
+        andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040930092926.GA18353@wotan.suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    David> I think you might learn something by having a look at what
-    David> net/atm/clip.c is doing, it creates it's own neighbour
-    David> layer for CLIP ATM neighbours.  It is in a similar boat to
-    David> your IPoIB stuff.
+On Thu, 30 Sep 2004 11:29:26 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-Thanks, this suggestion was very helpful.  I think I'm making
-progress.  Now I know my next question :)
+> Talking to another rc3 kernel with tg3 tso on is as fast as tso off now.
+> Unfortunately the ACKs still look funny. 
 
-CLIP ATM is a little different from IPoIB in that it completely
-replaces the ARP layer with its own ARP daemon.  For IPoIB I don't
-want to reinvent the ARP and ND code -- I just want to add a secondary
-lookup after the response comes back.  I think I have an idea of how
-to do that and then stash the information in the struct neighbour, so
-that my hard_start_xmit method can get it from skb->dst (ala clip.c).
+Can you help us debug this instead of just running tests over
+and over Andi?  It's frustrating because I cannot reproduce
+the problem here, else I would be adding checks to the receiver
+on my systems here. :-/
 
-However, it seems that broadcast ARP packets have skb->dst == NULL.
-Is it safe for me to assume that packets with skb->dst == NULL are
-broadcast packets?  Will multicast packets have a non-NULL dst?
+Please put some checks into the ACK tests on your 2.6.5 receiver
+to determine why it does not want to ACK every other frame like
+it is supposed to.  We need to figure out where the stretch
+ACKs are coming from.
 
-Thanks,
-  Roland
+Thanks.
