@@ -1,52 +1,32 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: [PATCH}[bonding] Restore compatibilty with old ifenslave
-Date: Mon, 29 Sep 2003 18:20:28 +0300
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: copybreak and gige network drivers
+Date: Mon, 29 Sep 2003 14:25:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309291820.28609.shmulik.hen@intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <3F787908.7000305@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Jeff Garzik" <jgarzik@pobox.com>, "Jay Vosburgh" <fubar@us.ibm.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-The patch below restores compatibility that was removed during the
-propagation set. That set added the ability to set the bond's hardware
-address in the conventional way using SIOCSIFHWADDR but also removed
-support for the very old way using BOND_SETHWADDR, which, although has
-been removed from the ifenslave code for years, turns out to still be
-in use in the ifenslave binary of recent distributions.
+I'm looking at doing some work on a driver for the gige portion of the 
+Marvell Disco2.
 
-The patch applies on 2.4.23-pre5 and should also cleanly apply on
-2.6.0-test6 after fully applying the propagation set (patch 2 wasn't
-applied yet).
+The existing driver allocates mtu-sized buffers and always passes them 
+off to the network stack.  I'm thinking about adding some copybreak 
+optimizations, but I'm not sure what value I should use for the 
+copybreak.  I would expect most packets to be on the smaller side.
 
-Jeff, please apply this patch soon so that 2.4.23 won't be released
-with a bug that breaks compatibility.
+Any suggestions?
+
+Chris
 
 -- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
-
-diff -Naurp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Mon Sep 29 15:15:57 2003
-+++ b/drivers/net/bonding/bond_main.c	Mon Sep 29 18:15:00 2003
-@@ -3048,6 +3048,10 @@ static int bond_ioctl(struct net_device 
- 		case SIOCBONDRELEASE:	
- 			ret = bond_release(master_dev, slave_dev); 
- 			break;
-+		case BOND_SETHWADDR_OLD:
-+		case SIOCBONDSETHWADDR:
-+			ret = bond_sethwaddr(master_dev, slave_dev);
-+			break;
- 		case BOND_CHANGE_ACTIVE_OLD:
- 		case SIOCBONDCHANGEACTIVE:
- 			if (USES_PRIMARY(bond_mode)) {
+Chris Friesen                    | MailStop: 043/33/F10
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
