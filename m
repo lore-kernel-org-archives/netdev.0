@@ -1,24 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] dynamic net_device for serial eql balancer
-Date: Tue, 15 Jul 2003 21:43:32 -0700
+Subject: Re: [PATCH][ATM] some misc sk-related fixups for atm
+Date: Tue, 15 Jul 2003 21:53:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030715214332.4a33db6d.davem@redhat.com>
-References: <20030715155733.0ee5a14d.shemminger@osdl.org>
+Message-ID: <20030715215300.1927dbac.davem@redhat.com>
+References: <200307151254.h6FCshsG028747@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030715155733.0ee5a14d.shemminger@osdl.org>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200307151254.h6FCshsG028747@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Jul 2003 15:57:33 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Tue, 15 Jul 2003 08:52:15 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> Patch against 2.6.0-test1 to dynamically allocate pseudo network device.
-> Compiles and loaded/unloaded but don't have multi-port serial load balancing to test 
-> more fuly.
+> this set does away with a few redundant bits in the struct atm_vcc,
+> in particular .reply and .svc_callback.  WAITING becomes a flag 
+> instead of overloading sk_err.  it also changes the wake_up's to
+> the appropriate sk event.
 
-Applied, thanks Stephen.
+Looks good, applied.
+
+Thanks Chas.
