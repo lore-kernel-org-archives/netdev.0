@@ -1,29 +1,37 @@
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: Re: [patch 01/16]  __FUNCTION__ string concatenation
-Date: Thu, 2 Sep 2004 13:02:22 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: neigh_create/inetdev_destroy race?
+Date: Thu, 2 Sep 2004 23:06:05 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409021302.22823.margitsw@t-online.de>
+Message-ID: <20040902130605.GA32570@gondor.apana.org.au>
+References: <20040814013030.GA2042@gondor.apana.org.au> <20040814050848.GA11874@gondor.apana.org.au> <20040814062703.GA4806@gondor.apana.org.au> <20040815191450.77532d5d.davem@redhat.com> <20040816105131.GA11299@gondor.apana.org.au> <20040828234201.79556f6e.davem@davemloft.net> <20040829065031.GA786@gondor.apana.org.au> <20040830230820.7514985d.davem@davemloft.net> <20040831104139.GA2124@gondor.apana.org.au> <20040901222118.0ce4bcc6.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: janitor@sternwelten.at
+Content-Type: text/plain; charset=us-ascii
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20040901222118.0ce4bcc6.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Sep 2004, Maximilian scribeth:
-> drivers/net/wireless/prism65/islpci_mgt.h, as suggested
+On Wed, Sep 01, 2004 at 10:21:18PM -0700, David S. Miller wrote:
+> 
+> So here's the first step.  No rcu_read_lock()'s are needed
+> since the tbl->lock needs to be held as a write when
+> traversing these things anyways for other reasons.
 
-Woo, we got another project ? (prism65)
+Thanks.
 
-> I don't have the hardware to do a run-time check.
-> It should not pose any problems though.
+> Can you work on the next bit you mentioned, making
+> sure the corresponding idev is still alive when we add
+> a neighbour with its neigh_parms to the hash table?
 
-Oh, I think we can safely say that, especially as TRACE
-is nowhere referenced  ;-)
-(And therefore the patch is unnecessary)
+Sure.  Actually I prefer to do it by ref counting neigh_parms directly.
+I'll send you a patch soon.
 
-Margit
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
