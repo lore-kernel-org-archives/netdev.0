@@ -1,11 +1,11 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.6]: HFSC packet scheduler
-Date: Thu, 29 Jan 2004 16:16:08 +0100
+Subject: [PATCH 2.4]: HFSC packet scheduler
+Date: Thu, 29 Jan 2004 16:16:25 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <401923B8.7030909@trash.net>
+Message-ID: <401923C9.5000903@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080403030208070606020806"
+ boundary="------------080808070409000108080707"
 Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
@@ -13,28 +13,69 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080403030208070606020806
+--------------080808070409000108080707
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This is the 2.6 version of HFSC. Changes to last patch:
-
-- don't crash on user error (non-work-conserving inner qdisc)
-- trailing whitespace cleanup
+This is the 2.4 version of HFSC. Besides HFSC, it adds the
+list_for_each_entry_continue macro from 2.6.
 
 Best regards,
 Patrick
 
---------------080403030208070606020806
+--------------080808070409000108080707
 Content-Type: text/plain;
- name="2.6-hfsc.diff"
+ name="2.4-hfsc.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="2.6-hfsc.diff"
+ filename="2.4-hfsc.diff"
 
-diff -urN linux-2.5/include/linux/pkt_sched.h linux-2.5-hfsc/include/linux/pkt_sched.h
---- linux-2.5/include/linux/pkt_sched.h	2004-01-29 15:13:26.000000000 +0100
-+++ linux-2.5-hfsc/include/linux/pkt_sched.h	2004-01-29 15:18:47.000000000 +0100
+diff -urN linux-2.4/Documentation/Configure.help linux-2.4-hfsc/Documentation/Configure.help
+--- linux-2.4/Documentation/Configure.help	2004-01-29 15:01:26.000000000 +0100
++++ linux-2.4-hfsc/Documentation/Configure.help	2004-01-29 15:02:35.000000000 +0100
+@@ -10647,6 +10647,15 @@
+   whenever you want).  If you want to compile it as a module, say M
+   here and read <file:Documentation/modules.txt>.
+ 
++CONFIG_NET_SCH_HFSC
++  Say Y here if you want to use the Hierarchical Fair Service Curve
++  (HFSC) packet scheduling algorithm for some of your network devices.
++
++  This code is also available as a module called sch_hfsc.o ( = code
++  which can be inserted in and removed from the running kernel
++  whenever you want).  If you want to compile it as a module, say M
++  here and read <file:Documentation/modules.txt>.
++
+ CSZ packet scheduler
+ CONFIG_NET_SCH_CSZ
+   Say Y here if you want to use the Clark-Shenker-Zhang (CSZ) packet
+diff -urN linux-2.4/include/linux/list.h linux-2.4-hfsc/include/linux/list.h
+--- linux-2.4/include/linux/list.h	2004-01-29 14:59:37.000000000 +0100
++++ linux-2.4-hfsc/include/linux/list.h	2004-01-29 15:02:10.000000000 +0100
+@@ -240,6 +240,20 @@
+ 	     &pos->member != (head); 					\
+ 	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
+ 
++/**
++ * list_for_each_entry_continue -       iterate over list of given type
++ *                      continuing after existing point
++ * @pos:        the type * to use as a loop counter.
++ * @head:       the head for your list.
++ * @member:     the name of the list_struct within the struct.
++ */
++#define list_for_each_entry_continue(pos, head, member)			\
++	for (pos = list_entry(pos->member.next, typeof(*pos), member),	\
++		     prefetch(pos->member.next);			\
++	     &pos->member != (head);					\
++	     pos = list_entry(pos->member.next, typeof(*pos), member),	\
++		     prefetch(pos->member.next))
++
+ #endif /* __KERNEL__ || _LVM_H_INCLUDE */
+ 
+ #endif
+diff -urN linux-2.4/include/linux/pkt_sched.h linux-2.4-hfsc/include/linux/pkt_sched.h
+--- linux-2.4/include/linux/pkt_sched.h	2004-01-29 15:01:06.000000000 +0100
++++ linux-2.4-hfsc/include/linux/pkt_sched.h	2004-01-29 15:02:29.000000000 +0100
 @@ -290,6 +290,37 @@
  	__u32 ctokens;
  };
@@ -73,10 +114,10 @@ diff -urN linux-2.5/include/linux/pkt_sched.h linux-2.5-hfsc/include/linux/pkt_s
  /* CBQ section */
  
  #define TC_CBQ_MAXPRIO		8
-diff -urN linux-2.5/include/net/pkt_sched.h linux-2.5-hfsc/include/net/pkt_sched.h
---- linux-2.5/include/net/pkt_sched.h	2004-01-29 15:12:08.000000000 +0100
-+++ linux-2.5-hfsc/include/net/pkt_sched.h	2004-01-29 15:17:26.000000000 +0100
-@@ -203,6 +203,7 @@
+diff -urN linux-2.4/include/net/pkt_sched.h linux-2.4-hfsc/include/net/pkt_sched.h
+--- linux-2.4/include/net/pkt_sched.h	2004-01-29 14:59:59.000000000 +0100
++++ linux-2.4-hfsc/include/net/pkt_sched.h	2004-01-29 15:02:12.000000000 +0100
+@@ -198,6 +198,7 @@
  
  #define PSCHED_GET_TIME(stamp) do_gettimeofday(&(stamp))
  #define PSCHED_US2JIFFIE(usecs) (((usecs)+(1000000/HZ-1))/(1000000/HZ))
@@ -84,7 +125,7 @@ diff -urN linux-2.5/include/net/pkt_sched.h linux-2.5-hfsc/include/net/pkt_sched
  
  #define PSCHED_EXPORTLIST EXPORT_SYMBOL(psched_tod_diff);
  
-@@ -251,6 +252,7 @@
+@@ -246,6 +247,7 @@
  #endif
  
  #define PSCHED_US2JIFFIE(delay) (((delay)+(1<<PSCHED_JSCALE)-1)>>PSCHED_JSCALE)
@@ -92,7 +133,7 @@ diff -urN linux-2.5/include/net/pkt_sched.h linux-2.5-hfsc/include/net/pkt_sched
  
  #elif PSCHED_CLOCK_SOURCE == PSCHED_CPU
  
-@@ -261,6 +263,7 @@
+@@ -256,6 +258,7 @@
                              EXPORT_SYMBOL(psched_clock_scale);
  
  #define PSCHED_US2JIFFIE(delay) (((delay)+psched_clock_per_hz-1)/psched_clock_per_hz)
@@ -100,37 +141,21 @@ diff -urN linux-2.5/include/net/pkt_sched.h linux-2.5-hfsc/include/net/pkt_sched
  
  #ifdef CONFIG_X86_TSC
  
-diff -urN linux-2.5/net/sched/Kconfig linux-2.5-hfsc/net/sched/Kconfig
---- linux-2.5/net/sched/Kconfig	2004-01-29 15:14:02.000000000 +0100
-+++ linux-2.5-hfsc/net/sched/Kconfig	2004-01-29 15:19:31.000000000 +0100
-@@ -39,6 +39,16 @@
- 	  To compile this code as a module, choose M here: the
- 	  module will be called sch_htb.
- 
-+config NET_SCH_HFSC
-+	tristate "HFSC packet scheduler"
-+	depends on NET_SCHED
-+	---help---
-+	  Say Y here if you want to use the Hierarchical Fair Service Curve
-+	  (HFSC) packet scheduling algorithm for some of your network devices.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called sch_hfsc.
-+
- config NET_SCH_CSZ
- 	tristate "CSZ packet scheduler"
- 	depends on NET_SCHED
-@@ -55,7 +65,6 @@
- 	  module will be called sch_csz.
- 
+diff -urN linux-2.4/net/sched/Config.in linux-2.4-hfsc/net/sched/Config.in
+--- linux-2.4/net/sched/Config.in	2004-01-29 14:59:34.000000000 +0100
++++ linux-2.4-hfsc/net/sched/Config.in	2004-01-29 15:02:09.000000000 +0100
+@@ -5,7 +5,7 @@
+ tristate '  HTB packet scheduler' CONFIG_NET_SCH_HTB
+ tristate '  CSZ packet scheduler' CONFIG_NET_SCH_CSZ
  #tristate '  H-PFQ packet scheduler' CONFIG_NET_SCH_HPFQ
 -#tristate '  H-FSC packet scheduler' CONFIG_NET_SCH_HFCS
- config NET_SCH_ATM
- 	tristate "ATM pseudo-scheduler"
- 	depends on NET_SCHED && ATM
-diff -urN linux-2.5/net/sched/sch_hfsc.c linux-2.5-hfsc/net/sched/sch_hfsc.c
---- linux-2.5/net/sched/sch_hfsc.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.5-hfsc/net/sched/sch_hfsc.c	2004-01-29 15:18:27.000000000 +0100
++tristate '  H-FSC packet scheduler' CONFIG_NET_SCH_HFSC
+ if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
+    dep_tristate '  ATM pseudo-scheduler' CONFIG_NET_SCH_ATM $CONFIG_ATM
+ fi
+diff -urN linux-2.4/net/sched/sch_hfsc.c linux-2.4-hfsc/net/sched/sch_hfsc.c
+--- linux-2.4/net/sched/sch_hfsc.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.4-hfsc/net/sched/sch_hfsc.c	2004-01-29 15:02:14.000000000 +0100
 @@ -0,0 +1,1864 @@
 +/*
 + * Copyright (c) 2003 Patrick McHardy, <kaber@trash.net>
@@ -188,7 +213,6 @@ diff -urN linux-2.5/net/sched/sch_hfsc.c linux-2.5-hfsc/net/sched/sch_hfsc.c
 +#include <linux/module.h>
 +#include <linux/types.h>
 +#include <linux/errno.h>
-+#include <linux/jiffies.h>
 +#include <linux/compiler.h>
 +#include <linux/spinlock.h>
 +#include <linux/skbuff.h>
@@ -1692,6 +1716,7 @@ diff -urN linux-2.5/net/sched/sch_hfsc.c linux-2.5-hfsc/net/sched/sch_hfsc.c
 +	q->wd_timer.function = hfsc_watchdog;
 +	q->wd_timer.data = (unsigned long)sch;
 +
++	MOD_INC_USE_COUNT;
 +	return 0;
 +}
 +
@@ -1775,6 +1800,7 @@ diff -urN linux-2.5/net/sched/sch_hfsc.c linux-2.5-hfsc/net/sched/sch_hfsc.c
 +	}
 +
 +	del_timer(&q->wd_timer);
++	MOD_DEC_USE_COUNT;
 +}
 +
 +static int
@@ -1977,8 +2003,7 @@ diff -urN linux-2.5/net/sched/sch_hfsc.c linux-2.5-hfsc/net/sched/sch_hfsc.c
 +	.requeue	= hfsc_requeue,
 +	.drop		= hfsc_drop,
 +	.cl_ops		= &hfsc_class_ops,
-+	.priv_size	= sizeof(struct hfsc_sched),
-+	.owner		= THIS_MODULE
++	.priv_size	= sizeof(struct hfsc_sched)
 +};
 +
 +static int __init
@@ -1997,4 +2022,4 @@ diff -urN linux-2.5/net/sched/sch_hfsc.c linux-2.5-hfsc/net/sched/sch_hfsc.c
 +module_init(hfsc_init);
 +module_exit(hfsc_cleanup);
 
---------------080403030208070606020806--
+--------------080808070409000108080707--
