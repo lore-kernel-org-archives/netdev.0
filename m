@@ -1,66 +1,30 @@
-From: Vincent Roqueta <vincent.roqueta@ext.bull.net>
-Subject: IP More Fragements bit problem.
-Date: Fri, 11 Feb 2005 17:08:16 +0100
-Message-ID: <200502111708.16024.vincent.roqueta@ext.bull.net>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <trond.myklebust@fys.uio.no>,
-        Tony Reix <Tony.Reix@Bull.Net>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2.6.11-rc3 5/5] bonding: Update/rewrite bonding.txt
+Date: Fri, 11 Feb 2005 09:13:37 -0800
+Message-ID: <200502111713.j1BHDb9P005677@death.nxdomain.ibm.com>
+References: <tmattox@gmail.com>
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+To: Tim Mattox <tmattox@gmail.com>
+In-Reply-To: Message from Tim Mattox <tmattox@gmail.com>
+   of "Fri, 11 Feb 2005 07:49:44 EST." <ea86ce2205021104496401b980@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello all,
 
-I am working on NFSv4 and I found an IP problem while doing interoperability 
-testing with AIX.
+Tim Mattox <tmattox@gmail.com> wrote:
+[...]
+>Are you going to add some text about the original
+>use of bonding in balanced-rr mode with isolated
+>switches that we had discussed at the end of Jan.?
+>This method is still used in Beowulf clusters for
+>high performance as apposed to high availability.
 
-The More Fragements (MF) bits is set on the last packet sent in a list of 
-packets that sould be reassembled
- 
-For example :
+	Yep.  I haven't forgotten about it, just haven't written it up
+yet.  I've got a couple of other things to add as well, but all of that
+can be done as patches later.
 
-If we get the A, B, C, D packets that may be reassembled into ABCD we sould 
-have 
+	-J
 
-A + MF
-B + MF
-C + MF
-D
-
-On kernel 2.6.10rc2 and laters (last tested is 2.6.11-rc3) we have: 
-
-A + MF
-B + MF
-C + MF
-D + MF
-
-That cause AIX waiting for the last packet with out sending ack
-So Linux suppose  AIX didn't receive all, and re send all packets.
-So AIX is receiving that: 
-A + MF
-B + MF
-C + MF
-D + MF
-*DELAY *
-A + MF
-B + MF
-C + MF
-D + MF
-*DELAY*
-A + MF
-B + MF
-C + MF
-D + MF
-*DELAY*
-...
-
-After a while AIX destroy first fragments because of the IP fragements life 
-time. Trond Myklebust said me you can do anything for that?
-
-Cher,
-Vincent ROQUETA
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
