@@ -1,44 +1,75 @@
-From: James Ketrenos <jketreno@linux.jf.intel.com>
-Subject: Limiting frame re-encryption with TCP retries...
-Date: Fri, 09 Jul 2004 16:44:14 -0500
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: pskb change in dst->output
+Date: Sat, 10 Jul 2004 07:43:10 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40EF11AE.9020008@linux.jf.intel.com>
+Message-ID: <20040709214310.GA3474@gondor.apana.org.au>
+References: <20040709081443.GA11101@gondor.apana.org.au> <Xine.LNX.4.44.0407091001460.3887-100000@thoron.boston.redhat.com> <20040709123608.1f9f9265.davem@redhat.com> <20040709204228.GA3015@gondor.apana.org.au> <20040709142144.483369ec.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040709142144.483369ec.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 09, 2004 at 02:21:44PM -0700, David S. Miller wrote:
+>
+> > When TCP retransmits the packet, it will do a pskb_copy() on it so
+> > it's no longer a clone.
+> 
+> Not necessarily true.  If the device has finished transmission,
+> which is true %99.9999 of the time when a retransmission happens,
+> another clone will be made against the original SKB sitting in
+> the write queue.
 
-The recent 'pskb change in dst-output' thread reminded me that I've been meaning 
-to ask about this...
+You're right.  But that case is identical to the clone during the
+initial transmission.
 
-With wireless drivers TCP retransmission occur pretty frequently.  With WEP, 
-etc. this means the driver has to re-encrypt the same frame with each retry.
+> The hw checksumming state is what we care about.  And skb_cow()'s implementation
+> is:
+> 
+> 1) Always copy all data if cloned
+> 
+> 2) Allocate a unique data area, and even the shared private skb
+>    area becomes local to the skb.
+> 
+> In short only the data is uncloned.
+> 
+> However, skb_checksum_help() is doing something entirely different.
+> It makes a fully new skb, both data and sk_buff struct are uncloned.
 
-In one of the snapshots for ipw2100 I was encrypting over the SKB provided from 
-the kernel via the xmit and putting new data at the head and tail (to hold the 
-IV and ICV).  Anyway, that broke all sorts of tools (ip_conntrack, netfilter, etc.)
+I completely agree with these facts.
 
-So now I allocate a new SKB on reception of an SKB from the networking stack and 
-encrypt the copy.  The question I have -- is there a way to attach the new SKB 
-to the old one such that if the transmit is retried I can check that data and 
-don't have to re-encrypt it?
+> This is particularly important for the very case which ah_output()
+> cares about, for example.  If the skb is CHECKSUM_HW we have to unclone
+> the full SKB.  ah_output() does not use things like skb_cow() like
+> ESP and others do.
+>
+> I really think the dst->output() SKB pointer passing is truly needed.
 
- From the sk_buff.h description of the cb field, I only get to use that data 
-while I control the SKB.  Even if this weren't the case it wouldn't quite do 
-what I need.  Ideally I want to be able to attach the encrypted SKB to the 
-original SKB such that when the network stack gets the ACK it can nuke the 
-original SKB and the encrypted one and the driver doesn't have to know.
+That's where we disagree.  The very first thing ah_output() does after
+the *conditional* skb_checksum_help() call is skb_push().  This cannot
+be done on a shared skb.  Therefore the skb must be totally private
+or at most cloned.
 
-This gets complicated further when 802.11 level fragmentation is required -- and 
-one incoming SKB results in N outbound 802.11 fragments, each encrypted separately.
+This is the fundamental reason why there is no need to make a completely
+new skb because we already have (or assume to have) exlucsive access
+to the fields in the sk_buff struct.
 
-Any ideas?  I'm not too familiar with the internals of the kernel's network 
-stack so if there is something obvious that I should have seen already, please 
-point it out to me :)
+Now whether we need to unclone the data or not is a different question.
+My opinion is that we don't, but I'm not to fussed over that.
 
-Thanks,
-James
+> You still won't be convinced, I know :-)  So propose a patch and we'll
+> shoot holes in it so we can discuss something concrete, ok? :)))
+
+OK, that's what I'll do once I finish working on the IPv4 IPsec
+encapsulation stuff.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
