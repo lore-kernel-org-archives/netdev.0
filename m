@@ -1,71 +1,58 @@
-From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-Subject: Re: [PATCH/CFT] de2104x fixes
-Date: Tue, 25 Nov 2003 13:57:14 +0100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: redo stateless addrconf properly
+Date: Tue, 25 Nov 2003 22:40:37 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031125135713.A9450@sygehus.dk>
-References: <200311212051.32352.russell@coker.com.au> <3FBE5E70.9060102@pobox.com>
+Message-ID: <20031125.224037.85040739.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="uAKRQypu60I7Lcqm"
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, akpm@osdl.org,
-        netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <3FBE5E70.9060102@pobox.com>; from jgarzik@pobox.com on Fri, Nov 21, 2003 at 01:50:24PM -0500
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
---uAKRQypu60I7Lcqm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Interface that had configured via stateless addrconf did not do 
+stateless addrconf again correctly after interface was down.
+Forget IF_RS_SENT|IF_RA_RCVD flags when interface goes down.
 
-On Fri, Nov 21, 2003 at 01:50:24PM -0500, Jeff Garzik wrote:
-> So, can people give this a test?  It includes a change that, I hope, 
-> addresses Russell's problem, as well as a patch from Rask.
+Patch is against 2.6.0-test10, but similar logic applies to
+2.4.x and 2.2.x.
 
-I have attached a patch which fixes two problems I found during compilation:
-1) de_open() no longer uses the flags variable because the spinlocking is
-   gone, but I forgot to remove the variable.
-2) __de_set_settings() now references dev which is undefined.
+Thanks.
 
-The patch should be applied on top of your patch, Jeff.
+===== net/ipv6/addrconf.c 1.76 vs edited =====
+--- 1.76/net/ipv6/addrconf.c	Sun Nov  9 15:32:54 2003
++++ edited/net/ipv6/addrconf.c	Tue Nov 25 22:23:03 2003
+@@ -1924,9 +1924,13 @@
+ 		write_unlock_bh(&addrconf_hash_lock);
+ 	}
+ 
+-	/* Step 3: clear address list */
+-
+ 	write_lock_bh(&idev->lock);
++
++	/* Step 3: clear flags for stateless addrconf */
++	if (how != 1)
++		idev->if_flags &= ~(IF_RS_SENT|IF_RA_RCVD);
++
++	/* Step 4: clear address list */
+ #ifdef CONFIG_IPV6_PRIVACY
+ 	if (how == 1 && del_timer(&idev->regen_timer))
+ 		in6_dev_put(idev);
+@@ -1962,7 +1966,7 @@
+ 	}
+ 	write_unlock_bh(&idev->lock);
+ 
+-	/* Step 4: Discard multicast list */
++	/* Step 5: Discard multicast list */
+ 
+ 	if (how == 1)
+ 		ipv6_mc_destroy_dev(idev);
 
 -- 
-Regards,
-Rask Ingemann Lambertsen
-
---uAKRQypu60I7Lcqm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="de2104x-fix-for-jeff.patch"
-
---- linux-2.6.0-test8/drivers/net/tulip/de2104x.c-orig	Tue Nov 25 13:20:25 2003
-+++ linux-2.6.0-test8/drivers/net/tulip/de2104x.c	Tue Nov 25 13:20:25 2003
-@@ -1384,7 +1384,6 @@ static int de_open (struct net_device *d
- {
- 	struct de_private *de = dev->priv;
- 	int rc;
--	unsigned long flags;
- 
- 	if (netif_msg_ifup(de))
- 		printk(KERN_DEBUG "%s: enabling interface\n", dev->name);
-@@ -1601,7 +1600,7 @@ static int __de_set_settings(struct de_p
- 	    (ecmd->advertising == de->media_advertise))
- 		return 0; /* nothing to change */
- 	    
--	if (netif_running(dev)) {
-+	if (netif_running(de->dev)) {
- 		de_link_down(de);
- 		de_stop_rxtx(de);
- 	}
-@@ -1610,7 +1609,7 @@ static int __de_set_settings(struct de_p
- 	de->media_lock = media_lock;
- 	de->media_advertise = ecmd->advertising;
- 
--	if (netif_running(dev))
-+	if (netif_running(de->dev))
- 		de_set_media(de);
- 	
- 	return 0;
-
---uAKRQypu60I7Lcqm--
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
