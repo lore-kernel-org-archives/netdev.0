@@ -1,25 +1,38 @@
-From: John Heffner <jheffner@psc.edu>
+From: bert hubert <ahu@ds9a.nl>
 Subject: Re: [PATCH] fix tcp_default_win_scale.
-Date: Tue, 6 Jul 2004 17:55:12 -0400 (EDT)
+Date: Wed, 7 Jul 2004 00:44:53 +0200
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.NEB.4.33.0407061751380.10143-100000@dexter.psc.edu>
-References: <20040706133559.70b6380d.davem@redhat.com>
+Message-ID: <20040706224453.GA6694@outpost.ds9a.nl>
+References: <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net> <20040706194034.GA11021@mail.shareable.org> <20040706131235.10b5afa8.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamie Lokier <jamie@shareable.org>, shemminger@osdl.org,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040706133559.70b6380d.davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040706131235.10b5afa8.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-Another bit to addr to the firewall / window scale mess:  I remember from
-a while ago that the Cisco PIX firewalls would not allow a window scale of
-greater than 8.  I don't know if they've fixed this or not.  It seems
-like some sort of arbitrary limit.
+On Tue, Jul 06, 2004 at 01:12:35PM -0700, David S. Miller wrote:
 
-This is obviously not the problem people are seeing now, but could be a
-problem in the future.
+> It is this specific case:
+> 
+> 1) SYN packet contains window scale option of ZERO.
 
-  -John
+Not true - the outgoing SYN packet had window scale 7, when it was sent. The
+SYN|ACK had window scale 0, when received by the initiating system.
 
+Also - even if the remote were to assume a 47 byte window size, would it not
+be able to send small packets? Or does the window size also include
+packet haders?
+
+Regards,
+
+bert
+
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
