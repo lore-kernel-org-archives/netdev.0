@@ -1,184 +1,81 @@
-From: Shmuel Hen <shmulik.hen@intel.com>
-Subject: [PATCH 1/2] [8021q 2.4] Export VLAN tag get/set functionality
-Date: Thu, 19 Feb 2004 12:12:11 +0200
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH] 2.4.25 pcnet32.c SLAB_DEBUG length error fix
+Date: Thu, 19 Feb 2004 08:46:38 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402191212.12958.shmulik.hen@intel.com>
+Message-ID: <200402191646.i1JGkcf04984@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-netdev" <netdev@oss.sgi.com>,
-        "bonding-devel" <bonding-devel@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, "Jeff Garzik" <jgarzik@pobox.com>
-Content-Disposition: inline
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Now, that 2.4.25 is out, I'm resending the enhancements for VLAN over bonding.
-Tested for patch application and compilation against linux-2.4.25.
+The pcnet32 driver uses the incorrect length (of zero) in
+pci_[un]map_single for receive buffers.  This is seen with SLAB_DEBUG
+enabled.
 
-Summary:
-Enable intermediate network drivers like bonding to get or set a 
-VLAN tag in an skb without a need to know about how tagging is done 
-according to a network adapter's capabilities.
+--- linux-2.4.25/drivers/net/orig.pcnet32.c	Fri Nov 28 10:26:20 2003
++++ linux-2.4.25/drivers/net/pcnet32.c	Thu Feb 19 08:35:21 2004
+@@ -976,9 +976,10 @@
+ 	}
+ 
+ 	if (lp->rx_dma_addr[i] == 0) 
+-		lp->rx_dma_addr[i] = pci_map_single(lp->pci_dev, rx_skbuff->tail, rx_skbuff->len, PCI_DMA_FROMDEVICE);
++		lp->rx_dma_addr[i] = pci_map_single(lp->pci_dev,
++			rx_skbuff->tail, PKT_BUF_SZ-2, PCI_DMA_FROMDEVICE);
+ 	lp->rx_ring[i].base = (u32)le32_to_cpu(lp->rx_dma_addr[i]);
+-	lp->rx_ring[i].buf_length = le16_to_cpu(-PKT_BUF_SZ);
++	lp->rx_ring[i].buf_length = le16_to_cpu(2-PKT_BUF_SZ);
+ 	lp->rx_ring[i].status = le16_to_cpu(0x8000);
+     }
+     /* The Tx buffer address is filled in as needed, but we do need to clear
+@@ -1312,13 +1313,14 @@
+ 		    if ((newskb = dev_alloc_skb (PKT_BUF_SZ))) {
+ 			skb_reserve (newskb, 2);
+ 			skb = lp->rx_skbuff[entry];
+-			pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[entry], skb->len, PCI_DMA_FROMDEVICE);
++			pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[entry],
++				PKT_BUF_SZ-2, PCI_DMA_FROMDEVICE);
+ 			skb_put (skb, pkt_len);
+ 			lp->rx_skbuff[entry] = newskb;
+ 			newskb->dev = dev;
+                         lp->rx_dma_addr[entry] = 
+ 				pci_map_single(lp->pci_dev, newskb->tail,
+-					newskb->len, PCI_DMA_FROMDEVICE);
++					PKT_BUF_SZ-2, PCI_DMA_FROMDEVICE);
+ 			lp->rx_ring[entry].base = le32_to_cpu(lp->rx_dma_addr[entry]);
+ 			rx_in_place = 1;
+ 		    } else
+@@ -1347,7 +1349,7 @@
+ 		    skb_put(skb,pkt_len);	/* Make room */
+ 		    pci_dma_sync_single(lp->pci_dev,
+ 		                        lp->rx_dma_addr[entry],
+-		                        PKT_BUF_SZ,
++		                        PKT_BUF_SZ-2,
+ 		                        PCI_DMA_FROMDEVICE);
+ 		    eth_copy_and_sum(skb,
+ 				     (unsigned char *)(lp->rx_skbuff[entry]->tail),
+@@ -1364,7 +1366,7 @@
+ 	 * The docs say that the buffer length isn't touched, but Andrew Boyd
+ 	 * of QNX reports that some revs of the 79C965 clear it.
+ 	 */
+-	lp->rx_ring[entry].buf_length = le16_to_cpu(-PKT_BUF_SZ);
++	lp->rx_ring[entry].buf_length = le16_to_cpu(2-PKT_BUF_SZ);
+ 	lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
+ 	entry = (++lp->cur_rx) & RX_RING_MOD_MASK;
+     }
+@@ -1402,7 +1404,8 @@
+     for (i = 0; i < RX_RING_SIZE; i++) {
+ 	lp->rx_ring[i].status = 0;			    
+ 	if (lp->rx_skbuff[i]) {
+-            pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i], lp->rx_skbuff[i]->len, PCI_DMA_FROMDEVICE);
++            pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i], PKT_BUF_SZ-2,
++		    PCI_DMA_FROMDEVICE);
+ 	    dev_kfree_skb(lp->rx_skbuff[i]);
+         }
+ 	lp->rx_skbuff[i] = NULL;
 
 -- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
-
-
-diff -Nuarp a/include/linux/if_vlan.h b/include/linux/if_vlan.h
---- a/include/linux/if_vlan.h	Wed Jan 21 16:54:57 2004
-+++ b/include/linux/if_vlan.h	Wed Jan 21 16:54:59 2004
-@@ -200,6 +200,148 @@ static inline int vlan_hwaccel_receive_s
- {
- 	return __vlan_hwaccel_rx(skb, grp, vlan_tag, 1);
- }
-+
-+/**
-+ * __vlan_put_tag - regular VLAN tag inserting
-+ * @skb: skbuff to tag
-+ * @tag: VLAN tag to insert
-+ *
-+ * Inserts the VLAN tag into @skb as part of the payload
-+ * Returns a VLAN tagged skb. If a new skb is created, @skb is freed.
-+ * 
-+ * Following the skb_unshare() example, in case of error, the calling function
-+ * doesn't have to worry about freeing the original skb.
-+ */
-+static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short tag)
-+{
-+	struct vlan_ethhdr *veth;
-+
-+	if (skb_headroom(skb) < VLAN_HLEN) {
-+		struct sk_buff *sk_tmp = skb;
-+		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
-+		kfree_skb(sk_tmp);
-+		if (!skb) {
-+			printk(KERN_ERR "vlan: failed to realloc headroom\n");
-+			return NULL;
-+		}
-+	} else {
-+		skb = skb_unshare(skb, GFP_ATOMIC);
-+		if (!skb) {
-+			printk(KERN_ERR "vlan: failed to unshare skbuff\n");
-+			return NULL;
-+		}
-+	}
-+
-+	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
-+
-+	/* Move the mac addresses to the beginning of the new header. */
-+	memmove(skb->data, skb->data + VLAN_HLEN, 2 * VLAN_ETH_ALEN);
-+
-+	/* first, the ethernet type */
-+	veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
-+
-+	/* now, the tag */
-+	veth->h_vlan_TCI = htons(tag);
-+
-+	return skb;
-+}
-+
-+/**
-+ * __vlan_hwaccel_put_tag - hardware accelerated VLAN inserting
-+ * @skb: skbuff to tag
-+ * @tag: VLAN tag to insert
-+ *
-+ * Puts the VLAN tag in @skb->cb[] and lets the device do the rest
-+ */
-+static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, unsigned short tag)
-+{
-+	struct vlan_skb_tx_cookie *cookie;
-+
-+	cookie = VLAN_TX_SKB_CB(skb);
-+	cookie->magic = VLAN_TX_COOKIE_MAGIC;
-+	cookie->vlan_tag = tag;
-+
-+	return skb;
-+}
-+
-+#define HAVE_VLAN_PUT_TAG
-+
-+/**
-+ * vlan_put_tag - inserts VLAN tag according to device features
-+ * @skb: skbuff to tag
-+ * @tag: VLAN tag to insert
-+ *
-+ * Assumes skb->dev is the target that will xmit this frame.
-+ * Returns a VLAN tagged skb.
-+ */
-+static inline struct sk_buff *vlan_put_tag(struct sk_buff *skb, unsigned short tag)
-+{
-+	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
-+		return __vlan_hwaccel_put_tag(skb, tag);
-+	} else {
-+		return __vlan_put_tag(skb, tag);
-+	}
-+}
-+
-+/**
-+ * __vlan_get_tag - get the VLAN ID that is part of the payload
-+ * @skb: skbuff to query
-+ * @tag: buffer to store vlaue
-+ * 
-+ * Returns error if the skb is not of VLAN type
-+ */
-+static inline int __vlan_get_tag(struct sk_buff *skb, unsigned short *tag)
-+{
-+	struct vlan_ethhdr *veth = (struct vlan_ethhdr *)skb->data;
-+
-+	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
-+		return -EINVAL;
-+	}
-+
-+	*tag = ntohs(veth->h_vlan_TCI);
-+
-+	return 0;
-+}
-+
-+/**
-+ * __vlan_hwaccel_get_tag - get the VLAN ID that is in @skb->cb[]
-+ * @skb: skbuff to query
-+ * @tag: buffer to store vlaue
-+ * 
-+ * Returns error if @skb->cb[] is not set correctly
-+ */
-+static inline int __vlan_hwaccel_get_tag(struct sk_buff *skb, unsigned short *tag)
-+{
-+	struct vlan_skb_tx_cookie *cookie;
-+
-+	cookie = VLAN_TX_SKB_CB(skb);
-+	if (cookie->magic == VLAN_TX_COOKIE_MAGIC) {
-+		*tag = cookie->vlan_tag;
-+		return 0;
-+	} else {
-+		*tag = 0;
-+		return -EINVAL;
-+	}
-+}
-+
-+#define HAVE_VLAN_GET_TAG
-+
-+/**
-+ * vlan_get_tag - get the VLAN ID from the skb
-+ * @skb: skbuff to query
-+ * @tag: buffer to store vlaue
-+ * 
-+ * Returns error if the skb is not VLAN tagged
-+ */
-+static inline int vlan_get_tag(struct sk_buff *skb, unsigned short *tag)
-+{
-+	if (skb->dev->features & NETIF_F_HW_VLAN_TX) {
-+		return __vlan_hwaccel_get_tag(skb, tag);
-+	} else {
-+		return __vlan_get_tag(skb, tag);
-+	}
-+}
-+
- #endif /* __KERNEL__ */
- 
- /* VLAN IOCTLs are found in sockios.h */
+Don Fry
+brazilnut@us.ibm.com
