@@ -1,41 +1,33 @@
-From: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
-Subject: Re: TCP hangs --- zero window probes
-Date: Tue, 4 May 2004 18:28:33 +0200 (CEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0405041827480.11971@artax.karlin.mff.cuni.cz>
-References: <200405041525.UAA21109@shilpa.india.hp.com>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: [PATCH] tulip driver deadlocks on device removal
+Date: Tue, 4 May 2004 16:11:28 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040504141127.GH1188@openzaurus.ucw.cz>
+References: <4096BBC8.60509@gmx.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Praveen Kumar Amritaluru <praveen@india.hp.com>
-In-Reply-To: <200405041525.UAA21109@shilpa.india.hp.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264471AbUEDTdC@vger.kernel.org>
+To: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
+Content-Disposition: inline
+In-Reply-To: <4096BBC8.60509@gmx.net>
 List-Id: netdev.vger.kernel.org
 
-> Hi,
->
-> 	I raised a similar issue sometime back on this mailing list.  It
-> 	is basically non-conformance of RFC.
->
-> 	Its not that  Linux is  sending  ACK only  packets  rather it is
-> 	sending an unacceptable ACK segment forcing the receiver to send
-> 	an ACK.  Use Ethereal to view the ACK  segments  since that will
-> 	show the sequence no.  as well.
->
-> 	I feel that it is a bug, but others may not feel the same way.
->
-> 	The clarification/justification I heard in this mailing-list was
-> 	that  "this  implementation  is more  interoperable  with  other
-> 	implementations"  compared to "sending  zero  window  probes" as
-> 	defined in RFC793/RFC1122.
->
->
-> Regards,
->
-> Praveen
+Hi!
 
-Yes. I fixed the client so that it sends ACKs if it receives ACK with
-non-matching seq number.
+> If I remove the card, my machine freezes instantly. This is due to a
+> stupid dev->poll function of the tulip driver.
+> 
+> drivers/net/tulip/interrupt.c:tulip_poll() gets stuck in an endless loop
+> in interrupt context if the hardware returns 0xffffffff on certain reads.
+> But this is exactly what happens if you remove a pci device.
+> 
+> My patch replaces the deadlock with something resembling a livelock. At
+> least SysRq-S works now because we leave the poll function after some time.
 
-Mikulas
+Could you explicitely check for read returning 0xffffffff?
+
+				Pavel
+-- 
+64 bytes from 195.113.31.123: icmp_seq=28 ttl=51 time=448769.1 ms         
