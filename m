@@ -1,56 +1,23 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: kernel module to generate UDP & TCP traffic?
-Date: Mon, 15 Apr 2002 17:25:02 -0700
+From: Paul Hendricksen <paulh@voidnetworks.com>
+Subject: Linux Kernel - File Structure Independent?
+Date: Mon, 15 Apr 2002 18:56:38 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3CBB6F5E.7090502@candelatech.com>
-References: <3CBB6414.5040506@candelatech.com> <20020415.164308.102569933.davem@redhat.com>
+Message-ID: <20020415185502.W66387-100000@intrex.yserver.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
+To: <alan@the.3c501.cabal.tm>, <linux-net@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
 
+Dear Mr. Cox,
 
-David S. Miller wrote:
+I am going though hacking at the kernel source and have come to a wall. I
+cannot seem to find any information claiming that the Linux Kernel is file
+structure independent.
 
-> net/core/pg3.c
+You are my last resort. Please enlighten me.
 
-
-It appears to be net/core/pktgen.c, but I found it :)
-
-After reading through it a few times, I have a few questions:
-
-It appears I can interject spacing between packets, and it also
-appears that it will basically busy-spin while waiting.  So, can
-I assume it would be a pretty bad idea to configure large times
-between packet transmits?  (ie does the nanosleep consume the machine?)
-
-If I wanted this thing to send a packet that would be routed,
-I would just set the MAC of the router and the IP of the eventualy
-destination, correct?
-
-It appears impossible to run traffic on two interfaces simultaneously
-with this module, is that true?
-
-Would you accept a patch that turned many of these counters into 64bit
-counters?
-
-Is there any similar module that can receive these packets on the other
-side and verify a correct packet was received?
-
-Would you accept a patch that placed timestamps and sequence counters in
-the packets for latency detection and packet-drop detection?
-
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
-
+Thank You,
+Paul Hendricksen
 
