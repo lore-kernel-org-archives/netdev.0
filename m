@@ -1,43 +1,109 @@
-From: Martin Mares <mj@ucw.cz>
-Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
-Date: Tue, 8 Mar 2005 15:20:23 +0100
-Message-ID: <20050308142022.GG20607@atrey.karlin.mff.cuni.cz>
-References: <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net> <m1y8d0mss2.fsf@muc.de> <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net> <422C0B50.20500@mrv.com> <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net> <1110288879.1050.167.camel@jzny.localdomain> <20050308135134.GA20607@atrey.karlin.mff.cuni.cz> <1110290300.1050.190.camel@jzny.localdomain> <20050308140301.GC20607@atrey.karlin.mff.cuni.cz> <1110291470.1043.211.camel@jzny.localdomain>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] neighbour tables configuration via rtnetlink
+Date: Tue, 8 Mar 2005 15:27:13 +0100
+Message-ID: <20050308142713.GB31837@postel.suug.ch>
+References: <20050305172257.GN31837@postel.suug.ch> <1110202499.1094.1371.camel@jzny.localdomain> <20050307142622.GT31837@postel.suug.ch> <1110240219.1044.83.camel@jzny.localdomain> <20050308013718.GZ31837@postel.suug.ch> <1110290055.1043.183.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Zdenek Radouch <zdenek@rcn.com>,
-	Steve Iribarne <steve.iribarne@dilithiumnetworks.com>,
-	Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
-	Andi Kleen <ak@muc.de>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
+Cc: netdev@oss.sgi.com, benjamin.zores@loria.fr
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1110291470.1043.211.camel@jzny.localdomain>
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <1110290055.1043.183.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+* jamal <1110290055.1043.183.camel@jzny.localdomain> 2005-03-08 08:54
+> On Mon, 2005-03-07 at 20:37, Thomas Graf wrote:
+> 
+> [..]
+> > The path could look like this:
+> > 
+> >     (netlink)  (API/daemon)    (XSLT)
+> > Kernel  ->  libnl  ->  libnl_XML -> netconf
+> > 
+> 
+> That or you could have netconf just call libnl_something else (which i
+> have been trying to emphasize as the "the layer above libnl"). What you 
+> have above will work fine and i very flexible for netconf and maybe even
+> for SOAP like activities but will end running in a shell which at some
+> point will become a bottleneck.
 
-> So what happens when you put tow or three of Zdenek's boxes in one
-> location? Back to square 1?
+Possibily yes, I'm not quite sure why it would involve a shell at least
+it is quite simple to work around using one but I tend to agree. What I'm
+aiming for is some kind of generic request record format acting as base
+for logging, distribution, whatever purpose and I think that is what you
+mean with the "layer above libnl" so we're probably heading into the same
+direction with minor differences in how to actually do it.
 
-No, if I understood Zdenek correctly, he wants to use the addresses
-only internally inside the box, so multiple boxes should happily
-co-exist. OTOH if the same address is used anywhere in the neighboring
-network, it's going to break.
+I'll keep on experimenting with it hoping to present some more detailed
+results soon so we can redraw once we have some prototype and numbers.
 
-> Except this wont be practical for IPV4 since those addresses are scarce.
+> > I left out the byte order issues here because I'm not yet sure how
+> > to solve them although as stated already, using XSLT would be one
+> > possible path to follow.
+> > 
+> 
+> There is no byte order issues with ASCII.
 
-If the addresses are going to be used only internally, it suffices to
-allocate only a small block of addresses and use this block for all
-devices.
+Obviously yes, it depends on at which layer the transformation is done
+and that's the point I'm still unsure. The obvious way is to do it in
+the actual module implementations of libnl and have the produced XML
+protocol being aware of every single configuration bit. Another way
+is to describe the actual netlink requests in a half-binary format and
+do the transformation later. The latter saves a lot of transformation
+work because everything in between doesn't need to be aware of all the
+configuration possibilities. However, the transformation to other
+protocol types gets more complicated. I haven't found any arguments
+for either way that would convice me to head for one direction so I
+planned to find out by experimenting.
 
-> May make sense for V6 though (becomes like MAC addresses on NICS).
+> > You probably mean Yenca,
+> [..]
+> >  I'm looking into it but it uses ioctl for
+> > configuration and only implements a small subset of the functionality.
+> 
+> Yes, i remember that code now. They do use ioctls. 
+> Unfortunately your libnl is not backward compatible and a lot of
+> embedded devices are 2.4.x based. Ive mentioned this before. You need to
+> provide a ioctl interface for some things as well and perhaps provide a
+> compile flag to select between the two.
 
-Sure.
+Indeed, I'm not sure how to solve this properly though. libnl's scope
+is already quite huge and it might be better to build another layer on
+top of it (maybe the one you mentioned) which abstracts the whole network
+configuration in a nice API automatically doing the right thing (tm)
+by checking kernel capabilities an choose netlink/ioctl/ethtool/...
+or whatever is appropriate.
 
-				Have a nice fortnight
--- 
-Martin `MJ' Mares   <mj@ucw.cz>   http://atrey.karlin.mff.cuni.cz/~mj/
-Faculty of Math and Physics, Charles University, Prague, Czech Rep., Earth
-Mr. Worf, scan that ship."  "Aye, Captain... 600 DPI?
+> On completion, I thin they had some basic stuff working which is a good
+> start (If i recall they could set ip addresses and routes).
+
+>From what the source tells me, interface and routing has been partially
+implemented which is a nice start. The code could be merged into the
+above mentioned library acting as interface for netconf to interact
+with the kernel.
+
+> The architecture seemed pretty sane to me; the whole was in the access to
+> the kernel configuration - they did something but it appeared weak.
+> This is where you could help i think.
+
+I'll try to work this out with Benjamin given it is in his interest.
+
+> Well, the way i see it is like this:
+> 
+> 3rdlayer: netconf/someotherapp
+> secondlayer: "the layer above libnl" 
+> firstlayer: libnl (netlink level)
+> layer0: kernel
+> 
+> second layer is where that gents code would have been a good fit. He was
+> already providing some good APIs, bindings etc. XML could be just one
+> more binding.
+
+Agreed.
+
+> The problem is i think you are trying to do all layers.
+
+I'm thinking in all layers to not miss anything important but it should
+definitely be spread across various independant parts.
