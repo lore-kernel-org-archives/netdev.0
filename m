@@ -1,38 +1,36 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
-Date: Sat, 17 Jan 2004 05:23:48 +0900 (JST)
+From: Chris Wright <chrisw@osdl.org>
+Subject: [PATCH 1/4] ax25 check error on memcpy_fromiovec (resend)
+Date: Fri, 16 Jan 2004 14:25:02 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040117.052348.44213733.yoshfuji@linux-ipv6.org>
-References: <OF6E7E4DFA.6824D151-ON87256E1D.006A89B5@us.ibm.com>
+Message-ID: <20040116142502.B19034@osdlab.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: xma@us.ibm.com
-In-Reply-To: <OF6E7E4DFA.6824D151-ON87256E1D.006A89B5@us.ibm.com>
+To: davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF6E7E4DFA.6824D151-ON87256E1D.006A89B5@us.ibm.com> (at Fri, 16 Jan 2004 11:41:59 -0800), Shirley Ma <xma@us.ibm.com> says:
+Check the return value on memcpy_fromiovec().
 
-> Yes. radvd should provide all these information. But radvd doesn't support
-> this right now. I talked to someone who is patching SNMP to support new IP
-> MIBs, he said it's better to support this through netlink, since netlink
-> supports all other MIBs. Does netlink support user-user communication?
+ net/ax25/af_ax25.c |    7 ++++++-
+ 1 files changed, 6 insertions(+), 1 deletion(-)
 
-Yes, netlink is one option and is possibly a good candidate.
-I believe netlink supports user-user communication and 
-rtadvd can use it to provide information to other entities.
-
-> Anyway I will talk to radvd maintainers to ask them to support this if you
-> think this netlink notification is not needed.
-
-I do not think netlink RA notification is required in kernel.
-What you (or the radvd maintainer) need to do is to 
-allocate some constants and structures for the message.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+===== net/ax25/af_ax25.c 1.36 vs edited =====
+--- 1.36/net/ax25/af_ax25.c	Fri Jan  9 01:53:04 2004
++++ edited/net/ax25/af_ax25.c	Fri Jan 16 14:13:54 2004
+@@ -1526,7 +1526,12 @@
+ 	SOCK_DEBUG(sk, "AX.25: Appending user data\n");
+ 
+ 	/* User data follows immediately after the AX.25 data */
+-	memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
++	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
++		err = -EFAULT;
++		kfree_skb(skb);
++		goto out;
++	}
++
+ 	skb->nh.raw = skb->data;
+ 
+ 	/* Add the PID if one is not supplied by the user in the skb */
