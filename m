@@ -1,41 +1,29 @@
-From: P@draigBrady.com
-Subject: Re: e1000 w/ NAPI + SMP = 99% CPU utilization
-Date: Wed, 09 Jun 2004 10:01:02 +0100
+From: Sean Neakums <sneakums@zork.net>
+Subject: [TRIVIAL PATCH] include/net/tcp.h comment fix
+Date: Wed, 09 Jun 2004 11:15:22 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40C6D1CE.9050202@draigBrady.com>
-References: <BAY1-F139xaq8HCdrWi0004e64b@hotmail.com> <16582.49526.374109.580312@robur.slu.se>
+Message-ID: <6uy8mxghqd.fsf@zork.zork.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Chris Carpinello <chriscarpinello@hotmail.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16582.49526.374109.580312@robur.slu.se>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
-> Chris Carpinello writes:
->=20
-> Hello!
->=20
-> Is seems like your network load @ ~202 Mbps gets you system into=20
-> continuing polling as we see very few interrupts on your eth3.
-> This means that rx_softirq reschedules itself do_softirq() kicks
-> ksoftird to prevent the rx_softirq from monopolize the system.
-> So now all the work gets accounted in ksoftird  And by design=20
-> ->poll is strictly serialized per device to guarantee ordering and=20
-> avoid cache bouncing we only see one ksoftirq used as use only have=20
-> one input device.
->=20
-> P=E1draig suggest binding to separate CPU's. This is normally a good=20
-> thing but as you only have one input device it will not help.
+I had a few moments' consternation trying to follow from struct
+tck_skb_cb  back to cb[], since the struct is named sk_buff.
+This may well confuse other unschooled readers in the future.
+Against 2.6.7-rc3.
 
-agreed. All traffic is on eth3 so you can't share it over CPUs
 
-> And didn't we just see a fix for ifconfig down oops?
-
-yep, seems like it:
-http://marc.theaimsgroup.com/?l=3Dlinux-netdev&m=3D108631346103966&w=3D2
-
-P=E1draig.
+--- S7-rc3/include/net/tcp.h~	2004-05-10 09:22:40.000000000 +0100
++++ S7-rc3/include/net/tcp.h	2004-06-09 11:07:33.000000000 +0100
+@@ -1139,7 +1139,7 @@
+  * code.  We also store the host-order sequence numbers in
+  * here too.  This is 36 bytes on 32-bit architectures,
+  * 40 bytes on 64-bit machines, if this grows please adjust
+- * skbuff.h:skbuff->cb[xxx] size appropriately.
++ * skbuff.h:sk_buff->cb[xxx] size appropriately.
+  */
+ struct tcp_skb_cb {
+ 	union {
