@@ -1,62 +1,56 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: Weird modem behaviour in 2.5.73-mm1
-Date: Fri, 27 Jun 2003 10:26:56 -0400
+From: "Martin J. Bligh" <mbligh@aracnet.com>
+Subject: Re: networking bugs and bugme.osdl.org
+Date: Fri, 27 Jun 2003 07:34:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200306271426.h5REQvjK006106@turing-police.cc.vt.edu>
-References: <200306242102.49356.kde@myrealbox.com> <200306250327.h5P3RwH8001577@turing-police.cc.vt.edu> <200306250418.h5P4IWdA001565@turing-police.cc.vt.edu> <20030625091013.573f2e7b.shemminger@osdl.org> <200306251654.h5PGsUdA022467@turing-police.cc.vt.edu> <20030625102134.2046b04f.shemminger@osdl.org> <200306251804.h5PI4odA023590@turing-police.cc.vt.edu>
-            <20030625173549.561cfaec.shemminger@osdl.org>
+Message-ID: <21740000.1056724453@[10.10.2.4]>
+References: <20030626.223002.21926109.davem@redhat.com><18330000.1056692768@[10.10.2.4]> <20030626.224739.88478624.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_-1444366336P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: Your message of "Wed, 25 Jun 2003 17:35:49 PDT."
-             <20030625173549.561cfaec.shemminger@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030626.224739.88478624.davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_-1444366336P
-Content-Type: text/plain; charset=us-ascii
+>    If people choose to file bugs in bugzilla as well, they'll still be
+>    processed by someone.
+> 
+> Just so that someone can post them to the lists?
+> That sounds like a completely silly way to operate.
+> 
+> I'd rather they get posted to the lists _ONLY_.
+> 
+> This way not that "someone", but "everyone" on the lists
+> can participate and contribute to responding to the bug.
+> 
+> The only way you can make things scale is if you throw a group
+> of people into the collective of folks able to respond to a problem.
 
-On Wed, 25 Jun 2003 17:35:49 PDT, Stephen Hemminger said:
-> Try this patch, it is more paranoid in some of the code paths.
-> I did get PPP over a null modem cable working between 2.4.18 and 2.5.73 with 
-the PPP patches.
+We can do that. The owner of a category can be a mailing list 
+(eg the bugme-janitors list for some of the categories).
+ 
+> If it all gets filtered through by one guy, THAT DOES NOT WORK.
+> That one guy limits what can be done, and when he's busy one day
+> or he goes away on vacation for a while, the whole assembly
+> line stops.
 
-I wasn't able to get this patch to apply cleanly to either the replacement .c you sent or
-to any of the .c's I already had - which version was this based from?
+The idea is to spread it across categories (one person for each (or a few)
+categories), but if you want to spread it around within a category that's 
+possible too.
+ 
+> Therefore, please eliminate the networking category on bugme.osdl.org
+> and we'll process bug reports on the lists so that not _ONE_ but the
+> whole community of networking developers can look at the bug.
 
-Also, the entire-replacement .c showed the same symptoms of a quick death as
-the problem cset from bitkeeper.  Here's some more info:  In the *working* version,
-the first few lines logged by 'pppd -d' are:
+No. If you don't want to participate, that's fine, but I'm not going
+to prevent other people from doing so. 
 
-Jun 27 10:02:28 turing-police pppd[999]: Using interface ppp0
-Jun 27 10:02:28 turing-police pppd[999]: Connect: ppp0 <--> /dev/ttyS14
-Jun 27 10:02:28 turing-police /etc/hotplug/net.agent: NET add event not supported
-Jun 27 10:02:29 turing-police pppd[999]: sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x7e941686> <pcomp> <accomp>]
-Jun 27 10:02:32 turing-police pppd[999]: sent [LCP ConfReq id=0x1 <asyncmap 0x0> <magic 0x7e941686> <pcomp> <accomp>]
-(broken version dies here)
-Jun 27 10:02:32 turing-police pppd[999]: rcvd [LCP ConfReq id=0xa3 <asyncmap 0xa0000> <auth pap> <magic 0xa55eea11> <pcomp> <accomp>]
-Jun 27 10:02:32 turing-police pppd[999]: sent [LCP ConfAck id=0xa3 <asyncmap 0xa0000> <auth pap> <magic 0xa55eea11> <pcomp> <accomp>]
-Jun 27 10:02:32 turing-police pppd[999]: rcvd [LCP ConfAck id=0x1 <asyncmap 0x0> <magic 0x7e941686> <pcomp> <accomp>]
+If you want me to forward the bugs to any given list, I'll do that. 
+If you want to just tell people to file them to a list, that's fine too.
+But I won't destroy the generic model just because you don't like it.
 
-so I'm thinking there's some breakage decoding that next rcvd packet...
-
-My next step is to go through each separate change in the cset that's causing the
-problem and apply it, and see which one breaks it.  
-
---==_Exmh_-1444366336P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQE+/FQwcC3lWbTT17ARAgffAJ9hVhsbaNs9Ky6MYf9FjqKZ7oKnlwCfbsw/
-A7Xuhcqh5+w8Ag4wU1XvyYc=
-=GjNy
------END PGP SIGNATURE-----
-
---==_Exmh_-1444366336P--
+M.
