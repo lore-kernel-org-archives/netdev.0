@@ -1,23 +1,37 @@
-From: 59419646@laufwerk.de
-Subject: Ihre Mail an  59419646@laufwerk.de enthielt einen Virus
-Date: Tue, 04 May 2004 10:22:43 +0200
+From: remy.gauguey@mindspeed.com
+Subject: Linux 2.6 crypto API and HW accelerators
+Date: Tue, 4 May 2004 15:39:35 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <80151.2236780585@d103.x-mailer.de>
+Message-ID: <OF4ED7CD00.900586C8-ONC1256E8A.00491716-C1256E8A.004B08FD__26628.9532105022$1083678681@nice.mindspeed.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Resent-Message-Id: <20040504.224906.123086020.yoshfuji@linux-ipv6.org>
+To: linux-crypto@nl.linux.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Die von Ihnen an  59419646@laufwerk.de versandte Mail mit dem Betreff " P=
-assword" enthielt einen Virus: ( Worm.SomeFool.AB)
-Die Mail wurde auf dem Mail-Server gel=F6scht und NICHT ausgeliefert! Bit=
-te pr=FCfen Sie Ihr System mit einem geeigeneten AntiVirus Scanner.
+Hi,
+
+I'm currently working on a ARM920T based network processor with arm-linux
+kernel 2.6.5.
+This device has a crypto hardware accelerator dedicated to IPsec.
+In ESP mode the device can do authentication (SHA-1, MD5) as well as
+encryption (AES, TDES in CBC or ECB mode) in one pass.
+Unfortunately current Linux 2.6 crypto API doesn't support this kind of
+hardware accelerator. Current crypto module relies on crypto algorithms
+which are called for a single operation and for each block.
+
+Then, I would like to know if other people are working on the hardware
+crypto support in kernel 2.6.x.
+If so, what would be the plan ? crypto api improvement or new IPsec
+specific hardware support ?
+
+Thanks for any feedback or info.
+
+Remy Gauguey
 
 
-Your mail to  59419646@laufwerk.de with subject  " Password" contained ma=
-licious content: ( Worm.SomeFool.AB)
-Your mail was deleted and has not been delivered to the recipient. Please=
- check your system with an anti-virus scanner!
+
+
