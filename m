@@ -1,77 +1,62 @@
-From: David Brownell <david-b@pacbell.net>
-Subject: Re: 2.6.11-rc2 TCP ignores PMTU ICMP (Re: Linux 2.6.11-rc2)
-Date: Thu, 27 Jan 2005 11:28:48 -0800
-Message-ID: <200501271128.48411.david-b@pacbell.net>
-References: <200501232251.42394.david-b@pacbell.net> <200501251054.37053.david-b@pacbell.net> <priv$1106815487.koan@shadow.banki.hu>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH/RFC] Reduce call chain length in netfilter
+Date: Thu, 27 Jan 2005 11:47:26 -0800
+Message-ID: <20050127114726.2205b4ed.davem@davemloft.net>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
+	<p73zn0ccaee.fsf@verdi.suse.de>
+	<1105117559.11753.34.camel@baythorne.infradead.org>
+	<20050107100017.454ddadc@dxpl.pdx.osdl.net>
+	<1105133241.3375.16.camel@localhost.localdomain>
+	<20050118135735.4b77d38d.davem@davemloft.net>
+	<1106433059.4486.11.camel@localhost.localdomain>
+	<1106436153.20995.42.camel@tux.rsn.bth.se>
+	<1106484019.3376.5.camel@localhost.localdomain>
+	<1106496509.1085.1.camel@tux.rsn.bth.se>
+	<20050125220558.6e824f8a.davem@davemloft.net>
+	<1106730510.4041.4.camel@localhost.localdomain>
+	<41F82C6D.7020006@trash.net>
+	<20050126231801.7bf90338.davem@davemloft.net>
+	<41F929FA.3050800@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Ford <david+challenge-response@blue-labs.org>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: bdschuym@pandora.be, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org, snort2004@mail.ru,
+        rusty@rustcorp.com.au, ak@suse.de, bridge@osdl.org,
+        gandalf@wlug.westbo.se, dwmw2@infradead.org, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Janos Farkas <jf-ml-k1-1087813225@lk8rp.mail.xeon.eu.org>
-In-Reply-To: <priv$1106815487.koan@shadow.banki.hu>
-Content-Disposition: inline
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41F929FA.3050800@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 27 January 2005 1:02 am, Janos Farkas wrote:
-> On 2005-01-25 at 10:54:36, David Brownell wrote:
-> > On Tuesday 25 January 2005 10:35 am, David Ford wrote:
-> > > PMTU bug -- or better said, bad firewall admin who blocks all ICMP.
-> > 
-> > PMTU bug, sure -- but one that came late in RC2.  Remember:  same firewall
-> > in both cases, but only RC2 breaks.  The ICMP packet has landed in
-> > the RC2 system, which ignores it.  2.6.10 handled it correctly... I
-> > suspect one of the TCP cleanups borked this.
+On Thu, 27 Jan 2005 18:50:50 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-And in fact, I'm pretty sure RC1 handled it fine too.  This failure
-appeared in a BK pull I did a couple days before RC2, and installing
-it clobbered a "more virgin" RC1 install; so it's hard to verify.
+>  From what I can see it doesn't generate tail-calls currently:
 
-It took a while to track the failure mode down to being PMTU related,
-but the only TCP-related changes I noticed in what I pulled sure
-seemed like cleanups (removing some "duplicated" state).
+Indeed... It even doesn't do this on Sparc64 either, even for
+the okfn(skb) call which I was sure it would.
 
+It won't tail-call for function pointers for some strance reason
+as exhibited by this simple test:
 
-> > My current workaround is "ifconfig eth0 mtu 1492" but that's not
-> > something I'd expect to keep.
-> 
-> Indeed, I had to shuffle my machines around a bit to get a proof that
-> something is broken, but now I can confirm the above with a connection
-> to cvs.sourceforge.net:
+struct sk_buff {
+	int foo;
+};
 
-Thanks for confirming it wasn't just me ... I confess I'm a bit
-surprised more folk haven't reported this yet! 
+int invoke(struct sk_buff *skb, int (*okfn)(struct sk_buff *))
+{
+	return okfn(skb);
+}
 
-Your symptoms are exactly like those I saw, just with a different
-mission-critical application:  CVS, not SMTP.  Did you happen to
-notice whether CVS pulls worked, when pushes (like this) failed?
+extern int test_func(struct sk_buff *);
 
-- Dave
+int invoke2(struct sk_buff *skb)
+{
+	return test_func(skb);
+}
 
-
-> ...
-> 
-> (the PPPoE gateway notifies the host about the PMTU issue, one for each
-> segment)
-> 
-> 08:05:45.265330 IP (tos 0xc0, ttl 128, id 17970, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-> 08:05:45.265453 IP (tos 0xc0, ttl 128, id 17971, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-> 
-> (the source host sends the full frame again...?)
-> 
-> 08:05:45.770331 IP (tos 0x0, ttl  64, id 21544, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2709754 312383166>
-> 08:05:45.770900 IP (tos 0xc0, ttl 128, id 17972, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-> 
-> (and looping goes on..)
-> 
-> 08:05:46.783148 IP (tos 0x0, ttl  64, id 21546, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2710768 312383166>
-> 08:05:46.783752 IP (tos 0xc0, ttl 128, id 17973, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-> 08:05:48.808861 IP (tos 0x0, ttl  64, id 21548, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2712796 312383166>
-> 08:05:48.809882 IP (tos 0xc0, ttl 128, id 17974, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
-> 
-> ...
-> 
+In the generated asm on sparc64, invoke2() gets a tail-call
+whereas invoke() does not.  Hmmm...
