@@ -1,38 +1,40 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
- in case forwarded frame has VLAN-header]
-Date: Tue, 08 Mar 2005 04:38:14 +0100
-Message-ID: <422D1E26.1010902@trash.net>
-References: <20050305141225.GA5180@xi.wantstofly.org>	 <4229D98F.9010008@trash.net> <422A0C21.3050709@candelatech.com>	 <1110199696.1094.1299.camel@jzny.localdomain>	 <Pine.LNX.4.62.0503072034340.5934@kaber.coreworks.de>	 <1110238537.1043.62.camel@jzny.localdomain>  <422CE983.7060305@trash.net> <1110241190.1043.100.camel@jzny.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, leo@yuriev.ru,
-        Lennert Buytenhek <buytenh@wantstofly.org>, shemminger@osdl.org,
-        netdev@oss.sgi.com
-To: hadi@cyberus.ca
-In-Reply-To: <1110241190.1043.100.camel@jzny.localdomain>
+From: l-linux-admin@velug.org.ve
+Subject: (no subject)
+Date: Tue, 8 Mar 2005 02:51:03 -0400
+Message-ID: <200503080651.j286p32M008456@libertad.velug.org.ve>
+To: undisclosed-recipients:;
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Indeed that looks bad. But wouldnt have helped if we started at 0
-> either. You need monotonically increasing values to make proper
-> sense. So i suppose to do proper qos with L2, one must install the prio
-> qdisc and rewrite the priomap.
+Ha enviado un mensaje a '%(list_name)s' con el título:
+Date: Tue, 08 Mar 2005 02:51:03 -0400
+Message-ID: <20050308065103.8453.42968.Mailman@libertad.velug.org.ve>
+Subject: Your message to l-linux awaits moderator approval
+From: l-linux-admin@velug.org.ve
+To: netdev@oss.sgi.com
+X-Ack: no
+Sender: l-linux-admin@velug.org.ve
+Errors-To: l-linux-admin@velug.org.ve
+X-BeenThere: l-linux@velug.org.ve
+X-Mailman-Version: 2.0.11
+Precedence: bulk
+List-Help: <mailto:l-linux-request@velug.org.ve?subject=help>
+List-Post: <mailto:l-linux@velug.org.ve>
+List-Subscribe: <http://www.velug.org.ve/cgi-bin/mailman/listinfo/l-linux>,
+	<mailto:l-linux-request@velug.org.ve?subject=subscribe>
+List-Id: Consultas Técnicas sobre Linux y Software Libre <l-linux.velug.org.ve>
+List-Unsubscribe: <http://www.velug.org.ve/cgi-bin/mailman/listinfo/l-linux>,
+	<mailto:l-linux-request@velug.org.ve?subject=unsubscribe>
+List-Archive: <http://www.velug.org.ve/pipermail/l-linux/>
 
-One reason more to move it to an optional ebtables target. Or leave it
-all to prio + u32. But I guess a CLASSIFY target similar to iptables
-could also be useful otherwise.
+    Re: Re: Re: Your document
 
-> The mapping used in pfifo_fast is derived from RFC1349 4 bit TOS which
-> is really considered toast these days. We need to revamp things - but
-> this would require some surgery in the route code as well (so maybe safe
-> to leave as is).
+El mensaje ha sido retenido hasta que el moderador pueda procesarlo.
+Ha sido retenido porque:
 
-Are there any changes required besides ip_tos2prio ? More importantly,
-it there a different meaningful mapping to priorities we can apply ?
+    Post by non-member to a members-only list
 
-Regards
-Patrick
+Si el moderador lo aprueba, el mensaje irá directamente a la lista. Si
+el moderador lo rechaza, Ud. recibirá una notificación indicando las
+razones del rechazo.
