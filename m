@@ -1,27 +1,65 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 driver in 2.6.6
-Date: Thu, 27 May 2004 09:25:36 +0200
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH 2.6] Prevent tulip cardbus cards from freezing machine
+Date: Thu, 27 May 2004 11:59:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040527092536.A15669@electric-eye.fr.zoreil.com>
-References: <20040525230831.4747005f.ray_cole@earthlink.net> <20040525231140.1325daa7.ray_cole@earthlink.net> <20040526055841.GH3330@ruslug.rutgers.edu> <20040526133645.B32639@electric-eye.fr.zoreil.com> <20040526070014.17ee9486.ray_cole@earthlink.net> <20040526161508.A3368@electric-eye.fr.zoreil.com> <20040526191528.54f4af59.ray_cole@earthlink.net> <20040526205324.0913df99.ray_cole@earthlink.net> <20040526221742.393e626d.ray_cole@earthlink.net> <20040526230632.26c4e2e5.ray_cole@earthlink.net>
+Message-ID: <20040527095904.GG12225@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="C7zPtVaVf+AK4Oqc"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ray Cole <ray_cole@earthlink.net>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040526230632.26c4e2e5.ray_cole@earthlink.net>; from ray_cole@earthlink.net on Wed, May 26, 2004 at 11:06:32PM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ray Cole <ray_cole@earthlink.net> :
-> It looks like it is most definately a gcc 2.95.3 issue.  I turned off
-> optimization (appended -O0 to the compiler command line) and the 'bad' way
-> gives the proper result.  -O1, on the other hand, gives an incorrect result.
 
-Would you be kind enough to send the two versions of the 2.6.6 r8169.o
-files compiled with 2.95.3: the unmodified one and the one with your
-minimal workaround ?
+--C7zPtVaVf+AK4Oqc
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
---
-Ueimor
+Hi,
+
+here's a patch that should prevent lockups with tulip cardbus cards
+after APM suspend/resume, or when pulling out the card.
+
+The problem is that the status register seems to return 0xffffffff in
+this case, and tulip_poll thinks RxIntr is asserted all the time.
+
+Please review.
+
+Cheers
+Olaf
+-- 
+Olaf Kirch     |  The Hardware Gods hate me.
+okir@suse.de   |
+---------------+ 
+
+--C7zPtVaVf+AK4Oqc
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=tulip-pcmcia-remove
+
+--- linux-2.6.5/drivers/net/tulip/interrupt.c.suspend	2004-04-04 05:36:48.000000000 +0200
++++ linux-2.6.5/drivers/net/tulip/interrupt.c	2004-05-25 12:24:07.000000000 +0200
+@@ -113,6 +113,7 @@
+ 	int entry = tp->cur_rx % RX_RING_SIZE;
+ 	int rx_work_limit = *budget;
+ 	int received = 0;
++	int csr5;
+ 
+ 	if (!netif_running(dev))
+ 		goto done;
+@@ -254,7 +255,12 @@
+                 * No idea how to fix this if "playing with fire" will fail
+                 * tomorrow (night 011029). If it will not fail, we won
+                 * finally: amount of IO did not increase at all. */
+-       } while ((inl(dev->base_addr + CSR5) & RxIntr));
++	       csr5 = inl(dev->base_addr + CSR5);
++	       if (csr5 == 0xffffffff) {
++		       printk(KERN_DEBUG "tulip_poll: hardware disappeared.\n");
++		       break;
++	       }
++       } while (csr5 & RxIntr);
+  
+ done:
+  
+
+--C7zPtVaVf+AK4Oqc--
