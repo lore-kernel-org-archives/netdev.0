@@ -1,171 +1,84 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH] Prevent crash on ip_conntrack removal
-Date: Wed, 18 Aug 2004 11:13:52 +0200
+From: Glen Turner <glen.turner@aarnet.edu.au>
+Subject: Re: Bonding on Linux: some questions.
+Date: Wed, 18 Aug 2004 22:48:06 +0930
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040818091352.GB6507@suse.de>
+Message-ID: <1092835086.3103.49.camel@andromache>
+References: <4123194B.9090905@provincia.verbania.it>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="3V7upXqbjpZ4EhLz"
-Cc: netfilter-devel@lists.netfilter.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Boniforti Flavio <boniforti@provincia.verbania.it>
+In-Reply-To: <4123194B.9090905@provincia.verbania.it>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2004-08-18 at 18:24, Boniforti Flavio wrote:
 
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> I first would like to understand some things about bonding, which I 
+> can't find documented anywhere.
 
-Hi,
+I found the documentation in
+  /usr/src/linux-.../Documentation/networking/bonding.txt
+to be very fine.
 
-here's a patch that keeps us from crashing on removal of ip_conntrack.
-This problem came up during IBM's testing of SLES.
-I'm not sure if this issue has been submitted already.
+> a) Is bonding in some way dependent on the setup of the switch to which 
+> I connect my Linux box? I mean: after I set up bonding on my Linux box, 
+> do I also have to do some configuration on the switch? I'm asking this 
+> because I read something about "trunking" in relation to bonding, but I 
+> didn't get the point at all.
 
-Problem description courtesy of David Stevens:
+Different switch manufacturers using differing terminology, but
+"trunking" usually refers to 802.1q or ISL VLANs.
 
-	It appears that conntrack, when loaded, is queueing the fragments
-	for reassembly pre-routing (ie, when skb->dst is 0) and giving
-	the fully reassembled packet to the pre-routing code which will
-	set skb->dst before using it.
+You will usually need to do some configuration on the switch. For
+example, to place the two interfaces into the same 802.3ad
+"administrative group".  If you don't know the 802.3ad terminology then
+the IEEE's Get802.3 program allows you to download the latest 802.3
+standard and it has a perfectly readable description of 802.3ad.
 
-	IP without conntrack does the queueing of fragments and reassembly
-	post-routing, so skb->dst in that case is set for all fragments
-	and the reassembled packet.
+For example, on a Cisco CatOS switch to bind ports 1/1 and 2/1, insist
+that that want to bond, and make the switch the most trusted device for
+configuration detail (rather than the host):
+  set channelprotocol lacp 1 2
+  set port lacp-channel 1/1 2/1
+  set port lacp-channel 1/1 2/1 mode active
+  set port lacp-channel 1/1 port priority 1
+  set port lacp-channel 2/1 port priority 2
 
-	In the failure scenario, it appears that conntrack has queued
-	some of the fragments (w/ skb->dst=0, esp. in the offset=0 first
-	fragment) and then the conntrack module is removed. Arrival
-	of a fragment afterward will queue and reassemble the entire
-	packet post-routing, but the first frag still has skb->dst 0,
-	so it'll blow up
+> b) How is the actual procedure of the bonding activation? As far as I 
+> understand it, bond0 should go up, then "ifenslave" the other (two in my 
+> case) ethX interfaces. The MAC address of bond0 should be the same of 
+> the first slave, while the second slave gets its MAC address also set to 
+> the one of the bond0 interface.
 
-To fix this, the patch below simply drops such skbs. A different fix
-could be to change the conntrack module to flush out all unassembled
-fragments when unloaded; an alternative patch for this is attached as
-well (this one is completely untested).
+Ignore the MAC address detail. Look at /proc/net/bonding/bond0 for the
+operational state.
 
-Cheers
-Olaf
+Usually the problem is with /etc/modprobe.conf
+  alias eth0 ...
+  alias eth1 ...
+  install bond0 modprobe bonding mode=802.3ad lacp_rate=fast miimon=100 && modprobe eth0 && modprobe eth1
+You then say
+  ifenslave bond0 eth0
+  ifenslave bond0 eth1
+  ip link set dev eth0 up
+  ip link set dev eth1 up
+although all this detail is usually taken care of by the network scripts
+for your platform.
+
+Note that the Fedora Core bounced the link state a few times during
+setting up the bonding. This can trigger a spanning tree holddown. So
+you probably also want to activate any "fast spanning tree" option and
+kill any other delaying protocol negotiations (VTP, etc). To continue
+the CatOS example:
+
+  set port 1/1 2/1 host
+
+Best of luck,
+Glen
+
 -- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
-
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=netfilter-unload-crash
-
-Index: v2.6.8/net/ipv4/ip_input.c
-===================================================================
---- v2.6.8.orig/net/ipv4/ip_input.c
-+++ v2.6.8/net/ipv4/ip_input.c
-@@ -177,6 +177,13 @@ int ip_call_ra_chain(struct sk_buff *skb
- 					read_unlock(&ip_ra_lock);
- 					return 1;
- 				}
-+				/* When ip_conntrack gets unloaded, we may be
-+				 * left with fragment chains where the first
-+				 * fragment has skb->dst = NULL. */
-+				if (skb->dst == NULL) {
-+					 kfree_skb(skb);
-+					 return 1;
-+				 }
- 			}
- 			if (last) {
- 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
-@@ -277,6 +284,13 @@ int ip_local_deliver(struct sk_buff *skb
- 		skb = ip_defrag(skb);
- 		if (!skb)
- 			return 0;
-+		/* When ip_conntrack gets unloaded, we may be
-+		 * left with fragment chains where the first
-+		 * fragment has skb->dst = NULL. */
-+		if (skb->dst == NULL) {
-+			 kfree_skb(skb);
-+			 return 0;
-+		 }
- 	}
- 
- 	return NF_HOOK(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
-
---3V7upXqbjpZ4EhLz
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=conntrack-flush-fragments
-
-
-Alternative fix for the crash on conntrack unload. Simply flush all
-fragment queues when unloading conntrack_standalone so that there are
-no partially assembled fragments left with skb->dst == NULL.
-
-Index: v2.6.8/include/net/ip.h
-===================================================================
---- v2.6.8.orig/include/net/ip.h
-+++ v2.6.8/include/net/ip.h
-@@ -255,6 +255,7 @@ extern int	ip_call_ra_chain(struct sk_bu
-  */
-  
- struct sk_buff *ip_defrag(struct sk_buff *skb);
-+extern void ipfrag_flush(void);
- extern int ip_frag_nqueues;
- extern atomic_t ip_frag_mem;
- 
-Index: v2.6.8/net/ipv4/ip_fragment.c
-===================================================================
---- v2.6.8.orig/net/ipv4/ip_fragment.c
-+++ v2.6.8/net/ipv4/ip_fragment.c
-@@ -239,13 +239,13 @@ static void ipq_kill(struct ipq *ipq)
- /* Memory limiting on fragments.  Evictor trashes the oldest 
-  * fragment queue until we are back under the low threshold.
-  */
--static void ip_evictor(void)
-+static void __ip_evictor(int threshold)
- {
- 	struct ipq *qp;
- 	struct list_head *tmp;
- 
- 	for(;;) {
--		if (atomic_read(&ip_frag_mem) <= sysctl_ipfrag_low_thresh)
-+		if (atomic_read(&ip_frag_mem) <= threshold)
- 			return;
- 		read_lock(&ipfrag_lock);
- 		if (list_empty(&ipq_lru_list)) {
-@@ -267,6 +267,11 @@ static void ip_evictor(void)
- 	}
- }
- 
-+static inline void ip_evictor(void)
-+{
-+	__ip_evictor(sysctl_ipfrag_low_thresh);
-+}
-+
- /*
-  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
-  */
-@@ -677,4 +682,10 @@ void ipfrag_init(void)
- 	add_timer(&ipfrag_secret_timer);
- }
- 
-+void ipfrag_flush(void)
-+{
-+	__ip_evictor(0);
-+}
-+
- EXPORT_SYMBOL(ip_defrag);
-+EXPORT_SYMBOL(ipfrag_flush);
-Index: v2.6.8/net/ipv4/netfilter/ip_conntrack_standalone.c
-===================================================================
---- v2.6.8.orig/net/ipv4/netfilter/ip_conntrack_standalone.c
-+++ v2.6.8/net/ipv4/netfilter/ip_conntrack_standalone.c
-@@ -562,6 +562,8 @@ static int init_or_cleanup(int init)
- 	nf_unregister_hook(&ip_conntrack_defrag_local_out_ops);
-  cleanup_defragops:
- 	nf_unregister_hook(&ip_conntrack_defrag_ops);
-+	/* Frag queues may hold fragments with skb->dst == NULL */
-+	ipfrag_flush();
-  cleanup_proc:
- 	proc_net_remove("ip_conntrack");
-  cleanup_init:
-
---3V7upXqbjpZ4EhLz--
+Glen Turner         Tel: (08) 8303 3936 or +61 8 8303 3936
+Australian Academic & Research Network   www.aarnet.edu.au
