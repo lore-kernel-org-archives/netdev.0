@@ -1,42 +1,33 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
-Date: Tue, 21 Dec 2004 13:27:37 -0800
-Message-ID: <20041221212737.GK5974@waste.org>
-References: <20041217215752.GP2767@waste.org> <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com> <20041220211419.GC5974@waste.org> <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com> <20041221204853.GA20869@electric-eye.fr.zoreil.com>
+From: Andrea G Forte <andreaf@cs.columbia.edu>
+Subject: Very slow change of IP in kernel (slow socket?).
+Date: Tue, 21 Dec 2004 16:29:58 -0500
+Message-ID: <41C895D6.2040001@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Broadbent <markb@wetlettuce.com>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261796AbULUV2L@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20041221204853.GA20869@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 21, 2004 at 09:48:53PM +0100, Francois Romieu wrote:
-> Mark Broadbent <markb@wetlettuce.com> :
-> [...]
-> > Using the patch supplied I get no hang, just the message 'netconsole
-> > raced' output to the console and the packet capture proceeds as normal.
-> > Thanks
-> 
-> The patch is more a bandaid for debugging than a real fix. The netconsole
-> will drop some messages until its locking is fixed
+Hi all,
 
-Unfortunately there's no good way to fix its locking in this
-circumstance (or the harder case of driver-private locks). I think
-I'll just have to come up with some scheme for queueing messages that
-arrive when the queue lock is held.
+after some talking I decided to try again and post a specific thread for 
+this problem.
+I noticed that when I change IP address for the same wireless card 
+(since I am moving to a different subnet I need a new IP), the actual 
+change in the kernel happens between 300 to 500 ms later. In particular, 
+after changing the IP (ip route add...) and updating route table and 
+default gw, the actual data packets are sent using the new IP only after 
+300 to 500 ms after setting all the above.
+Does anyone of you know what this could be related to? Or, does anyone 
+of you know where in the kernel code I could start looking for some answers?
+I have already had some feedback with suggestions to look into the 
+route_cache, however this does not seem to me as a route problem but 
+more as a socket problem and perhaps some kind of timer that is set to 
+refresh the socket info in the kernel.
 
-> If you can issue one more test, I'd like to know if some messages appear
-> on the VGA console around the time at which tcpdump is started (the test
-> assumes that netconsole is not used/insmoded at all). Please check that
-> the console log_level is set high enough as it will be really disappointing
-> if nothing appears :o)
+Any help would be really appreciated.
 
-I think it's the promiscuous mode message itself that's the problem
-but I've not had time to reproduce it.
-
--- 
-Mathematics is the supreme nostalgia of our time.
+Thanks all,
+Andrea
