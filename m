@@ -1,52 +1,55 @@
-From: Dan Aloni <da-x@gmx.net>
-Subject: Re: [PATCH] network device renaming sysfs fix
-Date: Fri, 15 Aug 2003 14:45:07 +0300
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
+Date: Fri, 15 Aug 2003 15:28:13 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030815114507.GA5929@callisto.yi.org>
-References: <E791C176A6139242A988ABA8B3D9B38A014C949E@hasmsx403.iil.intel.com>
+Message-ID: <20030815142813.GB16560@mail.jlokier.co.uk>
+References: <3F16A0E5.1080007@hipac.org> <1059934468.1103.41.camel@jzny.localdomain> <3F2E5CD6.4030500@hipac.org> <1060012260.1103.380.camel@jzny.localdomain> <3F302E04.1090503@hipac.org> <1060286331.1025.73.camel@jzny.localdomain> <3F381B3E.6080807@hipac.org> <20030811224050.59bc36fe.davem@redhat.com> <20030812142913.GB18802@mail.jlokier.co.uk> <3F390A23.3050409@hipac.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Linux Net-Dev <netdev@oss.sgi.com>, "David S. Miller" <davem@redhat.com>,
-   Mark Huth <mhuth@mvista.com>
+Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Hen, Shmulik" <shmulik.hen@intel.com>
+To: Michael Bellion and Thomas Heinz <nf@hipac.org>
 Content-Disposition: inline
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A014C949E@hasmsx403.iil.intel.com>
+In-Reply-To: <3F390A23.3050409@hipac.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 15, 2003 at 02:36:27PM +0300, Hen, Shmulik wrote:
-> > -----Original Message-----
-> > From: Dan Aloni [mailto:da-x@gmx.net]
-> > Sent: Friday, August 15, 2003 2:15 PM
-> > To: Linux Net-Dev
-> > Cc: David S. Miller; Mark Huth
-> > Subject: [PATCH] network device renaming sysfs fix
-> > 
-> > 
-> > (repost, now will hopefully reach the mailing list)
-> > 
-> > I believe this is a better approach for fixing the sysfs renaming
-> > discrepancy. Later I'll also look into fixing the same issue 
-> > with sysctl.
-> > 
-> > 
-> > -- 
-> > Dan Aloni
-> > da-x@gmx.net
-> > 
-> > 
+Michael Bellion and Thomas Heinz wrote:
+> >This generalises to multiple dimensions e.g. for doing multiple
+> >prefixes on source+target + different combinations of other bits such
+> >as protocol, TOS etc. - i.e. arbitrary bit-subset classifiers.  The
+> >basic principle and the algorithm are the same.
 > 
-> In general, it a similar thing applicable for proc fs too ?
-> We just had to fix something like that in bonding, and
-> it sounds odd each driver should handle this on it's own.
+> Hm, how do you want to solve the d-dimensional PCP by
+> doing binary search for each dimension? Remember that
+> PCP is not related to longest prefix matching. Instead
+> priorities are used.
 
-It is more complicated. procfs's interface to sysctl is optional -
-thus sysctl's interfaces hide procfs from you. Fixing this require 
-changes in sysctl itself, and most probably also in the networking 
-code, because network devices' sysctls are not exposed in the 
-net/dev/core.c level.
+I don't know what you mean by "PCP", so can't answer the question.
 
--- 
-Dan Aloni
-da-x@gmx.net
+> Maybe you should describe in little more detail what you mean
+> by "This generalises to multiple dimensions ...".
+
+I mean that the lookup algorithm works for multi-dimensional searches.
+Creating the search tree can be a little more involved, and I am not
+sure how much (if any) node duplication is needed when some kinds of
+rule priorities are used.
+
+It may help to say that you don't have to do binary search for each
+dimension separately, although that is a possible strategy for prefix
+matching.
+
+You can build a tree where each node represents a point (a,b,c...) in
+prefix-length space, and whose children are other points in that
+space, if you choose to see the general problem as matching multiple
+prefixes.
+
+At one extreme, a general bit matcher (i.e. no non-power-of-2
+numerical ranges) can be treated as a multi-dimensional prefix match
+where each prefix is length 0 or 1.  You see that, if the input rule
+set is _equivalent_ to a longest-prefix single-dimensional rule set,
+the optimal multi-dimensional search tree is trivally found and it
+does not do binary search on each dimension separately.
+
+-- Jamie
