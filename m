@@ -1,42 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] bridge deadlock on device removal
-Date: Mon, 6 Sep 2004 05:15:23 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040906051523.16e6a431@linux.site>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH] remove iph5526 driver
+Date: Mon, 6 Sep 2004 19:22:55 +0200
+Sender: linux-scsi-owner@vger.kernel.org
+Message-ID: <20040906172255.GA24194@lst.de>
+References: <20040906101014.GA17597@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: David Miller <davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-scsi-owner@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-scsi@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <20040906101014.GA17597@lst.de>
 List-Id: netdev.vger.kernel.org
 
-Fixes: https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=131569
-Dead lock in bridge when removing device interface module. br_del_if
-assumes br->lock not held.
+On Mon, Sep 06, 2004 at 12:10:14PM +0200, Christoph Hellwig wrote:
+> This driver is for totally obsolete early fibrechannel hardware and
+> doesn't compile anymore since early 2.5.x.  In addition it'll require
+> a major rewrite to fit into the current framework for fc drivers.
 
-This fixes case of:
-	brctl addbr b0
-	brctl addif b0 eth0
-	rmmod eth0
+In addition this makefile fixup is needed to build with CONFIG_NET_FC:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-diff -Nru a/net/bridge/br_notify.c b/net/bridge/br_notify.c
---- a/net/bridge/br_notify.c	2004-09-06 04:45:31 -07:00
-+++ b/net/bridge/br_notify.c	2004-09-06 04:45:31 -07:00
-@@ -76,10 +76,12 @@
- 		break;
+--- 1.86/drivers/net/Makefile	2004-08-22 22:57:31 +02:00
++++ edited/drivers/net/Makefile	2004-09-06 19:06:10 +02:00
+@@ -184,7 +184,6 @@
+ obj-$(CONFIG_FEC_8XX) += fec_8xx/
  
- 	case NETDEV_UNREGISTER:
-+		spin_unlock_bh(&br->lock);
- 		br_del_if(br, dev);
--		break;
-+		goto done;
- 	} 
- 	spin_unlock_bh(&br->lock);
- 
-+ done:
- 	return NOTIFY_DONE;
- }
+ obj-$(CONFIG_ARM) += arm/
+-obj-$(CONFIG_NET_FC) += fc/
+ obj-$(CONFIG_DEV_APPLETALK) += appletalk/
+ obj-$(CONFIG_TR) += tokenring/
+ obj-$(CONFIG_WAN) += wan/
