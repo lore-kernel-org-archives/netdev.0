@@ -1,126 +1,73 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [NETLINK] introduce netlink bucket
-Date: Sun, 21 Nov 2004 23:24:35 +0100
-Message-ID: <41A115A3.3020509@eurodev.net>
-References: <4187FF18.5050608@eurodev.net> <20041103154833.164e33f5.davem@davemloft.net>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: driver ability to use iptables?
+Date: Sun, 21 Nov 2004 20:15:48 +0100
+Message-ID: <20041121191548.GE4009@obroa-skai.de.gnumonks.org>
+References: <4198A1CE.7040905@syncro-community.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------070806010308000800010700"
-Cc: netdev@oss.sgi.com, davem@redhat.com, herbert@gondor.apana.org.au
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="wTWi5aaYRw9ix9vO"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041103154833.164e33f5.davem@davemloft.net>
+To: Hendrik Wiese <7.e.Q@syncro-community.de>
+Content-Disposition: inline
+In-Reply-To: <4198A1CE.7040905@syncro-community.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070806010308000800010700
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-David S. Miller wrote:
+--wTWi5aaYRw9ix9vO
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->On Tue, 02 Nov 2004 22:41:44 +0100
->Pablo Neira <pablo@eurodev.net> wrote:
->
->  
->
->>This patch introduces the netlink bucket struct, it joins three arrays 
->>into an array of netlink bucket.
->>
->>Signed-off-by: Pablo Neira Ayuso <pablo@eurodev.net>
->>    
->>
->
->Here is the work Herbert and I were talking about.  It kind
->of makes your patch taken care of already :-)
->  
->
+On Mon, Nov 15, 2004 at 01:32:14PM +0100, Hendrik Wiese wrote:
+> Hello there,
+>=20
+> I hope I do right posting this here. So please don't be angry if I'm=20
+> wrong. I'm kind of newbie.
 
-Move netlink_kernel and nl_nonroot arrays to nl_table structure. Do you 
-like it?
+There is a netfilter-devel@lists.netfilter.org lists for
+iptables/netfilter related questions.  But I think netdev is quite ok in
+this case, since at this time it is unclear (and I think very unlikely)
+to be a netfilter/iptables issue.
 
---
-Pablo
+> as soon as we want to use iptables to establish one of the modules as a=
+=20
+> router to the outer world (tp network connected via front panel eth
+> device) this doesn't work...=20
 
---------------070806010308000800010700
-Content-Type: text/plain;
- name="X"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="X"
+_please_ give us more detailed descriptions than "doesn't work".
 
-===== net/netlink/af_netlink.c 1.62 vs edited =====
---- 1.62/net/netlink/af_netlink.c	2004-11-15 23:57:51 +01:00
-+++ edited/net/netlink/af_netlink.c	2004-11-21 20:43:06 +01:00
-@@ -91,16 +91,15 @@
- struct netlink_table {
- 	struct nl_pid_hash hash;
- 	struct hlist_head mc_list;
-+	unsigned int nl_nonroot;
-+#ifdef NL_EMULATE_DEV
-+	struct socket *netlink_kernel;
-+#endif
- };
- 
- static struct netlink_table *nl_table;
- 
- static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
--static unsigned int nl_nonroot[MAX_LINKS];
--
--#ifdef NL_EMULATE_DEV
--static struct socket *netlink_kernel[MAX_LINKS];
--#endif
- 
- static int netlink_dump(struct sock *sk);
- static void netlink_destroy_callback(struct netlink_callback *cb);
-@@ -442,7 +441,7 @@
- 
- static inline int netlink_capable(struct socket *sock, unsigned int flag) 
- { 
--	return (nl_nonroot[sock->sk->sk_protocol] & flag) ||
-+	return (nl_table[sock->sk->sk_protocol].nl_nonroot & flag) ||
- 	       capable(CAP_NET_ADMIN);
- } 
- 
-@@ -1066,7 +1065,7 @@
- void netlink_set_nonroot(int protocol, unsigned int flags)
- { 
- 	if ((unsigned int)protocol < MAX_LINKS) 
--		nl_nonroot[protocol] = flags;
-+		nl_table[protocol].nl_nonroot = flags;
- } 
- 
- static void netlink_destroy_callback(struct netlink_callback *cb)
-@@ -1217,7 +1216,7 @@
- 		return -ENOBUFS;
- 	nlk_sk(sk)->handler = function;
- 	write_lock_bh(&nl_emu_lock);
--	netlink_kernel[unit] = sk->sk_socket;
-+	nl_table[unit].netlink_kernel = sk->sk_socket;
- 	write_unlock_bh(&nl_emu_lock);
- 	return 0;
- }
-@@ -1227,8 +1226,8 @@
- 	struct socket *sock;
- 
- 	write_lock_bh(&nl_emu_lock);
--	sock = netlink_kernel[unit];
--	netlink_kernel[unit] = NULL;
-+	sock = nl_table[unit].netlink_kernel;
-+	nl_table[unit].netlink_kernel = NULL;
- 	write_unlock_bh(&nl_emu_lock);
- 
- 	sock_release(sock);
-@@ -1239,7 +1238,7 @@
- 	struct socket *sock;
- 
- 	read_lock(&nl_emu_lock);
--	sock = netlink_kernel[unit];
-+	sock = nl_table[unit].netlink_kernel;
- 	if (sock) {
- 		struct sock *sk = sock->sk;
- 		memset(skb->cb, 0, sizeof(skb->cb));
+> correctly as it works for to eth devices. Is there any ability else a
+> network device driver must have to work with iptables?
 
---------------070806010308000800010700--
+no, as iptables is based on netfilter IPv4 hooks which are embedded into
+the IPv4 stack.  Between your driver and iptables is the ipv4 stack and
+the generic networking core.  There is no driver/iptables interface at
+all.
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--wTWi5aaYRw9ix9vO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBoOljXaXGVTD0i/8RAm5dAKCOs8MrdFv+Ib2U6qr9drAGath8JwCeJCKr
+ohq0yBrFrkR1aF+x63lCBIo=
+=mA4e
+-----END PGP SIGNATURE-----
+
+--wTWi5aaYRw9ix9vO--
