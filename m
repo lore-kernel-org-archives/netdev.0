@@ -1,67 +1,261 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH,RFC] explicit connection confirmation
-Date: Mon, 25 Aug 2003 13:09:03 +0200
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH 2.6.0-test4][ATM][RESEND] fix ambassador.c
+Date: Mon, 25 Aug 2003 08:22:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030825110903.GA17715@sunbeam.de.gnumonks.org>
-References: <20021107093207.GA30666@gnu.org> <20030814131156.GA21892@gnu.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="oyUTqETQ0mS9luUI"
-Cc: netdev@oss.sgi.com
+Message-ID: <200308251222.h7PCM3sG003428@ginger.cmf.nrl.navy.mil>
+References: <davem@redhat.com>
+Reply-To: chas3@users.sourceforge.net
+Cc: Vinay K Nallamothu <vinay-rc@naturesoft.net>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <20030814131156.GA21892@gnu.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: Message from "David S. Miller" <davem@redhat.com>
+   of "Sun, 24 Aug 2003 03:46:37 PDT." <20030824034637.522fdeb3.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In message <20030824034637.522fdeb3.davem@redhat.com>,"David S. Miller" writes:
+>Please make sure to send this to the ATM maintainer.  He's very
+>responsible so I only take significant ATM patches that come through
 
---oyUTqETQ0mS9luUI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+responsible perhaps but slow.  anyway the changes seem fine.  del_timer
+during module exit should probably be del_timer_sync so i have included
+that as a seperate patch.
 
-On Thu, Aug 14, 2003 at 09:11:56AM -0400, Lennert Buytenhek wrote:
-> Hi,
->=20
-> Below is the original email I sent to netdev about nine months ago
-> announcing selective connection acceptance support for TCP sockets.
-> I have forward-ported the 2.4.18 patch to 2.6.0-test2, included below.
-> No functional changes have been made.
+[atm]: [ambassador] clean up the code making use of sti/cli (from vinay-rc@naturesoft.net)
 
-That is great!  Thanks for not forgetting about this issue.
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1281  -> 1.1282 
+#	drivers/atm/ambassador.c	1.14    -> 1.15   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/08/25	chas@relax.cmf.nrl.navy.mil	1.1282
+# [ambassador] clean up the code making use of sti/cli (from vinay-rc@naturesoft.net)
+# --------------------------------------------
+#
+diff -Nru a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+--- a/drivers/atm/ambassador.c	Mon Aug 25 08:12:53 2003
++++ b/drivers/atm/ambassador.c	Mon Aug 25 08:12:53 2003
+@@ -310,10 +310,11 @@
+   0xdeadbeef
+ };
+ 
++static void do_housekeeping (unsigned long arg);
+ /********** globals **********/
+ 
+ static amb_dev * amb_devs = NULL;
+-static struct timer_list housekeeping;
++static struct timer_list housekeeping = TIMER_INITIALIZER(do_housekeeping, 0, 1);
+ 
+ static unsigned short debug = 0;
+ static unsigned int cmds = 8;
+@@ -937,63 +938,6 @@
+   return IRQ_HANDLED;
+ }
+ 
+-/********** don't panic... yeah, right **********/
+-
+-#ifdef DEBUG_AMBASSADOR
+-static void dont_panic (amb_dev * dev) {
+-  amb_cq * cq = &dev->cq;
+-  volatile amb_cq_ptrs * ptrs = &cq->ptrs;
+-  amb_txq * txq;
+-  amb_rxq * rxq;
+-  command * cmd;
+-  tx_in * tx;
+-  tx_simple * tx_descr;
+-  unsigned char pool;
+-  rx_in * rx;
+-  
+-  unsigned long flags;
+-  save_flags (flags);
+-  cli();
+-  
+-  PRINTK (KERN_INFO, "don't panic - putting adapter into reset");
+-  wr_plain (dev, offsetof(amb_mem, reset_control),
+-	    rd_plain (dev, offsetof(amb_mem, reset_control)) | AMB_RESET_BITS);
+-  
+-  PRINTK (KERN_INFO, "marking all commands complete");
+-  for (cmd = ptrs->start; cmd < ptrs->limit; ++cmd)
+-    cmd->request = cpu_to_be32 (SRB_COMPLETE);
+-
+-  PRINTK (KERN_INFO, "completing all TXs");
+-  txq = &dev->txq;
+-  tx = txq->in.ptr;
+-  while (txq->pending--) {
+-    if (tx == txq->in.start)
+-      tx = txq->in.limit;
+-    --tx;
+-    tx_descr = bus_to_virt (be32_to_cpu (tx->tx_descr_addr));
+-    amb_kfree_skb (tx_descr->skb);
+-    kfree (tx_descr);
+-  }
+-  
+-  PRINTK (KERN_INFO, "freeing all RX buffers");
+-  for (pool = 0; pool < NUM_RX_POOLS; ++pool) {
+-    rxq = &dev->rxq[pool];
+-    rx = rxq->in.ptr;
+-    while (rxq->pending--) {
+-      if (rx == rxq->in.start)
+-	rx = rxq->in.limit;
+-      --rx;
+-      dev_kfree_skb_any (bus_to_virt (rx->handle));
+-    }
+-  }
+-  
+-  PRINTK (KERN_INFO, "don't panic over - close all VCs and rmmod");
+-  set_bit (dead, &dev->flags);
+-  restore_flags (flags);
+-  return;
+-}
+-#endif
+-
+ /********** make rate (not quite as much fun as Horizon) **********/
+ 
+ static unsigned int make_rate (unsigned int rate, rounding r,
+@@ -1420,32 +1364,6 @@
+   return;
+ }
+ 
+-/********** DebugIoctl **********/
+-
+-#if 0
+-static int amb_ioctl (struct atm_dev * dev, unsigned int cmd, void * arg) {
+-  unsigned short newdebug;
+-  if (cmd == AMB_SETDEBUG) {
+-    if (!capable(CAP_NET_ADMIN))
+-      return -EPERM;
+-    if (copy_from_user (&newdebug, arg, sizeof(newdebug))) {
+-      // moan
+-      return -EFAULT;
+-    } else {
+-      debug = newdebug;
+-      return 0;
+-    }
+-  } else if (cmd == AMB_DONTPANIC) {
+-    if (!capable(CAP_NET_ADMIN))
+-      return -EPERM;
+-    dont_panic (dev);
+-  } else {
+-    // moan
+-    return -ENOIOCTLCMD;
+-  }
+-}
+-#endif
+-
+ /********** Set socket options for a VC **********/
+ 
+ // int amb_getsockopt (struct atm_vcc * atm_vcc, int level, int optname, void * optval, int optlen);
+@@ -1524,33 +1442,6 @@
+   tx.tx_descr_length = cpu_to_be16 (sizeof(tx_frag)+sizeof(tx_frag_end));
+   tx.tx_descr_addr = cpu_to_be32 (virt_to_bus (&tx_descr->tx_frag));
+   
+-#ifdef DEBUG_AMBASSADOR
+-  /* wey-hey! */
+-  if (vc == 1023) {
+-    unsigned int i;
+-    unsigned short d = 0;
+-    char * s = skb->data;
+-    switch (*s++) {
+-      case 'D': {
+-	for (i = 0; i < 4; ++i) {
+-	  d = (d<<4) | ((*s <= '9') ? (*s - '0') : (*s - 'a' + 10));
+-	  ++s;
+-	}
+-	PRINTK (KERN_INFO, "debug bitmap is now %hx", debug = d);
+-	break;
+-      }
+-      case 'R': {
+-	if (*s++ == 'e' && *s++ == 's' && *s++ == 'e' && *s++ == 't')
+-	  dont_panic (dev);
+-	break;
+-      }
+-      default: {
+-	break;
+-      }
+-    }
+-  }
+-#endif
+-  
+   while (tx_give (dev, &tx))
+     schedule();
+   return 0;
+@@ -1663,21 +1554,14 @@
+ /********** Operation Structure **********/
+ 
+ static const struct atmdev_ops amb_ops = {
+-  .open	= amb_open,
++  .open         = amb_open,
+   .close	= amb_close,
+-  .send	= amb_send,
++  .send         = amb_send,
+   .proc_read	= amb_proc_read,
+   .owner	= THIS_MODULE,
+ };
+ 
+ /********** housekeeping **********/
+-
+-static inline void set_timer (struct timer_list * timer, unsigned long delay) {
+-  timer->expires = jiffies + delay;
+-  add_timer (timer);
+-  return;
+-}
+-
+ static void do_housekeeping (unsigned long arg) {
+   amb_dev * dev = amb_devs;
+   // data is set to zero at module unload
+@@ -1693,7 +1577,7 @@
+       
+       dev = dev->prev;
+     }
+-    set_timer (&housekeeping, 10*HZ);
++    mod_timer(&housekeeping, jiffies + 10*HZ);
+   }
+   
+   return;
+@@ -2579,11 +2463,7 @@
+   devs = amb_probe();
+   
+   if (devs) {
+-    init_timer (&housekeeping);
+-    housekeeping.function = do_housekeeping;
+-    // paranoia
+-    housekeeping.data = 1;
+-    set_timer (&housekeeping, 0);
++    mod_timer (&housekeeping, jiffies);
+   } else {
+     PRINTK (KERN_INFO, "no (usable) adapters found");
+   }
 
-I think this feature would really be great to develop _really_
-transparent proxies.
 
-> Could someone have a look at it?
+[atm]: [ambassador] use del_timer_sync instead
 
-I'm not a core networking guy, but it looks fine to me.
-
-Dave, Andi, Alexey, James: Would this be a candidate for kernel
-inclusion at some point?
-
-> Lennert
-
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---oyUTqETQ0mS9luUI
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQE/Se5PXaXGVTD0i/8RAnsnAKCD+2JPd5DJOUBY6xOtjWROd4rpMgCeO1dB
-j9lZUVR/McLciqfBaKkoT34=
-=MakQ
------END PGP SIGNATURE-----
-
---oyUTqETQ0mS9luUI--
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1282  -> 1.1283 
+#	drivers/atm/ambassador.c	1.15    -> 1.16   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/08/25	chas@relax.cmf.nrl.navy.mil	1.1283
+# [ambassador] use del_timer_sync instead
+# --------------------------------------------
+#
+diff -Nru a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+--- a/drivers/atm/ambassador.c	Mon Aug 25 08:13:04 2003
++++ b/drivers/atm/ambassador.c	Mon Aug 25 08:13:04 2003
+@@ -2480,7 +2480,7 @@
+   
+   // paranoia
+   housekeeping.data = 0;
+-  del_timer (&housekeeping);
++  del_timer_sync(&housekeeping);
+   
+   while (amb_devs) {
+     dev = amb_devs;
