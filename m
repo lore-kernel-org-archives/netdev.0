@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (8/8) pc300_tty cleanup.
-Date: Tue, 2 Dec 2003 14:00:43 -0800
+Subject: [PATCH] (4//8) dscc4 convert to new hdlc_device
+Date: Tue, 2 Dec 2003 13:58:46 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202140043.4da79ac3.shemminger@osdl.org>
+Message-ID: <20031202135846.28a93010.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -16,224 +16,330 @@ List-Id: netdev.vger.kernel.org
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1500  -> 1.1501 
-#	drivers/net/wan/pc300_tty.c	1.14    -> 1.15   
+#	           ChangeSet	1.1493  -> 1.1494 
+#	drivers/net/wan/dscc4.c	1.51    -> 1.52   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/12/01	shemminger@osdl.org	1.1501
-# * make local variables static
-# * initialize tty_driver struct at compile time
-# * don't expect net_device to be first in pc300 struct
-# * don't depend on name being hdlcX
+# 03/11/26	shemminger@osdl.org	1.1494
+# Convert to work with hdlc_device that is not embedded.
+# Use list macros for list of ports on card.
 # --------------------------------------------
 #
-diff -Nru a/drivers/net/wan/pc300_tty.c b/drivers/net/wan/pc300_tty.c
---- a/drivers/net/wan/pc300_tty.c	Tue Dec  2 13:55:55 2003
-+++ b/drivers/net/wan/pc300_tty.c	Tue Dec  2 13:55:55 2003
-@@ -102,20 +102,17 @@
- 	volatile struct st_cpc_rx_list buf_rx;	/* ptr. to reception buffer */
- 	unsigned char*	buf_tx;		/* ptr. to transmission buffer */
- 	pc300dev_t*	pc300dev;	/* ptr. to info struct in PC300 driver */
--	unsigned char	name[20];	/* interf. name + "-tty" */
-+	unsigned char	name[IFNAMSIZ+6]; /* interf. name + "-tty" */
- 	struct tty_struct *tty;		
- 	struct work_struct tty_tx_work; /* tx work - tx interrupt */
- 	struct work_struct tty_rx_work; /* rx work - rx interrupt */
- 	} st_cpc_tty_area;
+diff -Nru a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+--- a/drivers/net/wan/dscc4.c	Wed Nov 26 12:30:13 2003
++++ b/drivers/net/wan/dscc4.c	Wed Nov 26 12:30:13 2003
+@@ -185,12 +185,14 @@
+         spinlock_t lock;
+         struct pci_dev *pdev;
  
--/* TTY data structures */
--static struct tty_driver serial_drv;
--
- /* local variables */
--st_cpc_tty_area	cpc_tty_area[CPC_TTY_NPORTS];
-+static st_cpc_tty_area	cpc_tty_area[CPC_TTY_NPORTS];
+-        struct dscc4_dev_priv *root;
++	struct list_head devs;
+         dma_addr_t iqcfg_dma;
+ 	u32 xtal_hz;
+ };
  
--int cpc_tty_cnt=0;	/* number of intrfaces configured with MLPPP */
--int cpc_tty_unreg_flag = 0;
-+static int cpc_tty_cnt=0;	/* number of intrfaces configured with MLPPP */
-+static int cpc_tty_unreg_flag = 0;
+ struct dscc4_dev_priv {
++	struct list_head dev_list;
++
+         struct sk_buff *rx_skbuff[RX_RING_SIZE];
+         struct sk_buff *tx_skbuff[TX_RING_SIZE];
  
- /* TTY functions prototype */
- static int cpc_tty_open(struct tty_struct *tty, struct file *flip);
-@@ -152,8 +149,8 @@
- 	int ch = pc300chan->channel; 
- 	unsigned long flags; 
+@@ -228,7 +230,7 @@
  
--	CPC_TTY_DBG("%s-tty: Clear signal DTR\n",
--		((struct net_device*)(pc300dev->hdlc))->name);
-+	CPC_TTY_DBG("%s-tty: Clear signal DTR\n", 
-+		    pc300dev->hdlc->netdev->name);
- 	CPC_TTY_LOCK(card, flags); 
- 	cpc_writeb(card->hw.scabase + M_REG(CTL,ch), 
- 		cpc_readb(card->hw.scabase+M_REG(CTL,ch))& CTL_DTR); 
-@@ -171,13 +168,34 @@
- 	unsigned long flags; 
+ 	unsigned short encoding;
+ 	unsigned short parity;
+-	hdlc_device hdlc;
++	hdlc_device *hdlc;
+ 	sync_serial_settings settings;
+ 	u32 __pad __attribute__ ((aligned (4)));
+ };
+@@ -371,9 +373,17 @@
+ static int dscc4_tx_poll(struct dscc4_dev_priv *, struct net_device *);
+ #endif
  
- 	CPC_TTY_DBG("%s-tty: Set signal DTR\n",
--		((struct net_device*)(pc300dev->hdlc))->name);
-+		    pc300dev->hdlc->netdev->name);
- 	CPC_TTY_LOCK(card, flags); 
- 	cpc_writeb(card->hw.scabase + M_REG(CTL,ch), 
- 		cpc_readb(card->hw.scabase+M_REG(CTL,ch))& ~CTL_DTR); 
- 	CPC_TTY_UNLOCK(card,flags); 
++static inline struct dscc4_dev_priv *dscc4_root_priv(struct dscc4_pci_priv *ppriv)
++{
++	struct list_head *first = ppriv->devs.next;
++
++	return (first == &ppriv->devs) ? NULL 
++		: list_entry(first, struct dscc4_dev_priv, dev_list);
++}
++
+ static inline struct dscc4_dev_priv *dscc4_priv(struct net_device *dev)
+ {
+-	return list_entry(dev, struct dscc4_dev_priv, hdlc.netdev);
++	return dev_to_hdlc(dev)->dev_data;
  }
  
-+static struct tty_driver serial_drv = {
-+	.magic = TTY_DRIVER_MAGIC,
-+	.owner = THIS_MODULE,
-+	.driver_name = "pc300_tty",
-+	.name = "ttyCP",
-+	.major = CPC_TTY_MAJOR,
-+	.minor_start = CPC_TTY_MINOR_START,
-+	.num = CPC_TTY_NPORTS,
-+	.type = TTY_DRIVER_TYPE_SERIAL,
-+	.subtype = SERIAL_TYPE_NORMAL,
-+	.flags = TTY_DRIVER_REAL_RAW,
-+	.open = cpc_tty_open,
-+	.close = cpc_tty_close,
-+	.write = cpc_tty_write, 
-+	.write_room = cpc_tty_write_room, 
-+	.chars_in_buffer = cpc_tty_chars_in_buffer, 
-+	.ioctl = cpc_tty_ioctl, 
-+	.flush_buffer = cpc_tty_flush_buffer, 
-+	.hangup = cpc_tty_hangup,
-+};
-+
- /*
-  * PC300 TTY initialization routine
-  *
-@@ -190,48 +208,26 @@
-  */
- void cpc_tty_init(pc300dev_t *pc300dev)
+ static void scc_patchl(u32 mask, u32 value, struct dscc4_dev_priv *dpriv,
+@@ -636,7 +646,7 @@
+ 				struct net_device *dev)
  {
--	int port, aux;
-+	struct net_device *dev = pc300dev->hdlc->netdev;
-+	unsigned port;
- 	st_cpc_tty_area * cpc_tty;
+ 	struct RxFD *rx_fd = dpriv->rx_fd + dpriv->rx_current%RX_RING_SIZE;
+-	struct net_device_stats *stats = &dpriv->hdlc.stats;
++	struct net_device_stats *stats = &dpriv->hdlc->stats;
+ 	struct pci_dev *pdev = dpriv->pci_priv->pdev;
+ 	struct sk_buff *skb;
+ 	int pkt_len;
+@@ -681,19 +691,16 @@
  
- 	/* hdlcX - X=interface number */
--	port = ((struct net_device*)(pc300dev->hdlc))->name[4] - '0';
--	if (port >= CPC_TTY_NPORTS) {
-+	if (sscanf(dev->name, "hdlc%u", &port) != 1
-+	    || port >= CPC_TTY_NPORTS) {
- 		printk("%s-tty: invalid interface selected (0-%i): %i", 
--			((struct net_device*)(pc300dev->hdlc))->name,
--			CPC_TTY_NPORTS-1,port);
-+		       dev->name, CPC_TTY_NPORTS-1,port);
- 		return;
- 	}
+ static void dscc4_free1(struct pci_dev *pdev)
+ {
+-	struct dscc4_pci_priv *ppriv;
+-	struct dscc4_dev_priv *root;
+-	int i;
++	struct dscc4_pci_priv *ppriv = pci_get_drvdata(pdev);
++	struct dscc4_dev_priv *dpriv, *dnext;
  
- 	if (cpc_tty_cnt == 0) { /* first TTY connection -> register driver */
- 		CPC_TTY_DBG("%s-tty: driver init, major:%i, minor range:%i=%i\n",
--			((struct net_device*)(pc300dev->hdlc))->name,
--			CPC_TTY_MAJOR, CPC_TTY_MINOR_START,
--			CPC_TTY_MINOR_START+CPC_TTY_NPORTS);
--		/* initialize tty driver struct */
--		memset(&serial_drv,0,sizeof(struct tty_driver));
--		serial_drv.magic = TTY_DRIVER_MAGIC;
--		serial_drv.owner = THIS_MODULE;
--		serial_drv.driver_name = "pc300_tty";
--		serial_drv.name = "ttyCP";
--		serial_drv.major = CPC_TTY_MAJOR;
--		serial_drv.minor_start = CPC_TTY_MINOR_START;
--		serial_drv.num = CPC_TTY_NPORTS;
--		serial_drv.type = TTY_DRIVER_TYPE_SERIAL;
--		serial_drv.subtype = SERIAL_TYPE_NORMAL;
-+			    dev->name,
-+			    CPC_TTY_MAJOR, CPC_TTY_MINOR_START,
-+			    CPC_TTY_MINOR_START+CPC_TTY_NPORTS);
- 
- 		serial_drv.init_termios = tty_std_termios;
- 		serial_drv.init_termios.c_cflag = B9600|CS8|CREAD|HUPCL|CLOCAL;
--		serial_drv.flags = TTY_DRIVER_REAL_RAW;
+-	ppriv = pci_get_drvdata(pdev);
+-	root = ppriv->root;
 -
--		/* interface routines from the upper tty layer to the tty driver */
--		serial_drv.open = cpc_tty_open;
--		serial_drv.close = cpc_tty_close;
--		serial_drv.write = cpc_tty_write; 
--		serial_drv.write_room = cpc_tty_write_room; 
--		serial_drv.chars_in_buffer = cpc_tty_chars_in_buffer; 
--		serial_drv.ioctl = cpc_tty_ioctl; 
--		serial_drv.flush_buffer = cpc_tty_flush_buffer; 
--		serial_drv.hangup = cpc_tty_hangup;
+-	for (i = 0; i < dev_per_card; i++)
+-		unregister_hdlc_device(&root[i].hdlc);
++	list_for_each_entry_safe(dpriv, dnext, &ppriv->devs, dev_list) {
++		unregister_hdlc_device(dpriv->hdlc);
++		free_hdlc_device(dpriv->hdlc);
++	}
  
- 		/* register the TTY driver */
- 		if (tty_register_driver(&serial_drv)) { 
-@@ -241,7 +237,7 @@
- 		} 
+ 	pci_set_drvdata(pdev, NULL);
  
- 		memset((void *)cpc_tty_area, 0,
--								sizeof(st_cpc_tty_area) * CPC_TTY_NPORTS);
-+		       sizeof(st_cpc_tty_area) * CPC_TTY_NPORTS);
+-	kfree(root);
+ 	kfree(ppriv);
+ }
+ 
+@@ -704,7 +711,6 @@
+ 	struct dscc4_dev_priv *dpriv;
+ 	static int cards_found = 0;
+ 	unsigned long ioaddr;
+-	int i;
+ 
+ 	printk(KERN_DEBUG "%s", version);
+ 
+@@ -743,7 +749,8 @@
+ 
+ 	priv = (struct dscc4_pci_priv *)pci_get_drvdata(pdev);
+ 
+-	if (request_irq(pdev->irq, &dscc4_irq, SA_SHIRQ, DRV_NAME, priv->root)){
++	if (request_irq(pdev->irq, &dscc4_irq, SA_SHIRQ, DRV_NAME, 
++			dscc4_root_priv(priv))) {
+ 		printk(KERN_WARNING "%s: IRQ %d busy\n", DRV_NAME, pdev->irq);
+ 		goto err_out_free1;
+ 	}
+@@ -772,21 +779,19 @@
+ 	 * SCC 0-3 private rx/tx irq structures
+ 	 * IQRX/TXi needs to be set soon. Learned it the hard way...
+ 	 */
+-	for (i = 0; i < dev_per_card; i++) {
+-		dpriv = priv->root + i;
++	list_for_each_entry(dpriv, &priv->devs, dev_list) {
+ 		dpriv->iqtx = (u32 *) pci_alloc_consistent(pdev,
+ 			IRQ_RING_SIZE*sizeof(u32), &dpriv->iqtx_dma);
+ 		if (!dpriv->iqtx)
+ 			goto err_out_free_iqtx;
+-		writel(dpriv->iqtx_dma, ioaddr + IQTX0 + i*4);
++		writel(dpriv->iqtx_dma, ioaddr + IQTX0 + dpriv->dev_id*4);
+ 	}
+-	for (i = 0; i < dev_per_card; i++) {
+-		dpriv = priv->root + i;
++	list_for_each_entry(dpriv, &priv->devs, dev_list) {
+ 		dpriv->iqrx = (u32 *) pci_alloc_consistent(pdev,
+ 			IRQ_RING_SIZE*sizeof(u32), &dpriv->iqrx_dma);
+ 		if (!dpriv->iqrx)
+ 			goto err_out_free_iqrx;
+-		writel(dpriv->iqrx_dma, ioaddr + IQRX0 + i*4);
++		writel(dpriv->iqrx_dma, ioaddr + IQRX0 + dpriv->dev_id*4);
  	}
  
- 	cpc_tty = &cpc_tty_area[port];
-@@ -265,11 +261,8 @@
+ 	/* Cf application hint. Beware of hard-lock condition on threshold. */
+@@ -804,22 +809,19 @@
+ 	return 0;
  
- 	pc300dev->cpc_tty = (void *)cpc_tty; 
- 	
--	aux = strlen(((struct net_device*)(pc300dev->hdlc))->name);
--	memcpy(cpc_tty->name,((struct net_device*)(pc300dev->hdlc))->name,aux);
--	memcpy(&cpc_tty->name[aux], "-tty", 5);
--	
--	cpc_open((struct net_device *)pc300dev->hdlc);
-+	snprintf(cpc_tty->name, sizeof(cpc_tty->name)-1, "%s-tty", dev->name);
-+	cpc_open(pc300dev->hdlc->netdev);
- 	cpc_tty_dtr_off(pc300dev);
- 
- 	CPC_TTY_DBG("%s: Initializing TTY Sync Driver, tty major#%d minor#%i\n",
-@@ -997,22 +990,23 @@
- static void cpc_tty_trace(pc300dev_t *dev, char* buf, int len, char rxtx)
+ err_out_free_iqrx:
+-	while (--i >= 0) {
+-		dpriv = priv->root + i;
++	list_for_each_entry(dpriv, &priv->devs, dev_list) {
+ 		pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32),
+ 				    dpriv->iqrx, dpriv->iqrx_dma);
+ 	}
+-	i = dev_per_card;
+ err_out_free_iqtx:
+-	while (--i >= 0) {
+-		dpriv = priv->root + i;
++	list_for_each_entry(dpriv, &priv->devs, dev_list) {
+ 		pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32),
+ 				    dpriv->iqtx, dpriv->iqtx_dma);
+ 	}
+ 	pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32), priv->iqcfg,
+ 			    priv->iqcfg_dma);
+ err_out_free_irq:
+-	free_irq(pdev->irq, priv->root);
++	free_irq(pdev->irq, dscc4_root_priv(priv));
+ err_out_free1:
+ 	dscc4_free1(pdev);
+ err_out_iounmap:
+@@ -863,29 +865,27 @@
+ static int dscc4_found1(struct pci_dev *pdev, unsigned long ioaddr)
  {
- 	struct sk_buff *skb; 
-+	struct net_device *netdev = dev->hdlc->netdev;
+ 	struct dscc4_pci_priv *ppriv;
+-	struct dscc4_dev_priv *root;
++	struct dscc4_dev_priv *dpriv, *dnext;
+ 	int i, ret = -ENOMEM;
  
- 	if ((skb = dev_alloc_skb(10 + len)) == NULL) { 
- 		/* out of memory */ 
- 		CPC_TTY_DBG("%s: tty_trace - out of memory\n",
--			((struct net_device *)(dev->hdlc))->name);
-+			    netdev->name);
- 		return; 
+-	root = (struct dscc4_dev_priv *)
+-		kmalloc(dev_per_card*sizeof(*root), GFP_KERNEL);
+-	if (!root) {
+-		printk(KERN_ERR "%s: can't allocate data\n", DRV_NAME);
+-		goto err_out;
+-	}
+-	memset(root, 0, dev_per_card*sizeof(*root));
+-
+ 	ppriv = (struct dscc4_pci_priv *) kmalloc(sizeof(*ppriv), GFP_KERNEL);
+ 	if (!ppriv) {
+ 		printk(KERN_ERR "%s: can't allocate private data\n", DRV_NAME);
+-		goto err_free_dev;
++		goto err_out;
  	}
+ 	memset(ppriv, 0, sizeof(struct dscc4_pci_priv));
++	INIT_LIST_HEAD(&ppriv->devs);
  
- 	skb_put (skb, 10 + len); 
--	skb->dev = (struct net_device *) dev->hdlc; 
-+	skb->dev = netdev;
- 	skb->protocol = htons(ETH_P_CUST); 
- 	skb->mac.raw = skb->data; 
- 	skb->pkt_type = PACKET_HOST; 
- 	skb->len = 10 + len; 
- 
--	memcpy(skb->data,((struct net_device *)(dev->hdlc))->name,5);
-+	memcpy(skb->data,netdev->name,5);
- 	skb->data[5] = '['; 
- 	skb->data[6] = rxtx; 
- 	skb->data[7] = ']'; 
-@@ -1035,14 +1029,14 @@
- 
- 	if ((cpc_tty= (st_cpc_tty_area *) pc300dev->cpc_tty) == 0) { 
- 		CPC_TTY_DBG("%s: interface is not TTY\n",
--			((struct net_device *)(pc300dev->hdlc))->name);
-+			pc300dev->hdlc->netdev->name);
- 		return; 
- 	}
- 	CPC_TTY_DBG("%s: cpc_tty_unregister_service", cpc_tty->name);
- 
- 	if (cpc_tty->pc300dev != pc300dev) { 
- 		CPC_TTY_DBG("%s: invalid tty ptr=%s\n", 
--		((struct net_device *)(pc300dev->hdlc))->name, cpc_tty->name);
-+			    pc300dev->hdlc->netdev->name, cpc_tty->name);
- 		return; 
- 	}
- 
-@@ -1091,8 +1085,7 @@
- 	int i ; 
- 
- 	CPC_TTY_DBG("hdlcX-tty: reset variables\n");
--	/* reset  the tty_driver structure - serial_drv */ 
--	memset(&serial_drv, 0, sizeof(struct tty_driver));
+ 	for (i = 0; i < dev_per_card; i++) {
+-		struct dscc4_dev_priv *dpriv = root + i;
+-		hdlc_device *hdlc = &dpriv->hdlc;
+-		struct net_device *d = hdlc_to_dev(hdlc);
++		hdlc_device *hdlc = alloc_hdlc_device(sizeof(*dpriv));
++		struct net_device *d;
 +
- 	for (i=0; i < CPC_TTY_NPORTS; i++){
- 		memset(&cpc_tty_area[i],0, sizeof(st_cpc_tty_area)); 
++		if (!hdlc) {
++			ret = -ENOMEM;
++			goto err_unregister;
++		}
+ 
++		d = hdlc_to_dev(hdlc);
+ 	        d->base_addr = ioaddr;
+ 		d->init = NULL;
+ 	        d->irq = pdev->irq;
+@@ -898,6 +898,8 @@
+ 		SET_MODULE_OWNER(d);
+ 		SET_NETDEV_DEV(d, &pdev->dev);
+ 
++		dpriv = dscc4_priv(d);
++		dpriv->hdlc = hdlc;
+ 		dpriv->dev_id = i;
+ 		dpriv->pci_priv = ppriv;
+ 		spin_lock_init(&dpriv->lock);
+@@ -920,23 +922,25 @@
+ 			unregister_hdlc_device(hdlc);
+ 			goto err_unregister;
+ 		}
++		list_add_tail(&dpriv->dev_list, &ppriv->devs);
  	}
+-	ret = dscc4_set_quartz(root, quartz);
++
++
++	ret = dscc4_set_quartz(dscc4_root_priv(ppriv), quartz);
+ 	if (ret < 0)
+ 		goto err_unregister;
+-	ppriv->root = root;
++
+ 	spin_lock_init(&ppriv->lock);
+ 	pci_set_drvdata(pdev, ppriv);
+ 	return ret;
+ 
+ err_unregister:
+-	while (--i >= 0) {
+-		dscc4_release_ring(root + i);
+-		unregister_hdlc_device(&root[i].hdlc);
++	list_for_each_entry_safe(dpriv, dnext, &ppriv->devs, dev_list) {
++		dscc4_release_ring(dpriv);
++		unregister_hdlc_device(dpriv->hdlc);
++		free_hdlc_device(dpriv->hdlc);
+ 	}
+ 	kfree(ppriv);
+-err_free_dev:
+-	kfree(root);
+ err_out:
+ 	return ret;
+ };
+@@ -964,7 +968,7 @@
+ 	sync_serial_settings *settings = &dpriv->settings;
+ 
+ 	if (settings->loopback && (settings->clock_type != CLOCK_INT)) {
+-		struct net_device *dev = hdlc_to_dev(&dpriv->hdlc);
++		struct net_device *dev = hdlc_to_dev(dpriv->hdlc);
+ 
+ 		printk(KERN_INFO "%s: loopback requires clock\n", dev->name);
+ 		return -1;
+@@ -1015,7 +1019,7 @@
+ static int dscc4_open(struct net_device *dev)
+ {
+ 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
+-	hdlc_device *hdlc = &dpriv->hdlc;
++	hdlc_device *hdlc = dpriv->hdlc;
+ 	struct dscc4_pci_priv *ppriv;
+ 	int ret = -EAGAIN;
+ 
+@@ -1467,7 +1471,7 @@
+ 	int i, handled = 1;
+ 
+ 	priv = root->pci_priv;
+-	dev = hdlc_to_dev(&root->hdlc);
++	dev = hdlc_to_dev(root->hdlc);
+ 
+ 	spin_lock_irqsave(&priv->lock, flags);
+ 
+@@ -1518,7 +1522,7 @@
+ static inline void dscc4_tx_irq(struct dscc4_pci_priv *ppriv,
+ 				struct dscc4_dev_priv *dpriv)
+ {
+-	struct net_device *dev = hdlc_to_dev(&dpriv->hdlc);
++	struct net_device *dev = hdlc_to_dev(dpriv->hdlc);
+ 	u32 state;
+ 	int cur, loop = 0;
+ 
+@@ -1549,7 +1553,7 @@
+ 
+ 	if (state & SccEvt) {
+ 		if (state & Alls) {
+-			struct net_device_stats *stats = &dpriv->hdlc.stats;
++			struct net_device_stats *stats = &dpriv->hdlc->stats;
+ 			struct sk_buff *skb;
+ 			struct TxFD *tx_fd;
+ 
+@@ -1687,7 +1691,7 @@
+ static inline void dscc4_rx_irq(struct dscc4_pci_priv *priv,
+ 				    struct dscc4_dev_priv *dpriv)
+ {
+-	struct net_device *dev = hdlc_to_dev(&dpriv->hdlc);
++	struct net_device *dev = hdlc_to_dev(dpriv->hdlc);
+ 	u32 state;
+ 	int cur;
+ 
+@@ -1954,23 +1958,21 @@
+ static void __devexit dscc4_remove_one(struct pci_dev *pdev)
+ {
+ 	struct dscc4_pci_priv *ppriv;
+-	struct dscc4_dev_priv *root;
++	struct dscc4_dev_priv *root,  *dpriv;
+ 	unsigned long ioaddr;
+-	int i;
+ 
+ 	ppriv = pci_get_drvdata(pdev);
+-	root = ppriv->root;
++	root = dscc4_root_priv(ppriv);
+ 
+-	ioaddr = hdlc_to_dev(&root->hdlc)->base_addr;
++	ioaddr = hdlc_to_dev(root->hdlc)->base_addr;
+ 
+ 	dscc4_pci_reset(pdev, ioaddr);
+ 
+ 	free_irq(pdev->irq, root);
+ 	pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32), ppriv->iqcfg,
+ 			    ppriv->iqcfg_dma);
+-	for (i = 0; i < dev_per_card; i++) {
+-		struct dscc4_dev_priv *dpriv = root + i;
+ 
++	list_for_each_entry(dpriv, &ppriv->devs, dev_list) {
+ 		dscc4_release_ring(dpriv);
+ 		pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32),
+ 				    dpriv->iqrx, dpriv->iqrx_dma);
