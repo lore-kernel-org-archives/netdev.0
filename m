@@ -1,123 +1,126 @@
-From: "Benson Cisse Traore" <bctraore@netscape.net>
-Subject: Partnership.
-Date: Tue, 22 Oct 2002 07:18:11
+From: Æú°ÕÆ® <kmg6165@hitel.net>
+Subject: =?ISO-8859-1?Q?(=B1=A4=B0=ED)=BD=C7=B3=BB=BF=A1?=
+	=?ISO-8859-1?Q?=B3=F5=BE=C6=B5=CE=B1=E2=B8=B8=20=C7=CF=B8=E9?=
+	=?ISO-8859-1?Q?6=B0=A1=C1=F6=20=C8=BF=B4=C9=C0=CC...?=
+Date: Tue, 22 Oct 2002 14:38:42 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210220518.g9M5IJuR024135@oss.sgi.com>
+Message-ID: <200210220543.g9M5hPuR025950@oss.sgi.com>
+Reply-To: kmg6165@hitel.net
 Mime-Version: 1.0
-Content-Type: text/plain;charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset="ks_c_5601-1987"
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dear Prospective Partner,
-
-=20
-
-However strange or surprising this contact might seem to you, I ask that =
-you give due consideration to its importance, as we both stand to benefit=
- immensely. Though we have not met or know each other, this is a criteria=
- I have used to select you, as I wish to cut off all ties with my people =
-for security and safety reasons.
-
-=20
-
-At this point I wish to introduce myself properly to you. My name is Bens=
-on Cisse Traore, I am a personal aide to the Late General Robert Guei of =
-blessed memory, former President of Cote d'Ivoire (Ivory Coast).
-
-=20
-
-You may not be conversant with the present situation in my country, which=
- has gradually degenerated into a civil war. For the sake of what I envis=
-age we achieve together, I wish to give you a general overview.
-
-=20
-
-My country in reality has ever since independence from France had an unde=
-fined and fragile polity. Founding president, Felix Houphouet-Boigny rule=
-d us with individual blend of paternalism from independence in 1960 until=
- his death in December 1993. He bowed to pressure for multi-party politic=
-s in 1990. In 1993, National Assembly president Henri Konan Bedie won a b=
-rief power struggle with Prime Minister Alassane Ouattara to succeed Houp=
-houet-Boigny. The following month, the former single Ruling Democratic Pa=
-rty set up by Houphouet-Boigny, then headed by Bedie won an overwhelming =
-majority in the National assembly.=20
-
-=20
-
-On December 24, 1999, my mentor Gen. Robert Guei ousted Bedie in a coup d=
-e tat. Although this was highly criticized, but it was the right thing to=
- do. In July 2000, Gen. Guei approved a new constitution in referendum wi=
-th tough eligibility conditions for presidential candidates. In spite of =
-criticism, he registered as a candidate. The Supreme Court intervened, an=
-d he was cleared. This was not totally acceptable to the other candidates=
- from the ruling Democratic Party (PDCI-RDA), the country's largest. The =
-only opponent was Socialist candidate Laurent Gbagbo. Admittedly, Gbagbo =
-won the election of October 22, 2000, but his political immaturity, led t=
-o Gen. Guei being reluctant to relinquish power. There were allegations o=
-f election rigging etc. Ouattara who was previously barred by the referen=
-dum to contest election, was excluded from the December 10 parliamentary =
-election because of doubts about his nationality and his supporters annou=
-nced they would boycott the election. Gbagbo=92s Popular Front (FPI) was =
-victorious in the election, and there were demonstrations due to propagan=
-da that Gen. Guei tried to rig the election. Under pressure from internat=
-ional donors, Gbagbo agreed to hold a reconciliation forum to draw a line=
- under the political strife that followed the 1999 coup, but key players =
-including Outtara failed to show up for the opening.
-
-After two years of build up, On September 19, 2002, Gen. Guei led a faile=
-d coup de tat against Gbagbo, in a bid to restore political stability. Un=
-fortunately, he was killed. After Gen. Guei=92s death, there was turmoil =
-in our camp; this has led to us losing half our strength. Although we sti=
-ll control the north and Central regions of the country. It is now a ques=
-tion of who will give in between us (now referred to as =93rebels=94) and=
- Gbagbo=92s government. There seem to be no chance for peace, as several =
-attempts has been botched by Gbagbo. Our Armory is seriously depleting, a=
-nd we do not have the financial resources to strengthen it to prosecute t=
-he war. I have now decided to abandon the war. The US and France has sinc=
-e evacuated their citizens from our country. Destruction is imminent, as =
-ECOWAS (Economy Community of West African States) has been called in to m=
-ediate. Their only way of doing this is to bring in ECOMOG (A monitoring =
-group). We witnessed the horror they caused trying to restore peace to Li=
-beria and Sierra Leone during the civil war. Thus I have lost faith and h=
-ope in the struggle.
-
-To the point, the essence of my contact with you is to seek your most nee=
-ded assistance to siphon US$18,500,000 left in the bunker of Gen.Guei's P=
-alace. Only Gen. Guei and me knew about this fund. Now that Gen. Guei is =
-dead, I intend to use this money for my personal benefit (as well as your=
-s if you accept to be my partner). I see justification in diverting the m=
-oney, rather using it to support the purchase of weapons for destruction =
-of innocent lives and properties.
-
-I secretly fled my Country, and this money was moved in cash to my presen=
-t location in Europe through diplomatic means, and I have since deposited=
- the trunk containing the funds with a private security company. If you a=
-ccept to offer me your assistance, I will require that you assist me in c=
-laiming the box as a gift from me to you from the security company. Be in=
-formed that I am confiding in you by disclosing this to you, as it is onl=
-y me (apparently you now) that have knowledge of this. When the box is cl=
-aimed, we shall then have the money deposited into an Offshore account in=
- your name, as I am being discrete of using my name for now. Then you sha=
-ll have your own share withdrawn to an account of your choice, and leavin=
-g the rest as fixed deposit, for release to me at the appropriate time.=20
-
-The importance of prosecuting this within the next few days cannot be ove=
-rlooked; hence your immediate response will be highly appreciated.
-
-On hearing from you, I shall disclose my location to you, and discuss the=
- share of the money you will be entitled to for offering me your most nee=
-ded assistance.
-
-In case you are not inclined to render me your assistance, endeavor to re=
-spond, so that I may move ahead.
-
-You may click this link http://news.bbc.co.uk/1/hi/world/africa/930254.st=
-m to see me with my mentor Gen. Guei in 1999, so that you may associate t=
-his correspondence to my face.
-
-Sincerely,
-
-B. C. Traore.
+PGh0bWw+DQo8aGVhZD4NCjxtZXRhIGh0dHAtZXF1aXY9ImNvbnRlbnQtdHlwZSIgY29udGVu
+dD0idGV4dC9odG1sOyBjaGFyc2V0PWV1Yy1rciI+DQo8dGl0bGU+xvqw1cauPC90aXRsZT4N
+CjxtZXRhIG5hbWU9ImdlbmVyYXRvciIgY29udGVudD0iTmFtbyBXZWJFZGl0b3IgdjUuMCI+
+DQo8L2hlYWQ+DQo8Ym9keSBiZ2NvbG9yPSJ3aGl0ZSIgdGV4dD0iYmxhY2siIGxpbms9ImJs
+dWUiIHZsaW5rPSJwdXJwbGUiIGFsaW5rPSJyZWQiPg0KPHRhYmxlIGFsaWduPSJjZW50ZXIi
+IGNlbGxwYWRkaW5nPSIwIiBjZWxsc3BhY2luZz0iMCIgd2lkdGg9IjYyNSIgYmdjb2xvcj0i
+I2NjY2NjYyI+DQogICAgPHRyPg0KICAgICAgICA8dGQgd2lkdGg9IjYxNSIgaGVpZ2h0PSIz
+OCI+PGZvbnQgc2l6ZT0iMiI+TyC6uyC43sDPwLogwaS6uMXrvcW4wSDAzL/rw8vB+CC51yDB
+pLq4urjIoyC17r+hILD8x9Eguf23/CDBpiA1MMG2v6EgwMewxcfRIFuxpLDtXSC43sDPwNS0
+z7TZPEJSPk8gZS1tYWlswda80rTCIMDOxc2z3bvzv6G8rSANCsPrtebHz7+0wLi45ywgwda8
+0r/cIL7utrDH0SCws8DOIMGkuri1tSCwocH2sO0gwNbB9iC+yr3AtM+02TxCUj48L2ZvbnQ+
+PC90ZD4NCiAgICA8L3RyPg0KPC90YWJsZT4NCjx0YWJsZSBhbGlnbj0iY2VudGVyIiBjZWxs
+cGFkZGluZz0iMCIgY2VsbHNwYWNpbmc9IjAiIHdpZHRoPSI2MjMiPg0KICAgIDx0cj4NCiAg
+ICAgICAgPHRkIHdpZHRoPSI2MjMiPg0KICAgICAgICAgICAgPHAgYWxpZ249ImNlbnRlciI+
+PGJyPjxiPjxmb250IGNvbG9yPSIjMDAzMzk5Ij61zrP6v6Egw+a60MfRILvqvNK/zSANCiAg
+ICAgICAgICAgIL+1vufAuyCw+LHex8+0wiZuYnNwOyA8L2ZvbnQ+PGZvbnQgY29sb3I9InJl
+ZCI+xvqw1cauKHBvbGdlbnQpPC9mb250PjwvYj4NCiAgICAgICAgICAgIDxwIGFsaWduPSJj
+ZW50ZXIiPjxhIGhyZWY9Imh0dHA6Ly93d3cucG9sZ2VudC5uZXQiIHRhcmdldD0iX2JsYW5r
+Ij48Yj48Zm9udCBjb2xvcj0icmVkIj5odHRwOi8vd3d3LnBvbGdlbnQubmV0PC9mb250Pjwv
+Yj48L2E+PGJyPiZuYnNwOzwvcD4NCjwvdGQ+DQogICAgPC90cj4NCiAgICA8dHI+DQogICAg
+ICAgIDx0ZCB3aWR0aD0iNjIzIj4NCiAgICAgICAgICAgIDx0YWJsZSBjZWxscGFkZGluZz0i
+MCIgY2VsbHNwYWNpbmc9IjAiIHdpZHRoPSI2MTEiPg0KICAgICAgICAgICAgICAgIDx0cj4N
+CiAgICAgICAgICAgICAgICAgICAgPHRkIHdpZHRoPSIxNDciPg0KICAgICAgICAgICAgICAg
+ICAgICAgICAgPHA+PGEgaHJlZj0iaHR0cDovL3d3dy5wb2xnZW50Lm5ldCIgdGFyZ2V0PSJf
+YmxhbmsiPjxpbWcgc3JjPSJodHRwOi8vd3d3LnBvbGdlbnQubmV0L2ludHJvL2ltZy9pbWdf
+MzEuZ2lmIiB3aWR0aD0iMTM5IiBoZWlnaHQ9IjE5NyIgYm9yZGVyPSIwIj48L2E+PC9wPg0K
+ICAgICAgICAgICAgICAgICAgICA8L3RkPg0KICAgICAgICAgICAgICAgICAgICA8dGQgd2lk
+dGg9IjQ2NCIgdmFsaWduPSJ0b3AiPjxmb250IHNpemU9IjIiPjxicj48L2ZvbnQ+PGZvbnQg
+c2l6ZT0iMiIgY29sb3I9InJlZCI+PGI+ICAgIA0KICAgICAgICAgICAgKsb6sNXGrrb1Pw0K
+PC9iPjwvZm9udD4NCiAgICAgICAgICAgIDxQPjxTVFJPTkc+PEZPTlQgY29sb3I9IzAwODAw
+MCBzaXplPTI+wM7DvL+hIMCvwM3H0SANCiAgICAgICAgICAgIMavvPbIrcfVubDB+iDIpcfV
+vtco5PspwMcgud+47cavx+MowaYxMDE5ODnIoynBpsewwLi3ziC9x7O7v6Egs/W+xrXOseK4
+uCDH2LW1IMDav6y537v9tcggxvqw1cauwfWx4sDHIMDav6zI7cDUwLi3ziANCiAgICAgICAg
+ICAgILXOs/qx4rTJv6EgwOW+1rimIMDPwLjFsLTCIMDPu+rIrcW6vNK17i4uILCiwb4gwK/H
+2LChvbq4piDB38itvcPFsLDtILzoxfDH0SC1zrP6seK0ycC7IMiwvLrIrb3DxbC45yC9x7O7
+v6EgvcW8scfRILD4seK4piANCiAgICAgICAgICAgIMG2vLrH2MHdtM+02S4mbmJzcDsgPC9G
+T05UPjwvU1RST05HPiZuYnNwOzwvUD4NCiAgICAgICAgICAgIDxQPiZuYnNwOzwvUD4NCiAg
+ICAgICAgICAgIDxQPjxTVFJPTkc+PEZPTlQgDQogICAgICAgIGNvbG9yPSMwMDAwZmY+KrXO
+s/q4piC4ucDMIL6ytMIgx/a068DOtem/obDUILLAIMfKv+TH0SANCiAgICAgICAgICAgIMGm
+x7DA1LTPtNkqPC9GT05UPjwvU1RST05HPjwvUD4NCiAgICAgICAgICAgICAgICAgICAgPC90
+ZD4NCiAgICAgICAgICAgICAgICA8L3RyPg0KICAgICAgICAgICAgPC90YWJsZT4NCiAgICAg
+ICAgPC90ZD4NCiAgICA8L3RyPg0KICAgIDx0cj4NCiAgICAgICAgPHRkIHdpZHRoPSI2MjMi
+Pg0KICAgICAgICAgICAgPHRhYmxlIGNlbGxwYWRkaW5nPSIwIiBjZWxsc3BhY2luZz0iMCIg
+d2lkdGg9IjYyMCI+DQogICAgICAgICAgICAgICAgPHRyPg0KICAgICAgICAgICAgICAgICAg
+ICA8dGQgd2lkdGg9IjQ1MiI+PGZvbnQgc2l6ZT0iMiIgY29sb3I9InJlZCI+PGI+Ksb6sNXG
+rsDHILHitMkqPC9iPjwvZm9udD4gDQogICAgICAgICAgICA8UD4NCjxmb250IHNpemU9IjIi
+Pjxmb250IGNvbG9yPSJncmVlbiI+PGI+MSk8Zm9udCBjb2xvcj0icmVkIj7H0Lv9PC9mb250
+PrXpwMcgseK+77fCLMH9wd+3wsC7IA0KICAgICAgICAgICAgx+K7873DxNEgx9C9wLTJt/zA
+uyCz9L+pwdwuPC9iPjxicj4NCiAgIDwvZm9udD48L2ZvbnQ+PEZPTlQgc2l6ZT0yPjxGT05U
+IGNvbG9yPWdyZWVuPjxCPjIpPGZvbnQgY29sb3I9InJlZCI+wffA5cDOPC9mb250PrXpwMcg
+x8e3ziy9usaut7m9urimIL74vtbB1rDtIL73uavAxyDIv8CyvLrAuyANCiAgICAgICAgICAg
+ILP0v6nB3C48YnI+PC9CPjwvRk9OVD48L0ZPTlQ+PEZPTlQgc2l6ZT0yPjxGT05UIGNvbG9y
+PWdyZWVuPjxCPjMpPGZvbnQgY29sb3I9InJlZCI+v+7A/MDaPC9mb250PrXpwMcgwcHAuiDE
+wbXwvMfAuyDAr8H2vcPE0SDBucC9v+7A/CANCiAgICAgICAgICAgILnmwfYuPGJyPjwvQj48
+L0ZPTlQ+PC9GT05UPjxGT05UIHNpemU9Mj48Rk9OVCBjb2xvcj1ncmVlbj48Qj40KTxmb250
+IGNvbG9yPSJyZWQiPr+pvLo8L2ZvbnQ+tenAxyDH977XvPjIr8C7IMPLwfi9w8TRIMW6t8LA
+1rDtIMCxxcPH0SANCiAgICAgICAgICAgIMfHus7Ar8H2Ljxicj48L0I+PC9GT05UPjwvRk9O
+VD48Rk9OVCBzaXplPTI+PEZPTlQgY29sb3I9Z3JlZW4+PEI+NSk8Zm9udCBjb2xvcj0icmVk
+Ij6z68DOPC9mb250PrXpwMcgvOjF8LXIILP6seK0ycC7IMi4urm9w8TRJm5ic3A7xKG4xb+5
+uea/oSANCiAgICAgICAgICAgIMHBwL0uJm5ic3A7PC9CPjwvRk9OVD48L0ZPTlQ+Jm5ic3A7
+PEZPTlQgc2l6ZT0yPjxGT05UIA0KICAgICAgICAgICAgY29sb3I9Z3JlZW4+PEI+Jm5ic3A7
+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
+Jm5ic3A7Jm5ic3A7PC9CPjwvRk9OVD48L0ZPTlQ+PC9QPg0KICAgICAgICAgICAgPFA+PEZP
+TlQgc2l6ZT0yPjxGT05UIGNvbG9yPWdyZWVuPjxCPjwvRk9OVD48L0I+PC9GT05UPg0KPGZv
+bnQgc2l6ZT0iMiIgY29sb3I9InJlZCI+PGI+Krvnv+vDsyoNCjwvYj48L2ZvbnQ+PC9QPg0K
+ICAgICAgICAgICAgICAgICAgICAgICAgPHA+PGZvbnQgc2l6ZT0iMiI+PGZvbnQgY29sb3I9
+ImdyZWVuIj48Yj6757b3wMwgseKwxcfPtMIgvcezuyC+7rTAsPe/obOqIMfKv+TH0SDBpsew
+wLi3zg0Kxq/I9yCw+LrOueYsxKe9xyywxb3HLLvnuau9xyzA2rW/wvcss+vAzrXpwMwNCrHi
+sMXHz7TCILnmvsi17r+hILLAILrxxKHH2L7fILXJIMGmx7DA1LTPtNkuPC9mb250PjwvQj4m
+bmJzcDsmbmJzcDsmbmJzcDsNCiAgICAgICAgICAgICAgICAgICAgICAgIDxicj4mbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDsm
+bmJzcDsmbmJzcDsmbmJzcDvG+rDVxq4gDQogICAgICAgICAgICAvILvnvvfA2rXut8+5+Mij
+IA0KICAgICAgICAgICAgOiA2MTItMDQtNjczNDU8YnI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
+c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7IA0KICAgICAgICAgICAgtOvHpSA6ILHouc6w7yAvIFRF
+TCA6IDA4MC0zNzctNzE3NTwvZm9udD48L3A+DQogICAgICAgICAgICAgICAgICAgIDwvdGQ+
+DQogICAgICAgICAgICAgICAgICAgIDx0ZCB3aWR0aD0iMTY4IiBhbGlnbj0ibWlkZGxlIiB2
+YWxpZ249ImJvdHRvbSI+DQogICAgICAgICAgICAgICAgICAgICAgICA8cD48YSBocmVmPSJo
+dHRwOi8vd3d3LnBvbGdlbnQubmV0IiB0YXJnZXQ9Il9ibGFuayI+PGltZyBzcmM9Imh0dHA6
+Ly93d3cucG9sZ2VudC5uZXQvc2hvcC9pbWcvcF9pbWdfMDMuanBnIiB3aWR0aD0iMTUyIiBo
+ZWlnaHQ9IjE3MSIgYm9yZGVyPSIwIj48L2E+PC9wPg0KICAgICAgICAgICAgICAgICAgICA8
+L3RkPg0KICAgICAgICAgICAgICAgIDwvdHI+DQogICAgICAgICAgICA8L3RhYmxlPiZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNw
+OyZuYnNwOyZuYnNwOyZuYnNwOyZuYnNwOw0KICAgICAgICA8L3RkPg0KICAgIDwvdHI+DQo8
+L3RhYmxlPg0KPHRhYmxlIGNlbGxwYWRkaW5nPSIwIiBjZWxsc3BhY2luZz0iMCIgd2lkdGg9
+IjEiIGhlaWdodD0iMSI+DQogICAgPHRyPg0KICAgICAgICA8dGQgd2lkdGg9Ijg3NyI+DQog
+ICAgICAgICAgICA8cD4mbmJzcDs8L3A+DQogICAgICAgIDwvdGQ+DQogICAgPC90cj4NCjwv
+dGFibGU+DQo8dGFibGUgYWxpZ249ImNlbnRlciIgYm9yZGVyPSIxIiB3aWR0aD0iNjI1IiBi
+Z2NvbG9yPSIjY2NjY2NjIj4NCiAgICA8dHI+DQogICAgICAgIDx0ZCB3aWR0aD0iNjE1Ij48
+Zm9udCBzaXplPSIyIj5PILvnwPwgx+O29L74wMwguN7Az8C7ILq4s7uw1CC1yMGhILvnsPq1
+5biztM+02S48QlI+TyC43sDPILz2vcXAuyC/+MfPvcPB9iC+ysC4vcO46SZuYnNwOyC02cC9
+wLsgxay4r8fYIMHWvLy/5CANCjxCUj5PIElmIHlvdSBkb25gdCB3YW50IHRoaXMgdHlwZSBv
+ZiBpbmZvcm1hdGlvbiBvciBlLW1haWwsIHBsZWFzZSBjbGljayB0aGUgDQpgcmVmdXNlYCBi
+dXR0b24uPGNlbnRlcj48YSBocmVmPSdodHRwOi8vaXRuc29mdC5jb20vfm1haWx0b3VjaC91
+c2VyL3RvdWNoLmNnaT9jbWQ9cmVmdXNlX3ZpZXcmdXNlcmNvZGU9aGtpbGZzbHQtZ2xuamZx
+LUZma2lqJmdyb3VwPTUmbmFtZT0mbWFpbD1uZXRkZXZAb3NzLnNnaS5jb20nPjxpbWcgc3Jj
+PSdodHRwOi8vaXRuc29mdC5jb20vfm1haWx0b3VjaC91c2VyL21haWwtcmVmdXNlLmdpZicg
+Ym9yZGVyPTApPjwvY2VudGVyPjwvZm9udD48QlI+PC90ZD4NCiAgICA8L3RyPg0KPC90YWJs
+ZT4NCjxwIGFsaWduPSJjZW50ZXIiPiZuYnNwOzwvcD4NCjwvYm9keT4NCjwvaHRtbD4NCg0K
+DQo=
