@@ -1,35 +1,45 @@
-From: Andi Kleen <ak@suse.de>
-Subject: fix s2io driver compilation
-Date: Tue, 23 Mar 2004 07:09:31 +0100
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [2.4/2.6] ipvs: improve conn rehashing, other fixes
+Date: Tue, 23 Mar 2004 10:34:54 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040323060931.GA32533@wotan.suse.de>
+Message-ID: <Pine.LNX.4.58.0403231027420.1157@u.domain.uli>
+References: <20040321230703.408d2240.davem@redhat.com>
+ <Pine.LNX.4.44.0403230036130.3318-600000@penguin.linux-vs.org>
+ <20040322183641.68ecb8a3.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ravinandan.arakali@s2io.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040322183641.68ecb8a3.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Without this patch it won't build with NAPI enabled.
+	Hello,
 
-(against the patch Jeff posted)
+On Mon, 22 Mar 2004, David S. Miller wrote:
 
--Andi
+> On Tue, 23 Mar 2004 00:58:38 +0800 (CST)
+> Wensong Zhang <wensong@linux-vs.org> wrote:
+>
+> > Dave, please check the attached patches. There are three patches for 2.4,
+> > and two for 2.6.
+>
+> I am going to apply everything except the ip_vs_ctl.c change as
+> Julian has tol me under seperate cover that the locking he adds
+> there is not really necessary.
 
+	It was the old version. Please, apply everything sent from
+Wensong. The old versions protect only the list which is not needed
+on edit but the new versions from Wensong ensure that the service is
+updated safely while there are no other CPUs using the schedulers.
+By this way, after my last posting, we fix missing locking in the
+following schedulers: WRR, RR, SH, DH. Now the benefit is that we
+do not add locking in the fast path, instead, we add it only on
+edit (slow path).
 
-diff -u linux-2.6.4/drivers/net/s2io.c-o linux-2.6.4/drivers/net/s2io.c
---- linux-2.6.4/drivers/net/s2io.c-o	2004-03-22 22:01:26.000000000 -0800
-+++ linux-2.6.4/drivers/net/s2io.c	2004-03-22 22:04:05.490715632 -0800
-@@ -2339,9 +2339,7 @@
- 	struct net_device *dev = (struct net_device *) dev_id;
- 	nic_t *sp = dev->priv;
- 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
--#ifndef CONFIG_S2IO_NAPI
- 	int i, ret;
--#endif
- 	u64 reason = 0, general_mask = 0;
- 	mac_info_t *mac_control;
- 	struct config_param *config;
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
