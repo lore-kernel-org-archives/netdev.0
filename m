@@ -1,49 +1,39 @@
-From: "Teras Timo (EXT-YomiGroup/Helsinki)" <Ext-Timo.Teras@nokia.com>
-Subject: Re: [PATCH] Add ability to register class interfaces for network class
-Date: Tue, 26 Oct 2004 23:52:39 +0300
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCHSET 0/11] PKT_SCHED: overall net/pkt_cls.h and net/pkt_sched.h cleanup
+Date: Wed, 27 Oct 2004 00:21:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041026205239.GA23825@two.research.nokia.com>
-References: <20041026183526.GA23535@two.research.nokia.com> <20041026184838.GB16621@infradead.org>
+Message-ID: <20041026222148.GA12289@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ext Christoph Hellwig <hch@infradead.org>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20041026184838.GB16621@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 26, 2004 at 07:48:38PM +0100, ext Christoph Hellwig wrote:
-> On Tue, Oct 26, 2004 at 09:35:26PM +0300, Timo Ter=E4s wrote:
-> > Add functions to register class interfaces for network class.
-> > Similar to the ones found in scsi subsystem.
-> >=20
-> > Originally posted on linux-net and related discussion can be found
-> > from http://marc.theaimsgroup.com/?l=3Dlinux-net&m=3D109758592121767&=
-w=3D2.
-> >=20
-> > Signed-off-by: Timo Ter=E4s <ext-timo.teras@nokia.com>
->=20
-> And you still haven't told why this makes sense nor shown a user for it.
+Dave,
 
-Did you read my original reply to your earlier mail?
+This patchset attempts to clean up the mess in net/pkt_sched.h
+and net/pkt_cls.h grown over the last years.
 
-I pointed out the reason why I need it: to add an attribute:
-/sys/class/net/<interface>/<new_attribute>. Others might want to do this
-too.
+It introduces net/sch_generic.h containing all generic
+sch/cls bits and act_api.h containing pubic action/policer
+bits.
 
-Also the interface subsystem is used in many places (eg. i2o) to create
-all the sysfs entries. Maybe it'd be useful to do in net class as well.
-And if'd make separate interfaces for standard attributes and wireless
-attributes. That way you'd get rid of the #ifdefs of WIRELESS_EXT in
-net-sysfs.c.
+The current architecture which is basically to have
+net/pkt_sched.h include net/pkt_cls.h and everyone just
+including net/pkt_sched.h makes it impossible to add
+any generic classifer bits into pkt_cls.h and acted
+just like if we had put it into one big file.
 
-On the other hand you didn't answer my question: why the
-interface registration should not be possible?
-Documentation/driver-model/interface.txt states that this is exactly the
-thing it should be used for.
+Tested for nearly a week with various combinations of
+action/policer configurations.
 
-Regards,
-  Timo
+See patch descriptions for more details.
+
+Dave, Jamal: The only difference to the previous patchset is that
+it doesn't touch qdisc_tree_lock and qdisc_lookup anymore
+but let cls_api.c include net/pkt_sched.h which makes more sense.
+I splitted up the patches a bit more to improve readability for the
+review.
