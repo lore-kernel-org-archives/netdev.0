@@ -1,17 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6] ethtool_ops eeprom stuff
-Date: Tue, 14 Oct 2003 13:52:38 -0400
+Subject: Re: [PATCH] (resend)
+Date: Tue, 14 Oct 2003 14:07:36 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F8C37E6.70700@pobox.com>
-References: <Pine.LNX.4.44.0310120421590.9314-100000@localhost.localdomain>
+Message-ID: <3F8C3B68.6000207@pobox.com>
+References: <20031008235634.C207@jeroen.pe1rxq.ampr.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: matthew@wil.cx, netdev@oss.sgi.com
+Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0310120421590.9314-100000@localhost.localdomain>
+To: Jeroen Vreeken <pe1rxq@amsat.org>
+In-Reply-To: <20031008235634.C207@jeroen.pe1rxq.ampr.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied to 2.4 and 2.5
+applied
