@@ -1,36 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] 8139too NAPI for net-drivers-2.5-exp
-Date: Wed, 19 Nov 2003 12:16:21 -0500
+From: Reuben Farrelly <reuben-linux@reub.net>
+Subject: Re: Kernel crash in 2.6.0-test9-mm3
+Date: Thu, 20 Nov 2003 20:30:31 +1300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBBA565.3090206@pobox.com>
-References: <20031118161730.2690cb76.shemminger@osdl.org>
+Message-ID: <6.0.1.1.2.20031120202518.01b53738@tornado.reub.net>
+References: <OF0696EDA9.D66EB77E-ON88256DE3.0009C15A@us.ibm.com>
+ <6.0.1.1.0.20031119155347.023f89d0@tornado.reub.net>
+ <20031119185157.3edf69c8.davem@redhat.com>
+ <6.0.1.1.0.20031120160110.02412b80@tornado.reub.net>
+ <20031119190258.4d926957.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com,
-        Jes Sorensen <jes@wildopensource.com>
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: kumarkr@us.ibm.com, akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031118161730.2690cb76.shemminger@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031119190258.4d926957.davem@redhat.com>
+References: <OF0696EDA9.D66EB77E-ON88256DE3.0009C15A@us.ibm.com>
+ <6.0.1.1.0.20031119155347.023f89d0@tornado.reub.net>
+ <20031119185157.3edf69c8.davem@redhat.com>
+ <6.0.1.1.0.20031120160110.02412b80@tornado.reub.net>
+ <20031119190258.4d926957.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Here is the 8139too version in net-drivers-2.5-exp modified for NAPI.
-> Also:
-> 	64k receive ring - has to handle wrap for that case;
-> 	   the NoWrap flag does nothing if using this big ring.
-> 	assert() -> BUG_ON()
-> 	
-> To deal with the races with tx_timeout, put back in the rx_lock from earlier versions.
+Ok I'll take this up with jakub@redhat, the gcc package maintainer at Redhat.
+
+What is interesting (or scary) is that the version of gcc that I'm using 
+(3.3.2-2) is only one rebuild out from the one shipped in Fedora Core 1 
+(3.3.2-1), so I may not be the last person to hit this problem..
+
+Reuben
 
 
-Applied with a "but"...  This patch still contains some errors WRT 8139 
-hardware and the RX path.  But I'm comfortable with nailing those 
-problems down during public testing of net-drivers-2.5-exp.
-
-Hirofumi, Stephen, and others, please test, particularly packet floods 
-with (a) tiny packets and (b) huge packets.  Ditto Jes, if you've still 
-got hardware, and are interested in DoS fixes in 8139too.
-
-	Jeff
+At 04:02 p.m. 20/11/2003, David S. Miller wrote:
+>On Thu, 20 Nov 2003 16:05:27 +1300
+>Reuben Farrelly <reuben-linux@reub.net> wrote:
+>
+> > Yes - with the patch backed out, the system has been up for 20 hours
+> > without a crash and nothing has been logged.  I was just holding off a bit
+> > longer before reporting back in case it just needs a bit more time to
+> > trigger ;-)
+>
+>Thanks a lot for this feedback.
+>
+>I really think gcc-3.x you're using is miscompiling some parts of
+>the kernel with the patch applied.  Someone should look at the
+>x86 output assembler for things like the atomic_dec_and_test() call
+>in net/core/skbuff.c:kfree_skbmem()
