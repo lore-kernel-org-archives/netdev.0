@@ -1,32 +1,29 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: sis900: eth0: NULL pointer encountered in Rx ring, skipping
-Date: Tue, 18 Jan 2005 11:21:39 +0100
-Message-ID: <20050118102139.GA9507@xi.wantstofly.org>
-References: <20050118101358.GA9335@xi.wantstofly.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: iproute2 fwmark feature request
+Date: Tue, 18 Jan 2005 13:17:57 +0100
+Message-ID: <20050118121757.GN26856@postel.suug.ch>
+References: <41ECC61E.7060908@cardvn.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Nguyen Dinh Nam <64vn@cardvn.net>
 Content-Disposition: inline
-In-Reply-To: <20050118101358.GA9335@xi.wantstofly.org>
+In-Reply-To: <41ECC61E.7060908@cardvn.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 18, 2005 at 11:13:58AM +0100, Lennert Buytenhek wrote:
+* Nguyen Dinh Nam <41ECC61E.7060908@cardvn.net> 2005-01-18 15:17
+> There are 2^32 values for fwmark, it's a hugh number.
+> netfilter deal with it better than iproute2, particularly, there is an 
+> optional mask to apply to the fwmark before comparing it with some value 
+> (mark module of iptables). It's very helpful because we can use that 32 
+> bits to store several sub values at the same time.
+> So it'll be cool if the syntax is
+> SELECTOR := [ from PREFIX ] [ to PREFIX ] [ tos TOS ] [ fwmark 
+> FWMARK[/MASK] ]
 
-> I can make one of my machines, which has an on-board sis900 NIC, lose
-> network connectivity within seconds by doing something like
-> "nc -l -p 6666 > /dev/null" and then blasting some data towards it.  When
-> this happens, syslog fills up with these messages:
-> 
-> 	eth0: NULL pointer encountered in Rx ring, skipping
+http://oss.sgi.com/archives/netdev/2005-01/msg00548.html
 
-Just before it starts spewing these it says:
-
-	eth0: Memory squeeze,deferring packet.
-
-So apparently it just doesn't deal with OOM very well.
-
-
---L
+Wait 2-3 weeks and it will be all finished.
