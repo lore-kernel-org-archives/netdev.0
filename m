@@ -1,40 +1,70 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: bridge between ppp and ethernet - 1 IP address and assign it to another host
-Date: Sat, 5 Mar 2005 23:04:30 +0100
-Message-ID: <20050305220429.GA9335@outpost.ds9a.nl>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/7] netpoll: shorten carrier detect timeout
+Date: Sun, 06 Mar 2005 01:09:28 +0100
+Message-ID: <422A4A38.4040303@trash.net>
+References: <2.454130102@selenic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: multipart/mixed;
+ boundary="------------020409060805070303080608"
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        Jeff Moyer <jmoyer@redhat.com>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <2.454130102@selenic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi people,
+This is a multi-part message in MIME format.
+--------------020409060805070303080608
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I have an application that wants a Real IP Address, but for a variety of
-good reasons, I can't connect the machine to the internet directly.
+Matt Mackall wrote:
+> Shorten carrier detect timeout to 4 seconds.
 
-So, I need this:
+The carrier detection looks partially broken to me. The current logic
+detects an instantly available carrier as flaky because
+netif_carrier_ok() takes less than 1/10s. This patch does what
+I assume is intended, make sure the carrier is stable for 1/10s.
 
-DSL - Linux - Windows PC
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Where I need the Windows PC to think it has the real single IP addres
-assigned to me by the DSL provider. I run PPTP on the Linux box, which
-should not touch traffic for that IP address.
+--------------020409060805070303080608
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Now I know that several DSL routers are capable of this stunt, so we should
-be able to do this too. But how?
+===== net/core/netpoll.c 1.27 vs edited =====
+--- 1.27/net/core/netpoll.c	2005-01-26 06:32:56 +01:00
++++ edited/net/core/netpoll.c	2005-03-06 01:07:16 +01:00
+@@ -592,8 +592,7 @@
+ 		}
+ 		rtnl_shunlock();
+ 
+-		atleast = jiffies + HZ/10;
+- 		atmost = jiffies + 10*HZ;
++ 		atmost = jiffies + 4*HZ;
+ 		while (!netif_carrier_ok(ndev)) {
+ 			if (time_after(jiffies, atmost)) {
+ 				printk(KERN_NOTICE
+@@ -604,9 +603,15 @@
+ 			cond_resched();
+ 		}
+ 
++		atleast = jiffies + HZ/10;
++		while (netif_carrier_ok(ndev)) {
++			if (time_after(jiffies, atleast))
++				break;
++			cond_resched();
++		}
+ 		if (time_before(jiffies, atleast)) {
+ 			printk(KERN_NOTICE "%s: carrier detect appears flaky,"
+-			       " waiting 10 seconds\n",
++			       " waiting 4 seconds\n",
+ 			       np->name);
+ 			while (time_before(jiffies, atmost))
+ 				cond_resched();
 
-Linux is pretty stubborn in routing packets for its own IP address elsewhere
-(rightfully so). I previously spent some time on this with a lot of
-SNAT/DNAT trickery but it is not very pleasing, nor did it work.
-
-What we're trying to do is a lot like building a bridge between ethernet and
-ppp, but not quite.
-
-Anybody have ideas? If we find something I'll post it on http://lartc.org.
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://netherlabs.nl              Open and Closed source services
+--------------020409060805070303080608--
