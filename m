@@ -1,46 +1,66 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Thu, 30 Sep 2004 00:39:22 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [NET] NEIGHBOUR: hold refcnt of net_device from proxy
+ neighbor entries.
+Date: Thu, 30 Sep 2004 17:07:29 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040930003922.3076f00f.davem@davemloft.net>
-References: <Pine.NEB.4.33.0409291648560.3434-100000@dexter.psc.edu>
-	<415B24C0.2020208@us.ibm.com>
-	<20040929145050.71afa1ac.davem@davemloft.net>
-	<20040929215613.GC26714@wotan.suse.de>
-	<20040929162923.796d142e.davem@davemloft.net>
-	<20040930000515.GA10496@gondor.apana.org.au>
-	<20040929213310.40f5f33a.davem@davemloft.net>
-	<20040930054738.GA12667@gondor.apana.org.au>
+Message-ID: <20040930.170729.51800585.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, niv@us.ibm.com, jheffner@psc.edu, andy.grover@gmail.com,
-        anton@samba.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040930054738.GA12667@gondor.apana.org.au>
+To: davem@davemloft.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Sep 2004 15:47:38 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Hello.
 
-> On Wed, Sep 29, 2004 at 09:33:10PM -0700, David S. Miller wrote:
-> >
-> > @@ -2413,7 +2410,7 @@
-> >  							packets_acked);
-> >  			if (sacked & TCPCB_URG) {
-> >  				if (tp->urg_mode &&
-> > -				    !before(scb->seq, tp->snd_up))
-> > +				    !before(orig_seq, tp->snd_up))
-> >  					tp->urg_mode = 0;
-> 
-> That looks like a typo.  We should check against the new starting
-> sequence number, not the original.  We should also change the !before
-> to after since the original check applied to end_seq.
+[NET] NEIGHBOUR: hold refcnt of net_device from proxy neighbor entries.
+ 
+We did not hold refcnt of net_device from proxy neighbor entries
+while we did from neighbor entries.
+ 
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-I agree about the first part, but the second I do not.
+Thanks.
 
-The new 'seq' is equivalent to what end_seq would be of the
-TSO sub-packet.  Therefore the correct test type would be
-!before(seq, tp->snd_up), right?
+diff -Nru a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c	2004-09-30 16:32:24 +09:00
++++ b/net/core/neighbour.c	2004-09-30 16:32:24 +09:00
+@@ -496,8 +496,12 @@
+ 
+ 	memcpy(n->key, pkey, key_len);
+ 	n->dev = dev;
++	if (dev)
++		dev_hold(dev);
+ 
+ 	if (tbl->pconstructor && tbl->pconstructor(n)) {
++		if (dev)
++			dev_put(dev);
+ 		kfree(n);
+ 		n = NULL;
+ 		goto out;
+@@ -532,6 +536,8 @@
+ 			write_unlock_bh(&tbl->lock);
+ 			if (tbl->pdestructor)
+ 				tbl->pdestructor(n);
++			if (n->dev)
++				dev_put(n->dev);
+ 			kfree(n);
+ 			return 0;
+ 		}
+@@ -552,6 +558,8 @@
+ 				*np = n->next;
+ 				if (tbl->pdestructor)
+ 					tbl->pdestructor(n);
++				if (n->dev)
++					dev_put(n->dev);
+ 				kfree(n);
+ 				continue;
+ 			}
+
+
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
