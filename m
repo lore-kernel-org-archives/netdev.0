@@ -1,25 +1,70 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: netif_rx packet dumping
-Date: 10 Mar 2005 09:33:09 +0100
-Message-ID: <20050310083309.GA510@muc.de>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net> <42278122.6000000@ev-en.org> <20050303133659.0d224e61.davem@davemloft.net> <42278554.2090902@ev-en.org> <20050303135718.2e1a0170.davem@davemloft.net> <422DC7CE.2040800@ev-en.org> <m1y8cykr7i.fsf@muc.de> <20050308100902.24b67b2f.davem@davemloft.net> <422DEE85.5010302@candelatech.com> <20050309235728.GV31837@postel.suug.ch>
+From: "Remus" <rmocius@auste.elnet.lt>
+Subject: Re: dummy as IMQ replacement
+Date: Thu, 10 Mar 2005 09:18:53 -0000
+Message-ID: <025501c52552$2dbf87c0$6e69690a@RIMAS>
+References: <1107123123.8021.80.camel@jzny.localdomain> <0fcf01c5077f$579e4b80$6e69690a@RIMAS> <1107174142.8021.121.camel@jzny.localdomain> <00c301c524b4$938cd240$6e69690a@RIMAS> <1110379135.1091.143.camel@jzny.localdomain> <1110416767.1111.76.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>,
-        "David S. Miller" <davem@davemloft.net>, baruch@ev-en.org,
-        shemminger@osdl.org, netdev@oss.sgi.com
-Date: Thu, 10 Mar 2005 09:33:09 +0100
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20050309235728.GV31837@postel.suug.ch>
+Content-Type: text/plain;
+	format=flowed;
+	charset="iso-8859-1";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: "jamal" <hadi@cyberus.ca>, <netdev@oss.sgi.com>,
+        "Nguyen Dinh Nam" <nguyendinhnam@gmail.com>,
+        "Andre Tomt" <andre@tomt.net>, <syrius.ml@no-log.org>,
+        "Andy Furniss" <andy.furniss@dsl.pipex.com>,
+        "Damion de Soto" <damion@snapgear.com>
+To: <hadi@znyx.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I attached a small patch below saving 4 bytes and leaving some room for
-> additional flags. The removal of security has indeed potential to break
-> external modules.
+Hi Jamal,
 
-And? The Linux kernel never had a stable ABI.
+Thanks for the patch.
+That error is gone but I got a new error:
 
--Andi
+ifconfig dummy0 up
+tc qdisc add dev eth2 ingress
+tc filter add dev eth2 parent ffff: protocol ip prio 10 u32 match u32 0 0 
+flowid 1:1 action ipt -j MARK --set-mark 1 action mirred egress redirect dev 
+dummy0
+iptables: calloc failed: Cannot allocate memory
+
+I use 2.6.11.2 kernel patched with your dummy patch, iptables 1.3.1 and the 
+latest iproute2 patched with the pacth you sent yesterday.
+
+
+Regards
+
+Remus
+
+
+----- Original Message ----- 
+From: "Jamal Hadi Salim" <hadi@znyx.com>
+To: "Remus" <rmocius@auste.elnet.lt>
+Cc: <netdev@oss.sgi.com>; "Nguyen Dinh Nam" <nguyendinhnam@gmail.com>; 
+"Andre Tomt" <andre@tomt.net>; <syrius.ml@no-log.org>; "Andy Furniss" 
+<andy.furniss@dsl.pipex.com>; "Damion de Soto" <damion@snapgear.com>
+Sent: Thursday, March 10, 2005 1:06 AM
+Subject: Re: dummy as IMQ replacement
+
+
+> Hi Remus,
+>
+> Please try this patch on top of latest iproute2. Credit to Patrick for
+> spoting it. I dont know when or who made this change - in any case it
+> doesnt matter if it works for you.
+>
+> cheers,
+>
+> On Wed, 2005-03-09 at 09:38, jamal wrote:
+>
+>> I have to go to work - so wont have time to look at this for sometime.
+>> Maybe some of the netfilter folks like Patrick can solve it for you
+>> before i get back.
+>>
+>> cheers,
+>> jamal
+>>
+> 
