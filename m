@@ -1,50 +1,36 @@
 From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [PATCH - RFC] [1/5] 64-bit network statistics - generic net
-Date: Sat, 05 Jul 2003 14:41:00 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <3F0745EC.1060204@candelatech.com>
-References: <E19YtAq-0006Xf-00@calista.inka.de> <200307051637.52252.jeffpc@optonline.net> <3F0737D1.5090109@pobox.com>
+Date: Sat, 05 Jul 2003 14:46:33 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3F074739.9090006@candelatech.com>
+References: <Pine.LNX.4.44.0307032005340.8468-100000@home.osdl.org> <200307051449.32934.jeffpc@optonline.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Sipek <jeffpc@optonline.net>,
-	Bernd Eckenfels <ecki@calista.eckenfels.6bone.ka-ip.net.sgi.com>,
-	linux-kernel@vger.kernel.org, Andrew Morton <akpm@digeo.com>,
-	Dave Jones <davej@codemonkey.org.uk>,
-	Linus Torvalds <torvalds@osdl.org>, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F0737D1.5090109@pobox.com>
+Cc: Linus Torvalds <torvalds@osdl.org>,
+   Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   Andrew Morton <akpm@digeo.com>, Dave Jones <davej@codemonkey.org.uk>,
+   Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Sipek <jeffpc@optonline.net>
+In-Reply-To: <200307051449.32934.jeffpc@optonline.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> The net stats are already unsigned long internally.
-> 
-> 64-bit case is handled quite nicely today, thanks :)
-> 
-> I'm such a 64-bit bigot that "buy a 64-bit computer" is a solution I 
-> commonly suggest, and it seems to fit well here, too.
-> 
->     Jeff, wondering if Intel will bother to compete w/ Athlon64
+Jeff Sipek wrote:
 
-Untill the net-stats are 64-bit on 32-bit systems, we will need some
-way to know if they have wrapped or not when reading from nettool
-and getting 64-bit numbers.
+> Using KB would give us additional 10 bits (making the overflow at 4 TB.) I 
+> don't really like the idea of using MB, but the underlying idea is the same - 
+> 20 more bits, making the limit 4 PB.
+> 
+> What is the consensus on this way of solving the problem?
 
-I guess what I really mean to say is that, if nettool is returning 64-bit
-values, we need to know which ones are obtained from 32-bit counters.
-32 -> 64 bit mapping will require wrap handling on low 32-bits, but
-64 -> 64 bit mapping will require wrapping about 4-billion times less often :)
-
-Perhaps a precision field is also needed for backwards/forwards compatability,
-and perhaps a nettool version field as well to also help with backwards/forwards
-compat.
+I guess it could be useful for something like ifconfig, but serious
+applications will need more precision and should deal with wraps anyway
+(even on 64-bits, in my opinion..why have to fix bugs in 10 years because
+we were too lazy to take the 10 minutes to make it right now).
 
 Ben
-
-> 
-> 
-> 
 
 
 -- 
