@@ -1,59 +1,52 @@
 From: Ben Greear <greearb@candelatech.com>
 Subject: Re: "Loopback" route through two cards?
-Date: Thu, 12 Sep 2002 21:59:10 -0700
+Date: Thu, 12 Sep 2002 22:44:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D81709E.7040506@candelatech.com>
-References: <200209031254.QAA02008@sex.inr.ac.ru>
+Message-ID: <3D817B2E.7020207@candelatech.com>
+References: <200209031254.QAA02008@sex.inr.ac.ru> <3D81709E.7040506@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@oss.sgi.com, anton@samba.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: Ben Greear <greearb@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
-> Hello!
-> 
-> 
->>	I know this is an FAQ, but I never saw an answer I liked.
-> 
-> 
-> And what kind of answers do you like? :-)
-> 
-> 
->>still impossible
-> 
-> 
-> It depends on sense which you put to "impossible".
-> 
-> There are two problems with this:
-> 
-> 1. You cannot send to local address via any device but loopback.
-> 
->    The only way to override this is to use explicit SO_BINDTODEVICE
->    on sending socket. Hence, it is "impossible" not changing application. 
+Ben Greear wrote:
+> kuznet@ms2.inr.ac.ru wrote:
 
-Ooooh, this looks like what I'm looking for...
-
+>> 2. You cannot receive packets with local address from any device
+>>    but loopback.
+>>
+>>    This is impossible, but wthis time without not editing kernel,
+>>    removing the check for local addresses in fib_validate_source().
 > 
-> 2. You cannot receive packets with local address from any device
->    but loopback.
 > 
->    This is impossible, but wthis time without not editing kernel,
->    removing the check for local addresses in fib_validate_source().
+> Any clues to which part of this method needs to be changed?  I see nothing
+> obviously about checking for local IPs, but I'm sure it's in there 
+> somewhere!
 
-Any clues to which part of this method needs to be changed?  I see nothing
-obviously about checking for local IPs, but I'm sure it's in there somewhere!
+So, after adding printk's everywhere, I see that this seems to be the
+check that fails:
 
-Thanks,
+	if (res.type != RTN_UNICAST) {
+            printk("fib_frontend:  was not UNICAST: %x\n", res.type);
+            //goto e_inval_res;
+         }
+
+
+After commenting that out, I can send pkts in one direction, but in the other
+direction, the ARP is not ever answered (I see it sent with ethereal).
+It appears that the only reason it
+goes in one direction is that I got lucky and the arp table had the entry for
+some reason.
+
+So, I have to figure out how to make ARP work in this case, and I think it
+will all start working!
+
+
 Ben
-
-> 
-> Alexey
-> 
-
 
 -- 
 Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
