@@ -1,48 +1,49 @@
-From: "ravinandan arakali" <ravinandan.arakali@s2io.com>
-Subject: RE: Submission #3  for S2io 10GbE driver
-Date: Fri, 12 Mar 2004 13:55:37 -0800
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: [e100 2.6] fix stray skb pointer
+Date: Fri, 12 Mar 2004 15:52:24 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <002f01c4087c$c1df99c0$6610100a@S2IOtech.com>
-References: <4040F866.9040200@pobox.com>
+Message-ID: <Pine.LNX.4.44.0403121546120.1550-100000@localhost.localdomain>
+Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, "'Stephen Hemminger'" <shemminger@osdl.org>,
-        "'Christoph Hellwig'" <hch@infradead.org>,
-        <raghavendra.koushik@s2io.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>,
+        <dsaxena@plexity.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>,
-        "'Leonid Grossman'" <leonid.grossman@s2io.com>
-In-Reply-To: <4040F866.9040200@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
-Regarding comment #15, we don't think locking is required, because we
-just reflect what ever the statistics block is reflecting at the current
-moment.
 
-Thanks,
-Ravi
+* Not setting cb->skb = NULL after releasing skb to OS or during
+  initialization of cbs.  Reported by Deepak Saxena
+  [dsaxena@plexity.net].
 
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com] 
-Sent: Saturday, February 28, 2004 12:22 PM
-To: Leonid Grossman
-Cc: netdev@oss.sgi.com; 'Stephen Hemminger'; 'Christoph Hellwig';
-'ravinandan arakali'; raghavendra.koushik@s2io.com
-Subject: Re: Submission #3 for S2io 10GbE driver
+----------
 
-Looking a lot better.  A few merge issues remain, and some operational 
-ones as well.  There are 39 issues in this review, but IMO they are 
-mostly minor issues that don't require much thought or work.
-
-
-Comments:
-
-<snipped>
-
-15) does s2io_get_stats need locking?
-
-<snipped>
+--- linux-2.5/drivers/net/e100.c	2004-03-12 15:32:07.000000000 -0800
++++ linux-2.5/drivers/net/e100.c.mod	2004-03-12 15:32:31.000000000 -0800
+@@ -158,7 +158,7 @@
+ 
+ 
+ #define DRV_NAME		"e100"
+-#define DRV_VERSION		"3.0.16"
++#define DRV_VERSION		"3.0.17"
+ #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
+ #define DRV_COPYRIGHT		"Copyright(c) 1999-2004 Intel Corporation"
+ #define PFX			DRV_NAME ": "
+@@ -1285,6 +1285,7 @@ static inline int e100_tx_clean(struct n
+ 				le16_to_cpu(cb->u.tcb.tbd.size),
+ 				PCI_DMA_TODEVICE);
+ 			dev_kfree_skb_any(cb->skb);
++			cb->skb = NULL;
+ 			tx_cleaned = 1;
+ 		}
+ 		cb->status = 0;
+@@ -1347,6 +1348,7 @@ static int e100_alloc_cbs(struct nic *ni
+ 		cb->dma_addr = nic->cbs_dma_addr + i * sizeof(struct cb);
+ 		cb->link = cpu_to_le32(nic->cbs_dma_addr +
+ 			((i+1) % count) * sizeof(struct cb));
++		cb->skb = NULL;
+ 	}
+ 
+ 	nic->cb_to_use = nic->cb_to_send = nic->cb_to_clean = nic->cbs;
