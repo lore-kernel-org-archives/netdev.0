@@ -1,53 +1,84 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: Tue, 7 Sep 2004 10:10:27 -0700
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: generic 802.11 stack
+Date: Tue, 7 Sep 2004 20:22:07 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907101027.7547e591.davem@davemloft.net>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
-	<757AB580-0030-11D9-9224-000A95AD0668@errno.com>
-	<20040906182328.08faf843.davem@davemloft.net>
-	<200409062132.49356.sam@errno.com>
-	<413DE9ED.30300@atheros.com>
+Message-ID: <200409072022.14330.vkondra@mail.ru>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409062132.49356.sam@errno.com> <20040906234701.511a8940.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart1168438.PPxzXlkP8u";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: sam@errno.com, vda@port.imtp.ilyichevsk.odessa.ua, jgarzik@pobox.com,
-        netdev@oss.sgi.com, acx100-devel@lists.sourceforge.net,
-        jt@bougret.hpl.hp.com, jkmaline@cc.hut.fi, prism54-devel@prism54.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greg chesson <greg@atheros.com>
-In-Reply-To: <413DE9ED.30300@atheros.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040906234701.511a8940.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Sep 2004 10:03:41 -0700
-greg chesson <greg@atheros.com> wrote:
+--nextPart1168438.PPxzXlkP8u
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> What about eth_type_trans()?
+Dave,
+I'd like to evaluate possibility to use your stack for real driver. 80211 h=
+ave=20
+some specifics thus we need to answer following questions:
 
-It determines the protocol type from the ethernet header
-fields.  It is a simple shorthand header field fetcher,
-not a protocol stack.
+=2D some devices handles almost all MAC in firmware; some - handle control =
+frame=20
+exchange in firmware, rest - on host; some use other separation of work=20
+between host and firmware. So, quite flexible mechanism to specify offloadi=
+ng=20
+of parts of .11 stack to firmware required. What is best way?=20
+netdev->features?
 
-You would need a eth80211_type_trans() for wireless
-drivers too, and surprise surprise my skeleton 802.11
-stack code in fact does exactly this.
+=2D there are cases when PHY information needed, to make decisions (like se=
+lect=20
+AP from list), or for information purposes (sniffer). What is your vision h=
+ow=20
+to do this? I.e. provide some standard PHY header before MAC header, out of=
+=20
+band (use cb?)
+I see the following info that may be interesting:
+rate;modulation;preamble;TSF timer;RSSI;antenna;signal;noise;AGC. This list=
+=20
+may vary from NIC to NIC.
 
-> I've thought about this problem and don't think there is a good answer
-> if a layered approach to protocol implementation stipulates that each layer
-> be self-contained.
+=2D there is PHY level information that may be needed for Tx:
+modulation;rate;retry policy and rates;Tx power;protection(RTS/CTS, CTS to=
+=20
+self). Same question as above: how to provide it?
 
-In my 802.11 stack the 802.11 information structure can be
-found given a generic device pointer.  All the wireless info
-can be retrieved from that, and you can use it to call the
-wireless stack routines if you wish as well.
+=2D there is some interesting information that may come from Tx status, lik=
+e=20
+success indication, last rate, retry count, energy in channel after packet,=
+=20
+actual backoff time.
 
-This is no different than how we keep ipv4 information hooked
-onto the generic device structure and walk between these various
-entities in the ipv4 and generic networking code.
+=2D is it feasible to do rate scaling in generic way in stack? Or should it=
+ be=20
+done always in the driver?
 
-Please read my skeletal stack code, it is exactly how I truly
-believe something like this should be architected.  It's all
-the base layout stuff that's important, the rest are details
-that will fit in cleanly and readily once you have a solid
-and firm foundation.
+=2D Since WME and TGe introduction, NICs will likely to have multiple Tx qu=
+eues.=20
+It would be wise for driver to use multiple Tx queues and start/stop them=20
+separately, like have all functions netif_start_queue() etc. have additiona=
+l=20
+parameter - queue number. Will it fit into your stack?
+
+--nextPart1168438.PPxzXlkP8u
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBBPe5Fqxdj7mhC6o0RAmd7AKCJKmxTQk6dRx2cnDaYQyiLoQ0USwCglzfj
+aPOJ5j1um3UnBtf1NnS8H3w=
+=JkZo
+-----END PGP SIGNATURE-----
+
+--nextPart1168438.PPxzXlkP8u--
