@@ -1,33 +1,44 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] updated, ethernet-bridge: update skb->priority in case
- forwarded frame has VLAN-header
-Date: Fri, 11 Mar 2005 09:37:24 -0800
-Message-ID: <20050311093724.6c8b6a6d@dxpl.pdx.osdl.net>
-References: <914610115.20050311172022@yuriev.ru>
+Subject: Re: [RFC INTRO 0/5] H-TCP congestion control
+Date: Fri, 11 Mar 2005 09:42:39 -0800
+Message-ID: <20050311094239.4c59c29d@dxpl.pdx.osdl.net>
+References: <20050311160734.30424.67955.65942@galon.ev-en.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Ben Greear <greearb@candelatech.com>, <netdev@oss.sgi.com>,
-	<linux-kernel@vger.kernel.org>
-To: "leo.yuriev.ru" <leo@yuriev.ru>
-In-Reply-To: <914610115.20050311172022@yuriev.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S.Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com, Baruch Even <baruch@ev-en.org>,
+	Douglas Leith <doug.leith@nuim.ie>
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <20050311160734.30424.67955.65942@galon.ev-en.org>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Mar 2005 17:20:22 +0300
-Leo Yuriev <leo@yuriev.ru> wrote:
+On Fri, 11 Mar 2005 18:07:34 +0200 (IST)
+Baruch Even <baruch@ev-en.org> wrote:
 
-> Kernel 2.6 (2.6.11)
+> The following patches are the result of the work of Douglas Leith to implement
+> the H-TCP congestion control proposal. They have since been modified by me
+> (Baruch Even) to port them to kernel 2.6.x, test them and tune them.
 > 
-> When ethernet-bridge forward a packet and such ethernet-frame has
-> VLAN-tag, bridge should update skb->prioriry for properly QoS
-> handling. This small patch does this.
+> All patches are against Linux kernel version 2.6.11-bk6. This is currently
+> a preliminary work and is presented for review in order to receive comments to
+> improve this work so it can be accepted to mainline Linux Kernel.
 > 
-> Based upon discussion during last week I added pskb_may_pull()
-> checking and simple mapping from 802.1p/user_priority to skb->priority.
+> The initial development was to add H-TCP to the Linux kernel for testing
+> purposes, it became evident that on 1 Gbit/s links Linux is unable to process
+> the received ack stream fast enough to handle the load. We have patches for
+> that but they proved too hard to be ported to 2.6.11+, we are currently working
+> on them.
 > 
-> Patch-by: Leo Yuriev <leo@yuriev.ru>
+> Baruch
 
-Do this as an ebtables module please.
+Are there any IPR encumberance to this like FAST TCP. Earlier versions of
+this patch said:
+
+> This patch is covered by a pending patent, a license is being worked on to
+> enable the inclusion in Linux. Comments and suggestions on this are also
+> solicited.
+
+
+Has this changed?
