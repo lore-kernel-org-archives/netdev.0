@@ -1,70 +1,38 @@
-From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Subject: RE: e1000_clean_tx_ring
-Date: Mon, 28 Jun 2004 15:11:04 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Check connect address in NETLINK
+Date: Tue, 29 Jun 2004 09:14:39 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <468F3FDA28AA87429AD807992E22D07E01967ADD@orsmsx408>
+Message-ID: <20040628231439.GA3021@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "cramerj" <cramerj@intel.com>, "Ronciak, John" <john.ronciak@intel.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Anton Blanchard" <anton@samba.org>, <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Anton:
+Hi:
 
-We will integrate this patch into the next release of our driver.
+The recent thread on NLMSG_OK has reminded me about an old problem
+with NETLINK.
 
-Thanks,
-ganesh 
- 
--------------------------------------------------
-Ganesh Venkatesan
-Network/Storage Division, Hillsboro, OR
+The problem is that any user on the system can launch a DoS attack on
+any NETLINK application by flooding its NETLINK address with packets.
+This will easily fill up the receive queue of the destination
+application and therefore cause legitimate packets from the kernel
+or elsewhere to be dropped.
 
------Original Message-----
-From: Anton Blanchard [mailto:anton@samba.org] 
-Sent: Thursday, June 24, 2004 4:23 PM
-To: netdev@oss.sgi.com
-Cc: cramerj; Ronciak, John; Venkatesan, Ganesh
-Subject: e1000_clean_tx_ring
+The solution seems simple.  We already have a connect(2) call for
+NETLINK sockets.  So why don't we check the connected address of
+the destination socket against the address of the sender before
+putting the packet on the queue?
 
+Any comments before I go ahead and code it?
 
-Hi,
-
-I was looking over the e1000 driver and noticed what I think is a bug
-in e1000_clean_tx_ring. We wouldnt call pci_unmap_page on tx ring
-entries that didnt have ->skb filled, eg zero copy packets.
-
-This is on latest 2.6 BK.
-
-Anton
-
-===== e1000_main.c 1.120 vs edited =====
---- 1.120/drivers/net/e1000/e1000_main.c	Sat Jun 19 10:00:00 2004
-+++ edited/e1000_main.c	Thu Jun 24 02:16:42 2004
-@@ -1070,14 +1070,19 @@
- 
- 	for(i = 0; i < tx_ring->count; i++) {
- 		buffer_info = &tx_ring->buffer_info[i];
--		if(buffer_info->skb) {
-+		if (buffer_info->dma) {
- 
- 			pci_unmap_page(pdev,
- 			               buffer_info->dma,
- 			               buffer_info->length,
- 			               PCI_DMA_TODEVICE);
- 
--			dev_kfree_skb(buffer_info->skb);
-+			buffer_info->dma = NULL;
-+		}
-+
-+		if (buffer_info->skb) {
-+
-+			dev_kfree_skb_any(buffer_info->skb);
- 
- 			buffer_info->skb = NULL;
- 		}
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
