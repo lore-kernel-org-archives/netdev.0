@@ -1,41 +1,48 @@
-From: Mirko Lindner <mlindner@syskonnect.de>
-Subject: [PATCH] sk98lin: Driver update v7.09
-Date: Fri, 22 Oct 2004 15:14:41 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417907C1.6050407@syskonnect.de>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: 2.6.9-mm1: pc_debug multiple definitions
+Date: Fri, 22 Oct 2004 15:39:29 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20041022133929.GA2831@stusta.de>
+References: <20041022032039.730eb226.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, jgarzik@pobox.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	linux-net@vger.kernel.org, prism54-private@prism54.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>,
+	David Hinds <dahinds@users.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20041022032039.730eb226.akpm@osdl.org>
 List-Id: netdev.vger.kernel.org
 
-Hi dev-list,
-Hi Jeff,
 
-here is the new version (v7.09) from our sk98lin driver for Kernel 2.6. 
-Sorry for this huge patch but this version has a lot of new functions 
-and changes. The driver was tested by our Test & Verification group and 
-our OEM customers and include all kernel changes during the latest 
-kernel release.
-
-Please send me an email if you like a version of the driver for kernel 
-2.4 or if you have any problems or questions.
-
-The new patch for BK version 2.6.9 bk6 can be find at:
-http://www.syskonnect.de/support/temp/sk98lin_v7.09_2.6.9-bk6_patch
-
-Cheers
-Mirko
+The following compile error comes from Linus' tree:
 
 
-======================
-Patch 1/1]
-[SK98LIN]:
-Add: Support for PCI Express based chipsets
-Add: Support for Yukon EC chipset
-Add: Support for FE chipset
-Add: Support for wake on lan
-Add: Support for Ethtool
-Add: Support for rx polling interface
+<--  snip  -->
+
+...
+  LD      drivers/built-in.o
+drivers/pcmcia/built-in.o(.bss+0xf20): multiple definition of `pc_debug'
+drivers/net/built-in.o(.data+0x24ae0): first defined here
+make[1]: *** [drivers/built-in.o] Error 1
+
+<--  snip  -->
+
+
+The pc_debug in drivers/pcmcia/ds.c was made non-static in Linus' tree,
+but the global definition of a global variable with such a generic name 
+in drivers/net/wireless/prism54/islpci_mgt.c seems to be equally wrong.
+
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
+
