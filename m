@@ -1,21 +1,25 @@
-From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH][ATM]: [drivers] fix warnings related to readl/writel changes
-Date: Tue, 21 Sep 2004 18:03:06 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH][ATM]: [drivers] use msleep() instead of
+ schedule_timeout() (from Nishanth Aravamudan <nacc@us.ibm.com>)
+Date: Tue, 21 Sep 2004 15:18:01 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409212203.i8LM35TG012489@ginger.cmf.nrl.navy.mil>
-References: <davem@davemloft.net>
-Cc: netdev@oss.sgi.com, davem@redhat.com
+Message-ID: <20040921151801.3ccd21cd.davem@davemloft.net>
+References: <200409212029.i8LKTINv010576@ginger.cmf.nrl.navy.mil>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, davem@redhat.com,
+        nacc@us.ibm.com, kernel-janitors@lists.osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: Message from "David S. Miller" <davem@davemloft.net>
-   of "Tue, 21 Sep 2004 14:49:20 PDT." <20040921144920.7e62ca9e.davem@davemloft.net>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200409212029.i8LKTINv010576@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-thanks! i missed that bit.
+On Tue, 21 Sep 2004 16:29:19 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-In message <20040921144920.7e62ca9e.davem@davemloft.net>,"David S. Miller" writ
-es:
->Applied, then I added a further patch on top of this
->one which uses the correct "void __iomem *" for these
->things, as follows.
+> this patch (from nacc@us.ibm.com) replaces assorted schedule_timeout()'s
+> with msleep()'s.  please apply to 2.6.
+
+Applied, thanks Chas and Nishanth.
