@@ -1,52 +1,46 @@
-From: Gary Spiess <Gary.Spiess@Intermec.com>
-Subject: Re: [PATCH] natsemi long cable fix
-Date: Tue, 15 Feb 2005 15:00:15 -0600
-Message-ID: <421262DF.9050503@Intermec.com>
-References: <421129DE.4070101@Intermec.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: eepro100 broken on ARM by 2.6.11-rc1 changes
+Date: Tue, 15 Feb 2005 22:10:20 +0100
+Message-ID: <20050215211020.GB566@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Manfred Spraul <manfred@colorfullife.com>, Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
 To: netdev@oss.sgi.com
-In-Reply-To: <421129DE.4070101@Intermec.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a minor modification to the previous patch submission that does 
-not assume the default contents of the DSPCFG register are zero.
+Hi,
 
-When used with Revision D of the DP83815, the "Recommended Registers 
-Configuration" from page 78 of the DP83815 data sheet is not entirely 
-compatible with the driver's "short cable patch".  When the DSPCFG 
-register is written with the value suggested in the document, then 
-do_cable_magic() can't read the DSP coefficient and determines that all 
-cables attached to the DP83815D are 'short', regardless of actual 
-length.  Short cables (< 30m) cause do_cable_magic to enable additional 
-attenuation to reduce CRC and idle errors.  If the extra attenuation is 
-unintentionally enabled for long cables (> 50m?), they will not operate 
-properly.  The National Semiconductor driver, 'dp83815.c' from 
-http://www.national.com/appinfo/networks/files/linux_2_4.tar.gz was used 
-as a basis for this modification.  This patch applies to the driver 
-distributed in linux-2.6.10.
+eepro100 seems to have stopped working between 2.6.10 and 2.6.11-rc2
+on an embedded ARM platform.  In 2.6.10 I would see this:
 
---- linux-2.6.10.orig/drivers/net/natsemi.c	2004-12-24 15:33:50.000000000 -0600
-+++ linux-2.6.10/drivers/net/natsemi.c	2005-02-14 16:45:46.000000000 -0600
-@@ -441,6 +441,7 @@
- #define DSPCFG_VAL	0x5040
- #define SDCFG_VAL	0x008c	/* set voltage thresholds for Signal Detect */
- #define DSPCFG_LOCK	0x20	/* coefficient lock bit in DSPCFG */
-+#define DSPCFG_COEF	0x1000	/* see coefficient (in TSTDAT) bit in DSPCFG */
- #define TSTDAT_FIXED	0xe8	/* magic number for bad coefficients */
- 
- /* misc PCI space registers */
-@@ -1243,7 +1244,8 @@
- 		writew(1, ioaddr + PGSEL);
- 		writew(PMDCSR_VAL, ioaddr + PMDCSR);
- 		writew(TSTDAT_VAL, ioaddr + TSTDAT);
--		np->dspcfg = DSPCFG_VAL;
-+		np->dspcfg = (np->srr <= SRR_DP83815_C)?
-+			DSPCFG_VAL : (DSPCFG_COEF | readw(ioaddr + DSPCFG));
- 		writew(np->dspcfg, ioaddr + DSPCFG);
- 		writew(SDCFG_VAL, ioaddr + SDCFG);
- 		writew(0, ioaddr + PGSEL);
+eepro100.c:v1.09j-t 9/29/99 Donald Becker http://www.scyld.com/network/eepro100.html
+eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by Andrey V. Savochkin <saw@saw.sw.com.sg> and others
+eth0: 0000:01:00.0, 00:00:50:14:56:11, IRQ 40.
+  Receiver lock-up bug exists -- enabling work-around.
+  Board assembly 698247-003, Physical connectors present: RJ45
+  Primary interface chip i82555 PHY #1.
+  General self-test: passed.
+  Serial sub-system self-test: passed.
+  Internal registers self-test: passed.
+  ROM checksum self-test: passed (0x8b51f404).
+  Receiver lock-up workaround activated.
+DLCI driver v0.35, 4 Jan 1997, mike.mclagan@linux.org.
+[...]
+
+But now I just see this:
+
+eepro100.c:v1.09j-t 9/29/99 Donald Becker http://www.scyld.com/network/eepro100.html
+eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by Andrey V. Savochkin <saw@saw.sw.com.sg> and others
+DLCI driver v0.35, 4 Jan 1997, mike.mclagan@linux.org.
+[...]
+
+Copying the eepro100 driver from 2.6.10 into 2.6.11-rc4 makes things
+work again on 2.6.11-rc4.
+
+Anyone else seeing this?
+
+
+cheers,
+Lennert
