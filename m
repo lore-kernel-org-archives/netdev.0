@@ -1,86 +1,66 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Steve Hill <steve@navaho.co.uk>
 Subject: Re: Conntrack leak (2.6.2rc2)
-Date: Mon, 2 Feb 2004 12:45:04 +0100 (CET)
+Date: Mon, 2 Feb 2004 11:58:13 +0000 (GMT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0402021154410.6508-100000@blackhole.kfki.hu>
-References: <Pine.LNX.4.58.0402021039540.5347@sorbus2.navaho>
+Message-ID: <Pine.LNX.4.58.0402021146370.5347@sorbus2.navaho>
+References: <Pine.LNX.4.33.0402021154410.6508-100000@blackhole.kfki.hu>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Hill <steve@navaho.co.uk>
-In-Reply-To: <Pine.LNX.4.58.0402021039540.5347@sorbus2.navaho>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+In-Reply-To: <Pine.LNX.4.33.0402021154410.6508-100000@blackhole.kfki.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Feb 2004, Steve Hill wrote:
+On Mon, 2 Feb 2004, Jozsef Kadlecsik wrote:
 
-> > > >From my observations, init_conntrack() is being called for each packet
-> > > (not fragment, packet), which seems right.
+> Yes, once, on the whole packet. Or do you see the message two times, when
+> issuing the ping command above once?
+
+No, only once for the whole packet (sorry, I think I didn't do a good job 
+of describing the problem).
+init_conntrack() always gets called once for the whole packet (this seems 
+right to me).  However, destroy never gets called for the whole packet if 
+the packet was fragmented, which seems to be  the source of the leak - 
+init_conntrack was called and allocated for the whole packet but that 
+memory is never freed again if the packet was fragmented.
+
+I've added some debugging code into nf_conntrack_put() and it seems that 
+if it's called on a packet that was fragmented, the usage count is > 1 so 
+it never gets freed.  I'm not sure if anything is actually using the 
+packet at that point though or if something has just forgotten to 
+decrement the usage count though - in any case, it never gets called with 
+a usage count <= 1.
+
+> >     [ Machine 1 ]----[ Machine 2 ]----[Machine 3]
 > >
-> > No, that's not true (and would be bad). Please check the code.
->
-> I have added to the top of init_conntrack():
->     printk("Init conntrack\n");
->
-> Doing:
->     ping -n 172.16.0.1 -c 1 -s 2500
-> through the machine now causes the kernel to output "Init conntrack",
-> proving the function is being called.
-
-Yes, once, on the whole packet. Or do you see the message two times, when
-issuing the ping command above once?
-
-> > Yes, because fragmented packets does not lead to conntrack entries -
-> > there is nothing to be freed.
->
-> If fragmented packets do not lead to conntrack entries, how are their
-> connections tracked?  I was under the impression that fragmented packets
-> were received by one NIC, defragged, pushed through all the netfilter code
-> and then transmitted by another NIC (after being fragmented again if they
-> are > MTU size)?
-
-You described exactly what happens: fragmented packets received, defragged
-by the stack, and as we get the complete packet, then it handled by
-conntrack.
-
-> > I could not reproduce it: test machine with 2.6.1 + patch-2.6.2-rc2,
-> > ip_conntrack_max lowered to 10. From another machine, in a loop, 400
-> > times:
 > >
-> > ping -c 1 -s 2500 test-machine
-> >
-> > No "ip_conntrack: table full, dropping packet" message on test-machine.
-> > No problem shown up in /proc/slabinfo either.
->
-> Just to confirm, you have your network set up like:
->
->     [ Machine 1 ]----[ Machine 2 ]----[Machine 3]
->
->
-> Machines 1 and 3 are running the 2.4 kernel for me, but that shouldn't be
-> important.
-> Machine 2 is running 2.6.2rc2.
+> > Machines 1 and 3 are running the 2.4 kernel for me, but that shouldn't be
+> > important.
+> > Machine 2 is running 2.6.2rc2.
+> 
+> I have only Machine 1 and Machine 2, but that should make no difference.
 
-I have only Machine 1 and Machine 2, but that should make no difference.
+Pinging from machine 1 to machine 2 didn't cause any problem for me.  
 
-> I am making > MTU sized pings from machine 1 to machine 3 and machine 2 is
-> showing the leak.
->
-> Pinging machine 2 from machine 1 does not show any such problems.
+I have just tried pinging from machine 2 to machine 1 (or 3) and this also 
+isn't causing a problem.  The leak is only showing itself if the machine 
+is routing packets from one network segment to another, not if the machine 
+itself is the source or destination.
 
-That's really, really strange! Both for local and forwarded packets
-ip_conntrack_in is called, which first checks the fragments and calls
-defragging, when required. If there were a leak when pinging
-machine 3, then there should be a leak when pinging machine 2 as well.
+> I'll setup an UML-net to test the forwarded case, but I expect negative
+> results.
 
-I'll setup an UML-net to test the forwarded case, but I expect negative
-results.
+Thanks - I'm doing my best to debug the problem, but I'm not at all 
+familiar with the networking code so I'm having to start at the ground and 
+work my way up (which is good since I don't have any preconceptions about 
+that way it _should_ work, but bad in the fact I'm having to learn it all 
+from scratch which takes time).
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@sunserv.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+
+- Steve Hill
+Senior Software Developer                        Email: steve@navaho.co.uk
+Navaho Technologies Ltd.                           Tel: +44-870-7034015
+
+        ... Alcohol and calculus don't mix - Don't drink and derive! ...
