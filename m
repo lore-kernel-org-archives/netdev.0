@@ -1,41 +1,35 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: tcp_mib questions
-Date: Wed, 26 Mar 2003 14:27:24 -0800
+From: "Patrick R. McManus" <mcmanus@ducksong.com>
+Subject: Intel 1000 MT slow to restart
+Date: Wed, 26 Mar 2003 17:31:42 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030326142724.7e8cb865.rddunlap@osdl.org>
+Message-ID: <20030326223142.GA2032@ducksong.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I'm running intel's e1000 driver (versions 4.4.12 and tried 4.6.11)
+for a 1000/MT (dual) nic on a 2.4.19 kernel.
 
-Hi,
+for normal operations, everything is fine.. however if I do a 
+"ifconfig eth0 down; ifconfig eth0 up" 20 or 30 seconds passes where I
+can't do any traffic. the ifconfig up comes back quickly, and ifconfig
+reports the driver as up (and netlink thinks its up if I try and add
+another one).. I just can't move any traffic. no rx's and my tx's only
+move counters in the driver - they don't actually make it to the
+wire. 
 
-Looking at the Linux tcp_mib, these fields are not updated (set)
-AFAICT:
+if I do "ifconfig eth0 down; sleep 30; ifconfig eth0 up" all is well
+immediately after the up.. The driver doesn't seem to be doing
+anything different in either case - its as if the NIC itself is
+enforcing some kind of quiet period. 
 
-1. 	unsigned long	TcpRtoAlgorithm;
-2. 	unsigned long	TcpRtoMin;
-3. 	unsigned long	TcpRtoMax;
+I'm really writing to see if I'm crazy and hoping someone else can
+corroborate this is what they've seen too.
 
-What retransmit algorithm does Linux use?  or are there several?
-I see comments/references to Van Jacobson's algorithm.
-Is that the one used, or a variant of it?
+help?
 
-4. 	unsigned long	TcpMaxConn;
-If TcpMaxConn is dynamic, it can be set to -1.
-
-5. 	unsigned long	TcpEstabResets;
-Just not updated anywhere.  Is there a (historical) reason for this,
-or it's just omitted, or not wanted?
-
-
-Any comments or corrections?
-
-Thanks,
---
-~Randy
+-Patrick
