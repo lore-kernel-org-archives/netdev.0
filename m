@@ -1,97 +1,54 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: routing bug report for 2.4
-Date: Sun, 29 Jun 2003 10:28:18 +0300 (EEST)
+From: Roberto Nibali <ratz@drugphish.ch>
+Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
+Date: Sun, 29 Jun 2003 09:45:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306290930210.890-100000@u.domain.uli>
-References: <3EFE131E.1080807@candelatech.com>
+Message-ID: <3EFE9921.5010902@drugphish.ch>
+References: <Pine.LNX.4.44.0306290924310.28882-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michael Bellion and Thomas Heinz <nf@hipac.org>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3EFE131E.1080807@candelatech.com>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.44.0306290924310.28882-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
-	Hello,
+>>Apart from that Roberto Nibali did some preliminary testing on nf-hipac.
+>>You can find his posting to linux-kernel here: 
+>>http://marc.theaimsgroup.com/?l=linux-kernel&m=103358029605079&w=2
+>>
+>>Since there are currently no performance tests available for the
+>>new release we want to encourage people interested in firewall
+>>performance evaluation to include nf-hipac in their tests.
+>  
+> Yes, I had missed this when I quickly looked at the web page using lynx. 
+> Thanks.
+> 
+> One obvious thing that's missing in your performance and Roberto's figures 
+> is what *exactly* are the non-matching rules.  Ie. do they only match IP 
+> address, a TCP port, or what? (TCP port matching is about a degree of 
+> complexity more expensive with iptables, I recall.) 
 
-On Sat, 28 Jun 2003, Ben Greear wrote:
+When I did the tests I used a variant of following simple script [1].
 
-> > - check for UP state (is it needed? return ENETDOWN?)
-> > - check if target IP is local and select "lo" instead of oif
+There you can see that I only used a src port range. In an original 
+paper I wrote for my company (announced here [2]) I did create rules 
+that only matched IP addresses, the results were bad enough ;).
 
-	First, here is what I mean (not compiled):
+Meanwhile I should revise the paper as quite a few things have been 
+addressed since then: For example the performance issues with OpenBSD 
+packet filtering have mostly been squashed. I didn't continue on that 
+matter because I fell severely ill last autumn and first had to take 
+care of that.
 
-- ignore matching of the oif key for local destinations
-- return ENETDOWN when the specified out_dev is down
+[1] http://www.drugphish.ch/~ratz/genrules.sh
+[2] http://www.ussg.iu.edu/hypermail/linux/kernel/0203.3/0847.html
 
-	Dave, Alexey, can you judge on these issues because
-they are not fatal corner cases and can be ignored.
-
---- v2.4.21/linux/net/ipv4/fib_semantics.c.orig	Sat Jun 14 08:42:55 2003
-+++ v2.4.21/linux/net/ipv4/fib_semantics.c	Sun Jun 29 09:28:10 2003
-@@ -603,7 +603,9 @@
- 			for_nexthops(fi) {
- 				if (nh->nh_flags&RTNH_F_DEAD)
- 					continue;
--				if (!key->oif || key->oif == nh->nh_oif)
-+				if (!key->oif ||
-+				    key->oif == nh->nh_oif ||
-+				    nh->nh_scope == RT_SCOPE_NOWHERE)
- 					break;
- 			}
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
---- v2.4.21/linux/net/ipv4/route.c.orig	Sat Jun 14 08:42:55 2003
-+++ v2.4.21/linux/net/ipv4/route.c	Sun Jun 29 09:16:03 2003
-@@ -1793,6 +1793,9 @@
- 			dev_put(dev_out);
- 			goto out;	/* Wrong error code */
- 		}
-+		err = -ENETDOWN;
-+		if (!(dev_out->flags&IFF_UP))
-+			goto out;
-
- 		if (LOCAL_MCAST(oldkey->dst) || oldkey->dst == 0xFFFFFFFF) {
- 			if (!key.src)
-
-> Well, why should it try to route locally in this case (I'm assuming that
-> by using 'lo' it will not try to send on the external link)
-
-	No, it does not use "lo", "lo" replaces "dev" only if we get
-RTN_LOCAL result. But "to local_IP dev different_device"
-can escape from our host because we can not find route and thus we
-can not override out_dev with lo.
-
-> Why not instead make it send to the router for that source-ip, if it is
-> configured.  If it is not configured, then I think arping is the best that
-
-	What we have is that app uses BINDTODEVICE to send
-packet with saddr=some_IP daddr=any_valid_local_IP. This is
-confusing but I do not see any harm. But I think route request
-"to local_IP" deserves "lo" result no matter the oif key.
-
-> can be expected, as the behaviour becomes quite undefined and we really
-> have 'no route to host'.
-
-	The only reason can be to avoid confusions and to
-make it symmetric with the source validation check. And yes,
-this patch breaks your tests.
-
-> My send-to-self patch that I have been using is attached.  I also have some other
-> patches for mac-vlans and packet-gen applied, but I don't believe these will have any
-> impact on the behaviour we have been discussing.
-
-	I don't see anything in your patch that can disturb these
-tests. The kernel is helpful enough to send your ARP probe for
-local_IP on the LAN :) When I tested the first time, you claimed
--I local_IP1 local_IP2 causes the problem but as we see, it is
-caused from -I dev
-
-> Thanks,
-> Ben
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+HTH and Best regards,
+Roberto Nibali, ratz
+-- 
+echo '[q]sa[ln0=aln256%Pln256/snlbx]sb3135071790101768542287578439snlbxq'|dc
