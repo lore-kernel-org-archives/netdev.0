@@ -1,40 +1,73 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: iptables versioning feature causes ABI breakage
-Date: 24 Mar 2005 07:11:40 -0500
-Message-ID: <1111666300.1037.40.camel@jzny.localdomain>
-Reply-To: hadi@znyx.com
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: iptables versioning feature causes ABI breakage
+Date: Thu, 24 Mar 2005 13:33:05 +0100
+Message-ID: <20050324123305.GE18694@sunbeam.de.gnumonks.org>
+References: <1111666300.1037.40.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andy Furniss <andy.furniss@dsl.pipex.com>, netdev@oss.sgi.com
-To: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
-        netfilter-devel@lists.netfilter.org
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LyciRD1jyfeSSjG0"
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	Patrick McHardy <kaber@trash.net>
+To: Jamal Hadi Salim <hadi@znyx.com>
+Content-Disposition: inline
+In-Reply-To: <1111666300.1037.40.camel@jzny.localdomain>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
 
-Folks,
+--LyciRD1jyfeSSjG0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Could whoever that made the versioning changes in iptables please
-contact me?
-I am CCing netdev because netfilter-devel seems to bounce my emails.
+On Thu, Mar 24, 2005 at 07:11:40AM -0500, Jamal Hadi Salim wrote:
+>=20
+> Folks,
+>=20
+> Could whoever that made the versioning changes in iptables please
+> contact me?
 
-I need to punish him/her/them by having them look at my
-tc code to make sure that i didnt miss some trick they used 
-(I just found out how the target name was being abused to carry
-versions;->). In the future please please remember there are other
-users of these goods other than iptables.
+That would be Rusty, and IIRC he's still in holidays.
 
-I am willing to say "works only with iptables >= 1.3.1"  and make
-sure tc pukes on lower versions. It would be better if i could say
-"ok, user space is 1.2.1 which doesnt have versioning support - heres
-what i need to do"
+> I am CCing netdev because netfilter-devel seems to bounce my emails.
 
-Kernel/userspace mismatch otoh may be a problem even if i decice in user
-space i am gonna stick with iptables that has the versioning feature.
-How do i detect that a kernel which has iptables support also has
-versioning feature?
+I'll add you to a posting filter.  They're only administratively held
+back for moderator approval, not really bounced.
 
-cheers,
-jamal
+> versions;->). In the future please please remember there are other
+> users of these goods other than iptables.
+
+well, the versioning was developed about the same time that you got your
+tc interface included, if I'm not mistaken.
+
+--=20
+- Harald Welte <laforge@netfilter.org>                 http://netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--LyciRD1jyfeSSjG0
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (GNU/Linux)
+
+iD8DBQFCQrOBXaXGVTD0i/8RAuTiAJ0Rb+9r5TtpFAujm48iFtHm8kKVGACfWFNl
+9LSqlsGel7Nokh4lM78R8sw=
+=BYmq
+-----END PGP SIGNATURE-----
+
+--LyciRD1jyfeSSjG0--
