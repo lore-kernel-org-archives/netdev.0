@@ -1,8 +1,8 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [Patch 5/5 2.4] e1000: white space corrections
-Date: Fri, 15 Oct 2004 06:51:56 -0700 (PDT)
+Subject: [Patch 0/5 2.5] e1000: driver update
+Date: Fri, 15 Oct 2004 06:52:08 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0410150534590.31227-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0410150537500.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,16 +11,9 @@ To: "jgarzik@pobox.com" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -up linux-2.4/drivers/net/e1000/e1000_param.c linux-2.4/drivers/net/e1000.new/e1000_param.c
---- linux-2.4/drivers/net/e1000/e1000_param.c	2004-10-07 09:11:14.000000000 -0700
-+++ linux-2.4/drivers/net/e1000.new/e1000_param.c	2004-10-07 09:11:17.000000000 -0700
-@@ -211,7 +211,7 @@ E1000_PARAM(InterruptThrottleRate, "Inte
- #define MAX_TXABSDELAY            0xFFFF
- #define MIN_TXABSDELAY                 0
- 
--#define DEFAULT_ITR                 8000 
-+#define DEFAULT_ITR                 8000
- #define MAX_ITR                   100000
- #define MIN_ITR                      100
- 
-Only in linux-2.4/drivers/net/e1000.new: kcompat_ethtool.c
+1. modified ethtool_set_pauseparam to use e1000_setup_link for flow control
+settings for fiber serdes link
+2. remove unused function e1000_enable_mng_pass_thru
+3. fix set ringparam for ethtool returning error code on bad input
+4. driver version number update
+5. white space corrections
