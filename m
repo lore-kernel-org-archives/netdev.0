@@ -1,57 +1,56 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Wed, 19 Jan 2005 21:18:35 -0800
-Message-ID: <20050119211835.67bfdf12.davem@davemloft.net>
-References: <5cac192f0412230110628749e3@mail.gmail.com>
-	<41CAF444.3000305@trash.net>
-	<5cac192f04122408102129af43@mail.gmail.com>
-	<1104240717.1100.66.camel@jzny.localdomain>
-	<5cac192f0501021530672a908a@mail.gmail.com>
-	<1104764660.1048.578.camel@jzny.localdomain>
-	<52brc68q05.fsf@topspin.com>
-	<5cac192f05010308414a25b548@mail.gmail.com>
-	<527jmu8nbw.fsf@topspin.com>
-	<5cac192f0501030907c755135@mail.gmail.com>
-	<20050103171227.GD7370@esmail.cup.hp.com>
-	<1104812294.1085.53.camel@jzny.localdomain>
-	<20050119144711.3fdd3d93.davem@davemloft.net>
-	<20050119151853.259de49a@dxpl.pdx.osdl.net>
-	<20050119164640.6c67bdfa.davem@davemloft.net>
-	<1106193707.1048.4.camel@jzny.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: More tc action mess
+Date: Thu, 20 Jan 2005 07:32:49 +0100
+Message-ID: <41EF5091.9040402@trash.net>
+References: <41EDEB97.3080503@trash.net>	 <1106140256.1049.903.camel@jzny.localdomain>  <41EEC19B.3010504@trash.net> <1106195414.1048.34.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, eric.lemoine@gmail.com, ak@suse.de,
-	openib-general@openib.org, kaber@trash.net, shemminger@osdl.org
-Return-path: <openib-general-bounces@openib.org>
+Cc: Maillist netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: hadi@cyberus.ca
-In-Reply-To: <1106193707.1048.4.camel@jzny.localdomain>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+In-Reply-To: <1106195414.1048.34.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 19 Jan 2005 23:01:47 -0500
-jamal <hadi@cyberus.ca> wrote:
+jamal wrote:
 
-> -----
-> /* Called with dev->xmit_lock held and interrupts disabled.  */
->  static int
->  e1000_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-> ---
-> 
-> Who calls that with dev->xmit_lock held and interrupts disabled?
+>On Wed, 2005-01-19 at 15:22, Patrick McHardy wrote:
+>  
+>
+>>This does not help. Netfilter calls skb_ip_make_writable if it has to
+>>touch the packet, if it is shared or cloned the packet will be copied.
+>>    
+>>
+>
+>for ipt, just restore:
+>
+>if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) 
+>	return -ENOMEM
+>
+>for the rest, the action code will handle all just fine. There will only
+>be one copy per serious of tramplings. This is design intent.
+>  
+>
+It seems to be more clever than I initially realized :) But it does need
+some fixing for ipt. The ->act function takes a struct sk_buff **, which
+implies the skb might get replaced, but tcf_action_exec only takes a struct
+sk_buff * and doesn't own the skb. So if the skb is replaced in the action
+the owner ends up with a pointer to freed memory. pskb_expand_head is not
+enough to stop netfilter from copying, at ingress the the skb might be
+nonlinear, in which case it is copied. On egress it seems fine.
 
-qdisc_restart() and dev_queue_xmit(), via netdev->hard_start_xmit().
+>Give me some examples which show something is broken then we can have a
+>more coherent discussion. I am willing to kill ipt if it is the problem.
+>
+Instead of killing ipt we could teach netfilter to be smarter about this.
+If the data that needs to be mangled is in the non-linear range we could
+just linearize the skb. Additionally we should change act_api to only pass
+single skb pointers around, to avoid all confusion and possible trouble.
 
-> Shouldnt the spin_unlock(&netdev->xmit_lock); be right at the top of
-> that routine now?
+This seems a lot better than changing almost entire net/sched to pass
+double pointers around :)
 
-Nope, the idea now is that netdev->xmit_lock replaces the driver
-private tx_lock
+Regards
+Patrick
