@@ -1,22 +1,60 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: non-NAPI mode question netif_rx_schedule()
-Date: Thu, 15 Apr 2004 11:07:42 -0700
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: IMQ / new Dummy device post.
+Date: Thu, 15 Apr 2004 20:35:01 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF6008@orsmsx402.jf.intel.com>
+Message-ID: <407EE3E5.8060200@dsl.pipex.com>
+References: <407E5905.9070108@dsl.pipex.com> <1082031313.1039.13.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jens Laas" <jens.laas@data.slu.se>
+To: hadi@cyberus.ca
+In-Reply-To: <1082031313.1039.13.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> __LINK_STATE_RX_SCHED is set on queue->backlog_dev not on the "real"
-> netdev.
+jamal wrote:
+> On Thu, 2004-04-15 at 05:42, Andy Furniss wrote:
 > 
-> The backlog_dev is per queue and thus per CPU.
+> 
+>>The only reason I use IMQ (+ NAT patch) is that I need to shape ingress 
+>>(I know I can't shape it "properly" from the wrong end of the bottleneck 
+>>without an intelligent app, but the ingress policer does not let me 
+>>share local and forwarded bandwidth and is not fair per user if I just 
+>>throttle the whole link).
+>>
+>>I am not sure if dummy will sort this for me, there may be some other way?
+> 
+> 
+> The summary is dummy can do what IMQ used to; it is however not related
+> to iptables/netfilter. 
+> 
+> 
+>>Basically all I need is something I can use HTB on where the qos ingress 
+>>box is on this diagram.
+> 
+> 
+> Yes you can attach a HTB. Look at the posted example in the previous
+> email and replace prio with HTB. 
+> Not sure i answered your questions.
 
-Ah, thanks!
+What I want to know is what state IP packets will be in if I 
+filter/shape with dummy - In my case I would need them to have been 
+demasqued so I can tell the difference between local and to be forwarded 
+ingress traffic.
+
+Ie. where on the KPTD would dummy be - IMQ appears twice and by using 
+the IMQ nat patch I can use the prerouting one to filter/shape the 
+packets after they are denatted.
+
+Andy.
+
+> 
+> Again to emphasize: I will send patches only to people interested.
+> People have to ask directly;
+> this is my way of monitoring what is being tested. At some point i will
+> make the latest patches available to everyone.
+> 
+> cheers,
+> jamal
