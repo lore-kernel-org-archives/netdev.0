@@ -1,33 +1,25 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: ipw2100 wireless driver
-Date: Wed, 14 Jul 2004 15:42:27 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040714134227.GA8978@elf.ucw.cz>
-References: <20040714114135.GA25175@elf.ucw.cz> <20040714131523.GA498@ucw.cz>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH Linux-2.6.8-rc1] prism54 Fix wrong type
+	for BSSID
+Date: Wed, 14 Jul 2004 14:43:13 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <40F57EC1.9090705@pobox.com>
+References: <200407122108.16380.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, kernel list <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S267384AbUGNNmt@vger.kernel.org>
-To: Vojtech Pavlik <vojtech@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20040714131523.GA498@ucw.cz>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Margit Schubert-While <margitsw@t-online.de>
+In-Reply-To: <200407122108.16380.margitsw@t-online.de>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Hi!
-
-> > What is the status of ipw2100? Is there chance that it would be pushed
-> > into mainline?
-> > 
-> > I have few problems with that:
-> > 
-> > * it will not compile with gcc-2.95. Attached patch fixes one problem
-> > but more remain.
-> 
-> Wouldn't "struct sk_buff **fragments" be a more correct fix?
-
-Yep, that would certainly be better. I'll wait if I get some  reply
-from ipw2100 people. If so I'll update the patch.
-								Pavel
--- 
-People were complaining that M$ turns users into beta-testers...
-...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
+applied
