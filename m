@@ -1,54 +1,47 @@
-From: Dave Dillow <dave@thedillows.org>
-Subject: Re: Ethtool offload patch
-Date: Tue, 04 Jan 2005 14:04:31 -0500
-Message-ID: <1104865471.9860.16.camel@dillow.idleaire.com>
-References: <1104396895.5845.1.camel@ori.thedillows.org>
-	 <20050104094423.2d404759.davem@davemloft.net>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: IPv6 badness continues
+Date: Tue, 4 Jan 2005 22:57:43 +0200 (EET)
+Message-ID: <Pine.LNX.4.61.0501042254330.30839@netcore.fi>
+References: <41DA3A60.8050102@pobox.com> <20050104093335.GB7823@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>,
+        YOSHIFUJI Hideaki / ???????????? <yoshfuji@linux-ipv6.org>,
+        Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050104094423.2d404759.davem@davemloft.net>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20050104093335.GB7823@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-01-04 at 12:44, David S. Miller wrote:
-> On Thu, 30 Dec 2004 03:54:55 -0500
-> David Dillow <dave@thedillows.org> wrote:
-> 
-> > The attached patch allows the ethtool userspace tool to query and
-> > control IPSEC crypto offload.
-> 
-> Aren't you going to need something much more sophisticated
-> than a boolean on/off value?  How can I tell the driver
-> "offload 3DES ESP, but not AH at all" or something like
-> that?
+On Tue, 4 Jan 2005, Lennert Buytenhek wrote:
+> On Tue, Jan 04, 2005 at 01:40:32AM -0500, Jeff Garzik wrote:
+>
+>> Standard FC2 OS with IPv6 6to4 setup as described on
+>> http://linux.yyz.us/ipv6-fc2-howto.html
+>
+> I upgraded my problematic machine to FC3, which somehow broke 6to4, and I
+> didn't bother to reenable it again because the local DNS server (dnscache)
+> just drops AAAA queries on the floor anyway, leading to lots of timeouts
+> when trying to resolve host names, etc.  Ever since 6to4 was turned off
+> on that box I stopped seeing these messages.
 
-Sure, but this was quicker. :)
+Surely it doesn't just drop AAAA queries on the floor, but sends an 
+error message?
 
-Actually, I thought that would be better suited to the xfrm_user/pf_key
-interfaces, perhaps using a flag on the SA that says "do not offload
-me", or perhaps the opposite. I'd probably want to add a flag to
-indicate which ones were actually offloaded as well so "ip xfrm state"
-could give an overview of what is currently offloaded.
+If so, maybe then the problem is that glibc resolver cannot properly 
+handle such errors without undue timeouts.
 
-I know you just got back from vacation, so when you get a chance, I'd
-welcome comments on the patch series -- I did most of it simply, just to
-see how it would perform. There is (obviously) still work to do -- I
-need to figure out how to determine if an IPv6 address is local, and it
-may be nice to have some sort of LRU list to offload the most active SAs
-when resources get low on the card.
+Actually I've just sent a message on libc-alpha@ describing a similar 
+timeout issue:
 
-The current version I'm testing includes the changes suggested on the
-board (change afinfo->map_direction() and remove xfrm_bundle_list), as
-well as a change to call dev->xfrm_state_add() and
-dev->xfrm_bundle_add() from process context, so I can get rid of the
-GFP_ATOMIC allocations.
+http://sources.redhat.com/ml/libc-alpha/2005-01/msg00007.html
 
-I'll have that out as soon as I can test and rediff everything, but in
-the meantime, is the whole idea fatally flawed?
+Maybe you could run a little bit of debug on whether the server sends 
+errors (which kind) and how the resolver reacts.
+
 -- 
-Dave Dillow <dave@thedillows.org>
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
