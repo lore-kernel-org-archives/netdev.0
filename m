@@ -1,38 +1,36 @@
-From: jaganav@us.ibm.com
-Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics)
-Date: Tue,  5 Apr 2005 18:19:40 -0400
-Message-ID: <1112739580.42530efce23ff@imap.linux.ibm.com>
+From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Tue, 05 Apr 2005 16:53:56 -0700
+Message-ID: <1112745236.16753.23.camel@beastie>
+References: <1112730889.16753.17.camel@beastie> <4253059C.1080000@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: Greg KH <greg@kroah.com>, Stephen Hemminger <shemminger@osdl.org>,
-        Roland Dreier <roland@topspin.com>, Benjamin LaHaise <bcrl@kvack.org>,
-        Dmitry Yusupov <dmitry_yus@yahoo.com>, open-iscsi@googlegroups.com,
-        "David  S. Miller" <davem@davemloft.net>, mpm@selenic.com,
-        andrea@suse.de, michaelc@cs.wisc.edu,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com, bmt@zurich.ibm.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rik van Riel <riel@redhat.com>
+To: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+In-Reply-To: <4253059C.1080000@6wind.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting Rik van Riel <riel@redhat.com>:
-
-> On Sat, 2 Apr 2005 jaganav@us.ibm.com wrote:
+On Tue, 2005-04-05 at 23:39 +0200, Jean-Mickael Guerin wrote:
+> Dmitry Yusupov wrote:
+> > This patch provides:
+> > 
+> > * new event for unicast connections NETLINK_UESTABLISHED.
 > 
-> > If this dual license is a concern to other kernel developers as well 
-> > from contributing to OpenRDMA, we would seriously consider this and 
-> > discuss with the adapter vendors.
+> Which kind of application takes benefit of this event ?
+
+we have NETLINK_URELEASE already where netlink user usually free
+associated resources. It is nice to have NETLINK_UESTABLISHED to
+implement reverse needs. For example, netlink user wants to allocate
+associated resources or to monitor new connections from user-space
+before it actually gets first interrupt from it.
+
+> btw your diff is reversed ;-)
+
+oh, well, I was running out of time. still applicable... :)
+
+> Jean-Mickael
 > 
-> It could be a problem when trying to reuse existing
-> GPL code, eg. to hook into locking mechanisms.  It
-> could also be a problem if you touch data structures
-> that are protected by RCU.
-
-Right, this could be one of the significant porting issues 
-but it may become a real concern. Thanks.
-
-Thanks
-Venkat
