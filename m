@@ -1,39 +1,37 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: e1000 close (NAPI)
-Date: Tue, 7 Oct 2003 14:34:37 +0200
+From: Kovacs Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH] ipv4 tcp autobind problem
+Date: Tue, 07 Oct 2003 14:35:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16258.45789.42373.575294@robur.slu.se>
+Message-ID: <3F82B326.9050508@balabit.hu>
+References: <200310071156.PAA31530@yakov.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Robert Olsson <Robert.Olsson@data.slu.se>,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, jmorris@redhat.com,
+        netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        Balazs Scheidler <bazsi@balabit.hu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: scott.feldman@intel.com
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200310071156.PAA31530@yakov.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+   Hi,
 
- Hello!
+kuznet@ms2.inr.ac.ru wrote:
+> Right place to finish tracking is when socket is removed from TCP
+> hash tables, and to start tracking is when the socket is inserted
+> to TCP hash tables. BTW you would not see the problem with binding
+> if it was made right.
 
+   Thanks for the reply. In the meantime, although because of slightly 
+different reasons, we also came to the same conclusion. Right now I'm 
+testing a version in which our "unassign" hook is removed from 
+inet_release(), and added to udp_v4_unhash() and tcp_put_port().
+However, I'm not quite sure there won't be locking problems when calling 
+our hook from these places.
 
- Here is an patch to check netif_running in dev->poll so we don't have to hang in 
- dev_close until all polls are finished.
-
-
- Cheers.
-						--ro
-
-
---- drivers/net/e1000/e1000_main.c.031007	2003-05-08 16:29:08.000000000 +0200
-+++ drivers/net/e1000/e1000_main.c	2003-10-07 14:26:12.000000000 +0200
-@@ -2040,7 +2040,7 @@
- 	*budget -= work_done;
- 	netdev->quota -= work_done;
- 	
--	if(work_done < work_to_do) {
-+	if(work_done < work_to_do || !netif_running(netdev)) {
- 		netif_rx_complete(netdev);
- 		e1000_irq_enable(adapter);
- 	}
+-- 
+   Regards,
+     Krisztian KOVACS
