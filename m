@@ -1,68 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Sysctl for ICMPv6 Rate Limitation
-Date: Thu, 24 Oct 2002 16:23:55 +0900 (JST)
+From: Karen Shaeffer <shaeffer@neuralscape.com>
+Subject: Re: [RESEND] tuning linux for high network performance?
+Date: Thu, 24 Oct 2002 02:37:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021024.162355.127875447.yoshfuji@linux-ipv6.org>
-References: <20021024.145551.130454003.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0210240858060.8872-100000@netcore.fi>
+Message-ID: <20021024023751.A26024@synapse.neuralscape.com>
+References: <200210231218.18733.roy@karlsbakk.net> <20021023130101.GA646@outpost.ds9a.nl> <1035379308.5950.3.camel@rth.ninka.net> <200210231542.48673.roy@karlsbakk.net> <1035432669.9628.1.camel@rth.ninka.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-In-Reply-To: <Pine.LNX.4.44.0210240858060.8872-100000@netcore.fi>
+To: "David S. Miller" <davem@rth.ninka.net>
+Content-Disposition: inline
+In-Reply-To: <1035432669.9628.1.camel@rth.ninka.net>; from davem@rth.ninka.net on Wed, Oct 23, 2002 at 09:11:09PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0210240858060.8872-100000@netcore.fi> (at Thu, 24 Oct 2002 08:59:16 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
-
-> > > Does this rate-limit all ICMPv6 packets or just ICMPv6 error messages (as 
-> > > specified in ICMPv6 specifications).
-> > > 
-> > > If all, I believe the default of rate-limiting everything is unacceptable.
-> > 
-> > This patch just adds sysctl.  It is my documentation error...
-> > is s/ICMPv6 packets/ICMPv6 error packets/ ok?
-> > 
-> > (I need to do s/100/HZ/, too; This also lives in ICMP(v4)).
+On Wed, Oct 23, 2002 at 09:11:09PM -0700, David S. Miller wrote:
+> On Wed, 2002-10-23 at 06:42, Roy Sigurd Karlsbakk wrote:
+> > As far as I've understood, sendfile() won't do much good with large files. Is 
+> > this right?
 > 
-> That change fine with me, thanks.
+> There is always a benefit to using sendfile(), when you use
+> sendfile() the cpu doesn't touch one byte of the data if
+> the network card support TX checksumming.  The disk DMAs
+> to ram, then the net card DMAs from ram.  Simple as that.
 
-Please apply the following patch on top of the previous 
-"Sysctl for ICMPv6 Rate Limitation" patch.  Thanks.
+Referring to:
 
-Index: Documentation/networking/ip-sysctl.txt
-===================================================================
-RCS file: /cvsroot/usagi/usagi-backport/linux24/Documentation/networking/ip-sysctl.txt,v
-retrieving revision 1.1.1.1.44.1
-retrieving revision 1.1.1.1.44.1.2.2
-diff -u -r1.1.1.1.44.1 -r1.1.1.1.44.1.2.2
---- Documentation/networking/ip-sysctl.txt	23 Oct 2002 17:50:19 -0000	1.1.1.1.44.1
-+++ Documentation/networking/ip-sysctl.txt	24 Oct 2002 07:03:46 -0000	1.1.1.1.44.1.2.2
-@@ -316,7 +316,7 @@
- 	Limit the maximal rates for sending ICMP packets whose type matches
- 	icmp_ratemask (see below) to specific targets.
- 	0 to disable any limiting, otherwise the maximal rate in jiffies(1)
--	Default: 100
-+	Default: HZ
- 
- icmp_ratemask - INTEGER
- 	Mask made of ICMP types for which rates are being limited.
-@@ -562,9 +562,9 @@
- 
- icmp/*:
- ratelimit - INTEGER
--	Limit the maximal rates for sending ICMPv6 packets.
-+	Limit the maximal rates for sending ICMPv6 error packets.
- 	0 to disable any limiting, otherwise the maximal rate in jiffies(1)
--	Default: 100
-+	Default: HZ
- 
- IPv6 Update by:
- Pekka Savola <pekkas@netcore.fi>
+$ rpm -qf /usr/include/sys/sendfile.h
+glibc-devel-2.2.5-40
 
+quoting "sendfile.h"
+
+#ifdef __USE_FILE_OFFSET64
+# error "<sys/sendfile.h> cannot be used with _FILE_OFFSET_BITS=64"
+#endif
+
+So, how does one use sendfile() for large files that are greater than 2
+GBytes? Am I missing something?
+
+Thanks,
+Karen
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+ Karen Shaeffer
+ Neuralscape; Santa Cruz, Ca. 95060
+ shaeffer@neuralscape.com  http://www.neuralscape.com
