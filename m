@@ -1,102 +1,140 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC/PATCH] IMQ port to 2.6
-Date: 26 Jan 2004 22:25:05 -0500
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: NAT before IPsec with 2.6
+Date: Wed, 28 Jan 2004 09:58:31 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1075173905.1039.65.camel@jzny.localdomain>
-References: <20040125164431.GA31548@louise.pinerecords.com>
-	 <1075058539.1747.92.camel@jzny.localdomain>
-	 <20040125202148.GA10599@usr.lcm.msu.ru>
-	 <1075074316.1747.115.camel@jzny.localdomain>
-	 <20040126001102.GA12303@usr.lcm.msu.ru>
-	 <1075086588.1732.221.camel@jzny.localdomain>
-	 <20040126093230.GA17811@usr.lcm.msu.ru>
-	 <1075124312.1732.292.camel@jzny.localdomain>
-	 <20040126135545.GA19497@usr.lcm.msu.ru>
-	 <1075127396.1746.370.camel@jzny.localdomain>
-	 <20040126174122.GB20001@usr.lcm.msu.ru>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040128085831.GM11761@sunbeam.de.gnumonks.org>
+References: <20040124082252.GA19035@alpha.home.local> <Pine.LNX.4.44.0401241015470.32723-100000@filer.marasystems.com> <20040124092721.GA19140@alpha.home.local> <20040127103917.GC11761@sunbeam.de.gnumonks.org> <20040127132725.GA14685@openoffice.nl> <pan.2004.01.27.21.13.32.754125@dungeon.inka.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="w+rhPQc/K9ract27"
+Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-In-Reply-To: <20040126174122.GB20001@usr.lcm.msu.ru>
+To: Andreas Jellinghaus <aj@dungeon.inka.de>
+Content-Disposition: inline
+In-Reply-To: <pan.2004.01.27.21.13.32.754125@dungeon.inka.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-01-26 at 12:41, Vladimir B. Savkin wrote:
-> On Mon, Jan 26, 2004 at 09:29:56AM -0500, jamal wrote:
-[..]
-> 
-> Over here every good networking engineer I have talked to knows this :)
 
-This may be true but its like sticking a finger in the air
-and saying the "wind blows south" ;-> Data my friend.
+--w+rhPQc/K9ract27
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> > Thats what i was assuming. Shaping alone is insufficient as well.
-> 
-> I don't quite understand what you mean here.
-> Ultimately, any packet will land in some leaf qdisc,
-> where there is a queue of some maximum size.
-> If a sender does not reduce its rate, queue overflows, and we drop.
-> But in my experience this rarely happens with TCP. I think that sender
-> just see measured RTT increase and reduce its rate or shrinks
-> its window. I don't know modern TCP implementations in detail, 
-> but I can see it works.
+Cc'ing netdev, since this is now a very clear proposal and not some
+internal netfilter rambling.
 
-We are saying the same thing. And we are also digressing from the main
-point. So lets drop this part if you dont mind.
+On Tue, Jan 27, 2004 at 10:13:33PM +0100, Andreas Jellinghaus wrote:
+> > This is what happens with incoming packets: they hit INPUT twice.
+>=20
+> yes, but once before and once after decryption. use either fwmark
+> or an ipip tunnel interface to destinguish between already decrypted
+> and was-never-encrypted packets.=20
 
-> > So why cant you attach a ingress qdisc on eth1-2 and use policing to
-> > mark excess traffic (not drop)? On eth0 all you do is based on the mark
-> 
-> And where to drop then?
-> 
+yes, and this is desired.   However, the packets also hit PREROUTING
+twice, which is exactly what we want (and get it for free, since
+xfrm4_input.c calls netif_rx() again). =20
 
-Look at the example i just typed.
-In your case you dont need the patch i described; use the standard
-ingress qdisc and mark with iptables.
+However, it doesn't reset the skb->nfct pointer, so connection tracking
+sees both encapsulated and decapsulated packet as belonging to the same
+connection.  This is wrong, and dangerous (application helpers might be
+called for the encapsulated traffic, which now has a completely
+different layer 4 protocol.
 
-> So, it's just like IMQ, but without that Q bit, only marking?
-> 
+So with stock 2.6.x you have=20
 
-Exactly.
+- no working connection tracking in any kind of ipsec scenario
+- conntrack and NAT helpers trying to find readable application data
+  within already-encrypted packets
+- no working DNAT/SNAT, mainly because of not-working connection
+  tracking
 
-> But how would I calculate guaranteed rate for a client?
+> > On output, however, things are not so transparant. A packet hits OUTPUT,
+> > then gets encrypted. A totally different packet hits POSTROUTING. This =
+makes
+> > no sense.
+>=20
+> use an interface, and you will see the packet twice, plus the interface
+> does the route lookup on the encrypted packet. so no ugly hacks in the
+> routing table are necessary.
 
-Note how i used index 1 for the meter in the example i posted.
-index 1 is only for one client.
+Did anybody propose ugly hacks in the routing table?
 
-> Suppose I have 100 clients connected, then I can only
-> guarantee a 1/100th of the pipe to each. But if only 5 of them
-> are active, then each can get 1/5th of the pipe.
+> [symetry]
+>=20
+> that does not work:
+> netfilter wants NAT to be the first thing for incoming packets
+> and the last thing for outgoing packets. thats symetry.
 
-Look at the way i had index 200 and 300 one for sharing within a
-device and another for the whole system. 
-You should also just be able to use marks and shape on egress.
+yes, it is symmetric.  As is the symmetry between prerouting/postrouting
+and input/output hooks. As well as the symmetry between SNAT and DNAt,
+=2E..
 
-> Round-robin mechanism such as wrr effectively adjusts rates in dynamic.
-> I use two-layer hierarchy actually, by applying sfq to every wrr class,
-> so a user can download a file and play Quake at the same time,
-> with acceptable delays and no packet loss. At the same time,
-> user that opens 1000 connections with some evil multithreaded downloader
-> thing, has the same aggregate rate, but can't play Quake because
-> of high latency.  It works wonderfully.
-> 
-> I suppose we can have a flavor of wrr that will not queue packets,
-> only find over-active flows and mark or drop over-profile packets
-> but 1) no such thing exist AFAIK and 2) it will not have separate
-> queue for each user/flow, thus all flows will have same latency,
-> only drop probabilities will differ.
-> 
-> So, it seems to me that IMQ fits nicely when there're some artificial
-> bandwidth limits (as opposed to bandwidth of some physical interface)
-> and no single egress interface for all flows to be shaped.
+> but you want ipsec encryption and decryption as soon as possible:
+> both before looking at the routing table.
 
-Look at that sample and then lets discuss further. I spent a long time
-typing it (and wanna catch up with other email). I think we may be
-gettin close.
+Yes, that's why what IPsec is doing for incoming ESP/AH packets the
+right thing: go through PRE_ROUTING, route to LOCAL_IN, decapsulate,
+and start over again.
 
-cheers,
-jamal
+However, for outgoing ESP/AH packets (locally-encapsulated), it doesn't
+show the symmetric behaviour of what it does on the input side: go
+through FORWARD, encapsulate, route, POST_ROUTING.  No starting over.
+
+So we absolutely _need_ a symmetric-to-incoming behaviour like:
+
+a) for locally-originated packets
+LOCAL_OUT, POST_ROUTING, encapsulate, LOCAL_OUT, POST_ROUTING.
+
+b) for forwarded, locally-encapsulated packets
+PRE_ROUTING, FORWARD, POST_ROUTING, encapsulate, LOCAL_OUT, POST_ROUTING.
+
+No, we don't achieve this by manipulating the routing code, but by
+placing the respective hooks in ah{4,6}.c and esp{4,6}.c
+{ah,esp}_output() function respectively. We also need to (again) reset
+the skb->nfct and drop the conntrack reference again.
+
+This way we=20
+	1) make connection tracking work again
+	2) do not change any routing of the current implementation
+	3) enable users to
+		a) filter unencapsulated, encapsulated and decapsulated
+		   packeets at their 'expected' place
+		b) do DNAT on the incoming decapsulated packets
+		   (which doesn't work right now, but should)
+		c) do SNAT on the outgoing/forwarded to-be-encapsualated
+		   packets (which doesn't work right now, but should)
+
+> mixing those two will never result in symetry. if you try it
+> (routing before encapsulation), the result has problems.
+
+I'm not proposing to route before encapsulating.  I just propose of
+calling the same netfilter functions that we usually call before/after
+routing at different places :)
+
+> Andreas
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--w+rhPQc/K9ract27
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQFAF3m3XaXGVTD0i/8RAqxuAJ4/Bsih+JQeaQ0TGsrVTWAnVKhmqACePVOc
+M2GMr44fYlnKW5RM4SKJ5iA=
+=324Q
+-----END PGP SIGNATURE-----
+
+--w+rhPQc/K9ract27--
