@@ -1,24 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fix IPv6 MIBs counters in 2.6.5 kernel
-Date: Fri, 9 Apr 2004 16:27:12 -0700
+Subject: Re: [janitor] remove concat. with __FUNCTION__ (net/)
+Date: Fri, 9 Apr 2004 16:31:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040409162712.243edcda.davem@redhat.com>
-References: <OF8F6A9EBE.82E160C6-ON87256E69.001BB337-88256E69.001D33A3@us.ibm.com>
-	<200404051351.09740.mashirle@us.ibm.com>
-	<20040405144213.198f76ea.davem@redhat.com>
-	<200404051711.27188.mashirle@us.ibm.com>
+Message-ID: <20040409163148.5f95356e.davem@redhat.com>
+References: <20040406144610.2471dcf7.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: xma@us.ibm.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-        yoshfuji@cerberus.hongo.wide.ad.jp
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200404051711.27188.mashirle@us.ibm.com>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20040406144610.2471dcf7.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 6 Apr 2004 14:46:10 -0700
+"Randy.Dunlap" <rddunlap@osdl.org> wrote:
 
-Looks great Shirley, patch applied.
+> From: Tony Breeds <tony@bakeyournoodle.com>
+> 
+> "concatenation of string literals with __FUNCTION__ is deprecated"
 
-Thanks.
+Applied, thanks.
