@@ -1,90 +1,44 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: [PATCH] convert sis900 to new style parameters
-Date: Fri, 12 Nov 2004 23:07:10 +0100
-Message-ID: <20041112220710.GB29980@gateway.milesteg.arr>
+From: John Heffner <jheffner@psc.edu>
+Subject: A case AGAINST checksum offload
+Date: Fri, 12 Nov 2004 18:46:11 -0500 (EST)
+Message-ID: <Pine.LNX.4.58.0411121644150.8989@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="p4qYPpj5QlsIQJ0K"
-Cc: NetDev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Rusty Russell <rusty@rustcorp.com.au>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Currently with many common Ethernet devices in Linux, hardware TCP
+checksumming is enabled by default.  This seems fairly dangerous to me.
+Most link layer checksums are much stronger than the TCP/UDP checksum;
+most bit errors are caught by these.  However, one of the primary purposes
+of the TCP/UDP checksum is to detect errors occurring outside the
+protection of the link layer checksums -- errors when data is reassembled
+or copied across busses inside hosts and routers.  Hardware checksum
+offload removes the ability to detect errors between the NIC and host
+memory.
 
---p4qYPpj5QlsIQJ0K
-Content-Type: multipart/mixed; boundary="zYM0uCDKw75PZbzx"
-Content-Disposition: inline
+For some anecdotal evidence: One of my machines has fiber e1000 (82545GM)
+and I observed corruptions in its TCP streams.  I actually caught this
+because large SSH flows originating from this host would usually die after
+<1 GB or so with a MAC error, indicating the TCP stream was somehow
+corrupt.  I looked at some TCP statistics, which indicated no dropped
+packets or checksum errors, but then I realized hardware checksumming was
+on.  I turned off hardware checksumming and found the stream errors
+disappeared, and it correctly started discarding the corrupt TCP segments.
+Luckily for me, this machine is mainly used for testing, and the strong
+authentication SSH uses caught the problems.
 
+Though I don't have any definitive references, I've heard stories that Sun
+turned off UDP checksums on LANs to increase NFS performance, only to
+re-enable checksumming by default after problems similar to mine caused
+corruptions of some critical databases.
 
---zYM0uCDKw75PZbzx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Since TCP checksum offload should only really helps the zero-copy case in
+terms of performance, it seems safer to turn off hardware checksumming by
+default, or perhaps only enable it if an application is doing a zero-copy
+send.
 
-The attached patch converts MODULE_PARM() calls in module_param() calls.
-I've tested it and the expected files were created in sysfs.
-
-For now all parameters are read-only. After some check I'll probably
-change some of them to r/w.
-
-The patch is against 2.6.9 and if no issues are raised, I propose it for
-inclusion.
-
-This patch is also available at http://teg.homeunix.org/sis900.html
-
---=20
------------------------------
-Daniele Venzano
-Web: http://teg.homeunix.org
-
-
---zYM0uCDKw75PZbzx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sis900-module-param.diff"
-Content-Transfer-Encoding: quoted-printable
-
---- a/drivers/net/sis900.c	2004-11-12 16:26:50.000000000 +0100
-+++ b/drivers/net/sis900.c	2004-11-12 16:33:20.000000000 +0100
-@@ -48,6 +48,7 @@
- */
-=20
- #include <linux/module.h>
-+#include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/string.h>
- #include <linux/timer.h>
-@@ -179,9 +180,9 @@
- MODULE_DESCRIPTION("SiS 900 PCI Fast Ethernet driver");
- MODULE_LICENSE("GPL");
-=20
--MODULE_PARM(multicast_filter_limit, "i");
--MODULE_PARM(max_interrupt_work, "i");
--MODULE_PARM(debug, "i");
-+module_param(multicast_filter_limit, int, 0444);
-+module_param(max_interrupt_work, int, 0444);
-+module_param(debug, int, 0444);
- MODULE_PARM_DESC(multicast_filter_limit, "SiS 900/7016 maximum number of f=
-iltered multicast addresses");
- MODULE_PARM_DESC(max_interrupt_work, "SiS 900/7016 maximum events handled =
-per interrupt");
- MODULE_PARM_DESC(debug, "SiS 900/7016 debug level (2-4)");
-
---zYM0uCDKw75PZbzx--
-
---p4qYPpj5QlsIQJ0K
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBlTQO2rmHZCWzV+0RAlLKAJwNBqPurX3dsKcEVm6WOE/muEVPBQCcDaEK
-tpL36BohIy2G5AKUqsdHaFY=
-=VeE/
------END PGP SIGNATURE-----
-
---p4qYPpj5QlsIQJ0K--
+  -John
