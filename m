@@ -1,38 +1,29 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [TCP] Show all SYN_RECV sockets in /proc/net/tcp
-Date: Tue, 5 Oct 2004 20:58:44 -0700
+Date: Tue, 5 Oct 2004 22:18:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041005205844.444dc66a.rddunlap@osdl.org>
-References: <416355BD.50402@conectiva.com.br>
-	<E1CF1eo-0003qW-00@gondolin.me.apana.org.au>
+Message-ID: <20041005221836.4b1281db.davem@davemloft.net>
+References: <20041006020650.GA14583@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, herbert@gondor.apana.org.au, davem@davemloft.net,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CF1eo-0003qW-00@gondolin.me.apana.org.au>
+In-Reply-To: <20041006020650.GA14583@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 06 Oct 2004 12:35:58 +1000 Herbert Xu wrote:
+On Wed, 6 Oct 2004 12:06:50 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-| Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
-| > 
-| > Go ahead and do it with the current seq_file infrastructure 8) Standard
-| 
-| Does the current seq_file infrastructure offer anything new compared
-| to what's in the existing /proc/net/tcp code?
-| 
-| > answer for these cases is remove /proc/net/tcp altogether and convert
-| > the userland tools to use netlink instead.
-| 
-| Completely agreed.  As I said I only started looking at this because
-| I was trying to fix tcp_diag.
+> I was fixing the tcp_diag so that it shows SYN_RECV sockets properly.
+> I found that /proc/net/tcp didn't do it correctly either.  So here is
+> a small patch to fix /proc/net/tcp.
+> 
+> The logic in there stinks though so I'd love to see a rewrite.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Dave's other standard answer is "don't mess up the userland API",
-including /proc interfaces.  (not to put words into Dave's mouth)
-
---
-~Randy
+Patch applied, thanks.  And yes I agree this stuff could
+be improved dramatically.
