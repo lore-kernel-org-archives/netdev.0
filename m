@@ -1,49 +1,61 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [07/08] [TCP] Fix BIC congestion avoidance algorithm error
-Date: Tue, 5 Apr 2005 11:32:41 -0700
-Message-ID: <20050405113241.3389c9b8@dxpl.pdx.osdl.net>
-References: <20050405164539.GA17299@kroah.com>
-	<20050405164758.GH17299@kroah.com>
-	<20050405182202.GA11979@thunk.org>
-	<20050405112608.0b3c07f0.davem@davemloft.net>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH] network configs: disconnect network options from drivers
+Date: Tue, 05 Apr 2005 11:46:45 -0700
+Message-ID: <4252DD15.5020605@osdl.org>
+References: <20050330234709.1868eee5.randy.dunlap@verizon.net> <20050331185226.GA8146@mars.ravnborg.org> <424C5745.7020501@osdl.org> <20050331203010.GA8034@mars.ravnborg.org> <4250B4C5.2000200@osdl.org> <20050404195051.GA12364@mars.ravnborg.org> <4251A830.5030905@osdl.org> <20050404215554.GA29170@mars.ravnborg.org> <4251C9A5.3020704@osdl.org> <20050405154538.GA9130@mars.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Theodore Ts'o" <tytso@mit.edu>, gregkh@suse.de,
-        linux-kernel@vger.kernel.org, stable@kernel.org, netdev@oss.sgi.com
+Cc: ioe-lkml@axxeo.de, matthew@wil.cx, lkml <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com, hadi@cyberus.ca, cfriesen@nortel.com,
+        tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050405112608.0b3c07f0.davem@davemloft.net>
+To: Sam Ravnborg <sam@ravnborg.org>
+In-Reply-To: <20050405154538.GA9130@mars.ravnborg.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 5 Apr 2005 11:26:08 -0700
-"David S. Miller" <davem@davemloft.net> wrote:
+Sam Ravnborg wrote:
+> On Mon, Apr 04, 2005 at 04:11:33PM -0700, Randy.Dunlap wrote:
+> 
+>>- in Networking support, move Network testing and Netpoll
+>>support to the end of the menu (basically put the devel.
+>>tools toward the bottom of the menu)
+> 
+> Done
+> 
+> 
+>>- I would rather not "hide" Amateur Radio, IrDA, and
+>>Bluetooth in the Networking protocols area, but have them
+>>near 802.1x and ATM in the top-level Networking support
+>>menu.  How does that sound to you?
+> 
+> Done
+> 
+> I've made them with separate menu's that you have to enter to enable
+> them.
+> Also pushed out xfrm stuff to net/xfrm/Kconfig
+> Several other small adjustments.
+> In the Networking menu the submenu's are grouped in beginning and in the
+> end now.
+> 
+> I thought of creating a Kconfig.netfilter for the common netfilter
+> stuff. But in the end did not do it - felt there was plenty of new small
+> files being created already.
 
-> On Tue, 5 Apr 2005 14:22:02 -0400
-> Theodore Ts'o <tytso@mit.edu> wrote:
-> 
-> > If the congestion control alogirthm is "Reno-like", what is
-> > user-visible impact to users?  There are OS's out there with TCP/IP
-> > stacks that are still using Reno, aren't there?  
-> 
-> An incorrect implementation of any congestion control algorithm
-> has ramifications not considered when the congestion control
-> author verified the design of his algorithm.
-> 
-> This has a large impact on every user on the internet, not just
-> Linux machines.
-> 
-> Perhaps on a microscopic scale "this" part of the BIC algorithm
-> was just behaving Reno-like due to the bug, but what implications
-> does that error have as applied to the other heuristics in BIC?
-> This is what I'm talking about.  BIC operates in several modes,
-> one of which is a pseudo binary search mode, and another is a
-> less aggressive slower increase mode.
+It would make sense to isolate the netfilter options, but that can
+be done later.
+But you are right about "plenty of new small files."
 
-> Therefore I think fixes to congestion control algorithms which
-> are enabled by default always should take a high priority in
-> the stable kernels.
+I would move Frame Diverter (NET_DIVERT) from the end of the
+net/core/Kconfig file to the top of the same file....
+and then ship it.  :)
 
-Also, hopefully distro vendors will pick up 2.6.11.X fixes and update their customers.
+
+> Comments welcome.
+
+Thanks for doing this.
+
+-- 
+~Randy
