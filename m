@@ -1,25 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IFA_MAX sets wrong in rtnetlink.h
-Date: Sat, 29 May 2004 12:36:13 -0700
+Subject: Re: [PATCH]: Fix memory leak in ah6.c
+Date: Sat, 29 May 2004 12:37:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040529123613.1264506a.davem@redhat.com>
-References: <20040528.134802.953480362.yoshfuji@linux-ipv6.org>
-	<20040527220756.7c41a55b.davem@redhat.com>
-	<20040528.141200.564308976.yoshfuji@linux-ipv6.org>
-	<20040528.182538.116783344.yoshfuji@linux-ipv6.org>
+Message-ID: <20040529123737.57b3f6ef.davem@redhat.com>
+References: <40B71975.1080909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040528.182538.116783344.yoshfuji@linux-ipv6.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <40B71975.1080909@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 28 May 2004 18:25:38 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Fri, 28 May 2004 12:50:29 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Here's the patch for 2.6. Please apply on top of the Sirley's patch.
+> this patch fixes a memory leak in ah6.c. iph is not freed when
+> ipv6_clear_mutable_options fails.
 
-Applied, thanks.
+Applied.
