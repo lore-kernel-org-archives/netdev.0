@@ -1,42 +1,83 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Submission for S2io 10GbE driver
-Date: Tue, 27 Jan 2004 01:08:32 -0500
+From: Jan Kasprzak <kas@informatics.muni.cz>
+Subject: Patch: IPv6/AMD64: bug in net/ipv6/ndisc.c
+Date: Thu, 29 Jan 2004 22:15:38 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40160060.4010709@pobox.com>
-References: <001801c3e497$010671a0$0400a8c0@S2IOtech.com>
+Message-ID: <20040129221538.J24747__26568.3230980814$1075418455@fi.muni.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'Stephen Hemminger'" <shemminger@osdl.org>, "'Andi Kleen'" <ak@suse.de>,
-        netdev@oss.sgi.com, raghavendra.koushik@s2io.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Leonid Grossman <leonid.grossman@s2io.com>
-In-Reply-To: <001801c3e497$010671a0$0400a8c0@S2IOtech.com>
+Resent-Message-Id: <20040130.082054.58205563.yoshfuji@linux-ipv6.org>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Leonid Grossman wrote:
-> The loopback test is there as a part of the ethtool's diagnostic option.
-> 
-> 
-> There are pros and cons of having the test in there I guess, anyone else
-> has an opinion on this?
-> 
-> Do other net drivers normally support loopback and other diag tests as a
-> part of the ethtool support,
-> or they provide little/no support for the option and ship a standalone
-> diag program instead?
+	Hello, all!
+
+while compiling the kernel (2.6.1) I have spotted the following warning:
+
+net/ipv6/ndisc.c: In function `ndisc_router_discovery':
+net/ipv6/ndisc.c:1113: warning: comparison is always true due to limited range of data type
+net/ipv6/ndisc.c:1121: warning: comparison is always true due to limited range of data type
+
+The corresponding lines are these:
+
+                __u32 rtime = ntohl(ra_msg->retrans_timer);
+                                                                                
+Here --->       if (rtime && rtime/1000 < (MAX_SCHEDULE_TIMEOUT/HZ)) {
+                        rtime = (rtime*HZ)/1000;
+                        if (rtime < HZ/10)
+                                rtime = HZ/10;
+                        in6_dev->nd_parms->retrans_time = rtime;
+                }
+                                                                                
+                rtime = ntohl(ra_msg->reachable_time);
+and here -->    if (rtime && rtime/1000 < MAX_SCHEDULE_TIMEOUT/(3*HZ)) {
+                        rtime = (rtime*HZ)/1000;
 
 
-The ethtool diag stuff is more of a quick sanity test than anything 
-exhaustive.
+The MAX_SCHEDULE_TIMEOUT is #defined to LONG_MAX in include/linux/sched.h,
+which is 2^63-1 or so on AMD64. I propose the following fix:
 
-I definitely want to discourage tons of test code in drivers, as its 
-code that users will almost-never run, it bloats the driver, and can be 
-done with a special diag-only driver or diag program (or a combination 
-of both).
+--- net/ipv6/ndisc.c.orig	2004-01-29 22:03:50.553745520 +0100
++++ net/ipv6/ndisc.c	2004-01-29 22:06:39.973989728 +0100
+@@ -995,6 +995,9 @@
+ 	}
+ }
+ 
++#define MAX_SCHEDULE_TIMEOUT_32 (MAX_SCHEDULE_TIMEOUT/HZ > (1U<<31) ? \
++	 (1U<<31) : MAX_SCHEDULE_TIMEOUT/HZ)
++
+ static void ndisc_router_discovery(struct sk_buff *skb)
+ {
+         struct ra_msg *ra_msg = (struct ra_msg *) skb->h.raw;
+@@ -1110,7 +1113,7 @@
+ 	if (in6_dev->nd_parms) {
+ 		__u32 rtime = ntohl(ra_msg->retrans_timer);
+ 
+-		if (rtime && rtime/1000 < MAX_SCHEDULE_TIMEOUT/HZ) {
++		if (rtime && rtime/1000 < MAX_SCHEDULE_TIMEOUT_32) {
+ 			rtime = (rtime*HZ)/1000;
+ 			if (rtime < HZ/10)
+ 				rtime = HZ/10;
+@@ -1118,7 +1121,7 @@
+ 		}
+ 
+ 		rtime = ntohl(ra_msg->reachable_time);
+-		if (rtime && rtime/1000 < MAX_SCHEDULE_TIMEOUT/(3*HZ)) {
++		if (rtime && rtime/1000 < MAX_SCHEDULE_TIMEOUT_32/3) {
+ 			rtime = (rtime*HZ)/1000;
+ 
+ 			if (rtime < HZ/10)
 
-A lot of the 10/100 drivers originated from Donald Becker, who typically 
-creates a userland (i.e. separate) diag program for each driver he writes.
+	Do you think this is a correct fix? If so, please apply. Hope
+this helps,
 
-	Jeff
+-Yenya
+
+-- 
+| Jan "Yenya" Kasprzak  <kas at {fi.muni.cz - work | yenya.net - private}> |
+| GPG: ID 1024/D3498839      Fingerprint 0D99A7FB206605D7 8B35FCDE05B18A5E |
+| http://www.fi.muni.cz/~kas/   Czech Linux Homepage: http://www.linux.cz/ |
+ Any compiler or language that likes to hide things like memory allocations
+ behind your back just isn't a good choice for a kernel.   --Linus Torvalds
