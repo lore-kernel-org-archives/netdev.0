@@ -1,255 +1,163 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM] Handle device down/unregister events
-Date: Thu, 27 Nov 2003 21:59:07 +1100
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
+ device
+Date: Thu, 27 Nov 2003 12:31:58 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031127105907.GA13047@gondor.apana.org.au>
-References: <20031126044355.GA18805@gondor.apana.org.au> <20031125222059.6730f242.davem@redhat.com>
+Message-ID: <Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi>
+References: <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi>
+ <20031125.035531.94714784.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="Qxx1br4bt0+wmkIi"
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Content-Transfer-Encoding: quoted-printable
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031125222059.6730f242.davem@redhat.com>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031125.035531.94714784.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 25 Nov 2003, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
+=CC=C0 wrote:
 
---Qxx1br4bt0+wmkIi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-On Tue, Nov 25, 2003 at 10:20:59PM -0800, David S. Miller wrote:
-> 
-> Thanks for catching this, I'll review and apply your patch soon.
+> I prefer ipv6_inherit_linklocal() or something like that
+> because this does not seem ip6_tun specific.
+>
+> I'm ok with other portion.
+>
+> Thanks.
+>
+> --yoshfuji
 
-Hmm, it looks like my patch has a slight race in it.  It is possible
-for a device to be added to a dst, go down and unregister, and then
-the dst is added to a bundle.
+Ok,
 
-This isn't really a problem for net devices without destructors though
-since the UNREGISTER event is rebroadcast at regular intervals.
+here is a new version. I made some other minor changes to it too.
 
-However, it also affects xfrm_flush_bundle() and xfrm states don't
-enjoy the benefit of repeated flushes.
+I removed the CONFIG_IPV6_TUNNEL ifdefs, so you don't need to recompile
+the whole ipv6 stack and reboot just because you decide to compile
+ip6_tunnel.c later as a module.
 
-Here is an updated patch that checks whether a dst is still valid
-before adding it to a bundle.
+I also added the check for ifp->idev->cnf.rtr_solicits > 0 so you don't
+send any Router Solicitations if rtr_solicits is zero. This way we avoid
+sending tunneled RS messages (which will result in ICMPv6 destination
+unreachable errors if the other end-point isn't set up yet) by setting
+ipv6_devconf_dflt.rtr_solicits to zero before setting up the tunnel link.
 
-Cheers,
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Are you ok with these changes?
 
---Qxx1br4bt0+wmkIi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+Regards,
+Ville
 
-Index: kernel-source-2.5/include/net/xfrm.h
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/include/net/xfrm.h,v
-retrieving revision 1.17
-diff -u -r1.17 xfrm.h
---- kernel-source-2.5/include/net/xfrm.h	18 Oct 2003 10:52:14 -0000	1.17
-+++ kernel-source-2.5/include/net/xfrm.h	27 Nov 2003 10:32:15 -0000
-@@ -860,7 +860,7 @@
- extern void xfrm_policy_kill(struct xfrm_policy *);
- extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
- extern struct xfrm_policy *xfrm_sk_policy_lookup(struct sock *sk, int dir, struct flowi *fl);
--extern int xfrm_flush_bundles(struct xfrm_state *x);
-+extern int xfrm_flush_bundles(void);
- 
- extern wait_queue_head_t km_waitq;
- extern void km_state_expired(struct xfrm_state *x, int hard);
-Index: kernel-source-2.5/net/xfrm/xfrm_policy.c
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/xfrm/xfrm_policy.c,v
-retrieving revision 1.30
-diff -u -r1.30 xfrm_policy.c
---- kernel-source-2.5/net/xfrm/xfrm_policy.c	28 Oct 2003 09:58:40 -0000	1.30
-+++ kernel-source-2.5/net/xfrm/xfrm_policy.c	27 Nov 2003 10:47:29 -0000
-@@ -19,6 +19,8 @@
- #include <linux/list.h>
- #include <linux/spinlock.h>
- #include <linux/workqueue.h>
-+#include <linux/notifier.h>
-+#include <linux/netdevice.h>
- #include <net/xfrm.h>
- #include <net/ip.h>
- 
-@@ -695,6 +697,8 @@
- 	};
- }
- 
-+static int stale_bundle(struct dst_entry *dst);
+=3D=3D=3D=3D=3D net/ipv6/ip6_tunnel.c 1.12.1.2 vs 1.16 =3D=3D=3D=3D=3D
+--- 1.12.1.2/net/ipv6/ip6_tunnel.c	Wed Nov  5 22:36:56 2003
++++ 1.16/net/ipv6/ip6_tunnel.c	Thu Nov  6 17:00:52 2003
+@@ -821,6 +821,8 @@
+ 	else
+ 		dev->flags &=3D ~IFF_POINTOPOINT;
+
++	dev->iflink =3D p->link;
 +
- /* Main function: finds/creates a bundle for given flow.
-  *
-  * At the moment we eat a raw IP route. Mostly to speed up lookups
-@@ -819,10 +823,11 @@
- 		}
- 
- 		write_lock_bh(&policy->lock);
--		if (unlikely(policy->dead)) {
-+		if (unlikely(policy->dead || stale_bundle(dst))) {
- 			/* Wow! While we worked on resolving, this
- 			 * policy has gone. Retry. It is not paranoia,
- 			 * we just cannot enlist new bundle to dead object.
-+			 * We can't enlist stable bundles either.
- 			 */
- 			write_unlock_bh(&policy->lock);
- 
-@@ -990,18 +995,27 @@
- 
- static struct dst_entry *xfrm_dst_check(struct dst_entry *dst, u32 cookie)
- {
-+	if (!stale_bundle(dst))
-+		return dst;
-+
-+	dst_release(dst);
-+	return NULL;
-+}
-+
-+static int stale_bundle(struct dst_entry *dst)
-+{
- 	struct dst_entry *child = dst;
- 
- 	while (child) {
- 		if (child->obsolete > 0 ||
-+		    (child->dev && !netif_running(child->dev)) ||
- 		    (child->xfrm && child->xfrm->km.state != XFRM_STATE_VALID)) {
--			dst_release(dst);
--			return NULL;
-+			return 1;
- 		}
- 		child = child->child;
- 	}
- 
--	return dst;
-+	return 0;
- }
- 
- static void xfrm_dst_destroy(struct dst_entry *dst)
-@@ -1027,7 +1041,7 @@
- 	return dst;
- }
- 
--static void __xfrm_garbage_collect(void)
-+static void xfrm_prune_bundles(int (*func)(struct dst_entry *))
- {
- 	int i;
- 	struct xfrm_policy *pol;
-@@ -1039,7 +1053,7 @@
- 			write_lock(&pol->lock);
- 			dstp = &pol->bundles;
- 			while ((dst=*dstp) != NULL) {
--				if (atomic_read(&dst->__refcnt) == 0) {
-+				if (func(dst)) {
- 					*dstp = dst->next;
- 					dst->next = gc_list;
- 					gc_list = dst;
-@@ -1059,46 +1073,19 @@
- 	}
- }
- 
--static int bundle_depends_on(struct dst_entry *dst, struct xfrm_state *x)
-+static int unused_bundle(struct dst_entry *dst)
- {
--	do {
--		if (dst->xfrm == x)
--			return 1;
--	} while ((dst = dst->child) != NULL);
--	return 0;
-+	return !atomic_read(&dst->__refcnt);
- }
- 
--int xfrm_flush_bundles(struct xfrm_state *x)
-+static void __xfrm_garbage_collect(void)
- {
--	int i;
--	struct xfrm_policy *pol;
--	struct dst_entry *dst, **dstp, *gc_list = NULL;
+ 	if (p->flags & IP6_TNL_F_CAP_XMIT) {
+ 		struct rt6_info *rt =3D rt6_lookup(&p->raddr, &p->laddr,
+ 						 p->link, 0);
+@@ -829,8 +831,6 @@
+ 			return;
+
+ 		if (rt->rt6i_dev) {
+-			dev->iflink =3D rt->rt6i_dev->ifindex;
 -
--	read_lock_bh(&xfrm_policy_lock);
--	for (i=0; i<2*XFRM_POLICY_MAX; i++) {
--		for (pol = xfrm_policy_list[i]; pol; pol = pol->next) {
--			write_lock(&pol->lock);
--			dstp = &pol->bundles;
--			while ((dst=*dstp) != NULL) {
--				if (bundle_depends_on(dst, x)) {
--					*dstp = dst->next;
--					dst->next = gc_list;
--					gc_list = dst;
--				} else {
--					dstp = &dst->next;
--				}
--			}
--			write_unlock(&pol->lock);
--		}
--	}
--	read_unlock_bh(&xfrm_policy_lock);
--
--	while (gc_list) {
--		dst = gc_list;
--		gc_list = dst->next;
--		dst_free(dst);
--	}
-+	xfrm_prune_bundles(unused_bundle);
-+}
- 
-+int xfrm_flush_bundles(void)
-+{
-+	xfrm_prune_bundles(stale_bundle);
- 	return 0;
+ 			dev->hard_header_len =3D rt->rt6i_dev->hard_header_len +
+ 				sizeof (struct ipv6hdr);
+
+@@ -1040,7 +1040,6 @@
+ 	dev->hard_header_len =3D LL_MAX_HEADER + sizeof (struct ipv6hdr);
+ 	dev->mtu =3D ETH_DATA_LEN - sizeof (struct ipv6hdr);
+ 	dev->flags |=3D IFF_NOARP;
+-	dev->iflink =3D 0;
+ 	dev->addr_len =3D sizeof(struct in6_addr);
  }
- 
-@@ -1221,6 +1208,21 @@
- 	read_unlock(&afinfo->lock);
+
+=3D=3D=3D=3D=3D net/ipv6/addrconf.c 1.74.1.3 vs 1.79 =3D=3D=3D=3D=3D
+--- 1.74.1.3/net/ipv6/addrconf.c	Wed Nov 26 03:06:32 2003
++++ 1.79/net/ipv6/addrconf.c	Thu Nov 27 11:14:09 2003
+@@ -1809,6 +1809,54 @@
+ 		sit_route_add(dev);
  }
- 
-+static int xfrm_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+
++static inline int
++ipv6_inherit_linklocal(struct inet6_dev *idev, struct net_device *link_d=
+ev)
 +{
-+	switch (event) {
-+	case NETDEV_DOWN:
-+		xfrm_flush_bundles();
++	struct in6_addr lladdr;
++
++	if (!ipv6_get_lladdr(link_dev, &lladdr)) {
++		addrconf_add_linklocal(idev, &lladdr);
++		return 0;
 +	}
-+	return NOTIFY_DONE;
++	return -1;
 +}
 +
-+struct notifier_block xfrm_dev_notifier = {
-+	xfrm_dev_event,
-+	NULL,
-+	0
-+};
++static void ip6_tnl_add_linklocal(struct inet6_dev *idev)
++{
++	struct net_device *link_dev;
 +
- void __init xfrm_policy_init(void)
- {
- 	xfrm_dst_cache = kmem_cache_create("xfrm_dst_cache",
-@@ -1231,6 +1233,7 @@
- 		panic("XFRM: failed to allocate xfrm_dst_cache\n");
- 
- 	INIT_WORK(&xfrm_policy_gc_work, xfrm_policy_gc_task, NULL);
-+	register_netdevice_notifier(&xfrm_dev_notifier);
- }
- 
- void __init xfrm_init(void)
-Index: kernel-source-2.5/net/xfrm/xfrm_state.c
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/xfrm/xfrm_state.c,v
-retrieving revision 1.11
-diff -u -r1.11 xfrm_state.c
---- kernel-source-2.5/net/xfrm/xfrm_state.c	28 Oct 2003 09:58:40 -0000	1.11
-+++ kernel-source-2.5/net/xfrm/xfrm_state.c	27 Nov 2003 10:32:01 -0000
-@@ -219,7 +219,7 @@
- 		 * there are DSTs attached to this xfrm_state.
- 		 */
- 		if (atomic_read(&x->refcnt) > 2)
--			xfrm_flush_bundles(x);
-+			xfrm_flush_bundles();
- 
- 		/* All xfrm_state objects are created by one of two possible
- 		 * paths:
++	/* first try to inherit the link-local address from the link device */
++	if (idev->dev->iflink &&
++	    (link_dev =3D __dev_get_by_index(idev->dev->iflink))) {
++		if (!ipv6_inherit_linklocal(idev, link_dev))
++			return;
++	}
++	/* then try to inherit it from any device */
++	for (link_dev =3D dev_base; link_dev; link_dev =3D link_dev->next) {
++		if (!ipv6_inherit_linklocal(idev, link_dev))
++			return;
++	}
++	printk(KERN_DEBUG "init ip6-ip6: add_linklocal failed\n");
++}
++
++/*
++ * Autoconfigure tunnel with a link-local address so routing protocols,
++ * DHCPv6, MLD etc. can be run over the virtual link
++ */
++
++static void addrconf_ip6_tnl_config(struct net_device *dev)
++{
++	struct inet6_dev *idev;
++
++	ASSERT_RTNL();
++
++	if ((idev =3D addrconf_add_dev(dev)) =3D=3D NULL) {
++		printk(KERN_DEBUG "init ip6-ip6: add_dev failed\n");
++		return;
++	}
++	ip6_tnl_add_linklocal(idev);
++	addrconf_add_mroute(dev);
++}
 
---Qxx1br4bt0+wmkIi--
+ int addrconf_notify(struct notifier_block *this, unsigned long event,
+ 		    void * data)
+@@ -1822,7 +1870,9 @@
+ 		case ARPHRD_SIT:
+ 			addrconf_sit_config(dev);
+ 			break;
+-
++		case ARPHRD_TUNNEL6:
++			addrconf_ip6_tnl_config(dev);
++			break;
+ 		case ARPHRD_LOOPBACK:
+ 			init_loopback(dev);
+ 			break;
+@@ -2121,6 +2171,7 @@
+ 	 */
+
+ 	if (ifp->idev->cnf.forwarding =3D=3D 0 &&
++	    ifp->idev->cnf.rtr_solicits > 0 &&
+ 	    (dev->flags&IFF_LOOPBACK) =3D=3D 0 &&
+ 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
+ 		struct in6_addr all_routers;
+
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
