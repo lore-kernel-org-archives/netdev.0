@@ -1,36 +1,31 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: netif_poll_disable() hangs
-Date: Mon, 08 Sep 2003 03:17:46 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.4] clear hw checksum flags when bridging
+Date: Mon, 8 Sep 2003 09:36:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F5C2D1A.5050500@pobox.com>
-References: <20030907232145.6ec197fd.akpm@osdl.org>
+Message-ID: <20030908093644.290c2f8e.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: bridge@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20030907232145.6ec197fd.akpm@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Very simple:
-> 
-> 	ifup eth0
-> 	ifdown eth0
-> 	ifup eth0
-> 	ifdown eth0	<- hangs in dev_close -> netif_poll_disable()
-> 
-> 
-> Because the first close sets __LINK_STATE_RX_SCHED and nothing ever clears
-> it.  
+The hardware checksumming flags need to be cleared when forwarding packets.
+Bridging just needs to forward what ever checksum is in the existing skbuff,
+it doesn't want or need the packet to be resummed.
 
+Without this fix, forwarding between smart/dumb interfaces causes an oops.
 
-Weird.  Looking at older 2.4 and 2.6, the bit has always been set that way.
-
-process_backlog() has always been the only site that ever clears that 
-bit...  maybe process_backlog() is called when interface is up'd, which 
-is why it worked before (and should be working now)?
-
-	Jeff
+diff -Nru a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+--- a/net/bridge/br_forward.c	Mon Sep  8 09:29:44 2003
++++ b/net/bridge/br_forward.c	Mon Sep  8 09:29:44 2003
+@@ -59,6 +59,7 @@
+ 
+ 	indev = skb->dev;
+ 	skb->dev = to->dev;
++	skb->ip_summed = CHECKSUM_NONE;
+ 
+ 	NF_HOOK(PF_BRIDGE, NF_BR_FORWARD, skb, indev, skb->dev,
+ 			__br_forward_finish);
