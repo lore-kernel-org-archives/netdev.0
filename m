@@ -1,43 +1,42 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Possible weird TCP bug
-Date: Tue, 13 Jan 2004 16:01:35 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] support for large number of network devices.
+Date: Tue, 13 Jan 2004 16:13:03 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040113160135.45cc677d.davem@redhat.com>
-References: <3FFE2B00.2030607@chartermi.net>
+Message-ID: <20040113161303.20f1159d.shemminger@osdl.org>
+References: <20040113154610.38f5934c.shemminger@osdl.org>
+	<20040113155921.342db463.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nathaniel M Nelson <nmn@chartermi.net>
-In-Reply-To: <3FFE2B00.2030607@chartermi.net>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040113155921.342db463.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 08 Jan 2004 23:16:00 -0500
-Nathaniel M Nelson <nmn@chartermi.net> wrote:
+On Tue, 13 Jan 2004 15:59:21 -0800
+"David S. Miller" <davem@redhat.com> wrote:
 
-> 0000  00 02 7d 66 a4 54 00 e0  81 23 14 78 08 00 45 00   ..}f.T.. .#.x..E.
-> 0010  00 3c 9a 41 40 00 3f 06  f4 1f 18 e7 92 21 d8 ef   .<.A@.?. .....!..
-> 0020  29 63 89 37 00 50 e5 4b  22 e0 00 00 00 00 a0 02   )c.7.P.K ".......
-> 0030  16 d0 36 6a 00 00 02 04  05 b4 04 02 08 0a 03 1d   ..6j.... ........
-> 0040  b8 a1 00 00 00 00 01 03  03 00                     ........ ..     
+> On Tue, 13 Jan 2004 15:46:10 -0800
+> Stephen Hemminger <shemminger@osdl.org> wrote:
 > 
-> Then after I get the SYN,ACK back, the firewall will send out the next 
-> ACK with the sequence number correctly incremented by 1.
+> > When using pseudo network devices, and really big machines; there is
+> > sometimes a need to have a lot of network devices.  This replaces the
+> > existing 2.6.1 limit of 100 entries an was O(n^2)
+> > with a algorithm that will handle up to 32768 entries with O(n) behaviour.
+> > 
+> > Does need a temporary page, but that shouldn't be a big deal.
+> > It has the same semantics, it will find the first empty name and use it.
 > 
-> 0000  00 02 7d 66 a4 54 00 e0  81 23 14 78 08 00 45 00   ..}f.T.. .#.x..E.
-> 0010  00 28 9a 42 40 00 3f 06  f4 32 18 e7 92 21 d8 ef   .(.B@.?. .2...!..
-> 0020  29 63 89 37 00 50 e5 4b  22 e1 db f2 5c c5 50 10   )c.7.P.K "...\.P.
-> 0030  16 d0 21 3d 00 00                                  ..!=.
+> I think your code has different semantics than exist currently.
 > 
-> So of course the sequence is "1" in that packet.  Both sequence numbers 
-> seem a little low though... and not very cryptic.  If this is not a bug 
-> I apoligize in advance.
+> For example, let's use the example of asking for "slip%d" then "eth%d".
+> The existing code would hand out "slip0" then "eth0", but your code would
+> deliver "slip0" then "eth1" which is not correct.
+> 
+> Or did I miss something clever in your algorithm?
 
-In the initial packet, the only zero is the "ACK" sequence, when the first SYN
-goes out we don't know the starting sequence number the other side will
-decide to use so we set that field to zero (and also the ACK bit is clear in this
-packet which makes the ACK sequence field not valid anyways).
-
-This dump looks perfectly fine to me.
+	It uses the output format string for the sscanf match, and since
+	sscanf formats have to match. 	sscanf("eth0", "slip%d", &i) returns 0
+	so eth0 would be skipped
