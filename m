@@ -1,26 +1,46 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH] XFRM: typo
-Date: Mon, 30 Jun 2003 01:58:03 +1000 (EST)
+From: Michael Bellion and Thomas Heinz <nf@hipac.org>
+Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
+Date: Sun, 29 Jun 2003 18:26:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0306300157550.21809-100000@excalibur.intercode.com.au>
-References: <20030629.223500.58352746.yoshfuji@linux-ipv6.org>
+Message-ID: <3EFF1349.6020802@hipac.org>
+References: <Pine.LNX.4.44.0306290924310.28882-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: davem@redhat.com, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030629.223500.58352746.yoshfuji@linux-ipv6.org>
+To: Pekka Savola <pekkas@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 29 Jun 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+Hi Pekka
 
-> This fixes a typo.
+You wrote:
+>>We are going to test the stuff tomorrow on an i386 and tell you
+>>the results afterwards.
 
-Applied, thanks.
+Well, nf-hipac works fine together with the ebtables patch for 2.4.21
+on an i386 machine. We expect it to work with other patches too.
+
+>>In principle, nf-hipac should work properly whith the bridge patch.
+>>We expect it to work just like iptables apart from the fact that
+>>you cannot match on bridge ports.
+
+Well, this statement holds for the native nf-hipac in/out interface
+match but of course you can match on bridge ports with nf-hipac
+using the iptables physdev match. So everything should be fine :)
+
+> One obvious thing that's missing in your performance and Roberto's figures 
+> is what *exactly* are the non-matching rules.  Ie. do they only match IP 
+> address, a TCP port, or what? (TCP port matching is about a degree of 
+> complexity more expensive with iptables, I recall.)
+
+[answered in private e-mail]
 
 
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Regards,
+
++-----------------------+----------------------+
+|   Michael Bellion     |     Thomas Heinz     |
+| <mbellion@hipac.org>  |  <creatix@hipac.org> |
++-----------------------+----------------------+
