@@ -1,42 +1,39 @@
 From: Roland Dreier <roland@topspin.com>
 Subject: Re: Advice needed on IP-over-InfiniBand driver
-Date: Sun, 19 Sep 2004 21:42:59 -0700
+Date: Sun, 19 Sep 2004 21:49:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <523c1dsg8c.fsf@topspin.com>
+Message-ID: <52y8j5r1d6.fsf@topspin.com>
 References: <52fz5esxx6.fsf@topspin.com>
 	<20040919140133.60ea3fb3.davem@davemloft.net>
+	<1095628759.1049.22.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040919140133.60ea3fb3.davem@davemloft.net> (David S.
- Miller's message of "Sun, 19 Sep 2004 14:01:33 -0700")
+To: hadi@cyberus.ca
+In-Reply-To: <1095628759.1049.22.camel@jzny.localdomain> (jamal's message of
+ "19 Sep 2004 17:19:19 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    David> You probably want to be editing net/ipv4/arp.c and testing
+    jamal> Probably just easier to have his own private tables holding
+    jamal> reference to neighbor entries instead of polluting the
+    jamal> neighbor tables.  Listens to ARP events - on state
+    jamal> transition to/from reachable state he queries his remote
+    jamal> manager.
 
-"teaching" not "testing" I assume :)
+This does seem neater, but I don't know how to implement it.  How does
+one hook into ARP events?
 
-    David> it about Infiniband.  Keep neighbour entries in the
-    David> unresolved stated until both transitions are made:
+    jamal> Curious though if ARP still works even when that "path"
+    jamal> thing hasnt been resolved.
 
-    David> 1) obtain 20 byte address 2) get response from IB subnet
-    David> manager
-
-    David> Only store the destination GID in the neighbour entry, and
-    David> only mark the neighbour entry as resolved once #2 above
-    David> completes successfully.
-
-Hmm... it looks like the place you're telling me to hook into is in
-arp_process() right before the neigh state gets set to NUD_REACHABLE.
-But where should I stick the path information that I get back from the
-subnet manager once the query finishes?  And how does the path get
-passed into the device driver to actually send an skb?
-
-(Sorry to be so dense but I'm afraid my little brain needs things
-broken down into bite-sized pieces...)
+ARP works because we can send broadcasts even without a path to a
+specific destination.  (I'm leaving out the details of how IP
+broadcast gets mapped to InfiniBand multicast)  When the system with
+the IP we're looking for receives a broadcast ARP, it can use the HW
+address in the ARP request to look up a path, so it can send an ARP
+reply.
 
 Thanks,
   Roland
