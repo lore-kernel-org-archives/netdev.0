@@ -1,33 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch] Change Networking mibs to use kmalloc_percpu -- 1/3
-Date: Wed, 04 Dec 2002 09:01:52 -0800 (PST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: TG3 Performance Question
+Date: Wed, 04 Dec 2002 09:20:07 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021204.090152.97851491.davem@redhat.com>
-References: <20021204180510.C17375@in.ibm.com>
+Message-ID: <3DEE3947.8000604@candelatech.com>
+References: <D71BEAC27500D51199DF0002B328BA8D4FBEA3@ivexs1.intruvert.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, akpm@digeo.com,
-   dipankar@in.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kiran@in.ibm.com
-In-Reply-To: <20021204180510.C17375@in.ibm.com>
+To: Yan-Fa Li <yan@intruvert.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Ravikiran G Thirumalai <kiran@in.ibm.com>
-   Date: Wed, 4 Dec 2002 18:05:10 +0530
+Yan-Fa Li wrote:
 
-   Here's a patchset to enable networking mibs to use kmalloc_percpu instead
-   of the traditional padded NR_CPUS arrays.
-   
-   Advantages:
-   1. Removes NR_CPUS bloat due to static definition
-   2. Can support node local allocation
-   3. Will work with modules
-   
-I totally support this work.  Once the kmalloc percpu bits hit
-Linus's tree, just retransmit these diffs to me privately and
-I'll put them into my net-2.5 tree.
+> to see if it would help performance.  Unfortunately I don't think the E1000
+> with
+> will with the AMD chipset, and I don't think Intel will be releasing a fix
 
-Thanks.
+The e1000 works with my dual AMD motherboard...
+
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
