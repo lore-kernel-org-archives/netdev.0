@@ -1,77 +1,42 @@
-From: =?ISO-2022-JP?B?GyRCJTolQyVdJWpSeiQoOX4kXxsoQg==?= <kumi@york.vig-seet.to>
-Subject: =?ISO-2022-JP?B?GyRCRCw/YSQtJF4kLyRqPjpFNyQ3JF4kLyRqInYbKEI=?=
-Date: Fri, 18 Mar 2005 14:52:10 +0900 (KST)
-Message-ID: <20050318055210.EEBF57E0180@helo.ori-g.net>
-To: netdev@oss.sgi.com
-To: netdev@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPsec xfrm resolution
+Date: Fri, 18 Mar 2005 17:24:01 +1100
+Message-ID: <20050318062401.GA4417@gondor.apana.org.au>
+References: <20050209085251.GA9030@gondor.apana.org.au> <420B9DF1.3020704@trash.net> <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net> <20050219092314.GA8153@gondor.apana.org.au> <20050317203231.1b649f60.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050317203231.1b649f60.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 17, 2005 at 08:32:31PM -0800, David S. Miller wrote:
+> On Sat, 19 Feb 2005 20:23:14 +1100
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > 1) The application must be able to react to MTU changes anyway.
+> 
+> This would seem to be the case, but keep in mind that if
+> we're going through all this trouble to improve this
+> quality of implementation issue, we should really get this
+> right.
 
-━━━━━━━━≡エンターテイメントマガジン：：e-MAGA≡━━━━━━━━
-
-　　　　　　　　　完全マジ撮り素人盗撮映像♪∴＊∵∴☆♪♪♪《《《《《《《
+Don't worry, further down in that thread we agreed that optional
+SAs will simply not be added so the MTU estimate will be correct
+unless it's changed by PMTU later on.
  
-▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 　http://sibuya.mycountry.cc/?ma4p9vgq7h
+> Anyways, in truth I'm being very picky :-)  Is there any prototype
+> or beginnings of these ideas anywhere?
 
-【女子校潜入盗撮特集】--------------------------------------☆
- ：：：：：：：：：：：：：：：：：：：：：
-  ■都内某女子校に決死の潜入に成功！！
-             初々しい女の子達の普段は見れない一面がバッチリ！！
-     
+Not yet.  However, once the MTU stuff is out of the way I would like
+to work on this.
 
-【巧妙に仕掛けられたカメラが覗く秘密の地帯】------------------------☆
- ：：：：：：：：：：：：：：：：：：：：：
-　■踏に紛れて被写体を追跡！街で―屋内で―移動中に―――― 
-　　　　　　　あらゆる角度から狙いすましたベストショット！！もう決して逃れることは出来ない…。
- 
-  ■無防備なオンナ達に迫るカメラの罠そしてついに禁断の領域までをも犯してしまう…。
- 　 　　　　　公園の公衆トイレに仕掛けられた一台の隠しカメラが決定的瞬間を捕らえた！！！
- 
- 　http://sibuya.mycountry.cc/?ma4p9vgq7h
- ╋╋╋╋╋╋╋╋　　                 ╋╋╋╋╋╋╋╋　
-                       ╋╋╋╋╋╋╋╋　　                   ╋╋╋╋╋╋╋╋
-　　 ■　　
-  ◆◆◆  素人盛りの夜の公園
-　　 ■　　数組のカップルに目をつけ、尾行撮影開始！！
-  ◆◆◆  ところかまわず激しくもつれる素人カップルを激写☆
-　　 ■
-  ◆◆◆   都内某所ナマ乱交現場
-　　 ■　　知る人ぞ知る噂のスポットで、大胆撮影大会♪
-　
-　http://sibuya.mycountry.cc/?ma4p9vgq7h
-
-【街撮りフェチっ子写真館】--------------------------------------☆　　　　　
-　　 ■　　
-  ◆◆◆  　ピッタピタのローライズに身を包み惜しげもなく下着を見せて歩く
-　　 ■　　女の子たちをコッソリ撮影♪その他パンチラ＆ムネチラ満載♪　
-　　 ■
-【野外露出投稿】--------------------------------------------☆
-　　 ■
-  ◆◆◆　◎見られることに喜びを覚える素人娘たちが
-　　 ■　　　 大胆過激な行動を繰り返す。
-  http://sibuya.mycountry.cc/?ma4p9vgq7h
-▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼
-━━━━━━━━≡エンターテイメントマガジン：：e-MAGA≡━━━━━━━━
-
-     ■当局のメールマガジンに掲載されている情報の利用に関しては、
-　　　　ご購読者個人の責任においてご利用いただくことを前提としていますので
-　　　　ご紹介先のサイトにおけるいかなるトラブルや損害に対しても
-　　　　当局では一切の責任を負いかねます。
-　　　　又、掲載情報に関してのいかなるお問合せに対してもお答えしかねますので
-　　　　予めご了承下さい。
-　　　　
-　　　　掲載された記事の一部または全部を許可なく転載することを禁止致します。
-・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-     ■購読解除方法
-
-　　　　購読解除をご希望の方は、お手数ですが下記のアドレスよりログインし、
-　　　　ご自身でお手続き下さい。
- 
-    http://york.vig-seet.to/e-maga/
-━━━━━━━━≡エンターテイメントマガジン：：e-MAGA≡━━━━━━━━
-◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇
-∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
