@@ -1,31 +1,50 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Logical interfaces (VLANs etc) flow control
-Date: 12 Jul 2003 18:03:35 +0200
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
+Date: Sun, 13 Jul 2003 11:17:35 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3isq7ag14.fsf@defiant.pm.waw.pl>
+Message-ID: <Mutt.LNX.4.44.0307131052420.2146-100000@excalibur.intercode.com.au>
+References: <20030711224142.557b5b5e.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jkenisto@us.ibm.com, <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
+   <akpm@osdl.org>, <jgarzik@pobox.com>, <alan@lxorguk.ukuu.org.uk>,
+   <rddunlap@osdl.org>, <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030711224142.557b5b5e.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, 11 Jul 2003, David S. Miller wrote:
 
-probably a simple question: do we currently do any flow control for
-logical subinterfaces (specifically 802.1q VLANs) similar to
-netif_{stop,wake}_queue on the main (physical) device?
+> > +	/* Don't bother queuing skb if kernel socket has no input function */
+> > +        if (nlk->pid == 0 && !nlk->data_ready)
+> > +        	goto no_dst;
+> > +
+> 
+> Oops, turns out this doesn't work.  data_ready is never NULL, look at
+> how netlink_kernel_create() works.
 
-I notice "txqueuelen:0" on VLAN devices and vlan_dev_hard_start_xmit()
-seems to not do any flow control, but I wonder if there is something
-else?
+It's ok: sk->data_ready is never null, but nlk_sk(sk)->data_ready will be 
+null unless an input function is provided there.
 
-The problem is I'm doing the same with Frame Relay, should I add a TX
-queue to FR PVC devices and possibly stop/wake PVC device queue in sync
-with physical device queue?
+> Also, the broadcast case probably needs to be handled
+> too?
 
-Possibly a pointer to faq or something?
+Netlink sockets created by netlink_kernel_create() do not subscribe to any 
+groups and are not broadcast to.
+
+> As an aside, to be honest what's so wrong with the socket receive
+> buffer filling up?  The damage is limited to the receive buffer size
+> of the kernel netlink socket, but that's it.
+
+Agreed, it's not really harmful, but it's sloppy.  Better to let the
+application know that it can't send to the socket rather than let it keep
+sending (with successful return codes) until the kernel socket buffer 
+fills up.
+
+
+- James
 -- 
-Krzysztof Halasa
-Network Administrator
+James Morris
+<jmorris@intercode.com.au>
