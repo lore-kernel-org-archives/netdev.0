@@ -1,62 +1,57 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] Networking: send-to-self [link to non-broken patch this
- time]
-Date: Wed, 18 Sep 2002 20:04:44 -0700
+From: Richard Gooch <rgooch@ras.ucalgary.ca>
+Subject: Re: [PATCH] 2.4.20-pre sundance.c cleanups
+Date: Wed, 18 Sep 2002 21:53:05 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D893ECC.4020906@candelatech.com>
-References: <3D890A51.7000103@candelatech.com>	<20020918.182855.47438220.davem@redhat.com>	<3D893165.10106@candelatech.com> <20020918.190117.53168129.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Message-ID: <200209190353.g8J3r5q28456@vindaloo.ras.ucalgary.ca>
+References: <20020828185612.GA14342@reflexsecurity.com>
+	<20020828231333.GA15183@reflexsecurity.com>
+Cc: netdev@oss.sgi.com, becker@scyld.com, jgarzik@mandrakesoft.com,
+   "Patrick R. McManus" <mcmanus@ducksong.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Jason Lunz <lunz@gtf.org>
+In-Reply-To: <20020828231333.GA15183@reflexsecurity.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: Ben Greear <greearb@candelatech.com>
->    Date: Wed, 18 Sep 2002 19:07:33 -0700
-> 
->    David S. Miller wrote:
->    
->    > I mean put the ifdefs in a header file such as tcp.h, not in the *.c
->    > code.
->    
->    Would you object to me just removing all of them and having the patch
->    unconditionally compiled in?
-> 
-> Your comments say that SIOCBINDTODEVICE behavior is changed, how can
-> we legitimately do that all the time without breaking apps?
+  Hi, all. I've just taken the patch Jason released on 28-AUG and
+applied it to 2.4.19. The driver finds my D-Link 580-TX 4-port
+ethercard, and it seems to be running OK. However, I note a few warts:
 
-The old way is broken, it sets the bound-device to 0 when sending
-the syn-ack.  I am not sure exactly how this worked before, or
-if it even worked at all.  I changed it to use the bound_dev_if of the
-parent socket, which I believe is more correct.
+- the driver is reporting 10 Mbps rather than 100 Mbps. I've actually
+  measured eth0 and eth2 and these are delivering 100 Mbps
 
---- linux-2.4.19/net/ipv4/ip_output.c	Tue Sep 17 23:55:48 2002
-+++ linux-2.4.19.dev/net/ipv4/ip_output.c	Sun Sep 15 21:19:45 2002
-@@ -975,7 +975,11 @@
-  			daddr = replyopts.opt.faddr;
-  	}
+- I tried to force eth1 to 100 Mbps FD, but I don't know for sure if
+  it's working or not (the switch that eth1 connects to doesn't do
+  autoneg properly, but that network sucks, so it's hard to find the
+  right machine for bandwidth testing). The kernel doesn't report that
+  the interface speed was hard-wired. I'm using this in modules.conf: 
+  options         sundance        media="autosense","100mbps_fd","autosense"
 
-+#ifdef CONFIG_NET_SENDTOSELF
-+	if (ip_route_output(&rt, daddr, rt->rt_spec_dst, RT_TOS(skb->nh.iph->tos), sk->bound_dev_if))
-+#else
-  	if (ip_route_output(&rt, daddr, rt->rt_spec_dst, RT_TOS(skb->nh.iph->tos), 0))
-+#endif
-  		return;
+I've appended the driver output below.
 
-  	/* And let IP do all the hard work.
+				Regards,
 
-
-It also failed due to the hashing issue, but with the current code,
-packets to self from self will be dropped before reaching the IP
-code, so that is not really a bug in the current code.
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+					Richard....
+Permanent: rgooch@atnf.csiro.au
+Current:   rgooch@ras.ucalgary.ca
+===============================================================================
+sundance.c:v1.01d 28-Aug-2002  Written by Donald Becker
+  http://www.scyld.com/network/sundance.html
+eth0: D-Link DFE-580TX 4 port Server Adapter at 0xc000, 00:05:5d:10:4d:b8, IRQ 5.
+eth0: MII PHY found at address 0, status 0x782d advertising 01e1.
+eth0: MII PHY found at address 1, status 0x782d advertising 01e1.
+eth1: D-Link DFE-580TX 4 port Server Adapter at 0xc400, 00:05:5d:10:4d:b9, IRQ 12.
+eth1: MII PHY found at address 0, status 0x782d advertising 01e1.
+eth1: MII PHY found at address 1, status 0x782d advertising 01e1.
+eth2: D-Link DFE-580TX 4 port Server Adapter at 0xc800, 00:05:5d:10:4d:ba, IRQ 10.
+eth2: MII PHY found at address 0, status 0x782d advertising 01e1.
+eth2: MII PHY found at address 1, status 0x782d advertising 01e1.
+eth3: D-Link DFE-580TX 4 port Server Adapter at 0xcc00, 00:05:5d:10:4d:bb, IRQ 11.
+eth3: MII PHY found at address 0, status 0x7809 advertising 01e1.
+eth3: MII PHY found at address 1, status 0x7809 advertising 01e1.
+eth0: Link changed: Autonegotiation advertising 10Mbps full duplex, partner 10Mbps full duplex.
+eth0: Setting full-duplex based on MII #0 negotiated capability 01e1.
+eth1: Link changed: Autonegotiation advertising 10Mbps full duplex, partner 10Mbps full duplex.
+eth1: Setting full-duplex based on MII #0 negotiated capability 0100.
+eth2: Link changed: Autonegotiation advertising 10Mbps full duplex, partner 10Mbps full duplex.
+eth2: Setting full-duplex based on MII #0 negotiated capability 01e1.
