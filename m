@@ -1,297 +1,127 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/3] r8169: non-NAPI netif_poll_disable removal
-Date: Sun, 7 Nov 2004 00:38:00 +0100
-Message-ID: <20041106233800.GB4895@electric-eye.fr.zoreil.com>
-References: <200411021203.17013.jdmason@us.ibm.com> <20041106145618.GA4895@electric-eye.fr.zoreil.com> <200411060930.27106.jdmason@us.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NET] Fix neighbour tbl->entries race
+Date: Sun, 7 Nov 2004 19:08:39 +1100
+Message-ID: <20041107080839.GA26158@gondor.apana.org.au>
+References: <20041102112651.GA8633@gondor.apana.org.au> <1099404823.1021.15.camel@jzny.localdomain> <20041102203720.GA12108@gondor.apana.org.au> <20041102210259.GA12642@gondor.apana.org.au> <20041102220603.GA13312@gondor.apana.org.au> <20041103155438.07a219ad.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon Mason <jdmason@us.ibm.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <200411060930.27106.jdmason@us.ibm.com>
+In-Reply-To: <20041103155438.07a219ad.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason <jdmason@us.ibm.com> :
-[...]
-> There is an overall problem with the rtl8169_reset_task.  While the driver 
-> continues to receive packets, can't allcate any new rx buffers, or the rx dma 
-> engine is hung and no rx buffers are processed, the rtl8169_reset_task will 
-> schedule itself and loop forever (as dirty_rx != cur_rx).
 
-rtl8169_reset_task() is issued after a rtl8169_hw_reset() which should disable
-the Rx/Tx DMA activity. dirty_rx == cur_rx means a complete Rx ring refill.
+--HlL+5n6rz5pIUxbD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-At first sight, I'd say that a partially refilled Rx ring is still usable if
-it verifies 0 < dirty_rx % NUM_RX_DESC < cur_rx % NUM_RX_DESC or
-cur_rx % NUM_RX_DESC == 0. I prefer to simply test for a complete refill.
+On Wed, Nov 03, 2004 at 03:54:38PM -0800, David S. Miller wrote:
+> 
+> Can you cook up a 2.4.x version of this Herbert?  The new neighbour
+> code is now there too.
 
-Regarding the initial issue, what about the second patch below (against
-2.6.10-rc1-bk15 + latest Jeff's netdev + first patch) ?
+Sure.  BTW this bug is a lot older than the new neighbours code.
+It's in the very first revision of neighbour.c :)
 
-It is a bit paranoid but an user already reported a PCI error interruption
-on x86 so it should be possible to have a PCI error close to a Tx watchdog
-event. Despite what I claimed before, netif_queue_stopped() is not enough to
-synchronize the tasks.
+Here is a patch for 2.4.  I simply used atomic_read instead of
+doing atomic_inc_return as in 2.6 since I thought that the
+downside of going a bit over gc_thresh3 wasn't worth the
+trouble of back-porting all the atomic_*_return work.
 
+Of course if that ever gets backported then we can do what 2.6
+does here too.
 
-diff -puN drivers/net/r8169.c~r8169-250 drivers/net/r8169.c
---- linux-2.6.10-rc1/drivers/net/r8169.c~r8169-250	2004-11-06 21:49:00.000000000 +0100
-+++ linux-2.6.10-rc1-fr/drivers/net/r8169.c	2004-11-06 21:49:00.000000000 +0100
-@@ -1742,10 +1742,17 @@ static void rtl8169_schedule_work(struct
- 
- static void rtl8169_wait_for_quiescence(struct net_device *dev)
- {
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
- 	synchronize_irq(dev->irq);
- 
- 	/* Wait for any pending NAPI task to complete */
- 	netif_poll_disable(dev);
-+
-+	RTL_W16(IntrMask, 0x0000);
-+
-+	netif_poll_enable(dev);
- }
- 
- static void rtl8169_reinit_task(void *_data)
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-diff -puN drivers/net/r8169.c~r8169-260 drivers/net/r8169.c
---- linux-2.6.10-rc1/drivers/net/r8169.c~r8169-260	2004-11-06 23:50:59.000000000 +0100
-+++ linux-2.6.10-rc1-fr/drivers/net/r8169.c	2004-11-07 00:19:02.000000000 +0100
-@@ -150,6 +150,12 @@ enum phy_version {
- 	RTL_GIGA_PHY_VER_G = 0x07, /* PHY Reg 0x03 bit0-3 == 0x0002 */
- };
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--HlL+5n6rz5pIUxbD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== include/net/neighbour.h 1.4 vs edited =====
+--- 1.4/include/net/neighbour.h	2004-10-06 04:22:37 +10:00
++++ edited/include/net/neighbour.h	2004-11-07 19:03:05 +11:00
+@@ -174,7 +174,7 @@
+ 	struct timer_list 	gc_timer;
+ 	struct timer_list 	proxy_timer;
+ 	struct sk_buff_head	proxy_queue;
+-	int			entries;
++	atomic_t		entries;
+ 	rwlock_t		lock;
+ 	unsigned long		last_rand;
+ 	struct neigh_parms	*parms_list;
+===== net/core/neighbour.c 1.14 vs edited =====
+--- 1.14/net/core/neighbour.c	2004-10-06 04:40:25 +10:00
++++ edited/net/core/neighbour.c	2004-11-07 19:04:24 +11:00
+@@ -257,11 +257,11 @@
+ 	struct neighbour *n;
+ 	unsigned long now = jiffies;
  
-+enum drv_state {
-+	R8169_STATE_NONE = 0,
-+	R8169_STATE_UP,
-+	R8169_STATE_DOWN,
-+	R8169_STATE_TX_TIMEOUT,
-+};
- 
- #define _R(NAME,MAC,MASK) \
- 	{ .name = NAME, .mac_version = MAC, .RxConfigMask = MASK }
-@@ -403,6 +409,7 @@ struct rtl8169_private {
- 	unsigned int (*phy_reset_pending)(void __iomem *);
- 	unsigned int (*link_ok)(void __iomem *);
- 	struct work_struct task;
-+	unsigned int state;
- };
- 
- MODULE_AUTHOR("Realtek");
-@@ -423,6 +430,7 @@ static void rtl8169_hw_start(struct net_
- static int rtl8169_close(struct net_device *dev);
- static void rtl8169_set_rx_mode(struct net_device *dev);
- static void rtl8169_tx_timeout(struct net_device *dev);
-+static void rtl8169_work(void *);
- static struct net_device_stats *rtl8169_get_stats(struct net_device *netdev);
- static int rtl8169_rx_interrupt(struct net_device *, struct rtl8169_private *,
- 				void __iomem *);
-@@ -1480,13 +1488,15 @@ rtl8169_open(struct net_device *dev)
- 	if (retval < 0)
- 		goto err_free_rx;
- 
--	INIT_WORK(&tp->task, NULL, dev);
-+	INIT_WORK(&tp->task, rtl8169_work, dev);
- 
- 	rtl8169_hw_start(dev);
- 
- 	rtl8169_request_timer(dev);
- 
- 	rtl8169_check_link_status(dev, tp, tp->mmio_addr);
-+
-+	netif_poll_enable(dev);
- out:
- 	return retval;
- 
-@@ -1506,6 +1516,8 @@ static void rtl8169_hw_reset(void __iome
- 	/* Disable interrupts */
- 	RTL_W16(IntrMask, 0x0000);
- 
-+	RTL_W16(IntrStatus, 0x0000);
-+
- 	/* Reset the chipset */
- 	RTL_W8(ChipCmd, CmdReset);
- 
-@@ -1732,11 +1744,8 @@ static void rtl8169_tx_clear(struct rtl8
- 	tp->cur_tx = tp->dirty_tx = 0;
- }
- 
--static void rtl8169_schedule_work(struct net_device *dev, void (*task)(void *))
-+static void rtl8169_schedule_work(struct rtl8169_private *tp)
- {
--	struct rtl8169_private *tp = netdev_priv(dev);
--
--	PREPARE_WORK(&tp->task, task, dev);
- 	schedule_delayed_work(&tp->task, 4);
- }
- 
-@@ -1750,38 +1759,30 @@ static void rtl8169_wait_for_quiescence(
- 	/* Wait for any pending NAPI task to complete */
- 	netif_poll_disable(dev);
- 
--	RTL_W16(IntrMask, 0x0000);
-+	RTL_W16(IntrMask, 0x00);
- 
- 	netif_poll_enable(dev);
- }
- 
--static void rtl8169_reinit_task(void *_data)
-+static int rtl8169_down_task(struct net_device *dev)
- {
--	struct net_device *dev = _data;
--	int ret;
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	unsigned long flags;
- 
--	if (netif_running(dev)) {
--		rtl8169_wait_for_quiescence(dev);
--		rtl8169_close(dev);
--	}
-+	rtl8169_wait_for_quiescence(dev);
-+	rtl8169_close(dev);
- 
--	ret = rtl8169_open(dev);
--	if (unlikely(ret < 0)) {
--		if (net_ratelimit()) {
--			printk(PFX KERN_ERR "%s: reinit failure (status = %d)."
--			       " Rescheduling.\n", dev->name, ret);
--		}
--		rtl8169_schedule_work(dev, rtl8169_reinit_task);
--	}
-+	spin_lock_irqsave(&tp->lock, flags);
-+	tp->state = R8169_STATE_UP;
-+	spin_unlock_irqrestore(&tp->lock, flags);
-+
-+	return 0;
- }
- 
--static void rtl8169_reset_task(void *_data)
-+static int rtl8169_reset_task(struct net_device *dev)
- {
--	struct net_device *dev = _data;
- 	struct rtl8169_private *tp = netdev_priv(dev);
--
--	if (!netif_running(dev))
--		return;
-+	int ret = 0;
- 
- 	rtl8169_wait_for_quiescence(dev);
- 
-@@ -1792,23 +1793,81 @@ static void rtl8169_reset_task(void *_da
- 		rtl8169_init_ring_indexes(tp);
- 		rtl8169_hw_start(dev);
- 		netif_wake_queue(dev);
-+	} else
-+		ret = -EAGAIN;
-+
-+	return ret;
-+}
-+
-+static void rtl8169_work(void *_data)
-+{
-+	struct net_device *dev = _data;
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	unsigned long flags;
-+	static struct {
-+		int (*action)(struct net_device *);
-+		unsigned int state;
-+	} rtl8169_recovery_task[] = {
-+		{ rtl8169_reset_task,	R8169_STATE_TX_TIMEOUT },
-+		{ rtl8169_down_task,	R8169_STATE_DOWN },
-+		{ rtl8169_open,		R8169_STATE_UP },
-+		{ NULL,			R8169_STATE_NONE }
-+	}, *p;
-+
-+	if (!netif_running(dev))
-+		return;
-+
-+	spin_lock_irqsave(&tp->lock, flags);
-+	for (p = rtl8169_recovery_task; p->action; p++) {
-+		if (p->state == tp->state)
-+			break;
-+	}
-+	spin_unlock_irqrestore(&tp->lock, flags);
-+
-+	if (likely(p->action)) {
-+		int ret;
-+
-+		ret = p->action(dev);
-+
-+		spin_lock_irqsave(&tp->lock, flags);
-+
-+		if ((ret < 0) || (p->state != tp->state)) {
-+			if ((ret < 0) && net_ratelimit()) {
-+				printk(PFX KERN_ERR
-+				       "%s: task failed (%p). Rescheduling.\n",
-+				       dev->name, p->action);
-+			}
-+			rtl8169_schedule_work(tp);
-+		} else
-+			tp->state = R8169_STATE_NONE;
-+
-+		spin_unlock_irqrestore(&tp->lock, flags);
- 	} else {
--		if (net_ratelimit()) {
--			printk(PFX KERN_EMERG "%s: Rx buffers shortage\n",
--			       dev->name);
--		}
--		rtl8169_schedule_work(dev, rtl8169_reset_task);
-+		printk(PFX KERN_ERR "%s: nothing to do in delayed task.\n",
-+		       dev->name);
- 	}
- }
- 
- static void rtl8169_tx_timeout(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	unsigned long flags;
- 
- 	rtl8169_hw_reset(tp->mmio_addr);
- 
--	/* Let's wait a bit while any (async) irq lands on */
--	rtl8169_schedule_work(dev, rtl8169_reset_task);
-+	spin_lock_irqsave(&tp->lock, flags);
-+
-+	/*
-+	 * Let's wait a bit while any (async) irq lands on.
-+	 * A racing pci error recovery task should be able to recover
-+	 * from a TX timeout as well: no need to insist.
-+	 */
-+	if (likely(tp->state == R8169_STATE_NONE)) {
-+		tp->state = R8169_STATE_TX_TIMEOUT;
-+		rtl8169_schedule_work(tp);
-+	}
-+
-+	spin_unlock_irqrestore(&tp->lock, flags);
- }
- 
- static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
-@@ -1977,11 +2036,20 @@ static void rtl8169_pcierr_interrupt(str
- 
- 	/* The infamous DAC f*ckup only happens at boot time */
- 	if ((tp->cp_cmd & PCIDAC) && (tp->dirty_rx == tp->cur_rx == 0)) {
-+		unsigned long flags;
-+
- 		printk(KERN_INFO PFX "%s: disabling PCI DAC.\n", dev->name);
- 		tp->cp_cmd &= ~PCIDAC;
- 		RTL_W16(CPlusCmd, tp->cp_cmd);
- 		dev->features &= ~NETIF_F_HIGHDMA;
--		rtl8169_schedule_work(dev, rtl8169_reinit_task);
-+
-+		spin_lock_irqsave(&tp->lock, flags);
-+
-+		if (likely(tp->state == R8169_STATE_NONE))
-+			rtl8169_schedule_work(tp);
-+		tp->state = R8169_STATE_DOWN;
-+
-+		spin_unlock_irqrestore(&tp->lock, flags);
+-	if (tbl->entries > tbl->gc_thresh3 ||
+-	    (tbl->entries > tbl->gc_thresh2 &&
++	if (atomic_read(&tbl->entries) > tbl->gc_thresh3 ||
++	    (atomic_read(&tbl->entries) > tbl->gc_thresh2 &&
+ 	     now - tbl->last_flush > 5*HZ)) {
+ 		if (neigh_forced_gc(tbl) == 0 &&
+-		    tbl->entries > tbl->gc_thresh3)
++		    atomic_read(&tbl->entries) > tbl->gc_thresh3)
+ 			return NULL;
  	}
  
- 	rtl8169_hw_reset(ioaddr);
+@@ -282,7 +282,7 @@
+ 	n->timer.data = (unsigned long)n;
+ 	NEIGH_CACHE_STAT_INC(tbl, allocs);
+ 	neigh_glbl_allocs++;
+-	tbl->entries++;
++	atomic_inc(&tbl->entries);
+ 	n->tbl = tbl;
+ 	atomic_set(&n->refcnt, 1);
+ 	n->dead = 1;
+@@ -428,7 +428,7 @@
+ 	hash_val = tbl->hash(pkey, dev) & tbl->hash_mask;
+ 
+ 	write_lock_bh(&tbl->lock);
+-	if (tbl->entries > (tbl->hash_mask + 1))
++	if (atomic_read(&tbl->entries) > (tbl->hash_mask + 1))
+ 		neigh_hash_grow(tbl, (tbl->hash_mask + 1) << 1);
+ 	for (n1 = tbl->hash_buckets[hash_val]; n1; n1 = n1->next) {
+ 		if (dev == n1->dev &&
+@@ -583,7 +583,7 @@
+ 	NEIGH_PRINTK2("neigh %p is destroyed.\n", neigh);
+ 
+ 	neigh_glbl_allocs--;
+-	neigh->tbl->entries--;
++	atomic_dec(&neigh->tbl->entries);
+ 	kmem_cache_free(neigh->tbl->kmem_cachep, neigh);
+ }
+ 
+@@ -1306,7 +1306,7 @@
+ 	del_timer_sync(&tbl->proxy_timer);
+ 	pneigh_queue_purge(&tbl->proxy_queue);
+ 	neigh_ifdown(tbl, NULL);
+-	if (tbl->entries)
++	if (atomic_read(&tbl->entries))
+ 		printk(KERN_CRIT "neighbour leakage\n");
+ 	write_lock(&neigh_tbl_lock);
+ 	for (tp = &neigh_tables; *tp; tp = &(*tp)->next) {
+@@ -1858,7 +1858,7 @@
+ 
+ 	seq_printf(seq, "%08x  %08lx %08lx %08lx  %08lx %08lx  %08lx  "
+ 			"%08lx %08lx  %08lx %08lx\n",
+-		   tbl->entries,
++		   atomic_read(&tbl->entries),
+ 
+ 		   st->allocs,
+ 		   st->destroys,
 
-_
+--HlL+5n6rz5pIUxbD--
