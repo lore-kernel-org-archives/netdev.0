@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 1/3] NET: Generic network statistics API
-Date: Sun, 3 Oct 2004 23:34:42 +0200
+Subject: [PATCH 2/3] NET: Generic rate estimator
+Date: Sun, 3 Oct 2004 23:39:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041003213442.GH14344@postel.suug.ch>
+Message-ID: <20041003213954.GI14344@postel.suug.ch>
 References: <20041003213124.GG14344@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,243 +14,238 @@ In-Reply-To: <20041003213124.GG14344@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Generic network statistics API for netlink users.
+Introduces a generic rate estimator based on timers. Patch is based on
+Jamal's patch and adapted to the new generic network statistics API.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
---- linux-2.6.9-rc3.orig/include/net/gen_stats.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.9-rc3/include/net/gen_stats.h	2004-10-03 22:18:55.000000000 +0200
-@@ -0,0 +1,45 @@
-+#ifndef __NET_GEN_STATS_H
-+#define __NET_GEN_STATS_H
-+
-+#include <linux/gen_stats.h>
-+#include <linux/socket.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/pkt_sched.h>
-+
-+struct gnet_dump
-+{
-+	spinlock_t *      lock;
-+	struct sk_buff *  skb;
-+	struct rtattr *   tail;
-+
-+	/* Backward compatability */
-+	int               compat_tc_stats;
-+	int               compat_xstats;
-+	struct rtattr *   xstats;
-+	struct tc_stats   tc_stats;
-+};
-+
-+extern int gnet_stats_start_copy(struct sk_buff *skb, int type,
-+				 spinlock_t *lock, struct gnet_dump *d);
-+
-+extern int gnet_stats_start_copy_compat(struct sk_buff *skb, int type,
-+					int tc_stats_type,int xstats_type,
-+					spinlock_t *lock, struct gnet_dump *d);
-+
-+extern int gnet_stats_copy_basic(struct gnet_dump *d,
-+				 struct gnet_stats_basic *b);
-+extern int gnet_stats_copy_rate_est(struct gnet_dump *d,
-+				    struct gnet_stats_rate_est *r);
-+extern int gnet_stats_copy_queue(struct gnet_dump *d,
-+				 struct gnet_stats_queue *q);
-+extern int gnet_stats_copy_app(struct gnet_dump *d, void *st, int len);
-+
-+extern int gnet_stats_finish_copy(struct gnet_dump *d);
-+
-+extern int gen_new_estimator(struct gnet_stats_basic *bstats,
-+			     struct gnet_stats_rate_est *rate_est,
-+			     spinlock_t *stats_lock, struct rtattr *opt);
-+extern void gen_kill_estimator(struct gnet_stats_basic *bstats,
-+			       struct gnet_stats_rate_est *rate_est);
-+
-+#endif
---- linux-2.6.9-rc3.orig/include/linux/gen_stats.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.9-rc3/include/linux/gen_stats.h	2004-10-03 22:58:21.000000000 +0200
-@@ -0,0 +1,50 @@
-+#ifndef __LINUX_GEN_STATS_H
-+#define __LINUX_GEN_STATS_H
-+
-+#include <linux/types.h>
-+
-+enum {
-+	TCA_STATS_UNSPEC,
-+	TCA_STATS_BASIC,
-+	TCA_STATS_RATE_EST,
-+	TCA_STATS_QUEUE,
-+	TCA_STATS_APP,
-+	__TCA_STATS_MAX,
-+};
-+#define TCA_STATS_MAX (__TCA_STATS_MAX - 1)
+--- linux-2.6.9-rc3.orig/include/linux/gen_stats.h	2004-10-03 23:00:15.000000000 +0200
++++ linux-2.6.9-rc3/include/linux/gen_stats.h	2004-10-03 23:00:19.000000000 +0200
+@@ -47,4 +47,16 @@
+ 	__u32	requeues;
+ 	__u32	overlimits;
+ };
 +
 +/**
-+ * @bytes: number of seen bytes
-+ * @packets: number of seen packets
++ * @interval: sampling period
++ * @ewma_log: the log of measurement window weight
 + */
-+struct gnet_stats_basic
++struct gnet_estimator
 +{
-+	__u64	bytes;
-+	__u32	packets;
++	signed char	interval;
++	unsigned char	ewma_log;
 +};
 +
-+/**
-+ * @bps: current byte rate
-+ * @pps: current packet rate
-+ */
-+struct gnet_stats_rate_est
-+{
-+	__u32	bps;
-+	__u32	pps;
-+};
 +
-+/**
-+ * @qlen: queue length
-+ * @backlog: backlog size of queue
-+ * @drops: number of dropped packets
-+ * @requeues: number of requeues
-+ */
-+struct gnet_stats_queue
-+{
-+	__u32	qlen;
-+	__u32	backlog;
-+	__u32	drops;
-+	__u32	requeues;
-+	__u32	overlimits;
-+};
-+#endif /* __LINUX_GEN_STATS_H */
---- linux-2.6.9-rc3.orig/net/core/gen_stats.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.9-rc3/net/core/gen_stats.c	2004-10-03 22:22:43.000000000 +0200
-@@ -0,0 +1,132 @@
+ #endif /* __LINUX_GEN_STATS_H */
+--- linux-2.6.9-rc3.orig/net/core/gen_estimator.c	1970-01-01 01:00:00.000000000 +0100
++++ linux-2.6.9-rc3/net/core/gen_estimator.c	2004-10-03 22:43:03.000000000 +0200
+@@ -0,0 +1,208 @@
 +/*
-+ * net/core/gen_stats.c
++ * net/sched/gen_estimator.c	Simple rate estimator.
 + *
-+ *             This program is free software; you can redistribute it and/or
-+ *             modify it under the terms of the GNU General Public License
-+ *             as published by the Free Software Foundation; either version
-+ *             2 of the License, or (at your option) any later version.
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
 + *
-+ * Authors:  Thomas Graf <tgraf@suug.ch>
-+ *           Jamal Hadi Salim
-+ *           Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
++ * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
 + *
-+ * See Documentation/networking/gen_stats.txt
++ * Changes:
++ *              Jamal Hadi Salim - moved it to net/core and reshulfed
++ *              names to make it usable in general net subsystem.
 + */
 +
++#include <asm/uaccess.h>
++#include <asm/system.h>
++#include <asm/bitops.h>
++#include <linux/module.h>
 +#include <linux/types.h>
 +#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/interrupt.h>
++#include <linux/jiffies.h>
++#include <linux/string.h>
++#include <linux/mm.h>
 +#include <linux/socket.h>
++#include <linux/sockios.h>
++#include <linux/in.h>
++#include <linux/errno.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
 +#include <linux/rtnetlink.h>
-+#include <linux/gen_stats.h>
++#include <linux/init.h>
++#include <net/sock.h>
 +#include <net/gen_stats.h>
 +
++/*
++   This code is NOT intended to be used for statistics collection,
++   its purpose is to provide a base for statistical multiplexing
++   for controlled load service.
++   If you need only statistics, run a user level daemon which
++   periodically reads byte counters.
 +
-+static inline int
-+gnet_stats_copy(struct gnet_dump *d, int type, void *buf, int size)
++   Unfortunately, rate estimation is not a very easy task.
++   F.e. I did not find a simple way to estimate the current peak rate
++   and even failed to formulate the problem 8)8)
++
++   So I preferred not to built an estimator into the scheduler,
++   but run this task separately.
++   Ideally, it should be kernel thread(s), but for now it runs
++   from timers, which puts apparent top bounds on the number of rated
++   flows, has minimal overhead on small, but is enough
++   to handle controlled load service, sets of aggregates.
++
++   We measure rate over A=(1<<interval) seconds and evaluate EWMA:
++
++   avrate = avrate*(1-W) + rate*W
++
++   where W is chosen as negative power of 2: W = 2^(-ewma_log)
++
++   The resulting time constant is:
++
++   T = A/(-ln(1-W))
++
++
++   NOTES.
++
++   * The stored value for avbps is scaled by 2^5, so that maximal
++     rate is ~1Gbit, avpps is scaled by 2^10.
++
++   * Minimal interval is HZ/4=250msec (it is the greatest common divisor
++     for HZ=100 and HZ=1024 8)), maximal interval
++     is (HZ/4)*2^EST_MAX_INTERVAL = 8sec. Shorter intervals
++     are too expensive, longer ones can be implemented
++     at user level painlessly.
++ */
++
++#if (HZ%4) != 0
++#error Bad HZ value.
++#endif
++
++#define EST_MAX_INTERVAL	5
++
++struct gen_estimator
 +{
-+	RTA_PUT(d->skb, type, size, buf);
++	struct gen_estimator	*next;
++	struct gnet_stats_basic	*bstats;
++	struct gnet_stats_rate_est	*rate_est;
++	spinlock_t		*stats_lock;
++	unsigned		interval;
++	int			ewma_log;
++	u64			last_bytes;
++	u32			last_packets;
++	u32			avpps;
++	u32			avbps;
++};
++
++struct gen_estimator_head
++{
++	struct timer_list	timer;
++	struct gen_estimator	*list;
++};
++
++static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
++
++/* Estimator array lock */
++static rwlock_t est_lock = RW_LOCK_UNLOCKED;
++
++static void est_timer(unsigned long arg)
++{
++	int idx = (int)arg;
++	struct gen_estimator *e;
++
++	read_lock(&est_lock);
++	for (e = elist[idx].list; e; e = e->next) {
++		u64 nbytes;
++		u32 npackets;
++		u32 rate;
++
++		spin_lock(e->stats_lock);
++		nbytes = e->bstats->bytes;
++		npackets = e->bstats->packets;
++		rate = (nbytes - e->last_bytes)<<(7 - idx);
++		e->last_bytes = nbytes;
++		e->avbps += ((long)rate - (long)e->avbps) >> e->ewma_log;
++		e->rate_est->bps = (e->avbps+0xF)>>5;
++
++		rate = (npackets - e->last_packets)<<(12 - idx);
++		e->last_packets = npackets;
++		e->avpps += ((long)rate - (long)e->avpps) >> e->ewma_log;
++		e->rate_est->pps = (e->avpps+0x1FF)>>10;
++		spin_unlock(e->stats_lock);
++	}
++
++	mod_timer(&elist[idx].timer, jiffies + ((HZ/4)<<idx));
++	read_unlock(&est_lock);
++}
++
++int gen_new_estimator(struct gnet_stats_basic *bstats,
++	struct gnet_stats_rate_est *rate_est, spinlock_t *stats_lock, struct rtattr *opt)
++{
++	struct gen_estimator *est;
++	struct gnet_estimator *parm = RTA_DATA(opt);
++
++	if (RTA_PAYLOAD(opt) < sizeof(*parm))
++		return -EINVAL;
++
++	if (parm->interval < -2 || parm->interval > 3)
++		return -EINVAL;
++
++	est = kmalloc(sizeof(*est), GFP_KERNEL);
++	if (est == NULL)
++		return -ENOBUFS;
++
++	memset(est, 0, sizeof(*est));
++	est->interval = parm->interval + 2;
++	est->bstats = bstats;
++	est->rate_est = rate_est;
++	est->stats_lock = stats_lock;
++	est->ewma_log = parm->ewma_log;
++	est->last_bytes = bstats->bytes;
++	est->avbps = rate_est->bps<<5;
++	est->last_packets = bstats->packets;
++	est->avpps = rate_est->pps<<10;
++
++	est->next = elist[est->interval].list;
++	if (est->next == NULL) {
++		init_timer(&elist[est->interval].timer);
++		elist[est->interval].timer.data = est->interval;
++		elist[est->interval].timer.expires = jiffies + ((HZ/4)<<est->interval);
++		elist[est->interval].timer.function = est_timer;
++		add_timer(&elist[est->interval].timer);
++	}
++	write_lock_bh(&est_lock);
++	elist[est->interval].list = est;
++	write_unlock_bh(&est_lock);
 +	return 0;
-+
-+rtattr_failure:
-+	spin_unlock_bh(d->lock);
-+	return -1;
 +}
 +
-+int
-+gnet_stats_start_copy_compat(struct sk_buff *skb, int type, int tc_stats_type,
-+	int xstats_type, spinlock_t *lock, struct gnet_dump *d)
++void gen_kill_estimator(struct gnet_stats_basic *bstats,
++	struct gnet_stats_rate_est *rate_est)
 +{
-+	spin_lock_bh(lock);
-+	d->lock = lock;
-+	d->tail = (struct rtattr *) skb->tail;
-+	d->skb = skb;
-+	d->compat_tc_stats = tc_stats_type;
-+	d->compat_xstats = xstats_type;
-+	d->xstats = NULL;
++	int idx;
++	struct gen_estimator *est, **pest;
 +
-+	if (d->compat_tc_stats)
-+		memset(&d->tc_stats, 0, sizeof(d->tc_stats));
++	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
++		int killed = 0;
++		pest = &elist[idx].list;
++		while ((est=*pest) != NULL) {
++			if (est->rate_est != rate_est || est->bstats != bstats) {
++				pest = &est->next;
++				continue;
++			}
 +
-+	return gnet_stats_copy(d, type, NULL, 0);
-+}
++			write_lock_bh(&est_lock);
++			*pest = est->next;
++			write_unlock_bh(&est_lock);
 +
-+int
-+gnet_stats_start_copy(struct sk_buff *skb, int type, spinlock_t *lock,
-+	struct gnet_dump *d)
-+{
-+	return gnet_stats_start_copy_compat(skb, type, 0, 0, lock, d);
-+}
-+
-+
-+int
-+gnet_stats_copy_basic(struct gnet_dump *d, struct gnet_stats_basic *b)
-+{
-+	if (d->compat_tc_stats) {
-+		d->tc_stats.bytes = b->bytes;
-+		d->tc_stats.packets = b->packets;
++			kfree(est);
++			killed++;
++		}
++		if (killed && elist[idx].list == NULL)
++			del_timer(&elist[idx].timer);
 +	}
-+	
-+	return gnet_stats_copy(d, TCA_STATS_BASIC, b, sizeof(*b));
 +}
 +
-+int
-+gnet_stats_copy_rate_est(struct gnet_dump *d, struct gnet_stats_rate_est *r)
-+{
-+	if (d->compat_tc_stats) {
-+		d->tc_stats.bps = r->bps;
-+		d->tc_stats.pps = r->pps;
-+	}
-+
-+	return gnet_stats_copy(d, TCA_STATS_RATE_EST, r, sizeof(*r));
-+}
-+
-+int
-+gnet_stats_copy_queue(struct gnet_dump *d, struct gnet_stats_queue *q)
-+{
-+	if (d->compat_tc_stats) {
-+		d->tc_stats.drops = q->drops;
-+		d->tc_stats.qlen = q->qlen;
-+		d->tc_stats.backlog = q->backlog;
-+		d->tc_stats.overlimits = q->overlimits;
-+	}
-+		
-+	return gnet_stats_copy(d, TCA_STATS_QUEUE, q, sizeof(*q));
-+}
-+
-+int
-+gnet_stats_copy_app(struct gnet_dump *d, void *st, int len)
-+{
-+	if (d->compat_xstats)
-+		d->xstats = (struct rtattr *) d->skb->tail;
-+	return gnet_stats_copy(d, TCA_STATS_APP, st, len);
-+}
-+
-+int
-+gnet_stats_finish_copy(struct gnet_dump *d)
-+{
-+	d->tail->rta_len = d->skb->tail - (u8 *) d->tail;
-+
-+	if (d->compat_tc_stats)
-+		if (gnet_stats_copy(d, d->compat_tc_stats, &d->tc_stats,
-+			sizeof(d->tc_stats)) < 0)
-+			return -1;
-+
-+	if (d->compat_xstats && d->xstats) {
-+		if (gnet_stats_copy(d, d->compat_xstats, RTA_DATA(d->xstats),
-+			RTA_PAYLOAD(d->xstats)) < 0)
-+			return -1;
-+	}
-+
-+	spin_unlock_bh(d->lock);
-+	return 0;
-+}
-+
-+
-+EXPORT_SYMBOL(gnet_stats_start_copy);
-+EXPORT_SYMBOL(gnet_stats_copy_basic);
-+EXPORT_SYMBOL(gnet_stats_copy_rate_est);
-+EXPORT_SYMBOL(gnet_stats_copy_queue);
-+EXPORT_SYMBOL(gnet_stats_copy_app);
-+EXPORT_SYMBOL(gnet_stats_finish_copy);
++EXPORT_SYMBOL(gen_new_estimator);
++EXPORT_SYMBOL(gen_kill_estimator);
