@@ -1,29 +1,67 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.11-rc2] wireless: Make Atmel driver use	SET_NETDEV_DEV
-Date: Wed, 02 Feb 2005 04:59:01 -0500
-Message-ID: <4200A465.9090100@pobox.com>
-References: <1107294126.17332.16.camel@dcbw.boston.redhat.com> <42002E00.6000101@pobox.com> <1107308462.20243.1.camel@dcbw.boston.redhat.com> <4200326D.2000801@pobox.com> <20050202093807.GA12946@infradead.org>
+From: Alexey Dobriyan <adobriyan@mail.ru>
+Subject: [PATCH] prism54: use initialized current_time in debug_code
+Date: Wed, 2 Feb 2005 13:34:41 +0200
+Message-ID: <200502021334.41648.adobriyan@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dan Williams <dcbw@redhat.com>, netdev@oss.sgi.com, jgarzik@redhat.com,
-        simon@thekelleys.org.uk
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20050202093807.GA12946@infradead.org>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
+To: prism54-private@prism54.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Tue, Feb 01, 2005 at 08:52:45PM -0500, Jeff Garzik wrote:
-> 
->>It's much easier in the long run to get people to find solutions 
->>(pine+vi or mutt or Mozilla Mail) that work, than to hope that a 
->>maintainer will know and fix up each submittor's mailer's eccentricities.
-> 
-> 
-> Mozilla Mail is fucked up for sending patches aswell.
+Otherwise gcc 4 complains:
 
-Works for me.
+drivers/net/wireless/prism54/isl_38xx.c: In function =E2=80=98isl38xx_tri=
+gger_device=E2=80=99:
+drivers/net/wireless/prism54/isl_38xx.c:131: warning: =E2=80=98current_ti=
+me.tv_sec=E2=80=99 is used uninitialized in this function
+drivers/net/wireless/prism54/isl_38xx.c:131: warning: =E2=80=98current_ti=
+me.tv_usec=E2=80=99 is used uninitialized in this function
 
-	Jeff
+Signed-off-by: Alexey Dobriyan <adobriyan@mail.ru>
+
+--- linux-2.6.11-rc2-bk10/drivers/net/wireless/prism54/isl_38xx.c.orig	20=
+05-02-02 13:20:57.000000000 +0200
++++ linux-2.6.11-rc2-bk10/drivers/net/wireless/prism54/isl_38xx.c	2005-02=
+-02 13:24:25.000000000 +0200
+@@ -112,7 +112,9 @@ isl38xx_handle_wakeup(isl38xx_control_bl
+ void
+ isl38xx_trigger_device(int asleep, void __iomem *device_base)
+ {
++#if VERBOSE > SHOW_ERROR_MESSAGES
+ 	struct timeval current_time;
++#endif
+ 	u32 reg, counter =3D 0;
+=20
+ #if VERBOSE > SHOW_ERROR_MESSAGES
+@@ -126,11 +128,10 @@ isl38xx_trigger_device(int asleep, void=20
+ 		do_gettimeofday(&current_time);
+ 		DEBUG(SHOW_TRACING, "%08li.%08li Device wakeup triggered\n",
+ 		      current_time.tv_sec, current_time.tv_usec);
+-#endif
+-
+ 		DEBUG(SHOW_TRACING, "%08li.%08li Device register read %08x\n",
+ 		      current_time.tv_sec, current_time.tv_usec,
+ 		      readl(device_base + ISL38XX_CTRL_STAT_REG));
++#endif
+ 		udelay(ISL38XX_WRITEIO_DELAY);
+=20
+ 		reg =3D readl(device_base + ISL38XX_INT_IDENT_REG);
+@@ -148,10 +149,13 @@ isl38xx_trigger_device(int asleep, void=20
+ 				counter++;
+ 			}
+=20
++#if VERBOSE > SHOW_ERROR_MESSAGES
++			do_gettimeofday(&current_time);
+ 			DEBUG(SHOW_TRACING,
+ 			      "%08li.%08li Device register read %08x\n",
+ 			      current_time.tv_sec, current_time.tv_usec,
+ 			      readl(device_base + ISL38XX_CTRL_STAT_REG));
++#endif
+ 			udelay(ISL38XX_WRITEIO_DELAY);
+=20
+ #if VERBOSE > SHOW_ERROR_MESSAGES
