@@ -1,57 +1,52 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 3747] New: HTB causes machine lockups
-Date: Mon, 15 Nov 2004 12:20:59 -0800
-Message-ID: <20041115122059.4cfcd213.akpm@osdl.org>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+Date: Mon, 15 Nov 2004 21:46:02 +0100
+Message-ID: <200411152146.02851.bdschuym@pandora.be>
+References: <20041115122046.1413527e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+In-Reply-To: <20041115122046.1413527e.akpm@osdl.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> Date: Mon, 15 Nov 2004 04:33:51 -0800
+> From: bugme-daemon@osdl.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+>
+> -s SO:ME:MA:CA:DD:R0 -j DROP
+> -d SO:ME:MA:CA:DD:R0 -j DROP
+> [... about 50 of them ...]
+> -j RETURN
+>
+> It works fine. About twenty or thirty times a day, a script does 'iptables
+> -F BLOCKED' and writes new entries into chain BLOCKED. Problem is that
+> machine dies from time to time (under heavy network load it happens once a
+> day). It just locks, nothing happenes, no oopses, or entries in logs. Then
+> after 60 seconds, watchdog from Intel motherboard resets machine.
+>
+> Also I was doing some changes manually into chains and noticed that machine
+> died after I have issued 'ebtables -F BLOCKED' (clearing the chain). Once
+> again after 60 seconds watchdog reset machine.
+>
+> Problem is present in 2.6.8.1 and 2.6.9 kernels. There was no such problem
+> on 2.4.26.
 
+Can you do something similar with iptables rules to see if it's specific to 
+ebtables (which I doubt)?
 
-Begin forwarded message:
+> The only weird thing I noticed is when I initalise my bridge, is something
+> about that it can't get speed of some interfaces (guessing it is about
+> e1000). I can't give you full error message at the moment, because those
+> have been rotated by logrotate.
 
-Date: Mon, 15 Nov 2004 04:46:38 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 3747] New: HTB causes machine lockups
+I don't know what that is about...
 
-
-http://bugme.osdl.org/show_bug.cgi?id=3747
-
-           Summary: HTB causes machine lockups
-    Kernel Version: 2.4.26
-            Status: NEW
-          Severity: high
-             Owner: acme@conectiva.com.br
-         Submitter: alchemyx@uznam.net.pl
-
-
-Distribution: PLD Linux 1.1 with 2.4.26 vanilla kernel
-Hardware Environment: 2x Xeon 2.4 GHz, 1 GB of ram, 2x e1000 NICs
-Software Environment: iproute2-2.4.7.ss020116
-Problem Description:
-
-I have some network traffic shaping rules used on a Linux box. For example I
-have hundreds of them on eth1. I am using HTB in all cases (sometimes attaching
-SFQ to HTB rules). Everything works fine, until I issue:
-
-tc qdisc del dev eth1 root
-
-Which causes a machine lockup. Sometimes it happens day after day, but sometimes
-once a month. There are no traces in logs, no oopses, and so on. Machine just
-freezes (you see login on your screen, but can't type anything, can't ping that
-machine, ctrl-alt-del or sysrq doesn't work). Problem was on kernels from 2.4.21
-up to 2.4.26. Haven't tried 2.4.27 and 2.6.x on that box yet.
-
-Steps to reproduce:
-Hard to tell really. You need to set up a script creating hunderds of HTB rules
-and regenerating them every (let say) 15 minutes, issuing 'tc qdisc del dev
-ethX' everytime.
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+cheers,
+Bart
