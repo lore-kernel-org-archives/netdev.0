@@ -1,52 +1,63 @@
-From: Michal Ludvig <mludvig@suse.cz>
-Subject: Re: Asynchronous crypto layer.
-Date: Sun, 31 Oct 2004 11:46:30 +0100
-Message-ID: <4184C286.3000400@suse.cz>
-References: <1099030958.4944.148.camel@uganda>	<1099053738.1024.104.camel@jzny.localdomain>	<20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>	<20041030203550.GB6256@gate.ebshome.net>	<20041031010415.4c798a04@zanzibar.2ka.mipt.ru>	<20041030205630.GD6256@gate.ebshome.net>	<20041031012423.74b98698@zanzibar.2ka.mipt.ru>	<1099179687.1041.117.camel@jzny.localdomain> <20041031121308.648e98f9@zanzibar.2ka.mipt.ru>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 16/18]  net/airo: replace 	schedule_timeout() with msleep()/msleep_interuptible()
+Date: Sun, 31 Oct 2004 06:01:51 -0500
+Message-ID: <4184C61F.2080906@pobox.com>
+References: <E1CO1wE-0002hu-WE@sputnik>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com, cryptoapi@lists.logix.cz,
-        Eugene Surovegin <ebs@ebshome.net>
+Cc: netdev@oss.sgi.com, nacc@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <20041031121308.648e98f9@zanzibar.2ka.mipt.ru>
+To: janitor@sternwelten.at
+In-Reply-To: <E1CO1wE-0002hu-WE@sputnik>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+janitor@sternwelten.at wrote:
+> Any comments would be appreciated.
+> 
+> Description: Use msleep()/msleep_interruptible() [as appropriate]
+> instead of schedule_timeout() to guarantee the task delays as
+> expected. Also uses set_current_state() instead of direct assignment of
+> current->state in one place.
+> 
+> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+> 
+> ---
+> 
+>  linux-2.6.10-rc1-max/drivers/net/wireless/airo.c |   27 ++++++++---------------
+>  1 files changed, 10 insertions(+), 17 deletions(-)
+> 
+> diff -puN drivers/net/wireless/airo.c~msleep+msleep_interruptible-drivers_net_wireless_airo drivers/net/wireless/airo.c
+> --- linux-2.6.10-rc1/drivers/net/wireless/airo.c~msleep+msleep_interruptible-drivers_net_wireless_airo	2004-10-24 17:05:35.000000000 +0200
+> +++ linux-2.6.10-rc1-max/drivers/net/wireless/airo.c	2004-10-24 17:05:35.000000000 +0200
+> @@ -1699,9 +1699,8 @@ static int readBSSListRid(struct airo_in
+>  			issuecommand(ai, &cmd, &rsp);
+>  			up(&ai->sem);
+>  			/* Let the command take effect */
+> -			set_current_state (TASK_INTERRUPTIBLE);
+>  			ai->task = current;
+> -			schedule_timeout (3*HZ);
+> +			msleep_interruptible(3*1000);
+>  			ai->task = NULL;
+>  		}
+>  	rc = PC4500_readrid(ai, first ? RID_BSSLISTFIRST : RID_BSSLISTNEXT,
 
-Evgeniy Polyakov wrote:
->
->>As he points out (and i am sure he can back it with data ;->), that
->>given the setup cost, packet size, algo and CPU and bus speed, it may
->>not make sense to use the chip at all ;->
->
-> Michal has numbers - pure hardware beats soft in a certain setups
-> in a fully synchronous schema, let's work SW and HW in parallel.
+use ssleep() here
 
-Yes, I have *some* numbers, but consider that they are for quite
-eligible setup - encrypting ~1.5k IPsec packets. I should retry with a
-much smaller MTU to see the difference...
 
-I think it won't be the programmer but the system administrator who will
-have to correctly set priorities and constraints for different
-hardware/software engines for the particular system. With a slow CPU it
-may be worth to offload even small blocks to hardware, with a fast one
-it may be worth to set HW and SW as equal, etc.
+> @@ -2950,7 +2947,7 @@ static int airo_thread(void *data) {
+>  				}
+>  				break;
+>  			}
+> -			current->state = TASK_RUNNING;
+> +			set_current_state(TASK_RUNNING);
+>  			remove_wait_queue(&ai->thr_wait, &wait);
+>  			locked = 1;
+>  		}
 
-Michal Ludvig
-- --
-SUSE Labs                    mludvig@suse.cz
-(+420) 296.545.373        http://www.suse.cz
-Personal homepage http://www.logix.cz/michal
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org
+why are you adding barriers?
 
-iD8DBQFBhMKDDDolCcRbIhgRAqhBAKCCYwol3N3pd69yBI1HyEEFH0diOACeOqw6
-2yCxYNf91eEG1Omi8uQ+Un4=
-=i1UL
------END PGP SIGNATURE-----
+	Jeff
