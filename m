@@ -1,32 +1,31 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] OpenBSD Networking-related randomization port
-Date: Thu, 3 Feb 2005 21:14:08 +0100
-Message-ID: <20050203201408.GB3199@xi.wantstofly.org>
-References: <20050202171702.24523.qmail@science.horizon.com> <1107365917.3754.155.camel@localhost.localdomain> <20050203115127.3245951f@dxpl.pdx.osdl.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP-Protection is really a pain...
+Date: Thu, 3 Feb 2005 12:15:03 -0800
+Message-ID: <20050203121503.4f122779@dxpl.pdx.osdl.net>
+References: <4201A382.1020208@rapidforum.com>
+	<20050202205437.571a702b@localhost.localdomain>
+	<4201B4EA.2030101@rapidforum.com>
+	<20050203113335.46396c11@dxpl.pdx.osdl.net>
+	<42028278.7040008@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lorenzo =?iso-8859-1?Q?Hern=E1ndez_Garc=EDa-Hierro?= <lorenzo@gnu.org>,
-        linux@horizon.com, mingo@elte.hu,
-        Arjan van de Ven <arjan@infradead.org>, bunk@stusta.de,
-        Chris Wright <chrisw@osdl.org>, davem@redhat.com,
-        Hank Leininger <hlein@progressive-comp.com>,
-        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, Valdis.Kletnieks@vt.edu, spender@grsecurity.net
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050203115127.3245951f@dxpl.pdx.osdl.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+In-Reply-To: <42028278.7040008@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 03, 2005 at 11:51:27AM -0800, Stephen Hemminger wrote:
+On Thu, 03 Feb 2005 20:58:48 +0100
+Christian Schmid <webmaster@rapidforum.com> wrote:
 
-> Recent 2.6 does a more advanced form of port randomization already
-> using address hash at connect time.  tcp_v4_get_port is only used for
-> the case of applications that explicitly bind to port zero to find a
-> free port.
+E1000 support TSO. To check if it is enabled do:
+	ethtool -k eth0
+To turn it off use.
+	ethtool -K eth0 tso off
 
-Is any such randomisation done or planned for UDP?
+You get the idea..
 
-
---L
+-- 
+Stephen Hemminger	<shemminger@osdl.org>
