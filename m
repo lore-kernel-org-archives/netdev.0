@@ -1,84 +1,113 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Mon, 20 Sep 2004 09:44:45 +1000
+From: Andy Lutomirski <luto@stanford.edu>
+Subject: Re: 2.6.9-rc1-bk11+ and 2.6.9-rc1-mm3,4 r8169: freeze during boot
+ (FIX included)
+Date: Sun, 19 Sep 2004 16:51:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919234445.GC10124@gondor.apana.org.au>
-References: <414D0CCD.90209@eurodev.net> <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <20040919120730.GA6005@gondor.apana.org.au> <414DF111.3080409@eurodev.net> <20040919215328.GA9573@gondor.apana.org.au> <414E0CE6.107@eurodev.net>
+Message-ID: <414E1B99.4070501@stanford.edu>
+References: <200409130035.50823.hfvogt@arcor.de> <20040916070211.GA32592@electric-eye.fr.zoreil.com> <200409161320.16526.jdmason@us.ltcfwd.linux.ibm.com> <200409171043.21772.jdmason@us.ltcfwd.linux.ibm.com> <20040917160151.GA29337@electric-eye.fr.zoreil.com> <414DF773.7060402@myrealbox.com> <20040919213952.GA32570@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------020901030109090801060303"
+Cc: Andy Lutomirski <luto@myrealbox.com>, Hans-Frieder Vogt <hfvogt@arcor.de>,
+        linux-kernel@vger.kernel.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
-Content-Disposition: inline
-In-Reply-To: <414E0CE6.107@eurodev.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040919213952.GA32570@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 20, 2004 at 12:49:10AM +0200, Pablo Neira wrote:
+This is a multi-part message in MIME format.
+--------------020901030109090801060303
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Francois Romieu wrote:
+> Andy Lutomirski <luto@myrealbox.com> :
+> [...]
 > 
-> Sorry, if i repeat things, I'm not willing to be annoying, just clarifying.
-
-You're alright.  We're on the same side :)
-
-> I'm always talking all the time about sending information from kernel 
-> space to user space where I found the problem. There's no problem in 
-> doing on the other way, in that case buffer never gets full.
-
-Yes I understand.
-
-> Two problems:
+>>FWIW, it looks like init_board is setting PCIDAC in tp->cp_cmd but that 
+>>isn't updated to the card until after the rx ring is filled in 
+>>r8169_open.  This seems suspicious, since DMA memory is being allocated 
+>>possibly in >32-bit addresses but the card hasn't been told to support 
+>>that.  Fixing this doesn't seem to help, though...
 > 
-> a) if you request information via nl sockets from user space and a 
-> kernel module doesn't use the dontwait flag (I know, *nobody* is doing 
-> this at the moment, so currently broadcast/unicast never wait as you 
-> remarked).
+> 
+> rtl8169_hw_start() writes the CPlusCmd register before the ring descriptor
+> adresses are set. Can you elaborate why it would not be enough ?
 
-And if anybody does that then they are buggy.  So let's not slow everybody
-down for the sake of a non-existant buggy kernel implementation.
+Because rtl8169_init_ring() is called before rtl8169_hw_start() in 
+rtl8169_open().  init_ring allocates the recieve buffers, and I'm 
+assuming that r8169_alloc_rx_skb() can get >32 bits.
 
-There is no point for the kernel to wait at all.  For unicast sockets
-used for sending commands to the kernel, you should never get overruns
-if you are reading your responses correctly and have set the queue size
-correctly.
+> 
+> Btw the r8169 driver in 2.6.9-rcX does not advertise NETIF_F_HIGHDMA: where
+> would a >32 bit address come from ?
+
+I was looking at 2.6.9-rc2-mm1, which has (pardon hideous line wrapping):
+
+	if ((sizeof(dma_addr_t) > 4) && !pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
+		tp->cp_cmd |= PCIDAC;
+		dev->features |= NETIF_F_HIGHDMA;
+                                  ^^^^^^^^^^^^^^^
+	} else {
+		rc = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+		if (rc < 0) {
+			printk(KERN_ERR PFX "DMA configuration failed.\n");
+			goto err_out_free_res;
+		}
+	}
+
+But I have 512MB RAM, so this probably isn't a problem for me.  I'm 
+running x86_64, BTW.
+
+> 
+> 
+>>Turning off high DMA fixes it.  Maybe it just needs to be disabled until 
+>>someone figures out what's going on.
+> 
+> 
+> I am cooking a patch for it (+ check for PCI error).
+> 
+> As a side note, the r8169 chipset does not like DAC to be enabled on a
+> 32bit system. I got the usual PCI error reported while trying it.
+
+Will this be ready for 2.6.9?  Otherwise it would probably be better to 
+just disable DAC so the driver keeps working.
+
+On an unrelated note, I just took a look at the PHY timer code.  It 
+looks like the PHY timer will never reactivate once it shuts off, which 
+means that the resetting is completely deterministic and the printk 
+conveys no useful information.  Can we just delete it (patch attached -- 
+this computer mangles them)?
+
+What does it do, anyway?  If it is necessary for someone's card (not 
+mine) to acquire a gigabit link (which is what it seemed to do in old 
+versions of the driver), then we're _still_ broken for the case where 
+they drop the link and try to reacquire it.  Would it make sense to 
+remove the reset_enable stuff in -mm for awhile and see if anyone complains?
+
+
+--Andy
+
+--------------020901030109090801060303
+Content-Type: text/plain;
+ name="r8169-quiet.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="r8169-quiet.txt"
+
+Index: 2.6.9-rc2-mm1/drivers/net/r8169.c
+===================================================================
+--- 2.6.9-rc2-mm1.orig/drivers/net/r8169.c	2004-09-19 16:43:09.725537944 -0700
++++ 2.6.9-rc2-mm1/drivers/net/r8169.c	2004-09-19 16:50:33.900013160 -0700
+@@ -1044,8 +1044,6 @@
+ 	if (tp->link_ok(ioaddr))
+ 		goto out_unlock;
  
-> b) A module needs to send a lot of information from kernel space to user 
-> space, if buffer gets full quickly, buffer overruns and 
-> netlink_unicast/broadcast never wait, so they drop packets.
+-	printk(KERN_WARNING PFX "%s: PHY reset until link up\n", dev->name);
+-
+ 	tp->phy_reset_enable(ioaddr);
+ 
+ out_mod_timer:
 
-I agree that this may be a problem for some, but I don't see how your
-patch addresses it.  For the case of ip_queue the kernel simply cannot
-wait since it just creates a queue through the backdoor.  You might as
-well just increase your receive queue length.
-
-And if your application can't keep up with the flow of packets, then
-whatever we do in the kernel is not going to help.
-
-Congestion control that Jamal talked about is certainly a good idea in
-many situations.  But it can't be applied in the situation you're in
-because ip_queue can't back off.
-
-> Why someone could call netlink_unicast/broadcast from a module telling 
-> them to wait if necessary? if that module want to care about a possible 
-> message drop. This happens if you stress nl sockets. This way netlink 
-> sockets behave well with an important workload without dropping 
-> messages. So the user space part doesn't get that annoying -enobufs error.
-
-I don't understand this paragraph.
-
-> >Your original message mentioned a dead-lock, which is now obviously 
-> >non-existant.
-> 
-> it exists if you use netlink_unicast/broadcast telling them to wait, so 
-> it's not a real problem for current applications because they tell 
-> netlink_unicast/broadcast not to wait.
-
-s/applications/kernel implementation/
-
-As I said above, if the kernel waits then it's a bug.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--------------020901030109090801060303--
