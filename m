@@ -1,98 +1,54 @@
-From: Catalin BOIE <util@deuroconsult.ro>
-Subject: Re: [PATCH] qdisc oops fix
-Date: Fri, 18 Apr 2003 09:47:21 +0300 (EEST)
+From: latten@austin.ibm.com
+Subject: IPsecv6 integrity failures not dropped
+Date: Fri, 18 Apr 2003 15:17:04 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0304180947060.11335@hosting.rdsbv.ro>
-References: <20030415084706.O1131@shell.cyberus.ca>
- <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro> <20030416072952.E4013@shell.cyberus.ca>
- <3E9D755A.8060601@colorfullife.com> <20030416142802.E5912@shell.cyberus.ca>
- <Pine.LNX.4.53.0304170844410.23586@hosting.rdsbv.ro> <20030417065352.S6710@shell.cyberus.ca>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Catalin BOIE <util@deuroconsult.ro>,
-   Manfred Spraul <manfred@colorfullife.com>,
-   Tomas Szepe <szepe@pinerecords.com>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Message-ID: <200304182017.h3IKH4ng019821@faith.austin.ibm.com>
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <20030417065352.S6710@shell.cyberus.ca>
+To: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Ok, I stand corrected. Tomas is right- same problem. You had htb loaded
-> as a module, the other person had it compiled in ;->
-> Get yourself upgraded ;->
-I surely will!
+I am running IPSecv6 on 2.5.67 with patch-2.5.67-bk8.
 
->
-> cheers,
-> jamal
->
-> On Thu, 17 Apr 2003, Catalin BOIE wrote:
->
-> > > Catalin, Can you what kernel that is?
-> >
-> > 2.4.20pre10 works ok but 2.4.20 crash.
-> > With traffic -> no crash with 2.4.20. Without traffic, on other machine,
-> > no crash.
-> >
-> >
-> > > > It's triggered, because someone does something like
-> > > >     spin_lock_bh(&my_lock);
-> > > >     p = kmalloc(,GFP_KERNEL);
-> > > >
-> > > > I don't like the proposed fix: usually code that calls
-> > > > kmalloc(,GFP_KERNEL) assumes that it runs at process space, e.g. uses
-> > > > semaphores, or non-bh spinlocks, etc.
-> > > > slab just happens to contain a test that complains about illegal calls.
-> > >
-> > > ok. Nice.
-> > >
-> > > >
-> > > > >>Trace; c0127e0f <kmalloc+eb/110>
-> > > > >>Trace; c01d3cac <qdisc_create_dflt+20/bc>
-> > > > >>Trace; d081ecc7 <END_OF_CODE+1054ff0f/????>
-> > > > >>Trace; c01d5265 <tc_ctl_tclass+1cd/214>
-> > > > >>Trace; d0820600 <END_OF_CODE+10551848/????>
-> > > > >>Trace; c01d27e4 <rtnetlink_rcv+298/3bc>
-> > > > >>Trace; c01d0605 <__neigh_event_send+89/1b4>
-> > > > >>Trace; c01d7cd4 <netlink_data_ready+1c/60>
-> > > > >>Trace; c01d7730 <netlink_unicast+230/278>
-> > > > >>Trace; c01d7b73 <netlink_sendmsg+1fb/20c>
-> > > > >>Trace; c01c79d5 <sock_sendmsg+69/88>
-> > > > >>Trace; c01c8b48 <sys_sendmsg+18c/1e8>
-> > > > >>Trace; c0120010 <map_user_kiobuf+8/f8>
-> > > > >>
-> > > > >>
-> > > > >>
-> > > > >>
-> > > > I don't understand the backtrace. Were any modules loaded? Perhaps
-> > > > 0xd081ecc7 is a module.
-> > > >
-> > >
-> > > Probably a module. Again Catalin, run no modules.
-> > It's a production machine. I cannot test this. We plan to replace the
-> > machine, so I can test then.
-> >
-> > > > I'd add a
-> > > >     if(in_interrupt()) show_stack(NULL);
-> > > > into qdisc_create_dflt(), and try to reproduce the bug without modules.
-> > > >
-> > >
-> > > Catalin - again instead of your fix can you please add this call?
-> > See above. I cannot test now. I'm very sorry!
-> >
-> > > cheers,
-> > > jamal
-> > >
-> >
-> > ---
-> > Catalin(ux) BOIE
-> > catab@deuroconsult.ro
-> >
-> >
->
+If AH authentication or ESP encryption integrity check for an 
+incoming packet fails, result is an ICMPv6 Parameter problem 
+of Unknown-Next-Header, instead of just dropping packet. This 
+is because xfrm6_rcv() expects an unsigned-8-bit return value 
+from the input handler, i.e. ah6_input() or esp6_input(). But handler 
+returns a signed int (-EINVAL) that seems to be getting converted into 
+a "u8" via 2's complement, because ah6_input() says it is returning
+-EINVAL/-22, but xfrm6_rcv() says it got a return value of 234,
+which it believes to be valid and passes to ip6_input() who thinks it is 
+the next header.  
 
----
-Catalin(ux) BOIE
-catab@deuroconsult.ro
+I modified ah6_input() and esp6_input() to return zero instead of -EINVAL
+in the fix below. I tested it and it works.
+
+Please let me know if this is ok. 
+
+Joy
+-------------------------------------------------------------------------
+
+--- ah6.c.orig	2003-04-17 16:04:07.000000000 -0500
++++ ah6.c	2003-04-18 14:15:37.000000000 -0500
+@@ -212,7 +212,7 @@
+ free_out:
+ 	kfree(tmp_hdr);
+ out:
+-	return -EINVAL;
++	return 0;
+ }
+ 
+ void ah6_err(struct sk_buff *skb, struct inet6_skb_parm *opt, 
+--- esp6.c.orig	2003-04-17 17:07:25.000000000 -0500
++++ esp6.c	2003-04-17 17:08:17.000000000 -0500
+@@ -346,7 +346,7 @@
+ 	return ret_nexthdr;
+ 
+ out:
+-	return -EINVAL;
++	return 0;
+ }
+ 
+ static u32 esp6_get_max_size(struct xfrm_state *x, int mtu)
