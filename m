@@ -1,50 +1,29 @@
-From: Darren Tucker <dtucker@zip.com.au>
-Subject: Re: [Bugme-new] [Bug 1360] New: Can't access /proc/self/fd/0 from sshd
- when no pty allocated.
-Date: Wed, 22 Oct 2003 18:40:51 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [BK] TUN driver updates and fixes for 2.6
+Date: Wed, 22 Oct 2003 02:31:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F964293.FA2C3A7A@zip.com.au>
-References: <200310151142.h9FBgi5k029003@fire-1.osdl.org>
- <20031018172736.417bf89d.akpm@osdl.org>
- <20031018235735.52f5e15a.davem@redhat.com>
+Message-ID: <20031022023152.397dcb99.davem@redhat.com>
+References: <5.1.0.14.2.20031021090148.05451c60@unixmail.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Max Krasnyansky <maxk@qualcomm.com>
+In-Reply-To: <5.1.0.14.2.20031021090148.05451c60@unixmail.qualcomm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" wrote:
-> 
-> On Sat, 18 Oct 2003 17:27:36 -0700
-> Andrew Morton <akpm@osdl.org> wrote:
-> 
-> > This appears to be deliberate:
-[snip]
-> >
-> > I do not know why; the comment is fairly useless.
-> 
-> For many socket types there are no sane open() semantics.
-> 
-> If I open() a unconnected socket, what does that mean?
-> Should it connect, of do something like a dup()?
-> 
-> This code has been this way for a long time, anyone who wants to
-> change this needs to deal with and address all the aforementioned
-> issues.
+On Tue, 21 Oct 2003 09:39:32 -0700
+Max Krasnyansky <maxk@qualcomm.com> wrote:
 
-Thanks for looking at this.
+> Please pull from
+>         bk://linux-bt.bkbits.net/tun-2.5
+> 
+> This will update the following files:
 
-I've done some digging on the OpenSSH side: originally sshd used pipes on
-Linux but they were found [0] to have problems that cause lockups in (at
-least) rsync.
+Please extract out only the important bug fixes from this
+tree.  Linus isn't taking cleanups and optimizations anymore
+and therefore neither can I.
 
-[0] http://marc.theaimsgroup.com/?l=openssh-unix-dev&m=94914935131492
-
--- 
-Darren Tucker (dtucker at zip.com.au)
-GPG key 8FF4FA69 / D9A3 86E9 7EEE AF4B B2D4  37C9 C982 80C7 8FF4 FA69
-    Good judgement comes with experience. Unfortunately, the experience
-usually comes from bad judgement.
+Thanks.
