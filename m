@@ -1,76 +1,68 @@
-From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [1/1] connector: Kernel connector - userspace <-> kernelspace "linker".
-Date: Fri, 24 Sep 2004 02:52:07 -0400
+From: Glen Turner <glen.turner@aarnet.edu.au>
+Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
+Date: Fri, 24 Sep 2004 16:44:38 +0930
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924065207.GR30131@ruslug.rutgers.edu>
-References: <1095331899.18219.58.camel@uganda> <20040921124623.GA6942@uganda.factory.vocord.ru> <20040924000739.112f07dd@zanzibar.2ka.mipt.ru> <20040923215447.GD30131@ruslug.rutgers.edu> <1095997232.17587.8.camel@uganda> <20040924054844.GO30131@ruslug.rutgers.edu> <1096006470.17587.37.camel@uganda> <1096007404.17587.49.camel@uganda> <20040924063231.GP30131@ruslug.rutgers.edu>
+Message-ID: <1096010078.4414.91.camel@andromache>
+References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+	 <20040921203118.734a0a7e.davem@davemloft.net>
+	 <20040922111447.GP3236@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="vTfKKTivj/mQoluA"
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>,
-        "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-        Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20040924063231.GP30131@ruslug.rutgers.edu>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040922111447.GP3236@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2004-09-22 at 20:44, Harald Welte wrote:
 
---vTfKKTivj/mQoluA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> And I still want to address the "all complete entries flushed due to
+> lots of bogus incomplete entires" issue somehow.  As stated before, I
+> have seen this on happen on live systems.  
+> 
+> Do you agree that this is an existing problem?
+> 
+> I think just having a certain 'reserve' for complete entries (or a let's
+> say 80% limit for incomplete ones) should address this issue.
 
-On Fri, Sep 24, 2004 at 02:32:31AM -0400, Luis R. Rodriguez wrote:
-> On Fri, Sep 24, 2004 at 10:30:04AM +0400, Evgeniy Polyakov wrote:
-> >=20
-> > BTW, it can also restrict userspace event notification in following way:
-> > when someone sends a message to notify group A of
-> > registering/unregistering of device with id {x,y} then connector can
-> > check if this group A is registered through callback_register_gpl(it is
-> > not exist for now, but can be created as a copy of callback_register() )
-> > or not. If it is GPL - send notify, else - execute=20
-> > "mail -s "shit happens" linux-kernel@vger.kernel.org"=20
-> > in the way /sbin/hotplug is called.
-> > BTW, this decision also can be obtained from external policy module.
-> >=20
-> > As you may think connector in current implementation is quite powerful
-> > interface( if I will not praise it, who will? :) ), and somebody can
-> > make bad things a bit easier with it, but it is also very flexible and
-> > can be tuned to suit your needs.
-> >=20
-> > I'm open for discussion :)
->=20
-> Kernel maintainers:=20
->=20
-> What do you think? Can a driver which requires access to binary
-> callbacks be included as part of the stock kernel as GPL if Evgeniy's
-> Connector provides some sort of kernel "jail" for the callback
-> functionality?=20
->=20
-> 	Luis
->=20
+Or two other ideas:
 
-BTW just wanted to say I realize all this is rediculous, I'm just
-testing waters ;)
+1)
+Recognising that there are two classes of incomplete entries, those that
+are recently-issued and those that are very unlikely to complete (as
+you've allowed enough time for a handful of serialisation delays,
+latencies and answering host turn-around (say 0.7s).
 
-	Luis
+You can pretty safely aggressively flush the "unlikely to complete"
+class of incomplete entries. The older the more aggressively.
 
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Completed entries should be flushed before the first of the "recently
+issued" incomplete entries, to stop repeated ARPing.
 
---vTfKKTivj/mQoluA
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+This gets less useful as your address allocation grows and scanning
+rates rise, but is much better than the current algorithm or a
+straight-forward least-recently-used algorithm.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+2)
+Record the source interface of the traffic which is causing this ARP.
+When flushing the cache, apply a penalty to entries where that entry's
+source interfaces has a large numbers of incomplete ARPs.
 
-iD8DBQFBU8QXat1JN+IKUl4RAiDnAJwPFH9r2jWf+Tf2E4DUVa4cA8EqIwCeOR1Q
-79499n7yUrERNbzNeVnKScI=
-=oqnr
------END PGP SIGNATURE-----
+The effect of this is that scanning from an Internet-facing interface
+won't succeed in pushing large numbers of entries generated from
+local-to-local (eg, local file, print, intranet) traffic out of the
+table.
 
---vTfKKTivj/mQoluA--
+A combination of (1) and (2) should be pretty solid. If it falls apart
+under extreme scanning then hard-coding the ARP info for
+externally-facing servers (such as web servers) is needed.  Currently
+hard-coding all machines would be needed in the extreme scanning case.
+
+Hope this helps,
+Glen
+
+-- 
+Glen Turner          Tel: (08) 8303 3936 or +61 8 8303 3936
+Australia's Academic & Research Network   www.aarnet.edu.au
