@@ -1,86 +1,54 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: [PATCH 2.4] SIOCSIFNAME wildcard support
-Date: Thu, 3 Feb 2005 16:53:46 -0800
-Message-ID: <20050204005346.GA7692@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
+Date: Thu, 3 Feb 2005 16:49:22 -0800
+Message-ID: <20050203164922.2627a112.davem@davemloft.net>
+References: <20050131102920.GC4170@suse.de>
+	<E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
+	<20050203142705.GA11318@krispykreme.ozlabs.ibm.com>
+	<20050203203010.GA7081@gondor.apana.org.au>
+	<20050203141901.5ce04c92.davem@davemloft.net>
+	<20050203235044.GA8422@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Marcelo Tosatti <marcelo@conectiva.com.br>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: anton@samba.org, okir@suse.de, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050203235044.GA8422@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hi Marcelo,
+On Fri, 4 Feb 2005 10:50:44 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-	This patch adds wildcard support for the SIOCSIFNAME ioctl,
-like what was done in 2.6.1. SIOCSIFNAME allow a user space tool to
-change network interface names (such as nameif, ifrename, or ip link),
-this patch allow those tools to specify a pattern, such as "eth%d" or
-"wlan%d", and the kernel use the lowest available slot.
-	The reason I'm sending you this patch is that I've got some
-2.4.X users who requested the feature...
-	This patch was initially done for 2.4.23, and I rediffed and
-retested with 2.4.29. It's somewhat different from the patch Stephen
-and me added to 2.6.1, because the netdev init code is different and
-also this patch is more conservative.
+> So the problem isn't as big as I thought which is good.  sk_buff
+> is only in trouble because of the atomic_read optimisation which
+> really needs a memory barrier.
+> 
+> However, instead of adding a memory barrier which makes the optimisation
+> less useful, let's just get rid of the atomic_read.
 
-	Have fun...
+See my other email, the atomic_read() should function just fine.
 
-	Jean
+If we see the count dropped to "1", whoever set it to "1" made
+sure that all outstanding memory operations (including things
+like __skb_unlink()) are globally visible before the
+atomic_dec_and_test() which put the thing to "1" from "2".
+(and we did use atomic_dec_and_test() since the refcount was
+ not "1")  Example, assuming skb->users is "2":
 
--------------------------------------------------------------
+	cpu 0			cpu 1
+				__skb_unlink()
+				kfree_skb()
+	kfree_skb()
 
-diff -u -p linux/net/core/dev.j1.c linux/net/core/dev.c
---- linux/net/core/dev.j1.c	Wed Dec  3 14:29:21 2003
-+++ linux/net/core/dev.c	Wed Dec  3 18:55:27 2003
-@@ -2179,10 +2179,26 @@ static int dev_ifsioc(struct ifreq *ifr,
- 		case SIOCSIFNAME:
- 			if (dev->flags&IFF_UP)
- 				return -EBUSY;
--			if (__dev_get_by_name(ifr->ifr_newname))
--				return -EEXIST;
--			memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
--			dev->name[IFNAMSIZ-1] = 0;
-+			/* Check if name contains a wildcard */
-+			if (strchr(ifr->ifr_newname, '%')) {
-+				char format[IFNAMSIZ + 1];
-+				int ret;
-+				memcpy(format, ifr->ifr_newname, IFNAMSIZ);
-+				format[IFNAMSIZ-1] = 0;
-+				/* Find a free name based on format.
-+				 * dev_alloc_name() replaces "%d" with at max
-+				 * 2 digits, so no name overflow. - Jean II */
-+				ret = dev_alloc_name(dev, format);
-+				if (ret < 0)
-+					return ret;
-+				/* Copy the new name back to caller. */
-+				strncpy(ifr->ifr_newname, dev->name, IFNAMSIZ);
-+			} else {
-+				if (__dev_get_by_name(ifr->ifr_newname))
-+					return -EEXIST;
-+				memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
-+				dev->name[IFNAMSIZ-1] = 0;
-+			}
- 			notifier_call_chain(&netdev_chain, NETDEV_CHANGENAME, dev);
- 			return 0;
- 
-@@ -2315,6 +2331,7 @@ int dev_ioctl(unsigned int cmd, void *ar
- 		 *	- return a value
- 		 */
- 		 
-+		case SIOCSIFNAME:
- 		case SIOCGMIIPHY:
- 		case SIOCGMIIREG:
- 			if (!capable(CAP_NET_ADMIN))
-@@ -2350,7 +2367,6 @@ int dev_ioctl(unsigned int cmd, void *ar
- 		case SIOCDELMULTI:
- 		case SIOCSIFHWBROADCAST:
- 		case SIOCSIFTXQLEN:
--		case SIOCSIFNAME:
- 		case SIOCSMIIREG:
- 		case SIOCBONDENSLAVE:
- 		case SIOCBONDRELEASE:
+If cpu 0 sees the count at "1", it will always see the
+__skb_unlink() as well.
+
+Either my logic is flawed (very possible, I am a pinhead) or something
+is amiss in the PPC atomic ops.
+
+I describe all of this more explicitly in my other email.
+I'm actually going through all the sparc64 chip manuals to make
+sure I have things correct in that implementation :-)))
