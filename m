@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.9] 3c523: use module_param an netdev_priv
-Date: Mon, 18 Oct 2004 13:42:11 -0700
+Subject: [PATCH 2.6.9 1/2] via-velocity: use module_param
+Date: Mon, 18 Oct 2004 14:08:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041018134211.36163604@zqx3.pdx.osdl.net>
+Message-ID: <20041018140809.05bf92ce@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,181 +12,208 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Change 3c523 to use module_param and netdev_priv
+Use module_param and netdev_priv
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-diff -Nru a/drivers/net/3c523.c b/drivers/net/3c523.c
---- a/drivers/net/3c523.c	2004-10-18 13:39:27 -07:00
-+++ b/drivers/net/3c523.c	2004-10-18 13:39:27 -07:00
-@@ -94,6 +94,7 @@
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
+ 
+diff -Nru a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+--- a/drivers/net/via-velocity.c	2004-10-18 13:48:03 -07:00
++++ b/drivers/net/via-velocity.c	2004-10-18 13:48:03 -07:00
+@@ -46,6 +46,7 @@
+ 
+ 
  #include <linux/module.h>
 +#include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/string.h>
- #include <linux/errno.h>
-@@ -308,7 +309,7 @@
+ #include <linux/types.h>
+ #include <linux/config.h>
+ #include <linux/init.h>
+@@ -100,8 +101,9 @@
+ MODULE_DESCRIPTION("VIA Networking Velocity Family Gigabit Ethernet Adapter Driver");
  
- static int __init check586(struct net_device *dev, unsigned long where, unsigned size)
+ #define VELOCITY_PARAM(N,D) \
+-        static const int N[MAX_UNITS]=OPTION_DEFAULT;\
+-        MODULE_PARM(N, "1-" __MODULE_STRING(MAX_UNITS) "i");\
++	static int num##N; \
++        static int N[MAX_UNITS]=OPTION_DEFAULT;\
++	module_param_array(N, int, num##N, 0); \
+         MODULE_PARM_DESC(N, D);
+ 
+ #define RX_DESC_MIN     64
+@@ -229,7 +231,7 @@
+ VELOCITY_PARAM(int_works, "Number of packets per interrupt services");
+ 
+ static int rx_copybreak = 200;
+-MODULE_PARM(rx_copybreak, "i");
++module_param(rx_copybreak, int, 0);
+ MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
+ 
+ static void velocity_init_info(struct pci_dev *pdev, struct velocity_info *vptr, struct velocity_info_tbl *info);
+@@ -343,7 +345,7 @@
+ static void __devexit velocity_remove1(struct pci_dev *pdev)
  {
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 	char *iscp_addrs[2];
- 	int i = 0;
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
  
-@@ -349,7 +350,7 @@
- 
- void alloc586(struct net_device *dev)
- {
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 
- 	elmc_id_reset586();
- 	DELAY(2);
-@@ -420,7 +421,7 @@
- 	int i = 0;
- 	unsigned int size = 0;
- 	int retval;
--	struct priv *pr = dev->priv;
-+	struct priv *pr = netdev_priv(dev);
- 
+ #ifdef CONFIG_PM
+ 	unsigned long flags;
+@@ -710,7 +712,7 @@
+ 	
  	SET_MODULE_OWNER(dev);
- 	if (MCA_bus == 0) {
-@@ -581,7 +582,8 @@
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+-	vptr = dev->priv;
++	vptr = netdev_priv(dev);
+ 
+ 
+ 	if (first) {
+@@ -1724,7 +1726,7 @@
   
- static void cleanup_card(struct net_device *dev)
+ static int velocity_open(struct net_device *dev)
  {
--	mca_set_adapter_procfn(((struct priv *) (dev->priv))->slot, NULL, NULL);
-+	struct priv *priv = netdev_priv(priv);
-+	mca_set_adapter_procfn(priv->slot, NULL, NULL);
- 	release_region(dev->base_addr, ELMC_IO_EXTENT);
- }
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	int ret;
  
-@@ -622,7 +624,7 @@
- 	void *ptr;
- 	unsigned long s;
- 	int i, result = 0;
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 	volatile struct configure_cmd_struct *cfg_cmd;
- 	volatile struct iasetup_cmd_struct *ias_cmd;
- 	volatile struct tdr_cmd_struct *tdr_cmd;
-@@ -860,7 +862,7 @@
- 	volatile struct rfd_struct *rfd = (struct rfd_struct *) ptr;
- 	volatile struct rbd_struct *rbd;
- 	int i;
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 
- 	memset((char *) rfd, 0, sizeof(struct rfd_struct) * p->num_recv_buffs);
- 	p->rfd_first = rfd;
-@@ -924,7 +926,7 @@
- 	}
- 	/* reading ELMC_CTRL also clears the INT bit. */
- 
--	p = (struct priv *) dev->priv;
-+	p = netdev_priv(dev);
- 
- 	while ((stat = p->scb->status & STAT_MASK)) 
- 	{
-@@ -980,7 +982,7 @@
- 	unsigned short totlen;
- 	struct sk_buff *skb;
- 	struct rbd_struct *rbd;
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 
- 	for (; (status = p->rfd_top->status) & STAT_COMPL;) {
- 		rbd = (struct rbd_struct *) make32(p->rfd_top->rbd_offset);
-@@ -1025,7 +1027,7 @@
- 
- static void elmc_rnr_int(struct net_device *dev)
- {
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 
- 	p->stats.rx_errors++;
- 
-@@ -1048,7 +1050,7 @@
- static void elmc_xmt_int(struct net_device *dev)
- {
- 	int status;
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 
- 	status = p->xmit_cmds[p->xmit_last]->cmd_status;
- 	if (!(status & STAT_COMPL)) {
-@@ -1091,7 +1093,7 @@
- 
- static void startrecv586(struct net_device *dev)
- {
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 
- 	p->scb->rfa_offset = make16(p->rfd_first);
- 	p->scb->cmd = RUC_START;
-@@ -1105,7 +1107,7 @@
+ 	vptr->rx_buf_sz = (dev->mtu <= 1504 ? PKT_BUF_SZ : dev->mtu + 32);
+@@ -1781,7 +1783,7 @@
   
- static void elmc_timeout(struct net_device *dev)
+ static int velocity_change_mtu(struct net_device *dev, int new_mtu)
  {
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 	/* COMMAND-UNIT active? */
- 	if (p->scb->status & CU_ACTIVE) {
- #ifdef DEBUG
-@@ -1141,7 +1143,7 @@
- #ifndef NO_NOPCOMMANDS
- 	int next_nop;
- #endif
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	unsigned long flags;
+ 	int oldmtu = dev->mtu;
+ 	int ret = 0;
+@@ -1857,7 +1859,7 @@
+ 
+ static int velocity_close(struct net_device *dev)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
  
  	netif_stop_queue(dev);
- 
-@@ -1212,7 +1214,7 @@
- 
- static struct net_device_stats *elmc_get_stats(struct net_device *dev)
+ 	velocity_shutdown(vptr);
+@@ -1890,7 +1892,7 @@
+  
+ static int velocity_xmit(struct sk_buff *skb, struct net_device *dev)
  {
--	struct priv *p = (struct priv *) dev->priv;
-+	struct priv *p = netdev_priv(dev);
- 	unsigned short crc, aln, rsc, ovrn;
- 
- 	crc = p->scb->crc_errs;	/* get error-statistic from the ni82586 */
-@@ -1271,12 +1273,14 @@
- static struct net_device *dev_elmc[MAX_3C523_CARDS];
- static int irq[MAX_3C523_CARDS];
- static int io[MAX_3C523_CARDS];
--MODULE_PARM(irq, "1-" __MODULE_STRING(MAX_3C523_CARDS) "i");
--MODULE_PARM(io, "1-" __MODULE_STRING(MAX_3C523_CARDS) "i");
-+
-+static int num_params;
-+module_param_array(irq, int, num_params, 0);
-+module_param_array(io, int, num_params, 0);
- MODULE_PARM_DESC(io, "EtherLink/MC I/O base address(es)");
- MODULE_PARM_DESC(irq, "EtherLink/MC IRQ number(s)");
- 
--int init_module(void)
-+static int __init elmc_init_module(void)
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	int qnum = 0;
+ 	struct tx_desc *td_ptr;
+ 	struct velocity_td_info *tdinfo;
+@@ -2041,7 +2043,7 @@
+ static int velocity_intr(int irq, void *dev_instance, struct pt_regs *regs)
  {
- 	int this_dev,found = 0;
+ 	struct net_device *dev = dev_instance;
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	u32 isr_status;
+ 	int max_count = 0;
  
-@@ -1306,8 +1310,9 @@
- 		return -ENXIO;
- 	} else return 0;
+@@ -2096,7 +2098,7 @@
+  
+ static void velocity_set_multi(struct net_device *dev)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	struct mac_regs * regs = vptr->mac_regs;
+ 	u8 rx_mode;
+ 	int i;
+@@ -2145,7 +2147,7 @@
+  
+ static struct net_device_stats *velocity_get_stats(struct net_device *dev)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	
+ 	/* If the hardware is down, don't touch MII */
+ 	if(!netif_running(dev))
+@@ -2188,7 +2190,7 @@
+  
+ static int velocity_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	int ret;
+ 
+ 	/* If we are asked for information and the device is power
+@@ -2817,7 +2819,7 @@
+  
+ static int velocity_ethtool_up(struct net_device *dev)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	if(!netif_running(dev))
+ 		pci_set_power_state(vptr->pdev, 0);
+ 	return 0;
+@@ -2833,14 +2835,14 @@
+  
+ static void velocity_ethtool_down(struct net_device *dev)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	if(!netif_running(dev))
+ 		pci_set_power_state(vptr->pdev, 3);
  }
-+module_init(elmc_init_module);
  
--void cleanup_module(void)
-+static void __exit elmc_cleanup_module(void)
+ static int velocity_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
  {
- 	int this_dev;
- 	for (this_dev=0; this_dev<MAX_3C523_CARDS; this_dev++) {
-@@ -1319,5 +1324,6 @@
- 		}
- 	}
- }
-+module_exit(elmc_cleanup_module);
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	struct mac_regs * regs = vptr->mac_regs;
+ 	u32 status;
+ 	status = check_connection_type(vptr->mac_regs);
+@@ -2865,7 +2867,7 @@
  
- #endif				/* MODULE */
+ static int velocity_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	u32 curr_status;
+ 	u32 new_status = 0;
+ 	int ret = 0;
+@@ -2888,14 +2890,14 @@
+ 
+ static u32 velocity_get_link(struct net_device *dev)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	struct mac_regs * regs = vptr->mac_regs;
+ 	return BYTE_REG_BITS_IS_ON(PHYSR0_LINKGD, &regs->PHYSR0)  ? 0 : 1;
+ }
+ 
+ static void velocity_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	strcpy(info->driver, VELOCITY_NAME);
+ 	strcpy(info->version, VELOCITY_VERSION);
+ 	strcpy(info->bus_info, vptr->pdev->slot_name);
+@@ -2903,7 +2905,7 @@
+ 
+ static void velocity_ethtool_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	wol->supported = WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_ARP;
+ 	wol->wolopts |= WAKE_MAGIC;
+ 	/*
+@@ -2919,7 +2921,7 @@
+ 
+ static int velocity_ethtool_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 
+ 	if (!(wol->wolopts & (WAKE_PHY | WAKE_MAGIC | WAKE_UCAST | WAKE_ARP)))
+ 		return -EFAULT;
+@@ -2984,7 +2986,7 @@
+  
+ static int velocity_mii_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+-	struct velocity_info *vptr = dev->priv;
++	struct velocity_info *vptr = netdev_priv(dev);
+ 	struct mac_regs * regs = vptr->mac_regs;
+ 	unsigned long flags;
+ 	struct mii_ioctl_data *miidata = if_mii(ifr);
