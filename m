@@ -1,32 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [Bonding-devel] Re: [Bugme-new] [Bug 4189] New: IPv6 link local
- addresses are not assigned correctly on multiple-bonding enviromrnts
-Date: Thu, 10 Feb 2005 12:27:45 -0800
-Message-ID: <20050210122745.16ca7cb3.davem@davemloft.net>
-References: <20050210.182225.07335127.yoshfuji@linux-ipv6.org>
-	<200502101817.j1AIH6p7000602@death.nxdomain.ibm.com>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: (usagi-users 03019) Re: sysctl net.ipv6.conf.eth0.use_tempaddr
+ only recogniced on interface start?
+Date: Thu, 10 Feb 2005 22:33:41 +0200 (EET)
+Message-ID: <Pine.LNX.4.61.0502102232400.4885@netcore.fi>
+References: <F5812425CD96109163291692@worker.muc.bieringer.de>
+ <20040830.180805.06423987.yoshfuji@linux-ipv6.org>
+ <83D85B170EFC0F1C0451F2EB@worker.muc.bieringer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, ikebe.takashi@lab.ntt.co.jp,
-        akpm@osdl.org, ctindel@users.sourceforge.net,
-        bonding-devel@lists.sourceforge.net
-To: Jay Vosburgh <fubar@us.ibm.com>
-In-Reply-To: <200502101817.j1AIH6p7000602@death.nxdomain.ibm.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com
+To: Peter Bieringer <pb@bieringer.de>
+In-Reply-To: <83D85B170EFC0F1C0451F2EB@worker.muc.bieringer.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Feb 2005 10:17:06 -0800
-Jay Vosburgh <fubar@us.ibm.com> wrote:
+On Thu, 10 Feb 2005, Peter Bieringer wrote:
+>> a
+>>
+>> and even b; we can probably extend our implementation
+>> to create temprary address when net.ipv6.conf.eth0.use_tempaddr is
+>> changed  from 0 to 1.
+>
+> Any news on that? Have you plans to implement it?
 
-> 	The model used by the bridge device is probably a better way to
-> go, particularly given that IPv6 link local addresses are created at
-> "ifconfig up" time.
+Speaking of which, it would REALLY useful to implement the similar 
+"state change triggers" for e.g. accept_ra (which would send out a RS 
+immediately, which is currently impossible from the user space).
 
-IPv6 should catch an event when MAC addresses change, to reassign
-to correct link local address.  I don't think the bonding driver
-needs to change at all.
-
-IPv6 needs to fix this issue, regardless of bonding.  It is perfectly
-legal to change MAC addresses while a link is still up.
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
