@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 3/4] [bonding 2.6] Add support for the bond_hook in bonding
-Date: Thu, 8 Jan 2004 18:29:53 +0200
+Subject: [PATCH 4/4] [bonding 2.6] Support old commands over new bonding ioctl
+Date: Thu, 8 Jan 2004 18:30:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401081829.54372.amir.noam@intel.com>
+Message-ID: <200401081830.55891.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -14,69 +14,89 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add support for the bond_hook in bonding, and use it to export some
-parameters to the calling app. These parameters will be needed later
-by the application for dynamic configuration of bonding interfaces.
+Support old commands (enslave, release, change-active) over the new
+bonding ioctl (SIOCBONDDEVICE).
 
 
 diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Jan  8 18:06:49 2004
-+++ b/drivers/net/bonding/bond_main.c	Thu Jan  8 18:06:50 2004
-@@ -599,6 +599,7 @@ static struct bond_parm_tbl bond_mode_tb
- 
- /*-------------------------- Forward declarations ---------------------------*/
- 
-+extern void bond_ioctl_set(int (*hook)(unsigned long));
- static inline void bond_set_mode_ops(struct net_device *bond_dev, int mode);
- 
- /*---------------------------- General routines -----------------------------*/
-@@ -3898,6 +3899,57 @@ static void bond_free_all(void)
- #endif
+--- a/drivers/net/bonding/bond_main.c	Thu Jan  8 18:06:53 2004
++++ b/drivers/net/bonding/bond_main.c	Thu Jan  8 18:06:54 2004
+@@ -1955,6 +1955,86 @@ static int bond_ethtool_ioctl(struct net
+ 	}
  }
  
-+static int bond_ioctl_deviceless(unsigned long arg)
++static int bond_ioctl_slave_dev(struct bonding *bond, int cmd, void *addr)
 +{
-+	void *addr = (void *)arg;
-+	u32 cmd;
++	struct bond_ioctl_cmd bond_cmd;
++	struct net_device *slave_dev;
++	int prev_abi_ver = app_abi_ver;
++	int prev_orig_abi_ver = orig_app_abi_ver;
++	int res = 0;
 +
-+	if (!capable(CAP_NET_ADMIN)) {
-+		return -EPERM;
++	if (copy_from_user(&bond_cmd, addr, sizeof(bond_cmd))) {
++		return -EFAULT;
 +	}
 +
-+	if (get_user(cmd, (u32 *)addr)) {
++	bond_cmd.ifname[IFNAMSIZ - 1] = 0;
++
++	slave_dev = dev_get_by_name(bond_cmd.ifname);
++	if (!slave_dev) {
++		return -ENODEV;
++	}
++
++	/* This is for backward compatibility only.
++	 * Unconditionaly set both global abi_ver vars so we can block
++	 * old ioctls in bond_do_ioctl().
++	 */
++	orig_app_abi_ver = bond_cmd.abi_ver;
++	app_abi_ver = bond_cmd.abi_ver;
++
++	switch (cmd) {
++	case BOND_CMD_ENSLAVE:
++		res = bond_enslave(bond->dev, slave_dev, bond_cmd.abi_ver);
++		break;
++
++	case BOND_CMD_RELEASE:
++		res = bond_release(bond->dev, slave_dev);
++		break;
++
++	case BOND_CMD_CHANGE_ACTIVE:
++		res = bond_ioctl_change_active(bond->dev, slave_dev);
++		break;
++
++	default:
++		res = -EOPNOTSUPP;
++		break;
++	}
++
++	dev_put(slave_dev);
++
++	if (res < 0) {
++		/* The ioctl failed, so there's no point in changing the
++		 * orig_app_abi_ver. We'll restore it's value just in case
++		 * we've changed it earlier in this function.
++		 */
++		app_abi_ver = prev_abi_ver;
++		orig_app_abi_ver = prev_orig_abi_ver;
++	}
++
++	return res;
++}
++
++static int bond_ioctl_device(struct bonding *bond, void *addr)
++{
++	u32 cmd;
++
++	if (get_user(cmd, (u32 *) addr)) {
 +		return -EFAULT;
 +	}
 +
 +	switch (cmd) {
-+	case BOND_CMD_DRV_INFO: {
-+		struct bond_ioctl_drv_info drvinfo;
-+
-+		if (copy_from_user(&drvinfo, addr, sizeof(drvinfo))) {
-+			return -EFAULT;
-+		}
-+
-+		/* This is for backward compatibility only.
-+		 * Unconditionaly set both global abi_ver vars so we can block
-+		 * old ioctls in bond_do_ioctl().
-+		 */
-+		orig_app_abi_ver = drvinfo.abi_ver;
-+		app_abi_ver = drvinfo.abi_ver;
-+
-+		drvinfo.abi_ver = BOND_ABI_VERSION;
-+		drvinfo.num_prms = 0;
-+		drvinfo.num_arp_targets = BOND_MAX_ARP_TARGETS;
-+
-+		if (copy_to_user(addr, &drvinfo, sizeof(drvinfo))) {
-+			return -EFAULT;
-+		}
-+
-+		break;
-+	}
-+
-+	/* TODO: implement dynamic add/del of bond interfaces
-+	case BOND_CMD_ADD_BOND:
-+	case BOND_CMD_DEL_BOND:
-+	*/
++	case BOND_CMD_ENSLAVE:
++	case BOND_CMD_RELEASE:
++	case BOND_CMD_CHANGE_ACTIVE:
++		/* these ioctl cmds receive a slave name as an arg */
++		return bond_ioctl_slave_dev(bond, cmd, addr);
 +
 +	default:
 +		return -EOPNOTSUPP;
@@ -85,55 +105,86 @@ diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
 +	return 0;
 +}
 +
- /*------------------------- Module initialization ---------------------------*/
+ static int bond_info_query(struct net_device *bond_dev, struct ifbond *info)
+ {
+ 	struct bonding *bond = bond_dev->priv;
+@@ -3213,6 +3293,7 @@ static struct net_device_stats *bond_get
  
- /*
-@@ -4219,6 +4271,8 @@ static int __init bonding_init(void)
+ static int bond_do_ioctl(struct net_device *bond_dev, struct ifreq *ifr, int cmd)
+ {
++	struct bonding *bond = bond_dev->priv;
+ 	struct net_device *slave_dev = NULL;
+ 	struct ifbond *u_binfo = NULL, k_binfo;
+ 	struct ifslave *u_sinfo = NULL, k_sinfo;
+@@ -3223,6 +3304,10 @@ static int bond_do_ioctl(struct net_devi
+ 	dprintk("bond_ioctl: master=%s, cmd=%d\n",
+ 		bond_dev->name, cmd);
+ 
++	if (!capable(CAP_NET_ADMIN)) {
++		return -EPERM;
++	}
++
+ 	switch (cmd) {
+ 	case SIOCETHTOOL:
+ 		return bond_ethtool_ioctl(bond_dev, ifr);
+@@ -3244,7 +3329,6 @@ static int bond_do_ioctl(struct net_devi
+ 		}
+ 
+ 		if (mii->reg_num == 1) {
+-			struct bonding *bond = bond_dev->priv;
+ 			mii->val_out = 0;
+ 			read_lock_bh(&bond->lock);
+ 			read_lock(&bond->curr_slave_lock);
+@@ -3288,13 +3372,19 @@ static int bond_do_ioctl(struct net_devi
+ 		}
+ 
+ 		return res;
++	case SIOCBONDDEVICE:
++		return bond_ioctl_device(bond, ifr->ifr_data);
++
+ 	default:
+ 		/* Go on */
+ 		break;
  	}
  
- 	rtnl_unlock();
-+
-+	bond_ioctl_set(bond_ioctl_deviceless);
- 	register_netdevice_notifier(&bond_netdev_notifier);
+-	if (!capable(CAP_NET_ADMIN)) {
+-		return -EPERM;
++	if (orig_app_abi_ver > 2) {
++		/* Refuse to support old ioctls if the app has already
++		 * declared it is new enough for SIOCBONDDEVICE commands.
++		 */
++		return -EOPNOTSUPP;
+ 	}
  
- 	return 0;
-@@ -4235,6 +4289,7 @@ out_err:
- static void __exit bonding_exit(void)
- {
- 	unregister_netdevice_notifier(&bond_netdev_notifier);
-+	bond_ioctl_set(NULL);
- 
- 	rtnl_lock();
- 	bond_free_all();
+ 	if (orig_app_abi_ver == -1) {
 diff -Nuarp a/include/linux/if_bonding.h b/include/linux/if_bonding.h
---- a/include/linux/if_bonding.h	Thu Jan  8 18:06:49 2004
-+++ b/include/linux/if_bonding.h	Thu Jan  8 18:06:50 2004
-@@ -103,6 +103,30 @@ struct ad_info {
- 	__u8 partner_system[ETH_ALEN];
+--- a/include/linux/if_bonding.h	Thu Jan  8 18:06:53 2004
++++ b/include/linux/if_bonding.h	Thu Jan  8 18:06:54 2004
+@@ -112,6 +112,9 @@ struct ad_info {
+ #define BOND_CMD_DRV_INFO	0x00000001
+ #define BOND_CMD_ADD_BOND	0x00000002
+ #define BOND_CMD_DEL_BOND	0x00000003
++#define BOND_CMD_ENSLAVE	0x00000004
++#define BOND_CMD_RELEASE	0x00000005
++#define BOND_CMD_CHANGE_ACTIVE	0x00000006
+ 
+ /**
+  * bond_ioctl_drv_info
+@@ -127,6 +130,19 @@ struct bond_ioctl_drv_info {
+ 	char reserved[32];
  };
  
-+
-+/*
-+ * The following are the available command codes for the SIOCBONDING and
-+ * SIOCBONDDEVICE ioctls. The command codes are the first u32 value of the
-+ * passed struct. The second u32 value is the ABI version of the application.
-+ */
-+#define BOND_CMD_DRV_INFO	0x00000001
-+#define BOND_CMD_ADD_BOND	0x00000002
-+#define BOND_CMD_DEL_BOND	0x00000003
-+
 +/**
-+ * bond_ioctl_drv_info
++ * bond_ioctl_cmd
 + *
-+ * Used by the %BOND_CMD_DRV_INFO command to retrieve some parameters of the
-+ * bonding driver.
++ * %BOND_CMD_ENSLAVE, %BOND_CMD_RELEASE and %BOND_CMD_CHANGE_ACTIVE pass the
++ * name of the slave to work on in @ifname.
 + */
-+struct bond_ioctl_drv_info {
++struct bond_ioctl_cmd {
 +	__u32 cmd;
 +	__u32 abi_ver;
 +	__u32 num_prms;
-+	__u32 num_arp_targets;
-+	char reserved[32];
++	char ifname[IFNAMSIZ];
 +};
 +
  #endif /* _LINUX_IF_BONDING_H */
