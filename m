@@ -1,45 +1,49 @@
-From: Richard Underwood <richard@aspectgroup.co.uk>
-Subject: RE: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Tue, 19 Aug 2003 18:56:18 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <353568DCBAE06148B70767C1B1A93E625EAB5C@post.pc.aspectgroup.co.uk>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Tue, 19 Aug 2003 11:13:58 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030819111358.35ef1059.davem@redhat.com>
+References: <353568DCBAE06148B70767C1B1A93E625EAB5E@post.pc.aspectgroup.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: skraw@ithnet.com, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
-	carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-	bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "'David S. Miller'" <davem@redhat.com>
+   carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
+   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+   linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Richard Underwood <richard@aspectgroup.co.uk>
+In-Reply-To: <353568DCBAE06148B70767C1B1A93E625EAB5E@post.pc.aspectgroup.co.uk>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> > 	When a HOST sends out an ARP request, it's NOT associated with a
-> > single connection, it's associated with the host. Why 
-> should it pick a
-> > "random" IP number to send as the source address?
-> 
-> It's not "random", it is using the IP address it intends
-> to use as the source in packets it will output once the
-> ARP completes.
-> 
-> In fact, if you look at the code in arp_solicit(), the source address
-> is coming directly from the packet we are trying to output.
-> 
-	Which nicely sums up the bug, really.
+On Tue, 19 Aug 2003 19:16:18 +0100
+Richard Underwood <richard@aspectgroup.co.uk> wrote:
 
-1) The ARP response (or lack thereof) will be used for more than that
-connection, using a single packet's source IP address is meaningless and
-just a little aribtrary.
+> David S. Miller wrote:
+> > Ok, then how would you propose to be able to send
+> > packets out an interface _before_ we have addresses
+> > assigned to it?
+> > 
+> 	IP packets you mean? You don't? ;) It would depend on why you're
+> doing it naturally. Mostly, I'd have thought that if a host doesn't have an
+> IP number it doesn't get to use ARP.
 
-2) Depending on which ARP request or reply gets seen first, packets may get
-routed over different interfaces or not sent out at all.
+Of course it gets to use ARP, nothing prevents this.
 
-3) The code is over-complex. There must already be perfectly good code to
-pick up the interface's IP address as this would HAVE to be the case when a
-packet has been routed from another host.
+If I know that IP X has my configuration information, I
+have every right to send X a packet from zero-net to
+ask for that information before I have any IP addresses
+attached to the interface.
 
-	This sort of randomness is not acceptable in a reliable network.
+This is nothing wrong nor strange about this and we've
+supported it for years.
 
-		Richard
+Also, when one specifies a specific device in an output
+address and we cannot find the IP part of the address
+in the routing tables, we still procure a valid route for
+the requester.
+
+Besides normal IP addresses, multicast tools use these
+facilities.
