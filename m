@@ -1,29 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] netem: restart device after inserting packets
-Date: Mon, 20 Dec 2004 15:43:26 -0800
-Message-ID: <20041220154326.4eedb936.davem@davemloft.net>
-References: <20041208123103.4cc6b005@dxpl.pdx.osdl.net>
-	<20041208210031.63f0963f.davem@davemloft.net>
-	<41B91901.3070304@trash.net>
-	<20041214113249.0725a655.davem@davemloft.net>
-	<20041214131113.32d080fb@dxpl.pdx.osdl.net>
+Subject: Re: [PATCH] PKT_SCHED: Provide compat policer stats in action
+ policer
+Date: Mon, 20 Dec 2004 15:51:34 -0800
+Message-ID: <20041220155134.580396cb.davem@davemloft.net>
+References: <20041215130128.GK8493@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netem@osdl.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041214131113.32d080fb@dxpl.pdx.osdl.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041215130128.GK8493@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Dec 2004 13:11:13 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 15 Dec 2004 14:01:28 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> 2.4 version of the netem wakeup patch. Also fixes the qlen
-> in a couple of places. This makes code basically same as 2.6
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> This should go in before 2.6.10. It fixes a forgotten case to provide
+> police backward compatibility statistics for old iproute2 versions
+> running on a new kernel with actions enabled. Should make distributions
+> happy with older iproute2 versions and all-included kernel configs
+> since they probably favour actions over plain policer.
 
-Applied, thanks a lot Stephen.
+Applied, thanks Thomas.
+
+About testsuites.  Figure out what we want, and I can even put up a
+BK repository for the testsuite on kernel.bkbits.net  Unlike what
+some others appear to be suggesting, I see no problem with multiple
+testsuites :-)
