@@ -1,50 +1,62 @@
-From: P@draigBrady.com
-Subject: Re: 1.03Mpps on e1000
-Date: Thu, 09 Dec 2004 17:19:55 +0000
-Message-ID: <41B8893B.5030407@draigBrady.com>
-References: <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net> <20041201182943.GA14470@xi.wantstofly.org> <20041201213550.GF14470@xi.wantstofly.org> <1101967983.4782.9.camel@localhost.localdomain> <20041205145051.GA647@xi.wantstofly.org> <Pine.LNX.4.58.0412051559350.29474@tux.rsn.bth.se> <Pine.LNX.4.58.0412051638290.29474@tux.rsn.bth.se> <20041208233617.GD8649@mail.com> <41B825A5.2000009@draigBrady.com> <20041209161825.GA32454@mail.com> <20041209164820.GB32454@mail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: netdev ioctl & dev_base_lock : bad idea ?
+Date: Fri, 10 Dec 2004 09:14:35 +1100
+Message-ID: <1102630475.22746.7.camel@gaston>
+References: <1101458929.28048.9.camel@gaston>
+	 <20041208220642.6984519f.davem@davemloft.net>
+	 <1102573333.16495.2.camel@gaston>
+	 <20041208231331.40cd98ad.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Resent-Message-ID: <20041209214744.GC32454@mail.com>
-To: Ray Lehtiniemi <rayl@mail.com>
-In-Reply-To: <20041209164820.GB32454@mail.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041208231331.40cd98ad.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ray Lehtiniemi wrote:
-> On Thu, Dec 09, 2004 at 09:18:25AM -0700, Ray Lehtiniemi wrote:
->=20
->>it is worth noting that my box has become quite unstable since
->>i started to use oprofile and pktgen together.  sshd stops responding,
->>and the network seems to go down.  not sure what is happening there...
->>this instability seems to be persisting across reboots, unfortunately...
->=20
->=20
->=20
-> ok, it seems that this is related to martin's e1000 patch, and i
-> just hadn't noticed it before.  rolling back the 1.2 Mpps patch
-> seems to cure the problem.
->=20
-> symptoms are a total freezeup of the e1000 interfaces. netstat
-> -an shows a tcp connection for my ssh login to the box, with about
-> 53K in the send-Q.  /proc/net/tcp is empty, however....  i can
-> reproduce this at will by doing
->=20
->  # objdump -d /lib/modules/2.6.10-rc3-mp-rayl/kernel/net/core/pktgen.ko
->=20
-> on that machine with the e1000-patched kernel running.
->=20
->=20
-> if there's any diagnostic output i can generate that might tell
-> me what's going wrong, let me know and i'll try to generate it.
+On Wed, 2004-12-08 at 23:13 -0800, David S. Miller wrote:
+> On Thu, 09 Dec 2004 17:22:13 +1100
+> Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+> 
+> > Right, and I missed the fact that we did indeed take the semaphore and
+> > not the lock in the _set_ functions which is just fine, we can actually
+> > schedule.... except in set_multicast...
+> > 
+> > Is there any reason we actually _need_ to get the xmit lock in this one
+> > specifically ?
+> 
+> Since we implement NETIF_F_LLTX, the core packet transmit routines do
+> no locking, the driver does it all.
+> 
+> So if we don't hold the tx lock in the set multicast routine, any other
+> cpu can come into our hard_start_xmit function and poke at the hardware.
+> 
+> Upon further consideration, it seems that it may be OK to drop that tx
+> lock right after we do the netif_stop_queue().  But we should regrab
+> the tx lock when we do the subsequent netif_wake_queue().
 
-can you send this to again to netdev.
+Yes. In fact, I think it should be driver local locking policy, and not
+enforced by net/core/*.
 
-thanks.
+For example, for things like USB based networking (or other "remote"
+busses like that), it's both very useful to be able to schedule in
+set_multicast, and there is no need for any synchronisation with the
+xmit code.
 
---=20
-P=E1draig Brady - http://www.pixelbeat.org
---
+For things like sungem, I already have a driver local lock that can be
+used if necessary.
+
+Also, the lack of ability  to schedule means we can't suspend and resume
+NAPI polling, which basically forces us to take a lock in the NAPI poll
+side of the driver... I'm aiming at limiting the amount of locks we take
+in sungem along with moving as much as I can to task level so I can do a
+bit better power management without having big u/mdelay's all over.
+ 
+Also, why would we need the xmit lock when calling netif_wake_queue() ?
+I'm not sure I get that one (but I'm not too familiar with the net core
+neither).
+
+Ben.
