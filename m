@@ -1,39 +1,35 @@
-From: Henrik Nordstrom <hno@marasystems.com>
-Subject: Re: primary and secondary ip addresses
-Date: Fri, 17 Dec 2004 20:48:54 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.0412172046320.18698@filer.marasystems.com>
-References: <41912F7A.6000408@redhat.com> <200412161153.51251.hasso@estpak.ee>
- <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
- <200412161302.42357.hasso@estpak.ee> <41C2F6E5.5010607@cs.columbia.edu>
- <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com>
- <41C30212.6000906@cs.columbia.edu> <20041217112025.27688eb6.davem@davemloft.net>
+From: David Dillow <dave@thedillows.org>
+Subject: [BK netdev-2.6] Update Typhoon firmware
+Date: Fri, 17 Dec 2004 15:07:05 -0500
+Message-ID: <1103314025.4217.1.camel@ori.thedillows.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Andrea G Forte <andreaf@cs.columbia.edu>, hasso@estpak.ee,
-	laforge@gnumonks.org, nhorman@redhat.com,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041217112025.27688eb6.davem@davemloft.net>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 17 Dec 2004, David S. Miller wrote:
+Jeff, please do a
 
-> By definition, a secondary IP address on an interface is not to be used 
-> as a source.
+	bk pull http://typhoon.bkbits.net/typhoon-2.6-firmware
 
-But you can, but adding a route with such address as source or 
-applications excplicitly binding to this source address. And it is 
-highly useful to be able to use different source addresses in the same 
-subnet for different purposes.
+This will update the following files:
 
-> It is the whole reason for the distinction between primary and secondary 
-> IP addresses, and it is why all secondaries are deleted once the primary 
-> is removed (because there are no valid source addresses to choose from 
-> any longer, therefore IP valid communications are no longer possible).
+ drivers/net/typhoon-firmware.h | 5568 ++++++++++++++++++-----------------------
+ drivers/net/typhoon.c          |   13 
+ 2 files changed, 2533 insertions(+), 3048 deletions(-)
 
-Which is a false assumption in very many situations.
+through these ChangeSets:
 
-Regards
-Henrik
+<dave@thedillows.org> (04/12/17 1.2099)
+   Update the Typhoon firmware to the latest version from 3Com.
+
+
+Due to the size of the patch (~400K), I've put it up at
+http://www.thedillows.org/typhoon-firmware-03.001.008.patch.bz2
+
+-- 
+David Dillow <dave@thedillows.org>
