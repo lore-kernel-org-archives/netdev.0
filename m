@@ -1,33 +1,41 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: Must dev->set_multicast_list() complete before returning?
-Date: Tue, 1 Apr 2003 22:50:07 -0500 (EST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0304012242360.1685-100000@beohost.scyld.com>
-References: <3e89cbe235cd78.41777977@not right>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
+Date: Wed, 02 Apr 2003 13:02:32 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030402.130232.78951283.yoshfuji@linux-ipv6.org>
+References: <20030401.140727.73666851.davem@redhat.com>
+	<20030402.122518.62753078.yoshfuji@linux-ipv6.org>
+	<20030401.193429.64279267.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-net@vger.kernel.org, <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <3e89cbe235cd78.41777977@not right>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: toml@us.ibm.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru,
+   yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com
+In-Reply-To: <20030401.193429.64279267.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Apr 2003, Rask Ingemann Lambertsen wrote:
+In article <20030401.193429.64279267.davem@redhat.com> (at Tue, 01 Apr 2003 19:34:29 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
 
-> Must dev->set_multicast_list() complete the configuration of a network
-> device before returning? 
+>    How about just removing 8 bytes from struct {ip,ipv6}_esp_hdr
+>    like this?
+>    
+> Sure, but does anyone need the 8 bytes there?  I thought so, which is
+> why I didn't think about your suggestion :-)
 
-The promiscuous setting must complete before return, but there are
-several drivers where the updated multicast filter does not immediately
-take effect.
+Let's define
+  #define IPV6_ESP_MINDATA  8
 
-I have not seen hardware where setting promiscuous mode is a queued
-command.  If you have such hardware, you may have to do some extra
-software filtering and accept missing some packets during transitions.
+and put "(sizeof(struct ip6_esp_hdr) + IPV6_ESP_MINDATA)" in such places.
+
+Or, how about this?
+  (offsetof(struct ip6_esp_hdr, enc_data) + datalen)
+instead of
+  ((sizeof(struct ip6_esp_hdr) - sizeof(esp->enc_data)) + datalen)
 
 -- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
-
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
