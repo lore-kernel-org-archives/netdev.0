@@ -1,51 +1,39 @@
-From: jamal <hadi@cyberus.ca>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: IP stack question
-Date: Mon, 24 Jun 2002 14:59:04 -0400 (EDT)
+Date: Mon, 24 Jun 2002 12:27:08 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0206241450330.13908-100000@shell.cyberus.ca>
-References: <3D175B5F.5050403@candelatech.com>
+Message-ID: <3D17728C.5060303@candelatech.com>
+References: <Pine.GSO.4.30.0206241450330.13908-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "Bloch, Jack" <Jack.Bloch@icn.siemens.com>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+   "'netdev@oss.sgi.com'"
+ <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3D175B5F.5050403@candelatech.com>
+To: jamal <hadi@cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> 
+> On Mon, 24 Jun 2002, Ben Greear wrote:
 
+> Try that SO_DONTROUTE and see if solves your problem; you probably have to
+> bind the socket to a specific device as well;
+> For all that trouble, i would suggest you may just as well write a sock
+> packet based  app.
 
-On Mon, 24 Jun 2002, Ben Greear wrote:
+I want to use normal TCP/IP stack as much as possible, so the sock-packet
+(or raw) would not work for me, although it would work fine for the original
+poster.
 
-> It would not defeat the purpose of detecting at least one bad network
-> link of the two.
->
+I'm also using source-based routing to send out the correct local
+interface.  I'll have to look up more information on what SO_DONTROUTE
+does, and thanks for the suggestion!
 
-Unless i misunderstood:
-He seems to be trying to do a loopback test from one of his interfaces to
-the network and back on another of his interfaces.
+Ben
 
-> I wonder if a ping -I eth1 255.255.255.255 would accomplish the
-> goal as well?
->
-
-This would probably cause a broadcast storm if you are doing a loopback
-test ;->
-
-Actually now that i think about it, you could probably modify ping
-to do setsockopt(fd,....,SO_DONTROUTE,...) and send it out on a specific
-interface. Dont know if it would work.
-
-> I would actually like to be able to force a machine to not do local
-> routing as well, and force packets out over an interface even if
-> the destination is a local IP,  using source-based-routing,
-> or something similar.  There is no way to do this currently?
->
-
-Try that SO_DONTROUTE and see if solves your problem; you probably have to
-bind the socket to a specific device as well;
-For all that trouble, i would suggest you may just as well write a sock
-packet based  app.
-
-cheers,
-jamal
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
