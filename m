@@ -1,22 +1,22 @@
-From: "Eble, Dan" <DanE@aiinet.com>
-Subject: RE: [FYI PATCH] Ethernet over Cisco HDLC
-Date: Thu, 24 Jun 2004 10:24:26 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: fib_hash.c:fn_hash()
+Date: Thu, 24 Jun 2004 11:39:23 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C060DFCD9697A842B3189B458524FDC205D2DE@AIMAIL1.ai.aiinet.com>
+Message-ID: <40DAF5AB.60108@pobox.com>
+References: <20040624010938.55f90500.akpm@osdl.org> <20040624103905.GB16727@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Krzysztof Halasa'" <khc@pm.waw.pl>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040624103905.GB16727@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I wonder if we could merge IF_PROTO_FR_(ADD|DEL)_* and 
-> IF_PROTO_CISCO_*?
-> It would get us the same sethdlc syntax and similar add/del code.
-> -- 
-> Krzysztof Halasa, B*FH
+Andi Kleen wrote:
+> BTW if we don't want to supply these functions we should change
+> the kernel to compile with -ffreestanding. But so far at least 
+> the common ports are good enough at that now that it isn't needed.
 
-Are you sure that is a good idea?  Using separate numbers for Cisco and FR
-is a safeguard against unwittingly creating an FR PVC with "sethdlc cisco
-proto ether ... ".  Or are you suggesting to merge the sethdlc syntax too?
+Agreed...
