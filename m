@@ -1,34 +1,43 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Mon, 9 Feb 2004 00:44:26 +0200 (EET)
+From: Andreas Schwab <schwab@suse.de>
+Subject: Re: Bad UDP checksum with 82540EM
+Date: Mon, 09 Feb 2004 01:50:48 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402090036330.6268@u.domain.uli>
-References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
- <20040208131417.4f8693de.davem@redhat.com>
+Message-ID: <jey8rdcbyv.fsf@sykes.suse.de>
+References: <101E0EB68A545748974019DC227C554007CBDD@orsmsx406.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: "Andi Kleen" <ak@suse.de>, <jonmason@us.ibm.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040208131417.4f8693de.davem@redhat.com>
+To: "cramerj" <cramerj@intel.com>
+In-Reply-To: <101E0EB68A545748974019DC227C554007CBDD@orsmsx406.jf.intel.com> (cramerj@intel.com's
+ message of "Sun, 8 Feb 2004 15:22:29 -0800")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+"cramerj" <cramerj@intel.com> writes:
 
-	Hello,
+> Just for clarification...how are you determining a bad checksum?  Are
+> you using tcpdump/ethereal on those test machines (that you're
+> transmitting from), or are you capturing packets on the wire (from some
+> other system receiving the packets).
 
-On Sun, 8 Feb 2004, David S. Miller wrote:
+Actually both.  I have first noticed the issue because my DHCP clients
+didn't accept the answers from the server.
 
-> So proxy ARP experts speak up :)
+> If the former, then please see the following thread.
+>
+> http://marc.theaimsgroup.com/?t=3D107422099800006&r=3D1&w=3D2
+>
+> Is this perhaps the issue you're seeing?
 
-	I found that it is better not to delay answers to unicast
-probes. In case I change other things, I'll keep latest version of this 
-patch here:
+I just double checked, the packets are really going out with a bad
+checksum.
 
-http://www.ssi.bg/~ja/tmp/
-arp_proxy-*.diff
+Andreas.
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
