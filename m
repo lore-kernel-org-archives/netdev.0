@@ -1,38 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Wes Felter <wesley@felter.org>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 14:29:26 -0700
+Date: Wed, 15 Sep 2004 16:35:31 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040915142926.7bc456a4.davem@davemloft.net>
-References: <4148991B.9050200@pobox.com>
-	<Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
-	<1095275660.20569.0.camel@localhost.localdomain>
-	<4148A90F.80003@pobox.com>
-	<20040915140123.14185ede.davem@davemloft.net>
-	<20040915210818.GA22649@havoc.gtf.org>
-	<20040915141346.5c5e5377.davem@davemloft.net>
-	<4148B2E5.50106@pobox.com>
+Message-ID: <ciacj6$bfj$1@sea.gmane.org>
+References: <4148991B.9050200@pobox.com> <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <4148A561.5070401@redhat.com> <ciaao4$crc$1@sea.gmane.org> <20040915211543.GA23906@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, paul@clubi.ie, netdev@oss.sgi.com,
-        leonid.grossman@s2io.com, linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4148B2E5.50106@pobox.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20040915211543.GA23906@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004 17:23:49 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+Jeff Garzik wrote:
 
-> The typical definition of TOE is "offload 90+% of the net stack", as 
-> opposed to "TCP assist", which is stuff like TSO.
+> On Wed, Sep 15, 2004 at 04:03:57PM -0500, Wes Felter wrote:
+> 
+>>To do 10 Gbps Ethernet with Jeff's approach, wouldn't you need a 5-10 
+>>GHz processor on the card? Sounds expensive.
+> 
+> 
+> Do you need a 5-10 Ghz Intel server to handle 10 Gbps ethernet?
 
-I think a better goal is "offload 90+% of the net stack cost" which
-is effectively what TSO does on the send side.
+Yes. (Or a 4-way ~2GHz server.)
 
-This is why these discussions are so circular.
+When the fastest general-purpose processors cannot handle the fastest 
+Ethernet links, putting such a processor on a NIC won't help much. I 
+think this is why people are attracted to TOE ASICs, even if that isn't 
+the right solution.
 
-If we want to discuss something specific, like receive offload
-schemes, that is a very different matter.  And I'm sure folks
-like Rusty have a lot to contribute in this area :-)
+-- 
+Wes Felter - wesley@felter.org - http://felter.org/wesley/
