@@ -1,55 +1,57 @@
-From: Felix Matathias <felix@nevis.columbia.edu>
+From: Willy Tarreau <willy@w.ods.org>
 Subject: Re: select() doesn't respect SO_RCVLOWAT ?
-Date: Fri, 11 Mar 2005 15:26:38 -0500 (EST)
-Message-ID: <Pine.LNX.4.61.0503111434040.30914__31156.8299461671$1110807294$gmane$org@shang.nevis.columbia.edu>
+Date: Fri, 11 Mar 2005 06:43:08 +0100
+Message-ID: <20050311054307.GF30052__2985.6743793518$1110807296$gmane$org@alpha.home.local>
 References: <Pine.LNX.4.61.0503101645190.29442@shang.nevis.columbia.edu>
- <1110568180.17740.69.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Resent-Message-Id: <20050314.223316.117280596.yoshfuji@wide.ad.jp>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1110568180.17740.69.camel@localhost.localdomain>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+Resent-Message-Id: <20050314.223243.51754658.yoshfuji@wide.ad.jp>
+To: Felix Matathias <felix@nevis.columbia.edu>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0503101645190.29442@shang.nevis.columbia.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 10, 2005 at 04:58:51PM -0500, Felix Matathias wrote:
+> 
+> I am running a 2.4.21-9.0.3.ELsmp #1 kernel and I can setsockopt and 
+> getsockopt correctly the SO_RCVLOWAT option, but select() seems to mark a 
+> socket readable even if a single byte is ready to be read. Then, a read() 
+> blocks until the specified number of bytes in SO_RCVLOWAT makes it to the 
+> socket buffer.
 
-Dear Alan,
+as discussed in a previous thread, if you use select(), you should also
+use non-blocking sockets. There are cases where select() can wake you up
+without anything to read, eg if there is a packet waiting with a wrong
+checksum.
 
-I am positive. I can setsockopt, and then, getsockopt returns the value 
-that I requested.
+> This is the exact opposite behaviour of what I yould have 
+> expected/desired. Our application receives data at many Khz rate and we 
+> want to avoid reading the socket until a predetermined amount of data is 
+> sent, to avoid partial reads. SO_RCVLOWAT seemed to be a nice way to 
+> implement that.
 
-Stevens very clearly states that SO_RCVLOWAT has a direct impact on 
-select() and I assumed that this would be the case for Linux.
-What is the rationale for not complying with that ? Is it the micromanagement
-of select() that you dislike ? Isn't a significant reduction in the
-amount of read operations a real gain in high speed networking ?
+I too came across this problem a long time ago and concluded that LOWAT
+was not really usable on Linux. But in the end, this is not really a big
+deal, because as long as your application doesn't eat all CPU, it does
+not change anything performance-wise, and when it becomes to eat a lot
+of CPU, the latency will increase, letting more data come in when you
+do one read.
 
-Best Regards,
-Felix
+> An earlier message by Alan Cox was a bit cryptic:
+> 
+> "But is the cost of all those special case checks and all the handling
+> for it such as select computing if enough tcp packets together accumulated
+> worth the cost on every app not using LOWAT for the microscopic gain given
+> that essentially nobody uses it."
+> 
+> Does this mean that select() in Linux will wake up no matter what 
+> SO_RCVLOWAT is set to ?
 
+Yes.
 
-On Fri, 11 Mar 2005, Alan Cox wrote:
-
-> On Iau, 2005-03-10 at 21:58, Felix Matathias wrote:
->> Dear all,
->>
->> I am running a 2.4.21-9.0.3.ELsmp #1 kernel and I can setsockopt and
->> getsockopt correctly the SO_RCVLOWAT option
->
-> The only value the code at least used to support was setting it to 1.
-> Are you sure you are actually setting/checking ok ?
->
-
--- 
-
-______________________________________________________________________
-Felix Matathias of Columbia University, Nevis Labs
-
-Brookhaven National Lab           cell : 631-988-3694
-Bldg 1005, 3-304                  web  : http://www.matathias.com
-Upton, NY, 11973                  photo: http://www.pbase.com/matathias
-tel/fax :631-344-7622/3253        email: felix@nevis.columbia.edu
-_______________________________________________________________________
+Regards,
+Willy
 
