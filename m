@@ -1,71 +1,59 @@
-From: "Mark Broadbent" <markb@wetlettuce.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
-Date: Tue, 21 Dec 2004 10:23:40 -0000 (GMT)
-Message-ID: <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com>
-References: <59719.192.102.214.6.1103214002.squirrel@webmail.wetlettuce.com>
-        <20041216211024.GK2767@waste.org>
-        <34721.192.102.214.6.1103274614.squirrel@webmail.wetlettuce.com>
-        <20041217215752.GP2767@waste.org>
-        <20041217233524.GA11202@electric-eye.fr.zoreil.com>
-        <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com>
-        <20041220211419.GC5974@waste.org>
-        <20041221002218.GA1487@electric-eye.fr.zoreil.com>
-        <20041221005521.GD5974@waste.org>
-Reply-To: markb@wetlettuce.com
+Date: Tue, 21 Dec 2004 13:37:27 +0100
+Message-ID: <20041221123727.GA13606@electric-eye.fr.zoreil.com>
+References: <59719.192.102.214.6.1103214002.squirrel@webmail.wetlettuce.com> <20041216211024.GK2767@waste.org> <34721.192.102.214.6.1103274614.squirrel@webmail.wetlettuce.com> <20041217215752.GP2767@waste.org> <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com> <20041220211419.GC5974@waste.org> <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <romieu@fr.zoreil.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@oss.sgi.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261728AbULUKYI@vger.kernel.org>
-To: <mpm@selenic.com>
-In-Reply-To: <20041221005521.GD5974@waste.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: mpm@selenic.com, romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Mark Broadbent <markb@wetlettuce.com>
+Content-Disposition: inline
+In-Reply-To: <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Mark Broadbent <markb@wetlettuce.com> :
+[...]
+> OK, patch applied and spinlock debugging enabled.  Testing with eth1
+> (r1869) doesn'tyield any additional messages, just the standard
+> 'NMI Watchdog detected lockup'.
 
-Matt Mackall said:
-> On Tue, Dec 21, 2004 at 01:22:18AM +0100, Francois Romieu wrote:
->> Matt Mackall <mpm@selenic.com> :
->> > On Mon, Dec 20, 2004 at 09:42:08AM -0000, Mark Broadbent wrote:
->> > >
->> > > Exactly the same happens, I still get a 'NMI Watchdog detected
->> > > LOCKUP' with the r8169 device using the above patch on top of
->> > > 2.6.10-rc3-bk10.
->> >
->> > Ok, that suggests a problem localized to netpoll itself. Do you have
->> > spinlock debugging turned on by any chance?
->>
->> Any chance of:
->> 1 dev_queue_xmit
->> 2 dev->xmit_lock taken
->> 3 interruption
->> 4 printk
->> 5 netconsole write
->> 6 dev->xmit_lock again
->> 7 lockup
->>
->> ?
->>
->> This is probably the silly question of the day.
->
-> Maybe, but the answer isn't obvious to me at the moment as I haven't
-> been thinking about such stuff enough lately. Silly response of the
-> day:
->
-> Mark, can you try this (again completely untested, but at least
-> compiles) patch? I'm afraid I don't have a proper test rig to
-> reproduce this at the moment. This will attempt to grab the lock, and
-> if it fails, will check for recursion. Then it will try to print a
-> message on the local console, temporarily disabling netconsole to
-> allow the printk to get through..
+Does the modified version below trigger _exactly_ the same hang ?
 
-OK, patch applied and spinlock debugging enabled.  Testing with eth1
-(r1869) doesn'tyield any additional messages, just the standard 'NMI Watchdog detected
-lockup'.
-Thanks
-Mark
-
--- 
-Mark Broadbent <markb@wetlettuce.com>
-Web: http://www.wetlettuce.com
+--- net/core/netpoll.c	2004-12-21 13:09:51.000000000 +0100
++++ net/core/netpoll.c	2004-12-21 13:27:01.000000000 +0100
+@@ -31,6 +31,8 @@
+ #define MAX_SKBS 32
+ #define MAX_UDP_CHUNK 1460
+ 
++static int netpoll_kill;
++
+ static spinlock_t skb_list_lock = SPIN_LOCK_UNLOCKED;
+ static int nr_skbs;
+ static struct sk_buff *skbs;
+@@ -184,11 +186,21 @@ void netpoll_send_skb(struct netpoll *np
+ 
+ repeat:
+ 	if(!np || !np->dev || !netif_running(np->dev)) {
++too_bad:
+ 		__kfree_skb(skb);
+ 		return;
+ 	}
+ 
+-	spin_lock(&np->dev->xmit_lock);
++	if (!spin_trylock(&np->dev->xmit_lock)) {
++		netpoll_kill = 1;
++		goto too_bad;
++	}
++
++	if (netpoll_kill) {
++		if (net_ratelimit())
++			printk(KERN_ERR "netconsole raced");
++		netpoll_kill = 0;
++	}
+ 	np->dev->xmit_lock_owner = smp_processor_id();
+ 
+ 	/*
