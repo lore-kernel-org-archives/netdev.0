@@ -1,54 +1,58 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM]: Always reroute in tunnel mode
-Date: Fri, 18 Feb 2005 20:53:44 +1100
-Message-ID: <20050218095344.GA19307@gondor.apana.org.au>
-References: <4214381F.5020507@trash.net> <20050217113654.GA10346@gondor.apana.org.au> <4214DF5B.3010608@trash.net> <20050217203805.GA4047@gondor.apana.org.au> <42150B36.5080609@trash.net> <20050217221031.GA4554@gondor.apana.org.au> <42152283.4030800@trash.net> <20050217151122.098c6def.davem@davemloft.net>
+Subject: Re: IPsec xfrm resolution
+Date: Fri, 18 Feb 2005 21:08:54 +1100
+Message-ID: <20050218100854.GA19427@gondor.apana.org.au>
+References: <20050209085251.GA9030@gondor.apana.org.au> <420B9DF1.3020704@trash.net> <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
+Cc: Maillist netdev <netdev@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20050217151122.098c6def.davem@davemloft.net>
+In-Reply-To: <42152841.5000707@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 17, 2005 at 03:11:22PM -0800, David S. Miller wrote:
-> 
-> I have to side with Patrick on this one.
+On Fri, Feb 18, 2005 at 12:26:57AM +0100, Patrick McHardy wrote:
+>
+> Yes, this part is simple. There's one thing I think we need to do
+> slightly different from what you describe. The current behaviour is
+> to resolve one SA at a time, we should keep it this way because we
+> may need an early SA in the bundle for a different policy to resolve
+> a follow-up SA for nested tunnels with different peers where the
+> second peer is only reachable through a tunnel to the first peer.
 
-OK.
+Agreed.  This doesn't stop us from creating the bundle object of course.
+ 
+> I'm not sure yet how to deal with optional SAs. We shouldn't add
+> incomplete optional tunnel mode SAs to the bundle because then we
+> can't determine the output device, but if we don't nothing will
+> trigger resolving of optional SAs following a non-optional SA that
+> needs to be resolved.
 
-> This is one of the fundamental tunnel behavior differences between
-> Transport mode and Tunnel mode SAs.
+I don't get it.  Can't you just add it into the bundle but ignore it
+for dst->output and other calculations until it's either realised or
+removed?
 
-I don't see it that way.  To me IPsec is about encapsulating a packet
-so that it gets to the destination securely.  It shouldn't affect the
-routing of the packet on the host itself.  Of course, once the packet
-leaves the host the IPsec encapsulation will certainly affect its
-routing.
+> I thought about adding the queue to the xfrm_dst and adding a dummy
+> xfrm_state with a selector that matches only the current flow. This
 
-In this respect, the difference between transport mode SAs and tunnel
-mode SAs is simply that one adds an IP header while the other doesn't.
+The inner flow is probably not the best key for this.  How about
+keying it using the outer remote address on the template? The SAs
+have a bydst hash which makes this easy to look up.
 
-Ideally I should be able to only look at the routing table and determine
-which interface/gateway a packet is going to be sent through.  As it is
-I need to look at the routing table plus the IPsec database.
+So we would attach each packet to a queue shared by all SAs to a
+specific (outer) remote address.
+ 
+> Finding all queues affected by ADDSA/UPDATESA is not easy. A SA
+> installed in response to an acquire request doesn't need to match
+> the one requested, so theoretically states waiting on different
+> larval states SAs might be able to use it. I don't think we have
+> much choice other than looking at all incomplete bundles (or
+> one per flow) on SADB changes.
 
-Put it another way, my solution to Patrick's inconsistency would be to
-always inherit the routing decision from the top to the bottom of the
-bundle.  For example, suppose you had
-
-ip ro add 192.168.0.0/16 \
-	nexthop via 10.0.0.1 dev eth0 \
-	nexthop via 10.0.0.2 dev eth0
-
-Then the packets to 192.168.0.0/16 should be sent via 10.0.0.1/10.0.0.2
-regardless of what IPsec protections are applied to it.
-
-This is something that can't be done in a clean way with the
-current setup.  I'd like to see that available in Linux at some
-point.  It'll have to be optional of course (selectable per-policy).
+If you key it on the remote address then you only have to look up
+those.
 
 Cheers,
 -- 
