@@ -1,34 +1,49 @@
-From: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>
-Subject: 2.4.20, tg3 , and 5704
-Date: Mon, 16 Dec 2002 12:59:54 -0500
+From: "Aravind Ceyardass" <aravind1001@speedpost.net>
+Subject: Re: Re: pci-skeleton duplex check
+Date: Mon, 16 Dec 2002 14:55:13 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7BFCE5F1EF28D64198522688F5449D5A03C0CE@xchangeserver2.storigen.com>
+Message-ID: <20021216185513.43F023D56F@server2.fastmail.fm>
+References: <200212141428.TAA32351@WS0005.indiatimes.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: aravind1001@speedpost.net
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: <netdev@oss.sgi.com>
+Content-Disposition: inline
+To: "arun4linux" <arun4linux@indiatimes.com>,
+   "Michael Richardson" <mcr@sandelman.ottawa.on.ca>, netdev@oss.sgi.com,
+   "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
+In-Reply-To: <200212141428.TAA32351@WS0005.indiatimes.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 Hi,
 
-I got a preproduction Dell server with 2 5704 NICs
-onboard. 2.4.20 w/tg3 doesn't want to work. When loaded
-the link light on the switch just goes on-off-on-off ...
-seeming like it is reinitializing all the time. 
+A good scheme for numbering kernels or software components in general is
+as follows
 
-I just did get the current Broadcom drivers sources and
-it seems to work ok (ping and ftp works on 100Mb ...)
-built against 2.4.20.
+For stable releases. (x.even.y=major.minor.patch)
 
-I prefer to use tg3 even though I have to backport
-to 2.4.18 (not a big fan of the Broadcom code and
-it's not part of linux).
+increment patch for any bug fixes.
+increment minor for any enhancements or new interfaces.
+increment major for interface changes or interface deletions.(dangerous
+or poor design)
 
-thanks for any help
+We should increment major even if interface remains same but behaviour
+has changed.(again may be poor design)
 
-larry
+For development releases we can't follow the above scheme, because the
+interfaces are in a flux and we may end up
+in version 589.201.700 from 2.4.20. So, we decide to increment patch
+number for all changes and deletions.
+
+Hope it helps!
+
+Regards
+
+Aravind
+
+
+-- 
+http://fastmail.fm - IMAP accessible web-mail
