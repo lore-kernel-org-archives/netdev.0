@@ -1,140 +1,59 @@
-From: Stephen Frost <sfrost@snowman.net>
-Subject: Re: [IPSEC] Too many SADs!
-Date: Mon, 28 Mar 2005 08:33:10 -0500
-Message-ID: <20050328133310.GM8725@ns.snowman.net>
-References: <200503220052.52756.wolfgang.walter@studentenwerk.mhn.de> <20050322224819.GB4924@questra.com> <20050323003310.GE8725@ns.snowman.net> <20050323055520.GH13092@questra.com>
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: IMQ again WAS(Re: iptables breakage WAS(Re: dummy as IMQ	replacement
+Date: Mon, 28 Mar 2005 14:39:03 +0100
+Message-ID: <424808F7.50101@dsl.pipex.com>
+References: <1107123123.8021.80.camel@jzny.localdomain>	 <423F41AD.3010902@dsl.pipex.com>	 <1111444869.1072.51.camel@jzny.localdomain>	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>	 <42408998.5000202@dsl.pipex.com>	 <1111550254.1089.21.camel@jzny.localdomain>	 <4241C478.5030309@dsl.pipex.com>	 <1111607112.1072.48.camel@jzny.localdomain>	 <4241D764.2030306@dsl.pipex.com>	 <1111612042.1072.53.camel@jzny.localdomain>	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>	 <1111663947.1037.24.camel@jzny.localdomain>	 <1111665450.1037.27.camel@jzny.localdomain>	 <4242DFB5.9040802@dsl.pipex.com>	 <1111749220.1092.457.camel@jzny.localdomain>	 <42446DB2.9070809@dsl.pipex.com>	 <1111781443.1092.631.camel@jzny.localdomain>	 <4244802C.7020202@dsl.pipex.com> <1111788760.1090.712.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gmhhrsDozM2n+uz5"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, Harald Welte <laforge@gnumonks.org>,
+        Patrick McHardy <kaber@trash.net>, Remus <rmocius@auste.elnet.lt>,
+        netdev <netdev@oss.sgi.com>, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
+        Damion de Soto <damion@snapgear.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Scott Mcdermott <smcdermott@questra.com>
-Content-Disposition: inline
-In-Reply-To: <20050323055520.GH13092@questra.com>
+To: Andy Furniss <andy.furniss@dsl.pipex.com>
+In-Reply-To: <42470AF9.8050402@dsl.pipex.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Andy Furniss wrote:
+> jamal wrote:
+> 
+>>> I'll have to re-run a test I did recently which was lots of tc filter 
+>>> matches at 8000pps - on egress IMQ was almost as good as directly on 
+>>> eth0. On ingress it was more than 10X worse.
+>>>
+>> How many filters? I wont suspect any difference between ingress and 
+>> egress.
+> 
+> 
+> You are right - the test was to blame.
+> 
+> I was using my old PC as sender, it's frozen in time at 2.4.20 which for 
+> some reason has a txqueuelen on eth0 of 0. It doesn't show using netperf 
+> when just testing LAN speed - but makes alot of difference for the test 
+> I did - ifconfig eth0 txqueuelen 1000 fixed it.
 
---gmhhrsDozM2n+uz5
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hmm - I just tried to recreate another test I did - which was using IMQ 
+to shape for a single duplex link. I was going to redo it with dummy, 
+but don't seem to be able to put an egress filter on eth0 - eg. Your 
+example from the first post in this thread -
 
-* Scott Mcdermott (smcdermott@questra.com) wrote:
-> Stephen Frost on Tue 22/03 19:33 -0500:
-> > Sounds like I may need to check out strongswan/openswan.
-> > I can tell you I wasn't exactly a fan of freeswan for a
-> > variety of reasons.
->=20
-> What reasons? The userspace code with it is great (i.e. the
-> IKE daemon).  The kernel stuff may be a different matter.
-> You could use the native IPSEC code in the kernel instead.
+What you can do with dummy currently with actions
+--------------------------------------------------
 
-With freeswan it was: kernel code sucking, difficulty getting
-it going, the attitude of upstream esp wrt contributions from
-people in the US (sorry, but that's where I am and I don't
-plan on moving), and the evil configuration syntax which I
-detest.
+Lets say you are policing packets from alias 192.168.200.200/32
+you dont want those to exceed 100kbps going out.
 
-strongswan/openswan appears to have fixed at least some of
-these issues (don't need to patch the kernel and so no KLIPS,
-apparently better attitude and maybe not so hard to get it
-going) but the evil configuration syntax is still there though
-more hacked up to support the newer options which doesn't seem
-to have done much for its looks.
+tc filter add dev eth0 parent 1: protocol ip prio 10 u32 \
+match ip src 192.168.200.200/32 flowid 1:2 \
+action police rate 100kbit burst 90k drop
 
-I'm now currently concerned about a few things w/
-strongswan/openswan: policy definitions given to the kernel by
-*swan instead of more directly by me, transport/require ipsec
-(esp. to a /24 or similar), AES crashing openswan in its latest
-release, 2.6.11 'fwd' kernel policy support (is it there?),
-and support for 'default route' tunnels (ie: tunnel from me
-out my gw to the rest of the world- I want it encrypted from
-me to my gw where it can possible be reencrypted to go out
-another tunnel or decrypted and sent in the clear across the
-net when ipsec isn't required).
+Gives me -
 
-I've also got concerns about the kernel-level stuff that's
-independent of IKE: IPSEC and Netfilter interaction (or lack
-thereof, though I'm using Patrick's patches now which do
-help with that some) esp. wrt filtering, SNAT and DNAT,
-IPSEC and routing (esp. wrt multiple ipsec tunnels on a
-machine and passing packets w/ the whole decrypt - netfilter
-- reencrypt for new tunnel bit), libpcap interaction with
-IPSEC transport which doesn't seem to work so hot (it seems
-that the IPSEC header has been 0'd out in the packet but
-it's still there and libpcap thinks that's the body of the
-packet and it can't know any different), and MTU issues
-though so far these havn't given me *too* much trouble.
+RTNETLINK answers: Invalid argument
+We have an error talking to the kernel
 
-Sorry but I really just can't stand the *swan configuration
-syntax. :)  I guess I'll have to give it a shot and possibly
-live with it if it works so much better but the whole
-left/right/middle/top/bottom/whatever bit just annoys the
-hell out of me. :)
-
-> I don't know what distribution you're using but I found it
-> simple to adapt the openswan .spec file to make a source RPM
-> for strongswan.
-
-Debian/sid.  OpenSwan appears to be in sid w/ version 2.3.0
-but I don't see StrongSwan.  Probably wouldn't be too hard
-to adopt the OpenSwan deb stuff to StrongSwan and if it turns
-out to work so well perhaps I'll upload it to the archive
-(I'm a DD and stuff).
-
-> As I understand it, the Openswan project is motivated by
-> commercial interests, whereas Strongswan is in it for
-> security and correctness.  I had difficulty using Openswan
-
-Being in it for the money can have its advantages, like
-people on staff paid full time to work on improving it. :)
-
-> with AES (it wasn't accepting custom ciphers and DH groups
-> specified in the config file, and was sending bogus IKE
-> proposals with 65535 in all the fields of the first listed
-> transform) until I switched to Strongswan.  And if you are
-> doing anything with X.509, the author of that patch is the
-> one that forked Strongswan.  It has been very solid for me
-> since I switched off Racoon.
-
-This is certainly one of my concerns- I'm currently intending
-to use AES as much as possible (des3 for some Windows hosts)
-and I noticed that the OpenSwan page says 2.3.1 has problems
-with it.  Sounds like StrongSwan doesn't have this problem?
-Given the similar codebase (at least, I thought they were
-similar, perhaps they aren't?) how is it that it works for
-one and not the other?
-
-We're certainly using X.509 certs a fair bit and have some
-rather serious security dependencies on those certs.  The
-StrongSwan/OpenSwan configuration appears to better support
-identification-by-certificate than Racoon did (as far as I
-could tell anyway) though its requirements wrt what happens
-if you want to use subjectAltName seemed a bit odd and may
-pose a problem, though I'm hoping to be able to use the DN
-for identification but I'm not the CA for these certs so
-I'm not 100% sure what the best identifying attribute will
-be for me.
-
-Thanks for the comments and concern.  I'd be happy to hear
-=66rom others on any of my comments/concerns from above.  Just
-looking for the best solution for my requirements.
-
-	Stephen
-
---gmhhrsDozM2n+uz5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFCSAeVrzgMPqB3kigRAi6GAJ9mZ9pH7TJjCq0XSw2PbYb1AANkXQCgjFps
-xiMkrviHz2fnl/fvcnkbTzY=
-=ANZB
------END PGP SIGNATURE-----
-
---gmhhrsDozM2n+uz5--
+Andy.
