@@ -1,72 +1,173 @@
-From: Thomas Munck Steenholdt <tmus@tmus.dk>
-Subject: Re: [PATCH] 2.6.3 pcnet32.c fix link reporting for non-mii devices
-Date: Sat, 21 Feb 2004 22:57:00 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH] 2.6.3 - misc errors in epic100 driver
+Date: Sun, 22 Feb 2004 01:22:06 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4037D42C.4030909@tmus.dk>
-References: <200402202232.i1KMWqD07369@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040222012206.A8431@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030004050402030806020001"
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Don Fry <brazilnut@us.ibm.com>, netdev@oss.sgi.com
-In-Reply-To: <200402202232.i1KMWqD07369@DYN318364BLD.beaverton.ibm.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030004050402030806020001
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Don Fry wrote:
-> Thomas,
-> 
-> Thanks for the input.  I am the unofficial maintainer, sort of.  I don't
-> have a card without an mii, so I can't test some of the changes.  Do
-> you know of a way to determine the link state so I can correctly return
-> the state?
-> 
-> By the way, are you running 2.4 or 2.6?
-> 
-
-Hi again!
-
-Decided to do some research and get this thing implemented right!
-I've created a new patch against the 2.6.3-bk3 version of pcnet32.c
-
-What this patch does is that in the event that mii is not supported, 
-link status is read directly from device's lnktst bcr register.
-
-Works without any problem with the virtual nic under vmware. So if all 
-the other non-mii pcnet32 devices have the link status register in the 
-same place, things should be just fine!
-
-Could you please test this and let me know what you think?
-
-Best regards
-
-Thomas
+- extra pci_disable_device() to balance invocation of pci_enable_device()
+  in epic_init_one() (-> error path + epic_remove_one());
+- lazy return status in epic_init_one(), tsss...;
+- memory dedicated to Rx descriptors was not freed after failure of
+  register_netdev() in epic_init_one();
+- use of epic_pause() in epic_close() offers a small window for a late
+  interruption just before the final free_irq(). Let's close the window to
+  avoid two epic_rx() threads racing with each other.
 
 
---------------030004050402030806020001
-Content-Type: text/plain;
- name="pcnet32_real_link_detect_fix.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="pcnet32_real_link_detect_fix.patch"
+ drivers/net/epic100.c |   59 +++++++++++++++++++++++++++++++++-----------------
+ 1 files changed, 40 insertions(+), 19 deletions(-)
 
---- drivers/net/pcnet32.c.tmus	2004-02-19 15:24:31.238513096 +0100
-+++ drivers/net/pcnet32.c	2004-02-19 15:27:28.265600888 +0100
-@@ -1644,7 +1644,9 @@
- 	case ETHTOOL_GLINK: {
- 		struct ethtool_value edata = {ETHTOOL_GLINK};
- 		spin_lock_irq(&lp->lock);
--		edata.data = mii_link_ok(&lp->mii_if);
-+		if(lp->mii) edata.data = mii_link_ok(&lp->mii_if);
-+                /* read the LNKTST BCR register for link status on non-mii capable devices */
-+                else edata.data = (lp->a.read_bcr(ioaddr,4) != 0xc0);
- 		spin_unlock_irq(&lp->lock);
- 		if (copy_to_user(useraddr, &edata, sizeof(edata)))
- 			return -EFAULT;
+diff -puN drivers/net/epic100.c~epic100-fixup drivers/net/epic100.c
+--- linux-2.6.3/drivers/net/epic100.c~epic100-fixup	2004-02-22 01:07:47.000000000 +0100
++++ linux-2.6.3-fr/drivers/net/epic100.c	2004-02-22 01:07:47.000000000 +0100
+@@ -378,7 +378,7 @@ static int __devinit epic_init_one (stru
+ 	int irq;
+ 	struct net_device *dev;
+ 	struct epic_private *ep;
+-	int i, option = 0, duplex = 0;
++	int i, ret, option = 0, duplex = 0;
+ 	void *ring_space;
+ 	dma_addr_t ring_dma;
+ 
+@@ -392,29 +392,33 @@ static int __devinit epic_init_one (stru
+ 	
+ 	card_idx++;
+ 	
+-	i = pci_enable_device(pdev);
+-	if (i)
+-		return i;
++	ret = pci_enable_device(pdev);
++	if (ret)
++		goto out;
+ 	irq = pdev->irq;
+ 
+ 	if (pci_resource_len(pdev, 0) < pci_id_tbl[chip_idx].io_size) {
+ 		printk (KERN_ERR "card %d: no PCI region space\n", card_idx);
+-		return -ENODEV;
++		ret = -ENODEV;
++		goto err_out_disable;
+ 	}
+ 	
+ 	pci_set_master(pdev);
+ 
++	ret = pci_request_regions(pdev, DRV_NAME);
++	if (ret < 0)
++		goto err_out_disable;
++
++	ret = -ENOMEM;
++
+ 	dev = alloc_etherdev(sizeof (*ep));
+ 	if (!dev) {
+ 		printk (KERN_ERR "card %d: no memory for eth device\n", card_idx);
+-		return -ENOMEM;
++		goto err_out_free_res;
+ 	}
+ 	SET_MODULE_OWNER(dev);
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+-	if (pci_request_regions(pdev, DRV_NAME))
+-		goto err_out_free_netdev;
+-
+ #ifdef USE_IO_OPS
+ 	ioaddr = pci_resource_start (pdev, 0);
+ #else
+@@ -422,7 +426,7 @@ static int __devinit epic_init_one (stru
+ 	ioaddr = (long) ioremap (ioaddr, pci_resource_len (pdev, 1));
+ 	if (!ioaddr) {
+ 		printk (KERN_ERR DRV_NAME " %d: ioremap failed\n", card_idx);
+-		goto err_out_free_res;
++		goto err_out_free_netdev;
+ 	}
+ #endif
+ 
+@@ -544,9 +548,9 @@ static int __devinit epic_init_one (stru
+ 	dev->watchdog_timeo = TX_TIMEOUT;
+ 	dev->tx_timeout = &epic_tx_timeout;
+ 
+-	i = register_netdev(dev);
+-	if (i)
+-		goto err_out_unmap_tx;
++	ret = register_netdev(dev);
++	if (ret < 0)
++		goto err_out_unmap_rx;
+ 
+ 	printk(KERN_INFO "%s: %s at %#lx, IRQ %d, ",
+ 		   dev->name, pci_id_tbl[chip_idx].name, ioaddr, dev->irq);
+@@ -554,19 +558,24 @@ static int __devinit epic_init_one (stru
+ 		printk("%2.2x:", dev->dev_addr[i]);
+ 	printk("%2.2x.\n", dev->dev_addr[i]);
+ 
+-	return 0;
++out:
++	return ret;
+ 
++err_out_unmap_rx:
++	pci_free_consistent(pdev, RX_TOTAL_SIZE, ep->rx_ring, ep->rx_ring_dma);
+ err_out_unmap_tx:
+ 	pci_free_consistent(pdev, TX_TOTAL_SIZE, ep->tx_ring, ep->tx_ring_dma);
+ err_out_iounmap:
+ #ifndef USE_IO_OPS
+ 	iounmap(ioaddr);
+-err_out_free_res:
+-#endif
+-	pci_release_regions(pdev);
+ err_out_free_netdev:
++#endif
+ 	free_netdev(dev);
+-	return -ENODEV;
++err_out_free_res:
++	pci_release_regions(pdev);
++err_out_disable:
++	pci_disable_device(pdev);
++	goto out;
+ }
+ 
+ /* Serial EEPROM section. */
+@@ -592,6 +601,13 @@ err_out_free_netdev:
+ #define EE_READ256_CMD	(6 << 8)
+ #define EE_ERASE_CMD	(7 << 6)
+ 
++static void epic_disable_int(struct net_device *dev, struct epic_private *ep)
++{
++	long ioaddr = dev->base_addr;
++
++	outl(0x00000000, ioaddr + INTMASK);
++}
++
+ static int __devinit read_eeprom(long ioaddr, int location)
+ {
+ 	int i;
+@@ -1270,9 +1286,13 @@ static int epic_close(struct net_device 
+ 			   dev->name, (int)inl(ioaddr + INTSTAT));
+ 
+ 	del_timer_sync(&ep->timer);
+-	epic_pause(dev);
++
++	epic_disable_int(dev, ep);
++
+ 	free_irq(dev->irq, dev);
+ 
++	epic_pause(dev);
++
+ 	/* Free all the skbuffs in the Rx queue. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+ 		skb = ep->rx_skbuff[i];
+@@ -1470,6 +1490,7 @@ static void __devexit epic_remove_one (s
+ #endif
+ 	pci_release_regions(pdev);
+ 	free_netdev(dev);
++	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+ 	/* pci_power_off(pdev, -1); */
+ }
 
---------------030004050402030806020001--
+_
