@@ -1,50 +1,38 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: limited number if iptable rules on 64bit hosts
-Date: Thu, 03 Feb 2005 20:33:51 +0100
-Message-ID: <1107459231.3381.3.camel@localhost.localdomain>
-References: <20050202133851.GA9680@suse.de> <20050202222516.GA15440@suse.de>
-	<20050202223853.GA29237@ti64.telemetry-investments.com>
-	<20050202225258.GA15563@suse.de> <20050203111939.GI31570@suse.de>
-	<20050203104822.05be3281.davem@davemloft.net>
-	<20050203185928.GA22832@suse.de>
-	<20050203110049.6b2d9c64.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP-Protection is really a pain...
+Date: Thu, 3 Feb 2005 11:33:35 -0800
+Message-ID: <20050203113335.46396c11@dxpl.pdx.osdl.net>
+References: <4201A382.1020208@rapidforum.com>
+	<20050202205437.571a702b@localhost.localdomain>
+	<4201B4EA.2030101@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: okir@suse.de, netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-	brugolsky@telemetry-investments.com, Olaf Hering <olh@suse.de>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050203110049.6b2d9c64.davem@davemloft.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+In-Reply-To: <4201B4EA.2030101@rapidforum.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Op do, 03-02-2005 te 11:00 -0800, schreef David S. Miller:
-> On Thu, 3 Feb 2005 19:59:28 +0100
-> Olaf Hering <olh@suse.de> wrote:
-> 
-> >  On Thu, Feb 03, David S. Miller wrote:
-> > 
-> > > The rule itself is replicated per-cpu as well to keep L2 cache
-> > > accesses local per cpu on SMP systems.
-> > 
-> > Andy made this change, which helped on a dual box.
-> 
-> It might not help for Olaf's 128 cpu box though :-)
-> 
-> I think reconsider the idea of replicating the rule itself per-cpu.
-> Also, this thread should have begun with netfilter-devel at least on
-> the CC:, added.
+On Thu, 03 Feb 2005 06:21:46 +0100
+Christian Schmid <webmaster@rapidforum.com> wrote:
 
-Note that ebtables only has per-cpu counters.
-I wonder what limits are seen on such systems for ebtables.
+> Actually, thats my problem. Single streams are too slow! Before I had buffers up to 500 KB. This was 
+> very nice to CPU because I only needed to "push" more data once in 5 seconds. I am doing this every 
+> second now... *sigh* well maybe you might just want to add a /proc file in order to configure this 
+> behaviour.
+> 
+> btw: Another problem I am experiencing is that downloads suddenly break in speed from 360 kb/sec to 
+> 8-12 kb/sec. 5 seconds later they stall completely. But the interesting part is, that the send-queue 
+> is completely full (checked with a grep in netstat). This looks like as if the receiver is just too 
+> slow. But this is not the case. That makes it rather funny. The receiver is waiting with an empty 
+> pipe but linux doesn't send. What could this be?
+>
 
-cheers,
-Bart
+Are you using a board that support TCP Segmentation Offload.  The problem may well be that
+before we were not doing congestion control properly with TSO.  A pre-2.6.8 host with TSO was violating
+all sorts of RFC's and unfairly monopolizing bandwidth.
+
+-- 
+Stephen Hemminger	<shemminger@osdl.org>
