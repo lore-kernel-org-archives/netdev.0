@@ -1,64 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/2] r8169: RTL8169_registers clean-up
-Date: Mon, 28 Feb 2005 23:03:02 +0100
-Message-ID: <20050228220302.GC8186@electric-eye.fr.zoreil.com>
-References: <20050228190444.GA13415@us.ibm.com> <20050228195958.GB8186@electric-eye.fr.zoreil.com> <200502281507.37909.jdmason@us.ibm.com>
+From: AndyLiebman@aol.com
+Subject: Re: Frequent Oops on Shutdown 2.6.10
+Date: Mon, 28 Feb 2005 17:25:17 EST
+Message-ID: <147.4096aff0.2f54f44d@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
-To: Jon Mason <jdmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200502281507.37909.jdmason@us.ibm.com>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, terryg@axian.com, netdev@oss.sgi.com,
+        davem@davemloft.net, akpm@osdl.org
+To: yoshfuji@linux-ipv6.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason <jdmason@us.ibm.com> :
-[...]
-> > 1 - It does not use bitwise shifts where possible (suggested by Jeff);
-> 
-> I never heard from you that this was the way to go.  I can do this, if you 
-> still want this patch.
+In a message dated 2/23/2005 11:42:42 A.M. Eastern Standard Time,  
+yoshfuji@linux-ipv6.org writes:
+In article  <b9.522b6602.2f4df280@aol.com> (at Wed, 23 Feb 2005 09:51:44 
+EST),  AndyLiebman@aol.com says:
 
-This was not from me but from Jeff Garzik on 26/02/2005:
-- Message-ID: <4220B9C6.1010106@pobox.com>
-- Subject: [PATCH]: r8169: Expose hardware stats via ethtool
+> Should I bother to apply this patch, or  should I wait for you to make this 
+ 
+> last change? What did you  think about my comment that the Oops only 
+occurred  
+> when the  Ethernet cable had been unplugged during operation? 
 
-Said mail contained "Cleanup patches accepted.", so I did not question
-the sanity of the patch. :o)
+Well, not sure, but  I think it is worth trying.
 
-[lack of consistency]
-> Not seeing where you are refering to, can you give me a line #?
+Thanks.
 
---- drivers/net/r8169.c 2005-02-27 11:45:27.000000000 -0600
-+++ drivers/net/r8169.c.new     2005-02-27 11:44:44.000000000 -0600
-@@ -186,91 +186,91 @@ static int rx_copybreak = 200;
- static int use_dac;
+--yoshfuji
+Hi Yoshi,  
 
- enum RTL8169_registers {
--       MAC0 = 0,               /* Ethernet hardware address. */
--       MAR0 = 8,               /* Multicast filter. */
-+       MAC0            = 0x00, /* Ethernet hardware address. */
-+       MAR0            = 0x08, /* Multicast filter. */
-        TxDescStartAddrLow = 0x20,
-        TxDescStartAddrHigh = 0x24,
-        TxHDescStartAddrLow = 0x28,
-        TxHDescStartAddrHigh = 0x2c,
+I just thought I would let you know that I applied the patch to the  2.6.10 
+kernel and recompiled. It seems to have made the Oops go away. At least,  I 
+can't make the Oops happen any more by unplugging the Ethernet cables during  
+operation and then shutting down. 
 
-[...]
-> > 3 - Please write a script to reduce the patch and prove that a typo does
-> >     not hide somewhere (yep, I'm lazy). It would take too much testing
-> >     to get a complete coverage.
-> 
-> If you are that worried, it probably isn't worth it.  Its just clean-up ;-)
+I might add that when I tried to apply  the patch with:
 
-I just want a cleanup patch to be easy to review: either #1 simple rules
-allow to check it or #2 it can be proven that it is right.
+patch --dry-run -p1 -d dir < patchfile
 
-The r8169 driver already went through misc cleanups lately. We can surely
-spend some time hacking it again before it hurts the good taste (TM).
+I got all kinds of errors about this line or that line. I can't remember  
+what they were. In the end, I VERY CAREFULLY cut and pasted your patch, and  
+removed the lines the patch was supposed to remove. 
 
-Back to the update/merge/compile fest...
-
---
-Ueimor
+Did you attempt to  apply the patch? Anyway, looks good. 
+ 
+Regards, 
+Andy Liebman
+ 
