@@ -1,75 +1,45 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix BUG in tg3_tx
-Date: Mon, 24 May 2004 10:06:34 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524100634.1349295d.davem@redhat.com>
-References: <20040524072657.GC27177@sgi.com>
-	<20040524004045.58b3eb44.davem@redhat.com>
-	<20040524080431.GD27177@sgi.com>
+Subject: Re: IPSec Oops when deleting an ip address
+Date: Mon, 24 May 2004 10:14:49 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040524101449.053e74f9.davem@redhat.com>
+References: <20040510134958.13691.qmail@mason.oriente.labs.it>
+	<20040521131950.GA20040@gondor.apana.org.au>
+	<20040521144346.7887dbf0.davem@redhat.com>
+	<20040524114751.GA28571@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mchan@broadcom.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg Banks <gnb@sgi.com>
-In-Reply-To: <20040524080431.GD27177@sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040524114751.GA28571@gondor.apana.org.au>
 List-Id: netdev.vger.kernel.org
 
+On Mon, 24 May 2004 21:47:51 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-[ Michael, the discussion here is about whether the tigon3 hardware
-  ever partially ACK's completion of a multi-frag TX frame.  I
-  believe it never does, but Greg claims he can trigger such a case
-  and has proposed a patch to the tg3 driver which attempts to handle that. ]
+> Hence the problem is still a bug in the ref counting.  I think I've found
+> the real culprit now.  __xfrm?_find_acq() is missing an xfrm_state_hold
+> on the create path.  This also explains why I never see it myself since
+> Openswan never creates states through that code-path.
 
-On Mon, 24 May 2004 18:04:31 +1000
-Greg Banks <gnb@sgi.com> wrote:
+Applied, thanks Herbert.
 
-> On Mon, May 24, 2004 at 12:40:45AM -0700, David S. Miller wrote:
-> > On Mon, 24 May 2004 17:26:58 +1000
-> > Greg Banks <gnb@sgi.com> wrote:
-> > 
-> > > The tg3 transmit code assumes that tg3_tx() will never have to clean
-> > > up part of an skb queued for transmit.  This assumption is wrong;
-> > 
-> > Greg, perhaps my reading of the tg3 chip docs is different
-> > from yours.  The hardware is NEVER supposed to do this.
-> 
-> I'd like to know where you read that, because neither I nor any of
-> the other SGI engineers who have read the Broadcom docs can find any
-> such guarantee.
+How the heck are you generating your patches?  Because the file paths
+look like this in the patch:
 
-The most relevant (and accurate) piece of documentation for the chip
-is Broadcom's own driver :-) And they do not account at all for such
-a case of partial-packet TX completion indication.  If the first frag
-is ACK'd they assume the whole packet has been taken.  Here is the
-relevant code from the bcm5700 driver in LM_ServiceTxInterrupt():
+--- 1.6/net/ipv4/xfrm4_state.c	2003-07-21 21:49:43 +10:00
++++ edited/xfrm4_state.c	2004-05-24 21:41:29 +10:00
 
-    while(SwConIdx != HwConIdx)
-    {
-        pPacket = pDevice->SendRing[SwConIdx];
-        pDevice->SendRing[SwConIdx] = 0;
+My auto-patch-application scripts explode since the path
+depth of the file is different in the second line there.
+How come it doesn't look like:
 
-        /* Set the return status. */
-        pPacket->PacketStatus = LM_STATUS_SUCCESS;
+--- 1.6/net/ipv4/xfrm4_state.c	2003-07-21 21:49:43 +10:00
++++ edited/net/ipv4/xfrm4_state.c	2004-05-24 21:41:29 +10:00
 
-        /* Put the packet in the TxPacketXmittedQ for indication later. */
-        QQ_PushTail(&pDevice->TxPacketXmittedQ.Container, pPacket);
+So that I can throw "-p1" to tools like diffstat and get sane
+output?
 
-        /* Move to the next packet's BD. */
-        SwConIdx = (SwConIdx + pPacket->u.Tx.FragCount) & 
-            T3_SEND_RCB_ENTRY_COUNT_MASK;
-
-        /* Update the number of unused BDs. */
-        MM_ATOMIC_ADD(&pDevice->SendBdLeft, pPacket->u.Tx.FragCount);
-
-        /* Get the new updated HwConIdx. */
-        HwConIdx = pDevice->pStatusBlkVirt->Idx[0].SendConIdx;
-    } /* while */
-
-Imagine how badly this piece of code would fail if partial ACK'ing of
-TX packets actually occurred.  It would loop past HwConIdx and thus
-ACK really-not-completed packets, potentially colliding with what
-the chip is transmitting and thus causing massive data corruption
-and likely a crash.  Actually, it would most likely loop past all
-valid TX packets and dereference a pPacket NULL pointer.
+Your patches never did this in the past :-)
