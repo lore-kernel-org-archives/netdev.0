@@ -1,51 +1,19 @@
-From: John Levon <levon@movementarian.org>
-Subject: [PATCH] remove net/README
-Date: Thu, 4 Sep 2003 15:52:04 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] (8/8) loopback device simplification
+Date: Wed, 03 Sep 2003 20:43:44 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030904145204.GA27953@compsoc.man.ac.uk>
+Message-ID: <3F568AC0.5090601@pobox.com>
+References: <20030903164921.7d923008.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, davem@redhat.com
-Content-Disposition: inline
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030903164921.7d923008.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-This file seems bitrotted and more up to date info is available in
-MAINTAINERS in large part.
-
-regards
-john
-
-
-diff -Naur -X dontdiff linux-cvs/net/README linux-fixes/net/README
---- linux-cvs/net/README	2002-02-06 00:13:33.000000000 +0000
-+++ linux-fixes/net/README	1970-01-01 01:00:00.000000000 +0100
-@@ -1,26 +0,0 @@
--
--Maintainers and developers for networking code sections
--
--Code Section		Bug Report Contact
---------------------+-------------------------------------------
--802 [other	]	alan@lxorguk.ukuu.org.uk	
--    [token ring	]	p.norton@computer.org
--appletalk		jschlst@samba.org
--ax25			g4klx@g4klx.demon.co.uk
--bridge			buytenh@gnu.org
--core			alan@lxorguk.ukuu.org.uk
--decnet			SteveW@ACM.org
--ethernet		alan@lxorguk.ukuu.org.uk
--ipv4			davem@caip.rutgers.edu,Eric.Schenk@dna.lth.se
--ipv6			davem@caip.rutgers.edu,Eric.Schenk@dna.lth.se
--ipx			acme@conectiva.com.br
--spx			jschlst@samba.org
--irda                    dagb@cs.uit.no
--lapb			g4klx@g4klx.demon.co.uk
--netrom			g4klx@g4klx.demon.co.uk
--rose			g4klx@g4klx.demon.co.uk
--wanrouter		gene@compuserve.com, jaspreet@sangoma and dm@sangoma.com
--unix			alan@lxorguk.ukuu.org.uk
--x25			g4klx@g4klx.demon.co.uk
--bluetooth		maxk@qualcomm.com
--8021q                   greearb@candelatech.com, vlan@scry.wanfear.com
+Would be nice to move dev_base and dev_base_lock somewhere, maybe 
+drivers/net/net_init.c (which really should be renamed libnet.c) or 
+perhaps somewhere in net/*
