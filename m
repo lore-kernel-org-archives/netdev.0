@@ -1,28 +1,44 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: ipsec / pppoe
-Date: Sun, 1 Jun 2003 22:18:56 +1000 (EST)
+From: Martin Josefsson <gandalf@wlug.westbo.se>
+Subject: [PATCH] fix use after free in e100
+Date: 02 Jun 2003 01:04:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0306012217330.18182-100000@excalibur.intercode.com.au>
-References: <200306011233.22544.aj@dungeon.inka.de>
+Message-ID: <1054508698.24777.17.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, <howto@lartc.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Jellinghaus <aj@dungeon.inka.de>
-In-Reply-To: <200306011233.22544.aj@dungeon.inka.de>
+To: scott.feldman@intel.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 1 Jun 2003, Andreas Jellinghaus wrote:
+Hi Scott.
 
-> cc: to howto@lartc.org, it think this would make a nice
-> howto entry.
+Here's a fix for a use-after-free in the e100 driver.
+You can't touch the skb after a call to netif_rx(), it might have been
+free'd. Caught with Manfred's unmap-page-debugging patch in -mm.
 
-Actually, there is a bug in the way icmp pmtu messages are being generated 
-here, which should be fixed soon.
+Applies to both 2.4 and 2.5
+
+--- linux-2.5.69-mm9/drivers/net/e100/e100_main.c.orig	2003-06-02 00:48:13.000000000 +0200
++++ linux-2.5.69-mm9/drivers/net/e100/e100_main.c	2003-06-02 00:50:09.000000000 +0200
+@@ -2052,13 +2052,14 @@
+ 			skb->ip_summed = CHECKSUM_NONE;
+ 		}
+ 
++		bdp->drv_stats.net_stats.rx_bytes += skb->len;
++
+ 		if(bdp->vlgrp && (rfd_status & CB_STATUS_VLAN)) {
+ 			vlan_hwaccel_rx(skb, bdp->vlgrp, be16_to_cpu(rfd->vlanid));
+ 		} else {
+ 			netif_rx(skb);
+ 		}
+ 		dev->last_rx = jiffies;
+-		bdp->drv_stats.net_stats.rx_bytes += skb->len;
+ 		
+ 		rfd_cnt++;
+ 	}			/* end of rfd loop */
 
 
-- James
 -- 
-James Morris
-<jmorris@intercode.com.au>
+/Martin
