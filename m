@@ -1,354 +1,338 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: [PATCH]Implementation for IPv6 MIB:ipv6InterfaceTable
-Date: Tue, 14 Oct 2003 10:32:23 -0700
+Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
+Date: Tue, 14 Oct 2003 10:38:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310141032.23998.mashirle@us.ibm.com>
+Message-ID: <200310141038.04322.mashirle@us.ibm.com>
+References: <OF4B7AD7E2.5CA239A1-ON87256DB9.0067C527@us.ibm.com> <20031008130016.559b8047.davem@redhat.com> <200310081706.09485.mashirle@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru
+In-Reply-To: <200310081706.09485.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The implementation is based on last call new draft of IP MIBs:
-http://www.ietf.org/internet-drafts/draft-ietf-ipv6-rfc2011-update-04.txt
-
-The patch has been tested against linux-2.6.0-test6-bk3. Please give
-me your comments.
+This is the modified new patch for IPv6 MIB: ipv6AddressTable.
+This patch has been tested against linux-2.6.0-test6-bk8 kernel.
 
 Thanks
 Shirley Ma
 IBM Linux Technology Center
-======================
+=======================
 
 diff -urN linux-2.6.0-test6/include/linux/rtnetlink.h 
-linux-2.6.0-test6-ipv6mib1/include/linux/rtnetlink.h
+linux-2.6.0-test6-ipv6mib4/include/linux/rtnetlink.h
 --- linux-2.6.0-test6/include/linux/rtnetlink.h	2003-09-27 17:50:40.000000000 
 -0700
-+++ linux-2.6.0-test6-ipv6mib1/include/linux/rtnetlink.h	2003-10-10 
-15:55:39.000000000 -0700
-@@ -555,9 +555,17 @@
- 	IFLA_INET6_CONF,	/* sysctl parameters		*/
- 	IFLA_INET6_STATS,	/* statistics			*/
- 	IFLA_INET6_MCAST,	/* MC things. What of them?	*/
-+	IFLA_INET6_CACHEINFO,	/* time values and max reasm size */
- };
++++ linux-2.6.0-test6-ipv6mib4/include/linux/rtnetlink.h	2003-10-08 
+00:15:38.000000000 -0700
+@@ -352,8 +352,10 @@
  
--#define IFLA_INET6_MAX	IFLA_INET6_MCAST
-+struct ifla_cacheinfo
-+{
-+	__u32	max_reasm_len;
-+	__u32	reachable_time;
-+	__u32	retrans_time;
-+};
-+
-+#define IFLA_INET6_MAX	IFLA_INET6_CACHEINFO
- 
- /*****************************************************************
-  *		Traffic control messages.
-@@ -608,6 +616,7 @@
- #define RTMGRP_IPV6_IFADDR	0x100
- #define RTMGRP_IPV6_MROUTE	0x200
- #define RTMGRP_IPV6_ROUTE	0x400
-+#define RTMGRP_IPV6_IFINFO	0x800
- 
- #define RTMGRP_DECnet_IFADDR    0x1000
- #define RTMGRP_DECnet_ROUTE     0x4000
-diff -urN linux-2.6.0-test6/include/net/neighbour.h 
-linux-2.6.0-test6-ipv6mib1/include/net/neighbour.h
---- linux-2.6.0-test6/include/net/neighbour.h	2003-09-27 17:51:07.000000000 
--0700
-+++ linux-2.6.0-test6-ipv6mib1/include/net/neighbour.h	2003-10-09 
-10:36:56.000000000 -0700
-@@ -47,6 +47,9 @@
- #include <linux/skbuff.h>
- 
- #include <linux/err.h>
-+#ifdef CONFIG_SYSCTL
-+#include <linux/sysctl.h>
-+#endif
- 
- #define NUD_IN_TIMER	(NUD_INCOMPLETE|NUD_DELAY|NUD_PROBE)
- #define NUD_VALID	
-(NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE|NUD_PROBE|NUD_STALE|NUD_DELAY)
-@@ -206,8 +209,11 @@
- extern int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void 
-*arg);
- extern void neigh_app_ns(struct neighbour *n);
- 
--extern int			neigh_sysctl_register(struct net_device *dev, struct neigh_parms 
-*p,
--						      int p_id, int pdev_id, char *p_name);
-+extern int			neigh_sysctl_register(struct net_device *dev, 
-+						      struct neigh_parms *p,
-+						      int p_id, int pdev_id,
-+						      char *p_name,
-+						      proc_handler *proc_handler);
- extern void			neigh_sysctl_unregister(struct neigh_parms *p);
- 
- /*
-diff -urN linux-2.6.0-test6/net/core/neighbour.c 
-linux-2.6.0-test6-ipv6mib1/net/core/neighbour.c
---- linux-2.6.0-test6/net/core/neighbour.c	2003-10-07 16:36:53.000000000 -0700
-+++ linux-2.6.0-test6-ipv6mib1/net/core/neighbour.c	2003-10-09 
-11:24:05.000000000 -0700
-@@ -1625,7 +1625,8 @@
- };
- 
- int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
--			  int p_id, int pdev_id, char *p_name)
-+			  int p_id, int pdev_id, char *p_name, 
-+			  proc_handler *handler)
+ struct ifa_cacheinfo
  {
- 	struct neigh_sysctl_table *t = kmalloc(sizeof(*t), GFP_KERNEL);
+-	__s32	ifa_prefered;
+-	__s32	ifa_valid;
++	__u32	ifa_prefered;
++	__u32	ifa_valid;
++	__u32	cstamp; /* created timestamp, hundredths of seconds */
++	__u32	tstamp; /* updated timestamp, hundredths of seconds */
+ };
  
-@@ -1636,6 +1637,10 @@
- 	t->neigh_vars[1].data  = &p->ucast_probes;
- 	t->neigh_vars[2].data  = &p->app_probes;
- 	t->neigh_vars[3].data  = &p->retrans_time;
-+	if (handler) {
-+		t->neigh_vars[3].proc_handler = handler;
-+		t->neigh_vars[3].extra1 = dev;
-+	}
- 	t->neigh_vars[4].data  = &p->base_reachable_time;
- 	t->neigh_vars[5].data  = &p->delay_probe_time;
- 	t->neigh_vars[6].data  = &p->gc_staletime;
-diff -urN linux-2.6.0-test6/net/ipv4/arp.c 
-linux-2.6.0-test6-ipv6mib1/net/ipv4/arp.c
---- linux-2.6.0-test6/net/ipv4/arp.c	2003-10-07 16:36:53.000000000 -0700
-+++ linux-2.6.0-test6-ipv6mib1/net/ipv4/arp.c	2003-10-07 13:52:32.000000000 
+ 
+diff -urN linux-2.6.0-test6/include/net/if_inet6.h 
+linux-2.6.0-test6-ipv6mib4/include/net/if_inet6.h
+--- linux-2.6.0-test6/include/net/if_inet6.h	2003-09-27 17:51:07.000000000 
 -0700
-@@ -1123,7 +1123,7 @@
- 	arp_proc_init();
- #ifdef CONFIG_SYSCTL
- 	neigh_sysctl_register(NULL, &arp_tbl.parms, NET_IPV4,
--			      NET_IPV4_NEIGH, "ipv4");
-+			      NET_IPV4_NEIGH, "ipv4", NULL);
- #endif
- 	register_netdevice_notifier(&arp_netdev_notifier);
- }
-diff -urN linux-2.6.0-test6/net/ipv4/devinet.c 
-linux-2.6.0-test6-ipv6mib1/net/ipv4/devinet.c
---- linux-2.6.0-test6/net/ipv4/devinet.c	2003-10-07 16:36:53.000000000 -0700
-+++ linux-2.6.0-test6-ipv6mib1/net/ipv4/devinet.c	2003-10-07 
-13:52:32.000000000 -0700
-@@ -155,7 +155,7 @@
- 	dev_hold(dev);
- #ifdef CONFIG_SYSCTL
- 	neigh_sysctl_register(dev, in_dev->arp_parms, NET_IPV4,
--			      NET_IPV4_NEIGH, "ipv4");
-+			      NET_IPV4_NEIGH, "ipv4", NULL);
- #endif
- 	write_lock_bh(&inetdev_lock);
- 	dev->ip_ptr = in_dev;
++++ linux-2.6.0-test6-ipv6mib4/include/net/if_inet6.h	2003-10-08 
+00:15:38.000000000 -0700
+@@ -34,7 +34,8 @@
+ 	
+ 	__u32			valid_lft;
+ 	__u32			prefered_lft;
+-	unsigned long		tstamp;
++	unsigned long		cstamp;	/* created timestamp */
++	unsigned long		tstamp; /* updated timestamp */
+ 	atomic_t		refcnt;
+ 	spinlock_t		lock;
+ 
+@@ -111,6 +112,8 @@
+ 	atomic_t		mca_refcnt;
+ 	spinlock_t		mca_lock;
+ 	unsigned char		mca_crcount;
++	unsigned long		mca_cstamp;
++	unsigned long		mca_tstamp;
+ };
+ 
+ /* Anycast stuff */
+@@ -130,6 +133,8 @@
+ 	int			aca_users;
+ 	atomic_t		aca_refcnt;
+ 	spinlock_t		aca_lock;
++	unsigned long		aca_cstamp;
++	unsigned long		aca_tstamp;
+ };
+ 
+ #define	IFA_HOST	IPV6_ADDR_LOOPBACK
 diff -urN linux-2.6.0-test6/net/ipv6/addrconf.c 
-linux-2.6.0-test6-ipv6mib1/net/ipv6/addrconf.c
+linux-2.6.0-test6-ipv6mib4/net/ipv6/addrconf.c
 --- linux-2.6.0-test6/net/ipv6/addrconf.c	2003-09-27 17:51:02.000000000 -0700
-+++ linux-2.6.0-test6-ipv6mib1/net/ipv6/addrconf.c	2003-10-10 
-15:47:25.000000000 -0700
-@@ -92,7 +92,9 @@
++++ linux-2.6.0-test6-ipv6mib4/net/ipv6/addrconf.c	2003-10-09 
+12:28:54.000000000 -0700
+@@ -92,6 +92,9 @@
  #define ADBG(x)
  #endif
  
-+void inet6_ifinfo_notify(int event, struct inet6_dev *idev);
++#define	INFINITY_LIFE_TIME	0xFFFFFFFF
++#define TIME_DELTA(a,b) ((unsigned long)((long)(a) - (long)(b)))
++
  #ifdef CONFIG_SYSCTL
-+extern int ndisc_ifinfo_sysctl_change(ctl_table *ctl, int write, struct file 
-* filp, void __user *buffer, size_t *lenp);
  static void addrconf_sysctl_register(struct inet6_dev *idev, struct 
 ipv6_devconf *p);
  static void addrconf_sysctl_unregister(struct ipv6_devconf *p);
- #endif
-@@ -372,7 +374,8 @@
- 		ipv6_mc_init_dev(ndev);
+@@ -505,6 +508,7 @@
+ 	ifa->scope = scope;
+ 	ifa->prefix_len = pfxlen;
+ 	ifa->flags = flags | IFA_F_TENTATIVE;
++	ifa->cstamp = ifa->tstamp = jiffies;
  
- #ifdef CONFIG_SYSCTL
--		neigh_sysctl_register(dev, ndev->nd_parms, NET_IPV6, NET_IPV6_NEIGH, 
-"ipv6");
-+		neigh_sysctl_register(dev, ndev->nd_parms, NET_IPV6, 
-+			NET_IPV6_NEIGH, "ipv6", &ndisc_ifinfo_sysctl_change);
- 		addrconf_sysctl_register(ndev, &ndev->cnf);
- #endif
- 	}
-@@ -1848,6 +1851,7 @@
- 				rt6_mtu_change(dev, dev->mtu);
- 				idev->cnf.mtu6 = dev->mtu;
+ 	read_lock(&addrconf_lock);
+ 	if (idev->dead) {
+@@ -707,6 +711,7 @@
+ 	ift->ifpub = ifp;
+ 	ift->valid_lft = tmp_valid_lft;
+ 	ift->prefered_lft = tmp_prefered_lft;
++	ift->cstamp = ifp->cstamp;
+ 	ift->tstamp = ifp->tstamp;
+ 	spin_unlock_bh(&ift->lock);
+ 	addrconf_dad_start(ift, 0);
+@@ -1412,6 +1417,7 @@
  			}
-+			inet6_ifinfo_notify(RTM_NEWLINK, idev);
- 			/* If the changed mtu during down is lower than IPV6_MIN_MTU
- 			   stop IPv6 on this interface.
- 			 */
-@@ -1875,7 +1879,6 @@
- 	case NETDEV_CHANGE:
- 		break;
- 	};
--
- 	return NOTIFY_OK;
- }
  
-@@ -1966,7 +1969,9 @@
- 		ipv6_mc_destroy_dev(idev);
- 	else
- 		ipv6_mc_down(idev);
--
-+	/* Step 5: netlink notification of this interface */
-+	inet6_ifinfo_notify(RTM_NEWLINK, idev);
-+	
- 	/* Shot the device (if unregistered) */
+ 			update_lft = create = 1;
++			ifp->cstamp = jiffies;
+ 			addrconf_dad_start(ifp, RTF_ADDRCONF|RTF_PREFIX_RT);
+ 		}
  
- 	if (how == 1) {
-@@ -2540,17 +2545,19 @@
- #endif
- }
- 
--static int inet6_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
--			    struct inet6_dev *idev,
--			    int type, u32 pid, u32 seq)
-+static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev, 
-+			     u32 pid, u32 seq, int event)
- {
-+	struct net_device	*dev = idev->dev;
- 	__s32			*array = NULL;
- 	struct ifinfomsg	*r;
- 	struct nlmsghdr 	*nlh;
- 	unsigned char		*b = skb->tail;
- 	struct rtattr		*subattr;
-+	__u32			mtu = dev->mtu;
-+	struct ifla_cacheinfo	ci;
- 
--	nlh = NLMSG_PUT(skb, pid, seq, type, sizeof(*r));
-+	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*r));
- 	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
- 	r = NLMSG_DATA(nlh);
- 	r->ifi_family = AF_INET6;
-@@ -2565,6 +2572,13 @@
- 
- 	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
- 
-+	if (dev->addr_len)
-+		RTA_PUT(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr);
+@@ -2447,14 +2453,95 @@
+ 	if (!(ifa->flags&IFA_F_PERMANENT)) {
+ 		ci.ifa_prefered = ifa->prefered_lft;
+ 		ci.ifa_valid = ifa->valid_lft;
+-		if (ci.ifa_prefered != 0xFFFFFFFF) {
++		if (ci.ifa_prefered != INFINITY_LIFE_TIME) {
+ 			long tval = (jiffies - ifa->tstamp)/HZ;
+ 			ci.ifa_prefered -= tval;
+-			if (ci.ifa_valid != 0xFFFFFFFF)
++			if (ci.ifa_valid != INFINITY_LIFE_TIME)
+ 				ci.ifa_valid -= tval;
+ 		}
+-		RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
++	} else {
++		ci.ifa_prefered = INFINITY_LIFE_TIME;
++		ci.ifa_valid = INFINITY_LIFE_TIME;
+ 	}
++	ci.cstamp = (__u32)(TIME_DELTA(ifa->cstamp, INITIAL_JIFFIES) / HZ * 100
++		    + TIME_DELTA(ifa->cstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
++	ci.tstamp = (__u32)(TIME_DELTA(ifa->tstamp, INITIAL_JIFFIES) / HZ * 100
++		    + TIME_DELTA(ifa->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
++	RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
++	nlh->nlmsg_len = skb->tail - b;
++	return skb->len;
 +
-+	RTA_PUT(skb, IFLA_MTU, sizeof(mtu), &mtu);
-+	if (dev->ifindex != dev->iflink)
-+		RTA_PUT(skb, IFLA_LINK, sizeof(int), &dev->iflink);
-+			
- 	subattr = (struct rtattr*)skb->tail;
++nlmsg_failure:
++rtattr_failure:
++	skb_trim(skb, b - skb->data);
++	return -1;
++}
++
++static int inet6_fill_ifmcaddr(struct sk_buff *skb, struct ifmcaddr6 *ifmca,
++				u32 pid, u32 seq, int event)
++{
++	struct ifaddrmsg *ifm;
++	struct nlmsghdr  *nlh;
++	struct ifa_cacheinfo ci;
++	unsigned char	 *b = skb->tail;
++
++	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ifm));
++	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
++	ifm = NLMSG_DATA(nlh);
++	ifm->ifa_family = AF_INET6;	
++	ifm->ifa_prefixlen = 128;
++	ifm->ifa_flags = IFA_F_PERMANENT;
++	ifm->ifa_scope = RT_SCOPE_UNIVERSE;
++	if (ipv6_addr_scope(&ifmca->mca_addr)&IFA_SITE)
++		ifm->ifa_scope = RT_SCOPE_SITE;
++	ifm->ifa_index = ifmca->idev->dev->ifindex;
++	RTA_PUT(skb, IFA_ADDRESS, 16, &ifmca->mca_addr);
++	ci.cstamp = (__u32)(TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) / HZ
++		    * 100 + TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) % HZ
++		    * 100 / HZ);
++	ci.tstamp = (__u32)(TIME_DELTA(ifmca->mca_tstamp, INITIAL_JIFFIES) / HZ
++		    * 100 + TIME_DELTA(ifmca->mca_tstamp, INITIAL_JIFFIES) % HZ
++		    * 100 / HZ);
++	ci.ifa_prefered = INFINITY_LIFE_TIME;
++	ci.ifa_valid = INFINITY_LIFE_TIME;
++	RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
++	nlh->nlmsg_len = skb->tail - b;
++	return skb->len;
++
++nlmsg_failure:
++rtattr_failure:
++	skb_trim(skb, b - skb->data);
++	return -1;
++}
++
++static int inet6_fill_ifacaddr(struct sk_buff *skb, struct ifacaddr6 *ifaca,
++				u32 pid, u32 seq, int event)
++{
++	struct ifaddrmsg *ifm;
++	struct nlmsghdr  *nlh;
++	struct ifa_cacheinfo ci;
++	unsigned char	 *b = skb->tail;
++
++	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*ifm));
++	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
++	ifm = NLMSG_DATA(nlh);
++	ifm->ifa_family = AF_INET6;	
++	ifm->ifa_prefixlen = 128;
++	ifm->ifa_flags = IFA_F_PERMANENT;
++	ifm->ifa_scope = RT_SCOPE_UNIVERSE;
++	if (ipv6_addr_scope(&ifaca->aca_addr)&IFA_SITE)
++		ifm->ifa_scope = RT_SCOPE_SITE;
++	ifm->ifa_index = ifaca->aca_idev->dev->ifindex;
++	RTA_PUT(skb, IFA_ADDRESS, 16, &ifaca->aca_addr);
++	ci.cstamp = (__u32)(TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) / HZ
++		    * 100 + TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) % HZ
++		    * 100 / HZ);
++	ci.tstamp = (__u32)(TIME_DELTA(ifaca->aca_tstamp, INITIAL_JIFFIES) / HZ
++		    * 100 + TIME_DELTA(ifaca->aca_tstamp, INITIAL_JIFFIES) % HZ
++		    * 100 / HZ);
++	ci.ifa_prefered = INFINITY_LIFE_TIME;
++	ci.ifa_valid = INFINITY_LIFE_TIME;
++	RTA_PUT(skb, IFA_CACHEINFO, sizeof(ci), &ci);
+ 	nlh->nlmsg_len = skb->tail - b;
+ 	return skb->len;
  
- 	RTA_PUT(skb, IFLA_PROTINFO, 0, NULL);
-@@ -2572,6 +2586,12 @@
- 	/* return the device flags */
- 	RTA_PUT(skb, IFLA_INET6_FLAGS, sizeof(__u32), &idev->if_flags);
- 
-+	/* return interface cacheinfo */
-+	ci.max_reasm_len = IPV6_MAXPLEN;
-+	ci.reachable_time = idev->nd_parms->reachable_time;
-+	ci.retrans_time = idev->nd_parms->retrans_time;
-+	RTA_PUT(skb, IFLA_INET6_CACHEINFO, sizeof(ci), &ci);
+@@ -2468,33 +2555,79 @@
+ {
+ 	int idx, ip_idx;
+ 	int s_idx, s_ip_idx;
+- 	struct inet6_ifaddr *ifa;
+-
++	int err = 1;
++	struct net_device *dev;
++	struct inet6_dev *idev = NULL;
++	struct inet6_ifaddr *ifa;
++	struct ifmcaddr6 *ifmca;
++	struct ifacaddr6 *ifaca;
 +	
- 	/* return the device sysctl params */
- 	if ((array = kmalloc(DEVCONF_MAX * sizeof(*array), GFP_ATOMIC)) == NULL)
- 		goto rtattr_failure;
-@@ -2606,8 +2626,8 @@
+ 	s_idx = cb->args[0];
+ 	s_ip_idx = ip_idx = cb->args[1];
+-
+-	for (idx=0; idx < IN6_ADDR_HSIZE; idx++) {
++	read_lock(&dev_base_lock);
++	
++	for (dev = dev_base, idx = 0; dev; dev = dev->next, idx++) {
+ 		if (idx < s_idx)
  			continue;
- 		if ((idev = in6_dev_get(dev)) == NULL)
- 			continue;
--		err = inet6_fill_ifinfo(skb, dev, idev, RTM_NEWLINK,
--				NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq);
-+		err = inet6_fill_ifinfo(skb, idev, NETLINK_CB(cb->skb).pid, 
-+				cb->nlh->nlmsg_seq, RTM_NEWLINK);
- 		in6_dev_put(idev);
- 		if (err <= 0)
- 			break;
-@@ -2618,6 +2638,26 @@
+ 		if (idx > s_idx)
+ 			s_ip_idx = 0;
+-		read_lock_bh(&addrconf_hash_lock);
+-		for (ifa=inet6_addr_lst[idx], ip_idx = 0; ifa;
+-		     ifa = ifa->lst_next, ip_idx++) {
++		ip_idx = 0;
++		if ((idev = in6_dev_get(dev)) == NULL)
++			continue;
++		read_lock_bh(&idev->lock);
++		/* unicast address */
++		for (ifa = idev->addr_list; ifa;
++		     ifa = ifa->if_next, ip_idx++) {
+ 			if (ip_idx < s_ip_idx)
+ 				continue;
+-			if (inet6_fill_ifaddr(skb, ifa, NETLINK_CB(cb->skb).pid,
+-					      cb->nlh->nlmsg_seq, RTM_NEWADDR) <= 0) {
+-				read_unlock_bh(&addrconf_hash_lock);
++			if ((err = inet6_fill_ifaddr(skb, ifa, 
++			    NETLINK_CB(cb->skb).pid, 
++			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0)
+ 				goto done;
+-			}
+ 		}
+-		read_unlock_bh(&addrconf_hash_lock);
++		/* temp addr */
++#ifdef CONFIG_IPV6_PRIVACY
++		for (ifa = idev->tempaddr_list; ifa; 
++		     ifa = ifua->tmp_next, ip_idx++) {
++			if (ip_idx < s_ip_idx)
++				continue;
++			if ((err = inet6_fill_ifaddr(skb, ifa, 
++			    NETLINK_CB(cb->skb).pid, 
++			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0) 
++				goto done;
++		}
++#endif
++		/* multicast address */
++		for (ifmca = idev->mc_list; ifmca; 
++		     ifmca = ifmca->next, ip_idx++) {
++			if (ip_idx < s_ip_idx)
++				continue;
++			if ((err = inet6_fill_ifmcaddr(skb, ifmca, 
++			    NETLINK_CB(cb->skb).pid, 
++			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0) 
++				goto done;
++		}
++		/* anycast address */
++		for (ifaca = idev->ac_list; ifaca;
++		     ifaca = ifaca->aca_next, ip_idx++) {
++			if (ip_idx < s_ip_idx)
++				continue;
++			if ((err = inet6_fill_ifacaddr(skb, ifaca, 
++			    NETLINK_CB(cb->skb).pid, 
++			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0) 
++				goto done;
++		}
++		read_unlock_bh(&idev->lock);
++		in6_dev_put(idev);
+ 	}
+ done:
++	if (err <= 0) {
++		read_unlock_bh(&idev->lock);
++		in6_dev_put(idev);
++	}
++	read_unlock(&dev_base_lock);
+ 	cb->args[0] = idx;
+ 	cb->args[1] = ip_idx;
+-
  	return skb->len;
  }
  
-+void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
-+{
-+	struct sk_buff *skb;
-+	/* 128 bytes ?? */
-+	int size = NLMSG_SPACE(sizeof(struct ifinfomsg)+128);
-+	
-+	skb = alloc_skb(size, GFP_ATOMIC);
-+	if (!skb) {
-+		netlink_set_err(rtnl, 0, RTMGRP_IPV6_IFINFO, ENOBUFS);
-+		return;
-+	}
-+	if (inet6_fill_ifinfo(skb, idev, 0, 0, event) < 0) {
-+		kfree_skb(skb);
-+		netlink_set_err(rtnl, 0, RTMGRP_IPV6_IFINFO, EINVAL);
-+		return;
-+	}
-+	NETLINK_CB(skb).dst_groups = RTMGRP_IPV6_IFINFO;
-+	netlink_broadcast(rtnl, skb, 0, RTMGRP_IPV6_IFINFO, GFP_ATOMIC);
-+}
-+
- static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX - RTM_BASE + 1] = 
-{
- 	[RTM_GETLINK - RTM_BASE] = { .dumpit	= inet6_dump_ifinfo, },
- 	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
-diff -urN linux-2.6.0-test6/net/ipv6/ndisc.c 
-linux-2.6.0-test6-ipv6mib1/net/ipv6/ndisc.c
---- linux-2.6.0-test6/net/ipv6/ndisc.c	2003-09-27 17:50:29.000000000 -0700
-+++ linux-2.6.0-test6-ipv6mib1/net/ipv6/ndisc.c	2003-10-10 15:46:03.000000000 
+diff -urN linux-2.6.0-test6/net/ipv6/anycast.c 
+linux-2.6.0-test6-ipv6mib4/net/ipv6/anycast.c
+--- linux-2.6.0-test6/net/ipv6/anycast.c	2003-09-27 17:50:06.000000000 -0700
++++ linux-2.6.0-test6-ipv6mib4/net/ipv6/anycast.c	2003-10-08 
+00:15:38.000000000 -0700
+@@ -343,6 +343,8 @@
+ 	ipv6_addr_copy(&aca->aca_addr, addr);
+ 	aca->aca_idev = idev;
+ 	aca->aca_users = 1;
++	/* aca_tstamp should be updated upon changes */
++	aca->aca_cstamp = aca->aca_tstamp = jiffies;
+ 	atomic_set(&aca->aca_refcnt, 2);
+ 	aca->aca_lock = SPIN_LOCK_UNLOCKED;
+ 
+diff -urN linux-2.6.0-test6/net/ipv6/mcast.c 
+linux-2.6.0-test6-ipv6mib4/net/ipv6/mcast.c
+--- linux-2.6.0-test6/net/ipv6/mcast.c	2003-09-27 17:50:53.000000000 -0700
++++ linux-2.6.0-test6-ipv6mib4/net/ipv6/mcast.c	2003-10-08 00:15:38.000000000 
 -0700
-@@ -76,7 +76,7 @@
- #include <linux/proc_fs.h>
+@@ -830,6 +830,8 @@
+ 	ipv6_addr_copy(&mc->mca_addr, addr);
+ 	mc->idev = idev;
+ 	mc->mca_users = 1;
++	/* mca_stamp should be updated upon changes */
++	mc->mca_cstamp = mc->mca_tstamp = jiffies;
+ 	atomic_set(&mc->mca_refcnt, 2);
+ 	mc->mca_lock = SPIN_LOCK_UNLOCKED;
  
- static struct socket *ndisc_socket;
--
-+extern void inet6_ifinfo_notify(int event, struct inet6_dev *idev);
- static u32 ndisc_hash(const void *pkey, const struct net_device *dev);
- static int ndisc_constructor(struct neighbour *neigh);
- static void ndisc_solicit(struct neighbour *neigh, struct sk_buff *skb);
-@@ -1109,6 +1109,7 @@
- 			if (rtime < HZ/10)
- 				rtime = HZ/10;
- 			in6_dev->nd_parms->retrans_time = rtime;
-+			inet6_ifinfo_notify(RTM_NEWLINK, in6_dev);
- 		}
- 
- 		rtime = ntohl(ra_msg->reachable_time);
-@@ -1122,6 +1123,7 @@
- 				in6_dev->nd_parms->base_reachable_time = rtime;
- 				in6_dev->nd_parms->gc_staletime = 3 * rtime;
- 				in6_dev->nd_parms->reachable_time = neigh_rand_reach_time(rtime);
-+				inet6_ifinfo_notify(RTM_NEWLINK, in6_dev);
- 			}
- 		}
- 	}
-@@ -1487,6 +1489,20 @@
- 	.notifier_call = ndisc_netdev_event,
- };
- 
-+#ifdef CONFIG_SYSCTL
-+int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file 
-* filp, void __user *buffer, size_t *lenp)
-+{
-+	struct net_device *dev = ctl->extra1;
-+	struct inet6_dev *idev;
-+
-+	if (write && dev && (idev = in6_dev_get(dev)) != NULL) {
-+		inet6_ifinfo_notify(RTM_NEWLINK, idev);
-+		in6_dev_put(idev);
-+	}
-+	return proc_dointvec(ctl, write, filp, buffer, lenp);
-+}
-+#endif
-+
- int __init ndisc_init(struct net_proto_family *ops)
- {
- 	struct ipv6_pinfo *np;
-@@ -1517,7 +1533,8 @@
- 	neigh_table_init(&nd_tbl);
- 
- #ifdef CONFIG_SYSCTL
--	neigh_sysctl_register(NULL, &nd_tbl.parms, NET_IPV6, NET_IPV6_NEIGH, 
-"ipv6");
-+	neigh_sysctl_register(NULL, &nd_tbl.parms, NET_IPV6, NET_IPV6_NEIGH, 
-+			      "ipv6", &ndisc_ifinfo_sysctl_change);
- #endif
- 
- 	register_netdevice_notifier(&ndisc_netdev_notifier);
