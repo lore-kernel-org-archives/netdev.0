@@ -1,28 +1,55 @@
-From: Park Lee <parklee_sel@yahoo.com>
-Subject: What's the purpose of ip_route_output_flow()?
-Date: Fri, 25 Feb 2005 08:52:40 -0800 (PST)
-Message-ID: <20050225165240.69376.qmail@web51502.mail.yahoo.com>
+From: Tim Schmielau <tim@physik3.uni-rostock.de>
+Subject: Re: linux-2.6.8.1 to linux-2.6.10: Kernel Patching Issues.
+Date: Fri, 25 Feb 2005 18:12:12 +0100 (CET)
+Message-ID: <Pine.LNX.4.53.0502251805280.1039@gockel.physik3.uni-rostock.de>
+References: <Pine.LNX.4.10.10502251550520.26208-100000@mtfhpc.demon.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-To: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+        jmorris@redhat.com, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
+        netdev@oss.sgi.com, lkml <linux-kernel@vger.kernel.org>
+To: Mark Fortescue <mark@mtfhpc.demon.co.uk>
+In-Reply-To: <Pine.LNX.4.10.10502251550520.26208-100000@mtfhpc.demon.co.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-  Would you please tell me what the purpose of
-ip_route_output_flow() is? and What the differences
-between it and ip_route_output_key() are?
+On Fri, 25 Feb 2005, Mark Fortescue wrote:
 
-  Thank you.
+> The kernel patch files patch-2.6.9 and patch-2.6.10 do not apear to be
+> correct. I had some errors during patching so I generated a diff against a
+> freshly downloaded linux-2.6.10 kernel. See the steps below:
+> 
+> 1) bzcat linux-2.6.8.1.tar.bz2 | tar -xf -
+> 2) cd linux-2.6.8.1
+> 3) bzcat ../patch-2.6.8.1.bz2 | patch -R -p1
+> 	This gives a 2.6.8 kernel.
+> 
+> 4) bzcat ../patch-2.6.9.bz2 | patch -p1
+> 	This should give a 2.6.9 kernel. The patch has two errors:
+> 		./net/ipv4/netfilter/ipt_ecn.c.rej
+> 		./net/ipv4/netfilter/ipt_tcpmss.c.rej
+> 
+> 5) bzcat ../patch-2.6.10.bz2 | patch -p1 -f
+> 	This should give a 2.6.10 kernel. The patch has three erros:
+> 		./include/linux/netfilter_ipv4/ipt_connmark.h.rej
+> 		./net/ipv4/netfilter/ipt_connmark.c.rej
+> 		./net/ipv6/netfilter/ip6t_MARK.c.rej
+> 6) cd ..; mv linux-2.6.8.1 linux-2.6.10p
+> 7) bzcat linux-2.6.10.tar.bz2 | tar -xf -
+> 8) diff -rupN linux-2.6.10p linux-2.6.10 | tee patch-2.6.10.err
 
+Yes, these steps should work. Actually, I just checked (copy & paste the
+commands from your mail), and it works for me.
 
-=====
-Best Regards,
-Park Lee
+Are you sure your files are ok? md5sums for my copies of the files are
 
-__________________________________________________
-Do You Yahoo!?
-Tired of spam?  Yahoo! Mail has the best spam protection around 
-http://mail.yahoo.com 
+cffcd2919d9c8ef793ce1ac07a440eda  linux-2.6.10.tar.bz2
+98f93075c7c24e681eaf7e70783af5e4  linux-2.6.8.1.tar.gz
+98b7db13a3f13199a48e89a79d2ee388  patch-2.6.10.bz2
+824b7d88ab2fabc031f1a6c1e6e288ee  patch-2.6.8.1.bz2
+fe744cdcd31b97b803e51ad785520489  patch-2.6.9.bz2
+
+Are you sure your filesystem works ok? Not out of quota?
+
+Tim
