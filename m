@@ -1,36 +1,41 @@
 From: "Noah J. Misch" <noah@caltech.edu>
 Subject: Re: patches for PROC_FS=n (2.6.0-test7)
-Date: Mon, 13 Oct 2003 22:17:57 -0700 (PDT)
+Date: Mon, 13 Oct 2003 22:52:56 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.58.0310122215370.24@inky>
-References: <Pine.GSO.4.58.0310101519330.9806@inky> <20031012191725.093139d5.rddunlap@osdl.org>
+Message-ID: <Pine.GSO.4.58.0310132128450.8530@blinky>
+References: <Pine.GSO.4.58.0310101519330.9806@inky> <20031012201316.7ecf73c8.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: maxk@qualcomm.com, netdev@oss.sgi.com, davem@redhat.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <20031012191725.093139d5.rddunlap@osdl.org>
+To: "Randy.Dunlap" <rddunlap@osdl.org>, Elmer.Joandi@ut.ee, elmer@ylenurme.ee
+In-Reply-To: <20031012201316.7ecf73c8.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Randy,
 
-That fix looks like the best to me.  I did notice also that proc_bt_rfcomm and
-proc_bt_hci have similar #ifdef wrappers.  I think that's okay since they aren't
-EXPORT_SYMBOL-ed, and they're used in fewer places.
+I poked around the driver a bit and uncovered a few points that suggest to me a
+different approach to the problem.
 
-FYI, IPX won't compile without CONFIG_PROC_FS at this time.  The merged patch
-depended on a patch that I sent to Linus and posted to linux-kernel alongside
-the IPX patch.  I also sent them to linux-net (accidentally, instead of netdev).
-I may need to resend that patch.  In the mean time, if you actually need to use
-IPX without procfs, you can grab the patch (and rationale) here:
-http://www.ussg.iu.edu/hypermail/linux/kernel/0310.1/0452.html
+The file arlan-proc.c contains a number of functions supporting the driver's
+sysctl interface.  Nothing in that file appears procfs-specific.
 
-FYI #2, from elsewhere in the department of fixing exotic breakage, I'm working
-on patches that will allow one to compile a linux kernel under Unix and other
-similar systems.  I've gotten allnoconfig for i386 to build from Solaris 2.7 on
-sun4u, but a number of the userspace tools that support the build process of
-optional components need a bit more help.
+I would change the Makefile to compile arlan-proc.c depending on CONFIG_SYSCTL
+and remove the #ifdef CONFIG_PROC_FS guarding much of that file.  I would then
+make arlan.h define macro or static inline stubs for init_arlan_proc and
+cleanup_arlan_proc much like the current arlan.h does.
+
+For the matter, perhaps one could add an extra config option, ARLAN_SYSCTL, that
+depends on ARLAN and SYSCTL, and conditional-compile arlan-proc.c on that
+instead of CONFIG_SYSCTL itself.  That way, users could leave it out to save
+space without zapping all sysctls.  I would go for this approach myself.
+
+The configuration help text for the arlan driver claims that it builds a module
+for the driver and another for its sysctl interface.  It doesn't do that at the
+moment, but that is another option (though not one I like as much).
+
+What do you think?
 
 On Sun, 12 Oct 2003, Randy.Dunlap wrote:
 
@@ -38,40 +43,49 @@ On Sun, 12 Oct 2003, Randy.Dunlap wrote:
 >
 > | > There are several other drivers/protocols that don't build
 > | > with PROC_FS=n, like arlan, siimage, ipx, llc, and bluetooth.
-> |
-> | I put in a patch for ipx yesterday, and I have patches for siimage and llc
-> | pretty much ready to go.  I noticed the others but I have not done much.
 >
-> ipx is merged.  I'll leave siimage and llc to Noah.
-> Patch below fixes af_bluetooth.  Comments on it?
 >
+> Here's a patch for the wireless/arlan driver for PROC_FS=n.
+> Currently it defines both a function and a macro for
+> init_arlan_proc() if PROC_FS=n.  This causes a bunch of
+> compile-time errors.
+>
+> It looks to me like it should always call the init_arlan_proc()
+> (and cleanup_arlan_proc()) functions since it inits some sysctl tables.
+> Or am I misunderstanding it?
+>
+> Thanks,
 > --
 > ~Randy
 >
 >
-> patch_name:	bt_noprocfs.patch
-> patch_version:	2003-10-12.19:11:03
+> patch_name:	arlan_noprocfs.patch
+> patch_version:	2003-10-12.19:46:24
 > author:		Randy.Dunlap <rddunlap@osdl.org>
-> description:	af_bluetooth uses/needs proc_bt when PROC_FS=n
+> description:	use init_arlan_proc() for sysctl inits
 > product:	Linux
 > product_versions: 2.6.0-test7
 > diffstat:	=
->  net/bluetooth/af_bluetooth.c |    2 --
->  1 files changed, 2 deletions(-)
+>  drivers/net/wireless/arlan.h |    5 -----
+>  1 files changed, 5 deletions(-)
 >
 >
-> diff -Naur ./net/bluetooth/af_bluetooth.c~btprocfs ./net/bluetooth/af_bluetooth.c
-> --- ./net/bluetooth/af_bluetooth.c~btprocfs	2003-10-08 12:24:02.000000000 -0700
-> +++ ./net/bluetooth/af_bluetooth.c	2003-10-12 19:09:11.000000000 -0700
-> @@ -56,9 +56,7 @@
->  #define BT_DBG( A... )
->  #endif
+> diff -Naur ./drivers/net/wireless/arlan.h~arlanprocfs ./drivers/net/wireless/arlan.h
+> --- ./drivers/net/wireless/arlan.h~arlanprocfs	2003-10-08 12:24:08.000000000 -0700
+> +++ ./drivers/net/wireless/arlan.h	2003-10-12 19:45:46.000000000 -0700
+> @@ -39,13 +39,8 @@
+>  #define ARLAN_RCV_PROMISC 1
+>  #define ARLAN_RCV_CONTROL 2
 >
 > -#ifdef CONFIG_PROC_FS
->  struct proc_dir_entry *proc_bt;
+>  extern int init_arlan_proc(void);
+>  extern void cleanup_arlan_proc(void);
+> -#else
+> -#define init_arlan_proc()	(0)
+> -#define cleanup_arlan_proc()	do { } while (0);
 > -#endif
 >
->  /* Bluetooth sockets */
->  #define BT_MAX_PROTO	5
+>  extern struct net_device *arlan_device[MAX_ARLANS];
+>  extern int	arlan_debug;
 >
 >
