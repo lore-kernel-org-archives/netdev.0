@@ -1,39 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH, untested] Support for PPPOE on SMP
-Date: Fri, 27 Jun 2003 07:59:46 -0700
+From: John Bradford <john@grabjohn.com>
+Subject: Re: networking bugs and bugme.osdl.org
+Date: Fri, 27 Jun 2003 16:25:05 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030627075946.7ab6f591.shemminger@osdl.org>
-References: <20030625.143334.85380461.davem@redhat.com>
-	<20030626035824.D68B62C147@lists.samba.org>
-	<20030625.205941.41631020.davem@redhat.com>
-	<16122.53298.150512.793074@h006008986325.ne.client2.attbi.com>
-	<20030626190407.S87648@shell.cyberus.ca>
-	<16124.11495.374998.153330@h006008986325.ne.client2.attbi.com>
-	<16124.13469.944716.441016@nanango.paulus.ozlabs.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: carlson@workingcode.com, hadi@shell.cyberus.ca, davem@redhat.com,
-   rusty@rustcorp.com.au, netdev@oss.sgi.com, fcusack@samba.org
+Message-ID: <200306271525.h5RFP5K1001776@81-2-122-30.bradfords.org.uk>
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Paul Mackerras <paulus@samba.org>
-In-Reply-To: <16124.13469.944716.441016@nanango.paulus.ozlabs.org>
+To: davem@redhat.com, matti.aarnio@zmailer.org, mbligh@aracnet.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Jun 2003 22:12:13 +1000 (EST)
-Paul Mackerras <paulus@samba.org> wrote:
+> > Ok, responding so that the response appears also
+> > at the bug db is another story.
+>
+> That is possible to do - there's patches to Bugzilla that implement an
+> email interface, but it has some problems like the one you pointed out
+> above. One possiblility is to make people manually do something to the
+> email for each reply, but that's rather ugly. 
+>
+> Hopefully we can discuss this more at OLS this year, and get a plan 
+> going forward that people are happy with. I'm well aware that Bugzilla
+> is not the perefect tool, but I think it's better than what we had 
+> before (yeah, I know some of us disagree), and is easy to change.
+> I'd rather start with something simple, and evolve it to the needs of
+> the community than try dumping something complex onto people up front.
 
-> James Carlson writes:
-> > Jamal Hadi writes:
-> > > So what about packet being loss? Wouldnt that ensure reordering?
-> > 
-> > Please explain.  What pattern of loss possibly results in one packet
-> > being inserted in the stream ahead of another?
-> 
-> Rusty asked me today what protocols there were that coped with packet
-> loss but couldn't cope with reordering.  I couldn't think of any.  Do
-> you know of any examples?
-> 
+I did make the effort to make a dedicated bug database for kernel
+development in December last year.  Do people actively hate it, or are
+they just not aware of it?  :-).  I got some very favourable comments
+early on, and a review in a Linux magazine, but haven't had much
+feedback recently about it.  I was specifically trying to address the
+kind of problems we're seeing with Bugzilla...
 
-Does LLC allow for re-ordering?
+http://grabjohn.com/kernelbugdatabase
+
+John.
