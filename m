@@ -1,28 +1,26 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: Output on raw sockets ignores IP_DF when packet is bigger than
- pmtu
-Date: Thu, 6 Mar 2003 10:30:33 -0800 (PST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] wrong ENETDOWN in af_packet?
+Date: Thu, 06 Mar 2003 10:31:42 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0303061025210.9448-100000@dyn9-47-18-140.beaverton.ibm.com>
-References: <03030611014533.2221238e.7643064@psc.edu>
+Message-ID: <20030306.103142.58817243.davem@redhat.com>
+References: <20030305141123.GA16699@ally.lammerts.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: NETDEV@oss.sgi.com, <RREDDY@vms.psc.edu>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com, alan@lxorguk.ukuu.org.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Raghurama 'REDDY'" <rreddy@psc.edu>
-In-Reply-To: <03030611014533.2221238e.7643064@psc.edu>
+To: eric@lammerts.org
+In-Reply-To: <20030305141123.GA16699@ally.lammerts.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 6 Mar 2003, Raghurama 'REDDY' wrote:
+   From: Eric Lammerts <eric@lammerts.org>
+   Date: Wed, 5 Mar 2003 15:11:23 +0100
+   
+   The reason is that (in af_packet.c) packet_notifier(NETDEV_DOWN) sets
+   sk->err to ENETDOWN, but packet_notifier(NETDEV_UP) doesn't clear it.
+   Is this behaviour deliberate?
 
-> Is there a way to get the host to not fragment when IP_DF is set,
-> iresspective what the pmtu is?
-
-You can disable pmtu discovery on a socket using the IP level socket option 
-IP_MTU_DISCOVER.
-
-System wide pmtu discovery can be disabled by setting 
-	/proc/sys/net/ipv4/ip_no_pmtu_disc
-
--Sridhar
+Yes the behavior is deliberate.  You want to be aware of the
+event.  Just because the opposite event has occurred afterwards
+doesn't mean the first event didn't happen :-)
