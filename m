@@ -1,43 +1,30 @@
-From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] LLTX for tg3
-Date: Tue, 7 Sep 2004 14:18:41 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Trivial fix for out of bounds array access in xfrm4_policy_check
+Date: Tue, 07 Sep 2004 22:46:22 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907121841.GA4398@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Message-ID: <E1C4fMc-000817-00@gondolin.me.apana.org.au>
+References: <Pine.LNX.4.61.0409071322100.8637@hosting.rdsbv.ro>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, netdev@oss.sgi.com
-Content-Disposition: inline
+To: util@deuroconsult.ro (Catalinux aka Dino BOIE)
+In-Reply-To: <Pine.LNX.4.61.0409071322100.8637@hosting.rdsbv.ro>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Catalinux aka Dino BOIE <util@deuroconsult.ro> wrote:
+> 
+> Coverity found a bug in accessing xfrm4_policy_check using XFRM_POLICY_FWD 
+> (=2) as index in sk->sk_policy.
+> 
+> sk->sk_policy[] is defined in sock.h as:
+> 
+> struct xfrm_policy *sk_policy[2];
+> 
+> Attached is the fix.
 
-Add LLTX suppor to tg3.  Locking was already safe for it, so only
-trivial changes.
-
-Depends on the LLTX patch sent earlier.
-
-diff -u linux-2.6.8/drivers/net/tg3.c-o linux-2.6.8/drivers/net/tg3.c
---- linux-2.6.8/drivers/net/tg3.c-o	2004-09-04 13:10:46.000000000 +0000
-+++ linux-2.6.8/drivers/net/tg3.c	2004-09-07 08:17:36.000000000 +0000
-@@ -3036,7 +3036,11 @@
- 	 * So we really do need to disable interrupts when taking
- 	 * tx_lock here.
- 	 */
--	spin_lock_irqsave(&tp->tx_lock, flags);
-+	local_irq_save(flags);
-+	if (!spin_trylock(&tp->tx_lock)) { 
-+		local_irq_restore(flags);
-+		return -1; 
-+	} 
- 
- 	/* This is a hard error, log it. */
- 	if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
-@@ -8255,6 +8259,7 @@
- 
- 	if (pci_using_dac)
- 		dev->features |= NETIF_F_HIGHDMA;
-+	dev->features |= NETIF_F_LLTX;
- #if TG3_VLAN_TAG_USED
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- 	dev->vlan_rx_register = tg3_vlan_rx_register;
+This is bogus as if the packet is forwarded then sk == NULL.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
