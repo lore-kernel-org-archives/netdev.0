@@ -1,39 +1,39 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [Issues] Implementation for IPv6 MIB:ipv6PrefixTable
-Date: Fri, 24 Oct 2003 21:59:27 +0400 (MSD)
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Limit SO_BSDCOMPAT warning
+Date: Fri, 24 Oct 2003 22:57:07 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310241759.VAA16832@yakov.inr.ac.ru>
-References: <20031024044708.236f0d22.davem@redhat.com>
+Message-ID: <20031024205707.GA1072@averell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mashirle@us.ibm.com, netdev@oss.sgi.com, davem@redhat.com
-In-Reply-To: <20031024044708.236f0d22.davem@redhat.com> from "David S. Miller" at Oct 24, 2003 04:47:08 AM
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> First, do you think it's a good idea to save all prefix objects in routing
-> table?
+Warning a few times for each process is enough.
 
-Those which are on-link, of course.
+-Andi
 
-
-> Second, where is the best location for the off-link prefix, on-link flag 0
-> prefix to be saved?
-
-Do you really think off-link prefixes are to be saved? Prefix in use is onlink
-by defintion, so just return 1 in these bit and ignore off-link prefixes
-completely, they are meaningless, are not they?
-
-
-> Third, do you think it's a good idea to implement a prefix table/per
-> interface in the kernel?
-
-Well, if SNMP is going to be used as a tool to snoop ndisc promiscuously
-(which seems to be the case if it shows inforrmation about offlink prefixes),
-then it is definitely not a kernel task.
-
-Alexey
+diff -u linux-2.6.0test7/net/core/sock.c-o linux-2.6.0test7mm1-averell/net/core/sock.c
+--- linux-2.6.0test7mm1/net/core/sock.c-o	2003-10-16 05:19:13.000000000 +0200
++++ linux-2.6.0test7mm1/net/core/sock.c	2003-10-24 22:30:46.000000000 +0200
+@@ -154,8 +154,14 @@
+ 
+ static void sock_warn_obsolete_bsdism(const char *name)
+ {
+-	printk(KERN_WARNING "process `%s' is using obsolete "
+-	       "%s SO_BSDCOMPAT\n", current->comm, name);
++	static int warned;
++	static char warncomm[16];
++	if (strcmp(warncomm, current->comm) && warned < 5) { 
++		strcpy(warncomm,  current->comm); 
++		printk(KERN_WARNING "process `%s' is using obsolete "
++		       "%s SO_BSDCOMPAT\n", warncomm, name);
++		warned++;
++	}
+ }
+ 
+ /*
