@@ -1,32 +1,40 @@
-From: Kumar Gala <galak@freescale.com>
-Subject: [PATCH] gianfar: Update Marvell PHY name
-Date: Fri, 4 Mar 2005 01:55:11 -0600 (CST)
-Message-ID: <Pine.LNX.4.61.0503040150480.16127@blarg.somerset.sps.mot.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linuxppc-embedded@ozlabs.org, netdev@oss.sgi.com
-To: jgarzik@pobox.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] [NET]: Fix deletion of local addresses only varying in prefix length
+Date: Fri, 04 Mar 2005 19:31:17 +1100
+Message-ID: <E1D78DN-0002te-00@gondolin.me.apana.org.au>
+References: <20050304012003.GA31837@postel.suug.ch>
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+To: tgraf@suug.ch (Thomas Graf)
+In-Reply-To: <20050304012003.GA31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff,
+Thomas Graf <tgraf@suug.ch> wrote:
+> The deletion of local addresses via netlink doesn't take the
+> prefix length into account resulting in the deletion of
+> the address that was added first given multiple addresses
+> exist only varying in the prefix length.
 
-This patch updates the name identifier to list both of the Marvell PHYs 
-that are supported.
+This has the potential of breaking user-space scripts.  For example,
+this won't work anymore:
 
-Signed-off-by: Kumar Gala <kumar.gala@freescale.com>
+ip a a dev eth0 192.168.0.1/24
+ip a d dev eth0 192.168.0.1
 
----
-diff -Nru a/drivers/net/gianfar_phy.c b/drivers/net/gianfar_phy.c
---- a/drivers/net/gianfar_phy.c	2005-03-02 14:20:27 -06:00
-+++ b/drivers/net/gianfar_phy.c	2005-03-02 14:20:27 -06:00
-@@ -572,7 +572,7 @@
- static struct phy_info phy_info_marvell = {
- 	.phy_id		= 0x01410c00,
- 	.phy_id_mask	= 0xffffff00,
--	.name		= "Marvell 88E1101",
-+	.name		= "Marvell 88E1101/88E1111",
- 	.features	= MII_GBIT_FEATURES,
- 	.config_aneg	= &marvell_config_aneg,
- 	.read_status	= &marvell_read_status,
+> tgr:axs ~ ip -4 addr show dev lo
+> 1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue 
+>    inet 127.0.0.1/8 scope host lo
+>    inet 1.1.1.1/1 scope global lo
+>    inet 1.1.1.1/2 scope global lo
+
+Do we really need to handle this case? If we do then would it be better
+to consider ifa_prefixlen only when there are multiple addresses present
+which match but differ by prefix length?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
