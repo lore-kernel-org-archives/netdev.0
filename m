@@ -1,33 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [IPV6] NDISC: ensure responding to NS without
- link-layer information.
-Date: Thu, 16 Sep 2004 13:14:28 -0700
+Subject: Re: [INET] Kill ip6_get_dsfield
+Date: Thu, 16 Sep 2004 13:26:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916131428.39736d91.davem@davemloft.net>
-References: <20040916.125921.56481183.yoshfuji@linux-ipv6.org>
+Message-ID: <20040916132637.69a07e57.davem@davemloft.net>
+References: <20040916115827.GA29046@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040916.125921.56481183.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040916115827.GA29046@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Sep 2004 12:59:21 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Thu, 16 Sep 2004 21:58:28 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> When sending NA in response to NS, we may not know the 
-> link-layer address for the destination of the NA 
-> since unicast NS is not required to include its link-layer information.
-> In this case, we first need to resolve the link-layer address.
-> (RFC 2461 7.2.4)
+> This patch kills the duplicate implementation of ip6_get_dsfield in
+> inet_ecn.h.  It now uses ipv6_get_dsfield from dsfield.h instead.
 > 
-> We now create neighbour entry for the destination 
-> and link-layer information will be automatically solved 
-> in the output path.
-> 
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Patch applied, thank you.
+Applied, thanks Herbert.
