@@ -1,56 +1,41 @@
-From: Michael Bellion and Thomas Heinz <nf@hipac.org>
-Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
-Date: Wed, 02 Jul 2003 18:57:32 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: fix a mistake in ipv6_advmss() conversion
+Date: Thu, 03 Jul 2003 02:55:29 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F030EFC.7090809@hipac.org>
-References: <Pine.LNX.4.44.0307020826530.23232-100000@netcore.fi> <200307021426.56138.nf@hipac.org> <3F02D964.7050301@draigBrady.com> <200307021548.19989.nf@hipac.org> <3F02EAE2.8050609@draigBrady.com>
+Message-ID: <20030703.025529.100658086.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: P@draigbrady.com
+To: davem@redhat.com, jmorris@intercode.com.au
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi P=E1draig
+Hello.
 
-You wrote:
-> I was testing with 64 byte packets (so around 190Kpps). e100 cards at=20
-> least have a handy mode for continually sending a packet as fast as=20
-> possible. Also you can use more than one interface.
+Sorry, I introduced a bug in ipv6_advmss()
+while converting advmss calculation to inline function.
+This patch fixes the bug.
 
-Yes, that's true. When we did the performance tests we had in mind to
-compare the worst case behaviour of nf-hipac and iptables.
-Therefore we designed a ruleset which models the worst case for both
-iptables and nf-hipac. Of course, the test environment could have been
-tuned a lot more, e.g. udp instead of tcp, FORWARD chain instead of
-INPUT, tuned network parameters, more interfaces etc.
+Index: linux-2.5/net/ipv6/route.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/route.c,v
+retrieving revision 1.43
+diff -u -r1.43 route.c
+--- linux-2.5/net/ipv6/route.c	28 Jun 2003 03:58:20 -0000	1.43
++++ linux-2.5/net/ipv6/route.c	2 Jul 2003 16:25:04 -0000
+@@ -602,6 +602,8 @@
+ 
+ static inline unsigned int ipv6_advmss(unsigned int mtu)
+ {
++	mtu -= sizeof(struct ipv6hdr) + sizeof(struct tcphdr);
++
+ 	if (mtu < ip6_rt_min_advmss)
+ 		mtu = ip6_rt_min_advmss;
+ 
 
-Anyway, we prefer independent, more sophisticated performance tests.
-
->>> # ./readprofile -m /boot/System.map | sort -nr | head -30
->>>   6779 total                                      0.0047
->>>   4441 default_idle                              69.3906
->>>    787 handle_IRQ_event                           7.0268
->>>    589 ip_packet_match                            1.6733
->>>    433 ipt_do_table                               0.6294
->>>    106 eth_type_trans                             0.5521
->>>    [...]
->=20
-> Confused me too. The system would lock up and start dropping
-> packets after 125 rules. I.E. it would linearly degrade
-> as more rules were added. I'm guessing there is a fixed
-> interrupt overhead that is accounted for
-> by default_idle?
-
-Hm, but once the system starts to drop packets ip_packet_match and
-ipt_do_table start to dominate the profile, don't they?
-
-
-Regards,
-
-+-----------------------+----------------------+
-|   Michael Bellion     |     Thomas Heinz     |
-| <mbellion@hipac.org>  |  <creatix@hipac.org> |
-+-----------------------+----------------------+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
