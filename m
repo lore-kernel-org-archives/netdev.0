@@ -1,44 +1,76 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: memory leak in net/sched/ipt.c?
-Date: 23 Mar 2005 09:12:48 -0500
-Message-ID: <1111587168.1072.4.camel@jzny.localdomain>
-References: <E1DE44X-0001QM-00@gondolin.me.apana.org.au>
-	 <1111581618.1088.72.camel@jzny.localdomain>
-	 <20050323125516.GP3086@postel.suug.ch>
-	 <1111583497.1089.92.camel@jzny.localdomain>
-	 <Pine.LNX.4.61.0503231438290.10048@yvahk01.tjqt.qr>
-	 <1111586750.1075.0.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Colin Leroy <colin@colino.net>
+Subject: RFC: workaround quality bug in zd1201 hardware
+Date: Wed, 23 Mar 2005 15:26:12 +0100
+Message-ID: <20050323152612.66dce7e2@jack.colino.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-To: Jan Engelhardt <jengelh@linux01.gwdg.de>
-In-Reply-To: <1111586750.1075.0.camel@jzny.localdomain>
+Cc: linux-kernel@vger.kernel.org
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Actually its well documented even on the man pages - so should have not
-even have bothered discussing it;-> Should get new brand of coffee.
-Apologies for unecessarily abused electrons - which means dont 
-respond ;->
+Hi,
 
-cheers,
-jamal
+I saw in zd1201.c that there's a hardware bug related to quality
+statistics:
+ /* Unfortunatly the quality and noise reported is useless. 
+    they seem to be accumulators that increase until you
+    read them, unless we poll on a fixed interval we can't
+    use them
+  */
 
-On Wed, 2005-03-23 at 09:05, jamal wrote:
-> On Wed, 2005-03-23 at 08:40, Jan Engelhardt wrote:
-> > >I have seen people put little comments of "kfree will work if you
-> > >pass it NULL" - are you saying such assumptions exist all over
-> > >net/sched?
-> > 
-> > Not only net/sched. The C standard requires that free(NULL) works.
-> 
-> Thanks for clarifying this.
-> 
-> cheers,
-> jamal
-> 
-> 
-> 
+Given that I couldn't find any spec for the zd1201, I tried the
+following patch to see if we could cheat by updating commsquality while
+scanning. The idea is to use the values we find during scan and copy
+them to zd->iwstats; this can be useful because there are a lots of
+tools out there that perform scanning periodically (netapplet,
+NetworkManager, ...).
+
+Unfortunately this doesn't work perfectly, because it looks like the
+scale is different when reporting AP quality on scanning and
+"normal" quality.
+
+Maybe this can be made useful with a simple conversion ?
+If anyone that has more knowledge on 802.11b than I have could give me
+an hint, it'd be appreciated.
+
+Thanks!
+Signed-off-by: Colin Leroy <colin@colino.net>
+--- a/drivers/usb/net/zd1201.c	2005-03-23 15:17:12.000000000 +0100
++++ b/drivers/usb/net/zd1201.c	2005-03-23 15:17:50.000000000 +0100
+@@ -1160,6 +1160,7 @@
+ 		return -EIO;
+ 
+ 	for(i=8; i<zd->rxlen; i+=62) {
++		const char *ap_essid;
+ 		iwe.cmd = SIOCGIWAP;
+ 		iwe.u.ap_addr.sa_family = ARPHRD_ETHER;
+ 		memcpy(iwe.u.ap_addr.sa_data, zd->rxdata+i+6, 6);
+@@ -1169,6 +1170,7 @@
+ 		iwe.u.data.length = zd->rxdata[i+16];
+ 		iwe.u.data.flags = 1;
+ 		cev = iwe_stream_add_point(cev, end_buf, &iwe, zd->rxdata+i+18);
++		ap_essid = zd->rxdata+i+18;
+ 
+ 		iwe.cmd = SIOCGIWMODE;
+ 		if (zd->rxdata[i+14]&0x01)
+@@ -1204,6 +1206,17 @@
+ 		iwe.u.qual.noise= zd->rxdata[i+2]/10-100;
+ 		iwe.u.qual.level = (256+zd->rxdata[i+4]*100)/255-100;
+ 		iwe.u.qual.updated = 7;
++
++		if (ap_essid && zd->essid && !strcmp(ap_essid, zd->essid)) {
++			/* hack: work around hardware bug, update current 
++			 * link quality using the scan result. 
++			 */
++			zd->iwstats.qual.qual = iwe.u.qual.qual;
++			zd->iwstats.qual.level = iwe.u.qual.level;
++			zd->iwstats.qual.noise = iwe.u.qual.noise;
++			zd->iwstats.qual.updated = 2;
++		}
++
+ 		cev = iwe_stream_add_event(cev, end_buf, &iwe, IW_EV_QUAL_LEN);
+ 	}
+ 
