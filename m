@@ -1,31 +1,60 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
-Date: Tue, 5 Apr 2005 20:39:18 +1000
-Message-ID: <20050405103918.GA24863@gondor.apana.org.au>
-References: <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net> <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net> <20050331004658.GA26395@gondor.apana.org.au> <20050331212325.5e996432.davem@davemloft.net> <20050402004956.GA24339@gondor.apana.org.au> <20050401172007.7296eced.davem@davemloft.net> <20050402020947.GA24998@gondor.apana.org.au> <42501E51.3000401@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Netlink Connector / CBUS
+Date: 05 Apr 2005 06:44:48 -0400
+Message-ID: <1112697888.1089.44.camel@jzny.localdomain>
+References: <Xine.LNX.4.44.0504050108260.9383-100000@thoron.boston.redhat.com>
+	 <1112686480.28858.17.camel@uganda>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-        jmorris@redhat.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, linux-kernel@vger.kernel.org,
+        netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>,
+        James Morris <jmorris@redhat.com>, rml@novell.com,
+        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <42501E51.3000401@trash.net>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <1112686480.28858.17.camel@uganda>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 03, 2005 at 06:48:17PM +0200, Patrick McHardy wrote:
+
+To be fair to Evgeniy I am not against the Konnector idea. I think that
+it is a useful feature to have an easy to use messaging between
+kernel-kernel and kernel-userspace. The fact that he leveraged netlink
+instead of inventing things is a bonus. Having said that i have not
+seriously scrutinized the code - and i think the idea of this new thing
+hes tossing around called CBUS maybe pushing it.
+
+cheers,
+jamal
+
+On Tue, 2005-04-05 at 03:34, Evgeniy Polyakov wrote:
+> On Tue, 2005-04-05 at 01:10 -0400, Herbert Xu wrote:
+> >On Tue, Apr 05, 2005 at 11:03:16AM +0400, Evgeniy Polyakov wrote:
+> >> 
+> >> I received comments and feature requests from Herbert Xu and Jamal Hadi
+> >> Salim,
+> >> almost all were successfully resolved.
+> >
+> >Please do not construe my involvement in these threads as endorsement
+> >for this system.
 > 
-> Agreed. There is also a bug in my patch, tmpl->daddr can be 0 in which
-> case the daddr passed as an argument to xfrm_state_find() will be used.
-> My patch only checked tmpl->daddr, this patch fixes it. It also uses
-
-Why not just use daddr? It's always guaranteed to be correct.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> Sure.
+> I remember you are against it :).
+> 
+> >In fact to this day I still don't understand what problems this thing is
+> >meant to solve.
+> 
+> Hmm, what else can I add to my words?
+> May be checking the size of the code needed to broadcast kobject changes
+> in kobject_uevent.c for example...
+> Netlink socket allocation + skb handling against call to cn_netlink_send().
+> 
+> >-- 
+> >Visit Openswan at http://www.openswan.org/
+> >Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> >Home Page: http://gondor.apana.org.au/~herbert/
+> >PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
