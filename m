@@ -1,11 +1,11 @@
 From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH 6/17 linux-2.6.7-rc2] prism54: Kernel compatibility (resend)
-Date: Sat, 5 Jun 2004 14:48:08 +0200
+Subject: [PATCH 11/17 linux-2.6.7-rc2] prism54: Don't allow mib reads while unconfigured (resend)
+Date: Sat, 5 Jun 2004 14:49:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406051448.08292.margitsw@t-online.de>
+Message-ID: <200406051449.55893.margitsw@t-online.de>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_IEcwA9i+0zpj2K4"
+  boundary="Boundary-00=_zFcwAfFmTGrEPSo"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
@@ -13,609 +13,313 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Boundary-00=_IEcwA9i+0zpj2K4
+--Boundary-00=_zFcwAfFmTGrEPSo
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-2004-03-20      Margit Schubert-While <margitsw@t-online.de>
+004-04-17      Aurelien Alleaume <slts@free.fr>
 
-* isl_38xx.[ch], isl_ioctl.c, islpci_dev.[ch], islpci_eth.c
-  islpci_hotplug.c, islpci_mgt.[ch], oid_mgt.c, prismcompat.h:
-  Adopt new prism54 kernel compatibility.
-  Remove remaining kernel version ifdefs.
+        * oid_mgt.c, isl_ioctl.c : Cleanup. Prevented real oid reading
+        before the card is configured with mib values (might be
+        related to
+        bug #53).
 
 
 
---Boundary-00=_IEcwA9i+0zpj2K4
+--Boundary-00=_zFcwAfFmTGrEPSo
 Content-Type: text/x-diff;
   charset="us-ascii";
-  name="06-kernel-compatibility.patch"
+  name="11-prevent-oid-read-before-config.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="06-kernel-compatibility.patch"
+	filename="11-prevent-oid-read-before-config.patch"
 
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/isl_38xx.c linux-2.6.6-01/drivers/net/wireless/prism54/isl_38xx.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/isl_38xx.c	2004-06-05 13:39:20.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/isl_38xx.c	2004-06-05 13:45:32.000000000 +0200
-@@ -25,17 +25,11 @@
- #include <linux/types.h>
- #include <linux/delay.h>
- 
--#include "isl_38xx.h"
--#include <linux/firmware.h>
--
- #include <asm/uaccess.h>
- #include <asm/io.h>
- 
--#include <linux/config.h>
--#if !defined(CONFIG_FW_LOADER) && !defined(CONFIG_FW_LOADER_MODULE)
--#error No Firmware Loading configured in the kernel !
--#endif
--
-+#include "prismcompat.h"
-+#include "isl_38xx.h"
- #include "islpci_dev.h"
- #include "islpci_mgt.h"
- 
-@@ -236,130 +230,6 @@
+diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c
+--- linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c	2004-06-05 14:02:14.000000000 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c	2004-06-05 14:03:15.000000000 +0200
+@@ -173,14 +173,6 @@
+ 	prism54_mib_mode_helper(priv, init_mode);
  }
  
- int
--isl38xx_upload_firmware(char *fw_id, _REQ_FW_DEV_T dev, void *device_base,
--			dma_addr_t host_address)
+-void
+-prism54_mib_init_work(islpci_private *priv)
 -{
--	u32 reg, rc;
--
--#if VERBOSE > SHOW_ERROR_MESSAGES
--	DEBUG(SHOW_ERROR_MESSAGES, "isl38xx_upload_firmware(0x%lx, 0x%lx)\n",
--	      (long) device_base, (long) host_address);
--#endif
--
--	/* clear the RAMBoot and the Reset bit */
--	reg = readl(device_base + ISL38XX_CTRL_STAT_REG);
--	reg &= ~ISL38XX_CTRL_STAT_RESET;
--	reg &= ~ISL38XX_CTRL_STAT_RAMBOOT;
--	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
--	wmb();
--	udelay(ISL38XX_WRITEIO_DELAY);
--
--	/* set the Reset bit without reading the register ! */
--	reg |= ISL38XX_CTRL_STAT_RESET;
--	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
--	wmb();
--	udelay(ISL38XX_WRITEIO_DELAY);
--
--	/* clear the Reset bit */
--	reg &= ~ISL38XX_CTRL_STAT_RESET;
--	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
--	wmb();
--
--	/* wait a while for the device to reboot */
--	mdelay(50);
--
--	{
--		const struct firmware *fw_entry = 0;
--		long fw_len;
--		const u32 *fw_ptr;
--
--		rc = request_firmware(&fw_entry, fw_id, dev);
--		if (rc) {
--			printk(KERN_ERR
--			       "%s: request_firmware() failed for '%s'\n",
--			       "prism54", fw_id);
--			return rc;
--		}
--		/* prepare the Direct Memory Base register */
--		reg = ISL38XX_DEV_FIRMWARE_ADDRES;
--
--		fw_ptr = (u32 *) fw_entry->data;
--		fw_len = fw_entry->size;
--
--		if (fw_len % 4) {
--			printk(KERN_ERR
--			       "%s: firmware '%s' size is not multiple of 32bit, aborting!\n",
--			       "prism54", fw_id);
--			release_firmware(fw_entry);
--			return EILSEQ; /* Illegal byte sequence  */;
--		}
--
--		while (fw_len > 0) {
--			long _fw_len =
--			    (fw_len >
--			     ISL38XX_MEMORY_WINDOW_SIZE) ?
--			    ISL38XX_MEMORY_WINDOW_SIZE : fw_len;
--			u32 *dev_fw_ptr = device_base + ISL38XX_DIRECT_MEM_WIN;
--
--			/* set the cards base address for writting the data */
--			isl38xx_w32_flush(device_base, reg,
--					  ISL38XX_DIR_MEM_BASE_REG);
--			wmb();	/* be paranoid */
--
--			/* increment the write address for next iteration */
--			reg += _fw_len;
--			fw_len -= _fw_len;
--
--			/* write the data to the Direct Memory Window 32bit-wise */
--			/* memcpy_toio() doesn't guarantee 32bit writes :-| */
--			while (_fw_len > 0) {
--				/* use non-swapping writel() */
--				__raw_writel(*fw_ptr, dev_fw_ptr);
--				fw_ptr++, dev_fw_ptr++;
--				_fw_len -= 4;
--			}
--
--			/* flush PCI posting */
--			(void) readl(device_base + ISL38XX_PCI_POSTING_FLUSH);
--			wmb();	/* be paranoid again */
--
--			BUG_ON(_fw_len != 0);
--		}
--
--		BUG_ON(fw_len != 0);
--
--		release_firmware(fw_entry);
--	}
--
--	/* now reset the device
--	 * clear the Reset & ClkRun bit, set the RAMBoot bit */
--	reg = readl(device_base + ISL38XX_CTRL_STAT_REG);
--	reg &= ~ISL38XX_CTRL_STAT_CLKRUN;
--	reg &= ~ISL38XX_CTRL_STAT_RESET;
--	reg |= ISL38XX_CTRL_STAT_RAMBOOT;
--	isl38xx_w32_flush(device_base, reg, ISL38XX_CTRL_STAT_REG);
--	wmb();
--	udelay(ISL38XX_WRITEIO_DELAY);
--
--	/* set the reset bit latches the host override and RAMBoot bits
--	 * into the device for operation when the reset bit is reset */
--	reg |= ISL38XX_CTRL_STAT_RESET;
--	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
--	/* don't do flush PCI posting here! */
--	wmb();
--	udelay(ISL38XX_WRITEIO_DELAY);
--
--	/* clear the reset bit should start the whole circus */
--	reg &= ~ISL38XX_CTRL_STAT_RESET;
--	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
--	/* don't do flush PCI posting here! */
--	wmb();
--	udelay(ISL38XX_WRITEIO_DELAY);
--
--	return 0;
+-	down_write(&priv->mib_sem);
+-	mgt_commit(priv);
+-	up_write(&priv->mib_sem);
 -}
 -
--int
- isl38xx_in_queue(isl38xx_control_block *cb, int queue)
+ /* this will be executed outside of atomic context thanks to
+  * schedule_work(), thus we can as well use sleeping semaphore
+  * locking */
+@@ -195,13 +187,6 @@
+ 	if (down_interruptible(&priv->stats_sem))
+ 		return;
+ 
+-/* missing stats are :
+- *  iwstatistics.qual.updated
+- *  iwstatistics.discard.nwid	    
+- *  iwstatistics.discard.fragment	    
+- *  iwstatistics.discard.misc
+- *  iwstatistics.miss.beacon */
+-
+ /* Noise floor.
+  * I'm not sure if the unit is dBm.
+  * Note : If we are not connected, this value seems to be irrelevant. */
+@@ -425,7 +410,6 @@
+ 	/* by default  the card sets this to 20. */
+ 	sens = vwrq->disabled ? 20 : vwrq->value;
+ 
+-	/* set the ed threshold. */
+ 	return mgt_set_request(priv, DOT11_OID_EDTHRESHOLD, 0, &sens);
+ }
+ 
+@@ -712,7 +696,7 @@
+ 
+ 	/* Ask the device for a list of known bss. We can report at most
+ 	 * IW_MAX_AP=64 to the range struct. But the device won't repport anything
+-	 * if you change the value of MAXBSS=24. Anyway 24 AP It is probably enough.
++	 * if you change the value of IWMAX_BSS=24.
+ 	 */
+ 	rvalue |= mgt_get_request(priv, DOT11_OID_BSSLIST, 0, NULL, &r);
+ 	bsslist = r.ptr;
+@@ -969,8 +953,6 @@
+  * small frame <=>  smaller than the rts threshold
+  * This is not really the behavior expected by the wireless tool but it seems
+  * to be a common behavior in other drivers.
+- * 
+- * It seems that playing with this tends to hang the card -> DISABLED
+  */
+ 
+ static int
+@@ -1002,14 +984,13 @@
+ 		lifetime = vwrq->value / 1024;
+ 
+ 	/* now set what is requested */
+-
+-	if (slimit != 0)
++	if (slimit)
+ 		rvalue =
+ 		    mgt_set_request(priv, DOT11_OID_SHORTRETRIES, 0, &slimit);
+-	if (llimit != 0)
++	if (llimit)
+ 		rvalue |=
+ 		    mgt_set_request(priv, DOT11_OID_LONGRETRIES, 0, &llimit);
+-	if (lifetime != 0)
++	if (lifetime)
+ 		rvalue |=
+ 		    mgt_set_request(priv, DOT11_OID_MAXTXLIFETIME, 0,
+ 				    &lifetime);
+@@ -1261,11 +1242,6 @@
+ prism54_set_u32(struct net_device *ndev, struct iw_request_info *info,
+ 		   __u32 * uwrq, char *extra)
  {
- 	const s32 delta = (le32_to_cpu(cb->driver_curr_frag[queue]) -
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/isl_38xx.h linux-2.6.6-01/drivers/net/wireless/prism54/isl_38xx.h
---- linux-2.6.6ct/drivers/net/wireless/prism54/isl_38xx.h	2004-06-05 13:39:20.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/isl_38xx.h	2004-06-05 13:45:32.000000000 +0200
-@@ -22,14 +22,6 @@
+-	/*
+-	   u32 *i = (int *) extra;
+-	   int param = *i;
+-	   int u = *(i + 1);
+-	 */
+ 	u32 oid = uwrq[0], u = uwrq[1];
  
- #include <linux/version.h>
- #include <asm/io.h>
--
--#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,5,75))
--#include <linux/device.h>
--# define _REQ_FW_DEV_T struct device *
--#else
--# define _REQ_FW_DEV_T char *
--#endif
--
- #include <asm/byteorder.h>
+ 	return mgt_set_request((islpci_private *) ndev->priv, oid, 0, &u);
+@@ -1836,9 +1812,7 @@
+ 				     0);
+ 		break;
  
- #define ISL38XX_CB_RX_QSIZE                     8
-@@ -174,6 +166,4 @@
- void isl38xx_trigger_device(int, void *);
- void isl38xx_interface_reset(void *, dma_addr_t);
+-		/* Note : the following should never happen since we don't run the card in
+-		 * extended mode.
+-		 * Note : "mlme" is actually a "struct obj_mlmeex *" here, but this
++		/* Note : "mlme" is actually a "struct obj_mlmeex *" here, but this
+ 		 * is backward compatible layout-wise with "struct obj_mlme".
+ 		 */
  
--int isl38xx_upload_firmware(char *, _REQ_FW_DEV_T, void *, dma_addr_t);
--
- #endif				/* _ISL_38XX_H */
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.c	2004-06-05 13:39:34.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.c	2004-06-05 13:44:14.000000000 +0200
-@@ -25,10 +25,10 @@
- #include <linux/kernel.h>
- #include <linux/if_arp.h>
- #include <linux/pci.h>
--#include <linux/moduleparam.h>
+diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.h linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.h
+--- linux-2.6.6ct/drivers/net/wireless/prism54/isl_ioctl.h	2004-06-05 13:39:20.000000000 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/isl_ioctl.h	2004-06-05 14:03:15.000000000 +0200
+@@ -30,7 +30,6 @@
+ #define SUPPORTED_WIRELESS_EXT                  16
  
- #include <asm/uaccess.h>
+ void prism54_mib_init(islpci_private *);
+-void prism54_mib_init_work(islpci_private *);
  
-+#include "prismcompat.h"
- #include "isl_ioctl.h"
- #include "islpci_mgt.h"
- #include "isl_oid.h"		/* additional types and defs for isl38xx fw */
+ struct iw_statistics *prism54_get_wireless_stats(struct net_device *);
+ void prism54_update_stats(islpci_private *);
 diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_dev.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_dev.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_dev.c	2004-06-05 13:39:34.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_dev.c	2004-06-05 13:45:32.000000000 +0200
-@@ -30,6 +30,7 @@
+--- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_dev.c	2004-06-05 13:58:59.000000000 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_dev.c	2004-06-05 14:03:15.000000000 +0200
+@@ -504,7 +504,9 @@
+ 	 * the IRQ line until we know for sure the reset went through */
+ 	isl38xx_enable_common_interrupts(priv->device_base);
  
- #include <asm/io.h>
+-	prism54_mib_init_work(priv);
++	down_write(&priv->mib_sem);
++	mgt_commit(priv);
++	up_write(&priv->mib_sem);
  
-+#include "prismcompat.h"
- #include "isl_38xx.h"
- #include "isl_ioctl.h"
- #include "islpci_dev.h"
-@@ -37,12 +38,6 @@
- #include "islpci_eth.h"
- #include "oid_mgt.h"
+ 	islpci_set_state(priv, PRV_STATE_READY);
  
--#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,5,0)
--#define prism54_synchronize_irq(irq) synchronize_irq()
--#else
--#define prism54_synchronize_irq(irq) synchronize_irq(irq)
--#endif
--
- #define ISL3877_IMAGE_FILE	"isl3877"
- #define ISL3890_IMAGE_FILE	"isl3890"
+diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.c
+--- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.c	2004-06-05 14:02:14.000000000 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.c	2004-06-05 14:03:15.000000000 +0200
+@@ -312,8 +312,9 @@
+                  * size of a receive buffer.  Thus, if this check
+                  * triggers, we likely have kernel heap corruption. */
+                 if (frag_len > MGMT_FRAME_SIZE) {
+-                        printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\
+-n", ndev->name, frag_len, frag_len);
++			printk(KERN_WARNING
++				"%s: Bogus packet size of %d (%#x).\n",
++				ndev->name, frag_len, frag_len);
+                         frag_len = MGMT_FRAME_SIZE;
+                 }
  
-@@ -55,6 +50,125 @@
-  * ndev->set_mac_address. Jean II */
- const unsigned char	dummy_mac[6] = { 0x00, 0x30, 0xB4, 0x00, 0x00, 0x00 };
+@@ -488,7 +489,8 @@
+ 		}
+ 		if (timeleft == 0) {
+ 			printk(KERN_DEBUG
+-			       "%s: timeout waiting for mgmt response %lu, trigging device\n",
++				"%s: timeout waiting for mgmt response %lu, "
++				"triggering device\n",
+ 			       ndev->name, timeout_left);
+ 			islpci_trigger(priv);
+ 		}
+diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.c linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.c
+--- linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.c	2004-06-05 14:02:14.000000000 +0200
++++ linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.c	2004-06-05 14:03:15.000000000 +0200
+@@ -446,7 +446,7 @@
+ 	if (cache)
+ 		down_write(&priv->mib_sem);
  
+-	if (islpci_get_state(priv) >= PRV_STATE_INIT) {
++	if (islpci_get_state(priv) >= PRV_STATE_READY) {
+ 		ret = islpci_mgt_transaction(priv->ndev, PIMFOR_OP_SET, oid,
+ 					     _data, dlen, &response);
+ 		if (!ret) {
+@@ -500,7 +500,7 @@
+ 	if (cache)
+ 		down_read(&priv->mib_sem);
+ 
+-	if (islpci_get_state(priv) >= PRV_STATE_INIT) {
++	if (islpci_get_state(priv) >= PRV_STATE_READY) {
+ 		ret = islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
+ 					     oid, data, dlen, &response);
+ 		if (ret || !response ||
+@@ -539,7 +539,7 @@
+ 	if (reslen > isl_oid[n].size)
+ 		printk(KERN_DEBUG
+ 		       "mgt_get_request(0x%x): received data length was bigger "
+-		       "than expected (%d > %d). Memory is probably corrupted... ",
++		       "than expected (%d > %d). Memory is probably corrupted...",
+ 		       oid, reslen, isl_oid[n].size);
+ 	
+ 	return ret;
+@@ -622,12 +622,32 @@
+ 	OID_INL_OUTPUTPOWER,
+ };
+ 
++/* update the MAC addr. */
 +static int
-+isl_upload_firmware(islpci_private *priv)
++mgt_update_addr(islpci_private *priv)
 +{
-+	u32 reg, rc;
-+	void *device_base = priv->device_base;
++	struct islpci_mgmtframe *res;
++	int ret;
 +
-+	/* clear the RAMBoot and the Reset bit */
-+	reg = readl(device_base + ISL38XX_CTRL_STAT_REG);
-+	reg &= ~ISL38XX_CTRL_STAT_RESET;
-+	reg &= ~ISL38XX_CTRL_STAT_RAMBOOT;
-+	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
-+	wmb();
-+	udelay(ISL38XX_WRITEIO_DELAY);
++	ret = islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
++				     isl_oid[GEN_OID_MACADDRESS].oid, NULL,
++				     isl_oid[GEN_OID_MACADDRESS].size, &res);
 +
-+	/* set the Reset bit without reading the register ! */
-+	reg |= ISL38XX_CTRL_STAT_RESET;
-+	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
-+	wmb();
-+	udelay(ISL38XX_WRITEIO_DELAY);
++	if ((ret == 0) && res && (res->header->operation != PIMFOR_OP_ERROR))
++		memcpy(priv->ndev->dev_addr, res->data, 6);
++	else
++		ret = -EIO;
++	if (res)
++		islpci_mgt_release(res);
 +
-+	/* clear the Reset bit */
-+	reg &= ~ISL38XX_CTRL_STAT_RESET;
-+	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
-+	wmb();
-+
-+	/* wait a while for the device to reboot */
-+	mdelay(50);
-+
-+	{
-+		const struct firmware *fw_entry = 0;
-+		long fw_len;
-+		const u32 *fw_ptr;
-+
-+		rc = request_firmware(&fw_entry, priv->firmware, PRISM_FW_PDEV);
-+		if (rc) {
-+			printk(KERN_ERR
-+			       "%s: request_firmware() failed for '%s'\n",
-+			       "prism54", priv->firmware);
-+			return rc;
-+		}
-+		/* prepare the Direct Memory Base register */
-+		reg = ISL38XX_DEV_FIRMWARE_ADDRES;
-+
-+		fw_ptr = (u32 *) fw_entry->data;
-+		fw_len = fw_entry->size;
-+
-+		if (fw_len % 4) {
-+			printk(KERN_ERR
-+			       "%s: firmware '%s' size is not multiple of 32bit, aborting!\n",
-+			       "prism54", priv->firmware);
-+			release_firmware(fw_entry);
-+			return EILSEQ; /* Illegal byte sequence  */;
-+		}
-+
-+		while (fw_len > 0) {
-+			long _fw_len =
-+			    (fw_len >
-+			     ISL38XX_MEMORY_WINDOW_SIZE) ?
-+			    ISL38XX_MEMORY_WINDOW_SIZE : fw_len;
-+			u32 *dev_fw_ptr = device_base + ISL38XX_DIRECT_MEM_WIN;
-+
-+			/* set the cards base address for writting the data */
-+			isl38xx_w32_flush(device_base, reg,
-+					  ISL38XX_DIR_MEM_BASE_REG);
-+			wmb();	/* be paranoid */
-+
-+			/* increment the write address for next iteration */
-+			reg += _fw_len;
-+			fw_len -= _fw_len;
-+
-+			/* write the data to the Direct Memory Window 32bit-wise */
-+			/* memcpy_toio() doesn't guarantee 32bit writes :-| */
-+			while (_fw_len > 0) {
-+				/* use non-swapping writel() */
-+				__raw_writel(*fw_ptr, dev_fw_ptr);
-+				fw_ptr++, dev_fw_ptr++;
-+				_fw_len -= 4;
-+			}
-+
-+			/* flush PCI posting */
-+			(void) readl(device_base + ISL38XX_PCI_POSTING_FLUSH);
-+			wmb();	/* be paranoid again */
-+
-+			BUG_ON(_fw_len != 0);
-+		}
-+
-+		BUG_ON(fw_len != 0);
-+
-+		release_firmware(fw_entry);
-+	}
-+
-+	/* now reset the device
-+	 * clear the Reset & ClkRun bit, set the RAMBoot bit */
-+	reg = readl(device_base + ISL38XX_CTRL_STAT_REG);
-+	reg &= ~ISL38XX_CTRL_STAT_CLKRUN;
-+	reg &= ~ISL38XX_CTRL_STAT_RESET;
-+	reg |= ISL38XX_CTRL_STAT_RAMBOOT;
-+	isl38xx_w32_flush(device_base, reg, ISL38XX_CTRL_STAT_REG);
-+	wmb();
-+	udelay(ISL38XX_WRITEIO_DELAY);
-+
-+	/* set the reset bit latches the host override and RAMBoot bits
-+	 * into the device for operation when the reset bit is reset */
-+	reg |= ISL38XX_CTRL_STAT_RESET;
-+	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
-+	/* don't do flush PCI posting here! */
-+	wmb();
-+	udelay(ISL38XX_WRITEIO_DELAY);
-+
-+	/* clear the reset bit should start the whole circus */
-+	reg &= ~ISL38XX_CTRL_STAT_RESET;
-+	writel(reg, device_base + ISL38XX_CTRL_STAT_REG);
-+	/* don't do flush PCI posting here! */
-+	wmb();
-+	udelay(ISL38XX_WRITEIO_DELAY);
-+
-+	return 0;
++	return ret;
 +}
 +
- /******************************************************************************
-     Device Interrupt Handler
- ******************************************************************************/
-@@ -324,14 +438,7 @@
+ void
+ mgt_commit(islpci_private *priv)
+ {
+ 	int rvalue;
+ 	u32 u;
+-	union oid_res_t r;
  
- 	printk(KERN_DEBUG "%s: uploading firmware...\n", priv->ndev->name);
+ 	if (islpci_get_state(priv) < PRV_STATE_INIT)
+ 		return;
+@@ -643,6 +663,7 @@
  
--	rc = isl38xx_upload_firmware(priv->firmware,
--#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,5,75))
--		&priv->pdev->dev,
--#else
--		pci_name(priv->pdev),
--#endif
--		priv->device_base,
--		priv->device_host_address);
-+	rc = isl_upload_firmware(priv);
- 	if (rc) {
- 		/* error uploading the firmware */
- 		printk(KERN_ERR "%s: could not upload firmware ('%s')\n",
-@@ -357,15 +464,8 @@
- 	int result = -ETIME;
- 	int count;
+ 	u = OID_INL_MODE;
+ 	rvalue |= mgt_commit_list(priv, &u, 1);
++	rvalue |= mgt_update_addr(priv);
  
--#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
--	/* This is 2.6 specific, nicer, shorter, but not in 2.4 yet */
- 	DEFINE_WAIT(wait);
- 	prepare_to_wait(&priv->reset_done, &wait, TASK_UNINTERRUPTIBLE);
--#else
--	DECLARE_WAITQUEUE(wait, current);
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	add_wait_queue(&priv->reset_done, &wait);
--#endif
- 	
- 	/* now the last step is to reset the interface */
- 	isl38xx_interface_reset(priv->device_base, priv->device_host_address);
-@@ -390,13 +490,7 @@
- 
+ 	if (rvalue) {
+ 		/* some request have failed. The device might be in an
+@@ -650,14 +671,6 @@
+ 		printk(KERN_DEBUG "%s: mgt_commit has failed. Restart the "
+                 "device \n", priv->ndev->name);
  	}
- 
--#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
--	/* 2.6 specific too */
- 	finish_wait(&priv->reset_done, &wait);
--#else
--	remove_wait_queue(&priv->reset_done, &wait);
--	set_current_state(TASK_RUNNING);
--#endif
- 
- 	if(result)
- 		return result;
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_dev.h linux-2.6.6-01/drivers/net/wireless/prism54/islpci_dev.h
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_dev.h	2004-06-05 13:39:34.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_dev.h	2004-06-05 13:44:14.000000000 +0200
-@@ -29,20 +29,6 @@
- #include <net/iw_handler.h>
- #include <linux/list.h>
- 
--#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,41)
--# include <linux/workqueue.h>
--#else
--# include <linux/tqueue.h>
--# define work_struct tq_struct
--# define INIT_WORK INIT_TQUEUE
--# define schedule_work schedule_task
--#endif
 -
--#if LINUX_VERSION_CODE < KERNEL_VERSION(2,4,23)
--#define free_netdev(x) kfree(x) 
--#define pci_name(x) x->slot_name 
--#endif
+-	/* update the MAC addr. As it's not cached, no lock will be acquired by
+-	 * the mgt_get_request
+-	 */
+-	mgt_get_request(priv, GEN_OID_MACADDRESS, 0, NULL, &r);
+-	memcpy(priv->ndev->dev_addr, r.ptr, 6);
+-	kfree(r.ptr);
 -
- #include "isl_38xx.h"
- #include "isl_oid.h"
- #include "islpci_mgt.h"
-@@ -210,12 +196,6 @@
- 
- #define ISLPCI_TX_TIMEOUT               (2*HZ)
- 
--#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2,5,75))
--# define irqreturn_t void
--# define IRQ_HANDLED
--# define IRQ_NONE
--#endif
--
- irqreturn_t islpci_interrupt(int, void *, struct pt_regs *);
- 
- int prism54_post_setup(islpci_private *, int);
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_eth.c	2004-06-05 13:39:34.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_eth.c	2004-06-05 13:44:14.000000000 +0200
-@@ -26,6 +26,7 @@
- #include <linux/etherdevice.h>
- #include <linux/if_arp.h>
- 
-+#include "prismcompat.h"
- #include "isl_38xx.h"
- #include "islpci_eth.h"
- #include "islpci_mgt.h"
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_hotplug.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_hotplug.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_hotplug.c	2004-06-05 13:39:20.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_hotplug.c	2004-06-05 13:44:14.000000000 +0200
-@@ -24,6 +24,7 @@
- #include <linux/delay.h>
- #include <linux/init.h> /* For __init, __exit */
- 
-+#include "prismcompat.h"
- #include "islpci_dev.h"
- #include "islpci_mgt.h"		/* for pc_debug */
- #include "isl_oid.h"
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.c linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.c	2004-06-05 13:39:20.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.c	2004-06-05 13:44:14.000000000 +0200
-@@ -22,12 +22,12 @@
- #include <linux/netdevice.h>
- #include <linux/module.h>
- #include <linux/pci.h>
--#include <linux/moduleparam.h>
- 
- #include <asm/io.h>
- #include <asm/system.h>
- #include <linux/if_arp.h>
- 
-+#include "prismcompat.h"
- #include "isl_38xx.h"
- #include "islpci_mgt.h"
- #include "isl_oid.h"		/* additional types and defs for isl38xx fw */
-@@ -456,21 +456,12 @@
- 	const long wait_cycle_jiffies = (ISL38XX_WAIT_CYCLE * 10 * HZ) / 1000;
- 	long timeout_left = ISL38XX_MAX_WAIT_CYCLES * wait_cycle_jiffies;
- 	int err;
--#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
- 	DEFINE_WAIT(wait);
--#else
--	DECLARE_WAITQUEUE(wait, current);
--#endif
- 
- 	if (down_interruptible(&priv->mgmt_sem))
- 		return -ERESTARTSYS;
- 
--#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
- 	prepare_to_wait(&priv->mgmt_wqueue, &wait, TASK_UNINTERRUPTIBLE);
--#else
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	add_wait_queue(&priv->mgmt_wqueue, &wait);
--#endif
- 	err = islpci_mgt_transmit(ndev, operation, oid, senddata, sendlen);
- 	if(err)
- 		goto out;
-@@ -499,12 +490,7 @@
- 
- 	/* TODO: we should reset the device here */     
-  out:
--#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
- 	finish_wait(&priv->mgmt_wqueue, &wait);
--#else
--	remove_wait_queue(&priv->mgmt_wqueue, &wait);
--	set_current_state(TASK_RUNNING);
--#endif
- 	up(&priv->mgmt_sem);
- 	return err;
  }
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.h linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.h
---- linux-2.6.6ct/drivers/net/wireless/prism54/islpci_mgt.h	2004-06-05 13:39:20.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/islpci_mgt.h	2004-06-05 13:44:14.000000000 +0200
-@@ -24,15 +24,6 @@
- #include <linux/wireless.h>
- #include <linux/skbuff.h>
  
--#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,41)
--# include <linux/workqueue.h>
--#else
--# include <linux/tqueue.h>
--# define work_struct tq_struct
--# define INIT_WORK INIT_TQUEUE
--# define schedule_work schedule_task
--#endif
--
- /*
-  *  Function definitions
-  */
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.c linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.c
---- linux-2.6.6ct/drivers/net/wireless/prism54/oid_mgt.c	2004-06-05 13:39:34.000000000 +0200
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/oid_mgt.c	2004-06-05 13:44:14.000000000 +0200
-@@ -16,6 +16,7 @@
-  *
-  */
- 
-+#include "prismcompat.h"
- #include "islpci_dev.h"
- #include "islpci_mgt.h"
- #include "isl_oid.h"
-diff -Naur linux-2.6.6ct/drivers/net/wireless/prism54/prismcompat.h linux-2.6.6-01/drivers/net/wireless/prism54/prismcompat.h
---- linux-2.6.6ct/drivers/net/wireless/prism54/prismcompat.h	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.6-01/drivers/net/wireless/prism54/prismcompat.h	2004-06-05 13:45:32.000000000 +0200
-@@ -0,0 +1,46 @@
-+/*  
-+ *  (C) 2004 Margit Schubert-While <margitsw@t-online.de>
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
-+
-+/*  
-+ *	Compatibility header file to aid support of different kernel versions
-+ */
-+
-+#ifdef PRISM54_COMPAT24
-+#include "prismcompat24.h"
-+#else	/* PRISM54_COMPAT24 */
-+
-+#ifndef _PRISM_COMPAT_H
-+#define _PRISM_COMPAT_H
-+
-+#include <linux/device.h>
-+#include <linux/firmware.h>
-+#include <linux/config.h>
-+#include <linux/moduleparam.h>
-+#include <linux/workqueue.h>
-+#include <linux/compiler.h>
-+
-+#if !defined(CONFIG_FW_LOADER) && !defined(CONFIG_FW_LOADER_MODULE)
-+#error Firmware Loading is not configured in the kernel !
-+#endif
-+
-+#define prism54_synchronize_irq(irq) synchronize_irq(irq)
-+
-+#define PRISM_FW_PDEV		&priv->pdev->dev
-+
-+#endif				/* _PRISM_COMPAT_H */
-+#endif				/* PRISM54_COMPAT24 */
+ /* This will tell you if you are allowed to answer a mlme(ex) request .*/
+@@ -710,8 +723,11 @@
+ 	case OID_TYPE_BSS:{
+ 			struct obj_bss *bss = r->ptr;
+ 			return snprintf(str, PRIV_STR_SIZE,
+-					"age=%u\nchannel=%u\n\
+-				        capinfo=0x%X\nrates=0x%X\nbasic_rates=0x%X\n", bss->age, bss->channel, bss->capinfo, bss->rates, bss->basic_rates);
++					"age=%u\nchannel=%u\n"
++					"capinfo=0x%X\nrates=0x%X\n"
++					"basic_rates=0x%X\n", bss->age,
++					bss->channel, bss->capinfo,
++					bss->rates, bss->basic_rates);
+ 		}
+ 		break;
+ 	case OID_TYPE_BSSLIST:{
+@@ -720,7 +736,9 @@
+ 			k = snprintf(str, PRIV_STR_SIZE, "nr=%u\n", list->nr);
+ 			for (i = 0; i < list->nr; i++)
+ 				k += snprintf(str + k, PRIV_STR_SIZE - k,
+-					      "bss[%u] : \nage=%u\nchannel=%u\ncapinfo=0x%X\nrates=0x%X\nbasic_rates=0x%X\n",
++					      "bss[%u] : \nage=%u\nchannel=%u\n"
++					      "capinfo=0x%X\nrates=0x%X\n"
++					      "basic_rates=0x%X\n",
+ 					      i, list->bsslist[i].age,
+ 					      list->bsslist[i].channel,
+ 					      list->bsslist[i].capinfo,
+@@ -742,16 +760,17 @@
+ 		break;
+ 	case OID_TYPE_MLME:{
+ 			struct obj_mlme *mlme = r->ptr;
+-			return snprintf(str, PRIV_STR_SIZE, "id=0x%X\nstate=0x%X\n\
+-			         code=0x%X\n", mlme->id, mlme->state,
+-					mlme->code);
++			return snprintf(str, PRIV_STR_SIZE,
++					"id=0x%X\nstate=0x%X\ncode=0x%X\n",
++					mlme->id, mlme->state, mlme->code);
+ 		}
+ 		break;
+ 	case OID_TYPE_MLMEEX:{
+ 			struct obj_mlmeex *mlme = r->ptr;
+-			return snprintf(str, PRIV_STR_SIZE, "id=0x%X\nstate=0x%X\n\
+-			         code=0x%X\nsize=0x%X\n", mlme->id, mlme->state,
+-					mlme->code, mlme->size);
++			return snprintf(str, PRIV_STR_SIZE,
++					"id=0x%X\nstate=0x%X\n"
++					"code=0x%X\nsize=0x%X\n", mlme->id,
++					mlme->state, mlme->code, mlme->size);
+ 		}
+ 		break;
+ 	case OID_TYPE_SSID:{
 
---Boundary-00=_IEcwA9i+0zpj2K4--
+--Boundary-00=_zFcwAfFmTGrEPSo--
