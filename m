@@ -1,60 +1,56 @@
-From: Masahide NAKAMURA <nakam@linux-ipv6.org>
-Subject: Re: [PATCH] Add nl_open to libnetlink
-Date: Wed, 7 Jul 2004 13:09:50 +0900
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFR] gianfar ethernet driver
+Date: Tue, 6 Jul 2004 23:29:13 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040707130950.0112edf6@localhost>
-References: <20040703094632.GA14235@gondor.apana.org.au>
-	<20040705160500.208591b5@localhost>
-	<20040706140550.2d483dc8@dell_ss3.pdx.osdl.net>
+Message-ID: <20040707032913.GA1822@havoc.gtf.org>
+References: <C681B01E-CEA9-11D8-931F-000393DBC2E8@freescale.com> <89563A5C-CFAE-11D8-BA44-000393C30512@freescale.com> <1089170282.1038.80.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Fleming <afleming@freescale.com>,
+        Kumar Gala <kumar.gala@freescale.com>, netdev@oss.sgi.com,
+        dwmw2@infradead.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040706140550.2d483dc8@dell_ss3.pdx.osdl.net>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1089170282.1038.80.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Jul 2004 14:05:50 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Tue, Jul 06, 2004 at 11:18:02PM -0400, jamal wrote:
+> You dont return a 1 anywhere.
 
-> On Mon, 5 Jul 2004 16:05:00 +0900
-> Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
-> 
-> > Hello,
-> > 
-> > On Sat, 3 Jul 2004 19:46:32 +1000
-> > Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> > 
-> > > I'm in the process of writing two new modules fo ip(8), ippolicy and
-> > > ipstate which will be a NETLINK based replacement for setkey.
-> > > 
-> > > In order to do so, I need to get libnetlink to speak the XFRM protocol.
-> > > Thus I've added a new nl_open function which allows the protocol to
-> > > be specified.
-> > 
-> > I agree with it.
-> > 
-> > Anyway, I have code for ip(8) for similar reason.
-> > The patch is below:
-> > http://www.linux-ipv6.org/~nakam/ipxfrm-20040705.diff
-> 
-> This code won't build with current kernel headers. There is no xfrmsel_icmp_type
-> in current 2.6 definition of struct xfrm_selector.
-
-I've made another patch which can build with 2.6.7 kernel headers.
-(And I removed some unnecessary code for the kernel.)
-
-Try below:
-http://www.linux-ipv6.org/~nakam/ipxfrm-20040707.diff
+That OK in one model.
 
 
-BTW, The definition in previous patch is for understanding ICMP
-type/code by xfrm_selector. I wrote the kernel feature and I'm
-testing it. Anyway, I'll send it to the list, too.
+> Heres what i mean (substitute your code):
+> if no more descriptors
+> netif_stop_queue(dev)
+> unlock
+> return 1
+> process packet and stash on ring
+> return 0
 
-Thanks,
+When you are not dealing with fragments, the most optimal model
+eliminates the overflow case completely, so your ->hard_start_xmit looks
+like
 
--- 
-Masahide NAKAMURA
+	lock
+	queue packet to DMA ring
+	if (DMA ring full)
+		netif_stop_queue()
+	unlock
+
+	return 0
+
+If you can be sure -- by design -- that room is always available when
+the queue is not stopped, then that's fine.
+
+With fragments, you cannot be sure of this, if you do not wish to
+reserve MY_HW_MAX_FRAGMENTS slots on the DMA.  Such a case would require
+moving the "if no more descriptors" check up, and returning 1 when the
+ring is empty.
+
+But ideally, you should write the driver where such a condition does not
+occur at all.
+
+	Jeff
