@@ -1,37 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: udp weirdness
-Date: Fri, 27 Sep 2002 10:53:00 -0400 (EDT)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] Networking: send-to-self [link to non-broken patch this
+Date: Fri, 27 Sep 2002 19:01:53 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
-References: <20020927120223.GH343@hookipa>
+Message-ID: <200209271501.TAA21079@sex.inr.ac.ru>
+References: <3D93FBA6.6080905@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
-In-Reply-To: <20020927120223.GH343@hookipa>
+To: greearb@candelatech.com (Ben Greear)
+In-Reply-To: <3D93FBA6.6080905@candelatech.com> from "Ben Greear" at Sep 26, 2 11:33:10 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
+> I have a question though:  If this method is ever called to send an RST,
+> will it work?
 
-On Fri, 27 Sep 2002, Eric Lemoine wrote:
+Work for what? This method is used when you have no socket in the system
+matching to this skb. :-)
 
-> I figured out that packets can be dropped in pfifo_fast_enqueue()
-> [the default qdisc's enqueue func], even though the driver/kernel
-> flow control has triggered.
->
-> And sendto does not notify the user when packet gets dropped because
-> the output queue overflows (as indicated in sendto manpage).
->
-> Why doesn't the kernel just put the process into sleep instead of
-> dropping packets?
->
+> What about this part, do you think it is not needed either?  It appeared
+> to me that w/out this, the sending socket and the receiving socket
+...
+> sending one, unfortunately).
 
-What trigger do you suggest to wake up the process again?
-A better idea maybe to return something to the socket so it can
-manage things instead -- not sure what to return though that wouldnt
-break some standard;
+No, this is impossible. addrs/ports identity identifies socket unambiguously.
 
-cheers,
-jamal
+But even this does not matter, your patch is noop by much simpler pure
+"syntactical" reason, it copies req->bound_dev_if from listening socket.
+And after this the check in lookup req degenerates to TRUE __identitically__.
+ :-)
+
+Alexey
