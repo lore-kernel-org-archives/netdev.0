@@ -1,103 +1,120 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH] [2.4] forcedeth network driver
-Date: Sat, 24 Jan 2004 19:01:03 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4013073F.7030504@pobox.com>
-References: <4012A738.2060009@gmx.net> <4012B25B.9060706@pobox.com> <4012E276.5030804@gmx.net>
+Date: Sat, 24 Jan 2004 18:57:08 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <40130654.2070106@pobox.com>
+References: <4012BF44.9@colorfullife.com> <4012D3C6.1050805@pobox.com> <4012E9BF.90102@gmx.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, Manfred Spraul <manfred@colorfullife.com>
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
 To: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
-In-Reply-To: <4012E276.5030804@gmx.net>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <4012E9BF.90102@gmx.net>
 List-Id: netdev.vger.kernel.org
 
 Carl-Daniel Hailfinger wrote:
->>>+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,28))
->>>+static inline void synchronize_irq_wrapper(unsigned int irq) {
->>>synchronize_irq(); }
->>>+#undef synchronize_irq
->>>+#define synchronize_irq(irq)    synchronize_irq_wrapper(irq)
->>>+#endif
+> Jeff Garzik wrote:
+> 
+>>Manfred Spraul wrote:
 >>
 >>
->>Just introduce a diff between 2.4 and 2.6 versions.
+>>>Jeff wrote:
+>>>
+>>>
+>>>>* Interrupt handler is SCARY.  You can potentially take and release
+>>>>the spinlock -many times- during a single interrupt.
+>>>>
+>>>
+>>>I think that can happen only in theory: A new packet is completed
+>>>while the driver processes rx packets. I all normal cases there should
+>>>be one spinlock operation per tx irq, and 0 per rx irq.
+>>>And error handling IMHO doesn't count: it should be rare.
+>>>Or do I overlook a common case?
+>>
+>>
+>>Any amount of load at all will lead to multiple interations of the
+>>master loop in the interrupt handler.
 > 
 > 
-> The chunk above is the only difference between the 2.4 and the 2.6
-> version. Should I remove the #ifdef or change the line calling
-> synchronize_irq itself?
+> +static int max_interrupt_work = 5;
+> [...]
+> +       for (i=0; ; i++) {
+> +               if (i > max_interrupt_work) {
+> +                       spin_lock(&np->lock);
+> +                       /* disable interrupts on the nic */
+> +                       writel(0, base + NvRegIrqMask);
+> +                       pci_push(base);
+> +
+> +                       if (!np->in_shutdown)
+> +                               mod_timer(&np->nic_poll, jiffies + POLL_WAIT);
+> +                       printk(KERN_DEBUG "%s: too many iterations (%d) in
+> nic_irq.\n", dev->name, i);
+> +                       spin_unlock(&np->lock);
+> +                       break;
+> +               }
+> 
+> So actually it should not happen that often since we exit the master loop
+> after 5 iterations.
 
-Just change the line itself, for the 2.4 and 2.6 kernel.org trees...
+<shrug>  Well, it's not a must-change item IMO
 
 
->>>+    dprintk(KERN_DEBUG "%s: start_xmit: packet packet %d queued for
->>>transmission.\n",
->>>+                dev->name, np->next_tx);
->>>+    {
->>>+        int j;
->>>+        for (j=0; j<64; j++) {
->>>+            if ((j%16) == 0)
->>>+                dprintk("\n%03x:", j);
->>>+            dprintk(" %02x", ((unsigned char*)skb->data)[j]);
->>>+        }
->>>+        dprintk("\n");
->>>+    }
+>>>>>+#define NV_MIIPHY_DELAY    10
+>>>>>+#define NV_MIIPHY_DELAYMAX    10000
+>>>>
+>>>>
+>>>>
+>>>>Style:  it's fairly silly to mix enums and constants.
+>>>> 
+>>>>
+>>>
+>>>Right now: enum for the nic registers, #define for the rest. If you
+>>>don't like it I can change it.
 >>
 >>
->>would be nice if this loop was optimized out by the compiler.
+>>enums are definitely preferred...  communicates more type/symbol
+>>information to the compiler and more symbol info to the debugger.
 > 
 > 
-> You mean it should be removed? AFAICS, we have
-> #define dprintk(x...)          do { } while (0)
-> so the compiler _should_ optimize it out if we use at least -O.
+> The current order has the benefit that the values which might be written
+> to a register (most of which are constants) are located next to the enum
+> for the register.
 
-<shrug>  no biggie either way.  it's just the sorta code I would throw 
-an ifdef or "if (static_constant)" around.
+You can do this with enums, too :)
 
-
->>>+    if (!is_valid_ether_addr(dev->dev_addr)) {
->>>+        /*
->>>+         * Bad mac address. At least one bios sets the mac address
->>>+         * to 01:23:45:67:89:ab
->>>+         */
->>>+        printk(KERN_ERR "%s: Invalid Mac address detected:
->>>%02x:%02x:%02x:%02x:%02x:%02x\n",
->>>+            pci_name(pci_dev),
->>>+            dev->dev_addr[0], dev->dev_addr[1], dev->dev_addr[2],
->>>+            dev->dev_addr[3], dev->dev_addr[4], dev->dev_addr[5]);
->>>+        printk(KERN_ERR "Please complain to your hardware vendor.
->>>Switching to a random MAC.\n");
->>>+        dev->dev_addr[0] = 0x00;
->>>+        dev->dev_addr[1] = 0x00;
->>>+        dev->dev_addr[2] = 0x6c;
->>>+        get_random_bytes(&dev->dev_addr[3], 3);
->>>+    }
->>
->>
->>I don't like this random MAC address stuff.  Regardless of hardware
->>behavior, this breaks MAC address uniqueness.
->>
->>I would much rather that ->open() failed, if a valid MAC address were
->>not present.  Then a simple userspace program can be run by the admin
->>(policy!) that sets the MAC address, before bringing up the interface.
+>>Fair enough.  You may wish to (after testing!) increase DEFAULT_MTU by 4
+>>bytes, to support VLAN.
 > 
 > 
-> This was a feature many users asked for. It seems broken hardware is very
-> common for this chipset.
+> Already tried. If we increase the length of the packet the nic has to send
+> beyond 1500 bytes, we simply get an TX error/timeout. So far, I have not
+> seen any hints that the nic might do VLAN tagging internally.
 
-That's fine, but it doesn't have to be implemented in the kernel.  Users 
-can just as easily download a generic userspace program that checks your 
-MAC address, and attempts to assign you one if you don't already have one.
-
-This is a good example of putting policy in the kernel, in fact :)
+The current limit sounds correct, then.
 
 
-> Will take a look at other drivers. Do you have any good example?
+> Jeff, there is another bug in some hardware revisions: For every received
+> packet it reports 1500 bytes length regardless of the real length. We take
+> this len as correct and hope for the best. At best, it ruins our RX
+> statistics. At worst, it might leak kernel memory to userspace since the
+> unused remainder of the 1500 bytes is not initialized with anything, yet
+> passed up with netif_rx(skb). Does the networking core provide any
+> built-in function to address this problem?
+> 
+> +               prd = &np->rx_ring[i];
+> [...]
+> +               len = le16_to_cpu(prd->Length);
+> [...]
+> +               skb_put(skb, len);
+> [...]
+> +               netif_rx(skb);
+> 
+> The above code would be correct if the hardware actually gave us the right
+> values. I know that at least some nForce2 systems suffer from this.
 
-e100, e1000, tg3, 8139cp, ...
+Peek at the ethernet frame header and see what it thinks the payload 
+length is?  If less than 1500...
 
 	Jeff
