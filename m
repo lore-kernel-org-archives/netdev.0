@@ -1,40 +1,45 @@
-From: Catalin BOIE <util@deuroconsult.ro>
-Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
-Date: Wed, 7 Jul 2004 09:39:34 +0300 (EEST)
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [PATCH] Add nl_open to libnetlink
+Date: Wed, 7 Jul 2004 15:56:02 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.60.0407070938500.2496@hosting.rdsbv.ro>
-References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
- <20040702134437.5891e998@dell_ss3.pdx.osdl.net>  <1088824432.1043.271.camel@jzny.localdomain>
-  <20040705194925.37b7efcb.davem@redhat.com> <1089119090.4260.2.camel@jzny.localdomain>
+Message-ID: <20040707155602.4698121a@localhost>
+References: <20040703094632.GA14235@gondor.apana.org.au>
+	<20040705160500.208591b5@localhost>
+	<20040706140550.2d483dc8@dell_ss3.pdx.osdl.net>
+	<20040707130950.0112edf6@localhost>
+	<20040707140533.41c66c03@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: "David S. Miller" <davem@redhat.com>, shemminger@osdl.org,
-        netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1089119090.4260.2.camel@jzny.localdomain>
+To: Stephen Hemminger <shemminger@osdl.org>,
+        Herbert Xu
+ <herbert@gondor.apana.org.au>
+In-Reply-To: <20040707140533.41c66c03@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Jul 2004, jamal wrote:
+Hello Stephen and Herbert,
 
-> On Mon, 2004-07-05 at 22:49, David S. Miller wrote:
->> I'm going to hold off on Stephen's patches until Jamal and he has
->> a chance to fight it out :-)
->
-> Actually i would be fine with it if Stephen gets rid of the new "rate"
-> thing.
+> > > On Sat, 3 Jul 2004 19:46:32 +1000
+> > > Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > > 
+> > > > I'm in the process of writing two new modules fo ip(8), ippolicy and
+> > > > ipstate which will be a NETLINK based replacement for setkey.
+> > > > 
+> > > > In order to do so, I need to get libnetlink to speak the XFRM protocol.
+> > > > Thus I've added a new nl_open function which allows the protocol to
+> > > > be specified.
+> > > 
+> > > I agree with it.
+> > > 
+> > > Anyway, I have code for ip(8) for similar reason.
 
-I expect that duplicates of packet will not going to sch_netem, right?
-I'm asking because I have a pactch pending.
-Thank you.
+I've updated the patch and it can build with 2.6.7 kernel headers.
+Can you check it?
 
->
-> cheers,
-> jamal
->
+http://www.linux-ipv6.org/~nakam/ipxfrm-20040707_2.diff
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
+-- 
+Masahide NAKAMURA
