@@ -1,66 +1,66 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Bug in 2.6.10
-Date: Fri, 28 Jan 2005 12:04:23 -0800
-Message-ID: <41FA9AC7.5080007@candelatech.com>
-References: <41FA9239.4010401@rapidforum.com>	<20050128114251.64e0fff4@dxpl.pdx.osdl.net> <20050128114600.46f3a70a.davem@davemloft.net>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: the TSO packet mangling issue
+Date: Fri, 28 Jan 2005 23:25:42 +0300
+Message-ID: <20050128202542.GA23670@yakov.inr.ac.ru>
+References: <20050121204024.6f94fc26.davem@davemloft.net> <20050122054346.GA1635@gondor.apana.org.au> <20050122170533.GB11499@yakov.inr.ac.ru> <20050123071027.GA20296@gondor.apana.org.au> <20050126110043.GA29950@yakov.inr.ac.ru> <20050126222522.GA21670@gondor.apana.org.au> <20050127110946.GA20494@gondor.apana.org.au> <20050127111201.GB20494@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, webmaster@rapidforum.com,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050128114600.46f3a70a.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20050127111201.GB20494@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Fri, 28 Jan 2005 11:42:51 -0800
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> 
->>On Fri, 28 Jan 2005 20:27:53 +0100
->>Christian Schmid <webmaster@rapidforum.com> wrote:
->>
->>
->>>Hello.
->>>
->>>In 2.6.10 there has been a "bug" introduced. You may also call it a feature, but its a crappy 
->>>feature for big servers. It seems the kernel is dynamically adjusting the buffer-space available for 
->>>sockets. Even if send-buffer has been set to 1024 KB, the kernel blocks at less if there are enough 
->>>sockets in use. If you have 10 sockets with 1024 KB each, they do not block at all, using full 1024 
->>>KB. If you have 4000 sockets, they only use 200 KB. So it seems its blocking at 800 MB. This is 
->>>good, if you have a 1/3 system, because else the kernel would run out of low mem. But I have a 2/2 
->>>system and I need them for buffers. So what can I do? Where can I adjust the "pool"?
->>
->>You can set the upper bound by setting tcp_wmem. There are three values
->>all documented in Documentation/networking/ip-sysctl.txt
-> 
-> 
-> This feature is meant also to prevent remote denial of service
-> attacks.  It limits the amount of system memory TCP can
-> consume on your system.
-> 
-> Before this feature went in, it's really easy to remotely make a system
-> consume %90 of system memory just with socket buffers.
+Hello!
 
-Could you cause this attack without having the local machine explicitly
-set it's local wmem buffers higher?
+> This patch adds tcp_skb_cow() and uses it in e1000/tg3.
 
-With the latest code, if you set the tcp_[rw]mem MAX to some really large thing,
-as it appears Mr Schmid was doing, does the kernel just ignore the larger value
-after 800MB?  I agree that by default the system should protect itself from OOM
-attacks, but at the same time, if a user really wants to use up to 2GB of RAM for
-buffers, I don't think we should stop them.
+Looks almost nice to me.
 
-In addition to Mr Hemminger's suggestion, I think the more important knob
-would be the /proc/sys/net/core/netdev_max_backlog which bounds the total
-number of receive packets in the system, correct?  Is there a similar knob
-for the total maximum number of buffers waiting in tx queues?
+Actually, I would prefer to unbind this from tcp, it can be used
+for something else, sctp or anything else who sends clones of skbs
+and wants to protect only data part.
 
-Ben
+Also, tcp_skb_cow() is not good. F.e. the first thing, which I thought
+of, was WLAN drivers which rewrite ethernet header and either screw up
+tcpdumps (and break net/bridge) or have to copy each tcp skb.
+I used to patch it with:
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+diff -ru ../madwifi-cvs.current/madwifi/driver/if_ath.c madwifi/driver/if_ath.c
+--- ../madwifi-cvs.current/madwifi/driver/if_ath.c      2004-06-08 17:38:20.587760856 +0400
++++ madwifi/driver/if_ath.c     2004-06-04 11:06:43.000000000 +0400
+@@ -759,7 +759,9 @@
+
+        if (ic->ic_flags & IEEE80211_F_WEPON)
+                len += IEEE80211_WEP_IVLEN + IEEE80211_WEP_KIDLEN;
+-       if ((skb_headroom(skb) < len) &&
++
++       if (len < skb_headroom(skb)) len=skb_headroom(skb);
++       if ((skb_cloned(skb) || (skb_headroom(skb) < len)) &&
+            pskb_expand_head(skb, len - skb_headroom(skb), 0, GFP_ATOMIC)) {
+                dev_kfree_skb(skb);
+                return -ENOMEM;
+
+I think it would be good to make a function sort of:
+
+static inline int skb_header_cloned(struct sk_buff *skb)
+{
+	int dataref;
+
+	if (!skb->cloned)
+		return 0;
+
+	dataref = atomic_read(&skb_shinfo(skb)->dataref);
+	dataref -= !!(dataref & SKB_DATAREF_TCP);
+	dataref &= SKB_DATAREF_MASK;
+	return (dataref != 1);
+}
+
+In this case many of skb_cloned() could be just replaced with
+skb_header_cloned().
+
+Alexey
