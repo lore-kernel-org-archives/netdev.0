@@ -1,35 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
-Date: Thu, 21 Oct 2004 08:18:37 +0900 (JST)
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20041021.081837.99226422.yoshfuji@linux-ipv6.org>
-References: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Openswan Users] 	DPD Problem - message from kernel malformed:
+	unknown address family
+Date: Thu, 21 Oct 2004 09:24:52 +1000
+Sender: users-bounces@openswan.org
+Message-ID: <20041020232452.GA9803@gondor.apana.org.au>
+References: <417675C6.3040704@gmx.ch>
+	<E1CKOXc-0002Kq-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org, lmb@suse.de
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: laforge@netfilter.org
-In-Reply-To: <20041020223828.GP19899@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <users-bounces@openswan.org>
+To: Eric Marchionni <mailing-lists@gmx.ch>
+Content-Disposition: inline
+In-Reply-To: <E1CKOXc-0002Kq-00@gondolin.me.apana.org.au>
+Cc: users@openswan.org
+Cc: davem@davemloft.net
+List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/users>,
+	<mailto:users-request@openswan.org?subject=unsubscribe>
+List-Archive: <http://lists.openswan.org/pipermail/users>
+List-Post: <mailto:users@openswan.org>
+List-Help: <mailto:users-request@openswan.org?subject=help>
+List-Subscribe: <http://lists.openswan.org/mailman/listinfo/users>,
+	<mailto:users-request@openswan.org?subject=subscribe>
+Errors-To: users-bounces@openswan.org
 List-Id: netdev.vger.kernel.org
 
-In article <20041020223828.GP19899@sunbeam.de.gnumonks.org> (at Thu, 21 Oct 2004 00:38:28 +0200), Harald Welte <laforge@netfilter.org> says:
+On Thu, Oct 21, 2004 at 08:02:44AM +1000, Herbert Xu wrote:
+> Eric Marchionni <mailing-lists@gmx.ch> wrote:
+> > 
+> > the ping times out and this occurs in the log:
+> > Oct 20 10:36:11 localhost pluto[12528]: XFRM_MSG_ACQUIRE message from 
+> > kernel malformed: unknown address family
+> 
+> Looks like nobody has tested shunt routes for a while.
 
-> Apart from the usual netfilter-specific file additions and
-> Kconfig/Makefile patches, this needs to export proc_file_operations in
-> order to get the reference counting of certain data objects right.  I
-> hope this change is acceptable.
+Alright I just tested it with 2.6.9 with the latest openswan and I
+can't reproduce this problem.  I brought the connection up with
+auto --route and initiated the connection by a ping packet.
 
-Please use seq_file instead.  Thanks.
-
---yoshfuji
+Which kernel/openswan are you using?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
