@@ -1,32 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6]: Fix suboptimal fragment sizing for last fragment
-Date: Tue, 7 Sep 2004 13:35:08 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Too late check in af_packet.c
+Date: Tue, 7 Sep 2004 13:40:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907133508.5a7aeafb.davem@redhat.com>
-References: <4137681D.3000902@trash.net>
-	<20040902144436.2c8c1337.davem@redhat.com>
-	<20040902220343.GA3250@gondor.apana.org.au>
-	<20040903.104050.29603454.yoshfuji@linux-ipv6.org>
+Message-ID: <20040907134008.28c55c87.davem@davemloft.net>
+References: <20040903205206.GT26419@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: herbert@gondor.apana.org.au, kaber@trash.net, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040903.104050.29603454.yoshfuji@linux-ipv6.org>
+To: Dave Jones <davej@redhat.com>
+In-Reply-To: <20040903205206.GT26419@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 03 Sep 2004 10:40:50 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Fri, 3 Sep 2004 21:52:06 +0100
+Dave Jones <davej@redhat.com> wrote:
 
-> In this case, we know we need more fragment(s).
-> So, let's fill up to maxfraglen (instead of mtu) 
-> to avoid needless copy in the next loop.
+> Using the automated source checker at coverity.com, they picked up
+> on some code in packet_release() where a NULL check was done
+> after dereferencing.  Patch below.
 > 
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Dave Jones <davej@redhat.com>
 
-Has anyone tested or reviewed this patch?
-I'm just walking through my backlog trying
-to figure out what I need to spend time on.
+Looks great, applied.
+
+Thanks.
