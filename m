@@ -1,63 +1,62 @@
-From: jt@bougret.hpl.hp.com
-Subject: Re: NETLINK upcalls and wireless events
-Date: Tue, 23 Mar 2004 09:57:17 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] [RFT] 2.6.4 - epic100 napi
+Date: Tue, 23 Mar 2004 19:51:19 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040323175717.GA32055__33632.2284806103$1080065826@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <20040323195119.A14062@electric-eye.fr.zoreil.com>
+References: <20040320152109.A31118@electric-eye.fr.zoreil.com> <405DDDC6.7030007@pobox.com> <8765cvmyaq.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hostap@shmoo.com
+To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
 Content-Disposition: inline
-Resent-Message-Id: <E1B5qQX-00007c-00@bougret.hpl.hp.com>
+In-Reply-To: <8765cvmyaq.fsf@devron.myhome.or.jp>; from hirofumi@mail.parknet.co.jp on Tue, Mar 23, 2004 at 11:29:49PM +0900
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pavlin Radoslavov wrote :
-> 
-> I am using Linux NETLINK sockets to monitor network interface events
-> in the kernel such as "interface added/deleted", "address
-> added/deleted", etc.
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> :
 [...]
-> In other words, some wireless events may also generate RTM_NEWLINK
-> message as well. I don't have a laptop with Linux to verify that
-> myself, but I am quite sure that some wireless events do generate
-> RTM_NEWLINK with no IFLA_IFNAME.
-[...]
-> If I receive an RTM_NEWLINK message, is there a reliable way to
-> find-out whether the message is generated because of a wireless
-> event or because indeed there is a new network interface installed
-> in the kernel.
+> Umm.. the above code is part of ->poll(). I think xxx_interrut() need
+> netif_running() instead. The driver must clear __LINK_STATE_RX_SCHED
+> flag...
 > 
-> Checking whether the message contains the IFLA_WIRELESS field is
-> probably not an option, because I may be compiling the code on a
-> slightly older Linux box that doesn't have IFLA_WIRELESS defined.
-> The only solution I have so far is to check whether the message
-> contains the IFLA_IFNAME field, but this is more like a work-around
-> rather than a solution. Any suggestions?
+> BTW, ->napi_lock is unneeded because netif_schedule() is already
+> atomic, it need only local_irq_enable/disable().
 
-	The method I personally use is that I keep a little database
-of interfaces (I need it for other reasons). Therefore, I know if the
-interface is new (not in my database) or already exist (present in my
-database).
-	Note that in theory, RtNetlink messages may be lost (due to
-memory pressure). Also, you won't only get NEWLINK when interface
-register, but also when interface goes up and down, or when multicast
-or promiscuous flags are changed. Which mean that in practice you want
-to be much more clever than what you do now.
+Color me confused. The lock is supposed to protect against:
 
-	Both methods you suggest would also work. If IFLA_WIRELESS
-doesn't exist, just define it :
------------------------------
-#ifndef IFLA_WIRELESS
-#define IFLA_WIRELESS	(IFLA_MASTER + 1)
-#endif /* IFLA_WIRELESS */
------------------------------
+CPU1                         CPU2
+[poll]
+epic_napi_irq_on(dev, ep);
+                             [irq handler]
+                             if (netif_rx_schedule_prep(dev)) {
+                                     epic_napi_irq_off(dev, ep);
+                                     __netif_rx_schedule(dev);
+                             }
+__netif_rx_complete(dev);
 
-	The latest method is to look at both ifi_flags and
-ifi_change. If ifi_change is 0, it is usually a wireless event (but
-not always).
+-> napi irq are disabled and device is removed from poll list. What will
+   prevent it ?
 
-	Have fun...
+> After __netif_rx_complete() must not do "goto rx_action", otherwise it
+> may become cause of twice scheduleing, it should move before spin_lock().
 
-	Jean
+ understand the previous statement as:
+
++               status = inl(ioaddr + INTSTAT);
++               if (status & EpicNapiEvent) {
++                       epic_napi_irq_off(dev, ep);
++                       goto rx_action;
++
++               spin_lock_irqsave(&ep->napi_lock, flags);
++               epic_napi_irq_on(dev, ep);
++               __netif_rx_complete(dev);
++               spin_unlock_irqrestore(&ep->napi_lock, flags);
++
+
+Afaiu, if some data comes in just before the spin_lock, it may wait for ages.
+
+Can you reformulate as I feel I still did not get it right.
+
+--
+Ueimor
