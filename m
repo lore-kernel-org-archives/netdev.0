@@ -1,53 +1,34 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
-Date: Mon, 14 Mar 2005 18:45:54 -0500
-Message-ID: <42362232.4070202@pobox.com>
-References: <20050314123815.73e7ee78.davem@davemloft.net>	<200503142054.j2EKs2DD003697@guinness.s2io.com> <m1br9l6c63.fsf@muc.de>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] [IPV6] Use dev_get_flags() while building inet6 ifinfo message
+Date: Tue, 15 Mar 2005 01:14:17 +0100
+Message-ID: <20050315001417.GB3086@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Leonid Grossman <leonid.grossman@neterion.com>, netdev@oss.sgi.com,
-        leonid@neterion.com, alex@neterion.com,
-        "David S. Miller" <davem@davemloft.net>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <m1br9l6c63.fsf@muc.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> "Leonid Grossman" <leonid.grossman@neterion.com> writes:
-> 
->>Do you have other objections to the submission? We'd like to see if these
->>could be addressed; going forward we see significant benefits both for
->>S2io/Neterion (and our customers) and for community to use this driver.
-> 
-> 
-> I guess the main objection to the HAL comes not from performance
-> issues (Usually the only thing that really counts for performance
-> is data cache misses and the HAL is unlikely to affect this much), but
-> the coding style etc.. Indeed it does not look too Linux like. 
+Use dev_get_flags() in inet6_fill_ifinfo() to fetch interface flags
+to ensure correctly reporting IFF_PROMISC and IFF_ALLMULTI flags.
 
-Well, not coding style, but code analysis and maintenance issues.
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-HALs are generally type-opaque, breaking checker-style tools and sparse 
-checks.
-
-"it looks like Linux code" has implications on bug finding and fixing, 
-and long term maintenance of the code.  You want to make it easy for 
-someone to make the same change across N net drivers.
-
-Because most ->hard_start_xmit() hooks were written in a similar 
-fashion, it was easy and quick to deploy fixes for the skb_padto() 
-security bug across many net drivers.
-
-A lot of tiny costs that mostly wind up as noise:  additional branching 
-/ derefs.
-
-My biggest objection is that HALs increase the overall "cost" of 
-maintaining a piece of code, and serve as a barrier against outside 
-(non-primary-author) kernel hacker involvement.
-
-Remember, this driver is going to be with us for -10- years or more.
-
-	Jeff
+--- linux-2.6.11-bk10.orig/net/ipv6/addrconf.c	2005-03-14 19:40:28.000000000 +0100
++++ linux-2.6.11-bk10/net/ipv6/addrconf.c	2005-03-14 21:08:28.000000000 +0100
+@@ -2923,12 +2923,8 @@
+ 	r->ifi_family = AF_INET6;
+ 	r->ifi_type = dev->type;
+ 	r->ifi_index = dev->ifindex;
+-	r->ifi_flags = dev->flags;
++	r->ifi_flags = dev_get_flags(dev);
+ 	r->ifi_change = 0;
+-	if (!netif_running(dev) || !netif_carrier_ok(dev))
+-		r->ifi_flags &= ~IFF_RUNNING;
+-	else
+-		r->ifi_flags |= IFF_RUNNING;
+ 
+ 	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
+ 
