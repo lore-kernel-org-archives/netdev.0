@@ -1,60 +1,46 @@
-From: Andras Kis-Szabo <kisza@securityaudit.hu>
-Subject: Re: [PATCH] IPv6: Functions Clean-up
-Date: Sun, 03 Nov 2002 15:27:42 +0100
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <1036333662.12980.27.camel@arwen>
-References: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
- <1036328414.1048.3.camel@arwen>
- <20021103.221658.52523847.yoshfuji@linux-ipv6.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Linux SMP on 2.4.18-3
+Date: Mon, 4 Nov 2002 08:10:37 -0500 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.GSO.4.30.0211040703400.25806-100000@shell.cyberus.ca>
+References: <Pine.LNX.4.33L0.0210281020180.28869-100000@fast2.cs.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7BIT
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>,
- Netfilter Devel <netfilter-devel@lists.netfilter.org>,
- "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
- usagi@linux-ipv6.org
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-In-reply-to: <20021103.221658.52523847.yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?=
- =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Cheng Jin <chengjin@cs.caltech.edu>
+In-Reply-To: <Pine.LNX.4.33L0.0210281020180.28869-100000@fast2.cs.caltech.edu>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-> /*
->  * Taken from net/ipv6/ip6_output.c
->  * We should use the one there, but is defined static
->  * so we put this just here and let the things as
->  * they are now.
->  *
->  * If that one is modified, this one should be modified too.
->  */
-> 
-> So, the reason why the copy of route6_me_harder() 
-> lives there is because net/ipv6/ip6_output.c has not been 
-> exported it.
-Ok, ok! I have not got problems with this any more! :)
-It is even worse that the route6_me_harder() depends on the
-CONFIG_NETFILTER option, so this function comes from the Netfilter. In
-this case it is an unwanted code-duplication :(
- 
-> Is this something to do with parser of extension headers?
-> Parser of extension headers is different thing, isn't it?
-Yes, it is a different thing with different code.
- 
-Regards,
 
-kisza
+On Mon, 28 Oct 2002, Cheng Jin wrote:
 
--- 
-    Andras Kis-Szabo       Security Development, Design and Audit
--------------------------/        Zorp, NetFilter and IPv6
- kisza@SecurityAudit.hu /------------------------------------------->
+> > The IP network stack in linux is totaly reentrant. You could have a
+> > packet on _each_ processor in SMP concurently executing the same code. If
+> > you add anything, you need to take this into account.
+>
+> We did add code to the TCP layer, but I don't exactly see anything in the
+> original code where locking is used.  I assume the locks are in the IP
+> layer and lower?
+
+There are a few, but they are irrelevant in your case since you dont
+touch that code (eg the dst cache lock).
+As far as TCP is concerned, serialization between SMP processors happens
+with the socket lock. This lock is also used to sequence packets
+[Remember TCP has to ensure that packets are sequenced for processing
+by user process. Also remember that TCP runs in both user and process
+context].
+
+> The weirdest thing is that we noticed in
+> update_send_head, tp->packets_out sometimes increases by more than one
+> even though the code ++ it only once.  I guess I am not sure how we could
+> have screwed it up if the modifications are on the TCP layer.
+>
+
+Anything that you want to serialize access to you should put in the sock
+struct; then use the sock lock to serialize.
+
+cheers,
+jamal
