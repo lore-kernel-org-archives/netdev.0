@@ -1,50 +1,90 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Increase snd/rcv buffers in pppoe
-Date: Mon, 23 Feb 2004 10:26:13 -0800
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.4.25] pcnet32.c another diff error fix.
+Date: Mon, 23 Feb 2004 11:04:59 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040223102613.33838132.davem@redhat.com>
-References: <20040223105359.GA91938@colin2.muc.de>
-	<20040223.200101.39143636.yoshfuji@linux-ipv6.org>
-	<20040223111659.GB10681@colin2.muc.de>
-	<20040223.203843.04073965.yoshfuji@linux-ipv6.org>
+Message-ID: <200402231904.i1NJ4xj18531@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ak@muc.de, netdev@oss.sgi.com, mostrows@styx.uwaterloo.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040223.203843.04073965.yoshfuji@linux-ipv6.org>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I made another diff file error in my previous series of patches to 2.4.25
 
-Wait, I have an idea.
+The following patch should be done after "handle failures in open" and
+before "non-mii errors with ethtool".
 
-I was going to suggest ifdef'ing this change for 64-bit, but there is an even
-nicer way to do this and it avoids the magic number argument we're having right
-now too.
+--- linux-2.4.25/drivers/net/clean.pcnet32.c	Mon Feb 23 10:16:35 2004
++++ linux-2.4.25/drivers/net/pcnet32.c	Mon Feb 23 10:17:05 2004
+@@ -401,13 +401,13 @@
+ }
+ 
+ static struct pcnet32_access pcnet32_wio = {
+-    read_csr:	pcnet32_wio_read_csr,
+-    write_csr:	pcnet32_wio_write_csr,
+-    read_bcr:	pcnet32_wio_read_bcr,
+-    write_bcr:	pcnet32_wio_write_bcr,
+-    read_rap:	pcnet32_wio_read_rap,
+-    write_rap:	pcnet32_wio_write_rap,
+-    reset:	pcnet32_wio_reset
++    .read_csr	= pcnet32_wio_read_csr,
++    .write_csr	= pcnet32_wio_write_csr,
++    .read_bcr	= pcnet32_wio_read_bcr,
++    .write_bcr	= pcnet32_wio_write_bcr,
++    .read_rap	= pcnet32_wio_read_rap,
++    .write_rap	= pcnet32_wio_write_rap,
++    .reset	= pcnet32_wio_reset
+ };
+ 
+ static u16 pcnet32_dwio_read_csr (unsigned long addr, int index)
+@@ -456,13 +456,13 @@
+ }
+ 
+ static struct pcnet32_access pcnet32_dwio = {
+-    read_csr:	pcnet32_dwio_read_csr,
+-    write_csr:	pcnet32_dwio_write_csr,
+-    read_bcr:	pcnet32_dwio_read_bcr,
+-    write_bcr:	pcnet32_dwio_write_bcr,
+-    read_rap:	pcnet32_dwio_read_rap,
+-    write_rap:	pcnet32_dwio_write_rap,
+-    reset:	pcnet32_dwio_reset
++    .read_csr	= pcnet32_dwio_read_csr,
++    .write_csr	= pcnet32_dwio_write_csr,
++    .read_bcr	= pcnet32_dwio_read_bcr,
++    .write_bcr	= pcnet32_dwio_write_bcr,
++    .read_rap	= pcnet32_dwio_read_rap,
++    .write_rap	= pcnet32_dwio_write_rap,
++    .reset	= pcnet32_dwio_reset
+ };
+ 
+ 
+@@ -1624,7 +1624,9 @@
+ 	
+ 	crc = ether_crc_le(6, addrs);
+ 	crc = crc >> 26;
+-	mcast_table [crc >> 4] |= cpu_to_le16(1 << (crc & 0xf));
++	mcast_table [crc >> 4] = le16_to_cpu(
++		le16_to_cpu(mcast_table [crc >> 4]) | (1 << (crc & 0xf))
++	);
+     }
+     return;
+ }
+@@ -1709,9 +1711,9 @@
+ }
+ 
+ static struct pci_driver pcnet32_driver = {
+-    name:	DRV_NAME,
+-    probe:	pcnet32_probe_pci,
+-    id_table:	pcnet32_pci_tbl,
++    .name	= DRV_NAME,
++    .probe	= pcnet32_probe_pci,
++    .id_table	= pcnet32_pci_tbl,
+ };
+ 
+ MODULE_PARM(debug, "i");
 
-Let's compute this for _real_, as some kind of function on sizeof(struct sk_buff)
-For example, the overhead of N 1-byte packets.
-
-Andi has made a real observation in that various areas of performance are sensitive
-to the snd/rcv buffer size, and the values we choose are inherently tied to the
-size of struct sk_buff.  So whatever random value we choose today, could be useless
-and cause bad performance the next time we change struct sk_buff in some way.
-
-The proposal I make intends to avoid this endless tweaking.
-
-Two more observations while grepping for SK_{R,W}MEM_MAX.
-
-1) IPV4 icmp sents sk_sndbuf of it's sockets to "2 * SK_WMEM_MAX", that's not
-   what it really wants.  What it really wants is enough space to hold
-   ~2 full sized IPV4 packets, roughly 2 * 64K + struct sk_buff overhead
-   and thus that is what it should be using there.
-
-2) IPV6 icmp does the same as ipv4, except this value is even more wrong there
-   especially considering jumbograms.  With current code, sending a jumbogram
-   ipv6 icmp packet would simply fail, and I wonder if anyone has even tried
-   this.
-
-I'll cook something up to address all of this and it's going to go into 2.4.x as
-well.
+-- 
+Don Fry
+brazilnut@us.ibm.com
