@@ -1,46 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] natsemi.c NAPI
-Date: Mon, 20 Sep 2004 11:57:46 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Resend: [NETDRV] Merge register_netdev calls
+Date: Mon, 20 Sep 2004 15:03:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920115746.7ccbfb45.davem@davemloft.net>
-References: <20040920141030.GV1307@sunbeam.de.gnumonks.org>
+Message-ID: <414F2997.9030901@pobox.com>
+References: <20040701111914.GA11120@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040920141030.GV1307@sunbeam.de.gnumonks.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040701111914.GA11120@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Sep 2004 16:10:30 +0200
-Harald Welte <laforge@gnumonks.org> wrote:
+Herbert Xu wrote:
+> On Fri, Jun 11, 2004 at 12:08:55PM +1000, herbert wrote:
+> 
+>>In fact it's really making these ISA/MCA probe() functions more
+>>like the ones we have for PCI.
+> 
+> 
+> To illustrate this, let's take the first driver touched by 4/x.
+> In 3c503, the function init_module() essentially does
+> 
+> for each ioaddr
+> 	if (do_el2_probe(ioaddr) == 0)
+> 		return 0
+> 
+> And do_el2_probe() just calls el2_probe1() which is similar
+> to your average PCI probe function except that the first thing
+> it does is to make sure that the device exists at ioaddr.
+> 
+> This is not that different from PCI where it would look
+> like
+> 
+> for each PCI device matching the vendor/product numbers
+> 	if (do_el2_probe(device) == 0)
+> 		return 0
+> 
+> Now before my patch, register_netdev was being called just
+> after do_el2_probe() returns.  My patch simply moves it to
+> the end of el2_probe1() which is exactly what would happen
+> if this were a PCI driver.
+> 
+> I've rediffed it against your net-drivers-2.6 tree.
 
-> +static inline void natsemi_irq_enable(struct netdev_private *np)
-> +{
-> +	/* Enable interrupts by setting the interrupt mask. */
-> +	writel(DEFAULT_INTR, np->base_addr + IntrMask);
-> +	writel(1, np->base_addr + IntrEnable);
-> +	mb();
-> +}
-> +
-> +static inline void natsemi_irq_disable(struct netdev_private *np)
-> +{
-> +	writel(0, np->base_addr + IntrEnable);
-> +	mb();
-> +}
+so,
 
-Kill the mb(), try using:
+there was a lot of churn and I held off on this patch.
 
-	readl(np->base_addr + IntrEnable);
+could you be convinced to rediff and resend (again)?
 
-in it's place.
-
-This driver (before the NAPI patch) is a bit buggy, it does
-no RX processing SMP locking.  So if one one cpu you're doing
-RX interrupt processing, and on another cpu tx_timeout() runs
-we're totally screwed.
-
-This is not caused by Harald's patch, but there are implications
-for his NAPI patch once it is fixed.
+	Jeff
