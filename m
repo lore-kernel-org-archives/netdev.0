@@ -1,53 +1,28 @@
-From: Sander <sander@humilis.net>
-Subject: Re: e1000 -> 82540EM on linux 2.6.0-test[45] very slow in one direction
-Date: Sat, 4 Oct 2003 08:49:52 +0200
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: Re: [RFC] add rtnl semaphore to linux-atm
+Date: Fri, 3 Oct 2003 23:59:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031004064952.GA27027@favonius>
-References: <E3A930D59AFC3345AEBA35189102A8A6193289@orsmsx404.jf.intel.com>
-Reply-To: sander@humilis.net
+Message-ID: <20031004065925.GB94203@gaz.sfgoth.com>
+References: <200310011134.h91BYPkT003172@ginger.cmf.nrl.navy.mil> <20031001054226.126cea7b.davem@redhat.com> <20031003022615.GA42593@gaz.sfgoth.com> <20031003065824.713627c6.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: ookhoi@humilis.net, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: chas3@users.sourceforge.net, chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Leech, Christopher" <christopher.leech@intel.com>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <E3A930D59AFC3345AEBA35189102A8A6193289@orsmsx404.jf.intel.com>
+In-Reply-To: <20031003065824.713627c6.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Leech, Christopher wrote (ao):
-> > Btw, I had to compile the e1000 driver as a module. Compiled in it
-> > doesn't work, as is stated on the intel support page:
-> 
-> > This is not clear from the kernel config help. A patch against
-> > 2.6.0-test6 is attached (I don't know how to only give n/m as an
-> > option).
-> 
-> This patch is not necessary or desired. The version of e1000 that ships
-> with the kernel source should work fine statically linked, and the
-> comment on the Intel support web page applies to the separate download
-> of the e1000 source. If you download the driver source from Intel and
-> do the work to add it into a kernel source tree yourself, Intel customer
-> support may not help you when you have problems.
-> 
-> If you are having problems compiling in the version of e1000 that ships
-> with the kernel, please report it on netdev and we'll try and help.
+David S. Miller wrote:
+> Part of that is using the rtnl semaphore etc.
 
-I'm sorry for the patch. The problem I had with e1000 compiled into the
-kernel was that the interface resets every 60(?) seconds, and there was
-no network connection. After a google search I came onto the intel
-support page, saw the module-only text, tried e1000 as a module and it
-worked. This all is with the e1000 driver which is in the 2.6.0-test6
-kernel, which I thought was the intel provided driver.
-The server is co-located now, so I'm sorry to say that I can't try
-again to give more details.
+I've thought about this some more and I think we really DO want a
+per-atm-device semaphore for this rather than overloading rtnl_sem.
 
-> > Btw2, can somebody please explain what the option E1000_NAPI does?
-> 
-> NAPI is a network driver polling mode interface.  It enables a form of
-> software managed interrupt moderation, and may result in better
-> performance under some traffic patterns (specifically sustained high
-> packet rate reception).
+A device like an ADSL card might need to do a complete physical-layer
+negotiation when you open a VCC (assuming there were no VCCs open
+before)  This could take on the order of a minute if it fails.  You
+don't want to be hogging rtnl_sem for that long.
 
-Aha, tnx. Can you please provide a patch to get this text in the 2.6
-help?
+-Mitch
