@@ -1,53 +1,61 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Mixed PCI/ISA device name conflicts
-Date: Mon, 22 Mar 2004 20:56:27 -0500
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH] Uninitialized timer in ip_mc_down
+Date: Thu, 25 Mar 2004 13:57:55 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <405F994B.6080501@pobox.com>
-References: <20031222091115.42dd5f1f.shemminger@osdl.org>
+Message-ID: <20040325125755.GA8500@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="n8g4imXOkfNTN/H1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031222091115.42dd5f1f.shemminger@osdl.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> PCI is getting initialized before the old ISA probing code, so on mixed
-> ISA/PCI systems a PCI card will get eth0 before the ISA probing starts.
-> Then when the first ISA card is probed it will (unsuccessfully) try and claim
-> eth0.
-> 
-> This fixes it by just having the ISA code skip eth0.  It relies on the convention
-> that if the ioaddr is one, the device should be skipped.
-> 
-> Patch against net-drivers-2.5-exp
-> 
-> diff -Nru a/net/core/dev.c b/net/core/dev.c
-> --- a/net/core/dev.c	Fri Dec 19 14:47:46 2003
-> +++ b/net/core/dev.c	Fri Dec 19 14:47:46 2003
-> @@ -382,6 +382,7 @@
->   *	The found settings are set for the device to be used
->   *	later in the device probing.
->   *	Returns 0 if no settings found.
-> + *	        1 if device already exists
->   */
->  unsigned long netdev_boot_base(const char *prefix, int unit)
->  {
-> @@ -390,6 +391,9 @@
->  	int i;
->  
->  	sprintf(name, "%s%d", prefix, unit);
-> +	if (__dev_get_by_name(name))
-> +		return 1;
-> +
->  	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++)
->  		if (!strcmp(name, s[i].name))
->  			return s[i].map.base_addr;
 
+--n8g4imXOkfNTN/H1
+Content-Type: text/plain; charset=iso-8859-15
+Content-Disposition: inline
 
-Is this patch still needed?
+Hi,
 
-	Jeff
+if you do the following on a downed interface on 2.6, you get two
+"uninitialized timer" messages from the kernel, along with a stack trace.
+
+	ip addr add 1.2.3.4 dev eth1
+	ip addr del 1.2.3.4 dev eth1
+
+The reason is that inetdev_create calls ip_mc_up if and only if the device
+is up. However, inetdev_destroy calls ip_mc_destroy_dev unconditionally,
+so that del_timer gets called for the two multicast timers which are
+uninitialized.
+
+The attached patch seems to fix this. An alternative patch would
+be to add a check to ip_mc_down to see whether the timers are
+actually active before deleting them.
+
+Olaf
+-- 
+Olaf Kirch     |  Stop wasting entropy - start using predictable
+okir@suse.de   |  tempfile names today!
+---------------+ 
+
+--n8g4imXOkfNTN/H1
+Content-Type: text/plain; charset=iso-8859-15
+Content-Disposition: attachment; filename=ipv4-mcast-timer
+
+--- ../linux-2.6.4.orig/net/ipv4/devinet.c	2004-03-12 12:17:31.000000000 +0100
++++ ../linux-2.6.4/net/ipv4/devinet.c	2004-03-25 13:07:24.000000000 +0100
+@@ -183,7 +183,10 @@
+ 
+ 	in_dev->dead = 1;
+ 
+-	ip_mc_destroy_dev(in_dev);
++	/* If the device isn't up, the multicast info isn't
++	 * initialized. */
++	if (in_dev->dev->flags & IFF_UP)
++		ip_mc_destroy_dev(in_dev);
+ 
+ 	while ((ifa = in_dev->ifa_list) != NULL) {
+ 		inet_del_ifa(in_dev, &in_dev->ifa_list, 0);
+
+--n8g4imXOkfNTN/H1--
