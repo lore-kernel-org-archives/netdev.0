@@ -1,56 +1,58 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: [PATCH][resend] Update e1000 to use module_param()
-Date: Thu, 16 Sep 2004 09:36:35 -0700
+From: Zilvinas Valinskas <zilvinas@gemtek.lt>
+Subject: Crypto tests via tcrypt.o modules failes
+Date: Thu, 16 Sep 2004 21:11:22 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <52oek6tbl8.fsf@topspin.com>
+Message-ID: <1095358282.3359.83.camel@swoop.gemtek.lt>
+Reply-To: zilvinas@gemtek.lt
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cramerj@intel.com, john.ronciak@intel.com, ganesh.venkatesan@intel.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(resending because this seems to have been lost; e1000 still has mixed
-MODULE_PARM and module_param use)
+Hello, 
 
-The change to e1000_main.c in
+I've got here Xscale IXP425, vanilla linux 2.4.27 + ipsec + Xscale arch
+patch (I use IPsec patch backported from 2.6 kernel by Herbert Xu).  
+I've successfully compiled kernel, and booted on Xscale and Intel CPUs.
 
-    ChangeSet@1.1722.32.6, 2004-05-27 13:44:06-04:00, ganesh.venkatesan@intel.com
-      [PATCH] e1000 7/7: Support for ethtool msglevel based error
+Loaded encryption modules and ran 'insmod tcrypt.o' to verify if
+encryption is fine. Not all tests went through. 
 
-added module_param(debug, ...) to e1000_main.c.  Since e1000_param.c
-still uses MODULE_PARM(), this means that one gets
+Details are here,http://www.gemtek.lt/~zilvinas/crypto/tcrypt-tests
 
-    e1000: Ignoring new-style parameters in presence of obsolete ones
+Further testing reveals :
+1. AH with 'Null' encryption and w/o IPComp  works just fine. 
 
-when e1000 is loaded, so the debug parameter cannot even be set.
+2. I've tried ESP with AES-CBC.
+2.1  <Xscale> <-> <Xscale> no luck, computers can't ping each other.
+  (the same linux 2.4.27 + ipsec kernel on both boards).
 
-The patch below fixes this by updating e1000_param.c to use
-module_param() as well.  Since module_param might make the parameters
-visible in sysfs, I removed the __devinitdata notation from the
-parameter arrays as well, just to be safe.
+2.2  <Xscale> <-> <Intel> , the same 2.4.27 + ipsec kernel was used,
+  compiled for a different architectures though. No luck either.
 
-Thanks,
-  Roland
+2.3  <Xscale> <-> <Intel 2.6.9-rc1> - no luch either.
 
-Signed-off-by: Roland Dreier <roland@topspin.com>
+2.4  <Intel - 2.4.27 + ipsec> <-> <Intel - 2.6.9-rc1> success, 
+   with ESP/AES-CBC, AH  ... 
 
-Index: linux-2.6.8.1/drivers/net/e1000/e1000_param.c
-===================================================================
---- linux-2.6.8.1.orig/drivers/net/e1000/e1000_param.c	2004-08-14 03:55:48.000000000 -0700
-+++ linux-2.6.8.1/drivers/net/e1000/e1000_param.c	2004-08-15 08:16:31.109671753 -0700
-@@ -55,9 +55,11 @@
-  * over and over (plus this helps to avoid typo bugs).
-  */
+
+Does it mean, crypto is not big-endian safe/clean ? 
  
-+static int param_count;
-+
- #define E1000_PARAM(X, S) \
--static const int __devinitdata X[E1000_MAX_NIC + 1] = E1000_PARAM_INIT; \
--MODULE_PARM(X, "1-" __MODULE_STRING(E1000_MAX_NIC) "i"); \
-+static int X[E1000_MAX_NIC + 1] = E1000_PARAM_INIT; \
-+module_param_array(X, int, param_count, 0); \
- MODULE_PARM_DESC(X, S);
- 
- /* Transmit Descriptor Count
+Any pointers where to start or ideas how to track and fix - are welcome.
+(I don't have much expertise here though .. Never too late to start
+learning).
+
+I would say Xscale IXP425 has a rather interesting 32, 16 bits
+read/write results if address is not aligned properly. In the same
+directory - http://www.gemtek.lt/~zilvinas/crypto/ i've put *.pdf
+describing what exactly is happening. 
+
+Perhaps that is a culprit ?
+
+Thank you, I appreciate any help.
+
+ps.
+I am not subscribed to netdev@oss.sgi.com, please keep me on CC:
