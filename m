@@ -1,93 +1,57 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: RE: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
-Date: Thu, 14 Oct 2004 17:21:04 -0700
+From: Andrew Grover <andy.grover@gmail.com>
+Subject: [PATCH] remove unused memcpy_tokerneliovec
+Date: Thu, 14 Oct 2004 17:43:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410150021.i9F0LJ39024214@guinness.s2io.com>
-References: <200410150002.i9F02d39021336@guinness.s2io.com>
+Message-ID: <c0a09e5c0410141743149a6255@mail.gmail.com>
+Reply-To: Andrew Grover <andy.grover@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'Jeff Garzik'" <jgarzik@pobox.com>, <ravinandan.arakali@s2io.com>,
-        "'Francois Romieu'" <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>,
-        <rapuru.sriram@s2io.com>
+Content-Type: multipart/mixed;
+	boundary="----=_Part_907_21464745.1097801019093"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Raghavendra Koushik'" <raghavendra.koushik@s2io.com>,
-        "'Chris Leech'" <chris.leech@gmail.com>
-In-Reply-To: <200410150002.i9F02d39021336@guinness.s2io.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- "fragmented SKB on Rx" is an old problem - we tried to deploy 2 and 5
-buffer Xframe modes before and it did not work in Linux. 
-Is anyone aware of any network driver that successfully uses fragmented
-SKBs?
+------=_Part_907_21464745.1097801019093
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Thanks, Leonid
+This removes an unused function in net/core/iovec.c.
 
-> -----Original Message-----
-> From: Raghavendra Koushik [mailto:raghavendra.koushik@s2io.com] 
-> Sent: Thursday, October 14, 2004 5:03 PM
-> To: 'Chris Leech'
-> Cc: 'Jeff Garzik'; ravinandan.arakali@s2io.com; 'Francois 
-> Romieu'; netdev@oss.sgi.com; leonid.grossman@s2io.com; 
-> rapuru.sriram@s2io.com
-> Subject: RE: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
-> 
-> Hi Chris,
-> 
-> 	I think you have a point. As an alternative I can 
-> allocate some extra buffer space for buffer 2 (Ethernet 
-> payload) to begin with and in Rx path copy the buffer 
-> 1(Ethernet header) to the start of buffer 2(skb_push).
-> This can then be passed to the upper layer (after 
-> eth_type_trans call).
-> I did try fragmented SKB on Rx but it didn't seem to work. If 
-> any one can give me some pointers on how to get this working, 
-> I would implement 2Buff mode using this method and avoid a 
-> copy in fast path.
-> 
-> Koushik
-> 
-> 
-> > -----Original Message-----
-> > From: Chris Leech [mailto:chris.leech@gmail.com]
-> > Sent: Thursday, October 14, 2004 1:49 PM
-> > To: Raghavendra Koushik
-> > Cc: Jeff Garzik; ravinandan.arakali@s2io.com; Francois Romieu; 
-> > netdev@oss.sgi.com; leonid.grossman@s2io.com; rapuru.sriram@s2io.com
-> > Subject: Re: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
-> > 
-> > On Thu, 14 Oct 2004 11:33:13 -0700, Raghavendra Koushik 
-> > <raghavendra.koushik@s2io.com> wrote:
-> > 
-> > > > 1) can this not be done with SKB fragments?
-> > > >
-> > > To acheve what is required, the H/W still has to split the Rx'ed 
-> > > frame
-> > into
-> > > 2 parts. By implementing this through the SKB fragments 
-> method, the 
-> > > only thing we avoid is usage of ba_0 and ba_1 fields, but 
-> note that 
-> > > none of
-> > these
-> > > are allocated or freed in fast path. They are all pre-allocated 
-> > > buffers (along with the Rx descriptors) and hence won't 
-> hit the Rx 
-> > > side
-> > performance.
-> > > Also by pulling down the eth_type_trans implementation partially 
-> > > into
-> > the
-> > > driver any kind of copy during Rx is also avoided.
-> > 
-> > This change would pass skbs from the driver without the MAC header?
-> > What happens in a bridging configuration?  And 
-> dev->hard_header_parse 
-> > is set to eth_header_parse, which expects skb->mac.ethernet to be 
-> > valid, so I think any use of packet sockets will result in a NULL 
-> > dereference.
-> > 
-> > - Chris
-> 
+Signed-off-by: Andy Grover <andrew.grover@intel.com>
+
+------=_Part_907_21464745.1097801019093
+Content-Type: application/octet-stream; name="iovec.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="iovec.diff"
+
+PT09PT0gaW5jbHVkZS9saW51eC9zb2NrZXQuaCAxLjEyIHZzIGVkaXRlZCA9PT09PQotLS0gMS4x
+Mi9pbmNsdWRlL2xpbnV4L3NvY2tldC5oCTIwMDQtMDktMDggMTM6NDA6MDEgLTA3OjAwCisrKyBl
+ZGl0ZWQvaW5jbHVkZS9saW51eC9zb2NrZXQuaAkyMDA0LTEwLTE0IDE3OjM1OjA1IC0wNzowMApA
+QCAtMjgyLDcgKzI4Miw2IEBACiAKIGV4dGVybiBpbnQgdmVyaWZ5X2lvdmVjKHN0cnVjdCBtc2do
+ZHIgKm0sIHN0cnVjdCBpb3ZlYyAqaW92LCBjaGFyICphZGRyZXNzLCBpbnQgbW9kZSk7CiBleHRl
+cm4gaW50IG1lbWNweV90b2lvdmVjKHN0cnVjdCBpb3ZlYyAqdiwgdW5zaWduZWQgY2hhciAqa2Rh
+dGEsIGludCBsZW4pOwotZXh0ZXJuIHZvaWQgbWVtY3B5X3Rva2VybmVsaW92ZWMoc3RydWN0IGlv
+dmVjICppb3YsIHVuc2lnbmVkIGNoYXIgKmtkYXRhLCBpbnQgbGVuKTsKIGV4dGVybiBpbnQgbW92
+ZV9hZGRyX3RvX3VzZXIodm9pZCAqa2FkZHIsIGludCBrbGVuLCB2b2lkIF9fdXNlciAqdWFkZHIs
+IGludCBfX3VzZXIgKnVsZW4pOwogZXh0ZXJuIGludCBtb3ZlX2FkZHJfdG9fa2VybmVsKHZvaWQg
+X191c2VyICp1YWRkciwgaW50IHVsZW4sIHZvaWQgKmthZGRyKTsKIGV4dGVybiBpbnQgcHV0X2Nt
+c2coc3RydWN0IG1zZ2hkciosIGludCBsZXZlbCwgaW50IHR5cGUsIGludCBsZW4sIHZvaWQgKmRh
+dGEpOwo9PT09PSBuZXQvY29yZS9pb3ZlYy5jIDEuMTIgdnMgZWRpdGVkID09PT09Ci0tLSAxLjEy
+L25ldC9jb3JlL2lvdmVjLmMJMjAwNC0wNi0wMyAxODo0Nzo1NCAtMDc6MDAKKysrIGVkaXRlZC9u
+ZXQvY29yZS9pb3ZlYy5jCTIwMDQtMTAtMTQgMTc6MzM6NTkgLTA3OjAwCkBAIC05OSwyOCArOTks
+NiBAQAogfQogCiAvKgotICoJSW4ga2VybmVsIGNvcHkgdG8gaW92ZWMuIFJldHVybnMgLUVGQVVM
+VCBvbiBlcnJvci4KLSAqCi0gKglOb3RlOiB0aGlzIG1vZGlmaWVzIHRoZSBvcmlnaW5hbCBpb3Zl
+Yy4KLSAqLwotIAotdm9pZCBtZW1jcHlfdG9rZXJuZWxpb3ZlYyhzdHJ1Y3QgaW92ZWMgKmlvdiwg
+dW5zaWduZWQgY2hhciAqa2RhdGEsIGludCBsZW4pCi17Ci0Jd2hpbGUgKGxlbiA+IDApIHsKLQkJ
+aWYgKGlvdi0+aW92X2xlbikgewotCQkJaW50IGNvcHkgPSBtaW5fdCh1bnNpZ25lZCBpbnQsIGlv
+di0+aW92X2xlbiwgbGVuKTsKLQkJCW1lbWNweShpb3YtPmlvdl9iYXNlLCBrZGF0YSwgY29weSk7
+Ci0JCQlrZGF0YSArPSBjb3B5OwotCQkJbGVuIC09IGNvcHk7Ci0JCQlpb3YtPmlvdl9sZW4gLT0g
+Y29weTsKLQkJCWlvdi0+aW92X2Jhc2UgKz0gY29weTsKLQkJfQotCQlpb3YrKzsKLQl9Ci19Ci0K
+LQotLyoKICAqCUNvcHkgaW92ZWMgdG8ga2VybmVsLiBSZXR1cm5zIC1FRkFVTFQgb24gZXJyb3Iu
+CiAgKgogICoJTm90ZTogdGhpcyBtb2RpZmllcyB0aGUgb3JpZ2luYWwgaW92ZWMuCkBAIC0yNTks
+NCArMjM3LDMgQEAKIEVYUE9SVF9TWU1CT0wobWVtY3B5X2Zyb21pb3ZlYyk7CiBFWFBPUlRfU1lN
+Qk9MKG1lbWNweV9mcm9taW92ZWNlbmQpOwogRVhQT1JUX1NZTUJPTChtZW1jcHlfdG9pb3ZlYyk7
+Ci1FWFBPUlRfU1lNQk9MKG1lbWNweV90b2tlcm5lbGlvdmVjKTsK
+------=_Part_907_21464745.1097801019093--
