@@ -1,36 +1,42 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [Fwd: [E1000] NAPI re-insertion w/ changes]
-Date: Fri, 28 Mar 2003 09:27:38 +0100
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: ?completeness of IPsec feature-set
+Date: Fri, 28 Mar 2003 11:19:57 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16004.1914.582979.278009@robur.slu.se>
-References: <16003.11449.497905.815776@robur.slu.se>
-	<slrnb86c3g.7vo.lunz@stoli.localnet>
+Message-ID: <20030328101957.GA11075@outpost.ds9a.nl>
+References: <20030327215839.GA31029@outpost.ds9a.nl> <Pine.LNX.4.44.0303280827570.25478-100000@netcore.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "John S. Denker" <jsd@monmouth.com>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <slrnb86c3g.7vo.lunz@stoli.localnet>
+To: Pekka Savola <pekkas@netcore.fi>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0303280827570.25478-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, Mar 28, 2003 at 08:32:48AM +0200, Pekka Savola wrote:
 
-Jason Lunz writes:
+> It seems SSH and ipunplugged offer RF terms (to the extent of implementing
+> the IETF standards track implementation, which it isn't at the moment)
+> while Microsoft and Cisco don't.
+> 
+> I'm particularly interested if this is considered to be a problem.
 
- > I've seen pretty much the same thing. I plotted throughput vs. offered
- > load for e1000 4.4.12-k1, 4.4.19-k3, and 5.0.43-k1 (all backported to
- > 2.4.20). A summary with graphs is at:
- > 
- > http://gtf.org/lunz/linux/net/perf/
- 
- Illustrative.
+The suggestion from Linus is to continue coding and leave this to people who
+can actually read and understand legalese. We are not qualified to determine
+what is allowed and what is not.
 
- > 5.0.43 seems to be a significant regression, both in terms of throughput
- > and CPU load.
- 
- Can you test the patch I sent for 5.0.43 with your equipment/setup?
- 
+There is some precedent, IBM holds a blanket patent on 'compression' but has
+promised not to enforce it, I think. There is libz in the kernel.
 
- Cheers.
-						--ro
+But leave it to the people who care and code onwards is what Linus says and
+I would tend to agree.
+
+Regards,
+
+bert
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+http://netherlabs.nl                         Consulting
