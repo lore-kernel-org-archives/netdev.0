@@ -1,60 +1,56 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [PATCH] netconsole support for b44
-Date: Tue, 12 Oct 2004 16:57:32 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041012215732.GV31237@waste.org>
-References: <416BC26B.6090603@kolivas.org> <20041012180949.GW5414@waste.org> <416C5122.9040001@kolivas.org>
+From: Con Kolivas <kernel@kolivas.org>
+Subject: [PATCH]b44poll - whitespace
+Date: Wed, 13 Oct 2004 09:26:46 +1000
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <cone.1097623606.213849.12364.502@pc.kolivas.org>
+References: <416BC26B.6090603@kolivas.org> <20041012180949.GW5414@waste.org> <416C5122.9040001@kolivas.org> <20041012215732.GV31237@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com,
-        linux kernel mailing list <linux-kernel@vger.kernel.org>,
-        davem@redhat.com, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Con Kolivas <kernel@kolivas.org>
-Content-Disposition: inline
-In-Reply-To: <416C5122.9040001@kolivas.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=_pc.kolivas.org-1097623606-0000"
+Cc: Con Kolivas <kernel@kolivas.org>, netdev@oss.sgi.com,
+	linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	davem@redhat.com, Jeff Garzik <jgarzik@pobox.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268051AbUJLX1Q@vger.kernel.org>
+To: Matt Mackall <mpm@selenic.com>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 13, 2004 at 07:48:18AM +1000, Con Kolivas wrote:
-> Matt Mackall wrote:
-> >On Tue, Oct 12, 2004 at 09:39:23PM +1000, Con Kolivas wrote:
-> >
-> >>This patch adds poll support to the b44 driver to allow netconsole 
-> >>support. Style lifted straight from 8139too.c
-> >>
-> >>here is the dmesg output with it in place:
-> >>
-> >>netconsole: device eth0 not up yet, forcing it
-> >>netconsole: carrier detect appears flaky, waiting 10 seconds
-> >>b44: eth0: Link is down.
-> >>b44: eth0: Link is up at 100 Mbps, full duplex.
-> >>b44: eth0: Flow control is on for TX and on for RX.
-> >>netconsole: network logging started
-> >>
-> >>output confirmed by netcat on other system.
-> >>
-> >>Signed-off-by: Con Kolivas <kernel@kolivas.org>
-> >
-> >
-> >+       disable_irq(dev->irq);
-> >+       b44_interrupt (dev->irq, dev, NULL);
-> >+       enable_irq(dev->irq);
-> >
-> >Aside from this bizarre whitespace convention and neglecting to cc:
-> >me, looks good.
-> >
-> 
-> sorry,sorry,thanks.
-> 
-> Can you explain where I went wrong in the whitespace so I don't make the 
-> same mistake again? It looked pretty standard to me.
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-Stray space between b44_interrupt and args. 
+--=_pc.kolivas.org-1097623606-0000
+Content-Type: text/plain; format=flowed; charset="US-ASCII"
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
-> Should I nudge akpm with this or will it go via another route?
+>> >+       disable_irq(dev->irq);
+>> >+       b44_interrupt (dev->irq, dev, NULL);
+>> >+       enable_irq(dev->irq);
+>> >
+> Stray space between b44_interrupt and args. 
 
-Jeff Garzik usually picks up net driver stuff, I think he got this one.
+Must have had my eyes closed. Trivial cleanup patch attached, thanks.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+Con
+
+
+--=_pc.kolivas.org-1097623606-0000
+Content-Description: b44poll-ws.diff
+Content-Disposition: inline;
+  FILENAME="b44poll-ws.diff"
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+
+Index: linux-2.6.9-rc4-ck1/drivers/net/b44.c
+===================================================================
+--- linux-2.6.9-rc4-ck1.orig/drivers/net/b44.c	2004-10-12 21:28:12.000000000 +1000
++++ linux-2.6.9-rc4-ck1/drivers/net/b44.c	2004-10-13 09:24:46.064825491 +1000
+@@ -1309,7 +1309,7 @@ err_out_free:
+ static void b44_poll_controller(struct net_device *dev)
+ {
+ 	disable_irq(dev->irq);
+-	b44_interrupt (dev->irq, dev, NULL);
++	b44_interrupt(dev->irq, dev, NULL);
+ 	enable_irq(dev->irq);
+ }
+ #endif
+
+--=_pc.kolivas.org-1097623606-0000--
