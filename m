@@ -1,12 +1,12 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [RFC, PATCH 3/5]: netfilter+ipsec - input hooks
-Date: Thu, 18 Mar 2004 17:32:14 +0100
+Subject: [RFC, PATCH 5/5]: netfilter+ipsec - policy checks
+Date: Thu, 18 Mar 2004 17:32:39 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4059CF0E.3050708@trash.net>
+Message-ID: <4059CF27.4030803@trash.net>
 References: <20040308110331.GA20719@gondor.apana.org.au>	<404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------090305020603060809060000"
+ boundary="------------030909010207090303020502"
 Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com,
         netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,304 +16,226 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------090305020603060809060000
+--------------030909010207090303020502
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patch adds new hooks for input, it is the worst of all patches.
-Packets should traverse PRE_ROUTING+LOCAL_IN before decryption and
-PRE_ROUTING+LOCAL_IN/FORWARD afterwards. This is tricky because I
-didn't find an elegant way to determine when decapsulation is done.
-Currently, packets reposted into the stack don't traverse the hooks
-at the normal positions but at a later time when we know decapsulation
-if done:
-
-- if a reposted packet has a non-local destination after input routing
-decapsulation must be done, it then traverses the PRE_ROUTING hook.
-
-- otherwise, it continues until ip_local_deliver_finish but also
-skips the LOCAL_IN hook. All xfrm protocol-handlers are marked with
-xfrm_prot. If the protocol handler of a packet with a secpath
-pointer is a non-xfrm-protocol the packet was handled by ipsec and
-is done now, it traverses the PRE_ROUTING and LOCAL_IN hooks then.
-This catches packets from both tunnel-mode and transport-mode SAs.
-
-Because the hooks are traversed at a later time than usual several
-not-so-nice things have to be done in the nf_postxfrm_* functions.
-
-I don't see a better way currently, but I'm sure you do ;)
+This patch makes xfrm_policy_check locate the correct policy after NAT.
+For protocols which do policy checks in their receive routines the
+reference to nfct has to be kept until policy checks are done, the
+other ones still drop it in ip_local_deliver_finish.
 
 
---------------090305020603060809060000
+--------------030909010207090303020502
 Content-Type: text/x-patch;
- name="03-input-hooks.diff"
+ name="05-nat-policy-check.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="03-input-hooks.diff"
+ filename="05-nat-policy-check.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/03/18 16:41:37+01:00 kaber@trash.net 
-#   [NETFILTER]: post-ipsec input hooks
+#   2004/03/18 16:44:21+01:00 kaber@trash.net 
+#   [NETFILTER]: Make policy checks find correct policy after NAT
 # 
-# net/ipv4/xfrm4_tunnel.c
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +1 -0
-#   [NETFILTER]: post-ipsec input hooks
+# net/xfrm/xfrm_policy.c
+#   2004/03/18 16:44:12+01:00 kaber@trash.net +2 -0
+#   [NETFILTER]: Make policy checks find correct policy after NAT
 # 
-# net/ipv4/ipcomp.c
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +1 -0
-#   [NETFILTER]: post-ipsec input hooks
+# net/ipv4/udp.c
+#   2004/03/18 16:44:12+01:00 kaber@trash.net +2 -0
+#   [NETFILTER]: Make policy checks find correct policy after NAT
+# 
+# net/ipv4/tcp_ipv4.c
+#   2004/03/18 16:44:12+01:00 kaber@trash.net +1 -0
+#   [NETFILTER]: Make policy checks find correct policy after NAT
+# 
+# net/ipv4/raw.c
+#   2004/03/18 16:44:12+01:00 kaber@trash.net +1 -0
+#   [NETFILTER]: Make policy checks find correct policy after NAT
 # 
 # net/ipv4/ip_input.c
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +15 -6
-#   [NETFILTER]: post-ipsec input hooks
-# 
-# net/ipv4/esp4.c
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +1 -0
-#   [NETFILTER]: post-ipsec input hooks
-# 
-# net/ipv4/ah4.c
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +1 -0
-#   [NETFILTER]: post-ipsec input hooks
+#   2004/03/18 16:44:12+01:00 kaber@trash.net +6 -8
+#   [NETFILTER]: Make policy checks find correct policy after NAT
 # 
 # net/core/netfilter.c
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +50 -3
-#   [NETFILTER]: post-ipsec input hooks
+#   2004/03/18 16:44:12+01:00 kaber@trash.net +43 -0
+#   [NETFILTER]: Make policy checks find correct policy after NAT
 # 
-# include/net/protocol.h
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +1 -0
-#   [NETFILTER]: post-ipsec input hooks
+# include/linux/netfilter.h
+#   2004/03/18 16:44:12+01:00 kaber@trash.net +16 -0
+#   [NETFILTER]: Make policy checks find correct policy after NAT
 # 
-# include/linux/netfilter_ipv4.h
-#   2004/03/18 16:41:31+01:00 kaber@trash.net +15 -0
-#   [NETFILTER]: post-ipsec input hooks
-# 
-diff -Nru a/include/linux/netfilter_ipv4.h b/include/linux/netfilter_ipv4.h
---- a/include/linux/netfilter_ipv4.h	Thu Mar 18 16:45:35 2004
-+++ b/include/linux/netfilter_ipv4.h	Thu Mar 18 16:45:35 2004
-@@ -83,6 +83,21 @@
-    Returns true or false. */
- extern int skb_ip_make_writable(struct sk_buff **pskb,
- 				unsigned int writable_len);
-+
+diff -Nru a/include/linux/netfilter.h b/include/linux/netfilter.h
+--- a/include/linux/netfilter.h	Thu Mar 18 16:46:27 2004
++++ b/include/linux/netfilter.h	Thu Mar 18 16:46:27 2004
+@@ -171,5 +171,21 @@
+ #define NF_HOOK_COND NF_HOOK
+ #endif /*CONFIG_NETFILTER*/
+ 
 +#ifdef CONFIG_XFRM
-+extern int nf_postxfrm_input(struct sk_buff *skb);
-+extern int nf_postxfrm_nonlocal(struct sk_buff *skb);
-+#else /* CONFIG_XFRM */
-+static inline int nf_postxfrm_input(struct sk_buff *skb)
-+{
-+	return 0;
-+}
++#ifdef CONFIG_IP_NF_NAT_NEEDED
++struct flowi;
++extern void nf_nat_decode_session4(struct sk_buff *skb, struct flowi *fl);
 +
-+static inline int nf_postxfrm_nonlocal(struct sk_buff *skb)
++static inline void
++nf_nat_decode_session(struct sk_buff *skb, struct flowi *fl, int family)
 +{
-+	return 0;
++	if (family == AF_INET)
++		nf_nat_decode_session4(skb, fl);
 +}
++#else /* CONFIG_IP_NF_NAT_NEEDED */
++#define nf_nat_decode_session(skb,fl,family)
++#endif /* CONFIG_IP_NF_NAT_NEEDED */
 +#endif /* CONFIG_XFRM */
++
  #endif /*__KERNEL__*/
- 
- #endif /*__LINUX_IP_NETFILTER_H*/
-diff -Nru a/include/net/protocol.h b/include/net/protocol.h
---- a/include/net/protocol.h	Thu Mar 18 16:45:35 2004
-+++ b/include/net/protocol.h	Thu Mar 18 16:45:35 2004
-@@ -39,6 +39,7 @@
- 	int			(*handler)(struct sk_buff *skb);
- 	void			(*err_handler)(struct sk_buff *skb, u32 info);
- 	int			no_policy;
-+	int			xfrm_prot;
- };
- 
- #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
+ #endif /*__LINUX_NETFILTER_H*/
 diff -Nru a/net/core/netfilter.c b/net/core/netfilter.c
---- a/net/core/netfilter.c	Thu Mar 18 16:45:35 2004
-+++ b/net/core/netfilter.c	Thu Mar 18 16:45:35 2004
-@@ -11,6 +11,7 @@
-  */
- #include <linux/config.h>
- #include <linux/netfilter.h>
-+#include <linux/netfilter_ipv4.h>
- #include <net/protocol.h>
- #include <linux/init.h>
- #include <linux/skbuff.h>
-@@ -25,6 +26,7 @@
- #include <linux/icmp.h>
- #include <net/sock.h>
- #include <net/route.h>
-+#include <net/xfrm.h>
- #include <linux/ip.h>
- 
- /* In this code, we can be waiting indefinitely for userspace to
-@@ -625,9 +627,6 @@
- 	struct dst_entry *odst;
- 	unsigned int hh_len;
- 
--	/* some non-standard hacks like ipt_REJECT.c:send_reset() can cause
--	 * packets with foreign saddr to appear on the NF_IP_LOCAL_OUT hook.
--	 */
- 	if (inet_addr_type(iph->saddr) == RTN_LOCAL) {
- 		fl.nl_u.ip4_u.daddr = iph->daddr;
- 		fl.nl_u.ip4_u.saddr = iph->saddr;
-@@ -679,6 +678,54 @@
- 
- 	return 0;
+--- a/net/core/netfilter.c	Thu Mar 18 16:46:27 2004
++++ b/net/core/netfilter.c	Thu Mar 18 16:46:27 2004
+@@ -739,6 +739,49 @@
+ 	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, skb->dev, NULL,
+ 	               nf_postxfrm_done);
  }
 +
-+#ifdef CONFIG_XFRM
-+static inline int nf_postxfrm_done(struct sk_buff *skb)
-+{
-+	return 0;
-+}
++#ifdef CONFIG_IP_NF_NAT_NEEDED
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++#include <linux/netfilter_ipv4/ip_nat.h>
 +
-+static inline int nf_postxfrm_input2(struct sk_buff *skb)
++void nf_nat_decode_session4(struct sk_buff *skb, struct flowi *fl)
 +{
-+	if (inet_addr_type(skb->nh.iph->daddr) != RTN_LOCAL) {
-+		if (ip_route_me_harder(&skb) == 0)
-+			dst_input(skb);
-+		else
-+			kfree_skb(skb);
-+		return -1;
++	struct ip_conntrack *ct;
++	struct ip_conntrack_tuple *t;
++	struct ip_nat_info_manip *m;
++	unsigned int i;
++
++	if (skb->nfct == NULL)
++		return;
++	ct = (struct ip_conntrack *)skb->nfct->master;
++
++	for (i = 0; i < ct->nat.info.num_manips; i++) {
++		m = &ct->nat.info.manips[i];
++		t = &ct->tuplehash[m->direction].tuple;
++
++		switch (m->hooknum) {
++		case NF_IP_PRE_ROUTING:
++			if (m->maniptype != IP_NAT_MANIP_DST)
++				break;
++			fl->fl4_dst = t->dst.ip;
++			if (t->dst.protonum == IPPROTO_TCP ||
++			    t->dst.protonum == IPPROTO_UDP)
++				fl->fl_ip_dport = t->dst.u.tcp.port;
++			break;
++#ifdef CONFIG_IP_NF_NAT_LOCAL
++		case NF_IP_LOCAL_IN:
++			if (m->maniptype != IP_NAT_MANIP_SRC)
++				break;
++			fl->fl4_src = t->src.ip;
++			if (t->dst.protonum == IPPROTO_TCP ||
++			    t->dst.protonum == IPPROTO_UDP)
++				fl->fl_ip_sport = t->src.u.tcp.port;
++			break;
++#endif
++		}
 +	}
-+
-+	return NF_HOOK(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
-+	               nf_postxfrm_done);
 +}
-+
-+int nf_postxfrm_input(struct sk_buff *skb)
-+{
-+	int off = skb->data - skb->nh.raw;
-+
-+	__skb_push(skb, off);
-+	/* Fix header len and checksum if last xfrm was transport mode */
-+	if (!skb->sp->x[skb->sp->len - 1].xvec->props.mode) {
-+		skb->nh.iph->tot_len = htons(skb->len);
-+		ip_send_check(skb->nh.iph);
-+	}
-+
-+	nf_reset(skb);
-+	if (NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, skb->dev, NULL,
-+	            nf_postxfrm_input2) != 0)
-+		return -1;
-+
-+	__skb_pull(skb, off);
-+	return 0;
-+}
-+
-+int nf_postxfrm_nonlocal(struct sk_buff *skb)
-+{
-+	nf_reset(skb);
-+	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, skb->dev, NULL,
-+	               nf_postxfrm_done);
-+}
-+#endif /* CONFIG_XFRM */
++#endif /* CONFIG_IP_NF_NAT_NEEDED */
+ #endif /* CONFIG_XFRM */
  
  int skb_ip_make_writable(struct sk_buff **pskb, unsigned int writable_len)
- {
-diff -Nru a/net/ipv4/ah4.c b/net/ipv4/ah4.c
---- a/net/ipv4/ah4.c	Thu Mar 18 16:45:35 2004
-+++ b/net/ipv4/ah4.c	Thu Mar 18 16:45:35 2004
-@@ -344,6 +344,7 @@
- 	.handler	=	xfrm4_rcv,
- 	.err_handler	=	ah4_err,
- 	.no_policy	=	1,
-+	.xfrm_prot	=	1,
- };
- 
- static int __init ah4_init(void)
-diff -Nru a/net/ipv4/esp4.c b/net/ipv4/esp4.c
---- a/net/ipv4/esp4.c	Thu Mar 18 16:45:35 2004
-+++ b/net/ipv4/esp4.c	Thu Mar 18 16:45:35 2004
-@@ -577,6 +577,7 @@
- 	.handler	=	xfrm4_rcv,
- 	.err_handler	=	esp4_err,
- 	.no_policy	=	1,
-+	.xfrm_prot	=	1,
- };
- 
- static int __init esp4_init(void)
 diff -Nru a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
---- a/net/ipv4/ip_input.c	Thu Mar 18 16:45:35 2004
-+++ b/net/ipv4/ip_input.c	Thu Mar 18 16:45:35 2004
-@@ -224,6 +224,12 @@
- 	resubmit:
- 		hash = protocol & (MAX_INET_PROTOS - 1);
- 		raw_sk = sk_head(&raw_v4_htable[hash]);
-+		ipprot = inet_protos[hash];
-+		smp_read_barrier_depends();
-+
-+		if (skb->sp && !ipprot->xfrm_prot)
-+			if (nf_postxfrm_input(skb))
-+				goto out;
+--- a/net/ipv4/ip_input.c	Thu Mar 18 16:46:27 2004
++++ b/net/ipv4/ip_input.c	Thu Mar 18 16:46:27 2004
+@@ -206,10 +206,6 @@
  
- 		/* If there maybe a raw socket we must check - if not we
- 		 * don't care less
-@@ -231,10 +237,9 @@
- 		if (raw_sk)
- 			raw_v4_input(skb, skb->nh.iph, hash);
+ 	__skb_pull(skb, ihl);
  
--		if ((ipprot = inet_protos[hash]) != NULL) {
-+		if (ipprot != NULL) {
+-	/* Free reference early: we don't need it any more, and it may
+-           hold ip_conntrack module loaded indefinitely. */
+-	nf_reset(skb);
+-
+         /* Point into the IP datagram, just past the header. */
+         skb->h.raw = skb->data;
+ 
+@@ -240,10 +236,12 @@
+ 		if (ipprot != NULL) {
  			int ret;
  
--			smp_read_barrier_depends();
- 			if (!ipprot->no_policy &&
- 			    !xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
- 				kfree_skb(skb);
-@@ -279,8 +284,8 @@
- 			return 0;
+-			if (!ipprot->no_policy &&
+-			    !xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
+-				kfree_skb(skb);
+-				goto out;
++			if (!ipprot->no_policy) {
++				if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
++					kfree_skb(skb);
++					goto out;
++				}
++				nf_reset(skb);
+ 			}
+ 			ret = ipprot->handler(skb);
+ 			if (ret < 0) {
+diff -Nru a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c	Thu Mar 18 16:46:27 2004
++++ b/net/ipv4/raw.c	Thu Mar 18 16:46:27 2004
+@@ -249,6 +249,7 @@
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
  	}
++	nf_reset(skb);
  
--	return NF_HOOK(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
--		       ip_local_deliver_finish);
-+	return NF_HOOK_COND(PF_INET, NF_IP_LOCAL_IN, skb, skb->dev, NULL,
-+	                    ip_local_deliver_finish, !skb->sp);
- }
+ 	skb_push(skb, skb->data - skb->nh.raw);
  
- static inline int ip_rcv_finish(struct sk_buff *skb)
-@@ -346,6 +351,10 @@
- 		}
+diff -Nru a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	Thu Mar 18 16:46:27 2004
++++ b/net/ipv4/tcp_ipv4.c	Thu Mar 18 16:46:27 2004
+@@ -1785,6 +1785,7 @@
+ 
+ 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
+ 		goto discard_and_relse;
++	nf_reset(skb);
+ 
+ 	if (sk_filter(sk, skb, 0))
+ 		goto discard_and_relse;
+diff -Nru a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c	Thu Mar 18 16:46:27 2004
++++ b/net/ipv4/udp.c	Thu Mar 18 16:46:27 2004
+@@ -1030,6 +1030,7 @@
+ 		kfree_skb(skb);
+ 		return -1;
  	}
++	nf_reset(skb);
  
-+	if (skb->sp && !(((struct rtable *)skb->dst)->rt_flags&RTCF_LOCAL))
-+		if (nf_postxfrm_nonlocal(skb))
-+			goto drop;
-+
- 	return dst_input(skb);
+ 	if (up->encap_type) {
+ 		/*
+@@ -1195,6 +1196,7 @@
  
- inhdr_error:
-@@ -418,8 +427,8 @@
- 		}
- 	}
+ 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
+ 		goto drop;
++	nf_reset(skb);
  
--	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
--		       ip_rcv_finish);
-+	return NF_HOOK_COND(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
-+	                    ip_rcv_finish, !skb->sp);
+ 	/* No socket. Drop packet silently, if checksum is wrong */
+ 	if (udp_checksum_complete(skb))
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	Thu Mar 18 16:46:27 2004
++++ b/net/xfrm/xfrm_policy.c	Thu Mar 18 16:46:27 2004
+@@ -21,6 +21,7 @@
+ #include <linux/workqueue.h>
+ #include <linux/notifier.h>
+ #include <linux/netdevice.h>
++#include <linux/netfilter.h>
+ #include <net/xfrm.h>
+ #include <net/ip.h>
  
- inhdr_error:
- 	IP_INC_STATS_BH(IpInHdrErrors);
-diff -Nru a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
---- a/net/ipv4/ipcomp.c	Thu Mar 18 16:45:35 2004
-+++ b/net/ipv4/ipcomp.c	Thu Mar 18 16:45:35 2004
-@@ -408,6 +408,7 @@
- 	.handler	=	xfrm4_rcv,
- 	.err_handler	=	ipcomp4_err,
- 	.no_policy	=	1,
-+	.xfrm_prot	=	1,
- };
+@@ -908,6 +909,7 @@
  
- static int __init ipcomp4_init(void)
-diff -Nru a/net/ipv4/xfrm4_tunnel.c b/net/ipv4/xfrm4_tunnel.c
---- a/net/ipv4/xfrm4_tunnel.c	Thu Mar 18 16:45:35 2004
-+++ b/net/ipv4/xfrm4_tunnel.c	Thu Mar 18 16:45:35 2004
-@@ -171,6 +171,7 @@
- 	.handler	=	ipip_rcv,
- 	.err_handler	=	ipip_err,
- 	.no_policy	=	1,
-+	.xfrm_prot	=	1,
- };
+ 	if (_decode_session(skb, &fl, family) < 0)
+ 		return 0;
++	nf_nat_decode_session(skb, &fl, family);
  
- static int __init ipip_init(void)
+ 	/* First, check used SA against their selectors. */
+ 	if (skb->sp) {
 
 
---------------090305020603060809060000--
+--------------030909010207090303020502--
