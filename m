@@ -1,26 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH] 2.6 SCTP update
-Date: Fri, 27 Feb 2004 13:31:09 -0800
+Subject: Re: [BK PATCH] 2.4 SCTP updates.
+Date: Fri, 27 Feb 2004 13:38:07 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040227133109.3cdfd069.davem@redhat.com>
-References: <Pine.LNX.4.58.0402271231490.12389@localhost.localdomain>
+Message-ID: <20040227133807.453e8d4b.davem@redhat.com>
+References: <Pine.LNX.4.58.0402271216200.12389@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0402271231490.12389@localhost.localdomain>
+In-Reply-To: <Pine.LNX.4.58.0402271216200.12389@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Feb 2004 12:33:56 -0800 (PST)
+On Fri, 27 Feb 2004 12:31:18 -0800 (PST)
 Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> Hi Dave,
-> 
-> Please do a
-> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
-> to get the following update to SCTP on top of linux 2.6.3
+> Thanks for fixing the MSECS_TO_JIFFIES warning.
 
-Pulled, thanks Sridhar.
+No problem.  Maybe we want to rename some of those other macros
+to have SCTP_ prefixes too?
+
+> Here are a few updates to SCTP on top of the latest 2.4 BK tree. It includes
+> fixes to NIP6 macro compile error, incorrect packed attribute usage and
+> a bug with sinit_max_init_timeo behavior.
+> 
+> please do a
+> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
+
+Pulled, thanks.
