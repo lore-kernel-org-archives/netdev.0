@@ -1,51 +1,40 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: [PATCH 2.6] airo.c set_bit bug
-Date: Thu, 22 Jul 2004 17:21:14 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
+Date: Thu, 22 Jul 2004 17:17:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040723002114.GA11815@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <20040722171752.341d2476.davem@redhat.com>
+References: <40F34740.5040100@trash.net>
+	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
+	<20040712205037.573411c0.davem@redhat.com>
+	<40F4862D.3070802@trash.net>
+	<40F4AC8B.40706@trash.net>
+	<20040721143110.4ab944bf.davem@redhat.com>
+	<41004F76.1080807@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Javier Achirica <achirica@ttd.net>, Jeff Garzik <jgarzik@pobox.com>,
-        netdev@oss.sgi.com
-Content-Disposition: inline
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41004F76.1080807@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hi Javier,
+On Fri, 23 Jul 2004 01:36:22 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-	Managed to find a bug in the usage of set_bit/clear_bit in the
-airo driver. I'm not sure if I caught all occurence of this pattern,
-and not sure about exact consequences of the bug, but we might as well
-fix it...
-	Patch below...
+> > I suggest we just expand the dependency list for NET_SCH_CLK_TSC
+> > to include SPARC64 PPC64 and perhaps some other easy to verify
+> > as having a working get_cycles() implementation.  I believe that
+> > as long as it increments at some rate >= jiffies, the psched
+> > calibration will get things into a working state.
+> 
+> It needs to increment at slightly above 1Mhz, otherwise delay will
+> be zero after this division and everything will fall apart:
+> delay /= rdelay.
 
-	Have fun...
+I see.  I know for a fact that sparc64 meets this criterion, and
+I'm pretty sure ppc64 does too.
 
-	Jean
-
---------------------------------------------------------
-
---- linux/drivers/net/wireless/airo.j1.c	Thu Jul 22 15:27:48 2004
-+++ linux/drivers/net/wireless/airo.c	Thu Jul 22 15:29:11 2004
-@@ -1808,7 +1808,8 @@ static int writeConfigRid(struct airo_in
- 	if (!test_bit (FLAG_COMMIT, &ai->flags))
- 		return SUCCESS;
- 
--	clear_bit (FLAG_COMMIT | FLAG_RESET, &ai->flags);
-+	clear_bit (FLAG_COMMIT, &ai->flags);
-+	clear_bit (FLAG_RESET, &ai->flags);
- 	checkThrottle(ai);
- 	cfgr = ai->config;
- 
-@@ -6158,7 +6159,8 @@ static int airo_set_txpow(struct net_dev
- 	readCapabilityRid(local, &cap_rid);
- 
- 	if (vwrq->disabled) {
--		set_bit (FLAG_RADIO_OFF | FLAG_COMMIT, &local->flags);
-+		set_bit (FLAG_RADIO_OFF, &local->flags);
-+		set_bit (FLAG_COMMIT, &local->flags);
- 		return -EINPROGRESS;		/* Call commit handler */
- 	}
- 	if (vwrq->flags != IW_TXPOW_MWATT) {
+We could bug check this in psched calibration, in fact I think
+we should.
