@@ -1,37 +1,45 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [BUG] MODULE_PARM conversions introduces bug in Wavelan driver
-Date: Wed, 19 Jan 2005 13:42:33 +1100
-Message-ID: <1106102553.20879.4.camel@localhost.localdomain>
-References: <20050119004722.GA26468@bougret.hpl.hp.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: path: module replay
+Date: Wed, 19 Jan 2005 05:26:03 +0100
+Message-ID: <41EDE15B.40300@trash.net>
+References: <1105900522.1090.798.camel@jzny.localdomain>	 <41EAB74F.6060507@trash.net>  <20050116185630.GZ26856@postel.suug.ch>	 <1105903033.1097.829.camel@jzny.localdomain> <1105903960.1097.836.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261554AbVASD66@vger.kernel.org>
-To: jt@hpl.hp.com
-In-Reply-To: <20050119004722.GA26468@bougret.hpl.hp.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1105903960.1097.836.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-01-18 at 16:47 -0800, Jean Tourrilhes wrote:
-> 	Hi Rusty,
-> 
-> 	(If you are not the culprit, please forward to the guilty party).
+jamal wrote:
 
-Almost certainly me.  We gave people warning, we even marked MODULE_PARM
-deprecated, but eventually I had to roll through and try to autoconvert.
+>Ok, here is the last patch. I think module replay should be done from
+>that spot and to be consistent as well from cls_api.c for legacy stuff.
+>I also fixed a module ref count leak. 
+>the act_api piece is dependent on what i sent earlier for namsiz.
+>the cls_api change i believe conflicts with what Thomas sent yesterday.
+>
++replay:
+                act = tcf_action_init_1(tb[i], est, name, ovr, bind, err);
+-               if (act == NULL)
+-                       goto err;
++               if (act == NULL) {
++                       if (*err == -EAGAIN)
++                               goto replay;
++                       goto err_out;
++               }
 
-> 	I personally introduced the "double char array" module
-> parameter, 'c', to fix that. I even sent you the patch to add 'c'
-> support in your new module loader (see set_obsolete()). Would it be
-> possible to carry this feature with the new module_param_array ?
-> 	Thanks in advance...
+This part is wrong. We can replay single action requests in the act_api init
+path, but not in tcf_exts_init. We are coming from a classifier 
+initialization
+path and have dropped the RTNL, so we also have to replay the classifier
+request.
 
-Actually, it's designed so you can extend it yourself: at its base,
-module_param_call() is just a callback mechanism.
+Please send a fixed patch without the bogus module refcnt change.
 
-Thanks!
-Rusty.
--- 
-A bad analogy is like a leaky screwdriver -- Richard Braakman
+Regards
+Patrick
