@@ -1,48 +1,57 @@
-From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: [PATCH ] more RTL-8139 clone boards
-Date: Sun, 22 Feb 2004 16:26:32 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] hp100 -- isa probe fix
+Date: Thu, 26 Feb 2004 10:33:47 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4038CA28.1080500@wanadoo.es>
+Message-ID: <20040226103347.65bd7de9@dell_ss3.pdx.osdl.net>
+References: <20040224170700.11adc3cc@dell_ss3.pdx.osdl.net>
+	<20040225213347.5491.qmail@web14006.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040005010207010208050005"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Cacophonix <cacophonix@yahoo.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, jgarzik@pobox.com, marcelo.tosatti@cyclades.com
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20040225213347.5491.qmail@web14006.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040005010207010208050005
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Jeff, here is a cleaned up version of the 2.6.3 hp100 isa (non-modular) probing.
+It needs to check for the board being present before reading the signature.
 
-
-This patch already is in 2.6.
-
-0x018A 0x0106 LevelOne FPC-0106TX
-0x126C 0x1211 Nortel Networks 10/100BaseTX
-0x1743 0x8139 Peppercon AG ROL-F
-0x021B 0x8139 Compaq HNE-300
-
---------------040005010207010208050005
-Content-Type: text/plain;
- name="8139too_idents.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="8139too_idents.diff"
-
---- linux/drivers/net/8139too.c	2004-02-05 23:00:12.000000000 +0100
-+++ n/drivers/net/8139too.c	2004-02-22 16:23:27.000000000 +0100
-@@ -255,6 +255,10 @@
- 	{0x11db, 0x1234, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
- 	{0x1432, 0x9130, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
- 	{0x02ac, 0x1012, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x018a, 0x0106, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x126c, 0x1211, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x1743, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
-+	{0x021b, 0x8139, PCI_ANY_ID, PCI_ANY_ID, 0, 0, RTL8139 },
+--- linux-2.6/drivers/net/hp100.c	2004-02-24 17:08:00.000000000 -0800
++++ test-2.6/drivers/net/hp100.c	2004-02-26 10:32:33.625878016 -0800
+@@ -326,16 +326,21 @@ static __init const char *hp100_read_id(
+ 	return str;
+ }
  
- #ifdef CONFIG_SH_SECUREEDGE5410
- 	/* Bogus 8139 silicon reports 8129 without external PROM :-( */
-
---------------040005010207010208050005--
+-static __init int hp100_isa_probe1(struct net_device *dev, int addr)
++static __init int hp100_isa_probe1(struct net_device *dev, int ioaddr)
+ {
+ 	const char *sig;
+ 	int i;
+ 
+-	if (!request_region(addr, HP100_REGION_SIZE, "hp100"))
++	if (!request_region(ioaddr, HP100_REGION_SIZE, "hp100"))
+ 		goto err;
+ 
+-	sig = hp100_read_id(addr);
+-	release_region(addr, HP100_REGION_SIZE);
++	if (hp100_inw(HW_ID) != HP100_HW_ID_CASCADE) {
++		release_region(ioaddr, HP100_REGION_SIZE);
++		goto err;
++	}
++
++	sig = hp100_read_id(ioaddr);
++	release_region(ioaddr, HP100_REGION_SIZE);
+ 
+ 	if (sig == NULL)
+ 		goto err;
+@@ -347,7 +352,7 @@ static __init int hp100_isa_probe1(struc
+ 	}
+ 
+ 	if (i < ARRAY_SIZE(hp100_isa_tbl))
+-		return hp100_probe1(dev, addr, HP100_BUS_ISA, NULL);
++		return hp100_probe1(dev, ioaddr, HP100_BUS_ISA, NULL);
+  err:
+ 	return -ENODEV;
+ 
