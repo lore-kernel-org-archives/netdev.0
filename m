@@ -1,147 +1,68 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Patch: Device operative state notification against 2.5.7
-Date: Sun, 31 Mar 2002 11:21:16 -0500 (EST)
+From: Petr Baudis <pasky@xs26.net>
+Subject: Re: addrconf.c - possible bug
+Date: Sun, 31 Mar 2002 21:13:46 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0203310941120.9704-100000@shell.cyberus.ca>
-References: <3CA6E3BF.8815AA4F@isg.de>
+Message-ID: <20020331191346.GI1954@pasky.ji.cz>
+References: <20020323165921.GC1954@pasky.ji.cz> <Pine.LNX.4.44.0203231906560.29954-100000@netcore.fi> <20020323184451.GD1954@pasky.ji.cz> <20020324195737.GM1954@pasky.ji.cz>
+Reply-To: xs26-dev@xs26.net
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <3CA6E3BF.8815AA4F@isg.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: Petr Baudis <pasky@xs26.net>, Pekka Savola <pekkas@netcore.fi>,
+   Jan Oravec <jan.oravec@xs26.net>, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+To: xs26-dev@xs26.net
+Content-Disposition: inline
+In-Reply-To: <20020324195737.GM1954@pasky.ji.cz>
 List-Id: netdev.vger.kernel.org
 
+Dear diary, on Sun, Mar 24, 2002 at 08:57:37PM CET, I got a letter,
+where Petr Baudis <pasky@xs26.net> told me, that...
+> Dear diary, on Sat, Mar 23, 2002 at 07:44:51PM CET, I got a letter,
+> where Petr Baudis <pasky@xs26.net> told me, that...
+> > I started the tcpdump there, and we'll see. However, by looking into code, we
+> > found no possibility how would zebra want to mess with loopback.
+> > 
+> > Also, we discovered that just taking down and back up any ONE interface will
+> > fix this for ALL other interfaces as well.
+> 
+> It failed again and tcpdump still runs happily. Again, taking one of the
+> interfaces down and back up (maybe it's worth mentioning that the machine acts
+> as XS26 PoP, thus it have about 270 interfaces just now up) fixed the problem
+> and the machine started to reply to neighbor solicitations again.
 
+Just as a reminder and for a record, quite nice record of conversation of two
+such broken linuxes.
 
-On Sun, 31 Mar 2002, Stefan Rompf wrote:
+20:43:48.596927 fe80::3e8c:1d09 > fe80::3e18:401b: OSPFv3-dd 28: rtrid secret.host backbone V6/E/R I/M/MS mtu 1480 S 3CA76B2D [hlim 1]
+20:43:51.433416 fe80::3e18:401b > fe80::3e8c:1d09: OSPFv3-ls_upd 1256: rtrid rover.dkm.cz backbone
+20:43:51.456066 fe80::3e8c:1d09 > fe80::3e18:401b: icmp6: redirect fe80::3e8c:1d09 to fe80::3e8c:1d09
+20:43:51.456147 fe80::3e18:401b > fe80::3e8c:1d09: icmp6: redirect fe80::3e18:401b to fe80::3e18:401b
+20:43:51.456176 fe80::3e8c:1d09 > fe80::3e18:401b: icmp6: redirect fe80::3e8c:1d09 to fe80::3e8c:1d09
+20:43:51.456758 fe80::3e18:401b > fe80::3e8c:1d09: OSPFv3-ls_upd 1256: rtrid rover.dkm.cz backbone
+20:43:51.456840 fe80::3e18:401b > fe80::3e8c:1d09: OSPFv3-ls_upd 1256: rtrid rover.dkm.cz backbone
+20:43:51.478662 fe80::3e8c:1d09 > fe80::3e18:401b: icmp6: redirect fe80::3e8c:1d09 to fe80::3e8c:1d09
 
-> Hi Jamal,
->
-> > in the future can you please just post to netdev on networking
-> > related issues? I responded to lk, but feel free to remove it
-> > from the list.
->
-> ok. Do all netdev people already know the patch or shall I repost it to
-> this list?
+(as a result?)
 
-For the uninitiated, here is where i saw it:
-http://marc.theaimsgroup.com/?l=linux-net&m=101751062827998&w=1
+20:46:54.618539 fe80::3e8c:1d09 > fe80::3e8c:1d09: icmp6: time exceeded in-transit for fe80::3e18:401b
+20:46:54.618588 fe80::3e8c:1d09 > fe80::3e8c:1d09: icmp6: time exceeded in-transit for fe80::3e18:401b [hlim 1]
+..a lot of that..
 
-(sorry, i am not subscribed to lk)
+It looks they're not going to talk together :).
 
->
-> > -I am not sure the idea of using a kernel thread is the best. Maybe
-> > move the checks to both the tx or rx softirqs instead of its own scheduling.
-> > -In particular, it would be a better idea not to just go walking all the
-> > devices; only walk devices that have raised an netif_carrier_.
->
-> Is it possible to send (netlink) messages from a softirq?
+And another excellent example of the problem:
 
-Why not?
+20:47:58.981124 fe80::2a0:c9ff:fea8:c91c > fe80::3e18:401b: icmp6: neighbor sol: who has fe80::3e18:401b
+20:47:58.981175 fe80::3e18:401b > fe80::2a0:c9ff:fea8:c91c: icmp6: redirect fe80::3e18:401b to fe80::3e18:401b
 
-> Anyway, in the
-> tx/rx softirqs the check would be executed for nearly every packet, so
-> the tradeoff of having a kernel thread that polls the devices on request
-> (so may be never as long as the network is fine) seems better to me,
-> even if it has to walk through the complete list.
+Kind regards,
 
-Moving it to softirq gives it more privilege; however, you are right, the
-tx/rx softirqs might not be the best place (i thought people will scream
-at you if you went ahead and created a sofirq just for this). In any
-case, this is a lesser concern for now, a few ms later is no biggie...
+-- 
 
-In regards to walking the whole dev list:
-There is no point in polling when there is no work to be done (and
-therefore no need for you to walk all the devices which have not shown
-interest). A simple "registration" by devices raising or lowering carrier
-would be the best way to do it (via netif_carrier_on/ff). The first
-device on the list also wakes up the thread (or as you do right now
-always wakes it up).
-Keep rescheduling the thread until there are no more devices left (no
-need for the timer) -- killing the thread might not be a bad idea either
-since you would expect this not to happen that often.
+				Petr "Pasky" Baudis
 
->
-> > -A shared devices bitmask across SMP should be enough (i.e no need for
-> > per-CPU state)
->
-> Neither dev->flags nor dev->state are per-CPU. Am I missing something?
-
-I meant the structure that keeps track of changed carrier state ..
-Example the simple linked list i mentioned above;
-
-> > -Another thing might be to double check that the condition that raised
-> > the state change is still valid example -
-> > in between the moment you say a link is down due to some bad hardware
-> > fault to the moment some device timer recovers it;
->
-> The patch does that. After the thread wakes up, it iterates over the
-> device list and sends only messages if it sees differences between
-> IFF_RUNNING and LINK_STATE_NO_CARRIER.
->
-
-I think you need to watch serialization issues with
-netif_carrier_on/off between the driver and the top layer.
-The difference between IFF_RUNNING and LINK_STATE_NO_CARRIER, IMO, is
-insufficient check. This is because the semantics of IFF_RUNNING are not
-well defined. Currently from scanning drivers i see IFF_RUNNING following
-LINK_STATE_NO_CARRIER always i.e IFF_RUNNING is set when
-LINK_STATE_NO_CARRIER is deasserted and vice-versa. Note this is not
-always the case and it also does not say that we went from operational
-down to up or vice-versa or whether we went on->off->on i.e looking at
-those two flags alone is ambigous.
-Note, you want to report both transitions and you also want to make
-sure its not just simple noise.
-
-> > -Also IFF_RUNNING seems to have inconsistent semantics in a lot of
-> > drivers. It should really stand for "operational status" whereas
-> > IFF_UP should stand for "admin status" -- anyone wanna shed historical
-> > wisdom here?
->
-> Ultimately, that's what I want IFF_RUNNING to become in linux.
->
-> There are 14 files left below linux/drivers that still play with
-> IFF_RUNNING instead of using the netif_carrier_o* functions. I'm willing
-> to supply patches for them as they are broken anyway, but I won't be
-> able to do more than a test if the modifications compile.
->
-
-If we were to follow the BSD or CISCOish view of the world, then
-removing a cable or death of allocated virtual circuit/tunnel would
-mean !IFF_RUNNING. If i was to draw a truth table it would look like:
-
-NO_CARRIER | IFF_RUNNING | meaning
------------|-------------|------------------------------------
-!set       | !set        | There is carrier, but no cable
-           |             | no sense for ethernet; but may be useful
-           |             | for PPP (for example line protocol is not up)
------------|-------------|----------------------------------------
-!set       | set         | operational up
-           |             |
-           |             |
------------|-------------|--------------------------------------
-set        | !set        | operational down
-           |             |
-           |             |
------------|-------------|--------------------------------------
-set        | set         | carrier off, cable on; not sure what this
-           |             | means (may make sense for host scope)
-           |             |
------------|-------------|--------------------------------------
-
-You still need to maintain state to catch the on->off->on. For example, no
-point in reporting such state transition via netlink -- but you could call
-that an optimization.
-TB above is a little different from what you have in your code
-(essentially you also add to the noise by mucking with IFF_RUNNING) which
-in itself is philosophical in nature:
-- Is it correct to get rid of the driver having a say in IFF_RUNNING?
-For example is it correct that the core code sets IFF_RUNNING on the
-device? Think of either a bonding, VLANs or extreme case where PPP
-circuit is up for one protocol but not for another.
-We need to disambiguate operational and admin status very clearly. Eg
-should ifconfing-ing up a device mean it is also IFF_RUNNING (this is what
-ifconfig does i think)
-
-cheers,
-jamal
+* ELinks maintainer                * IPv6 guy (XS26 co-coordinator)
+* IRCnet operator                  * FreeCiv AI hacker
+.
+Teamwork is essential -- it allows you to blame someone else.
+.
+Public PGP key && geekcode && homepage: http://pasky.ji.cz/~pasky/
