@@ -1,30 +1,39 @@
-From: =?GB2312?B?wu3A9sD2?= <ma@cnhlt.com>
-Subject: =?GB2312?B?s6S+w8rV0uajoQ==?=
-Date: Tue, 8 Jun 2004 01:02:34 +0800
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC] Wireless extensions rethink
+Date: Mon, 07 Jun 2004 13:52:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406072042.i57Kgggj005696@oss.sgi.com>
-Reply-To: hlt98@eyou.com
-Content-Type: text/plain;charset="GB2312"
+Message-ID: <40C4D595.4050801@candelatech.com>
+References: <40C4C741.5040708@home.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Feldman, Scott" <scott.feldman@intel.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Gertjan van Wingerde <gwingerde@home.nl>
+In-Reply-To: <40C4C741.5040708@home.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Gertjan van Wingerde wrote:
+> Hi Scott,
+> 
+> I was thinking along the same lines, however I was taking the ethtool
+> interface as the starting point (using a single ioctl for all wireless
+> operations). The private handlers would just have to be converted to
+> plain ioctls handled by the driver itself.
+> 
+> The attached patch can be used as a starting point for this.
+> It is not complete (not by far), but it shows the basic structure.
+> I've called the structure wlantool_ops, again using the example set by
+> ethtool.
+> 
+> Comments?
 
-  您想获得长久、巨大的收益吗？购买"好利通酒店订房系统
-(可作为最高级的酒店订房网站)是最佳选择。即买即可创收，
-该系统可订全国近两百个城市一千三百多家酒店的超低价房
-（可随时增加酒店），操作简便，一人就能轻松实现网上经营
-管理，收益丰盛（酒店给予您丰厚佣金和广告费）。
-  一次决定，长久受益!
-  系统展示：www.cnhlt.com/sale66 
-    有意者，请与我们联系，详谈，谢谢！ 
-                 
- 
-    
-                 
-                 深圳市好利通公司 市场部
-                 网址http://www.cnhlt.com 
-                 联系人：马丽丽
-                 邮箱：hlt98@eyou.com    
-                 电话: 0755-26088102,26088102
+For what it's worth, I like the idea of using a single IOCTL similar
+to ethtool...
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
