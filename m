@@ -1,98 +1,27 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Problem with dev_kfree_skb_any() in 2.6.0
-Date: Tue, 30 Dec 2003 12:43:21 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [patch] clean up tcp_sk(), 2.6.0
+Date: Tue, 30 Dec 2003 14:46:08 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FF1B939.1090108@pobox.com>
-References: <1072567054.4112.14.camel@gaston>	<20031227170755.4990419b.davem@redhat.com>	<3FF0FA6A.8000904@pobox.com>	<20031229205157.4c631f28.davem@redhat.com>	<20031230051519.GA6916@gtf.org>	<20031229220122.30078657.davem@redhat.com>	<3FF11745.4060705@pobox.com> <20031229221345.31c8c763.davem@redhat.com>
+Message-ID: <20031230144608.4c7e66f2.davem@redhat.com>
+References: <20031230163230.GA12553@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------080408000905000004060405"
-Cc: benh@kernel.crashing.org, linux-kernel@vger.kernel.org,
-        Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031229221345.31c8c763.davem@redhat.com>
+To: Ingo Molnar <mingo@elte.hu>
+In-Reply-To: <20031230163230.GA12553@elte.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080408000905000004060405
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, 30 Dec 2003 17:32:30 +0100
+Ingo Molnar <mingo@elte.hu> wrote:
 
-David S. Miller wrote:
-> On Tue, 30 Dec 2003 01:12:21 -0500
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> 
-> 
->>Think about the name of this function:  dev_kfree_skb_any()
->>
->>If this function cannot be used -anywhere-, then the concept (and the 
->>net stack) is fundamentally broken for this function.  We must _remove_ 
->>the function, and thus _I_ have a lot of driver work to do.
-> 
-> 
-> If it makes you happy, change the suffix of the name, I am
-> not emotionally attached to the name.
+> i recently wasted a few hours on a bug where i used "tcp_sk(sock)"
+> instead of "tcp_sk(sock->sk)" - the former, while being blatantly
+> incorrect, compiles just fine on 2.6.0. The patch below is equivalent to
+> the define but is also type-safe. Compiles cleanly & boots fine on
+> 2.6.0.
 
-
-It's not about the name itself.  _Think_ about the name:  what is the 
-purpose of the function?  what does it imply?  How have kernel hackers 
-used it in practice?  I think you're focusing too closely on 
-implementation, rather than purpose.
-
-I humbly request that we expend some brain CPU cycles to think about the 
-API here.
-
-To review:
-* The base requirement is that __kfree_skb shall not call the skb's 
-destructor in hard IRQ context.
-* To that end, dev_kfree_skb_irq was created to queue skb's for 
-__kfree_skb'ing, when that requirement is not immediately satisfied.
-* dev_kfree_skb_any was created for situations that either don't know, 
-or don't care, about the context in which skb's are freed.  The function 
-name and implementation are less relevant than _purpose_.
-
-As it stands now, dev_kfree_skb_any() does not serve the purpose for 
-which it is used in many drivers (not just the short list found in this 
-thread).
-
-Luckily, I feel there is an easy solution, as shown in the attached 
-patch.  We _already_ queue skbs in dev_kfree_skb_irq().  Therefore, 
-dev_kfree_skb_any() can simply use precisely that same solution.  The 
-raise-softirq code will immediately proceed to action if we are not in 
-hard IRQ context, otherwise it will follow the expected path.
-
-As an aside (tangent warning), we will need to consider further 
-queueing, if we are to follow the rest of the kernel:  skb destructor 
-should really be in purely task context, i.e. make sure __kfree_skb does 
-its work in kernel thread context.  But that's a discussion for another 
-day ;-)
-
-	Jeff
-
-
---------------080408000905000004060405
-Content-Type: text/plain;
- name="patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch"
-
-===== include/linux/netdevice.h 1.66 vs edited =====
---- 1.66/include/linux/netdevice.h	Sat Nov  1 17:11:04 2003
-+++ edited/include/linux/netdevice.h	Tue Dec 30 12:29:40 2003
-@@ -634,10 +634,7 @@
-  */
- static inline void dev_kfree_skb_any(struct sk_buff *skb)
- {
--	if (in_irq())
--		dev_kfree_skb_irq(skb);
--	else
--		dev_kfree_skb(skb);
-+	dev_kfree_skb_irq(skb);
- }
- 
- #define HAVE_NETIF_RX 1
-
---------------080408000905000004060405--
+Applied, and I'll happily accept patches for udp_sk() and all
+the other ones too :)
