@@ -1,28 +1,25 @@
-From: deliver_photo@yahoo.co.jp
-Subject: =?iso-2022-jp?B?g2aDioNvg4qBW1BIT1RPIJP8ie+Krpe5?=
-Date: Wed, 27 Oct 2004 22:29:08 +0900 (JST)
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: [PATCH] net: 8139too netdev_priv conversion
+Date: Wed, 27 Oct 2004 16:07:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027132908.0D15B588041@mail.zl8.jp>
+Message-ID: <20041027140749.GA31398@gareth.mathematik.tu-chemnitz.de>
+References: <1098872973.9269.1.camel@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Pekka Enberg <penberg@cs.helsinki.fi>
+Content-Disposition: inline
+In-Reply-To: <1098872973.9269.1.camel@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-※このメールは登録者への自動返信メールです。
+On Wed, Oct 27, 2004 at 01:29:32PM +0300 or thereabouts, Pekka Enberg wrote:
+> Hi,
+> 
+> Use netdev_priv() in 8139too driver instead of dev->priv.
 
-貴方の個人識別コードとメールアドレスを認証し会員登録が完了しました。
+Stephen Hemminger actually did a patch to do just that.
+Look at the netdev list.
 
-次回からはこちらよりご入場下さい。
-
-http://www.eyc.jp/~gazou/gallery.php?id=bmV0ZGV2QG9zcy5zZ2kuY29t
-
-利用料金は登録された日から３日以内にお振込下さい。
-
-＜利用規約＞
-http://www.eyc.jp/~gazou/kiyaku.html
-
-【サポートセンター】
-
-問合せ先　deliver_photo@yahoo.co.jp
-
-運営者 デリバリーPHOTO事務局
+Steffen
