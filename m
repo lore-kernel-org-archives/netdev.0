@@ -1,188 +1,163 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] Netfilter crossover module.
-Date: Thu, 10 Jul 2003 09:52:43 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [Fwd: PATCH pktgen hang, memleak, fixes]
+Date: Thu, 10 Jul 2003 13:40:53 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0D99DB.5040206@candelatech.com>
-References: <20030710084820.909D12C0DA@lists.samba.org> <20030710090643.A10820@mindspring.com>
+Message-ID: <3F0DA525.2080808@pobox.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010705080708070503070404"
-Cc: Rusty Russell <rusty@rustcorp.com.au>, netdev@oss.sgi.com,
-   netfilter-devel@lists.netfilter.org, anton@samba.org
+ boundary="------------010608040006050807000806"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jleu@mindspring.com
-In-Reply-To: <20030710090643.A10820@mindspring.com>
+To: Maillist netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------010705080708070503070404
-Content-Type: text/plain; charset=us-ascii; format=flowed
+--------------010608040006050807000806
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-James R. Leu wrote:
-> Between you and Ben Greear the linux kernel will have every possible
-> scheme for sending packets to your self.
-> 
-> I still think my work on this (Virtual routing and forwarding:
-> http://linux-vrf.sf.net/) is the less perverted(*) then the work that either
-> you or Ben have come up with.  Plus it has other applications besides
-> just being able to send packets to your self.
-> 
-> * in terms of the concept, not necessarily the actual implementation.
 
->>It'd be nice to have the module hardwire the arps itself, but this was
->>quickest.  Patch welcome.
-
-It's likely that with my patch you wouldn't have to hard-wire arps at
-all.  The primary thing that my patch does is to let a machine answer
-arps from a local interface (over the external interface).
-
-Then routing to self can happen by simply(?) binding to the local IP
-of your choice and using policy-based routing to route correctly.
-(You can loop-back through a router with this patch, for example.)
-
-So, maybe both patches are useful together....
-
-I can't find where I posted my patch last time, so it is
-attached again for reference.  It contains a typo-fix in a comment
-that may be worthy of inclusion by itself some day :)
-Also, when nettool (ethtool) becomes generic, the ioctl code can be
-configured through the nettool api, so that new ioctl will go a way.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
-
-
---------------010705080708070503070404
-Content-Type: text/plain;
- name="sts_2.4.20.patch"
+--------------010608040006050807000806
+Content-Type: message/rfc822;
+ name="PATCH pktgen hang, memleak, fixes"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="sts_2.4.20.patch"
+ filename="PATCH pktgen hang, memleak, fixes"
 
---- linux-2.4.20/include/linux/sockios.h	2001-11-07 14:39:36.000000000 -0800
-+++ linux-2.4.20.c3/include/linux/sockios.h	2003-03-18 14:32:53.000000000 -0800
-@@ -65,6 +65,8 @@
- #define SIOCDIFADDR	0x8936		/* delete PA address		*/
- #define	SIOCSIFHWBROADCAST	0x8937	/* set hardware broadcast addr	*/
- #define SIOCGIFCOUNT	0x8938		/* get number of devices */
-+#define SIOCGIFWEIGHT	0x8939		/* get weight of device, in stones */
-+#define SIOCSIFWEIGHT	0x893a		/* set weight of device, in stones */
- 
- #define SIOCGIFBR	0x8940		/* Bridging support		*/
- #define SIOCSIFBR	0x8941		/* Set bridging options 	*/
-@@ -92,6 +94,10 @@
- #define SIOCGRARP	0x8961		/* get RARP table entry		*/
- #define SIOCSRARP	0x8962		/* set RARP table entry		*/
- 
-+/* MAC address based VLAN control calls */
-+#define SIOCGIFMACVLAN	0x8965		/* Mac address multiplex/demultiplex support */
-+#define SIOCSIFMACVLAN	0x8966		/* Set macvlan options 	*/
-+
- /* Driver configuration calls */
- 
- #define SIOCGIFMAP	0x8970		/* Get device parameters	*/
-@@ -114,6 +120,16 @@
- #define SIOCBONDINFOQUERY      0x8994	/* rtn info about bond state    */
- #define SIOCBONDCHANGEACTIVE   0x8995   /* update to a new active slave */
- 			
-+
-+/* Ben's little hack land */
-+#define SIOCSACCEPTLOCALADDRS  0x89a0   /*  Allow interfaces to accept pkts from
-+                                         * local interfaces...use with SO_BINDTODEVICE
-+                                         */
-+#define SIOCGACCEPTLOCALADDRS  0x89a1   /*  Allow interfaces to accept pkts from
-+                                         * local interfaces...use with SO_BINDTODEVICE
-+                                         */
-+
-+
- /* Device private ioctl calls */
- 
- /*
---- linux-2.4.20/net/Config.in	2002-08-02 17:39:46.000000000 -0700
-+++ linux-2.4.20.c3/net/Config.in	2003-03-18 14:32:53.000000000 -0800
-@@ -48,6 +48,7 @@
-             bool '    Per-VC IP filter kludge' CONFIG_ATM_BR2684_IPFILTER
-       fi
-    fi
-+   tristate 'MAC address based VLANs (EXPERIMENTAL)' CONFIG_MACVLAN
- fi
- tristate '802.1Q VLAN Support' CONFIG_VLAN_8021Q
- 
---- linux-2.4.20/net/ipv4/arp.c	2002-11-28 15:53:15.000000000 -0800
-+++ linux-2.4.20.c3/net/ipv4/arp.c	2003-03-18 14:32:53.000000000 -0800
-@@ -1,4 +1,4 @@
--/* linux/net/inet/arp.c
-+/* linux/net/inet/arp.c  -*-linux-c-*-
-  *
-  * Version:	$Id: arp.c,v 1.99 2001/08/30 22:55:42 davem Exp $
-  *
-@@ -351,12 +351,22 @@
- 	int flag = 0; 
- 	/*unsigned long now; */
- 
--	if (ip_route_output(&rt, sip, tip, 0, 0) < 0) 
-+	if (ip_route_output(&rt, sip, tip, 0, 0) < 0)
- 		return 1;
--	if (rt->u.dst.dev != dev) { 
--		NET_INC_STATS_BH(ArpFilter);
--		flag = 1;
--	} 
-+        
-+	if (rt->u.dst.dev != dev) {
-+                if ((dev->priv_flags & IFF_ACCEPT_LOCAL_ADDRS) &&
-+                    (rt->u.dst.dev == &loopback_dev))  {
-+                        /* OK, we'll let this special case slide, so that we can arp from one
-+                         * local interface to another.  This seems to work, but could use some
-+                         * review. --Ben
-+                         */
-+                }
-+                else {
-+                        NET_INC_STATS_BH(ArpFilter);
-+                        flag = 1;
-+                }
-+        }
- 	ip_rt_put(rt); 
- 	return flag; 
- } 
---- linux-2.4.20/net/ipv4/fib_frontend.c	2002-08-02 17:39:46.000000000 -0700
-+++ linux-2.4.20.c3/net/ipv4/fib_frontend.c	2003-03-18 14:32:53.000000000 -0800
-@@ -233,8 +233,17 @@
- 
- 	if (fib_lookup(&key, &res))
- 		goto last_resort;
--	if (res.type != RTN_UNICAST)
--		goto e_inval_res;
-+        
-+	if (res.type != RTN_UNICAST) {
-+                if ((res.type == RTN_LOCAL) &&
-+                    (dev->priv_flags & IFF_ACCEPT_LOCAL_ADDRS)) {
-+                        /* All is OK */
-+                }
-+                else {
-+                        goto e_inval_res;
-+                }
-+        }
-+        
- 	*spec_dst = FIB_RES_PREFSRC(res);
- 	fib_combine_itag(itag, &res);
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
---- linux-2.4.20/net/ipv4/tcp_ipv4.c	2002-11-28 15:53:15.000000000 -0800
-+++ linux-2.4.20.c3/net/ipv4/tcp_ipv4.c	2003-03-18 14:32:53.000000000 -0800
-@@ -1394,7 +1394,7 @@
- #define want_cookie 0 /* Argh, why doesn't gcc optimize this :( */
- #endif
- 
--	/* Never answer to SYNs send to broadcast or multicast */
-+	/* Never answer to SYNs sent to broadcast or multicast */
- 	if (((struct rtable *)skb->dst)->rt_flags & 
- 	    (RTCF_BROADCAST|RTCF_MULTICAST))
- 		goto drop; 
+Return-Path: <linux-kernel-owner+jgarzik=40pobox.com@vger.kernel.org>
+Delivered-To: garzik@gtf.org
+Received: from puzzle.pobox.com (puzzle.pobox.com [207.106.49.20])
+	by havoc.gtf.org (Postfix) with ESMTP id 7E495665C
+	for <garzik@gtf.org>; Thu, 10 Jul 2003 11:27:15 -0400 (EDT)
+Received: from puzzle.pobox.com (localhost [127.0.0.1])
+	by puzzle.pobox.com (Postfix) with ESMTP id E4B9426C011
+	for <garzik@gtf.org>; Thu, 10 Jul 2003 11:27:14 -0400 (EDT)
+Delivered-To: jgarzik@pobox.com
+Received: from vger.kernel.org (vger.kernel.org [209.116.70.75])
+	by puzzle.pobox.com (Postfix) with ESMTP id C3B2526C124
+	for <jgarzik@pobox.com>; Thu, 10 Jul 2003 11:27:14 -0400 (EDT)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+	id S269321AbTGJPHs (ORCPT <rfc822;jgarzik@pobox.com>);
+	Thu, 10 Jul 2003 11:07:48 -0400
+Received: (majordomo@vger.kernel.org) by vger.kernel.org id S269324AbTGJPHr
+	(ORCPT <rfc822;linux-kernel-outgoing>);
+	Thu, 10 Jul 2003 11:07:47 -0400
+Received: from sea2-f47.sea2.hotmail.com ([207.68.165.47]:64013 "EHLO
+	hotmail.com") by vger.kernel.org with ESMTP id S269321AbTGJPHp
+	(ORCPT <rfc822;linux-kernel@vger.kernel.org>);
+	Thu, 10 Jul 2003 11:07:45 -0400
+Received: from mail pickup service by hotmail.com with Microsoft SMTPSVC;
+	 Thu, 10 Jul 2003 08:22:25 -0700
+Received: from 63.173.114.243 by sea2fd.sea2.hotmail.msn.com with HTTP;
+	Thu, 10 Jul 2003 15:22:24 GMT
+X-Originating-IP: [63.173.114.243]
+X-Originating-Email: [kambo77@hotmail.com]
+From: "Kambo Lohan" <kambo77@hotmail.com>
+To: linux-kernel@vger.kernel.org
+Subject: PATCH pktgen hang, memleak, fixes 
+Date: Thu, 10 Jul 2003 11:22:24 -0400
+Mime-Version: 1.0
+Content-Type: text/plain; format=flowed
+Message-ID: <Sea2-F47vJo8jUbRX8z000320b1@hotmail.com>
+X-OriginalArrivalTime: 10 Jul 2003 15:22:25.0186 (UTC) FILETIME=[10F4F020:01C346F7]
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+X-Spam-Status: No, hits=-4.7 required=7.0
+	tests=AWL,BAYES_10,FROM_ENDS_IN_NUMS,PATCH_UNIFIED_DIFF,
+	      X_MAILING_LIST
+	version=2.55
+X-Spam-Level: 
+X-Spam-Checker-Version: SpamAssassin 2.55 (1.174.2.19-2003-05-19-exp)
 
---------------010705080708070503070404--
+This should fix about 3 things.  My first patch, be gentle...
+
+2.5 has the same problem but I do not know if this will apply or not, we run 
+2.4.
+
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+--- linux-2.4.21/net/core/pktgen.c	2002-11-28 18:53:15.000000000 -0500
++++ linux-2.4-kjp/net/core/pktgen.c	2003-07-10 11:08:31.000000000 -0400
+@@ -34,6 +34,7 @@
+  *   *  The new changes seem to have a performance impact of around 1%,
+  *       as far as I can tell.
+  *   --Ben Greear <greearb@candelatech.com>
++ * Fix refcount off by one if first packet fails, potential null deref, 
+memleak 030710- KJP
+  *
+  * Renamed multiskb to clone_skb and cleaned up sending core for two 
+distinct
+  * skb modes. A clone_skb=0 mode for Ben "ranges" work and a clone_skb != 0
+@@ -84,9 +85,9 @@
+#define cycles()	((u32)get_cycles())
+
+
+-#define VERSION "pktgen version 1.2"
++#define VERSION "pktgen version 1.2.1"
+static char version[] __initdata =
+-  "pktgen.c: v1.2: Packet Generator for packet performance testing.\n";
++  "pktgen.c: v1.2.1: Packet Generator for packet performance testing.\n";
+
+/* Used to help with determining the pkts on receive */
+
+@@ -613,12 +614,11 @@
+                                 kfree_skb(skb);
+                                 skb = fill_packet(odev, info);
+                                 if (skb == NULL) {
+-                                        break;
++					goto out_reldev;
+                                 }
+                                 fp++;
+                                 fp_tmp = 0; /* reset counter */
+                         }
+-                        atomic_inc(&skb->users);
+                 }
+
+                 nr_frags = skb_shinfo(skb)->nr_frags;
+@@ -634,9 +634,10 @@
+				last_ok = 0;
+			}
+                         else {
+-		           last_ok = 1;
+-                           info->sofar++;
+-                           info->seq_num++;
++				atomic_inc(&skb->users);
++				last_ok = 1;
++				info->sofar++;
++				info->seq_num++;
+                         }
+		}
+		else {
+@@ -707,6 +708,7 @@
+		}
+	}/* while we should be running */
+
++
+	do_gettimeofday(&(info->stopped_at));
+
+	total = (info->stopped_at.tv_sec - info->started_at.tv_sec) * 1000000 +
+@@ -731,6 +733,8 @@
+			     (unsigned long long) info->errors
+			     );
+	}
++
++	kfree_skb(skb);
+
+out_reldev:
+         if (odev) {
+
+_________________________________________________________________
+STOP MORE SPAM with the new MSN 8 and get 2 months FREE*  
+http://join.msn.com/?page=features/junkmail
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
+
+
+
+--------------010608040006050807000806--
