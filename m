@@ -1,87 +1,130 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: 04 Jan 2005 22:19:29 -0500
-Message-ID: <1104895169.1117.63.camel@jzny.localdomain>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
-	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
-Reply-To: hadi@cyberus.ca
+From: Jonathan Day <imipak@yahoo.com>
+Subject: Re: Scheduler Mechnisms!
+Date: Tue, 4 Jan 2005 19:59:46 -0800 (PST)
+Message-ID: <20050105035946.38738.qmail@web12303.mail.yahoo.com>
+References: <304889647.25037@njupt.edu.cn>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-0846Th3rEGC6QKddUtsg"
-Cc: Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>,
-        Tommy Christensen <tommy.christensen@tpack.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41DB26A6.2070008@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: lartc@mailman.ds9a.nl
+Return-path: <lartc-admin@mailman.ds9a.nl>
+To: Zhenyu Wu <y030729@njupt.edu.cn>, netdev@oss.sgi.com
+In-Reply-To: <304889647.25037@njupt.edu.cn>
+Sender: lartc-admin@mailman.ds9a.nl
+Errors-To: lartc-admin@mailman.ds9a.nl
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
 List-Id: netdev.vger.kernel.org
 
+I may be wrong on this, but I believe that RED can be
+attached to any queueing system, including the basic
+FIFO queues. In a sense, you're still using a
+scheduling system, when using the default arrangement,
+it's just a first-come, first-served one.
 
---=-0846Th3rEGC6QKddUtsg
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+RED is classless and applies to the whole of a queue.
+What that queue is attached to, if I understand it
+correctly, isn't important. It can be a class, but it
+can just as easily be everything going through that
+device.
 
-On Tue, 2005-01-04 at 18:28, Jeff Garzik wrote:
-> jamal wrote:
-> > The change is simple if theres consensus to go this path.
+Again, someone correct me if I'm wrong, but as I
+understand it, there are four levels to the whole
+QoS/diffserv concept.
+
+One of these levels is the queueing discipline. This
+can be something like CBQ, WFQ, FIFO, PRIO, or
+whatever. This is how the data is organized, it does
+not describe how the data is sent. In the case of
+something like CBQ, you have a defined set of queues
+in parallel, with rules as to what packets fall into
+what queue. On the other hand, queueing schemes such
+as FIFO are flat. There's a single queue that
+everything goes through, though there may be different
+rules for how things get pushed to it.
+
+Another level is the scheduling mechanism. This
+describes how the data is sent, once organized, but
+does not describe the organization itself. If you've
+only one queue, then there's really not much to
+schedule. If you've multiple queues, then it's fairly
+normal to use "round robin" or "weighted round robin"
+to pick which queue to pull a packet from. Linux' CBQ
+uses "weighted round robin", according to the C file.
+
+The next level is the packet dropping mechanism. When
+queues flood, packets are going to be dropped. There's
+nowhere to store them. I'm pretty sure the default
+behaviour is to simply continue accepting packets, but
+to drop any that expire before being sent or which
+fall off the end of the queue (if the queue is
+bounded). RED, GRED, and a whole host of similar
+mechanisms, try to drop packets in a more controlled
+manner. However, that is really all they do.
+
+Finally, there are mechanisms for damping overly
+active applications, such as ECN. The idea here is
+that if you throttle back whatever is generating
+excess traffic, you don't get the problems assoicated
+with dealing with it. The "default" behaviour is to do
+nothing.
+
+When setting up QoS - on Linux or anything else - you
+basically pick one of each of the four categories to
+assemble a packet delivery system. Even without QoS,
+you're doing that, you're just using the defaults in
+all cases. The mechanisms are still going to be there.
+
+The Linux configuration menu does NOT match the above
+terminology, or the terminology in the source code.
+Thus, the source code identifies CBQ as a queueing
+discipline, but the configuration menu calls it a
+scheduler. The QoS help is also not very helpful, as
+it mostly tells people to look at the source. However,
+if you look at the source for CBQ or RED, for example,
+the explanation is relative to the cited papers, so
+you then have to go and read those before coming back
+and doing anything.
+
+This is one area I hope is going to get resolved in
+the reasonably near future. If not, I might have to
+come up with a patch myself. The very thought of that
+should send shivers down the spines of any kernel
+developers out there.
+
+Jonathan
+
+--- Zhenyu Wu <y030729@njupt.edu.cn> wrote:
+
+> Thank you very much, i will try to find these papers
+> which must be very helpful
+> for me. The "more" means that whether there are
+> other mechanisms not only for
+> Linux. Sorry, i have not make it clear! Sometimes, i
+> wonder whether the qdiscs
+> such as CBQ, RED, GRED ... are belong to the
+> scheduler mechanisms in linux
+> enviroment. For example, In Red, which i can find
+> are enqueue, and dequeue.... so,
+> if i add a RED qidsc to a class, must i add a
+> scheduler mechanism so that i can
+> decide which packet in the queues will be scheduled
+> and put to the link?
 > 
-> Can you resend your patch?
+> Good luck,
+> Best,
 
-I didnt send any patch - but heres one that looks right - havent tried
-compiling it.
 
-> My main objection was that any change should be made in the core, not in 
-> individual net drivers.
 
-Attached patch resolves that concern
-
-> Another objection was that it seemed that some of the proposed solutions 
-> for clearing the queue on link down were imposing app-specific policy on 
-> the overall kernel.
->
-> Aren't there cases where people would -not- want the queue to be cleared?
-
-Thats a good question and your point of imposing policy in the kernel is
-valid. I know that i would probably want packets to appear they are
-going out when the wire is pulled from underneath me.
-Theres possibly people who would want it differently - so for we havent
-heard from them. Maybe poll far and wide - or push it in and wait for
-them to whine.
-
-cheers,
-jamal
-
---=-0846Th3rEGC6QKddUtsg
-Content-Disposition: attachment; filename=nc.p
-Content-Type: text/plain; name=nc.p; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-
---- 2610-bk1/net/sched/sch_generic.c	2005/01/05 01:21:04	1.1
-+++ 2610-bk1/net/sched/sch_generic.c	2005/01/05 01:36:26
-@@ -152,7 +152,7 @@
- 					spin_lock(&dev->queue_lock);
- 					goto collision; 
- 				}
--			}
-+			} 
- 
- 			/* NETDEV_TX_BUSY - we need to requeue */
- 			/* Release the driver */
-@@ -162,6 +162,11 @@
- 			} 
- 			spin_lock(&dev->queue_lock);
- 			q = dev->qdisc;
-+			if (!netif_carrier_ok(dev)) {
-+				kfree_skb(skb);
-+				q->qstats.drops++;
-+				return -1;
-+			}
- 		}
- 
- 		/* Device kicked us out :(
-
---=-0846Th3rEGC6QKddUtsg--
+		
+__________________________________ 
+Do you Yahoo!? 
+The all-new My Yahoo! - What will yours do?
+http://my.yahoo.com 
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
