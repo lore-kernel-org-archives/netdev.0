@@ -1,62 +1,46 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [bonding] Add basic support for dynamic configuration of bond
- interfaces
-Date: Mon, 12 Jan 2004 16:04:46 +0100
+From: olof@austin.ibm.com
+Subject: [2.4] e1000 leaking pci mappings on rx errors?
+Date: Mon, 12 Jan 2004 10:42:36 -0600 (CST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040112160446.691e187e.ak@suse.de>
-References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com>
-	<200401111628.07930.amir.noam@intel.com>
-	<4001A667.2020904@pobox.com>
-	<4001C158.6040103@candelatech.com>
-	<4001C72E.8030108@pobox.com>
-	<20040112133816.57993f44.ak@suse.de>
-	<1073915461.1118.342.camel@jzny.localdomain>
+Message-ID: <Pine.A41.4.44.0401121023310.30020-100000@forte.austin.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, greearb@candelatech.com, amir.noam@intel.com,
-        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: cramerj@intel.com, <scott.feldman@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1073915461.1118.342.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 12 Jan 2004 08:51:02 -0500
-jamal <hadi@cyberus.ca> wrote:
 
-> Andi,
-> Can you point to specifics that break 64 bit emulation so we can avoid
-> them?
-> I have to admit the pf_key interaction is relatively unorthrodox but
-> looked fine.
+We have a machine here (running a RHEL 2.4.21-based kernel), that started
+showing leakage of PCI mappings when the driver was upgraded from 5.1.11
+to 5.2.20.
 
-Ok, here are the full rules: 
+The system is a large-config ppc64 machine with 8 interfaces, each running
+at or near full load. NAPI is enabled, frame size is 1500. We're seeing RX
+errors on eth0, which is the only interface that is leaking TCE entries
+(pci mappings).
 
-Standards:
+The system is also running at full cpu load, with each interface having
+it's irq bound to an individual CPU. It's always the interface being bound
+to cpu0 that's showing errors (could possibly be because of rx ring
+overruns?).
 
-long/void * are disallowed
-use [su]{16,32,64} instead
+With the previous version (5.1.11), we were still seeing the RX errors,
+but no TCE leaks.
 
-Non obvious problems specific to IA64 and x86-64 (they don't happen on sparc64/ppc64,
-that is why they were often not catched earlier):
+As far as I can tell, the driver is leaking less than one mapping per
+error, since there are more RX errors than total allocated TCE entries for
+the interface. Number of errors after a run is in the range of 15-20k,
+while number of used entries are in the range of 3-4k.
 
-When you use [su]64: 
+Has anyone else seen anything like this? I noticed there's a slightly
+newer e1000 driver available, but I saw no changes that seemed relevant.
 
-make sure the data element is explicitely padded to be on a 8 byte boundary
-in the structure. The reason is that alignof(u64) on i386 is 4 but 8 on ia64/x86-64
-and the structure layout could change.
 
-also when you use 64bit types make sure the complete structure is padded to 8 bytes.
-The x86-64 ABI pads any data structure to the alignof() of its biggest member
-to get good alignment for arrays. This is what broke PF_KEY - it is missing this
-padding and the structure layout ends up differently with nested structures.
+-Olof
 
-> What are the things you will perform surgery on?
-
-I'm not sure I will because it is too ugly. Or at least I haven't found a nice elegant
-way for it yet. Currently you just cannot use ipsec from 32bit executables, you have to use 
-64bit. 
-
--Andi
- 
+Olof Johansson                                        Office: 4F005/905
+Linux on Power Development                            IBM Systems Group
+Email: olof@austin.ibm.com                          Phone: 512-838-9858
+All opinions are my own and not those of IBM
