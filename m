@@ -1,44 +1,37 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: on the wire behaviour of TSO on/off is supposed to be the same
- yes?
-Date: Fri, 21 Jan 2005 14:18:20 -0800
-Message-ID: <20050121141820.7d59a2d1.davem@davemloft.net>
-References: <41F1516D.5010101@hp.com>
-	<200501211358.53783.jdmason@us.ibm.com>
-	<41F163AD.5070400@hp.com>
-	<20050121124441.76cbbfb9.davem@davemloft.net>
-	<41F17B7E.2020002@hp.com>
+Subject: Re: [RFC 2.6.10 0/22] Add hardware assist for IPSEC crypto
+Date: Fri, 21 Jan 2005 14:35:02 -0800
+Message-ID: <20050121143502.69c160cc.davem@davemloft.net>
+References: <20041230035000.01@ori.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <41F17B7E.2020002@hp.com>
+To: David Dillow <dave@thedillows.org>
+In-Reply-To: <20041230035000.01@ori.thedillows.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005 14:00:30 -0800
-Rick Jones <rick.jones2@hp.com> wrote:
+On Thu, 30 Dec 2004 03:48:34 -0500
+David Dillow <dave@thedillows.org> wrote:
 
-> Indeed, it waited for the ACK 4335, but then shouldn't it have emitted 4344+1448 or 5792 bytes or perhaps 7240 (since there were two 
-> ACKs?
+> Bandwidth tests
+> 
+> Config (sender -> receiver)		Bandwidth	ori CPU	  tank CPU
+> No IPSEC (tank->ori)			11494 KB/s	11.9%	  18.7%
+> No IPSEC (ori->tank)			11492 KB/s	9.5%	  34.3%
+> 
+> AH/SHA1 (sw) (tank->ori)		11303 KB/s	29.2%	  79.3%
+> AH/SHA1 (sw) (ori->tank)		11302 KB/s	28.6%	  91.1%
+> ESP/3DES,SHA1 (sw) (tank->ori)		2130 KB/s	29.6%	  100%
+> ESP/3DES,SHA1 (sw) (ori->tank)		2263 KB/s	29.3%	  99.7%
+> ESP-AH/3DES,SHA1-SHA1 (sw) (tank->ori)	1906 KB/s	29.1%	  100%
+> ESP-AH/3DES,SHA1-SHA1 (sw) (ori->tank)	2051 KB/s	29.3%	  99.7%
 
-The tcp_tso_win_divisor calculation occurs on the congestion window at the
-time of the user request, not at the time of the ACK.
+It's a shame we don't have an assembler optimized 3DES at least for
+x86 in the crypto library of the kernel, even if just for tests such
+as this.
 
-That's an interesting observation actually, thanks for showing it.
-
-It means that ideally we might want to try and find a way to either:
-
-1) defer the TSO window size calculation to some later moment, ie.
-   at tcp_write_xmit() time
-
-2) use an optimistic TSO size calculation at the same moment we compute
-   it now, and later if it is found to be too aggressive we chop up the
-   TSO frame and resegment the transmit queue to accomodate
-
-Neither is easy to implement as far as I can tell, but it should fix
-all the problems IBM and others are trying to work around by setting
-the tcp_tso_win_divisor really small.
+I'll start reviewing your patches right now.
