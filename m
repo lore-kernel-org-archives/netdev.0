@@ -1,30 +1,34 @@
-From: Jesse <j@lumiere.net>
-Subject: Re: Fw: [Bug 3419] New: kernel BUG at net/ipv4/fib_semantics.c:1039!
-Date: Wed, 22 Sep 2004 13:05:52 -0700 (PDT)
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 22 Sep 2004 13:07:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922130502.N41787@leaf.lumiere.net>
-References: <20040922092319.4ba5b8fb@dell_ss3.pdx.osdl.net>
- <20040922092520.U41787@leaf.lumiere.net> <20040922110120.022c170e.davem@davemloft.net>
+Message-ID: <4151DB6C.8050906@us.ibm.com>
+References: <20040920063012.GL2825@krispykreme> <20040920203021.GD4242@wotan.suse.de> <20040921155835.18aee381.davem@davemloft.net> <20040922140000.GD27432@wotan.suse.de> <20040922111209.7887df53.davem@davemloft.net> <20040922195515.GA2619@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: shemminger@osdl.org, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, anton@samba.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040922110120.022c170e.davem@davemloft.net>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040922195515.GA2619@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Andi Kleen wrote:
 
-> > I haven't had a chance to try a new snapshot version yet. I will try one
-> > later today and report back.
->
-> That crash should definitely be cured in the current code.
-> Let us know if it is still there.
+> With tso off i get the same performance as on 2.6.5.
+> 
+> I must add that this is a CSA e1000 (directly integrated into
+> the chipset and doesn't use PCI) and TSO doesn't seem to be 
+> bring any advantage. On 2.6.5 the performance is the same
+> with both TSO on or off.
 
-I tested 2.6.9-rc2-bk8 and the system came up cleanly, including
-networking. Looks good so far.
+Andi, was that with a netperf TCP stream test? I
+would not have thought there would be no difference
+prior to the changes DaveM made recently (now we
+obey congestion window). We certainly got quite a bit
+of a difference running SPECWeb etc, but that was on
+the e1000s.
 
-Thanks.
-
----
-Jesse <j@lumiere.net>
+Nivedita
