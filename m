@@ -1,60 +1,140 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Bluetooth BUG() in set_sk_owner().
-Date: Wed, 10 Sep 2003 09:58:57 +0100
+From: Vinay K Nallamothu <vinay-rc@naturesoft.net>
+Subject: [PATCh 2.6.0-test5][NET] fix 6pack.c
+Date: Wed, 10 Sep 2003 14:43:57 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1063184337.32473.529.camel@hades.cambridge.redhat.com>
+Message-ID: <1063185237.4418.79.camel@lima.royalchallenge.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, makx@qualcomm.com,
-   marcel@holtmann.org
+Cc: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It loks like the recent addition of sk_set_owner() to 
-bt_sock_alloc() was bogus... some of the callers of bt_sock_alloc()
-already do that for  This patch reverts it, and makes the remaining
-callers also set the owner for themselves...
+Compiles fine but untested. The following changes are made:
 
-===== net/bluetooth/af_bluetooth.c 1.22 vs edited =====
---- 1.22/net/bluetooth/af_bluetooth.c	Sun Aug 31 03:30:42 2003
-+++ edited/net/bluetooth/af_bluetooth.c	Tue Sep  9 11:28:51 2003
-@@ -130,7 +130,6 @@
- 	}
- 
- 	sock_init_data(sock, sk);
--	sk_set_owner(sk, THIS_MODULE);
- 	INIT_LIST_HEAD(&bt_sk(sk)->accept_q);
- 	
- 	sk->sk_zapped   = 0;
-===== net/bluetooth/hci_sock.c 1.24 vs edited =====
---- 1.24/net/bluetooth/hci_sock.c	Sat Jul  5 07:52:58 2003
-+++ edited/net/bluetooth/hci_sock.c	Tue Sep  9 11:30:43 2003
-@@ -587,6 +587,8 @@
- 	if (!sk)
- 		return -ENOMEM;
- 
-+	sk_set_owner(sk, THIS_MODULE);
-+
- 	sock->state = SS_UNCONNECTED;
- 	sk->sk_state   = BT_OPEN;
- 
-===== net/bluetooth/bnep/sock.c 1.11 vs edited =====
---- 1.11/net/bluetooth/bnep/sock.c	Thu Jun  5 01:57:08 2003
-+++ edited/net/bluetooth/bnep/sock.c	Tue Sep  9 11:29:54 2003
-@@ -175,6 +175,9 @@
- 
- 	if (!(sk = bt_sock_alloc(sock, PF_BLUETOOTH, 0, GFP_KERNEL)))
- 		return -ENOMEM;
-+
-+	sk_set_owner(sk, THIS_MODULE);
-+
- 	sock->ops = &bnep_sock_ops;
- 
- 	sock->state  = SS_UNCONNECTED;
+1. replace sti/cli with spin_lock
+2. cleanup timer management code
 
+Vinay
 
--- 
-dwmw2
+--- /home/nvinay/tmp/6pack.c	2003-09-09 21:08:24.000000000 +0530
++++ linux-2.6.0-test5/drivers/net/hamradio/6pack.c	2003-09-10 13:25:22.000000000 +0530
+@@ -122,6 +122,7 @@
+ 	unsigned char		status2;
+ 	unsigned char		tx_enable;
+ 	unsigned char		tnc_ok;
++	spinlock_t		rcv_lock;
+ 
+ 	struct timer_list	tx_t;
+ 	struct timer_list	resync_t;
+@@ -140,7 +141,7 @@
+ MODULE_PARM(sixpack_maxdev, "i");
+ MODULE_PARM_DESC(sixpack_maxdev, "number of 6PACK devices");
+ 
+-static void sp_start_tx_timer(struct sixpack *);
++static inline void sp_start_tx_timer(struct sixpack *);
+ static void sp_xmit_on_air(unsigned long);
+ static void resync_tnc(unsigned long);
+ static void sixpack_decode(struct sixpack *, unsigned char[], int);
+@@ -478,10 +479,17 @@
+ 	sp->tnc_ok      = 0;
+ 	sp->tx_enable   = 0;
+ 
++	spin_lock_init(&sp->rcv_lock);
++
+ 	netif_start_queue(dev);
+ 
+ 	init_timer(&sp->tx_t);
++	sp->tx_t.data = (unsigned long) sp;
++	sp->tx_t.function = sp_xmit_on_air;
++
+ 	init_timer(&sp->resync_t);
++	sp->resync_t.data = (unsigned long) sp;
++	sp->resync_t.function = resync_tnc;
+ 	return 0;
+ }
+ 
+@@ -516,7 +524,6 @@
+ static void sixpack_receive_buf(struct tty_struct *tty, const unsigned char *cp, char *fp, int count)
+ {
+ 	unsigned char buf[512];
+-	unsigned long flags;
+ 	int count1;
+ 
+ 	struct sixpack *sp = (struct sixpack *) tty->disc_data;
+@@ -525,10 +532,9 @@
+ 	    !netif_running(sp->dev) || !count)
+ 		return;
+ 
+-	save_flags(flags);
+-	cli();
++	spin_lock_bh(&sp->rcv_lock);
+ 	memcpy(buf, cp, count<sizeof(buf)? count:sizeof(buf));
+-	restore_flags(flags);
++	spin_unlock_bh(&sp->rcv_lock);
+ 
+ 	/* Read the characters out of the buffer */
+ 
+@@ -804,15 +810,10 @@
+ 
+ 
+ /* ----> 6pack timer interrupt handler and friends. <---- */
+-static void sp_start_tx_timer(struct sixpack *sp)
++static inline void sp_start_tx_timer(struct sixpack *sp)
+ {
+ 	int when = sp->slottime;
+-
+-	del_timer(&sp->tx_t);
+-	sp->tx_t.data = (unsigned long) sp;
+-	sp->tx_t.function = sp_xmit_on_air;
+-	sp->tx_t.expires = jiffies + ((when+1)*HZ)/100;
+-	add_timer(&sp->tx_t);
++	mod_timer(&sp->tx_t, jiffies + ((when+1)*HZ)/100);
+ }
+ 
+ 
+@@ -884,12 +885,7 @@
+ 
+ 	sp->tty->driver->write(sp->tty, 0, &inbyte, 1);
+ 
+-	del_timer(&sp->resync_t);
+-	sp->resync_t.data = (unsigned long) sp;
+-	sp->resync_t.function = resync_tnc;
+-	sp->resync_t.expires = jiffies + SIXP_RESYNC_TIMEOUT;
+-	add_timer(&sp->resync_t);
+-
++	mod_timer(&sp->resync_t, jiffies + SIXP_RESYNC_TIMEOUT);
+ 	return 0;
+ }
+ 
+@@ -941,13 +937,8 @@
+         /* if the state byte has been received, the TNC is present,
+            so the resync timer can be reset. */
+ 
+-	if (sp->tnc_ok == 1) {
+-		del_timer(&sp->resync_t);
+-		sp->resync_t.data = (unsigned long) sp;
+-		sp->resync_t.function = resync_tnc;
+-		sp->resync_t.expires = jiffies + SIXP_INIT_RESYNC_TIMEOUT;
+-		add_timer(&sp->resync_t);
+-	}
++	if (sp->tnc_ok == 1)
++		mod_timer(&sp->resync_t, jiffies + SIXP_INIT_RESYNC_TIMEOUT);
+ 
+ 	sp->status1 = cmd & SIXP_PRIO_DATA_MASK;
+ }
+@@ -983,11 +974,7 @@
+ 
+ 	/* Start resync timer again -- the TNC might be still absent */
+ 
+-	del_timer(&sp->resync_t);
+-	sp->resync_t.data = (unsigned long) sp;
+-	sp->resync_t.function = resync_tnc;
+-	sp->resync_t.expires = jiffies + SIXP_RESYNC_TIMEOUT;
+-	add_timer(&sp->resync_t);
++	mod_timer(&sp->resync_t, jiffies + SIXP_RESYNC_TIMEOUT);
+ }
+ 
+ 
