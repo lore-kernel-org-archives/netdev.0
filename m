@@ -1,35 +1,21 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Wed, 10 Dec 2003 20:34:33 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Are IPV6 module ref counts wrong on 2.6.0-test11?
+Date: Wed, 10 Dec 2003 12:03:09 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031210203433.3747b7fd.ak@suse.de>
-References: <Pine.LNX.4.44.0312101020480.21684-100000@w-kevinr.svc.beaverton.ibm.com>
+Message-ID: <20031210120309.09b8fd84.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-        chester.f.johnson@intel.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Kevin W. Rudd" <ruddk@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0312101020480.21684-100000@w-kevinr.svc.beaverton.ibm.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 Dec 2003 10:23:15 -0800 (PST)
-"Kevin W. Rudd" <ruddk@us.ibm.com> wrote:
+If I load IPV6 as a module, it comes up with a ref count of 10
+even though there are no applications using IPV6.
 
-> 
-> Thoughts?  Comments?
+Interesting /proc/net/sockstat6 shows 1 TCP connection, but there is
+no application with that open.
 
-I don't think the network users will be very happy if you require changing all
-end hosts this way. How about the following hack? For DF=1 packets
-the ipid field is useless. When you rewrite the TOS to DSCP save
-the old TOS in the ipid field.  When you see an ICMP fragment required
-message with the right DSCP on the router restore the old TOS from the ipid 
-field.
-
-One drawback is that there are a few VJ header compression servers that
-require changing ipid. But you can still handle these by not overwriting
-all bits of ipid so that it still changes (keep a few changing bits)
-
--Andi
+This doesn't seem right, and it makes unloading IPV6 impossible.
