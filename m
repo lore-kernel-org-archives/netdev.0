@@ -1,59 +1,33 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Updated WE-18 (WPA) proposal
-Date: Mon, 30 Aug 2004 18:01:05 -0400
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Message-ID: <20040830220105.GY22126@ruslug.rutgers.edu>
-References: <20040830045441.GA7415@jm.kir.nu>
-	<20040830165026.GD29492@bougret.hpl.hp.com>
-	<413363CB.7060807@pobox.com>
-	<20040830174215.GA32132@bougret.hpl.hp.com>
-	<41336A28.9010608@pobox.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 2.6.9-rc1-mm1-tso 2/2] 8139cp: DAC support fix
+Date: Mon, 30 Aug 2004 23:58:18 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040830215818.GB26455@electric-eye.fr.zoreil.com>
+References: <20040829212205.GA2864@havoc.gtf.org> <20040829222831.GA9496@electric-eye.fr.zoreil.com> <41326079.9090402@pobox.com> <20040830215227.GA23857@electric-eye.fr.zoreil.com> <20040830215636.GA26455@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jt@hpl.hp.com, netdev@oss.sgi.com,
-	Jouni Malinen <jkmaline@cc.hut.fi>, hostap@shmoo.com,
-	Pedro Ramalhais <ramalhais@serrado.net>
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <41336A28.9010608@pobox.com>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+In-Reply-To: <20040830215636.GA26455@electric-eye.fr.zoreil.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 30, 2004 at 01:55:52PM -0400, Jeff Garzik wrote:
-> Jean Tourrilhes wrote:
 
-<-- snip -->
+Wrong unit for sizeof().
 
-> >	Also, I'm not clear how the stuff in wireless-2.6 is supposed
-> >to trickle into the other trees (netdev-2.6, -mm and Linus's), and how
-> >to better link it with the CVS of the various drivers involved.
-> 
-> Less of a trickle than a flood:  wireless-2.6 should be the target for 
-> development of shared wireless stack code.  As several drivers are 
-> currently using bits of HostAP, for example, wireless-2.6 should be a 
-> focal point for patches that modify these drivers to instead share the 
-> same code.
-> 
-> Once this generic work is done, it would get pushed all at once to 
-> netdev-2.6, where it would receive testing in -mm.  Then, later, pushed 
-> to mainline.
-> 
-> 	Jeff
+diff -puN drivers/net/8139cp.c~8139cp-020 drivers/net/8139cp.c
+--- linux-2.6.9-rc1/drivers/net/8139cp.c~8139cp-020	2004-08-30 23:34:16.000000000 +0200
++++ linux-2.6.9-rc1-fr/drivers/net/8139cp.c	2004-08-30 23:35:09.000000000 +0200
+@@ -1711,7 +1711,7 @@ static int cp_init_one (struct pci_dev *
+ 	}
+ 
+ 	/* Configure DMA attributes. */
+-	if ((sizeof(dma_addr_t) > 32) &&
++	if ((sizeof(dma_addr_t) > 4) &&
+ 	    !pci_set_consistent_dma_mask(pdev, 0xffffffffffffffffULL) &&
+ 	    !pci_set_dma_mask(pdev, 0xffffffffffffffffULL)) {
+ 		pci_using_dac = 1;
 
-Beides wpa_supplicant from hostap code (which is actually going into
-WE18) what other code re-use is on the roadmap as of yet for wireless-2.6?
-
-Also who is coordinating this?
-
-	Luis
-
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+_
