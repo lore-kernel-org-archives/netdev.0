@@ -1,42 +1,37 @@
-From: Ingo Molnar <mingo@elte.hu>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 22:03:05 +0200
+Date: Wed, 12 May 2004 16:17:52 -0400
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040512200305.GA16078@elte.hu>
-References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com>
+Message-ID: <40A28670.9040308@pobox.com>
+References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Greg KH <greg@kroah.com>,
-	Andrew Morton <akpm@osdl.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@oss.sgi.com>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265212AbUELUIV@vger.kernel.org>
-To: Davide Libenzi <davidel@xmailserver.org>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265213AbUELUSO@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+In-Reply-To: <20040512193349.GA14936@elte.hu>
 List-Id: netdev.vger.kernel.org
 
-
-* Davide Libenzi <davidel@xmailserver.org> wrote:
-
-> > why is it wrong?
+Ingo Molnar wrote:
+> * Jeff Garzik <jgarzik@pobox.com> wrote:
 > 
-> For HZ == 1000 it's fine, even if it'd better to explicitly make it HZ
-> dependent and let the compiler to discard them.
+> 
+>>>Woah, that's new.  And wrong.  The code in include/asm-i386/param.h that
+>>>says:
+>>>	# define JIFFIES_TO_MSEC(x)     (x)
+>>>	# define MSEC_TO_JIFFIES(x)     (x)
+>>>
+>>>Is not correct.  Look at kernel/sched.c for verification of this :)
+>>
+>>
+>>Yes, that is _massively_ broken.
+> 
+> 
+> why is it wrong?
 
-the compiler cannot discard the multiplication and the division from the
-following:
 
-	x * 1000 / 1000
+Because drivers define that exact same symbol, in an arch-generic way.
 
-due to overflows. But we know that HZ is 1000 in the arch-dependent
-param.h, and in sched.c we use the HZ dependent variant:
-
- #ifndef JIFFIES_TO_MSEC
- # define JIFFIES_TO_MSEC(x) ((x) * 1000 / HZ)
- #endif
- #ifndef MSEC_TO_JIFFIES
- # define MSEC_TO_JIFFIES(x) ((x) * HZ / 1000)
- #endif
-
-	Ingo
+	Jeff
