@@ -1,43 +1,39 @@
-From: george anzinger <george@mvista.com>
-Subject: Re: System crash in tcp_fragment()
-Date: Tue, 21 May 2002 08:42:51 -0700
+From: <vintmart@aol.com>
+Subject: suite a notre conversation 5623lwnA2-00-11
+Date: Wed, 22 May 0102 05:43:00 +0900
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <acdq3b$5m6$2@main.gmane.org>
-References: <200205211247.QAA05603@sex.inr.ac.ru>
+Message-ID: <033e81a41a5e$7737e5d7$0de61da2@nbighl>
+Reply-To: <vintmart@aol.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, niv@us.ibm.com, ak@suse.de, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, ak@muc.de, pekkas@netcore.fi
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_00C6_81A50A7B.D3078C12"
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: vincent@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
-> 
-> Hello!
-> 
-> > I understand the issue.
-> 
-> I do not.
-> 
-> +#define preempt_disable() \
-> +do { \
-> +       ++current->preempt_count; \
-> +       barrier(); \
-> +} while (0)
-> 
-> Why does this work?
-> 
-> Alexey
-Preemption can only happen if the task is interrupted.  The
-interrupt exit code will not preempt if preempt_count is
-more than zero.  The barrier() forces the result to memory
-so the interrupt code can find it.
--- 
-George Anzinger   george@mvista.com
-High-res-timers: 
-http://sourceforge.net/projects/high-res-timers/
-Real time sched:  http://sourceforge.net/projects/rtsched/
-Preemption patch:
-http://www.kernel.org/pub/linux/kernel/people/rml
+------=_NextPart_000_00C6_81A50A7B.D3078C12
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: base64
+
+
+c2FsdXQgbmljbyAgIQ0KDQpzdWl0ZSDgIG5vdHJlIGRpc2N1c3Npb24gZCdo
+aWVyLA0KamUgdGUgY29uZmlybWUgYmllbiBsYSBub3V2ZWxsZToNCg0KQ2Vj
+aWxlIGVzdCBFTkNFSU5URSEhIQ0KDQpPbiBzJ2VuIGRvdXRhaXQgYmllbiwg
+ZWxsZSBuJ2EgdnJhaW1lbnQNCnBhcyBwZXJkdSBkZSB0ZW1wcywgY2VsbGUg
+bGEuDQpUZXMgZG91dGVzIGV0YWllbnQgYmllbiBmb25kZXMhDQpqZSB0ZSBk
+b2lzIGRvbmMgMTAwIGV1cm9zIGNvbW1lIHByb21pcyENCk1haXMgcXVlbGxl
+IGNvbm5lIGNldHRlIENlY2lsZSwgZWxsZSBhDQpyZXVzc2kgc29uIGNvdXAh
+ISEgUGF1dnJlIGp1bGllbiENCkxlIHZvaWxhIHBhcGEgbWFpbnRlbmFudCEN
+CkZpbmkgbGVzIGJvaXRlcyBkZSBudWl0cyBldCBsZXMgZmlsbGVzIGEgZ29n
+byENCg0KYXUgZmFpdCwgZW4gcGFybGFudCBkZSBmaWxsZXM6IHZhcyBkb25j
+IGZhaXJlDQp1biB0b3VyIHN1ciBjZSBzaXRlOg0KDQpodHRwOi8vd3d3LnNl
+eC1hbm51YWlyZS5jb20NCg0KKGMnZXN0IGhhbGx1Y2luYW50LCB5IGEgcXVh
+c2ltZW50IHF1ZSBkZXMgdHJ1Y3MNCmdyYXR1aXRzIGV0IGVuIHBsdXMgeSBh
+IGRlIHRvdXQ6IGRlcyBsZXNiaWVubmVzLA0KZHUgZmV0aWNoaXNtZSwgZGVz
+IGJsYWNrcywgZHUgY3JhZGUuLi4pDQoNCkJvbiBhbGxleiBqZSB0ZSBsYWlz
+c2UhDQoNCkEgc2FtZWRpIHNvaXIhDQoNClZpbmNlbnQuDQoNClBTOiAgUGF1
+dnJlIGp1bGllbiENCg0KUFMyOiBWYSB2aXRlIHZvaXIgaHR0cDovL3d3dy5z
+ZXgtYW5udWFpcmUuY29tIChjJ2VzdCBncmF0dWl0ISEhKQ0KDQpQUzM6IE9u
+IHNlIHZvaXQgc2FtZWRpIHNvaXIhIA0KNDg1M1FhZ1A5LTk5M1Z4TmU4OTI3
+bEt1RjktNjYzTklvUzQ0MTFsMzY=
+------=_NextPart_000_00C6_81A50A7B.D3078C12--
