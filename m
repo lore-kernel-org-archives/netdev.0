@@ -1,55 +1,62 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Add C99 initializers to ethtool.c
-Date: Thu, 19 Feb 2004 19:24:54 -0500
+From: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+Subject: [PATCH]: ipv6_skip_exthdr() may refer invalid memory area
+Date: Fri, 20 Feb 2004 14:33:59 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <403553D6.60101@pobox.com>
-References: <20040219001633.GC9704@artsapartment.org>
+Message-ID: <200402200534.OAA04081@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Multipart/Mixed;
+ boundary="--Next_Part(Fri_Feb_20_14:33:59_2004_524)--"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
+Cc: netfilter-devel@lists.netfilter.org, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Art Haas <ahaas@airmail.net>
-In-Reply-To: <20040219001633.GC9704@artsapartment.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Art Haas wrote:
-> Hi.
-> 
-> Here's a little patch adding C99 initializers to ethtool.c. The patch is
-> against the current BK, and the file has been recompiled with the
-> changes successfully.
-> 
-> This patch and the one I just sent for the netfilter file were changed
-> to make the code easier to read and to remove warnings if a '-W' flag is
-> added to the compile command.
-> 
-> Art Haas
-> 
-> ===== net/core/ethtool.c 1.9 vs edited =====
-> --- 1.9/net/core/ethtool.c	Sun Oct 12 06:18:38 2003
-> +++ edited/net/core/ethtool.c	Wed Feb 18 17:22:52 2004
-> @@ -76,7 +76,7 @@
->  
->  static int ethtool_get_settings(struct net_device *dev, void *useraddr)
->  {
-> -	struct ethtool_cmd cmd = { ETHTOOL_GSET };
-> +	struct ethtool_cmd cmd = { .cmd = ETHTOOL_GSET };
->  	int err;
->  
->  	if (!dev->ethtool_ops->get_settings)
-> @@ -168,7 +168,7 @@
->  
->  static int ethtool_get_wol(struct net_device *dev, char *useraddr)
->  {
-> -	struct ethtool_wolinfo wol = { ETHTOOL_GWOL };
-> +	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
->  
->  	if (!dev->ethtool_ops->get_wol)
->  		return -EOPNOTSUPP;
+----Next_Part(Fri_Feb_20_14:33:59_2004_524)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Since it doesn't warn without -W, I would rather leave it in its more 
-compact form...
 
-	Jeff
+Hello,
+
+ipv6_skip_exthdr() refer invalid memory area in the case
+that packet includes Fragment Header.
+
+please apply this patch.
+
+Regards,
+
+-----------------------------------------------------------------
+Yasuyuki KOZAKAI @ USAGI Project <yasuyuki.kozakai@toshiba.co.jp>
+
+
+----Next_Part(Fri_Feb_20_14:33:59_2004_524)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="linux-2.6.3-skip-exthdr.patch"
+
+diff -Nur linux-2.6.3/net/ipv6/exthdrs.c linux-2.6.3-fixed/net/ipv6/exthdrs.c
+--- linux-2.6.3/net/ipv6/exthdrs.c	2004-02-18 12:57:13.000000000 +0900
++++ linux-2.6.3-fixed/net/ipv6/exthdrs.c	2004-02-19 18:04:59.000000000 +0900
+@@ -709,8 +709,16 @@
+ 		if (skb_copy_bits(skb, start, &hdr, sizeof(hdr)))
+ 			BUG();
+ 		if (nexthdr == NEXTHDR_FRAGMENT) {
+-			struct frag_hdr *fhdr = (struct frag_hdr *) &hdr;
+-			if (ntohs(fhdr->frag_off) & ~0x7)
++			unsigned short frag_off;
++			if (skb_copy_bits(skb,
++					  start+offsetof(struct frag_hdr,
++							 frag_off),
++					  &frag_off,
++					  sizeof(frag_off))) {
++				return -1;
++			}
++
++			if (ntohs(frag_off) & ~0x7)
+ 				break;
+ 			hdrlen = 8;
+ 		} else if (nexthdr == NEXTHDR_AUTH)
+
+----Next_Part(Fri_Feb_20_14:33:59_2004_524)----
