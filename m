@@ -1,96 +1,44 @@
-From: "Kristie Dougherty" <undszxa0@trugem.cable.nu>
-Subject: =?ISO-8859-1?Q?=B1=DE=C7=D1=C0=DA=B1=DD!4000=B8=B8=BF=F8?=
-	=?ISO-8859-1?Q?=BA=F4=B7=C1=B5=E5=B8=B3=B4=CF=B4=D9.=C1=A4=BD=C4=BE=F7=C3=BC?=  mdxgvi vcpf o
-Date: Wed, 07 Jul 04 07:12:23 GMT
+From: "=?windows-1255?Q?=E0=F4=E9=F7_=EE=E5=F6=F8=E9_=F4=F8=F1=E5=ED?=" <info@afick.co.il>
+Subject: =?windows-1255?Q?=EE=E5=F6=F8=E9=ED_=EC=F7=E9=E3=E5=ED_=EE=EB=E9=F8=E5=FA_=F9=EC_=E4=F2=F1=F7_=F9=EC=EA?=
+Date: Tue, 6 Jul 2004 21:28:19 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <w6$0cw-$-rs-y-$9-28o0o@azt.f.o.wb>
-Reply-To: "Kristie Dougherty" <undszxa0@trugem.cable.nu>
+Message-ID: <2789595-2200473712819812@VERSANO2>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="1.79A21CCE"
+	boundary="----=_NextPart_27895167924771817412819812"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "=?windows-1255?Q?=E1=F2=EC_=F2=F1=F7?=" <info@afick.co.il>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+------=_NextPart_27895167924771817412819812
+Content-type: text/plain; charset=windows-1255
+Content-Transfer-Encoding: quoted-printable
 
---1.79A21CCE
-Content-Type: text/html;
+
+
+
+
+Click Here to Unsubscribe=20
+------=_NextPart_27895167924771817412819812
+Content-Type: text/html; charset=windows-1255
 Content-Transfer-Encoding: quoted-printable
 
 <html>
-<head>
-<title></title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html;">
+<body>
+<div align=3D"center">
+<a href=3D"http://216=2E66=2E19=2E92/r=2Ex=3F11">
+<img src=3D"http://aficadproducts=2Estarwebz=2Ecom/Picts/frontpg01=2Ejpg">=
 
-</head>
-<body bgcolor=3D"#ffffff">
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"550">
-
-  <tr>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"142" height=3D"1" border=3D"0" alt=3D""></td>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"132" height=3D"1" border=3D"0" alt=3D""></td>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"133" height=3D"1" border=3D"0" alt=3D""></td>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"143" height=3D"1" border=3D"0" alt=3D""></td>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"1" height=3D"1" border=3D"0" alt=3D""></td>
-  </tr>
-
-  <tr>
-   <td><img name=3D"index_r1_c1" src=3D"http://bank.loancallcenter.com/mai=
-l_a/index_r1_c1.gif" width=3D"142" height=3D"262" border=3D"0" alt=3D""></=
-td>
-   <td><img name=3D"index_r1_c2" src=3D"http://bank.loancallcenter.com/mai=
-l_a/index_r1_c2.gif" width=3D"132" height=3D"262" border=3D"0" alt=3D""></=
-td>
-   <td><img name=3D"index_r1_c3" src=3D"http://bank.loancallcenter.com/mai=
-l_a/index_r1_c3.gif" width=3D"133" height=3D"262" border=3D"0" alt=3D""></=
-td>
-   <td><img name=3D"index_r1_c4" src=3D"http://bank.loancallcenter.com/mai=
-l_a/index_r1_c4.gif" width=3D"143" height=3D"262" border=3D"0" alt=3D""></=
-td>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"1" height=3D"262" border=3D"0" alt=3D""></td>
-  </tr>
-  <tr>
-   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
-k"><img name=3D"index_r2_c1" src=3D"http://bank.loancallcenter.com/mail_a/=
-index_r2_c1.gif" width=3D"142" height=3D"328" border=3D"0" alt=3D""></a></=
-td>
-   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
-k"><img name=3D"index_r2_c2" src=3D"http://bank.loancallcenter.com/mail_a/=
-index_r2_c2.gif" width=3D"132" height=3D"328" border=3D"0" alt=3D""></a></=
-td>
-   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
-k"><img name=3D"index_r2_c3" src=3D"http://bank.loancallcenter.com/mail_a/=
-index_r2_c3.gif" width=3D"133" height=3D"328" border=3D"0" alt=3D""></a></=
-td>
-   <td><a href=3D"http://bank.loancallcenter.com?i=3Dgold" target=3D"_blan=
-k"><img name=3D"index_r2_c4" src=3D"http://bank.loancallcenter.com/mail_a/=
-index_r2_c4.gif" width=3D"143" height=3D"328" border=3D"0" alt=3D""></a></=
-td>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"1" height=3D"328" border=3D"0" alt=3D""></td>
-  </tr>
-  <tr>
-   <td colspan=3D"4"><a href=3D"http://bank.loancallcenter.com/reject.php"=
- target=3D"_self"><img name=3D"index_r3_c1" src=3D"http://bank.loancallcen=
-ter.com/mail_a/index_r3_c1.gif" width=3D"550" height=3D"51" border=3D"0" a=
-lt=3D""></a></td>
-   <td><img src=3D"http://bank.loancallcenter.com/mail_a/spacer.gif" width=
-=3D"1" height=3D"51" border=3D"0" alt=3D""></td>
-  </tr>
-</table>
+</a></div>
+<br><div align=3D"center">
+<img src=3D"http://216=2E66=2E19=2E92/c=2Ex=3F11"><br><br><br>
+<a href=3D"http://www=2Eremove=2Eup=2Eco=2Eil">Click Here to Unsubscribe</=
+a>
+</div>
 </body>
 </html>
-nzeew ouxsebc 
-aaxwcdge i zyfutczk
-wbhc 
-cqdacpvgly fae
-cpauzbglzjdaqyp
 
---1.79A21CCE--
+
+
+------=_NextPart_27895167924771817412819812--
