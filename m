@@ -1,28 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH PKT_SCHED 17/17]: Disable broken override bits in pedit
- action
-Date: Thu, 30 Dec 2004 14:25:08 +0100
-Message-ID: <41D401B4.7010104@trash.net>
-References: <41D378FF.3080205@trash.net> <1104412634.1048.106.camel@jzny.localdomain>
+From: Walter Liu <Walter.liu@126.com>
+Subject: Re: How can i join this mail list?
+Date: Thu, 30 Dec 2004 22:05:00 +0800
+Message-ID: <41D40B0C.2060204@126.com>
+References: <304407396.02136@njupt.edu.cn>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1104412634.1048.106.camel@jzny.localdomain>
+To: Zhenyu Wu <y030729@njupt.edu.cn>
+In-Reply-To: <304407396.02136@njupt.edu.cn>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+Zhenyu Wu wrote:
 
-> This way if they are of the same size then things should work as is
-> and my testcases dont break. Now if you feel more gracious, go ahead and
-> fix them ;->
-
-Yes, this patch was silly, I should have just fixed it.
-I'll revert the patch and fix it.
+>I want to know if I use the mail to join the mail list, how can I do? Just write
+>"subscribe" in the body?
+>
+"subscribe netdev", this is the email body, you must send it to 
+majordomo2oss.sgi.com.
 
 Regards
-Patrick
+LWT
