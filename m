@@ -1,39 +1,30 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: comment about struct tcp_tw_bucket in struct sock
-Date: Wed, 21 May 2003 21:52:58 -0300
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH] switch arcnet over to initcalls
+Date: Thu, 22 May 2003 07:57:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030522005258.GC13028@conectiva.com.br>
-References: <20030513210541.GA4415@suse.de> <20030513.163150.28800008.davem@redhat.com> <20030514083236.GD8290@Wotan.suse.de> <20030514.121806.41651014.davem@redhat.com> <20030514192117.GA31303@Wotan.suse.de>
+Message-ID: <20030522075711.A11759@lst.de>
+References: <20030521221638.A7575@lst.de> <20030521.162052.08332261.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, olh@suse.de,
-   marcelo@conectiva.com.br, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20030514192117.GA31303@Wotan.suse.de>
+In-Reply-To: <20030521.162052.08332261.davem@redhat.com>; from davem@redhat.com on Wed, May 21, 2003 at 04:20:52PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, May 14, 2003 at 09:21:17PM +0200, Andi Kleen escreveu:
-> On Wed, May 14, 2003 at 12:18:06PM -0700, David S. Miller wrote:
-> >    From: Andi Kleen <ak@suse.de>
-> >    Date: Wed, 14 May 2003 10:32:36 +0200
-> > 
-> >    On Tue, May 13, 2003 at 04:31:50PM -0700, David S. Miller wrote:
-> >    > It's documented in tcp.h already.
-> >    
-> >    Just not everybody changing sock.h also reads tcp.h :-(
-> > 
-> > You assume that protocols in the tree are the only thing
-> > that might break if you edit struct sock.
+On Wed, May 21, 2003 at 04:20:52PM -0700, David S. Miller wrote:
+>    From: Christoph Hellwig <hch@lst.de>
+>    Date: Wed, 21 May 2003 22:16:38 +0200
 > 
-> I'm not assuming anything and didn't even edit struct sock, just pointing 
-> out that such a fragile hack as the current tw bucket is needs an explicit 
-> comment on both places.
-> 
-> Best would be to bite the bullet and give them a common structure.
+>    Link order already equals the old init order.  arcnet init/registration
+>    code still is more than fishy, maybe I'll look into that later.
+>    
+> ISA device init ordering again Christoph, com90xx is an ISA
+> driver...
 
-Ah if we could just use a unnamed struct... 8)
-
-- Arnaldo
+It's not probed from Space.c so it's probed after most isa devices
+anyway.  You can't just veto all initcall changes because they are isa
+devices  -  if it's the unlikely case that it actually breaks for
+someone he can still complain.
