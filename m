@@ -1,34 +1,71 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [RFT][PATCH] cleanup net/atm/br2684.c
-Date: Tue, 12 Aug 2003 18:09:17 -0700
+From: =?gb2312?q?minnie=20wu?= <minniewkitty@yahoo.com.cn>
+Subject: How to improve small packet performance?
+Date: Wed, 13 Aug 2003 09:37:52 +0800 (CST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030813010917.GC36444@gaz.sfgoth.com>
-References: <20030811114823.5b81474c.shemminger@osdl.org> <20030811215857.GA96728@gaz.sfgoth.com> <20030811153039.6df304fb.shemminger@osdl.org>
+Message-ID: <20030813013752.37510.qmail@web15204.mail.bjs.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: chas williams <chas@cmf.nrl.navy.mil>, netdev@oss.sgi.com
+Content-Type: multipart/alternative; boundary="0-1847026593-1060738672=:36840"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030811153039.6df304fb.shemminger@osdl.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> > Mmmm.. I see this snippet in your diff in multiplce places and it looks
-> > wrong.  Where does the "brdev" structure get freed now?
-> > 
-> The brdev structure is contained inside the allocation of net_device,
-> this is how all the ether and other devices do it.
+--0-1847026593-1060738672=:36840
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id h7D1dDFl021510
 
-OK, sorry... that should have been obvious.  The reason I was confused is
-that almost always the net_dev is referenced as brdev->net_dev which makes
-look like brdev merely has a reference to net_dev.  I think it would be
-cleaner to change the code to pass around "net_dev" instead of "brdev"
-references (and just get the brdev via net_dev->priv as needed) and just
-get rid of the brdev->net_dev pointer entirely.
+Hi, all!
+     I tried e100-napi, but it's performance is still worse than eepro100=
+-napi. It seems that napi cannot meet my needs. Any ideas?
+=20
+jchapman wrote:
+=20
+>Try the latest e100 development driver from sf.net/projects/e1000. Make =
+>sure you compile it with NAPI enabled.
 
-Are you interested in doing that?  Otherwise I could take a crack at it
-when I get the chance (I've done some surgery on this file before)
+>- jc
 
--Mitch
+minnie wu wrote:
+
+> Hi, all!
+>      I'm working on e100/eepro100, kernel version 2.4.20. I used NAPI, =
+>but  the 64 byte small packet dual throughout is only 28M/s. How to >imp=
+rove small  packet performance further?
+
+   =20
+   =20
+
+
+
+---------------------------------
+Do You Yahoo!?
+=CA=EE=C6=DA=B4=F3=C6=AC=C6=EB=BE=DB=D1=C5=BB=A2=CD=A8 =CD=F8=C2=E7=C9=E3=
+=CF=F1=CD=B7+=D1=C5=BB=A2=CD=A8=B5=F7=C6=B5=CA=D5=D2=F4=BB=FA=B5=C8=C4=E3=
+=C0=B4=C4=C3
+--0-1847026593-1060738672=:36840
+Content-Type: text/html; charset=gb2312
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id h7D1dDFl021510
+
+<DIV>Hi, all!</DIV>
+<DIV>&nbsp;&nbsp;&nbsp;&nbsp; I tried e100-napi, but it's performance is =
+still worse than eepro100-napi. It seems that napi cannot meet my needs. =
+Any ideas?</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>jchapman wrote:</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&gt;Try the latest e100 development driver from sf.net/projects/e100=
+0. Make &gt;sure you compile it with NAPI enabled.<BR><BR>&gt;- jc<BR><BR=
+>minnie wu wrote:<BR><BR>&gt; Hi, all!<BR>&gt;&nbsp;&nbsp;&nbsp;&nbsp;&nb=
+sp; I'm working on e100/eepro100, kernel version 2.4.20. I used NAPI, &gt=
+;but&nbsp; the 64 byte&nbsp;small packet dual throughout is only 28M/s. H=
+ow to &gt;improve small&nbsp; packet performance further?<BR><BR>&nbsp;&n=
+bsp;&nbsp; </DIV>
+<DIV>&nbsp;&nbsp;&nbsp; </DIV><p><br><hr size=3D1><b>Do You Yahoo!?</b><b=
+r>
+<a href=3D"http://cn.rd.yahoo.com/mail_cn/tag/?http://cn.promo.yahoo.com/=
+minisite/messenger1/" target=3Dblank>=CA=EE=C6=DA=B4=F3=C6=AC=C6=EB=BE=DB=
+=D1=C5=BB=A2=CD=A8 =CD=F8=C2=E7=C9=E3=CF=F1=CD=B7+=D1=C5=BB=A2=CD=A8=B5=F7=
+=C6=B5=CA=D5=D2=F4=BB=FA=B5=C8=C4=E3=C0=B4=C4=C3</a>
+--0-1847026593-1060738672=:36840--
