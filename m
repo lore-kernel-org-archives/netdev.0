@@ -1,27 +1,106 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Memory leak in 2.6.11-rc1?
-Date: Mon, 31 Jan 2005 15:11:32 +1100
-Message-ID: <E1CvSuS-00056x-00@gondolin.me.apana.org.au>
-References: <41FD2043.3070303@trash.net>
-Cc: rmk+lkml@arm.linux.org.uk, davem@davemloft.net,
-	Robert.Olsson@data.slu.se, akpm@osdl.org, torvalds@osdl.org,
-	alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261912AbVAaEPn@vger.kernel.org>
-To: kaber@trash.net (Patrick McHardy)
-In-Reply-To: <41FD2043.3070303@trash.net>
+From: Bukie Mabayoje <bukiemab@gte.net>
+Subject: Re: 2.4.29, e100 and a WOL packet causes keventd going mad
+Date: Sun, 30 Jan 2005 20:23:47 -0800
+Message-ID: <41FDB2D3.5CBD6F7D@gte.net>
+References: <20050130171849.GA3354@hardeman.nu> <1107143255.18167.428.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David =?iso-8859-1?Q?H=E4rdeman?= <david@2gen.com>,
+	Michael Gernoth <simigern@stud.uni-erlangen.de>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261916AbVAaEdk@vger.kernel.org>
+To: sfeldma@pobox.com
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
-> 
-> Ok, final decision: you are right :) conntrack also defragments locally
-> generated packets before they hit ip_fragment. In this case the fragments
-> have skb->dst set.
 
-Well caught.  The same thing is needed for IPv6, right?
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Scott Feldman wrote:
+
+> On Sun, 2005-01-30 at 09:18, David H=C3=A4rdeman wrote:
+> > I experience the same problems as reported by Michael Gernoth when
+> > sending a WOL-packet to computer with a e100 NIC which is already
+> > powered on.
+>
+> I didn't look at the 2.4 case, but for 2.6, it seems e100 was enablin=
+g
+> PME wakeup during probe.  PME shouldn't be enabled while the system i=
+s
+> up.  I suspect the assertion of PME while the system is up is what's
+> causing problems.  This patch moves PME wakeup enabling to either
+> suspend or shutdown.
+>
+> David, would you give this patch a try?  Make sure the system still
+> wakes from a magic packet if suspended or shut down, and doesn't caus=
+e
+> kacpid to go crazy if system is running.  If it helps for 2.6, perhap=
+s
+> someone can look into 2.4 to see if there is something similar going =
+on
+
+This issue was reported on 2.4.
+
+>
+> there.
+>
+> -scott
+>
+> --- linux-2.6.11-rc2/drivers/net/e100.c.orig    2005-01-30 19:13:56.8=
+50497376 -0800
+> +++ linux-2.6.11-rc2/drivers/net/e100.c 2005-01-30 19:26:41.154305536=
+ -0800
+> @@ -1868,7 +1868,6 @@ static int e100_set_wol(struct net_devic
+>         else
+>                 nic->flags &=3D ~wol_magic;
+>
+> -       pci_enable_wake(nic->pdev, 0, nic->flags & (wol_magic | e100_=
+asf(nic)));
+>         e100_exec_cb(nic, NULL, e100_configure);
+>
+>         return 0;
+> @@ -2262,8 +2261,6 @@ static int __devinit e100_probe(struct p
+>            (nic->eeprom[eeprom_id] & eeprom_id_wol))
+>                 nic->flags |=3D wol_magic;
+>
+> -       pci_enable_wake(pdev, 0, nic->flags & (wol_magic | e100_asf(n=
+ic)));
+> -
+>         strcpy(netdev->name, "eth%d");
+>         if((err =3D register_netdev(netdev))) {
+>                 DPRINTK(PROBE, ERR, "Cannot register net device, abor=
+ting.\n");
+> @@ -2344,6 +2341,15 @@ static int e100_resume(struct pci_dev *p
+>  }
+>  #endif
+>
+> +static void e100_shutdown(struct device *dev)
+> +{
+> +       struct pci_dev *pdev =3D container_of(dev, struct pci_dev, de=
+v);
+> +       struct net_device *netdev =3D pci_get_drvdata(pdev);
+> +       struct nic *nic =3D netdev_priv(netdev);
+> +
+> +       pci_enable_wake(pdev, 0, nic->flags & (wol_magic | e100_asf(n=
+ic)));
+> +}
+> +
+>  static struct pci_driver e100_driver =3D {
+>         .name =3D         DRV_NAME,
+>         .id_table =3D     e100_id_table,
+> @@ -2353,6 +2359,9 @@ static struct pci_driver e100_driver =3D {
+>         .suspend =3D      e100_suspend,
+>         .resume =3D       e100_resume,
+>  #endif
+> +       .driver =3D {
+> +               .shutdown =3D e100_shutdown,
+> +       }
+>  };
+>
+>  static int __init e100_init_module(void)
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
