@@ -1,29 +1,64 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: PROBLEM: IProute hangs after running traffic shaping scripts
-Date: Mon, 8 Nov 2004 14:54:31 +0100
-Message-ID: <20041108135431.GE31969@postel.suug.ch>
-References: <418B4C7C.8000402@crocom.com.pl> <418EA032.7050507@trash.net> <418ECE85.9090203@trash.net>
+From: Eamonn Hamilton <EAMONN.HAMILTON@saic.com>
+Subject: Re: linux 2.6.9: r8169: eth0: PCI error (status: 0x8404). Device
+	disabled.
+Date: Mon, 08 Nov 2004 14:03:06 +0000
+Message-ID: <1099922587.16833.2.camel@ukabzc383.uk.saic.com>
+References: <1098269117.6631.5.camel@ukabzc383.uk.saic.com>
+	 <20041020121520.GA4004@electric-eye.fr.zoreil.com>
+	 <1098282567.6631.10.camel@ukabzc383.uk.saic.com>
+	 <20041020201010.GA13023@electric-eye.fr.zoreil.com>
+	 <1098350743.15528.40.camel@ukabzc383.uk.saic.com>
+	 <20041021120208.GA752@electric-eye.fr.zoreil.com>
+	 <1098437493.5513.8.camel@ukabzc383.uk.saic.com>
+	 <20041022105224.GA26714@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Szymon Miotk <spam@crocom.com.pl>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eamonn Hamilton <eamonn.hamilton@saic.com>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <418ECE85.9090203@trash.net>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20041022105224.GA26714@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> +	/* unlink inner qdiscs from dev->qdisc_list immediately */
-> +	if (qdisc->ops->cl_ops != NULL)
-> +		list_add(&qdisc->list, &cql);
+Hi Francois.
 
-I think you should extend the above to:
+Sorry for the delay in getting back to you - real life has a nasty habit
+of intruding :(
 
-if (qdisc->ops->cl_ops != NULL && !list_empty(&qdisc->list))
+Anyway, The device was brought back to functioning order by removing the
+module and re-inserting it. I have to confess, I forgot to try simply
+downing/upping it, I'll ask my friend to try that should it happen
+again. Bizarrely, the frequency of it happening seems to be down for
+whatever reason - it took ~12GB traffic to cause it to happen this
+afternoon.
 
-Otherwise you might unlink entries just added before the
-rcu callback and it prevents an unneeded attempt to delete
-qdiscs for inner classful qdiscs
+Anyway, hope this helps.
 
-Otherwise the patch looks very good.
+Cheers,
+Eamonn
+
+
+On Fri, 2004-10-22 at 12:52 +0200, Francois Romieu wrote:
+> Eamonn Hamilton <EAMONN.HAMILTON@saic.com> :
+> [...]
+> > Testing the kernel with the error reset disabled just causes networking
+> > to stop, with no reported error after copying data from the box for a
+> > bit ( < 1GB )
+> 
+> At this point, can you have network traffic again is the device goes
+> through closed/open or the module through rmmod/insmod ?
+> 
+> > Hope this helps,
+> 
+> Yes.
+> 
+> --
+> Ueimor
+-- 
+Eamonn Hamilton
+
+Senior Systems Engineer
+SAIC Ltd
+Tel : 01224 333833
