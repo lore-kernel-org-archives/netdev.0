@@ -1,98 +1,55 @@
-From: Henrik Petander <lpetande@tml.hut.fi>
-Subject: Re: [patch]: ipv6 tunnel for MIPv6
-Date: Wed, 04 Jun 2003 17:30:30 +0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EDE0286.4000304@tml.hut.fi>
-References: <Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>	<Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi>	<20030531.003858.108351451.yoshfuji@linux-ipv6.org> <20030603.213830.85382657.davem@redhat.com>
+From: "Dr. Peter Bieringer " <pb@bieringer.de>
+Subject: (usagi-users 02403) Compatibility problems IPsec 2.5.70 against FreeS/WAN 1.99
+Date: Wed, 04 Jun 2003 16:53:50 +0200
+Message-ID: <20030604145350.88F0D1387A@smtp2.aerasec.de>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; format=flowed; charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, vnuorval@tcs.hut.fi, kuznet@ms2.inr.ac.ru,
-   netdev@oss.sgi.com, ajtuomin@morphine.tml.hut.fi,
-   lpetande@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030603.213830.85382657.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "Maillist USAGI-users" <usagi-users@linux-ipv6.org>
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: "Maillist netdev" <netdev@oss.sgi.com>
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+Hi, 
 
-> I am VERY UPSET that there appears to be NO dialogue between USAGI and
-> MIPV6 folks to discuss design of MIPV6.  If you do not talk together,
-> how can you guys possibly coordinate efforts and not avoid duplicated
-> work?
+has anyone successful examples of configuration settings for 2.5.70 IPsec 
+(racoon/SAD/SPD) and FreeS/WAN? 
 
-I am sorry about the long delay in the extension header addition
-mechanism discussion. The issues involved with interactions between xfrm
-stacked destinations and mipv6 were at least to me somewhat fuzzy. To
-understand them better we developed a prototype of the mipv6 extension
-header addition and processing. This unfortunately took too long, due to
-other work.
+I got no success between 2 hosts, neither in tunnel nor in transport mode. 
 
-In any case, I hope we can all work better together from now on. In
-hopes of starting a working dialogue, I'll try to summarize the current
-situation on our side.
+(racoon and pluto config looks like ok, the IPsec-SA was proper established, 
+also both hosts send packets with related spi). 
 
-1. Tunnel
+In transport mode, the comment of Andreas came true that in the ESP packet 
+an IP-in-IP tunnel packet is transported (sent from the 2.5.70-ipsec host): 
 
-The tunneling code should be ready, Ville just sent a  patch without
-dependancies on source address based routing. All received and future
-comments about that are highly appreciated.
+16:42:06.215546 [|ip]
+0x0000   45                                             E
+16:42:08.215348 [|ip]
+0x0000   4500 0007 0004 40                              E.....@ 
 
-2. Source address based routing
+Looks like FreeS/WAN don't like this. 
 
-Ville sent the patch. The semantical changes to the original code were
-in our opinion necessary to get source address based routing working
-more as IPv4 policy routing.  Let's discuss this more.
+In tunnel mode, ipsec0 interface of FreeS/WAN drops all received packages by 
+the 2.5.70-ipsec host (seen in ifconfig stat). 
 
-3. API
+On 2.5.70-ipsec side I currently don't know how to debug, but I only see the 
+ESP packet on the interface, nothing decrpyted. 
 
-We've added kernel support for the API to accept routing header type 2
-and to do the additional checks necessary.  Also home address option
-API support has been written.  In fact, you can add any destination
-option to the new DO position with this.
+Very strange at all... 
 
-There is a (sub)group working on MIPv6 extensions to the Advanced Socket
-API for IPv6.  To me it seems pointless to add anything other to the
-spec than a way to insert a destination option header to the third
-possible DO position (i.e. between routing header and fragmentation
-header).  This could be done just by adding new type, let's call it
-IPV6_NOFRAGDSTOPTS.  Everything else should be doable with the
-existing ASA.  We would like to hear comments on this.
+Any hints available how to let FreeS/WAN communicate with 2.5.70-ipsec? 
 
-Is a rtnetlink extension enough for adding mobility routes or do
-we need to support ioctl too?
+Thank you very much,
+Peter 
 
-4. Source address selection
-
-We think adding new home address flag to addresses is the best and
-easiest way making the source address selection to work with MIPv6.
-I'm sure USAGI will add the relevant checks to their source address
-selection code for that.  Dave, Antti already brought this up some weeks
-ago, but got no answer. Is the home address bit OK with you?
-
-5. MIPv6 extension header adding
-
-We have been also testing how the mipv6 extension header adding would
-work in practice through the development of a prototype for the purpose.
-Based on the work it seems (to me) that the use of xfrm for storing the
-mipv6 stuff conflicts with its primary use, especially if there are
-overlapping entries for IPSec and MIPv6.
-
-Storing of the mipv6 information would in our opinion be achieved more
-cleanly by using cached routes which included the mipv6 information (two
-extra addresses and flags). The routes would contain modified nexthop
-information and mip6_output as the  rt->u.dst.output function.
-Mip6_output would add the extension headers based on the information
-stored in the route. The routes would have a stacked dst entry, which
-would be used for actual output.
-
-Our prototype  currently works with tcp, tcp + ipsec and raw sockets,
-but has only a hackish interface through route ioctl for testing. I can
-send a preview patch of the code for discussion, if the general approach
-makes sense to you. I would like to hear your opinions on this and also
-if you (USAGI) have planned something else for storing the mipv6 state.
-
-
-Henrik
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/ 
