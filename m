@@ -1,25 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Fix BUG When Received Unknown Protocol
-Date: Thu, 21 Nov 2002 21:56:28 -0800 (PST)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20021121.215628.133829160.davem@redhat.com>
-References: <20021121.013203.100868154.yoshfuji@linux-ipv6.org>
+Subject: Re: automatic keying works! Re: off by one error in 3des cbc keying
+Date: Mon, 18 Nov 2002 12:22:41 -0800 (PST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20021118.122241.93782164.davem@redhat.com>
+References: <200211182004.XAA12908@sex.inr.ac.ru>
+	<20021118.121047.99725598.davem@redhat.com>
+	<20021118202229.GA22818@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	kuznet@ms2.inr.ac.ru.ee.t.u-tokyo.ac.jp, usagi@linux-ipv6.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20021121.013203.100868154.yoshfuji@linux-ipv6.org>
+Cc: kuznet@ms2.inr.ac.ru, gem@asplinux.ru, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: ahu@ds9a.nl
+In-Reply-To: <20021118202229.GA22818@outpost.ds9a.nl>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Thu, 21 Nov 2002 01:32:03 -0500 (EST)
+   From: bert hubert <ahu@ds9a.nl>
+   Date: Mon, 18 Nov 2002 21:22:29 +0100
 
-   Since 2.5.43, kernel panics by executing BUG() when
-   received unknown protocol in IPv6 packet. 
-   This is because ip6_input_finish() try to kfree_skb() 
-   while icmpv6_param_prob() has already kfree_skb()'ed the skb.
+   Would you perhaps want to explain what CONFIG_XFRM_USER is going to be like?
+   Netlink instead of PFKEY, but other notable things?
 
-Patch applied, thanks.
+What you see in the code is what it will be like :-)
+
+The only really mentionable thing is that when we notice that
+PFKEY side has shit semantics, we will make netlink side saner :)
+
+The only immediate difference is that with table dump operations
+netlink queues where PFKEY does not.
