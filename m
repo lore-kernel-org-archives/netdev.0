@@ -1,7 +1,7 @@
 From: Park Lee <parklee_sel@yahoo.com>
-Subject: Are there any explanation for struct flowi?
-Date: Fri, 25 Feb 2005 08:47:09 -0800 (PST)
-Message-ID: <20050225164709.66998.qmail@web51509.mail.yahoo.com>
+Subject: What's the purpose of ip_route_output_flow()?
+Date: Fri, 25 Feb 2005 08:52:40 -0800 (PST)
+Message-ID: <20050225165240.69376.qmail@web51502.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org
@@ -11,11 +11,11 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-   I'm now learning the net stack of Linux. 
-   Would you please tell whether there are any
-explanation for struct flowi? What it is used for?
+  Would you please tell me what the purpose of
+ip_route_output_flow() is? and What the differences
+between it and ip_route_output_key() are?
 
-Thank you.
+  Thank you.
 
 
 =====
