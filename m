@@ -1,32 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH/RFC] Let {ip,arp}tables "see" bridged VLAN tagged
- {I,AR}P packets
-Date: Tue, 7 Oct 2003 08:06:40 -0700
+Subject: Re: [PATCH] spinlock badness in last dongle changes.
+Date: Tue, 7 Oct 2003 08:29:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007080640.50de4d45.davem@redhat.com>
-References: <200310062204.07230.bdschuym@pandora.be>
+Message-ID: <20031007082902.03dc16be.davem@redhat.com>
+References: <20031006222631.1934f8e1.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, bridge@osdl.org, greearb@candelatech.com,
-        vlan@wanfear.com, shemminger@osdl.org
+Cc: jt@hpl.hp.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200310062204.07230.bdschuym@pandora.be>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031006222631.1934f8e1.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 Oct 2003 22:04:07 +0200
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+On Mon, 6 Oct 2003 22:26:31 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> -	unsigned long hh[16 / sizeof(unsigned long)];
-> +	unsigned char hh[18];
+> A couple of locking problems happened when converted from using
+> hashbin lock outside of irqueue.  First, the lock was never initialized;
+> Second, the lock was being unlocked after the hashbin was free.
+> 
+> Since the hashbin of dongles should be empty (ie all dongle unregistered)
+> don't really need locking there, so just warn if we find anything...
 
-Maybe don't do this?  It should be aligned on a 'long' boundry I
-think.
+Applied, thanks Stephen.
 
-The only real hard objection I have with the patch is the vlan xmit
-routine pointer crap, just export the symbol.
-
-Once you fix that I'll apply your patch as long as Stephen has no
-objections.
+Jean didn't express his opinion, but if he doesn't like the change
+we can just put the fix he prefers on top.
