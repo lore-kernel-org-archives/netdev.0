@@ -1,47 +1,41 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: raw ipv6 broken in 2.4.19
-Date: Mon, 12 Aug 2002 23:20:56 +0400 (MSD)
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: ipv6 problem
+Date: Mon, 12 Aug 2002 22:30:55 +0300 (EEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208121920.XAA18870@sex.inr.ac.ru>
-References: <1029179259.791.31.camel@tux>
+Message-ID: <Pine.LNX.4.44.0208122230180.21871-100000@netcore.fi>
+References: <20020812122101.15832.qmail@mailFA11.rediffmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=KOI8-R
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: gandalf@wlug.westbo.se (Martin Josefsson)
-In-Reply-To: <1029179259.791.31.camel@tux> from "Martin Josefsson" at Aug 12, 2 09:07:38 pm
+To: "v.chitra" <vkchitra@rediffmail.com>
+In-Reply-To: <20020812122101.15832.qmail@mailFA11.rediffmail.com>
 List-Id: netdev.vger.kernel.org
 
-Hello!
+'/sbin/modprobe ipv6'.
 
-> raw ipv6 doesn't work in 2.4.19,
+On 12 Aug 2002, v.chitra wrote:
+> hye
+> i am working in drdl. i am creating socket library for IPv6 in 
+> Linux OS.
+> i did a sample program giving AF_INET6 to socket function.
+> but when i compiled the program, it is saying that Family not 
+> supported.
+> for compilation i gave the following command:
+> 
+> g++ -o server server.cpp
+> 
+> i want to know how to compile programs for IPv6. what are the 
+> linker options we have to give. since i month i am facing this 
+> problem.
+> 
+> reply as soon as possible.
+> thank you
+> bye
+> 
+> 
 
-Seems, more information is required because of:
-
-root@mops:~ # cat /proc/version
-Linux version 2.4.20-pre1-mops (root@mops) (gcc version 3.0.2 20010905 (A=
-SPLinux 7.2 3.0.1-3)) #3370 =F7=D4=D2 =E1=D7=C7 6 18:18:59 MSD 2002
-root@mops:~ # traceroute6 sex
-traceroute to sex.inr.ac.ru (3ffe:2400:0:5:202:b3ff:fe90:d922) from 3ffe:=
-2400:0:4:240:d0ff:fe16:a83d, 30 hops max, 16 byte packets
- 1  dust.inr.ac.ru (3ffe:2400:0:4:2c0:95ff:fee7:f562)  0.412 ms  0.195 ms=
-  0.143 ms
- 2  sex.inr.ac.ru (3ffe:2400:0:5:202:b3ff:fe90:d922)  0.216 ms  0.199 ms =
- 0.207 ms
-root@mops:~ # ping6 sex
-PING sex(sex.inr.ac.ru) 56 data bytes
-64 bytes from sex.inr.ac.ru: icmp_seq=3D1 ttl=3D63 time=3D0.218 ms
-64 bytes from sex.inr.ac.ru: icmp_seq=3D2 ttl=3D63 time=3D0.229 ms
-64 bytes from sex.inr.ac.ru: icmp_seq=3D3 ttl=3D63 time=3D0.206 ms
-64 bytes from sex.inr.ac.ru: icmp_seq=3D4 ttl=3D63 time=3D0.223 ms
-
---- sex ping statistics ---
-4 packets transmitted, 4 received, 0% loss, time 3030ms
-rtt min/avg/max/mdev =3D 0.206/0.219/0.229/0.008 ms
-root@mops:~ #
-
-So, please, make binary tcpdumps and tell me version of iputils,
-which you use and make straces of ping.
-
-Alexey
+-- 
+Pekka Savola                 "Tell me of difficulties surmounted,
+Netcore Oy                   not those you stumble over and fall"
+Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
