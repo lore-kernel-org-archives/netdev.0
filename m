@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Thu, 20 Jan 2005 13:34:20 -0800
-Message-ID: <20050120133420.317bea31.davem@davemloft.net>
+Date: Thu, 20 Jan 2005 13:41:35 -0800
+Message-ID: <20050120134135.567e1cee.davem@davemloft.net>
 References: <5cac192f0412230110628749e3@mail.gmail.com>
 	<41CAF444.3000305@trash.net>
 	<5cac192f04122408102129af43@mail.gmail.com>
@@ -38,34 +38,12 @@ Tommy Christensen <tommy.christensen@tpack.net> wrote:
 
 > A lot more serious is the fact that ->tx_timeout() and
 > ->hard_start_xmit() are no longer allowed to do this:
-> 
->   spin_lock_irq()
->   ...
->   spin_unlock_irq()
-> 
-> since that would leave us with irq's enabled while still
-> holding the xmit_lock.
-> This would have to be fixed for non-LLTX drivers as well.
 
-Even worse is that this breaks the acenic driver too because
-it does this:
+Sigh, there are even more issues.  Now dev_kfree_skb()
+is illegal in ->hard_start_xmit() because interrupts are
+disabled, and there are many such cases in the simpler
+net drivers.
 
-	unsigned long maxjiff = jiffies + 3*HZ;
-
-	if (time_before(jiffies, maxjiff)) {
-		barrier();
-		cpu_relax();
-		goto restart;
-	}
-
-in it's ->hard_start_xmit() routine.
-
-I was auditing spin_lock_irq() usage in ->hard_start_xmit()
-routines when I caught this.
-
-This one isn't impossible to fix though.  We can replace the
-jiffies games with a udelay/mdelay and a "maxloop" variable.
-Any takers?
-
-I'll keep working on the spin_lock_irq() audit then work on
-the other problems Tommy found.
+I think we might need to revert the change over to IRQ
+disabling dev->xmit_lock and rethink this.  This is just too
+much fallout.
