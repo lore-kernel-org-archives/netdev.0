@@ -1,42 +1,34 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Linux support for RDMA
-Date: Thu, 31 Mar 2005 17:57:22 -0800
-Message-ID: <424CAA82.1010707@zytor.com>
-References: <1112320148.424ca894f3c8b@imap.linux.ibm.com>
+From: jaganav@us.ibm.com
+Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics)
+Date: Thu, 31 Mar 2005 21:13:39 -0500
+Message-ID: <1112321619.424cae539e75e@imap.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roland Dreier <roland@topspin.com>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Benjamin LaHaise <bcrl@kvack.org>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
         open-iscsi@googlegroups.com, "David S. Miller" <davem@davemloft.net>,
         mpm@selenic.com, andrea@suse.de, michaelc@cs.wisc.edu,
         James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com, Benjamin LaHaise <bcrl@kvack.org>
+        netdev@oss.sgi.com, bmt@zurich.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jaganav@us.ibm.com
-In-Reply-To: <1112320148.424ca894f3c8b@imap.linux.ibm.com>
+To: Roland Dreier <roland@topspin.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jaganav@us.ibm.com wrote:
-> 
-> No doubt, Ethernet will eventually win .. btw, Hasn't history proven this over
-> ATM? More specifically when the industry predicted that ATM will replace
-> ethernet :)
-> 
-> However, I'll have to agree with Ben that IB technolgy will fill an important
-> niche segment, more specifically so in the low end of High Performance Computing
-> (HPC) segment which is in a transition mode currently moving away from
-> proprietary interconnects to industry standards based IB technology. Eventhough,
-> ethernet may eventually may catch up with IB in terms of the bandwidth but IB
-> fabrics can offer better latencies.
-> 
+Quoting Roland Dreier <roland@topspin.com>:
+> I have to admit I don't know much about the TOE / RDMA/TCP / RNIC (or
+> whatever you want to call it) world.  However I know that the large
+> majority of InfiniBand use right now is running on Linux, and I hope
+> the Linux community is willing to work with the IB community.
+>
 
-We've seen this over and over... Token Ring, FDDI, ATM, IB, ... all of 
-them "better" than the Ethernet of the day, but eventually 
-commoditization wins out.  With 10GE, Ethernet has finally stopped 
-pretending to be CSMA/CD even; "Ethernet" is now really nothing more 
-than a collective name for a set of somewhat compatible commodity 
-networking technologies.
+Just want to let everyone know know that we have started an opensource
+effort (www.openrdma.org) for enablement of RNICs (RDMA enabled NICs). This
+community has now come up with an architecture
+(http://rdma.sourceforge.net/architecture.pdf) to build this support in Linux.
+Would really appreciate if you review and provide any comments. We have just
+started to hack but no code is available on this project yet.
 
-	-hpa
+Thanks
+Venkat
