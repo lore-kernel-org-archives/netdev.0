@@ -1,55 +1,57 @@
-From: Asim Shankar <asimshankar@gmail.com>
-Subject: Re: Dynamically classifying flows?
-Date: Mon, 7 Mar 2005 18:10:43 -0600
-Message-ID: <7bca1cb505030716104856fe3@mail.gmail.com>
-References: <7bca1cb505030709502316f9b8@mail.gmail.com>
-	 <20050307203450.GX31837@postel.suug.ch>
-Reply-To: Asim Shankar <asimshankar@gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
+	in case forwarded frame has VLAN-header]
+Date: 07 Mar 2005 19:19:50 -0500
+Message-ID: <1110241190.1043.100.camel@jzny.localdomain>
+References: <20050305141225.GA5180@xi.wantstofly.org>
+	 <4229D98F.9010008@trash.net> <422A0C21.3050709@candelatech.com>
+	 <1110199696.1094.1299.camel@jzny.localdomain>
+	 <Pine.LNX.4.62.0503072034340.5934@kaber.coreworks.de>
+	 <1110238537.1043.62.camel@jzny.localdomain>  <422CE983.7060305@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050307203450.GX31837@postel.suug.ch>
+Cc: Ben Greear <greearb@candelatech.com>, leo@yuriev.ru,
+        Lennert Buytenhek <buytenh@wantstofly.org>, shemminger@osdl.org,
+        netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <422CE983.7060305@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> It is a likely scenario but usually not a problem because you can classify this
-> kind of bulk packets by their size. u32 can be used use for such things or the
-> newly added meta ematch.
-Filtering by size may not always work. An interactive flow may also
-generate big (MTU) size packets, but it is interactive because the
-_rate_ at which packets are produced is smaller. Though, if you think
-that such cases are purely theoretical and don't create problems in
-practice, do let me know.
-
-> > Question 2: Does the idea of _dynamically_ classifying traffic as interactive
-> > or bulk make any sense at all? Or does the TOS field work well enough for
-> > dynamic classification to not be of any practical interest?
+On Mon, 2005-03-07 at 18:53, Patrick McHardy wrote:
+> jamal wrote:
+> >>
+> >>The priority should still start at 0. You don't want to create a 16-band
+> >>queue just to have 8 bands unused.
+> > 
+> > 
+> > say what?;-> Nothing has to start at 0. 16 priorities does not equate to
+> > 16 queues. 
 > 
-> Yes it does and that's exactly the direction the ematch API is going to.
-Can you point me to some details on ematch? Specifically, how it
-supports dynamic  classifications of flows? Seems like this is
-something really new you guys are working on, so not much
-documentation is available.
+> Right. But the default pfifo_fast/prio mapping maps the upper 8 values
+> to queue 1, which seems to make this effort kind of useless. 
+> I don't know if the default-mapping of the lower 8 values is useable 
+> in this context, 
 
-> > Can we use ideas from process scheduling to be kinder to the interactive
-> > flows? 
-> In order to prioritize there must be a queue, and for remote terminal protocols
-> you want to avoid queues at any cost because it will introduce latency in any
-> case. Even on overloaded lines with full queues, the queues are rarely bigh
-> enough to really apply any sort of priority queues.
-Won't we always have queues? After all a qdisc essentially specifies a
-de-queuing algorithm. I was thinking along the lines of process
-scheduling to be able to avoid having to manually specify flow
-priorities. Ideally speaking, it would automatically classify remote
-terminal flows such that they see the least possible queueing delays.
-Though, you seem to be of the opinion that manual classification is
-easy enough and most traffic worth worrying about use DSCP flags
-effectively. Is that correct?
+Indeed that looks bad. But wouldnt have helped if we started at 0
+either. You need monotonically increasing values to make proper
+sense. So i suppose to do proper qos with L2, one must install the prio
+qdisc and rewrite the priomap.
 
-Thanks for your comments,
-Regards,
+The mapping used in pfifo_fast is derived from RFC1349 4 bit TOS which
+is really considered toast these days. We need to revamp things - but
+this would require some surgery in the route code as well (so maybe safe
+to leave as is).
 
--- Asim
+> I need to inform myself more on this subject (thanks for the
+> IEEE vs. IETF pointers).
+> 
+
+Has bitten me a few times when trying to do Qos between switches and
+routers.
+
+cheers,
+jamal
