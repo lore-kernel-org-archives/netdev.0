@@ -1,25 +1,29 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.6 PATCH] ipvs - properly handle non-linear skbs
-Date: Sun, 5 Oct 2003 05:19:13 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6, sit: set prefix length 64 for link-local
+ addresses
+Date: Sun, 05 Oct 2003 21:28:46 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031005051913.0df50683.davem@redhat.com>
-References: <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli>
+Message-ID: <20031005.212846.50858920.yoshfuji@linux-ipv6.org>
+References: <20030926175405.GA31498@wsx.ksp.sk>
+	<20030926201953.3dfc67bf.davem@redhat.com>
+	<20031005091844.GA23676@wsx.ksp.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, wensong@linux-vs.org, netdev@oss.sgi.com
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli>
+To: jan.oravec@6com.sk
+In-Reply-To: <20031005091844.GA23676@wsx.ksp.sk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 5 Oct 2003 12:09:20 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+In article <20031005091844.GA23676@wsx.ksp.sk> (at Sun, 5 Oct 2003 11:18:45 +0200), Jan Oravec <jan.oravec@6com.sk> says:
 
-> 	Attached is a patch that includes the changes from
-> Rusty about handling non-linear skbs correctly and modified
-> a bit from Wensong Zhang and me.
+> The function sit_add_v4_addrs() calls ipv6_add_addr() with plen 64 if local
+> endpoint of tunnel is not configured, so I do not see a reason to set plen
+> to 128 if local endpoint is configured.
 
-Patch applied, thanks to everyone for following through on
-this work.
+This patch seems logically wrong.
+
+--yoshfuji
