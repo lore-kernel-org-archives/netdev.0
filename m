@@ -1,32 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6]: Fix suboptimal fragment sizing for last fragment
-Date: Wed, 8 Sep 2004 13:21:58 +1000
+From: Andi Kleen <ak@suse.de>
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: Wed, 8 Sep 2004 08:51:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040908032158.GA9414@gondor.apana.org.au>
-References: <20040902220343.GA3250@gondor.apana.org.au> <20040903.104050.29603454.yoshfuji@linux-ipv6.org> <20040907231557.GA2254@gondor.apana.org.au> <20040908.082620.60870352.yoshfuji@linux-ipv6.org>
+Message-ID: <20040908065152.GC27886@wotan.suse.de>
+References: <20040907120532.GB25051@wotan.suse.de> <1094593729.1079.32.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kaber@trash.net, netdev@oss.sgi.com
+Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20040908.082620.60870352.yoshfuji@linux-ipv6.org>
+In-Reply-To: <1094593729.1079.32.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 08, 2004 at 08:26:20AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+On Tue, Sep 07, 2004 at 05:53:04PM -0400, jamal wrote:
+> On Tue, 2004-09-07 at 08:05, Andi Kleen wrote:
+> > New version of the NETIF_F_LLTX for network devices patch. 
+> > 
+> > This allows network drivers to set the NETIF_F_LLTX flag
 > 
-> oh, right, thanks.
+> > The drivers can use try lock if they want and return -1
+> > when the lock wasn't grabbed. In this case the packet
+> > will be requeued. For better compatibility this is only
+> > done for drivers with LLTX set, others don't give a special
+> > meaning to -1.
 > 
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Are you reinventing the rules or changing them?
 
-Looks good.
+I'm just offering the driver an additional choice .
+> 
+> hard_start_xmit() return codes are intepreted as follows:
+> 
+> 0: typically means the packet was put in the ring. 
+> It is being abused by a few drivers to mean a retry depending on the
+> device state (which while may work results in a longer code path). 
+> 1: means packet was not put on the ring. i.e if you return
+> 1, the toplayer will retry later with the same skb. 
+> [of course If you stash it on the ring, the danger is tx complete will
+> try to free it later while the toplayer code is still referencing it. A
+> good oops].
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Actually when you return 1 then the kernel prints an ugly 
+message and it is considered a bug.  Here -1 is legal.
+For safety -1 should be only used for locking purposes though.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-Andi
