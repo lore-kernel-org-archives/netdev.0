@@ -1,56 +1,68 @@
-From: anand@eis.iisc.ernet.in (SVR Anand)
-Subject: Bridging woes after 3 days
-Date: Sat, 29 Nov 2003 15:14:08 +0530 (GMT+05:30)
+From: "Ronnie Sahlberg" <ronnie_sahlberg@ozemail.com.au>
+Subject: TCP retransmission timers, questions
+Date: Sat, 29 Nov 2003 20:05:08 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311290944.PAA27304@eis.iisc.ernet.in>
-References: <20031123152601.67646dc1.davem@redhat.com>
+Message-ID: <010801c3b657$e3093fb0$6501010a@C5043436>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com (David S. Miller)
-In-Reply-To: <20031123152601.67646dc1.davem@redhat.com> from "David S. Miller" at Nov 23, 2003 03:26:01 PM
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi list, hope this mail arrives (Im not subscribe to the list, but dont
+worry, I read the list through the mailarchive)
 
-After a continous run for 3 days the bridge came down crashing with the
-following kernel panic screen dump. The kernel is 2.6.0-test9-bk25 with
-kernel preemption disabled. 
+By looking at the kernel sources it seems that the minimum TCP
+retransmission timeout is hardcoded to 200ms.
+Is this correct?
 
-The following call stack is what I have seen on the console. The ethernet
-cards are RTL8139. Please let me know if you want more information or finer
-debugging method, I will pass it on when the bridge fails the next time.
+While I understand why it is important to not be too aggressive in
+retransmitting I wounder if it would be possible to get
+and interface in proc where one could "tune" this.
 
-When it worked it really worked.
+The reason for this is that in some applications you do have a completely
+private, dedicated network used for one specific application.
+Those networks can be dimensioned so that congestion "should" not occur.
+However, packets are lost from time to time and sometimes packets will be
+lost.
+In those isolated dedicated subnets, with end to end network latency in the
+sub ms range, would it not be useful to be able to allow
+the retransmission timeout to drop down to 5-10ms?
 
-Anand
+Do anyone know of any work/research in the area of tcp retransmission
+timeouts for very high bandwidth, low latency networks?
+I have checked both the IETF list of drafts, Sally Floyds pages and google
+but could not find anything.
+It seems to me that all research/experimentation in high throughput is for
+high bandwidth high latency links and tuning the slowstart/congestion
+avoidance algorithms.
+What about high throughput, very low latency?  Does nayone know of any
+papers in that area?
 
-----------------------------------------------------------------------------
-nf_hook_slow
-br_nf_pre_routing_finish
-br_nf_pre_routing
-br_nf_pre_finish
-nf_iterate
-br_handle_frame_finish
-nf_hook_slow
-br_handle_frame_finish
-br_handle_frame
-br_handle_frame_finish
-netif_recieve_skb
-process_backlog
-net_rx_action
-do_selfirq
-do_IRQ
-common_interrupt
-default_idle
-default_idle
-cpu_idle
-printk
 
-code: 8b 40 18 85 c0 75 7f 85 ff 74 44 89 7b 70 0f ba 6b 40 00 89
-<0> kernel panic : Fatal exception in interrupt 
-In interrupt handles - not syncing	  	
-----------------------------------------------------------------------------
+For specific applications, running on completely isolated dedicated
+networks, dimensioned to make congestion unlikely, isolated so it will NEVER
+compete about bandwidth with normal TCPs on the internet,  to me it would
+make sense to allow the retransmission timeout to be allowed to drop
+significantly below 200ms.
+
+
+Another question, I think it was RFC2988 (but an not find it again) that
+discussed that a TCP may add an artificial delay in sending the packets
+based on
+the RTT so that when sending an entire window the packets are spaced
+equidistantly across the RTT interval instead of in just one big burst.
+This to prevent the burstinessd of the traffic and make buffer
+overruns/congestion less likely.
+I have seen indications that w2k/bsd might in some conditions do this.
+Doe Linux do this? my search through the sources came up with nothing.
+Does anyone know whether there are other TCPs that do this?
+As i said I have seen something that looked like that on a BSD stack but it
+could have been related to something else.
+
+
+best regards
+    ronnie
