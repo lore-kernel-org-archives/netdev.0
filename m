@@ -1,55 +1,18 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: TCP hardware assists
-Date: Fri, 13 Aug 2004 21:27:17 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] Move inetdev/ifa over to RCU
+Date: Fri, 13 Aug 2004 21:30:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408140426.i7E4QVx0006252@guinness.s2io.com>
-References: <001401c48194$62497260$9610100a@S2IOtech.com>
+Message-ID: <411D957A.5040507@osdl.org>
+References: <20040812165954.00429e65.davem@redhat.com> <20040813090314.448c971d@dell_ss3.pdx.osdl.net> <20040813093838.6961c0d4.davem@redhat.com> <20040813215602.GA15870@gondor.apana.org.au> <20040813151923.3311b4f0.davem@redhat.com> <20040814003428.GA17760@gondor.apana.org.au> <20040813173924.6d05be15.davem@redhat.com> <20040814005411.GA18350@gondor.apana.org.au> <20040814012513.GA721@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "'Andi Kleen'" <ak@suse.de>
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-In-Reply-To: <001401c48194$62497260$9610100a@S2IOtech.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040814012513.GA721@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all,
-Apologies for the wide distribution, hopefully this is the right forum...
-
-We are finalizing design for the next version of our 10GbE ASIC; in a
-nutshell the device supports both TOE/RDMA interface as well as standard
-Ethernet interface with number of "Stateless" TCP assists like TSO, offload
-for large UDP segments, etc. (The non-offload path will be software
-compatible with the current Xframe 10GbE NIC).
-
-We are going to further enhance the latter "partial offload" (aka "stateless
-offload", aka "fast path acceleration" :-)) interface by adding some
-additional features. 
-
-As an example, some time ago Andi put forward an idea of socket demultiplex
-in hardware, to improve receive side performance.
-This is already being designed in, and we are willing to consider other TCP
-hardware assists as well.
-
-I'm looking for volunteers who would collaborate with us on this project and
-implement kernel support for the socket demultiplex (and possibly other
-assists), with S2io providing the necessary driver support and access to the
-(likely, remote) 10GbE hardware platform.
-
-Most if not all the work could be done on a current S2io 10GbE hardware;
-main limitation for now will be the number of sockets since shipping NIC has
-only 8 independent rx hw queues but the next version will support tens of
-thousands. 
-
-Please contact me if there is an interest in the project. I'm not sure about
-the legal framework yet, access to our hw specs may require an NDA but the
-driver code will be released under GPL of course, much like the current S2io
-Linux driver.
-
-Regards, Leonid
-
-Leonid Grossman
-Software Development
-www.s2io.com
+RCU now takes two args, part of the simplification from IBM in
+later 2.6.8 series.
