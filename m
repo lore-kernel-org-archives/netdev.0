@@ -1,41 +1,61 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Tue, 15 Jul 2003 18:46:57 +0400 (MSD)
+From: "David griego" <dagriego@hotmail.com>
+Subject: Re: TCP IP Offloading Interface
+Date: Tue, 15 Jul 2003 09:28:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307151446.SAA08540@dub.inr.ac.ru>
-References: <Pine.LNX.4.44.0307150906340.7445-100000@netcore.fi>
+Message-ID: <Sea2-F43cOV1EetVoMD0001d71a@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; format=flowed
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com, alan@storlinksemi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi (Pekka Savola)
-In-Reply-To: <Pine.LNX.4.44.0307150906340.7445-100000@netcore.fi> from "Pekka Savola" at éÀÌ 15, 2003 09:14:07 
+To: davem@redhat.com, jros@xiran.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Ok I've taken a look at your scheme and I have a few questions.
 
-> "resolve" next-hops.  I.e., the requirement that the users/protocols will
-> give you non-final nexthop information which you have to "resolve" to get
-> the final nexthop (e.g. a global address -> a link-local address 
-> obtained using Neighbor Discovery).
+>From: "David S. Miller" <davem@redhat.com>
+>You also ignore the points others have made that the systems HAVE
+>SCALED to evolving networks technologies as they have become faster
+>and faster.
+>
+This is not true in the embedded space.  As I keep pointing out  typical 
+embedded processors don't have as many free cycles as server computers.
+>
+>
+>My RX receive page accumulation scheme handles all of the
+>receive side problems with touching the data and getting
+>into the filesystem and then the device.  With my scheme
+>you can receive the data, go direct to the device, and the
+>cpu never touches one byte.
+>
+RDDP tries to get around needing a large amount of RAM on the NIC to collect 
+all of this data before writing it to the OS memory.  Also, this store and 
+forward architecture you recommend adds latency in collecting all of this 
+data before moving it to the OS.  Finally, I recall some resistance to page 
+flipping which could also lead to walking page tables.  More latency.  After 
+some extremely large amount of time your receive data has made it to your 
+application.  Do you have a suggestion on how we could get around all of 
+this store and forward without RDDP?  Just avoiding the CPU copy is not the 
+only issue.
+>
+>I actually welcome Microsoft falling into this rathole of a
+>technology.  Let them have to support that crap and have to field bug
+>reports on it, having to wonder who created the packets.  And let them
+>deal with the negative effects TOE has on connection rates and things
+>like that.
+>
+Would it be shame if they found away around this "problem" you see and are 
+successful and Linux failed because you felt the community is not able 
+overcome these though obstacles?
+>
+>Linux will be competitive, especially if people develop the scheme I
+>have described several times into the hardware.  There are vendors
+>doing this, will you choose to be different and ignore this?
+Your ideas are good, but they leave in this store and forward issue that I 
+mentioned.  A good alternative would be one that kept things simple as you 
+suggested, but didn't introduce all of this latency.
 
-No way to resolve exists, unless it already embedded to corresponding protocol.
-F.e. global address and its link-local equivalent could be transferred
-as attributes of BGP4+, global address is used to validate nexthop attribute
-and as soon as it happens to be on-link, its link-local counterpart is used.
-
-If you have a global address out of context and want to use it as nexthop,
-you are in troubles. You have no way to get a unique router identifier,
-it is just not defined. So, you have to use global one (and kernel has to allow
-this), and surely will screw up the network, unless some policy constraints
-make the configuration legal.
-
-Well, actually, we inevitably arrive to conclusion that all the idea
-about scoped addresses is just a garbage, which results in nothing
-but inconveniences and innumerous inconsistencies. I remember some
-people predicted that it will be dropped to start of real Ipv6 deployment.
-Well, it is still not night.
-
-Alexey
+_________________________________________________________________
+The new MSN 8: smart spam protection and 2 months FREE*  
+http://join.msn.com/?page=features/junkmail
