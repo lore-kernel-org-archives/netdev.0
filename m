@@ -1,46 +1,50 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: 2.6.7 tulip performance (with NAPI)
-Date: Fri, 8 Oct 2004 00:13:44 +0200
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Thu, 7 Oct 2004 18:43:23 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16741.49048.717774.307462@robur.slu.se>
-References: <41633174.7070805@candelatech.com>
-	<16740.17875.574967.11417@robur.slu.se>
-	<41646587.7070401@candelatech.com>
-	<41649425.1010102@candelatech.com>
-	<16741.45331.743721.822091@robur.slu.se>
-	<4165B981.8060703@candelatech.com>
+Message-ID: <20041007234322.GW31237@waste.org>
+References: <20041006232544.53615761@jack.colino.net> <20041006214322.GG31237@waste.org> <20041007075319.6b31430d@jack.colino.net> <20041006234912.66bfbdcc.davem@davemloft.net> <20041007160532.60c3f26b@pirandello> <20041007112846.5c85b2d9.davem@davemloft.net> <20041007224422.1c1bea95@jack.colino.net> <20041007214505.GB31558@wotan.suse.de> <20041007215025.GT31237@waste.org> <20041007150756.2373719f.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: ak@suse.de, colin@colino.net, akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4165B981.8060703@candelatech.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041007150756.2373719f.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Oct 07, 2004 at 03:07:56PM -0700, David S. Miller wrote:
+> On Thu, 7 Oct 2004 16:50:26 -0500
+> Matt Mackall <mpm@selenic.com> wrote:
+> 
+> > > The only drawback is that there won't be a reply when the driver try
+> > > lock fails, but netpoll doesn't have a queue for that anyways. You could
+> > > probably poll then, but I'm not sure it's a good idea.
+> > 
+> > But your meaning here is not entirely clear.
+> 
+> If another thread on another cpu is in the dev->hard_start_xmit() routine,
+> then it will have it's tx device lock held, and netpoll will simply get an
+> immediate return from ->hard_start_xmit() with error NETDEV_TX_LOCKED.
+> 
+> The packet will thus not be sent, and because netpoll does not have a
+> backlog queue for tx packets of any kind the packet lost forever.
+> 
+> NETDEV_TX_LOCKED is a transient condition.  It works for the rest of the
+> kernel because whoever holds the tx lock on the device, will recheck the
+> device packet transmit queue when it drops that lock and returns from
+> ->hard_start_xmit().
+> 
+> Andi is merely noting how netpoll's design does not have such a model,
+> which is why the NETIF_F_LLTX semantics don't mesh very well.
+> 
+> It is unclear if it ise wise that netpoll_send_skb() currently spins
+> on ->hard_start_xmit() returning NETDEV_TX_LOCKED.  That could
+> result in some kind of deadlocks.
 
-Ben Greear writes:
+Deadlocks from recursion, presumably? We could probably throw in a max
+retry count, as ugly as that is..
 
- > You must have several PCI-X busses on that system?  From what I can tell,
- > my dual-xeon system (2.8Ghz, X5DPA-GG motherboard) just can't handle the
- > PCI bandwidth.  I still have processing power it appears, and I see lots
- > of hard-start-xmit errors out of the pro/1000 NICs, so I assume I am
- > able to drive them as hard as they can go...  It may be that receiving
- > the pkts, as I am doing, also decreases transmit in more than a linear fashion.
-
- Yes the board has 4 different PCI-bus from what I remember it's was a 
- Supermicro X5DL8-GG. Yes you need bus bandwith from what I've seen even 
- 133 MHz PCI-X is limiting the small packet performance at GIGE speeds.
-
-
- > >  I'm interested if anyone has done any pktgen performance tests with
- > >  w. S2IO or other 10G card we need to upgrade the lab equipment. 
- > >  Both 64 byte pkts and MTU sized pkts is interesting.  Anyone?
- > 
- > Not I, but would be interested as well!
-
- Andi got one... ;-)
-
-						--ro
+-- 
+Mathematics is the supreme nostalgia of our time.
