@@ -1,52 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: (usagi-core 11007) [PATCH] IPsec Configuration Extension for
- IPv6
-Date: Thu, 09 Jan 2003 00:39:29 -0800 (PST)
+From: Wichert Akkerman <wichert@wiggy.net>
+Subject: Re: ipv6 stack seems to forget to send ACKs
+Date: Thu, 9 Jan 2003 10:38:36 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030109.003929.89643598.davem@redhat.com>
-References: <20030107130050.0903bf59.Kazunori.Miyazawa@jp.yokogawa.com>
+Message-ID: <20030109093836.GG22951@wiggy.net>
+References: <20030108130850.GQ22951@wiggy.net> <Pine.LNX.4.51.0301081849550.564@diapolon.int.fabbione.net> <78180000.1042055993@localhost.localdomain> <20030108224339.GO22951@wiggy.net> <Pine.LNX.4.51.0301090822001.19862@trider-g7.ext.fabbione.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew McGregor <andrew@indranet.co.nz>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: usagi-core@linux-ipv6.org, Kazunori.Miyazawa@jp.yokogawa.com
-In-Reply-To: <20030107130050.0903bf59.Kazunori.Miyazawa@jp.yokogawa.com>
+To: Fabio Massimo Di Nitto <fabbione@fabbione.net>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.51.0301090822001.19862@trider-g7.ext.fabbione.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kazunori Miyazawa <Kazunori.Miyazawa@jp.yokogawa.com>
-   Date: Tue, 7 Jan 2003 13:00:50 +0900
+Previously Fabio Massimo Di Nitto wrote:
+> Is the WinXP client located in the same place where you are?
 
-   This patch is simple extension of PF_KEY to support IPv6;
-   to accept IPv6 IPsec configurations.
-   
-Ok.  Your patch looks OK and probably I will integrate it to my
-tree tomorrow.
+Yes. (Well, not my place but a friend who had both linux and XP did
+that test).
 
-   However this patch does not contain any codes to process the packets 
-   in IPv6 stack because we wonder how we should implement it:
-   
-   1. The building packet codes of datagram (ip_append_data()) is 
-      very different from ip6_build_xmit(). And I guess you will
-      change ip6_build_xmit() to ip6_append_data().
-   
-   2. How should we implement to process destination option header 
-      which is inside of AH and/or ESP?  There seems two options. 
-      One is to process IPsec on parsing extension headers.
-      The other is to process IPsec as upper layer protocol and 
-      we always check the destination option header when we finish 
-      to process AH or ESP.
-   
-   We will be glad to hear your preferences, plans or a better way 
-   to implementation.
-   
-To be honest no concrete plans exist.  Alexey is currently
-offline and I expected to bring him into an ipv6 ipsec discussion
-as soon as he reappears.  I do not know when he will return, however.
+Wichert.
 
-Because of this, I would suggest to just keep working in area of
-AH/ESP ipv6-specific packet creation and parsing.  Stay clear of
-routing/dst/input/output interface issues.  If you finish the packet
-handling/building work and Alexey does not return, we can work on
-design without him.
+-- 
+Wichert Akkerman <wichert@wiggy.net>           http://www.wiggy.net/
+A random hacker
