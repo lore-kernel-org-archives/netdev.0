@@ -1,76 +1,60 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: pktgen problem (skb refcount) in 2.6.12-rc1
-Date: Tue, 5 Apr 2005 17:58:20 +0200
-Message-ID: <20050405155820.GB3261@obroa-skai.de.gnumonks.org>
-References: <9D602ABCE51B0B488BF857A4787939B5042E7396@orsmsx410>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 4449] New: IPSec tunnel forwarding problem
+Date: Wed, 6 Apr 2005 02:35:15 -0700
+Message-ID: <20050406023515.538d73c1.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="JWEK1jqKZ6MHAcjA"
-Cc: Harald Welte <laforge@gnumonks.org>,
-        Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: yoann.allain@thomson.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
-Content-Disposition: inline
-In-Reply-To: <9D602ABCE51B0B488BF857A4787939B5042E7396@orsmsx410>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---JWEK1jqKZ6MHAcjA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Mon, Apr 04, 2005 at 10:26:18AM -0700, Veeraiyan, Ayyappan wrote:
-> Harald,
->=20
-> >=20
-> > As for e1000 and or generic TX path changes, I don't have the time to
-> > review them now, sorry :(  That's why I posted it to netdev, to let
-> > people who have an idea about the committed changes know that there is
-> > an issue.
-> >
->=20
-> What version of e1000 you are using?=20
+Begin forwarded message:
 
-as indicated before, I've observed the problem in 2.6.12-rc1.  No
-modifications to e1000.  So whatever is in 2.6.12-rc1, that's what
-showed the problems.
+Date: Wed, 6 Apr 2005 02:28:56 -0700
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 4449] New: IPSec tunnel forwarding problem
 
-> If you are using e1000 5.7.6-k2 and haven't tried older versions, Could
-> you please try e1000 version 5.6.10.1-k2 (available in kernel 2.6.11)
-> and inform us the result?
 
-I have tried a 2.6.11 kernel which works fine.  I have not tested
-patching e1000 in 2.6.12-rc1 to go back to whatever was shipped in
-2.6.11.
+http://bugme.osdl.org/show_bug.cgi?id=4449
 
-I'll try to remember testing that once I'm back from my current business
-trip (friday), though
+           Summary: IPSec tunnel forwarding problem
+    Kernel Version: 2.6.11-uml
+            Status: NEW
+          Severity: blocking
+             Owner: shemminger@osdl.org
+         Submitter: yoann.allain@thomson.net
 
-> Thanks,
-> Ayyappan V.
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
 
---JWEK1jqKZ6MHAcjA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+Distribution: Debian sarge 
+Hardware Environment: x86
+Software Environment: ipsec-tools-0.5
+Problem Description:  IP packets that should be forwarded after being decrypted
+out of a IPSec tunnel are not forwarded.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+Steps to reproduce: Lets take three hosts A B and C:
+B is the gateway between A and C.
 
-iD8DBQFCUrWcXaXGVTD0i/8RAnIeAKCswTwsBAWvq2ZPxu/8Xo8j3AwCRgCePcVM
-2fCGl7IAUKVIl+jSZK2/EG0=
-=SnlO
------END PGP SIGNATURE-----
+A<------->B<------->C
 
---JWEK1jqKZ6MHAcjA--
+First check that ping from A to C are working. If not check forwarding options in B.
+
+Then create an Ipsec tunnel between two hosts A and B.
+
+A<========>B<------->C
+
+Once the IPSec tunnel established, and iptables configured on B to print logs
+(for hooks Input Forward and Pre-Routing), try again to ping C from A.
+
+You should see that packets arrives to B in ESP format and goes to:
+
+hook
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
