@@ -1,38 +1,35 @@
-From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Tue, 2 Sep 2003 21:16:41 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [RFT] covert br2684 to seq_file
+Date: Tue, 2 Sep 2003 21:52:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309022116.41697.bdschuym@pandora.be>
-References: <20030902143050.GC3398@conectiva.com.br>
+Message-ID: <20030902215258.A26380@electric-eye.fr.zoreil.com>
+References: <20030902104308.08ce3fa4.shemminger@osdl.org> <20030902191433.GB67783@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+   chas williams <chas@cmf.nrl.navy.mil>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-   netfilter-devel@lists.netfilter.org
-In-Reply-To: <20030902143050.GC3398@conectiva.com.br>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
 Content-Disposition: inline
+In-Reply-To: <20030902191433.GB67783@gaz.sfgoth.com>; from mitch@sfgoth.com on Tue, Sep 02, 2003 at 12:14:33PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 02 September 2003 16:30, Arnaldo Carvalho de Melo wrote:
-> The 1.786.1.54 changeset (i.e. the initial ipt_physdev.c one 8) created
+Mitchell Blank Jr <mitch@sfgoth.com> :
+[...]
+> FYI - Francios Romieu has patch for converting much of net/atm/*.c to seq_file
+> which will probably integrated soon (I think they're still working out
+> some nits w/ Chas; not sure what the status is currently)  You probably should
+> coordinate any seq_file work in the ATM code with them to avoid any duplicated
+> effort.
 
-Does this fix it?
+I have sent Chas a set of patches against 2.6.0-test4 (supposedly) integrating
+its comments this sunday. If it isn't merged for 2.6.0-test5, I'll send an
+update to remind people that testing would help. The patches address only
+net/atm/proc.c.
 
-cheers,
-Bart
+I have no plan for others modifications in the atm area right now as my atm
+TODO is probably quite outdated.
 
---- linux-2.6.0-test4/include/linux/netfilter_ipv4/ipt_physdev.h.old	2003-09-02 21:11:12.000000000 +0200
-+++ linux-2.6.0-test4/include/linux/netfilter_ipv4/ipt_physdev.h	2003-09-02 21:12:30.000000000 +0200
-@@ -15,7 +15,7 @@
- struct ipt_physdev_info {
- 	u_int8_t invert;
- 	u_int8_t bitmask;
--	char physindev[IFNAMSIZ];
-+	char physindev[IFNAMSIZ] __attribute__ ((aligned (__alignof__(unsigned long))));
- 	char in_mask[IFNAMSIZ];
- 	char physoutdev[IFNAMSIZ];
- 	char out_mask[IFNAMSIZ];
+--
+Ueimor
