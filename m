@@ -1,55 +1,68 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Asynchronous crypto layer.
-Date: Fri, 29 Oct 2004 20:45:51 +0400
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: [PATCH netdev-2.6 7/10] ixgb: Replace kmalloc with vmalloc to allocate driver local data structures
+Date: Fri, 29 Oct 2004 11:41:12 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029204551.06caaf4b@zanzibar.2ka.mipt.ru>
-References: <1099062483.1023.21.camel@jzny.localdomain>
-	<Xine.LNX.4.44.0410291213380.21689-100000@thoron.boston.redhat.com>
-Reply-To: johnpol@2ka.mipt.ru
+Message-ID: <200410291141.12330.jdmason@us.ibm.com>
+References: <468F3FDA28AA87429AD807992E22D07E031286C0@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, <netdev@oss.sgi.com>, <cryptoapi@lists.logix.cz>
+Cc: "Christoph Hellwig" <hch@infradead.org>, <jgarzik@pobox.com>,
+        "netdev" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0410291213380.21689-100000@thoron.boston.redhat.com>
+To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+In-Reply-To: <468F3FDA28AA87429AD807992E22D07E031286C0@orsmsx408>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004 12:16:35 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
+On Friday 29 October 2004 10:35 am, Venkatesan, Ganesh wrote:
+> >There seems to be 3 ways around this problem.
+> >1) change the unsigned long fields in ixgb_buffer to unsigned ints
+>
+> (this
+>
+> >decreases the size of the struct enough to use kmalloc)
+>
+> PATCH netdev-2.6 6/10 does this.
 
-> On 29 Oct 2004, jamal wrote:
-> 
-> > On Fri, 2004-10-29 at 10:06, Evgeniy Polyakov wrote:
-> > 
-> > 
-> > > If we have a hardware accelerator chip, than we _already_ have improvements 
-> > > with even the worst async crypto layer, since software and hardware 
-> > > will work in parrallel.
-> > 
-> > Thats what i am hoping - and theory points to it. Numbers, numbers
-> > please ;->
-> 
-> There's an OpenBSD paper which demonstrates the usefulness of crypto
-> hardware for reducing cpu contention.  I can't get to their web site now,
-> but it's there somewhere under a security link.
+Problem with patch 6/10.
 
-Asynchronous crypto layer was written under impression of those paper.
-OpenBSD layer is very good, but it has some nitpics some of which are really
-not good, but I hope all of them are resolved in my driver.
+--- netdev-2.6/drivers/net/ixgb/ixgb.h  2004-10-15 13:15:38.000000000 -0700
++++ netdev-2.6/drivers/net/ixgb.new/ixgb.h      2004-10-15 13:15:51.000000000 
+-0700
+@@ -105,9 +105,9 @@ struct ixgb_adapter;
+ struct ixgb_buffer {
+        struct sk_buff *skb;
+        uint64_t dma;
+-       unsigned long length;
++       uint16_t length;
+        unsigned long time_stamp;
+-       unsigned int next_to_watch;
++       uint16_t next_to_watch;
+ };
 
-You can find paper for example there: http://www.madchat.org/crypto/ocf.pdf
+Since the 2 16bit fields are not contigious, they will take up 32bits each.  
+This ballons the struct to still be too large.  By moving thse 2 fields next 
+to one another, this fixes the problem and makes the struct small enough to 
+use kmalloc for up to 4096 descriptors.  
 
-> 
-> - James
-> -- 
-> James Morris
-> <jmorris@redhat.com>
-> 
-> 
+The patch below removes the need for patch 7/10 (and I have verified this).
+
+--- ixgb.h.orig 2004-10-29 11:36:06.757879120 -0700
++++ ixgb.h      2004-10-29 11:35:51.065001784 -0700
+@@ -123,8 +123,8 @@ struct ixgb_adapter;
+ struct ixgb_buffer {
+        struct sk_buff *skb;
+        uint64_t dma;
+-       uint16_t length;
+        unsigned long time_stamp;
++       uint16_t length;
+        uint16_t next_to_watch;
+ };
 
 
-	Evgeniy Polyakov
-
-Only failure makes us experts. -- Theo de Raadt
+-- 
+Jon Mason
+jdmason@us.ibm.com
