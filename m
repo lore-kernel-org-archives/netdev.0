@@ -1,30 +1,55 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: IMQ again WAS(Re: iptables breakage WAS(Re: dummy	as	IMQ	replacement
-Date: Mon, 28 Mar 2005 15:36:14 +0100
-Message-ID: <4248165E.4050507@dsl.pipex.com>
-References: <1107123123.8021.80.camel@jzny.localdomain>	 <4241C478.5030309@dsl.pipex.com>	 <1111607112.1072.48.camel@jzny.localdomain>	 <4241D764.2030306@dsl.pipex.com>	 <1111612042.1072.53.camel@jzny.localdomain>	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>	 <1111663947.1037.24.camel@jzny.localdomain>	 <1111665450.1037.27.camel@jzny.localdomain>	 <4242DFB5.9040802@dsl.pipex.com>	 <1111749220.1092.457.camel@jzny.localdomain>	 <42446DB2.9070809@dsl.pipex.com>	 <1111781443.1092.631.camel@jzny.localdomain>	 <4244802C.7020202@dsl.pipex.com>	 <1111788760.1090.712.camel@jzny.localdomain>	 <42470AF9.8050402@dsl.pipex.com>  <424808F7.50101@dsl.pipex.com>	 <1112017546.1089.1048.camel@jzny.localdomain>	 <1112018231.1090.1051.camel@jzny.localdomain>	 <424810C5.7080707@dsl.pipex.com> <1112019614.1090.1
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] rtnl_unlock/lock in sch_api.c
+Date: Mon, 28 Mar 2005 16:47:01 +0200
+Message-ID: <20050328144701.GA3086@postel.suug.ch>
+References: <Pine.LNX.4.62.0503281720430.20453@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Harald Welte <laforge@gnumonks.org>,
-        Patrick McHardy <kaber@trash.net>, Remus <rmocius@auste.elnet.lt>,
-        netdev <netdev@oss.sgi.com>, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
-        Damion de Soto <damion@snapgear.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <42481499.1060103@dsl.pipex.com>
+To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.62.0503281720430.20453@webhosting.rdsbv.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andy Furniss wrote:
+Looks good, except...
 
-> 
-> Still having probs - rebooted and tried -
+> --- linux/net/sched/sch_api.c.orig	2005-03-28 16:32:57.000000000 +0300
+> +++ linux/net/sched/sch_api.c	2005-03-28 16:38:17.000000000 +0300
+> @@ -404,18 +404,28 @@ qdisc_create(struct net_device *dev, u32
+>  	struct Qdisc_ops *ops;
+>  	int size;
+>  
+> +	err = -EINVAL;
+>  	ops = qdisc_lookup_ops(kind);
+>  #ifdef CONFIG_KMOD
+> -	if (ops==NULL && tca[TCA_KIND-1] != NULL) {
+> +	if (ops == NULL && kind != NULL) {
+>  		char name[IFNAMSIZ];
+>  		if (rtattr_strlcpy(name, kind, IFNAMSIZ) < IFNAMSIZ) {
+> +			/* Must drop rtnl sem because request_module
+> +			 * can try to aquire rtnl sem (see teql for
+> +			 * example)
+> +			 */
+> +			rtnl_unlock();
+>  			request_module("sch_%s", name);
+> +			rtnl_lock();
+>  			ops = qdisc_lookup_ops(kind);
+> +			if (ops != NULL) {
+> +				module_put(ops->owner);
+> +				err = -EAGAIN;
 
-<snip>
+You're missing a goto err_out here, the ops == NULL won't catch it.
 
-It works if I use HTB instead of pfifo though.
+> +			}
+>  		}
+>  	}
+>  #endif
+>  
+> -	err = -EINVAL;
+>  	if (ops == NULL)
+>  		goto err_out;
 
-Andy.
+With the above goto inserted there is no need to move the err = -EINVAL.
