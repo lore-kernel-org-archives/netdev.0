@@ -1,29 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [AH4] Save daddr iff options are present
-Date: Sat, 24 Jul 2004 22:35:11 -0700
+Subject: Re: [AH6] Replace skb by iph in clear_mutable_options
+Date: Sat, 24 Jul 2004 22:37:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724223511.49847caa.davem@redhat.com>
-References: <20040724014415.GA5866@gondor.apana.org.au>
+Message-ID: <20040724223720.6c107448.davem@redhat.com>
+References: <20040724045041.GA7091@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kazunori@miyazawa.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040724014415.GA5866@gondor.apana.org.au>
+In-Reply-To: <20040724045041.GA7091@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 24 Jul 2004 11:44:15 +1000
+On Sat, 24 Jul 2004 14:50:41 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> This is a little optimisation for AH4.  When I moved the tunnel code out,
-> I put the daddr copying code on the main path which is unnecessary since
-> daddr is only mutable if IP options are present.
+> This patch replaces the skb argument in ipv6_clear_mutable_options() by
+> an ipv6hdr.  Doing so allows us to point skb->nh elsewhere when calling
+> this function.
 > 
-> This patch moves the saving and restoring of daddr under the check for
-> the existence of IP options.
+> I've also thrown in some obvious clean-ups for that function.
 
-Looks good to me, applied.
+Applied, thanks Herbert.
 
-Thanks Herbert.
+BTW, watch your patch rooting:
+
+--- 1.33/net/ipv6/ah6.c	2004-07-24 09:54:15 +10:00
++++ edited/ah6.c	2004-07-24 14:39:24 +10:00
