@@ -1,298 +1,209 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.7-rc2 + bk-netdev 1/4] r8169: link handling and phy reset rework
-Date: Thu, 3 Jun 2004 01:31:28 +0200
+Subject: [patch 2.6.7-rc2 + bk-netdev 2/4] r8169: initial link setup rework
+Date: Thu, 3 Jun 2004 01:33:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040603013128.D18059@electric-eye.fr.zoreil.com>
-References: <200406010922.i519MIr27814@mail.osdl.org> <40BE2FAB.1040008@pobox.com>
+Message-ID: <20040603013319.A22272@electric-eye.fr.zoreil.com>
+References: <200406010922.i519MIr27814@mail.osdl.org> <40BE2FAB.1040008@pobox.com> <20040603013128.D18059@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: akpm@osdl.org, luto@myrealbox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <40BE2FAB.1040008@pobox.com>; from jgarzik@pobox.com on Wed, Jun 02, 2004 at 03:51:07PM -0400
+In-Reply-To: <20040603013128.D18059@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Thu, Jun 03, 2004 at 01:31:28AM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Link handling changes (Andy Lutomirski <luto@myrealbox.com>):
-- removed rtl8169_hw_phy_reset() and its busy loop;
-- RTL8169_PHY_TIMEOUT is x10 to account for the removal of the
-  phy_link_down_cnt loop in rtl8169_phy_timer();
-- added spinlocking in timer context for rtl8169_phy_timer to avoid
-  messing with the {set/get}_settings commands issued via ethtool;
-- more TBI stuff.
+Use rtl8169_set_speed() for link setup in rtl8169_init_one():
+- the code which handles the option checking is isolated;
+- display (once) a notice message about the deprecated interface;
+- rtl8169_open() enables the phy timer if the link is not up;
+- rtl8169_set_speed() checks that the netdevice is actually ready
+  in order to activate the timer.
 
-This patch differs from the former version on the following points:
-- the LinkChg irq does not enable the phy timer when the link goes
-  down any more;
-- the phy timer is not enabled in rtl8169_set_speed();
-- removal of the initial renegotiation hack.
-
-
-diff -puN drivers/net/r8169.c~r8169-link-00 drivers/net/r8169.c
---- linux-2.6.7-rc2/drivers/net/r8169.c~r8169-link-00	2004-06-02 22:40:49.000000000 +0200
-+++ linux-2.6.7-rc2-fr/drivers/net/r8169.c	2004-06-02 23:17:50.000000000 +0200
-@@ -41,6 +41,7 @@ VERSION 1.2	<2002/11/30>
- #include <linux/etherdevice.h>
- #include <linux/delay.h>
- #include <linux/ethtool.h>
-+#include <linux/mii.h>
- #include <linux/crc32.h>
- #include <linux/init.h>
- #include <linux/dma-mapping.h>
-@@ -107,7 +108,7 @@ static int multicast_filter_limit = 32;
- 
- #define RTL_MIN_IO_SIZE 0x80
- #define RTL8169_TX_TIMEOUT	(6*HZ)
--#define RTL8169_PHY_TIMEOUT	(HZ) 
-+#define RTL8169_PHY_TIMEOUT	(10*HZ)
- 
- /* write/read MMIO register */
- #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
-@@ -341,7 +342,6 @@ struct rtl8169_private {
- 	struct sk_buff *Rx_skbuff[NUM_RX_DESC];	/* Rx data buffers */
- 	struct sk_buff *Tx_skbuff[NUM_TX_DESC];	/* Tx data buffers */
- 	struct timer_list timer;
--	unsigned long phy_link_down_cnt;
- 	u16 cp_cmd;
- 	u16 intr_mask;
- 	int phy_auto_nego_reg;
-@@ -349,6 +349,9 @@ struct rtl8169_private {
- 
- 	int (*set_speed)(struct net_device *, u8 autoneg, u16 speed, u8 duplex);
- 	void (*get_settings)(struct net_device *, struct ethtool_cmd *);
-+	void (*phy_reset_enable)(void *);
-+	unsigned int (*phy_reset_pending)(void *);
-+	unsigned int (*link_ok)(void *);
- };
- 
- MODULE_AUTHOR("Realtek");
-@@ -374,7 +377,7 @@ static int rtl8169_poll(struct net_devic
- static const u16 rtl8169_intr_mask =
- 	LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
- static const u16 rtl8169_napi_event =
--	RxOK | LinkChg | RxOverflow | RxFIFOOver | TxOK | TxErr;
-+	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
- static const unsigned int rtl8169_rx_config =
-     (RX_FIFO_THRESH << RxCfgFIFOShift) | (RX_DMA_BURST << RxCfgDMAShift);
- 
-@@ -416,6 +419,53 @@ static int mdio_read(void *ioaddr, int R
- 	return value;
+diff -puN drivers/net/r8169.c~r8169-link-10 drivers/net/r8169.c
+--- linux-2.6.7-rc2/drivers/net/r8169.c~r8169-link-10	2004-06-02 23:18:02.000000000 +0200
++++ linux-2.6.7-rc2-fr/drivers/net/r8169.c	2004-06-02 23:18:02.000000000 +0200
+@@ -7,7 +7,7 @@
+  Feb  4 2002	- created initially by ShuChen <shuchen@realtek.com.tw>.
+  May 20 2002	- Add link status force-mode and TBI mode support.
+ =========================================================================
+-  1. The media can be forced in 5 modes.
++  1. [DEPRECATED: use ethtool instead] The media can be forced in 5 modes.
+ 	 Command: 'insmod r8169 media = SET_MEDIA'
+ 	 Ex:	  'insmod r8169 media = 0x04' will force PHY to operate in 100Mpbs Half-duplex.
+ 	
+@@ -466,6 +466,38 @@ static void rtl8169_check_link_status(st
+ 	spin_unlock_irqrestore(&tp->lock, flags);
  }
  
-+static unsigned int rtl8169_tbi_reset_pending(void *ioaddr)
++static void rtl8169_link_option(int idx, u8 *autoneg, u16 *speed, u8 *duplex)
 +{
-+	return RTL_R32(TBICSR) & TBIReset;
-+}
++	struct {
++		u16 speed;
++		u8 duplex;
++		u8 autoneg;
++		u8 media;
++	} link_settings[] = {
++		{ SPEED_10,	DUPLEX_HALF, AUTONEG_DISABLE,	_10_Half },
++		{ SPEED_10,	DUPLEX_FULL, AUTONEG_DISABLE,	_10_Full },
++		{ SPEED_100,	DUPLEX_HALF, AUTONEG_DISABLE,	_100_Half },
++		{ SPEED_100,	DUPLEX_FULL, AUTONEG_DISABLE,	_100_Full },
++		{ SPEED_1000,	DUPLEX_FULL, AUTONEG_DISABLE,	_1000_Full },
++		/* Make TBI happy */
++		{ SPEED_1000,	DUPLEX_FULL, AUTONEG_ENABLE,	0xff }
++	}, *p;
++	unsigned char option;
++	
++	option = ((idx < MAX_UNITS) && (idx >= 0)) ? media[idx] : 0xff;
 +
-+static unsigned int rtl8169_xmii_reset_pending(void *ioaddr)
-+{
-+	return mdio_read(ioaddr, 0) & 0x8000;
-+}
++	if ((option != 0xff) && !idx)
++		printk(KERN_WARNING PFX "media option is deprecated.\n");
 +
-+static unsigned int rtl8169_tbi_link_ok(void *ioaddr)
-+{
-+	return RTL_R32(TBICSR) & TBILinkOk;
-+}
-+
-+static unsigned int rtl8169_xmii_link_ok(void *ioaddr)
-+{
-+	return RTL_R8(PHYstatus) & LinkStatus;
-+}
-+
-+static void rtl8169_tbi_reset_enable(void *ioaddr)
-+{
-+	RTL_W32(TBICSR, RTL_R32(TBICSR) | TBIReset);
-+}
-+
-+static void rtl8169_xmii_reset_enable(void *ioaddr)
-+{
-+	unsigned int val;
-+
-+	val = (mdio_read(ioaddr, PHY_CTRL_REG) | 0x8000) & 0xffff;
-+	mdio_write(ioaddr, PHY_CTRL_REG, val);
-+}
-+
-+static void rtl8169_check_link_status(struct net_device *dev,
-+				      struct rtl8169_private *tp, void *ioaddr)
-+{
-+	unsigned long flags;
-+
-+	spin_lock_irqsave(&tp->lock, flags);
-+	if (tp->link_ok(ioaddr)) {
-+		netif_carrier_on(dev);
-+		printk(KERN_INFO PFX "%s: link up\n", dev->name);
-+	} else
-+		netif_carrier_off(dev);
-+	spin_unlock_irqrestore(&tp->lock, flags);
++	for (p = link_settings; p->media != 0xff; p++) {
++		if (p->media == option)
++			break;
++	}
++	*autoneg = p->autoneg;
++	*speed = p->speed;
++	*duplex = p->duplex;
 +}
 +
  static void rtl8169_get_drvinfo(struct net_device *dev,
  				struct ethtool_drvinfo *info)
  {
-@@ -493,8 +543,14 @@ static int rtl8169_set_speed(struct net_
- 			     u8 autoneg, u16 speed, u8 duplex)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-+	int ret;
-+
-+	ret = tp->set_speed(dev, autoneg, speed, duplex);
-+
-+	if (tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full)
-+		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
+@@ -547,7 +579,7 @@ static int rtl8169_set_speed(struct net_
  
--	return tp->set_speed(dev, autoneg, speed, duplex);
-+	return ret;
- }
+ 	ret = tp->set_speed(dev, autoneg, speed, duplex);
  
- static int rtl8169_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-@@ -753,56 +809,42 @@ static void rtl8169_hw_phy_config(struct
- 	mdio_write(ioaddr, 31, 0x0000); //w 31 2 0 0
- }
+-	if (tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full)
++	if (netif_running(dev) && (tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full))
+ 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
  
--static void rtl8169_hw_phy_reset(struct net_device *dev)
--{
--	struct rtl8169_private *tp = netdev_priv(dev);
--	void *ioaddr = tp->mmio_addr;
--	int i, val;
--
--	printk(KERN_WARNING PFX "%s: Reset RTL8169s PHY\n", dev->name);
--
--	val = (mdio_read(ioaddr, 0) | 0x8000) & 0xffff;
--	mdio_write(ioaddr, 0, val);
--
--	for (i = 50; i >= 0; i--) {
--		if (!(mdio_read(ioaddr, 0) & 0x8000))
--			break;
--		udelay(100); /* Gross */
--	}
--
--	if (i < 0) {
--		printk(KERN_WARNING PFX "%s: no PHY Reset ack. Giving up.\n",
--		       dev->name);
--	}
--}
--
- static void rtl8169_phy_timer(unsigned long __opaque)
- {
- 	struct net_device *dev = (struct net_device *)__opaque;
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	struct timer_list *timer = &tp->timer;
- 	void *ioaddr = tp->mmio_addr;
-+	unsigned long timeout = RTL8169_PHY_TIMEOUT;
+ 	return ret;
+@@ -1027,8 +1059,9 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	void *ioaddr = NULL;
+ 	static int board_idx = -1;
+ 	static int printed_version = 0;
++	u8 autoneg, duplex;
++	u16 speed;
+ 	int i, rc;
+-	int option = -1, Cap10_100 = 0, Cap1000 = 0;
  
- 	assert(tp->mac_version > RTL_GIGA_MAC_VER_B);
- 	assert(tp->phy_version < RTL_GIGA_PHY_VER_G);
+ 	assert(pdev != NULL);
+ 	assert(ent != NULL);
+@@ -1131,97 +1164,12 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 		mdio_write(ioaddr, 0x0b, 0x0000); //w 0x0b 15 0 0
+ 	}
  
--	if (RTL_R8(PHYstatus) & LinkStatus)
--		tp->phy_link_down_cnt = 0;
--	else {
--		tp->phy_link_down_cnt++;
--		if (tp->phy_link_down_cnt >= 12) {
--			int reg;
+-	// if TBI is not endbled
+-	if (!(RTL_R8(PHYstatus) & TBI_Enable)) {
+-		int val = mdio_read(ioaddr, PHY_AUTO_NEGO_REG);
 -
--			// If link on 1000, perform phy reset.
--			reg = mdio_read(ioaddr, PHY_1000_CTRL_REG);
--			if (reg & PHY_Cap_1000_Full) 
--				rtl8169_hw_phy_reset(dev);
-+	if (!(tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full))
-+		return;
+-		option = (board_idx >= MAX_UNITS) ? 0 : media[board_idx];
+-		// Force RTL8169 in 10/100/1000 Full/Half mode.
+-		if (option > 0) {
+-			printk(KERN_INFO "%s: Force-mode Enabled.\n",
+-			       dev->name);
+-			Cap10_100 = 0, Cap1000 = 0;
+-			switch (option) {
+-			case _10_Half:
+-				Cap10_100 = PHY_Cap_10_Half_Or_Less;
+-				Cap1000 = PHY_Cap_Null;
+-				break;
+-			case _10_Full:
+-				Cap10_100 = PHY_Cap_10_Full_Or_Less;
+-				Cap1000 = PHY_Cap_Null;
+-				break;
+-			case _100_Half:
+-				Cap10_100 = PHY_Cap_100_Half_Or_Less;
+-				Cap1000 = PHY_Cap_Null;
+-				break;
+-			case _100_Full:
+-				Cap10_100 = PHY_Cap_100_Full_Or_Less;
+-				Cap1000 = PHY_Cap_Null;
+-				break;
+-			case _1000_Full:
+-				Cap10_100 = PHY_Cap_100_Full_Or_Less;
+-				Cap1000 = PHY_Cap_1000_Full;
+-				break;
+-			default:
+-				break;
+-			}
+-			// leave PHY_AUTO_NEGO_REG bit4:0 unchanged
+-			mdio_write(ioaddr, PHY_AUTO_NEGO_REG,
+-				   Cap10_100 | (val & 0x1F));
+-			mdio_write(ioaddr, PHY_1000_CTRL_REG, Cap1000);
+-		} else {
+-			printk(KERN_INFO "%s: Auto-negotiation Enabled.\n",
+-			       dev->name);
++	rtl8169_link_option(board_idx, &autoneg, &speed, &duplex);
  
--			tp->phy_link_down_cnt = 0;
+-			// enable 10/100 Full/Half Mode
+-			// leave PHY_AUTO_NEGO_REG bit4:0 unchanged
+-			mdio_write(ioaddr, PHY_AUTO_NEGO_REG,
+-				   PHY_Cap_100_Full_Or_Less | (val & 0x1f));
+-
+-			// enable 1000 Full Mode
+-			mdio_write(ioaddr, PHY_1000_CTRL_REG,
+-				   PHY_Cap_1000_Full);
+-
 -		}
-+	spin_lock_irq(&tp->lock);
-+
-+	if (tp->phy_reset_pending(ioaddr)) {
-+		/* 
-+		 * A busy loop could burn quite a few cycles on nowadays CPU.
-+		 * Let's delay the execution of the timer for a few ticks.
-+		 */
-+		timeout = HZ/10;
-+		goto out_mod_timer;
- 	}
- 
--	mod_timer(timer, jiffies + RTL8169_PHY_TIMEOUT);
-+	if (tp->link_ok(ioaddr))
-+		goto out_unlock;
-+
-+	printk(KERN_WARNING PFX "%s: PHY reset until link up\n", dev->name);
-+
-+	tp->phy_reset_enable(ioaddr);
-+
-+out_mod_timer:
-+	mod_timer(timer, jiffies + timeout);
-+out_unlock:
-+	spin_unlock_irq(&tp->lock);
- }
- 
- static inline void rtl8169_delete_timer(struct net_device *dev)
-@@ -815,8 +857,6 @@ static inline void rtl8169_delete_timer(
- 		return;
- 
- 	del_timer_sync(timer);
 -
--	tp->phy_link_down_cnt = 0;
- }
- 
- static inline void rtl8169_request_timer(struct net_device *dev)
-@@ -828,8 +868,6 @@ static inline void rtl8169_request_timer
- 	    (tp->phy_version >= RTL_GIGA_PHY_VER_G))
- 		return;
- 
--	tp->phy_link_down_cnt = 0;
+-		// Enable auto-negotiation and restart auto-nigotiation
+-		mdio_write(ioaddr, PHY_CTRL_REG,
+-			   PHY_Enable_Auto_Nego | PHY_Restart_Auto_Nego);
+-		udelay(100);
 -
- 	init_timer(timer);
- 	timer->expires = jiffies + RTL8169_PHY_TIMEOUT;
- 	timer->data = (unsigned long)(dev);
-@@ -1014,11 +1052,17 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	if (RTL_R8(PHYstatus) & TBI_Enable) {
- 		tp->set_speed = rtl8169_set_speed_tbi;
- 		tp->get_settings = rtl8169_gset_tbi;
-+		tp->phy_reset_enable = rtl8169_tbi_reset_enable;
-+		tp->phy_reset_pending = rtl8169_tbi_reset_pending;
-+		tp->link_ok = rtl8169_tbi_link_ok;
+-		// wait for auto-negotiation process
+-		for (i = 10000; i > 0; i--) {
+-			//check if auto-negotiation complete
+-			if (mdio_read(ioaddr, PHY_STAT_REG) &
+-			    PHY_Auto_Neco_Comp) {
+-				udelay(100);
+-				option = RTL_R8(PHYstatus);
+-				if (option & _1000bpsF) {
+-					printk(KERN_INFO
+-					       "%s: 1000Mbps Full-duplex operation.\n",
+-					       dev->name);
+-				} else {
+-					printk(KERN_INFO
+-					       "%s: %sMbps %s-duplex operation.\n",
+-					       dev->name,
+-					       (option & _100bps) ? "100" :
+-					       "10",
+-					       (option & FullDup) ? "Full" :
+-					       "Half");
+-				}
+-				break;
+-			} else {
+-				udelay(100);
+-			}
+-		}	// end for-loop to wait for auto-negotiation process
+-
+-	} else {
+-		udelay(100);
+-		printk(KERN_INFO
+-		       "%s: 1000Mbps Full-duplex operation, TBI Link %s!\n",
+-		       dev->name,
+-		       (RTL_R32(TBICSR) & TBILinkOK) ? "OK" : "Failed");
+-	}
++	rtl8169_set_speed(dev, autoneg, speed, duplex);
++	
++	if (RTL_R8(PHYstatus) & TBI_Enable)
++		printk(KERN_INFO PFX "%s: TBI auto-negotiating\n", dev->name);
  
- 		tp->phy_1000_ctrl_reg = PHY_Cap_1000_Full; /* Implied by TBI */
- 	} else {
- 		tp->set_speed = rtl8169_set_speed_xmii;
- 		tp->get_settings = rtl8169_gset_xmii;
-+		tp->phy_reset_enable = rtl8169_xmii_reset_enable;
-+		tp->phy_reset_pending = rtl8169_xmii_reset_pending;
-+		tp->link_ok = rtl8169_xmii_link_ok;
- 	}
+ 	return 0;
+ }
+@@ -1322,6 +1270,8 @@ rtl8169_open(struct net_device *dev)
+ 	rtl8169_hw_start(dev);
  
- 	// Get MAC address.  FIXME: read EEPROM
-@@ -1752,10 +1796,7 @@ rtl8169_interrupt(int irq, void *dev_ins
- 			break;
- 
- 		handled = 1;
--/*
--		if (status & LinkChg)
--			link_changed = RTL_R16 (CSCR) & CSCR_LinkChangeBit;
--*/
+ 	rtl8169_request_timer(dev);
 +
- 		status &= tp->intr_mask;
- 		RTL_W16(IntrStatus,
- 			(status & RxFIFOOver) ? (status | RxOverflow) : status);
-@@ -1763,6 +1804,9 @@ rtl8169_interrupt(int irq, void *dev_ins
- 		if (!(status & rtl8169_intr_mask))
- 			break;
++	rtl8169_check_link_status(dev, tp, tp->mmio_addr);
+ out:
+ 	return retval;
  
-+		if (status & LinkChg)
-+			rtl8169_check_link_status(dev, tp, ioaddr);
-+
- #ifdef CONFIG_R8169_NAPI
- 		RTL_W16(IntrMask, rtl8169_intr_mask & ~rtl8169_napi_event);
- 		tp->intr_mask = ~rtl8169_napi_event;
-@@ -1776,7 +1820,7 @@ rtl8169_interrupt(int irq, void *dev_ins
- 		break;
- #else
- 		// Rx interrupt 
--		if (status & (RxOK | LinkChg | RxOverflow | RxFIFOOver)) {
-+		if (status & (RxOK | RxOverflow | RxFIFOOver)) {
- 			rtl8169_rx_interrupt(dev, tp, ioaddr);
- 		}
- 		// Tx interrupt
 
 _
