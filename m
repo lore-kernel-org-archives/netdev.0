@@ -1,31 +1,26 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [NET] 64 bit byte counter for 2.6.3
-Date: Wed, 18 Feb 2004 18:17:59 -0500
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <4033F2A7.70404@pobox.com>
-References: <1077123078.9223.7.camel@midux>	<20040218101711.25dda791@dell_ss3.pdx.osdl.net>	<Pine.LNX.4.53.0402181527000.7318@chaos>	<1077137014.18843.10.camel@midux>	<Pine.LNX.4.53.0402181645220.27707@chaos> <20040218145740.6b47c218@dell_ss3.pdx.osdl.net>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [BK PATCH] 2.4 SCTP fixes
+Date: Wed, 18 Feb 2004 16:25:33 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040218162533.2d03b787.davem@redhat.com>
+References: <Pine.LNX.4.58.0402181456510.20485@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: root@chaos.analogic.com,
-	=?ISO-8859-1?Q?Markus_H=E4stbacka?= <midian@ihme.org>,
-	Kernel Mailinglist <linux-kernel@vger.kernel.org>,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040218145740.6b47c218@dell_ss3.pdx.osdl.net>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0402181456510.20485@localhost.localdomain>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Do it right:
-> 	* use per-cpu long long for both bytes and packet counts
-> 	  and change each driver ...
-> 	* expose both a new 64 bit and legacy 32 bit /proc interface
-> 	* no tools use /sys yet, so that needs to show long long
-> 	* have both a get_stats and get_stats64 hook in netdevice so not all drivers
-> 	  have to be converted at once.
+On Wed, 18 Feb 2004 15:15:46 -0800 (PST)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
+> I have updated lksctp 2.4 BK tree to 2.4.25 and pulled in the SCTP
+> csets that were excluded by Marcelo due to the config problem.
+ ...
+> Please pull these csets from
+> 	http://linux-lksctp.bkbits.net/lksctp-2.4.work
 
-Yep.
-
-	Jeff
+Excellent, thanks for taking care of this.
