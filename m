@@ -1,73 +1,52 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: 27 Sep 2004 23:45:25 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETLINK] Kill export of netlink_broadcast_deliver
+Date: Tue, 28 Sep 2004 13:47:36 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096343125.8661.96.camel@jzny.localdomain>
-References: <20040922045239.GA19573@gondor.apana.org.au>
-	 <1095854920.1047.64.camel@jzny.localdomain>
-	 <20040923120707.GB32624@gondor.apana.org.au>
-	 <1095995042.1044.34.camel@jzny.localdomain>
-	 <20040924032440.GB6384@gondor.apana.org.au>
-	 <1096289189.1075.37.camel@jzny.localdomain>
-	 <20040927213607.GD7243@gondor.apana.org.au>
-	 <1096339407.8660.33.camel@jzny.localdomain>
-	 <20040928024614.GA9911@gondor.apana.org.au>
-	 <1096340772.8659.51.camel@jzny.localdomain>
-	 <20040928032321.GB10116@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040928034736.GA10589@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="4Ckj6UjgE2iN1+kY"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040928032321.GB10116@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-09-27 at 23:23, Herbert Xu wrote:
 
-> But ifconfig doesn't use netlink.  So I presume you're referring to
-> some other application that's listening for interface/address/route
-> events.
+--4Ckj6UjgE2iN1+kY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Thats right. 
-I think you should be able to run ip monitor to see the overrun.
+Hi Dave:
 
-> Firstly thanks this is exactly what I've been asking for -- a real
-> world scenario :)
+netlink_broadcast_deliver is marked as static as well as exported.
+It certainly isn't doing anything that should be needed by any
+netlink modules.  There aren't any in-kernel users either.
 
-I can assure you theres many more like this;->
-My remote app is not this btw.
+So let's remove the bogus export.
 
-> Now that we know where the events are coming from and what they are,
-> we can decide on the solution.  In this particular case, there is
-> nothing you can do on the sending side.  Stopping people from operating
-> on networking objects just because some netlink listener can't keep up
-> isn't going to work.  So congestion control is out of the question.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-fixing the NLM_GOODSIZE issue is a very good first step.
-Adding congestion control would be harder but not out of question.
-The hard part is not in the maintaing state part (as the case of dump)
-its rather how you start getting slowed down (in a broadcast) by one
-slow (or buggy) app thats also decided its gonna have very low socket
-buffer sizes. 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-> That leaves two options AFAICS.  The easy way out is to increase the
-> receive buffer size.  Of course after a while this is not going to
-> work.
+--4Ckj6UjgE2iN1+kY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-Indeed. It just postpones the overrun.
+===== net/netlink/af_netlink.c 1.53 vs edited =====
+--- 1.53/net/netlink/af_netlink.c	2004-09-22 12:32:44 +10:00
++++ edited/net/netlink/af_netlink.c	2004-09-28 13:45:28 +10:00
+@@ -1220,7 +1220,6 @@
+ 
+ EXPORT_SYMBOL(netlink_ack);
+ EXPORT_SYMBOL(netlink_broadcast);
+-EXPORT_SYMBOL(netlink_broadcast_deliver);
+ EXPORT_SYMBOL(netlink_dump_start);
+ EXPORT_SYMBOL(netlink_kernel_create);
+ EXPORT_SYMBOL(netlink_register_notifier);
 
-> The second option which is the one I prefer: If so many events are
-> occuring and you can't keep up, it's time to give up :)
-> 
-> So just bite the bullet and reread the system state by issuing dump
-> operations.
-
-We may as well choose to document it as being this mostly because of the
-issue i described above. We shouldnt give up so easily though ;->
-
-cheers,
-jamal
+--4Ckj6UjgE2iN1+kY--
