@@ -1,26 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: tcp_ipv6_check_established
-Date: Tue, 18 May 2004 16:22:13 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040518.162213.76191660.yoshfuji@linux-ipv6.org>
-References: <40A163A4.8050905@mvista.com>
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: how ip header added in ip_bulid_xmit function?
+Date: Mon, 17 May 2004 23:31:06 -0700 (PDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040518063106.85290.qmail@web90102.mail.scd.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mhuth@mvista.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <40A163A4.8050905@mvista.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@oss.sgi.com>,
+	netfilter <netfilter-devel@lists.netfilter.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linuxnet <linux-net@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
-In article <40A163A4.8050905@mvista.com> (at Tue, 11 May 2004 16:37:08 -0700), Mark Huth <mhuth@mvista.com> says:
+hello ,
+   In ip_output.c file there is ip_build_xmit function
+call. when packet comes from tcp layer to IP layer
+this function is called. In that i found that 
+   skb = sock_alloc_send_skb(sk, length+hh_len+15
+,flags&MSG_DONTWAIT, &err);
+staement allocates skb for packet. after that i found
+that no iphdr adding statement in ip_build_xmit. i
+want to know where is iphdr push to skb? cause skb
+works using first alloc_skb to allocate memory then
+skb_reserve to reserve headroom then put data in skb
+by skb_put or skb_push for pushing headers in skb. so
+there i found       
+  skb->nh.iph = iph = (struct iphdr *)skb_put(skb,
+length); 
+statement is this does that iphdr adding?
 
-> A proposed patch for 2.6.6 is attached.  A similar patch is required for 2.4 kernels, and is
-> also attached.
+regards,
+linuxlover
 
-Correct. David, please apply.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+	
+		
+__________________________________
+Do you Yahoo!?
+SBC Yahoo! - Internet access at a great low price.
+http://promo.yahoo.com/sbc/
