@@ -1,32 +1,60 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [IPCOMP] Use per-cpu buffers
-Date: Fri, 10 Sep 2004 11:42:00 -0400 (EDT)
-Sender: linux-ppp-owner@vger.kernel.org
-Message-ID: <Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
-References: <20040910111047.GA29330@gondor.apana.org.au>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
+Date: Fri, 10 Sep 2004 12:50:03 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040910195003.GA13912@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>,
-	<netdev@oss.sgi.com>, <linux-ppp@vger.kernel.org>,
-	<paulus@samba.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040910111047.GA29330@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>, netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Sep 2004, Herbert Xu wrote:
+Thomas Graf wrote :
+> 
+> Allows changing of device name via rtnetlink. Last bit needed to do full
+> link configuration via rtnetlink.
+> 
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> James, can you think of a general solution to the 64K buffer in
-> terms of the crypto decompression interface?
+	This does not work, because you don't return the new name to
+user space. If the new name is a pattern, such as "eth%d" or "wlan%d",
+you absolutely need to return the new instanciated device name to user
+space so that userspace doesn't loose track of the device.
 
-I haven't looked at the code for a while, but I think we might be able to 
-save some memory by specifying compression parameters and making the 
-appropriate changes to zlib.
+	Please look at this snipset from dev.c :
 
+-----------------------------------------------------------------
+		/*
+		 *	These ioctl calls:
+		 *	- require superuser power.
+		 *	- require strict serialization.
+		 *	- return a value
+		 */
+		case SIOCGMIIPHY:
+		case SIOCGMIIREG:
+		case SIOCSIFNAME:
+			if (!capable(CAP_NET_ADMIN))
+				return -EPERM;
+			dev_load(ifr.ifr_name);
+			rtnl_lock();
+			ret = dev_ifsioc(&ifr, cmd);
+			rtnl_unlock();
+			if (!ret) {
+				if (colon)
+					*colon = ':';
+				if (copy_to_user(arg, &ifr,
+						 sizeof(struct ifreq)))
+					ret = -EFAULT;
+			}
+			return ret;
+-----------------------------------------------------------------
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+	I'm all for converting stuff to RtNetlink, but please don't
+criple the functionality...
 
+	Have fun...
 
+	Jean
