@@ -1,63 +1,61 @@
-From: James Morris <jmorris@redhat.com>
-Subject: [PATCH] Fix checksum bug for multicast/broadcast packets on postrouting
- hook
-Date: Sat, 14 Feb 2004 13:37:23 -0500 (EST)
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH] Fix checksum bug for multicast/broadcast packets on postrouting hook
+Date: Sat, 14 Feb 2004 19:37:43 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0402141318490.6128-100000@thoron.boston.redhat.com>
+Message-ID: <20040214183743.GO7756@sunbeam.de.gnumonks.org>
+References: <Xine.LNX.4.44.0402141318490.6128-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Stephen Smalley <sds@epoch.ncsc.mil>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="H83aLI5Lttn3Hg7B"
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        Stephen Smalley <sds@epoch.ncsc.mil>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, Harald Welte <laforge@netfilter.org>
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0402141318490.6128-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch fixes a bug with with multicast/broadcast packets,
-Netfilter, and NICs which do hardware checksums.
 
-Outgoing multicast and broadcast packets are cloned prior to being fed
-into the postrouting hook and looped back.  A problem is caused when the
-shared packet data is modified by the netfilter core code when updating
-the checksum, but the skb->ip_summed field in the header of the original
-skb is not updated.  The NIC then tries to do a hardware checksum on an
-already correct checksum, and we end up transmitting the wrong thing.
+--H83aLI5Lttn3Hg7B
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This bug stops things like DHCP from working, and was noted under SELinux
-which uses the postrouting hook alone.
+On Sat, Feb 14, 2004 at 01:37:23PM -0500, James Morris wrote:
+> This patch fixes a bug with with multicast/broadcast packets,
+> Netfilter, and NICs which do hardware checksums.
+>=20
+> Please review.
+=20
+I'm fine with that patch, James.
 
-The proposed solution below is to copy the skb rather than clone it, to 
-ensure that the original and looped back packets are independent.
+Maybe it's worth adding a short one-line comment stating why a clone is
+not sufficient here.
 
-Please review.
+> James Morris
 
-(A similar problem seems to exist in the IPv6 code, although not 
-verified yet).
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
+--H83aLI5Lttn3Hg7B
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
+iD8DBQFALmr3XaXGVTD0i/8RAnMfAJwIV/1bsCPYktMCi2e11ppj01ry1gCgjvGf
+6gckEOaCSnl2lAGM3xtNuW0=
+=tRAy
+-----END PGP SIGNATURE-----
 
-diff -urN -X dontdiff linux-2.6.3-rc2-mm1.o/net/ipv4/ip_output.c linux-2.6.3-rc2-mm1.w2/net/ipv4/ip_output.c
---- linux-2.6.3-rc2-mm1.o/net/ipv4/ip_output.c	2004-02-03 22:45:00.000000000 -0500
-+++ linux-2.6.3-rc2-mm1.w2/net/ipv4/ip_output.c	2004-02-14 13:04:20.880941816 -0500
-@@ -254,7 +254,7 @@
- 		    && ((rt->rt_flags&RTCF_LOCAL) || !(IPCB(skb)->flags&IPSKB_FORWARDED))
- #endif
- 		) {
--			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
-+			struct sk_buff *newskb = skb_copy(skb, GFP_ATOMIC);
- 			if (newskb)
- 				NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
- 					newskb->dev, 
-@@ -270,7 +270,7 @@
- 	}
- 
- 	if (rt->rt_flags&RTCF_BROADCAST) {
--		struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
-+		struct sk_buff *newskb = skb_copy(skb, GFP_ATOMIC);
- 		if (newskb)
- 			NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
- 				newskb->dev, ip_dev_loopback_xmit);
+--H83aLI5Lttn3Hg7B--
