@@ -1,112 +1,171 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 8/9][ATM]: [lanai] quiet sparse warnings
-Date: Mon, 07 Mar 2005 17:07:49 -0500
-Message-ID: <200503072207.j27M7nAJ021016@ginger.cmf.nrl.navy.mil>
-Cc: davem@redhat.com
-To: netdev@oss.sgi.com
+From: Jonathan Day <imipak@yahoo.com>
+Subject: Re: Dynamically classifying flows?
+Date: Mon, 7 Mar 2005 15:17:10 -0800 (PST)
+Message-ID: <20050307231710.52440.qmail@web31510.mail.mud.yahoo.com>
+References: <7bca1cb505030709502316f9b8@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Asim Shankar <asimshankar@gmail.com>, netdev@oss.sgi.com
+In-Reply-To: <7bca1cb505030709502316f9b8@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6 -- thanks!
+It depends a bit on what OS you are using, as to the
+best strategy to follow.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/03/07 15:26:27-05:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [lanai] quiet sparse warnings
-#       
-#   Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
-#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-# 
-# drivers/atm/lanai.c
-#   2005/03/07 15:26:10-05:00 chas@relax.cmf.nrl.navy.mil +9 -9
-#   [ATM]: [lanai] quiet sparse warnings
-#   
-#   Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
-#   Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
-# 
-diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
---- a/drivers/atm/lanai.c	2005-03-07 15:36:36 -05:00
-+++ b/drivers/atm/lanai.c	2005-03-07 15:36:36 -05:00
-@@ -650,7 +650,7 @@
- 	enum lanai_vcc_offset offset)
- {
- 	u32 val;
--	APRINTK(lvcc->vbase != 0, "cardvcc_read: unbound vcc!\n");
-+	APRINTK(lvcc->vbase != NULL, "cardvcc_read: unbound vcc!\n");
- 	val= readl(lvcc->vbase + offset);
- 	RWDEBUG("VR vci=%04d 0x%02X = 0x%08X\n",
- 	    lvcc->vci, (int) offset, val);
-@@ -660,7 +660,7 @@
- static inline void cardvcc_write(const struct lanai_vcc *lvcc,
- 	u32 val, enum lanai_vcc_offset offset)
- {
--	APRINTK(lvcc->vbase != 0, "cardvcc_write: unbound vcc!\n");
-+	APRINTK(lvcc->vbase != NULL, "cardvcc_write: unbound vcc!\n");
- 	APRINTK((val & ~0xFFFF) == 0,
- 	    "cardvcc_write: bad val 0x%X (vci=%d, addr=0x%02X)\n",
- 	    (unsigned int) val, lvcc->vci, (unsigned int) offset);
-@@ -748,7 +748,7 @@
- /* Shutdown receiving on card */
- static void lanai_shutdown_rx_vci(const struct lanai_vcc *lvcc)
- {
--	if (lvcc->vbase == 0)		/* We were never bound to a VCI */
-+	if (lvcc->vbase == NULL)	/* We were never bound to a VCI */
- 		return;
- 	/* 15.1.1 - set to trashing, wait one cell time (15us) */
- 	cardvcc_write(lvcc,
-@@ -779,7 +779,7 @@
- 	int read, write, lastread = -1;
- 	APRINTK(!in_interrupt(),
- 	    "lanai_shutdown_tx_vci called w/o process context!\n");
--	if (lvcc->vbase == 0)		/* We were never bound to a VCI */
-+	if (lvcc->vbase == NULL)	/* We were never bound to a VCI */
- 		return;
- 	/* 15.2.1 - wait for queue to drain */
- 	while ((skb = skb_dequeue(&lvcc->tx.backlog)) != NULL)
-@@ -1544,7 +1544,7 @@
- static inline void host_vcc_bind(struct lanai_dev *lanai,
- 	struct lanai_vcc *lvcc, vci_t vci)
- {
--	if (lvcc->vbase != 0)
-+	if (lvcc->vbase != NULL)
- 		return;    /* We already were bound in the other direction */
- 	DPRINTK("Binding vci %d\n", vci);
- #ifdef USE_POWERDOWN
-@@ -1562,7 +1562,7 @@
- static inline void host_vcc_unbind(struct lanai_dev *lanai,
- 	struct lanai_vcc *lvcc)
- {
--	if (lvcc->vbase == 0)
-+	if (lvcc->vbase == NULL)
- 		return;	/* This vcc was never bound */
- 	DPRINTK("Unbinding vci %d\n", lvcc->vci);
- 	lvcc->vbase = NULL;
-@@ -2179,7 +2179,7 @@
- 		goto error;
- 	raw_base = lanai->pci->resource[0].start;
- 	lanai->base = (bus_addr_t) ioremap(raw_base, LANAI_MAPPING_SIZE);
--	if (lanai->base == 0) {
-+	if (lanai->base == NULL) {
- 		printk(KERN_ERR DEV_LABEL ": couldn't remap I/O space\n");
- 		goto error_pci;
- 	}
-@@ -2333,7 +2333,7 @@
- 	}
- 	if (lvcc->tx.atmvcc == atmvcc) {
- 		if (atmvcc == lanai->cbrvcc) {
--			if (lvcc->vbase != 0)
-+			if (lvcc->vbase != NULL)
- 				lanai_cbr_shutdown(lanai);
- 			lanai->cbrvcc = NULL;
- 		}
-@@ -2524,7 +2524,7 @@
- 	struct lanai_vcc *lvcc = (struct lanai_vcc *) atmvcc->dev_data;
- 	struct lanai_dev *lanai = (struct lanai_dev *) atmvcc->dev->dev_data;
- 	unsigned long flags;
--	if (unlikely(lvcc == NULL || lvcc->vbase == 0 ||
-+	if (unlikely(lvcc == NULL || lvcc->vbase == NULL ||
- 	      lvcc->tx.atmvcc != atmvcc))
- 		goto einval;
- #ifdef DEBUG
+Linux has Layer 7 packet classification, so it should
+be possible to identify the more troublesome
+applications and have them in seperate queues. I don't
+think BSD's ALTQ has that capability, but I could be
+wrong. Other Operating Systems are anybody's guess.
+
+If applications are likely to misbehave, and in a
+manner that is unpredictable, then something in the
+"Fair Queueing" family would seem a good place to
+start. Your primary goal is not to impose bounds on
+the traffic as much as it is to place bounds on the
+penalties imposed, so it's not clear that you'd
+necessarily need to know whether something is bulk or
+interactive, you'd just need to know if it would cause
+problems if it were given greater bandwidth.
+
+RED is good under certain conditions, not so good
+under others. There are many members of the RED
+family, so you might want to shop around a little.
+There may be something that is perfect for your
+situation.
+
+I'd suggest ECN, but most applications don't pay
+attention to notifications. Worth a look, though - the
+OS might understand ECN and throttle the application
+on its behalf. (Sounds sadistic.)
+
+If you definitely want classful QoS, then I'd say make
+two classes - everything definitely known & needing
+high bandwidth, and everything else. Configure it so
+that your second class can NEVER steal used bandwidth
+from the first, but CAN be loaned it if there's
+insufficient interactive traffic to fill the quota it
+has been given. That way, you needn't care about
+"unknown" stuff, or whatever, because it'll all be
+lumped into the second class, unless it is
+specifically designated as being in the first class.
+
+
+
+--- Asim Shankar <asimshankar@gmail.com> wrote:
+
+> Hi,
+> 
+> I was looking into various queueing disciplines and
+> had some thoughts/queries.
+> This email is going to be fairly high-level and
+> somewhat long, so I'd be
+> grateful if you can bear with me.
+> 
+> Okay, so qdiscs can be run in various ways - FIFO,
+> Round Robin (SFQ, PRIO),
+> HTB etc. Grossly oversimplified, I see all these
+> strategies as allowing
+> administrators to statically define packet classes
+> and class priorities, and
+> then possibly ensuring fairness amongst packets with
+> equal class priotities.
+> 
+> This "staticness" of class priorities *may* lead to
+> some problems (well, I'm
+> going to ask if they can). Consider a huge, popular
+> file on an HTTP server.
+> Due to its popularity, requests for small pages may
+> suffer. Similarly,
+> consider an SSH/SFTP server where SFTP traffic for
+> large, popular files may
+> choke the SSH terminal connections (especially if
+> the application doesn't set
+> the TOS bits or routers along the way ignore them).
+> So we have interactive
+> flows (like someone SSHing to do some 'ls'es or many
+> clients viewing a small
+> web-page) and bulk flows (downloads). By "flow" I
+> mean a connection, not
+> necessarily an explicit TCP connection but a loose
+> definition - say something
+> that "ip_conntrack" tracks.
+> 
+> Question 1: Can the number of and speed with which
+> bulk flow packets are
+> generated adversely affect the interactive flows -
+> i.e., can too many large
+> file downloads make the 'ls' or the small page
+> downloads slow? Is this a
+> _likely_ scenario?
+> 
+> Diffserv already in effect tries to classify traffic
+> as interactive or
+> bulk. However, this classification is still static
+> and requires application
+> cooperation, which may not always be available or
+> may be overridden. Web
+> servers for example don't change the TOS fields
+> depending on whether the
+> file requested was a 700MB CD-image or a 2K
+> homepage.
+> 
+> Question 2: Does the idea of _dynamically_
+> classifying traffic as interactive
+> or bulk make any sense at all? Or does the TOS field
+> work well enough for
+> dynamic classification to not be of any practical
+> interest?
+> 
+> If it does make sense,
+> 
+> Question 3: Has work already been along along these
+> lines? If so, any pointers
+> would be appreciated.
+> 
+> Can we use ideas from process scheduling to be
+> kinder to the interactive
+> flows? A "process" becomes a "flow", the "CPU"
+> becomes the "NIC" and "time"
+> becomes "bytes". Process scheduling tries to keep
+> system responsiveness high
+> by dynamically classifying processes as interactive
+> or bulk and then making
+> interactive process priorities higher than
+> non-interactive. A similar strategy
+> at the qdisc would mean that when the interactive
+> flow has something to send,
+> it will get a higher priority. Flows will be
+> dynamically assigned priorities
+> based on the history of traffic they generate.
+> 
+> Applying process scheduling would be somewhat
+> expensive (we're keeping track
+> of connections). RED on the other hand does
+> something *like* this by making
+> the probability of a packet drop of a particular
+> flow proportional to the
+> traffic generated by the flow, of course it does so
+> without any explicit
+> notion of flows. This leads to:
+> 
+> Question 5: Does RED provide *everything* this
+> process-scheduling strategy
+> would? i.e., how would you compare the two?
+> 
+> Well, I guess that completes my question list for
+> now.
+> Thanks for reading (and replying :-)),
+> Regards,
+> 
+> -- Asim
+> 
+> 
+
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
