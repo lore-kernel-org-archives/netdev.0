@@ -1,56 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Interconnect virtual device?
-Date: 02 Mar 2005 19:35:03 -0500
-Message-ID: <1109810103.1090.247.camel@jzny.localdomain>
-References: <4222A8F2.6080004@candelatech.com>
-	 <1109592365.2188.914.camel@jzny.localdomain>
-	 <422353C9.6050001@candelatech.com>
-	 <1109800554.1091.213.camel@jzny.localdomain>
-	 <20050302225558.GS31837@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: merging adm8211
+Date: Wed, 2 Mar 2005 20:57:16 -0500
+Message-ID: <200503022057.24558.flamingice@sourmilk.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart5143523.WKJVzsIpdb";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>,
-        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050302225558.GS31837@postel.suug.ch>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-03-02 at 17:55, Thomas Graf wrote:
+--nextPart5143523.WKJVzsIpdb
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> I think we talked about this once already and I do like the idea
-> but the reinjection is at least of the same importance to me. What
-> I'm thinking of basically gets down to two ring buffers both holding
-> mmaped buffers.
+Hi,
+ I've been looking at the recent 802.11 work in the -mm tree, and it's look=
+ing=20
+good so far. However, it doesn't seem to have the authentication/=20
+association/scanning stuff that the adm8211 needs. I remember that was=20
+suppose to be done in userspace, but the current code doesn't seem to have=
+=20
+anything like it.
 
-The ring device already has the recv side direction ring,
-Whats needed is tx side.
+ So.. is any work being done on it? Does that code have to be strictly in=20
+userspace? I'm not sure I like having to run a daemon for only certain=20
+wireless cards. I'd rather have a minimal set of 802.11 station/management=
+=20
+functionality in the kernel for basic managed/adhoc/monitor/WEP features,=20
+while restricting the use of WPA/HostAP/etc. to userspace. But, I have no=20
+problems either way. I'd just like to know the current state of things and=
+=20
+what people are working on..
 
->  The action enqueues skbs to the first ring buffer
-> and userspace dequeues it from there. The skb gets completely lost
-> at this point by having it shot or just cloned if mirroring is requested.
+Thanks,
+=2DMichael Wu
 
-This will happen by default i.e the mirred action will take care of
-buffer management and hopefully the ring device will worry about reusing
-those skbs.
+--nextPart5143523.WKJVzsIpdb
+Content-Type: application/pgp-signature
 
-> Userspace may reinject the skb again by putting it onto the second
-> ring buffer for a kernel thread to pick up and reinject it at
-> netif_receive_skb. Userspace may do whathever it likes as long as
-> the checksum gets corrected, it may also fragment packets and reinject
-> more than it originally received. Obviously for the redirect to
-> userspace the skb must fullfil quite a lot of requirements only
-> achievable on ingress but it would open up possibilities quite a lot.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
 
-One thing the PF_RING device needs is some form of metadata that can be
-passed to user space. PF_PACKET with MMAP has a few, but we need to do a
-lot more such as exposing most if not all of the skb metadata.
-Similarly, the direction from user space will contain details of where
-this packet is going to go (ingress vs egress) - PF_PACKET assumes
-egress only at the moment.
+iD8DBQBCJm8EyWWBbDEe0UIRAlMQAKCYZ9BUkP3OKxDHdlF+VQQEkTrYxQCgtDh+
+uK2NfPbpMB2rSbTYr456EoI=
+=pMvE
+-----END PGP SIGNATURE-----
 
-cheers,
-jamal
+--nextPart5143523.WKJVzsIpdb--
