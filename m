@@ -1,40 +1,56 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: 28 Jun 2003 20:26:50 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1056828409.6289.39.camel@dhcp22.swansea.linux.org.uk>
-References: <20030626.224739.88478624.davem@redhat.com>
-	 <21740000.1056724453@[10.10.2.4]>
-	 <Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com>
-	 <20030627.143738.41641928.davem@redhat.com>
-	 <Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com>
-	 <20030627213153.GR501@phunnypharm.org>
-	 <20030627162527.714091ce.akpm@digeo.com>
-	 <20030627223024.GT501@phunnypharm.org>
-	 <20030628003218.GE18676@work.bitmover.com>
+From: Michael Bellion and Thomas Heinz <nf@hipac.org>
+Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
+Date: Sat, 28 Jun 2003 22:04:42 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3EFDF4DA.80201@hipac.org>
+References: <Pine.LNX.4.44.0306270900260.3068-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Collins <bcollins@debian.org>, Andrew Morton <akpm@digeo.com>,
-   davidel@xmailserver.org, davem@redhat.com, mbligh@aracnet.com,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Larry McVoy <lm@bitmover.com>
-In-Reply-To: <20030628003218.GE18676@work.bitmover.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Pekka Savola <pekkas@netcore.fi>
 List-Id: netdev.vger.kernel.org
 
-On Sad, 2003-06-28 at 01:32, Larry McVoy wrote:
-> Is there any interest in having us mirror the bugzilla DB and work on
-> making an interface that works for people with different needs?  I had
-> already assumed that I'd get hissed out of the room if I proposed this
-> so feel free to say no if that's what you want.
+Hi Pekka
 
-I already pull chunks of bugzilla data into plain text for processing,
-the more formats and tools the better. You can do a lot of great things
-with large sets of bugzilla data when you throw it at a text indexing
-engine for example.
+You wrote:
+> Looks interesting.  Is there experience about this in bridging firewall 
+> scenarios? (With or without external patchset's like 
+> http://ebtables.sourceforge.net/)
 
-One of my todo list items is to learn enough emacs to play with feeding
-bugzilla data into the remembrance agent and seeing what happens
+Sorry for this answer being so late but we wanted to check whether
+nf-hipac works with the ebtables patch first in order to give you
+a definite answer. We tried on a sparc64 which was a bad decision
+because the ebtables patch does not work on sparc64 systems.
+We are going to test the stuff tomorrow on an i386 and tell you
+the results afterwards.
+
+In principle, nf-hipac should work properly whith the bridge patch.
+We expect it to work just like iptables apart from the fact that
+you cannot match on bridge ports. The iptables' in/out interface
+match in 2.4 works the way that it matches if either in/out dev
+_or_ in/out physdev. The nf-hipac in/out interface match matches
+solely on in/out dev.
+
+> Further, you mention the performance reasons for this approach.  I would 
+> be very interested to see some figures.
+
+We have done some performance tests with an older release of nf-hipac.
+The results are available on http://www.hipac.org/
+
+Apart from that Roberto Nibali did some preliminary testing on nf-hipac.
+You can find his posting to linux-kernel here: 
+http://marc.theaimsgroup.com/?l=linux-kernel&m=103358029605079&w=2
+
+Since there are currently no performance tests available for the
+new release we want to encourage people interested in firewall
+performance evaluation to include nf-hipac in their tests.
+
+
+Regards,
+
++-----------------------+----------------------+
+|   Michael Bellion     |     Thomas Heinz     |
+| <mbellion@hipac.org>  |  <creatix@hipac.org> |
++-----------------------+----------------------+
