@@ -1,47 +1,70 @@
-From: S P <speattle@yahoo.com>
-Subject: [PATCH] linux 2.6.x.x  - include/net/neighbour.h spell-check
-Date: Mon, 13 Sep 2004 10:48:39 -0700 (PDT)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: hard_start_xmit and Linux bridging
+Date: Mon, 13 Sep 2004 11:14:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913174842.96183.qmail@web90003.mail.scd.yahoo.com>
+Message-ID: <4145E37E.40706@candelatech.com>
+References: <FD52892BD296D71183B400065BFCB6900EE98AA3@il02exm12>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: Lewis Adam-CAL022 <Adam.Lewis@motorola.com>
+In-Reply-To: <FD52892BD296D71183B400065BFCB6900EE98AA3@il02exm12>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Lewis Adam-CAL022 wrote:
+> Hi Ben,
+> 
+> 
+>>-----Original Message-----
+>>From: Ben Greear [mailto:greearb@candelatech.com] 
+>>Sent: Thursday, September 09, 2004 6:30 PM
+>>To: Lewis Adam-CAL022
+>>Cc: netdev@oss.sgi.com
+>>Subject: Re: hard_start_xmit and Linux bridging
+>>
+>>I added some ioctls to allow one to turn on the ability to 
+>>receive the CRC, but I don't know of any drivers that include 
+>>it by default.
+> 
+> 
+> Right, this is what I would have expected since no other driver account for it.
+> 
+> 
+>>What driver/hardware is your eth0 device?
+> 
+> 
+> It is a custom board but a Xilinx PCORE and using a Montavista driver.  Based on what you said above, it seems that I might want to pursue this with them.
+> 
+> 
+>>How are you determining the size, by the skb->len ?
+> 
+> 
+> Exactly.  And not only does it include the FCS/CRC, but in the case of an ARP, there are an extra 14 trailing 0's.  I thought this was a bridging issue, now I'm thinking it's a xilinx/mvista issue.
+> 
+> 
+>>Does tcpdump/ethereal show the extra 4 bytes if you sniff 
+>>eth0 w/out bridging?
+> 
+> 
+> Yeah.  And in the case of ARP it is even weirder, and extra 18 bytes, mostly zeros.  So case in point, it sounds like this is not proper operation?  I want to confirm before I bring it up with Xilinx and Montavista.
 
-in linux 2.6.x.x kernel's include/net/neighbour.h
-'Neighbour' and 'Neighbor' are used interchangeably.
+Sounds to me like they are not zeroing out the padded bytes, and that
+they are also counting the padded bytes (and CRC) as valid data in
+the driver.
 
-neighbour is british variation of neighbor, so i'd say
-neighbor is more appropriate.  but then the header's
-named neighbour.  
+My vote is definately an ethernet driver bug (or bugs).
 
-just cleaning up some in-line documentations while
-reading through.
+Ben
 
-I hope my reporting format is correct!
-
-Thanks in advance.
-
-
-diff neighbour.h ../linus-2.6/include/net/neighbou
-17c17
-<  *    Neighbour Cache Entry Flags
----
->  *    Neighbor Cache Entry Flags
-24c24
-<  *    Neighbour Cache Entry States.
----
->  *    Neighbor Cache Entry States.
+> 
+> Thanks!
+> Adam
+> 
 
 
-
-		
-_______________________________
-Do you Yahoo!?
-Shop for Back-to-School deals on Yahoo! Shopping.
-http://shopping.yahoo.com/backtoschool
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
