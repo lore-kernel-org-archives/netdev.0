@@ -1,25 +1,33 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] (5/25) sk98: elimnate nested macro.
-Date: Tue, 16 Nov 2004 08:23:50 +0000
-Message-ID: <20041116082350.GB24321@infradead.org>
-References: <20041115150910.0f3b8498@zqx3.pdx.osdl.net> <20041115152208.6684c483@zqx3.pdx.osdl.net>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH] remove bogus exports in ppp
+Date: Tue, 16 Nov 2004 09:35:22 +0100
+Message-ID: <20041116083522.GA2356@lst.de>
+References: <20041024132504.GC19927@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Mirko Lindner <demon@pro-linux.de>,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: paulus@samba.org
 Content-Disposition: inline
-In-Reply-To: <20041115152208.6684c483@zqx3.pdx.osdl.net>
+In-Reply-To: <20041024132504.GC19927@lst.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 15, 2004 at 03:22:08PM -0800, Stephen Hemminger wrote:
-> Replace nested macros to handle defining 64bit constants with
-> simpler macro. Would prefer to just remove it but it gets used in multiple
-> OS common code.
+On Sun, Oct 24, 2004 at 03:25:04PM +0200, Christoph Hellwig wrote:
+> even if they are usefull for debugging they're just bad namespace
+> pollution for mainline
 
-I don't think the driver is complex enough for all that os-common mess.
-If you look at the BSD sk driver it's about a third of the size of the
-Linux driver because it doesn't have all this mess.
+ping?
+
+--- 1.50/drivers/net/ppp_generic.c	2004-08-29 07:49:19 +02:00
++++ edited/drivers/net/ppp_generic.c	2004-10-23 14:08:17 +02:00
+@@ -2721,8 +2721,6 @@
+ EXPORT_SYMBOL(ppp_output_wakeup);
+ EXPORT_SYMBOL(ppp_register_compressor);
+ EXPORT_SYMBOL(ppp_unregister_compressor);
+-EXPORT_SYMBOL(all_ppp_units); /* for debugging */
+-EXPORT_SYMBOL(all_channels); /* for debugging */
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_CHARDEV_MAJOR(PPP_MAJOR);
+ MODULE_ALIAS("/dev/ppp");
