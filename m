@@ -1,51 +1,72 @@
-From: Michal Vanco <vanco@satro.sk>
-Subject: Re: e1000 packet corruption problem
-Date: Wed, 30 Mar 2005 09:04:28 +0200
-Message-ID: <424A4F7C.2070104@satro.sk>
-References: <C925F8B43D79CC49ACD0601FB68FF50C03793405@orsmsx408>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (126)
+Date: Wed, 30 Mar 2005 18:26:40 +1000
+Message-ID: <20050330082640.GA8269@gondor.apana.org.au>
+References: <20050327091524.GA23215@elte.hu> <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au> <20050327133811.GA5569@elte.hu> <20050329104906.GA19836@gondor.apana.org.au> <20050329114926.GA14986@elte.hu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigAA4AC246E32393D810058A69"
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-In-Reply-To: <C925F8B43D79CC49ACD0601FB68FF50C03793405@orsmsx408>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="7JfCtLOvnd9MIVvH"
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, olel@ans.pl
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ingo Molnar <mingo@elte.hu>
+Content-Disposition: inline
+In-Reply-To: <20050329114926.GA14986@elte.hu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigAA4AC246E32393D810058A69
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Brandeburg, Jesse wrote:
-> You might be having interrupt routing problems, have you tried
-> pci=noapic as a boot parameter?
->
-hi
+--7JfCtLOvnd9MIVvH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-pci=noapic doesn't work (PCI: Unknown option `noapic' in dmesg).
+On Tue, Mar 29, 2005 at 01:49:26PM +0200, Ingo Molnar wrote:
+> 
+> (i guess the debug message should be extended to do a dump_stack() so 
+> that we see which process does?)
 
-tried also noapic and pci=noacpi params with the same result (packet
-corruption).
+Never mind.  I think I've found what it is.  The only thing I can't
+figure out is why we're only seeing it now when this bug has been
+around since day one.
 
-regards,
-michal
+In netlink_dump we're operating on sk after dropping the cb lock.
+This is racy because the owner of the socket could close it after
+we drop the cb lock.
 
---------------enigAA4AC246E32393D810058A69
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+This is possible because netlink_dump isn't always called from the
+context of the process that owns the socket.  For instance, if there
+is contention on rtnl then rtnetlink requests will be processed by
+the process that owns the rtnl.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.0 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+The solution is to hold a ref count on the socket before we drop
+the cb lock.
 
-iD8DBQFCSk9+SBxxqpMaGkMRAqczAJ46EWCqWLF3NgZjljV6bfm1xB+ZOgCfafuj
-2YrYHu5D1zs7P4hmw0KIWhw=
-=2nm6
------END PGP SIGNATURE-----
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
---------------enigAA4AC246E32393D810058A69--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--7JfCtLOvnd9MIVvH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/netlink/af_netlink.c 1.72 vs edited =====
+--- 1.72/net/netlink/af_netlink.c	2005-03-23 14:17:09 +11:00
++++ edited/net/netlink/af_netlink.c	2005-03-30 16:24:27 +10:00
+@@ -1080,9 +1080,11 @@
+ 	len = cb->dump(skb, cb);
+ 
+ 	if (len > 0) {
++		sock_hold(sk);
+ 		spin_unlock(&nlk->cb_lock);
+ 		skb_queue_tail(&sk->sk_receive_queue, skb);
+ 		sk->sk_data_ready(sk, len);
++		sock_put(sk);
+ 		return 0;
+ 	}
+ 
+
+--7JfCtLOvnd9MIVvH--
