@@ -1,7 +1,7 @@
 From: maximilian attems <janitor@sternwelten.at>
-Subject: [patch 4/6] char/shwdt remove duplicate msecs_to_jiffies()
-Date: Sun, 31 Oct 2004 15:45:03 +0100
-Message-ID: <20041031144503.GE28667@stro.at>
+Subject: [patch 5/6] sata_promise remove duplicate msleep() definition
+Date: Sun, 31 Oct 2004 15:45:10 +0100
+Message-ID: <20041031144510.GF28667@stro.at>
 References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,36 +18,27 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-remove duplicate msecs_to_jiffies() definition.
-add include <delay.h>.
+remove now duplicate define.
+driver already includes delay.
 
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
 
 ---
 
- linux-2.4.28-rc1-max/drivers/char/shwdt.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ linux-2.4.28-rc1-max/drivers/scsi/sata_promise.c |    2 --
+ 1 files changed, 2 deletions(-)
 
-diff -puN drivers/char/shwdt.c~remove-msecs_to_jiffies-drivers_char_shwdt drivers/char/shwdt.c
---- linux-2.4.28-rc1/drivers/char/shwdt.c~remove-msecs_to_jiffies-drivers_char_shwdt	2004-10-31 13:40:49.000000000 +0100
-+++ linux-2.4.28-rc1-max/drivers/char/shwdt.c	2004-10-31 13:42:05.000000000 +0100
-@@ -27,6 +27,7 @@
- #include <linux/reboot.h>
- #include <linux/notifier.h>
- #include <linux/ioport.h>
-+#include <linux/delay.h>
+diff -puN drivers/scsi/sata_promise.c~remove-msleep-drivers_scsi_sata_promise drivers/scsi/sata_promise.c
+--- linux-2.4.28-rc1/drivers/scsi/sata_promise.c~remove-msleep-drivers_scsi_sata_promise	2004-10-31 13:59:39.000000000 +0100
++++ linux-2.4.28-rc1-max/drivers/scsi/sata_promise.c	2004-10-31 14:00:12.000000000 +0100
+@@ -42,8 +42,6 @@
+ #define DRV_NAME	"sata_promise"
+ #define DRV_VERSION	"1.00"
  
- #include <asm/io.h>
- #include <asm/uaccess.h>
-@@ -113,7 +114,6 @@
-  */
- static int clock_division_ratio = WTCSR_CKS_4096;
- 
--#define msecs_to_jiffies(msecs)	(jiffies + (HZ * msecs + 9999) / 10000)
- #define next_ping_period(cks)	msecs_to_jiffies(cks - 4)
- 
- static unsigned long shwdt_is_open;
+-#define msleep libata_msleep	/* 2.4-specific */
+-
+ enum {
+ 	PDC_PKT_SUBMIT		= 0x40, /* Command packet pointer addr */
+ 	PDC_INT_SEQMASK		= 0x40,	/* Mask of asserted SEQ INTs */
 _
