@@ -1,55 +1,53 @@
-From: jamal <hadi@cyberus.ca>
+From: Donald Becker <becker@scyld.com>
 Subject: Re: [ANNOUNCE] NAPI patches for 2.4.19-rc1
-Date: Wed, 10 Jul 2002 19:34:02 -0400 (EDT)
+Date: Wed, 10 Jul 2002 20:41:59 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0207101917480.22734-100000@shell.cyberus.ca>
-References: <20020710223237.GA7995@orr.falooley.org>
+Message-ID: <Pine.LNX.4.44.0207102019160.2498-100000@beohost.scyld.com>
+References: <Pine.GSO.4.30.0207101917480.22734-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>, <Robert.Olsson@data.slu.se>,
-   <greearb@candelatech.com>, <garzik@mandrakesoft.com>
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <20020710223237.GA7995@orr.falooley.org>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <Pine.GSO.4.30.0207101917480.22734-100000@shell.cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
+On Wed, 10 Jul 2002, jamal wrote:
+...
+> For the best perfomance (at least on the Znyx Nics) turn on MMIO
+> (selected from kernel config). Ignore anything that looks strange
+> in the code. The dl2k and sundance driver from Ed Peng listed in the
+> README at the site should work fine on 2.4
 
+Ehhh?  Has anyone tested that sundance driver with the Kendin chip using
+the on-chip transceiver?  I'm guessing that it doesn't work.
 
-For some reason i thought there was already patches for 2.4.18 and above.
-Robert, seems like you dont have them;
-Two patches:
-2.4.18: http://www.cyberus.ca/~hadi/patches/napi-patch-2418.gz
-2.4.19-pre10: http://www.cyberus.ca/~hadi/patches/napi-2419-pre10.gz
+And, BTW, I don't like some of the driver changes in that version.
 
-Also a more recently tested tulip driver at:
-http://www.cyberus.ca/~hadi/patches/tulip-napi.tgz
-tested with Znyx 4 port ethernet cards;
-For the best perfomance (at least on the Znyx Nics) turn on MMIO
-(selected from kernel config). Ignore anything that looks strange
-in the code. The dl2k and sundance driver from Ed Peng listed in the
-README at the site should work fine on 2.4
+One pair of changes that represent "it works for me" code and flawed
+reasoning is resetting the transceiver and then calling mdelay(300).
 
-The info is at:
-ftp://robur.slu.se/pub/Linux/net-development/NAPI/README
+Unless there is a specific known hardware problem, the driver should not
+reset the transceiver and thus re-do autonegotiation.  Some switches
+(Cisco) turn off traffic to that port for a minute when link beat is
+lost, and some operations rely on being able to rapidly bring the
+interface up and down.
 
-cheers,
-jamal
+The mdelay(300) is completely bogus.  While that is a typical period for
+autonegotiation to complete on a short link, the spec says that it can
+take up to 3 seconds, 10X longer, to complete autonegotiation.  Given
+that the driver must be able to handle a longer autonegotiation period
+and no link beat, why call mdelay() at all?
 
-On Wed, 10 Jul 2002, Jason Lunz wrote:
+The driver also changes the transceiver settings to non-standard
+values.  Yes, the change might seem more descriptive, but the modified
+driver doesn't match the documentation or accept the options that other
+drivers do.  There is a value to consistency: "/bin/list" is more
+descriptive than  "/bin/ls", but you don't see any distribution trying
+to rename 'ls'... 
 
->
-> I've backported the most recent napi sources I could find to 2.4.19-rc1.
-> The patches are available at http://orr.falooley.org/pub/linux/net/.
->
-> Testing and suggestions are welcome. Currently backported napi drivers
-> are e1000, eepro100, tulip, and 3c59x. I intend to backport dl2k and
-> sundance at some point, but I have no dl2k cards and I'm working with
-> Donald Becker to get the sundance driver working on the card I have.
->
-> Does anyone know of more recent NAPI conversions? Robert Olsson tells me
-> Jeff Garzik has a more recent tulip conversion, but there are _no_ napi
-> net drivers in 2.5.25 and I haven't found any others except for those
-> mentioned at the NAPI ftp site.
->
-> Jason
->
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
+Annapolis MD 21403			410-990-9993
