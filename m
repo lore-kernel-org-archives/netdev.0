@@ -1,205 +1,73 @@
-From: Christian Borntraeger <cborntra@de.ibm.com>
-Subject: Re: [PATCH] ipv6: alternative version of S/390 shared NIC support
-Date: Wed, 19 Jan 2005 21:52:23 +0100
-Message-ID: <200501192152.23865.cborntra@de.ibm.com>
-References: <20050116115431.GA13617@lst.de> <200501181653.59041.christian@borntraeger.net> <1106142567.1049.970.camel@jzny.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: sis900: eth0: NULL pointer encountered in Rx ring, skipping
+Date: Wed, 19 Jan 2005 22:49:27 +0100
+Message-ID: <20050119214927.GA2330@electric-eye.fr.zoreil.com>
+References: <20050118101358.GA9335@xi.wantstofly.org> <20050118102139.GA9507@xi.wantstofly.org> <5cac192f0501191252406a13f2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@lst.de>, "David S. Miller" <davem@davemloft.net>,
-        pavlic@de.ibm.com, waldi@debian.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1106142567.1049.970.camel@jzny.localdomain>
+To: Eric Lemoine <eric.lemoine@gmail.com>
 Content-Disposition: inline
+In-Reply-To: <5cac192f0501191252406a13f2@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+Eric Lemoine <eric.lemoine@gmail.com> :
 [...]
-> > > Can you provision multiple of these cards per VM? if yes, is there
-> > > some ID that will break it down to OSInstance:cardid?
->
-> You did not answer this question.
-> Let me draw a diagram to show what i think the hierachy is:
->
->   Physical Card: MAC address X
->
->
->      +--- OSInstance A
->
->      |        +-- "CARD" with IP A
->      |        +-- "CARD" with IP B
->      |        +-- "CARD" with IP C
->      |        +-- "CARD" with IP D
->
->      .
->      .
->      .
->
->      +--- OSInstance N
->
->               +-- "CARD" with IP Z
->
->
-> Is the above reflective of what happens?
+> There are dev_alloc_skb()'s failing due to memory shortage. I think
+> anyhow that the sis9000 driver doesnt handle "memory squeeze"
+> situations right. Why not throwing current rx packet away and reuse
+> ring entry instead of leaving holes (null skb's) in the ring. I would
+> suggest a patch to the sis900 driver around that attached.
 
-No. Its in the simplest case a one level hierarchy, but always outside 
-Linux. 
-Just for demonstration purposes, just IMAGINE, that a cards has only one 
-device address (devno):
-
------net-------\
-               ||
-            |hardware          |
-            \------------------/
-             |  | | | | |     | 
-  /--devno---/  | | | | |     |
-  |             | . . . .     |
-  |             |             |
-Linux1       Linux2  ....... Linuxn
-
-> In other words, packet comes from the wire (with MAC address X); somehow
-> the hypervisor(?) or firmware figures based on IP address A (assuming no
-> other instance has that IP) it has to send packet to OSInstanceA.
-
-Right. Basically, the card has a table:
-DEVNO  | IP address | ROUTER?
-0-ffff | ....       | primary, secondary 
-
-If then a packet arrives it has an IP address.
-The card looks this address up in this table:
-
-   |
-   |
-   V
-is it registered             ----yes----> forward to the device number
-   |
-   |
-   V
-is there a primary router?   ----yes----> forward to device number of the
-   |                                      the primary router
-   |
-   |
-   V
-is there a secondary router? ----yes----> forward to device number of the
-   |                                      the secondary router
-   |
-   V
-drop packet. 
-
-> OSInstanceA then selects further the CARD based on something probably in
-> a descriptor?
-
-No. The packet arrives on one "CARD" and Linux gets an "interrupt" and 
-fetches the packet from that card.  You can of course have more cards per 
-linux by providing more device numbers in the profile of the virtual 
-machine. But that makes no sense unless you do some testing or the guest 
-operating system is a hypervisor itself and can dispatch the device 
-addresses to its virtual machines. 
-
->
-> Let me get to the point:
-> I think it would make sense for the "CARD" to be just another netdevice
-> (call it "card" netdevice for this discussion).
-> The representation of the physical card in the OSInstance is also a
-> netdevice(call it physical netdevice for this discussion) as it is now
-> (excpet it has no IP address ever).
-> The "card netdevices" are stacked on top of the physical netdevice. This
-> would be like an upside down bridge stacking relationship of
-> netdevices....
-> It actually is no different from a few tunnel netdevices that sit on top
-> of say eth0 or multiple PPP devices on top of ethx in a PPPOE
-> relationship.
-> The demuxing for incoming packets is done at physical card netdevice
-> to select the "card" netdevice whose receive method is then called.
-> Reverse direction for transmit (we could go into details later, just
-> wanna make sure this is sensible to begin with).
-
-If I understood you right, you think that Linux has any control of the real 
-hardware device and the card itself is created in the qeth linux driver as 
-some obscure thing.  
-No, for Linux the device backed by the 3 device addresses is as real as you 
-and me. The qeth driver calls alloc_etherdev for the device represented by 
-the 3 device addresses and, therefore, creating a netdevice for this card. 
-Thats all we have. A card that only speaks IPv4 and IPv6 with us and that 
-handles ARP for magically. To make it worse, the card only cooperates if we 
-tell the card, which IP addresses we want to use. (by the way, the card 
-recognizes duplicates)
+Imho it should not be necessary as long as the hardware is not completely
+b0rken. I'd rather see how the driver behaves when it is really short of
+memory (i.e. no entry is available for DMA in the ring). Patch below.
 
 
-> Does this sound reasonable? If yes, then if you do this you wont need to
-> hack anything like IPV6 etc in your driver - they become merely
-> netdevices. It should also allow for all standard features like ifconfig
-> up/down etc of the "card" and setting IP addresses, VLANS etc to work as
-> is. And you wont need to put any speacilized code in the driver.
-> If its off tangent, then i just wasted 1/2 a cup of coffee energy typing
-> away ;->
+Make the driver own a Rx descriptor entry as long as it is not refilled.
 
-Well, I think  you havent been fully aware of the way the card works. I hope 
-my explanation above makes it clearer. 
-In one sentence: our Linux qeth "CARDS" _are_ already netdevices. (We are 
-speaking about struct net_device, right?)
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Furthermore, as long as there is only one MAC address we need one hack for 
-IPv6, and Christophs version looks very nice and elegant. 
+diff -puN drivers/net/sis900.c~sis900-000 drivers/net/sis900.c
+--- linux-2.6.11-rc1-bk6/drivers/net/sis900.c~sis900-000	2005-01-19 22:28:38.633282552 +0100
++++ linux-2.6.11-rc1-bk6-fr/drivers/net/sis900.c	2005-01-19 22:34:16.362996145 +0100
+@@ -1643,13 +1643,15 @@ static int sis900_rx(struct net_device *
+ 	long ioaddr = net_dev->base_addr;
+ 	unsigned int entry = sis_priv->cur_rx % NUM_RX_DESC;
+ 	u32 rx_status = sis_priv->rx_ring[entry].cmdsts;
++	int rx_left;
+ 
+ 	if (sis900_debug > 3)
+ 		printk(KERN_INFO "sis900_rx, cur_rx:%4.4d, dirty_rx:%4.4d "
+ 		       "status:0x%8.8x\n",
+ 		       sis_priv->cur_rx, sis_priv->dirty_rx, rx_status);
+ 
+-	while (rx_status & OWN) {
++	rx_left = NUM_RX_DESC + sis_priv->dirty_rx - sis_priv->cur_rx;
++	while ((rx_left > 0) && (rx_status & OWN)) {
+ 		unsigned int rx_size;
+ 
+ 		rx_size = (rx_status & DSIZE) - CRC_SIZE;
+@@ -1712,7 +1714,7 @@ static int sis900_rx(struct net_device *
+ 				       net_dev->name);
+ 				sis_priv->rx_skbuff[entry] = NULL;
+ 				/* reset buffer descriptor state */
+-				sis_priv->rx_ring[entry].cmdsts = 0;
++				sis_priv->rx_ring[entry].cmdsts = OWN;
+ 				sis_priv->rx_ring[entry].bufptr = 0;
+ 				sis_priv->stats.rx_dropped++;
+ 				break;
+@@ -1728,6 +1730,8 @@ static int sis900_rx(struct net_device *
+ 		sis_priv->cur_rx++;
+ 		entry = sis_priv->cur_rx % NUM_RX_DESC;
++		rmb();
+ 		rx_status = sis_priv->rx_ring[entry].cmdsts;
++		rx_left--;
+ 	} // while
+ 
+ 	/* refill the Rx buffer, what if the rate of refilling is slower
 
->
-> > Right, without registering the IP address, you can not receive any
-> > packet.
->
-> If this is firmware issue, it would be wise to fix it. You should be
-> able to register multiple MAC addresses hidden in the firmware (not at
-> the Linux level) and have your "cards" netdevice use them. i.e the
-> "card" netdevices would own those.
-
-Well,newer cards support something like this (see the hardware announcement) 
-http://www-306.ibm.com/common/ssi/fcgi-bin/ssialias?infotype=an&subtype=ca&supplier=897&appname=IBMLinkRedirect&letternum=ENUS104-346
-) its called Layer 2 support. Unfortunately this feature is only available 
-on a subset of cards and newer zSeries machines.
-
-Just for explanation, there is a good reason that you only see the packets 
-for your IP address: scalability of virtualization. Imagine you have a 
-gigabit card shared among 80 Linuxes (quite realistic numbers). If you dont 
-filter early, you have to forward all traffic to every guest system (which 
-then can discard unneeded packages).  Then you have to provide an internal 
-bandwith of 80 Gbit/sec. Not a good idea. Therefore you have to multiplex 
-very very early and cannot set every Linux in promiscous mode for 
-performance reasons. 
-
-Furthermore, it is not that easy to change the way the card works. There are 
-other operating systems like z/OS z/VSE or z/VM running on the same 
-hardware. You dont hastily change the behaviour of hardware, firmware and 
-operating systems which runs in lots of banks and insurance companies with 
-99.999% availability without making sure that everything works flawlessly. 
-
-
-> > As the logical network interface has no own MAC address you actually
-> > speak IP to the card. That also means, that without some additional
-> > effort, tools like tcpdump fail and you need some patches in the dhcp
-> > tools.
->
-> Refer to above. If you actually have your virtual/"card" netdevice on
-> top of the physical netdevice have a MAC address, then all tools should
-> work as is with zero changes IMO.
-
-Right. Buts that just not the way the hardware works. 
-
-Pick almost any random linux driver to see ugly code to cicumvent a hardware 
-limitation. Have a look at the amount of traps in the kernel to fix cpu 
-"errata". There is no perfect hardware. 
-
-> > You can define options for routers to get more than your own packages,
-> > but IIRC you can only define a primary and secondary router per port.
->
-> Ok, this is new information - what does a "router" mean in relation to a
-> port?
-
-see above. You can have one primary and one secondary router. 
-
-I hope that helps to understand the problem. If not, please dont hesitate to 
-ask. 
-
-Christian
+_
