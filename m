@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] change delete bridge to work with new unregister
-Date: Thu, 29 May 2003 10:24:07 -0700
+Subject: [PATCH 2.5.70] sysfs cleanup and bugfix
+Date: Thu, 29 May 2003 10:30:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529102407.3d3cfefd.shemminger@osdl.org>
+Message-ID: <20030529103011.3f038db7.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,41 +12,58 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The changes in 2.5.70 for unregister cause deleteing a bridge device to
-hang, because the last reference to the bridge was being dropped after
-calling unregister_netdev.  Doing the unregister under lock, instead
-of by holding a reference fixes that.
+A couple of bugs in netdev_unregister_sysfs; still working on the harder
+refcount issues.
+	- if driver sets get_stats after register then unregister 
+	  will attempt to delete kobject that has not be initialized.
+	- unregister should call kobject_unregister not kobject_del.
 
-diff -Nru a/net/bridge/br_if.c b/net/bridge/br_if.c
---- a/net/bridge/br_if.c	Thu May 29 10:19:39 2003
-+++ b/net/bridge/br_if.c	Thu May 29 10:19:39 2003
-@@ -170,11 +170,12 @@
- 	struct net_device *dev;
- 	int ret = 0;
+cleanup's:
+	- use strlcpy instead of snprintf
+	- don't need to memset the stats kobject
+
+diff -Nru a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+--- a/net/core/net-sysfs.c	Thu May 29 10:25:04 2003
++++ b/net/core/net-sysfs.c	Thu May 29 10:25:04 2003
+@@ -294,7 +294,7 @@
+ 	class_dev->class = &net_class;
+ 	class_dev->class_data = net;
  
--	dev = dev_get_by_name(name);
-+	rtnl_lock();
-+	dev = __dev_get_by_name(name);
- 	if (dev == NULL) 
--		return -ENXIO; 	/* Could not find device */
-+		ret =  -ENXIO; 	/* Could not find device */
+-	snprintf(class_dev->class_id, BUS_ID_SIZE, net->name);
++	strlcpy(class_dev->class_id, net->name, BUS_ID_SIZE);
+ 	if ((ret = class_device_register(class_dev)))
+ 		goto out;
  
--	if (!(dev->priv_flags & IFF_EBRIDGE)) {
-+	else if (!(dev->priv_flags & IFF_EBRIDGE)) {
- 		/* Attempt to delete non bridge device! */
- 		ret = -EPERM;
- 	}
-@@ -186,11 +187,10 @@
- 
- 	else {
- 		del_ifs((struct net_bridge *) dev->priv);
--	
--		unregister_netdev(dev);
-+		unregister_netdevice(dev);
+@@ -303,17 +303,18 @@
+ 		    goto out_unreg;
  	}
  
--	dev_put(dev);
-+	rtnl_unlock();
- 	return ret;
++	
++	net->stats_kobj.parent = NULL;
+ 	if (net->get_stats) {
+ 		struct kobject *k = &net->stats_kobj;
+ 
+-		memset(k, 0, sizeof(*k));
+ 		k->parent = kobject_get(&class_dev->kobj);
+ 		if (!k->parent) {
+ 			ret = -EBUSY;
+ 			goto out_unreg;
+ 		}
+ 
+-		snprintf(k->name, KOBJ_NAME_LEN, "%s", "statistics");
++		strlcpy(k->name, "statistics", KOBJ_NAME_LEN);
+ 		k->ktype = &netstat_ktype;
+ 
+ 		if((ret = kobject_register(k))) 
+@@ -331,8 +332,9 @@
+ 
+ void netdev_unregister_sysfs(struct net_device *net)
+ {
+-	if (net->get_stats)
+-		kobject_del(&net->stats_kobj);
++	if (net->stats_kobj.parent) 
++		kobject_unregister(&net->stats_kobj);
++
+ 	class_device_unregister(&net->class_dev);
  }
  
