@@ -1,40 +1,59 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] Increase snd/rcv buffers in pppoe
-Date: Mon, 23 Feb 2004 20:38:43 +0900 (JST)
+From: Xose Vazquez Perez <xose@wanadoo.es>
+Subject: [PATCH]  detailled bcm help-2.4.25
+Date: Mon, 23 Feb 2004 14:31:22 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040223.203843.04073965.yoshfuji@linux-ipv6.org>
-References: <20040223105359.GA91938@colin2.muc.de>
-	<20040223.200101.39143636.yoshfuji@linux-ipv6.org>
-	<20040223111659.GB10681@colin2.muc.de>
+Message-ID: <403A00AA.3010707@wanadoo.es>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, mostrows@styx.uwaterloo.ca,
-        yoshfuji@linux-ipv6.org
+Content-Type: multipart/mixed;
+ boundary="------------060802080702010002080104"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@muc.de
-In-Reply-To: <20040223111659.GB10681@colin2.muc.de>
+To: jgarzik@redhat.com, netdev@oss.sgi.com, marcelo.tosatti@cyclades.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040223111659.GB10681@colin2.muc.de> (at 23 Feb 2004 12:16:59 +0100,Mon, 23 Feb 2004 12:16:59 +0100), Andi Kleen <ak@muc.de> says:
+This is a multi-part message in MIME format.
+--------------060802080702010002080104
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> On Mon, Feb 23, 2004 at 08:01:01PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> > In article <20040223105359.GA91938@colin2.muc.de> (at 23 Feb 2004 11:53:59 +0100,Mon, 23 Feb 2004 11:53:59 +0100), Andi Kleen <ak@muc.de> says:
-> > 
-> > > -#define SK_WMEM_MAX	65535
-> > > -#define SK_RMEM_MAX	65535
-> > > +#define SK_WMEM_MAX    131072
-> > > +#define SK_RMEM_MAX	131072
-> > 
-> > 131071?
-> 
-> Probably, but it doesn't make any difference; see how the skbuff socket
-> accounting works. Really there isn't really a need to make it power 
-> of two (except for mystifying arbitary magic numbers for the users ;-) 
-> 130000 or 200000 would do as well.
 
-But, others use (2^n - 1) and
-people will be confused if there are both 131071 and 131072.
+aginst 2.4.25
 
---yoshfuji
+This patch adds more realistic information about bcm NICs.
+People only know the commercial names and not about chips names.
+
+-- 
+x86-64 GenuineIntel
+
+
+--------------060802080702010002080104
+Content-Type: text/plain;
+ name="bcm-help.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="bcm-help.diff"
+
+--- linux-2.4.25/Documentation/Configure.help	2004-02-05 23:00:09.000000000 +0100
++++ n/Documentation/Configure.help	2004-02-23 14:28:05.000000000 +0100
+@@ -11859,7 +11859,7 @@
+ 
+ Broadcom Tigon3 support
+ CONFIG_TIGON3
+-  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
++  This driver supports Broadcom NetXtreme BCM570X based gigabit Ethernet cards.
+ 
+   If you want to compile this driver as a module ( = code which can be
+   inserted in and removed from the running kernel whenever you want),
+@@ -12348,9 +12348,7 @@
+ 
+ Broadcom 4400 ethernet support (EXPERIMENTAL)
+ CONFIG_B44
+-  If you have a network (Ethernet) controller of this type, say Y and
+-  read the Ethernet-HOWTO, available from
+-  <http://www.tldp.org/docs.html#howto>.
++  This driver supports Broadcom BCM440X based 10/100 Ethernet cards.
+ 
+   If you want to compile this as a module ( = code which can be
+   inserted in and removed from the running kernel whenever you want),
+
+--------------060802080702010002080104--
