@@ -1,13 +1,14 @@
 From: =?iso-8859-1?q?an7?= <an3h0ny@yahoo.fr>
 Subject: tcp checksumming
-Date: Tue, 4 Nov 2003 14:32:40 +0100 (CET)
+Date: Tue, 4 Nov 2003 14:36:15 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031104133240.89887.qmail@web11105.mail.yahoo.com>
+Message-ID: <20031104133615.86082.qmail@web11102.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
@@ -41,8 +42,6 @@ That is to say, it is like a side effect of keeping
 data in a buffer with a bad checksum.(maybe it is
 removed after ? i don't think so)
 
-PS : i have posted here many times, never get an
-answer. Please pay a little attention=20
 
 
 ___________________________________________________________
