@@ -1,26 +1,23 @@
-From: Carlos Carvalho <carlos@fisica.ufpr.br>
-Subject: Re: Memory usage for ip_conntrack
-Date: Sat, 19 Jul 2003 21:10:40 -0300
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [Fwd: kernel 2.4.21]
+Date: Sat, 19 Jul 2003 19:17:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16153.56832.379224.202834@fisica.ufpr.br>
-References: <1058558848.2674.88.camel@mentor.gurulabs.com>
-	<1058563690.26030.23.camel@tux.rsn.bth.se>
+Message-ID: <20030719191723.0821227f.davem@redhat.com>
+References: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, cedric.gavage@unixtech.be
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <1058563690.26030.23.camel@tux.rsn.bth.se>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1058634345.22000.2.camel@dhcp22.swansea.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Martin Josefsson (gandalf@wlug.westbo.se) wrote on 18 July 2003 23:28:
- >> If I echo 102400 > /proc/sys/net/ipv4/ip_conntrack_max, what is my worst
- >> case memory usage?
- >
- >Don't do this. This will increase the maximum number of connections it
- >will track, but not the number of buckets. Which means that it will be
- >slower due to longer collision-chains. Instead increase the number of
- >buckets. modprobe ip_conntrack hashsize=131072 (or any number here.
+On 19 Jul 2003 18:05:45 +0100
+Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
 
-How can we increase the number of buckets with a monolithic kernel?
+> > Jul 17 06:31:00 fazer kernel: KERNEL: assertion (newsk->state != 
+> > TCP_SYN_RECV) failed at tcp.c(2229)
+
+This one was fixed in 2.4.21
