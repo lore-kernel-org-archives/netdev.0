@@ -1,32 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: PATCH: IPSEC acquire in presence of multiple managers
-Date: Sat, 26 Mar 2005 11:58:55 +1100
-Message-ID: <20050326005855.GA23533@gondor.apana.org.au>
-References: <1111795927.1089.749.camel@jzny.localdomain> <20050326003058.GA22930@gondor.apana.org.au> <1111798470.1090.774.camel@jzny.localdomain>
+Date: Sat, 26 Mar 2005 02:23:38 +0100
+Message-ID: <4244B99A.9080507@trash.net>
+References: <1111795927.1089.749.camel@jzny.localdomain> <20050326003058.GA22930@gondor.apana.org.au> <1111798470.1090.774.camel@jzny.localdomain> <20050326005855.GA23533@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@redhat.com>,
         Masahide NAKAMURA <nakam@linux-ipv6.org>,
         Shinta Sugimoto <shinta.sugimoto@ericsson.com>,
         netdev <netdev@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1111798470.1090.774.camel@jzny.localdomain>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050326005855.GA23533@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 25, 2005 at 07:54:31PM -0500, jamal wrote:
->
-> It seems that we dont support any acquires from userspace to kernel
+Herbert Xu wrote:
+> On Fri, Mar 25, 2005 at 07:54:31PM -0500, jamal wrote:
+>=20
+>>It seems that we dont support any acquires from userspace to kernel
+>=20
+>=20
+> I haven't checked af_key but netlink does support that.  All you have
+> to do is send messages to the correct multicast group.
+>=20
+> Of course whether any of the KMs actually deal with it is a different
+> story :)
 
-I haven't checked af_key but netlink does support that.  All you have
-to do is send messages to the correct multicast group.
+af_key implements the second part of RFC2367 =A73.1.6, canceling
+an acquire request by sending an acquire message to the kernel with
+the same sequence number as the initial acquire request. It doesn't
+support the third part, acting as KM for userspace.
 
-Of course whether any of the KMs actually deal with it is a different
-story :)
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards
+Patrick
