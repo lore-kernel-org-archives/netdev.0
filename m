@@ -1,94 +1,90 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: NAPI:  dev.c change to net_rx_action algorithm.
-Date: Fri, 08 Nov 2002 21:30:37 -0800
+From: "mike obi" <ekointernationalbank@37.com>
+Subject: (no subject)
+Date: Sat, 9 Nov 2002 03:59:45 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DCC9D7D.6020005@candelatech.com>
-References: <Pine.GSO.4.30.0211082351540.16986-100000@shell.cyberus.ca>
+Message-ID: <200211091159.gA9Bxjm15929@mail14.bigmailbox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: binary
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+To: ekointernationalbank@37.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> 
-> On Fri, 8 Nov 2002, Ben Greear wrote: 
->>I'm looking for the real cause.
-> No you are not. You are looking for something that will give you some
-> quick fix given your current setup.
 
-Guilty, and as soon as I get this particular config optomized, I will
-move on to the next scenario.  If the next scenario is better by some
-other hack, then I will figure out how to reconcile the two, or make
-the algorithms dynamic if I have to.
+                       STRICTLY CONFIDENTIAL 
 
-> Be systematic about and prove where things are wrong. I even made some
-> suggestions to you a while back.
+>From the Desk of: Dr. Mike Obi
+EKO INTERNATIONAL BANK PLC, NIGERIA . 
 
-Things are wrong:  I can't tx and rx 8kpps (50Mbps) on 4 ports simultaneously.
-I have fiddled with every magic static constant I could find, so now I'm
-fidling with algoritms.  Primary culprit is rx-drop, which means the NIC
-is not getting serviced in time, if I understand correctly.  I have 1024
-rx-ring, which most agree is too large already, and yet it fills before
-I can empty it.
 
-Btw, and you'll love this one, if I change the priority of the irq thread
-to -18, things get even better ;)
+ATTN: MANAGING DIRECTOR/CEO,
 
->> From what I can tell, the old code punishes interfaces who are
->>running slower at any given time.
-> 
-> 
-> You are totaly wrong. Go and read the paper on DRR.
 
-I read the code.  It's likely I'm confused, but here is how
-I interpret it.
+Sir,
+ 
 
-#  If we are out of quota, refill quota but do not poll.
-#    Why shouldn't we poll here?  We wouldn't be in this list
-#    If there was nothing to poll, eh?
+Permit me to introduce myself to you. My name is Mr Mike Obi, Manager with Eko 
+international bank Plc, Lagos-Nigeria. 
 
-#  If we have quota, poll, but only refill quota if we still have
-#  more work to do.  Busy devices have more work to do.  Slow ones
-#  will not.  So, slow devices will have < dev->weight quota much of
-#  the time.  If the formerly slow device suddenly gets a large burst of
-#  traffic, it's first poll will likely be for a quota smaller than
-#  dev->weight.  Why would this be good?
+I came to know about you in my private search for a reliable person/company to 
+handle a confidential transaction on behalf of my Colleagues and myself.As a 
+matter of fact, I got your information from the Nigerian Chamber of Commerce and 
+Industry/Nigerian Export Promotion Council. 
 
-#  If we have quota, but do not not have more work to do after polling,
-#  then pop out of the queue.  Note quota is not refilled in this case,
-#  again punishing devices that are running slower.
+Proposition 
+A German Mr. Wolfgang Schinister, 66 years of age and a prosperous oil merchant 
+had in our Bank the sum of US$35.5m in a domiciliary account. He named his wife, 
+Mrs. Helga Schinister as the next of kin. Unfortunately, two of them were killed 
+in the recent plane crash involving concord AF4590 in Gonesse, France. Efforts 
+had been made by the management of my Bank through the German Embassy in Lagos 
+to contact any of the deceased children but to no avail, as we were made to 
+understand that the couple had no children. Given the skeletal information 
+available to the Bank, it has so far been impossible to reach any of the 
+relatives. The option left for the Bank management is to declare the deceased 
+account dormant and revert the funds to trading on behalf of and in the interest 
+of the Bank. 
 
-		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
-			local_irq_disable();
-			list_del(&dev->poll_list);
-			list_add_tail(&dev->poll_list, &queue->poll_list);
-			if (dev->quota < 0)
-                                 dev->quota += dev->weight;
-                         else
-                                 dev->quota = dev->weight;
-		} else {
-			dev_put(dev);
-			local_irq_disable();
-		}
+In Nigeria, and almost all other parts of African continent,when Banks acquire 
+funds such as that of Mr.Wolfgang Schinister,they are required by law to donate 
+30% of the funds on acquisation to The Trust Fund For Arms And Amunitions. Arms 
+and amunitions purchased with funds from the Trust Fund are used to further 
+enhance the course of war in Africa and invariably turbulence of some sort in 
+the world in general. 
 
->>I see better results with the change below.  Why is that?
->>
-> 
-> 
-> You tell me.
+It is therefore in order to avoid/avert and discourage this negative development 
+that my Colleagues and I now seek your assistance to have you stand as a distant 
+relative to Mr. and Mrs. Wolfgang Schinister, so that the funds would be 
+released to you. All documents and proofs to enable you get the funds will be 
+carefully packaged once we receive your consent on this proposal. 
 
-I think my algorithm is better, at least for this case.  It may
-be worse for others, though I'm not sure why it would be.  The
-one thing you can be certain of is that I'll let you know if
-I figure it out :)
+May I assured you that this Transaction is 100% safe and risk-free, as we have 
+taken care of all necessary modalities to ensure a hitch-free transaction. 
 
-Ben
+I have the authority of my partners involved in this transaction to propose that 
+should you be willing to assist us in the transaction your share would be 20% of 
+the US$35.5 million, 70% for us and 10% for taxation and other miscellaneous 
+expenses that may be incured in this transaction. 
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+I have reposed my confidence in you and hope that you will not disappoint me. 
+
+Best Regards. 
+
+Dr. Mike Obi
+
+
+
+
+
+
+------------------------------------------------------------
+http://Game.37.com/  <--- Free Games
+http://newJoke.com/   <---  J O K E S  ! ! !
+
+
+---------------------------------------------------------------------
+Express yourself with a super cool email address from BigMailBox.com.
+Hundreds of choices. It's free!
+http://www.bigmailbox.com
+---------------------------------------------------------------------
