@@ -1,65 +1,31 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: route cache overflow
-Date: Sat, 17 Jul 2004 13:26:52 +0200
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Fix 64bit warning for firestream
+Date: Sat, 17 Jul 2004 13:36:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16633.3324.909512.231023@robur.slu.se>
+Message-ID: <m3acxyj26v.fsf@averell.firstfloor.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
+Cc: linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: andre@insite.com.br
+To: chas@cmf.nrl.navy.mil
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+Fix obvious 64bit issue in firestream driver. I haven't tested
+if it actually works on 64bit due to lack of hardware.
 
-Andre Uratsuka Manoel writes:
- > Hello,
- > 
- > It seems that no resolution was found for the route cache DoS issue
- > (am I wrong here?).
+-Andi
 
- Well we see different performance for different flow lengths. The numbers 
- we've see is 1 packet per flow is .22 (22%) of single flow for packet 
- forwarding. Decreasing hash chain during DoS we could increase the t-put 
- to .34 of single flow. Still Linux is very usable as it is very seldom
- in real scenarios that there is 100% DoS at all interface.
-
- > I was wondering, and I'd like to persue this line of thought if you
- > don't consider this stupid: wouldn't it be better, when we find that
- > the machine is under DoS to avoid creating route cache entries instead
- > of simply trying to drop entries that exist?
-
- I did some experiments to make the route hash per device but didn't see 
- any performance wins compared to the global hash but for policy control 
- and tuning it would probably improve things with per dev hash.
+diff -u linux-2.6.8rc1-amd64-pre2/drivers/atm/firestream.c-o linux-2.6.8rc1-amd64-pre2/drivers/atm/firestream.c
+--- linux-2.6.8rc1-amd64-pre2/drivers/atm/firestream.c-o	2004-07-17 13:26:01.000000000 +0200
++++ linux-2.6.8rc1-amd64-pre2/drivers/atm/firestream.c	2004-07-17 13:33:49.525480904 +0200
+@@ -1380,7 +1380,7 @@
  
- ftp://robur.slu.se/pub/Linux/net-development/dhash
-
- But the problem is how to define/find DoS which is in reality mixed with 
- real traffic. I'm getting to think we can not have any special DoS 
- treatment at route level as this would open for new DoS attacks. We have
- to assume traffic is sane.
-
- > Couldn't we create entries only once for every 1<<n packets on
- > ip_route_input_slow so that flows with many packets will have route
- > cache entries created with higher probability than flows with very
- > little connections. The n variable could be adjusted according to
- > perceived DoS-ness.
-
- We have done a lot job already getting the skb into the CPU cache and 
- also we must look up the address to verify if it belongs to a flow or not. 
-
- It seems ipv6 does not create hash entries as ipv4 and should be more
- tolerant in this aspect but ipv6 has another major issue be design
- as the link nets have 2^64 addresses. Neighbor entries can overflow 
- any table.
-
- Also it might be interesting to see what other lookup algorithms can do.
- Working on some LPC-trie (level path compresses seach tree) code hoping 
- to able to test this for lookup someday.
-
- Cheers.
-						--ro
- 
+ 	if (alignment <= 0x10) {
+ 		t = kmalloc (size, flags);
+-		if ((unsigned int)t & (alignment-1)) {
++		if ((unsigned long)t & (alignment-1)) {
+ 			printk ("Kmalloc doesn't align things correctly! %p\n", t);
+ 			kfree (t);
+ 			return aligned_kmalloc (size, flags, alignment * 4);
