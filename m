@@ -1,117 +1,149 @@
-From: Jesse <j@lumiere.net>
-Subject: Re: Fw: [Bug 3419] New: kernel BUG at net/ipv4/fib_semantics.c:1039!
-Date: Wed, 22 Sep 2004 09:26:30 -0700 (PDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [Bug 3440] New: eth0 freezes: "NETDEV WATCHDOG: eth0: transmit
+ timed out "
+Date: Wed, 22 Sep 2004 09:27:13 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922092520.U41787@leaf.lumiere.net>
-References: <20040922092319.4ba5b8fb@dell_ss3.pdx.osdl.net>
+Message-ID: <20040922092713.18711d2d@dell_ss3.pdx.osdl.net>
+References: <200409211642.i8LGg6Uq012224@fire-1.osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040922092319.4ba5b8fb@dell_ss3.pdx.osdl.net>
+To: per.sil@gmx.it, john.ronciak@intel.com, ganesh.venkatesan@intel.com,
+        scott.feldman@intel.com
+In-Reply-To: <200409211642.i8LGg6Uq012224@fire-1.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is an ethernet driver related problem.  Which of the ethernet cars (PCNet32 or E100)
+is assigned to eth0?  And which of the two e100 drivers (e100 or eepro100) are you using?
 
-Hi Stephen,
 
-I haven't had a chance to try a new snapshot version yet. I will try one
-later today and report back.
+On Tue, 21 Sep 2004 09:42:06 -0700
+bugme-daemon@osdl.org wrote:
 
-On Wed, 22 Sep 2004, Stephen Hemminger wrote:
-
-> Is this fixed with the more recent version of 2.6.9?
-> Dave Miller fixed up several initialization bugs from his earlier
-> change.
->
-> Begin forwarded message:
->
-> Date: Sat, 18 Sep 2004 03:21:09 -0700
-> From: bugme-daemon@osdl.org
-> To: shemminger@osdl.org
-> Subject: [Bug 3419] New: kernel BUG at net/ipv4/fib_semantics.c:1039!
->
->
-> http://bugme.osdl.org/show_bug.cgi?id=3419
->
->            Summary: kernel BUG at net/ipv4/fib_semantics.c:1039!
->     Kernel Version: 2.6.9-rc2-bk3
+> http://bugme.osdl.org/show_bug.cgi?id=3440
+> 
+>            Summary: eth0 freezes: "NETDEV WATCHDOG: eth0: transmit timed out
+>                     "
+>     Kernel Version: 2.6.8.1
 >             Status: NEW
->           Severity: normal
+>           Severity: high
 >              Owner: shemminger@osdl.org
->          Submitter: j@lumiere.net
->
->
-> Distribution: Fedora Core 2 (i686)
+>          Submitter: per.sil@gmx.it
+> 
+> 
+> Hi kernel developers,
+> 
+> There exists a severe problem with a linux box of my own. The problem does not
+> occur when using kernel 2.4.25 on the same machine. I need your help.
+> 
+> Distribution:
+> -------------
+> Gentoo Linux 1.4 (2004.2), recompiled whole system with kernel 2.6 and NPTL.
+> 
 > Hardware Environment:
-> P4 3.2GHz 1MB cache, SuperMicro P4SCT+, 1 GB ECC RAM (2 x 512), 4 x SATA HD.
-> Onboard components include two gigabit ethernet controllers, LAN1/eth0 in use
-> (100Mbps, e1000). LAN1: Intel 82547GI (uses CSA), LAN2: (82541GI). Hance Rapids
-> (6300ESB) ICH, Marvell 88SX5041 SATA controller.
->
+> ---------------------
+> - IBM PC Server 325, Dual Pentium Pro 180MHz, 256MB RAM, 
+> - 3ware Controller 6410 with RAID 1+0, 
+> - PCNet32 10MBit on-board card
+> - Intel EtherExpress Pro 100
+> - RTL 8139 Card. 
+> - 2x AVM ISDN B1 active ISA cards (Rev. 2.0 and Rev. 3.0 cards)
+> 
+> Tried with both cards, and tried both manually set to half-duplex or
+> full-duplex. tried same kernel with ISDN cards removed (but modules still
+> compiled in)
+> 
+> I removed one processor using same SMP-enabled kernel on single processor system
+> - problem persists.
+> 
+> The box is connected to a DLink DGS-1008D GigaBit switch and I tried with a
+> D-Link DES 1026G switch.
+> 
+> 
+> The source of the transfer is a HP Netserver Dual Pentium III 600MHz with kernel
+> 2.4.23_pre8 SMP and same openSSH version, connected to the same switch.
+> 
+> 
 > Software Environment:
-> Fedora Core 2, updated to latest standard updates. Vanilla 2.6.9-rc2-bk3 kernel.
->
+> ---------------------
+> "vanilla" kernel 2.6.8.1 on Gentoo Linux (see dmesg output and config file)
+> IPv6 compiled in but deactivated with
+>   ifconfig eth1 inet6 del ...
+> 
+> same problem with kernel 2.6.7 and 2.6.8 using same kernel configuration.
+> 
+> gcc-3.3.4
+> glibc-2.3.4.20040808  
+> OpenSSH_3.8.1p1, OpenSSL 0.9.7d 17 Mar 2004
+> 
+> (for installed system utils, see attached file)
+> 
 > Problem Description:
-> During kudzu running on bootup, kernel BUG at net/ipv4/fib_semantics.c:1039!
-> occurs. Boot continues until "Bringing up loopback interface:" at which point it
-> gets stuck. Can still scroll up/down. Does NOT occur on 2.6.9-rc2.
->
+> ---------------------
+> 
+> When transfering some data (approx. 3 GB in size) from one amchine on the LAN to
+> this box the transmission hangs on the interface after some seconds (20MBs) and
+> a "time out" occures. Then the LAN connection freezes, is terminated and the
+> linux box is not reachable from the network anymore. After some minutes the
+> connection recoveres again.
+> 
+> The network transmission times out and the ethernet driver is not responding to
+> any LAN traffic (not even to any ICMP echo request). kernel log message tells:
+> 
+>    NETDEV WATCHDOG: eth0: transmit timed out
+>    eth0:  Tx descriptor 0 is 0008a072.
+> 
+> (off course: address of descriptor varies)
+> After approx. 4 minutes, the LAN connection of the box recovers and you can
+> connect to the box again. (until next transfer is started)
+> 
+> transfer issued by another host:
+> ................................
+> Usually a transfer host consumes all interface bandwidth available (100 MBit LAN
+> with full-duplex cards on both involved machines gives at least 1.6 MByte/s if
+> SCP overhead is taken into consideration). the connection stays alive if it
+> limited to smaller bandwith with fe. 100 Kbit (~ 12.5 KBytes) "scp -l 100 ...".
+> But using 1000 KBit (~125 KByte) "scp -l 1000 ..." the connection is freezing
+> although maximum bandwidth is not reached. 
+> 
+> transfer issued by host itself:
+> ................................
+> If the box issues a transfer from the internet using 235 KBytes/s (~ 2MBits/s)
+> everything works out fine. If the box issues the transfer from the LAN with full
+> bandwith of 1.8 MBytes/s then the LAN connection is freezing too. 
+> 
+> 
+> If I turn of window scaling with "echo 0 >
+> /proc/sys/net/ipv4/tcp_window_scaling" then the time needed to recover the
+> interface seems to decrease. The SCP transfer still freezes but LAN timeout of
+> the box is small enough to keep SSH connection alive.
+> 
+> it did not help to set the following, as suggested by other web pages:
+>   tcp_default_win_scale=0
+>   tcp_moderate_rcvbuf=0
+> 
+> 
 > Steps to reproduce:
-> Boot with 2.6.9-rc2-bk3 kernel and wait for 'Checking for new hardware'.
->
-> Here's output... possibly with a few typos, as it's copied by hand.
-> Checking for new hardware-------------[ cut here ]--------------
-> kernel BUG at net/ipv4/fib_semantics.c:1039!
-> invalid operand: 0000 [#1]
-> SMP
-> Modules linked in: e1000 floppy sg microcode uhci_hcd ehci_hcd button battery
-> asus_acpi ac ext3 jbd dm_mod ata_piix libata sd_mod linuxIAL scsi_mod raid5 xor
-> raid1
-> CPU:    1
-> EIP:    0060:[<c02be5c1>]    Tainted: P   VLI
-> EFLAGS: 00010246   (2.6.9-rc2-bk3-leaf)
-> EIP is at fib_sync_down+0x197/0x1a4
-> eax: ffffffff   ebx: 00000000   ecx: 00000002   edx: f7395000
-> esi: 00000000   edi: 00000006   ebp: f6395028   esp: f640dea8
-> ds: 007b   es: 007b   ss: 0068
-> Process modprobe (pid: 924, threadinfo=f640d000 task=f7c38550)
-> Stack: 00000282 c0104fd0 ffffffff 00000000 00000002 f6395000 f6395000 f6395000
->        00000006 f6395028 c02bcb35 c03455fc c02bcc14 c03455fc f6395000 c012ac76
->        f6395000 f6395000 c0339da8 c027bf23 00000000 c016c13a c014adda 00000292
-> Call Trace:
->  [<c0104fd0>]__down_trylock+0x3e/0x62
->  [<c02bcb35>] fib_disable_ip+0xe/0x28
->  [<c02bcc14>] fib_netdev_event+0x72/0x7e
->  [<c012ac76>] notifier_call_chain+0x17/0x2b
->  [<c027bf23>] unregister_netdevice+0x137/0x249
->  [<c016c13a>] wake_up_inode+0xc/0x3b
->  [<c016adda>] clear_inode+0x8/0xe2
->  [<c0221051>] unregister_netdev+0xf/0x15
->  [<f8c0394e>] e1000_remove+0x4c/0x7e [e1000]
->  [<c01bd396>] pci_device_remove+0x28/0x2a
->  [<c0212fd2>] device_release_driver+0x56/0x58
->  [<c0212fea>] driver_detach+0x16/0x21
->  [<c02133bc>] bus_remove_driver+0x43/0x74
->  [<c02137da>] driver_unregister+0x8/0x19
->  [<c01bd471>] pci_unregister_driver+0xb/0x13
->  [<c0133232>] sys_delete_module+0x121/0x150
->  [<c0149868>] unmap_vma_list+0xe/0x17
->  [<c0149bac>] do_munmap+0x11c/0x15f
->  [<c0118de0>] do_page_fault+0x0/0x54b
->  [<c0105e1d>] sysenter_past_esp+0x52/0x71
-> Code: e8 5b t1 01 00 83 04 24 01 8b 4f 5c eb 89 0f 0b 2a 04 1c b9 30 c0 e9 3a ff
-> ff ff 83 48 1c 01 83 44 24 0c 01 8b 11 e9 dd fe ff ff <0f> 0b 0f 04 1c b9 30 c0
-> e9 9b fe ff ff 55 57 56 53 83 ec 10 89
->   [  OK  ]
-> Updating /etc/fstab [  OK  ]
-> Setting network parameters:  [  OK  ]
-> Bringing up loopback interface:
->
+> -------------------
+> start any SCP/SFTP transfer to the linux box with kernel 2.6.8.1 - always
+> reproducable on my box. I do not know about others since this is my first box
+> with kernel 2.6.x
+> 
+> 
+> 
+> If you need more information or testing, please let me know. I will not change
+> the configuration of the box for some time to be able to fullfill your requests,
+> hoping to help solving the problem. 
+> 
+> 
+> Yours
+>   Perolo
+> 
+> PS: Dear maintainer, I am able to grant you access to the computer if this will
+> help you. please contact me if this is vital for solving the problem.
+> 
 > ------- You are receiving this mail because: -------
 > You are the assignee for the bug, or are watching the assignee.
->
-
----
-Jesse <j@lumiere.net>
