@@ -1,45 +1,46 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (126)
-Date: Tue, 29 Mar 2005 13:49:26 +0200
-Message-ID: <20050329114926.GA14986@elte.hu>
-References: <20050327091524.GA23215@elte.hu> <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au> <20050327133811.GA5569@elte.hu> <20050329104906.GA19836@gondor.apana.org.au>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
+Date: 29 Mar 2005 17:11:59 +0200
+Message-ID: <20050329151159.GC63268@muc.de>
+References: <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com> <m1zmwn21hk.fsf@muc.de> <Pine.LNX.4.61.0503281124090.4269@chimarrao.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Dmitry Yusupov <dmitry_yus@yahoo.com>, mpm@selenic.com, andrea@suse.de,
+        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+Date: Tue, 29 Mar 2005 17:11:59 +0200
+To: Rik van Riel <riel@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20050329104906.GA19836@gondor.apana.org.au>
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <Pine.LNX.4.61.0503281124090.4269@chimarrao.boston.redhat.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> On Sun, Mar 27, 2005 at 03:38:11PM +0200, Ingo Molnar wrote:
-> > 
-> > no vrrpd on this box. There's ipsec and wshaper on the box - both use 
+On Mon, Mar 28, 2005 at 11:24:55AM -0500, Rik van Riel wrote:
+> On Mon, 28 Mar 2005, Andi Kleen wrote:
 > 
-> ipsec: Depends on whether you're using ipsec-tools or *swan.
+> > So in short using mempools on receiving is not needed.
 > 
-> The former doesn't use netlink while the latter does.
+> It is, because you have to ensure that the memory that's
+> needed to receive network packets isn't tied up receiving
+> packets for non-critical sockets, which would leave the
+> critical sockets deadlocked.
 
-it's openswan/pluto.
+Again the in socket queue is in no way different from all
+the tens of hundreds of limited size queues that make 
+up a network. It is quite useless to concentrate on only
+one queue in the receiver computer, while all the others still can lose 
+packets.
 
-> wshaper: Yes when it's setting things up.
+The only way to solve such problems in the TCP/IP model
+is to retransmit at the source. This means the TCP write
+path needs to be reliable, but receiving does not need to be.
 
-so it could be both - the ipsec startup/restart script that is used on 
-the box uses wshaper too.
+TCP will continuing retransmitting for hours.  If you network
+system is so tied up that you cannot receive anything for hours
+then yes youre screwed, but I doubt memory reservation will fix
+such extreme problems.
 
-> > netlink? No ULOG target AFAIK (it's a pretty much stock FC4 install).
-> 
-> cat /proc/net/netlink
-> 
-> should tell you what's using it all the time.
-
-pluto (ipsec/openswan), dbus-daemon, hald.
-
-(i guess the debug message should be extended to do a dump_stack() so 
-that we see which process does?)
-
-	Ingo
+-Andi
