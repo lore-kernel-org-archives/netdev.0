@@ -1,59 +1,52 @@
-From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: Re: [PATCH 2.6.1] Net device error logging
-Date: Tue, 20 Jan 2004 15:19:29 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6.1] Allow pcnet_cs to work with shared irq
+Date: Tue, 20 Jan 2004 16:22:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <400DB781.4229A084@us.ibm.com>
-References: <400C3D3E.BFCC25CE@us.ibm.com> <20040119184630.5d066735.akpm@osdl.org>
+Message-ID: <20040120162251.291a0e39.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com,
-        scott.feldman@intel.com, kessler@us.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>, Paul Gortmaker <p_gortmaker@yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
->
-> Jim Keniston <jkenisto@us.ibm.com> wrote:
-> >
-> > The enclosed patch implements the netdev_* error-logging macros for
-> >  network drivers.
->
-> Looks OK to me.
->
-> But it does make one wonder whether we'll soon see standalone patches for
-> scsi_printk(), pci_bridge_printk(), random_other_subsystem_printk(), ...?
+On some laptops, the pcmcia card shares an irq with other things
+like the serial or irda ports.  The pcnet_cs driver did not correctly
+handle shared interrupts, this fixes it for me.
 
-Well, there is indeed sdev_printk for the SCSI mid-layer and low-level
-drivers.  Dan Stekloff posted an updated patch for this on linux-scsi
-yesterday.
+ei_interrupt now returns IRQ_HANDLED if some frames have been serviced,
+and the wrapper routine propagates the error code.
 
-When Alan Cox suggested dev_printk, it was with the idea that other
-subsystems might have similar macros.  Although I don't know of other
-such macros in the works, I wouldn't rule them out.
-
->
-> Or is it intended that the backend logging code will be implemented mainly
-> in terms of the `struct device'?  So netdev_printk() will be a bit of
-> netdev-specific boilerplate which then calls into a more generic
-> device_printk()?
-
-I think dev_printk will work just fine for drivers where [driver name +
-bus ID] is the appropriate message tag.  Where that's not the case, other
-macros emerge.  (For example, for net devices you want the interface
-name, and for SCSI devices the SCSI bus ID is more interesting than the
-PCI bus ID.)
-
-Another thing to consider is whether, for the subsystem in question,
-some other struct pointer (e.g., struct net_device* or struct
-scsi_device*) might prove more useful in the future than the struct
-device pointer.  I.e., such pointers could be used to get at the struct
-device AND other subsystem-specific info.
-
-Also, there are also situations where there is no underlying struct
-device (e.g., some upper-level network drivers) or the driver is not yet
-defined (e.g., during a SCSI scan).
-
-Jim Keniston
+diff -Nru a/drivers/net/8390.c b/drivers/net/8390.c
+--- a/drivers/net/8390.c	Tue Jan 20 16:21:00 2004
++++ b/drivers/net/8390.c	Tue Jan 20 16:21:00 2004
+@@ -520,7 +520,7 @@
+ 		}
+ 	}
+ 	spin_unlock(&ei_local->page_lock);
+-	return IRQ_HANDLED;
++	return IRQ_RETVAL(nr_serviced > 0);
+ }
+ 
+ /**
+diff -Nru a/drivers/net/pcmcia/pcnet_cs.c b/drivers/net/pcmcia/pcnet_cs.c
+--- a/drivers/net/pcmcia/pcnet_cs.c	Tue Jan 20 16:21:00 2004
++++ b/drivers/net/pcmcia/pcnet_cs.c	Tue Jan 20 16:21:00 2004
+@@ -1193,10 +1193,11 @@
+ static irqreturn_t ei_irq_wrapper(int irq, void *dev_id, struct pt_regs *regs)
+ {
+     pcnet_dev_t *info = dev_id;
+-    info->stale = 0;
+-    ei_interrupt(irq, dev_id, regs);
+-    /* FIXME! Was it really ours? */
+-    return IRQ_HANDLED;
++    irqreturn_t ret = ei_interrupt(irq, dev_id, regs);
++
++    if (ret == IRQ_HANDLED)
++	    info->stale = 0;
++    return ret;
+ }
+ 
+ static void ei_watchdog(u_long arg)
