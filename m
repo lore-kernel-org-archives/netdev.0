@@ -1,40 +1,50 @@
-From: Prasanna Meda <pmeda@akamai.com>
-Subject: Re: rcv_wnd = init_cwnd*mss
-Date: Thu, 28 Oct 2004 17:55:48 -0700
+From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
+Subject: RE: [PATCH 2.6.9-rc2 1/12] S2io: cosmetic changes
+Date: Thu, 28 Oct 2004 18:10:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41819514.C25D7A51@akamai.com>
-References: <DB2C167D8FFDEA45B8FC0B1B75E3EE154A3B08@usca1ex-priv1.sanmateo.corp.akamai.com> <20041028165658.753eee50.davem@davemloft.net>
+Message-ID: <005301c4bd54$26daea00$9810100a@S2IOtech.com>
+References: <418181D9.5010603@pobox.com>
+Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com
+Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>,
+        <leonid.grossman@s2io.com>, <raghavendra.koushik@s2io.com>,
+        <rapuru.sriram@s2io.com>, <alicia.pena@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: "'Jeff Garzik'" <jgarzik@pobox.com>
+In-reply-to: <418181D9.5010603@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" wrote:
+Jeff,
+Looks like outlook client is garbling some of the patch.
+We'll try to send using different client, but can you pls
+try with -l option on all the patches and see if it applies
+cleanly ?
 
-> On Wed, 27 Oct 2004 23:15:48 -0700
-> "Meda, Prasanna" <pmeda@akamai.com> wrote:
->
-> > Thanks, still it is unclear to me why are we
-> > downsizing the advertised window(rcv_wnd) to cwnd?
-> > To defeat disobeying sender, or something like below?
->
-> There is never any reason to advertise a receive window
-> larger than the initial congestion window of the sender
-> could ever be.
->
-> Setting it properly like this also makes sure that we do
-> receive window update events at just the right place as
-> the sender starts sending us the initial data frames.
+Thanks for your patience.
 
-That makes sense!
+Ravi
 
-But are we coping with cwnd increase on sender?
-Looks rcv rwnd s updated by only 1 pkt at time.
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com]
+Sent: Thursday, October 28, 2004 4:34 PM
+To: ravinandan.arakali@s2io.com
+Cc: 'Francois Romieu'; netdev@oss.sgi.com; leonid.grossman@s2io.com;
+raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com;
+alicia.pena@s2io.com
+Subject: Re: [PATCH 2.6.9-rc2 1/12] S2io: cosmetic changes
 
 
-Thanks,
-Prasanna.
+With this new resend, I tried with both my automated scripts, and 
+applying manually as well.
+
+All attempts succeed on patches #1 and #2, but fail on #3 - #12.
+
+If I manually add the "-l" argument to patch(1), then patch #3 succeeds. 
+  That implies that somewhere in your process, whitespace in your 
+patches is getting corrupted.
+
+	Jeff
