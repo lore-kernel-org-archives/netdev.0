@@ -1,28 +1,32 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 29 Sep 2004 23:43:50 +0200
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Move fib_alias out of fib_hash.c
+Date: Wed, 29 Sep 2004 23:43:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929214350.GA26714@wotan.suse.de>
-References: <20040928223344.GC2975@wotan.suse.de> <Pine.NEB.4.33.0409282323220.27103-100000@dexter.psc.edu> <20040929140016.7ffa4e8b.davem@davemloft.net> <415B2647.8080803@us.ibm.com> <20040929142252.393a976d.davem@davemloft.net>
+Message-ID: <16731.11413.331685.70763@robur.slu.se>
+References: <20040928214722.11aef8e0.davem@davemloft.net>
+	<16730.53965.503605.943263@robur.slu.se>
+	<20040929125359.12a00ba7.davem@davemloft.net>
+	<1096492842.2344.57.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nivedita Singhvi <niv@us.ibm.com>, jheffner@psc.edu, ak@suse.de,
-        netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040929142252.393a976d.davem@davemloft.net>
+To: Steven Blake <slblake@petri-meat.com>
+In-Reply-To: <1096492842.2344.57.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I need to see the crash folks are seeing.  Does it only happen
-> when you have tcpdump attached to the interface running the
-> test?  Does it happen only on the sender or the receiver
 
-It happens without tcpdump too.
+Steven Blake writes:
 
-> in the netperf test?  Those would be a good clues, indicating
+ > No routing protocols are distributing TOS-specific routes, and there is
+ > no prospect of that feature ever coming back.  Why pay the cost of
+ > matching TOS on every packet forwarded?
 
-The sender first gets slow, then eventually crashes.
+ Well you may be right but with a pluggable lookup algo we could choose
+ between TOS-capable/complex and more lightweight and speedy things.
 
--Andi
+ Cheers.
+						--ro
