@@ -1,96 +1,42 @@
-From: Jeff Garzik <jgarzik@mandrakesoft.com>
-Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Mon, 16 Sep 2002 20:01:24 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D8670D4.9040801@mandrakesoft.com>
-References: <3D86645F.5030401@mandrakesoft.com>	<20020916.160210.70782700.davem@redhat.com>	<3D866DD5.4080207@mandrakesoft.com> <20020916.164343.128145825.davem@redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: bonding vs 802.3ad/Cisco EtherChannel link agregation
+Date: Tue, 17 Sep 2002 06:16:51 -0400 (EDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.GSO.4.30.0209170608510.1371-100000@shell.cyberus.ca>
+References: <3D860246.3060609@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060600040500080402020405"
-Cc: dwmw2@infradead.org, linux-kernel@vger.kernel.org, todd-lkml@osogrande.com,
-   hadi@cyberus.ca, tcw@tempest.prismnet.com, netdev@oss.sgi.com,
-   pfeather@cs.unm.edu
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Chris Friesen <cfriesen@nortelnetworks.com>,
+	Cacophonix <cacophonix@yahoo.com>, <linux-net@vger.kernel.org>,
+	<netdev@oss.sgi.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3D860246.3060609@candelatech.com>
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060600040500080402020405
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-David S. Miller wrote:
->    From: Jeff Garzik <jgarzik@mandrakesoft.com>
->    Date: Mon, 16 Sep 2002 19:48:37 -0400
-> 
->    I dunno when it happened, but 2.5.x now returns EINVAL for all 
->    file->file cases.
->    
->    In 2.4.x, if sendpage is NULL, file_send_actor in mm/filemap.c faked a 
->    call to fops->write().
->    In 2.5.x, if sendpage is NULL, EINVAL is unconditionally returned.
->    
-> 
-> What if source and destination file and offsets match?
 
 
-The same data is written out.  No deadlock.
-(unless the attached test is wrong)
+On Mon, 16 Sep 2002, Ben Greear wrote:
 
-	Jeff
+> Also, I notice lots of out-of-order packets on a single gigE link when running at high
+> speeds (SMP machine), so the kernel is still having to reorder quite a few packets.
+> Has anyone done any tests to see how much worse it is with dual-port bonding?
 
+It will depend on the scheduling algorithm used.
+Always remember that reordering is BAD for TCP and you shall be fine.
+Typical for TCP you want to run a single flow onto a single NIC.
+If you are running some UDP type control app in a cluster environment
+where ordering is a non-issue then you could maximize throughput
+by sending as fast as you can on all interfaces.
 
+>
+> NAPI helps my problem, but does not make it go away entirely.
+>
 
---------------060600040500080402020405
-Content-Type: text/plain;
- name="sendfile-test-2.c"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sendfile-test-2.c"
+Could you be more specific as to where you see reordering with NAPI?
+Please dont disappear. What us it that you see that makes you believe
+theres reordering with NAPI i.edescribe your test setup etc.
 
-#include <sys/sendfile.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <stdio.h>
+cheers,
+jamal
 
-int main (int argc, char *argv[])
-{
-	int in, out;
-	struct stat st;
-	off_t off = 0;
-	ssize_t rc;
-
-	in = open("test.data", O_RDONLY);
-	if (in < 0) {
-		perror("test.data read");
-		return 1;
-	}
-
-	fstat(in, &st);
-
-	out = open("test.data", O_WRONLY);
-	if (out < 0) {
-		perror("test.data write");
-		return 1;
-	}
-
-	rc = sendfile(out, in, &off, st.st_size);
-	if (rc < 0) {
-		perror("sendfile");
-		close(in);
-		unlink("out");
-		close(out);
-		return 1;
-	}
-
-	close(in);
-	close(out);
-	return 0;
-}
-
-
---------------060600040500080402020405--
