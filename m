@@ -1,28 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6, sit: set prefix length 64 for link-local
- addresses
-Date: Fri, 26 Sep 2003 20:19:53 -0700
+From: Linus Torvalds <torvalds@osdl.org>
+Subject: Re: [bk patches] 2.6.x net driver updates
+Date: Fri, 26 Sep 2003 22:20:21 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030926201953.3dfc67bf.davem@redhat.com>
-References: <20030926175405.GA31498@wsx.ksp.sk>
+Message-ID: <Pine.LNX.4.44.0309262217350.1863-100000@home.osdl.org>
+References: <20030926010218.GA32679@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jan Oravec <jan.oravec@6com.sk>
-In-Reply-To: <20030926175405.GA31498@wsx.ksp.sk>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030926010218.GA32679@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 26 Sep 2003 19:54:05 +0200
-Jan Oravec <jan.oravec@6com.sk> wrote:
 
-> please apply the following patch.
-> 
-> It sets the prefix length 64 instead of 128 for link-local addresses on sit interfaces.
 
-I've seen this patch before, and I remember it being rejected
-by other ipv6 developers.
+Hmm.. "make allyesconfig" is broken again:
 
-Do the USAGI or other folks remember what is going on here?
+	drivers/net/hamradio/baycom_epp.c:1447: conflicting types for `baycom_epp_setup'
+	drivers/net/hamradio/baycom_epp.c:1359: previous declaration of `baycom_epp_setup'
+
+and
+
+	drivers/net/sk98lin/skdim.c: In function `GetCurrentSystemLoad':
+	drivers/net/sk98lin/skdim.c:322: `smp_num_cpus' undeclared (first use in this function)
+	drivers/net/sk98lin/skdim.c:322: (Each undeclared identifier is reported only once
+	drivers/net/sk98lin/skdim.c:322: for each function it appears in.)
+	drivers/net/sk98lin/skdim.c:322: warning: unused variable `SKNumCpus'
+
+Pls fix,
+
+		Linus
