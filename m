@@ -1,50 +1,48 @@
-From: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
-Subject: Re: [Prism54-devel] Re: Prism54 in 2.6.4-bk2
-Date: Tue, 16 Mar 2004 01:47:58 -0500
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Prism54 Driver Project Complete
+Date: Tue, 16 Mar 2004 01:53:51 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040316064758.GI24063@ruslug.rutgers.edu>
-References: <5.1.0.14.2.20040313180709.00ab4250@pop.t-online.de> <1079199572.7111.0.camel@lapy.tuxslare.org> <20040313203058.GY32439@ruslug.rutgers.edu> <20040313221529.GC32439@ruslug.rutgers.edu> <40569B4B.2020402@pobox.com>
+Message-ID: <4056A47F.7070904@pobox.com>
+References: <20040316055249.GE24063@ruslug.rutgers.edu> <4056983B.9010609@pobox.com> <20040316063856.GH24063@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-        prism54-devel@prism54.org, netdev@oss.sgi.com, jgarzik@redhat.com
+        prism54-devel@prism54.org, netdev <netdev@oss.sgi.com>,
+        linux-kernel@vger.kernel.org, jgarzik@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40569B4B.2020402@pobox.com>
+To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
+In-Reply-To: <20040316063856.GH24063@ruslug.rutgers.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 16, 2004 at 01:14:35AM -0500, Jeff Garzik wrote:
-> Luis R. Rodriguez wrote:
-> >Regarding WDS on prism54: on the netdev list we discussed this
-> >but no one got back to me as to whether we should really just nuke this
-> >code. Prism54 driver source *does* include WDS support because hey, the
-> >firmware does. Why wouldn't it go in the driver? We haven't given WDS
-> >much though anyway since it's also been low priority on our TODO list.
-> 
-> The WDS code was dead code as merged.
-> 
-> If you actually use it, I don't mind adding it :)
+Luis R. Rodriguez wrote:
+> Well in that case we'll also act as the "official" prism54 patch
+> recipients/senders. And by "we" I mean any of the prism54 developers
+> listed on our project page. We can do this but we can only do this if the
+> patches are sent to *us* based on clean bk trees. It's important that
+> patches are sent to *us* prior to inclusion in the kernel since this
+> driver is not the normal 1-file driver. If a patch goes into the driver
+> in the kernel tree but not ours it's going to be a pain mantaining our
+> tree / writing patches for you (as was done just now), specially since
+> we're still a heavily active driver project. 
 
-I don't know of anybody who uses it. We did consider to drop it but we
-just never got around to deciding what we were going to do about it. I
-know it's there and it's *supposed* to work. 
+That's not scalable, since the upstream tree should not bottleneck on 
+another tree.
 
-Can we get back to you on that?  :)  It is just code that *is*
-driver/hardware specific.
+If "prism54 dev team" are active maintainers, and respond to feedback 
+and users patches, _most_ patches will come from you.  But this is never 
+a guarantee...  Also, you should expect that developers often work 
+exclusively with the upstream tree, so patches from outside developers 
+will be diff'd against latest upstream BK.
 
-Actually can I just send you a patch for 2.6 for the latest 2.6 tree to
-match ours? That is, rm -rf prism54/ as is and add our latest patch ?
-It'd save a lot of work on our end.
+I think we all want the same thing...  a decent prism54 maintained by 
+folks that know it best.  For the prism54 dev team, that means keeping 
+track of any upstream changes.  For the Linux community's part, the 
+standard etiquette is to mail a patch to the driver's maintainer. 
+Sometimes this etiquette is bypassed for stuff like:  first-time merges, 
+changes that affect large numbers of drivers (of which prism54 just 
+happens to be one of) in Linux, and simple build fixes from architecture 
+maintainers.
 
-We'll still do the 2.6 / 2.4 split and clean the 2.6 code of 2.4 code,
-but can you just give us the opportunity to do it from within our tree?
-
-It'd cure many headaches (on our end at least).
-
-	Luis
-
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+	Jeff
