@@ -1,40 +1,33 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
-Date: 04 Apr 2005 18:42:55 -0400
-Message-ID: <1112654575.1089.17.camel@jzny.localdomain>
-References: <1112406164.1088.54.camel@jzny.localdomain>
-	 <20050402014619.GB24861@gondor.apana.org.au>
-	 <1112469601.1088.173.camel@jzny.localdomain>
-	 <1112538718.1096.394.camel@jzny.localdomain>
-	 <20050404005805.GA16543@gondor.apana.org.au>
-	 <1112614706.1096.439.camel@jzny.localdomain>
-	 <20050404121641.GA12103@gondor.apana.org.au>
-	 <1112619096.1088.473.camel@jzny.localdomain>
-	 <20050404130224.GA12546@gondor.apana.org.au>
-	 <1112620614.1088.489.camel@jzny.localdomain>
-	 <20050404213149.GA15222@gondor.apana.org.au>
-	 <1112653217.1088.2.camel@jzny.localdomain>
-	 <20050404152506.15e1404b.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Subject: Re: [PATCH 2/2][AX25] make ax25_queue_xmit a net_device parameter
+Date: Mon, 4 Apr 2005 20:08:39 -0300
+Message-ID: <39e6f6c70504041608707cb02f@mail.gmail.com>
+References: <20050404195030.GJ640@conectiva.com.br>
+	 <1112645495.1078.40.camel@jzny.localdomain>
+Reply-To: acme@conectiva.com.br
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kaber@trash.net, nakam@linux-ipv6.org,
-        netdev <netdev@oss.sgi.com>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+        "David S. Miller" <davem@davemloft.net>,
+        Ralf Baechle <ralf@linux-mips.org>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050404152506.15e1404b.davem@davemloft.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1112645495.1078.40.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-04-04 at 18:25, David S. Miller wrote:
+On 04 Apr 2005 16:11:36 -0400, jamal <hadi@cyberus.ca> wrote:
+> 
+> You probably wanna set skb->input_dev in ax25_type_trans() as well
+> something like:
+> skb->input_dev = skb->dev = dev
 
-> If you only take write_lock() from process context, only the write_lock()'s
-> need BH disabling.  read_lock() takers can then nest arbitrarily, BH or not.
+Yup, forgot about this one in this patch, but I want right now is mostly to
+reduce open coding all around while maintaining the same behaviour, in
+time we can eventually see a better abstraction for this set of operations,
+it should also set skb->protocol internally and not return a value to set
+skb->protocol, etc. :-)
 
-Ok, never mind - Ive made the change. 
-As soon as Masahide tests i will post the final patch.
-
-cheers,
-jamal
+- Arnaldo
