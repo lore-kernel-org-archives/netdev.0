@@ -1,79 +1,92 @@
-From: psql2k@yahoo.com.tw
-Subject: =?big5?Q?=B0=EA=BB=DA=AF=C5 =A4=A4=AD^=A4=E5=B7|=ADp =BA[=B6i=BEP=A6s=B3n=C5=E9 (ERP)?=
-Date: Sun, 18 Apr 2004 11:34:29 -0700
+From: "Paul Rolland" <rol@as2917.net>
+Subject: RE: [2.6.5] Bad scheduling while atomic
+Date: Sun, 18 Apr 2004 20:50:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <fwrKp3SuvbPuR@sky.seed.net.tw>
+Message-ID: <200404181851.i3IIp1107295@tag.witbe.net>
+References: <20040416131633.1bfbfa4c@dell_ss3.pdx.osdl.net>
+Reply-To: <rol@as2917.net>
 Mime-Version: 1.0
-Content-Type: multipart/related;
-	type="multipart/alternative";
-	boundary="----=_NextPart_bAw6QuoCF9N3XSxxxA9JLfp"
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: "'Paul Rolland'" <rol@witbe.net>, <linux-kernel@vger.kernel.org>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: 
+To: "'Stephen Hemminger'" <shemminger@osdl.org>,
+        "'David S. Miller'" <davem@redhat.com>
+In-Reply-To: <20040416131633.1bfbfa4c@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+Thanks Stephen for being so fast !
 
-------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfp
-Content-Type: multipart/alternative;
-	boundary="----=_NextPart_bAw6QuoCF9N3XSxxxA9JLfpAA"
+Regards,
+Paul
 
+Paul Rolland, rol(at)as2917.net
+ex-AS2917 Network administrator and Peering Coordinator
 
-------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfpAA
-Content-Type: text/html;
-	charset="big5"
-Content-Transfer-Encoding: base64
+--
 
-PGh0bWw+DQo8aGVhZD4NCjx0aXRsZT5VbnRpdGxlZCBEb2N1bWVudDwvdGl0bGU+DQo8bWV0YSBo
-dHRwLWVxdWl2PSJDb250ZW50LVR5cGUiIGNvbnRlbnQ9InRleHQvaHRtbDsgY2hhcnNldD1iaWc1
-Ij4NCjwvaGVhZD4NCg0KPGJvZHkgYmdjb2xvcj0iI0ZGRkZGRiIgdGV4dD0iIzAwMDAwMCI+DQo8
-cCBjbGFzcz0iTXNvTm9ybWFsIj48Yj48Zm9udCBzaXplPSI0Ij5CcmluZyB5b3VyIEVudGVycHJp
-c2UgaW50byBJbnRlcm5hdGlvbiANCiAgPC9mb250PjwvYj48L3A+DQo8cCBjbGFzcz0iTXNvTm9y
-bWFsIj48Zm9udCBmYWNlPSJBcmlhbCI+PGZvbnQgc2l6ZT0iNCI+PGI+PGZvbnQgc2l6ZT0iMyI+
-UGxlYXNlIA0KICBjb250YWN0OjwvZm9udD48L2I+PC9mb250Pjxmb250IHNpemU9IjMiPjxicj4N
-CiAgPGI+VGFpd2FuOiArODg2IDIgMjc1NDEzMjYgTXIuIENsZXJrIFNoYXc8L2I+PC9mb250Pjxi
-cj4NCiAgPC9mb250PjwvcD4NCjxkaXYgYWxpZ249ImxlZnQiPg0KICA8cD48Zm9udCBmYWNlPSJB
-cmlhbCI+PGI+PGZvbnQgc2l6ZT0iNCI+QUNDUEFDIGZvciBXaW5kb3dzIDwvZm9udD48L2I+PGI+
-QUNDUEFDIA0KICAgILDqu9qvxSCkpK1epOW3fK1wILpbtmm+UKZzs27F6SZuYnNwOyA8L2I+IDxi
-cj4NCiAgICA8aT48Zm9udCBjb2xvcj0iI0ZGMDAwMCI+PGI+KKVArMmyxKRHpGqzbsXpvHSw0zog
-Q0EgKENvbXB1dGVyIEFzc29jaWF0ZXMprOO1bywgDQogIKX+snm2V7lMNTW4VaXOpOEpPC9iPjwv
-Zm9udD48L2k+PC9mb250PjwvcD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+IA0KICA8cD48
-Zm9udCBmYWNlPSJBcmlhbCI+Jmx0O7zSstUmZ3Q7p3TBYLFiKEdMKSDAs6assWK02ihBUikgwLOl
-SbFitNooQVApIKZzs2axsajuKElDKSC+ULDiqHSyzihPRSkgDQogICAgrXHByqh0ss4oUE8pPGJy
-Pg0KICAgIDwvZm9udD48Zm9udCBmYWNlPSJBcmlhbCI+Jmx0O6jkpUy80rLVJmd0O6d0JnF1b3Q7
-sU2u16aopbuxsajuJnF1b3Q7KFByb2plY3QgJmFtcDsgSm9iIA0KICAgIENvc3QpLCAmcXVvdDu7
-c7N5t36odLLOJnF1b3Q7KE1JU3lzKSwgJnF1b3Q7q8ik4bresnqodLLOJnF1b3Q7KENSTSkuLi4g
-taW1pS4gPC9mb250PjwvcD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+DQogIDxwPjxmb250
-IGZhY2U9IkFyaWFsIj48Yj4xLiC46q7Grnequr7jplihRzwvYj48YnI+DQogICAgsN+kQKVpvuOm
-WMP2s3Omobjqrsaud6FHUGVydmFzaXZlLlNRTCwgREIyLCBNUy1TUUwgJmFtcDsgT3JhY2xlIKq6
-sNO3frresnqzbsXpqHSyzqFBpdGp80RCMiwgTVMtU1FMIA0KICAgICZhbXA7IE9yYWNsZSZuYnNw
-O7jqrsaud6Sns0KyeqFBrmW2caFBpM663rJ6taW8danKoUGlu7Kjq36lab5Bpliko6ZQpGqkcKSn
-pfi3fqFBpL2lcaFBpua4ubWloUM8YnI+DQogICAgPC9mb250PjwvcD4NCiAgPHA+PGZvbnQgZmFj
-ZT0iQXJpYWwiPjxiPjIuIKZ3pf6pyrtQs8a0qanKoUc8L2I+PGJyPg0KICAgIKVpqU0gTWljcm9z
-b2Z0IElJUyA1LjUgvuOmWLSjqNGodLLOpnel/qFBu7e63cCzpc6zbsXppKelXK/goUM8YnI+DQog
-ICAgqOSw07d+ut6yerNuxemodLLOpKem+KpBvrmlQrFOpmK69LvauvS49CAoSW50ZXJuZXQppFe0
-o6jRt3ytcKFBut6yeqFBrHm1e6FBsbG63qFBuOqwVLWlpVyv4KFDPGJyPg0KICAgIDwvZm9udD48
-L3A+DQo8L2Rpdj4NCjxkaXYgYWxpZ249ImxlZnQiPg0KICA8cD48Zm9udCBmYWNlPSJBcmlhbCI+
-PGI+My4gvHWpyqq6s/iq7bKjpc2lXK/goUc8L2I+PGJyPg0KICAgIKR3vuOmWCBNUy1FeGNlbCCk
-ziBDcnlzdGFsIFJlcG9ydCC1paVcr+CxaqRqpKez+KrtsqOlzb65oUGlacBIrsmozKvIpOGkp7vd
-rW6hQatEsWC8danKpUKnWa7Jqrqyo6XNsXqp0rvdrW6kp6ZVpqGz+KrtoUM8YnI+DQogICAgPC9m
-b250PjwvcD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+DQogIDxwPjxmb250IGZhY2U9IkFy
-aWFsIj48Yj40LiC8danKpM6p9q3Xp++quqjPpc6qzKS2rbGhRzwvYj48YnI+DQogICAgtKOo0bZ9
-qfGmoajPpc6qzKS2rbGlraV4oUGoz6XOqsylaajMptukdqS9pXGxsbreoUG46q7Gs0KyerWlptum
-5q3Xp++lQqSju92t7KlsvVikzq2rt3O9c7/op1mlab7ep0ChQzxicj4NCiAgICA8L2ZvbnQ+PC9w
-Pg0KPC9kaXY+DQo8ZGl2IGFsaWduPSJsZWZ0Ij4NCiAgPHA+PGZvbnQgZmFjZT0iQXJpYWwiPjxi
-PjUuILZ9qfGmoaWtpXiodLLOoUc8L2I+PGJyPg0KICAgILSjqNG2fanxpqGodLLOpa2leKFBpWmk
-ubNcqM+lzqrMq9yuZan2pWmozKbbpua73ahEptO2fbVvu1Clu7Kjq36s27NzpKe80rLVpMazbsXp
-oUOlu7Kjq36kd6aztle5TCAxMDAgrmGw6rvaqr6mV7Nuxem8dLDTpl2ryKThpKeko6ZQoUGm07Sj
-qNGmVaahplW8y6SjplC73ahEpKes27NzsbW80rLVpMazbsXpoUM8YnI+DQogICAgPC9mb250Pjwv
-cD4NCjwvZGl2Pg0KPGRpdiBhbGlnbj0ibGVmdCI+DQogIDxwPjxmb250IGZhY2U9IkFyaWFsIj48
-Yj42Lg0KICAgIKR3u1BNUy1FeGNlbL7jplihRzwvYj48YnI+DQogICAgtKOo0alNTVMtRXhjZWys
-27NzpKelXK/goUGoz6XOqsylaaVIptum5rNdrXGoz6XORXhjZWwgUmVwb3J0oUM8YnI+DQogICAg
-PC9mb250PjwvcD4NCjwvZGl2Pg0KPHA+oUA8L3A+DQo8cD48L3A+DQo8cD48c3BhbiBzdHlsZT0i
-dmVydGljYWwtYWxpZ246IG1pZGRsZTsgbGV0dGVyLXNwYWNpbmc6IDEiPjxmb250IGZhY2U9IkFy
-aWFsIj48YnI+DQo8L2ZvbnQ+PC9zcGFuPg0KPC9wPg0KPC9ib2R5Pg0KPC9odG1sPg==
+Please no HTML, I'm not a browser - Pas d'HTML, je ne suis pas un navigat=
+eur
 
+"Some people dream of success... while others wake up and work hard at it=
+"=20
 
-------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfpAA--
+ =20
 
-------=_NextPart_bAw6QuoCF9N3XSxxxA9JLfp--
+> -----Message d'origine-----
+> De : linux-kernel-owner@vger.kernel.org=20
+> [mailto:linux-kernel-owner@vger.kernel.org] De la part de=20
+> Stephen Hemminger
+> Envoy=E9 : vendredi 16 avril 2004 22:17
+> =C0 : David S. Miller
+> Cc : Paul Rolland; linux-kernel@vger.kernel.org; netdev@oss.sgi.com
+> Objet : Re: [2.6.5] Bad scheduling while atomic
+>=20
+> Bring up/down network devices with lapbether causes scheduling while
+> atomic (if preempt enabled).
+>=20
+> The calls to rcu_read_lock are unnecessary since lapb_device_event=20
+> is called from notifier with the rtnetlink semaphore held, it is
+> already protected from the labp_devices list changing.
+>=20
+> Patch against 2.6.6-rc1
+>=20
+> diff -Nru a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
+> --- a/drivers/net/wan/lapbether.c	Fri Apr 16 11:00:35 2004
+> +++ b/drivers/net/wan/lapbether.c	Fri Apr 16 11:00:35 2004
+> @@ -392,6 +392,8 @@
+> =20
+>  /*
+>   *	Handle device status changes.
+> + *
+> + * Called from notifier with RTNL held.
+>   */
+>  static int lapbeth_device_event(struct notifier_block *this,
+>  				unsigned long event, void *ptr)
+> @@ -402,7 +404,6 @@
+>  	if (!dev_is_ethdev(dev))
+>  		return NOTIFY_DONE;
+> =20
+> -	rcu_read_lock();
+>  	switch (event) {
+>  	case NETDEV_UP:
+>  		/* New ethernet device -> new LAPB interface	 */
+> @@ -422,7 +423,6 @@
+>  			lapbeth_free_device(lapbeth);
+>  		break;
+>  	}
+> -	rcu_read_unlock();
+> =20
+>  	return NOTIFY_DONE;
+>  }
+> -
+> To unsubscribe from this list: send the line "unsubscribe=20
+> linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>=20
+>=20
