@@ -1,47 +1,38 @@
-From: Martin Volf <mv@inv.cz>
-Subject: Re: [LARTC] FWD IMQ mail on netdev
-Date: Tue, 13 Apr 2004 21:41:57 +0200
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: Re: add-a-slab-for-ethernet.patch
+Date: Tue, 13 Apr 2004 13:01:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040413194157.GA20599@martinpc.doma>
-References: <407B9ABF.60101@dsl.pipex.com>
+Message-ID: <20040413200117.GB36793@gaz.sfgoth.com>
+References: <20040412222532.25c7e1b9.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <407B9ABF.60101@dsl.pipex.com>
+In-Reply-To: <20040412222532.25c7e1b9.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> ----- Forwarded message from jamal <hadi@cyberus.ca> -----
-> 
-> Subject: (Long) ANNOUNCE: IMQ replacement WAS(Re: [RFC/PATCH] IMQ port to
-> 	2.6
-> From: jamal <hadi@cyberus.ca>
-> Reply-To: hadi@cyberus.ca
-> To: "Vladimir B. Savkin" <master@sectorb.msk.ru>
-> Cc: netdev@oss.sgi.com
-..
-> I finally hacked dummy device as a good replacement (IMO) for IMQ.
-> I am only subscribed to netdev so if there are other lists which
-> are of interest to this subject please forward on, but make sure
-> responses make it to netdev.
-..
-> What am i looking for?
-..
-> 2) testing of the above by people who use IMQ
+Andrew Morton wrote:
+> +#if (PAGE_SIZE != 4096)	/* special cache for eth skbs - 5 fit into one 8 kB page */
+> +	CACHE(1620)
+> +#endif
 
-Hello,
+Nitpicks:
 
-I would like to test your patch. Can you please point me to the place,
-from which it can be downloaded? I have a terrible experience with
-Patrick McHardy's IMQ on NATing firewalls (kernel panics randomly etc)
-and a very good experience with the very same IMQ on an ethernet bridge
-(rock solid for one year).
+  1. Shouldn't this be (PAGE_SIZE > 4096)?  Yeah, it's not very likely that
+     we'll ever have to support an arch w/ a page size <4K (I believe the
+     linux-vax port uses 4K superpages, not the 1K native page size) but it
+     doesn't hurt to be careful.
 
-I can share the results of the test with netdev ml.
+  2. Maybe also add "&& defined(CONFIG_NET)" to that?  You could also argue
+     for CONFIG_ETHERNET but there's lots of cases where people might want
+     to use ethernet-sized frames (bridged over ATM, whatever) even if they
+     don't have any ethernet cards installed.
 
-Thanks!
+     Doubt there's too many people with 8K page sizes and no networking
+     support compiled in... but today's high-end is tomorrow's embedded
+     processor :-)
 
--- 
-Martin Volf
+-Mitch
