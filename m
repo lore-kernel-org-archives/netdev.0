@@ -1,38 +1,51 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: PATCH: Re: tun device - bug or feature? WAS(Re: IMQ / new Dummy
- device post.
-Date: Sat, 5 Jun 2004 14:42:00 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040605144200.7e31f427.davem@redhat.com>
-References: <wazza.87ad18jbdl.fsf@message.id>
-	<1082427350.1034.70.camel@jzny.localdomain>
-	<wazza.87fzayw1fy.fsf@message.id>
-	<wazza.87fzaxmr6x.fsf@message.id>
-	<wazza.87hdvddqxq.fsf@message.id>
-	<1082639764.1059.81.camel@jzny.localdomain>
-	<87oepjx65r.87n053x65r@87llknx65r.message.id>
-	<1082719745.1057.27.camel@jzny.localdomain>
-	<1082816083.1054.32.camel@jzny.localdomain>
-	<1083007898.7788.276.camel@localhost>
-	<1084017322.1041.30.camel@jzny.localdomain>
-	<1084209482.758.15.camel@localhost>
-	<1086441896.1592.137.camel@jzny.localdomain>
+From: Andreas Schwab <schwab@suse.de>
+Subject: Re: [PATCH] compat bug in sys_recvmsg, MSG_CMSG_COMPAT check
+ missing
+Date: Sat, 05 Jun 2004 23:47:22 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <jen03h7k45.fsf@sykes.suse.de>
+References: <20040605204334.GA1134@suse.de>
+	<20040605140153.6c5945a0.davem@redhat.com>
+	<20040605140544.0de4034d.davem@redhat.com>
+	<jer7st7lam.fsf@sykes.suse.de>
+	<20040605143649.3fd6c22b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: maxk@qualcomm.com, netdev@oss.sgi.com, syrius.ml@no-log.org,
-        jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1086441896.1592.137.camel@jzny.localdomain>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: olh@suse.de, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262050AbUFEVr0@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040605143649.3fd6c22b.davem@redhat.com> (David S. Miller's
+ message of "Sat, 5 Jun 2004 14:36:49 -0700")
 List-Id: netdev.vger.kernel.org
 
-On 05 Jun 2004 09:24:56 -0400
-jamal <hadi@cyberus.ca> wrote:
+"David S. Miller" <davem@redhat.com> writes:
 
-> Ok, trivial patch attached. Applies to both latest 2.6 and 2.4
-> I will go hunting for more drivers that do this; for now, a good start
-> here.
+> On Sat, 05 Jun 2004 23:21:53 +0200
+> Andreas Schwab <schwab@suse.de> wrote:
+>
+>> "David S. Miller" <davem@redhat.com> writes:
+>>=20
+>> > This means also that Olaf's patch is broken, when CONFIG_COMPAT is=
+ not
+>> > set, MSG_CMSG_COMPAT is zero, thus ~MSG_CMSG_COMPAT is the unexpec=
+ted
+>> > value all 1's thus breaking the tests for unexpected flags complet=
+ely.
+>>=20
+>> ??? Where do you get ~MSG_CMSG_COMPAT from?
+>
+> Olaf's patch, it said:
+>
+> -	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC))
+> +	if (flags & ~(MSG_PEEK|MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT))
 
-Applied to both 2.4.x and 2.6.x, thanks Jamal.
+Yes, and where is the problem?
+
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
