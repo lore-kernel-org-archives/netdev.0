@@ -1,53 +1,64 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: pktgen performance numbers
-Date: Sun, 14 Nov 2004 17:32:50 +0100
-Message-ID: <16791.34994.647288.940473@robur.slu.se>
-References: <20041114154653.GA3857@xi.wantstofly.org>
+From: Ross Kendall Axe <ross.axe@blueyonder.co.uk>
+Subject: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when using
+ SELinux and SOCK_SEQPACKET
+Date: Sun, 14 Nov 2004 18:13:11 +0000
+Message-ID: <4197A037.1020307@blueyonder.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041114154653.GA3857@xi.wantstofly.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig1A9E7CC68846B315A9689575"
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261322AbUKNSNa@vger.kernel.org>
+To: netdev@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig1A9E7CC68846B315A9689575
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
- Hello!
+With CONFIG_SECURITY_NETWORK=y and CONFIG_SECURITY_SELINUX=y, using
+SOCK_SEQPACKET unix domain sockets causes an oops in the superfluous(?)
+call to security_unix_may_send in sock_dgram_sendmsg. This patch avoids
+making this call for SOCK_SEQPACKET sockets.
 
-Lennert Buytenhek writes:
- > Hi all,
- > 
- > On an intel 7505-based board with onboard e1000 and dual 2.4ghz xeon
- > processors running 2.6.10-rc1, I can send ~600kpps 60byte packets using
- > pktgen.  I'm using only one CPU, the IRQ tied to that CPU, etc.  On a
- > single P4 3.0GHz with a 32/33 e1000 PCI card, I get ~450kpps, also on
- > 2.6.10-rc1.
 
- PCI-bus limitations probably. Lots of transactions per packet. I was trying 
- TX performance with small packets (64 byte) at w. different bus speeds it 
- seems like even at PCI-X 133 MHz this is a limit. 
+Signed-off-by: Ross Axe <ross.axe@blueyonder.co.uk>
 
- Also PCI-brigades decreases TX performance according to Grant Graundler
- this probably to the extra delay added.
 
- Grant Grundler gave a talk on OLS 2004 covering many aspects of this.
+--- linux-2.6.10-rc1/net/unix/af_unix.c.orig	2004-11-13
+21:04:53.000000000 +0000
++++ linux-2.6.10-rc1/net/unix/af_unix.c	2004-11-13 21:12:23.000000000 +0000
+@@ -1354,9 +1354,11 @@ restart:
+  	if (other->sk_shutdown & RCV_SHUTDOWN)
+  		goto out_unlock;
 
- > Robert Olsson's pktgen paper* talks about 870kpps using an e1000 in a
- > P3 733, and 2.4Mpps on a dual 1.6GHz opteron, but I've been totally
- > unable to reproduce anything like this at all.
+-	err = security_unix_may_send(sk->sk_socket, other->sk_socket);
+-	if (err)
+-		goto out_unlock;
++	if (sk->sk_type != SOCK_SEQPACKET) {
++		err = security_unix_may_send(sk->sk_socket, other->sk_socket);
++		if (err)
++			goto out_unlock;
++	}
 
- The 2.4 Mpps mentioned is aggregated TX performance from an DUAL Opteron 
- at 1.6 GHz using several e1000's.
+  	if (unix_peer(other) != sk &&
+  	    (skb_queue_len(&other->sk_receive_queue) >
 
- The the best single stream (from one NIC) wee see is about 870 kpps.
- (ServerWorks chipset) So the BSD claims to route 1 Mpps puzzles me a bit 
- as we cannot even send.
 
- Again it would be interesting to see some numbers from decent PCI-connected
- 10 GIGE cards.
+--------------enig1A9E7CC68846B315A9689575
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
- Cheers.
-						--ro
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+
+iD8DBQFBl6A89bR4xmappRARAottAKCamwZt5rm2zbcOBZbZFCN1t3fvJACfUwt8
+BLHOjOb6vwerfpiZgXdI8KM=
+=TIn2
+-----END PGP SIGNATURE-----
+
+--------------enig1A9E7CC68846B315A9689575--
