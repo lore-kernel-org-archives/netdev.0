@@ -1,49 +1,81 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6]: Fix suboptimal fragment sizing for last fragment
-Date: Fri, 03 Sep 2004 04:48:23 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040903.044823.82214059.yoshfuji@linux-ipv6.org>
-References: <4137681D.3000902@trash.net>
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
+Date: Thu, 2 Sep 2004 23:24:35 +0300
+Sender: acx100-devel-admin@lists.sourceforge.net
+Message-ID: <200409022324.43117.vkondra@mail.ru>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <4134C1A7.50600@pobox.com>
+Reply-To: acx100-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: multipart/signed;
+  boundary="nextPart3883509.4mOIAh7QTs";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, herbert@debian.org, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: kaber@trash.net
-In-Reply-To: <4137681D.3000902@trash.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+ Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+ Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+ Jouni Malinen <jkmaline@cc.hut.fi>,
+ acx100-devel@lists.sourceforge.net,
+ prism54-devel@prism54.org
+Return-path: <acx100-devel-admin@lists.sourceforge.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <4134C1A7.50600@pobox.com>
+Errors-To: acx100-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:acx100-devel@lists.sourceforge.net>
+List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
+	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
 List-Id: netdev.vger.kernel.org
 
-In article <4137681D.3000902@trash.net> (at Thu, 02 Sep 2004 20:36:13 +0200), Patrick McHardy <kaber@trash.net> says:
+--nextPart3883509.4mOIAh7QTs
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> Yoshifuji's recent fragment patch prevents unnecessary fragmentation
-> when the data can be kept in a single packet, but only for the first
-> packet. When fragmenting, all fragments are still truncated to
-> multiples of 8 and we might end up creating an unnecessary fragment.
-> 
-> This dump shows the problem (MTU 1499):
-> 
-> 172.16.1.123.32771 > 172.16.195.3.4135: udp 2937 (frag 7066:1472@0+)
-> 172.16.1.123 > 172.16.195.3: udp (frag 7066:1472@1472+)
-> 172.16.1.123 > 172.16.195.3: udp (frag 7066:1@2944)
-> 
-> This patch always builds mtu sized fragments and truncates the previous
-> fragment to a multiple of 8 bytes when allocating a new one. With the
-> patch the dump looks like this:
-> 
-> 
-> 172.16.1.123.32772 > 172.16.195.3.4135: udp 2937 (frag 49641:1472@0+)
-> 172.16.1.123 > 172.16.195.3: udp (frag 49641:1473@1472)
+Jeff,
 
-Let me clarify. 
-Are you sending payload of 2945 bytes  (= udp payload of 2937 bytes)?
+On Tuesday 31 August 2004 21:21, Jeff Garzik wrote:
+JG> Denis Vlasenko wrote:
+JG> > I think 'senior' network guys are in position to decide upon which
+JG> > of currently available 802.11 stacks we should continue to work.
+JG> > (Atheros has one, said to be derived from BSD, is there any others?)
+JG>
+JG>
+JG> Already have.  Start with the code in wireless-2.6 -- HostAP -- and use
+JG> DaveM's 802.11 stack template as a model for actually integrating 802.11
+JG> very tightly with the rest of the net stack.
+JG>
+JG>
+ http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/davem-=
+p8
+0211.tar.bz2=20
 
-Good point.
+Is this stack the main one that is going to be used? I.e. if I am working o=
+n=20
+driver for next generation .11 card - should I try to use it, request/submi=
+tt=20
+missing features etc.? Or should I use wireless extensions?
 
-I'll check this patch today. (Let me sleep for now...)
-Anyway, please update the comment instead of removing completely.
+--nextPart3883509.4mOIAh7QTs
+Content-Type: application/pgp-signature
 
-Thanks.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
 
---yoshfuji
+iD8DBQBBN4GKqxdj7mhC6o0RAsfgAJ9Nz7PdFdRc+2ywEfCEYcS+qutHsQCcCOKM
+JlRXzBD/qeiPNnWtwViO/VQ=
+=HvC8
+-----END PGP SIGNATURE-----
+
+--nextPart3883509.4mOIAh7QTs--
+
+
+-------------------------------------------------------
+This SF.Net email is sponsored by BEA Weblogic Workshop
+FREE Java Enterprise J2EE developer tools!
+Get your free copy of BEA WebLogic Workshop 8.1 today.
+http://ads.osdn.com/?ad_id=5047&alloc_id=10808&op=click
