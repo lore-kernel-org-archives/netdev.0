@@ -1,42 +1,69 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: do_IRQ: stack overflow: 872..
-Date: Tue, 18 Jan 2005 13:57:35 -0800
-Message-ID: <20050118135735.4b77d38d.davem@davemloft.net>
-References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
-	<p73zn0ccaee.fsf@verdi.suse.de>
-	<1105117559.11753.34.camel@baythorne.infradead.org>
-	<20050107100017.454ddadc@dxpl.pdx.osdl.net>
-	<1105133241.3375.16.camel@localhost.localdomain>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [Ipoverib] [PATCH] IPv6: Add correct padding
+ to IPoIB link addr option
+Date: Wed, 19 Jan 2005 09:20:18 +0900 (JST)
+Message-ID: <20050119.092018.07351674.yoshfuji@linux-ipv6.org>
+References: <528y6qej5w.fsf@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, dwmw2@infradead.org, ak@suse.de, snort2004@mail.ru,
-        bridge@osdl.org, netdev@oss.sgi.com, rusty@rustcorp.com.au
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <1105133241.3375.16.camel@localhost.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, openib-general@openib.org, ipoverib@ietf.org
+Return-path: <openib-general-bounces@openib.org>
+To: roland@topspin.com, davem@davemloft.net
+In-Reply-To: <528y6qej5w.fsf@topspin.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 07 Jan 2005 22:27:21 +0100
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+David, let me tkink about this.
+Thanks.
 
-> How about something like the patch below (untested but compiles)?
-> The current netfilter scheme adds one function call to the call chain
-> for each NF_HOOK and NF_HOOK_THRESH. This can be prevented by executing
-> the okfn in the calling function instead of in nf_hook_slow().
-> I didn't check if there's any code that actually uses the return value
-> from NF_HOOK. If so, this patch won't work well in its current form as -
-> EPERM is now also returned for NF_QUEUE and NF_STOLEN.
-> 
-> Another 2 calls of okfn can be postponed in br_netfilter.c by adding
-> NF_STOP, which would work like NF_STOLEN except that okfn is still
-> called. But I'd first like to get the IPv4/IPv6 fix for br_netfilter.c
-> accepted (see another thread on netdev).
+In article <528y6qej5w.fsf@topspin.com> (at Tue, 18 Jan 2005 09:33:47 -0800), Roland Dreier <roland@topspin.com> says:
 
-I believe I put in your ipv4/ipv6 br_netfilter fix already.
+> +++ linux-bk/net/ipv6/ndisc.c	2005-01-14 21:20:55.736745091 -0800
+> @@ -169,12 +169,33 @@
+>  
+>  #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
+>  
+> -static u8 *ndisc_fill_option(u8 *opt, int type, void *data, int data_len)
+> +/*
+> + * Return the padding between the option length and the start of the
+> + * link addr.  Currently only IP-over-InfiniBand needs this, although
+> + * if RFC 3831 IPv6-over-Fibre Channel is ever implemented it may
+> + * also need a pad of 2.
+> + */
+> +static int ndisc_addr_option_pad(unsigned short type)
+> +{
+> +	switch (type) {
+> +	case ARPHRD_INFINIBAND: return 2;
+> +	default:                return 0;
+> +	}
+> +}
+> +
+> +static u8 *ndisc_fill_addr_option(u8 *opt, int type, void *data, int data_len,
+> +				  unsigned short addr_type)
+>  {
+>  	int space = NDISC_OPT_SPACE(data_len);
+> +	int pad   = ndisc_addr_option_pad(addr_type);
+>  
+>  	opt[0] = type;
+>  	opt[1] = space>>3;
+> +
+> +	memset(opt + 2, 0, pad);
+> +	opt   += pad;
+> +	space -= pad;
+> +
+>  	memcpy(opt+2, data, data_len);
+>  	data_len += 2;
+>  	opt += data_len;
 
-This NF_HOOK() change looks interesting.  Could we also do something like
-running the deeper ->hard_start_xmit() via a triggered tasklet or something
-similar?
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
