@@ -2,7 +2,7 @@ From: Stefan Rompf <srompf@isg.de>
 Subject: Re: Patch: Device operative state notification against 2.5.7
 Date: Sun, 31 Mar 2002 12:23:59 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3CA6E3BF.8815AA4F@isg.de>
+Message-ID: <a8a0p0$cpd$2@main.gmane.org>
 References: <Pine.GSO.4.30.0203302133110.7012-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
