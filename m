@@ -1,53 +1,96 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH] IPv6: (5/5+1) Autoconfig link-local addr to IPv6 tunnels
-Date: Wed, 3 Sep 2003 15:15:33 +0300 (EEST)
+From: Xose Vazquez Perez <xose@wanadoo.es>
+Subject: [PATCH] 3c59x.c pci.ids
+Date: Wed, 03 Sep 2003 14:31:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309031318270.5039-100000@rhea.tcs.hut.fi>
-References: <Pine.LNX.4.44.0309030900530.14208-100000@netcore.fi>
+Message-ID: <3F55DF1B.4000105@wanadoo.es>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <yoshfuji@linux-ipv6.org>,
-   <usagi-core@linux-ipv6.org>, <netdev@oss.sgi.com>
+Content-Type: multipart/mixed;
+ boundary="------------070505010203050702040707"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: <Pine.LNX.4.44.0309030900530.14208-100000@netcore.fi>
+To: netdev@oss.sgi.com, jgarzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Sep 2003, Pekka Savola wrote:
+This is a multi-part message in MIME format.
+--------------070505010203050702040707
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-> On Tue, 2 Sep 2003, Ville Nuorvala wrote:
-> >
-> > ipv6_generate_eui64() derives the interface identifier from the MAC
-> > address on ARPHRD_{ETHER,FDDI,IEEE802_TR,ARCNET} interfaces, but doesn't
-> > do anything for other types of devices
->
-> Ok, but then the command should be:
->
-> /* try to inherit MAC address from another device, to build an EUI64 */
+hi,
 
-Ok, I'll update the comment :)
+In 2.4.23-pre2 two pci.ids are missing  and there is one duplicate.
+2.6.0-preX driver is ok.
 
-> > If the node doesn't have an Ethernet (etc.) NIC it won't get a valid
-> > identifier from ipv6_generate_eui64() and has to resort to something
-> > else, for example generating a random address.
->
-> And exactly how often does this happen? Eth (all variants), FDDI, TR,
-> ARCnet.. what's missing?  Does IPv6 even work with any other physical
-> interfaces? :-)
+-thanks-
+-- 
+Que trabajen los romanos, que tienen el pecho de lata.
 
-Not perhaps physical, but PPP for example. Can we assume _all_ devices
-have an Eth, FDDI, TR or ARCnet NIC? I would say no.
+--------------070505010203050702040707
+Content-Type: text/plain;
+ name="3c59x.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="3c59x.diff"
 
-> Note: it is desirable to have link-local addresses reasonably stable.
-> Randomizing them may not be the right choice.
+--- linux/drivers/net/3c59x.c	2003-08-30 19:04:12.000000000 +0200
++++ linux.new/drivers/net/3c59x.c	2003-09-02 03:25:44.000000000 +0200
+@@ -429,7 +429,6 @@
+ 	CH_3C905B_2,
+ 	CH_3C905B_FX,
+ 	CH_3C905C,
+-	CH_3C905C2,
+ 	CH_3C980,
+ 	CH_3C9805,
+ 
+@@ -450,6 +449,9 @@
+ 	CH_3C920,
+ 	CH_3C982A,
+ 	CH_3C982B,
++
++	CH_905BT4,
++	CH_920B_EMB_WNM,
+ };
+ 
+ 
+@@ -503,8 +505,6 @@
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+ 	{"3c905C Tornado",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
+-	{"3c905C Tornado 2",
+-	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
+ 	{"3c980 Cyclone",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_HWCKSM, 128, },
+ 	{"3c980C Python-T",
+@@ -550,6 +550,11 @@
+ 	{"3c982 Hydra Dual Port B",
+ 	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_HWCKSM|HAS_NWAY, 128, },
+ 
++	{"3c905B-T4",
++	 PCI_USES_IO|PCI_USES_MASTER, IS_CYCLONE|HAS_NWAY|HAS_HWCKSM, 128, },
++	{"3c920B-EMB-WNM Tornado",
++	 PCI_USES_IO|PCI_USES_MASTER, IS_TORNADO|HAS_NWAY|HAS_HWCKSM, 128, },
++
+ 	{0,}, /* 0 terminated list. */
+ };
+ 
+@@ -576,7 +581,6 @@
+ 	{ 0x10B7, 0x9058, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905B_2 },
+ 	{ 0x10B7, 0x905A, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905B_FX },
+ 	{ 0x10B7, 0x9200, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905C },
+-	{ 0x10B7, 0x9201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C905C2 },
+ 	{ 0x10B7, 0x9800, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C980 },
+ 	{ 0x10B7, 0x9805, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C9805 },
+ 
+@@ -597,6 +601,10 @@
+ 	{ 0x10B7, 0x9201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C920 },
+ 	{ 0x10B7, 0x1201, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C982A },
+ 	{ 0x10B7, 0x1202, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_3C982B },
++
++	{ 0x10B7, 0x9056, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_905BT4 },
++	{ 0x10B7, 0x9210, PCI_ANY_ID, PCI_ANY_ID, 0, 0, CH_920B_EMB_WNM },
++
+ 	{0,}						/* 0 terminated list. */
+ };
+ MODULE_DEVICE_TABLE(pci, vortex_pci_tbl);
 
-They will of course be configured only once when the interface is brought
-up :)
-
--Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+--------------070505010203050702040707--
