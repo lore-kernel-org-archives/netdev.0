@@ -1,25 +1,38 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: (usagi-users 02099) IPv6 packet forging
-Date: Sun, 19 Jan 2003 01:09:08 +0900 (JST)
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: [2.5 patch] remove an unneeded #if from net/ipv6/af_inet6.c
+Date: Sat, 18 Jan 2003 18:19:22 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030119.010908.127619438.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.51.0301181523070.3466@trantor.ferrara.linux.it>
+Message-ID: <20030118171921.GJ10647@fs.tum.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ds6-devel@deepspace6.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: usagi-users@linux-ipv6.org, mauro@deepspace6.net
-In-Reply-To: <Pine.LNX.4.51.0301181523070.3466@trantor.ferrara.linux.it>
+To: Pedro Roque <roque@di.fc.ul.pt>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.51.0301181523070.3466@trantor.ferrara.linux.it> (at Sat, 18 Jan 2003 15:54:12 +0100 (CET)), Mauro Tortonesi <mauro@deepspace6.net> says:
+The patch below removes an unneeded #if from net/ipv6/af_inet6.c:
+- kernel 2.0 is too ancient to check for
+- the MODULE_* macros have empty definitions #if !MODULE
 
-> packets on the net i have used link layer sockets, but i'd like to know if
-> there are more portable ways to perform the same task. do you know if
+I've tested the compilation with 2.5.59.
 
-How about libpcap?
+Please apply
+Adrian
 
---yoshfuji
+
+--- linux-2.5.59-full/net/ipv6/af_inet6.c.old	2003-01-18 18:11:08.000000000 +0100
++++ linux-2.5.59-full/net/ipv6/af_inet6.c	2003-01-18 18:11:38.000000000 +0100
+@@ -67,11 +67,9 @@
+ 			      module for allowing unload */
+ #endif
+ 
+-#if defined(MODULE) && LINUX_VERSION_CODE > 0x20115
+ MODULE_AUTHOR("Cast of dozens");
+ MODULE_DESCRIPTION("IPv6 protocol stack for Linux");
+ MODULE_PARM(unloadable, "i");
+-#endif
+ 
+ /* IPv6 procfs goodies... */
+ 
