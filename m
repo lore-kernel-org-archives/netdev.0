@@ -1,40 +1,53 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 29 Sep 2004 14:10:24 -0700
+From: Gerrit Huizenga <gh@us.ibm.com>
+Subject: Re: Please route new work through -mm tree?
+Date: Wed, 29 Sep 2004 14:12:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415B24C0.2020208@us.ibm.com>
-References: <Pine.NEB.4.33.0409291648560.3434-100000@dexter.psc.edu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@davemloft.net>,
-        herbert@gondor.apana.org.au, andy.grover@gmail.com, anton@samba.org,
-        netdev@oss.sgi.com
+Message-ID: <E1CClkI-0001m2-00@w-gerrit.beaverton.ibm.com>
+References: <20040929132247.227fffcd.davem@davemloft.net>
+Reply-To: Gerrit Huizenga <gh@us.ibm.com>
+Cc: Nivedita Singhvi <niv@us.ibm.com>, shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.NEB.4.33.0409291648560.3434-100000@dexter.psc.edu>
+To: "David S. Miller" <davem@davemloft.net>
+In-reply-to: Your message of Wed, 29 Sep 2004 13:22:47 PDT.
+             <20040929132247.227fffcd.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
 
-> On Wed, 29 Sep 2004, Andi Kleen wrote:
+On Wed, 29 Sep 2004 13:22:47 PDT, "David S. Miller" wrote:
+> On Wed, 29 Sep 2004 11:13:55 -0700
+> Nivedita Singhvi <niv@us.ibm.com> wrote:
 > 
+> > I was going to suggest a separate bk tree or something that would
+> > hold this stuff till it stabilized, before it needed
+> > to go into mainline.
 > 
->>I tried to re-test it but I didn't get very far because the kernel
->>with your patch crashes regularly during netperf. No serial console,
->>but the backtrace is {tcp_ack+877} {tcp_rcv_established+350} ...
->>Before that there are a few "retrans out leaked" messages.
+> Nivedita, it was you specifically who complained to me
+> when I used a seperate BK tree for networking changes
+> last month whilst Linus was away for 2 weeks.  You said
+> that this gave IBM too many trees to work from, so I told
+> you that what I was doing was a temporary thing until Linus
+> came back from his trip.
 > 
+> Now you're suggesting that I specifically do what you asked
+> me not to do a month ago.
 > 
-> I just tried to re-create this situation, and I got the same problem.
-> Latest bk tree with dave's 5 patches, gcc 3.3.4, uni-processor p4/e1000 to
-> a slow-ish p3/sk98lin (dual-cpu but with maxcpus=1).
+> So figure out what you really want.
+> 
+> And I have to warn people if they think that the churn is fast
+> and the rate of change in the networking is high right now, you
+> have seen absolutely nothing yet. :-)
 
-I just crashed too, no backtrace. netperf tcp stream test,
-and was on bk14 + dave's 5 patches, p4/e1000 -> Intel Pentium
-M proc (1.7GHz). Going to repeat on slower SMPs with serial
-console, get more info..
+Hi Dave, having a bk tree which akpm can merge into his would
+mean that all of our standard testing would get run over networking
+changes as well as everything else.  We typically run some pretty
+exhaustive tests on a small number of trees.  We try to focus on
+-rc trees from Linus and the -mm trees.  As a result, networking
+testing (by us) is done really late in the cycle compared to your
+rate of change in pushing to Linus.
 
-thanks,
-Nivedita
+So, ideally, if you had your own tree published in such a way
+that akpm could pull in, we'd probably have the best of all
+worlds.
+
+gerrit
