@@ -1,25 +1,17 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 2.6.4-rc2] sysfs simple class support for netlink
-Date: Wed, 10 Mar 2004 17:33:09 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6.4-rc3] pcnet32.c oops
+Date: Wed, 10 Mar 2004 20:49:55 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040311013309.GG13045@kroah.com>
-References: <1078441356.11562.18.camel@ibm-d.pdx.osdl.net>
+Message-ID: <404FC5C3.4070001@pobox.com>
+References: <200403102108.i2AL8Is04491@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Hanna Linder <hannal@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tsbogend@alpha.franken.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Leann Ogasawara <ogasawara@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <1078441356.11562.18.camel@ibm-d.pdx.osdl.net>
+To: Don Fry <brazilnut@us.ibm.com>
+In-Reply-To: <200403102108.i2AL8Is04491@DYN318364BLD.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 04, 2004 at 03:02:36PM -0800, Leann Ogasawara wrote:
-> Hi All,
-> 
-> Patch adds sysfs simple class support for netlink character device
-> (Major 36).  Feedback appreciated.  Thanks,
-
-Applied, thanks.
-
-greg k-h
+applied
