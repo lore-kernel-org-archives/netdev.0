@@ -1,52 +1,36 @@
-From: Karsten Desler <kdesler@soohrt.org>
-Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
-Date: Tue, 7 Dec 2004 19:38:45 +0100
-Message-ID: <20041207183845.GA2078@quickstop.soohrt.org>
-References: <20041206205305.GA11970@soohrt.org> <20041206134849.498bfc93.davem@davemloft.net> <20041206224107.GA8529@soohrt.org> <41B58A58.8010007@draigBrady.com> <20041207112139.GA3610@soohrt.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] fix select() for SOCK_RAW sockets (ipv6)
+Date: Tue, 7 Dec 2004 10:48:15 -0800
+Message-ID: <20041207104815.3f7a4684.davem@davemloft.net>
+References: <20041207045302.GA23746@linuxace.com>
+	<20041207054840.GD61527@gaz.sfgoth.com>
+	<20041207150834.GA75700@gaz.sfgoth.com>
+	<20041208.023530.26430801.yoshfuji@linux-ipv6.org>
+	<20041207100140.781f4c00@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: P@draigBrady.com, "David S. Miller" <davem@davemloft.net>,
-	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261888AbULGSiw@vger.kernel.org>
-To: Karsten Desler <kdesler@soohrt.org>
-Content-Disposition: inline
-In-Reply-To: <20041207112139.GA3610@soohrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, mitch@sfgoth.com, kernel@linuxace.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041207100140.781f4c00@dxpl.pdx.osdl.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Karsten Desler <kdesler@soohrt.org> wrote:
-> > Also have a look at http://www.hipac.org/ as netfilter
-> > has silly scalability properties.
+On Tue, 7 Dec 2004 10:01:40 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
+
+> > Probably, we need to do the same for ipv6, don't we?
 > 
-> I did before, but I read on Harald Weltes' weblog that 2.4 gives
-> slightly worse pps results than 2.6, and since the cpu usage is as high
-> as it is, I didn't want to take any more performance hits.
-> I'll try to see what performance impact the netfilter rules have during
-> peak load.
+> diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> --- a/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
+> +++ b/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
+> @@ -513,6 +513,27 @@
 
-using 2 CPUs
-System load: 61.4% || Free:  51.0%(0)  26.3%(1)
-System load: 59.6% || Free:  53.6%(0)  27.3%(1)
-System load: 59.6% || Free:  53.6%(0)  27.3%(1)
-System load: 59.7% || Free:  53.6%(0)  27.0%(1)
-System load: 60.3% || Free:  53.0%(0)  26.4%(1)
-System load: 51.9% || Free:  60.4%(0)  35.8%(1) <- iptables -F
-System load: 50.1% || Free:  62.1%(0)  37.7%(1)
-System load: 50.1% || Free:  62.0%(0)  37.8%(1)
-System load: 50.6% || Free:  61.6%(0)  37.2%(1)
-System load: 50.5% || Free:  61.7%(0)  37.3%(1)
+We didn't do the "UDP select() fix" on ipv6 because we don't
+have the delayed checksumming optimization there.  So the
+ipv6 side really doesn't need this change.
 
-
-> > I also notice that a lot of time is spent allocating
-> > and freeing the packet buffers (and possible hidden
-> > time due to cache misses due to allocating on one
-> > CPU and freeing on another?).
-> > How many [RT]xDescriptors do you have configured by the way?
-> 
-> 256. I increased them to 1024 shortly after the profiling run, but
-> didn't notice any change in the cpu usage (will try again with cyclesoak).
-
-Again, no effect.
-
-Cheers,
- Karsten
+Or did I miss something?
