@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] IPv6 IPsec support
-Date: Tue, 18 Feb 2003 23:13:24 -0800 (PST)
+Date: Tue, 18 Feb 2003 23:33:01 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030218.231324.44469350.davem@redhat.com>
+Message-ID: <20030218.233301.98333082.davem@redhat.com>
 References: <20030219134850.5f203ea7.Kazunori.Miyazawa@jp.yokogawa.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -14,42 +14,40 @@ In-Reply-To: <20030219134850.5f203ea7.Kazunori.Miyazawa@jp.yokogawa.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kazunori MIyazawa <Kazunori.Miyazawa@jp.yokogawa.com>
-   Date: Wed, 19 Feb 2003 13:48:50 +0900
 
-   Please let me know if you have some ideas and/or comments.
+As promised, some more comments:
 
-Hello again Miyazawa-san, I give you my initial comment.
+1) Please, can you split out seperate patch for changes
+   to net/ipv4/xfrm_user.c?  They are independant.
 
-I see very quickly that the ipv6 side of implementation will
-give lots of opportunity for code sharing.  But we must plan
-it correctly :-)
-   
-I also wish to avoid exporting internal xfrm objects to ipv6 module.
+   Kunihiro sent me identical patch, so please could you
+   add him to credits in comment?  Thank you.
 
-So, let us discuss one example:
-   
-   diff -urN linux-2.5.62/net/ipv4/xfrm_input.c linux25_for_patch/net/ipv4/xfrm_input.c
-   --- linux-2.5.62/net/ipv4/xfrm_input.c	2003-02-18 07:55:50.000000000 +0900
-   +++ linux25_for_patch/net/ipv4/xfrm_input.c	2003-02-19 02:36:53.000000000 +0900
-   @@ -1,7 +1,7 @@
-    #include <net/ip.h>
-    #include <net/xfrm.h>
-    
-   -static kmem_cache_t *secpath_cachep;
-   +kmem_cache_t *secpath_cachep;
-    
-    void __secpath_destroy(struct sec_path *sp)
-    {
+2) I believe that net/ipv6/xfrm_policy.c is another area
+   for more code sharing.
 
-I understand why you need this, for xfrm6_rcv().  This is fine.
+   Any time that I see removal of 'static', it is clue to
+   me :-)
 
-However, it would be even better to put xfrm6_rcv() into
-net/ipv4/xfrm_input.c, protected by CONFIG_IPV6 || CONFIG_IPV6_MODULE
-ifdef.
+   Short term you can do as I suggested for secpath_cachep
+   issue, that is to move this new code to net/ipv4/xfrm_policy.c
+   as it is, conditionalized by CONFIG_IPV6 || CONFIG_IPV6_MODULE.
 
-In this way we may split out identical pieces of code which
-occur in xfrm4_rcv() and xfrm6_rcv().  Then we merely need
-to export the xfrm6_rcv symbol for sake of ipv6 as module.
+   Later we can work on increased code sharing here.
 
-In fact, nearly %90 of these two functions are identical.
+3) I noticed comment above transformation from
+   explicit dst->output() call to dst_output().
+
+   It is not IPSEC issue, rather I believe that entire tree should
+   have this conversion eventually.  The concept of stackable
+   destination cache entries is a generic one.
+
+4) I believe some module symbol exports are missing to handle
+   ipv6 as module.
+
+   For example, for skb_ah_walk and skb_esp_walk.
+
+The rest of code looks fine to me.
+
+Now is not the time to get picky about small details, let us only get
+first draft basically correct.
