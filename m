@@ -1,62 +1,90 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: e1000>5.2.30 unstable with InterruptThrottleRate=0
-Date: Sat, 04 Dec 2004 19:20:44 -0800
-Message-ID: <1102216844.3343.84.camel@sfeldma-mobl.dsl-verizon.net>
-References: <Pine.LNX.4.44.0412031833150.13794-100000@papput.nsc.liu.se>
-Reply-To: sfeldma@pobox.com
+From: Paul Jakma <paul@clubi.ie>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Sun, 5 Dec 2004 06:25:31 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0412050605550.21671@hibernia.jakma.org>
+References: <OFAF17275D.316533A1-ONC1256F5C.0026AFAD-C1256F5C.002877C1@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Peter Kjellstroem <cap@nsc.liu.se>
-In-Reply-To: <Pine.LNX.4.44.0412031833150.13794-100000@papput.nsc.liu.se>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261262AbULEG0S@vger.kernel.org>
+To: Thomas Spatzier <thomas.spatzier@de.ibm.com>
+In-Reply-To: <OFAF17275D.316533A1-ONC1256F5C.0026AFAD-C1256F5C.002877C1@de.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-12-03 at 11:02, Peter Kjellstroem wrote:
-> Short version: 82547GI with ITR=0 on 2.4.28 (vanilla) and RHEL3u3 has           
-> problems (traffic grinds to a temporary halt under anything but trivila         
-> network traffic). kernel prints the following and resets the IF (many           
-> times):                                                                         
->                                                                                 
-> NETDEV WATCHDOG: eth0: transmit timed out           
+On Tue, 30 Nov 2004, Thomas Spatzier wrote:
 
-Dude!  You're out of luck!
+> Ok, then some logic could be implemented in userland to take 
+> appropriate actions. It must be ensured that zebra handles the 
+> netlink notification fast enough.
 
->From the README:
+AIUI, netlink is not synchronous, it most definitely makes no 
+reliability guarantees (and at the moment, zebra isnt terribly 
+efficient at reading netlink, large numbers of interfaces will cause 
+overruns in zebra - fixing this is on the TODO list). So we can never 
+get rid of the window where a daemon could send a packet out a 
+link-down interface - we can make that window smaller but not 
+eliminate it.
 
-    CAUTION: If you are using the Intel PRO/1000 CT Network 
-             Connection (controller 82547), setting 
-             InterruptThrottleRate to a value
-             greater than 75,000, may hang (stop transmitting)
-             adapters under certain network conditions. If this
-             occurs a NETDEV WATCHDOG message is logged in the
-             system event log. In addition, the controller is
-             automatically reset, restoring the network
-             connection. To eliminate the potential for the hang,
-             ensure that InterruptThrottleRate is set no greater
-             than 75,000 and is not set to 0.
+Hence we need either a way to flush packets associated with an 
+(interface,socket) (or just the socket) or we need the kernel to not 
+accept such packets (and drop packets it has accepted).
 
-I was running into the same thing with 82547EI setting ITR=0, and then I
-remembered that this part is buggy when ITR=0.  The bug is due to 82547
-messing up the order of interrupt assertion and de-assertion on the CSA
-bus.
+> In the manpages for send/sendto/sendmsg it says that there is a -ENOBUFS
+> return value, if a sockets write queue is full.
 
-If you want to do MPI on this system, you'll need to use a non-zero ITR
-or plug in an add-in card into one of the PCI slots and use the add-in
-card.  The problem is, these slots are probably 32-bit/33Mhz, so you're
-not going to get the same maximum Mbps that you'll get with 82547 using
-the CSA bus.  82547 will not be a good choice for MPI.  Sorry.
+Yes, ENOBUFS, sorry.
 
-> Affected chips (theory, 8254X, X>1 or anything faster then PCI33):
-> 82547GI, 82546 (said to be affected, not verified by me)
+> It also says:
 
-82546 should be fine with ITR=0.
+> "Normally, this does not occur in Linux. Packets are just silently dropped
+> when a device queue overflows."
 
->  http://lists.us.dell.com/pipermail/linux-poweredge/2004-November/023061.html
+This has always been (AFAIK) the behaviour yes. We started getting 
+reports of the new queuing behaviour with, iirc, a version of Intel's 
+e100 driver for 2.4.2x, which was later changed back to the old 
+behaviour. However now that the queue behaviour is apparently the 
+mandated behaviour we really need to work out what to do about the 
+sending-long-stale packets problem.
 
-You might want to forward this info to that thread.
+> So, if packets are 'silently dropped' anyway, the fact that we drop 
+> them in our driver (and increment the error count in the 
+> net_device_stats accordingly) should not be a problem.
 
--scott
+It shouldnt no.
+
+The likes of OSPF already specify their own reliability mechanisms.
+
+> I think that both behaviours are similar for TCP. TCP waits for 
+> ACKs for each packet. If they do not arrive, a retransmit is done. 
+> Sooner or later the connection will be reset, if no responses from 
+> the other side arrive. So the result for both driver behaviours 
+> should be the same.
+
+But if TCP worked even when drivers dropped packets, then that 
+implies TCP has its own queue? That we're talking about a seperate 
+driver packet queue rather than the socket buffer (which is, 
+presumably, where TCP retains packets until ACKed - i have no idea).
+
+Anyway, we do, I think, need some way to deal with the 
+sending-stale-packet-on-link-back problem. Either a way to flush this 
+driver queue or else a guarantee that writes to sockets whose 
+protocol makes no reliability guarantee will either return ENOBUFS or 
+drop the packet.
+
+Otherwise we will start getting reports of "Quagga on Linux sent an 
+ancient {RIP,IRDP,RA} packet when we fixed a switch problem, and it 
+caused an outage for a section of our network due to bad routes", I 
+think.
+
+Some comment or advice would be useful. (Am I kill-filed by all of 
+netdev? feels like it).
+
+> Regards,
+> Thomas
+
+regards,
+-- 
+Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
+Fortune:
+No directory.
