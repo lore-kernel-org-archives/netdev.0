@@ -1,27 +1,40 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Convert pppoe to new style protocol
-Date: Tue, 17 Jun 2003 15:07:51 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030617.150751.52901849.davem@redhat.com>
-References: <20030617220420.GA1169@averell>
+From: Ralph Doncaster <ralph@istop.com>
+Subject: Re: Route cache performance tests
+Date: Tue, 17 Jun 2003 18:11:00 -0400 (EDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.51.0306171753170.13782@ns.istop.com>
+References: <20030616.160856.35828947.davem@redhat.com> <20030616232750.GD18484@netnation.com>
+ <20030616234937.GE18484@netnation.com> <20030617.085921.28790392.davem@redhat.com>
+ <16111.18107.699689.704597@robur.slu.se> <20030617200721.GA25773@netnation.com>
+Reply-To: ralph+d@istop.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mostrows@speakeasy.net, paulus@au.ibm.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@muc.de
-In-Reply-To: <20030617220420.GA1169@averell>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Simon Kirby <sim@netnation.com>
+In-Reply-To: <20030617200721.GA25773@netnation.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Andi Kleen <ak@muc.de>
-   Date: Wed, 18 Jun 2003 00:04:20 +0200
+On Tue, 17 Jun 2003, Simon Kirby wrote:
 
-   Convert pppoe to a new style protocol, otherwise it is unusable 
-   on SMP compiled kernels because of the printk in deliver*old_ones.
-   It works fine here, but only tested on a UP box.
+> vma      samples  %           symbol name
+> c02bf730 16019    33.2014     fn_hash_lookup
+> c0292b70 3882     8.04593     ip_route_input_slow
+> c0221710 2335     4.83958     tg3_rx
+> c02bd550 2004     4.15354     fib_validate_source
+> c0290d70 1955     4.05198     rt_hash_code
+> c0294e50 1670     3.46128     ip_rcv
+> c02933a0 1404     2.90997     ip_route_input
 
-Please don't add new skb_linearize() users, I'm trying
-to make that only local to net/core/dev.c
+If turning off rp_filter doubles your performance, then the profile
+numbers above are misleading.  My (obviously incorrect) assumption would
+be that fib_validate_source is responsible for rp_filter, and turning it
+off would lead to only a 5% performance increase.
 
-Otherwise I'm fine with your patch.
+Considering that, what kind of performance difference should removing the
+route hashing make (i.e. going with r-trees or something like that).  In
+most of the profiles fn_hash_lookup has been at the top of the list.
+
+-Ralph
+
