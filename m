@@ -1,55 +1,28 @@
-From: Dan Siemon <dan@coverfire.com>
-Subject: Re: [RFC] batched tc to improve change throughput
-Date: Sat, 12 Feb 2005 17:07:13 -0500
-Message-ID: <1108246033.7554.18.camel@ganymede>
-References: <20050117165626.GE26856@postel.suug.ch>
-	 <1106002197.1046.19.camel@jzny.localdomain>
-	 <20050118134406.GR26856@postel.suug.ch>
-	 <1106058592.1035.95.camel@jzny.localdomain>
-	 <20050118145830.GS26856@postel.suug.ch>
-	 <1106144009.1047.989.camel@jzny.localdomain>
-	 <20050119165421.GB26856@postel.suug.ch>
-	 <1106232168.1041.125.camel@jzny.localdomain>
-	 <20050120153559.GG26856@postel.suug.ch>
-	 <1106576005.1652.1292.camel@jzny.localdomain>
-	 <20050124150634.GT23931@postel.suug.ch>
-	 <1106747313.1107.7.camel@jzny.localdomain>
-	 <1108134446.5523.22.camel@ganymede>
-	 <1108215923.1126.132.camel@jzny.localdomain>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: [PATCH] OpenBSD Networking-related randomization port
+Date: Sat, 12 Feb 2005 23:29:28 +0100
+Message-ID: <m11xblif93.fsf@muc.de>
+References: <20050131201141.GA4879@elte.hu>
+	<20050131232735.11236.qmail@science.horizon.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: hadi@cyberus.ca
-In-Reply-To: <1108215923.1126.132.camel@jzny.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: arjan@infradead.org, bunk@stusta.de, chrisw@osdl.org,
+	davem@redhat.com, hlein@progressive-comp.com,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	shemminger@osdl.org, Valdis.Kletnieks@vt.edu
+To: linux@horizon.com
+In-Reply-To: <20050131232735.11236.qmail@science.horizon.com> (linux@horizon.com's
+ message of "31 Jan 2005 23:27:35 -0000")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-12-02 at 08:45 -0500, jamal wrote:
-> On first impression, this looks very nice - I think you got the object
-> hierachy figured etc; i will look closely later.
-> What would be really interesting is to see (gulp) a SOAP/xml interface
-> on top of this. Is this something you can do with those "bindings"?
+linux@horizon.com writes:
+>
+> (The homebrew 15-bit block cipher in this code does show how much the
+> world needs a small block cipher for some of these applications.)
 
-Yes, a SOAP/XML-RPC interface should be quite possible.  This is one of
-the main reasons I went to the trouble of creating the Mono bindings.  I
-need to create some sort of XML interface to LQL in the next few weeks.
+Doesn't TEA fill this niche? It's certainly used for this in the Linux
+kernel, e.g. in reiserfs (although I have my doubts it is really useful
+there) 
 
-> It seems to me from a library perspective, youa nd Thomas may have to
-> sync. And restricting to just QoS maybe be a limitation (netlink is the
-> friend you are looking for; so from networking perspective, give them 
-> GUI clikers ways to set routes, static IPSEC SAs etc). Oh and it would
-> be interesting to have events (see that link come up down etc)
-
-I named the project Linux QoS Library before I realized that interface
-parameters etc could be manipulated via Netlink.  I have no intention of
-limiting LQL to just QoS features.  Eventually I'll probably stop
-referring to it as Linux QoS Library and just use LQL.
-
-As for combining my work with Thomas, I'm certainly willing to discuss
-it.
-
--- 
-OpenPGP key: http://www.coverfire.com/files/pubkey.txt
-Key fingerprint: FB0A 2D8A A1E9 11B6 6CA3  0C53 742A 9EA8 891C BD98
+-Andi
