@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] use netdev_priv() in net/pcmcia/ drivers
-Date: Thu, 4 Mar 2004 13:18:43 -0800
+Subject: Re: [janitor] use netdev_priv() in 3com net drivers
+Date: Thu, 4 Mar 2004 13:18:58 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040304131843.5126ab7f.rddunlap@osdl.org>
+Message-ID: <20040304131858.14057195.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,7 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-| 
+
 | From: Carlo Perassi <carlo@linux.it>
 | and Randy.Dunlap <rddunlap@osdl.org>
 
@@ -22,662 +22,730 @@ List-Id: netdev.vger.kernel.org
 
 
 
- linux-264-302-priv-rddunlap/drivers/net/pcmcia/3c574_cs.c    |   28 +++---
- linux-264-302-priv-rddunlap/drivers/net/pcmcia/3c589_cs.c    |   26 ++---
- linux-264-302-priv-rddunlap/drivers/net/pcmcia/com20020_cs.c |    6 -
- linux-264-302-priv-rddunlap/drivers/net/pcmcia/fmvj18x_cs.c  |   22 ++--
- linux-264-302-priv-rddunlap/drivers/net/pcmcia/ibmtr_cs.c    |    8 -
- linux-264-302-priv-rddunlap/drivers/net/pcmcia/smc91c92_cs.c |   50 +++++------
- 6 files changed, 70 insertions(+), 70 deletions(-)
+ linux-264-302-priv-rddunlap/drivers/net/3c501.c |   16 +++----
+ linux-264-302-priv-rddunlap/drivers/net/3c507.c |   18 ++++----
+ linux-264-302-priv-rddunlap/drivers/net/3c509.c |   34 ++++++++--------
+ linux-264-302-priv-rddunlap/drivers/net/3c527.c |   38 +++++++++---------
+ linux-264-302-priv-rddunlap/drivers/net/3c59x.c |   50 ++++++++++++------------
+ 5 files changed, 78 insertions(+), 78 deletions(-)
 
-diff -puN drivers/net/pcmcia/3c574_cs.c~net_pcmcia_casts drivers/net/pcmcia/3c574_cs.c
---- linux-264-302-priv/drivers/net/pcmcia/3c574_cs.c~net_pcmcia_casts	2004-03-02 15:57:38.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/pcmcia/3c574_cs.c	2004-03-02 16:02:45.000000000 -0800
-@@ -283,7 +283,7 @@ static dev_link_t *tc574_attach(void)
- 	dev = alloc_etherdev(sizeof(struct el3_private));
- 	if (!dev)
- 		return NULL;
+diff -puN drivers/net/3c501.c~net_3cxyz_casts drivers/net/3c501.c
+--- linux-264-302-priv/drivers/net/3c501.c~net_3cxyz_casts	2004-03-03 11:10:48.000000000 -0800
++++ linux-264-302-priv-rddunlap/drivers/net/3c501.c	2004-03-03 11:12:56.000000000 -0800
+@@ -306,7 +306,7 @@ static int __init el1_probe1(struct net_
+ 		printk(KERN_DEBUG "%s", version);
+ 
+ 	memset(dev->priv, 0, sizeof(struct net_local));
+-	lp=dev->priv;
++	lp = netdev_priv(dev);
+ 	spin_lock_init(&lp->lock);
+ 	
+ 	/*
+@@ -341,7 +341,7 @@ static int el_open(struct net_device *de
+ {
+ 	int retval;
+ 	int ioaddr = dev->base_addr;
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	unsigned long flags;
+ 
+ 	if (el_debug > 2)
+@@ -371,7 +371,7 @@ static int el_open(struct net_device *de
+  
+ static void el_timeout(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+  
+ 	if (el_debug)
+@@ -411,7 +411,7 @@ static void el_timeout(struct net_device
+ 
+ static int el_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 
+@@ -524,7 +524,7 @@ static irqreturn_t el_interrupt(int irq,
+ 	int axsr;			/* Aux. status reg. */
+ 
+ 	ioaddr = dev->base_addr;
+-	lp = (struct net_local *)dev->priv;
++	lp = netdev_priv(dev);
+ 
+ 	spin_lock(&lp->lock);
+ 	
+@@ -698,7 +698,7 @@ out:
+ 
+ static void el_receive(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	int pkt_len;
+ 	struct sk_buff *skb;
+@@ -764,7 +764,7 @@ static void el_receive(struct net_device
+ 
+ static void  el_reset(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 
+ 	if (el_debug> 2)
+@@ -828,7 +828,7 @@ static int el1_close(struct net_device *
+  
+ static struct net_device_stats *el1_get_stats(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	return &lp->stats;
+ }
+ 
+diff -puN drivers/net/3c507.c~net_3cxyz_casts drivers/net/3c507.c
+--- linux-264-302-priv/drivers/net/3c507.c~net_3cxyz_casts	2004-03-03 11:10:48.000000000 -0800
++++ linux-264-302-priv-rddunlap/drivers/net/3c507.c	2004-03-03 11:16:05.000000000 -0800
+@@ -441,7 +441,7 @@ static int __init el16_probe1(struct net
+ 	if (net_debug)
+ 		printk(version);
+ 
 -	lp = dev->priv;
 +	lp = netdev_priv(dev);
- 	link = &lp->link;
- 	link->priv = dev;
+  	memset(lp, 0, sizeof(*lp));
+ 	spin_lock_init(&lp->lock);
  
-@@ -388,7 +388,7 @@ static void tc574_config(dev_link_t *lin
+@@ -471,7 +471,7 @@ static int el16_open(struct net_device *
+ 
+ static void el16_tx_timeout (struct net_device *dev)
  {
- 	client_handle_t handle = link->handle;
- 	struct net_device *dev = link->priv;
+-	struct net_local *lp = (struct net_local *) dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long shmem = dev->mem_start;
+ 
+@@ -501,7 +501,7 @@ static void el16_tx_timeout (struct net_
+ 
+ static int el16_send_packet (struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *) dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long flags;
+ 	short length = ETH_ZLEN < skb->len ? skb->len : ETH_ZLEN;
+@@ -546,7 +546,7 @@ static irqreturn_t el16_interrupt(int ir
+ 	}
+ 
+ 	ioaddr = dev->base_addr;
+-	lp = (struct net_local *)dev->priv;
++	lp = netdev_priv(dev);
+ 	shmem = dev->mem_start;
+ 
+ 	spin_lock(&lp->lock);
+@@ -660,7 +660,7 @@ static int el16_close(struct net_device 
+    closed. */
+ static struct net_device_stats *el16_get_stats(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 
+ 	/* ToDo: decide if there are any useful statistics from the SCB. */
+ 
+@@ -670,7 +670,7 @@ static struct net_device_stats *el16_get
+ /* Initialize the Rx-block list. */
+ static void init_rx_bufs(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	unsigned long write_ptr;
+ 	unsigned short SCB_base = SCB_BASE;
+ 
+@@ -713,7 +713,7 @@ static void init_rx_bufs(struct net_devi
+ 
+ static void init_82586_mem(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	short ioaddr = dev->base_addr;
+ 	unsigned long shmem = dev->mem_start;
+ 
+@@ -771,7 +771,7 @@ static void init_82586_mem(struct net_de
+ 
+ static void hardware_send_packet(struct net_device *dev, void *buf, short length, short pad)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	short ioaddr = dev->base_addr;
+ 	ushort tx_block = lp->tx_head;
+ 	unsigned long write_ptr = dev->mem_start + tx_block;
+@@ -820,7 +820,7 @@ static void hardware_send_packet(struct 
+ 
+ static void el16_rx(struct net_device *dev)
+ {
+-	struct net_local *lp = (struct net_local *)dev->priv;
++	struct net_local *lp = netdev_priv(dev);
+ 	unsigned long shmem = dev->mem_start;
+ 	ushort rx_head = lp->rx_head;
+ 	ushort rx_tail = lp->rx_tail;
+diff -puN drivers/net/3c509.c~net_3cxyz_casts drivers/net/3c509.c
+--- linux-264-302-priv/drivers/net/3c509.c~net_3cxyz_casts	2004-03-03 11:10:48.000000000 -0800
++++ linux-264-302-priv-rddunlap/drivers/net/3c509.c	2004-03-03 11:19:54.000000000 -0800
+@@ -304,7 +304,7 @@ static int nopnp;
+ 
+ static int __init el3_common_init(struct net_device *dev)
+ {
 -	struct el3_private *lp = dev->priv;
 +	struct el3_private *lp = netdev_priv(dev);
- 	tuple_t tuple;
- 	cisparse_t parse;
- 	unsigned short buf[32];
-@@ -733,7 +733,7 @@ static void mdio_write(ioaddr_t ioaddr, 
- /* Reset and restore all of the 3c574 registers. */
- static void tc574_reset(struct net_device *dev)
+ 	short i;
+ 	int err;
+ 
+@@ -355,7 +355,7 @@ static int __init el3_common_init(struct
+ 
+ static void el3_common_remove (struct net_device *dev)
+ {
+-		struct el3_private *lp = dev->priv;
++		struct el3_private *lp = netdev_priv(dev);
+ 
+ 		(void) lp;				/* Keep gcc quiet... */
+ #ifdef CONFIG_PM
+@@ -575,7 +575,7 @@ no_pnp:
+ 	dev->base_addr = ioaddr;
+ 	dev->irq = irq;
+ 	dev->if_port = if_port;
+-	lp = dev->priv;
++	lp = netdev_priv(dev);
+ #if defined(__ISAPNP__) && !defined(CONFIG_X86_PC9800)
+ 	lp->dev = &idev->dev;
+ #endif
+@@ -671,7 +671,7 @@ static int __init el3_mca_probe(struct d
+ 		dev->base_addr = ioaddr;
+ 		dev->irq = irq;
+ 		dev->if_port = if_port;
+-		lp = dev->priv;
++		lp = netdev_priv(dev);
+ 		lp->dev = device;
+ 		lp->type = EL3_MCA;
+ 		device->driver_data = dev;
+@@ -732,7 +732,7 @@ static int __init el3_eisa_probe (struct
+ 	dev->base_addr = ioaddr;
+ 	dev->irq = irq;
+ 	dev->if_port = if_port;
+-	lp = dev->priv;
++	lp = netdev_priv(dev);
+ 	lp->dev = device;
+ 	lp->type = EL3_EISA;
+ 	eisa_set_drvdata (edev, dev);
+@@ -829,7 +829,7 @@ el3_open(struct net_device *dev)
+ static void
+ el3_tx_timeout (struct net_device *dev)
  {
 -	struct el3_private *lp = (struct el3_private *)dev->priv;
 +	struct el3_private *lp = netdev_priv(dev);
- 	int i, ioaddr = dev->base_addr;
+ 	int ioaddr = dev->base_addr;
+ 
+ 	/* Transmitter timeout, serious problems. */
+@@ -849,7 +849,7 @@ el3_tx_timeout (struct net_device *dev)
+ static int
+ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
  	unsigned long flags;
  
-@@ -814,7 +814,7 @@ static void tc574_reset(struct net_devic
+@@ -943,7 +943,7 @@ el3_interrupt(int irq, void *dev_id, str
+ 		return IRQ_NONE;
+ 	}
  
- static int el3_open(struct net_device *dev)
- {
--	struct el3_private *lp = (struct el3_private *)dev->priv;
-+	struct el3_private *lp = netdev_priv(dev);
- 	dev_link_t *link = &lp->link;
+-	lp = (struct el3_private *)dev->priv;
++	lp = netdev_priv(dev);
+ 	spin_lock(&lp->lock);
  
- 	if (!DEV_OK(link))
-@@ -837,7 +837,7 @@ static int el3_open(struct net_device *d
+ 	ioaddr = dev->base_addr;
+@@ -975,7 +975,7 @@ el3_interrupt(int irq, void *dev_id, str
+ 				outw(AckIntr | RxEarly, ioaddr + EL3_CMD);
+ 			}
+ 			if (status & TxComplete) {			/* Really Tx error. */
+-				struct el3_private *lp = (struct el3_private *)dev->priv;
++				struct el3_private *lp = netdev_priv(dev);
+ 				short tx_status;
+ 				int i = 4;
  
- static void el3_tx_timeout(struct net_device *dev)
+@@ -1022,7 +1022,7 @@ el3_interrupt(int irq, void *dev_id, str
+ static struct net_device_stats *
+ el3_get_stats(struct net_device *dev)
  {
--	struct el3_private *lp = (struct el3_private *)dev->priv;
-+	struct el3_private *lp = netdev_priv(dev);
- 	ioaddr_t ioaddr = dev->base_addr;
- 	
- 	printk(KERN_NOTICE "%s: Transmit timed out!\n", dev->name);
-@@ -852,7 +852,7 @@ static void el3_tx_timeout(struct net_de
- 
- static void pop_tx_status(struct net_device *dev)
- {
--	struct el3_private *lp = (struct el3_private *)dev->priv;
-+	struct el3_private *lp = netdev_priv(dev);
- 	ioaddr_t ioaddr = dev->base_addr;
- 	int i;
-     
-@@ -877,7 +877,7 @@ static void pop_tx_status(struct net_dev
- static int el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	ioaddr_t ioaddr = dev->base_addr;
 -	struct el3_private *lp = (struct el3_private *)dev->priv;
 +	struct el3_private *lp = netdev_priv(dev);
  	unsigned long flags;
  
- 	DEBUG(3, "%s: el3_start_xmit(length = %ld) called, "
-@@ -909,7 +909,7 @@ static int el3_start_xmit(struct sk_buff
- static irqreturn_t el3_interrupt(int irq, void *dev_id, struct pt_regs *regs)
- {
- 	struct net_device *dev = (struct net_device *) dev_id;
--	struct el3_private *lp = dev->priv;
-+	struct el3_private *lp = netdev_priv(dev);
- 	ioaddr_t ioaddr, status;
- 	int work_budget = max_interrupt_work;
- 	int handled = 0;
-@@ -1002,7 +1002,7 @@ static irqreturn_t el3_interrupt(int irq
- static void media_check(unsigned long arg)
- {
- 	struct net_device *dev = (struct net_device *) arg;
--	struct el3_private *lp = dev->priv;
-+	struct el3_private *lp = netdev_priv(dev);
- 	ioaddr_t ioaddr = dev->base_addr;
- 	unsigned long flags;
- 	unsigned short /* cable, */ media, partner;
-@@ -1074,7 +1074,7 @@ reschedule:
- 
- static struct net_device_stats *el3_get_stats(struct net_device *dev)
- {
--	struct el3_private *lp = (struct el3_private *)dev->priv;
-+	struct el3_private *lp = netdev_priv(dev);
- 
- 	if (netif_device_present(dev)) {
- 		unsigned long flags;
-@@ -1091,7 +1091,7 @@ static struct net_device_stats *el3_get_
-  */
+ 	/*
+@@ -1043,7 +1043,7 @@ el3_get_stats(struct net_device *dev)
+ 	*/
  static void update_stats(struct net_device *dev)
  {
 -	struct el3_private *lp = (struct el3_private *)dev->priv;
 +	struct el3_private *lp = netdev_priv(dev);
- 	ioaddr_t ioaddr = dev->base_addr;
- 	u8 rx, tx, up;
+ 	int ioaddr = dev->base_addr;
  
-@@ -1128,7 +1128,7 @@ static void update_stats(struct net_devi
- 
- static int el3_rx(struct net_device *dev, int worklimit)
+ 	if (el3_debug > 5)
+@@ -1073,7 +1073,7 @@ static void update_stats(struct net_devi
+ static int
+ el3_rx(struct net_device *dev)
  {
 -	struct el3_private *lp = (struct el3_private *)dev->priv;
 +	struct el3_private *lp = netdev_priv(dev);
- 	ioaddr_t ioaddr = dev->base_addr;
+ 	int ioaddr = dev->base_addr;
  	short rx_status;
- 	
-@@ -1190,7 +1190,7 @@ static struct ethtool_ops netdev_ethtool
- /* Provide ioctl() calls to examine the MII xcvr state. */
- static int el3_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ 
+@@ -1145,7 +1145,7 @@ static void
+ set_multicast_list(struct net_device *dev)
  {
+ 	unsigned long flags;
 -	struct el3_private *lp = (struct el3_private *)dev->priv;
 +	struct el3_private *lp = netdev_priv(dev);
- 	ioaddr_t ioaddr = dev->base_addr;
- 	u16 *data = (u16 *)&rq->ifr_data;
- 	int phy = lp->phys & 0x1f;
-@@ -1259,7 +1259,7 @@ static void set_rx_mode(struct net_devic
- static int el3_close(struct net_device *dev)
+ 	int ioaddr = dev->base_addr;
+ 
+ 	if (el3_debug > 1) {
+@@ -1172,7 +1172,7 @@ static int
+ el3_close(struct net_device *dev)
  {
- 	ioaddr_t ioaddr = dev->base_addr;
+ 	int ioaddr = dev->base_addr;
+-	struct el3_private *lp = (struct el3_private *)dev->priv;
++	struct el3_private *lp = netdev_priv(dev);
+ 	
+ 	if (el3_debug > 2)
+ 		printk("%s: Shutting down ethercard.\n", dev->name);
+@@ -1317,7 +1317,7 @@ static int
+ netdev_ethtool_ioctl (struct net_device *dev, void *useraddr)
+ {
+ 	u32 ethcmd;
 -	struct el3_private *lp = dev->priv;
 +	struct el3_private *lp = netdev_priv(dev);
- 	dev_link_t *link = &lp->link;
  
- 	DEBUG(2, "%s: shutting down ethercard.\n", dev->name);
-diff -puN drivers/net/pcmcia/3c589_cs.c~net_pcmcia_casts drivers/net/pcmcia/3c589_cs.c
---- linux-264-302-priv/drivers/net/pcmcia/3c589_cs.c~net_pcmcia_casts	2004-03-02 15:57:38.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/pcmcia/3c589_cs.c	2004-03-02 16:03:51.000000000 -0800
-@@ -196,7 +196,7 @@ static dev_link_t *tc589_attach(void)
-     dev = alloc_etherdev(sizeof(struct el3_private));
-     if (!dev)
- 	 return NULL;
--    lp = dev->priv;
-+    lp = netdev_priv(dev);
-     link = &lp->link;
-     link->priv = dev;
+ 	/* dev_ioctl() in ../../net/core/dev.c has already checked
+ 	   capable(CAP_NET_ADMIN), so don't bother with that here.  */
+@@ -1558,7 +1558,7 @@ el3_suspend(struct pm_dev *pdev)
+ 		return -EINVAL;
  
-@@ -304,7 +304,7 @@ static void tc589_config(dev_link_t *lin
+ 	dev = (struct net_device *)pdev->data;
+-	lp = (struct el3_private *)dev->priv;
++	lp = netdev_priv(dev);
+ 	ioaddr = dev->base_addr;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+@@ -1585,7 +1585,7 @@ el3_resume(struct pm_dev *pdev)
+ 		return -EINVAL;
+ 
+ 	dev = (struct net_device *)pdev->data;
+-	lp = (struct el3_private *)dev->priv;
++	lp = netdev_priv(dev);
+ 	ioaddr = dev->base_addr;
+ 
+ 	spin_lock_irqsave(&lp->lock, flags);
+diff -puN drivers/net/3c527.c~net_3cxyz_casts drivers/net/3c527.c
+--- linux-264-302-priv/drivers/net/3c527.c~net_3cxyz_casts	2004-03-03 11:10:48.000000000 -0800
++++ linux-264-302-priv-rddunlap/drivers/net/3c527.c	2004-03-03 11:37:11.000000000 -0800
+@@ -226,7 +226,7 @@ static struct ethtool_ops netdev_ethtool
+ 
+ static void cleanup_card(struct net_device *dev)
  {
-     client_handle_t handle = link->handle;
-     struct net_device *dev = link->priv;
--    struct el3_private *lp = dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     tuple_t tuple;
-     cisparse_t parse;
-     u16 buf[32], *phys_addr;
-@@ -526,7 +526,7 @@ static u16 read_eeprom(ioaddr_t ioaddr, 
- */
- static void tc589_set_xcvr(struct net_device *dev, int if_port)
+-	struct mc32_local *lp=dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	unsigned slot = lp->slot;
+ 	mca_mark_as_unused(slot);
+ 	mca_set_adapter_name(slot, NULL);
+@@ -307,7 +307,7 @@ static int __init mc32_probe1(struct net
+ 	int i, err;
+ 	u8 POS;
+ 	u32 base;
+-	struct mc32_local *lp = dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	static u16 mca_io_bases[]={
+ 		0x7280,0x7290,
+ 		0x7680,0x7690,
+@@ -573,7 +573,7 @@ static inline void mc32_ready_poll(struc
+ 
+ static int mc32_command_nowait(struct net_device *dev, u16 cmd, void *data, int len)
  {
--    struct el3_private *lp = (struct el3_private *)dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     
-     EL3WINDOW(0);
-@@ -648,7 +648,7 @@ static int el3_config(struct net_device 
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	int ret = -1;
  
- static int el3_open(struct net_device *dev)
+@@ -619,7 +619,7 @@ static int mc32_command_nowait(struct ne
+   
+ static int mc32_command(struct net_device *dev, u16 cmd, void *data, int len)
  {
--    struct el3_private *lp = (struct el3_private *)dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     dev_link_t *link = &lp->link;
-     
-     if (!DEV_OK(link))
-@@ -672,7 +672,7 @@ static int el3_open(struct net_device *d
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	int ret = 0;
+ 	
+@@ -671,7 +671,7 @@ static int mc32_command(struct net_devic
  
- static void el3_tx_timeout(struct net_device *dev)
+ static void mc32_start_transceiver(struct net_device *dev) {
+ 
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 
+ 	/* Ignore RX overflow on device closure */ 
+@@ -706,7 +706,7 @@ static void mc32_start_transceiver(struc
+ 
+ static void mc32_halt_transceiver(struct net_device *dev) 
  {
--    struct el3_private *lp = (struct el3_private *)dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     
-     printk(KERN_WARNING "%s: Transmit timed out!\n", dev->name);
-@@ -687,7 +687,7 @@ static void el3_tx_timeout(struct net_de
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
  
- static void pop_tx_status(struct net_device *dev)
+ 	mc32_ready_poll(dev);	
+@@ -743,7 +743,7 @@ static void mc32_halt_transceiver(struct
+ 	 
+ static int mc32_load_rx_ring(struct net_device *dev)
  {
--    struct el3_private *lp = (struct el3_private *)dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     int i;
-     
-@@ -741,7 +741,7 @@ static int el3_start_xmit(struct sk_buff
- static irqreturn_t el3_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int i;
+ 	u16 rx_base;
+ 	volatile struct skb_header *p;
+@@ -792,7 +792,7 @@ static int mc32_load_rx_ring(struct net_
+ 
+ static void mc32_flush_rx_ring(struct net_device *dev)
  {
-     struct net_device *dev = (struct net_device *) dev_id;
--    struct el3_private *lp = dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     ioaddr_t ioaddr, status;
-     int i = 0, handled = 1;
-     
-@@ -826,7 +826,7 @@ static irqreturn_t el3_interrupt(int irq
- static void media_check(unsigned long arg)
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int i; 
+ 
+ 	for(i=0; i < RX_RING_LEN; i++) 
+@@ -824,7 +824,7 @@ static void mc32_flush_rx_ring(struct ne
+ 
+ static void mc32_load_tx_ring(struct net_device *dev)
+ { 
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	volatile struct skb_header *p;
+ 	int i; 
+ 	u16 tx_base;
+@@ -861,7 +861,7 @@ static void mc32_load_tx_ring(struct net
+ 
+ static void mc32_flush_tx_ring(struct net_device *dev)
  {
-     struct net_device *dev = (struct net_device *)(arg);
--    struct el3_private *lp = dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     u16 media, errs;
-     unsigned long flags;
-@@ -906,7 +906,7 @@ reschedule:
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int i;
  
- static struct net_device_stats *el3_get_stats(struct net_device *dev)
+ 	for (i=0; i < TX_RING_LEN; i++)
+@@ -899,7 +899,7 @@ static void mc32_flush_tx_ring(struct ne
+ static int mc32_open(struct net_device *dev)
  {
--    struct el3_private *lp = (struct el3_private *)dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     unsigned long flags;
-     dev_link_t *link = &lp->link;
+ 	int ioaddr = dev->base_addr;
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	u8 one=1;
+ 	u8 regs;
+ 	u16 descnumbuffs[2] = {TX_RING_LEN, RX_RING_LEN};
+@@ -1022,7 +1022,7 @@ static void mc32_timeout(struct net_devi
  
-@@ -928,7 +928,7 @@ static struct net_device_stats *el3_get_
- */
- static void update_stats(struct net_device *dev)
+ static int mc32_send_packet(struct sk_buff *skb, struct net_device *dev)
  {
--    struct el3_private *lp = (struct el3_private *)dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	u32 head = atomic_read(&lp->tx_ring_head);
+ 	
+ 	volatile struct skb_header *p, *np;
+@@ -1092,7 +1092,7 @@ static int mc32_send_packet(struct sk_bu
  
-     DEBUG(2, "%s: updating the statistics.\n", dev->name);
-@@ -955,7 +955,7 @@ static void update_stats(struct net_devi
- 
- static int el3_rx(struct net_device *dev)
+ static void mc32_update_stats(struct net_device *dev)
  {
--    struct el3_private *lp = (struct el3_private *)dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     int worklimit = 32;
-     short rx_status;
-@@ -1009,7 +1009,7 @@ static int el3_rx(struct net_device *dev
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	volatile struct mc32_stats *st = lp->stats; 
  
- static void set_multicast_list(struct net_device *dev)
+ 	u32 rx_errors=0; 
+@@ -1143,7 +1143,7 @@ static void mc32_update_stats(struct net
+ 
+ static void mc32_rx_ring(struct net_device *dev)
  {
--    struct el3_private *lp = dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     dev_link_t *link = &lp->link;
-     ioaddr_t ioaddr = dev->base_addr;
-     u16 opts = SetRxFilter | RxStation | RxBroadcast;
-@@ -1024,7 +1024,7 @@ static void set_multicast_list(struct ne
+-	struct mc32_local *lp=dev->priv;		
++	struct mc32_local *lp = netdev_priv(dev);
+ 	volatile struct skb_header *p;
+ 	u16 rx_ring_tail;
+ 	u16 rx_old_tail;
+@@ -1236,7 +1236,7 @@ static void mc32_rx_ring(struct net_devi
  
- static int el3_close(struct net_device *dev)
+ static void mc32_tx_ring(struct net_device *dev) 
  {
--    struct el3_private *lp = dev->priv;
-+    struct el3_private *lp = netdev_priv(dev);
-     dev_link_t *link = &lp->link;
-     ioaddr_t ioaddr = dev->base_addr;
-     
-diff -puN drivers/net/pcmcia/com20020_cs.c~net_pcmcia_casts drivers/net/pcmcia/com20020_cs.c
---- linux-264-302-priv/drivers/net/pcmcia/com20020_cs.c~net_pcmcia_casts	2004-03-02 15:57:38.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/pcmcia/com20020_cs.c	2004-03-02 16:04:30.000000000 -0800
-@@ -179,7 +179,7 @@ static dev_link_t *com20020_attach(void)
+-	struct mc32_local *lp=(struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	volatile struct skb_header *np;
  
-     memset(info, 0, sizeof(struct com20020_dev_t));
-     memset(link, 0, sizeof(struct dev_link_t));
--    lp = dev->priv;
-+    lp = netdev_priv(dev);
-     lp->timeout = timeout;
-     lp->backplane = backplane;
-     lp->clockp = clockp;
-@@ -394,7 +394,7 @@ static void com20020_config(dev_link_t *
- 	goto failed;
-     }
-     
--    lp = dev->priv;
-+    lp = netdev_priv(dev);
-     lp->card_name = "PCMCIA COM20020";
-     lp->card_flags = ARC_CAN_10MBIT; /* pretend all of them can 10Mbit */
+ 	/*
+@@ -1333,7 +1333,7 @@ static irqreturn_t mc32_interrupt(int ir
+ 	}
+  
+ 	ioaddr = dev->base_addr;
+-	lp = (struct mc32_local *)dev->priv;
++	lp = netdev_priv(dev);
  
-@@ -492,7 +492,7 @@ static int com20020_event(event_t event,
-             pcmcia_request_configuration(link->handle, &link->conf);
-             if (link->open) {
- 		int ioaddr = dev->base_addr;
--		struct arcnet_local *lp = (struct arcnet_local *)dev->priv;
-+		struct arcnet_local *lp = netdev_priv(dev);
- 		ARCRESET;
-             }
-         }
-diff -puN drivers/net/pcmcia/fmvj18x_cs.c~net_pcmcia_casts drivers/net/pcmcia/fmvj18x_cs.c
---- linux-264-302-priv/drivers/net/pcmcia/fmvj18x_cs.c~net_pcmcia_casts	2004-03-02 15:57:38.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/pcmcia/fmvj18x_cs.c	2004-03-02 16:05:23.000000000 -0800
-@@ -256,7 +256,7 @@ static dev_link_t *fmvj18x_attach(void)
-     dev = alloc_etherdev(sizeof(local_info_t));
-     if (!dev)
- 	return NULL;
--    lp = dev->priv;
-+    lp = netdev_priv(dev);
-     link = &lp->link;
-     link->priv = dev;
+ 	/* See whats cooking */
  
-@@ -394,7 +394,7 @@ static void fmvj18x_config(dev_link_t *l
+@@ -1450,7 +1450,7 @@ static irqreturn_t mc32_interrupt(int ir
+ 
+ static int mc32_close(struct net_device *dev)
  {
-     client_handle_t handle = link->handle;
-     struct net_device *dev = link->priv;
--    local_info_t *lp = dev->priv;
-+    local_info_t *lp = netdev_priv(dev);
-     tuple_t tuple;
-     cisparse_t parse;
-     u_short buf[32];
-@@ -803,7 +803,7 @@ module_exit(exit_fmvj18x_cs);
- static irqreturn_t fjn_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 
+ 	u8 regs;
+@@ -1499,7 +1499,7 @@ static int mc32_close(struct net_device 
+ 
+ static struct net_device_stats *mc32_get_stats(struct net_device *dev)
  {
-     struct net_device *dev = dev_id;
--    local_info_t *lp = dev->priv;
-+    local_info_t *lp = netdev_priv(dev);
-     ioaddr_t ioaddr;
-     unsigned short tx_stat, rx_stat;
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	
+ 	mc32_update_stats(dev); 
+ 	return &lp->net_stats;
+@@ -1531,7 +1531,7 @@ static struct net_device_stats *mc32_get
  
-@@ -862,7 +862,7 @@ static irqreturn_t fjn_interrupt(int irq
- 
- static void fjn_tx_timeout(struct net_device *dev)
+ static void do_mc32_set_multicast_list(struct net_device *dev, int retry)
  {
--    struct local_info_t *lp = (struct local_info_t *)dev->priv;
-+    struct local_info_t *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
+-	struct mc32_local *lp = (struct mc32_local *)dev->priv;
++	struct mc32_local *lp = netdev_priv(dev);
+ 	u16 filt = (1<<2); /* Save Bad Packets, for stats purposes */ 
  
-     printk(KERN_NOTICE "%s: transmit timed out with status %04x, %s?\n",
-@@ -892,7 +892,7 @@ static void fjn_tx_timeout(struct net_de
+ 	if (dev->flags&IFF_PROMISC)
+diff -puN drivers/net/3c59x.c~net_3cxyz_casts drivers/net/3c59x.c
+--- linux-264-302-priv/drivers/net/3c59x.c~net_3cxyz_casts	2004-03-03 11:10:48.000000000 -0800
++++ linux-264-302-priv-rddunlap/drivers/net/3c59x.c	2004-03-03 11:26:59.000000000 -0800
+@@ -1013,7 +1013,7 @@ static int vortex_eisa_remove (struct de
+ 		BUG();
+ 	}
  
- static int fjn_start_xmit(struct sk_buff *skb, struct net_device *dev)
+-	vp = dev->priv;
++	vp = netdev_priv(dev);
+ 	ioaddr = dev->base_addr;
+ 	
+ 	unregister_netdev (dev);
+@@ -1115,7 +1115,7 @@ static int __devinit vortex_probe1(struc
+ 	}
+ 	SET_MODULE_OWNER(dev);
+ 	SET_NETDEV_DEV(dev, gendev);
+-	vp = dev->priv;
++	vp = netdev_priv(dev);
+ 
+ 	option = global_options;
+ 
+@@ -1516,7 +1516,7 @@ static void
+ vortex_up(struct net_device *dev)
  {
--    struct local_info_t *lp = (struct local_info_t *)dev->priv;
-+    struct local_info_t *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     short length = skb->len;
-     
-@@ -966,7 +966,7 @@ static int fjn_start_xmit(struct sk_buff
+ 	long ioaddr = dev->base_addr;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	unsigned int config;
+ 	int i;
  
- static void fjn_reset(struct net_device *dev)
+@@ -1714,7 +1714,7 @@ vortex_up(struct net_device *dev)
+ static int
+ vortex_open(struct net_device *dev)
  {
--    struct local_info_t *lp = (struct local_info_t *)dev->priv;
-+    struct local_info_t *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     int i;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	int i;
+ 	int retval;
  
-@@ -1052,7 +1052,7 @@ static void fjn_reset(struct net_device 
- 
- static void fjn_rx(struct net_device *dev)
+@@ -1772,7 +1772,7 @@ static void
+ vortex_timer(unsigned long data)
  {
--    struct local_info_t *lp = (struct local_info_t *)dev->priv;
-+    struct local_info_t *lp = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     int boguscount = 10;	/* 5 -> 10: by agy 19940922 */
+ 	struct net_device *dev = (struct net_device *)data;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int next_tick = 60*HZ;
+ 	int ok = 0;
+@@ -1898,7 +1898,7 @@ leave_media_alone:
  
-@@ -1181,7 +1181,7 @@ static int fjn_config(struct net_device 
- 
- static int fjn_open(struct net_device *dev)
+ static void vortex_tx_timeout(struct net_device *dev)
  {
--    struct local_info_t *lp = (struct local_info_t *)dev->priv;
-+    struct local_info_t *lp = netdev_priv(dev);
-     dev_link_t *link = &lp->link;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
  
-     DEBUG(4, "fjn_open('%s').\n", dev->name);
-@@ -1206,7 +1206,7 @@ static int fjn_open(struct net_device *d
- 
- static int fjn_close(struct net_device *dev)
+ 	printk(KERN_ERR "%s: transmit timed out, tx_status %2.2x status %4.4x.\n",
+@@ -1968,7 +1968,7 @@ static void vortex_tx_timeout(struct net
+ static void
+ vortex_error(struct net_device *dev, int status)
  {
--    struct local_info_t *lp = (struct local_info_t *)dev->priv;
-+    struct local_info_t *lp = netdev_priv(dev);
-     dev_link_t *link = &lp->link;
-     ioaddr_t ioaddr = dev->base_addr;
- 
-@@ -1239,7 +1239,7 @@ static int fjn_close(struct net_device *
- 
- static struct net_device_stats *fjn_get_stats(struct net_device *dev)
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int do_tx_reset = 0, reset_mask = 0;
+ 	unsigned char tx_status = 0;
+@@ -2070,7 +2070,7 @@ vortex_error(struct net_device *dev, int
+ static int
+ vortex_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
--    local_info_t *lp = (local_info_t *)dev->priv;
-+    local_info_t *lp = netdev_priv(dev);
-     return &lp->stats;
- } /* fjn_get_stats */
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
  
-@@ -1252,7 +1252,7 @@ static struct net_device_stats *fjn_get_
- static void set_rx_mode(struct net_device *dev)
+ 	/* Put out the doubleword header... */
+@@ -2125,7 +2125,7 @@ vortex_start_xmit(struct sk_buff *skb, s
+ static int
+ boomerang_start_xmit(struct sk_buff *skb, struct net_device *dev)
  {
-     ioaddr_t ioaddr = dev->base_addr;
--    struct local_info_t *lp = (struct local_info_t *)dev->priv;
-+    struct local_info_t *lp = netdev_priv(dev);
-     u_char mc_filter[8];		 /* Multicast hash filter */
-     u_long flags;
-     int i;
-diff -puN drivers/net/pcmcia/ibmtr_cs.c~net_pcmcia_casts drivers/net/pcmcia/ibmtr_cs.c
---- linux-264-302-priv/drivers/net/pcmcia/ibmtr_cs.c~net_pcmcia_casts	2004-03-02 15:57:38.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/pcmcia/ibmtr_cs.c	2004-03-02 16:06:03.000000000 -0800
-@@ -178,7 +178,7 @@ static dev_link_t *ibmtr_attach(void)
- 
-     link = &info->link;
-     link->priv = info;
--    info->ti = dev->priv; 
-+    info->ti = netdev_priv(dev);
- 
-     link->io.Attributes1 = IO_DATA_PATH_WIDTH_8;
-     link->io.NumPorts1 = 4;
-@@ -256,7 +256,7 @@ static void ibmtr_detach(dev_link_t *lin
- 	unregister_netdev(dev);
- 
-     {
--	struct tok_info *ti = (struct tok_info *)dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 	del_timer_sync(&(ti->tr_timer));
-     }
-     if (link->state & DEV_CONFIG)
-@@ -287,7 +287,7 @@ static void ibmtr_config(dev_link_t *lin
-     client_handle_t handle = link->handle;
-     ibmtr_dev_t *info = link->priv;
-     struct net_device *dev = info->dev;
--    struct tok_info *ti = dev->priv;
-+    struct tok_info *ti = netdev_priv(dev);
-     tuple_t tuple;
-     cisparse_t parse;
-     win_req_t req;
-@@ -412,7 +412,7 @@ static void ibmtr_release(dev_link_t *li
-     pcmcia_release_io(link->handle, &link->io);
-     pcmcia_release_irq(link->handle, &link->irq);
-     if (link->win) {
--	struct tok_info *ti = dev->priv;
-+	struct tok_info *ti = netdev_priv(dev);
- 	iounmap((void *)ti->mmio);
- 	pcmcia_release_window(link->win);
- 	pcmcia_release_window(info->sram_win_handle);
-diff -puN drivers/net/pcmcia/smc91c92_cs.c~net_pcmcia_casts drivers/net/pcmcia/smc91c92_cs.c
---- linux-264-302-priv/drivers/net/pcmcia/smc91c92_cs.c~net_pcmcia_casts	2004-03-02 15:57:38.000000000 -0800
-+++ linux-264-302-priv-rddunlap/drivers/net/pcmcia/smc91c92_cs.c	2004-03-02 16:07:05.000000000 -0800
-@@ -327,7 +327,7 @@ static dev_link_t *smc91c92_attach(void)
-     dev = alloc_etherdev(sizeof(struct smc_private));
-     if (!dev)
- 	return NULL;
--    smc = dev->priv;
-+    smc = netdev_priv(dev);
-     link = &smc->link;
-     link->priv = dev;
- 
-@@ -483,7 +483,7 @@ static int next_tuple(client_handle_t ha
- static int mhz_3288_power(dev_link_t *link)
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	/* Calculate the next Tx descriptor entry. */
+ 	int entry = vp->cur_tx % TX_RING_SIZE;
+@@ -2225,7 +2225,7 @@ static irqreturn_t
+ vortex_interrupt(int irq, void *dev_id, struct pt_regs *regs)
  {
-     struct net_device *dev = link->priv;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     u_char tmp;
- 
-     /* Read the ISR twice... */
-@@ -505,7 +505,7 @@ static int mhz_3288_power(dev_link_t *li
- static int mhz_mfc_config(dev_link_t *link)
+ 	struct net_device *dev = dev_id;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr;
+ 	int status;
+ 	int work_done = max_interrupt_work;
+@@ -2330,7 +2330,7 @@ static irqreturn_t
+ boomerang_interrupt(int irq, void *dev_id, struct pt_regs *regs)
  {
-     struct net_device *dev = link->priv;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     tuple_t tuple;
-     cisparse_t parse;
-     u_char buf[255];
-@@ -618,7 +618,7 @@ static int mhz_setup(dev_link_t *link)
- static void mot_config(dev_link_t *link)
- {
-     struct net_device *dev = link->priv;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     ioaddr_t iouart = link->io.BasePort2;
+ 	struct net_device *dev = dev_id;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr;
+ 	int status;
+ 	int work_done = max_interrupt_work;
+@@ -2455,7 +2455,7 @@ handler_exit:
  
-@@ -894,7 +894,7 @@ static void smc91c92_config(dev_link_t *
+ static int vortex_rx(struct net_device *dev)
  {
-     client_handle_t handle = link->handle;
-     struct net_device *dev = link->priv;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     tuple_t tuple;
-     cisparse_t parse;
-     u_short buf[32];
-@@ -1069,7 +1069,7 @@ static void smc91c92_release(dev_link_t 
-     pcmcia_release_irq(link->handle, &link->irq);
-     if (link->win) {
- 	struct net_device *dev = link->priv;
--	struct smc_private *smc = dev->priv;
-+	struct smc_private *smc = netdev_priv(dev);
- 	iounmap(smc->base);
- 	pcmcia_release_window(link->win);
-     }
-@@ -1091,7 +1091,7 @@ static int smc91c92_event(event_t event,
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int i;
+ 	short rx_status;
+@@ -2525,7 +2525,7 @@ static int vortex_rx(struct net_device *
+ static int
+ boomerang_rx(struct net_device *dev)
  {
-     dev_link_t *link = args->client_data;
-     struct net_device *dev = link->priv;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     int i;
- 
-     DEBUG(1, "smc91c92_event(0x%06x)\n", event);
-@@ -1240,7 +1240,7 @@ static void smc_dump(struct net_device *
- 
- static int smc_open(struct net_device *dev)
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	int entry = vp->cur_rx % RX_RING_SIZE;
+ 	long ioaddr = dev->base_addr;
+ 	int rx_status;
+@@ -2627,7 +2627,7 @@ static void
+ rx_oom_timer(unsigned long arg)
  {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     dev_link_t *link = &smc->link;
+ 	struct net_device *dev = (struct net_device *)arg;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
  
- #ifdef PCMCIA_DEBUG
-@@ -1277,7 +1277,7 @@ static int smc_open(struct net_device *d
- 
- static int smc_close(struct net_device *dev)
+ 	spin_lock_irq(&vp->lock);
+ 	if ((vp->cur_rx - vp->dirty_rx) == RX_RING_SIZE)	/* This test is redundant, but makes me feel good */
+@@ -2642,7 +2642,7 @@ rx_oom_timer(unsigned long arg)
+ static void
+ vortex_down(struct net_device *dev)
  {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     dev_link_t *link = &smc->link;
-     ioaddr_t ioaddr = dev->base_addr;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
  
-@@ -1314,7 +1314,7 @@ static int smc_close(struct net_device *
+ 	netif_stop_queue (dev);
+@@ -2678,7 +2678,7 @@ vortex_down(struct net_device *dev)
+ static int
+ vortex_close(struct net_device *dev)
+ {
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int i;
  
- static void smc_hardware_send_packet(struct net_device * dev)
+@@ -2740,7 +2740,7 @@ static void
+ dump_tx_ring(struct net_device *dev)
  {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     struct sk_buff *skb = smc->saved_skb;
-     ioaddr_t ioaddr = dev->base_addr;
-     u_char packet_no;
-@@ -1379,7 +1379,7 @@ static void smc_hardware_send_packet(str
+ 	if (vortex_debug > 0) {
+-		struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 		long ioaddr = dev->base_addr;
+ 		
+ 		if (vp->full_bus_master_tx) {
+@@ -2773,7 +2773,7 @@ dump_tx_ring(struct net_device *dev)
  
- static void smc_tx_timeout(struct net_device *dev)
+ static struct net_device_stats *vortex_get_stats(struct net_device *dev)
  {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	unsigned long flags;
  
-     printk(KERN_NOTICE "%s: SMC91c92 transmit timed out, "
-@@ -1394,7 +1394,7 @@ static void smc_tx_timeout(struct net_de
+ 	if (netif_device_present(dev)) {	/* AKPM: Used to be netif_running */
+@@ -2793,7 +2793,7 @@ static struct net_device_stats *vortex_g
+ 	*/
+ static void update_stats(long ioaddr, struct net_device *dev)
+ {
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	int old_window = inw(ioaddr + EL3_CMD);
  
- static int smc_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (old_window == 0xffff)	/* Chip suspended or ejected. */
+@@ -2834,7 +2834,7 @@ static void update_stats(long ioaddr, st
+ static void vortex_get_drvinfo(struct net_device *dev,
+ 					struct ethtool_drvinfo *info)
  {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     u_short num_pages;
-     short time_out, ir;
-@@ -1460,7 +1460,7 @@ static int smc_start_xmit(struct sk_buff
+-	struct vortex_private *vp = dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
  
- static void smc_tx_err(struct net_device * dev)
- {
--    struct smc_private *smc = (struct smc_private *)dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     int saved_packet = inw(ioaddr + PNR_ARR) & 0xff;
-     int packet_no = inw(ioaddr + FIFO_PORTS) & 0x7f;
-@@ -1504,7 +1504,7 @@ static void smc_tx_err(struct net_device
+ 	strcpy(info->driver, DRV_NAME);
+ 	strcpy(info->version, DRV_VERSION);
+@@ -2855,7 +2855,7 @@ static struct ethtool_ops vortex_ethtool
  
- static void smc_eph_irq(struct net_device *dev)
+ static int vortex_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     u_short card_stats, ephs;
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&rq->ifr_data;
+ 	int phy = vp->phys[0] & 0x1f;
+@@ -2942,7 +2942,7 @@ static void mdio_sync(long ioaddr, int b
  
-@@ -1539,7 +1539,7 @@ static void smc_eph_irq(struct net_devic
- static irqreturn_t smc_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+ static int mdio_read(struct net_device *dev, int phy_id, int location)
  {
-     struct net_device *dev = dev_id;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr;
-     u_short saved_bank, saved_pointer, mask, status;
-     unsigned int handled = 1;
-@@ -1657,7 +1657,7 @@ irq_done:
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	int i;
+ 	long ioaddr = dev->base_addr;
+ 	int read_cmd = (0xf6 << 10) | (phy_id << 5) | location;
+@@ -2976,7 +2976,7 @@ static int mdio_read(struct net_device *
  
- static void smc_rx(struct net_device *dev)
+ static void mdio_write(struct net_device *dev, int phy_id, int location, int value)
  {
--    struct smc_private *smc = (struct smc_private *)dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     int rx_status;
-     int packet_length;	/* Caution: not frame length, rather words
-@@ -1725,7 +1725,7 @@ static void smc_rx(struct net_device *de
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
+ 	int write_cmd = 0x50020000 | (phy_id << 23) | (location << 18) | value;
+ 	long mdio_addr = ioaddr + Wn4_PhysicalMgmt;
+@@ -3010,7 +3010,7 @@ static void mdio_write(struct net_device
+ /* Set Wake-On-LAN mode and put the board into D3 (power-down) state. */
+ static void acpi_set_WOL(struct net_device *dev)
+ {
+-	struct vortex_private *vp = (struct vortex_private *)dev->priv;
++	struct vortex_private *vp = netdev_priv(dev);
+ 	long ioaddr = dev->base_addr;
  
- static struct net_device_stats *smc_get_stats(struct net_device *dev)
- {
--    struct smc_private *smc = (struct smc_private *)dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     /* Nothing to update - the 91c92 is a pretty primative chip. */
-     return &smc->stats;
- }
-@@ -1765,7 +1765,7 @@ static void fill_multicast_tbl(int count
- static void set_rx_mode(struct net_device *dev)
- {
-     ioaddr_t ioaddr = dev->base_addr;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     u_int multicast_table[ 2 ] = { 0, };
-     unsigned long flags;
-     u_short rx_cfg_setting;
-@@ -1804,7 +1804,7 @@ static void set_rx_mode(struct net_devic
+ 	/* Power up on: 1==Downloaded Filter, 2==Magic Packets, 4==Link Status. */
+@@ -3036,7 +3036,7 @@ static void __devexit vortex_remove_one 
+ 		BUG();
+ 	}
  
- static int s9k_config(struct net_device *dev, struct ifmap *map)
- {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     if ((map->port != (u_char)(-1)) && (map->port != dev->if_port)) {
- 	if (smc->cfg & CFG_MII_SELECT)
- 	    return -EOPNOTSUPP;
-@@ -1830,7 +1830,7 @@ static int s9k_config(struct net_device 
- */
- static void smc_set_xcvr(struct net_device *dev, int if_port)
- {
--    struct smc_private *smc = (struct smc_private *)dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     u_short saved_bank;
+-	vp = dev->priv;
++	vp = netdev_priv(dev);
  
-@@ -1855,7 +1855,7 @@ static void smc_set_xcvr(struct net_devi
- static void smc_reset(struct net_device *dev)
- {
-     ioaddr_t ioaddr = dev->base_addr;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     int i;
- 
-     DEBUG(0, "%s: smc91c92 reset called.\n", dev->name);
-@@ -1930,7 +1930,7 @@ static void smc_reset(struct net_device 
- static void media_check(u_long arg)
- {
-     struct net_device *dev = (struct net_device *) arg;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     ioaddr_t ioaddr = dev->base_addr;
-     u_short i, media, saved_bank;
-     u_short link;
-@@ -2044,7 +2044,7 @@ reschedule:
- static int smc_link_ok(struct net_device *dev)
- {
-     ioaddr_t ioaddr = dev->base_addr;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
- 
-     if (smc->cfg & CFG_MII_SELECT) {
- 	return mii_link_ok(&smc->mii_if);
-@@ -2109,7 +2109,7 @@ static int smc_netdev_set_ecmd(struct ne
- static int smc_ethtool_ioctl (struct net_device *dev, void *useraddr)
- {
-     u32 ethcmd;
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
- 
-     if (get_user(ethcmd, (u32 *)useraddr))
- 	return -EFAULT;
-@@ -2202,7 +2202,7 @@ static int smc_ethtool_ioctl (struct net
- 
- static int smc_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
- {
--    struct smc_private *smc = dev->priv;
-+    struct smc_private *smc = netdev_priv(dev);
-     struct mii_ioctl_data *mii;
-     int rc = 0;
-     u_short saved_bank;
+ 	/* AKPM: FIXME: we should have
+ 	 *	if (vp->cb_fn_base) iounmap(vp->cb_fn_base);
 
 _
 
