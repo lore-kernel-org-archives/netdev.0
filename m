@@ -1,43 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: creating a netdevice
-Date: 02 Mar 2005 16:41:17 -0500
-Message-ID: <1109799677.1098.198.camel@jzny.localdomain>
-References: <20050302133828.45232.qmail@web26610.mail.ukl.yahoo.com>
-	 <20050302112622.33be433c@dxpl.pdx.osdl.net>
-Reply-To: hadi@cyberus.ca
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
+Date: Wed, 2 Mar 2005 22:56:07 +0100
+Message-ID: <20050302215607.GF4608@stusta.de>
+References: <20050223014233.6710fd73.akpm@osdl.org> <20050226113123.GJ3311@stusta.de> <42256078.1040002@pobox.com> <20050302140833.GD4608@stusta.de> <42261004.4000501@pobox.com> <20050302123829.51dbc44b.akpm@osdl.org> <42262B08.2040401@pobox.com> <20050302131817.2e61805f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: BZ Benny <bennybbz@yahoo.fr>, netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050302112622.33be433c@dxpl.pdx.osdl.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050302131817.2e61805f.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Can you explain why you need to create a net device? Linux (and many
-other OSes) typically tie discovery of hardware resources to creating a
-network device i.e the kernel creates it for you (this is true even when
-the discovery is done post bootup). The only exception is things like 
-tun/ethertap as Stephen mentions. Things like allocation of ifindices 
-are also under the control of the OS - even when you are able to create.
-
-cheers,
-jamal
-
-
-On Wed, 2005-03-02 at 14:26, Stephen Hemminger wrote:
-> On Wed, 2 Mar 2005 14:38:28 +0100 (CET)
-> BZ Benny <bennybbz@yahoo.fr> wrote:
-> 
-> > Hi
+On Wed, Mar 02, 2005 at 01:18:17PM -0800, Andrew Morton wrote:
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+> >
+> > > Thing is, CRYPTO_AES on only selectable on x86.
 > > 
-> > I want to create a network interface from the user
-> > space,
-> > is it possible?
+> >  You're thinking about CRYPTO_AES_586.  But looking at crypto/Kconfig, 
+> >  the dependencies are a bit weird:
+> > 
+> >  config CRYPTO_AES
+> >           tristate "AES cipher algorithms"
+> >           depends on CRYPTO && !(X86 && !X86_64)
+> >  config CRYPTO_AES_586
+> >           tristate "AES cipher algorithms (i586)"
+> >           depends on CRYPTO && (X86 && !X86_64)
 > 
-> No, you can't create a network interface from user space.
-> You probably want to use tun/tap or ethertap device.
+> That's pretty broken, isn't it?
 > 
+> Would be better to just do:
 > 
+> config CRYPTO_AES
+> 	select CRYPTO_AES_586 if (X86 && !X86_64)
+> 	select CRYPTO_AES_OTHER if !(X86 && !X86_64)
+> 
+> and hide CRYPTO_AES_586 and CRYPTO_AES_OTHER from the outside world.
+
+
+  http://www.ussg.iu.edu/hypermail/linux/kernel/0502.3/0518.html
+  http://www.ussg.iu.edu/hypermail/linux/kernel/0502.3/0523.html
+  
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
