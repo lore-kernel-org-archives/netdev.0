@@ -1,41 +1,45 @@
-From: Julian Anastasov <ja@ssi.bg>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: suggestion for routing code improvement
-Date: Thu, 11 Apr 2002 16:06:58 +0300 (EEST)
+Date: Thu, 11 Apr 2002 09:05:46 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0204111602001.29371-100000@l>
-References: <15541.35087.61146.809057@robur.slu.se>
+Message-ID: <Pine.GSO.4.30.0204110901280.651-100000@shell.cyberus.ca>
+References: <Pine.LNX.4.44.0204111536470.2204-100000@l>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <15541.35087.61146.809057@robur.slu.se>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0204111536470.2204-100000@l>
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
 
-On Thu, 11 Apr 2002, Robert Olsson wrote:
+On Thu, 11 Apr 2002, Julian Anastasov wrote:
 
->  Well we can be happy for the well-designed routing/netlink system Linux
->  got and as you say routing software does not yet fully utilize this.
->  But I think we agree that we shouldn't have kernel to compensate for this.
-
-	Agreed. We are not trying to insert routing daemon into kernel :)
-
->  I did some benchmarking/profiling on the routing lookup/cache/garbage
->  collection it seems to be well done too. Having listened to all fuzz
->  about routing lookups at GIGE speeds. :-)
-
-	If you use another hash function for the route cache you can
-even get better :) In my tests with many hosts i got 8% increase in
-performance.
-
->  Cheers.
 >
-> 						--ro
+> 	Hello,
+>
+> > If i am not mistaken zebra is now capable of using more tables as well.
+>
+> 	Last time I checked it 6 months ago and today I don't see
+> much progress on the web site but you can be right :)
+>
 
-Regards
+hrm. Maybe its in their commercial version ;-<
+Note how slow they are in updating it these days. Someone approached
+me a while back with suggestions to join in forking (and liberate) Zebra
+from the current (lack of) activity. My answer at the time is to put more
+effort in Bird probably.
 
---
-Julian Anastasov <ja@ssi.bg>
+> 	Yes, we can ping indirect nexthops, do layer 7 health checks,
+> alter the nexthops' weights. Usually we don't demand such super
+> job from a routing daemon, the things are mostly "do it yourself" :)
+>
+
+My sentiments exactly. Any such beast when written should be policy
+driven. If i dont need layer 7 health checks as stimulus, then
+dont use them. Other things would be remote SNMP queries etc.
+
+cheers,
+jamal
