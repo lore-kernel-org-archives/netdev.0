@@ -1,56 +1,38 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: [PATCH] 2.4.22-pre9-bk : bonding bug fixes
-Date: Thu, 31 Jul 2003 07:03:39 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Wed, 30 Jul 2003 22:02:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030731050339.GA24641@alpha.home.local>
-References: <20030730164907.43b2d343.davem@redhat.com> <200307310022.h6V0MGjK012821@death.ibm.com>
+Message-ID: <20030730220223.4c25fcfe.davem@redhat.com>
+References: <20030724000705.4662df54.davem@redhat.com>
+	<Pine.LNX.4.44.0307291659190.7490-100000@DYN318430>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, Willy Tarreau <willy@w.ods.org>,
-   jgarzik@pobox.com, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200307310022.h6V0MGjK012821@death.ibm.com>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0307291659190.7490-100000@DYN318430>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jay !
+On Tue, 29 Jul 2003 17:33:03 -0700 (PDT)
+Krishna Kumar <krkumar@us.ibm.com> wrote:
 
-On Wed, Jul 30, 2003 at 05:22:15PM -0700, Jay Vosburgh wrote:
- 
-> 	I've been looking at Willy's fixes, and the typo (first patch)
-> and locking fix (third patch) both look good to me.  The second patch
-> (the dead code warning) points out a real problem, in that the code in
-> question really has no function, but the patch probably doesn't go far
-> enough for a final solution (the variable that code would set,
-> arp_target_hw_addr, is referenced in other places, but ends up always
-> being NULL because the dead code is the only place it was ever set).
+> Since use_tempaddr can be -1, I am for the time being keeping all
+> the variables as s32. If this is changed to __u32, then some code in
+> addrconf.c needs to be modified.
+
+Ok, but then please use "__s32".
+
+> > I think something more like route metrics, ie. an array is more appropriate
 > 
-> 	A more proper solution would be to simply delete the dead code
-> and the arp_target_hw_addr variable, and replace the variable
-> references with NULL.  This means that all of the ARP probes sent will
-> be sent out as broadcasts, which is what's already happening, this
-> just makes the code clearer.  Patch follows (which replaces Willy's
-> second patch).
+> I guess you mean only the user interface to use route type metrics, not
+> modify the existing cnf implementation to use this concept (eg remove the
+> structure and define cnf_metrics[] with code similar to RTAX_HOPLIMIT,
+> etc). So this patch doesn't change the usage in kernel, except now the
+> user interface returns the config params in an array format.
 > 
-> 	Does this sound reasonable to everybody?
+> This patch applies on top of the prefix list patch.
 
-Perfectly reasonable to me. My patch was not intended to fix it but to allow
-anybody to comment on this code, which would not have been possible if I removed
-it myself ;-)
-
-IMHO, ARP probes should always be sent with broadcast addresses. We could
-think about switching to unicast when we get a reply, but we must switch back
-to broadcast as soon as we lose a target. This would complexify the magic which
-is not absolutely necessary here.
-
-I might send other fix propositions later (2.4.23-pre) for the ARP behaviour
-(better IP source address selection, etc...) because I don't like it very much
-when drivers try to find their information themselves and stick to it for all
-their life (eg: my_ip). I'd like to dynamically lookup the valid source IP at
-each probe (which is not *that* frequent in fact).
-
-Cheers,
-Willy
+I like the array scheme, but please you must define macros
+(like RTAX_*) that give meaning to the array[] indices.
