@@ -1,8 +1,8 @@
 From: linux lover <linux_lover2004@yahoo.com>
 Subject: What is max size return by alloc_skb?
-Date: Wed, 15 Sep 2004 00:53:56 -0700 (PDT)
+Date: Wed, 15 Sep 2004 00:55:55 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040915075356.49586.qmail@web52204.mail.yahoo.com>
+Message-ID: <20040915075555.97673.qmail@web52202.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-net@vger.linux.org
@@ -21,8 +21,9 @@ regards,
 linux_lover
 
 
+	
 		
-_______________________________
+__________________________________
 Do you Yahoo!?
-Declare Yourself - Register online to vote today!
-http://vote.yahoo.com
+New and Improved Yahoo! Mail - 100MB free storage!
+http://promotions.yahoo.com/new_mail 
