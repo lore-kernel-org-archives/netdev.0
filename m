@@ -1,39 +1,41 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: send-to-self (was Re: routing bug report for 2.4)
-Date: Sun, 29 Jun 2003 23:18:50 +0300 (EEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: networking bugs and bugme.osdl.org
+Date: Sun, 29 Jun 2003 14:15:28 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306292307130.9328-100000@u.domain.uli>
-References: <Pine.LNX.4.44.0306291110070.8466-100000@u.domain.uli>
+Message-ID: <20030629.141528.74734144.davem@redhat.com>
+References: <3EFC9203.3090508@candelatech.com>
+	<20030627.144426.71096593.davem@redhat.com>
+	<1056755070.5463.12.camel@dhcp22.swansea.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, mbligh@aracnet.com, linux-kernel@vger.kernel.org,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <Pine.LNX.4.44.0306291110070.8466-100000@u.domain.uli>
+To: alan@lxorguk.ukuu.org.uk
+In-Reply-To: <1056755070.5463.12.camel@dhcp22.swansea.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+   Date: 28 Jun 2003 00:04:30 +0100
+   
+   You are assuming there is a relationship in bug severity/commonness
+   and number of *developers* who hit it.
 
-	Hello,
+Not true, the assumption I make is that a bug report that
+a bug reporter cares about, and a patch that a patch submitter
+cares about, will all get resent if they get dropped.
 
-	Ben, I have something for comments and testing (compiled
-only):
+If the reporter/submitter doesn't care, neither do I.
 
-http://www.ssi.bg/~ja/send-to-self-2.4.21-1.diff
+You keep saying that lost information is bad and serves no
+positive purpose, and I totally disagree.  Drops are litmus tests
+for the patch/report, they also serve to educate the submitters.
 
-The usage should be:
-eth0/loop=1
-eth1/loop=1
-bind to src IP from eth0 and connect to local IP on eth1
+And to repeat, this process is a two way street Alan.  If you try to
+make it anything else, you will wear yourself thin.
 
-Be ready, there can be something totally wrong.
-
-I'm avoiding the arp_filter changes. The setup uses
-asymmetric routing so better use arp_filter=0 or other
-ARP filtering tools that can restrict our ARP replies 
-only via the desired device.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Once you enforce the work to be distributed to the people who report
+to you as much as to the people taking the reports, thing will go much
+more smoothly. :-)
