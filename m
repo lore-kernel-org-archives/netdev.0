@@ -1,148 +1,71 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC/PATCH] IMQ port to 2.6
-Date: 26 Jan 2004 22:14:35 -0500
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: Submission for S2io 10GbE driver
+Date: Mon, 26 Jan 2004 21:32:48 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1075173275.1039.53.camel@jzny.localdomain>
-References: <20040125152419.GA3208@penguin.localdomain>
-	 <20040125164431.GA31548@louise.pinerecords.com>
-	 <1075058539.1747.92.camel@jzny.localdomain>
-	 <20040125202148.GA10599@usr.lcm.msu.ru>
-	 <1075074316.1747.115.camel@jzny.localdomain>
-	 <20040126001102.GA12303@usr.lcm.msu.ru>
-	 <1075086588.1732.221.camel@jzny.localdomain>
-	 <20040126093230.GA17811@usr.lcm.msu.ru>
-	 <1075124312.1732.292.camel@jzny.localdomain>
-	 <20040126135545.GA19497@usr.lcm.msu.ru>
-	 <20040126152409.GA10053@louise.pinerecords.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <001801c3e497$010671a0$0400a8c0@S2IOtech.com>
+References: <20040123162134.79c67ed5.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Vladimir B. Savkin" <master@sectorb.msk.ru>, netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>, <raghavendra.koushik@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tomas Szepe <szepe@pinerecords.com>
-In-Reply-To: <20040126152409.GA10053@louise.pinerecords.com>
+To: "'Stephen Hemminger'" <shemminger@osdl.org>, "'Andi Kleen'" <ak@suse.de>
+In-Reply-To: <20040123162134.79c67ed5.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-01-26 at 10:24, Tomas Szepe wrote:
-[..]
-> Actually, this is very much like what we're using IMQ for:
+Hi Stephen,
+Below are responses from our developer.
+
+Thanks for the input, Leonid
+
+> -----Original Message-----
+> From: Stephen Hemminger [mailto:shemminger@osdl.org] 
+> Sent: Friday, January 23, 2004 4:22 PM
+> To: Andi Kleen
+> Cc: Leonid Grossman; netdev@oss.sgi.com
+> Subject: Re: Submission for S2io 10GbE driver
 > 
->                   +-----------+ eth1 --- \
->                   | shaper    + eth2 ---
-> Internet --- eth0 + in bridge + .    ---    ... WAN (10 C's of customer IPs)
->                   | setup     + .    ---
->                   +-----------+ ethN --- /
 > 
-> We're shaping single IPs and groups of IPs, applying tariff rates
-> on the sum of inbound and outbound flow (this last point, I'm told,
-> is the primary reason for our use of IMQ).]
+> Noticed the setup loopback test seems to register for a 
+> packet type and then forget to unregister that type! 
 
-This does not IMQ. I am going to type an example at the end of the
-email.
+The packet type gets unregistered at the end of the test in the
+'reset_loopback'
+function through the system call 'dev_remove_pack()'
 
-> The machine also does
-> IP accounting (through custom userland software based on libpcap)
-> and has to be an ethernet bridge so that it can be replaced by
-> a piece of wire should it fail and there was no backup hardware left.
 > 
+> Also nothing really restricts the packet type to only coming 
+> in on the expected interface; therefore if someone sends the 
+> same packet in over another interface, then sp->loop_pkt_cnt 
+> will end up incrementing some other drivers private data 
+> structure *bad*.
 
-Ok, now you are throwing an extra  wrench ;->
-As i mentioned earlier current dependency of ingress on netfilter
-is the wrong abstraction (this also applies to IMQ). And for
-this reason it must go. If you are running 2.4.x i can give you a patch
-that fixes this and will get things working for you even when you use
-bridging. Infact i will give example based on this patch.
-BTW, how are you going to do SNAT with bridging?
+Correct, that's why in the s2io.c source where I define the
+packet_type's protocol value
+through the Macro 'ETH_LOOP_TEST_TYPE' there's a ToDo to obtain a
+private protocol ID. 
+This way no app in the real world can ever pass a frame with that T/L
+field in the packet.
+Also, the problem can only happen during the 3 second duration when this
+test is in progress.
 
-The example below tries to show many things. Example sharing of
-policers across many flows within a device, and across devices.
-Also shows how to do it so that inbound and outbound are summed up.
+> 
+> IMHO the whole loopback test frame stuff seems like something 
+> in a test bed driver, not production code.
 
-I spent about 30 minutes coming up with this; i hope it illustrates
-the potential
-
-cheers,
-jamal
-
----- start untested script here -------------------
-#
-#
-# lets take example flow1 10.0.0.21 sits behind eth1 packets
-# 
-#
-# the idea is to have 10.0.0.21/32 first try to use bandwith
-# guaranteed to it (index 1) if exceeds that it gets demoted to mark 2
-# and it tries to use bandwidth that is shared by all flows 
-# behind eth1; (index 100)
-# if that fails it gets demoted even more to mark 3 and it tries to use
-# from a pool of bandwith available to every flow on every device
-# index 300 if that fails then drop the packet etc
-#
-# on egress use the marks to select different priority queues.
-# Give better treatment to mark 1 than 2 than 3 ..
-#
-# On the return path from internet to eth1, packets from
-# internet to 10.0.0.21 are forced to use policer index 1
-# and therefore ensuring that the bandwidth is allocated
-# is the sum of inbound and outbound for that flow ..
-# 
-#
-#add ingress qdisc
-tc qdisc add dev eth1 ingress
-#
-tc filter add dev eth1 parent ffff: protocol ip prio 1 \
-u32 match ip src 10.0.0.21/32 flowid 1:15 \
-# first give it a mark of 1
-action ipt -j mark --set-mark 1 index 2 \
-# ensure policer index 1 is used
-action police index 1 rate 1kbit burst 9k pipe \
-# exceeded flows bound rate ..
-action ipt -j mark --set-mark 2 \
-#
-action police index 200 mtu 5000 rate 1kbit burst 10k pipe \
-action ipt -j mark --set-mark 3 \
-action police index 300 mtu 5000 rate 1kbit burst 90k drop
-#
-#
-# do something on eth0 with these firewall marks
-# example use them to send packets to different classes/queue
-# give priority to marks 1 then 2 then 3
-#
-.
-.
-.
-# now the return path to 10.0.0.21 ...
-tc qdisc add dev eth1 handle 1:0 root prio 
-#
-# note how exactly the same policer is used ("index 1")
-tc filter add dev eth1 parent 1:0 protocol ip prio 1 \
-u32 match ip dst 10.0.0.21/32 flowid 1:25 \
-action police index 1 rate 1kbit burst 9k pipe 
-.
-.
-.
-
-look at the stats with "tc -s filter show parent ffff: dev eth1"
-.
-A sample would look like:
-
-------------
-jroot# tc -s filter show parent ffff: dev eth0
-filter protocol ip pref 1 u32 
-filter protocol ip pref 1 u32 fh 800: ht divisor 1 
-filter protocol ip pref 1 u32 fh 800::800 order 2048 key ht 800 bkt 0 flowid 1:1
-5
-match 0a000015/ffffffff at 12
-.
-.
-   action order 2: police 1 action pipe rate 1Kbit burst 9Kb mtu 2Kb 
-         Sent 188832 bytes 2248 pkts (dropped 0, overlimits 2122) 
-.
-.
-
--------------
+The loopback test is there as a part of the ethtool's diagnostic option.
 
 
- 
+There are pros and cons of having the test in there I guess, anyone else
+has an opinion on this?
+
+Do other net drivers normally support loopback and other diag tests as a
+part of the ethtool support,
+or they provide little/no support for the option and ship a standalone
+diag program instead?
+
+Thanks, Leonid
+
+> 
