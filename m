@@ -1,26 +1,35 @@
 From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] IPv6: Default Route Support on Router
-Date: Mon, 30 Sep 2002 18:56:36 +0400 (MSD)
+Subject: Re: netlink sockets and rtm_newlink messages
+Date: Mon, 30 Sep 2002 19:43:05 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209301456.SAA15178@sex.inr.ac.ru>
-References: <20020928.231915.113302934.davem@redhat.com>
+Message-ID: <200209301543.TAA15388@sex.inr.ac.ru>
+References: <Pine.GSO.4.30.0209291105410.8253-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Cc: yoshfuji@linux-ipv6.ORG, netdev@oss.sgi.com
+Cc: mcmanus@ducksong.COM, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com (David S. Miller)
-In-Reply-To: <20020928.231915.113302934.davem@redhat.com> from "David S. Miller" at Sep 28, 2 11:19:15 pm
+To: hadi@cyberus.ca (jamal)
+In-Reply-To: <Pine.GSO.4.30.0209291105410.8253-100000@shell.cyberus.ca> from "jamal" at Sep 29, 2 11:09:10 am
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
-> Oh I see... perhaps you imply I should destroy CONFIG_RT6_POLICY
-> remnants as well? :-)
+> So that you dont forget, heres the patch:
 
-Yes, the bits in route.c must be killed.
+Thanks. Indeed, you ar right, I have already forgotten this. :-)
 
-But I would prefer to preserve subtrees support in ip6_fib.c.
-It is... well, it really constrains hacking, but in a useful manner,
-not allowing to forget that a radix node may open second level lookup.
+> Wouldnt that spot be the best for NETDEV_UP/DOWN since thats the notifier
+> callback?
+
+It was moved out of there to support ifa_change bits. But apparently
+I have made copy instead of move.
+
+> Also, can you remind me what if_change was for? netcarrier events?
+
+ifa_change was for unimplemented control part to allow atomic changes
+of state not affecting another flags.
+
+Someone spotted that it would be convenient to have this flag set
+valid in all the kinds of RTM_NEWLINK messages.
 
 Alexey
