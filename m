@@ -1,469 +1,454 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/8) ltpc - convert to new initialization
-Date: Wed, 3 Sep 2003 16:49:16 -0700
+Subject: [PATCH] (2/8) convert sdla to new initialization
+Date: Wed, 3 Sep 2003 16:49:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030903164916.2809d4a5.shemminger@osdl.org>
+Message-ID: <20030903164925.5c44ce73.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>, mike.mclagan@linux.org,
+   Jeff Garzik
+ <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Originally from Al Viro
-NE11-ltpc
-	* switched ltpc to dynamic allocation
-	* ltpc: embedded ->priv
-	* ltpc: fixed bugs in DMA allocation
-	* ltpc: fixed resource leaks on failure exits
-	* ltpc: fixed part of timer bugs (still a-f**ing-plenty of those)
-	* ltpc: fixed order of freeing bugs
-Added
-	* switch to free_netdev
+Based on Al viro's NE10-sdla
+	* switched sdla to dynamic allocation
+	* sdla: embedded ->priv
+	* sdla: fixed resource leaks on failure exits
+Additionally fixes.
+	* get rid of cli/sti
+	* get rid of MOD/INC 
+
+Builds and probes, but don't have the hardware.
+Driver has never built on 2.6 before this.
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Wed Sep  3 15:11:52 2003
-+++ b/drivers/net/Space.c	Wed Sep  3 15:11:52 2003
-@@ -102,6 +102,9 @@
- #ifdef CONFIG_SDLA
- extern struct net_device *sdla_init(void);
- #endif
-+#ifdef CONFIG_LTPC
-+extern struct net_device *ltpc_probe(void);
+--- a/drivers/net/Space.c	Wed Sep  3 15:30:12 2003
++++ b/drivers/net/Space.c	Wed Sep  3 15:30:12 2003
+@@ -100,6 +100,9 @@
+ extern int mac8390_probe(struct net_device *dev);
+ extern int mac89x0_probe(struct net_device *dev);
+ extern int mc32_probe(struct net_device *dev);
++#ifdef CONFIG_SDLA
++extern struct net_device *sdla_init(void);
 +#endif
    
  /* Detachable devices ("pocket adaptors") */
  extern int de620_probe(struct net_device *);
-@@ -392,22 +395,14 @@
+@@ -401,19 +404,11 @@
  /*  Statically configured drivers -- order matters here. */
  void probe_old_netdevs(void)
  {
-+#ifdef CONFIG_LTPC
-+	ltpc_probe();
-+#endif
- #ifdef CONFIG_SDLA
- 	sdla_init();
- #endif
- 
- }
 -
--#if defined(CONFIG_LTPC)
--extern int ltpc_probe(struct net_device *);
--static struct net_device dev_ltpc = {
--	.name		= "lt0",
--	.next		= NEXT_DEV,
--	.init		= ltpc_probe
--};
--#undef NEXT_DEV
--#define NEXT_DEV	(&dev_ltpc)
--#endif  /* LTPC */
- 
- #if defined(CONFIG_COPS)
- extern int cops_probe(struct net_device *);
-diff -Nru a/drivers/net/appletalk/ltpc.c b/drivers/net/appletalk/ltpc.c
---- a/drivers/net/appletalk/ltpc.c	Wed Sep  3 15:11:52 2003
-+++ b/drivers/net/appletalk/ltpc.c	Wed Sep  3 15:11:52 2003
-@@ -879,34 +879,6 @@
- 	return 0;
- }
- 
--static int ltpc_init(struct net_device *dev)
--{
--	/* Initialize the device structure. */
--  
--	/* Fill in the fields of the device structure with ethernet-generic values. */
--	ltalk_setup(dev);
--	dev->hard_start_xmit = ltpc_xmit;
--	dev->hard_header = ltpc_hard_header;
--
--	dev->priv = kmalloc(sizeof(struct ltpc_private), GFP_KERNEL);
--	if(!dev->priv)
--	{
--		printk(KERN_INFO "%s: could not allocate statistics buffer\n", dev->name);
--		return -ENOMEM;
--	}
--
--	memset(dev->priv, 0, sizeof(struct ltpc_private));
--	dev->get_stats = ltpc_get_stats;
--
--	/* add the ltpc-specific things */
--	dev->do_ioctl = &ltpc_ioctl;
--
--	dev->set_multicast_list = &set_multicast_list;
--	dev->mc_list = NULL;
--
--	return 0;
 -}
 -
- static int ltpc_poll_counter;
- 
- static void ltpc_poll(unsigned long l)
-@@ -983,35 +955,40 @@
- 
- /* initialization stuff */
-   
--static int __init ltpc_probe_dma(int base)
-+static int __init ltpc_probe_dma(int base, int dma)
- {
--	int dma = 0;
-+	int want = (dma == 3) ? 2 : (dma == 1) ? 1 : 3;
-   	unsigned long timeout;
-   	unsigned long f;
-   
--  	if (!request_dma(1,"ltpc")) {
--  		f=claim_dma_lock();
--  		disable_dma(1);
--  		clear_dma_ff(1);
--		set_dma_mode(1,DMA_MODE_WRITE);
--		set_dma_addr(1,virt_to_bus(ltdmabuf));
--		set_dma_count(1,sizeof(struct lt_mem));
--		enable_dma(1);
--		release_dma_lock(f);
--		dma|=1;
--	}
--	if (!request_dma(3,"ltpc")) {
--		f=claim_dma_lock();
--		disable_dma(3);
--		clear_dma_ff(3);
--		set_dma_mode(3,DMA_MODE_WRITE);
--		set_dma_addr(3,virt_to_bus(ltdmabuf));
--		set_dma_count(3,sizeof(struct lt_mem));
--		enable_dma(3);
--		release_dma_lock(f);
--		dma|=2;
-+  	if (want & 1) {
-+		if (request_dma(1,"ltpc")) {
-+			want &= ~1;
-+		} else {
-+			f=claim_dma_lock();
-+			disable_dma(1);
-+			clear_dma_ff(1);
-+			set_dma_mode(1,DMA_MODE_WRITE);
-+			set_dma_addr(1,virt_to_bus(ltdmabuf));
-+			set_dma_count(1,sizeof(struct lt_mem));
-+			enable_dma(1);
-+			release_dma_lock(f);
-+		}
-+	}
-+	if (want & 2) {
-+		if (request_dma(3,"ltpc")) {
-+			want &= ~2;
-+		} else {
-+			f=claim_dma_lock();
-+			disable_dma(3);
-+			clear_dma_ff(3);
-+			set_dma_mode(3,DMA_MODE_WRITE);
-+			set_dma_addr(3,virt_to_bus(ltdmabuf));
-+			set_dma_count(3,sizeof(struct lt_mem));
-+			enable_dma(3);
-+			release_dma_lock(f);
-+		}
- 	}
--
- 	/* set up request */
- 
- 	/* FIXME -- do timings better! */
-@@ -1037,65 +1014,62 @@
- 
- 	/* release the other dma channel (if we opened both of them) */
- 
--	if ( (dma&0x2) && (get_dma_residue(3)==sizeof(struct lt_mem)) ){
--		dma&=1;
-+	if ((want & 2) && (get_dma_residue(3)==sizeof(struct lt_mem))) {
-+		want &= ~2;
- 		free_dma(3);
- 	}
--  
--	if ( (dma&0x1) && (get_dma_residue(1)==sizeof(struct lt_mem)) ){
--		dma&=0x2;
+ #ifdef CONFIG_SDLA
+-extern int sdla_init(struct net_device *);
+-static struct net_device sdla0_dev = {
+-	.name		=  "sdla0",
+-	.next		=  NEXT_DEV,
+-	.init		=  sdla_init,
+-};
+-#undef NEXT_DEV
+-#define NEXT_DEV	(&sdla0_dev)
++	sdla_init();
+ #endif
 +
-+	if ((want & 1) && (get_dma_residue(1)==sizeof(struct lt_mem))) {
-+		want &= ~1;
- 		free_dma(1);
- 	}
++}
  
--	/* fix up dma number */
--	dma|=1;
-+	if (!want)
-+		return 0;
+ #if defined(CONFIG_LTPC)
+ extern int ltpc_probe(struct net_device *);
+diff -Nru a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+--- a/drivers/net/wan/sdla.c	Wed Sep  3 15:30:12 2003
++++ b/drivers/net/wan/sdla.c	Wed Sep  3 15:30:12 2003
+@@ -71,6 +71,8 @@
+                                     0xD0000, 0xD2000, 0xD4000, 0xD6000, 0xD8000, 0xDA000, 0xDC000, 0xDE000,
+                                     0xE0000, 0xE2000, 0xE4000, 0xE6000, 0xE8000, 0xEA000, 0xEC000, 0xEE000}; 
  
--	return dma;
-+	return (want & 2) ? 3 : 1;
++static spinlock_t sdla_lock = SPIN_LOCK_UNLOCKED;
++
+ /*********************************************************
+  *
+  * these are the core routines that access the card itself 
+@@ -79,10 +81,10 @@
+ 
+ #define SDLA_WINDOW(dev,addr) outb((((addr) >> 13) & 0x1F), (dev)->base_addr + SDLA_REG_Z80_WINDOW)
+ 
+-static void sdla_read(struct net_device *dev, int addr, void *buf, short len)
++static void __sdla_read(struct net_device *dev, int addr, void *buf, short len)
+ {
+-	unsigned long flags;
+-	char          *temp, *base;
++	char          *temp;
++	const void    *base;
+ 	int           offset, bytes;
+ 
+ 	temp = buf;
+@@ -90,13 +92,10 @@
+ 	{	
+ 		offset = addr & SDLA_ADDR_MASK;
+ 		bytes = offset + len > SDLA_WINDOW_SIZE ? SDLA_WINDOW_SIZE - offset : len;
+-		base = (void *) (dev->mem_start + offset);
++		base = (const void *) (dev->mem_start + offset);
+ 
+-		save_flags(flags);
+-		cli();
+ 		SDLA_WINDOW(dev, addr);
+ 		memcpy(temp, base, bytes);
+-		restore_flags(flags);
+ 
+ 		addr += bytes;
+ 		temp += bytes;
+@@ -104,10 +103,19 @@
+ 	}  
  }
  
--int __init ltpc_probe(struct net_device *dev)
-+struct net_device * __init ltpc_probe(void)
+-static void sdla_write(struct net_device *dev, int addr, void *buf, short len)
++static void sdla_read(struct net_device *dev, int addr, void *buf, short len)
  {
--	int err;
-+	struct net_device *dev;
-+	int err = -ENOMEM;
- 	int x=0,y=0;
- 	int autoirq;
- 	unsigned long f;
--	int portfound=0;
- 	unsigned long timeout;
+ 	unsigned long flags;
+-	char          *temp, *base;
++	spin_lock_irqsave(&sdla_lock, flags);
++	__sdla_read(dev, addr, buf, len);
++	spin_unlock_irqrestore(&sdla_lock, flags);
++}
++
++static void __sdla_write(struct net_device *dev, int addr, 
++			 const void *buf, short len)
++{
++	const char    *temp;
++	void 	      *base;
+ 	int           offset, bytes;
  
-+	dev = alloc_netdev(sizeof(struct ltpc_private), "lt%d", ltalk_setup);
+ 	temp = buf;
+@@ -116,17 +124,27 @@
+ 		offset = addr & SDLA_ADDR_MASK;
+ 		bytes = offset + len > SDLA_WINDOW_SIZE ? SDLA_WINDOW_SIZE - offset : len;
+ 		base = (void *) (dev->mem_start + offset);
+-		save_flags(flags);
+-		cli();
++
+ 		SDLA_WINDOW(dev, addr);
+ 		memcpy(base, temp, bytes);
+-		restore_flags(flags);
++
+ 		addr += bytes;
+ 		temp += bytes;
+ 		len  -= bytes;
+ 	}
+ }
+ 
++static void sdla_write(struct net_device *dev, int addr, 
++		       const void *buf, short len)
++{
++	unsigned long flags;
++
++	spin_lock_irqsave(&sdla_lock, flags);
++	__sdla_write(dev, addr, buf, len);
++	spin_unlock_irqrestore(&sdla_lock, flags);
++}
++
++
+ static void sdla_clear(struct net_device *dev)
+ {
+ 	unsigned long flags;
+@@ -138,8 +156,7 @@
+ 	bytes = SDLA_WINDOW_SIZE;
+ 	base = (void *) dev->mem_start;
+ 
+-	save_flags(flags);
+-	cli();
++	spin_lock_irqsave(&sdla_lock, flags);
+ 	while(len)
+ 	{
+ 		SDLA_WINDOW(dev, addr);
+@@ -148,7 +165,8 @@
+ 		addr += bytes;
+ 		len  -= bytes;
+ 	}
+-	restore_flags(flags);
++	spin_unlock_irqrestore(&sdla_lock, flags);
++
+ }
+ 
+ static char sdla_byte(struct net_device *dev, int addr)
+@@ -158,11 +176,10 @@
+ 
+ 	temp = (void *) (dev->mem_start + (addr & SDLA_ADDR_MASK));
+ 
+-	save_flags(flags);
+-	cli();
++	spin_lock_irqsave(&sdla_lock, flags);
+ 	SDLA_WINDOW(dev, addr);
+ 	byte = *temp;
+-	restore_flags(flags);
++	spin_unlock_irqrestore(&sdla_lock, flags);
+ 
+ 	return(byte);
+ }
+@@ -414,7 +431,8 @@
+ 	struct frad_local        *flp;
+ 	struct sdla_cmd          *cmd_buf;
+ 	unsigned long            pflags;
+-	int                      jiffs, ret, waiting, len;
++	unsigned long		 jiffs;
++	int                      ret, waiting, len;
+ 	long                     window;
+ 
+ 	flp = dev->priv;
+@@ -423,8 +441,8 @@
+ 	ret = 0;
+ 	len = 0;
+ 	jiffs = jiffies + HZ;  /* 1 second is plenty */
+-	save_flags(pflags);
+-	cli();
++
++	spin_lock_irqsave(&sdla_lock, pflags);
+ 	SDLA_WINDOW(dev, window);
+ 	cmd_buf->cmd = cmd;
+ 	cmd_buf->dlci = dlci;
+@@ -436,7 +454,7 @@
+ 	cmd_buf->length = inlen;
+ 
+ 	cmd_buf->opp_flag = 1;
+-	restore_flags(pflags);
++	spin_unlock_irqrestore(&sdla_lock, pflags);
+ 
+ 	waiting = 1;
+ 	len = 0;
+@@ -444,18 +462,17 @@
+ 	{
+ 		if (waiting++ % 3) 
+ 		{
+-			save_flags(pflags);
+-			cli();
++			spin_lock_irqsave(&sdla_lock, pflags);
+ 			SDLA_WINDOW(dev, window);
+ 			waiting = ((volatile int)(cmd_buf->opp_flag));
+-			restore_flags(pflags);
++			spin_unlock_irqrestore(&sdla_lock, pflags);
+ 		}
+ 	}
+ 	
+ 	if (!waiting)
+ 	{
+-		save_flags(pflags);
+-		cli();
++
++		spin_lock_irqsave(&sdla_lock, pflags);
+ 		SDLA_WINDOW(dev, window);
+ 		ret = cmd_buf->retval;
+ 		len = cmd_buf->length;
+@@ -471,7 +488,7 @@
+ 		if (ret)
+ 			memcpy(&status, cmd_buf->data, len > sizeof(status) ? sizeof(status) : len);
+ 
+-		restore_flags(pflags);
++		spin_unlock_irqrestore(&sdla_lock, pflags);
+ 	}
+ 	else
+ 		ret = SDLA_RET_TIMEOUT;
+@@ -555,7 +572,6 @@
+ 	if (i == CONFIG_DLCI_MAX)
+ 		return(-EMLINK);  /* #### Alan: Comments on this ?? */
+ 
+-	MOD_INC_USE_COUNT;
+ 
+ 	flp->master[i] = master;
+ 	flp->dlci[i] = -*(short *)(master->dev_addr);
+@@ -588,7 +604,6 @@
+ 	flp->master[i] = NULL;
+ 	flp->dlci[i] = 0;
+ 
+-	MOD_DEC_USE_COUNT;
+ 
+ 	if (netif_running(slave)) {
+ 		if (flp->config.station == FRAD_STATION_CPE)
+@@ -688,14 +703,14 @@
+ 				ret = sdla_cmd(dev, SDLA_INFORMATION_WRITE, *(short *)(skb->dev->dev_addr), 0, NULL, skb->len, &addr, &size);
+ 				if (ret == SDLA_RET_OK)
+ 				{
+-					save_flags(flags); 
+-					cli();
++
++					spin_lock_irqsave(&sdla_lock, flags);
+ 					SDLA_WINDOW(dev, addr);
+ 					pbuf = (void *)(((int) dev->mem_start) + (addr & SDLA_ADDR_MASK));
+-						sdla_write(dev, pbuf->buf_addr, skb->data, skb->len);
+-						SDLA_WINDOW(dev, addr);
++					__sdla_write(dev, pbuf->buf_addr, skb->data, skb->len);
++					SDLA_WINDOW(dev, addr);
+ 					pbuf->opp_flag = 1;
+-					restore_flags(flags);
++					spin_unlock_irqrestore(&sdla_lock, flags);
+ 				}
+ 				break;
+ 		}
+@@ -753,8 +768,7 @@
+ 	pbufi = NULL;
+ 	pbuf = NULL;
+ 
+-	save_flags(flags);
+-	cli();
++	spin_lock_irqsave(&sdla_lock, flags);
+ 
+ 	switch (flp->type)
+ 	{
+@@ -821,7 +835,7 @@
+ 		case SDLA_S502A:
+ 		case SDLA_S502E:
+ 			if (success)
+-				sdla_read(dev, SDLA_502_RCV_BUF + SDLA_502_DATA_OFS, skb_put(skb,len), len);
++				__sdla_read(dev, SDLA_502_RCV_BUF + SDLA_502_DATA_OFS, skb_put(skb,len), len);
+ 
+ 			SDLA_WINDOW(dev, SDLA_502_RCV_BUF);
+ 			cmd->opp_flag = 0;
+@@ -834,9 +848,9 @@
+ 				split = addr + len > buf_top + 1 ? len - (buf_top - addr + 1) : 0;
+ 				len2 = len - split;
+ 
+-				sdla_read(dev, addr, skb_put(skb, len2), len2);
++				__sdla_read(dev, addr, skb_put(skb, len2), len2);
+ 				if (split)
+-					sdla_read(dev, buf_base, skb_put(skb, split), split);
++					__sdla_read(dev, buf_base, skb_put(skb, split), split);
+ 			}
+ 
+ 			/* increment the buffer we're looking at */
+@@ -853,7 +867,7 @@
+ 		(*dlp->receive)(skb, master);
+ 	}
+ 
+-	restore_flags(flags);
++	spin_unlock_irqrestore(&sdla_lock, flags);
+ }
+ 
+ static irqreturn_t sdla_isr(int irq, void *dev_id, struct pt_regs * regs)
+@@ -979,8 +993,6 @@
+ 
+ 	netif_stop_queue(dev);
+ 	
+-	MOD_DEC_USE_COUNT;
+-
+ 	return(0);
+ }
+ 
+@@ -1082,8 +1094,6 @@
+ 
+ 	netif_start_queue(dev);
+ 	
+-	MOD_INC_USE_COUNT;
+-
+ 	return(0);
+ }
+ 
+@@ -1614,19 +1624,30 @@
+ 	return(&flp->stats);
+ }
+ 
+-int __init sdla_init(struct net_device *dev)
++static void setup_sdla(struct net_device *dev)
+ {
++	dev->flags		= 0;
++	dev->type		= 0xFFFF;
++	dev->hard_header_len	= 0;
++	dev->addr_len		= 0;
++	dev->mtu		= SDLA_MAX_MTU;
++}
++
++struct net_device * __init sdla_init(void)
++{
++	struct net_device *dev;
+ 	struct frad_local *flp;
++	int err = -ENOMEM;
+ 
+-	/* allocate the private data structure */
+-	flp = kmalloc(sizeof(struct frad_local), GFP_KERNEL);
+-	if (!flp)
+-		return(-ENOMEM);
++	dev = alloc_netdev(sizeof(struct frad_local), "sdla0", setup_sdla);
 +	if (!dev)
 +		goto out;
+ 
+-	memset(flp, 0, sizeof(struct frad_local));
+-	dev->priv = flp;
++	SET_MODULE_OWNER(dev);
++	netdev_boot_setup_check(dev);
 +
- 	SET_MODULE_OWNER(dev);
++	flp = dev->priv;
  
- 	/* probe for the I/O port address */
--	if (io != 0x240 && request_region(0x220,8,"ltpc")) {
--		x = inb_p(0x220+6);
--		if ( (x!=0xff) && (x>=0xf0) ) {
--			io = 0x220;
--			portfound=1;
--		}
--		else {
--			release_region(0x220,8);
--		}
--	}
- 	
- 	if (io != 0x220 && request_region(0x240,8,"ltpc")) {
- 		y = inb_p(0x240+6);
- 		if ( (y!=0xff) && (y>=0xf0) ){ 
- 			io = 0x240;
--			portfound=1;
--		}
--		else {
--			release_region(0x240,8);
-+			goto got_port;
- 		}
-+		release_region(0x240,8);
- 	} 
+-	dev->flags		= 0;
+ 	dev->open		= sdla_open;
+ 	dev->stop		= sdla_close;
+ 	dev->do_ioctl		= sdla_ioctl;
+@@ -1635,12 +1656,6 @@
+ 	dev->hard_start_xmit	= sdla_transmit;
+ 	dev->change_mtu		= sdla_change_mtu;
+ 
+-	dev->type		= 0xFFFF;
+-	dev->hard_header_len	= 0;
+-	dev->addr_len		= 0;
+-	dev->mtu		= SDLA_MAX_MTU;
+-	SET_MODULE_OWNER(dev);
 -
--	if(io && !portfound && request_region(io,8,"ltpc")){
--		portfound = 1;
--	}
--	if(!portfound) {
--		/* give up in despair */
--		printk(KERN_ERR "LocalTalk card not found; 220 = %02x, 240 = %02x.\n", x,y);
--		return -1;
-+	if (io != 0x240 && request_region(0x220,8,"ltpc")) {
-+		x = inb_p(0x220+6);
-+		if ( (x!=0xff) && (x>=0xf0) ) {
-+			io = 0x220;
-+			goto got_port;
-+		}
-+		release_region(0x220,8);
- 	}
+ 	flp->activate		= sdla_activate;
+ 	flp->deactivate		= sdla_deactivate;
+ 	flp->assoc		= sdla_assoc;
+@@ -1652,7 +1667,14 @@
+ 	flp->timer.data		= (unsigned long) dev;
+ 	flp->timer.function	= sdla_poll;
  
-+	/* give up in despair */
-+	printk(KERN_ERR "LocalTalk card not found; 220 = %02x, 240 = %02x.\n", x,y);
-+	err = -ENODEV;
-+	goto out1;
-+
-+ got_port:
- 	/* probe for the IRQ line */
- 	if (irq < 2) {
- 		unsigned long irq_mask;
-@@ -1111,22 +1085,21 @@
- 
- 		if (autoirq == 0) {
- 			printk(KERN_ERR "ltpc: probe at %#x failed to detect IRQ line.\n", io);
--		}
--		else {
-+		} else {
- 			irq = autoirq;
- 		}
- 	}
- 
- 	/* allocate a DMA buffer */
- 	ltdmabuf = (unsigned char *) dma_mem_alloc(1000);
--
--	if (ltdmabuf) ltdmacbuf = &ltdmabuf[800];
--
- 	if (!ltdmabuf) {
- 		printk(KERN_ERR "ltpc: mem alloc failed\n");
--		return -1;
-+		err = -ENOMEM;
-+		goto out2;
- 	}
- 
-+	ltdmacbuf = &ltdmabuf[800];
-+
- 	if(debug & DEBUG_VERBOSE) {
- 		printk("ltdmabuf pointer %08lx\n",(unsigned long) ltdmabuf);
- 	}
-@@ -1154,25 +1127,29 @@
- 	   already been specified */
- 	/* well, 0 is a legal DMA channel, but the LTPC card doesn't
- 	   use it... */
--	if (dma == 0) {
--		dma = ltpc_probe_dma(io);
--		if (!dma) {  /* no dma channel */
--			printk(KERN_ERR "No DMA channel found on ltpc card.\n");
--			return -1;
--		}
-+	dma = ltpc_probe_dma(io, dma);
-+	if (!dma) {  /* no dma channel */
-+		printk(KERN_ERR "No DMA channel found on ltpc card.\n");
-+		err = -ENODEV;
-+		goto out3;
- 	}
- 
- 	/* print out friendly message */
--
- 	if(irq)
- 		printk(KERN_INFO "Apple/Farallon LocalTalk-PC card at %03x, IR%d, DMA%d.\n",io,irq,dma);
- 	else
- 		printk(KERN_INFO "Apple/Farallon LocalTalk-PC card at %03x, DMA%d.  Using polled mode.\n",io,dma);
- 
--	/* seems more logical to do this *after* probing the card... */
--	err = ltpc_init(dev);
--	if (err) return err;
-+	/* Fill in the fields of the device structure with ethernet-generic values. */
-+	dev->hard_start_xmit = ltpc_xmit;
-+	dev->hard_header = ltpc_hard_header;
-+	dev->get_stats = ltpc_get_stats;
-+
-+	/* add the ltpc-specific things */
-+	dev->do_ioctl = &ltpc_ioctl;
- 
-+	dev->set_multicast_list = &set_multicast_list;
-+	dev->mc_list = NULL;
- 	dev->base_addr = io;
- 	dev->irq = irq;
- 	dev->dma = dma;
-@@ -1212,6 +1189,7 @@
- 	} else {
- 		if( irq )
- 			printk(KERN_ERR "ltpc: IRQ already in use, using polled mode.\n");
-+		dev->irq = 0;
- 		/* polled mode -- 20 times per second */
- 		/* this is really, really slow... should it poll more often? */
- 		init_timer(&ltpc_timer);
-@@ -1221,8 +1199,23 @@
- 		ltpc_timer.expires = jiffies + HZ/20;
- 		add_timer(&ltpc_timer);
- 	}
+-	return(0);
 +	err = register_netdev(dev);
 +	if (err)
-+		goto out4;
- 
- 	return 0;
-+out4:
-+	del_timer_sync(&ltpc_timer);
-+	if (dev->irq)
-+		free_irq(dev->irq, dev);
-+out3:
-+	free_pages((unsigned long)ltdmabuf, get_order(1000));
-+out2:
-+	release_region(io, 8);
++		goto out1;
++	return dev;
 +out1:
 +	kfree(dev);
 +out:
 +	return ERR_PTR(err);
  }
  
- #ifndef MODULE
-@@ -1259,7 +1252,7 @@
- __setup("ltpc=", ltpc_setup);
- #endif /* MODULE */
- 
--static struct net_device dev_ltpc;
-+static struct net_device *dev_ltpc;
+ int __init sdla_c_setup(void)
+@@ -1663,10 +1685,7 @@
+ }
  
  #ifdef MODULE
+-static struct net_device sdla0 = {
+-	.name = "sdla0",
+-	.init = sdla_init
+-};
++static struct net_device *sdla0;
+ #endif /* MODULE */
  
-@@ -1272,79 +1265,47 @@
+ static int __init init_sdla(void)
+@@ -1675,7 +1694,9 @@
  
- int __init init_module(void)
- {
--	int err, result;
--	
-         if(io == 0)
- 		printk(KERN_NOTICE
- 		       "ltpc: Autoprobing is not recommended for modules\n");
- 
--	/* Find a name for this unit */
--	dev_ltpc.init = ltpc_probe;
--	err=dev_alloc_name(&dev_ltpc,"lt%d");
--	
--	if(err<0)
--		return err;
--
--	if ((result = register_netdev(&dev_ltpc)) != 0) {
--		printk(KERN_DEBUG "could not register Localtalk-PC device\n");
--		return result;
--	} else {
--		if(debug & DEBUG_VERBOSE) printk("0 from register_netdev\n");
--		return 0;
--	}
-+	dev_ltpc = ltpc_probe();
-+	if (IS_ERR(dev_ltpc))
-+		return PTR_ERR(dev_ltpc);
-+	return 0;
- }
+ 	sdla_c_setup();
+ #ifdef MODULE
+-	result = register_netdev(&sdla0);
++	sdla0 = sdla_init();
++	if (IS_ERR(sdla0))
++		result = PTR_ERR(sdla0);
  #endif
- 
- static void __exit ltpc_cleanup(void)
- {
--	unsigned long timeout;
-+
-+	if(debug & DEBUG_VERBOSE) printk("unregister_netdev\n");
-+	unregister_netdev(dev_ltpc);
- 
- 	ltpc_timer.data = 0;  /* signal the poll routine that we're done */
- 
-+	del_timer_sync(&ltpc_timer);
-+
- 	if(debug & DEBUG_VERBOSE) printk("freeing irq\n");
- 
--	if(dev_ltpc.irq) {
--		free_irq(dev_ltpc.irq,&dev_ltpc);
--		dev_ltpc.irq = 0;
--	}
--
--	if(del_timer(&ltpc_timer)) 
--	{
--		/* either the poll was never started, or a poll is in process */
--		if(debug & DEBUG_VERBOSE) printk("waiting\n");
--		/* if it's in process, wait a bit for it to finish */
--		timeout = jiffies+HZ; 
--		add_timer(&ltpc_timer);
--		while(del_timer(&ltpc_timer) && time_after(timeout, jiffies))
--		{
--			add_timer(&ltpc_timer);
--			schedule();
--		}
--	}
-+	if (dev_ltpc->irq)
-+		free_irq(dev_ltpc->irq, dev_ltpc);
- 
- 	if(debug & DEBUG_VERBOSE) printk("freeing dma\n");
- 
--	if(dev_ltpc.dma) {
--		free_dma(dev_ltpc.dma);
--		dev_ltpc.dma = 0;
--	}
-+	if (dev_ltpc->dma)
-+		free_dma(dev_ltpc->dma);
- 
- 	if(debug & DEBUG_VERBOSE) printk("freeing ioaddr\n");
- 
--	if(dev_ltpc.base_addr) {
--		release_region(dev_ltpc.base_addr,8);
--		dev_ltpc.base_addr = 0;
--	}
-+	if (dev_ltpc->base_addr)
-+		release_region(dev_ltpc->base_addr,8);
-+
-+	free_netdev(dev_ltpc);
- 
- 	if(debug & DEBUG_VERBOSE) printk("free_pages\n");
- 
- 	free_pages( (unsigned long) ltdmabuf, get_order(1000));
--	ltdmabuf=NULL;
--	ltdmacbuf=NULL;
--
--	if(debug & DEBUG_VERBOSE) printk("unregister_netdev\n");
--
--	unregister_netdev(&dev_ltpc);
- 
- 	if(debug & DEBUG_VERBOSE) printk("returning from cleanup_module\n");
+ 	return result;
  }
+@@ -1683,11 +1704,10 @@
+ static void __exit exit_sdla(void)
+ {
+ #ifdef MODULE
+-	unregister_netdev(&sdla0);
+-	if (sdla0.priv)
+-		kfree(sdla0.priv);
+-	if (sdla0.irq)
+-		free_irq(sdla0.irq, &sdla0);
++	unregister_netdev(sdla0);
++	if (sdla0->irq)
++		free_irq(sdla0->irq, sdla0);
++	free_netdev(sdla0);
+ #endif
+ }
+ 
