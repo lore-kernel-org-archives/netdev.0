@@ -1,29 +1,94 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] remove dead extern's in netdevice.h
-Date: Wed, 2 Mar 2005 10:59:02 -0800
-Message-ID: <20050302105902.72f2b983@dxpl.pdx.osdl.net>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [Patch] sctp: add receive buffer accounting to sctp (fwd)
+Date: Thu, 3 Mar 2005 00:32:12 +0530 (IST)
+Message-ID: <Pine.LNX.4.61.0503030027590.8076@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: nhorman@redhat.com, netdev@oss.sgi.com,
+        lksctp-developers@lists.sourceforge.net
+To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The following definitions are historical relics.
+Dave,
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Please apply the following SCTP patch submitted by Neil.
 
-diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
---- a/include/linux/netdevice.h	2005-03-02 10:53:22 -08:00
-+++ b/include/linux/netdevice.h	2005-03-02 10:53:22 -08:00
-@@ -921,8 +921,6 @@
- extern void		dev_mcast_init(void);
- extern int		netdev_max_backlog;
- extern int		weight_p;
--extern unsigned long	netdev_fc_xoff;
--extern atomic_t netdev_dropping;
- extern int		netdev_set_master(struct net_device *dev, struct net_device *master);
- extern int skb_checksum_help(struct sk_buff *skb, int inward);
- /* rx skb timestamps */
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
+Thanks
+Sridhar
+
+---------- Forwarded message ----------
+Date: Tue, 1 Mar 2005 13:34:06 -0500
+From: nhorman@redhat.com
+To: lksctp-developers@lists.sourceforge.net
+Cc: sri@us.ibm.com
+Subject: [Patch] sctp: add receive buffer accounting to sctp
+
+Patch to add recieve buffer accounting to sctp.  Current implmentation is open
+to DOS attack, which can result in lowmem exhaustion, due to chunk backlog
+queuing.  This patch adds receive buffer accounting which drops chunks in
+sctp_rcv when sockets sk_rmem_alloc value exceeds sockets sk_rcvbuff value.
+
+Signed-off-by: Neil Horman <nhorman@redhat.com
+
+  input.c |   22 ++++++++++++++++++++++
+  1 files changed, 22 insertions(+)
+
+
+--- linux-2.6.9/net/sctp/input.c.rcvbuf	2005-02-23 14:19:18.065451507 -0500
++++ linux-2.6.9/net/sctp/input.c	2005-02-23 14:13:28.490573936 -0500
+@@ -96,6 +96,21 @@ static inline int sctp_rcv_checksum(stru
+  	return 0;
+  }
+
++/* The free routine for skbuffs that sctp receives */
++static void sctp_rfree(struct sk_buff *skb)
++{
++	atomic_sub(sizeof(struct sctp_chunk),&skb->sk->sk_rmem_alloc);
++	sock_rfree(skb);
++}
++
++/* The ownership wrapper routine to do receive buffer accounting */
++static void sctp_rcv_set_owner_r(struct sk_buff *skb, struct sock *sk)
++{
++	skb_set_owner_r(skb,sk);
++	skb->destructor = sctp_rfree;
++	atomic_add(sizeof(struct sctp_chunk),&sk->sk_rmem_alloc);
++}
++
+  /*
+   * This is the routine which IP calls when receiving an SCTP packet.
+   */
+@@ -175,6 +190,11 @@ int sctp_rcv(struct sk_buff *skb)
+  	rcvr = asoc ? &asoc->base : &ep->base;
+  	sk = rcvr->sk;
+
++	if ((sk) && (atomic_read(&sk->sk_rmem_alloc) >= sk->sk_rcvbuf)) {
++		goto discard_release;
++	}
++
++
+  	/* SCTP seems to always need a timestamp right now (FIXME) */
+  	if (skb->stamp.tv_sec == 0) {
+  		do_gettimeofday(&skb->stamp);
+@@ -195,6 +215,8 @@ int sctp_rcv(struct sk_buff *skb)
+  		goto discard_release;
+  	}
+
++	sctp_rcv_set_owner_r(skb,sk);
++
+  	/* Remember what endpoint is to handle this packet. */
+  	chunk->rcvr = rcvr;
+
+-- 
+/***************************************************
+  *Neil Horman
+  *Software Engineer
+  *Red Hat, Inc.
+  *nhorman@redhat.com
+  *gpg keyid: 1024D / 0x92A74FA1
+  *http://pgp.mit.edu
+  ***************************************************/
