@@ -1,139 +1,27 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [OOPS] less /proc/net/igmp
-Date: Wed, 27 Aug 2003 01:54:48 +0900 (JST)
+From: Mike Fedyk <mfedyk@matchmail.com>
+Subject: Re: [bk patches] net driver updates
+Date: Tue, 26 Aug 2003 10:17:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827.015448.70287953.yoshfuji@linux-ipv6.org>
-References: <20030826.150331.102449369.yoshfuji@linux-ipv6.org>
-	<1061878985.3463.2.camel@spider.hotmonkeyporn.com>
-	<20030826.173226.114994096.yoshfuji@linux-ipv6.org>
+Message-ID: <20030826171754.GD16831@matchmail.com>
+References: <20030817183137.GA18521@gtf.org> <20030823154231.A11381@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, torvalds@osdl.org,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sebek64@post.cz, oford@arghblech.com, smiler@lanil.mine.nu,
-   jmorris@intercode.com.au
-In-Reply-To: <20030826.173226.114994096.yoshfuji@linux-ipv6.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20030823154231.A11381@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-In article <20030826.173226.114994096.yoshfuji@linux-ipv6.org> (at Tue, 26 Aug 2003 17:32:26 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-
-> > I can confirm. I have it with 2.6.0-test4.
-> > 
-> > Let me know what useful info I can provide.  The oops is the same.
+On Sat, Aug 23, 2003 at 03:42:31PM +0200, Francois Romieu wrote:
+> Jeff Garzik <jgarzik@pobox.com> :
+> [net-drivers-2.6 update]
+> >  drivers/net/sis190.c              | 2094 +++++++++++++++++++++++++++++---------
 > 
-> Okay, everyone. I'll try to fix this.
+> 
+> synchronize_irq() requires an argument when built with CONFIG_SMP.
 
-Please try this patch.
-
-Index: linux-2.6/net/ipv4/igmp.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/igmp.c,v
-retrieving revision 1.33
-diff -u -r1.33 igmp.c
---- linux-2.6/net/ipv4/igmp.c	21 Aug 2003 17:47:23 -0000	1.33
-+++ linux-2.6/net/ipv4/igmp.c	26 Aug 2003 15:18:03 -0000
-@@ -2122,6 +2122,7 @@
- 			break;
- 		}
- 		read_unlock(&in_dev->lock);
-+		in_dev_put(in_dev);
- 	}
- 	return im;
- }
-@@ -2181,7 +2182,9 @@
- 	if (likely(state->in_dev != NULL)) {
- 		read_unlock(&state->in_dev->lock);
- 		in_dev_put(state->in_dev);
-+		state->in_dev = NULL;
- 	}
-+	state->dev = NULL;
- 	read_unlock(&dev_base_lock);
- }
- 
-@@ -2284,6 +2287,7 @@
- 			spin_unlock_bh(&im->lock);
- 		}
- 		read_unlock_bh(&idev->lock);
-+		in_dev_put(idev);
- 	}
- 	return psf;
- }
-@@ -2350,12 +2354,16 @@
- static void igmp_mcf_seq_stop(struct seq_file *seq, void *v)
- {
- 	struct igmp_mcf_iter_state *state = igmp_mcf_seq_private(seq);
--	if (likely(state->im != NULL))
-+	if (likely(state->im != NULL)) {
- 		spin_unlock_bh(&state->im->lock);
-+		state->im = NULL;
-+	}
- 	if (likely(state->idev != NULL)) {
- 		read_unlock_bh(&state->idev->lock);
- 		in_dev_put(state->idev);
-+		state->idev = NULL;
- 	}
-+	state->dev = NULL;
- 	read_unlock(&dev_base_lock);
- }
- 
-Index: linux-2.6/net/ipv6/mcast.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv6/mcast.c,v
-retrieving revision 1.30
-diff -u -r1.30 mcast.c
---- linux-2.6/net/ipv6/mcast.c	21 Aug 2003 23:44:54 -0000	1.30
-+++ linux-2.6/net/ipv6/mcast.c	26 Aug 2003 15:18:03 -0000
-@@ -2078,6 +2078,7 @@
- 			break;
- 		}
- 		read_unlock_bh(&idev->lock);
-+		in6_dev_put(idev);
- 	}
- 	return im;
- }
-@@ -2135,7 +2136,9 @@
- 	if (likely(state->idev != NULL)) {
- 		read_unlock_bh(&state->idev->lock);
- 		in6_dev_put(state->idev);
-+		state->idev = NULL;
- 	}
-+	state->dev = NULL;
- 	read_unlock(&dev_base_lock);
- }
- 
-@@ -2225,6 +2228,7 @@
- 			spin_unlock_bh(&im->mca_lock);
- 		}
- 		read_unlock_bh(&idev->lock);
-+		in6_dev_put(idev);
- 	}
- 	return psf;
- }
-@@ -2291,12 +2295,16 @@
- static void igmp6_mcf_seq_stop(struct seq_file *seq, void *v)
- {
- 	struct igmp6_mcf_iter_state *state = igmp6_mcf_seq_private(seq);
--	if (likely(state->im != NULL))
-+	if (likely(state->im != NULL)) {
- 		spin_unlock_bh(&state->im->mca_lock);
-+		state->im = NULL;
-+	}
- 	if (likely(state->idev != NULL)) {
- 		read_unlock_bh(&state->idev->lock);
- 		in6_dev_put(state->idev);
-+		state->idev = NULL;
- 	}
-+	state->dev = NULL;
- 	read_unlock(&dev_base_lock);
- }
- 
-
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Shouldn't it also require it for the UP case?  Or is this one of those
+subtle things that tells you it's not working on SMP?
