@@ -1,42 +1,42 @@
-From: "J Chapman" <jchapman@katalix.com>
-Subject: RE: single process pppd for all PPP sessions? [Was [IPCOMP] Use per-cpu buffers]
-Date: Mon, 13 Sep 2004 12:18:39 +0100
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: RE: Linux 2.4.27 SECURITY BUG - TCP Local
+	andREMOTE(verified)Denial of Service Attack
+Date: Mon, 13 Sep 2004 11:49:10 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409131119.i8DBJSgn007059@oss.sgi.com>
-References: <20040910111047.GA29330@gondor.apana.org.au>
+Message-ID: <1095072549.14359.3.camel@localhost.localdomain>
+References: <002b01c498ff$c4619b30$0200a8c0@wolf>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@redhat.com>, <netdev@oss.sgi.com>,
-        <linux-ppp@vger.kernel.org>, <paulus@samba.org>
+Cc: peter@mysql.com, netdev@oss.sgi.com, kaukasoi@elektroni.ee.tut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Herbert Xu'" <herbert@gondor.apana.org.au>,
-        "'David S. Miller'" <davem@davemloft.net>
-In-Reply-To: <20040910111047.GA29330@gondor.apana.org.au>
+To: Wolfpaw - Dale Corse <admin@wolfpaw.net>
+In-Reply-To: <002b01c498ff$c4619b30$0200a8c0@wolf>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Re: anyone think of doing a single process PPP daemon managing all 
-PPP sessions?
+On Sul, 2004-09-12 at 20:36, Wolfpaw - Dale Corse wrote:
+> Mysql connection: descriptor 3 (from mysql.net.fd)
+> Mysql connection closed (desc 3) (goes into CLOSE_WAIT now)
+> New connection (outbound) for regular proxy on Desc 3
+>   (this was created by a call to socket, and then connect)
 
-Yes, although nothing started yet. Still working on OpenL2TP...
-http://openl2tp.sf.net/
+fd != socket. Thats really important to realise. What you get on 
+fd 3 from the new connection isn't the same as you had before. 
+The one you closed has been handed off to the kernel to clean up
+as and when everyone who has a copy has finished using it. Thats
+why I asked about fork() - because you can end up giving handles
+by mistake to other processes you create which don't close them
 
--James
+> The other bug being, if I simply leave them, in a short time, MySQL
+> is saying "too many connections", and we can't query any data from
+> it. This also occurs with FIFO sockets (such as /tmp/mysql.sock)
+> wherein the connection simply sits as "ESTABLISHED".
 
-> -----Original Message-----
-> From: Herbert Xu [mailto:herbert@gondor.apana.org.au] 
-> Sent: 10 September 2004 12:11
-> To: David S. Miller
-> Cc: kuznet@ms2.inr.ac.ru; jmorris@redhat.com; netdev@oss.sgi.com;
-linux-ppp@vger.kernel.org; paulus@samba.org
-> Subject: Re: [IPCOMP] Use per-cpu buffers
-> 
-[snip]
+I'd say your code is buggy then
 
-> On a totally orthogonal topic, has any body thought of doing a PPP
-> daemon like the IPsec daemons? That is, have one process that manages
-> all PPP sessions.  This could be useful for large L2TP servers and
-> alike.
->
+> So something needs to trigger a "flush" of the left over data
+> on the SQL side before closing the connection - yes?
+
+That will occur anyway for you. I think you need to find out where the
+other copies of the same fd went and how mysql manages them
