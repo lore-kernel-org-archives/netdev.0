@@ -1,89 +1,120 @@
-From: maximilian attems <janitor@sternwelten.at>
-Subject: [patch 6/6] libata remove msleep_libata()
-Date: Sun, 31 Oct 2004 15:45:24 +0100
-Message-ID: <20041031144524.GG28667@stro.at>
-References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Asynchronous crypto layer.
+Date: 31 Oct 2004 09:56:00 -0500
+Message-ID: <1099234559.1040.183.camel@jzny.localdomain>
+References: <1099030958.4944.148.camel@uganda>
+	 <1099053738.1024.104.camel@jzny.localdomain>
+	 <20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
+	 <20041030203550.GB6256@gate.ebshome.net>
+	 <20041031010415.4c798a04@zanzibar.2ka.mipt.ru>
+	 <20041030205630.GD6256@gate.ebshome.net>
+	 <20041031012423.74b98698@zanzibar.2ka.mipt.ru>
+	 <1099179687.1041.117.camel@jzny.localdomain>
+	 <20041031121308.648e98f9@zanzibar.2ka.mipt.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Margit Schubert-While <margitsw@t-online.de>,
-        Nishanth Aravamudan <nacc@us.ibm.com>, hvr@gnu.org,
-        mcgrof@studorgs.rutgers.edu, kernel-janitors@lists.osdl.org,
-        netdev@oss.sgi.com, Domen Puncer <domen@coderock.org>,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Eugene Surovegin <ebs@ebshome.net>, netdev@oss.sgi.com,
+        cryptoapi@lists.logix.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <41841886.2080609@pobox.com>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20041031121308.648e98f9@zanzibar.2ka.mipt.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sun, 2004-10-31 at 04:13, Evgeniy Polyakov wrote:
+> On 30 Oct 2004 19:41:27 -0400
+> jamal <hadi@cyberus.ca> wrote:
 
+> > Can you explain the "rate" or "speed" parameter ?
+> 
+> Driver writer can set "rate" parameter to any number from 0 to 64k -
+> and it will show speed of this driver in current mode/type/operation.
+[..]
+> 
+> That mean that this driver perform des 6 time faster than aes, but 
+> it should be fair numbers and somehow measured and compared to other
+> drivers.
+> 
 
+So you have some init code that does testing? Or is this factor of six
+part of the spec provided by chip vendor?
 
-remove msleep_libata(), now that msleep() is backported.
-also remove duplicate msleep() definition.
-delay.h is already included.
+> This also can be achieved by qlen parameter - if driver writer sets
+> it to bigger walue then in this mode driver/hardware works faster.
+> But driver writer can set qlen in a too big value just because
+> it want it to be such without any means of driver/hardware capabilities.
+> It is not forbidden.
+> 
 
-Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+It is no different than say the way you will do ethernet drivers.
+DMA ring sizes and link speeds. harder for ethernet drivers if link
+speeds change (Linux net scheduling assumes fixed speed ;->)
 
+> And the last and the most interesting one is following:
+> we create per session initialiser parameter "session_processin_time" 
+> which will be sum of the time slices when driver performed operation 
+> on session, since we alredy has "scomplete" paramenter which is equal 
+> to the amount of completed(processed) session then we have _fair_ speed 
+> of the driver/hardware in a given mode/operation/type.
+> 
+> Of course load blancer should select device with the lowest
+> session_processing_time/scompleted.
+> 
+> I think third variant is what we want. I will think of it some more
+> and will implement soon.
+> 
 
+I think you should be able to have multiple, configurable LB algos.
 
----
+> > I havent studied your code, however, what Eugene is pointing out is
+> > valuable detail/feedback.
+> >
+> > You should have in your queuing towards the crypto chip ability to
+> > batch. i.e sort of nagle-like "wait until we have 10 packets/20KB or 20
+> > jiffies" before you send everything in the queue to the chip.
+> 
+> That is exactly how crypto driver should be written.
+> Driver has it's queue and number of session in it, so it and only it
+> can decide when begin to process them in the most effective way.
+> 
 
- linux-2.4.28-rc1-max/drivers/scsi/libata-core.c |   23 -----------------------
- linux-2.4.28-rc1-max/include/linux/libata.h     |    1 -
- 2 files changed, 24 deletions(-)
-
-diff -puN drivers/scsi/libata-core.c~remove-libata_msleep drivers/scsi/libata-core.c
---- linux-2.4.28-rc1/drivers/scsi/libata-core.c~remove-libata_msleep	2004-10-31 14:06:49.000000000 +0100
-+++ linux-2.4.28-rc1-max/drivers/scsi/libata-core.c	2004-10-31 14:08:41.000000000 +0100
-@@ -67,28 +67,6 @@ MODULE_DESCRIPTION("Library module for A
- MODULE_LICENSE("GPL");
+This should be above driver, really.
  
- /**
-- *	msleep - sleep for a number of milliseconds
-- *	@msecs: number of milliseconds to sleep
-- *
-- *	Issues schedule_timeout call for the specified number
-- *	of milliseconds.
-- *
-- *	LOCKING:
-- *	None.
-- */
--
--static void msleep(unsigned long msecs)
--{
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(msecs_to_jiffies(msecs) + 1);
--}
--
--void libata_msleep(unsigned long msecs)
--{
--	msleep(msecs);
--}
--
--/**
-  *	ata_tf_load - send taskfile registers to host controller
-  *	@ap: Port to which output is sent
-  *	@tf: ATA taskfile register set
-@@ -3697,7 +3675,6 @@ EXPORT_SYMBOL_GPL(ata_scsi_queuecmd);
- EXPORT_SYMBOL_GPL(ata_scsi_error);
- EXPORT_SYMBOL_GPL(ata_scsi_detect);
- EXPORT_SYMBOL_GPL(ata_add_to_probe_list);
--EXPORT_SYMBOL_GPL(libata_msleep);
- EXPORT_SYMBOL_GPL(ata_scsi_release);
- EXPORT_SYMBOL_GPL(ata_host_intr);
- EXPORT_SYMBOL_GPL(ata_dev_classify);
-diff -puN include/linux/libata.h~remove-libata_msleep include/linux/libata.h
---- linux-2.4.28-rc1/include/linux/libata.h~remove-libata_msleep	2004-10-31 14:06:49.000000000 +0100
-+++ linux-2.4.28-rc1-max/include/linux/libata.h	2004-10-31 14:09:08.000000000 +0100
-@@ -416,7 +416,6 @@ extern void ata_qc_complete(struct ata_q
- extern void ata_eng_timeout(struct ata_port *ap);
- extern void ata_add_to_probe_list (struct ata_probe_ent *probe_ent);
- extern int ata_std_bios_param(Disk * disk, kdev_t dev, int *ip);
--extern void libata_msleep(unsigned long msecs);
- 
- 
- static inline unsigned int ata_tag_valid(unsigned int tag)
-_
+You should have one or more queues where the scheduler feeds off and
+shoves to hardware. Perhaps several levels:
+
+->LB-+
+     +-> device1 scheduler --> driver queues/rings.
+     |
+     |
+     +-> device2 scheduler --> driver queues/rings.
+     |
+     .
+     .
+     +-> devicen scheduler --> driver queues/rings.
+
+If you look at the linux traffic control, the stuff below LB is how it
+behaves. That should be generic enough to _not_ sit in the driver.
+This allows for adding smart algorithms to it; fe: qos, rate limiting,
+feedback to LB so it could make smarter decisions etc.
+
+> > As he points out (and i am sure he can back it with data ;->), that
+> > given the setup cost, packet size, algo and CPU and bus speed, it may
+> > not make sense to use the chip at all ;->
+> 
+> Michal has numbers - pure hardware beats soft in a certain setups
+> in a fully synchronous schema, let's work SW and HW in parallel.
+> 
+> Of course SW can encrypt 64 byte faster than it will be transfered to
+> old ISA crypto card, but it worth to do it for compressing with LZW
+> 9000 bytes jumbo frame.
+> 
+
+Would be interesting. I have seen the numbers from Eugene and they are 
+quiet intriguing - but they are for the sync mode.
+
+cheers,
+jamal
