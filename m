@@ -1,45 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: disablenetwork() syscall?
-Date: Mon, 7 Jul 2003 19:33:35 -0300
+From: Andi Kleen <ak@suse.de>
+Subject: Re: question about linux tcp request queue handling
+Date: Tue, 8 Jul 2003 01:52:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030707223334.GG5292@conectiva.com.br>
-References: <20030707194657.GA11328@gtf.org> <Pine.LNX.4.44.0307072250000.11843-100000@netcore.fi>
+Message-ID: <20030708015201.4a5ad7e6.ak@suse.de>
+References: <3F08858E.8000907@us.ibm.com.suse.lists.linux.kernel>
+	<001a01c3441c$6fe111a0$6801a8c0@oemcomputer.suse.lists.linux.kernel>
+	<3F08B7E2.7040208@us.ibm.com.suse.lists.linux.kernel>
+	<000d01c3444f$e6439600$6801a8c0@oemcomputer.suse.lists.linux.kernel>
+	<3F090A4F.10004@us.ibm.com.suse.lists.linux.kernel>
+	<001401c344df$ccbc63c0$6801a8c0@oemcomputer.suse.lists.linux.kernel>
+	<p73fzliqa91.fsf@oldwotan.suse.de>
+	<m3brw6rn3m.fsf@varsoon.wireboard.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: palbrecht@qwest.net, niv@us.ibm.com, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0307072250000.11843-100000@netcore.fi>
+To: Doug McNaught <doug@mcnaught.org>
+In-Reply-To: <m3brw6rn3m.fsf@varsoon.wireboard.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Mon, Jul 07, 2003 at 10:52:15PM +0300, Pekka Savola escreveu:
-> On Mon, 7 Jul 2003, Jeff Garzik wrote:
-> > On Mon, Jul 07, 2003 at 10:40:02PM +0300, Pekka Savola wrote:
-> > > In a bugtraq thread, DJ Bernstein brought up an idea which I'm not sure 
-> > > has been brought up in the past.  I'm not sure whether it's feasible or 
-> > > not, but at least it (and other methods to limit the functions of a 
-> > > user-level code) might bear consideration.
-> > 
-> > What about some URLs to what you are describing?
-> > 
-> > The most information you provided was in $subject, whose content
-> > makes me a bit leery...
-> 
-> Well, apart from the post scriptum, there was very little content about 
-> the feature/idea :-), and the details would seem to be up for everyone's 
-> imagination. 
-> 
-> FWIW, the body of the message is below:
+On 07 Jul 2003 18:25:17 -0400
+Doug McNaught <doug@mcnaught.org> wrote:
 
-Incomplete, here is the part that he mention the disablenetwork syscall:
+> And furthermore, IIRC, the current Linux networking code is not
+> Berkeley-derived, though an earlier version was.
 
-------------------------------------- 8< ------------------------------
+The linux network stack was never BSD derived in any way.
 
-P.S. It's hard for a portable chroot tool to cut off a program's network
-access. Kernel designers should provide a disablenetwork() syscall, with
-the disabling inherited by children. Other kernel changes would be nice,
-but disablenetwork() is the only critical change.
+[there are two header files that came from net2, but they do not 
+contain any code]
 
-------------------------------------- 8< ------------------------------
+-Andi
