@@ -1,40 +1,41 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH]  allow CONFIG_NET=n on ppc64
-Date: Wed, 29 Sep 2004 22:15:25 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Please route new work through -mm tree?
+Date: Wed, 29 Sep 2004 13:19:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929201524.GA14615@wotan.suse.de>
-References: <20040929200158.GA16366@suse.de>
+Message-ID: <20040929131947.03c3e9e5.davem@redhat.com>
+References: <1096481023.8636.7.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Olaf Hering <olh@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040929200158.GA16366@suse.de>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <1096481023.8636.7.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 29, 2004 at 10:01:58PM +0200, Olaf Hering wrote:
-> 
-> The attached minimal config does not compile on ppc64.
-> I was able to boot the resulting binary with this patch.
+On Wed, 29 Sep 2004 11:03:43 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-I already fixed this some time ago, but the patch must have disappeared.
+> There is lots of stuff going on that has a potential to make things less
+> stable. How about routing any future TCP, fib, statistics, stuff through
+> Andrew's tree and not directly to Linus. That way we have some buffer
+> and can stablize some more. Alternatively, Dave you could publize your
+> staging area some more.
 
-> diff -purNX /suse/olh/kernel/kernel_exclude.txt linux-2.6.9-rc2/arch/ppc64/kernel/misc.S linux-2.6.9-rc2.ppc64/arch/ppc64/kernel/misc.S
-> --- linux-2.6.9-rc2/arch/ppc64/kernel/misc.S	2004-09-13 07:33:23.000000000 +0200
-> +++ linux-2.6.9-rc2.ppc64/arch/ppc64/kernel/misc.S	2004-09-29 21:00:44.909074755 +0200
-> @@ -703,7 +703,11 @@ _GLOBAL(sys_call_table32)
->  	.llong .compat_sys_statfs
->  	.llong .compat_sys_fstatfs		/* 100 */
->  	.llong .sys_ni_syscall		/* old ioperm syscall */
-> +#ifdef CONFIG_NET
->  	.llong .compat_sys_socketcall
-> +#else
-> +	.llong .sys_ni_syscall		/* old ioperm syscall */
-> +#endif
+I'm not changing how I do things because:
 
-Right fix is to declare compat_sys_socketcall as as cond_syscall() 
-in sys.c
+1) Putting the net stuff into -mm makes debugging of networking
+   changes harder, as -mm has a ton of experimental stuff in it
+   as well.  -mm frequently makes machines unbootable, and particularly
+   this is felt on non-x86 platforms such as sparc64 which is where
+   I do all of my work.
 
--Andi
+2) I am more than happy to post the location of my net-2.6 tree
+   but last time I used this actively (whilst Linus was away for
+   2 weeks) the IBM folks complained that this gave them
+   too many trees to work from.
+
+Furthermore, I've never put any change into my tree that I didn't
+think was ready for upstream.  When I post something here before
+pushing to Linus, that's the chance for folks to test things out.
