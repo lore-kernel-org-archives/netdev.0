@@ -1,103 +1,59 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
-Date: Thu, 15 Jan 2004 11:59:49 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PROBLEM] r8169 deadlocks
+Date: Thu, 15 Jan 2004 22:08:27 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF0184DFA4.569DFD66-ON87256E1C.006DBAE8@us.ibm.com>
+Message-ID: <20040115220827.A22007@electric-eye.fr.zoreil.com>
+References: <200401152039.00182.harisri@bigpond.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78"
-Cc: davem@redhat.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+To: Srihari Vijayaraghavan <harisri@bigpond.com>
 Content-Disposition: inline
+In-Reply-To: <200401152039.00182.harisri@bigpond.com>; from harisri@bigpond.com on Thu, Jan 15, 2004 at 08:38:59PM +1100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78
-Content-type: text/plain; charset=ISO-2022-JP
+Srihari Vijayaraghavan <harisri@bigpond.com> :
+[...]
+> Consider desktop as the computer with the RealTek r8169 card and laptop from 
+> where I perform these steps:
+> 1. ssh desktop
+> 2. while true; do ls -la /; done
+> 3. In few seconds the desktop computer hangs
+> (And of course at the laptop computer the ssh session hangs)
+> 
+> Here is the sysrq-p from the desktop computer (captured using serial-console):
+> Pid: 1963, comm: ls Not tainted
+> RIP: 0010:[<ffffffffa008afd9>] 
+> <ffffffffa008afd9>{:r8169:rtl8169_tx_interrupt+73}
+> RSP: 0000:ffffffff80374dc8  EFLAGS: 00000286
+> RAX: 0000000000000420 RBX: ffffffff80374d18 RCX: 0000010000399000
+> RDX: ffffffff80370e80 RSI: 000000003525d05e RDI: 0000000080391bf0
+> RBP: ffffffff801100d9 R08: 0000000000000007 R09: 0000000000000000
+> R10: 0000002a95587de0 R11: 0000000000000003 R12: 0000000000000042
+> R13: 0000000000000001 R14: 00000000000000bc R15: 000001003f7d1340
+> FS:  00000000005144a0(005b) GS:ffffffff80370e80(0000) knlGS:0000000000000000
+> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+> CR2: 0000002a957876d0 CR3: 0000000000101000 CR4: 00000000000006a0
+> 
+> Call Trace:<IRQ> <ffffffffa008b3c8>{:r8169:rtl8169_interrupt+120} 
+> <ffffffff8011222f>{handle_IRQ_event+47}
+>        <ffffffff801123b3>{do_IRQ+147} <ffffffff801100d9>{ret_from_intr+0}
+>         <EOI> <ffffffff80110152>{retint_careful+13}
 
+*head scratch*
 
+Can you monitor 'vmstat 1' output on the r8169 host during the test ?
 
+You can try 2.6.1-bk2 + Jeff Garzik's -netdev4 + 
+http://www.fr.zoreil.com/people/francois/misc/r8169-tx-index-overflow.patch 
 
+If it does not perform better, you can try against 2.6.1-bk1 the set at
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-b
 
-OK, I agree with both of you. Then this patch is not needed. Yoshifuji, you
-can sleep in peace. ;-)
+If I remember correctly, you are the first report of a non-completely
+disfunctional driver for the new version of the r8169. Things improve.
 
-Thank you all!
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
-
-
-
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>@oss.sgi.com on
-01/15/2004 11:53:41 AM
-
-Sent by:    netdev-bounce@oss.sgi.com
-
-
-To:    davem@redhat.com
-cc:    Shirley Ma/Beaverton/IBM@IBMUS, mashirle@us.ltcfwd.linux.ibm.com,
-       kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Subject:    Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
-
-
-In article <20040115113840.4b7eb5d8.davem@redhat.com> (at Thu, 15 Jan 2004
-11:38:40 -0800), "David S. Miller" <davem@redhat.com> says:
-
-> We can create new files to present information in new ways and formats,
-> but I totally prefer using netlink based information gathering over
-making
-> new procfs files.
-
-Although this discussion is about rtnetlink message,
-problem will be solved if we provide jiffies for neigbours
-IMHO.
-
---yoshfuji @ let me sleep...
-
-
-
---0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78
-Content-type: text/html; charset=ISO-2022-JP
-Content-Disposition: inline
-
-<html><body>
-<p>OK, I agree with both of you. Then this patch is not needed. Yoshifuji, you can sleep in peace. ;-)<br>
-<br>
-Thank you all!<br>
-Shirley Ma<br>
-IBM Linux Technology Center<br>
-15300 SW Koll Parkway<br>
-Beaverton, OR 97006-6063<br>
-Phone: (503) 578-7638<br>
-FAX:      (503) 578-3228<br>
-<br>
-<br>
-
-<p><font size="2" color="#800080">Sent by:	netdev-bounce@oss.sgi.com</font>
-<p><font size="2" color="#800080">To:	</font><font size="2">davem@redhat.com</font><br>
-<font size="2" color="#800080">cc:	</font><font size="2">Shirley Ma/Beaverton/IBM@IBMUS, mashirle@us.ltcfwd.linux.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org</font><font size="2" color="#800080"> </font><br>
-<font size="2" color="#800080">Subject:	</font><font size="2">Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable</font><br>
-<br>
-<br>
-<font face="Courier New">In article &lt;20040115113840.4b7eb5d8.davem@redhat.com&gt; (at Thu, 15 Jan 2004 11:38:40 -0800), &quot;David S. Miller&quot; &lt;davem@redhat.com&gt; says:<br>
-<br>
-&gt; We can create new files to present information in new ways and formats,<br>
-&gt; but I totally prefer using netlink based information gathering over making<br>
-&gt; new procfs files.<br>
-<br>
-Although this discussion is about rtnetlink message,<br>
-problem will be solved if we provide jiffies for neigbours <br>
-IMHO.<br>
-<br>
---yoshfuji @ let me sleep...<br>
-<br>
-</font><br>
-<br>
-</body></html>
---0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78--
+--
+Ueimor
