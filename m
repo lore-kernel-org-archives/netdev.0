@@ -1,79 +1,29 @@
-From: "Francois Baligant" <francois@baligant.net>
-Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
-Date: Wed, 3 Dec 2003 01:15:42 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [2.6 PATCH] ipchains masquerade must select maddr correctly
+Date: Tue, 2 Dec 2003 16:22:08 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <078f01c3b932$97919630$15fea8c0@fortress>
-References: <072501c3b874$2542ae70$15fea8c0@fortress><16332.27919.502097.988522@robur.slu.se> <20031202032606.28db927b.davem@redhat.com>
+Message-ID: <20031202162208.04629dab.davem@redhat.com>
+References: <Pine.LNX.4.44.0312030150080.1237-200000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, laforge@gnumonks.org
 Return-path: <netdev-bounce@oss.sgi.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0312030150080.1237-200000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thanks all for your suggestions.
+On Wed, 3 Dec 2003 01:55:28 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-Actually I have noticed that with 90k establish TCP sessions, I have around
-the double
-amount of entries in the routing cache. For each TCP session there is an
-inbound and outbond
-cache entry like this:
+> 	The attached patch fixes ipchains masquerade to use
+> correctly the routing. This bug-to-bug compatibility with 2.2
+> is not valid from long time. Also, a missing unlock is added.
 
-39.125.111.131  81.64.64.96     39.125.111.129         1500 0          0
-eth0
-81.64.64.96   39.125.111.131  39.125.111.131  l         0 0          0 lo
+Slow down.
 
-This system has accepted that many sessions before when running 2.4 and this
-problem surfaced
-with 2.6. Now, I can't be sure that traffic pattern are exactly the same so
-Im not drawing conclusions
-about 2.6
-
-I will try to raise gc_tresh and keep you informed.
-
-Thanks,
-Francois
-
------ Original Message ----- 
-From: "David S. Miller" <davem@redhat.com>
-To: "Robert Olsson" <Robert.Olsson@data.slu.se>
-Cc: <francois@baligant.net>; <netdev@oss.sgi.com>
-Sent: Tuesday, December 02, 2003 12:26 PM
-Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
-
-
-> On Tue, 2 Dec 2003 11:44:31 +0100
-> Robert Olsson <Robert.Olsson@data.slu.se> wrote:
->
-> > No experience with 90k TCP-flows but it seems GC is not able to free
-some
-> > the dst-entries for some reason. This will slowly kill your box with
-> > symptoms you describe. We have ask TCP-experts for timer settings to
-avoid
-> > pending sessions etc. Also check slab for any other objects growing as
-> > dst cache overflow is most likely secondary effect in your case. rtstat
-> > looks sane expect for the high number of dst-entries. Tuning is another
-> > story.
->
-> Let us assume, for the sake of back of the envelope calculations, that
-> all 90k TCP connections speak to unique destinations.  Let us further
-> assume that all of them have at least one packet in flight.
->
-> This means the routing cache must be able to hold at least 90k entries.
-> All of these routing cache entires will be referenced by the packets
-> in the TCP retransmission queues of all the sockets, and thus the
-> entries are unreclaimable.
->
-> You are setting net.ipv4.route.max_size to 655360 which should be more
-> than enough.  But you also have to make the net.ipv4.route.gc_thresh
-> more reasonable as well, perhaps 90K as a test.
->
-> If net.ipv4.route.gc_thresh is lower than 90K and my assertions above
-> hold, then the kernel will try to garbage collect too early, all the
-> routing cache entries will be in use and therefore uncollectable,
-> and you'll get the message you're seeing.
->
-> Try to pump up gc_thresh and see if that helps.
->
+I don't think it's always desirable to specify a specific TOS when
+we're working with an input packet.  In fact, what you're doing all
+over the tree is going to cause the routing cache size to explode in
+some very real usage.
