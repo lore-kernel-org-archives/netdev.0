@@ -1,45 +1,92 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [PATCH] skb pcount with MTU discovery
-Date: Fri, 1 Apr 2005 16:22:59 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0504011612140.18380@dexter.psc.edu>
-References: <Pine.LNX.4.58.0504011340510.17051@dexter.psc.edu>
- <20050401131045.4e558f65.davem@davemloft.net>
+From: Colin Leroy <colin@colino.net>
+Subject: Re: [linux-usb-devel] [PATCH] PM support for zd1201
+Date: Fri, 1 Apr 2005 23:27:47 +0200
+Message-ID: <20050401232747.3f9ed365@jack.colino.net>
+References: <20050330144423.0dde5b71@jack.colino.net>
+	<200504011030.57978.david-b@pacbell.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-usb-devel@lists.sourceforge.net, Andrew Morton <akpm@osdl.org>,
+        Jeroen Vreeken <pe1rxq@amsat.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050401131045.4e558f65.davem@davemloft.net>
+To: David Brownell <david-b@pacbell.net>
+In-Reply-To: <200504011030.57978.david-b@pacbell.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 1 Apr 2005, David S. Miller wrote:
+On 01 Apr 2005 at 10h04, David Brownell wrote:
 
-> On Fri, 1 Apr 2005 16:05:49 -0500 (EST)
-> John Heffner <jheffner@psc.edu> wrote:
->
-> > The problem is that when doing MTU discovery, the too-large segments in
-> > the write queue will be calculated as having a pcount of >1.  When
-> > tcp_write_xmit() is trying to send, tcp_snd_test() fails the cwnd test
-> > when pcount > cwnd.
-> >
-> > The segments are eventually transmitted one at a time by keepalive, but
-> > this can take a long time.
-> >
-> > This patch checks if TSO is enabled when setting pcount.
->
-> Why isn't the MSS properly updated at this point in time?
-> If it were, the pcount setting would do the right thing.
->
-> That's how this code is supposed to work.
+Hi, 
 
-The problem occurs when TSO is disabled.
+> Looked ok to me, other than needing to change "u32 state" into
+> a "pm_message_t message".  And I'm not sure why "mac_enabled"
+> would be the right test, rather than maybe netif_running().
 
-Common case, start out with mss of 8948.  Send 2 segments; neither are
-acknowledged, and we receive an ICMP can't fragment indicating a pmtu of
-1500 so mss is set down to 1448.  Now tcp_set_skb_tso_segs() sets tso_segs
-to 6, so tcp_snd_test thinks we are doing TSO and will send the full 6
-mss, and fails the cwnd test since cwnd == 2.
+Here it is.
 
-  -John
+Signed-off-by: Colin Leroy <colin@colino.net>
+--- drivers/usb/net/zd1201.c.orig	2005-03-30 14:35:23.000000000 +0200
++++ drivers/usb/net/zd1201.c	2005-04-01 23:24:04.000000000 +0200
+@@ -1896,12 +1896,50 @@
+ 	kfree(zd);
+ }
+ 
++#ifdef CONFIG_PM
++
++static int zd1201_suspend (struct usb_interface *interface, 
++			   pm_message_t message)
++{
++	struct zd1201 *zd = (struct zd1201 *)usb_get_intfdata(interface);
++	
++	netif_device_detach(zd->dev);
++	
++	zd->was_enabled = zd->mac_enabled;
++	
++	if (zd->was_enabled)
++		return zd1201_disable(zd);
++	else
++		return 0;
++}
++
++static int zd1201_resume (struct usb_interface *interface)
++{
++	struct zd1201 *zd = (struct zd1201 *)usb_get_intfdata(interface);
++	
++	netif_device_attach(zd->dev);
++	
++	if (zd->was_enabled)
++		return zd1201_enable(zd);
++	else
++		return 0;
++}
++
++#else
++
++#define zd1201_suspend NULL
++#define zd1201_resume  NULL
++
++#endif
++
+ struct usb_driver zd1201_usb = {
+ 	.owner = THIS_MODULE,
+ 	.name = "zd1201",
+ 	.probe = zd1201_probe,
+ 	.disconnect = zd1201_disconnect,
+ 	.id_table = zd1201_table,
++	.suspend = zd1201_suspend,
++	.resume = zd1201_resume,
+ };
+ 
+ static int __init zd1201_init(void)
+--- drivers/usb/net/zd1201.h.orig	2005-03-30 14:35:36.000000000 +0200
++++ drivers/usb/net/zd1201.h	2005-03-30 14:24:33.000000000 +0200
+@@ -46,6 +46,7 @@
+ 	char			essid[IW_ESSID_MAX_SIZE+1];
+ 	int			essidlen;
+ 	int			mac_enabled;
++	int			was_enabled;
+ 	int			monitor;
+ 	int			encode_enabled;
+ 	int			encode_restricted;
