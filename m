@@ -1,25 +1,37 @@
-From: Janice Girouard <girouard@us.ibm.com>
-Subject: Re: patch for common networking error messages
-Date: Tue, 17 Jun 2003 15:40:48 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Route cache performance tests
+Date: Tue, 17 Jun 2003 13:36:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF296D6F92.1C7252A9-ON85256D48.00713BCF@us.ibm.com>
+Message-ID: <20030617.133635.84366118.davem@redhat.com>
+References: <20030617200721.GA25773@netnation.com>
+	<1055881034.3199.43.camel@tux.rsn.bth.se>
+	<20030617203703.GB25773@netnation.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: garzik@pobox.com, shemminger@osdl.org, Valdis.Kletnieks@vt.edu,
-   Janice Girouard <girouard@us.ibm.com>,
-   Daniel Stekloff <stekloff@us.ibm.com>, Larry Kessler <lkessler@us.ibm.com>,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gandalf@wlug.westbo.se, Robert.Olsson@data.slu.se, ralph+d@istop.com,
+   hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: sim@netnation.com
+In-Reply-To: <20030617203703.GB25773@netnation.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Simon Kirby <sim@netnation.com>
+   Date: Tue, 17 Jun 2003 13:37:03 -0700
+   
+   Forwarding rate more than doubles when I turn off
+   rp_filter off (Debian turns it on by default).
 
-From:  David S. Miller" <davem@redhat.com>
-      Date: 06/17/2003 03:27 PM
+I have no idea why they do this, it's the stupidest thing
+you can possibly do by default.
 
-      On RX, clever RX buffer management is what we need.
+If we thought it was a good idea to turn this on by default
+we would have done so in the kernel.
 
-What RX buffer management are you proposing?  I'm having a hard time
-understanding how  you'll get rid of the copy without support from the
-card.
+Does anyone have some cycles to spare to try and urge whoever is
+repsponsible for this in Debian to leave the kernel's default setting
+alone?
+
+Thanks.
