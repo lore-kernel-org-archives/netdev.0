@@ -1,25 +1,64 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: High interrupt rate even when using NAPI
-Date: Wed, 5 Nov 2003 10:07:50 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 with big-endian (patch)
+Date: Wed, 5 Nov 2003 19:34:00 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031105100750.63974931.davem@redhat.com>
-References: <3FA93B82.5070508@sgi.com>
+Message-ID: <20031105193400.A12375@electric-eye.fr.zoreil.com>
+References: <20031105104625.D26209@oktet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, ShuChen <shuchen@realtek.com.tw>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Modica <modica@sgi.com>
-In-Reply-To: <3FA93B82.5070508@sgi.com>
+To: "Alexandra N. Kossovsky" <sasha@oktet.ru>
+Content-Disposition: inline
+In-Reply-To: <20031105104625.D26209@oktet.ru>; from sasha@oktet.ru on Wed, Nov 05, 2003 at 10:46:26AM +0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 05 Nov 2003 12:03:46 -0600
-Steve Modica <modica@sgi.com> wrote:
+Greetings,
 
-> I just noticed some strange behavior with the tg3 driver.
+Alexandra N. Kossovsky <sasha@oktet.ru> :
+[...]
+> Here is the patch to make RTL-8169 PCI Gbit ethernet card to work with
+> big-endian host. The patch is against 2.4.22 kernel.
 
-The tg3 driver needs to poke the chip a hundred times per
-second in order to work around a hardware bug, eack poke
-causes an interrupt.  This is needed regardless of whether
-the chip is processing packets or not.
+Please Cc: such patches to netdev@oss.sgi.com as well as jgarzik@pobox.com.
+
+[...]
+> @@ -664,19 +675,21 @@
+>  	}
+>  
+>  	tp->TxDescArrays =
+> -	    kmalloc(NUM_TX_DESC * sizeof (struct TxDesc) + 256, GFP_KERNEL);
+> +	    pci_alloc_consistent(tp->pci_dev,
+> +				 NUM_TX_DESC * sizeof (struct TxDesc) + 256, 
+> +				 &tp->TxDescDmaAddrs);
+> -	TxPhyAddr = virt_to_bus(tp->TxDescArrays);
+> -	diff = 256 - (TxPhyAddr - ((TxPhyAddr >> 8) << 8));
+> -	TxPhyAddr += diff;
+> +	diff = 256 - (tp->TxDescDmaAddrs - ((tp->TxDescDmaAddrs >> 8) << 8));
+> +	tp->TxDescDmaAddr = tp->TxDescDmaAddrs + diff;
+>  	tp->TxDescArray = (struct TxDesc *) (tp->TxDescArrays + diff);
+
+Remove the alignment stuff. pci_alloc_consistent() does it for you,
+see Documentation/DMA-mapping.txt:
+[...]
+The cpu return address and the DMA bus master address are both
+guaranteed to be aligned to the smallest PAGE_SIZE order which
+is greater than or equal to the requested size.  This invariant
+
+
+@@ -684,12 +697,18 @@
+[...]
+-       tp->RxBufferRings = kmalloc(RX_BUF_SIZE * NUM_RX_DESC, GFP_KERNEL);
++       tp->RxBufferRings = pci_alloc_consistent(tp->pci_dev,
++                                                RX_BUF_SIZE * NUM_RX_DESC,
++                                                &tp->RxBufferDmas);
+
+You don't want consistent mapping for the data buffer.
+Either you pci_map_single() the whole kmalloced() area and you sync it
+when needed or you turn this code into usual, per skb, pci_map_single()
+calls and you remove the big Rx data buffer.
+
+--
+Ueimor
