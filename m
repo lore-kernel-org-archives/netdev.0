@@ -1,28 +1,43 @@
-From: "M.A. Williamson" <maw48@cam.ac.uk>
-Subject: PhD Research
-Date: 17 Jul 2003 22:48:36 +0100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/4] Prefix List against 2.5.73
+Date: Thu, 17 Jul 2003 23:53:11 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E19dGc8-0007P2-NJ@maroon.csi.cam.ac.uk>
+Message-ID: <20030717.235311.94788744.yoshfuji@linux-ipv6.org>
+References: <3F15E86F.2030707@us.ibm.com>
+	<200307170038.EAA12945@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: krkumar@us.ibm.com, davem@redhat.com, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307170038.EAA12945@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello to whoever receives this e-mail - I would like to ask for your help.
+In article <200307170038.EAA12945@dub.inr.ac.ru> (at Thu, 17 Jul 2003 04:38:00 +0400 (MSD)), kuznet@ms2.inr.ac.ru says:
 
-I've been trying to make contact with someone from your R&D for some time, 
-as I wish to establish a dialogue about some academic research I want to 
-carry out for my PhD. The research is in dynamic code optimisation, which I 
-realise isn't necessarily your personal focus - could you possibly suggest 
-someone I could contact within SGI to discuss this further?
+> Actually, the original plan was to use ifli_family to query something
+> or to direct a request to a specific interface on some netdevice.
+> I wanted to reserve IFLI_PROTINFO attribute to encapsulate information
+> private for specific family. It was not realized mostly because of absense
+> of such information.
+> 
+> Maybe, you will want to resurrect this.
 
-I've had very little luck in getting through the external-facing 
-administration of the company (which refuses to give out any contact 
-details) and have been forced to resort to finding SGI e-mail addresses in 
-the Linux source (do I get credit for lateral thinking?).
+Ah, okay, I'm ok to reuse ifi_family in ifinfomsg{}.
+e.g. if ifi_family == AF_INET6 (and/or AF_UNSPEC?), kernel sends 
+per-interface IPv6 information.
+  IFLA_INET6       provides if_flags (etc?)
+  IFLA_INET6_CONF  provides cnf (without proc_dir_entry :-p)
+  IFLA_INET6_STATS provides stats (XXX: missing entries in stats)
+  IFLA_INET6_MCAST provides mc_XXX things
+etc, etc.
 
-Thanks in advance,
+sounds reasonable?
 
-Mark
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
