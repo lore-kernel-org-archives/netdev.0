@@ -1,43 +1,36 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [[RFT] convert appletalk over to new protocol
-Date: Thu, 10 Jul 2003 03:20:11 -0300
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Fri, 11 Jul 2003 00:55:42 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030710062010.GC11670@conectiva.com.br>
-References: <20030709131300.660c052f.shemminger@osdl.org>
+Message-ID: <20030711.005542.04973601.yoshfuji@linux-ipv6.org>
+References: <20030710154302.GE1722@zip.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, Jay Schulist <jschlst@samba.org>,
-   netdev@oss.sgi.com, linux-atalk@lists.netspace.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, pekkas@netcore.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030709131300.660c052f.shemminger@osdl.org>
+To: cat@zip.com.au
+In-Reply-To: <20030710154302.GE1722@zip.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Jul 09, 2003 at 01:13:00PM -0700, Stephen Hemminger escreveu:
-> This fixes appletalk ddp protocol to address a couple of issues:
-> 	- routing code was holding a reference to device without doing ref counting.
-> 	- packet interface was old style
-> 	   - add shared buffer checks
-> 	   - add pullup's where needed
-> 	   - change checksum to handle fragmented sk_buff's
-> 	- clean up comments to match above changes.
-> 
-> I don't have real appletalk test infrastructure, and given the checksum change it should
-> be tested against real Apple hardware.  It does build, and loads/unloads fine.  I can
-> bring up the netatalk stuff without problem but have nothing to talk to it.
+In article <20030710154302.GE1722@zip.com.au> (at Fri, 11 Jul 2003 01:43:03 +1000), CaT <cat@zip.com.au> says:
 
-I'll take a look, but I missed the sock_hold/put stuff from a first look, it
-is OK by now when adding and removing from a lista of socks due to the hlist
-conversion work, but needs to be done in routines that search a list of socks
-and return a sock.
+> With 2.4.21-pre2 I can get a nice tunnel going over my ppp connection
+> and as such get ipv6 connectivity. I think went to 2.4.21 and then to
+> 2.4.22-pre4 and bringing up the tunnel fails as follows:
+:
+> ip addr add 3ffe:8001:000c:ffff::37/127 dev sit1
+>  ip route add ::/0 via 3ffe:8001:000c:ffff::36 
+> RTNETLINK answers: Invalid argument
 
-I do have a good Appletalk test bed, with m68k and ppc macs, but I'll only will
-be able to test this next wednesday, as I'll be on a business trip starting
-tomorrow.
+This is not bug, but rather misconfiguration;
+you cannot use prefix::, which is mandatory subnet routers 
+anycast address, as unicast address.
 
-Good work as far as I quickly glanced, will review it further and provide
-comments, probably in the next days.
+Thank you.
 
-- Arnaldo
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
