@@ -1,433 +1,167 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Updated WE-18 (WPA) proposal
-Date: Sun, 29 Aug 2004 21:54:41 -0700
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Message-ID: <20040830045441.GA7415@jm.kir.nu>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: [PATCH][1/4] b44: Ignore carrier lost errors
+Date: Mon, 30 Aug 2004 09:10:20 +0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040830061020.GA21270@ee.oulu.fi>
+References: <200408292218.00756.jolt@tuxbox.org> <200408292233.03879.jolt@tuxbox.org> <41324158.4020709@pobox.com> <200408292304.25447.jolt@tuxbox.org> <20040829164528.220424e5.davem@davemloft.net> <20040829234928.GA10060@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, hostap@shmoo.com,
-	Pedro Ramalhais <ramalhais@serrado.net>
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: Jean Tourrilhes <jt@hpl.hp.com>
+Content-Type: text/plain; charset=iso-8859-1
+Cc: Florian Schirmer <jolt@tuxbox.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+In-Reply-To: <20040829234928.GA10060@havoc.gtf.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Finally, I had enough time to implement and test the proposed WE-18
-(WPA) changes with Host AP driver and wpa_supplicant. This testing was
-indeed needed since number of issues showed up. I have made an updated
-version of the WE-18 proposal that seems to work with
-hostap and wpa_supplicant (current development snapshot from
-http://hostap/epitest.fi/). I have not yet verified how much of
-interface needed for hostapd could be moved to these new parts of WE-18
-instead of the currently used private ioctls.
+On Sun, Aug 29, 2004 at 07:49:28PM -0400, Jeff Garzik wrote:
+> > BTW, can someone fixup something for me?  Update MODULE_AUTHOR()
+> > please :-)  3/4 of this driver have been rewritten since I last
+> > touched it, heh.
+> 
+> hehe.  I'll take care of it tonight when I queue Florian's stuff
+> to netdev-2.6 (and thus -mm, and thus eventually mainline).
+And here's a resend of the bounce buffer patch, which should still
+apply on top of Florians (or without) just fine.
 
-Since WE-17 has apparently not yet been merged all the way into
-linux-2.6 tree, the patch below is against Linux 2.6.8.1 that has been
-patched with WE-17 patch (http://www.hpl.hp.com/personal/
-Jean_Tourrilhes/Linux/iw268_we17-10.diff). This should be quite close
-to what the final WE-18 would be diffed against. This WE-18 patch is
-still experimental and it may still need to be changed (i.e., this
-should not yet be merged into linux-2.6).
-
-Change log against the latest WE-18 proposal (http://www.hpl.hp.com/
-personal/Jean_Tourrilhes/Linux/iw_we18-3.diff):
-
-- replaced optional parameter (iw_point) to SIOCSIWSCAN with a new ioctl
-  (SIOCSIWSCANEXT) since the previous design was not really backwards
-  compatible (e.g., 'iwlist wlan0 scan' did not work)
-- replaced IWEVWPAIE/IWEVRSNIE with more generic IWEVGENIE which can
-  also be used with non-WPA (e.g., IEEE 802.11e/WMM) IEs; in addition,
-  fixed the type for this event to be IW_HEADER_TYPE_POINT (was _PARAM)
-- use larger IW_GENERIC_IE_MAX (256->1024) to be able to handle possible
-  needs for future IEEE 802.11 amendments
-- added new IW_AUTH_INDEX parameters IW_AUTH_WPA_ENABLED and
-  IW_AUTH_RX_UNENCRYPTED_EAPOL that were missing from the functionality
-  needed by wpa_supplicant interface
-- changed IW_AUTH_WPA_VERSION, IW_AUTH_PAIRWISE_CIPHER,
-  IW_AUTH_GROUP_CIPHER, and IW_AUTH_KEY_MGMT to bit fields
-- added LEAP to IW_AUTH_80211_AUTH_ALG values
-- added IW_ENCODE_EXT_SET_TX_KEY (set key value and mark key as default
-  TX key with one ioctl)
-- added some more comments to areas that were unclear (have generated
-  questions)
-- added min_tokens values for SIOCSIWENCODEEXT and SIOCGIWENCODEEXT
-
-Question: is length field in struct iw_point in bytes or tokens
-(token_size bytes)? I assumed it was in bytes, but this did not work
-very well with WE ioctls that had token_size != 1; I made SIOCSIWSCANEXT
-use token_size = 1 for now, but it could be replaced to be
-sizeof(struct) and min_tokens=max_tokesn=1 once this question is
-resolved.
-
-
-
-diff -upr 2.6.8.1-WE17/include/linux/wireless.h 2.6.8.1-WE18/include/linux/wireless.h
---- 2.6.8.1-WE17/include/linux/wireless.h	2004-08-29 21:23:32.277037256 -0700
-+++ 2.6.8.1-WE18/include/linux/wireless.h	2004-08-29 19:25:33.000000000 -0700
-@@ -1,7 +1,7 @@
- /*
-  * This file define a set of standard wireless extensions
-  *
-- * Version :	17	21.6.04
-+ * Version :	18	29.8.04
-  *
-  * Authors :	Jean Tourrilhes - HPL - <jt@hpl.hp.com>
-  * Copyright (c) 1997-2004 Jean Tourrilhes, All Rights Reserved.
-@@ -82,7 +82,7 @@
-  * (there is some stuff that will be added in the future...)
-  * I just plan to increment with each new version.
-  */
--#define WIRELESS_EXT	17
-+#define WIRELESS_EXT	18
+Signed-off-by: Pekka Pietikainen <pp@ee.oulu.fi>
+--- linux-2.6.8-rc3/drivers/net/b44.h.4g4g	2004-08-08 10:54:03.979353080 +0300
++++ linux-2.6.8-rc3/drivers/net/b44.h	2004-08-08 10:54:17.928232528 +0300
+@@ -493,6 +493,7 @@
+ 
+ 	struct ring_info	*rx_buffers;
+ 	struct ring_info	*tx_buffers;
++	unsigned char		*tx_bufs; 
+ 
+ 	u32			dma_offset;
+ 	u32			flags;
+@@ -525,7 +526,7 @@
+ 	struct pci_dev		*pdev;
+ 	struct net_device	*dev;
+ 
+-	dma_addr_t		rx_ring_dma, tx_ring_dma;
++	dma_addr_t		rx_ring_dma, tx_ring_dma,tx_bufs_dma;
+ 
+ 	u32			rx_pending;
+ 	u32			tx_pending;
+--- linux-2.6.8-rc3/drivers/net/b44.c.4g4g	2004-08-08 10:53:58.724151992 +0300
++++ linux-2.6.8-rc3/drivers/net/b44.c	2004-08-08 10:54:17.657273720 +0300
+@@ -27,8 +27,8 @@
+ 
+ #define DRV_MODULE_NAME		"b44"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"0.94"
+-#define DRV_MODULE_RELDATE	"May 4, 2004"
++#define DRV_MODULE_VERSION	"0.95"
++#define DRV_MODULE_RELDATE	"Aug 3, 2004"
+ 
+ #define B44_DEF_MSG_ENABLE	  \
+ 	(NETIF_MSG_DRV		| \
+@@ -57,6 +57,7 @@
+ #define B44_DEF_TX_RING_PENDING		(B44_TX_RING_SIZE - 1)
+ #define B44_TX_RING_BYTES	(sizeof(struct dma_desc) * \
+ 				 B44_TX_RING_SIZE)
++#define B44_DMA_MASK 0x3fffffff
+ 
+ #define TX_RING_GAP(BP)	\
+ 	(B44_TX_RING_SIZE - (BP)->tx_pending)
+@@ -67,6 +68,7 @@
+ #define NEXT_TX(N)		(((N) + 1) & (B44_TX_RING_SIZE - 1))
+ 
+ #define RX_PKT_BUF_SZ		(1536 + bp->rx_offset + 64)
++#define TX_PKT_BUF_SZ		(B44_MAX_MTU + ETH_HLEN + 8)
+ 
+ /* minimum number of free TX descriptors required to wake up TX process */
+ #define B44_TX_WAKEUP_THRESH		(B44_TX_RING_SIZE / 4)
+@@ -631,10 +633,30 @@
+ 	if (skb == NULL)
+ 		return -ENOMEM;
+ 
+-	skb->dev = bp->dev;
+ 	mapping = pci_map_single(bp->pdev, skb->data,
+ 				 RX_PKT_BUF_SZ,
+ 				 PCI_DMA_FROMDEVICE);
++
++	/* Hardware bug work-around, the chip is unable to do PCI DMA
++	   to/from anything above 1GB :-( */
++	if(mapping+RX_PKT_BUF_SZ > B44_DMA_MASK) {
++		/* Sigh... */
++		pci_unmap_single(bp->pdev, mapping, RX_PKT_BUF_SZ,PCI_DMA_FROMDEVICE);
++		dev_kfree_skb_any(skb);
++		skb = __dev_alloc_skb(RX_PKT_BUF_SZ,GFP_DMA);
++		if (skb == NULL)
++			return -ENOMEM;
++		mapping = pci_map_single(bp->pdev, skb->data,
++					 RX_PKT_BUF_SZ,
++					 PCI_DMA_FROMDEVICE);
++		if(mapping+RX_PKT_BUF_SZ > B44_DMA_MASK) {
++			pci_unmap_single(bp->pdev, mapping, RX_PKT_BUF_SZ,PCI_DMA_FROMDEVICE);
++			dev_kfree_skb_any(skb);
++			return -ENOMEM;
++		}
++	}
++
++	skb->dev = bp->dev;
+ 	skb_reserve(skb, bp->rx_offset);
+ 
+ 	rh = (struct rx_header *)
+@@ -912,6 +934,12 @@
+ 
+ 	entry = bp->tx_prod;
+ 	mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
++	if(mapping+len > B44_DMA_MASK) {
++		/* Chip can't handle DMA to/from >1GB, use bounce buffer */
++		pci_unmap_single(bp->pdev, mapping, len,PCI_DMA_TODEVICE);
++		memcpy(bp->tx_bufs+entry*TX_PKT_BUF_SZ,skb->data,skb->len);
++		mapping = pci_map_single(bp->pdev, bp->tx_bufs+entry*TX_PKT_BUF_SZ, len, PCI_DMA_TODEVICE);
++	}
+ 
+ 	bp->tx_buffers[entry].skb = skb;
+ 	pci_unmap_addr_set(&bp->tx_buffers[entry], mapping, mapping);
+@@ -1059,6 +1087,11 @@
+ 				    bp->tx_ring, bp->tx_ring_dma);
+ 		bp->tx_ring = NULL;
+ 	}
++	if (bp->tx_bufs) {
++		pci_free_consistent(bp->pdev, B44_TX_RING_SIZE * TX_PKT_BUF_SZ,
++				    bp->tx_bufs, bp->tx_bufs_dma);
++		bp->tx_bufs = NULL;
++	}
+ }
  
  /*
-  * Changes :
-@@ -182,6 +182,19 @@
-  *	- Document (struct iw_quality *)->updated, add new flags (INVALID)
-  *	- Wireless Event capability in struct iw_range
-  *	- Add support for relative TxPower (yick !)
-+ *
-+ * V17 to V18 (From Jouni Malinen <jkmaline@cc.hut.fi>)
-+ * ----------
-+ *	- Add support for WPA/WPA2
-+ *	- Add extended encoding configuration (SIOCSIWENCODEEXT and
-+ *	  SIOCGIWENCODEEXT)
-+ *	- Add SIOCSIWGENIE/SIOCGIWGENIE
-+ *	- Add SIOCSIWMLME
-+ *	- Add struct iw_range bit field for supported encoding capabilities
-+ *	- Add extended scan request (SIOCSIWSCANEXT)
-+ *	- Add SIOCSIWAUTH/SIOCGIWAUTH for setting authentication and WPA
-+ *	  related parameters (extensible up to 4096 parameter values)
-+ *	- Add wireless events: IWEVGENIE, IWEVMICHAELMICFAILURE
-  */
+@@ -1081,6 +1114,12 @@
+ 		goto out_err;
+ 	memset(bp->tx_buffers, 0, size);
  
- /**************************** CONSTANTS ****************************/
-@@ -256,6 +269,29 @@
- #define SIOCSIWPOWER	0x8B2C		/* set Power Management settings */
- #define SIOCGIWPOWER	0x8B2D		/* get Power Management settings */
++	size = B44_TX_RING_SIZE * TX_PKT_BUF_SZ;
++	bp->tx_bufs = pci_alloc_consistent(bp->pdev, size, &bp->tx_bufs_dma);
++	if (!bp->tx_bufs)
++		goto out_err;
++	memset(bp->tx_bufs, 0, size);
++
+ 	size = DMA_TABLE_BYTES;
+ 	bp->rx_ring = pci_alloc_consistent(bp->pdev, size, &bp->rx_ring_dma);
+ 	if (!bp->rx_ring)
+@@ -1746,12 +1785,19 @@
  
-+/* WPA : Generic IEEE 802.11 informatiom element (e.g., for WPA/RSN/WMM).
-+ * This ioctl uses struct iw_point and data buffer that includes IE id and len
-+ * fields. More than one IE may be included in the request. Setting the generic
-+ * IE to empty buffer (len=0) removes the generic IE from the driver. */
-+#define SIOCSIWGENIE	0x8B30		/* set generic IE */
-+#define SIOCGIWGENIE	0x8B31		/* get generic IE */
-+
-+/* WPA : IEEE 802.11 MLME requests */
-+#define SIOCSIWMLME	0x8B16		/* request MLME operation; uses
-+					 * struct iw_mlme */
-+/* WPA : Authentication mode parameters */
-+#define SIOCSIWAUTH	0x8B32		/* set authentication mode params */
-+#define SIOCGIWAUTH	0x8B33		/* get authentication mode params */
-+
-+/* WPA : Extended version of encoding configuration */
-+#define SIOCSIWENCODEEXT 0x8B34		/* set encoding token & mode */
-+#define SIOCGIWENCODEEXT 0x8B35		/* get encoding token & mode */
-+
-+/* Extended scan request; like SIOCSIWSCAN, but with additional parameters in
-+ * struct iw_scan_req buffer. This shares SIOCGIWSCAN for reading the results.
-+ */
-+#define SIOCSIWSCANEXT	0x8B36		/* trigger scanning (extended) */
-+
- /* -------------------- DEV PRIVATE IOCTL LIST -------------------- */
+ 	pci_set_master(pdev);
  
- /* These 32 ioctl are wireless device private, for 16 commands.
-@@ -297,6 +333,15 @@
- #define IWEVCUSTOM	0x8C02		/* Driver specific ascii string */
- #define IWEVREGISTERED	0x8C03		/* Discovered a new node (AP mode) */
- #define IWEVEXPIRED	0x8C04		/* Expired a node (AP mode) */
-+#define IWEVGENIE	0x8C05		/* Generic IE (WPA, RSN, WMM, ..)
-+					 * (scan results); This includes id and
-+					 * length fields. One IWEVGENIE may
-+					 * contain more than one IE. Scan
-+					 * results may contain one or more
-+					 * IWEVGENIE events. */
-+#define IWEVMICHAELMICFAILURE 0x8C06	/* Michael MIC failure
-+					 * (struct iw_michaelmicfailure)
-+					 */
+-	err = pci_set_dma_mask(pdev, (u64) 0xffffffff);
++	err = pci_set_dma_mask(pdev, (u64) B44_DMA_MASK);
+ 	if (err) {
+ 		printk(KERN_ERR PFX "No usable DMA configuration, "
+ 		       "aborting.\n");
+ 		goto err_out_free_res;
+ 	}
++	
++	err = pci_set_consistent_dma_mask(pdev, (u64) B44_DMA_MASK);
++	if (err) {
++	  printk(KERN_ERR PFX "No usable DMA configuration, "
++		 "aborting.\n");
++	  goto err_out_free_res;
++	}
  
- #define IWEVFIRST	0x8C00
- 
-@@ -432,12 +477,87 @@
- #define IW_SCAN_THIS_MODE	0x0020	/* Scan only this Mode */
- #define IW_SCAN_ALL_RATE	0x0040	/* Scan all Bit-Rates */
- #define IW_SCAN_THIS_RATE	0x0080	/* Scan only this Bit-Rate */
-+/* struct iw_scan_req scan_type */
-+#define IW_SCAN_TYPE_ACTIVE 0
-+#define IW_SCAN_TYPE_PASSIVE 1
- /* Maximum size of returned data */
- #define IW_SCAN_MAX_DATA	4096	/* In bytes */
- 
- /* Max number of char in custom event - use multiple of them if needed */
- #define IW_CUSTOM_MAX		256	/* In bytes */
- 
-+/* Generic information element */
-+#define IW_GENERIC_IE_MAX	1024
-+
-+/* MLME requests (SIOCSIWMLME / struct iw_mlme) */
-+#define IW_MLME_DEAUTH		0
-+#define IW_MLME_DISASSOC	1
-+
-+/* SIOCSIWAUTH/SIOCGIWAUTH struct iw_param flags */
-+#define IW_AUTH_INDEX		0x0FFF
-+#define IW_AUTH_FLAGS		0xF000
-+/* SIOCSIWAUTH/SIOCGIWAUTH parameters (0 .. 4095)
-+ * (IW_AUTH_INDEX mask in struct iw_param flags; this is the index of the
-+ * parameter that is being set/get to; value will be read/written to
-+ * struct iw_param value field) */
-+#define IW_AUTH_WPA_VERSION		0
-+#define IW_AUTH_CIPHER_PAIRWISE		1
-+#define IW_AUTH_CIPHER_GROUP		2
-+#define IW_AUTH_KEY_MGMT		3
-+#define IW_AUTH_TKIP_COUNTERMEASURES	4
-+#define IW_AUTH_DROP_UNENCRYPTED	5
-+#define IW_AUTH_80211_AUTH_ALG		6
-+#define IW_AUTH_WPA_ENABLED		7
-+#define IW_AUTH_RX_UNENCRYPTED_EAPOL	8
-+
-+/* IW_AUTH_WPA_VERSION values (bit field) */
-+#define IW_AUTH_WPA_VERSION_DISABLED	0x00000001
-+#define IW_AUTH_WPA_VERSION_WPA		0x00000002
-+#define IW_AUTH_WPA_VERSION_WPA2	0x00000004
-+
-+/* IW_AUTH_PAIRWISE_CIPHER and IW_AUTH_GROUP_CIPHER values (bit field) */
-+#define IW_AUTH_CIPHER_NONE	0x00000001
-+#define IW_AUTH_CIPHER_WEP40	0x00000002
-+#define IW_AUTH_CIPHER_TKIP	0x00000004
-+#define IW_AUTH_CIPHER_CCMP	0x00000008
-+#define IW_AUTH_CIPHER_WEP104	0x00000010
-+
-+/* IW_AUTH_KEY_MGMT values (bit field) */
-+#define IW_AUTH_KEY_MGMT_802_1X	1
-+#define IW_AUTH_KEY_MGMT_PSK	2
-+
-+/* IW_AUTH_80211_AUTH_ALG values (bit field) */
-+#define IW_AUTH_ALG_OPEN_SYSTEM	0x00000001
-+#define IW_AUTH_ALG_SHARED_KEY	0x00000002
-+#define IW_AUTH_ALG_LEAP	0x00000004
-+
-+/* SIOCSIWENCODEEXT definitions */
-+#define IW_ENCODE_SEQ_MAX_SIZE	8
-+/* struct iw_encode_ext ->alg */
-+#define IW_ENCODE_ALG_NONE	0
-+#define IW_ENCODE_ALG_WEP	1
-+#define IW_ENCODE_ALG_TKIP	2
-+#define IW_ENCODE_ALG_CCMP	3
-+/* struct iw_encode_ext ->ext_flags */
-+#define IW_ENCODE_EXT_TX_SEQ_VALID	0x00000001
-+#define IW_ENCODE_EXT_RX_SEQ_VALID	0x00000002
-+#define IW_ENCODE_EXT_GROUP_KEY		0x00000004
-+#define IW_ENCODE_EXT_SET_TX_KEY	0x00000008
-+
-+/* IWEVMICHAELMICFAILURE : struct iw_michaelmicfailure ->flags */
-+#define IW_MICFAILURE_KEY_ID	0x00000003 /* Key ID 0..3 */
-+#define IW_MICFAILURE_GROUP	0x00000004
-+#define IW_MICFAILURE_PAIRWISE	0x00000008
-+#define IW_MICFAILURE_STAKEY	0x00000010
-+#define IW_MICFAILURE_COUNT	0x00000060 /* 1 or 2 (0 = count not supported)
-+					    */
-+
-+/* Bit field values for enc_capa in struct iw_range */
-+#define IW_ENC_CAPA_WPA		0x00000001
-+#define IW_ENC_CAPA_WPA2	0x00000002
-+#define IW_ENC_CAPA_CIPHER_TKIP	0x00000004
-+#define IW_ENC_CAPA_CIPHER_CCMP	0x00000008
-+
- /* Event capability macros - in (struct iw_range *)->event_capa
-  * Because we have more than 32 possible events, we use an array of
-  * 32 bit bitmasks. Note : 32 bits = 0x20 = 2^5. */
-@@ -546,6 +666,86 @@ struct	iw_thrspy
- 	struct iw_quality	high;		/* High threshold */
- };
- 
-+/*
-+ *	Data for extended scan request (MLME-SCAN.request)
-+ */
-+struct	iw_scan_req
-+{
-+	__u8		mode;	/* IW_MODE_AUTO (= Both), IW_MODE_ADHOC, or
-+				 * IW_MODE_INFRA */
-+	__u8		scan_type; /* IW_SCAN_TYPE_{ACTIVE,PASSIVE} */
-+	__u8		essid_len;
-+	__u8		num_channels; /* num entries in channel_list;
-+				       * 0 = scan all allowed channels */
-+	struct sockaddr	bssid; /* ff:ff:ff:ff:ff:ff for broadcast BSSID or
-+				* individual address of a specific BSS */
-+	/* Use this ESSID if IW_SCAN_THIS_ESSID flag is used instead of using
-+	 * the current ESSID. This allows scan requests for specific ESSID
-+	 * without having to change the current ESSID and potentially breaking
-+	 * the current association. */
-+	__u8		essid[IW_ESSID_MAX_SIZE];
-+	__u32		probe_delay; /* delay in usec prior to transmitting
-+				      * ProbeReq */
-+	__u32		min_channel_time; /* in TU, >= probe_delay */
-+	__u32		max_channel_time; /* in TU, >= min_channel_time */
-+	struct iw_freq	channel_list[IW_MAX_FREQUENCIES];
-+};
-+
-+/* ------------------------- WPA SUPPORT ------------------------- */
-+
-+/*
-+ *	Extended data structure for get/set encoding (this is used with
-+ *	SIOCSIWENCODEEXT/SIOCGIWENCODEEXT. struct iw_point and IW_ENCODE_*
-+ *	flags are used in the same way as with SIOCSIWENCODE/SIOCGIWENCODE and
-+ *	only the data contents changes (key data -> this structure, including
-+ *	key data).
-+ *
-+ *	If the new key is the first group key, it will be set as the default
-+ *	TX key. Otherwise, default TX key index is only changed if
-+ *	IW_ENCODE_EXT_SET_TX_KEY flag is set.
-+ *
-+ *	Key will be changed with SIOCSIWENCODEEXT in all cases except for
-+ *	special "change TX key index" operation which is indicated by setting
-+ *	key_len = 0 and ext_flags |= IW_ENCODE_EXT_SET_TX_KEY.
-+ *
-+ *	tx_seq/rx_seq are only used when respective
-+ *	IW_ENCODE_EXT_{TX,RX}_SEQ_VALID flag is set in ext_flags. Normal
-+ *	TKIP/CCMP operation is to set RX seq with SIOCSIWENCODEEXT and start
-+ *	TX seq from zero whenever key is changed. SIOCGIWENCODEEXT is normally
-+ *	used only by an Authenticator (AP or an IBSS station) to get the
-+ *	current TX sequence number. Using TX_SEQ_VALID for SIOCSIWENCODEEXT and
-+ *	RX_SEQ_VALID for SIOCGIWENCODEEXT are optional, but can be useful for
-+ *	debugging/testing.
-+ */
-+struct	iw_encode_ext
-+{
-+	__u32		ext_flags; /* IW_ENCODE_EXT_* */
-+	__u8		tx_seq[IW_ENCODE_SEQ_MAX_SIZE]; /* LSB first */
-+	__u8		rx_seq[IW_ENCODE_SEQ_MAX_SIZE]; /* LSB first */
-+	struct sockaddr	addr; /* ff:ff:ff:ff:ff:ff for broadcast/multicast
-+			       * (group) keys or unicast address for
-+			       * individual keys */
-+	__u16		alg; /* IW_ENCODE_ALG_* */
-+	__u16		key_len;
-+	__u8		key[0];
-+};
-+
-+/* SIOCSIWMLME data */
-+struct	iw_mlme
-+{
-+	__u16		cmd; /* IW_MLME_* */
-+	__u16		reason_code;
-+	struct sockaddr	addr;
-+};
-+
-+/* IWEVMICHAELMICFAILURE data */
-+struct	iw_michaelmicfailure
-+{
-+	__u32		flags;
-+	struct sockaddr	src_addr;
-+	__u8		tsc[IW_ENCODE_SEQ_MAX_SIZE]; /* LSB first */
-+};
-+
- /* ------------------------ WIRELESS STATS ------------------------ */
- /*
-  * Wireless statistics (used for /proc/net/wireless)
-@@ -725,6 +925,8 @@ struct	iw_range
- 	struct iw_freq	freq[IW_MAX_FREQUENCIES];	/* list */
- 	/* Note : this frequency list doesn't need to fit channel numbers,
- 	 * because each entry contain its channel index */
-+
-+	__u32		enc_capa; /* IW_ENC_CAPA_* bit field */
- };
- 
- /*
-diff -upr 2.6.8.1-WE17/net/core/wireless.c 2.6.8.1-WE18/net/core/wireless.c
---- 2.6.8.1-WE17/net/core/wireless.c	2004-08-29 21:23:32.285036040 -0700
-+++ 2.6.8.1-WE18/net/core/wireless.c	2004-08-29 21:27:41.406163872 -0700
-@@ -186,6 +186,12 @@ static const struct iw_ioctl_description
- 		.header_type	= IW_HEADER_TYPE_ADDR,
- 		.flags		= IW_DESCR_FLAG_DUMP,
- 	},
-+	[SIOCSIWMLME	- SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT,
-+		.token_size	= sizeof(struct iw_mlme),
-+		.min_tokens	= 1,
-+		.max_tokens	= 1,
-+	},
- 	[SIOCGIWAPLIST	- SIOCIWFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_POINT,
- 		.token_size	= sizeof(struct sockaddr) +
-@@ -272,6 +278,52 @@ static const struct iw_ioctl_description
- 	[SIOCGIWPOWER	- SIOCIWFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_PARAM,
- 	},
-+	[SIOCSIWGENIE	- SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT,
-+		.token_size	= 1,
-+		.max_tokens	= IW_GENERIC_IE_MAX,
-+	},
-+	[SIOCGIWGENIE	- SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT,
-+		.token_size	= 1,
-+		.max_tokens	= IW_GENERIC_IE_MAX,
-+	},
-+	[SIOCSIWAUTH	- SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_PARAM,
-+	},
-+	[SIOCGIWAUTH	- SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_PARAM,
-+	},
-+	[SIOCSIWENCODEEXT - SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT,
-+		.token_size	= 1,
-+		.min_tokens	= sizeof(struct iw_encode_ext),
-+		.max_tokens	= sizeof(struct iw_encode_ext) +
-+				  IW_ENCODING_TOKEN_MAX,
-+	},
-+	[SIOCGIWENCODEEXT - SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT,
-+		.token_size	= 1,
-+		.min_tokens	= sizeof(struct iw_encode_ext),
-+		.max_tokens	= sizeof(struct iw_encode_ext) +
-+				  IW_ENCODING_TOKEN_MAX,
-+	},
-+	[SIOCSIWSCANEXT	- SIOCIWFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT,
-+#if 0
-+		/* FIX: JKM - is this correct? Is length in struct iw_point
-+		 * number of bytes or number of tokens in the buffer?
-+		 * I changed this to use token_size=1 for now, since I assumed
-+		 * length from user space would always be in bytes.. */
-+		.token_size	= sizeof(struct iw_scan_req),
-+		.min_tokens	= 1,
-+		.max_tokens	= 1,
-+#else
-+		.token_size	= 1,
-+		.min_tokens	= sizeof(struct iw_scan_req),
-+		.max_tokens	= sizeof(struct iw_scan_req),
-+#endif
-+	},
- };
- static const int standard_ioctl_num = (sizeof(standard_ioctl) /
- 				       sizeof(struct iw_ioctl_description));
-@@ -298,6 +350,16 @@ static const struct iw_ioctl_description
- 	[IWEVEXPIRED	- IWEVFIRST] = {
- 		.header_type	= IW_HEADER_TYPE_ADDR, 
- 	},
-+	[IWEVGENIE	- IWEVFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT,
-+		.token_size	= 1,
-+		.max_tokens	= IW_GENERIC_IE_MAX,
-+	},
-+	[IWEVMICHAELMICFAILURE	- IWEVFIRST] = {
-+		.header_type	= IW_HEADER_TYPE_POINT, 
-+		.token_size	= 1,
-+		.max_tokens	= sizeof(struct iw_michaelmicfailure),
-+	},
- };
- static const int standard_event_num = (sizeof(standard_event) /
- 				       sizeof(struct iw_ioctl_description));
-
-
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+ 	b44reg_base = pci_resource_start(pdev, 0);
+ 	b44reg_len = pci_resource_len(pdev, 0);
