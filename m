@@ -1,30 +1,30 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH] make tcf_proto_lookup_ops() static
-Date: Thu, 21 Oct 2004 18:44:26 -0700
+From: <akepner@sgi.com>
+Subject: Re: [PATCH] use mmiowb in tg3.c
+Date: Thu, 21 Oct 2004 18:33:22 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021184426.L2357@build.pdx.osdl.net>
+Message-ID: <Pine.LNX.4.33.0410211826480.392-100000@localhost.localdomain>
+References: <1098407804.6071.22.camel@gaston>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Jesse Barnes <jbarnes@engr.sgi.com>, Andrew Morton <akpm@osdl.org>,
+        Linux Kernel list <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
+        Jeff Garzik <jgarzik@pobox.com>, <gnb@sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-Content-Disposition: inline
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+In-Reply-To: <1098407804.6071.22.camel@gaston>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Make tcf_proto_lookup_ops() static, it's only used in cls_api.c.
+On Fri, 22 Oct 2004, Benjamin Herrenschmidt wrote:
 
-Signed-off-by: Chris Wright <chrisw@osdl.org>
+> ... 
+> Typically, our normal "light" write barrier doesn't reorder between cacheable
+> and non-cacheable (MMIO) stores, which is why we had to put some heavy sync
+> barrier in our MMIO writes macros.
+> ...
 
-===== net/sched/cls_api.c 1.14 vs edited =====
---- 1.14/net/sched/cls_api.c	2004-10-20 01:37:15 -07:00
-+++ edited/net/sched/cls_api.c	2004-10-21 18:35:52 -07:00
-@@ -52,7 +52,7 @@
- 
- /* Find classifier type by string name */
- 
--struct tcf_proto_ops * tcf_proto_lookup_ops(struct rtattr *kind)
-+static struct tcf_proto_ops * tcf_proto_lookup_ops(struct rtattr *kind)
- {
- 	struct tcf_proto_ops *t = NULL;
- 
+Do you mean "impose order" rather than "reorder" here? 
+
+-- 
+Arthur
