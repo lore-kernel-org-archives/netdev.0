@@ -1,12 +1,13 @@
-From: Christian Schmid <webmaster@rapidforum.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: Bug in 2.6.10
-Date: Fri, 28 Jan 2005 21:03:39 +0100
-Message-ID: <41FA9A9B.2000601@rapidforum.com>
+Date: Fri, 28 Jan 2005 12:04:23 -0800
+Message-ID: <41FA9AC7.5080007@candelatech.com>
 References: <41FA9239.4010401@rapidforum.com>	<20050128114251.64e0fff4@dxpl.pdx.osdl.net> <20050128114600.46f3a70a.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>, webmaster@rapidforum.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
 In-Reply-To: <20050128114600.46f3a70a.davem@davemloft.net>
@@ -14,6 +15,15 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller wrote:
+> On Fri, 28 Jan 2005 11:42:51 -0800
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+> 
+> 
+>>On Fri, 28 Jan 2005 20:27:53 +0100
+>>Christian Schmid <webmaster@rapidforum.com> wrote:
+>>
+>>
 >>>Hello.
 >>>
 >>>In 2.6.10 there has been a "bug" introduced. You may also call it a feature, but its a crappy 
@@ -35,17 +45,22 @@ List-Id: netdev.vger.kernel.org
 > Before this feature went in, it's really easy to remotely make a system
 > consume %90 of system memory just with socket buffers.
 
-Thank you for your reply.
+Could you cause this attack without having the local machine explicitly
+set it's local wmem buffers higher?
 
-Yes this is possible for most situations. Isn't there a way to disable it or at least adjust the 
-level? As said, I have a 2/2 system and I would like to set it to 1500 MB. this is important for my 
-big server.
+With the latest code, if you set the tcp_[rw]mem MAX to some really large thing,
+as it appears Mr Schmid was doing, does the kernel just ignore the larger value
+after 800MB?  I agree that by default the system should protect itself from OOM
+attacks, but at the same time, if a user really wants to use up to 2GB of RAM for
+buffers, I don't think we should stop them.
 
-Oh and for that DOS-thingy, my two cents: It would be better if buffer-sockets are dynamically 
-adjusted. So that memory is only allocated if the queue is really needed. Most of the allocated 
-memory is mostly unused because queues are mostly empty.
+In addition to Mr Hemminger's suggestion, I think the more important knob
+would be the /proc/sys/net/core/netdev_max_backlog which bounds the total
+number of receive packets in the system, correct?  Is there a similar knob
+for the total maximum number of buffers waiting in tx queues?
 
-Please help me.
+Ben
 
-Thank you in advance,
-Chris
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
