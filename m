@@ -1,51 +1,193 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 1/5] r8169: missing netif_poll_enable and irq ack
-Date: Tue, 7 Dec 2004 01:14:19 +0100
-Message-ID: <20041207001419.GB12838@electric-eye.fr.zoreil.com>
-References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com> <20041122181307.GA3625@lilah.hetzel.org> <20041205235519.GA21885@lilah.hetzel.org> <20041205233756.GB29236@electric-eye.fr.zoreil.com>
+From: Karsten Desler <kdesler@soohrt.org>
+Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
+Date: Tue, 7 Dec 2004 01:18:15 +0100
+Message-ID: <20041207001815.GA30674@quickstop.soohrt.org>
+References: <20041206205305.GA11970@soohrt.org> <20041206134849.498bfc93.davem@davemloft.net> <20041206224107.GA8529@soohrt.org> <cone.1102377418.20012.4626.502@pc.kolivas.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com,
-        Dorn Hetzel <kernel@dorn.hetzel.org>
+Content-Type: multipart/mixed; boundary="GvXjxJ+pjyke8COw"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
+To: Con Kolivas <kernel@kolivas.org>
 Content-Disposition: inline
-In-Reply-To: <20041205233756.GB29236@electric-eye.fr.zoreil.com>
+In-Reply-To: <cone.1102377418.20012.4626.502@pc.kolivas.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-- (noticed by Jon D. Mason) rtl8169_wait_for_quiescence() needs to disable
-  the NAPI processing but it has no reason to lock any part of the driver
-  which would try to do the same at a later time. Let's reenable NAPI
-  processing as soon as possible.
-- properly ack any aborted interruption: a reset of the device is not
-  always enough.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+--GvXjxJ+pjyke8COw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff -puN drivers/net/r8169.c~r8169-250 drivers/net/r8169.c
---- linux-2.6.10-rc2/drivers/net/r8169.c~r8169-250	2004-12-05 22:36:14.592843434 +0100
-+++ linux-2.6.10-rc2-fr/drivers/net/r8169.c	2004-12-05 22:36:14.596842782 +0100
-@@ -1742,10 +1742,19 @@ static void rtl8169_schedule_work(struct
- 
- static void rtl8169_wait_for_quiescence(struct net_device *dev)
- {
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
- 	synchronize_irq(dev->irq);
- 
- 	/* Wait for any pending NAPI task to complete */
- 	netif_poll_disable(dev);
-+
-+	RTL_W16(IntrMask, 0x0000);
-+
-+	RTL_W16(IntrStatus, 0xffff);
-+
-+	netif_poll_enable(dev);
- }
- 
- static void rtl8169_reinit_task(void *_data)
+Con Kolivas <kernel@kolivas.org> wrote:
+> I had a similar scenario recently with a very low spec box and found it to 
+> be the QoS. Disabling traffic shaping and removing the QoS modules made it 
+> much faster. I don't know if you're using them but it's worth pointing out.
 
-_
+No QoS loaded.
+.config is attached.
+
+Thanks,
+ Karsten
+
+--GvXjxJ+pjyke8COw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=config
+
+CONFIG_X86=y
+CONFIG_MMU=y
+CONFIG_UID16=y
+CONFIG_GENERIC_ISA_DMA=y
+CONFIG_GENERIC_IOMAP=y
+CONFIG_EXPERIMENTAL=y
+CONFIG_CLEAN_COMPILE=y
+CONFIG_LOCK_KERNEL=y
+CONFIG_LOCALVERSION=""
+CONFIG_SWAP=y
+CONFIG_SYSVIPC=y
+CONFIG_POSIX_MQUEUE=y
+CONFIG_SYSCTL=y
+CONFIG_LOG_BUF_SHIFT=15
+CONFIG_KOBJECT_UEVENT=y
+CONFIG_EMBEDDED=y
+CONFIG_FUTEX=y
+CONFIG_EPOLL=y
+CONFIG_SHMEM=y
+CONFIG_CC_ALIGN_FUNCTIONS=0
+CONFIG_CC_ALIGN_LABELS=0
+CONFIG_CC_ALIGN_LOOPS=0
+CONFIG_CC_ALIGN_JUMPS=0
+CONFIG_X86_PC=y
+CONFIG_MK8=y
+CONFIG_X86_CMPXCHG=y
+CONFIG_X86_XADD=y
+CONFIG_X86_L1_CACHE_SHIFT=6
+CONFIG_RWSEM_XCHGADD_ALGORITHM=y
+CONFIG_X86_WP_WORKS_OK=y
+CONFIG_X86_INVLPG=y
+CONFIG_X86_BSWAP=y
+CONFIG_X86_POPAD_OK=y
+CONFIG_X86_GOOD_APIC=y
+CONFIG_X86_INTEL_USERCOPY=y
+CONFIG_X86_USE_PPRO_CHECKSUM=y
+CONFIG_HPET_TIMER=y
+CONFIG_HPET_EMULATE_RTC=y
+CONFIG_SMP=y
+CONFIG_NR_CPUS=2
+CONFIG_X86_LOCAL_APIC=y
+CONFIG_X86_IO_APIC=y
+CONFIG_X86_TSC=y
+CONFIG_X86_MCE=y
+CONFIG_HIGHMEM4G=y
+CONFIG_HIGHMEM=y
+CONFIG_MTRR=y
+CONFIG_HAVE_DEC_LOCK=y
+CONFIG_REGPARM=y
+CONFIG_ACPI=y
+CONFIG_ACPI_BOOT=y
+CONFIG_ACPI_INTERPRETER=y
+CONFIG_ACPI_BLACKLIST_YEAR=0
+CONFIG_ACPI_BUS=y
+CONFIG_ACPI_EC=y
+CONFIG_ACPI_POWER=y
+CONFIG_ACPI_PCI=y
+CONFIG_ACPI_SYSTEM=y
+CONFIG_PCI=y
+CONFIG_PCI_GOANY=y
+CONFIG_PCI_BIOS=y
+CONFIG_PCI_DIRECT=y
+CONFIG_PCI_MMCONFIG=y
+CONFIG_PCI_MSI=y
+CONFIG_PCI_NAMES=y
+CONFIG_BINFMT_ELF=y
+CONFIG_STANDALONE=y
+CONFIG_BLK_DEV_RAM_COUNT=16
+CONFIG_INITRAMFS_SOURCE=""
+CONFIG_IOSCHED_NOOP=y
+CONFIG_IOSCHED_CFQ=y
+CONFIG_SCSI=y
+CONFIG_BLK_DEV_SD=y
+CONFIG_SCSI_SATA=y
+CONFIG_SCSI_SATA_SIL=y
+CONFIG_SCSI_QLA2XXX=y
+CONFIG_MD=y
+CONFIG_BLK_DEV_MD=y
+CONFIG_MD_RAID1=y
+CONFIG_NET=y
+CONFIG_PACKET=y
+CONFIG_PACKET_MMAP=y
+CONFIG_UNIX=y
+CONFIG_INET=y
+CONFIG_IP_TCPDIAG=y
+CONFIG_NETFILTER=y
+CONFIG_IP_NF_IPTABLES=y
+CONFIG_IP_NF_MATCH_LIMIT=y
+CONFIG_IP_NF_MATCH_IPRANGE=y
+CONFIG_IP_NF_MATCH_MULTIPORT=y
+CONFIG_IP_NF_MATCH_LENGTH=y
+CONFIG_IP_NF_MATCH_HASHLIMIT=y
+CONFIG_IP_NF_FILTER=y
+CONFIG_IP_NF_TARGET_REJECT=y
+CONFIG_IP_NF_TARGET_LOG=y
+CONFIG_IP_NF_TARGET_ULOG=y
+CONFIG_IP_NF_MANGLE=y
+CONFIG_NETDEVICES=y
+CONFIG_NET_ETHERNET=y
+CONFIG_MII=y
+CONFIG_NET_PCI=y
+CONFIG_E100=y
+CONFIG_E100_NAPI=y
+CONFIG_E1000=y
+CONFIG_E1000_NAPI=y
+CONFIG_TIGON3=y
+CONFIG_INPUT=y
+CONFIG_SOUND_GAMEPORT=y
+CONFIG_SERIO=y
+CONFIG_SERIO_I8042=y
+CONFIG_INPUT_KEYBOARD=y
+CONFIG_KEYBOARD_ATKBD=y
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_HW_CONSOLE=y
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_8250_ACPI=y
+CONFIG_SERIAL_8250_NR_UARTS=4
+CONFIG_SERIAL_CORE=y
+CONFIG_SERIAL_CORE_CONSOLE=y
+CONFIG_UNIX98_PTYS=y
+CONFIG_WATCHDOG=y
+CONFIG_SOFT_WATCHDOG=y
+CONFIG_RTC=y
+CONFIG_HANGCHECK_TIMER=y
+CONFIG_VGA_CONSOLE=y
+CONFIG_DUMMY_CONSOLE=y
+CONFIG_USB_ARCH_HAS_HCD=y
+CONFIG_USB_ARCH_HAS_OHCI=y
+CONFIG_EXT2_FS=y
+CONFIG_EXT3_FS=y
+CONFIG_JBD=y
+CONFIG_DNOTIFY=y
+CONFIG_PROC_FS=y
+CONFIG_PROC_KCORE=y
+CONFIG_SYSFS=y
+CONFIG_TMPFS=y
+CONFIG_RAMFS=y
+CONFIG_PARTITION_ADVANCED=y
+CONFIG_MSDOS_PARTITION=y
+CONFIG_NLS=y
+CONFIG_NLS_DEFAULT="iso8859-1"
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_ISO8859_1=y
+CONFIG_4KSTACKS=y
+CONFIG_X86_FIND_SMP_CONFIG=y
+CONFIG_X86_MPPARSE=y
+CONFIG_GENERIC_HARDIRQS=y
+CONFIG_GENERIC_IRQ_PROBE=y
+CONFIG_X86_SMP=y
+CONFIG_X86_HT=y
+CONFIG_X86_BIOS_REBOOT=y
+CONFIG_X86_TRAMPOLINE=y
+
+--GvXjxJ+pjyke8COw--
