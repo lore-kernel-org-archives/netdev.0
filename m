@@ -1,45 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2.6.7-rc3-mm2 2/5] via-velocity: uniformize use of OWNED_BY_NIC
-Date: Fri, 18 Jun 2004 23:42:41 +0200
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [RFC] Wireless extensions rethink
+Date: Fri, 18 Jun 2004 15:11:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618234241.A21510@electric-eye.fr.zoreil.com>
-References: <20040618221014.A15640@electric-eye.fr.zoreil.com> <20040618221142.A20210@electric-eye.fr.zoreil.com> <40D3584A.9010009@pobox.com>
+Message-ID: <20040618151117.2f191d7f.akpm@osdl.org>
+References: <20040616204248.GA23617@bougret.hpl.hp.com>
+	<40D0BD5B.201@pobox.com>
+	<20040616223316.GA29618@bougret.hpl.hp.com>
+	<40D0D265.3070804@pobox.com>
+	<20040617174717.GA30460@bougret.hpl.hp.com>
+	<40D1E185.2010201@pobox.com>
+	<20040617185605.GA32216@bougret.hpl.hp.com>
+	<40D1EC54.8000904@pobox.com>
+	<20040617193154.GE32216@bougret.hpl.hp.com>
+	<40D1F687.6030307@pobox.com>
+	<20040617204644.GB3341@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, alan@redhat.com, akpm@osdl.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jt@bougret.hpl.hp.com, jgarzik@pobox.com, gwingerde@home.nl,
+        sfeldma@pobox.com, netdev@oss.sgi.com, jkmaline@cc.hut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40D3584A.9010009@pobox.com>; from jgarzik@pobox.com on Fri, Jun 18, 2004 at 05:02:02PM -0400
+To: jt@hpl.hp.com
+In-Reply-To: <20040617204644.GB3341@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> :
-> Francois Romieu wrote:
-[...]
-> > +static inline void velocity_give_rx_desc(struct rx_desc *rd)
-> > +{
-> > +	*(u32 *)&rd->rdesc0 = 0;
-> > +	rd->rdesc0.owner = cpu_to_le32(OWNED_BY_NIC);
-> > +}
-> 
-> The patch itself is OK, and I will merge, but I wonder:
-> 
-> isn't a wmb() needed perhaps?
 
-/me scratches head...
+Coming into this with my lateness exceeded only by my lack of context, I'd
+say that I share Jean's concern over making incompatible changes to the
+wireless user<->kernel interface at this time.  If we can retain _both_
+interfaces in 2.6, remove the old one in 2.7 then maybe that'll be OK.
 
-Ok, everything should be fine with a change in velocity_give_many_rx_descs():
-[...]
-        if (vptr->rd_filled < 4)
-                return;
-
-<insert a wmb() here>
-
-        unusable = vptr->rd_filled | 0x0003;
-
-
-I'll queue that for the next serie.
-
---
-Ueimor
+But I do wonder whether this API is the uppermost issue with the wireless
+drivers.  There seem to be a lot of bug reports, and these drivers are
+*really* complex, and there are lots of out-of-tree drivers.  Aren't these
+the things which we should be devoting cycles to?
