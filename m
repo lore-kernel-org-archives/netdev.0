@@ -1,111 +1,92 @@
-From: "Jon Fraser" <J_Fraser@bit-net.com>
-Subject: RE: [Question] SMP for Linux
-Date: Thu, 17 Oct 2002 13:28:38 -0400
+From: "Krishna Kumar" <kumarkr@us.ibm.com>
+Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
+Date: Thu, 17 Oct 2002 10:46:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <008601c27602$a1ad8170$3701020a@CONCORDIA>
-References: <15790.42618.961289.506241@robur.slu.se>
-Reply-To: <J_Fraser@bit-net.com>
+Message-ID: <OFAE12FFFA.084238B4-ON88256C55.0060FC98@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=iso-2022-jp
+Cc: ajtuomin@morphine.tml.hut.fi, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, pekkas@netcore.fi,
+   torvalds@transmeta.com, "Venkata Jagana" <jagana@us.ibm.com>,
+   yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-In-Reply-To: <15790.42618.961289.506241@robur.slu.se>
+To: yoshfuji@linux-ipv6.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi yoshifuji,
 
-What was your cpu utilization like in the bound vs split scenarios?
-Does your e1000 driver have transmit interrupts enabled or disabled?
+> [network_mods etc.]
+>
+>  1. Too many hooks,
+>     and many duplicate codes in ipv6 stack and mipv6 stack.
+>     (prefix handler, header parser, ndisc handler etc...)
 
-I'd be really interested to see the results with two flows in opposite
-directions.
+What do you mean about having too many hooks ? Eg. prefix handler, you need
+to have a hook in the receive of router advertisement to do this. This is
+minimum hooks :-). Also, some of the ndisc handlers evaluate to NULL code
+for both regular IPv6 code (unless you have configured mobility) as well as
+some components of Mobile IPv6. Eg ndisc_mipv6_mn_solicit_ha() evaluates to
+NULL on HA and CN, but is a function call on every MN node. So I don't
+understand your concern here.
 
-	Jon
+Thanks,
 
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com]On
-> Behalf Of Robert Olsson
-> Sent: Thursday, October 17, 2002 8:01 AM
-> To: bert hubert
-> Cc: Hyochang Nam; niv@us.ibm.com; netdev@oss.sgi.com
-> Subject: Re: [Question] SMP for Linux
-> 
-> 
-> 
-> bert hubert writes:
->  > On Thu, Oct 17, 2002 at 11:29:28AM +0900, Hyochang Nam wrote:
->  > > Many people helped me to solve the interrupt 
-> distribution problem.
->  > > We tested the throughput of Layer 3 forwarding on a SMP machine
->  > > which equips two Zero proessor(2Ghz). This is our results:
->  > >   -------------------------
->  > >        SMP    |  No SMP
->  > >   -------------------------
->  > >     230 Mbps  | 330 Mbps
->  > >   -------------------------
->  > 
->  > There is something called 'irq affinity' which may be 
-> interesting for you.
->  > See here: 
-> http://www.dell.com/us/en/esg/topics/power_ps1q02-morse.htm
->  > 
->  > /proc/irq/?/smp_affinity
-> 
->  Hello!
-> 
->  Not always good for routing... Were you still get the 
-> problem were one
->  interface is the output device from devices bound to different CPU's.
-> 
->  TX-ring can hold skb's from many CPU's so a lot of cache 
-> bouncing happens 
->  when kfree and skb_headerinit is run.
-> 
->  I've played with some to code to re-route the skb freeing to the CPU
->  where it was processed this to minimize cache bouncing and I've seen 
->  some good effects of this.
-> 
->  And to be fair with SMP you should compare multiple flows to 
-> see if you 
->  can get any aggregated performance from SMP.
-> 
->  An experiment...
->  
->  Single flow eth0->eth1 w. e1000 NAPI. 2.4.20-pre5. PIII @ 2x933 MHz
-> 
->  Bound = eth0, eth1 is bound to same CPU.
->  Split = eth0, eth1 is bound to differnt CPU's.
->  Free  = unbound.
-> 
->  SMP routing performance
->  =======================
->  
-> Bound   Free  Split   "kfree-route"
->  ---------------------------------
->  421     354    331                 kpps
->  491     348    317            437  kpps w. skb recycling
-> 
-> 
->  UP routing performance
->  ======================
->  494 kpps
->  593 kpps w. skb recycling
-> 
-> 
->  With SMP test "kfree-route" the interfaces are not bound to 
-> any CPU still 
->  we now getting closer to "bound" (where both eth0, eth1 is 
-> bond to the same 
->  CPU). 
-> 
->  But yes UP is gives higher numbers in this single stream 
-> tests. Aggregated
->  throughput tests are to be done.
-> 
->  Cheers.
-> 
-> 						--ro
-> 
-> 
+- KK
+
+
+
+                                                                                                                                          
+                      YOSHIFUJI Hideaki                                                                                                   
+                      / 吉藤英明               To:       ajtuomin@morphine.tml.hut.fi                                                     
+                      <yoshfuji@linux-i        cc:       davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,                      
+                      pv6.org>                  linux-kernel@vger.kernel.org, pekkas@netcore.fi, torvalds@transmeta.com, Venkata          
+                      Sent by:                  Jagana/Beaverton/IBM@IBMUS, yoshfuji@linux-ipv6.org                                       
+                      netdev-bounce@oss        Subject:  Re: [PATCHSET] Mobile IPv6 for 2.5.43                                            
+                      .sgi.com                                                                                                            
+                                                                                                                                          
+                                                                                                                                          
+                      10/17/2002 10:18                                                                                                    
+                      AM                                                                                                                  
+                                                                                                                                          
+                                                                                                                                          
+
+
+
+In article <20021017162624.GC16370@morphine.tml.hut.fi> (at Thu, 17 Oct
+2002 19:26:25 +0300), Antti Tuominen <ajtuomin@morphine.tml.hut.fi> says:
+
+> The patch has been split for easier reading as follows:
+>
+> ipv6_tunnel.patch            6over6 tunneling
+> network_mods.patch           Modifications to network code and hooks
+
+Several comments.
+
+[ipv6_tunnel]
+
+I think this is almost ok.
+
+  1. I believe s/ARPHRD_IPV6_IPV6_TUNNEL/ARPHRD_TUNNEL6/.
+  2. Please put outer address to hardware address in dev.
+     Note: you need to modify SIOxxx ioctls too not to overrun!
+
+[network_mods etc.]
+
+  1. Too many hooks,
+     and many duplicate codes in ipv6 stack and mipv6 stack.
+     (prefix handler, header parser, ndisc handler etc...)
+
+more comment will come later...
+
+
+> http://www.mipl.mediapoli.com/patches/mipv6_cn_support.patch
+> http://www.mipl.mediapoli.com/patches/mipv6_mn_support.patch
+> http://www.mipl.mediapoli.com/patches/mipv6_ha_support.patch
+
+Well, I can't find them. I hope they'll be available when I wake up
+tomorrow...
+
+--
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
