@@ -1,38 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] anycast support for IPv6, updated to 2.5.44
-Date: Wed, 19 Mar 2003 19:47:35 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030319.194735.31799019.davem@redhat.com>
-References: <20030320.120136.108400165.yoshfuji@wide.ad.jp>
-	<20030319.192331.95884882.davem@redhat.com>
-	<20030320.124428.95965257.yoshfuji@wide.ad.jp>
+From: N N Ashok <nalkunda@cse.msu.edu>
+Subject: Casting (struct rtable*) to (struct dst_entry*)
+Date: Wed, 19 Mar 2003 23:55:02 -0500
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <200303192355.02509.nalkunda@cse.msu.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@wide.ad.jp
-In-Reply-To: <20030320.124428.95965257.yoshfuji@wide.ad.jp>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@wide.ad.jp>
-   Date: Thu, 20 Mar 2003 12:44:28 +0900 (JST)
+Hi,
+   I have been looking at the networking code of Linux for my Masters thesis. 
+I observed the following:
+In ip_route_input(), if a route is found in the cache, the skb->dst is setup 
+with the route found by casting the rtable entry to dst_entry:
+	skb->dst = (struct dst_entry*)rth;
 
-   In article <20030319.192331.95884882.davem@redhat.com> (at Wed, 19 Mar 2003 19:23:31 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
-   
-   > Please propose alternative API, or do you suggest not
-   > to export this facility to user at all?
-   
-   I like to assign address like unicast (using ioctl and rtnetlink 
-   (RTN_ANYCAST)).
-   We suggest you not exporting this facilicy until finishing new API
-   (And, another API would be standardized;
-   This is another reason why I am against exporting that API for now.)
+Later in ip_route_input(), skb->dst->input() is called:
+	return skb->dst->input(skb);
 
-I think anycast addresses are more like multicast than unicast.  Do
-you agree about this?
+In ip_forward(), skb->dst is again casted to rtable:
+	rt = (struct rtable*)skb->dst;
 
-But here is what really matters, does the advanced IPV6 socket API
-say anything about a user API for anycast?
+I am unable to understand how a rtable structure casted to dst_entry will give 
+a correct pointer to the input() function. I looked at the fields in rtable 
+and dst_entry, the fields in the structures are cannot be lined up (the 
+fourth field in rtable is not the same type as the fourth field in 
+dst_entry). 
+
+Can anybody help me understand this casting of rtable to dst_entry and then 
+back to rtable?
+
+Thanks,
+Ashok
