@@ -1,60 +1,83 @@
-From: Kai Germaschewski <kai.germaschewski@unh.edu>
-Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Tue, 30 Sep 2003 09:50:14 -0400 (EDT)
+From: Kovacs Krisztian <hidden@balabit.hu>
+Subject: Re: Fw: Re: [PATCH] ipv4 tcp autobind problem
+Date: Tue, 30 Sep 2003 16:19:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309300940030.4956-100000@chaos.sr.unh.edu>
-References: <20030930022410.08c5649c.davem@redhat.com>
+Message-ID: <3F7990FB.7030606@balabit.hu>
+References: <200309301237.QAA01426@yakov.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Woodhouse <dwmw2@infradead.org>, <bunk@fs.tum.de>,
-        <acme@conectiva.com.br>, <netdev@oss.sgi.com>, <pekkas@netcore.fi>,
-        <lksctp-developers@lists.sourceforge.net>,
-        <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, jmorris@redhat.com,
+        netdev@oss.sgi.com, linux-net@vger.rutgers.edu,
+        Balazs Scheidler <bazsi@balabit.hu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030930022410.08c5649c.davem@redhat.com>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200309301237.QAA01426@yakov.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Sep 2003, David S. Miller wrote:
 
-> I think they are the same.  It's module building depending upon the
-> kernel image being up to date.
+   Hi,
+
+kuznet@ms2.inr.ac.ru wrote:
+>>in inet_sendmsg() is that when an RST is received, sk->num is set to zero, 
 > 
-> modules: vmlinux image
-> 	... blah blah blah
+> Yes, I remember this. This funny thing was added to avoid using reserved
+> ports obtained from accept() to do connect(). Before that sockets were never
+> unbound after they bound once exactly to avoid weirdness of the kind
+> descibed in your mail, but this happened to be insecure.
 > 
-> or however you want to express it in the makefiles.
+> From this mail I still do not see why autobinding of void socket is so
+> bad thing, that it requires marginal fixing at the place which is already
+> marginal. What is the real problem? So, bad sendmsg() selects some port as
+> a side effect. It makes it on udp and tcp. What is the deal? If it is disaster
+> for tcp, why it is not bad for udp?
+> 
+>>local port (sk->sport) remains unchanged until the socket is closed.
+> 
+> Socket is _closed_. Local port is reset only after socket is closed,
+> unless PORT_USERLOCK is set. And sk->sport remains unchanged even
+> after socket is closed, btw, so... 
 
-I strongly disagree with this. What the makefiles currently do is correct, 
-i.e. if you "make modules" you'll only get updated modules, you didn't ask 
-for an updated vmlinux, and so you don't get it. The module you get is 
-built correctly, i.e. you'd get the same result if you had rebuilt vmlinux 
-before, since the building of the module does not depend on a "correct" 
-vmlinux at all.
+   No, sk->sport does not remain unchanged. Imagine the following 
+situation: the TCP stack receives an RST, tcp_reset() gets called. It 
+calls tcp_done() -> tcp_set_state(TCP_CLOSE) -> tcp_put_port() -> 
+__tcp_put_port(). __tcp_put_port() sets sk->num to zero. So, when you call 
+send() from userspace, the mentioned part of inet_sendmsg() calls 
+inet_autobind(), which changes sk->sport, too...
 
-If in just about any project you type "make some_object.o", you don't 
-expect make to recompile and rebuild the rest of the project, either, you 
-ask it to 'make' something, and will build exactly that something and the 
-prerequisites necessary to get it right.
+> I do recognize that current behaviour is weird, but I still want to know
+> how this marginal weirdness escaped to be seen in reality.
 
-A sidenote is that if you are using modversions, building the modules
-correctly needs versioning information from vmlinux, so in that case we
-need vmlinux to be up-to-date. And that's why in this case vmlinux will be
-rebuilt first (if something changed) - otherwise the modules you were
-asking for wouldn't be correct. But the fact the you get an updated
-vmlinux is just a side-effect, you didn't ask for it, and thus you can't
-rely on it.
+   Yes, it is our "transparent proxy kernel hack" ((C) davem :) that have 
+problem with this behaviour. Transparent proxying works the following way:
 
-Think about the meaning of "make".
+- You have to assign a foreign address to a bound socket using a specific 
+setsockopt call. This creates a new entry in the tproxy local IP hash 
+table, and the hash key is based on the local ip:port.
+- tproxy registers its Netfilter hooks, and if a new connection comes in, 
+it looks up its hash tables, to see if it is a transparent proxied 
+connection (it uses Netfilter's connection tracking subsystem). If it has 
+to be proxyed, the appropriate NAT mappings are applied to the connection.
+- When the socket is closed (inet_release() is called, tproxy has its 
+"callback" function here), the corresponding entries are deleted from 
+tproxy's hash tables, again, based on the local ip:port pair.
 
+   So, the weirdness causes the following problem: since sk->sport changes 
+after the corresponding entry was inserted into the hash table, it 
+changes, so the entry cannot be deleted when userspace calls close() on 
+the socket.
 
-With respect to the actual discussion, my opinion is that it's desirable 
-to have the core kernel not change depending on whether or not something 
-is compiled modular, but I believe there are cases which justify an 
-exception, and IPv6 seems to be one of them. Modversions will catch this
-and prevent the user from inserting the module and accidentally crash the 
-system, so I think it's all fine.
+   Eventually, it should be enough if inet_sendmsg() did not call 
+inet_autobind() if the socket is in an errorneous state, but I had no idea 
+how this could be implemented. (sk->err gets zeroed by sock_error(), so it 
+cannot be checked twice.)
 
+   In the case of UDP, you cannot get an RST-like thing, so AFAIK there is 
+no such situation in which sk->num of a bound socket could be reset to 
+zero. This is why inet_sendmsg()'s mentioned part did not cause problems 
+for us.
 
---Kai
+-- 
+   Regards,
+     Krisztian KOVACS
