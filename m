@@ -1,28 +1,46 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: Re: [2.6 patch] fix bridge <-> ATM compile error
-Date: Wed, 16 Mar 2005 13:24:11 -0500
-Message-ID: <200503161824.j2GIOArr007631@ginger.cmf.nrl.navy.mil>
-References: <20050316181532.GA3251@stusta.de>
-Reply-To: chas3@users.sourceforge.net
-Cc: shemminger@osdl.org, bridge@osdl.org,
-        linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
-Reply-To: chas3@users.sourceforge.net
-Reply-To: chas3@users.sourceforge.net
-In-reply-to: <20050316181532.GA3251@stusta.de> 
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Re: Problems with a PCI SMC2802W
+Date: Wed, 16 Mar 2005 19:33:47 +0100
+Message-ID: <20050316183347.GA25595@electric-eye.fr.zoreil.com>
+References: <422F118D.8070704@voicenet.com>
+	<20050309160744.GN4017@Redstar.dorchain.net>
+	<20050309202718.4f94b871@veagle.suse.cz>
+	<20050310021724.GD17854@ruslug.rutgers.edu>
+	<42302133.2060103@voicenet.com>
+	<20050310103608.GB1416@taniwha.stupidest.org>
+	<20050310163007.GK17854@ruslug.rutgers.edu>
+	<20050316162448.GR17854@ruslug.rutgers.edu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+To: Chris Wedgwood <cw@f00f.org>, Jeff Garzik <jgarzik@pobox.com>,
+	Netdev <netdev@oss.sgi.com>, Adam K Kirchhoff <adamk@voicenet.com>,
+	prism54-devel@prism54.org, Feyd <feyd@seznam.cz>
+Content-Disposition: inline
+In-Reply-To: <20050316162448.GR17854@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-In message <20050316181532.GA3251@stusta.de>,Adrian Bunk writes:
->Letting CONFIG_BRIDGE depend on CONFIG_ATM doesn't sound like a good 
->idea, since I doubt all people using the Bridge code require ATM 
->support.
+Luis R. Rodriguez <mcgrof@ruslug.rutgers.edu> :
+[...]
+> If no comment is given on how we should deal with
+> pci_dma_sync_single/pci_dma_sync_single_for_cpu for 2.4 I'm just going
+> to put in a nasty ifdef there. Comemnts?
 
-i agree.
+My out of tree 2.4.x driver for the 8169 exhibits a few differences
+with the 2.6.x driver for these kind of things. Over several months,
+it happened once that a 2.6.x patch hit this part of the code. Let's
+say an extra 5 minutes to merge in 2.4.x and no side effects as I had
+to actually look at the code (of course orthogonal patches helped).
 
->Moving the hooks to the bridge code will give you exactly the same 
->problems the other way round.
+Imho it is not a heavy maintenance/taste issue.
 
-how about moving them to a third location like net/core/dev.c?
+--
+Ueimor
