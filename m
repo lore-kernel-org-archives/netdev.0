@@ -1,66 +1,68 @@
-From: Paul Gortmaker <p_gortmaker@yahoo.com>
-Subject: Re: Ax88190 specs (was 8390 specs)
-Date: Sun, 19 Dec 2004 02:37:33 -0500
-Message-ID: <41C52FBD.5080705@yahoo.com>
-References: <41C37CAA.3030608@wanadoo.es>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [2.6 patch] net/bluetooth/: misc possible cleanups
+Date: Sun, 19 Dec 2004 17:07:58 +0100
+Message-ID: <20041219160758.GY21288@stusta.de>
+References: <20041214041352.GZ23151@stusta.de> <1103009649.2143.65.camel@pegasus>
+Reply-To: bluez-devel@lists.sourceforge.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: marcelo.tosatti@cyclades.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Xose Vazquez Perez <xose@wanadoo.es>
-In-Reply-To: <41C37CAA.3030608@wanadoo.es>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Max Krasnyansky <maxk@qualcomm.com>, bluez-devel@lists.sf.net,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Network Development Mailing List <netdev@oss.sgi.com>
+Return-path: <bluez-devel-admin@lists.sourceforge.net>
+To: Marcel Holtmann <marcel@holtmann.org>
+Content-Disposition: inline
+In-Reply-To: <1103009649.2143.65.camel@pegasus>
+Sender: bluez-devel-admin@lists.sourceforge.net
+Errors-To: bluez-devel-admin@lists.sourceforge.net
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Post: <mailto:bluez-devel@lists.sourceforge.net>
+List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
+	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
 List-Id: netdev.vger.kernel.org
 
-I sent Marcelo the relevant pages a while ago.  If anyone wants
-to compare the crap-o AX to the NS part, the NS documents in full
-are at:
+On Tue, Dec 14, 2004 at 08:34:08AM +0100, Marcel Holtmann wrote:
 
-http://www.national.com/ds.cgi/DP/DP8390D.pdf
+> Hi Adrian,
 
-The AT/LANTIC is the more modern version - the one that could do
-both NE2000 and wd8013 on pretty much one chip.  I believe the
-83905 datasheet contains all the core 8390 info in it and may
-have been more up to date:
+Hi Marcel,
 
-http://www.national.com/ds.cgi/DP/DP83905.pdf
+>...
+> > Please comment on which of these changes are correct and which conflict 
+> > with pending patches.
+> 
+> Please send a separate patch for all the RFCOMM changes, because these
+> conflicts with some pending patches and then it will make it easier for
+> me to merge them.
+> 
+> The rest of the changes are fine with me, but I like to see also a
+> separate patch for the CMTP stuff and cmtp_send_capimsg() don't need a
+> forward declaration. Simply move the function to another place in the
+> source code.
 
-Paul.
+splitted patches follow as reply to this email.
+
+> Regards
+> 
+> Marcel
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
 
 
 
-Xose Vazquez Perez wrote:
-
-> Tosatti wrote:
->
->> I'm having a problem with a Linksys EtherFast card (driven by 
->> axnet_cs), where the interrupt status reports ENISR_RX_ERR (receive 
->> error) under load.
->>
->> I would like to know more details about this status bit, what can 
->> causes it to be turned on, etc.
->>
->> Do you know where I can find 8390 specs?
->>
->> 8390.c mentions
->> Sources:
->> The National Semiconductor LAN Databook, and the 3Com 3c503 databook.
->>
->> But I can't find those available in either Google search or the 
->> National Semiconductor website.
->>
->> Any information or pointers are welcome, thanks!
->
->
->
-> Maybe these
->
->   http://www.asix.com.tw/download/Ax88190.pdf
->   http://www.asix.com.tw/download/Ax88190a.pdf
->
-> can help you. More docs at -> 
-> http://www.asix.com.tw/download_datasheet.htm
->
-> regards,
+-------------------------------------------------------
+SF email is sponsored by - The IT Product Guide
+Read honest & candid reviews on hundreds of IT Products from real users.
+Discover which products truly live up to the hype. Start reading now. 
+http://productguide.itmanagersjournal.com/
