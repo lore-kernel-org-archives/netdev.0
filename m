@@ -1,40 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Checking SPI in xfrm_state_find
-Date: Thu, 31 Mar 2005 21:23:25 -0800
-Message-ID: <20050331212325.5e996432.davem@davemloft.net>
-References: <20050214221006.GA18415@gondor.apana.org.au>
-	<20050214221200.GA18465@gondor.apana.org.au>
-	<20050214221433.GB18465@gondor.apana.org.au>
-	<20050214221607.GC18465@gondor.apana.org.au>
-	<424864CE.5060802@trash.net>
-	<20050328233917.GB15369@gondor.apana.org.au>
-	<424B40C2.90304@trash.net>
-	<20050331004658.GA26395@gondor.apana.org.au>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Redirect-Device
+Date: Thu, 31 Mar 2005 21:27:05 -0800
+Message-ID: <424CDBA9.80703@candelatech.com>
+References: <424C6089.1080507@candelatech.com> <Pine.LNX.4.61.0504010801170.6417@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com,
-        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050331004658.GA26395@gondor.apana.org.au>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.61.0504010801170.6417@netcore.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Mar 2005 10:46:58 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> > # This is a BitKeeper generated diff -Nru style patch.
-> > #
-> > # ChangeSet
-> > #   2005/03/30 06:02:45+02:00 kaber@coreworks.de 
-> > #   [IPSEC]: Check SPI in xfrm_state_find()
-> > #   
-> > #   Signed-off-by: Patrick McHardy <kaber@trash.net>
+Pekka Savola wrote:
+> On Thu, 31 Mar 2005, Ben Greear wrote:
 > 
-> Looks good.
+>> I created a new virtual ethernet device that solves a problem
+>> I faced.  I thought I'd see if anyone else sees a use for this,
+>> and if so, I'll work to polish the patch so that it can be
+>> accepted into the kernel.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Unless I'm misunderstanding..
+> 
+> You seem to have pretty much duplicated the work by Lennert (see thread 
+> "[PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling" from January).
+> 
+> That particular thread seemed to conclude that instead of creating 
+> something new, you can just use GRE tunneling to bridge Ethernet, and it 
+> works in a multi-vendor environment as well.
+> 
+> Is there something in your problem statement I'm missing?
 
-To me too, both patches applied, thanks Patrick.
+That would be similar to what I'm doing, but I'm not really trying
+to tunnel anything.  I am trying to duplicate the behaviour of two
+ethernet interfaces connected by an external cross-over cable, and I'm
+trying to duplicate it at the network-device interface level so that
+common tools (and my own tools) can treat these virtual interfaces
+just like ethernet interfaces.
+
+I think I may be the only one that needs such a thing, and since I'm
+reluctant to remove the /proc interface, I don't think this will be
+going into the official kernel soon.  If anyone does end up wanting
+this later, I can email them my consolidated patch....
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
