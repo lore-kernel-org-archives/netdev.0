@@ -1,14 +1,15 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: 2.4.26-pre1: SCTP compile error
-Date: Thu, 26 Feb 2004 17:41:30 -0800 (PST)
+Date: Thu, 26 Feb 2004 22:49:58 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402261735490.31520@localhost.localdomain>
+Message-ID: <20040226224958.24eb29fb.davem@redhat.com>
 References: <Pine.LNX.4.58L.0402251605360.5003@logos.cnet>
- <20040226212759.GV5499@fs.tum.de> <Pine.LNX.4.58.0402261533500.19577@localhost.localdomain>
+	<20040226212759.GV5499@fs.tum.de>
+	<Pine.LNX.4.58.0402261533500.19577@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Adrian Bunk <bunk@fs.tum.de>,
-        Marcelo Tosatti <marcelo.tosatti@cyclades.com>, netdev@oss.sgi.com,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bunk@fs.tum.de, marcelo.tosatti@cyclades.com, netdev@oss.sgi.com,
         linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Sridhar Samudrala <sri@us.ibm.com>
@@ -16,42 +17,22 @@ In-Reply-To: <Pine.LNX.4.58.0402261533500.19577@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Feb 2004, Sridhar Samudrala wrote:
+On Thu, 26 Feb 2004 15:53:58 -0800 (PST)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> On Thu, 26 Feb 2004, Adrian Bunk wrote:
->
-> > On Wed, Feb 25, 2004 at 04:09:20PM -0300, Marcelo Tosatti wrote:
-> > >...
-> > > It contains a big SCTP merge (to match 2.6 API), networking updates,
-> > >...
-> >
-> > I got the compile error forwarded below using gcc 2.95.3 .
-> >
-> > cu
-> > Adrian
-> >
-> >
-> >
-> > ...
-> > gcc-2.95 -D__KERNEL__ -I/home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -fomit-frame-pointer -pipe -mpreferred-stack-boundary=2 -march=i686 -malign-functions=4   -nostdinc -iwithprefix include -DKBUILD_BASENAME=ipv6  -c -o ipv6.o ipv6.c
-> > In file included from ipv6.c:77:
-> > /home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include/net/sctp/sctp.h:119: warning: `MSECS_TO_JIFFIES' redefined
-> > /home/bunk/linux/kernel-2.4/linux-2.4.26-pre1-full/include/net/irda/irda.h:89: warning: this is the location of the previous definition
->
 > I missed this warning as i don't have irda enabled in my config.
 > A simple fix would be to rename the macro in sctp.h to
 > SCTP_MSECS_TO_JIFFIES.
->
+
+I've fixed this in my tree.
+
 > > ipv6.c: In function `sctp_v6_xmit':
 > > ipv6.c:189: request for member `in6_u' in something not a structure or union
 > > ipv6.c:189: request for member `in6_u' in something not a structure or union
->
+> 
 > I am not seeing these errors with either gcc3.2.2 or gcc2.96. But, looking at the
 > code, this definitely seems to be a problem. Not sure why the newer versions of
 > gcc didn't catch them.
 
-It is my mistake. I don't have CONFIG_SCTP_DBG_MSG enabled and so these lines are
-compiled out and hence i am not seeing these errors.
-
-Thanks
-Sridhar
+It's trying to use NIP6() on an object that is not a struct in6_addr.
+I'll just comment this thing out for now.
