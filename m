@@ -1,84 +1,29 @@
-From: Song Wang <wsonguci@yahoo.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [Routing] Performance Comparison between 2.6 and 2.4 kernel
-Date: Wed, 15 Sep 2004 11:06:03 -0700 (PDT)
+Date: Wed, 15 Sep 2004 11:08:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040915180603.98079.qmail@web40007.mail.yahoo.com>
+Message-ID: <20040915110858.125cea28.davem@davemloft.net>
 References: <1094868693.1041.86.camel@jzny.localdomain>
+	<20040915180603.98079.qmail@web40007.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1094868693.1041.86.camel@jzny.localdomain>
+To: Song Wang <wsonguci@yahoo.com>
+In-Reply-To: <20040915180603.98079.qmail@web40007.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 15 Sep 2004 11:06:03 -0700 (PDT)
+Song Wang <wsonguci@yahoo.com> wrote:
 
-The mips CPU on the board is MIPS32 compatible.
-I don't think it's NAPI based.
+> The mips CPU on the board is MIPS32 compatible.
+> I don't think it's NAPI based.
 
-The gettimeofday patch you mentioned came into
-the 2.6 kernel at what version?
+NAPI is an attribute of the network adapter, not
+the cpu.
 
-Do you think it's related to HZ change from 100
-to 1000? Actually I did change HZ back to 100,
-but it didn't help.
-
--Song
-
-
---- jamal <hadi@cyberus.ca> wrote:
-
-> 
-> What mips board is this? NAPI based?
-> I would say that you should get higher numbers with
-> 2.6.x.
-> Are you running any sort of apps that need
-> gettimeofday?
-> I have certainly seen higher numbers on 2.6 vs 2.4
-> starting at some
-> point where Andis gettimeofday patch went in - but
-> this was on x86.
-> 
-> cheers,
-> jamal
-> 
-> On Fri, 2004-09-10 at 20:52, Song Wang wrote:
-> > Hi,
-> > 
-> > I'm looking for the network packet routing
-> > performance comparison between the latest 2.4
-> > and 2.6 kernel.
-> > 
-> > I did some initial testing on my mips-based
-> router.
-> > 2.6 kernel (2.6.8.1) performed way below 2.4
-> kernel
-> > (2.4.17). It sucks. Turning on preemption on 2.6 
-> > kernel even makes routing performance worse.
-> > 
-> > Anybody did a comprehensive study on the routing
-> > performance for 2.6 and 2.4 kernel?
-> > 
-> > Thanks.
-> > 
-> > 
-> > 		
-> > __________________________________
-> > Do you Yahoo!?
-> > Y! Messenger - Communicate in real time. Download
-> now. 
-> > http://messenger.yahoo.com
-> > 
-> > 
-> 
-> 
-
-
-
-		
-_______________________________
-Do you Yahoo!?
-Declare Yourself - Register online to vote today!
-http://vote.yahoo.com
+Although I would very much anticipate this being
+a MIPS or network adapter specific problem since
+on x86 routing is pretty fast in 2.6.x
