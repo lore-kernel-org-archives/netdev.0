@@ -1,47 +1,40 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] netem --
-Date: Tue, 13 Jul 2004 15:19:59 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040713151959.2470a211@dell_ss3.pdx.osdl.net>
-References: <20040712101500.4a0babd3@dell_ss3.pdx.osdl.net>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: ipw2100 wireless driver
+Date: Wed, 14 Jul 2004 13:41:35 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040714114135.GA25175@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040712101500.4a0babd3@dell_ss3.pdx.osdl.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265974AbUGNLlv@vger.kernel.org>
+To: netdev@oss.sgi.com, kernel list <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-The netem scheduler needs to limit its delayed packet queue to prevent
-a application burst from chewing up too much memory.
+Hi!
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+What is the status of ipw2100? Is there chance that it would be pushed
+into mainline?
 
-diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
---- a/net/sched/sch_netem.c	2004-07-13 13:02:58 -07:00
-+++ b/net/sched/sch_netem.c	2004-07-13 13:02:58 -07:00
-@@ -643,11 +643,17 @@
- 	PSCHED_TADD2(now, delay, cb->time_to_send);
- 	
- 	/* Always queue at tail to keep packets in order */
--	__skb_queue_tail(&q->delayed, skb);
--	sch->q.qlen++;
--	sch->stats.bytes += skb->len;
--	sch->stats.packets++;
--	return 0;
-+	if (likely(q->delayed.qlen < q->limit)) {
-+		__skb_queue_tail(&q->delayed, skb);
-+		sch->q.qlen++;
-+		sch->stats.bytes += skb->len;
-+		sch->stats.packets++;
-+		return 0;
-+	}
-+
-+	sch->stats.drops++;
-+	kfree_skb(skb);
-+	return NET_XMIT_DROP;
- }
+I have few problems with that:
+
+* it will not compile with gcc-2.95. Attached patch fixes one problem
+but more remain.
+
+--- ipw2100-ofic/ieee80211.h	2004-07-09 06:32:17.000000000 +0200
++++ ipw2100-0.49/ieee80211.h	2004-07-14 13:18:50.000000000 +0200
+@@ -440,7 +440,7 @@
+ 	u16 reserved;
+ 	u16 frag_size;
+ 	u16 payload_size;
+-	struct sk_buff *fragments[];
++	struct sk_buff *fragments[1];
+ };
  
- /* Requeue packets but don't change time stamp */
+ extern struct ieee80211_txb *ieee80211_skb_to_txb(struct ieee80211_device *ieee, 
+
+* it requires CONFIG_CRYPTO, but fails to force it in Kconfig.
+
+									Pavel
+-- 
+People were complaining that M$ turns users into beta-testers...
+...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
