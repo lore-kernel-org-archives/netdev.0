@@ -1,63 +1,128 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Wed, 5 Jan 2005 13:25:37 -0600
-Message-ID: <200501051325.40616.jeremy.guthrie@berbee.com>
-References: <200501031455.26980.jeremy.guthrie@berbee.com> <16860.5674.612383.986202@robur.slu.se> <200501051135.03493.jeremy.guthrie@berbee.com>
-Reply-To: jeremy.guthrie@berbee.com
+From: Johannes Erdfelt <johannes@erdfelt.com>
+Subject: [RFC] tulip VLAN support
+Date: Wed, 5 Jan 2005 11:34:25 -0800
+Message-ID: <20050105193425.GY18847@sventech.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1848405.zG5ppPKG5L";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-In-Reply-To: <200501051135.03493.jeremy.guthrie@berbee.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1848405.zG5ppPKG5L
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+I recently upgraded a system running a 2.4 kernel to a 2.6 based
+distribution (Fedora Core 2, 2.6.9-1.6_FC2 kernel) and ran into a
+problem using NFS. After spending some tracking it down, I found out it
+was an MTU problem and then remembered I had the same problem a couple
+of years ago with the 2.4 kernels I was running.
 
-After smp_affinity adjustments and turning off IRQ balancing.
+The problem is that the tulip driver doesn't handle 802.1q tags
+correctly. Since the VLAN tagging adds 4 bytes to the beginning of the
+frame, this can cause frame sizes to be too large for the driver (chip?)
+and the packets get dropped.
 
-eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
-          inet addr:10.253.0.1  Bcast:10.255.255.255  Mask:255.255.255.0
-          inet6 addr: fe80::202:b3ff:fed5:7e30/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:537271635 errors:2377048 dropped:2377048 overruns:1849=
-169=20
-frame:0
-          TX packets:5 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:1804727106 (1721.1 Mb)  TX bytes:398 (398.0 b)
-          Base address:0x22a0 Memory:eff80000-effa0000
+I've taken the 2.4 patch I found (I forget who developed it, sorry) and
+ported it to the 2.6 driver. The patch is relative to the 2.6.9-1.6_FC2
+kernel for FC2, but I suspect it will apply to other kernels relatively
+cleanly.
 
+Before I rediff the patch against the BK tree and double check all of
+the tulip variants are updated correctly as well, is there any interest
+in accepting a patch like this?
 
-=2D-=20
+The 2.4 patch worked for a couple of years for me with no problems and
+this 2.6 patch has worked for over a week now with no problems. However,
+I'm worried that there is a reason why a similar patch has not been
+applied already.
 
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
+JE
 
---nextPart1848405.zG5ppPKG5L
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBB3D80qtjaBHGZBeURAjNkAJ9CabJ3ZnVy6UfHF2bkQ+XyJUP/ugCgmZhw
-jZ4s0v7Q+e7diEU0AjwVY/8=
-=Df1l
------END PGP SIGNATURE-----
-
---nextPart1848405.zG5ppPKG5L--
+diff -ur linux-2.6.9.orig/drivers/net/tulip/interrupt.c linux-2.6.9/drivers/net/tulip/interrupt.c
+--- linux-2.6.9.orig/drivers/net/tulip/interrupt.c	2004-10-18 14:55:36.000000000 -0700
++++ linux-2.6.9/drivers/net/tulip/interrupt.c	2004-12-30 15:23:51.085876693 -0800
+@@ -155,9 +155,9 @@
+                        if (--rx_work_limit < 0)
+                                goto not_done;
+  
+-                       if ((status & 0x38008300) != 0x0300) {
+-                               if ((status & 0x38000300) != 0x0300) {
+-                                /* Ingore earlier buffers. */
++                       if ((status & (0x38000000 | RxDescFatalErr | RxWholePkt)) != RxWholePkt) {
++                               if ((status & (0x38000000 | RxWholePkt)) != RxWholePkt) {
++                                /* Ignore earlier buffers. */
+                                        if ((status & 0xffff) != 0x7fff) {
+                                                if (tulip_debug > 1)
+                                                        printk(KERN_WARNING "%s: Oversized Ethernet frame "
+@@ -182,10 +182,10 @@
+                                struct sk_buff *skb;
+   
+ #ifndef final_version
+-                               if (pkt_len > 1518) {
++                               if (pkt_len > 1522) {
+                                        printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
+                                               dev->name, pkt_len, pkt_len);
+-                                       pkt_len = 1518;
++                                       pkt_len = 1522;
+                                        tp->stats.rx_length_errors++;
+                                }
+ #endif
+@@ -378,9 +378,9 @@
+ 				   dev->name, entry, status);
+ 		if (--rx_work_limit < 0)
+ 			break;
+-		if ((status & 0x38008300) != 0x0300) {
+-			if ((status & 0x38000300) != 0x0300) {
+-				/* Ingore earlier buffers. */
++                if ((status & (0x38000000 | RxDescFatalErr | RxWholePkt)) != RxWholePkt) {
++                        if ((status & (0x38000000 | RxWholePkt)) != RxWholePkt) {
++				/* Ignore earlier buffers. */
+ 				if ((status & 0xffff) != 0x7fff) {
+ 					if (tulip_debug > 1)
+ 						printk(KERN_WARNING "%s: Oversized Ethernet frame "
+@@ -405,10 +405,10 @@
+ 			struct sk_buff *skb;
+ 
+ #ifndef final_version
+-			if (pkt_len > 1518) {
++			if (pkt_len > 1522) {
+ 				printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
+ 					   dev->name, pkt_len, pkt_len);
+-				pkt_len = 1518;
++				pkt_len = 1522;
+ 				tp->stats.rx_length_errors++;
+ 			}
+ #endif
+diff -ur linux-2.6.9.orig/drivers/net/tulip/tulip.h linux-2.6.9/drivers/net/tulip/tulip.h
+--- linux-2.6.9.orig/drivers/net/tulip/tulip.h	2004-10-18 14:55:21.000000000 -0700
++++ linux-2.6.9/drivers/net/tulip/tulip.h	2004-12-30 15:20:21.432056171 -0800
+@@ -191,7 +191,7 @@
+ 
+ enum desc_status_bits {
+ 	DescOwned = 0x80000000,
+-	RxDescFatalErr = 0x8000,
++	RxDescFatalErr = 0x4842,
+ 	RxWholePkt = 0x0300,
+ };
+ 
+@@ -259,7 +259,7 @@
+ #define RX_RING_SIZE	128 
+ #define MEDIA_MASK     31
+ 
+-#define PKT_BUF_SZ		1536	/* Size of each temporary Rx buffer. */
++#define PKT_BUF_SZ		1540	/* Size of each temporary Rx buffer. */
+ 
+ #define TULIP_MIN_CACHE_LINE	8	/* in units of 32-bit words */
+ 
+diff -ur linux-2.6.9.orig/drivers/net/tulip/tulip_core.c linux-2.6.9/drivers/net/tulip/tulip_core.c
+--- linux-2.6.9.orig/drivers/net/tulip/tulip_core.c	2004-10-18 14:54:32.000000000 -0700
++++ linux-2.6.9/drivers/net/tulip/tulip_core.c	2004-12-30 15:19:42.424578510 -0800
+@@ -70,7 +70,7 @@
+ #if defined(__alpha__) || defined(__arm__) || defined(__hppa__) \
+ 	|| defined(__sparc_) || defined(__ia64__) \
+ 	|| defined(__sh__) || defined(__mips__)
+-static int rx_copybreak = 1518;
++static int rx_copybreak = 1522;
+ #else
+ static int rx_copybreak = 100;
+ #endif
