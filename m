@@ -1,8 +1,9 @@
 From: ganesh.venkatesan@intel.com
-Subject: [PATCH 4/6 2.5] e100 - Support to load device firmware
-Date: Thu, 29 Jul 2004 08:26:54 -0700 (PDT)
+Subject: [PATCH 3/6 2.5] e100 - fix stat counters rx_length_error and
+ rx_over_error
+Date: Thu, 29 Jul 2004 08:26:38 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0407290654500.21929-100000@westville2.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0407290652280.21929-100000@westville2.jf.intel.com>
 Reply-To: ganesh.venkatesan@intel.com
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -12,70 +13,35 @@ To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---- linux-2.5/drivers/net/e100.c	2004-07-29 00:27:31.495933808 -0700
-+++ linux-2.5/drivers/net/e100.c.mod	2004-07-29 00:28:30.382981616 -0700
-@@ -353,10 +353,12 @@ enum cb_status {
- };
+--- linux-2.5/drivers/net/e100.c	2004-07-29 00:26:06.001930872 -0700
++++ linux-2.5/drivers/net/e100.c.mod	2004-07-29 00:27:27.360562480 -0700
+@@ -551,6 +551,7 @@ struct nic {
+ 	u32 rx_fc_pause;
+ 	u32 rx_fc_unsupported;
+ 	u32 rx_tco_frames;
++	u32 rx_over_length_errors;
  
- enum cb_command {
-+	cb_nop    = 0x0000,
- 	cb_iaaddr = 0x0001,
- 	cb_config = 0x0002,
- 	cb_multi  = 0x0003,
- 	cb_tx     = 0x0004,
-+	cb_ucode  = 0x0005,
- 	cb_dump   = 0x0006,
- 	cb_tx_sf  = 0x0008,
- 	cb_cid    = 0x1f00,
-@@ -431,12 +433,14 @@ struct multi {
- };
- 
- /* Important: keep total struct u32-aligned */
-+#define UCODE_SIZE			134
- struct cb {
- 	u16 status;
- 	u16 command;
- 	u32 link;
- 	union {
- 		u8 iaaddr[ETH_ALEN];
-+		u32 ucode[UCODE_SIZE];
- 		struct config config;
- 		struct multi multi;
- 		struct {
-@@ -984,6 +988,27 @@ static void e100_configure(struct nic *n
- 		c[16], c[17], c[18], c[19], c[20], c[21], c[22], c[23]);
- }
- 
-+static void e100_load_ucode(struct nic *nic, struct cb *cb, struct sk_buff *skb)
-+{
-+	int i;
-+	static const u32 ucode[UCODE_SIZE] = {
-+		/* NFS packets are misinterpreted as TCO packets and
-+		 * incorrectly routed to the BMC over SMBus.  This
-+		 * microcode patch checks the fragmented IP bit in the
-+		 * NFS/UDP header to distinguish between NFS and TCO. */
-+		0x0EF70E36, 0x1FFF1FFF, 0x1FFF1FFF, 0x1FFF1FFF, 0x1FFF1FFF,
-+		0x1FFF1FFF, 0x00906E41, 0x00800E3C, 0x00E00E39, 0x00000000,
-+		0x00906EFD, 0x00900EFD,	0x00E00EF8,
-+	};
-+
-+	if(nic->mac == mac_82551_F || nic->mac == mac_82551_10) {
-+		for(i = 0; i < UCODE_SIZE; i++)
-+			cb->u.ucode[i] = cpu_to_le32(ucode[i]);
-+		cb->command = cpu_to_le16(cb_ucode);
-+	} else
-+		cb->command = cpu_to_le16(cb_nop);
-+}
-+
- static void e100_setup_iaaddr(struct nic *nic, struct cb *cb,
- 	struct sk_buff *skb)
- {
-@@ -1073,6 +1098,8 @@ static int e100_hw_init(struct nic *nic)
- 		return err;
- 	if((err = e100_exec_cmd(nic, ruc_load_base, 0)))
- 		return err;
-+	if((err = e100_exec_cb(nic, NULL, e100_load_ucode)))
-+		return err;
- 	if((err = e100_exec_cb(nic, NULL, e100_configure)))
- 		return err;
- 	if((err = e100_exec_cb(nic, NULL, e100_setup_iaaddr)))
+ 	u8 rev_id;
+ 	u16 leds;
+@@ -1146,9 +1147,11 @@ static void e100_update_stats(struct nic
+ 		ns->tx_errors += le32_to_cpu(s->tx_max_collisions) +
+ 			le32_to_cpu(s->tx_lost_crs);
+ 		ns->rx_dropped += le32_to_cpu(s->rx_resource_errors);
+-		ns->rx_length_errors += le32_to_cpu(s->rx_short_frame_errors);
++		ns->rx_length_errors += le32_to_cpu(s->rx_short_frame_errors) +
++			nic->rx_over_length_errors;
+ 		ns->rx_crc_errors += le32_to_cpu(s->rx_crc_errors);
+ 		ns->rx_frame_errors += le32_to_cpu(s->rx_alignment_errors);
++		ns->rx_over_errors += le32_to_cpu(s->rx_overrun_errors);
+ 		ns->rx_fifo_errors += le32_to_cpu(s->rx_overrun_errors);
+ 		ns->rx_errors += le32_to_cpu(s->rx_crc_errors) +
+ 			le32_to_cpu(s->rx_alignment_errors) +
+@@ -1459,7 +1462,7 @@ static inline int e100_rx_indicate(struc
+ 		dev_kfree_skb_any(skb);
+ 	} else if(actual_size > nic->netdev->mtu + VLAN_ETH_HLEN) {
+ 		/* Don't indicate oversized frames */
+-		nic->net_stats.rx_over_errors++;
++		nic->rx_over_length_errors++;
+ 		nic->net_stats.rx_dropped++;
+ 		dev_kfree_skb_any(skb);
+ 	} else {
