@@ -1,28 +1,33 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Dump of TCP hang in established state
-Date: Wed, 21 May 2003 17:35:34 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH 2.5.69] wanrouter clean up MOD_*_USE_COUNT
+Date: Wed, 21 May 2003 21:40:18 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3ECC1B56.9090200@us.ibm.com>
-References: <Mutt.LNX.4.44.0305141907210.9712-100000@excalibur.intercode.com.au>	<3ECBB522.9080101@us.ibm.com> <20030521.161009.59667010.davem@redhat.com>
+Message-ID: <20030522004018.GA13028@conectiva.com.br>
+References: <1053550112.2444.35.camel@ibm-c.pdx.osdl.net> <20030521231801.GE10295@conectiva.com.br> <20030521.162707.88487215.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jmorris@intercode.com.au, gandalf@wlug.westbo.se, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: daniel@osdl.org, ncorbic@sangoma.com, dm@sangoma.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030521.161009.59667010.davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030521.162707.88487215.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-
-> It won't get lost, I maintain a web page privately amongst
-> the main net developers that I use to track TODO items, and it
-> is there.
+Em Wed, May 21, 2003 at 04:27:07PM -0700, David S. Miller escreveu:
+>    From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+>    Date: Wed, 21 May 2003 20:18:01 -0300
+>    
+>    Already submitted to DaveM, CCed netdev, I'll fix this later
+>    tonight.
 > 
-> Please don't make a bugzilla for this.
+> Note that, as I said in another email, these MOD_* calls can't just be
+> deleted, the PROCFS registry etc. have to set ->owner fields correctly
+> before this is valid.
 
-No problem :)
+Agreed.
+ 
+> By just removing MOD_*(), I can load just wanrouter, open a proc file,
+> unload the wanrouter module, and crash.
 
-thanks,
-Nivedita
+yup.
