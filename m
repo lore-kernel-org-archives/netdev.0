@@ -1,62 +1,29 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (2/13) ddp - invert logic for clarity
-Date: Fri, 29 Aug 2003 13:54:27 -0700
+Subject: [PATCH] bluetooth - set sock owner
+Date: Fri, 29 Aug 2003 11:20:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829135427.21845e3c.shemminger@osdl.org>
+Message-ID: <20030829112059.29414fc5.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Schulist <jschlst@samba.org>, "David S. Miller" <davem@redhat.com>
+To: Maxim Krasnyansky <maxk@qualcomm.com>,
+   "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It is a lot clearer to invert the logic used in the destroy_socket
-so that it ends up as a positive expression, rather than a double negative.
+All sockets created by a protocol need to have owner field set
+to prevent problems with orphaned sockets during module unload.
 
-The SOCK_DEAD is redundant and can be eliminated because it is always
-set in the atalk_release() the only caller.
-
-diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
---- a/net/appletalk/ddp.c	Fri Aug 29 11:02:41 2003
-+++ b/net/appletalk/ddp.c	Fri Aug 29 11:02:41 2003
-@@ -183,13 +183,12 @@
- {
- 	struct sock *sk = (struct sock *)data;
+diff -Nru a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
+--- a/net/bluetooth/af_bluetooth.c	Fri Aug 29 11:14:03 2003
++++ b/net/bluetooth/af_bluetooth.c	Fri Aug 29 11:14:03 2003
+@@ -130,6 +130,7 @@
+ 	}
  
--	if (!atomic_read(&sk->sk_wmem_alloc) &&
--	    !atomic_read(&sk->sk_rmem_alloc) && sock_flag(sk, SOCK_DEAD))
--		sock_put(sk);
--	else {
-+	if (atomic_read(&sk->sk_wmem_alloc) ||
-+	    atomic_read(&sk->sk_rmem_alloc)) {
- 		sk->sk_timer.expires = jiffies + SOCK_DESTROY_TIME;
- 		add_timer(&sk->sk_timer);
--	}
-+	} else
-+		sock_put(sk);
- }
- 
- static inline void atalk_destroy_socket(struct sock *sk)
-@@ -197,16 +196,15 @@
- 	atalk_remove_socket(sk);
- 	skb_queue_purge(&sk->sk_receive_queue);
- 
--	if (!atomic_read(&sk->sk_wmem_alloc) &&
--	    !atomic_read(&sk->sk_rmem_alloc) && sock_flag(sk, SOCK_DEAD))
--		sock_put(sk);
--	else {
-+	if (atomic_read(&sk->sk_wmem_alloc) ||
-+	    atomic_read(&sk->sk_rmem_alloc)) {
- 		init_timer(&sk->sk_timer);
- 		sk->sk_timer.expires	= jiffies + SOCK_DESTROY_TIME;
- 		sk->sk_timer.function	= atalk_destroy_timer;
- 		sk->sk_timer.data	= (unsigned long)sk;
- 		add_timer(&sk->sk_timer);
--	}
-+	} else
-+		sock_put(sk);
- }
- 
- /**************************************************************************\
+ 	sock_init_data(sock, sk);
++	sk_set_owner(sk, THIS_MODULE);
+ 	INIT_LIST_HEAD(&bt_sk(sk)->accept_q);
+ 	
+ 	sk->sk_zapped   = 0;
