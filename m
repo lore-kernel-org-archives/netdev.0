@@ -1,124 +1,74 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [BK] Updated 2.6 typhoon driver for 3CR990 & 3CR990B cards
-Date: 27 Jan 2004 00:35:59 -0500
+From: Willy Tarreau <willy@w.ods.org>
+Subject: [PATCH-2.4] add missing '\n' in bonding messages
+Date: Wed, 28 Jan 2004 14:04:56 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1075179543.4987.7.camel@ori.thedillows.org>
+Message-ID: <20040128130456.GA12362@alpha.home.local>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: marcelo.tosatti@cyclades.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[ I've not sent patches to the list, as the firmware update is too big. ]
+Hi,
 
-Jeff, please do a
+there are a few places where the bonding driver displays informational
+messages without the trailing '\n', which is sometimes annoying because
+messages get logged at the wrong level.
 
-	bk pull http://typhoon.bkbits.net/typhoon-2.5
+Here's the patch against 2.4.25-pre7. I haven't checked 2.6 nor the bonding
+cleanup patch against those typos.
 
-This will update the following files:
+Regards,
+Willy
 
- drivers/net/typhoon-firmware.h | 6890 +++++++++++++++++++++--------------------
- drivers/net/typhoon.c          |   20 
- drivers/net/typhoon.h          |    6 
- 3 files changed, 3563 insertions(+), 3353 deletions(-)
-
-through these ChangeSets:
-
-<dave@thedillows.org> (03/12/15 1.1488)
-   Support the new 3CR990B cards that require authentication of the runtime
-   firmware image.
-
-
-And the non-firmware part is:
-
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	Mon Jan 26 22:58:36 2004
-+++ b/drivers/net/typhoon.c	Mon Jan 26 22:58:36 2004
-@@ -85,8 +85,8 @@
- #define PKT_BUF_SZ		1536
+diff -urN linux-2.4.25-pre7/drivers/net/bonding/bond_main.c linux-2.4.25-pre7-bondfix/drivers/net/bonding/bond_main.c
+--- linux-2.4.25-pre7/drivers/net/bonding/bond_main.c	Sat Nov 22 16:55:37 2003
++++ linux-2.4.25-pre7-bondfix/drivers/net/bonding/bond_main.c	Wed Jan 28 13:58:22 2004
+@@ -1712,7 +1712,7 @@
+ 			 * all 0's.
+ 			 */
+ #ifdef BONDING_DEBUG
+-			printk(KERN_DEBUG "%s doesn't have a MAC address yet.  ",
++			printk(KERN_DEBUG "%s doesn't have a MAC address yet.\n",
+ 			       master_dev->name);
+ 			printk(KERN_DEBUG "Going to give assign it from %s.\n",
+ 			       slave_dev->name);
+@@ -2311,7 +2311,7 @@
  
- #define DRV_MODULE_NAME		"typhoon"
--#define DRV_MODULE_VERSION 	"1.5.2"
--#define DRV_MODULE_RELDATE	"03/11/25"
-+#define DRV_MODULE_VERSION 	"1.5.3"
-+#define DRV_MODULE_RELDATE	"03/12/15"
- #define PFX			DRV_MODULE_NAME ": "
- #define ERR_PFX			KERN_ERR PFX
+ 					printk(KERN_INFO
+ 						"%s: link status definitely down "
+-						"for interface %s, disabling it",
++						"for interface %s, disabling it.\n",
+ 						master->name,
+ 						dev->name);
  
-@@ -157,6 +157,7 @@
- 	TYPHOON_TX = 0, TYPHOON_TX95, TYPHOON_TX97, TYPHOON_SVR,
- 	TYPHOON_SVR95, TYPHOON_SVR97, TYPHOON_TXM, TYPHOON_BSVR,
- 	TYPHOON_FX95, TYPHOON_FX97, TYPHOON_FX95SVR, TYPHOON_FX97SVR,
-+	TYPHOON_FXM,
- };
- 
- /* directly indexed by enum typhoon_cards, above */
-@@ -185,6 +186,8 @@
- 	 	TYPHOON_CRYPTO_DES | TYPHOON_FIBER},
- 	{ "3Com Typhoon (3CR990-FX-97 Server)",
- 	 	TYPHOON_CRYPTO_DES | TYPHOON_CRYPTO_3DES | TYPHOON_FIBER},
-+	{ "3Com Typhoon2 (3C990B-FX-97)",
-+		TYPHOON_CRYPTO_VARIABLE | TYPHOON_FIBER},
- };
- 
- /* Notes on the new subsystem numbering scheme:
-@@ -203,6 +206,8 @@
- 	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990B,
- 	  PCI_ANY_ID, 0x1000, 0, 0, TYPHOON_TXM },
- 	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990B,
-+	  PCI_ANY_ID, 0x1102, 0, 0, TYPHOON_FXM },
-+	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990B,
- 	  PCI_ANY_ID, 0x2000, 0, 0, TYPHOON_BSVR },
- 	{ PCI_VENDOR_ID_3COM, PCI_DEVICE_ID_3COM_3CR990_FX,
- 	  PCI_ANY_ID, 0x1101, 0, 0, TYPHOON_FX95 },
-@@ -1363,6 +1368,7 @@
- 	u32 section_len;
- 	u32 len;
- 	u32 load_addr;
-+	u32 hmac;
- 	int i;
- 	int err;
- 
-@@ -1406,6 +1412,16 @@
- 
- 	writel(TYPHOON_INTR_BOOTCMD, ioaddr + TYPHOON_REG_INTR_STATUS);
- 	writel(load_addr, ioaddr + TYPHOON_REG_DOWNLOAD_BOOT_ADDR);
-+	hmac = le32_to_cpu(fHdr->hmacDigest[0]);
-+	writel(hmac, ioaddr + TYPHOON_REG_DOWNLOAD_HMAC_0);
-+	hmac = le32_to_cpu(fHdr->hmacDigest[1]);
-+	writel(hmac, ioaddr + TYPHOON_REG_DOWNLOAD_HMAC_1);
-+	hmac = le32_to_cpu(fHdr->hmacDigest[2]);
-+	writel(hmac, ioaddr + TYPHOON_REG_DOWNLOAD_HMAC_2);
-+	hmac = le32_to_cpu(fHdr->hmacDigest[3]);
-+	writel(hmac, ioaddr + TYPHOON_REG_DOWNLOAD_HMAC_3);
-+	hmac = le32_to_cpu(fHdr->hmacDigest[4]);
-+	writel(hmac, ioaddr + TYPHOON_REG_DOWNLOAD_HMAC_4);
- 	typhoon_post_pci_writes(ioaddr);
- 	writel(TYPHOON_BOOTCMD_RUNTIME_IMAGE, ioaddr + TYPHOON_REG_COMMAND);
- 
-diff -Nru a/drivers/net/typhoon.h b/drivers/net/typhoon.h
---- a/drivers/net/typhoon.h	Mon Jan 26 22:58:36 2004
-+++ b/drivers/net/typhoon.h	Mon Jan 26 22:58:36 2004
-@@ -512,6 +512,7 @@
- 	u32 version;
- 	u32 numSections;
- 	u32 startAddr;
-+	u32 hmacDigest[5];
- } __attribute__ ((packed));
- 
- struct typhoon_section_header {
-@@ -548,6 +549,11 @@
- #define TYPHOON_REG_BOOT_LENGTH			TYPHOON_REG_HOST2ARM1
- 
- #define TYPHOON_REG_DOWNLOAD_BOOT_ADDR		TYPHOON_REG_HOST2ARM1
-+#define TYPHOON_REG_DOWNLOAD_HMAC_0		TYPHOON_REG_HOST2ARM2
-+#define TYPHOON_REG_DOWNLOAD_HMAC_1		TYPHOON_REG_HOST2ARM3
-+#define TYPHOON_REG_DOWNLOAD_HMAC_2		TYPHOON_REG_HOST2ARM4
-+#define TYPHOON_REG_DOWNLOAD_HMAC_3		TYPHOON_REG_HOST2ARM5
-+#define TYPHOON_REG_DOWNLOAD_HMAC_4		TYPHOON_REG_HOST2ARM6
- 
- #define TYPHOON_REG_BOOT_RECORD_ADDR_HI		TYPHOON_REG_HOST2ARM2
- #define TYPHOON_REG_BOOT_RECORD_ADDR_LO		TYPHOON_REG_HOST2ARM1
+@@ -2524,7 +2524,7 @@
+ 				if (oldcurrent == NULL) {
+ 					printk(KERN_INFO
+ 						"%s: link status definitely up "
+-						"for interface %s, ",
++						"for interface %s.\n",
+ 						master->name,
+ 						slave->dev->name);
+ 					do_failover = 1;
+@@ -2733,7 +2733,7 @@
+ 				slave->link_failure_count++;
+ 			}
+ 			printk(KERN_INFO "%s: link status down for "
+-					 "active interface %s, disabling it",
++					 "active interface %s, disabling it.\n",
+ 			       master->name,
+ 			       slave->dev->name);
+ 			write_lock(&bond->ptrlock);
+@@ -4101,7 +4101,7 @@
+ 	if (max_bonds < 1 || max_bonds > INT_MAX) {
+ 		printk(KERN_WARNING 
+ 		       "bonding_init(): max_bonds (%d) not in range %d-%d, "
+-		       "so it was reset to BOND_DEFAULT_MAX_BONDS (%d)",
++		       "so it was reset to BOND_DEFAULT_MAX_BONDS (%d)\n",
+ 		       max_bonds, 1, INT_MAX, BOND_DEFAULT_MAX_BONDS);
+ 		max_bonds = BOND_DEFAULT_MAX_BONDS;
+ 	}
