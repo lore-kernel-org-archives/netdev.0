@@ -1,103 +1,53 @@
-From: mg_paku8@uketuke.co.jp
-Subject: =?ISO-2022-JP?B?GyRCTCQ+NUJ6OS05cCIoIXoySCRLJCQkSiQsJGkyVBsoQg==?=
-	=?ISO-2022-JP?B?GyRCJDIkayVTJTglTSU5ISE9aTR8ISY3bjNbTXhNURsoQg==?=
-	=?ISO-2022-JP?B?GyRCTkEiTTQwQTRMNU5BIXolUSUvJVElLyVLJWUhPBsoQg==?=
-	=?ISO-2022-JP?B?GyRCJTkhehsoQg==?=
-Date: Sat, 22 Mar 2003 20:51:47 +0900
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [Fwd: [E1000] NAPI re-insertion w/ changes]
+Date: Sat, 22 Mar 2003 16:34:01 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030322121210423.00000.6.mg_paku8#uketuke.co.jp@NUMATA.mail.uketuke.co.jp>
+Message-ID: <15996.33385.784192.430037@robur.slu.se>
+References: <3E7B25AC.5030604@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3E7B25AC.5030604@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<送信者><事業者>　株式会社アドップ　「パクパクニュース」事務局
-　お手数ですが、配信不要の方は、本文に <refuse> とだけ記入し、
-　mg_paku8@uketuke.co.jpまで、メール（返信）してください。
-
-＿＿＿＿＿＿＿＿＿＿＿＿
- ＼　★パクパク　ニュース★　＼ 　§非会員様向け特別号§
-　　￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣　
-スゴイ情報なので、会員の方以外にもお配りしてしまいました。
-ごめんなさいm(__)m
-
-http://pakupaku.net/af/?ad=043　powerd by パクパク.NET
-
-┏━┳━┳━┳━┳━┳━┳━┳━┓━━━━━━━━━━━━━━━━━━━━┓
-┃１,┃２ ┃０ ┃０ ┃万┃円┃稼┃ぐ ┃ 家にいながら稼ぐ特集！！
-┗━┻━┻━┻━┻━┻━┻━┻━┛━━━━━━━━━━━━━━━━━━━━┛
-
-★─── ＩＮＤＥＸ ────・・・───・・・───・・・─★
-　初期費用、月額完全無料のもうかるビジネス
-
-01　家にいながらにして、稼ぎまくれる！！簡単ショッピングサイト
-02　利益率、驚愕の７０％　⇒　100万円売ったら、70万円の利益！！
-03　簡単運営！！コピー＆ペースト
-04　第一次会員　大大大募集中！！！（完全無料）
-★───・・・────・・・・───・・・───・・・─――★
 
 
-■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　０１   家にいながらにして、稼ぎまくれる！！簡単ショッピングサイト
-■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　そんな、うまい話がありました。
-　なんと、初期投資費も月額使用料もなしで商品を販売することができるプログラム
-です。
-　しかも、面倒な商品仕入も商品の梱包、発送も代行されるので、
-　利用者は商品を売って儲けるだけ！！
+Jeff Garzik writes:
+ > For review by the list... The other e100/e1000 changes are in the 2.5 
 
-　　★☆それは、『パクエイト』　⇒　http://pakupaku.net/af/?ad=043　☆★
-　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
-
-■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　０２  利益率、驚愕の７０％　⇒　100万円売ったら、70万円の利益！！
-■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　「リスクが無いんだから、利益も低いんじゃないの？」
-　って疑問が生じるかと思いますが、
-　このプログラムは最高70％の利益率を誇っております。（最低でも25％）
-　通常は、販売額の5％〜10％という中、この利益率は驚異的です。
-
-　　★☆それは、『パクエイト』　⇒　http://pakupaku.net/af/?ad=043 ☆★
-　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
-
-■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　０３  簡単運営！！コピー＆ペースト（複写＆貼付）
-■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　「じゃあ、やるのが難しいんじゃないの？」
-　って問題もありません
-　商品のＵＲＬをコピーし、貴方のメルマガやＨＰに貼り付けるだけ♪
-　簡単５分で商品販売が開始できます。
-
-　　★☆それは、『パクエイト』　⇒　http://pakupaku.net/aaf/?ad=043　☆★
-　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
-
-■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　０４  第一次会員　大大大募集中！！！（完全無料）
-■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-　０１〜０３を見て、気になった貴方、
-　『パクエイト』では、現在、第一次会員を大大大募集中です。
-　モチロン、登録・利用は完全無料なので、
-　今のうちに登録しちゃいましょう！！急いで〜
-
-　　★☆『パクエイト　第一次会員登録』　⇒　http://pakupaku.net/af/?ad=043　☆★
-　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
-
-　※最後まで御読み頂き、誠にありがとうございました。
-　　 重複してお送りしてしまった場合は、申し訳ございません。
+ > +#ifdef CONFIG_E1000_NAPI
+ > +	/* Don't disable interrupts - rely on h/w interrupt
+ > +	 * moderation to keep interrupts low.  netif_rx_schedule
+ > +	 * is NOP if already polling. */
+ > +	netif_rx_schedule(netdev);
+ > +#else
 
 
-================================================================
+It's clean but I have some concerns...
 
-　発行元　「パクパクニュース」事務局　（企画・運営/株式会社アドップ）　
-　http://pakupaku.net/af/gaiyo.asp
+I think this will add interrupts when resources are fully utilized.
+In other words a decrease in top performance. I say "think" because I have 
+no numbers. 
 
-　お問合せ先：info_paku8@uketuke.co.jp
+At GIGE rate we have ~1 k interrupts/sec using interrupt delay. (it depend 
+of ring sizes etc). We are now seeing Linux boxes with ~10 GIGE interfaces. 
+So any effects gets multiplied.
 
-　　家にいながら、大もうけ！！
-　　『パクエイト』
-　　http://pakupaku.net/af/?ad=043
+It makes the use zero latency RX complicated. We see Ethernet getting
+used for "new" applications as SCSI, filesystems etc. In current e1000 
+we just can set the desired interrupt delay and relax.
 
-================================================================
+If/when PCI-X uses message signalled interrupts (MSI) we have this "un-
+necessary" load over PCI too with bus arbitrations etc.
+
+
+IMO believe your old plan having e1000 irq disable and with mitigation as 
+default feels better but testing is needed.
+
+Cheers.
+
+						--ro
