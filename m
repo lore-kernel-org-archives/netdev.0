@@ -1,58 +1,37 @@
-From: Andre Tomt <andre@tomt.net>
+From: Quantum Scientific <Info@Quantum-Sci.com>
 Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Sun, 27 Feb 2005 18:40:07 +0100
-Message-ID: <422205F7.4080401@tomt.net>
-References: <200502270928.44402.Info@Quantum-Sci.com>
+Date: Sun, 27 Feb 2005 12:08:52 -0600
+Message-ID: <200502271208.52936.Info@Quantum-Sci.com>
+References: <200502270928.44402.Info@Quantum-Sci.com> <200502271029.02532.Info@Quantum-Sci.com> <20050228.022828.120983354.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Quantum Scientific <Info@Quantum-Sci.com>
-In-Reply-To: <200502270928.44402.Info@Quantum-Sci.com>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+To: netdev@oss.sgi.com
+In-Reply-To: <20050228.022828.120983354.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quantum Scientific wrote:
-> After a week of intensive research and full-time study, it's become clear that 
-> IPV6 support, as it comes in standard Linux 2.6 kernels, is effectively 
-> non-functional.
-> 
-> I have a properly working firewall, but it appears there is no stateful 
-> filtering nor connection  tracking in the IPV6 stack.  I send out an 
-> echo-request, but have to open icmpv6-129 in order to get the response back.  
-> Same with http.  We can't open all our incoming ports.  There is no 
-> IP6_NF_CONNTRACK nor IP6_NF_MATCH_STATE in the kernel.  And if this 
-> functionality is supposed to be inherent in IPV6, it is not working.
+On Sunday 27 February 2005 11:28, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=
+=8B=B1=E6=98=8E wrote:
+> Don't you find diff files?! e.g:
+>  =20
+ftp://ftp.linux-ipv6.org/pub/usagi/snap/split/usagi-linux26-s20050214-2.6=
+.11-rc3.diff.bz2
+> is patch against linux-2.6.11-rc3.
 
-Connection tracking (as in stateful firewalling) do not a useful ipv6 
-stack make.. The stack works fine, at least the stack provided in 2.6 
-kernels. The 2.4 stack is severely out of date, however, but should "work".
+I see.  I was talking about the downloadable split and kit archives, and =
+you=20
+were talking about what's on FTP, which I didn't expect to be different.
 
-Connection tracking is on the way, currently a implementation exists in 
-the netfilter.org patch-o-matic svn.
+I'm hoping some of my vociferous effort to make this go, will help improv=
+e=20
+things down the line.  IPV6 is extremely difficult to implement at the=20
+moment.
 
-<snip>
+Here's hoping the USAGI linux-2.6.10-rc3 diff fits in Debian=20
+kernel-source-2.6.10-5.  Back to work...
 
-> I must stay with the Debian kernel.
-
-Debian ships 2.6.8 with ipv6 enabled in Sarge. Not sure about Woody, but 
-its ought to be rather outdated by now ;-)
-
-> I can't believe the native kernel's IPV6 is so primitive.  I can't believe any 
-> kernel developers are actually using IPV6.  And I can't believe that anyone 
-> is actually using IPV6 with the Debian kernel.  The Debian IPV6 mailing list 
-> is full of spam, and brought viruses and scams to my door when I subscribed.  
-> No one I've asked questions of has mentioned any of this at all, so if there 
-> is an answer, it is clearly a secret.
-
-> So is there something I'm missing?  Am I completely fscked-up when I say that 
-> it doesn't work in practice, because there is no stateful packet filtering 
-> nor connection tracking?
-
-You seem to be fixed on the idea that a ipv6 stack has to have stateful 
-firewalling, or else its utter crap, correct? :-)
-
-Not all hosts need firewalling at all, or firewalling is provided by 
-routers/firewalls for them. I use ipv6 in production networks, on Linux, 
-without special patches.
+Carl Cook
