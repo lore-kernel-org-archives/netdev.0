@@ -1,33 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]: invaild TCP/UDP matching when ipv6 extension header
- exists
-Date: Thu, 26 Feb 2004 12:37:32 -0800
+Subject: Re: [PATCH] Increase snd/rcv buffers in pppoe
+Date: Thu, 26 Feb 2004 12:42:45 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040226123732.6132fdbc.davem@redhat.com>
-References: <200401310649.PAA00050@toshiba.co.jp>
-	<200402200612.PAA12001@toshiba.co.jp>
-	<20040220093158.3c12ea9a.davem@redhat.com>
-	<200402260406.NAA16034@toshiba.co.jp>
+Message-ID: <20040226124245.5b3c77bf.davem@redhat.com>
+References: <20040223105359.GA91938@colin2.muc.de>
+	<20040223.200101.39143636.yoshfuji@linux-ipv6.org>
+	<20040223111659.GB10681@colin2.muc.de>
+	<20040223.203843.04073965.yoshfuji@linux-ipv6.org>
+	<20040223102613.33838132.davem@redhat.com>
+	<20040225211526.74478066.ak@suse.de>
+	<20040223133233.71eecc99.davem@redhat.com>
+	<20040226194900.GA8230@colin2.muc.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Cc: ak@suse.de, yoshfuji@linux-ipv6.org, ak@muc.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
-In-Reply-To: <200402260406.NAA16034@toshiba.co.jp>
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <20040226194900.GA8230@colin2.muc.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Feb 2004 13:05:50 +0900 (JST)
-Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp> wrote:
+On 26 Feb 2004 20:49:00 +0100
+Andi Kleen <ak@muc.de> wrote:
 
-> This patch is for linux 2.4.26-pre1 .
+> I don't think it should be only sized for big datagrams and other obscure cases.
+> Better is a reasonable default to fit at least 64K of data with a standard MTU like ~1.4K. 
+> Or may resize it on MTU change, but I'm not sure that's worth the effort. 
 > 
-> Summery:
-> tcp_match() and udp_match() in ip6tables.c assume that previous header
-> of TCP/UDP header is IPv6 Header. So, for example, 1st of fragmented UDP
-> packet, AHed packets can't correctly match the rules which use
-> "--sport" and so on.
+> Are you working on this or should I prepare a new patch? 
 
-Also applied, thank you.
+Let's just leave things how we've changed them, and when people complain
+about jumbo MTU ipv6 icmp messages we'll address it.
+
+Thanks.
