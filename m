@@ -1,21 +1,26 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: TCP-Protection is really a pain...
-Date: Thu, 03 Feb 2005 05:07:30 +0100
-Message-ID: <4201A382.1020208@rapidforum.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: TCP-Protection is really a pain...
+Date: Wed, 2 Feb 2005 20:54:37 -0800
+Message-ID: <20050202205437.571a702b@localhost.localdomain>
+References: <4201A382.1020208@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+In-Reply-To: <4201A382.1020208@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi.
+On Thu, 03 Feb 2005 05:07:30 +0100
+Christian Schmid <webmaster@rapidforum.com> wrote:
 
-Your new dynamically adjusted socket-buffer in 2.6.10 is really a pain for big servers. PLEASE tell 
-me a way how to disable it.
+> Hi.
+> 
+> Your new dynamically adjusted socket-buffer in 2.6.10 is really a pain for big servers. PLEASE tell 
+> me a way how to disable it.
 
-Thank you.
+sysctl -w net.ipv4.tcp_wmem="4096 8192 16384"
 
-Best regards,
-Christian Schmid
+Your single stream will be slower, but the memory footprint will be smaller.
