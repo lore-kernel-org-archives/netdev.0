@@ -1,36 +1,35 @@
-From: kuznet@ms2.inr.ac.ru
+From: Andi Kleen <ak@suse.de>
 Subject: Re: SCTP path mtu support needs some ip layer support.
-Date: Mon, 13 Jan 2003 23:48:10 +0300 (MSK)
+Date: Mon, 13 Jan 2003 22:07:08 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200301132048.XAA09194@sex.inr.ac.ru>
-References: <3E1CCD72.6020100@us.ibm.com>
+Message-ID: <20030113210708.GA328@wotan.suse.de>
+References: <3E1CCD72.6020100@us.ibm.com> <200301132048.XAA09194@sex.inr.ac.ru>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
 Cc: davem@redhat.com, sri@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgrimm2@us.ibm.com (Jon Grimm)
-In-Reply-To: <3E1CCD72.6020100@us.ibm.com> from "Jon Grimm" at Jan 8, 3 07:16:34 pm
+To: kuznet@ms2.inr.ac.ru, Jon Grimm <jgrimm2@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <200301132048.XAA09194@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+> Support of pmtu discovery as described in rfc means possibility of semantic
+> fragmentation to retransmit any data bits. If SCTP is not ablet to do this,
+> then you should not support pmtu discovery at all like most of people make
+> for UDP or to follow UDP pattern, fragmenting frames when their size exceeds
+> mtu. It is not necessary to cripple ip_queue_xmit calling conventions
+> to make this, just add a flag to socket to clear DF on oversized
+> frames.
 
-> Well, I personally like having the flexibility to do either.  So, we'll 
-> take you up on your offer to allow control over DF.
+Some recent incidents have shown that ip fragmentation/defragmention
+at gigabit speed is rather worthless. The reason is that it has no PAWS
+and the 16bit ipid can wrap many times in the standard reassembly
+timeout, leading to lots of misassembled packets on a busy network.
+Mostly that can be catched by computing the transport layer
+checksum, but often enough a misassembled packet can slip through.
+While in SCTP it may work a bit better because it supports stronger 
+checksums (but only optionally afaik) it is still too dangerous.
+So in short clearing DF is near always a bug these days.
 
-Beware! To all that I can say, clearing DF on some packets compromises
-path mtu discovery. If you need to have cleared DF on some packets in a flow,
-this means in fact, that path mtu discovery is not supported at protocol level
-at all.
-
-So, I would like to ask you to consult SCTP designers. If the thing which
-you have said is true this means they desinged a crippled protocol.
-
-Support of pmtu discovery as described in rfc means possibility of semantic
-fragmentation to retransmit any data bits. If SCTP is not ablet to do this,
-then you should not support pmtu discovery at all like most of people make
-for UDP or to follow UDP pattern, fragmenting frames when their size exceeds
-mtu. It is not necessary to cripple ip_queue_xmit calling conventions
-to make this, just add a flag to socket to clear DF on oversized
-frames.
-
-Alexey
+-Andi
