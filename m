@@ -1,37 +1,42 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 15:13:38 -0700 (PDT)
+Date: Fri, 27 Jun 2003 15:19:06 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030627.151338.21924648.davem@redhat.com>
-References: <Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com>
-	<20030627.150248.08328103.davem@redhat.com>
-	<Pine.LNX.4.55.0306271509540.4457@bigblue.dev.mcafeelabs.com>
+Message-ID: <20030627.151906.102571486.davem@redhat.com>
+References: <3EFCBD12.3070101@candelatech.com>
+	<20030627.145456.115915594.davem@redhat.com>
+	<3EFCC1EB.2070904@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mbligh@aracnet.com, linux-kernel@vger.kernel.org,
+Cc: davidel@xmailserver.org, mbligh@aracnet.com, linux-kernel@vger.kernel.org,
    linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davidel@xmailserver.org
-In-Reply-To: <Pine.LNX.4.55.0306271509540.4457@bigblue.dev.mcafeelabs.com>
+To: greearb@candelatech.com
+In-Reply-To: <3EFCC1EB.2070904@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Davide Libenzi <davidel@xmailserver.org>
-   Date: Fri, 27 Jun 2003 15:11:53 -0700 (PDT)
+   From: Ben Greear <greearb@candelatech.com>
+   Date: Fri, 27 Jun 2003 15:15:07 -0700
+
+   Forcing people to continue to retransmit the same report just pisses
+   people off, and in the end will get you less useful reports than if
+   you had flagged the report as 'please-gimme-more-info'.
+
+And this is different from patch submission in what way?
+
+   Perhaps, but it's also possible that you are being a stubborn SOB
+   because you fear change :)
    
-   Is a bug report more useful for the user of a "system" or for the
-   "system" itself ?
+Absolutely not, in fact I'm daily looking for ways to change how
+I work with people who help me so that I scale better.  And I know
+for sure that a bug datamase with shit that accumulates in it
+that _REQUIRES_ me to do something about it to make it go away
+does not help me scale.
 
-You can ask the same question about a patch, and my answer
-is the same, "it depends upon the bug/patch and whether
-the people it affects actually care about it".
+Bugme was an absolute burdon for me.
 
-What's truly "useful" for the "system" are things that allow
-the people that maintain it to SCALE.  Lossless bug and patch
-databases that force me to look at each and every item do not scale.
-
-What you don't understand is that I, and most of the people who help
-me, do this because I and they want to.  So as soon as things get
-introduced that make us less "want" to do this you can be sure
-contributions will slump slowly but surely to nothing.
+For something to scale, it must continute to operate just as
+efficiently if I were to go away for a few weeks.  The lists have that
+quality, the bug database with owner does not.
