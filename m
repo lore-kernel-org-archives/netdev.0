@@ -1,65 +1,51 @@
-From: Werner Almesberger <wa@almesberger.net>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: snd_cwnd drawn and quartered
-Date: Tue, 14 Jan 2003 02:25:09 -0300
+Date: Tue, 14 Jan 2003 09:14:36 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030114022509.P1516@almesberger.net>
-References: <20030114010157.M1516@almesberger.net> <200301140502.IAA10733@sex.inr.ac.ru>
+Message-ID: <200301140614.JAA10804@sex.inr.ac.ru>
+References: <20030114022509.P1516@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, chengjin@cs.caltech.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200301140502.IAA10733@sex.inr.ac.ru>; from kuznet@ms2.inr.ac.ru on Tue, Jan 14, 2003 at 08:02:23AM +0300
+To: wa@almesberger.net (Werner Almesberger)
+In-Reply-To: <20030114022509.P1516@almesberger.net> from "Werner Almesberger" at Jan 14, 3 02:25:09 am
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
-> Losses in the same window must not result in multiplicative collapse
-> of cwnd or extension of recovery period. If they do, we are really buggy.
+Hello!
 
-Oh, according to NewReno, extending the recovery period is just fine.
-You just need to stop counting ... And what we have is definitely
-NewReno-ish, with recovery ending at high_seq.
+> > Losses in the same window must not result in multiplicative collapse
+> > of cwnd or extension of recovery period. If they do, we are really buggy.
+> 
+> Oh, according to NewReno, extending the recovery period is just fine.
 
-> Which is funny and unexpected, I read the paper only after the implementation
-> has been mostly finished (based on old Hoe's papers) and just added
-> some colorful details, sort of this one. :-)
+Sorry, it is just nonsense in newreno, it is that high_seq makes.
+Well, and this is surely not fine, losses in several consecutive
+windows must result in multiplicative reduction of cwnd.
 
-That explains why things are so similar but still not quite the
-same :-))
 
-> It is required to stop all the smartness and to enter RTO timeout,
+> Yes yes, we do ... that's what NewReno is all about. Let's say you
+> lose the 0th and the 99th segment (with cwnd = 100). You'll detect
+> the first loss at t = 100, and enter recovery. You leave recovery
+> once snd_nxt (stored in high_seq) at that time has been ack'ed. So
+> this is 100. At time t=199, we find out about the loss of the 99th
+> segment, and retransmit. This gets ack'ed at time t=299. So it's
+> only then when we leave recovery.
 
-Okay, that makes also the ssthresh/2 fix easier, because it eliminates
-the one case where the current behaviour is actually right.
+I do not understand, what you has just said. You cant discover
+loss of 99th segment _after_ 100th was happily ACKed. :-) :-)
 
-> I did not get this. This limit is boundary check which you referred to
-> several sentences above. Not falling under prior_cwnd/2 does not need
-> a special check, we do not receive more than prior_cnwd ACKs while single
-> recovery period in any case.
 
-Yes yes, we do ... that's what NewReno is all about. Let's say you
-lose the 0th and the 99th segment (with cwnd = 100). You'll detect
-the first loss at t = 100, and enter recovery. You leave recovery
-once snd_nxt (stored in high_seq) at that time has been ack'ed. So
-this is 100. At time t=199, we find out about the loss of the 99th
-segment, and retransmit. This gets ack'ed at time t=299. So it's
-only then when we leave recovery.
+> draft-ratehalving distinguishes the adjustement interval and the
+> repair interval. The latter lasts until we've fixed all losses,
+> while the former should indeed not exceed one RTT. It's this
+> limitation that's missing in Linux.
 
-draft-ratehalving distinguishes the adjustement interval and the
-repair interval. The latter lasts until we've fixed all losses,
-while the former should indeed not exceed one RTT. It's this
-limitation that's missing in Linux.
+But thit does not matter because it handles opposite case, when cwnd
+was not reduced enough for one RTT, so rh falls to hold state
+to decrease cwnd smoothly. It is just an unnecessary complication
+to my opinion. Did I get this wrong?
 
-> Huh. We can just shot this silly heuritsics, if it hurts. :-)
+Picture, Werner! What does happen on picture quarter.eps???? That's question.
 
-If you enter RTO upon loss of retransmission, we can, yes.
-(And we don't even need a new variable ;-)
-
-- Werner
-
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+Alexey
