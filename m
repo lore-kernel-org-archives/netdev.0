@@ -1,38 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC] Set TTL from route
-Date: Tue, 24 Aug 2004 11:47:08 -0700
+Subject: Re: [PATCH] add SCTP to xfrm_flowi_{sport,dport}()
+Date: Tue, 24 Aug 2004 11:48:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040824114708.729c5355.davem@redhat.com>
-References: <20040824105641.GA10202@gondor.apana.org.au>
+Message-ID: <20040824114845.497eadb2.davem@redhat.com>
+References: <20040824.230409.21312009.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kaber@trash.net
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040824105641.GA10202@gondor.apana.org.au>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040824.230409.21312009.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Aug 2004 20:56:41 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 24 Aug 2004 23:04:09 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Here is the promised patch that sets the TTL from the route parameter.
-> I decided against adding an option to inherit the TTL like IPIP/GRE
-> as I think that it doesn't really make sense with IPsec.  But it
-> can be easily added later if someone needs it.
+> (I'm not sure if ipsec is fully supported for sctp, but anyway,)
 
-I think we want to add this at some point.
+It should work.  It should have xfrm checks in sctp input path
+and everything.  Well, at least I cannot think of reason why it
+should not work :)
 
-> This isn't completely right when nested tunnels are involved.  The
-> TTL for intervening tunnels should be set from the routes to the
-> intervening nodes.  But fixing that involves using information that
-> isn't currently in the bundle.  I'll revisit this once the MTU stuff
-> is fixed since that'll also involving adding the intervening routes
-> to the bundle.
+> I should not have made regression here.
 
-Looks great, patch applied.
-
-Patrick McHardy was thinking of looking into the MTU issues
-after he finished up some netfilter IPSEC patches he's been
-working on.  Perhaps you can work together with him :)
+Patch applied, thank you.
