@@ -1,45 +1,40 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP
- 16-way)
-Date: Thu, 6 Jan 2005 21:28:38 -0800
-Message-ID: <20050106212838.5e94af1f.davem@davemloft.net>
-References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU>
-	<20041220161552.2b88aa3d.davem@davemloft.net>
-	<16839.30796.413939.333935@wombat.chubb.wattle.id.au>
-	<20050106151910.4d51673e.davem@davemloft.net>
-	<20050107001743.GH17027@cse.unsw.EDU.AU>
-	<20050106194838.0909020a.davem@davemloft.net>
-	<20050107053009.GI17027@cse.unsw.EDU.AU>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [PATCH 2.6] typhoon: fix PCI enable, add port IO option
+Date: Fri, 07 Jan 2005 01:35:08 -0500
+Message-ID: <1105079709.6202.4.camel@ori.thedillows.org>
+References: <1101535273.4734.3.camel@ori.thedillows.org>
+	 <41DE0648.6090302@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: peterc@gelato.unsw.edu.au, netdev@oss.sgi.com, mchan@broadcom.com
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Darren Williams <dsw@gelato.unsw.edu.au>
-In-Reply-To: <20050107053009.GI17027@cse.unsw.EDU.AU>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <41DE0648.6090302@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 7 Jan 2005 16:30:09 +1100
-Darren Williams <dsw@gelato.unsw.edu.au> wrote:
-
-> > In any case, please try this one instead which is a variant
-> > of the second patch Peter proposed plus some signedness fixes
-> > I've done.
+On Thu, 2005-01-06 at 22:47 -0500, Jeff Garzik wrote:
+> David Dillow wrote:
+> > Jeff, please do a
 > > 
-> No still no link. The patch that I have working is:
-> tg3.c:v2.9 (March 8, 2004)
-> that I took from 2.6.7
+> > 	bk pull http://typhoon.bkbits.net/typhoon-2.6
+> 
+> Unfortunately, I can't pull this since it is not based on vanilla 
+> upstream 2.6.x.
 
-Darren, I believe you are confusing this entire situation.
-And I should have suspected this when you were responding
-to my test requests instead of Peter.
+Heh, I based it off netdev-2.6 at the time, because, IIRC, there were
+changes in it that hadn't been pushed to Linus yet, and hadn't come
+through me to be picked up in my tree. (There may be a way for me to do
+it, I didn't try very hard.)
 
-Peter had a problem on a 16-way HP machine, and the patch
-that I just gave to you is nearly identical to his which
-he said makes his problem go away.
+> Can you please re-create your typhoon repository, based only on Linus's 
+> 2.6.x?
 
-Are you having the same problem on the same configuration or
-are you hoping this fixes some other tg3 bug that you happen
-to be seeing?
+Sure thing, it is there now. Content hasn't changed from the broken-out
+patches I sent earlier, but I broke the file deltas into changesets of
+their own.
+
+-- 
+David Dillow <dave@thedillows.org>
