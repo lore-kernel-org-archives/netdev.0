@@ -1,28 +1,60 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: Flush Tx skbs after link down
-Date: Wed, 15 Jan 2003 00:31:49 -0800
+From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Subject: Re: 2.4.20-pre11: PCI Wavelan card loses connection
+Date: Wed, 15 Jan 2003 10:06:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E01087ADF@orsmsx402.jf.intel.com>
+Message-ID: <200301150806.h0F86Ts05193@Port.imtp.ilyichevsk.odessa.ua>
+References: <200301130821.h0D8Kis26772@Port.imtp.ilyichevsk.odessa.ua> <20030113172435.GC20409@bougret.hpl.hp.com>
+Reply-To: vda@port.imtp.ilyichevsk.odessa.ua
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="ISO-8859-1"
-Cc: "Cramer, Jeb J" <jeb.j.cramer@intel.com>
+  charset="koi8-r"
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-content-class: urn:content-classes:message
+To: jt@hpl.hp.com, Jean Tourrilhes <jt@bougret.hpl.hp.com>
+In-Reply-To: <20030113172435.GC20409@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Someone most know the answer to this: What's the proper way to dispose
-of Tx skbs that are owned by the h/w ("in-flight") when link was lost?
-Lets say your h/w stops Tx processing when link is lost, but you've got
-apps waiting for those Tx resources to be returned.  h/w isn't giving
-those resources back until link is up.  Bonding doesn't like this.
+On 13 January 2003 19:24, Jean Tourrilhes wrote:
+> On Mon, Jan 13, 2003 at 10:20:14AM +0200, Denis Vlasenko wrote:
+> > I bought a PCI wireless card, a DLink-520 (I think, I forgot
+> > exactly (it's at home), anyway, lspci dump is below).
+> >
+> > We (my father and me) made a fairly long helical aerial.
+> > We are trying to communicate over ~15 km with a small wireless
+> > cell. (~10 hosts, one AP).
+> >
+> > We can successfully associate with it, signal is weak as expected.
+> > But after a short while our eth0 seems to 'fall off the net'
+> > and while it looks like we can send packets, we see no incoming
+> > data at all.
+> >
+> > Since I have almost zero wireless experience, I'll be happy if
+> > someone with said experience can read further and say what bites
+> > us.
+>
+> 	Personally, I never managed to get this hardware to work at
+> all. And Orinoco is known to have problems with PrismII cards. Please
+> use the HostAP or linux-wlan-ng driver.
 
-We've tried walking the h/w list, and skb_orphan'ing the skbs, but that
-only works if the usage count = 1.  The other solution is to tear down
-and rebuild the Tx ring, but that requires a h/w reset to recover.  Yuk!
+Count me in. I want to make it work.
 
-Any ideas?
+It's not a Prism II, it says Prism I. It is a D-Link DWL-520 PCI card.
+Does that matter?
 
--scott
+By the way, I wouldn't want to admit it, but it works much better under
+Win98 (ick). It cycles between "Associated: (mac addr)" and "Scanning..."
+for _several minutes_ before giving up. And ping is working all this time.
+Under Linux, average time before failure is 20 sec :(
+
+I presume card is considering AP to be too weak and try to find a better
+one. There isn't any. How can I disable this reassociation or lower
+reassociation threshold?
+
+At the very least, how can I see whether it is associated or scanning?
+Pointers to 802.1b docs? (I am googling in parallel...)
+
+Meanwhile will download and look into HostAP.
+--
+vda
