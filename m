@@ -1,31 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] linux 2.6.x.x  - include/net/neighbour.h spell-check
-Date: Mon, 13 Sep 2004 16:27:24 -0700
+Subject: Re: [RFC] Extend netlink error codes
+Date: Mon, 13 Sep 2004 16:28:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913162724.7a6f2213.davem@davemloft.net>
-References: <20040913174842.96183.qmail@web90003.mail.scd.yahoo.com>
+Message-ID: <20040913162811.1b0a45c8.davem@davemloft.net>
+References: <20040910225158.GO20088@postel.suug.ch>
+	<20040911155839.GN4431@wotan.suse.de>
+	<20040911162433.GC21181@postel.suug.ch>
+	<3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
+	<1094937035.2344.189.camel@jzny.localdomain>
+	<20040913203657.GF23686@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, sam@errno.com, ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: S P <speattle@yahoo.com>
-In-Reply-To: <20040913174842.96183.qmail@web90003.mail.scd.yahoo.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20040913203657.GF23686@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004 10:48:39 -0700 (PDT)
-S P <speattle@yahoo.com> wrote:
+On Mon, 13 Sep 2004 22:36:57 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> in linux 2.6.x.x kernel's include/net/neighbour.h
-> 'Neighbour' and 'Neighbor' are used interchangeably.
+> > BTW, there was someone from IBM a while back who was talking about
+> > having drivers send error messages via netlink; someone needs to look at
+> > the ideas they have maybe we can borrow something.
 > 
-> neighbour is british variation of neighbor, so i'd say
-> neighbor is more appropriate.  but then the header's
-> named neighbour.  
+> http://lwn.net/Articles/39164/
 
-Does anyone remember what happened on linux-kernel when
-the similar case of American English "color" vs. British
-English "colour" was being debated?
-
-In any event, whatever we decide we should do tree-wide.
+I think since the inclusion of IBM's work is iffy at best,
+we should architect our facility without assuming it's presence.
