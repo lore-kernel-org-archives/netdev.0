@@ -1,124 +1,113 @@
-From: Jamal Hadi <hadi@shell.cyberus.ca>
-Subject: Re: Route cache performance under stress
-Date: Wed, 21 May 2003 09:03:19 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030521084023.Y43543@shell.cyberus.ca>
-References: <20030519220409.V39658@shell.cyberus.ca> <20030519.234624.123976229.davem@redhat.com>
- <20030520074848.U40843@shell.cyberus.ca> <20030520.173607.88482742.davem@redhat.com>
+From: Philippe Biondi <biondi@cartel-securite.fr>
+Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
+Date: Wed, 21 May 2003 15:20:15 +0200 (CEST)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0305211447270.12543-100000@deneb.intranet.cartel-securite.net>
+References: <20030521075617.N43477@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: sim@netnation.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030520.173607.88482742.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Martin Josefsson <gandalf@wlug.westbo.se>,
+	Ethan Sommer <sommere@ethanet.com>,
+	"David S. Miller" <davem@redhat.com>, <linux-net@vger.kernel.org>,
+	<netdev@oss.sgi.com>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Jamal Hadi <hadi@shell.cyberus.ca>
+In-Reply-To: <20030521075617.N43477@shell.cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
+Hi all,
 
-
-On Tue, 20 May 2003, David S. Miller wrote:
-
->    From: Jamal Hadi <hadi@shell.cyberus.ca>
->    Date: Tue, 20 May 2003 08:04:00 -0400 (EDT)
+> On Tue, 20 May 2003, Martin Josefsson wrote:
 >
->    Note: It may make sense that we have options to totaly remove
->    the cache lookups if necessary - noone has proved a need for it at
->    this point.
+> > Maybe make it take a length parameter and if it's zero treat null's=
+ like
+> > all other algorithms do and it's non-zero use the length instead.
+> > Then you can hide it in a wrapper function for the "normal" case th=
+at
+> > just calls the actual search-function but with 0 as length.
+> >
 >
-> There is a need, thinking otherwise is quite a narrow viewpoint :-)
-> Let me explain.
+> Actually, the library that you pointed to seems to have callbacks
+> associated with every match - so it could be used on string matches.
+> The author is on the cc.
+
+There is only one callback, but it will be called with a per-pattern
+cb_data pointer (and a per-search cb_data pointer too).
+
+
+> > Well we don't have a that big bread slicer (yet) but take a look at
+> > libqsearch, it is a library for searching and has been ported to th=
+e
+> > linux kernel by the author. It has support for various algorithms t=
+hat
 >
-> Forward looking, Alexey and myself plan to extend the per-cpu flow
-> cache we designed for IPSEC policy lookups to apply to routing
-> and socket lookup.  There are two reasons to make this:
+> Didnt see anything kernel related in my quick scan.
+> The library certainly appears sane.
+
+Be sure you took the latest version :
+cvs -d:pserver:anonymous@cvs.prelude-ids.org:/cvsroot/prelude co libqse=
+arch
+
+I confirm I ported it to kernel space. To be exact, I ported the API an=
+d
+made a script that generate wrappers for algorithms, that are compiled
+as-is for kernel space.
+
+More infos here:
+http://www.cartel-securite.fr/pbiondi/libqsearch.html
+
+Lot more info here (presentation I made at FOSDEM03) :
+http://www.cartel-securite.fr/pbiondi/conf/libqsearch.pdf
+
+
+> > have diffrent capabilities, unfortunately I don't think it has an
+> > algorithm that has support for regexp yet (the framework is there, =
+ie
+> > the flag that says an algorithm supports regexp).
+> > It's modular and I don't think it should be that hard to add an reg=
+exp
+> > algorithm.
 >
-> 1) Per-cpu'ness.
+> it does seems to imply regexp is available but wasnt anywhere i could
+> find.
 
-IPIs to synchronize?
+regexp support was planned but not done yet. (if someone know where I c=
+an
+download more free time !).
 
-> 2) Input route lookup turns into a "flow" lookup and thus may
->    give you a TCP socket, for example.  It is the most exciting
->    part of this work.
+The implementation should not be that hard, once you have the compiler =
+to
+transform the string describing the regexp to an automaton.
+
+Note that to respect the framework, you have to deal with multiple
+patterns (should not be that hard). If you have pat1 and pat2, searchin=
+g
+for (pat1|pat2) is not sufficient because for each match, you have to
+point which pattern matched.
+
+
+> > It looks quite nice and it can search for multiple strings at the s=
+ame
+> > time and call diffrent callbacks depending on which string matched.
+> >
 >
+> yep, can sed that packet easily with those callbacks ;-> s/val/val2/g
 
-For packets that are being forwarded or even host bound, why start at
-routing? This should be done much further below. Not sure how to deal
-with packets originating from the host.
-For example i moved the ingress qdisc to way down before IP is hit
-(I can post the patch) and it works quiet well at the moment only with
-the u32 classifier (you could use the route classifier for ip packets).
-I have a packet editor action so i can do some form of ARP/MAC address
-aliasing ;->
-This also gives you opportunity to drop early. A flow index could be
-created there that could be used to index into the route table for
-example. Maybe routing by fwmark would then make sense.
+Nothing is done to change the content, but you have the position of the
+match in the buffer. You can modify it yourself.
 
-> It can even be applied to netfilter entries.  It really is the
-> grand unified theory of flow handling :-)  You can look to
-> net/core/flow.c, it is the initial prototype and it is working
-> and being used already for IPSEC policies.  There are only minor
-> adjustments necessary before we can begin trying to apply it to
-> other things, but Alexey and myself know how to make them.
->
 
-I did look at the code initially when it showed up. It does look sane.
-Infact i raised the issue about the same time whether pushing and popping
-these structures was the best way to go. Another approach would
-be to use a "hub and spoke" dispatch based scheme which i use in the
-effort to get better traffic control actions. Also the structure itself
-had the grandiose view that routing is the mother of them all
-i.e you "fit everything around routing" not "fit routing around other
-things". Note: routing aint the only sexy thing these days, so unified
-theory based on one sexy thing may be unfair to other sexy things;->
 
-> So the real argument: Eliminating sourced based keying of input
-> routes is a flawed idea.  Firstly, independant of POLICY based routing
-> (which is what it was originally made for) being able to block by
-> source address on input is a useful feature.  Secondly, if one must
-> make "fib_validate_source()" on each input packet, it destroys all
-> the posibility to make per-cpu flow caching a reality.  This is
-> because fib_validate_source() must walk the inetdev list and thus
-> grab a shared SMP lock.
->
 
-I think the flowi must be captured way before IP is hit and reused
-by IP and other sublayers. policy routing dropping or attempts to
-fib_validate_source() the packets should  utilize that scheme (i.e install
-filters below ip) and tag(fwmark) or drop them on the floor before they
-hit IP.
+--=20
+Philippe Biondi <biondi@ cartel-securite.fr> Cartel S=E9curit=E9
+Security Consultant/R&D                      http://www.cartel-securite=
+=2Efr
+Phone: +33 1 44 06 97 94                     Fax: +33 1 44 06 97 99
+PGP KeyID:3D9A43E2  FingerPrint:C40A772533730E39330DC0985EE8FF5F3D9A43E=
+2
 
-> Note that any attempt to remove source based keying of routing cache
-> entries on input (or eliminating the cache entirely) has this problem.
->
 
-nod.
 
-> It also becomes quite cumbersome to move all of this logic over to
-> ip_input() or similar.  And because it will always use a shared SMP
-> lock it is guarenteed to be slower than the cache especially for
-> well-behaved flows.  So keep in mind that not all traffic is DoS :-)
->
 
-true. I think post 2.6 we should just rip apart the infrastructure
-and rethink things ;-> (should i go into hiding now?;->)
-
-> (As a side note, and interesting area of discourse would be to see
->  if DoS traffic can be somehow patternized, either explicitly in
->  the kernel or via descriptions from the user.  People do this today
->  via netfilter, but I feel we might be able to do something more
->  powerful at the flow caching level, ie. do not build cache entries
->  for things looking like unary-packet DoS flow)
->
-
-Should be pretty easy to do with a filter framework at the lower
-layers such as the one i did with ingress qdisc.
-
-> None of this means that slowpath should not be improved if necessary.
-> On the contrary, I would welcome good kernel profiling output from
-> someone such as sim@netnation during such stress tests.
->
-
-nod.
-
-cheers,
-jamal
