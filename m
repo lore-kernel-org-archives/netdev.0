@@ -1,50 +1,51 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch]: ipv6 tunnel for MIPv6
-Date: Tue, 03 Jun 2003 21:38:30 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030603.213830.85382657.davem@redhat.com>
-References: <Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>
-	<Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi>
-	<20030531.003858.108351451.yoshfuji@linux-ipv6.org>
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: fix TCP roundtrip time update code
+Date: Tue, 03 Jun 2003 21:40:18 -0700
+Sender: linux-ia64-admin@linuxia64.org
+Message-ID: <3EDD7832.7010804@us.ibm.com>
+References: <200306040043.EAA24505@dub.inr.ac.ru>	<3EDD52F5.8090706@us.ibm.com>	<20030603.202320.59680883.davem@redhat.com> <16093.30507.661714.676184@napali.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vnuorval@tcs.hut.fi, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   ajtuomin@morphine.tml.hut.fi, lpetande@morphine.tml.hut.fi,
-   jagana@us.ibm.com, kumarkr@us.ibm.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030531.003858.108351451.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+   jmorris@intercode.com.au, gandalf@wlug.westbo.se,
+   linux-kernel@vger.kernel.org, linux-ia64@linuxia64.org, netdev@oss.sgi.com,
+   akpm@digeo.com
+Return-path: <linux-ia64-admin@linuxia64.org>
+To: davidm@hpl.hp.com
+In-Reply-To: <16093.30507.661714.676184@napali.hpl.hp.com>
+Errors-To: linux-ia64-admin@linuxia64.org
+List-Help: <mailto:linux-ia64-request@linuxia64.org?subject=help>
+List-Post: <mailto:linux-ia64@linuxia64.org>
+List-Subscribe: <http://lists.linuxia64.org/lists/listinfo/linux-ia64>,
+	<mailto:linux-ia64-request@linuxia64.org?subject=subscribe>
+List-Unsubscribe: <http://lists.linuxia64.org/lists/listinfo/linux-ia64>,
+	<mailto:linux-ia64-request@linuxia64.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxia64.org/archives//linux-ia64/>
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Sat, 31 May 2003 00:38:58 +0900 (JST)
+David Mosberger wrote:
 
-   In article <Pine.LNX.4.44.0305301735340.3584-200000@rhea.tcs.hut.fi> (at Fri, 30 May 2003 18:00:55 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
-   > The tunnels are needed by MIPv6 for encapsulation and decapsulation of
-   > tunneled packets between the home agent and mobile node. Some proctocols
-   > like DHCP are also run over the virtual link between the MN and the home
-   > network according to the MIPv6 specification.
-   
-   I'm not sure if MIP6 will use this tunnel driver.
+>   DaveM> So if your old SpecWEB99 lab tended more to trigger timeout
+>   DaveM> based retransmits on LAN, and your new test network does not,
+>   DaveM> then your new test network will tend to not reproduce the bug
+>   DaveM> regardless of whether the bug is present in the kernel or not
+>   DaveM> :-)
+> 
+> Is this where I get to plug httperf?  It triggered the bug reliably in
+> less than 10 secs. ;-)
 
-Yes, it is an important issue.
+Tarnation!! Ran httperf! Didnt hit it! :(. What were your
+settings?
 
-I am VERY UPSET that there appears to be NO dialogue between USAGI and
-MIPV6 folks to discuss design of MIPV6.  If you do not talk together,
-how can you guys possibly coordinate efforts and not avoid duplicated
-work?
+I extracted an old debug patch to implement dropping of
+packets - have a sysctl that controls the rate at which I
+can drop IP packets, so can also generate any kind of packet
+loss..So thought I would bang away with netperf using
+sendfile()/TCP_CORK. Thought it was in that code path.
+Will be running tests tmrw and the rest of this
+week on 2.5.70 +- patch. Will see if I can provoke any
+further hangs, stalls, wackiness of any flavor...
 
-And, it is very clear from my perspective that it is the MIPV6
-developers who are not communicating.  USAGI are making an effort
-to discuss the issues, but MIPV6 coders disappear for weeks at a time
-not answering queries made to them or comments made about their
-patch submissions.
-
-That is unacceptable.  And this makes me less likely to apply any
-patches from MIPV6 project, here is why.  If some bug shows in some
-patch I apply from MIPV6 project, can I expect them to act similarly
-and not respond for weeks at a time?  That's intolerable.  If you add
-some bug to the tree, you are responsible to be responsive and fix
-the problem in a reasonable amount of time.
+thanks,
+Nivedita
