@@ -1,25 +1,55 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Mikael Pettersson <mikpe@csd.uu.se>
 Subject: Re: Linux 2.6.0-test9
-Date: Mon, 27 Oct 2003 01:40:32 -0800
+Date: Mon, 27 Oct 2003 10:47:53 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031027014032.4908019f.davem@redhat.com>
-References: <UTC200310270148.h9R1mqO06057.aeb@smtp.cwi.nl>
-	<Pine.LNX.4.44.0310261752160.3157-100000@home.osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andries.Brouwer@cwi.nl, akpm@osdl.org, kuznet@ms2.inr.ac.ru,
+Message-ID: <200310270947.h9R9lr8M003468@harpo.it.uu.se>
+Cc: akpm@osdl.org, davem@redhat.com, kuznet@ms2.inr.ac.ru,
         linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linus Torvalds <torvalds@osdl.org>
-In-Reply-To: <Pine.LNX.4.44.0310261752160.3157-100000@home.osdl.org>
+To: Andries.Brouwer@cwi.nl, torvalds@osdl.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sun, 26 Oct 2003 18:10:03 -0800 (PST), Linus Torvalds wrote:
+>On Mon, 27 Oct 2003 Andries.Brouwer@cwi.nl wrote:
+>> 
+>> rlogin followed by "emacs -nw".
+>
+>Ok. I bet I've never seen it partly because I only use ssh (I don't even
+>allow rlogin to any of my machines). But you're right, rlogin certainly
+>not only uses OOB data, but uses SIGURG itself. I would actually expect 
+>that if we delay the SIGURG until after we've read the URG data, the child 
+>process that wants to actually read the URG data will trivially hang, 
+>waiting for it.
+>
+>If this is easily repeatable for you, can you test just applying this
+>patch on top of plain -test9? It's not the patch I'd actually do in real 
+>life, but it's the minimal patch to verify that it's really SIGURG and 
+>urgent data that is the thing you see. Sounds very likely, but it would be 
+>good to really verify.
 
-I'm going to just revert the changeset in the networking
-fixes I send to Linus today.
+This patch does fix the rlogin + emacs -nw problems.
 
-If we resolve this some other way, that's fine and the
-original change is in the revision history for people
-to refer to.
+/Mikael
+
+>--- 1.49/net/ipv4/tcp.c	Mon Oct 20 22:27:42 2003
+>+++ edited/net/ipv4/tcp.c	Sun Oct 26 17:59:14 2003
+>@@ -1536,9 +1536,15 @@
+> 		struct sk_buff *skb;
+> 		u32 offset;
+> 
+>-		/* Are we at urgent data? Stop if we have read anything. */
+>-		if (copied && tp->urg_data && tp->urg_seq == *seq)
+>-			break;
+>+		/* Are we at urgent data? Stop if we have read anything or have SIGURG pending. */
+>+		if (tp->urg_data && tp->urg_seq == *seq) {
+>+			if (copied)
+>+				break;
+>+			if (signal_pending(current)) {
+>+				copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
+>+				break;
+>+			}
+>+		}
+> 
+> 		/* Next get a buffer. */
+> 
