@@ -1,70 +1,73 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: 2.6.9-mm1: pc_debug multiple definitions
-Date: Sun, 24 Oct 2004 06:05:57 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20041024100557.GC17506@ruslug.rutgers.edu>
-References: <20041022032039.730eb226.akpm@osdl.org>
-	<20041022133929.GA2831@stusta.de>
-	<20041024034152.GB17506@ruslug.rutgers.edu>
-	<20041024093340.GA4216@stusta.de>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
+Date: Sun, 24 Oct 2004 15:27:46 +0300 (EEST)
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <Pine.LNX.4.58.0410241522230.1177@u.domain.uli>
+References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+	<20040911215746.GF19871@obroa-skai.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-	prism54-devel@prism54.org, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org,
-	David Hinds <dahinds@users.sourceforge.net>, jgarzik@pobox.com
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Adrian Bunk <bunk@stusta.de>
-Content-Disposition: inline
-In-Reply-To: <20041024093340.GA4216@stusta.de>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20040911215746.GF19871@obroa-skai.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 24, 2004 at 11:33:40AM +0200, Adrian Bunk wrote:
-> On Sat, Oct 23, 2004 at 11:41:52PM -0400, Luis R. Rodriguez wrote:
-> > On Fri, Oct 22, 2004 at 03:39:29PM +0200, Adrian Bunk wrote:
-> > > 
-> > > The following compile error comes from Linus' tree:
-> > > 
-> > > 
-> > > <--  snip  -->
-> > > 
-> > > ...
-> > >   LD      drivers/built-in.o
-> > > drivers/pcmcia/built-in.o(.bss+0xf20): multiple definition of `pc_debug'
-> > > drivers/net/built-in.o(.data+0x24ae0): first defined here
-> > > make[1]: *** [drivers/built-in.o] Error 1
-> > > 
-> > > <--  snip  -->
-> > > 
-> > > 
-> > > The pc_debug in drivers/pcmcia/ds.c was made non-static in Linus' tree,
-> > > but the global definition of a global variable with such a generic name 
-> > > in drivers/net/wireless/prism54/islpci_mgt.c seems to be equally wrong.
-> > 
-> > Great, anyone know why this change was done on ds.c ? The pc_debug on
-> > prism54 comes from the original Intersil driver. It is used to for
-> > debugging but we should move away from our current debugging mechanism
-> > to netif_msg.
-> >...
-> 
-> pc_debug is a pretty generic name - it seems too generic in both files.
-> 
-> In prism54, couldn't it be called prism54_pc_debug?
 
-Sure although that's doing a half ass job. It'll fix your compile
-problems for sure but ideally we should move away from the old debug
-mechanisms that came with the driver originally. We do this by moving to
-to netif_msg.
+	Hello,
 
-	Luis
+On Sat, 11 Sep 2004, Harald Welte wrote:
 
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+> I agree with this change, but shouldn't we make it consistently over all
+> NAT helpers?  In case you didn't check yet, and assuming that this is
+> applicable to other helpers as well:  Please include patches for other
+> protocol helpers as well.
+
+	I can live with the appended patch, I hope it is correct.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+
+diff -ur v2.6.9/linux/net/ipv4/netfilter/ip_nat_core.c linux/net/ipv4/netfilter/ip_nat_core.c
+--- v2.6.9/linux/net/ipv4/netfilter/ip_nat_core.c	2004-10-19 10:00:36.000000000 +0300
++++ linux/net/ipv4/netfilter/ip_nat_core.c	2004-10-24 14:52:39.334958976 +0300
+@@ -728,7 +728,7 @@
+ 	    struct sk_buff **pskb)
+ {
+ 	unsigned int i;
+-	struct ip_nat_helper *helper;
++	struct ip_nat_helper *helper = NULL;
+ 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
+ 	int proto = (*pskb)->nh.iph->protocol;
+ 
+@@ -751,9 +751,9 @@
+ 				READ_UNLOCK(&ip_nat_lock);
+ 				return NF_DROP;
+ 			}
++			helper = info->helper;
+ 		}
+ 	}
+-	helper = info->helper;
+ 	READ_UNLOCK(&ip_nat_lock);
+ 
+ 	if (helper) {
+diff -ur v2.6.9/linux/net/ipv4/netfilter/ip_nat_ftp.c linux/net/ipv4/netfilter/ip_nat_ftp.c
+--- v2.6.9/linux/net/ipv4/netfilter/ip_nat_ftp.c	2004-10-19 10:00:36.000000000 +0300
++++ linux/net/ipv4/netfilter/ip_nat_ftp.c	2004-10-24 14:52:39.335958824 +0300
+@@ -54,6 +54,8 @@
+ 	IP_NF_ASSERT(master);
+ 
+ 	IP_NF_ASSERT(!(info->initialized & (1<<HOOK2MANIP(hooknum))));
++	if (!(info->initialized & (1<<HOOK2MANIP(hooknum))))
++		return NF_ACCEPT;
+ 
+ 	DEBUGP("nat_expected: We have a connection!\n");
+ 	exp_ftp_info = &ct->master->help.exp_ftp_info;
