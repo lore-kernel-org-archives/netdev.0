@@ -1,55 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Resend: [NETDRV] Merge register_netdev calls
-Date: Mon, 20 Sep 2004 15:03:51 -0400
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2.6.9-rc2 1/1] r8169: default on disabling PCIDAC
+Date: Mon, 20 Sep 2004 21:02:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414F2997.9030901@pobox.com>
-References: <20040701111914.GA11120@gondor.apana.org.au>
+Message-ID: <20040920190252.GA16429@electric-eye.fr.zoreil.com>
+References: <20040919224102.GA32577@electric-eye.fr.zoreil.com> <414F1DFD.9030008@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, Andy Lutomirski <luto@myrealbox.com>,
+        Jon Mason <jdmason@us.ibm.com>,
+        Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040701111914.GA11120@gondor.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <414F1DFD.9030008@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Jun 11, 2004 at 12:08:55PM +1000, herbert wrote:
-> 
->>In fact it's really making these ISA/MCA probe() functions more
->>like the ones we have for PCI.
-> 
-> 
-> To illustrate this, let's take the first driver touched by 4/x.
-> In 3c503, the function init_module() essentially does
-> 
-> for each ioaddr
-> 	if (do_el2_probe(ioaddr) == 0)
-> 		return 0
-> 
-> And do_el2_probe() just calls el2_probe1() which is similar
-> to your average PCI probe function except that the first thing
-> it does is to make sure that the device exists at ioaddr.
-> 
-> This is not that different from PCI where it would look
-> like
-> 
-> for each PCI device matching the vendor/product numbers
-> 	if (do_el2_probe(device) == 0)
-> 		return 0
-> 
-> Now before my patch, register_netdev was being called just
-> after do_el2_probe() returns.  My patch simply moves it to
-> the end of el2_probe1() which is exactly what would happen
-> if this were a PCI driver.
-> 
-> I've rediffed it against your net-drivers-2.6 tree.
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> Can this interrupt be used at runtime to detect that DAC isn't working?
 
-so,
+Experiment suggests that. 
 
-there was a lot of churn and I held off on this patch.
+Errr... Do you really want to hot-reinit the device ?
 
-could you be convinced to rediff and resend (again)?
-
-	Jeff
+--
+Ueimor
