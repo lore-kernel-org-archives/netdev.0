@@ -1,111 +1,53 @@
-From: Eamonn Hamilton <EAMONN.HAMILTON@saic.com>
-Subject: Re: e100 NETDEV WATCHDOG transmit timeout since 2.6.4
-Date: Wed, 21 Apr 2004 10:42:41 +0100
+From: syrius.ml@no-log.org
+Subject: Re: IMQ / new Dummy device post.
+Date: Wed, 21 Apr 2004 14:49:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1082540561.3159.1.camel@ukabzc383.uk.saic.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103E9A4E6@orsmsx402.jf.intel.com>
-	 <Pine.LNX.4.58.0404201559290.7794@snichols-desk.amr.corp.intel.com>
+Message-ID: <wazza.87fzaxmr6x.fsf@message.id>
+References: <wazza.87ad18jbdl.fsf@message.id>
+	<1082427350.1034.70.camel@jzny.localdomain>
+	<wazza.87fzayw1fy.fsf@message.id>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Mike Keehan <mike_keehan@yahoo.com>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Scott Feldman <scott.feldman@intel.com>
-In-Reply-To: <Pine.LNX.4.58.0404201559290.7794@snichols-desk.amr.corp.intel.com>
+To: hadi@cyberus.ca
+In-Reply-To: <wazza.87fzayw1fy.fsf@message.id> (syrius ml's message of "Wed,
+ 21 Apr 2004 03:43:13 +0200")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Scott,
 
-Thanks for the patch - a bit of manual fumbling to get it applied, but
-it seems to work ok so far ( ~46 minutes, so it's not exactly definitive
-:)
+skput:under: c88c93aa:98 put:14 dev:tun0kernel BUG at skbuff.c:113!
+invalid operand: 0000                                              
+CPU:    0            
+EIP:    0010:[<c01bc2e9>]    Tainted: P 
+EFLAGS: 00010286                        
+eax: 00000028   ebx: c46afe60   ecx: 00000000   edx: c6a5e000
+esi: c88c6780   edi: 00000001   ebp: c5573d78   esp: c5573d64
+ds: 0018   es: 0018   ss: 0018                               
+Process openvpn (pid: 940, stackpage=c5573000)
+Stack: c022a180 c88c93aa 00000062 0000000e c5db4824 c5573da8 c88c93b2
+c582e3a0 
+       0000000e c88c93aa 42924e9d c58eccc0 c582ebe0 c582e3a0 c57dae00
+       c582ebe0 
+       c5f17f20 c5573dbc c01cd277 c5573dc4 c57dae00 c5573e60 c5573e28
+       c890f104 
+Call Trace:    [<c88c93aa>] [<c88c93b2>] [<c88c93aa>] [<c01cd277>]
+[<c890f104>]
+  [<c01bc5bd>] [<c01bc736>] [<c01f20fc>] [<c89123f9>] [<c89120fc>]
+  [<c01c0a6a>]
+  [<c01c0b6a>] [<c01c0d66>] [<c01c0e83>] [<c0119507>] [<c892cc35>]
+  [<c01347a0>]
+  [<c0134883>] [<c0106ff3>]                                                    
+                           
+Code: 0f 0b 71 00 0a 92 22 c0 89 ec 5d c3 8d 74 26 00 8d bc 27 00 
+ <0>Kernel panic: Aiee, killing interrupt handler!                
+In interrupt handler - not syncing                
+                                  
 
-Certainly it doesn't make things worse in my case at least.
+I'm going to recompile the kernel with frame pointers, and i'll feed
+the oops thru ksymoops.
+First I have to narrow the problem so I can tell how to reproduce it,
+and I'll give more informations.
 
-Cheers,
-Eamonn
-
-On Wed, 2004-04-21 at 00:04, Scott Feldman wrote:
-> On Tue, 20 Apr 2004, Mike Keehan wrote:
-> 
-> > I am getting these too in recent kernels, but only on a
-> > 10Mhz half-duplex network. I have to manually down
-> > and up the interface to recover.
-> >
-> > On a 100Mhz switched network, the e100 is OK (at least 12hours+).
-> 
-> 
-> Mike/Eamonn,
-> 
-> Give this patch a try.  This adds a required workaround for ICH when
-> working at 10/Half.  (Guessing you have an ICH system).
-> 
-> --- linux-2.5/drivers/net/e100.c	2004-04-20 15:52:24.000000000 -0700
-> +++ linux-2.5/drivers/net/e100.c.mod	2004-04-20 15:55:32.000000000 -0700
-> @@ -287,6 +287,7 @@ enum scb_cmd_hi {
->  };
-> 
->  enum scb_cmd_lo {
-> +	cuc_nop        = 0x00,
->  	ruc_start      = 0x01,
->  	ruc_load_base  = 0x06,
->  	cuc_start      = 0x10,
-> @@ -514,10 +515,11 @@ struct nic {
->  	/* End: frequently used values: keep adjacent for cache effect */
-> 
->  	enum {
-> -		ich           = (1 << 0),
-> -		promiscuous   = (1 << 1),
-> -		multicast_all = (1 << 2),
-> -		wol_magic     = (1 << 3),
-> +		ich                = (1 << 0),
-> +		promiscuous        = (1 << 1),
-> +		multicast_all      = (1 << 2),
-> +		wol_magic          = (1 << 3),
-> +		ich_10h_workaround = (1 << 4),
->  	} flags					____cacheline_aligned;
-> 
->  	enum mac mac;
-> @@ -1225,6 +1227,12 @@ static void e100_watchdog(unsigned long
->  		/* Issue a multicast command to workaround a 557 lock up */
->  		e100_set_multicast_list(nic->netdev);
-> 
-> +	if(nic->flags & ich && cmd.speed==SPEED_10 && cmd.duplex==DUPLEX_HALF)
-> +		/* Need SW workaround for ICH[x] 10Mbps/half duplex Tx hang. */
-> +		nic->flags |= ich_10h_workaround;
-> +	else
-> +		nic->flags &= ~ich_10h_workaround;
-> +
->  	mod_timer(&nic->watchdog, jiffies + E100_WATCHDOG_PERIOD);
->  }
-> 
-> @@ -1244,7 +1252,17 @@ static inline void e100_xmit_prepare(str
->  static int e100_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
->  {
->  	struct nic *nic = netdev->priv;
-> -	int err = e100_exec_cb(nic, skb, e100_xmit_prepare);
-> +	int err;
-> +
-> +	if(nic->flags & ich_10h_workaround) {
-> +		/* SW workaround for ICH[x] 10Mbps/half duplex Tx hang.
-> +		   Issue a NOP command followed by a 1us delay before
-> +		   issuing the Tx command. */
-> +		e100_exec_cmd(nic, cuc_nop, 0);
-> +		udelay(1);
-> +	}
-> +
-> +	err = e100_exec_cb(nic, skb, e100_xmit_prepare);
-> 
->  	switch(err) {
->  	case -ENOSPC:
 -- 
-Eamonn Hamilton
-
-Senior Technical Designer
-Technical Projects and Design (North)
-
-Tel : +44 (0) 1224 333833
-Fax : +44 (0) 1224 840032
-Email eamonn.hamilton@saic.com
