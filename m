@@ -1,30 +1,48 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-Date: Mon, 15 Sep 2003 01:17:31 -0700
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: Bluetooth BUG() in set_sk_owner().
+Date: Mon, 15 Sep 2003 09:54:10 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030915011731.59056bfc.davem@redhat.com>
-References: <OF72607111.CD0234C8-ON85256DA1.0068861B-86256DA1.0068FF60@us.ibm.com>
-	<3F652910.4090509@pacbell.net>
+Message-ID: <1063616050.21195.67.camel@hades.cambridge.redhat.com>
+References: <1063184337.32473.529.camel@hades.cambridge.redhat.com>
+	 <20030911182223.2e9b7118.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ricardoz@us.ibm.com, hadi@cyberus.ca, greearb@candelatech.com,
-   jgarzik@pobox.com, scott.feldman@intel.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, shemminger@osdl.org, maxk@qualcomm.com,
+   marcel@holtmann.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Brownell <david-b@pacbell.net>
-In-Reply-To: <3F652910.4090509@pacbell.net>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030911182223.2e9b7118.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 14 Sep 2003 19:50:56 -0700
-David Brownell <david-b@pacbell.net> wrote:
+On Thu, 2003-09-11 at 18:22 -0700, David S. Miller wrote:
+> On Wed, 10 Sep 2003 09:58:57 +0100
+> David Woodhouse <dwmw2@infradead.org> wrote:
+> 
+> > It loks like the recent addition of sk_set_owner() to 
+> > bt_sock_alloc() was bogus... some of the callers of bt_sock_alloc()
+> > already do that for  This patch reverts it, and makes the remaining
+> > callers also set the owner for themselves...
+> 
+> Applied, thanks David.
 
-> Except ones where CONFIG_EMBEDDED, maybe?  Not everyone wants
-> to spend that much memory, even when it's available...
+Needs this too...
 
-Dropping the packet between the network stack and the driver
-does waste memory for _LONGER_ periods of time.
+===== net/bluetooth/bnep/sock.c 1.11 vs edited =====
+--- 1.11/net/bluetooth/bnep/sock.c	Thu Jun  5 01:57:08 2003
++++ edited/net/bluetooth/bnep/sock.c	Fri Sep 12 09:16:17 2003
+@@ -186,7 +189,8 @@
+ 
+ static struct net_proto_family bnep_sock_family_ops = {
+ 	.family = PF_BLUETOOTH,
+-	.create = bnep_sock_create
++	.create = bnep_sock_create,
++	.owner = THIS_MODULE
+ };
+ 
+ int __init bnep_sock_init(void)
 
-When we drop, TCP still hangs onto the buffer, and we'll send
-it again and again until it makes it and we get an ACK back
-or the connection completely times out.
+
+-- 
+dwmw2
