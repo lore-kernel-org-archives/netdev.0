@@ -1,47 +1,74 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: "Imran Badr" <imran.badr@cavium.com>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 17:23:49 -0400
+Date: Wed, 15 Sep 2004 14:25:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4148B2E5.50106@pobox.com>
-References: <4148991B.9050200@pobox.com>	<Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>	<1095275660.20569.0.camel@localhost.localdomain>	<4148A90F.80003@pobox.com>	<20040915140123.14185ede.davem@davemloft.net>	<20040915210818.GA22649@havoc.gtf.org> <20040915141346.5c5e5377.davem@davemloft.net>
+Message-ID: <CNEJKAHIKPFGKOPLKCGDOEMJAGAB.imran.badr@cavium.com>
+References: <ciaao4$crc$1@sea.gmane.org>
+Reply-To: <imran.badr@cavium.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+	charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, paul@clubi.ie, netdev@oss.sgi.com,
-        leonid.grossman@s2io.com, linux-kernel@vger.kernel.org
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040915141346.5c5e5377.davem@davemloft.net>
+To: "Wes Felter" <wesley@felter.org>, <linux-kernel@vger.kernel.org>
+In-Reply-To: <ciaao4$crc$1@sea.gmane.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Wed, 15 Sep 2004 17:08:18 -0400
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> 
-> 
->>There's nothing inherently wrong with sticking a computer running
->>Linux inside another computer ;-)
-> 
-> 
-> And we already support that :-)
-> 
-> Plus we have things like TSO too but that doesn't require a full Linux
-> instance to realize on a networking port.
-> Simple silicon implements this already.
-> I don't see how that differs from your "big MTU" ideas.
+Please see:
+
+Cavium Networks Introduces OCTEON(TM) Family of Integrated Network Services
+Processors With up to 16 MIPS64(R)-Based Cores for Internet Services,
+Content and Security Processing"
+
+http://www.linuxelectrons.com/article.php?story=20040913082030668&mode=print
 
 
-Part of this is about how to talk to business people.... marketing.
 
-The typical definition of TOE is "offload 90+% of the net stack", as 
-opposed to "TCP assist", which is stuff like TSO.
 
-If people ask about how to support TOE in Linux, you can say "sure, we 
-_already_ support TOE, just stick Linux on a PCI card" rather than "no 
-we don't support it."
+-----Original Message-----
+From: linux-kernel-owner@vger.kernel.org
+[mailto:linux-kernel-owner@vger.kernel.org]On Behalf Of Wes Felter
+Sent: Wednesday, September 15, 2004 2:04 PM
+To: linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Subject: [SPAM] Re: The ultimate TOE design
 
-And wha-la, we support TOE with zero code changes ;-)
 
-	Jeff, who would love to have a bunch of Athlons
-	on PCI cards to play with.
+Neil Horman wrote:
+> Paul Jakma wrote:
+>
+>> On Wed, 15 Sep 2004, Jeff Garzik wrote:
+>>
+>>> Put simply, the "ultimate TOE card" would be a card with network
+>>> ports, a generic CPU (arm, mips, whatever.), some RAM, and some
+>>> flash.  This card's "firmware" is the Linux kernel, configured to run
+>>> as a _totally indepenent network node_, with IP address(es) all its own.
+>>>
+>>> Then, your host system OS will communicate with the Linux kernel
+>>> running on the card across the PCI bus, using IP packets (64K fixed
+>>> MTU).
+
+>> The intel IXP's are like the above, XScale+extra-bits host-on-a-PCI
+>> card running Linux. Or is that what you were referring to with "<cards
+>> exist> but they are all fairly expensive."?
+
+> IBM's PowerNP chip was also very simmilar (a powerpc core with lots of
+> hardware assists for DMA and packet inspection in the extended register
+> area).  Don't know if they still sell it, but at one time I had heard
+> they had booted linux on it.
+
+An IXP or PowerNP wouldn't work for Jeff's idea. The IXP's XScale core
+and PowerNP's PowerPC core are way too slow to do any significant
+processing; they are intended for control tasks like updating the
+routing tables. All the work in the IXP or PowerNP is done by the
+microengines, which have weird, non-Linux-compatible architectures.
+
+To do 10 Gbps Ethernet with Jeff's approach, wouldn't you need a 5-10
+GHz processor on the card? Sounds expensive.
+
+A 440GX or BCM1250 on a cheap PCI card would be fun to play with, though.
+
+Wes Felter - wesley@felter.org - http://felter.org/wesley/
+
