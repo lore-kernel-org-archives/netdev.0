@@ -1,32 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: PPP-over-L2TP kernel support, new patch for review
-Date: Mon, 20 Sep 2004 14:17:04 -0700
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: unregister_netdevice: waiting for tun6to4 to become free.
+Date: Tue, 21 Sep 2004 00:24:53 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920141704.16085067.davem@davemloft.net>
-References: <1095714704.414f4790cd168@www.katalix.com>
+Message-ID: <20040920212453.GA15392@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kleptog@svana.org, mostrows@styx.uwaterloo.ca
+Content-Type: text/plain; charset=iso-8859-1
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Chapman <jchapman@katalix.com>, bcrl@kvack.org
-In-Reply-To: <1095714704.414f4790cd168@www.katalix.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Sep 2004 22:11:44 +0100
-James Chapman <jchapman@katalix.com> wrote:
+Hiya
 
-> Attached is a revised version of the new PPP over L2TP support for
-> review. Thanks DaveM and Herbert for comments so far. The following
-> comments have been addressed in this new version:
+When trying to do /etc/init.d/network stop (or reboot) my
+fc3test-all-updated-so-kernel-is-2.6.9-rc2-bk5ish, the thing hangs with a
+"unregister_netdevice: waiting for tun6to4 to become free. Usage count = 1".
+The 6to4 tunnel is over the kernel PPPoE tunnel in case that makes a
+difference
 
-What relation does your work have to the L2TP implementation
-being worked on by Ben LaHaise?  See:
+What it's trying to do is /sbin/ip tunnel del tun6to4, which 
+works just fine when run by itself, when looking at /proc/net/dev the
+device is no longer there at that point. I think the situation where it 
+breaks if the ppp device it's running on top of goes down just before. Just
+a guess tho :-)
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=109375044707414&w=2
-
-Do we have two people working on this thing. :-/
-
-Ben didn't post any pointers to his work so I couldn't do the
-comparison myself.
+Any obvious explanations or should I poke further?
