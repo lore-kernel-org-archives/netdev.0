@@ -1,31 +1,36 @@
-From: David Brownell <david-b@pacbell.net>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: netlink tester program
-Date: Mon, 02 Jun 2003 20:37:08 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EDC17E4.6070506@pacbell.net>
-References: <32804.4.64.196.31.1054351332.squirrel@www.osdl.org>	<20030530.234211.102567405.davem@redhat.com>	<20030602140452.039248de.rddunlap@osdl.org> <20030602.145619.71112623.davem@redhat.com> <3EDC0915.1080109@monmouth.com>
+Date: Mon, 02 Jun 2003 20:35:05 -0700 (PDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030602.203505.59678701.davem@redhat.com>
+References: <20030602140452.039248de.rddunlap@osdl.org>
+	<20030602.145619.71112623.davem@redhat.com>
+	<33001.4.64.196.31.1054611142.squirrel@www.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, rddunlap@osdl.org,
-   linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "John S. Denker" <jsd@monmouth.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: rddunlap@osdl.org
+In-Reply-To: <33001.4.64.196.31.1054611142.squirrel@www.osdl.org>
 List-Id: netdev.vger.kernel.org
 
-John S. Denker wrote:
+   From: "Randy.Dunlap" <rddunlap@osdl.org>
+   Date: Mon, 2 Jun 2003 20:32:22 -0700 (PDT)
 
-> Similarly, writing code _and_ documetation is about
-> twice as expensive as writing the code alone.  But
-> the redundancy makes it possible to achieve much
-> greater reliability.  Also maintainability and
-> extensibility.
+   The code is absolute, no doubt about it.  It is the authority.
+   That doesn't make it right in all cases AFAIK.
+   
+I totally agree.
 
-Excellent points.  The developement process needs
-to address communities other than the folk writing
-the code ... like the people who inherit that code,
-and the ones trying to use it.  (Testing being a
-rather specialize type of "use".)
+   Now, given that I think that the netlink interface is poorly
+   documented, and that I'm trying to add some kernel code that
+   uses it, and that I'm trying to test said kernel code with a
+   userspace test program, I also plan to add such documentation
+   that I think is warranted to make it easy to use, even by
+   non-kernel devevlopers.
 
-- Dave
+This is exactly how things should work.  Where there is a need
+for X _AND_ someone willing to create X, it will be created.
+
+No arguments from me on this :-)
