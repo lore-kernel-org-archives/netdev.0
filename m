@@ -1,52 +1,29 @@
-From: "Leonid Grossman" <leonid.grossman@neterion.com>
-Subject: RE: Intel and TOE in the news
-Date: Tue, 22 Feb 2005 14:10:36 -0800
-Message-ID: <200502222211.j1MMBWDD006726@guinness.s2io.com>
-References: <421BA741.4050201@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "'Rick Jones'" <rick.jones2@hp.com>, <netdev@oss.sgi.com>
-In-Reply-To: <421BA741.4050201@hp.com>
+From: Hubert Tonneau <hubert.tonneau@fullpliant.org>
+Subject: Re: [RFT] BIC TCP delayed ack compensation
+Date: Tue, 22 Feb 2005 22:22:42 GMT
+Message-ID: <052Q0TU11@server5.heliogroup.fr>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
+        Injong Rhee <rhee@eos.ncsu.edu>,
+        "David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@osdl.org>, cliff white <cliffw@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
+Stephen Hemminger wrote:
+>
+> This patch which was extracted from BIC TCP 1.1 compensates
+> for systems (like MaxOSX) that don't ACK every other packet.
+> It has no impact for normal transfers, but might help with problems
+> with Mac like Hubert found.
 
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com 
-> [mailto:netdev-bounce@oss.sgi.com] On Behalf Of Rick Jones
-> Sent: Tuesday, February 22, 2005 1:42 PM
-> To: netdev@oss.sgi.com
-> Subject: Re: Intel and TOE in the news
-> 
-> Leonid Grossman wrote:
-> > No wait, "paste in" only packets that are already received when a 
-> > traffic interrupt comes...
-> 
-> Ah, so it is ass-u-me-ing that there is little or no packet loss?
+No, it's even worse.
 
-This is a reasonable assumption in a datacenter, isn't it :-)?
-At any rate, no wait still - if the driver doesn't find the next sequence
-(no matter if the packet is lost or it is just not received yet at the time
-the driver is looking at the receive buffer) it will indicate the
-accumulated RSO right away.
- 
-> 
-> How about when the driver is polling instead of taking 
-> interrupts?  Will the driver "see" the RSO 
-> segment-in-progress or will it be hidden?
-
-It doesn't matter what triggered the driver to wake up and look at the
-receive buffer.
-It will still see in real time the packets that have been received - no
-matter if the interrupts for these packets arrived or not.
-
-Leonid
-
-> 
-> rick jones
-> 
-> 
+2.6.9 to 100 Mbps connected MacOSX: 15 seconds (for roughly 100 MB or data)
+2.6.9 to gigabit connected MacOSX: 5 seconds
+2.6.10-ac11 to 100 Mbps connected MacOSX: 325 seconds
+2.6.10-ac11 to gigabit connected MacOSX: 5 seconds
+2.6.10-ac11+BIC to 100 Mbps connected MacOSX: 620 seconds
+2.6.10-ac11+BIC to gigabit connected MacOSX: 5 seconds
