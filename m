@@ -1,58 +1,56 @@
 From: bert hubert <ahu@ds9a.nl>
 Subject: Re: Frozen machine with adding a tc filter
-Date: Tue, 23 Jul 2002 23:28:04 +0200
+Date: Wed, 24 Jul 2002 00:11:42 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020723212803.GA14546@outpost.ds9a.nl>
-References: <20020722212111.GA22916@outpost.ds9a.nl> <200207222257.CAA14506@sex.inr.ac.ru>
+Message-ID: <20020723221142.GA15146@outpost.ds9a.nl>
+References: <20020723212803.GA14546@outpost.ds9a.nl> <200207232156.BAA16799@sex.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: albertogli@telpin.COM.AR, netdev@oss.sgi.com, jdike@karaya.com
 Return-path: <owner-netdev@oss.sgi.com>
 To: kuznet@ms2.inr.ac.ru
 Content-Disposition: inline
-In-Reply-To: <200207222257.CAA14506@sex.inr.ac.ru>
+In-Reply-To: <200207232156.BAA16799@sex.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 23, 2002 at 02:57:14AM +0400, kuznet@ms2.inr.ac.ru wrote:
-
-> > Please tell me your ideas,
+On Wed, Jul 24, 2002 at 01:56:22AM +0400, kuznet@ms2.inr.ac.ru wrote:
+> Hello!
 > 
-> Well, before all figure out where it deadlocks.
+> > However, with the commandlines specified, the classifier returns.. head,
+> 
+> This is strange. cbq_bind_filter() is supposed to return nil class,
+> unless reference has deeper level.
 
-I tried this in User Mode Linux and after some help by Jeff, I figured out
-that the deadlock is within cbq_classify() in sch_cbq.c. The problem is that
-the 'no upwards classifying' check:
+These are the commandlines:
 
-	if (cl == NULL || cl->level >= head->level)
-		goto fallback;
+tc qdisc add dev eth0 handle 1:0 root cbq bandwidth 12500000bps avpkt 1000      
+tc class add dev eth0 parent 1:0 classid 1:2 cbq bandwidth 12500000bps rate \
+	10000bps allot 1500 avpkt 1000 maxburst 5 bounded                              
+tc filter add dev eth0 parent 1:0 protocol ip prio 1 handle 1:0:0 u32 \
+          divisor 1
+tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 match u32 \             
+	0xd5f4a8d2 0xffffffff at 16 classid 1:0  
 
-is only applied if the classifyer did not return an answer:
+In the last command, cbq_bind_filter is called with parent==0:
 
-	if (!head->filter_list || (result = tc_classify(skb,
-		head->filter_list, &res)) < 0)
-			goto fallback;
+static unsigned long cbq_bind_filter(struct Qdisc *sch, unsigned long parent,
+				     u32 classid)
+{
+	struct cbq_sched_data *q = (struct cbq_sched_data *)sch->data;
+	struct cbq_class *p = (struct cbq_class*)parent;
+	struct cbq_class *cl = cbq_class_lookup(q, classid);
 
-	if ((cl = (void*)res.class) == NULL) {
-		if (TC_H_MAJ(res.classid))
-			cl = cbq_class_lookup(q, res.classid);
-		else if ((cl = defmap[res.classid&TC_PRIO_MAX]) == NULL)
-			cl = defmap[TC_PRIO_BESTEFFORT];
-
-		if (cl == NULL || cl->level >= head->level)
-			goto fallback;
+	if (cl) {
+		if (p && p->level <= cl->level)
+			return 0;
+		cl->filters++;
+		return (unsigned long)cl;
 	}
+	return 0;
+}
 
-However, with the commandlines specified, the classifier returns.. head, and
-the loop prevention test is never performed.
+cl->level is in fact 1.
 
-Suggested fix is to move down the test to the end of the loop so it is
-always invoked before iterating. Another test that might sense is to see if
-head and cl differ before moving on. A loop is guaranteed in that case.
-
-I can build this into a patch if needed, but I suspect Alexey will want to
-write his own.
-
-Thanks for your time.
 
 Regards,
 
