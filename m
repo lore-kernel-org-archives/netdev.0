@@ -1,46 +1,33 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: 29 Mar 2005 17:11:59 +0200
-Message-ID: <20050329151159.GC63268@muc.de>
-References: <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com> <m1zmwn21hk.fsf@muc.de> <Pine.LNX.4.61.0503281124090.4269@chimarrao.boston.redhat.com>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Subject: Re: [PATCH] s390: claw network device driver
+Date: Tue, 29 Mar 2005 17:20:57 +0200
+Message-ID: <20050329152057.GA27840@wohnheim.fh-wedel.de>
+References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org> <20050329071002.GA16204@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Yusupov <dmitry_yus@yahoo.com>, mpm@selenic.com, andrea@suse.de,
-        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+        schwidefsky@de.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Tue, 29 Mar 2005 17:11:59 +0200
-To: Rik van Riel <riel@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0503281124090.4269@chimarrao.boston.redhat.com>
+In-Reply-To: <20050329071002.GA16204@havoc.gtf.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 28, 2005 at 11:24:55AM -0500, Rik van Riel wrote:
-> On Mon, 28 Mar 2005, Andi Kleen wrote:
-> 
-> > So in short using mempools on receiving is not needed.
-> 
-> It is, because you have to ensure that the memory that's
-> needed to receive network packets isn't tied up receiving
-> packets for non-critical sockets, which would leave the
-> critical sockets deadlocked.
+On Tue, 29 March 2005 02:10:02 -0500, Jeff Garzik wrote:
+>=20
+> As mentioned in the email, you want netdev, not linux-net...
 
-Again the in socket queue is in no way different from all
-the tens of hundreds of limited size queues that make 
-up a network. It is quite useless to concentrate on only
-one queue in the receiver computer, while all the others still can lose 
-packets.
+Just out of curiosity: why are there two mailing lists?  Especially if
+one of them is the Wrong One.
 
-The only way to solve such problems in the TCP/IP model
-is to retransmit at the source. This means the TCP write
-path needs to be reliable, but receiving does not need to be.
+J=F6rn
 
-TCP will continuing retransmitting for hours.  If you network
-system is so tied up that you cannot receive anything for hours
-then yes youre screwed, but I doubt memory reservation will fix
-such extreme problems.
-
--Andi
+--=20
+The competent programmer is fully aware of the strictly limited size of
+his own skull; therefore he approaches the programming task in full
+humility, and among other things he avoids clever tricks like the plague.=
+=20
+-- Edsger W. Dijkstra
