@@ -1,54 +1,35 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: (usagi-users 03019) Re: sysctl net.ipv6.conf.eth0.use_tempaddr
- only recogniced on interface start?
-Date: Thu, 10 Feb 2005 21:09:22 +0100
-Message-ID: <83D85B170EFC0F1C0451F2EB@worker.muc.bieringer.de>
-References: <F5812425CD96109163291692@worker.muc.bieringer.de>
- <20040830.180805.06423987.yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 4189] New: IPv6 link local addresses are not
+ assigned correctly on multiple-bonding enviromrnts
+Date: Thu, 10 Feb 2005 12:25:23 -0800
+Message-ID: <20050210122523.41276d5a.davem@davemloft.net>
+References: <20050210002356.500401f7.akpm@osdl.org>
+	<20050210.182225.07335127.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, initscripts-ipv6@deepspace6.net
-To: usagi-users@linux-ipv6.org
-In-Reply-To: <20040830.180805.06423987.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, ikebe.takashi@lab.ntt.co.jp, akpm@osdl.org,
+        ctindel@users.sourceforge.net, fubar@us.ibm.com,
+        bonding-devel@lists.sourceforge.net
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050210.182225.07335127.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 10 Feb 2005 18:22:25 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
---On Monday, August 30, 2004 06:08:05 PM +0900 "YOSHIFUJI Hideaki /
-=?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" <yoshfuji@linux-ipv6.org> wrote:
+> Ethernet devices is not allowed to change its MAC during it is up.
 
-> In article <F5812425CD96109163291692@worker.muc.bieringer.de> (at Mon, 30
-> Aug 2004 10:09:46 +0200), Peter Bieringer <pb@bieringer.de> says:
-> 
->> during playing around with RFC3041 capability in Linux kernel, I
->> recognized that the toggle (e.g. net.ipv6.conf.eth0.use_tempaddr) in
->> sysctl is only recognized if interface state changes from down to up,
->> which means you can't enable RFC3041 on an already running interface.
-> 
-> Not quite true. net.ipv6.conf.eth0.use_tempaddr is recognized, but 
-> new temporary addresses is created only when new public address is created
-> (by specification).
-> 
->> Is this 
->> 
->> a) by design
->> b) temporary issue, will be solved later
->> c) bug, will be solved soon
-> 
-> a
-> 
-> and even b; we can probably extend our implementation 
-> to create temprary address when net.ipv6.conf.eth0.use_tempaddr is
-> changed  from 0 to 1.
+This is not true.
 
-Any news on that? Have you plans to implement it?
+All ethernet drivers try to support this, and just about all do.
+This is what dev->set_mac_address() driver routine implements.
 
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+I guess this causes problems for ipv6 local addresses, it
+will need to catch some callback to handle these events and
+thus adjust the local address properly.
+
+This is the real bug in my opinion, ipv4 handles this situation
+just fine.
