@@ -1,67 +1,97 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
-Date: Fri, 28 Nov 2003 09:40:22 +0900 (JST)
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Allow multiple dummy devices again
+Date: Fri, 28 Nov 2003 01:44:45 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031128.094022.106776635.yoshfuji@linux-ipv6.org>
-References: <1069974209.5349.7.camel@teapot.felipe-alfaro.com>
-	<20031128.092326.39861126.yoshfuji@linux-ipv6.org>
-	<20031128.092642.47232575.yoshfuji@linux-ipv6.org>
+Message-ID: <20031128004445.GA2870@averell>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: rmk+lkml@arm.linux.org.uk, davem@redhat.com, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: felipe_alfaro@linuxmail.org
-In-Reply-To: <20031128.092642.47232575.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20031128.092642.47232575.yoshfuji@linux-ipv6.org> (at Fri, 28 Nov 2003 09:26:42 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-> >  3)   if (len)
-> >          strncpy(dst, src, len - 1);
-> >       dst[len] = 0;
+In 2.6 the old trick of copying the dummy module to get multiple dummy
+devices doesn't work anymore because the "dummy" device name is embedded
+in the module. 
 
-grr, another mistake...:
+This patch adds a new module option that allows to specify how many
+dummy devices you want.
 
-          if (len) {
-             strncpy(dst, src, len - 1);
-             dst[len - 1];
-          }
+-Andi
 
-----------------
-1) use strlcpy0(dst, src, len)
-
-size_t strlcpy0(char *dst, const char *src, size_t maxlen)
-{
-  size_t len = strlcpy(dst, src, maxlen);
-  if (likely(maxlen != 0) && len < maxlen - 1)
-    memset(dst + len + 1, 0, maxlen - len - 1);
-}
-
-2a) use strncpy0(dst, src, len)
-
-char *strncpy0(char *dst, const char *src, size_t maxlen)
-{
-  memset(dst, 0, maxlen);
-  if (likely(maxlen != 0))
-    strncpy(dst, src, maxlen - 1);
-}
-
-2b) fix strncpy() to zero-out rest of destination buffer 
-    and use strncpy0(dst, src, len)
-
-char *strncpy0(char *dst, const char *src, size_t maxlen)
-{
-  if (likely(maxlen != 0)) {
-    strncpy(dst, src, maxlen - 1);
-    dst[maxlen - 1] = 0;
-  }
-}
-
-
-I prefer 1 > 2b >> 2a.
-
---yoshfuji
+diff -u linux/drivers/net/dummy.c-o linux-2.6.0test11-amd64/drivers/net/dummy.c
+--- linux/drivers/net/dummy.c-o	2003-09-11 04:12:33.000000000 +0200
++++ linux/drivers/net/dummy.c	2003-11-28 01:40:47.000000000 +0100
+@@ -34,6 +34,8 @@
+ #include <linux/netdevice.h>
+ #include <linux/init.h>
+ 
++static int numdummies = 1;
++
+ static int dummy_xmit(struct sk_buff *skb, struct net_device *dev);
+ static struct net_device_stats *dummy_get_stats(struct net_device *dev);
+ 
+@@ -83,10 +85,14 @@
+ 	return dev->priv;
+ }
+ 
+-static struct net_device *dev_dummy;
++static struct net_device **dummies;
+ 
+-static int __init dummy_init_module(void)
++/* Number of dummy devices to be set up by this module. */
++MODULE_PARM(numdummies, "i")
++
++static int __init dummy_init_one(int index)
+ {
++	struct net_device *dev_dummy;
+ 	int err;
+ 
+ 	dev_dummy = alloc_netdev(sizeof(struct net_device_stats),
+@@ -98,15 +104,40 @@
+ 	if ((err = register_netdev(dev_dummy))) {
+ 		kfree(dev_dummy);
+ 		dev_dummy = NULL;
++	} else {
++		dummies[index] = dev_dummy; 
+ 	}
++
+ 	return err;
+ }
+ 
++static void __exit dummy_free_one(int index) 
++{
++	unregister_netdev(dummies[index]);
++	free_netdev(dummies[index]);
++} 
++
++static int __init dummy_init_module(void)
++{ 
++	int i, err = 0;
++	dummies = kmalloc(numdummies * sizeof(void *), GFP_KERNEL); 
++	if (!dummies)
++		return -ENOMEM; 
++	for (i = 0; i < numdummies && !err; i++)
++		err = dummy_init_one(i); 
++	if (err) { 
++		while (--i >= 0)
++			dummy_free_one(i);
++	}
++	return err;
++} 
++
+ static void __exit dummy_cleanup_module(void)
+ {
+-	unregister_netdev(dev_dummy);
+-	free_netdev(dev_dummy);
+-	dev_dummy = NULL;
++	int i;
++	for (i = 0; i < numdummies; i++) 
++		dummy_free_one(i); 
++	kfree(dummies);	
+ }
+ 
+ module_init(dummy_init_module);
