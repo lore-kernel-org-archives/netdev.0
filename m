@@ -1,28 +1,49 @@
-From: deliver_photo@yahoo.co.jp
-Subject: =?iso-2022-jp?B?g2aDioNvg4qBW1BIT1RPIJP8ie+Krpe5?=
-Date: Wed, 27 Oct 2004 11:28:16 +0900 (JST)
+From: David Gibson <hermes@gibson.dropbear.id.au>
+Subject: Re: [PATCHES] wireless: Update in-kernel orinoco driver
+Date: Wed, 27 Oct 2004 12:05:36 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027022816.233CA588041@mail.zl8.jp>
+Message-ID: <20041027020536.GF7925@zax>
+References: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@redhat.com, Pavel Roskin <proski@gnu.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Dan Williams <dcbw@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-※このメールは登録者への自動返信メールです。
+On Tue, Oct 26, 2004 at 02:12:00PM -0400, Dan Williams wrote:
+> This series of 15 patches updates the in-kernel orinoco wireless drivers
+> to the level of current upstream orinoco CVS (from sourceforge).  This
+> level is "0.15rc2HEAD" as found in orinoco.h.
+> 
+> The basis for this patchset was:
+> 
+> upstream orinoco CVS from Mon, Oct 25
+> kernel sources from linux-2.6.9.tar.bz2 + patch-2.6.10-rc1.bz2
+> 
+> This is a revival of an effort to get the drivers up-to-date from
+> earlier this year in July.
 
-貴方の個人識別コードとメールアドレスを認証し会員登録が完了しました。
+This is a much better effort at splitting up the CVS differences than
+the last one I saw, but there are still some problems.  In particular,
+you've aimed the patch series at the CVS HEAD branch, which isn't what
+we want to do.  We want to merge to mainline the "for_linus" branch ,
+not HEAD.  The HEAD branch has a bunch of compatibility code so that
+the code can work standalone against a range of kernels - this should
+not be merge.  Also it has several things that are there because they
+kind-of work, but are really too ugly to live and should not be merged
+to mainline.
 
-次回からはこちらよりご入場下さい。
+Some more specific comments coming, on the individual patches.
 
-http://www.eyc.jp/~gazou/gallery.php?id=bmV0ZGV2QG9zcy5zZ2kuY29t
+Oh, and CCing Pavel Roskin <proski@gnu.org> the other orinoco
+maintainer would be a good idea, too.
 
-利用料金は登録された日から３日以内にお振込下さい。
-
-＜利用規約＞
-http://www.eyc.jp/~gazou/kiyaku.html
-
-【サポートセンター】
-
-問合せ先　deliver_photo@yahoo.co.jp
-
-運営者 デリバリーPHOTO事務局
+-- 
+David Gibson			| For every complex problem there is a
+david AT gibson.dropbear.id.au	| solution which is simple, neat and
+				| wrong.
+http://www.ozlabs.org/people/dgibson
