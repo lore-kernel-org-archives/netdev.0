@@ -1,50 +1,46 @@
-From: Andrea Arcangeli <andrea@suse.de>
-Subject: Re: route cache DoS testing and softirqs
-Date: Tue, 30 Mar 2004 23:37:42 +0200
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: linux/802_11.h header
+Date: Tue, 30 Mar 2004 13:51:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040330213742.GL3808@dualathlon.random>
-References: <20040329222926.GF3808@dualathlon.random> <200403302005.AAA00466@yakov.inr.ac.ru> <20040330211450.GI3808@dualathlon.random> <20040330133000.098761e2.davem@redhat.com>
+Message-ID: <20040330215128.GA13891@bougret.hpl.hp.com>
+References: <Pine.LNX.4.58.0403301514080.7498@marabou.research.att.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, dipankar@in.ibm.com, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, Robert.Olsson@data.slu.se, paulmck@us.ibm.com,
-        akpm@osdl.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Pavel Roskin <proski@gnu.org>
 Content-Disposition: inline
-In-Reply-To: <20040330133000.098761e2.davem@redhat.com>
+In-Reply-To: <Pine.LNX.4.58.0403301514080.7498@marabou.research.att.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2004 at 01:30:00PM -0800, David S. Miller wrote:
-> On Tue, 30 Mar 2004 23:14:50 +0200
-> Andrea Arcangeli <andrea@suse.de> wrote:
+On Tue, Mar 30, 2004 at 03:28:58PM -0500, Pavel Roskin wrote:
+> Hello!
 > 
-> > > There are no hardirqs in the case under investigation, remember?
-> > 
-> > no hardirqs? there must be tons of hardirqs if ksoftirqd never runs.
+> I see that include/linux/802_11.h in Linux 2.6.5-rc2-bk9 is included by
+> only one file, namely drivers/net/wireless/atmel_cs.c.  In fact,
+> atmel_cs.c doesn't need it (tested by compiling it).
 > 
-> NAPI should be kicking in for this workload, and I know for a fact it is
-> for Robert's case.  There should only be a few thousand hard irqs per
-> second.
+> The 802_11.h header contains some definitions already present in
+> drivers/net/wireless/ieee802_11.h, which is used by some drivers.  For
+> instance, frame subtypes are listed in both.
 > 
-> Until the RX ring is depleted the device's hardirqs will not be re-
-> enabled.
+> 802_11.h also has useful definitions that should be elsewhere, such as
+> ieee_802_3_header and ieee_802_11_802_2_header.  I was tempted to use some
+> definitions from 802_11.h, but then realized that it may be deprecated if
+> nobody is using it.
+> 
+> Does anybody know who wrote 802_11.h, whether it's deprecated, and if not,
+> why it's not used?
+> 
+> -- 
+> Regards,
+> Pavel Roskin
 
-then Dipankar is reproducing with a workload that is completely
-different. I've only seen the emails from Dipankar so I couldn't know it
-was a NAPI load.
+	Pavel,
 
-He posted these numbers:
+	Why don't you ask Simon directly ?
+	Have fun...
 
-	softirq_count, ksoftirqd_count and other_softirq_count shows -
-	
-	CPU 0 : 638240  554     637686
-	CPU 1 : 102316  1       102315
-	CPU 2 : 675696  557     675139
-	CPU 3 : 102305  0       102305
-
-that means nothing runs in ksoftirqd for Dipankar, so he cannot be using
-NAPI.
-
-Either that or I'm misreading his numbers, or his stats results are wrong.
+	Jean
