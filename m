@@ -1,23 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (5/6) ipvs -- use time_before/after
-Date: Sat, 20 Sep 2003 01:07:16 -0700
+Subject: Re: [PATCH] deprecate dev_get
+Date: Sat, 20 Sep 2003 01:10:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030920010716.74e6bad8.davem@redhat.com>
-References: <20030916142227.6dddd19d.shemminger@osdl.org>
-	<Pine.LNX.4.44.0309180039350.15676-100000@penguin.linux-vs.org>
+Message-ID: <20030920011010.3337d12d.davem@redhat.com>
+References: <20030915171230.68c08e26.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, lvs-users@LinuxVirtualServer.org, netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-In-Reply-To: <Pine.LNX.4.44.0309180039350.15676-100000@penguin.linux-vs.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030915171230.68c08e26.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Sep 2003 00:40:34 +0800 (CST)
-Wensong Zhang <wensong@linux-vs.org> wrote:
+On Mon, 15 Sep 2003 17:12:30 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> It's a good change. Dave, please apply it to your repository.
+> The interface dev_get has past it's usefulness.  I sent out patches
+> that remove the two other uses left of it in the 2.6 tree.
+> 
+> This marks it as deprecated because there still may be out of tree
+> drivers that use it.
 
-Done.
+I've applied this, and I'll apply your fix next.
+
+Even though Jeff hasn't pushed your other bits yet, the warnings will
+just go away once he gets to that.
