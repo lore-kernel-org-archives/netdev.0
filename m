@@ -1,135 +1,60 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: [Ipsec-tools-devel] more phase 2 reinitiation problems
-Date: Fri, 18 Mar 2005 15:43:47 +0100 (CET)
-Message-ID: <Pine.LNX.4.62.0503181523510.4403@bizon.gios.gov.pl>
-References: <42334B29.2080504@gmx.at>
+From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Subject: Re: [RFC] TCP congestion schedulers
+Date: Fri, 18 Mar 2005 13:13:45 -0300
+Message-ID: <39e6f6c7050318081371238254@mail.gmail.com>
+References: <421CF5E5.1060606@ev-en.org>
+	 <20050309210442.3e9786a6.davem@davemloft.net>
+	 <4230288F.1030202@ev-en.org>
+	 <20050310182629.1eab09ec.davem@davemloft.net>
+	 <20050311120054.4bbf675a@dxpl.pdx.osdl.net>
+	 <20050311201011.360c00da.davem@davemloft.net>
+	 <20050314151726.532af90d@dxpl.pdx.osdl.net>
+	 <20050317201231.6d575e0b.davem@davemloft.net>
+	 <39e6f6c705031804531c2c557f@mail.gmail.com>
+	 <1111153298.1146.35.camel@jzny.localdomain>
+Reply-To: acme@conectiva.com.br
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-1420858565-1111157027=:4403"
-Cc: ipsec-tools-devel@lists.sourceforge.net, netdev@oss.sgi.com
-To: Wilfried Weissmann <Wilfried.Weissmann@gmx.at>
-In-Reply-To: <42334B29.2080504@gmx.at>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Stephen Hemminger <shemminger@osdl.org>, baruch@ev-en.org,
+        netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1111153298.1146.35.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On 18 Mar 2005 08:43:04 -0500, jamal <hadi@cyberus.ca> wrote:
+> On Fri, 2005-03-18 at 07:53, Arnaldo Carvalho de Melo wrote:
+> 
+> > > I'm also not so religious anymore about retaining the existing
+> > > sysctl functionality to enable/disable ca algs.
+> >
+> > I haven't looked over this patch completely, so I may well be saying something
+> > stupid, but if possible, please don't use the tcp/TCP prefix where you
+> > think this
+> > code can be used by other inet transport protocols, such as DCCP.
+> 
+> Yes, that would be really nice.
+> 
+> Also heres another thought: if we can have multiple sockets, destined to
+> the same receiver, to share the same congestion state. This is motivated
+> from the CM idea the MIT folks were preaching a few years ago - look at
+> RFC 3124 and the MIT website which had some crude linux code back then
+> as well as tons of papers. I think
+> that scheme may need to hook up to tc to work well.
 
----187430788-1420858565-1111157027=:4403
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+The DCCP drafts mention that they choose not to require the CM, but yes, it is
+something to consider anyway, its interesting stuff.
 
+Again without looking at the patch fully, the tcp_sock passing to this
+infrastructure
+would have to go away and instead chunk out the needed members out of tcp_sock
+and into a congestion_info struct that would be a member of both tcp_sock and
+dccp_sock, and this one would be the one passed to this infrastructure.
 
+In the end we may well give Sally et al some new CCIDs for free :-P
 
-On Sat, 12 Mar 2005, Wilfried Weissmann wrote:
-
-> Hi,
-Hi,
-
-> The rekeying also fails with debian's racoon 0.5 <=3D<internet>=3D> WinXP=
- (see=20
-> Problem with Linux-2.6.x+ipsec-tools-0.4/0.5-rc1/0.5rc2 & Linksys BEFSX41=
-). I=20
-> am running the linux 2.6.11.2 kernel with IPSec connection tracking patch=
-es.=20
-> The configuration file and the log is attached.
-> I also have problems between 2 linux boxes in the LAN but the other box i=
-s=20
-> still running racoon 0.3.3 which might be the cause of the LAN trouble.
-
-Please giva a try try the 2.6.12-rc1 kernel. I have just upgraded my=20
-system to this kernel and it seems that IPSec is able to survive first=20
-rekeying. Unfortunately only a first one - after a while (just before=20
-removing old expired keys) one of newly generated keys get removed and new=
-=20
-traffic racoon generates two news keys. OK, it is _much_ better but=20
-still... not perfect.
-
-My log with some comments:
-
-Mar 18 11:47:36 gw1 racoon: INFO: @(#)ipsec-tools 0.5 (http://ipsec-tools.s=
-ourceforge.net)
-Mar 18 11:47:36 gw1 racoon: INFO: @(#)This product linked OpenSSL 0.9.7e 25=
- Oct 2004 (http://www.openssl.org/)
-Mar 18 11:47:36 gw1 racoon: INFO: XXX.XX.XX.XX[500] used as isakmp port (fd=
-=3D7)
-Mar 18 11:47:36 gw1 racoon: INFO: XXX.XX.XX.XX[500] used for NAT-T
-Mar 18 11:48:09 gw1 racoon: INFO: IPsec-SA request for YY.YY.YYY.YYY queued=
- due to no phase1 found.
-Mar 18 11:48:09 gw1 racoon: INFO: initiate new phase 1 negotiation: XXX.XX.=
-XX.XX[500]<=3D>YY.YY.YYY.YYY[500]
-Mar 18 11:48:09 gw1 racoon: INFO: begin Identity Protection mode.
-Mar 18 11:48:19 gw1 racoon: INFO: ISAKMP-SA established XXX.XX.XX.XX[500]-Y=
-Y.YY.YYY.YYY[500] spi:a2acc8844df9591b:29621f95bfa3 8d45
-Mar 18 11:48:20 gw1 racoon: INFO: initiate new phase 2 negotiation: XXX.XX.=
-XX.XX[0]<=3D>YY.YY.YYY.YYY[0]
-Mar 18 11:48:23 gw1 racoon: WARNING: attribute has been modified.
-Mar 18 11:48:23 gw1 racoon: INFO: IPsec-SA established: ESP/Tunnel YY.YY.YY=
-Y.YYY->XXX.XX.XX.XX spi=3D172047746(0xa413d82)
-Mar 18 11:48:23 gw1 racoon: INFO: IPsec-SA established: ESP/Tunnel XXX.XX.X=
-X.XX->YY.YY.YYY.YYY spi=3D993793125(0x3b3c1465)
-OK. Kernel noticed some traffic and racooon generates new keys.
-
-Mar 18 12:36:23 gw1 racoon: INFO: IPsec-SA expired: ESP/Tunnel YY.YY.YYY.YY=
-Y->XXX.XX.XX.XX spi=3D172047746(0xa413d82)
-Mar 18 12:36:23 gw1 racoon: INFO: initiate new phase 2 negotiation: XXX.XX.=
-XX.XX[0]<=3D>YY.YY.YYY.YYY[0]
-Mar 18 12:36:23 gw1 racoon: INFO: IPsec-SA expired: ESP/Tunnel XXX.XX.XX.XX=
-->YY.YY.YYY.YYY spi=3D993793125(0x3b3c1465)
-Mar 18 12:36:27 gw1 racoon: WARNING: attribute has been modified.
-Mar 18 12:36:27 gw1 racoon: INFO: IPsec-SA established: ESP/Tunnel YY.YY.YY=
-Y.YYY->XXX.XX.XX.XX spi=3D31676947(0x1e35a13)
-Mar 18 12:36:27 gw1 racoon: INFO: IPsec-SA established: ESP/Tunnel XXX.XX.X=
-X.XX->YY.YY.YYY.YYY spi=3D677995285(0x28696315)
-OK! :) Old keys have just expired and racoon generates new ones. No=20
-infinite loop! ;-) Yes!
-
-Mar 18 12:48:18 gw1 racoon: INFO: purged IPsec-SA proto_id=3DESP spi=3D6779=
-95285.
-But what is this? We have just generated new key with spi=3D677995285. Why=
-=20
-it is now purged?
-
-Mar 18 12:48:19 gw1 racoon: INFO: purged ISAKMP-SA proto_id=3DISAKMP spi=3D=
-a2acc8844df9591b:29621f95bfa38d45.
-Mar 18 12:48:20 gw1 racoon: INFO: ISAKMP-SA deleted XXX.XX.XX.XX[500]-YY.YY=
-=2EYYY.YYY[500] spi:a2acc8844df9591b:29621f95bfa38d45
-
-Mar 18 12:48:20 gw1 racoon: ERROR: unknown Informational exchange received.
-Mar 18 12:48:23 gw1 racoon: INFO: IPsec-SA expired: ESP/Tunnel YY.YY.YYY.YY=
-Y->XXX.XX.XX.XX spi=3D172047746(0xa413d82)
-Mar 18 12:48:23 gw1 racoon: INFO: IPsec-SA expired: ESP/Tunnel XXX.XX.XX.XX=
-->YY.YY.YYY.YYY spi=3D993793125(0x3b3c1465)
-OK. Oldest keys now really expired, they are removed.
-
-Mar 18 12:51:31 gw1 racoon: INFO: IPsec-SA request for YY.YY.YYY.YYY queued=
- due to no phase1 found.
-Mar 18 12:51:31 gw1 racoon: INFO: initiate new phase 1 negotiation: XXX.XX.=
-XX.XX[500]<=3D>YY.YY.YYY.YYY[500]
-Mar 18 12:51:31 gw1 racoon: INFO: begin Identity Protection mode.
-Mar 18 12:51:40 gw1 racoon: INFO: ISAKMP-SA established XXX.XX.XX.XX[500]-Y=
-Y.YY.YYY.YYY[500] spi:8f29dd5a50fd83dd:ae84b9eee139 89e5
-Mar 18 12:51:41 gw1 racoon: INFO: initiate new phase 2 negotiation: XXX.XX.=
-XX.XX[0]<=3D>YY.YY.YYY.YYY[0]
-Mar 18 12:51:43 gw1 racoon: WARNING: attribute has been modified.
-Mar 18 12:51:43 gw1 racoon: INFO: IPsec-SA established: ESP/Tunnel YY.YY.YY=
-Y.YYY->XXX.XX.XX.XX spi=3D140244397(0x85bf5ad)
-Mar 18 12:51:43 gw1 racoon: INFO: IPsec-SA established: ESP/Tunnel XXX.XX.X=
-X.XX->YY.YY.YYY.YYY spi=3D3173924318(0xbd2e3dde)
-Kernel noticed some traffic (again), there is no known key for encription=
-=20
-(it was pugred @12:48:18), racooon generates new keys.
-
-Mar 18 13:24:27 gw1 racoon: INFO: IPsec-SA expired: ESP/Tunnel YY.YY.YYY.YY=
-Y->XXX.XX.XX.XX spi=3D31676947(0x1e35a13)
-Mar 18 13:36:27 gw1 racoon: INFO: IPsec-SA expired: ESP/Tunnel YY.YY.YYY.YY=
-Y->XXX.XX.XX.XX spi=3D31676947(0x1e35a13)
-Mar 18 13:39:43 gw1 racoon: INFO: IPsec-SA expired: ESP/Tunnel YY.YY.YYY.YY=
-Y->XXX.XX.XX.XX spi=3D140244397(0x85bf5ad)=20
-Old keys get expired. BTW: Why key with spi=3D31676947 is expired twice?
-(...)
-
-Best regards,
-
- =09=09=09Krzysztof Ol=EAdzki
----187430788-1420858565-1111157027=:4403--
+-- 
+- Arnaldo
