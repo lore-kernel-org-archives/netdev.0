@@ -1,7 +1,7 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] bluetooth: make some code static
-Date: Sun, 19 Dec 2004 17:34:42 +0100
-Message-ID: <20041219163442.GC21288@stusta.de>
+Subject: [2.6 patch] bluetooth/cmtp/capi.c: make a function static
+Date: Sun, 19 Dec 2004 17:34:21 +0100
+Message-ID: <20041219163421.GB21288@stusta.de>
 References: <20041214041352.GZ23151@stusta.de> <1103009649.2143.65.camel@pegasus> <20041219160758.GY21288@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -16,121 +16,68 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch below makes some needlessly global code static.
+The patch below makes a needlessly global function static.
 
 
 diffstat output:
- include/net/bluetooth/hci_core.h |    2 --
- net/bluetooth/hci_conn.c         |    2 +-
- net/bluetooth/hci_core.c         |    4 ++--
- net/bluetooth/hci_sock.c         |   10 +++++-----
- net/bluetooth/l2cap.c            |    2 +-
- 5 files changed, 9 insertions(+), 11 deletions(-)
+ net/bluetooth/cmtp/capi.c |   28 +++++++++++++---------------
+ net/bluetooth/cmtp/cmtp.h |    1 -
+ 2 files changed, 13 insertions(+), 16 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/include/net/bluetooth/hci_core.h.old	2004-12-14 02:13:54.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/bluetooth/hci_core.h	2004-12-14 02:31:34.000000000 +0100
-@@ -277,7 +277,6 @@
- 	return NULL;
- }
+--- linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/cmtp.h.old	2004-12-18 01:44:36.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/cmtp.h	2004-12-18 02:28:40.000000000 +0100
+@@ -120,7 +120,6 @@
+ void cmtp_detach_device(struct cmtp_session *session);
  
--void hci_acl_connect(struct hci_conn *conn);
- void hci_acl_disconn(struct hci_conn *conn, __u8 reason);
- void hci_add_sco(struct hci_conn *conn, __u16 handle);
+ void cmtp_recv_capimsg(struct cmtp_session *session, struct sk_buff *skb);
+-void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb);
  
-@@ -589,6 +583,5 @@
- #define hci_req_unlock(d)	up(&d->req_lock)
- 
- void hci_req_complete(struct hci_dev *hdev, int result);
--void hci_req_cancel(struct hci_dev *hdev, int err);
- 
- #endif /* __HCI_CORE_H */
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_conn.c.old	2004-12-14 02:14:10.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_conn.c	2004-12-14 02:14:15.000000000 +0100
-@@ -53,7 +53,7 @@
- #define BT_DBG(D...)
- #endif
- 
--void hci_acl_connect(struct hci_conn *conn)
-+static void hci_acl_connect(struct hci_conn *conn)
+ static inline void cmtp_schedule(struct cmtp_session *session)
  {
- 	struct hci_dev *hdev = conn->hdev;
- 	struct inquiry_entry *ie;
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_core.c.old	2004-12-14 02:14:53.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_core.c	2004-12-14 02:31:09.000000000 +0100
-@@ -59,7 +59,7 @@
- static void hci_tx_task(unsigned long arg);
- static void hci_notify(struct hci_dev *hdev, int event);
- 
--rwlock_t hci_task_lock = RW_LOCK_UNLOCKED;
-+static rwlock_t hci_task_lock = RW_LOCK_UNLOCKED;
- 
- /* HCI device list */
- LIST_HEAD(hci_dev_list);
-@@ -106,7 +106,7 @@
- 	}
+--- linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/capi.c.old	2004-12-18 01:44:43.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/capi.c	2004-12-19 17:09:00.000000000 +0100
+@@ -139,6 +139,19 @@
+ 	return session->msgnum;
  }
  
--void hci_req_cancel(struct hci_dev *hdev, int err)
-+static void hci_req_cancel(struct hci_dev *hdev, int err)
++static void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb)
++{
++	struct cmtp_scb *scb = (void *) skb->cb;
++
++	BT_DBG("session %p skb %p len %d", session, skb, skb->len);
++
++	scb->id = -1;
++	scb->data = (CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3);
++
++	skb_queue_tail(&session->transmit, skb);
++
++	cmtp_schedule(session);
++}
+ 
+ static void cmtp_send_interopmsg(struct cmtp_session *session,
+ 					__u8 subcmd, __u16 appl, __u16 msgnum,
+@@ -337,21 +350,6 @@
+ 	capi_ctr_handle_message(ctrl, appl, skb);
+ }
+ 
+-void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb)
+-{
+-	struct cmtp_scb *scb = (void *) skb->cb;
+-
+-	BT_DBG("session %p skb %p len %d", session, skb, skb->len);
+-
+-	scb->id = -1;
+-	scb->data = (CAPIMSG_COMMAND(skb->data) == CAPI_DATA_B3);
+-
+-	skb_queue_tail(&session->transmit, skb);
+-
+-	cmtp_schedule(session);
+-}
+-
+-
+ static int cmtp_load_firmware(struct capi_ctr *ctrl, capiloaddata *data)
  {
- 	BT_DBG("%s err 0x%2.2x", hdev->name, err);
- 
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_sock.c.old	2004-12-14 02:16:59.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_sock.c	2004-12-14 02:17:59.000000000 +0100
-@@ -447,7 +447,7 @@
- 	goto done;
- }
- 
--int hci_sock_setsockopt(struct socket *sock, int level, int optname, char __user *optval, int len)
-+static int hci_sock_setsockopt(struct socket *sock, int level, int optname, char __user *optval, int len)
- {
- 	struct hci_ufilter uf = { .opcode = 0 };
- 	struct sock *sk = sock->sk;
-@@ -514,7 +514,7 @@
- 	return err;
- }
- 
--int hci_sock_getsockopt(struct socket *sock, int level, int optname, char __user *optval, int __user *optlen)
-+static int hci_sock_getsockopt(struct socket *sock, int level, int optname, char __user *optval, int __user *optlen)
- {
- 	struct hci_ufilter uf;
- 	struct sock *sk = sock->sk;
-@@ -567,7 +567,7 @@
- 	return 0;
- }
- 
--struct proto_ops hci_sock_ops = {
-+static struct proto_ops hci_sock_ops = {
- 	.family		= PF_BLUETOOTH,
- 	.owner		= THIS_MODULE,
- 	.release	= hci_sock_release,
-@@ -647,13 +647,13 @@
- 	return NOTIFY_DONE;
- }
- 
--struct net_proto_family hci_sock_family_ops = {
-+static struct net_proto_family hci_sock_family_ops = {
- 	.family	= PF_BLUETOOTH,
- 	.owner	= THIS_MODULE,
- 	.create	= hci_sock_create,
- };
- 
--struct notifier_block hci_sock_nblock = {
-+static struct notifier_block hci_sock_nblock = {
- 	.notifier_call = hci_sock_dev_event
- };
- 
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/l2cap.c.old	2004-12-14 02:18:13.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/l2cap.c	2004-12-14 02:18:21.000000000 +0100
-@@ -61,7 +61,7 @@
- 
- static struct proto_ops l2cap_sock_ops;
- 
--struct bt_sock_list l2cap_sk_list = {
-+static struct bt_sock_list l2cap_sk_list = {
- 	.lock = RW_LOCK_UNLOCKED
- };
- 
+ 	BT_DBG("ctrl %p data %p", ctrl, data);
