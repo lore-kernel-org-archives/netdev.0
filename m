@@ -1,19 +1,20 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] LSM networking update: netlink hooks (5/5)
-Date: Fri, 07 Feb 2003 01:38:23 -0800 (PST)
+From: "Andreas Herrmann" <AHERRMAN@de.ibm.com>
+Subject: (unknown)
+Date: Fri, 7 Feb 2003 11:21:04 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030207.013823.95513672.davem@redhat.com>
-References: <Pine.LNX.4.44.0302070218060.2174-100000@blackbird.intercode.com.au>
-	<Pine.LNX.4.44.0302070221120.2174-100000@blackbird.intercode.com.au>
+Message-ID: <OF9AF77F45.D9358485-ONC1256CC6.0038CFEF@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, linux-security-module@wirex.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
-In-Reply-To: <Pine.LNX.4.44.0302070221120.2174-100000@blackbird.intercode.com.au>
+To: netdev@oss.sgi.com
+Subject: 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+help
 
-All LSM networking patches applied, thanks a lot James.
+--
+Linux for eServer Development
+Tel :  +49-7031-16-4640
+Notes mail :  Andreas Herrmann/GERMANY/IBM@IBMDE
+email :  aherrman@de.ibm.com
