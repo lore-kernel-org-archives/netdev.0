@@ -1,32 +1,25 @@
-From: Andi Kleen <ak@muc.de>
-Subject: [PATCH] Mark IBM TR driver as not 64 bit clean
-Date: Fri, 9 Jan 2004 10:09:08 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] (1/17)  protocol sendmsg/revmsg prototype
+Date: Fri, 9 Jan 2004 01:55:27 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040109090908.GA1772@averell>
+Message-ID: <20040109015527.1131a9ab.davem@redhat.com>
+References: <20040109132658.01aa28dd@linux.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, mikep@linuxtr.net, linux-tr@linuxtr.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-Content-Disposition: inline
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040109132658.01aa28dd@linux.local>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 9 Jan 2004 13:26:58 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-This driver doesn't seem to be 64bit clean judging from the warnings
-on x86-64. Mark it as !64BIT.
+> The first patch changes the prototype, and causes all the protocols to
+> generate warnings that are cleared up in the next sixteen.
 
--Andi
+All added to my 2.6.2-preX pending tree.
 
-diff -burpN -X ../KDIFX linux-vanilla/drivers/net/pcmcia/Kconfig linux-2.6.1-amd64/drivers/net/pcmcia/Kconfig
---- linux-vanilla/drivers/net/pcmcia/Kconfig	2003-09-28 10:55:00.000000000 +0200
-+++ linux-2.6.1-amd64/drivers/net/pcmcia/Kconfig	2004-01-01 06:56:50.000000000 +0100
-@@ -119,7 +119,7 @@ config ARCNET_COM20020_CS
- 
- config PCMCIA_IBMTR
- 	tristate "IBM PCMCIA tokenring adapter support"
--	depends on NET_PCMCIA && IBMTR!=y && TR && PCMCIA
-+	depends on NET_PCMCIA && IBMTR!=y && TR && PCMCIA && !64BIT
- 	help
- 	  Say Y here if you intend to attach this type of Token Ring PCMCIA
- 	  card to your computer. You then also need to say Y to "Token Ring
+Thanks Stephen.
