@@ -1,75 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
-Date: Wed, 20 Aug 2003 00:36:48 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] get rid of unused argument
+Date: Tue, 19 Aug 2003 15:56:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030820003648.A23942@electric-eye.fr.zoreil.com>
-References: <20030818122702.67e9162d.shemminger@osdl.org> <20030818232554.A7779@electric-eye.fr.zoreil.com> <20030818150514.310f6f5d.shemminger@osdl.org> <20030819002637.B7779@electric-eye.fr.zoreil.com>
+Message-ID: <20030819155629.7201f947.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jean Tourrilhes <jt@bougret.hpl.hp.com>,
-   "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030819002637.B7779@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Tue, Aug 19, 2003 at 12:26:37AM +0200
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Apply on top of Stephen's serie [1-4]. Compile ok.
+dev_get_idx doesn't need the first arg..
 
-Style: separate data from code.
-
-
- net/irda/irlan/irlan_filter.c |   34 ++++++++++++++++++++--------------
- 1 files changed, 20 insertions(+), 14 deletions(-)
-
-diff -puN net/irda/irlan/irlan_filter.c~irlan-fr-0 net/irda/irlan/irlan_filter.c
---- linux-2.6.0-test3/net/irda/irlan/irlan_filter.c~irlan-fr-0	Wed Aug 20 00:07:37 2003
-+++ linux-2.6.0-test3-fr/net/irda/irlan/irlan_filter.c	Wed Aug 20 00:18:50 2003
-@@ -218,23 +218,29 @@ void irlan_check_command_param(struct ir
-  *
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	Tue Aug 19 15:55:00 2003
++++ b/net/core/dev.c	Tue Aug 19 15:55:00 2003
+@@ -1836,8 +1836,7 @@
+  *	This is invoked by the /proc filesystem handler to display a device
+  *	in detail.
   */
- #ifdef CONFIG_PROC_FS
-+#define MASK2STR(m,s)	{ .mask = m, .str = s }
-+
- void irlan_print_filter(struct seq_file *seq, int filter_type)
+-static __inline__ struct net_device *dev_get_idx(struct seq_file *seq,
+-						 loff_t pos)
++static __inline__ struct net_device *dev_get_idx(loff_t pos)
  {
--	if (filter_type & IRLAN_DIRECTED)
--		seq_printf(seq, "%s", "DIRECTED ");
--	if (filter_type & IRLAN_FUNCTIONAL)
--		seq_printf(seq, "%s", "FUNCTIONAL ");
--	if (filter_type & IRLAN_GROUP)
--		seq_printf(seq, "%s", "GROUP ");
--	if (filter_type & IRLAN_MAC_FRAME)
--		seq_printf(seq, "%s", "MAC_FRAME ");
--	if (filter_type & IRLAN_MULTICAST)
--		seq_printf(seq, "%s", "MULTICAST ");
--	if (filter_type & IRLAN_BROADCAST)
--		seq_printf(seq, "%s", "BROADCAST ");
--	if (filter_type & IRLAN_IPX_SOCKET)
--		seq_printf(seq, "%s", "IPX_SOCKET");
-+	static struct {
-+		int mask;
-+		const char *str;
-+	} filter_mask2str[] = {
-+		MASK2STR(IRLAN_DIRECTED,	"DIRECTED"),
-+		MASK2STR(IRLAN_FUNCTIONAL,	"FUNCTIONAL"),
-+		MASK2STR(IRLAN_GROUP,		"GROUP"),
-+		MASK2STR(IRLAN_MAC_FRAME,	"MAC_FRAME"),
-+		MASK2STR(IRLAN_MULTICAST,	"MULTICAST"),
-+		MASK2STR(IRLAN_BROADCAST,	"BROADCAST"),
-+		MASK2STR(IRLAN_IPX_SOCKET,	"IPX_SOCKET"),
-+		MASK2STR(0,			NULL)
-+	}, *p;
- 
-+	for (p = filter_mask2str; p->str; p++) {
-+		if (filter_type & p->mask)
-+			seq_printf(seq, "%s ", p->str);
-+	}
- 	seq_putc(seq, '\n');
+ 	struct net_device *dev;
+ 	loff_t i;
+@@ -1850,7 +1849,7 @@
+ void *dev_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	read_lock(&dev_base_lock);
+-	return *pos ? dev_get_idx(seq, *pos - 1) : (void *)1;
++	return *pos ? dev_get_idx(*pos - 1) : (void *)1;
  }
-+#undef MASK2STR
- #endif
-
-_
+ 
+ void *dev_seq_next(struct seq_file *seq, void *v, loff_t *pos)
