@@ -1,32 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [ANN] removal of certain net drivers coming soon: eepro100,
- xircom_tulip_cb, iph5526
-Date: Thu, 27 Jan 2005 21:22:14 -0800
-Message-ID: <20050127212214.58678bef.davem@davemloft.net>
-References: <41F952F4.7040804@pobox.com>
-	<20050127225725.F3036@flint.arm.linux.org.uk>
-	<20050127153114.72be03e2.davem@davemloft.net>
-	<20050128001430.C22695@flint.arm.linux.org.uk>
-	<20050127164843.08bdb307.davem@davemloft.net>
-	<1106877517.18167.311.camel@localhost.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: design for TSO performance fix
+Date: Fri, 28 Jan 2005 16:44:41 +1100
+Message-ID: <20050128054441.GA8260@gondor.apana.org.au>
+References: <20050127163146.33b01e95.davem@davemloft.net> <E1CuKzJ-0001mY-00@gondolin.me.apana.org.au> <20050127211940.31f97ed3.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: rmk+lkml@arm.linux.org.uk, jgarzik@pobox.com,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com, greg@kroah.com,
-	akpm@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261460AbVA1F0u@vger.kernel.org>
-To: sfeldma@pobox.com
-In-Reply-To: <1106877517.18167.311.camel@localhost.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050127211940.31f97ed3.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Jan 2005 17:58:37 -0800
-Scott Feldman <sfeldma@pobox.com> wrote:
+On Thu, Jan 27, 2005 at 09:19:40PM -0800, David S. Miller wrote:
+>
+> > Does this mean that we'll start counting bytes instead
+> > of packets?
+> > 
+> > If not then please let me know on how you plan to do the
+> > packet counting.
+> 
+> Things will be same as what we have now, except multi-packet
+> SKBs will no longer exist in the retransmit queue.
 
-> eepro100 does a copy if pkt_len < rx_copybreak, otherwise it send up the
-> skb and allocates and links a new one in it's place (see
-> speedo_rx_link).
-
-My bad, you're right.  So I wonder too what the difference
-is that makes it work on ARM et al.
+Colour me confused then.  How are you going to remember the
+packet boundaries which we need to do if we're going to keep
+counting packets instead of bytes?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
