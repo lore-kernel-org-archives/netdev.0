@@ -1,48 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC, PATCH 3/5]: netfilter+ipsec - input hooks
-Date: Fri, 19 Mar 2004 22:46:44 +1100
+Date: Fri, 19 Mar 2004 22:47:57 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040319114644.GC29066@gondor.apana.org.au>
-References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF0E.3050708@trash.net>
+Message-ID: <20040319114757.GD29066@gondor.apana.org.au>
+References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF0E.3050708@trash.net> <20040318221523.07298f03.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com,
         netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <4059CF0E.3050708@trash.net>
+In-Reply-To: <20040318221523.07298f03.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 18, 2004 at 05:32:14PM +0100, Patrick McHardy wrote:
->
-> diff -Nru a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-> --- a/net/ipv4/ip_input.c	Thu Mar 18 16:45:35 2004
-> +++ b/net/ipv4/ip_input.c	Thu Mar 18 16:45:35 2004
-> @@ -224,6 +224,12 @@
->  	resubmit:
->  		hash = protocol & (MAX_INET_PROTOS - 1);
->  		raw_sk = sk_head(&raw_v4_htable[hash]);
-> +		ipprot = inet_protos[hash];
-> +		smp_read_barrier_depends();
-> +
-> +		if (skb->sp && !ipprot->xfrm_prot)
-> +			if (nf_postxfrm_input(skb))
-> +				goto out;
+On Thu, Mar 18, 2004 at 10:15:23PM -0800, David S. Miller wrote:
+> 
+> Be careful!  xfrm4_tunnel handles both uncompressed ipcomp packets
+> _and_ IPIP encapsulator device packets.  Yet you will intepret usage
+> of the ipprot as 'xfrm_prot==1' in all cases.
 
-Just an idea: what if we reinject the packet just as we do in tunnel mode?
+Good point.
 
-> @@ -346,6 +351,10 @@
->  		}
->  	}
->  
-> +	if (skb->sp && !(((struct rtable *)skb->dst)->rt_flags&RTCF_LOCAL))
-> +		if (nf_postxfrm_nonlocal(skb))
-> +			goto drop;
-> +
+> Yes this is ugly... if we added some kind of flag bit-mask to sk_buff,
+> would that allow an easier implementation?
 
-What if the PRE_ROUTING turns it into a local address again?
+I'm not sure if this'll help in the degenerate IPCOMP case.  Perhaps
+we need a way to tell if it is a degenerate IPCOMP tunnel or an IPIP
+tunnel without actually processing the packet.
 -- 
 Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
 Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
