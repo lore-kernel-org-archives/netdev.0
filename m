@@ -1,34 +1,46 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec and Path MTU
-Date: Fri, 18 Jun 2004 09:18:51 +1000
+From: "Lilian Velasquez" <oneidaalcorta@verticalheaven.com>
+Subject: Cheap Generic Xanax, Toronto Pharmacy xx t lam
+Date: Fri, 18 Jun 04 03:58:43 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617231851.GA14861@gondor.apana.org.au>
-References: <20040615124334.GA25164@gondor.apana.org.au> <20040616195653.GC29781@ms2.inr.ac.ru> <20040616231317.GA5742@gondor.apana.org.au> <20040617190158.GA10925@ms2.inr.ac.ru> <20040617213832.GC14089@gondor.apana.org.au> <20040617152921.730892c7.davem@redhat.com> <20040617231241.GB14739@gondor.apana.org.au> <20040617161403.2d0ee598.davem@redhat.com>
+Message-ID: <5-t-51k0uh17p19si$-8$5$$6@iq7.4ew0>
+Reply-To: "Lilian Velasquez" <oneidaalcorta@verticalheaven.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary=".D.DB5D907FEE9F6..F."
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040617161403.2d0ee598.davem@redhat.com>
+To: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 17, 2004 at 04:14:03PM -0700, David S. Miller wrote:
-> On Fri, 18 Jun 2004 09:12:41 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > In my case, the ICMP message is not coming from the remote IPsec gateway
-> > or a router in front of it.  It's coming from a host behind it.  So
-> > the original IP header is in the ICMP message, in the clear.
-> 
-> Remote gateway is supposed to encapsulate the ICMP message and send it
-> back to the other gateway isn't it?
 
-We are the other gateway :) Yes, I'm talking about what happens to
-that ICMP message once we decapsulate it.
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--.D.DB5D907FEE9F6..F.
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
+
+<html><font size=3D1 color=3Dfffff>lqe vlbgnpmdh   rnu
+bcgd
+joy qrt yo twofold =
+overt ektachrome karl monster euphorbia =
+mountainous pbngjgm pnxeeabc qodnlgyn
+bccmglvlr  r sepal bodybuild inception =
+amherst urgent boric coherent </font>
+<A href=3D"http://cyprian.eedqpharmmn.com/tp/default.asp?ID=3D10045">=
+<IMG alt=3D"Here" hspace=3D0 src=3D"http://carbonaceous.cookasyey.com/keen=
+jpg" align=3Dbaseline border=3D0></A>
+<p><a href=3D"http://bricklaying.eedqpharmmn.com/tp/default.asp?ID=3D1004=
+5">Ge</booby>n.er</crabmeat>ic D</cautionary>r.u</=
+protuberant>gs from C</garibaldi>ana</enjoinder>da
+Xa.nax, Phe</encyclopedic>n.te</crosslink>r.m</whitehead>ine, V</=
+glucose>i.a</decorous>g</massey>ra, Va</bystander>l.i</=
+mercantile>um and more...</a>
+<p><font size=3D1><a href=3D"http://catholic.eedqpharmmn.com/er/ve.asp=
+">
+say goodbye</a></font><p><font size=3D1>BZ</ambition>E Inter</=
+waveform>nati</defend>onal Im</bryozoa>por</immortal>ts=
+ I</insupportable>nc, 
+North Fro</blueberry>nt St. #1831, Bel</parke>ize City, Be</=
+duly>l</lineman>i</mongoose>ze</font>
+<p>
+<p></p><p></html>ol h
+
+--.D.DB5D907FEE9F6..F.--
