@@ -1,30 +1,33 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] more direct access of dev->refcnt
-Date: Wed, 07 May 2003 12:30:59 -0700 (PDT)
+Subject: Re: acenic lockup
+Date: Wed, 07 May 2003 12:34:21 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030507.123059.84384241.davem@redhat.com>
-References: <20030507132326.0864b07f.shemminger@osdl.org>
+Message-ID: <20030507.123421.133894691.davem@redhat.com>
+References: <20030506.234316.68138442.davem@redhat.com>
+	<200305071706.VAA00295@mops.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: philb@gnu.org, SteveW@ACM.org, netdev@oss.sgi.com
+Cc: anton@samba.org, jes@trained-monkey.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030507132326.0864b07f.shemminger@osdl.org>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200305071706.VAA00295@mops.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Wed, 7 May 2003 13:23:26 -0700
-
-   The following places directly increment dev refcount rather than
-   using the inline dev_hold.
-
-Applied, thanks Stephen.
+   From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+   Date: Wed, 7 May 2003 21:06:32 +0400 (MSD)
    
-   Also, Econet keeps pointers to devices without holding refcount
-   which is wrong.
+   I remember we discussed this with Dave
+   and he was very angry about this flaw shared by most of drivers
+   and, seems, did not eat this fix.
+   
+Yes, this netif_wake_queue() in acenic's watchdog routine
+is bogus.  It is guarenteed lockup.
 
-Econet is pure orphan for years, looking for maintainer.
+Ok, I applied this.
 
-I occaisional consider trying to repair it.
+However, what does kick device back into working state?
+
+Do we make shamans dance when this message hits the logs
+and pray for the best? :-)
