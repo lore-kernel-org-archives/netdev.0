@@ -1,48 +1,38 @@
-From: Lincoln Dale <ltd@cisco.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: e1000 performance hack for ppc64 (Power4)
-Date: Sat, 14 Jun 2003 15:52:35 +1000
+Date: Fri, 13 Jun 2003 23:08:50 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20030614154954.026b4768@mira-sjcm-3.cisco.com>
+Message-ID: <20030613.230850.85410095.davem@redhat.com>
 References: <5.1.0.14.2.20030614114755.036abbb0@mira-sjcm-3.cisco.com>
- <20030613.154634.74748085.davem@redhat.com>
- <20030613231836.GD32097@krispykreme>
- <5.1.0.14.2.20030614114755.036abbb0@mira-sjcm-3.cisco.com>
+	<20030613.224122.104034261.davem@redhat.com>
+	<5.1.0.14.2.20030614154954.026b4768@mira-sjcm-3.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: anton@samba.org, haveblue@us.ibm.com, hdierks@us.ibm.com,
    scott.feldman@intel.com, dwg@au1.ibm.com, linux-kernel@vger.kernel.org,
    milliner@us.ibm.com, ricardoz@us.ibm.com, twichell@us.ibm.com,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030613.224122.104034261.davem@redhat.com>
+To: ltd@cisco.com
+In-Reply-To: <5.1.0.14.2.20030614154954.026b4768@mira-sjcm-3.cisco.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 10:41 PM 13/06/2003 -0700, David S. Miller wrote:
->    From: Lincoln Dale <ltd@cisco.com>
->    Date: Sat, 14 Jun 2003 11:52:53 +1000
->
->    unless i misunderstand the problem, you can certainly pad the TCP
->    options with NOPs ...
->
->You may not mangle packet if it is not your's alone.
->
->And every TCP packet is shared with TCP retransmit
->queue and therefore would need to be copied before
->being mangled.
+   From: Lincoln Dale <ltd@cisco.com>
+   Date: Sat, 14 Jun 2003 15:52:35 +1000
+   
+   can we have the TCP retransmit side take a performance hit if it needs to 
+   realign buffers?
+   
+You don't understand, the person who mangles the packet
+must make the copy, not the person not doing the packet
+modifications.
 
-ok, so lets take this a step further.
+   for a "high performance app" requiring gigabit-type speeds,
 
-can we have the TCP retransmit side take a performance hit if it needs to 
-realign buffers?
+...we probably won't be using ppc64 and e1000 cards, yes, I agree
+:-)
 
-once again, for a "high performance app" requiring gigabit-type speeds, its 
-probably fair to say that this is mostly in the realm of applications on a 
-LAN rather than across a WAN or internet.
-on a switched LAN, i'd expect TCP retransmissions to be far fewer ...
-
-
-cheers,
-
-lincoln.
+Anton, go to the local computer store and pick up some tg3
+cards or a bunch of Taiwan specials :-)
