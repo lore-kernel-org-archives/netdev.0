@@ -1,9 +1,9 @@
 From: akpm@osdl.org
-Subject: [patch 06/10] tun/tap ARP monitor support
-Date: Mon, 24 Jan 2005 18:57:13 -0800
-Message-ID: <200501250257.j0P2vfl20267@mail.osdl.org>
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org,
-        tommy.christensen@tpack.net
+Subject: [patch 08/10] smc91x: power down PHY on suspend
+Date: Mon, 24 Jan 2005 18:57:20 -0800
+Message-ID: <200501250257.j0P2vml20294@mail.osdl.org>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, icampbell@arcom.com,
+        nico@cam.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
@@ -11,37 +11,84 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-From: Tommy Christensen <tommy.christensen@tpack.net>
+From: Ian Campbell <icampbell@arcom.com>
 
-But as stated in bonding.txt, the ARP monitor requires the underlying
-driver to update dev->trans_start and dev->last_rx.
+Powering down the PHY saves something like 100mA at 5V on my platform. 
+Currently it is only done when the interface is brought down but it makes
+sense to do it on suspend as well.  
 
-The patch below adds the required functionality to the TUN/TAP driver.
-Please test if this helps in your case.
-
+Signed-off-by: Ian Campbell <icampbell@arcom.com>
+Signed-off-by: Nicolas Pitre <nico@cam.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/drivers/net/tun.c |    2 ++
- 1 files changed, 2 insertions(+)
+ 25-akpm/drivers/net/smc91x.c |   37 ++++++++++++++++++++-----------------
+ 1 files changed, 20 insertions(+), 17 deletions(-)
 
-diff -puN drivers/net/tun.c~tun-tan-arp-monitor-support drivers/net/tun.c
---- 25/drivers/net/tun.c~tun-tan-arp-monitor-support	2005-01-24 18:55:47.450083328 -0800
-+++ 25-akpm/drivers/net/tun.c	2005-01-24 18:55:47.454082720 -0800
-@@ -113,6 +113,7 @@ static int tun_net_xmit(struct sk_buff *
+diff -puN drivers/net/smc91x.c~smc91x-power-down-phy-on-suspend drivers/net/smc91x.c
+--- 25/drivers/net/smc91x.c~smc91x-power-down-phy-on-suspend	2005-01-24 18:55:47.702045024 -0800
++++ 25-akpm/drivers/net/smc91x.c	2005-01-24 18:55:47.707044264 -0800
+@@ -1017,13 +1017,29 @@ static int smc_phy_reset(struct net_devi
+ /*
+  * smc_phy_powerdown - powerdown phy
+  * @dev: net device
+- * @phy: phy address
+  *
+  * Power down the specified PHY
+  */
+-static void smc_phy_powerdown(struct net_device *dev, int phy)
++static void smc_phy_powerdown(struct net_device *dev)
+ {
++	struct smc_local *lp = netdev_priv(dev);
+ 	unsigned int bmcr;
++	int phy = lp->mii.phy_id;
++
++	if (lp->phy_type == 0)
++		return;
++
++	/* We need to ensure that no calls to smc_phy_configure are
++	   pending.
++
++	   flush_scheduled_work() cannot be called because we are
++	   running with the netlink semaphore held (from
++	   devinet_ioctl()) and the pending work queue contains
++	   linkwatch_event() (scheduled by netif_carrier_off()
++	   above). linkwatch_event() also wants the netlink semaphore.
++	*/
++	while(lp->work_pending)
++		schedule();
  
- 	/* Queue packet */
- 	skb_queue_tail(&tun->readq, skb);
-+	dev->trans_start = jiffies;
+ 	bmcr = smc_phy_read(dev, phy, MII_BMCR);
+ 	smc_phy_write(dev, phy, MII_BMCR, bmcr | BMCR_PDOWN);
+@@ -1561,21 +1577,7 @@ static int smc_close(struct net_device *
+ 	/* clear everything */
+ 	smc_shutdown(dev);
  
- 	/* Notify and wake up reader process */
- 	if (tun->flags & TUN_FASYNC)
-@@ -259,6 +260,7 @@ static __inline__ ssize_t tun_get_user(s
- 		skb->ip_summed = CHECKSUM_UNNECESSARY;
-  
- 	netif_rx_ni(skb);
-+	tun->dev->last_rx = jiffies;
-    
- 	tun->stats.rx_packets++;
- 	tun->stats.rx_bytes += len;
+-	if (lp->phy_type != 0) {
+-		/* We need to ensure that no calls to
+-		   smc_phy_configure are pending.
+-
+-		   flush_scheduled_work() cannot be called because we
+-		   are running with the netlink semaphore held (from
+-		   devinet_ioctl()) and the pending work queue
+-		   contains linkwatch_event() (scheduled by
+-		   netif_carrier_off() above). linkwatch_event() also
+-		   wants the netlink semaphore.
+-		*/
+-		while(lp->work_pending)
+-			schedule();
+-		smc_phy_powerdown(dev, lp->mii.phy_id);
+-	}
++	smc_phy_powerdown(dev);
+ 
+ 	if (lp->pending_tx_skb) {
+ 		dev_kfree_skb(lp->pending_tx_skb);
+@@ -2196,6 +2198,7 @@ static int smc_drv_suspend(struct device
+ 		if (netif_running(ndev)) {
+ 			netif_device_detach(ndev);
+ 			smc_shutdown(ndev);
++			smc_phy_powerdown(ndev);
+ 		}
+ 	}
+ 	return 0;
 _
