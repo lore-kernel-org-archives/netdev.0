@@ -1,41 +1,41 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 0/4] 2.6.5-rc2-mm5 - r8169 queue
-Date: Tue, 30 Mar 2004 10:37:59 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [patch] 2.6.5-rc2 - r8169 DAC
+Date: Sat, 3 Apr 2004 10:19:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40699457.1020304@pobox.com>
-References: <20040329193604.A4744@electric-eye.fr.zoreil.com> <4068656D.2080103@pobox.com> <20040329211441.B4744@electric-eye.fr.zoreil.com>
+Message-ID: <20040403101954.A18810@electric-eye.fr.zoreil.com>
+References: <20040329193604.A4744@electric-eye.fr.zoreil.com> <20040329223513.C4744@electric-eye.fr.zoreil.com> <20040403010045.A12904@electric-eye.fr.zoreil.com> <200404031208.17066.harisri@bigpond.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, Andi Kleen <ak@suse.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040329211441.B4744@electric-eye.fr.zoreil.com>
+To: Srihari Vijayaraghavan <harisri@bigpond.com>
+Content-Disposition: inline
+In-Reply-To: <200404031208.17066.harisri@bigpond.com>; from harisri@bigpond.com on Sat, Apr 03, 2004 at 12:08:16PM +1000
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jeff Garzik <jgarzik@pobox.com> :
-> [...]
-> 
->>I am pondering taking your latest version of r8169, and moving the 
->>phy-related code from there to 8139cp.c.  Then just add
->>	MODULE_ALIAS("r8169");
->>and deleting r8169.c.
->>
->>The rationale is, 8169 is _exactly_ the same as 8139C+, except the phy 
->>code and one or two bits in the chip registers.  I would rather have 
->>just one codebase, supporting one MAC (i.e. the RX/TX part) and multiple 
->>phys.
-> 
-> 
-> It seems appealing. Do you have a specific schedule in mind ?
+Srihari Vijayaraghavan <harisri@bigpond.com> :
+[compile error message]
 
 
-schedules are an anathema to me ;-)
+DMA_{32/64}BIT_MASK for all.
 
-I was thinking about getting your initial patches into 2.6.x upstream so
-that r8169 users at least have something usable while the phy code gets
-moved over to 8139cp.c.
 
-	Jeff
+ include/linux/dma-mapping.h |    3 +++
+ 1 files changed, 3 insertions(+)
+
+diff -puN include/linux/dma-mapping.h~r8169-dac-00 include/linux/dma-mapping.h
+--- linux-2.6.5-rc2/include/linux/dma-mapping.h~r8169-dac-00	2004-04-03 00:29:17.000000000 +0200
++++ linux-2.6.5-rc2-fr/include/linux/dma-mapping.h	2004-04-03 00:29:17.000000000 +0200
+@@ -10,6 +10,9 @@ enum dma_data_direction {
+ 	DMA_NONE = 3,
+ };
+ 
++#define DMA_64BIT_MASK 0xffffffffffffffffULL
++#define DMA_32BIT_MASK 0x00000000ffffffffULL
++
+ #include <asm/dma-mapping.h>
+ 
+ /* Backwards compat, remove in 2.7.x */
+
+_
