@@ -1,44 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.9-rc1-mm4 4/4] r8169: Mac identifier extracted from Realtek's driver v2.2
-Date: Fri, 10 Sep 2004 00:52:47 +0200
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: hard_start_xmit and Linux bridging
+Date: Thu, 09 Sep 2004 16:30:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040909225247.GC10144@electric-eye.fr.zoreil.com>
-References: <20040909224539.GA9629@electric-eye.fr.zoreil.com> <20040909224817.GA10144@electric-eye.fr.zoreil.com> <20040909224947.GB10144@electric-eye.fr.zoreil.com>
+Message-ID: <4140E782.2000505@candelatech.com>
+References: <FD52892BD296D71183B400065BFCB6900EDB4C74@il02exm12>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20040909224947.GB10144@electric-eye.fr.zoreil.com>
+To: Lewis Adam-CAL022 <Adam.Lewis@motorola.com>
+In-Reply-To: <FD52892BD296D71183B400065BFCB6900EDB4C74@il02exm12>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Lewis Adam-CAL022 wrote:
+> Hi all,
+> 
+> I tried going to the bridge@lists.osdl.org for this question but got no response, I'm hoping somebody here has had a similar experience as me.
+> 
+> Basically, I put my wlan0 driver in a bridge with eth0.  When my hard_start_xmit() function is called (as a result of a packet received on eth0 and bridged to my driver), the skb that I am passed contains an extra four bytes (e.g. the Ethernet FCS).  
+> 
+> In my mind, this should be stripped off.  But I have looked at all the open source net drivers I could find and nobody seems to care.  Is there a way to know if the skb has been forwarded by a bridged interface?  If I forward on the extra bytes, then a 1500 byte packet becomes 1504 and fails the MTU check on the other side of the wireless interface (when it is passed back to eth0).
+> 
+> TIA,
+> Adam
 
-Mac identifier extracted from Realtek's driver v2.2.
+I added some ioctls to allow one to turn on the ability to receive the CRC, but I
+don't know of any drivers that include it by default.
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+What driver/hardware is your eth0 device?
 
-diff -puN drivers/net/r8169.c~r8169-170 drivers/net/r8169.c
---- linux-2.6.9-rc1/drivers/net/r8169.c~r8169-170	2004-09-08 22:55:42.000000000 +0200
-+++ linux-2.6.9-rc1-fr/drivers/net/r8169.c	2004-09-08 23:31:09.000000000 +0200
-@@ -136,7 +136,8 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_B = 0x00,
- 	/* RTL_GIGA_MAC_VER_C = 0x03, */
- 	RTL_GIGA_MAC_VER_D = 0x01,
--	RTL_GIGA_MAC_VER_E = 0x02
-+	RTL_GIGA_MAC_VER_E = 0x02,
-+	RTL_GIGA_MAC_VER_X = 0x04	/* Greater than RTL_GIGA_MAC_VER_E */
- };
- 
- enum phy_version {
-@@ -869,6 +870,7 @@ static void rtl8169_get_mac_version(stru
- 		u32 mask;
- 		int mac_version;
- 	} mac_info[] = {
-+		{ 0x1 << 28,	RTL_GIGA_MAC_VER_X },
- 		{ 0x1 << 26,	RTL_GIGA_MAC_VER_E },
- 		{ 0x1 << 23,	RTL_GIGA_MAC_VER_D }, 
- 		{ 0x00000000,	RTL_GIGA_MAC_VER_B } /* Catch-all */
+How are you determining the size, by the skb->len ?
 
-_
+Does tcpdump/ethereal show the extra 4 bytes if you sniff eth0 w/out bridging?
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
