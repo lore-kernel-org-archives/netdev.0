@@ -1,78 +1,63 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: Prism54 WPA Support - wpa_supplicant - Linux general wpa support
-Date: Thu, 3 Jun 2004 10:07:45 -0700
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Message-ID: <20040603170745.GD8770@bougret.hpl.hp.com>
-References: <20040602071449.GJ10723@ruslug.rutgers.edu>
-	<20040602132313.GB7341@jm.kir.nu> <40BEA3CB.60908@pobox.com>
-Reply-To: jt@hpl.hp.com
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [9/9][PATCH 2.6] Restructure reset code
+Date: Wed, 2 Jun 2004 22:30:26 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040602203026.GB31791@k3.hellgate.ch>
+References: <20040602115920.GA17634@k3.hellgate.ch> <40BE2DE0.4040102@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>, Jouni Malinen <jkmaline@cc.hut.fi>,
-	hostap@shmoo.com, "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	prism54-devel@prism54.org
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <40BEA3CB.60908@pobox.com>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+In-Reply-To: <40BE2DE0.4040102@pobox.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 03, 2004 at 12:06:35AM -0400, Jeff Garzik wrote:
+On Wed, 02 Jun 2004 15:43:28 -0400, Jeff Garzik wrote:
+> Roger Luethi wrote:
+> >Restructure code to make it easier to maintain.
+> >
+> >rhine_hw_init: resets chip, reloads eeprom
+> >rhine_chip_reset: chip reset + what used to be wait_for_reset
+> >rhine_reload_eeprom: reload eeprom, re-enable MMIO, disable 
+> >EEPROM-controlled
+> >	WOL
+> >
+> >Note: Chip reset clears a bunch of registers that should be reloaded
+> >from EEPROM (which turns off MMIO). Deal with that later.
 > 
-> One of the things that is nice about wireless-2.6 is that is affords the 
-> opportunity to totally rethink the wireless extensions.
 > 
-> Although a lot of people would howl, since HostAP is essentially new 
-> code from the mainline kernel perspective, a new userland API (and new 
-> or updated tools) could come along with it.
+> Rejected, two reasons:
 > 
-> I have mentioned in the past (no offense Jean!) that I do not like the 
-> overly-generic wireless handler structure.  It is less type-safe than is 
-> generally preferred in Linux, IMO.
-> 
-> A low-level wireless driver should not implement ioctls, it should 
-> implement callbacks in some sort of 'struct wireless_operations' as is 
-> done in other kernel subsystems.
-> 
-> ioctl details should be hidden from low-level drivers as much as 
-> possible, through type-safe interfaces.  Strive to make both the 
-> wireless driver API and the wireless userland API easy to change and 
-> evolve over time.
-> 
-> 	Jeff
+> 1) dev->dev_addr[] should be loaded from eeprom only once, at probe 
+> time, not once for each hw init.  [this value should be written to the 
+> chip's MAC address registers upon each dev->open() call]
 
-	Jeff, I'm amazed that you are so obsessed with this. Yes,
-Wireless Extension could be improved in millions ways, but at least
-it's working, whereas there are so many other areas where we have
-nothing at all. If you talk with most people developping wireless
-drivers, this doesn't even make their list. But I guess every one of
-us need to have his hot topic ;-)
+We are in violent agreement, you are describing what the driver
+does with and without patch 9 (unless I seriously botched the
+splitting). Incidentally, rhine_hw_init gets called only once, at probe
+time (further calls are to rhine_chip_reset).
 
-	I believe most people are concerned about :
-	o WPA support (and security API in general)
-	o SNAP encapsulation/decapsualtion in kernel
-	o handling 802.11 frames natively in kernel
-	o handling 802.11 management in kernel (association/deassociation, ...)
+The remaining problem with the reset stuff is this: Years ago, soft
+resets were added to via-rhine in the vain hope it would fix something,
+but soft resets overwrite some registers that need to be reloaded
+from somewhere (it's more than just the MAC address). The proper fix
+for this is to remove unnecessary soft resets (i.e. all but the one at
+probe time) and/or restore the registers affected by a soft reset. But
+that would go beyond a simple clean-up patch.
 
-	Personally, those are my priorities :
-	o getting more wireless drivers in the kernel
-	o RtNetlink API for Wireless Extensions
+> 2) Your "Note:" worries me...  why not deal with this now?  :)
 
-	I also explained you how you could wrap around Wireless
-Extension trivially to introduce a new driver API without breaking the
-many user space tools, so that you can implement your proposal with
-maximum backward compatibility. Just because there is one aspect of
-the API you don't like, we don't need to throw away the good parts.
+Mainly because I don't have all the information needed to positively
+determine the proper solution -- not yet. "Dealing with it" will likely
+mean removing two soft reset calls and documenting registers that are
+clobbered by soft reset (just in case), but that doesn't fit into a
+clean-up patch anyway.
 
-	Have fun...
+In summary, patch 9 is simply what all conceivable solutions have in
+common -- code clean-up.
 
-	Jean
+Thanks for the review.
+
+Roger
