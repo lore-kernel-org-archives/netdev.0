@@ -1,40 +1,83 @@
-From: "Theodore Ts'o" <tytso@mit.edu>
-Subject: Re: [07/08] [TCP] Fix BIC congestion avoidance algorithm error
-Date: Tue, 5 Apr 2005 14:22:02 -0400
-Message-ID: <20050405182202.GA11979@thunk.org>
-References: <20050405164539.GA17299@kroah.com> <20050405164758.GH17299@kroah.com>
+From: acme@ghostprotocols.net (Arnaldo Carvalho de Melo)
+Subject: [PATCH][NET] Don't call kmem_cache_create with a spinlock held
+Date: Tue, 5 Apr 2005 15:25:17 -0300
+Message-ID: <20050405182517.GR640@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, stable@kernel.org, davem@davemloft.net,
-        shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="T7mxYSe680VjQnyC"
+Cc: marcel@holtmann.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg KH <gregkh@suse.de>
+To: davem@davemloft.net
 Content-Disposition: inline
-In-Reply-To: <20050405164758.GH17299@kroah.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 05, 2005 at 09:47:59AM -0700, Greg KH wrote:
-> 
-> -stable review patch.  If anyone has any objections, please let us know.
-> 
-> While redoing BIC for the split up version, I discovered that the
-> existing 2.6.11 code doesn't really do binary search. It ends up
-> being just a slightly modified version of Reno.  See attached graphs
-> to see the effect over simulated 1mbit environment.
 
-I hate to be a stickler for the rules, but does this really meet this
-criteria?
+--T7mxYSe680VjQnyC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
- - It must fix a real bug that bothers people (not a, "This could be a
-   problem..." type thing.)
+Hi David,
 
-If the congestion control alogirthm is "Reno-like", what is
-user-visible impact to users?  There are OS's out there with TCP/IP
-stacks that are still using Reno, aren't there?  
+	Please pull from:
 
-Knowing the answer to the question, "How does this bug `bother' either
-users or network administrators?" would probably be really helpful.
+bk://kernel.bkbits.net/acme/net-2.6
 
-						- Ted
+Best Regards,
+
+                        - Arnaldo
+
+--T7mxYSe680VjQnyC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="proto_register_lock_fix.patch"
+
+===================================================================
+
+
+ChangeSet@1.2245, 2005-04-05 14:52:51-03:00, acme@toy.ghostprotocols.net
+  [NET] Don't call kmem_cache_create with a spinlock held
+  
+  This fixes the warning reported by Marcel Holtmann (Thanks!).
+  
+  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+  Signed-off-by: David S. Miller <davem@davemloft.net>
+
+
+ sock.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
+
+
+diff -Nru a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c	2005-04-05 15:22:27 -03:00
++++ b/net/core/sock.c	2005-04-05 15:22:27 -03:00
+@@ -1359,8 +1359,6 @@
+ {
+ 	int rc = -ENOBUFS;
+ 
+-	write_lock(&proto_list_lock);
+-
+ 	if (alloc_slab) {
+ 		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
+ 					       SLAB_HWCACHE_ALIGN, NULL, NULL);
+@@ -1368,14 +1366,15 @@
+ 		if (prot->slab == NULL) {
+ 			printk(KERN_CRIT "%s: Can't create sock SLAB cache!\n",
+ 			       prot->name);
+-			goto out_unlock;
++			goto out;
+ 		}
+ 	}
+ 
++	write_lock(&proto_list_lock);
+ 	list_add(&prot->node, &proto_list);
+-	rc = 0;
+-out_unlock:
+ 	write_unlock(&proto_list_lock);
++	rc = 0;
++out:
+ 	return rc;
+ }
+ 
+
+
+--T7mxYSe680VjQnyC--
