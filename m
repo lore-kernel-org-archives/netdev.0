@@ -1,32 +1,60 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Fw: [Bugme-new] [Bug 3527] New: ssh does not work with 2.6.9rc3
-Date: Fri, 8 Oct 2004 20:10:36 +0200
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [patch 2.4.28-pre3] 3c59x: resync with 2.6
+Date: Fri, 8 Oct 2004 19:13:24 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041008181036.GC19714@rei.reeler.org>
-References: <20041008104801.0dd96536.akpm@osdl.org>
+Message-ID: <20041008191324.J17999@flint.arm.linux.org.uk>
+References: <20041008121307.C14378@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: albie@alfarrabio.di.uminho.pt
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, akpm@osdl.org,
+        jgarzik@pobox.com, marcelo.tosatti@cyclades.com
 Content-Disposition: inline
-In-Reply-To: <20041008104801.0dd96536.akpm@osdl.org>
+In-Reply-To: <20041008121307.C14378@tuxdriver.com>; from linville@tuxdriver.com on Fri, Oct 08, 2004 at 12:13:07PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->  With this kernel, the sis ethernet bug is fixed (well, at least I can do a ping
-> -f without losing packets), SATA works but... wonder... ssh doesn't.
-> 
-> If I have a public key on other machine without passphrase, it works.
-> If not....
+On Fri, Oct 08, 2004 at 12:13:07PM -0400, John W. Linville wrote:
+> Backport of current 3c59x driver (minus EISA/sysfs stuff) from 2.6 to
+> 2.4.  This should ease further maintenance in 2.4.
+> ---
+> I've been chasing some 3c59x driver problems on both 2.4.x and 2.6.x
+> kernels.  The 3c59x driver was pretty far out of sync between the two
+> trees, so I thought it made sense to sync them back up.
 
-Could you provide your .config and a dump of the network
-traffic a few seconds before, during and after the ssh session?
-(tcpdump -s -w ...)
+Ah, if someone's looking at the 3c59x driver then please look into the
+NWAY autonegotiation code - even maybe update it to use mii.c.
 
-> Now, that file really doesn't exist. But it isn't needed with the old kernel.
-> So, what 2.6.9 rc 3 has that 2.6.7 don't?
+Currently 3c59x is rather buggy - it's a fairly simple bug.  Consider
+this:
 
-I have the feeling that the bug is related to the calculation of
-some networking related threshold resultung in wrong values right
-after booting time.
+# mii-tool -v
+eth0: negotiated 100baseTx-HD, link ok
+  product info: TDK 78Q2120 rev 11
+  basic mode:   autonegotiation enabled
+  basic status: autonegotiation complete, link ok
+  capabilities: 100baseTx-HD 10baseT-HD
+  advertising:  100baseTx-HD 10baseT-HD
+  link partner: 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-control
+
+and then wonder why we end up like this:
+
+eth0: Setting full-duplex based on MII #0 link partner capability of 45e1.
+
+Obviously completely bogus.  Luckily, there isn't that much traffic
+to this card _and_ it's connected to a switch so it doesn't interfere
+much with other network traffic.  However, it is _dog_ slow when doing
+large transfers to/from it.
+
+FYI, it's:
+
+04:00.0 Ethernet controller: 3Com Corporation 3c575 [Megahertz] 10/100 LAN CardBus (rev 01)
+
+aka 3CCFE575BT.  The BT version only has a HD-capable MII transceiver,
+whereas the CT version has a FD-capable MII transceiver fitted.
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
