@@ -1,36 +1,46 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: how to report network device errors to userspace?
-Date: Wed, 19 Jun 2002 16:21:48 -0400 (EDT)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: kfree_skb: unnecessary check ?
+Date: Thu, 20 Jun 2002 00:26:30 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0206191616060.1669-100000@presario>
-References: <3D10CFF9.B4072FEA@nortelnetworks.com>
+Message-ID: <200206192026.AAA17502@sex.inr.ac.ru>
+References: <3D10B6FE.1050602@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Chris Friesen <cfriesen@nortelnetworks.com>
-In-Reply-To: <3D10CFF9.B4072FEA@nortelnetworks.com>
+To: kaber@trash.NET (Patrick McHardy)
+In-Reply-To: <3D10B6FE.1050602@trash.net> from "Patrick McHardy" at Jun 19, 2 09:15:00 pm
 List-Id: netdev.vger.kernel.org
 
-On Wed, 19 Jun 2002, Chris Friesen wrote:
+Hello!
 
-> I'm curious about the proper way for a network device driver to report
-> faults to userspace.
+> Is atomic_dec_and_test really necessary ? atomic_dec_and_test only 
+> returns true if its argument has hit zero, so it was 1 before.
+> If atomic_dec is only a bit cheaper than atomic_dec_and_test (which i 
+> guess it is), wouldn't it make more sense to use something like this:
 
-What type of fault?
+Does the prefix "atomic" not scare you? :-)
 
-Errors are counted in /proc/net/dev.
 
-> I haven't been able to find a standard interface for this--does nobody care
-> about this kind of thing?
+> static inline void kfree_skb(struct sk_buff *skb)
+> {
+>     if (atomic_read(&skb->users) == 1)
+>         __kfree(skb);
+>     else
+>         atomic_dec(&skb->users);
+> }
 
-People very much care.  There are sufficient reporting mechanisms for
-most errors -- it's much more consistent, orthogonal and thorough than
-other device types.  Compare /proc/net/dev with the errors reported for
-disks, serial, USB, keyboard...
+      else if (atomic_dec_and_test(&skb->users))
+	   __kfree_skb(skb);
 
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+If you still do not understand think why it does not look like:
+
+static inline void kfree_skb(struct sk_buff *skb)
+{
+    int users = skb->users;
+    if (users == 1)
+        __kfree(skb);
+    else
+        skb->users = users - 1;
+}
+
+Alexey
