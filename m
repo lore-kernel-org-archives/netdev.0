@@ -1,35 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: generic 802.11 stack
-Date: Wed, 15 Sep 2004 08:55:26 -0700
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH 2.6] Add NAPI support to sungem.c
+Date: Wed, 15 Sep 2004 18:19:31 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040915085526.2c0d2904.davem@davemloft.net>
-References: <4145352F.4040807@pobox.com>
-	<20040915030545.GA25307@havoc.gtf.org>
-	<20040915031732.GL7839@ruslug.rutgers.edu>
-	<200409150844.45242.vkondra@mail.ru>
-	<41485608.3040509@atheros.com>
+Message-ID: <41486B93.40407@colorfullife.com>
+References: <20040914153537.GE8434@sunbeam.de.gnumonks.org> <20040914124315.716e9c68.davem@davemloft.net> <20040914200238.GM8434@sunbeam.de.gnumonks.org> <20040914134849.6685de79.davem@davemloft.net> <20040914210117.GA3344@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vkondra@mail.ru, mcgrof@studorgs.rutgers.edu,
-        acx100-devel@lists.sourceforge.net, hadi@cyberus.ca, jgarzik@pobox.com,
-        mcgrof@studorgs.rutgers.edu, netdev@oss.sgi.com,
-        prism54-devel@prism54.org, sam@errno.com
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Harald Welte <laforge@gnumonks.org>, netdev@oss.sgi.com,
+        linuxppc-dev@lists.linuxppc.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greg chesson <greg@atheros.com>
-In-Reply-To: <41485608.3040509@atheros.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20040914210117.GA3344@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004 07:47:36 -0700
-greg chesson <greg@atheros.com> wrote:
+Jeff Garzik wrote:
 
-> Vladimir Kondratiev wrote:
-> > Let me answer to the set of questions raised:
-> > 
-> > - dual licensing: I am not ready to answer for legal. I will discuss with 
-> > proper people and answer.
-> end the end it is your choice.
+>On Tue, Sep 14, 2004 at 01:48:49PM -0700, David S. Miller wrote:
+>  
+>
+>>On Tue, 14 Sep 2004 22:02:38 +0200
+>>Harald Welte <laforge@gnumonks.org> wrote:
+>>
+>>    
+>>
+>>>Before I start NAPI-enabling natsemi.c (and again duplicate work):  Do
+>>>you know of anybody working on this yet?
+>>>      
+>>>
+>>No I do not, have at it.
+>>    
+>>
+>
+>Talk to Manfred Spraul, he's pokes fixes natsemi bugs and pokes at it
+>now and again...
+>
+>  
+>
+I don't have a NAPI patch in my tree, but I can't guarantee that there 
+won't be an embedded system guy who suddenly appears with a patch.
 
-He has to also ask the person who wrote the code he is
-basing his work upon, and that would be me :-)
+--
+    Manfred
