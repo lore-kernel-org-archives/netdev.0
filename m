@@ -1,21 +1,20 @@
 From: Sam Creasey <sammy@sammy.net>
 Subject: Re: [BK PATCHES] 2.6.x experimental net driver queue
-Date: Tue, 18 Nov 2003 21:08:25 +0000 (UTC)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.40.0311191703120.6278-100000@sun3>
+Date: Tue, 18 Nov 2003 21:19:20 +0000 (UTC)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.40.0311191703120.6278-100000__13887.194885365$1069190360@sun3>
 References: <Pine.GSO.4.21.0311181205460.6448-100000@waterleaf.sonytel.be>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Jeff Garzik <jgarzik@pobox.com>, <netdev@oss.sgi.com>,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@osdl.org>,
-        Al Viro <viro@parcelfarce.linux.theplanet.co.uk>,
-        Linux/m68k <linux-m68k@lists.linux-m68k.org>
-Return-path: <netdev-bounce@oss.sgi.com>
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>,
+	Al Viro <viro@parcelfarce.linux.theplanet.co.uk>,
+	Linux/m68k <linux-m68k@lists.linux-m68k.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
 Date: Wed, 19 Nov 2003 17:08:01 -0500 (EST)
 To: Geert Uytterhoeven <geert@linux-m68k.org>
 In-Reply-To: <Pine.GSO.4.21.0311181205460.6448-100000@waterleaf.sonytel.be>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
