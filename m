@@ -1,22 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] pktgen unaligned access on IA-64
-Date: Wed, 11 Feb 2004 12:20:03 -0800
+Subject: Re: [PATCH] IPV6: spelling correction
+Date: Wed, 11 Feb 2004 12:22:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040211122003.5c5d43f3.davem@redhat.com>
-References: <16425.7377.210243.50268@robur.slu.se>
+Message-ID: <20040211122226.4332da52.davem@redhat.com>
+References: <20040211.032802.74694162.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16425.7377.210243.50268@robur.slu.se>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040211.032802.74694162.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Feb 2004 19:02:57 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+On Wed, 11 Feb 2004 03:28:02 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Grant Grundler spotted and cured this. 
+> D: spelling correction for net/ipv6
+> D: This patch also removes some XXX.
 
-Applied, thanks.
+Applied, thank you.
