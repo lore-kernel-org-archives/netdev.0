@@ -1,36 +1,46 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV4: spelling correction
-Date: Wed, 11 Feb 2004 03:28:31 +0900 (JST)
+Subject: Re: [PATCH] IPV4: spelling correction
+Date: Wed, 11 Feb 2004 03:33:24 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040211.032831.67897970.yoshfuji@linux-ipv6.org>
+Message-ID: <20040211.033324.120562092.yoshfuji@linux-ipv6.org>
+References: <20040211.032831.67897970.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
 Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
+In-Reply-To: <20040211.032831.67897970.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-D: spelling correction for net/ipv4
+In article <20040211.032831.67897970.yoshfuji@linux-ipv6.org> (at Wed, 11 Feb 2004 03:28:31 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+
+>     Well, I wonder, rfc1812 was written by Cisco employee,
+> -   what the hell these idiots break standrads established
+> -   by themself???
+> +   what the hell these idiots break standrards established
+> +   by themselves???
+
+Oops, this also includes a typo. Please use this instead.
 
 ===== net/ipv4/ip_gre.c 1.34 vs edited =====
 --- 1.34/net/ipv4/ip_gre.c	Tue Oct 28 18:13:14 2003
-+++ edited/net/ipv4/ip_gre.c	Wed Feb 11 02:57:54 2004
++++ edited/net/ipv4/ip_gre.c	Wed Feb 11 03:30:06 2004
 @@ -316,8 +316,8 @@
     GRE tunnels with enabled checksum. Tell them "thank you".
  
     Well, I wonder, rfc1812 was written by Cisco employee,
 -   what the hell these idiots break standrads established
 -   by themself???
-+   what the hell these idiots break standrards established
++   what the hell these idiots break standards established
 +   by themselves???
   */
  
  	struct iphdr *iph = (struct iphdr*)skb->data;
 ===== net/ipv4/ip_output.c 1.49 vs edited =====
 --- 1.49/net/ipv4/ip_output.c	Wed Feb  4 03:24:11 2004
-+++ edited/net/ipv4/ip_output.c	Wed Feb 11 02:58:42 2004
++++ edited/net/ipv4/ip_output.c	Wed Feb 11 03:29:42 2004
 @@ -35,7 +35,7 @@
   *		Andi Kleen	: 	Replace ip_reply with ip_send_reply.
   *		Andi Kleen	:	Split fast and slow ip_build_xmit path 
@@ -42,7 +52,7 @@ D: spelling correction for net/ipv4
   *		Detlev Wengorz	:	Copy protocol for fragments.
 ===== net/ipv4/proc.c 1.15 vs edited =====
 --- 1.15/net/ipv4/proc.c	Fri Sep 12 10:08:45 2003
-+++ edited/net/ipv4/proc.c	Wed Feb 11 02:59:47 2004
++++ edited/net/ipv4/proc.c	Wed Feb 11 03:29:42 2004
 @@ -24,7 +24,7 @@
   *	Gerhard Koerting	:	Show both timers
   *		Alan Cox	:	Allow inode to be NULL (kernel socket)
@@ -54,7 +64,7 @@ D: spelling correction for net/ipv4
   *
 ===== net/ipv4/tcp_input.c 1.49 vs edited =====
 --- 1.49/net/ipv4/tcp_input.c	Mon Feb  2 04:22:45 2004
-+++ edited/net/ipv4/tcp_input.c	Wed Feb 11 03:10:02 2004
++++ edited/net/ipv4/tcp_input.c	Wed Feb 11 03:29:42 2004
 @@ -42,7 +42,7 @@
   *		Andi Kleen	:	Moved open_request checking here
   *					and process RSTs for open_requests.
@@ -155,7 +165,7 @@ D: spelling correction for net/ipv4
  	 *  turn it off	(when there are holes in the receive 
 ===== net/ipv4/tcp_minisocks.c 1.43 vs edited =====
 --- 1.43/net/ipv4/tcp_minisocks.c	Tue Oct 28 20:10:47 2003
-+++ edited/net/ipv4/tcp_minisocks.c	Wed Feb 11 03:11:01 2004
++++ edited/net/ipv4/tcp_minisocks.c	Wed Feb 11 03:29:42 2004
 @@ -216,7 +216,7 @@
  		/* In window segment, it may be only reset or bare ack. */
  
