@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4//8) dscc4 convert to new hdlc_device
-Date: Tue, 2 Dec 2003 14:01:15 -0800
+Subject: [PATCH] (5/8) farsync - hdlc_device conversion
+Date: Tue, 2 Dec 2003 14:02:17 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202140115.239f998f.shemminger@osdl.org>
+Message-ID: <20031202140217.776fdff6.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -16,330 +16,257 @@ List-Id: netdev.vger.kernel.org
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1493  -> 1.1494 
-#	drivers/net/wan/dscc4.c	1.51    -> 1.52   
+#	           ChangeSet	1.1494  -> 1.1495 
+#	drivers/net/wan/farsync.c	1.18    -> 1.19   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/11/26	shemminger@osdl.org	1.1494
-# Convert to work with hdlc_device that is not embedded.
-# Use list macros for list of ports on card.
+# 03/11/26	shemminger@osdl.org	1.1495
+# Convert from embedding hdlc_device (with embedded net_device)
+# to hdlc_device pointer.
 # --------------------------------------------
 #
-diff -Nru a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
---- a/drivers/net/wan/dscc4.c	Wed Nov 26 12:30:13 2003
-+++ b/drivers/net/wan/dscc4.c	Wed Nov 26 12:30:13 2003
-@@ -185,12 +185,14 @@
-         spinlock_t lock;
-         struct pci_dev *pdev;
- 
--        struct dscc4_dev_priv *root;
-+	struct list_head devs;
-         dma_addr_t iqcfg_dma;
- 	u32 xtal_hz;
+diff -Nru a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+--- a/drivers/net/wan/farsync.c	Wed Nov 26 12:31:27 2003
++++ b/drivers/net/wan/farsync.c	Wed Nov 26 12:31:28 2003
+@@ -328,7 +328,7 @@
+ /*      Per port (line or channel) information
+  */
+ struct fst_port_info {
+-        hdlc_device             hdlc;   /* HDLC device struct - must be first */
++        hdlc_device            *hdlc;   /* HDLC device struct */
+         struct fst_card_info   *card;   /* Card we're associated with */
+         int                     index;  /* Port index on the card */
+         int                     hwif;   /* Line hardware (lineInterface copy) */
+@@ -353,13 +353,16 @@
+         spinlock_t     card_lock;       /* Lock for SMP access */
+         unsigned short pci_conf;        /* PCI card config in I/O space */
+                                         /* Per port info */
+-        struct fst_port_info ports[ FST_MAX_PORTS ];
++        struct fst_port_info *ports[ FST_MAX_PORTS ];
  };
  
- struct dscc4_dev_priv {
-+	struct list_head dev_list;
-+
-         struct sk_buff *rx_skbuff[RX_RING_SIZE];
-         struct sk_buff *tx_skbuff[TX_RING_SIZE];
- 
-@@ -228,7 +230,7 @@
- 
- 	unsigned short encoding;
- 	unsigned short parity;
--	hdlc_device hdlc;
-+	hdlc_device *hdlc;
- 	sync_serial_settings settings;
- 	u32 __pad __attribute__ ((aligned (4)));
- };
-@@ -371,9 +373,17 @@
- static int dscc4_tx_poll(struct dscc4_dev_priv *, struct net_device *);
- #endif
- 
-+static inline struct dscc4_dev_priv *dscc4_root_priv(struct dscc4_pci_priv *ppriv)
+ /* Convert an HDLC device pointer into a port info pointer and similar */
+-#define hdlc_to_port(H) ((struct fst_port_info *)(H))
++static __inline__ struct fst_port_info *hdlc_to_port(hdlc_device *hdlc)
 +{
-+	struct list_head *first = ppriv->devs.next;
-+
-+	return (first == &ppriv->devs) ? NULL 
-+		: list_entry(first, struct dscc4_dev_priv, dev_list);
++	return hdlc->dev_data;
 +}
+ #define dev_to_port(D)  hdlc_to_port(dev_to_hdlc(D))
+-#define port_to_dev(P)  hdlc_to_dev(&(P)->hdlc)
++#define port_to_dev(P)	hdlc_to_dev(P->hdlc)
+ 
+ 
+ /*
+@@ -678,24 +681,24 @@
+                                         len );
+         if ( dmabits != ( RX_STP | RX_ENP ) || len > LEN_RX_BUFFER - 2 )
+         {
+-                port->hdlc.stats.rx_errors++;
++                port->hdlc->stats.rx_errors++;
+ 
+                 /* Update error stats and discard buffer */
+                 if ( dmabits & RX_OFLO )
+                 {
+-                        port->hdlc.stats.rx_fifo_errors++;
++                        port->hdlc->stats.rx_fifo_errors++;
+                 }
+                 if ( dmabits & RX_CRC )
+                 {
+-                        port->hdlc.stats.rx_crc_errors++;
++                        port->hdlc->stats.rx_crc_errors++;
+                 }
+                 if ( dmabits & RX_FRAM )
+                 {
+-                        port->hdlc.stats.rx_frame_errors++;
++                        port->hdlc->stats.rx_frame_errors++;
+                 }
+                 if ( dmabits == ( RX_STP | RX_ENP ))
+                 {
+-                        port->hdlc.stats.rx_length_errors++;
++                        port->hdlc->stats.rx_length_errors++;
+                 }
+ 
+                 /* Discard buffer descriptors until we see the end of packet
+@@ -732,7 +735,7 @@
+         {
+                 dbg ( DBG_RX,"intr_rx: can't allocate buffer\n");
+ 
+-                port->hdlc.stats.rx_dropped++;
++                port->hdlc->stats.rx_dropped++;
+ 
+                 /* Return descriptor to card */
+                 FST_WRB ( card, rxDescrRing[pi][rxp].bits, DMA_OWN );
+@@ -756,12 +759,12 @@
+                 port->rxpos = rxp;
+ 
+         /* Update stats */
+-        port->hdlc.stats.rx_packets++;
+-        port->hdlc.stats.rx_bytes += len;
++        port->hdlc->stats.rx_packets++;
++        port->hdlc->stats.rx_bytes += len;
+ 
+         /* Push upstream */
+         skb->mac.raw = skb->data;
+-        skb->dev = hdlc_to_dev ( &port->hdlc );
++        skb->dev = hdlc_to_dev ( port->hdlc );
+         skb->protocol = hdlc_type_trans(skb, skb->dev);
+         netif_rx ( skb );
+ 
+@@ -806,7 +809,7 @@
+         {
+                 event = FST_RDB ( card, interruptEvent.evntbuff[rdidx]);
+ 
+-                port = &card->ports[event & 0x03];
++                port = card->ports[event & 0x03];
+ 
+                 dbg ( DBG_INTR,"intr: %x\n", event );
+ 
+@@ -835,8 +838,8 @@
+                          * always load up the entire packet for DMA.
+                          */
+                         dbg ( DBG_TX,"Tx underflow port %d\n", event & 0x03 );
+-                        port->hdlc.stats.tx_errors++;
+-                        port->hdlc.stats.tx_fifo_errors++;
++                        port->hdlc->stats.tx_errors++;
++                        port->hdlc->stats.tx_fifo_errors++;
+                         break;
+ 
+                 case INIT_CPLT:
+@@ -859,9 +862,10 @@
+         }
+         FST_WRB ( card, interruptEvent.rdindex, rdidx );
+ 
+-        for ( pi = 0, port = card->ports ; pi < card->nports ; pi++, port++ )
++        for ( pi = 0 ; pi < card->nports ; pi++ )
+         {
+-                if ( ! port->run )
++		port = card->ports[pi];
++                if ( !port || ! port->run )
+                         continue;
+ 
+                 /* Check for rx completions */
+@@ -1346,8 +1350,8 @@
+ 
+         port = dev_to_port ( dev );
+ 
+-        port->hdlc.stats.tx_errors++;
+-        port->hdlc.stats.tx_aborted_errors++;
++        port->hdlc->stats.tx_errors++;
++        port->hdlc->stats.tx_aborted_errors++;
+ 
+         if ( port->txcnt > 0 )
+                 fst_issue_cmd ( port, ABORTTX );
+@@ -1374,8 +1378,8 @@
+         if ( ! netif_carrier_ok ( dev ))
+         {
+                 dev_kfree_skb ( skb );
+-                port->hdlc.stats.tx_errors++;
+-                port->hdlc.stats.tx_carrier_errors++;
++                port->hdlc->stats.tx_errors++;
++                port->hdlc->stats.tx_carrier_errors++;
+                 return 0;
+         }
+ 
+@@ -1385,7 +1389,7 @@
+                 dbg ( DBG_TX,"Packet too large %d vs %d\n", skb->len,
+                                                 LEN_TX_BUFFER );
+                 dev_kfree_skb ( skb );
+-                port->hdlc.stats.tx_errors++;
++                port->hdlc->stats.tx_errors++;
+                 return 0;
+         }
+ 
+@@ -1399,7 +1403,7 @@
+                 spin_unlock_irqrestore ( &card->card_lock, flags );
+                 dbg ( DBG_TX,"Out of Tx buffers\n");
+                 dev_kfree_skb ( skb );
+-                port->hdlc.stats.tx_errors++;
++                port->hdlc->stats.tx_errors++;
+                 return 0;
+         }
+         if ( ++port->txpos >= NUM_TX_BUFFER )
+@@ -1419,8 +1423,8 @@
+         FST_WRW ( card, txDescrRing[pi][txp].bcnt, cnv_bcnt ( skb->len ));
+         FST_WRB ( card, txDescrRing[pi][txp].bits, DMA_OWN | TX_STP | TX_ENP );
+ 
+-        port->hdlc.stats.tx_packets++;
+-        port->hdlc.stats.tx_bytes += skb->len;
++        port->hdlc->stats.tx_packets++;
++        port->hdlc->stats.tx_bytes += skb->len;
+ 
+         dev_kfree_skb ( skb );
+ 
+@@ -1455,11 +1459,23 @@
+          */
+         for ( i = 0 ; i < card->nports ; i++ )
+         {
+-                card->ports[i].card   = card;
+-                card->ports[i].index  = i;
+-                card->ports[i].run    = 0;
++		hdlc_device *hdlc;
++		struct fst_port_info *port;
 +
- static inline struct dscc4_dev_priv *dscc4_priv(struct net_device *dev)
- {
--	return list_entry(dev, struct dscc4_dev_priv, hdlc.netdev);
-+	return dev_to_hdlc(dev)->dev_data;
- }
- 
- static void scc_patchl(u32 mask, u32 value, struct dscc4_dev_priv *dpriv,
-@@ -636,7 +646,7 @@
- 				struct net_device *dev)
- {
- 	struct RxFD *rx_fd = dpriv->rx_fd + dpriv->rx_current%RX_RING_SIZE;
--	struct net_device_stats *stats = &dpriv->hdlc.stats;
-+	struct net_device_stats *stats = &dpriv->hdlc->stats;
- 	struct pci_dev *pdev = dpriv->pci_priv->pdev;
- 	struct sk_buff *skb;
- 	int pkt_len;
-@@ -681,19 +691,16 @@
- 
- static void dscc4_free1(struct pci_dev *pdev)
- {
--	struct dscc4_pci_priv *ppriv;
--	struct dscc4_dev_priv *root;
--	int i;
-+	struct dscc4_pci_priv *ppriv = pci_get_drvdata(pdev);
-+	struct dscc4_dev_priv *dpriv, *dnext;
- 
--	ppriv = pci_get_drvdata(pdev);
--	root = ppriv->root;
--
--	for (i = 0; i < dev_per_card; i++)
--		unregister_hdlc_device(&root[i].hdlc);
-+	list_for_each_entry_safe(dpriv, dnext, &ppriv->devs, dev_list) {
-+		unregister_hdlc_device(dpriv->hdlc);
-+		free_hdlc_device(dpriv->hdlc);
-+	}
- 
- 	pci_set_drvdata(pdev, NULL);
- 
--	kfree(root);
- 	kfree(ppriv);
- }
- 
-@@ -704,7 +711,6 @@
- 	struct dscc4_dev_priv *dpriv;
- 	static int cards_found = 0;
- 	unsigned long ioaddr;
--	int i;
- 
- 	printk(KERN_DEBUG "%s", version);
- 
-@@ -743,7 +749,8 @@
- 
- 	priv = (struct dscc4_pci_priv *)pci_get_drvdata(pdev);
- 
--	if (request_irq(pdev->irq, &dscc4_irq, SA_SHIRQ, DRV_NAME, priv->root)){
-+	if (request_irq(pdev->irq, &dscc4_irq, SA_SHIRQ, DRV_NAME, 
-+			dscc4_root_priv(priv))) {
- 		printk(KERN_WARNING "%s: IRQ %d busy\n", DRV_NAME, pdev->irq);
- 		goto err_out_free1;
- 	}
-@@ -772,21 +779,19 @@
- 	 * SCC 0-3 private rx/tx irq structures
- 	 * IQRX/TXi needs to be set soon. Learned it the hard way...
- 	 */
--	for (i = 0; i < dev_per_card; i++) {
--		dpriv = priv->root + i;
-+	list_for_each_entry(dpriv, &priv->devs, dev_list) {
- 		dpriv->iqtx = (u32 *) pci_alloc_consistent(pdev,
- 			IRQ_RING_SIZE*sizeof(u32), &dpriv->iqtx_dma);
- 		if (!dpriv->iqtx)
- 			goto err_out_free_iqtx;
--		writel(dpriv->iqtx_dma, ioaddr + IQTX0 + i*4);
-+		writel(dpriv->iqtx_dma, ioaddr + IQTX0 + dpriv->dev_id*4);
- 	}
--	for (i = 0; i < dev_per_card; i++) {
--		dpriv = priv->root + i;
-+	list_for_each_entry(dpriv, &priv->devs, dev_list) {
- 		dpriv->iqrx = (u32 *) pci_alloc_consistent(pdev,
- 			IRQ_RING_SIZE*sizeof(u32), &dpriv->iqrx_dma);
- 		if (!dpriv->iqrx)
- 			goto err_out_free_iqrx;
--		writel(dpriv->iqrx_dma, ioaddr + IQRX0 + i*4);
-+		writel(dpriv->iqrx_dma, ioaddr + IQRX0 + dpriv->dev_id*4);
- 	}
- 
- 	/* Cf application hint. Beware of hard-lock condition on threshold. */
-@@ -804,22 +809,19 @@
- 	return 0;
- 
- err_out_free_iqrx:
--	while (--i >= 0) {
--		dpriv = priv->root + i;
-+	list_for_each_entry(dpriv, &priv->devs, dev_list) {
- 		pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32),
- 				    dpriv->iqrx, dpriv->iqrx_dma);
- 	}
--	i = dev_per_card;
- err_out_free_iqtx:
--	while (--i >= 0) {
--		dpriv = priv->root + i;
-+	list_for_each_entry(dpriv, &priv->devs, dev_list) {
- 		pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32),
- 				    dpriv->iqtx, dpriv->iqtx_dma);
- 	}
- 	pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32), priv->iqcfg,
- 			    priv->iqcfg_dma);
- err_out_free_irq:
--	free_irq(pdev->irq, priv->root);
-+	free_irq(pdev->irq, dscc4_root_priv(priv));
- err_out_free1:
- 	dscc4_free1(pdev);
- err_out_iounmap:
-@@ -863,29 +865,27 @@
- static int dscc4_found1(struct pci_dev *pdev, unsigned long ioaddr)
- {
- 	struct dscc4_pci_priv *ppriv;
--	struct dscc4_dev_priv *root;
-+	struct dscc4_dev_priv *dpriv, *dnext;
- 	int i, ret = -ENOMEM;
- 
--	root = (struct dscc4_dev_priv *)
--		kmalloc(dev_per_card*sizeof(*root), GFP_KERNEL);
--	if (!root) {
--		printk(KERN_ERR "%s: can't allocate data\n", DRV_NAME);
--		goto err_out;
--	}
--	memset(root, 0, dev_per_card*sizeof(*root));
--
- 	ppriv = (struct dscc4_pci_priv *) kmalloc(sizeof(*ppriv), GFP_KERNEL);
- 	if (!ppriv) {
- 		printk(KERN_ERR "%s: can't allocate private data\n", DRV_NAME);
--		goto err_free_dev;
-+		goto err_out;
- 	}
- 	memset(ppriv, 0, sizeof(struct dscc4_pci_priv));
-+	INIT_LIST_HEAD(&ppriv->devs);
- 
- 	for (i = 0; i < dev_per_card; i++) {
--		struct dscc4_dev_priv *dpriv = root + i;
--		hdlc_device *hdlc = &dpriv->hdlc;
--		struct net_device *d = hdlc_to_dev(hdlc);
-+		hdlc_device *hdlc = alloc_hdlc_device(sizeof(*dpriv));
-+		struct net_device *d;
-+
++		hdlc = alloc_hdlc_device(sizeof(*port));
 +		if (!hdlc) {
-+			ret = -ENOMEM;
-+			goto err_unregister;
++                        printk_err ("Cannot allcoate HDLC device for port %d", i);
++                        card->nports = i;
++                        break;
 +		}
  
-+		d = hdlc_to_dev(hdlc);
- 	        d->base_addr = ioaddr;
- 		d->init = NULL;
- 	        d->irq = pdev->irq;
-@@ -898,6 +898,8 @@
- 		SET_MODULE_OWNER(d);
- 		SET_NETDEV_DEV(d, &pdev->dev);
- 
-+		dpriv = dscc4_priv(d);
-+		dpriv->hdlc = hdlc;
- 		dpriv->dev_id = i;
- 		dpriv->pci_priv = ppriv;
- 		spin_lock_init(&dpriv->lock);
-@@ -920,23 +922,25 @@
- 			unregister_hdlc_device(hdlc);
- 			goto err_unregister;
- 		}
-+		list_add_tail(&dpriv->dev_list, &ppriv->devs);
- 	}
--	ret = dscc4_set_quartz(root, quartz);
+-                dev = hdlc_to_dev ( &card->ports[i].hdlc );
++		card->ports[i] = port = hdlc->dev_data;
++		port->hdlc = hdlc;
++                port->card   = card;
++                port->index  = i;
++                port->run    = 0;
 +
-+
-+	ret = dscc4_set_quartz(dscc4_root_priv(ppriv), quartz);
- 	if (ret < 0)
- 		goto err_unregister;
--	ppriv->root = root;
-+
- 	spin_lock_init(&ppriv->lock);
- 	pci_set_drvdata(pdev, ppriv);
- 	return ret;
++                dev = hdlc_to_dev ( hdlc );
  
- err_unregister:
--	while (--i >= 0) {
--		dscc4_release_ring(root + i);
--		unregister_hdlc_device(&root[i].hdlc);
-+	list_for_each_entry_safe(dpriv, dnext, &ppriv->devs, dev_list) {
-+		dscc4_release_ring(dpriv);
-+		unregister_hdlc_device(dpriv->hdlc);
-+		free_hdlc_device(dpriv->hdlc);
- 	}
- 	kfree(ppriv);
--err_free_dev:
--	kfree(root);
- err_out:
- 	return ret;
- };
-@@ -964,7 +968,7 @@
- 	sync_serial_settings *settings = &dpriv->settings;
+                 /* Fill in the net device info */
+                                 /* Since this is a PCI setup this is purely
+@@ -1479,10 +1495,11 @@
+                 dev->do_ioctl              = fst_ioctl;
+                 dev->watchdog_timeo        = FST_TX_TIMEOUT;
+                 dev->tx_timeout            = fst_tx_timeout;
+-                card->ports[i].hdlc.attach = fst_attach;
+-                card->ports[i].hdlc.xmit   = fst_start_xmit;
++                hdlc->attach	 	   = fst_attach;
++                hdlc->xmit  		   = fst_start_xmit;
  
- 	if (settings->loopback && (settings->clock_type != CLOCK_INT)) {
--		struct net_device *dev = hdlc_to_dev(&dpriv->hdlc);
-+		struct net_device *dev = hdlc_to_dev(dpriv->hdlc);
+-                if (( err = register_hdlc_device ( &card->ports[i].hdlc )) < 0 )
++		err = register_hdlc_device ( hdlc );
++		if (err)
+                 {
+                         printk_err ("Cannot register HDLC device for port %d"
+                                     " (errno %d)\n", i, -err );
+@@ -1494,8 +1511,8 @@
+         spin_lock_init ( &card->card_lock );
  
- 		printk(KERN_INFO "%s: loopback requires clock\n", dev->name);
- 		return -1;
-@@ -1015,7 +1019,7 @@
- static int dscc4_open(struct net_device *dev)
+         printk ( KERN_INFO "%s-%s: %s IRQ%d, %d ports\n",
+-                        hdlc_to_dev(&card->ports[0].hdlc)->name,
+-                        hdlc_to_dev(&card->ports[card->nports-1].hdlc)->name,
++                        hdlc_to_dev(card->ports[0]->hdlc)->name,
++                        hdlc_to_dev(card->ports[card->nports-1]->hdlc)->name,
+                         type_strings[card->type], card->irq, card->nports );
+ }
+ 
+@@ -1641,13 +1658,14 @@
+ fst_remove_one ( struct pci_dev *pdev )
  {
- 	struct dscc4_dev_priv *dpriv = dscc4_priv(dev);
--	hdlc_device *hdlc = &dpriv->hdlc;
-+	hdlc_device *hdlc = dpriv->hdlc;
- 	struct dscc4_pci_priv *ppriv;
- 	int ret = -EAGAIN;
+         struct fst_card_info *card;
+-        int i;
++	int i;
  
-@@ -1467,7 +1471,7 @@
- 	int i, handled = 1;
+         card = pci_get_drvdata(pdev);
  
- 	priv = root->pci_priv;
--	dev = hdlc_to_dev(&root->hdlc);
-+	dev = hdlc_to_dev(root->hdlc);
+-        for ( i = 0 ; i < card->nports ; i++ )
+-        {
+-                unregister_hdlc_device ( &card->ports[i].hdlc );
++        for ( i = 0 ; i < card->nports ; i++ ) {
++		hdlc_device *hdlc = card->ports[i]->hdlc;
++                unregister_hdlc_device (hdlc);
++		free_hdlc_device (hdlc);
+         }
  
- 	spin_lock_irqsave(&priv->lock, flags);
- 
-@@ -1518,7 +1522,7 @@
- static inline void dscc4_tx_irq(struct dscc4_pci_priv *ppriv,
- 				struct dscc4_dev_priv *dpriv)
- {
--	struct net_device *dev = hdlc_to_dev(&dpriv->hdlc);
-+	struct net_device *dev = hdlc_to_dev(dpriv->hdlc);
- 	u32 state;
- 	int cur, loop = 0;
- 
-@@ -1549,7 +1553,7 @@
- 
- 	if (state & SccEvt) {
- 		if (state & Alls) {
--			struct net_device_stats *stats = &dpriv->hdlc.stats;
-+			struct net_device_stats *stats = &dpriv->hdlc->stats;
- 			struct sk_buff *skb;
- 			struct TxFD *tx_fd;
- 
-@@ -1687,7 +1691,7 @@
- static inline void dscc4_rx_irq(struct dscc4_pci_priv *priv,
- 				    struct dscc4_dev_priv *dpriv)
- {
--	struct net_device *dev = hdlc_to_dev(&dpriv->hdlc);
-+	struct net_device *dev = hdlc_to_dev(dpriv->hdlc);
- 	u32 state;
- 	int cur;
- 
-@@ -1954,23 +1958,21 @@
- static void __devexit dscc4_remove_one(struct pci_dev *pdev)
- {
- 	struct dscc4_pci_priv *ppriv;
--	struct dscc4_dev_priv *root;
-+	struct dscc4_dev_priv *root,  *dpriv;
- 	unsigned long ioaddr;
--	int i;
- 
- 	ppriv = pci_get_drvdata(pdev);
--	root = ppriv->root;
-+	root = dscc4_root_priv(ppriv);
- 
--	ioaddr = hdlc_to_dev(&root->hdlc)->base_addr;
-+	ioaddr = hdlc_to_dev(root->hdlc)->base_addr;
- 
- 	dscc4_pci_reset(pdev, ioaddr);
- 
- 	free_irq(pdev->irq, root);
- 	pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32), ppriv->iqcfg,
- 			    ppriv->iqcfg_dma);
--	for (i = 0; i < dev_per_card; i++) {
--		struct dscc4_dev_priv *dpriv = root + i;
- 
-+	list_for_each_entry(dpriv, &ppriv->devs, dev_list) {
- 		dscc4_release_ring(dpriv);
- 		pci_free_consistent(pdev, IRQ_RING_SIZE*sizeof(u32),
- 				    dpriv->iqrx, dpriv->iqrx_dma);
+         fst_disable_intr ( card );
