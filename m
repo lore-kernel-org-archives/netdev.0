@@ -1,25 +1,24 @@
-From: Rick Lindsley <ricklind@us.ibm.com>
+From: Andrew Morton <akpm@osdl.org>
 Subject: Re: Fw: Re: 2.6.9-rc1-mm2
-Date: Wed, 01 Sep 2004 01:33:25 -0700
+Date: Wed, 1 Sep 2004 01:41:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409010833.i818XPZ04210@owlet.beaverton.ibm.com>
+Message-ID: <20040901014118.45204bcb.akpm@osdl.org>
 References: <41351C86.7000704@us.ibm.com>
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+	<200409010833.i818XPZ04210@owlet.beaverton.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: niv@us.ibm.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-reply-to: Your message of "Tue, 31 Aug 2004 17:49:10 PDT."
-             <41351C86.7000704@us.ibm.com>
+To: Rick Lindsley <ricklind@us.ibm.com>
+In-Reply-To: <200409010833.i818XPZ04210@owlet.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thanks for pointing out the specific config options.
+Rick Lindsley <ricklind@us.ibm.com> wrote:
+>
+> But considering I ran make oldconfig on this and chose
+>  the defaults in each and every case, should I end up with a config that
+>  doesn't compile?
 
-Granted a more recent config is warranted .. the one I'm using is
-2.6.0-based.  But considering I ran make oldconfig on this and chose
-the defaults in each and every case, should I end up with a config that
-doesn't compile?  Is there still a config issue here, especially
-considering that both rc1 and rc1-mm1 compiled fine using this method?
-Or is make oldconfig only going to help for a version or two back?
-
-Rick
+No, you shouldn't.  This indicates a Kconfig bug.
