@@ -1,8 +1,8 @@
 From: janitor@sternwelten.at
-Subject: [patch 09/16]  ixgb/ixgb_osdep: replace 	schedule_timeout() with msleep()
-Date: Wed, 01 Sep 2004 23:03:21 +0200
+Subject: [patch 10/16]  net/mac89x0: replace schedule_timeout() 	with msleep()
+Date: Wed, 01 Sep 2004 23:03:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C2cGH-0007qo-Fw@sputnik>
+Message-ID: <E1C2cGN-0007rW-0B@sputnik>
 Cc: jgarzik@pobox.com, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -15,13 +15,27 @@ List-Id: netdev.vger.kernel.org
 
 
 
-I would appreciate any comments from the janitor@sternweltens list. 
+I would appreciate any comments from the janitor@sternweltens list. This is one (of
+many) cases where I made a decision about replacing
+
+set_current_state(TASK_INTERRUPTIBLE);
+schedule_timeout(some_time);
+
+with
+
+msleep(jiffies_to_msecs(some_time));
+
+msleep() is not exactly the same as the previous code, but I only did
+this replacement where I thought long delays were *desired*. If this is
+not the case here, then just disregard this patch. 
+
+Thanks,
+Nish
 
 
 
 Description: Replace schedule_timeout() with msleep() to guarantee the
-task delays for the desired time. Redefine msec_delay(x) to directly
-call msleep(x).
+task delays for the desired time.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
@@ -30,26 +44,21 @@ Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
 ---
 
- linux-2.6.9-rc1-bk7-max/drivers/net/ixgb/ixgb_osdep.h |    8 +-------
- 1 files changed, 1 insertion(+), 7 deletions(-)
+ linux-2.6.9-rc1-bk7-max/drivers/net/mac89x0.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_osdep drivers/net/ixgb/ixgb_osdep.h
---- linux-2.6.9-rc1-bk7/drivers/net/ixgb/ixgb_osdep.h~msleep-drivers_net_ixgb_osdep	2004-09-01 19:35:34.000000000 +0200
-+++ linux-2.6.9-rc1-bk7-max/drivers/net/ixgb/ixgb_osdep.h	2004-09-01 19:35:34.000000000 +0200
-@@ -41,13 +41,7 @@
- #include <linux/sched.h>
+diff -puN drivers/net/mac89x0.c~msleep-drivers_net_max89x0 drivers/net/mac89x0.c
+--- linux-2.6.9-rc1-bk7/drivers/net/mac89x0.c~msleep-drivers_net_max89x0	2004-09-01 19:35:34.000000000 +0200
++++ linux-2.6.9-rc1-bk7-max/drivers/net/mac89x0.c	2004-09-01 19:35:34.000000000 +0200
+@@ -308,8 +308,7 @@ void __init reset_chip(struct net_device
+ 	writereg(dev, PP_SelfCTL, readreg(dev, PP_SelfCTL) | POWER_ON_RESET);
  
- #ifndef msec_delay
--#define msec_delay(x)	do { if(in_interrupt()) { \
--				/* Don't mdelay in interrupt context! */ \
--	                	BUG(); \
--			} else { \
--				set_current_state(TASK_UNINTERRUPTIBLE); \
--				schedule_timeout((x * HZ)/1000 + 2); \
--			} } while(0)
-+#define msec_delay(x)	msleep(x)
- #endif
+ 	/* wait 30 ms */
+-	current->state = TASK_INTERRUPTIBLE;
+-	schedule_timeout(30*HZ/1000);
++	msleep(30);
  
- #define PCI_COMMAND_REGISTER   PCI_COMMAND
+ 	/* Wait until the chip is reset */
+ 	reset_start_time = jiffies;
 
 _
