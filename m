@@ -1,47 +1,31 @@
-From: Jeff Sipek <jeffpc@optonline.net>
-Subject: Re: [PATCH 2.6] watch64: generic variable monitoring system
-Date: Sun, 05 Sep 2004 12:19:34 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <200409051219.47590.jeffpc@optonline.net>
-References: <200409031307.01240.jeffpc@optonline.net>
- <200409031744.32970.jeffpc@optonline.net>
- <1094303999.1633.116.camel@jzny.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 0/6 linux-2.6.9-rc1/linux-2.4.28-pre2]
+ prism54 patches resend
+Date: Sun, 05 Sep 2004 16:09:49 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <413B728D.7000902@pobox.com>
+References: <200409051158.59976.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: 7BIT
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266850AbUIEQTw@vger.kernel.org>
-In-reply-to: <1094303999.1633.116.camel@jzny.localdomain>
-To: hadi@cyberus.ca
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Margit Schubert-While <margitsw@t-online.de>
+In-Reply-To: <200409051158.59976.margitsw@t-online.de>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+applied 2.4 sync-up patch, and the series 1-6 to 2.4 and 2.6.
 
-On Saturday 04 September 2004 09:19, jamal wrote:
-> I have a feeling this was discussed somewhere(other than netdev) and i
-> missed it. Why isnt this watch64 being done in user space?
+only patch #1 went into net-drivers-2.[46] for immediate queueing, the 
+rest went into netdev-2.[46] (and thus -mm) for further testing of new 
+features.
 
-There was a discussion about 64-bit network statistics about a year ago on 
-lkml.
-
-watch64 is a generic so that anyone in the kernel can use it.
-
-Jeff.
-
-- -- 
-Mankind invented the atomic bomb, but no mouse would ever construct a 
-mousetrap.
-  - Albert Einstein
-
-
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBOzybwFP0+seVj/4RArmhAKC3ddX4ZGoAMQKxGplXqqbER9BBMQCfencW
-wDt06dC8MifG9NU3xWx0ULo=
-=z9kC
------END PGP SIGNATURE-----
+	Jeff
