@@ -1,25 +1,58 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] move dmascc away from setup.c
-Date: Tue, 03 Jun 2003 22:13:13 -0700 (PDT)
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Subject: Re: fix TCP roundtrip time update code
+Date: Tue, 3 Jun 2003 22:34:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030603.221313.70195889.davem@redhat.com>
-References: <20030603082326.GA22946@lst.de>
+Message-ID: <16093.34022.445246.52398@napali.hpl.hp.com>
+References: <200306040043.EAA24505@dub.inr.ac.ru>
+	<3EDD52F5.8090706@us.ibm.com>
+	<20030603.202320.59680883.davem@redhat.com>
+	<16093.30507.661714.676184@napali.hpl.hp.com>
+	<3EDD7832.7010804@us.ibm.com>
+Reply-To: davidm@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davidm@hpl.hp.com, "David S. Miller" <davem@redhat.com>,
+   kuznet@ms2.inr.ac.ru, jmorris@intercode.com.au, gandalf@wlug.westbo.se,
+   linux-kernel@vger.kernel.org, linux-ia64@linuxia64.org, netdev@oss.sgi.com,
+   akpm@digeo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hch@lst.de
-In-Reply-To: <20030603082326.GA22946@lst.de>
+To: Nivedita Singhvi <niv@us.ibm.com>
+In-Reply-To: <3EDD7832.7010804@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Christoph Hellwig <hch@lst.de>
-   Date: Tue, 3 Jun 2003 10:23:26 +0200
+>>>>> On Tue, 03 Jun 2003 21:40:18 -0700, Nivedita Singhvi <niv@us.ibm.com> said:
 
-   Yeah, it's a isa driver but it already was in the setup.c
-   pci probes list.
-   
-   Also use SET_MODULE_OWNER instead of MOD_{INC,DEC}_USE_COUNT.
-   
-Applied, thanks.
+  Nivedita> David Mosberger wrote:
+  DaveM> So if your old SpecWEB99 lab tended more to trigger timeout
+  DaveM> based retransmits on LAN, and your new test network does not,
+  DaveM> then your new test network will tend to not reproduce the bug
+  DaveM> regardless of whether the bug is present in the kernel or not
+  DaveM> :-)
+
+  >>  Is this where I get to plug httperf?  It triggered the bug
+  >> reliably in less than 10 secs. ;-)
+
+  Nivedita> Tarnation!! Ran httperf! Didnt hit it! :(. What were your
+  Nivedita> settings?
+
+I used:
+
+ $ httperf --rate 1000 --num-conns 1000000 --verbose --hog --server HOST \
+	--uri pathto30KBfile
+
+on 3 clients (for a total of 3000 conns/sec).  You can't go higher
+than 1000 conn/sec per client (IP address) because otherwise you run
+out of port space (due to TIME_WAIT).
+
+This load worked well for a machine with a single GigE card.  All
+network tunables were on the default setting (in particular, the tx
+queue len was 300, which is were the losses came from).
+
+With this load, I saw bad RTT values in the route cache within a
+couple of seconds after starting the third httperf generator.  It then
+took a bit longer (on the order of 1-2 minutes) until the first
+TCPAbortFailed errors started to pop up.
+
+	--david
