@@ -1,80 +1,101 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: [e100 2.6 3/3] h/w can't do IPv6 checksum offloading
-Date: Thu, 25 Sep 2003 18:48:18 -0700 (PDT)
+From: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+Subject: Re: [Patch]: IPv6 Connection Tracking
+Date: Fri, 26 Sep 2003 12:54:21 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309251846280.6381-100000@localhost.localdomain>
-Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
+Message-ID: <200309260354.MAA29078@toshiba.co.jp>
+References: <200309250521.OAA29293@toshiba.co.jp>
+	<1064515680.995.41.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yasuyuki.kozakai@toshiba.co.jp, netfilter-devel@lists.netfilter.org,
+        netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: kisza@securityaudit.hu
+In-Reply-To: <1064515680.995.41.camel@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-* Driver was advertising HW_CSUM, but hardware is only capable of IP_CSUM.
+Hi, Andras,
 
------------
+From: Andras Kis-Szabo <kisza@securityaudit.hu>
+Subject: Re: [Patch]: IPv6 Connection Tracking
+Date: 25 Sep 2003 20:48:01 +0200
 
-diff -Naurp net-drivers-2.5/drivers/net/e100/e100_main.c net-drivers-2.5/drivers/net/e100.mod/e100_main.c
---- net-drivers-2.5/drivers/net/e100/e100_main.c	2003-09-24 20:34:50.000000000 -0700
-+++ net-drivers-2.5/drivers/net/e100.mod/e100_main.c	2003-09-24 20:35:14.000000000 -0700
-@@ -46,7 +46,13 @@
- 
- /* Change Log
-  * 
-- * 2.3.18       07/08/03
-+ * 2.3.30       09/21/03
-+ * o Bug fix (Bugzilla 97908): Loading e100 was causing crash on Itanium2
-+ *   with HP chipset
-+ * o Bug fix (Bugzilla 101583): e100 can't pass traffic with ipv6
-+ * o Bug fix (Bugzilla 101360): PRO/10+ can't pass traffic
-+ * 
-+ * 2.3.27       08/08/03
-  * o Bug fix: read skb->len after freeing skb
-  *   [Andrew Morton] akpm@zip.com.au
-  * o Bug fix: 82557 (with National PHY) timeout during init
-@@ -54,24 +60,6 @@
-  * o Feature add: allow to change Wake On LAN when EEPROM disabled
-  * 
-  * 2.3.13       05/08/03
-- * o Feature remove: /proc/net/PRO_LAN_Adapters support gone completely
-- * o Feature remove: IDIAG support (use ethtool -t instead)
-- * o Cleanup: fixed spelling mistakes found by community
-- * o Feature add: ethtool cable diag test
-- * o Feature add: ethtool parameter support (ring size, xsum, flow ctrl)
-- * o Cleanup: move e100_asf_enable under CONFIG_PM to avoid warning
-- *   [Stephen Rothwell (sfr@canb.auug.org.au)]
-- * o Bug fix: don't call any netif_carrier_* until netdev registered.
-- *   [Andrew Morton (akpm@digeo.com)]
-- * o Cleanup: replace (skb->len - skb->data_len) with skb_headlen(skb)
-- *   [jmorris@intercode.com.au]
-- * o Bug fix: cleanup of Tx skbs after running ethtool diags
-- * o Bug fix: incorrect reporting of ethtool diag overall results
-- * o Bug fix: must hold xmit_lock before stopping queue in ethtool
-- *   operations that require reset h/w and driver structures.
-- * o Bug fix: statistic command failure would stop statistic collection.
-- * 
-- * 2.2.21	02/11/03
-  */
-  
- #include <linux/config.h>
-@@ -137,7 +125,7 @@ static void e100_non_tx_background(unsig
- static inline void e100_tx_skb_free(struct e100_private *bdp, tcb_t *tcb);
- /* Global Data structures and variables */
- char e100_copyright[] __devinitdata = "Copyright (c) 2003 Intel Corporation";
--char e100_driver_version[]="2.3.18-k1";
-+char e100_driver_version[]="2.3.30-k1";
- const char *e100_full_driver_name = "Intel(R) PRO/100 Network Driver";
- char e100_short_driver_name[] = "e100";
- static int e100nics = 0;
-@@ -645,7 +633,7 @@ e100_found1(struct pci_dev *pcid, const 
- 	dev->do_ioctl = &e100_ioctl;
- 
- 	if (bdp->flags & USE_IPCB)
--	dev->features = NETIF_F_SG | NETIF_F_HW_CSUM |
-+	dev->features = NETIF_F_SG | NETIF_F_IP_CSUM |
- 			NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- 		
- 	if ((rc = register_netdev(dev)) != 0) {
+kisza> I have used an own 'external header skipper' routine which was very
+kisza> close the the kernel's one. So I would like to update the netfilter code
+kisza> to use the kernel's function. For this, we have to export the
+kisza> ipv6_skip_exthdr() function from net/ipv6/exthdrs.c . I have checked
+kisza> your code, too. It looks very close to the kernel's code.
+kisza> As I have noticed, the differences:
+kisza> - handling of the fragments
+
+No, ip6_ct_skip_exthdr() in my code may return NEXTHDR_NONE.
+I want to distinguish the packet with NEXTHDR_NONE and the packet with unknown
+extension header. I want to let "proto_generic" module to handle it.
+
+BTW, handling of the fragments is bug fix.
+"fhdr->frag_off" in ipv6_skip_exthdr() is out of area of "hdr".
+I thought that it's already reported but look like still not fixed...
+
+kisza>   your code checks that the member of the extension are in the skb or
+kisza> not since the common part checks only the basic extension header size.
+kisza> After it your code linearizes the skb to cover the extension header.
+kisza> So, the kernel does not check the size and does not linearize. After
+kisza> these fixes the 2 codes will be similar.
+
+Excuse me, I don't understand which code you said about. find_prev_fhdr() ?
+This function finds previous header of fragment header. We can't use
+ipv6_skip_exthdr() to do this. Even though we can find offset of fragment
+header, we can't find offset of previous header because we can't parse
+extension header backwards.
+
+kisza> Would not be better to export the kernel's function and use the
+kisza> ipv6_skip_exthdr() in the netfilter codes?
+
+I think so about ip6_ct_skip_exthdr(). I'm going to delete this function
+from my patch if 
+
+	we don't need to distinguish packets with NEXTHDR_NONE and the packet
+	with unknown extension header.
+
+and when
+
+	the bug in ipv6_skip_exthdr() is fixed.
+
+kisza> My second commet is near this area. I have planned that an offset value
+kisza> which points after the last extension header and a variable which
+kisza> contain the last nexthdr value would be very helpful for the future -
+kisza> but I was too lazy to do this work. With the connection tracking this
+kisza> function (ipv6_skip_exthdr) will be called several time on the same
+kisza> packet (in the main kernel, at every LOG, at every match, at every ct,
+kisza> ...) With USAGI we could - probably - find the space for this 2
+kisza> variable. Do you have any recommendation?
+
+I think we'd be better that extension header is parsed in L3 specific code
+at once, and the offset and the nexthdr value is passed the functions
+which need one as argument. This eases writing l3 independent codes in future.
+
+kisza> Your FTP code uses EPSV and EPRT from rfc2428. What's about the FOOBAR
+kisza> RFC (1639)? OK, it's a joke :)
+
+I want to think that's joke, too...
+
+kisza> Could we open an IPv4 data connection next to the IPv6 controll
+kisza> connection?
+
+You can't open even though you load ip_conntrack_ftp and ip6_conntrack_ftp.
+I don't want to allow that because I don't know what happens.
+
+Regards,
+
+----------------------------------------
+Yasuyuki KOZAKAI
+
+Communication Platform Laboratory,
+Corporate Research & Development Center,
+Toshiba Corporation
+
+yasuyuki.kozakai@toshiba.co.jp
+----------------------------------------
