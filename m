@@ -1,28 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: mv643xx(16/20): Limit MTU to 1500 bytes unless connected at GigE
- speed
-Date: Wed, 30 Mar 2005 15:09:18 -0500
-Message-ID: <424B076E.4080508@pobox.com>
-References: <20050328233807.GA28423@xyzzy> <20050328235758.GP29098@xyzzy>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
+ Topics
+Date: Wed, 30 Mar 2005 12:10:58 -0800
+Message-ID: <424B07D2.4030309@cs.wisc.edu>
+References: <20050327054831.GA15453@waste.org>	 <1111905181.4753.15.camel@mylaptop>	 <20050326224621.61f6d917.davem@davemloft.net>	 <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>	 <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>	 <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie>	 <1112130512.1077.107.camel@jzny.localdomain>	 <20050330152208.GB12672@muc.de>  <20050330172412.GP15453@waste.org> <1112204383.11620.2.camel@beastie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, Ralf Baechle <ralf@linux-mips.org>,
-        Manish Lachwani <mlachwani@mvista.com>,
-        Brian Waite <brian@waitefamily.us>,
-        "Steven J. Hill" <sjhill@realitydiluted.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        James Chapman <jchapman@katalix.com>
+Cc: open-iscsi@googlegroups.com, Andi Kleen <ak@muc.de>,
+        jamal <hadi@cyberus.ca>,
+        James Bottomley <James.Bottomley@HansenPartnership.com>,
+        Rik van Riel <riel@redhat.com>, andrea@suse.de,
+        ksummit-2005-discuss@thunk.org, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dale Farnsworth <dale@farnsworth.org>
-In-Reply-To: <20050328235758.GP29098@xyzzy>
+To: Dmitry Yusupov <dmitry_yus@yahoo.com>
+In-Reply-To: <1112204383.11620.2.camel@beastie>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Dmitry Yusupov wrote:
+> On Wed, 2005-03-30 at 09:24 -0800, Matt Mackall wrote: 
+> 
+>>I seem to recall this being fairly easy to trigger by simply pulling
+>>the network cable while there's heavy mmap + write load. The system
+>>will quickly spiral down into OOM and will remain wedged when you plug
+>>the network back in. With iSCSI, after some extended period all the
+>>I/Os will have SCSI timeouts and lose everything.
+> 
+> 
+> We've discussed that already. SCSI timeout logic just doesn't fit. (see
+> rfc3720). For iSCSI, SCSI timeout logic *must* be disabled until iSCSI
+> recovery is complete.
 
-Explanation?
+This has actually been brought up when the scsi_times_out thread was going
+on. It kinda was at least. Some driver writers inluding sfnet used to play
+a lot of tricks with the timers to accomplish this (this was the goal
+for sfnet at least) and I do not think linux-scsi will allow it. Maybe that
+will change.
 
-I see no inherent reason to disallow jumbo frames at slower speeds.
+  host block/unblock logic in recent iSCSI transport
+> patch will help to implement that.
+> 
 
-	Jeff
+No it won't :( block/unblock does not disable timeouts it just makes it
+so new commands are not queued and they timeout when the driver knows
+that the transport is hosed.
