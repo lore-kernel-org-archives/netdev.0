@@ -1,32 +1,42 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH] 2.6.3 orinoco.c patch to support ethtool get_link
-Date: Mon, 8 Mar 2004 10:52:43 -0800
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.6.4-rc2-bk4 1/2] pcnet32 transmit hang fix
+Date: Mon, 8 Mar 2004 11:42:36 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040308185242.GA18367@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <200403081942.i28Jga910632@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, Thomas Munck Steenholdt <tmus@tmus.dk>
-Content-Disposition: inline
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Munck Steenholdt wrote :
-> 
-> I noticed that there wasn't a good way, from userland, to get the link
-> status of an orinoco device.
+Please apply the following patch to 2.6.4-rc2-bk4.
 
-	I hope you realise that most often link status is meaningless
-with Wireless cards. In Ad-Hoc mode, the link is always up, regardless
-of the number of nodes in the cell, check the discussion on the HostAP
-mailing list. And the Orinoco card will report connected even is WEP
-is wrong. But, if you only use managed mode without WEP, that should
-work.
-	I just wonder if it's better to report a 'link status' that
-may be wrong/misleading or to not report anything at all.
+The pcnet32 driver will hang after a few frames (<30) with the 79C971
+(and probably the 79C972 though I don't have the hardware to prove it).
+By interrupting slightly more frequently the hang will not occur.
 
-	Have fun...
+This patch is already included in 2.4.26-pre2.
 
-	Jean
+--- orig.linux-2.6.4-rc2-bk4/drivers/net/pcnet32.c	Mon Mar  8 10:02:25 2004
++++ linux-2.6.4-rc2-bk4/drivers/net/pcnet32.c	Mon Mar  8 10:24:43 2004
+@@ -1452,11 +1452,12 @@
+     status = 0x8300;
+     entry = (lp->cur_tx - lp->dirty_tx) & TX_RING_MOD_MASK;
+     if ((lp->ltint) &&
+-	((entry == TX_RING_SIZE/2) ||
++	((entry == TX_RING_SIZE/3) ||
++	 (entry == (TX_RING_SIZE*2)/3) ||
+ 	 (entry >= TX_RING_SIZE-2)))
+     {
+ 	/* Enable Successful-TxDone interrupt if we have
+-	 * 1/2 of, or nearly all of, our ring buffer Tx'd
++	 * 1/3, 2/3 or nearly all of, our ring buffer Tx'd
+ 	 * but not yet cleaned up.  Thus, most of the time,
+ 	 * we will not enable Successful-TxDone interrupts.
+ 	 */
+
+-- 
+Don Fry
+brazilnut@us.ibm.com
