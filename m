@@ -1,30 +1,29 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Allowing netlink_family to be any integer
-Date: Thu, 21 Oct 2004 16:02:27 -0700
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: TCP-MD5 support
+Date: Fri, 22 Oct 2004 01:28:16 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41784003.7070505@candelatech.com>
-References: <20041021142527.GG3551@sunbeam.de.gnumonks.org> <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au> <20041021225315.GH19714@rei.reeler.org>
+Message-ID: <41784610.1070303@tomt.net>
+References: <417837D4.1020402@tomt.net> <20041021155109.204e4f68.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Harald Welte <laforge@netfilter.org>, lmb@suse.de, ahu@ds9a.nl,
-        hch@infradead.org, netdev@oss.sgi.com, davem@davemloft.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041021225315.GH19714@rei.reeler.org>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041021155109.204e4f68.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
+David S. Miller wrote:
+>>How is this moving along? Last time I heard around 2.6.7 sometime it was 
+>>beeing cleaned up for inclusion in mainline.
+> 
+> 
+> Yeah, I have a tree at:
+> 
+> 	bk://kernel.bkbits.net/davem/tcp-2.6
+> 
+> that Yoshifuji and myself were working on.  It needs two
+> pieces of work which I'll do soon:
 
-> The only real problem I see is sk_protocol being only 8bit as
-> limiting factor.
-
-When you fix this, please make the route-table ID at least 16 bits as well :)
-
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Ahh - cool. I was just a bit worried that the project had died on us. :-)
