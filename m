@@ -1,241 +1,123 @@
-From: "kodu" <jyri.reitel@mail.ee>
-Subject: [PATCH 2.6.11.1] net/8139cp.c - get and set eeprom
-Date: Thu, 24 Mar 2005 12:06:03 +0200
-Message-ID: <001701c53059$19c17aa0$3c0a0a0a@Liewenthal.ee>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: <netdev@oss.sgi.com>
-To: <jgarzik@pbox.com>
+From: Daniel Egger <de@axiros.com>
+Subject: Re: PCI interrupt problem: e1000 & Super-Micro X6DVA motherboard
+Date: Thu, 24 Mar 2005 11:13:00 +0100
+Message-ID: <9538d4ed18eab6ae1983ce32f7564237@axiros.com>
+References: <42421FF2.7050501@candelatech.com>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-3-207994160"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel List Kernel Mailing <linux-kernel@vger.kernel.org>,
+        Netdev <netdev@oss.sgi.com>
+In-Reply-To: <42421FF2.7050501@candelatech.com>
+To: Ben Greear <greearb@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-Please consider applying (or droping).
-Thank you. When answering please add jyri.reitel@mail.ee to the cc line,
-because i'm not the member of the mainling list
 
-Description: This patch adds ethtool functions (get_eeprom, set_eeprom an=
-d
-get_eeprom_len) implementations for RTL8139C+ chips. Eeprom writing
-functions are taken from rtl8139-diag tool source code. Also modified the
-pci table for this driver to be used when RTL8139C+ starts with empty fla=
-sh
-(flash contains all FF's, thus the chip can be seen as regular rtl8139). =
-The
-code was tested with ethtool-3. Commands ethtool -e eth0 and ethtool -E e=
-th0
-offset 5 data 0x12, and so.
+--Apple-Mail-3-207994160
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 
-Note:
-I could not figure out what exactly to do with the eeprom->magic in
-set_eeprom function.
+On 24.03.2005, at 03:03, Ben Greear wrote:
 
-Signed-off-by: J=FCri Reitel jyri.reitel@mail.ee
+> When trying to send/receive traffic, I get TX watchdog timeouts.  The 
+> other
+> interfaces seem to work just fine.
 
---- linux-2.6.11.1/drivers/net/8139cp.c.orig Thu Mar 24 10:08:32 2005
-+++ linux-2.6.11.1/drivers/net/8139cp.c Thu Mar 24 11:56:41 2005
-@@ -110,6 +110,11 @@ MODULE_PARM_DESC (multicast_filter_limit
- #define TRUE (!FALSE)
- #endif
+No idea whether my problem is related but due to a broken motherboard
+I had to switch from a SiS based Athlon board (ECS K7S5A) to a new
+one which is VIA based:
 
-+#define RTL8139_EEPROM_SIZE 128
-+static int get_eeprom(struct net_device *dev, struct ethtool_eeprom
-*eeprom, u8 *data);
-+static int set_eeprom(struct net_device *dev, struct ethtool_eeprom
-*eeprom, u8 *data);
-+static int get_eeprom_len(struct net_device *dev);
-+
- #define CP_DEF_MSG_ENABLE (NETIF_MSG_DRV  | \
-      NETIF_MSG_PROBE  | \
-      NETIF_MSG_LINK)
-@@ -400,6 +405,8 @@ static struct pci_device_id cp_pci_tbl[]
-    PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-  { PCI_VENDOR_ID_TTTECH, PCI_DEVICE_ID_TTTECH_MC322,
-    PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-+ { PCI_VENDOR_ID_REALTEK, PCI_DEVICE_ID_REALTEK_8129,
-+   PCI_ANY_ID, PCI_ANY_ID, 0, 0, },
-  { },
- };
- MODULE_DEVICE_TABLE(pci, cp_pci_tbl);
-@@ -1543,6 +1550,9 @@ static struct ethtool_ops cp_ethtool_ops
-  .set_wol  =3D cp_set_wol,
-  .get_strings  =3D cp_get_strings,
-  .get_ethtool_stats =3D cp_get_ethtool_stats,
-+ .get_eeprom =3D get_eeprom,
-+ .set_eeprom =3D set_eeprom,
-+ .get_eeprom_len =3D get_eeprom_len,
- };
+0000:00:00.0 Host bridge: VIA Technologies, Inc. VT8377 [KT400/KT600 
+AGP] Host Bridge (rev 80)
+0000:00:01.0 PCI bridge: VIA Technologies, Inc. VT8237 PCI Bridge
+0000:00:09.0 VGA compatible controller: Cirrus Logic GD 5446
+0000:00:0a.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
+RTL-8169 Gigabit Ethernet (rev 10)
+0000:00:0b.0 Ethernet controller: Intel Corp. 82541GI/PI Gigabit 
+Ethernet Controller
+0000:00:0d.0 FireWire (IEEE 1394): NEC Corporation uPD72874 IEEE1394 
+OHCI 1.1 3-port PHY-Link Ctrlr (rev 01)
+0000:00:0f.0 RAID bus controller: VIA Technologies, Inc. VIA VT6420 
+SATA RAID Controller (rev 80)
+0000:00:0f.1 IDE interface: VIA Technologies, Inc. 
+VT82C586A/B/VT82C686/A/B/VT823x/A/C PIPC Bus Master IDE (rev 06)
+0000:00:10.0 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 
+1.1 Controller (rev 81)
+0000:00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 
+1.1 Controller (rev 81)
+0000:00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 
+1.1 Controller (rev 81)
+0000:00:10.3 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 
+1.1 Controller (rev 81)
+0000:00:10.4 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 86)
+0000:00:11.0 ISA bridge: VIA Technologies, Inc. VT8237 ISA bridge 
+[K8T800 South]
+0000:00:11.5 Multimedia audio controller: VIA Technologies, Inc. 
+VT8233/A/8235/8237 AC97 Audio Controller (rev 60)
+0000:00:12.0 Ethernet controller: VIA Technologies, Inc. VT6102 
+[Rhine-II] (rev 78)
 
- static int cp_ioctl (struct net_device *dev, struct ifreq *rq, int cmd)
-@@ -1566,8 +1576,8 @@ static int cp_ioctl (struct net_device *
- #define EE_SHIFT_CLK 0x04 /* EEPROM shift clock. */
- #define EE_CS   0x08 /* EEPROM chip select. */
- #define EE_DATA_WRITE 0x02 /* EEPROM chip data in. */
--#define EE_WRITE_0  0x00
--#define EE_WRITE_1  0x02
-+#define EE_WRITE_0  (0x00 | EE_ENB)
-+#define EE_WRITE_1  (0x02 | EE_ENB)
- #define EE_DATA_READ 0x01 /* EEPROM chip data out. */
- #define EE_ENB   (0x80 | EE_CS)
+Strange enough the beforehand very reliable Intel Pro/1000 MT
+controller would also see watchdog errors in an otherwise
+unchanged environment (same kernel, cards, CPU, etc.). I tried
+different kernels 2.6.8-2.6.10, but no change; I tried without
+ACPI information for IRQ routing -- nope. I tried swapping PCI
+slots -- negative, sir.
 
-@@ -1582,7 +1592,7 @@ static int cp_ioctl (struct net_device *
- #define EE_READ_CMD  (6)
- #define EE_ERASE_CMD (7)
+As a temporary counter measure (this box is not only a ethernet
+bridge between 100Mbit and 1000Mbit switched networks but also
+the primary fileserver for my netboot TFTP/NFS environment, so
+dropouts are especially nasty since it takes some time until the
+NFS machines on the Gbit network will resume operation) I popped
+in the cheeeep RealTek card (which caused some slight problems
+like permanent hangs and bad performance before) and everything
+works like a charm. Of course, after throwing in some extra
+money to get at least somewhat professional equipment, I'd like
+to use it, too.
 
--static int read_eeprom (void __iomem *ioaddr, int location, int addr_len=
-)
-+static int read_eeprom(void __iomem *ioaddr, int location, int addr_len)
- {
-  int i;
-  unsigned retval =3D 0;
-@@ -1619,6 +1629,130 @@ static int read_eeprom (void __iomem *io
-  eeprom_delay ();
+This is the (strange?) ethtool output:
+Settings for eth0:
+         Supported ports: [ TP ]
+         Supported link modes:   10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+                                 1000baseT/Full
+         Supports auto-negotiation: Yes
+         Advertised link modes:  10baseT/Half 10baseT/Full
+                                 100baseT/Half 100baseT/Full
+                                 1000baseT/Full
+         Advertised auto-negotiation: Yes
+         Speed: Unknown! (65535)
+         Duplex: Unknown! (255)
+         Port: Twisted Pair
+         PHYAD: 0
+         Transceiver: internal
+         Auto-negotiation: on
+         Supports Wake-on: umbg
+         Wake-on: g
+         Current message level: 0x00000007 (7)
+         Link detected: no
 
-  return retval;
-+}
-+
-+/* This executes a generic EEPROM command, typically a write or write
-enable.
-+   It returns the data output from the EEPROM, and thus may also be used
-for
-+   reads. */
-+static int do_eeprom_cmd(void __iomem *ioaddr, int cmd, int cmd_len)
-+{
-+ unsigned retval =3D 0;
-+ void __iomem *ee_addr =3D ioaddr + Cfg9346;
-+
-+ writeb(EE_ENB | EE_SHIFT_CLK, ee_addr);
-+
-+ /* Shift the command bits out. */
-+ do {
-+  short dataval =3D (cmd & (1 << cmd_len)) ? EE_WRITE_1 : EE_WRITE_0;
-+  writeb(dataval, ee_addr);
-+  eeprom_delay();
-+  writeb(dataval | EE_SHIFT_CLK, ee_addr);
-+  eeprom_delay();
-+  retval =3D (retval << 1) | ((readb(ee_addr) & EE_DATA_READ) ? 1 : 0);
-+ } while (--cmd_len >=3D 0);
-+ writeb(EE_ENB, ee_addr);
-+
-+ /* Terminate the EEPROM access. */
-+ writeb(EE_ENB & ~EE_CS, ee_addr);
-+ writeb(~EE_CS, ee_addr);
-+ return retval;
-+}
-+
-+
-+static void write_eeprom(void __iomem *ioaddr, int index, u16 value, int
-ee_addr_size)
-+{
-+ int i;
-+ /* Enable programming modes. */
-+ do_eeprom_cmd(ioaddr, (0x4f << (ee_addr_size - 4)), 3 + ee_addr_size);
-+ /* Do the actual write. */
-+ do_eeprom_cmd(ioaddr,
-+  (((EE_WRITE_CMD << ee_addr_size) | index) << 16) | value,
-+  3 + ee_addr_size + 16
-+ );
-+ /* Poll for write finished. */
-+ writeb(EE_ENB, ioaddr + Cfg9346);
-+ for (i =3D 0; i < 10000; i++)   /* Typical 2000 ticks */
-+  if (readb(ioaddr + Cfg9346) & EE_DATA_READ)
-+   break;
-+ /* Disable programming. */
-+ do_eeprom_cmd(ioaddr, (0x40 << (ee_addr_size - 4)), 3 + ee_addr_size);
-+}
-+
-+
-+static int get_eeprom_len(struct net_device *dev)
-+{
-+ return RTL8139_EEPROM_SIZE;
-+}
-+
-+static int get_eeprom(struct net_device *dev, struct ethtool_eeprom
-*eeprom, u8 *data)
-+{
-+ struct cp_private *cp =3D netdev_priv(dev);
-+ unsigned int addr_len;
-+ u16 eep_data_word =3D 0;
-+ u32 i;
-+
-+ eeprom->magic =3D PCI_VENDOR_ID_REALTEK | (PCI_DEVICE_ID_REALTEK_8139 <=
-<
-16);
-+ spin_lock_irq(&cp->lock);
-+
-+ addr_len =3D (read_eeprom(cp->regs, 0, 8) =3D=3D 0x8129)? 8 : 6;
-+
-+ /* reading word by word from the eeprom */
-+
-+ if (eeprom->offset & 1) {
-+  /* offset is odd */
-+  eep_data_word =3D le16_to_cpu(read_eeprom(cp->regs, eeprom->offset >> =
-1,
-addr_len));
-+ }
-+ for (i =3D eeprom->offset; i < (eeprom->offset + eeprom->len); i++) {
-+  if (i & 1) {
-+   /* copy odd byte */
-+   data[i - eeprom->offset] =3D (u8)(eep_data_word >> 8);
-+  } else {
-+   /* reading even byte so lets fech next word from eeprom */
-+   eep_data_word =3D le16_to_cpu(read_eeprom(cp->regs, i >> 1, addr_len)=
-);
-+   data[i - eeprom->offset] =3D (u8)eep_data_word;
-+  }
-+ }
-+ spin_unlock_irq(&cp->lock);
-+ return 0;
-+}
-+
-+static int set_eeprom(struct net_device *dev, struct ethtool_eeprom
-*eeprom, u8 *data)
-+{
-+ struct cp_private *cp =3D netdev_priv(dev);
-+ unsigned int addr_len;
-+ u16 eep_data_word =3D 0;
-+ u32 i;
-+ /*
-+ if(eeprom->magic !=3D (PCI_VENDOR_ID_REALTEK | (PCI_DEVICE_ID_REALTEK_8=
-139
-<< 16))) {
-+  return -ENODEV;
-+ }
-+ */
-+ spin_lock_irq(&cp->lock);
-+
-+ addr_len =3D (read_eeprom(cp->regs, 0, 8) =3D=3D 0x8129)? 8 : 6;
-+
-+ if (eeprom->offset & 1) {
-+  /* offset is odd, so read the word to later replace MSB byte */
-+  eep_data_word =3D le16_to_cpu(read_eeprom(cp->regs, eeprom->offset >> =
-1,
-addr_len));
-+ }
-+ for (i =3D eeprom->offset; i < (eeprom->offset + eeprom->len); i++) {
-+  if (i & 1) {
-+   /* copy odd byte, to the word data to be stored to the eeprom */
-+   eep_data_word |=3D (u16)data[i - eeprom->offset] << 8;
-+   write_eeprom(cp->regs, i >> 1, eep_data_word, addr_len);
-+  } else {
-+   /* reading even byte so lets fech next word from eeprom */
-+   eep_data_word =3D (u16)data[i - eeprom->offset];
-+   if (i + 1 =3D=3D (eeprom->offset + eeprom->len)) {
-+    //when writing last byte that is LSB, i.e. must get the MSB from eep=
-rom
-+    eep_data_word |=3D le16_to_cpu(read_eeprom(cp->regs, i >> 1, addr_le=
-n)) &
-0xFF00;
-+    write_eeprom(cp->regs, i >> 1, eep_data_word, addr_len);
-+   }
-+  }
-+ }
-+
-+ spin_unlock_irq(&cp->lock);
-+ return 0;
- }
+The card is still in the system and running, so if someone wants
+me to run to more tests or diagnostic, please be my guest.
 
- /* Put the board into D3cold state and wait for WakeUp signal */
+Servus,
+       Daniel
+
+--Apple-Mail-3-207994160
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: This is a digitally signed message part
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (Darwin)
+
+iD8DBQFCQpKtchlzsq9KoIYRAhk2AKCJCZ8H1WGw8prwZB2M2tlZGDaADwCgtmge
+fRumGFNBZ2OY0MdYV+OmfBY=
+=Inhw
+-----END PGP SIGNATURE-----
+
+--Apple-Mail-3-207994160--
