@@ -1,53 +1,64 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: network interface cards native vlans support in linux kernel?
-Date: Fri, 11 Jul 2003 10:25:57 -0700
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: 2.5.74 X.25+LAPB still kills the kernel
+Date: 11 Jul 2003 19:27:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0EF325.9060708@candelatech.com>
-References: <Pine.LNX.4.44.0307111754220.6646-100000@hl.kauneta.net> <3F0EEFDD.8050300@candelatech.com> <20030711171858.GI2210@gtf.org>
+Message-ID: <m3y8z5dldr.fsf@defiant.pm.waw.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrius Kasparavicius <andrius@andrius.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20030711171858.GI2210@gtf.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> On Fri, Jul 11, 2003 at 10:11:57AM -0700, Ben Greear wrote:
-> 
->>eepro100 does not seem to be updated in the kernel anymore, though if you 
->>go figure
->>out how to install Becker's drivers, he may have it working with vlans
->>by now.
-> 
-> 
-> I won't say for sure, but I'm fairly certain he does.  Most of his
-> drivers got a "slightly larger than normal MTU" pass-over a while ago.
-> 
-> I objected to the eepro100 patch, because all it did was change one
-> magic number to another, in the configuration data.  I had absolutely no
-> basis for evaluation other than "I hope it works", so it was rejected.
-> 
-> If someone wants to look at his eepro100 and merge in new changes (vlan
-> or otherwise), that'd be great.  His tulip MTU (aka vlan) changes also
-> want pulling into mainline kernel, since his changes are _much_ better
-> than the tulip vlan patch floating around.
+Hi,
 
-It is beyond me to do this merge at this time, but if someone else can
-do it that would be great.  I can also do some testing of the tulip
-merge, at least..as I have loads of 4-port nics lying around.
+No need to actually use X.25+LAPB, it's enough to just compile it in.
+Linux version 2.5.74 (gcc version 3.2.3 20030422 (Red Hat Linux 3.2.3-4))
+You do not need Ethernet either, it will oops with just loopback as well.
+Serial console dump follows (details available on request in case someone
+need them).
 
-Ben
+gw:/# ip link
+1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
 
-> 
-> 	Jeff
-> 
-> 
+gw:/# ifconfig
+lo        Link eUnable to handle kernel paging requestncap:Local Loopb at virtual address 6b6b6b6b
+ack
+          printing eip:
+ inet addr:127.0c01a0f22
+.0.1  Mask:255.0*pde = 00000000
+.0.0
+          Oops: 0000 [#1]
+CPU:    0
+EIP:    0060:[<c01a0f22>]    Not tainted
+EFLAGS: 00010202
+EIP is at __release_sock+0x22/0x60
+eax: 6b6b6b6b   ebx: 00000000   ecx: 00000000   edx: c3cd2c44
+esi: c3cd2c44   edi: c3cd2c44   ebp: c10b7f00   esp: c10b7ef8
+ds: 007b   es: 007b   ss: 0068
+Process ifconfig (pid: 37, threadinfo=c10b6000 task=c10ce060)
+Stack: 00000000 c3cd2c88 c10b7f18 c01ee728 c3cd2c44 c3cd2c44 c3ed1d2c c3cdb494
+       c10b7f40 c01eebf8 c3cd2c44 c3cd2c44 00000000 00000000 00000000 c3cdb494
+       00000000 c3cdb4b8 c10b7f54 c019e1d6 c3cdb494 c3cdb4b8 c3ced41c c10b7f64
+Call Trace:
+ [<c01ee728>] x25_destroy_socket+0x188/0x1a0
+ [<c01eebf8>] x25_release+0x38/0xa0
+ [<c019e1d6>] sock_release+0x56/0x80
+ [<c019e9a3>] sock_close+0x23/0x40
+ [<c01432b6>] __fput+0xd6/0xe0
+ [<c0141cdb>] filp_close+0x3b/0x60
+ [<c0141d47>] sys_close+0x47/0x60
+ [<c010ac17>] syscall_call+0x7/0xb
 
-
+Code: 8b 18 c7 00 00 00 00 00 50 56 ff 96 1c 01 00 00 85 db 5a 89
+ UP LOOPBACK RUNN<0>Kernel panic: Fatal exception in interrupt
+ING  MTU:16436  In interrupt handler - not syncing
+Metric:1
+           RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Krzysztof Halasa
+Network Administrator
