@@ -1,16 +1,14 @@
 From: acme@conectiva.com.br
 Subject: Re: [PATCH] IPv6: Allow Both IPv6 and IPv4 Sockets on the Same Port Number (IPV6_V6ONLY Support)
-Date: Thu, 03 Oct 2002 00:53:01 -0300 (BRST)
+Date: Thu, 03 Oct 2002 00:53:15 -0300 (BRST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1033617181.3d9bbf1d557a3@webmail.conectiva.com.br>
-References: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
+Message-ID: <1033617195.3d9bbf2b900e4@webmail.conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 8bit
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: YOSHIFUJI@conectiva.com.br, UNEXPECTED_DATA_AFTER_ADDRESS@.SYNTAX-ERROR
-In-Reply-To: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
