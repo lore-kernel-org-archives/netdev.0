@@ -1,136 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] 2.6.0-test4 SEQ_START_TOKEN fs/* (6/6)
-Date: Fri, 05 Sep 2003 18:48:23 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: /proc/net/* read drops data
+Date: Sat, 06 Sep 2003 16:04:58 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1062812902.16851.173.camel@localhost.localdomain>
+Message-ID: <20030906.160458.39800982.yoshfuji@linux-ipv6.org>
+References: <20030904004638.1d4b001d.davem@redhat.com>
+	<Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: davem@redhat.com, netdev@oss.sgi.com
+In-Reply-To: <Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -urN linux-2.6.0-test4/fs/afs/proc.c SEQ_START_TOKEN/fs/afs/proc.c
--- linux-2.6.0-test4/fs/afs/proc.c	2003-08-22 16:53:39.000000000 -0700
-+++ SEQ_START_TOKEN/fs/afs/proc.c	2003-09-04 20:13:29.000000000 -0700
-@@ -188,7 +188,7 @@
- 
- 	/* allow for the header line */
- 	if (!pos)
--		return (void *)1;
-+		return SEQ_START_TOKEN;
- 	pos--;
- 
- 	/* find the n'th element in the list */
-@@ -210,7 +210,7 @@
- 	(*pos)++;
- 
- 	_p = v;
--	_p = v==(void*)1 ? afs_proc_cells.next : _p->next;
-+	_p = v==SEQ_START_TOKEN ? afs_proc_cells.next : _p->next;
- 
- 	return _p!=&afs_proc_cells ? _p : NULL;
- } /* end afs_proc_cells_next() */
-@@ -234,7 +234,7 @@
- 	afs_cell_t *cell = list_entry(v,afs_cell_t,proc_link);
- 
- 	/* display header on line 1 */
--	if (v == (void *)1) {
-+	if (v == SEQ_START_TOKEN) {
- 		seq_puts(m, "USE NAME\n");
- 		return 0;
- 	}
-@@ -432,7 +432,7 @@
- 
- 	/* allow for the header line */
- 	if (!pos)
--		return (void *)1;
-+		return SEQ_START_TOKEN;
- 	pos--;
- 
- 	/* find the n'th element in the list */
-@@ -457,7 +457,7 @@
- 	(*_pos)++;
- 
- 	_p = v;
--	_p = v==(void*)1 ? cell->vl_list.next : _p->next;
-+	_p = v==SEQ_START_TOKEN ? cell->vl_list.next : _p->next;
- 
- 	return _p!=&cell->vl_list ? _p : NULL;
- } /* end afs_proc_cell_volumes_next() */
-@@ -483,7 +483,7 @@
- 	afs_vlocation_t *vlocation = list_entry(v,afs_vlocation_t,link);
- 
- 	/* display header on line 1 */
--	if (v == (void *)1) {
-+	if (v == SEQ_START_TOKEN) {
- 		seq_puts(m, "USE VLID[0]  VLID[1]  VLID[2]  NAME\n");
- 		return 0;
- 	}
-@@ -556,7 +556,7 @@
- 
- 	/* allow for the header line */
- 	if (!pos)
--		return (void *)1;
-+		return SEQ_START_TOKEN;
- 	pos--;
- 
- 	if (pos>=cell->vl_naddrs)
-@@ -673,7 +673,7 @@
- 
- 	/* allow for the header line */
- 	if (!pos)
--		return (void *)1;
-+		return SEQ_START_TOKEN;
- 	pos--;
- 
- 	/* find the n'th element in the list */
-@@ -698,7 +698,7 @@
- 	(*_pos)++;
- 
- 	_p = v;
--	_p = v==(void*)1 ? cell->sv_list.next : _p->next;
-+	_p = v==SEQ_START_TOKEN ? cell->sv_list.next : _p->next;
- 
- 	return _p!=&cell->sv_list ? _p : NULL;
- } /* end afs_proc_cell_servers_next() */
-@@ -725,7 +725,7 @@
- 	char ipaddr[20];
- 
- 	/* display header on line 1 */
--	if (v == (void *)1) {
-+	if (v == SEQ_START_TOKEN) {
- 		seq_puts(m, "USE ADDR            STATE\n");
- 		return 0;
- 	}
-diff -urN linux-2.6.0-test4/fs/nfsd/export.c SEQ_START_TOKEN/fs/nfsd/export.c
--- linux-2.6.0-test4/fs/nfsd/export.c	2003-08-22 16:57:00.000000000 -0700
-+++ SEQ_START_TOKEN/fs/nfsd/export.c	2003-09-04 19:51:24.000000000 -0700
-@@ -935,7 +935,7 @@
- 	exp_readlock();
- 	read_lock(&svc_export_cache.hash_lock);
- 	if (!n--)
--		return (void *)1;
-+		return SEQ_START_TOKEN;
- 	hash = n >> 32;
- 	export = n & ((1LL<<32) - 1);
- 
-@@ -959,7 +959,7 @@
- 	struct cache_head *ch = p;
- 	int hash = (*pos >> 32);
- 
--	if (p == (void *)1)
-+	if (p == SEQ_START_TOKEN)
- 		hash = 0;
- 	else if (ch->next == NULL) {
- 		hash++;
-@@ -1029,7 +1029,7 @@
- 	struct svc_export *exp = container_of(cp, struct svc_export, h);
- 	svc_client *clp;
- 
--	if (p == (void *)1) {
-+	if (p == SEQ_START_TOKEN) {
- 		seq_puts(m, "# Version 1.1\n");
- 		seq_puts(m, "# Path Client(Flags) # IPs\n");
- 		return 0;
+In article <Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net> (at Thu, 4 Sep 2003 12:25:16 -0400 (EDT)), Ricky Beam <jfbeam@bluetronic.net> says:
+
+> >This fix looks good to me.  Applied.
+> 
+> The list:
+> (file)			(bs=1)	(bs=10000)
+> /proc/net/igmp		122     191
+> /proc/net/route		128     384
+> /proc/net/rt_acct	0	4096
+> /proc/net/rt_cache	384     512
+> /proc/net/tcp		1800    1950
+> /proc/net/udp		1024    1152
+
+Well, I'm about to post 3 patches.
+
+[1/3] /proc/net/{igmp,msfilter,raw,rt_cache,ip6_flowlabel,msfilter6,raw6} may drop some data
+[2/3] /proc/net/if_inet6 may drop some data
+[3/3] clean up /proc/net/{anycast6,igmp6}
+
+Note 0: These confilct with SEQ_START_TOKEN patches; 
+        I'll regenerate if SEQ_START_TOKEN accepted.
+Note 1: /proc/net/rt_acct does not use seq_file
+Note 2: /proc/net/{route,tcp,tcp6} is not fixed by these
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
