@@ -1,35 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.4.x] IPv6 multicast (MLD,IGMP) code bypasses netfilter
- hooks
-Date: Thu, 4 Dec 2003 10:37:19 -0800
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20031204103719.56038dba.davem@redhat.com>
-References: <20031122090330.GB2745@obroa-skai.de.gnumonks.org>
-	<20031123154344.3e2b0b1a.davem@redhat.com>
-	<20031204090121.GD16635@obroa-skai.de.gnumonks.org>
+From: Krishna Kumar <kumarkr@us.ibm.com>
+Subject: Gratuitous ARP
+Date: Thu, 4 Dec 2003 13:24:57 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <OFB0D41ED0.73C9674E-ON88256DF2.0074D58D@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20031204090121.GD16635@obroa-skai.de.gnumonks.org>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Dec 2003 14:31:21 +0530
-Harald Welte <laforge@netfilter.org> wrote:
 
-> Now that the other Dave's fix has made it in 2.6.0-test11, I have merged
-> it (untested, but compiles) with 2.4.x.
-> 
-> Dave, would you consider applying this to to 2.4.x ?
 
-Done, thanks for catching this Harald.
+
+
+Hi,
+
+I am trying to find out why gratuitous ARP isn't implemented for IPv4
+duplicate address detection, though a comment is present in the
+arp.c that it was added. Was it removed for any reason ? I went
+through netdev archives and found some threads relating to this, but
+no comments were there on why this feature is absent or removed.
+Could it be to avoid a flood arp attack ? If so, any reason why it cannot
+be implemented under a configuration param ?
+
+I would appreciate if someone can throw any light on this.
+
+Thanks,
+
+- KK
