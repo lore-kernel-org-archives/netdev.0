@@ -1,22 +1,20 @@
-From: "대출" <wxxjpl587703@hotmail.com>
-Subject: =?ISO-8859-1?Q?=A2=BE=C4=AB=B5=E5=B0=AA=20=C7=D1=B2=A8=B9=F8=BF=A1?=
-	=?ISO-8859-1?Q?=C7=D8=B0=E1=C7=CF=BC=BC=BF=E4?=
-	=?ISO-8859-1?Q?5=C3=B5=B8=B8=BF=F8=B1=EE=C1=F6=20=C1=EF=BD=C3?=
-	=?ISO-8859-1?Q?=B4=EB=C3=E2!!!?= c ubksrcjjjk pdcm
-Date: Mon, 08 Mar 04 10:53:32 GMT
+From: "금융대출" <wyhaje929230@hotmail.com>
+Subject: =?ISO-8859-1?Q?=A1=D8=C4=AB=B5=E5=BF=AC=C3=BC=C0=DA=B1=DD=C0=B6=B4=EB=C3=E2?=
+	=?ISO-8859-1?Q?5=C3=B5=B8=B8=BF=F8=B1=EE=C1=F6=B9=D9=B7=CE=B4=EB=C3=E2,36=B0=B3=BF=F9=C0=E5=B1=E2=BA=D0=C7=D2=BB=F3=C8=AF!?= jbe ds
+Date: Mon, 08 Mar 04 10:09:18 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1-0$5h-$-l$0buyu-1k$e@18fa24.w6.rzzv>
-Reply-To: "대출" <wxxjpl587703@hotmail.com>
+Message-ID: <mu$j6910df--l--px803-s08t9$46fj@y5v.7k>
+Reply-To: "금융대출" <wyhaje929230@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="_BB49E23EDAE_683B.1EEA_"
+	boundary="1B_2E_1C6CA.2."
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---_BB49E23EDAE_683B.1EEA_
+--1B_2E_1C6CA.2.
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
@@ -43,7 +41,8 @@ eject]</a>button. thanks</font></td>
 </table>
 </body>
 </html>
-semswymygm
-y 
+ntopfr
+vuedktsfy  b zxelndud
+hgejmwt qnggbmht  mud  c 
 
---_BB49E23EDAE_683B.1EEA_--
+--1B_2E_1C6CA.2.--
