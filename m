@@ -1,44 +1,23 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: SCTP path mtu support needs some ip layer support.
-Date: Mon, 13 Jan 2003 13:21:59 -0800
+Date: Tue, 14 Jan 2003 00:25:44 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E232DF7.4D68D57C@us.ibm.com>
-References: <3E1CCD72.6020100@us.ibm.com> <200301132048.XAA09194@sex.inr.ac.ru> <20030113210708.GA328@wotan.suse.de>
-Reply-To: niv@us.ibm.com
+Message-ID: <200301132125.AAA09366@sex.inr.ac.ru>
+References: <20030113210708.GA328@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, Jon Grimm <jgrimm2@us.ibm.com>, davem@redhat.com,
-   sri@us.ibm.com, netdev@oss.sgi.com
+Cc: jgrimm2@us.ibm.com, davem@redhat.com, sri@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
+To: ak@suse.de (Andi Kleen)
+In-Reply-To: <20030113210708.GA328@wotan.suse.de> from "Andi Kleen" at Jan 13, 3 10:07:08 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > fragmentation to retransmit any data bits. If SCTP is not ablet to do this,
-> > then you should not support pmtu discovery at all like most of people make
-> > for UDP or to follow UDP pattern, fragmenting frames when their size exceeds
-> > mtu. It is not necessary to cripple ip_queue_xmit calling conventions
-> > to make this, just add a flag to socket to clear DF on oversized
-> > frames.
-> 
-> Some recent incidents have shown that ip fragmentation/defragmention
-> at gigabit speed is rather worthless. The reason is that it has no PAWS
-> and the 16bit ipid can wrap many times in the standard reassembly
-> timeout, leading to lots of misassembled packets on a busy network.
-> Mostly that can be catched by computing the transport layer
-> checksum, but often enough a misassembled packet can slip through.
-> While in SCTP it may work a bit better because it supports stronger
-> checksums (but only optionally afaik) it is still too dangerous.
+Hello!
+
 > So in short clearing DF is near always a bug these days.
-> 
-> -Andi
 
-I'd second that and say that its absolutely a must that SCTP support
-path MTU as much as possible, and limit the fragmenting to the unresegmentable
-queued stuff only, which should only happen if the MTU changes,
-rare enough that it wont be a big deal, and with limited number of
-segments affected..
+Exactly. And it is exactly why I said that this compromises all the pmtu
+discvoery and why I would like people consulted SCTP designers before
+doing this step. I cannot believe that new protocol was designed in this way.
 
-thanks,
-Nivedita
+Alexey
