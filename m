@@ -1,38 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Tue, 31 Aug 2004 13:16:18 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040831131618.48e740f4.davem@redhat.com>
-References: <412DF807.2040703@eurodev.net>
-	<20040826141407.38b56729.davem@redhat.com>
-	<412EB40A.6010100@eurodev.net>
-	<20040826214710.5e322f1a.davem@redhat.com>
-	<412F1269.8090303@eurodev.net>
-	<20040827172736.543dbd54.davem@redhat.com>
-	<413276D9.9080303@eurodev.net>
-	<20040830172029.164fcf9c.davem@redhat.com>
-	<4134A961.20808@eurodev.net>
+Subject: Re: [PATCH, RFC] Add bridged IPv6 packet filtering
+Date: Tue, 31 Aug 2004 13:28:22 -0700
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040831132822.3c487f75.davem@redhat.com>
+References: <200408281713.29192.bdschuym@pandora.be>
+	<200408312028.42742.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
-In-Reply-To: <4134A961.20808@eurodev.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200408312028.42742.bdschuym@pandora.be>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 31 Aug 2004 18:37:53 +0200
-Pablo Neira <pablo@eurodev.net> wrote:
+On Tue, 31 Aug 2004 20:28:42 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> >It's fine, I'm going to make 2 minor fixes:
-> >
-> >1) Mark netlink_thread() function static.
-> >2) Name the thread "knetlinkd" to be consistent with
-> >   other kernel thread names.
-> >  
-> >
-> 
-> Attached the version which correct these issues.
+> How should I proceed to get any response in this matter? Should I be 
+> contacting someone else?
 
-You misunderstood, I made these fixes for you in my tree :)
+Try pinging yoshfuji@linux-ipv6.org and usagi-core@linux-ipv6.org
