@@ -1,67 +1,57 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
-Date: Sat, 11 Sep 2004 23:57:46 +0200
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
+Date: Mon, 11 Oct 2004 09:12:03 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040911215746.GF19871@obroa-skai.de.gnumonks.org>
-References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+Message-ID: <Pine.LNX.4.61.0410110858350.4733@portland.hansa.lan>
+References: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="MZf7D3rAEoQgPanC"
-Cc: Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-        netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7BIT
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        David Gibson <hermes@gibson.dropbear.id.au>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
+In-reply-to: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
+To: Cal Peake <cp@absolutedigital.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 11 Oct 2004, Cal Peake wrote:
 
---MZf7D3rAEoQgPanC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> This patch fixes several dozen warnings spit out when compiling the hermes
+> wireless driver.
 
-On Sat, Sep 11, 2004 at 10:53:53AM +0300, Julian Anastasov wrote:
-> 	Hello,
->=20
-> 	This is a resend/resync for v2.6.9-rc1-bk17: change the
-> way the ip_nat_ftp helper manipulates the packets:
->=20
-> - no manips =3D> no fixup
->=20
-> - check the direction, do manip once and at the same time when the
-> headers are changed
+I noticed them too.
 
-I agree with this change, but shouldn't we make it consistently over all
-NAT helpers?  In case you didn't check yet, and assuming that this is
-applicable to other helpers as well:  Please include patches for other
-protocol helpers as well.
+By the way, it would be nice to move the discussion to the mailing list of 
+the driver, orinoco-devel@lists.sourceforge.net.  Sorry that it wasn't 
+mentioned in the MAINTAINERS file.  I've just submitted a patch to add the 
+mailing lists to that file.
 
-Thanks!
+> @@ -364,12 +364,12 @@
+> /* Register access convenience macros */
+> #define hermes_read_reg(hw, off) ((hw)->io_space ? \
+> 	inw((hw)->iobase + ( (off) << (hw)->reg_spacing )) : \
+> -	readw((hw)->iobase + ( (off) << (hw)->reg_spacing )))
+> +	readw((void __iomem *)(hw)->iobase + ( (off) << (hw)->reg_spacing )))
 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+The HEAD version of the driver aims to support Linux starting with version 
+2.4.10, so you need to add some magic in kcompat.h to define __iomem.
 
---MZf7D3rAEoQgPanC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
+HostAP driver uses cast to (void *), which compiles without warnings.  I 
+believe it's sufficient because the call to readw() would cast the 
+argument to whatever readw() needs.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+Another, more sophisticated solution would be to use union for iobase:
 
-iD8DBQFBQ3TaXaXGVTD0i/8RAmTxAJ9ktGTt1eOru0wIrLid2gEjMRFJBwCgpNx0
-pnQyfK2GmkS3WA73Nvpu/SE=
-=CJnS
------END PGP SIGNATURE-----
+typedef struct hermes {
+         union {
+                 unsigned long io;
+                 void *mem;
+         } base;
+         int io_space; /* 1 if we IO-mapped IO, 0 for memory-mapped IO? */
+ 	...
+}
 
---MZf7D3rAEoQgPanC--
+-- 
+Regards,
+Pavel Roskin
