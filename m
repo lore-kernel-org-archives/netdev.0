@@ -1,452 +1,310 @@
-From: Tim Gardner <timg@tpi.com>
-Subject: [PATCH} ARP auto-sizing for 2.4.24 - 2.4.26-pre3
-Date: Sun, 14 Mar 2004 12:10:57 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <200403141210.57266.timg@tpi.com>
-Reply-To: timg@tpi.com
+From: Daniel Ritz <daniel.ritz@gmx.ch>
+Subject: [PATCH] netdev_priv for xirc2ps_cs, nmclan_cs
+Date: Mon, 15 Mar 2004 00:11:09 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200403150011.09952.daniel.ritz@gmx.ch>
+Reply-To: daniel.ritz@gmx.ch
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Anton Blanchard <anton@samba.org>
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Anton,
+s/dev->priv/netdev_priv(dev)/ for xirc2ps_cs.c and nmclan_cs.c
+xircom one is tested. against 2.6.4-bk
 
-Included is a patch that auto-sizes ARP caches ala tcp_ehash_size. There is 
-also a config option (CONFIG_NEIGH_NUM_HASHBITS) in the Network Options menu 
-that allows an override, but the default is auto-size. This patch also 
-includes smoothing of the ARP garbage collector, removes gc_interval, and 
-removes NEIGH_HASHMASK. I have run this on small configurations. Later 
-tonight I'll be trying it on one of my thousand node routers.
+rgds
+-daniel
 
-I've compiled the other affected protocols (IPv6, ATM, and DecNET), but have 
-not run them.
-
-rtg
-
-<--snip-->
-
-diff -r -u --new-file linux-2.4.bk.original/Documentation/Configure.help 
-linux-2.4.bk-auto-size/Documentation/Configure.help
---- linux-2.4.bk.original/Documentation/Configure.help	2004-03-14 
-08:54:48.000000000 -0700
-+++ linux-2.4.bk-auto-size/Documentation/Configure.help	2004-03-13 
-21:37:10.000000000 -0700
-@@ -7139,6 +7139,19 @@
+--- 1.31/drivers/net/pcmcia/xirc2ps_cs.c	Fri Mar 12 01:00:00 2004
++++ edited/drivers/net/pcmcia/xirc2ps_cs.c	Sun Mar 14 16:01:12 2004
+@@ -595,7 +595,7 @@
+     dev = alloc_etherdev(sizeof(local_info_t));
+     if (!dev)
+ 	    return NULL;
+-    local = dev->priv;
++    local = netdev_priv(dev);
+     link = &local->link;
+     link->priv = dev;
  
-   If unsure, say N.
- 
-+ARP hash table size power of 2
-+CONFIG_NEIGH_NUM_HASHBITS
-+  This option defines the size of the ARP hash table for each protocol. The 
-default size of 0
-+  initiates a boot time auto-sizing algorithm. This algorithm allocates a 
-power of 2 hash
-+  buckets according to the number of physical pages of RAM. One power of 2 
-buckets for each
-+  power of 2 MB of RAM, e.g., 8 buckets for 8MB, 16 buckets for 16MB, etc. 
-One hash bucket
-+  consumes 4 bytes on a 32 bit CPU.
-+
-+  A non-zero value for CONFIG_NEIGH_NUM_HASHBITS disables the auto-size 
-algorithm. You might
-+  specifiy a fixed size for environments where the auto-size algorithm is
-+  inappropriate. Sometimes small RAM embedded devices handle routing for a 
-thousand or more
-+  devices.
-+
- Packet socket
- CONFIG_PACKET
-   The Packet protocol is used by applications which communicate
-diff -r -u --new-file linux-2.4.bk.original/include/net/neighbour.h 
-linux-2.4.bk-auto-size/include/net/neighbour.h
---- linux-2.4.bk.original/include/net/neighbour.h	2004-03-14 
-08:54:27.000000000 -0700
-+++ linux-2.4.bk-auto-size/include/net/neighbour.h	2004-03-14 
-11:00:45.000000000 -0700
-@@ -128,7 +128,6 @@
- 	u8			key[0];
- };
- 
--#define NEIGH_HASHMASK		0x1F
- #define PNEIGH_HASHMASK		0xF
- 
- /*
-@@ -149,8 +148,7 @@
- 	void			(*proxy_redo)(struct sk_buff *skb);
- 	char			*id;
- 	struct neigh_parms	parms;
--	/* HACK. gc_* shoul follow parms without a gap! */
--	int			gc_interval;
-+	/* HACK. gc_* should follow parms without a gap! */
- 	int			gc_thresh1;
- 	int			gc_thresh2;
- 	int			gc_thresh3;
-@@ -165,7 +163,9 @@
- 	kmem_cache_t		*kmem_cachep;
- 	struct tasklet_struct	gc_task;
- 	struct neigh_statistics	stats;
--	struct neighbour	*hash_buckets[NEIGH_HASHMASK+1];
-+	struct neighbour	**hash_buckets;
-+	int					num_hash_buckets;
-+	int					curr_hash_bucket; /* for the garbage collector */
- 	struct pneigh_entry	*phash_buckets[PNEIGH_HASHMASK+1];
- };
- 
-diff -r -u --new-file linux-2.4.bk.original/net/atm/clip.c 
-linux-2.4.bk-auto-size/net/atm/clip.c
---- linux-2.4.bk.original/net/atm/clip.c	2004-03-14 08:54:29.000000000 -0700
-+++ linux-2.4.bk-auto-size/net/atm/clip.c	2004-03-13 22:12:11.000000000 -0700
-@@ -126,7 +126,7 @@
- 
- 	/*DPRINTK("idle_timer_check\n");*/
- 	write_lock(&clip_tbl.lock);
--	for (i = 0; i <= NEIGH_HASHMASK; i++) {
-+	for (i = 0; i < clip_tbl.num_hash_buckets; i++) {
- 		struct neighbour **np;
- 
- 		for (np = &clip_tbl.hash_buckets[i]; *np;) {
-@@ -318,6 +318,7 @@
- 	return 0;
- }
- 
-+static struct neigh_table clip_tbl;
- static u32 clip_hash(const void *pkey, const struct net_device *dev)
+@@ -710,7 +710,7 @@
+ set_card_type(dev_link_t *link, const void *s)
  {
- 	u32 hash_val;
-@@ -326,7 +327,7 @@
- 	hash_val ^= (hash_val>>16);
- 	hash_val ^= hash_val>>8;
- 	hash_val ^= hash_val>>3;
--	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
-+	hash_val = (hash_val^dev->ifindex)&(clip_tbl.num_hash_buckets-1);
- 
- 	return hash_val;
- }
-diff -r -u --new-file linux-2.4.bk.original/net/atm/proc.c 
-linux-2.4.bk-auto-size/net/atm/proc.c
---- linux-2.4.bk.original/net/atm/proc.c	2004-03-14 08:54:29.000000000 -0700
-+++ linux-2.4.bk-auto-size/net/atm/proc.c	2004-03-13 22:00:28.000000000 -0700
-@@ -430,7 +430,7 @@
- 		return 0;
- 	count = pos;
- 	read_lock_bh(&clip_tbl_hook->lock);
--	for (i = 0; i <= NEIGH_HASHMASK; i++)
-+	for (i = 0; i < clip_tbl_hook->num_hash_buckets; i++)
- 		for (n = clip_tbl_hook->hash_buckets[i]; n; n = n->next) {
- 			struct atmarp_entry *entry = NEIGH2ENTRY(n);
- 			struct clip_vcc *vcc;
-diff -r -u --new-file linux-2.4.bk.original/net/Config.in 
-linux-2.4.bk-auto-size/net/Config.in
---- linux-2.4.bk.original/net/Config.in	2004-03-14 08:54:37.000000000 -0700
-+++ linux-2.4.bk-auto-size/net/Config.in	2004-03-14 10:49:33.000000000 -0700
-@@ -8,6 +8,8 @@
-    bool '  Packet socket: mmapped IO' CONFIG_PACKET_MMAP
- fi
- 
-+int 'ARP hash table size power of 2' CONFIG_NEIGH_NUM_HASHBITS 0
-+
- tristate 'Netlink device emulation' CONFIG_NETLINK_DEV
- 
- bool 'Network packet filtering (replaces ipchains)' CONFIG_NETFILTER
-diff -r -u --new-file linux-2.4.bk.original/net/core/neighbour.c 
-linux-2.4.bk-auto-size/net/core/neighbour.c
---- linux-2.4.bk.original/net/core/neighbour.c	2004-03-14 08:54:29.000000000 
--0700
-+++ linux-2.4.bk-auto-size/net/core/neighbour.c	2004-03-14 11:45:53.000000000 
--0700
-@@ -111,7 +111,7 @@
- 	int shrunk = 0;
- 	int i;
- 
--	for (i=0; i<=NEIGH_HASHMASK; i++) {
-+	for (i=0; i<tbl->num_hash_buckets; i++) {
- 		struct neighbour *n, **np;
- 
- 		np = &tbl->hash_buckets[i];
-@@ -176,7 +176,7 @@
- 
- 	write_lock_bh(&tbl->lock);
- 
--	for (i=0; i <= NEIGH_HASHMASK; i++) {
-+	for (i=0; i < tbl->num_hash_buckets; i++) {
- 		struct neighbour *n, **np;
- 
- 		np = &tbl->hash_buckets[i];
-@@ -203,7 +203,7 @@
- 
- 	write_lock_bh(&tbl->lock);
- 
--	for (i=0; i<=NEIGH_HASHMASK; i++) {
-+	for (i=0; i<tbl->num_hash_buckets; i++) {
- 		struct neighbour *n, **np;
- 
- 		np = &tbl->hash_buckets[i];
-@@ -566,9 +566,8 @@
- static void SMP_TIMER_NAME(neigh_periodic_timer)(unsigned long arg)
+     struct net_device *dev = link->priv;
+-    local_info_t *local = dev->priv;
++    local_info_t *local = netdev_priv(dev);
+   #ifdef PCMCIA_DEBUG
+     unsigned cisrev = ((const unsigned char *)s)[2];
+   #endif
+@@ -805,7 +805,7 @@
  {
- 	struct neigh_table *tbl = (struct neigh_table*)arg;
-+	struct neighbour *n, **np;
- 	unsigned long now = jiffies;
--	int i;
--
+     client_handle_t handle = link->handle;
+     struct net_device *dev = link->priv;
+-    local_info_t *local = dev->priv;
++    local_info_t *local = netdev_priv(dev);
+     tuple_t tuple;
+     cisparse_t parse;
+     ioaddr_t ioaddr;
+@@ -1159,7 +1159,7 @@
  
- 	write_lock(&tbl->lock);
- 
-@@ -583,46 +582,49 @@
- 			p->reachable_time = neigh_rand_reach_time(p->base_reachable_time);
- 	}
- 
--	for (i=0; i <= NEIGH_HASHMASK; i++) {
--		struct neighbour *n, **np;
-+	tbl->curr_hash_bucket &= (tbl->num_hash_buckets-1);
-+	np = &tbl->hash_buckets[tbl->curr_hash_bucket++];
- 
--		np = &tbl->hash_buckets[i];
--		while ((n = *np) != NULL) {
--			unsigned state;
-+	while ((n = *np) != NULL) {
-+		unsigned state;
- 
--			write_lock(&n->lock);
-+		write_lock(&n->lock);
- 
--			state = n->nud_state;
--			if (state&(NUD_PERMANENT|NUD_IN_TIMER)) {
--				write_unlock(&n->lock);
--				goto next_elt;
--			}
-+		state = n->nud_state;
-+		if (state&(NUD_PERMANENT|NUD_IN_TIMER)) {
-+			write_unlock(&n->lock);
-+			goto next_elt;
-+		}
- 
--			if ((long)(n->used - n->confirmed) < 0)
--				n->used = n->confirmed;
-+		if ((long)(n->used - n->confirmed) < 0)
-+			n->used = n->confirmed;
- 
--			if (atomic_read(&n->refcnt) == 1 &&
--			    (state == NUD_FAILED || now - n->used > n->parms->gc_staletime)) {
--				*np = n->next;
--				n->dead = 1;
--				write_unlock(&n->lock);
--				neigh_release(n);
--				continue;
--			}
--
--			if (n->nud_state&NUD_REACHABLE &&
--			    now - n->confirmed > n->parms->reachable_time) {
--				n->nud_state = NUD_STALE;
--				neigh_suspect(n);
--			}
-+		if (atomic_read(&n->refcnt) == 1 &&
-+		    (state == NUD_FAILED || now - n->used > n->parms->gc_staletime)) {
-+			*np = n->next;
-+			n->dead = 1;
- 			write_unlock(&n->lock);
-+			neigh_release(n);
-+			continue;
-+		}
- 
--next_elt:
--			np = &n->next;
-+		if (n->nud_state&NUD_REACHABLE &&
-+		    now - n->confirmed > n->parms->reachable_time) {
-+			n->nud_state = NUD_STALE;
-+			neigh_suspect(n);
- 		}
-+		write_unlock(&n->lock);
-+
-+next_elt:
-+		np = &n->next;
- 	}
- 
--	mod_timer(&tbl->gc_timer, now + tbl->gc_interval);
-+	/*
-+	 * Cycle through all hash buckets every base_reachable_time/2 ticks. ARP 
-entry
-+	 * timeouts range from 1/2 base_reachable_time to 3/2 base_reachable_time.
-+	 */
-+	mod_timer(&tbl->gc_timer, now + 
-((tbl->parms.base_reachable_time>>1)/(tbl->num_hash_buckets)));
-+
- 	write_unlock(&tbl->lock);
- }
- 
-@@ -905,7 +907,7 @@
- 
- 	neigh = __neigh_lookup(tbl, saddr, dev, lladdr || !dev->addr_len);
- 	if (neigh)
--		neigh_update(neigh, lladdr, NUD_STALE, 1, 1);
-+		neigh_update(neigh, lladdr, (lladdr && dev->addr_len) ? NUD_REACHABLE : 
-NUD_STALE, 1, 1);
- 	return neigh;
- }
- 
-@@ -1132,6 +1134,39 @@
- void neigh_table_init(struct neigh_table *tbl)
+     if (link->win) {
+ 	struct net_device *dev = link->priv;
+-	local_info_t *local = dev->priv;
++	local_info_t *local = netdev_priv(dev);
+ 	if (local->dingo)
+ 	    iounmap(local->dingo_ccr - 0x0800);
+ 	pcmcia_release_window(link->win);
+@@ -1246,7 +1246,7 @@
+ xirc2ps_interrupt(int irq, void *dev_id, struct pt_regs *regs)
  {
- 	unsigned long now = jiffies;
-+	unsigned int goal=CONFIG_NEIGH_NUM_HASHBITS;
-+
-+	/*
-+	 * Allocate a power of 2 hash buckets for each power of 2 MB of RAM.
-+	 */
-+	if (!goal)
-+	{
-+		unsigned int ram_mb = (num_physpages * PAGE_SIZE) / (1024 * 1024);
-+		goal = 31;
-+		while ((1<<goal) > ram_mb)
-+		{
-+			goal--;
-+		}
-+	}
-+
-+	tbl->hash_buckets = NULL;
-+	while (goal && (!tbl->hash_buckets))
-+	{
-+		tbl->num_hash_buckets = (1<<goal);
-+		tbl->hash_buckets = kmalloc(sizeof(struct neighbour 
-*)*tbl->num_hash_buckets,GFP_ATOMIC);
-+		goal--;
-+	}
-+
-+	if (tbl->hash_buckets == NULL)
-+		panic("%s: Could not allocate memory for hash buckets.\n",__FUNCTION__);
-+	memset(tbl->hash_buckets,0,sizeof(struct neighbour 
-*)*tbl->num_hash_buckets);
-+
-+	if (CONFIG_NEIGH_NUM_HASHBITS && (tbl->num_hash_buckets != 
-((1<<CONFIG_NEIGH_NUM_HASHBITS)+1)))
-+		printk(KERN_WARNING "%s: Could not allocate %u hash buckets, did %u 
-instead.\n",
-+			__FUNCTION__,
-+			(1<<CONFIG_NEIGH_NUM_HASHBITS)+1,
-+			tbl->num_hash_buckets
-+		);
+     struct net_device *dev = (struct net_device *)dev_id;
+-    local_info_t *lp = dev->priv;
++    local_info_t *lp = netdev_priv(dev);
+     ioaddr_t ioaddr;
+     u_char saved_page;
+     unsigned bytes_rcvd;
+@@ -1468,7 +1468,7 @@
+ static void
+ do_tx_timeout(struct net_device *dev)
+ {
+-    local_info_t *lp = dev->priv;
++    local_info_t *lp = netdev_priv(dev);
+     printk(KERN_NOTICE "%s: transmit timed out\n", dev->name);
+     lp->stats.tx_errors++;
+     /* reset the card */
+@@ -1480,7 +1480,7 @@
+ static int
+ do_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-    local_info_t *lp = dev->priv;
++    local_info_t *lp = netdev_priv(dev);
+     ioaddr_t ioaddr = dev->base_addr;
+     int okay;
+     unsigned freespace;
+@@ -1537,7 +1537,7 @@
+ static struct net_device_stats *
+ do_get_stats(struct net_device *dev)
+ {
+-    local_info_t *lp = dev->priv;
++    local_info_t *lp = netdev_priv(dev);
  
- 	tbl->parms.reachable_time = 
-neigh_rand_reach_time(tbl->parms.base_reachable_time);
+     /*	lp->stats.rx_missed_errors = GetByte(?) */
+     return &lp->stats;
+@@ -1552,7 +1552,7 @@
+ set_addresses(struct net_device *dev)
+ {
+     ioaddr_t ioaddr = dev->base_addr;
+-    local_info_t *lp = dev->priv;
++    local_info_t *lp = netdev_priv(dev);
+     struct dev_mc_list *dmi = dev->mc_list;
+     char *addr;
+     int i,j,k,n;
+@@ -1617,7 +1617,7 @@
+ static int
+ do_config(struct net_device *dev, struct ifmap *map)
+ {
+-    local_info_t *local = dev->priv;
++    local_info_t *local = netdev_priv(dev);
  
-@@ -1148,7 +1183,7 @@
- 	tbl->lock = RW_LOCK_UNLOCKED;
- 	tbl->gc_timer.data = (unsigned long)tbl;
- 	tbl->gc_timer.function = neigh_periodic_timer;
--	tbl->gc_timer.expires = now + tbl->gc_interval + tbl->parms.reachable_time;
-+	tbl->gc_timer.expires = now + 1;
- 	add_timer(&tbl->gc_timer);
+     DEBUG(0, "do_config(%p)\n", dev);
+     if (map->port != 255 && map->port != dev->if_port) {
+@@ -1643,7 +1643,7 @@
+ static int
+ do_open(struct net_device *dev)
+ {
+-    local_info_t *lp = dev->priv;
++    local_info_t *lp = netdev_priv(dev);
+     dev_link_t *link = &lp->link;
  
- 	init_timer(&tbl->proxy_timer);
-@@ -1364,7 +1399,7 @@
+     DEBUG(0, "do_open(%p)\n", dev);
+@@ -1676,7 +1676,7 @@
+ static int
+ do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+-    local_info_t *local = dev->priv;
++    local_info_t *local = netdev_priv(dev);
+     ioaddr_t ioaddr = dev->base_addr;
+     u16 *data = (u16 *)&rq->ifr_data;
  
- 	s_h = cb->args[1];
- 	s_idx = idx = cb->args[2];
--	for (h=0; h <= NEIGH_HASHMASK; h++) {
-+	for (h=0; h < tbl->num_hash_buckets; h++) {
- 		if (h < s_h) continue;
- 		if (h > s_h)
- 			s_idx = 0;
-@@ -1505,9 +1540,6 @@
- 	{NET_NEIGH_LOCKTIME, "locktime",
-          NULL, sizeof(int), 0644, NULL,
-          &proc_dointvec},
--	{NET_NEIGH_GC_INTERVAL, "gc_interval",
--         NULL, sizeof(int), 0644, NULL,
--         &proc_dointvec_jiffies},
- 	{NET_NEIGH_GC_THRESH1, "gc_thresh1",
-          NULL, sizeof(int), 0644, NULL,
-          &proc_dointvec},
-diff -r -u --new-file linux-2.4.bk.original/net/decnet/dn_neigh.c 
-linux-2.4.bk-auto-size/net/decnet/dn_neigh.c
---- linux-2.4.bk.original/net/decnet/dn_neigh.c	2004-03-14 08:54:29.000000000 
--0700
-+++ linux-2.4.bk-auto-size/net/decnet/dn_neigh.c	2004-03-14 11:11:02.000000000 
--0700
-@@ -110,7 +110,6 @@
- 		proxy_qlen:		0,
- 		locktime:		1 * HZ,
- 	},
--	gc_interval:			30 * HZ,
- 	gc_thresh1:			128,
- 	gc_thresh2:			512,
- 	gc_thresh3:			1024,
-@@ -124,7 +123,7 @@
- 	hash_val ^= (hash_val >> 10);
- 	hash_val ^= (hash_val >> 3);
+@@ -1708,7 +1708,7 @@
+ static void
+ hardreset(struct net_device *dev)
+ {
+-    local_info_t *local = dev->priv;
++    local_info_t *local = netdev_priv(dev);
+     ioaddr_t ioaddr = dev->base_addr;
  
--	return hash_val & NEIGH_HASHMASK;
-+	return hash_val & (dn_neigh_table.num_hash_buckets-1);
- }
+     SelectPage(4);
+@@ -1725,7 +1725,7 @@
+ static void
+ do_reset(struct net_device *dev, int full)
+ {
+-    local_info_t *local = dev->priv;
++    local_info_t *local = netdev_priv(dev);
+     ioaddr_t ioaddr = dev->base_addr;
+     unsigned value;
  
- static int dn_neigh_construct(struct neighbour *neigh)
-@@ -496,7 +495,7 @@
+@@ -1886,7 +1886,7 @@
+ static int
+ init_mii(struct net_device *dev)
+ {
+-    local_info_t *local = dev->priv;
++    local_info_t *local = netdev_priv(dev);
+     ioaddr_t ioaddr = dev->base_addr;
+     unsigned control, status, linkpartner;
+     int i;
+@@ -1973,7 +1973,7 @@
+ do_stop(struct net_device *dev)
+ {
+     ioaddr_t ioaddr = dev->base_addr;
+-    local_info_t *lp = dev->priv;
++    local_info_t *lp = netdev_priv(dev);
+     dev_link_t *link = &lp->link;
  
- 	read_lock_bh(&tbl->lock);
+     DEBUG(0, "do_stop(%p)\n", dev);
+--- 1.24/drivers/net/pcmcia/nmclan_cs.c	Tue Jan 20 00:34:56 2004
++++ edited/drivers/net/pcmcia/nmclan_cs.c	Sun Mar 14 16:05:00 2004
+@@ -470,7 +470,7 @@
+     dev = alloc_etherdev(sizeof(mace_private));
+     if (!dev)
+ 	return NULL;
+-    lp = dev->priv;
++    lp = netdev_priv(dev);
+     link = &lp->link;
+     link->priv = dev;
+     
+@@ -707,7 +707,7 @@
+ {
+   client_handle_t handle = link->handle;
+   struct net_device *dev = link->priv;
+-  mace_private *lp = dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   tuple_t tuple;
+   cisparse_t parse;
+   u_char buf[64];
+@@ -875,7 +875,7 @@
+ ---------------------------------------------------------------------------- */
+ static void nmclan_reset(struct net_device *dev)
+ {
+-  mace_private *lp = dev->priv;
++  mace_private *lp = netdev_priv(dev);
  
--	for(i = 0; i < NEIGH_HASHMASK; i++) {
-+	for(i = 0; i < tbl->num_hash_buckets; i++) {
- 		for(neigh = tbl->hash_buckets[i]; neigh != NULL; neigh = neigh->next) {
- 			if (neigh->dev != dev)
- 				continue;
-@@ -539,7 +538,7 @@
+ #if RESET_XILINX
+   dev_link_t *link = &lp->link;
+@@ -944,7 +944,7 @@
+ static int mace_open(struct net_device *dev)
+ {
+   ioaddr_t ioaddr = dev->base_addr;
+-  mace_private *lp = dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   dev_link_t *link = &lp->link;
  
- 	len += sprintf(buffer + len, "Addr    Flags State Use Blksize Dev\n");
+   if (!DEV_OK(link))
+@@ -967,7 +967,7 @@
+ static int mace_close(struct net_device *dev)
+ {
+   ioaddr_t ioaddr = dev->base_addr;
+-  mace_private *lp = dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   dev_link_t *link = &lp->link;
  
--	for(i=0;i <= NEIGH_HASHMASK; i++) {
-+	for(i=0;i < dn_neigh_table.num_hash_buckets; i++) {
- 		read_lock_bh(&dn_neigh_table.lock);
- 		n = dn_neigh_table.hash_buckets[i];
- 		for(; n != NULL; n = n->next) {
-diff -r -u --new-file linux-2.4.bk.original/net/ipv4/arp.c 
-linux-2.4.bk-auto-size/net/ipv4/arp.c
---- linux-2.4.bk.original/net/ipv4/arp.c	2004-03-14 08:54:29.000000000 -0700
-+++ linux-2.4.bk-auto-size/net/ipv4/arp.c	2004-03-14 11:03:09.000000000 -0700
-@@ -185,7 +185,6 @@
- 		proxy_qlen:		64,
- 		locktime:		1 * HZ,
- 	},
--	gc_interval:	30 * HZ,
- 	gc_thresh1:	128,
- 	gc_thresh2:	512,
- 	gc_thresh3:	1024,
-@@ -220,7 +219,7 @@
- 	hash_val ^= (hash_val>>16);
- 	hash_val ^= hash_val>>8;
- 	hash_val ^= hash_val>>3;
--	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
-+	hash_val = (hash_val^dev->ifindex)&(arp_tbl.num_hash_buckets-1);
+   DEBUG(2, "%s: shutting down ethercard.\n", dev->name);
+@@ -1022,7 +1022,7 @@
  
- 	return hash_val;
- }
-@@ -1115,7 +1114,7 @@
- 	pos+=size;
- 	len+=size;
+ static void mace_tx_timeout(struct net_device *dev)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   dev_link_t *link = &lp->link;
  
--	for(i=0; i<=NEIGH_HASHMASK; i++) {
-+	for(i=0; i<arp_tbl.num_hash_buckets; i++) {
- 		struct neighbour *n;
- 		read_lock_bh(&arp_tbl.lock);
- 		for (n=arp_tbl.hash_buckets[i]; n; n=n->next) {
-diff -r -u --new-file linux-2.4.bk.original/net/ipv6/ndisc.c 
-linux-2.4.bk-auto-size/net/ipv6/ndisc.c
---- linux-2.4.bk.original/net/ipv6/ndisc.c	2004-03-14 08:54:30.000000000 -0700
-+++ linux-2.4.bk-auto-size/net/ipv6/ndisc.c	2004-03-13 22:13:59.000000000 
--0700
-@@ -246,7 +246,7 @@
- 	hash_val ^= (hash_val>>16);
- 	hash_val ^= hash_val>>8;
- 	hash_val ^= hash_val>>3;
--	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
-+	hash_val = (hash_val^dev->ifindex)&(nd_tbl.num_hash_buckets-1);
+   printk(KERN_NOTICE "%s: transmit timed out -- ", dev->name);
+@@ -1038,7 +1038,7 @@
  
- 	return hash_val;
- }
-
--- 
-Tim Gardner - timg@tpi.com
-www.tpi.com 406-443-5357
+ static int mace_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   ioaddr_t ioaddr = dev->base_addr;
+ 
+   netif_stop_queue(dev);
+@@ -1099,7 +1099,7 @@
+ static irqreturn_t mace_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+ {
+   struct net_device *dev = (struct net_device *) dev_id;
+-  mace_private *lp = dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   ioaddr_t ioaddr = dev->base_addr;
+   int status;
+   int IntrCnt = MACE_MAX_IR_ITERATIONS;
+@@ -1241,7 +1241,7 @@
+ ---------------------------------------------------------------------------- */
+ static int mace_rx(struct net_device *dev, unsigned char RxCnt)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   ioaddr_t ioaddr = dev->base_addr;
+   unsigned char rx_framecnt;
+   unsigned short rx_status;
+@@ -1408,7 +1408,7 @@
+ ---------------------------------------------------------------------------- */
+ static void update_stats(ioaddr_t ioaddr, struct net_device *dev)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+ 
+   lp->mace_stats.rcvcc += mace_read(lp, ioaddr, MACE_RCVCC);
+   lp->mace_stats.rntpc += mace_read(lp, ioaddr, MACE_RNTPC);
+@@ -1454,7 +1454,7 @@
+ ---------------------------------------------------------------------------- */
+ static struct net_device_stats *mace_get_stats(struct net_device *dev)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+ 
+   update_stats(dev->base_addr, dev);
+ 
+@@ -1549,7 +1549,7 @@
+ ---------------------------------------------------------------------------- */
+ static void restore_multicast_list(struct net_device *dev)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   int num_addrs = lp->multicast_num_addrs;
+   int *ladrf = lp->multicast_ladrf;
+   ioaddr_t ioaddr = dev->base_addr;
+@@ -1606,7 +1606,7 @@
+ 
+ static void set_multicast_list(struct net_device *dev)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+   int adr[ETHER_ADDR_LEN] = {0}; /* Ethernet address */
+   int i;
+   struct dev_mc_list *dmi = dev->mc_list;
+@@ -1645,10 +1645,10 @@
+ static void restore_multicast_list(struct net_device *dev)
+ {
+   ioaddr_t ioaddr = dev->base_addr;
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+ 
+   DEBUG(2, "%s: restoring Rx mode to %d addresses.\n", dev->name,
+-	((mace_private *)(dev->priv))->multicast_num_addrs);
++	lp->multicast_num_addrs);
+ 
+   if (dev->flags & IFF_PROMISC) {
+     /* Promiscuous mode: receive all packets */
+@@ -1665,7 +1665,7 @@
+ 
+ static void set_multicast_list(struct net_device *dev)
+ {
+-  mace_private *lp = (mace_private *)dev->priv;
++  mace_private *lp = netdev_priv(dev);
+ 
+ #ifdef PCMCIA_DEBUG
+   if (pc_debug > 1) {
