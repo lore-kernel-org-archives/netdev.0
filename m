@@ -1,29 +1,47 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] use after free in AF_ROSE
-Date: Wed, 10 Dec 2003 14:53:26 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031210145326.6d1d9b81.davem@redhat.com>
-References: <20031210100851.4b4a6927.shemminger@osdl.org>
+Subject: Re: [RFC] SO_PEERSEC - security credentials for Unix stream sockets
+Date: Wed, 10 Dec 2003 14:56:52 -0800
+Sender: linux-security-module-bounces@wirex.com
+Message-ID: <20031210145652.66bda4c2.davem@redhat.com>
+References: <Xine.LNX.4.44.0312101110010.27922-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ralf@linux-mips.org, netdev@oss.sgi.com, linux-hams@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031210100851.4b4a6927.shemminger@osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, linux-security-module@wirex.com,
+	sds@epoch.ncsc.mil, netdev@oss.sgi.com
+Return-path: <linux-security-module-bounces@wirex.com>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0312101110010.27922-100000@thoron.boston.redhat.com>
+List-Unsubscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=unsubscribe>
+List-Archive: <http://mail.immunix.com/pipermail/linux-security-module>
+List-Post: <mailto:linux-security-module@mail.wirex.com>
+List-Help: <mailto:linux-security-module-request@mail.wirex.com?subject=help>
+List-Subscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=subscribe>
+Errors-To: linux-security-module-bounces@wirex.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 Dec 2003 10:08:51 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 10 Dec 2003 11:33:53 -0500 (EST)
+James Morris <jmorris@redhat.com> wrote:
 
-> Doing multiple protocol testing and get crashes with simple
-> socket/close combo with AF_ROSE.  The problem is that it
-> dereferences the socket in rose_release after it has already been
-> freed by rose_destroy_socket.
+> Three new LSM hooks have been implemented:
 > 
-> This patch fixes that problem, and also uses sock_put to handle the
-> case where rose_destroy_socket is called with sk_refcnt > 1 which
-> might be possible if data comes in during close.
+> - socket_getpeersec() is the getsockopt interface.
+> 
+> - sk_alloc_security() and sk_free_security() facilitate the use of an
+>   sk_security field, which is used to store the security credentials of 
+>   the Unix peer.  We can't use an existing security field for this (e.g. 
+>   inode), as we need the security credentials of the server's child 
+>   socket.  This follows the same general scheme used for managing existing 
+>   Unix peer credentials.
+> 
+> Comments?
 
-Applied, thanks a lot Stephen.
+I'm fine with this conceptually, although the earliest I could put
+this into the tree is 2.6.1 although I have a hunch that I'll be
+asked to defer something like this to 2.6.2, but who knows.
+
+The one thing I don't like is the ifdef conditionalized member of
+the sock struct.  We should move away from config variables changing
+structure layouts.  Even a "void *sk_security;" would be better.
