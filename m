@@ -1,56 +1,34 @@
-From: "santosh kumar gowda" <ipv6_san@rediffmail.com>
-Subject: Re: Re: Re: (no subject)
-Date: 24 Feb 2003 05:27:04 -0000
-Sender: linux-mips-bounce@linux-mips.org
-Message-ID: <20030224052704.30149.qmail@webmail29.rediffmail.com>
-Reply-To: "santosh kumar gowda" <ipv6_san@rediffmail.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Functions Clean-up
+Date: Sun, 23 Feb 2003 22:25:57 -0800 (PST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030223.222557.132586554.davem@redhat.com>
+References: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
+	<20030223.011816.108201183.davem@redhat.com>
+	<20030224.125702.13403857.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed
-Cc: macro@ds2.pg.gda.pl, netdev@oss.sgi.com, linux-mips@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-Content-Disposition: inline
-Errors-to: linux-mips-bounce@linux-mips.org
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   netfilter-devel@lists.netfilter.org, kuznet@ms2.inr.ac.ru,
+   usagi@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20030224.125702.13403857.yoshfuji@linux-ipv6.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Mon, 24 Feb 2003 12:57:02 +0900 (JST)
 
+   > I will apply this patch once you make the change.  Would you
+   > like me to add it to 2.4.x as well?
+   
+   yes.  Do I need to send a patch for linux-2.4.xx, too?
+   
+Not necessary, I know what is different in the networking
+between these two trees.
+   
+   Here's the patch for linux-2.5.62.
 
-On Mon, 24 Feb 2003 Randy.Dunlap wrote :
-> >
-> >
-> > On Sat, 22 Feb 2003 Maciej W. Rozycki wrote :
-> >>On 21 Feb 2003, santosh kumar gowda wrote:
-> >>
-> >> > Following message is produced at the IAD terminal.....
-> >> >
-> >> > # Unable to handle kernel paging request at virtual 
->address
-> >> > 00000000, epc == 802
-> >> > 4ce74, ra == 802592a8
-> >> > Oops in fault.c:do_page_fault, line 172:
-> >>[...]
-> >> > Suggestions/Tips are welcome.
-> >>
-> >>  Decode the oops first or nobody will be able to give any
-> >>help.
-> >
-> > how do i decode the oops ??? help pls.
->
->Please see linux/REPORTING-BUGS and
->linux/Documentation/oops-tracing.txt .
->The latter will tell you how to use use 'ksymoops'
->to decode an oops message.
-
-The Embedded Linux running on my MIPS based device has following 
-cmds...
-
-kallsyms  kill      killall   klogd     ksyms
-
-Also, Flash ROM of the device is loaded with kernel and 
-filesystem
-images. so it not possible for me to browse through the source 
-code.
-
--San
----------------------------------
+Applied, thanks.
