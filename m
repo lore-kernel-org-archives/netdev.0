@@ -1,62 +1,33 @@
-From: "SAM UDU" <samudu@myself.com>
-Subject: GOOD DAY/URGENT ASSISTANCE
-Date: Fri, 28 Jun 2002 02:59:06
+From: george anzinger <george@mvista.com>
+Subject: Re: Network oops
+Date: Fri, 28 Jun 2002 12:56:31 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200206280154.g5S1sgnC029379@oss.sgi.com>
+Message-ID: <afif9f$oe1$2@main.gmane.org>
+References: <20020609.213150.32126725.davem@redhat.com> <3D042F8F.72764243@mvista.com> <3D120EAE.5A0D365E@mvista.com> <20020620.173805.55219901.davem@redhat.com> <3D133538.60B6810C@mvista.com> <20020622025551.A1919@averell>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, pekkas@netcore.fi,
+   andrew.r.cress@intel.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Andi Kleen <ak@muc.de>
 List-Id: netdev.vger.kernel.org
 
-Cotonou, Republic of Benin
+We finally found the problem.  I want to thank the folks who
+gave any thought and/or feedback to us, particularly Alexey
+and David.
 
-Compliments of the day to you.
-
-I am an undergraduate of the Universite Du=92 Benine, Cotonou, Benin. I
-am 22years old and Studying Computer Science in the above institution
-and in my final year here in Benin.
-
-I want to seek your assistance for a very important and confidential
-matter as regards my future. I am from a polygamous home, my father
-is a rich man, and I am the first son of my father. My father is married
-to two wives; my mom being the senior wife but bore only me whilst my
-stepmother has five (5) children. Unfortunately, in February 2002, I
-lost my father =96 he died in ghastly motor accident
-in Kenya while on his usual business trip. Due to this incident, there
-has been problems in my home, my fathers family and his immediate relatio=
-ns
-relations, including my stepmother are all scrambling formy dad=92s
-wealth.
-
-However, I wish to inform you that recently I got hold of my father=92
-s safe and inside it I got a list of his assets and finances, but the
-one of interest to me is a legacy left behind for me. In it, though dead
-now, he signed me as his next of kin. He lodged money in a security compa=
-ny
-abroad, the sum of US$11,500,000.00 (ELEVEN million, five hundred thousan=
-d
-U.S. Dollars) which he left strict instructions that upon his death -
-the money should only be given
-when I present a foreign investor.
-
-With regards to this, and my inexperience to money matters and an amount
-of this magnitude. I am hereby seeking assistance to help me receive
-and transfer this money into a new account in your country
-where I shall finally come to live after my graduation and the money
-successfully kept in your care.
-
-In all, I need someone trustworthy to assist me in not only taking this
-money out, but should be ready to help me manage this money business
-wise, infact be my money manager. You will be well compensated.
-
-In respect of the above, if you are ready to assist me, I want you to
-revert back to me immediately via my private email;
-samudu@myself.com
-
-Thanks for going through this letter.
-
-My sincere wishes.
-
-SAM UDU
+For what its worth we tracked it down to the kernel memory
+allocation routines allocating the same buffer to two
+different network requesters.  This in turn was caused by a
+basic flaw in the preemption code that preempted on
+spin_unlock, REGARDLESS OF THE STATE OF THE INTERRUPT
+SYSTEM.
+-- 
+George Anzinger   george@mvista.com
+High-res-timers: 
+http://sourceforge.net/projects/high-res-timers/
+Real time sched:  http://sourceforge.net/projects/rtsched/
+Preemption patch:
+http://www.kernel.org/pub/linux/kernel/people/rml
