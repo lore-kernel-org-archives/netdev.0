@@ -1,28 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Prefix List patch against 2.5.70
-Date: Mon, 02 Jun 2003 21:49:41 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030602.214941.102551312.davem@redhat.com>
-References: <OF0DFD7FB1.3567B088-ON88256D39.00724E19@us.ibm.com>
-	<Pine.LNX.4.44.0306030746420.8936-100000@netcore.fi>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
+Date: Tue, 3 Jun 2003 09:35:45 +0300 (EEST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0306030924400.18988-100000@rhea.tcs.hut.fi>
+References: <20030531.000319.114704530.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, yoshfuji@linux-ipv6.org, krkumar@us.ibm.com,
-	kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0306030746420.8936-100000@netcore.fi>
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Cc: davem@redhat.com, <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>,
+   <ajtuomin@morphine.tml.hut.fi>, <lpetande@morphine.tml.hut.fi>,
+   <jagana@us.ibm.com>, <kumarkr@us.ibm.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030531.000319.114704530.yoshfuji@linux-ipv6.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Pekka Savola <pekkas@netcore.fi>
-   Date: Tue, 3 Jun 2003 07:48:13 +0300 (EEST)
-   
-   Umm.. every prefix should have an interface route, so they're a required 
-   subset of the routing table, correct?
+On Sat, 31 May 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
 
-That's entirely correct, thanks for noticing this :-)
+> Let us test the patch.  It seemed buggy when USAGI tested before.
 
-This is why I said that they could add to a global list
-all routes that meet this criteria.  Thus making any
-querying mechanism simple to implement.
+Any feedback would have been (and still is) of course welcome. The bugs
+are much easier to locate and fix if people report about them :-)
+
+-Ville
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
