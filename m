@@ -1,28 +1,24 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6-bk] [RESEND] typhoon: PCI cleanups and ethtool_ops
- conversion
-Date: Fri, 17 Sep 2004 14:51:46 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <414B3242.4040802@pobox.com>
-References: <1095446240.21058.2.camel@ori.thedillows.org>
+Subject: Re: crash in fib_hash_move
+Date: Fri, 17 Sep 2004 14:51:06 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040917185106.GA22810@havoc.gtf.org>
+References: <20040917114249.7449b9ff@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, Netdev <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: David Dillow <dave@thedillows.org>
-In-Reply-To: <1095446240.21058.2.camel@ori.thedillows.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040917114249.7449b9ff@dell_ss3.pdx.osdl.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David Dillow wrote:
-> Jeff, please do a
-> 
-> 	bk pull http://typhoon.bkbits.net/typhoon-2.5
-> 
-> This will update the following files:
+On Fri, Sep 17, 2004 at 11:42:49AM -0700, Stephen Hemminger wrote:
+> Current 2.6 tree is crashing on bootup in fib code.
+> Looks like recent FIB changes problem.
 
+Yeah, David Gibson already posted a fix, see
+"[TRIVIAL] Fix recent bug in fib_semantics.c"
 
-applied it last night :)
-
-bk://gkernel.bkbits.net/netdev-2.6
-
+	Jeff
