@@ -1,31 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
-Date: Wed, 15 Oct 2003 22:37:33 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Fix 64bit warnings in rtl8139too
+Date: Tue, 14 Oct 2003 14:13:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015223733.5483da9d.davem@redhat.com>
-References: <OF4B7AD7E2.5CA239A1-ON87256DB9.0067C527@us.ibm.com>
-	<20031008130016.559b8047.davem@redhat.com>
-	<200310081706.09485.mashirle@us.ibm.com>
-	<200310141038.04322.mashirle@us.ibm.com>
+Message-ID: <3F8C3CB0.9090502@pobox.com>
+References: <20031007175638.GA1754@averell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200310141038.04322.mashirle@us.ibm.com>
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <20031007175638.GA1754@averell>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Oct 2003 10:38:04 -0700
-Shirley Ma <mashirle@us.ibm.com> wrote:
+Andi Kleen wrote:
+> Fix a harmless 64bit pointer/integer mismatch warning in 8139too.
+> 
+> diff -u linux-2.5-cleanup/drivers/net/8139too.c-o linux-2.5-cleanup/drivers/net/8139too.c
+> --- linux-2.5-cleanup/drivers/net/8139too.c-o	2003-09-08 00:02:03.000000000 +0200
+> +++ linux-2.5-cleanup/drivers/net/8139too.c	2003-12-02 17:13:24.634752560 +0100
+> @@ -746,7 +746,8 @@
+>  	u8 tmp8;
+>  	int rc;
+>  	unsigned int i;
+> -	u32 pio_start, pio_end, pio_flags, pio_len;
+> +	unsigned long pio_start;
+> +	u32 pio_end, pio_flags, pio_len;
+>  	unsigned long mmio_start, mmio_end, mmio_flags, mmio_len;
+>  	u32 version;
 
-> This is the modified new patch for IPv6 MIB: ipv6AddressTable.
-> This patch has been tested against linux-2.6.0-test6-bk8 kernel.
 
-Please configure KMAIL so that it doesn't corrupt the patches
-you send by auto-wrapping newlines.
+Why not just make this look like mmio_*?
 
-I can't use the patch you've posted because of this.
-
-Thanks.
+	Jeff
