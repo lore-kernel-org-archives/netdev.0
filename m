@@ -1,181 +1,204 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [BK PATCHES] 2.6.x experimental net driver queue
-Date: Mon, 17 Nov 2003 18:58:41 +0100 (MET)
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH] [bonding 2.4] fix creating/destroying the /proc/net/bonding dir
+Date: Mon, 17 Nov 2003 10:08:02 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.21.0311171812000.5421-100000@waterleaf.sonytel.be>
-References: <3FB81811.9090508@pobox.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Linux Kernel <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@osdl.org>,
-        Al Viro <viro@parcelfarce.linux.theplanet.co.uk>,
-        Linux/m68k <linux-m68k@lists.linux-m68k.org>
+Message-ID: <200311171808.hAHI82H2029955@death.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3FB81811.9090508@pobox.com>
+To: netdev@oss.sgi.com, jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Nov 2003, Jeff Garzik wrote:
-> Yet more updates.  Syncing with Andrew Morton, and more syncing with Al 
-> Viro.
-> 
-> No users of init_etherdev remain in the tree.  (yay!)
 
-Here are some (untested, except for cross-gcc) fixes for the m68k-related
-drivers:
-  - Space.c: fix incorrect prototypes for atarilance_probe() and mace_probe()
-  - a2065.c: kill superfluous argument of alloc_etherdev()
-  - apne.c:
-      o fix incorrect prototype for apne_probe()
-      o kill unused variable err
-  - mac8390.c:
-      o kill unused variable probed
-      o fix typos ENDOEV -> ENODEV and ERR_PTE -> ERR_PTR
-      o add missing variable slots 
-  - macmace.c: use ERR_PTR() where needed
-  - macsonic.c: kill unused variable lp
-  - mvme147.c:
-      o kill conversion warning and kill a cast by making ram unsigned long
-      o add missing variable err
+	Jeff, can you apply this?  It needs to be in for 2.4.23, and
+has been waiting for a couple of weeks.
 
-Note: The use of `slots' in mac8390.c is not in my tree. Do you know where that
-change comes from?
+	-J
 
---- linux-net2-2.6.0-test9.orig/drivers/net/Space.c	2003-11-17 11:41:17.000000000 +0100
-+++ linux-net2-2.6.0-test9/drivers/net/Space.c	2003-11-17 18:38:56.000000000 +0100
-@@ -74,7 +74,7 @@
- extern struct net_device *SK_init(int unit);
- extern struct net_device *seeq8005_probe(int unit);
- extern struct net_device *smc_init(int unit);
--extern struct net_device *atarilance_probe(struct net_device *);
-+extern struct net_device *atarilance_probe(int unit);
- extern struct net_device *sun3lance_probe(int unit);
- extern struct net_device *sun3_82586_probe(int unit);
- extern struct net_device *apne_probe(int unit);
-@@ -86,7 +86,7 @@
- extern struct net_device *mvme147lance_probe(int unit);
- extern struct net_device *tc515_probe(int unit);
- extern struct net_device *lance_probe(int unit);
--extern struct net_device *mace_probe(struct net_device *dev);
-+extern struct net_device *mace_probe(int unit);
- extern struct net_device *macsonic_probe(int unit);
- extern struct net_device *mac8390_probe(int unit);
- extern struct net_device *mac89x0_probe(int unit);
---- linux-net2-2.6.0-test9.orig/drivers/net/a2065.c	2003-11-17 11:41:17.000000000 +0100
-+++ linux-net2-2.6.0-test9/drivers/net/a2065.c	2003-11-17 18:39:24.000000000 +0100
-@@ -737,7 +737,7 @@
- 			continue;
- 		}
- 
--		dev = alloc_etherdev(0, sizeof(struct lance_private));
-+		dev = alloc_etherdev(sizeof(struct lance_private));
- 
- 		if (dev == NULL) {
- 			release_resource(r1);
---- linux-net2-2.6.0-test9.orig/drivers/net/apne.c	2003-11-17 11:41:17.000000000 +0100
-+++ linux-net2-2.6.0-test9/drivers/net/apne.c	2003-11-17 18:38:56.000000000 +0100
-@@ -72,7 +72,7 @@
- #define NESM_STOP_PG	0x80	/* Last page +1 of RX ring */
- 
- 
--int apne_probe(struct net_device *dev);
-+struct net_device * __init apne_probe(int unit);
- static int apne_probe1(struct net_device *dev, int ioaddr);
- 
- static int apne_open(struct net_device *dev);
-@@ -572,8 +572,6 @@
- 
- int init_module(void)
- {
--	int err;
--
- 	apne_dev = apne_probe(-1);
- 	if (IS_ERR(apne_dev))
- 		return PTR_ERR(apne_dev);
---- linux-net2-2.6.0-test9.orig/drivers/net/mac8390.c	2003-11-17 11:41:20.000000000 +0100
-+++ linux-net2-2.6.0-test9/drivers/net/mac8390.c	2003-11-17 18:38:56.000000000 +0100
-@@ -228,12 +228,12 @@
- 	volatile unsigned short *i;
- 	int version_disp = 0;
- 	struct nubus_dev * ndev = NULL;
--	static int probed;
--	int err = -ENDOEV;
-+	int err = -ENODEV;
- 	
- 	struct nubus_dir dir;
- 	struct nubus_dirent ent;
- 	int offset;
-+	static unsigned int slots;
- 
- 	enum mac8390_type cardtype;
- 
-@@ -379,7 +379,7 @@
- 	dev->priv = NULL;
- out:
- 	free_netdev(dev);
--	return ERR_PTE(err);
-+	return ERR_PTR(err);
- }
- 
- #ifdef MODULE
---- linux-net2-2.6.0-test9.orig/drivers/net/macmace.c	2003-11-17 11:41:20.000000000 +0100
-+++ linux-net2-2.6.0-test9/drivers/net/macmace.c	2003-11-17 18:38:56.000000000 +0100
-@@ -229,7 +229,7 @@
- 	
- 	if (checksum != 0xFF) {
- 		free_netdev(dev);
--		return -ENODEV;
-+		return ERR_PTR(-ENODEV);
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+------- Forwarded Message
+
+From: Amir Noam <amir.noam@intel.com>
+To: jgarzik@pobox.com, davem@redhat.com
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Subject: [Bonding-devel] [PATCH] [bonding 2.4] fix creating/destroying the /proc/net/bonding dir
+
+Hi,
+
+Since 2.4.23-rc1 is out, I'm resending this patch that fixes a problem
+in the creation/destruction of the /proc/net/bonding dir, introduced
+in 2.4.23-pre5.
+
+Please apply.
+
+Amir
+
+
+diff -Narup a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+- --- a/drivers/net/bonding/bond_main.c	Thu Oct 23 14:47:31 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Oct 23 17:04:52 2003
+@@ -3574,6 +3574,62 @@ static void bond_destroy_proc_info(struc
+ 		bond->bond_proc_file = NULL;
  	}
+ }
++
++/* Create the bonding directory under /proc/net, if doesn't exist yet.
++ * Caller must hold rtnl_lock.
++ */
++static void bond_create_proc_dir(void)
++{
++	int len = strlen(DRV_NAME);
++
++	for (bond_proc_dir = proc_net->subdir; bond_proc_dir;
++	     bond_proc_dir = bond_proc_dir->next) {
++		if ((bond_proc_dir->namelen == len) &&
++		    !memcmp(bond_proc_dir->name, DRV_NAME, len)) {
++			break;
++		}
++	}
++
++	if (!bond_proc_dir) {
++		bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
++		if (bond_proc_dir) {
++			bond_proc_dir->owner = THIS_MODULE;
++		} else {
++			printk(KERN_WARNING DRV_NAME
++				": Warning: cannot create /proc/net/%s\n",
++				DRV_NAME);
++		}
++	}
++}
++
++/* Destroy the bonding directory under /proc/net, if empty.
++ * Caller must hold rtnl_lock.
++ */
++static void bond_destroy_proc_dir(void)
++{
++	struct proc_dir_entry *de;
++
++	if (!bond_proc_dir) {
++		return;
++	}
++
++	/* verify that the /proc dir is empty */
++	for (de = bond_proc_dir->subdir; de; de = de->next) {
++		/* ignore . and .. */
++		if (*(de->name) != '.') {
++			break;
++		}
++	}
++
++	if (de) {
++		if (bond_proc_dir->owner == THIS_MODULE) {
++			bond_proc_dir->owner = NULL;
++		}
++	} else {
++		remove_proc_entry(DRV_NAME, proc_net);
++		bond_proc_dir = NULL;
++	}
++}
+ #endif /* CONFIG_PROC_FS */
  
- 	memset(&mp->stats, 0, sizeof(mp->stats));
---- linux-net2-2.6.0-test9.orig/drivers/net/macsonic.c	2003-11-17 11:41:20.000000000 +0100
-+++ linux-net2-2.6.0-test9/drivers/net/macsonic.c	2003-11-17 18:38:56.000000000 +0100
-@@ -495,7 +495,6 @@
- {
- 	static int slots;
- 	struct nubus_dev* ndev = NULL;
--	struct sonic_local* lp;
- 	unsigned long base_addr, prom_addr;
- 	u16 sonic_dcr;
- 	int id;
---- linux-net2-2.6.0-test9.orig/drivers/net/mvme147.c	2003-11-17 11:41:20.000000000 +0100
-+++ linux-net2-2.6.0-test9/drivers/net/mvme147.c	2003-11-17 18:38:56.000000000 +0100
-@@ -41,7 +41,7 @@
- struct m147lance_private {
- 	struct lance_private lance;
- 	void *base;
--	void *ram;
-+	unsigned long ram;
+ /*
+@@ -3829,6 +3885,9 @@ static struct notifier_block bond_netdev
+ 	.notifier_call = bond_netdev_event,
  };
  
- /* function prototypes... This is easy because all the grot is in the
-@@ -68,6 +68,7 @@
- 	struct m147lance_private *lp;
- 	u_long *addr;
- 	u_long address;
-+	int err;
++/* De-initialize device specific data.
++ * Caller must hold rtnl_lock.
++ */
+ static inline void bond_deinit(struct net_device *dev)
+ {
+ 	struct bonding *bond = dev->priv;
+@@ -3840,6 +3899,9 @@ static inline void bond_deinit(struct ne
+ #endif
+ }
  
- 	if (!MACH_IS_MVME147 || called)
- 		return ERR_PTR(-ENODEV);
-@@ -112,7 +113,7 @@
- 		dev->dev_addr[5]);
++/* Unregister and free all bond devices.
++ * Caller must hold rtnl_lock.
++ */
+ static void bond_free_all(void)
+ {
+ 	struct bonding *bond, *nxt;
+@@ -3847,16 +3909,13 @@ static void bond_free_all(void)
+ 	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
+ 		struct net_device *dev = bond->device;
  
- 	lp = (struct m147lance_private *)dev->priv;
--	lp->ram = (void *)__get_dma_pages(GFP_ATOMIC, 3);	/* 16K */
-+	lp->ram = __get_dma_pages(GFP_ATOMIC, 3);	/* 16K */
- 	if (!lp->ram)
- 	{
- 		printk("%s: No memory for LANCE buffers\n", dev->name);
+- -		unregister_netdev(dev);
++		unregister_netdevice(dev);
+ 		bond_deinit(dev);
+ 		free_netdev(dev);
+ 	}
+ 
+ #ifdef CONFIG_PROC_FS
+- -	if (bond_proc_dir) {
+- -		remove_proc_entry(DRV_NAME, proc_net);
+- -		bond_proc_dir = NULL;
+- -	}
++	bond_destroy_proc_dir();
+ #endif
+ }
+ 
+@@ -4234,18 +4293,12 @@ static int __init bonding_init(void)
+ 		primary = NULL;
+ 	}
+ 
++	rtnl_lock();
++
+ #ifdef CONFIG_PROC_FS
+- -	bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
+- -	if (bond_proc_dir == NULL)  {
+- -		printk(KERN_WARNING
+- -		       "bonding_init(): can not create /proc/net/" DRV_NAME);
+- -	} else {
+- -		bond_proc_dir->owner = THIS_MODULE;
+- -	}
++	bond_create_proc_dir();
+ #endif
+ 
+- -	rtnl_lock();
+- -
+ 	err = 0;
+ 	for (no = 0; no < max_bonds; no++) {
+ 		struct net_device *dev;
+@@ -4288,18 +4341,21 @@ static int __init bonding_init(void)
+ 	return 0;
+ 
+ out_err:
+- -	rtnl_unlock();
+- -
+ 	/* free and unregister all bonds that were successfully added */
+ 	bond_free_all();
+ 
++	rtnl_unlock();
++
+ 	return err;
+ }
+ 
+ static void __exit bonding_exit(void)
+ {
+ 	unregister_netdevice_notifier(&bond_netdev_notifier);
++
++	rtnl_lock();
+ 	bond_free_all();
++	rtnl_unlock();
+ }
+ 
+ module_init(bonding_init);
 
-Gr{oetje,eeting}s,
 
-						Geert
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+
+- -------------------------------------------------------
+This SF.Net email sponsored by: ApacheCon 2003,
+16-19 November in Las Vegas. Learn firsthand the latest
+developments in Apache, PHP, Perl, XML, Java, MySQL,
+WebDAV, and more! http://www.apachecon.com/
+_______________________________________________
+Bonding-devel mailing list
+Bonding-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/bonding-devel
+
+------- End of Forwarded Message
