@@ -1,33 +1,34 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [RFC][PATCH 0/3] net: generic netdev_ioaddr
-Date: Fri, 29 Oct 2004 12:52:33 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 7/6] cls_fw: CONFIG_NET_CLS_IND is not dependant on CONFIG_NET_CLS_ACT
+Date: Fri, 29 Oct 2004 13:53:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029115233.GA11391@infradead.org>
-References: <1099044244.9566.0.camel@localhost>
+Message-ID: <20041029115333.GK12289@postel.suug.ch>
+References: <20041029002113.GY12289@postel.suug.ch> <20041029102620.GH12289@postel.suug.ch> <1099049980.1024.21.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Enberg <penberg@cs.helsinki.fi>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1099044244.9566.0.camel@localhost>
+In-Reply-To: <1099049980.1024.21.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 29, 2004 at 01:04:04PM +0300, Pekka Enberg wrote:
-> Hi,
-> 
-> This patch introduces a generic netdev_ioaddr and converts natsemi and
-> 8139too drivers to use it.
-> 
-> With the recent __iomem annotations, the network drivers need to either
-> invent this wrapper (like natsemi has done) or duplicate the IO base
-> address in their private data (similar to 8139too).  Therefore, lets
-> make netdev_ioaddr generic before it is all over the place.
+* jamal <1099049980.1024.21.camel@jzny.localdomain> 2004-10-29 07:39
+> Thomas, Can you submit equivalent patches for cls_u32.c?
 
-This casting around sounds like a bad idea.  Either add another
+Sure, already done and queued for submission. I will submit them today.
 
-	void __iomem *mmioaddr;
+> Thomas, I will let Dave suck these in first and test against resulting
+> bk.
 
-member to struct net_device, or better move that completely into the
-driver-private structure which seems the better level of abstraction.
+OK.
+
+Regarding the generic statistics for actions:
+
+I thought about dumping the most common stats basic,queue,rate_est
+in tcf_action_copy_stats and let the action module dump additional
+stats in its get_stats implementation. Any objections in creating
+struct tca_act_gen with the content of tca_gen and use it to
+access a->priv from act_api.c to get my hands on the statistics
+and stats_lock?
