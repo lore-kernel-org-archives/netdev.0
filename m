@@ -1,55 +1,47 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: unregister_netdevice, usage count = 0
-Date: Sun, 15 Sep 2002 10:33:22 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
+Date: Sun, 15 Sep 2002 16:16:13 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D84C462.7020104@candelatech.com>
+Message-ID: <Pine.GSO.4.30.0209151053530.22001-100000@shell.cyberus.ca>
+References: <20020913.150439.27187393.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <linux-kernel@vger.kernel.org>, <todd-lkml@osogrande.com>,
+   <tcw@tempest.prismnet.com>, <netdev@oss.sgi.com>, <pfeather@cs.unm.edu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020913.150439.27187393.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-For one reason or another, when trying to unload the e1000 NAPI'fied
-drive from 2.4.20-pre7, I see this error repeatedly:
 
-unregister_netdevice: waiting for eth2 to become free. Usage count = 0
+10 gige becomes more of an interesting beast. Not sure if we would see
+servers with 10gige real soon now. Your proposal does make sense although
+compute power would still be a player. I think the key would be
+parallelization;
+Now if it wasnt for the stupid way TCP options were designed
+you could easily do remote DMA instead. Would be relatively easy to add
+NIC support for that. Maybe SCTP would save us ;-> however, if history
+could be used to predict the future, i think TCP will continue to be
+"hacked" and fit the throughput requirements so no chance for SCTP to be
+a big player i am afraid .
 
-So, I'm wondering if the code in dev.c, line 2688:
+cheers,
+jamal
 
+On Fri, 13 Sep 2002, David S. Miller wrote:
 
-	now = warning_time = jiffies;
-	while (atomic_read(&dev->refcnt) != 1) {
-		if ((jiffies - now) > 1*HZ) {
-			/* Rebroadcast unregister notification */
-			notifier_call_chain(&netdev_chain, NETDEV_UNREGISTER, dev);
-		}
-		current->state = TASK_INTERRUPTIBLE;
-		schedule_timeout(HZ/4);
-		current->state = TASK_RUNNING;
-		if ((jiffies - warning_time) > 10*HZ) {
-			printk(KERN_EMERG "unregister_netdevice: waiting for %s to "
-					"become free. Usage count = %d\n",
-					dev->name, atomic_read(&dev->refcnt));
-			warning_time = jiffies;
-		}
-	}
-	dev_put(dev);
+>    From: todd-lkml@osogrande.com
+>    Date: Fri, 13 Sep 2002 15:59:15 -0600 (MDT)
+>
+>    not sure i understand what you're proposing
+>
+> Cards in the future at 10gbit and faster are going to provide
+> facilities by which:
+>
+> 1) You register a IPV4 src_addr/dst_addr TCP src_port/dst_port cookie
+>    with the hardware when TCP connections are openned.
+>
 
-Should be like this instead:
-
-	while (atomic_read(&dev->refcnt) > 1) {
-
-
-Now, off to see if I can track down the real problem...
-
-Ben
-
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+[..]
