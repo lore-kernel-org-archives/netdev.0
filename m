@@ -1,31 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH bk-2.6.10] tg3:align IP headers from 5701 in PCI-X mode
-Date: Mon, 10 Jan 2005 12:50:01 -0800
-Message-ID: <20050110125001.4fe4d00b.davem@davemloft.net>
-References: <Pine.LNX.4.33.0501031713460.16417-100000@localhost.localdomain>
+Subject: Re: [PATCH] Problem with recent CMSG_COMPAT_OK fix
+Date: Mon, 10 Jan 2005 12:52:06 -0800
+Message-ID: <20050110125206.05ee6cfe.davem@davemloft.net>
+References: <20050104165934.GJ7761@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akepner@sgi.com
-In-Reply-To: <Pine.LNX.4.33.0501031713460.16417-100000@localhost.localdomain>
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20050104165934.GJ7761@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 3 Jan 2005 17:45:01 -0800 (PST)
-akepner@sgi.com wrote:
+On Tue, 4 Jan 2005 17:59:34 +0100
+Olaf Kirch <okir@suse.de> wrote:
 
-> We still have customers using 5701 cards, and their syslogs fill with 
-> "kernel unaligned access" messages. They may also see a significant 
-> performance degradation due to the expense of unaligned accesses on 
-> ia64. Here's a patch to address this (it is almost the same as the 
-> patch which was discussed in 
-> http://marc.theaimsgroup.com/?l=linux-netdev&m=109770128816605&w=2).
+> The recent fixes for cmsg_len handling seem to break 32bit compatibility
+> at least on x86_64. The new CMSG_COMPAT_OK macro requires that cmsg_len
+> is greater or equal the size of struct cmsghdr, which is the 64bit
+> version of the struct.  The code should really check against the size
+> of struct compat_cmsghdr.
 > 
-> In a quick throughput test, I found that this could improve throughput
-> by ~30% on an Altix.
+> Signed-off-by: Olaf Kirch <okir@suse.de>
 
-Let's just do this all the time for this case, adding new config
-options for stuff like this does nothing more than create confusion.
+Applied, thanks Olaf.
