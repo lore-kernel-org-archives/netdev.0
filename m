@@ -1,37 +1,109 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: Dealing with buggy hardware (was: b44 and 4g4g)
-Date: Thu, 10 Jun 2004 23:34:42 +0300
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [PATCH] dst allocation problem in ndisc
+Date: Thu, 10 Jun 2004 14:46:20 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040610203442.GA27762@ee.oulu.fi>
-References: <20040531202104.GA8301@ee.oulu.fi> <20040605200643.GA2210@ee.oulu.fi> <20040605131923.232f8950.davem@redhat.com> <20040609122905.GA12715@ee.oulu.fi> <20040610200504.GG4507@openzaurus.ucw.cz>
+Message-ID: <OF9A5F0961.756FB5EE-ON87256EAF.0071FA7B-07256EAF.00720E64@us.ibm.com>
+References: <OFCE4F5928.1D42CFA2-ON87256EAF.006E4EBF-07256EAF.006E5443@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed; boundary="=_mixed 00720E5F07256EAF_="
+Cc: davem@redhat.com, mashirle@us.ibm.com, netdev@oss.sgi.com,
+        netdev-bounce@oss.sgi.com,
+        YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20040610200504.GG4507@openzaurus.ucw.cz>
+In-Reply-To: <OFCE4F5928.1D42CFA2-ON87256EAF.006E4EBF-07256EAF.006E5443@us.ibm.com>
+To: Shirley Ma <xma@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 10, 2004 at 10:05:04PM +0200, Pavel Machek wrote:
-> This should hit machines with 2GB ram too, right?
-> Is it possible to find if it hits me? I get hard lockups on
-> 2GB machine with b44, but they take ~5min.. few hours to
-> reproduce...
->  
-> It seems to me like this should hit very quickly.
-> -- 
-> 64 bytes from 195.113.31.123: icmp_seq=28 ttl=51 time=448769.1 ms         
-> 
-Yikes!
+--=_mixed 00720E5F07256EAF_=
+Content-Type: multipart/alternative; boundary="=_alternative 00720E5F07256EAF_="
 
-With the 4:4 VM split it definately is instantaneous with > 1GB of memory, I
-triggered it with 1.25G myself and never noticed anything wrong with just
-1GB (allocation starts from the top it seems). With the standard 1:3 split I
-don't think anything > 1GB ever gets used for skbuffs, but maybe there
-are circumstances where this can happen? 
 
-(Or the issue isn't fully understood yet, figuring out what breaks and what
-doesn't was basically just trial and error :-/ )
+--=_alternative 00720E5F07256EAF_=
+Content-Type: text/plain; charset="US-ASCII"
+
+Change ip6_output2 to static also. This patch is against 2.6.7-rc3.
+
+
+
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
+
+
+--=_alternative 00720E5F07256EAF_=
+Content-Type: text/html; charset="US-ASCII"
+
+
+<br><font size=2 face="sans-serif">Change ip6_output2 to static also. This
+patch is against 2.6.7-rc3.</font>
+<br>
+<br><font size=2 face="sans-serif"><br>
+<br>
+Shirley Ma<br>
+IBM Linux Technology Center<br>
+15300 SW Koll Parkway<br>
+Beaverton, OR 97006-6063<br>
+Phone: (503) 578-7638<br>
+FAX: &nbsp; &nbsp; &nbsp;(503) 578-3228<br>
+<br>
+</font>
+--=_alternative 00720E5F07256EAF_=--
+
+--=_mixed 00720E5F07256EAF_=
+Content-Type: application/octet-stream; name="linux-2.6.7-rc3.dst.patch"
+Content-Disposition: attachment; filename="linux-2.6.7-rc3.dst.patch"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtdXJOIGxpbnV4LTIuNi43LXJjMy9pbmNsdWRlL25ldC9pcHY2LmggbGludXgtMi42Ljct
+cmMzLmRzdC9pbmNsdWRlL25ldC9pcHY2LmgKLS0tIGxpbnV4LTIuNi43LXJjMy9pbmNsdWRlL25l
+dC9pcHY2LmgJMjAwNC0wNi0wOSAxNjo0Mjo0NS4wMDAwMDAwMDAgLTA3MDAKKysrIGxpbnV4LTIu
+Ni43LXJjMy5kc3QvaW5jbHVkZS9uZXQvaXB2Ni5oCTIwMDQtMDYtMTAgMTM6MzE6NDAuMDAwMDAw
+MDAwIC0wNzAwCkBAIC0zNTYsNyArMzU2LDYgQEAKICAqLwogCiBleHRlcm4gaW50CQkJaXA2X291
+dHB1dChzdHJ1Y3Qgc2tfYnVmZiAqKnBza2IpOwotZXh0ZXJuIGludAkJCWlwNl9vdXRwdXQyKHN0
+cnVjdCBza19idWZmICoqcHNrYik7CiBleHRlcm4gaW50CQkJaXA2X2ZvcndhcmQoc3RydWN0IHNr
+X2J1ZmYgKnNrYik7CiBleHRlcm4gaW50CQkJaXA2X2lucHV0KHN0cnVjdCBza19idWZmICpza2Ip
+OwogZXh0ZXJuIGludAkJCWlwNl9tY19pbnB1dChzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKZGlmZiAt
+dXJOIGxpbnV4LTIuNi43LXJjMy9uZXQvaXB2Ni9pcDZfb3V0cHV0LmMgbGludXgtMi42LjctcmMz
+LmRzdC9uZXQvaXB2Ni9pcDZfb3V0cHV0LmMKLS0tIGxpbnV4LTIuNi43LXJjMy9uZXQvaXB2Ni9p
+cDZfb3V0cHV0LmMJMjAwNC0wNi0wOSAxNjo0Mjo1NS4wMDAwMDAwMDAgLTA3MDAKKysrIGxpbnV4
+LTIuNi43LXJjMy5kc3QvbmV0L2lwdjYvaXA2X291dHB1dC5jCTIwMDQtMDYtMTAgMTM6MjU6MTUu
+MDAwMDAwMDAwIC0wNzAwCkBAIC0xMDcsNyArMTA3LDcgQEAKIH0KIAogCi1pbnQgaXA2X291dHB1
+dDIoc3RydWN0IHNrX2J1ZmYgKipwc2tiKQorc3RhdGljIGludCBpcDZfb3V0cHV0MihzdHJ1Y3Qg
+c2tfYnVmZiAqKnBza2IpCiB7CiAJc3RydWN0IHNrX2J1ZmYgKnNrYiA9ICpwc2tiOwogCXN0cnVj
+dCBkc3RfZW50cnkgKmRzdCA9IHNrYi0+ZHN0OwpkaWZmIC11ck4gbGludXgtMi42LjctcmMzL25l
+dC9pcHY2L25kaXNjLmMgbGludXgtMi42LjctcmMzLmRzdC9uZXQvaXB2Ni9uZGlzYy5jCi0tLSBs
+aW51eC0yLjYuNy1yYzMvbmV0L2lwdjYvbmRpc2MuYwkyMDA0LTA2LTA5IDE2OjQyOjU1LjAwMDAw
+MDAwMCAtMDcwMAorKysgbGludXgtMi42LjctcmMzLmRzdC9uZXQvaXB2Ni9uZGlzYy5jCTIwMDQt
+MDYtMTAgMTI6NTE6MzkuMDAwMDAwMDAwIC0wNzAwCkBAIC0zOTUsNyArMzk1LDcgQEAKIAogCW5k
+aXNjX2Zsb3dfaW5pdCgmZmwsIE5ESVNDX05FSUdIQk9VUl9BRFZFUlRJU0VNRU5ULCBzcmNfYWRk
+ciwgZGFkZHIpOwogCi0JZHN0ID0gbmRpc2NfZHN0X2FsbG9jKGRldiwgbmVpZ2gsIGRhZGRyLCBp
+cDZfb3V0cHV0Mik7CisJZHN0ID0gbmRpc2NfZHN0X2FsbG9jKGRldiwgbmVpZ2gsIGRhZGRyLCBp
+cDZfb3V0cHV0KTsKIAlpZiAoIWRzdCkKIAkJcmV0dXJuOwogCkBAIC00ODYsNyArNDg2LDcgQEAK
+IAogCW5kaXNjX2Zsb3dfaW5pdCgmZmwsIE5ESVNDX05FSUdIQk9VUl9TT0xJQ0lUQVRJT04sIHNh
+ZGRyLCBkYWRkcik7CiAKLQlkc3QgPSBuZGlzY19kc3RfYWxsb2MoZGV2LCBuZWlnaCwgZGFkZHIs
+IGlwNl9vdXRwdXQyKTsKKwlkc3QgPSBuZGlzY19kc3RfYWxsb2MoZGV2LCBuZWlnaCwgZGFkZHIs
+IGlwNl9vdXRwdXQpOwogCWlmICghZHN0KQogCQlyZXR1cm47CiAKQEAgLTU2Miw3ICs1NjIsNyBA
+QAogCiAJbmRpc2NfZmxvd19pbml0KCZmbCwgTkRJU0NfUk9VVEVSX1NPTElDSVRBVElPTiwgc2Fk
+ZHIsIGRhZGRyKTsKIAotCWRzdCA9IG5kaXNjX2RzdF9hbGxvYyhkZXYsIE5VTEwsIGRhZGRyLCBp
+cDZfb3V0cHV0Mik7CisJZHN0ID0gbmRpc2NfZHN0X2FsbG9jKGRldiwgTlVMTCwgZGFkZHIsIGlw
+Nl9vdXRwdXQpOwogCWlmICghZHN0KQogCQlyZXR1cm47CiAKZGlmZiAtdXJOIGxpbnV4LTIuNi43
+LXJjMy9uZXQvaXB2Ni9yb3V0ZS5jIGxpbnV4LTIuNi43LXJjMy5kc3QvbmV0L2lwdjYvcm91dGUu
+YwotLS0gbGludXgtMi42LjctcmMzL25ldC9pcHY2L3JvdXRlLmMJMjAwNC0wNi0wOSAxNjo0Mjo1
+NS4wMDAwMDAwMDAgLTA3MDAKKysrIGxpbnV4LTIuNi43LXJjMy5kc3QvbmV0L2lwdjYvcm91dGUu
+YwkyMDA0LTA2LTEwIDEyOjUzOjMwLjAwMDAwMDAwMCAtMDcwMApAQCAtNTczLDYgKzU3Myw4IEBA
+CiAKIC8qIFByb3RlY3RlZCBieSBydDZfbG9jay4gICovCiBzdGF0aWMgc3RydWN0IGRzdF9lbnRy
+eSAqbmRpc2NfZHN0X2djX2xpc3Q7CitzdGF0aWMgaW50IGlwdjZfZ2V0X210dShzdHJ1Y3QgbmV0
+X2RldmljZSAqZGV2KTsKK3N0YXRpYyBpbmxpbmUgdW5zaWduZWQgaW50IGlwdjZfYWR2bXNzKHVu
+c2lnbmVkIGludCBtdHUpOwogCiBzdHJ1Y3QgZHN0X2VudHJ5ICpuZGlzY19kc3RfYWxsb2Moc3Ry
+dWN0IG5ldF9kZXZpY2UgKmRldiwgCiAJCQkJICBzdHJ1Y3QgbmVpZ2hib3VyICpuZWlnaCwKQEAg
+LTU5OCw2ICs2MDAsOCBAQAogCXJ0LT5ydDZpX21ldHJpYyAgID0gMDsKIAlhdG9taWNfc2V0KCZy
+dC0+dS5kc3QuX19yZWZjbnQsIDEpOwogCXJ0LT51LmRzdC5tZXRyaWNzW1JUQVhfSE9QTElNSVQt
+MV0gPSAyNTU7CisJcnQtPnUuZHN0Lm1ldHJpY3NbUlRBWF9NVFUtMV0gPSBpcHY2X2dldF9tdHUo
+cnQtPnJ0NmlfZGV2KTsKKwlydC0+dS5kc3QubWV0cmljc1tSVEFYX0FEVk1TUy0xXSA9IGlwdjZf
+YWR2bXNzKGRzdF9wbXR1KCZydC0+dS5kc3QpKTsKIAlydC0+dS5kc3Qub3V0cHV0ICA9IG91dHB1
+dDsKIAogCXdyaXRlX2xvY2tfYmgoJnJ0Nl9sb2NrKTsK
+--=_mixed 00720E5F07256EAF_=--
