@@ -1,36 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch/bk] remove scm_cookie parameter to send/recvmsg
-Date: Mon, 20 Jan 2003 21:14:16 -0800 (PST)
+From: Alan <alan@lxorguk.ukuu.org.uk>
+Subject: Re: cs89x0 in 2.5 (was Re: eepro100 - 802.1q - mtu size)
+Date: 21 Jan 2003 02:17:28 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030120.211416.98847188.davem@redhat.com>
-References: <20030120161755.B23890@redhat.com>
+Message-ID: <1043115448.13142.6.camel@dhcp22.swansea.linux.org.uk>
+References: <20030117145357.GA1139@paradigm.rfc822.org>
+	 <20030117160840.GR12676@stingr.net> <20030117162818.GA1074@gtf.org>
+	 <20030117172719.GA31343@codemonkey.org.uk>  <20030117174928.GA8304@gtf.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Dave Jones <davej@codemonkey.org.uk>,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   netdev@oss.sgi.com, alan@redhat.com, akpm@digeo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bcrl@redhat.com
-In-Reply-To: <20030120161755.B23890@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030117174928.GA8304@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Benjamin LaHaise <bcrl@redhat.com>
-   Date: Mon, 20 Jan 2003 16:17:55 -0500
+On Fri, 2003-01-17 at 17:49, Jeff Garzik wrote:
+> > Whilst on the subject of magic numbers in net drivers, did we ever get
+> > to the bottom of 2.4's ChangeSet 1.587.9.20 
+> > 
+> > ftp://ftp.kernel.org/pub/linux/kernel/people/davej/patches/2.5/2.5.48/split-dj1/net-cs89x0-media-corrections.diff
+> 
+> 
+> IIRC it came from -ac tree without explanation, and I think akpm said it
+> broke stuff.  Since it has an alive maintainer (akpm), I would rather
+> let Alan and Andrew fight it out :)  Whatever they decide is fine with
+> me for 2.5.
 
-   +		memset(&scm, 0, sizeof(scm));
-    		init_sync_kiocb(&iocb, NULL);
-    		si = kiocb_to_siocb(&iocb);
-    		si->sock = sock;
-   -		si->scm = &si->async_scm;
-   +		si->scm = &scm;
-    		si->msg = &kern_msg;
-    		si->size = total_len;
-    		si->flags = user_flags;
-    		memset(si->scm, 0, sizeof(*si->scm));
-
-We're now memset()'ing it twice?  :)  I think the first
-memset isn't needed, and this makes the code consistent with
-the other places this logic is duplicated.
-
-Otherwise the patch is fine, please fix this stuff up and
-resubmit, thanks.
+I've had no reports I remember about it breaking stuff, and several that
+it fixed stuff. It also seems to match the documentation. Its been in -ac
+for ages
