@@ -1,30 +1,38 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Remote DoS vulnerability in Linux kernel 2.6.x (fwd)
-Date: Wed, 30 Jun 2004 14:42:30 -0700
+Subject: Re: Check connect address in NETLINK
+Date: Wed, 30 Jun 2004 15:36:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040630144230.1d52864b.davem@redhat.com>
-References: <Xine.LNX.4.44.0406301423320.32212-100000@thoron.boston.redhat.com>
-	<Xine.LNX.4.44.0406301507320.32316-100000@thoron.boston.redhat.com>
+Message-ID: <20040630153606.3493581b.davem@redhat.com>
+References: <20040628231439.GA3021@gondor.apana.org.au>
+	<20040629082252.GA26866@ms2.inr.ac.ru>
+	<20040629084552.GA6202@gondor.apana.org.au>
+	<20040629111433.GA28463@ms2.inr.ac.ru>
+	<20040629111833.GA22880@gondor.apana.org.au>
+	<20040630112751.GA31160@gondor.apana.org.au>
+	<20040630120045.GA7973@ms2.inr.ac.ru>
+	<20040630120828.GA31498@gondor.apana.org.au>
+	<20040630121420.GA8183@ms2.inr.ac.ru>
+	<20040630124050.GA1619@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@lists.netfilter.org, laforge@netfilter.org,
-        netdev@oss.sgi.com, arjanv@redhat.com, kuznet@ms2.inr.ac.ru
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0406301507320.32316-100000@thoron.boston.redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040630124050.GA1619@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Jun 2004 15:11:25 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
 
-> FYI, I have audited options parsing code in TCP, IPv4 input and Netfilter 
-> for any similar problems and not found any.  Further review would be 
-> useful (I have not looked at the IPv6 header parsing for example).
+Why don't you combine the two "ERR_PTR(-ECONNREFUSED)" tests
+into one test like:
 
-I can't find any other cases.
+	if ((nlk->pid == 0 && !nlk->data_ready) ||
+	    (sock->sk_state == NELTINK_CONNECTED &&
+	     nlk->dst_pid != nlk_sk(ssk)->pid)) {
+		sock_put(sock);
+		return ERR_PTR(-ECONNREFUSED);
+	}
 
-This bug only came up because up the huge change Rusty and Harald did
-to make these modules not access the SKB header data directly, and
-instead to use local on-stack copies and skb_copy_bits().
+so we don't have two copies of the "sock_put(); return ERR_PTR()"
+thing emitted by the compiler?
