@@ -1,37 +1,73 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Broken? 2.6.6 + IP_ADD_SOURCE_MEMBERSHIP + SO_REUSEADDR
-Date: Sat, 05 Jun 2004 02:14:11 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040605.021411.55160771.yoshfuji@linux-ipv6.org>
-References: <20040604155423.GA5656@muffin>
-	<20040605.015544.102223977.yoshfuji@linux-ipv6.org>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: Prism54 WPA Support - wpa_supplicant - Linux general wpa support
+Date: Fri, 4 Jun 2004 11:01:06 -0700
+Sender: prism54-devel-admin@prism54.org
+Message-ID: <20040604180106.GA19181@bougret.hpl.hp.com>
+References: <20040602071449.GJ10723@ruslug.rutgers.edu> <20040602132313.GB7341@jm.kir.nu> <20040602155542.GC24822@ruslug.rutgers.edu> <20040603165233.GC8770@bougret.hpl.hp.com> <20040604023303.GB7537@jm.kir.nu>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20040605.015544.102223977.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <prism54-devel-admin@prism54.org>
+To: Netdev <netdev@oss.sgi.com>, hostap@shmoo.com,
+	prism54-devel@prism54.org, Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20040604023303.GB7537@jm.kir.nu>
+Errors-To: prism54-devel-admin@prism54.org
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
-In article <20040605.015544.102223977.yoshfuji@linux-ipv6.org> (at Sat, 05 Jun 2004 01:55:44 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+On Thu, Jun 03, 2004 at 07:33:03PM -0700, Jouni Malinen wrote:
+> On Thu, Jun 03, 2004 at 09:52:33AM -0700, Jean Tourrilhes wrote:
+> 
+> > 	So, the plan would be to take Jouni's API as is (or with minor
+> > modifications) and stuff that in wireless.h. I don't believe that the
+> > tools themselves need to be modified, because wpa_supplicant is the
+> > sole user of those ioctls.
+> > 	If you are all happy with that, then I'll just do it.
+> 
+> I'm mostly happy with this, but this should also include something from
+> the private ioctls hostapd uses for AP functionality.
 
-> The following patch should fix the issue. Please try.
+	Obviously we need the full functionality, not just some part
+of it.
 
-And, here's a variant for 2.4.
+> In addition, I would consider changing couple of text based elements
+> (e.g., WPA IE as hex string) to binary in order to remove extra
+> parsing code and make the data contents smaller.
 
-===== net/ipv4/udp.c 1.13 vs edited =====
---- 1.13/net/ipv4/udp.c	2004-02-22 06:12:49 +09:00
-+++ edited/net/ipv4/udp.c	2004-06-05 01:56:50 +09:00
-@@ -290,7 +290,7 @@
- 		    ipv6_only_sock(s)					||
- 		    (s->bound_dev_if && s->bound_dev_if != dif))
- 			continue;
--		if (!ip_mc_sf_allow(sk, loc_addr, rmt_addr, dif))
-+		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
- 			continue;
- 		break;
-   	}
+	The downside of that is that things need to be predefined. As
+we are doing a "WPA API" and not a "generic link layer security API",
+that's OK.
+	The other thing you may want to think about is miving all
+string/arrays at the end of the definition so that we can grow them
+easily if needed, and so that the first part can be fixed.
 
--- yoshfuji @ time to sleep...
+> I'm having quite a bit of problems with scan
+> results getting too large for the current limit of 4 kB.. Admittedly,
+> this is in a test lab environment, but still, it is annoying and
+> requires workarounds like driver side filtering of the scan results.
+
+	That's easy to fix. I did the same with "iwpriv" definitions a
+couple of weeks ago. Basically, you return -E2BIG to user space until
+userspace give you a big enough buffer.
+	I'll try to fix that.
+
+> I could try to make a list of all private ioctls currently used in
+> wpa_supplicant and hostapd, including some comments on what I would
+> consider changing at this point (mostly, changing text binary for couple
+> of cases and removing some fields that are not really going to be used).
+
+	You currently have your plate pretty full. I'll try to help,
+but my first son was born one month ago and things are not as smooth
+as planned.
+
+> Jouni Malinen
+
+	Jean
