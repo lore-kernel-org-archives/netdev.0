@@ -1,61 +1,63 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: looking for help with scanning of IPv6 interfaces
-Date: Mon, 18 Nov 2002 21:31:17 -0500 (EST)
+Subject: Re: Question.. Traffic Shaping in Linux
+Date: Mon, 18 Nov 2002 21:43:27 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0211182127440.14927-100000@shell.cyberus.ca>
-References: <20021115235200.B8265@wotan.suse.de>
+Message-ID: <Pine.GSO.4.30.0211182143080.15104-100000@shell.cyberus.ca>
+References: <000001c28edf$d2634ed0$0105a8c0@tedlee>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Donald Becker <becker@scyld.com>,
-   Michael Richardson <mcr@sandelman.ottawa.on.ca>, <netdev@oss.sgi.com>
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20021115235200.B8265@wotan.suse.de>
+To: Taekeun Lee <tedlee@ece.skku.ac.kr>
+In-Reply-To: <000001c28edf$d2634ed0$0105a8c0@tedlee>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-
-
-You forgot the draft, Andi. Although doesnt document every little detail
-(someone should) -- it goes a long way to describe the architecture and
-concepts behind netlink.
-A not final version:
-ftp://oa.znyx.com/pub/jamal/draft-ietf-forces-netlink-04.txt
+If i understood you correctly, you already have the router working with
+RSVP Daemon, RSVP control packets configuring CBQ mechanism..
+Is this correct? So why cant you use other qdiscs using the same
+mechanism? What interface are you using right now to setup things?
+I take ut you are using the RSVP* classifiers as well?
 
 cheers,
 jamal
 
-On Fri, 15 Nov 2002, Andi Kleen wrote:
 
-> > > Physical devices are read using /proc/net/dev
-> > ...
-> > > That is the old fashioned way.
-> > >
-> > > The new fashioned one is to query them using rtnetlink. You use a RTM_GETADDR
-> > > NLM_F_REQUEST query with wildcard (NLM_F_ROOT) to get a full list.
-> > > See the netlink,rtnetlink, libnetlink manpages and iproute2 as an example.
-> > > It is easier when you use libnetlink.
-> >
-> > Do you have a snippet of code?
+On Mon, 18 Nov 2002, Taekeun Lee wrote:
+
+> Hello, My name is Taekeun Lee..
 >
-> Check iproute2 or zebra source. iproute2 has a libnetlink which is quite useful.
+> I'm a graduate student in Sungkyunkwan Univ. in Korea..
 >
-> I also wrote some manpages (netlink(3),netlink(7),rtnetlink(7) etc, but
-> admittedly they are not very good)
+> This e-mail address(netdev@oss.sgi.com) is introduced by Alan Cox..
 >
-> > What kernel version does this start working?
+> My Question is Traffic shaping in linux..
 >
-> Somewhere in Linux 2.1.<late number>
-> >
-> > Of course for code that needs to work with already deployed systems, you
-> > need to have code for the old method around anyway...
+> Existed traffic shaper in Linux kernel module is possible low bandwidth
+> limitation.. ( < 1Mbps )
 >
-> Only when you still want to support 2.0. Ok some people do not enable
-> netlink in their kernel configuration, but many modern distributions
-> require it for booting now (because the network init scripts use iproute2),
-> so this shouldn't be a big issue anymore.
+> And, High bandwidth limitation can use CBQ kernel facilities..
 >
-> -Andi
+> But, My router is working with RSVP Daemon, RSVP Daemon controls packets
+> by CBQ mechanism..
+>
+> So, I can't use CBQ facility for traffic shaping..
+>
+>
+>
+> I want to traffic shaping in Linux without CBQ mechanism..
+>
+>
+>
+> Can U suggest a solution to this problem?
+>
+>
+>
+> I'm sorry, my poor english..
+>
+>
+>
+> [[HTML alternate version deleted]]
 >
 >
