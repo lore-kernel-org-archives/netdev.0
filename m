@@ -1,126 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFC] enhanced version of net_random()
-Date: Thu, 12 Aug 2004 10:48:35 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: net-AIO and real-time TCP (blue sky research)
+Date: Thu, 12 Aug 2004 14:11:10 -0400 (EDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.NEB.4.33.0408121402090.5007-100000@dexter.psc.edu>
+References: <20040811214044.U28020@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	"Theodore Ts'o" <tytso@mit.edu>, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268635AbUHLRtA@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sridhar Samudrala <sri@us.ibm.com>,
+        Suparna Bhattacharya <suparna@in.ibm.com>, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Werner Almesberger <werner@almesberger.net>
+In-Reply-To: <20040811214044.U28020@almesberger.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-While doing the network emulator, I discovered that the default net_random()
-is too stupid, and get_random_bytes() is more than needed. Rather than put
-another function in just for sch_netem, how about making net_random() smarter?
-The tin-hat crowd already replace net_random() with get_random_bytes anyway.
+On Wed, 11 Aug 2004, Werner Almesberger wrote:
 
-Here is a proposed alternative to use a longer period PRNG for net_random().
-The choice of TT800 was because it was freely available, had a long period,
-was fast and relatively small footprint. The existing net_random() was not
-really thread safe, but was immune to thread corruption. 
+> Sridhar Samudrala wrote:
+> > Your AIO-TCP looks pretty similar to the partial reliablity extension to
+> > SCTP that allows an SCTP endpoint to signal to its peer that it is no longer
+> > going to retransmit certain messages and should skip past those messages.
+>
+> Damn, so it's not such a crazy idea after all :-)
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Perhaps not for SCTP.  I'd love to see a good AIO API for TCP, but if what
+you are describing is implemented, the resulting protocol would be
+something other than TCP.  There are some RDDP people talking about
+similar things, and it is quite controversial within the IETF.
 
-diff -Nru a/net/core/utils.c b/net/core/utils.c
---- a/net/core/utils.c	2004-08-12 10:40:05 -07:00
-+++ b/net/core/utils.c	2004-08-12 10:40:05 -07:00
-@@ -2,6 +2,7 @@
-  *	Generic address resultion entity
-  *
-  *	Authors:
-+ *	net_random update to TT800 Stephen Hemminger
-  *	net_random Alan Cox
-  *	net_ratelimit Andy Kleen
-  *
-@@ -23,6 +24,7 @@
- #include <asm/system.h>
- #include <asm/uaccess.h>
- 
-+#ifdef CONFIG_EMBEDDED
- static unsigned long net_rand_seed = 152L;
- 
- unsigned long net_random(void)
-@@ -34,8 +36,79 @@
- void net_srandom(unsigned long entropy)
- {
- 	net_rand_seed ^= entropy;
-+ 	net_random();
-+}
-+#else
-+/*
-+ * This is the TT800 twisted Global Finite Shift Register random number
-+ * generator originally by M. Matsumoto, email: matumoto@math.keio.ac.jp.
-+ * July 8th 1996 Version 
-+ *
-+ * See: ACM Transactions on Modelling and Computer Simulation, 
-+ * Vol. 4, No. 3, 1994, pages 254-266. 
-+ *
-+ * It has a large period 2^800 and good distribution properties
-+ * up to dimension 25, and passes statistical tests.
-+ *
-+ * Don't use for cryptographic purposes, see get_random_bytes instead.
-+ */
-+#define N 25
-+#define M 7
-+
-+static unsigned long net_rand_seed[N] = {
-+	0x95f24dab, 0x0b685215, 0xe76ccae7, 0xaf3ec239, 0x715fad23,
-+	0x24a590ad, 0x69e4b5ef, 0xbf456141, 0x96bc1b7b, 0xa7bdf825,
-+	0xc1de75b7, 0x8858a9c9, 0x2da87693, 0xb657f9dd, 0xffdc8a9f,
-+	0x8121da71, 0x8b823ecb, 0x885d05f5, 0x4e20cd47, 0x5a9ad5d9,
-+	0x512c0c03, 0xea857ccd, 0x4cc1d30f, 0x8891a8a1, 0xa6b7aadb
-+};
-+
-+static spinlock_t net_random_lock = SPIN_LOCK_UNLOCKED;
-+
-+unsigned long net_random(void)
-+{
-+	unsigned long y;
-+	unsigned long flags;
-+	static int k;
-+	static const unsigned long mag01[2]={ 0x0, 0x8ebfd028 };
-+#define X net_rand_seed
-+
-+	/* generate N words at one time */
-+	spin_lock_irqsave(&net_random_lock, flags);
-+	if (k == N) {
-+		int kk;
-+		for (kk=0; kk< N - M; kk++) {
-+			X[kk] = X[kk+M] ^ (X[kk] >> 1) ^ mag01[X[kk] % 2];
-+		}
-+
-+		for (; kk < N; kk++) {
-+			X[kk] = X[kk+(M-N)] ^ (X[kk] >> 1) ^ mag01[X[kk] % 2];
-+		}
-+		k = 0;
-+	}
-+
-+	y = X[k];
-+	y ^= (y << 7) & 0x2b5b2500; /* s and b, magic vectors */
-+	y ^= (y << 15) & 0xdb8b0000; /* t and c, magic vectors */
-+
-+	/* 
-+	 * the following line was added by Makoto Matsumoto in the 1996 version
-+	 * to improve lower bit's corellation.
-+	 * Delete this line to o use the code published in 1994.
-+	 */
-+	y ^= (y >> 16); /* added to the 1994 version */
-+	k++;
-+	spin_unlock_irqrestore(&net_random_lock, flags);
-+#undef X
-+	return y;
-+}
-+
-+void net_srandom(unsigned long entropy)
-+{
-+	net_rand_seed[0] ^= entropy;
- 	net_random();
- }
-+#endif
- 
- int net_msg_cost = 5*HZ;
- int net_msg_burst = 10;
+It might be easier to focus on SCTP.  This is what it was designed for.
+
+  -John
