@@ -1,27 +1,39 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Tue, 21 Sep 2004 09:37:04 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] Fix help text
+Date: Tue, 21 Sep 2004 17:15:17 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16719.55840.448757.506472@robur.slu.se>
-References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+Message-ID: <20040921.171517.213149358.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+To: davem@davemloft.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
-Harald Welte writes:
+Documentation/networking/tulip.txt is referred even though it is
+unavailable.
 
- > 5) What is the proposed solution for IPv6, when you have /48 or /64 bit
- >    prefixes and systems become even more vulnerable to neighbour cache
- >    attacks?  
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
- Yep. Was asking the Ipv6-designers about this. A hell lot of filters or?
-
+===== drivers/net/tulip/Kconfig 1.11 vs edited =====
+--- 1.11/drivers/net/tulip/Kconfig	2004-06-05 00:16:07 +09:00
++++ edited/drivers/net/tulip/Kconfig	2004-09-21 17:05:00 +09:00
+@@ -40,9 +40,7 @@
+ 	  (smc9332dst), you can also try the driver for "Generic DECchip"
+ 	  cards, above.  However, most people with a network card of this type
+ 	  will say Y here.) Do read the Ethernet-HOWTO, available from
+-	  <http://www.tldp.org/docs.html#howto>.  More specific
+-	  information is contained in 
+-	  <file:Documentation/networking/tulip.txt>.
++	  <http://www.tldp.org/docs.html#howto>.
  
-						--ro
+ 	  To compile this driver as a module, choose M here and read
+ 	  <file:Documentation/networking/net-modules.txt>.  The module will
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
