@@ -1,72 +1,36 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Fri, 4 Feb 2005 10:50:44 +1100
-Message-ID: <20050203235044.GA8422@gondor.apana.org.au>
-References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050203142705.GA11318@krispykreme.ozlabs.ibm.com> <20050203203010.GA7081@gondor.apana.org.au> <20050203141901.5ce04c92.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Problem with "ESP: sha1 digestsize 20 != 0"
+Date: Thu, 3 Feb 2005 15:43:51 -0800
+Message-ID: <20050203154351.1c653848.davem@davemloft.net>
+References: <1107461073.6833.8.camel@pegasus>
+	<E1CwnlK-0001rv-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
-Cc: anton@samba.org, okir@suse.de, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050203141901.5ce04c92.davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: marcel@holtmann.org, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1CwnlK-0001rv-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 04 Feb 2005 07:39:38 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Thu, Feb 03, 2005 at 02:19:01PM -0800, David S. Miller wrote:
+> Marcel Holtmann <marcel@holtmann.org> wrote:
+> > 
+> > when using my RAS account with 2.6.11-rc3, I see a lot of
+> > 
+> > 	ESP: sha1 digestsize 20 != 0
+> > 
+> > messages in my logs and the IPsec tunnel is not working. I tracked the
+> > problem down to the change below. After reverting this patch, everything
+> > works like before.
 > 
-> They are for cases where you want strict ordering even for the
-> non-return-value-giving atomic_t ops.
+> Sorry, my fault.
+> 
+> The name test in xfrm_get_byname is inverted.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I see.  I got atomic_dec and atomic_dec_and_test mixed up.
-
-So the problem isn't as big as I thought which is good.  sk_buff
-is only in trouble because of the atomic_read optimisation which
-really needs a memory barrier.
-
-However, instead of adding a memory barrier which makes the optimisation
-less useful, let's just get rid of the atomic_read.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks for the document, it's really helpful.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== include/linux/skbuff.h 1.59 vs edited =====
---- 1.59/include/linux/skbuff.h	2005-01-11 07:23:55 +11:00
-+++ edited/include/linux/skbuff.h	2005-02-04 10:44:17 +11:00
-@@ -353,14 +353,14 @@
-  */
- static inline void kfree_skb(struct sk_buff *skb)
- {
--	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
-+	if (atomic_dec_and_test(&skb->users))
- 		__kfree_skb(skb);
- }
- 
- /* Use this if you didn't touch the skb state [for fast switching] */
- static inline void kfree_skb_fast(struct sk_buff *skb)
- {
--	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
-+	if (atomic_dec_and_test(&skb->users))
- 		kfree_skbmem(skb);
- }
- 
-
---fUYQa+Pmc3FrFX/N--
+Applied, thanks Herbert.
