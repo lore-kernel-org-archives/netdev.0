@@ -1,32 +1,31 @@
-From: Dmitry Torokhov <dtor_core@ameritech.net>
-Subject: Re: Kernel BUG: Qos seg. fault
-Date: Mon, 24 May 2004 13:14:47 -0700 (PDT)
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: RFC: Network Device Driver Group proposal
+Date: Mon, 24 May 2004 13:05:41 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524201447.97467.qmail@web80510.mail.yahoo.com>
+Message-ID: <20040524130541.562b5658.rddunlap@osdl.org>
+References: <20040524084945.GP3330@ruslug.rutgers.edu>
+	<20040524113919.3651c453@dell_ss3.pdx.osdl.net>
+	<40B24CB0.2080707@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jaume Catarineu <jaume.catarineu@upf.edu>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, mcgrof@studorgs.rutgers.edu, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <40B24CB0.2080707@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > Hi,
-> 
-> >
-> > Yes, it is new tbf... It does not have tcf_chain implementation so
-> > when someone tries to add a filter to TBF it barfs. I need little
-> > help here - does TBF need fill-blown filter support?
-> 
-> Well to claim it can be classful which is what that effort, yes you
-> would be useful to have. Take a look at the prio qdisc which is also
-> able to run when there are no filters attached.
-> 
+On Mon, 24 May 2004 15:27:44 -0400 Jeff Garzik wrote:
 
-prio qdisc can have several child qdiscs attached to it so I can see
-why it supports filters. But what is the point of TBF having filter
-attached? TBF either drops packet or passes it to its only child,
-there isn't anything to filter. Or am I missing something?
+| Stephen Hemminger wrote:
+| > Probably there needs to be a strong reason to add more organization to a 
+| > already mostly functional process. 
+| 
+| That's my feeling.  netdev list seems to work.
 
-Dmitry
+I agree, and Luis (mcgrof) should point out any specific issues
+so that they might be resolved...
+
+--
+~Randy
