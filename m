@@ -1,33 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Oops: Process zebra, EIP is at fib_create_info+0x22b/0x580
-Date: Sun, 22 Aug 2004 18:06:46 +1000
+Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
+Date: Sun, 22 Aug 2004 18:14:44 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1BynNG-0007qB-00@gondolin.me.apana.org.au>
-References: <20040821221751.547feefe.davem@redhat.com>
-Cc: vrsbs@derbian.org, netdev@oss.sgi.com
+Message-ID: <E1BynUy-0007t1-00@gondolin.me.apana.org.au>
+References: <41280163.1050508@vgertech.com>
+Cc: linux-kernel@vger.kernel.org, master@sectorb.msk.ru, netdev@oss.sgi.com,
+        kaber@trash.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com (David S. Miller)
-In-Reply-To: <20040821221751.547feefe.davem@redhat.com>
+To: nuno.silva@vgertech.com (Nuno Silva)
+In-Reply-To: <41280163.1050508@vgertech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller <davem@redhat.com> wrote:
-> On Sun, 22 Aug 2004 00:04:17 +0300
-> Joonas Kortesalmi <vrsbs@derbian.org> wrote:
+Nuno Silva <nuno.silva@vgertech.com> wrote:
 > 
->> Running 2.6.8.1 and got a nice Oops from zebra (quagga).
-> 
-> Can you figure out where exactly this OOPS is in fib_create_info()?
+> The problem is in the QoS code. If I start ppp whithout the 
 
-This is very similar to the report in the message titled
-"2.6.8 + sargs = pb" where fib_info_list was corrupted.
+OK, this appears to be due to the changeset titled
 
-In fact, the corrupted fib_next value here is exactly the same as
-the other report.  Not only that, the value appears to be a valid i386
-instruction possibly coming from somewhere else in net/ipv4 code.
+[PKT_SCHED]: Refcount qdisc->dev for __qdisc_destroy rcu-callback
 
-Do you know of any changes between 2.6.7 and 2.6.8 that might impact
-on the FIB stuff? Any locking changes?
+It adds a reference to dev.
+
+I don't see any code that cleans up that reference when the dev goes
+down.  So someone needs to add that similar to the code in net/core/dst.c.
+
+Patrick, could you please have a look at this?
 
 Thanks,
 -- 
