@@ -1,62 +1,82 @@
-From: Dmitry Torokhov <dtor_core@ameritech.net>
-Subject: OOPS when enslaving atmel card to bonded interface (2.6.9-rc2-bk-pull)
-Date: Wed, 22 Sep 2004 01:27:18 -0500
+From: Olaf Hering <olh@suse.de>
+Subject: Re: [PATCH] remove leading space in linux/skbuff.h
+Date: Wed, 22 Sep 2004 10:42:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409220127.19174.dtor_core@ameritech.net>
+Message-ID: <20040922084208.GB12717@suse.de>
+References: <20040918223832.GA28730@suse.de> <20040921195529.0f355491.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="J2SCkAp4GZ/dPZZf"
+Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20040921195529.0f355491.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Getting the following OOPs at startup when PCMCIA discovers an SMC wireless
-card (atmel_cs) and tries to enslave it to bond0. The kernel is last night
-pull form Linus.
+--J2SCkAp4GZ/dPZZf
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i8M8iCA5007773
 
--- 
-Dmitry
+ On Tue, Sep 21, David S. Miller wrote:
 
-ep 22 01:12:51 core kernel: eth1: SMC 2632W-V2 index 0x01: Vcc 3.3, irq 3, io 0x0100-0x011f
-Sep 22 01:12:51 core kernel: Unable to handle kernel paging request at virtual address 962da8e8
-Sep 22 01:12:51 core kernel:  printing eip:
-Sep 22 01:12:51 core kernel: c02c5c99
-Sep 22 01:12:51 core kernel: *pde = 00000000
-Sep 22 01:12:51 core kernel: Oops: 0000 [#1]
-Sep 22 01:12:51 core kernel: PREEMPT
-Sep 22 01:12:51 core kernel: Modules linked in: atmel_cs atmel firmware_class crc32 3c59x bonding iptable_filter snd_maestro3 sn
-d_ac97_codec snd_pcm snd_timer snd_page_alloc snd soundcore uhci_hcd usbcore mousedev psmouse
-Sep 22 01:12:51 core kernel: CPU:    0
-Sep 22 01:12:51 core kernel: EIP:    0060:[<c02c5c99>]    Not tainted VLI
-Sep 22 01:12:51 core kernel: EFLAGS: 00010287   (2.6.9-rc2)
-Sep 22 01:12:51 core kernel: EIP is at fn_hash_insert+0x3a9/0x420
-Sep 22 01:12:51 core kernel: eax: 00000000   ebx: de985e68   ecx: 962da8c0   edx: 00000c01
-Sep 22 01:12:51 core kernel: esi: deed7268   edi: dfbad2c0   ebp: de985e00   esp: de985d94
-Sep 22 01:12:51 core kernel: ds: 007b   es: 007b   ss: 0068
-Sep 22 01:12:51 core kernel: Process ifenslave (pid: 2388, threadinfo=de985000 task=df8c6aa0)
-Sep 22 01:12:51 core kernel: Stack: de985dec de9c3440 de985db4 c017eb96 def2b280 00000000 962da8c0 de9e731c
-Sep 22 01:12:51 core kernel:        de980c01 c011e831 00004000 de9c3b60 def2b280 962da8c0 009c3b60 00000002
-Sep 22 01:12:51 core kernel:        00000020 df1e3860 de985e04 deed7260 00000004 dfc9ade0 ffffffef 962da8c0
-Sep 22 01:12:51 core kernel: Call Trace:
-Sep 22 01:12:51 core kernel:  [<c01056aa>] show_stack+0x7a/0x90
-Sep 22 01:12:51 core kernel:  [<c010582a>] show_registers+0x14a/0x1c0
-Sep 22 01:12:51 core kernel:  [<c0105a1b>] die+0xdb/0x170
-Sep 22 01:12:51 core kernel:  [<c01140da>] do_page_fault+0x23a/0x590
-Sep 22 01:12:51 core kernel:  [<c0105295>] error_code+0x2d/0x38
-Sep 22 01:12:51 core kernel:  [<c02c3617>] fib_magic+0xd7/0xf0
-Sep 22 01:12:51 core kernel:  [<c02c3694>] fib_add_ifaddr+0x64/0x160
-Sep 22 01:12:51 core kernel:  [<c02c39db>] fib_inetaddr_event+0x4b/0x50
-Sep 22 01:12:51 core kernel:  [<c0125028>] notifier_call_chain+0x28/0x50
-Sep 22 01:12:51 core kernel:  [<c02bb630>] inet_insert_ifa+0xa0/0x150
-Sep 22 01:12:51 core kernel:  [<c02bbf99>] devinet_ioctl+0x349/0x6f0
-Sep 22 01:12:51 core kernel:  [<c02be193>] inet_ioctl+0x63/0xa0
-Sep 22 01:12:51 core kernel:  [<c0275c02>] sock_ioctl+0x102/0x2a0
-Sep 22 01:12:51 core kernel:  [<c0162206>] sys_ioctl+0xf6/0x240
-Sep 22 01:12:51 core kernel:  [<c01050eb>] syscall_call+0x7/0xb
-Sep 22 01:12:51 core kernel: Code: 8b 46 04 8b 30 8b 0e 89 4d a4 0f 18 01 90 3b 76 04 74 37 8b 47 28 89 45 a8 89 f6 8d bc 27 00
-00 00 00 8b 4e 08 8b 45 a8 89 4d ac <39> 41 28 75 1a 0f b6 46 0d 3b 45 d0 74 25 8b 75 a4 8b 06 89 45
+>=20
+> Olaf, please resend your patches as attachments or something
+> like that, there are "=3D20" all over your patch when I
+> save the email and try to use it as a patch.
+
+David,
+msgid 20040918224507.GA28794@suse.de and the reply doesnt contain such
+an encoding.
+
+  Content-Type: text/plain; charset=3Dutf-8
+  Content-Disposition: inline
+  Content-Transfer-Encoding: 8bit
+
+
+--=20
+USB is for mice, FireWire is for men!
+
+sUse lINUX ag, n=C3=9CRNBERG
+
+--J2SCkAp4GZ/dPZZf
+Content-Type: application/x-gunzip
+Content-Disposition: attachment; filename="1095547557.3917_1.wotan:2,S.gz"
+Content-Transfer-Encoding: base64
+
+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
+yHT+IZrgl/Vffw36re7gAyH/Bq9mYhoEDwAA
+
+--J2SCkAp4GZ/dPZZf--
