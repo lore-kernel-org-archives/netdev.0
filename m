@@ -1,33 +1,32 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH] trivial ipmr pim_protocol compile fix
-Date: Thu, 11 Mar 2004 18:01:21 -0800
+From: P@draigBrady.com
+Subject: Re: Device naming for wireless NICs...
+Date: Fri, 12 Mar 2004 10:30:49 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040311180121.B21045@build.pdx.osdl.net>
+Message-ID: <40519159.8000104@draigBrady.com>
+References: <20040304023524.GA19453@bougret.hpl.hp.com> <20040310165548.A24693@infradead.org> <20040310172114.GA8867@bougret.hpl.hp.com> <404F5097.4040406@pobox.com> <20040310175200.GA9531@bougret.hpl.hp.com> <404F5744.1040201@pobox.com> <20040311024816.GC3738@jm.kir.nu> <404FD6BC.7090409@pobox.com> <20040311031709.GC3782@jm.kir.nu> <405093A7.90209@linux.co.intel.com> <4050AE90.9070005@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4050AE90.9070005@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-pim_protocol is defined but never used if !CONFIG_IP_PIMSM_V2
+Jeff Garzik wrote:
+> James Ketrenos wrote:
+>=20
+> Like Matthew said, any code that assumes a specific interface prefix, b=
+e=20
+> it eth%d or wlan%d, is buggy.  Users are allowed to choose random=20
+> interface names for their interfaces, often via nameif(8) program.  My=20
+> own ethtool program is broken in this regard...
 
-  CC      net/ipv4/ipmr.o
-net/ipv4/ipmr.c:112: warning: `pim_protocol' defined but not used
+My trivial patch fixes that.
+http://sourceforge.net/tracker/index.php?func=3Ddetail&aid=3D780937&group=
+_id=3D3242&atid=3D303242
 
-I hate adding more ifdefs to this file, but here goes the simplest fix.
+Just wondering about the release schedule for ethtool?
 
-===== net/ipv4/ipmr.c 1.37 vs edited =====
---- 1.37/net/ipv4/ipmr.c	Mon Feb 23 15:09:54 2004
-+++ edited/net/ipv4/ipmr.c	Thu Mar 11 17:55:40 2004
-@@ -109,7 +109,9 @@
- static int ipmr_cache_report(struct sk_buff *pkt, vifi_t vifi, int assert);
- static int ipmr_fill_mroute(struct sk_buff *skb, struct mfc_cache *c, struct rtmsg *rtm);
- 
-+#ifdef CONFIG_IP_PIMSM_V2
- static struct inet_protocol pim_protocol;
-+#endif
- 
- static struct timer_list ipmr_expire_timer;
- 
+P=E1draig.
