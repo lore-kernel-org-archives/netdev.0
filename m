@@ -1,32 +1,56 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: Problem with 2.4.24 e1000 and keepalived
-Date: Thu, 8 Jan 2004 09:47:58 +0100
+From: Amir Noam <amir.noam@intel.com>
+Subject: Re: [Bonding-devel] [PATCH] [bonding 2.4] Add balance-xor-ip bonding mode
+Date: Thu, 8 Jan 2004 17:33:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040108084758.GB9050@alpha.home.local>
-References: <20040107200556.0d553c40.skraw@ithnet.com> <20040107210255.GA545@alpha.home.local> <3FFCC430.4060804@candelatech.com> <20040108091441.3ff81b53.skraw@ithnet.com>
+Message-ID: <200401081733.44744.amir.noam@intel.com>
+References: <E6F7D288B394A64585E67497E5126BA601F991D0@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephan von Krawczynski <skraw@ithnet.com>
+To: "Per Hedeland" <per@hedeland.org>
+In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F991D0@hasmsx403.iil.intel.com>
 Content-Disposition: inline
-In-Reply-To: <20040108091441.3ff81b53.skraw@ithnet.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 08, 2004 at 09:14:41AM +0100, Stephan von Krawczynski wrote:
-> the situation is like this (exactly this works flawlessly with tulip):
-> 
-> - unplug all interfaces from the switches
-> - reboot box
-> - plug in _one_ interface 
-> - log into the box (yes, network works flawlessly)
-> - start keepalived
-> - now plug in rest of the interfaces
-> - watch keepalived do _nothing_ (seems no UP event shows up)
+On Wednesday 07 January 2004 10:58 pm, Per Hedeland wrote:
+>         struct bonding *bond = bond_dev->priv; 
+>         struct ethhdr *data = (struct ethhdr *)skb->data; 
+>         struct slave *slave, *start_at; 
+> -       int slave_no; 
+> +       int slave_no = 0; 
+>         int i; 
+> +       __u32 u; 
+>  
+>         read_lock(&bond->lock);
+>
 
-I agree with this description, and would add :
-  - mii-diag ethX or ethtool ethX report link down
+Please use u32 instead of __u32.
 
-Willy
+
+> +static int bond_xmit_xor_mac(struct sk_buff *skb, struct net_device *bond_dev) 
+> +{ 
+> +       return bond_xmit_xor(skb, bond_dev, 0); 
+> +} 
+> + 
+> +static int bond_xmit_xor_ip(struct sk_buff *skb, struct net_device *bond_dev) 
+> +{ 
+> +       return bond_xmit_xor(skb, bond_dev, 1); 
+> +} 
+> +
+
+hmm...
+
+I don't like this. The reason we give different tx function pointers
+to dev->hard_start_xmit in different bonding mode is to make the tx
+path as fast as possible. Otherwise we might as well use a single tx
+function that chooses its exact operation based on the bonding mode.
+
+It might be better to have some code duplication if it results in
+faster tx, but I'm not sure what's the optimal solution in this case.
+
+-- 
+Amir
