@@ -1,51 +1,46 @@
-From: Shawn Starr <shawn.starr@rogers.com>
-Subject: Re: [2.6.10-rc1-bk5] e1000 broken badly on IBM T42
-Date: Wed, 27 Oct 2004 05:21:56 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 9/11] PKT_SCHED: Cleanup cls_set_class
+Date: Wed, 27 Oct 2004 11:42:38 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410270521.56816.shawn.starr@rogers.com>
-References: <200410270033.22804.shawn.starr@rogers.com> <200410270054.30313.shawn.starr@rogers.com>
+Message-ID: <20041027094238.GM12289@postel.suug.ch>
+References: <20041026222148.GA12289@postel.suug.ch> <20041026222813.GJ12289@postel.suug.ch> <1098867450.1813.37.camel@cyan.cph.tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <200410270054.30313.shawn.starr@rogers.com>
+To: Tommy Christensen <tommy.christensen@tpack.net>
 Content-Disposition: inline
+In-Reply-To: <1098867450.1813.37.camel@cyan.cph.tpack.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I should just answer it myself, restarting fixed the interface negotiation 
-'blip'. Perhaps the driver somehow did not reset and retry negotiation?
+> This locks once too many.
+> (And it returns an *unsigned* long.)
 
-That did look interesting though :)
+Thanks. I wonder how this lock could get in there.
 
-On October 27, 2004 00:54, Shawn Starr wrote:
-> I should also note, there is no gigabit interface on a linksys router ;-)
-> it doesn't negotiate as 100Mbit now?
->
-> Shawn.
->
-> On October 27, 2004 00:33, Shawn Starr wrote:
-> > NETDEV WATCHDOG: eth0: transmit timed out
-> > e1000: eth0: e1000_watchdog: NIC Link is Up 1000 Mbps Full Duplex
-> > NETDEV WATCHDOG: eth0: transmit timed out
-> >
-> > eth0      Link encap:Ethernet  HWaddr 00:0D:60:CA:C1:97
-> >           inet addr:192.168.10.5  Bcast:192.168.10.255 
-> > Mask:255.255.255.0 UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-> >           RX packets:4294883167 errors:4294370903 dropped:4294796898
-> > overruns:4294882097 frame:4294711699 TX packets:4294883949
-> > errors:4294796898 dropped:0 overruns:0 carrier:4294711699
-> > collisions:4294882097 txqueuelen:1000
-> >           RX bytes:470309 (459.2 KiB)  TX bytes:108971 (106.4 KiB)
-> >           Base address:0x8000 Memory:c0220000-c0240000
-> >
-> >
-> > I can't even use the interface, some counters are going up others going
-> > backwards? ;-)
-> >
-> > Anyone notice this?
-> >
-> > Shawn.
+
+Remove bogus lock and make cls_set_class return unsigned long.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+
+--- linux-2.6.10-rc1-bk1.orig/include/net/pkt_cls.h	2004-10-26 23:42:10.000000000 +0200
++++ linux-2.6.10-rc1-bk1/include/net/pkt_cls.h	2004-10-27 11:35:05.000000000 +0200
+@@ -28,14 +28,12 @@
+ 	return old_cl;
+ }
+ 
+-static inline long
++static inline unsigned long
+ cls_set_class(struct tcf_proto *tp, unsigned long *clp, 
+ 	unsigned long cl)
+ {
+ 	unsigned long old_cl;
+ 	
+-	qdisc_lock_tree(tp->q->dev);
+-
+ 	tcf_tree_lock(tp);
+ 	old_cl = __cls_set_class(clp, cl);
+ 	tcf_tree_unlock(tp);
