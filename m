@@ -1,46 +1,83 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: Fri, 03 Sep 2004 16:29:37 -0400
-Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <4138D431.8040206@pobox.com>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409022324.43117.vkondra@mail.ru> <4137839B.4000303@pobox.com> <200409032039.28201.vkondra@mail.ru>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: "Josef 'Jeff' Sipek" <jeffpc@optonline.net>
+Subject: Re: [PATCH 2.6] watch64: generic variable monitoring system
+Date: Fri, 03 Sep 2004 16:40:30 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200409031640.30731.jeffpc@optonline.net>
+References: <200409031307.01240.jeffpc@optonline.net>
+ <20040903121657.355a6a8b@dell_ss3.pdx.osdl.net>
+ <200409031618.47521.jeffpc@optonline.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com,
- Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
- Jean Tourrilhes <jt@bougret.hpl.hp.com>,
- Jouni Malinen <jkmaline@cc.hut.fi>,
-  acx100-devel@lists.sourceforge.net,  prism54-devel@prism54.org,
- "David S. Miller" <davem@redhat.com>
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200409032039.28201.vkondra@mail.ru>
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+In-reply-to: <200409031618.47521.jeffpc@optonline.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Vladimir Kondratiev wrote:
-> Is anyone working on this stack? I asked Dave, he is hot working on it.
-> Or is this code dead?
+The following fixes watch64 patch previously submitted to follow CodingStyle
+guidelines. BK repo is up to date as well
+
+Jeff.
+
+Signed-off-by: Josef "Jeff" Sipek <jeffpc@optonline.net>
 
 
-Nobody is actively working on that stack AFAIK.
-
-	Jeff
-
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by BEA Weblogic Workshop
-FREE Java Enterprise J2EE developer tools!
-Get your free copy of BEA WebLogic Workshop 8.1 today.
-http://ads.osdn.com/?ad_id=5047&alloc_id=10808&op=click
+--- 1.7/kernel/watch64.c 2004-07-14 16:41:26 -04:00
++++ edited/watch64.c 2004-09-03 16:12:39 -04:00
+@@ -110,7 +110,8 @@
+   return;
+  }
+  
+- printk(KERN_WARNING "watch64: 2003/08/22 Josef 'Jeff' Sipek <jeffpc@optonline.net>\n");
++ printk(KERN_WARNING "watch64: 2003/08/22 Josef 'Jeff' Sipek "
++     "<jeffpc@optonline.net>\n");
+  printk(KERN_WARNING "watch64: Enabling Watch64 extensions...");
+ 
+  init_timer(&watch64_timer);
+@@ -139,19 +140,21 @@
+  rcu_read_lock();
+  list_for_each_rcu(entry, &watch64_head) {
+   watch_struct = list_entry(entry, struct watch64, list);
+-  if (*watch_struct->ptr != watch_struct->oldval) {
+-   tmp = *watch_struct->ptr;
+-   if (tmp > watch_struct->oldval) {
+-    write_seqlock(&watch_struct->lock);
+-    watch_struct->total += tmp - watch_struct->oldval;
+-    write_sequnlock(&watch_struct->lock);
+-   } else if (tmp < watch_struct->oldval) {
+-    write_seqlock(&watch_struct->lock);
+-    watch_struct->total += ((u_int64_t) 1<<BITS_PER_LONG) - watch_struct->oldval + tmp;
+-    write_sequnlock(&watch_struct->lock);
+-   }
+-   watch_struct->oldval = tmp;
++  if (*watch_struct->ptr == watch_struct->oldval)
++   continue;
++  
++  tmp = *watch_struct->ptr;
++  if (tmp > watch_struct->oldval) {
++   write_seqlock(&watch_struct->lock);
++   watch_struct->total += tmp - watch_struct->oldval;
++   write_sequnlock(&watch_struct->lock);
++  } else if (tmp < watch_struct->oldval) {
++   write_seqlock(&watch_struct->lock);
++   watch_struct->total += ((u_int64_t) 1<<BITS_PER_LONG)
++      - watch_struct->oldval + tmp;
++   write_sequnlock(&watch_struct->lock);
+   }
++  watch_struct->oldval = tmp;
+  }
+  rcu_read_unlock();
+  
+@@ -181,7 +184,8 @@
+   temp->interval = WATCH64_INTERVAL;
+  else if (interval<WATCH64_MINIMUM) {
+   temp->interval = WATCH64_MINIMUM;
+-  printk("watch64: attempted to add new watch with interval below %d jiffies",WATCH64_MINIMUM);
++  printk("watch64: attempted to add new watch with "
++    "interval below %d jiffies",WATCH64_MINIMUM);
+  } else
+   temp->interval = interval;
+ 
