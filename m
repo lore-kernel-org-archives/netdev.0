@@ -1,32 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (8/8) loopback device simplification
-Date: Wed, 3 Sep 2003 20:41:05 -0700
+Subject: Re: [PATCH] dlci - cleanup for 2.6
+Date: Wed, 3 Sep 2003 20:33:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030903204105.0f01f131.davem@redhat.com>
-References: <20030903164921.7d923008.shemminger@osdl.org>
-	<3F568AC0.5090601@pobox.com>
+Message-ID: <20030903203336.45e0bce6.davem@redhat.com>
+References: <20030903151847.7311f75f.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Cc: mike.mclagan@linux.org, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F568AC0.5090601@pobox.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030903151847.7311f75f.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 03 Sep 2003 20:43:44 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+On Wed, 3 Sep 2003 15:18:47 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Would be nice to move dev_base and dev_base_lock somewhere, maybe 
-> drivers/net/net_init.c (which really should be renamed libnet.c) or 
-> perhaps somewhere in net/*
+> Patch for 2.6.0-test4 to cleanup DLCI driver
+> - keep list of arrays for devices and use a lock
+> - make sure header is contiguous before overlaying data structure
+> - dynamically allocate dev->priv with alloc_netdev
+> - get rid of MOD_INC/DEC
+> - free devices on module unload
+> - keep refcount on slave device's since holding a ptr
 
-Once all of the conversions are done, we can happily move
-this someone.  My personal preference would be net/core/dev.c,
-as I believe we can limit all of the modifications to there
-eventually and thus not have to export those two symbols to
-the entire kernel any more.
+Applied.
 
-The fact that we export the list and it's locking makes it
-really hard to change things.
+I assume you added the module export of unregister_frad() because you
+intend to make some drivers actually make use of it? :-)
