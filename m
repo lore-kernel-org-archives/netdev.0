@@ -1,39 +1,54 @@
-From: <akepner@sgi.com>
-Subject: [PATCH 1/2] net/tg3.c: use mmiowb in tg3_rx, tg3_start_xmit
-Date: Tue, 12 Oct 2004 16:34:30 -0700 (PDT)
+From: akepner@sgi.com
+Subject: [PATCH 2/2] net/tg3.c: use mmiowb in tg3_poll
+Date: Tue, 12 Oct 2004 16:39:32 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0410121630200.31839-100000@localhost.localdomain>
+Message-ID: <Pine.LNX.4.33.0410121634350.31839-100000@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <gnb@sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Using mmiowb() prevents an occasional oops in tg3_tx() resulting from 
-a NULL skb pointer in the tx_ring_info structure.
+Returning from tg3_poll() without flushing the PIO write which 
+reenables interrupts can result in lower cpu utilization and higher 
+throughput. So use a memory barrier, mmiowb(), instead of flushing the 
+write with a PIO read.
 
-
-Signed-off-by: Greg Banks <gnb@sgi.com>
+Signed-off-by: Arthur Kepner <akepner@sgi.com>
 ---
 
---- linux.1/drivers/net/tg3.c	2004-10-12 13:50:39.000000000 -0700
-+++ linux/drivers/net/tg3.c	2004-10-12 13:55:37.000000000 -0700
-@@ -2729,6 +2729,7 @@
- 		tw32_rx_mbox(MAILBOX_RCV_JUMBO_PROD_IDX + TG3_64BIT_REG_LOW,
- 			     sw_idx);
- 	}
-+	mmiowb();
- 
- 	return received;
+--- linux.2/drivers/net/tg3.c	2004-10-12 14:00:40.000000000 -0700
++++ linux/drivers/net/tg3.c	2004-10-12 14:13:02.000000000 -0700
+@@ -417,6 +417,20 @@
+ 	tg3_cond_int(tp);
  }
-@@ -3176,6 +3177,7 @@
- 		netif_stop_queue(dev);
  
- out_unlock:
++/* tg3_restart_ints
++ *  similar to tg3_enable_ints, but it can return without flushing the 
++ *  PIO write which reenables interrupts
++ */
++static void tg3_restart_ints(struct tg3 *tp)
++{
++	tw32(TG3PCI_MISC_HOST_CTRL,
++		(tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
++	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
 +	mmiowb();
- 	spin_unlock_irqrestore(&tp->tx_lock, flags);
++
++	tg3_cond_int(tp);
++}
++
+ static inline void tg3_netif_stop(struct tg3 *tp)
+ {
+ 	netif_poll_disable(tp->dev);
+@@ -2788,7 +2802,7 @@
+ 	if (done) {
+ 		spin_lock_irqsave(&tp->lock, flags);
+ 		__netif_rx_complete(netdev);
+-		tg3_enable_ints(tp);
++		tg3_restart_ints(tp);
+ 		spin_unlock_irqrestore(&tp->lock, flags);
+ 	}
  
- 	dev->trans_start = jiffies;
+ 
