@@ -1,51 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
- else")
-Date: Wed, 1 Sep 2004 08:04:29 +0300 (EEST)
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <Pine.LNX.4.58.0409010739510.1332@u.domain.uli>
-References: <20040831111508.GA2327@gondor.apana.org.au>
-	<Pine.LNX.4.44.0408311446240.4022-100000@l>
-	<20040831212802.GB7058@gondor.apana.org.au>
-	<20040831213318.GA7262@gondor.apana.org.au>
+From: Arjan van de Ven <arjanv@redhat.com>
+Subject: Re: [Announce] Update on ipw2100, ipw2200, and support for Intel
+	PRO/Wireless 2915ABG
+Date: Wed, 01 Sep 2004 09:02:57 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <1094022177.2801.1.camel@laptop.fenrus.com>
+References: <4134E8EA.9080605@linux.intel.com>
+Reply-To: arjanv@redhat.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-	laforge@netfilter.org, rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040831213318.GA7262@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-X7szBpNK5mljMglKnPP8"
+Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266566AbUIAHDY@vger.kernel.org>
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <4134E8EA.9080605@linux.intel.com>
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+--=-X7szBpNK5mljMglKnPP8
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 1 Sep 2004, Herbert Xu wrote:
+On Tue, 2004-08-31 at 23:08, James Ketrenos wrote:
+> It's been a while since I've updated lkml and netdev on the progress of
+> the ipw projects.  Given the recent announcement by Intel for the
+> introduction of Intel PRO/Wireless 2915 ABG Network Connection miniPCI
+> adapter, I thought now was a good time...
 
-> > I was mistaken.  In the mpath case there is no source address per
-> > nexthop.
->
-> Actually, that should still work.
->
-> For example, if you're like me and the nexthops all go to different
-> devices then it's obviously OK as inet_select_addr will pick the
-> right one for the device.  If they're going through the same device
-> but to different gateways then it'll still pick the right one for
-> the given gateway.
 
-	Yes, if the targets are from some of the GW's subnets. It
-is a masquerade drawback not to match by GW because the routing
-does not support it but the world is not perfect.
+you guys seem to be doing a really great job on these drivers; thanks!
 
-Regards
+--=-X7szBpNK5mljMglKnPP8
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
---
-Julian Anastasov <ja@ssi.bg>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBBNXQgxULwo51rQBIRAvHCAJwOJrJP6DLAJuGhAuK9d1qoOUQJZgCghNlA
+Msq9xpw2hH+gug8KYZg9s0c=
+=kpDZ
+-----END PGP SIGNATURE-----
+
+--=-X7szBpNK5mljMglKnPP8--
