@@ -1,64 +1,58 @@
-From: Marc Herbert <marc.herbert@free.fr>
-Subject: Re: [RFC] ethtool semantics
-Date: Mon, 14 Jun 2004 15:11:15 +0200 (CEST)
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: RE: RFC: Cisco HDLC bridging
+Date: Mon, 14 Jun 2004 09:40:23 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0406141458270.16762@fcat>
-References: <20040607212804.GA17012@k3.hellgate.ch> <20040607145723.41da5783.davem@redhat.com>
- <20040608210809.GA10542@k3.hellgate.ch> <40C77C70.5070409@tmr.com>
- <20040609213850.GA17243@k3.hellgate.ch> <20040609151246.1c28c4d9.davem@redhat.com>
+Message-ID: <C060DFCD9697A842B3189B458524FDC205D2C6@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-In-Reply-To: <20040609151246.1c28c4d9.davem@redhat.com>
+To: "'Krzysztof Halasa'" <khc@pm.waw.pl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 9 Jun 2004, David S. Miller wrote:
+Krzysztof, I thought you had dropped off the face of the earth.  Good to
+hear from you again.  Did you ever see my changes to make the HDLC generic
+layer use the PPP generic layer instead of syncppp.c?
 
-> On Wed, 9 Jun 2004 23:38:50 +0200
-> Roger Luethi <rl@hellgate.ch> wrote:
->
-> > <sigh> I just killed the module parameters in my via-rhine development
-> > tree.
->
-> That is absolutely the correct thing to do, module parameters for
-> link settings are %100 deprecated, people need to use ethtool for
-> everything.
+> obvious to newcomers. And I would make it conditional (for example,
+> with CONFIG_ option _and_ runtime ioctl creating the slave device).
 
-This is precisely the reason why I am concerned about having "rich"
-ethtool semantics. A unified, standard interface is great,... as long
-it does not leave behind some features, like setting the advertised
-values in autoneg. As a user of these features, I hope driver
-developers will NOT remove those module_param features that cannot
-migrated to ethtool.
+OK.  I will attempt to add CONFIG_HDLC_CISCO_ETH and IF_PROTO_CISCO_ADD_ETH.
+IF_PROTO_CISCO_ADD_ETH will return the name of the new device, probably
+"hdlcXeth0".
 
+> How are the packets encapsulated? What about 802.1q VLANs?
 
-On Tue, 8 Jun 2004, Marc Herbert wrote:
+The packets are put directly into the payload of the Cisco HDLC frame.  The
+protocol number in the Cisco header is 0x6558.  I don't remember if the FCS
+is included or not.  I expect it is, but that should be obvious when I hook
+up to a Cisco device.
 
-> > On Mon, 7 Jun 2004 23:28:04 +0200
-> > Roger Luethi <rl@hellgate.ch> wrote:
-> >
-> > > What is the correct response if a user passes ethtool speed or duplex
-> > > arguments while autoneg is on? Some possible answers are:
+I'm not sure about VLAN frames, or about IEEE spanning tree; I plan to treat
+them like all other packets until I learn that there is another way.
 
-> > > c) Change advertised value accordingly and initiate new negotiation.
+> However I don't feel like convinced to use the second network device.
+> Certainly there is no problem with tcpdump/libpcap, we could have
+> Cisco hdlcX device with SLARPs, Ethernet framing, regular IPv4/6
+> and anything we want.
 
-> I find the c) feature very convenient. For instance it allows reliably
-> downgrading a link connected to a switch without having to fiddle with
-> the configuration of the switch, something which is usually (pick your
-> favourites) non-standard, painful, not authorized, not implemented,
-> buggy,...
+I thought tcpdump/libpcap only looked at the device type, so that if we sent
+non-eth packets up an eth interface, tcpdump would try to interpret them as
+eth packets.  My primary reason for wanting a second device is to be sure
+not to discard information that is helpful/necessary for troubleshooting;
+so, if receiving packets with diverse header types is not going to mess
+things up, I would definitely prefer using only one device, because it is
+simpler to configure.  The case of using a Cisco HDLC link for bridged
+ethernet *and* IP *and* other things at the same time does not seem very
+useful.
 
-In case any one wondered: probably the most common motivation for
-manually downgrading a link is when the cabling is found to be not
-"good enough" for the max common speed of the two transceivers.
-(see "Gigabit Ethernet - Rich Seifert, section 8.2.3")
+> The only problem I can see (a serious one, though) is the protocol
+> "routing" in Linux. If we "ip addr add" IP address to hdlcX, does
+> it mean we want native IP or IP/Ethernet? It would be nice to be able
+> to:
+>         ifconfig hdlc0 10.0.0.1/24 hw cisco-hdlc
+>         ifconfig hdlc0 10.0.1.1/24 hw ether
 
-See also: "Running 1000BASE-T: Gigabit Ethernet over Copper"
-  http://www.10gea.org/GEA_copper_0999_rev-wp.pdf
- "The 1000BASE-T Task Force and the cabling companies estimate that
- less than 10 percent of the installed base of Category 5 cable was
- improperly installed,"
-
-I find "less than 10 percent" not so negligible.
+We could just use "sethdlc hdlc0 cisco-eth" and not worry about
+distinguishing in ifconfig, right?
