@@ -1,83 +1,134 @@
 From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: New module infrastructure for net_proto_family
-Date: Tue, 29 Apr 2003 16:39:55 -0700
+Subject: Re: [PATCH] af_pppox: create module infrastructure for
+  protocol modules
+Date: Tue, 29 Apr 2003 17:43:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20030429162447.10da83c8@unixmail.qualcomm.com>
-References: <5.1.0.14.2.20030429103638.10bf0a00@unixmail.qualcomm.com>
- <5.1.0.14.2.20030428130220.10644ee0@unixmail.qualcomm.com>
- <20030424230202.GB2931@conectiva.com.br>
- <5.1.0.14.2.20030424094431.080b5320@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423134636.100e5c60@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423114915.10840678@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423114915.10840678@unixmail.qualcomm.com>
- <5.1.0.14.2.20030423134636.100e5c60@unixmail.qualcomm.com>
- <5.1.0.14.2.20030424094431.080b5320@unixmail.qualcomm.com>
- <5.1.0.14.2.20030428130220.10644ee0@unixmail.qualcomm.com>
- <5.1.0.14.2.20030429103638.10bf0a00@unixmail.qualcomm.com>
+Message-ID: <5.1.0.14.2.20030429164010.10ddb380@unixmail.qualcomm.com>
+References: <5.1.0.14.2.20030429123317.10d71178@unixmail.qualcomm.com>
+ <20030428.222728.48508327.davem@redhat.com>
+ <20030429061227.GJ25361@conectiva.com.br>
+ <20030428.222728.48508327.davem@redhat.com>
+ <5.1.0.14.2.20030429123317.10d71178@unixmail.qualcomm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, mostrows@speakeasy.net,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20030429215557.GA30222@conectiva.com.br>
+In-Reply-To: <20030429220746.GB30222@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 02:55 PM 4/29/2003, Arnaldo Carvalho de Melo wrote:
->Em Tue, Apr 29, 2003 at 12:21:49PM -0700, Max Krasnyansky escreveu:
+At 03:07 PM 4/29/2003, Arnaldo Carvalho de Melo wrote:
+>Em Tue, Apr 29, 2003 at 01:05:08PM -0700, Max Krasnyansky escreveu:
+>> >> Although the idea is conceptually sound, you miss one crucial thing.
+>> >> Such struct sock's reference _TWO_ modules, the "PPPOE" module
+>> >> and the "PPPOX" module.
 >
->> That can probably be done. But what happened to "protocol writers don't have
->> to worry about this issues" ideas though ;-) ?
+>> This is not a problem. PPPOX (or ipv4/ipv6) module is not going to 
+>> go away simply because PPPOE (or TCP/UDP) uses symbols from it.
+>> There is no need to bump refcounters here. 
 >
->They don't, unless they want to have its own infrastructure for loading modules
->for each specific protocol, look at all the net families that don't do that
->(i.e. all, except pppox and bluetooth, and perhaps ipv4 in the future, but as
->you said, this is not accepted by DaveM).
-Hold on. That was my argument in favor of sk_set_owner() thing. 
-I thought the goal was to make it easier in all cases.
+>> I think it's safe to say that protocols within the family always use 
+>> symbols from main family module (they have to at list register/unregister).
+>> So this is naturally taken care of.
+>
+>Because at the core level we don't know (and perhaps don't want to know) what
+>the specific net family module nor its protocol modules are doing
+We know that protocol has to at least register with the family. Which is enough
+to keep family module loaded.
 
->And look at the pppox implementation, it didn't needed any changes to the
->struct sock protinfo/private slab cache, and removed code in the protocol
->module.
-But it introduced overhead in sk allocation/deallocation (read me rsp in pppox thread). 
+>> Ok. I'm going to ask this here again (to make sure that it's answered :))
+>Hey, I answered already, but it seems you disagree with my view 8)
+Of course I do. I wouldn't be arguing here if I didn't :).
 
->> The other thing that I don't like is that to create one socket we'd have to
->> call whole bunch of functions to take care of the module refcounting.  So I
->> want to bring these questions again: 
->
 >> - Why do we have to bump module refcount for 'struct sock' with _default_ callbacks ?
->
->Because we don't assume they won't use its own callbacks.
-And what I'm saying is that if we make this assumption we can save some overhead during
-socket allocation/deallocation because we don't have to track those sks.
-
 >> My answer is that we don't have to. I'd even say that we shouldn't. Module is not 
->> referenced from struct sock in that case.
+>> referenced from 'struct sock' in that case.
 >
+>We just don't assume nothing about the net protocol family implementation, but now
+>that the infrastructure is in place we can surely study further optimizations that
+>don't break its layering abstraction.
+We already know which families change callbacks and which don't. I looked at that already.
+
 >> - Why are we not allowing net_family unregistration until all family sockets
->> are gone ?  From what I see it's only because current code does
->> 'module_put(net_families[family]->owner)'.  I'm saying that we don't care
->> whether net_family is registered or not if we know who owns the socket (i.e.
+>> are gone?  From what I see it's only because current code does
+>> 'module_put(net_families[family]->owner)'. But we don't care whether
+>> net_family is registered or not if we know who owns the socket (i.e.
 >> sock->owner).
 >
->but then we move the overhead to _all_ struct sock, overhead (memory) that is
->present at all times, not just at sock creation/destruction time.
-Like I said we can easily make space for ->owner in the struct sk (kill one of the 
-pprev, prev, bind_prev, etc fields). IMO overhead of calling more function for socket 
-allocation/dealocation is greater.
+>but we introduce aditional overhead in all struct sock created why it is so important
+>to have the net_family unregistration done early rather than after all the struct sock
+>are freed?
+I'm not saying it's important. I'm saying we don't care, if we know who owns the socket.
+And if we don't care we don't need net_family_get() and friends.
 
->> So my point is yes we can make families to implement their own infrastructure
->> for module refcounting. But the solution is going to be more complicated than
->> just having sock->owner and sk->owner fields and allowing for ownership
->> transfers.
+>> So far nobody gave me a clear answer to those questions. If we don't have to
+>> meet those two restriction I don't see the point in creating all this
+>> net_family_get()/xxx_family_get(), etc, infrastructure. Patches and BK stuff
+>> that I've seen so far added more code (and a bit more overhead) than my
+>> original patch with sock->owner/sk->owner/sk_set_owner().  Yet they provide
+>> no additional flexibility or functionality.
 >
->Have you seen the pppox implementation? It even simplified some things at the
->protocol level at the expense of adding just one new exported function at the
->net family level and some cost at the struct sock creation/destruction time.
+>See, its a tradeoff, we don't bloat struct sock paying a bit of overhead in other area.
+I wouldn't call one additional pointer a bloat (btw I mentioned that we have sk->prev and 
+sk->pprev, we should be able to easily kill one of them).
+
+>> I hate to repeat myself and please forgive me for that. But how is the
+>> current infrastructure better than following ?
 >
->And this by making use of the existing infrastructure to achieve its goals: to
->have per protocol modules. And, again, the pppoe protocol module was
->simplified.
-I'll comment on that on in pppox thread.
+>See my views above. And I'd love, as you, to have more people discussing this,
+>but most people I think that could help with this are damn busy with other
+>work, so at least we have a solid infrastructure in place and can revisit this
+>later if there is interest in further enhancing this.
+That's the thing, I wouldn't call current infrastructure solid :)
+
+Ok. Speaking about bloat. pppox mod refcounting. 
+You added additional level if indirection to every 'struct socket' and 'struct sock'
+allocation/dealocation.
+For example to free pppoe sk we now have to call
+        sk_free(sk)
+                pppox_sk_free(sk)
+                        pppox_protos[PPPOE]->sk_free(sk)
+                module_put(pppox_protos[PPPOE]->owner)
+instead of
+        sk_free(sk)
+                pppoe_sk_free(sk)
+        module_put(sk->owner)
+
+Same thing for pppox_release.
+You also had to introduce new function pppox_sk_alloc() which is not needed otherwise.
+
+Basically this entire patch 
+        http://linux.bkbits.net:8080/linux-2.5/diffs/drivers/net/pppox.c@1.11?nav=index.html|ChangeSet@-2d|cset@1.1128.1.19
+
+would have been
+
+pppox.c
+pppox_create()
+{
+        ...
++       if (!try_module_get(pppox_protos[protocol]->owner))
++               goto out; 
++
++       sock->owner = pppox_protos[protocol]->owner;
+        ...
+}
+
+pppoe.c
+pppoe_create()
+{
+        ...
++       sk->destruct = pppoe_sk_free;
++       sk_set_owner(THIS_MODULE);
+        ...
+}
+
+IMO it's pretty clear which one has more bloat ;-)
 
 Max
+
+                
+
+
+        
