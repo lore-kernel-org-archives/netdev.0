@@ -1,36 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Uninitialized dst in ip6_dst_lookup
-Date: Wed, 21 Jan 2004 22:14:21 -0800
+Subject: Re: [PATCH][ATM]: [horizon] avoid warning about limited range of
+ data type
+Date: Wed, 21 Jan 2004 22:15:31 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040121221421.11399ba3.davem@redhat.com>
-References: <20040119211156.4bff1640.davem@redhat.com>
-	<Pine.LNX.4.44.0401201115500.23508-100000@linux-udp15191261uds.beaverton.ibm.com>
+Message-ID: <20040121221531.10e4f8a2.davem@redhat.com>
+References: <200401210124.i0L1OZRr014516@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, krkumar@us.ibm.com
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, rddunlap@osdl.org,
+        venza@libero.it
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <krkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0401201115500.23508-100000@linux-udp15191261uds.beaverton.ibm.com>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200401210124.i0L1OZRr014516@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 20 Jan 2004 11:46:02 -0800 (PST)
-Krishna Kumar <krkumar@us.ibm.com> wrote:
+On Tue, 20 Jan 2004 20:24:37 -0500
+chas williams (contractor) <chas@cmf.nrl.navy.mil> wrote:
 
-> ip6_dst_lookup() is supposed to fill in the *dst, hence it must not
-> dereference *dst until it allocates it. However if the passed sk is
-> NULL and *dst is not set by the caller, the following code will
-> dereference uninitialized memory :
-> 
-> 	if (*dst == NULL)
-> 		*dst = ip6_route_output(sk, fl); >>>>> will not execute
-> 	if ((err = (*dst)->error))  >>>>> dereference bad stack address.
-> 		goto out_err_release;
-> 
-> I am suggesting moving the responsibility of ensuring a good *dst from the
-> callers to ip6_dst_lookup().
+> this patch fixes the horizon driver so that it will compile
+> without a warning.
 
-I agree, patch applied.
+Applied, I assumed this was meant for 2.6.x only.
 
 Thanks.
