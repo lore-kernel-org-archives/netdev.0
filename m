@@ -1,34 +1,36 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
-Subject: forcedeth: version 0.18 available
-Date: Thu, 20 Nov 2003 07:11:16 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] 8139too NAPI for net-drivers-2.5-exp
+Date: Wed, 19 Nov 2003 12:16:21 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBC5B04.50801@gmx.net>
+Message-ID: <3FBBA565.3090206@pobox.com>
+References: <20031118161730.2690cb76.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Manfred Spraul <manfred@colorfullife.com>
+Cc: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com,
+        Jes Sorensen <jes@wildopensource.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031118161730.2690cb76.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello all,
-
-version 0.18 of forcedeth for Linux 2.4 and 2.6 is available at
-http://www.hailfinger.org/carldani/linux/patches/forcedeth/
-It is also integrated in 2.6.0-test9-mm4.
-
-Fixes in this release over 0.17:
-*  Avoid Oops on rmmod.
-
-Known issues:
-*  Some boards give bogus MAC addresses and work only partially.
-   Same problem happens with nvnet on these boards.
-*  Possible system slowdown during periods of extreme network
-   load, fix is currently being tested.
-
-Please test.
+Stephen Hemminger wrote:
+> Here is the 8139too version in net-drivers-2.5-exp modified for NAPI.
+> Also:
+> 	64k receive ring - has to handle wrap for that case;
+> 	   the NoWrap flag does nothing if using this big ring.
+> 	assert() -> BUG_ON()
+> 	
+> To deal with the races with tx_timeout, put back in the rx_lock from earlier versions.
 
 
-Regards,
-Carl-Daniel
+Applied with a "but"...  This patch still contains some errors WRT 8139 
+hardware and the RX path.  But I'm comfortable with nailing those 
+problems down during public testing of net-drivers-2.5-exp.
+
+Hirofumi, Stephen, and others, please test, particularly packet floods 
+with (a) tiny packets and (b) huge packets.  Ditto Jes, if you've still 
+got hardware, and are interested in DoS fixes in 8139too.
+
+	Jeff
