@@ -1,62 +1,39 @@
-From: Ingo Oeser <ioe-lkml@rameria.de>
-Subject: Re: [PATCH 2.6]: IPv4: strcpy -> strlcpy
-Date: Sun, 30 Nov 2003 11:26:22 +0100
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
+ device
+Date: Sun, 30 Nov 2003 16:00:51 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311301126.24035.ioe-lkml@rameria.de>
-References: <20031127142125.GG8276@jdj5.mit.edu> <1069970946.2138.13.camel@teapot.felipe-alfaro.com> <1070012538.10048.13.camel@hades.cambridge.redhat.com>
+Message-ID: <Pine.LNX.4.44.0311301559270.1231-100000@netcore.fi>
+References: <20031129204701.37a06847.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Timo Kamph <timo@kamph.org>,
-        Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, davem@redhat.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ville Nuorvala <vnuorval@tcs.hut.fi>, <yoshfuji@linux-ipv6.org>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1070012538.10048.13.camel@hades.cambridge.redhat.com>
-Content-Description: clearsigned data
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031129204701.37a06847.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Sat, 29 Nov 2003, David S. Miller wrote:
+> > Hi Dave, Yoshifuji-san is now ok with this patch :) Would you apply it?
+> 
+> I thought some more about this and I am realizing this is not
+> a pure bug fix, I am very sure Linus will not take the change.
+> 
+> We can hold onto this until 2.6.1, ok?
 
-On Friday 28 November 2003 10:42, David Woodhouse wrote:
-> On Thu, 2003-11-27 at 23:09 +0100, Felipe Alfaro Solana wrote:
-> > On Thu, 2003-11-27 at 21:48, Timo Kamph wrote:
-> > > > +	strlcpy(label->label, name, sizeof(label->name));
-> > >
-> > >                                                                       
-> > > ^^^^^^ I guess this shoud be label->label, or am I wrong?
-> >
-> > Oh my god! Two consecutive mistakes with the same patch! I should have
-> > some sleep... Here's the one with the typo corrected.
->
-> Perhaps we should consider
->
-> #define strsizecpy(x, y) strlcpy((x), (y), sizeof(x))
+Another perspective:
 
-Then we should do:
+Well, the specs say very strongly that all interfaces MUST have
+lik-local addresses, so it's a pretty big bug,
+implementation-of-the-spec -wise.
 
-#define strsizecpy(x, y) strlcpy(x, y, sizeof(x)/sizeof(x[0]))
+However, it's probably not a bug in the current code, though.
 
-to rule out passing the wrong variables or dereferencing to much.
+But I'm personally fine with waiting..
 
-Unfortunatly there is no simple way in C to differentiate between array and
-pointer.
-
-There is a way with typeof, but that is hackish.
-
-
-Regards
-
-Ingo Oeser
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQE/ycXOU56oYWuOrkARAiJ8AJ9wkl1ijJVn5M+lGhUwSwWRxzxxHwCg2nAU
-t+9HdAasQDZo/GQFuj9s5ZU=
-=py/4
------END PGP SIGNATURE-----
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
