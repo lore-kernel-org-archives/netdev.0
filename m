@@ -1,59 +1,100 @@
-From: Mark Borst <mark@borst.org>
-Subject: node-local multicast issues
-Date: Tue, 09 Nov 2004 12:21:40 +0200
-Message-ID: <1099995700.21310.8.camel@mn-2>
+From: Xose Vazquez Perez <xose@wanadoo.es>
+Subject: [PATCH 2.6-bk 1/1] tg3: add license
+Date: Tue, 09 Nov 2004 11:59:58 +0100
+Message-ID: <4190A32E.6090200@wanadoo.es>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: hessu@cs.tut.fi
+Content-Type: multipart/mixed;
+ boundary="------------000508030809010109000007"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello all
+This is a multi-part message in MIME format.
+--------------000508030809010109000007
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I am doing some experiments with node-local multicasting as a means of
-inter-process communication. I am using debian unstable with linux
-kernel 2.6.8 with MIPL 2.0 patches. Now I am running into some problems.
+hi,
 
-I want to keep the node-local packets on the 'lo' interface. I do that
-by setting socket option IPV6_MULTICAST_IF to the 'lo' ifindex. Then I
-use sendmsg() to send the message. As a result I get the error "Network
-is unreachable". When I started analyzing it, I found the following:
+there is no license, yes it's GPL but...
 
-The default routing table in my system includes this route:
+-thanks-
 
-ff00::/8	::	U     256    0        0 eth0
+--------------000508030809010109000007
+Content-Type: text/plain;
+ name="tg3_license.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="tg3_license.diff"
 
-There is no route for this to 'lo'. Which makes all attempts to send
-nodelocal (ff01::/8) multicast packets to 'lo' go wrong. When I add the
-following routes, it works:
+diff -Nuar o/drivers/net/tg3.c n/drivers/net/tg3.c
+--- o/drivers/net/tg3.c	2004-11-09 11:49:06.000000000 +0100
++++ n/drivers/net/tg3.c	2004-11-09 11:43:23.000000000 +0100
+@@ -9,6 +9,26 @@
+  * 	Copyright (C) 2000-2003 Broadcom Corporation.
+  */
+ 
++/*
++ * This file is part of Linux.
++ *
++ * Linux is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License Version 2
++ * as published by the Free Software Foundation.
++ *
++ * Linux is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with Linux; if not, write to:
++ *
++ *   Free Software Foundation Inc.
++ *   59 Temple Place, Suite 330
++ *   Boston MA  02111-1307  USA
++ */
++
+ #include <linux/config.h>
+ 
+ #include <linux/module.h>
+diff -Nuar o/drivers/net/tg3.h n/drivers/net/tg3.h
+--- o/drivers/net/tg3.h	2004-11-09 11:49:06.000000000 +0100
++++ n/drivers/net/tg3.h	2004-11-09 11:46:41.000000000 +0100
+@@ -1,4 +1,4 @@
+-/* $Id: tg3.h,v 1.37.2.32 2002/03/11 12:18:18 davem Exp $
++/*
+  * tg3.h: Definitions for Broadcom Tigon3 ethernet driver.
+  *
+  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
+@@ -6,6 +6,26 @@
+  * Copyright (C) 2004 Sun Microsystems Inc.
+  */
+ 
++/*
++ * This file is part of Linux.
++ *
++ * Linux is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License Version 2
++ * as published by the Free Software Foundation.
++ *
++ * Linux is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with Linux; if not, write to:
++ *
++ *   Free Software Foundation Inc.
++ *   59 Temple Place, Suite 330
++ *   Boston MA  02111-1307  USA
++ */
++
+ #ifndef _T3_H
+ #define _T3_H
+ 
 
-ff01::/16	::	U     1      0        0 eth0
-ff01::/16	::	U     1      0        0 lo
-
-When I don't use IPV6_MULTICAST_IF, the packets get sent to 'eth0', but
-when I set it to 'lo' the packets get sent to 'lo'. So far so good.
-
-The next thing I notice is that I see the ff01::/8 packets on eth0 with
-ethereal. Does that mean that they are actually sent out on the wire? If
-so, then this would violate the semantics of nodelocal multicast.
-
-So the question rises: what is the intended behaviour here? As I
-understand it, ff01::/8 traffic is interface local, and you should use
-IPV6_MULTICAST_IF to select which interface you want to use. Traffic
-sent to ff01::/8 on 'eth0' will not be seen on 'lo'. This is however
-prevented by not having a route to 'lo'. Should these routes be set per
-interface by default?
-
-Please enlighten me.
-
-Regards,
-
--- 
-Mark Borst
-Researcher
-Network and Protocols Group
-Tampere University of Technology, Finland
+--------------000508030809010109000007--
