@@ -1,37 +1,39 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [ROUTE] PMTU only works on half the time
-Date: Tue, 2 Dec 2003 01:30:17 +0200 (EET)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: NAPI 8139too.c for 2.4.23
+Date: Mon, 01 Dec 2003 15:39:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0312020120020.2728-100000@u.domain.uli>
-References: <20031201204700.GA20349@gondor.apana.org.au>
+Message-ID: <3FCBD120.7070207@candelatech.com>
+References: <20031201205038.GK10711@ovh.net> <20031201205533.GA15846@gtf.org> <20031201230013.GM4313@ovh.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20031201204700.GA20349@gondor.apana.org.au>
+To: Octave <oles@ovh.net>
+In-Reply-To: <20031201230013.GM4313@ovh.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Octave wrote:
+>>Is there any chance you could do some benchmark runs with ttcp or
+>>somesuch?
+> 
+> 
+> I tested on 6-7 servers running with 
+> eepro eth0: Intel Corp. 82557/8/9 [Ethernet Pro 100], 00:E0:18:01:78:6C, IRQ 10.
+> realtek 8139too with NAPI 8139too Fast Ethernet driver 0.9.27 
+> realtek 8139too with no NAPI (standard driver with soft polling)
+> 
+> If this quick test is correct, realtek 8139too's driver works as good as
+> eepro's driver. 
+> 
+> Octave 
 
-	Hello,
+Those are some nice numbers!  I may have to bring some of my $5 realteks out of
+retirement!  Anyone make a 4-port NIC with realteks on it?
 
-On Tue, 2 Dec 2003, Herbert Xu wrote:
+Ben
 
-> On Tue, Dec 02, 2003 at 07:16:51AM +1100, herbert wrote:
-> >
-> > I found out that PMTU only works on those routing cache entries where
-> > rt_src != 0.  This patch should make it work for all matching entries.
->
-> That patch removed one line too many.  This one should be better.
-
-	IMO, the rt_src check in ip_rt_frag_needed is ok.
-
-	I would suspect all rth->fl.fl4_tos checks too.
-It seems we need toskeys[2] and a second for loop if tos!=0.
-What about rewriting them to (rth->fl.fl4_tos == toskeys[j]).
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
