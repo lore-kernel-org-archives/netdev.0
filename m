@@ -1,33 +1,40 @@
 From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH 1/5] r8169: auto detect 32-bit slot
-Date: Wed, 9 Mar 2005 22:14:10 -0600
-Message-ID: <200503092214.10348.jdmason@us.ibm.com>
-References: <20050309112925.7f7900ab@dxpl.pdx.osdl.net> <200503091608.59122.jdmason@us.ibm.com> <20050309223943.GB9502@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 5/5] r8169: ethtool hardware statistics support
+Date: Wed, 9 Mar 2005 22:21:48 -0600
+Message-ID: <200503092221.48487.jdmason@us.ibm.com>
+References: <20050309113626.6708c93e@dxpl.pdx.osdl.net> <200503091537.30899.jdmason@us.ibm.com> <20050309135345.5efae9b6@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@muc.de>, Stephen Hemminger <shemminger@osdl.org>,
-        netdev@oss.sgi.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050309223943.GB9502@electric-eye.fr.zoreil.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050309135345.5efae9b6@dxpl.pdx.osdl.net>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[...]
-> The content of the Config2 register could be interesting.
+On Wednesday 09 March 2005 03:53 pm, Stephen Hemminger wrote:
+> On Wed, 9 Mar 2005 15:37:30 -0600
+>
+> Jon Mason <jdmason@us.ibm.com> wrote:
+> > Does this patch fix the problem of bogus statistics if the interface is
+> > down
+>
+> I see no problem when interface is down. It returns all zero's because
+> the device is reset on probe (and on shutdown).
 
-I did a quick test and my 2 adapters (integrated and stand-alone) fail the DAC 
-test.
+I can confirm that I see no statistic errors either. 
 
-+       if ((sizeof(dma_addr_t) > 4) &&
-+           (RTL_R32(Config2) & (1<<3)) && 
-+           !pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
+I believe the faulty code in Richard's patch was:
++       if (RTL_R32(StatsAddrLow) & DumpStats)
++               return; /* no stats - took too long */
 
-For the above, I get 8 0 1 respectively.  So, my adapters fail because of the 
-64bit slot test.  
+Which returned before the stats were populated (leaving garbage).  Since your 
+patch lacks this, we see no problem.  If this is true, there is probably a 
+problem on 8139cp, which has a similar error path in its cp_get_ethtool_stats 
+function.   
 
-If you like, I can try my stand-alone adapter in a 64bit slot of a ppc64 
-system.
+Thanks,
+Jon
