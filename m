@@ -1,51 +1,76 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: multiple unicast mac address (was Re: netdev_ops retraction)
-Date: 03 Aug 2003 15:06:07 -0400
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: TOE brain dump
+Date: 03 Aug 2003 13:21:09 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1059937567.1102.77.camel@jzny.localdomain>
-References: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk>
-	 <2147483647.1059659359@fozzy.rossfell.co.uk> <3F292B38.4070508@pobox.com>
-	 <2147483647.1059667766@fozzy.rossfell.co.uk>
-Reply-To: hadi@cyberus.ca
+Message-ID: <m1fzkiwnru.fsf@frodo.biederman.org>
+References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
+	<3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Nivedita Singhvi <niv@us.ibm.com>,
+   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Payne <rickp@rossfell.co.uk>
-In-Reply-To: <2147483647.1059667766@fozzy.rossfell.co.uk>
+To: Werner Almesberger <werner@almesberger.net>
+In-Reply-To: <20030802184901.G5798@almesberger.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Last discussion that happened:
+Werner Almesberger <werner@almesberger.net> writes:
 
-http://marc.theaimsgroup.com/?t=104163060100001&r=1&w=2
+> Jeff Garzik wrote:
+> > jabbering at the same time.  TCP is a "one size fits all" solution, but 
+> > it doesn't work well for everyone.
+> 
+> But then, ten "optimized xxPs" that work well in two different
+> scenarios each, but not so good in the 98 others, wouldn't be
+> much fun either.
 
-cheers,
-jamal
+The optimized for low latency cases seem to have a strong
+market in clusters.  And they are currently keeping alive
+quite a few technologies.  Myrinet, Infiniband, Quadric's Elan, etc.
+Having low latency and switch technologies that scale is quite
+rare currently.
 
+> Another problem of TCP is that it has grown a bit too many
+> knobs you need to turn before it works over your really fast
+> really long pipe. (In one of the OLS after dinner speeches,
+> this was quite appropriately called the "wizard gap".)
 
-On Thu, 2003-07-31 at 11:09, Rick Payne wrote:
-> --On Thursday, July 31, 2003 10:44 am -0400 Jeff Garzik <jgarzik@pobox.com> 
-> wrote:
+Does anyone know which knobs to turn to make TCP go fast over
+Infiniband.  (A low latency high bandwidth network?)  I get to
+deal with them on a regular basis...
+
+There is one place in low latency communications that I can think
+of where TCP/IP is not the proper solution.  For low latency
+communication the checksum is at the wrong end of the packet.
+IB gets this one correct and places the checksum at the tail end of
+the packet.  This allows the packet to start transmitting before
+the checksum is computed, possibly even having the receive start
+at the other end before the tail of the packet is transmitted.
+
+Would it make any sense to do a low latency variation on TCP that
+fixes that problem?  For the IP header we are fine as the data
+precedes the checksum.  But the problem appears to affect all
+of the upper level protocols that ride on IP, UDP, TCP, SCTP...
+
+> > So, fix the other end of the pipeline too, otherwise this fast network 
+> > stuff is flashly but pointless.  If you want to serve up data from disk, 
+> > then start creating PCI cards that have both Serial ATA and ethernet 
+> > connectors on them :)  Cut out the middleman of the host CPU and host 
+> > memory bus instead of offloading portions of TCP that do not need to be 
+> > offloaded.
 > 
-> > Hardware that filters N MAC addresses (unicast filtering) doesn't have a
-> > terribly standard interface, and the unicast filter must be adjusted at
-> 
-> Indeed but where its possible to support it, it can be - and those cards 
-> will be specified by those who need it (for HA, VRRP etc).
-> 
-> > different times on different hardware.  Also, chip bugs lead one to think
-> > unicast filtering will work where it doesn't.  Also, chip limits for some
-> > of the more popular chips are unknown.  Also, the need for this feature
-> > is very uncommon, and can be achieved in other ways.
-> 
-> As I said - promiscuous mode and filtering on the receive side - which is 
-> what you have to resort to anyway for those cards that don't support it.
-> 
-> Alternatively, its just another patch people need to add to make things do 
-> what they want - just like the ARP patch.
-> 
-> Rick
-> 
-> 
+> That's a good point. A hierarchical memory structure can help
+> here. Moving one end closer to the hardware, and letting it
+> know (e.g. through sendfile) that also the other end is close
+> (or can be reached more directly that through some hopelessly
+> crowded main bus) may help too.
+
+On that score it is worth noting that the next generation of
+peripheral busses (Hypertransport, PCI Express, etc) are all switched.
+Which means that device to device communication may be more
+reasonable.  Going from a bussed interconnect to a switched
+interconnect is certainly a dramatic change in infrastructure. How
+that will affect the tradeoffs I don't know.  
+
+Eric
