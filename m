@@ -1,44 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: netif_rx packet dumping
-Date: Tue, 8 Mar 2005 19:37:59 +0100
-Message-ID: <20050308183759.GE31837@postel.suug.ch>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net> <42278122.6000000@ev-en.org> <20050303133659.0d224e61.davem@davemloft.net> <42278554.2090902@ev-en.org> <20050303135718.2e1a0170.davem@davemloft.net> <422DC7CE.2040800@ev-en.org> <m1y8cykr7i.fsf@muc.de> <20050308100902.24b67b2f.davem@davemloft.net> <20050308181844.GA37392@muc.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: pktgen: causing lots of errors in console log
+Date: Tue, 8 Mar 2005 14:08:26 -0800
+Message-ID: <20050308140826.451435e5@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, baruch@ev-en.org,
-        shemminger@osdl.org, netdev@oss.sgi.com
-To: Andi Kleen <ak@muc.de>
-Content-Disposition: inline
-In-Reply-To: <20050308181844.GA37392@muc.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Andi Kleen <20050308181844.GA37392@muc.de> 2005-03-08 19:18
-> There are some other savings possible e.g. from a quick look:
-> - skb->list is afaik totally unnecessary and probably even unused.
-> - struct timeval could be an optimized structure using 32bit
-> for the sub second part. 
-> (would need moving it somewhere else, otherwise alignment doesn't help)
-> - Are really three device pointers needed? Perhaps things can
-> be a bit optimized here.
 
-Likely that real_dev can be moved to cb. I would like to keep indev
-though, it really helps at policy routing decisions.
+Getting two types of console messages when using pktgen and 2.6.11 and the
+pktgen-conf-1-1 script.
 
-> - Hippi could be finally changed to use skb->cb instead of its
-> private field.
+1. Errors from IPV4
 
-Definitely.
+KERNEL: assertion (!idev->ifa_list) failed at net/ipv4/devinet.c (122)
+KERNEL: assertion (!idev->mc_list) failed at net/ipv4/devinet.c (123)
+Freeing alive in_device ffff81007e96a400
 
-> - is skb->security still needed? It should be obsolete with ->sec_path, no?
-> Would only help together with the timestamp optimization.
+2. Cliff is getting this with e1000 and pktgen-conf-1-2
+ looks like calling schedule_timeout with lock held.
 
-security has been unused for quite some time as far as I can see.
-
-Anyone going for a patch? Otherwise I'll give it a try.
-
-Speaking of it, I see tcp_sock is marginal over 2**10 on 32 bit archs and
-Stephen's plans to outsource the cc bits brings us closer to the border.
-Would it be worth to try and get it below 2**10? I spotted some places
-for optimizations but not enough to really save the needed amount.
+scheduling while atomic: pktgen.conf-2-1/0x00000001/3772
+ [<c0366f02>] schedule+0x672/0x680
+ [<c01891fa>] dnotify_parent+0x3a/0xb0
+ [<c0367fa6>] _spin_lock+0x16/0x90
+ [<c036843f>] _spin_unlock_irqrestore+0xf/0x30
+ [<c01285d9>] __mod_timer+0xe9/0x130
+ [<c0367822>] schedule_timeout+0x72/0xd0
+ [<c0129190>] process_timeout+0x0/0x10
+ [<c0367fa6>] _spin_lock+0x16/0x90
+ [<e09926ea>] proc_thread_write+0x20a/0x2f0 [pktgen]
+ [<c0367fa6>] _spin_lock+0x16/0x90
+ [<c018c727>] proc_file_write+0x37/0x50
+ [<c015ca4e>] vfs_write+0xae/0x130
+ [<c015cba1>] sys_write+0x51/0x80
+ [<c010290f>] syscall_call+0x7/0xb
