@@ -1,32 +1,33 @@
 From: Andi Kleen <ak@suse.de>
 Subject: Re: Fragment ID wrap workaround (read-only, untested).
-Date: Thu, 15 Jul 2004 19:34:09 +0200
+Date: Thu, 15 Jul 2004 19:02:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040715173409.GA14193@wotan.suse.de>
-References: <1089873416.6583.1.camel@bach>
+Message-ID: <20040715190249.01a9c11e.ak@suse.de>
+References: <20040715182735.3787c8b1.ak@suse.de>
+	<OF6D39F992.163676EB-ON88256ED2.005AF110-88256ED2.005CC82F@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, rusty@au1.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Rusty Russell (IBM)" <rusty@au1.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <1089873416.6583.1.camel@bach>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF6D39F992.163676EB-ON88256ED2.005AF110-88256ED2.005CC82F@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> +	 * other end detect ID wrap. */
-> +	if (skb->sk) {
-> +		unsigned int slack;
-> +		struct inet_opt *inet = inet_sk(skb->sk);
-> +
-> +		slack = (left % mtu);
-> +		if (slack)
-> +			/* Shift by 8 bytes per id wrap. */
-> +			len = mtu - (slack % ((inet->id >> 16) << 3));
+On Thu, 15 Jul 2004 09:54:53 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-I'm pretty sure inet->id is wrong here. You would like the counter
-in the inet peer entry. inet_sk(sk)->id is just used for the pseudo
-counter in TCP that only works around VJ compression bugs. It's never used
-for real fragmentation.
+
+> I agree that NFS over UDP should be dead as soon as possible,
+> and fragmentation in general not far behind it. They aren't quite
+> dead yet; until they are, why not make them better behaved? And
+> if your argument is that it isn't worth fixing because it isn't
+
+I wouldn't go that far, just make extremly sure that any 
+solution works on slow links too. The problem I see 
+is that if you make the delay factor long enough to make 
+the extremly variable links not regress you risk 
+making the wrap on very fast links likely again. 
 
 -Andi
