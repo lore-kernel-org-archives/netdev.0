@@ -1,84 +1,33 @@
-From: Marc Herbert <marc.herbert@free.fr>
-Subject: Re: [RFC] ethtool semantics
-Date: Mon, 14 Jun 2004 21:32:42 +0200 (CEST)
+From: Arthur Kepner <akepner@sgi.com>
+Subject: Re: [RFC/PATCH] lockless loopback patch for 2.6 (version 2)
+Date: Mon, 14 Jun 2004 12:45:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0406142044060.1607@fcat>
-References: <20040607212804.GA17012@k3.hellgate.ch> <20040607145723.41da5783.davem@redhat.com>
- <20040608210809.GA10542@k3.hellgate.ch> <40C77C70.5070409@tmr.com>
- <20040609213850.GA17243@k3.hellgate.ch> <20040609151246.1c28c4d9.davem@redhat.com>
- <Pine.LNX.4.58.0406141458270.16762@fcat> <20040614170138.GA32594@hockin.org>
+Message-ID: <Pine.SGI.4.56.0406141243360.479900@neteng.engr.sgi.com>
+References: <Pine.SGI.4.56.0406141000060.479900@neteng.engr.sgi.com>
+ <20040614182336.GC11280@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tim Hockin <thockin@hockin.org>
-In-Reply-To: <20040614170138.GA32594@hockin.org>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20040614182336.GC11280@gaz.sfgoth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Jun 2004, Tim Hockin wrote:
 
-> > This is precisely the reason why I am concerned about having "rich"
-> > ethtool semantics. A unified, standard interface is great,... as long
-> > it does not leave behind some features, like setting the advertised
-> > values in autoneg. As a user of these features, I hope driver
-> > developers will NOT remove those module_param features that cannot
-> > migrated to ethtool.
+On Mon, 14 Jun 2004, Mitchell Blank Jr wrote:
+
+> Arthur Kepner wrote:
+> > +#define HARD_TX_LOCK_BH(dev, cpu) {			\
+> > +	if ( dev->features && NETIF_F_LLTX  == 0 ) {	\
+>                            ^^
 >
-> So propose a sane semantic that handles all three cases:
-> * autoneg on
-> * autoneg off
-> * autoneg on but limited
+> Don't you mean '&' instead of '&&' here?  It looks like that condition is
+> always false, so you've killed the TX locking for all devices with this
+> patch.
 
-Looking at the examples I mentioned earlier in the thread, one can
-draw the following two simple solutions:
+Ummm, yes. (I believe the appropriate response here is "D'oh!") Thanks.
 
-	  1. "Max speed advertised" solution
+--
 
-		autoneg |         on            off
-	  speed         |
-	  --------------|-----------------------------
-			|
-	  <empty>       | advertise all      force  10
-	  10            | adv. 10            force  10
-	  100           | adv. 10|100        frc.  100
-	  1000          | adv. 10|100|1000   frc. 1000
-
-
-	  2.=A0"Fixed speed advertised" solution
-
-		autoneg |         on            off
-	  speed         |
-	  --------------|-----------------------------
-			|
-	  <empty>       | advertise all      force  10
-	  10            | adv.   10          force  10
-	  100           | adv.  100          frc.  100
-	  1000          | adv. 1000          frc. 1000
-
-
-You can easily figure out similar and shorter tables for half/full
-duplex (considering that duplex > half).
-
-A 3rd solution which kind of avoids the dilemma between 1. and 2. is
-to give the user full control on advertised bits, as does (did?) the
-e1000 driver and its "AutoNeg" module_param. This third solution is
-often less user friendly and probably not very useful. And it would
-require a new argument to ethtool, whereas the first two solutions do
-not.
-
-If given the choice, I would vote for solution 1., but it probably
-does not make much difference with solution number 2 in practice.
-
-Auto negociation of flow control is unfortunately more complex, as you
-can see in this discussion with Rich Seifert in
-comp.dcom.lans.ethernet for those interested
- http://groups.google.com/groups?threadm=3D87hdvnd0x3.fsf%40free.fr
-But I believe flow control issues do not have any influence on the
-above, so... first things first: no need to dive into this at this
-point.
-
-Obviously this message ignores legacy code, hardware bugs and others
-"small matters of implementation". I suspect Roger Luethi has both a
-knowledge of the related code and an opinion on this issue.
+Arthur
