@@ -1,60 +1,37 @@
-From: Ben Greear <greearb@candelatech.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 15:15:07 -0700
+Date: Fri, 27 Jun 2003 15:13:38 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EFCC1EB.2070904@candelatech.com>
-References: <Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com>	<20030627.143738.41641928.davem@redhat.com>	<3EFCBD12.3070101@candelatech.com> <20030627.145456.115915594.davem@redhat.com>
+Message-ID: <20030627.151338.21924648.davem@redhat.com>
+References: <Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com>
+	<20030627.150248.08328103.davem@redhat.com>
+	<Pine.LNX.4.55.0306271509540.4457@bigblue.dev.mcafeelabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davidel@xmailserver.org, mbligh@aracnet.com, linux-kernel@vger.kernel.org,
+Cc: mbligh@aracnet.com, linux-kernel@vger.kernel.org,
    linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030627.145456.115915594.davem@redhat.com>
+To: davidel@xmailserver.org
+In-Reply-To: <Pine.LNX.4.55.0306271509540.4457@bigblue.dev.mcafeelabs.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: Ben Greear <greearb@candelatech.com>
->    Date: Fri, 27 Jun 2003 14:54:26 -0700
->    
->    I think you are putting too much work on the bug reporter(s).
-> 
-> Don't even talk to me about too much work.
-> 
-> Someone wants me to spend hours groveling through some pieces of code
-> to track down some tricky bug, for free, and all I ask is that they
-> retransmit the bug every once in a while if they don't see any
-> response?
+   From: Davide Libenzi <davidel@xmailserver.org>
+   Date: Fri, 27 Jun 2003 15:11:53 -0700 (PDT)
+   
+   Is a bug report more useful for the user of a "system" or for the
+   "system" itself ?
 
-I don't care if you completely ignore the bugzilla, just let the
-rest of us lesser mortals use it.  There's always the chance we
-will find something we can fix and actually lessen your load.
+You can ask the same question about a patch, and my answer
+is the same, "it depends upon the bug/patch and whether
+the people it affects actually care about it".
 
-> If they're not willing to do this, they DON'T care about the bug.
-> Just like if people aren't willing to retransmit patches they want
-> installed, they DON'T care about the patch.  And just like I don't
-> want to apply patches people don't care about, I don't want any of my
-> contributors looking at bugs that the bug reporter doesn't care about.
+What's truly "useful" for the "system" are things that allow
+the people that maintain it to SCALE.  Lossless bug and patch
+databases that force me to look at each and every item do not scale.
 
-Forcing people to continue to retransmit the same report just pisses
-people off, and in the end will get you less useful reports than if
-you had flagged the report as 'please-gimme-more-info'.  And, most people,
-especially the savvy ones, will find some sort of work-around and keep going.
-That didn't fix the problem, it just made it invisible again untill the
-next person hits it.
-
-> Ben, you absolutely don't understand how all of this development works
-> and what it relies upon to function properly.
-
-Perhaps, but it's also possible that you are being a stubborn SOB
-because you fear change :)
-
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+What you don't understand is that I, and most of the people who help
+me, do this because I and they want to.  So as soon as things get
+introduced that make us less "want" to do this you can be sure
+contributions will slump slowly but surely to nothing.
