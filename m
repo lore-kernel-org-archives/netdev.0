@@ -1,8 +1,8 @@
 From: ganesh.venkatesan@intel.com
-Subject: [PATCH 4/12 2.5] e1000 - TSO fixes (in preparation for IPv6 TSO)
-Date: Thu, 29 Jul 2004 08:32:01 -0700 (PDT)
+Subject: [PATCH 7/12 2.5] e1000 - Use pci_dma_sync_single_[for_device|for_cpu]
+Date: Thu, 29 Jul 2004 08:32:27 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0407290803580.21929-100000@westville2.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0407290809160.21929-100000@westville2.jf.intel.com>
 Reply-To: ganesh.venkatesan@intel.com
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -12,60 +12,26 @@ To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -up linux-2.5/drivers/net/e1000/e1000_main.c linux-2.5/drivers/net/e1000.new/e1000_main.c
---- linux-2.5/drivers/net/e1000/e1000_main.c	2004-07-28 21:50:08.672461176 -0700
-+++ linux-2.5/drivers/net/e1000.new/e1000_main.c	2004-07-28 21:50:09.523331824 -0700
-@@ -1475,8 +1475,9 @@ e1000_tso(struct e1000_adapter *adapter,
- #ifdef NETIF_F_TSO
- 	struct e1000_context_desc *context_desc;
- 	unsigned int i;
--	uint8_t ipcss, ipcso, tucss, tucso, hdr_len;
-+	uint32_t cmd_length = 0;
- 	uint16_t ipcse, tucse, mss;
-+	uint8_t ipcss, ipcso, tucss, tucso, hdr_len;
+diff -up linux-2.5/drivers/net/e1000/e1000_ethtool.c linux-2.5/drivers/net/e1000.new/e1000_ethtool.c
+--- linux-2.5/drivers/net/e1000/e1000_ethtool.c	2004-07-28 21:50:08.576475768 -0700
++++ linux-2.5/drivers/net/e1000.new/e1000_ethtool.c	2004-07-28 21:50:09.395351280 -0700
+@@ -1325,15 +1325,15 @@ e1000_run_loopback_test(struct e1000_ada
  
- 	if(skb_shinfo(skb)->tso_size) {
- 		hdr_len = ((skb->h.raw - skb->data) + (skb->h.th->doff << 2));
-@@ -1495,6 +1496,10 @@ e1000_tso(struct e1000_adapter *adapter,
- 		tucso = (void *)&(skb->h.th->check) - (void *)skb->data;
- 		tucse = 0;
+ 	for(i = 0; i < 64; i++) {
+ 		e1000_create_lbtest_frame(txdr->buffer_info[i].skb, 1024);
+-		pci_dma_sync_single(pdev, txdr->buffer_info[i].dma,
+-				    txdr->buffer_info[i].length,
+-				    PCI_DMA_TODEVICE);
++		pci_dma_sync_single_for_device(pdev, txdr->buffer_info[i].dma,
++					    txdr->buffer_info[i].length,
++					    PCI_DMA_TODEVICE);
+ 	}
+ 	E1000_WRITE_REG(&adapter->hw, TDT, i);
  
-+		cmd_length |= (E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE |
-+			       E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP |
-+			       (skb->len - (hdr_len)));
-+
- 		i = adapter->tx_ring.next_to_use;
- 		context_desc = E1000_CONTEXT_DESC(adapter->tx_ring, i);
+ 	msec_delay(200);
  
-@@ -1506,10 +1511,7 @@ e1000_tso(struct e1000_adapter *adapter,
- 		context_desc->upper_setup.tcp_fields.tucse = cpu_to_le16(tucse);
- 		context_desc->tcp_seg_setup.fields.mss     = cpu_to_le16(mss);
- 		context_desc->tcp_seg_setup.fields.hdr_len = hdr_len;
--		context_desc->cmd_and_length = cpu_to_le32(
--			E1000_TXD_CMD_DEXT | E1000_TXD_CMD_TSE |
--			E1000_TXD_CMD_IP | E1000_TXD_CMD_TCP |
--			(skb->len - (hdr_len)));
-+		context_desc->cmd_and_length = cpu_to_le32(cmd_length);
+-	pci_dma_sync_single(pdev, rxdr->buffer_info[0].dma,
++	pci_dma_sync_single_for_cpu(pdev, rxdr->buffer_info[0].dma,
+ 			    rxdr->buffer_info[0].length, PCI_DMA_FROMDEVICE);
  
- 		if(++i == adapter->tx_ring.count) i = 0;
- 		adapter->tx_ring.next_to_use = i;
-@@ -1526,17 +1551,16 @@ e1000_tx_csum(struct e1000_adapter *adap
- {
- 	struct e1000_context_desc *context_desc;
- 	unsigned int i;
--	uint8_t css, cso;
-+	uint8_t css;
- 
- 	if(skb->ip_summed == CHECKSUM_HW) {
- 		css = skb->h.raw - skb->data;
--		cso = (skb->h.raw + skb->csum) - skb->data;
- 
- 		i = adapter->tx_ring.next_to_use;
- 		context_desc = E1000_CONTEXT_DESC(adapter->tx_ring, i);
- 
- 		context_desc->upper_setup.tcp_fields.tucss = css;
--		context_desc->upper_setup.tcp_fields.tucso = cso;
-+		context_desc->upper_setup.tcp_fields.tucso = css + skb->csum;
- 		context_desc->upper_setup.tcp_fields.tucse = 0;
- 		context_desc->tcp_seg_setup.data = 0;
- 		context_desc->cmd_and_length = cpu_to_le32(E1000_TXD_CMD_DEXT);
+ 	return e1000_check_lbtest_frame(rxdr->buffer_info[0].skb, 1024);
