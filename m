@@ -1,31 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] bug in xfrm_lookup [bugzilla 2017]
-Date: Wed, 4 Feb 2004 23:12:59 -0800
+Subject: Re: [PATCH] IPV6: note on shared socket options
+Date: Wed, 4 Feb 2004 23:21:09 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040204231259.0a2888f9.davem@redhat.com>
-References: <20040119211156.4bff1640.davem@redhat.com>
-	<Pine.LNX.4.44.0402041735320.6034-100000@DYN318430BLD.beaverton.ibm.com>
+Message-ID: <20040204232109.0ad8d5b9.davem@redhat.com>
+References: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <krkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0402041735320.6034-100000@DYN318430BLD.beaverton.ibm.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Feb 2004 17:41:48 -0800 (PST)
-Krishna Kumar <krkumar@us.ibm.com> wrote:
+On Wed, 04 Feb 2004 20:37:39 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> One of my earlier patches had a bug in xfrm_lookup() causin schedule()
-> to get called though MSG_DONTWAIT was specified. I am going to send
-> the following patch to the bugzilla user who created this bug report
-> and ask them to test it. I thought I will let you know of this problem
-> and I will send you a confirmation once I get a response that the problem
-> is solved.
+> There're several socket options for multicast
+> shared between IPv4 and IPv6.
+> Add a note that some range is already used for them.
 
-You patch looks correct so I'll apply it for now, if something is
-wrong with it send me a fix relative to this patch.
+Applied, thanks Yoshfuji.
 
-Thanks.
+As others noted, this in kernel internal headers, our own namespace,
+and it's documentation so it's fine.
