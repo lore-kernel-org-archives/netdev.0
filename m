@@ -1,48 +1,89 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: [PATCH] move inline keywords nearer beginning of declaration in
- skbuff.c to elliminate warning with gcc -W
-Date: Wed, 24 Nov 2004 01:16:05 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.0411240106580.3389@dragon.hygekrogen.localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: ipsec hang
+Date: Wed, 24 Nov 2004 02:32:36 +0100
+Message-ID: <41A3E4B4.8080401@trash.net>
+References: <200411240134.50314@senat>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261618AbUKXAJl@vger.kernel.org>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------000507000605040608010207"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261662AbUKXBcn@vger.kernel.org>
+To: =?ISO-8859-15?Q?Marcin_Gibu=B3a?= <mg@iceni.pl>
+In-Reply-To: <200411240134.50314@senat>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------000507000605040608010207
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 8bit
 
-In order to get rid of 
-net/core/skbuff.c:1353: warning: `inline' is not at beginning of declaration
-net/core/skbuff.c:1374: warning: `inline' is not at beginning of declaration
-when building with gcc -W, I submit the patch below.
-There's no impact on the way the code works, so it is perfectly safe. It 
-just brings the count of warnings that I have to sift through down by two 
-(yes, I know the kernel is not normally build with -W, but I do it to 
-look for stuff that potentially needs review, and the less warnings I 
-have to sift through the better). I see no good reason not to apply this.
-Please apply.
+Marcin Gibu³a wrote:
 
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
+>Hi,
+>today I tried to configure ipsec on my linux workstation (with openswan) and 
+>it hanged just after the init had run /etc/rc.d/init.d/ipsec start. 
+>It was on linux-2.6.10-rc1-bk20, so I upgraded to 2.6.10-rc2-mm3 but it didn't 
+>make any difference. 
+>
+>The alt-sysrq-p shows the following call trace:
+>xfrm_policy_insert
+>xfrm_netlink_rcv
+>netlink_data_ready
+>netlink_sendmsg
+>sock_aio_write
+>do_sync_write
+>sock_map_fd
+>sys_select
+>vfs_write
+>system_call
+>
+>The full trace (with regs, etc) is available at 
+>http://www.iceni.pl/marcin/lockup.jpg 
+>
+>.config attached. This hang is 100%-reproductible for me. I can attach 
+>openswan config if needed.
+>
+This patch should fix it. The patch "Fix policy update bug when increasing
+priority of last policy" broke this, when a policy with lower priority than
+an existing policy is inserted xfrm_policy_insert loops forever.
 
-diff -up linux-2.6.10-rc2-bk6-orig/net/core/skbuff.c linux-2.6.10-rc2-bk6/net/core/skbuff.c
---- linux-2.6.10-rc2-bk6-orig/net/core/skbuff.c	2004-11-17 01:20:32.000000000 +0100
-+++ linux-2.6.10-rc2-bk6/net/core/skbuff.c	2004-11-24 01:05:32.000000000 +0100
-@@ -1350,7 +1350,7 @@ void skb_add_mtu(int mtu)
- }
- #endif
- 
--static void inline skb_split_inside_header(struct sk_buff *skb,
-+static inline void skb_split_inside_header(struct sk_buff *skb,
- 					   struct sk_buff* skb1,
- 					   const u32 len, const int pos)
- {
-@@ -1371,7 +1371,7 @@ static void inline skb_split_inside_head
- 	skb->tail		   = skb->data + len;
- }
- 
--static void inline skb_split_no_header(struct sk_buff *skb,
-+static inline void skb_split_no_header(struct sk_buff *skb,
- 				       struct sk_buff* skb1,
- 				       const u32 len, int pos)
- {
+Regards
+Patrick
+
+
+--------------000507000605040608010207
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/11/24 02:25:16+01:00 kaber@coreworks.de 
+#   [XFRM]: Fix endless loop in xfrm_policy_insert
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/xfrm/xfrm_policy.c
+#   2004/11/24 02:25:07+01:00 kaber@coreworks.de +1 -0
+#   [XFRM]: Fix endless loop in xfrm_policy_insert
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	2004-11-24 02:31:08 +01:00
++++ b/net/xfrm/xfrm_policy.c	2004-11-24 02:31:08 +01:00
+@@ -353,6 +353,7 @@
+ 			newpos = p;
+ 		if (delpol)
+ 			break;
++		p = &pol->next;
+ 	}
+ 	if (newpos)
+ 		p = newpos;
+
+--------------000507000605040608010207--
