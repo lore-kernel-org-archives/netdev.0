@@ -1,89 +1,74 @@
-From: Willy Tarreau <w@w.ods.org>
-Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: Thu, 22 Apr 2004 07:04:12 +0200
+From: Alex Pankratov <ap@swapped.cc>
+Subject: RST business
+Date: Wed, 21 Apr 2004 22:59:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040422050411.GM596@alpha.home.local>
-References: <20040421132047.026ab7f2.davem@redhat.com> <Xine.LNX.4.44.0404212042540.20483-100000@thoron.boston.redhat.com>
+Message-ID: <40875F2F.7010204@swapped.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Michael Rozhavsky <mike@minantech.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0404212042540.20483-100000@thoron.boston.redhat.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Apr 21, 2004 at 08:45:42PM -0400, James Morris wrote:
-> On Wed, 21 Apr 2004, David S. Miller wrote:
->=20
-> > On Wed, 21 Apr 2004 19:03:40 +0200
-> > J=F6rn Engel <joern@wohnheim.fh-wedel.de> wrote:
-> >=20
-> > > Heise.de made it appear, as if the only news was that with tcp
-> > > windows, the propability of guessing the right sequence number is n=
-ot
-> > > 1:2^32 but something smaller.  They said that 64k packets would be
-> > > enough, so guess what the window will be.
-> >=20
-> > Yes, that is their major discovery.  You need to guess the ports
-> > and source/destination addresses as well, which is why I don't
-> > consider this such a serious issue personally.
-> >
-> > It is mitigated if timestamps are enabled, because that becomes
-> > another number you have to guess.
-> >=20
-> > It is mitigated also by randomized ephemeral port selection, which
-> > OpenBSD implements and we could easily implement as well.
->=20
-> What about the techniques mentioned in
-> http://www.ietf.org/internet-drafts/draft-ietf-tcpm-tcpsecure-00.txt ?
 
-They might break the net rather than fix it, they don't seem to consider
-every aspect. Imagine installed stateful firewalls, NAT boxes, load balan=
-cers,
-etc... All those boxes which won't speak RFCXXXX will block the return AC=
-K
-once they see the forward RST, and the server behind the firewall will ke=
-ep
-ESTABLISHED sessions for hours, days, ... or up to the session time-out
-dictated by the application. RSTs are very common on the internet from di=
-alup
-networks because there are lots of people without any clue about networki=
-ng,
-who hang up their modem while they fill a form on a site or read a long p=
-age,
-ignoring that their MSIE does HTTP keep-alive and has not yet closed the
-session. Some also experiment hard lockups or BSODs during FTP transfers,=
- ...
-And when they release the line, someone else on the same ISP connects and
-gets the same address. And what does he do with all the ACKs the server s=
-ends
-him ? RST !
+Looking at the hype around 'TCP vulnerability' the following
+occured to me, and I wonder if it makes any sense -
 
-It seems that this RST is covered by their draft, but instead of enumerat=
-ing
-every possibility to get an RST and check how they can cover it, they foc=
-us
-on changing the RFC, regardless of already deployed implementations. Well=
-,
-I'm already waiting for the fight between RFCxxxx compliant OSes vs RFCyy=
-yy
-with yyyy > xxxx. It will be a bit like rfc1337: an entry in /proc for us=
-,
-a sysctl for BSD users, ndd for solaris and a registry key for many other=
-s.
+A host may recieve legitimate RST packet only in response to
+something that it has previously sent (let's call it a 'trigger').
 
-At least their draft needs to be validated in every condition, and conseq=
-uences
-must be evaluated, with perhaps work-arounds (eg: fall back to old behavi=
-our
-after a certain number of particular RSTs, ...).
+SEQ/ACK values in RST packet are correlated to SEQ/ACK of the
+trigger. If the correlation is not there, then RST packet is
+most certainly spoofed and should be dropped even if its SEQ
+falls into host's rcpt window.
 
-> Curiously there is no mention of port guessing or timestamps there.
+In other words, it seems to be possible to stregthen ingress
+RST checking (and thus better protect against blind RST attacks)
+while maintaining _full RFC compliance_. Here's a how-to sketch.
 
-They don't even explain why RSTs are generated and why we need them.
+     RFC 793 (page 35) states that for the connection in
+     non-established state -
 
-Regards,
-Willy
+     If the incoming segment has an ACK field, the reset takes its
+     sequence number from the ACK field of the segment, otherwise
+     the reset has sequence number zero and the ACK field is set to
+     the sum of the sequence number and segment length of the incoming
+     segment.
+
+Hence the second RST check (after standard window check) is
+
+	if (! pkt->seq)
+		check if we've recently sent a segment without
+		an ACK with (pkt->ack - pkt->seq) bytes in it
+	else
+		check if we've recently sent a segment with ACK
+		of (pkt->seq) and with (pkt->ack - pkt->seq)
+		bytes in it
+
+If RST passes the check, it's accepted. Otherwise checks continue.
+
+     RFC 793 (page 36) states that for the connection in
+     established state -
+
+     .. elicit only an empty
+     acknowledgment segment containing the current send-sequence number
+     and an acknowledgment indicating the next sequence number expected
+     to be received ..
+
+At this point seeing a RST means that
+(a) remote host is an ESTABLISHED state
+(b) we sent a segment that it considers not to be a part of the
+     current connection
+
+And (b) is something that we can always check since we're now sure
+about (a).
+
+The above obviously requires keeping some sort of 'outbound history',
+plus (b) involves some non-trivial logic, which however seems to be
+doable from the first glance.
+
+Comments ?
+
+Alex
