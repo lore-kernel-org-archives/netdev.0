@@ -1,84 +1,42 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
-Date: Sun, 20 Oct 2002 23:46:50 -0700
+From: Herbert Valerio Riedel <hvr@hvrlab.org>
+Subject: Re: [CryptoAPI-devel] Re: [Design] [PATCH] USAGI IPsec
+Date: 21 Oct 2002 09:34:14 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DB3A2DA.40108@candelatech.com>
+Message-ID: <1035185654.21824.11.camel@janus.txd.hvrlab.org>
+References: <m3k7kpjt7c.wl@karaba.org>  <3DB41338.3070502@storm.ca>
+	<1035168066.4817.1.camel@rth.ninka.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Sandy Harris <sandy@storm.ca>, Mitsuru KANDA <mk@linux-ipv6.org>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   cryptoapi-devel@kerneli.org, design@lists.freeswan.org,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-   Robert Olsson <Robert.Olsson@data.slu.se>
+To: "David S. Miller" <davem@rth.ninka.net>
+In-Reply-To: <1035168066.4817.1.camel@rth.ninka.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I want to have a very high netdev_max_backlog, but that makes
-NAPI with the tulip driver (and 4 running ports) drop packets,
-I assume because by the time it polls the first 3, the 4th has
-been neglected too long...
+On Mon, 2002-10-21 at 04:41, David S. Miller wrote:
 
-So, this patch makes the budget NAPI variable independently tunable.
-The default of 300 seems to work well, and is the current default.
+> A completely new CryptoAPI subsystem has been implemented so that
+> full lists of page vectors can be passed into the ciphers, which is
+> necessary for a clean IPSEC implementation.
 
-In the future, I'm guessing we want a per-interface budget, because
-a high performance GigE NIC will want a higher budget that the
-venerable 100bt.
+oh... nice to learn about your plans (so late) at all ;-)
 
+well, it would be cool if you'd cooperate (or at least share
+information) with us (the official cryptoapi project ;-), as we're open
+for the design requirements of the next generation cryptoapi...
 
---- linux-2.4.19.p3/include/linux/sysctl.h      Tue Oct 15 14:26:40 2002
-+++ linux-2.4.19.p4/include/linux/sysctl.h      Sun Oct 20 23:24:13 2002
-@@ -206,7 +206,8 @@
-         NET_CORE_NO_CONG=14,
-         NET_CORE_LO_CONG=15,
-         NET_CORE_MOD_CONG=16,
--       NET_CORE_DEV_WEIGHT=17
-+       NET_CORE_DEV_WEIGHT=17,
-+       NET_CORE_MAX_POLL=18
-  };
+...otherwise this may render the kerneli.org/cryptoapi effort completely
+useless :-/ ...of course, if it's your long term goal to take the
+cryptoapi development away from kerneli.org, I'd like to know too ;-)
 
-  /* /proc/sys/net/ethernet */
---- linux-2.4.19.p3/net/core/dev.c      Tue Oct 15 14:23:39 2002
-+++ linux-2.4.19.p4/net/core/dev.c      Sun Oct 20 23:36:02 2002
-@@ -1092,6 +1092,7 @@
-    =======================================================================*/
-
-  int netdev_max_backlog = 300;
-+int netdev_max_poll = 300; /* 'Budget' for the NAPI poll method */
-  int weight_p = 64;            /* old backlog weight */
-  /* These numbers are selected based on intuition and some
-   * experimentatiom, if you have more scientific way of doing this
-@@ -1604,7 +1605,7 @@
-         int this_cpu = smp_processor_id();
-         struct softnet_data *queue = &softnet_data[this_cpu];
-         unsigned long start_time = jiffies;
--       int budget = netdev_max_backlog;
-+       int budget = netdev_max_poll;
-
-         br_read_lock(BR_NETPROTO_LOCK);
-         local_irq_disable();
---- linux-2.4.19.p3/net/core/sysctl_net_core.c  Wed Oct  9 00:24:02 2002
-+++ linux-2.4.19.p4/net/core/sysctl_net_core.c  Sun Oct 20 23:35:23 2002
-@@ -12,6 +12,7 @@
-  #ifdef CONFIG_SYSCTL
-
-  extern int netdev_max_backlog;
-+extern int netdev_max_poll;
-  extern int weight_p;
-  extern int no_cong_thresh;
-  extern int no_cong;
-@@ -54,6 +55,9 @@
-         {NET_CORE_MAX_BACKLOG, "netdev_max_backlog",
-          &netdev_max_backlog, sizeof(int), 0644, NULL,
-          &proc_dointvec},
-+       {NET_CORE_MAX_POLL, "netdev_max_poll",
-+        &netdev_max_poll, sizeof(int), 0644, NULL,
-+        &proc_dointvec},
-         {NET_CORE_NO_CONG_THRESH, "no_cong_thresh",
-          &no_cong, sizeof(int), 0644, NULL,
-          &proc_dointvec},
-
-
+regards,
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Herbert Valerio Riedel       /    Phone: (EUROPE) +43-1-58801-18840
+Email: hvr@hvrlab.org       /    Finger hvr@gnu.org for GnuPG Public Key
+GnuPG Key Fingerprint: 7BB9 2D6C D485 CE64 4748  5F65 4981 E064 883F
+4142
