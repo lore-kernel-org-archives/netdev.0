@@ -1,27 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: qdisc_restart locking bug?
-Date: Fri, 15 Nov 2002 14:01:22 -0500
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: qdisc_restart locking bug?
+Date: Sat, 16 Nov 2002 00:41:25 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DD54482.802@pobox.com>
+Message-ID: <200211152141.AAA26706@sex.inr.ac.ru>
+References: <3DD54482.802@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru
+Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: jgarzik@pobox.com (Jeff Garzik)
+In-Reply-To: <3DD54482.802@pobox.com> from "Jeff Garzik" at Nov 15, 2 02:01:22 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When qdisc_restart() is called from qdisc_run(), dev->queue_lock is 
-obtained via spin_lock_bh().
+Hello!
 
-When dev->hard_start_xmit() is called from qdisc_restart(), 
-dev->queue_lock is dropped, and then re-acquired using only spin_lock().
+> When dev->hard_start_xmit() is called from qdisc_restart(), 
+> dev->queue_lock is dropped, 
 
-So, doesn't qdisc_restart need s/spin_lock/spin_lock_bh/ for 
-dev->queue_lock?
+Using spin_unlock(). softirqs are not enabled.
 
-When looking at the dev_queue_xmit -> qdisc_run -> qdisc_restart call 
-path, it seems so to me.
+>			and then re-acquired using only spin_lock().
 
-	Jeff
+Yes.
+
+
+> So, doesn't qdisc_restart need s/spin_lock/spin_lock_bh/ for 
+> dev->queue_lock?
+
+It need not.
+
+Alexey
