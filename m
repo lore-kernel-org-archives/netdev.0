@@ -1,42 +1,49 @@
-From: Ingo Oeser <ingo.oeser@informatik.tu-chemnitz.de>
-Subject: Re: TOE brain dump
-Date: Mon, 4 Aug 2003 16:36:06 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030804163606.Q639@nightmaster.csn.tu-chemnitz.de>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com>
+From: Matt Mathis <mathis@psc.edu>
+Subject: Web100
+Date: Mon, 4 Aug 2003 12:20:47 -0400 (EDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0308041205181.27601-100000@zippy.psc.edu>
+References: <20030803222554.7027a160.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nivedita Singhvi <niv@us.ibm.com>,
-	Werner Almesberger <werner@almesberger.net>,
-	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <3F2C0C44.6020002@pobox.com>; from jgarzik@pobox.com on Sat, Aug 02, 2003 at 03:08:52PM -0400
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, John Heffner <jheffner@psc.edu>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030803222554.7027a160.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
+On Sun, 3 Aug 2003, David S. Miller wrote:
+> The web100 patches aren't in the kernel because 1) they've
+> never even been submitted and 2) they need a large cleanup.
 
-On Sat, Aug 02, 2003 at 03:08:52PM -0400, Jeff Garzik wrote:
-> So, fix the other end of the pipeline too, otherwise this fast network 
-> stuff is flashly but pointless.  If you want to serve up data from disk, 
-> then start creating PCI cards that have both Serial ATA and ethernet 
-> connectors on them :)  Cut out the middleman of the host CPU and host 
-> memory bus instead of offloading portions of TCP that do not need to be 
-> offloaded.
+Furthermore 1 is due to 2....  We know our code is not ready for kernel
+inclusion, and are having a little trouble seeing the path through to doing so
+ourselves.  A big part of the problem is that I an not a kernel guy - my focus
+in on the protocol and measurement issues and not on the implementation
+details.  Although John could probably get it together by himself, he is split
+between several projects and it isn't clear that incrementally submitting
+substandard patches is a cost effective strategy to getting it done.
 
-Exactly what I suggested: sys_ioroute()
+It would be a lot easier if we 1) had a mentor who was experienced at kernel
+inclusion, 2) specific guidance on some of the non-network components, such as
+the API (currently using /proc) and 3) a laundry list of things that we need to
+fix.
 
-"Providing generic pipelines and io routing as Linux service"
-Msg-ID: <20030718134235.K639@nightmaster.csn.tu-chemnitz.de>
+> I sort of get the impression that the web100 folks actually like that
+> their changes are not in the main sources, it keeps their work
+> "special".
 
-on linux-kernel and linux-fsdevel
+Nope, not at all.  Actually I find kernel inclusion rather daunting.  One of
+our collaborators was asked some very pointed questions about the TCP ESTATS
+MIB by somebody at M$.  I would hate to have the first general release be in
+anything but Linux.
 
-Be my guest.
+Any takers on helping us?
 
-I know, that you mean doing it in hardware, but you cannot
-accelerate sth. which the kernel doesn't do ;-)
-
-Regards
-
-Ingo Oeser
+Thanks,
+--MM--
+-------------------------------------------
+Matt Mathis      http://www.psc.edu/~mathis
+Work:412.268.3319    Home/Cell:412.654.7529
+-------------------------------------------
