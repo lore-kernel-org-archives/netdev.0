@@ -1,27 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (4/4) packet scheduler -- use get_jiffies_64
-Date: Tue, 29 Jun 2004 14:46:49 -0700
+Subject: Re: [PATCH] sch_prio - fix compile warning + some logic
+ rearrangement in enqueue
+Date: Tue, 29 Jun 2004 14:50:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040629144649.1d0b5723.davem@redhat.com>
-References: <20040629140021.367695ff@dell_ss3.pdx.osdl.net>
+Message-ID: <20040629145015.41ed8aca.davem@redhat.com>
+References: <200406290106.38304.dtor_core@ameritech.net>
+	<20040629143202.3ae7093a.davem@redhat.com>
+	<1088545330.1157.88.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: dtor_core@ameritech.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040629140021.367695ff@dell_ss3.pdx.osdl.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1088545330.1157.88.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Jun 2004 14:00:21 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On 29 Jun 2004 17:42:10 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-> The packet scheduler simulates 64 bit jiffies on 32 bit platforms by running
-> a timer keeping a mark and and offset.  Since there is no locking and this is
-> racy and doesn't handle jiffie wrap real well.
-> 
-> We can use get_jiffies_64 on 2.6 do get what is needed.
-> The downside is the overhead of a function call, and a cache miss in get_jiffies_64.
+> netdev swallowed my response to Dmitry earlier. Bacchus 
+> please flog the admin for me.
+> This fix will conflict with the other qdisc patch we are discussing.
+> Basically thats what my message to Dmitry was earlier.
 
-Looks great, applied.
+Should I back Dmitry's change out for now then?
