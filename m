@@ -1,36 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [AH6] Rearrange routing headers
-Date: Sun, 25 Jul 2004 21:16:41 +1000
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [IPSEC] Move generic encap code into xfrm6_output
+Date: Sun, 25 Jul 2004 09:36:17 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040725111641.GA27265@gondor.apana.org.au>
-References: <20040724083709.GA9416@gondor.apana.org.au> <200407250410.03741.kazunori@miyazawa.org> <20040725080347.GA20251@gondor.apana.org.au> <200407251532.13292.kazunori@miyazawa.org>
+Message-ID: <20040725.093617.15482200.yoshfuji@linux-ipv6.org>
+References: <20040725104028.GA24547@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, jmorris@redhat.com,
+        netdev@oss.sgi.com, kazunori@miyazawa.org, yoshfuji@linux-ipv6.org,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kazunori Miyazawa <kazunori@miyazawa.org>
-Content-Disposition: inline
-In-Reply-To: <200407251532.13292.kazunori@miyazawa.org>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20040725104028.GA24547@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 25, 2004 at 03:32:13PM +0900, Kazunori Miyazawa wrote:
->
-> routing is looked up with srcrt but xfrm is looked up with final
-> destination, isn't it? we have the codes in our repository.
+In article <20040725104028.GA24547@gondor.apana.org.au> (at Sun, 25 Jul 2004 20:40:28 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-You're right.
+> Here is the IPv6 version of the generic tunnel encapsulation code.
 
-I only skimmed through the code and took the presence of code that
-dealt with the option/extension header as evidence that it did the
-right thing :)
+Well, since we're on the way back to home from OLS,
+we'll review when we're back to Japan.
 
-So both IPv4 and IPv6 are broken in this respect as they use the
-first address rather than the final address for policy lookup.
+One thing: please retain our credit in net/ipv6/xfrm6_output.c.
 
-Cheers,
+Thank you.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
