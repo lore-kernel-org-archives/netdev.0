@@ -1,36 +1,43 @@
-From: Srihari Vijayaraghavan <harisri@bigpond.com>
-Subject: Re: [PROBLEM] r8169 deadlocks
-Date: Thu, 22 Jan 2004 21:32:06 +1100
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [PATCH|RFC] IPv6: Equal behavior in addrconf_sysctl_forward() and
+ addrconf_sysctl_forward_strategy()
+Date: Thu, 22 Jan 2004 12:59:07 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401222132.07355.harisri@bigpond.com>
-References: <200401152039.00182.harisri@bigpond.com> <200401212115.45027.harisri@bigpond.com> <20040122005940.A26438@electric-eye.fr.zoreil.com>
+Message-ID: <Pine.LNX.4.58.0401221253040.1098@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040122005940.A26438@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+To: davem@redhat.com, yoshfuji@linux-ipv6.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Francois,
+Hi guys,
 
-On Thursday 22 January 2004 10:59, Francois Romieu wrote:
-> [...]
-> r8169 did not evolve between 2.6.1 and 2.6.2-rc1. Change of behavior
-> probably comes from some other part of the kernel. Joy.
->
-> > If you want me to I can test your r8169-tc-index-overflow.patch.
->
-> See attachment. It applies against plain 2.6.2-rc1.
+is there any reason for _forward() to call rt6_purge_dflt_routers(), but
+_forward_strategy() not do the same?
 
-OK. I have applied your patch and I have tested my computer under moderate to 
-high network load. Although I may not have the kind of network load to 
-trigger the bug your patch is meant to attack, I can confirm there is no 
-stability issue with your patch.
+If no, the patch below should fix this.
 
-Thanks
-Hari
+Thanks,
+Ville
+
+===== net/ipv6/addrconf.c 1.86 vs edited =====
+--- 1.86/net/ipv6/addrconf.c	Tue Jan 20 06:59:54 2004
++++ edited/net/ipv6/addrconf.c	Thu Jan 22 12:22:21 2004
+@@ -3030,6 +3030,9 @@
+ 			idev = NULL;
+ 		*valp = new;
+ 		addrconf_forward_change(idev);
++
++		if (*valp)
++			rt6_purge_dflt_routers(0);
+ 	} else
+ 		*valp = new;
+
+
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
