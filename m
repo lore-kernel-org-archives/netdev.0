@@ -1,55 +1,32 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
-Date: 21 Mar 2005 22:31:03 -0500
-Message-ID: <1111462263.1109.6.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>
-	 <1107174142.8021.121.camel@jzny.localdomain>
-	 <00c301c524b4$938cd240$6e69690a@RIMAS>
-	 <1110379135.1091.143.camel@jzny.localdomain>
-	 <1110416767.1111.76.camel@jzny.localdomain>
-	 <025501c52552$2dbf87c0$6e69690a@RIMAS>
-	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>
-	 <1111410890.1092.195.camel@jzny.localdomain>
-	 <423F41AD.3010902@dsl.pipex.com>
-	 <1111444869.1072.51.camel@jzny.localdomain>
-	 <423F71C2.8040802@dsl.pipex.com>
-Reply-To: hadi@cyberus.ca
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: dst cache overflow
+Date: Mon, 21 Mar 2005 19:40:22 -0800
+Message-ID: <20050321194022.491060c7.akpm@osdl.org>
+References: <1144.192.168.0.37.1111351868.squirrel@buakaw.homelinux.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
-        Remus <rmocius@auste.elnet.lt>, netdev@oss.sgi.com,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <423F71C2.8040802@dsl.pipex.com>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: buakaw@buakaw.homelinux.net
+In-Reply-To: <1144.192.168.0.37.1111351868.squirrel@buakaw.homelinux.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andy,
-Thanks for all your efforts.
-I will be back on my regular setup by tommorow evening and should be
-able to hopefuly test this. I am going to try:
+buakaw@buakaw.homelinux.net wrote:
+>
+> the system become very laggy.
+> i use kernel 2.6.10/2.6.11.3 on p4 2.8, msi915p, 3 x 3com905 boomerang.
+> and the cpu usage normally be about 12% and after something happens it
+> boost to 100% and it is used mostly by ksoftirqd/0, and a little bit by 
+> migration/0 and event/0. and in syslog i found thies lines
+> 
+> Mar 20 22:21:09 buakaw kernel: printk: 5543 messages suppressed.
+> Mar 20 22:21:09 buakaw kernel: dst cache overflow
+> 
+> what can cause this?
 
-- latest iproute2 with 1.3.x ipt changes
-- i am just gonna jump to iptables 1.3.x - we are going to ignore 1.2.11
-and below 
-- kernel 2.6.11.5 patches with stats
+Could you please describe the workload?  What is the computer doing at the
+time, and how is it set up?
 
-Issues seen so far - the following dont work:
-
-a) tc filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
-match u32 0 0 flowid 1:1 action ipt -j MARK --set-mark
-[Actually did you test this?]
-
-b) above with mirred as the next action fails in user space
-
-c) a) with a simple "action ok" is also rejected by the kernel
-with "Invalid argument"
-
-Did i miss anything else?
-
-cheers,
-jamal
+Thanks.
