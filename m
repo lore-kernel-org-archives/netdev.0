@@ -1,78 +1,61 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Fri, 12 Sep 2003 10:56:06 +0200
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: IPv6 6to4 on site-local networks.
+Date: Fri, 12 Sep 2003 12:48:06 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030912085606.GC2350@obroa-skai.de.gnumonks.org>
-References: <200309022116.41697.bdschuym@pandora.be> <20030903200426.59d0af4a.davem@redhat.com> <20030905153152.GA3623@obroa-skai.de.gnumonks.org> <1063330846.1028.11.camel@jzny.localdomain>
+Message-ID: <Pine.LNX.4.44.0309121234261.23575-100000@netcore.fi>
+References: <1063354018.23778.376.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="KDt/GgjP6HVcx58l"
-Cc: "David S. Miller" <davem@redhat.com>,
-   Bart De Schuymer <bdschuym@pandora.be>, acme@conectiva.com.br,
-   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1063330846.1028.11.camel@jzny.localdomain>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1063354018.23778.376.camel@hades.cambridge.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 12 Sep 2003, David Woodhouse wrote:
+> I don't really want to make every internal box do mobile-ipv6 for
+> _itself_, but I think it can be done by the local router on their
+> behalf.
 
---KDt/GgjP6HVcx58l
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I wouldn't spend too many cycles on this; the issue is far from trivial, 
+trust me :-)
+ 
+[...]
+> All the alternatives, apart from the first 'use site-local addresses for
+> internal operation, global-scope addresses for external', are looking
+> fairly complex and fragile, to be honest.
+> 
+> Part of me wants to say 'Sod it', and assume that site-local scope isn't
+> going to actually be abolished, since doing so seems to be _such_ a bad
+> idea once you try to work around its absence.
 
-On Thu, Sep 11, 2003 at 09:40:46PM -0400, jamal wrote:
-> Harald,
->=20
-> Could you not resolve all the ifindices of the said ppp+ interfaces
-> at rule installation time and do an integer compare instead?
+Well, I can say for certain that site-locals are going out.  However,
+nothing prevents still using them, though.  However, it's likely that
+you'd have to redesign the network, or at least renumber it if you choose
+that path.
 
-No, this is a different semantic.  Ifindexes change when an interface
-goes down and comes up again (let's say you have a PPTP tunnel server
-which terminates a couple of ppp* interfaces).
+A year or two down the path, there may be another "local addressing" 
+approach.. there is already a proposal:
 
-What could be done, is register with the netdev notifiers and then at
-every ifup/ifdown event change the ifindex[es] in all rules that use=20
-this style of match.
+http://www.ietf.org/internet-drafts/draft-ietf-ipv6-unique-local-addr-00.txt
 
-This is what was done in the 2.2 ipchains code, if I am not mistaken.
-However, Rusty went for the string-compare solution while implementing
-iptables. =20
+.. but whether thats *the* way, or a way at all, remains to be seen.
 
-Imagine somebody with lots of ppp interfaces (let's say 40)... and we
-would need to resolve all 40 into ifindexes, put them into an array...
-how big would you like to make the array?  how many interfaces do people
-have? how much space do you want to waste (dynamically reallocating this
-space while the ruleset is already loaded is not possible).
+You might also want to check out the document which is documenting the 
+deprecation (note, it's still a draft version, and likely to evolve a 
+lot), to learn about some of the problems of the site-locals:
 
-And then you have 1000 rules, each of it using a ppp* style match. than
-at every ifdown/ifup you iterate over 1000 rules, checking if you need
-to update one of the 40 ifindexes?  quite slow...
+http://www.ietf.org/internet-drafts/draft-ietf-ipv6-deprecate-site-local-00.txt
 
-> cheers,
-> jamal
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+One possible, conceptually maybe easier way, would be to deploy a single,
+internal ISATAP domain (so you'd have only _one_ internal IPv6 subnet,
+which would really be just automatic tunnel between all v6 hosts in your
+enterprise), but that would require getting ISATAP in all the kernels and
+iputils you use first, and IMHO it wouldn't be the same as deployingi real 
+IPv6... :-)
 
---KDt/GgjP6HVcx58l
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQE/YYomXaXGVTD0i/8RAuezAKCuInUQScakwr9dcR6Nrfgu0ewlIwCgg9sN
-ueVML/xfEh06XNPclYhyROI=
-=fcak
------END PGP SIGNATURE-----
-
---KDt/GgjP6HVcx58l--
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
