@@ -1,82 +1,37 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] janitor: remove verify_area() in net/wan/sbni
-Date: Fri, 3 Oct 2003 21:35:17 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] add rtnl semaphore to linux-atm
+Date: Fri, 3 Oct 2003 22:16:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003213517.6700a095.rddunlap@osdl.org>
+Message-ID: <20031003221640.19aa485f.davem@redhat.com>
+References: <200310011134.h91BYPkT003172@ginger.cmf.nrl.navy.mil>
+	<20031001054226.126cea7b.davem@redhat.com>
+	<20031003022615.GA42593@gaz.sfgoth.com>
+	<20031003065824.713627c6.davem@redhat.com>
+	<20031003214541.GA73152@gaz.sfgoth.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ncorbic@sangoma.com, davem@redhat.com
+Cc: chas3@users.sourceforge.net, chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20031003214541.GA73152@gaz.sfgoth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-Please apply to 2.6.0-test6-current.
+On Fri, 3 Oct 2003 14:45:41 -0700
+Mitchell Blank Jr <mitch@sfgoth.com> wrote:
 
-Thanks,
---
-~Randy
+> We *can't* use it to protect the state of the vcc list though because we
+> need to do lookups in both interrupt and bh context.  Using a sleeping
+> lock alone is a non-starter.
+> 
+> That's why we need to do the three-step spinlock->semaphore->spinlock
+> dance in the vcc open and close paths.
 
+The semaphore protects "modifications", it basically serializes them.
 
-From: Domen Puncer <domen@coderock.org>
-Subject: [Kernel-janitors] [PATCH] updated: verify_area:
- 	drivers/net/wan/sbni.c
+You still need a rwlock to protect the actual lists and this rwlock
+is what the interrupt/bh context code takes to traverse the lists
+and tables.
 
-Someone added error checking to copy_*_user, so this [earlier] patch
-didn't apply.
-
-Removed unnecessary verify_area.
-
-
-
- linux-260-test6-kj1-rddunlap/drivers/net/wan/sbni.c |   20 +++++---------------
- 1 files changed, 5 insertions(+), 15 deletions(-)
-
-diff -puN drivers/net/wan/sbni.c~net_wan_sbni_verify drivers/net/wan/sbni.c
---- linux-260-test6-kj1/drivers/net/wan/sbni.c~net_wan_sbni_verify	2003-09-29 17:39:09.000000000 -0700
-+++ linux-260-test6-kj1-rddunlap/drivers/net/wan/sbni.c	2003-09-29 17:39:09.000000000 -0700
-@@ -1300,12 +1300,9 @@ sbni_ioctl( struct net_device  *dev,  st
-   
- 	switch( cmd ) {
- 	case  SIOCDEVGETINSTATS :
--		error = verify_area( VERIFY_WRITE, ifr->ifr_data,
--				     sizeof(struct sbni_in_stats) );
--		if( !error )
--			if (copy_to_user( ifr->ifr_data, &nl->in_stats,
--				      sizeof(struct sbni_in_stats) ))
--				return -EFAULT;
-+		if (copy_to_user( ifr->ifr_data, &nl->in_stats,
-+					sizeof(struct sbni_in_stats) ))
-+			error = -EFAULT;
- 		break;
- 
- 	case  SIOCDEVRESINSTATS :
-@@ -1321,11 +1318,8 @@ sbni_ioctl( struct net_device  *dev,  st
- 		flags.rxl	= nl->cur_rxl_index;
- 		flags.fixed_rxl	= nl->delta_rxl == 0;
- 
--		error = verify_area( VERIFY_WRITE, ifr->ifr_data,
--				     sizeof flags );
--		if( !error )
--			if (copy_to_user( ifr->ifr_data, &flags, sizeof flags ))
--				return -EFAULT;
-+		if (copy_to_user( ifr->ifr_data, &flags, sizeof flags ))
-+			error = -EFAULT;
- 		break;
- 
- 	case  SIOCDEVSHWSTATE :
-@@ -1353,10 +1347,6 @@ sbni_ioctl( struct net_device  *dev,  st
- 		if( current->euid != 0 )	/* root only */
- 			return  -EPERM;
- 
--		if( (error = verify_area( VERIFY_READ, ifr->ifr_data,
--					  sizeof slave_name )) != 0 )
--			return  error;
--
- 		if (copy_from_user( slave_name, ifr->ifr_data, sizeof slave_name ))
- 			return -EFAULT;
- 		slave_dev = dev_get_by_name( slave_name );
-
-_
+This is how the netdev list works, for example.
