@@ -1,44 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: RFC: Network Device Driver Group proposal
-Date: Mon, 24 May 2004 23:17:32 +0200
+From: Dmitry Torokhov <dtor_core@ameritech.net>
+Subject: Re: Kernel BUG: Qos seg. fault
+Date: Mon, 24 May 2004 14:25:53 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524231732.B3940@electric-eye.fr.zoreil.com>
-References: <20040524084945.GP3330@ruslug.rutgers.edu> <20040524113919.3651c453@dell_ss3.pdx.osdl.net> <20040524194117.GW3330@ruslug.rutgers.edu>
+Message-ID: <20040524212553.52149.qmail@web80507.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Jaume Catarineu <jaume.catarineu@upf.edu>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>,
-        "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-        Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040524194117.GW3330@ruslug.rutgers.edu>; from mcgrof@studorgs.rutgers.edu on Mon, May 24, 2004 at 03:41:17PM -0400
+To: hadi@cyberus.ca
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez <mcgrof@studorgs.rutgers.edu> :
-[...]
-> on drivers. Basically I feel we are doing great but we're lacking that
-> *corporate* entity any commercial operating system has. Who do
-> manufacturers seek out to provide/sell source base/NDA's to so that a
-> driver can be written for our OS? No one... On behalf of who does a
-> kernel hacker send out an e-mail to a company requesting specs to write
-> a driver? The DRI/Xfree86 project have an advantage because of this -- 
-> they represent a group who has done tons of great work and companies 
-> tend to trust groups more than individuals. Of course, many companies
+Jamal wrote:
 
-May I suggest the following thread on dri-devel:
+> On Mon, 2004-05-24 at 16:14, Dmitry Torokhov wrote:
+> 
+> > prio qdisc can have several child qdiscs attached to it so I can see
+> > why it supports filters. But what is the point of TBF having filter
+> > attached? TBF either drops packet or passes it to its only child,
+> > there isn't anything to filter. Or am I missing something?
+> 
+> If the TBF is pretending even in the slightest to be a classful qdisc
+> which i believe it does in the latest reincarnation i think it would be
+> a good idea to maintain the semantics of classful qdiscs - maintain a
+> filter list.
+> What do you mean it will only pass it to its child? Why were you trying
+> to attach a filter to it then? Sorry, I havent paid attention to how it
+> was supposed to be used.
 
-From: Dax Kelson <dax@gurulabs.com>
-Date: Tue, 04 May 2004 15:32:13 -0600
-Subject: [Dri-devel] Docs for R300/350 now R420 chips out?
+The only reason TBF has a class is that within current framework 
+net/sched framework child qdisc can only be attached to a class.
+So TBF defines a class (there is only one per TBF qdisc, it's
+created automatically and can not be changed) much like sch_prio
+does. The difference is that sch_prio can have up to TCQ_PRIO_BANDS
+children so implementing filters for sch_prio makes sense. TBF has
+one and only one child qdisc. It starts with noop_qdisc from
+sch_generic and later user can change to to something else, like
+original poster did.
 
-I enjoy working on drivers for which the datasheets are publically
-available. I do not buy your "corporate" model at all.
+Since TBF has only one child no matter what I contend that 
+implementing filters for TBF does not make sense, filters should
+be attached either to TBF's child ot to TBF's parent but not to
+TBF itself.
 
-[...]
-> Having a central place for network drivers would be nice for bugtracking
-
-bugzilla.kernel.org + google + testers harassment.
-
---
-Ueimor
+Dmitry
