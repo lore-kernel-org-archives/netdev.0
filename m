@@ -1,71 +1,93 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: 2.6 sis900 (and tlan?) multicast bug
-Date: Mon, 26 Jan 2004 17:22:41 -0500
+From: Jan Oravec <jan.oravec@6com.sk>
+Subject: Re: [patch 6/18] gcc-3.5: ipv6/ndisc.c fixes
+Date: Mon, 26 Jan 2004 23:44:10 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40159331.80808@pobox.com>
-References: <20040126204215.GA25578@rivenstone.net>
+Message-ID: <20040126224410.GA8133@wsx.ksp.sk>
+References: <200401251107.i0PB7Go25072@mail.osdl.org>
+Reply-To: Jan Oravec <jan.oravec@6com.sk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Joseph Fannin <jhf@rivenstone.net>
-In-Reply-To: <20040126204215.GA25578@rivenstone.net>
+To: akpm@osdl.org
+Content-Disposition: inline
+In-Reply-To: <200401251107.i0PB7Go25072@mail.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Joseph Fannin wrote:
-> "Craig A. Huegen" <huegen@pentics.com> wrote:
-> 
->>In the same vein as:
->>http://seclists.org/lists/linux-kernel/2003/Oct/5794.html
-> 
-> 
->>...there is a bug in the SiS900 driver in 2.6.1 which prevents multicast
->>MAC filtering from working properly.  This breaks IPv6.
-> 
-> 
->     I'm seeing this problem too.  My sis900 interface can't get an
-> IPv6 address unless promiscious or allmulti mode is set, since it
-> doesn't get responses on ip6-allrouters.
-> 
->     Please note that I am not subscribed to netdev, so a CC on any
-> responses would be appreciated.
-> 
-> 
->>Patch attached (same one as from the 2.4 post from Oct 28) that made
->>IPv6 work for me again.
-> 
-> 
->     From the original post, referring to the change this reverts:
-> 
-> 
->>>This will not work for bit_nr larger than 16 and hence the failure.
->>>Reverting to use set_bit causes multicast to be handled properly.
-> 
-> 
->>--- linux/drivers/net/sis900.c.old	2004-01-17 03:56:53.893211412 -0600
->>+++ linux/drivers/net/sis900.c	2004-01-17 03:57:02.785567615 -0600
->>@@ -2091,9 +2091,8 @@
->> 		rx_mode = RFAAB;
->> 		for (i = 0, mclist = net_dev->mc_list; mclist && i < net_dev->mc_count;
->> 		     i++, mclist = mclist->next) {
->>-			unsigned int bit_nr =
->>-				sis900_mcast_bitnr(mclist->dmi_addr, revision);
->>-			mc_filter[bit_nr >> 4] |= (1 << bit_nr);
->>+			set_bit(sis900_mcast_bitnr(mclist->dmi_addr, revision),
->>+				mc_filter);
->> 		}
->> 	}
-> 
-> 
->     This fix didn't go into 2.4 either, so presumably something is wrong
-> with it (perhaps we're moving away from set_bit)?  I am over my head
-> here really, but I don't want to just set allmulti mode and forget
-> about this bug.
+Isn't syntax like:
+
+> -	skb->h.raw = (unsigned char*) msg = (struct nd_msg *) skb_put(skb, len);
+> +	skb->h.raw = (unsigned char*) (msg = (struct nd_msg *) skb_put(skb, len));
+
+accepted in gcc-3.5 ?
+
+The warning was about casting msg to unsigned char* and then assigning right
+side into that expression with casts.
+
+I wonder the old code did not produce warnings in gcc-3.3; it assigned to
+unsigned char* variable a struct nd_msg* variable.
 
 
-Correct, set_bit should only occur on unsigned long variables.  So, the 
-code needs to manually set that bit.
+Jan
 
-	Jeff
+
+On Sun, Jan 25, 2004 at 03:07:16AM -0800, akpm@osdl.org wrote:
+> 
+> 
+> net/ipv6/ndisc.c: In function `ndisc_send_na':
+> net/ipv6/ndisc.c:478: warning: use of cast expressions as lvalues is deprecated
+> 
+> 
+> 
+> ---
+> 
+>  net/ipv6/ndisc.c |   12 ++++++++----
+>  1 files changed, 8 insertions(+), 4 deletions(-)
+> 
+> diff -puN net/ipv6/ndisc.c~gcc-35-ip6-ndisc-fix net/ipv6/ndisc.c
+> --- 25/net/ipv6/ndisc.c~gcc-35-ip6-ndisc-fix	2004-01-19 13:36:19.000000000 -0800
+> +++ 25-akpm/net/ipv6/ndisc.c	2004-01-19 13:36:19.000000000 -0800
+> @@ -475,7 +475,8 @@ static void ndisc_send_na(struct net_dev
+>  	skb_reserve(skb, (dev->hard_header_len + 15) & ~15);
+>  	ip6_nd_hdr(sk, skb, dev, src_addr, daddr, IPPROTO_ICMPV6, len);
+>  
+> -	skb->h.raw = (unsigned char*) msg = (struct nd_msg *) skb_put(skb, len);
+> +	msg = (struct nd_msg *)skb_put(skb, len);
+> +	skb->h.raw = (unsigned char*)msg;
+>  
+>          msg->icmph.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
+>          msg->icmph.icmp6_code = 0;
+> @@ -559,7 +560,8 @@ void ndisc_send_ns(struct net_device *de
+>  	skb_reserve(skb, (dev->hard_header_len + 15) & ~15);
+>  	ip6_nd_hdr(sk, skb, dev, saddr, daddr, IPPROTO_ICMPV6, len);
+>  
+> -	skb->h.raw = (unsigned char*) msg = (struct nd_msg *)skb_put(skb, len);
+> +	msg = (struct nd_msg *)skb_put(skb, len);
+> +	skb->h.raw = (unsigned char*)msg;
+>  	msg->icmph.icmp6_type = NDISC_NEIGHBOUR_SOLICITATION;
+>  	msg->icmph.icmp6_code = 0;
+>  	msg->icmph.icmp6_cksum = 0;
+> @@ -630,7 +632,8 @@ void ndisc_send_rs(struct net_device *de
+>  	skb_reserve(skb, (dev->hard_header_len + 15) & ~15);
+>  	ip6_nd_hdr(sk, skb, dev, saddr, daddr, IPPROTO_ICMPV6, len);
+>  
+> -        skb->h.raw = (unsigned char*) hdr = (struct icmp6hdr *) skb_put(skb, len);
+> +        hdr = (struct icmp6hdr *)skb_put(skb, len);
+> +        skb->h.raw = (unsigned char*)hdr;
+>          hdr->icmp6_type = NDISC_ROUTER_SOLICITATION;
+>          hdr->icmp6_code = 0;
+>          hdr->icmp6_cksum = 0;
+> @@ -1374,7 +1377,8 @@ void ndisc_send_redirect(struct sk_buff 
+>  	ip6_nd_hdr(sk, buff, dev, &saddr_buf, &skb->nh.ipv6h->saddr,
+>  		   IPPROTO_ICMPV6, len);
+>  
+> -	buff->h.raw = (unsigned char*) icmph = (struct icmp6hdr *) skb_put(buff, len);
+> +	icmph = (struct icmp6hdr *)skb_put(buff, len);
+> +	buff->h.raw = (unsigned char*)icmph;
+>  
+>  	memset(icmph, 0, sizeof(struct icmp6hdr));
+>  	icmph->icmp6_type = NDISC_REDIRECT;
+> 
+> _
+> 
