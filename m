@@ -1,25 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [XFRM]: Fix ICMP tempsel
-Date: Sat, 19 Feb 2005 21:23:04 +0900 (JST)
-Message-ID: <20050219.212304.08460936.yoshfuji@linux-ipv6.org>
-References: <4217266F.6090700@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: IPsec xfrm resolution
+Date: Sat, 19 Feb 2005 13:29:25 +0100
+Message-ID: <42173125.3040505@trash.net>
+References: <20050209085251.GA9030@gondor.apana.org.au> <420B9DF1.3020704@trash.net> <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net> <20050219092314.GA8153@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
-To: kaber@trash.net, davem@davemloft.net
-In-Reply-To: <4217266F.6090700@trash.net>
+Cc: Maillist netdev <netdev@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050219092314.GA8153@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <4217266F.6090700@trash.net> (at Sat, 19 Feb 2005 12:43:43 +0100), Patrick McHardy <kaber@trash.net> says:
+Herbert Xu wrote:
 
-> The selector ports are initialized to fl_ip_sport/fl_ip_dport instead
-> of xfrm_flowi_sport(fl)/xfrm_flowi_dport(fl). This is wrong for ICMP,
-> type and code should be stored in sport and dport, in struct flowi both
-> are contained in fl_ip_sport.
+>On Sat, Feb 19, 2005 at 07:03:32AM +0100, Patrick McHardy wrote:
+>  
+>
+>>- netfilter LOCAL_OUT hook sees incorrect output device
+>>- strict source routing check done with incorrect rt_gateway
+>>    
+>>
+>
+>Once you take the above into account these turn out to be non-issues.
+>If the optional SA is transport mode, then the route is identical with
+>or without it.  If it's tunnel mode, then we must perform the IPIP
+>encapsulation regardless.
+>
+This is not what happens currently. If an optional IPCOMP SA is missing
+it is skipped entirely. It is also legal to configure an optional
+ah/esp tunnel, although we don't accept such packets if the SA isn't
+present.
 
-I agree.
-
---yoshfuji
+Regards
+Patrick
