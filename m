@@ -1,28 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] add receive DRS info
-Date: Mon, 7 Jun 2004 15:27:00 -0700
+From: Roger Luethi <rl@hellgate.ch>
+Subject: [1/3][PATCH 2.6] via-rhine: fix mc_filter on big-endian arch
+Date: Sun, 6 Jun 2004 18:53:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040607152700.7f9252a1.davem@redhat.com>
-References: <20040604153749.5d8a13b9@dell_ss3.pdx.osdl.net>
-	<20040604205749.11725598.davem@redhat.com>
-	<20040607100744.1b67baa2@dell_ss3.pdx.osdl.net>
+Message-ID: <20040606165328.GA13733@k3.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040607100744.1b67baa2@dell_ss3.pdx.osdl.net>
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Jun 2004 10:07:44 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+A.J. from VIA Networking Technologies noticed that via-rhine is using
+cpu_to_le32() when preparing mc_filter hashes. This breaks Rhine hardware
+multicast filters on big-endian architectures.
 
-> Add receiver feedback information to the tcp_info structure to allow
-> looking at receive dynamic right sizing with 'ss' command.
-> 
-> This increases the size of the structure, but since both getsockopt() and netlink
-> interface pass length in request; it retains compatibility with older versions.
+Please apply.
 
-Right, applied.  Thanks Stephen.
+Signed-off-by: Roger Luethi <rl@hellgate.ch>
+
+--- 2.6-bk/drivers/net/via-rhine.c.orig	2004-06-06 18:03:21.323194221 +0200
++++ 2.6-bk/drivers/net/via-rhine.c	2004-06-06 18:05:22.137319854 +0200
+@@ -1782,7 +1782,7 @@
+ 		     i++, mclist = mclist->next) {
+ 			int bit_nr = ether_crc(ETH_ALEN, mclist->dmi_addr) >> 26;
+ 
+-			mc_filter[bit_nr >> 5] |= cpu_to_le32(1 << (bit_nr & 31));
++			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
+ 		}
+ 		writel(mc_filter[0], ioaddr + MulticastFilter0);
+ 		writel(mc_filter[1], ioaddr + MulticastFilter1);
