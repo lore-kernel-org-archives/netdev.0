@@ -1,39 +1,33 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Tue, 30 Nov 2004 13:52:15 -0600
-Message-ID: <200411301352.15927.jdmason@us.ibm.com>
-References: <41A09541.5040405@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41A4E2C9.4070502@phekda.gotadsl.co.uk>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] Deadlock in af_packet/packet_rcv
+Date: Tue, 30 Nov 2004 13:07:11 -0800
+Message-ID: <20041130130711.5524a935.davem@davemloft.net>
+References: <20041125205503.GA18083@suse.de>
+	<41AC3E2F.2030003@tpack.net>
+	<20041130110110.GD16970@suse.de>
+	<41AC5A26.6000400@tpack.net>
+	<20041130114535.GF16970@suse.de>
+	<41AC5FEE.8020707@tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+Cc: okir@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Richard Dawe <rich@phekda.gotadsl.co.uk>
-In-Reply-To: <41A4E2C9.4070502@phekda.gotadsl.co.uk>
-Content-Disposition: inline
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <41AC5FEE.8020707@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 24 November 2004 01:36 pm, Richard Dawe wrote:
-> Hello.
->
-> I don't know if it will help, but FreeBSD's re driver source code is here:
->
-> http://www.freebsd.org/cgi/cvsweb.cgi/src/sys/dev/re/if_re.c?only_with_tag=
->HEAD
->
-> Have you ever looked at that? It has some interesting comments about the
-> maximum Jumbo packet length and vendor-specific registers in the 8110.
->
-> Thanks, bye, Rich =]
+On Tue, 30 Nov 2004 12:56:30 +0100
+Tommy Christensen <tommy.christensen@tpack.net> wrote:
 
-I've experimented with the value of EarlyTxThld, and have been able to get it 
-to work upto a MTU of 8000.  I still need to do some more experimentation to 
-find the optimal value (and see if modifying any other registers will help 
-this).
+> > i.e. there's no local_bh_disable at all - adding the local_bh_disable
+> > was the whole point of my patch. Or did you refer to a different spinlock?
+> 
+> The local_bh_disable() is called earlier in dev_queue_xmit(), and
+> is held across the whole HARD_TX_LOCK/dev_queue_xmit_nit/
+> hard_start_xmit/HARD_TX_UNLOCK sequence.
 
--- 
-Jon Mason
-jdmason@us.ibm.com
+He's right.  There must be something else happening in your
+tree Olaf.
