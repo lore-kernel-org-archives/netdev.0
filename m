@@ -1,62 +1,95 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: Intel and TOE in the news
-Date: Sun, 6 Mar 2005 12:21:04 +0100
-Message-ID: <20050306112104.GX30487@sunbeam.de.gnumonks.org>
-References: <20050221132844.GU31837@postel.suug.ch> <1108994621.1089.158.camel@jzny.localdomain> <20050221141714.GV31837@postel.suug.ch> <1108996313.1090.178.camel@jzny.localdomain> <20050221153443.GW31837@postel.suug.ch> <1109000925.1076.3.camel@jzny.localdomain> <20050221164006.GY31837@postel.suug.ch> <1109005385.1074.68.camel@jzny.localdomain> <1109016740.25476.2.camel@mcmanus.datapower.com> <1109020362.1077.134.camel@jzny.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 3/3 XFRM]: Fix invalid key for lookup of cached bundles
+Date: Sun, 06 Mar 2005 13:34:24 +0100
+Message-ID: <422AF8D0.3010905@trash.net>
+References: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Tcb1KvpfnM4LxW2s"
-Cc: patrick mcmanus <mcmanus@ducksong.com>,
-        "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1109020362.1077.134.camel@jzny.localdomain>
+Content-Type: multipart/mixed;
+ boundary="------------040302070806030602040204"
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------040302070806030602040204
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
---Tcb1KvpfnM4LxW2s
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Herbert Xu wrote:
+> Patrick McHardy <kaber@trash.net> wrote:
+> 
+>>@@ -97,6 +104,7 @@
+>> 		err = xfrm_dst_lookup((struct xfrm_dst**)&rt, &fl_tunnel, AF_INET);
+>> 		if (err)
+>> 			goto error;
+>>+		rt->u.dst.flags |= DST_XFRM_TUNNEL;
+> 
+> 
+> This line doesn't look right.  rt is an entry in the IPv4 routing
+> cache, right? If so why should its flags change when some bundle is
+> created?
 
-Sorry for my late catch-up, didn't have time to read all mailinglists
-for some time.
+How about this one ? It keeps the DST_XFRM_TUNNEL flag and sets it on
+the first xfrm_dst in a bundle. I know it doesn't really belong there,
+but the alternatives are walking through the bundle an additional time
+or having xfrm_bundle_ok() return if it is a tunnel-mode bundle, but in
+that case we can only compare tos etc after the call to
+xfrm_bundle_ok(), which is rather expensive. I also moved the oif check
+to the checks performed only in transport mode, this reduces the number
+of cached bundles in tunnel mode to one per src/dst if the selector
+isn't narrower than that.
 
-On Mon, Feb 21, 2005 at 04:12:42PM -0500, jamal wrote:
-> CSA is essentially a direct link to the Northbridge System Controller
-> (or MCH); there are some speacilized motherboards that have this
-> feature.=20
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-It's actually becoming more and more common.  But there are only MCH's
-with a single CSA port, so you will never benefit from it if you need
-more than one port.
+--------------040302070806030602040204
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Like everything intel seems to do (i've read about everything I could
-find about their recent press releases), they concentrate on the end
-host case, not packet forwarding :(
+===== include/net/dst.h 1.26 vs edited =====
+--- 1.26/include/net/dst.h	2005-02-15 23:23:10 +01:00
++++ edited/include/net/dst.h	2005-03-06 12:50:54 +01:00
+@@ -48,6 +48,7 @@
+ #define DST_NOXFRM		2
+ #define DST_NOPOLICY		4
+ #define DST_NOHASH		8
++#define DST_XFRM_TUNNEL		16
+ 	unsigned long		lastuse;
+ 	unsigned long		expires;
+ 
+===== net/ipv4/xfrm4_policy.c 1.15 vs edited =====
+--- 1.15/net/ipv4/xfrm4_policy.c	2005-03-05 01:58:41 +01:00
++++ edited/net/ipv4/xfrm4_policy.c	2005-03-06 13:26:44 +01:00
+@@ -30,9 +30,15 @@
+ 	read_lock_bh(&policy->lock);
+ 	for (dst = policy->bundles; dst; dst = dst->next) {
+ 		struct xfrm_dst *xdst = (struct xfrm_dst*)dst;
+-		if (xdst->u.rt.fl.oif == fl->oif &&	/*XXX*/
+-		    xdst->u.rt.fl.fl4_dst == fl->fl4_dst &&
++		if (xdst->u.rt.fl.fl4_dst == fl->fl4_dst &&
+ 	    	    xdst->u.rt.fl.fl4_src == fl->fl4_src &&
++		    (dst->flags & DST_XFRM_TUNNEL ||
++		     (!(xdst->u.rt.fl.fl4_tos ^ fl->fl4_tos) & 
++		                  (IPTOS_RT_MASK|RTO_ONLINK) &&
++#ifdef CONFIG_IP_ROUTE_FWMARK
++		      xdst->u.rt.fl.fl4_fwmark == fl->fl4_fwmark &&
++#endif
++		      xdst->u.rt.fl.oif == fl->oif)) &&
+ 		    xfrm_bundle_ok(xdst, fl, AF_INET)) {
+ 			dst_clone(dst);
+ 			break;
+@@ -97,6 +103,7 @@
+ 		err = xfrm_dst_lookup((struct xfrm_dst**)&rt, &fl_tunnel, AF_INET);
+ 		if (err)
+ 			goto error;
++		dst->flags |= DST_XFRM_TUNNEL;
+ 	} else {
+ 		dst_hold(&rt->u.dst);
+ 	}
 
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---Tcb1KvpfnM4LxW2s
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFCKuegXaXGVTD0i/8RAudCAJ936W3c7kJ93mPm0BKKff4V4fVadgCeLMXF
-d+dSLUpr2RP2bI+X+ibTVh8=
-=nTDy
------END PGP SIGNATURE-----
-
---Tcb1KvpfnM4LxW2s--
+--------------040302070806030602040204--
