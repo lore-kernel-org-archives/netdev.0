@@ -1,227 +1,106 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (1/3) tcp - choose congestion algorithm at initialization
-Date: Mon, 27 Sep 2004 11:18:34 -0700
+Subject: [PATCH] (2/3) tcp - diagnostics enhancement for westwood
+Date: Mon, 27 Sep 2004 11:21:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927111834.48c7baab@zqx3.pdx.osdl.net>
+Message-ID: <20040927112118.4c376303@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Miller <davem@redhat.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The choice of congestion algorithm needs to be made when connection
-is setup to avoid problems when the sysctl values change later and the
-necessary data hasn't been collected.
+Enhancement to tcp diagnostics used by ss command.
+* use jiffies_to_usecs/msec instead of hardcode math
+* report bandwidth for Westwood
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/include/linux/tcp.h b/include/linux/tcp.h
---- a/include/linux/tcp.h	2004-09-27 10:56:46 -07:00
-+++ b/include/linux/tcp.h	2004-09-27 10:56:46 -07:00
-@@ -205,6 +205,13 @@
- 	__u32	val;
- } tcp_pcount_t;
+diff -Nru a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
+--- a/net/ipv4/tcp_diag.c	2004-09-27 10:27:00 -07:00
++++ b/net/ipv4/tcp_diag.c	2004-09-27 10:27:00 -07:00
+@@ -41,6 +41,12 @@
+    rta->rta_len = rtalen;                   \
+    RTA_DATA(rta); })
  
-+enum tcp_congestion_algo {
-+	TCP_RENO=0,
-+	TCP_VEGAS,
-+	TCP_WESTWOOD,
-+	TCP_BIC,
-+};
++static inline unsigned int jiffies_to_usecs(const unsigned long j)
++{
++	return 1000*jiffies_to_msecs(j);
++}
 +
- struct tcp_opt {
- 	int	tcp_header_len;	/* Bytes of tcp header to send		*/
- 
-@@ -265,7 +272,7 @@
- 	__u8	frto_counter;	/* Number of new acks after RTO */
- 	__u32	frto_highmark;	/* snd_nxt when RTO occurred */
- 
--	__u8	unused_pad;
-+	__u8	adv_cong;	/* Using Vegas, Westwood, or BIC */
- 	__u8	defer_accept;	/* User waits for some data after accept() */
- 	/* one byte hole, try to pack */
- 
-@@ -412,7 +419,6 @@
- 		__u32	beg_snd_nxt;	/* right edge during last RTT */
- 		__u32	beg_snd_una;	/* left edge  during last RTT */
- 		__u32	beg_snd_cwnd;	/* saves the size of the cwnd */
--		__u8	do_vegas;	/* do vegas for this connection */
- 		__u8	doing_vegas_now;/* if true, do vegas for this RTT */
- 		__u16	cntRTT;		/* # of RTTs measured within last RTT */
- 		__u32	minRTT;		/* min of RTTs measured within last RTT (in usec) */
-diff -Nru a/include/net/tcp.h b/include/net/tcp.h
---- a/include/net/tcp.h	2004-09-27 10:56:46 -07:00
-+++ b/include/net/tcp.h	2004-09-27 10:56:46 -07:00
-@@ -1271,6 +1271,13 @@
- 		tcp_get_pcount(&tp->retrans_out));
- }
- 
-+/*
-+ * Which congestion algorithim is in use on the connection.
-+ */
-+#define tcp_is_vegas(__tp)	((__tp)->adv_cong == TCP_VEGAS)
-+#define tcp_is_westwood(__tp)	((__tp)->adv_cong == TCP_WESTWOOD)
-+#define tcp_is_bic(__tp)	((__tp)->adv_cong == TCP_BIC)
 +
- /* Recalculate snd_ssthresh, we want to set it to:
-  *
-  * Reno:
-@@ -1283,7 +1290,7 @@
-  */
- static inline __u32 tcp_recalc_ssthresh(struct tcp_opt *tp)
+ /* Return information about state of tcp endpoint in API format. */
+ void tcp_get_info(struct sock *sk, struct tcp_info *info)
  {
--	if (sysctl_tcp_bic) {
-+	if (tcp_is_bic(tp)) {
- 		if (sysctl_tcp_bic_fast_convergence &&
- 		    tp->snd_cwnd < tp->bictcp.last_max_cwnd)
- 			tp->bictcp.last_max_cwnd
-@@ -1302,11 +1309,6 @@
+@@ -68,8 +74,8 @@
+ 	if (tp->ecn_flags&TCP_ECN_OK)
+ 		info->tcpi_options |= TCPI_OPT_ECN;
  
- /* Stop taking Vegas samples for now. */
- #define tcp_vegas_disable(__tp)	((__tp)->vegas.doing_vegas_now = 0)
--
--/* Is this TCP connection using Vegas (regardless of whether it is taking
-- * Vegas measurements at the current time)?
-- */
--#define tcp_is_vegas(__tp)	((__tp)->vegas.do_vegas)
-     
- static inline void tcp_vegas_enable(struct tcp_opt *tp)
- {
-@@ -1340,7 +1342,7 @@
- /* Should we be taking Vegas samples right now? */
- #define tcp_vegas_enabled(__tp)	((__tp)->vegas.doing_vegas_now)
+-	info->tcpi_rto = (1000000*tp->rto)/HZ;
+-	info->tcpi_ato = (1000000*tp->ack.ato)/HZ;
++	info->tcpi_rto = jiffies_to_usecs(tp->rto);
++	info->tcpi_ato = jiffies_to_usecs(tp->ack.ato);
+ 	info->tcpi_snd_mss = tp->mss_cache_std;
+ 	info->tcpi_rcv_mss = tp->ack.rcv_mss;
  
--extern void tcp_vegas_init(struct tcp_opt *tp);
-+extern void tcp_ca_init(struct tcp_opt *tp);
+@@ -79,20 +85,20 @@
+ 	info->tcpi_retrans = tcp_get_pcount(&tp->retrans_out);
+ 	info->tcpi_fackets = tcp_get_pcount(&tp->fackets_out);
  
- static inline void tcp_set_ca_state(struct tcp_opt *tp, u8 ca_state)
- {
-@@ -2024,7 +2026,7 @@
+-	info->tcpi_last_data_sent = ((now - tp->lsndtime)*1000)/HZ;
+-	info->tcpi_last_data_recv = ((now - tp->ack.lrcvtime)*1000)/HZ;
+-	info->tcpi_last_ack_recv = ((now - tp->rcv_tstamp)*1000)/HZ;
++	info->tcpi_last_data_sent = jiffies_to_msecs(now - tp->lsndtime);
++	info->tcpi_last_data_recv = jiffies_to_msecs(now - tp->ack.lrcvtime);
++	info->tcpi_last_ack_recv = jiffies_to_msecs(now - tp->rcv_tstamp);
  
- static inline void tcp_westwood_update_rtt(struct tcp_opt *tp, __u32 rtt_seq)
- {
--        if (sysctl_tcp_westwood)
-+        if (tcp_is_westwood(tp))
-                 tp->westwood.rtt = rtt_seq;
+ 	info->tcpi_pmtu = tp->pmtu_cookie;
+ 	info->tcpi_rcv_ssthresh = tp->rcv_ssthresh;
+-	info->tcpi_rtt = ((1000000*tp->srtt)/HZ)>>3;
+-	info->tcpi_rttvar = ((1000000*tp->mdev)/HZ)>>2;
++	info->tcpi_rtt = jiffies_to_usecs(tp->srtt)>>3;
++	info->tcpi_rttvar = jiffies_to_usecs(tp->mdev)>>2;
+ 	info->tcpi_snd_ssthresh = tp->snd_ssthresh;
+ 	info->tcpi_snd_cwnd = tp->snd_cwnd;
+ 	info->tcpi_advmss = tp->advmss;
+ 	info->tcpi_reordering = tp->reordering;
+ 
+-	info->tcpi_rcv_rtt = ((1000000*tp->rcv_rtt_est.rtt)/HZ)>>3;
++	info->tcpi_rcv_rtt = jiffies_to_usecs(tp->rcv_rtt_est.rtt)>>3;
+ 	info->tcpi_rcv_space = tp->rcvq_space.space;
  }
  
-@@ -2033,13 +2035,13 @@
- 
- static inline void tcp_westwood_fast_bw(struct sock *sk, struct sk_buff *skb)
- {
--        if (sysctl_tcp_westwood)
-+        if (tcp_is_westwood(tcp_sk(sk)))
-                 __tcp_westwood_fast_bw(sk, skb);
- }
- 
- static inline void tcp_westwood_slow_bw(struct sock *sk, struct sk_buff *skb)
- {
--        if (sysctl_tcp_westwood)
-+        if (tcp_is_westwood(tcp_sk(sk)))
-                 __tcp_westwood_slow_bw(sk, skb);
- }
- 
-@@ -2052,14 +2054,14 @@
- 
- static inline __u32 tcp_westwood_bw_rttmin(const struct tcp_opt *tp)
- {
--	return sysctl_tcp_westwood ? __tcp_westwood_bw_rttmin(tp) : 0;
-+	return tcp_is_westwood(tp) ? __tcp_westwood_bw_rttmin(tp) : 0;
- }
- 
- static inline int tcp_westwood_ssthresh(struct tcp_opt *tp)
- {
- 	__u32 ssthresh = 0;
- 
--	if (sysctl_tcp_westwood) {
-+	if (tcp_is_westwood(tp)) {
- 		ssthresh = __tcp_westwood_bw_rttmin(tp);
- 		if (ssthresh)
- 			tp->snd_ssthresh = ssthresh;  
-@@ -2072,7 +2074,7 @@
- {
- 	__u32 cwnd = 0;
- 
--	if (sysctl_tcp_westwood) {
-+	if (tcp_is_westwood(tp)) {
- 		cwnd = __tcp_westwood_bw_rttmin(tp);
- 		if (cwnd)
- 			tp->snd_cwnd = cwnd;
-diff -Nru a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
---- a/net/ipv4/tcp_input.c	2004-09-27 10:56:46 -07:00
-+++ b/net/ipv4/tcp_input.c	2004-09-27 10:56:46 -07:00
-@@ -555,17 +555,20 @@
- 		tcp_grow_window(sk, tp, skb);
- }
- 
--/* Set up a new TCP connection, depending on whether it should be
-- * using Vegas or not.
-- */    
--void tcp_vegas_init(struct tcp_opt *tp)
-+/* When starting a new connection, pin down the current choice of 
-+ * congestion algorithm.
-+ */
-+void tcp_ca_init(struct tcp_opt *tp)
- {
--	if (sysctl_tcp_vegas_cong_avoid) {
--		tp->vegas.do_vegas = 1;
-+	if (sysctl_tcp_westwood) 
-+		tp->adv_cong = TCP_WESTWOOD;
-+	else if (sysctl_tcp_bic)
-+		tp->adv_cong = TCP_BIC;
-+	else if (sysctl_tcp_vegas_cong_avoid) {
-+		tp->adv_cong = TCP_VEGAS;
- 		tp->vegas.baseRTT = 0x7fffffff;
- 		tcp_vegas_enable(tp);
--	} else 
--		tcp_vegas_disable(tp);
-+	} 
- }
- 
- /* Do RTT sampling needed for Vegas.
-@@ -2039,7 +2042,7 @@
- static inline __u32 bictcp_cwnd(struct tcp_opt *tp)
- {
- 	/* orignal Reno behaviour */
--	if (!sysctl_tcp_bic)
-+	if (!tcp_is_bic(tp))
- 		return tp->snd_cwnd;
- 
- 	if (tp->bictcp.last_cwnd == tp->snd_cwnd &&
-diff -Nru a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
---- a/net/ipv4/tcp_minisocks.c	2004-09-27 10:56:46 -07:00
-+++ b/net/ipv4/tcp_minisocks.c	2004-09-27 10:56:46 -07:00
-@@ -841,7 +841,8 @@
- 		if (newtp->ecn_flags&TCP_ECN_OK)
- 			newsk->sk_no_largesend = 1;
- 
--		tcp_vegas_init(newtp);
-+		tcp_ca_init(newtp);
-+
- 		TCP_INC_STATS_BH(TCP_MIB_PASSIVEOPENS);
+@@ -116,7 +122,8 @@
+ 		if (ext & (1<<(TCPDIAG_INFO-1)))
+ 			info = TCPDIAG_PUT(skb, TCPDIAG_INFO, sizeof(*info));
+ 		
+-		if (tcp_is_vegas(tp) && (ext & (1<<(TCPDIAG_VEGASINFO-1))))
++		if ((tcp_is_westwood(tp) || tcp_is_vegas(tp))
++		    && (ext & (1<<(TCPDIAG_VEGASINFO-1))))
+ 			vinfo = TCPDIAG_PUT(skb, TCPDIAG_VEGASINFO, sizeof(*vinfo));
  	}
- 	return newsk;
-diff -Nru a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
---- a/net/ipv4/tcp_output.c	2004-09-27 10:56:46 -07:00
-+++ b/net/ipv4/tcp_output.c	2004-09-27 10:56:46 -07:00
-@@ -1359,7 +1359,7 @@
- 		tp->window_clamp = dst_metric(dst, RTAX_WINDOW);
- 	tp->advmss = dst_metric(dst, RTAX_ADVMSS);
- 	tcp_initialize_rcv_mss(sk);
--	tcp_vegas_init(tp);
-+	tcp_ca_init(tp);
+ 	r->tcpdiag_family = sk->sk_family;
+@@ -209,10 +216,17 @@
+ 		tcp_get_info(sk, info);
  
- 	tcp_select_initial_window(tcp_full_space(sk),
- 				  tp->advmss - (tp->ts_recent_stamp ? tp->tcp_header_len - sizeof(struct tcphdr) : 0),
-@@ -1411,7 +1411,7 @@
- 	TCP_SKB_CB(buff)->end_seq = tp->write_seq;
- 	tp->snd_nxt = tp->write_seq;
- 	tp->pushed_seq = tp->write_seq;
--	tcp_vegas_init(tp);
-+	tcp_ca_init(tp);
+ 	if (vinfo) {
+-		vinfo->tcpv_enabled = tp->vegas.doing_vegas_now;
+-		vinfo->tcpv_rttcnt = tp->vegas.cntRTT;
+-		vinfo->tcpv_rtt = tp->vegas.baseRTT;
+-		vinfo->tcpv_minrtt = tp->vegas.minRTT;
++		if (tcp_is_vegas(tp)) {
++			vinfo->tcpv_enabled = tp->vegas.doing_vegas_now;
++			vinfo->tcpv_rttcnt = tp->vegas.cntRTT;
++			vinfo->tcpv_rtt = jiffies_to_usecs(tp->vegas.baseRTT);
++			vinfo->tcpv_minrtt = jiffies_to_usecs(tp->vegas.minRTT);
++		} else {
++			vinfo->tcpv_enabled = 0;
++			vinfo->tcpv_rttcnt = 0;
++			vinfo->tcpv_rtt = jiffies_to_usecs(tp->westwood.rtt);
++			vinfo->tcpv_minrtt = jiffies_to_usecs(tp->westwood.rtt_min);
++		}
+ 	}
  
- 	/* Send it off. */
- 	TCP_SKB_CB(buff)->when = tcp_time_stamp;
+ 	nlh->nlmsg_len = skb->tail - b;
