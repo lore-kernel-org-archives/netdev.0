@@ -1,116 +1,152 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] tcp: efficient port randomisation
-Date: Thu, 4 Nov 2004 10:01:04 -0800
-Message-ID: <20041104100104.570e67cd@dxpl.pdx.osdl.net>
-References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
-	<200411011058.23141.michael.vittrup.larsen@ericsson.com>
-	<20041101092027.2a741e82@zqx3.pdx.osdl.net>
-	<200411020854.44745.michael.vittrup.larsen@ericsson.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Vpn-failover] [RFC] IPSEC failover - Netlink part
+Date: Thu, 04 Nov 2004 19:15:54 +0100
+Message-ID: <418A71DA.2090607@trash.net>
+References: <1099045435.2888.47.camel@nienna.balabit> <418A3630.1040900@astaro.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vpn-failover@lists.balabit.hu, netdev@oss.sgi.com,
+        ipsec-tools-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
-In-Reply-To: <200411020854.44745.michael.vittrup.larsen@ericsson.com>
+To: Ulrich Weber <uweber@astaro.de>
+In-Reply-To: <418A3630.1040900@astaro.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2 Nov 2004 09:54:44 +0200
-Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com> wrote:
+Ulrich Weber wrote:
 
-> On Monday 01 November 2004 18:20, Stephen Hemminger wrote:
-> > > * It is probably a good strategy to set 'tcp_rover_next' such that
-> > > =A0 the next search is resumed from the previous port found to be f=
-ree.
-> > > =A0 (similar to the old algorithm). =A0I don't see this in your pat=
-ch,
-> > > =A0 but of course I could have missed it.
-> >
-> > It was intentional since it would require holding a lock around the s=
-earch.
-> > The tradeoff is better SMP performance in the sparsely filled port sp=
-ace
-> > (more typical) vs. better UP performance in the case of a mostly full=
- port
-> > space.
->=20
-> I think a typical scenario is many short-lived (e.g. minutes) TCP conne=
-ctions,=20
-> few long-lived (e.g. hours) connections and an ephemeral port wrap-arou=
-nd=20
-> probably also in hours - at least a long time compared to the life-time=
- of=20
-> the short-lived connections.
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+>
+> Hi,
+>
+> I take the opportunity to post my code as well. At the moment I'm 
+> working at
+> the same as Krisztian. My solutions however is for openswan, which uses
+> netlink instead of pfkey.
+>
+> Please find attached the appropriate netlink modifications to
+> include/linux/xfrm.h and net/xfrm/xfrm_users.c
+>
+> In theses patches, a new netlink group (XFRMGRP_REPLAY) is added to 
+> notify
+> about seq number changes. Each notify message contains a xfrm_usersa_id
+> struct with the replay struct attached as rt attribute. In addition, 
+> these
+> replay struct is also attached at ipsec sa dumps.
+>
+> Any comments are welcome :)
 
-But because of the hashing most ports will be scattered all over the port=
- space,
-because they come from different hosts.
 
-> This would result in a closely spaced 'group' of ports being occupied=20
-> somewhere in the ephemeral port range, and 'tcp_rover_next' would point=
- at=20
-> the uppermost extreme of this group and thus always guarantee a free po=
-rt on=20
-> first try (collisions will only happen with long-lived connections).  I=
-f you=20
-> don't update 'tcp_rover_next', and this somehow gets to lag behind this=
-=20
-> 'group' of ports (say point at the lower extreme) you will need to sear=
-ch=20
-> through this group first before you enter the unoccupied port space.
+Some minor bugs, see below.
 
-Also, Linux TCP will reuse ports if (saddr, daddr, sport) are different.
-Look at __tcp_v4_check_established.  This means that the ports actually h=
-ave
-to be in use with real connections to the same host.
+Regards
+Patrick
 
-> Your scheme works initially because you do not lag behind the free port=
- space,=20
-> but eventually you will, and I think this will result in less optimal=20
-> performance compared to the old behaviour.
+>------------------------------------------------------------------------
+>
+>--- linux.org/include/linux/xfrm.h.	2004-10-11 04:57:07.000000000 +0200
+>+++ linux/include/linux/xfrm.h	2004-10-18 17:00:43.000000000 +0200
+>@@ -140,6 +140,9 @@
+> 	XFRM_MSG_FLUSHPOLICY,
+> #define XFRM_MSG_FLUSHPOLICY XFRM_MSG_FLUSHPOLICY
+> 
+>+	XFRM_MSG_UPDSEQ,
+>+#define XFRM_MSG_UPDSEQ XFRM_MSG_UPDSEQ
+>+
+> 	XFRM_MSG_MAX
+> };
+> 
+>@@ -171,6 +174,7 @@
+> 	XFRMA_ALG_COMP,		/* struct xfrm_algo */
+> 	XFRMA_ENCAP,		/* struct xfrm_algo + struct xfrm_encap_tmpl */
+> 	XFRMA_TMPL,		/* 1 or more struct xfrm_user_tmpl */
+>+	XFRMA_REPLAY,		/* struct xfrm_replay_state */ 
+> 	__XFRMA_MAX
+> 
+> #define XFRMA_MAX (__XFRMA_MAX - 1)
+>@@ -258,5 +258,6 @@
+>
+> #define XFRMGRP_ACQUIRE                1
+> #define XFRMGRP_EXPIRE         2
+>+#define XFRMGRP_REPLAY         3
+>
+> #endif /* _LINUX_XFRM_H */
+>  
+>
+>------------------------------------------------------------------------
+>
+>--- linux.org/net/xfrm/xfrm_user.c	2004-10-18 23:54:32.000000000 +0200
+>+++ linux/net/xfrm/xfrm_user.c	2004-10-21 16:27:59.000000000 +0200
+>@@ -240,6 +240,12 @@
+> 	if ((err = attach_encap_tmpl(&x->encap, xfrma[XFRMA_ENCAP-1])))
+> 		goto error;
+> 
+>+        if(xfrma[XFRMA_REPLAY-1]) {
+>+                struct xfrm_replay_state *replay;
+>+                replay = RTA_DATA(xfrma[XFRMA_REPLAY - 1]);
+>+                x->replay = *replay;
+>+        }
+>+
+> 	err = -ENOENT;
+> 	x->type = xfrm_get_type(x->id.proto, x->props.family);
+> 	if (x->type == NULL)
+>@@ -368,6 +375,8 @@
+> 	if (x->encap)
+> 		RTA_PUT(skb, XFRMA_ENCAP, sizeof(*x->encap), x->encap);
+> 
+>+	RTA_PUT(skb, XFRMA_REPLAY, sizeof(x->replay), &x->replay);
+>+
+> 	nlh->nlmsg_len = skb->tail - b;
+> out:
+> 	sp->this_idx++;
+>@@ -852,6 +861,27 @@
+> 	return 0;
+> }
+> 
+>+static int xfrm_update_seq(struct sk_buff *skb, struct nlmsghdr *nlh, void **xfrma)
+>+{
+>+        struct xfrm_state *x;
+>+        struct xfrm_usersa_id *p = NLMSG_DATA(nlh);
+>  
+>
+>+	struct xfrm_replay_state *replay;
+>+ 
+>+	x = xfrm_state_lookup(&p->daddr, p->spi, p->proto, p->family);
+>+        if (x == NULL) {
+>+		printk(KERN_INFO "Found no xfrm state for sa seq update\n");
+>+                return -ESRCH;
+>+		}
+>+
+>+	if(xfrma[XFRMA_REPLAY-1]) {
+>+		replay = RTA_DATA(xfrma[XFRMA_REPLAY - 1]);
+>+		x->replay = *replay;
+>  
+>
+>+		}
+>+	else return -EINVAL;
+>  
+>
+^^ leaks xfrm_state reference
 
-Free port space should be evenly distributed because of the hash function.
+>+		
+>+	return 0;
+>  
+>
+^^ same here
 
-> Since updating the 'tcp_rover_next' practically always result in a free=
- port=20
-> on first try, I think SMP performance will not suffer even though the l=
-ock=20
-> was held all through the port search (except when the port space is ver=
-y=20
-> crowded).
-
-But by not having a global lock on port allocation, different cpu's can b=
-e
-searching different hash trees.  This would matter under Dos attack with
-multiple interfaces.
-
-> And yes, I do use Linux exclusively, so I do care :-))
->=20
-> >From a statistically point of view, if the connection life-times are u=
-niformly=20
-> distributed from zero to infinite (theoretical scenario), it does not m=
-atter=20
-> what starting point you use. However, soon as life-times are not unifor=
-mly=20
-> distributed, this kind of search algorithm will benefit from good start=
-ing=20
-> point defining where the probability of used vs. unused port drop from =
-high=20
-> to low.
->=20
-> The BSD solution with a pure random rover suffers similarly, especially=
- when=20
-> the port space becomes crowded.
->=20
->=20
-> > > * connect_port_offset() does not (at least from an algorithm point
-> > > =A0 of view) need to return an u32, an u16 is sufficient.
-> >
-> > If it is truncated to u16, then compiler has to take extra effort to
-> > truncate is unnecessary given later =A0modulo operation.
->=20
-> I agree (in fact thats what I argued in the draft) - it probably depend=
-s on=20
-> your platform - you are assuming a 32-bit platform I guess.
+>+} 
+>+
+> static const int xfrm_msg_min[(XFRM_MSG_MAX + 1 - XFRM_MSG_BASE)] = {
+> 	NLMSG_LENGTH(sizeof(struct xfrm_usersa_info)),	/* NEW SA */
+> 	NLMSG_LENGTH(sizeof(struct xfrm_usersa_id)),	/* DEL SA */
+>@@ -867,6 +897,7 @@
+> 	NLMSG_LENGTH(sizeof(struct xfrm_user_polexpire)), /* POLEXPIRE */
+> 	NLMSG_LENGTH(sizeof(struct xfrm_usersa_flush)),	/* FLUSH SA */
+> 	NLMSG_LENGTH(0),				/* FLUSH POLICY */
+>+	NLMSG_LENGTH(sizeof(struct xfrm_usersa_id)),/* UPD SEQ */
+>  
+>
+^^ what about struct xfrm_replay_state ?
