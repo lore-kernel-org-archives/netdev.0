@@ -1,404 +1,452 @@
-From: Mark Price <elm@jimini.org>
-Subject: sk98lin 2.6 bug
-Date: Sun, 14 Mar 2004 18:30:56 +0000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4054A4E0.3050306@jimini.org>
+From: Tim Gardner <timg@tpi.com>
+Subject: [PATCH} ARP auto-sizing for 2.4.24 - 2.4.26-pre3
+Date: Sun, 14 Mar 2004 12:10:57 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <200403141210.57266.timg@tpi.com>
+Reply-To: timg@tpi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Anton Blanchard <anton@samba.org>
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I seem to have found some incorrect behavior in the sk98lin driver.
-The documentation claims that the driver will support  up to 16 devices, 
-and yet it is only finding one of my two cards.  The problem is not 
-apparently broken network cards, because one card is found if the driver 
-is built in and the other is found if the driver is modularized.
-Interestingly, only one of them shows up in /proc/pci at a time, 
-depending on the kernel.
+Anton,
 
-Here is some diagnostic info.  If I can supply more, or test some 
-patches, I would be happy to.  systool is on the system, but what to do 
-with it I don't yet know.
+Included is a patch that auto-sizes ARP caches ala tcp_ehash_size. There is 
+also a config option (CONFIG_NEIGH_NUM_HASHBITS) in the Network Options menu 
+that allows an override, but the default is auto-size. This patch also 
+includes smoothing of the ARP garbage collector, removes gc_interval, and 
+removes NEIGH_HASHMASK. I have run this on small configurations. Later 
+tonight I'll be trying it on one of my thousand node routers.
 
-I am running 2.6.3 from debian's kernel-image-2.6.3-1-686-smp for the 
-module and  debian's kernel-source-2.6.3-2 with the driver built in.  
+I've compiled the other affected protocols (IPv6, ATM, and DecNET), but have 
+not run them.
 
-Here is the hardware version from dmesg:
-   eth0: SK-9521 10/100/1000Base-T Adapter,
-   in other words SysKonnect and NOT Yukon.
-# lspci -v:
-00:01.0 PCI bridge: Intel Corp. 440GX - 82443GX AGP bridge (prog-if 00 
-[Normal decode])
-        Flags: bus master, 66Mhz, medium devsel, latency 32
-        Bus: primary=00, secondary=01, subordinate=01, sec-latency=32
-        I/O behind bridge: 0000f000-0000ffff
-        Memory behind bridge: fb000000-fdffffff
-        Prefetchable memory behind bridge: f6000000-f6ffffff
- 
-00:02.0 PCI bridge: Digital Equipment Corporation DECchip 21152 (rev 03) 
-(prog-if 00 [Normal decode])
-        Flags: bus master, medium devsel, latency 32
-        Bus: primary=00, secondary=02, subordinate=02, sec-latency=32
-        I/O behind bridge: 0000e000-0000efff
-        Memory behind bridge: f9000000-faffffff
-        Prefetchable memory behind bridge: 00000000f5000000-00000000f5f00000
-        Capabilities: [dc] Power Management version 1
- 
-00:07.0 ISA bridge: Intel Corp. 82371AB/EB/MB PIIX4 ISA (rev 02)
-        Flags: bus master, medium devsel, latency 0
- 
-00:07.1 IDE interface: Intel Corp. 82371AB/EB/MB PIIX4 IDE (rev 01) 
-(prog-if 80 [Master])
-        Flags: medium devsel
-        I/O ports at 1000 [disabled] [size=16]
- 
-00:07.2 USB Controller: Intel Corp. 82371AB/EB/MB PIIX4 USB (rev 01) 
-(prog-if 00 [UHCI])
-        Flags: medium devsel
-        I/O ports at 1020 [disabled] [size=32]
- 
-00:07.3 Bridge: Intel Corp. 82371AB/EB/MB PIIX4 ACPI (rev 02)
-        Flags: medium devsel, IRQ 9
- 
-00:08.0 Ethernet controller: Realtek Semiconductor Co., Ltd. 
-RTL-8139/8139C/8139C+ (rev 10)
-        Subsystem: Realtek Semiconductor Co., Ltd. RT8139
-        Flags: bus master, medium devsel, latency 32, IRQ 20
-        I/O ports at dc80 [size=128]
-        Memory at fe004000 (32-bit, non-prefetchable) [size=128]
- 
-00:0a.0 SCSI storage controller: ICP Vortex Computersysteme GmbH GDT 
-6118RD/6518RD/6618RD
-        Subsystem: ICP Vortex Computersysteme GmbH GDT 6118RD/6518RD/6618RD
-        Flags: bus master, medium devsel, latency 32, IRQ 21
-        Memory at 000c8000 (low-1M, prefetchable) [size=16K]
-        Expansion ROM at f8000000 [disabled] [size=32K]
- 
-00:0e.0 Ethernet controller: Linksys: Unknown device 1032 (rev 12)
-        Subsystem: Linksys: Unknown device 0015
-        Flags: bus master, 66Mhz, medium devsel, latency 32, IRQ 17
-        Memory at fe000000 (32-bit, non-prefetchable) [size=16K]
-        I/O ports at d800 [size=256]
-        Capabilities: [48] Power Management version 2
-        Capabilities: [50] Vital Product Data
- 
-01:00.0 VGA compatible controller: ATI Technologies Inc 3D Rage Pro AGP 
-1X (rev 5c) (prog-if 00 [VGA])
-        Subsystem: Dell Computer Corporation: Unknown device 0081
-        Flags: bus master, VGA palette snoop, stepping, medium devsel, 
-latency 32
-        Memory at fc000000 (32-bit, non-prefetchable) [size=16M]
-        I/O ports at fc00 [size=256]
-        Memory at fbfff000 (32-bit, non-prefetchable) [size=4K]
-        Expansion ROM at <unassigned> [disabled] [size=128K]
-        Capabilities: [50] AGP version 1.0
- 
-02:06.0 SCSI storage controller: Adaptec AIC-7860 (rev 03)
-        Subsystem: Adaptec: Unknown device 7860
-        Flags: bus master, medium devsel, latency 32, IRQ 16
-        I/O ports at ec00 [size=256]
-        Memory at f9fff000 (32-bit, non-prefetchable) [size=4K]
-        Capabilities: [dc] Power Management version 1
+rtg
 
+<--snip-->
 
-# dmesg
-Linux version 2.6.3mild (root@pantera) (gcc version 3.3.3 (Debian)) #3 
-SMP Sat Mar 13 16:56:35 GMT 2004
-BIOS-provided physical RAM map:
- BIOS-e820: 0000000000000000 - 00000000000a0000 (usable)
- BIOS-e820: 00000000000f0000 - 0000000000100000 (reserved)
- BIOS-e820: 0000000000100000 - 000000003fffe000 (usable)
- BIOS-e820: 000000003fffe000 - 0000000040000000 (reserved)
- BIOS-e820: 00000000fec00000 - 00000000fec10000 (reserved)
- BIOS-e820: 00000000fee00000 - 00000000fee10000 (reserved)
- BIOS-e820: 00000000fff80000 - 0000000100000000 (reserved)
-127MB HIGHMEM available.
-896MB LOWMEM available.
-found SMP MP-table at 000fe710
-hm, page 000fe000 reserved twice.
-hm, page 000ff000 reserved twice.
-hm, page 000f0000 reserved twice.
-On node 0 totalpages: 262142
-  DMA zone: 4096 pages, LIFO batch:1
-  Normal zone: 225280 pages, LIFO batch:16
-  HighMem zone: 32766 pages, LIFO batch:7
-DMI 2.2 present.
-ACPI disabled because your bios is from 1999 and too old
-You can enable it with acpi=force
-Intel MultiProcessor Specification v1.4
-    Virtual Wire compatibility mode.
-OEM ID: DELL     Product ID: PowerEdge 81 APIC at: 0xFEE00000
-Processor #1 6:7 APIC version 17
-Processor #0 6:7 APIC version 17
-I/O APIC #2 Version 17 at 0xFEC00000.
-Enabling APIC mode:  Flat.  Using 1 I/O APICs
-Processors: 2
-Built 1 zonelists
-Kernel command line: BOOT_IMAGE=2.6mild root=805
-Initializing CPU#0
-PID hash table entries: 4096 (order 12: 32768 bytes)
-Detected 498.814 MHz processor.
-Using tsc for high-res timesource
-Console: colour VGA+ 80x25
-Memory: 1030176k/1048568k available (1729k kernel code, 17492k reserved, 
-703k data, 168k init, 131064k highmem)
-Checking if this processor honours the WP bit even in supervisor mode... Ok.
-Calibrating delay loop... 983.04 BogoMIPS
-Dentry cache hash table entries: 131072 (order: 7, 524288 bytes)
-Inode-cache hash table entries: 65536 (order: 6, 262144 bytes)
-Mount-cache hash table entries: 512 (order: 0, 4096 bytes)
-checking if image is initramfs...it isn't (ungzip failed); looks like an 
-initrd
-Freeing initrd memory: 3952k freed
-CPU:     After generic identify, caps: 0383fbff 00000000 00000000 00000000
-CPU:     After vendor identify, caps: 0383fbff 00000000 00000000 00000000
-CPU: L1 I cache: 16K, L1 D cache: 16K
-CPU: L2 cache: 512K
-CPU:     After all inits, caps: 0383fbff 00000000 00000000 00000040
-Intel machine check architecture supported.
-Intel machine check reporting enabled on CPU#0.
-Enabling fast FPU save and restore... done.
-Enabling unmasked SIMD FPU exception support... done.
-Checking 'hlt' instruction... OK.
-POSIX conformance testing by UNIFIX
-CPU0: Intel Pentium III (Katmai) stepping 03
-per-CPU timeslice cutoff: 1464.87 usecs.
-task migration cache decay timeout: 2 msecs.
-enabled ExtINT on CPU#0
-ESR value before enabling vector: 00000040
-ESR value after enabling vector: 00000000
-Booting processor 1/0 eip 3000
-Initializing CPU#1
-masked ExtINT on CPU#1
-ESR value before enabling vector: 00000000
-ESR value after enabling vector: 00000000
-Calibrating delay loop... 995.32 BogoMIPS
-CPU:     After generic identify, caps: 0383fbff 00000000 00000000 00000000
-CPU:     After vendor identify, caps: 0383fbff 00000000 00000000 00000000
-CPU: L1 I cache: 16K, L1 D cache: 16K
-CPU: L2 cache: 512K
-CPU:     After all inits, caps: 0383fbff 00000000 00000000 00000040
-Intel machine check architecture supported.
-Intel machine check reporting enabled on CPU#1.
-CPU1: Intel Pentium III (Katmai) stepping 03
-Total of 2 processors activated (1978.36 BogoMIPS).
-ENABLING IO-APIC IRQs
-Setting 2 in the phys_id_present_map
-...changing IO-APIC physical APIC ID to 2 ... ok.
-init IO_APIC IRQs
- IO-APIC (apicid-pin) 2-0, 2-5, 2-10, 2-11, 2-13, 2-14, 2-23 not connected.
-..TIMER: vector=0x31 pin1=2 pin2=0
-number of MP IRQ sources: 37.
-number of IO-APIC #2 registers: 24.
-testing the IO APIC.......................
-IO APIC #2......
-.... register #00: 02000000
-.......    : physical APIC id: 02
-.......    : Delivery Type: 0
-.......    : LTS          : 0
-.... register #01: 00170011
-.......     : max redirection entries: 0017
-.......     : PRQ implemented: 0
-.......     : IO APIC version: 0011
-.... register #02: 00000000
-.......     : arbitration: 00
-.... IRQ redirection table:
- NR Log Phy Mask Trig IRR Pol Stat Dest Deli Vect:
- 00 000 00  1    0    0   0   0    0    0    00
- 01 001 01  0    0    0   0   0    1    1    39
- 02 001 01  0    0    0   0   0    1    1    31
- 03 001 01  0    0    0   0   0    1    1    41
- 04 001 01  0    0    0   0   0    1    1    49
- 05 000 00  1    0    0   0   0    0    0    00
- 06 001 01  0    0    0   0   0    1    1    51
- 07 001 01  0    0    0   0   0    1    1    59
- 08 001 01  0    0    0   0   0    1    1    61
- 09 001 01  0    0    0   0   0    1    1    69
- 0a 000 00  1    0    0   0   0    0    0    00
- 0b 000 00  1    0    0   0   0    0    0    00
- 0c 001 01  0    0    0   0   0    1    1    71
- 0d 000 00  1    0    0   0   0    0    0    00
- 0e 000 00  1    0    0   0   0    0    0    00
- 0f 001 01  0    0    0   0   0    1    1    79
- 10 001 01  1    1    0   1   0    1    1    81
- 11 001 01  1    1    0   1   0    1    1    89
- 12 001 01  1    1    0   1   0    1    1    91
- 13 001 01  1    1    0   1   0    1    1    99
- 14 001 01  1    1    0   1   0    1    1    A1
- 15 001 01  1    1    0   1   0    1    1    A9
- 16 001 01  1    1    0   1   0    1    1    B1
- 17 000 00  1    0    0   0   0    0    0    00
-IRQ to pin mappings:
-IRQ0 -> 0:2
-IRQ1 -> 0:1
-IRQ3 -> 0:3
-IRQ4 -> 0:4
-IRQ6 -> 0:6
-IRQ7 -> 0:7
-IRQ8 -> 0:8
-IRQ9 -> 0:9
-IRQ12 -> 0:12
-IRQ15 -> 0:15
-IRQ16 -> 0:16
-IRQ17 -> 0:17
-IRQ18 -> 0:18
-IRQ19 -> 0:19
-IRQ20 -> 0:20
-IRQ21 -> 0:21
-IRQ22 -> 0:22
-.................................... done.
-Using local APIC timer interrupts.
-calibrating APIC timer ...
-..... CPU clock speed is 498.0669 MHz.
-..... host bus clock speed is 99.0733 MHz.
-checking TSC synchronization across 2 CPUs: passed.
-Starting migration thread for cpu 0
-Starting migration thread for cpu 1
-Brought up 1 CPUs
-NET: Registered protocol family 16
-PCI: PCI BIOS revision 2.10 entry at 0xfcc0e, last bus=2
-PCI: Using configuration type 1
-mtrr: v2.0 (20020519)
-ACPI: Subsystem revision 20040116
-ACPI: Interpreter disabled.
-Linux Plug and Play Support v0.97 (c) Adam Belay
-PnPBIOS: Scanning system for PnP BIOS support...
-PnPBIOS: Found PnP BIOS installation structure at 0xc00fe2d0
-PnPBIOS: PnP BIOS version 1.0, entry 0xf0000:0xe2f4, dseg 0x40
-pnp: 00:00: ioport range 0x800-0x83f has been reserved
-pnp: 00:00: ioport range 0x850-0x85f has been reserved
-pnp: 00:00: ioport range 0xaa00-0xaa7f has been reserved
-PnPBIOS: 16 nodes reported by PnP BIOS; 16 recorded by driver
-ACPI: ACPI tables contain no PCI IRQ routing entries
-PCI: Invalid ACPI-PCI IRQ routing table
-PCI: Probing PCI hardware
-PCI: Probing PCI hardware (bus 00)
-PCI: Address space collision on region 7 of bridge 0000:00:07.3 [800:83f]
-PCI: Address space collision on region 8 of bridge 0000:00:07.3 [840:85f]
-PCI: Using IRQ router PIIX/ICH [8086/7110] at 0000:00:07.0
-PCI->APIC IRQ transform: (B0,I8,P0) -> 20
-PCI->APIC IRQ transform: (B0,I10,P0) -> 21
-PCI->APIC IRQ transform: (B0,I14,P0) -> 17
-PCI->APIC IRQ transform: (B2,I6,P0) -> 16
-PCI: Cannot allocate resource region 4 of device 0000:00:07.1
-Machine check exception polling timer started.
-Starting balanced_irq
-ikconfig 0.7 with /proc/config*
-highmem bounce pool size: 64 pages
-VFS: Disk quotas dquot_6.5.1
-devfs: v1.22 (20021013) Richard Gooch (rgooch@atnf.csiro.au)
-devfs: boot_options: 0x0
-Initializing Cryptographic API
-isapnp: Scanning for PnP cards...
-isapnp: No Plug & Play device found
-pty: 256 Unix98 ptys configured
-Serial: 8250/16550 driver $Revision: 1.90 $ 48 ports, IRQ sharing enabled
-ttyS0 at I/O 0x3f8 (irq = 4) is a 16550A
-ttyS1 at I/O 0x2f8 (irq = 3) is a 16550A
-ttyS3 at I/O 0x2e8 (irq = 3) is a 16550A
-RAMDISK driver initialized: 16 RAM disks of 8192K size 1024 blocksize
-sk98lin: Network Device Driver v6.22
-(C)Copyright 1999-2004 Marvell(R).
-divert: allocating divert_blk for eth0
-eth0: SK-9521 10/100/1000Base-T Adapter
-      PrefPort:A  RlmtMode:Check Link State
-divert: not allocating divert_blk for non-ethernet device lo
-serio: i8042 AUX port at 0x60,0x64 irq 12
-serio: i8042 KBD port at 0x60,0x64 irq 1
-input: AT Translated Set 2 keyboard on isa0060/serio0
-NET: Registered protocol family 2
-IP: routing cache hash table of 8192 buckets, 64Kbytes
-TCP: Hash tables configured (established 262144 bind 65536)
-NET: Registered protocol family 8
-NET: Registered protocol family 20
-PM: Reading pmdisk image.
-PM: Resume from disk failed.
-RAMDISK: cramfs filesystem found at block 0
-RAMDISK: Loading 3952 blocks [1 disk] into ram disk... done.
-VFS: Mounted root (cramfs filesystem).
-Freeing unused kernel memory: 168k freed
-SCSI subsystem initialized
-GDT: Storage RAID Controller Driver. Version: 2.08
-GDT: Found 1 PCI Storage RAID Controllers
-GDT CTR0: Configuring GDT-PCI HA at 0/10 IRQ 21
-scsi0 : GDT6518RD
-Using anticipatory io scheduler
-  Vendor: ICP       Model: Host Drive  #00   Rev:
-  Type:   Direct-Access                      ANSI SCSI revision: 02
-  Vendor: DELL      Model: 1x6 U2W SCSI BP   Rev: 5.33
-  Type:   Processor                          ANSI SCSI revision: 02
-SCSI device sda: 35551845 512-byte hdwr sectors (18203 MB)
-SCSI device sda: drive cache: write through
- /dev/scsi/host0/bus0/target0/lun0: p1 p2 < p5 p6 p7 p8 >
-Attached scsi disk sda at scsi0, channel 0, id 0, lun 0
-kjournald starting.  Commit interval 5 seconds
-EXT3-fs: mounted filesystem with ordered data mode.
-NET: Registered protocol family 1
-EXT3 FS on sda5, internal journal
-Real Time Clock Driver v1.12
-kjournald starting.  Commit interval 5 seconds
-EXT3 FS on sda1, internal journal
-EXT3-fs: mounted filesystem with ordered data mode.
-kjournald starting.  Commit interval 5 seconds
-EXT3 FS on sda7, internal journal
-EXT3-fs: mounted filesystem with ordered data mode.
-kjournald starting.  Commit interval 5 seconds
-EXT3 FS on sda6, internal journal
-EXT3-fs: mounted filesystem with ordered data mode.
-parport0: PC-style at 0x378 (0x778) [PCSPP,TRISTATE,EPP]
-parport0: irq 7 detected
-parport0: cpp_daisy: aa5500ff(08)
-parport0: assign_addrs: aa5500ff(08)
-parport0: cpp_daisy: aa5500ff(08)
-parport0: assign_addrs: aa5500ff(08)
-lp0: using parport0 (polling).
-Linux agpgart interface v0.100 (c) Dave Jones
-8139too Fast Ethernet driver 0.9.27
-divert: allocating divert_blk for eth1
-eth1: RealTek RTL8139 at 0xf886e000, 00:c0:ca:11:42:f6, IRQ 20
-eth1:  Identified 8139 chip type 'RTL-8139 rev K'
-NET: Registered protocol family 10
-Disabled Privacy Extensions on device c0331620(lo)
-IPv6 over IPv4 tunneling driver
-divert: not allocating divert_blk for non-ethernet device sit0
-NET: Registered protocol family 17
-Linux Kernel Card Services
-  options:  [pci] [cardbus] [pm]
-Intel ISA PCIC probe: not found.
-eth0: no IPv6 routers present
-input: PS/2 Generic Mouse on isa0060/serio1
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-atkbd.c: Unknown key released (translated set 2, code 0x7a on 
-isa0060/serio0).
-atkbd.c: This is an XFree86 bug. It shouldn't access hardware directly.
-eth0: network connection up using port A
-    speed:           100
-    autonegotiation: yes
-    duplex mode:     full
-    flowctrl:        symmetric
-    irq moderation:  disabled
-    scatter-gather:  enabled
+diff -r -u --new-file linux-2.4.bk.original/Documentation/Configure.help 
+linux-2.4.bk-auto-size/Documentation/Configure.help
+--- linux-2.4.bk.original/Documentation/Configure.help	2004-03-14 
+08:54:48.000000000 -0700
++++ linux-2.4.bk-auto-size/Documentation/Configure.help	2004-03-13 
+21:37:10.000000000 -0700
+@@ -7139,6 +7139,19 @@
+ 
+   If unsure, say N.
+ 
++ARP hash table size power of 2
++CONFIG_NEIGH_NUM_HASHBITS
++  This option defines the size of the ARP hash table for each protocol. The 
+default size of 0
++  initiates a boot time auto-sizing algorithm. This algorithm allocates a 
+power of 2 hash
++  buckets according to the number of physical pages of RAM. One power of 2 
+buckets for each
++  power of 2 MB of RAM, e.g., 8 buckets for 8MB, 16 buckets for 16MB, etc. 
+One hash bucket
++  consumes 4 bytes on a 32 bit CPU.
++
++  A non-zero value for CONFIG_NEIGH_NUM_HASHBITS disables the auto-size 
+algorithm. You might
++  specifiy a fixed size for environments where the auto-size algorithm is
++  inappropriate. Sometimes small RAM embedded devices handle routing for a 
+thousand or more
++  devices.
++
+ Packet socket
+ CONFIG_PACKET
+   The Packet protocol is used by applications which communicate
+diff -r -u --new-file linux-2.4.bk.original/include/net/neighbour.h 
+linux-2.4.bk-auto-size/include/net/neighbour.h
+--- linux-2.4.bk.original/include/net/neighbour.h	2004-03-14 
+08:54:27.000000000 -0700
++++ linux-2.4.bk-auto-size/include/net/neighbour.h	2004-03-14 
+11:00:45.000000000 -0700
+@@ -128,7 +128,6 @@
+ 	u8			key[0];
+ };
+ 
+-#define NEIGH_HASHMASK		0x1F
+ #define PNEIGH_HASHMASK		0xF
+ 
+ /*
+@@ -149,8 +148,7 @@
+ 	void			(*proxy_redo)(struct sk_buff *skb);
+ 	char			*id;
+ 	struct neigh_parms	parms;
+-	/* HACK. gc_* shoul follow parms without a gap! */
+-	int			gc_interval;
++	/* HACK. gc_* should follow parms without a gap! */
+ 	int			gc_thresh1;
+ 	int			gc_thresh2;
+ 	int			gc_thresh3;
+@@ -165,7 +163,9 @@
+ 	kmem_cache_t		*kmem_cachep;
+ 	struct tasklet_struct	gc_task;
+ 	struct neigh_statistics	stats;
+-	struct neighbour	*hash_buckets[NEIGH_HASHMASK+1];
++	struct neighbour	**hash_buckets;
++	int					num_hash_buckets;
++	int					curr_hash_bucket; /* for the garbage collector */
+ 	struct pneigh_entry	*phash_buckets[PNEIGH_HASHMASK+1];
+ };
+ 
+diff -r -u --new-file linux-2.4.bk.original/net/atm/clip.c 
+linux-2.4.bk-auto-size/net/atm/clip.c
+--- linux-2.4.bk.original/net/atm/clip.c	2004-03-14 08:54:29.000000000 -0700
++++ linux-2.4.bk-auto-size/net/atm/clip.c	2004-03-13 22:12:11.000000000 -0700
+@@ -126,7 +126,7 @@
+ 
+ 	/*DPRINTK("idle_timer_check\n");*/
+ 	write_lock(&clip_tbl.lock);
+-	for (i = 0; i <= NEIGH_HASHMASK; i++) {
++	for (i = 0; i < clip_tbl.num_hash_buckets; i++) {
+ 		struct neighbour **np;
+ 
+ 		for (np = &clip_tbl.hash_buckets[i]; *np;) {
+@@ -318,6 +318,7 @@
+ 	return 0;
+ }
+ 
++static struct neigh_table clip_tbl;
+ static u32 clip_hash(const void *pkey, const struct net_device *dev)
+ {
+ 	u32 hash_val;
+@@ -326,7 +327,7 @@
+ 	hash_val ^= (hash_val>>16);
+ 	hash_val ^= hash_val>>8;
+ 	hash_val ^= hash_val>>3;
+-	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
++	hash_val = (hash_val^dev->ifindex)&(clip_tbl.num_hash_buckets-1);
+ 
+ 	return hash_val;
+ }
+diff -r -u --new-file linux-2.4.bk.original/net/atm/proc.c 
+linux-2.4.bk-auto-size/net/atm/proc.c
+--- linux-2.4.bk.original/net/atm/proc.c	2004-03-14 08:54:29.000000000 -0700
++++ linux-2.4.bk-auto-size/net/atm/proc.c	2004-03-13 22:00:28.000000000 -0700
+@@ -430,7 +430,7 @@
+ 		return 0;
+ 	count = pos;
+ 	read_lock_bh(&clip_tbl_hook->lock);
+-	for (i = 0; i <= NEIGH_HASHMASK; i++)
++	for (i = 0; i < clip_tbl_hook->num_hash_buckets; i++)
+ 		for (n = clip_tbl_hook->hash_buckets[i]; n; n = n->next) {
+ 			struct atmarp_entry *entry = NEIGH2ENTRY(n);
+ 			struct clip_vcc *vcc;
+diff -r -u --new-file linux-2.4.bk.original/net/Config.in 
+linux-2.4.bk-auto-size/net/Config.in
+--- linux-2.4.bk.original/net/Config.in	2004-03-14 08:54:37.000000000 -0700
++++ linux-2.4.bk-auto-size/net/Config.in	2004-03-14 10:49:33.000000000 -0700
+@@ -8,6 +8,8 @@
+    bool '  Packet socket: mmapped IO' CONFIG_PACKET_MMAP
+ fi
+ 
++int 'ARP hash table size power of 2' CONFIG_NEIGH_NUM_HASHBITS 0
++
+ tristate 'Netlink device emulation' CONFIG_NETLINK_DEV
+ 
+ bool 'Network packet filtering (replaces ipchains)' CONFIG_NETFILTER
+diff -r -u --new-file linux-2.4.bk.original/net/core/neighbour.c 
+linux-2.4.bk-auto-size/net/core/neighbour.c
+--- linux-2.4.bk.original/net/core/neighbour.c	2004-03-14 08:54:29.000000000 
+-0700
++++ linux-2.4.bk-auto-size/net/core/neighbour.c	2004-03-14 11:45:53.000000000 
+-0700
+@@ -111,7 +111,7 @@
+ 	int shrunk = 0;
+ 	int i;
+ 
+-	for (i=0; i<=NEIGH_HASHMASK; i++) {
++	for (i=0; i<tbl->num_hash_buckets; i++) {
+ 		struct neighbour *n, **np;
+ 
+ 		np = &tbl->hash_buckets[i];
+@@ -176,7 +176,7 @@
+ 
+ 	write_lock_bh(&tbl->lock);
+ 
+-	for (i=0; i <= NEIGH_HASHMASK; i++) {
++	for (i=0; i < tbl->num_hash_buckets; i++) {
+ 		struct neighbour *n, **np;
+ 
+ 		np = &tbl->hash_buckets[i];
+@@ -203,7 +203,7 @@
+ 
+ 	write_lock_bh(&tbl->lock);
+ 
+-	for (i=0; i<=NEIGH_HASHMASK; i++) {
++	for (i=0; i<tbl->num_hash_buckets; i++) {
+ 		struct neighbour *n, **np;
+ 
+ 		np = &tbl->hash_buckets[i];
+@@ -566,9 +566,8 @@
+ static void SMP_TIMER_NAME(neigh_periodic_timer)(unsigned long arg)
+ {
+ 	struct neigh_table *tbl = (struct neigh_table*)arg;
++	struct neighbour *n, **np;
+ 	unsigned long now = jiffies;
+-	int i;
+-
+ 
+ 	write_lock(&tbl->lock);
+ 
+@@ -583,46 +582,49 @@
+ 			p->reachable_time = neigh_rand_reach_time(p->base_reachable_time);
+ 	}
+ 
+-	for (i=0; i <= NEIGH_HASHMASK; i++) {
+-		struct neighbour *n, **np;
++	tbl->curr_hash_bucket &= (tbl->num_hash_buckets-1);
++	np = &tbl->hash_buckets[tbl->curr_hash_bucket++];
+ 
+-		np = &tbl->hash_buckets[i];
+-		while ((n = *np) != NULL) {
+-			unsigned state;
++	while ((n = *np) != NULL) {
++		unsigned state;
+ 
+-			write_lock(&n->lock);
++		write_lock(&n->lock);
+ 
+-			state = n->nud_state;
+-			if (state&(NUD_PERMANENT|NUD_IN_TIMER)) {
+-				write_unlock(&n->lock);
+-				goto next_elt;
+-			}
++		state = n->nud_state;
++		if (state&(NUD_PERMANENT|NUD_IN_TIMER)) {
++			write_unlock(&n->lock);
++			goto next_elt;
++		}
+ 
+-			if ((long)(n->used - n->confirmed) < 0)
+-				n->used = n->confirmed;
++		if ((long)(n->used - n->confirmed) < 0)
++			n->used = n->confirmed;
+ 
+-			if (atomic_read(&n->refcnt) == 1 &&
+-			    (state == NUD_FAILED || now - n->used > n->parms->gc_staletime)) {
+-				*np = n->next;
+-				n->dead = 1;
+-				write_unlock(&n->lock);
+-				neigh_release(n);
+-				continue;
+-			}
+-
+-			if (n->nud_state&NUD_REACHABLE &&
+-			    now - n->confirmed > n->parms->reachable_time) {
+-				n->nud_state = NUD_STALE;
+-				neigh_suspect(n);
+-			}
++		if (atomic_read(&n->refcnt) == 1 &&
++		    (state == NUD_FAILED || now - n->used > n->parms->gc_staletime)) {
++			*np = n->next;
++			n->dead = 1;
+ 			write_unlock(&n->lock);
++			neigh_release(n);
++			continue;
++		}
+ 
+-next_elt:
+-			np = &n->next;
++		if (n->nud_state&NUD_REACHABLE &&
++		    now - n->confirmed > n->parms->reachable_time) {
++			n->nud_state = NUD_STALE;
++			neigh_suspect(n);
+ 		}
++		write_unlock(&n->lock);
++
++next_elt:
++		np = &n->next;
+ 	}
+ 
+-	mod_timer(&tbl->gc_timer, now + tbl->gc_interval);
++	/*
++	 * Cycle through all hash buckets every base_reachable_time/2 ticks. ARP 
+entry
++	 * timeouts range from 1/2 base_reachable_time to 3/2 base_reachable_time.
++	 */
++	mod_timer(&tbl->gc_timer, now + 
+((tbl->parms.base_reachable_time>>1)/(tbl->num_hash_buckets)));
++
+ 	write_unlock(&tbl->lock);
+ }
+ 
+@@ -905,7 +907,7 @@
+ 
+ 	neigh = __neigh_lookup(tbl, saddr, dev, lladdr || !dev->addr_len);
+ 	if (neigh)
+-		neigh_update(neigh, lladdr, NUD_STALE, 1, 1);
++		neigh_update(neigh, lladdr, (lladdr && dev->addr_len) ? NUD_REACHABLE : 
+NUD_STALE, 1, 1);
+ 	return neigh;
+ }
+ 
+@@ -1132,6 +1134,39 @@
+ void neigh_table_init(struct neigh_table *tbl)
+ {
+ 	unsigned long now = jiffies;
++	unsigned int goal=CONFIG_NEIGH_NUM_HASHBITS;
++
++	/*
++	 * Allocate a power of 2 hash buckets for each power of 2 MB of RAM.
++	 */
++	if (!goal)
++	{
++		unsigned int ram_mb = (num_physpages * PAGE_SIZE) / (1024 * 1024);
++		goal = 31;
++		while ((1<<goal) > ram_mb)
++		{
++			goal--;
++		}
++	}
++
++	tbl->hash_buckets = NULL;
++	while (goal && (!tbl->hash_buckets))
++	{
++		tbl->num_hash_buckets = (1<<goal);
++		tbl->hash_buckets = kmalloc(sizeof(struct neighbour 
+*)*tbl->num_hash_buckets,GFP_ATOMIC);
++		goal--;
++	}
++
++	if (tbl->hash_buckets == NULL)
++		panic("%s: Could not allocate memory for hash buckets.\n",__FUNCTION__);
++	memset(tbl->hash_buckets,0,sizeof(struct neighbour 
+*)*tbl->num_hash_buckets);
++
++	if (CONFIG_NEIGH_NUM_HASHBITS && (tbl->num_hash_buckets != 
+((1<<CONFIG_NEIGH_NUM_HASHBITS)+1)))
++		printk(KERN_WARNING "%s: Could not allocate %u hash buckets, did %u 
+instead.\n",
++			__FUNCTION__,
++			(1<<CONFIG_NEIGH_NUM_HASHBITS)+1,
++			tbl->num_hash_buckets
++		);
+ 
+ 	tbl->parms.reachable_time = 
+neigh_rand_reach_time(tbl->parms.base_reachable_time);
+ 
+@@ -1148,7 +1183,7 @@
+ 	tbl->lock = RW_LOCK_UNLOCKED;
+ 	tbl->gc_timer.data = (unsigned long)tbl;
+ 	tbl->gc_timer.function = neigh_periodic_timer;
+-	tbl->gc_timer.expires = now + tbl->gc_interval + tbl->parms.reachable_time;
++	tbl->gc_timer.expires = now + 1;
+ 	add_timer(&tbl->gc_timer);
+ 
+ 	init_timer(&tbl->proxy_timer);
+@@ -1364,7 +1399,7 @@
+ 
+ 	s_h = cb->args[1];
+ 	s_idx = idx = cb->args[2];
+-	for (h=0; h <= NEIGH_HASHMASK; h++) {
++	for (h=0; h < tbl->num_hash_buckets; h++) {
+ 		if (h < s_h) continue;
+ 		if (h > s_h)
+ 			s_idx = 0;
+@@ -1505,9 +1540,6 @@
+ 	{NET_NEIGH_LOCKTIME, "locktime",
+          NULL, sizeof(int), 0644, NULL,
+          &proc_dointvec},
+-	{NET_NEIGH_GC_INTERVAL, "gc_interval",
+-         NULL, sizeof(int), 0644, NULL,
+-         &proc_dointvec_jiffies},
+ 	{NET_NEIGH_GC_THRESH1, "gc_thresh1",
+          NULL, sizeof(int), 0644, NULL,
+          &proc_dointvec},
+diff -r -u --new-file linux-2.4.bk.original/net/decnet/dn_neigh.c 
+linux-2.4.bk-auto-size/net/decnet/dn_neigh.c
+--- linux-2.4.bk.original/net/decnet/dn_neigh.c	2004-03-14 08:54:29.000000000 
+-0700
++++ linux-2.4.bk-auto-size/net/decnet/dn_neigh.c	2004-03-14 11:11:02.000000000 
+-0700
+@@ -110,7 +110,6 @@
+ 		proxy_qlen:		0,
+ 		locktime:		1 * HZ,
+ 	},
+-	gc_interval:			30 * HZ,
+ 	gc_thresh1:			128,
+ 	gc_thresh2:			512,
+ 	gc_thresh3:			1024,
+@@ -124,7 +123,7 @@
+ 	hash_val ^= (hash_val >> 10);
+ 	hash_val ^= (hash_val >> 3);
+ 
+-	return hash_val & NEIGH_HASHMASK;
++	return hash_val & (dn_neigh_table.num_hash_buckets-1);
+ }
+ 
+ static int dn_neigh_construct(struct neighbour *neigh)
+@@ -496,7 +495,7 @@
+ 
+ 	read_lock_bh(&tbl->lock);
+ 
+-	for(i = 0; i < NEIGH_HASHMASK; i++) {
++	for(i = 0; i < tbl->num_hash_buckets; i++) {
+ 		for(neigh = tbl->hash_buckets[i]; neigh != NULL; neigh = neigh->next) {
+ 			if (neigh->dev != dev)
+ 				continue;
+@@ -539,7 +538,7 @@
+ 
+ 	len += sprintf(buffer + len, "Addr    Flags State Use Blksize Dev\n");
+ 
+-	for(i=0;i <= NEIGH_HASHMASK; i++) {
++	for(i=0;i < dn_neigh_table.num_hash_buckets; i++) {
+ 		read_lock_bh(&dn_neigh_table.lock);
+ 		n = dn_neigh_table.hash_buckets[i];
+ 		for(; n != NULL; n = n->next) {
+diff -r -u --new-file linux-2.4.bk.original/net/ipv4/arp.c 
+linux-2.4.bk-auto-size/net/ipv4/arp.c
+--- linux-2.4.bk.original/net/ipv4/arp.c	2004-03-14 08:54:29.000000000 -0700
++++ linux-2.4.bk-auto-size/net/ipv4/arp.c	2004-03-14 11:03:09.000000000 -0700
+@@ -185,7 +185,6 @@
+ 		proxy_qlen:		64,
+ 		locktime:		1 * HZ,
+ 	},
+-	gc_interval:	30 * HZ,
+ 	gc_thresh1:	128,
+ 	gc_thresh2:	512,
+ 	gc_thresh3:	1024,
+@@ -220,7 +219,7 @@
+ 	hash_val ^= (hash_val>>16);
+ 	hash_val ^= hash_val>>8;
+ 	hash_val ^= hash_val>>3;
+-	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
++	hash_val = (hash_val^dev->ifindex)&(arp_tbl.num_hash_buckets-1);
+ 
+ 	return hash_val;
+ }
+@@ -1115,7 +1114,7 @@
+ 	pos+=size;
+ 	len+=size;
+ 
+-	for(i=0; i<=NEIGH_HASHMASK; i++) {
++	for(i=0; i<arp_tbl.num_hash_buckets; i++) {
+ 		struct neighbour *n;
+ 		read_lock_bh(&arp_tbl.lock);
+ 		for (n=arp_tbl.hash_buckets[i]; n; n=n->next) {
+diff -r -u --new-file linux-2.4.bk.original/net/ipv6/ndisc.c 
+linux-2.4.bk-auto-size/net/ipv6/ndisc.c
+--- linux-2.4.bk.original/net/ipv6/ndisc.c	2004-03-14 08:54:30.000000000 -0700
++++ linux-2.4.bk-auto-size/net/ipv6/ndisc.c	2004-03-13 22:13:59.000000000 
+-0700
+@@ -246,7 +246,7 @@
+ 	hash_val ^= (hash_val>>16);
+ 	hash_val ^= hash_val>>8;
+ 	hash_val ^= hash_val>>3;
+-	hash_val = (hash_val^dev->ifindex)&NEIGH_HASHMASK;
++	hash_val = (hash_val^dev->ifindex)&(nd_tbl.num_hash_buckets-1);
+ 
+ 	return hash_val;
+ }
+
+-- 
+Tim Gardner - timg@tpi.com
+www.tpi.com 406-443-5357
