@@ -1,34 +1,50 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPCOMP] Use per-cpu buffers
-Date: Sat, 11 Sep 2004 08:33:15 +1000
-Sender: linux-ppp-owner@vger.kernel.org
-Message-ID: <20040910223315.GA1335@gondor.apana.org.au>
-References: <20040910111047.GA29330@gondor.apana.org.au> <Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [RFC] Extend netlink error codes
+Date: Sat, 11 Sep 2004 00:51:58 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040910225158.GO20088@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	netdev@oss.sgi.com, linux-ppp@vger.kernel.org, paulus@samba.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: James Morris <jmorris@redhat.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Sep 10, 2004 at 11:42:00AM -0400, James Morris wrote:
-> 
-> I haven't looked at the code for a while, but I think we might be able to 
-> save some memory by specifying compression parameters and making the 
-> appropriate changes to zlib.
+The current situation with error codes sent back to a netlink
+application is unsatisfactory. Most often, the application
+receives EINVAL but has no idea what was wrong.
 
-It'd also be nice to add a compression algorithm that requires little 
-memory to run.  That way we can get a clear picture of what interface
-changes are OK and what aren't.
+Here is my plan:
 
-Could we perhaps use v44? Is the patent an issue?
+Introduce some macros:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+#define NLERR_MAJ_MASK (0x7FFF0000U)
+#define NLERR_MIN_MASK (0x0000FFFFU)
+#define NLERR_MAJ(e) ((abs(e) & NLERR_MAJ_MASK) >> 16)
+#define NLERR_MIN(e) (abs(e) & NLERR_MIN_MASK)
+#define NLERR_MAKE(err, nle) ((((nle) << 16) & NLERR_MAJ_MASK)
+		| ((err) & NLERR_MIN_MASK))
+
+Specify netlink specific error codes, e.g.:
+
+#define NLE_SUCCESS     0
+#define NLE_NOQDISC     1
+#define NLE_NOTCLASFUL  2
+...
+
+Predefined error messages could be provided by libnetlink
+via nl_strerror().
+
+Replace vague error return calls with something like:
+
+return -NLERR_MAKE(EINVAL, NLE_NOQDISC);
+
+Once in netlink_ack, split the combined error message again,
+fill the existing errno into nlerrmsg.error and provide the
+netlink specific error code in a newly introduced TLV. This
+way, no binaries or old applications would break, but
+applications can support it and provide more meanigful error
+message with almost no effort.
+
+Comments?
