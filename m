@@ -1,44 +1,60 @@
-From: Lincoln Dale <ltd@cisco.com>
-Subject: Re: [PATCH] [RFC] Support for wccp version 1 and 2 in ip_gre.c
-Date: Tue, 14 Sep 2004 18:48:20 +1000
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC][PATCH 2/2] ip multipath, bk head (EXPERIMENTAL)
+Date: 14 Sep 2004 08:14:35 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20040914184652.03e24de0@171.71.163.14>
-References: <20040913051706.GB26337@stingr.sgu.ru>
- <20040911194108.GS28258@stingr.sgu.ru>
- <20040912170505.62916147.davem@davemloft.net>
- <20040913051706.GB26337@stingr.sgu.ru> <20040913161912.7dcc809f.davem@davemloft.net>
+Message-ID: <1095164075.1060.100.camel@jzny.localdomain>
+References: <41457848.6040808@de.ibm.com>
+	 <1095129624.1060.45.camel@jzny.localdomain>
+	 <20040913224232.4b979c7d.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: Paul P Komkoff Jr <i@stingr.net>, i@stingr.net, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: lkml@einar-lueck.de, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040913161912.7dcc809f.davem@davemloft.net>
-References: <20040913051706.GB26337@stingr.sgu.ru>
- <20040911194108.GS28258@stingr.sgu.ru>
- <20040912170505.62916147.davem@davemloft.net>
- <20040913051706.GB26337@stingr.sgu.ru>
+In-Reply-To: <20040913224232.4b979c7d.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 09:19 AM 14/09/2004, David S. Miller wrote:
-> > As you can see, I am applying it unconditionally when fits. For most
-> > cases, this will be OK.
-> > There can be situations when this is not wanted (for example, when
-> > debugging something), so in general, tuning knob will be useful, but
-> > I just don't know where to add it, maybe tunnel->parms.i_flags ...
->
->I don't think adding such a knob is necessary, but yes i_flags
->would be the place to do it.
->
->I will apply your patch with the "if(1)" simply removed.
+On Tue, 2004-09-14 at 01:42, David S. Miller wrote:
+> On 13 Sep 2004 22:40:24 -0400
+> jamal <hadi@cyberus.ca> wrote:
+> 
+> > As long as whatever arrangement ensures that no packet reordering
+> > happens, should be sane. Yes, current scheme is broken in some ways (but
+> > guarantees packet ordering within a flow).
+> 
+> I think his changes ensure this as well, at least for local system
+> sockets.  You'll only get a new hop each time a route lookup is
+> performed, which is only done once per socket unless the path
+> becomes "sick" and TCP decides to try and do a relookup of the
+> destination.
 
-the logic is correct, but it may make sense to call the appropriate 
-netfilter hook again with the "unwrapped" GRE packet, as otherwise 
-packets-inside-GRE represent a possible security hole where one can inject 
-packets externally and bypass firewall rules.
+I was worried more about forwarding path.
 
+> I'm kind of ambivalent about these changes.  I definitely like the
+> first patch which cleans up those huge functions in route.c :-)
+
+Oh, yeah that looked good - thats why i didnt comment. Your call.
+
+> But there are things I like about the current behavior, although I
+> understand why people want things to work the way Einar is changing
+> it to.
+
+I think its a little broken but not unlike say CISCOs multipath when
+they have caching. 
+The general trend though is that now multipathing is getting more
+interesting and the policy criteria is no longer loadbalancing alone.
+An example interesting paper and newer devices showing up: 
+
+"Experiences in Building A Multihoming Load Balancing System" by
+Fanglu Guo, Jiawu Chen , Wei Li, Tzi-Cker Chiueh (State University of
+New York at Stony Brook
+url: http://www.ieee-infocom.org/2004/technicalprogram.htm
+
+The idea proposed there is extensible to many other policy selections
+(very easily implementable via tc actions).
 
 cheers,
-
-lincoln.
+jamal
