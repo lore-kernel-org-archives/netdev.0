@@ -1,24 +1,95 @@
-From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Subject: [2.6 patch] drivers/net/e1000/: possible cleanup
-Date: Thu, 17 Feb 2005 18:12:26 -0800
-Message-ID: <468F3FDA28AA87429AD807992E22D07E044D4074@orsmsx408>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <jgarzik@pobox.com>, <netdev@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: <bunk@stusta.de>
+From: =?ISO-2022-JP?B?GyRCJTglZSVdJTglZSVdJEhINCQtOjkkNxsoQg==?= <marina@yuri.m-blue.org>
+Subject: =?ISO-2022-JP?B?GyRCJTklbCVzJUAhPCRKM2QkSyRPJFckSyRlJEMkSCQ3JD8/SEJOGyhC?=
+Date: Fri, 18 Feb 2005 11:38:10 +0900 (KST)
+Message-ID: <20050218023810.D43DD521D5@rental3.fields-server.net>
+To: netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adrian:
 
-Thanks for the comments. Although all your comments are valid, we will
-not be able to apply your patch as is. This is because of the way we
-have set up our source code (some of which is shared with non-GPL code).
-We will submit a patch that addresses all the issues you've raised here.
+■■A-MOTION■■■□■■■□■■■□■■■□■■■□■メールマガジン
+∴∵:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵∴
+　　 ◆              ☆□□□                                 □□□☆             ◆
+　◆■◆・・・・・・■■■　　　艶やかに濡れて光る　　　■■■・・・・・・◆■◆
+　　 ◆              ☆□□□　　　　　                      □□□☆             ◆
+☆*∵∴:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵
+■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
+                                          
+===========================================================
+　新┃着┃特┃集┃　http://stadium.puchiphoto.org/?onus9a3jha
+　━┛━┛━┛━┛・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
+■■■第１弾
+■■■　【【【カラダが疼いて眠れないぃ～】】】。oO○Oo。oO○Oo。
+■■　　　　　                                                                      　　   │。　
+■　　　◆女の子だってＨは大好き☆............................................       　　＿ ＿人＿ ＿　　　　　　　　　　　　　　　　　　　　　
+■　　　　　　たっぷり濃厚な愛撫に、カラダがとろけそ～ぅ♪♪♪       ＊Ｙ
+ 　   │。　                                                                          　　   │
+＿＿人＿＿　　　◆パックリ開いたキレイなアソコから滴る液体…。....................
+    ＊Ｙ　　　　　　　　蔵出し秘蔵ムービー一挙公開！！
+　    │
+　　　　　　◆禁断のチョーヤバ画像の数々...........................................................
+   　　　　　　　他では見ることの出来ないレアな画像や動画の宝庫
+ 
+      http://stadium.puchiphoto.org/?onus9a3jha
+===========================================================
+　新┃着┃特┃集┃・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
+　━┛━┛━┛━┛
+■■■第２弾
+■■■　　【【【究極のフェティッシュワールド】】】。oO○Oo。oO○Oo。
+■■　　　
+■　　　　 ◆美乳・爆乳大集合！！！...........................................
+■　　　　　　　手のひらからこぼれ落ちそうな爆乳・美乳大特集！
+　　　　　　　　　やわらかそうなフニフニのオッパイめしあがれっ♪
+　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
+　　　　　　◆むき栗くらべ..................................................          　　　　│。
+                         可愛い女の子たちの小さなつぼみを ＿ ＿人＿ ＿
+　　　　　　　　　　　アノ手コノ手でいじり倒します。　　　　　　　＊Ｙ
+　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　　│　
+　　　http://stadium.puchiphoto.org/?onus9a3jha
+・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
+★その他見所満載！！！
+         
+　　　　　　　　　◆集団痴漢盗撮........................................................
+　　　　　　　　　　　　狭い空間でうごめく痴漢師たちの実態を盗撮。
+　　　　　　　　　　　　　　もみくちゃにされながら必死で抵抗するが、
+　　　　　　　　　　　　　なすすべもなくオモチャにされる女の子たち…。　　　　 
+ 
+　　　　　　　◆野外露出パラダイス..................................................
+　　　　　　　　　　ゲームで負けた女の子がバツゲームとして
+　　　　　　　　　　ハダカでコンビニに行き買い物をさせられちゃう。
+　　　　　　　　　　今回は新人のサトミちゃんが挑戦
+ 
+　　　http://stadium.puchiphoto.org/?onus9a3jha
+ 
+★などなど大好評の特集以外にも、ヌキどころ満載 でお届けしまぁ～す★
+ 
+┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓
+■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
 
-Thanks,
-Ganesh.
+【会員の皆様へ】
+      
+    ・ 『A-MOTION』はメールマガジンの配信スタンドとなっており、無料でご登録会員様に
+　　　定期的にメールマガジンを配信しております。
+
+    ・当局のメールマガジンより配信される情報の利用に関しては、
+　　 ご購読者個人の責任においてご利用していただくことを
+　　目的としており情報の内容に関しては発行者におまかせしております。
+ 
+　　・当局はご紹介先のサイトにおけるいかなるトラブルや損害に対しても
+　　 一切の責任を負いかねます。
+　　
+　　・掲載情報に関してのご質問には応じておりませんので
+　　　予めご了承下さい。
+　　　　
+　  ・当メールマガジンに掲載された記事の一部または全部を
+　　　許可なく転載することを禁止致します。
+
+  　・ 身に覚えのない配信はいたずらの可能性がございます
+　　　購読解除をご希望の方は、お手数ですが下記のアドレスよりログインし、
+　　　ご自身でお手続き下さい。
+
+    http://yuri.m-blue.org/a-motion/
+■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
+┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛
