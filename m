@@ -1,29 +1,34 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] PKT_SCHED: Remove useless line in cbq_dump_class
-Date: Mon, 4 Oct 2004 00:14:52 +0200
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Resend WAS(Re: cls patchlet
+Date: 03 Oct 2004 18:22:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041003221452.GL14344@postel.suug.ch>
+Message-ID: <1096842156.1047.357.camel@jzny.localdomain>
+References: <1096833127.1048.333.camel@jzny.localdomain>
+	 <1096834352.1046.349.camel@jzny.localdomain>
+	 <20041003151216.5a56531f.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+In-Reply-To: <20041003151216.5a56531f.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Remove useless line in cbq_dump_class probably introduced by
-copy&paste from cbq_dump.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+On Sun, 2004-10-03 at 18:12, David S. Miller wrote:
+> On 03 Oct 2004 16:12:32 -0400
+> jamal <hadi@cyberus.ca> wrote:
+> 
+> > Ignore previous. This is better formated ;->
+> 
+> Any particular reason not to remove this work into the
+> common code in tcf_action_exec()?  Like so:
 
---- linux-2.6.9-rc3-bk3.orig/net/sched/sch_cbq.c	2004-10-04 00:03:47.000000000 +0200
-+++ linux-2.6.9-rc3-bk3/net/sched/sch_cbq.c	2004-10-04 00:07:32.000000000 +0200
-@@ -1675,7 +1675,6 @@
- 	cl->xstats.undertime = 0;
- 	if (!PSCHED_IS_PASTPERFECT(cl->undertime))
- 		cl->xstats.undertime = PSCHED_TDIFF(cl->undertime, q->now);
--	q->link.xstats.avgidle = q->link.avgidle;
- 	if (cbq_copy_xstats(skb, &cl->xstats)) {
- 		spin_unlock_bh(&sch->dev->queue_lock);
- 		goto rtattr_failure;
+Looks good ;-> Go ahead and push that instead and i will run my
+regression tests on your changes.
+
+cheers,
+jamal
