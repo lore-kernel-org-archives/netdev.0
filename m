@@ -1,47 +1,41 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
-Date: Tue, 2 Dec 2003 03:26:06 -0800
+Subject: Re: [patch] 2.4 lacks dummy SET_NETDEV_DEV
+Date: Tue, 2 Dec 2003 03:28:25 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202032606.28db927b.davem@redhat.com>
-References: <072501c3b874$2542ae70$15fea8c0@fortress>
-	<16332.27919.502097.988522@robur.slu.se>
+Message-ID: <20031202032825.12ded81f.davem@redhat.com>
+References: <20031110181917.GA25846@ee.oulu.fi>
+	<20031110221430.GA26556@ee.oulu.fi>
+	<20031110221429.04732a57.davem@redhat.com>
+	<20031202104024.GA9163@ee.oulu.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: francois@baligant.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, marcelo.tosatti@cyclades.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16332.27919.502097.988522@robur.slu.se>
+To: Pekka Pietikainen <pp@ee.oulu.fi>
+In-Reply-To: <20031202104024.GA9163@ee.oulu.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2 Dec 2003 11:44:31 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+On Tue, 2 Dec 2003 12:40:25 +0200
+Pekka Pietikainen <pp@ee.oulu.fi> wrote:
 
-> No experience with 90k TCP-flows but it seems GC is not able to free some 
-> the dst-entries for some reason. This will slowly kill your box with 
-> symptoms you describe. We have ask TCP-experts for timer settings to avoid
-> pending sessions etc. Also check slab for any other objects growing as 
-> dst cache overflow is most likely secondary effect in your case. rtstat 
-> looks sane expect for the high number of dst-entries. Tuning is another 
-> story.
+> On Mon, Nov 10, 2003 at 10:14:29PM -0800, David S. Miller wrote:
+> > I agree, someone should merge in the dummy SET_NETDEV_DEV once
+> > Marcelo starts up 2.4.24-preX
+>
+> Ping :-)
 
-Let us assume, for the sake of back of the envelope calculations, that
-all 90k TCP connections speak to unique destinations.  Let us further
-assume that all of them have at least one packet in flight.
+Yes Marcelo, please apply this.
 
-This means the routing cache must be able to hold at least 90k entries.
-All of these routing cache entires will be referenced by the packets
-in the TCP retransmission queues of all the sockets, and thus the
-entries are unreclaimable.
-
-You are setting net.ipv4.route.max_size to 655360 which should be more
-than enough.  But you also have to make the net.ipv4.route.gc_thresh
-more reasonable as well, perhaps 90K as a test.
-
-If net.ipv4.route.gc_thresh is lower than 90K and my assertions above
-hold, then the kernel will try to garbage collect too early, all the
-routing cache entries will be in use and therefore uncollectable,
-and you'll get the message you're seeing.
-
-Try to pump up gc_thresh and see if that helps.
+> --- linux-2.4.22-1.2115.nptl/include/linux/netdevice.h.orig	2003-11-10 20:08:42.922635848 +0200
+> +++ linux-2.4.22-1.2115.nptl/include/linux/netdevice.h	2003-11-10 20:09:09.754556776 +0200
+> @@ -456,6 +456,8 @@
+>  #endif /* CONFIG_NET_DIVERT */
+>  };
+>  
+> +/* 2.6 compatibility */
+> +#define SET_NETDEV_DEV(net, pdev) do { } while (0)
+>  
+>  struct packet_type 
+>  {
