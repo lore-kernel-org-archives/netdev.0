@@ -1,25 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fw: [Bugme-new] [Bug 1148] New: when using ipsec with DSL
- connections communication will hang if mtu is 1500(the default value)
-Date: Tue, 26 Aug 2003 23:04:55 -0700
+Subject: Re: [PATCH] IPv6: Allow nested IPv6 encapsulations on same node
+Date: Wed, 27 Aug 2003 04:20:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030826230455.70059a69.davem@redhat.com>
-References: <20030826003949.78ea3d07.akpm@osdl.org>
-	<20709.1061931582@marajade.sandelman.ottawa.on.ca>
+Message-ID: <20030827042036.3a00aca8.davem@redhat.com>
+References: <Pine.LNX.4.44.0308271413450.7839-100000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, uwe.schmeling@t-online.de
+Cc: usagi-core@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-In-Reply-To: <20709.1061931582@marajade.sandelman.ottawa.on.ca>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0308271413450.7839-100000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Aug 2003 16:59:42 -0400
-Michael Richardson <mcr@sandelman.ottawa.on.ca> wrote:
+On Wed, 27 Aug 2003 14:26:42 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
->   This sure sounds like a classif pmtud blackhole problem.
+> this incremental patch allows nested IPv6 encapsulations on the same node
+> by allocating separate sockets for all ip6_tnl devices. Please apply!
 
-Regardless of his configuration, we don't propagate PMTU's
-over tunneled IPSEC connections properly at all.
+If you didn't use sockets to send the packets out, you wouldn't
+have this problem to begin with.
+
+Why do you need to use sockets?  Just send the packets out normally.
