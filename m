@@ -1,36 +1,89 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Openswan Users] Invalid argument NULL
-Date: Mon, 16 Aug 2004 18:17:17 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [XFRM] Kill unused flow_hash
+Date: Tue, 17 Aug 2004 11:35:01 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040816181717.4b943e31.davem@redhat.com>
-References: <BD428BAA.4BBE%jiva@ixiacom.com>
-	<E1BwINn-0000ZX-00@gondolin.me.apana.org.au>
-	<20040815112548.GA2864@gondor.apana.org.au>
-	<20040815195313.31bacf13.davem@redhat.com>
-	<20040817004141.GA18789@gondor.apana.org.au>
-	<20040816180350.780e4912.davem@redhat.com>
-	<20040817011717.GA18992@gondor.apana.org.au>
+Message-ID: <20040817013501.GA21685@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jiva@ixiacom.com, users@lists.openswan.org, dev@lists.openswan.org,
-        kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="0OAP2g/MAC+5xKAE"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040817011717.GA18992@gondor.apana.org.au>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Aug 2004 11:17:17 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> I mean that we should keep the numbers internally.  So xfrm_user.c
-> will translate the names given by existing applications into numbers
-> as the patch that you've just applied does.
+--0OAP2g/MAC+5xKAE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Ok, that works.
+Hi Dave:
 
-> We can then create a new NETLINK payload type that uses numbers if
-> we wish.
+This patch removes a left-over from the days when the flow cache lived
+in xfrm_policy.c.
 
-I think that will just be bloat.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--0OAP2g/MAC+5xKAE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== include/net/xfrm.h 1.65 vs edited =====
+--- 1.65/include/net/xfrm.h	2004-08-14 20:59:43 +10:00
++++ edited/include/net/xfrm.h	2004-08-17 11:20:39 +10:00
+@@ -304,47 +304,6 @@
+ extern int xfrm_unregister_km(struct xfrm_mgr *km);
+ 
+ 
+-#define XFRM_FLOWCACHE_HASH_SIZE	1024
+-
+-static inline u32 __flow_hash4(struct flowi *fl)
+-{
+-	u32 hash = fl->fl4_src ^ fl->fl_ip_sport;
+-
+-	hash = ((hash & 0xF0F0F0F0) >> 4) | ((hash & 0x0F0F0F0F) << 4);
+-
+-	hash ^= fl->fl4_dst ^ fl->fl_ip_dport;
+-	hash ^= (hash >> 10);
+-	hash ^= (hash >> 20);
+-	return hash & (XFRM_FLOWCACHE_HASH_SIZE-1);
+-}
+-
+-static inline u32 __flow_hash6(struct flowi *fl)
+-{
+-	u32 hash = fl->fl6_src.s6_addr32[2] ^
+-		   fl->fl6_src.s6_addr32[3] ^ 
+-		   fl->fl_ip_sport;
+-
+-	hash = ((hash & 0xF0F0F0F0) >> 4) | ((hash & 0x0F0F0F0F) << 4);
+-
+-	hash ^= fl->fl6_dst.s6_addr32[2] ^
+-		fl->fl6_dst.s6_addr32[3] ^ 
+-		fl->fl_ip_dport;
+-	hash ^= (hash >> 10);
+-	hash ^= (hash >> 20);
+-	return hash & (XFRM_FLOWCACHE_HASH_SIZE-1);
+-}
+-
+-static inline u32 flow_hash(struct flowi *fl, unsigned short family)
+-{
+-	switch (family) {
+-	case AF_INET:
+-		return __flow_hash4(fl);
+-	case AF_INET6:
+-		return __flow_hash6(fl);
+-	}
+-	return 0;	/*XXX*/
+-}
+-
+ extern struct xfrm_policy *xfrm_policy_list[XFRM_POLICY_MAX*2];
+ 
+ static inline void xfrm_pol_hold(struct xfrm_policy *policy)
+
+--0OAP2g/MAC+5xKAE--
