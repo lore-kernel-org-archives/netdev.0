@@ -1,89 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec and Path MTU
-Date: Thu, 17 Jun 2004 09:11:50 +1000
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [RFC] Wireless extensions rethink
+Date: Wed, 16 Jun 2004 16:11:13 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1BajZO-0001UK-00@gondolin.me.apana.org.au>
-References: <20040616202341.GD29781@ms2.inr.ac.ru>
-Cc: herbert@gondor.apana.org.au, davem@redhat.com, jmorris@redhat.com,
-        netdev@oss.sgi.com
+Message-ID: <20040616231113.GA31351@bougret.hpl.hp.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com> <40CF263E.70009@home.nl> <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <40D08769.3070106@home.nl> <20040616204248.GA23617@bougret.hpl.hp.com> <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com>
+Reply-To: jt@hpl.hp.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Gertjan van Wingerde <gwingerde@home.nl>, sfeldma@pobox.com,
+        netdev@oss.sgi.com, jkmaline@cc.hut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru (Alexey Kuznetsov)
-In-Reply-To: <20040616202341.GD29781@ms2.inr.ac.ru>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40D0D265.3070804@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+On Wed, Jun 16, 2004 at 07:06:13PM -0400, Jeff Garzik wrote:
+> Jean Tourrilhes wrote:
+> >	I think you did not understood my idea at all.
+> >	If you build a set of generic wrappers and hook them in the
+> >iw_handler table, you could trivially add the features you feel are
+> >missing into those wrappers. Those wrappers would expose whatever API
+> >you choose to the driver, call your struct wireless_ops for example.
 > 
-> So, holding pmtu at all the dst's is necessary and we have to sync
-> those mtus with dst_path instead using it directly.
+> That doesn't help anything.  Wrappers add code, while not solving the 
+> following problems...
 
-Agreed.  However, the we don't have enough dst's in the bundle as it
-is because each policy only has one bundle, but there may be aa
-arbitrary number of different paths and hence different PMTUs over
-that bundle.
+	You need to start somewhere. This allow you to experiment with
+the API simply until you get it to the point you like it.
 
->> Now the problem with all this is that it looks pretty complicated.
-> 
-> I am afraid I still did not understand your troubles completely.
-> 
-> Actually, the last time when we discussed this we had only one
-> but _damn_ ugly problem. We have to remember original packet content
-> to reply with ICMP correctly, when encapsulating. Is it possible
-> that you are confused with this? We do send invalid ICMP_FRAG_NEEDED
-> from ip_fragment. PMTU discovery will work only if we reply to original,
-> not transofrmed packet. See?
-
-Well Alexey that's a totally different topic altogether :) Yes this
-is something that we should look at since it is specified in RFC2401.
-
-However, let's get the simple stuff to work first, that is, let's make
-sure that Linux itself knows what the MTU is before we attempt to send
-ICMP packets back to the original host.
-
-Let me restate my problem in terms of examples.
-
-Scenario 1:
-
-This is what prompted me to look at this two months ago.  The stack
-assumes that the MTU for an xfrm dst is equal to
-
-	dst_pmtu(dst) - dst->header_len - dst->trailer_len
-
-But this is not true for ESP due to block padding.  The trailer_len
-is variable and the one we store in trailer_len is not the maximum.
-
-There are two approaches to this problem.  We can either store the
-maximum trailer_len, or make dst_pmtu(dst) return the correct MTU
-directly.
-
-The former is simple to do, but has the disadvantage of wasting
-bandwidth up to a block.  The latter looks non-trivial, but is
-pretty simple once we solve the following problems.
-
-Scenario 2:
-
-Suppose that we have a remote subnet where PMTU doesn't work for
-whatever reason.  However, we do know what the correct MTU is.
-If IPsec weren't involved, you could simply do
-
-	ip r r 192.168.0.0/16 dev vpn mtu 1400
-
-But this doesn't work with IPsec as the MTU is retrieved from the
-path by dst_pmtu.  And the path is always the final gateway in
-the bundle.
-
-Scenario 3:
-
-Suppose that your default gateway requires you to talk to it using
-IPsec (wireless gateway for example).  As it is, this break PMTU
-for everything over it.  The reason is that when we receive an
-ICMP packet for a remote host behind the gateway, the MTU will be
-stored in the route entry as usual.  But the route entry is not
-used to calculate the MTU at all!
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+	Jean
