@@ -1,38 +1,41 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: Kernel panic using frame relay protocol and IPSec
-Date: Fri, 16 Apr 2004 18:10:23 +0200
+From: John Wong <kernel@implode.net>
+Subject: forcedeth and kernel 2.6.5 has "no link"
+Date: Fri, 16 Apr 2004 11:38:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3ad1b3nv4.fsf@defiant.pm.waw.pl>
-References: <407E93F9.3010105@able.be>
+Message-ID: <20040416183844.GA2923@gambit.implode.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: c-d.hailfinger.kernel.2004@gmx.net, manfred@colorfullife.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, dev@able.be, netdev@oss.sgi.com
-In-Reply-To: <407E93F9.3010105@able.be> (Wim Ceulemans's message of "Thu, 15
- Apr 2004 15:54:01 +0200")
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Wim Ceulemans <wim.ceulemans@able.be> writes:
+Under kernel 2.6.4, ethtool reports:
 
-> We are using kernel 2.4.24 and super-freeswan 1.99.8.
-> When using the frame relay protocol when a psk tunnel is established,
-> we are seeing a kernel panic when we ping through the tunnel.
+Settings for eth0:
+        Link detected: yes
 
-Short version of my email to Wim:
+This is with forcedeth 0.23
 
-It looks like a known bug - IPSEC code seems to ignore
-dev->hard_header_len = 10 requirement for PVC devices and passes skbs
-which have less than 10 bytes of header space. Not sure how does it
-work with Ethernet which requires 14 bytes, though. It might be a good
-idea to investigate.
+Under kernel 2.6.5, ethtool reports:
 
+Settings for eth0:
+        Supports Wake-on: g
+        Wake-on: d
+        Link detected: no
 
-I wonder if the FR behavior is correct - i.e. is it OK to set
-dev->hard_header_len = 10 and expect that all skbs passed to
-dev->hard_start_xmit() will have at least 10 bytes of space before
-the data?
+This is with forcedeth 0.25
 
-Does the situation depend on dev->hard_header being non-NULL?
--- 
-Krzysztof Halasa, B*FH
+With 2.6.5, it doesn't see an link but there is one.  The connection is
+quite slow, so I'm thinking it may be using 10baseT-HD instead of
+100baseTx-FD.  The forcedeth driver does not appear to support
+autonegotiation.
+
+http://bugzilla.kernel.org/buglist.cgi?bug_status=UNCONFIRMED&bug_status=NEW&bug_status=OPEN&bug_status=ASSIGNED&bug_status=REOPENED&field0-0-0=product&type0-0-0=substring&value0-0-0=forcedeth&field0-0-1=component&type0-0-1=substring&value0-0-1=forcedeth&field0-0-2=short_desc&type0-0-2=substring&value0-0-2=forcedeth&field0-0-3=status_whiteboard&type0-0-3=substring&value0-0-3=forcedeth
+
+I had submitted the bugzilla id 2283.  2496 is something that I am
+experiencing too.
+
+John
