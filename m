@@ -1,33 +1,42 @@
 From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
 Subject: Re: [PATCH] rtnl_unlock/lock in sch_api.c
-Date: Tue, 29 Mar 2005 01:21:50 +0300 (EEST)
-Message-ID: <Pine.LNX.4.62.0503290121340.13715@webhosting.rdsbv.ro>
+Date: Tue, 29 Mar 2005 01:27:07 +0300 (EEST)
+Message-ID: <Pine.LNX.4.62.0503290126360.13715@webhosting.rdsbv.ro>
 References: <Pine.LNX.4.62.0503281720430.20453@webhosting.rdsbv.ro>
- <424819B8.8000201@trash.net> <Pine.LNX.4.62.0503290116210.13715@webhosting.rdsbv.ro>
- <42488316.3020004@trash.net>
+ <20050328144701.GA3086@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42488316.3020004@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050328144701.GA3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Mar 2005, Patrick McHardy wrote:
+On Mon, 28 Mar 2005, Thomas Graf wrote:
 
-> Catalin(ux aka Dino) BOIE wrote:
->> What to fix in Dave's patch? Seems ok to me.
+> Looks good, except...
+>> +				err = -EAGAIN;
 >
-> It didn't apply cleanly when I tried to apply it. Did
-> you try with latest -bk?
+> You're missing a goto err_out here, the ops == NULL won't catch it.
 >
-> Regards
-> Patrick
+>> +			}
+>>  		}
+>>  	}
+>>  #endif
+>>
+>> -	err = -EINVAL;
+>>  	if (ops == NULL)
+>>  		goto err_out;
+>
+> With the above goto inserted there is no need to move the err = -EINVAL.
 
-OK. I will fix it and I'll post again.
-Thank you!
+Thanks, Thomas.
+
+You are right.
+
+I'm redoind the patch right now.
 
 ---
 Catalin(ux aka Dino) BOIE
