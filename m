@@ -1,40 +1,32 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Problem with "ESP: sha1 digestsize 20 != 0"
-Date: Thu, 03 Feb 2005 21:04:33 +0100
-Message-ID: <1107461073.6833.8.camel@pegasus>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH] OpenBSD Networking-related randomization port
+Date: Thu, 3 Feb 2005 21:14:08 +0100
+Message-ID: <20050203201408.GB3199@xi.wantstofly.org>
+References: <20050202171702.24523.qmail@science.horizon.com> <1107365917.3754.155.camel@localhost.localdomain> <20050203115127.3245951f@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-To: Network Development Mailing List <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Lorenzo =?iso-8859-1?Q?Hern=E1ndez_Garc=EDa-Hierro?= <lorenzo@gnu.org>,
+        linux@horizon.com, mingo@elte.hu,
+        Arjan van de Ven <arjan@infradead.org>, bunk@stusta.de,
+        Chris Wright <chrisw@osdl.org>, davem@redhat.com,
+        Hank Leininger <hlein@progressive-comp.com>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com, Valdis.Kletnieks@vt.edu, spender@grsecurity.net
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050203115127.3245951f@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, Feb 03, 2005 at 11:51:27AM -0800, Stephen Hemminger wrote:
 
-when using my RAS account with 2.6.11-rc3, I see a lot of
+> Recent 2.6 does a more advanced form of port randomization already
+> using address hash at connect time.  tcp_v4_get_port is only used for
+> the case of applications that explicitly bind to port zero to find a
+> free port.
 
-	ESP: sha1 digestsize 20 != 0
-
-messages in my logs and the IPsec tunnel is not working. I tracked the
-problem down to the change below. After reverting this patch, everything
-works like before.
-
-Regards
-
-Marcel
+Is any such randomisation done or planned for UDP?
 
 
-ChangeSet@1.1830.738.7, 2005-01-25 21:53:42-08:00, herbert@gondor.apana.org.au
-  [XFRM]: Probe selected algorithm only.
-  
-  This patch removes an annoying problem in xfrm_user.  As it is every
-  time an SA is added it probes every known algorithm in the universe.
-  Now if they all existed it would be OK.  However, for the ones which
-  don't actually exist this causes multiple /sbin/modprobe processes to
-  be spawned which slows the system down when you're adding hundreds of
-  SAs.
-  
-  Since we know the type of algorithm required when we're adding a new
-  SA, we can get away with only probing the selected algorithms.  This
-  is what the following patch does for xfrm_user.
+--L
