@@ -1,9 +1,9 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC, PATCH 2/5]: netfilter+ipsec - output hooks
-Date: Fri, 19 Mar 2004 21:59:39 +1100
+Subject: Re: [RFC, PATCH 3/5]: netfilter+ipsec - input hooks
+Date: Fri, 19 Mar 2004 22:07:19 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040319105939.GA29066@gondor.apana.org.au>
-References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CEEC.7070009@trash.net>
+Message-ID: <20040319110719.GB29066@gondor.apana.org.au>
+References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF0E.3050708@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
@@ -11,48 +11,27 @@ Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <4059CEEC.7070009@trash.net>
+In-Reply-To: <4059CF0E.3050708@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 18, 2004 at 05:31:40PM +0100, Patrick McHardy wrote:
-> This patch adds new output-hooks. Packets with dst->xfrm != NULL
-> traverse the POST_ROUTING hook before dst_output is called. The
-> transformers mark the packets in the control buffer with a new flag
-> IPSKB_XFRM_TRANSFORMED, these packets then traverse the LOCAL_OUT
-> hook when they hit ip_output.
+On Thu, Mar 18, 2004 at 05:32:14PM +0100, Patrick McHardy wrote:
+>
+> diff -Nru a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+> --- a/net/ipv4/ip_input.c	Thu Mar 18 16:45:35 2004
+> +++ b/net/ipv4/ip_input.c	Thu Mar 18 16:45:35 2004
+> @@ -224,6 +224,12 @@
+>  	resubmit:
+>  		hash = protocol & (MAX_INET_PROTOS - 1);
+>  		raw_sk = sk_head(&raw_v4_htable[hash]);
+> +		ipprot = inet_protos[hash];
+> +		smp_read_barrier_depends();
+> +
+> +		if (skb->sp && !ipprot->xfrm_prot)
+> +			if (nf_postxfrm_input(skb))
+> +				goto out;
 
-Thank you very much for your patches.  This is definitely the biggest
-show stopper with the current IPsec stack.
-
-I've just got a minor point about this one:
-
-> @@ -119,12 +119,14 @@
->  /* This is gross, but inline doesn't cut it for avoiding the function
->     call in fast path: gcc doesn't inline (needs value tracking?). --RR */
->  #ifdef CONFIG_NETFILTER_DEBUG
-> -#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
-> - nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN)
-> +#define NF_HOOK_COND(pf, hook, skb, indev, outdev, okfn, cond)		\
-> +(!(cond)									\
-> + ? (okfn)(skb) 								\
-> + : nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN))
-
-Any reason why this is written with a negated cond? I get confused by
-double negations :)
-
->  #define NF_HOOK_THRESH nf_hook_slow
->  #else
-> -#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
-> -(list_empty(&nf_hooks[(pf)][(hook)])					\
-> +#define NF_HOOK_COND(pf, hook, skb, indev, outdev, okfn, cond)		\
-> +(!(cond) || list_empty(&nf_hooks[(pf)][(hook)])				\
-
-Ditto, what about
-
-((cond) && !list_empty(&nf_hooks[(pf)][(hook)) \
- ? nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN) \
- : (okfn)(skb))
+Need to check ipprot != NULL here.
 -- 
 Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
 Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
