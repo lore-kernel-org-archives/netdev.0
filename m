@@ -1,63 +1,67 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: wireless 2.6 work
-Date: Tue, 22 Mar 2005 21:15:52 -0500
-Message-ID: <4240D158.1060302@pobox.com>
-References: <20050310025036.GE17854@ruslug.rutgers.edu>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: [Bugme-new] [Bug 4381] New: When i try to start a pppoe conn.,
+ crash at net/core/skbuff.c:91
+Date: Wed, 23 Mar 2005 03:20:22 +0100
+Message-ID: <4240D266.4080403@trash.net>
+References: <20050321201150.39ba3467.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, Dan Williams <dcbw@redhat.com>,
-        vkondra@mail.ru, Linux Kernel <linux-kernel@vger.kernel.org>
-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
-In-Reply-To: <20050310025036.GE17854@ruslug.rutgers.edu>
+Content-Type: multipart/mixed;
+ boundary="------------070500070604000205000301"
+Cc: netdev@oss.sgi.com, o.cornu@gmail.com, paulus@samba.org
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050321201150.39ba3467.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez wrote:
-> Jeff,
+This is a multi-part message in MIME format.
+--------------070500070604000205000301
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Andrew Morton wrote:
+> Repeatable pppoe crash :(
 > 
-> I'm sick off the low activiity and slow support on wireless we have. I
-> know you're busy so I wanted to offer my help in helping around work on
-> wireless-2.6, now that I have time after work, and before I commit
-> myself to anything else. It's a bit suicidal, but oh well. Oh yeah and
-> I'll also start using bitkeeper due to the recent clarifications on the
-> license of its usage.
-
-Great!  While I think BitKeeper is useful, you are more than welcome to 
-continue sending patches.
-
-To wireless developers, BitKeeper will mainly be of use in sync'ing with 
-the latest wireless-2.6 tree.
-
-
-> I'll willing to review as much patches as I have to and also hopefully
-> write documentation on writing new wireless drivers. That said, if I can
-> be of any assistance, where what you like me to start on?
 > 
-> Here's what's on my agenda so far:
+> Begin forwarded message:
 > 
-> * Help cleanup new ralink driver, start using ieee802211 and get into wireless-2.6.
-> * Push prism54's new WPA and WDS support into wireless-2.6
-> * Start seeing what I can use off of ieee80211 for prism54, clean it,
->   and move to wireless-2.6
-> * Start incorporating WPA through wpa_supplicant onto as many drivers
-> * Start standardizing all things a bit, as bitched about and well pointed out
->   by Dan Williams <dcbw@redhat.com>
-> * Listen to Jouni, he's the man
+> http://bugme.osdl.org/show_bug.cgi?id=4381
+> 
+>            Summary: When i try to start a pppoe conn., crash at
+>                     net/core/skbuff.c:91
+>     Kernel Version: 2.6.11 (gentoo-dev-sources)
+>             Status: NEW
+>           Severity: blocking
+>              Owner: shemminger@osdl.org
+>          Submitter: o.cornu@gmail.com
+> 
+> Mar 21 21:28:05 Pai-mei <6>skput:over: f89b2335:16 put:16
+> dev:<NULL>
 
-Well, all this sounds good to me.  See also the 'status' post I just 
-made, and the 'note on wireless development process' I am about to write.
+Looks like hdrlen is uninitialized in ppp_async. This patch
+initializes it to 2 like in ppp_synctty, but I'm not sure
+whether this value is correct here. Paul?
 
-I'm really hoping someone will look into integrating wireless 802.11 as 
-a "real" protocol, rather than faking ethernet.  This work starts with 
-the "p80211" template DaveM provided, and hopefully continues with 
-Vladimir's updates of DaveM's code (did he post those anywhere?).  There 
-are also issues such as ARP types that Dan Williams mentioned to me as 
-issues.
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-The "integrate wireless into net stack" work requires a very 
-self-motivated person who is willing to poke into the net stack, and 
-answer their own questions.
 
-	Jeff
+--------------070500070604000205000301
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+===== drivers/net/ppp_async.c 1.26 vs edited =====
+--- 1.26/drivers/net/ppp_async.c	2005-01-21 06:02:12 +01:00
++++ edited/drivers/net/ppp_async.c	2005-03-23 03:15:31 +01:00
+@@ -183,6 +183,7 @@
+ 	ap->chan.private = ap;
+ 	ap->chan.ops = &async_ops;
+ 	ap->chan.mtu = PPP_MRU;
++	ap->chan.hdrlen = 2;
+ 	err = ppp_register_channel(&ap->chan);
+ 	if (err)
+ 		goto out_free;
+
+--------------070500070604000205000301--
