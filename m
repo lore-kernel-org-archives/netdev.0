@@ -1,54 +1,34 @@
-From: Alberto Bertogli <albertogli@telpin.com.ar>
-Subject: [PATCH] IPVS' Kconfig LBLC and LBLCR configuration typo
-Date: Mon, 14 Jul 2003 11:03:50 -0300
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Move eth_mac_addr and eth_change_mtu
+Date: Fri, 11 Jul 2003 16:57:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030714140350.GB1389@telpin.com.ar>
+Message-ID: <3F0F24B1.5050200@pobox.com>
+References: <20030711181946.GG20424@parcelfarce.linux.theplanet.co.uk> <20030711182330.GC16037@gtf.org> <20030711182530.GH20424@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Matthew Wilcox <willy@debian.org>
+In-Reply-To: <20030711182530.GH20424@parcelfarce.linux.theplanet.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Hi there!
-
-The following patch fixes what looks like a typo in ipvs' Kconfig
-(net/ipv4/ipvs/Kconfig).
-
-Both the IP_VS_LBLC and IP_VS_LBLCR schedulings have the same tristate
-line (well, not the same, IP_VS_LBLCR's has a 'g' missing at the end):
-
-tristate "locality-based least-connection with replication scheduling"
-
-But it looks like LBLC should be "locality-based least-connection
-scheduling" and LBLCR "locality-based least-connection with replication
-scheduling".
+Matthew Wilcox wrote:
+> On Fri, Jul 11, 2003 at 02:23:30PM -0400, Jeff Garzik wrote:
+> 
+>>On Fri, Jul 11, 2003 at 07:19:46PM +0100, Matthew Wilcox wrote:
+>>
+>>>Move eth_mac_addr() and eth_change_mtu() from drivers/net/net_init.c
+>>>to net/ethernet/eth.c
+>>
+>>Why?  It's not used outside of net_init.c AFAICS.
+> 
+> 
+> Preparation for the next stage of netdev_ops
 
 
-Thanks,
-		Alberto
+Well, I don't see/understand this next-stage, so elaboration would be 
+nice.  As-is, I do not support merging this patch.
 
-
---- Kconfig.orig	2003-07-14 10:32:06.000000000 -0300
-+++ Kconfig	2003-07-14 10:32:57.000000000 -0300
-@@ -147,7 +147,7 @@
- 	  unsure, say N.
- 
- config	IP_VS_LBLC
--	tristate "locality-based least-connection with replication scheduling"
-+	tristate "locality-based least-connection scheduling"
-         depends on IP_VS
- 	---help---
- 	  The locality-based least-connection scheduling algorithm is for
-@@ -163,7 +163,7 @@
- 	  unsure, say N.
- 
- config  IP_VS_LBLCR
--	tristate "locality-based least-connection with replication schedulin"
-+	tristate "locality-based least-connection with replication scheduling"
-         depends on IP_VS
- 	---help---
- 	  The locality-based least-connection with replication scheduling
+	Jeff
