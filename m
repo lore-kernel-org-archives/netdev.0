@@ -1,48 +1,34 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: Bluetooth BUG() in set_sk_owner().
-Date: Mon, 15 Sep 2003 09:54:10 +0100
+From: Amir Noam <amir.noam@intel.com>
+Subject: [PATCH 0/3] [bonding 2.4] final sync 2.4 <-> 2.6
+Date: Mon, 15 Sep 2003 11:59:58 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1063616050.21195.67.camel@hades.cambridge.redhat.com>
-References: <1063184337.32473.529.camel@hades.cambridge.redhat.com>
-	 <20030911182223.2e9b7118.davem@redhat.com>
+Message-ID: <200309151159.58050.amir.noam@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, shemminger@osdl.org, maxk@qualcomm.com,
-   marcel@holtmann.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030911182223.2e9b7118.davem@redhat.com>
+To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2003-09-11 at 18:22 -0700, David S. Miller wrote:
-> On Wed, 10 Sep 2003 09:58:57 +0100
-> David Woodhouse <dwmw2@infradead.org> wrote:
-> 
-> > It loks like the recent addition of sk_set_owner() to 
-> > bt_sock_alloc() was bogus... some of the callers of bt_sock_alloc()
-> > already do that for  This patch reverts it, and makes the remaining
-> > callers also set the owner for themselves...
-> 
-> Applied, thanks David.
+This small patch set handles the final bonding sync. Except for a small
+ipx_hdr() issue, 2.4 code after this set should be identical to 2.6 (with
+my latest 2.6 set applied: "propagating master's settings to slaves").
 
-Needs this too...
+Patch #3 isn't really a bonding patch, but it is needed for the seq_file
+patch to work in 2.4 (and the whole point of the code sync is that the same
+patches will cleanly apply to both trees).
 
-===== net/bluetooth/bnep/sock.c 1.11 vs edited =====
---- 1.11/net/bluetooth/bnep/sock.c	Thu Jun  5 01:57:08 2003
-+++ edited/net/bluetooth/bnep/sock.c	Fri Sep 12 09:16:17 2003
-@@ -186,7 +189,8 @@
- 
- static struct net_proto_family bnep_sock_family_ops = {
- 	.family = PF_BLUETOOTH,
--	.create = bnep_sock_create
-+	.create = bnep_sock_create,
-+	.owner = THIS_MODULE
- };
- 
- int __init bnep_sock_init(void)
+This set applies on top of 2.4.23-pre4.
 
+The seq_file patch (that will apply to both 2.4 and 2.6) will be following
+this set shortly.
+
+patch1: Get rid of MOD_*_USE_COUNT, and use C99 initializers.
+patch2: Backport free_netdev().
+patch3: Backport PDE().
 
 -- 
-dwmw2
+Amir
