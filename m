@@ -1,52 +1,58 @@
-From: Chetan Kumar <shivakumar.chetan@gmail.com>
-Subject: Re: Some query on ingress policing
-Date: Fri, 18 Feb 2005 12:49:43 +0530
-Message-ID: <17fe83cb050217231925c43a8e@mail.gmail.com>
-References: <17fe83cb0502160349a4190d1@mail.gmail.com>
-	 <17fe83cb05021616323c3dab@mail.gmail.com>
-	 <7bca1cb5050217150642addd71@mail.gmail.com>
-Reply-To: Chetan Kumar <shivakumar.chetan@gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [XFRM]: Always reroute in tunnel mode
+Date: Fri, 18 Feb 2005 20:53:44 +1100
+Message-ID: <20050218095344.GA19307@gondor.apana.org.au>
+References: <4214381F.5020507@trash.net> <20050217113654.GA10346@gondor.apana.org.au> <4214DF5B.3010608@trash.net> <20050217203805.GA4047@gondor.apana.org.au> <42150B36.5080609@trash.net> <20050217221031.GA4554@gondor.apana.org.au> <42152283.4030800@trash.net> <20050217151122.098c6def.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Asim Shankar <asimshankar@gmail.com>
-In-Reply-To: <7bca1cb5050217150642addd71@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050217151122.098c6def.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Yes, That is the point. Now since the ingress policing is done in
-net_rx_action (i.e) after queueing the packet on the input queue, the
-packet which was misbehaving would have used the queue resources. One
-would drop the packet only after you clear the backlog queue, and a
-greedy flow could potentially over-run the buffer of well behaved
-flows.
+On Thu, Feb 17, 2005 at 03:11:22PM -0800, David S. Miller wrote:
+> 
+> I have to side with Patrick on this one.
 
-Also another serious issues is that if I ever want to provide priority
-for the VOIP traffic, that is not feasible since the backlog queue is
-drained in a FIFO manner.
+OK.
 
+> This is one of the fundamental tunnel behavior differences between
+> Transport mode and Tunnel mode SAs.
 
-On Thu, 17 Feb 2005 17:06:13 -0600, Asim Shankar <asimshankar@gmail.com> wrote:
-> > I was going thro the packet journey thro the network stack in Linux.
-> > Now if I want enable ingress policing, it looks like packet
-> > classification and policing should happen in netif_rx (i.e in the
-> > interrupt context) before packet is queued on to the input queue am I
-> > missing something.
-> 
-> My understanding is that ingress policing (the
-> qdisc_ingress->enqueue() call) is done in the softint. See
-> netif_receive_skb() for a call to ing_filter().
-> 
-> Alternatively, if CONFIG_NET_CLS_ACT=n and CONFIG_NETFILTER=y then the
-> policing happens as an NF_IP_PRE_ROUTING netfilter hook instead.
-> 
-> Also, netif_rx() is not the single point of entry for skb's to the
-> stack. NAPI drivers are polled for packets, so packets aren't always
-> picked up from the NIC in the interrupt context.
-> 
-> Hope that helps,
-> 
-> -- Asim
->
+I don't see it that way.  To me IPsec is about encapsulating a packet
+so that it gets to the destination securely.  It shouldn't affect the
+routing of the packet on the host itself.  Of course, once the packet
+leaves the host the IPsec encapsulation will certainly affect its
+routing.
+
+In this respect, the difference between transport mode SAs and tunnel
+mode SAs is simply that one adds an IP header while the other doesn't.
+
+Ideally I should be able to only look at the routing table and determine
+which interface/gateway a packet is going to be sent through.  As it is
+I need to look at the routing table plus the IPsec database.
+
+Put it another way, my solution to Patrick's inconsistency would be to
+always inherit the routing decision from the top to the bottom of the
+bundle.  For example, suppose you had
+
+ip ro add 192.168.0.0/16 \
+	nexthop via 10.0.0.1 dev eth0 \
+	nexthop via 10.0.0.2 dev eth0
+
+Then the packets to 192.168.0.0/16 should be sent via 10.0.0.1/10.0.0.2
+regardless of what IPsec protections are applied to it.
+
+This is something that can't be done in a clean way with the
+current setup.  I'd like to see that available in Linux at some
+point.  It'll have to be optional of course (selectable per-policy).
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
