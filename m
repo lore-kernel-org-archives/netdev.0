@@ -1,62 +1,50 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Mon, 4 Apr 2005 15:17:12 +0200
-Message-ID: <16977.15960.242211.442811@robur.slu.se>
-References: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au>
-	<424E641A.1020609@cosmosbay.com>
-	<16974.41648.568927.54429@robur.slu.se>
-	<20050402193224.GA25157@gondor.apana.org.au>
-	<16976.17876.832677.945878@robur.slu.se>
-	<20050403214358.GA15901@gondor.apana.org.au>
-	<16977.6411.415326.988754@robur.slu.se>
-	<20050404104857.GA32359@gondor.apana.org.au>
+From: Stephen Smalley <sds@tycho.nsa.gov>
+Subject: Re: [PATCH] Fix SELinux for removal of i_sock
+Date: Mon, 04 Apr 2005 10:13:53 -0400
+Message-ID: <1112624033.7629.61.camel@moss-spartans.epoch.ncsc.mil>
+References: <1112385997.14481.192.camel@moss-spartans.epoch.ncsc.mil>
+	 <20050401123520.7532528b.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Eric Dumazet <dada1@cosmosbay.com>, davem@davemloft.net,
-        netdev@oss.sgi.com
+Cc: jmorris@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        matthew@wil.cx
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050404104857.GA32359@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050401123520.7532528b.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2005-04-01 at 12:35 -0800, David S. Miller wrote:
+> On Fri, 01 Apr 2005 15:06:37 -0500
+> Stephen Smalley <sds@tycho.nsa.gov> wrote:
+> 
+> > This patch against -bk eliminates the use of i_sock by SELinux as it
+> > appears to have been removed recently, breaking the build of SELinux in
+> > -bk.  Simply replacing the i_sock test with an S_ISSOCK test would be
+> > unsafe in the SELinux code, as the latter will also return true for the
+> > inodes of socket files in the filesystem, not just the actual socket
+> > objects IIUC.  Hence this patch reworks the SELinux code to avoid the
+> > need to apply such a test in the first place, part of which was
+> > obsoleted anyway by earlier changes to SELinux.  Please apply.
+> > 
+> > Signed-off-by:  Stephen Smalley <sds@tycho.nsa.gov>
+> > Signed-off-by:  James Morris <jmorris@redhat.com>
+> 
+> Applied, thanks Stephen.
 
-Herbert Xu writes:
-
- > What I'm trying to catch is the case when you've got x number of
- > entries in the table and a large fraction of them are all in one
- > chain.
- > 
- > This does not conflict with the goal of keeping the chains short.
- > 
- > Even if you strictly allow only 8 entries per chain, it's trivial
- > to exceed 8 times the average chain length.
-
- OK! Since deletions doen't happen instantly..
- 
- Try some code it can print a warning to start with.
-
-
- > >  IMO the thoughts of extending in-flow GC etc are interesting and can
- > >  hopefully give us more robust performance.
- > 
- > Indeed, it looks like Alexey has already put the code there.  It just
- > needs to be made more strict :) It needs to free entries even if they
- > are in use.
- > 
- > After all, freeing an entry in use can't be much worse than not having
- > a cache at all.  OTOH, having a very long chain is definitely much worse
- > than not having a cache :)
-
- FYI I'm experimenting with "new" routing algo that does 24-bit ipv4 lookup 
- and routing without route hash to see if we can come close route hash
- performance  This needs memory. :)
-
- IP: FIB routing table of 16777216 buckets, 65536Kbytes for table id=255
-
- Needs some more work before testing.
-
-						--ro
+So, just for clarification, since a S_ISSOCK test is not necessarily
+equivalent to an i_sock test (in the case of inodes of socket files in
+the filesystem), was removing i_sock truly the right choice?  It may not
+be an issue for typical users of i_sock since you can't open a
+descriptor to such a socket file, so any code that was acting on an open
+file shouldn't have to deal with this ambiguity, but could possibly lead
+to an erroneous use of SOCKET_I on the inode of a socket file in other
+code (which is what would have happened in SELinux if we had just
+changed the i_sock test to an ISSOCK test).  Thanks, just trying to
+avoid confusion in the kernel in the future...
+  
+-- 
+Stephen Smalley <sds@tycho.nsa.gov>
+National Security Agency
