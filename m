@@ -1,57 +1,237 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: 23 Apr 2004 10:25:32 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1082730332.1027.57.camel@jzny.localdomain>
-References: <Pine.LNX.4.44.0404231006440.8887-100000@paix.pilosoft.com>
-Reply-To: hadi@cyberus.ca
+From: Wesley Eddy <weddy@grc.nasa.gov>
+Subject: TCP rto estimation patch
+Date: Fri, 23 Apr 2004 10:24:45 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040423142445.GC501@grc.nasa.gov>
+Reply-To: weddy@grc.nasa.gov
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        Florian Weimer <fw@deneb.enyo.de>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: alex@pilosoft.com
-In-Reply-To: <Pine.LNX.4.44.0404231006440.8887-100000@paix.pilosoft.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="WfZ7S8PLGjBY9Voh"
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264822AbUDWO2s@vger.kernel.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
 
-Clarification:
-I think the latency of my earlier email introduced by probably netdev is
-creating a lot of "hostile" responses to me ;-> I feel like i am in
-hostile path here ;->
-I sent that email a long time ago, seems like netdev or my ISP decided
-to deliver it now and reordered the delivery. This has happened to me a 
-few times before with netdev thats why i prefer to cc people whenever i
-can (worst case they receive more than one message)
-Consider that message obsolete. I know you can create this problem via
-brute force as you explained in your later email (that showed up
-yesterday).
+--WfZ7S8PLGjBY9Voh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-cheers,
-jamal
+The TCP RTO estimation algorithm defined in RFC 2988 is followed properly
+in the kernel, however the constants alpha and beta in the specification
+are hardcoded as 3 and 2 everywhere they occur in the kernel.  Since these
+constants crop up multiple times, this is poor programming practice.  This
+patch binds the numeric values to symbols RTT_ALPHA and RTTVAR_BETA, and
+uses those symbolic values throughout the code.  Since using 2 and 3 for
+these values is not mandatory, this makes tweaking them much easier.
 
-On Fri, 2004-04-23 at 10:15, alex@pilosoft.com wrote:
-> > And for something like a huge download to just regular joe, this is more
-> > of a nuisance assuming some kiddie has access between you and the
-> > server. OTOH, long lived BGP sessions are affected assuming you are
-> > going across hostile path to your peer.
-> Again - no hostile path necessary. Attack is brute-force and does not rely 
-> on MITM.
-> 
-> > So whats all this ado about nothing? Local media made it appear we are
-> > all about to die.
-> Pretty much.
-> > 
-> > Is anyone working on some fix?
-> In networking world, there was a craze of enabling TCP-MD5 for BGP
-> sessions reacting to this attack. There is alternative solution, "TTL
-> hack", relying that most BGP sessions are between directly-connected 
-> routers, so if connection originator sets TTL to 255 and receiver verifies 
-> that TTL on incoming packet is 255, you can be reasonably certain that the 
-> packet was sent by someone directly connected to you. ;)
-> 
-> -alex
-> 
-> 
+-Wes
+
+
+diff -ur linux-2.6.5/include/linux/tcp.h linux-2.6.5-weddy/include/linux/tc=
+p.h
+--- linux-2.6.5/include/linux/tcp.h     2004-04-03 22:37:06.000000000 -0500
++++ linux-2.6.5-weddy/include/linux/tcp.h       2004-04-21 16:05:38.0000000=
+00 -0
+400
+@@ -406,4 +406,8 @@
+=20
+ #endif
+=20
++/* weights for RTO estimator from RFC 2988 */
++#define RTT_ALPHA 3
++#define RTTVAR_BETA 2
++
+ #endif /* _LINUX_TCP_H */
+diff -ur linux-2.6.5/net/ipv4/tcp.c linux-2.6.5-weddy/net/ipv4/tcp.c
+--- linux-2.6.5/net/ipv4/tcp.c  2004-04-03 22:36:53.000000000 -0500
++++ linux-2.6.5-weddy/net/ipv4/tcp.c    2004-04-21 16:00:29.000000000 -0400
+@@ -2538,8 +2538,8 @@
+=20
+                info.tcpi_pmtu =3D tp->pmtu_cookie;
+                info.tcpi_rcv_ssthresh =3D tp->rcv_ssthresh;
+-               info.tcpi_rtt =3D ((1000000 * tp->srtt) / HZ) >> 3;
+-               info.tcpi_rttvar =3D ((1000000 * tp->mdev) / HZ) >> 2;
++               info.tcpi_rtt =3D ((1000000 * tp->srtt) / HZ) >> RTT_ALPHA;
++               info.tcpi_rttvar =3D ((1000000 * tp->mdev) / HZ) >> RTTVAR_=
+BETA;
+                info.tcpi_snd_ssthresh =3D tp->snd_ssthresh;
+                info.tcpi_snd_cwnd =3D tp->snd_cwnd;
+                info.tcpi_advmss =3D tp->advmss;
+diff -ur linux-2.6.5/net/ipv4/tcp_diag.c linux-2.6.5-weddy/net/ipv4/tcp_dia=
+g.c
+--- linux-2.6.5/net/ipv4/tcp_diag.c     2004-04-03 22:36:14.000000000 -0500
++++ linux-2.6.5-weddy/net/ipv4/tcp_diag.c       2004-04-21 16:01:08.0000000=
+00 -0
+400
+@@ -188,8 +188,8 @@
+=20
+                info->tcpi_pmtu =3D tp->pmtu_cookie;
+                info->tcpi_rcv_ssthresh =3D tp->rcv_ssthresh;
+-               info->tcpi_rtt =3D ((1000000*tp->srtt)/HZ)>>3;
+-               info->tcpi_rttvar =3D ((1000000*tp->mdev)/HZ)>>2;
++               info->tcpi_rtt =3D ((1000000*tp->srtt)/HZ)>>RTT_ALPHA;
++               info->tcpi_rttvar =3D ((1000000*tp->mdev)/HZ)>>RTTVAR_BETA;
+                info->tcpi_snd_ssthresh =3D tp->snd_ssthresh;
+                info->tcpi_snd_cwnd =3D tp->snd_cwnd;
+                info->tcpi_advmss =3D tp->advmss;
+diff -ur linux-2.6.5/net/ipv4/tcp_input.c linux-2.6.5-weddy/net/ipv4/tcp_in=
+put.c
+--- linux-2.6.5/net/ipv4/tcp_input.c    2004-04-03 22:37:39.000000000 -0500
++++ linux-2.6.5-weddy/net/ipv4/tcp_input.c      2004-04-21 15:59:25.0000000=
+00 -0
+400
+@@ -435,11 +435,12 @@
+        if(m =3D=3D 0)
+                m =3D 1;
+        if (tp->srtt !=3D 0) {
+-               m -=3D (tp->srtt >> 3);   /* m is now error in rtt est */
++               m -=3D (tp->srtt >> RTT_ALPHA);   /* m is now error in rtt =
+est */
+                tp->srtt +=3D m;          /* rtt =3D 7/8 rtt + 1/8 new */
+                if (m < 0) {
+                        m =3D -m;         /* m is now abs(error) */
+-                       m -=3D (tp->mdev >> 2);   /* similar update on mdev=
+ */
++                       /* similar update on mdev */
++                       m -=3D (tp->mdev >> RTTVAR_BETA);
+                        /* This is similar to one of Eifel findings.
+                         * Eifel blocks mdev updates when rtt decreases.
+                         * This solution is a bit different: we use finer g=
+ain
+@@ -449,9 +450,10 @@
+                         * happening in pure Eifel.
+                         */
+                        if (m > 0)
+-                               m >>=3D 3;
++                               m >>=3D RTT_ALPHA;
+                } else {
+-                       m -=3D (tp->mdev >> 2);   /* similar update on mdev=
+ */
++                       /* similar update on mdev */
++                       m -=3D (tp->mdev >> RTTVAR_BETA);
+                }
+                tp->mdev +=3D m;          /* mdev =3D 3/4 mdev + 1/4 new */
+                if (tp->mdev > tp->mdev_max) {
+@@ -461,19 +463,21 @@
+                }
+                if (after(tp->snd_una, tp->rtt_seq)) {
+                        if (tp->mdev_max < tp->rttvar)
+-                               tp->rttvar -=3D (tp->rttvar-tp->mdev_max)>>=
+2;
++                               tp->rttvar -=3D (tp->rttvar-tp->mdev_max) >>
++                                             RTTVAR_BETA;
+                        tp->rtt_seq =3D tp->snd_nxt;
+                        tp->mdev_max =3D TCP_RTO_MIN;
+                }
+        } else {
+                /* no previous measure. */
+-               tp->srtt =3D m<<3;        /* take the measured time to be r=
+tt */
+-               tp->mdev =3D m<<1;        /* make sure rto =3D 3*rtt */
++               /* take the measured time to be rtt */
++               tp->srtt =3D m<<RTT_ALPHA;
++               tp->mdev =3D m<< (RTTVAR_BETA-1); /* make sure rto =3D 3*rt=
+t */
+                tp->mdev_max =3D tp->rttvar =3D max(tp->mdev, TCP_RTO_MIN);
+                tp->rtt_seq =3D tp->snd_nxt;
+        }
+=20
+-       tcp_westwood_update_rtt(tp, tp->srtt >> 3);
++       tcp_westwood_update_rtt(tp, tp->srtt >> RTT_ALPHA);
+ }
+=20
+ /* Calculate rto without backoff.  This is the second half of Van Jacobson=
+'s
+@@ -491,7 +495,7 @@
+         *    is invisible. Actually, Linux-2.4 also generates erratic
+         *    ACKs in some curcumstances.
+         */
+-       tp->rto =3D (tp->srtt >> 3) + tp->rttvar;
++       tp->rto =3D (tp->srtt >> RTT_ALPHA) + tp->rttvar;
+=20
+        /* 2. Fixups made earlier cannot be right.
+         *    If we do not estimate RTO correctly without them,
+@@ -543,7 +547,7 @@
+                        if (m <=3D 0)
+                                dst->metrics[RTAX_RTT-1] =3D tp->srtt;
+                        else
+-                               dst->metrics[RTAX_RTT-1] -=3D (m>>3);
++                               dst->metrics[RTAX_RTT-1] -=3D (m>>RTT_ALPHA=
+);
+                }
+=20
+                if (!(dst_metric_locked(dst, RTAX_RTTVAR))) {
+@@ -551,7 +555,7 @@
+                                m =3D -m;
+=20
+                        /* Scale deviation to rttvar fixed point */
+-                       m >>=3D 1;
++                       m >>=3D (RTT_ALPHA-RTTVAR_BETA);
+                        if (m < tp->mdev)
+                                m =3D tp->mdev;
+=20
+@@ -559,7 +563,8 @@
+                                dst->metrics[RTAX_RTTVAR-1] =3D m;
+                        else
+                                dst->metrics[RTAX_RTTVAR-1] -=3D
+-                                       (dst->metrics[RTAX_RTTVAR-1] - m)>>=
+2;
++                                 (dst->metrics[RTAX_RTTVAR-1] - m ) >>
++                                 RTTVAR_BETA;
+                }
+=20
+                if (tp->snd_ssthresh >=3D 0xFFFF) {
+@@ -641,7 +646,8 @@
+        if (dst_metric(dst, RTAX_RTT) =3D=3D 0)
+                goto reset;
+=20
+-       if (!tp->srtt && dst_metric(dst, RTAX_RTT) < (TCP_TIMEOUT_INIT << 3=
+))
++       if (!tp->srtt && dst_metric(dst, RTAX_RTT) <
++                        (TCP_TIMEOUT_INIT << RTT_ALPHA))
+                goto reset;
+=20
+        /* Initial rtt is determined from SYN,SYN-ACK.
+@@ -2083,7 +2089,7 @@
+=20
+ static inline __u32 westwood_do_filter(__u32 a, __u32 b)
+ {
+-       return (((7 * a) + b) >> 3);
++       return ((7 * a) + b) >> 3;
+ }
+=20
+ static void westwood_filter(struct sock *sk, __u32 delta)
+diff -ur linux-2.6.5/net/ipv4/tcp_output.c linux-2.6.5-weddy/net/ipv4/tcp_o=
+utput
+=2Ec
+--- linux-2.6.5/net/ipv4/tcp_output.c   2004-04-03 22:37:36.000000000 -0500
++++ linux-2.6.5-weddy/net/ipv4/tcp_output.c     2004-04-21 16:00:39.0000000=
+00 -0
+400
+@@ -1356,7 +1356,7 @@
+                 * directly.
+                 */
+                if (tp->srtt) {
+-                       int rtt =3D max(tp->srtt>>3, TCP_DELACK_MIN);
++                       int rtt =3D max(tp->srtt>>RTT_ALPHA, TCP_DELACK_MIN=
+);
+=20
+                        if (rtt < max_ato)
+                                max_ato =3D rtt;
+
+--WfZ7S8PLGjBY9Voh
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAiSctzBuYqbnj3IwRAshIAJ9eBL6B6MVMwMziOvOyt7xyFKXOmgCcDO3w
+lHZ2p2mCEVYLBUPrEJ/BJNU=
+=/6Bl
+-----END PGP SIGNATURE-----
+
+--WfZ7S8PLGjBY9Voh--
