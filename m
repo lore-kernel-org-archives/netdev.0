@@ -1,314 +1,275 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/6) proteon -- probe2
-Date: Wed, 15 Oct 2003 13:48:05 -0700
+Subject: [PATCH] (5/6) ibmtr -- probe2
+Date: Wed, 15 Oct 2003 13:48:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310152048.h9FKm5511905@mail.osdl.org>
+Message-ID: <200310152048.h9FKmF811928@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert proteon token ring driver to new probing.
+Convert IBM ISA tokenring driver to new probing.
+Also, need to deal with the fact that the PCMCIA ibmtr_cs
+driver was calling the same probe routine.
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Mon Oct 13 14:10:06 2003
-+++ b/drivers/net/Space.c	Mon Oct 13 14:10:06 2003
-@@ -411,10 +411,13 @@
+--- a/drivers/net/Space.c	Wed Oct 15 13:34:56 2003
++++ b/drivers/net/Space.c	Wed Oct 15 13:34:56 2003
+@@ -409,12 +409,15 @@
+ 
+ #ifdef CONFIG_TR
  /* Token-ring device probe */
- extern int ibmtr_probe(struct net_device *);
- extern int sk_isa_probe(struct net_device *);
--extern int proteon_probe(struct net_device *);
-+extern struct net_device *proteon_probe(int unit);
+-extern int ibmtr_probe(struct net_device *);
++extern struct net_device *ibmtr_probe(int unit);
+ extern struct net_device *sk_isa_probe(int unit);
+ extern struct net_device *proteon_probe(int unit);
  extern struct net_device *smctr_probe(int unit);
  
  static struct devprobe2 tr_probes2[] __initdata = {
-+#ifdef CONFIG_PROTEON
-+	{proteon_probe, 0},
++#ifdef CONFIG_IBMTR
++	{ibmtr_probe, 0},
 +#endif
- #ifdef CONFIG_SMCTR
- 	{smctr_probe, 0},
- #endif
-@@ -438,9 +441,6 @@
- #endif
  #ifdef CONFIG_SKISA
- 	    sk_isa_probe(dev) == 0 || 
--#endif
--#ifdef CONFIG_PROTEON
--	    proteon_probe(dev) == 0 ||
+ 	{sk_isa_probe, 0},
  #endif
+@@ -439,9 +442,6 @@
+ 	sprintf(dev->name, "tr%d", unit);
+ 	netdev_boot_setup_check(dev);
+ 	if (
+-#ifdef CONFIG_IBMTR
+-	    ibmtr_probe(dev) == 0  ||
+-#endif
  	    0 ) 
  		err = register_netdev(dev);
-diff -Nru a/drivers/net/tokenring/proteon.c b/drivers/net/tokenring/proteon.c
---- a/drivers/net/tokenring/proteon.c	Mon Oct 13 14:10:06 2003
-+++ b/drivers/net/tokenring/proteon.c	Mon Oct 13 14:10:06 2003
-@@ -63,7 +63,7 @@
+ 		
+diff -Nru a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/pcmcia/ibmtr_cs.c
+--- a/drivers/net/pcmcia/ibmtr_cs.c	Wed Oct 15 13:34:56 2003
++++ b/drivers/net/pcmcia/ibmtr_cs.c	Wed Oct 15 13:34:56 2003
+@@ -125,18 +125,17 @@
  
- static char cardname[] = "Proteon 1392\0";
+ static dev_link_t *dev_list;
  
--int proteon_probe(struct net_device *dev);
-+struct net_device *proteon_probe(int unit);
- static int proteon_open(struct net_device *dev);
- static int proteon_close(struct net_device *dev);
- static void proteon_read_eeprom(struct net_device *dev);
-@@ -89,80 +89,69 @@
- 	outw(val, dev->base_addr + reg);
- }
+-extern int ibmtr_probe(struct net_device *dev);
+ extern int trdev_init(struct net_device *dev);
+ extern irqreturn_t tok_interrupt (int irq, void *dev_id, struct pt_regs *regs);
  
--struct proteon_card {
--	struct net_device *dev;
--	struct proteon_card *next;
--};
--
--static struct proteon_card *proteon_card_list;
--
--static int __init proteon_probe1(int ioaddr)
-+static int __init proteon_probe1(struct net_device *dev, int ioaddr)
+ /*====================================================================*/
+ 
+ typedef struct ibmtr_dev_t {
++    struct tok_info	ti;	/* must be first! */
+     dev_link_t		link;
+     struct net_device	*dev;
+     dev_node_t          node;
+     window_handle_t     sram_win_handle;
+-    struct tok_info	ti;
+ } ibmtr_dev_t;
+ 
+ static void netdev_get_drvinfo(struct net_device *dev,
+@@ -149,6 +148,13 @@
+ 	.get_drvinfo		= netdev_get_drvinfo,
+ };
+ 
++static int ibmtr_init(struct net_device *dev)
++{
++    extern int ibmtr_probe1(struct net_device *, int);
++
++    return ibmtr_probe1(dev, dev->base_addr);
++}
++
+ /*======================================================================
+ 
+     ibmtr_attach() creates an "instance" of the driver, allocating
+@@ -194,7 +200,8 @@
+ 
+     link->irq.Instance = info->dev = dev;
+     
+-    dev->init = &ibmtr_probe;
++    dev->init = ibmtr_init;
++
+     SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+ 
+     /* Register with Card Services */
+diff -Nru a/drivers/net/tokenring/ibmtr.c b/drivers/net/tokenring/ibmtr.c
+--- a/drivers/net/tokenring/ibmtr.c	Wed Oct 15 13:34:56 2003
++++ b/drivers/net/tokenring/ibmtr.c	Wed Oct 15 13:34:56 2003
+@@ -187,8 +187,7 @@
+ #define TRC_INITV 0x02		/*  verbose init trace points     */
+ unsigned char ibmtr_debug_trace = 0;
+ 
+-int 		ibmtr_probe(struct net_device *dev);
+-static int	ibmtr_probe1(struct net_device *dev, int ioaddr);
++int	ibmtr_probe1(struct net_device *dev, int ioaddr);
+ static unsigned char get_sram_size(struct tok_info *adapt_info);
+ static int 	trdev_init(struct net_device *dev);
+ static int 	tok_open(struct net_device *dev);
+@@ -325,29 +324,57 @@
+  *	which references it.
+  ****************************************************************************/
+ 
+-int __devinit ibmtr_probe(struct net_device *dev)
++struct net_device * __devinit ibmtr_probe(int unit)
  {
- 	unsigned char chk1, chk2;
- 	int i;
+-	int i;
+-	int base_addr = dev->base_addr;
++	struct net_device *dev = alloc_trdev(sizeof(struct tok_info));
++	const int *port;
++	int err = 0;
  
-+	if (!request_region(ioaddr, PROTEON_IO_EXTENT, cardname))
-+		return -ENODEV;
-+		
-+
- 	chk1 = inb(ioaddr + 0x1f);      /* Get Proteon ID reg 1 */
--	if (chk1 != 0x1f)
--		return (-1);
-+	if (chk1 != 0x1f) 
-+		goto nodev;
-+
- 	chk1 = inb(ioaddr + 0x1e) & 0x07;       /* Get Proteon ID reg 0 */
- 	for (i=0; i<16; i++) {
- 		chk2 = inb(ioaddr + 0x1e) & 0x07;
- 		if (((chk1 + 1) & 0x07) != chk2)
--			return (-1);
-+			goto nodev;
- 		chk1 = chk2;
- 	}
-+
-+	dev->base_addr = ioaddr;
- 	return (0);
-+nodev:
-+	release_region(ioaddr, PROTEON_IO_EXTENT); 
-+	return -ENODEV;
- }
- 
--int __init proteon_probe(struct net_device *dev)
-+struct net_device * __init proteon_probe(int unit)
- {
--        static int versionprinted;
-+	struct net_device *dev = alloc_trdev(sizeof(struct net_local));
- 	struct net_local *tp;
--	int i,j;
--	struct proteon_card *card;
--
--#ifndef MODULE
--	netdev_boot_setup_check(dev);
--	tr_setup(dev);
--#endif
-+        static int versionprinted;
-+	const unsigned *port;
-+	int j,err = 0;
- 
--	SET_MODULE_OWNER(dev);
--	if (!dev->base_addr)
--	{
--		for(i = 0; portlist[i]; i++)
--		{
--			if (!request_region(portlist[i], PROTEON_IO_EXTENT, cardname))
--				continue;
+-	if (base_addr && base_addr <= 0x1ff) /* Don't probe at all. */
+-		return -ENXIO;
+-	if (base_addr > 0x1ff) { /* Check a single specified location.  */
+-		if (!ibmtr_probe1(dev, base_addr)) return 0;
+-		return -ENODEV;
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
- 
--			if(proteon_probe1(portlist[i]))
--			{
--				release_region(dev->base_addr, PROTEON_IO_EXTENT); 
--				continue;
--			}
++
 +	if (unit >= 0) {
 +		sprintf(dev->name, "tr%d", unit);
 +		netdev_boot_setup_check(dev);
-+	}
+ 	}
+-	find_turbo_adapters(ibmtr_portlist);
+-	for (i = 0; ibmtr_portlist[i]; i++) {
+-		int ioaddr = ibmtr_portlist[i];
  
--			dev->base_addr = portlist[i];
--			break;
-+	SET_MODULE_OWNER(dev);
-+	if (dev->base_addr)	/* probe specific location */
-+		err = proteon_probe1(dev, dev->base_addr);
+-		if (!ibmtr_probe1(dev, ioaddr)) return 0;
++	if (dev->base_addr > 0x1ff) /* Check a single specified location.  */
++		err = ibmtr_probe1(dev, dev->base_addr);
++	else if (dev->base_addr != 0) /* Don't probe at all. */
++		err = -ENXIO;
 +	else {
-+		for (port = portlist; *port; port++) {
-+			err = proteon_probe1(dev, *port);
++		find_turbo_adapters(ibmtr_portlist);
++		for (port = ibmtr_portlist; *port; port++) {
++			err = ibmtr_probe1(dev, *port);
 +			if (!err)
 +				break;
- 		}
--		if(!dev->base_addr)
--			return -1;
- 	}
--	else
--	{
--		if (!request_region(dev->base_addr, PROTEON_IO_EXTENT, cardname))
--			return -1;
--
--		if(proteon_probe1(dev->base_addr))
--		{
--			release_region(dev->base_addr, PROTEON_IO_EXTENT); 
--			return -1;
--  		}
--	} 
++		}
++	}
 +	if (err)
-+		goto out4;
- 
- 	/* At this point we have found a valid card. */
- 
- 	if (versionprinted++ == 0)
- 		printk(KERN_DEBUG "%s", version);
- 
-+	err = -EIO;
- 	if (tmsdev_init(dev, ISA_MAX_ADDRESS, NULL))
- 		goto out4;
- 
-@@ -264,14 +253,11 @@
- 	printk(KERN_DEBUG "%s:    IO: %#4lx  IRQ: %d  DMA: %d\n",
- 	       dev->name, dev->base_addr, dev->irq, dev->dma);
- 		
--	/* Enlist in the card list */
--	card = kmalloc(sizeof(struct proteon_card), GFP_KERNEL);
--	if (!card)
-+	err = register_netdev(dev);
-+	if (err)
- 		goto out;
--	card->next = proteon_card_list;
--	proteon_card_list = card;
--	card->dev = dev;
--	return 0;
-+
-+	return dev;
- out:
- 	free_dma(dev->dma);
- out2:
-@@ -280,7 +266,8 @@
- 	tmsdev_term(dev);
- out4:
- 	release_region(dev->base_addr, PROTEON_IO_EXTENT); 
--	return -1;
-+	free_netdev(dev);
-+	return ERR_PTR(err);
- }
- 
- /*
-@@ -370,50 +357,50 @@
- MODULE_PARM(irq, "1-" __MODULE_STRING(ISATR_MAX_ADAPTERS) "i");
- MODULE_PARM(dma, "1-" __MODULE_STRING(ISATR_MAX_ADAPTERS) "i");
- 
--static int __init setup_card(unsigned long io, unsigned irq, unsigned char dma)
-+static struct net_device *proteon_dev[ISATR_MAX_ADAPTERS];
-+
-+static struct net_device * __init setup_card(unsigned long io, unsigned irq, unsigned char dma)
- {
--	int res = -ENOMEM;
--	struct proteon_card *this_card;
--	struct net_device *dev = alloc_trdev(0);
--
--	if (dev) {
--		dev->base_addr = io;
--		dev->irq       = irq;
--		dev->dma       = dma;
--		res = -ENODEV;
--		if (proteon_probe(dev) == 0) {
--			res = register_netdev(dev);
--			if (!res)
--				return 0;
--			release_region(dev->base_addr, PROTEON_IO_EXTENT);
--			free_irq(dev->irq, dev);
--			free_dma(dev->dma);
--			tmsdev_term(dev);
--			this_card = proteon_card_list;
--			proteon_card_list = this_card->next;
--			kfree(this_card);
--		}
--		kfree(dev);
--	}
--	return res;
-+	struct net_device *dev = alloc_trdev(sizeof(struct net_local));
-+	int err;
-+
-+	if (!dev)
-+		return ERR_PTR(-ENOMEM);
-+
-+	dev->irq = irq;
-+	dev->dma = dma;
-+	err = proteon_probe1(dev, io);
-+	if (err) 
 +		goto out;
-+		
++	
 +	err = register_netdev(dev);
 +	if (err)
 +		goto out1;
-+	return dev;
++	
++	return 0;
 + out1:
-+	release_region(dev->base_addr, PROTEON_IO_EXTENT);
-+	free_irq(dev->irq, dev);
-+	free_dma(dev->dma);
-+	tmsdev_term(dev);
++	release_region(dev->base_addr, IBMTR_IO_EXTENT);
++#ifndef PCMCIA
++	{ 
++		struct tok_info *ti = dev->priv;
++		iounmap((u32 *)ti->mmio);
++		iounmap((u32 *)ti->sram_virt);
+ 	}
+-	return -ENODEV;
++#endif		
 + out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
  }
  
- int init_module(void)
+ /*****************************************************************************/
+ 
+-static int __devinit ibmtr_probe1(struct net_device *dev, int PIOaddr)
++int ibmtr_probe1(struct net_device *dev, int PIOaddr)
  {
--	int i, num;
+ 
+ 	unsigned char segment, intr=0, irq=0, i, j, cardpresent=NOTOK, temp=0;
+@@ -1918,7 +1945,8 @@
+ 
+ static int __init ibmtr_init(void)
+ {
+-	int i;
 +	struct net_device *dev;
-+	int i, num = 0;
++	int i, err;
+ 	int count=0;
  
--	num = 0;
--	if (io[0]) { /* Only probe addresses from command line */
--		for (i = 0; i < ISATR_MAX_ADAPTERS ; i++) {
--			if (io[i] && setup_card(io[i], irq[i], dma[i]) == 0)
--				num++;
+ 	find_turbo_adapters(io);
+@@ -1926,26 +1954,29 @@
+ 	for (i = 0; io[i] && (i < IBMTR_MAX_ADAPTERS); i++) {
+ 		irq[i] = 0;
+ 		mem[i] = 0;
+-		dev_ibmtr[i] = alloc_trdev(sizeof(struct tok_info));
+-		if (dev_ibmtr[i] == NULL) { 
+-			if (i == 0)
+-				return -ENOMEM;
+-			break;
 -		}
--	} else {
--		for(i = 0; num < ISATR_MAX_ADAPTERS && portlist[i]; i++) {
--			if (setup_card(portlist[i], irq[num], dma[num]) == 0)
--				num++;
-+	for (i = 0; i < ISATR_MAX_ADAPTERS ; i++) {
-+		dev = io[0] ? setup_card(io[i], irq[i], dma[i])
-+			: proteon_probe(-1);
-+		if (!IS_ERR(dev)) {
-+			proteon_dev[i] = dev;
-+			++num;
- 		}
- 	}
-+
- 	printk(KERN_NOTICE "proteon.c: %d cards found.\n", num);
- 	/* Probe for cards. */
- 	if (num == 0) {
-@@ -425,11 +412,13 @@
- 
- void cleanup_module(void)
- {
--	struct net_device *dev;
--	struct proteon_card *this_card;
-+	int i;
- 
--	while (proteon_card_list) {
--		dev = proteon_card_list->dev;
-+	for (i = 0; i < ISATR_MAX_ADAPTERS ; i++) {
-+		struct net_device *dev = proteon_dev[i];
+-		dev_ibmtr[i]->base_addr = io[i];
+-		dev_ibmtr[i]->irq = irq[i];
+-		dev_ibmtr[i]->mem_start = mem[i];
+-		dev_ibmtr[i]->init = &ibmtr_probe;
+-		if (register_netdev(dev_ibmtr[i]) != 0) {
+-			kfree(dev_ibmtr[i]);
+-			dev_ibmtr[i] = NULL;
 +		
-+		if (!dev) 
++		dev = alloc_trdev(sizeof(struct tok_info));
++		if (!dev)
+ 			continue;
++		SET_MODULE_OWNER(dev);
++
++		dev->irq = irq[i];
++		dev->mem_start = mem[i];
++		err = ibmtr_probe1(dev, io[i]);
++		if (err) {
++			free_netdev(dev);
 +			continue;
- 		
- 		unregister_netdev(dev);
- 		release_region(dev->base_addr, PROTEON_IO_EXTENT);
-@@ -437,9 +426,6 @@
- 		free_dma(dev->dma);
- 		tmsdev_term(dev);
- 		free_netdev(dev);
--		this_card = proteon_card_list;
--		proteon_card_list = this_card->next;
--		kfree(this_card);
++		}			
++		err = register_netdev(dev);
++		if (err) {
++			printk("ibmtr: register_netdev() returned %d.\n", err);
++			break;
+ 		}
+ 		count++;
++		dev_ibmtr[i] = dev;
+ 	}
+-	if (count) return 0;
+-	printk("ibmtr: register_netdev() returned non-zero.\n");
+-	return -EIO;
++
++	return count ? 0 : -ENODEV;
+ }
+ module_init(ibmtr_init);
+ 
+@@ -1954,29 +1985,30 @@
+ 	int i;
+ 
+ 	for (i = 0; i < IBMTR_MAX_ADAPTERS; i++){
+-		if (!dev_ibmtr[i])
++		struct net_device *dev = dev_ibmtr[i];
++
++		if (!dev)
+ 			continue;
+-		if (dev_ibmtr[i]->base_addr) {
+-			outb(0,dev_ibmtr[i]->base_addr+ADAPTRESET);
++		if (dev->base_addr) {
++			outb(0,dev->base_addr+ADAPTRESET);
+ 			
+ 			schedule_timeout(TR_RST_TIME); /* wait 50ms */
+ 
+-                        outb(0,dev_ibmtr[i]->base_addr+ADAPTRESETREL);
++                        outb(0,dev->base_addr+ADAPTRESETREL);
+                 }
+ 
+-		unregister_netdev(dev_ibmtr[i]);
+-		free_irq(dev_ibmtr[i]->irq, dev_ibmtr[i]);
+-		release_region(dev_ibmtr[i]->base_addr, IBMTR_IO_EXTENT);
++		unregister_netdev(dev);
++		free_irq(dev->irq, dev);
++		release_region(dev->base_addr, IBMTR_IO_EXTENT);
+ #ifndef PCMCIA
+ 		{ 
+-			struct tok_info *ti = (struct tok_info *)
+-				dev_ibmtr[i]->priv;
++			struct tok_info *ti = dev->priv;
+ 			iounmap((u32 *)ti->mmio);
+ 			iounmap((u32 *)ti->sram_virt);
+ 		}
+ #endif		
+-		free_netdev(dev_ibmtr[i]);
+-		dev_ibmtr[i] = NULL;
++		free_netdev(dev);
++		dev_ibmtr[i] = 0;
  	}
  }
- #endif /* MODULE */
+ module_exit(ibmtr_cleanup);
