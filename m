@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/4) move code inline if short and used once.
-Date: Fri, 15 Aug 2003 15:36:13 -0700
+Subject: [PATCH] (4/4) add wireless statistics to sysfs
+Date: Fri, 15 Aug 2003 15:38:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030815153613.295aba61.shemminger@osdl.org>
+Message-ID: <20030815153804.58e7edc0.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,110 +12,96 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Now that unregister_sysfs got smaller, just eliminate it and call 
-class_device_unregister directly.  netdev_finish_unregister is called
-one place, therefore it is easier to understand if we just put those
-few lines into wait_allrefs state machine.
+Add wireless statistics to /net/class/ethXX/wireless.
 
-
-diff -Nru a/net/core/dev.c b/net/core/dev.c
---- a/net/core/dev.c	Fri Aug 15 15:24:32 2003
-+++ b/net/core/dev.c	Fri Aug 15 15:24:32 2003
-@@ -187,7 +187,6 @@
- 
- extern int netdev_sysfs_init(void);
- extern int netdev_register_sysfs(struct net_device *);
--extern void netdev_unregister_sysfs(struct net_device *);
- 
- 
- /*******************************************************************************
-@@ -2706,38 +2705,17 @@
- 	goto out;
- }
- 
--/**
-- *	netdev_finish_unregister - complete unregistration
-- *	@dev: device
-+/*
-+ * netdev_wait_allrefs - wait until all references are gone.
-  *
-- *	Destroy and free a dead device. A value of zero is returned on
-- *	success.
-+ * This is called when unregistering network devices.
-+ *
-+ * Any protocol or device that holds a reference should register
-+ * for netdevice notification, and cleanup and put back the
-+ * reference if they receive an UNREGISTER event.
-+ * We can get stuck here if buggy protocols don't correctly
-+ * call dev_put. 
-  */
--static int netdev_finish_unregister(struct net_device *dev)
--{
--	BUG_TRAP(!dev->ip_ptr);
--	BUG_TRAP(!dev->ip6_ptr);
--	BUG_TRAP(!dev->dn_ptr);
--
--	if (dev->reg_state != NETREG_UNREGISTERED) {
--		printk(KERN_ERR "Freeing alive device %p, %s\n",
--		       dev, dev->name);
--		return 0;
--	}
--#ifdef NET_REFCNT_DEBUG
--	printk(KERN_DEBUG "netdev_finish_unregister: %s%s.\n", dev->name,
--	       (dev->destructor != NULL)?"":", old style");
--#endif
--
--	/* It must be the very last action, after this 'dev' may point
--	 * to freed up memory.
--	 */
--	if (dev->destructor)
--		dev->destructor(dev);
--
--	return 0;
--}
--
- static void netdev_wait_allrefs(struct net_device *dev)
- {
- 	unsigned long rebroadcast_time, warning_time;
-@@ -2833,13 +2811,23 @@
- 			break;
- 
- 		case NETREG_UNREGISTERING:
--			netdev_unregister_sysfs(dev);
-+			class_device_unregister(&dev->class_dev);
- 			dev->reg_state = NETREG_UNREGISTERED;
- 
- 			netdev_wait_allrefs(dev);
-+
-+			/* paranoia */
- 			BUG_ON(atomic_read(&dev->refcnt));
--				
--			netdev_finish_unregister(dev);
-+			BUG_TRAP(!dev->ip_ptr);
-+			BUG_TRAP(!dev->ip6_ptr);
-+			BUG_TRAP(!dev->dn_ptr);
-+
-+
-+			/* It must be the very last action, 
-+			 * after this 'dev' may point to freed up memory.
-+			 */
-+			if (dev->destructor)
-+				dev->destructor(dev);
- 			break;
- 
- 		default:
 diff -Nru a/net/core/net-sysfs.c b/net/core/net-sysfs.c
---- a/net/core/net-sysfs.c	Fri Aug 15 15:24:32 2003
-+++ b/net/core/net-sysfs.c	Fri Aug 15 15:24:32 2003
-@@ -341,11 +341,6 @@
- 	return ret;
- }
+--- a/net/core/net-sysfs.c	Fri Aug 15 15:25:00 2003
++++ b/net/core/net-sysfs.c	Fri Aug 15 15:25:00 2003
+@@ -15,6 +15,7 @@
+ #include <linux/if_arp.h>
+ #include <net/sock.h>
+ #include <linux/rtnetlink.h>
++#include <linux/wireless.h>
  
--void netdev_unregister_sysfs(struct net_device *net)
--{
--	class_device_unregister(&net->class_dev);
--}
--
- int netdev_sysfs_init(void)
- {
- 	return class_register(&net_class);
+ #define to_class_dev(obj) container_of(obj,struct class_device,kobj)
+ #define to_net_dev(class) container_of(class, struct net_device, class_dev)
+@@ -276,6 +277,67 @@
+ 	.attrs  = netstat_attrs,
+ };
+ 
++#ifdef WIRELESS_EXT
++/* helper function that does all the locking etc for wireless stats */
++static ssize_t wireless_show(struct class_device *cd, char *buf,
++			     ssize_t (*format)(const struct iw_statistics *,
++					       char *))
++{
++	struct net_device *dev = to_net_dev(cd);
++	const struct iw_statistics *iw;
++	ssize_t ret = -EINVAL;
++	
++	read_lock(&dev_base_lock);
++	if (dev_isalive(dev) && dev->get_wireless_stats 
++	    && (iw = dev->get_wireless_stats(dev)) != NULL) 
++		ret = (*format)(iw, buf);
++	read_unlock(&dev_base_lock);
++
++	return ret;
++}
++
++/* show function template for wireless fields */
++#define WIRELESS_SHOW(name, field, format_string)			\
++static ssize_t format_iw_##name(const struct iw_statistics *iw, char *buf) \
++{									\
++	return sprintf(buf, format_string, iw->field);			\
++}									\
++static ssize_t show_iw_##name(struct class_device *cd, char *buf)	\
++{									\
++	return wireless_show(cd, buf, format_iw_##name);		\
++}									\
++static CLASS_DEVICE_ATTR(name, S_IRUGO, show_iw_##name, NULL)
++
++WIRELESS_SHOW(status, status, fmt_hex);
++WIRELESS_SHOW(link, qual.qual, fmt_dec);
++WIRELESS_SHOW(level, qual.level, fmt_dec);
++WIRELESS_SHOW(noise, qual.noise, fmt_dec);
++WIRELESS_SHOW(nwid, discard.nwid, fmt_dec);
++WIRELESS_SHOW(crypt, discard.code, fmt_dec);
++WIRELESS_SHOW(fragment, discard.fragment, fmt_dec);
++WIRELESS_SHOW(misc, discard.misc, fmt_dec);
++WIRELESS_SHOW(retries, discard.retries, fmt_dec);
++WIRELESS_SHOW(beacon, miss.beacon, fmt_dec);
++
++static struct attribute *wireless_attrs[] = {
++	&class_device_attr_status.attr,
++	&class_device_attr_link.attr,
++	&class_device_attr_level.attr,
++	&class_device_attr_noise.attr,
++	&class_device_attr_nwid.attr,
++	&class_device_attr_crypt.attr,
++	&class_device_attr_fragment.attr,
++	&class_device_attr_retries.attr,
++	&class_device_attr_misc.attr,
++	&class_device_attr_beacon.attr,
++	NULL
++};
++
++static struct attribute_group wireless_group = {
++	.name = "wireless",
++	.attrs = wireless_attrs,
++};
++#endif
+ 
+ #ifdef CONFIG_HOTPLUG
+ static int netdev_hotplug(struct class_device *cd, char **envp,
+@@ -331,6 +393,11 @@
+ 	    (ret = sysfs_create_group(&class_dev->kobj, &netstat_group)))
+ 		goto out_unreg; 
+ 
++#ifdef WIRELESS_EXT
++	if (net->get_wireless_stats &&
++	    (ret = sysfs_create_group(&class_dev->kobj, &wireless_group)))
++		goto out_unreg; 
++#endif
+ 	return 0;
+ 
+ out_unreg:
