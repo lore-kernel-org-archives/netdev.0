@@ -1,46 +1,32 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
-Date: Wed, 8 Dec 2004 14:07:07 -0800
-Message-ID: <20041208140707.61c2237c@dxpl.pdx.osdl.net>
-References: <1102380430.6103.6.camel@buffy>
-	<20041206224441.628e7885.akpm@osdl.org>
-	<1102422544.1088.98.camel@jzny.localdomain>
-	<41B5E188.5050800@trash.net>
-	<20041207170748.GF1371@postel.suug.ch>
-	<41B5E722.2080600@trash.net>
-	<20041207213053.6bb602c1.davem@davemloft.net>
-	<1102507470.1051.27.camel@jzny.localdomain>
-	<41B73263.4040706@trash.net>
-	<20041208113014.3dcad5f5@dxpl.pdx.osdl.net>
-	<41B77072.2070200@trash.net>
+From: Karsten Desler <kdesler@soohrt.org>
+Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
+Date: Wed, 8 Dec 2004 23:06:01 +0100
+Message-ID: <20041208220601.GA18066@quickstop.soohrt.org>
+References: <20041206205305.GA11970@soohrt.org> <20041207211035.GA20286@quickstop.soohrt.org> <16822.12630.275389.575326@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Karsten Desler <kdesler@soohrt.org>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+        jamal <hadi@cyberus.ca>, P@draigBrady.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41B77072.2070200@trash.net>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <16822.12630.275389.575326@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 08 Dec 2004 22:21:54 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+>    rhash_entries=  [KNL,NET]
+>                         Set number of hash buckets for route cache
 
-> Stephen Hemminger wrote:
-> 
-> >I don't know if this is related but something broke netem after 2.6.10-rc2
-> >Now a simple request to delay 10ms ends up taking 1000ms.
-> >
-> >Still narrowing down the changeset, but it isn't a change in netem
-> >or tc utils since these didn't change.
-> >
-> >  
-> >
-> I can't find anything in the Changelog that looks related.
-> Can you give me a testcase ?
+IP: routing cache hash table of 131072 buckets, 1024Kbytes
+A 3 percent improvement over the average cpu usage in the last 8 hours
+compared to the same time yesterday.
+Still in the noise.
 
-I think the problem was a missing poke (qdisc_restart) in the netem timer
-routine, it probably worked earlier for me on other hardware because I was
-using different hardware that was waking up and checking tx in response
-to received packets.
+I'm going to try a day without netfilter next and then the realloc_skb
+patch.
+
+Cheers,
+ Karsten
