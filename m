@@ -1,45 +1,45 @@
-From: Andries Brouwer <aebr@win.tue.nl>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Sun, 29 Jun 2003 23:45:58 +0200
+Date: Sun, 29 Jun 2003 14:51:14 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030629214558.GA15089@win.tue.nl>
-References: <3EFC9203.3090508@candelatech.com> <20030627.144426.71096593.davem@redhat.com> <1056755070.5463.12.camel@dhcp22.swansea.linux.org.uk> <20030629.141528.74734144.davem@redhat.com>
+Message-ID: <20030629.145114.115923819.davem@redhat.com>
+References: <1056755070.5463.12.camel@dhcp22.swansea.linux.org.uk>
+	<20030629.141528.74734144.davem@redhat.com>
+	<20030629214558.GA15089@win.tue.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: alan@lxorguk.ukuu.org.uk, greearb@candelatech.com, mbligh@aracnet.com,
    linux-kernel@vger.kernel.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030629.141528.74734144.davem@redhat.com>
+To: aebr@win.tue.nl
+In-Reply-To: <20030629214558.GA15089@win.tue.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 29, 2003 at 02:15:28PM -0700, David S. Miller wrote:
+   From: Andries Brouwer <aebr@win.tue.nl>
+   Date: Sun, 29 Jun 2003 23:45:58 +0200
+   
+   Will you babysit them, check whether later snapshots correct this
+   flaw, resubmit your report every month if not?  Maybe you will. I
+   certainly don't - send the report and that's it.
 
->    From: Alan Cox <alan@lxorguk.ukuu.org.uk>
->    Date: 28 Jun 2003 00:04:30 +0100
->    
->    You are assuming there is a relationship in bug severity/commonness
->    and number of *developers* who hit it.
-> 
-> Not true, the assumption I make is that a bug report that
-> a bug reporter cares about, and a patch that a patch submitter
-> cares about, will all get resent if they get dropped.
-> 
-> If the reporter/submitter doesn't care, neither do I.
+And like evolution and many other processes in life, the things
+that put forth the effort will tend to get further and accomplish
+more.
 
-You are right, but only in the part where you say that this
-is the best, indeed the only, way you can work.
+As a result, your bug reports will tend to not be tended to,
+whilst those of the persistent people will.  People who care
+about their bug reports learn the become persistent or accept
+that their bugs tend to not get looked at.
 
-Alan is right, information is important, and a lot of it is
-submitted only once. (And a lot of it is submitted three times
-and ignored three times.)
+People who expect that, for free, one bug submission will get
+their bug fixed and this is somehow ensured are truly living
+in a dream world.
 
-Suppose you find a gcc bug, construct a small example that
-is mistranslated and send it off to the gcc list. Maybe even
-include a fix. Will you babysit them, check whether later snapshots
-correct this flaw, resubmit your report every month if not?
-Maybe you will. I certainly don't - send the report and that's it.
-
-Andries
+Let's see, what makes more sense from my perspective.  Should I reward
+and put forth effort for the people who fart a bug report onto the
+lists and expect everyone to stop what they're doing and fix the bug,
+or should I reward and put forth effort for the guy who spent the time
+to put together a stellar bug report and also doesn't mind
+retransmitting it from time to time whilst everyone is busy?
