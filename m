@@ -1,70 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>
 Subject: Re: Fw: hfsc and huge set of rules
-Date: Fri, 30 Jul 2004 12:34:49 +0200
+Date: Fri, 30 Jul 2004 13:08:15 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410A2449.3020701@trash.net>
-References: <20040729211844.61e8d328.davem@redhat.com>
+Message-ID: <20040730110815.GA7812@krezus.e-wro.net>
+References: <20040729211844.61e8d328.davem@redhat.com> <410A2449.3020701@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, devik@cdi.cz, netdev@oss.sgi.com,
-        tomasz.paszkowski@e-wro.pl
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LZvS9be/3tNcYl/X"
+Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca, devik@cdi.cz,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040729211844.61e8d328.davem@redhat.com>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <410A2449.3020701@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> Looks like qdisc destruction has some expensive algorithms.
-> Any quick ideas about the root culprit at least in the hfsc
-> case?  He says htb does it too.
 
-hfsc_destroy_qdisc takes O(n) time wrt. the number of classes,
-but 5-6 seconds is still long. If all these classes contain inner
-qdiscs other than the default, I guess removing the classes from
-dev->qdisc_list in qdisc_destroy takes up most of the time, with
-n O(n) operations. The __qdisc_destroy rcu callback also calls
-reset before destroy, I don't know any qdisc where this is really
-neccessary. Without inner qdiscs, I need to see the script first to
-judge what's going wrong. Tomasz ?
+--LZvS9be/3tNcYl/X
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-BTW: The lockless loopback patch broke qdisc_destroy in multiple ways.
-The rcu callback doesn't do any locking, to add locking all
-read/write_lock(qdisc_tree_lock) need to be changed to
-read/write_lock_bh because the callback is called from a tasklet,
-until now all changes to the tree structure were made in
-process-context. Additionally it invalidates the assumption made by
-dev_shutdown that qdisc_destroy will destroy all qdiscs and clear
-dev->qdisc_list immediately. Since qdisc->dev is not refcounted
-netdev_wait_allrefs won't notice when the rcu callback hasn't destroyed
-all qdiscs yet and free the device, but qdisc_destroy called from
-ops->destroy called from the callback will still access the memory.
-Patch coming up soon.
+On Fri, Jul 30, 2004 at 12:34:49PM +0200, Patrick McHardy wrote:
+> David S. Miller wrote:
+> >Looks like qdisc destruction has some expensive algorithms.
+> >Any quick ideas about the root culprit at least in the hfsc
+> >case?  He says htb does it too.
+>=20
+> hfsc_destroy_qdisc takes O(n) time wrt. the number of classes,
+> but 5-6 seconds is still long. If all these classes contain inner
+> qdiscs other than the default, I guess removing the classes from
+> dev->qdisc_list in qdisc_destroy takes up most of the time, with
+> n O(n) operations. The __qdisc_destroy rcu callback also calls
+> reset before destroy, I don't know any qdisc where this is really
+> neccessary. Without inner qdiscs, I need to see the script first to
+> judge what's going wrong. Tomasz ?
 
-Regards
-Patrick
+http://www.e-wro.pl/~acid/tc.batch.gz. In my opinion it's not the case
+of expensive algorithms, but the number of classes. With this rule set load=
+ed
+(tc -b tc.batch) command:
 
-> Begin forwarded message:
-> 
-> Date: Tue, 27 Jul 2004 11:47:02 +0200
-> From: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>
-> To: linux-kernel@vger.kernel.org
-> Subject: hfsc and huge set of rules
-> 
-> 
-> Hello,
-> 
-> I'am running hfsc qdisc with huge set of rules loaded.
-> 
-> root@hades:/home/system/scr/etc/hfsc_rebuild# cat tc.batch | grep hfsc | wc -l
->   27884
-> 
-> 
-> Always when I delete the root qdisc (qdisc del dev eth0 root)
-> the machine stop responding for about 5-6 seconds. As I think it's due the
-> hfsc_destory_qdisc is executed in main kernel thread. Similar problem is
-> present also in htb scheduler.
-> 
-> Is there any quick solution to solve this problem ?
-> 
+for i in 'e1.903 e0.930 e0.931 e0.932' ; do
+	tc qdisc del dev ${i} root
+done
+completly freezes machine for about 5-6 seconds.
+
+I was trying do modify the code od hfsc_qdisc_destroy scheduling another
+task using schedule_task (), but i don't have enough knowledge to do deal
+with proper locking of qdisc structures.
+
+--=20
+Tomasz Paszkowski
+
+--LZvS9be/3tNcYl/X
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+
+iD8DBQFBCiwfcNXOL98XeysRAlSMAKCM7HYVMAYP6yDx2dSgaoM3eCIy8gCfRBbU
++SbQkyCFUo5sjFRZ50ZkVrY=
+=+Wgu
+-----END PGP SIGNATURE-----
+
+--LZvS9be/3tNcYl/X--
