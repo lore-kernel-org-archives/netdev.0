@@ -1,33 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
-Date: Tue, 31 Aug 2004 12:33:22 +1000
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC/PATCH capture qdisc requeue event in stats
+Date: 30 Aug 2004 22:37:03 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040831023322.GA31201@gondor.apana.org.au>
-References: <20040831013841.GA5824@sunbeam.de.gnumonks.org> <E1C1yGT-000859-00@gondolin.me.apana.org.au> <20040830192458.1476df60.davem@davemloft.net>
+Message-ID: <1093919823.1043.80.camel@jzny.localdomain>
+References: <1093799632.1073.410.camel@jzny.localdomain>
+	 <20040830144033.2265a6e6.davem@redhat.com>
+	 <1093904088.1043.12.camel@jzny.localdomain>
+	 <20040830154430.769d1d59.davem@redhat.com>
+	 <1093906592.1037.32.camel@jzny.localdomain>
+	 <20040830160052.548c4846.davem@redhat.com>
+	 <1093916592.1037.51.camel@jzny.localdomain>
+	 <20040830191716.0d002f91.davem@redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: laforge@netfilter.org, netfilter-devel@lists.netfilter.org,
-        rusty@rustcorp.com.au, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040830192458.1476df60.davem@davemloft.net>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040830191716.0d002f91.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 30, 2004 at 07:24:58PM -0700, David S. Miller wrote:
-> On Tue, 31 Aug 2004 12:20:53 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > So it would be good to know why the oif key is a bad idea.
-> 
-> I'm OK with removing the oif check, but I'm not OK with the
-> idea of specifying a specific output interface in the
-> route lookup flow key here.
+On Mon, 2004-08-30 at 22:17, David S. Miller wrote:
+> On 30 Aug 2004 21:43:13 -0400
+> jamal <hadi@cyberus.ca> wrote:
 
-Can you please give a reason for that?
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> > Not sure i parsed that. You mean the tc_stats in user space will be the new 
+> > one.
+> 
+> Yes, that's his idea.  This way on older kernel the "new" statistics
+> just show up as zero.
+
+thmart. Lets go with this then. Steve, do you wanna take it from here
+with the iproute2 patch i sent or you want me to generate a new one? Now
+how do we tell all other people who have written netlink apps
+to beware?
+
+cheers,
+jamal
