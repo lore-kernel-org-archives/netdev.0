@@ -1,63 +1,84 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [CRYPTO] Fix stack overrun in crypt()
-Date: Thu, 15 Jul 2004 21:48:40 +1000
+From: "Michael T Kerrisk" <mtk-lists@gmx.net>
+Subject: Re: kernel-manpage inconsistency
+Date: Thu, 15 Jul 2004 14:51:35 +0200 (MEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040715114840.GA1325@gondor.apana.org.au>
+Message-ID: <4407.1089895895@www4.gmx.net>
+References: <Pine.NEB.4.60.0407142202270.24397@ukato.freeshell.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="BOKacYhQ+x31HxR3"
-Cc: James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
+To: Alexey Toptygin <alexeyt@freeshell.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello Alexey,
 
---BOKacYhQ+x31HxR3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> I don't know wether this is a kernel issue or a manpage issue, I just 
+> know that they disagree.
+> 
+> In recv(2) it says:
+> 
+>      MSG_TRUNC
+>  	Return  the  real  length of the packet, even when it was longer
+>  	than the passed buffer. Only valid for packet sockets.
+> 
+> But this is not honored.
 
-Hi:
+I don't know the details here, sorry.  A quick glance at the source
+(raw_recvmsg() in net/ipv4/raw.c) shows that MSG_TRUNC is used there.
 
-The stack allocation in crypt() is bogus as whether tmp_src/tmp_dst
-is used is determined by factors unrelated to nbytes and
-src->length/dst->length.
+> Also, in udp(7), it says:
+> 
+> IOCTLS
+>      These ioctls can be accessed using ioctl(2).  The correct syntax is:
+> 
+>  	int value;
+>  	error = ioctl(tcp_socket, ioctl_type, &value);
+> 
+>      SIOCINQ
+>  	Gets a pointer to an integer as argument. Returns  the  size  of
+>  	the  next pending datagram in the integer in bytes, or 0 when no
+>  	datagram is pending.
+> 
+>      SIOCOUTQ
+>  	Returns the number of data bytes in the local send  queue.  Only
+>  	supported with Linux 2.4 and above.
+> 
+> These don't appear to be implemented. ( They're not in any headers and
+> they're not listed in ioctl_list(2). )
 
-Since the condition for whether tmp_src/tmp_dst are used is very
-complex, let's allocate them always instead of guessing.
+They're names in the kernel source.  In userland, FIONREAD and TIOCOUTQ will
+do the trick for sockets.
 
-This fixes a number of weird crashes including those AES crashes
-that people have been seeing with the 2.4 backport + ipt_conntrack.
+> Please tell me who I need to report this to to get it fixed.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+The latest Linux man pages can always be found at 
+ftp://ftp.win.tue.nl/pub/linux-local/manpages/ and the maintainer is 
+Andries Brouwer (Andries.Brouwer@cwi.nl) -- he'll take suitable new man 
+pages, or patches in "diff -u" format.
 
-PS I think someone should double-check the logic in the scatterwalk
-stuff, especially the whichbuf bits.
+> Also, if there is a way to get the length of the next incoming datagram,
+> I would love to know about it. 
+
+FIONREAD on a datagram socket will do this.
+
+> Currently I'm resorting to:
+> 
+> while(1){
+>  	recvmsg(..., MSG_PEEK);
+>  	if ( flags & MSG_TRUNC ){
+>  		double buffer size;
+>  	} else {
+>  		break;
+>  	}
+> }
 
 Cheers,
+
+Michael
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---BOKacYhQ+x31HxR3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== crypto/cipher.c 1.18 vs edited =====
---- 1.18/crypto/cipher.c	2004-05-27 06:25:36 +10:00
-+++ edited/crypto/cipher.c	2004-07-15 21:40:53 +10:00
-@@ -52,8 +52,8 @@
- {
- 	struct scatter_walk walk_in, walk_out;
- 	const unsigned int bsize = crypto_tfm_alg_blocksize(tfm);
--	u8 tmp_src[nbytes > src->length ? bsize : 0];
--	u8 tmp_dst[nbytes > dst->length ? bsize : 0];
-+	u8 tmp_src[bsize];
-+	u8 tmp_dst[bsize];
- 
- 	if (!nbytes)
- 		return 0;
-
---BOKacYhQ+x31HxR3--
+Michael Kerrisk
+mtk-lists@gmx.net
