@@ -1,49 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] fix tcp_default_win_scale.
-Date: Tue, 6 Jul 2004 15:49:07 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040706154907.422a6b73.davem@redhat.com>
-References: <20040629222751.392f0a82.davem@redhat.com>
-	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
-	<20040630153049.3ca25b76.davem@redhat.com>
-	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
-	<20040701140406.62dfbc2a.davem@redhat.com>
-	<20040702013225.GA24707@conectiva.com.br>
-	<20040706093503.GA8147@outpost.ds9a.nl>
-	<20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net>
-	<20040706194034.GA11021@mail.shareable.org>
-	<20040706131235.10b5afa8.davem@redhat.com>
-	<20040706224453.GA6694@outpost.ds9a.nl>
+Date: Tue, 6 Jul 2004 15:50:13 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040706155013.32af8e13.davem@redhat.com>
+References: <20040706133559.70b6380d.davem@redhat.com>
+	<Pine.NEB.4.33.0407061751380.10143-100000@dexter.psc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jamie@shareable.org, shemminger@osdl.org, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20040706224453.GA6694@outpost.ds9a.nl>
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.NEB.4.33.0407061751380.10143-100000@dexter.psc.edu>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Jul 2004 00:44:53 +0200
-bert hubert <ahu@ds9a.nl> wrote:
+On Tue, 6 Jul 2004 17:55:12 -0400 (EDT)
+John Heffner <jheffner@psc.edu> wrote:
 
-> Not true - the outgoing SYN packet had window scale 7, when it was sent. The
-> SYN|ACK had window scale 0, when received by the initiating system.
-> 
-> Also - even if the remote were to assume a 47 byte window size, would it not
-> be able to send small packets? Or does the window size also include
-> packet haders?
+> Another bit to addr to the firewall / window scale mess:  I remember from
+> a while ago that the Cisco PIX firewalls would not allow a window scale of
+> greater than 8.  I don't know if they've fixed this or not.  It seems
+> like some sort of arbitrary limit.
 
-SWS avoidance makes us not send packets.  See this quote in an email
-from John Heffner the other week:
-
-================================
-To elaborate on my earlier mail. my hypothesis is that somehow the web
-server beleives that we sent a winscale of 0.  In such a case, when we try
-to advertise our initial 4*MSS (5840 bytes) of window, with a window scale
-of 3 we use a value of 730 in the window field.  All sender SWS avoidance
-(RFC1122) tests will fail, most notably 1 (because we already advertised
-5840 bytes and 730 < 5840/2) and 3 (because 730 < 1460).  With a winscale
-of 2, we will use a value of 1460 in the window field, so both tests will
-succeed.
-================================
+In what manner did it deal with > 8 window scales?  By rewriting the option
+or deleting the option entirely from the SYN or SYN+ACK packets?
