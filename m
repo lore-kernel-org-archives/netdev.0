@@ -1,22 +1,37 @@
-From: autoreply@adamsnames.tc
-Subject: (no subject)
-Date: Sat, 12 Feb 2005 08:38:24 +0000
-Message-ID: <E1CzsnI-0001qc-00@euterpe.william.org>
-References: <E1CzsnF-0007zI-00@joanna.william.org>
+From: Chris Wright <chrisw@osdl.org>
+Subject: [RFC][PATCH 0/3] netlink check sender
+Date: Sat, 12 Feb 2005 01:01:09 -0800
+Message-ID: <20050212010109.V24171@build.pdx.osdl.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, jmorris@redhat.com, sds@epoch.ncsc.mil,
+        serue@us.ibm.com
 To: netdev@oss.sgi.com
-In-Reply-To: <E1CzsnF-0007zI-00@joanna.william.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dear netdev@oss.sgi.com,
+The following patches are for comment.  They introduce a new callback
+to enable netlink messages to be validated in the sender's context,
+and then convert a couple kernel netlink receivers to use this callback.
+This eliminates the need to copy the sender's effective capabilities into
+the netlink control buffer.  It also allows the audit system to manage
+the loginuid in the kernel without adding more fields to netlink_skb_parms
+or requiring special case netlink code.  I think this would obsolete the
+security_netlink_recv hook, and simplify the security_netlink_send hook.
 
-Thank you for sending email to m@mail.tc. 
+Currently I've only hooked the unicast messages, because I didn't think
+any of the kernel netlink input functions would be processing broadcast
+messages (perhaps I missed something).
 
-Sadly Martin gets too much unsolicited at this email address, so
-please could you send your mail instead to mjo@adamsnames.tc ?
+I didn't move the logic that simply ignores messages (e.g. type <
+RTM_BASE), but I did move the logic that looks for invalid messages
+(e.g. type > RTM_MAX) to the check_sender callback.
 
-Yours faithfully,
---
-Martin Oldfield
-AdamsNames Ltd.
+Thoughts?
+
+thanks,
+-chris
+-- 
+Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
