@@ -1,36 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc2 1/1] r8169: default on disabling PCIDAC
-Date: Mon, 20 Sep 2004 15:11:11 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6] natsemi.c NAPI
+Date: Mon, 20 Sep 2004 12:12:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414F2B4F.3080606@pobox.com>
-References: <20040919224102.GA32577@electric-eye.fr.zoreil.com> <414F1DFD.9030008@pobox.com> <20040920190252.GA16429@electric-eye.fr.zoreil.com>
+Message-ID: <20040920121239.2a615c58.davem@davemloft.net>
+References: <20040920141030.GV1307@sunbeam.de.gnumonks.org>
+	<20040920115746.7ccbfb45.davem@davemloft.net>
+	<20040920190746.GA17210@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, Andy Lutomirski <luto@myrealbox.com>,
-        Jon Mason <jdmason@us.ibm.com>,
-        Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>,
-        netdev@oss.sgi.com
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040920190252.GA16429@electric-eye.fr.zoreil.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20040920190746.GA17210@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Jeff Garzik <jgarzik@pobox.com> :
-> [...]
-> 
->>Can this interrupt be used at runtime to detect that DAC isn't working?
-> 
-> 
-> Experiment suggests that. 
-> 
-> Errr... Do you really want to hot-reinit the device ?
+On Mon, 20 Sep 2004 15:07:46 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
+> On Mon, Sep 20, 2004 at 11:57:46AM -0700, David S. Miller wrote:
+> > This driver (before the NAPI patch) is a bit buggy, it does
+> > no RX processing SMP locking.  So if one one cpu you're doing
+> > RX interrupt processing, and on another cpu tx_timeout() runs
+> > we're totally screwed.
+> 
+> RX processing in current natsemi only happens in irq, and the natsemi
+> driver properly disables irqs when it needs to, AFAICS, using
+> enable/disable_irq().
 
-It's only a one-time operation that occurs on weird 64-bit boxes :)
-
-I applied the using_dac stuff, but do think there is _some_ better way.
-
-	Jeff
+Aha, ok that works.
