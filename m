@@ -1,39 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating master's
-  settings toslaves
-Date: Mon, 11 Aug 2003 12:43:47 -0400
+From: davej@redhat.com
+Subject: [PATCH] ipv4 reuses freed mem
+Date: Mon, 11 Aug 2003 17:48:57 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F37C7C3.7070807@pobox.com>
-References: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com> <200308111720.38472.shmulik.hen@intel.com> <1060612481.1034.15.camel@jzny.localdomain> <200308111925.38278.shmulik.hen@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Laurent DENIEL <laurent.deniel@thalesatm.com>,
-   bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Message-ID: <E19mFqr-00068Q-00@tetrachloride>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com, hadi@cyberus.ca
-In-Reply-To: <200308111925.38278.shmulik.hen@intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The answer is, like life, it's a balance.
+cat /proc/net/pnp will return garbage, as the fields it
+dumps are initdata.
 
-As a general rule, we do prefer to move all code possible out of the 
-Linux kernel.  We have even created "initramfs", which for 2.7, will be 
-used as a vehicle to move code from the kernel to userspace, that 
-previously had to be in the kernel only because it was a task that "had 
-to be performed at boot time".
-
-However, one must consider
-(1) does moving code to userspace create any security holes?
-(2) does moving code to userspace dramatically increase the number of 
-context switches?
-(3) does moving code to userspace violate some atomicity that being 
-inside the kernel guarantees?
-
-In practice, #3 is the showstopper that occurs most often.
-
-This is why I push for a "bonding-utils" package from Jay.... because of 
-the general rule above:  put it into userspace, where possible.
-
-	Jeff
+diff -urpN --exclude-from=/home/davej/.exclude bk-linus/net/ipv4/ipconfig.c linux-2.5/net/ipv4/ipconfig.c
+--- bk-linus/net/ipv4/ipconfig.c	2003-07-10 01:02:21.000000000 +0100
++++ linux-2.5/net/ipv4/ipconfig.c	2003-08-09 16:08:13.000000000 +0100
+@@ -125,14 +125,14 @@ int ic_proto_enabled __initdata = 0
+ 
+ int ic_host_name_set __initdata = 0;		/* Host name set by us? */
+ 
+-u32 ic_myaddr __initdata = INADDR_NONE;		/* My IP address */
+-u32 ic_netmask __initdata = INADDR_NONE;	/* Netmask for local subnet */
+-u32 ic_gateway __initdata = INADDR_NONE;	/* Gateway IP address */
++u32 ic_myaddr = INADDR_NONE;		/* My IP address */
++u32 ic_netmask = INADDR_NONE;	/* Netmask for local subnet */
++u32 ic_gateway = INADDR_NONE;	/* Gateway IP address */
+ 
+-u32 ic_servaddr __initdata = INADDR_NONE;	/* Boot server IP address */
++u32 ic_servaddr = INADDR_NONE;	/* Boot server IP address */
+ 
+-u32 root_server_addr __initdata = INADDR_NONE;	/* Address of NFS server */
+-u8 root_server_path[256] __initdata = { 0, };	/* Path to mount as root */
++u32 root_server_addr = INADDR_NONE;	/* Address of NFS server */
++u8 root_server_path[256] = { 0, };	/* Path to mount as root */
+ 
+ /* Persistent data: */
+ 
