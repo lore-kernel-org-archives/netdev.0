@@ -1,35 +1,45 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH] ipw2100 v1.1.0
-Date: Thu, 24 Mar 2005 10:59:59 -0800
-Message-ID: <20050324185959.GA22129@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: PCI interrupt problem: e1000 & Super-Micro X6DVA motherboard
+Date: Thu, 24 Mar 2005 11:38:28 -0800
+Message-ID: <42431734.3030905@candelatech.com>
+References: <42421FF2.7050501@candelatech.com> <20050324081003.GA23453@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@oss.sgi.com, James Ketrenos <jketreno@linux.intel.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>,
+        Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20050324081003.GA23453@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-James Ketrenos wrote :
+Lennert Buytenhek wrote:
+> On Wed, Mar 23, 2005 at 06:03:30PM -0800, Ben Greear wrote:
 > 
-> I wasn't sure where to actually stick the driver's selection it in the 
-> Kconfig menu.  Where its at now, it doesn't show up until you enable 
-> 'Generic IEEE 80211 subsystem', and then it shows up down under Wireless 
-> Lan entries.
+> 
+>>I have two 4-port e1000 NICs in the system, on a riser card.
+> 
+> 
+> How is the riser card wired?  F.e. does it have a single edge
+> connector, and provides two PCI slots, or does it have a tiny
+> additional edge connector that routes REQ#/GNT#/INTx from a
+> nearby PCI slot, etc.?
 
-	I personally enable the driver to be selected directly and
-then SELECT the 802.11 stack, the same way you SELECT the firmware
-loader. The logic is that the user doesn't really care how it's
-implemented under the cover (via the 802.11 stack or not), he just
-want to make his hardware work. A good example of this logic is the
-Aironet driver (PCI versus Pcmcia).
-	But, those are trivial matter that can be discussed and
-resolved long after the driver is in the kernel, so no need to respin
-your patch. Anyway, most people use distro kernels that have all
-options enabled...
+I was able to reproduce the problem even when the 4-port e1000 NIC
+is plugged directly into the motherboard, so it's not the
+riser...
 
-	Apart from that, congratulation on the excellent work...
-	Have fun...
+I also tried with a 4-port VIA-Rhine NIC (router-board 44).  It also
+fails it's third interface, with the same problem.  So, it is not
+the e1000 NIC nor the e1000 driver that is the problem.
 
-	Jean
+I do notice that it is the same interrupt (26) that is always assigned
+to the broken port.  I have the lspci and dmesg output for the via-rhine
+boot if anyone wants it...
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
