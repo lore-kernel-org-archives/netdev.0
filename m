@@ -1,69 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Jean Tourrilhes <jt@hpl.hp.com>
 Subject: Re: [PATCH] ieee80211 subsystem
-Date: Tue, 8 Feb 2005 11:13:25 -0800
-Message-ID: <20050208111325.45a8a106@dxpl.pdx.osdl.net>
-References: <4203C32A.70402@linux.intel.com>
-	<420843CF.7060303@osdl.org>
+Date: Tue, 8 Feb 2005 13:45:39 -0800
+Message-ID: <20050208214539.GA3290@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, netdev@oss.sgi.com
-To: James Ketrenos <jketreno@linux.intel.com>
-In-Reply-To: <420843CF.7060303@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+To: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A couple of observations:
+Stephen Hemminger wrote :
+> 
+> 9. Isn't SNAP generic and not part of just wireless, LLC and other places
+>    like ATM have the similar stuff, maybe one set of routines and definitions?
+> 
 
-1. You can get rid of the /proc interface altogether since now 
-with sysfs module parameters can be made accessible via module_param
+	SNAP is totally generic and IMHO should not be tied to the
+wireless stuff. I thought that SNAP was defined in 802.2, but RFC 1042
+seems to be the place (which is older than 802.11 or ATM).
+	First, if you use true IEEE 802.3 (as oppposed to the usual
+Ethernet II), the IP frames will use SNAP encapsulation (because the
+802.3 frames don't have a type field). I don't think there is many
+networks using 802.3 (mostly admin config error), which is why Linux
+doesn't seem to support it.
+	More importantly, there is a class of wireless drivers that
+would only need SNAP but not the rest of the 802.11 framework, because
+they use 802.3 frames natively. A good example is the Orinoco driver,
+you will find that the driver has SNAP encapsulation and
+decapsulation.
+	I can't comment on the ATM stuff...
+	I think IEEE has not changed their policy with respect to
+802.2, so IMHO we can expect more standard from them requiring SNAP in
+the future.
+	Have fun...
 
-2. Include files need to be moved and factored better:
-	include/linux/ieee80211.h for anything exposed to utilities and
-	   general API related
-	include/net/ieee80211.h for interfaces other drivers would use.
-	drivers/net/wireless/iee80211/iee80211_xxx.h for stuff that
-	   only gets used internally.
-
-3. Remove the BIT() macro and instead show the shift.
-   My preference would be to change to something like:
-
-enum ieee80211_rate {
-	IEEE80211_CCK_RATE_1MB_MASK	= 1<<0,
-	IEEE80211_CCK_RATE_2MB_MASK	= 1<<1,
-...
-
-4. Don't put data in .h files like eap_types[]
-   Maybe just move eap_get_type() to .c fle
-
-5. Use C99 initializers for tags arrays like eap_types[]
- i.e static const char *eap_types[] = {
-	[EAP_PACKET] = "EAP-Packet",
-...
-	
-5. Move is_broadcast_addr and is_multicast_addr to etherdevice.h
-   besides is_muliticast_addr(x) has extra uneeded test.
-
-6. Don't put format type stuff in .h file MAC_FMT, MAC_ARG, etc...
-
-7. Don't need () around simple integers in #define's
-	#define IEEE80211_3ADDR_LEN (24)
-
-8. Patch if_ether.h rather than stuff like:
- 	#ifndef ETH_P_80211_RAW
- 	#define ETH_P_80211_RAW (ETH_P_ECONET + 1)
-	#endif
-
-9. Isn't SNAP generic and not part of just wireless, LLC and other places
-   like ATM have the similar stuff, maybe one set of routines and definitions?
-
-10. Do we really need another set of statistics?  Already have ethtool, net_stats, wireless, ...?
-
-11. Does ieee->scans need to be atomic?
-
-12.  offset_in_page() shouldn't be here and is defined elsewhere.
-
-The basic philosophy changes as this gets incorporated in mailine kernel.
-You need to feel free to patch in several existing header files rather than
-standing alone as required in an out of tree driver.
+	Jean
