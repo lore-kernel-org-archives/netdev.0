@@ -1,13 +1,14 @@
 From: linux lover <linux_lover2004@yahoo.com>
 Subject: Skbuff modification
-Date: Sun, 5 Sep 2004 06:40:02 -0700 (PDT)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040905134002.41285.qmail@web52201.mail.yahoo.com>
+Date: Sun, 5 Sep 2004 06:40:56 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040905134056.87431.qmail@web52202.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266680AbUIENkH@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: linux-kernel@vger.kernel.org
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hello,
@@ -17,10 +18,7 @@ packet on network?
 Regards,
 linux lover
 
-
-	
-		
-__________________________________
-Do you Yahoo!?
-New and Improved Yahoo! Mail - 100MB free storage!
-http://promotions.yahoo.com/new_mail 
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
