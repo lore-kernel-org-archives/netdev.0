@@ -1,47 +1,44 @@
 From: Paul Mackerras <paulus@samba.org>
 Subject: Re: [PATCH, untested] Support for PPPOE on SMP
-Date: Thu, 26 Jun 2003 08:22:46 +1000 (EST)
+Date: Thu, 26 Jun 2003 08:17:38 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16122.8374.178895.287907@nanango.paulus.ozlabs.org>
+Message-ID: <16122.8066.928895.202985@nanango.paulus.ozlabs.org>
 References: <20030625072602.529AF2C0B9@lists.samba.org>
 	<1056547262.1945.1436.camel@brick.watson.ibm.com>
-	<20030625091531.5ebed618.shemminger@osdl.org>
-	<20030625122128.V84526@shell.cyberus.ca>
-	<20030625093902.7431efc3.shemminger@osdl.org>
-	<20030625125518.N84526@shell.cyberus.ca>
+	<1056548544.1944.1488.camel@brick.watson.ibm.com>
+	<20030625114243.F84526@shell.cyberus.ca>
+	<1056562079.1944.1961.camel@brick.watson.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, mostrows@watson.ibm.com,
-   rusty@rustcorp.com.au, davem@redhat.com, netdev@oss.sgi.com,
-   dfs@roaringpenguin.com, carlson@workingcode.com
+Cc: Jamal Hadi <hadi@shell.cyberus.ca>, Rusty Russell <rusty@rustcorp.com.au>,
+   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+   "David F. Skoll" <dfs@roaringpenguin.com>,
+   James Carlson <carlson@workingcode.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030625125518.N84526@shell.cyberus.ca>
+To: Michal Ostrowski <mostrows@watson.ibm.com>
+In-Reply-To: <1056562079.1944.1961.camel@brick.watson.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi writes:
+Michal Ostrowski writes:
 
-> a protocol or implementation which wishes to do state maintanance
-> properly oughta be able to do the synchronization on its own.
-> Separation between policy and mechanism has been the strength of unix.
-> A clean separation between control and a data path is very important.
-> Control protocols tend to be very rich environments which are
-> constantly changing. Take STP, there are so many features that could be
-> added to STP that are much harder to add because it is in the kernel.
-> 
-> Maybe what needs to be looked at i sthe design of pppoe or ppp.
+> Paul:  you made an assertion to me in an eariler e-mail that you were
+> concerned about packet ordering for the sake of vj and compression. 
+> IIRC the PPPoE spec prohibits compression, probably for this very
+> reason. Is there any other reason we'd be worried about re-ordering in
+> the PPP data stream?
 
-OK, now that we have had our little flight of fancy about what things
-will be like once we get to heaven, can we talk about this bastard
-protocol called PPPoE? :)
+Reordering would stop you doing multilink, for instance.  Generally,
+PPP protocols assume ordering where it is helpful since most
+point-to-point links don't reorder packets.  IMO the PPPoE protocol
+itself should have included a sequence number, but we can't change
+what's deployed.
 
-Or are you going to go personally to each ISP in the world and tell
-them they shouldn't use PPPoE? :)
-
-In any case the problem isn't strictly with PPPoE, since ethernet
-doesn't reorder packets on the wire.  The problem is that the lower
-parts of the Linux network stack lose information.
+James might be able to comment better than me on what will happen if
+packets get reordered during the negotiation phase of a PPP
+connection.  I think the worst is that some packets will have to be
+retransmitted and thus the negotiation will take several seconds
+longer than it needs to.
 
 Paul.
