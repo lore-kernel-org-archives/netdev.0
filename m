@@ -1,40 +1,41 @@
 From: Nivedita Singhvi <niv@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Thu,  5 Sep 2002 15:39:31 -0700
+Date: Thu,  5 Sep 2002 15:48:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1031265571.3d77dd23caec4@imap.linux.ibm.com>
-References: <200209052211.g85MBFdm099387@tempest.prismnet.com>
+Message-ID: <1031266115.3d77df4344463@imap.linux.ibm.com>
+References: <Pine.GSO.4.30.0209051648020.17973-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: jamal <hadi@cyberus.ca>, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: Troy Wilson <tcw@tempest.prismnet.com>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Troy Wilson <tcw@tempest.prismnet.com>
-In-Reply-To: <200209052211.g85MBFdm099387@tempest.prismnet.com>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <Pine.GSO.4.30.0209051648020.17973-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting Troy Wilson <tcw@tempest.prismnet.com>:
+Quoting jamal <hadi@cyberus.ca>:
 
-> > Do you have any stats from the hardware that could show
-> > retransmits etc;
-> 
->   I'll gather netstat -s after runs with and without TSO enabled.
-> Anything else you'd like to see?
+> So if i understood correctly (looking at the intel site) the main
+> value add of this feature is probably in having the CPU avoid
+> reassembling and retransmitting. I am willing to bet that the real
 
-Troy, this is pointing out the obvious, but make sure
-you have the before stats as well :)...
+Er, even just assembling and transmitting? I'm thinking of the
+reduction in things like separate memory allocation calls and looking
+up the route, etc..??
 
-> > have you tested this with zero copy as well (sendfile)
-> 
->   Yes.  My webserver is Apache 2.0.36, which uses sendfile for
-> anything
-> over 8k in size.  But, iirc, Apache sends the http headers using
-> writev.
+> value in your results is in saving on retransmits; I would think
+> shoving the data down the NIC and avoid the fragmentation shouldnt
+> give you that much significant CPU savings. Do you have any stats
 
-SpecWeb99 doesnt execute the path that might benefit the 
-most from this patch - sendmsg() of large files - large writes
-going down..
+Why do say that? Wouldnt the fact that youre now reducing the
+number of calls down the stack by a significant number provide
+a significant saving? 
+
+> from the hardware that could show retransmits etc; have you tested
+> this with zero copy as well (sendfile) again, if i am right you
+> shouldnt see much benefit from that either?
 
 thanks,
 Nivedita
