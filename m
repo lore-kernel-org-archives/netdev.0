@@ -1,50 +1,23 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [PATCH] make tg3 NAPI support configurable
-Date: Tue, 13 Jan 2004 16:23:27 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] bridge use read_lock when scanning device list
+Date: Tue, 13 Jan 2004 16:19:03 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102229CE5@orsmsx402.jf.intel.com>
+Message-ID: <20040113161903.5eaf893a.davem@redhat.com>
+References: <20040112134645.461f125e.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Greg Banks" <gnb@melbourne.sgi.com>, "David S. Miller" <davem@redhat.com>,
-        "Linux Network Development list" <netdev@oss.sgi.com>,
-        <jchapman@katalix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bridge@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-Class: urn:content-classes:message
-To: "Robert Olsson" <Robert.Olsson@data.slu.se>,
-        "Jeff Garzik" <jgarzik@pobox.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040112134645.461f125e.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I was thinking of a variant JC [jchapman@katalix.com] 
-> mentioned on this list some time ago. He also sent me
-> the patch for e1000. A test and the patch is below.
+On Mon, 12 Jan 2004 13:46:45 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-JC contributed almost the exact patch for the e100 rewrite and it did
-help Tx, but I don't remember how much.  JC, do you remember?  Here is
-the snippet:
+> On 2.6.1, bridge is using rtnl_shlock which is equivalent to rtnl_lock when
+> all it really needs to do is read_lock(&dev_base_lock).
 
-static int e100_poll(struct net_device *netdev, int *budget)
-{
-        struct nic *nic = netdev->priv;
-        unsigned int work_to_do = min(netdev->quota, *budget);
-        unsigned int work_done = 0;
-        int tx_cleaned;
-
-        e100_rx_clean(nic, &work_done, work_to_do);
-        tx_cleaned = e100_tx_clean(nic);
-
-        /* If no Rx and Tx cleanup work was done, exit polling mode. */
-        if((!tx_cleaned && (work_done == 0)) || !netif_running(netdev))
-{
-                netif_rx_complete(netdev);
-                e100_enable_irq(nic);
-                return 0;
-        }
-
-        *budget -= work_done;
-        netdev->quota -= work_done;
-
-        return 1;
-}
+Applied, thanks Stephen.
