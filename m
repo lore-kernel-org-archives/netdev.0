@@ -1,52 +1,61 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] b44: allow ethtool get_settings when down
-Date: Thu, 2 Dec 2004 09:51:58 -0800
-Message-ID: <20041202095158.0722d176@dxpl.pdx.osdl.net>
-References: <20041129094523.3185c64c@zqx3.pdx.osdl.net>
-	<41AEFB95.8000100@pobox.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [E1000-devel] Transmission limit
+Date: Thu, 2 Dec 2004 18:54:32 +0100
+Message-ID: <16815.22232.190929.306486@robur.slu.se>
+References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
+	<41A73826.3000109@draigBrady.com>
+	<16807.20052.569125.686158@robur.slu.se>
+	<1101484740.24742.213.camel@mellia.lipar.polito.it>
+	<41A76085.7000105@draigBrady.com>
+	<1101499285.1079.45.camel@jzny.localdomain>
+	<16811.8052.678955.795327@robur.slu.se>
+	<1101821501.1043.43.camel@jzny.localdomain>
+	<20041130134600.GA31515@xi.wantstofly.org>
+	<1101824754.1044.126.camel@jzny.localdomain>
+	<20041201001107.GE4203@xi.wantstofly.org>
+	<1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net>
+	<16813.58484.343629.570703@robur.slu.se>
+	<1101919791.5198.15.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Lennert Buytenhek <buytenh@wantstofly.org>, jamal <hadi@cyberus.ca>,
+        P@draigBrady.com, mellia@prezzemolo.polito.it,
+        e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41AEFB95.8000100@pobox.com>
+To: sfeldma@pobox.com
+In-Reply-To: <1101919791.5198.15.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Dec 2004 06:25:09 -0500
-Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> Stephen Hemminger wrote:
-> > The FC and Suse startup scripts use ethtool to check for link present. This has 
-> > problems on my laptop with Broadcom because it quieries settings before
-> > bringing link up. The problem is driver returns EAGAIN when queried for
-> > settings but not up. Just go ahead and return values anyway, the supported and link
-> > state values will be correct, speed will end up being 10BaseT/Half which is a
-> > reasonable default.
-> > 
-> > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> > 
-> > diff -Nru a/drivers/net/b44.c b/drivers/net/b44.c
-> > --- a/drivers/net/b44.c	2004-11-29 09:41:27 -08:00
-> > +++ b/drivers/net/b44.c	2004-11-29 09:41:27 -08:00
-> > @@ -1487,8 +1487,6 @@
-> >  {
-> >  	struct b44 *bp = netdev_priv(dev);
-> >  
-> > -	if (!(bp->flags & B44_FLAG_INIT_COMPLETE))
-> > -		return -EAGAIN;
-> >  	cmd->supported = (SUPPORTED_Autoneg);
-> >  	cmd->supported |= (SUPPORTED_100baseT_Half |
-> >  			  SUPPORTED_100baseT_Full |
-> 
-> I'm not so sure about this one...
-> 
-> This sounds like working around stupid userland in the kernel?
-> 
-> 	Jeff
+Scott Feldman writes:
+ > Thank you Robert for trying it out.
 
-Don't bother with the patch, if I use smart user land code like NetworkManager
-then there is no problem.  Although EAGAIN seems like a poor choice for errno
-how about ENETDOWN or ENONET
+ Scott! 
+
+ I've rerun some of the tests. I've set maxcpus=1 make sure all things
+ happens on one CPU. Some HW as yesterday.
+
+ I see a now lot variation in the results from your patch.
+
+ vanilla 
+   804353pps 411Mb/sec (411828736bps) errors: 98877
+
+ patch TXD=4096
+ Sometimes:   882362pps 451Mb/sec (451769344bps) errors: 0
+
+ patch TXD=2048
+ Sometimes:   943007pps 482Mb/sec (482819584bps) errors: 0
+
+ But very often runs around 500 kpps with patch. This smells scheduling to me 
+ as smaller rings use to mean higher performance but ring need to big 
+ enough to hide latencies.
+
+ See also my next mail...
+
+						--ro
