@@ -1,28 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [NFS] [PATCH][RFC] use completions instead of sleep_on
- forrpciod
-Date: Mon, 9 Feb 2004 13:00:36 -0800
+From: James Morris <jmorris@redhat.com>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Mon, 9 Feb 2004 16:26:46 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209130036.613a9bdd.davem@redhat.com>
-References: <20040207144405.GA19416@lst.de>
-	<20040209102801.GC21364@suse.de>
-	<35059.80.213.3.64.1076359739.squirrel@webmail.uio.no>
+Message-ID: <Xine.LNX.4.44.0402091626260.3557-100000@thoron.boston.redhat.com>
+References: <20040209121926.6f016ebf.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: okir@suse.de, hch@lst.de, netdev@oss.sgi.com, nfs@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Julian Anastasov <ja@ssi.bg>, <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: trond.myklebust@fys.uio.no
-In-Reply-To: <35059.80.213.3.64.1076359739.squirrel@webmail.uio.no>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040209121926.6f016ebf.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 9 Feb 2004 21:48:59 +0100 (CET)
-trond.myklebust@fys.uio.no wrote:
+On Mon, 9 Feb 2004, David S. Miller wrote:
 
-> I'll admit that the rpciod killer code is racy, but I'm not sure that
-> completions are the best answer, as they have at least one nasty feature:
-> they are not interruptible.
+> RTCF_*NAT is dead wood, the existing route nating stuff is totally broken
+> an unusable in 2.6.x, the eventual plan was to code up XFRM engine version
+> of that feature but this is of course not done.  Since nobody is complaining
+> about lack of routing NAT in 2.6.x, I think we should just kill off all references
+> and if someone gets inspired they can code up the XFRM engine version.
 
-Would you like to back out the change then?  I put it into
-Linus's tree already.
+Sounds like a plan.
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
