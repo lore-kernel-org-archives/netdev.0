@@ -1,42 +1,37 @@
-From: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
-Subject: Re: ethtool -d no longer works for e1000
-Date: Wed, 9 Mar 2005 14:09:45 -0800
-Message-ID: <5fc59ff3050309140910f3e492@mail.gmail.com>
-References: <422F6C37.8090202@candelatech.com>
-Reply-To: Ganesh Venkatesan <ganesh.venkatesan@gmail.com>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: [PATCH 1/5] r8169: auto detect 32-bit slot
+Date: Wed, 9 Mar 2005 16:08:59 -0600
+Message-ID: <200503091608.59122.jdmason@us.ibm.com>
+References: <20050309112925.7f7900ab@dxpl.pdx.osdl.net> <m17jkgwp6i.fsf@muc.de> <20050309214023.GA9502@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <422F6C37.8090202@candelatech.com>
+Cc: Andi Kleen <ak@muc.de>, Stephen Hemminger <shemminger@osdl.org>,
+        netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050309214023.GA9502@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben:
-
-Are you using the e1000 that is included in the 2.6.11 kernel? ethtool
--d eth? works fine for me. What else is different in your env?
-
-ganesh.
-
-
-On Wed, 09 Mar 2005 13:35:51 -0800, Ben Greear <greearb@candelatech.com> wrote:
-> I tried this with FC2's 2.6.10-1.770_FC2smp kernel and with my own
-> slightly hacked 2.6.11 kernel.  Both give this response:
-> 
-> ethtool -d eth0
-> Cannot dump registers:  Success
-> 
-> I am quite certain this used to work, and used to show me
-> the PCI bus speed and other nice details...
-> 
-> Thanks,
-> Ben
-> 
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
-> 
+On Wednesday 09 March 2005 03:40 pm, Francois Romieu wrote:
+> Andi Kleen <ak@muc.de> :
+> [...]
 >
+> > Hmm? It doesn't support DAC?
+>
+> It does but it is unstable for everybody (except Jon Mason, go figure) on
+> amd64.
+
+Just lucky, I guess.  I can give it a try again.
+
+> Stephen, on which kind of system was this change tested ?
+>
+> --
+> Ueimor
+
+-- 
+Jon Mason
+jdmason@us.ibm.com
